@@ -805,24 +805,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #rp-fill { height:100%; width:100%; background:var(--accent); border-radius:2px; transform:scaleX(0); transform-origin:left; transition:transform 0.15s; }
 #rp-counter { font-size:11px; color:var(--text-lo); font-family:var(--mono); white-space:nowrap; }
 
-/* ── agent chat view ─────────────────────────────────────── */
-#view-chat .vscroll { display:flex; flex-direction:column; height:100%; overflow:hidden; padding:0; }
-#chat-v-bar { display:flex; align-items:center; gap:8px; padding:14px 18px 10px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
-#chat-v-bar-title { font-size:13px; font-weight:600; color:var(--text-hi); }
-#chat-v-sel { background:var(--surface); color:var(--text-mid); border:1px solid var(--border); border-radius:4px; font-size:11px; font-family:var(--mono); padding:3px 7px; cursor:pointer; max-width:300px; }
-#chat-v-sel:focus { outline:none; border-color:var(--accent); }
-#chat-v-live-dot { width:5px; height:5px; border-radius:50%; background:var(--text-xs); flex-shrink:0; margin-left:auto; transition:background 0.4s; }
-#chat-v-live-dot.on { background:oklch(68% 0.20 150); animation:livepulse-cv 2.2s ease-in-out infinite; }
-@keyframes livepulse-cv { 0%,100%{opacity:1} 50%{opacity:0.4} }
-#chat-v-live-lbl { font-size:9px; color:var(--text-lo); }
-#chat-v-feed { flex:1; overflow-y:auto; padding:12px 18px; display:flex; flex-direction:column; gap:5px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
-#chat-v-feed::-webkit-scrollbar { width:4px; }
-#chat-v-feed::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
-#chat-v-empty { font-size:11px; color:var(--text-lo); text-align:center; padding:32px 0; line-height:2; }
-#chat-v-excerpt { flex-shrink:0; padding:7px 18px 8px; background:oklch(13% 0.01 295); border-bottom:1px solid var(--border); display:none; }
-#chat-v-excerpt.visible { display:block; }
-#chat-v-agent-bar { display:flex; align-items:center; gap:6px; padding:6px 18px 7px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
-#chat-v-agent-lbl { font-size:8px; letter-spacing:2px; color:var(--text-xs); flex-shrink:0; }
 .cv-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
 .cv-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
 .cv-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
@@ -1600,15 +1582,8 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
         <div class="nav-item" data-view="global">
           <span class="ico">⊕</span><span class="lbl">Global Feed</span>
         </div>
-        <div class="nav-item" data-view="global-loops" title="Loops across all projects">
-          <span class="ico">↺</span><span class="lbl">Global Loops</span>
-          <span class="bdg" id="bdg-global-loops">—</span>
-        </div>
         <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
           <span class="ico">$</span><span class="lbl">Global Tokens</span>
-        </div>
-        <div class="nav-item" data-view="chat" title="All agent sessions across projects">
-          <span class="ico">⌘</span><span class="lbl">Global Agent Chat</span>
         </div>
         <div class="nav-item" data-view="humaninput" title="Pending questions from agents across all orgs">
           <span class="ico">❓</span><span class="lbl">Human Input</span>
@@ -2296,17 +2271,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
-    <!-- GLOBAL LOOPS -->
-    <div class="view" id="view-global-loops">
-      <div class="vscroll">
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
-          <div class="pg-title" style="margin-bottom:0">Global Loops</div>
-          <span class="pg-sub" id="gl-sub" style="margin-bottom:0">Loops across all projects</span>
-        </div>
-        <div id="gl-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
-      </div>
-    </div>
-
     <!-- GLOBAL TOKENS -->
     <div class="view" id="view-global-tokens">
       <div class="vscroll">
@@ -2329,32 +2293,16 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
-    <div class="view" id="view-chat">
-      <div class="vscroll">
-        <div id="chat-v-bar">
-          <span id="chat-v-bar-title">Agent Chat</span>
-          <select id="chat-v-sel" onchange="chatVSelectSession(this.value)">
-            <option value="">— select a session —</option>
-          </select>
-          <select id="chat-v-org-run-sel" style="display:none" onchange="chatVSelectOrgRun(this.value)" title="Select org run to replay communications">
-            <option value="">— org run history —</option>
-          </select>
-          <div id="chat-v-live-dot"></div>
-          <span id="chat-v-live-lbl">OFFLINE</span>
-        </div>
-        <div id="chat-v-excerpt" class="cv-excerpt-banner"></div>
-        <div id="chat-v-feed">
-          <div id="chat-v-empty">Select a session above to see agent communications.<br>Agent messages, intercom signals, and system events appear here in real time.</div>
-        </div>
-      </div>
-    </div>
-
     <!-- HUMAN INPUT (global, cross-org) -->
     <div class="view" id="view-humaninput">
       <div class="vscroll">
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
           <div class="pg-title" style="margin-bottom:0">Human Input</div>
           <span class="pg-sub" id="hi-sub" style="margin-bottom:0">Pending questions across all projects</span>
+        </div>
+        <div class="hi-tab-bar" style="display:flex;gap:4px;margin-top:12px;border-bottom:1px solid var(--border);padding-bottom:6px">
+          <button class="odt-btn active" data-hitab="pending" onclick="hiSwitchTab('pending')">Pending <span style="font-size:10px;background:var(--surface-hi);color:var(--text-lo);border-radius:8px;padding:1px 6px;min-width:18px;display:inline-block;text-align:center" id="hi-tab-count-pending">—</span></button>
+          <button class="odt-btn" data-hitab="answered" onclick="hiSwitchTab('answered')">Answered <span style="font-size:10px;background:var(--surface-hi);color:var(--text-lo);border-radius:8px;padding:1px 6px;min-width:18px;display:inline-block;text-align:center" id="hi-tab-count-answered">—</span></button>
         </div>
         <div id="hi-content" style="margin-top:16px"><div class="loading-txt">Loading…</div></div>
       </div>
@@ -2525,7 +2473,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(el => {
 });
 
 // ── collapsible global nav section ──────────────────────────
-const GLOBAL_VIEWS = ['global', 'global-loops', 'global-tokens', 'global-orgs', 'chat', 'humaninput'];
+const GLOBAL_VIEWS = ['global', 'global-tokens', 'global-orgs', 'humaninput'];
 function setGlobalNavOpen(open) {
   const items = document.getElementById('nav-glob-items');
   const hdr = document.getElementById('nav-glob-hdr');
@@ -2554,15 +2502,14 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-loops':'Global Loops', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', chat:'Global Agent Chat', humaninput:'Human Input' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-loops': 'Global Loops', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', chat: 'Global Agent Chat', humaninput: 'Human Input' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
   if (v === 'projects') { renderProjects(); return; }
-  if (v === 'chat') { initChatView(); return; }
   if (!viewRendered[v]) { renderView(v); viewRendered[v] = true; }
 }
 
@@ -2618,7 +2565,6 @@ function renderView(v) {
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
   if (v === 'global') renderGlobalFeed();
-  if (v === 'global-loops') renderGlobalLoops();
   if (v === 'global-tokens') renderGlobalTokens();
   if (v === 'global-orgs') renderGlobalOrgs();
   if (v === 'humaninput') renderHumanInputView();
@@ -4049,93 +3995,6 @@ function buildRecap(events, sess) {
   recap.className = 'show';
 }
 
-// ── global loops (multi-project) ───────────────────────────
-function deduplicateLoops(loops) {
-  const hasRepeat = loops.some(l => l.source === '_repeat.md');
-  const repeatPrompts = new Set(loops.filter(l => l.source === '_repeat.md').map(l => (l.prompt || '').trim()));
-  return loops.filter(l => {
-    if (l.source === 'scheduled_tasks_lock' && hasRepeat) return false;
-    if (l.source !== 'schedule_wakeup_hook') return true;
-    const m = (l.prompt || '').match(/--loop\s+\S+\s+(.+)$/s);
-    return !m || !repeatPrompts.has(m[1].trim());
-  });
-}
-
-async function renderGlobalLoops() {
-  const el = document.getElementById('gl-content');
-  el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
-  try {
-    const data = await apiFetch('/api/projects');
-    const allProjects = data?.projects || [];
-    const projects = allProjects.slice(0, 20);
-    if (!projects.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No projects found</div></div>';
-      document.getElementById('bdg-global-loops').textContent = '—';
-      return;
-    }
-
-    const results = await Promise.allSettled(
-      projects.map(p => apiFetch('/api/loops?dir=' + enc(p.path)).then(d => ({
-        project: p,
-        loops: deduplicateLoops(Array.isArray(d) ? d : (d.loops || []))
-      })))
-    );
-
-    let totalLoops = 0;
-    const sections = [];
-    for (const r of results) {
-      if (r.status !== 'fulfilled') continue;
-      const { project, loops } = r.value;
-      if (!loops.length) continue;
-      totalLoops += loops.length;
-      const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
-      const rows = loops.map(l => {
-        const isTillend = l.type === 'tillend';
-        const curRep = l.currentRep || 0;
-        const maxReps = l.maxReps || 0;
-        const nextAt = l.nextRunAt ? parseInt(l.nextRunAt, 10) : 0;
-        const isHil = l.status === 'hil:pending';
-        const isExplicitlyActive = l.status === 'running' || l.status === 'waiting' || l.status === 'active';
-        const isOverdue = !l.status?.startsWith('hil') && !isExplicitlyActive && nextAt > 0 && nextAt <= Date.now();
-        const isFinished = isOverdue || (maxReps > 0 && curRep >= maxReps) ||
-          ['finished','done','complete','completed','expired'].includes(l.status);
-        const running = !isFinished && l.status !== 'stopped' && l.status !== 'paused';
-        const name = l.name || (l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
-        const intervalStr = fmtInterval(l.interval || l.schedule);
-        const type = esc(l.type || 'repeat');
-        const statusClass = isHil ? 'hil' : (running ? 'active' : 'stopped');
-        const statusLabel = isHil ? '⚠ HIL' : (running ? 'active' : (isFinished ? 'done' : 'stopped'));
-        const overdueSpan = isOverdue ? ' <span class="loop-cdown overdue">overdue</span>' : '';
-        const metaStr = intervalStr ? esc(intervalStr) + overdueSpan : overdueSpan;
-        return `<div class="loop-row" style="cursor:default">
-          <div class="loop-ico">${isTillend ? '∞' : '↺'}</div>
-          <div class="loop-body">
-            <div class="loop-name" title="${esc(l.name || l.prompt || '')}"><span class="loop-type-badge${isTillend ? ' tillend' : ''}">${type}</span>${esc(name)}</div>
-            <div class="loop-meta">${metaStr}</div>
-          </div>
-          <span class="gf-proj-tag">${esc(projName)}</span>
-          <div class="loop-status ${statusClass}">${statusLabel}</div>
-        </div>`;
-      }).join('');
-      sections.push(`<div style="margin-bottom:18px">
-        <div class="m-group-title" style="margin-bottom:6px">${esc(projName)}</div>
-        ${rows}
-      </div>`);
-    }
-
-    document.getElementById('bdg-global-loops').textContent = totalLoops || '—';
-    document.getElementById('gl-sub').textContent = `${totalLoops} loop${totalLoops !== 1 ? 's' : ''} across ${sections.length} project${sections.length !== 1 ? 's' : ''}`;
-
-    if (!sections.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">↺</div><div>No loops found across projects</div></div>';
-      return;
-    }
-    el.innerHTML = sections.join('');
-  } catch (err) {
-    el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
-  }
-}
-
 // ── global orgs (multi-project) ──────────────────────────
 function openGlobalOrg(name, projectDir) {
   switchProject(projectDir);
@@ -4330,6 +4189,9 @@ async function renderGlobalFeed() {
   }
 }
 
+let _hiEntries = [];
+let _hiTab = 'pending';
+
 async function renderHumanInputView() {
   const el = document.getElementById('hi-content');
   el.innerHTML = '<div class="loading-txt">Loading all projects…</div>';
@@ -4338,7 +4200,9 @@ async function renderHumanInputView() {
     const projects = (data?.projects || []).slice(0, 8);
     if (!projects.length) {
       el.innerHTML = '<div class="empty"><div class="empty-ico">❓</div><div>No projects found</div></div>';
+      _hiEntries = [];
       updateHumanInputBadge(0);
+      renderHiCurrentTab(projects.length);
       return;
     }
     const results = await Promise.allSettled(
@@ -4350,29 +4214,53 @@ async function renderHumanInputView() {
       const { project, questions } = r.value;
       for (const q of questions) entries.push({ project, q });
     }
-    entries.sort((a, b) => (b.q.ts || 0) - (a.q.ts || 0));
-    updateHumanInputBadge(entries.length);
-    document.getElementById('hi-sub').textContent = entries.length
-      ? `${entries.length} pending question(s) across ${projects.length} projects`
-      : `No pending questions across ${projects.length} projects`;
-    if (!entries.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">❓</div><div>No pending questions</div></div>';
-      return;
-    }
-    el.innerHTML = '<div class="sess-list">' + entries.map(({ project, q }) => `
-      <div class="sess-row" data-question-id="${esc(q.questionId)}" style="flex-direction:column;align-items:stretch;gap:6px">
-        <div style="display:flex;justify-content:space-between;gap:8px">
-          <div><b>${esc(q.org)}</b> · ${esc(q.role)} <span style="color:var(--text-xs)">(${esc(project.name || project.path)})</span></div>
-          <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(q.ts)}</div>
-        </div>
-        <div style="color:var(--text-hi)">${esc(q.question)}</div>
-        <div style="display:flex;gap:6px">
-          <input type="text" class="hi-answer-input" placeholder="Your answer…" style="flex:1;padding:4px 8px;font-size:12px" />
-          <button class="btn" style="font-size:11px" onclick="submitHumanAnswer('${esc(String(project.path).replace(/['\\]/g,'\\$&'))}','${esc(String(q.org).replace(/['\\]/g,'\\$&'))}','${esc(String(q.role).replace(/['\\]/g,'\\$&'))}','${esc(String(q.questionId).replace(/['\\]/g,'\\$&'))}',this)">Answer</button>
-        </div>
-      </div>
-    `).join('') + '</div>';
+    entries.sort((a, b) => (b.q.answeredAt || b.q.ts || 0) - (a.q.answeredAt || a.q.ts || 0));
+    _hiEntries = entries;
+    updateHumanInputBadge(entries.filter(({ q }) => q.answer === null || q.answer === undefined).length);
+    renderHiCurrentTab(projects.length);
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+function hiSwitchTab(tab) {
+  _hiTab = tab;
+  document.querySelectorAll('.hi-tab-bar .odt-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.hitab === tab));
+  renderHiCurrentTab();
+}
+
+function renderHiCurrentTab(projectCount) {
+  const el = document.getElementById('hi-content');
+  const pending = _hiEntries.filter(({ q }) => q.answer === null || q.answer === undefined);
+  const answered = _hiEntries.filter(({ q }) => q.answer !== null && q.answer !== undefined);
+  document.getElementById('hi-tab-count-pending').textContent = pending.length || '—';
+  document.getElementById('hi-tab-count-answered').textContent = answered.length || '—';
+  const entries = _hiTab === 'answered' ? answered : pending;
+  const projTxt = projectCount != null ? ` across ${projectCount} project${projectCount !== 1 ? 's' : ''}` : '';
+  document.getElementById('hi-sub').textContent = _hiTab === 'answered'
+    ? (answered.length ? `${answered.length} answered question(s)${projTxt}` : `No answered questions${projTxt}`)
+    : (pending.length ? `${pending.length} pending question(s)${projTxt}` : `No pending questions${projTxt}`);
+  if (!entries.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">❓</div><div>No ${_hiTab} questions</div></div>`;
+    return;
+  }
+  el.innerHTML = '<div class="sess-list">' + entries.map(({ project, q }) => `
+    <div class="sess-row" data-question-id="${esc(q.questionId)}" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;justify-content:space-between;gap:8px">
+        <div><b>${esc(q.org)}</b> · ${esc(q.role)} <span style="color:var(--text-xs)">(${esc(project.name || project.path)})</span></div>
+        <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(q.ts)}</div>
+      </div>
+      <div style="color:var(--text-hi)">${esc(q.question)}</div>
+      ${_hiTab === 'answered' ? `
+      <div style="display:flex;justify-content:space-between;gap:8px;padding:6px 8px;background:var(--surface-hi);border-radius:4px">
+        <div><span style="color:var(--text-xs)">Answer:</span> ${esc(q.answer)}</div>
+        <div style="color:var(--text-xs);font-size:11px;font-family:var(--mono);flex-shrink:0">${relTime(q.answeredAt)}</div>
+      </div>` : `
+      <div style="display:flex;gap:6px">
+        <input type="text" class="hi-answer-input" placeholder="Your answer…" style="flex:1;padding:4px 8px;font-size:12px" />
+        <button class="btn" style="font-size:11px" onclick="submitHumanAnswer('${esc(String(project.path).replace(/['\\]/g,'\\$&'))}','${esc(String(q.org).replace(/['\\]/g,'\\$&'))}','${esc(String(q.role).replace(/['\\]/g,'\\$&'))}','${esc(String(q.questionId).replace(/['\\]/g,'\\$&'))}',this)">Answer</button>
+      </div>`}
+    </div>
+  `).join('') + '</div>';
 }
 
 function updateHumanInputBadge(count) {
@@ -4392,364 +4280,14 @@ async function submitHumanAnswer(dir, org, role, questionId, btnEl) {
       body: JSON.stringify({ dir, org, role, questionId, answer }),
     });
     const data = await res.json();
-    if (data.ok) { showToast('Answered', `${org}:${role}`, 'ok'); row.remove(); }
-    else { showToast('Error', data.error || 'failed', 'err'); btnEl.disabled = false; }
+    if (data.ok) {
+      showToast('Answered', `${org}:${role}`, 'ok');
+      const entry = _hiEntries.find(({ q }) => q.questionId === questionId);
+      if (entry) { entry.q.answer = answer; entry.q.answeredAt = Date.now(); }
+      updateHumanInputBadge(_hiEntries.filter(({ q }) => q.answer === null || q.answer === undefined).length);
+      renderHiCurrentTab();
+    } else { showToast('Error', data.error || 'failed', 'err'); btnEl.disabled = false; }
   } catch (e) { showToast('Error', e.message, 'err'); btnEl.disabled = false; }
-}
-
-// ── agent chat view ────────────────────────────────────────
-let chatVSessions = {};       // sessionId or groupId → session/group object
-let chatVGroupMap = {};        // groupId → group object
-let chatVSessionGroupMap = {}; // sessionId → groupId (for sessions inside a group)
-let chatVCurrentId = null;
-let chatVCurrentGroupSessions = new Set(); // session IDs belonging to the currently selected group
-let chatVSseSource = null;
-let chatVSeenKeys = new Set();
-
-function initChatView() {
-  loadChatViewSessions();
-  loadChatViewOrgRuns();
-  if (!chatVSseSource) connectChatViewSSE();
-}
-
-async function loadChatViewOrgRuns() {
-  // Populate the org run history selector with recent org runs
-  const runSel = document.getElementById('chat-v-org-run-sel');
-  if (!runSel) return;
-  try {
-    const dir = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
-    const orgs = await apiFetch('/api/orgs' + dir).catch(() => []);
-    const orgList = Array.isArray(orgs) ? orgs : (orgs.orgs || []);
-    const runEntries = [];
-    await Promise.all(orgList.slice(0, 10).map(async org => {
-      const name = org.name || org;
-      if (!name) return;
-      try {
-        const runs = await apiFetch(`/api/org/${encodeURIComponent(name)}/runs${dir}`);
-        (Array.isArray(runs) ? runs : (runs.runs || [])).slice(0, 5).forEach(r => {
-          runEntries.push({ org: name, runId: r.runId || r.id, startedAt: r.startedAt || 0 });
-        });
-      } catch (_) {}
-    }));
-    runEntries.sort((a, b) => b.startedAt - a.startedAt);
-    while (runSel.options.length > 1) runSel.remove(1);
-    runEntries.slice(0, 20).forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = JSON.stringify({ org: r.org, runId: r.runId });
-      const ts = r.startedAt ? new Date(r.startedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-      opt.textContent = r.org + '/' + (r.runId || '').slice(0, 12) + (ts ? '  ' + ts : '');
-      runSel.appendChild(opt);
-    });
-    runSel.style.display = runEntries.length ? '' : 'none';
-  } catch(e) { console.warn('chat org runs load failed', e); }
-}
-
-async function chatVSelectOrgRun(value) {
-  if (!value) return;
-  let org, runId;
-  try { ({ org, runId } = JSON.parse(value)); } catch { return; }
-  const feed = document.getElementById('chat-v-feed');
-  const empty = document.getElementById('chat-v-empty');
-  if (!feed) return;
-  feed.innerHTML = '';
-  // Clear session selection — org run replay is a different mode;
-  // also set chatVCurrentId=null so appendChatViewEvent session-guard doesn't filter events
-  chatVCurrentId = null;
-  const sessEl = document.getElementById('chat-v-sel');
-  if (sessEl) sessEl.value = '';
-  try {
-    const dir = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
-    const events = await apiFetch(`/api/org/${encodeURIComponent(org)}/runs/${encodeURIComponent(runId)}${dir}`);
-    const evArr = Array.isArray(events) ? events : (events.events || []);
-    if (!evArr.length) { feed.appendChild(empty || document.createTextNode('No events in this run.')); return; }
-    evArr.forEach(ev => appendChatViewEvent(ev, false));
-    feed.scrollTop = feed.scrollHeight;
-  } catch(e) {
-    feed.textContent = 'Failed to load run events: ' + e.message;
-  }
-}
-
-async function loadChatViewSessions() {
-  try {
-    // Snapshot SSE-seeded sessions before the async fetch — the API response may not yet
-    // include events that arrived via SSE right before the fetch, so we preserve their
-    // buffered events and merge them back after (same pattern as _odtLoadChatSessions).
-    const _prevChatSessions = { ...chatVSessions };
-    const data = await apiFetch('/api/mastermind/sessions' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
-    chatVSessions = {};
-    chatVGroupMap = {};
-    chatVSessionGroupMap = {};
-    const sel = document.getElementById('chat-v-sel');
-    const prev = sel.value;
-    while (sel.options.length > 1) sel.remove(1);
-    // API returns a plain array (not {sessions:{...}}) — handle both shapes for safety
-    const sessions = Array.isArray(data) ? data : Object.values(data.sessions || data || {});
-
-    // Normalize and merge SSE-seeded events before grouping
-    sessions.forEach(s => {
-      if (_prevChatSessions[s.id] && (_prevChatSessions[s.id].events || []).length > (s.events || []).length) {
-        s.events = _prevChatSessions[s.id].events;
-      }
-      if (s.status && s.status !== 'running' && s.status !== 'complete') s.status = 'complete';
-    });
-
-    // Group consecutive sessions with same normalized prompt + gap < 20 min → loop group
-    const _CV_MAX_LOOP_GAP = 20 * 60 * 1000;
-    const _cvNormPrompt = p => (p || '').replace(/^running org:\s*/i, '').toLowerCase().replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 40);
-    const sessAsc = [...sessions].sort((a, b) => (a.startedAt || a.ts || 0) - (b.startedAt || b.ts || 0));
-    const cvGroups = []; // [{id, sessions, events, totalEvents, status, prompt, startedAt, _newestAt, _normKey, _isGroup}]
-    sessAsc.forEach(s => {
-      const key = _cvNormPrompt(s.prompt);
-      const sAt = s.startedAt || s.ts || 0;
-      const last = cvGroups[cvGroups.length - 1];
-      if (last && last._normKey === key && key && (sAt - last._newestAt) < _CV_MAX_LOOP_GAP) {
-        last.sessions.push(s);
-        last._newestAt = sAt;
-        last.totalEvents += (s.events || []).length;
-        if (s.status === 'running') last.status = 'running';
-        (s.events || []).forEach(ev => last.events.push(ev));
-      } else {
-        cvGroups.push({
-          id: s.id,
-          sessions: [s],
-          _normKey: key,
-          _newestAt: sAt,
-          totalEvents: (s.events || []).length,
-          status: s.status || 'complete',
-          prompt: s.prompt,
-          startedAt: sAt,
-          domains: s.domains || [],
-          events: [...(s.events || [])],
-          _isGroup: false
-        });
-      }
-    });
-    // Finalize groups
-    cvGroups.forEach(g => {
-      if (g.sessions.length > 1) {
-        g._isGroup = true;
-        g.id = 'grp:' + g.sessions[0].id;
-        g.events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      }
-    });
-    // Sort groups newest first, register
-    cvGroups.sort((a, b) => b._newestAt - a._newestAt);
-    cvGroups.forEach(g => {
-      chatVSessions[g.id] = g;
-      chatVGroupMap[g.id] = g;
-      g.sessions.forEach(s => {
-        chatVSessions[s.id] = g; // session ID also routes to group
-        if (g._isGroup) chatVSessionGroupMap[s.id] = g.id;
-      });
-      const opt = document.createElement('option');
-      opt.value = g.id;
-      const ts = g._newestAt ? new Date(g._newestAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-      const label = (g.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 30) || g.id.slice(0, 16);
-      const evCount = g.totalEvents || (g.events || []).length;
-      const msgPart = evCount ? '  ' + evCount + 'ev' : '';
-      const repPart = g._isGroup ? '  ' + g.sessions.length + 'reps' : '';
-      opt.textContent = label + (ts ? '  ' + ts : '') + repPart + msgPart + (g.status === 'running' ? '  ●' : '');
-      sel.appendChild(opt);
-    });
-
-    // Re-attach SSE-only sessions not yet in the API response (arrived during fetch)
-    Object.values(_prevChatSessions).forEach(ps => {
-      if (!chatVSessions[ps.id]) {
-        chatVSessions[ps.id] = ps;
-        const opt = document.createElement('option');
-        opt.value = ps.id;
-        const tsVal = ps.startedAt || 0;
-        const ts = tsVal ? new Date(tsVal).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
-        const label = (ps.prompt || '').replace(/^running org:\s*/i, '').slice(0, 40) || ps.id.slice(0, 16);
-        opt.textContent = label + (ts ? '  ' + ts : '') + '  ●';
-        sel.appendChild(opt);
-      }
-    });
-
-    // Resolve prev selection: may be a sessionId inside a group now
-    const prevResolved = prev ? (chatVSessionGroupMap[prev] || (chatVSessions[prev] ? prev : null)) : null;
-    if (prevResolved && chatVSessions[prevResolved]) {
-      sel.value = prevResolved;
-      if (!chatVCurrentId) chatVSelectSession(prevResolved);
-    } else {
-      const runningGroup = cvGroups.find(g => g.status === 'running');
-      if (runningGroup) { sel.value = runningGroup.id; chatVSelectSession(runningGroup.id); }
-      else if (cvGroups.length) { sel.value = cvGroups[0].id; chatVSelectSession(cvGroups[0].id); }
-    }
-  } catch(e) { console.warn('chat sessions load failed', e); }
-}
-
-function chatVSelectSession(id) {
-  chatVCurrentId = id;
-  chatVCurrentGroupSessions.clear();
-  const feed = document.getElementById('chat-v-feed');
-  const empty = document.getElementById('chat-v-empty');
-  if (!id || !chatVSessions[id]) {
-    feed.innerHTML = '';
-    feed.appendChild(empty);
-    return;
-  }
-  feed.innerHTML = '';
-  const session = chatVSessions[id];
-  // Populate group session set so live SSE events from any rep appear in feed
-  if (session._isGroup && session.sessions) {
-    session.sessions.forEach(s => chatVCurrentGroupSessions.add(s.id));
-  }
-  // Inject session metadata header
-  const tsVal = session.startedAt || session.ts || 0;
-  const tsStr = tsVal ? new Date(tsVal).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
-  const domains = (session.domains || []);
-  const agents = domains.length ? domains.join(', ') : '—';
-  const evCount = session._isGroup ? (session.totalEvents || (session.events || []).length) : (session.events || []).length;
-  const agentNames = (() => {
-    const names = new Set();
-    (session.events || []).forEach(ev => {
-      if (ev.agent) names.add(ev.agent);
-      if (ev.from && ev.from !== 'system') names.add(ev.from);
-    });
-    return names.size ? [...names].join(', ') : agents;
-  })();
-  const prompt = (session.prompt || '').replace(/^running org:\s*/i, '').replace(/\s*rep\s+\d+.*$/i, '').trim().slice(0, 120) || id;
-  const repInfo = session._isGroup ? ' · ' + session.sessions.length + ' reps' : '';
-  const statusCls = session.status === 'running' ? 'color:oklch(65% 0.20 145)' : session.status === 'complete' ? 'color:var(--text-lo)' : 'color:oklch(65% 0.20 25)';
-  // Compute cost + duration from events
-  const _allEvs = session.events || [];
-  const _totalCost = _allEvs.reduce((acc, ev) => acc + (Number(ev.cost_usd) || 0), 0);
-  const _costStr = _totalCost > 0 ? '$' + _totalCost.toFixed(4) : '';
-  const _startTs = session.startedAt || session.ts || 0;
-  const _endTs = session.endedAt || (_allEvs[_allEvs.length-1]?.ts) || 0;
-  const _durMs = _endTs > _startTs ? _endTs - _startTs : 0;
-  const _durStr = _durMs > 60000 ? Math.round(_durMs/60000) + 'm' : _durMs > 0 ? Math.round(_durMs/1000) + 's' : '';
-  const hdr = document.createElement('div');
-  hdr.className = 'cv-session-hdr';
-  hdr.innerHTML = `<div class="cv-shdr-prompt">${esc(prompt)}${repInfo ? '<span style="color:var(--text-lo);font-size:10px"> ' + esc(repInfo) + '</span>' : ''}</div>`+
-    `<div class="cv-shdr-meta">`+
-      `<span class="cv-shdr-id" title="${esc(id)}">${esc(id)}</span>`+
-      `<span class="cv-shdr-sep">·</span>`+
-      `<span style="${statusCls}">${esc(session.status || 'unknown')}</span>`+
-      `<span class="cv-shdr-sep">·</span>`+
-      `<span title="started">${esc(tsStr)}</span>`+
-      (_durStr ? `<span class="cv-shdr-sep">·</span><span title="duration">${esc(_durStr)}</span>` : '')+
-      `<span class="cv-shdr-sep">·</span>`+
-      `<span title="agents">${esc(agentNames)}</span>`+
-      `<span class="cv-shdr-sep">·</span>`+
-      `<span title="event count">${evCount} events</span>`+
-      (_costStr ? `<span class="cv-shdr-sep">·</span><span style="color:oklch(65% 0.18 50)" title="total cost">${esc(_costStr)}</span>` : '')+
-    `</div>`;
-  feed.appendChild(hdr);
-  const events = session.events || [];
-  events.forEach(ev => {
-    appendChatViewEvent(ev, false);
-    // Pre-seed dedup set so SSE reconnect replays of historical events are swallowed
-    const _cvhk = (ev?.ts||'')+'|'+(ev?.type||'')+'|'+(ev?.from||ev?.role||ev?.agent||'')+'|'+(ev?.session||ev?.runId||'')+'|'+(ev?.result||ev?.msg||ev?.message||ev?.summary||'').slice(0,20);
-    chatVSeenKeys.add(_cvhk);
-  });
-  // Populate excerpt banner with last activity for the selected session
-  const _cvExEl = document.getElementById('chat-v-excerpt');
-  if (_cvExEl) { if (events.length) renderCvExcerptBanner('chat-v-excerpt', events, session); else _cvExEl.innerHTML = ''; }
-  feed.scrollTop = feed.scrollHeight;
-}
-
-function appendChatViewEvent(ev, animate) {
-  if (chatVCurrentId && ev.session && ev.session !== chatVCurrentId && !chatVCurrentGroupSessions.has(ev.session)) return;
-  const feed = document.getElementById('chat-v-feed');
-  if (!feed) return;
-  const empty = document.getElementById('chat-v-empty');
-  if (empty && feed.contains(empty)) feed.removeChild(empty);
-
-  let el;
-  const atBottom = !animate || (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 80);
-  const ts = ev.ts ? new Date(ev.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-  if (ev.type === 'run:start') {
-    el = mkCVSys('▶ Run started' + (ev.goal ? ': ' + (ev.goal.slice(0,80)) : '') + (ev.bossRole ? ' · boss: ' + (ev.bossRole) : ''), ts);
-  } else if (ev.type === 'run:cycle:complete') {
-    el = mkCVSys('◎ Cycle complete' + (ev.pending != null ? ' · ' + (String(ev.pending)) + ' tasks pending' : ''), ts);
-  } else if (ev.type === 'intercom') {
-    el = mkCVIntercom(ev.from, ev.to, ev.msg || '', ts);
-  } else if (ev.type === 'org:comms') {
-    const _cvCommsFrom = ev.from || ev.role || ev.org || '?';
-    // Directed messages (to set, not broadcast) → intercom bubble; broadcasts → agent bubble
-    if (ev.to && ev.to !== 'all') el = mkCVIntercom(_cvCommsFrom, ev.to, ev.msg || '', ts);
-    else el = mkCVAgent(_cvCommsFrom, ev.msg || '', ts, 'org:comms');
-  } else if (ev.type === 'org:agent:online') {
-    el = mkCVSys('[' + (ev.org || '') + '] ' + (ev.role || ev.title || '?') + ' online' + (ev.title && ev.role && ev.title !== ev.role ? ' (' + (ev.title) + ')' : ''), ts);
-  } else if (ev.type === 'org:checkpoint') {
-    el = mkCVSys('[checkpoint] ' + (ev.summary || ev.progress || ev.msg || ''), ts);
-  } else if (ev.type === 'org:start') {
-    el = mkCVSys('[org:start] ' + (ev.org || ''), ts);
-  } else if (ev.type === 'run:complete') {
-    el = mkCVSys('■ Run complete' + (ev.status ? ' [' + (ev.status) + ']' : ''), ts);
-  } else if (ev.type === 'org:complete') {
-    el = mkCVSys('■ Org complete' + (ev.org ? ' — ' + (ev.org) : ''), ts);
-  } else if (ev.type === 'agent:result') {
-    el = mkCVResult(ev.agent || ev.from || '?', ev.result || ev.msg || ev.message || ev.summary || '', ts);
-  } else if (ev.type === 'agent:spawn') {
-    const _spawnTo = ev.to || ev.agentType || '?';
-    const _spawnTask = ev.task || ev.briefing || '';
-    el = mkCVSpawn(ev.from || 'orchestrator', _spawnTo, _spawnTask, ts);
-  } else if (ev.type === 'agent:complete') {
-    // Rich completion event from capture-handler (replaces/supplements org:comms)
-    const _acAgent = ev.agentType || ev.role || ev.from || '?';
-    const _acResult = ev.result || '';
-    const _acCost = ev.cost_usd != null ? ' $' + Number(ev.cost_usd).toFixed(4) : '';
-    const _acTok = (ev.tokens_in || ev.tokens_out) ? ' · ' + ((ev.tokens_in||0)+(ev.tokens_out||0)).toLocaleString() + ' tok' : '';
-    const _acTools = (ev.toolCalls || []).length ? ' · [' + ev.toolCalls.slice(0,5).map(t => esc(t)).join(', ') + ']' : '';
-    el = mkCVResult(_acAgent + _acCost + _acTok + _acTools, _acResult, ts);
-  } else if (ev.type === 'agent:usage') {
-    // Token/cost accounting event — show as compact system line
-    const _auAgent = ev.role || ev.agentType || '?';
-    const _auCost = ev.cost_usd != null ? '$' + Number(ev.cost_usd).toFixed(4) : '';
-    const _auTok = (ev.tokens_in || ev.tokens_out) ? ((ev.tokens_in||0)).toLocaleString() + '↑ ' + ((ev.tokens_out||0)).toLocaleString() + '↓' : '';
-    el = mkCVSys('◈ ' + (_auAgent) + (_auTok ? ' · ' + _auTok : '') + (_auCost ? ' · ' + _auCost : ''), ts);
-  } else if (ev.type === 'agent:message') {
-    el = mkCVAgent(ev.agent || ev.name || ev.role || '?', ev.msg || ev.message || ev.content || '', ts, ev.type);
-  } else if (ev.type === 'session:start') {
-    el = mkCVSys('Session started' + (ev.prompt ? ': ' + (ev.prompt.slice(0,80)) : ''), ts);
-  } else if (ev.type === 'session:complete') {
-    el = mkCVSys('Session complete' + (ev.status ? ' — ' + (ev.status) : ''), ts);
-  } else if (ev.type === 'domain:dispatch') {
-    el = mkCVSys('→ ' + (ev.domain || '') + (ev.cmd ? ': ' + (ev.cmd.slice(0,80)) : ''), ts);
-  } else if (ev.type === 'domain:complete') {
-    el = mkCVSys('✓ ' + (ev.domain || '') + (ev.status ? ' [' + (ev.status) + ']' : ''), ts);
-  } else if (ev.type === 'loop:start') {
-    el = mkCVSys('◎ Loop: ' + (ev.command || '') + (ev.repeat ? ' ×' + (String(ev.repeat)) : ''), ts);
-    if (currentView === 'loops') renderLoops();
-  } else if (ev.type === 'loop:complete') {
-    el = mkCVSys('■ Loop done: ' + (ev.command || '') + (ev.ranReps ? ' (' + (String(ev.ranReps)) + ' runs)' : ''), ts);
-    if (currentView === 'loops') renderLoops();
-  } else if (ev.type === 'loop:tick') {
-    const _tickLbl = ev.rep != null
-      ? 'rep ' + (String(ev.rep)) + ' done' + (ev.wait != null ? ' → next in ' + (String(ev.wait)) + 's' : '')
-      : (ev.command || ev.loopId || ev.id || '');
-    el = mkCVSys('◷ ' + _tickLbl, ts);
-    el.dataset.evType = 'loop:tick';
-    if (feed.lastElementChild?.dataset?.evType === 'loop:tick') feed.lastElementChild.remove();
-    if (currentView === 'loops') renderLoops();
-  } else if (ev.type === 'loop:hil' || ev.type === 'loop:hil:waiting') {
-    el = mkCVSys('⚠ Loop HIL: ' + (ev.command || ev.loopId || ev.id || ''), ts);
-    if (currentView === 'loops') renderLoops();
-  } else if (ev.type === 'loop:hil:resolved') {
-    el = mkCVSys('✓ Loop HIL resolved: ' + (ev.loopId || ev.command || ''), ts);
-    if (currentView === 'loops') renderLoops();
-  } else if (ev.type === 'file:write') {
-    el = mkCVFileCard(ev.name || ev.path || '?', ev.path || '', ev.size || 0, ts);
-  } else if (ev.type === 'agent:edit' || ev.type === 'agent:write') {
-    el = mkCVTool('EDIT', ev.payload || ev.file || ev.path || '', '', 'oklch(65% 0.20 270)', ts);
-  } else if (ev.type === 'agent:bash') {
-    el = mkCVTool('BASH', ev.payload || ev.command || '', ev.output || '', 'oklch(72% 0.18 40)', ts);
-  } else if (ev.type === 'agent:browse') {
-    el = mkCVTool('BROWSE', ev.payload || ev.url || '', '', 'oklch(65% 0.15 190)', ts);
-  } else if (ev.type === 'org:agent:offline') {
-    el = mkCVSys('◌ ' + (ev.title || ev.role || '?') + ' offline' + (ev.org ? ' [' + (ev.org) + ']' : ''), ts);
-  } else if (ev.type === 'org:error') {
-    el = mkCVSys('⚠ Error: ' + (ev.msg || ev.error || ev.message || ''), ts);
-    el.classList.add('cv-err');
-  } else {
-    el = mkCVSys((ev.type || 'event'), ts);
-  }
-  if (animate) el.classList.add('cv-new');
-  feed.appendChild(el);
-  if (atBottom) feed.scrollTop = feed.scrollHeight;
 }
 
 function _cvExcerptText(ev) {
@@ -4904,84 +4442,6 @@ function mkCVIntercom(from, to, text, ts) {
   d.className = 'cv-msg cv-ic';
   d.innerHTML = `<div class="cv-bub"><span class="cv-tag cv-sender">${esc(from||'?')}</span><span class="cv-arrow">→</span><span class="cv-tag cv-receiver">${esc(to||'?')}</span><span class="cv-etype">IC</span><span class="cv-text">${esc(String(text).slice(0,800))}</span><span class="cv-ts">${ts}</span></div>`;
   return d;
-}
-
-function connectChatViewSSE() {
-  if (chatVSseSource) return;
-  const dot = document.getElementById('chat-v-live-dot');
-  const lbl = document.getElementById('chat-v-live-lbl');
-  chatVSseSource = window.mmEventSource('/api/mastermind-stream' + (DIR ? '?project=' + encodeURIComponent(DIR) : ''));
-  chatVSseSource.onopen = () => { dot && dot.classList.add('on'); lbl && (lbl.textContent = 'LIVE'); };
-  chatVSseSource.onmessage = e => {
-    try { handleChatViewEvent(JSON.parse(e.data)); } catch(_) {}
-  };
-  chatVSseSource.onerror = () => {
-    dot && dot.classList.remove('on');
-    lbl && (lbl.textContent = 'OFFLINE');
-    const _cvSrc = chatVSseSource;
-    chatVSseSource = null;
-    if (_cvSrc) _cvSrc.close();
-    setTimeout(connectChatViewSSE, 5000);
-  };
-}
-
-function handleChatViewEvent(ev) {
-  if (!ev) return;
-  // Deduplicate SSE reconnect replays (server replays last 50 events on every reconnect)
-  const dedupKey = (ev.ts||'') + '|' + (ev.type||'') + '|' + (ev.from||ev.role||ev.agent||'') + '|' + (ev.session||ev.runId||'') + '|' + (ev.result||ev.msg||ev.message||ev.summary||'').slice(0,20);
-  if (chatVSeenKeys.has(dedupKey)) return;
-  chatVSeenKeys.add(dedupKey);
-  if (chatVSeenKeys.size > 2000) { const _a = [...chatVSeenKeys]; chatVSeenKeys = new Set(_a.slice(1000)); }
-  // Org events (org:comms, org:agent:online, org:checkpoint, etc.) may carry a session field
-  // from the org run's session ID — route them directly to the feed if the session matches,
-  // or append them unconditionally when the chat view is showing the "live" placeholder.
-  if (ev.project && DIR && ev.project !== DIR) return;
-  const isOrgEvent = ev.type && (ev.type.startsWith('org:') || ev.type.startsWith('run:') || ev.type.startsWith('loop:'));
-  if (!ev.session && !isOrgEvent) return;
-  if (ev.session) {
-    const existingEntry = chatVSessions[ev.session]; // may be a group object
-    if (!existingEntry) {
-      // Seed events with the triggering event so it isn't lost if loadChatViewSessions
-      // runs before the event is flushed to disk (disk write and SSE broadcast race).
-      chatVSessions[ev.session] = { id: ev.session, events: [ev], startedAt: ev.ts, status: 'running', prompt: ev.prompt || '' };
-      loadChatViewSessions();
-      // Auto-switch to new session on session:start — after loadChatViewSessions it may be grouped
-      if (ev.type === 'session:start') {
-        const _cvGroupId = chatVSessionGroupMap[ev.session] || ev.session;
-        const _cvSel = document.getElementById('chat-v-sel');
-        if (_cvSel) { _cvSel.value = _cvGroupId; chatVSelectSession(_cvGroupId); }
-      }
-    } else {
-      // existingEntry may be a group — push event to it and update status
-      const target = existingEntry;
-      target.events = target.events || [];
-      target.events.push(ev);
-      if (ev.type === 'session:complete') {
-        // Mark this individual session complete; group stays running until all sessions done
-        if (!target._isGroup) target.status = 'complete';
-        else {
-          // Update the underlying session in group
-          const sub = (target.sessions || []).find(s => s.id === ev.session);
-          if (sub) sub.status = 'complete';
-          // Group stays running if any session is still running
-          if (!(target.sessions || []).some(s => s.status === 'running')) target.status = 'complete';
-        }
-      }
-      if (target._isGroup) target.totalEvents = (target.totalEvents || 0) + 1;
-    }
-    // Show event in feed if this session (or its group) is currently selected
-    const _cvGroupId = chatVSessionGroupMap[ev.session];
-    const _cvIsSelected = chatVCurrentId === ev.session || (_cvGroupId && chatVCurrentId === _cvGroupId) || chatVCurrentGroupSessions.has(ev.session);
-    if (_cvIsSelected) {
-      appendChatViewEvent(ev, true);
-      const _cvSess = chatVSessions[_cvGroupId || ev.session];
-      if (_cvSess) renderCvExcerptBanner('chat-v-excerpt', _cvSess.events || [], _cvSess);
-    }
-  } else if (isOrgEvent) {
-    // Org events without a Claude session ID — append to feed regardless of active view;
-    // #chat-v-feed is in the DOM even when hidden, so events accumulate correctly.
-    appendChatViewEvent(ev, true);
-  }
 }
 
 // ── feature 4: budget cap + desktop notification ───────────
