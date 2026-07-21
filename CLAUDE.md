@@ -4,7 +4,7 @@
 
 ## Behavioral Rules (Always Enforced)
 
-- For swarm/hive-mind mode selection, use `/mastermind` — it presents all topologies and gives a concrete recommendation. Do NOT auto-prompt for swarm mode.
+- For swarm/hive-mind mode selection, use `/mastermind:topology` — it presents all topologies and gives a concrete recommendation. Do NOT auto-prompt for swarm mode. (`/mastermind` itself is the universal intent router: it deeply analyzes any prompt and routes it to the right monomind/mastermind/monodesign/monomotion capability, executing or instructing per its `--auto`/`--suggest` flags.)
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions. Uses native `monomind browse` CDP client — no external binary needed.
 - NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool for web browsing. ALWAYS use `npx monomind browse`. This rule has no exceptions — not even "just this once" (this governs agent web-navigation; monodesign's own internal antipattern-detection driver has an optional Puppeteer fallback scoped to its own tooling — monobrowse preferred, Puppeteer only if monobrowse is unavailable — which is not a rule exception).
 - For ANY web animation, motion graphics, or animation request: ALWAYS invoke `Skill("monomotion")` FIRST — no exceptions. This includes: "animate this", "add animation", "create an animation", "motion graphics", "animated intro/outro", "text animation", "scroll animation", "GSAP".
@@ -112,7 +112,7 @@ Codes 1-11: hierarchical/specialized. Code 13: mesh/balanced.
 
 ### On-Demand Swarm Selection
 
-Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options and gives a concrete recommendation for the current task. Do not auto-prompt or interrupt work to ask about swarm mode.
+Use `/mastermind:topology` to pick a swarm or hive-mind topology. It lists all options and gives a concrete recommendation for the current task. Do not auto-prompt or interrupt work to ask about swarm mode.
 
 ---
 
