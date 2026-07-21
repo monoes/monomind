@@ -4967,9 +4967,11 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       return;
     }
 
-    // GET /api/questions?dir=<projectDir> — list unanswered ask_human questions for
-    // every org in one project. Mirrors the existing -approvals.json sidecar convention,
-    // but reads this feature's .monomind/orgs/<org>/questions.json files (one per org dir).
+    // GET /api/questions?dir=<projectDir> — list ask_human questions (pending and
+    // answered) for every org in one project. Mirrors the existing -approvals.json
+    // sidecar convention, but reads this feature's .monomind/orgs/<org>/questions.json
+    // files (one per org dir). Each entry's `answer`/`answeredAt` fields (present once
+    // answered, absent while pending) let the dashboard split them into tabs.
     if (req.method === 'GET' && url === '/api/questions') {
       try {
         const _qDir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
@@ -4982,7 +4984,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             let data = { questions: [] };
             try { data = JSON.parse(fs.readFileSync(qFile, 'utf8')); } catch (_) {}
             for (const q of (data.questions || [])) {
-              if (q.answer === null || q.answer === undefined) out.push({ org: orgName, ...q });
+              out.push({ org: orgName, ...q });
             }
           }
         }
