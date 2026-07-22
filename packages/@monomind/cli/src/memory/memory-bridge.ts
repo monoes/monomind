@@ -172,6 +172,7 @@ interface BackendSlot {
   attempts: number;
 }
 const backendSlots = new Map<string, BackendSlot>();
+const MAX_BACKEND_SLOTS = 5;
 let _embedder: ((text: string) => Promise<Float32Array>) | null = null;
 let _embedderPromise: Promise<void> | null = null;
 const MAX_INIT_ATTEMPTS = 3;
@@ -210,7 +211,16 @@ async function loadEmbedder(): Promise<void> {
 async function getBackend(dbPath?: string): Promise<any | null> {
   const dir = getDbPath(dbPath);
   let slot = backendSlots.get(dir);
-  if (!slot) { slot = { promise: null, instance: null, available: null, attempts: 0 }; backendSlots.set(dir, slot); }
+  if (!slot) {
+    if (backendSlots.size >= MAX_BACKEND_SLOTS) {
+      const oldest = backendSlots.keys().next().value!;
+      const evicted = backendSlots.get(oldest);
+      try { evicted?.instance?.close?.(); } catch { /* best effort */ }
+      backendSlots.delete(oldest);
+    }
+    slot = { promise: null, instance: null, available: null, attempts: 0 };
+    backendSlots.set(dir, slot);
+  }
   if (slot.available === false) return null;
   if (slot.attempts >= MAX_INIT_ATTEMPTS) { slot.available = false; return null; }
   if (slot.instance) return slot.instance;

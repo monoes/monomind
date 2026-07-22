@@ -70,44 +70,68 @@ async function loadHNSWIndexClass(): Promise<(new (config: { dimensions: number 
   }
 }
 
-/** Read entries with parseable embeddings of the expected dimension from the sql.js DB. */
+/** Read entries with parseable embeddings of the expected dimension from SQLite. */
 async function loadEntriesFromDb(
   dbPath: string,
   dimensions: number
 ): Promise<Array<{ id: string; vector: Float32Array; entry: HNSWEntry }>> {
   if (!fs.existsSync(dbPath)) return [];
 
-  const initSqlJs = (await import('sql.js')).default;
-  const SQL = await initSqlJs();
-  const fileBuffer = fs.readFileSync(dbPath);
-  const db = new SQL.Database(fileBuffer);
+  const { safeParseEmbedding } = await import('./memory-bridge.js');
+  const results: Array<{ id: string; vector: Float32Array; entry: HNSWEntry }> = [];
 
+  // Prefer better-sqlite3 (mmap-backed, doesn't load full DB into memory)
   try {
-    const { safeParseEmbedding } = await import('./memory-bridge.js');
-    const stmt = db.prepare(
-      `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' AND embedding IS NOT NULL LIMIT 50000`
-    );
-    const rows: unknown[][] = [];
-    while (stmt.step()) rows.push(stmt.get());
-    stmt.free();
-
-    const results: Array<{ id: string; vector: Float32Array; entry: HNSWEntry }> = [];
-    for (const row of rows) {
-      const [id, key, namespace, content, embeddingJson] = row as [
-        string, string, string, string, string | null
-      ];
-      const parsed = safeParseEmbedding(embeddingJson);
-      if (!parsed || parsed.length !== dimensions) continue;
-      results.push({
-        id,
-        vector: new Float32Array(parsed),
-        entry: { id, key: key || id, namespace: namespace || 'default', content: content || '' },
-      });
+    const Database = (await import('better-sqlite3' as string)).default;
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const rows = db.prepare(
+        `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' AND embedding IS NOT NULL ORDER BY rowid DESC LIMIT 10000`
+      ).all() as Array<{ id: string; key: string; namespace: string; content: string; embedding: string | null }>;
+      for (const row of rows) {
+        const parsed = safeParseEmbedding(row.embedding);
+        if (!parsed || parsed.length !== dimensions) continue;
+        results.push({
+          id: row.id,
+          vector: new Float32Array(parsed),
+          entry: { id: row.id, key: row.key || row.id, namespace: row.namespace || 'default', content: row.content || '' },
+        });
+      }
+    } finally {
+      db.close();
     }
     return results;
-  } finally {
-    db.close();
+  } catch {
+    // better-sqlite3 native binding unavailable — fall back to sql.js (WASM)
   }
+
+  try {
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    const fileBuffer = fs.readFileSync(dbPath);
+    const db = new SQL.Database(fileBuffer);
+    try {
+      const stmt = db.prepare(
+        `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' AND embedding IS NOT NULL ORDER BY rowid DESC LIMIT 10000`
+      );
+      while (stmt.step()) {
+        const [id, key, namespace, content, embeddingJson] = stmt.get() as [string, string, string, string, string | null];
+        const parsed = safeParseEmbedding(embeddingJson);
+        if (!parsed || parsed.length !== dimensions) continue;
+        results.push({
+          id,
+          vector: new Float32Array(parsed),
+          entry: { id, key: key || id, namespace: namespace || 'default', content: content || '' },
+        });
+      }
+      stmt.free();
+    } finally {
+      db.close();
+    }
+  } catch {
+    // Neither SQLite driver available
+  }
+  return results;
 }
 
 /**
