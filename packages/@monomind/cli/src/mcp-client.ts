@@ -4,56 +4,20 @@
  * Thin wrapper for calling MCP tools from CLI commands.
  * Implements ADR-005: MCP-First API Design - CLI as thin wrapper around MCP tools
  *
- * This provides a simple interface for CLI commands to call MCP tools without
- * containing hardcoded business logic. All business logic lives in MCP tool handlers.
+ * Tool modules are lazy-loaded on first use to avoid pulling ~300 tools'
+ * transitive dependencies into the heap at import time.
  */
 
 import type { MCPTool } from './mcp-tools/types.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Import MCP tool handlers from local package
-import { agentTools } from './mcp-tools/agent-tools.js';
-import { swarmTools } from './mcp-tools/swarm-tools.js';
-import { memoryTools } from './mcp-tools/memory-tools.js';
-import { configTools } from './mcp-tools/config-tools.js';
-import { hooksTools } from './mcp-tools/hooks-tools.js';
-import { taskTools } from './mcp-tools/task-tools.js';
-import { sessionTools } from './mcp-tools/session-tools.js';
-import { hiveMindTools } from './mcp-tools/hive-mind-tools.js';
-import { analyzeTools } from './mcp-tools/analyze-tools.js';
-import { embeddingsTools } from './mcp-tools/embeddings-tools.js';
-import { claimsTools } from './mcp-tools/claims-tools.js';
-import { securityTools } from './mcp-tools/security-tools.js';
-import { transferTools } from './mcp-tools/transfer-tools.js';
-// V2 Compatibility tools
-import { systemTools } from './mcp-tools/system-tools.js';
-import { terminalTools } from './mcp-tools/terminal-tools.js';
-import { neuralTools } from './mcp-tools/neural-tools.js';
-import { performanceTools } from './mcp-tools/performance-tools.js';
-import { githubTools } from './mcp-tools/github-tools.js';
-import { daaTools } from './mcp-tools/daa-tools.js';
-import { browserTools } from './mcp-tools/browser-tools.js';
-import { guidanceTools } from './mcp-tools/guidance-tools.js';
-import { autopilotTools } from './mcp-tools/autopilot-tools.js';
-// Knowledge graph tools (graphify — deprecated shims + monograph native)
-import { graphifyTools } from './mcp-tools/graphify-tools.js';
-import { monographTools } from './mcp-tools/monograph-tools.js';
-// Coverage-aware routing tools
-import { coverageRouterTools } from './monovector/coverage-tools.js';
-// Quality and Coherence core tools
-import { qualityTools } from './mcp-tools/quality-tools.js';
-import { coherenceTools } from './mcp-tools/coherence-tools.js';
-// Second Brain knowledge tools
-import { knowledgeTools } from './mcp-tools/knowledge-tools.js';
-
 /**
  * MCP Tool Registry
- * Maps tool names to their handler functions
+ * Maps tool names to their handler functions — populated lazily per category.
  */
 const TOOL_REGISTRY = new Map<string, MCPTool>();
 
-// Register all tools — refuse silent overrides without an explicit override flag.
 function registerTools(tools: MCPTool[], options: { override?: boolean } = {}): void {
   for (const tool of tools) {
     if (TOOL_REGISTRY.has(tool.name) && !options.override) {
@@ -63,46 +27,68 @@ function registerTools(tools: MCPTool[], options: { override?: boolean } = {}): 
   }
 }
 
-// Initialize registry with all available tools
-registerTools([
-  ...agentTools,
-  ...swarmTools,
-  ...memoryTools,
-  ...configTools,
-  ...hooksTools,
-  ...taskTools,
-  ...sessionTools,
-  ...hiveMindTools,
-  ...analyzeTools,
-  ...embeddingsTools,
-  ...claimsTools,
-  ...securityTools,
-  ...transferTools,
-  // V2 Compatibility tools
-  ...systemTools,
-  ...terminalTools,
-  ...neuralTools,
-  ...performanceTools,
-  ...githubTools,
-  ...daaTools,
-  ...browserTools,
-  // Guidance & discovery tools
-  ...guidanceTools,
-  // Autopilot persistent completion tools
-  ...autopilotTools,
-  // Knowledge graph — native monograph tools (replaces Python graphify)
-  ...monographTools,
-  // Graphify deprecated shims — proxy to monograph_* tools
-  ...graphifyTools,
-  // Coverage-aware routing tools
-  ...coverageRouterTools,
-  // Quality tools
-  ...qualityTools,
-  // Coherence tools
-  ...coherenceTools,
-  // Second Brain knowledge tools
-  ...knowledgeTools,
-]);
+// ---------------------------------------------------------------------------
+// Lazy category loaders — each returns a promise that resolves the MCPTool[]
+// for that category. Cached after first load.
+// ---------------------------------------------------------------------------
+type CategoryLoader = () => Promise<MCPTool[]>;
+
+const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
+  agent:       async () => (await import('./mcp-tools/agent-tools.js')).agentTools,
+  swarm:       async () => (await import('./mcp-tools/swarm-tools.js')).swarmTools,
+  memory:      async () => (await import('./mcp-tools/memory-tools.js')).memoryTools,
+  config:      async () => (await import('./mcp-tools/config-tools.js')).configTools,
+  hooks:       async () => (await import('./mcp-tools/hooks-tools.js')).hooksTools,
+  task:        async () => (await import('./mcp-tools/task-tools.js')).taskTools,
+  session:     async () => (await import('./mcp-tools/session-tools.js')).sessionTools,
+  'hive-mind': async () => (await import('./mcp-tools/hive-mind-tools.js')).hiveMindTools,
+  analyze:     async () => (await import('./mcp-tools/analyze-tools.js')).analyzeTools,
+  embeddings:  async () => (await import('./mcp-tools/embeddings-tools.js')).embeddingsTools,
+  claims:      async () => (await import('./mcp-tools/claims-tools.js')).claimsTools,
+  monofence:   async () => (await import('./mcp-tools/security-tools.js')).securityTools,
+  transfer:    async () => (await import('./mcp-tools/transfer-tools.js')).transferTools,
+  system:      async () => (await import('./mcp-tools/system-tools.js')).systemTools,
+  terminal:    async () => (await import('./mcp-tools/terminal-tools.js')).terminalTools,
+  neural:      async () => (await import('./mcp-tools/neural-tools.js')).neuralTools,
+  performance: async () => (await import('./mcp-tools/performance-tools.js')).performanceTools,
+  github:      async () => (await import('./mcp-tools/github-tools.js')).githubTools,
+  daa:         async () => (await import('./mcp-tools/daa-tools.js')).daaTools,
+  browser:     async () => (await import('./mcp-tools/browser-tools.js')).browserTools,
+  guidance:    async () => (await import('./mcp-tools/guidance-tools.js')).guidanceTools,
+  autopilot:   async () => (await import('./mcp-tools/autopilot-tools.js')).autopilotTools,
+  monograph:   async () => (await import('./mcp-tools/monograph-tools.js')).monographTools,
+  graphify:    async () => (await import('./mcp-tools/graphify-tools.js')).graphifyTools,
+  coverage:    async () => (await import('./monovector/coverage-tools.js')).coverageRouterTools,
+  quality:     async () => (await import('./mcp-tools/quality-tools.js')).qualityTools,
+  coherence:   async () => (await import('./mcp-tools/coherence-tools.js')).coherenceTools,
+  knowledge:   async () => (await import('./mcp-tools/knowledge-tools.js')).knowledgeTools,
+  // system-tools.ts also exports tools with mcp_ and config_ prefixes
+  mcp:         async () => (await import('./mcp-tools/system-tools.js')).systemTools,
+};
+
+const loadedCategories = new Set<string>();
+
+async function ensureCategory(category: string): Promise<void> {
+  if (loadedCategories.has(category)) return;
+  const loader = CATEGORY_LOADERS[category];
+  if (!loader) return;
+  loadedCategories.add(category);
+  registerTools(await loader(), { override: true });
+}
+
+function categoryFromToolName(name: string): string {
+  const idx = name.indexOf('_');
+  return idx > 0 ? name.slice(0, idx) : name;
+}
+
+let _allLoaded = false;
+async function ensureAllLoaded(): Promise<void> {
+  if (_allLoaded) return;
+  _allLoaded = true;
+  await Promise.all(
+    Object.keys(CATEGORY_LOADERS).map(cat => ensureCategory(cat))
+  );
+}
 
 /**
  * Disabled-tools registry (`mcp toggle`)
@@ -144,34 +130,16 @@ export class MCPClientError extends Error {
 
 /**
  * Call an MCP tool by name with input parameters
- *
- * @param toolName - Name of the MCP tool (e.g., 'agent_spawn', 'swarm_init')
- * @param input - Input parameters for the tool
- * @param context - Optional tool context
- * @returns Promise resolving to tool result
- * @throws {MCPClientError} If tool not found or execution fails
- *
- * @example
- * ```typescript
- * // Spawn an agent
- * const result = await callMCPTool('agent_spawn', {
- *   agentType: 'coder',
- *   priority: 'normal'
- * });
- *
- * // Initialize swarm
- * const swarm = await callMCPTool('swarm_init', {
- *   topology: 'hierarchical-mesh',
- *   maxAgents: 15
- * });
- * ```
  */
 export async function callMCPTool<T = unknown>(
   toolName: string,
   input: Record<string, unknown> = {},
   context?: Record<string, unknown>
 ): Promise<T> {
-  // Look up tool in registry
+  // Lazy-load the tool's category if not yet loaded
+  const cat = categoryFromToolName(toolName);
+  await ensureCategory(cat);
+
   const tool = TOOL_REGISTRY.get(toolName);
 
   if (!tool) {
@@ -189,11 +157,9 @@ export async function callMCPTool<T = unknown>(
   }
 
   try {
-    // Call the tool handler
     const result = await tool.handler(input, context);
     return result as T;
   } catch (error) {
-    // Wrap and re-throw with context
     throw new MCPClientError(
       `Failed to execute MCP tool '${toolName}': ${error instanceof Error ? error.message : String(error)}`,
       toolName,
@@ -204,18 +170,12 @@ export async function callMCPTool<T = unknown>(
 
 /**
  * Get tool metadata by name
- *
- * @param toolName - Name of the MCP tool
- * @returns Tool metadata or undefined if not found
  */
-export function getToolMetadata(toolName: string): Omit<MCPTool, 'handler'> | undefined {
+export async function getToolMetadata(toolName: string): Promise<Omit<MCPTool, 'handler'> | undefined> {
+  const cat = categoryFromToolName(toolName);
+  await ensureCategory(cat);
   const tool = TOOL_REGISTRY.get(toolName);
-
-  if (!tool) {
-    return undefined;
-  }
-
-  // Return everything except the handler function
+  if (!tool) return undefined;
   return {
     name: tool.name,
     description: tool.description,
@@ -229,12 +189,10 @@ export function getToolMetadata(toolName: string): Omit<MCPTool, 'handler'> | un
 }
 
 /**
- * List all available MCP tools
- *
- * @param category - Optional category filter
- * @returns Array of tool metadata
+ * List all available MCP tools (loads all categories on first call)
  */
-export function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'> & { enabled: boolean }> {
+export async function listMCPTools(category?: string): Promise<Array<Omit<MCPTool, 'handler'> & { enabled: boolean }>> {
+  await ensureAllLoaded();
   const tools = Array.from(TOOL_REGISTRY.values());
   const disabled = loadDisabledTools();
 
@@ -257,53 +215,44 @@ export function listMCPTools(category?: string): Array<Omit<MCPTool, 'handler'> 
 
 /**
  * Return all registered tools including their handler functions, excluding
- * any disabled via `mcp toggle`. Used by startHttpServer() to register tools
- * with the HTTP/WS MCP server, so a disabled tool is never exposed to
- * external MCP clients after the next server start.
+ * any disabled via `mcp toggle`. Loads all categories on first call.
  */
-export function getAllMCPTools(): MCPTool[] {
+export async function getAllMCPTools(): Promise<MCPTool[]> {
+  await ensureAllLoaded();
   const disabled = loadDisabledTools();
   return Array.from(TOOL_REGISTRY.values()).filter(t => !disabled.has(t.name));
 }
 
 /**
- * Check if an MCP tool exists
- *
- * @param toolName - Name of the MCP tool
- * @returns True if tool exists
+ * Check if an MCP tool exists (checks loaded categories + known prefixes)
  */
-export function hasTool(toolName: string): boolean {
+export async function hasTool(toolName: string): Promise<boolean> {
+  const cat = categoryFromToolName(toolName);
+  await ensureCategory(cat);
   return TOOL_REGISTRY.has(toolName);
 }
 
 /**
  * Get all tool categories
- *
- * @returns Array of unique categories
  */
-export function getToolCategories(): string[] {
+export async function getToolCategories(): Promise<string[]> {
+  await ensureAllLoaded();
   const categories = new Set<string>();
-
   TOOL_REGISTRY.forEach(tool => {
-    if (tool.category) {
-      categories.add(tool.category);
-    }
+    if (tool.category) categories.add(tool.category);
   });
-
   return Array.from(categories).sort();
 }
 
 /**
  * Validate tool input against schema
- *
- * @param toolName - Name of the MCP tool
- * @param input - Input to validate
- * @returns Validation result with errors if any
  */
-export function validateToolInput(
+export async function validateToolInput(
   toolName: string,
   input: Record<string, unknown>
-): { valid: boolean; errors?: string[] } {
+): Promise<{ valid: boolean; errors?: string[] }> {
+  const cat = categoryFromToolName(toolName);
+  await ensureCategory(cat);
   const tool = TOOL_REGISTRY.get(toolName);
 
   if (!tool) {
@@ -313,7 +262,6 @@ export function validateToolInput(
     };
   }
 
-  // Basic validation - check required fields
   const schema = tool.inputSchema;
   const errors: string[] = [];
 

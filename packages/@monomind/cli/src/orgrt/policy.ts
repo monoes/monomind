@@ -17,7 +17,7 @@ const READ_TOOLS = new Set(['Read', 'Glob', 'Grep']);
 const WEB_TOOLS = new Set(['WebFetch', 'WebSearch']);
 /** Cap for inline content snapshots on 'asset' events (bytes, UTF-16 chars) — keeps
  *  bus.jsonl / the dashboard's per-session event log from bloating on large writes. */
-const SNAPSHOT_MAX_CHARS = 200_000;
+const SNAPSHOT_MAX_CHARS = 20_000;
 
 const REGEX_METACHARS = new Set('.+^${}()|[]\\'.split(''));
 

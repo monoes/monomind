@@ -24,6 +24,10 @@ function getStmts(db: MonographDb): StmtCache {
   const key = (db as unknown as { name: string }).name ?? '__default__';
   let cache = _stmtCache.get(key);
   if (!cache) {
+    if (_stmtCache.size >= MAX_STMT_CACHE) {
+      const oldest = _stmtCache.keys().next().value!;
+      _stmtCache.delete(oldest);
+    }
     cache = {
       selectNodes: db.prepare('SELECT id FROM nodes'),
       selectEdges: db.prepare('SELECT source_id, target_id FROM edges'),
@@ -38,6 +42,8 @@ function getStmts(db: MonographDb): StmtCache {
 // changed. Keyed by (dbName, nodeCount, edgeCount) with a 5-second TTL.
 // ---------------------------------------------------------------------------
 const PAGERANK_CACHE_TTL_MS = 5_000;
+const MAX_RESULT_CACHE = 50;
+const MAX_STMT_CACHE = 20;
 
 interface PageRankCacheEntry {
   result: Map<string, number>;
@@ -149,7 +155,10 @@ export function pageRank(db: MonographDb, options: PageRankOptions = {}): Map<st
     result.set(nodes[i], scores[i]);
   }
 
-  // Store in result cache
+  if (_resultCache.size >= MAX_RESULT_CACHE) {
+    const oldest = _resultCache.keys().next().value!;
+    _resultCache.delete(oldest);
+  }
   _resultCache.set(cacheKey, { result, expiresAt: now + PAGERANK_CACHE_TTL_MS });
 
   return result;
