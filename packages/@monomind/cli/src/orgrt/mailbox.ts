@@ -12,6 +12,7 @@ export interface OrgUserMessage {
  * stream() is passed as the `prompt` of query() to keep the session open.
  */
 export class Mailbox {
+  private static readonly MAX_QUEUE = 500;
   private queue: string[] = [];
   private wake: (() => void) | null = null;
   private closed = false;
@@ -20,6 +21,9 @@ export class Mailbox {
 
   push(text: string): void {
     if (this.closed) return;
+    if (this.queue.length >= Mailbox.MAX_QUEUE) {
+      this.queue.shift();
+    }
     this.queue.push(text);
     this.wake?.(); this.wake = null;
   }

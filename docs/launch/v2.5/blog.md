@@ -35,7 +35,7 @@ Memory features are only as good as the engine underneath, and ours was carrying
 
 Persistent agent orgs were the flagship of our last launch. This wave gave them the unglamorous tooling that makes "unattended" a responsible word.
 
-The org runtime is **daemon-controlled**: `monomind org run <name>` starts your org, and a real CLI surface — `stop`, `status`, `serve`, `logs`, `report`, plus `create`, `validate`, `list` and friends (15 subcommands in all) — lets you operate it like the long-running process it is, with a scheduler for recurring runs and per-agent policy controls on what each role can touch.
+The org runtime is **daemon-controlled**: `monomind org run <name>` starts your org, and a real CLI surface — `stop`, `status`, `serve`, `logs`, `report`, plus `create`, `validate`, `list` and friends (16 subcommands in all) — lets you operate it like the long-running process it is, with a scheduler for recurring runs and per-agent policy controls on what each role can touch.
 
 The piece we're happiest about is **human-in-the-loop**. An agent that hits a decision it genuinely shouldn't make alone can pause and ask you: `monomind org questions` shows what's pending, `monomind org answer` sends your reply back into the waiting agent's live session. Autonomy with an escalation path beats autonomy with a shrug.
 
