@@ -51,12 +51,9 @@ function checkDbExists(dbPath: string): DoctorCheck {
   };
 }
 
-function checkDbReadable(dbPath: string): DoctorCheck {
+async function checkDbReadable(dbPath: string): Promise<DoctorCheck> {
   try {
-    // Dynamic require keeps this check lazy so missing better-sqlite3 doesn't
-    // crash the entire doctor invocation.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Database = require('better-sqlite3') as typeof import('better-sqlite3');
+    const Database = (await import('better-sqlite3')).default;
     const db = new Database(dbPath, { readonly: true });
     db.prepare('SELECT 1').get();
     db.close();
@@ -67,10 +64,9 @@ function checkDbReadable(dbPath: string): DoctorCheck {
   }
 }
 
-function checkNodeCount(dbPath: string): DoctorCheck {
+async function checkNodeCount(dbPath: string): Promise<DoctorCheck> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Database = require('better-sqlite3') as typeof import('better-sqlite3');
+    const Database = (await import('better-sqlite3')).default;
     const db = new Database(dbPath, { readonly: true });
     const row = db.prepare('SELECT COUNT(*) AS n FROM nodes').get() as { n: number } | undefined;
     db.close();
@@ -159,8 +155,8 @@ export async function runDoctor(repoPath: string): Promise<DoctorResult> {
 
   // 3. DB readable (only if DB exists)
   if (dbExistsCheck.status !== 'error') {
-    checks.push(checkDbReadable(dbPath));
-    checks.push(checkNodeCount(dbPath));
+    checks.push(await checkDbReadable(dbPath));
+    checks.push(await checkNodeCount(dbPath));
   } else {
     checks.push({
       name: 'SQLite DB readable',
