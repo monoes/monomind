@@ -416,7 +416,7 @@ const toolsCommand: Command = {
     let tools: Array<{ name: string; category: string; description: string; enabled: boolean }>;
 
     // Get tools from local registry
-    const registeredTools = listMCPTools(category);
+    const registeredTools = await listMCPTools(category);
 
     if (registeredTools.length > 0) {
       tools = registeredTools.map(tool => ({
@@ -612,7 +612,7 @@ const execCommand: Command = {
 
     try {
       // Execute through local MCP tool registry
-      if (!hasTool(tool)) {
+      if (!await hasTool(tool)) {
         output.printError(`Tool not found: ${tool}`);
         return { success: false, exitCode: 1 };
       }

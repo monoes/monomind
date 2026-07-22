@@ -85,15 +85,17 @@ export class OrgDaemon {
     mkdirSync(cwd, { recursive: true });
 
     const bus = new OrgBus(name, run, dir);
-    // Bounded in-memory tail: bus.jsonl on disk is the full durable record;
-    // this buffer only backs busEvents() (test-loop, /api/history) and would
-    // otherwise grow without limit for a long-running scheduled org — each
-    // Write's captured content snapshot alone can be up to 200KB (policy.ts).
-    const MAX_COLLECTED = 5000;
+    // Lightweight in-memory tail for busEvents() (test-loop, /api/history).
+    // Full events (including Write content snapshots) live on disk in bus.jsonl;
+    // the in-memory copy strips bulky data.content to keep RAM flat.
+    const MAX_COLLECTED = 1000;
     const collected: BusEvent[] = [];
     let lastActivity = Date.now();
     bus.subscribe(e => {
-      collected.push(e);
+      const slim: BusEvent = e.data?.content != null
+        ? { ...e, data: { ...e.data, content: undefined } }
+        : e;
+      collected.push(slim);
       if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
       // The watchdog's own nudge event must not count as org activity, or a
       // hung boss would never trip the "nudge produced no activity" stop.
@@ -558,6 +560,9 @@ export class OrgDaemon {
       }
     } catch (err) {
       console.error(`org ${name}: could not write run history:`, err instanceof Error ? err.message : err);
+    } finally {
+      this.recallUsage.delete(name);
+      this.orgLearnedRuns.delete(`${name}:${org.run}`);
     }
     // the "org stopped" event above triggers the forwarder's final org:complete /
     // session:complete POST — without waiting for it here, the CLI process can exit

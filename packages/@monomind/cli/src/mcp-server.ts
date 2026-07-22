@@ -538,7 +538,7 @@ export class MCPServerManager extends EventEmitter {
           };
 
         case 'tools/list':
-          const tools = listMCPTools();
+          const tools = await listMCPTools();
           return {
             jsonrpc: '2.0',
             id: message.id,
@@ -588,7 +588,7 @@ export class MCPServerManager extends EventEmitter {
             }
           }
 
-          if (!hasTool(toolName)) {
+          if (!await hasTool(toolName)) {
             return {
               jsonrpc: '2.0',
               id: message.id,
@@ -833,7 +833,7 @@ export class MCPServerManager extends EventEmitter {
     // Without this the server only exposes its 4 built-in tools.
     try {
       const { getAllMCPTools } = await import('./mcp-client.js');
-      const registered = mcpServer.registerTools(getAllMCPTools() as Parameters<typeof mcpServer.registerTools>[0]);
+      const registered = mcpServer.registerTools(await getAllMCPTools() as Parameters<typeof mcpServer.registerTools>[0]);
       console.error(`[monomind-mcp] HTTP/WS server registered ${registered.registered} tools`);
     } catch (e) {
       console.error(`[monomind-mcp] Warning: could not register CLI tools with HTTP/WS server: ${e}`);

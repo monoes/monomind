@@ -13,6 +13,7 @@ export interface Encoder {
  */
 export class LocalEncoder implements Encoder {
   private readonly DIM = 256;
+  private static readonly MAX_CACHE = 2000;
   private cache = new Map<string, number[]>();
 
   async encode(text: string): Promise<number[]> {
@@ -42,6 +43,10 @@ export class LocalEncoder implements Encoder {
     // L2 normalize
     const norm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0)) || 1;
     const normalized = vector.map(v => v / norm);
+    if (this.cache.size >= LocalEncoder.MAX_CACHE) {
+      const oldest = this.cache.keys().next().value!;
+      this.cache.delete(oldest);
+    }
     this.cache.set(key, normalized);
     return normalized;
   }
