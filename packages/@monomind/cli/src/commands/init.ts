@@ -113,7 +113,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     if (!noWatch) {
       try {
         const { spawn } = await import('child_process');
-        const pidFile = path.join(ctx.cwd, '.monomind', 'monograph-watch.pid');
+        const pidFile = path.join(ctx.cwd, '.monomind', 'monograph.watch.pid');
         let alreadyRunning = false;
         if (fs.existsSync(pidFile) && fs.statSync(pidFile).size <= 32) {
           const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
@@ -122,7 +122,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
           }
         }
         if (!alreadyRunning) {
-          const logPath = path.join(ctx.cwd, '.monomind', 'monograph-watch.log');
+          const logPath = path.join(ctx.cwd, '.monomind', 'monograph.watch.log');
           const { openSync } = fs;
           const logFd = openSync(logPath, 'a');
           const proc = spawn(process.execPath, [process.argv[1], 'monograph', 'watch'], {

@@ -8,8 +8,8 @@
 
 import type { MCPTool, MCPToolResult } from './types.js';
 
-const MAX_BROWSER_SESSIONS = 100;
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_BROWSER_SESSIONS = 5;
+const SESSION_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 /** Tracking metadata for a single browser session. */
 interface BrowserSessionInfo {
@@ -28,14 +28,15 @@ interface BrowserConnection {
 const browserSessions = new Map<string, BrowserSessionInfo>();
 const connectionCache = new Map<string, BrowserConnection>();
 
-function pruneExpiredSessions(): void {
+async function pruneExpiredSessions(): Promise<void> {
   const cutoff = Date.now() - SESSION_TTL_MS;
+  const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
   for (const [id, info] of browserSessions) {
     if (new Date(info.lastActivity).getTime() < cutoff) {
       browserSessions.delete(id);
       const conn = connectionCache.get(id);
-      if (conn) { try { conn.client.close(); } catch { /* ignore */ } }
       connectionCache.delete(id);
+      if (conn) await closeTarget(conn, port);
     }
   }
 }
@@ -53,7 +54,9 @@ async function getConnection(sessionId: string): Promise<BrowserConnection> {
       await conn.client.send('Runtime.evaluate', { expression: '1', returnByValue: true }, conn.cdpSessionId);
       return conn;
     } catch {
+      const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
       connectionCache.delete(sessionId);
+      await closeTarget(conn, port);
     }
   }
   const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
@@ -64,11 +67,33 @@ async function getConnection(sessionId: string): Promise<BrowserConnection> {
   return conn;
 }
 
-function releaseConnection(sessionId: string): void {
+async function releaseConnection(sessionId: string): Promise<void> {
   const conn = connectionCache.get(sessionId);
-  if (conn) { try { conn.client.close(); } catch { /* ignore */ } }
   connectionCache.delete(sessionId);
   browserSessions.delete(sessionId);
+  if (conn) {
+    const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
+    // Close the actual Chrome tab — just closing the WebSocket leaves the
+    // renderer process alive and consuming ~250MB+ RAM each. Awaited (not
+    // fire-and-forget) so a burst of session churn can't pile up concurrent
+    // in-flight closes and leak renderers when one fails silently.
+    await closeTarget(conn, port);
+  }
+}
+
+async function closeTarget(conn: BrowserConnection, port: number): Promise<void> {
+  try {
+    // Get the target ID for this session so we can close the tab
+    const result = await conn.client.send<{ targetInfo: { targetId: string } }>(
+      'Target.getTargetInfo', {}, conn.cdpSessionId
+    );
+    const targetId = result?.targetInfo?.targetId;
+    if (targetId) {
+      // Close via HTTP endpoint — works even if the CDP session is stale
+      await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(targetId)}`, { method: 'GET' });
+    }
+  } catch { /* best-effort */ }
+  try { conn.client.close(); } catch { /* ignore */ }
 }
 
 function ok(data: Record<string, unknown> = {}): MCPToolResult {
@@ -195,12 +220,20 @@ export const browserTools: MCPTool[] = [
         sessionId = validateSessionId(raw.session);
       } catch (e) { return fail((e as Error).message); }
 
-      pruneExpiredSessions();
+      await pruneExpiredSessions();
       if (!browserSessions.has(sessionId)) {
+        // Refuse new sessions when system memory is critical
+        try {
+          const os = await import('node:os');
+          const freeRatio = os.freemem() / os.totalmem();
+          if (freeRatio < 0.10) {
+            return fail(`System memory critical (${Math.round(freeRatio * 100)}% free). Close existing browser sessions first.`);
+          }
+        } catch { /* non-critical */ }
         if (browserSessions.size >= MAX_BROWSER_SESSIONS) {
           const oldest = [...browserSessions.entries()]
             .sort((a, b) => a[1].lastActivity.localeCompare(b[1].lastActivity))[0];
-          if (oldest) releaseConnection(oldest[0]);
+          if (oldest) await releaseConnection(oldest[0]);
         }
         browserSessions.set(sessionId, {
           sessionId,
@@ -304,7 +337,7 @@ export const browserTools: MCPTool[] = [
       const { session } = input as { session?: unknown };
       let sessionId: string;
       try { sessionId = validateSessionId(session); } catch (e) { return fail((e as Error).message); }
-      releaseConnection(sessionId);
+      await releaseConnection(sessionId);
       return ok({ session: sessionId });
     },
   },
@@ -928,7 +961,7 @@ export const browserTools: MCPTool[] = [
     tags: ['session'],
     inputSchema: { type: 'object', properties: {} },
     handler: async () => {
-      pruneExpiredSessions();
+      await pruneExpiredSessions();
       const sessions = Array.from(browserSessions.values());
       return ok({ sessions, count: sessions.length });
     },
