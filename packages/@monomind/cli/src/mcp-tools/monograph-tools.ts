@@ -177,9 +177,23 @@ const monographQueryTool: MCPTool = {
       const rerank = (input.rerank as boolean | undefined) ?? true;
       const damping = (input.damping as number | undefined) ?? 0.5;
 
+      const zeroResultHint = /\s/.test(query) && !/[A-Z]/.test(query.replace(/\s+/g, '').slice(1))
+        ? ' Hint: monograph indexes identifiers and filenames — try camelCase/PascalCase (e.g. "AgentSpawn") or a filename instead of a phrase.'
+        : '';
+
+      // Lightweight staleness check — fire-and-forget background rebuild;
+      // append warning to results so the agent knows data may be outdated.
+      let stalenessNote = '';
+      const repoPath = getProjectCwd();
+      const staleness = await computeCommitsBehind(repoPath);
+      if (staleness && staleness.commitsBehind > 0) {
+        const triggered = triggerBackgroundBuildIfNeeded(repoPath, staleness.commitsBehind);
+        stalenessNote = `\n⚠ Index is ${staleness.commitsBehind} commit(s) behind HEAD${triggered ? ' — rebuild triggered' : ''}.`;
+      }
+
       if (process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
         const results = await hybridQuery(db, query, { limit: rerank ? limit * 2 : limit, label });
-        if (results.length === 0) return text('No results found.');
+        if (results.length === 0) return text('No results found.' + zeroResultHint + stalenessNote);
 
         if (rerank) {
           const seeds: PprScoredNode[] = results.map(r => ({
@@ -193,18 +207,18 @@ const monographQueryTool: MCPTool = {
             const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
             return `[${r.label}] ${r.name}  ${loc}  (score: ${r.score.toFixed(4)})${tag}`;
           });
-          return text(lines.join('\n'));
+          return text(lines.join('\n') + stalenessNote);
         }
 
         const lines = results.map(r => {
           const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
           return `[${r.label ?? '?'}] ${r.name ?? r.id}  ${loc}  (score: ${r.score.toFixed(4)})`;
         });
-        return text(lines.join('\n'));
+        return text(lines.join('\n') + stalenessNote);
       }
 
       const results = ftsSearch(db, query, rerank ? limit * 2 : limit, label);
-      if (results.length === 0) return text('No results found.');
+      if (results.length === 0) return text('No results found.' + zeroResultHint + stalenessNote);
 
       if (rerank) {
         const seeds: PprScoredNode[] = results.map(r => ({
@@ -218,14 +232,14 @@ const monographQueryTool: MCPTool = {
           const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
           return `[${r.label}] ${r.name}  ${loc}  (score: ${r.score.toFixed(3)})${tag}`;
         });
-        return text(lines.join('\n'));
+        return text(lines.join('\n') + stalenessNote);
       }
 
       const lines = results.map(r => {
         const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
         return `[${r.label}] ${r.name}  ${loc}  (score: ${r.rank.toFixed(3)})`;
       });
-      return text(lines.join('\n'));
+      return text(lines.join('\n') + stalenessNote);
     } finally { closeDb(db); }
   },
 };
@@ -769,10 +783,11 @@ async function computeCommitsBehind(repoPath: string): Promise<{ commitsBehind: 
  * Shared staleness threshold: both monograph_staleness and monograph_suggest (checkStaleness)
  * trigger a background rebuild only when the index is more than this many commits behind HEAD.
  * Using a shared constant prevents conflicting rebuild pressure during active dev sessions.
- * Was 10 (11-commit trigger) — loose enough that a "2 commits behind" graph (the common
- * case session banners actually report) never rebuilt and silently served stale results.
+ * Was 10 → 3 → 1. Even 3 let routine small commits accumulate stale results
+ * silently. At 1 (rebuild triggers at 2+ behind), staleness rarely persists
+ * across sessions.
  */
-const STALENESS_THRESHOLD = 3;
+const STALENESS_THRESHOLD = 1;
 
 /**
  * Fire-and-forget background rebuild. Uses a module-level guard so concurrent

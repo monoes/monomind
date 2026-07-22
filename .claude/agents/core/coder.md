@@ -86,6 +86,15 @@ const results = await Promise.all(items.map(processItem));
 const heavyModule = () => import('./heavy-module');
 ```
 
+## Code Navigation (monograph-first)
+
+Before grepping or searching the codebase, use monograph:
+- `monograph_query({ query: "SymbolName" })` — BM25 search, returns file + line
+- `monograph_suggest({ task: "what you're doing" })` — ranked file suggestions for multi-file tasks
+- `monograph_impact({ name: "functionName" })` — blast radius before changing anything
+- `monograph_neighbors({ name: "ClassName" })` — direct callers/callees
+- Only fall back to grep/find if monograph returns 0 results or the DB is not built
+
 ## Implementation Process
 
 ### 1. Understand Requirements
