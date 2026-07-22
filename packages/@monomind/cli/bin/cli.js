@@ -84,17 +84,27 @@ if (isMCPMode) {
 
     for (const line of lines) {
       if (line.trim()) {
+        let parsed;
         try {
-          const message = JSON.parse(line);
-          const response = await handleMessage(message);
+          parsed = JSON.parse(line);
+        } catch {
+          console.log(JSON.stringify({
+            jsonrpc: '2.0',
+            id: null,
+            error: { code: -32700, message: 'Parse error' },
+          }));
+          continue;
+        }
+        try {
+          const response = await handleMessage(parsed);
           if (response) {
             console.log(JSON.stringify(response));
           }
         } catch (error) {
           console.log(JSON.stringify({
             jsonrpc: '2.0',
-            id: null,
-            error: { code: -32700, message: 'Parse error' },
+            id: parsed.id ?? null,
+            error: { code: -32603, message: error instanceof Error ? error.message : 'Internal error' },
           }));
         }
       }
@@ -132,7 +142,7 @@ if (isMCPMode) {
         };
 
       case 'tools/list': {
-        const tools = listMCPTools();
+        const tools = await listMCPTools();
         return {
           jsonrpc: '2.0',
           id: message.id,
@@ -150,7 +160,7 @@ if (isMCPMode) {
         const toolName = params.name;
         const toolParams = params.arguments || {};
 
-        if (!hasTool(toolName)) {
+        if (!await hasTool(toolName)) {
           return {
             jsonrpc: '2.0',
             id: message.id,
