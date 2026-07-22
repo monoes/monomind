@@ -55,7 +55,7 @@ const {
   getMonographSuggestions, getMonographNeighbors,
   _recordGraphTelemetry, _injectCompactGraphMap,
   _findAffectedTests, _maybeRebuildMonograph,
-  _graphGateShouldBlock, _graphGateMarkQueried,
+  _graphGateShouldBlock, _graphGateMarkQueried, _getNodeCount,
 } = monograph;
 
 const {
@@ -412,13 +412,17 @@ const handlers = {
     var isFind = /\b(?:find|fd)\b/.test(cmd) && !isGrep;
     if (isGrep || isFind) {
       var sessIdGate = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
-      if (_graphGateShouldBlock(sessIdGate)) {
+      var gateResult = _graphGateShouldBlock(sessIdGate);
+      if (gateResult === 'block') {
         process.stderr.write(JSON.stringify({
           decision: 'block',
-          reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before grep/rg/find for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call (or this one warning), Bash grep/find work normally for the rest of the session.',
+          reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before grep/rg/find for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call, Bash grep/find work normally.',
         }) + '\n');
         process.exitCode = 2;
         return;
+      }
+      if (gateResult === 'warn') {
+        console.log('[MONOGRAPH_REMINDER] monograph_query/suggest not yet called this session — graph has ' + (_getNodeCount() || '20k+') + ' indexed nodes. Try monograph first for faster, more precise results.');
       }
       var graphAssisted = false;
       if (_isGraphFresh()) {
@@ -672,13 +676,17 @@ const handlers = {
   'pre-search': () => {
     var tool = hCtx.toolName || '';
     var sessIdGate = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
-    if (_graphGateShouldBlock(sessIdGate)) {
+    var gateResult = _graphGateShouldBlock(sessIdGate);
+    if (gateResult === 'block') {
       process.stderr.write(JSON.stringify({
         decision: 'block',
-        reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before ' + (tool || 'Grep/Glob') + ' for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call (or this one warning), search tools work normally for the rest of the session.',
+        reason: '[graph-gate] Call mcp__monomind__monograph_query or monograph_suggest before ' + (tool || 'Grep/Glob') + ' for code exploration (CLAUDE.md). This blocks once per session — after your first monograph call, search tools work normally.',
       }) + '\n');
       process.exitCode = 2;
       return;
+    }
+    if (gateResult === 'warn') {
+      console.log('[MONOGRAPH_REMINDER] monograph_query/suggest not yet called this session — try monograph first for faster results.');
     }
     var graphResolved = false;
     try {

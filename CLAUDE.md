@@ -1,6 +1,6 @@
 # Claude Code Configuration - Monomind v2
 
-> **Monomind v2.5.4** — Packages: `monomind@2.5.4` (umbrella), `@monoes/monomindcli@2.5.4` (CLI), `@monoes/monograph@1.4.0` (knowledge graph)
+> **Monomind v2.5.5** — Packages: `monomind@2.5.5` (umbrella), `@monoes/monomindcli@2.5.5` (CLI), `@monoes/monograph@1.4.1` (knowledge graph)
 
 ## Behavioral Rules (Always Enforced)
 
