@@ -227,6 +227,23 @@ let _runDbInsertStmt = null; // prepared INSERT statement
 
 const _require = createRequire(import.meta.url);
 
+/**
+ * Guard against a stale PID file outliving its process and the OS recycling
+ * that PID for an unrelated process — verify the live process actually looks
+ * like ours (node/npx running something under this project or monomind)
+ * before signaling it or reporting it as "running".
+ */
+function looksLikeOurProcess(pid, dir) {
+  try {
+    const { execSync } = _require('child_process');
+    const cmd = execSync(`ps -p ${pid} -o command=`, { timeout: 2000, encoding: 'utf-8' }).trim();
+    const looksLikeNode = cmd.includes('node') || cmd.includes('npx') || cmd.includes('npm exec');
+    return looksLikeNode && (cmd.includes('monomind') || cmd.includes('monograph') || cmd.includes(dir));
+  } catch {
+    return false;
+  }
+}
+
 async function _initRunDb(monoHome) {
   try {
     const initSqlJs = _require('sql.js');
@@ -3197,13 +3214,17 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const pidPath = path.join(d, '.monomind', 'monograph.watch.pid');
         let running = false, pid = null;
-        try {
-          pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
-          process.kill(pid, 0);
-          running = true;
-        } catch {}
+        for (const pidName of ['monograph.watch.pid', 'monograph-watch.pid']) {
+          try {
+            const pp = path.join(d, '.monomind', pidName);
+            pid = parseInt(fs.readFileSync(pp, 'utf-8').trim(), 10);
+            process.kill(pid, 0);
+            if (!looksLikeOurProcess(pid, d)) continue;
+            running = true;
+            break;
+          } catch {}
+        }
         res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
         res.end(JSON.stringify({ running, pid }));
       } catch (err) {
@@ -3221,13 +3242,17 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         const d = path.resolve(dir || process.cwd());
         const pidPath = path.join(d, '.monomind', 'monograph.watch.pid');
         let wasRunning = false;
-        try {
-          const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
-          process.kill(pid, 0);
-          wasRunning = true;
-          process.kill(pid, 'SIGTERM');
-          try { fs.unlinkSync(pidPath); } catch {}
-        } catch {}
+        for (const pidName of ['monograph.watch.pid', 'monograph-watch.pid']) {
+          try {
+            const pp = path.join(d, '.monomind', pidName);
+            const pid = parseInt(fs.readFileSync(pp, 'utf-8').trim(), 10);
+            process.kill(pid, 0);
+            if (!looksLikeOurProcess(pid, d)) continue;
+            wasRunning = true;
+            process.kill(pid, 'SIGTERM');
+            try { fs.unlinkSync(pp); } catch {}
+          } catch {}
+        }
 
         if (wasRunning) {
           res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
@@ -3245,6 +3270,28 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
+      return;
+    }
+
+    // -------------------------------------------------- POST /api/shutdown
+    if (req.method === 'POST' && url === '/api/shutdown') {
+      res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+      res.end(JSON.stringify({ ok: true }));
+      // Kill monograph watcher if running
+      const d = projectDir || process.cwd();
+      for (const pidName of ['monograph.watch.pid', 'monograph-watch.pid']) {
+        try {
+          const wp = path.join(d, '.monomind', pidName);
+          if (fs.statSync(wp).size > 32) continue;
+          const wpid = parseInt(fs.readFileSync(wp, 'utf-8').trim(), 10);
+          if (!Number.isInteger(wpid) || wpid <= 0) { try { fs.unlinkSync(wp); } catch {} continue; }
+          if (looksLikeOurProcess(wpid, d)) process.kill(wpid, 'SIGTERM');
+          try { fs.unlinkSync(wp); } catch {}
+        } catch {}
+      }
+      // Remove control.json so startup knows we're gone
+      try { fs.unlinkSync(path.join(d, '.monomind', 'control.json')); } catch {}
+      setTimeout(shutdown, 100);
       return;
     }
 
@@ -7036,12 +7083,14 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
         currentPort = null;
         currentUrl = null;
         activeServer = null;
+        process.exit(0);
       });
     });
   }
 
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
+  process.once('SIGHUP', shutdown);
 
   // ---------------------------------------------------------- Auto-open
   if (openBrowser) {

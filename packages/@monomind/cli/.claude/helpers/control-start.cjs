@@ -142,6 +142,16 @@ function releaseSpawnLock() {
 }
 
 async function main() {
+  // Skip spawning when system memory is critically low
+  try {
+    const { isMemoryPressureCritical, getMemoryInfo } = require('./utils/system-pressure.cjs');
+    if (isMemoryPressureCritical()) {
+      const info = getMemoryInfo();
+      process.stdout.write(`[control] skipping — memory pressure ${info.level} (${info.usedMB}/${info.totalMB} MB used)\n`);
+      process.exit(0);
+    }
+  } catch { /* non-critical — proceed without check */ }
+
   // If already running, do nothing
   const status = readStatus();
   if (status && status.pid && isPidAlive(status.pid)) {

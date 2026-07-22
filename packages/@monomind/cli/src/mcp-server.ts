@@ -497,6 +497,7 @@ export class MCPServerManager extends EventEmitter {
     process.stdin.on('end', () => { void shutdown('stdin closed'); });
     process.on('SIGINT',  () => { void shutdown('Received SIGINT'); });
     process.on('SIGTERM', () => { void shutdown('Received SIGTERM'); });
+    process.on('SIGHUP',  () => { void shutdown('Received SIGHUP'); });
 
     // Mark as ready immediately for stdio
     this.emit('ready');
