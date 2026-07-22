@@ -1,5 +1,63 @@
 import type Database from 'better-sqlite3';
 
+// ── Intent-to-identifier extraction ──────────────────────────────────────────
+
+const STOPWORDS = new Set([
+  'a','an','the','is','are','was','were','be','been','being','have','has','had',
+  'do','does','did','will','would','shall','should','may','might','must','can',
+  'could','am','it','its','i','me','my','we','our','you','your','he','she',
+  'they','them','their','this','that','these','those','of','in','to','for',
+  'with','on','at','from','by','about','as','into','through','during','before',
+  'after','above','below','between','out','off','over','under','again','then',
+  'once','here','there','when','where','why','how','all','both','each','every',
+  'few','more','most','other','some','such','no','nor','not','only','own',
+  'same','so','than','too','very','just','because','but','and','or','if',
+  'while','what','which','who','whom','up','down','get','set','add','use',
+  'find','show','make','let','want','need','like','look','also','new','old',
+]);
+
+/**
+ * Extract code-relevant search terms from a natural-language query.
+ * Strips stopwords, splits camelCase/PascalCase/snake_case, and strips
+ * file extensions (so "CLAUDE.md" also tries "CLAUDE").
+ * Returns an empty array when the query is already a bare identifier.
+ */
+export function extractSearchTerms(query: string): string[] {
+  const words = query.split(/[\s,;:!?()\[\]{}'"]+/).filter(Boolean);
+  // If query is a single token or all tokens are code-like, it's already an identifier query
+  if (words.length <= 1) return [];
+  const hasStopword = words.some(w => STOPWORDS.has(w.toLowerCase()));
+  if (!hasStopword && words.length <= 3) return [];
+
+  const terms = new Set<string>();
+  for (const word of words) {
+    const lower = word.toLowerCase();
+    if (STOPWORDS.has(lower)) continue;
+    if (word.length < 3) continue;
+
+    // Strip file extensions: "CLAUDE.md" → also add "CLAUDE"
+    const dotIdx = word.lastIndexOf('.');
+    if (dotIdx > 0 && dotIdx < word.length - 1) {
+      terms.add(word.slice(0, dotIdx));
+      terms.add(word);
+    }
+
+    // Split camelCase/PascalCase: "ExtensionBridge" → "Extension", "Bridge"
+    const camelParts = word.replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .split(/[\s_-]+/)
+      .filter(p => p.length >= 3 && !STOPWORDS.has(p.toLowerCase()));
+    if (camelParts.length > 1) {
+      for (const part of camelParts) terms.add(part);
+    }
+
+    // Keep the original word
+    terms.add(word);
+  }
+
+  return Array.from(terms);
+}
+
 export interface FtsResult {
   id: string;
   name: string;
@@ -71,6 +129,63 @@ export function ftsSearch(
     // FTS MATCH can throw on malformed queries; fall through to LIKE path
   }
 
+  // ── Intent-extraction fallback: when the raw query looks like natural language
+  // and FTS returned nothing, extract code-relevant tokens and retry FTS. ──────
+  if (matchRows.length === 0) {
+    const extracted = extractSearchTerms(safeQuery);
+    if (extracted.length > 0) {
+      // Try each extracted term individually via FTS, then merge by best rank
+      const termFtsQuery = extracted.map(quoteFtsTerm).join(' OR ');
+      let termSql = `
+        SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
+               n.start_line, n.end_line, nodes_fts.rank
+        FROM nodes_fts
+        JOIN nodes n ON n.rowid = nodes_fts.rowid
+        WHERE nodes_fts MATCH ?
+      `;
+      const termParams: unknown[] = [termFtsQuery];
+      if (label) {
+        termSql += ' AND n.label = ?';
+        termParams.push(label);
+      }
+      termSql += ' ORDER BY nodes_fts.rank LIMIT ?';
+      termParams.push(limit * 2);
+      try {
+        matchRows = db.prepare(termSql).all(...(termParams as [string, ...unknown[]])) as Record<string, unknown>[];
+      } catch { /* FTS MATCH can throw on malformed queries */ }
+
+      // Also try individual LIKE for each extracted term to catch camelCase substrings
+      if (matchRows.length < limit) {
+        const seenIds = new Set(matchRows.map((r) => r.id as string));
+        for (const term of extracted) {
+          if (matchRows.length >= limit) break;
+          const escapedTerm = term.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+          const pat = `%${escapedTerm}%`;
+          let termLikeSql = `
+            SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
+                   n.start_line, n.end_line, 0 AS rank
+            FROM nodes n
+            WHERE (n.name LIKE ? ESCAPE '\\' OR n.norm_label LIKE ? ESCAPE '\\')
+          `;
+          const termLikeParams: unknown[] = [pat, pat];
+          if (label) {
+            termLikeSql += ' AND n.label = ?';
+            termLikeParams.push(label);
+          }
+          termLikeSql += ' LIMIT ?';
+          termLikeParams.push(limit);
+          const likeRows = db.prepare(termLikeSql).all(...(termLikeParams as [string, ...unknown[]])) as Record<string, unknown>[];
+          for (const r of likeRows) {
+            if (!seenIds.has(r.id as string)) {
+              matchRows.push(r);
+              seenIds.add(r.id as string);
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Run the LIKE fallback whenever MATCH threw (malformed/boolean-keyword query) or
   // returned zero rows — not just for short (≤2 char) queries. Short queries need it
   // because trigram requires ≥3 characters to fire; longer queries need it whenever
@@ -79,13 +194,24 @@ export function ftsSearch(
   if (safeQuery.length <= 2 || matchRows.length === 0) {
     const escapedQuery = safeQuery.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
     const likePattern = `%${escapedQuery}%`;
+
+    // Also try without file extension: "CLAUDE.md" → "CLAUDE"
+    const dotIdx = safeQuery.lastIndexOf('.');
+    const strippedLikePattern = (dotIdx > 0 && dotIdx < safeQuery.length - 1)
+      ? `%${safeQuery.slice(0, dotIdx).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
+      : null;
+
     let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
              n.start_line, n.end_line, 0 AS rank
       FROM nodes n
-      WHERE (n.name LIKE ? ESCAPE '\\' OR n.norm_label LIKE ? ESCAPE '\\' OR n.file_path LIKE ? ESCAPE '\\')
-    `;
+      WHERE (n.name LIKE ? ESCAPE '\\' OR n.norm_label LIKE ? ESCAPE '\\' OR n.file_path LIKE ? ESCAPE '\\'`;
     const likeParams: unknown[] = [likePattern, likePattern, likePattern];
+    if (strippedLikePattern) {
+      likeSql += ` OR n.name LIKE ? ESCAPE '\\'`;
+      likeParams.push(strippedLikePattern);
+    }
+    likeSql += ')';
     if (label) {
       likeSql += ' AND n.label = ?';
       likeParams.push(label);
