@@ -5,6 +5,7 @@ import os from 'os';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { spawn } from 'child_process';
 import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
 import { addSseClient, removeSseClient, broadcast, getSseClientCount, closeSseClients, addMmClient, removeMmClient, broadcastMm, getMmClientCount } from './sse-manager.mjs';
 
@@ -410,6 +411,7 @@ function appendToFile(filePath, line) {
 // reach /main/.git, then up one more to /main/ for the monomind data root.
 // Falls back to the working directory if git isn't available.
 const _gitMonomindCache = new Map();
+const _MAX_GIT_CACHE = 100;
 function _getGitMonomindDir(workDir) {
   if (!workDir) return null;
   if (_gitMonomindCache.has(workDir)) return _gitMonomindCache.get(workDir);
@@ -433,6 +435,10 @@ function _getGitMonomindDir(workDir) {
     }
   } catch {}
   if (!result) result = path.join(workDir, '.monomind'); // fallback
+  if (_gitMonomindCache.size >= _MAX_GIT_CACHE) {
+    const oldest = _gitMonomindCache.keys().next().value;
+    _gitMonomindCache.delete(oldest);
+  }
   _gitMonomindCache.set(workDir, result);
   return result;
 }
@@ -629,10 +635,15 @@ function bindServer(server, port) {
  * Falls back to cwd in session files, then to direct slug replacement.
  */
 const _slugPathCache = new Map();
+const _MAX_SLUG_CACHE = 200;
 
 function resolveSlugToPath(slug, projDir) {
   if (_slugPathCache.has(slug)) return _slugPathCache.get(slug);
   const resolved = _resolveSlugToPathUncached(slug, projDir);
+  if (_slugPathCache.size >= _MAX_SLUG_CACHE) {
+    const oldest = _slugPathCache.keys().next().value;
+    _slugPathCache.delete(oldest);
+  }
   _slugPathCache.set(slug, resolved);
   return resolved;
 }
@@ -4559,6 +4570,43 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       return;
     }
 
+    // POST /api/org/:name/agent/:roleId/avatar — set (or clear) a custom avatar for one
+    // role, stored inline as a data URL on the role itself so it travels with the org
+    // config export/import. Body: { avatarDataUrl } — null/omitted avatarDataUrl clears
+    // the custom avatar and reverts to the built-in library picture. `dir` (like every
+    // other dir-accepting route in this file, POST included — see /goals above) comes
+    // from the query string, not the body.
+    if (req.method === 'POST' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/agent\/[a-z0-9][a-z0-9_-]{0,63}\/avatar$/i.test(url)) {
+      let body = '';
+      for await (const chunk of req) { body += chunk; if (body.length > 8388608) { req.destroy(); break; } }
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        const roleId = decodeURIComponent(parts[5]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{"ok":false,"error":"Invalid org name"}'); return; }
+        if (roleId.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(roleId)) { res.writeHead(400); res.end('{"ok":false,"error":"Invalid role id"}'); return; }
+        const parsed = JSON.parse(body);
+        const avatarDataUrl = parsed.avatarDataUrl;
+        if (avatarDataUrl != null && (typeof avatarDataUrl !== 'string' || avatarDataUrl.length > 2_000_000 || !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(avatarDataUrl))) {
+          res.writeHead(400); res.end('{"ok":false,"error":"Invalid or oversized avatarDataUrl"}'); return;
+        }
+        const _avatarQs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(_avatarQs.get('dir') || projectDir || process.cwd());
+        const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
+        if (!fs.existsSync(orgFile)) { res.writeHead(404); res.end('{"ok":false,"error":"org not found"}'); return; }
+        const config = JSON.parse(fs.readFileSync(orgFile, 'utf8'));
+        const role = (config.roles || []).find(r => r.id === roleId);
+        if (!role) { res.writeHead(404); res.end('{"ok":false,"error":"role not found"}'); return; }
+        if (avatarDataUrl) role.avatar = avatarDataUrl; else delete role.avatar;
+        const tmp = `${orgFile}.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf-8');
+        fs.renameSync(tmp, orgFile);
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) { res.writeHead(500); res.end(JSON.stringify({ ok: false, error: String(e.message || e) })); }
+      return;
+    }
+
     // GET /api/org/:name/search?q=<query> — fuzzy search across org data
     if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/search(\?.*)?$/i.test(url)) {
       try {
@@ -5061,8 +5109,19 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           const queuedEvent = { type: 'org:question-answered', org, role, questionId, ts: Date.now(), queued: true };
           appendToFile(path.join(projDir, 'data', 'mastermind-events.jsonl'), JSON.stringify(queuedEvent) + '\n').catch(() => {});
           broadcastMm(queuedEvent);
+          // Auto-wake: a queued answer is worthless if nothing ever restarts the org to
+          // drain it (unlike the direct-daemon path, this control server holds no OrgDaemon
+          // instance to call autoWake() on). `org run` itself no-ops if the org's runtime.json
+          // already shows a live pid, so this is safe to fire even if another process is
+          // racing to start it.
+          try {
+            const child = spawn('npx', ['-y', 'monomind@latest', 'org', 'run', org], {
+              cwd: projDir, detached: true, stdio: 'ignore',
+            });
+            child.unref();
+          } catch (_) { /* best-effort — the answer is still queued on disk either way */ }
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, queued: true }));
+          res.end(JSON.stringify({ ok: true, queued: true, waking: true }));
           return;
         }
         const fwd = await fetch(`${hostUrl}/api/answer-question`, {
