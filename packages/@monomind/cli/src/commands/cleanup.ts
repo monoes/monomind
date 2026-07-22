@@ -7,7 +7,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { existsSync, lstatSync, rmSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, lstatSync, rmSync, readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 
 /**
@@ -376,6 +376,49 @@ export const cleanupCommand: Command = {
       output.writeln(`  Removed ${removed} file(s) totaling ${formatSize(removedSize)}`);
       output.writeln();
       return { success: true, message: `Removed ${removed} stale scratch file(s)`, data: { found: stale, removedCount: removed, removedSize, dryRun } };
+    }
+
+    // Kill background processes before removing their state files
+    if (force) {
+      // Guard against a stale PID file outliving its process and the OS
+      // recycling that PID for an unrelated process — verify the live
+      // process actually looks like ours before signaling it.
+      const looksLikeOurProcess = (pid: number): boolean => {
+        try {
+          const { execSync } = require('child_process') as typeof import('child_process');
+          const cmd = execSync(`ps -p ${pid} -o command=`, { timeout: 2000, encoding: 'utf-8' }).trim();
+          // Covers direct `node ...` spawns as well as the npx fallback in
+          // control-start.cjs's findCliPath(), which shows up in `ps` as
+          // "npm exec ..." / "npx ..." with no literal "node".
+          const looksLikeNode = cmd.includes('node') || cmd.includes('npx') || cmd.includes('npm exec');
+          return looksLikeNode && (cmd.includes('monomind') || cmd.includes(cwd));
+        } catch {
+          return false;
+        }
+      };
+      const controlPath = join(cwd, '.monomind', 'control.json');
+      try {
+        if (existsSync(controlPath) && statSync(controlPath).size <= 4096) {
+          const status = JSON.parse(readFileSync(controlPath, 'utf-8'));
+          if (status?.pid && Number.isInteger(status.pid) && status.pid > 0 && looksLikeOurProcess(status.pid)) {
+            process.kill(status.pid, 'SIGTERM');
+            output.writeln(output.info(`  Stopped dashboard server (pid ${status.pid})`));
+          }
+          try { unlinkSync(controlPath); } catch {}
+        }
+      } catch { /* already gone */ }
+      for (const pidName of ['monograph.watch.pid', 'monograph-watch.pid']) {
+        try {
+          const pp = join(cwd, '.monomind', pidName);
+          if (!existsSync(pp) || statSync(pp).size > 32) continue;
+          const pid = parseInt(readFileSync(pp, 'utf-8').trim(), 10);
+          if (Number.isInteger(pid) && pid > 0 && looksLikeOurProcess(pid)) {
+            process.kill(pid, 'SIGTERM');
+            output.writeln(output.info(`  Stopped monograph watcher (pid ${pid})`));
+          }
+          try { unlinkSync(pp); } catch {}
+        } catch { /* already gone */ }
+      }
     }
 
     output.writeln();

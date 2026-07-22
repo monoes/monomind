@@ -131,6 +131,7 @@ try {
   } catch (_) {}
 } finally {
   try { unlinkSync(${JSON.stringify(lockPath)}); } catch {}
+  try { unlinkSync(${JSON.stringify(path.join(graphDir, 'build.pid'))}); } catch {}
 }`;
 const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
   detached: true,
@@ -138,5 +139,10 @@ const child = spawn(process.execPath, ['--input-type=module', '--eval', script],
   cwd: projectDir,
 });
 child.unref();
+
+// Track PID so control-stop.cjs can kill it on session exit
+try {
+  fs.writeFileSync(path.join(graphDir, 'build.pid'), String(child.pid), 'utf-8');
+} catch { /* best-effort */ }
 
 console.log('[graph] background build started for ' + projectDir);
