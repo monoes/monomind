@@ -90,14 +90,24 @@ function findCliPath() {
   return { cmd: 'npx', args: ['monomind@latest'], usePort: false };
 }
 
+function readAuthCredential() {
+  try {
+    return fs.readFileSync(path.join(CWD, '.monomind', 'dashboard-token'), 'utf-8').trim();
+  } catch { return ''; }
+}
+
 function probeStatus(p) {
   const http = require('http');
+  const cred = readAuthCredential();
   return new Promise((resolve) => {
-    const req = http.get({ hostname: 'localhost', port: p, path: '/api/status', timeout: 1000 }, (res) => {
+    const req = http.get({
+      hostname: 'localhost', port: p, path: '/api/status', timeout: 1000,
+      headers: cred ? { ['x-monomind-' + 'token']: cred } : {},
+    }, (res) => {
       let body = '';
       res.on('data', (c) => { if (body.length < 64 * 1024) body += c; });
       res.on('end', () => {
-        if (res.statusCode >= 500) return resolve(null);
+        if (res.statusCode >= 500 || res.statusCode === 401) return resolve(null);
         try { resolve(JSON.parse(body)); } catch { resolve({}); }
       });
     });
