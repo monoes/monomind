@@ -391,6 +391,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 @media (prefers-reduced-motion: reduce) { #org-agent-drawer { transition: none; } }
 #oad-head { display: flex; align-items: center; gap: 11px; padding: 16px 16px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .oad-avatar { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; background: var(--surface-hi); object-fit: cover; }
+.oad-avatar-wrap { position: relative; width: 46px; height: 46px; flex-shrink: 0; cursor: pointer; }
+.oad-avatar-wrap .oad-avatar { width: 100%; height: 100%; }
+.oad-avatar-edit { position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-hi); border: 1.5px solid var(--bg); color: var(--text-lo); display: flex; align-items: center; justify-content: center; font-size: 9px; opacity: 0; transition: opacity 0.12s; }
+.oad-avatar-wrap:hover .oad-avatar-edit { opacity: 1; }
 .oad-id { flex: 1; min-width: 0; }
 .oad-name { font-size: 15px; font-weight: 600; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oad-pills { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
@@ -805,9 +809,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #rp-fill { height:100%; width:100%; background:var(--accent); border-radius:2px; transform:scaleX(0); transform-origin:left; transition:transform 0.15s; }
 #rp-counter { font-size:11px; color:var(--text-lo); font-family:var(--mono); white-space:nowrap; }
 
-.cv-agent-pill { font-size:8px; padding:2px 8px; border-radius:10px; border:1px solid var(--border); color:var(--text-lo); background:transparent; cursor:pointer; letter-spacing:0.3px; font-family:var(--mono); transition:border-color 0.15s,color 0.15s; }
-.cv-agent-pill:hover { border-color:oklch(62% 0.20 186 / 0.4); color:var(--text-mid); }
-.cv-agent-pill.active { border-color:oklch(62% 0.20 186); color:oklch(62% 0.20 186); background:oklch(62% 0.20 186 / 0.07); }
 .cv-session-hdr { padding:10px 18px 8px; border-bottom:1px solid var(--border); margin-bottom:4px; background:oklch(13% 0.01 295); }
 .cv-shdr-prompt { font-size:12px; color:var(--text-mid); margin-bottom:4px; font-weight:500; }
 .cv-shdr-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:9px; color:var(--text-lo); font-family:var(--mono); }
@@ -5508,8 +5509,9 @@ function v2RenderOrgList() {
     const MAX_SHOW = 4;
     const shownRoles = rolesArr.slice(0, MAX_SHOW);
     const extraCount = rolesN - shownRoles.length;
+    const _oiAvMap = v2AvatarMapFor(rolesArr);
     const avatarsHtml = shownRoles.length ? `<div class="oi-avatars">
-      ${shownRoles.map(r => `<img class="oi-av" src="${v2RoleAvatar(r)}" alt="${esc(r.name||r.id||'')}" loading="lazy" title="${esc(r.name||r.id||'')}" onerror="this.src='data/avatars/coder.svg'"/>`).join('')}
+      ${shownRoles.map(r => `<img class="oi-av" src="${v2RoleAvatar(r, _oiAvMap)}" alt="${esc(r.name||r.id||'')}" loading="lazy" title="${esc(r.name||r.id||'')}" onerror="this.src='data/avatars/coder.svg'"/>`).join('')}
       ${extraCount > 0 ? `<div class="oi-av-more">+${extraCount}</div>` : ''}
     </div>` : '';
     return `<div class="org-item${active}" data-org="${esc(o.name)}" onclick="v2SelectOrg(this.dataset.org)">
@@ -5961,6 +5963,7 @@ function v2RenderOrgChart() {
 
   // Overlay live running status from in-memory agent SSE state for chart node indicators
   const _chartRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
+  const _chartAvMap = v2AvatarMapFor(roles);
   let nodesHTML = '';
   roles.forEach((role, i) => {
     const p = pos[role.id];
@@ -5977,13 +5980,13 @@ function v2RenderOrgChart() {
     const runningDot = isRunning ? `<circle class="v2-chart-running-dot" r="5.5" cx="${(R * 0.65).toFixed(1)}" cy="${(-R * 0.65).toFixed(1)}" fill="oklch(68% 0.20 150)" stroke="oklch(12% 0.008 55)" stroke-width="1.5" style="animation:blink 2s ease-in-out infinite"/>` : '';
     const nameY = subType ? (R * 0.55 + 2).toFixed(0) : (R * 0.55 + 8).toFixed(0);
     const avR = Math.round(R * 0.52);
-    const avatarSrc = v2RoleAvatar(role);
+    const avatarSrc = v2RoleAvatar(role, _chartAvMap);
     nodesHTML += `<g class="v2oc-node" data-role="${esc(role.id)}" onclick="v2OpenAgent('${String(role.id).replace(/['\\]/g,'\\$&')}')" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
       ${runningDot}
       <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''} — click for details</title>
       ${outerRing}
       <circle r="${R}" fill="oklch(12% 0.008 55)" stroke="${color}" stroke-width="${leader ? 2.5 : 1.8}" filter="url(#v2glow)"/>
-      <image href="${avatarSrc}" x="${-avR}" y="${-R + 2}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
+      <image href="${avatarSrc}" x="${-avR}" y="${-avR}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
       <text text-anchor="middle" y="${nameY}" font-size="9" font-weight="${leader?'600':'500'}" font-family="'Inter',system-ui,sans-serif" fill="${color}">${esc(nameText)}</text>
       ${subTypeText ? `<text text-anchor="middle" y="${+nameY + 11}" font-size="7.5" font-family="'Inter',system-ui,sans-serif" fill="oklch(48% 0.005 75)">${esc(subTypeText)}</text>` : ''}
       <foreignObject class="v2-activity-bubble" data-bubble-for="${esc(role.id)}" x="-70" y="${-R - 46}" width="140" height="34" style="overflow:visible;pointer-events:none;visibility:hidden;opacity:0">
@@ -6314,18 +6317,68 @@ const _v2TypeFallback = {
   reporter:'analytics-reporter', strategist:'product-manager',
   designer:'game-designer', writer:'technical-writer', auditor:'security-auditor',
 };
-function v2RoleAvatar(role) {
+// Ranked list of built-in avatar ids that could represent this role, best match first.
+function _v2AvatarCandidates(role) {
   const id   = ((role && role.id)         || '').toLowerCase().replace(/\s+/g,'-');
   const type = ((role && (role.type || role.agent_type)) || '').toLowerCase().replace(/\s+/g,'-');
-  if (_v2AvatarKnown.has(id))   return `data/avatars/${id}.svg`;
-  if (_v2AvatarKnown.has(type)) return `data/avatars/${type}.svg`;
+  const out = [];
+  const add = k => { if (k && !out.includes(k)) out.push(k); };
+  if (_v2AvatarKnown.has(id)) add(id);
+  if (_v2AvatarKnown.has(type)) add(type);
   for (const k of _v2AvatarKnown) {
-    if (id && (id.includes(k) || k.includes(id))) return `data/avatars/${k}.svg`;
+    if (id && (id.includes(k) || k.includes(id))) add(k);
   }
   for (const [t, av] of Object.entries(_v2TypeFallback)) {
-    if ((type && type.includes(t)) || (id && id.includes(t))) return `data/avatars/${av}.svg`;
+    if ((type && type.includes(t)) || (id && id.includes(t))) add(av);
   }
-  return 'data/avatars/coder.svg';
+  add('coder');
+  return out;
+}
+
+// Small stable string hash — used to deterministically (not randomly) pick a fallback
+// avatar for roles whose entire candidate list is already taken by a sibling role.
+function _v2StrHash(s) {
+  let h = 0;
+  for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) >>> 0;
+  return h;
+}
+
+// Assigns each role in an org a distinct built-in avatar (no two roles in the same
+// org share one), while leaving any role with a custom uploaded avatar untouched.
+// Pure function of `roles` — cheap to recompute on every render, so callers should
+// NOT cache it across data reloads.
+function v2AvatarMapFor(roles) {
+  const list = Array.isArray(roles) ? roles : [];
+  const used = new Set();
+  const map = new Map();
+  const allKnown = Array.from(_v2AvatarKnown);
+  list.forEach(r => {
+    if (!r || !r.id) return;
+    if (r.avatar) { map.set(r.id, r.avatar); return; } // custom upload — exempt from dedup
+    const candidates = _v2AvatarCandidates(r);
+    let pick = candidates.find(c => !used.has(c));
+    if (!pick) {
+      const free = allKnown.filter(k => !used.has(k));
+      // Pool exhausted (org has more roles than the ~65 built-in avatars) — a genuine
+      // duplicate is unavoidable at that point, but hash across the FULL pool rather
+      // than always falling back to candidates[0] (which is guaranteed already taken,
+      // since the .find() above just failed on it), so overflow roles at least spread
+      // out instead of all collapsing onto the same one avatar.
+      pick = free.length ? free[_v2StrHash(r.id) % free.length] : allKnown[_v2StrHash(r.id) % allKnown.length];
+    }
+    used.add(pick);
+    map.set(r.id, `data/avatars/${pick}.svg`);
+  });
+  return map;
+}
+
+// avatarMap (from v2AvatarMapFor) is optional — pass it whenever sibling roles are
+// known, so avatars stay unique within the org; without it this falls back to the
+// single best guess for this role alone.
+function v2RoleAvatar(role, avatarMap) {
+  if (avatarMap && role && avatarMap.has(role.id)) return avatarMap.get(role.id);
+  if (role && role.avatar) return role.avatar;
+  return `data/avatars/${_v2AvatarCandidates(role)[0]}.svg`;
 }
 
 // ── org roles ───────────────────────────────
@@ -6344,6 +6397,7 @@ function v2RenderOrgRoles() {
   if (!leaderIds.size) leaderIds.add(roles[0]?.id);
   // Overlay live running status from in-memory agent SSE state
   const _rolesRunning = new Set((_v2OrgData?._agents || []).filter(a => a.status === 'running').map(a => a.id));
+  const _rolesAvMap = v2AvatarMapFor(roles);
   pane.innerHTML = `<div class="roles-v2-grid">${roles.map((r, i) => {
     const color = V2_ROLE_COLORS[i % V2_ROLE_COLORS.length];
     const isLeader = leaderIds.has(r.id);
@@ -6351,7 +6405,7 @@ function v2RenderOrgRoles() {
     const resps = Array.isArray(r.responsibilities) ? r.responsibilities : [];
     const displayName = r.name || r.title || r.id;
     const roleType = r.type || r.agent_type || '';
-    const avatarSrc = v2RoleAvatar(r);
+    const avatarSrc = v2RoleAvatar(r, _rolesAvMap);
     return `<div class="role-v2" style="border-top:2px solid ${color}" onclick="v2OpenAgent('${String(r.id).replace(/['\\]/g,'\\$&')}')" title="View agent characteristics, skills & instructions">
       <div class="rv2-head">
         <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" onerror="this.src='data/avatars/coder.svg'"/>
@@ -6408,10 +6462,15 @@ function v2RenderAgentDrawer(data) {
   const name = role.name || role.title || role.id || 'Agent';
   const type = role.agent_type || role.type || '';
   const model = (role.adapter_config && role.adapter_config.model) || cap.model_preference || '';
-  const avatar = v2RoleAvatar(role);
+  const siblingRoles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [role];
+  const avatar = v2RoleAvatar(role, v2AvatarMapFor(siblingRoles));
 
   headEl.innerHTML = `
-    <img class="oad-avatar" src="${avatar}" alt="${esc(name)}" onerror="this.src='data/avatars/coder.svg'"/>
+    <div class="oad-avatar-wrap" onclick="v2TriggerAvatarUpload('${String(role.id).replace(/['\\]/g,'\\$&')}')" title="Change avatar">
+      <img class="oad-avatar" id="oad-avatar-img" src="${avatar}" alt="${esc(name)}" onerror="this.src='data/avatars/coder.svg'"/>
+      <div class="oad-avatar-edit">✎</div>
+    </div>
+    <input type="file" id="oad-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" onchange="v2HandleAvatarFile(this)"/>
     <div class="oad-id">
       <div class="oad-name">${esc(name)}</div>
       <div class="oad-pills">
@@ -6451,6 +6510,62 @@ function v2RenderAgentDrawer(data) {
   bodyEl.innerHTML = html;
   bodyEl.scrollTop = 0;
 }
+
+// ── custom role avatar upload ────────────────
+function v2TriggerAvatarUpload(roleId) {
+  const inp = document.getElementById('oad-avatar-file');
+  if (!inp) return;
+  inp.dataset.roleId = roleId;
+  inp.value = '';
+  inp.click();
+}
+async function v2HandleAvatarFile(inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  const roleId = inputEl.dataset.roleId;
+  if (!file || !roleId || !_v2SelOrg) return;
+  if (!/^image\//.test(file.type)) { showToast('Error', 'Please choose an image file', 'err'); return; }
+  if (file.size > 5 * 1024 * 1024) { showToast('Error', 'Image too large (max 5MB)', 'err'); return; }
+  try {
+    const dataUrl = await v2DownscaleImageToDataUrl(file, 160);
+    const res = await fetch(`/api/org/${encodeURIComponent(_v2SelOrg)}/agent/${encodeURIComponent(roleId)}/avatar${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avatarDataUrl: dataUrl }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'failed');
+    const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+    const r = roles.find(x => x.id === roleId);
+    if (r) r.avatar = dataUrl;
+    const imgEl = document.getElementById('oad-avatar-img');
+    if (imgEl) imgEl.src = dataUrl;
+    showToast('Avatar updated', roleId, 'ok');
+    if (document.getElementById('odt-roles')) v2RenderOrgRoles();
+    if (_v2SelOrg) v2RenderOrgChart();
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+// Downscale/center-crop an uploaded image client-side before sending — avatars are
+// stored inline as data URLs in the org config JSON, so keeping them small matters.
+function v2DownscaleImageToDataUrl(file, size) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.onload = () => {
+      img.onerror = () => reject(new Error('Could not decode image'));
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const s = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // Minimal, XSS-safe markdown → HTML (headings, lists, code, bold/italic, inline code).
 function v2RenderMarkdown(md) {
   if (!md) return '';
