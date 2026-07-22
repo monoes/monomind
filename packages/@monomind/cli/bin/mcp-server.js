@@ -41,22 +41,31 @@ process.stdin.on('data', async (chunk) => {
 
   for (const line of lines) {
     if (line.trim()) {
+      let parsed;
       try {
-        const message = JSON.parse(line);
-        const response = await handleMessage(message);
+        parsed = JSON.parse(line);
+      } catch {
+        console.log(JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error' },
+        }));
+        continue;
+      }
+      try {
+        const response = await handleMessage(parsed);
         if (response) {
           console.log(JSON.stringify(response));
         }
       } catch (error) {
         console.error(
-          `[${new Date().toISOString()}] ERROR [monomind-mcp] Failed to parse:`,
+          `[${new Date().toISOString()}] ERROR [monomind-mcp] handler error:`,
           error instanceof Error ? error.message : String(error)
         );
-        // Send parse error response
         console.log(JSON.stringify({
           jsonrpc: '2.0',
-          id: null,
-          error: { code: -32700, message: 'Parse error' },
+          id: parsed.id ?? null,
+          error: { code: -32603, message: error instanceof Error ? error.message : 'Internal error' },
         }));
       }
     }
@@ -122,7 +131,7 @@ async function handleMessage(message) {
       }
 
       case 'tools/list': {
-        const tools = listMCPTools();
+        const tools = await listMCPTools();
         return {
           jsonrpc: '2.0',
           id: message.id,
@@ -140,7 +149,7 @@ async function handleMessage(message) {
         const toolName = params.name;
         const toolParams = params.arguments || {};
 
-        if (!hasTool(toolName)) {
+        if (!await hasTool(toolName)) {
           return {
             jsonrpc: '2.0',
             id: message.id,
