@@ -24,10 +24,14 @@ const STOPWORDS = new Set([
  */
 export function extractSearchTerms(query: string): string[] {
   const words = query.split(/[\s,;:!?()\[\]{}'"]+/).filter(Boolean);
-  // If query is a single token or all tokens are code-like, it's already an identifier query
+  // If query is a single token, it's already a bare identifier query — nothing to extract.
+  // (We used to also bail out for short, stopword-free multi-token queries under the
+  // assumption they were "already an identifier query", but that misfires for queries
+  // like "ExtensionBridge keepalive reconnect" — three distinct identifier-ish tokens
+  // that FTS5 MATCH ANDs together and fails to find as a single row. Since this function
+  // only runs as a fallback after the raw MATCH already returned zero rows, there's no
+  // extra cost to always extracting terms for multi-token queries.)
   if (words.length <= 1) return [];
-  const hasStopword = words.some(w => STOPWORDS.has(w.toLowerCase()));
-  if (!hasStopword && words.length <= 3) return [];
 
   const terms = new Set<string>();
   for (const word of words) {
