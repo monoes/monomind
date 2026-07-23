@@ -35,6 +35,10 @@ export const RoleSchema = z.object({
   }).partial().optional(),
   provider: ProviderSchema.optional(),
   policy: RolePolicySchema.optional(),
+  /** Per-role override of run_config.max_turns_per_message — roles that legitimately
+   *  need many more turns per message (e.g. a developer doing sequential build/fix/verify
+   *  cycles) than others (e.g. docs, pm) shouldn't be forced onto one global budget. */
+  max_turns_per_message: z.number().int().positive().optional(),
 }).passthrough();
 
 export const OrgDefSchema = z.object({
