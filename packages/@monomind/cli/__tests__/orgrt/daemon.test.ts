@@ -37,6 +37,38 @@ async function waitUntil(pred: () => boolean, timeoutMs = 5000): Promise<boolean
   return pred();
 }
 
+describe('OrgDaemon — per-role max_turns_per_message override', () => {
+  it('uses a role\'s own max_turns_per_message when set, falling back to run_config for roles without one', async () => {
+    // Regression (issue #25's still-valid ask): a global turn budget forces
+    // every role onto the same cap even though e.g. a developer role legitimately
+    // needs far more turns per message than a docs/pm role.
+    const root = mkdtempSync(join(tmpdir(), 'daemon-maxturns-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { max_turns_per_message: 30 },
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'developer', title: 'Developer', type: 'specialist', reports_to: 'boss', max_turns_per_message: 80 },
+      ],
+    }));
+
+    const seenMaxTurns: Record<string, number> = {};
+    const capturingQuery = ({ prompt, options }: any) => {
+      const roleId = /You are agent "([^"]+)"/.exec(options.systemPrompt)?.[1] ?? 'unknown';
+      seenMaxTurns[roleId] = options.maxTurns;
+      return echoQuery({ prompt, options });
+    };
+
+    const d = new OrgDaemon(root, { queryFn: capturingQuery as any, forward: false });
+    await d.startOrg('alpha');
+    await d.stopAll();
+
+    expect(seenMaxTurns.boss).toBe(30); // falls back to run_config default
+    expect(seenMaxTurns.developer).toBe(80); // per-role override wins
+  });
+});
+
 describe('OrgDaemon', () => {
   it('stopOrg waits for the forwarder\'s final POST (org:complete/session:complete) before returning', async () => {
     // Regression: stopOrg used to resolve as soon as bus.flush() (local disk write)

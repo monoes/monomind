@@ -72,7 +72,22 @@ if (isMCPMode) {
   // (or a slow trickle without newlines) cannot OOM-kill the process.
   const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
   let buffer = '';
+  // Tracks handleMessage() calls still in flight when stdin closes — without
+  // this, 'end' calling process.exit(0) unconditionally could kill the process
+  // mid-handler and silently drop the response a client is still waiting on
+  // (issue #39).
+  let inFlight = 0;
+  let stdinEnded = false;
   process.stdin.setEncoding('utf8');
+  // process.stdout.write() to a pipe is NOT guaranteed synchronous — for a
+  // large payload (e.g. a full tools/list response) the OS write can still be
+  // in flight when the call returns. console.log() doesn't expose that, so
+  // calling process.exit() right after it can truncate/drop the very response
+  // being protected. Wait for the actual flush callback before allowing exit.
+  function writeLine(str) {
+    return new Promise((resolve) => process.stdout.write(str + '\n', resolve));
+  }
+
   process.stdin.on('data', async (chunk) => {
     buffer += chunk;
     if (buffer.length > MAX_BUFFER_BYTES) {
@@ -81,38 +96,51 @@ if (isMCPMode) {
     }
     let lines = buffer.split('\n');
     buffer = lines.pop() || '';
+    const toProcess = lines.filter((line) => line.trim());
+    // Reserve the WHOLE batch synchronously, before any `await` yields control —
+    // otherwise 'end' can fire in the gap between two lines of the same chunk
+    // (inFlight transiently reads 0 after line 1 finishes but before line 2's
+    // own increment runs), exiting mid-batch and dropping the rest silently.
+    inFlight += toProcess.length;
 
-    for (const line of lines) {
-      if (line.trim()) {
-        let parsed;
-        try {
-          parsed = JSON.parse(line);
-        } catch {
-          console.log(JSON.stringify({
-            jsonrpc: '2.0',
-            id: null,
-            error: { code: -32700, message: 'Parse error' },
-          }));
-          continue;
+    for (const line of toProcess) {
+      let parsed;
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        await writeLine(JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error' },
+        }));
+        inFlight--;
+        if (stdinEnded && inFlight === 0) process.exit(0);
+        continue;
+      }
+      try {
+        const response = await handleMessage(parsed);
+        if (response) {
+          await writeLine(JSON.stringify(response));
         }
-        try {
-          const response = await handleMessage(parsed);
-          if (response) {
-            console.log(JSON.stringify(response));
-          }
-        } catch (error) {
-          console.log(JSON.stringify({
-            jsonrpc: '2.0',
-            id: parsed.id ?? null,
-            error: { code: -32603, message: error instanceof Error ? error.message : 'Internal error' },
-          }));
-        }
+      } catch (error) {
+        await writeLine(JSON.stringify({
+          jsonrpc: '2.0',
+          id: parsed.id ?? null,
+          error: { code: -32603, message: error instanceof Error ? error.message : 'Internal error' },
+        }));
+      } finally {
+        inFlight--;
+        if (stdinEnded && inFlight === 0) process.exit(0);
       }
     }
   });
 
   process.stdin.on('end', () => {
-    process.exit(0);
+    stdinEnded = true;
+    if (inFlight === 0) { process.exit(0); return; }
+    // Bounded safety net: don't hang forever if a handler is genuinely stuck.
+    const EXIT_GRACE_MS = 30000;
+    setTimeout(() => process.exit(0), EXIT_GRACE_MS).unref();
   });
 
   async function handleMessage(message) {
