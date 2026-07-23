@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Open-source CLI extension for Claude Code. Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. MIT licensed, runs locally, no data leaves your machine.",
   "main": "dist/index.js",
   "type": "module",
@@ -78,10 +78,14 @@
     "axios": ">=1.16.0",
     "qs": ">=6.15.2",
     "esbuild": ">=0.28.1",
-    "protobufjs": ">=7.5.8",
+    "protobufjs": ">=8.6.6",
     "@protobufjs/utf8": ">=1.1.1",
     "@grpc/grpc-js": ">=1.14.4",
-    "onnxruntime-node": ">=1.27.0"
+    "onnxruntime-node": ">=1.27.0",
+    "fast-uri": ">=4.1.1",
+    "sharp": ">=0.35.0",
+    "adm-zip": ">=0.6.0",
+    "body-parser": ">=1.20.6"
   },
   "pnpm": {
     "overrides": {
@@ -90,12 +94,12 @@
       "axios": ">=1.16.0",
       "qs": ">=6.15.2",
       "esbuild": ">=0.28.1",
-      "protobufjs": ">=7.5.8",
+      "protobufjs": ">=8.6.6",
       "@protobufjs/utf8": ">=1.1.1",
       "@grpc/grpc-js": ">=1.14.4",
       "vite": ">=8.0.16",
       "postcss": ">=8.5.10",
-      "fast-uri": ">=3.1.2",
+      "fast-uri": ">=4.1.1",
       "form-data": ">=4.0.6",
       "ip-address": ">=10.1.1",
       "js-yaml": ">=4.2.0",
@@ -104,7 +108,10 @@
       "follow-redirects": ">=1.16.0",
       "@anthropic-ai/claude-code": ">=2.1.163",
       "handlebars": ">=4.7.9",
-      "onnxruntime-node": ">=1.27.0"
+      "onnxruntime-node": ">=1.27.0",
+      "sharp": ">=0.35.0",
+      "adm-zip": ">=0.6.0",
+      "body-parser": ">=1.20.6"
     },
     "peerDependencyRules": {
       "allowedVersions": {
