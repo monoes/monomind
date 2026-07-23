@@ -4,7 +4,7 @@ import { unlinkSync, existsSync } from 'fs';
 import { openDb, closeDb } from '../../src/storage/db.js';
 import { insertNode, getNode, deleteNodesForFile } from '../../src/storage/node-store.js';
 import { insertEdge, getEdgesForSource } from '../../src/storage/edge-store.js';
-import { ftsSearch } from '../../src/storage/fts-store.js';
+import { ftsSearch, extractSearchTerms } from '../../src/storage/fts-store.js';
 import type { MonographNode, MonographEdge } from '../../src/types.js';
 
 const dbPath = join(tmpdir(), `monograph-stores-${Date.now()}.db`);
@@ -96,5 +96,70 @@ describe('fts-store', () => {
     });
     const results = ftsSearch(db, 'auth', 10);
     expect(results.some((r) => r.id === 'auth_service')).toBe(true);
+  });
+
+  // Regression tests for issue #37 follow-up: monograph_augment identifier+keyword gap.
+  // extractSearchTerms used to bail out entirely for short (<=3 word), stopword-free
+  // queries under the assumption they were "already a bare identifier" — but that's
+  // wrong for multi-token identifier+keyword combos like "ExtensionBridge keepalive
+  // reconnect", which the raw FTS5 MATCH ANDs together and never finds as one row.
+  describe('identifier+keyword combo queries (issue #37 follow-up)', () => {
+    beforeAll(() => {
+      insertNode(db, {
+        id: 'extension_bridge',
+        label: 'Class',
+        name: 'ExtensionBridge',
+        normLabel: 'extensionbridge',
+        filePath: 'src/browser/extension-bridge.ts',
+        isExported: true,
+      });
+    });
+
+    it('finds a node for a combined identifier+keyword query (previously zero results)', () => {
+      const results = ftsSearch(db, 'ExtensionBridge keepalive reconnect', 10);
+      expect(results.some((r) => r.id === 'extension_bridge')).toBe(true);
+    });
+
+    it('still finds the node for a bare identifier query (regression guard)', () => {
+      const results = ftsSearch(db, 'ExtensionBridge', 10);
+      expect(results.some((r) => r.id === 'extension_bridge')).toBe(true);
+    });
+
+    it('still finds the node for a full natural-language sentence (regression guard, 2.5.8 fix)', () => {
+      const results = ftsSearch(
+        db,
+        'where is the browser extension bridge connection established and how does the keepalive detect dead connections',
+        10,
+      );
+      expect(results.some((r) => r.id === 'extension_bridge')).toBe(true);
+    });
+
+    it('still strips file extensions from queries (regression guard, "CLAUDE.md")', () => {
+      insertNode(db, {
+        id: 'claude_md',
+        label: 'File',
+        name: 'CLAUDE',
+        normLabel: 'claude',
+        filePath: 'CLAUDE.md',
+        isExported: false,
+      });
+      const results = ftsSearch(db, 'CLAUDE.md', 10);
+      expect(results.some((r) => r.id === 'claude_md')).toBe(true);
+    });
+  });
+
+  describe('extractSearchTerms', () => {
+    it('extracts identifier parts from a 3-word stopword-free combo query', () => {
+      const terms = extractSearchTerms('ExtensionBridge keepalive reconnect');
+      expect(terms).toContain('ExtensionBridge');
+      expect(terms).toContain('Extension');
+      expect(terms).toContain('Bridge');
+      expect(terms).toContain('keepalive');
+      expect(terms).toContain('reconnect');
+    });
+
+    it('returns empty for a single bare identifier token', () => {
+      expect(extractSearchTerms('ExtensionBridge')).toEqual([]);
+    });
   });
 });
