@@ -86,6 +86,43 @@ describe('runAgentSession', () => {
     expect(statuses).toContain('session restarting (turn limit reached, mailbox still open)');
   });
 
+  it('resumes the SDK conversation on maxTurns restart instead of starting fresh', async () => {
+    // Regression: runOneSession's restart used to call queryFn again with no
+    // memory of the prior SDK session, so the role lost all in-progress
+    // reasoning/context on every maxTurns cutoff. The fix must capture the
+    // session_id the SDK reports and pass it back as `resume` on the next call.
+    const bus = new OrgBus('o', 'r', dir());
+    const mailbox = new Mailbox();
+    mailbox.push('m1');
+
+    const seenResumeOptions: (string | undefined)[] = [];
+    let callCount = 0;
+    const fakeQuery = ({ prompt, options }: any) => (async function* () {
+      callCount++;
+      seenResumeOptions.push(options.resume);
+      const it = prompt[Symbol.asyncIterator]();
+      await it.next(); // consume exactly one message, like a maxTurns-truncated session
+      yield { type: 'result', subtype: 'error_max_turns', usage: { input_tokens: 1, output_tokens: 1 }, session_id: 'sdk-session-abc' };
+    })();
+
+    const policy = new PolicyEngine('coder', {}, bus, '/work');
+    const donePromise = runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    await new Promise(r => setTimeout(r, 20));
+    mailbox.push('m2');
+    mailbox.close();
+    await donePromise;
+
+    expect(callCount).toBe(2);
+    expect(seenResumeOptions[0]).toBeUndefined(); // first call: no prior session to resume
+    expect(seenResumeOptions[1]).toBe('sdk-session-abc'); // restart: resumes the SDK's own session id
+  });
+
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {
     const p = buildRolePrompt(
       { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: ['write code'] } as any,
