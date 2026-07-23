@@ -217,6 +217,17 @@ export async function getObjectIdForRef(
   return result.object?.objectId ?? null;
 }
 
+/**
+ * Returns the element's content box — but `x`/`y` are the CENTER point
+ * (averaged across all four corners of CDP's content quad), not the
+ * top-left origin a `getBoundingClientRect()`-style box normally implies.
+ * This is deliberate: every caller in this file (clickElement, fillElement,
+ * hoverElement, dragElement, ...) uses box.x/box.y directly as the
+ * interaction target, which should land at the element's center. Do NOT
+ * add width/2 or height/2 to these values — that double-offsets away from
+ * the element (see issue #15). If you need the true top-left origin, derive
+ * it as `x - width / 2, y - height / 2`.
+ */
 export async function getElementBox(
   client: CdpClient,
   sessionId: string,

@@ -9,6 +9,12 @@ vi.mock('@monoes/monograph', () => ({
     close: vi.fn(),
   }),
   closeDb: vi.fn(),
+  SYMBOL_NODE_LABELS: new Set([
+    'Function', 'Class', 'Method', 'Interface', 'Variable', 'Struct', 'Enum',
+    'Macro', 'Typedef', 'Union', 'Namespace', 'Trait', 'Impl', 'TypeAlias',
+    'Const', 'Static', 'Property', 'Record', 'Delegate', 'Annotation',
+    'Constructor', 'Template', 'Module',
+  ]),
 }));
 
 describe('monograph tools are importable', () => {
@@ -26,5 +32,41 @@ describe('monograph tools are importable', () => {
       expect(tool.inputSchema).toBeDefined();
       expect(typeof tool.handler).toBe('function');
     }
+  });
+});
+
+describe('preferSymbolHits (issue #38: doc mentions outranking real code targets)', () => {
+  const SYMBOL_LABELS = new Set(['Function', 'Class', 'Method']);
+
+  it('filters out doc/concept hits when at least one code-symbol hit is present', async () => {
+    const { preferSymbolHits } = await import('../src/mcp-tools/monograph-tools.js');
+    const hits = [
+      { id: 'doc1', label: 'Document', name: 'GRAPH_REPORT.md chunk mentioning FAST_RETRY_MAX' },
+      { id: 'fn1', label: 'Function', name: 'spawnAgent' },
+      { id: 'concept1', label: 'Concept', name: 'retry' },
+    ];
+    const result = preferSymbolHits(hits, SYMBOL_LABELS);
+    expect(result).toEqual([{ id: 'fn1', label: 'Function', name: 'spawnAgent' }]);
+  });
+
+  it('falls back to the full hit list when there are no code-symbol hits at all', async () => {
+    const { preferSymbolHits } = await import('../src/mcp-tools/monograph-tools.js');
+    const hits = [
+      { id: 'doc1', label: 'Document', name: 'doc chunk' },
+      { id: 'concept1', label: 'Concept', name: 'concept' },
+    ];
+    const result = preferSymbolHits(hits, SYMBOL_LABELS);
+    expect(result).toEqual(hits);
+  });
+
+  it('keeps only symbol hits, preserving their relative order, when mixed', async () => {
+    const { preferSymbolHits } = await import('../src/mcp-tools/monograph-tools.js');
+    const hits = [
+      { id: 'cls1', label: 'Class', name: 'AgentSpawner' },
+      { id: 'doc1', label: 'Document', name: 'doc chunk' },
+      { id: 'meth1', label: 'Method', name: 'retry' },
+    ];
+    const result = preferSymbolHits(hits, SYMBOL_LABELS);
+    expect(result.map(h => h.id)).toEqual(['cls1', 'meth1']);
   });
 });

@@ -153,7 +153,7 @@ export class OrgDaemon {
       const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve() };
       const sessionOpts = {
         org: name, role, bus, policy, mailbox, cwd, def,
-        maxTurns: def.run_config.max_turns_per_message,
+        maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
         deliver: (from: string, to: string, subject: string, body: string) => this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
         onComplete: role.id === bossRole.id

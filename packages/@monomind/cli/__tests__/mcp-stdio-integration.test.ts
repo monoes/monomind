@@ -125,3 +125,36 @@ describe('MCP stdio integration (real child process, issue #36 regression)', () 
     expect(toolsResponse.result.tools.length).toBeGreaterThan(0);
   }, 25000);
 });
+
+describe('MCP stdio in-flight handler drop on stdin end (issue #39 regression)', () => {
+  let child: ChildProcessWithoutNullStreams | null = null;
+
+  afterEach(() => {
+    if (child && !child.killed) {
+      child.kill();
+    }
+    child = null;
+  });
+
+  it('still delivers a slow tools/list response after stdin closes mid-flight, instead of dropping it silently', async () => {
+    child = spawn('node', [CLI_BIN, 'mcp', 'start'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    // Only initialize responds with an id here; tools/list is the slow call
+    // whose response must survive stdin closing right after it's sent.
+    const responsesPromise = collectResponses(child, 2, 20000);
+
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }) + '\n');
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }) + '\n');
+    // Close stdin immediately — before the async tools/list handler (which
+    // lazy-loads ~26 tool categories) has any realistic chance to resolve.
+    child.stdin.end();
+
+    const responses = await responsesPromise;
+    const toolsResponse = responses.find((r) => r.id === 2);
+    expect(toolsResponse).toBeDefined();
+    expect(Array.isArray(toolsResponse?.result?.tools)).toBe(true);
+    expect(toolsResponse.result.tools.length).toBeGreaterThan(0);
+  }, 25000);
+});
