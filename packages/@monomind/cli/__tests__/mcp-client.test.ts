@@ -18,7 +18,7 @@ import {
 vi.mock('../src/mcp-tools/agent-tools.js', () => ({
   agentTools: [
     {
-      name: 'agent/spawn',
+      name: 'agent_spawn',
       description: 'Spawn a new agent',
       category: 'agent',
       inputSchema: {
@@ -38,7 +38,7 @@ vi.mock('../src/mcp-tools/agent-tools.js', () => ({
       }))
     },
     {
-      name: 'agent/list',
+      name: 'agent_list',
       description: 'List all agents',
       category: 'agent',
       inputSchema: {
@@ -57,7 +57,7 @@ vi.mock('../src/mcp-tools/agent-tools.js', () => ({
       }))
     },
     {
-      name: 'agent/terminate',
+      name: 'agent_terminate',
       description: 'Terminate an agent',
       category: 'agent',
       inputSchema: {
@@ -80,7 +80,7 @@ vi.mock('../src/mcp-tools/agent-tools.js', () => ({
 vi.mock('../src/mcp-tools/swarm-tools.js', () => ({
   swarmTools: [
     {
-      name: 'swarm/init',
+      name: 'swarm_init',
       description: 'Initialize a swarm',
       category: 'swarm',
       inputSchema: {
@@ -108,7 +108,7 @@ vi.mock('../src/mcp-tools/swarm-tools.js', () => ({
 vi.mock('../src/mcp-tools/memory-tools.js', () => ({
   memoryTools: [
     {
-      name: 'memory/store',
+      name: 'memory_store',
       description: 'Store data in memory',
       category: 'memory',
       inputSchema: {
@@ -132,7 +132,7 @@ vi.mock('../src/mcp-tools/memory-tools.js', () => ({
 vi.mock('../src/mcp-tools/config-tools.js', () => ({
   configTools: [
     {
-      name: 'config/get',
+      name: 'config_get',
       description: 'Get configuration value',
       category: 'config',
       inputSchema: {
@@ -151,8 +151,8 @@ vi.mock('../src/mcp-tools/config-tools.js', () => ({
 
 describe('MCP Client', () => {
   describe('callMCPTool', () => {
-    it('should call agent/spawn tool successfully', async () => {
-      const result = await callMCPTool('agent/spawn', {
+    it('should call agent_spawn tool successfully', async () => {
+      const result = await callMCPTool('agent_spawn', {
         agentType: 'coder',
         id: 'test-coder-1'
       });
@@ -165,8 +165,8 @@ describe('MCP Client', () => {
       expect(result.createdAt).toBeDefined();
     });
 
-    it('should call agent/list tool successfully', async () => {
-      const result = await callMCPTool<{ agents: unknown[]; total: number }>('agent/list', {
+    it('should call agent_list tool successfully', async () => {
+      const result = await callMCPTool<{ agents: unknown[]; total: number }>('agent_list', {
         status: 'active',
         limit: 10
       });
@@ -177,8 +177,8 @@ describe('MCP Client', () => {
       expect(result.agents[0]).toHaveProperty('agentType');
     });
 
-    it('should call agent/terminate tool successfully', async () => {
-      const result = await callMCPTool('agent/terminate', {
+    it('should call agent_terminate tool successfully', async () => {
+      const result = await callMCPTool('agent_terminate', {
         agentId: 'agent-1',
         graceful: true
       });
@@ -190,8 +190,8 @@ describe('MCP Client', () => {
       expect(result.terminatedAt).toBeDefined();
     });
 
-    it('should call swarm/init tool successfully', async () => {
-      const result = await callMCPTool('swarm/init', {
+    it('should call swarm_init tool successfully', async () => {
+      const result = await callMCPTool('swarm_init', {
         topology: 'hierarchical-mesh',
         maxAgents: 15
       });
@@ -206,8 +206,8 @@ describe('MCP Client', () => {
       });
     });
 
-    it('should call memory/store tool successfully', async () => {
-      const result = await callMCPTool('memory/store', {
+    it('should call memory_store tool successfully', async () => {
+      const result = await callMCPTool('memory_store', {
         key: 'test-key',
         value: 'test-value',
         namespace: 'default'
@@ -220,8 +220,8 @@ describe('MCP Client', () => {
       expect(result.timestamp).toBeDefined();
     });
 
-    it('should call config/get tool successfully', async () => {
-      const result = await callMCPTool('config/get', {
+    it('should call config_get tool successfully', async () => {
+      const result = await callMCPTool('config_get', {
         key: 'swarm.topology'
       });
 
@@ -233,12 +233,12 @@ describe('MCP Client', () => {
 
     it('should throw MCPClientError for non-existent tool', async () => {
       await expect(
-        callMCPTool('nonexistent/tool', {})
+        callMCPTool('nonexistent_tool', {})
       ).rejects.toThrow(MCPClientError);
 
       await expect(
-        callMCPTool('nonexistent/tool', {})
-      ).rejects.toThrow('MCP tool not found: nonexistent/tool');
+        callMCPTool('nonexistent_tool', {})
+      ).rejects.toThrow('MCP tool not found: nonexistent_tool');
     });
 
     it('should wrap handler errors in MCPClientError', async () => {
@@ -249,18 +249,18 @@ describe('MCP Client', () => {
       // We can't easily test this with the current mock setup, so we'll test
       // that a non-existent tool throws the correct error type
       try {
-        await callMCPTool('nonexistent/tool', {});
+        await callMCPTool('nonexistent_tool', {});
         expect.fail('Should have thrown MCPClientError');
       } catch (error) {
         expect(error).toBeInstanceOf(MCPClientError);
-        expect((error as MCPClientError).toolName).toBe('nonexistent/tool');
+        expect((error as MCPClientError).toolName).toBe('nonexistent_tool');
       }
     });
 
     it('should pass context to tool handler', async () => {
       const context = { userId: 'test-user', sessionId: 'test-session' };
 
-      const result = await callMCPTool('agent/spawn', {
+      const result = await callMCPTool('agent_spawn', {
         agentType: 'coder'
       }, context);
 
@@ -269,7 +269,7 @@ describe('MCP Client', () => {
     });
 
     it('should handle empty input object', async () => {
-      const result = await callMCPTool('agent/list', {});
+      const result = await callMCPTool('agent_list', {});
 
       expect(result).toHaveProperty('agents');
       expect(result).toHaveProperty('total');
@@ -277,35 +277,35 @@ describe('MCP Client', () => {
   });
 
   describe('getToolMetadata', () => {
-    it('should return metadata for existing tool', () => {
-      const metadata = getToolMetadata('agent/spawn');
+    it('should return metadata for existing tool', async () => {
+      const metadata = await getToolMetadata('agent_spawn');
 
       expect(metadata).toBeDefined();
-      expect(metadata?.name).toBe('agent/spawn');
+      expect(metadata?.name).toBe('agent_spawn');
       expect(metadata?.description).toBe('Spawn a new agent');
       expect(metadata?.category).toBe('agent');
       expect(metadata?.inputSchema).toBeDefined();
       expect(metadata).not.toHaveProperty('handler');
     });
 
-    it('should return undefined for non-existent tool', () => {
-      const metadata = getToolMetadata('nonexistent/tool');
+    it('should return undefined for non-existent tool', async () => {
+      const metadata = await getToolMetadata('nonexistent_tool');
 
       expect(metadata).toBeUndefined();
     });
 
-    it('should not include handler in metadata', () => {
-      const metadata = getToolMetadata('agent/spawn');
+    it('should not include handler in metadata', async () => {
+      const metadata = await getToolMetadata('agent_spawn');
 
       expect(metadata).toBeDefined();
       expect(metadata).not.toHaveProperty('handler');
     });
 
-    it('should return complete metadata structure', () => {
-      const metadata = getToolMetadata('swarm/init');
+    it('should return complete metadata structure', async () => {
+      const metadata = await getToolMetadata('swarm_init');
 
       expect(metadata).toMatchObject({
-        name: 'swarm/init',
+        name: 'swarm_init',
         description: expect.any(String),
         category: 'swarm',
         inputSchema: expect.any(Object)
@@ -314,34 +314,34 @@ describe('MCP Client', () => {
   });
 
   describe('listMCPTools', () => {
-    it('should list all available tools', () => {
-      const tools = listMCPTools();
+    it('should list all available tools', async () => {
+      const tools = await listMCPTools();
 
       expect(tools.length).toBeGreaterThan(0);
       expect(tools.every(t => t.name && t.description)).toBe(true);
     });
 
-    it('should filter tools by category', () => {
-      const agentTools = listMCPTools('agent');
+    it('should filter tools by category', async () => {
+      const agentTools = await listMCPTools('agent');
 
       expect(agentTools.length).toBeGreaterThan(0);
       expect(agentTools.every(t => t.category === 'agent')).toBe(true);
     });
 
-    it('should return empty array for non-existent category', () => {
-      const tools = listMCPTools('nonexistent');
+    it('should return empty array for non-existent category', async () => {
+      const tools = await listMCPTools('nonexistent');
 
       expect(tools).toEqual([]);
     });
 
-    it('should not include handlers in listed tools', () => {
-      const tools = listMCPTools();
+    it('should not include handlers in listed tools', async () => {
+      const tools = await listMCPTools();
 
       expect(tools.every(t => !('handler' in t))).toBe(true);
     });
 
-    it('should include all metadata fields', () => {
-      const tools = listMCPTools();
+    it('should include all metadata fields', async () => {
+      const tools = await listMCPTools();
 
       tools.forEach(tool => {
         expect(tool).toHaveProperty('name');
@@ -353,26 +353,26 @@ describe('MCP Client', () => {
   });
 
   describe('hasTool', () => {
-    it('should return true for existing tool', () => {
-      expect(hasTool('agent/spawn')).toBe(true);
-      expect(hasTool('agent/list')).toBe(true);
-      expect(hasTool('swarm/init')).toBe(true);
+    it('should return true for existing tool', async () => {
+      expect(await hasTool('agent_spawn')).toBe(true);
+      expect(await hasTool('agent_list')).toBe(true);
+      expect(await hasTool('swarm_init')).toBe(true);
     });
 
-    it('should return false for non-existent tool', () => {
-      expect(hasTool('nonexistent/tool')).toBe(false);
-      expect(hasTool('invalid')).toBe(false);
+    it('should return false for non-existent tool', async () => {
+      expect(await hasTool('nonexistent_tool')).toBe(false);
+      expect(await hasTool('invalid')).toBe(false);
     });
 
-    it('should be case-sensitive', () => {
-      expect(hasTool('agent/spawn')).toBe(true);
-      expect(hasTool('Agent/Spawn')).toBe(false);
+    it('should be case-sensitive', async () => {
+      expect(await hasTool('agent_spawn')).toBe(true);
+      expect(await hasTool('Agent_Spawn')).toBe(false);
     });
   });
 
   describe('getToolCategories', () => {
-    it('should return all unique categories', () => {
-      const categories = getToolCategories();
+    it('should return all unique categories', async () => {
+      const categories = await getToolCategories();
 
       expect(categories).toContain('agent');
       expect(categories).toContain('swarm');
@@ -380,15 +380,15 @@ describe('MCP Client', () => {
       expect(categories).toContain('config');
     });
 
-    it('should return sorted categories', () => {
-      const categories = getToolCategories();
+    it('should return sorted categories', async () => {
+      const categories = await getToolCategories();
       const sorted = [...categories].sort();
 
       expect(categories).toEqual(sorted);
     });
 
-    it('should not contain duplicates', () => {
-      const categories = getToolCategories();
+    it('should not contain duplicates', async () => {
+      const categories = await getToolCategories();
       const unique = [...new Set(categories)];
 
       expect(categories).toEqual(unique);
@@ -396,8 +396,8 @@ describe('MCP Client', () => {
   });
 
   describe('validateToolInput', () => {
-    it('should validate required fields', () => {
-      const result = validateToolInput('agent/spawn', {
+    it('should validate required fields', async () => {
+      const result = await validateToolInput('agent_spawn', {
         agentType: 'coder',
         id: 'test-1'
       });
@@ -406,8 +406,8 @@ describe('MCP Client', () => {
       expect(result.errors).toBeUndefined();
     });
 
-    it('should detect missing required fields', () => {
-      const result = validateToolInput('agent/spawn', {
+    it('should detect missing required fields', async () => {
+      const result = await validateToolInput('agent_spawn', {
         id: 'test-1'
         // Missing required 'agentType'
       });
@@ -417,15 +417,15 @@ describe('MCP Client', () => {
       expect(result.errors).toContain('Missing required field: agentType');
     });
 
-    it('should return invalid for non-existent tool', () => {
-      const result = validateToolInput('nonexistent/tool', {});
+    it('should return invalid for non-existent tool', async () => {
+      const result = await validateToolInput('nonexistent_tool', {});
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain("Tool 'nonexistent/tool' not found");
+      expect(result.errors).toContain("Tool 'nonexistent_tool' not found");
     });
 
-    it('should validate multiple required fields', () => {
-      const result = validateToolInput('agent/terminate', {
+    it('should validate multiple required fields', async () => {
+      const result = await validateToolInput('agent_terminate', {
         // Missing required 'agentId'
         graceful: true
       });
@@ -434,8 +434,8 @@ describe('MCP Client', () => {
       expect(result.errors).toContain('Missing required field: agentId');
     });
 
-    it('should pass with all required fields present', () => {
-      const result = validateToolInput('agent/terminate', {
+    it('should pass with all required fields present', async () => {
+      const result = await validateToolInput('agent_terminate', {
         agentId: 'agent-1',
         graceful: true
       });
@@ -444,8 +444,8 @@ describe('MCP Client', () => {
       expect(result.errors).toBeUndefined();
     });
 
-    it('should allow optional fields to be missing', () => {
-      const result = validateToolInput('swarm/init', {
+    it('should allow optional fields to be missing', async () => {
+      const result = await validateToolInput('swarm_init', {
         topology: 'hierarchical'
         // maxAgents is optional
       });
@@ -456,16 +456,16 @@ describe('MCP Client', () => {
 
   describe('MCPClientError', () => {
     it('should create error with tool name', () => {
-      const error = new MCPClientError('Test error', 'test/tool');
+      const error = new MCPClientError('Test error', 'test_tool');
 
       expect(error.message).toBe('Test error');
-      expect(error.toolName).toBe('test/tool');
+      expect(error.toolName).toBe('test_tool');
       expect(error.name).toBe('MCPClientError');
     });
 
     it('should include cause error', () => {
       const cause = new Error('Original error');
-      const error = new MCPClientError('Wrapper error', 'test/tool', cause);
+      const error = new MCPClientError('Wrapper error', 'test_tool', cause);
 
       expect(error.cause).toBe(cause);
     });
