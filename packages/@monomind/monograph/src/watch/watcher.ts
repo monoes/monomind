@@ -13,6 +13,8 @@ export interface WatchAsyncOptions extends WatcherOptions {
   force?: boolean;
   codeOnly?: boolean;
   llmMaxSections?: number;
+  /** Auto-stop after this many ms of no file changes. Default 30min. 0 = never. */
+  idleTimeoutMs?: number;
 }
 
 /** Convenience: start a watcher and trigger buildAsync on every change. Returns stop() fn. */
@@ -23,11 +25,25 @@ export async function watchAsync(
   const { buildAsync } = await import('../pipeline/orchestrator.js');
   const watcher = new MonographWatcher(repoPath, { debounceMs: opts.debounceMs ?? 3000 });
 
+  // Idle timeout: auto-stop after prolonged inactivity to reclaim resources.
+  const idleMs = opts.idleTimeoutMs ?? 30 * 60_000; // default 30min
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  const resetIdle = (): void => {
+    if (idleMs <= 0) return;
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      opts.onProgress?.({ phase: 'watch', message: `No changes for ${Math.round(idleMs / 60_000)}min — auto-stopping watcher.` });
+      watcher.stop().catch(() => {});
+    }, idleMs);
+    (idleTimer as { unref?: () => void }).unref?.();
+  };
+
   // monolean: full rebuild per change-batch, serialized — true incremental rebuild
   // (re-parse only changed files) requires restructuring the phase pipeline.
   let building = false;
   let rerun = false;
   watcher.on('monograph:updated', async (files: string[]) => {
+    resetIdle();
     if (building) { rerun = true; return; } // coalesce saves that land mid-build
     building = true;
     try {
@@ -52,7 +68,13 @@ export async function watchAsync(
   });
 
   await watcher.start();
-  return { stop: () => watcher.stop() };
+  resetIdle(); // start the idle clock
+  return {
+    stop: async () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      await watcher.stop();
+    },
+  };
 }
 
 export class MonographWatcher extends EventEmitter {

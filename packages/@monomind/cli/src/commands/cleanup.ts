@@ -419,6 +419,28 @@ export const cleanupCommand: Command = {
           try { unlinkSync(pp); } catch {}
         } catch { /* already gone */ }
       }
+      // Kill stale MCP server processes
+      const mcpPidPaths = [
+        join(require('os').homedir(), '.monomind', 'mcp.pid'),
+        join(cwd, '.monomind', 'mcp-server.pid'),
+      ];
+      for (const pp of mcpPidPaths) {
+        try {
+          if (!existsSync(pp) || statSync(pp).size > 32) continue;
+          const pid = parseInt(readFileSync(pp, 'utf-8').trim(), 10);
+          if (Number.isInteger(pid) && pid > 0 && looksLikeOurProcess(pid)) {
+            process.kill(pid, 'SIGTERM');
+            output.writeln(output.info(`  Stopped MCP server (pid ${pid})`));
+          }
+          try { unlinkSync(pp); } catch {}
+        } catch { /* already gone */ }
+      }
+      // Reap orphaned claude-agent-sdk processes from crashed orgs
+      try {
+        const { reapOrphanedSdkProcesses } = await import('../utils/resource-governor.js');
+        const reaped = reapOrphanedSdkProcesses(new Set());
+        if (reaped > 0) output.writeln(output.info(`  Reaped ${reaped} orphaned SDK agent process(es)`));
+      } catch { /* resource-governor not available */ }
     }
 
     output.writeln();
