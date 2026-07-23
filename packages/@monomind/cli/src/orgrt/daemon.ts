@@ -9,7 +9,7 @@ import { runAgentSession } from './session.js';
 import { attachForwarder } from './forwarder.js';
 import { BrokerLease, lookupOrg } from './broker.js';
 import { queueMessage, drainInbox } from './inbox.js';
-import { OrgDefSchema, type OrgDef, type BusEvent, ORG_DIR } from './types.js';
+import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, ORG_DIR } from './types.js';
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
 import { checkResources, waitForCapacity, getResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
@@ -137,39 +137,16 @@ export class OrgDaemon {
       } catch { return []; }
     })();
     // Resource-gated staggered spawn: check memory/process limits before each
-    // agent, wait if under pressure. Boss spawns first (no gate), workers gate.
-    const preSpawnCheck = checkResources();
-    if (!preSpawnCheck.ok) {
-      bus.emit({ type: 'audit', reason: 'resource-pressure', msg: `waiting for resources before boot: ${preSpawnCheck.reason}` });
-      const waited = await waitForCapacity(90_000);
-      if (!waited.ok) throw new Error(`org ${name}: cannot start — ${waited.reason}`);
-    }
+    // NON-BOSS agent, wait if under pressure. The boss always spawns immediately
+    // and ungated — the org has no coordinator at all without it, so gating it
+    // behind host memory pressure would make the whole org fail to start over a
+    // condition workers are specifically designed to ride out.
     const limits = getResourceLimits();
-    let spawnedCount = 0;
 
-    for (const role of def.roles) {
-      const isBoss = role.id === bossRole.id;
-      // Gate non-boss agents: stagger when under 50% free mem, resource check.
-      // Boss is never skipped — the org can't function without it.
-      if (spawnedCount > 0 && !isBoss) {
-        const check = checkResources();
-        // Stagger only when memory pressure exists (< 50% free)
-        if (check.freeMemPct < 50) {
-          await new Promise(r => { const t = setTimeout(r, limits.spawnStaggerMs); (t as { unref?: () => void }).unref?.(); });
-        }
-        if (!check.ok) {
-          bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
-            msg: `pausing spawn of "${role.id}": ${check.reason} — waiting` });
-          const waited = await waitForCapacity(60_000);
-          if (!waited.ok) {
-            bus.emit({ type: 'audit', from: role.id, reason: 'resource-skip',
-              msg: `skipping "${role.id}": ${waited.reason}` });
-            continue;
-          }
-        }
-      }
-      spawnedCount++;
-
+    // Extracted so a role that fails its gate check can be spawned later by
+    // scheduleDeferredSpawn() once resources free up, without re-running the
+    // gate logic or duplicating the session-wiring below.
+    const spawnRole = (role: OrgRole): void => {
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
         { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, cwd);
@@ -255,6 +232,32 @@ export class OrgDaemon {
         }
       })();
       running.agents.set(role.id, runtime);
+    };
+
+    spawnRole(bossRole); // always, ungated — see comment above
+    for (const role of def.roles) {
+      if (role.id === bossRole.id) continue;
+      // Gate non-boss agents: stagger when under 50% free mem, resource check.
+      const check = checkResources();
+      // Stagger only when memory pressure exists (< 50% free)
+      if (check.freeMemPct < 50) {
+        await new Promise(r => { const t = setTimeout(r, limits.spawnStaggerMs); (t as { unref?: () => void }).unref?.(); });
+      }
+      if (!check.ok) {
+        bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
+          msg: `pausing spawn of "${role.id}": ${check.reason} — waiting` });
+        const waited = await waitForCapacity(60_000);
+        if (!waited.ok) {
+          // Deferred, not dropped: a role missing for the org's whole life is
+          // worse than a slow retry loop. Retries in the background and
+          // spawns the moment capacity returns (see scheduleDeferredSpawn).
+          bus.emit({ type: 'audit', from: role.id, reason: 'resource-skip',
+            msg: `deferring "${role.id}" — will keep retrying in the background: ${waited.reason}` });
+          this.scheduleDeferredSpawn(name, running, role, spawnRole);
+          continue;
+        }
+      }
+      spawnRole(role);
     }
 
     // Crash cleanup: reap SDK children if this process exits abnormally.
@@ -344,6 +347,32 @@ export class OrgDaemon {
     if (queued.length) bus.emit({ type: 'status', msg: `drained ${queued.length} queued message(s) from inbox` });
 
     return running;
+  }
+
+  /** A role that failed its resource gate at boot isn't abandoned — keep polling
+   *  for capacity in the background (bounded) and spawn it the moment resources
+   *  free up, instead of silently running the org shorthanded for its whole life.
+   *  Bails quietly if the org is stopped (or restarted under the same name)
+   *  before capacity returns; `running` is compared by identity, not `name`,
+   *  so a stale retry can never spawn into a different run. */
+  private scheduleDeferredSpawn(name: string, running: RunningOrg, role: OrgRole, spawnRole: (role: OrgRole) => void): void {
+    const MAX_ATTEMPTS = 6; // ~30 min of retrying before giving up loudly
+    (async () => {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const waited = await waitForCapacity(5 * 60_000);
+        if (this.orgs.get(name) !== running) return; // org stopped/restarted — abandon quietly
+        if (waited.ok) {
+          running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-recovered',
+            msg: `resources recovered after ${attempt} retr${attempt === 1 ? 'y' : 'ies'} — spawning deferred role "${role.id}"` });
+          spawnRole(role);
+          return;
+        }
+        running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
+          msg: `still under pressure (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying "${role.id}" spawn: ${waited.reason}` });
+      }
+      running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-abandoned',
+        msg: `giving up spawning "${role.id}" after ${MAX_ATTEMPTS} retries — org will run without this role until manually restarted` });
+    })().catch(err => console.error(`org ${name}: deferred spawn of "${role.id}" failed:`, err instanceof Error ? err.message : err));
   }
 
   /**

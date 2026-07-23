@@ -25,6 +25,18 @@ const echoQuery = ({ prompt }: any) => (async function* () {
   }
 })();
 
+// Polls instead of a fixed sleep: startOrg()'s resource-governor check alone can
+// take ~100ms (execSync vm_stat + pgrep), so a fixed short wait after autoWake()
+// or a delivery is inherently fragile — poll for the actual condition instead.
+async function waitUntil(pred: () => boolean, timeoutMs = 5000): Promise<boolean> {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (pred()) return true;
+    await new Promise(r => setTimeout(r, 20));
+  }
+  return pred();
+}
+
 describe('OrgDaemon', () => {
   it('stopOrg waits for the forwarder\'s final POST (org:complete/session:complete) before returning', async () => {
     // Regression: stopOrg used to resolve as soon as bus.flush() (local disk write)
@@ -162,7 +174,10 @@ describe('OrgDaemon', () => {
 
     const result = await d.answerQuestion('alpha', 'coder', questionId, 'blue');
     expect(result.ok).toBe(true);
-    await new Promise(r => setTimeout(r, 100)); // let autoWake's startOrg + drainInbox + echo session settle
+    // autoWake's startOrg + drainInbox + echo session settling — the resource-governor
+    // check alone can take ~100ms, so poll rather than assume a fixed delay is enough.
+    await waitUntil(() => (d.getOrg('alpha')?.busEvents() ?? [])
+      .some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue')));
     const restarted = d.getOrg('alpha');
     expect(restarted).toBeDefined();
     expect(restarted!.busEvents().some(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes('blue'))).toBe(true);

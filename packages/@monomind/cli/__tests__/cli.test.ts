@@ -117,7 +117,7 @@ describe('CLI', () => {
       const output = consoleOutput.join('');
       expect(output).toContain('V1 FEATURES:');
       expect(output).toContain('15-agent');
-      expect(output).toContain('LanceDB');
+      expect(output).toContain('SQLite-backed ANN vector indexing');
     });
 
     it('should show examples in help', async () => {

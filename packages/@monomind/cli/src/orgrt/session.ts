@@ -76,12 +76,16 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
  */
 export async function runAgentSession(opts: SessionOpts): Promise<void> {
   const { mailbox } = opts;
+  // Carries the SDK's own session_id across a maxTurns restart so the next
+  // query() call resumes the prior conversation instead of starting cold —
+  // without this, a restart silently discarded all in-progress reasoning.
+  let resumeSessionId: string | undefined;
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state — checking isClosed before the first run
   // would skip that drain entirely.
   while (true) {
-    await runOneSession(opts);
+    resumeSessionId = await runOneSession(opts, resumeSessionId);
     // The dead session's generator may still hold the waker — drop it so a
     // push() before the next stream() starts only queues instead of being
     // consumed by the abandoned generator (silent message loss).
@@ -91,8 +95,8 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
   }
 }
 
-/** One bounded SDK session for a role; resolves when the SDK stream ends (mailbox closed or maxTurns reached). */
-async function runOneSession(opts: SessionOpts): Promise<void> {
+/** One bounded SDK session for a role; resolves with the SDK's session_id (for resuming on restart) when the stream ends (mailbox closed or maxTurns reached). */
+async function runOneSession(opts: SessionOpts, resume?: string): Promise<string | undefined> {
   const { org, role, bus, policy, mailbox, cwd, deliver } = opts;
   const queryFn = opts.queryFn ?? query;
 
@@ -178,6 +182,7 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
 
   bus.emit({ type: 'status', from: role.id, msg: 'session starting' });
 
+  let sessionId: string | undefined = resume;
   try {
     const stream = queryFn({
       prompt: mailbox.stream(),
@@ -190,6 +195,7 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
         mcpServers: { org: orgServer },
         maxTurns: opts.maxTurns ?? 30,
         permissionMode: 'default',
+        resume,
         canUseTool: async (toolName: string, input: Record<string, unknown>) =>
           policy.decide(toolName, input),
         // test seam: lets the scripted fake SDK (test-loop.ts) drive org_send and
@@ -202,6 +208,7 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
     });
 
     for await (const m of stream as AsyncIterable<any>) {
+      if (m.session_id) sessionId = m.session_id;
       if (m.type === 'assistant') {
         const text = (m.message?.content ?? [])
           .filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
@@ -217,6 +224,7 @@ async function runOneSession(opts: SessionOpts): Promise<void> {
       }
     }
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
+    return sessionId;
   } catch (err) {
     bus.emit({ type: 'status', from: role.id, msg: `session error: ${(err as Error).message}` });
     throw err;
