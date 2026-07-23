@@ -40,8 +40,8 @@ importers:
         specifier: ^1.0.6
         version: 1.0.6
       '@monoes/monograph':
-        specifier: ^1.5.0
-        version: 1.5.0(graphology-types@0.24.8)
+        specifier: ^1.5.1
+        version: 1.5.1(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -131,10 +131,10 @@ importers:
         version: 1.0.6
       '@monoes/monodesign':
         specifier: ^1.2.0
-        version: 1.2.0
+        version: 1.2.0(yauzl@2.10.0)
       '@monoes/monograph':
-        specifier: ^1.5.0
-        version: 1.5.0(graphology-types@0.24.8)
+        specifier: ^1.5.1
+        version: 1.5.1(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -880,8 +880,8 @@ packages:
     resolution: {integrity: sha512-uEyTsbOLex0m1zKzbsClVcPznuAYoQB4VeUhwdHJ38QZ5yHBlCuklCYNKwkdbar6bsJDe8RYV3yC5+n9yzyS8A==}
     hasBin: true
 
-  '@monoes/monograph@1.5.0':
-    resolution: {integrity: sha512-sySRyNBMuTYLcXztBBkHXpAG39w9B0It8Z9Jhxu5XviZZfHcAbALpcDiO07vb2UH4K+Uh23HgfiCI1PV4parQQ==}
+  '@monoes/monograph@1.5.1':
+    resolution: {integrity: sha512-wKmYjXliE9xOrF3BMA4MJoiMkBmRjtbPHTFC1iR6cPDrsCDlxgeAAZBcFHwVYLqEmSRNafUi29b6yztMpIUNxw==}
     engines: {node: '>=20.0.0'}
 
   '@monoes/routing@1.0.0':
@@ -1400,6 +1400,10 @@ packages:
   better-sqlite3@11.10.0:
     resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
 
+  better-sqlite3@12.11.1:
+    resolution: {integrity: sha512-dq9AtApgg5PGFtBzPFSBl3HZQjHok5gaQCM6zh2Yk0aSmDCs1CbnVI8/HgASQkNKsWFpseIO9beg5xxpYhbIfA==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
+
   better-sqlite3@12.9.0:
     resolution: {integrity: sha512-wqUv4Gm3toFpHDQmaKD4QhZm3g1DjUBI0yzS4UBl6lElUmXFYdTQmmEDpAFa5o8FiFiymURypEnfVHzILKaxqQ==}
     engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x}
@@ -1705,6 +1709,10 @@ packages:
 
   express@4.22.1:
     resolution: {integrity: sha512-F2X8g9P1X7uCPZMA3MVf9wcTqlyNp7IhH5qPCI0izhaOIYXaW9L535tGA3qmjRzpH+bZczqq7hVKxTR4NWnu+g==}
+    engines: {node: '>= 0.10.0'}
+
+  express@4.22.2:
+    resolution: {integrity: sha512-IuL+Elrou2ZvCFHs18/CIzy2Nzvo25nZ1/D2eIZlz7c+QUayAcYoiM2BthCjs+EBHVpjYjcuLDAiCWgeIX3X1Q==}
     engines: {node: '>= 0.10.0'}
 
   express@5.2.1:
@@ -3331,7 +3339,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@monoes/monodesign@1.2.0':
+  '@monoes/monodesign@1.2.0(yauzl@2.10.0)':
     dependencies:
       css-select: 7.0.0
       css-tree: 3.2.1
@@ -3348,11 +3356,11 @@ snapshots:
       - utf-8-validate
       - yauzl
 
-  '@monoes/monograph@1.5.0(graphology-types@0.24.8)':
+  '@monoes/monograph@1.5.1(graphology-types@0.24.8)':
     dependencies:
-      better-sqlite3: 12.9.0
+      better-sqlite3: 12.11.1
       chokidar: 3.6.0
-      express: 4.22.1
+      express: 4.22.2
       graphology: 0.25.4(graphology-types@0.24.8)
       graphology-communities-louvain: 2.0.2(graphology-types@0.24.8)
       graphology-metrics: 2.4.0(graphology-types@0.24.8)
@@ -3817,6 +3825,11 @@ snapshots:
       prebuild-install: 7.1.3
     optional: true
 
+  better-sqlite3@12.11.1:
+    dependencies:
+      bindings: 1.5.0
+      prebuild-install: 7.1.3
+
   better-sqlite3@12.9.0:
     dependencies:
       bindings: 1.5.0
@@ -4160,6 +4173,42 @@ snapshots:
       path-to-regexp: 0.1.13
       proxy-addr: 2.0.7
       qs: 6.15.2
+      range-parser: 1.2.1
+      safe-buffer: 5.2.1
+      send: 0.19.2
+      serve-static: 1.16.3
+      setprototypeof: 1.2.0
+      statuses: 2.0.2
+      type-is: 1.6.18
+      utils-merge: 1.0.1
+      vary: 1.1.2
+    transitivePeerDependencies:
+      - supports-color
+
+  express@4.22.2:
+    dependencies:
+      accepts: 1.3.8
+      array-flatten: 1.1.1
+      body-parser: 2.3.0
+      content-disposition: 0.5.4
+      content-type: 1.0.5
+      cookie: 0.7.2
+      cookie-signature: 1.0.7
+      debug: 2.6.9
+      depd: 2.0.0
+      encodeurl: 2.0.0
+      escape-html: 1.0.3
+      etag: 1.8.1
+      finalhandler: 1.3.2
+      fresh: 0.5.2
+      http-errors: 2.0.1
+      merge-descriptors: 1.0.3
+      methods: 1.1.2
+      on-finished: 2.4.1
+      parseurl: 1.3.3
+      path-to-regexp: 0.1.13
+      proxy-addr: 2.0.7
+      qs: 6.15.3
       range-parser: 1.2.1
       safe-buffer: 5.2.1
       send: 0.19.2
