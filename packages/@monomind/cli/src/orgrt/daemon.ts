@@ -11,6 +11,7 @@ import { BrokerLease, lookupOrg } from './broker.js';
 import { queueMessage, drainInbox } from './inbox.js';
 import { OrgDefSchema, type OrgDef, type BusEvent, ORG_DIR } from './types.js';
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
+import { checkResources, waitForCapacity, getResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 
 interface AgentRuntime {
@@ -135,7 +136,40 @@ export class OrgDaemon {
         return await kg.kgGlossary({ dbPath: this.orgMemoryDbPath() });
       } catch { return []; }
     })();
+    // Resource-gated staggered spawn: check memory/process limits before each
+    // agent, wait if under pressure. Boss spawns first (no gate), workers gate.
+    const preSpawnCheck = checkResources();
+    if (!preSpawnCheck.ok) {
+      bus.emit({ type: 'audit', reason: 'resource-pressure', msg: `waiting for resources before boot: ${preSpawnCheck.reason}` });
+      const waited = await waitForCapacity(90_000);
+      if (!waited.ok) throw new Error(`org ${name}: cannot start — ${waited.reason}`);
+    }
+    const limits = getResourceLimits();
+    let spawnedCount = 0;
+
     for (const role of def.roles) {
+      const isBoss = role.id === bossRole.id;
+      // Gate non-boss agents: stagger when under 50% free mem, resource check.
+      // Boss is never skipped — the org can't function without it.
+      if (spawnedCount > 0 && !isBoss) {
+        const check = checkResources();
+        // Stagger only when memory pressure exists (< 50% free)
+        if (check.freeMemPct < 50) {
+          await new Promise(r => { const t = setTimeout(r, limits.spawnStaggerMs); (t as { unref?: () => void }).unref?.(); });
+        }
+        if (!check.ok) {
+          bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
+            msg: `pausing spawn of "${role.id}": ${check.reason} — waiting` });
+          const waited = await waitForCapacity(60_000);
+          if (!waited.ok) {
+            bus.emit({ type: 'audit', from: role.id, reason: 'resource-skip',
+              msg: `skipping "${role.id}": ${waited.reason}` });
+            continue;
+          }
+        }
+      }
+      spawnedCount++;
+
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
         { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, cwd);
@@ -222,6 +256,17 @@ export class OrgDaemon {
       })();
       running.agents.set(role.id, runtime);
     }
+
+    // Crash cleanup: reap SDK children if this process exits abnormally.
+    // monolean: process-scoped listener — upgrade path = per-org tracking
+    const crashCleanup = (): void => {
+      try {
+        const rg = require('../utils/resource-governor.js') as typeof import('../utils/resource-governor.js');
+        rg.reapOrphanedSdkProcesses(new Set(), process.pid);
+      } catch { /* best-effort */ }
+    };
+    process.on('exit', crashCleanup);
+    (running as RunningOrg & { _crashCleanup?: () => void })._crashCleanup = crashCleanup;
 
     const boss = bossRole;
     // Cross-run memory: brief the coordinator on the previous run so scheduled
@@ -526,6 +571,9 @@ export class OrgDaemon {
     // register a NEW forwarder under the same name — settling/unsubscribing
     // that one would sever the new run's dashboard stream.
     const forwarder = this.forwarders.get(name);
+    // Remove crash-cleanup handler — normal stop handles reaping itself
+    const cleanup = (org as RunningOrg & { _crashCleanup?: () => void })._crashCleanup;
+    if (cleanup) process.removeListener('exit', cleanup);
     const wd = this.watchdogs.get(name);
     if (wd) { clearInterval(wd); this.watchdogs.delete(name); }
     this.leases.get(name)?.stop();
@@ -543,6 +591,13 @@ export class OrgDaemon {
         type: 'audit', msg: `org stop timed out after ${stopWaitMs}ms waiting for agent sessions to finish — proceeding anyway`,
         reason: 'stop-timeout',
       });
+      // Reap only SDK processes spawned by THIS node process — ownerPid filter
+      // ensures other `monomind org run` daemons' agents are untouched.
+      try {
+        const { reapOrphanedSdkProcesses } = await import('../utils/resource-governor.js');
+        const reaped = reapOrphanedSdkProcesses(new Set(), process.pid);
+        if (reaped > 0) org.bus.emit({ type: 'audit', reason: 'orphan-reap', msg: `reaped ${reaped} orphaned SDK process(es) after stop timeout` });
+      } catch { /* best-effort */ }
     }
     org.bus.emit({ type: 'status', msg: 'org stopped' });
     await org.bus.flush();

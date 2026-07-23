@@ -212,7 +212,7 @@ async function getSystemStatus(): Promise<{
 }
 
 // Display status in text format
-function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>): void {
+async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>): Promise<void> {
   output.writeln();
 
   // Header with overall status
@@ -313,6 +313,27 @@ function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>): voi
       `Memory Usage: ${status.performance.memoryUsage.toFixed(1)}%`
     ]);
   }
+
+  // System resources section
+  output.writeln(output.bold('System Resources'));
+  try {
+    const { checkResources } = await import('../utils/resource-governor.js');
+    const res = checkResources();
+    const memColor = res.freeMemPct < 15 ? output.error : res.freeMemPct < 30 ? output.warning : output.success;
+    output.printTable({
+      columns: [
+        { key: 'property', header: 'Property', width: 18 },
+        { key: 'value', header: 'Value', width: 25, align: 'right' }
+      ],
+      data: [
+        { property: 'Available RAM', value: memColor(`${res.freeMemMB}MB (${res.freeMemPct}%)`) },
+        { property: 'SDK Processes', value: `${res.sdkProcesses} / ${res.maxSdkProcesses} max` },
+        { property: 'Status', value: res.ok ? output.success('OK') : output.warning(res.reason ?? 'pressure') },
+      ]
+    });
+  } catch {
+    output.printInfo('  Resource governor not available');
+  }
 }
 
 // Format health status with color
@@ -365,7 +386,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
 
   // Single status display
-  displayStatus(status);
+  await displayStatus(status);
 
   return { success: true, data: status };
 };
@@ -473,7 +494,7 @@ async function watchStatus(intervalSeconds: number): Promise<CommandResult> {
     output.writeln();
 
     const status = await getSystemStatus();
-    displayStatus(status);
+    await displayStatus(status);
   };
 
   // Initial display
