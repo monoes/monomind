@@ -777,7 +777,8 @@ const getCommand: Command = {
         const refKey = refArg.startsWith('@') ? refArg.slice(1) : refArg;
         const ref = _refs.get(refKey);
         if (!ref) throw new Error(`Ref @${refKey} not found`);
-        value = await browser.getElementBox(client, sessionId, ref);
+        const center = await browser.getElementBox(client, sessionId, ref);
+        value = deriveBoxOutput(center);
         break;
       }
       case 'styles': {
@@ -1591,8 +1592,11 @@ const tapCommand: Command = {
       const ref = await browser.resolveRef(client, sessionId, _refs, key);
       const box = await browser.getElementBox(client, sessionId, ref);
       if (!box) throw new Error(`Cannot get bounds for @${key}`);
-      x = Math.round(box.x + box.width / 2);
-      y = Math.round(box.y + box.height / 2);
+      // box.x/box.y from getElementBox() ARE already the center point (see
+      // its own doc comment) — adding width/2 here double-offset the tap
+      // target away from the element (issue #15).
+      x = Math.round(box.x);
+      y = Math.round(box.y);
     } else {
       const posJson = await browser.evaluateJs(client, sessionId,
         `(function(){var el=document.querySelector(${JSON.stringify(arg)});if(!el)return null;var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`) as string | null;
@@ -2497,8 +2501,30 @@ function tokenizeBatchCommand(input: string): string[] {
  * only its own known --flags are consumed from the front; everything after
  * them is taken verbatim as one argument, untouched by tokenization.
  *
+/**
+ * `get box`'s output shape: browser.getElementBox() returns the element's
+ * CENTER point under x/y (correct for internal click-target callers), but
+ * `get box` is a bounding-box accessor where x/y conventionally means the
+ * top-left origin — a caller computing its own center as `box.x + width/2`
+ * would otherwise double-offset away from the element (issue #15). Expose
+ * both conventions, explicitly labeled, so neither is ambiguous.
+ *
  * Exported for direct unit testing — not part of the CLI's public API.
  */
+export function deriveBoxOutput(
+  center: { x: number; y: number; width: number; height: number } | null
+): { x: number; y: number; width: number; height: number; centerX: number; centerY: number } | null {
+  if (!center) return null;
+  return {
+    x: center.x - center.width / 2,
+    y: center.y - center.height / 2,
+    width: center.width,
+    height: center.height,
+    centerX: center.x,
+    centerY: center.y,
+  };
+}
+
 export function parseBatchCommandLine(cmdStr: string): { subName: string; subArgs: string[]; flags: Record<string, unknown> } {
   const trimmed = cmdStr.trim();
   const evalMatch = trimmed.match(/^eval\b\s*/);

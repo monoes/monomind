@@ -496,6 +496,20 @@ const monographSurprisesTool: MCPTool = {
 
 // ── monograph_suggest ─────────────────────────────────────────────────────────
 
+/**
+ * BM25 ranks purely on literal keyword overlap, so a doc/concept node whose
+ * prose happens to mention task-related words (e.g. a report mentioning
+ * "retry" constants) can outrank the actual code symbol the task is really
+ * about, which is conceptually related but lexically different (issue #38).
+ * Prefer code-symbol hits (Function/Class/Method/...) over doc-type hits
+ * (Document/Concept/Section/...) when there are any, falling back to the
+ * full hit list so a genuinely doc-only task still gets results.
+ */
+export function preferSymbolHits<T extends { label: string }>(hits: T[], symbolLabels: ReadonlySet<string>): T[] {
+  const symbolHits = hits.filter(h => symbolLabels.has(h.label));
+  return symbolHits.length > 0 ? symbolHits : hits;
+}
+
 const monographSuggestTool: MCPTool = {
   name: 'monograph_suggest',
   description: 'Get graph-topology-derived questions to explore the codebase. Pass task= to score by task relevance via BM25/FTS5.',
@@ -559,7 +573,9 @@ const monographSuggestTool: MCPTool = {
       let hitIds: string[] = [];
       if (task) {
         const hits = await hybridQuery(db, task, { limit: 20 });
-        hitIds = [...new Set(hits.map(h => h.id))];
+        const { SYMBOL_NODE_LABELS } = await import('@monoes/monograph');
+        const relevantHits = preferSymbolHits(hits, SYMBOL_NODE_LABELS);
+        hitIds = [...new Set(relevantHits.map(h => h.id))];
         if (hitIds.length === 0) {
           return text('No suggestions for this task. Run monograph_build first or try a different query.' + stalenessAnnotation);
         }

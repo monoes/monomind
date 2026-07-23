@@ -63,8 +63,14 @@ export function generateMCPConfig(options: InitOptions): object {
         MONOMIND_TOPOLOGY: options.runtime.topology,
         MONOMIND_MAX_AGENTS: String(options.runtime.maxAgents),
         MONOMIND_MEMORY_BACKEND: options.runtime.memoryBackend,
-      },
-      { autoStart: config.autoStart }
+      }
+      // No `autoStart` here: Claude Code's .mcp.json schema for stdio servers
+      // is only command/args/env — `autoStart` isn't a field it reads, and
+      // nothing in monomind reads it back from this file either (it's a
+      // separate, monomind-internal setting stored in .monomind/config.yaml).
+      // Writing it here was pure dead-end noise in a file whose schema we
+      // don't own — worth removing even though Claude Code likely just
+      // ignores unknown fields, since "likely ignores" isn't "verified inert".
     );
   }
 
