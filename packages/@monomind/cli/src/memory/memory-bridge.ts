@@ -184,6 +184,18 @@ async function flushBackend(backend: any): Promise<void> {
   try { await backend?.persist?.(); } catch { /* best effort */ }
 }
 
+/** Loads the local embedding model.
+ *
+ *  This is the single point where `onnxruntime-node` enters the CLI process
+ *  (via @huggingface/transformers). Once it has run, the process is subject to
+ *  docs/adrs/ADR-R001-onnxruntime-process-teardown.md: calling process.exit()
+ *  will abort with SIGABRT ("mutex lock failed") instead of exiting cleanly,
+ *  and disposing the pipeline first does not help.
+ *
+ *  Anything that reaches this — `doctor`, `memory store`, `memory search`, the
+ *  MCP memory tools — inherits that constraint, which is why it bit commands
+ *  that look nothing like ML work. Adding a new caller is fine; adding a new
+ *  process-exit path is not. */
 async function loadEmbedder(): Promise<void> {
   if (_embedder) return;
   if (!_embedderPromise) {
