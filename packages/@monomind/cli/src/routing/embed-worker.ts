@@ -63,6 +63,14 @@ async function main(): Promise<void> {
   // and the parent's `close` listener waits until it force-kills us at the
   // timeout — discarding the result we already wrote. Force-exit once the
   // write is flushed (same onnx-teardown class as memory.ts's #1428 fix).
+  //
+  // The force-exit is REQUIRED here and FORBIDDEN in the main CLI process,
+  // where the identical thread pool makes process.exit() abort with SIGABRT
+  // instead. Same root cause, opposite fix — see
+  // docs/adrs/ADR-R001-onnxruntime-process-teardown.md before changing either.
+  // Safe here because we are a disposable child that has already flushed its
+  // result, and the parent resolves on the stdout marker rather than our exit
+  // code (route-layer-factory.ts), so even an aborted teardown loses nothing.
   const wroteSynchronously = process.stdout.write(`\n__ROUTE_RESULT__${JSON.stringify(result)}\n`);
   if (wroteSynchronously) {
     process.exit(0);

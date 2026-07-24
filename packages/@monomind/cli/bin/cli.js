@@ -287,15 +287,22 @@ if (isMCPMode) {
   const isDaemonChild = cliArgs.includes('--foreground-worker-internal');
   cli.run().then(() => {
     if (!isDaemonChild) {
-      // Prefer a natural exit over process.exit(). Any command that touched
-      // embeddings has onnxruntime-node's thread pool loaded in-process (via
-      // memory-bridge -> @huggingface/transformers), and forcing exit out from
-      // under it aborts the process:
+      // Do NOT call process.exit() here. See
+      // docs/adrs/ADR-R001-onnxruntime-process-teardown.md.
+      //
+      // Any command that touched embeddings has onnxruntime-node's thread pool
+      // loaded in-process (memory-bridge -> @huggingface/transformers), and
+      // forcing exit out from under it aborts:
       //   libc++abi: terminating due to uncaught exception of type
       //   std::__1::system_error: mutex lock failed: Invalid argument
-      // — an exit code of 134 on `doctor`, `memory store`, `memory search`,
-      // etc., despite the command itself having succeeded. Disposing the
-      // pipeline first does NOT help; only letting the loop drain does.
+      // — exit code 134 on `doctor`, `memory store`, `memory search` etc.,
+      // despite the command itself having succeeded. Disposing the pipeline
+      // first does NOT help; only letting the loop drain does. (v2.7.4 bug,
+      // fixed 2.7.5. Guarded by src/__tests__/bin-cli-exit-path.test.ts.)
+      //
+      // NOTE the rule inverts for short-lived worker children, where onnx
+      // instead keeps the loop alive forever and you MUST force-exit — see
+      // src/routing/embed-worker.ts. Do not "unify" the two.
       //
       // So: publish the exit code and let node exit on its own once the loop
       // empties. The unref'd timer below still fires if something lingers
