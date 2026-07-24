@@ -40,8 +40,8 @@ importers:
         specifier: ^1.0.6
         version: 1.0.6
       '@monoes/monograph':
-        specifier: ^1.5.1
-        version: 1.5.1(graphology-types@0.24.8)
+        specifier: ^1.5.2
+        version: 1.5.2(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -133,8 +133,8 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0(yauzl@2.10.0)
       '@monoes/monograph':
-        specifier: ^1.5.1
-        version: 1.5.1(graphology-types@0.24.8)
+        specifier: ^1.5.2
+        version: 1.5.2(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -625,8 +625,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@hono/node-server@1.19.14':
-    resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
+  '@hono/node-server@1.19.15':
+    resolution: {integrity: sha512-Za2ai6TLdKjUvnur+eenO6nuYYipVAEhyCAdaV8IRvmU9kK8crOZUSYvIXn72E4f8fJqyAbpcJuTsYYmZp9Deg==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: '>=4.12.21'
@@ -880,8 +880,8 @@ packages:
     resolution: {integrity: sha512-uEyTsbOLex0m1zKzbsClVcPznuAYoQB4VeUhwdHJ38QZ5yHBlCuklCYNKwkdbar6bsJDe8RYV3yC5+n9yzyS8A==}
     hasBin: true
 
-  '@monoes/monograph@1.5.1':
-    resolution: {integrity: sha512-wKmYjXliE9xOrF3BMA4MJoiMkBmRjtbPHTFC1iR6cPDrsCDlxgeAAZBcFHwVYLqEmSRNafUi29b6yztMpIUNxw==}
+  '@monoes/monograph@1.5.2':
+    resolution: {integrity: sha512-YYoq5RsFV0ljjmsObMjiNBG9pQgVM0d9n4K7O8QoiV2cwtrOG2EkQds6VCLuPEPBZqH3UJz45TcjmptkWYvfpA==}
     engines: {node: '>=20.0.0'}
 
   '@monoes/routing@1.0.0':
@@ -3107,7 +3107,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@hono/node-server@1.19.14(hono@4.12.31)':
+  '@hono/node-server@1.19.15(hono@4.12.31)':
     dependencies:
       hono: 4.12.31
 
@@ -3278,7 +3278,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 1.19.14(hono@4.12.31)
+      '@hono/node-server': 1.19.15(hono@4.12.31)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -3356,7 +3356,7 @@ snapshots:
       - utf-8-validate
       - yauzl
 
-  '@monoes/monograph@1.5.1(graphology-types@0.24.8)':
+  '@monoes/monograph@1.5.2(graphology-types@0.24.8)':
     dependencies:
       better-sqlite3: 12.11.1
       chokidar: 3.6.0
