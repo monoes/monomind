@@ -287,7 +287,23 @@ if (isMCPMode) {
   const isDaemonChild = cliArgs.includes('--foreground-worker-internal');
   cli.run().then(() => {
     if (!isDaemonChild) {
-      process.exit(process.exitCode ?? 0);
+      // Prefer a natural exit over process.exit(). Any command that touched
+      // embeddings has onnxruntime-node's thread pool loaded in-process (via
+      // memory-bridge -> @huggingface/transformers), and forcing exit out from
+      // under it aborts the process:
+      //   libc++abi: terminating due to uncaught exception of type
+      //   std::__1::system_error: mutex lock failed: Invalid argument
+      // — an exit code of 134 on `doctor`, `memory store`, `memory search`,
+      // etc., despite the command itself having succeeded. Disposing the
+      // pipeline first does NOT help; only letting the loop drain does.
+      //
+      // So: publish the exit code and let node exit on its own once the loop
+      // empties. The unref'd timer below still fires if something lingers
+      // (it does not itself hold the process open), preserving the original
+      // guarantee that the CLI never hangs forever on a stray handle.
+      process.exitCode = process.exitCode ?? 0;
+      const FORCE_EXIT_MS = 5000;
+      setTimeout(() => process.exit(process.exitCode ?? 0), FORCE_EXIT_MS).unref();
     }
     // Daemon child: let the event loop stay alive on its own ref'd interval.
   }).catch((error) => {
