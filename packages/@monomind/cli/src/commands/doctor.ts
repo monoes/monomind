@@ -17,7 +17,7 @@ import type { HealthCheck } from './doctor-env-checks.js';
 import {
   checkConfigFile, checkMemoryDatabase, checkApiKeys,
   checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory,
-  checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage,
+  checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, fixGitignoreCoverage,
   checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
   checkSecondBrainModel, checkMemoryKnowledgeGraph,
 } from './doctor-project-checks.js';
@@ -34,7 +34,7 @@ export const doctorCommand: Command = {
   name: 'doctor',
   description: 'System diagnostics and health checks',
   options: [
-    { name: 'fix', short: 'f', description: 'Apply local fixes (helper files, monoes tool shims) and show fix commands for the rest', type: 'boolean', default: false },
+    { name: 'fix', short: 'f', description: 'Apply local fixes (helper files, monoes tool shims, .gitignore entries) and show fix commands for the rest', type: 'boolean', default: false },
     { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
       name: 'component', short: 'c',
@@ -174,6 +174,20 @@ export const doctorCommand: Command = {
           if (idx !== -1) {
             results[idx] = newCheck;
             const fixIdx = fixes.findIndex(f => f.startsWith('monoes Tools:'));
+            if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
+          }
+          output.writeln(formatCheck(newCheck));
+        }
+      }
+
+      const gitignoreResult = results.find(r => r.name === 'Gitignore Coverage');
+      if (gitignoreResult && gitignoreResult.status !== 'pass') {
+        if (await fixGitignoreCoverage()) {
+          const newCheck = await checkGitignoreCoverage();
+          const idx = results.findIndex(r => r.name === 'Gitignore Coverage');
+          if (idx !== -1) {
+            results[idx] = newCheck;
+            const fixIdx = fixes.findIndex(f => f.startsWith('Gitignore Coverage:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
