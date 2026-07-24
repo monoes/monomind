@@ -97,7 +97,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.207",
     "@monoes/monobrowse": "^1.0.6",
     "@monoes/monodesign": "^1.2.0",
-    "@monoes/monograph": "^1.5.1",
+    "@monoes/monograph": "^1.5.2",
     "@noble/ed25519": "^2.1.0",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
