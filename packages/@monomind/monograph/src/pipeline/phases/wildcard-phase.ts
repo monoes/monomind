@@ -32,7 +32,11 @@ export const wildcardSynthesisPhase: PipelinePhase<WildcardSynthesisOutput> = {
     `);
 
     for (const [filePath, source] of fileContents) {
-      const fileNodeId = fileNodeIndex.get(filePath) ?? `file:${filePath}`;
+      const fileNodeId = fileNodeIndex.get(filePath);
+      // No real node for this file (e.g. no parsed symbols) — there's no
+      // valid row to attach a source_id to, and fabricating one violates the
+      // edges table's FOREIGN KEY constraint on source_id (issue #40).
+      if (!fileNodeId) continue;
       const { synthesizedEdges } = synthesizeWildcardImports(fileNodeId, source, allKnownNodes, allKnownEdges);
 
       for (const edge of synthesizedEdges) {

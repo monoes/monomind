@@ -2,14 +2,22 @@ import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
 import { wildcardSynthesisPhase } from '../../../pipeline/phases/wildcard-phase.js';
 import type { PipelineContext } from '../../../pipeline/types.js';
+import { CREATE_NODES, CREATE_EDGES } from '../../../storage/schema.js';
 
+// Uses the REAL production schema (including the edges FK constraint on
+// source_id/target_id) with foreign_keys actually enabled — the original
+// hand-rolled test schema had neither, so it silently passed inserts that
+// would violate the real edges table's FK constraint in production (issue #40).
 function makeDb(): Database.Database {
   const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec(CREATE_NODES);
+  db.exec(CREATE_EDGES);
   db.exec(`
-    CREATE TABLE nodes (id TEXT PRIMARY KEY, label TEXT, name TEXT, norm_label TEXT, file_path TEXT, start_line INTEGER, end_line INTEGER, community_id INTEGER, is_exported INTEGER DEFAULT 0, language TEXT, properties TEXT);
-    CREATE TABLE edges (id TEXT PRIMARY KEY, source_id TEXT, target_id TEXT, relation TEXT, confidence TEXT, confidence_score REAL);
-    INSERT INTO nodes VALUES ('n1', 'Function', 'greet', 'greet', '/mod.ts', 1, 5, null, 1, null, null);
-    INSERT INTO nodes VALUES ('n2', 'File', 'main.ts', 'main.ts', '/main.ts', null, null, null, 0, null, null);
+    INSERT INTO nodes (id, label, name, norm_label, file_path, start_line, end_line, is_exported)
+      VALUES ('n1', 'Function', 'greet', 'greet', '/mod.ts', 1, 5, 1);
+    INSERT INTO nodes (id, label, name, norm_label, file_path, is_exported)
+      VALUES ('n2', 'File', 'main.ts', 'main.ts', '/main.ts', 0);
   `);
   return db;
 }
@@ -60,5 +68,32 @@ describe('wildcardSynthesisPhase', () => {
     const crossFileOutput = { resolvedEdges: [] };
     const deps = new Map<string, any>([['parse', parseOutput], ['cross-file', crossFileOutput]]);
     await expect(wildcardSynthesisPhase.execute(makeCtx(db), deps)).resolves.not.toThrow();
+  });
+
+  it('skips a file with no fileNodeIndex entry instead of fabricating a source_id and violating the edges FK constraint (issue #40)', async () => {
+    // Regression: a file with no parsed symbols (e.g. blank, or a filetype
+    // the parser emits no node for) has no entry in fileNodeIndex. The old
+    // code fell back to a fabricated `file:${filePath}` id that was never a
+    // real row in `nodes`, so the edge insert below violated the edges
+    // table's FOREIGN KEY constraint on source_id and crashed the whole
+    // monograph_build. /empty.ts here is exactly that case: it's present in
+    // fileContents (parsed) but has NO corresponding node in symbolNodes.
+    const db = makeDb();
+    const source = `import * as mod from '/mod.ts';\nmod.greet("hello");`;
+    const parseOutput = {
+      allEdges: [],
+      symbolNodes: [
+        { id: 'n1', name: 'greet', label: 'Function', normLabel: 'greet', filePath: '/mod.ts', isExported: true },
+      ],
+      parseErrors: [],
+      fileContents: new Map([['/empty.ts', source]]),
+    };
+    const crossFileOutput = { resolvedEdges: [] };
+    const deps = new Map<string, any>([['parse', parseOutput], ['cross-file', crossFileOutput]]);
+
+    await expect(wildcardSynthesisPhase.execute(makeCtx(db), deps)).resolves.not.toThrow();
+
+    const edgeCount = (db.prepare('SELECT COUNT(*) as c FROM edges').get() as { c: number }).c;
+    expect(edgeCount).toBe(0); // nothing could legitimately attach to a file with no real node
   });
 });
