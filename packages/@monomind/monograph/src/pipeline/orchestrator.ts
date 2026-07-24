@@ -132,6 +132,17 @@ async function buildAsyncLocked(
 
   const db = openDb(dbPath);
 
+  // The whole build is one SQL transaction: a phase throwing (e.g. issue
+  // #40's FK violation) used to leave whatever earlier phases had already
+  // autocommitted sitting in the DB, silently corrupting the index into a
+  // stale partial state that a later build wouldn't repair (cache hits skip
+  // re-scanning the files that would restore the missing rows). BEGIN/COMMIT/
+  // ROLLBACK are issued directly via db.exec() rather than better-sqlite3's
+  // `.transaction()` helper, which requires a synchronous callback — the
+  // phases below are async. This is still safe: every phase writes through
+  // this same single connection, so SQLite serializes them regardless of how
+  // the JS event loop interleaves the awaits between phases.
+  db.exec('BEGIN');
   try {
     const graph = new Graph({ multi: true, type: 'directed' });
     const ctx: PipelineContext = {
@@ -229,6 +240,13 @@ async function buildAsyncLocked(
       }
     }
     db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
+    db.exec('COMMIT');
+  } catch (err) {
+    // Best-effort: if the connection is already broken (e.g. the failure was
+    // itself a corrupt-database error), rolling back can throw too — the
+    // original error is what matters and must not be masked by this one.
+    try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+    throw err;
   } finally {
     closeDb(db);
   }
