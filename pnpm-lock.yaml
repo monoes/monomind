@@ -40,8 +40,8 @@ importers:
         specifier: ^1.0.6
         version: 1.0.6
       '@monoes/monograph':
-        specifier: ^1.5.2
-        version: 1.5.2(graphology-types@0.24.8)
+        specifier: ^1.5.3
+        version: 1.5.3(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -133,8 +133,8 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0(yauzl@2.10.0)
       '@monoes/monograph':
-        specifier: ^1.5.2
-        version: 1.5.2(graphology-types@0.24.8)
+        specifier: ^1.5.3
+        version: 1.5.3(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -880,8 +880,8 @@ packages:
     resolution: {integrity: sha512-uEyTsbOLex0m1zKzbsClVcPznuAYoQB4VeUhwdHJ38QZ5yHBlCuklCYNKwkdbar6bsJDe8RYV3yC5+n9yzyS8A==}
     hasBin: true
 
-  '@monoes/monograph@1.5.2':
-    resolution: {integrity: sha512-YYoq5RsFV0ljjmsObMjiNBG9pQgVM0d9n4K7O8QoiV2cwtrOG2EkQds6VCLuPEPBZqH3UJz45TcjmptkWYvfpA==}
+  '@monoes/monograph@1.5.3':
+    resolution: {integrity: sha512-bEe9xP2Vg7YUyW7O2EloCcq+wvTZhA0qv0nMy/T9F+v2YOZshsNrRi4cUAVlp5wOY8h68xAw3r/sSdgYF+4xyw==}
     engines: {node: '>=20.0.0'}
 
   '@monoes/routing@1.0.0':
@@ -3356,7 +3356,7 @@ snapshots:
       - utf-8-validate
       - yauzl
 
-  '@monoes/monograph@1.5.2(graphology-types@0.24.8)':
+  '@monoes/monograph@1.5.3(graphology-types@0.24.8)':
     dependencies:
       better-sqlite3: 12.11.1
       chokidar: 3.6.0
