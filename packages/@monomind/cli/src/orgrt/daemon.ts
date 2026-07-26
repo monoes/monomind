@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
-import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
 import { OrgBus } from './bus.js';
@@ -918,5 +918,41 @@ export class OrgDaemon {
   private persistState(name: string, status: string, run: string): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     writeFileSync(p, JSON.stringify({ status, run, pid: process.pid, updated: new Date().toISOString() }, null, 2));
+  }
+
+  /** Mark every currently-running org as crashed in runtime.json.
+   *  Called from process-level crash handlers — must be synchronous and best-effort. */
+  persistCrashStateAll(): void {
+    for (const [name, org] of this.orgs) {
+      try {
+        const p = join(this.root, ORG_DIR, name, 'runtime.json');
+        writeFileSync(p, JSON.stringify({
+          status: 'crashed', run: org.run, pid: process.pid,
+          updated: new Date().toISOString(), closedBy: 'crash-handler',
+        }, null, 2));
+      } catch { /* best effort — filesystem may be unavailable */ }
+    }
+  }
+
+  private heartbeatPath(): string {
+    return join(this.root, '.monomind', 'serve-heartbeat.json');
+  }
+
+  /** Write a heartbeat file so `org status` can distinguish "daemon alive" from
+   *  "daemon gone" even when runtime.json still says running. */
+  writeHeartbeat(): void {
+    try {
+      const p = this.heartbeatPath();
+      mkdirSync(join(this.root, '.monomind'), { recursive: true });
+      writeFileSync(p, JSON.stringify({
+        pid: process.pid, updatedAt: new Date().toISOString(),
+        running: this.listRunning(),
+      }, null, 2));
+    } catch { /* best effort */ }
+  }
+
+  clearHeartbeat(): void {
+    try { unlinkSync(this.heartbeatPath()); }
+    catch { /* already gone or never written */ }
   }
 }

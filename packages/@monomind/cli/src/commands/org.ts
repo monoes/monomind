@@ -211,11 +211,20 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
     // A "running" record whose pid is gone means the daemon died without its
     // stopOrg cleanup — surface that instead of reporting it as still running.
-    if (state.status === 'running' && state.pid) {
-      try {
-        process.kill(state.pid, 0);
-      } catch {
-        log(output.warning(`${t}: crashed (runtime.json says running but pid ${state.pid} is gone)${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`));
+    if ((state.status === 'running' || state.status === 'crashed') && state.pid) {
+      const pidGone = state.status === 'crashed' || (() => {
+        try { process.kill(state.pid!, 0); return false; }
+        catch { return true; }
+      })();
+      if (pidGone) {
+        let heartbeatHint = '';
+        try {
+          const hb = JSON.parse(readFileSync(join(ctx.cwd, '.monomind', 'serve-heartbeat.json'), 'utf8'));
+          heartbeatHint = ` (last heartbeat: ${hb.updatedAt})`;
+        } catch { /* no heartbeat file — daemon predates this change or was already cleaned up */ }
+        const closedBy = (state as { closedBy?: string }).closedBy;
+        const label = closedBy === 'crash-handler' ? 'crashed (caught by crash handler)' : `crashed (runtime.json says ${state.status} but pid ${state.pid} is gone)`;
+        log(output.warning(`${t}: ${label}${heartbeatHint}${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`));
         continue;
       }
     }
@@ -258,6 +267,24 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
     srv = await startOrgServer(daemon, 0);
     daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
   }
+
+  // Crash handlers: log the reason and persist crashed state so `org status`
+  // shows what happened instead of a silent "pid is gone".
+  const crashExit = (label: string, err: unknown): void => {
+    try { console.error(`[org serve] ${label}:`, err); } catch { /* stderr gone */ }
+    daemon.persistCrashStateAll();
+    daemon.clearHeartbeat();
+    process.exitCode = 1;
+  };
+  process.on('uncaughtException', (err) => { crashExit('uncaughtException', err); process.exit(1); });
+  process.on('unhandledRejection', (err) => { crashExit('unhandledRejection', err); process.exit(1); });
+
+  // Heartbeat: write every 30s so `org status` can tell "alive but busy" from
+  // "daemon gone" without relying on pid liveness alone.
+  daemon.writeHeartbeat();
+  const heartbeatInterval = setInterval(() => { daemon.writeHeartbeat(); }, 30_000);
+  heartbeatInterval.unref?.();
+
   log(output.info('org daemon serving — Ctrl-C to stop'));
 
   // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
@@ -311,8 +338,10 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   await new Promise<void>(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
   clearInterval(stopPoll);
+  clearInterval(heartbeatInterval);
   sched.stop();
   await daemon.stopAll();
+  daemon.clearHeartbeat();
   srv?.close();
   return { success: true };
 };
@@ -429,8 +458,8 @@ const clearStaleRuntime = (cwd: string, name: string):
   } catch (err) {
     return { cleared: false, reason: 'unreadable', detail: err instanceof Error ? err.message : String(err) };
   }
-  if (rt.status !== 'running') return { cleared: false, reason: 'not-running' };
-  if (rt.pid) {
+  if (rt.status !== 'running' && rt.status !== 'crashed') return { cleared: false, reason: 'not-running' };
+  if (rt.status === 'running' && rt.pid) {
     try { process.kill(rt.pid, 0); return { cleared: false, reason: 'alive', detail: String(rt.pid) }; }
     catch { /* pid is gone — this is exactly the stale case mark-complete exists for */ }
   }
