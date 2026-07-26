@@ -40,22 +40,31 @@ jobs:
       matrix:
         include:
           - name: cli
+            pkg: '@monoes/monomindcli'
             dir: packages/@monomind/cli
           - name: monograph
+            pkg: '@monoes/monograph'
             dir: packages/@monomind/monograph
           - name: memory
+            pkg: '@monoes/memory'
             dir: packages/@monomind/memory
           - name: mcp
+            pkg: '@monoes/mcp'
             dir: packages/@monomind/mcp
           - name: routing
+            pkg: '@monoes/routing'
             dir: packages/@monomind/routing
           - name: hooks
+            pkg: '@monoes/hooks'
             dir: packages/@monomind/hooks
           - name: monofence-ai
+            pkg: 'monofence-ai'
             dir: packages/monofence-ai
           - name: monobrowse
+            pkg: '@monoes/monobrowse'
             dir: packages/@monoes/monobrowse
           - name: monodesign
+            pkg: '@monoes/monodesign'
             dir: packages/@monoes/monodesign
             node: '22'
             build: 'skip'
@@ -96,12 +105,21 @@ jobs:
             pnpm-${{ runner.os }}-${{ matrix.node || '20' }}-
             pnpm-${{ runner.os }}-
 
-      # Native grammars and better-sqlite3 need MSVC here rather than gcc. If
-      # this step is what fails, that is itself the finding — report it as an
-      # install problem, not a test problem.
-      - name: Install workspace dependencies
+      # Scope the install to the package under test and its own dependencies.
+      # A workspace-wide install makes every leg compile monograph's 15 REQUIRED
+      # tree-sitter grammars, so a native-build failure in one grammar takes down
+      # all nine legs — which is exactly what the first probe run showed. Only
+      # the monograph leg genuinely needs them.
+      - name: Install dependencies for ${{ matrix.name }}
         shell: bash
-        run: pnpm install --no-frozen-lockfile
+        env:
+          # node-gyp's Visual Studio detection spawns a subprocess whose output
+          # overflows the default maxBuffer, so it throws
+          # ERR_CHILD_PROCESS_STDIO_MAXBUFFER and concludes "Could not find any
+          # Visual Studio installation" — on a runner that ships VS 2022. Naming
+          # the version skips detection entirely.
+          GYP_MSVS_VERSION: '2022'
+        run: pnpm install --no-frozen-lockfile --filter "${{ matrix.pkg }}..."
 
       - name: Build ${{ matrix.name }}
         if: matrix.build != 'skip'
