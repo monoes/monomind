@@ -360,8 +360,12 @@ describe('publishable packages cannot ship a stale dist', () => {
   it('covers the packages that actually ship compiled output', () => {
     expect(PUBLISHABLE.length).toBeGreaterThanOrEqual(10);
     const dist = PUBLISHABLE.filter((d) => shipsCompiledDist(readPkg(d)));
-    expect(dist.length).toBeGreaterThanOrEqual(9);
-    expect(dist).toContain('.');
+    // 8, not 9: the `monomind` umbrella stopped shipping a dist when it became
+    // a shim that pins @monoes/monomindcli. It used to re-ship the CLI's built
+    // output inline — the same megabytes, published twice. It now has no dist
+    // to go stale, and the per-package assertion below asserts that exemption
+    // explicitly rather than skipping it.
+    expect(dist.length).toBeGreaterThanOrEqual(8);
     expect(dist).toContain('packages/@monomind/cli');
   });
 
