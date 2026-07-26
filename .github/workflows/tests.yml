@@ -102,7 +102,7 @@ jobs:
             node: '22'
             # `npm run build` typechecks the malformed antipattern fixtures and
             # fails by design — see the build step below.
-            build: false
+            build: 'skip'
           # monobrowse's suite is deliberately browser-free: every test
           # exercises pure parsing/state/formatting logic, or (in
           # browser-launch.test.ts) only the port-scan branches that resolve
@@ -148,14 +148,18 @@ jobs:
       # and says so in its own failure message, and the stdio MCP tests spawn
       # the built binary.
       #
-      # Skipped where `build: false`. monodesign is the case: it HAS a build
+      # Skipped where `build: 'skip'`. A STRING sentinel, not a boolean: an
+      # unset matrix key is null, and GitHub Actions coerces null == false, so
+      # `if: matrix.build != false` evaluated FALSE for every package that did
+      # not set the key — silently skipping the build everywhere and leaving the
+      # dist-dependent tests failing exactly as before. monodesign is the case: it HAS a build
       # script, but its tsconfig covers tests/fixtures/antipatterns/**, which are
       # deliberately malformed inputs for the detector (a tailwind.config.ts with
       # no tailwind installed, a sample.ts with undeclared types). `tsc` exits 2
       # on them by design, and its suite runs node:test against source anyway —
       # nothing there needs dist.
       - name: Build ${{ matrix.name }}
-        if: matrix.build != false
+        if: matrix.build != 'skip'
         working-directory: ${{ matrix.dir }}
         run: npm run build --if-present
 
