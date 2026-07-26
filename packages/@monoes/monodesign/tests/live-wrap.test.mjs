@@ -215,7 +215,7 @@ describe('wrapCli integration', () => {
   });
 
   afterEach(() => {
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     clearManualEditsBuffer();
   });
 
@@ -418,7 +418,7 @@ function clearManualEditsBuffer() {
 describe('live-wrap — JSX / TSX correctness', () => {
   let tmp;
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'monodesign-wrap-jsx-')); clearManualEditsBuffer(); });
-  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); clearManualEditsBuffer(); });
+  afterEach(() => { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); clearManualEditsBuffer(); });
 
   it('wraps the correct <section> when a class collides with a multi-line tag elsewhere', () => {
     // Decoy section: multi-line JSX with `organic-sand-surface` inside className

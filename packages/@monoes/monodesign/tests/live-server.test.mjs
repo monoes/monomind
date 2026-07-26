@@ -181,7 +181,7 @@ describe('live-server integration', () => {
       server.proc.kill();
     }
     if (serverCwd) {
-      rmSync(serverCwd, { recursive: true, force: true });
+      rmSync(serverCwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -332,7 +332,7 @@ colors: {}
         await stopServer(designServer.port, designServer.token);
         designServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -364,7 +364,7 @@ colors: {}
         await stopServer(designServer.port, designServer.token);
         designServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -437,7 +437,7 @@ colors: {}
         await stopServer(commitServer.port, commitServer.token);
         commitServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -497,7 +497,7 @@ colors: {}
         await stopServer(asyncServer.port, asyncServer.token);
         asyncServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -617,7 +617,7 @@ colors: {}
         await stopServer(chatServer.port, chatServer.token);
         chatServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -714,7 +714,7 @@ colors: {}
         await stopServer(candidateServer.port, candidateServer.token);
         candidateServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -830,7 +830,7 @@ colors: {}
         await stopServer(chatServer.port, chatServer.token);
         chatServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -934,7 +934,7 @@ colors: {}
         await stopServer(chunkServer.port, chunkServer.token);
         chunkServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1049,7 +1049,7 @@ colors: {}
         await stopServer(chunkServer.port, chunkServer.token);
         chunkServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1144,7 +1144,7 @@ colors: {}
         await stopServer(splitServer.port, splitServer.token);
         splitServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1255,7 +1255,7 @@ colors: {}
         await stopServer(failServer.port, failServer.token);
         failServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1340,7 +1340,7 @@ colors: {}
         await stopServer(timeoutServer.port, timeoutServer.token);
         timeoutServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1457,7 +1457,7 @@ colors: {}
         await stopServer(repairServer.port, repairServer.token);
         repairServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1564,7 +1564,7 @@ colors: {}
         await stopServer(decisionServer.port, decisionServer.token);
         decisionServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1668,7 +1668,7 @@ colors: {}
         await stopServer(discardApplyServer.port, discardApplyServer.token);
         discardApplyServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1779,7 +1779,7 @@ colors: {}
         await stopServer(restarted.port, restarted.token);
         restarted.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1902,7 +1902,7 @@ colors: {}
         await stopServer(pageScopeServer.port, pageScopeServer.token);
         pageScopeServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1957,7 +1957,7 @@ colors: {}
         await stopServer(discardServer.port, discardServer.token);
         discardServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -2046,7 +2046,7 @@ colors: {}
         await stopServer(stashServer.port, stashServer.token);
         stashServer.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -2293,7 +2293,7 @@ colors: {}
         await stopServer(restarted.port, restarted.token);
         restarted.proc.kill();
       }
-      rmSync(tmp, { recursive: true, force: true });
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 

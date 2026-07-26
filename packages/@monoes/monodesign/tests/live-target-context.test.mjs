@@ -23,7 +23,7 @@ describe('live target-aware monorepo context', () => {
 
   afterEach(() => {
     stopLive(tmp);
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('does not let root live config shadow the child project config path', () => {
@@ -254,7 +254,7 @@ describe('live single-repo context setup guard', () => {
 
   afterEach(() => {
     runNode(LIVE_SERVER_SCRIPT, ['stop', '--keep-inject'], tmp);
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('starts live without app selection when PRODUCT.md and DESIGN.md exist', () => {

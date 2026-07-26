@@ -75,7 +75,7 @@ describe('live-insert CLI integration', () => {
   });
 
   afterEach(() => {
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('splices an insert wrapper after an anchor element in HTML', () => {

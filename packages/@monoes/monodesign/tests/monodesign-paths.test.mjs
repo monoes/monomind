@@ -30,7 +30,7 @@ describe('monodesign project paths', () => {
   });
 
   afterEach(() => {
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('resolves the generated design sidecar under .monodesign', () => {

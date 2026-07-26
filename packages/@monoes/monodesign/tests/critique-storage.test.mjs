@@ -23,7 +23,7 @@ import {
 
 let cwd;
 beforeEach(() => { cwd = mkdtempSync(join(tmpdir(), 'imp-critique-')); });
-afterEach(() => { rmSync(cwd, { recursive: true, force: true }); });
+afterEach(() => { rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
 describe('slugFromTarget', () => {
   it('kebabs a relative file path', () => {

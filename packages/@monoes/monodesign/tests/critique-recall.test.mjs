@@ -29,7 +29,7 @@ const FIXTURES = fileURLToPath(new URL('./fixtures/critique-snapshots', import.m
 
 let cwd;
 beforeEach(() => { cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'monodesign-recall-')); });
-afterEach(() => { fs.rmSync(cwd, { recursive: true, force: true }); });
+afterEach(() => { fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
 function installFixtures() {
   const dir = path.join(cwd, '.monodesign', 'critique');

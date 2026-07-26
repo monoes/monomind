@@ -108,7 +108,7 @@ describe('live mode e2e: boot → wrap → accept', { skip: !gitAvailable && 'gi
     if (base) {
       try { await fetch(authedUrl('/stop')); } catch { /* already down */ }
     }
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('boots: starts the helper, injects the script tag, returns context', () => {
