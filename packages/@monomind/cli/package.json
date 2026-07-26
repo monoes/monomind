@@ -81,13 +81,13 @@
     "README.md"
   ],
   "scripts": {
-    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
-    "build": "tsc && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
-    "build:loose": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
+    "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
+    "build": "tsc && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html && node ../../../scripts/build-fs.mjs copy-into dist/src/ui src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html && node ../../../scripts/build-fs.mjs clean dist/src/ui/data && node ../../../scripts/build-fs.mjs copy-dir src/ui/data dist/src/ui/data",
+    "build:loose": "tsc --noEmitOnError false || true && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html && node ../../../scripts/build-fs.mjs copy-into dist/src/ui src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html && node ../../../scripts/build-fs.mjs clean dist/src/ui/data && node ../../../scripts/build-fs.mjs copy-dir src/ui/data dist/src/ui/data",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
-    "prepublishOnly": "node ../../@monoes/monodesign/scripts/sync-skill.mjs && cp ../../../README.md ./README.md && npm run build",
+    "prepublishOnly": "node ../../@monoes/monodesign/scripts/sync-skill.mjs && node ../../../scripts/build-fs.mjs copy-into . ../../../README.md && npm run build",
     "release": "npm version prerelease --preid=alpha && npm run publish:all",
     "publish:all": "./scripts/publish.sh"
   },
