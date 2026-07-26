@@ -1228,8 +1228,14 @@ rounded:
       const { stdout, code } = runIn(dir, '--json', 'src');
       expect(code).toBe(2);
       const findings = JSON.parse(stdout.trim());
-      expect(findings.some(f => f.file.endsWith('src/main.css'))).toBe(false);
-      expect(findings.some(f => f.file.endsWith('src/other.css'))).toBe(true);
+      // finding.file is an ABSOLUTE filesystem path from walkDir, so it carries
+      // native separators — 'src\other.css' on Windows, where a suffix test
+      // against 'src/other.css' silently returns false. Note the first
+      // assertion expects false, so it passed on Windows for entirely the wrong
+      // reason; only the second one exposed it.
+      const rel = (f) => f.file.split(path.sep).join('/');
+      expect(findings.some(f => rel(f).endsWith('src/main.css'))).toBe(false);
+      expect(findings.some(f => rel(f).endsWith('src/other.css'))).toBe(true);
     });
   });
 
