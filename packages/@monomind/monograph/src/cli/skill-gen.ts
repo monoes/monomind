@@ -59,41 +59,33 @@ export async function generateSkillFiles(
 
   const db = openDb(dbPath);
 
-  let communities: CommunityRow[];
   try {
-    communities = queryCommunities(db);
+    const communities = queryCommunities(db);
+
+    if (communities.length === 0) {
+      return { filesWritten: [], communityCount: 0 };
+    }
+
+    await fs.mkdir(skillsDir, { recursive: true });
+
+    const filesWritten: string[] = [];
+
+    for (const community of communities) {
+      const members = queryMembers(db, community.community_id);
+      const crossConnections = queryCrossConnections(db, community.community_id);
+
+      const content = renderSkillMarkdown(community, members, crossConnections, repoPath);
+
+      const kebab = toKebabName(community.label || `community-${community.community_id}`);
+      const filePath = path.join(skillsDir, `${kebab}.md`);
+      await fs.writeFile(filePath, content, 'utf-8');
+      filesWritten.push(filePath);
+    }
+
+    return { filesWritten, communityCount: communities.length };
   } finally {
     closeDb(db);
   }
-
-  if (communities.length === 0) {
-    return { filesWritten: [], communityCount: 0 };
-  }
-
-  await fs.mkdir(skillsDir, { recursive: true });
-
-  const filesWritten: string[] = [];
-
-  for (const community of communities) {
-    const db2 = openDb(dbPath);
-    let members: MemberRow[];
-    let crossConnections: EdgeRow[];
-    try {
-      members = queryMembers(db2, community.community_id);
-      crossConnections = queryCrossConnections(db2, community.community_id);
-    } finally {
-      closeDb(db2);
-    }
-
-    const content = renderSkillMarkdown(community, members, crossConnections, repoPath);
-
-    const kebab = toKebabName(community.label || `community-${community.community_id}`);
-    const filePath = path.join(skillsDir, `${kebab}.md`);
-    await fs.writeFile(filePath, content, 'utf-8');
-    filesWritten.push(filePath);
-  }
-
-  return { filesWritten, communityCount: communities.length };
 }
 
 // ============================================================================

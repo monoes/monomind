@@ -1,8 +1,8 @@
 {
   "name": "@monoes/memory",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "type": "module",
-  "description": "Memory module - JSON pattern store, LanceDB + embeddings backend, and a standalone pure-JS HNSW index; three coexisting paths, not a single unified backend",
+  "description": "Memory module - JSON pattern store, SQLite + embeddings backend, and a standalone pure-JS HNSW index; not a single unified backend",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -11,10 +11,11 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "bench": "vitest bench",
     "build": "tsc",
     "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
-    "prepublishOnly": "npm run build && node --input-type=module --eval \"import('./dist/index.js').then(m => { const required = ['ControllerRegistry','LanceDBBackend','UnifiedMemoryService']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } console.log('All required exports present'); });\""
+    "prepublishOnly": "npm run build && node --input-type=module --eval \"import('./dist/index.js').then(m => { const required = ['ControllerRegistry','SQLiteBackend','UnifiedMemoryService']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } console.log('All required exports present'); });\""
   },
   "dependencies": {
     "sql.js": "^1.10.3"

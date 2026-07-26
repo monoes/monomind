@@ -16,14 +16,40 @@ const REPO_ROOT = process.cwd();
 const SERVER_SCRIPT = join(REPO_ROOT, 'skill/scripts/live-server.mjs');
 const POLL_SCRIPT = join(REPO_ROOT, 'skill/scripts/live-poll.mjs');
 
-function startServer(port = 8498, { cwd = REPO_ROOT } = {}) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('node', [SERVER_SCRIPT, '--port=' + port], {
+// Positional port accepted and ignored — see the note in live-server.test.mjs.
+// A hardcoded port made this suite fail with EADDRINUSE whenever anything
+// already held it; the server picks a free one and reports it via the PID file.
+function startServer(_legacyPort, { cwd = REPO_ROOT } = {}) {
+  return new Promise((_resolve, _reject) => {
+    const proc = spawn('node', [SERVER_SCRIPT], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env },
     });
     let output = '';
+
+    // Kill the child on every rejection path — see live-server.test.mjs. A
+    // failed start used to leave an orphaned server that could still take a
+    // port, which made later runs time out and leak in turn.
+    let settled = false;
+    const resolve = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      _resolve(value);
+    };
+    const reject = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { proc.kill('SIGKILL'); } catch { /* already exited */ }
+      _reject(err);
+    };
+    const timer = setTimeout(
+      () => reject(new Error('Server start timeout. Output: ' + output)),
+      5000,
+    );
+
     proc.stdout.on('data', (d) => {
       output += d.toString();
       if (output.includes('running on')) {
@@ -37,7 +63,6 @@ function startServer(port = 8498, { cwd = REPO_ROOT } = {}) {
     });
     proc.stderr.on('data', (d) => { output += d.toString(); });
     proc.on('error', reject);
-    setTimeout(() => reject(new Error('Server start timeout. Output: ' + output)), 5000);
   });
 }
 
