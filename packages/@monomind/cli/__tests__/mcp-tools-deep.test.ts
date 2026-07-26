@@ -178,9 +178,9 @@ import { agentTools } from '../src/mcp-tools/agent-tools.js';
 import { analyzeTools } from '../src/mcp-tools/analyze-tools.js';
 import { claimsTools } from '../src/mcp-tools/claims-tools.js';
 import { configTools } from '../src/mcp-tools/config-tools.js';
-import { embeddingsTools } from '../src/mcp-tools/embeddings-tools.js';
+import { allEmbeddingsTools as embeddingsTools } from '../src/mcp-tools/embeddings-tools.js';
 import { githubTools } from '../src/mcp-tools/github-tools.js';
-import { hiveMindTools } from '../src/mcp-tools/hive-mind-tools.js';
+import { allHiveMindTools as hiveMindTools } from '../src/mcp-tools/hive-mind-tools.js';
 import { memoryTools } from '../src/mcp-tools/memory-tools.js';
 import { neuralTools } from '../src/mcp-tools/neural-tools.js';
 import { performanceTools } from '../src/mcp-tools/performance-tools.js';
@@ -189,7 +189,7 @@ import { sessionTools } from '../src/mcp-tools/session-tools.js';
 import { swarmTools } from '../src/mcp-tools/swarm-tools.js';
 import { systemTools } from '../src/mcp-tools/system-tools.js';
 import { taskTools } from '../src/mcp-tools/task-tools.js';
-import { transferTools } from '../src/mcp-tools/transfer-tools.js';
+import { allTransferTools as transferTools } from '../src/mcp-tools/transfer-tools.js';
 import { hooksTools } from '../src/mcp-tools/hooks-tools.js';
 
 import type { MCPTool } from '../src/mcp-tools/types.js';
@@ -275,7 +275,9 @@ describe('MCP Tools Deep Test Suite', () => {
         'swarm-tools': 4,
         'system-tools': 7,
         'task-tools': 7,
-        'transfer-tools': 7,
+        // Was 7 — the 6 IPFS pattern-store tools were deleted in 2026-07
+        // along with the subtree they wrapped; only transfer_detect-pii remains.
+        'transfer-tools': 1,
       };
 
       for (const mod of ALL_MODULES) {

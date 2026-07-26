@@ -1046,7 +1046,7 @@ export const hooksExplain: MCPTool = {
 // Pretrain hook - repository analysis for intelligence bootstrap
 export const hooksPretrain: MCPTool = {
   name: 'hooks_pretrain',
-  description: 'Analyze repository to bootstrap intelligence (4-step pipeline)',
+  description: 'Walk the repository counting file extensions and directory patterns to seed the keyword router. This is a filesystem scan writing JSON state — despite the name, no model is trained.',
   inputSchema: {
     type: 'object',
     properties: {

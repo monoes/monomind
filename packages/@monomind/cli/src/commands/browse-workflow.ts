@@ -55,6 +55,35 @@ const runSubcommand: Command = {
     const wf = await readWorkflow(filePath).catch(e => { output.printError(e.message); return null; });
     if (!wf) return { success: false, exitCode: 1 };
 
+    // --items feeds the run's input set. Previously the flag was parsed and
+    // then dropped, so every run silently used the single empty default item.
+    let items: { data: Record<string, unknown> }[] | undefined;
+    const itemsFlag = ctx.flags.items as string | undefined;
+    if (itemsFlag) {
+      const itemsPath = isAbsolute(itemsFlag) ? itemsFlag : resolve(ctx.cwd, itemsFlag);
+      let parsed: unknown;
+      try {
+        const { readFile } = await import('fs/promises');
+        parsed = JSON.parse(await readFile(itemsPath, 'utf8'));
+      } catch (e) {
+        output.printError(`Cannot read items file ${itemsPath}: ${(e as Error).message}`);
+        return { success: false, exitCode: 1 };
+      }
+      if (!Array.isArray(parsed)) {
+        output.printError(`Items file ${itemsPath} must contain a JSON array`);
+        return { success: false, exitCode: 1 };
+      }
+      // Accept both the engine's `{ data: {...} }` envelope and a bare array
+      // of objects, which is the shape people naturally write by hand.
+      items = parsed.map((entry) => {
+        const rec = entry as Record<string, unknown>;
+        return rec && typeof rec === 'object' && 'data' in rec && typeof rec.data === 'object' && rec.data !== null
+          ? { data: rec.data as Record<string, unknown> }
+          : { data: (rec ?? {}) as Record<string, unknown> };
+      });
+      output.printInfo(`Loaded ${items.length} input item(s) from ${itemsFlag}`);
+    }
+
     const port = ctx.flags.port as number ?? 4243;
     const dashboard = getDashboardServer(port);
     if (!ctx.flags['no-dashboard']) {
@@ -69,6 +98,7 @@ const runSubcommand: Command = {
 
     const record = await runWorkflow(wf, {
       onEvent: (ev) => dashboard.broadcast(ev),
+      ...(items ? { items } : {}),
     });
 
     if (record.status === 'completed') {

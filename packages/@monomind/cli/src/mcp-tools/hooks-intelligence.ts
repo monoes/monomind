@@ -721,7 +721,7 @@ export const hooksIntelligenceStats: MCPTool = {
 // Intelligence learn hook
 export const hooksIntelligenceLearn: MCPTool = {
   name: 'hooks_intelligence_learn',
-  description: 'Force immediate SONA learning cycle with EWC++ consolidation',
+  description: 'Run a consolidation pass over the local keyword-pattern store: time-decay confidence weighting, pruning, and an EWC++-style quadratic penalty derived from squared embedding magnitudes. There are no gradients and no model — no ML training occurs.',
   inputSchema: {
     type: 'object',
     properties: {

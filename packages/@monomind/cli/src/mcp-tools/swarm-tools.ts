@@ -80,7 +80,7 @@ const VALID_TOPOLOGIES = new Set([
 export const swarmTools: MCPTool[] = [
   {
     name: 'swarm_init',
-    description: 'Initialize a swarm with persistent state tracking',
+    description: 'Record a swarm topology/strategy in persistent state. This writes a JSON state file — it does not start any process, thread, or agent. Actual concurrent work only happens when the caller separately dispatches subagents with Claude Code\'s Task tool.',
     category: 'swarm',
     inputSchema: {
       type: 'object',
@@ -228,7 +228,7 @@ export const swarmTools: MCPTool[] = [
   },
   {
     name: 'swarm_scale',
-    description: 'Scale a swarm to a target agent count by spawning or terminating agents',
+    description: 'Adjust the number of agent records in a swarm\'s persistent state to a target count. Adds or removes bookkeeping entries only — no process is started or stopped.',
     category: 'swarm',
     inputSchema: {
       type: 'object',
