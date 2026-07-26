@@ -302,27 +302,82 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 npx monomind@latest doctor --fix
 ```
 
+## Published npm Packages (authoritative roster)
+
+**These 9 packages are real.** Each has exactly one source directory in this repo and is
+the only correct thing to publish. Anything on the npm account that is not in this table
+is not a live package — see "Deprecated aliases" below.
+
+| npm name | Source directory | Role |
+| --- | --- | --- |
+| `monomind` | repo root | **Umbrella shim only** — no code of its own; pins and re-execs the CLI |
+| `@monoes/monomindcli` | `packages/@monomind/cli/` | The real CLI engine (all commands, MCP server, `.claude` tree) |
+| `@monoes/monograph` | `packages/@monomind/monograph/` | Knowledge graph |
+| `@monoes/memory` | `packages/@monomind/memory/` | Memory backend library |
+| `@monoes/hooks` | `packages/@monomind/hooks/` | Hook registry + 15 background workers |
+| `@monoes/mcp` | `packages/@monomind/mcp/` | MCP server framework |
+| `@monoes/routing` | `packages/@monomind/routing/` | Semantic routing |
+| `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | CDP browser automation |
+| `@monoes/monodesign` | `packages/@monoes/monodesign/` | Design intelligence |
+| `monofence-ai` | `packages/monofence-ai/` | AI-manipulation defense |
+
+### Deprecated aliases — never publish these again
+
+- **`@monoes/monomind`** (last: 1.18.11) — stub that pinned `monomind` at an exact old version.
+- **`@monoes/monofence-ai`** (last: 1.0.0) — stub that pinned `monofence-ai@1.0.0`.
+
+Both were hand-published one-offs with no source directory here, both went stale, and both
+are now `npm deprecate`d pointing at their unscoped counterparts. They are intentionally
+left published (unpublishing would break anyone who pinned them). If you find yourself
+about to publish a "scoped alias", don't — there is no such pattern in this repo.
+
+### `monomind` is a shim, not a second copy of the CLI
+
+Until 2.7.12, root `package.json` shipped the entire CLI payload (`dist/`, `bin/`,
+`.claude/`) *in addition to* `@monoes/monomindcli` shipping the same thing — ~27 MB of
+duplicate bytes per release, and two packages that had to be version-bumped in lockstep or
+silently diverge. Root now ships only `bin/cli.js` + README + LICENSE (~11 kB) and declares
+`"@monoes/monomindcli": "<exact version>"` as its single dependency.
+
+Do not re-add `packages/@monomind/cli/**` to the root `files` array.
+
+`bin/cli.js` resolves the CLI by scanning `require.resolve.paths()` on the filesystem
+rather than calling `require.resolve()` on the package — the CLI's `exports` map gates
+every specifier, and older published versions export `"."` with only an `import` condition,
+which makes CJS `require.resolve()` throw `ERR_PACKAGE_PATH_NOT_EXPORTED`. The filesystem
+scan keeps a new umbrella working against an older installed CLI.
+
 ## Publishing to npm
 
-Publish two packages: `@monoes/monomindcli` (scoped CLI) and `monomind` (umbrella from repo root).
+Three numbers must agree or the release ships a stale CLI. `npm run check:versions`
+(also wired into root `prepublishOnly`) enforces this and blocks the publish on drift:
+
+- root `package.json` → `version`
+- root `package.json` → `dependencies["@monoes/monomindcli"]`
+- `packages/@monomind/cli/package.json` → `version`
 
 ```bash
-# 1. Bump version in BOTH package.json files (root + packages/@monomind/cli)
-#    Direct edit — `npm version` chokes on workspace:* protocol entries
+# 1. Bump the version in all THREE places above.
+#    Direct edit — `npm version` chokes on workspace:* protocol entries.
+npm run check:versions          # verify before going further
 
-# 2. Build CLI
+# 2. Build + publish the CLI (the real payload)
 cd packages/@monomind/cli && npm run build
-
-# 3. Publish scoped CLI
 npm publish --tag latest
 
-# 4. Publish umbrella from repo root
+# 3. Publish the umbrella shim from repo root
 cd ../../.. && npm publish --tag latest
 
-# Verify
+# Verify — these two must report the SAME version
 npm view @monoes/monomindcli dist-tags --json
 npm view monomind dist-tags --json
 ```
+
+Publish the CLI **before** the umbrella: the umbrella pins the CLI exactly, so publishing
+it first leaves a window where `npm i monomind` cannot resolve its own dependency.
+
+Sub-packages (`@monoes/memory`, `@monoes/monograph`, …) version and publish independently
+from their own directories — they are not part of the umbrella's lockstep.
 
 ## Support
 
