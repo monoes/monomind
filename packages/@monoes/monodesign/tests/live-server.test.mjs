@@ -89,6 +89,40 @@ async function stopServer(port, token) {
   } catch { /* server already gone */ }
 }
 
+/**
+ * Kill a spawned server and WAIT for the OS to actually reap it.
+ *
+ * proc.kill() only delivers a signal; it does not wait. On POSIX that is
+ * harmless, because a directory can be unlinked while a process still holds
+ * handles into it. Windows refuses, so the rmSync in the very next line failed
+ * with EBUSY ("resource busy or locked") — 22 of the 24 remaining Windows
+ * failures were this, with the test body passing and only the teardown
+ * throwing.
+ *
+ * Escalates to SIGKILL if the process ignores the polite signal, so a wedged
+ * server cannot hang the suite.
+ */
+async function killAndWait(proc, timeoutMs = 5000) {
+  if (!proc || proc.exitCode !== null || proc.signalCode !== null) return;
+  const exited = new Promise((resolve) => proc.once('exit', resolve));
+  try {
+    proc.kill();
+  } catch {
+    return; // already gone
+  }
+  let timer;
+  const escalate = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch { /* already gone */ }
+      resolve();
+    }, timeoutMs);
+  });
+  await Promise.race([exited, escalate]);
+  clearTimeout(timer);
+  // If we escalated, give the forced kill a moment to be reaped too.
+  await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 1000))]);
+}
+
 async function drainPolls(server) {
   let drained;
   do {
@@ -178,7 +212,7 @@ describe('live-server integration', () => {
   after(async () => {
     if (server) {
       await stopServer(server.port, server.token);
-      server.proc.kill();
+      await killAndWait(server.proc);
     }
     if (serverCwd) {
       rmSync(serverCwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -330,7 +364,7 @@ colors: {}
     } finally {
       if (designServer) {
         await stopServer(designServer.port, designServer.token);
-        designServer.proc.kill();
+        await killAndWait(designServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -362,7 +396,7 @@ colors: {}
     } finally {
       if (designServer) {
         await stopServer(designServer.port, designServer.token);
-        designServer.proc.kill();
+        await killAndWait(designServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -435,7 +469,7 @@ colors: {}
     } finally {
       if (commitServer) {
         await stopServer(commitServer.port, commitServer.token);
-        commitServer.proc.kill();
+        await killAndWait(commitServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -495,7 +529,7 @@ colors: {}
     } finally {
       if (asyncServer) {
         await stopServer(asyncServer.port, asyncServer.token);
-        asyncServer.proc.kill();
+        await killAndWait(asyncServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -615,7 +649,7 @@ colors: {}
     } finally {
       if (chatServer) {
         await stopServer(chatServer.port, chatServer.token);
-        chatServer.proc.kill();
+        await killAndWait(chatServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -712,7 +746,7 @@ colors: {}
     } finally {
       if (candidateServer) {
         await stopServer(candidateServer.port, candidateServer.token);
-        candidateServer.proc.kill();
+        await killAndWait(candidateServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -828,7 +862,7 @@ colors: {}
     } finally {
       if (chatServer) {
         await stopServer(chatServer.port, chatServer.token);
-        chatServer.proc.kill();
+        await killAndWait(chatServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -932,7 +966,7 @@ colors: {}
     } finally {
       if (chunkServer) {
         await stopServer(chunkServer.port, chunkServer.token);
-        chunkServer.proc.kill();
+        await killAndWait(chunkServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1047,7 +1081,7 @@ colors: {}
     } finally {
       if (chunkServer) {
         await stopServer(chunkServer.port, chunkServer.token);
-        chunkServer.proc.kill();
+        await killAndWait(chunkServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1142,7 +1176,7 @@ colors: {}
     } finally {
       if (splitServer) {
         await stopServer(splitServer.port, splitServer.token);
-        splitServer.proc.kill();
+        await killAndWait(splitServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1253,7 +1287,7 @@ colors: {}
     } finally {
       if (failServer) {
         await stopServer(failServer.port, failServer.token);
-        failServer.proc.kill();
+        await killAndWait(failServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1338,7 +1372,7 @@ colors: {}
     } finally {
       if (timeoutServer) {
         await stopServer(timeoutServer.port, timeoutServer.token);
-        timeoutServer.proc.kill();
+        await killAndWait(timeoutServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1455,7 +1489,7 @@ colors: {}
     } finally {
       if (repairServer) {
         await stopServer(repairServer.port, repairServer.token);
-        repairServer.proc.kill();
+        await killAndWait(repairServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1562,7 +1596,7 @@ colors: {}
     } finally {
       if (decisionServer) {
         await stopServer(decisionServer.port, decisionServer.token);
-        decisionServer.proc.kill();
+        await killAndWait(decisionServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1666,7 +1700,7 @@ colors: {}
     } finally {
       if (discardApplyServer) {
         await stopServer(discardApplyServer.port, discardApplyServer.token);
-        discardApplyServer.proc.kill();
+        await killAndWait(discardApplyServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1773,11 +1807,11 @@ colors: {}
     } finally {
       if (abandonedServer) {
         try { await stopServer(abandonedServer.port, abandonedServer.token); } catch {}
-        abandonedServer.proc.kill();
+        await killAndWait(abandonedServer.proc);
       }
       if (restarted) {
         await stopServer(restarted.port, restarted.token);
-        restarted.proc.kill();
+        await killAndWait(restarted.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1900,7 +1934,7 @@ colors: {}
     } finally {
       if (pageScopeServer) {
         await stopServer(pageScopeServer.port, pageScopeServer.token);
-        pageScopeServer.proc.kill();
+        await killAndWait(pageScopeServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -1955,7 +1989,7 @@ colors: {}
     } finally {
       if (discardServer) {
         await stopServer(discardServer.port, discardServer.token);
-        discardServer.proc.kill();
+        await killAndWait(discardServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -2044,7 +2078,7 @@ colors: {}
     } finally {
       if (stashServer) {
         await stopServer(stashServer.port, stashServer.token);
-        stashServer.proc.kill();
+        await killAndWait(stashServer.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
@@ -2272,7 +2306,7 @@ colors: {}
       assert.equal(postRes.status, 200);
 
       await stopServer(firstServer.port, firstServer.token);
-      firstServer.proc.kill();
+      await killAndWait(firstServer.proc);
       firstServer = null;
 
       restarted = await startServer(8519, { cwd: tmp });
@@ -2287,11 +2321,11 @@ colors: {}
     } finally {
       if (firstServer) {
         await stopServer(firstServer.port, firstServer.token);
-        firstServer.proc.kill();
+        await killAndWait(firstServer.proc);
       }
       if (restarted) {
         await stopServer(restarted.port, restarted.token);
-        restarted.proc.kill();
+        await killAndWait(restarted.proc);
       }
       rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
