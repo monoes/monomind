@@ -61,7 +61,9 @@
     "./mcp-tools": {
       "types": "./dist/src/mcp-tools/index.d.ts",
       "import": "./dist/src/mcp-tools/index.js"
-    }
+    },
+    "./bin/cli.js": "./bin/cli.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -106,7 +108,7 @@
     "pdf-parse": "^2.4.5",
     "ws": "^8.21.0",
     "yaml": "^2.8.0",
-    "zod": "^3.25.0"
+    "zod": "^4.0.0"
   },
   "optionalDependencies": {
     "@huggingface/transformers": "^3.8.1",

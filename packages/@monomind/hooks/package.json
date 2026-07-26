@@ -34,8 +34,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@monoes/memory": "^1.0.5",
-    "zod": "^3.23.0"
+    "@monoes/memory": "^1.0.5"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -64,5 +63,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "optionalDependencies": {
+    "monofence-ai": "^1.0.2"
   }
 }
