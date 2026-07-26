@@ -326,7 +326,7 @@ describe('ControllerRegistry', () => {
     it('should report lancedb availability', async () => {
       await registry.initialize({ backend: mockBackend });
       const report = await registry.healthCheck();
-      expect(typeof report.lancedbAvailable).toBe('boolean');
+      expect(typeof report.storageBackendAvailable).toBe('boolean');
     });
 
     it('should classify status correctly', async () => {

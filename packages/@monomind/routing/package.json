@@ -1,6 +1,6 @@
 {
   "name": "@monoes/routing",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Semantic task-to-agent routing for monomind",
   "type": "module",
   "main": "dist/index.js",
@@ -13,8 +13,11 @@
     "dist"
   ],
   "scripts": {
+    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "zod": "^3.22.0"

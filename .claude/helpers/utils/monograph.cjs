@@ -330,25 +330,107 @@ function _graphGateReadSessions() {
   return sessions;
 }
 
+// Atomic replace: write a per-process temp file, then rename() over the
+// target. rename() within a directory is atomic on POSIX and on Windows via
+// Node's fs, so a concurrent reader sees either the old file or the new one
+// — never a half-written one. (The previous plain writeFileSync truncated
+// the live file first, so a reader could observe a truncated/torn document.)
 function _graphGateWriteSessions(sessions) {
   var ids = Object.keys(sessions);
   if (ids.length > 20) {
     ids.sort(function (a, b) { return (sessions[a].ts || 0) - (sessions[b].ts || 0); });
     for (var i = 0; i < ids.length - 20; i++) delete sessions[ids[i]];
   }
-  fs.mkdirSync(path.join(CWD, '.monomind'), { recursive: true });
-  fs.writeFileSync(_graphGateStateFile(), JSON.stringify({ sessions: sessions }));
+  var dir = path.join(CWD, '.monomind');
+  fs.mkdirSync(dir, { recursive: true });
+  var target = _graphGateStateFile();
+  var tmp = target + '.' + process.pid + '.' + Math.random().toString(36).slice(2, 8) + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify({ sessions: sessions }));
+    fs.renameSync(tmp, target);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (_) {}
+    throw e;
+  }
+}
+
+// Cross-process advisory lock around the read-modify-write above.
+//
+// Three concurrent paths touch this state (pre-bash, pre-search, and
+// post-graph-tool's markQueried), each in its own short-lived process. Without
+// a lock, two of them read the same snapshot and the second write erases the
+// first — measured: 12 concurrent writers landed as few as 6 of 12 session
+// records. A lost `queried:true` re-blocks a session that already called
+// monograph; a lost `blockedOnce` can block it a second time.
+//
+// mkdir is the atomic primitive (works on every platform and over network FS).
+// The lock is best-effort: if it can't be taken within the budget, or a stale
+// one is reclaimed, we still perform an atomic-rename write — no worse than the
+// old behavior, and never a hang. Hooks run on every tool call, so the total
+// wait is deliberately tiny.
+var _GRAPH_GATE_LOCK_TIMEOUT_MS = 250;
+var _GRAPH_GATE_LOCK_STALE_MS = 2000;
+
+function _sleepSync(ms) {
+  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch (e) { /* no SAB */ }
+}
+
+function _graphGateAcquireLock() {
+  var lockDir = _graphGateStateFile() + '.lock';
+  var deadline = Date.now() + _GRAPH_GATE_LOCK_TIMEOUT_MS;
+  var held = false;
+  for (;;) {
+    try {
+      fs.mkdirSync(lockDir);
+      held = true;
+      break;
+    } catch (e) {
+      if (e && e.code !== 'EEXIST') break; // can't lock at all — proceed unlocked
+      try {
+        var st = fs.statSync(lockDir);
+        if (Date.now() - st.mtimeMs > _GRAPH_GATE_LOCK_STALE_MS) {
+          fs.rmSync(lockDir, { recursive: true, force: true }); // crashed holder
+          continue;
+        }
+      } catch (_) { continue; } // lock vanished — retry immediately
+      if (Date.now() >= deadline) break; // give up; write unlocked
+      _sleepSync(5);
+    }
+  }
+  return function release() {
+    if (!held) return;
+    try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch (_) {}
+  };
+}
+
+/**
+ * Read-modify-write one session's entry under the lock. `mutate(s, ctx)`
+ * receives the session record (created if absent) and mutates it in place; its
+ * return value is passed through to the caller. A mutator that changed nothing
+ * can call `ctx.noWrite()` to skip the write entirely (the common read-only
+ * case: a session that already called monograph).
+ */
+function _graphGateUpdateSession(sessionId, mutate) {
+  var release = _graphGateAcquireLock();
+  try {
+    var sessions = _graphGateReadSessions();
+    var s = sessions[sessionId] || { queried: false, blockedOnce: false };
+    var write = true;
+    var out = mutate(s, { noWrite: function () { write = false; } });
+    if (!write) return out;
+    s.ts = Date.now();
+    sessions[sessionId] = s;
+    _graphGateWriteSessions(sessions);
+    return out;
+  } finally {
+    release();
+  }
 }
 
 function _graphGateMarkQueried(sessionId) {
   if (!sessionId) return;
   try {
-    var sessions = _graphGateReadSessions();
-    var s = sessions[sessionId] || { blockedOnce: false };
-    s.queried = true;
-    s.ts = Date.now();
-    sessions[sessionId] = s;
-    _graphGateWriteSessions(sessions);
+    _graphGateUpdateSession(sessionId, function (s) { s.queried = true; });
   } catch (e) { /* non-fatal */ }
 }
 
@@ -356,19 +438,23 @@ function _graphGateMarkQueried(sessionId) {
 function _graphGateShouldBlock(sessionId) {
   if (String(process.env.MONOMIND_GRAPH_GATE || '').toLowerCase() === 'off') return false;
   if (!sessionId || !_isGraphFresh()) return false;
-  var sessions = _graphGateReadSessions();
-  var s = sessions[sessionId] || { queried: false, blockedOnce: false };
-  if (s.queried) return false;
-  if (!s.blockedOnce) {
-    s.blockedOnce = true;
-    s.ts = Date.now();
-    sessions[sessionId] = s;
-    try { _graphGateWriteSessions(sessions); } catch (e) { return false; }
-    return 'block';
+  // Test-and-set blockedOnce atomically: two concurrent greps in the same
+  // session must not both observe blockedOnce=false and both block.
+  try {
+    return _graphGateUpdateSession(sessionId, function (s, ctx) {
+      if (s.queried) { ctx.noWrite(); return false; }
+      if (!s.blockedOnce) {
+        s.blockedOnce = true;
+        return 'block';
+      }
+      // Already blocked once but monograph still not called — warn without
+      // blocking so subagents without MCP access don't deadlock.
+      ctx.noWrite();
+      return 'warn';
+    });
+  } catch (e) {
+    return false; // state unreadable/unwritable — never block on a state error
   }
-  // Already blocked once but monograph still not called — warn without blocking
-  // so subagents without MCP access don't deadlock.
-  return 'warn';
 }
 
 function _getNodeCount() {

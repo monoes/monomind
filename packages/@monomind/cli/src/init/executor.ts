@@ -434,16 +434,35 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
  * Non-fatal: best-effort health check and auto-install.
  */
 async function runDoctorFix(targetDir: string, result: InitResult): Promise<void> {
+  // Run the doctor THIS binary ships, in-process.
+  //
+  // This used to be `execSync('npx monomind@latest doctor --install')`, which
+  // was wrong in three ways at once: it downloaded and ran a DIFFERENT version
+  // than the one the user deliberately invoked (so `monomind@2.7.0 init` was
+  // finished by whatever `latest` happened to be), it silently required network
+  // — on a machine without it, the 120s timeout elapsed and init reported
+  // "skipped" with no explanation — and `stdio: 'ignore'` discarded everything
+  // it said, so a failed health check looked identical to a passing one.
   try {
-    const { execSync } = await import('child_process');
-    execSync('npx monomind@latest doctor --install', {
+    const { doctorCommand } = await import('../commands/doctor.js');
+    if (!doctorCommand.action) {
+      result.skipped.push('doctor: auto-fix unavailable (run: monomind doctor --install)');
+      return;
+    }
+    const res = await doctorCommand.action({
+      args: [],
+      flags: { install: true },
       cwd: targetDir,
-      stdio: 'ignore',
-      timeout: 120000,
-    });
-    result.created.files.push('doctor --install (health check + auto-fix)');
-  } catch {
-    result.skipped.push('doctor: auto-fix skipped (run: monomind doctor --install)');
+    } as never);
+    // Report what actually happened rather than asserting success either way.
+    if (res && (res as { success?: boolean }).success === false) {
+      result.skipped.push('doctor: reported issues (run: monomind doctor for details)');
+    } else {
+      result.created.files.push('doctor --install (health check + auto-fix)');
+    }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    result.skipped.push(`doctor: auto-fix failed (${detail}) — run: monomind doctor --install`);
   }
 }
 
@@ -1037,6 +1056,85 @@ async function writeMCPConfig(
 }
 
 /**
+ * Provenance manifest for generated .claude content.
+ *
+ * init used to "clean stale" entries by deleting every name under
+ * .claude/{skills,commands,agents} that was absent from the current version's
+ * SKILLS_MAP/COMMANDS_MAP/AGENTS_MAP. Every user-authored command and skill is
+ * absent from those maps, so that pass deleted user content on the very first
+ * run — unrecoverable data loss.
+ *
+ * The manifest records exactly which entries *this tool* wrote, so the stale
+ * sweep can be restricted to those. Anything init did not write is never
+ * removed. Projects initialised by an older version have no manifest, so their
+ * first run under the fix deletes nothing and seeds the manifest instead;
+ * stale generated content may survive one extra run, which is the correct
+ * trade (preserving stale generated content is recoverable, deleting user
+ * content is not).
+ */
+const INIT_MANIFEST_REL = path.join('.monomind', 'init-manifest.json');
+
+interface InitManifest {
+  version: number;
+  /** Entry names directly under .claude/skills that init generated. */
+  skills: string[];
+  /** Entry names directly under .claude/commands that init generated. */
+  commands: string[];
+  /** Entry names (category dirs) directly under .claude/agents that init generated. */
+  agents: string[];
+}
+
+type InitManifestSection = 'skills' | 'commands' | 'agents';
+
+/**
+ * Read the provenance manifest. Returns null when absent or unreadable —
+ * callers must treat that as "provenance unknown", i.e. delete nothing.
+ */
+function readInitManifest(targetDir: string): InitManifest | null {
+  const manifestPath = path.join(targetDir, INIT_MANIFEST_REL);
+  try {
+    if (!fs.existsSync(manifestPath)) return null;
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      version: typeof parsed.version === 'number' ? parsed.version : 1,
+      skills: Array.isArray(parsed.skills) ? parsed.skills.filter((s: unknown) => typeof s === 'string') : [],
+      commands: Array.isArray(parsed.commands) ? parsed.commands.filter((s: unknown) => typeof s === 'string') : [],
+      agents: Array.isArray(parsed.agents) ? parsed.agents.filter((s: unknown) => typeof s === 'string') : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Names init previously generated in one section. Empty set when no manifest
+ * exists — which makes the stale sweep a no-op rather than a delete-everything.
+ */
+function previouslyGenerated(targetDir: string, section: InitManifestSection): Set<string> {
+  return new Set(readInitManifest(targetDir)?.[section] ?? []);
+}
+
+/**
+ * Record the entries init just wrote for one section, merging into any
+ * existing manifest so a partial run (e.g. --only-claude, or a section whose
+ * source dir was missing) never drops provenance for the other sections.
+ */
+function recordGenerated(targetDir: string, section: InitManifestSection, entries: string[]): void {
+  const manifestPath = path.join(targetDir, INIT_MANIFEST_REL);
+  const existing = readInitManifest(targetDir);
+  const manifest: InitManifest = existing ?? { version: 1, skills: [], commands: [], agents: [] };
+  manifest.version = 1;
+  manifest[section] = [...new Set(entries)].sort();
+  try {
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    atomicWriteFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+  } catch {
+    // Non-fatal: without a manifest the next run simply deletes nothing.
+  }
+}
+
+/**
  * Copy skills from source
  */
 async function copySkills(
@@ -1082,11 +1180,14 @@ async function copySkills(
     );
   }
 
-  // Remove stale skill directories no longer in the current version's map
+  // Remove stale skill directories that a PREVIOUS init generated and this
+  // version no longer ships. Entries init never wrote (user-authored skills,
+  // skills installed by other tools) are left untouched — see readInitManifest.
   const knownSkills = new Set([...new Set(skillsToCopy)]);
+  const priorSkills = previouslyGenerated(targetDir, 'skills');
   if (fs.existsSync(targetSkillsDir)) {
     for (const existing of fs.readdirSync(targetSkillsDir)) {
-      if (!knownSkills.has(existing)) {
+      if (!knownSkills.has(existing) && priorSkills.has(existing)) {
         const stalePath = path.join(targetSkillsDir, existing);
         fs.rmSync(stalePath, { recursive: true, force: true });
         result.created.files.push(`[cleaned] .claude/skills/${existing} (stale)`);
@@ -1095,15 +1196,20 @@ async function copySkills(
   }
 
   // Always copy/overwrite skills (never skip — ensures new version content lands)
+  const writtenSkills: string[] = [];
   for (const skillName of knownSkills) {
     const sourcePath = path.join(sourceSkillsDir, skillName);
     const targetPath = path.join(targetSkillsDir, skillName);
 
     if (fs.existsSync(sourcePath)) {
-      if (fs.existsSync(targetPath)) {
-        fs.rmSync(targetPath, { recursive: true, force: true });
-      }
+      // Deliberately NOT rmSync'd first. copyDirRecursive overwrites every
+      // file it ships, so wiping the directory adds nothing except destroying
+      // anything the user put inside it — notes beside a shipped skill, an
+      // extra command in a shipped folder. `init --force` did exactly that.
+      // The cost of not wiping is that a file removed from a newer version
+      // lingers; the cost of wiping is silent data loss, which is worse.
       copyDirRecursive(sourcePath, targetPath);
+      writtenSkills.push(skillName);
       result.created.files.push(`.claude/skills/${skillName}`);
       result.summary.skillsCount++;
     } else {
@@ -1113,6 +1219,15 @@ async function copySkills(
       result.errors.push(`Skill '${skillName}' listed in SKILLS_MAP has no source directory at ${sourcePath} — skipped`);
     }
   }
+
+  // Record provenance so the next run can distinguish "we wrote this" from
+  // "the user wrote this". Keep entries this run did not re-write but that a
+  // previous run generated and that still exist, so provenance is not lost
+  // when a section is partially skipped.
+  const retainedSkills = [...priorSkills].filter(
+    n => !writtenSkills.includes(n) && fs.existsSync(path.join(targetSkillsDir, n))
+  );
+  recordGenerated(targetDir, 'skills', [...writtenSkills, ...retainedSkills]);
 }
 
 /**
@@ -1162,11 +1277,13 @@ async function copyCommands(
     return;
   }
 
-  // Remove stale command files/directories no longer in the current version's map
+  // Remove stale command files/directories that a PREVIOUS init generated and
+  // this version no longer ships. User-authored commands are never touched.
   const knownCommands = new Set([...new Set(commandsToCopy)]);
+  const priorCommands = previouslyGenerated(targetDir, 'commands');
   if (fs.existsSync(targetCommandsDir)) {
     for (const existing of fs.readdirSync(targetCommandsDir)) {
-      if (!knownCommands.has(existing)) {
+      if (!knownCommands.has(existing) && priorCommands.has(existing)) {
         const stalePath = path.join(targetCommandsDir, existing);
         fs.rmSync(stalePath, { recursive: true, force: true });
         result.created.files.push(`[cleaned] .claude/commands/${existing} (stale)`);
@@ -1175,23 +1292,30 @@ async function copyCommands(
   }
 
   // Always copy/overwrite commands (never skip — ensures new version content lands)
+  const writtenCommands: string[] = [];
   for (const cmdName of knownCommands) {
     const sourcePath = path.join(sourceCommandsDir, cmdName);
     const targetPath = path.join(targetCommandsDir, cmdName);
 
     if (fs.existsSync(sourcePath)) {
-      if (fs.existsSync(targetPath)) {
-        fs.rmSync(targetPath, { recursive: true, force: true });
-      }
+      // No pre-copy rmSync — see the note in copySkills. Both branches below
+      // overwrite what they ship, so wiping first only destroys files the user
+      // added inside a shipped command directory.
       if (fs.statSync(sourcePath).isDirectory()) {
         copyDirRecursive(sourcePath, targetPath);
       } else {
         fs.copyFileSync(sourcePath, targetPath);
       }
+      writtenCommands.push(cmdName);
       result.created.files.push(`.claude/commands/${cmdName}`);
       result.summary.commandsCount++;
     }
   }
+
+  const retainedCommands = [...priorCommands].filter(
+    n => !writtenCommands.includes(n) && fs.existsSync(path.join(targetCommandsDir, n))
+  );
+  recordGenerated(targetDir, 'commands', [...writtenCommands, ...retainedCommands]);
 }
 
 /**
@@ -1227,11 +1351,13 @@ async function copyAgents(
     return;
   }
 
-  // Remove stale agent category directories no longer in the current version's map
+  // Remove stale agent category directories that a PREVIOUS init generated and
+  // this version no longer ships. User-authored agent dirs are never touched.
   const knownAgents = new Set([...new Set(agentsToCopy)]);
+  const priorAgents = previouslyGenerated(targetDir, 'agents');
   if (fs.existsSync(targetAgentsDir)) {
     for (const existing of fs.readdirSync(targetAgentsDir)) {
-      if (!knownAgents.has(existing)) {
+      if (!knownAgents.has(existing) && priorAgents.has(existing)) {
         const stalePath = path.join(targetAgentsDir, existing);
         fs.rmSync(stalePath, { recursive: true, force: true });
         result.created.files.push(`[cleaned] .claude/agents/${existing} (stale)`);
@@ -1240,21 +1366,31 @@ async function copyAgents(
   }
 
   // Always copy/overwrite agents (never skip — ensures new version content lands)
+  const writtenAgents: string[] = [];
   for (const agentCategory of knownAgents) {
     const sourcePath = path.join(sourceAgentsDir, agentCategory);
     const targetPath = path.join(targetAgentsDir, agentCategory);
 
     if (fs.existsSync(sourcePath)) {
-      if (fs.existsSync(targetPath)) {
-        fs.rmSync(targetPath, { recursive: true, force: true });
-      }
+      // Deliberately NOT rmSync'd first. copyDirRecursive overwrites every
+      // file it ships, so wiping the directory adds nothing except destroying
+      // anything the user put inside it — notes beside a shipped skill, an
+      // extra command in a shipped folder. `init --force` did exactly that.
+      // The cost of not wiping is that a file removed from a newer version
+      // lingers; the cost of wiping is silent data loss, which is worse.
       copyDirRecursive(sourcePath, targetPath);
       // Count agent files (.md only — .yaml agents were migrated to .md)
       const mdFiles = countFiles(sourcePath, '.md');
       result.summary.agentsCount += mdFiles;
+      writtenAgents.push(agentCategory);
       result.created.files.push(`.claude/agents/${agentCategory}`);
     }
   }
+
+  const retainedAgents = [...priorAgents].filter(
+    n => !writtenAgents.includes(n) && fs.existsSync(path.join(targetAgentsDir, n))
+  );
+  recordGenerated(targetDir, 'agents', [...writtenAgents, ...retainedAgents]);
 }
 
 /**

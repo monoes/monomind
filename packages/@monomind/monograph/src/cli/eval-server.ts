@@ -9,6 +9,7 @@
  *   createEvalServer('/path/to/repo', 4848)
  */
 
+import { createRequire } from 'node:module';
 import type { Server } from 'http';
 import type { Application } from 'express';
 import { openDb, closeDb } from '../storage/db.js';
@@ -49,7 +50,13 @@ export function createEvalServer(repoPath: string, _port?: number): EvalServerHa
   function getApp(): Application {
     if (_app) return _app;
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // createRequire, not a bare require(): this package is ESM
+    // ("type": "module"), where `require` is undefined at runtime — the
+    // eslint-disable that used to sit here silenced the lint but the call
+    // still threw "require is not defined" the moment getApp() ran.
+    // getApp() is synchronous, so `await import()` is not an option; this is
+    // the correct ESM escape hatch for a deliberately deferred load.
+    const require = createRequire(import.meta.url);
     const express = require('express') as typeof import('express');
     const app = express();
     app.use(express.json());

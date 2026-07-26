@@ -357,14 +357,14 @@ export const vectorSearchOptimizations = {
    * HNSW Indexing: Hierarchical Navigable Small World graphs
    */
   hnswIndexing: {
-    description: 'Use LanceDB ANN for O(log n) approximate nearest neighbor search',
-    expectedImprovement: '150x-12500x',
+    description: 'Use the pure-JS HNSWIndex for O(log n) approximate nearest neighbor search (LanceDB support was removed — SQLiteBackend.search() is brute-force by design; HNSWIndex is the in-package ANN alternative, not yet wired into the live search path — see the honesty review\'s S5 growth plan)',
+    expectedImprovement: 'see this file\'s own hnsw1kResult/hnsw10kResult benchmarks above for measured numbers',
     implementation: `
-      import { LanceDBBackend } from '../src/lancedb-backend.js';
+      import { HNSWIndex } from '../src/hnsw-index.js';
 
-      const backend = new LanceDBBackend({ dbPath: './lancedb', vectorDimension: 384 });
-      await backend.initialize();
-      const results = await backend.search(queryVector, { limit: k });
+      const index = new HNSWIndex({ dimensions: 384 });
+      await index.addPoint(id, vector);
+      const results = await index.search(queryVector, k);
     `,
   },
 

@@ -9,6 +9,11 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { existsSync, lstatSync, rmSync, readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync } from 'fs';
 import { join, dirname } from 'path';
+// Static imports: this package is ESM ("type": "module"), so a bare require()
+// here throws "require is not defined" in the built output even though it
+// typechecks and passes tests. Guarded by no-cjs-require-in-esm.test.ts.
+import { execSync } from 'node:child_process';
+import { homedir } from 'node:os';
 
 /**
  * Artifact directories and files that monomind/monomind may create
@@ -385,7 +390,6 @@ export const cleanupCommand: Command = {
       // process actually looks like ours before signaling it.
       const looksLikeOurProcess = (pid: number): boolean => {
         try {
-          const { execSync } = require('child_process') as typeof import('child_process');
           const cmd = execSync(`ps -p ${pid} -o command=`, { timeout: 2000, encoding: 'utf-8' }).trim();
           // Covers direct `node ...` spawns as well as the npx fallback in
           // control-start.cjs's findCliPath(), which shows up in `ps` as
@@ -421,7 +425,7 @@ export const cleanupCommand: Command = {
       }
       // Kill stale MCP server processes
       const mcpPidPaths = [
-        join(require('os').homedir(), '.monomind', 'mcp.pid'),
+        join(homedir(), '.monomind', 'mcp.pid'),
         join(cwd, '.monomind', 'mcp-server.pid'),
       ];
       for (const pp of mcpPidPaths) {

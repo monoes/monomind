@@ -247,8 +247,12 @@ describe('org command', () => {
     it('clearStopfile removes a stopfile written by stopAction', async () => {
       const cwd = mkdtempSync(join(tmpdir(), 'org-stopfile-'));
       try {
-        mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+        mkdirSync(join(cwd, ORG_DIR, 'myorg'), { recursive: true });
         writeFileSync(join(cwd, ORG_DIR, 'myorg.json'), JSON.stringify({ name: 'myorg', roles: [{ id: 'boss' }] }));
+        // stopAction now refuses to write a stopfile nothing will read, so this
+        // lifecycle test needs a live "running" record (see state-integrity.test.ts).
+        writeFileSync(join(cwd, ORG_DIR, 'myorg', 'runtime.json'),
+          JSON.stringify({ status: 'running', run: 'run-x', pid: process.pid }));
         const stop = orgCommand.subcommands!.find(c => c.name === 'stop')!;
         const res = await stop.action!({ args: ['myorg'], flags: {}, cwd, interactive: false } as any);
         expect(res?.success).toBe(true);
