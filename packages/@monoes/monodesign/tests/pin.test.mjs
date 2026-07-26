@@ -20,7 +20,7 @@ describe('pin command provider syntax', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(project, { recursive: true, force: true });
+    fs.rmSync(project, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('renders each pinned shortcut for its target harness', () => {

@@ -30,7 +30,7 @@ beforeEach(() => {
   // written snapshot path comes back resolved.
   cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'monodesign-mirror-')));
 });
-afterEach(() => { fs.rmSync(cwd, { recursive: true, force: true }); });
+afterEach(() => { fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
 /** A fake `monomind` bin that appends its argv (one per line) to a log. */
 function installFakeMonomind() {

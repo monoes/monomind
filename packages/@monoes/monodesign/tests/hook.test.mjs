@@ -129,7 +129,7 @@ describe('SENSITIVE_PATH / GENERATED_PATH', () => {
 describe('readConfig()', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('returns defaults when file missing', () => {
     const cfg = readConfig(cwd);
@@ -283,7 +283,7 @@ describe('readConfig()', () => {
 describe('readCache / persistCache / bumpEditCount', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('round-trips a session', () => {
     const cache = readCache(cwd);
@@ -332,7 +332,7 @@ describe('readCache / persistCache / bumpEditCount', () => {
 describe('ensureHookGitExcludes()', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('adds hook runtime files to local git info exclude, not tracked .gitignore', () => {
     execFileSync('git', ['init', '-q'], { cwd });
@@ -515,7 +515,7 @@ describe('hook-admin.mjs', () => {
   const script = path.resolve('skill', 'scripts', 'hook-admin.mjs');
 
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   function runAdmin(args) {
     return execFileSync(process.execPath, [script, ...args], {
@@ -764,7 +764,7 @@ describe('renderTemplate()', () => {
 describe('writeAuditLog()', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('appends NDJSON when MONODESIGN_HOOK_LOG is set', () => {
     const log = path.join(cwd, 'audit.ndjson');
@@ -847,7 +847,7 @@ describe('payload()', () => {
 describe('runHook()', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   function eventFor(file, sessionId = 'sid-1') {
     return {
@@ -1403,7 +1403,7 @@ describe('runHook() — cache write gating (issues #344, #305)', () => {
   // project already opted in (an `.monodesign/` dir exists).
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   function eventFor(file, sessionId = 'gate-sid') {
     return {
@@ -1492,7 +1492,7 @@ describe('runHook() — cache write gating (issues #344, #305)', () => {
 describe('resolveCacheCwd()', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('keeps the session cwd when it already looks like a project root', () => {
     for (const marker of ['.git', '.monodesign']) {
@@ -1794,7 +1794,7 @@ describe('resolveHarness() / normalizeHookEvent()', () => {
 describe('expandScanTargets()', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   function write(rel, body) {
     const abs = path.join(cwd, rel);
@@ -1853,7 +1853,7 @@ describe('expandScanTargets()', () => {
       const expanded = expandScanTargets([traversalPrimary], cwd);
       assert.deepEqual(expanded, [traversalPrimary]);
     } finally {
-      fs.rmSync(outside, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1866,7 +1866,7 @@ describe('expandScanTargets()', () => {
 describe('runHook() — co-located stylesheet scan', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   function write(rel, body) {
     const abs = path.join(cwd, rel);
@@ -2018,7 +2018,7 @@ describe('runHook() — co-located stylesheet scan', () => {
       assert.equal(r.stdout, '');
       assert.equal(r.audit.skipped, 'sensitive');
     } finally {
-      fs.rmSync(outside, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 });
@@ -2031,7 +2031,7 @@ describe('runHook() — events without file_path', () => {
   // anything else is a no-op.
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('returns silent skip with reason no-file-path', async () => {
     const event = JSON.stringify({
@@ -2052,7 +2052,7 @@ describe('runHook() — events without file_path', () => {
 describe('runHook() — configured template extensions (issue #316)', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   function eventFor(file) {
     return {
@@ -2137,7 +2137,7 @@ describe('runHook() — configured template extensions (issue #316)', () => {
 describe('resolveProjectPlatform() / isNativePlatform()', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('reads the platform from PRODUCT.md via the same resolution the skill uses', () => {
     fs.writeFileSync(path.join(cwd, 'PRODUCT.md'), '# App\n\n## Platform\n\nios\n');
@@ -2162,7 +2162,7 @@ describe('resolveProjectPlatform() / isNativePlatform()', () => {
 describe('Cursor hook scripts', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   it('preToolUse denies proposed writes with detector findings before they land', () => {
     const logPath = path.join(cwd, 'hook.ndjson');
@@ -2532,7 +2532,7 @@ describe('Cursor hook scripts', () => {
 describe('runHook() — emission enrichment', () => {
   let cwd;
   beforeEach(() => { cwd = mkTmp(); });
-  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  afterEach(() => fs.rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   function write(rel, content) {
     const abs = path.join(cwd, rel);

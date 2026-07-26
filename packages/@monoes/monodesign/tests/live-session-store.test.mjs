@@ -24,7 +24,7 @@ describe('live-session-store', () => {
   });
 
   afterEach(() => {
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('rebuilds an active snapshot from an append-only journal after process restart', () => {

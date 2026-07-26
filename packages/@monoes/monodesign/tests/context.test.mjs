@@ -38,7 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   if (savedEnv === undefined) delete process.env.MONODESIGN_CONTEXT_DIR;
   else process.env.MONODESIGN_CONTEXT_DIR = savedEnv;
-  fs.rmSync(scratch, { recursive: true, force: true });
+  fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 function write(rel, body = '# placeholder\n') {
@@ -99,7 +99,7 @@ describe('resolveContextDir', () => {
       process.env.MONODESIGN_CONTEXT_DIR = elsewhere;
       assert.equal(resolveContextDir(scratch), elsewhere);
     } finally {
-      fs.rmSync(elsewhere, { recursive: true, force: true });
+      fs.rmSync(elsewhere, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
