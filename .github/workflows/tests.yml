@@ -117,6 +117,7 @@ jobs:
           - name: monodesign
             pkg: '@monoes/monodesign'
             dir: packages/@monoes/monodesign
+            build: 'skip'
           - name: monobrowse
             pkg: '@monoes/monobrowse'
             dir: packages/@monoes/monobrowse
@@ -209,7 +210,15 @@ jobs:
       # are portable, so it must run through the shell that used to break them
       # rather than through git-bash, where POSIX commands would have worked and
       # the check would prove nothing.
+      #
+      # monodesign sets build: 'skip'. Its `tsc` pulls monograph's sources in
+      # through the workspace and demands better-sqlite3/graphology types that
+      # --ignore-scripts never installed, and the build is independently
+      # expected to exit 2 — it typechecks deliberately-malformed antipattern
+      # fixtures. Neither has anything to do with Windows, and its tests run
+      # from source, so the build adds no signal here. Its test step still runs.
       - name: Build ${{ matrix.name }} on cmd.exe
+        if: matrix.build != 'skip'
         working-directory: ${{ matrix.dir }}
         shell: cmd
         run: npm run build
