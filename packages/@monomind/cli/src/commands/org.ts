@@ -279,6 +279,42 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   process.on('uncaughtException', (err) => { crashExit('uncaughtException', err); process.exit(1); });
   process.on('unhandledRejection', (err) => { crashExit('unhandledRejection', err); process.exit(1); });
 
+  // Termination diagnostics (#45). The two handlers above only cover errors
+  // raised *inside* the daemon. A report of the daemon vanishing after hours
+  // had a log holding nothing but its startup lines, because the ways a daemon
+  // usually dies were all unhandled:
+  //
+  //   - a signal (SIGTERM from a supervisor/OS, SIGHUP when a terminal closes)
+  //   - the event loop simply draining, which exits 0 and says nothing at all
+  //
+  // Both now announce themselves. Note what this deliberately cannot cover:
+  // SIGKILL, which is what the OOM killer sends, is uncatchable by design — no
+  // in-process handler can ever log it. That case is instead made *inferable*:
+  // every shutdown path below prints a terminal line, so a log that starts and
+  // then stops with no such line means the process was killed from outside
+  // (OOM being the usual culprit, and the reporter's org logs did show memory
+  // pressure). Absence of a shutdown line is now evidence, not ambiguity.
+  let shuttingDown = false;
+  const announceExit = (reason: string): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    try { console.error(`[org serve] shutting down: ${reason}`); } catch { /* stderr gone */ }
+  };
+  for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+    process.on(sig, () => {
+      announceExit(`received ${sig}`);
+      try { daemon.persistCrashStateAll(); daemon.clearHeartbeat(); } catch { /* best effort */ }
+      // A daemon holds ref'd timers, so it will not drain on its own; an
+      // explicit exit is required here and is the intended signal semantics.
+      process.exit(sig === 'SIGTERM' || sig === 'SIGINT' ? 0 : 1);
+    });
+  }
+  process.on('exit', (code) => {
+    // Last word on the way out. Reached for the "event loop drained" case,
+    // which previously produced a completely silent disappearance.
+    announceExit(`process exiting with code ${code}`);
+  });
+
   // Heartbeat: write every 30s so `org status` can tell "alive but busy" from
   // "daemon gone" without relying on pid liveness alone.
   daemon.writeHeartbeat();

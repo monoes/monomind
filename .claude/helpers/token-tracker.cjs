@@ -403,6 +403,26 @@ function parseAllSessions(dateStart, dateEnd) {
 
     var jsonlFiles = collectJsonlFiles(dirPath);
     for (var j = 0; j < jsonlFiles.length; j++) {
+      // Skip transcripts last written before the window opened. Sessions are
+      // append-only, so a file whose mtime predates dateStart cannot hold an
+      // entry inside the range — reading and JSON.parsing it is pure waste.
+      //
+      // `tokens today` was parsing every transcript on the machine: ~1GB over
+      // ~2,200 files here, of which ~300 had been touched that day. That took
+      // ~10s, which is what made it unusable as a SessionStart hook (#42) —
+      // the documented hook sets a 10s timeout and `npx` adds its own
+      // registry-check overhead on top.
+      //
+      // Safe with respect to the seenMsgIds dedupe: parseSessionFile applies
+      // the date filter BEFORE groupAndClassify ever consults that set, so
+      // out-of-range entries never registered a message id in the first place.
+      // Skipping the file is exactly equivalent to reading it and discarding
+      // every line. Only applied when a start bound was actually requested.
+      if (dateStart) {
+        var fstat;
+        try { fstat = fs.statSync(jsonlFiles[j]); } catch (_) { fstat = null; }
+        if (fstat && fstat.mtime < dateStart) continue;
+      }
       var session = parseSessionFile(jsonlFiles[j], dirName, seenMsgIds, dateStart, dateEnd);
       if (session && session.apiCalls > 0) {
         if (!projectMap[dirName]) {
@@ -543,14 +563,79 @@ function _computeQuickTotals() {
   return { todayCost: todayCost, todayCalls: todayCalls, monthCost: monthCost, monthCalls: monthCalls };
 }
 
+function _formatQuickTotals(d) {
+  return '[TOKEN_USAGE] Today: ' + fmt$(d.todayCost) + ' (' + d.todayCalls + ' calls)  |  Month: ' + fmt$(d.monthCost) + ' (' + d.monthCalls + ' calls)';
+}
+
+// The quick summary needs a MONTH window, and every transcript on an active
+// machine has been touched this month — so unlike the day view it cannot be
+// narrowed by mtime and inherently costs a full parse (~9.4s over ~1GB here).
+//
+// That is what broke `monomind tokens today` as a SessionStart hook (#42): the
+// documented hook allows 10s, so the computation alone straddles the timeout
+// before `npx` has even checked the registry, and Claude Code hangs waiting.
+//
+// A cost read-out does not need to be to-the-second, so serve it from cache and
+// refresh out of band: a session start returns instantly, and the next one
+// picks up the newly written value. A cold cache prints nothing rather than
+// blocking the editor — never make the user wait on a status line.
+var QUICK_CACHE_TTL_MS = 10 * 60 * 1000;
+
+function _quickCachePath() {
+  return path.join(path.dirname(getClaudeProjectsDir()), '.monomind-token-summary.json');
+}
+
+function _readQuickCache() {
+  try {
+    var raw = JSON.parse(fs.readFileSync(_quickCachePath(), 'utf8'));
+    if (!raw || typeof raw.computedAt !== 'number' || !raw.totals) return null;
+    return raw;
+  } catch (_) { return null; }
+}
+
+function _writeQuickCache(totals) {
+  try {
+    var tmp = _quickCachePath() + '.' + process.pid + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({ computedAt: Date.now(), totals: totals }));
+    fs.renameSync(tmp, _quickCachePath()); // atomic: never expose a half-written cache
+  } catch (_) { /* cache is best-effort */ }
+}
+
+/** Recompute and persist the cached totals. Used by the background refresh. */
+function refreshQuickSummary() {
+  var d = _computeQuickTotals();
+  if (d) _writeQuickCache(d);
+  return d;
+}
+
+function _spawnQuickRefresh() {
+  try {
+    var child = require('child_process').spawn(
+      process.execPath, [__filename, 'refresh-summary'],
+      { detached: true, stdio: 'ignore' },
+    );
+    child.unref(); // must not hold the caller's event loop open
+  } catch (_) { /* best effort */ }
+}
+
 /**
  * Returns a one-line token usage summary for the current day and month.
- * Called at session-restore.
+ * Called at session-restore. Cache-first and non-blocking — see the note above.
  */
 function quickSummary() {
-  var d = _computeQuickTotals();
-  if (!d) return null;
-  return '[TOKEN_USAGE] Today: ' + fmt$(d.todayCost) + ' (' + d.todayCalls + ' calls)  |  Month: ' + fmt$(d.monthCost) + ' (' + d.monthCalls + ' calls)';
+  var cached = _readQuickCache();
+  var fresh = cached && (Date.now() - cached.computedAt) < QUICK_CACHE_TTL_MS;
+  if (fresh) return _formatQuickTotals(cached.totals);
+  // Stale or missing: never recompute inline, or we reintroduce #42. Serve the
+  // stale figure (clearly better than nothing) and refresh for next time.
+  _spawnQuickRefresh();
+  return cached ? _formatQuickTotals(cached.totals) : null;
+}
+
+/** Synchronous full computation. For `tokens` CLI views, which may block. */
+function quickSummaryBlocking() {
+  var d = refreshQuickSummary();
+  return d ? _formatQuickTotals(d) : null;
 }
 
 /**
@@ -913,6 +998,8 @@ function runInteractive() {
 module.exports = {
   parseAllSessions: parseAllSessions,
   quickSummary: quickSummary,
+  quickSummaryBlocking: quickSummaryBlocking,
+  refreshQuickSummary: refreshQuickSummary,
   quickSummaryData: quickSummaryData,
   renderDashboard: renderDashboard,
   runInteractive: runInteractive,
@@ -925,7 +1012,10 @@ module.exports = {
 if (require.main === module) {
   var args = process.argv.slice(2);
   var cmd = args[0] || 'dashboard';
-  if (cmd === 'summary') {
+  if (cmd === 'refresh-summary') {
+    // Detached background refresh spawned by quickSummary(). Silent by design.
+    refreshQuickSummary();
+  } else if (cmd === 'summary') {
     var s = quickSummary();
     process.stdout.write((s || 'No token data available') + '\n');
   } else if (cmd === 'report') {
