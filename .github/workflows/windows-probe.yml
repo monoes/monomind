@@ -119,7 +119,16 @@ jobs:
           # Visual Studio installation" — on a runner that ships VS 2022. Naming
           # the version skips detection entirely.
           GYP_MSVS_VERSION: '2022'
-        run: pnpm install --no-frozen-lockfile --filter "${{ matrix.pkg }}..."
+        # --ignore-scripts: skip native postinstall builds entirely. node-gyp's
+        # VS detection is broken on this runner regardless of GYP_MSVS_VERSION
+        # (the RangeError is thrown inside its find-VS module before the version
+        # hint is consulted), so nothing that needs node-gyp can build here.
+        #
+        # That is not a dead end — it is the question worth answering: WHICH
+        # packages are pure JS and can be gated on Windows today? Those that
+        # genuinely need better-sqlite3 or tree-sitter will fail at test time
+        # with a clear missing-binding error, and that failure is the finding.
+        run: pnpm install --no-frozen-lockfile --ignore-scripts --filter "${{ matrix.pkg }}..."
 
       - name: Build ${{ matrix.name }}
         if: matrix.build != 'skip'
