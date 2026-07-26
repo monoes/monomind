@@ -312,8 +312,10 @@ jobs:
             else
               PAYLOAD="{\"tool_name\":\"NotebookEdit\",\"tool_input\":{\"notebook_path\":\"/tmp/x.ipynb\",\"cell_id\":\"c1\",\"new_source\":\"K = \\\"${CRED}\\\"\"}}"
             fi
-            echo "${PAYLOAD}" | node "${HOOK}" pre-write >/dev/null 2>/tmp/gate.err
-            STATUS=$?
+            # `&& ... || ...` guard: GitHub Actions runs bash with -e, so a
+            # bare pipeline that exits non-zero aborts the step before $? is
+            # captured — and here a non-zero exit is the EXPECTED result.
+            echo "${PAYLOAD}" | node "${HOOK}" pre-write >/dev/null 2>&1 && STATUS=0 || STATUS=$?
             if [ $STATUS -ne 2 ]; then
               echo "::error::the secret gate did NOT block a credential via ${TOOL} (exit ${STATUS}, expected 2) — the gate is failing open"
               FAILED=1
@@ -322,8 +324,8 @@ jobs:
 
           # A normal edit must still pass, or the gate is unusable.
           echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/ok.ts","content":"export const x = 1;"}}' \
-            | node "${HOOK}" pre-write >/dev/null 2>&1
-          if [ $? -ne 0 ]; then
+            | node "${HOOK}" pre-write >/dev/null 2>&1 && OK_STATUS=0 || OK_STATUS=$?
+          if [ ${OK_STATUS} -ne 0 ]; then
             echo "::error::the secret gate blocked an ORDINARY edit — it is failing closed on safe input, which makes users disable it"
             FAILED=1
           fi
@@ -352,7 +354,7 @@ jobs:
             exit 0
           fi
 
-          OUTPUT="$(cd "${PROJ}" && CLAUDE_PROJECT_DIR="${PROJ}" node "${BIN}" hooks worker run security 2>&1)"
+          OUTPUT="$(cd "${PROJ}" && CLAUDE_PROJECT_DIR="${PROJ}" node "${BIN}" hooks worker run security 2>&1)" || true
           chmod 755 "${PROJ}/src/locked"
           echo "${OUTPUT}"
 
@@ -382,7 +384,7 @@ jobs:
           node "${BIN}" memory store --key smoke-a --value "first entry"  >/dev/null 2>&1 || true
           node "${BIN}" memory store --key smoke-b --value "second entry" >/dev/null 2>&1 || true
 
-          OUTPUT="$(node "${BIN}" status 2>&1)"
+          OUTPUT="$(node "${BIN}" status 2>&1)" || true
           echo "${OUTPUT}"
 
           if echo "${OUTPUT}" | grep -qi "could not read full system state"; then
