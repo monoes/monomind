@@ -98,8 +98,8 @@ describe('live target-aware monorepo context', () => {
       assert.equal(payload.targetPath, null);
       assert.equal(payload.projectRoot, childRoot);
       assert.equal(payload.repoRoot, tmp);
-      assert.equal(payload.productPath, join('..', '..', 'PRODUCT.md'));
-      assert.equal(payload.designPath, join('..', '..', 'DESIGN.md'));
+      assert.equal(payload.productPath, '../../PRODUCT.md');
+      assert.equal(payload.designPath, '../../DESIGN.md');
       assert.match(payload.product, /ROOT PRODUCT LIVE INHERIT/);
       assert.match(payload.design, /ROOT DESIGN LIVE INHERIT/);
       assert.equal(payload.liveConfigPath, join(childRoot, '.monodesign', 'live', 'config.json'));
@@ -117,7 +117,7 @@ describe('live target-aware monorepo context', () => {
     const payload = bootLive(tmp);
     try {
       assert.equal(payload.ok, true);
-      assert.equal(payload.productPath, join('apps', 'dashboard', 'PRODUCT.md'));
+      assert.equal(payload.productPath, 'apps/dashboard/PRODUCT.md');
       assert.equal(payload.designPath, 'DESIGN.md');
       assert.match(payload.product, /DASHBOARD PRODUCT LIVE OVERRIDE/);
       assert.match(payload.design, /ROOT DESIGN LIVE INHERIT/);
