@@ -134,9 +134,22 @@ export function invokesCompiler(expanded: string): boolean {
   return /(^|[\s&|;(])(npx\s+)?tsc(\s|$)/.test(expanded);
 }
 
-/** Does the expanded command wipe the incremental buildinfo before compiling? */
+/**
+ * Does the expanded command wipe the incremental buildinfo before compiling?
+ *
+ * Two spellings count, because the build scripts stopped being shell. They used
+ * POSIX `rm` directly, which cmd.exe does not understand, so npm could not build
+ * this repo on Windows at all; they now call scripts/build-fs.mjs. The hazard is
+ * identical either way — a surviving tsconfig.tsbuildinfo makes tsc a silent
+ * no-op — so this guard has to recognise both, or it goes quietly blind at the
+ * exact moment the scripts change. That is not hypothetical: matching only the
+ * `rm` spelling is what made every package fail this check the first time the
+ * portable form landed, despite the behaviour being unchanged.
+ */
 export function clearsBuildInfo(expanded: string): boolean {
-  const clear = expanded.search(/rm\s+-[a-zA-Z]*f[a-zA-Z]*\s+[^&|;]*tsconfig\.tsbuildinfo/);
+  const clear = expanded.search(
+    /(?:rm\s+-[a-zA-Z]*f[a-zA-Z]*|build-fs\.mjs\s+clean)\s+[^&|;]*tsconfig\.tsbuildinfo/,
+  );
   if (clear === -1) return false;
   const compile = expanded.search(/(^|[\s&|;(])(npx\s+)?tsc(\s|$)/);
   return compile === -1 || clear < compile;
@@ -262,6 +275,34 @@ describe('publish-pipeline analyzer', () => {
   it('rejects a buildinfo removal that happens AFTER the compile', () => {
     expect(clearsBuildInfo('tsc && rm -f tsconfig.tsbuildinfo')).toBe(false);
     expect(clearsBuildInfo('rm -f tsconfig.tsbuildinfo && tsc')).toBe(true);
+  });
+
+  // The build scripts are no longer shell — they call scripts/build-fs.mjs so
+  // that npm can build this repo on Windows, where cmd.exe rejects POSIX `rm`.
+  // These cases pin the portable spelling to the same rules as the `rm` one,
+  // including the ordering requirement, so the guard cannot be satisfied by a
+  // clean that happens too late.
+  it('accepts the portable build-fs clean, under the same ordering rule', () => {
+    const clean = 'node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo';
+    expect(clearsBuildInfo(`${clean} && tsc`)).toBe(true);
+    expect(clearsBuildInfo(`tsc && ${clean}`)).toBe(false);
+  });
+
+  it('matches the real prebuild-then-build chain used by the packages', () => {
+    const expanded = expandScript('npm run build', {
+      prebuild: 'node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo',
+      build: 'tsc',
+    });
+    expect(invokesCompiler(expanded)).toBe(true);
+    expect(clearsBuildInfo(expanded)).toBe(true);
+  });
+
+  it('does not accept a build-fs clean that spares the buildinfo', () => {
+    // Cleaning only dist is the exact hazard this guard exists for: tsc sees a
+    // surviving buildinfo, decides everything is current, and emits nothing.
+    expect(
+      clearsBuildInfo('node ../../../scripts/build-fs.mjs clean dist && tsc'),
+    ).toBe(false);
   });
 
   it('rejects a prepublishOnly that never reaches a compiler', () => {
