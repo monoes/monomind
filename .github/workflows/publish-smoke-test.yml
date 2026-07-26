@@ -63,14 +63,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # No `cache: npm` — it requires a package-lock.json this pnpm
+          # workspace does not have, and setup-node fails the job before any
+          # step runs.
 
-      - name: Install root dependencies
-        run: npm install
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-      - name: Install CLI package dependencies
-        working-directory: packages/@monomind/cli
-        run: npm install
+      # One workspace install wires the CLI to its sibling packages. The npm
+      # installs further down are deliberate and stay npm: they simulate what a
+      # real user gets from a tarball and from the registry.
+      - name: Install workspace dependencies
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build CLI package
         working-directory: packages/@monomind/cli

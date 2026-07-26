@@ -31,18 +31,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # No `cache: npm` — needs a package-lock.json this pnpm workspace
+          # does not have; setup-node fails the job before any step runs.
 
-      - name: Install root dependencies
-        # npm install, not npm ci — this is a pnpm repo with no
-        # package-lock.json, which `npm ci` requires.
-        run: npm install
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-      - name: Install CLI package dependencies
-        working-directory: packages/@monomind/cli
-        # npm install, not npm ci — this is a pnpm repo with no
-        # package-lock.json, which `npm ci` requires.
-        run: npm install
+      - name: Install workspace dependencies
+        run: pnpm install --no-frozen-lockfile
+
+
 
       - name: Build CLI package
         working-directory: packages/@monomind/cli
