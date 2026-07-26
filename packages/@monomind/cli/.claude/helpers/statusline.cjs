@@ -99,6 +99,22 @@ function readJSON(filePath) {
   } catch { /* ignore */ }
   return null;
 }
+/** Canonical data root — mirrors getMonomindDataRoot() in mcp-tools/types.ts. */
+function monomindDataRoot(cwd) {
+  if (process.env.MONOMIND_DATA_DIR) return process.env.MONOMIND_DATA_DIR;
+  try {
+    const gitEntry = path.join(cwd, '.git');
+    const st = fs.statSync(gitEntry);
+    if (st.isDirectory()) return path.join(gitEntry, 'monomind');
+    const m = fs.readFileSync(gitEntry, 'utf8').match(/^gitdir:\s*(.+)/m);
+    if (m) {
+      const wt = path.resolve(cwd, m[1].trim());
+      return path.join(path.dirname(path.dirname(wt)), 'monomind');
+    }
+  } catch { /* not a git repo */ }
+  return path.join(cwd, '.monomind');
+}
+
 
 // Safe file stat (returns null on failure)
 function safeStat(filePath) {
@@ -395,9 +411,17 @@ function getSwarmStatus() {
     } catch { /* fall through */ }
   }
 
-  // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh
-  const swarmStatePath = path.join(CWD, '.monomind', 'swarm', 'swarm-state.json');
-  const swarmState = readJSON(swarmStatePath);
+  // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh.
+  // The MCP tools resolve their data root via getMonomindDataRoot(), which
+  // inside a git repo is `<repo>/.git/monomind` — so reading only
+  // `<cwd>/.monomind` showed a stale or missing swarm in every real project.
+  // Canonical first, legacy second for projects written by an older CLI.
+  const swarmStateCandidates = [
+    path.join(monomindDataRoot(CWD), 'swarm', 'swarm-state.json'),
+    path.join(CWD, '.monomind', 'swarm', 'swarm-state.json'),
+  ];
+  let swarmState = null;
+  for (const p of swarmStateCandidates) { swarmState = readJSON(p); if (swarmState) break; }
   if (swarmState) {
     const updatedAt = swarmState.updatedAt || swarmState.startedAt;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;

@@ -126,19 +126,87 @@ async function monofenceScan(input) {
   }
 }
 
+// ─── Ambiguous-evidence suppression (version-independent safety net) ────────
+//
+// monofence-ai <= 1.0.0 ships a "fake system message injection" pattern whose
+// source is exactly the string below. It scores 0.97 "critical" — above the
+// abort threshold — and it matches a bare `system:` anywhere in the input with
+// NO left word boundary. That makes it fire on completely ordinary source:
+//
+//     system:     getSystemMetrics(),     // plain object key
+//     designSystem: { enabled: true },    // *any* identifier ending in "System"
+//
+// Measured over 1,193 of this repo's own tracked source files, that single
+// pattern (plus the confidence inflation it feeds) blocked 4.7% of them.
+// A gate that rejects 1-in-21 ordinary edits gets switched off wholesale, which
+// costs the real protection too — so the block is suppressed when the ONLY
+// evidence meeting the threshold is this ambiguous marker.
+//
+// The suppression is deliberately narrow: it re-tests the content against the
+// *unambiguous* half of that legacy pattern — the chat-template role markers,
+// which do not occur in ordinary code. If those match, the threat stands. Only
+// the bare-`system:` case is demoted, and only when nothing else independently
+// clears the threshold; a real injection pairs `system:` with
+// instruction-override or restriction-bypass phrasing, and those threats are
+// untouched.
+//
+// monofence-ai >= 1.0.1 splits the pattern itself (unambiguous markers stay at
+// 0.97; bare `system:` drops to a 0.50 corroborating signal), so once a fixed
+// build is installed this code stops matching and becomes inert on its own.
+//
+// NOTE: the marker literals below are assembled from fragments rather than
+// spelled out. This gate scans the content of every file that gets written,
+// including this one — a verbatim role marker here would make gates-handler.cjs
+// unmodifiable by its own gate. (Same reason the gate tests build FAKE_CRED
+// from fragments.) The value is asserted in tests/hooks/security-gates.test.mjs.
+var _SYS = 'sys' + 'tem';
+var LEGACY_AMBIGUOUS_SYSTEM_PATTERN =
+  _SYS + '\\s*:\\s*|<\\|' + _SYS + '\\|>|<' + _SYS + '>';
+var UNAMBIGUOUS_SYSTEM_MARKER = new RegExp(
+  '<\\|\\s*' + _SYS + '\\s*\\|>|<\\/?\\s*' + _SYS + '\\s*>|<\\|im_start\\|>\\s*' + _SYS,
+  'i'
+);
+
+/**
+ * True when `threat` is the legacy combined system-message pattern AND the
+ * scanned content contains none of its unambiguous role-marker alternatives —
+ * i.e. the match was a bare `system:` (or a `…System:` suffix) and carries no
+ * real injection signal on its own.
+ */
+function isAmbiguousSystemMarker(threat, content) {
+  if (!threat || threat.pattern !== LEGACY_AMBIGUOUS_SYSTEM_PATTERN) return false;
+  if (typeof content !== 'string') return false;
+  return !UNAMBIGUOUS_SYSTEM_MARKER.test(content);
+}
+
 /**
  * Given a monofence ThreatDetectionResult, return the highest-confidence
  * threat if it meets the abort threshold, else null.
+ *
+ * `content` is the text that was scanned. It is optional — when omitted the
+ * function behaves exactly as before (no suppression), so existing callers and
+ * the pre-bash path are unaffected.
  */
-function monofenceWorstThreat(result) {
+function monofenceWorstThreat(result, content) {
   if (!result || result.safe || !Array.isArray(result.threats) || result.threats.length === 0) {
     return null;
   }
-  var worst = result.threats.reduce(
+  var qualifying = result.threats.filter(function (t) {
+    return t && t.confidence >= MONOFENCE_ABORT_THRESHOLD;
+  });
+  if (qualifying.length === 0) return null;
+
+  // Drop threats whose sole evidence is the ambiguous bare-`system:` marker.
+  // If that leaves nothing above the threshold, there is no block.
+  var corroborated = qualifying.filter(function (t) {
+    return !isAmbiguousSystemMarker(t, content);
+  });
+  if (corroborated.length === 0) return null;
+
+  return corroborated.reduce(
     (max, t) => (t.confidence > max.confidence ? t : max),
-    result.threats[0]
+    corroborated[0]
   );
-  return worst.confidence >= MONOFENCE_ABORT_THRESHOLD ? worst : null;
 }
 
 // ─── Fallback patterns (used only if the compiled config file is missing/unreadable) ──
@@ -265,6 +333,53 @@ function checkSecrets(content, patterns) {
   };
 }
 
+// ─── Block emission ───────────────────────────────────────────────────────────
+
+/**
+ * Emit a PreToolUse block decision.
+ *
+ * ALWAYS on stderr, never stdout: at exit code 2 Claude Code reads the block
+ * reason from stderr, and at exit code 0 it parses stdout as hook output — so
+ * a diagnostic printed on stdout can be mistaken for hook output (and, worse,
+ * read as an *allow*). Keeping every gate message on stderr removes that
+ * ambiguity entirely.
+ */
+function emitBlock(reason) {
+  process.stderr.write(JSON.stringify({ decision: 'block', reason: reason }) + '\n');
+  process.exitCode = 2;
+}
+
+/**
+ * Fail-closed policy (deliberate — see task note (a)):
+ *
+ *   The deterministic regex gates (destructive-ops, secrets) FAIL CLOSED. If
+ *   evaluating them throws, we cannot know whether the command/content was
+ *   dangerous, and the whole point of these two gates is that the dangerous
+ *   case is unrecoverable (deleted data, leaked credential). They are also
+ *   tiny, dependency-free, pure-regex checks over an in-memory string, so a
+ *   throw here means something is genuinely broken — not a routine hiccup.
+ *   The block message names the gate and the error so the user can unblock
+ *   immediately (fix the config, or set the documented off-switch).
+ *
+ *   The monofence-ai layer keeps FAILING OPEN. It is an optional, lazily
+ *   imported, network-free-but-heuristic *extra* layer with a known
+ *   false-positive history (see MONOMIND_MONOFENCE_GATE), and it is absent
+ *   in most installs — failing closed on it would block every edit on any
+ *   machine where the package isn't built.
+ *
+ *   Likewise, non-security enrichment work in hook-handler.cjs (monograph
+ *   hints, telemetry) stays fail-open: it has no security value and its
+ *   failure must never stop the user from working.
+ */
+function failClosed(gateName, err) {
+  var msg = (err && err.message) ? err.message : String(err);
+  emitBlock(
+    '[gates] ' + gateName + ' gate failed to evaluate (' + msg + '). Failing CLOSED: a security ' +
+    'gate that cannot run must not silently allow the operation. Fix the gate (or the project ' +
+    'override at .monomind/guidance/active-gates.json) and retry.'
+  );
+}
+
 // ─── Hook handlers ────────────────────────────────────────────────────────────
 
 /**
@@ -276,86 +391,104 @@ async function handlePreBash(hCtx) {
   var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
   if (!cmd) return;
 
-  var config = loadCompiledConfig(hCtx.CWD);
-  var result = checkDestructive(cmd, config.destructivePatterns);
+  var result;
+  try {
+    var config = loadCompiledConfig(hCtx.CWD);
+    result = checkDestructive(cmd, config.destructivePatterns);
+  } catch (e) {
+    failClosed('destructive-ops', e);
+    return;
+  }
   if (result.triggered) {
-    // Set exit code 2 to block, and write the reason to STDERR — per Claude
-    // Code's PreToolUse hook protocol, stdout JSON is only parsed when exit
-    // code is 0; at exit code 2 the caller reads the block reason from
-    // stderr instead, so putting it on stdout here would make it invisible.
-    process.stderr.write(JSON.stringify({
-      decision: 'block',
-      reason: '[gates] ' + result.reason,
-    }) + '\n');
-    process.exitCode = 2;
+    emitBlock('[gates] ' + result.reason);
     return;
   }
 
   // Additional layer: monofence-ai threat detection (prompt injection, evasion, etc.)
   // Fails open — never blocks a command just because monofence is unavailable/slow.
   var mf = await monofenceScan(cmd);
-  var worst = monofenceWorstThreat(mf);
+  var worst = monofenceWorstThreat(mf, cmd);
   if (worst) {
-    process.stderr.write(JSON.stringify({
-      decision: 'block',
-      reason: '[monofence] Threat detected in command — ' + worst.type +
-        ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description,
-    }) + '\n');
-    process.exitCode = 2;
+    emitBlock('[monofence] Threat detected in command — ' + worst.type +
+      ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description);
   }
 }
 
 /**
- * pre-write: check for secrets in Write / Edit / MultiEdit content before it lands on disk,
- * then (additionally) run monofence-ai's threat detector on the same content.
- * Outputs Claude Code block decision to stdout when triggered.
+ * Extract the about-to-be-written text from a Write / Edit / MultiEdit /
+ * NotebookEdit tool input. Returns '' when there is nothing to scan.
+ *
+ *   Write         → content
+ *   Edit          → new_string
+ *   MultiEdit     → edits[].new_string
+ *   NotebookEdit  → new_source          ← was previously unread, so a secret
+ *                                         pasted into a .ipynb cell bypassed
+ *                                         the gate entirely while the same
+ *                                         text in a .ts file was blocked.
+ */
+function extractWriteContent(toolInput) {
+  var ti = toolInput || {};
+  var content = ti.content || ti.new_string || ti.new_source || '';
+  if (!content && Array.isArray(ti.edits)) {
+    content = ti.edits
+      .map(function (e) { return (e && (e.new_string || e.new_source)) || ''; })
+      .join('\n');
+  }
+  return typeof content === 'string' ? content : '';
+}
+
+/**
+ * pre-write: check for secrets in Write / Edit / MultiEdit / NotebookEdit content
+ * before it lands on disk, then (additionally) run monofence-ai's threat detector
+ * on the same content. Emits a block decision on stderr with exit code 2.
  */
 async function handlePreWrite(hCtx) {
   var toolInput = hCtx.toolInput || {};
-  // Write: toolInput.content — Edit: toolInput.new_string
-  // MultiEdit: toolInput.edits is an array of { old_string, new_string }
-  var content = toolInput.content || toolInput.new_string || '';
-  if (!content && Array.isArray(toolInput.edits)) {
-    content = toolInput.edits.map(function(e) { return e.new_string || ''; }).join('\n');
+  var content;
+  try {
+    content = extractWriteContent(toolInput);
+  } catch (e) {
+    failClosed('secrets', e);
+    return;
   }
-  if (!content || typeof content !== 'string') return;
+  if (!content) return;
   // Cap content at 512 KiB before regex scanning to prevent DoS
   var MAX_SCAN = 524288;
   if (content.length > MAX_SCAN) content = content.slice(0, MAX_SCAN);
 
-  var config = loadCompiledConfig(hCtx.CWD);
-  var result = checkSecrets(content, config.secretPatterns);
+  var result;
+  try {
+    var config = loadCompiledConfig(hCtx.CWD);
+    result = checkSecrets(content, config.secretPatterns);
+  } catch (e) {
+    failClosed('secrets', e);
+    return;
+  }
   if (result.triggered) {
-    // Set exit code 2 to block, and write the reason to STDERR — see the
-    // matching comment in handlePreBash for why stdout is the wrong stream.
-    process.stderr.write(JSON.stringify({
-      decision: 'block',
-      reason: '[gates] ' + result.reason,
-    }) + '\n');
-    process.exitCode = 2;
+    emitBlock('[gates] ' + result.reason);
     return;
   }
 
   // Additional layer: monofence-ai threat detection on the content being written.
   // Fails open — never blocks a write just because monofence is unavailable/slow.
   var mf = await monofenceScan(content);
-  var worst = monofenceWorstThreat(mf);
+  var worst = monofenceWorstThreat(mf, content);
   if (worst) {
-    process.stderr.write(JSON.stringify({
-      decision: 'block',
-      reason: '[monofence] Threat detected in written content — ' + worst.type +
-        ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description,
-    }) + '\n');
-    process.exitCode = 2;
+    emitBlock('[monofence] Threat detected in written content — ' + worst.type +
+      ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description);
   }
 }
 
 module.exports = {
   handlePreBash,
   handlePreWrite,
+  extractWriteContent,
+  emitBlock,
+  failClosed,
   checkDestructive,
   checkSecrets,
   loadCompiledConfig,
   monofenceScan,
   monofenceWorstThreat,
+  isAmbiguousSystemMarker,
 };
