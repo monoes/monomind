@@ -197,6 +197,41 @@ export const healthCommand: Command = {
     { command: 'monomind agent health -i agent-001 -d', description: 'Detailed health for specific agent' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
+    // --watch was declared (and documented as "refresh every 5s") but never
+    // read, so the command rendered once and exited. Mirrors the watch loop in
+    // commands/status.ts.
+    if (ctx.flags.watch as boolean) {
+      return watchAgentHealth(ctx);
+    }
+    return renderAgentHealth(ctx);
+  },
+};
+
+const WATCH_INTERVAL_MS = 5000;
+
+async function watchAgentHealth(ctx: CommandContext): Promise<CommandResult> {
+  const refresh = async () => {
+    process.stdout.write('\x1b[2J\x1b[H');
+    output.writeln(output.dim(`Last updated: ${new Date().toLocaleTimeString()} — refreshing every 5s. Press Ctrl+C to exit.`));
+    await renderAgentHealth(ctx);
+  };
+
+  await refresh();
+  const intervalId = setInterval(() => { void refresh(); }, WATCH_INTERVAL_MS);
+
+  // `once` so repeated invocations don't accumulate SIGINT handlers.
+  return new Promise<CommandResult>((resolve) => {
+    process.once('SIGINT', () => {
+      clearInterval(intervalId);
+      output.writeln();
+      output.printInfo('Watch mode stopped');
+      resolve({ success: true });
+    });
+  });
+}
+
+async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
+  {
     const agentId = ctx.args[0] || ctx.flags.id as string;
     const detailed = ctx.flags.detailed as boolean;
 
@@ -271,6 +306,6 @@ export const healthCommand: Command = {
       output.printError(error instanceof MCPClientError ? `Health check error: ${error.message}` : `Unexpected error: ${String(error)}`);
       return { success: false, exitCode: 1 };
     }
-  },
-};
+  }
+}
 

@@ -221,7 +221,7 @@ export const neuralTools: MCPTool[] = [
   },
   {
     name: 'neural_patterns',
-    description: 'Get or manage neural patterns',
+    description: 'List, inspect, or delete entries in the stored pattern set (CRUD over the embedding-backed pattern store — no model or network involved)',
     category: 'neural',
     inputSchema: {
       type: 'object',

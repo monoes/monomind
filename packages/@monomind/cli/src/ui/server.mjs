@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
+import zlib from 'zlib';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { spawn } from 'child_process';
@@ -40,6 +41,16 @@ function _sjGetPricing(model) {
   if (_SJ_PRICING[canonical]) return _SJ_PRICING[canonical];
   for (const k of Object.keys(_SJ_PRICING)) { if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k]; }
   return null;
+}
+/**
+ * True when this model has a pricing row (directly, by alias, or by prefix match).
+ * A model with no row cannot be costed — every caller that sums _sjCalcCost() must
+ * use this to mark the total as INCOMPLETE rather than presenting the missing
+ * contribution as a genuine $0.00. The table above is a hand-maintained snapshot,
+ * so newly released models land here routinely.
+ */
+export function _sjHasPricing(model) {
+  return _sjGetPricing(model) !== null;
 }
 function _sjCalcCost(model, usage) {
   const p = _sjGetPricing(model);
@@ -586,6 +597,70 @@ function _updateRunState(event, rootDir) {
 }
 // ── End runstate helpers ─────────────────────────────────────────────────
 
+// ── Security: DNS-rebinding defence ───────────────────────────────────────────
+// The dashboard binds 127.0.0.1 and embeds a live auth token in the HTML served
+// by GET / (an open route — the page needs the token before it can attach it to
+// any fetch). Loopback binding is NOT a boundary against a browser: a page on
+// attacker.example can point its own DNS at 127.0.0.1, and the browser will
+// happily connect and treat the response as same-origin with attacker.example,
+// letting the attacker's script read the token straight out of the <meta> tag
+// and then drive every authenticated /api/* route.
+//
+// The distinguishing signal is the Host header: the browser sends the name from
+// the URL bar, so a rebound request carries `Host: attacker.example` while the
+// real dashboard carries a loopback name. Rejecting non-loopback Host values
+// closes the hole without affecting any legitimate client. (CORS does not help
+// here — the rebound page IS same-origin as far as the browser is concerned.)
+const _LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+/**
+ * Extract the hostname from a Host header, dropping the port.
+ * Returns '' for a missing/blank header. IPv6 literals keep their brackets
+ * (`[::1]:4242` → `[::1]`), which is how they appear in a Host header.
+ */
+export function parseHostHeader(hostHeader) {
+  const h = String(hostHeader ?? '').trim().toLowerCase();
+  if (!h) return '';
+  if (h.startsWith('[')) {
+    const end = h.indexOf(']');
+    return end === -1 ? h : h.slice(0, end + 1);
+  }
+  const colon = h.lastIndexOf(':');
+  return colon === -1 ? h : h.slice(0, colon);
+}
+
+/**
+ * True when a request's Host header names this machine's loopback interface or
+ * an explicitly configured extra host.
+ *
+ * A request with NO Host header is allowed: HTTP/1.0 and raw local scripts omit
+ * it, and it is not an attack vector — browsers ALWAYS send Host, so a rebinding
+ * page cannot suppress it.
+ *
+ * `extraHosts` comes from startServer({ allowedHosts }) or the
+ * MONOMIND_DASHBOARD_ALLOWED_HOSTS env var (comma-separated), for the case where
+ * someone deliberately fronts the dashboard with another name.
+ */
+export function isAllowedHost(hostHeader, extraHosts = []) {
+  const name = parseHostHeader(hostHeader);
+  if (!name) return true; // absent Host — non-browser client, see above
+  if (_LOOPBACK_HOSTNAMES.has(name)) return true;
+  // 127.0.0.0/8 is entirely loopback, not just 127.0.0.1.
+  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(name)) return true;
+  for (const extra of extraHosts) {
+    if (parseHostHeader(extra) === name) return true;
+  }
+  return false;
+}
+
+/** Parse the configured extra-host allow-list from an option + env var. */
+export function resolveAllowedHosts(optionValue) {
+  const raw = []
+    .concat(Array.isArray(optionValue) ? optionValue : (optionValue ? [optionValue] : []))
+    .concat(String(process.env.MONOMIND_DASHBOARD_ALLOWED_HOSTS || '').split(','));
+  return raw.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
+}
+
 // Server state
 let running = false;
 let currentPort = null;
@@ -707,7 +782,9 @@ function _resolveSlugToPathUncached(slug, projDir) {
   return slug.replace(/-/g, '/');
 }
 
-export async function startServer({ port = 4242, projectDir, openBrowser = true } = {}) {
+export async function startServer({ port = 4242, projectDir, openBrowser = true, allowedHosts } = {}) {
+  // Extra Host names accepted beyond loopback (see isAllowedHost above).
+  const _allowedHosts = resolveAllowedHosts(allowedHosts);
   // ── Security: per-process auth credential for mutating (non-GET) requests ─
   // Generated once per server start and written to a well-known location so
   // trusted local callers (CLI, control-start.cjs) can read it and pass it
@@ -976,7 +1053,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                     const _coldPath = _wp.replace('.warm.jsonl', '.cold.jsonl.gz');
                     if (fs.existsSync(_coldPath)) return; // already compacted
                     const _warmData = fs.readFileSync(_wp);
-                    const zlib = require('zlib');
+                    // `zlib` is a static ESM import at the top of this file. It used to be
+                    // `require('zlib')`, which is undefined in an ESM module — the
+                    // ReferenceError was swallowed by the surrounding catch, so cold-tier
+                    // compaction silently never ran. See tests/repo/no-cjs-require-in-esm.
                     zlib.gzip(_warmData, (_err, _gz) => {
                       if (_err) return;
                       try {
@@ -1246,6 +1326,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
 
+    // ── Security: DNS-rebinding defence (see isAllowedHost) ─────────────────
+    // Must run before ANY route — including the open ones, since GET / is what
+    // hands out the auth token. Fails closed with a bare 403 and no CORS header.
+    if (!isAllowedHost(req.headers.host, _allowedHosts)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Forbidden: Host header is not a loopback address. '
+        + 'Set MONOMIND_DASHBOARD_ALLOWED_HOSTS to permit another host name.\n');
+      return;
+    }
+
     // ── Security: strict CORS allow-list ────────────────────────────────────
     // Only reflect Origin when it is this dashboard's own loopback origin.
     // Otherwise the header is omitted entirely, so cross-origin reads fail
@@ -1436,6 +1526,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const id = f.replace('.jsonl', '');
           let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null, totalCost = 0, toolCalls = 0, userMessages = 0, cacheReadTokens = 0, totalInputTokens = 0, errorCount = 0;
           const modelBreakdown = {};
+          const unknownPricingModels = new Set();
           const filesTouchedSet = new Set();
           try {
             const lines = _readTailLines(fp);
@@ -1478,6 +1569,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                   if (!modelBreakdown[mk]) modelBreakdown[mk] = { calls: 0, cost: 0 };
                   modelBreakdown[mk].calls++;
                   modelBreakdown[mk].cost += c;
+                  // A model absent from the pricing table contributes 0 to the sum. Flag it
+                  // instead of letting the UI render an authoritative-looking $0.00.
+                  if (!_sjHasPricing(msg.model)) {
+                    modelBreakdown[mk].unknownPricing = true;
+                    unknownPricingModels.add(mk);
+                  }
                   cacheReadTokens += (msg.usage.cache_read_input_tokens || 0);
                   totalInputTokens += (msg.usage.input_tokens || 0)
                                     + (msg.usage.cache_creation_input_tokens || 0)
@@ -1493,7 +1590,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           const filesTouched = [...filesTouchedSet].slice(0, 20);
           const compactCount = summaries.length;
           const summary = summaries.length ? summaries[summaries.length - 1].text : null;
-          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, summary, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
+          // costIncomplete => totalCost is a LOWER BOUND: at least one model had no
+          // pricing row, so its spend is missing from the sum entirely.
+          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, summary, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, costIncomplete: unknownPricingModels.size > 0, unknownPricingModels: [...unknownPricingModels], toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
         }
         res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ sessions }));
@@ -1740,16 +1839,29 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           try { sessionFiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._')).map(f => path.join(projDir, f)); } catch {}
           if (!sessionFiles.length) continue;
           let totalCost = 0;
+          const unknownPricingModels = new Set();
           for (const fp of sessionFiles) {
             try {
               const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
               for (const line of lines) {
                 let e; try { e = JSON.parse(line); } catch { continue; }
-                if (e.type === 'assistant' && e.message?.usage) { totalCost += _sjCalcCost(e.message.model || '', e.message.usage); }
+                if (e.type === 'assistant' && e.message?.usage) {
+                  const _m = e.message.model || '';
+                  totalCost += _sjCalcCost(_m, e.message.usage);
+                  if (!_sjHasPricing(_m)) unknownPricingModels.add(_m.replace(/@.*$/, '').replace(/-\d{8}$/, ''));
+                }
               }
             } catch {}
           }
-          if (totalCost > 0) projectCosts.push({ path: projPath, cost: totalCost, sessions: sessionFiles.length });
+          // Include projects whose entire spend is on unpriced models — previously they
+          // were dropped by `totalCost > 0` and simply vanished from the cost list.
+          if (totalCost > 0 || unknownPricingModels.size > 0) {
+            projectCosts.push({
+              path: projPath, cost: totalCost, sessions: sessionFiles.length,
+              costIncomplete: unknownPricingModels.size > 0,
+              unknownPricingModels: [...unknownPricingModels],
+            });
+          }
         }
         projectCosts.sort((a, b) => b.cost - a.cost);
         res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
@@ -3845,7 +3957,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
 
           const toolCounts = {};
           const agentSpawns = {}; // subagent_type → count
-          let turns = 0, totalCost = 0;
+          let turns = 0, totalCost = 0, _costIncomplete = false;
 
           try {
             const raw = fs.readFileSync(fp, 'utf8').replace(/\r\n/g, '\n');
@@ -3868,7 +3980,11 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
                     agentSpawns[sub] = (agentSpawns[sub] || 0) + 1;
                   }
                 }
-                if (e.message?.usage) totalCost += _sjCalcCost(e.message.model || '', e.message.usage);
+                if (e.message?.usage) {
+                  const _m = e.message.model || '';
+                  totalCost += _sjCalcCost(_m, e.message.usage);
+                  if (!_sjHasPricing(_m)) _costIncomplete = true;
+                }
               }
             }
           } catch {}
@@ -3877,7 +3993,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           nodes.push({
             id: sid, type: 'session', label: sid.slice(0,8),
             turns, totalTools, toolCounts,
-            cost: totalCost, mtime: stat.mtimeMs, size: stat.size,
+            cost: totalCost, costIncomplete: _costIncomplete, mtime: stat.mtimeMs, size: stat.size,
             agentSpawns
           });
 
@@ -6260,9 +6376,23 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           if (wantKg && scope !== 'global') {
             try { kgSearch = (await import('../memory/memory-kg.js')).kgSearch; } catch { /* kg unavailable */ }
           }
-          const [proj, glob, rules, graph, mems] = await Promise.all([
-            scope !== 'global' ? bridge.bridgeSearchEntries({ query, namespace, limit }).catch(() => null) : null,
-            scope !== 'project' ? bridge.bridgeSearchEntries({ query, namespace: 'knowledge:global', limit, dbPath: '@global' }).catch(() => null) : null,
+          // Superseded-version filtering — the SAME rule `searchKnowledge` (and
+          // therefore `monomind doc search` / `knowledge_search`) applies. This
+          // endpoint queries the bridge directly for warmth, so without this it
+          // would inject old document versions the Second Brain itself hides.
+          let liveProj = new Set(), liveGlob = new Set(), isSuperseded = () => false, overfetch = (n) => n;
+          try {
+            const dp = await import('../knowledge/document-pipeline.js');
+            liveProj = dp.liveContentHashes(process.env.CLAUDE_PROJECT_DIR || process.cwd());
+            liveGlob = dp.liveContentHashes(process.env.MONOMIND_GLOBAL_BRAIN_DIR
+              || path.join(os.homedir(), '.monomind', 'global-brain'));
+            isSuperseded = dp.isSupersededKey;
+            overfetch = dp.supersededOverfetchLimit;
+          } catch { /* pipeline unavailable — no filtering, same as before */ }
+          const keepLive = (rows, live) => (rows || []).filter(r => !isSuperseded(String(r.key || ''), live)).slice(0, limit);
+          const [projRaw, globRaw, rules, graph, mems] = await Promise.all([
+            scope !== 'global' ? bridge.bridgeSearchEntries({ query, namespace, limit: overfetch(limit, liveProj) }).catch(() => null) : null,
+            scope !== 'project' ? bridge.bridgeSearchEntries({ query, namespace: 'knowledge:global', limit: overfetch(limit, liveGlob), dbPath: '@global' }).catch(() => null) : null,
             // Distilled rules ("when X do Y") learned from sessions/runs —
             // small namespace, high injection value, threshold keeps it quiet.
             scope !== 'global' && wantRules ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 2, threshold: 0.45 }).catch(() => null) : null,
@@ -6274,8 +6404,8 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             scope !== 'global' && wantMemory ? bridge.bridgeSearchEntries({ query, namespace: 'patterns', limit: 2, threshold: 0.4 }).catch(() => null) : null,
           ]);
           const lists = [
-            (proj?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags, importance: 0.6 })),
-            (glob?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
+            keepLive(projRaw?.results, liveProj).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags, importance: 0.6 })),
+            keepLive(globRaw?.results, liveGlob).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
             (rules?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, rule: true, tags: r.tags, importance: 0.7 })),
             (graph?.triplets || []).map((t, i) => ({
               id: 'kg:' + i + ':' + t.source + '|' + t.relation + '|' + t.target,
@@ -6303,7 +6433,7 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           } catch { /* best effort */ }
           res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
           res.end(JSON.stringify({
-            method: proj?.searchMethod || glob?.searchMethod || rules?.searchMethod || mems?.searchMethod
+            method: projRaw?.searchMethod || globRaw?.searchMethod || rules?.searchMethod || mems?.searchMethod
               || (merged.length ? 'mixed' : 'none'),
             results: merged,
           }));

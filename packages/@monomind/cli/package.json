@@ -1,8 +1,8 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "2.7.5",
+  "version": "2.7.10",
   "type": "module",
-  "description": "CLI engine for Monomind — an open-source MCP server that extends Claude Code with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. MIT licensed, fully local.",
+  "description": "CLI engine for Monomind \u2014 an open-source MCP server that extends Claude Code with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. MIT licensed, fully local.",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "sideEffects": false,
@@ -81,23 +81,26 @@
     "README.md"
   ],
   "scripts": {
+    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "tsc && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
     "build:loose": "tsc --noEmitOnError false || true && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html && mkdir -p dist/src/ui && cp src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/mastermind-diagram-fallback.html dist/src/ui/ && rm -rf dist/src/ui/data && cp -r src/ui/data dist/src/ui/data",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
-    "prepublishOnly": "node ../../@monoes/monodesign/scripts/sync-skill.mjs && cp ../../../README.md ./README.md",
+    "prepublishOnly": "node ../../@monoes/monodesign/scripts/sync-skill.mjs && cp ../../../README.md ./README.md && npm run build",
     "release": "npm version prerelease --preid=alpha && npm run publish:all",
     "publish:all": "./scripts/publish.sh"
   },
   "devDependencies": {
+    "tsx": "^4.21.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.4"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.207",
     "@monoes/monobrowse": "^1.0.6",
-    "@monoes/monodesign": "^1.2.0",
-    "@monoes/monograph": "^1.5.3",
+    "@monoes/monodesign": "^1.2.1",
+    "@monoes/monograph": "^1.5.4",
     "@noble/ed25519": "^2.1.0",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
@@ -107,10 +110,10 @@
   },
   "optionalDependencies": {
     "@huggingface/transformers": "^3.8.1",
-    "@monoes/hooks": "^1.0.0",
-    "@monoes/mcp": "^1.0.0",
+    "@monoes/hooks": "^1.0.1",
+    "@monoes/mcp": "^1.0.1",
     "@monoes/memory": "^1.0.10",
-    "@monoes/routing": "^1.0.0",
+    "@monoes/routing": "^1.0.1",
     "monofence-ai": "*",
     "sql.js": "^1.14.1"
   },

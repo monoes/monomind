@@ -85,7 +85,7 @@ describe('RouteLayer', () => {
       expect(result.agentSlug).toBeDefined();
       expect(result.confidence).toBeGreaterThanOrEqual(0);
       expect(result.confidence).toBeLessThanOrEqual(1);
-      expect(['semantic', 'llm_fallback']).toContain(result.method);
+      expect(['semantic', 'semantic_degraded', 'llm_fallback']).toContain(result.method);
     });
 
     it('initialize is idempotent', async () => {
@@ -103,7 +103,9 @@ describe('RouteLayer', () => {
       const result = await layer.route('do something');
       expect(result.agentSlug).toBe('general-purpose');
       expect(result.confidence).toBe(0);
-      expect(result.method).toBe('llm_fallback');
+      // No LLM was consulted here, so this must not claim to be an
+      // llm_fallback — it is a degraded default.
+      expect(result.method).toBe('semantic_degraded');
       expect(result.routeName).toBe('fallback');
     });
   });
@@ -140,8 +142,10 @@ describe('RouteLayer', () => {
       await layer.initialize();
       const result = await layer.route('implement something');
       // With LocalEncoder the cosine similarity for hash-based embeddings
-      // will be below 0.99, so method should be llm_fallback
-      expect(result.method).toBe('llm_fallback');
+      // will be below 0.99. No llmFallback is configured, so nothing
+      // escalated: the result is the nearest centroid, reported as degraded
+      // rather than as an llm_fallback that never ran.
+      expect(result.method).toBe('semantic_degraded');
     });
   });
 
@@ -165,7 +169,8 @@ describe('RouteLayer', () => {
         // No llmFallback configured
       }));
       const result = await layer.route('implement something');
-      expect(result.method).toBe('llm_fallback');
+      // Below threshold with no LLM configured => degraded, not llm_fallback.
+      expect(result.method).toBe('semantic_degraded');
       // Still returns best semantic match
       expect(result.agentSlug).toBeDefined();
     });

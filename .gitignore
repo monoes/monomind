@@ -279,5 +279,11 @@ GRAPH_REPORT.md
 # monodesign skill deploy trees are generated from packages/@monoes/monodesign (sync-skill.mjs)
 .claude/skills/monodesign/
 
-# monodesign hook state (per-machine)
-.monodesign/
+# monodesign hook state. Everything here is per-machine EXCEPT config.json,
+# which is the shared detector config (hook-admin writes per-machine overrides
+# to config.local.json instead). Ignoring the whole directory collapsed that
+# split, so a shared ignore — e.g. excluding the detector's own test corpus,
+# which is full of deliberate antipatterns used as fixtures — never reached
+# CI or another developer.
+.monodesign/*
+!.monodesign/config.json

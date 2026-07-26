@@ -165,7 +165,7 @@ const autopilotProgress: MCPTool = {
 
 const autopilotLearn: MCPTool = {
   name: 'autopilot_learn',
-  description: 'Discover success patterns from past task completions. Requires memory backend for full functionality.',
+  description: 'Report success patterns from the optional agentic-flow learning module. That module is not a declared dependency and is absent in normal installs, so this returns available:false with an empty pattern list — no pattern discovery occurs.',
   category: 'autopilot',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
@@ -217,7 +217,7 @@ const autopilotHistory: MCPTool = {
 
 const autopilotPredict: MCPTool = {
   name: 'autopilot_predict',
-  description: 'Predict the optimal next action based on current state and learned patterns.',
+  description: 'Suggest the next action by returning the first incomplete discovered task with a fixed 0.5 confidence — a heuristic over local task files, not ML prediction. The optional agentic-flow learning module that would refine this is not a declared dependency and is absent in normal installs.',
   category: 'autopilot',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {

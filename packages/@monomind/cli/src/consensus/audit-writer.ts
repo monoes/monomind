@@ -265,16 +265,18 @@ export class AuditWriter {
   }
 
   private readLines(filePath: string): ConsensusAuditRecord[] {
+    // A missing log is a genuine empty trail. Everything else — an oversized
+    // log, a permissions error, an I/O failure — is an *unreadable* trail, and
+    // must not be reported as an empty one: this file is the tamper-evidence
+    // record, so "0 records" and "cannot read" have opposite meanings.
+    // Callers (hive-mind_audit_list / _verify) already surface a throw as
+    // `success: false` with the message.
     if (!existsSync(filePath)) return [];
-    try {
-      const MAX_BYTES = 50 * 1024 * 1024;
-      if (statSync(filePath).size > MAX_BYTES) {
-        throw new Error(`Audit log ${filePath} exceeds 50MB — run rotation/cleanup`);
-      }
-      const content = readFileSync(filePath, 'utf-8');
-      return parseJsonl<ConsensusAuditRecord>(content);
-    } catch {
-      return [];
+    const MAX_BYTES = 50 * 1024 * 1024;
+    if (statSync(filePath).size > MAX_BYTES) {
+      throw new Error(`Audit log ${filePath} exceeds 50MB — run rotation/cleanup`);
     }
+    const content = readFileSync(filePath, 'utf-8');
+    return parseJsonl<ConsensusAuditRecord>(content);
   }
 }

@@ -26,6 +26,17 @@ const benchmarkCommand: Command = {
     const suiteRaw = ctx.flags.suite as string || 'all';
     const VALID_SUITES = new Set(['all', 'wasm', 'neural', 'memory', 'search']);
     const suite = VALID_SUITES.has(suiteRaw) ? suiteRaw : 'all';
+    // Falling back is fine; doing it silently is not. `--suite quick` used to
+    // print "Running all benchmarks" and produce a full run, so the user's
+    // explicit choice was discarded with no indication it had been ignored.
+    if (suiteRaw !== suite) {
+      output.writeln(
+        output.warning(
+          `Unknown benchmark suite "${suiteRaw}" — running "all" instead. ` +
+          `Valid suites: ${[...VALID_SUITES].join(', ')}.`
+        )
+      );
+    }
     const MAX_ITERATIONS = 10_000;
     const MAX_WARMUP = 500;
     const iterationsRaw = parseInt(ctx.flags.iterations as string || '100', 10);
@@ -577,12 +588,31 @@ const bottleneckCommand: Command = {
   ],
   examples: [
     { command: 'monomind performance bottleneck', description: 'Find bottlenecks' },
-    { command: 'monomind performance bottleneck -d full', description: 'Full analysis' },
+    { command: 'monomind performance bottleneck -c network', description: 'Only the Network component' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Bottleneck Analysis'));
     output.writeln(output.dim('─'.repeat(50)));
+
+    // Components this command actually knows how to inspect. Used both to
+    // validate --component and to tell the user what they could have asked for.
+    const ANALYZED_COMPONENTS = ['Runtime', 'Vector Search', 'Traces', 'Memory DB', 'Network'];
+
+    // Only a single depth of analysis is implemented. Accepting `--depth full`
+    // and quietly running the quick analysis discards the user's request with
+    // no indication it was ignored, so say so instead.
+    const depthRaw = (ctx.flags.depth as string) || 'quick';
+    if (depthRaw !== 'quick') {
+      output.writeln(
+        output.warning(
+          `--depth ${depthRaw} is not implemented — running the "quick" analysis. ` +
+          `Only "quick" is supported today.`
+        )
+      );
+    }
+
+    const componentFilter = (ctx.flags.component as string)?.trim();
 
     const spinner = output.createSpinner({ text: 'Analyzing system...', spinner: 'dots' });
     spinner.start();
@@ -631,11 +661,26 @@ const bottleneckCommand: Command = {
       findings.push({ component: 'Network', bottleneck: 'No request batching', severity: output.info('Low'), solution: 'Run: monomind performance optimize --apply -t latency' });
     }
 
-    if (findings.length === 0) {
-      findings.push({ component: 'System', bottleneck: 'No bottlenecks detected', severity: output.success('None'), solution: 'System is performing well' });
+    let results = findings;
+    if (componentFilter) {
+      const known = ANALYZED_COMPONENTS.find(c => c.toLowerCase() === componentFilter.toLowerCase())
+        ?? ANALYZED_COMPONENTS.find(c => c.toLowerCase().includes(componentFilter.toLowerCase()));
+      if (!known) {
+        spinner.fail(`Unknown component "${componentFilter}"`);
+        output.writeln(
+          output.warning(`Analyzed components: ${ANALYZED_COMPONENTS.join(', ')}.`)
+        );
+        return { success: false, message: `Unknown component: ${componentFilter}`, exitCode: 1 };
+      }
+      results = findings.filter(f => f.component === known);
+      if (results.length === 0) {
+        results = [{ component: known, bottleneck: 'No bottlenecks detected', severity: output.success('None'), solution: `${known} is performing well` }];
+      }
+    } else if (results.length === 0) {
+      results = [{ component: 'System', bottleneck: 'No bottlenecks detected', severity: output.success('None'), solution: 'System is performing well' }];
     }
 
-    spinner.succeed(`Analysis complete — ${findings.length} finding(s)`);
+    spinner.succeed(`Analysis complete — ${results.length} finding(s)`);
 
     output.writeln();
     output.printTable({
@@ -645,7 +690,7 @@ const bottleneckCommand: Command = {
         { key: 'severity', header: 'Severity', width: 12 },
         { key: 'solution', header: 'Solution', width: 50 },
       ],
-      data: findings,
+      data: results,
     });
 
     return { success: true };

@@ -2845,6 +2845,13 @@ function checkElementImageDimensions(el, style) {
 }
 
 function checkElementImageDimensionsDOM(el) {
+  // Only <img> can have this problem. The static engine gets this for free —
+  // it registers the rule with `selector: 'img'` (engines/static-html/
+  // detect-html.mjs) — but the DOM walker calls every check against every
+  // element, so the tag filter has to live here. Without it this rule fired on
+  // <head>, <meta>, <title> and <style>: a clean 84-line fixture reported 43
+  // findings, all of them "an <img> ships without width and height".
+  if (el.tagName !== 'IMG') return [];
   const hasWidthAttr = el.getAttribute('width') != null;
   const hasHeightAttr = el.getAttribute('height') != null;
   // Browser computed `height` always resolves to a used px value after layout,
