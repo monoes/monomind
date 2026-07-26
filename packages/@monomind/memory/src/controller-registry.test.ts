@@ -323,7 +323,10 @@ describe('ControllerRegistry', () => {
       expect(report.totalControllers).toBeGreaterThanOrEqual(report.activeControllers);
     });
 
-    it('should report lancedb availability', async () => {
+    // Named for LanceDB until 2026-07, when that backend was removed. The field
+    // it actually checks is storageBackendAvailable, which now reports on the
+    // SQLite/sql.js backend.
+    it('should report storage backend availability', async () => {
       await registry.initialize({ backend: mockBackend });
       const report = await registry.healthCheck();
       expect(typeof report.storageBackendAvailable).toBe('boolean');
