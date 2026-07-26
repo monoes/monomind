@@ -341,7 +341,7 @@ function contextSourcePath(filePath, repoRoot) {
   if (!filePath) return null;
   const rel = path.relative(repoRoot, filePath).split(path.sep).join('/');
   if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
-    return rel.split(path.sep).join('/');
+    return rel;
   }
   return filePath;
 }
@@ -449,7 +449,11 @@ function findTargetExample(repoRoot, projectRoot) {
 function resolveWorkspaceProjectRoot(repoRoot, targetDir) {
   const rel = path.relative(repoRoot, targetDir).split(path.sep).join('/');
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return repoRoot;
-  const relSegments = rel.split(path.sep).filter(Boolean);
+  // rel is POSIX-normalised above, so split on '/' — splitting on path.sep here
+  // returned the whole string as a single segment on Windows, no workspace
+  // pattern ever matched, and every child project silently resolved to the
+  // repo root instead.
+  const relSegments = rel.split('/').filter(Boolean);
   const patterns = readWorkspacePatterns(repoRoot);
   const excluded = isExcludedByWorkspacePattern(relSegments, patterns);
   if (!excluded) {
