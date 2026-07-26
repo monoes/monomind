@@ -144,8 +144,8 @@ describe('loadContext', () => {
     assert.match(ctx.product, /product in agents/);
     assert.equal(ctx.contextDir, path.join(scratch, '.agents', 'context'));
     // productPath/designPath are relative to cwd, not contextDir
-    assert.equal(ctx.productPath, path.join('.agents', 'context', 'PRODUCT.md'));
-    assert.equal(ctx.designPath, path.join('.agents', 'context', 'DESIGN.md'));
+    assert.equal(ctx.productPath, '.agents/context/PRODUCT.md');
+    assert.equal(ctx.designPath, '.agents/context/DESIGN.md');
   });
 
   it('reads from docs/ when .agents/context/ is empty', () => {
@@ -153,7 +153,7 @@ describe('loadContext', () => {
     const ctx = loadContext(scratch);
     assert.equal(ctx.hasProduct, true);
     assert.equal(ctx.contextDir, path.join(scratch, 'docs'));
-    assert.equal(ctx.productPath, path.join('docs', 'PRODUCT.md'));
+    assert.equal(ctx.productPath, 'docs/PRODUCT.md');
   });
 });
 
@@ -197,13 +197,13 @@ describe('loadContext (monorepo project context)', () => {
     const marketing = loadContext(scratch, { targetPath: 'apps/marketing/src/App.jsx' });
     assert.match(marketing.product, /Marketing product/);
     assert.match(marketing.design, /Marketing design/);
-    assert.equal(marketing.productPath, path.join('apps', 'marketing', 'PRODUCT.md'));
-    assert.equal(marketing.designPath, path.join('apps', 'marketing', 'DESIGN.md'));
+    assert.equal(marketing.productPath, 'apps/marketing/PRODUCT.md');
+    assert.equal(marketing.designPath, 'apps/marketing/DESIGN.md');
 
     const dashboard = loadContext(scratch, { targetPath: 'apps/dashboard/src/App.jsx' });
     assert.match(dashboard.product, /Dashboard product/);
     assert.match(dashboard.design, /Root design/);
-    assert.equal(dashboard.productPath, path.join('apps', 'dashboard', 'PRODUCT.md'));
+    assert.equal(dashboard.productPath, 'apps/dashboard/PRODUCT.md');
     assert.equal(dashboard.designPath, 'DESIGN.md');
 
     const admin = loadContext(scratch, { targetPath: 'apps/admin/src/App.jsx' });
@@ -219,8 +219,8 @@ describe('loadContext (monorepo project context)', () => {
     const ctx = loadContext(appDir);
     assert.match(ctx.product, /Root product/);
     assert.match(ctx.design, /Root design/);
-    assert.equal(ctx.productPath, path.join('..', '..', 'PRODUCT.md'));
-    assert.equal(ctx.designPath, path.join('..', '..', 'DESIGN.md'));
+    assert.equal(ctx.productPath, '../../PRODUCT.md');
+    assert.equal(ctx.designPath, '../../DESIGN.md');
     assert.equal(resolveProjectRoot(appDir), appDir);
   });
 
@@ -308,8 +308,8 @@ describe('loadContext (monorepo project context)', () => {
     assert.equal(ctx.repoRoot, scratch);
     assert.match(ctx.product, /Nested product/);
     assert.match(ctx.design, /Nested design/);
-    assert.equal(ctx.productPath, path.join('nested', 'product', 'PRODUCT.md'));
-    assert.equal(ctx.designPath, path.join('nested', 'product', 'DESIGN.md'));
+    assert.equal(ctx.productPath, 'nested/product/PRODUCT.md');
+    assert.equal(ctx.designPath, 'nested/product/DESIGN.md');
   });
 
   it('resolves a nested target whose context lives in .agents/context/', () => {
@@ -320,7 +320,7 @@ describe('loadContext (monorepo project context)', () => {
     assert.equal(ctx.isMonorepo, false);
     assert.equal(ctx.projectRoot, path.join(scratch, 'nested', 'product'));
     assert.match(ctx.product, /Nested product/);
-    assert.equal(ctx.productPath, path.join('nested', 'product', '.agents', 'context', 'PRODUCT.md'));
+    assert.equal(ctx.productPath, 'nested/product/.agents/context/PRODUCT.md');
   });
 
   it('resolves a nested target whose context lives in docs/', () => {
@@ -331,7 +331,7 @@ describe('loadContext (monorepo project context)', () => {
     assert.equal(ctx.isMonorepo, false);
     assert.equal(ctx.projectRoot, path.join(scratch, 'nested', 'product'));
     assert.match(ctx.design, /Nested design/);
-    assert.equal(ctx.designPath, path.join('nested', 'product', 'docs', 'DESIGN.md'));
+    assert.equal(ctx.designPath, 'nested/product/docs/DESIGN.md');
   });
 
   it('does not treat the root fallback context dirs as a nested product', () => {
@@ -405,7 +405,7 @@ describe('loadContext (monorepo project context)', () => {
     assert.equal(ctx.repoRoot, scratch);
     assert.match(ctx.product, /Standalone product/);
     assert.match(ctx.design, /Outer design/);
-    assert.equal(ctx.productPath, path.join('repos', 'standalone', 'PRODUCT.md'));
+    assert.equal(ctx.productPath, 'repos/standalone/PRODUCT.md');
     assert.equal(ctx.designPath, 'DESIGN.md');
   });
 
@@ -423,7 +423,7 @@ describe('loadContext (monorepo project context)', () => {
     assert.equal(ctx.projectRoot, path.join(scratch, 'libs', 'ui'));
     assert.match(ctx.product, /UI product/);
     assert.match(ctx.design, /Root design/);
-    assert.equal(ctx.productPath, path.join('libs', 'ui', 'PRODUCT.md'));
+    assert.equal(ctx.productPath, 'libs/ui/PRODUCT.md');
     assert.equal(ctx.designPath, 'DESIGN.md');
   });
 
@@ -441,7 +441,7 @@ describe('loadContext (monorepo project context)', () => {
     assert.equal(ctx.projectRoot, path.join(scratch, 'packages', 'dashboard'));
     assert.match(ctx.product, /Dashboard package product/);
     assert.match(ctx.design, /Root design/);
-    assert.equal(ctx.productPath, path.join('packages', 'dashboard', 'PRODUCT.md'));
+    assert.equal(ctx.productPath, 'packages/dashboard/PRODUCT.md');
     assert.equal(ctx.designPath, 'DESIGN.md');
   });
 
