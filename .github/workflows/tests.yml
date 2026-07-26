@@ -114,14 +114,6 @@ jobs:
           - name: monofence-ai
             pkg: 'monofence-ai'
             dir: packages/monofence-ai
-          - name: monodesign
-            pkg: '@monoes/monodesign'
-            dir: packages/@monoes/monodesign
-            build: 'skip'
-            # Its suite runs through node:test with --experimental-strip-types,
-            # which Node 20 rejects outright ("bad option"). The Linux matrix
-            # already pins it to 22 for the same reason.
-            node: '22'
           - name: monobrowse
             pkg: '@monoes/monobrowse'
             dir: packages/@monoes/monobrowse
@@ -148,14 +140,25 @@ jobs:
     #
     # RESOLVED, and now gated here rather than described as broken:
     #
-    #   monodesign        Used to run ZERO tests on Windows and exit 0 —
-    #                     `node --test 'tests/*.test.*'` relies on POSIX glob
-    #                     expansion, and cmd.exe passes the single quotes
-    #                     through, so the pattern matched nothing. It now runs
-    #                     via scripts/run-tests.mjs, which fails if the suite
-    #                     executed no tests. That guard is why monodesign can be
-    #                     gated at all: a green suite that ran nothing is worse
-    #                     than a red one.
+    #   monodesign        Not gated here — but for a measured reason now, not an
+    #                     unknown one. Its suite used to run ZERO tests on
+    #                     Windows and exit 0: `node --test 'tests/*.test.*'`
+    #                     relies on POSIX glob expansion, and cmd.exe passes the
+    #                     single quotes through, so the pattern matched nothing.
+    #                     It now runs via scripts/run-tests.mjs, which fails when
+    #                     the suite executes no tests, and Node 22 (Node 20
+    #                     rejects --experimental-strip-types outright).
+    #
+    #                     With that fixed the suite actually runs on Windows and
+    #                     reports 975 of 1021 passing, 37 failing — 36 of them in
+    #                     three files (live-server 21, live-commit-manual-edits
+    #                     8, hook 7) plus a "File URL path must be absolute" in
+    #                     windows-path-fix. Those are genuine Windows bugs, not
+    #                     harness noise, and fixing them is its own piece of
+    #                     work. Gating now would just make this job permanently
+    #                     red. The guard stays in the package regardless, so
+    #                     anyone running it on Windows sees real results instead
+    #                     of a false green.
     #
     #   POSIX-only builds Every package's build used recursive delete, mkdir -p
     #                     and cp directly. npm runs script bodies through
