@@ -20,7 +20,7 @@
  * under test when the file is written.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { execFileSync, spawnSync } from 'child_process';
+import { execFileSync, spawnSync, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -359,6 +359,52 @@ describe('graph-gate state file is concurrency-safe', () => {
       expect(ids).toContain('sess-' + WRITERS);
     }
   });
+
+  // The count-based test above only catches this on a machine slow enough to
+  // exhaust the acquire budget — it passed locally at 120 concurrent writers
+  // while CI landed 9 of 16. This one is deterministic: hold the lock longer
+  // than a writer is willing to wait, and the writer either waits (correct) or
+  // gives up and writes unlocked, at which point the holder's stale snapshot
+  // erases it.
+  //
+  // The invariant is that the acquire budget must exceed the stale-reclaim
+  // window. Below that, a writer stops waiting while the holder is still
+  // legitimately working, and the "crashed holder" reclaim path can never fire
+  // either.
+  it('waits for a slow holder instead of giving up and writing unlocked', async () => {
+    const projectDir = path.join(tmp, 'slowholder');
+    const dotmm = path.join(projectDir, '.monomind');
+    fs.mkdirSync(dotmm, { recursive: true });
+    const statePath = path.join(dotmm, 'graph-gate-state.json');
+    fs.writeFileSync(statePath, JSON.stringify({ sessions: { existing: { queried: true } } }));
+
+    // Take the lock the same way the implementation does, and read the state —
+    // this snapshot is now stale for as long as we hold it.
+    const lockDir = statePath + '.lock';
+    fs.mkdirSync(lockDir);
+    const snapshot = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+
+    const worker = path.join(tmp, 'slow-mark.cjs');
+    fs.writeFileSync(worker, `require(${JSON.stringify(MONO)})._graphGateMarkQueried('victim');`);
+    const kid = spawn(process.execPath, [worker], {
+      stdio: 'ignore',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir },
+    });
+    const kidExit = new Promise((res) => kid.on('exit', res));
+
+    // Comfortably longer than the old 250ms budget, comfortably shorter than
+    // the 2000ms stale window — so a correct writer is still waiting here.
+    await new Promise((res) => setTimeout(res, 800));
+
+    snapshot.sessions.holder = { queried: true };
+    fs.writeFileSync(statePath, JSON.stringify(snapshot));
+    fs.rmSync(lockDir, { recursive: true, force: true });
+    await kidExit;
+
+    const sessions = JSON.parse(fs.readFileSync(statePath, 'utf-8')).sessions;
+    expect(sessions.holder).toBeTruthy();
+    expect(sessions.victim, 'the writer gave up and wrote unlocked, so the holder erased its update').toBeTruthy();
+  }, 20000);
 
   it('writes atomically (temp + rename, no temp files left behind)', () => {
     const projectDir = path.join(tmp, 'atomic');
