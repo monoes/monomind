@@ -54,6 +54,30 @@ jobs:
         with:
           version: 10
 
+      # Cache the pnpm store, including compiled native modules. Without it
+      # every one of the ten matrix jobs recompiles tree-sitter's native
+      # grammars from source on every run — slow, and a genuine flake source:
+      # on 2026-07-26 the `mcp` job failed at install with
+      # `tree-sitter-vue install: make: *** [Makefile:343] Error 126` while the
+      # other nine jobs in the same run installed cleanly, and it passed on
+      # re-run. A CI that fails randomly teaches people to ignore red.
+      # Ask pnpm where its store is rather than hardcoding a path — it is
+      # platform-dependent (~/.local/share/pnpm/store on Linux,
+      # ~/Library/pnpm/store on macOS). Caching the wrong directory caches
+      # nothing, silently, which is worse than no cache at all.
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-20-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-20-
+            pnpm-${{ runner.os }}-
+
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
@@ -136,6 +160,30 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
+      # Cache the pnpm store, including compiled native modules. Without it
+      # every one of the ten matrix jobs recompiles tree-sitter's native
+      # grammars from source on every run — slow, and a genuine flake source:
+      # on 2026-07-26 the `mcp` job failed at install with
+      # `tree-sitter-vue install: make: *** [Makefile:343] Error 126` while the
+      # other nine jobs in the same run installed cleanly, and it passed on
+      # re-run. A CI that fails randomly teaches people to ignore red.
+      # Ask pnpm where its store is rather than hardcoding a path — it is
+      # platform-dependent (~/.local/share/pnpm/store on Linux,
+      # ~/Library/pnpm/store on macOS). Caching the wrong directory caches
+      # nothing, silently, which is worse than no cache at all.
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ matrix.node || '20' }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-${{ matrix.node || '20' }}-
+            pnpm-${{ runner.os }}-
 
       # One workspace-wide install wires every package, including the workspace
       # links between them — a per-package `npm install` cannot do that and was
