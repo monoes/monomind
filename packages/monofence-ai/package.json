@@ -1,7 +1,7 @@
 {
   "name": "monofence-ai",
-  "version": "1.0.0",
-  "description": "AI Manipulation Defense System — evasion detection, multi-turn context, output scanning, hook wiring",
+  "version": "1.0.2",
+  "description": "AI Manipulation Defense System \u2014 evasion detection, multi-turn context, output scanning, hook wiring",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,19 +23,18 @@
       "types": "./dist/hooks/security-hook.d.ts"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
+    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit"
-  },
-  "peerDependencies": {
-    "@lancedb/lancedb": ">=0.12.0"
-  },
-  "peerDependenciesMeta": {
-    "@lancedb/lancedb": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -43,8 +42,14 @@
     "vitest": "^4.1.4"
   },
   "keywords": [
-    "ai-security", "prompt-injection", "jailbreak-detection", "evasion-detection",
-    "context-tracking", "output-scanning", "monomind", "llm-security"
+    "ai-security",
+    "prompt-injection",
+    "jailbreak-detection",
+    "evasion-detection",
+    "context-tracking",
+    "output-scanning",
+    "monomind",
+    "llm-security"
   ],
   "license": "MIT",
   "repository": {
@@ -52,5 +57,7 @@
     "url": "git+https://github.com/monoes/monomind.git",
     "directory": "packages/monofence-ai"
   },
-  "engines": { "node": ">=18.0.0" }
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

@@ -48,7 +48,7 @@ export async function hybridQuery(
   const normalizedQuery = normalizeSearchTerm(query);
 
   // ── BM25 via FTS5 ──────────────────────────────────────────────────────────
-  const bm25Limit = 50;
+  const bm25Limit = Math.max(limit, 50);
   const bm25Raw = ftsSearch(db, normalizedQuery, bm25Limit, label);
   const bm25Results: RankedResult[] = bm25Raw.map((r) => ({
     id: r.id,

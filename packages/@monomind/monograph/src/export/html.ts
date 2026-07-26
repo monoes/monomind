@@ -74,6 +74,7 @@ export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
     return {
       id: n.id,
       label: shortLabel,
+      _fullName: n.name,
       title: buildTooltip(n, deg),
       group: n.communityId ?? 0,
       color: {
@@ -398,7 +399,7 @@ function showInfoCard(nodeId) {
   if (!node) return;
   const neighbors = network.getConnectedNodes(nodeId);
   document.getElementById('ic-type').textContent = node._nodeType || '';
-  document.getElementById('ic-name').textContent = node.label;
+  document.getElementById('ic-name').textContent = node._fullName || node.label;
   const fp = node._filePath ? escHtml(node._filePath) : '';
   const fpShort = node._filePath ? escHtml(node._filePath.split('/').pop()) : '';
   document.getElementById('ic-meta').innerHTML =
@@ -420,7 +421,7 @@ function onSearch(q) {
   searchActive = !!q;
   const lq = q.toLowerCase();
   if (!q) { resetHighlight(); return; }
-  const matchIds = new Set(ALL_NODES.filter(n => n.label.toLowerCase().includes(lq) || (n._filePath && n._filePath.toLowerCase().includes(lq))).map(n => n.id));
+  const matchIds = new Set(ALL_NODES.filter(n => (n._fullName || n.label).toLowerCase().includes(lq) || (n._filePath && n._filePath.toLowerCase().includes(lq))).map(n => n.id));
   nodesDS.update(ALL_NODES.map(n => ({ id: n.id, opacity: matchIds.has(n.id) ? 1 : 0.06 })));
   edgesDS.update(ALL_EDGES.map(e => ({ id: e.id, opacity: matchIds.has(e.from) && matchIds.has(e.to) ? 0.7 : 0.03 })));
   // Focus on first match

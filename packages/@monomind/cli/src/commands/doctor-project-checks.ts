@@ -3,7 +3,7 @@
  * Config, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore, worker metrics
  */
 
-import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, copyFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, copyFileSync, writeFileSync, appendFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -432,25 +432,95 @@ const REQUIRED_GITIGNORE_PATTERNS = [
   { pattern: '.swarm/', reason: 'swarm state files' },
 ];
 
+/** Strip the parts that don't change what a pattern matches, so `**​/.monomind/`,
+ *  `.monomind/` and `.monomind` all compare equal. A gitignore pattern with no
+ *  leading slash already matches at every depth, so `**​/` is redundant. */
+function normalizeGitignorePattern(p: string): string {
+  return p.replace(/^\/+/, '').replace(/^\*\*\//, '').replace(/\/+$/, '');
+}
+
+/** True when ignoring `line` already protects everything `required` covers.
+ *  Beyond exact matches this understands directory containment: a repo with a
+ *  blanket `.monomind/` is fully covered for `.monomind/sessions/`,
+ *  `.monomind/*.json` and friends, and should not be nagged to add each one. */
+function gitignoreLineCovers(line: string, required: string): boolean {
+  const l = normalizeGitignorePattern(line);
+  const r = normalizeGitignorePattern(required);
+  if (!l) return false;
+  if (l === r) return true;
+  // A bare directory entry covers every path beneath it, but only when the
+  // entry itself is literal — `.monomind/*.json` must not be treated as an
+  // ancestor of `.monomind/sessions`.
+  return !l.includes('*') && r.startsWith(`${l}/`);
+}
+
 export async function checkGitignoreCoverage(): Promise<HealthCheck> {
   const gitignorePath = join(process.cwd(), '.gitignore');
   if (!existsSync(gitignorePath)) {
-    return { name: 'Gitignore Coverage', status: 'warn', message: 'No .gitignore found — all monomind runtime paths are unprotected', fix: 'echo ".monomind/\\n**/.monomind/" >> .gitignore' };
+    // The old hint was `echo ".monomind/\n**/.monomind/" >> .gitignore`, which
+    // writes a literal backslash-n (sh/bash echo does not interpret escapes
+    // without -e) — one junk line matching nothing. `--fix` now writes the file
+    // directly, so point at that rather than at a command to copy-paste.
+    return { name: 'Gitignore Coverage', status: 'warn', message: 'No .gitignore found — all monomind runtime paths are unprotected', fix: 'monomind doctor --fix   (creates .gitignore covering .monomind/ and secrets)' };
   }
   if (statSync(gitignorePath).size > MAX_DOCTOR_GITIGNORE_BYTES) {
     return { name: 'Gitignore Coverage', status: 'warn', message: '.gitignore too large to parse' };
   }
   const lines = readFileSync(gitignorePath, 'utf-8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-  const missing = REQUIRED_GITIGNORE_PATTERNS.filter(({ pattern }) => {
-    const base = pattern.replace(/\*\*\//g, '').replace(/\*/g, '');
-    return !lines.some(l =>
-      l === pattern || l === pattern.replace(/\/$/, '') ||
-      (l.includes('**') && base && l.replace(/\*\*\//g, '').replace(/\*/g, '') === base)
-    );
-  });
+  const missing = REQUIRED_GITIGNORE_PATTERNS.filter(({ pattern }) => !lines.some(l => gitignoreLineCovers(l, pattern)));
   if (missing.length === 0) return { name: 'Gitignore Coverage', status: 'pass', message: 'All monomind runtime paths are gitignored' };
   const missingList = missing.map(m => m.pattern).join(', ');
-  return { name: 'Gitignore Coverage', status: 'warn', message: `${missing.length} runtime path(s) not in .gitignore: ${missingList}`, fix: `printf "${missing.map(m => m.pattern).join('\\n')}\\n" >> .gitignore` };
+  return { name: 'Gitignore Coverage', status: 'warn', message: `${missing.length} runtime path(s) not in .gitignore: ${missingList}`, fix: 'monomind doctor --fix   (appends the missing entries)' };
+}
+
+/** Patterns written by `doctor --fix` when there is no .gitignore at all.
+ *  Covers monomind runtime state plus the standard secrets files, since a repo
+ *  with no .gitignore has nothing protecting those either. */
+const GITIGNORE_FIX_PATTERNS = [
+  '# monomind runtime state',
+  '.monomind/',
+  '**/.monomind/',
+  '.hive-mind/',
+  '.swarm/',
+  '**/.claude-flow/',
+  'data/sessions/',
+  'data/mastermind-*.json',
+  'data/mastermind-*.jsonl',
+  '',
+  '# secrets / local env',
+  '.env',
+  '.env.*',
+  '!.env.example',
+  '*.pem',
+  '*.key',
+  '',
+  '# dependencies / build output',
+  'node_modules/',
+  'dist/',
+];
+
+/** Creates or appends the missing gitignore entries. Returns true if it wrote.
+ *  Append-only and idempotent: never rewrites lines the user already has. */
+export async function fixGitignoreCoverage(): Promise<boolean> {
+  const gitignorePath = join(process.cwd(), '.gitignore');
+  try {
+    if (!existsSync(gitignorePath)) {
+      writeFileSync(gitignorePath, GITIGNORE_FIX_PATTERNS.join('\n') + '\n', 'utf-8');
+      return true;
+    }
+    if (statSync(gitignorePath).size > MAX_DOCTOR_GITIGNORE_BYTES) return false;
+    const existing = readFileSync(gitignorePath, 'utf-8');
+    const lines = existing.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const missing = REQUIRED_GITIGNORE_PATTERNS
+      .map(m => m.pattern)
+      .filter(pattern => !lines.some(l => gitignoreLineCovers(l, pattern)));
+    if (missing.length === 0) return false;
+    const prefix = existing.endsWith('\n') || existing === '' ? '' : '\n';
+    appendFileSync(gitignorePath, `${prefix}\n# monomind runtime state\n${missing.join('\n')}\n`, 'utf-8');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function checkAgentRegistry(): Promise<HealthCheck> {
@@ -509,7 +579,14 @@ export async function checkGuidanceGates(): Promise<HealthCheck> {
     }
     const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
     const preToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }> = settings?.hooks?.PreToolUse ?? [];
-    const hasPreWrite = preToolUse.some(e => e.matcher === 'Write|Edit|MultiEdit' && e.hooks.some(h => h.command?.includes('pre-write')));
+    // Match on capability, not on an exact matcher string. The matcher is a
+    // regex alternation that legitimately changes as tools are added — it
+    // gained `|NotebookEdit` when that tool turned out to bypass the secret
+    // gate — and an `=== 'Write|Edit|MultiEdit'` test reported the gate as
+    // INACTIVE the moment it did, telling users their secrets gate was off
+    // while it was demonstrably blocking secrets, and sending them to
+    // `guidance setup`, which would then add a duplicate entry.
+    const hasPreWrite = preToolUse.some(e => /\bWrite\b/.test(e.matcher ?? '') && e.hooks.some(h => h.command?.includes('pre-write')));
     const hasPreBash = preToolUse.some(e => e.matcher === 'Bash' && e.hooks.some(h => h.command?.includes('pre-bash')));
     if (!hasPreWrite && !hasPreBash) return { name: 'Guidance Gates', status: 'warn', message: 'gates-handler.cjs present but no gates registered', fix: 'monomind guidance setup' };
     if (!hasPreWrite) return { name: 'Guidance Gates', status: 'warn', message: 'pre-write hook not registered — secrets gate inactive', fix: 'monomind guidance setup' };

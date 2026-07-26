@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "2.7.3",
+  "version": "2.7.10",
   "description": "Open-source CLI extension for Claude Code. Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. MIT licensed, runs locally, no data leaves your machine.",
   "main": "dist/index.js",
   "type": "module",
@@ -50,6 +50,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "build:ts": "cd packages/@monomind/cli && npm run build || true",
+    "prepublishOnly": "cd packages/@monomind/cli && npm run build",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:security": "vitest run tests/security/",
@@ -63,7 +64,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.207",
     "@monoes/monobrowse": "^1.0.6",
-    "@monoes/monograph": "^1.5.3",
+    "@monoes/monodesign": "^1.2.1",
+    "@monoes/monograph": "^1.5.4",
     "@noble/ed25519": "^2.1.0",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
@@ -71,6 +73,15 @@
     "ws": "^8.21.0",
     "yaml": "^2.8.0",
     "zod": "^3.25.0"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "@monoes/hooks": "^1.0.1",
+    "@monoes/mcp": "^1.0.1",
+    "@monoes/memory": "^1.0.10",
+    "@monoes/routing": "^1.0.1",
+    "monofence-ai": "*",
+    "sql.js": "^1.14.1"
   },
   "overrides": {
     "hono": ">=4.12.21",

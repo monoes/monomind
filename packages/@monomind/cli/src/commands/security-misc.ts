@@ -13,15 +13,22 @@ export const auditCommand: Command = {
   name: 'audit',
   description: 'Security audit logging and compliance',
   options: [
-    { name: 'action', short: 'a', type: 'string', description: 'Action: log, list, export, clear', default: 'list' },
+    { name: 'action', short: 'a', type: 'string', description: 'Action: list (only supported value — log/export/clear are not implemented)', default: 'list' },
     { name: 'limit', short: 'l', type: 'number', description: 'Number of entries to show', default: '20' },
-    { name: 'filter', short: 'f', type: 'string', description: 'Filter by event type' },
+    { name: 'filter', short: 'f', type: 'string', description: 'Filter by event type (substring, case-insensitive)' },
   ],
   examples: [
     { command: 'monomind security audit --action list', description: 'List audit logs' },
-    { command: 'monomind security audit -a export', description: 'Export audit trail' },
+    { command: 'monomind security audit --filter SWARM', description: 'Only swarm activity events' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const requestedAction = (ctx.flags.action as string) || 'list';
+    if (requestedAction !== 'list') {
+      output.writeln();
+      output.writeln(output.error(`security audit --action ${requestedAction} is not implemented — only "list" is supported.`));
+      return { success: false, message: `Unsupported action: ${requestedAction}`, exitCode: 1 };
+    }
+
     output.writeln();
     output.writeln(output.bold('Security Audit Log'));
     output.writeln(output.dim('─'.repeat(60)));
@@ -56,7 +63,22 @@ export const auditCommand: Command = {
     auditEntries.push({ timestamp: now, event: 'AUDIT_RUN', user: 'cli', status: output.success('Success') });
     auditEntries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
-    if (auditEntries.length === 0) {
+    // --filter was previously parsed and discarded, so every invocation
+    // returned the full log regardless of what the user asked for.
+    const eventFilter = (ctx.flags.filter as string)?.trim();
+    let visibleEntries = auditEntries;
+    if (eventFilter) {
+      const needle = eventFilter.toLowerCase();
+      visibleEntries = auditEntries.filter(e => e.event.toLowerCase().includes(needle));
+      if (visibleEntries.length === 0) {
+        const seen = [...new Set(auditEntries.map(e => e.event))].sort();
+        output.writeln(output.warning(`No audit events match "${eventFilter}".`));
+        output.writeln(output.dim(`Event types present: ${seen.join(', ') || 'none'}`));
+        return { success: true, data: { entries: [], filter: eventFilter } };
+      }
+    }
+
+    if (visibleEntries.length === 0) {
       output.writeln(output.dim('No audit events found. Initialize a project first: monomind init'));
     } else {
       output.printTable({
@@ -66,7 +88,7 @@ export const auditCommand: Command = {
           { key: 'user', header: 'User', width: 15 },
           { key: 'status', header: 'Status', width: 12 },
         ],
-        data: auditEntries.slice(0, parseInt(ctx.flags.limit as string || '20', 10)),
+        data: visibleEntries.slice(0, parseInt(ctx.flags.limit as string || '20', 10)),
       });
     }
 

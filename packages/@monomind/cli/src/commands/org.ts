@@ -1,5 +1,5 @@
 // packages/@monomind/cli/src/commands/org.ts
-import { readFileSync, existsSync, unlinkSync, rmSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
@@ -158,9 +158,27 @@ const stopAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.error(`Org not found: ${name}`));
     return { success: false, message: 'org not found' };
   }
-  const { writeFileSync, mkdirSync } = await import('node:fs');
+  // The stopfile is only meaningful to a process that polls it (`org run` and, since
+  // this fix, `org serve`). Writing it for an org that nothing is running was a silent
+  // no-op that still reported "daemon exits within 2s" — say what's actually true.
+  let rt: { status?: string; run?: string; pid?: number } | undefined;
+  try { rt = JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, name, 'runtime.json'), 'utf8')); } catch { /* never run */ }
+  if (rt?.status !== 'running') {
+    log(output.warning(`Org "${name}" is not running (runtime state: ${rt?.status ?? 'never run'}) — nothing to stop.`));
+    return { success: false, message: 'org not running' };
+  }
+  if (rt.pid) {
+    let alive = true;
+    try { process.kill(rt.pid, 0); } catch { alive = false; }
+    if (!alive) {
+      log(output.warning(`Org "${name}" is not running — runtime.json says running but pid ${rt.pid} is gone (crashed daemon).`));
+      log(output.info(`Clear the stale record with: monomind org mark-complete ${name}`));
+      return { success: false, message: 'org crashed — use mark-complete' };
+    }
+  }
   mkdirSync(join(ctx.cwd, ORG_DIR, name), { recursive: true });
   writeFileSync(join(ctx.cwd, ORG_DIR, name, 'stop'), new Date().toISOString());
+  log(output.info(`Stop requested for "${name}" (pid ${rt.pid}) — the daemon picks it up within ~2s.`));
   return { success: true, message: `stop requested for ${name} (daemon exits within 2s)` };
 };
 
@@ -193,17 +211,52 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
     // A "running" record whose pid is gone means the daemon died without its
     // stopOrg cleanup — surface that instead of reporting it as still running.
-    if (state.status === 'running' && state.pid) {
-      try {
-        process.kill(state.pid, 0);
-      } catch {
-        log(output.warning(`${t}: crashed (runtime.json says running but pid ${state.pid} is gone)${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`));
+    if ((state.status === 'running' || state.status === 'crashed') && state.pid) {
+      const pidGone = state.status === 'crashed' || (() => {
+        try { process.kill(state.pid!, 0); return false; }
+        catch { return true; }
+      })();
+      if (pidGone) {
+        let heartbeatHint = '';
+        try {
+          const hb = JSON.parse(readFileSync(join(ctx.cwd, '.monomind', 'serve-heartbeat.json'), 'utf8'));
+          heartbeatHint = ` (last heartbeat: ${hb.updatedAt})`;
+        } catch { /* no heartbeat file — daemon predates this change or was already cleaned up */ }
+        const closedBy = (state as { closedBy?: string }).closedBy;
+        const label = closedBy === 'crash-handler' ? 'crashed (caught by crash handler)' : `crashed (runtime.json says ${state.status} but pid ${state.pid} is gone)`;
+        log(output.warning(`${t}: ${label}${heartbeatHint}${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`));
         continue;
       }
     }
     log(output.info(`${t}: ${state.status}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`));
   }
   return { success: true };
+};
+
+/** One pass of the `org serve` stopfile poll.
+ *
+ * `monomind org stop <name>` writes `.monomind/orgs/<name>/stop`. `org run` has always
+ * polled that file; `org serve` did not — so against a serve daemon `org stop` was a
+ * silent no-op that still printed "daemon exits within 2s" and exited 0 while the org
+ * kept running. Stops every running org whose stopfile is present, then clears the
+ * stopfile so the next scheduled iteration isn't killed on sight.
+ *
+ * Returns the names it stopped (awaited), so callers/tests don't have to guess. */
+export const pollStopfiles = async (cwd: string, daemon: OrgDaemon): Promise<string[]> => {
+  const stopped: string[] = [];
+  for (const name of daemon.listRunning()) {
+    if (!existsSync(join(cwd, ORG_DIR, name, 'stop'))) continue;
+    log(output.info(`org ${name}: stop requested — shutting it down`));
+    try {
+      await daemon.stopOrg(name);
+      stopped.push(name);
+    } catch (err) {
+      console.error(`org ${name}: stop failed:`, err);
+    } finally {
+      clearStopfile(cwd, name);
+    }
+  }
+  return stopped;
 };
 
 const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
@@ -214,6 +267,24 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
     srv = await startOrgServer(daemon, 0);
     daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
   }
+
+  // Crash handlers: log the reason and persist crashed state so `org status`
+  // shows what happened instead of a silent "pid is gone".
+  const crashExit = (label: string, err: unknown): void => {
+    try { console.error(`[org serve] ${label}:`, err); } catch { /* stderr gone */ }
+    daemon.persistCrashStateAll();
+    daemon.clearHeartbeat();
+    process.exitCode = 1;
+  };
+  process.on('uncaughtException', (err) => { crashExit('uncaughtException', err); process.exit(1); });
+  process.on('unhandledRejection', (err) => { crashExit('unhandledRejection', err); process.exit(1); });
+
+  // Heartbeat: write every 30s so `org status` can tell "alive but busy" from
+  // "daemon gone" without relying on pid liveness alone.
+  daemon.writeHeartbeat();
+  const heartbeatInterval = setInterval(() => { daemon.writeHeartbeat(); }, 30_000);
+  heartbeatInterval.unref?.();
+
   log(output.info('org daemon serving — Ctrl-C to stop'));
 
   // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
@@ -262,9 +333,15 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
   }
 
+  const stopPoll = setInterval(() => { void pollStopfiles(ctx.cwd, daemon); }, 2000);
+  stopPoll.unref?.();
+
   await new Promise<void>(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
+  clearInterval(stopPoll);
+  clearInterval(heartbeatInterval);
   sched.stop();
   await daemon.stopAll();
+  daemon.clearHeartbeat();
   srv?.close();
   return { success: true };
 };
@@ -366,6 +443,34 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
   return { success: true };
 };
 
+/** Clear a stale `running` record from runtime.json. This is the state `org status`
+ *  reads, so mark-complete MUST touch it — the dashboard's run:complete event alone
+ *  left `org status` reporting the same "crashed" line it had just told the user to
+ *  fix with this exact command. Refuses when the recorded pid is still alive: a live
+ *  daemon would just rewrite the file, and `org stop` is the right command there. */
+const clearStaleRuntime = (cwd: string, name: string):
+  { cleared: true; run?: string } | { cleared: false; reason: 'absent' | 'not-running' | 'alive' | 'unreadable'; detail?: string } => {
+  const rtPath = join(cwd, ORG_DIR, name, 'runtime.json');
+  if (!existsSync(rtPath)) return { cleared: false, reason: 'absent' };
+  let rt: { status?: string; run?: string; pid?: number };
+  try {
+    rt = JSON.parse(readFileSync(rtPath, 'utf8'));
+  } catch (err) {
+    return { cleared: false, reason: 'unreadable', detail: err instanceof Error ? err.message : String(err) };
+  }
+  if (rt.status !== 'running' && rt.status !== 'crashed') return { cleared: false, reason: 'not-running' };
+  if (rt.status === 'running' && rt.pid) {
+    try { process.kill(rt.pid, 0); return { cleared: false, reason: 'alive', detail: String(rt.pid) }; }
+    catch { /* pid is gone — this is exactly the stale case mark-complete exists for */ }
+  }
+  // Same shape stopOrg's persistState() writes, so every reader (org status,
+  // isOrgRunning, the mastermind-org* skills' jq checks) sees a stopped org.
+  writeFileSync(rtPath, JSON.stringify(
+    { status: 'stopped', run: rt.run, pid: rt.pid, updated: new Date().toISOString(), closedBy: 'mark-complete' },
+    null, 2));
+  return { cleared: true, run: rt.run };
+};
+
 const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const orgName = ctx.args[0];
   if (!orgName || !ORG_NAME_RE.test(orgName)) {
@@ -373,6 +478,30 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
     return { success: false, message: 'valid org name required' };
   }
   const cwd = resolve(ctx.cwd || process.cwd());
+
+  // Reject an org that does not exist, using the same check as runAction. Without
+  // it `org mark-complete nosuchorg` printed "local state was cleared" and exited
+  // 0 — a typo looked like a successful cleanup.
+  const orgsDir = join(cwd, ORG_DIR);
+  if (!existsSync(join(orgsDir, `${orgName}.json`))) {
+    const known = existsSync(orgsDir) ? listOrgConfigFiles(orgsDir).map(f => f.replace(/\.json$/, '')) : [];
+    log(output.error(`Org not found: ${orgName}${known.length ? ` — available: ${known.join(', ')}` : ''}`));
+    return { success: false, message: 'org not found' };
+  }
+
+  // 1) Local runtime.json — the state `org status` actually reads. Done first and
+  //    independently of the dashboard so the recommended remedy works with no server.
+  const local = clearStaleRuntime(cwd, orgName);
+  if (!local.cleared && local.reason === 'alive') {
+    log(output.error(`Org "${orgName}" is still running (pid ${local.detail}) — stop it with "monomind org stop ${orgName}" instead.`));
+    return { success: false, message: 'org is running' };
+  }
+  if (local.cleared) log(output.success(`Cleared stale runtime state for "${orgName}"${local.run ? ` (run ${local.run})` : ''}.`));
+  else if (local.reason === 'unreadable') log(output.warning(`runtime.json for "${orgName}" is unreadable (${local.detail}) — left untouched.`));
+  else log(output.info(`No stale runtime state for "${orgName}" (runtime.json ${local.reason === 'absent' ? 'absent' : 'already not running'}).`));
+
+  // 2) Dashboard run:complete event — best effort. A missing/unauthorized dashboard
+  //    must not make the command fail after the local state was already cleared.
   let ctrlUrl = 'http://localhost:4242';
   try {
     const ctl = JSON.parse(readFileSync(join(cwd, '.monomind', 'control.json'), 'utf8'));
@@ -388,16 +517,17 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      log(output.error(`mark-complete failed (${res.status}): ${(body as { error?: string }).error || 'unknown error'}`));
-      return { success: false, message: 'server rejected mark-complete' };
+      log(output.warning(`Dashboard not updated (${res.status}: ${(body as { error?: string }).error || 'unknown error'}) — ${local.cleared ? 'local state was cleared' : 'there was no local state to clear'}.`));
+    } else {
+      const runId = (body as { runId?: string }).runId;
+      log(output.success(`Dashboard run marked complete for "${orgName}"${runId ? ` (run ${runId})` : ''}.`));
     }
-    const runId = (body as { runId?: string }).runId;
-    log(output.success(`Run marked complete for org "${orgName}"${runId ? ` (run ${runId})` : ''}.`));
-    return { success: true };
   } catch (err) {
-    log(output.error(`Dashboard server unreachable at ${ctrlUrl} — is it running? (${err instanceof Error ? err.message : 'error'})`));
-    return { success: false, message: 'server unreachable' };
+    log(output.warning(`Dashboard unreachable at ${ctrlUrl} (${err instanceof Error ? err.message : 'error'}) — ${local.cleared ? 'local state was cleared' : 'there was no local state to clear'}.`));
   }
+  return local.cleared
+    ? { success: true, message: `run marked complete for ${orgName}` }
+    : { success: true, message: `nothing to clear for ${orgName}` };
 };
 
 const migrateAction = async (ctx: CommandContext): Promise<CommandResult> => {

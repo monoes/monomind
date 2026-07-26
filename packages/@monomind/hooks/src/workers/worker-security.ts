@@ -1,6 +1,18 @@
 /**
  * Security worker factory.
  * Extracted from workers/index.ts (ARCH-3b).
+ *
+ * Reports only what it actually measured:
+ * - `status` is 'clean' ONLY when every candidate file was read. If any path
+ *   could not be read the verdict is 'incomplete' (never 'clean'), and
+ *   `skippedCount` says how many paths were not examined.
+ * - There is no CVE tracking here. A hardcoded `cves: { tracked: [...7 fake
+ *   ids], remediated: 7 }` used to be written into scan-results.json; it was
+ *   a constant, not a measurement, and nothing consumed it. Removed rather
+ *   than left to be mistaken for real remediation data.
+ * - `insecurePatterns` was likewise removed: it was always 0 because nothing
+ *   ever incremented it. Insecure code patterns are counted in
+ *   `vulnerabilities` via `vulnPatterns`.
  */
 
 import * as path from 'path';
@@ -15,8 +27,10 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
     const findings: Record<string, number> = {
       secrets: 0,
       vulnerabilities: 0,
-      insecurePatterns: 0,
     };
+
+    let filesScanned = 0;
+    const skippedPaths: string[] = [];
 
     const secretPatterns = [
       /password\s*[=:]\s*["'][^"']+["']/gi,
@@ -42,17 +56,32 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
     for (const dir of dirsToScan) {
       try {
         await fs.access(dir);
+      } catch {
+        // Directory doesn't exist in this project — nothing to scan, not an error.
+        continue;
+      }
+
+      try {
         const results = await scanDirectoryForPatterns(dir, secretPatterns, vulnPatterns);
         findings.secrets += results.secrets;
         findings.vulnerabilities += results.vulnerabilities;
-      } catch {
-        // Directory doesn't exist
+        filesScanned += results.filesScanned;
+        skippedPaths.push(...results.skipped);
+      } catch (e) {
+        // The scan of this directory failed outright: record it as skipped so
+        // the verdict can never be reported as "clean" on unexamined code.
+        skippedPaths.push(dir);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+          console.error('[worker-security] scan failed for', dir, e);
+        }
       }
     }
 
-    const totalIssues = findings.secrets + findings.vulnerabilities + findings.insecurePatterns;
+    const totalIssues = findings.secrets + findings.vulnerabilities;
+    const incomplete = skippedPaths.length > 0;
     const status = totalIssues > 10 ? 'critical' :
-                   totalIssues > 0 ? 'warning' : 'clean';
+                   totalIssues > 0 ? 'warning' :
+                   incomplete ? 'incomplete' : 'clean';
 
     try {
       const outputPath = path.join(projectRoot, '.monomind', 'security', 'scan-results.json');
@@ -62,10 +91,10 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
         status,
         findings,
         totalIssues,
-        cves: {
-          tracked: ['CVE-MCP-1', 'CVE-MCP-2', 'CVE-MCP-3', 'CVE-MCP-4', 'CVE-MCP-5', 'CVE-MCP-6', 'CVE-MCP-7'],
-          remediated: 7,
-        },
+        filesScanned,
+        incomplete,
+        skippedCount: skippedPaths.length,
+        skippedPaths: skippedPaths.slice(0, 50),
       }, null, 2));
     } catch (e) {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-security] failed to write scan-results.json:', e);
@@ -81,7 +110,9 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
         secrets: findings.secrets,
         vulnerabilities: findings.vulnerabilities,
         totalIssues,
-        cvesRemediated: 7,
+        filesScanned,
+        incomplete,
+        skippedCount: skippedPaths.length,
       },
     };
   };

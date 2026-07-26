@@ -28,14 +28,6 @@ function getGraph(db: MonographDb): Graph {
 }
 
 /**
- * Evict the cached graph for a given DB instance (call after writes).
- */
-export function invalidateGraphCache(db: MonographDb): void {
-  const key = (db as unknown as { name: string }).name ?? '__default__';
-  _graphCache.delete(key);
-}
-
-/**
  * Graph density: ratio of actual edges to maximum possible directed edges.
  * For a directed graph with n nodes: max = n * (n - 1).
  * Ignores self-loops.

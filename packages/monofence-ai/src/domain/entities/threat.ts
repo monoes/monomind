@@ -14,6 +14,11 @@ export type ThreatType =
   | 'role_switching'
   | 'context_manipulation'
   | 'encoding_attack'
+  // Asking the model to reproduce preceding context ("repeat the text above
+  // starting with ..."). Distinct from instruction_override: nothing is being
+  // overridden, the system prompt is simply being read out. Added when the
+  // recall corpus measured that class at 0.00 — undetected entirely.
+  | 'data_exfiltration'
   | 'unknown';
 
 export interface Threat {
