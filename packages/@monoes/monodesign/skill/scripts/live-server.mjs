@@ -789,7 +789,7 @@ function sessionFileMetadataFromPollReply(file) {
   let full;
   try {
     full = path.resolve(process.cwd(), normalized);
-    const rel = path.relative(process.cwd(), full);
+    const rel = path.relative(process.cwd(), full).split(path.sep).join('/');
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return base;
   } catch {
     return base;

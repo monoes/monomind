@@ -102,7 +102,7 @@ The agent should insert variant HTML at insertLine.`);
         console.error(JSON.stringify({
           error: 'element_not_in_source',
           fallback: 'agent-driven',
-          generatedMatch: path.relative(process.cwd(), generatedHit),
+          generatedMatch: path.relative(process.cwd(), generatedHit).split(path.sep).join('/'),
           hint: 'Element found only in a generated file. See "Handle fallback" in live.md.',
         }));
       } else {
@@ -119,7 +119,7 @@ The agent should insert variant HTML at insertLine.`);
       console.error(JSON.stringify({
         error: 'file_is_generated',
         fallback: 'agent-driven',
-        file: path.relative(process.cwd(), path.resolve(process.cwd(), targetFile)),
+        file: path.relative(process.cwd(), path.resolve(process.cwd(), targetFile)).split(path.sep).join('/'),
         hint: 'Explicit --file points at a generated file. Writing here gets wiped by the next build. See "Handle fallback" in live.md.',
       }));
       process.exit(1);
@@ -172,7 +172,7 @@ The agent should insert variant HTML at insertLine.`);
         console.error(JSON.stringify({
           error: 'element_ambiguous',
           fallback: 'agent-driven',
-          file: path.relative(process.cwd(), targetFile),
+          file: path.relative(process.cwd(), targetFile).split(path.sep).join('/'),
           candidates: filtered.map((c) => ({
             startLine: c.startLine + 1,
             endLine: c.endLine + 1,

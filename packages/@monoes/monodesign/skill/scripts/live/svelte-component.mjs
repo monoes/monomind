@@ -265,7 +265,7 @@ export function resolveSourceFile(sourceFile, cwd = process.cwd()) {
     throw new Error('Invalid svelte-component source file');
   }
   const full = path.resolve(cwd, sourceFile);
-  const rel = path.relative(cwd, full);
+  const rel = path.relative(cwd, full).split(path.sep).join('/');
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
     throw new Error('Svelte-component source file escapes project root');
   }
