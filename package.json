@@ -72,7 +72,7 @@
     "semver": "^7.6.0",
     "ws": "^8.21.0",
     "yaml": "^2.8.0",
-    "zod": "^3.25.0"
+    "zod": "^4.0.0"
   },
   "optionalDependencies": {
     "@huggingface/transformers": "^3.8.1",
