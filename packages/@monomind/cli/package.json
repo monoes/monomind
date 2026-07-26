@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "2.7.7",
+  "version": "2.7.9",
   "type": "module",
   "description": "CLI engine for Monomind \u2014 an open-source MCP server that extends Claude Code with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. MIT licensed, fully local.",
   "main": "dist/src/index.js",
@@ -110,7 +110,7 @@
   },
   "optionalDependencies": {
     "@huggingface/transformers": "^3.8.1",
-    "@monoes/hooks": "^1.0.0",
+    "@monoes/hooks": "^1.0.1",
     "@monoes/mcp": "^1.0.1",
     "@monoes/memory": "^1.0.10",
     "@monoes/routing": "^1.0.1",
