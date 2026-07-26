@@ -10,22 +10,51 @@ import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { getMonomindDataRoot, getProjectCwd, migrateLegacyStoreFile } from '../mcp-tools/types.js';
 
-// Canonical paths — shared with MCP tools so CLI and MCP see the same state
-const SWARM_STATE_DIR = '.monomind/swarm';
+// Canonical paths — resolved through getMonomindDataRoot() so the CLI and the MCP
+// tools (agent-tools.ts / swarm-tools.ts / task-tools.ts) read and write the SAME
+// physical files. These used to be `path.join(process.cwd(), '.monomind/...')`,
+// which only coincides with the canonical root when there is no `.git` directory;
+// inside a real repo the canonical root is `<repo>/.git/monomind`, so the CLI read
+// an empty parallel store ("0 agents" with agents on disk) and `swarm init` wrote a
+// second, divergent swarm-state.json no MCP tool ever read.
+const SWARM_STATE_SUBDIR = 'swarm';
 const SWARM_STATE_FILE = 'swarm-state.json';
-const AGENT_STORE_PATH = '.monomind/agents/store.json';
+const AGENT_STORE_SUBDIR = 'agents';
+const AGENT_STORE_FILE = 'store.json';
+
+function getSwarmDir(): string {
+  return path.join(getMonomindDataRoot(), SWARM_STATE_SUBDIR);
+}
+
+// Canonical swarm-state.json path. Also pulls a pre-existing legacy
+// `<cwd>/.monomind/swarm/swarm-state.json` into place (copy, never move; no-op once
+// the canonical file exists or when the two paths coincide) so state written by an
+// older CLI isn't silently orphaned — same helper the MCP tools use.
+function getSwarmStateFile(): string {
+  const file = path.join(getSwarmDir(), SWARM_STATE_FILE);
+  migrateLegacyStoreFile(file, path.join(SWARM_STATE_SUBDIR, SWARM_STATE_FILE));
+  return file;
+}
+
+function getAgentStoreFile(): string {
+  const file = path.join(getMonomindDataRoot(), AGENT_STORE_SUBDIR, AGENT_STORE_FILE);
+  migrateLegacyStoreFile(file, path.join(AGENT_STORE_SUBDIR, AGENT_STORE_FILE));
+  return file;
+}
 
 // Get dynamic swarm status from MCP-canonical state files
 function getSwarmStatus(swarmId?: string) {
-  const sessionDir = path.join(process.cwd(), '.claude', 'sessions');
+  const projectCwd = getProjectCwd();
+  const sessionDir = path.join(projectCwd, '.claude', 'sessions');
   const memoryPaths = [
-    path.join(process.cwd(), '.monomind', 'memory.db'),
-    path.join(process.cwd(), '.claude', 'memory.db'),
+    path.join(projectCwd, '.monomind', 'memory.db'),
+    path.join(projectCwd, '.claude', 'memory.db'),
   ];
 
-  // Read swarm state from MCP-canonical path (.monomind/swarm/swarm-state.json)
-  const swarmStateFile = path.join(process.cwd(), SWARM_STATE_DIR, SWARM_STATE_FILE);
+  // Read swarm state from the MCP-canonical path
+  const swarmStateFile = getSwarmStateFile();
   let swarmState: Record<string, unknown> | null = null;
 
   if (fs.existsSync(swarmStateFile)) {
@@ -56,10 +85,11 @@ function getSwarmStatus(swarmId?: string) {
     }
   }
 
-  // Count agents from MCP-canonical agent store (.monomind/agents/store.json)
+  // Count agents from the MCP-canonical agent store (the same physical file
+  // agent_spawn writes to — see getAgentStoreFile()).
   let activeAgents = 0;
   let totalAgents = 0;
-  const agentStoreFile = path.join(process.cwd(), AGENT_STORE_PATH);
+  const agentStoreFile = getAgentStoreFile();
   if (fs.existsSync(agentStoreFile)) {
     try {
       const agentSz = fs.statSync(agentStoreFile).size;
@@ -106,7 +136,7 @@ function getSwarmStatus(swarmId?: string) {
   let completedTasks = 0;
   let inProgressTasks = 0;
   let pendingTasks = 0;
-  const tasksDir = path.join(process.cwd(), SWARM_STATE_DIR, 'tasks');
+  const tasksDir = path.join(getSwarmDir(), 'tasks');
   if (fs.existsSync(tasksDir)) {
     try {
       const taskFiles = fs.readdirSync(tasksDir).filter(f => f.endsWith('.json'));
@@ -334,7 +364,7 @@ const initCommand: Command = {
 
       // Save swarm state to MCP-canonical path so CLI and MCP share state
       try {
-        const swarmDir2 = path.join(process.cwd(), SWARM_STATE_DIR);
+        const swarmDir2 = getSwarmDir();
         if (!fs.existsSync(swarmDir2)) {
           fs.mkdirSync(swarmDir2, { recursive: true });
         }
@@ -495,7 +525,7 @@ const startCommand: Command = {
     }
 
     // Persist swarm state to MCP-canonical path so CLI and MCP share state
-    const swarmDir = path.join(process.cwd(), SWARM_STATE_DIR);
+    const swarmDir = getSwarmDir();
     if (!fs.existsSync(swarmDir)) fs.mkdirSync(swarmDir, { recursive: true });
 
     // Read existing store to preserve other swarms
@@ -676,7 +706,7 @@ const stopCommand: Command = {
 
     // Only update persisted swarm state if the MCP call succeeded (#1423)
     if (mcpStopped) {
-      const stopStateFile = path.join(process.cwd(), SWARM_STATE_DIR, SWARM_STATE_FILE);
+      const stopStateFile = getSwarmStateFile();
       if (fs.existsSync(stopStateFile)) {
         try {
           const stopStatSz = fs.statSync(stopStateFile).size;

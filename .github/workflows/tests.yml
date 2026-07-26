@@ -1,0 +1,170 @@
+name: Tests
+
+# Runs the root suite AND every package suite.
+#
+# Why this workflow exists: before it, no test ever ran in CI.
+#
+#   1. The only unit-test job lived in agent-regression.yml, whose `on:` filter
+#      restricted it to four paths (cli/src/agents/**, routing/src/**,
+#      hooks/src/**, tests/benchmarks/**). Changes anywhere else — including
+#      most of packages/@monomind/cli/src — triggered nothing.
+#   2. That job ran `npx vitest run` from the repo root, whose vitest config
+#      includes only `tests/**`. So even when it did fire, none of the package
+#      suites (~1,200 CLI, 1,113 monograph, 124 memory, 94 routing, 71 mcp,
+#      43 hooks) executed.
+#   3. Both jobs installed with `npm ci`, which requires a package-lock.json.
+#      This repo is pnpm-based and has none, so the install step could not have
+#      succeeded regardless. Run history confirms the workflow never completed.
+#
+# The original answer to that was `npm install`. That was wrong too, just less
+# obviously: this is a pnpm workspace, and npm resolves it differently from what
+# developers and `npm publish` actually use. On this workflow's FIRST real run it
+# failed every job in ~10s with ERESOLVE — @anthropic-ai/claude-agent-sdk declares
+# peer zod@^4 while the repo pins zod@^3.25, a conflict that predates this
+# workflow and that pnpm treats as a tolerable unmet optional peer.
+#
+# So: use pnpm, the package manager this repo is actually built and published
+# with. `--no-frozen-lockfile` because the lockfile legitimately moves when a
+# workspace package is version-bumped mid-release.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  root:
+    name: Root suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      # Several root tests import from packages/@monomind/cli/dist — e.g.
+      # tests/memory/cognee-port-eval.test.mjs pulls dist/src/memory/
+      # memory-bridge.js. Without this they fail with ERR_MODULE_NOT_FOUND,
+      # which reads like a missing dependency rather than a missing build.
+      - name: Build CLI package
+        working-directory: packages/@monomind/cli
+        run: npm run build
+
+      - name: Run root tests
+        run: npx vitest run --reporter=verbose
+        env:
+          CI: true
+
+  packages:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      # One package failing must not hide the state of the others.
+      fail-fast: false
+      matrix:
+        include:
+          - name: cli
+            dir: packages/@monomind/cli
+          - name: monograph
+            dir: packages/@monomind/monograph
+          - name: memory
+            dir: packages/@monomind/memory
+          - name: mcp
+            dir: packages/@monomind/mcp
+          - name: routing
+            dir: packages/@monomind/routing
+          - name: hooks
+            dir: packages/@monomind/hooks
+          - name: monofence-ai
+            dir: packages/monofence-ai
+          - name: monobrowse
+            dir: packages/@monoes/monobrowse
+          - name: monodesign
+            dir: packages/@monoes/monodesign
+            # node:test, not vitest, and its runner uses
+            # --experimental-strip-types, which needs Node 22+.
+            node: '22'
+            # `npm run build` typechecks the malformed antipattern fixtures and
+            # fails by design — see the build step below.
+            build: 'skip'
+          # monobrowse's suite is deliberately browser-free: every test
+          # exercises pure parsing/state/formatting logic, or (in
+          # browser-launch.test.ts) only the port-scan branches that resolve
+          # before a Chrome binary would ever be exec'd. No Chrome needed.
+          #
+          # The note that used to sit here claimed three monodesign suites
+          # "need a real browser and a live server", and none of that held up:
+          #   * live-server / live-poll-stream start their own server. They
+          #     failed only because they hardcoded ports (8499/8498) that a
+          #     server leaked by an earlier run of those same tests still held.
+          #     They now let the server pick a free port.
+          #   * detect-antipatterns-browser needed no provisioning either. Its
+          #     two failures were one real bug: image-missing-dimensions ran
+          #     against every element instead of just <img>, so <head>/<meta>/
+          #     <title>/<style> were all flagged. That inflated a clean fixture
+          #     to 43 findings and left 33 stale overlays that broke a second,
+          #     seemingly-unrelated test. Fixed in cli/engine/rules/checks.mjs.
+          # The full suite (1,023 tests) now runs here. The browser tests
+          # already pass --no-sandbox when CI is set, which the env below does.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Packages that need a newer runtime set `node` in the matrix.
+          node-version: ${{ matrix.node || '20' }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # One workspace-wide install wires every package, including the workspace
+      # links between them — a per-package `npm install` cannot do that and was
+      # resolving each package against the registry instead of its sibling.
+      - name: Install workspace dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      # Build before testing: some suites exercise build OUTPUT rather than
+      # source — the CLI's knowledge-endpoint test loads dist/src/ui/server.mjs
+      # and says so in its own failure message, and the stdio MCP tests spawn
+      # the built binary.
+      #
+      # Skipped where `build: 'skip'`. A STRING sentinel, not a boolean: an
+      # unset matrix key is null, and GitHub Actions coerces null == false, so
+      # `if: matrix.build != false` evaluated FALSE for every package that did
+      # not set the key — silently skipping the build everywhere and leaving the
+      # dist-dependent tests failing exactly as before. monodesign is the case: it HAS a build
+      # script, but its tsconfig covers tests/fixtures/antipatterns/**, which are
+      # deliberately malformed inputs for the detector (a tailwind.config.ts with
+      # no tailwind installed, a sample.ts with undeclared types). `tsc` exits 2
+      # on them by design, and its suite runs node:test against source anyway —
+      # nothing there needs dist.
+      - name: Build ${{ matrix.name }}
+        if: matrix.build != 'skip'
+        working-directory: ${{ matrix.dir }}
+        run: npm run build --if-present
+
+      - name: Run ${{ matrix.name }} tests
+        working-directory: ${{ matrix.dir }}
+        run: ${{ matrix.cmd || 'npm test' }}
+        env:
+          CI: true

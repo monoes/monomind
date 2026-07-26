@@ -176,7 +176,8 @@ function poincareDistance(a: number[], b: number[], curvature: number): number {
   return (1 / Math.sqrt(c)) * Math.acosh(1 + delta);
 }
 
-export const embeddingsTools: MCPTool[] = [
+/** Ungated — internal/test use only. MCP clients get `embeddingsTools` below. */
+export const allEmbeddingsTools: MCPTool[] = [
   {
     name: 'embeddings_init',
     description: 'Initialize the ONNX embedding subsystem with hyperbolic support',
@@ -545,7 +546,7 @@ export const embeddingsTools: MCPTool[] = [
 
   {
     name: 'embeddings_neural',
-    description: 'Embedding substrate operations (drift, memory physics, coherence)',
+    description: 'Report and adjust pattern-store statistics (drift, consolidate, adapt) from intelligence.ts. Reads real counters — but its "init" action only persists a config blob (sona, flashAttention, ewcPlusPlus, memoryPhysics, swarmCoordination…) for which no implementing code exists anywhere; those flags are stored and echoed back, never acted on. There is no neural substrate and no "memory physics".',
     category: 'embeddings',
     inputSchema: {
       type: 'object',
@@ -563,7 +564,7 @@ export const embeddingsTools: MCPTool[] = [
         },
         decayRate: {
           type: 'number',
-          description: 'Memory decay rate (hippocampal dynamics)',
+          description: 'Decay rate applied to stored pattern confidence (plain exponential decay — the "hippocampal dynamics" framing this once carried described nothing in the code)',
           default: 0.01,
         },
       },
@@ -608,9 +609,13 @@ export const embeddingsTools: MCPTool[] = [
           };
 
         case 'drift':
-          // Get real drift metrics if available
+          // Get real drift metrics if available.
+          // initializeIntelligence() MUST run first: getIntelligenceStats()
+          // reads module singletons (sonaCoordinator / reasoningBank) that are
+          // null until init, so a populated store otherwise reports 0 patterns.
           try {
-            const { getIntelligenceStats } = await import('../memory/intelligence.js');
+            const { getIntelligenceStats, initializeIntelligence } = await import('../memory/intelligence.js');
+            await initializeIntelligence();
             const stats = getIntelligenceStats();
             return {
               success: true,
@@ -627,18 +632,21 @@ export const embeddingsTools: MCPTool[] = [
                 ? `Tracking ${stats.patternsLearned} patterns for drift`
                 : 'No patterns stored yet - drift detection inactive',
             };
-          } catch {
+          } catch (e) {
+            // Failing to read the store is NOT a drift report of zero.
             return {
-              success: true,
+              success: false,
               action: 'drift',
+              error: `Intelligence store unavailable — drift status unknown: ${(e as Error).message}`,
               status: { semanticDrift: { enabled: false, reason: 'Intelligence module unavailable' } },
             };
           }
 
         case 'consolidate':
-          // Get real consolidation metrics
+          // Get real consolidation metrics — same init requirement as 'drift'.
           try {
-            const { getIntelligenceStats } = await import('../memory/intelligence.js');
+            const { getIntelligenceStats, initializeIntelligence } = await import('../memory/intelligence.js');
+            await initializeIntelligence();
             const stats = getIntelligenceStats();
             return {
               success: true,
@@ -653,10 +661,11 @@ export const embeddingsTools: MCPTool[] = [
               },
               message: `ReasoningBank: ${stats.reasoningBankSize} patterns, ${stats.trajectoriesRecorded} trajectories`,
             };
-          } catch {
+          } catch (e) {
             return {
-              success: true,
+              success: false,
               action: 'consolidate',
+              error: `Intelligence store unavailable — consolidation status unknown: ${(e as Error).message}`,
               status: { memoryPhysics: { enabled: false, reason: 'Intelligence module unavailable' } },
             };
           }
@@ -908,3 +917,14 @@ export const embeddingsTools: MCPTool[] = [
     },
   },
 ];
+
+// embeddings_neural's `init` action persists a config blob (sona/flashAttention/
+// ewcPlusPlus/etc.) with no implementing code anywhere for those flags — gated
+// behind MONOMIND_MCP_SPECULATIVE=1. The other 6 tools in this file
+// (embeddings_init/generate/compare/search/hyperbolic/status) do real work
+// and stay visible by default.
+const SPECULATIVE = process.env['MONOMIND_MCP_SPECULATIVE'] === '1';
+
+export const embeddingsTools: MCPTool[] = SPECULATIVE
+  ? allEmbeddingsTools
+  : allEmbeddingsTools.filter(t => t.name !== 'embeddings_neural');

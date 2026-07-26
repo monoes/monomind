@@ -5,6 +5,7 @@ import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { StepEvent, RunRecord } from '../workflow/types.js';
+import { getMonomindDataRoot } from '../../mcp-tools/types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // 4243: the main monomind dashboard owns 4242 — keep this server off that port
@@ -51,7 +52,11 @@ async function readMetricsDir(root: string): Promise<Record<string, unknown>> {
 async function collectDashboardState(root: string) {
   const [workerMetrics, swarmState, lastRoute, autoMemory] = await Promise.all([
     readMetricsDir(root),
-    readJsonSafe(join(root, '.monomind', 'swarm', 'swarm-state.json')),
+    // Canonical root first (getMonomindDataRoot(): `<repo>/.git/monomind` in a
+    // git repo), legacy `<root>/.monomind` second. Reading only the legacy path
+    // showed stale/absent swarm state in every real project.
+    readJsonSafe(join(getMonomindDataRoot(root), 'swarm', 'swarm-state.json'))
+      .then((v: unknown) => v ?? readJsonSafe(join(root, '.monomind', 'swarm', 'swarm-state.json'))),
     readJsonSafe(join(root, '.monomind', 'last-route.json')),
     readJsonSafe(join(root, '.monomind', 'data', 'auto-memory-store.json')),
   ]);

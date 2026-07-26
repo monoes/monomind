@@ -141,6 +141,10 @@ export interface KnowledgeExcerpt {
   similarity: number;
   chunkIndex: number;
   scope: string;
+  /** True when this chunk belongs to a document version that has since been
+   *  re-ingested (its contentHash is no longer the file's current one). Only
+   *  ever set when the caller opted into `includeSuperseded`. */
+  superseded?: boolean;
 }
 
 export interface DocumentMeta {
@@ -423,12 +427,61 @@ export async function ingestDirectory(
  *  brain — local context is more likely to be what the user means. */
 const PROJECT_SCOPE_BOOST = 0.05;
 
+// ── Superseded-version filtering ───────────────────────────────────
+//
+// Chunk keys are `doc:<contentHash>:<chunkIndex>`. Re-ingesting a changed file
+// produces a NEW contentHash, so its chunks land under new keys — the previous
+// version's rows are never touched (`removeDocument` only tombstones metadata;
+// the bridge exposes no delete-by-prefix). The store therefore accumulates every
+// version a document has ever had, and all of them stay searchable.
+//
+// Measured on this repo's own store (2026-07-26): 9,067 `doc:`-keyed rows in
+// `knowledge:shared` spanning 798 distinct content hashes, of which only 139
+// are current — 8,542 rows (94.2%) are orphaned older versions.
+//
+// Nothing is deleted here. The current-hash set from doc-metadata.jsonl is used
+// to decide what search RETURNS; `includeSuperseded` puts the old versions back
+// (flagged `superseded: true`) for anyone who wants document history.
+
+/** Content hashes of the documents currently indexed under `rootDir`. */
+export function liveContentHashes(rootDir: string): Set<string> {
+  const live = new Set<string>();
+  for (const m of readMetadata(rootDir)) if (m.contentHash) live.add(m.contentHash);
+  return live;
+}
+
+/**
+ * True when `key` is a document chunk whose version is no longer current.
+ * Non-`doc:` keys are never superseded, and an empty `live` set means the
+ * metadata log is missing/unreadable — in that case nothing is filtered,
+ * because "no metadata" must not read as "everything is stale".
+ */
+export function isSupersededKey(key: string, live: Set<string>): boolean {
+  if (!key || !key.startsWith('doc:')) return false;
+  if (live.size === 0) return false;
+  return !live.has(key.split(':')[1] ?? '');
+}
+
+/** How many rows to ask the backend for per requested result when superseded
+ *  filtering is active — most rows in a long-lived store are old versions, so
+ *  a 1:1 fetch would return an almost-empty page. */
+const SUPERSEDED_OVERFETCH = 20;
+const SUPERSEDED_OVERFETCH_CAP = 300;
+
+export function supersededOverfetchLimit(limit: number, live: Set<string>): number {
+  if (live.size === 0) return limit;
+  return Math.min(Math.max(limit * SUPERSEDED_OVERFETCH, limit), SUPERSEDED_OVERFETCH_CAP);
+}
+
 export async function searchKnowledge(
   query: string,
   opts?: {
     scope?: string; limit?: number; minScore?: number; rootDir?: string;
     /** which store(s): project-only, global-only, or both (default). */
     store?: 'project' | 'global' | 'all';
+    /** Return chunks from superseded document versions too, flagged
+     *  `superseded: true`. Default false — see the note above `liveContentHashes`. */
+    includeSuperseded?: boolean;
   },
 ): Promise<KnowledgeExcerpt[]> {
   const bridge = await getBridge();
@@ -447,15 +500,25 @@ export async function searchKnowledge(
     targets.push({ ns: namespace('global'), dbPath: GLOBAL_BRAIN_SENTINEL, root: globalBrainRoot(), label: 'global', boost: 0 });
   }
 
+  const includeSuperseded = opts?.includeSuperseded === true;
+
   const perTarget = await Promise.all(targets.map(async t => {
+    const meta = readMetadata(t.root);
+    const live = new Set<string>();
+    for (const m of meta) if (m.contentHash) live.add(m.contentHash);
+    // Old versions dominate a long-lived store, so a 1:1 fetch would come back
+    // nearly empty once they are filtered out. Over-fetch, then trim.
+    const fetchLimit = includeSuperseded ? limit : supersededOverfetchLimit(limit, live);
     const result = await bridge.bridgeSearchEntries({
-      query, namespace: t.ns, limit, threshold: minScore, dbPath: t.dbPath,
+      query, namespace: t.ns, limit: fetchLimit, threshold: minScore, dbPath: t.dbPath,
     }).catch(() => null);
     if (!result?.success || !result.results.length) return [];
-    const meta = readMetadata(t.root);
     const hashToFile = new Map<string, string>();
     for (const m of meta) hashToFile.set(m.contentHash, m.filePath);
-    return result.results.map((r: any) => {
+    const kept = includeSuperseded
+      ? result.results
+      : result.results.filter((r: any) => !isSupersededKey(String(r.key ?? ''), live));
+    return kept.slice(0, limit).map((r: any) => {
       const parts = r.key.startsWith('doc:') ? r.key.split(':') : [];
       const hash = parts[1] ?? '';
       const idx = parseInt(parts[2] ?? '0', 10);
@@ -463,6 +526,7 @@ export async function searchKnowledge(
       // hash→file map can misattribute when two documents share identical
       // content, and goes empty when a re-ingested file's hash changed.
       const srcTag = (r.tags ?? []).find((tag: string) => tag.startsWith('src:'));
+      const superseded = includeSuperseded && isSupersededKey(String(r.key ?? ''), live);
       return {
         id: r.id,
         filePath: srcTag ? srcTag.slice(4) : hashToFile.get(hash) ?? '',
@@ -470,6 +534,7 @@ export async function searchKnowledge(
         similarity: r.score + t.boost,
         chunkIndex: isNaN(idx) ? 0 : idx,
         scope: t.label,
+        ...(superseded ? { superseded: true } : {}),
       };
     });
   }));

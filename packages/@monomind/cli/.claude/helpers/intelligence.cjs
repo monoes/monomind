@@ -27,6 +27,7 @@ const RECENT_EDITS_FILE = path.join(DATA_DIR, 'recent-edits.jsonl');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MiB guard
 const RING_BUFFER_MAX = 50;
+const MAX_ENTRIES = 200;
 
 var _entries = [];        // deduplicated memory entries loaded from store
 var _recentEdits = [];    // ring buffer of recently edited paths (in-memory, may be empty across subprocesses)
@@ -141,7 +142,7 @@ function init() {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  });
+  }).slice(-MAX_ENTRIES);
 
   // Bootstrap from monograph when store is sparse — called externally via bootstrapFromDb(db)
 
@@ -490,6 +491,7 @@ function bootstrapFromDb(db) {
         files: h.file ? [h.file] : [],
         ts: Date.now(),
       };
+      if (_entries.length >= MAX_ENTRIES) _entries.shift();
       _entries.push(hubEntry);
       newHubEntries.push(hubEntry);
       added++;

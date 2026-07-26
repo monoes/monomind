@@ -178,53 +178,37 @@ export class CLI {
 
       // Process command path (e.g., ['hooks', 'worker', 'list'])
       // Note: When parser includes subcommand in commandPath, positional already excludes it
+      //
+      // Resolution walks as deep as the tree goes. It previously unrolled
+      // exactly two levels of nesting, so a four-segment invocation silently
+      // resolved to its grandparent and ran that command's action — which for
+      // a group command means printing help instead of doing anything. No
+      // error, no hint. `hooks transfer store list` failed exactly this way,
+      // making the whole pattern-store subtree unreachable without anyone
+      // noticing. This mirrors the loop showHelp() already used (see below),
+      // so `--help` and dispatch now agree on the target at any depth.
+      const findChild = (parent: Command, segment: string): Command | undefined =>
+        parent.subcommands?.find(sc => sc.name === segment || sc.aliases?.includes(segment));
+
       if (commandPath.length > 1 && command.subcommands) {
-        const subcommandName = commandPath[1];
-        const subcommand = command.subcommands.find(
-          sc => sc.name === subcommandName || sc.aliases?.includes(subcommandName)
-        );
-
-        if (subcommand) {
-          targetCommand = subcommand;
-          // Parser already extracted subcommand from positional, so use as-is
-          subcommandArgs = positional;
-
-          // Check for nested subcommand (level 2)
-          if (commandPath.length > 2 && subcommand.subcommands) {
-            const nestedName = commandPath[2];
-            const nestedSubcommand = subcommand.subcommands.find(
-              sc => sc.name === nestedName || sc.aliases?.includes(nestedName)
-            );
-            if (nestedSubcommand) {
-              targetCommand = nestedSubcommand;
-              // Parser already extracted nested subcommand too
-              subcommandArgs = positional;
-            }
-          }
+        // Parser already lifted the subcommand names out of positional, so
+        // descend using commandPath and leave the remaining args untouched.
+        for (const segment of commandPath.slice(1)) {
+          const next = findChild(targetCommand, segment);
+          if (!next) break;
+          targetCommand = next;
         }
+        subcommandArgs = positional;
       } else if (positional.length > 0 && command.subcommands) {
-        // Check if first positional is a subcommand
-        const subcommandName = positional[0];
-        const subcommand = command.subcommands.find(
-          sc => sc.name === subcommandName || sc.aliases?.includes(subcommandName)
-        );
-
-        if (subcommand) {
-          targetCommand = subcommand;
-          subcommandArgs = positional.slice(1);
-
-          // Check for nested subcommand (level 2 from positional)
-          if (subcommandArgs.length > 0 && subcommand.subcommands) {
-            const nestedName = subcommandArgs[0];
-            const nestedSubcommand = subcommand.subcommands.find(
-              sc => sc.name === nestedName || sc.aliases?.includes(nestedName)
-            );
-            if (nestedSubcommand) {
-              targetCommand = nestedSubcommand;
-              subcommandArgs = subcommandArgs.slice(1);
-            }
-          }
+        // Subcommand names are still in positional — consume each one we match.
+        let consumed = 0;
+        while (consumed < subcommandArgs.length) {
+          const next = findChild(targetCommand, subcommandArgs[consumed]);
+          if (!next) break;
+          targetCommand = next;
+          consumed++;
         }
+        subcommandArgs = subcommandArgs.slice(consumed);
       }
 
       // Validate flags

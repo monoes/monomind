@@ -29,6 +29,5 @@ export { autopilotTools } from './autopilot-tools.js';
 export { graphifyTools } from './graphify-tools.js';
 export { monographTools } from './monograph-tools.js';
 export { terminalTools } from './terminal-tools.js';
-export { daaTools } from './daa-tools.js';
 export { browserTools } from './browser-tools.js';
 export { knowledgeTools } from './knowledge-tools.js';

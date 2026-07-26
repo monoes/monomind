@@ -191,26 +191,52 @@ export class CommandParser {
       raw: [...args]
     };
 
-    // Pass 1: Identify command and subcommand (skip flags)
+    // Pass 1: Identify the command and its subcommand chain (skip flags).
+    //
+    // This walks the WHOLE tree, not just one subcommand level. It used to
+    // stop after depth 1 (`resolvedCmd` + `resolvedSub`), so options declared
+    // on a subcommand nested 2+ levels deep were invisible to the alias and
+    // boolean scans below: `hooks worker run -n audit` resolved `-n` from the
+    // global last-write-wins alias pool (where it happened to mean `--limit`)
+    // instead of `run`'s own `-n, --name`, and the command then failed with
+    // "Worker name is required" while `--name audit` worked.
+    const scopeChain: Command[] = [];
     let resolvedCmd: Command | undefined;
-    let resolvedSub: Command | undefined;
     for (const arg of args) {
       if (arg.startsWith('-')) continue;
-      if (!resolvedCmd && this.commands.has(arg)) {
-        resolvedCmd = this.commands.get(arg);
-      } else if (resolvedCmd && !resolvedSub && resolvedCmd.subcommands) {
-        resolvedSub = resolvedCmd.subcommands.find(sc => sc.name === arg || sc.aliases?.includes(arg));
+      if (!resolvedCmd) {
+        const top = this.commands.get(arg);
+        if (top) {
+          resolvedCmd = top;
+          scopeChain.push(top);
+        }
+        continue;
+      }
+      const next = resolvedCmd.subcommands?.find(sc => sc.name === arg || sc.aliases?.includes(arg));
+      if (next) {
+        resolvedCmd = next;
+        scopeChain.push(next);
       }
     }
 
-    // Pass 2: Build aliases scoped to the resolved subcommand
-    // Subcommand-specific aliases take priority over global ones
-    const aliases = this.buildScopedAliases(resolvedSub || resolvedCmd);
-    const booleanFlags = this.getScopedBooleanFlags(resolvedSub || resolvedCmd);
-    const arrayFlags = this.getScopedArrayFlags(resolvedSub || resolvedCmd);
+    // Pass 2: Build aliases scoped to the resolved subcommand chain.
+    // Subcommand-specific aliases take priority over global ones, and the
+    // deepest subcommand wins over its ancestors. The top-level command is
+    // excluded when it has a resolved subcommand (preserving the previous
+    // `resolvedSub || resolvedCmd` precedence exactly for depth <= 1).
+    const scope = scopeChain.length > 1 ? scopeChain.slice(1) : scopeChain;
+    const aliases = this.buildScopedAliases(scope);
+    const booleanFlags = this.getScopedBooleanFlags(scope);
+    const arrayFlags = this.getScopedArrayFlags(scope);
 
     let i = 0;
     let parsingFlags = true;
+    // Once a non-flag token has been seen that is NOT a registered command,
+    // no later token may be promoted to "the command". Without this, an
+    // unrecognised first token was silently discarded and the SECOND token
+    // dispatched instead — `monomind typo status` ran `status`. A mistyped
+    // command must never run something the user did not ask for.
+    let commandSearchClosed = false;
 
     while (i < args.length) {
       const arg = args[i];
@@ -238,7 +264,7 @@ export class CommandParser {
       }
 
       // Handle positional arguments
-      if (result.command.length === 0 && this.commands.has(arg)) {
+      if (result.command.length === 0 && !commandSearchClosed && this.commands.has(arg)) {
         // This is a command
         result.command.push(arg);
 
@@ -277,7 +303,10 @@ export class CommandParser {
           }
         }
       } else {
-        // Positional argument
+        // Positional argument. If we haven't resolved a command yet, this
+        // token was the user's attempt at one — close the search so a later
+        // token can't be silently dispatched in its place.
+        if (result.command.length === 0) commandSearchClosed = true;
         result.positional.push(arg);
         result.flags._.push(arg);
       }
@@ -498,13 +527,14 @@ export class CommandParser {
    * The resolved command's short flags take priority over global ones,
    * fixing collisions where multiple subcommands use the same short flag (e.g. -t).
    */
-  private buildScopedAliases(resolvedCmd?: Command): Record<string, string> {
+  private buildScopedAliases(scope?: Command | Command[]): Record<string, string> {
     // Start with global aliases as base
     const aliases = this.buildAliases();
 
-    // Override with the resolved command's own options (these take priority)
-    if (resolvedCmd?.options) {
-      for (const opt of resolvedCmd.options) {
+    // Override with the resolved chain's own options (these take priority);
+    // deepest subcommand last, so it wins over its ancestors.
+    for (const cmd of CommandParser.asChain(scope)) {
+      for (const opt of cmd.options ?? []) {
         if (opt.short) {
           aliases[opt.short] = opt.name;
         }
@@ -514,14 +544,20 @@ export class CommandParser {
     return aliases;
   }
 
+  /** Normalize a single command or a resolved chain into an array. */
+  private static asChain(scope?: Command | Command[]): Command[] {
+    if (!scope) return [];
+    return Array.isArray(scope) ? scope : [scope];
+  }
+
   /**
-   * Get boolean flags scoped to a specific command/subcommand.
+   * Get boolean flags scoped to a specific command/subcommand chain.
    */
-  private getScopedBooleanFlags(resolvedCmd?: Command): Set<string> {
+  private getScopedBooleanFlags(scope?: Command | Command[]): Set<string> {
     const flags = this.getBooleanFlags();
 
-    if (resolvedCmd?.options) {
-      for (const opt of resolvedCmd.options) {
+    for (const cmd of CommandParser.asChain(scope)) {
+      for (const opt of cmd.options ?? []) {
         if (opt.type === 'boolean') {
           flags.add(this.normalizeKey(opt.name));
         }
@@ -532,12 +568,12 @@ export class CommandParser {
   }
 
   /**
-   * Get flags declared `type: 'array'`, scoped to a specific command/subcommand.
+   * Get flags declared `type: 'array'`, scoped to a specific command/subcommand chain.
    */
-  private getScopedArrayFlags(resolvedCmd?: Command): Set<string> {
+  private getScopedArrayFlags(scope?: Command | Command[]): Set<string> {
     const flags = new Set<string>();
-    if (resolvedCmd?.options) {
-      for (const opt of resolvedCmd.options) {
+    for (const cmd of CommandParser.asChain(scope)) {
+      for (const opt of cmd.options ?? []) {
         if (opt.type === 'array') {
           flags.add(this.normalizeKey(opt.name));
         }

@@ -407,12 +407,27 @@ export const sessionTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        sessionId: { type: 'string', description: 'Session ID' },
+        sessionId: { type: 'string', description: 'Session ID (defaults to the most recently saved session)' },
+        includeStats: { type: 'boolean', description: 'Include per-session statistics in the response' },
       },
-      required: ['sessionId'],
+      // `sessionId` is deliberately NOT required — it defaults to the most
+      // recent session, which is what the `session current` CLI subcommand
+      // asks for. It used to be declared required while the CLI called this
+      // tool with no id at all; nothing enforced the declaration, so instead
+      // of an error the undefined id reached getSessionPath(), threw a
+      // TypeError on `.replace`, and was swallowed by loadSession()'s catch.
+      // The net effect was that `session current` could never succeed — it
+      // always reported "Session not found".
     },
     handler: async (input) => {
-      const sessionId = input.sessionId as string;
+      const sessionId = (input.sessionId as string | undefined)
+        ?? listSessions()
+          .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())[0]?.sessionId;
+
+      if (!sessionId) {
+        return { sessionId: null, error: 'No saved sessions found' };
+      }
+
       const session = loadSession(sessionId);
 
       if (session) {

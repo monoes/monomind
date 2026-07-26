@@ -242,6 +242,18 @@ async function main() {
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
   var safetyTimer = setTimeout(function() {
     process.stderr.write("[WARN] Hook handler global timeout (5s), forcing exit\n");
+    // If a security gate was still pending when the timer fired, the operation
+    // was never evaluated — fail CLOSED rather than letting a hang act as an
+    // allow. (`_securityGateCompleted` is `var`-hoisted, so it reads as
+    // undefined/falsy until the gate sets it.)
+    if ((command === 'pre-bash' || command === 'pre-write') && !_securityGateCompleted) {
+      process.stderr.write(JSON.stringify({
+        decision: 'block',
+        reason: '[gates] Security gate "' + command + '" timed out (5s) before completing. ' +
+          'Failing CLOSED — the operation was not evaluated.',
+      }) + '\n');
+      process.exit(2);
+    }
     process.exit(0);
   }, 5000);
   safetyTimer.unref();
@@ -285,6 +297,14 @@ async function main() {
     if (cmdName && cmdName.length > 0) return true;
     return false;
   }
+
+// Set to true the moment a security gate (pre-bash destructive-ops /
+// pre-write secrets) has finished evaluating. Any exception thrown BEFORE
+// that point — including a failure to even require() the gate module — must
+// fail CLOSED (block), because we cannot know whether the operation was
+// dangerous. Exceptions thrown AFTER it (monograph enrichment, telemetry)
+// fail open: they carry no security signal and must never stop the user.
+var _securityGateCompleted = false;
 
 // Build shared hook context — passed to extracted handler modules so they
 // don't need to capture main()-scoped or module-scoped variables via closure.
@@ -405,6 +425,7 @@ const handlers = {
     // there's time left in the process's lifetime.
     var gates = require('./handlers/gates-handler.cjs');
     await gates.handlePreBash(hCtx);
+    _securityGateCompleted = true;
     if (process.exitCode === 2) return; // blocked — skip enrichment entirely
 
     var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
@@ -668,9 +689,10 @@ const handlers = {
 
   'pre-write': async () => {
     // Enforcement gate: secrets detection + monofence-ai threat scan before
-    // Write/Edit/MultiEdit content lands on disk
+    // Write/Edit/MultiEdit/NotebookEdit content lands on disk
     var gates = require('./handlers/gates-handler.cjs');
     await gates.handlePreWrite(hCtx);
+    _securityGateCompleted = true;
   },
 
   'pre-search': () => {
@@ -876,7 +898,25 @@ if (command && handlers[command]) {
     try {
       await Promise.resolve(handlers[command]());
     } catch (e) {
-      console.log('[WARN] Hook ' + command + ' encountered an error: ' + e.message);
+      var _isSecurityGate = (command === 'pre-bash' || command === 'pre-write');
+      if (_isSecurityGate && !_securityGateCompleted) {
+        // The security gate crashed before deciding anything. Fail CLOSED —
+        // silently allowing here is exactly the failure mode the gate exists
+        // to prevent. Reason goes to stderr (exit-2 protocol); stdout must
+        // stay clean so it can never be parsed as an allow-decision.
+        process.stderr.write(JSON.stringify({
+          decision: 'block',
+          reason: '[gates] Security gate "' + command + '" crashed before completing (' +
+            e.message + '). Failing CLOSED — the operation was not evaluated, so it is not ' +
+            'allowed. Fix the hook (.claude/helpers/handlers/gates-handler.cjs) and retry.',
+        }) + '\n');
+        process.exitCode = 2;
+      } else {
+        // Non-security hook work (routing, monograph enrichment, telemetry):
+        // fail open, and keep the diagnostic on stderr so it is never mistaken
+        // for hook output on stdout.
+        process.stderr.write('[WARN] Hook ' + command + ' encountered an error: ' + e.message + '\n');
+      }
     } finally {
       try { _recordHookLatency(command, Date.now() - _hookStart); } catch (_) {}
     }
@@ -891,7 +931,19 @@ if (command && handlers[command]) {
 // process). A require() — e.g. from tests verifying it loads — must not exit.
 if (require.main === module) {
   main().catch(function(e) {
-    console.log('[WARN] Hook handler error: ' + e.message);
+    // main() itself blew up (stdin parsing, module init, …). For the two
+    // security-gate events that means the gate never ran — fail CLOSED.
+    // Everything else fails open. Diagnostics go to stderr in both cases.
+    if (command === 'pre-bash' || command === 'pre-write') {
+      process.stderr.write(JSON.stringify({
+        decision: 'block',
+        reason: '[gates] Hook handler crashed before the "' + command + '" security gate could ' +
+          'run (' + e.message + '). Failing CLOSED — the operation was not evaluated.',
+      }) + '\n');
+      process.exitCode = 2;
+    } else {
+      process.stderr.write('[WARN] Hook handler error: ' + e.message + '\n');
+    }
   }).finally(function() {
     // Use process.exitCode if a gate set it (exit 2 = block), otherwise clean exit
     process.exit(process.exitCode || 0);

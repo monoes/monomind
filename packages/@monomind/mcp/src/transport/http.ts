@@ -5,6 +5,10 @@
  */
 
 import { EventEmitter } from 'events';
+// Static import: this package is ESM ("type": "module"), so a bare
+// require('crypto') throws "require is not defined" in the built output —
+// which would break token comparison in timingSafeCompare() below.
+import { timingSafeEqual } from 'crypto';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import { createServer, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -606,8 +610,6 @@ export class HttpTransport extends EventEmitter implements ITransport {
    * SECURITY: Timing-safe token comparison to prevent timing attacks
    */
   private timingSafeCompare(a: string, b: string): boolean {
-    const crypto = require('crypto');
-
     // Ensure both strings are the same length for timing-safe comparison
     const bufA = Buffer.from(a, 'utf-8');
     const bufB = Buffer.from(b, 'utf-8');
@@ -615,11 +617,11 @@ export class HttpTransport extends EventEmitter implements ITransport {
     // If lengths differ, still do a comparison to prevent length-based timing
     if (bufA.length !== bufB.length) {
       // Compare against itself to maintain constant time
-      crypto.timingSafeEqual(bufA, bufA);
+      timingSafeEqual(bufA, bufA);
       return false;
     }
 
-    return crypto.timingSafeEqual(bufA, bufB);
+    return timingSafeEqual(bufA, bufB);
   }
 
   private validateAuth(req: Request): { valid: boolean; error?: string } {

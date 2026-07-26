@@ -210,9 +210,16 @@ Bash("npx monomind@latest hooks worker run optimize")
 | 5    | Refactor    | coordinator, architect, coder, reviewer         |
 | 7    | Performance | coordinator, perf-engineer, coder               |
 | 9    | Security    | coordinator, security-architect, auditor        |
-| 11   | Docs        | researcher, api-docs                            |
+| 11   | Memory      | coordinator, memory-specialist, perf-engineer   |
+| 13   | Docs        | researcher, api-docs                            |
 
-**Codes 1-9: hierarchical/specialized (anti-drift). Code 11: mesh/balanced**
+**Codes 1-11: hierarchical/specialized (anti-drift). Code 13: mesh/balanced**
+
+This table is a convention, not code: nothing in `src/` dispatches on these codes.
+The root `CLAUDE.md` table is authoritative and this one now matches it — it is the
+project-level file Claude Code actually loads, and it is the superset (this file
+previously omitted code 11/Memory and numbered Docs as 11). The narrower table
+emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 
 ### 🎯 Task Complexity Detection
 
@@ -288,8 +295,8 @@ Bash("npx monomind@latest hooks worker run optimize")
 | `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `hooks`     | 29          | Self-learning hooks + 14 background workers                              | Working         |
-| `org`       | 15          | SDK org runtime v2 (run [--dry-run], stop, status, serve, test-loop, logs, report, questions, answer, create, validate, migrate, list, delete, mark-complete) | Working |
+| `hooks`     | 29          | Self-learning hooks + 15 background workers                              | Working         |
+| `org`       | 16          | SDK org runtime v2 (run [--dry-run], stop, status, serve, test-loop, logs, report, memory [stats\|search\|rules\|rollback], questions, answer, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
 
@@ -299,7 +306,7 @@ Bash("npx monomind@latest hooks worker run optimize")
 
 | Command       | Subcommands | Description                                                                   | Status           |
 | ------------- | ----------- | ----------------------------------------------------------------------------- | ---------------- |
-| `security`    | 6           | Security scanning (scan, audit, cve, threats, validate, report)               | Working          |
+| `security`    | 6           | Security scanning (scan, cve, audit, secrets, defend, redteam). `audit --action export/log/clear` and `redteam --target` (live execution) are unimplemented | Partial |
 | `performance` | 4           | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements | Working     |
 | `providers`   | 4           | AI providers (list, configure, remove, test)                                  | Working          |
 | `guidance`    | 1           | Governance gate setup (`guidance setup`)                                      | Working          |
@@ -320,7 +327,8 @@ npx monomind@latest agent spawn -t coder --name my-coder
 # Initialize swarm
 npx monomind@latest swarm init --v1-mode
 
-# Search memory (HNSW-indexed)
+# Search memory (local SQLite + local HF-embeddings; keyword fallback. Not HNSW —
+# the pure-JS HNSW index is a sql.js-fallback path only, via --build-hnsw)
 npx monomind@latest memory search --query "authentication patterns"
 
 # System diagnostics
@@ -333,49 +341,68 @@ npx monomind@latest security scan --depth full
 npx monomind@latest performance benchmark --suite all
 ```
 
-## Available Agents (13 Core Types, 60+ Routing Target Definitions)
+## Available Agents (121 definitions in this package's `.claude/agents/`, 120 registered)
 
-### Core Development
+**Counts are for THIS package, not the repo root.** `packages/@monomind/cli/.claude/agents/`
+holds 121 `.md` files with 120 entries in `packages/@monomind/cli/.monomind/registry.json`;
+the repo-root `.claude/agents/` tree is a different, much smaller set (31). Because
+`package.json`'s `files` array includes `.claude`, all 121 ship to npm users — so the
+package's own tree is the number that matters here.
 
-`coder`, `reviewer`, `tester`, `planner`, `researcher`
+By directory: generated 23, engineering 23, specialized 14, github 12, testing 9,
+reengineer-squad 9, core 6, optimization 5, marketing 5, hive-mind 4, consensus 3,
+templates 2, plus the design and swarm entries listed below.
 
-### Specialized Agents
+The curated roster below is the subset worth routing to by hand. It is **not** the complete
+set — names such as `crdt-synchronizer`, `security-manager`, `production-validator`,
+`swarm-memory-manager` and `workflow-automation` are absent from it but do exist as
+checked-in definitions in this package, and `src/init/executor.ts` and
+`mcp-tools/guidance-tools.ts` can legitimately reference them.
 
-`security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
+*(An earlier revision of this section claimed "31 definitions, all 31 registered" and said
+those names "have never existed as agent definitions here". Both were wrong: the 31 was the
+root tree's count applied to this package's doc, and all five names above are files in this
+package. Corrected rather than left as a confident falsehood.)*
+
+### Core
+
+`coder`, `coordinator`, `planner`, `researcher`, `reviewer`, `tester`
+
+### Engineering
+
+`ai-engineer`, `backend-architect`, `code-reviewer`, `devops-automator`, `frontend-developer`, `security-engineer`, `software-architect`, `technical-writer`
+
+### GitHub
+
+`github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `repo-architect`
+
+### Swarm / Hive-Mind / Consensus
+
+`mesh-coordinator`, `collective-intelligence-coordinator`, `quorum-manager`
+(`queen-coordinator` was absorbed into `core/coordinator` in 2026-07.)
+
+### Specialized
+
+`mcp-builder`, `mobile-dev` (spec-mobile-react-native), `integration-architect`, `goal-planner`, `tdd-london-swarm`
+
+### Design
+
+`monodesign` — the only design agent.
+
+### Non-roster definitions
+
+`coordinator-swarm-init` (template) and `dashboard-verifier` (generated).
 
 ### Input Guards (inlined into `src/utils/input-guards.ts`)
 
-CVE remediation, input validation, path security (utility functions inlined into the CLI — the former `@monomind/security` package was deleted):
+Not agents — utility functions inlined into the CLI after the former `@monomind/security`
+package was deleted:
 
 - Input validation via Zod schemas
 - Path traversal prevention utilities
 - Command injection protection utilities
 
-### Swarm Coordination
-
-`hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`, `collective-intelligence-coordinator`, `swarm-memory-manager`
-
-### Consensus & Distributed
-
-`byzantine-coordinator`, `raft-manager`, `gossip-coordinator`, `consensus-builder`, `crdt-synchronizer`, `quorum-manager`, `security-manager`
-
-### Performance & Optimization
-
-`perf-analyzer`, `performance-benchmarker`, `task-orchestrator`, `memory-coordinator`, `smart-agent`
-
-### GitHub & Repository
-
-`github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `workflow-automation`, `project-board-sync`, `repo-architect`, `multi-repo-swarm`
-
-### Specialized Development
-
-`backend-dev`, `mobile-dev`, `ml-developer`, `cicd-engineer`, `api-docs`, `system-architect`, `code-analyzer`, `base-template-generator`
-
-### Testing & Validation
-
-`tdd-london-swarm`, `production-validator`
-
-## 🪝 Hooks System (29 Hook Subcommands + 14 Background Workers)
+## 🪝 Hooks System (29 Hook Subcommands + 15 Background Workers)
 
 ### All Available Hooks
 
@@ -396,7 +423,7 @@ CVE remediation, input validation, path security (utility functions inlined into
 | `pretrain`         | Bootstrap intelligence from repo         | `--model-type`, `--epochs`                  |
 | `build-agents`     | Generate optimized agent configs         | `--agent-types`, `--focus`                  |
 | `metrics`          | View learning metrics dashboard          | `--v1-dashboard`, `--format`                |
-| `transfer`         | Transfer patterns via IPFS registry      | `store`, `from-project`                     |
+| `transfer`         | Transfer learned patterns from another local project | `from-project`                  |
 | `list`             | List all registered hooks                | `--format`                                  |
 | `intelligence`     | JS pattern/trajectory logging              | `trajectory-*`, `pattern-*`, `stats`        |
 | `notify`           | Send/record a notification event         | `--message`                                 |
@@ -411,7 +438,10 @@ CVE remediation, input validation, path security (utility functions inlined into
 | `pre-bash`         | (v2 compat) Alias for pre-command        | Same as pre-command                         |
 | `post-bash`        | (v2 compat) Alias for post-command       | Same as post-command                        |
 
-### 14 Background Workers (@monoes/hooks, run in-process)
+### 15 Background Workers (@monoes/hooks, run in-process)
+
+14 come from the static `WORKER_CONFIGS` table in `worker-manager.ts`; `progress` is
+registered separately and is always on.
 
 | Worker        | Priority   | Description                                          |
 | ------------- | ---------- | ---------------------------------------------------- |
@@ -429,6 +459,7 @@ CVE remediation, input validation, path security (utility functions inlined into
 | `audit`       | high       | Security audit → metrics/security-audit.json         |
 | `optimize`    | normal     | Performance snapshot → metrics/performance.json      |
 | `consolidate` | low        | RAPTOR memory consolidation → metrics/consolidation.json |
+| `progress`    | normal     | Always-on progress tracking (registered outside `WORKER_CONFIGS`) |
 
 The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh
 automatically at session start when their output file is missing or older than
@@ -476,9 +507,14 @@ The lean build records what happens and measures whether routing helped — no n
 - **Route-outcome measurement**: correlates recommended routes with actual outcomes; accuracy/adherence surfaced by `doctor`
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
-- **HNSW**: pure-JS approximate nearest-neighbor via `@monoes/memory` (optional, not on the routing hot path)
+- **HNSW**: pure-JS approximate nearest-neighbor (`src/memory/hnsw-operations.ts`) — a dead fallback, not on the default search path. It is reachable only via `memory search --build-hnsw`, which is a no-op unless the SQLite bridge is down and the sql.js WASM fallback is in use.
 
-> The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch.
+**SONA and EWC++ are in main, not on a branch.** A previous version of this note claimed "the full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch" — that was false for two of them. `src/memory/sona-optimizer.ts` (834 lines) and `src/memory/ewc-consolidation.ts` (894 lines) ship in main and are lazily imported by `mcp-tools/hooks-embedding.ts` and `memory/intelligence.ts`. What they actually do:
+
+- **SONA** — keyword-pattern confidence tracking with exponential time-decay, recency weighting, and pruning, persisted to `.swarm/sona-patterns.json`. Real adaptive weighting; the "Self-Optimizing Neural Architecture" name oversells a decay-weighted pattern store.
+- **EWC++** — per-dimension importance from squared embedding magnitudes (a stand-in for the Fisher diagonal, since there are no gradients and no model), smoothed with an EMA and applied as a quadratic penalty during consolidation. Inspired by Elastic Weight Consolidation; not an implementation of it. See the file header for the full scope note.
+
+MoE, Flash Attention, and LoRA remain unimplemented here.
 
 ## Embeddings (MCP tools + @monoes/memory)
 
@@ -669,16 +705,22 @@ npx monomind@latest memory init --force --verbose
 
 For a comprehensive overview of all Monomind features, agents, commands, and integrations, see:
 
-**`.monomind/CAPABILITIES.md`** - Complete reference generated during init
+**`.monomind/CAPABILITIES.md`** — written by `monomind init` (`writeCapabilities()` in
+`src/init/executor.ts`). It exists only in projects where init has run and did not skip it;
+**it is not present in this repo**, so do not expect to read it here.
 
-This includes:
+Note: the generated CAPABILITIES.md still carries the ~50-name phantom agent list corrected
+in the "Available Agents" section above. Treat this file as the source of truth until
+`src/init/executor.ts` and `src/init/claudemd-generator.ts` are updated to match.
 
-- All 60+ agent type definitions (routing targets) with recommendations
+It includes:
+
+- Agent type definitions with recommendations
 - All 32 CLI commands
-- All 29 hook subcommands + 14 background workers (@monoes/hooks)
+- All 29 hook subcommands + 15 background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
-- Integration ecosystem (agentic-flow, lancedb,agentic-jujutsu)
+- Integration ecosystem (agentic-flow, agentic-jujutsu)
 - Performance targets and status
 
 ## Support

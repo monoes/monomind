@@ -27,7 +27,15 @@ import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
  * falling back to home directory
  */
 function getDataDir(): string {
-  const cwd = process.cwd();
+  // MONOMIND_CWD is the project root; process.cwd() is wherever the process
+  // happened to start. For a global or MCP install those differ — the server
+  // is launched by the editor, not from the project — so keying the pattern
+  // store off cwd scattered a project's learned patterns across whatever
+  // directory the server booted in (or fell through to ~/.monomind entirely).
+  // Every other consumer resolves the project this way; see getProjectCwd()
+  // in mcp-tools/types.ts. Inlined rather than imported to keep the memory
+  // layer independent of the MCP tool layer.
+  const cwd = process.env.MONOMIND_CWD || process.cwd();
   const localDir = join(cwd, '.monomind', 'neural');
   const homeDir = join(homedir(), '.monomind', 'neural');
 
@@ -1261,6 +1269,14 @@ export function clearIntelligence(): void {
   sonaCoordinator = null;
   reasoningBank = null;
   intelligenceInitialized = false;
+  // Must be dropped too. initializeIntelligence() returns an existing
+  // initPromise without re-running init, so leaving the resolved promise here
+  // made every later init report success while sonaCoordinator and
+  // reasoningBank stayed null — after which the non-null assertions in
+  // clearAllPatterns()/getAllPatterns() etc. threw
+  // "Cannot read properties of null". Intelligence could never be
+  // re-initialized after a clear, for the life of the process.
+  initPromise = null;
   globalStats = {
     trajectoriesRecorded: 0,
     lastAdaptation: null

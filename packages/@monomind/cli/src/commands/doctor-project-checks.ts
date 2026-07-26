@@ -579,7 +579,14 @@ export async function checkGuidanceGates(): Promise<HealthCheck> {
     }
     const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
     const preToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }> = settings?.hooks?.PreToolUse ?? [];
-    const hasPreWrite = preToolUse.some(e => e.matcher === 'Write|Edit|MultiEdit' && e.hooks.some(h => h.command?.includes('pre-write')));
+    // Match on capability, not on an exact matcher string. The matcher is a
+    // regex alternation that legitimately changes as tools are added — it
+    // gained `|NotebookEdit` when that tool turned out to bypass the secret
+    // gate — and an `=== 'Write|Edit|MultiEdit'` test reported the gate as
+    // INACTIVE the moment it did, telling users their secrets gate was off
+    // while it was demonstrably blocking secrets, and sending them to
+    // `guidance setup`, which would then add a duplicate entry.
+    const hasPreWrite = preToolUse.some(e => /\bWrite\b/.test(e.matcher ?? '') && e.hooks.some(h => h.command?.includes('pre-write')));
     const hasPreBash = preToolUse.some(e => e.matcher === 'Bash' && e.hooks.some(h => h.command?.includes('pre-bash')));
     if (!hasPreWrite && !hasPreBash) return { name: 'Guidance Gates', status: 'warn', message: 'gates-handler.cjs present but no gates registered', fix: 'monomind guidance setup' };
     if (!hasPreWrite) return { name: 'Guidance Gates', status: 'warn', message: 'pre-write hook not registered — secrets gate inactive', fix: 'monomind guidance setup' };

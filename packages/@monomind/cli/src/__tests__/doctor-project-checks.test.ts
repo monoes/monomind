@@ -476,7 +476,7 @@ describe('doctor-project-checks', () => {
       writeFileSync(join(dir, '.claude', 'settings.json'), JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: 'Write|Edit|MultiEdit', hooks: [{ command: 'node pre-write.js' }] },
+            { matcher: 'Write|Edit|MultiEdit|NotebookEdit', hooks: [{ command: 'node pre-write.js' }] },
             { matcher: 'Bash', hooks: [{ command: 'node pre-bash.js' }] },
           ],
         },
