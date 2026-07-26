@@ -166,7 +166,7 @@ Output (JSON):
     console.error(JSON.stringify({
       error: 'file_is_generated',
       fallback: 'agent-driven',
-      file: path.relative(process.cwd(), path.resolve(process.cwd(), targetFile)),
+      file: path.relative(process.cwd(), path.resolve(process.cwd(), targetFile)).split(path.sep).join('/'),
     }));
     process.exit(1);
   }
@@ -179,7 +179,7 @@ Output (JSON):
     console.error(JSON.stringify({
       error: 'element_ambiguous',
       fallback: 'agent-driven',
-      file: path.relative(process.cwd(), targetFile),
+      file: path.relative(process.cwd(), targetFile).split(path.sep).join('/'),
       candidates: resolved.candidates.map((c) => ({
         startLine: c.startLine + 1,
         endLine: c.endLine + 1,

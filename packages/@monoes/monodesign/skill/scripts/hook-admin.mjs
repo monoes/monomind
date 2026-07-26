@@ -275,9 +275,9 @@ function statusReport(cwd) {
   const cfg = readConfig(cwd);
   const envKill = process.env.MONODESIGN_HOOK_DISABLED;
   const envState = envKill ? `MONODESIGN_HOOK_DISABLED=${envKill}` : 'unset';
-  const cfgPath = path.relative(cwd, getConfigPath(cwd)) || '.monodesign/config.json';
-  const localPath = path.relative(cwd, getLocalConfigPath(cwd)) || '.monodesign/config.local.json';
-  const cachePath = path.relative(cwd, getCachePath(cwd)) || '.monodesign/hook.cache.json';
+  const cfgPath = path.relative(cwd, getConfigPath(cwd)).split(path.sep).join('/') || '.monodesign/config.json';
+  const localPath = path.relative(cwd, getLocalConfigPath(cwd)).split(path.sep).join('/') || '.monodesign/config.local.json';
+  const cachePath = path.relative(cwd, getCachePath(cwd)).split(path.sep).join('/') || '.monodesign/hook.cache.json';
   const fileState = (info, relPath, absent) => {
     if (info.malformed) return `${relPath} (malformed; ignored)`;
     if (info.exists) return relPath;
@@ -306,14 +306,14 @@ function setEnabled(cwd, value) {
   config.enabled = value;
   const target = writeHookConfig(cwd, config);
   if (!value) {
-    return `Design hook disabled for this project (wrote ${path.relative(cwd, target) || target}).`;
+    return `Design hook disabled for this project (wrote ${path.relative(cwd, target).split(path.sep).join('/') || target}).`;
   }
 
   const localTarget = writeHookConfig(cwd, { consent: 'accepted' }, { local: true });
   const repaired = repairHookManifests(cwd);
   const parts = [
-    `Design hook enabled for this project (wrote ${path.relative(cwd, target) || target}).`,
-    `Recorded local hook consent in ${path.relative(cwd, localTarget) || localTarget}.`,
+    `Design hook enabled for this project (wrote ${path.relative(cwd, target).split(path.sep).join('/') || target}).`,
+    `Recorded local hook consent in ${path.relative(cwd, localTarget).split(path.sep).join('/') || localTarget}.`,
   ];
   if (repaired.written.length > 0) {
     parts.push(`Installed or repaired hook manifests for: ${repaired.written.join(', ')}.`);
@@ -323,7 +323,7 @@ function setEnabled(cwd, value) {
     parts.push('No installed provider skill folders found to repair.');
   }
   if (repaired.backups.length > 0) {
-    parts.push(`Backed up malformed manifest(s): ${repaired.backups.map((filePath) => path.relative(cwd, filePath) || filePath).join(', ')}.`);
+    parts.push(`Backed up malformed manifest(s): ${repaired.backups.map((filePath) => path.relative(cwd, filePath).split(path.sep).join('/') || filePath).join(', ')}.`);
   }
   return parts.join(' ');
 }
@@ -596,7 +596,7 @@ function addIgnoreValue(cwd, args) {
 
   const target = writeDetectorConfig(cwd, config, { local });
   const scope = local ? 'local detector.ignoreValues' : 'shared detector.ignoreValues';
-  return `Added ${parsed.rule}=${parsed.value} to ${scope} (${path.relative(cwd, target) || target}).`;
+  return `Added ${parsed.rule}=${parsed.value} to ${scope} (${path.relative(cwd, target).split(path.sep).join('/') || target}).`;
 }
 
 function reset(cwd) {
@@ -613,7 +613,7 @@ function reset(cwd) {
       } else {
         fs.writeFileSync(filePath, JSON.stringify(rest, null, 2) + '\n');
       }
-      removed.push(path.relative(cwd, filePath) || filePath);
+      removed.push(path.relative(cwd, filePath).split(path.sep).join('/') || filePath);
     } catch { /* ignore */ }
   }
   // State files are wholly ours; delete outright.
@@ -621,7 +621,7 @@ function reset(cwd) {
     try {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
-        removed.push(path.relative(cwd, filePath) || filePath);
+        removed.push(path.relative(cwd, filePath).split(path.sep).join('/') || filePath);
       }
     } catch { /* ignore */ }
   }

@@ -119,7 +119,7 @@ Output (JSON):
   }
 
   const { file: targetFile, content, lines } = found;
-  const relFile = path.relative(process.cwd(), targetFile);
+  const relFile = path.relative(process.cwd(), targetFile).split(path.sep).join('/');
   const previewBlock = findMarkerBlock(id, lines);
   const sourceShadowPreview = previewBlock
     ? readSourceShadowPreviewMeta(content, id)

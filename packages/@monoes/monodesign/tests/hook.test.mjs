@@ -1649,35 +1649,46 @@ describe('renderCleanAck() / renderPendingAck()', () => {
 });
 
 describe('parseApplyPatchPaths()', () => {
+  // These return real filesystem paths, so they carry native separators — the
+  // expectations are built with path.resolve rather than POSIX literals. A
+  // hardcoded '/proj/src/App.jsx' passes on POSIX and fails on Windows, where
+  // the same call resolves to 'D:\proj\src\App.jsx'.
   it('extracts absolute and relative paths from patch bodies', () => {
-    const cwd = '/proj';
+    const cwd = path.resolve('/proj');
     const rel = parseApplyPatchPaths('*** Update File: src/App.jsx\n', cwd);
-    assert.deepEqual(rel, ['/proj/src/App.jsx']);
+    assert.deepEqual(rel, [path.join(cwd, 'src', 'App.jsx')]);
     const abs = parseApplyPatchPaths('*** Add File: /tmp/x.css\n*** Update File: src/y.html\n', cwd);
-    assert.deepEqual(abs, ['/tmp/x.css', '/proj/src/y.html']);
+    assert.deepEqual(abs, ['/tmp/x.css', path.join(cwd, 'src', 'y.html')]);
   });
 });
 
 describe('resolveTargetFiles()', () => {
   it('uses file_path when present and falls back to apply_patch command', () => {
-    assert.deepEqual(resolveTargetFiles({ tool_input: { file_path: '/a/b.tsx' } }, '/proj'), ['/a/b.tsx']);
+    const cwd = path.resolve('/proj');
+    assert.deepEqual(resolveTargetFiles({ tool_input: { file_path: '/a/b.tsx' } }, cwd), ['/a/b.tsx']);
     assert.deepEqual(
-      resolveTargetFiles({ tool_name: 'apply_patch', tool_input: { command: '*** Update File: src/x.css\n' } }, '/proj'),
-      ['/proj/src/x.css'],
+      resolveTargetFiles({ tool_name: 'apply_patch', tool_input: { command: '*** Update File: src/x.css\n' } }, cwd),
+      [path.join(cwd, 'src', 'x.css')],
     );
-    assert.deepEqual(resolveTargetFiles({ tool_name: 'Bash', tool_input: { command: 'echo hi' } }, '/proj'), []);
+    assert.deepEqual(resolveTargetFiles({ tool_name: 'Bash', tool_input: { command: 'echo hi' } }, cwd), []);
   });
 
+  // file_path is taken verbatim while apply_patch entries are resolved, so the
+  // dedup between them is plain string equality. Writing file_path as a POSIX
+  // literal made that equality hold only on POSIX: on Windows the resolved form
+  // is 'D:\proj\src\App.jsx', which no longer matches '/proj/src/App.jsx', and
+  // the same file came back twice. Build both from the same resolved cwd.
   it('includes every apply_patch file even when file_path is also present', () => {
+    const cwd = path.resolve('/proj');
     assert.deepEqual(
       resolveTargetFiles({
         tool_name: 'apply_patch',
         tool_input: {
-          file_path: '/proj/src/App.jsx',
+          file_path: path.join(cwd, 'src', 'App.jsx'),
           command: '*** Update File: src/App.jsx\n*** Update File: src/styles.css\n',
         },
-      }, '/proj'),
-      ['/proj/src/App.jsx', '/proj/src/styles.css'],
+      }, cwd),
+      [path.join(cwd, 'src', 'App.jsx'), path.join(cwd, 'src', 'styles.css')],
     );
   });
 

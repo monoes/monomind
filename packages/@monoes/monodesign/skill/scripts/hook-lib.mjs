@@ -1015,7 +1015,7 @@ function quoteCommandArg(value) {
 
 function relativize(filePath, cwd) {
   try {
-    const rel = path.relative(cwd, filePath);
+    const rel = path.relative(cwd, filePath).split(path.sep).join('/');
     if (!rel || rel.startsWith('..')) return filePath;
     return rel.split(path.sep).join('/');
   } catch {
@@ -1226,7 +1226,7 @@ function hasPathTraversal(filePath) {
 function isInsideProject(filePath, projectCwd) {
   if (!filePath || !projectCwd || hasPathTraversal(filePath)) return false;
   try {
-    const rel = path.relative(projectCwd, filePath);
+    const rel = path.relative(projectCwd, filePath).split(path.sep).join('/');
     return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
   } catch {
     return false;
