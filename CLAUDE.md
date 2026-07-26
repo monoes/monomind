@@ -1,6 +1,6 @@
 # Claude Code Configuration - Monomind v2
 
-> **Monomind v2.5.5** — Packages: `monomind@2.5.5` (umbrella), `@monoes/monomindcli@2.5.5` (CLI), `@monoes/monograph@1.4.1` (knowledge graph)
+> **Monomind v2.7.6** — Packages: `monomind@2.7.6` (umbrella), `@monoes/monomindcli@2.7.6` (CLI), `@monoes/monograph@1.5.4` (knowledge graph)
 
 ## Behavioral Rules (Always Enforced)
 
@@ -57,7 +57,7 @@
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | Browser automation via CDP (standalone)|
 | `@monoes/monodesign` | `packages/@monoes/monodesign/` | Frontend design intelligence (tokens, antipattern detection, monodesign skill) |
 | `@monoes/monograph`  | `packages/@monomind/monograph/` | Knowledge graph (tree-sitter + SQLite) |
-| `monofence-ai`       | `packages/monofence-ai/`       | Independent AI-manipulation-defense library (~1,544 lines: threat/evasion detection, multi-turn context tracking, output scanning, ReasoningBank-style learning) — wired into the live pre-bash/pre-write gate path via its own lazy-loaded integration in `.claude/helpers/handlers/gates-handler.cjs` (`MONOMIND_MONOFENCE_GATE=off` to disable), not via its `registerSecurityHooks()` API (that's consumed only by the in-process `@monoes/hooks` `HookExecutor`, a separate mechanism from the live CJS dispatch path) |
+| `monofence-ai`       | `packages/monofence-ai/`       | Independent AI-manipulation-defense library (~2,370 lines of `src/`: threat/evasion detection, multi-turn context tracking, output scanning, ReasoningBank-style learning) — wired into the live pre-bash/pre-write gate path via its own lazy-loaded integration in `.claude/helpers/handlers/gates-handler.cjs` (`MONOMIND_MONOFENCE_GATE=off` to disable), not via its `registerSecurityHooks()` API (that's consumed only by the in-process `@monoes/hooks` `HookExecutor`, a separate mechanism from the live CJS dispatch path) |
 
 (The former `@monomind/security` package was deleted — input validation is inlined at `packages/@monomind/cli/src/utils/input-guards.ts`.)
 
@@ -178,6 +178,24 @@ Use `/mastermind:topology` to pick a swarm or hive-mind topology. It lists all o
 
 **If `monograph_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monomind__monograph_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
 
+### Speculative Tools (hidden by default — set `MONOMIND_MCP_SPECULATIVE=1` to expose)
+
+Same pattern as monograph's advanced-tools gate above, applied to tools whose names imply more than they deliver — real local computation, but not the distributed/ML capability the name suggests (see the honesty review for the full evidence trail). 10 tools gated:
+
+- **`hive-mind_*`** — 9 of 11 (`spawn`, `init`, `consensus`, `broadcast`, `shutdown`, `memory`, `leave`, `audit_list`, `audit_verify`). `hive-mind_status`/`hive-mind_join` stay visible by default as legitimate read/registration primitives.
+- **`embeddings_neural`** — 1 of 7 `embeddings_*` tools. Its `init` action persists config flags (`sona`, `flashAttention`, `ewcPlusPlus`, ...) with no implementing code behind them.
+- *(The 6 IPFS `transfer_*` tools that used to be gated here were deleted outright in 2026-07 — see below.)*
+
+**Deleted rather than gated** (2026-07):
+
+- `daa_*` (all 8 tools, 630 lines) — local JSON bookkeeping with fabricated running-average metrics and zero tests.
+- `coherence_*` (all 6 tools, 2,616 lines) — genuine graph/spectral/TDA math, but zero tests, zero callers outside its own directory, and no CLI surface. Real code that nothing consumed, behind names like "quantum topology" involving no quantum computation.
+- The 6 IPFS `transfer_*` tools (`ipfs-resolve`, `store-search`/`-info`/`-download`/`-featured`/`-trending`) together with the ~4,600-line `src/transfer/{store,ipfs,storage,models,serialization}` subtree. Unreachable three ways over: gated out of the MCP surface, exposed only on a CLI path the dispatcher cannot reach (`hooks transfer store …` is four levels deep; the dispatcher resolves three), and pointing at a registry whose bootstrap config held the placeholder `publicKey: 'ed25519:monomind-registry-key'`. `transfer_detect-pii` is unrelated — a real local regex PII scanner — and stays visible; `hooks transfer from-project` also still works, since it calls `hooks_transfer` and never touched the store code.
+
+Not gated: `neural_*` — honestly described in the tool descriptions themselves ("no ML training occurs", "not ML prediction"); it is an embedding-backed pattern store.
+
+**`swarm_*` and `agent_spawn` are not gated but are metadata-only**: `swarm_init`, `swarm_scale`, and `agent_spawn` write JSON state records — they start no process, thread, or agent. Real concurrency comes only from Claude Code's Task tool. Their descriptions say so explicitly.
+
 ---
 
 ## Claude Code vs MCP Tools
@@ -211,7 +229,7 @@ Use `/mastermind:topology` to pick a swarm or hive-mind topology. It lists all o
 | `browse`         | -   | Browser automation via CDP (@monoes/monobrowse)      |
 | `doctor`         | 1   | System diagnostics                                   |
 | `cleanup`        | -   | Project cleanup utilities                            |
-| `autopilot`      | -   | Autonomous task execution                            |
+| `autopilot`      | -   | Task discovery + next-action heuristic (reads local task files; picks the first incomplete one at fixed 0.5 confidence). The learning/prediction path needs `agentic-flow`, which is **not a declared dependency** and is absent in normal installs |
 | `analyze`        | -   | Codebase analysis                                    |
 | `route`          | -   | Task routing                                         |
 | `providers`      | 4   | AI provider management (configure, test, list, remove) |
@@ -240,12 +258,12 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 **Hooks:** `teammate-idle` (auto-assign tasks), `task-completed` (train patterns, notify lead).
 
-## Available Agents (32 definitions in `.claude/agents/`: 30 curated below + 2 non-roster — `templates/coordinator-swarm-init.md` and `generated/dashboard-verifier.md`)
+## Available Agents (31 definitions in `.claude/agents/`, all 31 registered: 29 curated below + 2 non-roster — `templates/coordinator-swarm-init.md` and `generated/dashboard-verifier.md`)
 
 - **Core:** coder, coordinator, planner, researcher, reviewer, tester
 - **Engineering:** ai-engineer, backend-architect, code-reviewer, devops-automator, frontend-developer, security-engineer, software-architect, technical-writer
 - **GitHub:** github-modes, pr-manager, code-review-swarm, issue-tracker, release-manager, repo-architect
-- **Swarm / Hive-Mind:** mesh-coordinator, collective-intelligence-coordinator, queen-coordinator
+- **Swarm / Hive-Mind:** mesh-coordinator, collective-intelligence-coordinator (`queen-coordinator` was absorbed into `core/coordinator` in 2026-07 — same shape, one entry point; hive-session guidance lives in that agent's "Hive sessions" section)
 - **Consensus:** quorum-manager
 - **Specialized:** mcp-builder, mobile (spec-mobile-react-native), integration-architect, goal-planner, tdd-london-swarm
 - **Design:** monodesign (the only design agent)
