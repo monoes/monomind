@@ -144,6 +144,34 @@ export interface HistoricalMetric {
 // Statusline Types
 // ============================================================================
 
+/**
+ * Verdicts the security worker can report.
+ *
+ * 'incomplete' is deliberately NOT a flavour of 'clean': it means at least one
+ * candidate path could not be read, so the absence of findings proves nothing.
+ * Anything that renders this union must give it a non-reassuring treatment.
+ */
+export type SecurityStatus = 'clean' | 'warning' | 'critical' | 'incomplete';
+
+const SECURITY_STATUSES: readonly SecurityStatus[] = ['clean', 'warning', 'critical', 'incomplete'];
+
+/**
+ * Narrow an untyped worker result field to SecurityStatus.
+ *
+ * Worker results are `Record<string, unknown>`, so a plain `as` cast is
+ * unsound — it silently admitted 'incomplete' into a union that did not list
+ * it. Unrecognised values fall back to 'incomplete' rather than 'clean':
+ * a verdict we cannot interpret is not evidence of safety.
+ */
+export function toSecurityStatus(value: unknown): SecurityStatus {
+  // No security result at all (worker never ran) keeps the pre-existing
+  // 'clean' default; the statusline separately shows 0 issues in that case.
+  if (value === undefined || value === null) return 'clean';
+  return SECURITY_STATUSES.includes(value as SecurityStatus)
+    ? (value as SecurityStatus)
+    : 'incomplete';
+}
+
 export interface StatuslineData {
   workers: {
     active: number;
@@ -156,7 +184,11 @@ export interface StatuslineData {
     disk: number;
   };
   security: {
-    status: 'clean' | 'warning' | 'critical';
+    /**
+     * 'incomplete' means the scan could not read every candidate path, so
+     * `issues` is a lower bound — NOT the same claim as 'clean'.
+     */
+    status: SecurityStatus;
     issues: number;
   };
   adr: {
@@ -630,7 +662,7 @@ export class WorkerManager extends EventEmitter {
         disk: (healthResult?.disk as Record<string, unknown>)?.usedPct as number ?? 0,
       },
       security: {
-        status: securityResult?.status as 'clean' | 'warning' | 'critical' ?? 'clean',
+        status: toSecurityStatus(securityResult?.status),
         issues: securityResult?.totalIssues as number ?? 0,
       },
       adr: {
@@ -675,9 +707,11 @@ export class WorkerManager extends EventEmitter {
                        data.health.status === 'warning' ? '🟡' : '🟢';
     parts.push(`${healthIcon}${data.health.memory}%`);
 
-    // Security
+    // Security. 'incomplete' gets its own icon: the shield reads as "all
+    // clear", which is exactly the claim an unfinished scan cannot make.
     const secIcon = data.security.status === 'critical' ? '🚨' :
-                    data.security.status === 'warning' ? '⚠️' : '🛡️';
+                    data.security.status === 'warning' ? '⚠️' :
+                    data.security.status === 'incomplete' ? '❔' : '🛡️';
     parts.push(`${secIcon}${data.security.issues}`);
 
     // ADR Compliance

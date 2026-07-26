@@ -6,9 +6,19 @@ export default defineConfig({
     include: ['__tests__/**/*.test.ts', 'src/__tests__/**/*.test.ts'],
     exclude: ['node_modules', 'dist', '**/._*'],
     globals: true,
-    // Disable coverage for hooks package (uses vitest v2)
+    // Off by default to keep the edit/test loop fast; run
+    // `npm run test:coverage` (or pass --coverage) to measure.
+    //
+    // This previously read "Disable coverage for hooks package (uses vitest
+    // v2)" — the same stale rationale the CLI carried. The package is on
+    // vitest 4.x and coverage works; nobody re-tested the claim.
     coverage: {
       enabled: false,
+      provider: 'v8',
+      reporter: ['text-summary', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/__tests__/**', 'src/**/*.d.ts'],
     },
   },
 });

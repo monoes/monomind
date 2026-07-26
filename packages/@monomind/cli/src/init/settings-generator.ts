@@ -248,7 +248,10 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
         ],
       },
       {
-        matcher: 'Write|Edit|MultiEdit',
+        // NotebookEdit is listed explicitly: its content field (`new_source`)
+        // is scanned by the same secrets gate as Write/Edit/MultiEdit, so it
+        // must not depend on `Edit` happening to substring-match.
+        matcher: 'Write|Edit|MultiEdit|NotebookEdit',
         hooks: [
           {
             // Was 'pre-edit' — not a registered hook-handler.cjs dispatch

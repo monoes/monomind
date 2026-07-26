@@ -14,6 +14,7 @@ import {
 import { filterByScopes } from '../cli/engine/registry/antipatterns.mjs';
 import {
   checkElementTextOverflowDOM,
+  checkElementImageDimensionsDOM,
   checkPageTypography,
   isScreenReaderOnlyTextStyle,
 } from '../cli/engine/rules/checks.mjs';
@@ -1916,5 +1917,58 @@ describe('CLI -- dev server suggestion', () => {
     const { stderr } = run(path.join(FIXTURES, 'framework-vite'));
     expect(stderr).toContain('Vite');
     expect(stderr).toContain('8080');
+  });
+});
+
+describe('checkElementImageDimensionsDOM — only <img> can be flagged', () => {
+  // Regression: the DOM walker runs every check against every element, and
+  // this rule had no tag guard (the static engine gets one free from its
+  // `selector: 'img'` registration). It therefore fired on <head>, <meta>,
+  // <title> and <style>, reporting "an <img> ships without width and height"
+  // for each. A clean 84-line fixture came back with 43 findings, and the
+  // overlays drawn for them broke an unrelated overlay-cleanup test.
+  function el(tagName, { width = null, height = null, style = '', computed = {} } = {}) {
+    return {
+      tagName,
+      getAttribute(name) {
+        if (name === 'width') return width;
+        if (name === 'height') return height;
+        if (name === 'style') return style;
+        return null;
+      },
+      __style: { aspectRatio: '', ...computed },
+    };
+  }
+
+  function withMockComputedStyle(callback) {
+    const original = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = (node) => node.__style;
+    try {
+      return callback();
+    } finally {
+      if (original === undefined) delete globalThis.getComputedStyle;
+      else globalThis.getComputedStyle = original;
+    }
+  }
+
+  test('flags an <img> with no reserved dimensions', () => {
+    withMockComputedStyle(() => {
+      expect(checkElementImageDimensionsDOM(el('IMG')).length).toBe(1);
+    });
+  });
+
+  test('does not flag non-image elements, including head-only tags', () => {
+    withMockComputedStyle(() => {
+      for (const tag of ['HEAD', 'META', 'TITLE', 'STYLE', 'DIV', 'SPAN', 'P', 'SECTION']) {
+        expect(checkElementImageDimensionsDOM(el(tag))).toEqual([]);
+      }
+    });
+  });
+
+  test('still passes an <img> that reserves space', () => {
+    withMockComputedStyle(() => {
+      expect(checkElementImageDimensionsDOM(el('IMG', { width: '320', height: '180' }))).toEqual([]);
+      expect(checkElementImageDimensionsDOM(el('IMG', { computed: { aspectRatio: '16 / 9' } }))).toEqual([]);
+    });
   });
 });

@@ -19,39 +19,128 @@ export const SECRET_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
 
 export type SecretFinding = { severity: string; type: string; location: string; description: string };
 
-export function findSecretsInDir(dir: string, depthLimit: number, baseDir: string, findings: SecretFinding[]): void {
-  if (depthLimit <= 0) return;
+/**
+ * Records what the scanner could NOT look at.
+ *
+ * Without this the scanner swallowed unreadable directories and stopped at its
+ * depth limit, then printed "No secrets found." — an error presented as a clean
+ * result. Callers must consult `scanWasIncomplete()` before reporting a clean
+ * bill of health.
+ */
+export interface ScanCoverage {
+  /** Directories that could not be listed (permissions, I/O). Real failures. */
+  unreadableDirs: string[];
+  /** Files that could not be read or stat'd. Real failures. */
+  unreadableFiles: string[];
+  /** Directories not descended into because the depth limit was reached. */
+  depthTruncatedDirs: string[];
+  /** Files skipped because they exceed the 1MB per-file cap. */
+  oversizedFiles: string[];
+  /** Files actually opened and pattern-matched. */
+  filesScanned: number;
+  /** Directories actually listed. */
+  dirsScanned: number;
+}
+
+export function createScanCoverage(): ScanCoverage {
+  return {
+    unreadableDirs: [],
+    unreadableFiles: [],
+    depthTruncatedDirs: [],
+    oversizedFiles: [],
+    filesScanned: 0,
+    dirsScanned: 0,
+  };
+}
+
+/** True when some part of the tree was not examined, for any reason. */
+export function scanWasIncomplete(c: ScanCoverage): boolean {
+  return (
+    c.unreadableDirs.length > 0 ||
+    c.unreadableFiles.length > 0 ||
+    c.depthTruncatedDirs.length > 0 ||
+    c.oversizedFiles.length > 0
+  );
+}
+
+/** True when the scanner hit a hard failure (not merely a configured limit). */
+export function scanHadErrors(c: ScanCoverage): boolean {
+  return c.unreadableDirs.length > 0 || c.unreadableFiles.length > 0;
+}
+
+/** Human-readable lines describing every gap in coverage. Empty when complete. */
+export function describeScanGaps(c: ScanCoverage): string[] {
+  const lines: string[] = [];
+  if (c.unreadableDirs.length > 0) {
+    lines.push(`${c.unreadableDirs.length} directory(ies) could not be read (e.g. ${c.unreadableDirs[0]})`);
+  }
+  if (c.unreadableFiles.length > 0) {
+    lines.push(`${c.unreadableFiles.length} file(s) could not be read (e.g. ${c.unreadableFiles[0]})`);
+  }
+  if (c.depthTruncatedDirs.length > 0) {
+    lines.push(`${c.depthTruncatedDirs.length} directory(ies) not scanned — depth limit reached (use --depth deep)`);
+  }
+  if (c.oversizedFiles.length > 0) {
+    lines.push(`${c.oversizedFiles.length} file(s) skipped — larger than 1MB`);
+  }
+  return lines;
+}
+
+export function findSecretsInDir(
+  dir: string,
+  depthLimit: number,
+  baseDir: string,
+  findings: SecretFinding[],
+  coverage: ScanCoverage = createScanCoverage(),
+): void {
+  if (depthLimit <= 0) {
+    coverage.depthTruncatedDirs.push(relative(baseDir, dir) || dir);
+    return;
+  }
+  let entries;
   try {
-    const entries = readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const isDotEnv = /^\.env(\..+)?$/.test(entry.name);
-      if ((entry.name.startsWith('.') && !isDotEnv) || entry.name === 'node_modules' || entry.name === 'dist') continue;
-      const fullPath = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        findSecretsInDir(fullPath, depthLimit - 1, baseDir, findings);
-      } else if (entry.isFile() && (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) && !entry.name.endsWith('.d.ts')) {
-        try {
-          if (statSync(fullPath).size > 1024 * 1024) continue;
-          const content = readFileSync(fullPath, 'utf-8');
-          const lines = content.split('\n');
-          for (let i = 0; i < lines.length; i++) {
-            for (const { pattern, type } of SECRET_PATTERNS) {
-              pattern.lastIndex = 0;
-              let m: RegExpExecArray | null;
-              while ((m = pattern.exec(lines[i])) !== null) {
-                findings.push({
-                  severity: output.warning('HIGH'),
-                  type: 'Hardcoded Secret',
-                  location: `${relative(baseDir, fullPath)}:${i + 1}`,
-                  description: type,
-                });
-              }
-            }
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    coverage.unreadableDirs.push(relative(baseDir, dir) || dir);
+    return;
+  }
+  coverage.dirsScanned++;
+  for (const entry of entries) {
+    const isDotEnv = /^\.env(\..+)?$/.test(entry.name);
+    if ((entry.name.startsWith('.') && !isDotEnv) || entry.name === 'node_modules' || entry.name === 'dist') continue;
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      findSecretsInDir(fullPath, depthLimit - 1, baseDir, findings, coverage);
+    } else if (entry.isFile() && (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) && !entry.name.endsWith('.d.ts')) {
+      let content: string;
+      try {
+        if (statSync(fullPath).size > 1024 * 1024) {
+          coverage.oversizedFiles.push(relative(baseDir, fullPath));
+          continue;
+        }
+        content = readFileSync(fullPath, 'utf-8');
+      } catch {
+        coverage.unreadableFiles.push(relative(baseDir, fullPath));
+        continue;
+      }
+      coverage.filesScanned++;
+      const lines = content.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        for (const { pattern, type } of SECRET_PATTERNS) {
+          pattern.lastIndex = 0;
+          let m: RegExpExecArray | null;
+          while ((m = pattern.exec(lines[i])) !== null) {
+            findings.push({
+              severity: output.warning('HIGH'),
+              type: 'Hardcoded Secret',
+              location: `${relative(baseDir, fullPath)}:${i + 1}`,
+              description: type,
+            });
           }
-        } catch { /* file read error */ }
+        }
       }
     }
-  } catch { /* dir read error */ }
+  }
 }
 
 // ─── scan subcommand ─────────────────────────────────────────────────────────
@@ -98,6 +187,7 @@ export const scanCommand: Command = {
     spinner.start();
 
     const findings: Array<{ severity: string; type: string; location: string; description: string }> = [];
+    const coverage = createScanCoverage();
     let criticalCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
 
     try {
@@ -154,7 +244,7 @@ export const scanCommand: Command = {
         spinner.setText('Scanning for hardcoded secrets...');
         const scanDepth = depth === 'deep' ? 10 : depth === 'standard' ? 5 : 3;
         const prevCount = findings.length;
-        findSecretsInDir(path.resolve(target), scanDepth, path.resolve(target), findings);
+        findSecretsInDir(path.resolve(target), scanDepth, path.resolve(target), findings, coverage);
         highCount += findings.length - prevCount;
       }
 
@@ -168,47 +258,69 @@ export const scanCommand: Command = {
           { pattern: /\$\{.*\}.*sql|sql.*\$\{/gi, type: 'SQL Injection', severity: 'high', desc: 'Possible SQL injection' },
         ];
 
+        // Same coverage accounting as findSecretsInDir: gaps are recorded, never
+        // swallowed, so an unreadable tree cannot masquerade as a clean one.
+        const codeBase = path.resolve(target);
         const scanCodeDir = (dir: string, depthLimit: number) => {
-          if (depthLimit <= 0) return;
+          if (depthLimit <= 0) {
+            coverage.depthTruncatedDirs.push(path.relative(codeBase, dir) || dir);
+            return;
+          }
+          let entries;
           try {
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-              if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
-              const fullPath = path.join(dir, entry.name);
-              if (entry.isDirectory()) {
-                scanCodeDir(fullPath, depthLimit - 1);
-              } else if (entry.isFile() && /\.(ts|js|tsx|jsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
-                try {
-                  if (fs.statSync(fullPath).size > 1024 * 1024) continue;
-                  const content = fs.readFileSync(fullPath, 'utf-8');
-                  const lines = content.split('\n');
-                  for (let i = 0; i < lines.length; i++) {
-                    for (const { pattern, type, severity, desc } of codePatterns) {
-                      pattern.lastIndex = 0;
-                      let m: RegExpExecArray | null;
-                      while ((m = pattern.exec(lines[i])) !== null) {
-                        if (severity === 'high') highCount++;
-                        else mediumCount++;
-                        findings.push({
-                          severity: severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
-                          type,
-                          location: `${path.relative(target, fullPath)}:${i + 1}`,
-                          description: desc,
-                        });
-                      }
-                    }
+            entries = fs.readdirSync(dir, { withFileTypes: true });
+          } catch {
+            coverage.unreadableDirs.push(path.relative(codeBase, dir) || dir);
+            return;
+          }
+          for (const entry of entries) {
+            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+              scanCodeDir(fullPath, depthLimit - 1);
+            } else if (entry.isFile() && /\.(ts|js|tsx|jsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+              let content: string;
+              try {
+                if (fs.statSync(fullPath).size > 1024 * 1024) {
+                  coverage.oversizedFiles.push(path.relative(codeBase, fullPath));
+                  continue;
+                }
+                content = fs.readFileSync(fullPath, 'utf-8');
+              } catch {
+                coverage.unreadableFiles.push(path.relative(codeBase, fullPath));
+                continue;
+              }
+              const lines = content.split('\n');
+              for (let i = 0; i < lines.length; i++) {
+                for (const { pattern, type, severity, desc } of codePatterns) {
+                  pattern.lastIndex = 0;
+                  let m: RegExpExecArray | null;
+                  while ((m = pattern.exec(lines[i])) !== null) {
+                    if (severity === 'high') highCount++;
+                    else mediumCount++;
+                    findings.push({
+                      severity: severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
+                      type,
+                      location: `${path.relative(target, fullPath)}:${i + 1}`,
+                      description: desc,
+                    });
                   }
-                } catch { /* file read error */ }
+                }
               }
             }
-          } catch { /* dir read error */ }
+          }
         };
 
         const scanDepth = depth === 'deep' ? 10 : 5;
         scanCodeDir(path.resolve(target), scanDepth);
       }
 
-      spinner.succeed('Scan complete');
+      const gaps = describeScanGaps(coverage);
+      if (gaps.length > 0) {
+        spinner.stop(output.warning('Scan finished with INCOMPLETE coverage'));
+      } else {
+        spinner.succeed('Scan complete');
+      }
 
       output.writeln();
       if (findings.length > 0) {
@@ -222,8 +334,17 @@ export const scanCommand: Command = {
           data: findings.slice(0, 20),
         });
         if (findings.length > 20) output.writeln(output.dim(`... and ${findings.length - 20} more issues`));
+      } else if (gaps.length > 0) {
+        // Never present an incomplete scan as a clean bill of health.
+        output.writeln(output.warning('No security issues found in the parts that could be scanned — coverage was INCOMPLETE (see below).'));
       } else {
         output.writeln(output.success('No security issues found!'));
+      }
+
+      if (gaps.length > 0) {
+        output.writeln();
+        output.writeln(output.warning('Incomplete coverage:'));
+        for (const g of gaps) output.writeln(output.warning(`  - ${g}`));
       }
 
       output.writeln();
@@ -234,6 +355,9 @@ export const scanCommand: Command = {
         ``,
         `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
         `Total Issues: ${findings.length}`,
+        ``,
+        `Coverage: ${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned`,
+        `Coverage status: ${gaps.length === 0 ? 'complete' : `INCOMPLETE (${gaps.length} gap type(s))`}`,
       ].join('\n'), 'Scan Summary');
 
       if (fix && criticalCount + highCount > 0) {
@@ -257,6 +381,10 @@ export const scanCommand: Command = {
         }
       }
 
+      // A scan that hit real read errors cannot certify anything — fail loudly.
+      // Depth truncation is a configured limit, not an error, so it is reported
+      // above but does not by itself flip the exit status.
+      if (scanHadErrors(coverage)) return { success: false };
       return { success: findings.length === 0 || (criticalCount === 0 && highCount === 0) };
     } catch (error) {
       spinner.fail('Scan failed');
@@ -305,13 +433,21 @@ export const secretsCommand: Command = {
     spinner.start();
 
     const findings: SecretFinding[] = [];
+    const coverage = createScanCoverage();
     const scanDepth = depth === 'deep' ? 10 : depth === 'standard' ? 5 : 3;
-    findSecretsInDir(resolve(targetPath), scanDepth, resolve(targetPath), findings);
+    findSecretsInDir(resolve(targetPath), scanDepth, resolve(targetPath), findings, coverage);
 
-    spinner.succeed('Scan complete');
+    const gaps = describeScanGaps(coverage);
+    if (gaps.length > 0) {
+      spinner.stop(output.warning('Scan finished with INCOMPLETE coverage'));
+    } else {
+      spinner.succeed('Scan complete');
+    }
 
     output.writeln();
-    if (findings.length === 0) {
+    if (findings.length === 0 && gaps.length > 0) {
+      output.writeln(output.warning('No secrets found in the parts that could be scanned — coverage was INCOMPLETE.'));
+    } else if (findings.length === 0) {
       output.writeln(output.success('No secrets found.'));
     } else {
       output.printTable({
@@ -325,9 +461,22 @@ export const secretsCommand: Command = {
       if (findings.length > 20) output.writeln(output.dim(`... and ${findings.length - 20} more`));
     }
 
-    output.writeln();
-    output.writeln(output.bold('Summary: ') + `${findings.length} secret(s) found in ${targetPath}`);
+    if (gaps.length > 0) {
+      output.writeln();
+      output.writeln(output.warning('Incomplete coverage:'));
+      for (const g of gaps) output.writeln(output.warning(`  - ${g}`));
+    }
 
-    return { success: findings.length === 0 };
+    output.writeln();
+    output.writeln(
+      output.bold('Summary: ') +
+      `${findings.length} secret(s) found in ${targetPath} ` +
+      `(${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned, ` +
+      `coverage ${gaps.length === 0 ? 'complete' : 'INCOMPLETE'})`,
+    );
+
+    // Read errors mean the tree was not fully examined — "no secrets" is not
+    // a result we can stand behind, so do not exit 0 on it.
+    return { success: findings.length === 0 && !scanHadErrors(coverage) };
   },
 };

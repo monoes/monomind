@@ -1315,6 +1315,11 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   'statusline.cjs': { forceSync: true, doctorTracked: true },
   'graphify-freshen.cjs': { forceSync: true, doctorTracked: true },
   'router.cjs': { forceSync: true, doctorTracked: true, generate: generateAgentRouter },
+  // Regenerates skill-registry.json (which router.cjs's matchSkills reads) from
+  // the live .claude/commands + .claude/skills trees. No fallback generator:
+  // if it can't be copied there is nothing to regenerate the registry with, and
+  // router.cjs degrades to its built-in FALLBACK_SKILLS rather than breaking.
+  'build-skill-registry.cjs': { forceSync: true, doctorTracked: true },
   'memory.cjs': { generate: generateMemoryHelper },
   'session.cjs': { generate: generateSessionManager },
   'pre-commit': { generate: generatePreCommitHook },

@@ -119,11 +119,48 @@ function collectSessions(projectDir) {
   };
 }
 
+/**
+ * Canonical monomind data root for a project, mirroring getMonomindDataRoot()
+ * in src/mcp-tools/types.ts: inside a git repo the stores live under
+ * `<repo>/.git/monomind`, NOT `<repo>/.monomind`.
+ *
+ * The dashboard read only the `.monomind` path, so in any git repo — i.e. every
+ * real project — it rendered swarm data from a stale or absent file while the
+ * MCP tools wrote the live state somewhere else.
+ */
+function monomindDataRoot(projectDir) {
+  if (process.env.MONOMIND_DATA_DIR) return process.env.MONOMIND_DATA_DIR;
+  try {
+    const gitEntry = path.join(projectDir, '.git');
+    const st = fs.statSync(gitEntry);
+    if (st.isDirectory()) return path.join(gitEntry, 'monomind');
+    const m = fs.readFileSync(gitEntry, 'utf8').match(/^gitdir:\s*(.+)/m);
+    if (m) {
+      const worktreeDir = path.resolve(projectDir, m[1].trim());
+      return path.join(path.dirname(path.dirname(worktreeDir)), 'monomind');
+    }
+  } catch { /* not a git repo — fall through */ }
+  return path.join(projectDir, '.monomind');
+}
+
+/** Read the first of several candidate paths that yields data. */
+function readFirstJSON(...candidates) {
+  for (const c of candidates) {
+    const v = readJSON(c);
+    if (v) return v;
+  }
+  return null;
+}
+
 const _appendedSwarmIds = new Set();
 
 function collectSwarm(projectDir) {
-  const base = path.join(projectDir, '.monomind');
-  const state = readJSON(path.join(base, 'swarm', 'swarm-state.json')) || {};
+  // Canonical location first, legacy `<cwd>/.monomind` second so a project
+  // written by an older CLI still renders.
+  const state = readFirstJSON(
+    path.join(monomindDataRoot(projectDir), 'swarm', 'swarm-state.json'),
+    path.join(projectDir, '.monomind', 'swarm', 'swarm-state.json'),
+  ) || {};
   const dotSwarmState = readJSON(path.join(projectDir, '.swarm', 'state.json')) || {};
   const merged = { ...dotSwarmState, ...state };
 
@@ -187,7 +224,10 @@ function collectSwarmHistory(projectDir) {
   //    this format never has. So without this fallback the tab is empty even
   //    though swarms exist. Derive entries directly from the map here.
   try {
-    const state = readJSON(path.join(projectDir, '.monomind', 'swarm', 'swarm-state.json')) || {};
+    const state = readFirstJSON(
+      path.join(monomindDataRoot(projectDir), 'swarm', 'swarm-state.json'),
+      path.join(projectDir, '.monomind', 'swarm', 'swarm-state.json'),
+    ) || {};
     const swarmsMap = state.swarms || (state.swarmId ? { [state.swarmId]: state } : {});
     for (const [key, s] of Object.entries(swarmsMap)) {
       if (!s || typeof s !== 'object') continue;

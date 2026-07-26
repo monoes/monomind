@@ -408,13 +408,16 @@ export function getGitDiffNumstat(ref: string = 'HEAD'): DiffFile[] {
   try {
     // SECURITY: Use execFileSync with args array instead of shell string
     // This prevents command injection via the ref parameter
+    // stdio must be fully piped: execFileSync otherwise forwards git's stderr
+    // straight to the parent's terminal AND leaves err.stderr null, so the
+    // thrown error below would carry no explanation of what git objected to.
     const numstatOutput = execFileSync('git', [
       'diff', '--numstat', '--diff-filter=ACDMRTUXB', ref
-    ], { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+    ], { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
 
     const statusOutput = execFileSync('git', [
       'diff', '--name-status', ref
-    ], { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+    ], { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
 
     const output = numstatOutput + '---STATUS---' + statusOutput;
 
@@ -465,9 +468,24 @@ export function getGitDiffNumstat(ref: string = 'HEAD'): DiffFile[] {
     diffCache.set(cacheKey, { files, timestamp: Date.now() });
 
     return files;
-  } catch {
-    return [];
+  } catch (e) {
+    // Do NOT return [] here. An empty array is indistinguishable from a genuinely
+    // clean diff, so a broken git invocation (not a repo, bad ref, git missing)
+    // used to surface as "low risk, 0 files changed". Callers (analyze_* MCP
+    // tools) already convert a throw into an explicit error response.
+    throw new Error(`git diff failed for ref "${ref}": ${describeGitError(e)}`);
   }
+}
+
+/**
+ * Extract a useful message from an execFile error, preferring git's own stderr.
+ */
+function describeGitError(e: unknown): string {
+  const err = e as { stderr?: unknown; message?: unknown } | null;
+  const stderr = err && typeof err.stderr === 'string' ? err.stderr.trim() : '';
+  if (stderr) return stderr.split('\n')[0].slice(0, 300);
+  const msg = err && typeof err.message === 'string' ? err.message : String(e);
+  return msg.slice(0, 300);
 }
 
 /**
@@ -536,8 +554,9 @@ export async function getGitDiffNumstatAsync(ref: string = 'HEAD'): Promise<Diff
 
     diffCache.set(cacheKey, { files, timestamp: Date.now() });
     return files;
-  } catch {
-    return [];
+  } catch (e) {
+    // See getGitDiffNumstat: a git failure must not look like a clean diff.
+    throw new Error(`git diff failed for ref "${ref}": ${describeGitError(e)}`);
   }
 }
 

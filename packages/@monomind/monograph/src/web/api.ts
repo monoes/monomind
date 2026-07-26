@@ -95,23 +95,27 @@ export function queryGraphData(db: Database.Database): GraphData {
 
   const edges: ApiEdge[] = [];
   if (nodeIds.size > 0) {
-    // Scan edges and keep those where at least one endpoint is a visible node
+    // Use a temp table so SQLite filters edges instead of scanning full table in JS
+    db.exec('CREATE TEMP TABLE IF NOT EXISTS _vis_nodes (id TEXT PRIMARY KEY)');
+    db.exec('DELETE FROM _vis_nodes');
+    const insertVis = db.prepare('INSERT OR IGNORE INTO _vis_nodes (id) VALUES (?)');
+    const insertAll = db.transaction((ids: string[]) => { for (const id of ids) insertVis.run(id); });
+    insertAll([...nodeIds]);
+
     const edgeRows = db
-      .prepare('SELECT source_id, target_id, relation, confidence_score FROM edges')
+      .prepare(`SELECT e.source_id, e.target_id, e.relation, e.confidence_score FROM edges e
+        JOIN _vis_nodes s ON e.source_id = s.id
+        JOIN _vis_nodes t ON e.target_id = t.id
+        LIMIT 10000`)
       .all() as Record<string, unknown>[];
 
     for (const r of edgeRows) {
-      const src = r['source_id'] as string;
-      const tgt = r['target_id'] as string;
-      if (nodeIds.has(src) && nodeIds.has(tgt)) {
-        edges.push({
-          sourceId: src,
-          targetId: tgt,
-          relation: r['relation'] as string,
-          confidenceScore: r['confidence_score'] as number,
-        });
-        if (edges.length >= 10000) break;
-      }
+      edges.push({
+        sourceId: r['source_id'] as string,
+        targetId: r['target_id'] as string,
+        relation: r['relation'] as string,
+        confidenceScore: r['confidence_score'] as number,
+      });
     }
   }
 

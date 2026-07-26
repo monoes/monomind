@@ -4,7 +4,7 @@
  * Persists at ~/.monograph/registry.json and tracks all repos indexed by monograph.
  */
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { homedir } from 'os';
 
@@ -67,7 +67,6 @@ export function saveRegistry(registry: RepoRegistry): void {
   const tmpPath = registryPath + '.tmp';
   writeFileSync(tmpPath, JSON.stringify(registry, null, 2), 'utf8');
   // Rename is atomic on POSIX systems
-  const { renameSync } = require('fs') as typeof import('fs');
   renameSync(tmpPath, registryPath);
 }
 

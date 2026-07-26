@@ -87,39 +87,55 @@ const knowledgeSearch: MCPTool = {
       limit: { type: 'number', description: 'Max results (default: 10)' },
       minScore: { type: 'number', description: 'Minimum similarity threshold (default: 0.3)' },
       surfaces: { type: 'array', items: { type: 'string' }, description: "Override routing: any of 'chunks','kg','rules','memory'" },
+      includeSuperseded: { type: 'boolean', description: 'Also return chunks from older, re-ingested versions of a document (flagged superseded). Default false.' },
     },
     required: ['query'],
   },
   handler: async (input): Promise<MCPToolResult> => {
     const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
-    const { routeQuery, rrfFuse } = await import('../memory/query-router.js');
+    const { routeQuery, rrfFuse, recordRouteOverride } = await import('../memory/query-router.js');
 
     try {
       const query = String(input.query);
       const limit = input.limit ? Number(input.limit) : 10;
       const route = routeQuery(query);
-      const surfaces = Array.isArray(input.surfaces) && (input.surfaces as string[]).length
+      const explicitSurfaces = Array.isArray(input.surfaces) && (input.surfaces as string[]).length
         ? (input.surfaces as string[])
-        : (route.confident ? route.surfaces : ['chunks', ...route.surfaces.filter(s => s !== 'chunks')]);
+        : null;
+      const surfaces = explicitSurfaces
+        ?? (route.confident ? route.surfaces : ['chunks', ...route.surfaces.filter(s => s !== 'chunks')]);
+
+      const chunkOpts = {
+        scope: input.scope ? String(input.scope) : undefined,
+        limit,
+        minScore: input.minScore ? Number(input.minScore) : undefined,
+        includeSuperseded: input.includeSuperseded === true,
+      };
 
       const bridge = await import('../memory/memory-bridge.js');
       const kg = await import('../memory/memory-kg.js');
       const [excerpts, graph, rules, memories] = await Promise.all([
-        surfaces.includes('chunks')
-          ? searchKnowledge(query, {
-              scope: input.scope ? String(input.scope) : undefined,
-              limit,
-              minScore: input.minScore ? Number(input.minScore) : undefined,
-            })
-          : [],
+        surfaces.includes('chunks') ? searchKnowledge(query, chunkOpts) : [],
         surfaces.includes('kg') ? kg.kgSearch({ query, limit: 6 }) : null,
         surfaces.includes('rules') ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 3, threshold: 0.35 }) : null,
         surfaces.includes('memory') ? bridge.bridgeSearchEntries({ query, namespace: 'patterns', limit: 3 }) : null,
       ]);
 
+      // Confident non-chunk routing against an empty surface (e.g. a project
+      // with no KG yet) must not read as "no knowledge" — fall back to chunks.
+      // Same rule the CLI `doc search` path applies; without it agents got
+      // "no results" where the CLI returned document excerpts.
+      let fellBack = false;
+      let chunkExcerpts = excerpts;
+      if (!explicitSurfaces && !chunkExcerpts.length && !(graph?.triplets?.length) && !(rules?.results?.length) && !(memories?.results?.length) && !surfaces.includes('chunks')) {
+        fellBack = true;
+        recordRouteOverride(surfaces[0] as 'chunks' | 'kg' | 'rules' | 'memory', 'chunks');
+        chunkExcerpts = await searchKnowledge(query, chunkOpts);
+      }
+
       // Rank-fuse heterogeneous lists (raw scores aren't comparable).
       const fused = rrfFuse([
-        excerpts.map(e => ({ id: e.id || `${e.filePath}#${e.chunkIndex}`, kind: 'excerpt' as const, ...e })),
+        chunkExcerpts.map(e => ({ id: e.id || `${e.filePath}#${e.chunkIndex}`, kind: 'excerpt' as const, ...e })),
         (graph?.triplets ?? []).map((t, i) => ({ id: `kg:${i}:${t.source}|${t.relation}|${t.target}`, kind: 'triplet' as const, ...t })),
         (rules?.results ?? []).map(r => ({ id: r.id, kind: 'rule' as const, key: r.key, text: r.content, importance: 0.7 })),
         (memories?.results ?? []).map(r => ({ id: r.id, kind: 'memory' as const, key: r.key, text: r.content })),
@@ -131,10 +147,10 @@ const knowledgeSearch: MCPTool = {
           text: JSON.stringify({
             success: true,
             count: fused.length,
-            routing: { surfaces, confident: route.confident },
+            routing: { surfaces, confident: route.confident, fellBackToChunks: fellBack },
             results: fused,
             // Back-compat: excerpt-only view for existing consumers.
-            excerpts,
+            excerpts: chunkExcerpts,
           }),
         }],
       };
