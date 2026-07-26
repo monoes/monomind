@@ -100,6 +100,9 @@ jobs:
             # node:test, not vitest, and its runner uses
             # --experimental-strip-types, which needs Node 22+.
             node: '22'
+            # `npm run build` typechecks the malformed antipattern fixtures and
+            # fails by design — see the build step below.
+            build: false
           # monobrowse's suite is deliberately browser-free: every test
           # exercises pure parsing/state/formatting logic, or (in
           # browser-launch.test.ts) only the port-scan branches that resolve
@@ -143,8 +146,16 @@ jobs:
       # Build before testing: some suites exercise build OUTPUT rather than
       # source — the CLI's knowledge-endpoint test loads dist/src/ui/server.mjs
       # and says so in its own failure message, and the stdio MCP tests spawn
-      # the built binary. monodesign has no build script, hence `|| true`.
+      # the built binary.
+      #
+      # Skipped where `build: false`. monodesign is the case: it HAS a build
+      # script, but its tsconfig covers tests/fixtures/antipatterns/**, which are
+      # deliberately malformed inputs for the detector (a tailwind.config.ts with
+      # no tailwind installed, a sample.ts with undeclared types). `tsc` exits 2
+      # on them by design, and its suite runs node:test against source anyway —
+      # nothing there needs dist.
       - name: Build ${{ matrix.name }}
+        if: matrix.build != false
         working-directory: ${{ matrix.dir }}
         run: npm run build --if-present
 
