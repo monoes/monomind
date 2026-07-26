@@ -264,13 +264,72 @@ if (isMCPMode) {
     }
     process.exit(1);
   };
+  // Not every uncaught error is a bug in monomind, and filing a PUBLIC GitHub
+  // issue for one that isn't is worse than useless — it leaks the user's paths
+  // into a tracker and buries real crashes in noise. Two classes are user
+  // environment or normal usage, never a product defect:
+  //
+  //   EPIPE / ERR_STREAM_DESTROYED — the reader closed the pipe first. This is
+  //     what `monomind hooks worker list | head` does every single time, and
+  //     what `| less` does when you quit early. Completely normal (issue #41).
+  //
+  //   ERR_MODULE_NOT_FOUND — a dependency is missing from the install: a
+  //     partial/corrupt node_modules, or the CLI being run straight out of an
+  //     extracted tarball. The user needs an actionable message, not a bug
+  //     report filed on their behalf (issues #46, #47).
+  //
+  // Anything else still reports as before.
+  const classifyFault = (err) => {
+    const code = err && err.code;
+    if (code === 'EPIPE' || code === 'ERR_STREAM_DESTROYED') return 'broken-pipe';
+    if (code === 'ERR_MODULE_NOT_FOUND') return 'missing-dependency';
+    return 'crash';
+  };
+
+  /** Handles the non-bug classes. Returns true if it fully handled the error. */
+  const handleExpectedFault = (err) => {
+    switch (classifyFault(err)) {
+      case 'broken-pipe':
+        // Downstream went away — there is nothing left to say and nowhere to
+        // say it. Exiting 0 keeps `monomind ... | head` from looking failed.
+        process.exit(0);
+        return true;
+      case 'missing-dependency': {
+        const pkg = /Cannot find package '([^']+)'/.exec(safeMsg(err && err.message))?.[1];
+        console.error(
+          pkg
+            ? `[monomind] Missing dependency: ${pkg}\n` +
+                `  This is an install problem, not a crash — nothing was reported.\n` +
+                `  Try: npm install ${pkg}   (or reinstall monomind: npm i -g monomind@latest)`
+            : `[monomind] A dependency could not be resolved: ${safeMsg(err && err.message)}\n` +
+                `  This is an install problem, not a crash — nothing was reported.`,
+        );
+        if (process.env.DEBUG) console.error(err && err.stack);
+        process.exit(1);
+        return true;
+      }
+      default:
+        return false;
+    }
+  };
+
+  // Belt and braces for the pipe case: handling 'error' on the streams keeps a
+  // mid-write EPIPE from becoming an uncaughtException at all.
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on('error', (err) => {
+      if (classifyFault(err) === 'broken-pipe') process.exit(0);
+    });
+  }
+
   process.on('uncaughtException', (err) => {
+    if (handleExpectedFault(err)) return;
     console.error(`[${new Date().toISOString()}] FATAL [monomind] uncaughtException: ${safeMsg(err && err.message)}`);
     if (process.env.DEBUG) console.error(err && err.stack);
     reportAndExit(safeMsg(err && err.message) || 'uncaughtException', err && err.stack);
     return;
   });
   process.on('unhandledRejection', (reason) => {
+    if (reason instanceof Error && handleExpectedFault(reason)) return;
     const msg = reason instanceof Error ? reason.message : String(reason);
     console.error(`[${new Date().toISOString()}] FATAL [monomind] unhandledRejection: ${safeMsg(msg)}`);
     if (process.env.DEBUG && reason instanceof Error) console.error(reason.stack);
