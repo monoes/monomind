@@ -368,8 +368,23 @@ function _graphGateWriteSessions(sessions) {
 // one is reclaimed, we still perform an atomic-rename write — no worse than the
 // old behavior, and never a hang. Hooks run on every tool call, so the total
 // wait is deliberately tiny.
-var _GRAPH_GATE_LOCK_TIMEOUT_MS = 250;
+// The acquire budget MUST exceed the stale threshold. It used to be 250ms
+// against a 2000ms stale window, which had two consequences:
+//
+//   1. A writer that could not get the lock within 250ms gave up and wrote
+//      UNLOCKED — precisely the lost-update this lock exists to prevent. CI
+//      landed 9 of 16 concurrent writers; a fast machine hides it, because the
+//      critical section is microseconds and the budget is never exhausted.
+//   2. The stale-reclaim branch below was nearly unreachable. Reclaiming needs
+//      the lock to be older than 2000ms, but we stopped waiting after 250ms, so
+//      a crashed holder's lock was almost never actually reclaimed.
+//
+// With the budget above the stale window both paths work: a live holder is
+// waited out (its critical section is a single read-modify-write), and a dead
+// holder's lock is reclaimed at 2s and then taken. The waiting only happens
+// under real contention — an uncontended acquire is one mkdir.
 var _GRAPH_GATE_LOCK_STALE_MS = 2000;
+var _GRAPH_GATE_LOCK_TIMEOUT_MS = 3000;
 
 function _sleepSync(ms) {
   try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch (e) { /* no SAB */ }
