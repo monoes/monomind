@@ -112,7 +112,23 @@ describe('live-poll --stream integration', () => {
   after(async () => {
     if (server?.proc && !server.proc.killed) {
       await stopServer(server.port, server.token);
+      // Wait for the exit, don't just signal it: Windows will not remove a
+      // directory that a live process still holds handles into, so the rmSync
+      // below failed with EBUSY. Escalate if SIGTERM is ignored.
+      const exited = new Promise((resolve) => server.proc.once('exit', resolve));
       server.proc.kill('SIGTERM');
+      let timer;
+      await Promise.race([
+        exited,
+        new Promise((resolve) => {
+          timer = setTimeout(() => {
+            try { server.proc.kill('SIGKILL'); } catch { /* already gone */ }
+            resolve();
+          }, 5000);
+        }),
+      ]);
+      clearTimeout(timer);
+      await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 1000))]);
     }
     if (serverCwd) rmSync(serverCwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
