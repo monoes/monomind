@@ -114,44 +114,61 @@ jobs:
           - name: monofence-ai
             pkg: 'monofence-ai'
             dir: packages/monofence-ai
+          - name: monodesign
+            pkg: '@monoes/monodesign'
+            dir: packages/@monoes/monodesign
+          - name: monobrowse
+            pkg: '@monoes/monobrowse'
+            dir: packages/@monoes/monobrowse
+            test: 'skip'
 
     # WINDOWS COVERAGE, HONESTLY SCOPED.
     #
     # Everything in this repo had only ever run on macOS and Linux. A discovery
-    # probe across all nine packages found four that genuinely pass on Windows —
-    # 356 tests — and five that cannot yet, for three distinct reasons. Gating
-    # the four is real coverage. Adding the other five would make this job
-    # permanently red, and a job that always fails is one people learn to
-    # ignore.
+    # probe across all nine packages found which ones genuinely pass on Windows
+    # and which cannot yet. Gating the ones that pass is real coverage; adding
+    # the rest would make this job permanently red, and a job that always fails
+    # is one people learn to ignore.
     #
-    # EXCLUDED, each with its reason:
+    # STILL EXCLUDED:
     #
-    #   cli, monobrowse   POSIX-only build scripts (recursive delete, mkdir -p,
-    #                     cp). npm runs scripts through cmd.exe on Windows,
-    #                     which answers "The syntax of the command is
-    #                     incorrect". 7 of 8 packages have this shape, so
-    #                     monomind cannot currently be BUILT on Windows at all.
-    #                     Fixing it means cross-platform script tooling —
-    #                     separate work, tracked as a follow-up.
-    #
-    #   monograph, memory Need native modules (tree-sitter grammars,
-    #                     better-sqlite3). node-gyp's Visual Studio detection is
+    #   cli, monograph,   Need native modules (tree-sitter grammars,
+    #   memory            better-sqlite3). node-gyp's Visual Studio detection is
     #                     broken on this runner image: it throws
     #                     ERR_CHILD_PROCESS_STDIO_MAXBUFFER inside its find-VS
     #                     module and concludes no VS exists — on an image that
     #                     ships VS 2022. GYP_MSVS_VERSION does not help, because
-    #                     the throw happens before the hint is read.
+    #                     the throw happens before the hint is read. (cli depends
+    #                     on both, so filtering it in pulls them along.)
     #
-    #   monodesign        Its test command runs ZERO tests on Windows and exits
-    #                     0: `node --test 'tests/*.test.*'` relies on POSIX glob
-    #                     expansion. A suite that passes without running
-    #                     anything is worse than one that fails, so it stays out
-    #                     until the glob is portable.
+    # RESOLVED, and now gated here rather than described as broken:
     #
-    # --ignore-scripts is deliberate: none of these four need a native build,
-    # and skipping it sidesteps the node-gyp failure above. hooks reports ~9
-    # skips here by design — its permission tests skip loudly where chmod 000
-    # does not deny reads, rather than passing vacuously.
+    #   monodesign        Used to run ZERO tests on Windows and exit 0 —
+    #                     `node --test 'tests/*.test.*'` relies on POSIX glob
+    #                     expansion, and cmd.exe passes the single quotes
+    #                     through, so the pattern matched nothing. It now runs
+    #                     via scripts/run-tests.mjs, which fails if the suite
+    #                     executed no tests. That guard is why monodesign can be
+    #                     gated at all: a green suite that ran nothing is worse
+    #                     than a red one.
+    #
+    #   POSIX-only builds Every package's build used recursive delete, mkdir -p
+    #                     and cp directly. npm runs script bodies through
+    #                     cmd.exe on Windows — regardless of the shell: below —
+    #                     which answers "The syntax of the command is
+    #                     incorrect", so monomind could not be BUILT on Windows
+    #                     at all. All seven now call scripts/build-fs.mjs
+    #                     (Node's own fs, no new dependency). The build step
+    #                     below is what keeps that true; it runs under
+    #                     shell: cmd so there is no ambiguity about which shell
+    #                     is being exercised. monobrowse is in the matrix for
+    #                     the build check only (test: 'skip') — its suite drives
+    #                     a real browser, which is separate work.
+    #
+    # --ignore-scripts is deliberate: none of these need a native build, and
+    # skipping it sidesteps the node-gyp failure above. hooks reports ~9 skips
+    # here by design — its permission tests skip loudly where chmod 000 does not
+    # deny reads, rather than passing vacuously.
     steps:
       - uses: actions/checkout@v4
 
@@ -188,7 +205,20 @@ jobs:
         shell: bash
         run: pnpm install --no-frozen-lockfile --ignore-scripts --filter "${{ matrix.pkg }}..."
 
+      # Deliberately shell: cmd. This is the step that proves the build scripts
+      # are portable, so it must run through the shell that used to break them
+      # rather than through git-bash, where POSIX commands would have worked and
+      # the check would prove nothing.
+      - name: Build ${{ matrix.name }} on cmd.exe
+        working-directory: ${{ matrix.dir }}
+        shell: cmd
+        run: npm run build
+
+      # matrix.test is compared as a string on purpose: an unset matrix key is
+      # null, and `null != false` is true, so a boolean flag here would silently
+      # never skip anything.
       - name: Run ${{ matrix.name }} tests
+        if: matrix.test != 'skip'
         working-directory: ${{ matrix.dir }}
         shell: bash
         run: npm test
