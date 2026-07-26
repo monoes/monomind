@@ -24,7 +24,9 @@
     "dist"
   ],
   "scripts": {
+    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "test:watch": "vitest watch",
