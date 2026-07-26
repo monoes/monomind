@@ -6,5 +6,15 @@ export default defineConfig({
     include: ['src/__tests__/**/*.test.ts'],
     exclude: ['**/._*', '**/node_modules/**'],
     testTimeout: 10000,
+    // Off by default to keep the edit/test loop fast; run
+    // `npm run test:coverage` (or pass --coverage) to measure.
+    coverage: {
+      enabled: false,
+      provider: 'v8',
+      reporter: ['text-summary', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/__tests__/**', 'src/**/*.d.ts'],
+    },
   },
 });

@@ -61,24 +61,55 @@ describe('LLMFallbackRouter', () => {
     expect(result.agentSlug).toBe('tester');
   });
 
-  it('falls back to nearest semantic match on LLM error', async () => {
+  // A failed LLM call must NOT be reported as a successful llm_fallback.
+  // These three branches return the nearest *semantic* match with the encoder
+  // cosine score as confidence, so they are labelled 'semantic_degraded'.
+  // Previously all three returned 'llm_fallback', making an errored/garbage
+  // LLM response indistinguishable from a real classification.
+  it('reports semantic_degraded (not llm_fallback) on LLM error', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const router = makeFallback(new Error('API timeout'));
     const result = await router.classify('some task', testRoutes, defaultScores);
     expect(result.agentSlug).toBe('coder'); // nearest from scores[0]
     expect(result.confidence).toBe(0.3);
-    expect(result.method).toBe('llm_fallback');
+    expect(result.method).toBe('semantic_degraded');
+    expect(result.method).not.toBe('llm_fallback');
+    errSpy.mockRestore();
   });
 
-  it('falls back on invalid slug format', async () => {
+  it('reports semantic_degraded on invalid slug format', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const router = makeFallback('not a valid slug!!!');
     const result = await router.classify('some task', testRoutes, defaultScores);
     expect(result.agentSlug).toBe('coder'); // falls back to nearest
+    expect(result.method).toBe('semantic_degraded');
+    expect(result.confidence).toBe(0.3);
+    errSpy.mockRestore();
   });
 
-  it('falls back on unknown slug', async () => {
+  it('reports semantic_degraded on unknown slug', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const router = makeFallback('nonexistent-agent');
     const result = await router.classify('some task', testRoutes, defaultScores);
     expect(result.agentSlug).toBe('coder'); // falls back to nearest
+    expect(result.method).toBe('semantic_degraded');
+    expect(result.confidence).toBe(0.3);
+    errSpy.mockRestore();
+  });
+
+  it('only reports llm_fallback when the LLM answer was actually used', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ok = await makeFallback('reviewer').classify('x', testRoutes, defaultScores);
+    expect(ok.method).toBe('llm_fallback');
+    expect(ok.confidence).toBe(0.85);
+
+    for (const bad of [new Error('boom'), '!!!', 'ghost-agent'] as const) {
+      const r = await makeFallback(bad).classify('x', testRoutes, defaultScores);
+      expect(r.method).not.toBe('llm_fallback');
+      // confidence is the encoder score, never the 0.85 LLM-success constant
+      expect(r.confidence).not.toBe(0.85);
+    }
+    errSpy.mockRestore();
   });
 
   it('tracks fallback counts', async () => {

@@ -37,42 +37,40 @@ export class LLMFallbackRouter {
     const candidateHints = buildCandidateHints(scores);
     const prompt = buildClassificationPrompt(taskDescription, capabilityIndex, candidateHints);
 
+    // Every branch below where the LLM does not yield a usable slug returns
+    // the nearest *semantic* match. That result must not be labelled
+    // 'llm_fallback' — no LLM answer was used, and `confidence` is the encoder
+    // cosine score, not an LLM confidence. Labelling it 'llm_fallback' made a
+    // failed fallback indistinguishable from a successful one at every call
+    // site, including the `monomind route` output box.
+    const degraded = (): RouteResult => ({
+      agentSlug: nearestRoute.agentSlug,
+      confidence: nearestRoute.score,
+      method: 'semantic_degraded',
+      routeName: nearestRoute.routeName,
+    });
+
     // Call LLM
     let rawResponse: string;
     try {
       rawResponse = await this.config.llmCaller(prompt);
     } catch (err) {
       console.error('[LLMFallback] LLM call failed, using best semantic match:', err);
-      return {
-        agentSlug: nearestRoute.agentSlug,
-        confidence: nearestRoute.score,
-        method: 'llm_fallback',
-        routeName: nearestRoute.routeName,
-      };
+      return degraded();
     }
 
     // Parse and validate the slug
     const slug = rawResponse.trim().replace(/[`'"]/g, '').toLowerCase();
     if (!SLUG_PATTERN.test(slug)) {
       console.error(`[LLMFallback] Invalid slug in LLM response: "${slug}"`);
-      return {
-        agentSlug: nearestRoute.agentSlug,
-        confidence: nearestRoute.score,
-        method: 'llm_fallback',
-        routeName: nearestRoute.routeName,
-      };
+      return degraded();
     }
 
     // Verify slug exists in routes — compare case-insensitively since slug is lowercased
     const matchedRoute = routes.find(r => r.agentSlug.toLowerCase() === slug);
     if (!matchedRoute) {
       console.error(`[LLMFallback] LLM returned unknown slug: "${slug}"`);
-      return {
-        agentSlug: nearestRoute.agentSlug,
-        confidence: nearestRoute.score,
-        method: 'llm_fallback',
-        routeName: nearestRoute.routeName,
-      };
+      return degraded();
     }
 
     return {

@@ -1,0 +1,122 @@
+name: Tests
+
+# Runs the root suite AND every package suite.
+#
+# Why this workflow exists: before it, no test ever ran in CI.
+#
+#   1. The only unit-test job lived in agent-regression.yml, whose `on:` filter
+#      restricted it to four paths (cli/src/agents/**, routing/src/**,
+#      hooks/src/**, tests/benchmarks/**). Changes anywhere else — including
+#      most of packages/@monomind/cli/src — triggered nothing.
+#   2. That job ran `npx vitest run` from the repo root, whose vitest config
+#      includes only `tests/**`. So even when it did fire, none of the package
+#      suites (~1,200 CLI, 1,113 monograph, 124 memory, 94 routing, 71 mcp,
+#      43 hooks) executed.
+#   3. Both jobs installed with `npm ci`, which requires a package-lock.json.
+#      This repo is pnpm-based and has none, so the install step could not have
+#      succeeded regardless. Run history confirms the workflow never completed.
+#
+# Hence `npm install` below, matching publish-smoke-test.yml — the one workflow
+# that demonstrably works.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  root:
+    name: Root suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run root tests
+        run: npx vitest run --reporter=verbose
+        env:
+          CI: true
+
+  packages:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      # One package failing must not hide the state of the others.
+      fail-fast: false
+      matrix:
+        include:
+          - name: cli
+            dir: packages/@monomind/cli
+          - name: monograph
+            dir: packages/@monomind/monograph
+          - name: memory
+            dir: packages/@monomind/memory
+          - name: mcp
+            dir: packages/@monomind/mcp
+          - name: routing
+            dir: packages/@monomind/routing
+          - name: hooks
+            dir: packages/@monomind/hooks
+          - name: monofence-ai
+            dir: packages/monofence-ai
+          - name: monobrowse
+            dir: packages/@monoes/monobrowse
+          - name: monodesign
+            dir: packages/@monoes/monodesign
+            # node:test, not vitest, and its runner uses
+            # --experimental-strip-types, which needs Node 22+.
+            node: '22'
+          # monobrowse's suite is deliberately browser-free: every test
+          # exercises pure parsing/state/formatting logic, or (in
+          # browser-launch.test.ts) only the port-scan branches that resolve
+          # before a Chrome binary would ever be exec'd. No Chrome needed.
+          #
+          # The note that used to sit here claimed three monodesign suites
+          # "need a real browser and a live server", and none of that held up:
+          #   * live-server / live-poll-stream start their own server. They
+          #     failed only because they hardcoded ports (8499/8498) that a
+          #     server leaked by an earlier run of those same tests still held.
+          #     They now let the server pick a free port.
+          #   * detect-antipatterns-browser needed no provisioning either. Its
+          #     two failures were one real bug: image-missing-dimensions ran
+          #     against every element instead of just <img>, so <head>/<meta>/
+          #     <title>/<style> were all flagged. That inflated a clean fixture
+          #     to 43 findings and left 33 stale overlays that broke a second,
+          #     seemingly-unrelated test. Fixed in cli/engine/rules/checks.mjs.
+          # The full suite (1,023 tests) now runs here. The browser tests
+          # already pass --no-sandbox when CI is set, which the env below does.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Packages that need a newer runtime set `node` in the matrix.
+          node-version: ${{ matrix.node || '20' }}
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install package dependencies
+        working-directory: ${{ matrix.dir }}
+        run: npm install
+
+      - name: Run ${{ matrix.name }} tests
+        working-directory: ${{ matrix.dir }}
+        run: ${{ matrix.cmd || 'npm test' }}
+        env:
+          CI: true

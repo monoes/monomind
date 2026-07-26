@@ -34,11 +34,15 @@ jobs:
           cache: 'npm'
 
       - name: Install root dependencies
-        run: npm ci
+        # npm install, not npm ci — this is a pnpm repo with no
+        # package-lock.json, which `npm ci` requires.
+        run: npm install
 
       - name: Install CLI package dependencies
         working-directory: packages/@monomind/cli
-        run: npm ci
+        # npm install, not npm ci — this is a pnpm repo with no
+        # package-lock.json, which `npm ci` requires.
+        run: npm install
 
       - name: Build CLI package
         working-directory: packages/@monomind/cli
@@ -69,34 +73,8 @@ jobs:
           CI: true
         continue-on-error: true
 
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run unit tests
-        run: npx vitest run --reporter=verbose
-        env:
-          CI: true
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            coverage/
-            test-results/
-          retention-days: 7
+  # The former `unit-tests` job moved to tests.yml. It could never have worked
+  # here: this workflow's `on:` filter limits it to four paths, and the job
+  # installed with `npm ci` against a pnpm repo that has no package-lock.json.
+  # tests.yml runs on every PR/push and covers the root suite plus each
+  # package suite.
