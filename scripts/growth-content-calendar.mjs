@@ -30,17 +30,20 @@ function parseArticles(text, org) {
     const [, slug, title] = m;
     let heroImage = null;
     let supportingImages = [];
+    let diagrams = [];
     const bodyLines = [];
     for (const line of lines.slice(1)) {
       const heroMatch = line.match(/^HeroImage:\s*(.+?)\s*$/i);
       const suppMatch = line.match(/^SupportingImages:\s*(.+?)\s*$/i);
+      const diagMatch = line.match(/^Diagrams:\s*(.+?)\s*$/i);
       if (heroMatch) { heroImage = heroMatch[1]; continue; }
       if (suppMatch) { supportingImages = suppMatch[1].split(',').map((s) => s.trim()).filter(Boolean); continue; }
+      if (diagMatch) { diagrams = diagMatch[1].split(',').map((s) => s.trim()).filter(Boolean); continue; }
       bodyLines.push(line);
     }
     const body = bodyLines.join('\n').trim();
     if (!body) continue;
-    articles.push({ org, slug: slug.trim(), title: title.trim(), heroImage, supportingImages, body });
+    articles.push({ org, slug: slug.trim(), title: title.trim(), heroImage, supportingImages, diagrams, body });
   }
   return articles;
 }
@@ -80,15 +83,25 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function mdToHtml(md) {
-  // Minimal renderer: paragraphs, headings, code fences, bold/italic, links, tables.
-  return escapeHtml(md)
+function mdToHtml(md, copiedSet) {
+  // Minimal renderer: paragraphs, headings, code fences, bold/italic, inline images, tables.
+  const figures = [];
+  const placeholder = (i) => `[[[FIGURE-${i}]]]`;
+  const withPlaceholders = md.replace(/!\[(.*?)\]\((?:\.\/)?(.*?)\)/g, (_, alt, src) => {
+    const idx = figures.length;
+    const visible = copiedSet.has(src);
+    figures.push(visible ? `<figure class="inline-diagram"><img src="./${escapeHtml(src)}" alt="${escapeHtml(alt)}"><figcaption>${escapeHtml(alt)}</figcaption></figure>` : '');
+    return placeholder(idx);
+  });
+  let html = escapeHtml(withPlaceholders)
     .replace(/^### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^## (.+)$/gm, '<h3>$1</h3>')
     .replace(/^# (.+)$/gm, '<h2>$1</h2>')
     .replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code}</code></pre>`)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n\n/g, '</p><p>');
+  figures.forEach((fig, i) => { html = html.replace(placeholder(i), fig); });
+  return html;
 }
 
 function render() {
@@ -121,7 +134,7 @@ function render() {
   // copy every referenced image (article hero/supporting + post images) alongside html/md
   const copied = new Set();
   const allImageNames = new Set([
-    ...articles.flatMap((a) => [a.heroImage, ...a.supportingImages].filter(Boolean)),
+    ...articles.flatMap((a) => [a.heroImage, ...a.supportingImages, ...a.diagrams].filter(Boolean)),
     ...posts.map((p) => p.image).filter(Boolean),
   ]);
   for (const name of allImageNames) {
@@ -172,12 +185,14 @@ function render() {
   function articleCard(a) {
     const img = a.heroImage && copied.has(a.heroImage) ? `<img class="hero" src="./${escapeHtml(a.heroImage)}" alt="">` : '';
     const supp = a.supportingImages.filter((n) => copied.has(n)).map((n) => `<img class="supporting" src="./${escapeHtml(n)}" alt="">`).join('');
+    const missingDiagrams = a.diagrams.filter((n) => !copied.has(n));
     return `<div class="article">
       <div class="article-slug">${escapeHtml(a.slug)}</div>
       <h3 class="article-title">${escapeHtml(a.title)}</h3>
       ${img}
       ${supp ? `<div class="supporting-row">${supp}</div>` : ''}
-      <div class="article-body"><p>${mdToHtml(a.body)}</p></div>
+      <div class="article-body"><p>${mdToHtml(a.body, copied)}</p></div>
+      ${missingDiagrams.length ? `<div class="missing-note">Missing diagram file(s) referenced but not found: ${missingDiagrams.map(escapeHtml).join(', ')}</div>` : ''}
     </div>`;
   }
 
@@ -211,6 +226,11 @@ main { max-width:860px; margin:0 auto; padding:0 1.5rem 4rem; }
 .supporting-row img { width:100%; border-radius:8px; }
 .article-body { font-size:.92rem; color:var(--text); }
 .article-body p { white-space:pre-wrap; }
+.article-body h2, .article-body h3, .article-body h4 { white-space:normal; }
+.inline-diagram { margin:1.2rem 0; }
+.inline-diagram img { width:100%; border-radius:8px; background:var(--espresso); }
+.inline-diagram figcaption { font-size:.78rem; color:var(--muted); margin-top:.3rem; text-align:center; }
+.missing-note { margin-top:1rem; padding:.6rem .8rem; border:1px dashed var(--border); border-radius:8px; font-size:.78rem; color:var(--muted); }
 .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.3rem; margin-bottom:1rem; }
 .channel { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); margin-bottom:.6rem; }
 .based-on { font-weight:400; text-transform:none; letter-spacing:0; color:var(--muted); font-style:italic; }
@@ -231,7 +251,10 @@ ${!articles.length && !posts.length ? '<div class="empty">Nothing finalized yet 
 </body></html>`;
   fs.writeFileSync(path.join(OUT_DIR, 'content-calendar.html'), html);
 
-  console.log(`Wrote ${articles.length} article(s), ${posts.length} post(s), ${copied.size} image(s) -> ${path.relative(ROOT, OUT_DIR)}`);
+  const totalDiagrams = articles.reduce((n, a) => n + a.diagrams.length, 0);
+  const underDiagrammed = articles.filter((a) => a.diagrams.length < 2).map((a) => a.slug);
+  console.log(`Wrote ${articles.length} article(s), ${posts.length} post(s), ${copied.size} image(s) (incl. ${totalDiagrams} diagram(s)) -> ${path.relative(ROOT, OUT_DIR)}`);
+  if (underDiagrammed.length) console.log(`Note: fewer than 2 diagrams on: ${underDiagrammed.join(', ')}`);
 }
 
 render();
