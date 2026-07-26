@@ -47,7 +47,7 @@ function runInjectDefault(cwd, args) {
 describe('live-inject — insert/remove round-trip preserves file bytes', () => {
   let tmp;
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'monodesign-inject-test-')); });
-  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
+  afterEach(() => { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
   it('reports .monodesign/live/config.json as the default missing config path', () => {
     const result = runInjectDefault(tmp, ['--check']);

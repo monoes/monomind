@@ -32,7 +32,7 @@ function runAccept(cwd, args) {
 describe('live-accept — style-element edge cases', () => {
   let tmp;
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'monodesign-accept-test-')); });
-  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
+  afterEach(() => { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
   // Historical bug: extractVariant flipped into "inStyle" mode on <style and
   // scanned for </style> line-by-line. JSX self-closing <style ... /> has no
@@ -478,7 +478,7 @@ ${extraAttrs}
 describe('live-accept — insert sessions', () => {
   let tmp;
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'monodesign-accept-insert-')); });
-  afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
+  afterEach(() => { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
   const insertHtml = (id) => `<main>
   <section class="hero">Hero block</section>

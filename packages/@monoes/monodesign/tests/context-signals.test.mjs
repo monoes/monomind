@@ -27,7 +27,7 @@ beforeEach(() => {
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'monodesign-signals-'));
 });
 afterEach(() => {
-  fs.rmSync(scratch, { recursive: true, force: true });
+  fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 function write(rel, body) {

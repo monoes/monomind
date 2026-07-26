@@ -45,7 +45,7 @@ async function withStaticFixture(files, callback) {
   try {
     return await callback(fixture);
   } finally {
-    fs.rmSync(fixture.dir, { recursive: true, force: true });
+    fs.rmSync(fixture.dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 
@@ -1054,7 +1054,7 @@ rounded:
       const rawIds = JSON.parse(raw.stdout).map((finding) => finding.antipattern);
       expect(rawIds.some((id) => id.startsWith('design-system-'))).toBe(false);
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1127,7 +1127,7 @@ colors:
       expect(emptyInline.code).toBe(1);
       expect(emptyInline.stderr).toContain('--scope requires a value');
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 
@@ -1161,7 +1161,7 @@ rounded:
       const ids = JSON.parse(result.stdout).map((finding) => finding.antipattern);
       expect(ids.some((id) => id.startsWith('design-system-'))).toBe(false);
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 

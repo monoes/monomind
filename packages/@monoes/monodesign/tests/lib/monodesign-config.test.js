@@ -21,7 +21,7 @@ import {
 describe('cli/lib/monodesign-config', () => {
   let root;
   beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'imp-cfg-')); });
-  afterEach(() => rmSync(root, { recursive: true, force: true }));
+  afterEach(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   test('getHookConsent is undefined until a decision is recorded, then round-trips', () => {
     expect(getHookConsent(root)).toBeUndefined();

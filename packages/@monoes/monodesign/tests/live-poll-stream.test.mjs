@@ -114,7 +114,7 @@ describe('live-poll --stream integration', () => {
       await stopServer(server.port, server.token);
       server.proc.kill('SIGTERM');
     }
-    if (serverCwd) rmSync(serverCwd, { recursive: true, force: true });
+    if (serverCwd) rmSync(serverCwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('emits multiple steer events without restarting the poll process', async () => {
