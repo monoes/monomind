@@ -80,10 +80,12 @@ export class RouteLayer {
     await this.initialize();
 
     if (this.centroids.length === 0) {
+      // No routes to score and no LLM consulted — this is a degraded default,
+      // not a fallback that ran. It used to report method 'llm_fallback'.
       return {
         agentSlug: 'general-purpose',
         confidence: 0,
-        method: 'llm_fallback',
+        method: 'semantic_degraded',
         routeName: 'fallback',
       };
     }
@@ -102,11 +104,15 @@ export class RouteLayer {
     scores.sort((a, b) => b.score - a.score);
     const best = scores[0];
 
-    const method: RouteResult['method'] =
-      best.score < (best.threshold ?? globalThreshold) ? 'llm_fallback' : 'semantic';
+    const belowThreshold = best.score < (best.threshold ?? globalThreshold);
+    // Below threshold with no LLM configured means nothing escalated: the
+    // returned slug is the nearest centroid, so report it as degraded rather
+    // than as an 'llm_fallback' that never happened. (When an LLM *is*
+    // configured, classify() below owns the label.)
+    const method: RouteResult['method'] = belowThreshold ? 'semantic_degraded' : 'semantic';
 
     // Delegate to LLM fallback when below threshold and configured
-    if (method === 'llm_fallback' && this.llmFallback) {
+    if (belowThreshold && this.llmFallback) {
       const fallbackResult = await this.llmFallback.classify(taskDescription, this.config.routes, scores);
       if (this.config.debug) {
         fallbackResult.allScores = scores.map(s => ({

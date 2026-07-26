@@ -376,20 +376,20 @@ describe('Prototype Pollution Prevention', () => {
 // 8. GCS Command Injection Prevention
 // ============================================================================
 describe('GCS Storage Command Injection', () => {
-  it('should use execFileSync instead of execSync for GCS commands (fixed S-1)', () => {
-    // src/transfer/storage/gcs.ts now uses execFileSync with array args
-    // instead of execSync with string interpolation (ADR-061 S-1 fix).
+  // The ADR-061 S-1 fix hardened src/transfer/storage/gcs.ts to use
+  // execFileSync with array args instead of interpolating into execSync.
+  // That file — and the whole ~4,600-line IPFS pattern-store subtree it
+  // belonged to — was deleted in 2026-07: it was unreachable from the CLI
+  // (four-level subcommand path the dispatcher cannot resolve), gated out of
+  // the MCP surface, and pointed at a registry configured with a placeholder
+  // public key. The vulnerability class is now absent rather than mitigated.
+  //
+  // This assertion is kept as a tripwire: if the subtree is ever restored,
+  // the original injection risk must be re-reviewed rather than silently
+  // reinherited.
+  it('no longer applies — the GCS storage module was deleted with the IPFS store', () => {
     const gcsPath = path.join(__dirname, '..', 'src', 'transfer', 'storage', 'gcs.ts');
-    const content = fs.readFileSync(gcsPath, 'utf-8');
-
-    // Should use execFileSync (safe array form)
-    const usesExecFileSync = content.includes('execFileSync');
-    expect(usesExecFileSync).toBe(true);
-
-    // Should NOT use execSync with template literal interpolation
-    const usesExecSyncWithInterpolation = content.includes('execSync(') &&
-                                           content.includes('`gcloud');
-    expect(usesExecSyncWithInterpolation).toBe(false);
+    expect(fs.existsSync(gcsPath)).toBe(false);
   });
 });
 

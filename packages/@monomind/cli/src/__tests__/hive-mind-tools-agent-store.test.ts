@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { hiveMindTools } from '../mcp-tools/hive-mind-tools.js';
+import { allHiveMindTools as hiveMindTools } from '../mcp-tools/hive-mind-tools.js';
 import { getMonomindDataRoot } from '../mcp-tools/types.js';
 
 // Regression test: hive-mind_spawn and hive-mind_shutdown both mutate and

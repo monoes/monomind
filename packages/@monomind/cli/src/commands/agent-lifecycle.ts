@@ -207,8 +207,12 @@ export const listCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
+      // agent_list emits `agentId` (agent-tools.ts), not `id` — reading `id`
+      // here rendered a blank ID column for every agent. `id` is kept as a
+      // fallback because agent_pool/agent_health project the same records
+      // under that key.
       const result = await callMCPTool<{
-        agents: Array<{ id: string; agentType: string; status: 'active' | 'idle' | 'terminated'; createdAt: string; lastActivityAt?: string }>;
+        agents: Array<{ agentId?: string; id?: string; agentType: string; status: 'active' | 'idle' | 'terminated'; createdAt: string; lastActivityAt?: string }>;
         total: number;
       }>('agent_list', {
         status: ctx.flags.all ? 'all' : ctx.flags.status || undefined,
@@ -228,7 +232,7 @@ export const listCommand: Command = {
       }
 
       const displayAgents = result.agents.map(agent => ({
-        id: agent.id,
+        id: agent.agentId ?? agent.id ?? '',
         type: agent.agentType,
         status: agent.status,
         created: new Date(agent.createdAt).toLocaleTimeString(),

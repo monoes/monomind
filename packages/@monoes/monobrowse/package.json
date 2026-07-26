@@ -35,6 +35,9 @@
   },
   "scripts": {
     "build": "tsc && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -61,6 +64,7 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.4"
   }
 }

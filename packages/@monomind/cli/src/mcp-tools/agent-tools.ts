@@ -164,7 +164,7 @@ async function determineAgentModel(
 export const agentTools: MCPTool[] = [
   {
     name: 'agent_spawn',
-    description: 'Spawn a new agent with intelligent model selection',
+    description: 'Register a new agent record (type, model preference, status) in the persistent agent store. This creates a database entry, not a running agent — use Claude Code\'s Task tool to actually execute work.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -417,11 +417,14 @@ export const agentTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['status', 'scale', 'drain'], description: 'Pool action' },
+        action: { type: 'string', enum: ['status', 'scale', 'drain'], description: 'Pool action (default: status)' },
         targetSize: { type: 'number', description: 'Target pool size (for scale action)' },
         agentType: { type: 'string', description: 'Agent type filter' },
       },
-      required: ['action'],
+      // `action` is deliberately NOT required: the handler defaults it to
+      // 'status', and the CLI `agent pool` command relies on that default.
+      // It was previously declared required, which nothing enforced — once
+      // required params became enforced, that false contract broke the CLI.
     },
     handler: async (input) => {
       const action = (input.action as string) || 'status';  // Default to status

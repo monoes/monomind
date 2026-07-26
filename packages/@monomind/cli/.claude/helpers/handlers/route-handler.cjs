@@ -347,6 +347,22 @@ module.exports = {
           if (fs.existsSync(path.join(sbKnowledgeDir, 'chunks.jsonl'))) {
             var sbHits = null;
             var sbMethod = 'keyword';
+            // Which corpus answered. The two paths are NOT the same corpus and
+            // deliberately so:
+            //   'second-brain'         — the full ingested document store
+            //                            (knowledge:shared in SQLite, superseded
+            //                            versions filtered out server-side).
+            //   'project-instructions' — the keyword fallback over
+            //                            .monomind/knowledge/chunks.jsonl, which
+            //                            _autoIndexKnowledge builds from CLAUDE.md,
+            //                            CLAUDE.local.md, docs/todo.md and monograph
+            //                            god-nodes ONLY. A hook subprocess cannot
+            //                            afford the 1-3s embedding-model load the
+            //                            real store needs, so when the warm server
+            //                            is down this narrower corpus is all that is
+            //                            reachable. It is labelled in the banner
+            //                            rather than passed off as the Second Brain.
+            var sbCorpus = 'project-instructions';
 
             // Semantic path: warm control-server endpoint (strictly local traffic;
             // sbAuth is the local dashboard session value from .monomind, same one
@@ -373,6 +389,7 @@ module.exports = {
                     return { key: r.key, value: r.content, score: r.score, global: !!r.global, metadata: src ? { filePath: src.slice(4) } : {} };
                   });
                   sbMethod = sbData.method === 'semantic' ? 'semantic' : 'keyword';
+                  sbCorpus = 'second-brain';
                 }
               }
             } catch (_) { /* server down or warming — fall back below */ }
@@ -385,8 +402,16 @@ module.exports = {
               );
             }
             // Relevance floor: injecting weak matches pollutes every prompt's
-            // context — below 0.35 the excerpt is more likely noise than help.
-            if (sbHits) sbHits = sbHits.filter(function(h) { return (h.score || 0) >= 0.35; });
+            // context — configurable via .monomind/second-brain.json, default 0.35.
+            var sbFloor = 0.35;
+            var sbInjectionLimit = 5;
+            try {
+              var sbConf = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'second-brain.json'), 'utf-8'));
+              if (typeof sbConf.relevanceFloor === 'number') sbFloor = sbConf.relevanceFloor;
+              if (typeof sbConf.injectionLimit === 'number' && sbConf.injectionLimit > 0) sbInjectionLimit = sbConf.injectionLimit;
+            } catch (_) {}
+            if (sbHits) sbHits = sbHits.filter(function(h) { return (h.score || 0) >= sbFloor; });
+            if (sbHits && sbHits.length > sbInjectionLimit) sbHits = sbHits.slice(0, sbInjectionLimit);
 
             // Telemetry: append one JSONL line per evaluated prompt so the
             // thresholds above can be tuned from real usage (and misses can
@@ -408,12 +433,16 @@ module.exports = {
                 topScore: sbHits && sbHits[0] ? Number((sbHits[0].score || 0).toFixed(3)) : null,
                 promptLen: sbPrompt.length,
                 terms: _sbSubstantive.length,
+                corpus: sbCorpus,
                 injected: !!(sbHits && sbHits.length > 0),
               }) + '\n', 'utf-8');
             } catch (_) { /* telemetry never blocks */ }
 
             if (sbHits && sbHits.length > 0) {
-              var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from the project knowledge base:'];
+              var sbSource = sbCorpus === 'second-brain'
+                ? 'the Second Brain document store'
+                : 'project instructions only (CLAUDE.md/todo — Second Brain store unreachable)';
+              var sbLines = ['[SECOND_BRAIN] ' + sbHits.length + ' relevant excerpt(s) (' + sbMethod + ') from ' + sbSource + ':'];
               for (var sbI = 0; sbI < sbHits.length; sbI++) {
                 var sbH = sbHits[sbI];
                 var sbSrc = (sbH.metadata && sbH.metadata.filePath) ? String(sbH.metadata.filePath).split('/').slice(-2).join('/') : sbH.key;

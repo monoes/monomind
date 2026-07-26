@@ -1,6 +1,6 @@
 {
   "name": "@monoes/mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Standalone MCP (Model Context Protocol) server - stdio/http/websocket transports, connection pooling, tool registry",
   "main": "dist/index.js",
@@ -15,7 +15,10 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "build": "tsc"
+    "test:coverage": "vitest run --coverage",
+    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "cors": "^2.8.5",

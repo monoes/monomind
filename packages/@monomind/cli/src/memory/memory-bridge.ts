@@ -184,6 +184,18 @@ async function flushBackend(backend: any): Promise<void> {
   try { await backend?.persist?.(); } catch { /* best effort */ }
 }
 
+/** Loads the local embedding model.
+ *
+ *  This is the single point where `onnxruntime-node` enters the CLI process
+ *  (via @huggingface/transformers). Once it has run, the process is subject to
+ *  docs/adrs/ADR-R001-onnxruntime-process-teardown.md: calling process.exit()
+ *  will abort with SIGABRT ("mutex lock failed") instead of exiting cleanly,
+ *  and disposing the pipeline first does not help.
+ *
+ *  Anything that reaches this — `doctor`, `memory store`, `memory search`, the
+ *  MCP memory tools — inherits that constraint, which is why it bit commands
+ *  that look nothing like ML work. Adding a new caller is fine; adding a new
+ *  process-exit path is not. */
 async function loadEmbedder(): Promise<void> {
   if (_embedder) return;
   if (!_embedderPromise) {
@@ -417,7 +429,11 @@ export async function bridgeSearchEntries(options: {
     tags?: string[];
   }[];
   searchTime: number;
-  searchMethod?: string;
+  /** What actually ran, never what was requested. 'keyword-fallback' means the
+   *  vector path was attempted and did not produce the results. */
+  searchMethod?: 'semantic' | 'keyword' | 'keyword-fallback';
+  /** Why the vector path did not serve these results (absent when it did). */
+  fallbackReason?: 'no-embedding-model' | 'empty-query' | 'embedding-failed' | 'no-semantic-matches';
   error?: string;
 } | null> {
   const backend = await getBackend(options.dbPath);
@@ -430,9 +446,18 @@ export async function bridgeSearchEntries(options: {
     const startTime = Date.now();
 
     let results: any[] = [];
-    let searchMethod = 'keyword';
+    let searchMethod: 'semantic' | 'keyword' | 'keyword-fallback' = 'keyword';
+    // Reported to callers so "(semantic)" can never be printed over keyword hits.
+    // The two reasons for skipping the vector path are distinct and must not be
+    // conflated: a healthy model given an empty query is not a missing model.
+    let fallbackReason: 'no-embedding-model' | 'empty-query' | 'embedding-failed' | 'no-semantic-matches' | undefined =
+      !_embedder ? 'no-embedding-model'
+        : queryStr.length === 0 ? 'empty-query'
+          : undefined;
+    let semanticAttempted = false;
 
     if (_embedder && queryStr.length > 0) {
+      semanticAttempted = true;
       try {
         const queryEmbedding = await _embedder(queryStr);
         const searchResults = await backend.search(queryEmbedding, {
@@ -457,7 +482,12 @@ export async function bridgeSearchEntries(options: {
           };
         }).sort((a: any, b: any) => b.score - a.score);
         searchMethod = 'semantic';
-      } catch { /* fall through to keyword search */ }
+        fallbackReason = undefined;
+      } catch (e) {
+        // fall through to keyword search — but never claim this was semantic
+        fallbackReason = 'embedding-failed';
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] semantic search failed — falling back to keyword matching:', e);
+      }
     }
 
     // Keyword fallback — scan all entries in namespace (not just first 100)
@@ -489,14 +519,21 @@ export async function bridgeSearchEntries(options: {
             id: e.id,
             key: e.key,
             content: e.content || '',
-            score: Math.min(0.9, 0.3 + score * 0.6),
+            // Raw token-overlap fraction, NOT rescaled to look like a cosine.
+            // The old `min(0.9, 0.3 + score*0.6)` floor/ceiling made a weak
+            // keyword hit outrank a genuine cosine match (0.90 vs 0.63 for the
+            // same entry) and fed cosine-calibrated gates (memory-kg dedup)
+            // scores that never came from a vector.
+            score,
             namespace: e.namespace,
             provenance: `keyword:${score.toFixed(2)}`,
             tags: e.tags ?? [],
             _createdAt: e.createdAt || 0,
           }));
       }
-      searchMethod = 'keyword';
+      // The vector path ran and simply matched nothing — still not semantic.
+      searchMethod = semanticAttempted ? 'keyword-fallback' : 'keyword';
+      if (semanticAttempted && !fallbackReason) fallbackReason = 'no-semantic-matches';
     }
 
     // Filter stale entries based on automem config — skip for knowledge
@@ -523,6 +560,7 @@ export async function bridgeSearchEntries(options: {
       results,
       searchTime: Date.now() - startTime,
       searchMethod,
+      ...(searchMethod === 'semantic' ? {} : { fallbackReason }),
     };
   } catch {
     return null;

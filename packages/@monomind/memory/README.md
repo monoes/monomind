@@ -3,27 +3,26 @@
 [![license](https://img.shields.io/npm/l/@monoes/memory.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
 
-**Persistent memory backends for Monomind agents** — SQLite (native or WASM) key-value storage, an optional LanceDB vector backend, a pure-JS HNSW index, JSONL episodic memory, and a chunked knowledge store.
+**Persistent memory backends for Monomind agents** — SQLite (native or WASM) key-value storage with brute-force cosine vector search, a standalone pure-JS HNSW index, JSONL episodic memory, and a chunked knowledge store.
 
-> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. The only hard dependency is `sql.js` (WASM); `better-sqlite3` and `@lancedb/lancedb` are optional and loaded dynamically when installed.
+> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. The only hard dependency is `sql.js` (WASM); `better-sqlite3` is optional and loaded dynamically when installed. LanceDB support was removed — SQLite is the only backend now.
 
 ## Install
 
 ```bash
 npm install @monoes/memory
 
-# optional: native SQLite and vector search
-npm install better-sqlite3 @lancedb/lancedb apache-arrow
+# optional: native SQLite (faster than the sql.js WASM fallback)
+npm install better-sqlite3
 ```
 
 ## What's in the box
 
 | Export | What it does |
 |---|---|
-| `UnifiedMemoryService` | High-level store/get/search facade backed by `LanceDBBackend` |
-| `SQLiteBackend` / `SqlJsBackend` | Structured key-value memory (native SQLite or zero-compile WASM) |
-| `LanceDBBackend` | Vector memory via `@lancedb/lancedb` (optional dependency, loaded lazily) |
-| `HNSWIndex` | Pure-JS approximate nearest-neighbor index with quantization support |
+| `UnifiedMemoryService` | High-level store/get/search facade backed by `SQLiteBackend` |
+| `SQLiteBackend` / `SqlJsBackend` | Structured key-value memory with brute-force cosine vector search (native SQLite or zero-compile WASM) |
+| `HNSWIndex` | Pure-JS approximate nearest-neighbor index with quantization support — standalone, not wired into `SQLiteBackend.search()` (see the honesty review's HNSW growth plan for why and when to change that) |
 | `EpisodicStore` | JSON-lines episodic memory — accumulates agent runs into summarized episodes |
 | `chunkDocument`, `KnowledgeStore`, `KnowledgeRetriever` | Document chunking + retrieval for knowledge bases |
 | `QueryBuilder` / `query()` | Fluent query construction (namespace, tags, threshold, sort) |
@@ -57,14 +56,14 @@ await backend.store({
 const entry = await backend.getByKey('preferences', 'user-preference');
 ```
 
-## Vector search (optional)
+## Vector search
 
 ```typescript
 import { UnifiedMemoryService } from '@monoes/memory';
 
-// Requires @lancedb/lancedb + apache-arrow installed
+// Backed by SQLiteBackend — brute-force cosine similarity, no extra install
 const memory = new UnifiedMemoryService({
-  persistencePath: './data/lancedb',
+  persistencePath: './data/memory.db',
   dimensions: 1536,
   embeddingGenerator: async (text) => myEmbedder.embed(text),
 });

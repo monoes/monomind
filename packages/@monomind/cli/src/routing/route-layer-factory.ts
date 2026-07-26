@@ -18,10 +18,48 @@
 // loading onnxruntime in-process deterministically SIGSEGVs. The model lives
 // ONLY in embed-worker.ts, reached via the spawn below.
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-const WORKER_PATH = join(dirname(fileURLToPath(import.meta.url)), 'embed-worker.js');
+const WORKER_DIR = dirname(fileURLToPath(import.meta.url));
+
+/** Compiled worker — the only path production (dist/) ever takes. */
+const COMPILED_WORKER_PATH = join(WORKER_DIR, 'embed-worker.js');
+
+/** TypeScript sibling — only present when running from src/ (tsx, vitest). */
+const SOURCE_WORKER_PATH = join(WORKER_DIR, 'embed-worker.ts');
+
+/**
+ * Pick the argv prefix used to spawn the embedding worker.
+ *
+ * dist/: `embed-worker.js` exists → `node embed-worker.js <task>`, byte-identical
+ * to the original behaviour, no extra flags, no extra resolution.
+ *
+ * src/ (tsx / vitest): only `embed-worker.ts` exists. Node's
+ * `--experimental-strip-types` cannot run it — the worker imports
+ * `./embedder.js`, and type-stripping does no `.js`→`.ts` extension rewriting,
+ * so it dies with ERR_MODULE_NOT_FOUND. tsx does rewrite, so the source path
+ * runs through tsx's CLI (a devDependency, never needed by dist/).
+ *
+ * Exported for tests.
+ */
+export function resolveWorkerArgv(): string[] {
+  if (existsSync(COMPILED_WORKER_PATH)) return [COMPILED_WORKER_PATH];
+  if (existsSync(SOURCE_WORKER_PATH)) {
+    let tsxCli: string;
+    try {
+      tsxCli = createRequire(import.meta.url).resolve('tsx/cli');
+    } catch {
+      throw new Error(
+        'embed worker: running from source but tsx is not installed (cannot execute embed-worker.ts)',
+      );
+    }
+    return [tsxCli, SOURCE_WORKER_PATH];
+  }
+  throw new Error(`embed worker not found at ${COMPILED_WORKER_PATH}`);
+}
 
 /** Generous: the first-ever run computes + caches ~500 utterance embeddings. */
 const WORKER_TIMEOUT_MS = 90_000;
@@ -48,8 +86,14 @@ type RouteResult = any;
 function runWorker(task: string): Promise<RouteResult> {
   // Cap task length before passing as argv to prevent OOM/DoS via oversized args.
   const safeTask = task.length > MAX_TASK_LENGTH ? task.slice(0, MAX_TASK_LENGTH) : task;
+  let workerArgv: string[];
+  try {
+    workerArgv = resolveWorkerArgv();
+  } catch (err) {
+    return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+  }
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [WORKER_PATH, safeTask], {
+    const child = spawn(process.execPath, [...workerArgv, safeTask], {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
