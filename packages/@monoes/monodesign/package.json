@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node --experimental-strip-types --test 'tests/*.test.*' 'tests/lib/*.test.*'",
+    "test": "node scripts/run-tests.mjs",
     "sync": "node scripts/sync-skill.mjs",
     "prepare": "node scripts/sync-skill.mjs"
   },

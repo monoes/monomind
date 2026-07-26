@@ -1,7 +1,7 @@
 {
   "name": "@monoes/monobrowse",
   "version": "1.0.6",
-  "description": "Native browser automation via Chrome DevTools Protocol — the engine powering monomind browse",
+  "description": "Native browser automation via Chrome DevTools Protocol \u2014 the engine powering monomind browse",
   "type": "module",
   "bin": {
     "monobrowse": "./dist/src/cli.js"
@@ -34,10 +34,10 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsc && mkdir -p dist/src/browser/dashboard && cp src/browser/dashboard/ui.html dist/src/browser/dashboard/ui.html",
+    "build": "tsc && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
+    "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

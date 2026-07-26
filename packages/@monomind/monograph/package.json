@@ -19,7 +19,7 @@
     "tag": "latest"
   },
   "scripts": {
-    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
+    "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "test": "vitest run",

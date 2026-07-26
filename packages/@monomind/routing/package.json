@@ -7,13 +7,16 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./routes": { "types": "./dist/routes/index.d.ts", "import": "./dist/routes/index.js" }
+    "./routes": {
+      "types": "./dist/routes/index.d.ts",
+      "import": "./dist/routes/index.js"
+    }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
+    "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "build": "tsc",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
