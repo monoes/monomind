@@ -150,7 +150,13 @@ export async function generateWikiPage(
   } else {
     const { claudeCliCall, isClaudeCliAvailable } = await import('../claude-cli.js');
     if (!isClaudeCliAvailable()) {
-      throw new Error('Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code');
+      // Spell out that no API key is wanted — users hitting this reasonably
+      // assume ANTHROPIC_API_KEY is the missing piece and go set one, which
+      // changes nothing (#43).
+      throw new Error(
+        'Claude Code CLI not found on PATH. Wiki generation runs through `claude --print` ' +
+        'and needs no ANTHROPIC_API_KEY. Install it with: npm install -g @anthropic-ai/claude-code',
+      );
     }
     content = await claudeCliCall(prompt);
   }
