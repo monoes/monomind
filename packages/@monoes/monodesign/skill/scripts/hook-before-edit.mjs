@@ -320,7 +320,7 @@ function escapeRegExp(value) {
 
 function relativePath(filePath, cwd) {
   try {
-    const rel = path.relative(cwd, filePath);
+    const rel = path.relative(cwd, filePath).split(path.sep).join('/');
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return filePath;
     return rel.split(path.sep).join('/');
   } catch {
@@ -330,7 +330,7 @@ function relativePath(filePath, cwd) {
 
 function isInsideProject(filePath, cwd) {
   try {
-    const rel = path.relative(cwd, filePath);
+    const rel = path.relative(cwd, filePath).split(path.sep).join('/');
     return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
   } catch {
     return false;

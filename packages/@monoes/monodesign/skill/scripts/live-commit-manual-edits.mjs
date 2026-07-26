@@ -224,7 +224,7 @@ function buildRepairBatch(batch, repair) {
 function normalizeProjectSourcePath(cwd, file, opts = {}) {
   if (!file || typeof file !== 'string') return null;
   const absolute = path.isAbsolute(file) ? file : path.resolve(cwd, file);
-  const relative = path.relative(cwd, absolute);
+  const relative = path.relative(cwd, absolute).split(path.sep).join('/');
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
   if (opts.requireExists && !fs.existsSync(absolute)) return null;
   if (isGeneratedFile(absolute, { cwd })) return null;
@@ -622,7 +622,7 @@ function scanRollbackDir(dir, cwd, out, seenDirs, seenFiles, depth) {
     try { realFile = fs.realpathSync(absolute); } catch { continue; }
     if (seenFiles.has(realFile)) continue;
     seenFiles.add(realFile);
-    const relative = path.relative(cwd, absolute);
+    const relative = path.relative(cwd, absolute).split(path.sep).join('/');
     if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) continue;
     out.push(relative);
   }
