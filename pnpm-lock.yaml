@@ -39,9 +39,12 @@ importers:
       '@monoes/monobrowse':
         specifier: ^1.0.6
         version: 1.0.6
+      '@monoes/monodesign':
+        specifier: ^1.2.1
+        version: 1.2.1
       '@monoes/monograph':
-        specifier: ^1.5.3
-        version: 1.5.3(graphology-types@0.24.8)
+        specifier: ^1.5.4
+        version: 1.5.4(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -79,6 +82,28 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/coverage-v8@4.1.4)(vite@8.1.3(@types/node@20.19.39)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
+    optionalDependencies:
+      '@huggingface/transformers':
+        specifier: ^3.8.1
+        version: 3.8.1(@types/node@20.19.39)
+      '@monoes/hooks':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@monoes/mcp':
+        specifier: ^1.0.1
+        version: 1.0.1
+      '@monoes/memory':
+        specifier: ^1.0.10
+        version: 1.0.10
+      '@monoes/routing':
+        specifier: ^1.0.1
+        version: 1.0.1
+      monofence-ai:
+        specifier: '*'
+        version: 1.0.0(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))
+      sql.js:
+        specifier: ^1.14.1
+        version: 1.14.1
 
   packages/@monoes/monobrowse:
     dependencies:
@@ -92,6 +117,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/coverage-v8@4.1.4)(vite@8.1.3(@types/node@20.19.39)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/@monoes/monodesign:
     dependencies:
@@ -130,11 +158,11 @@ importers:
         specifier: ^1.0.6
         version: 1.0.6
       '@monoes/monodesign':
-        specifier: ^1.2.0
-        version: 1.2.0(yauzl@2.10.0)
+        specifier: ^1.2.1
+        version: 1.2.1
       '@monoes/monograph':
-        specifier: ^1.5.3
-        version: 1.5.3(graphology-types@0.24.8)
+        specifier: ^1.5.4
+        version: 1.5.4(graphology-types@0.24.8)
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -154,6 +182,9 @@ importers:
         specifier: ^3.25.0
         version: 3.25.76
     devDependencies:
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -168,14 +199,14 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       '@monoes/mcp':
-        specifier: ^1.0.0
-        version: 1.0.0
+        specifier: ^1.0.1
+        version: 1.0.1
       '@monoes/memory':
         specifier: ^1.0.10
         version: 1.0.10
       '@monoes/routing':
-        specifier: ^1.0.0
-        version: 1.0.0
+        specifier: ^1.0.1
+        version: 1.0.1
       monofence-ai:
         specifier: '*'
         version: 1.0.0(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))
@@ -858,8 +889,8 @@ packages:
     resolution: {integrity: sha512-kn6+y8O05IvlnwdQpkfc7x8Em8pL4Mbjog4SoqGzLv6dgVV8XnU40Axck6e6f1mvyyUanOirEUpZlRT3/Uqf0Q==}
     engines: {node: '>=20.0.0'}
 
-  '@monoes/mcp@1.0.0':
-    resolution: {integrity: sha512-8MY3JZBMdSX05gotRSEY1lXjG08AvXDntXWZsO3a/iiZxNcIJy08ukLjmi2sZCufDv8sR0UAi9iAetj7IOATyg==}
+  '@monoes/mcp@1.0.1':
+    resolution: {integrity: sha512-r+ztVFyaZDCMr0HGRWr8syJr+qc5Fd34j6J3JlqROpPLJVSg70196Zo9EmHKv+xOgUCdlNc8sxd/+OQjDw6nZQ==}
 
   '@monoes/memory@1.0.10':
     resolution: {integrity: sha512-guqhAgpqWto6VOFRMlx3l1VRo7StFX8xSrClBr6m+GFGqOBpaBX9bA1Z+Bi4a/j9aItBJKCcBS9P8htdXtaL0w==}
@@ -876,16 +907,16 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@monoes/monodesign@1.2.0':
-    resolution: {integrity: sha512-uEyTsbOLex0m1zKzbsClVcPznuAYoQB4VeUhwdHJ38QZ5yHBlCuklCYNKwkdbar6bsJDe8RYV3yC5+n9yzyS8A==}
+  '@monoes/monodesign@1.2.1':
+    resolution: {integrity: sha512-uIv3zN3ZXn/8YxdA3xfXetG2r8dAL9lBON+uL54PtYx/YUvrMmW00QAPpdLH5Y5A6f+MCA8Lr4ueTdVn6As17g==}
     hasBin: true
 
-  '@monoes/monograph@1.5.3':
-    resolution: {integrity: sha512-bEe9xP2Vg7YUyW7O2EloCcq+wvTZhA0qv0nMy/T9F+v2YOZshsNrRi4cUAVlp5wOY8h68xAw3r/sSdgYF+4xyw==}
+  '@monoes/monograph@1.5.4':
+    resolution: {integrity: sha512-jSdrflNHe0HMz6LFjaTiEDFYpZxvYmWjNCHoni8FI5SYSUDFOL/9uZiodtxK9zOAnv1ADVNsV82/Oq7qWdhLcg==}
     engines: {node: '>=20.0.0'}
 
-  '@monoes/routing@1.0.0':
-    resolution: {integrity: sha512-MpoOnh6ffg8eeR0fYgGhYtxSzWh/xcc3/nFYXm1ByV7N55335uUbUg8sBgHJf47S79JFqUZpFW+Q3okbpWWexA==}
+  '@monoes/routing@1.0.1':
+    resolution: {integrity: sha512-xhM5B+WE6q/xwVeyEIJJgDwuIetSZSiXNuXYvNozzyIAL6Cdmpx5R0/k0xMRTe1KlrugXd90su4JLouIxKzuWg==}
 
   '@napi-rs/canvas-android-arm64@0.1.80':
     resolution: {integrity: sha512-sk7xhN/MoXeuExlggf91pNziBxLPVUqF2CAVnB57KLG/pz7+U5TKG8eXdc3pm0d7Od0WreB6ZKLj37sX9muGOQ==}
@@ -1889,8 +1920,8 @@ packages:
     resolution: {integrity: sha512-ZRiwvN089JfMXokizgqEPXsl2Guk094yExfoDXR0cBYWxtBbaSww/w+vT4WEJsBW2iTUi1GgZ6swmoug3Oy4Xw==}
     engines: {node: '>=16.0.0'}
 
-  hono@4.12.31:
-    resolution: {integrity: sha512-zJIHFrl6bq3RDd2YusFNCDlM8qUprxKswyi/OPzPyzKDdyBXDqWx8bZlZ7R+saTdSTatUmb3O7K4SspGPaEOQg==}
+  hono@4.12.32:
+    resolution: {integrity: sha512-XcuyW9qE2kJn07PkecMOBd5Vq/hMy7mmGw+idz1yblbg9N17ijJODrvPkn7/dwL3Kulj8LcRJ69DLOWf91dRUg==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
@@ -1920,8 +1951,8 @@ packages:
   ini@1.3.8:
     resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
 
-  ip-address@10.2.0:
-    resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==}
+  ip-address@10.3.1:
+    resolution: {integrity: sha512-1e9d3kb97NHJTIJDZW9rKqW2h6+dFa50Dy0fpPSMQp2ADje5gvKsXmdiK6dwY5t76TaTt5+P5N1Y/LoToIxP6g==}
     engines: {node: '>= 12'}
 
   ipaddr.js@1.9.1:
@@ -3107,9 +3138,9 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@hono/node-server@1.19.15(hono@4.12.31)':
+  '@hono/node-server@1.19.15(hono@4.12.32)':
     dependencies:
-      hono: 4.12.31
+      hono: 4.12.32
 
   '@huggingface/jinja@0.5.9':
     optional: true
@@ -3278,7 +3309,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 1.19.15(hono@4.12.31)
+      '@hono/node-server': 1.19.15(hono@4.12.32)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -3288,7 +3319,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.6.0(express@5.2.1)
-      hono: 4.12.31
+      hono: 4.12.32
       jose: 6.2.4
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -3304,10 +3335,10 @@ snapshots:
       zod: 3.25.76
     optional: true
 
-  '@monoes/mcp@1.0.0':
+  '@monoes/mcp@1.0.1':
     dependencies:
       cors: 2.8.6
-      express: 4.22.1
+      express: 4.22.2
       helmet: 7.2.0
       ws: 8.21.0
     transitivePeerDependencies:
@@ -3339,7 +3370,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@monoes/monodesign@1.2.0(yauzl@2.10.0)':
+  '@monoes/monodesign@1.2.1':
     dependencies:
       css-select: 7.0.0
       css-tree: 3.2.1
@@ -3356,7 +3387,7 @@ snapshots:
       - utf-8-validate
       - yauzl
 
-  '@monoes/monograph@1.5.3(graphology-types@0.24.8)':
+  '@monoes/monograph@1.5.4(graphology-types@0.24.8)':
     dependencies:
       better-sqlite3: 12.11.1
       chokidar: 3.6.0
@@ -3387,7 +3418,7 @@ snapshots:
       - supports-color
       - tree_sitter
 
-  '@monoes/routing@1.0.0':
+  '@monoes/routing@1.0.1':
     dependencies:
       zod: 3.25.76
     optional: true
@@ -4145,7 +4176,7 @@ snapshots:
     dependencies:
       debug: 4.4.3
       express: 5.2.1
-      ip-address: 10.2.0
+      ip-address: 10.3.1
     transitivePeerDependencies:
       - supports-color
 
@@ -4364,7 +4395,7 @@ snapshots:
     dependencies:
       globalthis: 1.0.4
       matcher: 4.0.0
-      semver: 7.7.4
+      semver: 7.8.5
       serialize-error: 8.1.0
     optional: true
 
@@ -4443,7 +4474,7 @@ snapshots:
 
   helmet@7.2.0: {}
 
-  hono@4.12.31: {}
+  hono@4.12.32: {}
 
   html-escaper@2.0.2:
     optional: true
@@ -4475,7 +4506,7 @@ snapshots:
 
   ini@1.3.8: {}
 
-  ip-address@10.2.0: {}
+  ip-address@10.3.1: {}
 
   ipaddr.js@1.9.1: {}
 
