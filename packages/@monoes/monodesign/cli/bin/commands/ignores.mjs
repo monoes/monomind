@@ -149,8 +149,8 @@ function list(cwd) {
   const local = readRawDetectionConfig(cwd, { local: true });
   return [
     'Monodesign detector ignores',
-    `  shared file: ${path.relative(cwd, getConfigPath(cwd)) || getConfigPath(cwd)}`,
-    `  local file:  ${path.relative(cwd, getLocalConfigPath(cwd)) || getLocalConfigPath(cwd)}`,
+    `  shared file: ${path.relative(cwd, getConfigPath(cwd)).split(path.sep).join('/') || getConfigPath(cwd)}`,
+    `  local file:  ${path.relative(cwd, getLocalConfigPath(cwd)).split(path.sep).join('/') || getLocalConfigPath(cwd)}`,
     '',
     formatConfig('Merged', merged),
     '',
@@ -203,7 +203,7 @@ function addRule(cwd, args) {
   const config = readScopeConfig(cwd, local);
   if (!config.ignoreRules.includes(rule)) config.ignoreRules.push(rule);
   const target = writeScopeConfig(cwd, config, local);
-  return `Added ${rule} to ${local ? 'local' : 'shared'} detector ignoreRules (${path.relative(cwd, target) || target}).`;
+  return `Added ${rule} to ${local ? 'local' : 'shared'} detector ignoreRules (${path.relative(cwd, target).split(path.sep).join('/') || target}).`;
 }
 
 function addFile(cwd, args) {
@@ -213,7 +213,7 @@ function addFile(cwd, args) {
   const config = readScopeConfig(cwd, local);
   if (!config.ignoreFiles.includes(glob)) config.ignoreFiles.push(glob);
   const target = writeScopeConfig(cwd, config, local);
-  return `Added ${glob} to ${local ? 'local' : 'shared'} detector ignoreFiles (${path.relative(cwd, target) || target}).`;
+  return `Added ${glob} to ${local ? 'local' : 'shared'} detector ignoreFiles (${path.relative(cwd, target).split(path.sep).join('/') || target}).`;
 }
 
 function addValue(cwd, args) {
@@ -236,7 +236,7 @@ function addValue(cwd, args) {
     config.ignoreValues.push(entry);
   }
   const target = writeScopeConfig(cwd, config, local);
-  return `Added ${parsed.rule}=${parsed.value} to ${local ? 'local' : 'shared'} detector ignoreValues (${path.relative(cwd, target) || target}).`;
+  return `Added ${parsed.rule}=${parsed.value} to ${local ? 'local' : 'shared'} detector ignoreValues (${path.relative(cwd, target).split(path.sep).join('/') || target}).`;
 }
 
 function removeFromScopes(cwd, args, remover) {
@@ -248,7 +248,7 @@ function removeFromScopes(cwd, args, remover) {
     const count = remover(config, rest);
     if (count > 0) {
       const target = writeScopeConfig(cwd, config, isLocal);
-      removed.push(`${count} from ${isLocal ? 'local' : 'shared'} (${path.relative(cwd, target) || target})`);
+      removed.push(`${count} from ${isLocal ? 'local' : 'shared'} (${path.relative(cwd, target).split(path.sep).join('/') || target})`);
     }
   }
   return removed.length ? `Removed ${removed.join(', ')}.` : 'No matching detector ignore found.';

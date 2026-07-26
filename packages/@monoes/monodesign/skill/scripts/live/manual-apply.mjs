@@ -338,7 +338,7 @@ export function normalizeManualApplyEvidencePath(evidencePath, cwd = process.cwd
   if (!evidencePath || typeof evidencePath !== 'string') return null;
   const fullPath = path.isAbsolute(evidencePath) ? evidencePath : path.resolve(cwd, evidencePath);
   const evidenceDir = manualApplyEvidenceDir(cwd);
-  const relative = path.relative(evidenceDir, fullPath);
+  const relative = path.relative(evidenceDir, fullPath).split(path.sep).join('/');
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
   if (path.extname(relative) !== '.json') return null;
   return fullPath;
@@ -837,7 +837,7 @@ export function collectManualApplyFiles(batch, extraFiles = [], cwd = process.cw
 function normalizeProjectFile(file, cwd = process.cwd()) {
   if (!file || typeof file !== 'string') return null;
   const absolute = path.isAbsolute(file) ? file : path.resolve(cwd, file);
-  const relative = path.relative(cwd, absolute);
+  const relative = path.relative(cwd, absolute).split(path.sep).join('/');
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
   return relative;
 }
@@ -927,7 +927,7 @@ export function summarizeManualDiagnostics(items, cwd = process.cwd()) {
 export function summarizeManualLogFile(file, cwd = process.cwd()) {
   if (!file || typeof file !== 'string') return undefined;
   if (!path.isAbsolute(file)) return file;
-  const relative = path.relative(cwd, file);
+  const relative = path.relative(cwd, file).split(path.sep).join('/');
   return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : file;
 }
 

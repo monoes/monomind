@@ -534,7 +534,7 @@ function runAgentProcess(command, args, stdin, { cwd, env, logPath, timeoutMs, m
 }
 
 function isPathInsideOrEqual(cwd, file) {
-  const relative = path.relative(path.resolve(cwd), path.resolve(file));
+  const relative = path.relative(path.resolve(cwd), path.resolve(file)).split(path.sep).join('/');
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 

@@ -93,7 +93,7 @@ function latestCritique(cwd) {
       p0: numKey('p0', 'p0_count'),
       p1: numKey('p1', 'p1_count'),
       timestamp: get('timestamp'),
-      file: path.relative(cwd, path.join(dir, newest)),
+      file: path.relative(cwd, path.join(dir, newest)).split(path.sep).join('/'),
       trend,
       openP0,
     };

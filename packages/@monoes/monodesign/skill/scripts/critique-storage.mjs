@@ -64,7 +64,7 @@ export function slugFromTarget(resolved, { cwd = process.cwd() } = {}) {
   // File path. Make it project-relative so two devs critiquing the same
   // checkout get the same slug regardless of where their repo is cloned.
   const abs = path.isAbsolute(trimmed) ? trimmed : path.resolve(cwd, trimmed);
-  let rel = path.relative(cwd, abs);
+  let rel = path.relative(cwd, abs).split(path.sep).join('/');
   // If the target is outside cwd, fall back to the basename so we still
   // produce a stable slug (vs the absolute path, which would include
   // home dirs / usernames).
@@ -231,7 +231,7 @@ export function mirrorToMemory({ slug, meta = {}, filePath, cwd = process.cwd(),
       p1: asFiniteNumber(meta.p1_count ?? meta.p1),
       date: now.toISOString(),
       slug,
-      path: filePath ? path.relative(cwd, filePath) : null,
+      path: filePath ? path.relative(cwd, filePath).split(path.sep).join('/') : null,
     };
     const project = kebab(path.basename(path.resolve(cwd))) || 'project';
     const key = `${project}-${slug}`;
@@ -340,7 +340,7 @@ export function formatRecall(recall, { cwd = process.cwd() } = {}) {
   if (!issues.p0.length && !issues.p1.length) {
     lines.push('- No open P0/P1 lines found in the latest snapshot.');
   }
-  lines.push(`- Snapshot: ${path.relative(cwd, latest.path)}`);
+  lines.push(`- Snapshot: ${path.relative(cwd, latest.path).split(path.sep).join('/')}`);
   return lines.join('\n');
 }
 

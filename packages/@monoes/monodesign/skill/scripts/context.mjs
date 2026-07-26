@@ -75,10 +75,10 @@ export function loadContext(cwd = process.cwd(), options = {}) {
   return {
     hasProduct: !!product,
     product,
-    productPath: productPath ? path.relative(absCwd, productPath) : null,
+    productPath: productPath ? path.relative(absCwd, productPath).split(path.sep).join('/') : null,
     hasDesign: !!design,
     design,
-    designPath: designPath ? path.relative(absCwd, designPath) : null,
+    designPath: designPath ? path.relative(absCwd, designPath).split(path.sep).join('/') : null,
     contextDir: resolved.contextDir,
     productContextDir: productPath ? path.dirname(productPath) : null,
     designContextDir: designPath ? path.dirname(designPath) : null,
@@ -186,7 +186,7 @@ function resolveProject(cwd = process.cwd(), options = {}) {
 }
 
 function isPathInside(candidate, root) {
-  const rel = path.relative(root, candidate);
+  const rel = path.relative(root, candidate).split(path.sep).join('/');
   return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
@@ -339,7 +339,7 @@ function contextSourceStatus(filePath, repoRoot, projectRoot) {
 
 function contextSourcePath(filePath, repoRoot) {
   if (!filePath) return null;
-  const rel = path.relative(repoRoot, filePath);
+  const rel = path.relative(repoRoot, filePath).split(path.sep).join('/');
   if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
     return rel.split(path.sep).join('/');
   }
@@ -447,7 +447,7 @@ function findTargetExample(repoRoot, projectRoot) {
 }
 
 function resolveWorkspaceProjectRoot(repoRoot, targetDir) {
-  const rel = path.relative(repoRoot, targetDir);
+  const rel = path.relative(repoRoot, targetDir).split(path.sep).join('/');
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return repoRoot;
   const relSegments = rel.split(path.sep).filter(Boolean);
   const patterns = readWorkspacePatterns(repoRoot);

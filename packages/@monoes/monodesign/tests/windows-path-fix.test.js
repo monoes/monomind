@@ -44,7 +44,10 @@ describe('Windows path doubling fix (#95)', () => {
   test('fileURLToPath handles POSIX file URLs correctly', () => {
     const posixUrl = new URL('file:///home/user/cli/engine/detect-antipatterns.mjs');
     const resolved = fileURLToPath(posixUrl);
-    expect(resolved).toBe('/home/user/cli/engine/detect-antipatterns.mjs');
+    // fileURLToPath returns NATIVE separators, so on Windows this is
+    // '\home\user\...'. Asserting the POSIX literal made this test — the one
+    // file in the suite specifically about Windows paths — fail on Windows.
+    expect(resolved).toBe(path.normalize('/home/user/cli/engine/detect-antipatterns.mjs'));
   });
 
   test('import.meta.url produces a valid file URL', () => {

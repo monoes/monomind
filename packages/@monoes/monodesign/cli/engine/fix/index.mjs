@@ -257,7 +257,7 @@ async function runFix(targets, options = {}) {
   const diffs = [];
   if (dryRun) {
     for (const [p, b] of changedFiles) {
-      diffs.push({ file: p, diff: unifiedDiff(b.original, b.content, path.relative(cwd, p) || p) });
+      diffs.push({ file: p, diff: unifiedDiff(b.original, b.content, path.relative(cwd, p).split(path.sep).join('/') || p) });
     }
   } else {
     for (const [p, b] of changedFiles) writeFileAtomic(p, b.content);
