@@ -33,39 +33,9 @@ importers:
 
   .:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.3.207
-        version: 0.3.207(@anthropic-ai/sdk@0.111.0(zod@3.25.76))(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(zod@3.25.76)
-      '@monoes/monobrowse':
-        specifier: ^1.0.6
-        version: 1.0.6
-      '@monoes/monodesign':
-        specifier: ^1.2.1
-        version: 1.2.1
-      '@monoes/monograph':
-        specifier: ^1.5.4
-        version: 1.5.4(graphology-types@0.24.8)
-      '@noble/ed25519':
-        specifier: ^2.1.0
-        version: 2.3.0
-      mammoth:
-        specifier: ^1.12.0
-        version: 1.12.0
-      pdf-parse:
-        specifier: ^2.4.5
-        version: 2.4.5
-      semver:
-        specifier: ^7.6.0
-        version: 7.7.4
-      ws:
-        specifier: '>=8.20.1'
-        version: 8.21.0
-      yaml:
-        specifier: ^2.8.0
-        version: 2.8.3
-      zod:
-        specifier: ^3.25.0
-        version: 3.25.76
+      '@monoes/monomindcli':
+        specifier: 2.7.12
+        version: 2.7.12(@anthropic-ai/sdk@0.111.0(zod@3.25.76))(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(@types/node@20.19.39)
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
@@ -82,28 +52,6 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/coverage-v8@4.1.4)(vite@8.1.3(@types/node@20.19.39)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
-    optionalDependencies:
-      '@huggingface/transformers':
-        specifier: ^3.8.1
-        version: 3.8.1(@types/node@20.19.39)
-      '@monoes/hooks':
-        specifier: ^1.0.1
-        version: 1.0.1
-      '@monoes/mcp':
-        specifier: ^1.0.1
-        version: 1.0.1
-      '@monoes/memory':
-        specifier: ^1.0.10
-        version: 1.0.10
-      '@monoes/routing':
-        specifier: ^1.0.1
-        version: 1.0.1
-      monofence-ai:
-        specifier: '*'
-        version: 1.0.0(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))
-      sql.js:
-        specifier: ^1.14.1
-        version: 1.14.1
 
   packages/@monoes/monobrowse:
     dependencies:
@@ -153,13 +101,13 @@ importers:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.3.207
-        version: 0.3.207(@anthropic-ai/sdk@0.111.0(zod@3.25.76))(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(zod@3.25.76)
+        version: 0.3.207(@anthropic-ai/sdk@0.111.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
       '@monoes/monobrowse':
         specifier: ^1.0.6
         version: 1.0.6
       '@monoes/monodesign':
-        specifier: ^1.2.1
-        version: 1.2.1
+        specifier: ^1.2.2
+        version: 1.2.2
       '@monoes/monograph':
         specifier: ^1.5.4
         version: 1.5.4(graphology-types@0.24.8)
@@ -179,8 +127,8 @@ importers:
         specifier: ^2.8.0
         version: 2.8.3
       zod:
-        specifier: ^3.25.0
-        version: 3.25.76
+        specifier: ^4.0.0
+        version: 4.4.3
     devDependencies:
       tsx:
         specifier: ^4.21.0
@@ -219,9 +167,6 @@ importers:
       '@monoes/memory':
         specifier: ^1.0.5
         version: 1.0.5
-      zod:
-        specifier: ^3.23.0
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -232,6 +177,10 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/coverage-v8@4.1.4)(vite@8.1.3(@types/node@20.19.39)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
+    optionalDependencies:
+      monofence-ai:
+        specifier: ^1.0.2
+        version: 1.0.2
 
   packages/@monomind/mcp:
     dependencies:
@@ -376,10 +325,6 @@ importers:
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/coverage-v8@4.1.4)(vite@8.1.3(@types/node@20.19.39)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/@monomind/routing:
-    dependencies:
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
@@ -903,13 +848,18 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@monoes/monodesign@1.2.1':
-    resolution: {integrity: sha512-uIv3zN3ZXn/8YxdA3xfXetG2r8dAL9lBON+uL54PtYx/YUvrMmW00QAPpdLH5Y5A6f+MCA8Lr4ueTdVn6As17g==}
+  '@monoes/monodesign@1.2.2':
+    resolution: {integrity: sha512-IzWkq8BWTgC40JkVRdO46wEczb7qnMtU2UjaK2IOk+RUSphmo9TW3SEiAKja9vDo5NuFTpqxXkZNFoj0Kku0ZA==}
     hasBin: true
 
   '@monoes/monograph@1.5.4':
     resolution: {integrity: sha512-jSdrflNHe0HMz6LFjaTiEDFYpZxvYmWjNCHoni8FI5SYSUDFOL/9uZiodtxK9zOAnv1ADVNsV82/Oq7qWdhLcg==}
     engines: {node: '>=20.0.0'}
+
+  '@monoes/monomindcli@2.7.12':
+    resolution: {integrity: sha512-B61+/sprrSEZuXQz18qO1wHcN9VwC9tIDgUJuv29UqRbz9oggXceh0uuHVuPAXmNpNeWJiPn6pPi/m3P/vUW4A==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
 
   '@monoes/routing@1.0.1':
     resolution: {integrity: sha512-xhM5B+WE6q/xwVeyEIJJgDwuIetSZSiXNuXYvNozzyIAL6Cdmpx5R0/k0xMRTe1KlrugXd90su4JLouIxKzuWg==}
@@ -2209,6 +2159,10 @@ packages:
       '@lancedb/lancedb':
         optional: true
 
+  monofence-ai@1.0.2:
+    resolution: {integrity: sha512-XpdQQe0W2r+Gb/kn5gv6MRqC0ZjRkCNZzFgziUucKQqHdMfJb+rTxKozk6+K9PFpEKPuCbobCB6bZBatfNxU3g==}
+    engines: {node: '>=18.0.0'}
+
   ms@2.0.0:
     resolution: {integrity: sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==}
 
@@ -2970,6 +2924,9 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
 snapshots:
 
   '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.207':
@@ -3011,12 +2968,34 @@ snapshots:
       '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.207
       '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.207
 
+  '@anthropic-ai/claude-agent-sdk@0.3.207(@anthropic-ai/sdk@0.111.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)':
+    dependencies:
+      '@anthropic-ai/sdk': 0.111.0(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
+      zod: 4.4.3
+    optionalDependencies:
+      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.207
+      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.207
+      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.3.207
+      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.3.207
+      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.3.207
+      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.3.207
+      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.207
+      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.207
+
   '@anthropic-ai/sdk@0.111.0(zod@3.25.76)':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.0.0
     optionalDependencies:
       zod: 3.25.76
+
+  '@anthropic-ai/sdk@0.111.0(zod@4.4.3)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+      standardwebhooks: 1.0.0
+    optionalDependencies:
+      zod: 4.4.3
 
   '@babel/helper-string-parser@7.29.7':
     optional: true
@@ -3326,6 +3305,28 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
+    dependencies:
+      '@hono/node-server': 1.19.15(hono@4.12.32)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+      content-type: 1.0.5
+      cors: 2.8.6
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.1.0
+      express: 5.2.1
+      express-rate-limit: 8.6.0(express@5.2.1)
+      hono: 4.12.32
+      jose: 6.2.4
+      json-schema-typed: 8.0.2
+      pkce-challenge: 5.0.1
+      raw-body: 3.0.2
+      zod: 4.4.3
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
+    transitivePeerDependencies:
+      - supports-color
+
   '@monoes/hooks@1.0.1':
     dependencies:
       '@monoes/memory': 1.0.10
@@ -3367,7 +3368,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@monoes/monodesign@1.2.1':
+  '@monoes/monodesign@1.2.2':
     dependencies:
       css-select: 7.0.0
       css-tree: 3.2.1
@@ -3414,6 +3415,39 @@ snapshots:
       - graphology-types
       - supports-color
       - tree_sitter
+
+  '@monoes/monomindcli@2.7.12(@anthropic-ai/sdk@0.111.0(zod@3.25.76))(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(@types/node@20.19.39)':
+    dependencies:
+      '@anthropic-ai/claude-agent-sdk': 0.3.207(@anthropic-ai/sdk@0.111.0(zod@3.25.76))(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(zod@3.25.76)
+      '@monoes/monobrowse': 1.0.6
+      '@monoes/monodesign': 1.2.2
+      '@monoes/monograph': 1.5.4(graphology-types@0.24.8)
+      '@noble/ed25519': 2.3.0
+      mammoth: 1.12.0
+      pdf-parse: 2.4.5
+      ws: 8.21.0
+      yaml: 2.8.3
+      zod: 3.25.76
+    optionalDependencies:
+      '@huggingface/transformers': 3.8.1(@types/node@20.19.39)
+      '@monoes/hooks': 1.0.1
+      '@monoes/mcp': 1.0.1
+      '@monoes/memory': 1.0.10
+      '@monoes/routing': 1.0.1
+      monofence-ai: 1.0.0(@lancedb/lancedb@0.30.0(apache-arrow@18.1.0))
+      sql.js: 1.14.1
+    transitivePeerDependencies:
+      - '@anthropic-ai/sdk'
+      - '@lancedb/lancedb'
+      - '@modelcontextprotocol/sdk'
+      - '@types/node'
+      - bufferutil
+      - graphology-types
+      - proxy-agent
+      - supports-color
+      - tree_sitter
+      - utf-8-validate
+      - yauzl
 
   '@monoes/routing@1.0.1':
     dependencies:
@@ -4742,6 +4776,9 @@ snapshots:
       '@lancedb/lancedb': 0.30.0(apache-arrow@18.1.0)
     optional: true
 
+  monofence-ai@1.0.2:
+    optional: true
+
   ms@2.0.0: {}
 
   ms@2.1.3: {}
@@ -5552,4 +5589,10 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
+  zod-to-json-schema@3.25.2(zod@4.4.3):
+    dependencies:
+      zod: 4.4.3
+
   zod@3.25.76: {}
+
+  zod@4.4.3: {}

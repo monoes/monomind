@@ -411,3 +411,37 @@ describe('publishable packages cannot ship a stale dist', () => {
     });
   }
 });
+
+/**
+ * The same hazard, from the other direction: a tsconfig.tsbuildinfo that is
+ * committed rather than merely left lying around.
+ *
+ * The guards above check that each publish path DELETES the buildinfo before
+ * compiling. That is defeated if the file is tracked, because then every fresh
+ * clone — including CI and any release cut from one — starts with someone
+ * else's incremental state. .gitignore already lists *.tsbuildinfo, but
+ * gitignore does not apply to files that are already tracked, so one committed
+ * before the rule stays committed and silently churns in unrelated diffs.
+ *
+ * @monoes/routing 1.0.1 shipped a seven-day-stale dist for exactly this reason:
+ * a surviving buildinfo made tsc a no-op that still exited 0.
+ */
+describe('no build state is committed', () => {
+  it('no tsconfig.tsbuildinfo is tracked in git', () => {
+    const tracked = execFileSync('git', ['ls-files'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf-8',
+      maxBuffer: 32 * 1024 * 1024,
+    })
+      .split('\n')
+      .filter((f) => f.endsWith('.tsbuildinfo'));
+
+    expect(
+      tracked,
+      'A committed tsbuildinfo hands every fresh clone stale incremental state, ' +
+      'which makes tsc skip emitting while still exiting 0. Run ' +
+      '`git rm --cached <file>` — .gitignore already covers the path, but that ' +
+      'has no effect on an already-tracked file.',
+    ).toEqual([]);
+  });
+});

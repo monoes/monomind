@@ -22,9 +22,7 @@
     "test:coverage": "vitest run --coverage",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "zod": "^3.22.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^7.0.2",
     "@types/node": "^20.0.0",
