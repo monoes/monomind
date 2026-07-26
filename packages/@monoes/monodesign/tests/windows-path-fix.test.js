@@ -41,13 +41,22 @@ describe('Windows path doubling fix (#95)', () => {
     expect(joined).not.toMatch(/[A-Z]:[/\\][A-Z]:/i);
   });
 
-  test('fileURLToPath handles POSIX file URLs correctly', () => {
+  // A driveless file URL is simply not a valid Windows path: fileURLToPath
+  // THROWS ERR_INVALID_FILE_URL_PATH ("File URL path must be absolute") there,
+  // so this contract is POSIX-only and the assertion belongs behind a platform
+  // guard. The Windows equivalent — that a drive-letter URL survives without
+  // doubling — is the test above, which does run on both.
+  //
+  // This is skipped rather than deleted: the POSIX contract is still worth
+  // pinning, and node:test reports it as skipped, so it stays visible instead
+  // of quietly vanishing on one platform.
+  test('fileURLToPath handles POSIX file URLs correctly', (t) => {
+    if (process.platform === 'win32') {
+      t.skip('driveless file URLs are invalid on Windows; fileURLToPath throws');
+      return;
+    }
     const posixUrl = new URL('file:///home/user/cli/engine/detect-antipatterns.mjs');
-    const resolved = fileURLToPath(posixUrl);
-    // fileURLToPath returns NATIVE separators, so on Windows this is
-    // '\home\user\...'. Asserting the POSIX literal made this test — the one
-    // file in the suite specifically about Windows paths — fail on Windows.
-    expect(resolved).toBe(path.normalize('/home/user/cli/engine/detect-antipatterns.mjs'));
+    expect(fileURLToPath(posixUrl)).toBe('/home/user/cli/engine/detect-antipatterns.mjs');
   });
 
   test('import.meta.url produces a valid file URL', () => {

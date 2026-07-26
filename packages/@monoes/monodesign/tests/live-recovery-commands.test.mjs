@@ -14,7 +14,7 @@ const COMPLETE_SCRIPT = join(REPO_ROOT, 'skill/scripts/live-complete.mjs');
 function withTempProject(fn) {
   const cwd = mkdtempSync(join(tmpdir(), 'monodesign-live-recovery-'));
   try { return fn(cwd); }
-  finally { rmSync(cwd, { recursive: true, force: true }); }
+  finally { rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 }
 
 function runJson(script, args, cwd) {

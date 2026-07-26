@@ -70,7 +70,7 @@ function sampleDesignSystem() {
 
 afterEach(() => {
   while (tempDirs.length) {
-    fs.rmSync(tempDirs.pop(), { recursive: true, force: true });
+    fs.rmSync(tempDirs.pop(), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
