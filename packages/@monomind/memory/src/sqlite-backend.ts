@@ -11,7 +11,16 @@
  * @module v1/memory/sqlite-backend
  */
 
-import Database from 'better-sqlite3';
+// better-sqlite3 is an OPTIONAL dependency — sql.js is the documented fallback,
+// and database-provider.ts recommends it outright on Windows, where node-gyp
+// routinely fails to build native modules. This import must therefore be lazy.
+//
+// It used to be a static top-level import, and because index.ts re-exports
+// SQLiteBackend, that made `import '@monoes/memory'` throw
+// ERR_MODULE_NOT_FOUND for anyone without better-sqlite3 — the whole package,
+// including the pure-WASM sql.js path, was unusable in exactly the situation
+// the fallback exists for. Local test suites never caught it because
+// better-sqlite3 is always installed here.
 import { SqlBackend } from './sql-backend.js';
 import { BetterSqliteDriver, type SqlDriver } from './sql-driver.js';
 import type { EmbeddingGenerator } from './types.js';
@@ -72,6 +81,26 @@ export class SQLiteBackend extends SqlBackend {
   }
 
   protected async openDriver(): Promise<SqlDriver> {
+    // better-sqlite3 is an `export =` CJS module, so the constructor arrives on
+    // `.default` at runtime while its type namespace has no `default` member —
+    // hence the cast, matching what migration.ts already does.
+    // Only the surface this method actually touches; the driver takes it from here.
+    type NativeDb = { pragma(statement: string): unknown };
+    let Database: new (path: string, options?: Record<string, unknown>) => NativeDb;
+    try {
+      const mod = await import('better-sqlite3');
+      Database = (mod as unknown as { default: typeof Database }).default;
+    } catch (error) {
+      // Reaching here means this backend was chosen explicitly while the native
+      // module is unavailable. Say so, instead of surfacing a bare
+      // ERR_MODULE_NOT_FOUND from deep inside the driver.
+      throw new Error(
+        'SQLiteBackend requires the optional dependency better-sqlite3, which is not installed ' +
+        `(${(error as Error).message}). Use SqlJsBackend, or select the 'sql.js' provider, ` +
+        'for environments where the native module cannot be built.',
+      );
+    }
+
     const db = new Database(this.sqliteConfig.databasePath, {
       verbose: this.sqliteConfig.verbose ? console.log : undefined,
     });
