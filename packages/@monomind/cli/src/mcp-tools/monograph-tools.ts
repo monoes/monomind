@@ -7,7 +7,7 @@
 
 import { join, resolve, sep } from 'path';
 import { execSync } from 'child_process';
-import { statSync } from 'fs';
+import { statSync, readdirSync, existsSync } from 'fs';
 import { randomUUID } from 'crypto';
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
@@ -2125,7 +2125,6 @@ const monographDeadCodeTool: MCPTool = {
 };
 
 function findStaleDist(repoPath: string): Record<string, unknown> {
-  const { readdirSync, existsSync } = require('fs') as typeof import('fs');
   const distSrc = join(repoPath, 'dist', 'src');
   const src = join(repoPath, 'src');
 

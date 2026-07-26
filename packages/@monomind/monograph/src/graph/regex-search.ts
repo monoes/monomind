@@ -25,11 +25,13 @@ export function regexSearchNodes(
 ): RegexNodeMatch[] {
   const re = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
 
+  // Scan all rows and apply regex filter in JS, then cap at limit.
+  // LIMIT in SQL would silently miss matches beyond the first N rows.
   const rows = db.prepare(
     `SELECT id, label, name, norm_label, file_path, start_line, end_line,
             community_id, is_exported, language, properties
-     FROM nodes LIMIT ?`,
-  ).all(limit) as {
+     FROM nodes`,
+  ).all() as {
     id: string;
     label: string;
     name: string;
@@ -46,20 +48,6 @@ export function regexSearchNodes(
   const results: RegexNodeMatch[] = [];
 
   for (const r of rows) {
-    const node: MonographNode = {
-      id: r.id,
-      label: r.label as MonographNode['label'],
-      name: r.name,
-      normLabel: r.norm_label,
-      filePath: r.file_path ?? undefined,
-      startLine: r.start_line ?? undefined,
-      endLine: r.end_line ?? undefined,
-      communityId: r.community_id ?? undefined,
-      isExported: r.is_exported === 1,
-      language: r.language ?? undefined,
-      properties: r.properties ? (JSON.parse(r.properties) as Record<string, unknown>) : undefined,
-    };
-
     for (const field of fields) {
       const value =
         field === 'name' ? r.name :
@@ -68,10 +56,24 @@ export function regexSearchNodes(
         r.label;
 
       if (value && re.test(value)) {
+        const node: MonographNode = {
+          id: r.id,
+          label: r.label as MonographNode['label'],
+          name: r.name,
+          normLabel: r.norm_label,
+          filePath: r.file_path ?? undefined,
+          startLine: r.start_line ?? undefined,
+          endLine: r.end_line ?? undefined,
+          communityId: r.community_id ?? undefined,
+          isExported: r.is_exported === 1,
+          language: r.language ?? undefined,
+          properties: r.properties ? (JSON.parse(r.properties) as Record<string, unknown>) : undefined,
+        };
         results.push({ node, field });
-        break; // report once per node even if multiple fields match
+        break;
       }
     }
+    if (results.length >= limit) break;
   }
 
   return results;
@@ -103,8 +105,8 @@ export function regexSearchEdges(
 
   const rows = db.prepare(
     `SELECT id, source_id, target_id, relation, confidence, confidence_score, reason
-     FROM edges LIMIT ?`,
-  ).all(limit) as {
+     FROM edges`,
+  ).all() as {
     id: string;
     source_id: string;
     target_id: string;
@@ -138,6 +140,7 @@ export function regexSearchEdges(
         break;
       }
     }
+    if (results.length >= limit) break;
   }
 
   return results;

@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import type { Dirent } from 'fs';
 
 // ============================================================================
 // Security Constants
@@ -199,40 +200,81 @@ export async function countLines(dir: string, ext: string): Promise<number> {
   return total;
 }
 
-export async function collectFiles(dir: string, ext: string, depth = 0): Promise<string[]> {
-  // Security: Prevent infinite recursion
+export interface CollectResult {
+  /** Files found under `dir` (recursively) matching `ext`. */
+  files: string[];
+  /**
+   * Directories that could not be enumerated (permissions, I/O errors) or
+   * that were cut off by the recursion-depth guard. A non-empty `skipped`
+   * means `files` is INCOMPLETE — "found nothing here" is not the same claim
+   * as "there is nothing here", and callers must be able to tell them apart.
+   *
+   * A directory that simply does not exist (ENOENT) is NOT reported: nothing
+   * was hidden from us, there is genuinely nothing to look at.
+   */
+  skipped: string[];
+}
+
+export async function collectFiles(dir: string, ext: string, depth = 0): Promise<CollectResult> {
+  // Security: Prevent infinite recursion. Anything below this point is
+  // unexamined, so it is reported as skipped rather than silently dropped.
   if (depth > MAX_RECURSION_DEPTH) {
-    return [];
+    return { files: [], skipped: [dir] };
   }
 
   const files: string[] = [];
+  const skipped: string[] = [];
 
+  let entries: Dirent[];
   try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-
-      // Skip symlinks to prevent traversal attacks
-      if (entry.isSymbolicLink()) {
-        continue;
-      }
-
-      if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
-        const subFiles = await collectFiles(fullPath, ext, depth + 1);
-        files.push(...subFiles);
-      } else if (entry.isFile() && entry.name.endsWith(ext)) {
-        files.push(fullPath);
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT') {
+      // Unreadable directory (EACCES/EPERM/EIO/ENOTDIR...): its contents were
+      // never examined. Surface it the same way an unreadable file is.
+      skipped.push(dir);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+        console.error('[worker-utils] collectFiles could not read directory:', dir, e);
       }
     }
-  } catch {
-    // Directory doesn't exist
+    return { files, skipped };
   }
 
-  return files;
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+
+    // Skip symlinks to prevent traversal attacks
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
+
+    if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+      const sub = await collectFiles(fullPath, ext, depth + 1);
+      files.push(...sub.files);
+      skipped.push(...sub.skipped);
+    } else if (entry.isFile() && entry.name.endsWith(ext)) {
+      files.push(fullPath);
+    }
+  }
+
+  return { files, skipped };
 }
 
-export async function searchDDDPatterns(srcPath: string): Promise<Record<string, number>> {
+export interface DDDPatternResult {
+  patterns: {
+    entities: number;
+    valueObjects: number;
+    aggregates: number;
+    repositories: number;
+    services: number;
+    domainEvents: number;
+  };
+  /** Files/directories that could not be read — the counts are a lower bound. */
+  skipped: string[];
+}
+
+export async function searchDDDPatterns(srcPath: string): Promise<DDDPatternResult> {
   const patterns = {
     entities: 0,
     valueObjects: 0,
@@ -241,15 +283,25 @@ export async function searchDDDPatterns(srcPath: string): Promise<Record<string,
     services: 0,
     domainEvents: 0,
   };
+  const skipped: string[] = [];
 
   try {
-    const files = await collectFiles(srcPath, '.ts');
+    const collected = await collectFiles(srcPath, '.ts');
+    const files = collected.files;
+    skipped.push(...collected.skipped);
 
     const BATCH_SIZE = 10;
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
       const contents = await Promise.all(
-        batch.map(file => cachedReadFile(file).catch(() => ''))
+        batch.map(file => cachedReadFile(file).catch((e) => {
+          // Unreadable file: record it, do not pretend it was empty.
+          skipped.push(file);
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+            console.error('[worker-utils] searchDDDPatterns skipped unreadable file:', file, e);
+          }
+          return '';
+        }))
       );
 
       for (const content of contents) {
@@ -264,52 +316,91 @@ export async function searchDDDPatterns(srcPath: string): Promise<Record<string,
       }
     }
   } catch (e) {
-    // Ignore errors
+    // The walk itself blew up: the whole subtree is unexamined, so say so
+    // rather than returning zeroes that read like "no DDD patterns here".
+    skipped.push(srcPath);
     if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-utils] searchDDDPatterns failed:', e);
   }
 
-  return patterns;
+  return { patterns, skipped };
 }
 
+export interface ScanResult {
+  secrets: number;
+  vulnerabilities: number;
+  /** Files actually read and pattern-matched. */
+  filesScanned: number;
+  /**
+   * Paths that could not be read (permissions, I/O errors) — NOT proof of
+   * absence. Includes both unreadable FILES and unreadable DIRECTORIES: an
+   * un-enumerable directory hides an unknown number of files, so it counts
+   * as an unexamined path just like a locked file does.
+   */
+  skipped: string[];
+}
+
+/**
+ * Scan a directory tree for secret/vulnerability patterns.
+ *
+ * Neither a file nor a directory that cannot be read may abort the scan or
+ * silently vanish: each read is guarded individually, and unreadable paths —
+ * files from the read loop, directories from `collectFiles` — are reported in
+ * `skipped` so callers can tell "found nothing" apart from "did not look".
+ */
 export async function scanDirectoryForPatterns(
   dir: string,
   secretPatterns: RegExp[],
   vulnPatterns: RegExp[]
-): Promise<{ secrets: number; vulnerabilities: number }> {
+): Promise<ScanResult> {
   let secrets = 0;
   let vulnerabilities = 0;
+  let filesScanned = 0;
+  const skipped: string[] = [];
 
-  try {
-    const files = await collectFiles(dir, '.ts');
-    files.push(...await collectFiles(dir, '.js'));
+  const tsCollected = await collectFiles(dir, '.ts');
+  const jsCollected = await collectFiles(dir, '.js');
+  const files = [...tsCollected.files, ...jsCollected.files];
 
-    for (const file of files) {
-      if (file.includes('node_modules') || file.includes('.test.') || file.includes('.spec.')) {
-        continue;
-      }
-
-      const content = await fs.readFile(file, 'utf-8');
-
-      for (const pattern of secretPatterns) {
-        const matches = content.match(pattern);
-        if (matches) {
-          secrets += matches.length;
-        }
-      }
-
-      for (const pattern of vulnPatterns) {
-        const matches = content.match(pattern);
-        if (matches) {
-          vulnerabilities += matches.length;
-        }
-      }
-    }
-  } catch (e) {
-    // Ignore errors
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-utils] scanDirectoryForPatterns failed:', e);
+  // Both walks cover the same tree, so an unreadable directory shows up
+  // twice — dedupe so skippedCount stays a count of distinct unseen paths.
+  for (const d of new Set([...tsCollected.skipped, ...jsCollected.skipped])) {
+    skipped.push(d);
   }
 
-  return { secrets, vulnerabilities };
+  for (const file of files) {
+    if (file.includes('node_modules') || file.includes('.test.') || file.includes('.spec.')) {
+      continue;
+    }
+
+    let content: string;
+    try {
+      content = await fs.readFile(file, 'utf-8');
+    } catch (e) {
+      skipped.push(file);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+        console.error('[worker-utils] scanDirectoryForPatterns skipped unreadable file:', file, e);
+      }
+      continue;
+    }
+
+    filesScanned++;
+
+    for (const pattern of secretPatterns) {
+      const matches = content.match(pattern);
+      if (matches) {
+        secrets += matches.length;
+      }
+    }
+
+    for (const pattern of vulnPatterns) {
+      const matches = content.match(pattern);
+      if (matches) {
+        vulnerabilities += matches.length;
+      }
+    }
+  }
+
+  return { secrets, vulnerabilities, filesScanned, skipped };
 }
 
 export function calculateAvgQuality(patterns: Array<{ quality?: number }>): number {

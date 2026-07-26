@@ -55,7 +55,15 @@ export class HookExecutor {
     try {
       // @ts-ignore — monofence-ai is an optional peer dep; may not be installed.
       const { registerSecurityHooks } = await import('monofence-ai/hooks');
-      registerSecurityHooks(this.registry);
+      // monofence-ai declares its own structurally-similar MinimalRegistry whose
+      // context carries an index signature that HookContext<unknown> does not.
+      // The shapes are compatible at the only members registerSecurityHooks
+      // touches, and this is an optional cross-package boundary, so the cast is
+      // deliberate. It matters that it is here: without it `tsc` exits 2, and
+      // because this package's prepublishOnly runs the build, `npm publish`
+      // aborted — which is why the security-worker fix sat unpublished while
+      // dist/ looked correct locally.
+      registerSecurityHooks(this.registry as unknown as Parameters<typeof registerSecurityHooks>[0]);
     } catch (error) {
       // monofence-ai not installed, hooks subpath unavailable, or
       // registration failed — security hooks are inactive. Log so this is

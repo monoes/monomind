@@ -1,21 +1,33 @@
 /**
- * EWC++ (Elastic Weight Consolidation) Implementation
- * Prevents catastrophic forgetting of important patterns during continual learning
+ * EWC-inspired pattern consolidation.
  *
- * Algorithm:
- * L_total = L_new + (lambda/2) * sum_i(F_i * (theta_i - theta_old_i)^2)
+ * Protects high-importance stored patterns from being overwritten by newer,
+ * similar ones — the pattern-store analogue of avoiding catastrophic
+ * forgetting.
  *
- * Where:
- * - L_new is the loss on new data
- * - lambda is the importance weight (ewcLambda)
- * - F_i is the Fisher information for parameter i
- * - theta_i is the current parameter value
- * - theta_old_i is the previous parameter value
+ * HONEST SCOPE — read before extending this:
+ * This is *not* Elastic Weight Consolidation. Real EWC penalises drift in a
+ * model's parameters using Fisher information estimated from training
+ * gradients:
  *
- * Features:
- * - Fisher Information Matrix computation from gradient history
- * - Online EWC updates for streaming patterns
- * - Selective consolidation based on pattern importance
+ *   L_total = L_new + (lambda/2) * sum_i(F_i * (theta_i - theta_old_i)^2)
+ *
+ * There is no model here, no training loop, and therefore no gradients. What
+ * this file actually computes is a per-dimension importance weight from the
+ * *squared embedding values* of stored patterns, used as a stand-in for the
+ * Fisher diagonal (see computeFisherMatrix — the substitution is noted at the
+ * line that performs it), smoothed with an EMA and applied as a quadratic
+ * penalty when a new pattern would displace an existing one.
+ *
+ * That heuristic is real, deterministic, and useful. The EWC name and the
+ * formula above describe the *inspiration*, not the implementation — do not
+ * cite this as an EWC implementation or reason about it as if `F_i` carried
+ * Fisher semantics.
+ *
+ * What it does:
+ * - Per-dimension importance from squared embedding magnitudes (gradient proxy)
+ * - Online EMA updates as new patterns stream in
+ * - Selective consolidation based on that importance
  * - Persistent storage in .swarm/ewc-fisher.json
  *
  * @module v1/cli/memory/ewc-consolidation

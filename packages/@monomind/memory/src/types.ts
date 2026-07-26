@@ -2,9 +2,10 @@
  * V1 Unified Memory Types
  *
  * Type definitions for the unified memory system, backend-agnostic (SQLite via
- * better-sqlite3/sql.js as of 2026-07; LanceDB kept only for legacy reads/migration)
- * with ANN indexing.
- * Supports 150x-12,500x faster vector search compared to brute-force approaches.
+ * better-sqlite3/sql.js as of 2026-07; LanceDB support was fully removed).
+ * SQLiteBackend.search() is brute-force cosine similarity by design; the
+ * standalone pure-JS HNSWIndex exists for ANN search but isn't wired into
+ * the default search path (see the honesty review's HNSW growth plan).
  *
  * @module v1/memory/types
  */

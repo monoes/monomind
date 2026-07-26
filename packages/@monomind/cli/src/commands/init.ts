@@ -109,7 +109,19 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // Start monograph watch for ongoing file-change rebuilds, unless --no-watch was passed.
     // Guard: skip if a watcher PID file already exists and the process is still alive,
     // preventing duplicate watchers from accumulating on repeated `init --force` runs.
-    const noWatch = ctx.flags['no-watch'] as boolean;
+    // `--no-watch` is the parser's negation of the declared boolean `watch`
+    // option. It used to be declared as its own boolean named 'no-watch', which
+    // the parser never populated: parseFlag strips the `--no-` prefix and looks
+    // up `watch`, which IS a declared boolean (status/agent-ops declare it and
+    // getBooleanFlags() is global across all registered commands). So
+    // `--no-watch` set the unrelated `watch` flag to false and left `no-watch`
+    // at its `false` default — the flag was a silent no-op and the watcher
+    // started anyway. The legacy `no-watch`/`noWatch` keys are still honoured
+    // for programmatic callers that set ctx.flags directly.
+    const noWatch =
+      ctx.flags.watch === false ||
+      ctx.flags['no-watch'] === true ||
+      ctx.flags.noWatch === true;
     if (!noWatch) {
       try {
         const { spawn } = await import('child_process');
@@ -389,10 +401,13 @@ export const initCommand: Command = {
       default: true,
     },
     {
-      name: 'no-watch',
-      description: 'Skip starting the monograph knowledge graph watcher after init',
+      // Declared as the positive `watch` so the parser's `--no-X` negation
+      // actually reaches it. Declaring it as `no-watch` made `--no-watch` a
+      // no-op — see the noWatch resolution in initAction.
+      name: 'watch',
+      description: 'Start the monograph knowledge graph watcher after init (default: true; --no-watch skips it)',
       type: 'boolean',
-      default: false,
+      default: true,
     },
     {
       name: 'with-embeddings',

@@ -134,6 +134,7 @@ function detectTypeOrmEntities(
   edges: MonographEdge[],
 ): void {
   const entityRe = new RegExp(TYPEORM_ENTITY_RE.source, 'g');
+  const lines = source.split('\n');
   let m: RegExpExecArray | null;
 
   while ((m = entityRe.exec(source)) !== null) {
@@ -154,9 +155,7 @@ function detectTypeOrmEntities(
     entityNodes.push(entityNode);
 
     const fields: FieldDef[] = [];
-    // Use a per-call local regex to avoid shared lastIndex state on the module-level global
     const colDecRe = new RegExp(TYPEORM_COLUMN_DECORATOR_RE.source, 'g');
-    const lines = source.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (colDecRe.test(line)) {

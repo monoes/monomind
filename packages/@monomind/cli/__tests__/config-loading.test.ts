@@ -82,8 +82,9 @@ describe('Config Loading', () => {
     // Create CLI instance and verify config loading works
     const cli = new CLI();
 
-    // The config loading is tested indirectly through the CLI's run method
-    // but we've already tested the adapter functions in config-adapter.test.ts
+    // The config loading is tested indirectly through the CLI's run method.
+    // (This used to defer to config-adapter.test.ts; src/config-adapter.ts and
+    // both of its test files were deleted 2026-07 as test-only code.)
     expect(cli).toBeDefined();
   });
 

@@ -85,8 +85,16 @@ function cloneDefaultConfig(): Record<string, unknown> {
   return structuredClone(DEFAULT_CONFIG);
 }
 
-/** Exposed read-only for callers (e.g. config-adapter.ts) that need to
- * agree with this module's defaults instead of hardcoding their own. */
+/**
+ * Exposed read-only for callers that need to agree with this module's defaults
+ * instead of hardcoding their own.
+ *
+ * NOTE: its only external consumer was src/config-adapter.ts, deleted 2026-07
+ * (it converted to/from a "SystemConfig" shape that no longer exists — the type
+ * had already decayed to `any` — and was imported by nothing but its own two
+ * test files). The export is kept as the intended extension point; it is
+ * currently unused outside this module. Do not read a live caller into it.
+ */
 export { DEFAULT_CONFIG };
 
 export class ConfigFileManager {

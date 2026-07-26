@@ -9,5 +9,15 @@ export default defineConfig({
     hookTimeout: 10000,
     globals: false,
     typecheck: { enabled: false },
+    // Off by default to keep the edit/test loop fast; run
+    // `npm run test:coverage` (or pass --coverage) to measure.
+    coverage: {
+      enabled: false,
+      provider: 'v8',
+      reporter: ['text-summary', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'benchmarks/**'],
+    },
   },
 });

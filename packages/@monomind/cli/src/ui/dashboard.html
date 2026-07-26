@@ -1555,10 +1555,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <span class="ico">◫</span><span class="lbl">Sessions</span>
           <span class="bdg" id="bdg-sessions">—</span>
         </div>
-        <div class="nav-item" data-view="loops">
-          <span class="ico">↺</span><span class="lbl">Loops</span>
-          <span class="bdg" id="bdg-loops">—</span>
-        </div>
         <div class="nav-item" data-view="tokens">
           <span class="ico">$</span><span class="lbl">Tokens</span>
         </div>
@@ -1849,42 +1845,44 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <span id="sess-filter-count"></span>
         </div>
         <div id="sess-content" class="sess-list"><div class="loading-txt">Loading…</div></div>
-      </div>
-    </div>
-
-    <!-- LOOPS -->
-    <div class="view" id="view-loops">
-      <div class="vscroll">
-        <div class="pg-title">Loops</div>
-        <div class="pg-sub">Scheduled automation loops</div>
-        <input id="loop-list-filter" class="filter-input" placeholder="Filter loops…" oninput="filterLoopList(this.value)" style="margin-bottom:10px;width:100%;max-width:380px">
-        <button id="btn-new-loop" onclick="showLoopForm()">+ New Loop</button>
-        <div id="loop-create-form" style="display:none">
-          <div class="lcf-title">Create Loop</div>
-          <div class="lcf-row">
-            <label class="lcf-label">Prompt</label>
-            <textarea class="lcf-textarea" id="lcf-prompt" placeholder="What should the agent do each iteration?"></textarea>
+        <!-- Loops (merged into Sessions) -->
+        <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="toggleLoopsSection()">
+            <span id="loops-chevron" style="font-size:10px;transition:transform .15s">▶</span>
+            <span style="font-size:13px;font-weight:600;letter-spacing:0.01em">Loops</span>
+            <span class="bdg" id="bdg-loops" style="font-size:10px">—</span>
           </div>
-          <div class="lcf-row">
-            <label class="lcf-label">Name (optional)</label>
-            <input class="lcf-input" id="lcf-name" type="text" placeholder="My loop">
-          </div>
-          <div class="lcf-row-inline">
-            <div class="lcf-row">
-              <label class="lcf-label">Interval</label>
-              <input class="lcf-input" id="lcf-interval" type="text" placeholder="1h" value="1h">
+          <div id="loops-section" style="display:none">
+            <input id="loop-list-filter" class="filter-input" placeholder="Filter loops…" oninput="filterLoopList(this.value)" style="margin-bottom:10px;width:100%;max-width:380px">
+            <button id="btn-new-loop" onclick="showLoopForm()">+ New Loop</button>
+            <div id="loop-create-form" style="display:none">
+              <div class="lcf-title">Create Loop</div>
+              <div class="lcf-row">
+                <label class="lcf-label">Prompt</label>
+                <textarea class="lcf-textarea" id="lcf-prompt" placeholder="What should the agent do each iteration?"></textarea>
+              </div>
+              <div class="lcf-row">
+                <label class="lcf-label">Name (optional)</label>
+                <input class="lcf-input" id="lcf-name" type="text" placeholder="My loop">
+              </div>
+              <div class="lcf-row-inline">
+                <div class="lcf-row">
+                  <label class="lcf-label">Interval</label>
+                  <input class="lcf-input" id="lcf-interval" type="text" placeholder="1h" value="1h">
+                </div>
+                <div class="lcf-row">
+                  <label class="lcf-label">Max reps (blank = ∞)</label>
+                  <input class="lcf-input" id="lcf-maxreps" type="number" placeholder="∞" min="1">
+                </div>
+              </div>
+              <div class="lcf-actions">
+                <button class="lcf-cancel" onclick="hideLoopForm()">Cancel</button>
+                <button class="lcf-submit" onclick="createLoop()">Create Loop</button>
+              </div>
             </div>
-            <div class="lcf-row">
-              <label class="lcf-label">Max reps (blank = ∞)</label>
-              <input class="lcf-input" id="lcf-maxreps" type="number" placeholder="∞" min="1">
-            </div>
-          </div>
-          <div class="lcf-actions">
-            <button class="lcf-cancel" onclick="hideLoopForm()">Cancel</button>
-            <button class="lcf-submit" onclick="createLoop()">Create Loop</button>
+            <div id="loops-content" class="loop-list"><div class="loading-txt">Loading…</div></div>
           </div>
         </div>
-        <div id="loops-content" class="loop-list"><div class="loading-txt">Loading…</div></div>
       </div>
     </div>
 
@@ -2080,7 +2078,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <button class="odt-btn active" data-mgtab="overview" onclick="mgSwitchTab('overview')">Overview</button>
           <button class="odt-btn" data-mgtab="graph" onclick="mgSwitchTab('graph')">Graph</button>
           <button class="odt-btn" data-mgtab="analyze" onclick="mgSwitchTab('analyze')">Analyze</button>
-          <button class="odt-btn" data-mgtab="query" onclick="mgSwitchTab('query')">Query</button>
           <button class="odt-btn" data-mgtab="export" onclick="mgSwitchTab('export')">Export</button>
           <button class="odt-btn" data-mgtab="report" onclick="mgSwitchTab('report')">Report</button>
           <button class="odt-btn" data-mgtab="wiki" onclick="mgSwitchTab('wiki')">Wiki</button>
@@ -2129,96 +2126,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <div id="mg-analyze-result" class="mg-result-panel" style="display:none">
             <div class="mg-result-title" id="mg-result-title">—</div>
             <div id="mg-result-body"></div>
-          </div>
-        </div>
-
-        <!-- TAB 4: QUERY -->
-        <div class="mg-pane" id="mg-tab-query">
-          <div class="mg-query-section">
-            <div class="mqs-title">Search nodes</div>
-            <div class="mg-query-row">
-              <input type="text" id="mg-q-search" placeholder="Node label or name…" style="flex:1;min-width:160px" oninput="mgQuerySearch(this.value)">
-            </div>
-            <div id="mg-q-search-result" class="mg-query-result" style="display:none"></div>
-          </div>
-          <div class="mg-query-section">
-            <div class="mqs-title">Impact analysis</div>
-            <div class="mg-query-row">
-              <input type="text" id="mg-q-impact-node" placeholder="Node ID / name…" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter')mgQueryImpact()">
-              <select id="mg-q-impact-dir" style="width:120px">
-                <option value="both">Both</option>
-                <option value="upstream">Upstream</option>
-                <option value="downstream">Downstream</option>
-              </select>
-              <button class="btn" onclick="mgQueryImpact()">Run</button>
-            </div>
-            <div id="mg-q-impact-result" class="mg-query-result" style="display:none"></div>
-          </div>
-          <div class="mg-query-section">
-            <div class="mqs-title">Context</div>
-            <div class="mg-query-row">
-              <input type="text" id="mg-q-ctx-node" placeholder="Node ID / file path…" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')mgQueryContext()">
-              <button class="btn" onclick="mgQueryContext()">Run</button>
-            </div>
-            <div id="mg-q-ctx-result" class="mg-query-result" style="display:none"></div>
-          </div>
-          <div class="mg-query-section">
-            <div class="mqs-title">Shortest path</div>
-            <div class="mg-query-row">
-              <input type="text" id="mg-q-path-from" placeholder="From node…" style="flex:1;min-width:120px" onkeydown="if(event.key==='Enter')mgQueryPath()">
-              <input type="text" id="mg-q-path-to" placeholder="To node…" style="flex:1;min-width:120px">
-              <button class="btn" onclick="mgQueryPath()">Run</button>
-            </div>
-            <div id="mg-q-path-result" class="mg-query-result" style="display:none"></div>
-          </div>
-          <div class="mg-query-section">
-            <div class="mqs-title">Cypher query</div>
-            <div class="mg-query-row" style="flex-direction:column;align-items:stretch">
-              <textarea id="mg-q-cypher" placeholder="MATCH (n) RETURN n.name LIMIT 20"></textarea>
-              <button class="btn" style="align-self:flex-end;margin-top:6px" onclick="mgQueryCypher()">Run</button>
-            </div>
-            <div id="mg-q-cypher-result" class="mg-query-result" style="display:none"></div>
-          </div>
-          <div class="mg-query-section">
-            <div class="mqs-title">Ask the graph</div>
-            <div class="mg-query-row">
-              <input type="text" id="mg-q-ask" placeholder="Question or keyword…" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')mgQueryAsk()">
-              <select id="mg-q-ask-mode" style="width:110px">
-                <option value="search">Search</option>
-                <option value="explain">Explain</option>
-                <option value="neighbors">Neighbors</option>
-              </select>
-              <select id="mg-q-ask-budget" style="width:80px">
-                <option value="100">100</option>
-                <option value="500">500</option>
-                <option value="1000">1000</option>
-              </select>
-              <button class="btn" onclick="mgQueryAsk()">Ask</button>
-            </div>
-            <div id="mg-q-ask-result" class="mg-query-result" style="display:none"></div>
-          </div>
-          <div class="mg-query-section">
-            <div class="mqs-title">Ripple impact <span style="font-size:10px;color:var(--text-xs);font-weight:400">multi-hop cascade</span></div>
-            <div class="mg-query-row">
-              <input type="text" id="mg-q-ripple-node" placeholder="Node name or file…" style="flex:1;min-width:160px">
-              <select id="mg-q-ripple-hops" style="width:80px" title="Max hops">
-                <option value="2">2 hops</option>
-                <option value="3" selected>3 hops</option>
-                <option value="4">4 hops</option>
-                <option value="5">5 hops</option>
-              </select>
-              <button class="btn" onclick="mgQueryRipple()">Run</button>
-            </div>
-            <div id="mg-q-ripple-result" class="mg-query-result" style="display:none"></div>
-          </div>
-          <div class="mg-query-section">
-            <div class="mqs-title">Import chain <span style="font-size:10px;color:var(--text-xs);font-weight:400">all paths A → B</span></div>
-            <div class="mg-query-row">
-              <input type="text" id="mg-q-chain-from" placeholder="From node…" style="flex:1;min-width:120px" onkeydown="if(event.key==='Enter')mgQueryImportChain()">
-              <input type="text" id="mg-q-chain-to" placeholder="To node…" style="flex:1;min-width:120px" onkeydown="if(event.key==='Enter')mgQueryImportChain()">
-              <button class="btn" onclick="mgQueryImportChain()">Run</button>
-            </div>
-            <div id="mg-q-chain-result" class="mg-query-result" style="display:none"></div>
           </div>
         </div>
 
@@ -2503,10 +2410,10 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', loops: 'Loops', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2536,6 +2443,7 @@ function _restoreFromHash() {
   const parts = raw.split('/');
   const view = parts[0];
   if (!view) return;
+  if (view === 'loops') { switchView('sessions', { updateHash: true }); toggleLoopsSection(); return; }
   if (view === 'orgs') {
     switchView('orgs', { updateHash: false });
     const orgName = parts[1] ? decodeURIComponent(parts[1]) : null;
@@ -2559,8 +2467,7 @@ function _restoreFromHash() {
 function renderView(v) {
   if (v === 'now') { refreshNow(); return; }
   if (v === 'projects') renderProjects();
-  if (v === 'sessions') renderSessions();
-  if (v === 'loops') renderLoops();
+  if (v === 'sessions') { renderSessions(); renderLoops(); }
   if (v === 'tokens') loadTokensView();
   if (v === 'memory') renderMemory();
   if (v === 'orgs') renderOrgs();
@@ -5152,7 +5059,7 @@ async function renderLoops() {
         </div>`;
     }).join('');
     startCountdowns();
-    markLiveGlow('view-loops');
+    markLiveGlow('loops-section');
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load loops: ' + esc(err.message) + '</div>';
   }
@@ -5169,6 +5076,14 @@ function markLiveGlow(viewId) {
 
 function toggleLoop(row) {
   row.classList.toggle('open');
+}
+
+function toggleLoopsSection() {
+  var sec = document.getElementById('loops-section');
+  var chev = document.getElementById('loops-chevron');
+  var open = sec.style.display === 'none';
+  sec.style.display = open ? '' : 'none';
+  chev.style.transform = open ? 'rotate(90deg)' : '';
 }
 
 function showLoopForm() {
@@ -5292,6 +5207,9 @@ function renderModelMix() {
       if (!breakdown[model]) breakdown[model] = { calls: 0, cost: 0 };
       breakdown[model].calls += d.calls || 0;
       breakdown[model].cost += d.cost || 0;
+      // The server flags models missing from its pricing table. Their cost
+      // contribution is 0 because it is UNKNOWN, not because it was free.
+      if (d.unknownPricing) breakdown[model].unknownPricing = true;
     }
   }
   const entries = Object.entries(breakdown).sort((a,b) => b[1].cost - a[1].cost);
@@ -5305,11 +5223,14 @@ function renderModelMix() {
   </tr></thead><tbody>
   ${entries.map(([model, d]) => {
     const short = model.replace(/^claude-/,'').replace(/-\d{8}$/,'');
-    const pct = totalCost > 0 ? Math.round(d.cost/totalCost*100) : 0;
+    const pct = (totalCost > 0 && !d.unknownPricing) ? Math.round(d.cost/totalCost*100) : 0;
+    const costCell = d.unknownPricing
+      ? `<span title="No pricing data for this model — spend is unknown, not zero" style="color:var(--text-lo)">unknown</span>`
+      : `$${(d.cost || 0).toFixed(2)}`;
     return `<tr>
       <td style="font-size:11px">${esc(short)}</td>
-      <td class="lb-cost">$${d.cost.toFixed(2)}</td>
-      <td class="lb-dur">${pct}%</td>
+      <td class="lb-cost">${costCell}</td>
+      <td class="lb-dur">${d.unknownPricing ? '—' : pct + '%'}</td>
       <td class="lb-dur">${d.calls}</td>
     </tr>`;
   }).join('')}
@@ -9452,7 +9373,7 @@ function cmdSearch(q) {
     { label: 'Open Monograph', action: () => { const l = document.querySelector('.nav-item[data-view="monograph"]'); if (l) l.click(); } },
     { label: 'Refresh Dashboard', action: () => refreshCurrent() },
     { label: 'Toggle Compact View', action: () => toggleDensity() },
-    { label: 'Open Loops', action: () => { const l = document.querySelector('.nav-item[data-view="loops"]'); if (l) l.click(); } },
+    { label: 'Open Loops', action: () => { switchView('sessions'); toggleLoopsSection(); } },
   ].filter(a => !lq || a.label.toLowerCase().includes(lq));
 
   // TABS group — only if org room is open
@@ -10325,10 +10246,14 @@ function buildModelDonut() {
       if (!breakdown[model]) breakdown[model] = { calls: 0, cost: 0 };
       breakdown[model].calls += d.calls || 0;
       breakdown[model].cost += d.cost || 0;
+      if (d.unknownPricing) breakdown[model].unknownPricing = true;
     }
   }
   const entries = Object.entries(breakdown).sort((a, b) => b[1].cost - a[1].cost);
   if (!entries.length) { el.innerHTML = '<div class="loading-txt" style="padding:8px">No model breakdown data</div>'; return; }
+  // Unpriced models contribute 0 to every slice; say so rather than implying the
+  // donut covers all spend.
+  const _unpricedModels = entries.filter(([, d]) => d.unknownPricing).map(([m]) => m);
   const totalCost = entries.reduce((a, [, d]) => a + d.cost, 0);
 
   // Build SVG conic-gradient-style donut using stroke-dasharray
@@ -10344,19 +10269,25 @@ function buildModelDonut() {
   const svg = `<svg class="donut-svg" width="88" height="88" viewBox="0 0 88 88">
     <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="var(--surface-hi)" stroke-width="14"/>
     ${segments}
-    <text x="${CX}" y="${CY}" text-anchor="middle" dy="0.3em" font-size="9" fill="var(--text-xs)" font-family="var(--mono)">$${totalCost.toFixed(2)}</text>
+    <text x="${CX}" y="${CY}" text-anchor="middle" dy="0.3em" font-size="9" fill="var(--text-xs)" font-family="var(--mono)">${_unpricedModels.length ? '≥' : ''}$${totalCost.toFixed(2)}</text>
   </svg>`;
 
   const legend = entries.slice(0, 6).map(([model, d], i) => {
     const short = model.replace(/^claude-/, '').replace(/-\d{8}$/, '');
     const pct = totalCost > 0 ? Math.round(d.cost / totalCost * 100) : 0;
+    const costTxt = d.unknownPricing
+      ? `<span title="No pricing data for this model">unknown</span>`
+      : `$${(d.cost || 0).toFixed(2)} <span style="color:var(--text-xs)">${pct}%</span>`;
     return `<div class="donut-item"><div class="donut-swatch" style="background:${DONUT_PALETTE[i % DONUT_PALETTE.length]}"></div>
       <span class="donut-name" title="${esc(model)}">${esc(short)}</span>
-      <span class="donut-cost">$${d.cost.toFixed(2)} <span style="color:var(--text-xs)">${pct}%</span></span>
+      <span class="donut-cost">${costTxt}</span>
     </div>`;
   }).join('');
 
-  el.innerHTML = `<div class="donut-wrap">${svg}<div class="donut-legend">${legend}</div></div>`;
+  const unpricedNote = _unpricedModels.length
+    ? `<div class="loading-txt" style="padding:4px 8px;font-size:10px">Total excludes ${_unpricedModels.length} model(s) with no pricing data: ${esc(_unpricedModels.join(', '))}</div>`
+    : '';
+  el.innerHTML = `<div class="donut-wrap">${svg}<div class="donut-legend">${legend}</div></div>${unpricedNote}`;
 }
 
 // ── feature 60: cost anomaly explainer ────────────────────
@@ -10374,9 +10305,12 @@ function showCostExplainer(sessId, event) {
   const pct = costsArr.length ? Math.round(costsArr.filter(c=>c<=(sess.totalCost||0)).length/costsArr.length*100) : 0;
   const ratio = median > 0 ? ((sess.totalCost||0)/median).toFixed(1) : '—';
   const modelRows = Object.entries(sess.modelBreakdown||{}).sort((a,b)=>b[1].cost-a[1].cost).slice(0,4)
-    .map(([m,d])=>`<div class="err-item">${esc(m.replace(/^claude-/,'').replace(/-\d{8}$/,''))}: $${(d.cost||0).toFixed(4)} · ${d.calls||0} calls</div>`).join('');
+    .map(([m,d])=>`<div class="err-item">${esc(m.replace(/^claude-/,'').replace(/-\d{8}$/,''))}: ${d.unknownPricing ? 'unknown (no pricing data)' : '$'+(d.cost||0).toFixed(4)} · ${d.calls||0} calls</div>`).join('');
+  // costIncomplete => the server could not price at least one model, so the
+  // session total is a floor, not the actual spend.
+  const costPrefix = sess.costIncomplete ? '≥' : '';
   drawer.innerHTML = `<div class="err-drawer-head" style="color:oklch(70% 0.18 80)">
-    <span>Cost anomaly — $${(sess.totalCost||0).toFixed(3)} (${ratio}× median, top ${100-pct}%)</span>
+    <span>Cost anomaly — ${costPrefix}$${(sess.totalCost||0).toFixed(3)} (${ratio}× median, top ${100-pct}%)</span>
     <button class="err-close" onclick="this.closest('.err-drawer').classList.remove('open');this.closest('.err-drawer').innerHTML=''">✕</button>
   </div>
   <div class="err-drawer-body">

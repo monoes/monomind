@@ -7,7 +7,6 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import { storeCommand } from './transfer-store.js';
 
 // Route subcommand
 export const routeCommand: Command = {
@@ -817,36 +816,23 @@ export const transferFromProjectCommand: Command = {
 // Parent transfer command combining all transfer methods
 export const transferCommand: Command = {
   name: 'transfer',
-  description: 'Transfer patterns via IPFS-based decentralized registry',
-  subcommands: [storeCommand, transferFromProjectCommand],
+  description: 'Transfer learned patterns from another local project',
+  subcommands: [transferFromProjectCommand],
   examples: [
-    { command: 'monomind hooks transfer store list', description: 'List patterns from registry' },
-    { command: 'monomind hooks transfer store search -q routing', description: 'Search patterns' },
-    { command: 'monomind hooks transfer store download -p seraphine-genesis', description: 'Download pattern' },
-    { command: 'monomind hooks transfer store publish', description: 'Publish pattern to registry' },
-    { command: 'monomind hooks transfer from-project -s ../other-project', description: 'Transfer from project' },
+    { command: 'monomind hooks transfer from-project -s ../other-project', description: 'Transfer all patterns from another checkout' },
+    { command: 'monomind hooks transfer from-project -s ../prod --filter security -m 0.9', description: 'Transfer only high-confidence security patterns' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('Pattern Transfer System'));
-    output.writeln(output.dim('Decentralized pattern sharing via IPFS'));
+    output.writeln(output.bold('Pattern Transfer'));
+    output.writeln(output.dim('Copy learned patterns between local project checkouts'));
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      `${output.highlight('store')}        - Pattern marketplace (list, search, download, publish)`,
-      `${output.highlight('from-project')} - Transfer patterns from another project`,
+      `${output.highlight('from-project')} - Transfer patterns from another project directory`,
     ]);
     output.writeln();
-    output.writeln(output.bold('IPFS-Based Features:'));
-    output.printList([
-      'Decentralized registry via IPNS for discoverability',
-      'Content-addressed storage for integrity',
-      'Ed25519 signatures for verification',
-      'Anonymization levels: minimal, standard, strict, paranoid',
-      'Trust levels: unverified, community, verified, official',
-    ]);
-    output.writeln();
-    output.writeln('Run "monomind hooks transfer <subcommand> --help" for details');
+    output.writeln('Run "monomind hooks transfer from-project --help" for options');
     return { success: true };
   }
 };

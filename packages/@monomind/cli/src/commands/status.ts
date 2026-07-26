@@ -134,13 +134,36 @@ async function getSystemStatus(): Promise<{
       // MCP not running
     }
 
-    // Memory status — no MCP tool available; use defaults
+    // Memory status — measured, not assumed.
+    //
+    // This block used to be hardcoded literals ({entries: 0, size: 0, backend:
+    // 'sqlite', ...}) behind the comment "no MCP tool available; use defaults".
+    // Every number in the Memory panel was therefore a constant presented as
+    // telemetry: a project with a 139KB store and retrievable entries was told
+    // "Entries 0, Size 0 B". Worse, the derived Memory Backend health check
+    // compared against the same hardcoded 'sqlite', so it could never fail.
+    //
+    // On failure we report backend 'unknown' rather than a plausible-looking
+    // zero, so "cannot measure" is distinguishable from "measured empty".
     const memoryStatus = {
       entries: 0,
       size: 0,
-      backend: 'sqlite',
+      backend: 'unknown',
       performance: { avgSearchTime: 0, cacheHitRate: 0 },
     };
+    try {
+      const { bridgeListEntries, bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      const listed = await bridgeListEntries({ limit: 100_000 });
+      if (listed?.success) {
+        memoryStatus.entries = listed.entries?.length ?? 0;
+        memoryStatus.backend = 'sqlite';
+        try {
+          const { statSync } = await import('node:fs');
+          const { join } = await import('node:path');
+          memoryStatus.size = statSync(join(bridgeGetDbPath(), 'memory.db')).size;
+        } catch { /* size is a nicety; entries and backend are the load-bearing parts */ }
+      }
+    } catch { /* leaves backend 'unknown' — an honest "could not read" */ }
 
     // Get task status
     const taskStatus = await callMCPTool<{
@@ -157,10 +180,15 @@ async function getSystemStatus(): Promise<{
       swarm: {
         id: swarmStatus.swarmId,
         topology: swarmStatus.topology,
+        // swarm_status omits `agents` entirely when no swarm has been
+        // initialised — the common case in a fresh project. Reading
+        // .agents.total threw, and the catch below turned that into an
+        // all-zero "system not running" report for EVERY panel, including
+        // memory and tasks that were perfectly readable.
         agents: {
-          total: swarmStatus.agents.total,
-          active: swarmStatus.agents.active,
-          idle: swarmStatus.agents.idle
+          total: swarmStatus.agents?.total ?? 0,
+          active: swarmStatus.agents?.active ?? 0,
+          idle: swarmStatus.agents?.idle ?? 0
         },
         health: swarmStatus.health,
         uptime: swarmStatus.uptime
@@ -183,7 +211,19 @@ async function getSystemStatus(): Promise<{
       }
     };
   } catch (error) {
-    // System not running
+    // Reaching here does NOT prove the system is stopped — it means reading its
+    // state threw. The block below reports zeros for every panel, so swallowing
+    // the cause made a failed read indistinguishable from a genuinely idle
+    // project: a repo with a populated memory store and a live agent was told
+    // "Total 0 / Entries 0 / Backend none".
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+      console.error('[status] could not read system state:', error);
+    } else {
+      output.writeln(output.warning(
+        `Could not read full system state (${error instanceof Error ? error.message : String(error)}) — ` +
+        'the figures below are defaults, not measurements. Re-run with DEBUG=1 for detail.'
+      ));
+    }
     return {
       initialized: true,
       running: false,

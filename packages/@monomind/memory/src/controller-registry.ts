@@ -2,7 +2,7 @@
  * ControllerRegistry - Central controller lifecycle management for memory backend
  *
  * Wraps the configured memory backend (SQLite via better-sqlite3/sql.js as of
- * 2026-07; historically LanceDB) and adds CLI-specific controllers from
+ * 2026-07; LanceDB support was fully removed) and adds CLI-specific controllers from
  * @monomind/memory. Manages initialization (level-based ordering), health
  * checks, and graceful shutdown.
  *
@@ -92,7 +92,7 @@ export interface ControllerHealth {
 export interface RegistryHealthReport {
   status: 'healthy' | 'degraded' | 'unhealthy';
   controllers: ControllerHealth[];
-  lancedbAvailable: boolean;
+  storageBackendAvailable: boolean;
   initTimeMs: number;
   timestamp: number;
   activeControllers: number;
@@ -332,7 +332,7 @@ export class ControllerRegistry extends EventEmitter {
       });
     }
 
-    const lancedbAvailable = this.backend !== null;
+    const storageBackendAvailable = this.backend !== null;
 
     const active = controllerHealth.filter((c) => c.status === 'healthy').length;
     const unavailable = controllerHealth.filter((c) => c.status === 'unavailable').length;
@@ -347,7 +347,7 @@ export class ControllerRegistry extends EventEmitter {
     return {
       status,
       controllers: controllerHealth,
-      lancedbAvailable,
+      storageBackendAvailable,
       initTimeMs: this.initTimeMs,
       timestamp: Date.now(),
       activeControllers: active,
