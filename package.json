@@ -2,7 +2,6 @@
   "name": "monomind",
   "version": "2.7.12",
   "description": "Open-source CLI extension for Claude Code. Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. MIT licensed, runs locally, no data leaves your machine.",
-  "main": "dist/index.js",
   "type": "module",
   "bin": {
     "monomind": "./bin/cli.js"
@@ -18,30 +17,6 @@
   },
   "files": [
     "bin/**",
-    "packages/@monomind/cli/bin/**",
-    "packages/@monomind/cli/dist/**/*.js",
-    "packages/@monomind/cli/dist/**/*.mjs",
-    "packages/@monomind/cli/dist/**/*.html",
-    "packages/@monomind/cli/dist/**/*.json",
-    "packages/@monomind/cli/dist/**/*.svg",
-    "packages/@monomind/cli/dist/**/*.d.ts",
-    "!packages/@monomind/cli/dist/**/*.test.js",
-    "!packages/@monomind/cli/dist/**/__tests__/**",
-    "!packages/@monomind/cli/dist/**/*.map",
-    "!packages/@monomind/cli/dist/**/.monomind/**",
-    "packages/@monomind/cli/scripts/**/*.mjs",
-    "packages/@monomind/cli/scripts/**/*.js",
-    "packages/@monomind/cli/scripts/**/*.sh",
-    "packages/@monomind/cli/package.json",
-    "scripts/*.mjs",
-    "scripts/*.sh",
-    "packages/@monomind/cli/.claude/**",
-    "!packages/@monomind/cli/.claude/**/*.db",
-    "!packages/@monomind/cli/.claude/**/.monomind/**",
-    "!packages/@monomind/cli/.claude/**/*.lock",
-    "!packages/@monomind/cli/.claude/**/._*",
-    "!packages/@monomind/cli/.claude/agents/generated/**",
-    "!packages/@monomind/cli/.claude/agents/reengineer-squad/**",
     "README.md",
     "LICENSE"
   ],
@@ -50,7 +25,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "build:ts": "cd packages/@monomind/cli && npm run build || true",
-    "prepublishOnly": "cd packages/@monomind/cli && npm run build",
+    "check:versions": "node scripts/check-publish-versions.mjs",
+    "prepublishOnly": "node scripts/check-publish-versions.mjs && cd packages/@monomind/cli && npm run build",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:security": "vitest run tests/security/",
@@ -62,26 +38,7 @@
     "v1:security": "npm run security:audit && npm run security:test"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.207",
-    "@monoes/monobrowse": "^1.0.6",
-    "@monoes/monodesign": "^1.2.2",
-    "@monoes/monograph": "^1.5.4",
-    "@noble/ed25519": "^2.1.0",
-    "mammoth": "^1.12.0",
-    "pdf-parse": "^2.4.5",
-    "semver": "^7.6.0",
-    "ws": "^8.21.0",
-    "yaml": "^2.8.0",
-    "zod": "^4.0.0"
-  },
-  "optionalDependencies": {
-    "@huggingface/transformers": "^3.8.1",
-    "@monoes/hooks": "^1.0.1",
-    "@monoes/mcp": "^1.0.1",
-    "@monoes/memory": "^1.0.10",
-    "@monoes/routing": "^1.0.1",
-    "monofence-ai": "*",
-    "sql.js": "^1.14.1"
+    "@monoes/monomindcli": "2.7.12"
   },
   "overrides": {
     "hono": ">=4.12.21",
