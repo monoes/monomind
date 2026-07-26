@@ -198,3 +198,203 @@ jobs:
       - name: Clean up temp install dir
         if: always()
         run: rm -rf "${{ env.install_dir }}"
+
+  behaviour-smoke-test:
+    name: Published behaviour (does the fix actually ship?)
+    # Same triggers as registry-smoke-test: whatever `@latest` resolves to.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # WHY THIS EXISTS, separately from registry-smoke-test:
+    #
+    # registry-smoke-test asks "does the published package install and run?" —
+    # the P0-1 class, a broken dependency tree. It cannot catch a package that
+    # installs perfectly and behaves wrongly, and on 2026-07-26 that happened
+    # three times in one day:
+    #
+    #   monomind 2.7.7      — published before the init data-loss fix landed, so
+    #                         `init` still deleted user-authored .claude files.
+    #                         `init --help` worked fine; the smoke test passed.
+    #   @monoes/hooks 1.0.0 — the security-worker fix was committed but the
+    #                         version was never bumped, so npm kept serving a
+    #                         worker that reported "clean" after aborting a scan.
+    #   @monoes/routing 1.0.1 — shipped a dist seven days stale, because a
+    #                         leftover tsconfig.tsbuildinfo made `tsc` a no-op
+    #                         while exiting 0.
+    #
+    # Each was caught by a human happening to look. This job asserts BEHAVIOUR
+    # against the published artifact, so the next one is caught by a machine.
+    #
+    # Add a case here whenever a defect reaches users. The bar for inclusion is
+    # narrow on purpose: it must be a regression that shipped, be assertable in
+    # a few seconds, and fail loudly enough to name what came back.
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install the published package from npm
+        run: |
+          set -euo pipefail
+          INSTALL_DIR="$(mktemp -d)"
+          echo "install_dir=${INSTALL_DIR}" >> "$GITHUB_ENV"
+          cd "${INSTALL_DIR}"
+          npm init -y >/dev/null
+          npm install monomind@latest
+          echo "Installed: $(node -p "require('monomind/package.json').version")"
+
+      # --- 1. init must not delete user-authored files -----------------------
+      # Regression: monomind 2.7.7. copySkills/copyCommands/copyAgents swept
+      # their target directory and removed every entry init had not itself
+      # shipped. A second pre-copy wipe destroyed files INSIDE shipped
+      # directories, and only reproduced under --force.
+      - name: init preserves user-authored files
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -euo pipefail
+          PROJ="$(mktemp -d)"
+          cd "${PROJ}"
+          git init -q
+          BIN="${{ env.install_dir }}/node_modules/monomind/bin/cli.js"
+
+          node "${BIN}" init >/dev/null 2>&1 || true
+
+          mkdir -p .claude/commands .claude/skills/mine
+          echo "USER COMMAND CONTENT" > .claude/commands/mine.md
+          echo "USER SKILL CONTENT"   > .claude/skills/mine/SKILL.md
+          SHIPPED_SKILL="$(ls .claude/skills 2>/dev/null | grep -v '^mine$' | head -1 || true)"
+          if [ -n "${SHIPPED_SKILL}" ]; then
+            echo "USER NOTES INSIDE A SHIPPED SKILL" > ".claude/skills/${SHIPPED_SKILL}/my-notes.md"
+          fi
+
+          # --force is the path that reproduced the nested deletion; a plain
+          # re-run skips the copy entirely and proves nothing.
+          node "${BIN}" init --force >/dev/null 2>&1 || true
+
+          FAILED=0
+          for f in .claude/commands/mine.md .claude/skills/mine/SKILL.md; do
+            if [ ! -f "$f" ]; then
+              echo "::error::init deleted a user-authored file: ${f} — the 2.7.7 data-loss regression is back"
+              FAILED=1
+            fi
+          done
+          if [ -n "${SHIPPED_SKILL}" ] && [ ! -f ".claude/skills/${SHIPPED_SKILL}/my-notes.md" ]; then
+            echo "::error::init deleted a user file nested inside a shipped skill directory — the pre-copy rmSync is back"
+            FAILED=1
+          fi
+          [ $FAILED -eq 0 ] && echo "OK: user-authored files survived init --force"
+          exit $FAILED
+
+      # --- 2. the secret gate must block credentials -------------------------
+      # Regression class: gates failing open, and NotebookEdit bypassing the
+      # secret check entirely because its content field is `new_source`.
+      - name: secret gate blocks credentials on Write and NotebookEdit
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -uo pipefail
+          HOOK="node_modules/monomind/packages/@monomind/cli/.claude/helpers/hook-handler.cjs"
+          if [ ! -f "${HOOK}" ]; then
+            echo "::error::the published package does not contain .claude/helpers/hook-handler.cjs — the security gates are not shipping at all"
+            exit 1
+          fi
+
+          # Assembled at runtime: a literal here would be blocked by the very
+          # gate under test the moment this file is written.
+          CRED="sk-ant-$(printf 'api03')-XXXXXXXXXXXXXXXXXXXXXXXX"
+          FAILED=0
+
+          for TOOL in Write NotebookEdit; do
+            if [ "$TOOL" = "Write" ]; then
+              PAYLOAD="{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const K = \\\"${CRED}\\\";\"}}"
+            else
+              PAYLOAD="{\"tool_name\":\"NotebookEdit\",\"tool_input\":{\"notebook_path\":\"/tmp/x.ipynb\",\"cell_id\":\"c1\",\"new_source\":\"K = \\\"${CRED}\\\"\"}}"
+            fi
+            echo "${PAYLOAD}" | node "${HOOK}" pre-write >/dev/null 2>/tmp/gate.err
+            STATUS=$?
+            if [ $STATUS -ne 2 ]; then
+              echo "::error::the secret gate did NOT block a credential via ${TOOL} (exit ${STATUS}, expected 2) — the gate is failing open"
+              FAILED=1
+            fi
+          done
+
+          # A normal edit must still pass, or the gate is unusable.
+          echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/ok.ts","content":"export const x = 1;"}}' \
+            | node "${HOOK}" pre-write >/dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "::error::the secret gate blocked an ORDINARY edit — it is failing closed on safe input, which makes users disable it"
+            FAILED=1
+          fi
+
+          [ $FAILED -eq 0 ] && echo "OK: credentials blocked on Write and NotebookEdit; ordinary edits pass"
+          exit $FAILED
+
+      # --- 3. the security worker must not claim "clean" after aborting ------
+      # Regression: @monoes/hooks 1.0.0. One unreadable path aborted the scan,
+      # discarded the secrets it had already found, and reported status "clean".
+      - name: security worker reports incomplete, not clean, on an unreadable path
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -uo pipefail
+          PROJ="$(mktemp -d)"
+          mkdir -p "${PROJ}/src/locked"
+          printf 'const password = "hunter2";\nconst api_key = "abc123";\n' > "${PROJ}/src/locked/creds.ts"
+          BIN="${{ env.install_dir }}/node_modules/monomind/bin/cli.js"
+
+          chmod 000 "${PROJ}/src/locked"
+          # Skip rather than pass vacuously where chmod does not deny reads
+          # (root, or a filesystem without POSIX permissions).
+          if cat "${PROJ}/src/locked/creds.ts" >/dev/null 2>&1; then
+            chmod 755 "${PROJ}/src/locked"
+            echo "::notice::chmod 000 did not deny reads in this environment — skipping rather than passing vacuously"
+            exit 0
+          fi
+
+          OUTPUT="$(cd "${PROJ}" && CLAUDE_PROJECT_DIR="${PROJ}" node "${BIN}" hooks worker run security 2>&1)"
+          chmod 755 "${PROJ}/src/locked"
+          echo "${OUTPUT}"
+
+          if echo "${OUTPUT}" | grep -q '"status": *"clean"'; then
+            echo "::error::the security worker reported \"clean\" over a directory it could not read — the @monoes/hooks 1.0.0 regression is back"
+            exit 1
+          fi
+          if echo "${OUTPUT}" | grep -q 'cvesRemediated'; then
+            echo "::error::the security worker is emitting a fabricated cvesRemediated count again"
+            exit 1
+          fi
+          echo "OK: an unreadable path does not produce a clean verdict"
+
+      # --- 4. status must report measured numbers, not constants -------------
+      # Regression: 2.7.9. One unguarded access threw and the catch substituted
+      # defaults for every panel, so a populated project reported all zeros.
+      - name: status reports what is actually on disk
+        working-directory: ${{ env.install_dir }}
+        run: |
+          set -uo pipefail
+          PROJ="$(mktemp -d)"
+          cd "${PROJ}"
+          git init -q
+          BIN="${{ env.install_dir }}/node_modules/monomind/bin/cli.js"
+
+          node "${BIN}" init >/dev/null 2>&1 || true
+          node "${BIN}" memory store --key smoke-a --value "first entry"  >/dev/null 2>&1 || true
+          node "${BIN}" memory store --key smoke-b --value "second entry" >/dev/null 2>&1 || true
+
+          OUTPUT="$(node "${BIN}" status 2>&1)"
+          echo "${OUTPUT}"
+
+          if echo "${OUTPUT}" | grep -qi "could not read full system state"; then
+            echo "::error::status could not read system state — it is falling back to defaults instead of measuring"
+            exit 1
+          fi
+          if echo "${OUTPUT}" | grep -qiE "Backend[^|]*\|[[:space:]]*none"; then
+            echo "::error::status reports memory Backend 'none' for a project with a populated store — the fabricated-zeros regression is back"
+            exit 1
+          fi
+          echo "OK: status reflects real state"
+
+      - name: Clean up temp install dir
+        if: always()
+        run: rm -rf "${{ env.install_dir }}"
