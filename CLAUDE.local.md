@@ -27,4 +27,4 @@ npx monomind@latest hooks worker list
 
 ## Intelligence System
 
-Trajectory + outcome logging (`intelligence.ts`); keyword routing (`createKeywordRouter`) with route-outcome correlation measured by `doctor`. Memory has three parallel backends: a JSON pattern store (hooks/intelligence trajectory logging), LanceDB + HF-embeddings (`memory-bridge.ts`, backs CLI `memory store/search` and MCP memory tools), and a standalone pure-JS HNSW index (`hnsw-operations.ts`) — not consolidated, see `packages/@monomind/memory/src/`.
+Trajectory + outcome logging (`intelligence.ts`); keyword routing (`createKeywordRouter`) with route-outcome correlation measured by `doctor`. Memory has three parallel backends: a JSON pattern store (hooks/intelligence trajectory logging), local SQLite + HF-embeddings (`memory-bridge.ts`, backs CLI `memory store/search` and MCP memory tools), and a standalone pure-JS HNSW index (`hnsw-operations.ts`, fallback-only — see the honesty review's growth plan) — not consolidated, see `packages/@monomind/memory/src/`. LanceDB support was fully removed.

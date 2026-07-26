@@ -23,8 +23,26 @@ export interface RouteResult {
   agentSlug: string;
   /** Cosine similarity score (0.0–1.0) */
   confidence: number;
-  /** How the routing decision was made */
-  method: 'semantic' | 'keyword' | 'llm_fallback';
+  /**
+   * How the routing decision was made.
+   *
+   * - `keyword`      — matched by the deterministic keyword pre-filter.
+   * - `semantic`     — the top centroid scored at or above threshold.
+   * - `llm_fallback` — an LLM was called AND returned a usable agent slug.
+   * - `semantic_degraded` — the intended path did not produce an answer, so
+   *   the nearest semantic match was returned instead. Emitted when the LLM
+   *   call throws, returns a malformed slug, or names an unknown agent, and
+   *   when there are no routes at all. `confidence` on this branch is the raw
+   *   cosine score of the nearest centroid (or 0), NOT an LLM confidence.
+   *
+   * `semantic_degraded` exists so a *failed* fallback is not reported as a
+   * successful one: every degraded branch used to return `llm_fallback` with
+   * the encoder score as `confidence`, which the CLI printed verbatim as
+   * "Method: llm_fallback / Confidence: N%". Callers that want "was this a
+   * confident match?" should test `method === 'semantic'`; callers that want
+   * "did anything go wrong?" should test for the `_degraded` suffix.
+   */
+  method: 'semantic' | 'keyword' | 'llm_fallback' | 'semantic_degraded';
   /** The route name that matched */
   routeName: string;
   /** All routes with their scores, for debugging */

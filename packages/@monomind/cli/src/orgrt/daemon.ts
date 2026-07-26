@@ -1,7 +1,8 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
-import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
 import { OrgBus } from './bus.js';
 import { PolicyEngine } from './policy.js';
 import { Mailbox } from './mailbox.js';
@@ -72,6 +73,9 @@ export class OrgDaemon {
 
   listOrgs(): RunningOrg[] { return [...this.orgs.values()]; }
   getOrg(name: string): RunningOrg | undefined { return this.orgs.get(name); }
+  /** Names of the orgs this daemon currently has running. Snapshot — safe to
+   *  iterate while stopOrg() mutates the underlying map. */
+  listRunning(): string[] { return [...this.orgs.keys()]; }
 
   async startOrg(name: string, taskOverride?: string): Promise<RunningOrg> {
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
@@ -264,8 +268,11 @@ export class OrgDaemon {
     // monolean: process-scoped listener — upgrade path = per-org tracking
     const crashCleanup = (): void => {
       try {
-        const rg = require('../utils/resource-governor.js') as typeof import('../utils/resource-governor.js');
-        rg.reapOrphanedSdkProcesses(new Set(), process.pid);
+        // Statically imported: a process 'exit' handler must be synchronous,
+        // so `await import()` is unavailable — and a bare require() throws
+        // "require is not defined" in this ESM package. Guarded by
+        // no-cjs-require-in-esm.test.ts.
+        reapOrphanedSdkProcesses(new Set(), process.pid);
       } catch { /* best-effort */ }
     };
     process.on('exit', crashCleanup);
@@ -527,14 +534,32 @@ export class OrgDaemon {
    *  running, pushes straight into the role's live mailbox (picked up on its very next
    *  generator tick — see Mailbox.stream()). If the org has since stopped, queues the
    *  answer via the same offline fallback deliver()/receiveRemote() already use
-   *  (inbox.ts + autoWake) and it's delivered when the org next starts. */
+   *  (inbox.ts + autoWake) and it's delivered when the org next starts.
+   *
+   *  PERSIST-AFTER-DELIVERY: questions.json is only marked answered once delivery has
+   *  actually happened (mailbox push, or the message landing in inbox.jsonl). Marking it
+   *  first meant a rejected delivery — unknown role, mailbox closed mid-shutdown, a
+   *  queueMessage that threw on a full/read-only disk — left the question recorded as
+   *  answered while nobody ever received the answer, and the `already answered` guard
+   *  then refused every retry. The answer was simply gone. The inverse failure (crash
+   *  between delivery and the write) merely re-shows the question as pending, which a
+   *  human can act on; a silently swallowed answer is not recoverable. */
   async answerQuestion(org: string, role: string, questionId: string, answer: string): Promise<{ ok: true } | { ok: false; error: string }> {
     const data = this.readQuestions(org);
     const idx = data.questions.findIndex(q => q.questionId === questionId);
     if (idx === -1) return { ok: false, error: `question "${questionId}" not found for org "${org}"` };
     if (data.questions[idx].answer !== null) return { ok: false, error: `question "${questionId}" already answered` };
-    data.questions[idx] = { ...data.questions[idx], answer, answeredAt: Date.now() };
-    this.writeQuestions(org, data);
+    const question = data.questions[idx].question;
+    // Applied to questions.json ONLY after the delivery below succeeds.
+    const markAnswered = (): void => {
+      // Re-read so a question the daemon appended (or answered) meanwhile isn't
+      // clobbered by this stale snapshot — merge by questionId, never replace.
+      const fresh = this.readQuestions(org);
+      const fIdx = fresh.questions.findIndex(q => q.questionId === questionId);
+      if (fIdx === -1) fresh.questions.push({ ...data.questions[idx], answer, answeredAt: Date.now() });
+      else fresh.questions[fIdx] = { ...fresh.questions[fIdx], answer, answeredAt: Date.now() };
+      this.writeQuestions(org, fresh);
+    };
 
     const running = this.orgs.get(org);
     if (running) {
@@ -547,19 +572,29 @@ export class OrgDaemon {
       const agent = running.agents.get(role);
       if (!agent) return { ok: false, error: `role "${role}" not found in org "${org}"` };
       if (agent.mailbox.isClosed) return { ok: false, error: `role "${role}" in org "${org}" is shutting down — answer not delivered` };
+      try {
+        agent.mailbox.push(`[answer from human] question: ${question}\n\nanswer: ${answer}`);
+      } catch (err) {
+        return { ok: false, error: `delivery to "${role}" in org "${org}" failed — answer not recorded (${err instanceof Error ? err.message : String(err)})` };
+      }
+      markAnswered();
       running.bus.emit({ type: 'status', from: role, msg: 'question answered', data: { questionId } });
-      agent.mailbox.push(`[answer from human] question: ${data.questions[idx].question}\n\nanswer: ${answer}`);
       return { ok: true };
     }
     // Org not running at all — queue for delivery on next start, matching deliver()'s
     // existing offline fallback exactly (inbox.ts + autoWake).
     if (!this.hasOrgDef(org)) return { ok: false, error: `org "${org}" not found (no saved definition)` };
-    queueMessage(this.root, org, {
-      fromQualified: 'human', toRole: role,
-      subject: `answer:${questionId}`,
-      body: `question: ${data.questions[idx].question}\n\nanswer: ${answer}`,
-      ts: Date.now(),
-    });
+    try {
+      queueMessage(this.root, org, {
+        fromQualified: 'human', toRole: role,
+        subject: `answer:${questionId}`,
+        body: `question: ${question}\n\nanswer: ${answer}`,
+        ts: Date.now(),
+      });
+    } catch (err) {
+      return { ok: false, error: `could not queue answer for org "${org}" — answer not recorded (${err instanceof Error ? err.message : String(err)})` };
+    }
+    markAnswered();
     this.autoWake(org);
     return { ok: true };
   }
@@ -883,5 +918,41 @@ export class OrgDaemon {
   private persistState(name: string, status: string, run: string): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     writeFileSync(p, JSON.stringify({ status, run, pid: process.pid, updated: new Date().toISOString() }, null, 2));
+  }
+
+  /** Mark every currently-running org as crashed in runtime.json.
+   *  Called from process-level crash handlers — must be synchronous and best-effort. */
+  persistCrashStateAll(): void {
+    for (const [name, org] of this.orgs) {
+      try {
+        const p = join(this.root, ORG_DIR, name, 'runtime.json');
+        writeFileSync(p, JSON.stringify({
+          status: 'crashed', run: org.run, pid: process.pid,
+          updated: new Date().toISOString(), closedBy: 'crash-handler',
+        }, null, 2));
+      } catch { /* best effort — filesystem may be unavailable */ }
+    }
+  }
+
+  private heartbeatPath(): string {
+    return join(this.root, '.monomind', 'serve-heartbeat.json');
+  }
+
+  /** Write a heartbeat file so `org status` can distinguish "daemon alive" from
+   *  "daemon gone" even when runtime.json still says running. */
+  writeHeartbeat(): void {
+    try {
+      const p = this.heartbeatPath();
+      mkdirSync(join(this.root, '.monomind'), { recursive: true });
+      writeFileSync(p, JSON.stringify({
+        pid: process.pid, updatedAt: new Date().toISOString(),
+        running: this.listRunning(),
+      }, null, 2));
+    } catch { /* best effort */ }
+  }
+
+  clearHeartbeat(): void {
+    try { unlinkSync(this.heartbeatPath()); }
+    catch { /* already gone or never written */ }
   }
 }

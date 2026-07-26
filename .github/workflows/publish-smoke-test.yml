@@ -10,12 +10,22 @@ name: Publish Smoke Test
 #     Builds locally, `npm pack`s both packages, installs the tarballs into a
 #     throwaway project (no monorepo node_modules / hoisting to hide behind),
 #     and runs real commands against them. This is the pre-publish gate.
-#   - registry-smoke-test: runs after a `v*` tag is pushed (i.e. once a
-#     release has actually been published to npm), or on manual dispatch.
-#     Installs the *published* tarballs from the registry itself, so it
-#     verifies what real `npm install monomind` users get.
+#   - registry-smoke-test: installs the *published* tarballs from the registry
+#     itself, so it verifies what real `npm install monomind` users get.
+#     Triggers: a pushed `v*` tag, manual dispatch, or a daily schedule.
+#
+#     The daily schedule is not redundant. Tagging is a manual step that is not
+#     part of the publish flow, so releases regularly reach npm untagged and
+#     the tag trigger never fires for them: as of 2026-07-26 the remote's
+#     newest tag was v2.7.3 while npm was serving 2.7.7, leaving 2.5.7, 2.5.8,
+#     2.7.4, 2.7.5, 2.7.6 and 2.7.7 — six published versions — never smoke
+#     tested. Since this job installs `@latest` rather than a specific ref, a
+#     daily run covers whatever actually shipped, tagged or not.
 on:
   workflow_dispatch:
+  schedule:
+    # 06:20 UTC daily — verifies whatever `@latest` currently resolves to.
+    - cron: '20 6 * * *'
   push:
     tags:
       - 'v*'
@@ -53,14 +63,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # No `cache: npm` — it requires a package-lock.json this pnpm
+          # workspace does not have, and setup-node fails the job before any
+          # step runs.
 
-      - name: Install root dependencies
-        run: npm install
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-      - name: Install CLI package dependencies
-        working-directory: packages/@monomind/cli
-        run: npm install
+      # One workspace install wires the CLI to its sibling packages. The npm
+      # installs further down are deliberate and stay npm: they simulate what a
+      # real user gets from a tarball and from the registry.
+      - name: Install workspace dependencies
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build CLI package
         working-directory: packages/@monomind/cli
@@ -122,7 +138,7 @@ jobs:
 
   registry-smoke-test:
     name: Registry smoke test (${{ matrix.package.spec }})
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:

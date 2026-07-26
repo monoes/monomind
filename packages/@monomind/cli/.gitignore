@@ -1,0 +1,20 @@
+# monomind runtime state
+.monomind/
+**/.monomind/
+.hive-mind/
+.swarm/
+**/.claude-flow/
+data/sessions/
+data/mastermind-*.json
+data/mastermind-*.jsonl
+
+# secrets / local env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# dependencies / build output
+node_modules/
+dist/

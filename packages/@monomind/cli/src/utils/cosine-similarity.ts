@@ -5,8 +5,8 @@
  *   - memory/intelligence.ts (ReasoningBank.cosineSim)
  *   - mcp-tools/neural-tools.ts (cosineSimilarity)
  *   - mcp-tools/embeddings-tools.ts (cosineSimilarity)
- *   - mcp-tools/coherence/types.ts (cosineSimilarity)
- *   - mcp-tools/coherence/coherence-check.ts (cosineSimilarity)
+ *   - mcp-tools/coherence/types.ts + coherence-check.ts (both since deleted
+ *     along with the rest of the uncalled coherence_* family)
  *
  * This is the single canonical implementation. Accepts number[] or
  * Float32Array. Handles dimension mismatches gracefully (uses the shorter

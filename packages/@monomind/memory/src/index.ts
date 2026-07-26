@@ -3,9 +3,11 @@
  *
  * Provides a unified memory interface with ANN indexing for fast vector
  * search — SQLite-backed (better-sqlite3, sql.js WASM fallback) as of
- * 2026-07; LanceDB is kept only for reading/migrating legacy stores (see
- * lancedb-backend.ts, migration.ts). UnifiedMemoryService below is backed by
- * SQLiteBackend. It is still not the live CLI memory path — the CLI's
+ * 2026-07. LanceDB support was fully removed (was already unreachable from
+ * the live bridge path; the migration escape hatch for legacy LanceDB stores
+ * is gone too — migrate before upgrading past this point if you still have
+ * one). UnifiedMemoryService below is backed by SQLiteBackend. It is still
+ * not the live CLI memory path — the CLI's
  * memory-bridge.ts talks to SQLiteBackend/SqlJsBackend directly and does not
  * go through this class — but external @monomind/memory consumers who
  * instantiate it now get the current engine, not the legacy adapter.
@@ -122,8 +124,6 @@ export type {
 } from './controller-registry.js';
 
 // ===== Core Components =====
-export { LanceDBBackend } from './lancedb-backend.js';
-export type { LanceDBBackendConfig } from './lancedb-backend.js';
 export { SQLiteBackend } from './sqlite-backend.js';
 export type { SQLiteBackendConfig } from './sqlite-backend.js';
 export { SqlJsBackend } from './sqljs-backend.js';
@@ -203,10 +203,29 @@ export interface UnifiedMemoryServiceConfig {
  * Unified Memory Service
  *
  * High-level interface for the V1 memory system, backed by SQLiteBackend.
- * NOT the live CLI memory path — the CLI's memory-bridge.ts talks to
- * SQLiteBackend/SqlJsBackend directly and does not use this class. Kept for
- * external @monomind/memory consumers.
- * Provides simple API for common operations with automatic embedding support.
+ * Provides a simple API for common operations with automatic embedding support.
+ *
+ * RETENTION NOTE (2026-07) — read before deleting this as "dead code":
+ *
+ * This class, the four `create*Service` factories below, and the package's
+ * default export have ZERO callers inside this monorepo. The live CLI memory
+ * path is `packages/@monomind/cli/src/memory/memory-bridge.ts`, which
+ * constructs SQLiteBackend/SqlJsBackend directly and never touches this class.
+ * Every in-repo import of `@monoes/memory` pulls a *different* symbol
+ * (SwarmCheckpointer, SQLiteBackend, HNSWIndex, chunkDocument).
+ *
+ * It is nevertheless RETAINED DELIBERATELY, not by accident: `@monoes/memory`
+ * is published to npm, and this is its documented headline API, its module
+ * docblock example, and its `export default`. Deleting it is a breaking change
+ * to a published package's primary entry point, which is a different decision
+ * from removing unreachable *internal* code — and the usual justification for
+ * deleting dead code (it has silently rotted) does not apply here, because
+ * `src/index.test.ts` now covers the whole surface: lifecycle, the full
+ * IMemoryBackend implementation, every convenience method, sharing, and all
+ * four factories.
+ *
+ * If you do decide to remove it, treat it as a semver-major change to
+ * @monoes/memory and delete `src/index.test.ts` with it.
  */
 export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend {
   private adapter: SQLiteBackend;

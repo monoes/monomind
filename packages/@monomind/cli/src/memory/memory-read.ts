@@ -51,6 +51,15 @@ export async function searchEntries(options: {
     namespace: string;
   }[];
   searchTime: number;
+  /** What actually ran — propagated from the bridge so callers can report the
+   *  real method instead of echoing the requested one.
+   *
+   *  'hash-vector'/'hash-hybrid' are the sql.js paths running on
+   *  generateEmbedding()'s deterministic hash fallback: a vector search was
+   *  performed, but over hashes with no semantic content, so neither may be
+   *  reported as 'semantic'/'hybrid'. */
+  searchMethod?: 'semantic' | 'keyword' | 'keyword-fallback' | 'hybrid' | 'hash-vector' | 'hash-hybrid';
+  fallbackReason?: string;
   error?: string;
 }> {
   // ADR-053: Try SQLite-backed memory bridge first
@@ -89,6 +98,12 @@ export async function searchEntries(options: {
     const queryEmb = await generateEmbedding(query);
     const queryEmbedding = queryEmb.embedding;
 
+    // generateEmbedding() never fails — when no ONNX model can be loaded it
+    // silently returns generateHashEmbedding() output tagged 'hash-fallback'.
+    // Cosine over those hashes is a deterministic lexical trick with no
+    // semantic content, so the methods below must not claim otherwise.
+    const realVectors = queryEmb.model !== 'hash-fallback';
+
     // Try HNSW search first (150x faster)
     const hnswResults = await searchHNSWIndex(queryEmbedding, { k: limit, namespace: effectiveNamespace });
     if (hnswResults && hnswResults.length > 0) {
@@ -96,7 +111,9 @@ export async function searchEntries(options: {
       return {
         success: true,
         results: filtered,
-        searchTime: Date.now() - startTime
+        searchTime: Date.now() - startTime,
+        searchMethod: realVectors ? 'semantic' : 'hash-vector',
+        ...(realVectors ? {} : { fallbackReason: 'no-embedding-model' })
       };
     }
 
@@ -172,7 +189,11 @@ export async function searchEntries(options: {
     return {
       success: true,
       results: results.slice(0, limit),
-      searchTime: Date.now() - startTime
+      searchTime: Date.now() - startTime,
+      // Per-row: cosine when the entry had a vector, keyword overlap otherwise.
+      // With hash-fallback vectors the cosine half is not semantic either.
+      searchMethod: realVectors ? 'hybrid' : 'hash-hybrid',
+      ...(realVectors ? {} : { fallbackReason: 'no-embedding-model' })
     };
   } catch (error) {
     return {

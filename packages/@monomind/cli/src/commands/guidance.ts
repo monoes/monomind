@@ -62,13 +62,19 @@ const setupCommand: Command = {
 
     const PRE_BASH_MATCHER = 'Bash';
     const PRE_BASH_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs" pre-bash';
-    const PRE_WRITE_MATCHER = 'Write|Edit|MultiEdit';
+    // Keep in step with .claude/settings.json and init/settings-generator.ts.
+    // NotebookEdit is listed explicitly: its content field is `new_source`, so
+    // it slipped past the secret gate until the handler learned to read it.
+    const PRE_WRITE_MATCHER = 'Write|Edit|MultiEdit|NotebookEdit';
     const PRE_WRITE_COMMAND = 'node "$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs" pre-write';
 
     // Find any existing Bash/Write entry (may have different hooks from other tools)
     const existingBashEntry = preToolUse.find(e => e.matcher === PRE_BASH_MATCHER);
     const alreadyHasPreBash = existingBashEntry?.hooks.some(h => h.command.includes('pre-bash')) ?? false;
-    const existingWriteEntry = preToolUse.find(e => e.matcher === PRE_WRITE_MATCHER);
+    // Find by capability, not exact string: a settings.json written before
+    // NotebookEdit was added still says 'Write|Edit|MultiEdit', and an exact
+    // match would miss it and append a second, overlapping entry.
+    const existingWriteEntry = preToolUse.find(e => /\bWrite\b/.test(e.matcher ?? ''));
     const alreadyHasPreWrite = existingWriteEntry?.hooks.some(h => h.command.includes('pre-write')) ?? false;
 
     const changes: string[] = [];

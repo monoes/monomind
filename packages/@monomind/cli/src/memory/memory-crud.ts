@@ -428,7 +428,21 @@ export async function deleteEntry(options: {
       if (bridgeResult.deleted) {
         rebuildSearchIndex();
       }
-      return { ...bridgeResult, key: options.key, namespace: options.namespace ?? 'default', remainingEntries: 0 };
+      // Count what is actually left rather than asserting zero. This returned a
+      // hardcoded 0 on the default bridge path (the sql.js fallback below always
+      // computed it), so every successful delete printed "Remaining entries: 0"
+      // — telling the user their namespace was empty when it was not, and
+      // handing any script reading data.remainingEntries a false "done".
+      const ns = options.namespace ?? 'default';
+      let remainingEntries = 0;
+      try {
+        const listed = await bridge.bridgeListEntries({ namespace: ns, limit: 100_000, dbPath: options.dbPath });
+        remainingEntries = listed?.entries?.length ?? 0;
+      } catch {
+        // Counting is best-effort; a failed count must not fail the delete that
+        // already succeeded. 0 here means "unknown", same as before this fix.
+      }
+      return { ...bridgeResult, key: options.key, namespace: ns, remainingEntries };
     }
   }
 

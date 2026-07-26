@@ -1112,7 +1112,8 @@ applyLegacyDeferredAcceptsOnStartup();
 restorePendingEventsFromStore();
 manualApply.pruneStaleEvidence();
 const portArg = args.find(a => a.startsWith('--port='));
-state.port = portArg ? parseInt(portArg.split('=')[1], 10) : await findOpenPort();
+const explicitPort = portArg ? parseInt(portArg.split('=')[1], 10) : null;
+state.port = explicitPort ?? await findOpenPort();
 // Annotation screenshots live in the project root so the agent's Read tool
 // doesn't trip a per-file permission prompt. Sessioned by token so concurrent
 // projects (or quick restarts) don't collide.
@@ -1123,7 +1124,43 @@ state.sessionDir = fs.mkdtempSync(path.join(annotRoot, 'session-'));
 const { detectScript, liveScriptParts } = loadBrowserScripts();
 httpServer = http.createServer(createRequestHandler({ detectScript, liveScriptParts }));
 
+// findOpenPort() probes a port, closes the probe socket, and only then does the
+// real server bind it. Another process scanning the same range can take the
+// port inside that gap, which surfaced as an intermittent
+// "EADDRINUSE 127.0.0.1:8405" — about one run in five of the test suite, where
+// several server-starting test files run in parallel.
+//
+// Retry on the next port when we picked it ourselves. An explicit --port is
+// never silently moved: the caller asked for that port, so a conflict there
+// must be an error they can see.
+const MAX_PORT_RETRIES = 25;
+let portRetries = 0;
+
+httpServer.on('error', (err) => {
+  if (err?.code !== 'EADDRINUSE') throw err;
+
+  if (explicitPort !== null) {
+    console.error(`\nPort ${state.port} is already in use.`);
+    console.error('Another live server may be running — stop it, or pass a different --port.');
+    process.exit(1);
+  }
+
+  if (portRetries >= MAX_PORT_RETRIES) {
+    console.error(`\nCould not find a free port after ${MAX_PORT_RETRIES} attempts (last tried ${state.port}).`);
+    process.exit(1);
+  }
+
+  portRetries++;
+  state.port++;
+  httpServer.listen(state.port, '127.0.0.1');
+});
+
 httpServer.listen(state.port, '127.0.0.1', () => {
+  // Trust the address the OS actually bound over the one we asked for — after
+  // a retry above, state.port and the bound port must not drift apart.
+  const boundAddr = httpServer.address();
+  if (boundAddr && typeof boundAddr === 'object') state.port = boundAddr.port;
+
   writeLiveServerInfo(process.cwd(), { pid: process.pid, port: state.port, token: state.token });
   const url = `http://localhost:${state.port}`;
   console.log(`\nMonodesign live server running on ${url}`);

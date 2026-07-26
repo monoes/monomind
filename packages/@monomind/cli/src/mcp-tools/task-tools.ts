@@ -213,10 +213,14 @@ export const taskTools: MCPTool[] = [
       let tasks = Object.values(store.tasks);
 
       // Apply filters
-      if (input.status) {
+      // 'all' is a sentinel meaning "do not filter", not a status any task has.
+      // Without this, `task list --all` and `monomind status tasks` — both of
+      // which pass status:'all' — matched nothing and reported an empty store
+      // while tasks existed on disk.
+      if (input.status && input.status !== 'all') {
         // Support comma-separated status values
-        const statuses = (input.status as string).split(',').map(s => s.trim());
-        tasks = tasks.filter(t => statuses.includes(t.status));
+        const statuses = (input.status as string).split(',').map(s => s.trim()).filter(s => s !== 'all');
+        if (statuses.length > 0) tasks = tasks.filter(t => statuses.includes(t.status));
       }
       if (input.type) {
         tasks = tasks.filter(t => t.type === input.type);

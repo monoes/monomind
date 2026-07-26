@@ -39,29 +39,36 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
           await fs.access(modPath);
 
           const srcPath = path.join(modPath, 'src');
-          const patterns = await searchDDDPatterns(srcPath);
+          const { patterns, skipped } = await searchDDDPatterns(srcPath);
           Object.assign(modMetrics, patterns);
 
           const modScore = patterns.entities * 2 + patterns.valueObjects +
                           patterns.aggregates * 3 + patterns.repositories * 2 +
                           patterns.services + patterns.domainEvents * 2;
 
-          return { mod, modMetrics, modScore, exists: true };
+          return { mod, modMetrics, modScore, exists: true, skipped };
         } catch {
-          return { mod, modMetrics, modScore: 0, exists: false };
+          return { mod, modMetrics, modScore: 0, exists: false, skipped: [] as string[] };
         }
       })
     );
+
+    const skippedPaths: string[] = [];
 
     for (const result of moduleResults) {
       if (result.exists) {
         dddMetrics[result.mod] = result.modMetrics;
         totalScore += result.modScore;
         maxScore += 20;
+        skippedPaths.push(...result.skipped);
       }
     }
 
     const progressPct = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : 0;
+
+    // Unreadable files/directories deflate every count above, so `progress` is
+    // a lower bound rather than a measurement whenever this is true.
+    const incomplete = skippedPaths.length > 0;
 
     try {
       const outputPath = path.join(projectRoot, '.monomind', 'metrics', 'ddd-progress.json');
@@ -72,6 +79,9 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
         score: totalScore,
         maxScore,
         modules: dddMetrics,
+        incomplete,
+        skippedCount: skippedPaths.length,
+        skippedPaths: skippedPaths.slice(0, 50),
       }, null, 2));
     } catch (e) {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-ddd] failed to write ddd-progress.json:', e);
@@ -88,6 +98,8 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
         maxScore,
         modulesTracked: Object.keys(dddMetrics).length,
         modules: dddMetrics,
+        incomplete,
+        skippedCount: skippedPaths.length,
       },
     };
   };

@@ -267,7 +267,7 @@ export const searchCommand: Command = {
     },
     {
       name: 'build-hnsw',
-      description: 'Build/rebuild pure-JS HNSW index before searching',
+      description: 'Build/rebuild the pure-JS HNSW fallback index. Only used when the SQLite bridge is unavailable (e.g. better-sqlite3 native binary failed to load) — has no effect on the search that follows when the bridge is active, which is the common case',
       type: 'boolean',
       default: false
     }
@@ -275,7 +275,7 @@ export const searchCommand: Command = {
   examples: [
     { command: 'monomind memory search -q "authentication patterns"', description: 'Semantic search' },
     { command: 'monomind memory search -q "JWT" -t keyword', description: 'Keyword search' },
-    { command: 'monomind memory search -q "test" --build-hnsw', description: 'Build HNSW index and search' }
+    { command: 'monomind memory search -q "test" --build-hnsw', description: 'Build the sql.js-fallback HNSW index (no-op unless the SQLite bridge is down)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string || ctx.args[0];
@@ -290,9 +290,15 @@ export const searchCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    // Build/rebuild HNSW index if requested
+    // Build/rebuild the sql.js-fallback HNSW index if requested. This index is only
+    // consulted when the SQLite bridge is unavailable — check that first so the
+    // message reflects what will actually happen in the search below, not what
+    // would happen if this were the only backend.
     if (buildHnsw) {
-      output.printInfo('Building HNSW index...');
+      const { isBridgeAvailable } = await import('../memory/memory-bridge.js');
+      const bridgeUp = await isBridgeAvailable().catch(() => false);
+
+      output.printInfo('Building HNSW fallback index...');
       try {
         const { getHNSWIndex, getHNSWStatus } = await import('../memory/memory-initializer.js');
 
@@ -304,7 +310,11 @@ export const searchCommand: Command = {
           const status = getHNSWStatus();
           output.printSuccess(`HNSW index built (${status.entryCount} vectors, ${buildTime}ms)`);
           output.writeln(output.dim(`  Dimensions: ${status.dimensions}, Metric: cosine`));
-          output.writeln(output.dim(`  Complexity: O(log n) vs O(n) linear scan`));
+          if (bridgeUp) {
+            output.writeln(output.dim('  Note: the SQLite bridge is active, so the search below uses its brute-force cosine search, not this index. This index only kicks in if the bridge becomes unavailable.'));
+          } else {
+            output.writeln(output.dim('  SQLite bridge is unavailable — the search below will use this index (O(log n) vs O(n) linear scan).'));
+          }
         } else {
           output.printWarning('HNSW index not available');
         }
@@ -316,7 +326,10 @@ export const searchCommand: Command = {
       }
     }
 
-    output.printInfo(`Searching: "${query}" (${searchType})`);
+    // Requested type only — the method that ACTUALLY ran is printed after the
+    // search, from searchResult.searchMethod. Labelling this line "(semantic)"
+    // used to claim a vector search that may never have happened.
+    output.printInfo(`Searching: "${query}" (requested: ${searchType})`);
     output.writeln();
 
     // Use direct sql.js search with vector similarity
@@ -342,12 +355,47 @@ export const searchCommand: Command = {
         preview: r.content
       }));
 
+      const actualMethod = searchResult.searchMethod ?? 'unknown';
+      const fallbackReason = searchResult.fallbackReason;
+
       if (ctx.flags.format === 'json') {
-        output.printJson({ query, searchType, results, searchTime: `${searchResult.searchTime}ms` });
+        output.printJson({
+          query,
+          searchType,
+          searchMethod: actualMethod,
+          ...(fallbackReason ? { fallbackReason } : {}),
+          results,
+          searchTime: `${searchResult.searchTime}ms`,
+        });
         return { success: true, data: results };
       }
 
-      // Performance stats
+      // Performance stats — method first, so a keyword fallback is never hidden
+      // behind a "(semantic)" header.
+      const REASON_TEXT: Record<string, string> = {
+        'no-embedding-model': 'embedding model unavailable',
+        'empty-query': 'query was empty, so no vector could be built',
+        'embedding-failed': 'embedding generation failed',
+        'no-semantic-matches': 'vector search returned no matches',
+      };
+      const why = fallbackReason ? REASON_TEXT[fallbackReason] ?? fallbackReason : undefined;
+      if (actualMethod === 'semantic') {
+        output.writeln(output.dim('  Method: semantic (vector similarity)'));
+      } else if (actualMethod === 'hybrid') {
+        output.writeln(output.dim('  Method: hybrid (per-entry cosine, keyword overlap where no vector exists)'));
+      } else if (actualMethod === 'hash-vector' || actualMethod === 'hash-hybrid') {
+        // A vector search did run, but over hash-fallback embeddings — the
+        // scores are cosines of a lexical hash, not of a semantic model.
+        output.printWarning(
+          `Method: ${actualMethod}${why ? ` — ${why}` : ''}. Scores are cosines over deterministic hash embeddings, not semantic similarity.`
+        );
+      } else if (actualMethod === 'unknown') {
+        output.writeln(output.dim('  Method: unknown'));
+      } else {
+        output.printWarning(
+          `Method: ${actualMethod}${why ? ` — ${why}` : ''}. Scores are token-overlap fractions, not vector similarity.`
+        );
+      }
       output.writeln(output.dim(`  Search time: ${searchResult.searchTime}ms`));
       output.writeln();
 

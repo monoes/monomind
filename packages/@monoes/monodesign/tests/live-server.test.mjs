@@ -23,14 +23,49 @@ const COMPLETE_SCRIPT = join(REPO_ROOT, 'skill/scripts/live-complete.mjs');
 // Helper: start/stop server for integration tests
 // ---------------------------------------------------------------------------
 
-function startServer(port = 8499, { cwd = REPO_ROOT, env = {} } = {}) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('node', [SERVER_SCRIPT, '--port=' + port], {
+// The positional port argument is accepted and ignored. These tests used to
+// pin a distinct hardcoded port per case (8499, 8520, 8521, …), which made the
+// suite non-hermetic: any process already holding one — including a live
+// server leaked by an earlier run of this very suite — failed every test in
+// the file with EADDRINUSE, which read as "these tests need a live server"
+// rather than "the port was taken". Omitting --port lets the server pick a
+// free port via its own findOpenPort(), and the real port is read back from
+// the PID file below, so callers need no changes.
+function startServer(_legacyPort, { cwd = REPO_ROOT, env = {} } = {}) {
+  return new Promise((_resolve, _reject) => {
+    const proc = spawn('node', [SERVER_SCRIPT], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, MONODESIGN_LIVE_COPY_AGENT: 'off', ...env },
     });
     let output = '';
+
+    // Every rejection path must kill the child. The caller only receives a
+    // handle on success, so anything failing after spawn() leaves a process
+    // nobody can clean up — and it may still bind a port afterwards. That is
+    // how orphaned live servers accumulated across 8400-8403/8498/8499: a leak
+    // took a port, which made the next run's start time out, which leaked
+    // another server. Wrapping the executor's callbacks keeps the success path
+    // below untouched.
+    let settled = false;
+    const resolve = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      _resolve(value);
+    };
+    const reject = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { proc.kill('SIGKILL'); } catch { /* already exited */ }
+      _reject(err);
+    };
+    const timer = setTimeout(
+      () => reject(new Error('Server start timeout. Output: ' + output)),
+      5000,
+    );
+
     proc.stdout.on('data', (d) => {
       output += d.toString();
       if (output.includes('running on')) {
@@ -45,7 +80,6 @@ function startServer(port = 8499, { cwd = REPO_ROOT, env = {} } = {}) {
     });
     proc.stderr.on('data', (d) => { output += d.toString(); });
     proc.on('error', reject);
-    setTimeout(() => reject(new Error('Server start timeout. Output: ' + output)), 5000);
   });
 }
 

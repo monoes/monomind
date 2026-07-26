@@ -245,7 +245,7 @@ export const notifyCommand: Command = {
   options: [
     { name: 'message', short: 'm', type: 'string', description: 'Notification message', required: true },
     { name: 'level', short: 'l', type: 'string', description: 'Level: info, warn, error', default: 'info' },
-    { name: 'channel', short: 'c', type: 'string', description: 'Notification channel', default: 'console' },
+    { name: 'channel', short: 'c', type: 'string', description: 'Notification channel (only "console" is implemented)', default: 'console' },
   ],
   examples: [
     { command: 'monomind hooks notify -m "Build complete"', description: 'Send info notification' },
@@ -258,6 +258,19 @@ export const notifyCommand: Command = {
     if (!message) {
       output.printError('Message is required: --message "your message"');
       return { success: false, exitCode: 1 };
+    }
+
+    // Console is the only delivery mechanism that exists. Accepting
+    // `--channel slack` and then printing to the console anyway would tell the
+    // user their message went somewhere it did not.
+    const channel = (ctx.flags.channel as string) || 'console';
+    if (channel !== 'console') {
+      output.writeln(
+        output.warning(
+          `Channel "${channel}" is not implemented — delivering to console. ` +
+          `Only "console" is supported today.`
+        )
+      );
     }
 
     const timestamp = new Date().toISOString();
@@ -276,6 +289,6 @@ export const notifyCommand: Command = {
       await storeEntry({ key: `notify-${Date.now()}`, value: `[${level}] ${message}`, namespace: 'notifications' });
     } catch { /* memory not available */ }
 
-    return { success: true, data: { timestamp, level, message } };
+    return { success: true, data: { timestamp, level, message, channel: 'console' } };
   }
 };
