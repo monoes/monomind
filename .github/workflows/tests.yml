@@ -94,6 +94,107 @@ jobs:
         env:
           CI: true
 
+  windows:
+    name: ${{ matrix.name }} (windows)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mcp
+            pkg: '@monoes/mcp'
+            dir: packages/@monomind/mcp
+          - name: routing
+            pkg: '@monoes/routing'
+            dir: packages/@monomind/routing
+          - name: hooks
+            pkg: '@monoes/hooks'
+            dir: packages/@monomind/hooks
+          - name: monofence-ai
+            pkg: 'monofence-ai'
+            dir: packages/monofence-ai
+
+    # WINDOWS COVERAGE, HONESTLY SCOPED.
+    #
+    # Everything in this repo had only ever run on macOS and Linux. A discovery
+    # probe across all nine packages found four that genuinely pass on Windows —
+    # 356 tests — and five that cannot yet, for three distinct reasons. Gating
+    # the four is real coverage. Adding the other five would make this job
+    # permanently red, and a job that always fails is one people learn to
+    # ignore.
+    #
+    # EXCLUDED, each with its reason:
+    #
+    #   cli, monobrowse   POSIX-only build scripts (recursive delete, mkdir -p,
+    #                     cp). npm runs scripts through cmd.exe on Windows,
+    #                     which answers "The syntax of the command is
+    #                     incorrect". 7 of 8 packages have this shape, so
+    #                     monomind cannot currently be BUILT on Windows at all.
+    #                     Fixing it means cross-platform script tooling —
+    #                     separate work, tracked as a follow-up.
+    #
+    #   monograph, memory Need native modules (tree-sitter grammars,
+    #                     better-sqlite3). node-gyp's Visual Studio detection is
+    #                     broken on this runner image: it throws
+    #                     ERR_CHILD_PROCESS_STDIO_MAXBUFFER inside its find-VS
+    #                     module and concludes no VS exists — on an image that
+    #                     ships VS 2022. GYP_MSVS_VERSION does not help, because
+    #                     the throw happens before the hint is read.
+    #
+    #   monodesign        Its test command runs ZERO tests on Windows and exits
+    #                     0: `node --test 'tests/*.test.*'` relies on POSIX glob
+    #                     expansion. A suite that passes without running
+    #                     anything is worse than one that fails, so it stays out
+    #                     until the glob is portable.
+    #
+    # --ignore-scripts is deliberate: none of these four need a native build,
+    # and skipping it sidesteps the node-gyp failure above. hooks reports ~9
+    # skips here by design — its permission tests skip loudly where chmod 000
+    # does not deny reads, rather than passing vacuously.
+    steps:
+      - uses: actions/checkout@v4
+
+      # Without this, checkout rewrites LF to CRLF, changing file bytes and
+      # breaking byte-comparison guards for reasons unrelated to Windows.
+      - name: Disable git autocrlf
+        run: git config --global core.autocrlf false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-20-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-20-
+            pnpm-${{ runner.os }}-
+
+      - name: Install dependencies for ${{ matrix.name }}
+        shell: bash
+        run: pnpm install --no-frozen-lockfile --ignore-scripts --filter "${{ matrix.pkg }}..."
+
+      - name: Run ${{ matrix.name }} tests
+        working-directory: ${{ matrix.dir }}
+        shell: bash
+        run: npm test
+        env:
+          CI: true
+
   packages:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
