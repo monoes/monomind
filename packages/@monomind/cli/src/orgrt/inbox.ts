@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/inbox.ts
 // Persistent message queue for offline orgs. Messages that can't be delivered
 // (target org not running) are spooled here and drained when the org starts.
-import { appendFileSync, readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, readFileSync, renameSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { ORG_DIR } from './types.js';
 
@@ -23,25 +23,54 @@ export function queueMessage(root: string, orgName: string, msg: QueuedMessage):
   appendFileSync(inboxPath(root, orgName), JSON.stringify(msg) + '\n');
 }
 
+function parseLines(raw: string): QueuedMessage[] {
+  const msgs: QueuedMessage[] = [];
+  for (const line of raw.trim().split('\n')) {
+    if (!line) continue;
+    try { msgs.push(JSON.parse(line)); } catch { /* skip corrupt lines */ }
+  }
+  return msgs;
+}
+
 export function drainInbox(root: string, orgName: string): QueuedMessage[] {
   const path = inboxPath(root, orgName);
-  if (!existsSync(path)) return [];
-  // Rename-then-read: if the process crashes after rename but before we finish
-  // reading, the .draining file survives for manual recovery. A plain
-  // read-then-truncate would lose messages on a mid-drain crash.
   const draining = `${path}.draining`;
+  const msgs: QueuedMessage[] = [];
+
+  // Recover a .draining file left behind by a mid-drain crash. Without this the
+  // rename below would overwrite it and lose exactly the messages the rename-then-read
+  // scheme exists to protect.
+  if (existsSync(draining)) {
+    try {
+      msgs.push(...parseLines(readFileSync(draining, 'utf8')));
+      unlinkSync(draining);
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox recovery of .draining failed:', e);
+      return msgs; // don't rename over a file we couldn't consume
+    }
+  }
+
+  if (!existsSync(path)) return msgs;
+  // Rename-then-read: if the process crashes after rename but before we finish
+  // reading, the .draining file survives (and is recovered above on the next
+  // drain). A plain read-then-truncate would lose messages on a mid-drain crash.
   try { renameSync(path, draining); } catch (e) {
     if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox rename failed:', e);
-    return [];
+    return msgs;
   }
-  const raw = readFileSync(draining, 'utf8').trim();
-  if (!raw) { writeFileSync(draining, ''); renameSync(draining, path); return []; }
-  // Clear the draining file — messages are now the caller's responsibility
-  writeFileSync(draining, '');
-  renameSync(draining, path);
-  const msgs: QueuedMessage[] = [];
-  for (const line of raw.split('\n')) {
-    try { msgs.push(JSON.parse(line)); } catch { /* skip corrupt lines */ }
+  let raw = '';
+  try { raw = readFileSync(draining, 'utf8'); } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox read failed:', e);
+    return msgs;
+  }
+  msgs.push(...parseLines(raw));
+  // Unlink the drained snapshot rather than truncating it and renaming it back over
+  // `path`. A sender that appended between the rename above and this point created a
+  // fresh `path` (queueMessage mkdir+appends), and renaming the emptied snapshot back
+  // would clobber it — destroying messages whose sender already got a "queued" receipt.
+  // Those messages now simply stay in `path` and are picked up by the next drain.
+  try { unlinkSync(draining); } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox unlink failed:', e);
   }
   return msgs;
 }
