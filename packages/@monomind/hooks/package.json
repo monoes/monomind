@@ -24,10 +24,10 @@
     "dist"
   ],
   "scripts": {
-    "prebuild": "rm -rf dist tsconfig.tsbuildinfo",
+    "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
     "build": "tsc -p tsconfig.json",
     "prepublishOnly": "npm run build",
-    "clean": "rm -rf dist",
+    "clean": "node ../../../scripts/build-fs.mjs clean dist",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
