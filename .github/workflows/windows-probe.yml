@@ -1,0 +1,117 @@
+name: Windows Probe
+
+# DISCOVERY, NOT A GATE.
+#
+# Every suite in this repo has only ever run on macOS (developer machines) and
+# ubuntu-latest (tests.yml). Windows is genuinely untested, and several things
+# are known to be platform-shaped:
+#
+#   - permission tests use `chmod 000`, which does not deny reads on Windows
+#   - path handling assumes POSIX separators in places
+#   - the `._` AppleDouble filtering exists for exFAT and is meaningless there
+#   - native modules (tree-sitter grammars, better-sqlite3) must compile with
+#     MSVC rather than gcc
+#
+# Adding windows-latest straight to the tests.yml matrix would very likely turn
+# CI permanently red, and a job that is always failing is one people learn to
+# ignore — the same reason agent-regression.yml was deleted rather than left
+# broken.
+#
+# So this is manual-dispatch only and `fail-fast: false`: run it, read what
+# actually breaks, then promote whatever genuinely passes into tests.yml as a
+# real gate with the exclusions written down. Delete this file once that
+# promotion happens.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: ${{ matrix.name }} (windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      # Every package reports independently — one failure must not hide the
+      # state of the other nine, which is the whole point of a discovery run.
+      fail-fast: false
+      matrix:
+        include:
+          - name: cli
+            dir: packages/@monomind/cli
+          - name: monograph
+            dir: packages/@monomind/monograph
+          - name: memory
+            dir: packages/@monomind/memory
+          - name: mcp
+            dir: packages/@monomind/mcp
+          - name: routing
+            dir: packages/@monomind/routing
+          - name: hooks
+            dir: packages/@monomind/hooks
+          - name: monofence-ai
+            dir: packages/monofence-ai
+          - name: monobrowse
+            dir: packages/@monoes/monobrowse
+          - name: monodesign
+            dir: packages/@monoes/monodesign
+            node: '22'
+            build: 'skip'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Windows checkout would otherwise rewrite LF to CRLF, which changes
+          # file bytes and would make byte-comparison guards (the .claude tree
+          # parity check) fail for a reason that has nothing to do with Windows.
+          # Keep the working tree identical to what Linux sees.
+          fetch-depth: 1
+
+      - name: Disable git autocrlf
+        run: git config --global core.autocrlf false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node || '20' }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ matrix.node || '20' }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-${{ matrix.node || '20' }}-
+            pnpm-${{ runner.os }}-
+
+      # Native grammars and better-sqlite3 need MSVC here rather than gcc. If
+      # this step is what fails, that is itself the finding — report it as an
+      # install problem, not a test problem.
+      - name: Install workspace dependencies
+        shell: bash
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build ${{ matrix.name }}
+        if: matrix.build != 'skip'
+        working-directory: ${{ matrix.dir }}
+        shell: bash
+        run: npm run build --if-present
+
+      - name: Run ${{ matrix.name }} tests
+        working-directory: ${{ matrix.dir }}
+        shell: bash
+        run: npm test
+        env:
+          CI: true
