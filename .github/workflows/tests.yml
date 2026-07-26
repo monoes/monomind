@@ -114,6 +114,18 @@ jobs:
           - name: monofence-ai
             pkg: 'monofence-ai'
             dir: packages/monofence-ai
+          - name: monodesign
+            pkg: '@monoes/monodesign'
+            dir: packages/@monoes/monodesign
+            # Its suite runs under node:test with --experimental-strip-types,
+            # which Node 20 rejects outright ("bad option"). The Linux matrix
+            # pins 22 for the same reason.
+            node: '22'
+            # Its build typechecks deliberately-malformed antipattern fixtures
+            # and exits 2 by design, and pulls monograph's sources in through
+            # the workspace. Nothing to do with Windows; the tests run from
+            # source anyway.
+            build: 'skip'
           - name: monobrowse
             pkg: '@monoes/monobrowse'
             dir: packages/@monoes/monobrowse
@@ -140,25 +152,28 @@ jobs:
     #
     # RESOLVED, and now gated here rather than described as broken:
     #
-    #   monodesign        Not gated here — but for a measured reason now, not an
-    #                     unknown one. Its suite used to run ZERO tests on
-    #                     Windows and exit 0: `node --test 'tests/*.test.*'`
-    #                     relies on POSIX glob expansion, and cmd.exe passes the
-    #                     single quotes through, so the pattern matched nothing.
-    #                     It now runs via scripts/run-tests.mjs, which fails when
-    #                     the suite executes no tests, and Node 22 (Node 20
-    #                     rejects --experimental-strip-types outright).
+    #   monodesign        Now gated, at 1014 passing / 0 failing. It used to run
+    #                     ZERO tests here and exit 0 — `node --test
+    #                     'tests/*.test.*'` relies on POSIX glob expansion and
+    #                     cmd.exe passes the quotes through, so the pattern
+    #                     matched nothing. Fixing that exposed 37 real failures,
+    #                     which were four distinct bugs:
     #
-    #                     With that fixed the suite actually runs on Windows and
-    #                     reports 975 of 1021 passing, 37 failing — 36 of them in
-    #                     three files (live-server 21, live-commit-manual-edits
-    #                     8, hook 7) plus a "File URL path must be absolute" in
-    #                     windows-path-fix. Those are genuine Windows bugs, not
-    #                     harness noise, and fixing them is its own piece of
-    #                     work. Gating now would just make this job permanently
-    #                     red. The guard stays in the package regardless, so
-    #                     anyone running it on Windows sees real results instead
-    #                     of a false green.
+    #                       - relative paths that become DATA (report entries,
+    #                         config output, JSON) leaked '\' separators; only
+    #                         15 of 64 call sites normalised
+    #                       - teardown called proc.kill() without waiting, and
+    #                         Windows will not remove a directory a live process
+    #                         holds handles into: EBUSY, after a passing body
+    #                       - dynamic import() of a joined path made the ESM
+    #                         loader read 'D:' as a URL scheme
+    #                       - assertions pinning POSIX literals for values that
+    #                         are legitimately native paths
+    #
+    #                     10 tests skip here vs 2 on Linux: 7 need a puppeteer
+    #                     browser the runner lacks, one needs a POSIX shell, one
+    #                     is a driveless file URL that is invalid on Windows by
+    #                     definition. All skip loudly with a reason.
     #
     #   POSIX-only builds Every package's build used recursive delete, mkdir -p
     #                     and cp directly. npm runs script bodies through
