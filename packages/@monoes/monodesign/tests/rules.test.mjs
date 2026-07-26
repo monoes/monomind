@@ -1,15 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const { ABSOLUTE_BANS, getAbsoluteBans } = await import(
-  path.join(here, '..', 'src', 'rules.ts')
-);
-const { ANTIPATTERNS } = await import(
-  path.join(here, '..', 'cli', 'engine', 'registry', 'antipatterns.mjs')
-);
+
+// Dynamic import() takes a URL, not a filesystem path. A bare Windows path
+// like 'D:\...\rules.ts' makes the ESM loader read 'D:' as a URL scheme and
+// throw ERR_UNSUPPORTED_ESM_URL_SCHEME, which failed this whole file. It works
+// on POSIX only because an absolute path there is also a valid relative URL.
+const importPath = (...segments) => import(pathToFileURL(path.join(here, ...segments)).href);
+
+const { ABSOLUTE_BANS, getAbsoluteBans } = await importPath('..', 'src', 'rules.ts');
+const { ANTIPATTERNS } = await importPath('..', 'cli', 'engine', 'registry', 'antipatterns.mjs');
 
 test('every engineRuleId on a ban resolves to a real registry rule', () => {
   const registryIds = new Set(ANTIPATTERNS.map((r) => r.id));
