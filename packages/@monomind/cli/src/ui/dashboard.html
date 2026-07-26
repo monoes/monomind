@@ -3672,8 +3672,8 @@ async function renderSessions() {
     function renderSessRow(s, idx) {
       const dur  = s.totalDurationMs ? fmtDur(s.totalDurationMs) : '';
       const msgs = s.totalMessages ? s.totalMessages + ' msg' : '';
-      const cost = typeof s.totalCost === 'number' ? '$' + s.totalCost.toFixed(2)
-                 : typeof s.cost === 'number' ? '$' + s.cost.toFixed(2) : '';
+      const cost = typeof s.totalCost === 'number' ? fmtCost(s.totalCost, s.costIncomplete)
+                 : typeof s.cost === 'number' ? fmtCost(s.cost, s.costIncomplete) : '';
       const meta = [dur, msgs, cost].filter(Boolean).join(' · ') || s.id.slice(0, 16);
       const sCost = s.totalCost || 0;
       let anomBadge = '';
@@ -3890,7 +3890,7 @@ function buildRecap(events, sess) {
   const topCat = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
   const topPct = topCat ? Math.round(topCat[1] / tools.length * 100) : 0;
 
-  const costStr = sess?.totalCost != null ? '$' + sess.totalCost.toFixed(2) : (sess?.cost != null ? '$' + sess.cost.toFixed(2) : null);
+  const costStr = sess?.totalCost != null ? fmtCost(sess.totalCost, sess.costIncomplete) : (sess?.cost != null ? fmtCost(sess.cost, sess.costIncomplete) : null);
 
   const stats = [
     tools.length ? `<span class="recap-stat rs-tool">${tools.length} tool calls${topCat ? ' · ' + topPct + '% ' + topCat[0] : ''}</span>` : '',
@@ -4074,7 +4074,7 @@ async function renderGlobalFeed() {
     el.innerHTML = '<div class="sess-list">' + entries.map(({ project, session: s }) => {
       const projName = project.name || project.slug || project.path?.split('/').pop() || '?';
       const dur  = s.totalDurationMs ? fmtDur(s.totalDurationMs) : '';
-      const cost = typeof s.totalCost === 'number' ? '$' + s.totalCost.toFixed(2) : '';
+      const cost = typeof s.totalCost === 'number' ? fmtCost(s.totalCost, s.costIncomplete) : '';
       const meta = [dur, cost].filter(Boolean).join(' · ') || s.id.slice(0, 12);
       const gfCompactBadge = (s.compactCount > 0)
         ? `<span class="sr-compact-badge">+${s.compactCount} compacted</span>`
@@ -4653,7 +4653,7 @@ function renderLeaderboard() {
   const body = document.getElementById('lb-body');
   if (!sorted.length) { body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-xs);padding:12px">No cost data yet</td></tr>'; return; }
   body.innerHTML = sorted.map((s, i) => {
-    const cost = '$' + s.totalCost.toFixed(2);
+    const cost = fmtCost(s.totalCost, s.costIncomplete);
     const dur = s.totalDurationMs ? fmtDur(s.totalDurationMs) : '—';
     const prompt = s.lastPrompt || s.id;
     return `<tr onclick="jumpToSession('${esc(String(s.id).replace(/['\\]/g,'\\$&'))}')" title="${esc(prompt)}">
@@ -4741,7 +4741,7 @@ function renderDiff() {
   };
 
   const diffCol = (s) => {
-    const cost = typeof s.totalCost === 'number' ? '$' + s.totalCost.toFixed(2) : '—';
+    const cost = typeof s.totalCost === 'number' ? fmtCost(s.totalCost, s.costIncomplete) : '—';
     const dur = s.totalDurationMs ? fmtDur(s.totalDurationMs) : '—';
     const tools = s.toolCalls != null ? s.toolCalls : '—';
     const msgs = s.userMessages != null ? s.userMessages : '—';
@@ -4782,7 +4782,7 @@ async function exportSession() {
     const lines = [
       `# Session: ${sess.lastPrompt || sess.id}`,
       `> ${new Date(sess.lastTs || sess.mtime).toLocaleString()}`,
-      sess.totalCost != null ? `> Cost: $${sess.totalCost.toFixed(2)}` : '',
+      sess.totalCost != null ? `> Cost: ${fmtCost(sess.totalCost, sess.costIncomplete)}` : '',
       sess.totalDurationMs ? `> Duration: ${fmtDur(sess.totalDurationMs)}` : '',
       '',
     ].filter(s => s !== null);
@@ -9930,7 +9930,7 @@ function bulkExport() {
   const headers = ['Date', 'Session ID', 'Prompt', 'Cost ($)', 'Duration (s)', 'Tool Calls', 'Files Touched'];
   const rows = toExport.map(s => {
     const dt = new Date(s.firstTs || s.mtime || 0).toISOString().slice(0, 19).replace('T', ' ');
-    const cost = typeof s.totalCost === 'number' ? s.totalCost.toFixed(4) : '';
+    const cost = typeof s.totalCost === 'number' && !(s.costIncomplete && !s.totalCost) ? s.totalCost.toFixed(4) : '';
     const dur = s.totalDurationMs ? Math.round(s.totalDurationMs / 1000) : '';
     const prompt = (s.lastPrompt || '').replace(/"/g, '""');
     const files = (s.filesTouched || []).join(';');
@@ -9975,7 +9975,7 @@ function buildTokenVelocity() {
   const periodLabel = { day:'24h', week:'7d', month:'30d', all:'all time' }[activePeriod] || '24h';
   el.innerHTML = `<div class="m-group-title">Token Velocity <span style="font-size:10px;color:var(--text-xs);font-weight:400">${periodLabel} · ${fmt(totalTok)}</span></div>
     <div id="vel-chart">${bars}</div>
-    <div style="font-size:10px;color:var(--text-xs);margin-top:4px">Cost <span style="color:oklch(78% 0.18 75)">$${totalCost.toFixed(2)}</span> <span style="color:var(--text-xs)">· ${filtered.length} sessions</span></div>`;
+    <div style="font-size:10px;color:var(--text-xs);margin-top:4px">Cost <span style="color:oklch(78% 0.18 75)">${fmtCost(totalCost, anyCostIncomplete(filtered))}</span> <span style="color:var(--text-xs)">· ${filtered.length} sessions</span></div>`;
 }
 
 // ── feature 27: export sessions CSV ───────────────────────
@@ -9984,7 +9984,7 @@ function exportSessionsCSV() {
   const headers = ['Date', 'Session ID', 'Prompt', 'Cost ($)', 'Duration (s)', 'Tool Calls', 'User Messages', 'Cache Hit %', 'Input Tokens'];
   const rows = allSessions.map(s => {
     const dt = new Date(s.firstTs || s.mtime || 0).toISOString().slice(0, 19).replace('T', ' ');
-    const cost = typeof s.totalCost === 'number' ? s.totalCost.toFixed(4) : '';
+    const cost = typeof s.totalCost === 'number' && !(s.costIncomplete && !s.totalCost) ? s.totalCost.toFixed(4) : '';
     const dur = s.totalDurationMs ? Math.round(s.totalDurationMs / 1000) : '';
     const cachePct = s.totalInputTokens > 0 ? Math.round((s.cacheReadTokens || 0) / s.totalInputTokens * 100) : '';
     const prompt = (s.lastPrompt || '').replace(/"/g, '""');
@@ -10171,7 +10171,7 @@ function showReportCard() {
     const anomalies = sessions.filter(s => (s.totalCost||0) > median * 3 && (s.totalCost||0) > 0.5).map(s => `  - ${s.lastPrompt?.slice(0,50)||s.id}: $${(s.totalCost||0).toFixed(2)}`).join('\n');
     return `### ${label}
 - Sessions: ${sessions.length}
-- Total cost: $${totalCost.toFixed(3)}
+- Total cost: ${fmtCost(totalCost, anyCostIncomplete(sessions), 3)}
 - Total duration: ${fmtDur(totalDur)}
 - Tool calls: ${totalTools}${totalErrs ? ` (${totalErrs} errors)` : ''}
 ${topFiles ? `\nTop files touched:\n${topFiles}` : ''}${anomalies ? `\n\nCost anomalies:\n${anomalies}` : ''}
@@ -10308,9 +10308,8 @@ function showCostExplainer(sessId, event) {
     .map(([m,d])=>`<div class="err-item">${esc(m.replace(/^claude-/,'').replace(/-\d{8}$/,''))}: ${d.unknownPricing ? 'unknown (no pricing data)' : '$'+(d.cost||0).toFixed(4)} · ${d.calls||0} calls</div>`).join('');
   // costIncomplete => the server could not price at least one model, so the
   // session total is a floor, not the actual spend.
-  const costPrefix = sess.costIncomplete ? '≥' : '';
-  drawer.innerHTML = `<div class="err-drawer-head" style="color:oklch(70% 0.18 80)">
-    <span>Cost anomaly — ${costPrefix}$${(sess.totalCost||0).toFixed(3)} (${ratio}× median, top ${100-pct}%)</span>
+    drawer.innerHTML = `<div class="err-drawer-head" style="color:oklch(70% 0.18 80)">
+    <span>Cost anomaly — ${fmtCost(sess.totalCost, sess.costIncomplete, 3)} (${ratio}× median, top ${100-pct}%)</span>
     <button class="err-close" onclick="this.closest('.err-drawer').classList.remove('open');this.closest('.err-drawer').innerHTML=''">✕</button>
   </div>
   <div class="err-drawer-body">
@@ -10341,7 +10340,7 @@ function buildDailyCostTrend() {
     const label = i === 29 ? 'Today' : (i === 28 ? 'Yday' : '');
     return `<div class="dt-bar${isActive ? ' active' : ''}" style="height:${h}px" title="${dates[i]}: $${v.toFixed(3)}" onclick="setDailyTrendFilter('${dates[i]}',${v})"></div>`;
   }).join('');
-  el.innerHTML = `<div class="m-group-title">30-Day Cost <span style="font-size:10px;color:var(--text-xs);font-weight:400">$${totalCost.toFixed(2)} total</span></div>
+  el.innerHTML = `<div class="m-group-title">30-Day Cost <span style="font-size:10px;color:var(--text-xs);font-weight:400">${fmtCost(totalCost, anyCostIncomplete(allSessions))} total</span></div>
     <div id="daily-trend-chart">${bars}</div>
     <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-xs);margin-top:2px"><span>30d ago</span><span>Today</span></div>`;
 }
@@ -10590,6 +10589,36 @@ function restoreURLParams() {
 }
 
 // ── helpers ────────────────────────────────────────────────
+
+/**
+ * Render a session cost honestly.
+ *
+ * The server sets costIncomplete when at least one model had no pricing row,
+ * and documents totalCost as a LOWER BOUND in that case — the unpriced model's
+ * spend is missing from the sum entirely. Only one of the ~20 cost renderings
+ * in this file honoured that; the rest printed the number as though it were
+ * exact.
+ *
+ * The bad case is when NOTHING could be priced: the sum stays 0, and the UI
+ * confidently reported "$0.00 spent" for a session that may have cost real
+ * money. A fabricated zero is worse than an admitted unknown, so:
+ *
+ *   priced, complete    -> "$1.23"
+ *   priced, incomplete  -> "≥$1.23"   (a floor, and says so)
+ *   nothing priced      -> "unpriced" (no number at all)
+ */
+function fmtCost(value, incomplete, digits) {
+  const amount = Number(value) || 0;
+  const dp = typeof digits === 'number' ? digits : 2;
+  if (incomplete && amount === 0) return 'unpriced';
+  return (incomplete ? '≥' : '') + '$' + amount.toFixed(dp);
+}
+
+/** True if any session in the list carries an unpriced model. */
+function anyCostIncomplete(sessions) {
+  return (sessions || []).some(s => s && s.costIncomplete);
+}
+
 function enc(s) { return encodeURIComponent(s); }
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
