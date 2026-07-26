@@ -57,6 +57,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      # Several root tests import from packages/@monomind/cli/dist — e.g.
+      # tests/memory/cognee-port-eval.test.mjs pulls dist/src/memory/
+      # memory-bridge.js. Without this they fail with ERR_MODULE_NOT_FOUND,
+      # which reads like a missing dependency rather than a missing build.
+      - name: Build CLI package
+        working-directory: packages/@monomind/cli
+        run: npm run build
+
       - name: Run root tests
         run: npx vitest run --reporter=verbose
         env:
@@ -131,6 +139,14 @@ jobs:
       # resolving each package against the registry instead of its sibling.
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
+
+      # Build before testing: some suites exercise build OUTPUT rather than
+      # source — the CLI's knowledge-endpoint test loads dist/src/ui/server.mjs
+      # and says so in its own failure message, and the stdio MCP tests spawn
+      # the built binary. monodesign has no build script, hence `|| true`.
+      - name: Build ${{ matrix.name }}
+        working-directory: ${{ matrix.dir }}
+        run: npm run build --if-present
 
       - name: Run ${{ matrix.name }} tests
         working-directory: ${{ matrix.dir }}
