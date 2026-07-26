@@ -62,6 +62,20 @@ export const llmExtractPhase: PipelinePhase<LlmExtractOutput> = {
 
     const { isClaudeCliAvailable } = await import('../../claude-cli.js');
     if (!isClaudeCliAvailable()) {
+      // Say so. Returning 0 silently is indistinguishable from "your docs had
+      // nothing to infer", so `--llm` looked like it ran and found nothing —
+      // reported as "silently produces 0 inferred edges" (#43), with the
+      // reasonable but wrong conclusion that an API key was missing.
+      //
+      // No API key is involved: LLM work goes through `claude --print`, which
+      // reuses Claude Code's own auth. The only requirement is that `claude` is
+      // on PATH — which is why this can fail *inside* a Claude Code session,
+      // where users least expect it.
+      console.warn(
+        '[monograph] --llm skipped: the `claude` CLI was not found on PATH.\n' +
+        '  Semantic extraction runs through `claude --print` and needs no ANTHROPIC_API_KEY.\n' +
+        '  Install it with: npm install -g @anthropic-ai/claude-code',
+      );
       return { triplesExtracted: 0, sectionsProcessed: 0 };
     }
 
