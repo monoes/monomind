@@ -49,14 +49,23 @@ describe('monomind umbrella pins the CLI instead of duplicating it', () => {
     expect(pin, 'the umbrella must depend on the CLI package it wraps').toBeTruthy();
   });
 
-  it('pins it exactly, with no range operator', () => {
-    // A caret here would let `npm i monomind` pull a CLI newer than the one
-    // this release was cut against.
-    expect(pin).toMatch(/^\d+\.\d+\.\d+(?:-[\w.]+)?$/);
+  it('pins via the workspace protocol, not a hand-written version', () => {
+    // A literal version here has two failure modes, both observed:
+    //   - pnpm resolves it from the REGISTRY instead of linking the local
+    //     package, so the repo tests a published CLI rather than its own
+    //   - pushing a version bump before publishing that version breaks every
+    //     CI job with ERR_PNPM_NO_MATCHING_VERSION, because the pin does not
+    //     exist on npm yet
+    // pnpm rewrites workspace:* to the CLI's exact version at pack time, so
+    // the published pin stays exact without anyone maintaining it by hand.
+    expect(pin).toMatch(/^workspace:/);
   });
 
-  it('pins the version the CLI package actually is', () => {
-    expect(pin, 'a stale pin ships an old CLI under a new umbrella version').toBe(cli.version);
+  it('resolves to an exact version when packed', () => {
+    // What consumers receive must still be an exact pin, not a range — the
+    // rewrite is what makes the workspace protocol safe here. `workspace:*`
+    // and `workspace:<version>` both resolve exact; `workspace:^` would not.
+    expect(pin).not.toMatch(/^workspace:[\^~]/);
   });
 
   it('carries the same version as the CLI', () => {

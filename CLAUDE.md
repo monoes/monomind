@@ -349,15 +349,30 @@ scan keeps a new umbrella working against an older installed CLI.
 
 ## Publishing to npm
 
-Three numbers must agree or the release ships a stale CLI. `npm run check:versions`
-(also wired into root `prepublishOnly`) enforces this and blocks the publish on drift:
+`monomind` is a shim that pins `@monoes/monomindcli` exactly. Two numbers must
+agree, and the pin itself is generated — never hand-written:
 
 - root `package.json` → `version`
-- root `package.json` → `dependencies["@monoes/monomindcli"]`
 - `packages/@monomind/cli/package.json` → `version`
+- root `package.json` → `dependencies["@monoes/monomindcli"]` is **`workspace:*`**,
+  which pnpm rewrites to the CLI's exact version when it builds the tarball
+
+`npm run check:versions` (wired into root `prepublishOnly`) blocks the publish on
+drift, on a hand-written pin, and on publishing root with the wrong tool.
+
+**Publish root with `pnpm publish`, never `npm publish`.** npm does not understand
+the workspace protocol — it copies package.json verbatim, so the published tarball
+would depend on the literal string `workspace:*`, which no consumer can resolve.
+Nothing looks wrong at publish time; the package simply installs for nobody. The
+guard blocks this (override with `MONOMIND_ALLOW_NPM_PUBLISH=1` only if you are
+certain). Only root is affected — it is the only package using the protocol.
+
+**Publish the CLI before the umbrella,** and do not push the version bump until the
+CLI is on npm: the pin resolves against the registry for anyone outside this
+workspace, so a bump pushed early breaks CI with `ERR_PNPM_NO_MATCHING_VERSION`.
 
 ```bash
-# 1. Bump the version in all THREE places above.
+# 1. Bump the version in BOTH package.json files. Leave the pin alone.
 #    Direct edit — `npm version` chokes on workspace:* protocol entries.
 npm run check:versions          # verify before going further
 
@@ -365,8 +380,8 @@ npm run check:versions          # verify before going further
 cd packages/@monomind/cli && npm run build
 npm publish --tag latest
 
-# 3. Publish the umbrella shim from repo root
-cd ../../.. && npm publish --tag latest
+# 3. Publish the umbrella shim from repo root — pnpm, not npm
+cd ../../.. && pnpm publish --tag latest --no-git-checks
 
 # Verify — these two must report the SAME version
 npm view @monoes/monomindcli dist-tags --json
