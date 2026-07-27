@@ -417,9 +417,15 @@ const watchCommand: Command = {
   options: [
     { name: 'path', short: 'p', type: 'string', description: 'Root path (default: cwd)' },
     { name: 'llm', type: 'boolean', description: 'Enable LLM enrichment on rebuild (uses Claude Code CLI)' },
+    {
+      name: 'timeout',
+      type: 'number',
+      description: 'Stop watching after N seconds (for scripted checks that must not leave a process behind)',
+    },
   ],
   examples: [
     { command: 'monomind monograph watch', description: 'Watch and rebuild on changes' },
+    { command: 'monomind monograph watch --timeout 5', description: 'Verify the watcher starts, then exit' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const root = resolve((ctx.flags.path as string | undefined) ?? process.cwd());
@@ -450,13 +456,30 @@ const watchCommand: Command = {
       output.printSuccess('Watching for changes…');
       output.writeln();
 
+      // --timeout exists so a scripted check can confirm the watcher starts
+      // without leaving a permanent process behind. Without it the only exit is
+      // SIGINT, so every unattended invocation ran forever — which is how ten
+      // orphaned watchers accumulated on one machine over 12 hours (#50).
+      const timeoutSec = Number(ctx.flags.timeout);
+      const hasTimeout = Number.isFinite(timeoutSec) && timeoutSec > 0;
+      if (hasTimeout) {
+        output.writeln(output.dim(`  Stopping automatically after ${timeoutSec}s`));
+      }
+
       await new Promise<void>(resolve => {
-        process.on('SIGINT', () => {
+        let finished = false;
+        const finish = (reason: string): void => {
+          if (finished) return;
+          finished = true;
           watcher.stop();
           output.writeln();
-          output.writeln(output.dim('Watch stopped.'));
+          output.writeln(output.dim(reason));
           resolve();
-        });
+        };
+        process.on('SIGINT', () => finish('Watch stopped.'));
+        if (hasTimeout) {
+          setTimeout(() => finish(`Watch stopped after ${timeoutSec}s (--timeout).`), timeoutSec * 1000);
+        }
       });
 
       return { success: true };
