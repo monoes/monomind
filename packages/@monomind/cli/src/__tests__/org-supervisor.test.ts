@@ -19,7 +19,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, realpathSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, realpathSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -55,7 +55,9 @@ describe('org supervisor emits a usable unit', () => {
   it('emits a launchd plist that restarts the daemon however it died', () => {
     const { out } = runSupervisor(cwd, home, ['--format', 'launchd']);
 
-    expect(out).toContain('<key>Label</key><string>com.monomind.org-serve</string>');
+    // Prefix, not an exact match: the Label carries a per-project suffix so
+    // two projects cannot claim the same launchd job.
+    expect(out).toMatch(/<key>Label<\/key><string>com\.monomind\.org-serve\.[\w.-]+<\/string>/);
     // KeepAlive is the whole point: it covers SIGKILL, which no in-process
     // handler can. Without it this unit would not solve the reported failure.
     expect(out).toContain('<key>KeepAlive</key><true/>');
@@ -83,12 +85,35 @@ describe('org supervisor emits a usable unit', () => {
   it('installs into the per-user location on request', () => {
     const { out } = runSupervisor(cwd, home, ['--format', 'systemd', '--install']);
 
-    const dest = join(home, '.config', 'systemd', 'user', 'monomind-org-serve.service');
-    expect(existsSync(dest), out).toBe(true);
-    expect(readFileSync(dest, 'utf-8')).toContain('Restart=always');
+    const dir = join(home, '.config', 'systemd', 'user');
+    const units = readdirSync(dir).filter(f => /^monomind-org-serve-.+\.service$/.test(f));
+    expect(units, out).toHaveLength(1);
+    expect(readFileSync(join(dir, units[0]), 'utf-8')).toContain('Restart=always');
     // The command must say how to activate it — a written-but-unloaded unit
     // supervises nothing.
     expect(out).toMatch(/systemctl --user/);
+  }, 70_000);
+
+  it('gives each project its own unit instead of overwriting the last one', () => {
+    // The unit bakes in a WorkingDirectory, so a constant Label and filename
+    // meant --install from a second project silently replaced the first
+    // project's unit — leaving that daemon unsupervised with no warning.
+    const other = realpathSync(mkdtempSync(join(tmpdir(), 'org-sup-other-')));
+    try {
+      runSupervisor(cwd, home, ['--format', 'systemd', '--install']);
+      runSupervisor(other, home, ['--format', 'systemd', '--install']);
+
+      const dir = join(home, '.config', 'systemd', 'user');
+      const units = readdirSync(dir).filter(f => f.endsWith('.service'));
+      expect(units, 'the second install overwrote the first').toHaveLength(2);
+
+      const dirs = units
+        .map(u => /WorkingDirectory=(.*)/.exec(readFileSync(join(dir, u), 'utf-8'))?.[1])
+        .sort();
+      expect(dirs).toEqual([cwd, other].sort());
+    } finally {
+      rmSync(other, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
   }, 70_000);
 
   it('explains why an external supervisor is needed at all', () => {
