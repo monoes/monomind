@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/commands/org.ts
 import { readFileSync, writeFileSync, existsSync, unlinkSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
@@ -257,6 +257,111 @@ export const pollStopfiles = async (cwd: string, daemon: OrgDaemon): Promise<str
     }
   }
   return stopped;
+};
+
+/**
+ * Emit a supervisor unit for `org serve`.
+ *
+ * Why this is an EXTERNAL supervisor and not an `--supervise` flag: the daemon
+ * already logs every death it can observe — signals, uncaught exceptions,
+ * unhandled rejections, and the event loop draining. The one death it cannot
+ * observe is SIGKILL, which is what the OOM killer sends, and which is the
+ * suspected cause of the reported disappearance (its org logs showed repeated
+ * low-memory warnings). No in-process handler survives SIGKILL, so a daemon
+ * that restarts itself is theatre for exactly the case that matters. Only
+ * something outside the process can bring it back.
+ *
+ * launchd and systemd both already do this well, so this generates a correct
+ * unit rather than reimplementing them.
+ */
+const supervisorAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  const cwd = resolve(ctx.cwd || process.cwd());
+  const requested = String(ctx.flags.format ?? '').trim().toLowerCase();
+  const format = requested || (process.platform === 'darwin' ? 'launchd' : 'systemd');
+  if (format !== 'launchd' && format !== 'systemd') {
+    log(output.error(`Unknown --format "${requested}" — expected launchd or systemd.`));
+    return { success: false, message: 'unknown supervisor format' };
+  }
+
+  // argv[1] is this CLI's entry point — the same resolution `init` uses when it
+  // spawns a watcher. A supervisor must not depend on PATH or npx resolving to
+  // the same version later.
+  const cliEntry = process.argv[1] ? resolve(process.argv[1]) : 'monomind';
+  const node = process.execPath;
+  const label = 'com.monomind.org-serve';
+  const logPath = join(cwd, '.monomind', 'org-serve.log');
+
+  const unit = format === 'launchd'
+    ? `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${label}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${node}</string>
+    <string>${cliEntry}</string>
+    <string>org</string>
+    <string>serve</string>
+  </array>
+  <key>WorkingDirectory</key><string>${cwd}</string>
+  <!-- KeepAlive restarts the daemon however it died, including SIGKILL. -->
+  <key>KeepAlive</key><true/>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>${logPath}</string>
+  <key>StandardErrorPath</key><string>${logPath}</string>
+</dict>
+</plist>
+`
+    : `[Unit]
+Description=monomind org serve (${cwd})
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=${cwd}
+ExecStart=${node} ${cliEntry} org serve
+# Restart however it died, including an OOM kill.
+Restart=always
+RestartSec=5
+StandardOutput=append:${logPath}
+StandardError=append:${logPath}
+
+[Install]
+WantedBy=default.target
+`;
+
+  const target = format === 'launchd'
+    ? `~/Library/LaunchAgents/${label}.plist`
+    : `~/.config/systemd/user/monomind-org-serve.service`;
+
+  if (ctx.flags.install === true) {
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    if (!home) {
+      log(output.error('Cannot resolve a home directory to install into — write the unit manually.'));
+      return { success: false, message: 'no home directory' };
+    }
+    const dest = format === 'launchd'
+      ? join(home, 'Library', 'LaunchAgents', `${label}.plist`)
+      : join(home, '.config', 'systemd', 'user', 'monomind-org-serve.service');
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(dest, unit);
+    log(output.success(`Wrote ${dest}`));
+    log(output.info(
+      format === 'launchd'
+        ? `Load it with: launchctl load -w ${dest}`
+        : 'Load it with: systemctl --user daemon-reload && systemctl --user enable --now monomind-org-serve',
+    ));
+    return { success: true, message: `supervisor unit written to ${dest}` };
+  }
+
+  log(unit);
+  log(output.info(`Write this to ${target}, or re-run with --install to do it for you.`));
+  log(output.info(
+    'Why a supervisor: the daemon logs every death it can observe, but an OOM kill is SIGKILL — ' +
+    'uncatchable by design, so nothing in-process can restart after one.',
+  ));
+  return { success: true, message: `${format} unit emitted` };
 };
 
 const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
@@ -619,6 +724,15 @@ export const orgCommand: Command = {
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
       ],
       action: serveAction,
+    },
+    {
+      name: 'supervisor',
+      description: 'Print (or --install) a launchd/systemd unit that keeps `org serve` running',
+      options: [
+        { name: 'format', description: 'launchd or systemd (default: platform)', type: 'string' },
+        { name: 'install', description: 'Write the unit into the per-user location', type: 'boolean' },
+      ],
+      action: supervisorAction,
     },
     {
       name: 'test-loop', description: 'Run the org e2e verification loop N times',
