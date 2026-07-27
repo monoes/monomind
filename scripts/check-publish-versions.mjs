@@ -21,25 +21,63 @@ const cli = read('packages/@monomind/cli/package.json');
 const pin = root.dependencies?.['@monoes/monomindcli'];
 
 const problems = [];
+
+// The pin uses pnpm's workspace protocol, which pnpm rewrites to the CLI's
+// exact version as it builds the tarball. A hand-written literal version was
+// the previous arrangement and had two failure modes:
+//
+//   1. it had to be bumped by hand in lockstep with two other numbers, and
+//   2. pnpm resolved it from the REGISTRY rather than the workspace, so the
+//      repo installed a published CLI instead of linking its own — and pushing
+//      a version bump before publishing that version broke every CI job with
+//      ERR_PNPM_NO_MATCHING_VERSION, because the pin did not exist on npm yet.
+//
+// workspace:* removes both: the local package is linked, and the published
+// pin is generated from whatever the CLI's version actually is.
 if (!pin) {
   problems.push('root package.json is missing the @monoes/monomindcli dependency');
-} else if (pin !== cli.version) {
-  problems.push(`pin mismatch: root depends on @monoes/monomindcli@${pin}, but the CLI package is ${cli.version}`);
+} else if (!pin.startsWith('workspace:')) {
+  problems.push(
+    `the pin must use the workspace protocol, not a literal version (found "${pin}"). ` +
+    'A literal pin makes pnpm fetch the CLI from npm instead of linking the local package.',
+  );
 }
 if (root.version !== cli.version) {
   problems.push(`version mismatch: monomind is ${root.version}, @monoes/monomindcli is ${cli.version}`);
 }
 
+// THE FOOTGUN THIS EXISTS TO STOP.
+//
+// `npm publish` does not understand the workspace protocol. It copies
+// package.json verbatim, so publishing root with npm ships a tarball whose
+// dependency is the literal string "workspace:*" — which no consumer can
+// resolve. The package installs for nobody, and nothing about the publish
+// looks wrong at the time. Verified by packing both ways: npm emits
+// "workspace:*", pnpm emits the resolved version.
+//
+// Only the root package is affected; it is the only one using the protocol.
+const agent = process.env.npm_config_user_agent ?? '';
+const viaPnpm = agent.includes('pnpm');
+if (!viaPnpm && process.env.MONOMIND_ALLOW_NPM_PUBLISH !== '1') {
+  problems.push(
+    `this package must be published with \`pnpm publish\`, not npm (user agent: ${agent || 'unknown'}). ` +
+    'npm copies "workspace:*" into the tarball verbatim and the published package becomes uninstallable.',
+  );
+}
+
 if (problems.length) {
-  console.error('\nāœ— publish blocked — umbrella/CLI versions disagree:\n');
+  console.error('\n✗ publish blocked:\n');
   for (const p of problems) console.error(`    ${p}`);
   console.error(
-    `\n  Fix: set all three to the same version.\n` +
+    `\n  Fix:\n` +
       `    package.json                        -> "version": "X.Y.Z"\n` +
-      `    package.json                        -> "@monoes/monomindcli": "X.Y.Z"\n` +
-      `    packages/@monomind/cli/package.json -> "version": "X.Y.Z"\n`,
+      `    packages/@monomind/cli/package.json -> "version": "X.Y.Z"\n` +
+      `    package.json                        -> "@monoes/monomindcli": "workspace:*"  (do not hand-write a version)\n` +
+      `    publish the CLI first, then run \`pnpm publish\` from the repo root\n`,
   );
   process.exit(1);
 }
 
-console.log(`āœ“ version parity ok — monomind ${root.version} pins @monoes/monomindcli ${cli.version}`);
+console.log(
+  `✓ publish checks ok — monomind ${root.version} will pin @monoes/monomindcli ${cli.version} (from ${pin})`,
+);
