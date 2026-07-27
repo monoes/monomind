@@ -1,6 +1,7 @@
 // packages/@monomind/cli/src/commands/org.ts
 import { readFileSync, writeFileSync, existsSync, unlinkSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
+import { createHash } from 'node:crypto';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
@@ -288,7 +289,16 @@ const supervisorAction = async (ctx: CommandContext): Promise<CommandResult> => 
   // the same version later.
   const cliEntry = process.argv[1] ? resolve(process.argv[1]) : 'monomind';
   const node = process.execPath;
-  const label = 'com.monomind.org-serve';
+  // Per-project identity. The unit bakes in a WorkingDirectory, so a constant
+  // Label and filename meant `--install` from a second project silently
+  // OVERWROTE the first project's unit — one file, the first daemon left
+  // unsupervised, no warning. Verified before fixing: installing from projA
+  // then projB left a single unit pointing at projB.
+  //
+  // The hash keeps it unique for two directories with the same basename; the
+  // basename keeps it recognisable in `launchctl list` / `systemctl --user`.
+  const slug = `${(cwd.split(/[\\/]/).pop() || 'org').replace(/[^A-Za-z0-9._-]/g, '-')}-${createHash('sha256').update(cwd).digest('hex').slice(0, 8)}`;
+  const label = `com.monomind.org-serve.${slug}`;
   const logPath = join(cwd, '.monomind', 'org-serve.log');
 
   const unit = format === 'launchd'
@@ -333,7 +343,7 @@ WantedBy=default.target
 
   const target = format === 'launchd'
     ? `~/Library/LaunchAgents/${label}.plist`
-    : `~/.config/systemd/user/monomind-org-serve.service`;
+    : `~/.config/systemd/user/monomind-org-serve-${slug}.service`;
 
   if (ctx.flags.install === true) {
     const home = process.env.HOME || process.env.USERPROFILE || '';
@@ -343,14 +353,14 @@ WantedBy=default.target
     }
     const dest = format === 'launchd'
       ? join(home, 'Library', 'LaunchAgents', `${label}.plist`)
-      : join(home, '.config', 'systemd', 'user', 'monomind-org-serve.service');
+      : join(home, '.config', 'systemd', 'user', `monomind-org-serve-${slug}.service`);
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, unit);
     log(output.success(`Wrote ${dest}`));
     log(output.info(
       format === 'launchd'
         ? `Load it with: launchctl load -w ${dest}`
-        : 'Load it with: systemctl --user daemon-reload && systemctl --user enable --now monomind-org-serve',
+        : `Load it with: systemctl --user daemon-reload && systemctl --user enable --now monomind-org-serve-${slug}`,
     ));
     return { success: true, message: `supervisor unit written to ${dest}` };
   }
