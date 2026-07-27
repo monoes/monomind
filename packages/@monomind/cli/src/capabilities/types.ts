@@ -1,5 +1,3 @@
-export type EnrichmentTier = 't0' | 't1' | 't2';
-export type EnrichmentStatus = 'pending' | 'queued' | 'done' | 'skipped' | 'failed';
 export type CapabilityName = 'code' | 'documents' | 'media' | 'data' | 'graph' | 'timeline';
 
 export interface FileEntry {
@@ -36,12 +34,6 @@ export interface IndexResult {
   errors: string[];
 }
 
-export interface EnrichResult {
-  enriched: number;
-  skipped: number;
-  errors: string[];
-}
-
 export interface SearchResult {
   path: string;
   score: number;
@@ -58,16 +50,11 @@ export interface HealthCheck {
   fix?: string;
 }
 
-export interface EnrichmentState {
-  [relativePath: string]: Record<EnrichmentTier, EnrichmentStatus>;
-}
-
 export interface CapabilityModule {
   name: CapabilityName;
   detect(scan: DirectoryScan): number;
   activate(rootDir: string): Promise<void>;
   index(files: FileEntry[]): Promise<IndexResult>;
-  enrich?(files: FileEntry[]): Promise<EnrichResult>;
   search?(query: string, limit?: number): Promise<SearchResult[]>;
   healthChecks?(): Promise<HealthCheck[]>;
 }
