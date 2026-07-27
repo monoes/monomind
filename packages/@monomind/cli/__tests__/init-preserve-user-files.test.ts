@@ -158,11 +158,22 @@ describe('init --no-watch has an observable effect', () => {
     } as CommandContext);
   };
 
-  it('starts the graph watcher by default (writes a watcher pid file)', async () => {
-    const result = await runInit(['init']);
+  // `--watch` is explicit here on purpose. The watcher used to start on every
+  // init, including non-interactive ones, which orphaned a permanent process
+  // per throwaway sandbox (#50). It now auto-starts only for an interactive
+  // user; this test runs without a TTY, so it must ask.
+  it('starts the graph watcher when --watch is passed (writes a watcher pid file)', async () => {
+    const result = await runInit(['init', '--watch']);
 
     expect(result.success).toBe(true);
     expect(fs.existsSync(pidFile())).toBe(true);
+  }, 60000);
+
+  it('starts no watcher in a non-interactive run when the flag is absent', async () => {
+    const result = await runInit(['init']);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(pidFile())).toBe(false);
   }, 60000);
 
   it('skips the graph watcher when --no-watch is passed on the command line', async () => {
@@ -176,7 +187,10 @@ describe('init --no-watch has an observable effect', () => {
     const watchOpt = initCommand.options?.find(o => o.name === 'watch');
     expect(watchOpt).toBeDefined();
     expect(watchOpt!.type).toBe('boolean');
-    expect(watchOpt!.default).toBe(true);
+    // No default: the value must stay undefined when nobody passed the flag,
+    // so init can distinguish "not asked" from "asked for true" and only
+    // auto-start for an interactive user.
+    expect(watchOpt!.default).toBeUndefined();
     // A boolean literally named 'no-watch' can never be set by the parser:
     // parseFlag strips the `--no-` prefix before lookup.
     expect(initCommand.options?.some(o => o.name === 'no-watch')).toBe(false);

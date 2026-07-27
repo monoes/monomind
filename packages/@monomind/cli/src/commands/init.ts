@@ -122,7 +122,38 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       ctx.flags.watch === false ||
       ctx.flags['no-watch'] === true ||
       ctx.flags.noWatch === true;
-    if (!noWatch) {
+
+    // A background watcher is an INTERACTIVE convenience: it exists so a
+    // developer's next `monograph query` sees fresh data. Started from a
+    // non-interactive run it becomes a process nobody will ever stop.
+    //
+    // That is not hypothetical (#50): every throwaway `init` — CI, release
+    // smoke tests, the /tmp sandboxes that verify a published package — spawned
+    // a detached watcher with no exit condition and walked away. Ten orphans
+    // accumulated on one machine over 12 hours, each holding an fs watch open.
+    // The PID-file guard below cannot help there, because each sandbox is a
+    // fresh directory in which no PID file has ever existed.
+    //
+    // So: auto-start only when someone is actually at a terminal. `--watch`
+    // still forces it — checked against argv because the flag defaults to true,
+    // so its value alone cannot distinguish "explicitly asked" from "default".
+    // Tri-state, which is why `watch` no longer declares `default: true`:
+    //   true      -> explicitly asked for; start it regardless of TTY
+    //   false     -> --no-watch; never start
+    //   undefined -> nobody said; start only when someone is at a terminal
+    // Reading process.argv here instead would ignore programmatic callers that
+    // set ctx.flags directly, which is how the CLI's own tests drive init.
+    const explicitWatch = ctx.flags.watch === true;
+    const interactive = process.stdout.isTTY === true && !process.env.CI;
+    const skipNonInteractive = !interactive && !explicitWatch;
+
+    if (!noWatch && skipNonInteractive) {
+      output.printInfo(
+        '◈ Knowledge graph watch not started (non-interactive run) — pass --watch to force it',
+      );
+    }
+
+    if (!noWatch && !skipNonInteractive) {
       try {
         const { spawn } = await import('child_process');
         const pidFile = path.join(ctx.cwd, '.monomind', 'monograph.watch.pid');
@@ -405,9 +436,13 @@ export const initCommand: Command = {
       // actually reaches it. Declaring it as `no-watch` made `--no-watch` a
       // no-op — see the noWatch resolution in initAction.
       name: 'watch',
-      description: 'Start the monograph knowledge graph watcher after init (default: true; --no-watch skips it)',
+      description:
+        'Start the monograph knowledge graph watcher after init ' +
+        '(default: only when running interactively; --watch forces, --no-watch skips)',
       type: 'boolean',
-      default: true,
+      // Deliberately no `default`. The value must stay undefined when nobody
+      // passed the flag, so init can tell "not asked" from "asked for true"
+      // and only auto-start for an interactive user (#50).
     },
     {
       name: 'with-embeddings',
