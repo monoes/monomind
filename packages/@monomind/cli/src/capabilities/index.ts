@@ -9,6 +9,23 @@ export { CapabilityManager } from './manager.js';
 // capabilities/ is not in package.json's `exports` map and src/index.ts never
 // re-exported it. If incremental re-scanning is wanted later, wire it to the
 // scanner at the same time rather than landing an unused class again.
+//
+// `EnrichmentPipeline` (./enrichment.ts) and the `enrich` command were never
+// merged, for the same reason plus one worse one. Its only public entry point
+// was `commands/enrich.ts`, which called loadState/pause/resume/getSummary but
+// never `runTier()` — the one method that does the actual enriching had zero
+// callers, so `enrich --status` would have reported progress on a pipeline
+// nothing ever ran. On top of that, the branch tip did not compile: the final
+// review-fix commit redeclared `const raw` in `loadState()` (TS2451). The
+// T0/T1/T2 vocabulary it defined (`EnrichmentTier`/`EnrichmentStatus`/
+// `EnrichmentState`/`EnrichResult` and the optional `enrich()` hook on
+// `CapabilityModule`) was removed from types.ts at the same time as this note:
+// no capability module implemented the hook and nothing constructed the state,
+// so the types described a runtime that did not exist. Reintroduce them
+// together with a caller, not ahead of one.
+// Branch of record: feat/universal-second-brain (orphaned — shares no history
+// with main after the rewrite, so it can never be merged; read it with
+// `git show feat/universal-second-brain:<path>`).
 export { codeCapability } from './cap-code.js';
 export { documentsCapability } from './cap-documents.js';
 export { mediaCapability } from './cap-media.js';
