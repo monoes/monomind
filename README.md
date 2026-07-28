@@ -294,7 +294,7 @@ flowchart LR
     DB -->|next session| CE
 ```
 
-**15 background workers** run at session start (staleness-gated, refreshed when older than 6 hours): `security` · `health` · `swarm` · `learning` · `patterns` · `git` · `performance` and more.
+**8 on-demand workers** run at session start (staleness-gated, refreshed when older than 6 hours): `health` · `ddd` · `security` · `cache` · `progress` · `map` · `audit` · `consolidate`.
 
 ---
 
@@ -357,10 +357,16 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 
 | Package | npm | Purpose |
 |---|---|---|
-| `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella — **install this one** |
-| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (32 commands) |
+| `monomind` | [![npm](https://img.shields.io/npm/v/monomind?style=flat-square&color=00D2AA)](https://www.npmjs.com/package/monomind) | Umbrella shim — **install this one** |
+| `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (32 commands, MCP server) |
+| `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph (tree-sitter + SQLite) |
+| `@monoes/memory` | [![npm](https://img.shields.io/npm/v/@monoes/memory?style=flat-square&color=8B5CF6)](https://www.npmjs.com/package/@monoes/memory) | Persistent memory backends (SQLite + vectors) |
+| `@monoes/hooks` | [![npm](https://img.shields.io/npm/v/@monoes/hooks?style=flat-square&color=10B981)](https://www.npmjs.com/package/@monoes/hooks) | Hook registry + 8 on-demand workers |
+| `@monoes/mcp` | [![npm](https://img.shields.io/npm/v/@monoes/mcp?style=flat-square&color=3B82F6)](https://www.npmjs.com/package/@monoes/mcp) | MCP server framework (stdio/HTTP/WebSocket) |
+| `@monoes/routing` | [![npm](https://img.shields.io/npm/v/@monoes/routing?style=flat-square&color=F97316)](https://www.npmjs.com/package/@monoes/routing) | Semantic task-to-agent routing |
+| `@monoes/monobrowse` | [![npm](https://img.shields.io/npm/v/@monoes/monobrowse?style=flat-square&color=06B6D4)](https://www.npmjs.com/package/@monoes/monobrowse) | Browser automation via CDP |
+| `@monoes/monodesign` | [![npm](https://img.shields.io/npm/v/@monoes/monodesign?style=flat-square&color=EC4899)](https://www.npmjs.com/package/@monoes/monodesign) | Frontend design intelligence |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
-| `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph |
 
 ---
 
@@ -398,8 +404,8 @@ graph TD
 ## Resources
 
 - 📖 [Full Documentation](https://monoes.github.io/monomind/)
-- 🖥️ [CLI Command Reference](https://github.com/monoes/monomind/blob/main/docs/commands/cli-reference.md)
-- 🏢 [Org Runtime v2 Architecture](https://github.com/monoes/monomind/blob/main/docs/concepts/org-runtime.md)
+- 🖥️ [CLI Command Reference](https://github.com/monoes/monomind/blob/main/doc/commands/cli-reference.md)
+- 🏢 [Org Runtime v2 Architecture](https://github.com/monoes/monomind/blob/main/doc/concepts/org-runtime.md)
 - 🏢 [Autonomous Orgs](https://monoes.github.io/monomind/#orgs)
 - ⚡ [Mastermind Reference](https://monoes.github.io/monomind/#mastermind)
 - 📋 [All Slash Commands](https://monoes.github.io/monomind/#slash)

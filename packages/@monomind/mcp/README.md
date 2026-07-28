@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/packages/mcp.png" alt="@monoes/mcp" width="600" />
+</p>
+
 # @monoes/mcp
 
 [![npm version](https://img.shields.io/npm/v/@monoes/mcp.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/mcp)
@@ -70,13 +74,13 @@ import { createToolRegistry, defineTool } from '@monoes/mcp';
 const registry = createToolRegistry(logger);
 
 registry.register({
-  name: 'calculate',
-  description: 'Perform calculations',
-  inputSchema: { type: 'object', properties: { expression: { type: 'string' } } },
-  handler: async ({ expression }) => ({ result: eval(expression) }),
+  name: 'add',
+  description: 'Add two numbers',
+  inputSchema: { type: 'object', properties: { a: { type: 'number' }, b: { type: 'number' } }, required: ['a', 'b'] },
+  handler: async ({ a, b }) => ({ result: a + b }),
 });
 
-const result = await registry.execute('calculate', { expression: '2 + 2' });
+const result = await registry.execute('add', { a: 2, b: 2 });
 ```
 
 ## Resources & prompts

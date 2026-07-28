@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/packages/monofence.png" alt="monofence-ai" width="600" />
+</p>
+
 # monofence-ai
 
 [![npm version](https://img.shields.io/npm/v/monofence-ai?style=flat-square)](https://www.npmjs.com/package/monofence-ai)
