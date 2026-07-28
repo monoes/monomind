@@ -57,7 +57,7 @@ if (req.method === 'POST' && /^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/import$/i.
     try {
       const urlParts = url.split('/');
       const orgName = decodeURIComponent(urlParts[3]);
-      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return true; }
+      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return; }
       const cfg = JSON.parse(body);
       const _importQs = new URL(req.url, 'http://localhost').searchParams;
       const dir = path.resolve(_importQs.get('dir') || ctx.projectDir || process.cwd());
@@ -85,7 +85,7 @@ if (req.method === 'POST' && url === '/api/orgs') {
       const qs = new URL(req.url, 'http://localhost').searchParams;
       const dir = qs.get('dir') || cfg.dir || ctx.projectDir || process.cwd();
       const name = (cfg.name || '').toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
-      if (!name) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return true; }
+      if (!name) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid org name' })); return; }
       const orgsDir = path.join(path.resolve(dir), '.monomind', 'orgs');
       fs.mkdirSync(orgsDir, { recursive: true });
       const destFile = path.join(orgsDir, `${name}.json`);
@@ -1744,7 +1744,7 @@ if (req.method === 'GET' && url.startsWith('/api/mastermind/sessions')) {
           const top = idx.slice(0, limitParam);
           for (const entry of top) {
             const _sid = String(entry.id || '').trim();
-            if (!_sid || !SESSION_ID_RE.test(_sid)) continue;
+            if (!_sid || !ctx.SESSION_ID_RE.test(_sid)) continue;
             let events = [];
             try {
               const jl = fs.readFileSync(path.join(sessDir, `${_sid}.jsonl`), 'utf8');
@@ -1831,7 +1831,7 @@ if (req.method === 'GET' && url === '/mastermind') {
   // Serve local file if present (dev), otherwise fall back to bundled HTML
   const root = ctx.projectDir || process.cwd();
   const htmlPath = path.join(root, 'docs', 'mastermind-diagram.html');
-  let html = MASTERMIND_DIAGRAM_HTML;
+  let html = ctx.MASTERMIND_DIAGRAM_HTML;
   try { html = fs.readFileSync(htmlPath, 'utf8'); } catch (_) {}
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(html);
@@ -1841,12 +1841,12 @@ if (req.method === 'GET' && url === '/mastermind') {
 // ----------------------------------------------------------- GET /orgs
 if (req.method === 'GET' && url === '/orgs') {
   try {
-    const htmlPath = path.join(__dirname, 'orgs.html');
+    const htmlPath = path.join(ctx.__dirname, 'orgs.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
     // Inject this process's auth credential the same way GET / does for
     // dashboard.html — orgs.html's fetch() calls hit the same now
     // default-closed /api/* routes and need a way to know the token.
-    html = html.replace('<head>', `<head>\n<meta name="mm-token" content="${dashboardAuthValue}">`);
+    html = html.replace('<head>', `<head>\n<meta name="mm-token" content="${ctx.dashboardAuthValue}">`);
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
   } catch (err) {
@@ -1862,7 +1862,7 @@ if (req.method === 'GET' && url === '/orgs') {
 // sibling asset via its own hardcoded route, same as GET /orgs above.
 if (req.method === 'GET' && url === '/orgs-files.js') {
   try {
-    const jsPath = path.join(__dirname, 'orgs-files.js');
+    const jsPath = path.join(ctx.__dirname, 'orgs-files.js');
     const js = fs.readFileSync(jsPath, 'utf8');
     res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
     res.end(js);
@@ -2028,7 +2028,7 @@ if (req.method === 'POST' && url === '/api/knowledge/search') {
   let body = '';
   let overLimit = false;
   req.on('data', c => {
-    if (overLimit) return true;
+    if (overLimit) return;
     body += c;
     if (body.length > 64 * 1024) { // queries are prompts, not documents
       overLimit = true;
@@ -2038,7 +2038,7 @@ if (req.method === 'POST' && url === '/api/knowledge/search') {
     }
   });
   req.on('end', async () => {
-    if (overLimit) return true;
+    if (overLimit) return;
     try {
       const payload = JSON.parse(body || '{}');
       const query = String(payload.query || '').slice(0, 2000);
@@ -2048,13 +2048,13 @@ if (req.method === 'POST' && url === '/api/knowledge/search') {
       if (!query) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end('{"error":"query required"}');
-        return true;
+        return;
       }
       const bridge = await ctx._getKnowledgeBridge();
       if (!bridge) {
         res.writeHead(503, { 'Content-Type': 'application/json' });
         res.end('{"error":"knowledge bridge unavailable"}');
-        return true;
+        return;
       }
       // scope: project | global | all (default all) — project results get a
       // small tie boost; global hits are flagged so callers can show origin.

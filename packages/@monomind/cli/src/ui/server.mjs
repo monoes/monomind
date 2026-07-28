@@ -1229,12 +1229,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           try {
             if (!rel) return;
             const relStr = String(rel);
-            // `relStr` is relative to the project root, so the old
-            // `relStr.startsWith('.')` only ever matched a dotfile sitting at the
-            // ROOT — every `._` resource fork in a subdirectory sailed through and
-            // was ingested as a document. Test per PATH SEGMENT instead, using the
-            // same `(^|/)` anchoring the sibling _sbSkip regex already uses.
-            if (_sbSkip.test(relStr) || /(^|\/)\./.test(relStr)) return;
+            // Skip macOS AppleDouble resource forks (`._name`) at any depth.
+            // The old `relStr.startsWith('.')` only caught dotfiles at the ROOT;
+            // `._` forks in subdirectories sailed through. We match `._` per path
+            // segment rather than all dotfiles — `.monodesign/` critique snapshots
+            // are legitimate indexable documents.
+            if (_sbSkip.test(relStr) || /(^|\/)\._./.test(relStr)) return;
             if (!_sbDocExts.has(path.extname(relStr).toLowerCase())) return;
             const full = path.join(_sbRoot, relStr);
             clearTimeout(_sbPending.get(full));
@@ -3390,7 +3390,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     }
 
     // ── Org/mastermind routes (extracted to routes-org.mjs) ────────────────
-    if (await handleOrgRoutes(req, res, url, corsOrigin, { projectDir, activeOrgRuns, _resolveOrgProjectDir, runStreamClients, broadcastMm, appendToFile, _getActiveRunId, removeMmClient, _runDb, parseAgentDef, MONOMIND_HOME, handleMastermindEvent, addMmClient, _getGitMonomindDir, _detectMimeType, _readRunState, _getAllowedArtifactDirs, _updateRunState, _getKnowledgeBridge })) return;
+    if (await handleOrgRoutes(req, res, url, corsOrigin, { projectDir, activeOrgRuns, _resolveOrgProjectDir, runStreamClients, broadcastMm, appendToFile, _getActiveRunId, removeMmClient, _runDb, parseAgentDef, MONOMIND_HOME, handleMastermindEvent, addMmClient, _getGitMonomindDir, _detectMimeType, _readRunState, _getAllowedArtifactDirs, _updateRunState, _getKnowledgeBridge, SESSION_ID_RE, MASTERMIND_DIAGRAM_HTML, dashboardAuthValue, __dirname })) return;
 
     // ------------------------------------------------------------------ 404
     res.writeHead(404, { 'Content-Type': 'text/plain' });
