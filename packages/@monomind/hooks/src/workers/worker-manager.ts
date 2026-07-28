@@ -191,14 +191,8 @@ export interface StatuslineData {
     status: SecurityStatus;
     issues: number;
   };
-  adr: {
-    compliance: number;
-  };
   ddd: {
     progress: number;
-  };
-  performance: {
-    speedup: string;
   };
   alerts: WorkerAlert[];
   lastUpdate: string;
@@ -208,119 +202,65 @@ export interface StatuslineData {
 // Worker Definitions
 // ============================================================================
 
+// All workers are on-demand only (enabled: false = no setInterval timer).
+// Run via `hooks worker run <name>` or triggered by session-restore-handler's
+// freshness check at session start. 7 workers with zero consumers were deleted
+// (performance, patterns, adr, learning, git, swarm, optimize) — see the
+// 2026-07-17 audit plan for the full analysis.
 export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
-  'performance': {
-    name: 'performance',
-    description: 'Benchmark search, memory, startup performance',
-    interval: 300_000,  // 5 min
-    enabled: true,
-    priority: WorkerPriority.Normal,
-    timeout: 30_000,
-  },
   'health': {
     name: 'health',
     description: 'Monitor disk, memory, CPU, processes',
-    interval: 300_000,  // 5 min
-    enabled: true,
+    interval: 300_000,
+    enabled: false,
     priority: WorkerPriority.High,
     timeout: 10_000,
-  },
-  'patterns': {
-    name: 'patterns',
-    description: 'Consolidate, dedupe, optimize learned patterns',
-    interval: 900_000,  // 15 min
-    enabled: true,
-    priority: WorkerPriority.Normal,
-    timeout: 60_000,
   },
   'ddd': {
     name: 'ddd',
     description: 'Track DDD domain implementation progress',
-    interval: 600_000,  // 10 min
-    enabled: true,
+    interval: 600_000,
+    enabled: false,
     priority: WorkerPriority.Low,
     timeout: 30_000,
-  },
-  'adr': {
-    name: 'adr',
-    description: 'Check ADR compliance across codebase',
-    interval: 900_000,  // 15 min
-    enabled: true,
-    priority: WorkerPriority.Low,
-    timeout: 60_000,
   },
   'security': {
     name: 'security',
     description: 'Scan for secrets, vulnerabilities, CVEs',
-    interval: 1_800_000,  // 30 min
-    enabled: true,
+    interval: 1_800_000,
+    enabled: false,
     priority: WorkerPriority.High,
     timeout: 120_000,
-  },
-  'learning': {
-    name: 'learning',
-    description: 'Optimize learning, SONA adaptation',
-    interval: 1_800_000,  // 30 min
-    enabled: true,
-    priority: WorkerPriority.Normal,
-    timeout: 60_000,
   },
   'cache': {
     name: 'cache',
     description: 'Clean temp files, old logs, stale cache',
-    interval: 3_600_000,  // 1 hour
-    enabled: true,
+    interval: 3_600_000,
+    enabled: false,
     priority: WorkerPriority.Background,
     timeout: 30_000,
   },
-  'git': {
-    name: 'git',
-    description: 'Track uncommitted changes, branch status',
-    interval: 300_000,  // 5 min
-    enabled: true,
-    priority: WorkerPriority.Normal,
-    timeout: 10_000,
-  },
-  'swarm': {
-    name: 'swarm',
-    description: 'Monitor swarm activity, agent coordination',
-    interval: 60_000,  // 1 min
-    enabled: true,
-    priority: WorkerPriority.High,
-    timeout: 10_000,
-  },
-  // Workers folded in from the deleted CLI worker-daemon — they write the
-  // .monomind/metrics/*.json files read by route-handler.cjs, statusline,
-  // and doctor. Names/output schemas are unchanged from the daemon era.
   'map': {
     name: 'map',
     description: 'Codebase mapping — writes .monomind/metrics/codebase-map.json',
-    interval: 21_600_000,  // 6 hours
-    enabled: true,
+    interval: 21_600_000,
+    enabled: false,
     priority: WorkerPriority.Normal,
     timeout: 30_000,
   },
   'audit': {
     name: 'audit',
     description: 'Security audit — writes .monomind/metrics/security-audit.json',
-    interval: 21_600_000,  // 6 hours
-    enabled: true,
+    interval: 21_600_000,
+    enabled: false,
     priority: WorkerPriority.High,
-    timeout: 30_000,
-  },
-  'optimize': {
-    name: 'optimize',
-    description: 'Performance snapshot — writes .monomind/metrics/performance.json',
-    interval: 21_600_000,  // 6 hours
-    enabled: true,
-    priority: WorkerPriority.Normal,
     timeout: 30_000,
   },
   'consolidate': {
     name: 'consolidate',
     description: 'RAPTOR memory consolidation — writes .monomind/metrics/consolidation.json',
-    interval: 21_600_000,  // 6 hours
-    enabled: true,
+    interval: 21_600_000,
+    enabled: false,
     priority: WorkerPriority.Low,
     timeout: 30_000,
   },
@@ -643,12 +583,9 @@ export class WorkerManager extends EventEmitter {
     const errorWorkers = workers.filter(w => w.status === 'error').length;
     const totalWorkers = workers.filter(w => w.status !== 'disabled').length;
 
-    // Get latest results
     const healthResult = this.metrics.get('health')?.lastResult as Record<string, unknown> | undefined;
     const securityResult = this.metrics.get('security')?.lastResult as Record<string, unknown> | undefined;
-    const adrResult = this.metrics.get('adr')?.lastResult as Record<string, unknown> | undefined;
     const dddResult = this.metrics.get('ddd')?.lastResult as Record<string, unknown> | undefined;
-    const perfResult = this.metrics.get('performance')?.lastResult as Record<string, unknown> | undefined;
 
     return {
       workers: {
@@ -665,14 +602,8 @@ export class WorkerManager extends EventEmitter {
         status: toSecurityStatus(securityResult?.status),
         issues: securityResult?.totalIssues as number ?? 0,
       },
-      adr: {
-        compliance: adrResult?.compliance as number ?? 0,
-      },
       ddd: {
         progress: dddResult?.progress as number ?? 0,
-      },
-      performance: {
-        speedup: perfResult?.speedup as string ?? '1.0x',
       },
       alerts: this.alerts.filter(a => a.severity === AlertSeverity.Critical).slice(-5),
       lastUpdate: new Date().toISOString(),
@@ -714,14 +645,8 @@ export class WorkerManager extends EventEmitter {
                     data.security.status === 'incomplete' ? '❔' : '🛡️';
     parts.push(`${secIcon}${data.security.issues}`);
 
-    // ADR Compliance
-    parts.push(`📋${data.adr.compliance}%`);
-
     // DDD Progress
     parts.push(`🏗️${data.ddd.progress}%`);
-
-    // Performance
-    parts.push(`⚡${data.performance.speedup}`);
 
     return parts.join(' │ ');
   }

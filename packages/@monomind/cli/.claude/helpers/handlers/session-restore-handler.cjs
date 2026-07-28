@@ -284,7 +284,6 @@ module.exports = {
         { factory: 'createDDDWorker',         file: 'worker-ddd.js',         out: 'ddd-progress.json',    always: true },
         { factory: 'createMapWorker',         file: 'worker-map.js',         out: 'codebase-map.json' },
         { factory: 'createAuditWorker',       file: 'worker-audit.js',       out: 'security-audit.json' },
-        { factory: 'createOptimizeWorker',    file: 'worker-optimize.js',    out: 'performance.json' },
         { factory: 'createConsolidateWorker', file: 'worker-consolidate.js', out: 'consolidation.json' },
       ];
       var _hooksDistDir = path.join(CWD, 'packages', '@monomind', 'hooks', 'dist', 'workers');
