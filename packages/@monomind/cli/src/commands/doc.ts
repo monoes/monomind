@@ -302,6 +302,71 @@ const removeDocCommand: Command = {
   },
 };
 
+const reconcileDocCommand: Command = {
+  name: 'reconcile',
+  description: 'Find and forget indexed documents whose source file no longer exists',
+  options: [
+    { name: 'scope', short: 's', description: 'Knowledge scope (default: shared)', type: 'string', default: 'shared' },
+    { name: 'global', short: 'g', description: 'Reconcile the personal cross-project global brain', type: 'boolean' },
+    { name: 'apply', description: 'Actually forget the stale entries (default: dry run)', type: 'boolean' },
+  ],
+  examples: [
+    { command: 'monomind doc reconcile', description: 'Show indexed documents whose file is gone (changes nothing)' },
+    { command: 'monomind doc reconcile --apply', description: 'Forget them' },
+    { command: 'monomind doc reconcile --global --apply', description: 'Same, for the personal brain' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { reconcileIndex } = await import('../knowledge/document-pipeline.js');
+    const isGlobal = ctx.flags.global === true;
+    const scope = isGlobal ? 'global' : String(ctx.flags.scope || 'shared');
+    const root = isGlobal ? getGlobalBrainDir() : getProjectRoot();
+    const apply = ctx.flags.apply === true;
+
+    let report;
+    try {
+      report = await reconcileIndex(root, { scope, apply });
+    } catch (err) {
+      // reconcileIndex refuses to run against a missing root or a missing
+      // metadata log, because there every indexed file looks deleted. Surface
+      // that as a refusal, never as "0 stale entries found".
+      output.printError(String(err instanceof Error ? err.message : err));
+      return { success: false, exitCode: 1 };
+    }
+
+    if (report.missing.length === 0) {
+      output.writeln(`Index is consistent — all ${report.scanned} indexed documents still exist.`);
+      return { success: true, data: report };
+    }
+
+    output.writeln(
+      `${output.highlight(String(report.missing.length))} of ${report.scanned} indexed documents no longer exist on disk:`,
+    );
+    for (const m of report.missing.slice(0, 20)) {
+      output.writeln(output.dim(`  ${m.filePath}`));
+    }
+    if (report.missing.length > 20) {
+      output.writeln(output.dim(`  ... and ${report.missing.length - 20} more`));
+    }
+
+    if (!apply) {
+      // Dry run is the default because "the file is missing" also describes an
+      // unmounted volume, a checked-out branch, and a partial clone. The user
+      // is the one who knows which it is.
+      output.writeln('');
+      output.writeln(output.dim('Nothing was changed. Re-run with --apply to forget these entries.'));
+      return { success: true, data: report };
+    }
+
+    output.writeln('');
+    output.writeln(`Forgot ${output.highlight(String(report.removed))} stale ${report.removed === 1 ? 'entry' : 'entries'}.`);
+    if (report.archivePath) {
+      output.writeln(output.dim(`  Archived first, and reversible from: ${report.archivePath}`));
+    }
+    output.writeln(output.dim('  Chunks are hidden from search immediately; storage is reclaimed on the next full re-index.'));
+    return { success: true, data: report };
+  },
+};
+
 const importDocCommand: Command = {
   name: 'import',
   description: 'Import an OKF bundle produced by `doc export`',
@@ -352,11 +417,98 @@ const importDocCommand: Command = {
   },
 };
 
+const evalCommand: Command = {
+  name: 'eval',
+  description: 'Measure retrieval quality (Recall@1/5/10, MRR@10) on the local golden set',
+  aliases: ['benchmark', 'scoreboard'],
+  options: [
+    { name: 'split', description: "Golden-set split: dev (tunable) | test (sealed, stop-condition only) | all", type: 'string', default: 'dev' },
+    { name: 'k', description: 'Retrieval cutoff (default: 10)', type: 'number', default: 10 },
+    { name: 'json', description: 'Emit the machine-readable report only', type: 'boolean' },
+    { name: 'out', short: 'o', description: 'Write the JSON report to this path', type: 'string' },
+    { name: 'rebuild', description: 'Rebuild the isolated eval store from scratch', type: 'boolean' },
+    { name: 'screen', description: 'Screen a JSON file of candidate golden pairs for lexical overlap before adding them', type: 'string' },
+    { name: 'provision-model', description: 'Download the embedding weights (the ONLY networked step; run once before evaluating)', type: 'boolean' },
+    { name: 'store-root', description: 'Where the isolated eval store lives (default: <repo>/.monomind/eval)', type: 'string' },
+  ],
+  examples: [
+    { command: 'monomind doc eval', description: 'Score the dev split and print the table' },
+    { command: 'monomind doc eval --split test --json', description: 'Sealed run — aggregates only, appended to the exposure ledger' },
+    { command: 'monomind doc eval --provision-model', description: 'One-off: fetch the embedding weights (the only networked step)' },
+    { command: 'monomind doc eval --out scoreboard.json', description: 'Persist the machine-readable report' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { runEval, renderReport } = await import('../knowledge/eval/harness.js');
+
+    // Authoring-time screening: reject high-overlap candidates BEFORE they
+    // enter the set, rather than discovering the distribution afterwards.
+    if (ctx.flags.screen) {
+      const fs = await import('node:fs');
+      const { screenCandidates } = await import('../knowledge/eval/harness.js');
+      const cands = JSON.parse(fs.readFileSync(String(ctx.flags.screen), 'utf8'));
+      const rep = await screenCandidates(getProjectRoot(ctx.cwd || process.cwd()), cands);
+      if (ctx.flags.out) fs.writeFileSync(String(ctx.flags.out), JSON.stringify(rep, null, 2));
+      if (ctx.flags.json === true) { output.writeln(JSON.stringify(rep, null, 2)); return { success: true, data: rep }; }
+      output.writeln(`\nscreened ${rep.total}: ${rep.accepted} accepted, ${rep.rejected} rejected (corpus ${rep.corpusHash})`);
+      output.writeln(`overlap bands of accepted: low ${rep.bands.low}  mid ${rep.bands.mid}  high ${rep.bands.high}`);
+      for (const c of rep.candidates.filter(x => !x.accepted)) output.writeln(`  REJECT ${c.id}: ${c.reason}`);
+      return { success: true, data: rep };
+    }
+
+    // The explicit, non-query-time provisioning step. Separating this from
+    // measurement is what makes "clean checkout" and "zero network at query
+    // time" jointly satisfiable — `doc eval` itself never fetches.
+    if (ctx.flags['provision-model'] === true) {
+      const { provisionModel } = await import('../knowledge/eval/model-presence.js');
+      try {
+        const p = await provisionModel(m => output.writeln(output.dim('  ' + m)));
+        output.printSuccess(`Embedding model provisioned (${(p.bytes / 1e6).toFixed(0)}MB).`);
+        return { success: true, data: p };
+      } catch (err) {
+        output.printError(String(err instanceof Error ? err.message : err));
+        return { success: false, exitCode: 1 };
+      }
+    }
+
+    const split = String(ctx.flags.split || 'dev');
+    if (!['dev', 'test', 'all'].includes(split)) {
+      output.printError(`--split must be dev, test or all (got "${split}")`);
+      return { success: false, exitCode: 1 };
+    }
+    const asJson = ctx.flags.json === true;
+    const repoRoot = getProjectRoot(ctx.cwd || process.cwd());
+
+    try {
+      const report = await runEval({
+        repoRoot,
+        k: Number(ctx.flags.k || 10),
+        rebuild: ctx.flags.rebuild === true,
+        storeRoot: ctx.flags['store-root'] ? String(ctx.flags['store-root']) : undefined,
+        split: split as 'dev' | 'test' | 'all',
+        onProgress: (msg) => { if (!asJson) output.writeln(output.dim('  ' + msg)); },
+      });
+
+      if (ctx.flags.out) {
+        const fs = await import('node:fs');
+        fs.writeFileSync(String(ctx.flags.out), JSON.stringify(report, null, 2));
+      }
+      if (asJson) output.writeln(JSON.stringify(report, null, 2));
+      else output.writeln(renderReport(report));
+
+      // A network attempt during the query phase invalidates the run outright.
+      return { success: report.networkFree.verdict === 'proven-blocked', data: report };
+    } catch (err) {
+      output.printError(String(err instanceof Error ? err.message : err));
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
 export const docCommand: Command = {
   name: 'doc',
   description: 'Second Brain — document knowledge management',
   aliases: ['docs', 'knowledge'],
-  subcommands: [ingestCommand, searchDocCommand, listDocCommand, exportDocCommand, importDocCommand, removeDocCommand],
+  subcommands: [ingestCommand, searchDocCommand, listDocCommand, exportDocCommand, importDocCommand, removeDocCommand, reconcileDocCommand, evalCommand],
   options: [],
   examples: [
     { command: 'monomind doc ingest ./docs', description: 'Index documents' },
@@ -365,6 +517,7 @@ export const docCommand: Command = {
     { command: 'monomind doc export', description: 'Export as OKF bundle' },
     { command: 'monomind doc import ./bundle', description: 'Import an OKF bundle' },
     { command: 'monomind doc remove ./docs/old.md', description: 'Forget an indexed document' },
+    { command: 'monomind doc eval', description: 'Score retrieval quality on the golden set' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -380,6 +533,7 @@ export const docCommand: Command = {
       `${output.highlight('export')}  - Export as OKF bundle (markdown + frontmatter)`,
       `${output.highlight('import')}  - Import an OKF bundle produced by export`,
       `${output.highlight('remove')}  - Forget an indexed document (aliases: rm, forget)`,
+      `${output.highlight('eval')}    - Retrieval-quality scoreboard: Recall@1/5/10, MRR@10`,
     ]);
     return { success: true };
   },

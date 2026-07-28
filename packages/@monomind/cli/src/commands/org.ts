@@ -8,6 +8,7 @@ import { OrgDaemon } from '../orgrt/daemon.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
+import { readHistory } from '../orgrt/reporting.js';
 
 const log = (text: string): void => { console.log(text); };
 
@@ -201,7 +202,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
     : []);
   for (const t of targets) {
     const rt = join(orgDir, t, 'runtime.json');
-    let state: { status: string; run?: string; pid?: number } = { status: 'never run' };
+    let state: { status: string; run?: string; pid?: number; abandonedRoles?: string[] } = { status: 'never run' };
     if (existsSync(rt)) {
       try {
         state = JSON.parse(readFileSync(rt, 'utf8'));
@@ -229,7 +230,14 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
         continue;
       }
     }
-    log(output.info(`${t}: ${state.status}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`));
+    const line = `${t}: ${state.status}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`;
+    // A role that never spawned is a silent capability hole — an org with no
+    // tester still reports a clean "running". Say it on the status line.
+    if (state.abandonedRoles?.length) {
+      log(output.warning(`${line} — DEGRADED: ${state.abandonedRoles.length} role(s) never spawned: ${state.abandonedRoles.join(', ')}`));
+    } else {
+      log(output.info(line));
+    }
   }
   return { success: true };
 };
@@ -462,7 +470,10 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
     } catch (err) {
       console.error(`org ${name}: scheduled run failed:`, err);
     } finally {
-      await daemon.stopOrg(name).catch(err => console.error(`org ${name}: stop failed:`, err));
+      // A deadline stop still lands on agents mid-tool-call. The 15s abort
+      // bound threw that work away; a minute is enough to finish an edit or a
+      // test run and flush, and still well inside any sane interval.
+      await daemon.stopOrg(name, { drainMs: 60_000 }).catch(err => console.error(`org ${name}: stop failed:`, err));
     }
   });
   const orgDir = join(ctx.cwd, ORG_DIR);
@@ -475,8 +486,14 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
           // register by filename stem — that's what startOrg loads
           const stem = f.replace(/\.json$/, '');
           if (def.name && def.name !== stem) log(output.warning(`org file ${f}: def.name "${def.name}" differs from filename — scheduling as "${stem}"`));
-          sched.add(stem, ms);
-          log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m`));
+          // Due = never run, or last run ended longer ago than the interval.
+          // Without this, starting the daemon meant waiting a full period
+          // before anything happened at all; gating on due-ness means a
+          // restart doesn't stampede every scheduled org back into a run.
+          const lastEnded = readHistory(ctx.cwd, stem).at(-1)?.endedAt ?? 0;
+          const due = Date.now() - lastEnded >= ms;
+          sched.add(stem, ms, due);
+          log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m${due ? ' — due now, starting first run' : ''}`));
         }
       } catch (err) {
         log(output.warning(`org file ${f}: could not parse — skipping (${err instanceof Error ? err.message : 'invalid JSON'})`));

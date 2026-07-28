@@ -120,6 +120,126 @@ async function chunkDocument(docId: string, text: string): Promise<TextChunk[]> 
   }
 }
 
+// ── Contextual chunk enrichment (item 6a) ─────────────────────────
+// Prepend a situating blurb per chunk before embedding: full heading
+// path + doc title + doc summary. No LLM, no network.
+//
+// The chunker's `§ heading` prefix (line 105) provides only the nearest
+// leaf heading. This replaces it with doc-level context so the embedding
+// model can distinguish "Memory Coordination" in a hooks doc from
+// "Memory Coordination" in a concepts doc.
+//
+// Applied at INGEST TIME (after chunking, before embedding), so:
+//  - Works identically regardless of which chunker ran (inline or @monoes/memory)
+//  - Works identically for both better-sqlite3 and sql.js (pure string ops)
+//  - Zero dependencies, zero network
+
+const SECTION_PREFIX_RE = /^§ [^\n]+\n/;
+
+function extractDocTitle(text: string, filePath: string): string {
+  const eol = text.indexOf('\n');
+  const first = eol === -1 ? text : text.slice(0, eol);
+  return HEADING_LINE_RE.test(first)
+    ? first.replace(/^#+ /, '').trim()
+    : path.basename(filePath, path.extname(filePath)).replace(/[-_]/g, ' ');
+}
+
+function extractDocSummary(text: string): string {
+  const lines = text.split('\n');
+  let inFence = false;
+  const parts: string[] = [];
+  for (const line of lines) {
+    if (FENCE_LINE_RE.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    if (HEADING_LINE_RE.test(line)) { if (parts.length > 0) break; continue; }
+    const t = line.trim();
+    if (!t || /^[|=-]/.test(t)) { if (parts.length > 0) break; continue; }
+    parts.push(t.startsWith('>') ? t.replace(/^>\s*/, '') : t);
+  }
+  return parts.join(' ').slice(0, 150);
+}
+
+function buildHeadingHierarchy(
+  text: string, toggles: number[],
+): Array<{ level: number; text: string; offset: number }> {
+  const out: Array<{ level: number; text: string; offset: number }> = [];
+  const eol0 = text.indexOf('\n');
+  const line0 = eol0 === -1 ? text : text.slice(0, eol0);
+  if (HEADING_LINE_RE.test(line0) && !inFenceInline(toggles, 0)) {
+    out.push({ level: (line0.match(/^(#{1,6}) /)!)[1].length, text: line0.replace(/^#+ /, '').trim(), offset: 0 });
+  }
+  let i = text.indexOf('\n#', 0);
+  while (i !== -1) {
+    const ls = i + 1;
+    const e = text.indexOf('\n', ls);
+    const line = text.slice(ls, e === -1 ? undefined : e);
+    if (HEADING_LINE_RE.test(line) && !inFenceInline(toggles, ls)) {
+      out.push({ level: (line.match(/^(#{1,6}) /)!)[1].length, text: line.replace(/^#+ /, '').trim(), offset: ls });
+    }
+    i = text.indexOf('\n#', ls);
+  }
+  return out;
+}
+
+function headingPathAt(
+  hierarchy: Array<{ level: number; text: string; offset: number }>, pos: number,
+): string[] {
+  const stack: Array<{ level: number; text: string }> = [];
+  for (const h of hierarchy) {
+    if (h.offset >= pos) break;
+    while (stack.length > 0 && stack[stack.length - 1].level >= h.level) stack.pop();
+    stack.push(h);
+  }
+  return stack.map(s => s.text);
+}
+
+/**
+ * Replace each chunk's `§ heading` prefix with a richer situating blurb:
+ *   § <doc title> · <full heading path>
+ *   <doc summary for non-first chunks>
+ *
+ * First chunks that start with their own heading are left untouched (the
+ * heading IS the context). The summary line is omitted for the first
+ * chunk since it is adjacent to the summary text anyway.
+ */
+function enrichChunks(chunks: TextChunk[], fullText: string, filePath: string): TextChunk[] {
+  if (chunks.length === 0) return chunks;
+  const toggles = fenceTogglesInline(fullText);
+  const hierarchy = buildHeadingHierarchy(fullText, toggles);
+  const title = extractDocTitle(fullText, filePath);
+  const summary = extractDocSummary(fullText);
+
+  return chunks.map(c => {
+    let text = c.text;
+
+    // First chunk starting with its own heading — the heading IS the context
+    if (c.chunkIndex === 0 && HEADING_LINE_RE.test(text.trimStart())) return c;
+
+    // Strip the old § leaf-heading prefix; we replace it with a richer one
+    text = text.replace(SECTION_PREFIX_RE, '');
+
+    const hpath = headingPathAt(hierarchy, c.startChar + 1);
+    const parts: string[] = [];
+
+    // Title + full heading path
+    if (hpath.length > 0 && hpath[0] !== title) {
+      parts.push(`§ ${title} · ${hpath.join(' > ')}`);
+    } else if (hpath.length > 1) {
+      parts.push(`§ ${hpath.join(' > ')}`);
+    } else {
+      parts.push(`§ ${title}`);
+    }
+
+    // Summary for non-first chunks — they are far from the doc intro
+    if (c.chunkIndex > 0 && summary) {
+      const snip = summary.length > 120 ? summary.slice(0, 117) + '...' : summary;
+      parts.push(snip);
+    }
+
+    return { ...c, text: parts.join('\n') + '\n' + text };
+  });
+}
+
 // ── Types ──────────────────────────────────────────────────────────
 
 export interface IngestResult {
@@ -276,6 +396,25 @@ export async function ingestDocument(
   const resolved = path.resolve(filePath);
   const ext = path.extname(resolved).toLowerCase();
 
+  // AppleDouble resource forks (`._name.md`) are binary macOS sidecars, not
+  // documents. The directory walk has skipped dotfiles since 3e429194
+  // (2026-07-19), but that walk is only ONE of six callers that reach this
+  // function — the CLI `doc ingest`, the MCP `knowledge_ingest` tool, the
+  // dashboard's live fs.watch and its polling sweep, the eval harness, and
+  // `ingestDirectory` all land here, and four of them had no guard at all.
+  //
+  // Guarding at the boundary covers every caller at once, including callers
+  // added later. Guarding at each call site covers only the ones we thought to
+  // enumerate — which is how two `._` files reached the live index despite a
+  // working guard in the walk.
+  //
+  // Measured on this repo 2026-07-28: 96 `._` entries in the live index, 91 of
+  // them shadowing a real document of the same name and competing with it for
+  // top-k slots. That is a direct Recall@5/MRR@10 loss, not wasted storage.
+  if (isResourceFork(resolved)) {
+    return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: 'AppleDouble resource fork' };
+  }
+
   if (!DOC_EXTENSIONS.has(ext)) {
     return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: `unsupported extension: ${ext}` };
   }
@@ -317,7 +456,8 @@ export async function ingestDocument(
   }
 
   const docId = `${scope}:${resolved}`;
-  const chunks: TextChunk[] = await chunkDocument(docId, fullContent);
+  const rawChunks: TextChunk[] = await chunkDocument(docId, fullContent);
+  const chunks = enrichChunks(rawChunks, fullContent, resolved);
   const bridge = await getBridge();
   let indexed = 0;
 
@@ -580,6 +720,112 @@ export async function removeDocument(
   removeMetadataEntry(rootDir, path.resolve(filePath), scope);
   // SQLite cleanup: bridge doesn't expose delete-by-key, so metadata removal is sufficient.
   // Orphaned SQLite entries get swept on next full re-index or TTL expiry.
+}
+
+// ── Filesystem reconciliation (item 4b-i) ──────────────────────────
+
+/**
+ * True for macOS AppleDouble sidecars (`._name`).
+ *
+ * Matches on the BASENAME PREFIX only. A legitimate document may contain `._`
+ * elsewhere in its name (`v1._2-release.md`), or live under a dot-directory
+ * that is deliberately indexed (`.monodesign/` critique snapshots), and
+ * neither may be rejected.
+ */
+export function isResourceFork(filePath: string): boolean {
+  return path.basename(filePath).startsWith('._');
+}
+
+export interface ReconcileReport {
+  /** Indexed documents whose source file is no longer on disk. */
+  missing: DocumentMeta[];
+  /** Total index entries examined. */
+  scanned: number;
+  /** False for a dry run — the default. */
+  applied: boolean;
+  /** Entries actually tombstoned. Always 0 when `applied` is false. */
+  removed: number;
+  /** Where removed records were archived, when anything was removed. */
+  archivePath?: string;
+}
+
+/**
+ * Reconcile the document index against the filesystem: find index entries whose
+ * source file no longer exists and, only when explicitly asked, tombstone them.
+ *
+ * WHY — `removeDocument` only ever tombstoned metadata, and nothing has ever
+ * compared the index against the disk, so a deleted file stayed searchable
+ * forever. Measured 2026-07-28: 109 of 257 live entries (42.4%) had no file
+ * behind them, including `docs/concepts/memory.md`. The Second Brain was
+ * answering questions from documents the user had deleted.
+ *
+ * WHY IT IS THIS CAUTIOUS — "drop the index entry when the file is missing" is
+ * a rule with a known catastrophic reading. A missing file is also an unmounted
+ * volume, a checked-out branch, a partial clone, or a permissions failure. Two
+ * guards were tried against real data and REJECTED; they are recorded here so
+ * they are not re-proposed:
+ *
+ *   - "abort if >50% of entries are missing" — the real, legitimate missing
+ *     fraction was 42.4%, so the threshold never fires in the one case we have.
+ *     Any threshold that would have blocked this reconcile is fitted to nothing.
+ *   - "only reconcile when the parent directory still exists" — 26 of the 109
+ *     missing files had no parent directory, because `docs/concepts`,
+ *     `docs/adrs` and `docs/commands` were legitimately deleted wholesale. A
+ *     deleted directory and an unmounted volume are indistinguishable there.
+ *
+ * What does discriminate is the ROOT. An intact, readable root carrying a
+ * metadata log means the tree is genuinely present, so a missing file is
+ * genuinely gone. A missing root means nothing beneath it is knowable and
+ * nothing may be removed — hence throw rather than reconcile.
+ *
+ * Removal tombstones metadata; it does not delete store rows. Chunks stay on
+ * disk and fall out of search through the existing superseded filter, which
+ * keeps this consistent with the mark-don't-destroy rule and leaves the whole
+ * operation reversible from the archive.
+ */
+export async function reconcileIndex(
+  rootDir = getProjectRoot(),
+  opts?: { scope?: string; apply?: boolean },
+): Promise<ReconcileReport> {
+  const apply = opts?.apply === true;
+
+  // Root guard — the unmounted-volume case. Every file below a missing root
+  // looks deleted, so this must abort rather than reconcile.
+  if (!rootDir || !fs.existsSync(rootDir)) {
+    throw new Error(
+      `reconcileIndex: project root does not exist: ${rootDir} — refusing to reconcile ` +
+      `(an unmounted volume makes every indexed file look deleted)`,
+    );
+  }
+  if (!hasKnowledgeMetadata(rootDir)) {
+    throw new Error(
+      `reconcileIndex: no knowledge metadata log under ${rootDir} — refusing to reconcile ` +
+      `("no metadata" must not read as "everything is stale")`,
+    );
+  }
+
+  const records = readMetadata(rootDir).filter(m => !opts?.scope || m.scope === opts.scope);
+  const missing = records.filter(m => !fs.existsSync(m.filePath));
+
+  if (!apply || missing.length === 0) {
+    return { missing, scanned: records.length, applied: apply, removed: 0 };
+  }
+
+  // Archive BEFORE removing, inside the operation so no caller can bypass it
+  // by forgetting — the same precondition rule the delete path uses.
+  const dir = path.join(rootDir, '.monomind', 'knowledge', 'archive');
+  fs.mkdirSync(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const archivePath = path.join(dir, `reconcile-${stamp}.jsonl`);
+  fs.writeFileSync(archivePath, missing.map(m => JSON.stringify(m)).join('\n') + '\n', 'utf-8');
+
+  let removed = 0;
+  for (const m of missing) {
+    removeMetadataEntry(rootDir, m.filePath, m.scope);
+    removed++;
+  }
+
+  return { missing, scanned: records.length, applied: true, removed, archivePath };
 }
 
 // ── OKF Export ─────────────────────────────────────────────────────

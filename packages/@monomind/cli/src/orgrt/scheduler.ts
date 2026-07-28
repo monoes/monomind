@@ -17,15 +17,24 @@ export class OrgScheduler {
 
   constructor(private runFn: (name: string, intervalMs: number) => Promise<void>) {}
 
-  add(name: string, intervalMs: number): void {
+  /** @param runNow fire one iteration immediately instead of waiting a full
+   *  interval. Callers pass true only when the org is actually due (never run,
+   *  or last run older than the interval) — `serve` used to register a bare
+   *  setInterval, so a freshly-started daemon sat idle for the whole period
+   *  before its first tick, and an org on a 2h schedule looked broken for two
+   *  hours. Gating on due-ness keeps a daemon restart from re-running
+   *  everything at once. */
+  add(name: string, intervalMs: number, runNow = false): void {
     this.remove(name);
-    this.timers.set(name, setInterval(async () => {
+    const fire = async (): Promise<void> => {
       if (this.running.has(name)) return; // skip if previous iteration still running
       this.running.add(name);
       try { await this.runFn(name, intervalMs); }
       catch (err) { console.error(`[org-scheduler] ${name}: scheduled run failed:`, err); }
       finally { this.running.delete(name); }
-    }, intervalMs));
+    };
+    this.timers.set(name, setInterval(fire, intervalMs));
+    if (runNow) void fire();
   }
 
   remove(name: string): void {
