@@ -343,8 +343,28 @@ module.exports = {
           return t.length >= 3 && !_SB_FILLER.has(t);
         });
         if (_sbSubstantive.length >= 2 && sbPrompt.charAt(0) !== '/') {
-          var sbKnowledgeDir = path.join(CWD, '.monomind', 'knowledge');
-          if (fs.existsSync(path.join(sbKnowledgeDir, 'chunks.jsonl'))) {
+          // Gate on ANY knowledge, resolved from the nearest enclosing project.
+          //
+          // This used to require CWD/.monomind/knowledge/chunks.jsonl, which is
+          // written ONLY by the monograph god-node injector — so a user who ran
+          // `doc ingest ./docs` and populated the real document store (the
+          // corpus the warm endpoint below actually serves) got zero injection
+          // unless they also happened to have a monograph DB. doc-metadata.jsonl
+          // is the marker for that store; either one means there is knowledge
+          // worth searching. The upward walk matches the CLI, which keys the
+          // store to the project root, so a session started in a package
+          // subdirectory still finds its brain.
+          var sbRoot = null;
+          var sbProbe = CWD;
+          for (var _sbUp = 0; _sbUp < 8; _sbUp++) {
+            var _sbK = path.join(sbProbe, '.monomind', 'knowledge');
+            if (fs.existsSync(path.join(_sbK, 'chunks.jsonl')) || fs.existsSync(path.join(_sbK, 'doc-metadata.jsonl'))) { sbRoot = sbProbe; break; }
+            var _sbParent = path.dirname(sbProbe);
+            if (_sbParent === sbProbe) break;
+            sbProbe = _sbParent;
+          }
+          var sbKnowledgeDir = sbRoot && path.join(sbRoot, '.monomind', 'knowledge');
+          if (sbRoot) {
             var sbHits = null;
             var sbMethod = 'keyword';
             // Which corpus answered. The two paths are NOT the same corpus and
@@ -368,13 +388,26 @@ module.exports = {
             // sbAuth is the local dashboard session value from .monomind, same one
             // every other hook event POST attaches — not a checked-in secret).
             try {
+              // CWD first, then the resolved project root. CWD-first keeps an
+              // existing working pairing byte-identical; the root fallback is
+              // what stops a subdirectory session from reading no token at all,
+              // silently failing auth and reporting keyword where the warm
+              // server would have answered semantic.
               var sbCtrlUrl = 'http://localhost:4242';
-              try {
-                var sbCtl = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'control.json'), 'utf-8'));
-                if (sbCtl.url) sbCtrlUrl = sbCtl.url;
-              } catch (_) {}
+              var _sbCfgDirs = sbRoot && sbRoot !== CWD ? [CWD, sbRoot] : [CWD];
+              for (var _sbCi = 0; _sbCi < _sbCfgDirs.length; _sbCi++) {
+                try {
+                  var sbCtl = JSON.parse(fs.readFileSync(path.join(_sbCfgDirs[_sbCi], '.monomind', 'control.json'), 'utf-8'));
+                  if (sbCtl.url) { sbCtrlUrl = sbCtl.url; break; }
+                } catch (_) {}
+              }
               var sbAuth = '';
-              try { sbAuth = fs.readFileSync(path.join(CWD, '.monomind', 'dashboard-token'), 'utf-8').trim(); } catch (_) {}
+              for (var _sbAi = 0; _sbAi < _sbCfgDirs.length; _sbAi++) {
+                try {
+                  sbAuth = fs.readFileSync(path.join(_sbCfgDirs[_sbAi], '.monomind', 'dashboard-token'), 'utf-8').trim();
+                  if (sbAuth) break;
+                } catch (_) {}
+              }
               var sbResp = await fetch(sbCtrlUrl + '/api/knowledge/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-monomind-token': sbAuth },

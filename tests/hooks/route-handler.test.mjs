@@ -354,3 +354,73 @@ describe('route-handler routing path', () => {
     expect(dedupMsg).toBeFalsy();
   });
 });
+
+// ── Second Brain per-prompt injection gate ───────────────────────────────────
+//
+// The gate used to require CWD/.monomind/knowledge/chunks.jsonl — a file only
+// the monograph god-node injector writes. Ingesting documents populates the
+// real store (doc-metadata.jsonl + SQLite), which the warm endpoint serves, so
+// a doc-only project got no injection at all. And since the CLI keys the store
+// to the project root, a session started in a subdirectory found nothing.
+
+describe('route-handler second-brain gate', () => {
+  const PROMPT = 'authentication rotation policy details';
+
+  /** The injection block sits after routing; give the handler a router so it
+   *  reaches that far, same as the routing-path tests above. */
+  const router = () => ({
+    routeTask: vi.fn().mockResolvedValue({ agent: 'coder', agentSlug: 'coder', confidence: 0.8, reason: 'default', skillMatches: [] }),
+  });
+
+  /** The default harness returns null here; the real dispatcher always supplies
+   *  a function, and calling null would throw past the telemetry write. */
+  const searchFn = () => () => async () => [];
+
+  /** One telemetry line is appended per evaluated prompt, so its presence is a
+   *  direct signal that the injection block ran. Always under CWD. */
+  const telemetry = (cwd) => path.join(cwd, '.monomind', 'metrics', 'second-brain.jsonl');
+
+  /** Point the warm-endpoint probe at a closed port so it fails immediately
+   *  instead of reaching whatever dashboard is running on this machine. */
+  const deadServer = (cwd) => {
+    fs.mkdirSync(path.join(cwd, '.monomind'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.monomind', 'control.json'), JSON.stringify({ url: 'http://127.0.0.1:1' }));
+  };
+
+  const writeKnowledge = (root, file) => {
+    const kdir = path.join(root, '.monomind', 'knowledge');
+    fs.mkdirSync(kdir, { recursive: true });
+    fs.writeFileSync(path.join(kdir, file), file === 'chunks.jsonl'
+      ? JSON.stringify({ id: 'c1', text: 'authentication rotation policy is 90 days', namespace: 'knowledge:shared' }) + '\n'
+      : JSON.stringify({ filePath: path.join(root, 'a.md'), contentHash: 'h', chunkCount: 1, indexedAt: '2026-07-28T00:00:00Z', scope: 'shared', size: 8 }) + '\n');
+  };
+
+  it('runs for a doc-ingested project that has no chunks.jsonl', async () => {
+    deadServer(tmpDir);
+    writeKnowledge(tmpDir, 'doc-metadata.jsonl');
+    await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    expect(fs.existsSync(telemetry(tmpDir))).toBe(true);
+  });
+
+  it('still runs for a monograph-only project (chunks.jsonl)', async () => {
+    deadServer(tmpDir);
+    writeKnowledge(tmpDir, 'chunks.jsonl');
+    await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    expect(fs.existsSync(telemetry(tmpDir))).toBe(true);
+  });
+
+  it('finds the knowledge base from a package subdirectory', async () => {
+    writeKnowledge(tmpDir, 'doc-metadata.jsonl');
+    const sub = path.join(tmpDir, 'packages', 'cli');
+    fs.mkdirSync(sub, { recursive: true });
+    deadServer(sub);
+    await loadRH().handle(makeHCtx({ prompt: PROMPT, CWD: sub, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    expect(fs.existsSync(telemetry(sub))).toBe(true);
+  });
+
+  it('stays inert when no knowledge exists anywhere', async () => {
+    deadServer(tmpDir);
+    await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    expect(fs.existsSync(telemetry(tmpDir))).toBe(false);
+  });
+});

@@ -55,8 +55,61 @@ const MAX_TAG_LEN = 64;
 // '/x/foo/bar' would both flatten to 'x-foo-bar'). A short readable prefix is
 // kept purely so the directory name is browsable; only the hash guarantees
 // uniqueness.
+function walkToProjectRoot(start: string): string {
+  const home = path.resolve(os.homedir());
+  let dir = start;
+  for (;;) {
+    if (dir === home) break;
+    try {
+      if (fs.existsSync(path.join(dir, '.monomind')) || fs.existsSync(path.join(dir, '.git'))) return dir;
+    } catch { /* unreadable dir — keep walking */ }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return start;
+}
+
+// getBackend() resolves the store path on every store/search, so a bulk ingest
+// would otherwise repeat the stat walk thousands of times. A project does not
+// gain or lose its markers mid-process; the key is the starting directory, so a
+// chdir still re-resolves.
+let _rootCacheKey: string | undefined;
+let _rootCacheVal: string | undefined;
+
+/** The directory that identifies "this project" for every Second Brain store.
+ *
+ * Deliberately NOT the raw cwd: keying on cwd forked the brain per directory —
+ * `doc ingest ./docs` from a package subdir wrote to a different store, and a
+ * different metadata file, than the identical command at the repo root, and
+ * neither could see the other. We walk up to the nearest ancestor carrying a
+ * `.monomind` or `.git` marker, so every directory inside one project resolves
+ * to one brain. Nested projects still win (the walk stops at the FIRST marker),
+ * which keeps worktrees and vendored sub-repos independent.
+ *
+ * The walk never crosses the home directory: a dotfiles repo at `~` would
+ * otherwise swallow every loose project underneath it into one shared brain.
+ *
+ * For anyone who already ran from the project root — the normal case — the
+ * resolved path is identical to before, so their store does not move.
+ *
+ * `MONOMIND_CWD` wins over the real cwd, matching `getProjectCwd()` in
+ * mcp-tools/types.ts — an MCP server is launched with whatever cwd the client
+ * chose, and that env var is already how monograph and swarm state learn which
+ * project they belong to. Inlined rather than imported to keep this module on
+ * node builtins only (see the static import in document-pipeline.ts).
+ */
+export function getProjectRoot(from: string = process.env.MONOMIND_CWD || process.cwd()): string {
+  const start = path.resolve(from);
+  if (start === _rootCacheKey && _rootCacheVal !== undefined) return _rootCacheVal;
+  const resolved = walkToProjectRoot(start);
+  _rootCacheKey = start;
+  _rootCacheVal = resolved;
+  return resolved;
+}
+
 function projectDataDir(): string {
-  const resolved = path.resolve(process.cwd());
+  const resolved = path.resolve(getProjectRoot());
   const hash = crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 16);
   const readable = path.basename(resolved).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 40) || 'project';
   return path.join(os.homedir(), '.monomind', 'projects', `${readable}-${hash}`);
@@ -88,7 +141,7 @@ function getDbPath(customPath?: string): string {
   const resolved = realOrResolved(path.resolve(customPath));
   // Guard against path traversal from MCP inputs: only allow paths inside the
   // project, the per-project home data dir, or the global brain.
-  const relCwd = path.relative(realOrResolved(process.cwd()), resolved);
+  const relCwd = path.relative(realOrResolved(getProjectRoot()), resolved);
   const relHome = path.relative(realOrResolved(projectDataDir()), resolved);
   const relGlobal = path.relative(realOrResolved(getGlobalBrainDir()), resolved);
   if (!relCwd.startsWith('..') && !path.isAbsolute(relCwd)) return resolved;
@@ -253,8 +306,14 @@ async function getBackend(dbPath?: string): Promise<any | null> {
         // written for the global brain (it has no single origin project).
         if (dir !== getGlobalBrainDir()) {
           try {
+            // MUST be the same path projectDataDir() hashed into the slug. If
+            // this recorded the raw cwd, running any memory command from a
+            // package subdirectory would stamp that subdirectory into the
+            // project-root-keyed dir — and deleting the subdirectory later
+            // would make `cleanup --data` prune the WHOLE project's brain as
+            // orphaned.
             const originFile = path.join(projectDataDir(), 'origin.json');
-            fs.writeFileSync(originFile, JSON.stringify({ path: path.resolve(process.cwd()), updatedAt: new Date().toISOString() }) + '\n', 'utf-8');
+            fs.writeFileSync(originFile, JSON.stringify({ path: getProjectRoot(), updatedAt: new Date().toISOString() }) + '\n', 'utf-8');
           } catch { /* non-fatal */ }
         }
         const cfg = {
