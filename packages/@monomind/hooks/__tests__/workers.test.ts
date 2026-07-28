@@ -654,7 +654,9 @@ describe('Metrics-Producing Workers', () => {
     const onDisk = await readMetricsFile('codebase-map.json');
     expect(onDisk.structure).toBeDefined();
     expect(onDisk.timestamp).toBeTypeOf('string');
-  });
+    // Walks the real repo: ~3.7s alone, more when the suite runs in parallel.
+    // The 5s default left too little headroom — see the consolidate test below.
+  }, 30_000);
 
   it('should run audit worker and write security-audit.json', async () => {
     const result = await manager.runWorker('audit');
@@ -677,7 +679,10 @@ describe('Metrics-Producing Workers', () => {
     const onDisk = await readMetricsFile('consolidation.json');
     expect(onDisk.mode).toBe('raptor');
     expect(onDisk.timestamp).toBeTypeOf('string');
-  });
+    // Real consolidation work: ~3.2s alone, but it tipped past the 5s default
+    // under full-suite load and failed intermittently. 30s is headroom, not a
+    // licence to get slower — if this starts timing out, the worker regressed.
+  }, 30_000);
 
   it('reports failure explicitly rather than success:true with a missing file, when the metrics dir cannot be written', async () => {
     // Simulate an unwritable metrics dir by replacing it with a file of the
