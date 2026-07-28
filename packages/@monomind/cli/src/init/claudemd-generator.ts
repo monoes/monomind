@@ -423,9 +423,10 @@ function secondBrainSection(): string {
 If the \`documents\` capability is active (check \`.monomind/capabilities.json\`), this project indexes documents (PDF, DOCX, MD, TXT) into a semantic search engine.
 
 **When documents are indexed, search knowledge before answering questions about business, compliance, legal, or organizational topics:**
-- Call \`mcp__monomind__knowledge_search\` with a relevant query
+- Call \`mcp__monomind__knowledge_search\` with a relevant query (add \`store: "project"\` or \`"global"\` to search one brain only; default merges both)
 - Use the returned excerpts as grounding context for your answer
 - Cite the source document name when referencing specific information
+- Add with \`mcp__monomind__knowledge_ingest\`; retract a wrong or stale document with \`mcp__monomind__knowledge_remove\` (hides it from search immediately, reversible by re-ingesting)
 
 **CLI access:**
 \`\`\`bash
@@ -434,6 +435,8 @@ monomind doc search -q "..." --store global   # Personal global brain only
 monomind doc list                       # List indexed docs (--global for the global brain)
 monomind doc ingest ./path              # Ingest new documents (paths outside the project auto-route to the global brain)
 monomind doc export                     # Export as OKF bundle (--global to move your brain between machines)
+monomind doc import ./bundle            # Import an OKF bundle (--global to restore a personal brain)
+monomind doc remove ./docs/old.md       # Forget a document — hidden from search immediately
 \`\`\`
 
 **Global brain:** the user has a personal cross-project knowledge store at \`~/.monomind/global-brain\`. All searches (knowledge_search, doc search, per-prompt injection) automatically merge it with project knowledge — project results win ties, global hits are labeled \`[global]\`. Cite the label so the user knows which brain answered.

@@ -54,6 +54,7 @@ import {
   checkSecurityAuditFindings,
   checkMemoryProficiency,
   checkMonoesIntegration,
+  checkSecondBrainModel,
 } from '../commands/doctor-project-checks.js';
 
 // Env var names built from parts at runtime, not as literal `X_API_KEY`
@@ -623,6 +624,75 @@ describe('doctor-project-checks', () => {
       if (result.message.startsWith('routing feedback (fallback)')) {
         expect(result.message).toContain('2 decisions across 1 sessions');
       }
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // checkSecondBrainModel
+  // ---------------------------------------------------------------------
+  describe('checkSecondBrainModel', () => {
+    const NOTHING = 'No knowledge indexed (nothing to check)';
+    let globalDir: string;
+    let savedGlobal: string | undefined;
+
+    // The model branches depend on whether @huggingface/transformers is
+    // installed and its model cached — machine state we must not assert on.
+    // What these tests pin is the GATE: does the check look past
+    // "nothing to check" for each way knowledge can exist?
+    beforeEach(() => {
+      savedGlobal = process.env.MONOMIND_GLOBAL_BRAIN_DIR;
+      globalDir = join(dir, '__global_brain__');
+      process.env.MONOMIND_GLOBAL_BRAIN_DIR = globalDir;
+    });
+    afterEach(() => {
+      if (savedGlobal === undefined) delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
+      else process.env.MONOMIND_GLOBAL_BRAIN_DIR = savedGlobal;
+    });
+
+    const writeDocMeta = (root: string, records: Array<Record<string, unknown>>): void => {
+      const kdir = join(root, '.monomind', 'knowledge');
+      mkdirSync(kdir, { recursive: true });
+      writeFileSync(join(kdir, 'doc-metadata.jsonl'), records.map(r => JSON.stringify(r)).join('\n') + '\n');
+    };
+    const doc = (filePath: string, chunkCount = 3): Record<string, unknown> =>
+      ({ filePath, contentHash: `h-${filePath}`, chunkCount, indexedAt: '2026-07-28T00:00:00Z', scope: 'shared', size: 10 });
+
+    it('reports nothing to check when no knowledge exists anywhere', async () => {
+      const result = await checkSecondBrainModel();
+      expect(result).toEqual({ name: 'Second Brain Model', status: 'pass', message: NOTHING });
+    });
+
+    it('checks the model when the project has ingested docs but no chunks.jsonl', async () => {
+      writeDocMeta(dir, [doc('a.md'), doc('b.md')]);
+      const result = await checkSecondBrainModel();
+      expect(result.message).not.toBe(NOTHING);
+      if (result.status === 'pass') expect(result.message).toContain('2 project docs');
+    });
+
+    it('checks the model when only the global brain has docs', async () => {
+      writeDocMeta(globalDir, [doc('notes.md')]);
+      const result = await checkSecondBrainModel();
+      expect(result.message).not.toBe(NOTHING);
+      if (result.status === 'pass') expect(result.message).toContain('1 global doc');
+    });
+
+    it('still checks the model for a chunks.jsonl-only (monograph god-node) project', async () => {
+      mkdirSync(join(dir, '.monomind', 'knowledge'), { recursive: true });
+      writeFileSync(join(dir, '.monomind', 'knowledge', 'chunks.jsonl'), '{"id":"monograph-god-nodes"}\n');
+      const result = await checkSecondBrainModel();
+      expect(result.message).not.toBe(NOTHING);
+      if (result.status === 'pass') expect(result.message).toContain('monograph god-nodes');
+    });
+
+    it('treats a fully tombstoned metadata log as no knowledge', async () => {
+      writeDocMeta(dir, [doc('a.md'), doc('a.md', -1)]);
+      const result = await checkSecondBrainModel();
+      expect(result.message).toBe(NOTHING);
+    });
+
+    it('does not materialize the global brain directory as a side effect', async () => {
+      await checkSecondBrainModel();
+      expect(existsSync(globalDir)).toBe(false);
     });
   });
 });

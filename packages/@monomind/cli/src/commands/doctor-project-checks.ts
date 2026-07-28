@@ -76,14 +76,40 @@ export async function checkMemoryKnowledgeGraph(): Promise<HealthCheck> {
   }
 }
 
-/** Second Brain: when this project has an indexed knowledge base, semantic
- * search needs the local embedding model. Its absence is silent (search
- * degrades to keyword matching) — surface it here instead. */
+/** Count live (non-tombstoned) ingested documents under a brain root, without
+ * creating the directory — `listDocuments` mkdir's its metadata dir, which
+ * would materialize an empty global brain just by running doctor. */
+async function countBrainDocs(root: string): Promise<number> {
+  if (!existsSync(join(root, '.monomind', 'knowledge', 'doc-metadata.jsonl'))) return 0;
+  try {
+    const { listDocuments } = await import('../knowledge/document-pipeline.js');
+    return listDocuments(root).length;
+  } catch { return 0; }
+}
+
+/** Second Brain: when there is any indexed knowledge — ingested docs in this
+ * project, the personal global brain, or the monograph god-node chunk —
+ * semantic search needs the local embedding model. Its absence is silent
+ * (search degrades to keyword matching), so surface it here instead. */
 export async function checkSecondBrainModel(): Promise<HealthCheck> {
   const name = 'Second Brain Model';
-  if (!existsSync(join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl'))) {
-    return { name, status: 'pass', message: 'No knowledge base in this project (nothing to check)' };
+  const { getGlobalBrainDir, getProjectRoot } = await import('../memory/memory-bridge.js');
+  const projectDocs = await countBrainDocs(getProjectRoot());
+  const globalDocs = await countBrainDocs(getGlobalBrainDir());
+  // chunks.jsonl holds the monograph god-node chunk — knowledge with no doc
+  // ingest. Unlike the document store it is written per-CWD by the session
+  // hook, not at the project root, so check both rather than assuming.
+  const chunksIn = (root: string): boolean => existsSync(join(root, '.monomind', 'knowledge', 'chunks.jsonl'));
+  const hasChunks = chunksIn(getProjectRoot()) || chunksIn(process.cwd());
+  if (!projectDocs && !globalDocs && !hasChunks) {
+    return { name, status: 'pass', message: 'No knowledge indexed (nothing to check)' };
   }
+  const indexed = [
+    projectDocs ? `${projectDocs} project doc${projectDocs === 1 ? '' : 's'}` : null,
+    globalDocs ? `${globalDocs} global doc${globalDocs === 1 ? '' : 's'}` : null,
+    !projectDocs && !globalDocs ? 'monograph god-nodes' : null,
+  ].filter(Boolean).join(' · ');
+
   let entryPath: string | null = null;
   try {
     // exports map blocks package.json — resolve the entry file, then walk UP
@@ -106,7 +132,7 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
   while (pkgDir !== dirname(pkgDir) && !pkgDir.endsWith('transformers')) pkgDir = dirname(pkgDir);
   const modelCache = join(pkgDir, '.cache', 'Xenova');
   if (pkgDir.endsWith('transformers') && existsSync(modelCache)) {
-    return { name, status: 'pass', message: 'Local embedding model cached — semantic search active' };
+    return { name, status: 'pass', message: `Local embedding model cached — semantic search active (${indexed})` };
   }
   return { name, status: 'warn', message: 'Embedding model not downloaded yet — searches use keyword matching until it is', fix: 'run once while online: monomind doc search -q "warmup" (downloads ~90MB locally, one time)' };
 }

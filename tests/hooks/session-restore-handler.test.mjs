@@ -238,4 +238,58 @@ describe('session-restore-handler', () => {
     // The http probe is async fire-and-forget; handler must not throw synchronously
     await expect(runCapture(hCtx)).resolves.toBeInstanceOf(Array);
   });
+
+  // The CLI keys the knowledge store to the PROJECT ROOT, so a session started
+  // in a package subdirectory finds no doc-metadata.jsonl under CWD. Before the
+  // git-root fallback, that silently disabled re-ingestion forever — no error,
+  // no log line, the Second Brain just stopped noticing changed documents.
+  describe('knowledge reindex root resolution', () => {
+    /** Metadata written LAST, so no document looks newer and no ingest spawns. */
+    const seedKnowledge = (root) => {
+      fs.writeFileSync(path.join(root, 'notes.md'), '# notes\n');
+      const kdir = path.join(root, '.monomind', 'knowledge');
+      fs.mkdirSync(kdir, { recursive: true });
+      fs.writeFileSync(path.join(kdir, 'doc-metadata.jsonl'),
+        JSON.stringify({ filePath: path.join(root, 'notes.md'), contentHash: 'h', chunkCount: 1, indexedAt: '2026-07-28T00:00:00Z', scope: 'shared', size: 8 }) + '\n');
+    };
+
+    it('finds the knowledge base from a package subdirectory', async () => {
+      const root = tmpDir;
+      seedKnowledge(root);
+      const sub = path.join(root, 'packages', 'cli');
+      fs.mkdirSync(sub, { recursive: true });
+
+      await runCapture(makeHCtx({ CWD: sub }));
+
+      // The rate-limit marker is written at the resolved root before scanning —
+      // its presence there (and absence under the subdir) proves the fallback ran.
+      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(true);
+      expect(fs.existsSync(path.join(sub, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
+    });
+
+    it('still prefers CWD when it has its own knowledge base', async () => {
+      const root = tmpDir;
+      seedKnowledge(root);
+      const nested = path.join(root, 'nested');
+      fs.mkdirSync(nested, { recursive: true });
+      seedKnowledge(nested);
+
+      await runCapture(makeHCtx({ CWD: nested }));
+
+      // Nearest wins: a directory with its own brain is not redirected upward.
+      expect(fs.existsSync(path.join(nested, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(true);
+      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
+    });
+
+    it('does nothing when no knowledge base exists anywhere', async () => {
+      const root = tmpDir;
+      const sub = path.join(root, 'packages', 'cli');
+      fs.mkdirSync(sub, { recursive: true });
+
+      await runCapture(makeHCtx({ CWD: sub }));
+
+      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
+      expect(fs.existsSync(path.join(sub, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
+    });
+  });
 });

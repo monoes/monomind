@@ -6381,15 +6381,41 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
           // endpoint queries the bridge directly for warmth, so without this it
           // would inject old document versions the Second Brain itself hides.
           let liveProj = new Set(), liveGlob = new Set(), isSuperseded = () => false, overfetch = (n) => n;
+          // metaProj/metaGlob distinguish "no metadata log" (cannot judge, keep
+          // everything) from "log exists and is empty" (every document was
+          // removed, keep nothing). Without them, `doc remove` of the last
+          // document left its chunks being injected into every prompt.
+          let metaProj = false, metaGlob = false;
           try {
             const dp = await import('../knowledge/document-pipeline.js');
-            liveProj = dp.liveContentHashes(process.env.CLAUDE_PROJECT_DIR || process.cwd());
-            liveGlob = dp.liveContentHashes(process.env.MONOMIND_GLOBAL_BRAIN_DIR
-              || path.join(os.homedir(), '.monomind', 'global-brain'));
+            // CLAUDE_PROJECT_DIR is whatever directory the user opened, which
+            // can be a package subdirectory, while the CLI writes the metadata
+            // log at the project root. Walk up to the nearest one that has it:
+            // resolving the wrong root yields an empty live set, which silently
+            // turns filtering OFF — and superseded rows are the large majority
+            // of a long-lived store, so injection would be dominated by stale
+            // document versions.
+            const resolveKnowledgeRoot = (start) => {
+              let probe = path.resolve(start);
+              for (let up = 0; up < 8; up++) {
+                if (dp.hasKnowledgeMetadata?.(probe)) return probe;
+                const parent = path.dirname(probe);
+                if (parent === probe) break;
+                probe = parent;
+              }
+              return path.resolve(start);
+            };
+            const projRoot = resolveKnowledgeRoot(process.env.CLAUDE_PROJECT_DIR || process.cwd());
+            const globRoot = process.env.MONOMIND_GLOBAL_BRAIN_DIR
+              || path.join(os.homedir(), '.monomind', 'global-brain');
+            liveProj = dp.liveContentHashes(projRoot);
+            liveGlob = dp.liveContentHashes(globRoot);
+            metaProj = dp.hasKnowledgeMetadata?.(projRoot) ?? liveProj.size > 0;
+            metaGlob = dp.hasKnowledgeMetadata?.(globRoot) ?? liveGlob.size > 0;
             isSuperseded = dp.isSupersededKey;
             overfetch = dp.supersededOverfetchLimit;
           } catch { /* pipeline unavailable — no filtering, same as before */ }
-          const keepLive = (rows, live) => (rows || []).filter(r => !isSuperseded(String(r.key || ''), live)).slice(0, limit);
+          const keepLive = (rows, live, hasMeta) => (rows || []).filter(r => !isSuperseded(String(r.key || ''), live, hasMeta)).slice(0, limit);
           const [projRaw, globRaw, rules, graph, mems] = await Promise.all([
             scope !== 'global' ? bridge.bridgeSearchEntries({ query, namespace, limit: overfetch(limit, liveProj) }).catch(() => null) : null,
             scope !== 'project' ? bridge.bridgeSearchEntries({ query, namespace: 'knowledge:global', limit: overfetch(limit, liveGlob), dbPath: '@global' }).catch(() => null) : null,
@@ -6404,8 +6430,8 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
             scope !== 'global' && wantMemory ? bridge.bridgeSearchEntries({ query, namespace: 'patterns', limit: 2, threshold: 0.4 }).catch(() => null) : null,
           ]);
           const lists = [
-            keepLive(projRaw?.results, liveProj).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags, importance: 0.6 })),
-            keepLive(globRaw?.results, liveGlob).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
+            keepLive(projRaw?.results, liveProj, metaProj).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, tags: r.tags, importance: 0.6 })),
+            keepLive(globRaw?.results, liveGlob, metaGlob).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score, global: true, tags: r.tags })),
             (rules?.results || []).map(r => ({ id: r.id, key: r.key, content: String(r.content || '').slice(0, 2000), score: r.score + 0.05, global: false, rule: true, tags: r.tags, importance: 0.7 })),
             (graph?.triplets || []).map((t, i) => ({
               id: 'kg:' + i + ':' + t.source + '|' + t.relation + '|' + t.target,

@@ -5,7 +5,7 @@
 import * as path from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { getGlobalBrainDir } from '../memory/memory-bridge.js';
+import { getGlobalBrainDir, getProjectRoot } from '../memory/memory-bridge.js';
 
 const ingestCommand: Command = {
   name: 'ingest',
@@ -30,13 +30,16 @@ const ingestCommand: Command = {
     const resolved = path.resolve(target);
 
     // Zero-decision routing: an explicit --global wins; otherwise paths OUTSIDE
-    // the current project belong to the personal brain (a project store keyed
-    // to this cwd would never see them again from another project).
+    // this project belong to the personal brain (a project-scoped store would
+    // never surface them again from another project).
     let scope = String(ctx.flags.scope || 'shared');
     if (ctx.flags.global === true) {
       scope = 'global';
     } else if (!ctx.flags.scope) {
-      const relToCwd = path.relative(process.cwd(), resolved);
+      // Against the PROJECT ROOT, not the cwd: from a package subdirectory,
+      // `doc ingest ../../docs` targets this very project, and routing it to
+      // the personal brain because it sits above the cwd is simply wrong.
+      const relToCwd = path.relative(getProjectRoot(ctx.cwd || process.cwd()), resolved);
       if (relToCwd.startsWith('..') || path.isAbsolute(relToCwd)) {
         scope = 'global';
         output.writeln(output.dim(`  ${target} is outside this project — ingesting into the global brain (use --scope shared to force project scope)`));
@@ -51,7 +54,7 @@ const ingestCommand: Command = {
 
       if (stat.isDirectory()) {
         const result = await ingestDirectory(resolved, scope, {
-          rootDir: ctx.cwd || process.cwd(),
+          rootDir: getProjectRoot(ctx.cwd || process.cwd()),
           onProgress: (file, done, total) => {
             spinner.setText(`[${done + 1}/${total}] ${path.basename(file)}`);
           },
@@ -204,7 +207,7 @@ const listDocCommand: Command = {
     const { listDocuments } = await import('../knowledge/document-pipeline.js');
     const isGlobal = ctx.flags.global === true;
     const scope = isGlobal ? 'global' : ctx.flags.scope ? String(ctx.flags.scope) : undefined;
-    const docs = listDocuments(isGlobal ? getGlobalBrainDir() : process.cwd(), scope);
+    const docs = listDocuments(isGlobal ? getGlobalBrainDir() : getProjectRoot(), scope);
 
     if (!docs.length) {
       output.writeln(output.dim('No documents indexed. Run: monomind doc ingest <path>'));
@@ -245,8 +248,102 @@ const exportDocCommand: Command = {
     spinner.start();
 
     try {
-      const result = await exportToOKF(outDir, isGlobal ? getGlobalBrainDir() : process.cwd(), scope);
+      const result = await exportToOKF(outDir, isGlobal ? getGlobalBrainDir() : getProjectRoot(), scope);
       spinner.succeed(`Exported ${result.exported} documents to ${result.outputDir}`);
+      return { success: true, data: result };
+    } catch (err) {
+      spinner.fail(String(err));
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
+
+const removeDocCommand: Command = {
+  name: 'remove',
+  description: 'Forget an indexed document',
+  aliases: ['rm', 'forget'],
+  options: [
+    { name: 'scope', short: 's', description: 'Knowledge scope (default: shared)', type: 'string', default: 'shared' },
+    { name: 'global', short: 'g', description: 'Remove from the personal cross-project global brain', type: 'boolean' },
+  ],
+  examples: [
+    { command: 'monomind doc remove ./docs/old-spec.md', description: 'Stop returning a document in search' },
+    { command: 'monomind doc remove ~/notes/stale.md --global', description: 'Forget it from the personal brain' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const target = ctx.args[0];
+    if (!target) {
+      output.printError('Document path required: monomind doc remove <path>');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { listDocuments, removeDocument } = await import('../knowledge/document-pipeline.js');
+    const isGlobal = ctx.flags.global === true;
+    const scope = isGlobal ? 'global' : String(ctx.flags.scope || 'shared');
+    const root = isGlobal ? getGlobalBrainDir() : getProjectRoot();
+    const resolved = path.resolve(target);
+
+    // The metadata log keys on the resolved path recorded at ingest, so a
+    // mistyped path would otherwise write a tombstone that matches nothing and
+    // report success. Fail like `rm` does instead.
+    if (!listDocuments(root, scope).some(d => path.resolve(d.filePath) === resolved)) {
+      output.printError(`Not indexed under scope '${scope}': ${resolved}`);
+      output.writeln(output.dim(`  See what is indexed: monomind doc list${isGlobal ? ' --global' : ''}`));
+      return { success: false, exitCode: 1 };
+    }
+
+    await removeDocument(resolved, scope, root);
+    output.writeln(`Forgot ${output.highlight(path.basename(resolved))} (${scope})`);
+    // Honest about what happened on disk: the tombstone hides the chunks from
+    // every search surface, but the bridge exposes no delete-by-prefix, so the
+    // rows themselves go on the next full re-index.
+    output.writeln(output.dim('  Chunks are hidden from search immediately; storage is reclaimed on the next full re-index.'));
+    return { success: true, data: { filePath: resolved, scope } };
+  },
+};
+
+const importDocCommand: Command = {
+  name: 'import',
+  description: 'Import an OKF bundle produced by `doc export`',
+  options: [
+    { name: 'scope', short: 's', description: 'Knowledge scope (default: shared)', type: 'string', default: 'shared' },
+    { name: 'global', short: 'g', description: 'Import into the personal cross-project global brain', type: 'boolean' },
+  ],
+  examples: [
+    { command: 'monomind doc import ./.monomind/knowledge-export', description: 'Import a bundle into this project' },
+    { command: 'monomind doc import ~/brain-bundle --global', description: 'Restore a personal brain on another machine' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const bundle = ctx.args[0];
+    if (!bundle) {
+      output.printError('Bundle directory required: monomind doc import <bundle-dir>');
+      return { success: false, exitCode: 1 };
+    }
+
+    const { importFromOKF } = await import('../knowledge/document-pipeline.js');
+    const fs = await import('node:fs');
+    const resolved = path.resolve(bundle);
+
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      output.printError(`Not a directory: ${resolved}`);
+      return { success: false, exitCode: 1 };
+    }
+
+    const isGlobal = ctx.flags.global === true;
+    const scope = isGlobal ? 'global' : String(ctx.flags.scope || 'shared');
+
+    const spinner = output.createSpinner({ text: 'Importing OKF bundle...' });
+    spinner.start();
+
+    try {
+      // importFromOKF, not ingestDirectory: the bundle's own index.md is a
+      // manifest, not knowledge, and plain ingest would index it as a document.
+      const result = await importFromOKF(resolved, scope, isGlobal ? getGlobalBrainDir() : getProjectRoot());
+      spinner.succeed(`Imported ${result.totalChunks} chunks from ${result.filesProcessed} documents (${result.filesSkipped} already indexed)`);
+      if (result.errors.length) {
+        output.writeln(output.dim(`  Errors: ${result.errors.length}`));
+        for (const err of result.errors.slice(0, 5)) output.writeln(output.dim(`    ${err}`));
+      }
       return { success: true, data: result };
     } catch (err) {
       spinner.fail(String(err));
@@ -259,13 +356,15 @@ export const docCommand: Command = {
   name: 'doc',
   description: 'Second Brain — document knowledge management',
   aliases: ['docs', 'knowledge'],
-  subcommands: [ingestCommand, searchDocCommand, listDocCommand, exportDocCommand],
+  subcommands: [ingestCommand, searchDocCommand, listDocCommand, exportDocCommand, importDocCommand, removeDocCommand],
   options: [],
   examples: [
     { command: 'monomind doc ingest ./docs', description: 'Index documents' },
     { command: 'monomind doc search -q "auth flow"', description: 'Semantic search' },
     { command: 'monomind doc list', description: 'List indexed docs' },
     { command: 'monomind doc export', description: 'Export as OKF bundle' },
+    { command: 'monomind doc import ./bundle', description: 'Import an OKF bundle' },
+    { command: 'monomind doc remove ./docs/old.md', description: 'Forget an indexed document' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -279,6 +378,8 @@ export const docCommand: Command = {
       `${output.highlight('search')}  - Semantic search over indexed documents`,
       `${output.highlight('list')}    - List indexed documents`,
       `${output.highlight('export')}  - Export as OKF bundle (markdown + frontmatter)`,
+      `${output.highlight('import')}  - Import an OKF bundle produced by export`,
+      `${output.highlight('remove')}  - Forget an indexed document (aliases: rm, forget)`,
     ]);
     return { success: true };
   },

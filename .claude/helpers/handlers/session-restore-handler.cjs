@@ -351,10 +351,29 @@ module.exports = {
     // (c) a 30-min rate limit. Detached+unref spawn (same pattern as the
     // helper-heal block below) — session start never waits on model loading.
     try {
-      var _kbMetaPath = path.join(CWD, '.monomind', 'knowledge', 'doc-metadata.jsonl');
-      if (fs.existsSync(_kbMetaPath)) {
+      // Nearest enclosing knowledge base, CWD first. The CLI keys the store to
+      // the PROJECT ROOT, so a session started in a package subdirectory finds
+      // no doc-metadata.jsonl under CWD and would silently stop re-ingesting
+      // forever. Everything below (mtime gate, marker, document scan, spawn
+      // cwd) uses this one resolved root, so the check and the ingest can never
+      // disagree about which brain they mean.
+      //
+      // A stat walk, not `git rev-parse` (monograph.cjs's pattern): this runs on
+      // EVERY session start, including the majority with no knowledge base at
+      // all, and spawning git there costs a subprocess per session and writes
+      // "not a git repository" to stderr.
+      var _kbRoot = null;
+      var _kbProbe = CWD;
+      for (var _kbUp = 0; _kbUp < 8; _kbUp++) {
+        if (fs.existsSync(path.join(_kbProbe, '.monomind', 'knowledge', 'doc-metadata.jsonl'))) { _kbRoot = _kbProbe; break; }
+        var _kbParent = path.dirname(_kbProbe);
+        if (_kbParent === _kbProbe) break;
+        _kbProbe = _kbParent;
+      }
+      var _kbMetaPath = _kbRoot && path.join(_kbRoot, '.monomind', 'knowledge', 'doc-metadata.jsonl');
+      if (_kbMetaPath && fs.existsSync(_kbMetaPath)) {
         var _kbMetaMtime = fs.statSync(_kbMetaPath).mtimeMs;
-        var _kbMarkerPath = path.join(CWD, '.monomind', 'knowledge', 'reindex-check.json');
+        var _kbMarkerPath = path.join(_kbRoot, '.monomind', 'knowledge', 'reindex-check.json');
         var _kbLastCheck = 0;
         try { _kbLastCheck = JSON.parse(fs.readFileSync(_kbMarkerPath, 'utf-8')).ts || 0; } catch (_) {}
         if (Date.now() - _kbLastCheck > 30 * 60 * 1000) {
@@ -389,11 +408,11 @@ module.exports = {
               if (_DOC_EXT[ext] && st.mtimeMs > _kbMetaMtime) _kbDirty = true;
             }
           };
-          _kbWalk(CWD, 0);
+          _kbWalk(_kbRoot, 0);
           if (_kbDirty) {
             var _kbSpawn = require('child_process').spawn;
             var _kbChild = _kbSpawn('npx', ['-y', 'monomind@latest', 'doc', 'ingest', '.'], {
-              cwd: CWD,
+              cwd: _kbRoot,
               detached: true,
               stdio: 'ignore',
               env: process.env,

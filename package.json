@@ -114,6 +114,7 @@
     ]
   },
   "devDependencies": {
+    "@monoes/monograph": "workspace:*",
     "@types/node": "^20.0.0",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

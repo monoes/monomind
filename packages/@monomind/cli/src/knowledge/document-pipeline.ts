@@ -10,6 +10,11 @@ import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import * as os from 'node:os';
 import { DOC_EXTENSIONS, extractText } from '../capabilities/cap-documents.js';
+// Static import is safe and deliberate: memory-bridge imports only node builtins
+// at module scope (everything heavy is lazy), and the project-root rule must not
+// be duplicated — two copies of "which directory is this project" is exactly the
+// bug this default exists to fix.
+import { getProjectRoot } from '../memory/memory-bridge.js';
 import type { FileEntry } from '../capabilities/types.js';
 
 interface TextChunk {
@@ -265,7 +270,7 @@ async function getBridge() {
 export async function ingestDocument(
   filePath: string,
   scope = 'shared',
-  rootDir = process.cwd(),
+  rootDir = getProjectRoot(),
   _metadataCache?: DocumentMeta[],
 ): Promise<IngestResult> {
   const resolved = path.resolve(filePath);
@@ -366,7 +371,7 @@ export async function ingestDirectory(
   opts?: { rootDir?: string; onProgress?: (file: string, done: number, total: number) => void },
 ): Promise<BatchIngestResult> {
   const scanDir = path.resolve(dirPath);
-  const rootDir = path.resolve(opts?.rootDir ?? process.cwd());
+  const rootDir = path.resolve(opts?.rootDir ?? getProjectRoot());
   const files: string[] = [];
 
   function walk(dir: string, depth = 0) {
@@ -450,15 +455,30 @@ export function liveContentHashes(rootDir: string): Set<string> {
   return live;
 }
 
+/** True when a metadata log exists under `rootDir`.
+ *
+ * An empty live-hash set has two very different causes: the log is missing (we
+ * cannot judge what is current) or the log exists and every document has been
+ * removed (nothing is current). Collapsing them made `doc remove` of the LAST
+ * document a no-op — the tombstoned chunks came straight back in search.
+ *
+ * Reads the path directly instead of via `metadataPath`, which mkdir's. */
+export function hasKnowledgeMetadata(rootDir: string): boolean {
+  return fs.existsSync(path.join(rootDir, '.monomind', 'knowledge', METADATA_FILE));
+}
+
 /**
  * True when `key` is a document chunk whose version is no longer current.
- * Non-`doc:` keys are never superseded, and an empty `live` set means the
- * metadata log is missing/unreadable — in that case nothing is filtered,
- * because "no metadata" must not read as "everything is stale".
+ * Non-`doc:` keys are never superseded. When no metadata is available nothing
+ * is filtered, because "no metadata" must not read as "everything is stale".
+ *
+ * `metadataPresent` defaults to the old `live.size > 0` heuristic so existing
+ * two-argument callers keep their exact behaviour; pass `hasKnowledgeMetadata`
+ * to also filter correctly once the last document has been removed.
  */
-export function isSupersededKey(key: string, live: Set<string>): boolean {
+export function isSupersededKey(key: string, live: Set<string>, metadataPresent = live.size > 0): boolean {
   if (!key || !key.startsWith('doc:')) return false;
-  if (live.size === 0) return false;
+  if (!metadataPresent) return false;
   return !live.has(key.split(':')[1] ?? '');
 }
 
@@ -494,7 +514,7 @@ export async function searchKnowledge(
 
   const targets: Array<{ ns: string; dbPath?: string; root: string; label: string; boost: number }> = [];
   if (store !== 'global') {
-    targets.push({ ns: namespace(scope), root: opts?.rootDir ?? process.cwd(), label: scope, boost: PROJECT_SCOPE_BOOST });
+    targets.push({ ns: namespace(scope), root: opts?.rootDir ?? getProjectRoot(), label: scope, boost: PROJECT_SCOPE_BOOST });
   }
   if (store !== 'project') {
     targets.push({ ns: namespace('global'), dbPath: GLOBAL_BRAIN_SENTINEL, root: globalBrainRoot(), label: 'global', boost: 0 });
@@ -504,6 +524,7 @@ export async function searchKnowledge(
 
   const perTarget = await Promise.all(targets.map(async t => {
     const meta = readMetadata(t.root);
+    const hasMeta = hasKnowledgeMetadata(t.root);
     const live = new Set<string>();
     for (const m of meta) if (m.contentHash) live.add(m.contentHash);
     // Old versions dominate a long-lived store, so a 1:1 fetch would come back
@@ -517,7 +538,7 @@ export async function searchKnowledge(
     for (const m of meta) hashToFile.set(m.contentHash, m.filePath);
     const kept = includeSuperseded
       ? result.results
-      : result.results.filter((r: any) => !isSupersededKey(String(r.key ?? ''), live));
+      : result.results.filter((r: any) => !isSupersededKey(String(r.key ?? ''), live, hasMeta));
     return kept.slice(0, limit).map((r: any) => {
       const parts = r.key.startsWith('doc:') ? r.key.split(':') : [];
       const hash = parts[1] ?? '';
@@ -526,7 +547,7 @@ export async function searchKnowledge(
       // hash→file map can misattribute when two documents share identical
       // content, and goes empty when a re-ingested file's hash changed.
       const srcTag = (r.tags ?? []).find((tag: string) => tag.startsWith('src:'));
-      const superseded = includeSuperseded && isSupersededKey(String(r.key ?? ''), live);
+      const superseded = includeSuperseded && isSupersededKey(String(r.key ?? ''), live, hasMeta);
       return {
         id: r.id,
         filePath: srcTag ? srcTag.slice(4) : hashToFile.get(hash) ?? '',
@@ -546,7 +567,7 @@ export async function searchKnowledge(
 
 // ── List / Remove ──────────────────────────────────────────────────
 
-export function listDocuments(rootDir = process.cwd(), scope?: string): DocumentMeta[] {
+export function listDocuments(rootDir = getProjectRoot(), scope?: string): DocumentMeta[] {
   const all = readMetadata(rootDir);
   return scope ? all.filter(m => m.scope === scope) : all;
 }
@@ -554,7 +575,7 @@ export function listDocuments(rootDir = process.cwd(), scope?: string): Document
 export async function removeDocument(
   filePath: string,
   scope = 'shared',
-  rootDir = process.cwd(),
+  rootDir = getProjectRoot(),
 ): Promise<void> {
   removeMetadataEntry(rootDir, path.resolve(filePath), scope);
   // SQLite cleanup: bridge doesn't expose delete-by-key, so metadata removal is sufficient.
@@ -565,7 +586,7 @@ export async function removeDocument(
 
 export async function exportToOKF(
   outputDir: string,
-  rootDir = process.cwd(),
+  rootDir = getProjectRoot(),
   scope = 'shared',
 ): Promise<{ exported: number; outputDir: string }> {
   const docs = listDocuments(rootDir, scope);
@@ -631,7 +652,7 @@ export async function exportToOKF(
 export async function importFromOKF(
   bundleDir: string,
   scope = 'shared',
-  rootDir = process.cwd(),
+  rootDir = getProjectRoot(),
 ): Promise<BatchIngestResult> {
   const resolved = path.resolve(bundleDir);
   const files = fs.readdirSync(resolved)

@@ -37,7 +37,12 @@ const knowledgeIngest: MCPTool = {
     try {
       const stat = fs.statSync(target);
       if (stat.isDirectory()) {
-        const result = await ingestDirectory(target, scope, { rootDir: process.cwd() });
+        // getProjectRoot(), not cwd — the file branch below already defaults to
+        // it, and an MCP server's cwd is whatever the client chose. Passing cwd
+        // here sent directory-ingest metadata to a different root than
+        // file-ingest and than search, splitting one brain into two.
+        const { getProjectRoot } = await import('../memory/memory-bridge.js');
+        const result = await ingestDirectory(target, scope, { rootDir: getProjectRoot() });
         return {
           content: [{
             type: 'text',
@@ -87,6 +92,7 @@ const knowledgeSearch: MCPTool = {
       limit: { type: 'number', description: 'Max results (default: 10)' },
       minScore: { type: 'number', description: 'Minimum similarity threshold (default: 0.3)' },
       surfaces: { type: 'array', items: { type: 'string' }, description: "Override routing: any of 'chunks','kg','rules','memory'" },
+      store: { type: 'string', description: "Which store(s) to search: 'project', 'global' (the personal cross-project brain), or 'all' (default — project results win ties)" },
       includeSuperseded: { type: 'boolean', description: 'Also return chunks from older, re-ingested versions of a document (flagged superseded). Default false.' },
     },
     required: ['query'],
@@ -105,20 +111,32 @@ const knowledgeSearch: MCPTool = {
       const surfaces = explicitSurfaces
         ?? (route.confident ? route.surfaces : ['chunks', ...route.surfaces.filter(s => s !== 'chunks')]);
 
+      // Same validation as `doc search --store`: anything unrecognised falls
+      // back to 'all' rather than erroring, so a typo still returns knowledge.
+      const rawStore = String(input.store ?? 'all');
+      const store: 'project' | 'global' | 'all' =
+        rawStore === 'project' || rawStore === 'global' ? rawStore : 'all';
+
       const chunkOpts = {
         scope: input.scope ? String(input.scope) : undefined,
         limit,
         minScore: input.minScore ? Number(input.minScore) : undefined,
+        store,
         includeSuperseded: input.includeSuperseded === true,
       };
 
       const bridge = await import('../memory/memory-bridge.js');
       const kg = await import('../memory/memory-kg.js');
+      // store:'global' means "only my personal cross-project brain". The KG,
+      // rules and pattern namespaces are project-scoped stores, so including
+      // them would leak project knowledge into a deliberately global-only
+      // query — the same rule the warm /api/knowledge/search endpoint applies.
+      const projectSurfaces = store !== 'global';
       const [excerpts, graph, rules, memories] = await Promise.all([
         surfaces.includes('chunks') ? searchKnowledge(query, chunkOpts) : [],
-        surfaces.includes('kg') ? kg.kgSearch({ query, limit: 6 }) : null,
-        surfaces.includes('rules') ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 3, threshold: 0.35 }) : null,
-        surfaces.includes('memory') ? bridge.bridgeSearchEntries({ query, namespace: 'patterns', limit: 3 }) : null,
+        projectSurfaces && surfaces.includes('kg') ? kg.kgSearch({ query, limit: 6 }) : null,
+        projectSurfaces && surfaces.includes('rules') ? bridge.bridgeSearchEntries({ query, namespace: 'rules', limit: 3, threshold: 0.35 }) : null,
+        projectSurfaces && surfaces.includes('memory') ? bridge.bridgeSearchEntries({ query, namespace: 'patterns', limit: 3 }) : null,
       ]);
 
       // Confident non-chunk routing against an empty surface (e.g. a project
@@ -147,7 +165,7 @@ const knowledgeSearch: MCPTool = {
           text: JSON.stringify({
             success: true,
             count: fused.length,
-            routing: { surfaces, confident: route.confident, fellBackToChunks: fellBack },
+            routing: { surfaces, store, confident: route.confident, fellBackToChunks: fellBack },
             results: fused,
             // Back-compat: excerpt-only view for existing consumers.
             excerpts: chunkExcerpts,
@@ -163,4 +181,74 @@ const knowledgeSearch: MCPTool = {
   },
 };
 
-export const knowledgeTools: MCPTool[] = [knowledgeIngest, knowledgeSearch];
+const knowledgeRemove: MCPTool = {
+  name: 'knowledge_remove',
+  description: 'Forget an indexed document. Hides every chunk of it from knowledge_search, doc search, and per-prompt injection immediately; the stored rows are reclaimed on the next full re-index. Reversible by re-ingesting the file. Errors if the path is not currently indexed under the given scope, so a wrong path never silently reports success.',
+  category: 'knowledge',
+  tags: ['documents', 'remove', 'second-brain'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Path of the indexed document, as reported by knowledge_search / doc list' },
+      scope: { type: 'string', description: 'Knowledge scope (default: shared)' },
+      global: { type: 'boolean', description: 'Remove from the personal cross-project global brain instead of this project' },
+    },
+    required: ['path'],
+  },
+  handler: async (input): Promise<MCPToolResult> => {
+    const pathCheck = validateInput(input.path, { type: 'path' });
+    if (!pathCheck.valid) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ success: false, error: pathCheck.error }) }],
+        isError: true,
+      };
+    }
+
+    const { listDocuments, removeDocument } = await import('../knowledge/document-pipeline.js');
+    const { getGlobalBrainDir, getProjectRoot } = await import('../memory/memory-bridge.js');
+    const pathMod = await import('node:path');
+
+    const isGlobal = input.global === true;
+    const scope = isGlobal ? 'global' : String(input.scope || 'shared');
+    const root = isGlobal ? getGlobalBrainDir() : getProjectRoot();
+    const target = pathMod.resolve(pathCheck.sanitized!);
+
+    try {
+      const indexed = listDocuments(root, scope);
+      if (!indexed.some(d => pathMod.resolve(d.filePath) === target)) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: `Not indexed under scope '${scope}': ${target}`,
+              indexedCount: indexed.length,
+            }),
+          }],
+          isError: true,
+        };
+      }
+
+      await removeDocument(target, scope, root);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            filePath: target,
+            scope,
+            store: isGlobal ? 'global' : 'project',
+            note: 'Hidden from search immediately; storage reclaimed on the next full re-index.',
+          }),
+        }],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ success: false, error: String(err) }) }],
+        isError: true,
+      };
+    }
+  },
+};
+
+export const knowledgeTools: MCPTool[] = [knowledgeIngest, knowledgeSearch, knowledgeRemove];

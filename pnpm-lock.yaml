@@ -37,6 +37,9 @@ importers:
         specifier: workspace:*
         version: link:packages/@monomind/cli
     devDependencies:
+      '@monoes/monograph':
+        specifier: workspace:*
+        version: link:packages/@monomind/monograph
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.39
