@@ -16,12 +16,13 @@ export const MAX_RECURSION_DEPTH = 20;
 export const MAX_CONCURRENCY = 5;
 
 // Allowed worker names for input validation
+// Must stay in sync with the manager.register() calls in workers/index.ts —
+// a name here that nothing registers is a validation pass followed by a miss.
 export const ALLOWED_WORKERS = new Set([
   // Canonical internal names
-  'performance', 'health', 'security', 'adr', 'ddd',
-  'patterns', 'learning', 'cache', 'git', 'swarm', 'progress',
+  'health', 'security', 'ddd', 'cache', 'progress',
   // Workers folded in from the deleted CLI worker-daemon
-  'map', 'audit', 'optimize', 'consolidate',
+  'map', 'audit', 'consolidate',
 ]);
 
 // ============================================================================

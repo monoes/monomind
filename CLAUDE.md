@@ -50,7 +50,7 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (32 commands)          |
-| `@monoes/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 15 background workers (perf/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress/map/audit/optimize/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server |
+| `@monoes/hooks`    | `packages/@monomind/hooks/`    | Hook registry/executor library + 8 on-demand workers (health/ddd/security/cache/progress/map/audit/consolidate); bridged from `.claude/helpers` (session-start workers + security) and started by the CLI MCP server. 7 workers with zero consumers were deleted (performance/patterns/adr/learning/git/swarm/optimize). No interval timers — all on-demand via `hooks worker run <name>` or session-start freshness check |
 | `@monoes/memory`     | `packages/@monomind/memory/`   | Lower-level memory backend library (SQLite/JSON pattern-store implementations) dynamically imported by the CLI's bridge — the live bridge itself (`memory-bridge.ts`, `hnsw-operations.ts`) lives in `packages/@monomind/cli/src/memory/`, not here. Default engine: local SQLite with embedded vectors (better-sqlite3, sql.js WASM fallback; local HF-embeddings) — backs CLI `memory store/search`, the MCP memory tools, and the Second Brain. LanceDB was removed 2026-07 (≈600MB of native deps for no measured value); pure-JS HNSW stays off the default search path (reachable via `memory search --build-hnsw`) |
 | `@monoes/mcp`      | `packages/@monomind/mcp/`      | MCP server framework — powers `mcp start -t http`/`-t websocket` (and stdio/in-process transports) only; the *default* stdio transport that `claude mcp add monomind -- npx -y monomind@latest mcp start` wires up is a separate, hand-rolled JSON-RPC loop inside the CLI package itself (`mcp-server.ts`'s `startStdioServer()`), which never imports this package. Also provides session/connection/resource/prompt/task management, rate limiting, OAuth, and sampling; its own built-in tool registry is small (4 tools) — real usage hands it the CLI's actual tool roster |
 | `@monoes/routing`  | `packages/@monomind/routing/`  | Semantic routing (`RouteLayer`: keyword pre-filter → real embedding via an isolated worker process — kept out-of-process specifically because loading `onnxruntime` in-process causes SIGSEGVs — → cosine similarity → Haiku LLM fallback below threshold). **Opt-in only** — reached via `route semantic`, `agent --task`, or MCP `hooks_route_semantic`. Bare `monomind route "task"` does **not** use this package: it runs a lightweight keyword-only stub (`createKeywordRouter`, fixed 0.75 confidence, 8 hardcoded categories, no embeddings) in the CLI package itself — this is what the Anti-Drift Defaults "Routing: keyword + route-outcomes" line below describes |
@@ -220,7 +220,7 @@ Not gated: `neural_*` — honestly described in the tool descriptions themselves
 | `task`           | 5   | Task creation and lifecycle                          |
 | `session`        | 6   | Session state management (incl. `replay` show/list)  |
 | `config`         | 7   | Configuration management                             |
-| `hooks`          | 29  | Self-learning hooks + 15 background workers (14 configured + always-on progress) (@monoes/hooks WorkerManager) |
+| `hooks`          | 29  | Self-learning hooks + 8 on-demand workers (@monoes/hooks WorkerManager) |
 | `security`       | 6   | Security scanning: scan, cve, audit, secrets, defend, redteam. `audit`'s `--action export/log/clear` are unimplemented (list-only); `redteam`'s live `--target` execution is unimplemented (`--dry-run` only) |
 | `performance`    | 4   | Performance profiling — real benchmark measurements  |
 | `guidance`       | 1   | Wire enforcement gates into Claude Code hooks (setup) |
@@ -280,7 +280,7 @@ Note: rows below (except Agent Teams) are `monomind hooks <subcommand>` CLI name
 | **Learning**     | intelligence (trajectory-start/step/end, pattern-store/search, stats, attention)|
 | **Agent Teams**  | teammate-idle, task-completed (Claude Code hook events, not CLI subcommands)    |
 
-**Hooks — 15 Workers** (`@monoes/hooks` WorkerManager): performance, health, swarm, git, learning, adr, ddd, security, patterns, cache, progress, map, audit, optimize, consolidate — 14 come from the static worker config, plus the always-on `progress` worker. The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their `.monomind/metrics/*.json` output is missing or older than 6 hours; run any worker on demand with `monomind hooks worker run <name>`. (The former standalone worker daemon and its headless-only workers were deleted.)
+**Hooks — 8 Workers** (`@monoes/hooks` WorkerManager): health, ddd, security, cache, progress, map, audit, consolidate — all on-demand only (`enabled: false`, no interval timers). Run via `monomind hooks worker run <name>` or triggered by session-restore-handler's freshness check at session start. 7 workers with zero consumers were deleted in 2026-07: performance, patterns, adr, learning, git, swarm, optimize.
 
 ## Hive-Mind Consensus
 
@@ -314,7 +314,7 @@ is not a live package — see "Deprecated aliases" below.
 | `@monoes/monomindcli` | `packages/@monomind/cli/` | The real CLI engine (all commands, MCP server, `.claude` tree) |
 | `@monoes/monograph` | `packages/@monomind/monograph/` | Knowledge graph |
 | `@monoes/memory` | `packages/@monomind/memory/` | Memory backend library |
-| `@monoes/hooks` | `packages/@monomind/hooks/` | Hook registry + 15 background workers |
+| `@monoes/hooks` | `packages/@monomind/hooks/` | Hook registry + 8 on-demand workers |
 | `@monoes/mcp` | `packages/@monomind/mcp/` | MCP server framework |
 | `@monoes/routing` | `packages/@monomind/routing/` | Semantic routing |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | CDP browser automation |

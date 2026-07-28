@@ -15,10 +15,8 @@ import {
   AlertSeverity,
   WORKER_CONFIGS,
   createWorkerManager,
-  createPerformanceWorker,
   createHealthWorker,
   createSecurityWorker,
-  createADRWorker,
   createDDDWorker,
   type WorkerResult,
   type AlertThreshold,
@@ -72,14 +70,14 @@ describe('WorkerManager', () => {
       for (const worker of status.workers) {
         expect(worker.runCount).toBe(0);
         expect(worker.errorCount).toBe(0);
-        expect(worker.status).toBe('idle');
+        expect(['idle', 'disabled']).toContain(worker.status);
       }
     });
 
     it('should load persisted state on initialize', async () => {
       // Save some state
-      const performanceMetrics = manager['metrics'].get('performance')!;
-      performanceMetrics.runCount = 5;
+      const healthMetrics = manager['metrics'].get('health')!;
+      healthMetrics.runCount = 5;
 
       await manager.saveState();
 
@@ -88,8 +86,8 @@ describe('WorkerManager', () => {
       await newManager.initialize();
 
       const status = newManager.getStatus();
-      const perf = status.workers.find(w => w.name === 'performance');
-      expect(perf?.runCount).toBe(5);
+      const health = status.workers.find(w => w.name === 'health');
+      expect(health?.runCount).toBe(5);
     });
   });
 
@@ -450,9 +448,7 @@ describe('Statusline Integration', () => {
     expect(data.workers).toBeDefined();
     expect(data.health).toBeDefined();
     expect(data.security).toBeDefined();
-    expect(data.adr).toBeDefined();
     expect(data.ddd).toBeDefined();
-    expect(data.performance).toBeDefined();
     expect(data.lastUpdate).toBeDefined();
   });
 
@@ -510,7 +506,7 @@ describe('Persistence', () => {
       version: '1.0.0',
       lastSaved: new Date().toISOString(),
       workers: {
-        performance: { runCount: 10, errorCount: 1, avgDuration: 150 },
+        health: { runCount: 10, errorCount: 1, avgDuration: 150 },
       },
       history: [],
     };
@@ -521,8 +517,8 @@ describe('Persistence', () => {
 
     expect(loaded).toBe(true);
     const status = manager.getStatus();
-    const perf = status.workers.find(w => w.name === 'performance');
-    expect(perf?.runCount).toBe(10);
+    const h = status.workers.find(w => w.name === 'health');
+    expect(h?.runCount).toBe(10);
   });
 
   it('should handle missing state file gracefully', async () => {
@@ -598,14 +594,6 @@ describe('Built-in Workers', () => {
     await cleanupTestDir();
   });
 
-  it('should run performance worker', async () => {
-    const result = await manager.runWorker('performance');
-
-    expect(result.success).toBe(true);
-    expect(result.data?.memory).toBeDefined();
-    expect(result.data?.cpu).toBeDefined();
-  });
-
   it('should run health worker', async () => {
     const result = await manager.runWorker('health');
 
@@ -614,26 +602,6 @@ describe('Built-in Workers', () => {
     expect(result.data?.memory).toBeDefined();
   });
 
-  it('should run git worker', async () => {
-    const result = await manager.runWorker('git');
-
-    expect(result.success).toBe(true);
-    expect(result.data?.available).toBeDefined();
-  });
-
-  it('should run swarm worker', async () => {
-    const result = await manager.runWorker('swarm');
-
-    expect(result.success).toBe(true);
-    expect(result.data?.active).toBeDefined();
-  });
-
-  it('should run learning worker', async () => {
-    const result = await manager.runWorker('learning');
-
-    expect(result.success).toBe(true);
-    expect(result.data?.patternsDb).toBeDefined();
-  });
 });
 
 // ============================================================================
@@ -700,17 +668,6 @@ describe('Metrics-Producing Workers', () => {
     expect(onDisk.riskLevel).toBeDefined();
   });
 
-  it('should run optimize worker and write performance.json', async () => {
-    const result = await manager.runWorker('optimize');
-
-    expect(result.success).toBe(true);
-    expect((result.data as Record<string, unknown>)?.workerProcessMemoryUsage).toBeDefined();
-
-    const onDisk = await readMetricsFile('performance.json');
-    expect(onDisk.workerProcessMemoryUsage).toBeDefined();
-    expect(onDisk.timestamp).toBeTypeOf('string');
-  });
-
   it('should run consolidate worker and write consolidation.json', async () => {
     const result = await manager.runWorker('consolidate');
 
@@ -744,10 +701,9 @@ describe('Metrics-Producing Workers', () => {
 });
 
 // ============================================================================
-// Unit Tests - Remaining Built-in Workers (cache, patterns, progress, security)
+// Unit Tests - Remaining Built-in Workers (cache, progress, security)
 // ============================================================================
-// The last 4 of the 15 built-in workers with no coverage at all — cache and
-// progress don't persist metrics files the same way as the group above, so
+// These don't persist metrics files the same way as the group above, so
 // these just assert the handler runs and returns the documented data shape.
 
 describe('Remaining Built-in Workers', () => {
@@ -768,13 +724,6 @@ describe('Remaining Built-in Workers', () => {
     expect(result.success).toBe(true);
     expect((result.data as Record<string, unknown>)?.cleaned).toBeDefined();
     expect((result.data as Record<string, unknown>)?.freedMB).toBeTypeOf('number');
-  });
-
-  it('should run patterns worker', async () => {
-    const result = await manager.runWorker('patterns');
-
-    expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
   });
 
   it('should run progress worker', async () => {

@@ -1,8 +1,9 @@
 /**
  * V1 Workers System - Cross-Platform Background Workers
  *
- * Optimizes Monomind with non-blocking, scheduled workers.
- * Works on Linux, macOS, and Windows.
+ * Workers run on-demand via `hooks worker run <name>` and are triggered
+ * at session-start by session-restore-handler's freshness check.
+ * No interval timers — a single-user CLI doesn't need them.
  *
  * WorkerManager class and shared types live in worker-manager.ts (ARCH-3 extraction).
  * Worker factory functions live in individual worker-*.ts files (ARCH-3b extraction).
@@ -68,60 +69,39 @@ export { isValidWorkerName } from './worker-utils.js';
 // Re-export worker factory functions
 // ============================================================================
 
-export { createPerformanceWorker } from './worker-performance.js';
 export { createHealthWorker } from './worker-health.js';
-export { createSwarmWorker } from './worker-swarm.js';
-export { createGitWorker } from './worker-git.js';
-export { createLearningWorker } from './worker-learning.js';
-export { createADRWorker } from './worker-adr.js';
 export { createDDDWorker } from './worker-ddd.js';
 export { createSecurityWorker } from './worker-security.js';
-export { createPatternsWorker } from './worker-patterns.js';
 export { createCacheWorker } from './worker-cache.js';
 export { createProgressWorker } from './worker-progress.js';
 export { createMapWorker } from './worker-map.js';
 export { createAuditWorker } from './worker-audit.js';
-export { createOptimizeWorker } from './worker-optimize.js';
 export { createConsolidateWorker } from './worker-consolidate.js';
 
 // ============================================================================
 // Factory
 // ============================================================================
 
-import { createPerformanceWorker } from './worker-performance.js';
 import { createHealthWorker } from './worker-health.js';
-import { createSwarmWorker } from './worker-swarm.js';
-import { createGitWorker } from './worker-git.js';
-import { createLearningWorker } from './worker-learning.js';
-import { createADRWorker } from './worker-adr.js';
 import { createDDDWorker } from './worker-ddd.js';
 import { createSecurityWorker } from './worker-security.js';
-import { createPatternsWorker } from './worker-patterns.js';
 import { createCacheWorker } from './worker-cache.js';
 import { createProgressWorker } from './worker-progress.js';
 import { createMapWorker } from './worker-map.js';
 import { createAuditWorker } from './worker-audit.js';
-import { createOptimizeWorker } from './worker-optimize.js';
 import { createConsolidateWorker } from './worker-consolidate.js';
 
 export function createWorkerManager(projectRoot?: string): WorkerManager {
   const root = projectRoot || process.cwd();
   const manager = new WorkerManager(root);
 
-  manager.register('performance', createPerformanceWorker(root));
   manager.register('health', createHealthWorker(root));
-  manager.register('swarm', createSwarmWorker(root));
-  manager.register('git', createGitWorker(root));
-  manager.register('learning', createLearningWorker(root));
-  manager.register('adr', createADRWorker(root));
   manager.register('ddd', createDDDWorker(root));
   manager.register('security', createSecurityWorker(root));
-  manager.register('patterns', createPatternsWorker(root));
   manager.register('cache', createCacheWorker(root));
   manager.register('progress', createProgressWorker(root));
   manager.register('map', createMapWorker(root));
   manager.register('audit', createAuditWorker(root));
-  manager.register('optimize', createOptimizeWorker(root));
   manager.register('consolidate', createConsolidateWorker(root));
 
   return manager;
