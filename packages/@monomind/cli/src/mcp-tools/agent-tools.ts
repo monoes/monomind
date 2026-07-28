@@ -5,10 +5,11 @@
  * Includes model routing integration for intelligent model selection.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
+import { existsSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { type MCPTool, getMonomindDataRoot, migrateLegacyStoreFile } from './types.js';
+import { readJsonStoreOrNull } from '../utils/json-file.js';
 
 // Storage paths — relative to the git-safe data root (see getMonomindDataRoot()).
 // Canonical location matches task-tools.ts/session-tools.ts/hive-mind-tools.ts/
@@ -53,40 +54,16 @@ function ensureAgentDir(): void {
   }
 }
 
-const MAX_AGENT_STORE_BYTES = 50 * 1024 * 1024;
+const EMPTY_AGENT_STORE: AgentStore = { agents: {}, version: '3.0.0' };
 
-// Exported so other tool modules reading the same physical store file
-// (e.g. hive-mind-tools.ts) can reuse this hardened loader instead of
-// maintaining their own weaker copy (missing the size cap / __proto__ guard).
 export function loadAgentStore(): AgentStore {
-  return loadAgentStoreOrNull() ?? { agents: {}, version: '3.0.0' };
+  return loadAgentStoreOrNull() ?? EMPTY_AGENT_STORE;
 }
 
-// Like loadAgentStore(), but distinguishes "file doesn't exist yet" (returns
-// the empty default store — safe to build on and save) from "file exists but
-// failed to read/parse, or is corrupt/oversized" (returns null). Handlers
-// that are about to mutate-and-save MUST use this instead of loadAgentStore()
-// and bail out on null, or a transient read failure silently wipes every
-// previously-spawned agent on the next save (the exact bug found and fixed
-// in task-tools.ts's task_assign earlier this session — same pattern here).
-// Exported for other tool modules with their own mutate-and-save paths
-// against the same agent store file — see hive-mind-tools.ts.
 export function loadAgentStoreOrNull(): AgentStore | null {
-  try {
-    const path = getAgentPath();
-    migrateLegacyStoreFile(path, join(AGENT_DIR, AGENT_FILE));
-    if (existsSync(path)) {
-      if (statSync(path).size > MAX_AGENT_STORE_BYTES) return null;
-      const data = readFileSync(path, 'utf-8');
-      const parsed = JSON.parse(data) as AgentStore;
-      if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return null;
-      return parsed;
-    }
-  } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadAgentStore] failed to read/parse agent store — refusing to proceed to avoid overwriting it with an empty one:', e);
-    return null;
-  }
-  return { agents: {}, version: '3.0.0' };
+  const path = getAgentPath();
+  migrateLegacyStoreFile(path, join(AGENT_DIR, AGENT_FILE));
+  return readJsonStoreOrNull<AgentStore>(path, { agents: {}, version: '3.0.0' }, 'loadAgentStore');
 }
 
 function saveAgentStore(store: AgentStore): void {

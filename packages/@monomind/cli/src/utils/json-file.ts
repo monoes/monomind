@@ -43,6 +43,34 @@ export function readJsonFileSync<T>(
 }
 
 /**
+ * Hardened JSON store loader that distinguishes "absent" from "corrupt".
+ *
+ * - File absent → returns `emptyDefault` (safe to build on and save back)
+ * - File present and valid → returns the parsed value
+ * - File present but corrupt/oversized/__proto__ → returns null
+ *
+ * Write handlers MUST use this and bail on null — otherwise a transient
+ * read failure silently wipes the store on the next save.
+ */
+export function readJsonStoreOrNull<T>(
+  filePath: string,
+  emptyDefault: T,
+  label: string,
+  maxBytes = 50 * 1024 * 1024,
+): T | null {
+  try {
+    if (!existsSync(filePath)) return emptyDefault;
+    if (statSync(filePath).size > maxBytes) return null;
+    const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as T;
+    if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return null;
+    return parsed;
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[${label}] store unreadable/corrupt — refusing to proceed:`, e);
+    return null;
+  }
+}
+
+/**
  * Atomically write a JSON value to disk.
  *
  * Writes to a temporary file first (PID + timestamp suffix to avoid

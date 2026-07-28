@@ -5,12 +5,12 @@
  */
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { readJsonStoreOrNull, writeJsonFileAtomic } from '../utils/json-file.js';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -85,29 +85,8 @@ function getTerminalPath(): string {
   return join(getTerminalDir(), TERMINAL_FILE);
 }
 
-const MAX_TERMINAL_STORE_BYTES = 10 * 1024 * 1024; // 10 MB
-
-// Same hardened-loader convention as agent-tools.ts's loadAgentStoreOrNull:
-// handlers that mutate and save must use the null-aware variant, since
-// treating a corrupt/oversized store as empty and then saving that back
-// would silently wipe every real session. Also guards against a __proto__
-// key in the parsed JSON (agent-tools.ts's loader does the same). Can't
-// delegate to utils/json-file.ts's readJsonFileSync here — it collapses
-// "file absent" and "file corrupt" into the same fallback value, but this
-// loader must tell them apart (absent → empty default is safe to build on
-// and save; corrupt → null, refuse to save over it).
 function loadTerminalStoreOrNull(): TerminalStore | null {
-  try {
-    const path = getTerminalPath();
-    if (!existsSync(path)) return { sessions: {}, version: '3.0.0' };
-    if (statSync(path).size > MAX_TERMINAL_STORE_BYTES) return null;
-    const parsed = JSON.parse(readFileSync(path, 'utf-8')) as TerminalStore;
-    if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return null;
-    return parsed;
-  } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadTerminalStore] terminal store unreadable/corrupt:', e);
-    return null;
-  }
+  return readJsonStoreOrNull<TerminalStore>(getTerminalPath(), { sessions: {}, version: '3.0.0' }, 'loadTerminalStore', 10 * 1024 * 1024);
 }
 
 function loadTerminalStore(): TerminalStore {

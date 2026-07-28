@@ -4,10 +4,11 @@
  * Tool definitions for task management with file persistence.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { type MCPTool, getMonomindDataRoot } from './types.js';
+import { readJsonStoreOrNull, writeJsonFileAtomic } from '../utils/json-file.js';
 
 // Storage paths — relative to the git-safe data root
 const TASK_DIR = 'tasks';
@@ -48,32 +49,17 @@ function ensureTaskDir(): void {
   }
 }
 
-const MAX_TASK_STORE_BYTES = 50 * 1024 * 1024;
+export function loadTaskStoreOrNull(): TaskStore | null {
+  return readJsonStoreOrNull<TaskStore>(getTaskPath(), { tasks: {}, version: '3.0.0' }, 'loadTaskStore');
+}
 
 export function loadTaskStore(): TaskStore {
-  try {
-    const path = getTaskPath();
-    if (existsSync(path)) {
-      if (statSync(path).size > MAX_TASK_STORE_BYTES) return { tasks: {}, version: '3.0.0' };
-      const data = readFileSync(path, 'utf-8');
-      const parsed = JSON.parse(data) as TaskStore;
-      if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return { tasks: {}, version: '3.0.0' };
-      return parsed;
-    }
-  } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadTaskStore] failed to read/parse task store:', e);
-  }
-  return { tasks: {}, version: '3.0.0' };
+  return loadTaskStoreOrNull() ?? { tasks: {}, version: '3.0.0' };
 }
 
 function saveTaskStore(store: TaskStore): void {
   ensureTaskDir();
-  const taskPath = getTaskPath();
-  // Unique tmp filename — concurrent task_assign/complete calls would
-  // otherwise race on the same .tmp file.
-  const tmpPath = `${taskPath}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
-  renameSync(tmpPath, taskPath);
+  writeJsonFileAtomic(getTaskPath(), store);
 }
 
 const FORBIDDEN_TASK_IDS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -95,7 +81,8 @@ export const taskTools: MCPTool[] = [
       required: ['type', 'description'],
     },
     handler: async (input) => {
-      const store = loadTaskStore();
+      const store = loadTaskStoreOrNull();
+      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
       const taskId = `task-${Date.now()}-${randomBytes(4).toString('hex')}`;
 
       // Cap all string fields: they are persisted verbatim to the task JSON store.
@@ -278,7 +265,8 @@ export const taskTools: MCPTool[] = [
       required: ['taskId'],
     },
     handler: async (input) => {
-      const store = loadTaskStore();
+      const store = loadTaskStoreOrNull();
+      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
       const taskId = input.taskId as string;
       if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, status: 'not_found', error: 'Task not found' };
       const task = store.tasks[taskId];
@@ -294,28 +282,21 @@ export const taskTools: MCPTool[] = [
         if (task.assignedTo.length > 0) {
           const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
           try {
-            let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
-            if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
-              const agentRaw = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
-              if (agentRaw && typeof agentRaw === 'object' && !Object.prototype.hasOwnProperty.call(agentRaw, '__proto__')) {
-                agentStore = agentRaw;
-              }
-            }
-            for (const agentId of task.assignedTo) {
+            const agentStore = readJsonStoreOrNull<{ agents: Record<string, Record<string, unknown>> }>(
+              agentStorePath, { agents: {} }, 'task_complete/agent-sync');
+            if (agentStore) {
               const FORBIDDEN_AGENT_IDS_TC = new Set(['__proto__', 'constructor', 'prototype']);
-              if (typeof agentId === 'string' && agentId.length > 0 && agentId.length <= 128 &&
-                  !FORBIDDEN_AGENT_IDS_TC.has(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
-                agentStore.agents[agentId].status = 'idle';
-                agentStore.agents[agentId].currentTask = null;
-                agentStore.agents[agentId].taskCount =
-                  ((agentStore.agents[agentId].taskCount as number) || 0) + 1;
+              for (const agentId of task.assignedTo) {
+                if (typeof agentId === 'string' && agentId.length > 0 && agentId.length <= 128 &&
+                    !FORBIDDEN_AGENT_IDS_TC.has(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
+                  agentStore.agents[agentId].status = 'idle';
+                  agentStore.agents[agentId].currentTask = null;
+                  agentStore.agents[agentId].taskCount =
+                    ((agentStore.agents[agentId].taskCount as number) || 0) + 1;
+                }
               }
+              writeJsonFileAtomic(agentStorePath, agentStore);
             }
-            const agentDir = join(getMonomindDataRoot(), 'agents');
-            if (!existsSync(agentDir)) mkdirSync(agentDir, { recursive: true });
-            const tmpAgent1 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
-            writeFileSync(tmpAgent1, JSON.stringify(agentStore, null, 2), 'utf-8');
-            renameSync(tmpAgent1, agentStorePath);
           } catch (e) {
             if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_complete] agent store sync failed:', e);
           }
@@ -351,7 +332,8 @@ export const taskTools: MCPTool[] = [
       required: ['taskId'],
     },
     handler: async (input) => {
-      const store = loadTaskStore();
+      const store = loadTaskStoreOrNull();
+      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
       const taskId = input.taskId as string;
       if (FORBIDDEN_TASK_IDS.has(taskId)) return { success: false, taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
@@ -412,7 +394,8 @@ export const taskTools: MCPTool[] = [
       required: ['taskId'],
     },
     handler: async (input) => {
-      const store = loadTaskStore();
+      const store = loadTaskStoreOrNull();
+      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
       const taskId = input.taskId as string;
       if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
@@ -425,80 +408,63 @@ export const taskTools: MCPTool[] = [
 
       // Load agent store to sync worker state. Distinguish "file doesn't
       // exist yet" (safe to proceed with an empty store) from "file exists
-      // but failed to read/parse" (a real store that's momentarily corrupt
-      // or oversized) — the latter must NOT fall through to the unconditional
-      // write-back below, or a transient read failure silently wipes out
-      // every agent's real on-disk state.
       const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
-      let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
-      let agentStoreReadFailed = false;
-      try {
-        if (existsSync(agentStorePath)) {
-          if (statSync(agentStorePath).size <= MAX_TASK_STORE_BYTES) {
-            agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
-          } else {
-            agentStoreReadFailed = true;
-          }
-        }
-      } catch (e) {
-        agentStoreReadFailed = true;
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_assign] failed to read agent store — skipping agent-store sync to avoid overwriting it with an empty one:', e);
-      }
+      const agentStore = readJsonStoreOrNull<{ agents: Record<string, Record<string, unknown>> }>(
+        agentStorePath, { agents: {} }, 'task_assign/agent-sync');
+      const agentStoreReadFailed = agentStore === null;
 
-      // Reject IDs that would mutate Object.prototype when used as a key in
-      // the JSON-loaded plain object `agentStore.agents`.
       const FORBIDDEN_AGENT_IDS = new Set(['__proto__', 'constructor', 'prototype']);
       const isValidAgentId = (id: unknown): id is string =>
         typeof id === 'string' && id.length > 0 && id.length <= 128 && !FORBIDDEN_AGENT_IDS.has(id);
 
-      if (input.unassign) {
-        // Revert previously assigned agents to idle
-        for (const agentId of previouslyAssigned) {
-          if (isValidAgentId(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
-            agentStore.agents[agentId].status = 'idle';
-            agentStore.agents[agentId].currentTask = null;
+      if (!agentStoreReadFailed) {
+        if (input.unassign) {
+          for (const agentId of previouslyAssigned) {
+            if (isValidAgentId(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
+              agentStore.agents[agentId].status = 'idle';
+              agentStore.agents[agentId].currentTask = null;
+            }
+          }
+          task.assignedTo = [];
+        } else {
+          const rawIds = (input.agentIds as string[]) || [];
+          const agentIds = rawIds.filter(isValidAgentId);
+          for (const agentId of previouslyAssigned) {
+            if (isValidAgentId(agentId) && !agentIds.includes(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
+              agentStore.agents[agentId].status = 'idle';
+              agentStore.agents[agentId].currentTask = null;
+            }
+          }
+          for (const agentId of agentIds) {
+            if (Object.hasOwn(agentStore.agents, agentId)) {
+              agentStore.agents[agentId].status = 'busy';
+              agentStore.agents[agentId].currentTask = taskId;
+            }
+          }
+          task.assignedTo = agentIds;
+          if (task.status === 'pending' && agentIds.length > 0) {
+            task.status = 'in_progress';
+            if (!task.startedAt) {
+              task.startedAt = new Date().toISOString();
+            }
           }
         }
-        task.assignedTo = [];
       } else {
-        const rawIds = (input.agentIds as string[]) || [];
-        const agentIds = rawIds.filter(isValidAgentId);
-        // Revert old agents to idle
-        for (const agentId of previouslyAssigned) {
-          if (isValidAgentId(agentId) && !agentIds.includes(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
-            agentStore.agents[agentId].status = 'idle';
-            agentStore.agents[agentId].currentTask = null;
-          }
-        }
-        // Set new agents to active
-        for (const agentId of agentIds) {
-          if (Object.hasOwn(agentStore.agents, agentId)) {
-            agentStore.agents[agentId].status = 'busy';
-            agentStore.agents[agentId].currentTask = taskId;
-          }
-        }
-        task.assignedTo = agentIds;
-        // Auto-transition task to in_progress if pending
-        if (task.status === 'pending' && agentIds.length > 0) {
-          task.status = 'in_progress';
-          if (!task.startedAt) {
-            task.startedAt = new Date().toISOString();
+        // Agent store corrupt — still update task assignments from input
+        if (input.unassign) {
+          task.assignedTo = [];
+        } else {
+          task.assignedTo = ((input.agentIds as string[]) || []).filter(isValidAgentId);
+          if (task.status === 'pending' && task.assignedTo.length > 0) {
+            task.status = 'in_progress';
+            if (!task.startedAt) task.startedAt = new Date().toISOString();
           }
         }
       }
 
       saveTaskStore(store);
-      // Save agent store — skipped when the read above failed, so a
-      // transient corrupt/oversized store.json is left alone instead of
-      // being overwritten with an empty one.
       if (!agentStoreReadFailed) {
-        const agentDir = join(getMonomindDataRoot(), 'agents');
-        if (!existsSync(agentDir)) {
-          mkdirSync(agentDir, { recursive: true });
-        }
-        const tmpAgent2 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
-        writeFileSync(tmpAgent2, JSON.stringify(agentStore, null, 2), 'utf-8');
-        renameSync(tmpAgent2, agentStorePath);
+        writeJsonFileAtomic(agentStorePath, agentStore);
       }
 
       return {
@@ -523,7 +489,8 @@ export const taskTools: MCPTool[] = [
       required: ['taskId'],
     },
     handler: async (input) => {
-      const store = loadTaskStore();
+      const store = loadTaskStoreOrNull();
+      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
       const taskId = input.taskId as string;
       if (FORBIDDEN_TASK_IDS.has(taskId)) return { success: false, taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
