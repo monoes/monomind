@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
 import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
 import { OrgBus } from './bus.js';
 import { PolicyEngine } from './policy.js';
@@ -12,8 +12,13 @@ import { BrokerLease, lookupOrg } from './broker.js';
 import { queueMessage, drainInbox } from './inbox.js';
 import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, ORG_DIR } from './types.js';
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
-import { checkResources, waitForCapacity, getResourceLimits } from '../utils/resource-governor.js';
+import { checkResources, waitForCapacity, getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
+
+/** Drain window for a PLANNED stop (the boss called org_complete). Long enough
+ *  for a sibling mid-build or mid-test to finish and flush its work. A hard
+ *  stop keeps the short bound — see finishStop. */
+const COMPLETE_DRAIN_MS = 5 * 60_000;
 
 interface AgentRuntime {
   mailbox: Mailbox;
@@ -77,6 +82,16 @@ export class OrgDaemon {
    *  iterate while stopOrg() mutates the underlying map. */
   listRunning(): string[] { return [...this.orgs.keys()]; }
 
+  /** Resolve run_config.workspace to 'repo' | 'isolated' | an absolute path.
+   *  A relative path is resolved against the project root rather than the
+   *  daemon's cwd, which is not the same directory when `org serve` is started
+   *  from a subdirectory. */
+  private workspaceSetting(def: OrgDef): string {
+    const ws = (def.run_config as { workspace?: string }).workspace ?? 'repo';
+    if (ws === 'repo' || ws === 'isolated') return ws;
+    return isAbsolute(ws) ? ws : join(this.root, ws);
+  }
+
   async startOrg(name: string, taskOverride?: string): Promise<RunningOrg> {
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
@@ -86,8 +101,30 @@ export class OrgDaemon {
     const run = `run-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
     const dir = join(this.root, ORG_DIR, name, run);
     mkdirSync(dir, { recursive: true });
-    const cwd = join(this.root, ORG_DIR, name, 'workspace');
+    // Role sessions run at the project root by default. They used to run in an
+    // empty scratch dir under .monomind/orgs/<name>/workspace, which the policy
+    // engine's workdir check ("path escapes org workdir") then confined every
+    // path to — so a development org could not Read or Edit a single file of
+    // the project it was created to work on. Roles fell back to Bash, which is
+    // not path-scoped, meaning the sandbox blocked the safe tools and let the
+    // unrestricted one through. Opt back in with run_config.workspace:
+    // 'isolated', or pin an absolute path.
+    this.abandoned.delete(name); // a previous run's missing roles say nothing about this one
+    const ws = this.workspaceSetting(def);
+    const cwd = ws === 'repo' ? this.root
+      : ws === 'isolated' ? join(this.root, ORG_DIR, name, 'workspace')
+        : ws;
     mkdirSync(cwd, { recursive: true });
+
+    // An org must be able to seat its whole roster. maxSdkProcesses is sized for
+    // the machine (cpus - 2), so any org with more roles than that had its tail
+    // roles deferred forever — a 7-role org on an 8-core box permanently lost
+    // its 7th, and the work that role owned simply never happened. Raise the
+    // ceiling to the role count. An explicit MONOMIND_MAX_SDK_PROCS still wins:
+    // if the operator named a number, that number is the answer.
+    if (!process.env.MONOMIND_MAX_SDK_PROCS && getResourceLimits().maxSdkProcesses < def.roles.length) {
+      configureResourceLimits({ maxSdkProcesses: def.roles.length });
+    }
 
     const bus = new OrgBus(name, run, dir);
     // Lightweight in-memory tail for busEvents() (test-loop, /api/history).
@@ -112,7 +149,7 @@ export class OrgDaemon {
       // against a concurrent manual stop.
       if (e.type === 'status' && e.reason === 'org-complete') {
         const t = setTimeout(() => {
-          this.stopOrg(name).catch(err => console.error(`org ${name}: auto-stop after org_complete failed:`, err instanceof Error ? err.message : err));
+          this.stopOrg(name, { drainMs: COMPLETE_DRAIN_MS }).catch(err => console.error(`org ${name}: auto-stop after org_complete failed:`, err instanceof Error ? err.message : err));
         }, 1000);
         (t as { unref?: () => void }).unref?.();
       }
@@ -377,6 +414,10 @@ export class OrgDaemon {
         running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
           msg: `still under pressure (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying "${role.id}" spawn: ${waited.reason}` });
       }
+      const missing = this.abandoned.get(name) ?? new Set<string>();
+      missing.add(role.id);
+      this.abandoned.set(name, missing);
+      this.persistState(name, 'running', running.run);
       running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-abandoned',
         msg: `giving up spawning "${role.id}" after ${MAX_ATTEMPTS} retries — org will run without this role until manually restarted` });
     })().catch(err => console.error(`org ${name}: deferred spawn of "${role.id}" failed:`, err instanceof Error ? err.message : err));
@@ -609,7 +650,10 @@ export class OrgDaemon {
       .finally(() => { this.waking.delete(name); });
   }
 
-  async stopOrg(name: string): Promise<void> {
+  /** @param opts.drainMs how long to let in-flight agent sessions finish before
+   *  reaping. Defaults to the short abort bound; the planned-completion path
+   *  passes a far longer window (see COMPLETE_DRAIN_MS). */
+  async stopOrg(name: string, opts?: { drainMs?: number }): Promise<void> {
     // Join an in-flight stop instead of no-oping: the self-stop paths
     // (org_complete, idle watchdog) run detached, and a caller like
     // `org run`'s final stopAll() must not resolve — letting the process
@@ -624,12 +668,12 @@ export class OrgDaemon {
     // shutdown via `stopping` instead of re-running the whole sequence and
     // double-emitting 'org stopped' (duplicate org:complete/session:complete).
     this.orgs.delete(name);
-    const p = this.finishStop(name, org);
+    const p = this.finishStop(name, org, opts?.drainMs);
     this.stopping.set(name, p);
     try { await p; } finally { this.stopping.delete(name); }
   }
 
-  private async finishStop(name: string, org: RunningOrg): Promise<void> {
+  private async finishStop(name: string, org: RunningOrg, drainMs?: number): Promise<void> {
     // Capture THIS run's forwarder now: an autoWake-restart of the same org
     // during the long tail below (agent wait, flush, history write) would
     // register a NEW forwarder under the same name — settling/unsubscribing
@@ -647,7 +691,12 @@ export class OrgDaemon {
     // idle) must not make stopOrg() hang forever — callers like the scheduler
     // already race their own timeout around a run, and this wait re-blocking
     // unboundedly on the same never-resolving promises defeated that bound.
-    const stopWaitMs = this.opts.stopWaitMs ?? 15_000;
+    // A planned completion is not an abort. The boss declaring the cycle done
+    // says nothing about its siblings: they are routinely mid-build or mid-edit
+    // when it fires, and a 15s window SIGTERM'd them (exit 143, reported as
+    // "crashed") and threw the work away. allSettled resolves as soon as every
+    // session ends, so a long drain is a ceiling, not a delay.
+    const stopWaitMs = drainMs ?? this.opts.stopWaitMs ?? 15_000;
     const allDone = Promise.allSettled([...org.agents.values()].map(a => a.done)).then(() => false);
     const timedOut = await Promise.race([allDone, new Promise<boolean>(r => setTimeout(() => r(true), stopWaitMs))]);
     if (timedOut) {
@@ -915,9 +964,19 @@ export class OrgDaemon {
     }
   }
 
+  /** Roles that never spawned, per org. An org missing a role is still reported
+   *  `running` by every status path, so the absence was visible only as one
+   *  audit line in the log — a run went 40 minutes with no tester and nothing
+   *  said so. Persisted to runtime.json so `org status` can say it out loud. */
+  private abandoned = new Map<string, Set<string>>();
+
   private persistState(name: string, status: string, run: string): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
-    writeFileSync(p, JSON.stringify({ status, run, pid: process.pid, updated: new Date().toISOString() }, null, 2));
+    const missing = [...(this.abandoned.get(name) ?? [])];
+    writeFileSync(p, JSON.stringify({
+      status, run, pid: process.pid, updated: new Date().toISOString(),
+      ...(missing.length ? { abandonedRoles: missing } : {}),
+    }, null, 2));
   }
 
   /** Mark every currently-running org as crashed in runtime.json.

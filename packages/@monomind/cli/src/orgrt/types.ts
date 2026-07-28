@@ -53,8 +53,14 @@ export const OrgDefSchema = z.object({
     max_turns_per_message: z.number().int().positive().default(30),
     /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
     idle_minutes: z.number().nonnegative().optional(),
+    /** Where role sessions run.
+     *  'repo' (default) — the project root, so roles can Read/Edit real files.
+     *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
+     *  policy engine's workdir check then confines every path to.
+     *  An absolute path is used verbatim. */
+    workspace: z.union([z.literal('repo'), z.literal('isolated'), z.string()]).optional(),
   }).partial().passthrough().default({})
-    .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, ...rc })),
+    .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, workspace: 'repo' as string, ...rc })),
   roles: z.array(RoleSchema).min(1),
 }).passthrough();
 
