@@ -56,9 +56,15 @@ if (root.version !== cli.version) {
 // "workspace:*", pnpm emits the resolved version.
 //
 // Only the root package is affected; it is the only one using the protocol.
+// Only while actually publishing. This script is also the documented
+// pre-flight check (`npm run check:versions`), and gating that on the
+// publisher made it exit 1 every time — telling someone merely verifying
+// their versions to go use pnpm. npm sets npm_lifecycle_event to the script
+// being run, so prepublishOnly is the one case that matters.
+const publishing = process.env.npm_lifecycle_event === 'prepublishOnly';
 const agent = process.env.npm_config_user_agent ?? '';
 const viaPnpm = agent.includes('pnpm');
-if (!viaPnpm && process.env.MONOMIND_ALLOW_NPM_PUBLISH !== '1') {
+if (publishing && !viaPnpm && process.env.MONOMIND_ALLOW_NPM_PUBLISH !== '1') {
   problems.push(
     `this package must be published with \`pnpm publish\`, not npm (user agent: ${agent || 'unknown'}). ` +
     'npm copies "workspace:*" into the tarball verbatim and the published package becomes uninstallable.',
