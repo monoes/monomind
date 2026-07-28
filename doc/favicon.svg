@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- BG -->
+  <circle cx="16" cy="16" r="15.5" fill="#111820" stroke="#00D2AA" stroke-width="1"/>
+  <!-- Ears -->
+  <ellipse cx="5" cy="14" rx="4" ry="4.5" fill="#1a3830"/>
+  <ellipse cx="5" cy="14" rx="2.5" ry="3" fill="#50443a" opacity="0.6"/>
+  <ellipse cx="27" cy="14" rx="4" ry="4.5" fill="#1a3830"/>
+  <ellipse cx="27" cy="14" rx="2.5" ry="3" fill="#50443a" opacity="0.6"/>
+  <!-- Head -->
+  <ellipse cx="16" cy="15" rx="11" ry="10.5" fill="#182820"/>
+  <!-- Muzzle -->
+  <ellipse cx="16" cy="19" rx="5.5" ry="4" fill="#1e3030"/>
+  <!-- Eyes — white -->
+  <ellipse cx="11.5" cy="13.5" rx="2.8" ry="2.6" fill="#eef0ee"/>
+  <ellipse cx="20.5" cy="13.5" rx="2.8" ry="2.6" fill="#eef0ee"/>
+  <!-- Iris teal -->
+  <circle cx="11.5" cy="13.5" r="1.9" fill="#00D2AA"/>
+  <circle cx="20.5" cy="13.5" r="1.9" fill="#00D2AA"/>
+  <!-- Pupil -->
+  <circle cx="11.5" cy="13.5" r="1" fill="#0a1410"/>
+  <circle cx="20.5" cy="13.5" r="1" fill="#0a1410"/>
+  <!-- Shine -->
+  <circle cx="12.1" cy="12.9" r="0.5" fill="white" opacity="0.85"/>
+  <circle cx="21.1" cy="12.9" r="0.5" fill="white" opacity="0.85"/>
+  <!-- Nose -->
+  <ellipse cx="16" cy="17" rx="1.8" ry="1.2" fill="#0d1a16"/>
+  <!-- Smile -->
+  <path d="M12.5 20 Q16 22.5 19.5 20" stroke="#0d1a16" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+</svg>
