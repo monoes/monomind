@@ -21,7 +21,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "postinstall": "find node_modules -name '._*' -delete 2>/dev/null || true",
+    "postinstall": "node -e \"if(process.platform!=='win32'){try{require('child_process').execSync('find node_modules -name ._* -delete 2>/dev/null',{stdio:'ignore'})}catch{}}\"",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "build:ts": "cd packages/@monomind/cli && npm run build || true",

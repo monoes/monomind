@@ -90,6 +90,12 @@ function writeJsonSafe(path: string, data: unknown): void {
 }
 
 export function isEnabled(): boolean {
+  // Env override, so a measurement harness can switch telemetry off for the
+  // duration of a run it intends to make claims about. `monomind doc eval`
+  // sets this: its "zero network calls" verdict must describe the retrieval
+  // path, not merely the fact that nothing happened to crash.
+  const env = process.env.MONOMIND_CRASH_REPORTING;
+  if (env && ['0', 'off', 'false', 'no'].includes(env.toLowerCase())) return false;
   const config = readJsonSafe<CrashConfig>(CONFIG_PATH, { enabled: true });
   return config.enabled !== false;
 }
