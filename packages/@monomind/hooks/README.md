@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/packages/hooks.png" alt="@monoes/hooks" width="600" />
+</p>
+
 # @monoes/hooks
 
 [![npm version](https://img.shields.io/npm/v/@monoes/hooks.svg?style=flat-square)](https://www.npmjs.com/package/@monoes/hooks)
@@ -79,25 +83,18 @@ const result = await executor.preEdit('src/app.ts', 'modify');
 
 ## Background workers
 
-15 workers, each a factory function (`createHealthWorker(projectRoot)` → handler)
-managed by `WorkerManager`:
+8 on-demand workers (7 in `WORKER_CONFIGS` + `progress` registered separately),
+each a factory function managed by `WorkerManager`:
 
 | Worker | Purpose |
 |--------|---------|
-| `performance` | Benchmark search, memory, startup performance |
 | `health` | Monitor disk, memory, CPU, processes |
-| `swarm` | Monitor swarm activity and agent coordination |
-| `git` | Track uncommitted changes, branch status |
-| `learning` | Learning/pattern optimization |
-| `adr` | ADR compliance checks |
 | `ddd` | DDD progress → `.monomind/metrics/ddd-progress.json` |
 | `security` | Scan for secrets and vulnerabilities |
-| `patterns` | Consolidate, dedupe learned patterns |
 | `cache` | Clean temp files, old logs, stale cache |
 | `progress` | Track implementation progress |
 | `map` | Codebase map → `.monomind/metrics/codebase-map.json` |
 | `audit` | Security audit → `.monomind/metrics/security-audit.json` |
-| `optimize` | Performance snapshot → `.monomind/metrics/performance.json` |
 | `consolidate` | Memory consolidation → `.monomind/metrics/consolidation.json` |
 
 The metrics-producing workers run at session start (via the CJS session
