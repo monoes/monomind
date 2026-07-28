@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 
 export async function handleMonographRoutes(req, res, url, corsOrigin, ctx) {
   // ------------------------------------------------------- GET /api/monograph-html
