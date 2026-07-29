@@ -6,6 +6,8 @@
  * @module v1/cli/embedding-operations
  */
 
+import { BRIDGE_EMBEDDING_MODEL, BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
+
 // ADR-053: Lazy import of memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
@@ -83,24 +85,24 @@ export async function loadEmbeddingModel(options?: {
 
     if (transformers) {
       if (verbose) {
-        console.log('Loading ONNX embedding model (all-MiniLM-L6-v2)...');
+        console.log('Loading ONNX embedding model (gte-modernbert-base)...');
       }
 
-      // Use small, fast model for local embeddings
+      // Use the bridge's model for local embeddings
       const { pipeline } = transformers;
-      const embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+      const embedder = await pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { local_files_only: true });
 
       embeddingModelState = {
         loaded: true,
         model: embedder,
         tokenizer: null,
-        dimensions: 384 // MiniLM-L6 produces 384-dim vectors
+        dimensions: BRIDGE_EMBEDDING_DIMS
       };
 
       return {
         success: true,
-        dimensions: 384,
-        modelName: 'Xenova/all-MiniLM-L6-v2',
+        dimensions: BRIDGE_EMBEDDING_DIMS,
+        modelName: BRIDGE_EMBEDDING_MODEL,
         loadTime: Date.now() - startTime
       };
     }
@@ -200,7 +202,7 @@ export async function generateEmbedding(text: string): Promise<{
   // Use ONNX model if available
   if (state.model && typeof (state.model as any) === 'function') {
     try {
-      const output = await (state.model as any)(text, { pooling: 'mean', normalize: true });
+      const output = await (state.model as any)(text, { pooling: 'cls', normalize: true });
       // Handle both @xenova/transformers (output.data) and monovector (plain array) formats
       const embedding = output?.data
         ? Array.from(output.data as Float32Array)

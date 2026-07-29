@@ -457,6 +457,7 @@ export async function ingestDocument(
 
   const docId = `${scope}:${resolved}`;
   const rawChunks: TextChunk[] = await chunkDocument(docId, fullContent);
+  // monolean: [re-enabled] item 2 shipped 768d gte-modernbert-base — capacity handles enrichment
   const chunks = enrichChunks(rawChunks, fullContent, resolved);
   const bridge = await getBridge();
   let indexed = 0;
@@ -642,6 +643,8 @@ export async function searchKnowledge(
     /** Return chunks from superseded document versions too, flagged
      *  `superseded: true`. Default false — see the note above `liveContentHashes`. */
     includeSuperseded?: boolean;
+    /** Skip cross-encoder reranking. Default false. */
+    skipRerank?: boolean;
   },
 ): Promise<KnowledgeExcerpt[]> {
   const bridge = await getBridge();
@@ -672,6 +675,7 @@ export async function searchKnowledge(
     const fetchLimit = includeSuperseded ? limit : supersededOverfetchLimit(limit, live);
     const result = await bridge.bridgeSearchEntries({
       query, namespace: t.ns, limit: fetchLimit, threshold: minScore, dbPath: t.dbPath,
+      skipRerank: opts?.skipRerank,
     }).catch(() => null);
     if (!result?.success || !result.results.length) return [];
     const hashToFile = new Map<string, string>();

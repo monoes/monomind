@@ -35,6 +35,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 
 // ============================================================================
 // Types
@@ -161,7 +162,7 @@ const DEFAULT_EWC_CONFIG: EWCConfig = {
   importanceThreshold: 0.3,
   storagePath: path.join(process.cwd(), '.swarm', 'ewc-fisher.json'),
   onlineMode: true,
-  dimensions: 384
+  dimensions: BRIDGE_EMBEDDING_DIMS
 };
 
 // ============================================================================

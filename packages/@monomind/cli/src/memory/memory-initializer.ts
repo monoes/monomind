@@ -11,6 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
@@ -116,10 +117,10 @@ INSERT OR REPLACE INTO metadata (key, value) VALUES
   ('hnsw_indexing', 'enabled');
 
 -- Create default vector index configuration
--- Dimensions match BRIDGE_EMBEDDING_DIMS=384 (Xenova/all-MiniLM-L6-v2).
+-- Dimensions match BRIDGE_EMBEDDING_DIMS (gte-modernbert-base = 768d).
 INSERT OR IGNORE INTO vector_indexes (id, name, dimensions) VALUES
-  ('default', 'default', 384),
-  ('patterns', 'patterns', 384);
+  ('default', 'default', ${BRIDGE_EMBEDDING_DIMS}),
+  ('patterns', 'patterns', ${BRIDGE_EMBEDDING_DIMS});
 `;
 }
 
