@@ -135,6 +135,8 @@ async function chunkDocument(docId: string, text: string): Promise<TextChunk[]> 
 //  - Zero dependencies, zero network
 
 const SECTION_PREFIX_RE = /^§ [^\n]+\n/;
+/** Cap on the situating summary prepended to each chunk, ellipsis included. */
+const SUMMARY_MAX_CHARS = 120;
 
 function extractDocTitle(text: string, filePath: string): string {
   const eol = text.indexOf('\n');
@@ -156,7 +158,13 @@ function extractDocSummary(text: string): string {
     if (!t || /^[|=-]/.test(t)) { if (parts.length > 0) break; continue; }
     parts.push(t.startsWith('>') ? t.replace(/^>\s*/, '') : t);
   }
-  return parts.join(' ').slice(0, 150);
+  const joined = parts.join(' ');
+  // Truncate with an ellipsis so a clipped summary is visibly clipped. The bare
+  // 150-char slice this replaces gave no signal that anything was cut, which
+  // read as a complete sentence to both a human and the embedding model.
+  return joined.length > SUMMARY_MAX_CHARS
+    ? `${joined.slice(0, SUMMARY_MAX_CHARS - 3).trimEnd()}...`
+    : joined;
 }
 
 function buildHeadingHierarchy(
