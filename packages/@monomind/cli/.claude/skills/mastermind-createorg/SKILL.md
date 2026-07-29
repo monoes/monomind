@@ -20,7 +20,9 @@ Org Runtime v2 (`packages/@monomind/cli/src/orgrt/`) is a Node daemon, not a Tas
 - `org_name`: desired name for the org (slug, e.g. `content-team`); constrained to `[a-z0-9-]`
 - `roles_desc`: optional explicit role list from user (e.g. "boss, content writer, reviewer, marketer, designer")
 - `schedule`: optional schedule string in daemon format — `"<N>s"`, `"<N>m"`, or `"<N>h"` (e.g. `"30m"`, `"2h"`). When provided, the org is picked up by `monomind org serve` on its own interval; omit for a one-shot `monomind org run`.
+- `max_run`: optional, same format as `schedule`. See the run_config note below — always set it for a scheduled org.
 - `budget_tokens`: optional total token budget for the org run (default 1,000,000 — split evenly across roles by the daemon)
+- `max_run`: optional wall-clock bound on ONE scheduled cycle, same format as `schedule` (`"90m"`, `"3h"`). Defaults to the schedule interval. Set it whenever the org is scheduled: a cycle that hits this bound is force-stopped with only a 60s drain, so it should exceed how long the work actually takes, not how often you want it to run. Overrunning the interval is safe — the missed tick fires the moment the run ends rather than waiting for the next boundary.
 - `mode`: auto | confirm
 - `session_id`: session ID passed by command wrapper (snake_case input)
 - `caller`: command | master
@@ -99,7 +101,8 @@ Produce an org config object matching `OrgDefSchema` exactly:
     "max_concurrent_agents": 4,
     "budget_tokens": "<budget_tokens input, or 1000000 default>",
     "memory_namespace": "org:<org_name>",
-    "max_turns_per_message": 30
+    "max_turns_per_message": 30,
+    "max_run": "<how long ONE scheduled cycle may run, e.g. '90m'. Omit only for a one-shot org (no schedule).>"
   },
   "roles": [
     {
@@ -142,6 +145,7 @@ ROLES  (N roles — exactly one boss, every reports_to resolves to a real role i
 SETTINGS
 ────────
 Budget: <run_config.budget_tokens> tokens (split evenly across N roles)
+Max run: <run_config.max_run, or "schedule interval" when unset>
 Memory namespace: org:<org_name>
 Schedule: <"every <N> <unit>" if schedule set; otherwise "manual — run with `monomind org run <org_name>`">
 
@@ -166,17 +170,20 @@ Write the confirmed org config as JSON using `jq` to guarantee valid encoding:
 
 ```bash
 # Set shell variables from the confirmed plan before running this block:
-#   goal, schedule_val ("" if none), budget_tokens_val, roles_json (JSON array matching the role shape above)
+#   goal, schedule_val ("" if none), budget_tokens_val, max_run_val ("" if none),
+#   roles_json (JSON array matching the role shape above)
 jq -n \
   --arg name "$org_name" \
   --arg goal "$goal" \
   --arg schedule "${schedule_val:-}" \
   --argjson budget_tokens "${budget_tokens_val:-1000000}" \
+  --arg max_run "${max_run_val:-}" \
   --argjson roles "$roles_json" \
   '{name:$name,goal:$goal,status:"stopped",
     schedule:(if $schedule=="" then null else $schedule end),
-    run_config:{max_concurrent_agents:4,budget_tokens:$budget_tokens,
-                memory_namespace:("org:"+$name),max_turns_per_message:30},
+    run_config:({max_concurrent_agents:4,budget_tokens:$budget_tokens,
+                 memory_namespace:("org:"+$name),max_turns_per_message:30}
+                + (if $max_run=="" then {} else {max_run:$max_run} end)),
     roles:$roles}' \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
 ```
