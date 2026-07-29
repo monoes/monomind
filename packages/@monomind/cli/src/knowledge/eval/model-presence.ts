@@ -38,9 +38,10 @@ export interface ModelPresence {
   provenance: 'node_modules cache (populated by a prior run or an explicit warm step)' | 'not provisioned';
 }
 
-const MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
+const MODEL_ID = 'Alibaba-NLP/gte-modernbert-base';
 const WEIGHT_CANDIDATES = [
   'onnx/model_quantized.onnx',
+  'onnx/model_q8.onnx',
   'onnx/model.onnx',
 ];
 
@@ -132,7 +133,7 @@ export async function provisionModel(log: (m: string) => void): Promise<ModelPre
   log(`fetching ${MODEL_ID} — this is the provisioning step and it REQUIRES network access.`);
   log('It is deliberately separate from measurement; `doc eval` itself never fetches.');
   const t = await import('@huggingface/transformers');
-  await (t as any).pipeline('feature-extraction', MODEL_ID);
+  await (t as any).pipeline('feature-extraction', MODEL_ID, { revision: 'main', dtype: 'q8' });
   const after = checkModelPresence([process.cwd()]);
   if (!after.present) throw new Error('[doc eval] provisioning ran but the weights are still not on disk.');
   log(`provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);

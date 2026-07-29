@@ -900,4 +900,283 @@ GOLDEN_SET.push(
   { id: 'c3-claudemd-publishing', query: 'the exact steps and ordering for releasing a new version to the registry', relevant: ['CLAUDE.md'], tags: ['c3'] },
   { id: 'c3-cli-claudemd-workers', query: 'which background enrichment jobs ship with the CLI and how are they configured', relevant: ['packages/@monomind/cli/CLAUDE.md'], tags: ['c3'] },
   { id: 'c3-cli-claudemd-env-vars', query: 'what environment variables control behavior of the main command line tool', relevant: ['packages/@monomind/cli/CLAUDE.md'], tags: ['c3'] },
+
+  // ── c3-lo expansion: batch 1 (2026-07-28) ────────────────────────────
+  //
+  // 59 pairs that passed corpus-membership screening. Queries use plain
+  // language, metaphors, and user-need framing.
+
+  { id: 'c3lo-background-refresh-workers', query: 'jobs that quietly run in the background to keep project health data up to date', relevant: ['doc/concepts/hooks.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-where-stuff-gets-remembered', query: 'all the different places this tool keeps things it learned between conversations', relevant: ['doc/concepts/memory.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-live-bar-at-bottom', query: 'that little indicator showing git branch and model name while I work', relevant: ['doc/concepts/statusline.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-multiple-helpers-at-once', query: 'running several AI assistants side by side on one problem', relevant: ['doc/concepts/swarm.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-dangerous-command-blocker', query: 'what stops an AI from accidentally wiping files or force-pushing', relevant: ['doc/adrs/ADR-G004-four-enforcement-gates.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-native-thread-crash', query: 'why does the program crash with a mutex error when it exits after loading the embedding model', relevant: ['doc/adrs/ADR-R001-onnxruntime-process-teardown.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-team-of-agents-daemon', query: 'the long-running process that manages a group of AI workers acting as a company', relevant: ['doc/concepts/org-runtime.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-vote-counting-decisions', query: 'how do multiple AI workers reach agreement on whether a proposal should go through', relevant: ['.claude/agents/consensus/quorum-manager.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-writing-clean-code-agent', query: 'the specialist whose only job is producing well-structured production-ready source files', relevant: ['.claude/agents/core/coder.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-test-from-outside-in', query: 'starting with behavior then working inward using fakes and stubs during development', relevant: ['.claude/agents/testing/tdd-london-swarm.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-gaming-ai-planner', query: 'finding the best sequence of steps to reach a goal like a strategy game character', relevant: ['.claude/agents/goal/goal-planner.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-combine-separate-findings', query: 'taking what several independent workers discovered and merging it into one consistent picture', relevant: ['.claude/agents/hive-mind/collective-intelligence-coordinator.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-no-boss-collaboration', query: 'workers operating as equals without anyone in charge then reconciling what they each produced', relevant: ['.claude/agents/swarm/mesh-coordinator.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-find-weaknesses-in-app', query: 'checking an application for injection flaws and authentication bypasses', relevant: ['.claude/agents/engineering/engineering-security-engineer.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-build-responsive-pages', query: 'creating web interfaces that look right on phones and pass contrast requirements', relevant: ['.claude/agents/engineering/engineering-frontend-developer.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-pipeline-infrastructure', query: 'automating deployment so the team can ship changes without manual server work', relevant: ['.claude/agents/engineering/engineering-devops-automator.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-cross-package-wiring', query: 'making sure changes in one library do not break contracts with the other libraries in this project', relevant: ['.claude/agents/specialists/integration-architect.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-pull-request-lifecycle', query: 'managing the full journey of a code contribution from creation through review to merging', relevant: ['.claude/agents/github/pr-manager.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-choose-arrangement', query: 'picking whether my AI workers should be in a flat group or have someone directing traffic', relevant: ['.claude/commands/mastermind/topology.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-write-tests-first-workflow', query: 'making failing checks before writing any real logic then cleaning up after they pass', relevant: ['.claude/commands/mastermind/tdd.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-find-root-cause', query: 'investigating why something broke before attempting any repair', relevant: ['.claude/commands/mastermind/debug.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-write-implementation-roadmap', query: 'creating a step-by-step blueprint from requirements before anyone writes code', relevant: ['.claude/commands/mastermind/plan.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-start-ai-company', query: 'launching a saved group of workers through the newer background process instead of the old way', relevant: ['.claude/commands/mastermind/runorg.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-invoicing-budgets', query: 'tracking money coming in and going out plus making financial forecasts', relevant: ['.claude/commands/mastermind/finance.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-outreach-pipeline', query: 'writing cold emails and managing who responded in a deal funnel', relevant: ['.claude/commands/mastermind/sales.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-blog-newsletter-creation', query: 'writing articles and email updates for an audience', relevant: ['.claude/commands/mastermind/content.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-one-time-org-setup', query: 'priming the boss with context and a signed invitation before the first run', relevant: ['.claude/skills/mastermind-bootstrap/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-archive-org-data', query: 'bundling all the configuration and state files for a group into a timestamped compressed archive', relevant: ['.claude/skills/mastermind-backup/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-recursive-sub-spawning', query: 'the capability block that lets any worker further delegate specialized subtasks of its own', relevant: ['.claude/skills/mastermind-delegation/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-pending-approvals-view', query: 'the single place to see everything waiting for a human decision across all groups', relevant: ['.claude/skills/mastermind-inbox/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-stalled-work-forensics', query: 'investigating why an AI worker stopped making progress and proposing a fix', relevant: ['.claude/skills/mastermind-diagnose/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-ensure-forward-motion', query: 'verifying every active piece of work has a clear next step or explicit blocker', relevant: ['.claude/skills/mastermind-liveness/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-local-task-board', query: 'the P2P SQLite-based project board used for tracking cards with columns and subtasks', relevant: ['.claude/skills/mastermind-monotask/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-forever-polling-executor', query: 'a long-running watcher that picks up new items from issue trackers and assigns them to workers', relevant: ['.claude/skills/mastermind-monitor/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-ascii-hierarchy-picture', query: 'drawing a text-based tree showing who reports to whom in a group', relevant: ['.claude/skills/mastermind-org-chart/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-api-key-vault', query: 'storing and rotating credentials that workers need without exposing them in logs', relevant: ['.claude/skills/mastermind-secrets/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-knowledge-base-pages', query: 'a per-group encyclopedia that ingests sources and answers questions with citations', relevant: ['.claude/skills/mastermind-wiki/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-pause-runaway-work', query: 'stopping a chain of tasks that is spinning out of control without killing everything else', relevant: ['.claude/skills/mastermind-tree-control/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-browser-animation-gsap', query: 'creating moving visuals in the browser controlled by a timeline you can play and pause via an API', relevant: ['.claude/skills/monomotion/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-gemini-browser-images', query: 'generating pictures using a real browser logged into an AI image service with no billing', relevant: ['.claude/skills/monoagent-image/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-technical-writing-workbench', query: 'scaffolding READMEs and checking tone and readability against a style guide', relevant: ['.claude/skills/monodoc/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-hire-pause-workers', query: 'listing who is active in a group and temporarily sidelining or removing individual members', relevant: ['.claude/skills/mastermind-agents/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-cron-recurring-tasks', query: 'scheduling work to happen automatically on a repeating timetable', relevant: ['.claude/skills/mastermind-routines/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-execution-targets', query: 'choosing whether work runs on this machine, a remote server via SSH, or a sandbox', relevant: ['.claude/skills/mastermind-environments/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-install-extensions', query: 'adding third-party add-ons from npm and toggling them on or off', relevant: ['.claude/skills/mastermind-plugin-manager/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-invitation-approval-flow', query: 'sending someone a link to join a group and approving or rejecting their request', relevant: ['.claude/skills/mastermind-invites/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-pending-membership', query: 'reviewing who has asked to join and accepting or turning them away', relevant: ['.claude/skills/mastermind-join-queue/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-user-display-name', query: 'changing my visible name and checking how many tokens I have used', relevant: ['.claude/skills/mastermind-profile/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-fuzzy-cross-org-lookup', query: 'finding items matching a keyword across every group at once', relevant: ['.claude/skills/mastermind-search/SKILL.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-design-smell-catalog', query: 'the full list of fifty-plus visual mistakes the detector engine flags with fixes', relevant: ['packages/@monoes/monodesign/skill/reference/antipatterns-catalog.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-brand-font-selection', query: 'picking a typeface that reflects personality instead of reaching for the first thing that looks clean', relevant: ['packages/@monoes/monodesign/skill/reference/brand.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-mental-effort-assessment', query: 'measuring how much thinking a screen demands and removing the parts that waste attention', relevant: ['packages/@monoes/monodesign/skill/reference/cognitive-load.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-token-based-components', query: 'building reusable interface pieces on top of a shared set of named color and spacing values', relevant: ['packages/@monoes/monodesign/skill/reference/component-system.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-user-archetype-testing', query: 'walking through the interface pretending to be an impatient expert or a confused newcomer', relevant: ['packages/@monoes/monodesign/skill/reference/personas.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-design-director-review', query: 'getting honest prioritized feedback on what is working and what needs to change in the UI', relevant: ['packages/@monoes/monodesign/skill/commands/critique.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-palette-construction', query: 'choosing and applying a set of hues that work in both light and dark mode', relevant: ['packages/@monoes/monodesign/skill/commands/colorize.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-font-hierarchy-scale', query: 'replacing default text sizes with an intentional progression from headings down to captions', relevant: ['packages/@monoes/monodesign/skill/commands/typeset.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-accessibility-compliance', query: 'fixing keyboard navigation gaps and making sure contrast ratios meet the standard', relevant: ['packages/@monoes/monodesign/skill/commands/harden.md'], tags: ['c3-lo'] },
+  { id: 'c3lo-simplify-cluttered-ui', query: 'stripping away elements that do not earn their place on the page', relevant: ['packages/@monoes/monodesign/skill/commands/distill.md'], tags: ['c3-lo'] },
+
+  // ── c3-lo2 expansion (2026-07-28) ────────────────────────────────────
+  //
+  // 150 pairs targeting ONLY .md files, all with very low lexical overlap
+  // against their target documents. Queries use circumlocutions, metaphors,
+  // and user-need framing instead of document vocabulary.
+
+  // -- untouched: commands --
+  { id: 'c3lo2-spark-of-inspiration', query: 'how do I brainstorm a brand new concept and have it evaluated automatically', relevant: ['.claude/commands/mastermind/idea.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-handling-criticism', query: 'what is the right way to respond when someone points out flaws in my pull request', relevant: ['.claude/commands/mastermind/receive-review.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-groundhog-day', query: 'how does the system keep doing the same thing over and over across separate conversations', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/_repeat.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-work-item-anatomy', query: 'what does the structured file look like that describes a unit of work with its lifecycle and prerequisites', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/_taskfile.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-grand-dispatcher', query: 'where does a freeform prompt first land before it gets sent to the right specialist', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/master.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-elephant-never-forgets', query: 'all the different ways I can save and retrieve things the system learned in earlier conversations', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/memory.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-ship-it', query: 'how do I cut a new version and push it out to users with changelog and everything', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/release.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-waking-the-crew', query: 'how do I boot up a saved team of AI workers so they start processing their backlog', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/runorg.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-assembly-line', query: 'how does the system walk through a written blueprint one step at a time using fresh helpers for each piece', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/taskdev.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-robot-clicks-buttons', query: 'how do I make the AI open a webpage and interact with it like a real person would', relevant: ['packages/@monomind/cli/.claude/commands/monobrowse.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (execution/export/finance/finish) --
+  { id: 'c3lo2-follow-the-blueprint', query: 'once a detailed blueprint exists how does the system carry it out step by step stopping on any blocker', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-execute/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-pack-your-bags', query: 'how can I bundle up everything about a team configuration so I can move it to another machine', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-export/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-counting-pennies', query: 'who handles invoices and budget forecasting when the work involves money tracking', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-finance/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-crossing-the-line', query: 'what happens when all the coding is done and I need to decide whether to merge or open a pull request', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-finish/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (goals) --
+  { id: 'c3lo2-zoom-into-ambition', query: 'how do I drill into a single objective to see its children and linked work items', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-goal-detail/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-north-star-tracker', query: 'where do I define what the team is trying to achieve and see how far along each objective is', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-goals/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (heartbeat/idea/import/inbox) --
+  { id: 'c3lo2-old-school-pulse', query: 'in the legacy system how did a sleeping worker wake up and check if there was anything to do', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-heartbeatv1/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-lightbulb-factory', query: 'how does the system generate a bunch of creative concepts then score and break them into actionable pieces', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-idea/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-unpack-suitcase', query: 'how do I restore a previously exported team configuration from an archive file', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-import/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-morning-briefing', query: 'where do I see everything that needs my attention right now across all my teams', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-inbox/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (instance/intake/invites) --
+  { id: 'c3lo2-control-panel-knobs', query: 'how do I change the global admin preferences like authentication and backup retention', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-instance-settings/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-mothership-dashboard', query: 'how do I see a bird-eye view of every running team and their combined resource limits', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-instance/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-twenty-questions', query: 'when I give a vague instruction how does the system figure out what I actually want before starting', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-intake/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-welcome-mat', query: 'what happens when someone clicks an invitation link to join a team as either a person or a bot', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-invite-landing/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-golden-ticket', query: 'how do I create and revoke access tokens that let new members join my group', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-invites/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (issues/join-queue/liveness) --
+  { id: 'c3lo2-magnifying-glass-ticket', query: 'how do I see the full history and conversation around one specific work item including who touched it', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-issue-detail/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-bug-board', query: 'how do I list all open work items filtered by who is responsible and how urgent they are', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-issues/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-velvet-rope', query: 'where do I approve or deny people and bots waiting to be let into the group', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-join-queue/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-stuck-detector', query: 'how does the system notice when a worker has gone silent on something it owns and force a recovery', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-liveness/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (marketing/memory/monitor/monotask) --
+  { id: 'c3lo2-megaphone-crew', query: 'who handles promotional campaigns and content creation when I need to get the word out', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-marketing/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-institutional-wisdom', query: 'how does a team keep its accumulated know-how organized using a notebook-style system with daily entries', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-memory/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-tireless-watchman', query: 'is there something that continuously polls external boards and automatically picks up new items to work on', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-monitor/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-kanban-swiss-army', query: 'what is the local-first board system with columns and cards that supports subtasks and prerequisite chains', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-monotask/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (my-issues/new-agent/ops/org-chart) --
+  { id: 'c3lo2-my-plate', query: 'how do I see only the work items that are currently assigned to me personally', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-my-issues/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-hiring-a-new-bot', query: 'how do I add a brand new AI worker to my team with a specific role and model preference', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-new-agent/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-behind-the-curtain', query: 'who handles the operational side like automating workflows and generating reports', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-ops/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-family-tree', query: 'how do I visualize who reports to whom in my AI team as a text diagram', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-org-chart/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (org-settings/orgs/orgstatus) --
+  { id: 'c3lo2-rename-the-band', query: 'how do I change the name or configuration fields of an existing team setup', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-org-settings/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-roster-overview', query: 'how do I see all my saved AI teams and whether each one is currently active or idle', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-orgs/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-health-checkup', query: 'how do I get a detailed breakdown of one specific team showing its budget and pending approvals', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-orgstatus/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (plan-to-tasks/plan/plugins) --
+  { id: 'c3lo2-blueprint-to-tickets', query: 'how do I turn a written document into a set of assigned work items with dependency ordering', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plan-to-tasks/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-battle-plan', query: 'how do I write a thorough step-by-step implementation document with exact file paths and no placeholders', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plan/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-app-store', query: 'how do I add or remove third-party extensions and check if newer versions are available', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plugin-manager/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-extension-knobs', query: 'how do I configure an installed add-on and control which folders it can read or write', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plugin-settings/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-toolbox-extras', query: 'how do I browse what third-party additions are installed and toggle them on or off per team', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-plugins/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (profile/project-detail/project-workspace/projects) --
+  { id: 'c3lo2-who-am-i', query: 'where do I change my display name and see how much work I have completed across all teams', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-profile/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-project-deep-dive', query: 'how do I inspect a single initiative to see its budget rules and linked workspaces', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-project-detail/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-sandbox-wiring', query: 'how do I configure the git repo and branch that a particular initiative uses for its isolated coding area', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-project-workspace/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-project-cabinet', query: 'how do I create scoped work areas within a team and assign a lead to each one', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-projects/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (protocol/receive-review/release/repeat) --
+  { id: 'c3lo2-shared-grammar', query: 'what are the common rules every domain specialist follows for loading context and formatting output', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-protocol/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-taking-notes-from-critics', query: 'what is the correct posture when someone hands back a reviewed piece of work with requested changes', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-receive-review/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-launch-day', query: 'who coordinates the pipeline from version bump through testing to final deployment', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-release/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-alarm-clock', query: 'how does the system schedule itself to wake up and continue where it left off in a loop', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-repeat/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (research/review/routine-detail/routines) --
+  { id: 'c3lo2-intelligence-gathering', query: 'how do I get a comprehensive report on competitors and market trends using multiple parallel investigators', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-research/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-peer-examination', query: 'how do I get code and content checked from multiple angles with optional auto-fixing', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-review/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-clockwork-innards', query: 'how do I inspect the trigger schedule and run history of one specific recurring job', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-routine-detail/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-cron-butler', query: 'how do I set up a job that runs at a fixed interval with rules for what happens when it overlaps', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-routines/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (runorg/runorgv1/sales) --
+  { id: 'c3lo2-flip-the-switch', query: 'what is the procedure to activate a saved AI crew using the new daemon-based backend', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-runorg/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-old-engine', query: 'how did the original prompt-based orchestrator coordinate roles before the daemon existed', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-runorgv1/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-closing-deals', query: 'who writes outreach sequences and proposals when I need help with revenue generation', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-sales/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (search/secrets/skill-builder/skills) --
+  { id: 'c3lo2-needle-in-haystack', query: 'how do I find a specific item across all teams when I only remember part of its name', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-search/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-vault-keeper', query: 'how do I safely store and rotate API credentials that my AI workers need without exposing them', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-secrets/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-teaching-new-tricks', query: 'how do I create a brand new capability using a test-first approach that catches reasoning shortcuts', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-skill-builder/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-talent-inventory', query: 'how do I see which capabilities are available and toggle them per role in my team', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-skills/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (stoporg/tasks/tdd/techport) --
+  { id: 'c3lo2-pull-the-plug', query: 'how do I gracefully shut down a running AI team so it stops consuming resources', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-stoporg/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-card-shuffler', query: 'how do I move work items between columns and chain them with parent-child relationships', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tasks/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-write-the-exam-first', query: 'what is the strict discipline where you must have a failing check before writing any real code', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tdd/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-transplant-surgery', query: 'how do I analyze a foreign codebase and safely bring its best parts into this project with proper renaming', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-techport/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (threads/tree-control/verify/wiki) --
+  { id: 'c3lo2-conversation-trail', query: 'where are the ongoing discussions stored and how do I reply to one within a specific team', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-threads/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-emergency-brake', query: 'how do I pause a runaway chain of subtasks and optionally cancel the whole branch', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tree-control/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-show-your-receipts', query: 'what enforces that every completion claim must be backed by fresh terminal output as proof', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-verify/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-team-encyclopedia', query: 'where does the team keep its synthesized knowledge pages with citations and raw source material', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-wiki/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- untouched: skills (workspace-detail/workspaces/worktree/monomotion) --
+  { id: 'c3lo2-sandbox-inspector', query: 'how do I see the services and logs running inside one specific isolated coding environment', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-workspace-detail/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-parallel-sandboxes', query: 'how do I manage multiple isolated git branches where different workers do their coding', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-workspaces/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-clean-room', query: 'how do I set up a fresh isolated copy of the repo for a feature so it does not interfere with main', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-worktree/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-moving-pictures', query: 'how do I create timeline-driven web animations with playback control and scene labels', relevant: ['packages/@monomind/cli/.claude/skills/monomotion/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- touched: agents (diverse selection) --
+  { id: 'c3lo2-traffic-cop', query: 'who decides which helper tackles which piece of the puzzle and keeps everyone aligned', relevant: ['.claude/agents/core/coordinator.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-pixel-perfectionist', query: 'who handles everything visual from color palettes to component layouts and accessibility audits', relevant: ['.claude/agents/design/design-monodesign.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-fortress-builder', query: 'who performs threat modeling and vulnerability assessment to keep the app safe', relevant: ['.claude/agents/engineering/engineering-security-engineer.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-pathfinder', query: 'who uses gaming AI techniques to find the best sequence of actions toward a complex objective', relevant: ['.claude/agents/goal/goal-planner.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-knowledge-gardener', query: 'who distills findings from many helpers into shared long-term wisdom that others can read', relevant: ['.claude/agents/hive-mind/collective-intelligence-coordinator.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-tool-factory', query: 'who creates custom protocol extensions that give AI helpers new capabilities', relevant: ['.claude/agents/specialized/specialized-mcp-builder.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-bridge-builder', query: 'who ensures all the separate packages in the monorepo stay wired together correctly', relevant: ['.claude/agents/specialists/integration-architect.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-jury-panel', query: 'how does a group of reviewers simultaneously evaluate a proposed change from different angles', relevant: ['.claude/agents/github/code-review-swarm.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-starter-template', query: 'where is the boilerplate definition for setting up a new group of coordinated workers', relevant: ['.claude/agents/templates/coordinator-swarm-init.md'], tags: ['c3-lo2'] },
+
+  // -- touched: doc --
+  { id: 'c3lo2-guardrails', query: 'what are the four checkpoints that prevent harmful actions before they reach the filesystem', relevant: ['doc/adrs/ADR-G004-four-enforcement-gates.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-big-news', query: 'what changed in the mid-2026 major update and why should users care', relevant: ['doc/announcements/2026-07-18-v2.5-announcement.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-tripwires', query: 'how does the system run custom logic before or after specific events like editing or saving', relevant: ['doc/concepts/hooks.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-brain-anatomy', query: 'all the different places this tool keeps things it learned between conversations', relevant: ['doc/concepts/memory.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-team-engine', query: 'how does the daemon-based system actually orchestrate multiple AI workers in the background', relevant: ['doc/concepts/org-runtime.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-ant-colony', query: 'how do many autonomous workers coordinate on a shared goal using different network shapes', relevant: ['doc/concepts/swarm.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-constitution', query: 'where are the top-level behavioral rules and package architecture documented for the whole project', relevant: ['CLAUDE.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-front-door', query: 'where is the first thing a newcomer reads to understand what this project does and how to get started', relevant: ['README.md'], tags: ['c3-lo2'] },
+
+  // -- touched: monodesign references (select) --
+  { id: 'c3lo2-hall-of-shame', query: 'what is the catalog of common UI mistakes and how they get scored for severity', relevant: ['packages/@monoes/monodesign/skill/reference/antipatterns-catalog.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-brain-overload', query: 'how do you measure and reduce the mental effort a user has to spend understanding an interface', relevant: ['packages/@monoes/monodesign/skill/reference/cognitive-load.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-lego-bricks', query: 'how do you organize reusable UI building blocks into a coherent library with variants and slots', relevant: ['packages/@monoes/monodesign/skill/reference/component-system.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-font-rules', query: 'how do you pick and pair typefaces and set the vertical rhythm for readable text', relevant: ['packages/@monoes/monodesign/skill/reference/typography.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-words-that-guide', query: 'what are the rules for writing interface labels and error messages that feel human and helpful', relevant: ['packages/@monoes/monodesign/skill/reference/ux-writing.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-named-values', query: 'how do you organize the named constants for colors spacing and sizing into a layered system', relevant: ['packages/@monoes/monodesign/skill/reference/token-architecture.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-imaginary-users', query: 'where are the fictional representative people defined that guide product decisions', relevant: ['packages/@monoes/monodesign/skill/reference/personas.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-picture-recipes', query: 'how do you write text descriptions that produce consistent visuals for hero graphics and illustrations', relevant: ['packages/@monoes/monodesign/skill/reference/image-prompts.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-tear-it-apart', query: 'how do I get a structured evaluation of what is wrong with my current page layout', relevant: ['packages/@monoes/monodesign/skill/commands/critique.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-visual-brain-source', query: 'where is the master definition that powers all the aesthetic and usability intelligence', relevant: ['packages/@monoes/monodesign/skill/SKILL.src.md'], tags: ['c3-lo2'] },
+
+  // -- touched: monomotion rules --
+  { id: 'c3lo2-parallax-magic', query: 'what rules govern animations that trigger as the user scrolls down the page', relevant: ['.claude/skills/monomotion/rules/scroll.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-dancing-letters', query: 'how do I make words and characters appear with staggered entrance effects', relevant: ['.claude/skills/monomotion/rules/text.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-drawing-itself', query: 'how do I animate vector graphics so lines appear to draw themselves on screen', relevant: ['.claude/skills/monomotion/rules/svg.md'], tags: ['c3-lo2'] },
+
+  // -- touched: standalone skills --
+  { id: 'c3lo2-headless-visitor', query: 'how do I have the AI visit a live webpage and verify elements are present without manual clicking', relevant: ['.claude/skills/agent-browser-testing/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-auto-docs', query: 'how do I automatically generate written explanations for my codebase', relevant: ['.claude/skills/monodoc/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- touched: commands --
+  { id: 'c3lo2-network-shape-picker', query: 'how do I choose the best arrangement of workers for my particular kind of project', relevant: ['.claude/commands/mastermind/topology.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-detective-work', query: 'how do I systematically track down why something broke using structured investigation', relevant: ['.claude/commands/mastermind/debug.md'], tags: ['c3-lo2'] },
+
+  // -- touched: root skills --
+  { id: 'c3lo2-hands-free-coding', query: 'how do I have the system autonomously pick up work items and implement them without me steering', relevant: ['.claude/skills/mastermind-autodev/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-task-handoff', query: 'how does work get distributed to the right specialist based on what the job requires', relevant: ['.claude/skills/mastermind-delegation/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-system-doctor', query: 'how do I figure out what is wrong when the whole setup feels sluggish or broken', relevant: ['.claude/skills/mastermind-diagnose/SKILL.md'], tags: ['c3-lo2'] },
+
+  // -- touched: CLI package skills --
+  { id: 'c3lo2-fat-trimmer', query: 'how do I identify and remove unnecessary complexity and bloat from the codebase', relevant: ['packages/@monomind/cli/.claude/skills/monolean/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-prose-diet', query: 'how do I catch and fix AI-generated text that sounds hollow and uses too many filler phrases', relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-banned-words', query: 'where is the list of overused expressions that should be replaced with plainer language', relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/phrases.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-coding-buddy', query: 'how do I work side by side with the AI in a collaborative back-and-forth coding session', relevant: ['packages/@monomind/cli/.claude/skills/pair-programming/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-conductor-baton', query: 'how do I coordinate a group of parallel AI workers with shared state and checkpoints', relevant: ['packages/@monomind/cli/.claude/skills/swarm-orchestration/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-sorting-hat', query: 'how does the system automatically categorize and prioritize incoming bug reports', relevant: ['packages/@monomind/cli/.claude/skills/github-issue-triage/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-collective-brain', query: 'how do multiple autonomous helpers pool their findings into a shared understanding', relevant: ['packages/@monomind/cli/.claude/skills/hive-mind-advanced/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-auto-wiring', query: 'how do I set up automatic actions that fire in response to specific lifecycle events', relevant: ['packages/@monomind/cli/.claude/skills/hooks-automation/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-web-surfer', query: 'how does the AI navigate real websites using the Chrome DevTools protocol under the hood', relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse.md'], tags: ['c3-lo2'] },
+
+  // -- touched: github templates --
+  { id: 'c3lo2-something-broke', query: 'what information should I include when reporting that something is not working correctly', relevant: ['.github/ISSUE_TEMPLATE/bug_report.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-what-changed-when', query: 'where is the chronological record of every notable modification across all versions', relevant: ['CHANGELOG.md'], tags: ['c3-lo2'] },
+
+  // -- touched: misc skills and references --
+  { id: 'c3lo2-mind-tricks', query: 'what psychological principles make people more likely to say yes to an offer', relevant: ['.claude/skills/mastermind-marketing/references/persuasion-psychology.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-worker-bee-brief', query: 'what instructions does the fresh helper receive before it starts writing the actual code', relevant: ['.claude/skills/mastermind-taskdev/implementer-prompt.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-hollow-scaffolding', query: 'what are the common document shapes and paragraph patterns that signal empty filler content', relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/structures.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-chat-navigator', query: 'how do I have the AI read and interact with a team messaging workspace in the cloud', relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-slack.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-deployment-dashboard', query: 'how do I have the AI check on my hosted web application through the hosting provider portal', relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-vercel.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-grading-rubric', query: 'how does the system assign numerical scores to usability and aesthetic quality of a page', relevant: ['packages/@monoes/monodesign/skill/reference/heuristics-scoring.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-custom-expert', query: 'how do I define a one-off specialist with a narrow focus area for a very specific job', relevant: ['packages/@monomind/cli/.claude/skills/specialagent/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-golden-rules', query: 'what are the non-negotiable usability principles that every screen must satisfy', relevant: ['packages/@monoes/monodesign/skill/reference/ux-rules.md'], tags: ['c3-lo2'] },
+
+  // -- additional touched pairs for count target --
+  { id: 'c3lo2-the-typist', query: 'which specialist actually writes the source files when implementation work needs doing', relevant: ['.claude/agents/core/coder.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-red-pen', query: 'who gives the final critical read before changes are accepted into the main branch', relevant: ['.claude/agents/core/reviewer.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-quality-gate', query: 'which specialist writes and runs the automated checks that prove the code actually works', relevant: ['.claude/agents/core/tester.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-pipeline-plumber', query: 'who sets up the continuous integration and cloud infrastructure automation', relevant: ['.claude/agents/engineering/engineering-devops-automator.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-word-smith', query: 'who transforms complex engineering concepts into clear docs that developers can actually follow', relevant: ['.claude/agents/engineering/engineering-technical-writer.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-gatekeeper', query: 'who handles the lifecycle of proposed changes from opening through review to merging', relevant: ['.claude/agents/github/pr-manager.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-flat-hierarchy', query: 'who coordinates peer-level helpers that share state without a single boss directing them', relevant: ['.claude/agents/swarm/mesh-coordinator.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-zombie-process', query: 'why does the neural network runtime need to run in a separate child process that gets killed on exit', relevant: ['doc/adrs/ADR-R001-onnxruntime-process-teardown.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-bottom-bar', query: 'what is the persistent information strip at the bottom of the terminal showing current state', relevant: ['doc/concepts/statusline.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-readability-ratios', query: 'what are the rules for making sure text and backgrounds have enough difference to be legible', relevant: ['packages/@monoes/monodesign/skill/reference/color-and-contrast.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-choreography', query: 'what guidelines govern how interface elements move and transition to feel natural and purposeful', relevant: ['packages/@monoes/monodesign/skill/reference/motion-design.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-stretchy-layouts', query: 'how does the interface adapt gracefully from a tiny phone screen to a wide desktop monitor', relevant: ['packages/@monoes/monodesign/skill/reference/responsive-design.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-visual-sparkle', query: 'what are the available visual flourishes like particle bursts and glowing halos', relevant: ['.claude/skills/monomotion/rules/effects.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-choreograph-order', query: 'how do I control which animations play first and which ones overlap in time', relevant: ['.claude/skills/monomotion/rules/sequencing.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-picture-generator', query: 'how do I create actual images from text descriptions rather than just writing the specs', relevant: ['.claude/skills/monoagent-image/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-construction-foreman', query: 'how do I kick off the actual construction phase after the plan has been written', relevant: ['.claude/commands/mastermind/build.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-waste-scanner', query: 'how do I get a report on dead code and unused dependencies that are adding weight', relevant: ['packages/@monomind/cli/.claude/skills/monolean-audit/SKILL.md'], tags: ['c3-lo2'] },
+  { id: 'c3lo2-proof-standards', query: 'what constitutes sufficient evidence that a change works before it can be called done', relevant: ['packages/@monomind/cli/.claude/skills/verification-quality/SKILL.md'], tags: ['c3-lo2'] },
 );

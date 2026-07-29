@@ -7,6 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 
 // ADR-053: Lazy import of SQLite-backed memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
@@ -143,7 +144,7 @@ export async function getHNSWIndex(options?: {
   dimensions?: number;
   forceRebuild?: boolean;
 }): Promise<HNSWIndex | null> {
-  const dimensions = options?.dimensions ?? 384;
+  const dimensions = options?.dimensions ?? BRIDGE_EMBEDDING_DIMS;
 
   // Return existing index if already initialized for the same dimensionality.
   // A cached index built for a different embedding size must be rebuilt —
@@ -310,7 +311,7 @@ export function getHNSWStatus(): {
       available: true,
       initialized: true,
       entryCount: hnswIndex?.entries.size ?? 0,
-      dimensions: hnswIndex?.dimensions ?? 384
+      dimensions: hnswIndex?.dimensions ?? BRIDGE_EMBEDDING_DIMS
     };
   }
 
@@ -318,7 +319,7 @@ export function getHNSWStatus(): {
     available: hnswIndex !== null,
     initialized: hnswIndex?.initialized ?? false,
     entryCount: hnswIndex?.entries.size ?? 0,
-    dimensions: hnswIndex?.dimensions ?? 384
+    dimensions: hnswIndex?.dimensions ?? BRIDGE_EMBEDDING_DIMS
   };
 }
 

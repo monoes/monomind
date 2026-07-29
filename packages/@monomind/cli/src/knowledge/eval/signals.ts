@@ -34,7 +34,7 @@ export interface PreRegisteredSignal {
   /** One sentence, in words, of what is claimed. */
   claim: string;
   /** Dotted path into the eval report, e.g.
-   *  'results.dense-only (MiniLM-L6-v2).scoreboard.recallAt5'. */
+   *  'results.dense-only (gte-modernbert-base).scoreboard.recallAt5'. */
   metric: string;
   direction: 'increase' | 'decrease' | 'no-worse-than';
   /** Declared before measuring. Compared against the CI half-width at scoring
@@ -108,7 +108,7 @@ export function readMetric(report: unknown, dotted: string): number | null {
     return cur;
   };
   const parts = dotted.split('.');
-  // Greedy re-join: metric keys like "dense-only (MiniLM-L6-v2)" contain no dots
+  // Greedy re-join: metric keys like "dense-only (gte-modernbert-base)" contain no dots
   // today, but model names routinely do (e.g. all-MiniLM-L6-v2.1).
   for (let join = 1; join <= parts.length; join++) {
     for (let start = 0; start + join <= parts.length; start++) {
@@ -202,7 +202,7 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
            'The enrichment gives chunks vocabulary a forgetful user\'s query might match — ' +
            '"Code Implementation Agent" surfaces when the user asks about "the coder" even if ' +
            'the chunk text only says "Memory Coordination".',
-    metric: 'results.dense-only (MiniLM-L6-v2).terciles.low.recallAt5',
+    metric: 'results.dense-only (gte-modernbert-base).terciles.low.recallAt5',
     direction: 'increase',
     // Conservative: literature reports ~35% failure reduction with LLM-generated context;
     // our zero-LLM version is weaker, but 75.8% of chunks get meaningfully different
@@ -226,7 +226,7 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
            'That tercile is the only place dense retrieval currently beats BM25 (0.500 vs ' +
            '0.182 at baseline), and it is the closest proxy we have to real user queries. ' +
            'A fusion that raises the aggregate by flattening it is a regression sold as a win.',
-    metric: 'results.dense-only (MiniLM-L6-v2).terciles.low.recallAt5',
+    metric: 'results.dense-only (gte-modernbert-base).terciles.low.recallAt5',
     direction: 'no-worse-than',
     expectedMagnitude: 0.0,
     visibleIn: ['fresh', 'eval-fixture'],

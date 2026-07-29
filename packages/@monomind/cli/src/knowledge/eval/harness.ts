@@ -346,11 +346,12 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
 
     // ── 6. Retrievers ──────────────────────────────────────────────
     const denseRetriever = new FnRetriever(
-      'dense-only (MiniLM-L6-v2)',
+      'dense-only (gte-modernbert-base)',
       'The current shipping stack: searchKnowledge over the local vector store',
       async (query, limit): Promise<RawHit[]> => {
         const hits = await pipeline.searchKnowledge(query, {
           limit, minScore: 0.0, store: 'global', rootDir: storeDir, includeSuperseded: false,
+          skipRerank: true,  // isolate dense-only baseline from the reranker
         });
         return hits.map(h => ({
           docId: path.relative(repoRoot, h.filePath),
@@ -370,6 +371,43 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
     const RRF_K_SWEEP = [10, 20, 40, 60, 100] as const;
     for (const rrfK of RRF_K_SWEEP) {
       retrievers.push(new RrfRetriever([denseRetriever, bm25Retriever], rrfK));
+    }
+
+    // ── 6b. Reranked retriever (ettin-32m cross-encoder) ──────────
+    // Pre-load the reranker BEFORE the network guard goes up, so the model
+    // download happens while we still have connectivity.
+    let rerankerLoaded = false;
+    if (process.env.MONOMIND_RERANKER !== '0') {
+      try {
+        const bridge = await import('../../memory/memory-bridge.js');
+        await bridge.loadReranker();
+        rerankerLoaded = true;
+        progress('reranker loaded: cross-encoder/ettin-reranker-32m-v1');
+      } catch (e) {
+        progress(`reranker failed to load — skipping reranked retriever: ${e}`);
+      }
+    }
+    if (rerankerLoaded) {
+      // The reranked retriever uses the same searchKnowledge path but with
+      // the reranker active (it was pre-loaded above). The dense-only
+      // retriever is kept WITHOUT reranking (skipRerank) for comparison.
+      const rerankedRetriever = new FnRetriever(
+        'dense+rerank (ettin-32m)',
+        'Dense retrieval + cross-encoder reranking via ettin-reranker-32m-v1',
+        async (query, limit): Promise<RawHit[]> => {
+          // searchKnowledge flows through bridgeSearchEntries which auto-reranks
+          // when the reranker is loaded. Over-retrieval happens inside.
+          const hits = await pipeline.searchKnowledge(query, {
+            limit, minScore: 0.0, store: 'global', rootDir: storeDir, includeSuperseded: false,
+          });
+          return hits.map(h => ({
+            docId: path.relative(repoRoot, h.filePath),
+            chunkIndex: h.chunkIndex,
+            score: h.similarity,
+          }));
+        },
+      );
+      retrievers.push(rerankedRetriever);
     }
 
     // ── 7. Query phase, network blocked ────────────────────────────
@@ -469,7 +507,7 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
         pairsScored: scored.length,
         pairsDroppedTrivial: dropped.length,
         relevancePinnedToLiveDocs: true,
-        embeddingModel: 'Xenova/all-MiniLM-L6-v2 (384d, local)',
+        embeddingModel: 'Alibaba-NLP/gte-modernbert-base (768d, q8, local)',
         dbDriver: detectDbDriver(),
         searchMethodProbe,
         modelPresence,

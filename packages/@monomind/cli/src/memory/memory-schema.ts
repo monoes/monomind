@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS vector_indexes (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  dimensions INTEGER NOT NULL DEFAULT 384,
+  dimensions INTEGER NOT NULL DEFAULT 768,
   hnsw_m INTEGER DEFAULT 16,
   hnsw_ef_construction INTEGER DEFAULT 200,
   entry_count INTEGER DEFAULT 0,

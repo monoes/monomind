@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { cosineSimilarity as sharedCosineSimilarity } from '../utils/cosine-similarity.js';
 import { readJsonFileSync, writeJsonFileAtomic } from '../utils/json-file.js';
+import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 
 // ============================================================================
 // Persistence Configuration
@@ -1301,7 +1302,7 @@ export function benchmarkAdaptation(iterations: number = 1000): {
   const safeIterations = Math.min(Math.max(1, iterations >>> 0), 100_000);
 
   const times: number[] = [];
-  const testEmbedding = Array.from({ length: 384 }, () => Math.random());
+  const testEmbedding = Array.from({ length: BRIDGE_EMBEDDING_DIMS }, () => Math.random());
 
   for (let i = 0; i < safeIterations; i++) {
     const start = performance.now();

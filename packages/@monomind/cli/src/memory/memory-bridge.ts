@@ -36,8 +36,8 @@ export function safeParseEmbedding(raw: string | null | undefined): number[] | n
 
 // ===== Constants =====
 
-const BRIDGE_EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
-const BRIDGE_EMBEDDING_DIMS = 384;
+export const BRIDGE_EMBEDDING_MODEL = 'Alibaba-NLP/gte-modernbert-base';
+export const BRIDGE_EMBEDDING_DIMS = 768;
 const BRIDGE_MAX_KEY_LEN = 4 * 1024;
 const BRIDGE_MAX_VALUE_LEN = 1024 * 1024;
 const MAX_TAGS = 32;
@@ -230,6 +230,76 @@ let _embedder: ((text: string) => Promise<Float32Array>) | null = null;
 let _embedderPromise: Promise<void> | null = null;
 const MAX_INIT_ATTEMPTS = 3;
 
+// ===== Lazy cross-encoder reranker (ettin-32m) =====
+//
+// Same ORT constraints as the embedder (ADR-R001). Loaded only when the first
+// search with >1 candidate completes — never on store, never on startup.
+// Disabled with MONOMIND_RERANKER=0.
+
+export const BRIDGE_RERANKER_MODEL = 'cross-encoder/ettin-reranker-32m-v1';
+
+let _reranker: ((query: string, passage: string) => Promise<number>) | null = null;
+let _rerankerPromise: Promise<void> | null = null;
+
+/** Pre-load the cross-encoder reranker model. Idempotent, no-op when
+ *  MONOMIND_RERANKER=0. Exported so the eval harness can force-load before
+ *  the network guard blocks model downloads. */
+export async function loadReranker(): Promise<void> {
+  if (_reranker) return;
+  if (process.env.MONOMIND_RERANKER === '0') return;
+  if (!_rerankerPromise) {
+    _rerankerPromise = (async () => {
+      try {
+        const hf = await import('@huggingface/transformers' as string);
+        const classifier = await (hf as any).pipeline(
+          'text-classification',
+          BRIDGE_RERANKER_MODEL,
+          { revision: 'main', dtype: 'q8', local_files_only: true },
+        );
+        _reranker = async (query: string, passage: string) => {
+          const out = await classifier({ text: query, text_pair: passage }, { top_k: null });
+          // Cross-encoder: out = [{label:'LABEL_0',score:0.1},{label:'LABEL_1',score:0.9}]
+          // We want LABEL_1 (relevant) score, not the highest-confidence label.
+          const arr = Array.isArray(out) ? out : [out];
+          const pos = arr.find((x: any) => x.label === 'LABEL_1') ?? arr[arr.length - 1];
+          return pos?.score ?? 0;
+        };
+      } catch (e) {
+        _rerankerPromise = null; // allow retry
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] reranker failed to load:', e);
+      }
+    })();
+  }
+  await _rerankerPromise;
+}
+
+/** Rerank an array of results using the cross-encoder. Mutates nothing; returns
+ *  a new sorted array with reranker scores in provenance. */
+async function rerankResults(
+  query: string,
+  results: any[],
+  limit: number,
+): Promise<{ reranked: any[]; applied: boolean }> {
+  if (!_reranker || results.length <= 1) return { reranked: results, applied: false };
+  try {
+    const scored = await Promise.all(
+      results.map(async (r) => {
+        const rerankerScore = await _reranker!(query, r.content || '');
+        return {
+          ...r,
+          score: rerankerScore,
+          provenance: `${r.provenance ?? ''}→rerank:${rerankerScore.toFixed(3)}`,
+        };
+      }),
+    );
+    scored.sort((a, b) => b.score - a.score);
+    return { reranked: scored.slice(0, limit), applied: true };
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] reranking failed — returning original order:', e);
+    return { reranked: results, applied: false };
+  }
+}
+
 /** Flush after mutations: the sql.js fallback backend is in-memory WASM and
  *  only reaches disk via persist(); the CLI process is short-lived, so waiting
  *  for an auto-persist interval would lose writes. No-op on better-sqlite3. */
@@ -259,9 +329,9 @@ async function loadEmbedder(): Promise<void> {
         // silently killed embeddings (every search degraded to keyword matching)
         // dtype pinned explicitly: transformers.js logs a "dtype not specified"
         // warning to the console on every load otherwise (leaks into CLI output).
-        const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main', dtype: 'fp32' });
+        const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main', dtype: 'q8', local_files_only: true });
         _embedder = async (text: string) => {
-          const output = await extractor(text, { pooling: 'mean', normalize: true });
+          const output = await extractor(text, { pooling: 'cls', normalize: true });
           return new Float32Array(output.data);
         };
       } catch (e) {
@@ -476,6 +546,8 @@ export async function bridgeSearchEntries(options: {
   limit?: number;
   threshold?: number;
   dbPath?: string;
+  /** Skip cross-encoder reranking even if the model is loaded. */
+  skipRerank?: boolean;
 }): Promise<{
   success: boolean;
   results: {
@@ -491,6 +563,8 @@ export async function bridgeSearchEntries(options: {
   /** What actually ran, never what was requested. 'keyword-fallback' means the
    *  vector path was attempted and did not produce the results. */
   searchMethod?: 'semantic' | 'keyword' | 'keyword-fallback';
+  /** Whether a cross-encoder reranker was applied to the final results. */
+  reranked?: boolean;
   /** Why the vector path did not serve these results (absent when it did). */
   fallbackReason?: 'no-embedding-model' | 'empty-query' | 'embedding-failed' | 'no-semantic-matches';
   error?: string;
@@ -503,6 +577,11 @@ export async function bridgeSearchEntries(options: {
     // CLI callers pass 'all' as a no-filter sentinel — never treat it as a literal namespace
     const namespace = options.namespace && options.namespace !== 'all' ? options.namespace : undefined;
     const startTime = Date.now();
+
+    // Over-retrieve when the reranker is available: fetch more candidates so the
+    // cross-encoder can reshuffle them. The reranker trims back to `limit`.
+    const rerankerActive = !options.skipRerank && _reranker !== null && process.env.MONOMIND_RERANKER !== '0';
+    const retrieveK = rerankerActive ? Math.min(limit * 3, 20) : limit;
 
     let results: any[] = [];
     let searchMethod: 'semantic' | 'keyword' | 'keyword-fallback' = 'keyword';
@@ -520,7 +599,7 @@ export async function bridgeSearchEntries(options: {
       try {
         const queryEmbedding = await _embedder(queryStr);
         const searchResults = await backend.search(queryEmbedding, {
-          k: limit,
+          k: retrieveK,
           threshold,
           filters: namespace ? { type: 'exact', namespace } : undefined,
         });
@@ -549,23 +628,20 @@ export async function bridgeSearchEntries(options: {
       }
     }
 
-    // Keyword fallback — scan all entries in namespace (not just first 100)
-    // to avoid missing documents that were ingested later in the batch.
-    if (results.length === 0) {
-      // No namespace filter means ALL namespaces — collapsing to 'default'
-      // made "search everything" silently miss every non-default entry.
+    // Keyword search — always runs (not just as a fallback).
+    // Entries stored without embeddings are invisible to the vector path,
+    // so keyword results are merged into semantic results (union, deduplicated
+    // by key) to ensure every findable entry surfaces regardless of whether
+    // it has an embedding.  Semantic hits take priority on score.
+    {
       const entries = await backend.query({
         type: 'exact',
         ...(namespace ? { namespace } : {}),
         limit: 50000,
       });
-      // Token-based matching, not whole-phrase substring: "semantic test" must
-      // match an entry keyed "semantic-test" (the old .includes(query) required
-      // the exact phrase — including its whitespace — to appear verbatim).
-      // Score = fraction of query tokens present in key+content.
       const tokens = queryStr.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 1);
       if (tokens.length) {
-        results = entries
+        const keywordHits = entries
           .map((e: any) => {
             const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();
             const hits = tokens.filter(t => haystack.includes(t)).length;
@@ -579,20 +655,33 @@ export async function bridgeSearchEntries(options: {
             key: e.key,
             content: e.content || '',
             // Raw token-overlap fraction, NOT rescaled to look like a cosine.
-            // The old `min(0.9, 0.3 + score*0.6)` floor/ceiling made a weak
-            // keyword hit outrank a genuine cosine match (0.90 vs 0.63 for the
-            // same entry) and fed cosine-calibrated gates (memory-kg dedup)
-            // scores that never came from a vector.
             score,
             namespace: e.namespace,
             provenance: `keyword:${score.toFixed(2)}`,
             tags: e.tags ?? [],
             _createdAt: e.createdAt || 0,
           }));
+
+        if (results.length === 0) {
+          // No semantic results — keyword is all we have.
+          results = keywordHits;
+          searchMethod = semanticAttempted ? 'keyword-fallback' : 'keyword';
+          if (semanticAttempted && !fallbackReason) fallbackReason = 'no-semantic-matches';
+        } else {
+          // Merge: union deduplicated by key, semantic wins on duplicates.
+          const seenKeys = new Set(results.map((r: any) => r.key));
+          const extras = keywordHits.filter((kh: any) => !seenKeys.has(kh.key));
+          if (extras.length) {
+            results = [...results, ...extras];
+            // searchMethod stays 'semantic' — the primary path succeeded;
+            // keyword only supplemented entries that lacked embeddings.
+          }
+        }
+      } else if (results.length === 0) {
+        // Empty token list AND no semantic results — nothing to search.
+        searchMethod = semanticAttempted ? 'keyword-fallback' : 'keyword';
+        if (semanticAttempted && !fallbackReason) fallbackReason = 'no-semantic-matches';
       }
-      // The vector path ran and simply matched nothing — still not semantic.
-      searchMethod = semanticAttempted ? 'keyword-fallback' : 'keyword';
-      if (semanticAttempted && !fallbackReason) fallbackReason = 'no-semantic-matches';
     }
 
     // Filter stale entries based on automem config — skip for knowledge
@@ -614,11 +703,29 @@ export async function bridgeSearchEntries(options: {
     }
     results.forEach((r: any) => delete r._createdAt);
 
+    // ── Cross-encoder reranking ──────────────────────────────────────
+    // Fires only when: reranker loaded, >1 result, not explicitly skipped.
+    // Lazy-load on first qualifying search so startup stays fast.
+    let reranked = false;
+    if (!options.skipRerank && process.env.MONOMIND_RERANKER !== '0' && results.length > 1) {
+      if (!_reranker && !_rerankerPromise) {
+        // First qualifying search — kick off the lazy load. This search
+        // proceeds without reranking; the NEXT search will use it.
+        loadReranker().catch(() => { /* swallowed — retry next time */ });
+      }
+      if (_reranker) {
+        const rr = await rerankResults(queryStr, results, limit);
+        results = rr.reranked;
+        reranked = rr.applied;
+      }
+    }
+
     return {
       success: true,
       results,
       searchTime: Date.now() - startTime,
       searchMethod,
+      reranked,
       ...(searchMethod === 'semantic' ? {} : { fallbackReason }),
     };
   } catch {
@@ -937,6 +1044,8 @@ export async function shutdownBridge(): Promise<void> {
   backendSlots.clear();
   _embedder = null;
   _embedderPromise = null;
+  _reranker = null;
+  _rerankerPromise = null;
 }
 
 // ===== Pattern store =====
