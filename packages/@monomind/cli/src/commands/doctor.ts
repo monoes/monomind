@@ -20,6 +20,7 @@ import {
   checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, fixGitignoreCoverage,
   checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
   checkSecondBrainModel, checkMemoryKnowledgeGraph,
+  checkAppleDoubleSidecars, fixAppleDoubleSidecars,
 } from './doctor-project-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 
@@ -82,7 +83,7 @@ export const doctorCommand: Command = {
       checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
       checkGuidanceGates, checkAgentRegistry, checkGit, checkApiKeys,
       checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
-      checkSecondBrainModel, checkMemoryKnowledgeGraph,
+      checkSecondBrainModel, checkMemoryKnowledgeGraph, checkAppleDoubleSidecars,
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
       checkGitRepo, checkMcpServers,
@@ -99,6 +100,7 @@ export const doctorCommand: Command = {
       config: checkConfigFile, memory: checkMemoryDatabase,
       api: checkApiKeys, git: checkGit, mcp: checkMcpServers, disk: checkDiskSpace,
       'second-brain': checkSecondBrainModel, kg: checkMemoryKnowledgeGraph,
+      appledouble: checkAppleDoubleSidecars, sidecars: checkAppleDoubleSidecars,
       typescript: checkBuildTools, monograph: checkMonograph,
       'graph-freshness': checkMonographFreshness, 'memory-pkg': checkMonoesMemory,
       helpers: checkHelpersFresh, monoes: checkMonoesIntegration,
@@ -188,6 +190,21 @@ export const doctorCommand: Command = {
           if (idx !== -1) {
             results[idx] = newCheck;
             const fixIdx = fixes.findIndex(f => f.startsWith('Gitignore Coverage:'));
+            if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
+          }
+          output.writeln(formatCheck(newCheck));
+        }
+      }
+
+      const sidecarResult = results.find(r => r.name === 'AppleDouble Sidecars');
+      if (sidecarResult && sidecarResult.status !== 'pass') {
+        const removed = fixAppleDoubleSidecars(process.cwd());
+        if (removed > 0) {
+          const newCheck = await checkAppleDoubleSidecars();
+          const idx = results.findIndex(r => r.name === 'AppleDouble Sidecars');
+          if (idx !== -1) {
+            results[idx] = newCheck;
+            const fixIdx = fixes.findIndex(f => f.startsWith('AppleDouble Sidecars:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
