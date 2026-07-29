@@ -217,6 +217,18 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
         const tokens = (m.usage?.input_tokens ?? 0) + (m.usage?.output_tokens ?? 0);
         policy.addUsage(tokens);
         bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: m.total_cost_usd, subtype: m.subtype } });
+        // A result whose subtype is anything but `success` is the SDK reporting
+        // a failed turn — hit max_turns, refused, rate/usage limited, errored
+        // mid-execution. Recording it only as a usage event made those
+        // indistinguishable from a healthy turn: three consecutive cycles once
+        // produced zero tool calls and zero messages, and the sole signal was
+        // the idle watchdog firing 20 minutes later with no stated cause.
+        if (m.subtype && m.subtype !== 'success') {
+          bus.emit({
+            type: 'audit', from: role.id, reason: 'session-result-error',
+            msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} — the role produced no usable output`,
+          });
+        }
         if (policy.overBudget) {
           bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted — closing session' });
           mailbox.close();
