@@ -28,6 +28,7 @@ Use orgs when the work is ongoing, not single-shot. A content team that ships 10
 `--name <slug>` — org identifier used with `monomind org run <name>` (derived from goal if omitted)
 `--roles <list>` — explicit role list (e.g. "boss, writer, reviewer, marketer")
 `--schedule <interval>` — daemon schedule for `monomind org serve` to pick up, e.g. `"30m"`, `"2h"`, `"1440m"` for daily (omit for a manual, one-shot org)
+`--max-run <interval>` — wall-clock bound on ONE scheduled cycle, same format (e.g. `"90m"`). Defaults to the schedule interval. A cycle hitting this bound is force-stopped with a 60s drain, so size it to how long the work takes, not how often you want it run.
 `--auto` — skip confirmation, create immediately
 `--confirm` — always ask before saving (default)
 `--delete <name>` — delete a saved org and all associated data files (`monomind org delete <name> --yes`)
@@ -46,6 +47,7 @@ Parse `$ARGUMENTS` for:
 - `--confirm` flag → mode = confirm
 - `--name <name>` → org_name = <name> (must match `^[a-z0-9][a-z0-9-]{0,63}$`; if omitted, derived from goal)
 - `--roles <desc>` → roles_desc = <desc> (explicit role list, e.g. "boss, writer, reviewer, marketer")
+- `--max-run <interval>` → max_run = <interval>, same daemon format as `--schedule`
 - `--schedule <interval>` → schedule = <interval>, daemon format only: `"<N>s"`, `"<N>m"`, or `"<N>h"` (e.g. `"30m"`, `"2h"`) — this is passed straight into `parseSchedule()` in `orgrt/scheduler.ts`, whose regex `^(\d+)\s*(s|m|h)$` rejects anything else (e.g. `"every 30 minutes"`, `"daily"`) and silently leaves the org unscheduled
 - `--delete <name>` → delete_mode = true, delete_name = <name>
 - `--list` flag → list_mode = true
