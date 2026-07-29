@@ -5432,7 +5432,7 @@ function v2RenderOrgList() {
     const extraCount = rolesN - shownRoles.length;
     const _oiAvMap = v2AvatarMapFor(rolesArr);
     const avatarsHtml = shownRoles.length ? `<div class="oi-avatars">
-      ${shownRoles.map(r => `<img class="oi-av" src="${v2RoleAvatar(r, _oiAvMap)}" alt="${esc(r.name||r.id||'')}" loading="lazy" title="${esc(r.name||r.id||'')}" onerror="this.src='data/avatars/coder.svg'"/>`).join('')}
+      ${shownRoles.map(r => `<img class="oi-av" src="${v2RoleAvatar(r, _oiAvMap)}" alt="${esc(r.name||r.id||'')}" loading="lazy" title="${esc(r.name||r.id||'')}" width="22" height="22" onerror="this.src='data/avatars/coder.svg'"/>`).join('')}
       ${extraCount > 0 ? `<div class="oi-av-more">+${extraCount}</div>` : ''}
     </div>` : '';
     return `<div class="org-item${active}" data-org="${esc(o.name)}" onclick="v2SelectOrg(this.dataset.org)">
@@ -5690,7 +5690,7 @@ function v2RenderOrgChart() {
   // views, so topology reads instead of a wall of overlapping circles. Top
   // padding reserves room for activity bubbles (34px box floating 46px above
   // the ring) so message pop-ups never clip.
-  const _crowded = roles.length > 7;
+  const _crowded = roles.length > 4;
   const R = (_v2ChartExpanded || _crowded) ? 34 : 42;
   // Side padding must cover the 140px-wide activity bubble (70 each side of
   // a node center) or edge-column bubbles clip against the chart border.
@@ -5801,7 +5801,7 @@ function v2RenderOrgChart() {
   if (_crowded) {
     const _rowsSeen = new Set(Object.values(pos).map(p => Math.round(p.y)));
     const _widest = Math.max(..._rowsSeen.size ? [..._rowsSeen].map(y => Object.values(pos).filter(p => Math.round(p.y) === y).length) : [0]);
-    if (_rowsSeen.size <= 2 && _widest > 7) {
+    if (_rowsSeen.size <= 2 && _widest > 4) {
       const seq = [...roles].sort((a, b) => (pos[a.id].y - pos[b.id].y) || (pos[a.id].x - pos[b.id].x));
       const perRow = Math.min(6, Math.ceil(seq.length / Math.ceil(seq.length / 6)));
       const COL_W = 185, ROW_H = 205;
@@ -5879,7 +5879,7 @@ function v2RenderOrgChart() {
   // Pre-build per-node clipPath ids for avatar images
   const nodeClipIds = roles.map((r, i) => `v2ac-${_v2SelOrg.replace(/\W/g,'')}-${i}`);
   const avatarClipDefs = roles.map((r, i) =>
-    `<clipPath id="${nodeClipIds[i]}"><circle r="${Math.round(R * 0.52)}"/></clipPath>`
+    `<clipPath id="${nodeClipIds[i]}"><circle r="${Math.round(R * 0.88)}"/></clipPath>`
   ).join('');
 
   // Overlay live running status from in-memory agent SSE state for chart node indicators
@@ -5894,22 +5894,25 @@ function v2RenderOrgChart() {
     const isRunning = _chartRunning.has(role.id);
     const displayName = role.name || role.title || role.id;
     const subType = role.type || role.agent_type || '';
-    const MAX_LBL = Math.floor(R / 4.2);
+    const MAX_LBL = Math.max(12, Math.floor(R / 3));
     const nameText = displayName.length > MAX_LBL ? displayName.slice(0, MAX_LBL - 1) + '…' : displayName;
     const subTypeText = subType.length > MAX_LBL ? subType.slice(0, MAX_LBL - 1) + '…' : subType;
     const outerRing = leader ? `<circle r="${R + 9}" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.18"/>` : '';
     const runningDot = isRunning ? `<circle class="v2-chart-running-dot" r="5.5" cx="${(R * 0.65).toFixed(1)}" cy="${(-R * 0.65).toFixed(1)}" fill="oklch(68% 0.20 150)" stroke="oklch(12% 0.008 55)" stroke-width="1.5" style="animation:blink 2s ease-in-out infinite"/>` : '';
-    const nameY = subType ? (R * 0.55 + 2).toFixed(0) : (R * 0.55 + 8).toFixed(0);
-    const avR = Math.round(R * 0.52);
+    const nameY = R + 14;
+    const avR = Math.round(R * 0.88);
     const avatarSrc = v2RoleAvatar(role, _chartAvMap);
+    const lblW = Math.max(nameText.length, subTypeText.length) * 6.5 + 12;
+    const lblH = subTypeText ? 26 : 15;
     nodesHTML += `<g class="v2oc-node" data-role="${esc(role.id)}" onclick="v2OpenAgent('${String(role.id).replace(/['\\]/g,'\\$&')}')" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
       ${runningDot}
       <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''} — click for details</title>
       ${outerRing}
       <circle r="${R}" fill="oklch(12% 0.008 55)" stroke="${color}" stroke-width="${leader ? 2.5 : 1.8}" filter="url(#v2glow)"/>
       <image href="${avatarSrc}" x="${-avR}" y="${-avR}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
+      <rect x="${(-lblW / 2).toFixed(0)}" y="${nameY - 11}" width="${lblW.toFixed(0)}" height="${lblH}" rx="3" fill="oklch(12% 0.008 55 / 0.85)"/>
       <text text-anchor="middle" y="${nameY}" font-size="9" font-weight="${leader?'600':'500'}" font-family="'Inter',system-ui,sans-serif" fill="${color}">${esc(nameText)}</text>
-      ${subTypeText ? `<text text-anchor="middle" y="${+nameY + 11}" font-size="7.5" font-family="'Inter',system-ui,sans-serif" fill="oklch(48% 0.005 75)">${esc(subTypeText)}</text>` : ''}
+      ${subTypeText ? `<text text-anchor="middle" y="${nameY + 11}" font-size="7.5" font-family="'Inter',system-ui,sans-serif" fill="oklch(58% 0.005 75)">${esc(subTypeText)}</text>` : ''}
       <foreignObject class="v2-activity-bubble" data-bubble-for="${esc(role.id)}" x="-70" y="${-R - 46}" width="140" height="34" style="overflow:visible;pointer-events:none;visibility:hidden;opacity:0">
         <div class="v2-bubble-inner" xmlns="http://www.w3.org/1999/xhtml"></div>
       </foreignObject>
@@ -6329,7 +6332,7 @@ function v2RenderOrgRoles() {
     const avatarSrc = v2RoleAvatar(r, _rolesAvMap);
     return `<div class="role-v2" style="border-top:2px solid ${color}" onclick="v2OpenAgent('${String(r.id).replace(/['\\]/g,'\\$&')}')" title="View agent characteristics, skills & instructions">
       <div class="rv2-head">
-        <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" onerror="this.src='data/avatars/coder.svg'"/>
+        <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" width="48" height="48" onerror="this.src='data/avatars/coder.svg'"/>
         <div class="rv2-info">
           <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}${isRunning ? ' <span class="live-dot" style="display:inline-block;vertical-align:middle;margin-left:4px"></span>' : ''}</div>
           ${roleType ? `<span class="rv2-agent">${esc(roleType)}</span>` : ''}
@@ -6388,7 +6391,7 @@ function v2RenderAgentDrawer(data) {
 
   headEl.innerHTML = `
     <div class="oad-avatar-wrap" onclick="v2TriggerAvatarUpload('${String(role.id).replace(/['\\]/g,'\\$&')}')" title="Change avatar">
-      <img class="oad-avatar" id="oad-avatar-img" src="${avatar}" alt="${esc(name)}" onerror="this.src='data/avatars/coder.svg'"/>
+      <img class="oad-avatar" id="oad-avatar-img" src="${avatar}" alt="${esc(name)}" width="46" height="46" onerror="this.src='data/avatars/coder.svg'"/>
       <div class="oad-avatar-edit">✎</div>
     </div>
     <input type="file" id="oad-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" onchange="v2HandleAvatarFile(this)"/>

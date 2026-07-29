@@ -1380,7 +1380,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         // previously never given a way to know it, so every write action 401'd from
         // the actual browser UI.
         html = html.replace('<head>', `<head>\n<meta name="mm-token" content="${dashboardAuthValue}">`);
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
         res.end(html);
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });

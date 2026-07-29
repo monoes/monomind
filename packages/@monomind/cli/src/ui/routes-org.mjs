@@ -1847,7 +1847,7 @@ if (req.method === 'GET' && url === '/orgs') {
     // dashboard.html — orgs.html's fetch() calls hit the same now
     // default-closed /api/* routes and need a way to know the token.
     html = html.replace('<head>', `<head>\n<meta name="mm-token" content="${ctx.dashboardAuthValue}">`);
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
     res.end(html);
   } catch (err) {
     res.writeHead(404);
