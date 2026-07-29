@@ -52,6 +52,27 @@ export const clearStopfile = (cwd: string, name: string): void => {
   rmSync(join(cwd, ORG_DIR, name, 'stop'), { force: true });
 };
 
+/** PID of a live `org serve` daemon for this project, or null.
+ *
+ *  The heartbeat file is written every 30s and removed on clean exit, but a
+ *  SIGKILLed daemon leaves it behind — so liveness is confirmed against the pid
+ *  itself, not the file's presence. A stale heartbeat must not make `org run`
+ *  post a runfile nobody will ever read. */
+function liveServeDaemonPid(cwd: string): number | null {
+  try {
+    const hb = JSON.parse(readFileSync(join(cwd, '.monomind', 'serve-heartbeat.json'), 'utf8')) as { pid?: number; updatedAt?: string };
+    if (typeof hb.pid !== 'number' || hb.pid === process.pid) return null;
+    // Freshness as well as liveness. The daemon beats every 30s, so a stamp
+    // older than a few beats means it is gone or wedged — and a pid alone can
+    // be recycled onto an unrelated process, which would send the runfile to
+    // something that will never read it.
+    const age = Date.now() - Date.parse(hb.updatedAt ?? '');
+    if (!Number.isFinite(age) || age > 3 * 60_000) return null;
+    process.kill(hb.pid, 0); // throws if the process is gone
+    return hb.pid;
+  } catch { return null; }
+}
+
 const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   if (!ctx.args[0]) return { success: false, message: 'org name required: monomind org run <name> [--task "..."]' };
   const validated = validateOrgName(ctx.args[0]);
@@ -97,6 +118,21 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       return { success: false, message: 'invalid org config' };
     }
   }
+  // A live `org serve` daemon already owns this project's orgs. Starting our
+  // own here would put two processes on one runtime.json and one broker lease,
+  // so hand the request to the daemon via its runfile instead of racing it.
+  const serveOwner = liveServeDaemonPid(ctx.cwd);
+  if (serveOwner != null) {
+    mkdirSync(join(orgsDir, name), { recursive: true });
+    // The task rides along in the runfile. Dropping it here would have made
+    // `org run <name> --task "..."` silently start a generic cycle — the flag
+    // accepted, the instruction discarded.
+    writeFileSync(join(orgsDir, name, 'run'), JSON.stringify({ ts: Date.now(), task: taskFlag ?? null }), 'utf8');
+    log(output.info(`org ${name}: start requested from the serve daemon (pid ${serveOwner}) — it picks this up within ~2s`));
+    log(output.dim(`  watch it with: monomind org logs ${name} --follow`));
+    return { success: true, message: 'start requested' };
+  }
+
   const crossProcess = ctx.flags['crossProcess'] !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
@@ -266,6 +302,49 @@ export const pollStopfiles = async (cwd: string, daemon: OrgDaemon): Promise<str
     }
   }
   return stopped;
+};
+
+/** One pass of the `org serve` runfile poll — the mirror of pollStopfiles.
+ *
+ * A serve daemon owns its orgs, and nothing could ask it to start one off-cycle:
+ * a scheduled org simply waited for its next tick, and `org run` against a
+ * served org would spawn a second daemon competing for the same runtime.json
+ * and broker lease. "Run it now" therefore meant killing and restarting the
+ * daemon, which resets the schedule and drops any in-flight work.
+ *
+ * `.monomind/orgs/<name>/run` is the request. Consumed (deleted) before the
+ * start, so a crash mid-run cannot wedge the org into a restart loop, and an
+ * already-running org just clears it — "start now" on something already started
+ * is satisfied, not an error.
+ *
+ * Returns the names it started, so callers/tests don't have to guess. */
+export const pollRunfiles = async (cwd: string, daemon: OrgDaemon): Promise<string[]> => {
+  const started: string[] = [];
+  const orgDir = join(cwd, ORG_DIR);
+  if (!existsSync(orgDir)) return started;
+  for (const f of listOrgConfigFiles(orgDir)) {
+    const name = f.replace(/\.json$/, '');
+    const runfile = join(orgDir, name, 'run');
+    if (!existsSync(runfile)) continue;
+    // Read before consuming. Pre-runfile writers (and a hand-touched file) left
+    // a bare timestamp or nothing at all, so an unparseable body is a plain
+    // "start it" request, not an error.
+    let task: string | undefined;
+    try {
+      const body = JSON.parse(readFileSync(runfile, 'utf8')) as { task?: string | null };
+      if (typeof body.task === 'string' && body.task.trim()) task = body.task;
+    } catch { /* bare/empty runfile — start with the org's own goal */ }
+    try { unlinkSync(runfile); } catch { /* already gone */ }
+    if (daemon.listRunning().includes(name)) continue; // already running — request satisfied
+    log(output.info(`org ${name}: run requested — starting now${task ? ' (with task)' : ''}`));
+    try {
+      await daemon.startOrg(name, task);
+      started.push(name);
+    } catch (err) {
+      console.error(`org ${name}: requested start failed:`, err);
+    }
+  }
+  return started;
 };
 
 /**
@@ -449,8 +528,15 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
   const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
   const sched = new OrgScheduler(async (name, intervalMs) => {
+    // Only ever stop a run THIS tick started. The runfile poll can start an org
+    // out-of-band, and the scheduler has no visibility into that — so a tick
+    // landing on an already-running org threw "already running", fell into the
+    // finally, and stopped a healthy run that had nothing to do with it. The
+    // tick's job in that case is simply to yield.
+    let startedHere = false;
     try {
       await daemon.startOrg(name);
+      startedHere = true;
       // Scheduled iterations are time-bounded: agents' `done` promises only
       // resolve after stopOrg closes the mailboxes, so waiting on them alone
       // deadlocks. Race against a max-run timeout, then ALWAYS stopOrg
@@ -460,7 +546,16 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
         ? Promise.allSettled([...org.agents.values()].map(a => a.done))
         : Promise.resolve([]);
       const maxRun = (org?.def as { run_config?: { max_run?: string | number } } | undefined)?.run_config?.max_run;
-      const maxMs = parseSchedule(maxRun) ?? Math.min(intervalMs, 600_000); // cap: schedule interval or 10 min
+      // Default to the full interval. The old `min(interval, 10min)` clamp
+      // silently guillotined every org that didn't set max_run: real cycles
+      // here run 75-93 minutes, so a 2h-scheduled org was being force-stopped
+      // a twelfth of the way in, every time, with nothing saying so. Ten
+      // minutes was never a considered bound for agent work — it only looked
+      // safe because overrunning the interval used to cost a whole idle
+      // period. Now that a missed tick catches up the moment a run ends
+      // (OrgScheduler.pending), a run may safely use its whole interval.
+      // Set run_config.max_run to bound it tighter — or looser.
+      const maxMs = parseSchedule(maxRun) ?? intervalMs;
       let timer: ReturnType<typeof setTimeout> | undefined;
       await Promise.race([allDone, new Promise<void>(r => {
         timer = setTimeout(r, maxMs);
@@ -473,7 +568,9 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
       // A deadline stop still lands on agents mid-tool-call. The 15s abort
       // bound threw that work away; a minute is enough to finish an edit or a
       // test run and flush, and still well inside any sane interval.
-      await daemon.stopOrg(name, { drainMs: 60_000 }).catch(err => console.error(`org ${name}: stop failed:`, err));
+      if (startedHere) {
+        await daemon.stopOrg(name, { drainMs: 60_000 }).catch(err => console.error(`org ${name}: stop failed:`, err));
+      }
     }
   });
   const orgDir = join(ctx.cwd, ORG_DIR);
@@ -491,9 +588,11 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
           // before anything happened at all; gating on due-ness means a
           // restart doesn't stampede every scheduled org back into a run.
           const lastEnded = readHistory(ctx.cwd, stem).at(-1)?.endedAt ?? 0;
-          const due = Date.now() - lastEnded >= ms;
-          sched.add(stem, ms, due);
-          log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m${due ? ' — due now, starting first run' : ''}`));
+          const since = lastEnded ? Date.now() - lastEnded : undefined;
+          const due = (since ?? Infinity) >= ms;
+          sched.add(stem, ms, due, since);
+          const waitMin = due ? 0 : Math.round((ms - (since ?? 0)) / 60_000);
+          log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m${due ? ' — due now, starting first run' : ` — next run in ~${waitMin}m`}`));
         }
       } catch (err) {
         log(output.warning(`org file ${f}: could not parse — skipping (${err instanceof Error ? err.message : 'invalid JSON'})`));
@@ -503,9 +602,12 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   const stopPoll = setInterval(() => { void pollStopfiles(ctx.cwd, daemon); }, 2000);
   stopPoll.unref?.();
+  const runPoll = setInterval(() => { void pollRunfiles(ctx.cwd, daemon); }, 2000);
+  runPoll.unref?.();
 
   await new Promise<void>(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
   clearInterval(stopPoll);
+  clearInterval(runPoll);
   clearInterval(heartbeatInterval);
   sched.stop();
   await daemon.stopAll();

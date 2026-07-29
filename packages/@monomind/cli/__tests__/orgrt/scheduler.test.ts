@@ -53,6 +53,67 @@ describe('OrgScheduler', () => {
     vi.useRealTimers();
   });
 
+  it('a run that overruns its interval starts the next one as soon as it ends', async () => {
+    vi.useFakeTimers();
+    const started: number[] = [];
+    const ended: number[] = [];
+    // 150s of work on a 60s interval: ticks at 60s and 120s both land mid-run.
+    const s = new OrgScheduler(async () => {
+      started.push(Date.now());
+      await new Promise<void>(r => setTimeout(r, 150_000));
+      ended.push(Date.now());
+    });
+    const t0 = Date.now();
+    s.add('alpha', 60_000, true); // run #1 at t0, ends t0+150s
+
+    await vi.advanceTimersByTimeAsync(150_000 + 50);
+    // Both missed ticks coalesce into ONE catch-up, fired immediately on end —
+    // not queued as two, and not deferred to the next 60s boundary (t0+180s).
+    expect(started.length).toBe(2);
+    expect(started[1] - t0).toBeLessThan(150_000 + 1_000);
+    expect(ended.length).toBe(1);
+
+    s.stop();
+    vi.useRealTimers();
+  });
+
+  it('does not resurrect an org that was removed while its run was in flight', async () => {
+    vi.useFakeTimers();
+    const started: string[] = [];
+    const s = new OrgScheduler(async name => {
+      started.push(name);
+      await new Promise<void>(r => setTimeout(r, 150_000));
+    });
+    s.add('alpha', 60_000, true);
+    await vi.advanceTimersByTimeAsync(120_000); // ticks missed → pending set
+    s.remove('alpha');                          // unscheduled mid-run
+    await vi.advanceTimersByTimeAsync(120_000); // run ends; must NOT catch up
+    expect(started).toEqual(['alpha']);
+    s.stop();
+    vi.useRealTimers();
+  });
+
+  it('resumes the remainder of the interval after a restart instead of resetting it', async () => {
+    vi.useFakeTimers();
+    const runs: number[] = [];
+    const s = new OrgScheduler(async () => { runs.push(Date.now()); });
+    const t0 = Date.now();
+    // Restarted 40s into a 60s period: owed 20s, not a fresh 60s.
+    s.add('alpha', 60_000, false, 40_000);
+
+    await vi.advanceTimersByTimeAsync(19_000);
+    expect(runs).toEqual([]);          // not yet
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(runs.length).toBe(1);
+    expect(runs[0] - t0).toBeLessThan(60_000); // would have been 60_000 before
+
+    // and then settles into the steady cadence
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(runs.length).toBe(2);
+    s.stop();
+    vi.useRealTimers();
+  });
+
   it('logs runFn errors instead of swallowing them silently', async () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
