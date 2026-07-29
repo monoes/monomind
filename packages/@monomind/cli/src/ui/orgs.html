@@ -669,7 +669,10 @@ html, body {
 }
 .org-item:hover .oi-copy-btn,
 .org-item:hover .oi-export-btn,
-.org-item:hover .oi-import-btn { display: inline-block; }
+.org-item:hover .oi-import-btn,
+.org-item:focus-within .oi-copy-btn,
+.org-item:focus-within .oi-export-btn,
+.org-item:focus-within .oi-import-btn { display: inline-block; }
 .oi-copy-btn:hover {
   color: var(--teal);
   border-color: var(--teal-dim);
@@ -1437,6 +1440,9 @@ function renderChart() {
   const W = 720, H = 320;
   const topo = (d.topology || 'hierarchical').toLowerCase();
   const positions = computeLayout(roles, comms, topo, W, H);
+  const dynH = positions.__viewBoxH || H;
+  delete positions.__viewBoxH;
+  svgEl.setAttribute('viewBox', `0 0 ${W} ${dynH}`);
 
   const NS = 'http://www.w3.org/2000/svg';
 
@@ -1555,12 +1561,12 @@ function computeLayout(roles, comms, topology, W, H) {
 
   const cx = W / 2, cy = H / 2;
   const PAD = 60;
+  const MAX_PER_ROW = Math.max(2, Math.min(4, Math.ceil(Math.sqrt(n))));
 
   if (topology === 'mesh') {
-    // All nodes in a circle
+    const r = Math.min((W - PAD*2) / 2, (H - PAD*2) / 2) * 0.8;
     roles.forEach((role, i) => {
       const angle = (2 * Math.PI * i / n) - Math.PI / 2;
-      const r = Math.min((W - PAD*2) / 2, (H - PAD*2) / 2) * 0.8;
       positions[role.id] = {
         x: cx + r * Math.cos(angle),
         y: cy + r * Math.sin(angle),
@@ -1568,7 +1574,6 @@ function computeLayout(roles, comms, topology, W, H) {
     });
 
   } else if (topology === 'star') {
-    // Boss in center, others around edge
     const boss = roles.find(r => !r.reports_to) || roles[0];
     const rest = roles.filter(r => r.id !== boss.id);
     positions[boss.id] = { x: cx, y: cy };
@@ -1593,7 +1598,6 @@ function computeLayout(roles, comms, topology, W, H) {
         childMap[parent].push(r.id);
       }
     });
-    // BFS to assign depths
     let changed = true, iter = 0;
     while (changed && iter < 20) {
       changed = false; iter++;
@@ -1604,25 +1608,38 @@ function computeLayout(roles, comms, topology, W, H) {
         }
       });
     }
-    // Assign depth 0 to any unresolved
     roles.forEach(r => { if (depthMap[r.id] === undefined) depthMap[r.id] = 1; });
 
-    const maxDepth = Math.max(...Object.values(depthMap));
     const layerMap = {};
     Object.entries(depthMap).forEach(([id, depth]) => {
       if (!layerMap[depth]) layerMap[depth] = [];
       layerMap[depth].push(id);
     });
 
-    const rowH = maxDepth > 0 ? (H - PAD * 2) / (maxDepth + 1) : H - PAD * 2;
-    Object.entries(layerMap).forEach(([depth, ids]) => {
-      const y = PAD + Number(depth) * rowH + (maxDepth > 0 ? rowH / 2 : H / 2);
+    // Split large layers into sub-rows for spatial distribution
+    const visualRows = [];
+    const sortedDepths = Object.keys(layerMap).map(Number).sort((a, b) => a - b);
+    sortedDepths.forEach(depth => {
+      const ids = layerMap[depth];
+      for (let i = 0; i < ids.length; i += MAX_PER_ROW) {
+        visualRows.push(ids.slice(i, i + MAX_PER_ROW));
+      }
+    });
+
+    const totalRows = visualRows.length;
+    const ROW_H = 100;
+    const totalH = Math.max(H, PAD * 2 + totalRows * ROW_H);
+
+    visualRows.forEach((ids, rowIdx) => {
+      const y = PAD + rowIdx * ROW_H + ROW_H / 2;
+      const colW = (W - PAD * 2) / (ids.length + 1);
       ids.forEach((id, i) => {
-        const colW = (W - PAD * 2) / ids.length;
-        const x = PAD + colW * i + colW / 2;
-        positions[id] = { x, y };
+        positions[id] = { x: PAD + colW * (i + 1), y };
       });
     });
+
+    // Grow viewBox if nodes don't fit default height
+    if (totalH > H) positions.__viewBoxH = totalH;
   }
 
   return positions;
