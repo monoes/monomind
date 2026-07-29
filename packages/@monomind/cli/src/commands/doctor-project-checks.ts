@@ -3,7 +3,7 @@
  * Config, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore, worker metrics
  */
 
-import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, copyFileSync, writeFileSync, appendFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, copyFileSync, writeFileSync, appendFileSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -742,4 +742,62 @@ export async function checkMemoryProficiency(): Promise<HealthCheck> {
   } catch {
     return { name: 'Memory Proficiency', status: 'warn', message: 'Could not load intelligence module' };
   }
+}
+
+/** AppleDouble sidecars (`._name`) under `.claude/`.
+ *
+ * macOS writes these whenever a file carrying extended attributes is copied to
+ * a filesystem that cannot store them natively — exFAT, most USB/network
+ * volumes. Harmless as data, but Claude Code discovers skills and commands by
+ * reading `.claude/skills/` and `.claude/commands/`, and a stray
+ * `._createorg.md` is registered as a real command: a garbage entry named
+ * `mastermind:._createorg` appears in the roster, and its "content" is a binary
+ * resource fork. They also reappear after any Finder copy, `cp`, or tar
+ * extract, so a one-time delete does not hold.
+ *
+ * Reported here rather than swept silently, because deleting files under
+ * `.claude/` should be something the operator sees. `doctor --fix` removes them.
+ */
+export async function checkAppleDoubleSidecars(): Promise<HealthCheck> {
+  const name = 'AppleDouble Sidecars';
+  const found = findAppleDoubleSidecars(process.cwd());
+  if (found.length === 0) return { name, status: 'pass', message: 'None under .claude/' };
+  const shown = found.slice(0, 3).map(p => p.replace(process.cwd() + '/', '')).join(', ');
+  return {
+    name,
+    status: 'warn',
+    message: `${found.length} AppleDouble file${found.length === 1 ? '' : 's'} under .claude/ (${shown}${found.length > 3 ? ', …' : ''}) — skills/commands dirs register these as real entries`,
+    fix: 'monomind doctor --fix (or: find .claude -name "._*" -type f -delete)',
+  };
+}
+
+/** Every `._*` file under the project's `.claude/` trees. Both the repo-root
+ *  tree and the npm-shipped copy under packages/, since a sidecar in the latter
+ *  ships to users. */
+export function findAppleDoubleSidecars(cwd: string): string[] {
+  const roots = [join(cwd, '.claude'), join(cwd, 'packages', '@monomind', 'cli', '.claude')];
+  const out: string[] = [];
+  const walk = (dir: string, depth = 0): void => {
+    if (depth > 8) return;
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return; }
+    for (const e of entries) {
+      const full = join(dir, e);
+      let isDir: boolean;
+      try { isDir = statSync(full).isDirectory(); } catch { continue; }
+      if (isDir) walk(full, depth + 1);
+      else if (e.startsWith('._')) out.push(full);
+    }
+  };
+  for (const r of roots) if (existsSync(r)) walk(r);
+  return out;
+}
+
+/** Delete every AppleDouble sidecar found. Returns how many were removed. */
+export function fixAppleDoubleSidecars(cwd: string): number {
+  let removed = 0;
+  for (const f of findAppleDoubleSidecars(cwd)) {
+    try { rmSync(f, { force: true }); removed++; } catch { /* best effort */ }
+  }
+  return removed;
 }
