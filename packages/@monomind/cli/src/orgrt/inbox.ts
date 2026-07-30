@@ -11,6 +11,14 @@ export interface QueuedMessage {
   subject: string;
   body: string;
   ts: number;
+  /** Structured handoff context (rich metadata for role transitions) */
+  context?: {
+    summary?: string;        // Brief one-line status
+    nextAction?: string;      // What the receiver should do next
+    filesChanged?: string[];  // Files touched in this work
+    relatedIssues?: string[]; // Related issue numbers
+    metadata?: Record<string, unknown>; // Additional custom fields
+  };
 }
 
 function inboxPath(root: string, orgName: string): string {

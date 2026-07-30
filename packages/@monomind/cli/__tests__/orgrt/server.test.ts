@@ -39,6 +39,14 @@ describe('org xdeliver server', () => {
     });
     expect(noAuth.status).toBe(401);
 
+    // wrong credential → 401
+    const badAuth = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': 'wrong-cred' },
+      body: JSON.stringify({ toOrg: 'alpha' }),
+    });
+    expect(badAuth.status).toBe(401);
+
     // missing fields → 400
     const bad = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',

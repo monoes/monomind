@@ -130,6 +130,28 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
 
+  // Tool audit filter (--audit flag) - show only tool decision events
+  if (ctx.flags['audit'] === true) {
+    const toolEvents = events.filter(e => e.type === 'tool');
+    if (!toolEvents.length) {
+      log(output.info(`No tool events found in ${run}`));
+      return { success: true };
+    }
+    log(output.info(`Tool audit trail for ${name} / ${run} (${toolEvents.length} events):`));
+    log(output.info('┌──────────────────┬─────────────────────────┬──────────┬──────────────────────────────────────┐'));
+    log(output.info('│ Role             │ Tool                    │ Decision │ Reason                                │'));
+    log(output.info('├──────────────────┼─────────────────────────┼──────────┼──────────────────────────────────────┤'));
+    for (const e of toolEvents) {
+      const role = e.from ?? 'system';
+      const tool = e.tool ?? 'unknown';
+      const decision = e.decision === 'deny' ? 'DENY' : 'ALLOW';
+      const reason = e.reason || '-';
+      log(output.info(`│ ${role.padEnd(16)} │ ${tool.padEnd(23)} │ ${decision.padEnd(8)} │ ${reason.padEnd(38)} │`));
+    }
+    log(output.info('└──────────────────┴─────────────────────────┴──────────┴──────────────────────────────────────┘'));
+    return { success: true };
+  }
+
   // Per-role cost breakdown (--by-role flag)
   if (ctx.flags['by-role'] === true) {
     const byRole = new Map<string, { cost: number; tokens: number; messages: number }>();
@@ -435,4 +457,55 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   log(output.info('└──────────────────┴───────────┴────────────┴───────────┘'));
 
   return { success: true };
+};
+
+/** `org flow <name> [--run id]` — export org flow as Mermaid diagram */
+export const flowAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
+  if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
+
+  const events = readRunEvents(ctx.cwd, name, run);
+  if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
+
+  // Extract message flow from events
+  const messageEvents = events.filter(e => e.type === 'message' || e.type === 'xorg');
+  const roleSet = new Set<string>();
+  const edges = new Set<string>();
+
+  for (const e of messageEvents) {
+    if (e.from) {
+      const fromRole = e.from.includes(':') ? e.from.split(':')[1] : e.from;
+      roleSet.add(fromRole);
+      if (e.to) {
+        const toRole = e.to.includes(':') ? e.to.split(':')[1] : e.to;
+        roleSet.add(toRole);
+        const edge = `${fromRole} -->|${e.subject || 'msg'}| ${toRole}`;
+        edges.add(edge);
+      }
+    }
+  }
+
+  const roles = Array.from(roleSet).sort();
+
+  log(output.info(`flowchart TD`));
+  log(output.info(`  %% Org flow for ${name} / ${run}`));
+  log(output.info(`  %% ${messageEvents.length} messages exchanged`));
+  log(output.info(`  `));
+
+  // Define role nodes with styling
+  for (const role of roles) {
+    log(output.info(`  ${role}[${role}]`));
+  }
+  log(output.info(`  `));
+
+  // Add edges for messages
+  for (const edge of edges) {
+    log(output.info(`  ${edge}`));
+  }
+
+  log(output.info(`  `));
+  log(output.info(`classDef bossNode fill:#f9f,stroke:#333,stroke-width:2px`));
+  log(output.info(`classDef workerNode fill:#bbf,stroke:#333,stroke-width:1px`));
+
+  return { success: true, message: `Mermaid flowchart exported for ${name} / ${run}` };
 };

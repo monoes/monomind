@@ -8,8 +8,19 @@ import { homedir } from 'node:os';
 
 export interface BrokerEntry { url: string; pid: number; updatedAt: number; credential?: string; }
 
-const SAFE_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+// DNS label limits: 1-63 chars, must start alphanumerically (RFC 1034 + RFC 1123)
+// Requires at least 2 chars total (backward compatibility with original regex)
+const SAFE_NAME = /^[a-z0-9][a-z0-9_-]{1,63}$/i;
 const DEFAULT_STALE_MS = 90_000;
+
+/** Normalize credential: trim whitespace, reject empty/oversized values. */
+export function normalizeCredential(cred: string | undefined): string | undefined {
+  if (cred === undefined || cred === null) return undefined;
+  if (typeof cred !== 'string') return undefined;
+  const trimmed = cred.trim();
+  if (trimmed.length === 0 || trimmed.length > 256) return undefined;
+  return trimmed;
+}
 
 export function defaultRegistryDir(): string {
   return process.env.MONOMIND_ORGRT_BROKER_DIR || join(homedir(), '.monomind', 'orgrt-broker');
@@ -25,7 +36,8 @@ function entryPath(name: string, dir: string): string {
  *  partially-written entry — this file is rewritten every heartbeat (default 20s) while other processes may read it. */
 export function registerOrg(name: string, url: string, dir = defaultRegistryDir(), credential?: string): void {
   mkdirSync(dir, { recursive: true });
-  const entry: BrokerEntry = { url, pid: process.pid, updatedAt: Date.now(), ...(credential ? { credential } : {}) };
+  const normalizedCred = normalizeCredential(credential);
+  const entry: BrokerEntry = { url, pid: process.pid, updatedAt: Date.now(), ...(normalizedCred ? { credential: normalizedCred } : {}) };
   const dest = entryPath(name, dir);
   const tmp = `${dest}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(entry));

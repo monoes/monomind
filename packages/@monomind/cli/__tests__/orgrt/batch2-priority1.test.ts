@@ -46,8 +46,11 @@ describe('Batch 2 Priority 1 - Per-role cost tracking', () => {
     // First, spawn the coder role by delivering a message to it
     await d.deliver('alpha', 'boss', 'coder', 'initial', 'spawn the coder');
 
-    // Give it a moment for the spawn to complete
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for spawn to complete and agents to be registered
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Verify coder is spawned before emitting usage events
+    expect(running.agents.has('coder')).toBe(true);
 
     // Now simulate usage events from both roles
     running.bus.emit({
@@ -70,8 +73,15 @@ describe('Batch 2 Priority 1 - Per-role cost tracking', () => {
       run: running.run,
     });
 
+    // Wait for event processing
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     const bossRuntime = running.agents.get('boss');
     const coderRuntime = running.agents.get('coder');
+
+    // Debug: check if metrics are populated
+    console.log('boss metrics:', bossRuntime?.metrics);
+    console.log('coder metrics:', coderRuntime?.metrics);
 
     expect(bossRuntime?.metrics.costUsd).toBeGreaterThan(0);
     expect(coderRuntime?.metrics.costUsd).toBeGreaterThan(0);
