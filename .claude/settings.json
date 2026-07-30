@@ -1,7 +1,10 @@
 {
   "model": "claude-opus-4-6",
   "customInstructions": "Follow the project's CLAUDE.md guidelines. Use concurrent execution for all operations. Prioritize v1 implementation with security-first development, 15-agent swarm coordination, phased performance optimization, and cross-platform helper automation.",
-  "env": {},
+  "env": {
+    "MONOMIND_HOOK_QUIET": "1",
+    "MONOMIND_GRAPH_GATE": "off"
+  },
   "permissions": {
     "allow": [
       "Bash(npx @monomind*)",
