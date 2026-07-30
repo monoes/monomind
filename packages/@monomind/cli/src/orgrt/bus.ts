@@ -14,6 +14,7 @@ export class OrgBus {
   private listeners = new Set<Listener>();
   private seq = 0;
   private pending: Promise<void> = Promise.resolve();
+  private dirReady = false;
   readonly file: string;
 
   constructor(readonly org: string, readonly run: string, readonly dir: string) {
@@ -35,7 +36,7 @@ export class OrgBus {
     };
     // serialize writes; never block emitters
     this.pending = this.pending.then(async () => {
-      await mkdir(this.dir, { recursive: true });
+      if (!this.dirReady) { await mkdir(this.dir, { recursive: true }); this.dirReady = true; }
       await appendFile(this.file, JSON.stringify(e) + '\n', 'utf8');
     }).catch((err) => {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[org-bus] event write failed:', err);

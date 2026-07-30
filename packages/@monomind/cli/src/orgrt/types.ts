@@ -20,6 +20,9 @@ export const RolePolicySchema = z.object({
   /** allowed domains for WebFetch/WebSearch; empty array = no web */
   webAllow: z.array(z.string()).optional(),
   maxTokens: z.number().int().positive().optional(),
+  /** Git access level: 'none' blocks all git, 'read' allows status/log/diff,
+   *  'commit' allows add/commit, 'push' allows push. Default: 'read'. */
+  git: z.enum(['none', 'read', 'commit', 'push']).default('read'),
 }).partial().passthrough();
 
 export const RoleSchema = z.object({
@@ -58,7 +61,7 @@ export const OrgDefSchema = z.object({
      *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
      *  policy engine's workdir check then confines every path to.
      *  An absolute path is used verbatim. */
-    workspace: z.union([z.literal('repo'), z.literal('isolated'), z.string()]).optional(),
+    workspace: z.union([z.literal('repo'), z.literal('isolated'), z.literal('worktree'), z.string()]).optional(),
   }).partial().passthrough().default({})
     .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, workspace: 'repo' as string, ...rc })),
   roles: z.array(RoleSchema).min(1),
@@ -85,6 +88,38 @@ export interface BusEvent {
   reason?: string;
   path?: string;
   data?: Record<string, unknown>;
+  /** Parent event ID for message chains (e.g., a message responding to another message) */
+  parentId?: string;
 }
 
 export const ORG_DIR = '.monomind/orgs';
+
+/**
+ * Recommended org_send handoff format for inter-role communication:
+ *
+ * ```json
+ * {
+ *   "summary": "Brief one-line status of what was done",
+ *   "next_action": "What the receiver should do next",
+ *   "context": {
+ *     "key": "value"
+ *   }
+ * }
+ * ```
+ *
+ * Example:
+ * ```json
+ * {
+ *   "summary": "Bug fix implemented in auth module",
+ *   "next_action": "Review the fix and run tests",
+ *   "context": {
+ *     "files_changed": ["src/auth.ts"],
+ *     "test_coverage": "95%",
+ *     "related_issue": "#123"
+ *   }
+ * }
+ * ```
+ *
+ * The org_send tool already passes `subject` and `message` — this format
+ * documents best practice for structured handoffs between roles.
+ */

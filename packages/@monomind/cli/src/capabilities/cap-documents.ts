@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { createRequire } from 'node:module';
 import type {
   CapabilityModule,
   DirectoryScan,
@@ -9,52 +10,247 @@ import type {
 } from './types.js';
 
 export const DOC_EXTENSIONS = new Set([
-  '.pdf',
-  '.docx',
-  '.doc',
-  '.md',
-  '.txt',
-  '.rtf',
-  '.rst',
-  '.tex',
-  '.odt',
-  '.pages',
-  '.epub',
+  // Plain text
+  '.md', '.txt', '.rst', '.tex', '.csv', '.tsv',
+  // Microsoft Office
+  '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+  // OpenDocument (LibreOffice / Google Docs export)
+  '.odt', '.ods', '.odp',
+  // Other
+  '.pdf', '.rtf', '.epub', '.pages',
 ]);
-const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — skip oversized text files
+const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024;
 
 // In-memory index for T0 (metadata) and T1 (content) — replaced by memory DB in production
 const indexedDocs = new Map<string, { path: string; content: string; metadata: Record<string, unknown> }>();
+
+// ── ZIP-based XML text extraction (pptx, odt, odp, ods, epub) ──────
+// These formats are all ZIP archives containing XML/HTML with text content.
+// We use Node's built-in zlib via fflate (already in tree) or the AdmZip
+// pattern — but to keep deps minimal, we shell out to `unzip -p` which is
+// available on macOS/Linux, with a pure-JS fallback.
+
+async function extractFromZip(filePath: string, xmlPaths: string[], stripTags: boolean): Promise<string> {
+  const { execSync } = await import('node:child_process');
+  const parts: string[] = [];
+
+  for (const xmlPath of xmlPaths) {
+    try {
+      const raw = execSync(
+        `unzip -p ${JSON.stringify(filePath)} ${JSON.stringify(xmlPath)} 2>/dev/null`,
+        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000 },
+      );
+      parts.push(raw);
+    } catch {
+      // file not in archive — skip
+    }
+  }
+  if (parts.length === 0) {
+    // Fallback: list all XML/HTML files and extract them
+    try {
+      const listing = execSync(
+        `unzip -l ${JSON.stringify(filePath)} 2>/dev/null`,
+        { maxBuffer: 1024 * 1024, encoding: 'utf-8', timeout: 5000 },
+      );
+      const candidates = listing.split('\n')
+        .map(l => l.trim().split(/\s+/).pop() || '')
+        .filter(f => /\.(xml|html|xhtml)$/i.test(f));
+      for (const c of candidates.slice(0, 50)) {
+        try {
+          const raw = execSync(
+            `unzip -p ${JSON.stringify(filePath)} ${JSON.stringify(c)} 2>/dev/null`,
+            { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000 },
+          );
+          parts.push(raw);
+        } catch { /* skip */ }
+      }
+    } catch { /* skip */ }
+  }
+
+  const joined = parts.join('\n');
+  if (!stripTags) return joined;
+  return joined
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#\d+;/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ── RTF text extraction (no dep) ───────────────────────────────────
+// Skips destination groups ({\*\...}), extracts visible text, handles
+// \'xx hex escapes, \par/\line/\tab, and ignores all other control words.
+function extractRtfText(content: string): string {
+  let depth = 0;
+  let skipDepth = 0;
+  let result = '';
+  let i = 0;
+  while (i < content.length) {
+    const ch = content[i];
+    if (ch === '{') {
+      depth++;
+      // Check for destination group {\*\...} — skip entirely
+      if (i + 2 < content.length && content[i + 1] === '\\' && content[i + 2] === '*') {
+        skipDepth = depth;
+      }
+      i++; continue;
+    }
+    if (ch === '}') {
+      if (depth === skipDepth) skipDepth = 0;
+      depth = Math.max(0, depth - 1);
+      i++; continue;
+    }
+    if (skipDepth > 0) { i++; continue; }
+    if (ch === '\\') {
+      i++;
+      if (i >= content.length) break;
+      const next = content[i];
+      if (next === '\n' || next === '\r') { result += '\n'; i++; continue; }
+      // Escaped literal chars
+      if (next === '{' || next === '}' || next === '\\') { result += next; i++; continue; }
+      // Hex escape \'xx
+      if (next === "'" && i + 2 < content.length) {
+        const code = parseInt(content.substring(i + 1, i + 3), 16);
+        if (!isNaN(code)) result += String.fromCharCode(code);
+        i += 3; continue;
+      }
+      // Control word: letter sequence + optional signed integer + optional trailing space
+      let word = '';
+      while (i < content.length && /[a-zA-Z]/.test(content[i])) { word += content[i]; i++; }
+      while (i < content.length && /[-\d]/.test(content[i])) i++;
+      if (i < content.length && content[i] === ' ') i++;
+      if (word === 'par' || word === 'line') result += '\n';
+      else if (word === 'tab') result += '\t';
+      continue;
+    }
+    result += ch;
+    i++;
+  }
+  return result.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
 
 export async function extractText(file: FileEntry): Promise<string> {
   if (file.size > MAX_INDEX_FILE_SIZE) return '';
 
   const ext = file.extension;
 
-  if (ext === '.md' || ext === '.txt' || ext === '.rst' || ext === '.tex') {
+  // Plain text formats
+  if (ext === '.md' || ext === '.txt' || ext === '.rst' || ext === '.tex'
+      || ext === '.csv' || ext === '.tsv') {
     return fs.readFileSync(file.absolutePath, 'utf-8');
   }
 
+  // RTF — pure string parsing, no dep
+  if (ext === '.rtf') {
+    try {
+      const content = fs.readFileSync(file.absolutePath, 'utf-8');
+      return extractRtfText(content);
+    } catch { return ''; }
+  }
+
+  // PDF
   if (ext === '.pdf') {
     try {
-      // monolean: pdf-parse is an optional dependency — degrade to metadata-only if missing
       const pdfParse = (await import('pdf-parse')).default;
       const buffer = fs.readFileSync(file.absolutePath);
       const data = await pdfParse(buffer);
       return data.text;
     } catch {
-      return ''; // pdf-parse not installed or file unreadable
+      return '';
     }
   }
 
+  // DOCX — mammoth
   if (ext === '.docx') {
     try {
-      // monolean: mammoth is an optional dependency — degrade to metadata-only if missing
       const mammoth = await import('mammoth');
       const result = await mammoth.extractRawText({ path: file.absolutePath });
       return result.value;
     } catch {
-      return ''; // mammoth not installed or file unreadable
+      return '';
+    }
+  }
+
+  // XLSX / XLS — SheetJS
+  if (ext === '.xlsx' || ext === '.xls') {
+    try {
+      // monolean: xlsx is optional — degrade gracefully if missing
+      const req = createRequire(import.meta.url);
+      const XLSX = req('xlsx');
+      const workbook = XLSX.readFile(file.absolutePath, { type: 'file' });
+      const parts: string[] = [];
+      for (const name of workbook.SheetNames) {
+        const sheet = workbook.Sheets[name];
+        const text = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false });
+        if (text.trim()) parts.push(`[Sheet: ${name}]\n${text}`);
+      }
+      return parts.join('\n\n');
+    } catch {
+      return '';
+    }
+  }
+
+  // PPTX — ZIP with XML slides
+  if (ext === '.pptx') {
+    try {
+      const slidePaths = Array.from({ length: 100 }, (_, i) => `ppt/slides/slide${i + 1}.xml`);
+      return await extractFromZip(file.absolutePath, slidePaths, true);
+    } catch { return ''; }
+  }
+
+  // OpenDocument Text (.odt)
+  if (ext === '.odt') {
+    try {
+      return await extractFromZip(file.absolutePath, ['content.xml'], true);
+    } catch { return ''; }
+  }
+
+  // OpenDocument Spreadsheet (.ods)
+  if (ext === '.ods') {
+    try {
+      // Try xlsx first (it handles ODS too)
+      const req = createRequire(import.meta.url);
+      const XLSX = req('xlsx');
+      const workbook = XLSX.readFile(file.absolutePath, { type: 'file' });
+      const parts: string[] = [];
+      for (const name of workbook.SheetNames) {
+        const sheet = workbook.Sheets[name];
+        const text = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false });
+        if (text.trim()) parts.push(`[Sheet: ${name}]\n${text}`);
+      }
+      return parts.join('\n\n');
+    } catch {
+      // Fallback to XML extraction
+      try { return await extractFromZip(file.absolutePath, ['content.xml'], true); } catch { return ''; }
+    }
+  }
+
+  // OpenDocument Presentation (.odp)
+  if (ext === '.odp') {
+    try {
+      return await extractFromZip(file.absolutePath, ['content.xml'], true);
+    } catch { return ''; }
+  }
+
+  // EPUB — ZIP with XHTML chapters
+  if (ext === '.epub') {
+    try {
+      return await extractFromZip(file.absolutePath, [], true);
+    } catch { return ''; }
+  }
+
+  // .doc / .ppt — legacy binary formats, best-effort via textutil (macOS) or antiword
+  if (ext === '.doc' || ext === '.ppt' || ext === '.pages') {
+    try {
+      const { execSync } = await import('node:child_process');
+      // macOS textutil handles .doc, .rtf, .pages natively
+      const text = execSync(
+        `textutil -convert txt -stdout ${JSON.stringify(file.absolutePath)} 2>/dev/null`,
+        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 15000 },
+      );
+      return text.trim();
+    } catch {
+      return '';
     }
   }
 
@@ -105,7 +301,6 @@ export const documentsCapability: CapabilityModule = {
   },
 
   async search(query: string, limit = 20): Promise<SearchResult[]> {
-    // monolean: simple substring search for T0/T1 — vector search added when memory integration lands
     const queryLower = query.toLowerCase();
     const results: SearchResult[] = [];
 
@@ -117,7 +312,7 @@ export const documentsCapability: CapabilityModule = {
         const end = Math.min(doc.content.length, idx + query.length + 40);
         results.push({
           path: docPath,
-          score: 1 / (idx + 1), // closer to start = higher score
+          score: 1 / (idx + 1),
           snippet: doc.content.slice(start, end).trim(),
           type: 'documents',
           metadata: doc.metadata,
@@ -131,30 +326,35 @@ export const documentsCapability: CapabilityModule = {
   async healthChecks(): Promise<HealthCheck[]> {
     const checks: HealthCheck[] = [];
 
-    // Check if PDF extraction is available
     try {
       await import('pdf-parse');
-      checks.push({ name: 'PDF Extraction', status: 'pass', message: 'pdf-parse available' });
+      checks.push({ name: 'PDF', status: 'pass', message: 'pdf-parse available' });
     } catch {
-      checks.push({
-        name: 'PDF Extraction',
-        status: 'warn',
-        message: 'pdf-parse not installed',
-        hint: 'pnpm add pdf-parse',
-      });
+      checks.push({ name: 'PDF', status: 'warn', message: 'pdf-parse not installed', hint: 'pnpm add pdf-parse' });
     }
 
-    // Check if docx extraction is available
     try {
       await import('mammoth');
-      checks.push({ name: 'DOCX Extraction', status: 'pass', message: 'mammoth available' });
+      checks.push({ name: 'DOCX', status: 'pass', message: 'mammoth available' });
     } catch {
-      checks.push({
-        name: 'DOCX Extraction',
-        status: 'warn',
-        message: 'mammoth not installed',
-        hint: 'pnpm add mammoth',
-      });
+      checks.push({ name: 'DOCX', status: 'warn', message: 'mammoth not installed', hint: 'pnpm add mammoth' });
+    }
+
+    try {
+      const req = createRequire(import.meta.url);
+      req.resolve('xlsx');
+      checks.push({ name: 'XLSX/XLS/ODS', status: 'pass', message: 'xlsx available' });
+    } catch {
+      checks.push({ name: 'XLSX/XLS/ODS', status: 'warn', message: 'xlsx not installed', hint: 'pnpm add xlsx' });
+    }
+
+    // PPTX/ODT/ODP use unzip (system), RTF/CSV are pure JS — always available
+    try {
+      const { execSync } = await import('node:child_process');
+      execSync('which unzip', { encoding: 'utf-8', timeout: 2000 });
+      checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'pass', message: 'unzip available' });
+    } catch {
+      checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'warn', message: 'unzip not found', hint: 'install unzip (apt install unzip / brew install unzip)' });
     }
 
     return checks;

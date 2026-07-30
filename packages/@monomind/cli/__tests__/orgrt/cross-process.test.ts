@@ -41,7 +41,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonA = new OrgDaemon(rootA, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvA = await startOrgServer(daemonA, 0);
     cleanups.push(() => srvA.close());
-    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`);
+    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.credential);
     const alpha = await daemonA.startOrg('alpha');
     cleanups.push(() => daemonA.stopAll());
 
@@ -51,7 +51,7 @@ describe('cross-process inter-org delivery', () => {
     const daemonB = new OrgDaemon(rootB, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srvB = await startOrgServer(daemonB, 0);
     cleanups.push(() => srvB.close());
-    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`);
+    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.credential);
     const beta = await daemonB.startOrg('beta');
     cleanups.push(() => daemonB.stopAll());
 
@@ -83,7 +83,7 @@ describe('cross-process inter-org delivery', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
     const srv = await startOrgServer(daemon, 0);
     cleanups.push(() => srv.close());
-    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.credential);
     await daemon.startOrg('gamma');
     cleanups.push(() => daemon.stopAll());
 

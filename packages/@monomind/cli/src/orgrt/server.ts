@@ -4,89 +4,88 @@
 import http from 'node:http';
 import type { OrgDaemon } from './daemon.js';
 
-export interface OrgServer { port: number; close: () => void; }
+export interface OrgServer { port: number; close: () => void; credential: string }
+
+const MAX_BODY = 1_000_000; // 1MB — prevents OOM from oversized POSTs
+
+/** Parse a JSON POST body with a size guard. Rejects oversized or malformed bodies. */
+function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (c: string) => {
+      body += c;
+      // Use Buffer.byteLength for accurate multi-byte payload size (fixes DoS vulnerability)
+      if (Buffer.byteLength(body, 'utf8') > MAX_BODY) { req.destroy(); reject(new Error('body too large')); }
+    });
+    req.on('end', () => {
+      try { resolve(JSON.parse(body || '{}') as Record<string, unknown>); }
+      catch { reject(new Error('invalid JSON')); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function json(res: http.ServerResponse, status: number, data: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}
 
 /** Minimal HTTP listener for cross-process org message delivery.
- *  Binds an ephemeral port (pass 0) so the daemon can register it with the broker. */
-export async function startOrgServer(daemon: OrgDaemon, port = 0): Promise<OrgServer> {
+ *  Binds an ephemeral port (pass 0) so the daemon can register it with the broker.
+ *  Requires an auth credential on all POST requests (generated at startup, shared via broker). */
+export async function startOrgServer(daemon: OrgDaemon, port = 0, credential?: string): Promise<OrgServer> {
+  const { randomUUID } = await import('node:crypto');
+  const cred = credential ?? randomUUID();
+
   const server = http.createServer((req, res) => {
-    if (req.method === 'POST' && req.url === '/api/xdeliver') {
-      let body = '';
-      req.on('data', c => { body += c; });
-      req.on('end', () => {
-        try {
-          const payload = JSON.parse(body || '{}') as {
-            toOrg?: string; toRole?: string; fromOrg?: string; fromRole?: string; subject?: string; body?: string;
-          };
-          if (!payload.toOrg || !payload.toRole || !payload.fromOrg || !payload.fromRole) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: 'toOrg, toRole, fromOrg, fromRole are required' }));
-            return;
-          }
-          const result = daemon.receiveRemote(
-            payload.toOrg, payload.toRole, `${payload.fromOrg}:${payload.fromRole}`,
-            payload.subject ?? '', payload.body ?? '',
-          );
-          res.writeHead(result.ok ? 200 : 404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(result));
-        } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
-        }
-      });
-    } else if (req.method === 'POST' && req.url === '/api/human-message') {
-      let body = '';
-      req.on('data', c => { body += c; });
-      req.on('end', () => {
-        (async () => {
-          try {
-            const payload = JSON.parse(body || '{}') as { org?: string; role?: string; text?: string };
-            if (!payload.org || !payload.role || !payload.text) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: false, error: 'org, role, text are required' }));
-              return;
-            }
-            const receipt = await daemon.deliver(payload.org, 'human', payload.role, 'message from human', payload.text);
-            const ok = !receipt.startsWith('ERROR:');
-            res.writeHead(ok ? 200 : 404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok, receipt }));
-          } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
-          }
-        })();
-      });
+    if (req.method !== 'POST') { res.writeHead(404); res.end('not found'); return; }
+
+    // Auth gate — all POST endpoints require the daemon credential
+    if (req.headers['x-monomind-cred'] !== cred) {
+      json(res, 401, { ok: false, error: 'unauthorized' });
       return;
-    } else if (req.method === 'POST' && req.url === '/api/answer-question') {
-      let body = '';
-      req.on('data', c => { body += c; });
-      req.on('end', () => {
-        (async () => {
-          try {
-            const payload = JSON.parse(body || '{}') as {
-              org?: string; role?: string; questionId?: string; answer?: string;
-            };
-            if (!payload.org || !payload.role || !payload.questionId || payload.answer === undefined) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: false, error: 'org, role, questionId, answer are required' }));
-              return;
-            }
-            const result = await daemon.answerQuestion(payload.org, payload.role, payload.questionId, payload.answer);
-            res.writeHead(result.ok ? 200 : 404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(result));
-          } catch (err) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : 'bad request' }));
-          }
-        })();
-      });
-      return;
-    } else {
-      res.writeHead(404); res.end('not found');
     }
+
+    (async () => {
+      const payload = await parseBody(req);
+
+      if (req.url === '/api/xdeliver') {
+        const { toOrg, toRole, fromOrg, fromRole, subject, body: b } = payload as Record<string, string | undefined>;
+        if (!toOrg || !toRole || !fromOrg || !fromRole) {
+          json(res, 400, { ok: false, error: 'toOrg, toRole, fromOrg, fromRole are required' });
+          return;
+        }
+        const result = daemon.receiveRemote(toOrg, toRole, `${fromOrg}:${fromRole}`, subject ?? '', b ?? '');
+        json(res, result.ok ? 200 : 404, result);
+
+      } else if (req.url === '/api/human-message') {
+        const { org, role, text } = payload as Record<string, string | undefined>;
+        if (!org || !role || !text) {
+          json(res, 400, { ok: false, error: 'org, role, text are required' });
+          return;
+        }
+        const receipt = await daemon.deliver(org, 'human', role, 'message from human', text);
+        const ok = !receipt.startsWith('ERROR:');
+        json(res, ok ? 200 : 404, { ok, receipt });
+
+      } else if (req.url === '/api/answer-question') {
+        const { org, role, questionId, answer } = payload as Record<string, string | undefined>;
+        if (!org || !role || !questionId || answer === undefined) {
+          json(res, 400, { ok: false, error: 'org, role, questionId, answer are required' });
+          return;
+        }
+        const result = await daemon.answerQuestion(org, role, questionId, answer!);
+        json(res, result.ok ? 200 : 404, result);
+
+      } else {
+        json(res, 404, { ok: false, error: 'not found' });
+      }
+    })().catch(err => {
+      json(res, 400, { ok: false, error: err instanceof Error ? err.message : 'bad request' });
+    });
   });
 
   await new Promise<void>(r => server.listen(port, r));
   const actual = (server.address() as { port: number }).port;
-  return { port: actual, close: () => { server.close(); } };
+  return { port: actual, close: () => { server.close(); }, credential: cred };
 }

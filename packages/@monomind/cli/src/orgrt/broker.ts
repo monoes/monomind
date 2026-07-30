@@ -6,9 +6,9 @@ import { mkdirSync, writeFileSync, readFileSync, unlinkSync, renameSync } from '
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
-export interface BrokerEntry { url: string; pid: number; updatedAt: number; }
+export interface BrokerEntry { url: string; pid: number; updatedAt: number; credential?: string; }
 
-const SAFE_NAME = /^[a-z0-9][a-z0-9_-]*$/i;
+const SAFE_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 const DEFAULT_STALE_MS = 90_000;
 
 export function defaultRegistryDir(): string {
@@ -23,9 +23,9 @@ function entryPath(name: string, dir: string): string {
 /** Publish that this process hosts org `name`, reachable via `url`. Call again periodically (heartbeat) — see BrokerLease.
  *  Writes via tmp+rename (same-directory rename is atomic on POSIX/NTFS) so a concurrent lookupOrg() never observes a
  *  partially-written entry — this file is rewritten every heartbeat (default 20s) while other processes may read it. */
-export function registerOrg(name: string, url: string, dir = defaultRegistryDir()): void {
+export function registerOrg(name: string, url: string, dir = defaultRegistryDir(), credential?: string): void {
   mkdirSync(dir, { recursive: true });
-  const entry: BrokerEntry = { url, pid: process.pid, updatedAt: Date.now() };
+  const entry: BrokerEntry = { url, pid: process.pid, updatedAt: Date.now(), ...(credential ? { credential } : {}) };
   const dest = entryPath(name, dir);
   const tmp = `${dest}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(entry));
@@ -57,11 +57,12 @@ export class BrokerLease {
     private url: string,
     private dir: string = defaultRegistryDir(),
     private intervalMs = 20_000,
+    private credential?: string,
   ) {}
 
   start(): void {
-    registerOrg(this.name, this.url, this.dir);
-    this.timer = setInterval(() => registerOrg(this.name, this.url, this.dir), this.intervalMs);
+    registerOrg(this.name, this.url, this.dir, this.credential);
+    this.timer = setInterval(() => registerOrg(this.name, this.url, this.dir, this.credential), this.intervalMs);
     this.timer.unref?.();
   }
 

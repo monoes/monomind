@@ -152,11 +152,25 @@ async function main() {
     }
   } catch { /* non-critical — proceed without check */ }
 
-  // If already running, do nothing
+  // If already running, check if it's serving THIS project and a current build.
   const status = readStatus();
   if (status && status.pid && isPidAlive(status.pid)) {
-    process.stdout.write(`[control] already running on port ${status.port} (pid ${status.pid})\n`);
-    process.exit(0);
+    const live = await probeStatus(status.port);
+    const staleProject = live && live.dir && path.resolve(live.dir) !== path.resolve(CWD);
+    const startedMs = status.startedAt ? Date.now() - new Date(status.startedAt).getTime() : 0;
+    const staleBuild = startedMs > 7 * 24 * 3600_000; // older than 7 days
+    if (staleProject || staleBuild) {
+      const reason = staleProject
+        ? `rooted in ${live.dir}, not ${CWD}`
+        : `started ${Math.round(startedMs / 86400_000)}d ago`;
+      process.stdout.write(`[control] restarting stale server (${reason})\n`);
+      try { process.kill(status.pid, 'SIGTERM'); } catch { /* already gone */ }
+      // Give it a moment to release the port
+      await new Promise(r => setTimeout(r, 1000));
+    } else {
+      process.stdout.write(`[control] already running on port ${status.port} (pid ${status.pid})\n`);
+      process.exit(0);
+    }
   }
 
   // Adopt an already-listening server (e.g. started manually or by another session)
