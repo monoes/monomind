@@ -1070,6 +1070,17 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'flow', description: 'Export org flow as Mermaid diagram',
+      options: [{ name: 'run', description: 'Run ID (defaults to latest)', type: 'string' }],
+      examples: [{ command: 'monomind org flow growth --run run-20250130120000', description: 'Export Mermaid flowchart' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { flowAction } = await import('./org-observe.js');
+        return flowAction(ctx, v.name);
+      },
+    },
+    {
       name: 'questions', description: 'List pending ask_human questions from an org\'s agents',
       options: [{ name: 'all', description: 'Include answered questions', type: 'boolean' }],
       examples: [{ command: 'monomind org questions growth', description: 'Show unanswered questions' }],
