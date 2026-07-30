@@ -8,7 +8,7 @@ import { PolicyEngine } from './policy.js';
 import { Mailbox } from './mailbox.js';
 import { runAgentSession } from './session.js';
 import { attachForwarder } from './forwarder.js';
-import { BrokerLease, lookupOrg } from './broker.js';
+import { BrokerLease, lookupOrg, normalizeCredential } from './broker.js';
 import { queueMessage, drainInbox } from './inbox.js';
 import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, ORG_DIR } from './types.js';
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
@@ -244,6 +244,7 @@ export class OrgDaemon {
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
         deliver: (from: string, to: string, subject: string, body: string) => this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
+        beforeTool: (r: string, toolName: string) => this.checkApproval(name, r, toolName),
         onComplete: role.id === bossRole.id
           ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
               bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });
@@ -420,7 +421,7 @@ export class OrgDaemon {
     }
 
     if (this.opts.crossProcess && this.opts.inboxUrl) {
-      const lease = new BrokerLease(name, this.opts.inboxUrl, this.opts.brokerDir, undefined, this.opts.inboxCredential);
+      const lease = new BrokerLease(name, this.opts.inboxUrl, this.opts.brokerDir, undefined, normalizeCredential(this.opts.inboxCredential));
       lease.start();
       this.leases.set(name, lease);
     }
@@ -563,12 +564,17 @@ export class OrgDaemon {
       src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
       return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
     }
-    // Track message chain: link this message to the sender's last message
-    const srcAgent = src?.agents.get(fromRole);
-    const parentId = srcAgent?.lastMessageId;
+    // Track message chain: link this message to the target's last message (the one being responded to)
+    const targetAgentSrc = targetOrg === src ? src?.agents.get(targetRole) : undefined;
+    const parentId = targetAgentSrc?.lastMessageId;
     const evt = { from: cross ? `${fromOrg}:${fromRole}` : fromRole, to: toQualified, subject, msg: body, parentId };
-    src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
+    const emitted = src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
     if (cross && targetOrg !== src) targetOrg.bus.emit({ type: 'xorg', ...evt });
+    // Store message ID for the target (so responses can link to it)
+    if (targetAgentSrc && emitted) targetAgentSrc.lastMessageId = emitted.id;
+    // Also track the source agent's last sent message for cross-org visibility
+    const srcAgent = src?.agents.get(fromRole);
+    if (srcAgent && emitted) srcAgent.lastMessageId = emitted.id;
     targetAgent.mailbox.push(`[message from ${evt.from}] subject: ${subject}\n\n${body}`);
     return `delivered to ${toQualified}`;
   }
@@ -673,6 +679,122 @@ export class OrgDaemon {
     const tmp = `${dest}.${process.pid}.tmp`;
     writeFileSync(tmp, JSON.stringify(data, null, 2));
     renameSync(tmp, dest);
+  }
+
+  /** Approval queue for human gates (ask_human tool calls requiring explicit approval
+   *  before proceeding). Persists to approvals.json for crash recovery. */
+  private approvals = new Map<string, Array<{ roleId: string; question: string; ts: number; approved: boolean | null }>>();
+
+  /** Check if an action requires human approval (beforeTool hook for guardrails). Returns
+   *  the approval decision: true = approved, false = denied, null = pending (requires human input). */
+  private async checkApproval(org: string, role: string, action: string): Promise<boolean | null> {
+    const approvalKey = `${org}:${role}:${action}`;
+    const pending = this.approvals.get(org) ?? [];
+    const existing = pending.find(a => a.roleId === role && a.question === action);
+
+    // If already approved/denied, return that decision
+    if (existing && existing.approved !== null) return existing.approved;
+
+    // Require human approval for sensitive actions
+    const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
+    if (sensitiveActions.includes(action)) {
+      // Queue for approval
+      if (!existing) {
+        pending.push({ roleId: role, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
+        this.approvals.set(org, pending);
+      }
+      // Persist to approvals.json
+      const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
+      mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
+      writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+
+      // Emit a question event for the dashboard
+      const running = this.orgs.get(org);
+      running?.bus.emit({ type: 'question', from: role, data: { question: `Approval required for ${action}`, action } });
+      return null; // Pending human approval
+    }
+
+    return true; // Auto-approved for non-sensitive actions
+  }
+
+  /** Approve or deny a pending action (called by dashboard or CLI). */
+  async setApproval(org: string, role: string, action: string, approved: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+    const pending = this.approvals.get(org) ?? [];
+    const item = pending.find(a => a.roleId === role && a.question === action);
+
+    if (!item) return { ok: false, error: `No pending approval found for ${role} action ${action}` };
+
+    item.approved = approved;
+    item.ts = Date.now();
+
+    // Persist updated approval state
+    const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
+    writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+
+    // Notify the waiting agent via its mailbox
+    const running = this.orgs.get(org);
+    const agent = running?.agents.get(role);
+    if (agent && !agent.mailbox.isClosed) {
+      agent.mailbox.push(`[approval] ${action}: ${approved ? 'APPROVED' : 'DENIED'}`);
+    }
+
+    running?.bus.emit({ type: 'status', from: role, msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}` });
+    return { ok: true };
+  }
+
+  /** Time-travel debugging: replay from a specific checkpoint by run ID.
+   *  Creates a fresh daemon instance and replays events from the target run's bus.jsonl. */
+  async replayFrom(name: string, run: string): Promise<RunningOrg | null> {
+    const runDir = join(this.root, ORG_DIR, name, run);
+    if (!existsSync(runDir)) return null;
+
+    const busFile = join(runDir, 'bus.jsonl');
+    if (!existsSync(busFile)) return null;
+
+    // Create a replay org with a fresh run ID
+    const replayRun = `replay-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
+    const replayDir = join(this.root, ORG_DIR, name, replayRun);
+    mkdirSync(replayDir, { recursive: true });
+
+    // Read original events
+    const events = readFileSync(busFile, 'utf8').split('\n').filter(Boolean)
+      .map(l => { try { return JSON.parse(l) as BusEvent; } catch { return null; } })
+      .filter((e): e is BusEvent => e !== null);
+
+    if (!events.length) return null;
+
+    // Load org definition
+    const defPath = join(this.root, ORG_DIR, `${name}.json`);
+    if (!existsSync(defPath)) return null;
+
+    const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+
+    // Create replay bus
+    const bus = new OrgBus(name, replayRun, replayDir);
+    const MAX_COLLECTED = 1000;
+    const collected: BusEvent[] = [];
+    bus.subscribe(e => {
+      const slim: BusEvent = e.data?.content != null
+        ? { ...e, data: { ...e.data, content: undefined } }
+        : e;
+      collected.push(slim);
+      if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
+      for (const fn of this.globalSubscribers) fn(e);
+    });
+
+    const running: RunningOrg = { def, run: replayRun, bus, agents: new Map(), busEvents: () => [...collected] };
+
+    // Reemit events into the replay bus with updated timestamps
+    const startTime = Date.now();
+    for (const e of events) {
+      const replayEvent: BusEvent = { ...e, org: name, run: replayRun, ts: startTime };
+      bus.emit(replayEvent);
+    }
+
+    this.orgs.set(name, running);
+    bus.emit({ type: 'status', msg: `replay started from ${run} (${events.length} events replayed)` });
+    this.persistState(name, 'running', replayRun);
+    return running;
   }
 
   /** Agent-initiated human question (ask_human tool). Persists to questions.json (survives
@@ -876,7 +998,8 @@ export class OrgDaemon {
     }
     // Same guard for runtime.json: if a new run started during shutdown, its
     // 'running' record must not be overwritten with this old run's 'stopped'.
-    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run);
+    // Pass the org directly since we already removed it from the map.
+    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org);
     // Clean up git worktree if one was created for this run.
     if (org.worktreePath) {
       try {
@@ -1098,16 +1221,81 @@ export class OrgDaemon {
     }
   }
 
+  /** Resume a previous run from its checkpoint (runtime.json state). Reconstructs
+   *  the org's agents and mailboxes from the persisted state, enabling time-travel
+   *  debugging and run recovery after crashes. Returns the resumed RunningOrg or null. */
+  async resumeOrg(name: string): Promise<RunningOrg | null> {
+    const rtPath = join(this.root, ORG_DIR, name, 'runtime.json');
+    if (!existsSync(rtPath)) return null;
+
+    let rt: { status?: string; run?: string; roleMetrics?: Record<string, { tokens: number; costUsd: number }> } | undefined;
+    try {
+      rt = JSON.parse(readFileSync(rtPath, 'utf8'));
+    } catch { return null; }
+
+    if (rt?.status !== 'running' || !rt?.run) return null;
+
+    // Load the org definition
+    const defPath = join(this.root, ORG_DIR, `${name}.json`);
+    if (!existsSync(defPath)) return null;
+
+    const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+    const dir = join(this.root, ORG_DIR, name, rt.run);
+
+    // Check if run directory exists
+    if (!existsSync(dir)) return null;
+
+    // Reconstruct the bus from history
+    const bus = new OrgBus(name, rt.run, dir);
+    const MAX_COLLECTED = 1000;
+    const collected: BusEvent[] = [];
+    bus.subscribe(e => {
+      const slim: BusEvent = e.data?.content != null
+        ? { ...e, data: { ...e.data, content: undefined } }
+        : e;
+      collected.push(slim);
+      if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
+      for (const fn of this.globalSubscribers) fn(e);
+    });
+
+    const running: RunningOrg = { def, run: rt.run, bus, agents: new Map(), busEvents: () => [...collected] };
+
+    // Reconstruct agents from roleMetrics if available
+    if (rt.roleMetrics) {
+      for (const [roleId, metrics] of Object.entries(rt.roleMetrics)) {
+        const role = def.roles.find(r => r.id === roleId);
+        if (role) {
+          const mailbox = new Mailbox();
+          const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+          const policy = new PolicyEngine(roleId, { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, this.root);
+          const runtime: AgentRuntime = {
+            mailbox,
+            policy,
+            status: 'running',
+            done: Promise.resolve(),
+            metrics: { tokens: metrics.tokens, costUsd: metrics.costUsd },
+          };
+          running.agents.set(roleId, runtime);
+        }
+      }
+    }
+
+    this.orgs.set(name, running);
+    bus.emit({ type: 'status', msg: `org resumed from checkpoint (${rt.run})` });
+    this.persistState(name, 'running', rt.run);
+    return running;
+  }
+
   /** Roles that never spawned, per org. An org missing a role is still reported
    *  `running` by every status path, so the absence was visible only as one
    *  audit line in the log — a run went 40 minutes with no tester and nothing
    *  said so. Persisted to runtime.json so `org status` can say it out loud. */
   private abandoned = new Map<string, Set<string>>();
 
-  private persistState(name: string, status: string, run: string): void {
+  private persistState(name: string, status: string, run: string, org?: RunningOrg): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
-    const running = this.orgs.get(name);
+    const running = org ?? this.orgs.get(name);
     // Per-role cost tracking: collect live metrics from active agents
     const roleMetrics: Record<string, { tokens: number; costUsd: number }> = {};
     if (running) {

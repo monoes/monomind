@@ -12,16 +12,17 @@ const MAX_BODY = 1_000_000; // 1MB — prevents OOM from oversized POSTs
 function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     let body = '';
+    const onError = (err: Error) => { req.destroy(); reject(err); };
     req.on('data', (c: string) => {
       body += c;
       // Use Buffer.byteLength for accurate multi-byte payload size (fixes DoS vulnerability)
-      if (Buffer.byteLength(body, 'utf8') > MAX_BODY) { req.destroy(); reject(new Error('body too large')); }
+      if (Buffer.byteLength(body, 'utf8') > MAX_BODY) { onError(new Error('body too large')); }
     });
     req.on('end', () => {
       try { resolve(JSON.parse(body || '{}') as Record<string, unknown>); }
       catch { reject(new Error('invalid JSON')); }
     });
-    req.on('error', reject);
+    req.on('error', onError);
   });
 }
 
