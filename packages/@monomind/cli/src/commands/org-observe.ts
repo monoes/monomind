@@ -111,7 +111,7 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
   return { success: true };
 };
 
-/** `org report <name> [--run id] [--all] [--by-role]` — summarize a run (or list run history). */
+/** `org report <name> [--run id] [--all] [--by-role] [--format mermaid]` — summarize a run (or list run history). */
 export const reportAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   if (ctx.flags['all'] === true) {
     const history = readHistory(ctx.cwd, name);
@@ -130,11 +130,62 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
 
+  // Mermaid flowchart (--format mermaid flag)
+  if (ctx.flags['format'] === 'mermaid') {
+    // Extract message flow from events
+    const messageEvents = events.filter(e => e.type === 'message' || e.type === 'xorg');
+    const roleSet = new Set<string>();
+    const edges = new Set<string>();
+
+    for (const e of messageEvents) {
+      if (e.from) {
+        const fromRole = e.from.includes(':') ? e.from.split(':')[1] : e.from;
+        roleSet.add(fromRole);
+        if (e.to) {
+          const toRole = e.to.includes(':') ? e.to.split(':')[1] : e.to;
+          roleSet.add(toRole);
+          const edge = `${fromRole} -->|${e.subject || 'msg'}| ${toRole}`;
+          edges.add(edge);
+        }
+      }
+    }
+
+    const roles = Array.from(roleSet).sort();
+
+    log(output.info(`flowchart TD`));
+    log(output.info(`  %% Org flow for ${name} / ${run}`));
+    log(output.info(`  %% ${messageEvents.length} messages exchanged`));
+    log(output.info(`  `));
+
+    // Define role nodes with styling
+    for (const role of roles) {
+      log(output.info(`  ${role}[${role}]`));
+    }
+    log(output.info(`  `));
+
+    // Add edges for messages
+    for (const edge of edges) {
+      log(output.info(`  ${edge}`));
+    }
+
+    log(output.info(`  `));
+    log(output.info(`classDef bossNode fill:#f9f,stroke:#333,stroke-width:2px`));
+    log(output.info(`classDef workerNode fill:#bbf,stroke:#333,stroke-width:1px`));
+
+    return { success: true, message: `Mermaid flowchart exported for ${name} / ${run}` };
+  }
+
   // Tool audit filter (--audit flag) - show only tool decision events
   if (ctx.flags['audit'] === true) {
-    const toolEvents = events.filter(e => e.type === 'tool');
+    let toolEvents = events.filter(e => e.type === 'tool');
+    // Optional --tool flag filters to a specific tool name
+    if (typeof ctx.flags['tool'] === 'string' && ctx.flags['tool']) {
+      const toolName = ctx.flags['tool'];
+      toolEvents = toolEvents.filter(e => e.tool === toolName);
+    }
     if (!toolEvents.length) {
-      log(output.info(`No tool events found in ${run}`));
+      const toolFilter = typeof ctx.flags['tool'] === 'string' ? ` for tool "${ctx.flags['tool']}"` : '';
+      log(output.info(`No tool events found${toolFilter} in ${run}`));
       return { success: true };
     }
     log(output.info(`Tool audit trail for ${name} / ${run} (${toolEvents.length} events):`));
