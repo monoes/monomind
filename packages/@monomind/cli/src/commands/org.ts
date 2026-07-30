@@ -970,6 +970,7 @@ export const orgCommand: Command = {
         { name: 'filter-tool', description: 'Filter events by tool name (e.g., Write, Edit)', type: 'string' },
         { name: 'filter-role', description: 'Filter events by role ID', type: 'string' },
         { name: 'tools-only', description: 'Show only tool events (exclude messages/status/audit)', type: 'boolean' },
+        { name: 'audit-filter', description: 'Filter audit events by decision (allow|deny)', type: 'string' },
         { name: 'follow', short: 'f', description: 'Keep tailing until Ctrl-C', type: 'boolean' },
       ],
       examples: [
@@ -989,6 +990,9 @@ export const orgCommand: Command = {
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
         { name: 'all', description: 'List all recorded runs from history', type: 'boolean' },
         { name: 'by-role', description: 'Show per-role cost breakdown', type: 'boolean' },
+        { name: 'audit', description: 'Show tool audit trail', type: 'boolean' },
+        { name: 'tool', description: 'Filter tool audit by tool name (with --audit)', type: 'string' },
+        { name: 'format', description: 'Output format (mermaid for flowchart)', type: 'string' },
       ],
       examples: [{ command: 'monomind org report growth', description: 'Report on the latest run' }],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -1102,6 +1106,66 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'approve', description: 'Approve a pending tool/action approval',
+      examples: [{ command: 'monomind org approve growth coder "Bash"', description: 'Approve Bash tool for coder role' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { approveAction } = await import('./org-observe.js');
+        return approveAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'deny', description: 'Deny a pending tool/action approval',
+      examples: [{ command: 'monomind org deny growth coder "Bash"', description: 'Deny Bash tool for coder role' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { denyAction } = await import('./org-observe.js');
+        return denyAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'replay', description: 'Time-travel debugging: replay from a checkpoint',
+      examples: [{ command: 'monomind org replay growth run-20250130120000-abc', description: 'Replay from checkpoint' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { replayAction } = await import('./org-observe.js');
+        return replayAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'resume-from', description: 'Resume from checkpoint (alias for replay)',
+      examples: [{ command: 'monomind org resume-from growth run-20250130120000-abc', description: 'Resume from checkpoint' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { resumeFromAction } = await import('./org-observe.js');
+        return resumeFromAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'branch', description: 'Create a branch from checkpoint for what-if experiments',
+      examples: [{ command: 'monomind org branch growth run-20250130 abc-branch', description: 'Create branch from checkpoint' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { branchAction } = await import('./org-observe.js');
+        return branchAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'decisions', description: 'Show Rifft-style decision traces',
+      examples: [{ command: 'monomind org decisions growth --run run-20250130', description: 'Show decision traces' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { decisionsAction } = await import('./org-observe.js');
+        return decisionsAction(ctx, v.name);
+      },
+    },
+    {
       name: 'create', description: 'Scaffold an org config from a starter template',
       options: [
         { name: 'template', description: 'content-team | dev-team | research-pod', type: 'string' },
@@ -1149,7 +1213,7 @@ export const orgCommand: Command = {
     // index.ts's dispatcher never prints result.message on a failed action —
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
-    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|questions|answer|create|validate|migrate|list|delete|mark-complete>';
+    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|questions|answer|approve|deny|replay|resume-from|branch|decisions|create|validate|migrate|list|delete|mark-complete>';
     log(output.error(message));
     return { success: false, message };
   },

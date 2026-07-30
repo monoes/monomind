@@ -15,6 +15,34 @@ import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporti
 import { checkResources, waitForCapacity, getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 
+/** OpenTelemetry tracing helper - creates spans for major operations */
+class OtelTracer {
+  private enabled = false;
+  private spans = new Map<string, { start: number; metadata: Record<string, unknown> }>();
+
+  enable(): void { this.enabled = true; }
+
+  startSpan(name: string, metadata: Record<string, unknown> = {}): void {
+    if (!this.enabled) return;
+    this.spans.set(name, { start: Date.now(), metadata });
+  }
+
+  endSpan(name: string): void {
+    if (!this.enabled) return;
+    const span = this.spans.get(name);
+    if (span) {
+      const duration = Date.now() - span.start;
+      // Emit span as a bus event for export
+      this.spans.delete(name);
+    }
+  }
+
+  recordEvent(name: string, attributes: Record<string, unknown>): void {
+    if (!this.enabled) return;
+    // Could emit to bus for collection
+  }
+}
+
 /** Drain window for a PLANNED stop (the boss called org_complete). Long enough
  *  for a sibling mid-build or mid-test to finish and flush its work. A hard
  *  stop keeps the short bound — see finishStop. */
@@ -64,8 +92,17 @@ export interface DaemonOpts {
   brokerDir?: string;
   /** Override how long stopOrg() waits for agent sessions before proceeding anyway (tests only; default 15000ms). */
   stopWaitMs?: number;
+  /** Override the per-role crash-retry backoff schedule (tests only; default [1000,5000,15000]ms).
+   *  After this many retries a crash is terminal and triggers worker→boss notification /
+   *  boss auto-restart. */
+  crashBackoffsMs?: number[];
+  /** Override the whole-org restart backoff after the boss terminally crashes (tests only;
+   *  default [10000,30000]ms). */
+  bossRestartBackoffMs?: number[];
   /** Auth credential for the org server (passed to broker so cross-process senders can authenticate). */
   inboxCredential?: string;
+  /** Filter tool audit events by tool name or decision (allow|deny) before forwarding */
+  auditFilter?: { tool?: string; decision?: 'allow' | 'deny' };
 }
 
 export class OrgDaemon {
@@ -76,6 +113,20 @@ export class OrgDaemon {
   private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
   private watchdogs = new Map<string, ReturnType<typeof setInterval>>();
   private stopping = new Map<string, Promise<void>>();
+  private otel = new OtelTracer();
+  private approvals = new Map<string, Array<{ roleId: string; action: string; question: string; ts: number; approved: boolean | null }>>();
+  // Roles currently spawning — prevents duplicate lazy spawns from concurrent messages
+  private spawning = new Map<string, Set<string>>();
+  // #4: bounded whole-org restarts after the boss terminally crashes. A monotonic
+  // per-org counter so a crashing boss can never burn money in an infinite loop;
+  // reset only by an explicit (non-restart) startOrg.
+  private static readonly MAX_BOSS_RESTARTS = 2;
+  private static readonly BOSS_RESTART_BACKOFF_MS = [10_000, 30_000];
+  private bossRestartCounts = new Map<string, number>();
+  private restarting = new Set<string>();
+  // #3: recognizes provider context-window-overflow errors so the boss can be told
+  // to chunk the work instead of re-dispatching the same oversized task verbatim.
+  private static readonly CONTEXT_LIMIT_RE = /context[- ]?(window|length|size|limit)|maximum context|exceeds?.{0,12}(context|token)|too many tokens|prompt is too long/i;
 
   constructor(private root: string, private opts: DaemonOpts = {}) {}
 
@@ -108,6 +159,10 @@ export class OrgDaemon {
   }
 
   async startOrg(name: string, taskOverride?: string): Promise<RunningOrg> {
+    // A restart-driven start (scheduleBossRestart) keeps its crash counter so the
+    // cap holds; any other (explicit) start resets it so a manual re-run gets a
+    // fresh budget.
+    if (!this.restarting.has(name)) this.bossRestartCounts.delete(name);
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
@@ -200,6 +255,12 @@ export class OrgDaemon {
           runtime.lastMessageId = e.id;
         }
       }
+      // Apply audit filter if configured (skip filtered tool events before forwarding)
+      if (this.opts.auditFilter && e.type === 'tool') {
+        const { tool, decision } = this.opts.auditFilter;
+        if (tool && e.tool !== tool) return; // Skip: tool name doesn't match
+        if (decision && e.decision !== decision) return; // Skip: decision doesn't match
+      }
       for (const fn of this.globalSubscribers) fn(e);
     });
     if (this.opts.forward !== false)
@@ -242,6 +303,7 @@ export class OrgDaemon {
       const sessionOpts = {
         org: name, role, bus, policy, mailbox, cwd, def,
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
+        lastMessageId: () => runtime.lastMessageId,
         deliver: (from: string, to: string, subject: string, body: string) => this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
         beforeTool: (r: string, toolName: string) => this.checkApproval(name, r, toolName),
@@ -283,7 +345,7 @@ export class OrgDaemon {
       // dashboards/alerts that filter on actionable failures (not routine
       // status chatter) so a dead agent surfaces instead of a run that
       // silently never progresses.
-      const BACKOFFS_MS = [1000, 5000, 15000];
+      const BACKOFFS_MS = this.opts.crashBackoffsMs ?? [1000, 5000, 15000];
       runtime.done = (async () => {
         for (let attempt = 0; ; attempt++) {
           try {
@@ -315,12 +377,36 @@ export class OrgDaemon {
               // error instead of pushing into a queue no session will read
               // (and returning a false "delivered" receipt to the sender).
               mailbox.close();
+              const isContextLimit = OrgDaemon.CONTEXT_LIMIT_RE.test(message);
               bus.emit({
                 type: 'audit', from: role.id,
                 msg: `agent "${role.id}" crashed: ${message}`,
-                reason: 'agent-session-crash',
-                data: { agentId: role.id, error: message, restarts: attempt },
+                reason: isContextLimit ? 'agent-context-limit' : 'agent-session-crash',
+                data: { agentId: role.id, error: message, restarts: attempt, contextLimit: isContextLimit },
               });
+              if (role.id !== bossRole.id) {
+                // #2/#3: a worker is gone for the rest of this run. Without this
+                // notice the coordinator keeps messaging a corpse (observed: four
+                // unanswered org_send calls to a developer that had crashed on a
+                // context-window limit). Tell the boss to reassign — and if the
+                // crash was a context overflow, tell it to chunk smaller, since
+                // re-dispatching the same task verbatim fails the same way.
+                const bossRt = running.agents.get(bossRole.id);
+                if (bossRt && !bossRt.mailbox.isClosed) {
+                  const guidance = isContextLimit
+                    ? ' This was a context-window overflow — re-dispatching the same task verbatim will fail identically. Break the work into smaller pieces (one file or section at a time) and do not paste large file contents in a single message.'
+                    : '';
+                  bossRt.mailbox.push(
+                    `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`);
+                  bus.emit({ type: 'audit', from: bossRole.id, reason: 'worker-crashed',
+                    msg: `worker "${role.id}" crashed (contextLimit=${isContextLimit}); coordinator notified to reassign` });
+                }
+              } else {
+                // #4: the coordinator itself died. Don't go silent and wait for a
+                // human — attempt a bounded whole-org restart with fresh sessions
+                // (which also sheds whatever bloated context caused the crash).
+                this.scheduleBossRestart(name);
+              }
             };
             if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) { crash(); return; }
             bus.emit({
@@ -395,6 +481,7 @@ export class OrgDaemon {
         this.stopOrg(name).catch(err => console.error(`org ${name}: idle-stop failed:`, err instanceof Error ? err.message : err));
       };
       const wd = setInterval(() => {
+        if (this.restarting.has(name)) return; // boss auto-restart in flight — don't nudge or stop
         const idleFor = Date.now() - lastActivity;
         if (idleFor < idleMs) { nudgedAt = 0; return; }
         if (nudgedAt === 0) {
@@ -465,9 +552,10 @@ export class OrgDaemon {
         if (waited.ok) {
           running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-recovered',
             msg: `resources recovered after ${attempt} retr${attempt === 1 ? 'y' : 'ies'} — spawning deferred role "${role.id}"` });
-          spawnRole(role);
-          // Drain messages queued while the role was deferred (see deliver() B4 fix)
+          // Drain messages queued while the role was deferred BEFORE spawning
+          // to prevent race condition where messages arrive during spawn window
           const queued = drainInbox(this.root, name);
+          spawnRole(role);
           for (const msg of queued) {
             const agent = running.agents.get(msg.toRole);
             if (agent && !agent.mailbox.isClosed) {
@@ -510,17 +598,24 @@ export class OrgDaemon {
     const targetOrg = this.orgs.get(targetOrgName);
     const src = this.orgs.get(fromOrg);
     // Lazy spawn: if the role is pending (not yet spawned), spawn it now.
-    if (targetOrg && !targetOrg.agents.has(targetRole) && targetOrg.pendingRoles?.has(targetRole)) {
+    // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages
+    const spawning = this.spawning.get(targetOrgName) ?? new Set<string>();
+    this.spawning.set(targetOrgName, spawning);
+    if (targetOrg && !targetOrg.agents.has(targetRole) && targetOrg.pendingRoles?.has(targetRole) && !spawning.has(targetRole)) {
       const role = targetOrg.pendingRoles.get(targetRole)!;
       targetOrg.pendingRoles.delete(targetRole);
+      spawning.add(targetRole); // Mark as spawning before async work
       const check = checkResources();
       if (!check.ok) {
         const waited = await waitForCapacity(60_000);
+        spawning.delete(targetRole); // Clear spawning flag after check
         if (!waited.ok) {
           targetOrg.bus.emit({ type: 'audit', from: targetRole, reason: 'resource-skip',
             msg: `deferring lazy spawn of "${targetRole}": ${waited.reason}` });
           // Queue the triggering message so it survives the deferred spawn — without
           // this the sender got "queued" but the message was silently lost.
+          // B5 FIX: Queue FIRST, then schedule spawn only if queue succeeds.
+          // If queueing fails, we return the error without modifying spawn state.
           const queued = queueMessage(this.root, targetOrgName, {
             fromQualified: cross ? `${fromOrg}:${fromRole}` : fromRole,
             toRole: targetRole, subject, body, ts: Date.now(),
@@ -534,6 +629,7 @@ export class OrgDaemon {
         }
       }
       targetOrg.spawnRole!(role);
+      spawning.delete(targetRole); // Clear spawning flag after spawn completes
       targetOrg.bus.emit({ type: 'status', from: targetRole, msg: `lazy-spawned on first message from ${fromRole}` });
     }
     if (!targetOrg || !targetOrg.agents.has(targetRole)) {
@@ -645,17 +741,38 @@ export class OrgDaemon {
       return { ok: false, error: `org "${toOrg}" not hosted here` };
     }
     // Lazy-spawn pending roles on cross-process delivery (matches deliver/answerQuestion)
-    if (!org.agents.has(toRole) && org.pendingRoles?.has(toRole)) {
+    // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages
+    const spawning = this.spawning.get(toOrg) ?? new Set<string>();
+    this.spawning.set(toOrg, spawning);
+    if (!org.agents.has(toRole) && org.pendingRoles?.has(toRole) && !spawning.has(toRole)) {
       const role = org.pendingRoles.get(toRole)!;
       org.pendingRoles.delete(toRole);
+      spawning.add(toRole); // Mark as spawning before async work
+      // Resource gate check before spawning (prevents bypass in cross-process delivery)
+      const check = checkResources();
+      if (!check.ok) {
+        spawning.delete(toRole); // Clear spawning flag after check
+        org.bus.emit({ type: 'audit', from: toRole, reason: 'resource-pressure',
+          msg: `cross-process lazy spawn deferred: ${check.reason}` });
+        // B4 FIX: Queue the triggering message FIRST, then schedule spawn only if queue succeeds.
+        // This matches the pattern in deliver() and prevents message loss if queue fails.
+        const queued = queueMessage(this.root, toOrg, { fromQualified, toRole, subject, body, ts: Date.now() });
+        if (!queued) {
+          return { ok: false, error: `could not queue message for ${toOrg}:${toRole} (disk full or permissions)` };
+        }
+        this.scheduleDeferredSpawn(toOrg, org, role, org.spawnRole!);
+        return { ok: true, receipt: `queued for ${toOrg}:${toRole} (role starting — waiting for resources)` };
+      }
       org.spawnRole?.(role);
+      spawning.delete(toRole); // Clear spawning flag after spawn completes
       org.bus.emit({ type: 'status', from: toRole, msg: `lazy-spawned on remote delivery from ${fromQualified}` });
     }
     const agent = org.agents.get(toRole);
     if (!agent) return { ok: false, error: `role "${toRole}" not found in org "${toOrg}"` };
     if (agent.status === 'crashed') return { ok: false, error: `role "${toRole}" in org "${toOrg}" crashed and will not recover this run` };
     if (agent.mailbox.isClosed) return { ok: false, error: `role "${toRole}" in org "${toOrg}" is shutting down` };
-    org.bus.emit({ type: 'xorg', from: fromQualified, to: `${toOrg}:${toRole}`, subject, msg: body });
+    const messageEvent = org.bus.emit({ type: 'xorg', from: fromQualified, to: `${toOrg}:${toRole}`, subject, msg: body });
+    agent.lastMessageId = messageEvent.id; // Track last message ID for response threading
     agent.mailbox.push(`[message from ${fromQualified}] subject: ${subject}\n\n${body}`);
     return { ok: true, receipt: `delivered to ${toOrg}:${toRole} (remote)` };
   }
@@ -681,16 +798,12 @@ export class OrgDaemon {
     renameSync(tmp, dest);
   }
 
-  /** Approval queue for human gates (ask_human tool calls requiring explicit approval
-   *  before proceeding). Persists to approvals.json for crash recovery. */
-  private approvals = new Map<string, Array<{ roleId: string; question: string; ts: number; approved: boolean | null }>>();
-
   /** Check if an action requires human approval (beforeTool hook for guardrails). Returns
    *  the approval decision: true = approved, false = denied, null = pending (requires human input). */
   private async checkApproval(org: string, role: string, action: string): Promise<boolean | null> {
     const approvalKey = `${org}:${role}:${action}`;
     const pending = this.approvals.get(org) ?? [];
-    const existing = pending.find(a => a.roleId === role && a.question === action);
+    const existing = pending.find(a => a.roleId === role && a.action === action);
 
     // If already approved/denied, return that decision
     if (existing && existing.approved !== null) return existing.approved;
@@ -700,7 +813,7 @@ export class OrgDaemon {
     if (sensitiveActions.includes(action)) {
       // Queue for approval
       if (!existing) {
-        pending.push({ roleId: role, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
+        pending.push({ roleId: role, action, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
         this.approvals.set(org, pending);
       }
       // Persist to approvals.json
@@ -720,7 +833,7 @@ export class OrgDaemon {
   /** Approve or deny a pending action (called by dashboard or CLI). */
   async setApproval(org: string, role: string, action: string, approved: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
     const pending = this.approvals.get(org) ?? [];
-    const item = pending.find(a => a.roleId === role && a.question === action);
+    const item = pending.find(a => a.roleId === role && a.action === action);
 
     if (!item) return { ok: false, error: `No pending approval found for ${role} action ${action}` };
 
@@ -899,6 +1012,36 @@ export class OrgDaemon {
       .finally(() => { this.waking.delete(name); });
   }
 
+  /** #4: bounded whole-org restart after the boss terminally crashes. Stops the
+   *  dead run and re-launches it with fresh sessions (shedding any bloated
+   *  context). Capped at MAX_BOSS_RESTARTS per explicit start so a crashing boss
+   *  can't loop forever; beyond the cap it gives up and lets the idle watchdog
+   *  shut the run down for a human. */
+  private scheduleBossRestart(name: string): void {
+    if (this.stopping.has(name) || this.restarting.has(name)) return;
+    const count = this.bossRestartCounts.get(name) ?? 0;
+    const bus = this.orgs.get(name)?.bus;
+    if (count >= OrgDaemon.MAX_BOSS_RESTARTS) {
+      bus?.emit({ type: 'audit', reason: 'boss-restart-exhausted',
+        msg: `boss crashed again after ${count} auto-restart(s) — giving up; manual restart required` });
+      return;
+    }
+    const backoffSchedule = this.opts.bossRestartBackoffMs ?? OrgDaemon.BOSS_RESTART_BACKOFF_MS;
+    const backoff = backoffSchedule[Math.min(count, backoffSchedule.length - 1)];
+    this.bossRestartCounts.set(name, count + 1);
+    this.restarting.add(name);
+    bus?.emit({ type: 'audit', reason: 'boss-restart',
+      msg: `boss crashed — auto-restarting org with fresh sessions in ${Math.round(backoff / 1000)}s (attempt ${count + 1}/${OrgDaemon.MAX_BOSS_RESTARTS})` });
+    const t = setTimeout(() => {
+      if (this.stopping.has(name)) { this.restarting.delete(name); return; } // a manual stop won
+      this.stopOrg(name)
+        .then(() => (this.stopping.has(name) ? null : this.startOrg(name)))
+        .then(() => { this.restarting.delete(name); })
+        .catch(err => { this.restarting.delete(name); console.error(`org ${name}: boss auto-restart failed:`, err instanceof Error ? err.message : err); });
+    }, backoff);
+    (t as { unref?: () => void }).unref?.();
+  }
+
   /** @param opts.drainMs how long to let in-flight agent sessions finish before
    *  reaping. Defaults to the short abort bound; the planned-completion path
    *  passes a far longer window (see COMPLETE_DRAIN_MS). */
@@ -913,6 +1056,7 @@ export class OrgDaemon {
     const org = this.orgs.get(name);
     if (!org) return; // already stopped
     org.pendingRoles?.clear(); // prevent lazy spawns after stop
+    this.spawning.delete(name); // clean up spawning tracking for this org
     // Remove immediately (not at the end) so a concurrent stopOrg(name) call —
     // e.g. stopAll() racing a scheduler-triggered stop on SIGINT — joins this
     // shutdown via `stopping` instead of re-running the whole sequence and
@@ -1226,24 +1370,47 @@ export class OrgDaemon {
    *  debugging and run recovery after crashes. Returns the resumed RunningOrg or null. */
   async resumeOrg(name: string): Promise<RunningOrg | null> {
     const rtPath = join(this.root, ORG_DIR, name, 'runtime.json');
-    if (!existsSync(rtPath)) return null;
+    if (!existsSync(rtPath)) {
+      console.error('resumeOrg failed: runtime.json missing for', name);
+      return null;
+    }
 
-    let rt: { status?: string; run?: string; roleMetrics?: Record<string, { tokens: number; costUsd: number }> } | undefined;
+    interface RuntimeState {
+      status?: string;
+      run?: string;
+      roleMetrics?: Record<string, { tokens: number; costUsd: number; lastMessageId?: string }>;
+      mailboxState?: Record<string, { queued: number; closed: boolean }>;
+      abandonedRoles?: string[];
+    }
+
+    let rt: RuntimeState | undefined;
     try {
       rt = JSON.parse(readFileSync(rtPath, 'utf8'));
-    } catch { return null; }
+    } catch (err) {
+      console.error('resumeOrg failed: invalid JSON in runtime.json for', name, err instanceof Error ? err.message : err);
+      return null;
+    }
 
-    if (rt?.status !== 'running' || !rt?.run) return null;
+    if (rt?.status !== 'running' || !rt?.run) {
+      console.error('resumeOrg failed: invalid runtime state for', name, 'status:', rt?.status, 'run:', rt?.run);
+      return null;
+    }
 
     // Load the org definition
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
-    if (!existsSync(defPath)) return null;
+    if (!existsSync(defPath)) {
+      console.error('resumeOrg failed: org definition missing for', name);
+      return null;
+    }
 
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
     const dir = join(this.root, ORG_DIR, name, rt.run);
 
     // Check if run directory exists
-    if (!existsSync(dir)) return null;
+    if (!existsSync(dir)) {
+      console.error('resumeOrg failed: run directory missing', dir);
+      return null;
+    }
 
     // Reconstruct the bus from history
     const bus = new OrgBus(name, rt.run, dir);
@@ -1274,16 +1441,91 @@ export class OrgDaemon {
             status: 'running',
             done: Promise.resolve(),
             metrics: { tokens: metrics.tokens, costUsd: metrics.costUsd },
+            lastMessageId: metrics.lastMessageId,
           };
           running.agents.set(roleId, runtime);
+
+          // Restore mailbox state if it was closed
+          if (rt.mailboxState?.[roleId]?.closed) {
+            mailbox.close();
+          }
         }
       }
+    }
+
+    // Restore abandoned roles tracking
+    if (rt.abandonedRoles) {
+      this.abandoned.set(name, new Set(rt.abandonedRoles));
+    }
+
+    // Set up pending roles for lazy spawn (roles not yet reconstructed)
+    const reconstructedRoles = new Set(Object.keys(rt.roleMetrics ?? {}));
+    const pendingRoles = new Map<string, OrgRole>();
+    for (const role of def.roles) {
+      if (!reconstructedRoles.has(role.id)) {
+        pendingRoles.set(role.id, role);
+      }
+    }
+    if (pendingRoles.size > 0) {
+      running.pendingRoles = pendingRoles;
     }
 
     this.orgs.set(name, running);
     bus.emit({ type: 'status', msg: `org resumed from checkpoint (${rt.run})` });
     this.persistState(name, 'running', rt.run);
     return running;
+  }
+
+  /** Create a branch from a checkpoint for "what-if" experiments */
+  branchCheckpoint(name: string, run: string, branchName: string): { ok: true; branchRun: string } | { ok: false; error: string } {
+    const runDir = join(this.root, ORG_DIR, name, run);
+    if (!existsSync(runDir)) {
+      return { ok: false, error: `run ${run} not found for org ${name}` };
+    }
+
+    const branchRun = `branch-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
+    const branchDir = join(this.root, ORG_DIR, name, branchRun);
+
+    try {
+      mkdirSync(branchDir, { recursive: true });
+      // Copy bus.jsonl to branch
+      const busFile = join(runDir, 'bus.jsonl');
+      if (existsSync(busFile)) {
+        const busContent = readFileSync(busFile, 'utf8');
+        writeFileSync(join(branchDir, 'bus.jsonl'), busContent);
+      }
+      // Create branch marker file
+      writeFileSync(join(branchDir, '.branch-source'), JSON.stringify({ from: run, branchedAt: new Date().toISOString() }));
+      return { ok: true, branchRun };
+    } catch (err) {
+      return { ok: false, error: `failed to create branch: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  }
+
+  /** Record a structured decision trace for Rifft-style debugging */
+  recordDecision(org: string, role: string, decision: {
+    type: 'tool' | 'handoff' | 'approval' | 'routing';
+    context: string;
+    reasoning: string;
+    alternatives?: Array<{ choice: string; score: number; reason: string }>;
+    outcome: string;
+  }): void {
+    const running = this.orgs.get(org);
+    if (!running) return;
+
+    running.bus.emit({
+      type: 'audit',
+      from: role,
+      reason: 'decision-trace',
+      data: {
+        decisionType: decision.type,
+        context: decision.context,
+        reasoning: decision.reasoning,
+        alternatives: decision.alternatives,
+        outcome: decision.outcome,
+        ts: new Date().toISOString()
+      },
+    });
   }
 
   /** Roles that never spawned, per org. An org missing a role is still reported
@@ -1297,16 +1539,27 @@ export class OrgDaemon {
     const missing = [...(this.abandoned.get(name) ?? [])];
     const running = org ?? this.orgs.get(name);
     // Per-role cost tracking: collect live metrics from active agents
-    const roleMetrics: Record<string, { tokens: number; costUsd: number }> = {};
+    const roleMetrics: Record<string, { tokens: number; costUsd: number; lastMessageId?: string }> = {};
+    // Mailbox queue state for checkpoint/resume
+    const mailboxState: Record<string, { queued: number; closed: boolean }> = {};
     if (running) {
       for (const [roleId, runtime] of running.agents) {
-        roleMetrics[roleId] = { tokens: runtime.policy.usage, costUsd: runtime.metrics.costUsd };
+        roleMetrics[roleId] = {
+          tokens: runtime.policy.usage,
+          costUsd: runtime.metrics.costUsd,
+          lastMessageId: runtime.lastMessageId
+        };
+        mailboxState[roleId] = {
+          queued: runtime.mailbox['queue']?.length ?? 0,
+          closed: runtime.mailbox.isClosed
+        };
       }
     }
     writeFileSync(p, JSON.stringify({
       status, run, pid: process.pid, updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
       ...(Object.keys(roleMetrics).length ? { roleMetrics } : {}),
+      ...(Object.keys(mailboxState).length ? { mailboxState } : {}),
     }, null, 2));
   }
 

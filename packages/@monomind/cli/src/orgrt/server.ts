@@ -6,6 +6,12 @@ import type { OrgDaemon } from './daemon.js';
 
 export interface OrgServer { port: number; close: () => void; credential: string }
 
+// CLI options for server behavior (currently unused but reserved for future CLI flags)
+export interface ServerOpts {
+  /** Filter tool audit events by tool name or decision (allow|deny) */
+  auditFilter?: { tool?: string; decision?: 'allow' | 'deny' };
+}
+
 const MAX_BODY = 1_000_000; // 1MB — prevents OOM from oversized POSTs
 
 /** Parse a JSON POST body with a size guard. Rejects oversized or malformed bodies. */
@@ -14,6 +20,8 @@ function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> 
     let body = '';
     const onError = (err: Error) => { req.destroy(); reject(err); };
     req.on('data', (c: string) => {
+      // Abort if client disconnected
+      if (req.destroyed) { onError(new Error('client disconnected')); return; }
       body += c;
       // Use Buffer.byteLength for accurate multi-byte payload size (fixes DoS vulnerability)
       if (Buffer.byteLength(body, 'utf8') > MAX_BODY) { onError(new Error('body too large')); }

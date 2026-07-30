@@ -1,9 +1,44 @@
 // packages/@monomind/cli/__tests__/orgrt/daemon.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import http from 'node:http';
+
+// Module-level mock for resource-governor - used by U3 test
+let resourcePressure = false;
+let waitForCapacityCallCount = 0;
+
+vi.mock('../../src/utils/resource-governor.js', () => ({
+  checkResources: vi.fn(() => {
+    const ok = !resourcePressure;
+    return {
+      ok,
+      freeMemMB: ok ? 2000 : 100,
+      freeMemPct: ok ? 80 : 5,
+      sdkProcesses: 0,
+      maxSdkProcesses: 10,
+      reason: ok ? undefined : 'low memory: simulated pressure',
+    };
+  }),
+  waitForCapacity: vi.fn(async () => {
+    waitForCapacityCallCount++;
+    const ok = !resourcePressure || waitForCapacityCallCount > 1; // Recovers on second call
+    return {
+      ok,
+      freeMemMB: ok ? 2000 : 100,
+      freeMemPct: ok ? 80 : 5,
+      sdkProcesses: 0,
+      maxSdkProcesses: 10,
+      reason: ok ? undefined : 'low memory: simulated pressure',
+    };
+  }),
+  getResourceLimits: vi.fn(() => ({ minFreeMemBytes: 0, maxSdkProcesses: 10, spawnStaggerMs: 0 })),
+  configureResourceLimits: vi.fn(),
+  reapOrphanedSdkProcesses: vi.fn(() => 0),
+  getAvailableMemBytes: vi.fn(() => resourcePressure ? 100 * 1024 * 1024 : 2000 * 1024 * 1024),
+}));
+
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 
 function fixture(root: string, name: string) {
@@ -456,4 +491,444 @@ describe('OrgDaemon — cross-run org memory (org_recall store side)', () => {
       rmSync(root, { recursive: true, force: true });
     }
   }, 60_000);
+});
+
+describe('OrgDaemon — P1 critical paths (Batch 2)', () => {
+  describe('scheduleDeferredSpawn resource recovery', () => {
+    beforeEach(() => {
+      resourcePressure = false;
+      waitForCapacityCallCount = 0;
+    });
+
+    afterEach(() => {
+      resourcePressure = false;
+      waitForCapacityCallCount = 0;
+    });
+
+    it('U3: drains inbox BEFORE spawnRole and delivers queued messages after recovery', async () => {
+      // Test for B5 race condition fix: queueMessage must happen before scheduleDeferredSpawn
+      // This test verifies the full recovery flow: resource pressure → queue → wait → recover → deliver
+      const root = mkdtempSync(join(tmpdir(), 'daemon-recovery-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+
+        // Enable resource pressure simulation
+        resourcePressure = true;
+        waitForCapacityCallCount = 0;
+
+        const running = await d.startOrg('alpha');
+
+        // Trigger lazy spawn while under pressure - should queue message
+        const receipt = await d.deliver('alpha', 'boss', 'coder', 'task', 'do this while recovering');
+        expect(receipt).toMatch(/queued for.*coder.*role starting.*waiting for resources/);
+
+        // Wait for recovery and message delivery
+        await waitUntil(() => running.busEvents().some(e => e.reason === 'resource-recovered'), 3000);
+
+        // Verify resource-recovered audit event was emitted
+        const recoveredEvents = running.busEvents().filter(e => e.reason === 'resource-recovered');
+        expect(recoveredEvents.length).toBeGreaterThan(0);
+        expect(recoveredEvents[0].from).toBe('coder');
+
+        // Verify queued message was delivered after spawn
+        await waitUntil(() => running.busEvents().some(e => e.type === 'chat' && e.from === 'coder'), 2000);
+        const chatEvents = running.busEvents().filter(e => e.type === 'chat' && e.from === 'coder');
+        expect(chatEvents.length).toBeGreaterThan(0);
+
+        await d.stopAll();
+      } finally {
+        resourcePressure = false;
+        waitForCapacityCallCount = 0;
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 30_000);
+  });
+
+  describe('replayFrom time-travel debugging', () => {
+    it('U4: recreates org state from checkpoint and re-emits events with new timestamps', async () => {
+      // Test time-travel debugging: replay from existing run directory
+      const root = mkdtempSync(join(tmpdir(), 'daemon-replay-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+
+        // Create an original run with some events
+        const original = await d.startOrg('alpha');
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'original task');
+        await new Promise(r => setTimeout(r, 100)); // let events settle
+        await d.stopOrg('alpha');
+
+        const originalRun = original.run;
+        const originalEvents = original.busEvents();
+        expect(originalEvents.length).toBeGreaterThan(0);
+
+        // Replay from the checkpoint
+        const replay = await d.replayFrom('alpha', originalRun);
+        expect(replay).not.toBeNull();
+        expect(replay!.run).toMatch(/^replay-\d{14}-[a-z0-9]{4}$/);
+
+        // Verify replay bus has events
+        const replayEvents = replay!.busEvents();
+        expect(replayEvents.length).toBeGreaterThan(0);
+
+        // Verify replay emits a status event indicating replay started
+        const replayStatus = replayEvents.filter(e => e.type === 'status' && e.msg?.includes('replay started'));
+        expect(replayStatus.length).toBeGreaterThan(0);
+        expect(replayStatus[0].msg).toContain(originalRun);
+        expect(replayStatus[0].msg).toContain(`${originalEvents.length} events replayed`);
+
+        // Verify replay has different run ID and timestamps
+        expect(replay!.run).not.toBe(originalRun);
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 20_000);
+
+    it('U4: returns null when run directory does not exist', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'daemon-replay-missing-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+
+        const result = await d.replayFrom('alpha', 'nonexistent-run');
+        expect(result).toBeNull();
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 10_000);
+  });
+
+  describe('Approval queue persistence (B6 visibility path)', () => {
+    it('U6: checkApproval queues sensitive actions, persists to approvals.json, and setApproval resolves', async () => {
+      // Test approval gate for sensitive actions (Bash, WebFetch, WebSearch, org_complete)
+      const root = mkdtempSync(join(tmpdir(), 'daemon-approval-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+
+        const running = await d.startOrg('alpha');
+
+        // Request approval for sensitive action (Bash)
+        const approvalResult = await d['checkApproval']('alpha', 'coder', 'Bash');
+        expect(approvalResult).toBeNull(); // Pending human approval
+
+        // Verify persisted to approvals.json
+        const { readFileSync } = await import('node:fs');
+        const approvalsPath = join(root, '.monomind/orgs/alpha/approvals.json');
+        expect(readFileSync(approvalsPath, 'utf8')).toBeTruthy();
+
+        const approvalsData = JSON.parse(readFileSync(approvalsPath, 'utf8'));
+        expect(approvalsData.approvals).toHaveLength(1);
+        expect(approvalsData.approvals[0]).toMatchObject({
+          roleId: 'coder',
+          question: 'Approve Bash tool call?',
+          approved: null,
+        });
+
+        // Verify question event was emitted
+        const questionEvents = running.busEvents().filter(e => e.type === 'question' && e.data?.action === 'Bash');
+        expect(questionEvents.length).toBeGreaterThan(0);
+        expect(questionEvents[0].data?.question).toContain('Approval required for Bash');
+
+        // Grant approval
+        const setApprovalResult = await d.setApproval('alpha', 'coder', 'Bash', true);
+        expect(setApprovalResult.ok).toBe(true);
+
+        // Verify approvals.json updated
+        const approvalsAfter = JSON.parse(readFileSync(approvalsPath, 'utf8'));
+        expect(approvalsAfter.approvals[0].approved).toBe(true);
+
+        // Verify status event was emitted
+        const statusEvents = running.busEvents().filter(e => e.type === 'status' && e.msg?.includes('Approval granted'));
+        expect(statusEvents.length).toBeGreaterThan(0);
+
+        // Verify calling checkApproval again returns the approved decision
+        const cachedApproval = await d['checkApproval']('alpha', 'coder', 'Bash');
+        expect(cachedApproval).toBe(true); // Auto-approved from cache
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 20_000);
+
+    it('U6: auto-approves non-sensitive actions without persisting', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'daemon-auto-approve-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+
+        const running = await d.startOrg('alpha');
+
+        // Non-sensitive action should be auto-approved
+        const approvalResult = await d['checkApproval']('alpha', 'coder', 'Read');
+        expect(approvalResult).toBe(true); // Auto-approved
+
+        // Verify no approvals.json was created
+        const { existsSync } = await import('node:fs');
+        const approvalsPath = join(root, '.monomind/orgs/alpha/approvals.json');
+        expect(existsSync(approvalsPath)).toBe(false);
+
+        // Verify no question event was emitted
+        const questionEvents = running.busEvents().filter(e => e.type === 'question');
+        expect(questionEvents.length).toBe(0);
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 10_000);
+  });
+
+  describe('OrgDaemon — parentId threading', () => {
+    it('tracks lastMessageId on message delivery', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'daemon-parent-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+        const running = await d.startOrg('alpha');
+
+        // Send a message to the coder (triggers lazy spawn)
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'first message');
+
+        // Wait for agent to be ready
+        await waitUntil(() => {
+          const org = d['orgs'].get('alpha');
+          return org?.agents.has('coder') ?? false;
+        });
+
+        const org = d['orgs'].get('alpha');
+        const agent = org?.agents.get('coder');
+
+        // Verify lastMessageId was tracked
+        expect(agent?.lastMessageId).toBeDefined();
+        expect(typeof agent?.lastMessageId).toBe('string');
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 10_000);
+
+    it('emits chat events with parentId linking to triggering message', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'daemon-thread-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+        const running = await d.startOrg('alpha');
+
+        // Wait for lazy spawn to complete
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'first');
+        await waitUntil(() => {
+          const org = d['orgs'].get('alpha');
+          return org?.agents.has('coder') ?? false;
+        });
+
+        // Clear previous events
+        const beforeEvents = running.busEvents();
+
+        // Send a message that will generate a response
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'respond to this');
+
+        // Wait for message processing and response
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const allEvents = running.busEvents();
+        // Only look at events after our baseline
+        const events = allEvents.slice(beforeEvents.length);
+
+        // Find the message event (look for the message we just sent)
+        const messageEvents = events.filter(e => e.type === 'message' && e.msg?.includes('respond to this'));
+        expect(messageEvents.length).toBeGreaterThan(0);
+        const messageEvent = messageEvents[0];
+
+        // Find the chat response event
+        const chatEvents = events.filter(e => e.type === 'chat' && e.from === 'coder');
+        expect(chatEvents.length).toBeGreaterThan(0);
+        const chatEvent = chatEvents[0];
+
+        // Verify chat event has parentId that matches the message ID
+        expect(chatEvent.parentId).toBe(messageEvent.id);
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 10_000);
+
+    it('updates lastMessageId on each new message', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'daemon-multi-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+        const running = await d.startOrg('alpha');
+
+        // Wait for lazy spawn to complete
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'first');
+        await waitUntil(() => {
+          const org = d['orgs'].get('alpha');
+          return org?.agents.has('coder') ?? false;
+        });
+
+        const org = d['orgs'].get('alpha');
+        const agent = org?.agents.get('coder');
+
+        const firstId = agent?.lastMessageId;
+        expect(firstId).toBeDefined();
+
+        // Send second message
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'second');
+
+        // Wait for message processing
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const secondId = agent?.lastMessageId;
+        expect(secondId).toBeDefined();
+        expect(secondId).not.toBe(firstId); // Should be updated to new message ID
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 10_000);
+
+    it('maintains conversation chain across multiple turns', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'daemon-chain-'));
+      try {
+        fixture(root, 'alpha');
+        const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+        const running = await d.startOrg('alpha');
+
+        // Wait for lazy spawn to complete
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'spawn');
+        await waitUntil(() => {
+          const org = d['orgs'].get('alpha');
+          return org?.agents.has('coder') ?? false;
+        });
+
+        // Clear previous events
+        const baseline = running.busEvents();
+
+        // Send first message
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'first message');
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const events1 = running.busEvents().slice(baseline.length);
+        const firstMessage = events1.find(e => e.type === 'message' && e.msg?.includes('first message'));
+        const firstResponse = events1.find(e => e.type === 'chat' && e.parentId === firstMessage?.id);
+
+        expect(firstResponse?.parentId).toBe(firstMessage?.id);
+
+        // Send second message (continuing the conversation)
+        await d.deliver('alpha', 'boss', 'coder', 'task', 'second message');
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const events2 = running.busEvents().slice(events1.length + baseline.length);
+        const secondMessage = events2.find(e => e.type === 'message' && e.msg?.includes('second message'));
+        const secondResponse = events2.find(e => e.type === 'chat' && e.parentId === secondMessage?.id);
+
+        expect(secondResponse?.parentId).toBe(secondMessage?.id);
+        expect(secondMessage?.id).not.toBe(firstMessage?.id); // Different message IDs
+
+        await d.stopAll();
+      } finally {
+        const { rmSync } = await import('node:fs');
+        rmSync(root, { recursive: true, force: true });
+      }
+    }, 15_000);
+  });
+});
+
+describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-restart)', () => {
+  // shared fake: the "coder" role throws on the first .next() WITHOUT consuming a
+  // message, so every crash-retry re-throws and the role reaches a terminal crash
+  // (consuming the only message would make later retries block on an empty mailbox
+  // and never crash). The boss stays alive and echoes every message it's told.
+  function crashingWorkerQuery(workerErr: string, bossEcho: string[] = []) {
+    return ({ prompt, options }: any) => (async function* () {
+      if (/agent "coder"/.test(options.systemPrompt ?? '')) throw new Error(workerErr);
+      for await (const m of prompt) {
+        bossEcho.push(m.message.content);
+        yield { type: 'assistant', message: { content: [{ type: 'text', text: m.message.content }] } };
+        yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 1 } };
+      }
+    })();
+  }
+
+  it('notifies the boss when a worker terminally crashes so it can reassign (#2)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-cr2-'));
+    fixture(root, 'alpha');
+    const bossEcho: string[] = [];
+    const d = new OrgDaemon(root, { queryFn: crashingWorkerQuery('simulated provider outage: 500', bossEcho) as any, forward: false, crashBackoffsMs: [10, 10, 10] });
+    const running = await d.startOrg('alpha');
+    const audits: any[] = [];
+    running.bus.subscribe(e => { if (e.type === 'audit') audits.push(e); });
+
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
+    await waitUntil(() => running.agents.get('coder')?.status === 'crashed', 3000);
+    await new Promise(r => setTimeout(r, 80)); // let the alive boss echo the notice
+
+    expect(running.agents.get('coder')!.status).toBe('crashed');
+    // boss was told the worker is gone (audit) and actually received a system message (echo)
+    expect(audits.some(a => a.reason === 'worker-crashed')).toBe(true);
+    expect(bossEcho.some(c => /Worker "coder" crashed/.test(c))).toBe(true);
+    await d.stopOrg('alpha');
+  }, 10_000);
+
+  it('tells the boss to chunk smaller when a worker crashes on a context-window limit (#3)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-cr3-'));
+    fixture(root, 'alpha');
+    const bossEcho: string[] = [];
+    const d = new OrgDaemon(root, { queryFn: crashingWorkerQuery('The model has reached its context window limit.', bossEcho) as any, forward: false, crashBackoffsMs: [10, 10, 10] });
+    const running = await d.startOrg('alpha');
+    const audits: any[] = [];
+    running.bus.subscribe(e => { if (e.type === 'audit') audits.push(e); });
+
+    await d.deliver('alpha', 'boss', 'coder', 'task', 'build it');
+    await waitUntil(() => running.agents.get('coder')?.status === 'crashed', 3000);
+    await new Promise(r => setTimeout(r, 80));
+
+    // distinct audit reason for context-limit vs generic crash
+    expect(audits.some(a => a.reason === 'agent-context-limit' && a.from === 'coder')).toBe(true);
+    // boss guidance includes the chunking instruction, not just the generic reassign note
+    expect(bossEcho.some(c => /context-window overflow/.test(c) && /smaller pieces/.test(c))).toBe(true);
+    await d.stopOrg('alpha');
+  }, 10_000);
+
+  it('bounded auto-restart: a repeatedly crashing boss restarts at most MAX times then stops (#4)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-cr4-'));
+    fixture(root, 'alpha');
+    // every role throws on the first .next() without consuming — the boss dies on
+    // every (re)start, so it exercises the auto-restart path repeatedly.
+    const alwaysDie = () => (async function* () { throw new Error('boss always dies'); })();
+    const d = new OrgDaemon(root, { queryFn: alwaysDie as any, forward: false, crashBackoffsMs: [10, 10, 10], bossRestartBackoffMs: [10, 10] });
+    const startSpy = vi.spyOn(d, 'startOrg' as any);
+    await d.startOrg('alpha');
+
+    // Wait for restarts to settle: no new startOrg call for 400ms means the cap
+    // was hit and the daemon gave up (proving it does NOT loop forever).
+    let prev = -1, stableAt = Date.now();
+    while (Date.now() - stableAt < 6000) {
+      const c = startSpy.mock.calls.length;
+      if (c !== prev) { prev = c; stableAt = Date.now(); }
+      else if (Date.now() - stableAt > 400) break;
+      await new Promise(r => setTimeout(r, 40));
+    }
+    // 1 initial start + at most MAX_BOSS_RESTARTS (2) auto-restarts.
+    expect(startSpy.mock.calls.length).toBeLessThanOrEqual(3);
+    await d.stopOrg('alpha');
+  }, 15_000);
 });

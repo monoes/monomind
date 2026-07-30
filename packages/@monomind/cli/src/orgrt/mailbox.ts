@@ -13,11 +13,21 @@ export interface OrgUserMessage {
  */
 export class Mailbox {
   private static readonly MAX_QUEUE = 500;
+  /** Prefix tagging self-continuation pushes (turn-limit resume) so stream() can
+   *  tell them apart from real deliveries and the restart loop can detect a role
+   *  that is spinning on its own continuations without making progress. */
+  static readonly CONTINUE_PREFIX = '[system:turn-continue]';
   private queue: string[] = [];
   private wake: (() => void) | null = null;
   private closed = false;
   /** Bumped when a new stream() starts; stale generators see the mismatch and exit. */
   private generation = 0;
+  /** Monotonic count of REAL (non-continuation) messages consumed by stream().
+   *  The restart loop snapshots this around a session to tell progress from spin. */
+  private consumedReal = 0;
+
+  /** Number of real (non-continuation) messages consumed so far across all sessions. */
+  get consumedRealCount(): number { return this.consumedReal; }
 
   push(text: string): void {
     if (this.closed) return;
@@ -64,9 +74,11 @@ export class Mailbox {
     while (true) {
       while (this.queue.length > 0) {
         if (gen !== this.generation) return; // superseded — leave the queue for the live generator
+        const content = this.queue.shift()!;
+        if (!content.startsWith(Mailbox.CONTINUE_PREFIX)) this.consumedReal++;
         yield {
           type: 'user',
-          message: { role: 'user', content: this.queue.shift()! },
+          message: { role: 'user', content },
           parent_tool_use_id: null,
           session_id: sessionId,
         };

@@ -90,6 +90,10 @@ export interface BusEvent {
   data?: Record<string, unknown>;
   /** Parent event ID for message chains (e.g., a message responding to another message) */
   parentId?: string;
+  /** OpenTelemetry tracing fields (optional, for distributed tracing and cost tracking) */
+  conversationId?: string;
+  interactionId?: string;
+  agentSessionId?: string;
 }
 
 export const ORG_DIR = '.monomind/orgs';
@@ -97,26 +101,21 @@ export const ORG_DIR = '.monomind/orgs';
 /**
  * Recommended org_send handoff format for inter-role communication:
  *
- * ```json
- * {
- *   "summary": "Brief one-line status of what was done",
- *   "next_action": "What the receiver should do next",
- *   "context": {
- *     "key": "value"
- *   }
- * }
- * ```
+ * Use org_send(target_role, context_summary, next_action, files_changed, related_issues):
+ *
+ * - **target_role**: Role ID to receive the handoff
+ * - **context_summary**: Brief status of what was done (1-2 sentences)
+ * - **next_action**: What the receiver should do next (specific, actionable)
+ * - **files_changed**: Array of file paths modified (if applicable)
+ * - **related_issues**: Array of issue IDs or PR references (if applicable)
  *
  * Example:
  * ```json
  * {
  *   "summary": "Bug fix implemented in auth module",
  *   "next_action": "Review the fix and run tests",
- *   "context": {
- *     "files_changed": ["src/auth.ts"],
- *     "test_coverage": "95%",
- *     "related_issue": "#123"
- *   }
+ *   "files_changed": ["src/auth.ts", "tests/auth.test.ts"],
+ *   "related_issues": ["#123", "PR #456"]
  * }
  * ```
  *

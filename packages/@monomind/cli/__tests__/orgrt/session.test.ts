@@ -113,14 +113,82 @@ describe('runAgentSession', () => {
       queryFn: fakeQuery as any,
     });
 
+    // Let the first session (m1) run and the turn-limit continuation drive a
+    // restart that resumes the SDK session id, then close to stop the loop.
     await new Promise(r => setTimeout(r, 20));
-    mailbox.push('m2');
     mailbox.close();
     await donePromise;
 
-    expect(callCount).toBe(2);
+    expect(callCount).toBeGreaterThanOrEqual(2); // at least one restart happened
     expect(seenResumeOptions[0]).toBeUndefined(); // first call: no prior session to resume
-    expect(seenResumeOptions[1]).toBe('sdk-session-abc'); // restart: resumes the SDK's own session id
+    expect(seenResumeOptions[1]).toBe('sdk-session-abc'); // restart resumes the SDK's own session id
+  });
+
+  it('pushes a turn-limit continuation so a capped role resumes instead of parking idle', async () => {
+    // The fix for the 10-minute stall: a session that ends on maxTurns (mailbox
+    // still open) gets a continuation pushed so the restarted query() has input
+    // to act on immediately, instead of blocking on an empty mailbox until the
+    // idle watchdog.
+    const bus = new OrgBus('o', 'r', dir());
+    const statuses: string[] = [];
+    bus.subscribe(e => { if (e.type === 'status') statuses.push(e.reason ?? e.msg ?? ''); });
+    const mailbox = new Mailbox();
+    mailbox.push('m1');
+
+    const fakeQuery = ({ prompt }: any) => (async function* () {
+      const it = prompt[Symbol.asyncIterator]();
+      const { value } = await it.next();
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: `got ${value?.message?.content}` }] } };
+      yield { type: 'result', subtype: 'error_max_turns', usage: { input_tokens: 1, output_tokens: 1 } };
+    })();
+
+    const policy = new PolicyEngine('coder', {}, bus, '/work');
+    const donePromise = runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    await new Promise(r => setTimeout(r, 20));
+    mailbox.close();
+    await donePromise;
+
+    expect(statuses).toContain('turn-limit-resume'); // continuation was pushed
+  });
+
+  it('bounds self-continuation when a role spins on the turn limit without new input', async () => {
+    // Safety: a role that hits maxTurns every turn and gets no real message must
+    // not re-engage forever on its own continuation pushes (a token-burn loop).
+    // After a few no-progress continuations it parks for the idle watchdog.
+    const bus = new OrgBus('o', 'r', dir());
+    const mailbox = new Mailbox();
+    mailbox.push('m1'); // the only real message
+
+    let callCount = 0;
+    const fakeQuery = ({ prompt }: any) => (async function* () {
+      callCount++;
+      const it = prompt[Symbol.asyncIterator]();
+      await it.next();
+      yield { type: 'result', subtype: 'error_max_turns', usage: { input_tokens: 1, output_tokens: 1 } };
+    })();
+
+    const policy = new PolicyEngine('coder', {}, bus, '/work');
+    const donePromise = runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    await new Promise(r => setTimeout(r, 30)); // long enough to spin through continuations and park
+    expect(mailbox.isClosed).toBe(false); // parked (waiting for the watchdog), not crashed/closed
+    mailbox.close();
+    await donePromise;
+
+    // m1 + at most MAX_CONTINUATIONS(3) no-progress continuations + 1 parked call.
+    // Without the bound this hangs (unbounded self-continuation).
+    expect(callCount).toBeLessThanOrEqual(6);
   });
 
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {

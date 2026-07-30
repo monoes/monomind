@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { query, tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import type { OrgBus } from './bus.js';
 import type { PolicyEngine } from './policy.js';
-import type { Mailbox } from './mailbox.js';
+import { Mailbox } from './mailbox.js';
 import type { OrgDef, OrgRole } from './types.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
@@ -46,6 +46,8 @@ export interface SessionOpts {
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
+  /** ID of the last message received by this agent (for threading responses). Function to ensure live reading. */
+  lastMessageId?: () => string | undefined;
 }
 
 /** Role briefing given to each agent session (SDK systemPrompt option). */
@@ -88,24 +90,55 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
   // query() call resumes the prior conversation instead of starting cold -
   // without this, a restart silently discarded all in-progress reasoning.
   let resumeSessionId: string | undefined;
+  // #1: when a session ends on the turn limit mid-work, push a continuation so
+  // the restarted query() has input to act on instead of blocking on an empty
+  // mailbox until the 10-minute idle watchdog. Bounded: if the role consumed no
+  // real message since the last restart (it is spinning on its own
+  // continuations), stop auto-pushing after MAX_CONTINUATIONS and let the
+  // watchdog re-engage — so a stuck role can't burn tokens forever.
+  const MAX_CONTINUATIONS = 3;
+  let consecutiveSpin = 0;
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state - checking isClosed before the first run
   // would skip that drain entirely.
   while (true) {
-    resumeSessionId = await runOneSession(opts, resumeSessionId);
+    const realBefore = mailbox.consumedRealCount;
+    const { sessionId, hitTurnLimit } = await runOneSession(opts, resumeSessionId);
+    resumeSessionId = sessionId;
     // The dead session's generator may still hold the waker - drop it so a
     // push() before the next stream() starts only queues instead of being
     // consumed by the abandoned generator (silent message loss).
     mailbox.detach();
     if (mailbox.isClosed) return;
-    opts.bus.emit({ type: 'status', from: opts.role.id, msg: 'session restarting (turn limit reached, mailbox still open)' });
+    const madeProgress = mailbox.consumedRealCount > realBefore;
+    if (hitTurnLimit && madeProgress) consecutiveSpin = 0;
+    if (hitTurnLimit) {
+      if (!madeProgress) consecutiveSpin++;
+      if (consecutiveSpin < MAX_CONTINUATIONS) {
+        mailbox.push(`${Mailbox.CONTINUE_PREFIX} You reached the per-session turn limit while still working. Continue your in-progress task from where you left off; if nothing remains, end your turn.`);
+        opts.bus.emit({ type: 'status', from: opts.role.id, reason: 'turn-limit-resume', msg: 'session restarting (turn limit reached, mailbox still open)' });
+      } else {
+        // Spinning on continuations alone — park for the watchdog instead of
+        // looping forever. Reset so the watchdog's nudge buys a fresh budget.
+        consecutiveSpin = 0;
+        opts.bus.emit({ type: 'status', from: opts.role.id, reason: 'turn-limit-park', msg: 'turn limit hit repeatedly with no new input — parking for idle watchdog' });
+      }
+    } else {
+      opts.bus.emit({ type: 'status', from: opts.role.id, msg: 'session restarting (turn limit reached, mailbox still open)' });
+    }
   }
 }
 
-/** One bounded SDK session for a role; resolves with the SDK's session_id (for resuming on restart) when the stream ends (mailbox closed or maxTurns reached). */
-async function runOneSession(opts: SessionOpts, resume?: string): Promise<string | undefined> {
+/** One bounded SDK session for a role; resolves with the SDK's session_id (for
+ *  resuming on restart) and whether it ended by hitting the turn limit (so the
+ *  caller can push a continuation) when the stream ends (mailbox closed or
+ *  maxTurns reached). */
+async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd, deliver } = opts;
+  // Read lastMessageId live from opts instead of capturing at session start
+  // This ensures chat responses link to the most recent message delivered
+  const getLastMessageId = () => opts.lastMessageId ? opts.lastMessageId() : undefined;
   const queryFn = opts.queryFn ?? query;
 
   const orgServer = createSdkMcpServer({
@@ -201,6 +234,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
   bus.emit({ type: 'status', from: role.id, msg: 'session starting' });
 
   let sessionId: string | undefined = resume;
+  let hitTurnLimit = false;
   try {
     const stream = queryFn({
       prompt: mailbox.stream(),
@@ -254,7 +288,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
       if (m.type === 'assistant') {
         const text = (m.message?.content ?? [])
           .filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
-        if (text.trim()) bus.emit({ type: 'chat', from: role.id, msg: text });
+        if (text.trim()) bus.emit({ type: 'chat', from: role.id, msg: text, parentId: getLastMessageId() });
       } else if (m.type === 'result') {
         const tokens = (m.usage?.input_tokens ?? 0) + (m.usage?.output_tokens ?? 0);
         policy.addUsage(tokens);
@@ -266,6 +300,10 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
         // produced zero tool calls and zero messages, and the sole signal was
         // the idle watchdog firing 20 minutes later with no stated cause.
         if (m.subtype && m.subtype !== 'success') {
+          // max_turns means the role was actively working and got capped - the
+          // caller pushes a continuation so the restarted session resumes work
+          // instead of blocking on an empty mailbox.
+          if (m.subtype === 'error_max_turns') hitTurnLimit = true;
           bus.emit({
             type: 'audit', from: role.id, reason: 'session-result-error',
             msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} - the role produced no usable output`,
@@ -281,7 +319,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
       clearTimeout(silentAlarm);
     }
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
-    return sessionId;
+    return { sessionId, hitTurnLimit };
   } catch (err) {
     bus.emit({ type: 'status', from: role.id, msg: `session error: ${(err as Error).message}` });
     throw err;
