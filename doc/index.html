@@ -511,7 +511,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="page-header">
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Memory &amp; Knowledge</h1>
-      <p class="page-desc">Four-tier memory palace, BM25 search, a JSON pattern store with episodic recall, and Monograph — the code knowledge graph with 19 default MCP tools (27 more via MONOGRAPH_MCP_ADVANCED=1).</p>
+      <p class="page-desc">Four-tier memory palace, BM25 search, a JSON pattern store with episodic recall, Monograph (code knowledge graph — 19+27 MCP tools), and Second Brain (document knowledge base — 22 file formats including all Microsoft Office and Google Drive types).</p>
     </div>
     <div class="section-title reveal">Memory Palace — Four Tiers</div>
     <div class="reveal" style="margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap">
@@ -557,12 +557,50 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     </table>
     </div>
     <div class="section-title reveal">Second Brain — Document Knowledge Base</div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Second Brain indexes your project's documents (PDF, DOCX, Markdown, TXT, RTF, and more) into a searchable knowledge base. During <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">monomind init</code>, the directory scanner detects document files and auto-ingests them — chunked, hashed for dedup, and stored in the knowledge base for retrieval. Agents can then query business docs, compliance policies, or design specs without leaving Claude Code. A separate global cross-project brain (<code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">~/.monomind/global-brain</code>) persists knowledge across every project on the machine and is deliberately kept outside any single project's data dir, so it survives <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">monomind cleanup --data</code>.</p>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Second Brain indexes your project's documents into a searchable knowledge base with its own knowledge graph. During <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">monomind init</code>, the directory scanner detects document files and auto-ingests them — chunked, hashed for dedup, and stored for retrieval. Agents can then query business docs, compliance policies, or design specs without leaving Claude Code. A separate global cross-project brain (<code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">~/.monomind/global-brain</code>) persists knowledge across every project on the machine.</p>
+
+    <div class="section-title reveal" style="font-size:16px;margin-top:24px">Supported Document Formats</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Category</th><th>Extensions</th><th>Extractor</th></tr></thead>
+      <tbody>
+        <tr><td>Microsoft Word</td><td class="mono">.docx .doc</td><td>mammoth (DOCX), textutil (DOC — macOS)</td></tr>
+        <tr><td>Microsoft Excel</td><td class="mono">.xlsx .xls</td><td>SheetJS — all sheets extracted as tab-separated text</td></tr>
+        <tr><td>Microsoft PowerPoint</td><td class="mono">.pptx .ppt</td><td>ZIP+XML slide extraction (PPTX), textutil (PPT — macOS)</td></tr>
+        <tr><td>Google Docs / Sheets / Slides</td><td class="mono">.docx .xlsx .pptx</td><td>Google exports as Office formats — same extractors apply</td></tr>
+        <tr><td>OpenDocument</td><td class="mono">.odt .ods .odp</td><td>ZIP+XML / SheetJS (ODS)</td></tr>
+        <tr><td>PDF</td><td class="mono">.pdf</td><td>pdf-parse</td></tr>
+        <tr><td>Plain text</td><td class="mono">.md .txt .rst .tex .csv .tsv</td><td>Direct UTF-8 read</td></tr>
+        <tr><td>Rich Text</td><td class="mono">.rtf</td><td>Built-in RTF parser (no dependency)</td></tr>
+        <tr><td>eBook</td><td class="mono">.epub</td><td>ZIP+XHTML extraction</td></tr>
+        <tr><td>Apple Pages</td><td class="mono">.pages</td><td>textutil (macOS)</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="section-title reveal" style="font-size:16px;margin-top:24px">Second Brain KG vs Monograph</div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;line-height:1.7;">Monomind has <strong>two knowledge graphs</strong> that serve different purposes:</p>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th></th><th>Monograph (Code KG)</th><th>Second Brain KG (Document KG)</th></tr></thead>
+      <tbody>
+        <tr><td><strong>What it indexes</strong></td><td>Source code — functions, classes, imports, dependencies</td><td>Documents — PDFs, Office files, Markdown, specs, policies</td></tr>
+        <tr><td><strong>Parser</strong></td><td>tree-sitter (static analysis, 14 language grammars)</td><td>Text extraction + chunking (format-specific parsers)</td></tr>
+        <tr><td><strong>Storage</strong></td><td><code class="mono">.monomind/monograph.db</code> (nodes + edges)</td><td><code class="mono">.monomind/knowledge/</code> (chunks.jsonl + doc-metadata.jsonl) + <code class="mono">.monomind/memory/memory.db</code></td></tr>
+        <tr><td><strong>Query tools</strong></td><td><code class="mono">monograph_query</code>, <code class="mono">monograph_suggest</code>, <code class="mono">monograph_impact</code></td><td><code class="mono">knowledge_search</code>, <code class="mono">memory_kg_search</code>, <code class="mono">monomind doc search</code></td></tr>
+        <tr><td><strong>Entities</strong></td><td>Files, functions, classes, methods, variables</td><td>Concepts, decisions, people, rules, relationships</td></tr>
+        <tr><td><strong>Best for</strong></td><td>"What depends on X?", blast radius, dead code, refactoring</td><td>"What was decided about auth?", compliance queries, design specs</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="reveal" style="color:var(--text2);margin-top:12px;margin-bottom:24px;font-size:14px;line-height:1.7;">Use <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">memory_kg_ingest</code> to extract entities and relationships from documents into the Second Brain KG, and <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">memory_kg_search</code> to query them. Monograph handles code; Second Brain KG handles everything else.</p>
+
+    <div class="section-title reveal" style="font-size:16px;margin-top:24px">Ingest Pipeline</div>
     <div class="phase-flow reveal">
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">SCAN</div><div class="phase-desc">Directory scanner classifies files by extension (<code>.pdf</code>, <code>.docx</code>, <code>.md</code>, <code>.txt</code>, <code>.rtf</code>, <code>.pages</code>, <code>.odt</code>, <code>.rst</code>, <code>.tex</code>, <code>.epub</code>). If enough match, the "documents" capability activates.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">EXTRACT</div><div class="phase-desc">Text extraction via <code>pdf-parse</code> (PDF), <code>mammoth</code> (DOCX), or direct read (plain text). Each document is chunked into 3200-char segments with 400-char overlap, respecting paragraph boundaries.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">SCAN</div><div class="phase-desc">Directory scanner classifies files by extension (22 supported formats across Office, OpenDocument, PDF, plain text, RTF, EPUB, and Apple Pages). If enough match, the "documents" capability activates.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">EXTRACT</div><div class="phase-desc">Format-specific text extraction: <code>mammoth</code> (DOCX), <code>xlsx</code> (spreadsheets), <code>pdf-parse</code> (PDF), ZIP+XML (PPTX, ODT, ODP, EPUB), built-in RTF parser, <code>textutil</code> (legacy DOC/PPT/Pages on macOS), or direct read (plain text/CSV). Each document is chunked into 3200-char segments with 400-char overlap.</div></div></div>
       <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">INDEX</div><div class="phase-desc">SHA-256 content hashing for deduplication. Chunks are stored under the <code>knowledge:&lt;scope&gt;</code> namespace. Metadata logged to <code>.monomind/knowledge/doc-metadata.jsonl</code>.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">QUERY</div><div class="phase-desc">Search via <code>knowledge_search</code> MCP tool or <code>monomind doc search</code> CLI. Returns ranked excerpts with relevance scores.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">QUERY</div><div class="phase-desc">Search via <code>knowledge_search</code> MCP tool or <code>monomind doc search</code> CLI. Returns ranked excerpts with relevance scores. Use <code>memory_kg_ingest</code> to additionally extract entities/relationships into the Second Brain KG.</div></div></div>
     </div>
     <div class="section-title reveal" style="margin-top:32px">CLI — <code style="font-family:var(--ff-m);font-size:13px">monomind doc</code></div>
     <div class="table-wrap reveal">

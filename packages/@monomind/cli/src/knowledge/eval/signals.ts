@@ -242,6 +242,31 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
       splitScheme: 'rank-v1',
     },
   },
+  {
+    id: 'item-2-embedding-swap-quality',
+    item: '2',
+    declaredAt: '2026-07-30',
+    claim: 'Swapping the embedding model from all-MiniLM-L6-v2 (384d) to gte-modernbert-base ' +
+           '(768d, q8 quantised) improves Recall@5 on the dev split. The bigger model captures ' +
+           'more semantic nuance, especially for low-overlap paraphrase queries.',
+    metric: 'results.dense-only (gte-modernbert-base).scoreboard.recallAt5',
+    direction: 'increase',
+    // Row 3 (MiniLM, un-enriched): R@5 0.364.  Row 5 (gte-modernbert-base): R@5 0.492.
+    // Delta = +0.128. Declared conservatively at the observed magnitude.
+    expectedMagnitude: 0.10,
+    // The embedding model determines what gets stored in the vector index, so
+    // this is visible in any store built after the swap — including the eval's
+    // rebuilt corpus.
+    visibleIn: ['fresh', 'eval-fixture'],
+    decayCondition:
+      'Any change that replaces or quantises the embedding model to a weaker representation: ' +
+      'a model swap to a smaller variant, a broken ONNX export that silently degrades vectors, ' +
+      'or a dtype change from q8 to a more aggressive quantisation that loses retrieval quality. ' +
+      'Also decays if the enrichment that was co-validated in row 5 is removed, since the ' +
+      'measured +0.128 includes both the model swap and the enrichment from item 6a.',
+    baselineValue: 0.364,
+    shipValue: 0.492,
+  },
 ];
 
 export interface Regime { corpusHash: string; goldenSetVersion: string; splitScheme: string }

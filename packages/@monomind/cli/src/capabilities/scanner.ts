@@ -11,7 +11,7 @@ const DEFAULT_IGNORE = new Set(['node_modules', '.git', '.monomind', '.claude', 
 
 const CODE_SIGNALS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.rs', '.go', '.java', '.c', '.cpp', '.h', '.rb', '.php', '.swift', '.kt', '.scala', '.cs', '.vue', '.svelte']);
 const CODE_MARKERS = new Set(['package.json', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'Makefile', 'CMakeLists.txt', 'pom.xml', 'build.gradle']);
-const DOC_EXTENSIONS = new Set(['.pdf', '.docx', '.doc', '.md', '.txt', '.rtf', '.pages', '.odt', '.rst', '.tex', '.epub']);
+const DOC_EXTENSIONS = new Set(['.pdf', '.docx', '.doc', '.md', '.txt', '.rtf', '.pages', '.odt', '.ods', '.odp', '.rst', '.tex', '.epub', '.csv', '.tsv', '.xlsx', '.xls', '.pptx', '.ppt']);
 const MEDIA_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp', '.svg', '.raw', '.cr2', '.nef', '.mp4', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.flac', '.aac', '.ogg']);
 const DATA_EXTENSIONS = new Set(['.csv', '.tsv', '.jsonl', '.sqlite', '.db', '.parquet', '.xlsx', '.xls']);
 

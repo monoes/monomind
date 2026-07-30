@@ -80,7 +80,7 @@ export async function runTestLoop(root: string, times: number): Promise<LoopRepo
     const daemon = new OrgDaemon(root, { queryFn: queryFn as any, forward: false });
     // xdeliver server for cross-process delivery (tested via the xorg check)
     const srv = await startOrgServer(daemon, 0);
-    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.credential);
 
     // Queue a message for partner:boss BEFORE starting it — verifies inbox drain on startup
     queueMessage(root, 'partner', { fromQualified: 'external:system', toRole: 'boss', subject: 'pre-start', body: 'queued while offline', ts: Date.now() });

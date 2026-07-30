@@ -420,7 +420,7 @@ MONOMIND_MEMORY_PATH=./data/memory
 function secondBrainSection(): string {
   return `## Second Brain — Document Knowledge Base
 
-If the \`documents\` capability is active (check \`.monomind/capabilities.json\`), this project indexes documents (PDF, DOCX, MD, TXT) into a semantic search engine.
+If the \`documents\` capability is active (check \`.monomind/capabilities.json\`), this project indexes documents into a semantic search engine. Supported formats: Word (.docx, .doc), Excel (.xlsx, .xls), PowerPoint (.pptx, .ppt), PDF, OpenDocument (.odt, .ods, .odp), plain text (.md, .txt, .rst, .tex, .csv, .tsv), RTF, EPUB, and Apple Pages. Google Drive files (Docs, Sheets, Slides) are exported as Office formats and handled by the same extractors.
 
 **When documents are indexed, search knowledge before answering questions about business, compliance, legal, or organizational topics:**
 - Call \`mcp__monomind__knowledge_search\` with a relevant query (add \`store: "project"\` or \`"global"\` to search one brain only; default merges both)

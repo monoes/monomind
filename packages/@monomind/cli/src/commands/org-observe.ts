@@ -68,17 +68,23 @@ const resolveRun = (cwd: string, name: string, runFlag: unknown): string | null 
   return listRunDirs(cwd, name)[0] ?? null;
 };
 
-/** `org logs <name> [--run id] [--role r] [--follow]` — formatted bus.jsonl tail. */
+/** `org logs <name> [--run id] [--role r] [--filter-tool t] [--filter-role r] [--tools-only] [--follow]` — formatted bus.jsonl tail. */
 export const logsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
   if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
   const file = join(ctx.cwd, ORG_DIR, name, run, 'bus.jsonl');
   const roleFilter = typeof ctx.flags['role'] === 'string' ? ctx.flags['role'] : null;
+  const filterTool = typeof ctx.flags['filter-tool'] === 'string' ? ctx.flags['filter-tool'] : null;
+  const filterRole = typeof ctx.flags['filter-role'] === 'string' ? ctx.flags['filter-role'] : null;
+  const toolsOnly = ctx.flags['tools-only'] === true;
   const show = (e: BusEvent): void => {
+    if (toolsOnly && e.type !== 'tool') return;
     if (roleFilter && e.from !== roleFilter && e.to !== roleFilter) return;
+    if (filterTool && e.tool !== filterTool) return;
+    if (filterRole && e.from !== filterRole) return;
     log(formatEvent(e));
   };
-  log(output.info(`org ${name} — ${run}${roleFilter ? ` (role: ${roleFilter})` : ''}`));
+  log(output.info(`org ${name} — ${run}${roleFilter ? ` (role: ${roleFilter})` : ''}${filterTool ? ` (tool: ${filterTool})` : ''}${filterRole ? ` (filter-role: ${filterRole})` : ''}`));
   let seenLines = 0;
   const drain = (): void => {
     if (!existsSync(file)) return;
@@ -105,7 +111,7 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
   return { success: true };
 };
 
-/** `org report <name> [--run id] [--all]` — summarize a run (or list run history). */
+/** `org report <name> [--run id] [--all] [--by-role]` — summarize a run (or list run history). */
 export const reportAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   if (ctx.flags['all'] === true) {
     const history = readHistory(ctx.cwd, name);
@@ -123,6 +129,28 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   const events = readRunEvents(ctx.cwd, name, run);
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
+
+  // Per-role cost breakdown (--by-role flag)
+  if (ctx.flags['by-role'] === true) {
+    const byRole = new Map<string, { cost: number; tokens: number; messages: number }>();
+    for (const [roleId, roleStats] of Object.entries(s.roles)) {
+      const acc = byRole.get(roleId) ?? { cost: 0, tokens: 0, messages: 0 };
+      acc.cost += roleStats.costUsd ?? 0;
+      acc.tokens += roleStats.tokens;
+      acc.messages += roleStats.messagesSent;
+      byRole.set(roleId, acc);
+    }
+    log(output.info(`Per-role cost breakdown for ${name} / ${run}:`));
+    log(output.info('┌──────────────────┬───────────┬────────────┬───────────┐'));
+    log(output.info('│ Role             │ Cost ($)  │ Tokens     │ Messages │'));
+    log(output.info('├──────────────────┼───────────┼────────────┼───────────┤'));
+    for (const [roleId, data] of byRole) {
+      log(output.info(`│ ${roleId.padEnd(16)} │ ${(data.cost.toFixed(4)).padStart(9)} │ ${String(data.tokens).padStart(10)} │ ${String(data.messages).padStart(9)} │`));
+    }
+    log(output.info('└──────────────────┴───────────┴────────────┴───────────┘'));
+    return { success: true };
+  }
+
   // Per-role budget ceiling: same split the daemon applies (budget ÷ role count),
   // with any explicit policy.maxTokens override. Missing/unreadable config → no ceilings.
   let perRoleBudget: number | null = null;
@@ -148,7 +176,10 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   else log(output.warning('  Outcome: not recorded (coordinator never called org_complete)'));
   log(output.info('  Roles:'));
   for (const [id, r] of Object.entries(s.roles)) {
-    log(output.info(`    ${r.crashed ? '✗' : '•'} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${r.tokens} tokens${budgetNote(id, r.tokens)}${r.crashed ? ' — CRASHED' : ''}`));
+    const wasCutShort = s.cutShort.includes(id);
+    const icon = r.crashed ? '✗' : wasCutShort ? '⊘' : '•';
+    const suffix = r.crashed ? ' — CRASHED' : wasCutShort ? ' — cut short by stop' : '';
+    log(output.info(`    ${icon} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${r.tokens} tokens${budgetNote(id, r.tokens)}${suffix}`));
   }
   if (s.assets.length) {
     log(output.info(`  Assets (${s.assets.length}):`));
@@ -321,5 +352,87 @@ export const createAction = async (ctx: CommandContext, name: string): Promise<C
   writeFileSync(file, JSON.stringify(def, null, 2) + '\n', 'utf8');
   log(output.success(`Org "${name}" created from template "${templateName}" (${def.roles.length} roles).`));
   log(output.info(`  Edit the goal/roles in ${file}, then: monomind org run ${name}`));
+  return { success: true };
+};
+
+/** `org costs <name> [--run id]` — show per-role cost tracking from runtime.json */
+export const costsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
+  if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
+
+  // Read runtime.json for the per-role metrics
+  const rtPath = join(ctx.cwd, ORG_DIR, name, 'runtime.json');
+  if (!existsSync(rtPath)) {
+    return { success: false, message: `no runtime state found for org ${name}` };
+  }
+
+  let rt: { status?: string; run?: string; roleMetrics?: Record<string, { tokens: number; costUsd: number }> } | undefined;
+  try {
+    rt = JSON.parse(readFileSync(rtPath, 'utf8'));
+  } catch (err) {
+    log(output.error(`Cannot read runtime.json: ${err instanceof Error ? err.message : String(err)}`));
+    return { success: false, message: 'runtime.json unreadable' };
+  }
+
+  if (rt?.run !== run) {
+    log(output.warning(`Note: runtime.json shows run ${rt?.run ?? 'unknown'} — showing metrics for requested run ${run} from history`));
+  }
+
+  // Also check the run summary for cost data
+  const events = readRunEvents(ctx.cwd, name, run);
+  const summary = events.length ? summarizeRun(events) : null;
+
+  log(output.info(`Per-role cost breakdown for ${name} / ${run}:`));
+
+  // Combine data from runtime.json (live metrics) and summary (historical)
+  const roleData = new Map<string, { tokens: number; costUsd: number; messages: number }>();
+
+  // Add live metrics from runtime.json
+  if (rt?.roleMetrics) {
+    for (const [roleId, metrics] of Object.entries(rt.roleMetrics)) {
+      roleData.set(roleId, {
+        tokens: metrics.tokens,
+        costUsd: metrics.costUsd,
+        messages: 0
+      });
+    }
+  }
+
+  // Add historical data from summary if available
+  if (summary?.roles) {
+    for (const [roleId, roleStats] of Object.entries(summary.roles)) {
+      const existing = roleData.get(roleId) ?? { tokens: 0, costUsd: 0, messages: 0 };
+      roleData.set(roleId, {
+        tokens: existing.tokens || roleStats.tokens,
+        costUsd: existing.costUsd || roleStats.costUsd,
+        messages: roleStats.messagesSent
+      });
+    }
+  }
+
+  if (roleData.size === 0) {
+    log(output.info(`No role metrics available yet — metrics populate as agents use tokens.`));
+    return { success: true };
+  }
+
+  log(output.info('┌──────────────────┬───────────┬────────────┬───────────┐'));
+  log(output.info('│ Role             │ Cost ($)  │ Tokens     │ Messages │'));
+  log(output.info('├──────────────────┼───────────┼────────────┼───────────┤'));
+
+  let totalCost = 0;
+  let totalTokens = 0;
+  let totalMessages = 0;
+
+  for (const [roleId, data] of roleData) {
+    log(output.info(`│ ${roleId.padEnd(16)} │ ${(data.costUsd.toFixed(4)).padStart(9)} │ ${String(data.tokens).padStart(10)} │ ${String(data.messages).padStart(9)} │`));
+    totalCost += data.costUsd;
+    totalTokens += data.tokens;
+    totalMessages += data.messages;
+  }
+
+  log(output.info('├──────────────────┼───────────┼────────────┼───────────┤'));
+  log(output.info(`│ ${('TOTAL').padEnd(16)} │ ${(totalCost.toFixed(4)).padStart(9)} │ ${String(totalTokens).padStart(10)} │ ${String(totalMessages).padStart(9)} │`));
+  log(output.info('└──────────────────┴───────────┴────────────┴───────────┘'));
+
   return { success: true };
 };

@@ -27,6 +27,10 @@ interface AgentRuntime {
   /** 'running' until the session promise settles; 'crashed' if it rejected (see error). */
   status: 'running' | 'ended' | 'crashed';
   error?: string;
+  /** Token/cost tracking for this role — persisted to runtime.json */
+  metrics: { tokens: number; costUsd: number };
+  /** Track last message ID for threading responses */
+  lastMessageId?: string;
 }
 
 export interface RunningOrg {
@@ -179,6 +183,23 @@ export class OrgDaemon {
         }, 1000);
         (t as { unref?: () => void }).unref?.();
       }
+      // Accumulate cost from usage events into per-role metrics
+      if (e.type === 'usage' && e.from && e.data) {
+        const runtime = running.agents.get(e.from);
+        if (runtime) {
+          const cost = Number((e.data as { cost_usd?: number }).cost_usd ?? 0);
+          if (Number.isFinite(cost)) {
+            runtime.metrics.costUsd += cost;
+          }
+        }
+      }
+      // Track last message ID for threading responses
+      if ((e.type === 'message' || e.type === 'xorg') && e.from) {
+        const runtime = running.agents.get(e.from);
+        if (runtime) {
+          runtime.lastMessageId = e.id;
+        }
+      }
       for (const fn of this.globalSubscribers) fn(e);
     });
     if (this.opts.forward !== false)
@@ -217,7 +238,7 @@ export class OrgDaemon {
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
         { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, cwd);
-      const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve() };
+      const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve(), metrics: { tokens: 0, costUsd: 0 } };
       const sessionOpts = {
         org: name, role, bus, policy, mailbox, cwd, def,
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
@@ -499,10 +520,14 @@ export class OrgDaemon {
             msg: `deferring lazy spawn of "${targetRole}": ${waited.reason}` });
           // Queue the triggering message so it survives the deferred spawn — without
           // this the sender got "queued" but the message was silently lost.
-          queueMessage(this.root, targetOrgName, {
+          const queued = queueMessage(this.root, targetOrgName, {
             fromQualified: cross ? `${fromOrg}:${fromRole}` : fromRole,
             toRole: targetRole, subject, body, ts: Date.now(),
           });
+          if (!queued) {
+            src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `queue failed: ${subject}`, reason: 'queue-failed' });
+            return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
+          }
           this.scheduleDeferredSpawn(targetOrgName, targetOrg, role, targetOrg.spawnRole!);
           return `queued for ${toQualified} (role starting — waiting for resources)`;
         }
@@ -514,7 +539,11 @@ export class OrgDaemon {
       if (cross && this.opts.crossProcess) return this.deliverRemote(fromOrg, fromRole, targetOrgName, targetRole, toQualified, subject, body, src);
       // Queue + auto-wake: if the org definition exists locally but isn't running, spool the message and start it
       if (cross && this.hasOrgDef(targetOrgName)) {
-        queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+        const queued = queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+        if (!queued) {
+          src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `queue failed: ${subject}`, reason: 'queue-failed' });
+          return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
+        }
         src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to: toQualified, subject, msg: body, data: { queued: true } });
         this.autoWake(targetOrgName);
         return `queued for ${toQualified} (org starting)`;
@@ -534,7 +563,10 @@ export class OrgDaemon {
       src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
       return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
     }
-    const evt = { from: cross ? `${fromOrg}:${fromRole}` : fromRole, to: toQualified, subject, msg: body };
+    // Track message chain: link this message to the sender's last message
+    const srcAgent = src?.agents.get(fromRole);
+    const parentId = srcAgent?.lastMessageId;
+    const evt = { from: cross ? `${fromOrg}:${fromRole}` : fromRole, to: toQualified, subject, msg: body, parentId };
     src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
     if (cross && targetOrg !== src) targetOrg.bus.emit({ type: 'xorg', ...evt });
     targetAgent.mailbox.push(`[message from ${evt.from}] subject: ${subject}\n\n${body}`);
@@ -551,7 +583,11 @@ export class OrgDaemon {
     if (!remote) {
       // No remote host either — queue + auto-wake if the org def exists locally
       if (this.hasOrgDef(targetOrgName)) {
-        queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+        const queued = queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+        if (!queued) {
+          src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `queue failed: ${subject}`, reason: 'queue-failed' });
+          return `ERROR: could not queue message for ${to} (disk full or permissions)`;
+        }
         src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body, data: { queued: true } });
         this.autoWake(targetOrgName);
         return `queued for ${to} (org starting)`;
@@ -593,7 +629,10 @@ export class OrgDaemon {
     if (!org) {
       // Org not running — queue the message and auto-wake if the def exists
       if (this.hasOrgDef(toOrg)) {
-        queueMessage(this.root, toOrg, { fromQualified, toRole, subject, body, ts: Date.now() });
+        const queued = queueMessage(this.root, toOrg, { fromQualified, toRole, subject, body, ts: Date.now() });
+        if (!queued) {
+          return { ok: false, error: `could not queue message for ${toOrg}:${toRole} (disk full or permissions)` };
+        }
         this.autoWake(toOrg);
         return { ok: true, receipt: `queued for ${toOrg}:${toRole} (org waking)` };
       }
@@ -714,15 +753,14 @@ export class OrgDaemon {
     // Org not running at all — queue for delivery on next start, matching deliver()'s
     // existing offline fallback exactly (inbox.ts + autoWake).
     if (!this.hasOrgDef(org)) return { ok: false, error: `org "${org}" not found (no saved definition)` };
-    try {
-      queueMessage(this.root, org, {
-        fromQualified: 'human', toRole: role,
-        subject: `answer:${questionId}`,
-        body: `question: ${question}\n\nanswer: ${answer}`,
-        ts: Date.now(),
-      });
-    } catch (err) {
-      return { ok: false, error: `could not queue answer for org "${org}" — answer not recorded (${err instanceof Error ? err.message : String(err)})` };
+    const queued = queueMessage(this.root, org, {
+      fromQualified: 'human', toRole: role,
+      subject: `answer:${questionId}`,
+      body: `question: ${question}\n\nanswer: ${answer}`,
+      ts: Date.now(),
+    });
+    if (!queued) {
+      return { ok: false, error: `could not queue answer for org "${org}" — answer not recorded (disk full or permissions)` };
     }
     markAnswered();
     this.autoWake(org);
@@ -1069,9 +1107,18 @@ export class OrgDaemon {
   private persistState(name: string, status: string, run: string): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
+    const running = this.orgs.get(name);
+    // Per-role cost tracking: collect live metrics from active agents
+    const roleMetrics: Record<string, { tokens: number; costUsd: number }> = {};
+    if (running) {
+      for (const [roleId, runtime] of running.agents) {
+        roleMetrics[roleId] = { tokens: runtime.policy.usage, costUsd: runtime.metrics.costUsd };
+      }
+    }
     writeFileSync(p, JSON.stringify({
       status, run, pid: process.pid, updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
+      ...(Object.keys(roleMetrics).length ? { roleMetrics } : {}),
     }, null, 2));
   }
 
