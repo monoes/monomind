@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/commands/org-observe.ts
 // Read-side org subcommands (logs / report) + template scaffolding (create).
 // Kept out of org.ts to respect the 500-line file ceiling.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
@@ -68,7 +68,7 @@ const resolveRun = (cwd: string, name: string, runFlag: unknown): string | null 
   return listRunDirs(cwd, name)[0] ?? null;
 };
 
-/** `org logs <name> [--run id] [--role r] [--filter-tool t] [--filter-role r] [--tools-only] [--follow]` — formatted bus.jsonl tail. */
+/** `org logs <name> [--run id] [--role r] [--filter-tool t] [--filter-role r] [--tools-only] [--audit-filter allow|deny] [--follow]` — formatted bus.jsonl tail. */
 export const logsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
   if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
@@ -76,15 +76,17 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
   const roleFilter = typeof ctx.flags['role'] === 'string' ? ctx.flags['role'] : null;
   const filterTool = typeof ctx.flags['filter-tool'] === 'string' ? ctx.flags['filter-tool'] : null;
   const filterRole = typeof ctx.flags['filter-role'] === 'string' ? ctx.flags['filter-role'] : null;
+  const auditFilter = typeof ctx.flags['audit-filter'] === 'string' ? ctx.flags['audit-filter'] : null;
   const toolsOnly = ctx.flags['tools-only'] === true;
   const show = (e: BusEvent): void => {
     if (toolsOnly && e.type !== 'tool') return;
     if (roleFilter && e.from !== roleFilter && e.to !== roleFilter) return;
     if (filterTool && e.tool !== filterTool) return;
     if (filterRole && e.from !== filterRole) return;
+    if (auditFilter && e.type === 'tool' && e.decision !== auditFilter) return;
     log(formatEvent(e));
   };
-  log(output.info(`org ${name} — ${run}${roleFilter ? ` (role: ${roleFilter})` : ''}${filterTool ? ` (tool: ${filterTool})` : ''}${filterRole ? ` (filter-role: ${filterRole})` : ''}`));
+  log(output.info(`org ${name} — ${run}${roleFilter ? ` (role: ${roleFilter})` : ''}${filterTool ? ` (tool: ${filterTool})` : ''}${filterRole ? ` (filter-role: ${filterRole})` : ''}${auditFilter ? ` (audit-filter: ${auditFilter})` : ''}`));
   let seenLines = 0;
   const drain = (): void => {
     if (!existsSync(file)) return;
@@ -559,4 +561,194 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
   log(output.info(`classDef workerNode fill:#bbf,stroke:#333,stroke-width:1px`));
 
   return { success: true, message: `Mermaid flowchart exported for ${name} / ${run}` };
+};
+
+/** `org approve <org> <role> <action>` — approve a pending tool/action approval */
+export const approveAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const role = ctx.args[1];
+  const action = ctx.args[2];
+  if (!role || !action) {
+    return { success: false, message: 'usage: org approve <org> <role> <action>' };
+  }
+
+  // Check if approvals.json exists
+  const approvalsPath = join(ctx.cwd, ORG_DIR, name, 'approvals.json');
+  if (!existsSync(approvalsPath)) {
+    return { success: false, message: `no pending approvals for org ${name}` };
+  }
+
+  // Load approvals
+  const data = JSON.parse(readFileSync(approvalsPath, 'utf8'));
+  const pending = data.approvals ?? [];
+  const item = pending.find((a: { roleId: string; question: string }) => a.roleId === role && a.question === action);
+
+  if (!item) {
+    return { success: false, message: `no pending approval found for role ${role} action ${action}` };
+  }
+
+  // Update approval state
+  item.approved = true;
+  item.ts = Date.now();
+  writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+
+  log(output.success(`Approved: ${role} may execute ${action}`));
+  return { success: true, message: `approved ${action} for ${role}` };
+};
+
+/** `org deny <org> <role> <action>` — deny a pending tool/action approval */
+export const denyAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const role = ctx.args[1];
+  const action = ctx.args[2];
+  if (!role || !action) {
+    return { success: false, message: 'usage: org deny <org> <role> <action>' };
+  }
+
+  // Check if approvals.json exists
+  const approvalsPath = join(ctx.cwd, ORG_DIR, name, 'approvals.json');
+  if (!existsSync(approvalsPath)) {
+    return { success: false, message: `no pending approvals for org ${name}` };
+  }
+
+  // Load approvals
+  const data = JSON.parse(readFileSync(approvalsPath, 'utf8'));
+  const pending = data.approvals ?? [];
+  const item = pending.find((a: { roleId: string; question: string }) => a.roleId === role && a.question === action);
+
+  if (!item) {
+    return { success: false, message: `no pending approval found for role ${role} action ${action}` };
+  }
+
+  // Update approval state
+  item.approved = false;
+  item.ts = Date.now();
+  writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+
+  log(output.info(`Denied: ${role} may NOT execute ${action}`));
+  return { success: true, message: `denied ${action} for ${role}` };
+};
+
+/** `org replay <org> <run-id>` — time-travel debugging: resume from checkpoint */
+export const replayAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const run = ctx.args[1];
+  if (!run) {
+    return { success: false, message: 'usage: org replay <org> <run-id>' };
+  }
+
+  const runDir = join(ctx.cwd, ORG_DIR, name, run);
+  if (!existsSync(runDir)) {
+    return { success: false, message: `run ${run} not found for org ${name}` };
+  }
+
+  const busFile = join(runDir, 'bus.jsonl');
+  if (!existsSync(busFile)) {
+    return { success: false, message: `no bus events found for run ${run}` };
+  }
+
+  log(output.info(`Resuming org ${name} from checkpoint ${run}...`));
+
+  // Create daemon and resume from checkpoint
+  const { OrgDaemon } = await import('../orgrt/daemon.js');
+  const daemon = new OrgDaemon(ctx.cwd, { forward: false });
+
+  const resumed = await daemon.resumeOrg(name);
+  if (!resumed) {
+    return { success: false, message: `resume failed - check runtime.json for ${name} is valid` };
+  }
+
+  log(output.success(`Org ${name} resumed from ${run} - ${resumed.agents.size} role(s) restored`));
+  log(output.info(`Use: monomind org logs ${name} --run ${resumed.run} to inspect events.`));
+  log(output.info(`Stop with: monomind org stop ${name}`));
+
+  return { success: true, message: `resumed from checkpoint ${run} as ${resumed.run}` };
+};
+
+/** `org resume-from <org> <run-id>` — resume from checkpoint (alias for replay) */
+export const resumeFromAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const run = ctx.args[1];
+  if (!run) {
+    return { success: false, message: 'usage: org resume-from <org> <run-id>' };
+  }
+
+  // Reuse replay logic
+  return replayAction(ctx, name);
+};
+
+/** `org branch <org> <run-id> <branch-name>` — create a branch from checkpoint for what-if experiments */
+export const branchAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const run = ctx.args[1];
+  const branchName = ctx.args[2];
+  if (!run || !branchName) {
+    return { success: false, message: 'usage: org branch <org> <run-id> <branch-name>' };
+  }
+
+  const runDir = join(ctx.cwd, ORG_DIR, name, run);
+  if (!existsSync(runDir)) {
+    return { success: false, message: `run ${run} not found for org ${name}` };
+  }
+
+  const branchRun = `branch-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
+  const branchDir = join(ctx.cwd, ORG_DIR, name, branchRun);
+
+  try {
+    mkdirSync(branchDir, { recursive: true });
+    // Copy bus.jsonl to branch
+    const busFile = join(runDir, 'bus.jsonl');
+    if (existsSync(busFile)) {
+      const busContent = readFileSync(busFile, 'utf8');
+      writeFileSync(join(branchDir, 'bus.jsonl'), busContent);
+    }
+    // Create branch marker file
+    writeFileSync(join(branchDir, '.branch-source'), JSON.stringify({
+      from: run,
+      branchedAt: new Date().toISOString(),
+      name: branchName
+    }, null, 2));
+
+    log(output.success(`Created branch "${branchName}" from ${run} as ${branchRun}`));
+    return { success: true, message: `branch ${branchName} created as ${branchRun}` };
+  } catch (err) {
+    return { success: false, message: `failed to create branch: ${err instanceof Error ? err.message : String(err)}` };
+  }
+};
+
+/** `org decisions <org> [--run id]` — show Rifft-style decision traces */
+export const decisionsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
+  if (!run) {
+    return { success: false, message: `no runs found for org ${name}` };
+  }
+
+  const events = readRunEvents(ctx.cwd, name, run);
+  if (!events.length) {
+    return { success: false, message: `run ${run} has no recorded events` };
+  }
+
+  // Filter decision trace events
+  const decisionEvents = events.filter(e =>
+    e.type === 'audit' &&
+    e.reason === 'decision-trace' &&
+    e.data &&
+    typeof e.data === 'object'
+  );
+
+  if (!decisionEvents.length) {
+    log(output.info(`No decision traces found in ${run}`));
+    return { success: true };
+  }
+
+  log(output.info(`Decision traces for ${name} / ${run} (${decisionEvents.length} decisions):`));
+  log(output.info('┌──────────────────┬─────────────┬────────────────────────────────────────┐'));
+  log(output.info('│ Role             │ Type        │ Context                                │'));
+  log(output.info('├──────────────────┼─────────────┼────────────────────────────────────────┤'));
+
+  for (const e of decisionEvents) {
+    const role = e.from ?? 'system';
+    const type = (e.data as { decisionType?: string }).decisionType ?? 'unknown';
+    const context = (e.data as { context?: string }).context ?? '-';
+    log(output.info(`│ ${role.padEnd(16)} │ ${type.padEnd(11)} │ ${context.padEnd(38)} │`));
+  }
+
+  log(output.info('└──────────────────┴─────────────┴────────────────────────────────────────┘'));
+
+  return { success: true, message: `${decisionEvents.length} decision traces` };
 };

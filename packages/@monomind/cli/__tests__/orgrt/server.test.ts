@@ -96,6 +96,22 @@ describe('org xdeliver server', () => {
     const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
     const questionId = saved.questions[0].questionId;
 
+    // no auth → 401
+    const noAuth = await fetch(`http://127.0.0.1:${srv.port}/api/answer-question`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org: 'alpha', role: 'boss', questionId, answer: 'yes' }),
+    });
+    expect(noAuth.status).toBe(401);
+
+    // wrong credential → 401
+    const badAuth = await fetch(`http://127.0.0.1:${srv.port}/api/answer-question`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': 'wrong-cred' },
+      body: JSON.stringify({ org: 'alpha', role: 'boss', questionId, answer: 'yes' }),
+    });
+    expect(badAuth.status).toBe(401);
+
     // missing fields → 400
     const bad = await fetch(`http://127.0.0.1:${srv.port}/api/answer-question`, {
       method: 'POST', headers: authHeaders,
@@ -135,6 +151,22 @@ describe('org xdeliver server', () => {
     const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
     await daemon.startOrg('alpha');
 
+    // no auth → 401
+    const noAuth = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org: 'alpha', role: 'boss', text: 'hi' }),
+    });
+    expect(noAuth.status).toBe(401);
+
+    // wrong credential → 401
+    const badAuth = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': 'wrong-cred' },
+      body: JSON.stringify({ org: 'alpha', role: 'boss', text: 'hi' }),
+    });
+    expect(badAuth.status).toBe(401);
+
     // missing fields → 400
     const bad = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
       method: 'POST', headers: authHeaders,
@@ -158,6 +190,45 @@ describe('org xdeliver server', () => {
       body: JSON.stringify({ org: 'alpha', role: 'nope', text: 'hi' }),
     });
     expect(miss.status).toBe(404);
+
+    await daemon.stopAll();
+  });
+
+  it('rejects POST payloads larger than 1MB', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'srv-size-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      roles: [{ id: 'boss', title: 'B', type: 'boss', reports_to: null }],
+    }));
+    const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const srv = await startOrgServer(daemon, 0);
+    close = srv.close;
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
+    await daemon.startOrg('alpha');
+
+    // Create payload larger than 1MB - use streaming to avoid memory issues in test
+    const payloadSize = 1_100_000; // >1MB
+    const largePayload = JSON.stringify({
+      toOrg: 'alpha', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss',
+      subject: 'large', body: 'x'.repeat(payloadSize),
+    });
+
+    // Server rejects oversized payloads - connection reset or 400 expected
+    try {
+      const oversized = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: largePayload,
+        // Disable timeout to handle slow rejection
+        signal: AbortSignal.timeout(5000),
+      });
+      // If we get a response, it should be 400
+      expect(oversized.status).toBe(400);
+    } catch (err: any) {
+      // Connection reset is acceptable - server closed connection to reject oversized payload
+      expect(err.cause?.code).toBe('ECONNRESET');
+    }
 
     await daemon.stopAll();
   });

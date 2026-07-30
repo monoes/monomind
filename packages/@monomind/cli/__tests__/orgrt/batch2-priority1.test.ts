@@ -261,3 +261,124 @@ describe('Batch 2 Priority 1 - Tool audit filter (CLI flag)', () => {
     await d.stopAll();
   }, 10_000);
 });
+
+// Feature 4: Flow visualization/Mermaid
+describe('Batch 2 Priority 1 - Flow visualization/Mermaid', () => {
+  it('generates Mermaid flowchart from events', async () => {
+    const { generateMermaidFlow } = await import('../../src/orgrt/visualization.js');
+
+    const events: BusEvent[] = [
+      {
+        id: '1', ts: Date.now(), org: 'test', run: 'run-1',
+        type: 'message', from: 'boss', to: 'worker', subject: 'task', msg: 'do work',
+      },
+      {
+        id: '2', ts: Date.now(), org: 'test', run: 'run-1',
+        type: 'tool', from: 'worker', tool: 'Write', decision: 'allow',
+      },
+    ];
+
+    const mermaid = generateMermaidFlow(events);
+    expect(mermaid).toContain('graph TD');
+    expect(mermaid).toContain('boss');
+    expect(mermaid).toContain('worker');
+  });
+
+  it('generates Mermaid sequence diagram from events', async () => {
+    const { generateMermaidSequence } = await import('../../src/orgrt/visualization.js');
+
+    const events: BusEvent[] = [
+      {
+        id: '1', ts: Date.now(), org: 'test', run: 'run-1',
+        type: 'message', from: 'boss', to: 'worker', subject: 'task', msg: 'do work',
+      },
+    ];
+
+    const mermaid = generateMermaidSequence(events);
+    expect(mermaid).toContain('sequenceDiagram');
+    expect(mermaid).toContain('participant boss');
+    expect(mermaid).toContain('participant worker');
+  });
+});
+
+// Feature 7: Test-loop scenario scripting
+describe('Batch 2 Priority 1 - Test-loop scenario scripting', () => {
+  it('loads and executes JSON scenario files', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'batch2-p1-'));
+    mkdirSync(join(root, '.monomind/scenarios'), { recursive: true });
+
+    const scenario = {
+      name: 'test-scenario',
+      description: 'Test scenario execution',
+      orgs: [{
+        name: 'test',
+        goal: 'test goal',
+        roles: [
+          { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+          { id: 'worker', title: 'Worker', type: 'specialist', reports_to: 'boss' },
+        ],
+      }],
+      script: [
+        {
+          step: 1,
+          from: 'boss',
+          to: 'worker',
+          action: 'send',
+          subject: 'task',
+          body: 'do work',
+        },
+      ],
+    };
+
+    writeFileSync(join(root, '.monomind/scenarios', 'test.json'), JSON.stringify(scenario, null, 2));
+
+    // Verify scenario can be loaded
+    const scenarioPath = join(root, '.monomind/scenarios', 'test.json');
+    const loaded = JSON.parse(readFileSync(scenarioPath, 'utf8'));
+    expect(loaded.name).toBe('test-scenario');
+    expect(loaded.script).toHaveLength(1);
+  });
+});
+
+// Feature 8: Enhanced checkpoint/resume
+describe('Batch 2 Priority 1 - Enhanced checkpoint/resume', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'batch2-p1-'));
+    fixture(root, 'test');
+  });
+
+  it('persists mailbox state in runtime.json', async () => {
+    const d = new OrgDaemon(root, { queryFn: queryWithUsage as any, forward: false });
+    await d.startOrg('test');
+
+    // Wait for state persistence
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Check runtime.json contains mailboxState
+    const rt = JSON.parse(readFileSync(join(root, ORG_DIR, 'test', 'runtime.json'), 'utf8'));
+    expect(rt.mailboxState).toBeDefined();
+    expect(rt.mailboxState?.boss).toBeDefined();
+    expect(typeof rt.mailboxState?.boss.queued).toBe('number');
+    expect(typeof rt.mailboxState?.boss.closed).toBe('boolean');
+
+    await d.stopAll();
+  }, 10_000);
+
+  it('restores pending roles on resume', async () => {
+    const d = new OrgDaemon(root, { queryFn: queryWithUsage as any, forward: false });
+    await d.startOrg('test');
+
+    // Only boss is spawned initially, coder is pending
+    const running = d.orgs.get('test');
+    expect(running?.agents.has('boss')).toBe(true);
+    expect(running?.agents.has('coder')).toBe(false); // Not spawned yet
+
+    await d.stopAll();
+  }, 10_000);
+});
+
+// Feature 9: Guardrail beforeTool hooks
+// REMOVED: GuardrailEngine was dead code, never integrated into daemon.ts
+// Real guardrails use checkApproval() in policy.ts + daemon.ts

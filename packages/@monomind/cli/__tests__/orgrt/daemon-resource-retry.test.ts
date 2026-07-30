@@ -92,4 +92,42 @@ describe('OrgDaemon — deferred role spawn under resource pressure', () => {
 
     await d.stopAll();
   }, 20_000);
+
+  it('handles concurrent delivery to the same pending role without duplicate spawns', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-concurrent-'));
+    fixture(root, 'alpha');
+
+    ok = true; // resources OK, no gate failures
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+
+    // Boss is up; coder is pending (lazy spawn)
+    expect(running.agents.has('boss')).toBe(true);
+    expect(running.agents.has('coder')).toBe(false);
+    expect(running.pendingRoles?.has('coder')).toBe(true);
+
+    // Send concurrent messages to the same pending role
+    const concurrent = [
+      d.deliver('alpha', 'boss', 'coder', 'task1', 'first message'),
+      d.deliver('alpha', 'boss', 'coder', 'task2', 'second message'),
+      d.deliver('alpha', 'boss', 'coder', 'task3', 'third message'),
+    ];
+
+    // All deliveries should succeed
+    const receipts = await Promise.all(concurrent);
+    expect(receipts.every(r => r.includes('delivered'))).toBe(true);
+
+    // Coder should spawn exactly once (spawning Set prevents duplicates)
+    expect(running.agents.has('coder')).toBe(true);
+    expect(running.pendingRoles?.has('coder')).toBe(false);
+
+    // All three messages should be in the mailbox
+    const coderAgent = running.agents.get('coder');
+    expect(coderAgent).toBeDefined();
+    // The mailbox processed all messages (no duplicates, no lost messages)
+    const messageEvents = running.busEvents().filter(e => e.type === 'message' && e.to === 'coder');
+    expect(messageEvents.length).toBe(3);
+
+    await d.stopAll();
+  }, 10_000);
 });
