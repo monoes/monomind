@@ -106,6 +106,13 @@ export class PolicyEngine {
       }
     }
 
+    if (tool === 'Bash') {
+      const cmd = String(input.command ?? '');
+      const gitLevel = this.policy.git ?? 'read';
+      const gitDenied = checkGitPolicy(cmd, gitLevel);
+      if (gitDenied) return deny(gitDenied);
+    }
+
     if (WEB_TOOLS.has(tool) && this.policy.webAllow !== undefined) {
       if (this.policy.webAllow.length === 0) return deny(`web access disabled for role ${this.role}`);
       if (tool === 'WebFetch') {
@@ -118,6 +125,78 @@ export class PolicyEngine {
 
     return allow();
   }
+}
+
+// Anchored: these are matched against a single extracted subcommand token, so
+// an unanchored /\b…\b/ would classify `git push-mirror` as a read because the
+// word `show` etc. could appear anywhere in a longer name. `remote` is
+// deliberately read-level only for inspection — `remote add`/`set-url` mutate
+// config, but redirecting a remote is inert unless push is also permitted.
+const GIT_READ_CMDS = /^(status|log|diff|show|branch|tag|remote|rev-parse|ls-files|ls-tree|blame|shortlog|describe|cat-file|for-each-ref|rev-list|grep|worktree)$/;
+const GIT_COMMIT_CMDS = /^(add|commit|rm|mv|restore|reset|stash|cherry-pick|rebase|merge|revert|apply|checkout|switch|clean|gc|prune)$/;
+const GIT_PUSH_CMDS = /^(push|fetch|pull|clone|remote-add|submodule)$/;
+
+/** git options that swallow the NEXT token as their value, so the token after
+ *  them is never the subcommand. `--git-dir=x` style needs no entry — the value
+ *  rides in the same token. */
+const GIT_OPTS_WITH_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--config-env']);
+
+/**
+ * Subcommands of every `git` invocation in a shell command.
+ *
+ * A naive "git followed by a lowercase word" regex missed anything with a
+ * global option in front of the subcommand, and "no match" meant "no git",
+ * i.e. allowed. All three of these slipped past a policy whose entire job is
+ * to stop them:
+ *
+ *   git -C /repo push               → no match at all
+ *   git -c user.name=x commit -m y  → no match at all
+ *   GIT_DIR=.git git push           → matched "git git", read as subcommand "git"
+ *
+ * So: tokenize, find each `git` (bare or path-suffixed, and never as another
+ * command's argument value), then walk forward past global options to the first
+ * non-option token.
+ */
+function gitSubcommands(cmd: string): string[] {
+  const tokens = cmd.split(/[\s;|&()]+/).filter(Boolean);
+  const subs: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    // `git`, `/usr/bin/git`, `git.exe` — but not `--foo=git` or `mygit`
+    if (!/(^|\/)git(\.exe)?$/.test(tokens[i])) continue;
+    let j = i + 1;
+    while (j < tokens.length) {
+      const t = tokens[j];
+      if (!t.startsWith('-')) break;                       // found the subcommand
+      if (GIT_OPTS_WITH_VALUE.has(t)) { j += 2; continue; } // `-C <path>`
+      j += 1;                                              // `--bare`, `--git-dir=x`
+    }
+    // A `git` with no subcommand at all (`git`, `git --version`) mutates nothing.
+    if (j < tokens.length) subs.push(tokens[j]);
+  }
+  return subs;
+}
+
+function checkGitPolicy(cmd: string, level: 'none' | 'read' | 'commit' | 'push'): string | null {
+  const gitCalls = gitSubcommands(cmd);
+  if (gitCalls.length === 0) return null; // no git subcommand in this command
+
+  if (level === 'none') return `git commands are not allowed for this role (policy.git: none)`;
+
+  for (const sub of gitCalls) {
+    if (GIT_READ_CMDS.test(sub)) continue; // always allowed at 'read' and above
+
+    if (GIT_PUSH_CMDS.test(sub)) {
+      if (level !== 'push') return `git ${sub} denied (policy.git: ${level} — push-level commands require policy.git: 'push')`;
+      continue;
+    }
+    if (GIT_COMMIT_CMDS.test(sub)) {
+      if (level === 'read') return `git ${sub} denied (policy.git: read — mutating commands require policy.git: 'commit' or 'push')`;
+      continue;
+    }
+    // Unknown git subcommand — allow at 'commit' and above, deny at 'read'
+    if (level === 'read') return `git ${sub} denied (unrecognized git subcommand, policy.git: read)`;
+  }
+  return null;
 }
 
 function safeHost(url: string): string | null {
