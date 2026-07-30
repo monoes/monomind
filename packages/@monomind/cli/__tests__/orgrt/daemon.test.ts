@@ -62,6 +62,10 @@ describe('OrgDaemon — per-role max_turns_per_message override', () => {
 
     const d = new OrgDaemon(root, { queryFn: capturingQuery as any, forward: false });
     await d.startOrg('alpha');
+    // Only the boss spawns at boot now; non-boss roles are lazy. Address the
+    // developer so it spawns — the assertion is about which maxTurns its
+    // query() receives, which cannot be observed until the session exists.
+    await d.deliver('alpha', 'boss', 'developer', 'wake', 'spawn for the assertion below');
     await d.stopAll();
 
     expect(seenMaxTurns.boss).toBe(30); // falls back to run_config default

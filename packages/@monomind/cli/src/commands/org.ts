@@ -8,7 +8,7 @@ import { OrgDaemon } from '../orgrt/daemon.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
-import { readHistory } from '../orgrt/reporting.js';
+import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
 
 const log = (text: string): void => { console.log(text); };
 
@@ -50,6 +50,14 @@ export function listOrgConfigFiles(orgsDir: string): string[] {
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
 export const clearStopfile = (cwd: string, name: string): void => {
   rmSync(join(cwd, ORG_DIR, name, 'stop'), { force: true });
+};
+
+/** True when a pause sentinel exists for an org. */
+export const isOrgPaused = (cwd: string, name: string): boolean =>
+  existsSync(join(cwd, ORG_DIR, name, 'pause'));
+
+const clearPausefile = (cwd: string, name: string): void => {
+  rmSync(join(cwd, ORG_DIR, name, 'pause'), { force: true });
 };
 
 /** PID of a live `org serve` daemon for this project, or null.
@@ -220,6 +228,37 @@ const stopAction = async (ctx: CommandContext): Promise<CommandResult> => {
   return { success: true, message: `stop requested for ${name} (daemon exits within 2s)` };
 };
 
+const pauseAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  const validated = validateOrgName(ctx.args[0]);
+  if (!validated.ok) return validated.result;
+  const name = validated.name;
+  if (!existsSync(join(ctx.cwd, ORG_DIR, `${name}.json`))) {
+    log(output.error(`Org not found: ${name}`));
+    return { success: false, message: 'org not found' };
+  }
+  if (isOrgPaused(ctx.cwd, name)) {
+    log(output.warning(`Org "${name}" is already paused.`));
+    return { success: true, message: 'already paused' };
+  }
+  mkdirSync(join(ctx.cwd, ORG_DIR, name), { recursive: true });
+  writeFileSync(join(ctx.cwd, ORG_DIR, name, 'pause'), new Date().toISOString());
+  log(output.info(`Org "${name}" paused — current turns will finish, no new cycles will start. Resume with: monomind org resume ${name}`));
+  return { success: true, message: `org ${name} paused` };
+};
+
+const resumeAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  const validated = validateOrgName(ctx.args[0]);
+  if (!validated.ok) return validated.result;
+  const name = validated.name;
+  if (!isOrgPaused(ctx.cwd, name)) {
+    log(output.warning(`Org "${name}" is not paused.`));
+    return { success: true, message: 'not paused' };
+  }
+  clearPausefile(ctx.cwd, name);
+  log(output.info(`Org "${name}" resumed — next scheduled tick will start a cycle.`));
+  return { success: true, message: `org ${name} resumed` };
+};
+
 const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
   let name: string | undefined;
   if (ctx.args[0]) {
@@ -266,7 +305,9 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
         continue;
       }
     }
-    const line = `${t}: ${state.status}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`;
+    const paused = isOrgPaused(ctx.cwd, t);
+    const statusLabel = paused && state.status === 'running' ? 'running (PAUSED)' : state.status;
+    const line = `${t}: ${statusLabel}${state.run ? ` (run ${state.run}, pid ${state.pid})` : ''}`;
     // A role that never spawned is a silent capability hole — an org with no
     // tester still reports a clean "running". Say it on the status line.
     if (state.abandonedRoles?.length) {
@@ -274,9 +315,53 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
     } else {
       log(output.info(line));
     }
+
+    // Enriched progress for running orgs
+    if (state.status === 'running' && state.run) {
+      const events = readRunEvents(ctx.cwd, t, state.run);
+      if (events.length) {
+        const summary = summarizeRun(events);
+        const elapsed = summary.startedAt ? Date.now() - summary.startedAt : null;
+        const elapsedStr = elapsed !== null ? fmtDuration(elapsed) : '?';
+        const lastTs = events[events.length - 1].ts;
+        const quietMs = Date.now() - lastTs;
+        const quietStr = fmtDuration(quietMs);
+        const toolCalls = Object.values(summary.roles).reduce((a, r) => a + r.toolsAllowed + r.toolsDenied, 0);
+        const rolesUp = Object.keys(summary.roles).filter(r => r !== '(system)').length;
+
+        log(`  elapsed: ${elapsedStr} | events: ${summary.events} | messages: ${summary.messages} | tools: ${toolCalls}`);
+        log(`  roles active: ${rolesUp} | tokens: ${fmtNum(summary.totalTokens)} | cost: $${summary.totalCostUsd.toFixed(2)}`);
+        log(`  quiet since: ${new Date(lastTs).toISOString().slice(11, 19)} (${quietStr} ago)`);
+        if (summary.crashes.length) log(output.warning(`  crashes: ${summary.crashes.join(', ')}`));
+      }
+
+      // Previous cycle comparison from history
+      const history = readHistory(ctx.cwd, t);
+      const prev = history.filter(h => h.run !== state.run).at(-1);
+      if (prev) {
+        const dur = prev.durationMs !== null ? fmtDuration(prev.durationMs) : '?';
+        const outcome = prev.outcome?.status ?? (prev.crashes.length ? 'crashed' : 'completed');
+        log(`  prev cycle: ${dur}, ${outcome}, ${prev.events} events, ${fmtNum(prev.totalTokens)} tokens`);
+      }
+    }
   }
   return { success: true };
 };
+
+function fmtDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m${s % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h${m % 60}m`;
+}
+
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
 
 /** One pass of the `org serve` stopfile poll.
  *
@@ -528,6 +613,7 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // schedule orgs whose definition declares an interval (e.g. "15m", "2h")
   const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
   const sched = new OrgScheduler(async (name, intervalMs) => {
+    if (isOrgPaused(ctx.cwd, name)) return;
     // Only ever stop a run THIS tick started. The runfile poll can start an org
     // out-of-band, and the scheduler has no visibility into that — so a tick
     // landing on an already-running org threw "already running", fell into the
@@ -781,9 +867,15 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
     // All dashboard /api routes are auth-gated — attach the local session token.
     let auth = '';
     try { auth = readFileSync(join(cwd, '.monomind', 'dashboard-token'), 'utf8').trim(); } catch { /* server may be pre-auth */ }
+    // Bounded. Updating the dashboard is best-effort — the local state has
+    // already been cleared by this point — but the fetch had no timeout, so a
+    // dashboard that holds the port without answering (a wedged build from an
+    // earlier session; see the stale-dashboard issue) hung `mark-complete`
+    // indefinitely. "Unreachable" and "not answering" must cost the same.
     const res = await fetch(`${ctrlUrl}/api/orgs/${encodeURIComponent(orgName)}/mark-complete`, {
       method: 'POST',
       headers: auth ? { 'x-monomind-token': auth } : {},
+      signal: AbortSignal.timeout(5_000),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -846,6 +938,8 @@ export const orgCommand: Command = {
       action: runAction,
     },
     { name: 'stop', description: 'Request a running org daemon to stop', action: stopAction },
+    { name: 'pause', description: 'Pause an org — current turns finish, no new cycles start', action: pauseAction },
+    { name: 'resume', description: 'Resume a paused org', action: resumeAction },
     { name: 'status', description: 'Show runtime state of orgs', action: statusAction },
     {
       name: 'serve', description: 'Start the daemon server only (hosts scheduled orgs)',

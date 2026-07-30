@@ -79,6 +79,10 @@ describe('answerQuestion — persist AFTER delivery', () => {
     try {
       const running = await d.startOrg('alpha');
       const qid = qidOf(await d.askHuman('alpha', 'coder', 'ship?'));
+      // `coder` is a lazy role, so spawn it before closing its mailbox —
+      // otherwise this asserts the "role not spawned" path rather than the
+      // shutting-down path it is named for.
+      await d.deliver('alpha', 'boss', 'coder', 'wake', 'spawn so the mailbox exists to close');
       running.agents.get('coder')!.mailbox.close();
 
       const res = await d.answerQuestion('alpha', 'coder', qid, 'yes');
