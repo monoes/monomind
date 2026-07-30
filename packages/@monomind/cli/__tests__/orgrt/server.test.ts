@@ -27,13 +27,30 @@ describe('org xdeliver server', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
 
     await daemon.startOrg('alpha');
+
+    // no auth → 401
+    const noAuth = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toOrg: 'alpha' }),
+    });
+    expect(noAuth.status).toBe(401);
+
+    // wrong credential → 401
+    const badAuth = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': 'wrong-cred' },
+      body: JSON.stringify({ toOrg: 'alpha' }),
+    });
+    expect(badAuth.status).toBe(401);
 
     // missing fields → 400
     const bad = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ toOrg: 'alpha' }),
     });
     expect(bad.status).toBe(400);
@@ -41,7 +58,7 @@ describe('org xdeliver server', () => {
     // valid delivery → 200
     const good = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ toOrg: 'alpha', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello' }),
     });
     expect(good.status).toBe(200);
@@ -51,7 +68,7 @@ describe('org xdeliver server', () => {
     // unknown org → 404
     const miss = await fetch(`http://127.0.0.1:${srv.port}/api/xdeliver`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ toOrg: 'nope', toRole: 'boss', fromOrg: 'beta', fromRole: 'boss', subject: 'hi', body: 'hello' }),
     });
     expect(miss.status).toBe(404);
@@ -73,6 +90,7 @@ describe('org xdeliver server', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
     await daemon.startOrg('alpha');
     await daemon.askHuman('alpha', 'boss', 'proceed?');
     const saved = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/questions.json'), 'utf8'));
@@ -80,14 +98,14 @@ describe('org xdeliver server', () => {
 
     // missing fields → 400
     const bad = await fetch(`http://127.0.0.1:${srv.port}/api/answer-question`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders,
       body: JSON.stringify({ org: 'alpha' }),
     });
     expect(bad.status).toBe(400);
 
     // valid answer → 200
     const good = await fetch(`http://127.0.0.1:${srv.port}/api/answer-question`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders,
       body: JSON.stringify({ org: 'alpha', role: 'boss', questionId, answer: 'yes' }),
     });
     expect(good.status).toBe(200);
@@ -96,7 +114,7 @@ describe('org xdeliver server', () => {
 
     // unknown question id → 404
     const miss = await fetch(`http://127.0.0.1:${srv.port}/api/answer-question`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders,
       body: JSON.stringify({ org: 'alpha', role: 'boss', questionId: 'nope', answer: 'yes' }),
     });
     expect(miss.status).toBe(404);
@@ -114,18 +132,19 @@ describe('org xdeliver server', () => {
     const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
     const srv = await startOrgServer(daemon, 0);
     close = srv.close;
+    const authHeaders = { 'Content-Type': 'application/json', 'x-monomind-cred': srv.credential };
     await daemon.startOrg('alpha');
 
     // missing fields → 400
     const bad = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders,
       body: JSON.stringify({ org: 'alpha' }),
     });
     expect(bad.status).toBe(400);
 
     // valid message → 200, delivered
     const good = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders,
       body: JSON.stringify({ org: 'alpha', role: 'boss', text: 'change of plans' }),
     });
     expect(good.status).toBe(200);
@@ -135,7 +154,7 @@ describe('org xdeliver server', () => {
 
     // unknown role → 404
     const miss = await fetch(`http://127.0.0.1:${srv.port}/api/human-message`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders,
       body: JSON.stringify({ org: 'alpha', role: 'nope', text: 'hi' }),
     });
     expect(miss.status).toBe(404);

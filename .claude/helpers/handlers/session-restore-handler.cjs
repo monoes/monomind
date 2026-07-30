@@ -333,12 +333,12 @@ module.exports = {
         var kRetriever = new memoryMod.KnowledgeRetriever(kSearchFn, kStore);
         var kResult = await kRetriever.retrieveForTask('shared', sessionCtx, 5);
         if (kResult.excerpts.length > 0) {
-          console.log('[KNOWLEDGE_PRELOADED] ' + kResult.excerpts.length + ' excerpts (KnowledgeRetriever)');
+          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[KNOWLEDGE_PRELOADED] ' + kResult.excerpts.length + ' excerpts (KnowledgeRetriever)');
         }
       } else {
         var directResults = await kSearchFn(sessionCtx, { namespace: 'knowledge:shared', limit: 5, minScore: 0.3 });
         if (directResults.length > 0) {
-          console.log('[KNOWLEDGE_PRELOADED] ' + directResults.length + ' excerpts (direct keyword search)');
+          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[KNOWLEDGE_PRELOADED] ' + directResults.length + ' excerpts (direct keyword search)');
         }
       }
     } catch (e) { /* non-fatal */ }
@@ -536,7 +536,7 @@ module.exports = {
       var tokenTracker = require(path.join(helpersDir, 'token-tracker.cjs'));
       var tokenSummary = tokenTracker.quickSummary();
       if (tokenSummary) {
-        console.log(tokenSummary);
+        if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log(tokenSummary);
       }
       try {
         var tokenData = tokenTracker.quickSummaryData();

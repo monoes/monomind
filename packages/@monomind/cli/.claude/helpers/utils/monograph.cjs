@@ -658,8 +658,10 @@ function injectGodNodesContext(CWD) {
         var godStr = godNodes.slice(0, 8).map(function(n) {
           return n.name + ' (' + n.label + ', ' + n.deg + ' links)';
         }).join(', ');
-        console.log('[MONOGRAPH_CONTEXT] ' + nodeCount + ' nodes · ' + edgeCount + ' edges. Key nodes: ' + godStr + staleIndicator);
-        console.log('[MONOGRAPH_ACTIVE] Indexed knowledge graph available — prefer monograph_query / monograph_suggest over grep/find for symbol and definition lookups.');
+        if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') {
+          console.log('[MONOGRAPH_CONTEXT] ' + nodeCount + ' nodes · ' + edgeCount + ' edges. Key nodes: ' + godStr + staleIndicator);
+          console.log('[MONOGRAPH_ACTIVE] Indexed knowledge graph available — prefer monograph_query / monograph_suggest over grep/find for symbol and definition lookups.');
+        }
 
         // Write god nodes into knowledge/chunks.jsonl so semantic search finds them.
         var knowledgeDir = path.join(CWD, '.monomind', 'knowledge');

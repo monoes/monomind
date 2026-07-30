@@ -61,6 +61,15 @@ export function generateSettings(options: InitOptions): object {
     // Monomind specific environment
     MONOMIND_V1_ENABLED: 'true',
     MONOMIND_HOOKS_ENABLED: 'true',
+    // Quiet by default: silence per-prompt advisory blocks ([AUDIT],
+    // [CODEBASE], [MONOGRAPH], [INTELLIGENCE], [COST], …). Side-effects
+    // (file writes, telemetry, route mutations) are unchanged. Opt out by
+    // removing this or setting MONOMIND_HOOK_VERBOSE=1.
+    MONOMIND_HOOK_QUIET: '1',
+    // Monograph stays fully usable; this only removes the bash/search
+    // toll-gate that forced a monograph call before every grep. Call
+    // monograph_query / monograph_suggest whenever you want.
+    MONOMIND_GRAPH_GATE: 'off',
   };
 
   // Detect platform for platform-aware configuration
@@ -152,6 +161,14 @@ export function generateSettings(options: InitOptions): object {
 const IS_WINDOWS = process.platform === 'win32';
 
 /**
+ * Absolute path to the Node binary that ran `monomind init`.
+ * Baked into generated hook commands so they work even when node
+ * isn't on the bare PATH (e.g. nvm-managed installs where sh -c
+ * doesn't source ~/.bashrc).
+ */
+const NODE_BIN = process.execPath;
+
+/**
  * Build a hook command with reliable $CLAUDE_PROJECT_DIR expansion.
  * Wraps in `sh -c` to guarantee shell expansion on all platforms (macOS zsh,
  * Linux bash). Falls back to "." if CLAUDE_PROJECT_DIR is unset, since
@@ -160,13 +177,13 @@ const IS_WINDOWS = process.platform === 'win32';
  */
 function hookCmd(script: string, subcommand: string): string {
   if (IS_WINDOWS) {
-    return `cmd /c node "%CLAUDE_PROJECT_DIR%/${script}" ${subcommand}`.trim();
+    return `cmd /c "${NODE_BIN}" "%CLAUDE_PROJECT_DIR%/${script}" ${subcommand}`.trim();
   }
   // Use sh -c to ensure $CLAUDE_PROJECT_DIR is expanded by a real shell,
   // even if Claude Code doesn't invoke hooks through a shell on macOS.
   // eslint-disable-next-line no-template-curly-in-string
   const dir = '${CLAUDE_PROJECT_DIR:-.}';
-  return `sh -c 'exec node "${dir}/${script}" ${subcommand}'`;
+  return `sh -c 'exec "${NODE_BIN}" "${dir}/${script}" ${subcommand}'`;
 }
 
 /** Shorthand for CJS hook-handler commands */
@@ -183,19 +200,17 @@ function autoMemoryCmd(subcommand: string): string {
 function captureHandlerCmd(subcommand: string): string {
   // capture-handler does not use sh -c wrapper — it reads stdin directly
   const dir = IS_WINDOWS ? '%CLAUDE_PROJECT_DIR%' : '${CLAUDE_PROJECT_DIR:-.}';
-  return IS_WINDOWS
-    ? `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`
-    : `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
+  return `"${NODE_BIN}" "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
 }
 
 /** Shorthand for standalone CJS helper scripts (no subcommand) */
 function standaloneHelperCmd(script: string): string {
   if (IS_WINDOWS) {
-    return `cmd /c node "%CLAUDE_PROJECT_DIR%/.claude/helpers/${script}"`;
+    return `cmd /c "${NODE_BIN}" "%CLAUDE_PROJECT_DIR%/.claude/helpers/${script}"`;
   }
   // eslint-disable-next-line no-template-curly-in-string
   const dir = '${CLAUDE_PROJECT_DIR:-.}';
-  return `sh -c 'exec node "${dir}/.claude/helpers/${script}"'`;
+  return `sh -c 'exec "${NODE_BIN}" "${dir}/.claude/helpers/${script}"'`;
 }
 
 /**
@@ -211,14 +226,14 @@ function generateStatusLineConfig(_options: InitOptions): object {
   if (IS_WINDOWS) {
     return {
       type: 'command',
-      command: 'node "%CLAUDE_PROJECT_DIR%/.claude/helpers/statusline.cjs"',
+      command: `"${NODE_BIN}" "%CLAUDE_PROJECT_DIR%/.claude/helpers/statusline.cjs"`,
     };
   }
   // eslint-disable-next-line no-template-curly-in-string
   const dir = '${CLAUDE_PROJECT_DIR:-.}';
   return {
     type: 'command',
-    command: `sh -c 'exec node "${dir}/.claude/helpers/statusline.cjs"'`,
+    command: `sh -c 'exec "${NODE_BIN}" "${dir}/.claude/helpers/statusline.cjs"'`,
   };
 }
 

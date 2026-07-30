@@ -36,11 +36,13 @@ export interface SessionOpts {
     edges?: { source: string; target: string; relation: string; description?: string }[];
     rules?: { rule: string; context?: string }[];
   }) => Promise<string>;
-  /** Top existing KG entity names — injected into the coordinator prompt so
+  /** Top existing KG entity names - injected into the coordinator prompt so
    *  extraction reuses canonical names instead of minting near-duplicates. */
   glossary?: string[];
   /** Search the user's Second Brain (project documents + personal global brain). */
   searchKnowledge?: (role: string, query: string) => Promise<string>;
+  /** Guardrail beforeTool hook: checks if a tool call requires approval before execution. */
+  beforeTool?: (role: string, toolName: string) => Promise<boolean | null>;
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
@@ -57,12 +59,12 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `## Communication protocol`,
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
-    `If you need a human decision, call ask_human with your question, then end your turn — you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
-    `Before starting substantial work, call org_recall to check what previous runs already learned or delivered — do not redo finished work.`,
-    `The user's documents (notes, handbooks, specs) are searchable with knowledge_search — ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
+    `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
+    `Before starting substantial work, call org_recall to check what previous runs already learned or delivered - do not redo finished work.`,
+    `The user's documents (notes, handbooks, specs) are searchable with knowledge_search - ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
     isCoordinator
-      ? `When the org's goal for this run is achieved (or clearly can't be): first call org_learn ONCE with the durable knowledge this run produced — key entities (basic types, fullest names), their relationships (snake_case, one-sentence facts), and any reusable rules ("when X, do Y") worth keeping. Then call org_complete exactly once with the outcome and a concise summary. Then end your turn.`
+      ? `When the org's goal for this run is achieved (or clearly can't be): first call org_learn ONCE with the durable knowledge this run produced - key entities (basic types, fullest names), their relationships (snake_case, one-sentence facts), and any reusable rules ("when X, do Y") worth keeping. Then call org_complete exactly once with the outcome and a concise summary. Then end your turn.`
       : `When your current work is complete and no reply is needed, end your turn without further tool calls.`,
     isCoordinator && glossary?.length
       ? `Known entities (reuse these EXACT names in org_learn instead of near-duplicates): ${glossary.slice(0, 40).join(', ')}`
@@ -74,7 +76,7 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
  * Runs a role for the life of the org, transparently restarting the
  * underlying SDK session whenever it ends on its own (`maxTurns` reached)
  * while the mailbox is still open. `maxTurns` bounds a single SDK query()
- * call's TOTAL turns, not "turns per incoming message" — since one query()
+ * call's TOTAL turns, not "turns per incoming message" - since one query()
  * call stays open across every mailbox message for as long as the mailbox
  * itself stays open, without a restart the role would go permanently silent
  * (no crash, no alert) once its lifetime turn count crossed the limit, while
@@ -83,16 +85,16 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
 export async function runAgentSession(opts: SessionOpts): Promise<void> {
   const { mailbox } = opts;
   // Carries the SDK's own session_id across a maxTurns restart so the next
-  // query() call resumes the prior conversation instead of starting cold —
+  // query() call resumes the prior conversation instead of starting cold -
   // without this, a restart silently discarded all in-progress reasoning.
   let resumeSessionId: string | undefined;
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
-  // normal, valid starting state — checking isClosed before the first run
+  // normal, valid starting state - checking isClosed before the first run
   // would skip that drain entirely.
   while (true) {
     resumeSessionId = await runOneSession(opts, resumeSessionId);
-    // The dead session's generator may still hold the waker — drop it so a
+    // The dead session's generator may still hold the waker - drop it so a
     // push() before the next stream() starts only queues instead of being
     // consumed by the abandoned generator (silent message loss).
     mailbox.detach();
@@ -130,7 +132,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
       )] : []),
       ...(opts.remember ? [tool(
         'org_remember',
-        'Save a memory for future runs. scope "org" (default) shares it with the whole org; scope "agent" keeps it private to your role. Use for decisions, findings, and state worth recalling later — org_recall searches both.',
+        'Save a memory for future runs. scope "org" (default) shares it with the whole org; scope "agent" keeps it private to your role. Use for decisions, findings, and state worth recalling later - org_recall searches both.',
         { content: z.string(), scope: z.enum(['org', 'agent']).optional() },
         async (args) => {
           const text = await opts.remember!(role.id, args.content, args.scope ?? 'org');
@@ -139,7 +141,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
       )] : []),
       ...(opts.learn ? [tool(
         'org_learn',
-        'Persist durable knowledge from this run into the org\'s knowledge graph: entities ({name, type?, description?}), relationships ({source, target, relation, description?}) and reusable rules ({rule, context?}). Entities merge by name across runs — reuse the exact names listed in your briefing. Call once, before org_complete.',
+        'Persist durable knowledge from this run into the org\'s knowledge graph: entities ({name, type?, description?}), relationships ({source, target, relation, description?}) and reusable rules ({rule, context?}). Entities merge by name across runs - reuse the exact names listed in your briefing. Call once, before org_complete.',
         {
           nodes: z.array(z.object({ name: z.string(), type: z.string().optional(), description: z.string().optional() })).optional(),
           edges: z.array(z.object({ source: z.string(), target: z.string(), relation: z.string(), description: z.string().optional() })).optional(),
@@ -167,6 +169,16 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
         'Send a message to another agent (role id) or another org ("org:role"). This is the only inter-agent channel.',
         { to: z.string(), subject: z.string(), message: z.string() },
         async (args) => {
+          // Check beforeTool guardrail if available
+          if (opts.beforeTool) {
+            const approved = await opts.beforeTool(role.id, 'org_send');
+            if (approved === false) {
+              return { content: [{ type: 'text' as const, text: 'Tool "org_send" was denied by guardrail approval' }] };
+            }
+            if (approved === null) {
+              return { content: [{ type: 'text' as const, text: 'Tool "org_send" is pending human approval - you will receive the result when it is approved or denied.' }] };
+            }
+          }
           const receipt = await deliver(role.id, args.to, args.subject, args.message);
           return { content: [{ type: 'text' as const, text: receipt }] };
         },
@@ -215,7 +227,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
 
     // A silent session is its own failure mode, and until now an unnameable
     // one: nine consecutive cycles of a scheduled org opened all seven streams
-    // and yielded NOTHING — no assistant message, no result, no error, and no
+    // and yielded NOTHING - no assistant message, no result, no error, and no
     // stream end. The only symptom was the idle watchdog reporting the boss
     // "appears hung" twenty minutes later, which described neither the scope
     // (every role) nor the cause. Name the condition at the one place that can
@@ -227,7 +239,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
       if (sawAnyMessage) return;
       bus.emit({
         type: 'audit', from: role.id, reason: 'session-silent',
-        msg: `SDK stream open ${Math.round((Date.now() - openedAt) / 1000)}s with zero messages — not an error, not an end, nothing. Set MONOMIND_DEBUG=1 to log raw message types.`,
+        msg: `SDK stream open ${Math.round((Date.now() - openedAt) / 1000)}s with zero messages - not an error, not an end, nothing. Set MONOMIND_DEBUG=1 to log raw message types.`,
       });
     }, SILENT_SESSION_MS);
     (silentAlarm as { unref?: () => void }).unref?.();
@@ -248,7 +260,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
         policy.addUsage(tokens);
         bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: m.total_cost_usd, subtype: m.subtype } });
         // A result whose subtype is anything but `success` is the SDK reporting
-        // a failed turn — hit max_turns, refused, rate/usage limited, errored
+        // a failed turn - hit max_turns, refused, rate/usage limited, errored
         // mid-execution. Recording it only as a usage event made those
         // indistinguishable from a healthy turn: three consecutive cycles once
         // produced zero tool calls and zero messages, and the sole signal was
@@ -256,11 +268,11 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
         if (m.subtype && m.subtype !== 'success') {
           bus.emit({
             type: 'audit', from: role.id, reason: 'session-result-error',
-            msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} — the role produced no usable output`,
+            msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} - the role produced no usable output`,
           });
         }
         if (policy.overBudget) {
-          bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted — closing session' });
+          bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });
           mailbox.close();
         }
       }

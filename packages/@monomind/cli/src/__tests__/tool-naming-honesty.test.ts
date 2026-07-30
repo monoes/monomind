@@ -28,7 +28,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { allHiveMindTools } from '../mcp-tools/hive-mind-tools.js';
 import { allEmbeddingsTools } from '../mcp-tools/embeddings-tools.js';
-import { neuralTools } from '../mcp-tools/neural-tools.js';
 import { swarmTools } from '../mcp-tools/swarm-tools.js';
 import { agentTools } from '../mcp-tools/agent-tools.js';
 import type { MCPTool } from '../mcp-tools/types.js';
@@ -117,7 +116,6 @@ function loadedTermsInName(name: string): string[] {
 const HISTORIC_FAMILIES: MCPTool[] = [
   ...allHiveMindTools,
   ...allEmbeddingsTools,
-  ...neuralTools,
   ...swarmTools,
   ...agentTools,
 ];

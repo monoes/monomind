@@ -128,14 +128,60 @@ export async function provisionModel(log: (m: string) => void): Promise<ModelPre
   const already = checkModelPresence([process.cwd()]);
   if (already.present) {
     log(`already provisioned: ${(already.bytes / 1e6).toFixed(0)}MB at ${already.resolvedPath}`);
+  } else {
+    log(`fetching ${MODEL_ID} — this is the provisioning step and it REQUIRES network access.`);
+    log('It is deliberately separate from measurement; `doc eval` itself never fetches.');
+    const t = await import('@huggingface/transformers');
+    await (t as any).pipeline('feature-extraction', MODEL_ID, { revision: 'main', dtype: 'q8' });
+    const after = checkModelPresence([process.cwd()]);
+    if (!after.present) throw new Error('[doc eval] provisioning ran but the weights are still not on disk.');
+    log(`provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);
+  }
+  // Also provision the cross-encoder reranker (ettin-32m) if not already present.
+  await provisionReranker(log);
+  return checkModelPresence([process.cwd()]);
+}
+
+const RERANKER_MODEL_ID = 'cross-encoder/ettin-reranker-32m-v1';
+
+/** Check whether the reranker ONNX weights are present on disk. */
+export function checkRerankerPresence(searchRoots: string[] = [process.cwd()]): ModelPresence {
+  const searched: string[] = [];
+  for (const dir of transformersCacheDirs(searchRoots)) {
+    for (const rel of WEIGHT_CANDIDATES) {
+      const p = path.join(dir, RERANKER_MODEL_ID, rel);
+      searched.push(p);
+      try {
+        const st = fs.statSync(p);
+        if (st.isFile() && st.size > 500_000) {
+          return {
+            model: RERANKER_MODEL_ID, present: true, resolvedPath: p, searched, bytes: st.size,
+            provenance: 'node_modules cache (populated by a prior run or an explicit warm step)',
+          };
+        }
+      } catch { /* keep searching */ }
+    }
+  }
+  return { model: RERANKER_MODEL_ID, present: false, resolvedPath: null, searched, bytes: 0, provenance: 'not provisioned' };
+}
+
+/** Provision the cross-encoder reranker model (ettin-32m). Same separation as
+ *  the embedding model: explicit, non-query-time, never a side-effect. */
+export async function provisionReranker(log: (m: string) => void): Promise<ModelPresence> {
+  const already = checkRerankerPresence([process.cwd()]);
+  if (already.present) {
+    log(`reranker already provisioned: ${(already.bytes / 1e6).toFixed(0)}MB at ${already.resolvedPath}`);
     return already;
   }
-  log(`fetching ${MODEL_ID} — this is the provisioning step and it REQUIRES network access.`);
-  log('It is deliberately separate from measurement; `doc eval` itself never fetches.');
+  log(`fetching ${RERANKER_MODEL_ID} — provisioning the cross-encoder reranker.`);
   const t = await import('@huggingface/transformers');
-  await (t as any).pipeline('feature-extraction', MODEL_ID, { revision: 'main', dtype: 'q8' });
-  const after = checkModelPresence([process.cwd()]);
-  if (!after.present) throw new Error('[doc eval] provisioning ran but the weights are still not on disk.');
-  log(`provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);
+  // text-classification pipeline loads the cross-encoder architecture.
+  // No dtype override — ettin uses non-standard quantized filenames (e.g.
+  // model_qint8_arm64.onnx) that don't match the _quantized suffix convention.
+  // FP32 model.onnx is ~120MB for 32M params — acceptable for a reranker.
+  await (t as any).pipeline('text-classification', RERANKER_MODEL_ID, { revision: 'main' });
+  const after = checkRerankerPresence([process.cwd()]);
+  if (!after.present) throw new Error('[doc eval] reranker provisioning ran but the weights are still not on disk.');
+  log(`reranker provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);
   return after;
 }

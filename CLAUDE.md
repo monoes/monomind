@@ -192,7 +192,11 @@ Same pattern as monograph's advanced-tools gate above, applied to tools whose na
 - `coherence_*` (all 6 tools, 2,616 lines) — genuine graph/spectral/TDA math, but zero tests, zero callers outside its own directory, and no CLI surface. Real code that nothing consumed, behind names like "quantum topology" involving no quantum computation.
 - The 6 IPFS `transfer_*` tools (`ipfs-resolve`, `store-search`/`-info`/`-download`/`-featured`/`-trending`) together with the ~4,600-line `src/transfer/{store,ipfs,storage,models,serialization}` subtree. Unreachable three ways over: gated out of the MCP surface, exposed only on a CLI path the dispatcher cannot reach (`hooks transfer store …` is four levels deep; the dispatcher resolves three), and pointing at a registry whose bootstrap config held the placeholder `publicKey: 'ed25519:monomind-registry-key'`. `transfer_detect-pii` is unrelated — a real local regex PII scanner — and stays visible; `hooks transfer from-project` also still works, since it calls `hooks_transfer` and never touched the store code.
 
-Not gated: `neural_*` — honestly described in the tool descriptions themselves ("no ML training occurs", "not ML prediction"); it is an embedding-backed pattern store.
+**Deleted** (2026-07): `neural_*` (all 6 tools, `neural-tools.ts`) — an embedding-backed pattern store whose names (`train`, `predict`, `learn`) implied ML that never occurred. Removed entirely; the genuinely useful `embeddings_*` tools cover real embedding work.
+
+### Tool roster — core default + on-demand discovery (2026-07)
+
+`tools/list` advertises only a **core roster** (~88 tools: memory, monograph, a hooks subset, task, session, knowledge, system/mcp, guidance, config, agent) to keep the per-call schema payload small. Non-core categories (browser, github, swarm, claims, terminal, embeddings, performance, etc.) remain fully callable by name and are discoverable via the **`monomind_tool_search`** tool, which returns their full `inputSchema`. Set **`MONOMIND_MCP_FULL=1`** on the MCP server to advertise the entire roster (power users / CI). See `packages/@monomind/cli/src/mcp-client.ts` (`isCoreAdvertised`, `searchNonCoreTools`).
 
 **`swarm_*` and `agent_spawn` are not gated but are metadata-only**: `swarm_init`, `swarm_scale`, and `agent_spawn` write JSON state records — they start no process, thread, or agent. Real concurrency comes only from Claude Code's Task tool. Their descriptions say so explicitly.
 
@@ -292,6 +296,16 @@ Note: rows below (except Agent Teams) are `monomind hooks <subcommand>` CLI name
 ## Project Configuration (Anti-Drift Defaults)
 
 Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: JSON patterns + local SQLite/embeddings (see Key Packages table).
+
+### Hook / roster env switches (2026-07)
+
+| Var | Effect |
+|---|---|
+| `MONOMIND_MCP_FULL=1` | Advertise the full MCP tool roster (~270) instead of the core default (~88). |
+| `MONOMIND_HOOK_QUIET=1` | Silence per-prompt advisory blocks (`[AUDIT]`, `[CODEBASE]`, `[MONOGRAPH]`, `[INTELLIGENCE]`, `[COST]`, knowledge/memory excerpts, etc.). Side-effects (file writes, telemetry, route mutations) are unchanged. |
+| `MONOMIND_MASTERMIND=1` | Emit the Mastermind skill-router table at session start (off by default). |
+| `MONOMIND_SKILL_AUTO=1` | Surface skill-match suggestions in the route hook (off by default). |
+| `MONOMIND_GRAPH_GATE=off` | Disable the bash/search graph-gate that requires a monograph call first (unchanged). |
 
 ## Quick Setup
 

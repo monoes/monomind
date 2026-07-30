@@ -967,9 +967,15 @@ export const orgCommand: Command = {
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
         { name: 'role', description: 'Only events from/to this role', type: 'string' },
+        { name: 'filter-tool', description: 'Filter events by tool name (e.g., Write, Edit)', type: 'string' },
+        { name: 'filter-role', description: 'Filter events by role ID', type: 'string' },
+        { name: 'tools-only', description: 'Show only tool events (exclude messages/status/audit)', type: 'boolean' },
         { name: 'follow', short: 'f', description: 'Keep tailing until Ctrl-C', type: 'boolean' },
       ],
-      examples: [{ command: 'monomind org logs growth --follow', description: 'Live-tail the latest run' }],
+      examples: [
+        { command: 'monomind org logs growth --follow', description: 'Live-tail the latest run' },
+        { command: 'monomind org logs growth --tools-only', description: 'Show only tool call events' },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -982,6 +988,7 @@ export const orgCommand: Command = {
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
         { name: 'all', description: 'List all recorded runs from history', type: 'boolean' },
+        { name: 'by-role', description: 'Show per-role cost breakdown', type: 'boolean' },
       ],
       examples: [{ command: 'monomind org report growth', description: 'Report on the latest run' }],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -1044,6 +1051,33 @@ export const orgCommand: Command = {
         } finally {
           await bridge.shutdownBridge().catch(() => { /* best effort */ });
         }
+      },
+    },
+    {
+      name: 'costs', description: 'Show per-role cost tracking from runtime.json',
+      options: [
+        { name: 'run', description: 'Run ID (defaults to latest)', type: 'string' },
+      ],
+      examples: [
+        { command: 'monomind org costs growth', description: 'Show cost breakdown for latest run' },
+        { command: 'monomind org costs growth --run run-20240130-123456', description: 'Show cost breakdown for specific run' },
+      ],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { costsAction } = await import('./org-observe.js');
+        return costsAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'flow', description: 'Export org flow as Mermaid diagram',
+      options: [{ name: 'run', description: 'Run ID (defaults to latest)', type: 'string' }],
+      examples: [{ command: 'monomind org flow growth --run run-20250130120000', description: 'Export Mermaid flowchart' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { flowAction } = await import('./org-observe.js');
+        return flowAction(ctx, v.name);
       },
     },
     {
@@ -1115,7 +1149,7 @@ export const orgCommand: Command = {
     // index.ts's dispatcher never prints result.message on a failed action —
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
-    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|questions|answer|create|validate|migrate|list|delete|mark-complete>';
+    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|questions|answer|create|validate|migrate|list|delete|mark-complete>';
     log(output.error(message));
     return { success: false, message };
   },
