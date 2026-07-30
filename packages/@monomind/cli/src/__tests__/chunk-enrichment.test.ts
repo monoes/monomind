@@ -172,17 +172,17 @@ describe('chunk enrichment (item 6a)', () => {
       store: 'project', includeSuperseded: true,
     });
 
-    const laterChunk = results.find(r => r.chunkIndex > 0);
-    if (laterChunk) {
-      // Invariant 4: summary should be truncated with ...
-      const lines = laterChunk.text.split('\n');
-      // Second line should be the summary (first is §)
-      const summaryLine = lines[1];
-      if (summaryLine && !summaryLine.startsWith('§')) {
-        expect(summaryLine.length).toBeLessThanOrEqual(120);
-        expect(summaryLine).toMatch(/\.\.\.$/);
-      }
-    }
+    const laterChunk = results.find(r => r.chunkIndex > 0 && r.filePath.includes('long-summary'));
+    expect(laterChunk).toBeDefined();
+    // Invariant 4: summary should be truncated with ...
+    const lines = laterChunk!.text.split('\n');
+    // Second line should be the summary (first is §)
+    const summaryLine = lines[1];
+    expect(summaryLine).toBeDefined();
+    expect(summaryLine!.startsWith('§')).toBe(false);
+    expect(summaryLine!.length).toBeLessThanOrEqual(120);
+    expect(summaryLine!).toMatch(/\.\.\.$/);
+
   });
 
   it('headings inside code fences are ignored', async () => {

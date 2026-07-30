@@ -462,7 +462,7 @@ const evalCommand: Command = {
       const { provisionModel } = await import('../knowledge/eval/model-presence.js');
       try {
         const p = await provisionModel(m => output.writeln(output.dim('  ' + m)));
-        output.printSuccess(`Embedding model provisioned (${(p.bytes / 1e6).toFixed(0)}MB).`);
+        output.printSuccess(`Models provisioned (embedding: ${(p.bytes / 1e6).toFixed(0)}MB).`);
         return { success: true, data: p };
       } catch (err) {
         output.printError(String(err instanceof Error ? err.message : err));

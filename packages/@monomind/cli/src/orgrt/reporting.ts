@@ -26,6 +26,8 @@ export interface RunSummary {
   xorgMessages: number;
   assets: string[];
   crashes: string[];
+  /** Roles terminated by our own stop signal (exit 143), not real crashes. */
+  cutShort: string[];
   outcome: { status: string; summary: string; by: string } | null;
   roles: Record<string, RoleStats>;
   totalTokens: number;
@@ -42,7 +44,7 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
     startedAt: events.length ? events[0].ts : null,
     endedAt: events.length ? events[events.length - 1].ts : null,
     durationMs: null, events: events.length,
-    messages: 0, xorgMessages: 0, assets: [], crashes: [], outcome: null,
+    messages: 0, xorgMessages: 0, assets: [], crashes: [], cutShort: [], outcome: null,
     roles: {}, totalTokens: 0, totalCostUsd: 0,
   };
   if (s.startedAt !== null && s.endedAt !== null) s.durationMs = s.endedAt - s.startedAt;
@@ -78,6 +80,9 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
         }
         break;
       case 'status': {
+        if (e.reason === 'terminated-by-stop' && e.from) {
+          s.cutShort.push(e.from);
+        }
         const d = e.data as { outcome?: string; summary?: string } | undefined;
         if (e.reason === 'org-complete' && d?.outcome)
           s.outcome = { status: d.outcome, summary: d.summary ?? '', by: e.from ?? '' };

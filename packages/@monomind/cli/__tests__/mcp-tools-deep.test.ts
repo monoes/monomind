@@ -182,7 +182,6 @@ import { allEmbeddingsTools as embeddingsTools } from '../src/mcp-tools/embeddin
 import { githubTools } from '../src/mcp-tools/github-tools.js';
 import { allHiveMindTools as hiveMindTools } from '../src/mcp-tools/hive-mind-tools.js';
 import { memoryTools } from '../src/mcp-tools/memory-tools.js';
-import { neuralTools } from '../src/mcp-tools/neural-tools.js';
 import { performanceTools } from '../src/mcp-tools/performance-tools.js';
 import { securityTools } from '../src/mcp-tools/security-tools.js';
 import { sessionTools } from '../src/mcp-tools/session-tools.js';
@@ -213,7 +212,6 @@ const ALL_MODULES: ToolModule[] = [
   { name: 'hive-mind-tools', tools: hiveMindTools },
   { name: 'hooks-tools', tools: hooksTools },
   { name: 'memory-tools', tools: memoryTools },
-  { name: 'neural-tools', tools: neuralTools },
   { name: 'performance-tools', tools: performanceTools },
   { name: 'security-tools', tools: securityTools },
   { name: 'session-tools', tools: sessionTools },
@@ -235,8 +233,8 @@ describe('MCP Tools Deep Test Suite', () => {
   // 1. Module Loading & Registration
   // --------------------------------------------------------------------------
   describe('Module Loading & Registration', () => {
-    it('should load all 17 tool modules', () => {
-      expect(ALL_MODULES).toHaveLength(17);
+    it('should load all 16 tool modules', () => {
+      expect(ALL_MODULES).toHaveLength(16);
     });
 
     it('should have at least 100 total tools across all modules', () => {
@@ -268,7 +266,6 @@ describe('MCP Tools Deep Test Suite', () => {
         'github-tools': 5,
         'hive-mind-tools': 9,
         'memory-tools': 7,
-        'neural-tools': 6,
         'performance-tools': 6,
         'security-tools': 6,
         'session-tools': 5,
@@ -841,24 +838,7 @@ describe('MCP Tools Deep Test Suite', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 19. Handler Invocation - Neural Tools
-  // --------------------------------------------------------------------------
-  describe('Neural Tools - Handler Invocation', () => {
-    it('neural_status returns status', async () => {
-      const tool = neuralTools.find(t => t.name === 'neural_status')!;
-      const result: any = await tool.handler({});
-      expect(result).toBeDefined();
-    });
-
-    it('neural_patterns returns patterns list', async () => {
-      const tool = neuralTools.find(t => t.name === 'neural_patterns')!;
-      const result: any = await tool.handler({});
-      expect(result).toBeDefined();
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 20. Handler Invocation - Memory Tools
+  // 19. Handler Invocation - Memory Tools
   // --------------------------------------------------------------------------
   describe('Memory Tools - Handler Invocation', () => {
     it('memory_health returns availability', async () => {

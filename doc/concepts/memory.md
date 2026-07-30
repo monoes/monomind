@@ -191,7 +191,74 @@ monomind monograph watch
 
 ---
 
-## 4. Cross-Session Persistence
+## 4. Second Brain — Document Knowledge Base
+
+Second Brain indexes your project's documents into a searchable knowledge base with its own knowledge graph. During `monomind init`, the directory scanner detects document files and auto-ingests them — chunked, hashed for dedup, and stored for retrieval.
+
+**Files:** `.monomind/knowledge/` (chunks.jsonl, doc-metadata.jsonl) + `.monomind/memory/memory.db`
+**Global brain:** `~/.monomind/global-brain` persists knowledge across projects.
+
+### Supported Document Formats (22 extensions)
+
+| Category | Extensions | Extractor |
+|---|---|---|
+| Microsoft Word | `.docx` `.doc` | mammoth (DOCX), textutil (DOC — macOS) |
+| Microsoft Excel | `.xlsx` `.xls` | SheetJS — all sheets extracted as tab-separated text |
+| Microsoft PowerPoint | `.pptx` `.ppt` | ZIP+XML slide extraction (PPTX), textutil (PPT — macOS) |
+| Google Docs / Sheets / Slides | `.docx` `.xlsx` `.pptx` | Google exports as Office formats — same extractors |
+| OpenDocument | `.odt` `.ods` `.odp` | ZIP+XML / SheetJS (ODS) |
+| PDF | `.pdf` | pdf-parse |
+| Plain text | `.md` `.txt` `.rst` `.tex` `.csv` `.tsv` | Direct UTF-8 read |
+| Rich Text | `.rtf` | Built-in RTF parser (no dependency) |
+| eBook | `.epub` | ZIP+XHTML extraction |
+| Apple Pages | `.pages` | textutil (macOS) |
+
+### Second Brain KG vs Monograph
+
+Monomind has **two knowledge graphs** that serve different purposes:
+
+|  | Monograph (Code KG) | Second Brain KG (Document KG) |
+|---|---|---|
+| **What it indexes** | Source code — functions, classes, imports, dependencies | Documents — PDFs, Office files, Markdown, specs, policies |
+| **Parser** | tree-sitter (static analysis, 14 language grammars) | Text extraction + chunking (format-specific parsers) |
+| **Storage** | `.monomind/monograph.db` (nodes + edges) | `.monomind/knowledge/` + `.monomind/memory/memory.db` |
+| **Query tools** | `monograph_query`, `monograph_suggest`, `monograph_impact` | `knowledge_search`, `memory_kg_search`, `monomind doc search` |
+| **Entities** | Files, functions, classes, methods, variables | Concepts, decisions, people, rules, relationships |
+| **Best for** | "What depends on X?", blast radius, dead code | "What was decided about auth?", compliance, design specs |
+
+Use `memory_kg_ingest` to extract entities and relationships from documents into the Second Brain KG. Use `memory_kg_search` to query them. Monograph handles code; Second Brain KG handles everything else.
+
+### Pipeline
+
+1. **SCAN** — Directory scanner classifies files by extension (22 formats). If enough match, the "documents" capability activates.
+2. **EXTRACT** — Format-specific text extraction: mammoth (DOCX), xlsx (spreadsheets), pdf-parse (PDF), ZIP+XML (PPTX/ODT/ODP/EPUB), built-in RTF parser, textutil (legacy DOC/PPT/Pages on macOS), or direct read (plain text/CSV).
+3. **CHUNK** — Each document is chunked into 3200-char segments with 400-char overlap, respecting paragraph boundaries.
+4. **INDEX** — SHA-256 content hashing for dedup. Chunks stored under `knowledge:<scope>` namespace. Metadata logged to `doc-metadata.jsonl`.
+5. **QUERY** — Search via `knowledge_search` MCP tool or `monomind doc search` CLI.
+
+### CLI
+
+```bash
+monomind doc ingest <path>    # Index documents from file or directory
+monomind doc search -q "q"    # Search indexed documents
+monomind doc list             # List indexed documents with chunk counts
+monomind doc export           # Export as OKF bundle
+```
+
+### OKF — Open Knowledge Format
+
+Portable interchange format for knowledge bases. Each document becomes a Markdown file with YAML frontmatter plus an `index.md` linking them all. Use it to move knowledge between projects or back up your Second Brain.
+
+```bash
+monomind doc export -o ./bundle -s shared    # Export
+monomind doc ingest ./bundle -s shared       # Import
+/mastermind:okf-export -o ./bundle           # Slash command
+/mastermind:okf-import ./bundle              # Slash command
+```
+
+---
+
+## 5. Cross-Session Persistence
 
 Cross-session memory capture is handled by the mechanisms already described above — the pattern store / episodic recall in section 2, and the Memory Palace in section 1 — not by a separate `AutoMemoryBridge` class. That class has been removed from source entirely (no file, no export); the only remaining trace is two dead-stub log lines in `helpers-generator.ts` ("Auto memory import/sync skipped — AutoMemoryBridge removed"). Don't reference `AutoMemoryBridge` as a live component.
 
@@ -210,12 +277,17 @@ All memory persists across sessions in `.monomind/`:
 │   └── pending-insights.jsonl  ← unsaved edit events (cleared on consolidate)
 ├── episodic/
 │   └── episodes.jsonl       ← episodic memories, keyword-matched at prompt time
+├── knowledge/
+│   ├── doc-metadata.jsonl   ← Second Brain: indexed document metadata
+│   └── chunks.jsonl         ← Second Brain: document text chunks
+├── memory/
+│   └── memory.db            ← Second Brain: SQLite store (embeddings, KG entities)
 └── monograph.db             ← code knowledge graph
 ```
 
 ---
 
-## 5. Learning Pipeline
+## 6. Learning Pipeline
 
 The lean build records trajectories and outcomes rather than training a neural model.
 During `session-end` and `consolidate`:

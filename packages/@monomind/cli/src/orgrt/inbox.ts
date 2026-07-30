@@ -11,16 +11,31 @@ export interface QueuedMessage {
   subject: string;
   body: string;
   ts: number;
+  /** Structured handoff context (rich metadata for role transitions) */
+  context?: {
+    summary?: string;        // Brief one-line status
+    nextAction?: string;      // What the receiver should do next
+    filesChanged?: string[];  // Files touched in this work
+    relatedIssues?: string[]; // Related issue numbers
+    metadata?: Record<string, unknown>; // Additional custom fields
+  };
 }
 
 function inboxPath(root: string, orgName: string): string {
   return join(root, ORG_DIR, orgName, 'inbox.jsonl');
 }
 
-export function queueMessage(root: string, orgName: string, msg: QueuedMessage): void {
-  const dir = join(root, ORG_DIR, orgName);
-  mkdirSync(dir, { recursive: true });
-  appendFileSync(inboxPath(root, orgName), JSON.stringify(msg) + '\n');
+export function queueMessage(root: string, orgName: string, msg: QueuedMessage): boolean {
+  try {
+    const dir = join(root, ORG_DIR, orgName);
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(inboxPath(root, orgName), JSON.stringify(msg) + '\n');
+    return true;
+  } catch (err) {
+    // Log error but don't throw — caller needs to know delivery failed
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[inbox] queueMessage failed for org "${orgName}":`, err instanceof Error ? err.message : err);
+    return false;
+  }
 }
 
 function parseLines(raw: string): QueuedMessage[] {

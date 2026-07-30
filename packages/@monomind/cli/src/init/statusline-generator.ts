@@ -836,6 +836,36 @@ function getKnowledgeStats() {
   return { chunks, skills };
 }
 
+// Document / knowledge stats — docs indexed + chunks + memory entries
+function getDocStats() {
+  const docPath    = path.join(CWD, '.monomind', 'knowledge', 'doc-metadata.jsonl');
+  const chunksPath = path.join(CWD, '.monomind', 'knowledge', 'chunks.jsonl');
+  const memDbPath  = path.join(CWD, '.monomind', 'memory', 'memory.db');
+  let docs = 0, chunks = 0, memories = 0, exists = false;
+  try {
+    const ds = safeStat(docPath);
+    if (ds && ds.size > 0 && ds.size <= MAX_JSON_READ_BYTES) {
+      docs = fs.readFileSync(docPath, 'utf-8').split('\\n').filter(Boolean).length;
+      exists = true;
+    }
+  } catch { /* ignore */ }
+  try {
+    const cs = safeStat(chunksPath);
+    if (cs && cs.size > 0 && cs.size <= MAX_JSON_READ_BYTES) {
+      chunks = fs.readFileSync(chunksPath, 'utf-8').split('\\n').filter(Boolean).length;
+      exists = true;
+    }
+  } catch { /* ignore */ }
+  try {
+    if (fs.existsSync(memDbPath)) {
+      const result = spawnSync('sqlite3', [memDbPath, 'SELECT COUNT(*) FROM memory_entries;'], { encoding: 'utf-8', timeout: 1000 });
+      const n = parseInt((result.stdout || '').trim(), 10) || 0;
+      if (n > 0) { memories = n; exists = true; }
+    }
+  } catch { /* ignore */ }
+  return { docs, chunks, memories, exists };
+}
+
 function getTriggerStats() {
   const indexPath = path.join(CWD, '.monomind', 'trigger-index.json');
   try {
@@ -1216,12 +1246,26 @@ function generateDashboard() {
     graphStr = \`\${x.slate}🔗 no graph\${x.reset}\`;
   }
 
+  // Document / knowledge stats
+  const docStats = getDocStats();
+  let docStr = '';
+  if (docStats.exists) {
+    const parts = [];
+    if (docStats.docs > 0) {
+      const docFmt = docStats.docs >= 1000 ? \`\${(docStats.docs / 1000).toFixed(1)}k\` : \`\${docStats.docs}\`;
+      parts.push(\`\${x.bold}\${docFmt}\${x.reset}\${x.slate} docs\${x.reset}\`);
+    }
+    if (docStats.chunks > 0) parts.push(\`\${x.bold}\${docStats.chunks}\${x.reset}\${x.slate} chunks\${x.reset}\`);
+    if (docStats.memories > 0) parts.push(\`\${x.bold}\${docStats.memories}\${x.reset}\${x.slate} memories\${x.reset}\`);
+    if (parts.length) docStr = \`   \${DIV}   \${x.sky}📄\${x.reset} \${parts.join('  ')}\`;
+  }
+
   const hil = getHILPending();
   const hilStr = hil.pending > 0
     ? \`   \${DIV}   \${x.coral}✨ \${x.bold}\${hil.pending}\${x.reset}\${x.coral} HIL pending\${x.reset}\`
     : \`\`;
 
-  lines.push(\`\${x.teal}🧠  CONTEXT\${x.reset}  \${graphStr}\${hilStr}\`);
+  lines.push(\`\${x.teal}🧠  CONTEXT\${x.reset}  \${graphStr}\${docStr}\${hilStr}\`);
 
   // ── Row 3: Daemon worker alerts (security / testgaps / benchmark) ──
   const alerts = getDaemonAlerts();

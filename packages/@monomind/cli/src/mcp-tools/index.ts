@@ -9,7 +9,6 @@ export { agentTools } from './agent-tools.js';
 export { swarmTools } from './swarm-tools.js';
 // V2 Compatibility tools
 export { systemTools } from './system-tools.js';
-export { neuralTools } from './neural-tools.js';
 export { performanceTools } from './performance-tools.js';
 export { githubTools } from './github-tools.js';
 export { memoryTools } from './memory-tools.js';
@@ -31,3 +30,4 @@ export { monographTools } from './monograph-tools.js';
 export { terminalTools } from './terminal-tools.js';
 export { browserTools } from './browser-tools.js';
 export { knowledgeTools } from './knowledge-tools.js';
+export { monomindTools } from './monomind-tools.js';

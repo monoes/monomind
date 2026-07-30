@@ -5,6 +5,9 @@
 // The routing table is the unique value — tells Claude which skill for which task.
 // Full protocol loads on-demand via /mastermind.
 
+// Opt-in: only emit the routing table when MONOMIND_MASTERMIND=1.
+// Off by default to cut ~1.5K tokens of per-session injection; load on-demand via /mastermind.
+if (String(process.env.MONOMIND_MASTERMIND || '') === '1') {
 process.stdout.write(
   '## Mastermind Skill Router\n\n' +
   'Invoke the matching skill BEFORE responding. If unsure, check — invoking and finding it irrelevant costs less than skipping it.\n\n' +
@@ -33,3 +36,4 @@ process.stdout.write(
   'Process skills (debug, idea, architect, research) set the approach. Execution skills (build, review, release) carry it out.\n' +
   'Subagents with `<SUBAGENT-STOP>` gate skip this routing.\n'
 );
+}

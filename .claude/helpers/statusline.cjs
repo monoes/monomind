@@ -1028,6 +1028,38 @@ function getGraphifyStats() {
   return { nodes: 0, edges: 0, exists: false };
 }
 
+// Document / knowledge stats — docs indexed + chunks + memory entries
+function getDocStats() {
+  const docPath    = path.join(CWD, '.monomind', 'knowledge', 'doc-metadata.jsonl');
+  const chunksPath = path.join(CWD, '.monomind', 'knowledge', 'chunks.jsonl');
+  const memDbPath  = path.join(CWD, '.monomind', 'memory', 'memory.db');
+  let docs = 0, chunks = 0, memories = 0, exists = false;
+  try {
+    const ds = safeStat(docPath);
+    if (ds && ds.size > 0) {
+      const buf = fs.readFileSync(docPath, 'utf-8');
+      docs = buf.split('\n').filter(Boolean).length;
+      exists = true;
+    }
+  } catch { /* ignore */ }
+  try {
+    const cs = safeStat(chunksPath);
+    if (cs && cs.size > 0) {
+      const buf = fs.readFileSync(chunksPath, 'utf-8');
+      chunks = buf.split('\n').filter(Boolean).length;
+      exists = true;
+    }
+  } catch { /* ignore */ }
+  try {
+    if (fs.existsSync(memDbPath)) {
+      const result = spawnSync('sqlite3', [memDbPath, 'SELECT COUNT(*) FROM memory_entries;'], { encoding: 'utf-8', timeout: 1000 });
+      const n = parseInt((result.stdout || '').trim(), 10) || 0;
+      if (n > 0) { memories = n; exists = true; }
+    }
+  } catch { /* ignore */ }
+  return { docs, chunks, memories, exists };
+}
+
 function getSIBudget() {
   const SI_LIMIT = 1500;
   const siPath = path.join(CWD, '.agents', 'shared_instructions.md');
@@ -1177,18 +1209,18 @@ function generateDashboard() {
   const swarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
   const projName = getProjectName();
   const cwdName = path.basename(CWD);
-  let hdr = `${x.bold}${x.purple}▊ Monomind ${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}  ${DIV}  ${x.dim}◎ ${cwdName}${x.reset}  ${DIV}  ${x.violet}⬡ ${git.name}${x.reset}`;
+  let hdr = `${x.bold}${x.purple}▊Monomind ${VERSION}${x.reset} ${swarmDot} ${x.teal}${x.bold}${projName}${x.reset} ${DIV} ${x.dim}◎${cwdName}${x.reset} ${DIV} ${x.violet}⬡${git.name}${x.reset}`;
 
   if (git.gitBranch) {
-    hdr += `  ${DIV}  ${x.sky}⎇ ${x.bold}${git.gitBranch}${x.reset}`;
-    if (git.staged   > 0) hdr += `  ${x.green}+${git.staged}${x.reset}`;
-    if (git.modified > 0) hdr += `  ${x.gold}~${git.modified} mod${x.reset}`;
-    if (git.untracked > 0) hdr += `  ${x.slate}?${git.untracked}${x.reset}`;
-    if (git.ahead    > 0) hdr += `  ${x.green}↑${git.ahead}${x.reset}`;
-    if (git.behind   > 0) hdr += `  ${x.coral}↓${git.behind}${x.reset}`;
+    hdr += ` ${DIV} ${x.sky}⎇${x.bold}${git.gitBranch}${x.reset}`;
+    if (git.staged   > 0) hdr += ` ${x.green}+${git.staged}${x.reset}`;
+    if (git.modified > 0) hdr += ` ${x.gold}~${git.modified}${x.reset}`;
+    if (git.untracked > 0) hdr += ` ${x.slate}?${git.untracked}${x.reset}`;
+    if (git.ahead    > 0) hdr += ` ${x.green}↑${git.ahead}${x.reset}`;
+    if (git.behind   > 0) hdr += ` ${x.coral}↓${git.behind}${x.reset}`;
   }
 
-  if (session.duration) hdr += `  ${x.dim}⏱ ${session.duration}${x.reset}`;
+  if (session.duration) hdr += ` ${x.dim}⏱${session.duration}${x.reset}`;
 
   lines.push(hdr);
   lines.push(SEP);
@@ -1226,15 +1258,15 @@ function generateDashboard() {
   const lat = getHookLatency();
   let latStr = '';
   if (lat && lat.perPromptMs > 500) {
-    latStr = `   ${DIV}   ${x.coral}⚡ hooks ${lat.perPromptMs}ms${x.reset}`;
+    latStr = ` ${DIV} ${x.coral}⚡${lat.perPromptMs}ms${x.reset}`;
   } else if (lat && lat.perPromptMs > 0) {
-    latStr = `   ${DIV}   ${x.dim}⚡ ${lat.perPromptMs}ms${x.reset}`;
+    latStr = ` ${DIV} ${x.dim}⚡${lat.perPromptMs}ms${x.reset}`;
   }
 
-  lines.push(`${x.purple}🤖  AGENT${x.reset}    ${agentStr}   ${DIV}   ${loopStr}${latStr}`);
+  lines.push(`${x.purple}🤖 AGENT${x.reset}  ${agentStr} ${DIV} ${loopStr}${latStr}`);
   lines.push(SEP);
 
-  // ── Row 2: Graph freshness + Pending HIL ─────────────────────
+  // ── Row 2: Graph ─────────────────────────────────────────────
   const gf = getGraphifyStats();
   const freshness = getGraphFreshness();
   let graphStr;
@@ -1242,54 +1274,72 @@ function generateDashboard() {
     const nodesFmt = gf.nodes >= 1000 ? `${(gf.nodes / 1000).toFixed(0)}k` : `${gf.nodes}`;
     const edgesFmt = gf.edges >= 1000 ? `${(gf.edges / 1000).toFixed(0)}k` : `${gf.edges}`;
     const freshTag = freshness.fresh
-      ? `${x.green}● fresh${x.reset}`
+      ? `${x.green}●fresh${x.reset}`
       : freshness.stale
-        ? `${x.coral}● ${freshness.commitsBehind} commits stale${x.reset}`
-        : `${x.gold}● ${freshness.commitsBehind} behind${x.reset}`;
-    graphStr = `${x.sky}🔗 ${x.bold}${nodesFmt}${x.reset}${x.slate} nodes${x.reset}  ${x.bold}${edgesFmt}${x.reset}${x.slate} edges${x.reset}  ${freshTag}`;
+        ? `${x.coral}●${freshness.commitsBehind}stale${x.reset}`
+        : `${x.gold}●${freshness.commitsBehind}behind${x.reset}`;
+    graphStr = `${x.sky}🔗${x.bold}${nodesFmt}${x.reset}${x.slate}n${x.reset} ${x.bold}${edgesFmt}${x.reset}${x.slate}e${x.reset} ${freshTag}`;
   } else {
-    graphStr = `${x.slate}🔗 no graph${x.reset}`;
+    graphStr = `${x.slate}🔗no graph${x.reset}`;
   }
 
   const hil = getHILPending();
-  let contextLine = `${x.teal}🧠  CONTEXT${x.reset}  ${graphStr}`;
-  if (hil.pending > 0) {
-    contextLine += `   ${DIV}   ${x.coral}✨ ${x.bold}${hil.pending}${x.reset}${x.coral} HIL pending${x.reset}`;
-  }
-
-  // Graph usage ratio + $ saved
   const usage = getGraphUsage();
+  let contextLine = `${x.teal}🧠 CONTEXT${x.reset} ${graphStr}`;
   if (usage) {
     const col = usage.pct >= 40 ? x.green : usage.pct >= 15 ? x.gold : x.coral;
     const savedCol = usage.dollarsSaved >= 0.10 ? x.green : x.slate;
-    contextLine += `   ${DIV}   ${col}📊 graph ${usage.pct}%${x.reset}${x.slate} · grep ${100 - usage.pct}%${x.reset}   ${savedCol}💰 $${usage.dollarsSaved.toFixed(2)}${x.reset}`;
+    contextLine += ` ${DIV} ${col}📊${usage.pct}%${x.reset}${x.slate}·${100 - usage.pct}%grep${x.reset} ${savedCol}💰$${usage.dollarsSaved.toFixed(2)}${x.reset}`;
   }
-
-  // Token cost
+  if (hil.pending > 0) {
+    contextLine += ` ${DIV} ${x.coral}✨${x.bold}${hil.pending}${x.reset}${x.coral}HIL${x.reset}`;
+  }
   const tokenCost = getTokenCostSummary();
   if (tokenCost) {
     if (tokenCost.isFresh && tokenCost.todayCost > 0) {
       const col = tokenCost.todayCost > 50 ? x.coral : tokenCost.todayCost > 10 ? x.gold : x.mint;
-      contextLine += `   ${DIV}   ${col}${fmtCost(tokenCost.todayCost)} today${x.reset}${x.dim} · ${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
+      contextLine += ` ${DIV} ${col}${fmtCost(tokenCost.todayCost)}${x.reset}${x.dim}·${fmtCost(tokenCost.monthCost)}mo${x.reset}`;
     } else if (tokenCost.monthCost > 0) {
-      contextLine += `   ${DIV}   ${x.slate}${fmtCost(tokenCost.monthCost)} mo${x.reset}`;
+      contextLine += ` ${DIV} ${x.slate}${fmtCost(tokenCost.monthCost)}mo${x.reset}`;
+    }
+  }
+  lines.push(contextLine);
+
+  // ── Row 3: Docs / knowledge ──────────────────────────────────
+  const docStats = getDocStats();
+  if (docStats.exists) {
+    const parts = [];
+    if (docStats.docs > 0) {
+      const docFmt = docStats.docs >= 1000 ? `${(docStats.docs / 1000).toFixed(1)}k` : `${docStats.docs}`;
+      parts.push(`${x.bold}${docFmt}${x.reset}${x.slate}docs${x.reset}`);
+    }
+    if (docStats.chunks > 0) parts.push(`${x.bold}${docStats.chunks}${x.reset}${x.slate}chunks${x.reset}`);
+    if (docStats.memories > 0) parts.push(`${x.bold}${docStats.memories}${x.reset}${x.slate}mem${x.reset}`);
+    // OKF export check
+    const okfDir = path.join(CWD, '.monomind', 'exports');
+    try {
+      if (fs.existsSync(okfDir)) {
+        const okfFiles = cleanEntries(okfDir, f => f.endsWith('.md') || f.endsWith('.json'));
+        if (okfFiles.length > 0) parts.push(`${x.bold}${okfFiles.length}${x.reset}${x.slate}okf${x.reset}`);
+      }
+    } catch { /* ignore */ }
+    if (parts.length) {
+      lines.push(`${x.dim}   📄 ${parts.join(' ')}${x.reset}`);
     }
   }
 
-  lines.push(contextLine);
-
-  // ── Row 3: Active org runs ───────────────────────────────────
+  // ── Row 4: Active org runs ───────────────────────────────────
   const orgStatus = getActiveOrgs();
   if (orgStatus.count > 0) {
     lines.push(SEP);
     const orgParts = orgStatus.orgs.slice(0, 5).map(o => {
       const ageMin = Math.floor(o.ageMs / 60000);
-      const ageFmt = ageMin < 1 ? 'just now' : ageMin < 60 ? `${ageMin}m ago` : `${Math.floor(ageMin / 60)}h ago`;
+      const ageFmt = ageMin < 1 ? 'now' : ageMin < 60 ? `${ageMin}m` : `${Math.floor(ageMin / 60)}h`;
       const col = o.running ? x.green : x.slate;
       const dot2 = o.running ? `${x.green}●${x.reset}` : `${x.slate}◌${x.reset}`;
-      return `${dot2} ${col}${x.bold}${o.name}${x.reset}  ${x.dim}${ageFmt}${x.reset}`;
+      return `${dot2}${col}${x.bold}${o.name}${x.reset} ${x.dim}${ageFmt}${x.reset}`;
     });
-    lines.push(`${x.purple}🏛  ORGS${x.reset}     ${orgParts.join(`   ${DIV}   `)}`);
+    lines.push(`${x.purple}🏛 ORGS${x.reset}  ${orgParts.join(` ${DIV} `)}`);
   }
 
   return lines.join('\n');

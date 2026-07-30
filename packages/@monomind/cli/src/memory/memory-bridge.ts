@@ -235,8 +235,21 @@ const MAX_INIT_ATTEMPTS = 3;
 // Same ORT constraints as the embedder (ADR-R001). Loaded only when the first
 // search with >1 candidate completes — never on store, never on startup.
 // Disabled with MONOMIND_RERANKER=0.
+//
+// The upstream HF ONNX file for ettin-reranker-32m-v1 only contains the base
+// ModernBERT encoder (outputs last_hidden_state, no logits). The classifier
+// head lives in separate sentence-transformers module safetensors files
+// (2_Dense, 3_LayerNorm, 4_Dense). We use a self-exported ONNX that bakes the
+// full pipeline (base + CLS pooling + head) into one file with `logits` output.
+// The export script is at scripts/export-ettin-onnx.py; the result is cached
+// under ~/.monomind/models/ettin-reranker-32m-v1-onnx/.
 
 export const BRIDGE_RERANKER_MODEL = 'cross-encoder/ettin-reranker-32m-v1';
+
+/** Local path to the self-exported ONNX model with classifier head baked in. */
+function rerankerModelDir(): string {
+  return path.join(os.homedir(), '.monomind', 'models', 'ettin-reranker-32m-v1-onnx');
+}
 
 let _reranker: ((query: string, passage: string) => Promise<number>) | null = null;
 let _rerankerPromise: Promise<void> | null = null;
@@ -250,19 +263,24 @@ export async function loadReranker(): Promise<void> {
   if (!_rerankerPromise) {
     _rerankerPromise = (async () => {
       try {
+        // Use the self-exported ONNX with classifier head baked in.
+        // Falls back to the upstream HF model id if the local export doesn't
+        // exist (will fail with local_files_only unless the user has previously
+        // downloaded an ONNX with logits output).
+        const modelDir = rerankerModelDir();
+        const localOnnx = path.join(modelDir, 'onnx', 'model.onnx');
+        const modelId = fs.existsSync(localOnnx) ? modelDir : BRIDGE_RERANKER_MODEL;
+
         const hf = await import('@huggingface/transformers' as string);
-        const classifier = await (hf as any).pipeline(
-          'text-classification',
-          BRIDGE_RERANKER_MODEL,
-          { revision: 'main', dtype: 'q8', local_files_only: true },
-        );
+        const opts = { local_files_only: true };
+        const tokenizer = await (hf as any).AutoTokenizer.from_pretrained(modelId, opts);
+        const model = await (hf as any).AutoModelForSequenceClassification.from_pretrained(modelId, opts);
         _reranker = async (query: string, passage: string) => {
-          const out = await classifier({ text: query, text_pair: passage }, { top_k: null });
-          // Cross-encoder: out = [{label:'LABEL_0',score:0.1},{label:'LABEL_1',score:0.9}]
-          // We want LABEL_1 (relevant) score, not the highest-confidence label.
-          const arr = Array.isArray(out) ? out : [out];
-          const pos = arr.find((x: any) => x.label === 'LABEL_1') ?? arr[arr.length - 1];
-          return pos?.score ?? 0;
+          const inputs = await tokenizer(query, { text_pair: passage, padding: true, truncation: true });
+          const output = await model(inputs);
+          const logits: Float32Array = output.logits.data;
+          // num_labels=1 → [1,1] regression score, apply sigmoid
+          return 1 / (1 + Math.exp(-logits[0]));
         };
       } catch (e) {
         _rerankerPromise = null; // allow retry
