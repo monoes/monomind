@@ -35,6 +35,12 @@ export interface RunningOrg {
   bus: OrgBus;
   agents: Map<string, AgentRuntime>;
   busEvents: () => BusEvent[];
+  /** Roles not yet spawned — spawned lazily on first message. */
+  pendingRoles?: Map<string, OrgRole>;
+  /** Spawn a pending role on demand. */
+  spawnRole?: (role: OrgRole) => void;
+  /** Git worktree path if workspace: 'worktree' — cleaned up on stop. */
+  worktreePath?: string;
 }
 
 export interface DaemonOpts {
@@ -54,6 +60,8 @@ export interface DaemonOpts {
   brokerDir?: string;
   /** Override how long stopOrg() waits for agent sessions before proceeding anyway (tests only; default 15000ms). */
   stopWaitMs?: number;
+  /** Auth credential for the org server (passed to broker so cross-process senders can authenticate). */
+  inboxCredential?: string;
 }
 
 export class OrgDaemon {
@@ -68,7 +76,10 @@ export class OrgDaemon {
   constructor(private root: string, private opts: DaemonOpts = {}) {}
 
   /** Publish this daemon's inbox so orgs started AFTER this call register with the broker. */
-  setInboxUrl(url: string): void { this.opts.inboxUrl = url; }
+  setInboxUrl(url: string, credential?: string): void {
+    this.opts.inboxUrl = url;
+    if (credential !== undefined) this.opts.inboxCredential = credential;
+  }
 
   /** subscribe to events from ALL running orgs (dashboard server uses this) */
   subscribe(fn: (e: BusEvent) => void): () => void {
@@ -88,7 +99,7 @@ export class OrgDaemon {
    *  from a subdirectory. */
   private workspaceSetting(def: OrgDef): string {
     const ws = (def.run_config as { workspace?: string }).workspace ?? 'repo';
-    if (ws === 'repo' || ws === 'isolated') return ws;
+    if (ws === 'repo' || ws === 'isolated' || ws === 'worktree') return ws;
     return isAbsolute(ws) ? ws : join(this.root, ws);
   }
 
@@ -111,9 +122,24 @@ export class OrgDaemon {
     // 'isolated', or pin an absolute path.
     this.abandoned.delete(name); // a previous run's missing roles say nothing about this one
     const ws = this.workspaceSetting(def);
-    const cwd = ws === 'repo' ? this.root
-      : ws === 'isolated' ? join(this.root, ORG_DIR, name, 'workspace')
-        : ws;
+    let cwd: string;
+    let worktreePath: string | undefined;
+    if (ws === 'worktree') {
+      worktreePath = join(this.root, ORG_DIR, name, 'worktree');
+      const { execSync } = await import('node:child_process');
+      try {
+        // Remove stale worktree from a previous run
+        if (existsSync(worktreePath)) {
+          execSync(`git worktree remove --force "${worktreePath}"`, { cwd: this.root, stdio: 'ignore' });
+        }
+      } catch { /* best-effort cleanup */ }
+      execSync(`git worktree add "${worktreePath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore' });
+      cwd = worktreePath;
+    } else {
+      cwd = ws === 'repo' ? this.root
+        : ws === 'isolated' ? join(this.root, ORG_DIR, name, 'workspace')
+          : ws;
+    }
     mkdirSync(cwd, { recursive: true });
 
     // An org must be able to seat its whole roster. maxSdkProcesses is sized for
@@ -248,7 +274,19 @@ export class OrgDaemon {
             // wake the dead generator to swallow it.
             mailbox.detach();
             const message = err instanceof Error ? err.message : String(err);
+            // Exit 143 = SIGTERM. If the mailbox is already closed, we
+            // sent the signal ourselves during stop — not a crash.
+            const killedByStop = mailbox.isClosed && /exit(?:ed)? with code 143/.test(message);
             const crash = (): void => {
+              if (killedByStop) {
+                runtime.status = 'ended';
+                bus.emit({
+                  type: 'status', from: role.id,
+                  msg: `agent "${role.id}" terminated by stop (was still working when drain window expired)`,
+                  reason: 'terminated-by-stop',
+                });
+                return;
+              }
               runtime.status = 'crashed';
               runtime.error = message;
               // Close the mailbox so deliver()/receiveRemote() report a real
@@ -276,30 +314,17 @@ export class OrgDaemon {
     };
 
     spawnRole(bossRole); // always, ungated — see comment above
+
+    // Lazy spawn: register non-boss roles as pending. They spawn on first
+    // message (see deliver()), avoiding the memory gate stampede at startup.
+    const pendingRoles = new Map<string, OrgRole>();
     for (const role of def.roles) {
       if (role.id === bossRole.id) continue;
-      // Gate non-boss agents: stagger when under 50% free mem, resource check.
-      const check = checkResources();
-      // Stagger only when memory pressure exists (< 50% free)
-      if (check.freeMemPct < 50) {
-        await new Promise(r => { const t = setTimeout(r, limits.spawnStaggerMs); (t as { unref?: () => void }).unref?.(); });
-      }
-      if (!check.ok) {
-        bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
-          msg: `pausing spawn of "${role.id}": ${check.reason} — waiting` });
-        const waited = await waitForCapacity(60_000);
-        if (!waited.ok) {
-          // Deferred, not dropped: a role missing for the org's whole life is
-          // worse than a slow retry loop. Retries in the background and
-          // spawns the moment capacity returns (see scheduleDeferredSpawn).
-          bus.emit({ type: 'audit', from: role.id, reason: 'resource-skip',
-            msg: `deferring "${role.id}" — will keep retrying in the background: ${waited.reason}` });
-          this.scheduleDeferredSpawn(name, running, role, spawnRole);
-          continue;
-        }
-      }
-      spawnRole(role);
+      pendingRoles.set(role.id, role);
     }
+    running.pendingRoles = pendingRoles;
+    running.spawnRole = spawnRole;
+    if (worktreePath) running.worktreePath = worktreePath;
 
     // Crash cleanup: reap SDK children if this process exits abnormally.
     // monolean: process-scoped listener — upgrade path = per-org tracking
@@ -374,7 +399,7 @@ export class OrgDaemon {
     }
 
     if (this.opts.crossProcess && this.opts.inboxUrl) {
-      const lease = new BrokerLease(name, this.opts.inboxUrl, this.opts.brokerDir);
+      const lease = new BrokerLease(name, this.opts.inboxUrl, this.opts.brokerDir, undefined, this.opts.inboxCredential);
       lease.start();
       this.leases.set(name, lease);
     }
@@ -382,6 +407,16 @@ export class OrgDaemon {
     // Drain any messages that arrived while the org was offline
     const queued = drainInbox(this.root, name);
     for (const msg of queued) {
+      // Spawn a lazy target before delivering. These messages were queued while
+      // the org was offline — a human's answer, or another org's request — and
+      // the whole point of draining is that they arrive. Skipping a role merely
+      // because it has not spawned yet discarded them permanently, after
+      // queueMessage had already reported them accepted.
+      if (!running.agents.has(msg.toRole) && running.pendingRoles?.has(msg.toRole)) {
+        const pending = running.pendingRoles.get(msg.toRole)!;
+        running.pendingRoles.delete(msg.toRole);
+        running.spawnRole?.(pending);
+      }
       const agent = running.agents.get(msg.toRole);
       if (agent && !agent.mailbox.isClosed) {
         bus.emit({ type: 'xorg', from: msg.fromQualified, to: `${name}:${msg.toRole}`, subject: msg.subject, msg: msg.body });
@@ -409,6 +444,15 @@ export class OrgDaemon {
           running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-recovered',
             msg: `resources recovered after ${attempt} retr${attempt === 1 ? 'y' : 'ies'} — spawning deferred role "${role.id}"` });
           spawnRole(role);
+          // Drain messages queued while the role was deferred (see deliver() B4 fix)
+          const queued = drainInbox(this.root, name);
+          for (const msg of queued) {
+            const agent = running.agents.get(msg.toRole);
+            if (agent && !agent.mailbox.isClosed) {
+              running.bus.emit({ type: 'xorg', from: msg.fromQualified, to: `${name}:${msg.toRole}`, subject: msg.subject, msg: msg.body });
+              agent.mailbox.push(`[message from ${msg.fromQualified}] subject: ${msg.subject}\n\n${msg.body}`);
+            }
+          }
           return;
         }
         running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
@@ -443,6 +487,29 @@ export class OrgDaemon {
     const { cross, orgName: targetOrgName, role: targetRole, qualified: toQualified } = this.resolveAddress(fromOrg, to);
     const targetOrg = this.orgs.get(targetOrgName);
     const src = this.orgs.get(fromOrg);
+    // Lazy spawn: if the role is pending (not yet spawned), spawn it now.
+    if (targetOrg && !targetOrg.agents.has(targetRole) && targetOrg.pendingRoles?.has(targetRole)) {
+      const role = targetOrg.pendingRoles.get(targetRole)!;
+      targetOrg.pendingRoles.delete(targetRole);
+      const check = checkResources();
+      if (!check.ok) {
+        const waited = await waitForCapacity(60_000);
+        if (!waited.ok) {
+          targetOrg.bus.emit({ type: 'audit', from: targetRole, reason: 'resource-skip',
+            msg: `deferring lazy spawn of "${targetRole}": ${waited.reason}` });
+          // Queue the triggering message so it survives the deferred spawn — without
+          // this the sender got "queued" but the message was silently lost.
+          queueMessage(this.root, targetOrgName, {
+            fromQualified: cross ? `${fromOrg}:${fromRole}` : fromRole,
+            toRole: targetRole, subject, body, ts: Date.now(),
+          });
+          this.scheduleDeferredSpawn(targetOrgName, targetOrg, role, targetOrg.spawnRole!);
+          return `queued for ${toQualified} (role starting — waiting for resources)`;
+        }
+      }
+      targetOrg.spawnRole!(role);
+      targetOrg.bus.emit({ type: 'status', from: targetRole, msg: `lazy-spawned on first message from ${fromRole}` });
+    }
     if (!targetOrg || !targetOrg.agents.has(targetRole)) {
       if (cross && this.opts.crossProcess) return this.deliverRemote(fromOrg, fromRole, targetOrgName, targetRole, toQualified, subject, body, src);
       // Queue + auto-wake: if the org definition exists locally but isn't running, spool the message and start it
@@ -495,7 +562,10 @@ export class OrgDaemon {
     try {
       const res = await fetch(`${remote.url}/api/xdeliver`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(remote.credential ? { 'x-monomind-cred': remote.credential } : {}),
+        },
         body: JSON.stringify({ fromOrg, fromRole, toOrg: targetOrgName, toRole: targetRole, subject, body }),
         signal: AbortSignal.timeout(10_000),
       });
@@ -529,6 +599,13 @@ export class OrgDaemon {
       }
       return { ok: false, error: `org "${toOrg}" not hosted here` };
     }
+    // Lazy-spawn pending roles on cross-process delivery (matches deliver/answerQuestion)
+    if (!org.agents.has(toRole) && org.pendingRoles?.has(toRole)) {
+      const role = org.pendingRoles.get(toRole)!;
+      org.pendingRoles.delete(toRole);
+      org.spawnRole?.(role);
+      org.bus.emit({ type: 'status', from: toRole, msg: `lazy-spawned on remote delivery from ${fromQualified}` });
+    }
     const agent = org.agents.get(toRole);
     if (!agent) return { ok: false, error: `role "${toRole}" not found in org "${toOrg}"` };
     if (agent.status === 'crashed') return { ok: false, error: `role "${toRole}" in org "${toOrg}" crashed and will not recover this run` };
@@ -539,6 +616,7 @@ export class OrgDaemon {
   }
 
   private hasOrgDef(name: string): boolean {
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(name)) return false;
     return existsSync(join(this.root, ORG_DIR, `${name}.json`));
   }
 
@@ -610,6 +688,17 @@ export class OrgDaemon {
       // closed, role unknown) would otherwise queue the answer forever with no real error
       // and no delivery. Mirrors deliver()'s existing "shutting down" error for the same
       // mid-shutdown-mailbox-closed race.
+      // Spawn a lazily-deferred role before giving up on it. Roles are no longer
+      // all spawned at boot, so `agents` legitimately lacks a role that simply
+      // has not been needed yet — and rejecting on that dropped the human's
+      // answer with "role not found" for a role that exists and is about to
+      // run. deliver() does the same lookup; a human answer must not be the one
+      // delivery path that cannot wake a role.
+      if (!running.agents.has(role) && running.pendingRoles?.has(role)) {
+        const pending = running.pendingRoles.get(role)!;
+        running.pendingRoles.delete(role);
+        running.spawnRole?.(pending);
+      }
       const agent = running.agents.get(role);
       if (!agent) return { ok: false, error: `role "${role}" not found in org "${org}"` };
       if (agent.mailbox.isClosed) return { ok: false, error: `role "${role}" in org "${org}" is shutting down — answer not delivered` };
@@ -663,6 +752,7 @@ export class OrgDaemon {
     if (inflight) return inflight;
     const org = this.orgs.get(name);
     if (!org) return; // already stopped
+    org.pendingRoles?.clear(); // prevent lazy spawns after stop
     // Remove immediately (not at the end) so a concurrent stopOrg(name) call —
     // e.g. stopAll() racing a scheduler-triggered stop on SIGINT — joins this
     // shutdown via `stopping` instead of re-running the whole sequence and
@@ -707,7 +797,6 @@ export class OrgDaemon {
       // Reap only SDK processes spawned by THIS node process — ownerPid filter
       // ensures other `monomind org run` daemons' agents are untouched.
       try {
-        const { reapOrphanedSdkProcesses } = await import('../utils/resource-governor.js');
         const reaped = reapOrphanedSdkProcesses(new Set(), process.pid);
         if (reaped > 0) org.bus.emit({ type: 'audit', reason: 'orphan-reap', msg: `reaped ${reaped} orphaned SDK process(es) after stop timeout` });
       } catch { /* best-effort */ }
@@ -750,6 +839,13 @@ export class OrgDaemon {
     // Same guard for runtime.json: if a new run started during shutdown, its
     // 'running' record must not be overwritten with this old run's 'stopped'.
     if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run);
+    // Clean up git worktree if one was created for this run.
+    if (org.worktreePath) {
+      try {
+        const { execSync } = await import('node:child_process');
+        execSync(`git worktree remove --force "${org.worktreePath}"`, { cwd: this.root, stdio: 'ignore' });
+      } catch { /* best-effort — stale worktree can be cleaned up manually */ }
+    }
   }
 
   async stopAll(): Promise<void> {
