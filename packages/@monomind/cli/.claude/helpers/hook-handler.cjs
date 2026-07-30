@@ -443,7 +443,7 @@ const handlers = {
         return;
       }
       if (gateResult === 'warn') {
-        console.log('[MONOGRAPH_REMINDER] monograph_query/suggest not yet called this session — graph has ' + (_getNodeCount() || '20k+') + ' indexed nodes. Try monograph first for faster, more precise results.');
+        if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[MONOGRAPH_REMINDER] monograph_query/suggest not yet called this session — graph has ' + (_getNodeCount() || '20k+') + ' indexed nodes. Try monograph first for faster, more precise results.');
       }
       var graphAssisted = false;
       if (_isGraphFresh()) {
@@ -708,7 +708,7 @@ const handlers = {
       return;
     }
     if (gateResult === 'warn') {
-      console.log('[MONOGRAPH_REMINDER] monograph_query/suggest not yet called this session — try monograph first for faster results.');
+      if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[MONOGRAPH_REMINDER] monograph_query/suggest not yet called this session — try monograph first for faster results.');
     }
     var graphResolved = false;
     try {

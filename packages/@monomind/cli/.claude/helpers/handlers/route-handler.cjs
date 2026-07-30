@@ -18,6 +18,17 @@
 const path = require('path');
 const fs = require('fs');
 
+// ── Advisory output gate ────────────────────────────────────────────────────
+// Set MONOMIND_HOOK_QUIET=1 to silence the per-prompt advisory blocks
+// ([AUDIT], [CODEBASE], [MONOGRAPH], [INTELLIGENCE], [COST], etc.). Side-effects
+// (file writes, telemetry counters, route mutations) are unchanged — only the
+// stdout announcement is gated. Default (unset) keeps today's behavior.
+var _HOOK_QUIET = String(process.env.MONOMIND_HOOK_QUIET || '').toLowerCase() === '1';
+function advisoryLog() {
+  if (_HOOK_QUIET) return;
+  console.log.apply(console, arguments);
+}
+
 // ── Intelligence read-path bridge ───────────────────────────────────────────
 // route-handler.cjs runs as a fresh node subprocess per invocation, but a
 // single process may call handle() more than once (e.g. tests, or a daemon
@@ -98,12 +109,12 @@ module.exports = {
             var bDb = hCtx._openMonographDb();
             if (bDb) {
               var bootstrapped = intelligence.bootstrapFromDb(bDb);
-              if (bootstrapped > 0) console.log('[INTELLIGENCE] Bootstrapped ' + bootstrapped + ' hub nodes from knowledge graph');
+              if (bootstrapped > 0) advisoryLog('[INTELLIGENCE] Bootstrapped ' + bootstrapped + ' hub nodes from knowledge graph');
             }
           } catch (e) { /* non-fatal */ }
         }
         const ctx = intelligence.getContext(prompt);
-        if (ctx) console.log(ctx);
+        if (ctx) advisoryLog(ctx);
       } catch (e) { /* non-fatal */ }
     }
     if (router && (router.routeTaskSemantic || router.routeTask)) {
@@ -174,7 +185,7 @@ module.exports = {
             // Only override when the embedding match clearly beats the keyword
             // route (0.1 margin) — otherwise just surface it as a signal.
             if (intelConf > curConf + 0.1) {
-              console.log('[INTELLIGENCE] Embedding suggestion overrides keyword routing: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') vs keyword ' + curAgent + ' (' + curConf.toFixed(2) + ')');
+              advisoryLog('[INTELLIGENCE] Embedding suggestion overrides keyword routing: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') vs keyword ' + curAgent + ' (' + curConf.toFixed(2) + ')');
               result.keywordAgent = curAgent;
               result.agent = topIntelAgent;
               result.agentSlug = topIntelAgent;
@@ -182,7 +193,7 @@ module.exports = {
               result.reason = 'Intelligence embedding match (SONA/ReasoningBank)' + (result.reason ? '; keyword route was: ' + result.reason : '');
               result.enrichedFrom = 'intelligence-embedding';
             } else {
-              console.log('[INTELLIGENCE] Embedding suggestion: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') — kept keyword route ' + curAgent);
+              advisoryLog('[INTELLIGENCE] Embedding suggestion: ' + topIntelAgent + ' (confidence ' + intelConf.toFixed(2) + ') — kept keyword route ' + curAgent);
             }
           }
         }
@@ -210,7 +221,7 @@ module.exports = {
             if (routedPattern && routedPattern.successRate < 50) {
               var best = patterns.reduce(function(a, b) { return (b.wins/b.total) > (a.wins/a.total) ? b : a; });
               if (best.wins / best.total > 0.8 && best.agent_type !== routedAgent) {
-                console.log('[AGENT_PATTERN] Historical: ' + best.agent_type + ' (' + Math.round(best.wins/best.total*100) + '% success, n=' + best.total + ') outperforms ' + routedAgent + ' (' + routedPattern.successRate + '%)');
+                advisoryLog('[AGENT_PATTERN] Historical: ' + best.agent_type + ' (' + Math.round(best.wins/best.total*100) + '% success, n=' + best.total + ') outperforms ' + routedAgent + ' (' + routedPattern.successRate + '%)');
               }
             }
             result.historicalPattern = patternMap;
@@ -240,7 +251,7 @@ module.exports = {
             var successes = agentFeedback.filter(function(f) { return f === true; }).length;
             var accuracy = Math.round(successes / agentFeedback.length * 100);
             if (accuracy < 60) {
-              console.log('[ROUTING] Warning: ' + routedAgent + ' routing accuracy ' + accuracy + '% over last ' + agentFeedback.length + ' sessions');
+              advisoryLog('[ROUTING] Warning: ' + routedAgent + ' routing accuracy ' + accuracy + '% over last ' + agentFeedback.length + ' sessions');
             }
             result.routingAccuracy = accuracy;
           }
@@ -263,7 +274,7 @@ module.exports = {
           var dispatchAge = Date.now() - new Date(lastDispatch.dispatchedAt || 0).getTime();
           if (dispatchAge < 60000 && lastDispatch.agentType === (result.agentSlug || result.agent)) {
             result.recentlyDispatched = true;
-            console.log('[DISPATCH_DEDUP] ' + lastDispatch.agentType + ' was dispatched ' + Math.round(dispatchAge / 1000) + 's ago — consider a different specialist or direct implementation');
+            advisoryLog('[DISPATCH_DEDUP] ' + lastDispatch.agentType + ' was dispatched ' + Math.round(dispatchAge / 1000) + 's ago — consider a different specialist or direct implementation');
           }
         }
       } catch (e) { /* non-fatal */ }
@@ -314,7 +325,8 @@ module.exports = {
         }
       }
 
-      if (output.length > 0) console.log(output.join('\n'));
+      // Skill suggestions are opt-in (MONOMIND_SKILL_AUTO=1) and still respect QUIET.
+      if (output.length > 0 && String(process.env.MONOMIND_SKILL_AUTO || '') === '1' && !_HOOK_QUIET) console.log(output.join('\n'));
 
       // ── Second Brain: per-request knowledge injection ──────────────────
       // When the project has an indexed knowledge base, surface the most
@@ -483,7 +495,7 @@ module.exports = {
                 sbLines.push('  • [' + sbSrc + (sbH.global ? ' · global' : '') + '] ' + sbText);
               }
               sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
-              console.log(sbLines.join('\n'));
+              advisoryLog(sbLines.join('\n'));
             }
           }
         }
@@ -498,11 +510,11 @@ module.exports = {
         if (budget && budget.alert) {
           var tunedNote = budget.autoTuned ? ' (auto-tuned)' : '';
           if (budget.spike && !budget.breached) {
-            console.log('[BUDGET_SPIKE] Today $' + budget.todayCost.toFixed(2) + ' is >2x your rolling daily avg. Unusual spend — review .monomind/metrics/token-summary.json.');
+            advisoryLog('[BUDGET_SPIKE] Today $' + budget.todayCost.toFixed(2) + ' is >2x your rolling daily avg. Unusual spend — review .monomind/metrics/token-summary.json.');
           } else if (budget.breached) {
-            console.log('[BUDGET_BREACHED] Daily $' + budget.todayCost.toFixed(2) + '/$' + budget.dailyLimit + ' (' + budget.dailyPct + '%) · Monthly $' + budget.monthCost.toFixed(2) + '/$' + budget.monthlyLimit + ' (' + budget.monthlyPct + '%)' + tunedNote + '. Switch to Haiku with /model haiku or edit .monomind/budget.json.');
+            advisoryLog('[BUDGET_BREACHED] Daily $' + budget.todayCost.toFixed(2) + '/$' + budget.dailyLimit + ' (' + budget.dailyPct + '%) · Monthly $' + budget.monthCost.toFixed(2) + '/$' + budget.monthlyLimit + ' (' + budget.monthlyPct + '%)' + tunedNote + '. Switch to Haiku with /model haiku or edit .monomind/budget.json.');
           } else {
-            console.log('[BUDGET_ALERT] Daily ' + budget.dailyPct + '% of $' + budget.dailyLimit + ' · Monthly ' + budget.monthlyPct + '% of $' + budget.monthlyLimit + tunedNote + '.');
+            advisoryLog('[BUDGET_ALERT] Daily ' + budget.dailyPct + '% of $' + budget.dailyLimit + ' · Monthly ' + budget.monthlyPct + '% of $' + budget.monthlyLimit + tunedNote + '.');
           }
         }
       } catch (e) {}
@@ -515,7 +527,7 @@ module.exports = {
         if (fs.existsSync(latencyFile) && fs.statSync(latencyFile).size < 32768) {
           var latencyData = JSON.parse(fs.readFileSync(latencyFile, 'utf-8'));
           if (latencyData && latencyData.avgMs > 500) {
-            console.log('[PERF] Hook latency avg ' + Math.round(latencyData.avgMs) + 'ms (target <500ms). Slowest: ' + (latencyData.slowest || 'unknown'));
+            advisoryLog('[PERF] Hook latency avg ' + Math.round(latencyData.avgMs) + 'ms (target <500ms). Slowest: ' + (latencyData.slowest || 'unknown'));
           }
         }
         // Token usage check — surface only when spend is high
@@ -523,7 +535,7 @@ module.exports = {
         if (fs.existsSync(tokenFile) && fs.statSync(tokenFile).size < 32768) {
           var tokenData = JSON.parse(fs.readFileSync(tokenFile, 'utf-8'));
           if (tokenData && tokenData.todayCost > 50) {
-            console.log('[COST] Today: $' + (tokenData.todayCost || 0).toFixed(2) + ' (' + (tokenData.todayCalls || 0) + ' calls)');
+            advisoryLog('[COST] Today: $' + (tokenData.todayCost || 0).toFixed(2) + ' (' + (tokenData.todayCalls || 0) + ' calls)');
           }
         }
         // Security audit findings
@@ -533,9 +545,9 @@ module.exports = {
           if (secData && secData.findings && secData.findings.length > 0) {
             var serious = secData.findings.filter(function (f) { return f && (f.severity === 'high' || f.severity === 'medium'); });
             if (serious.length > 0) {
-              console.log('[SECURITY] ' + serious.length + ' finding(s) from background scan. Review .monomind/metrics/security-audit.json');
+              advisoryLog('[SECURITY] ' + serious.length + ' finding(s) from background scan. Review .monomind/metrics/security-audit.json');
             } else {
-              console.log('[AUDIT] ' + secData.findings.length + ' low-severity note(s) (architecture heuristics, not vulnerabilities) — .monomind/metrics/security-audit.json');
+              advisoryLog('[AUDIT] ' + secData.findings.length + ' low-severity note(s) (architecture heuristics, not vulnerabilities) — .monomind/metrics/security-audit.json');
             }
           }
         }
@@ -544,10 +556,10 @@ module.exports = {
         if (fs.existsSync(mapFile) && fs.statSync(mapFile).size < 32768) {
           var mapData = JSON.parse(fs.readFileSync(mapFile, 'utf-8'));
           if (mapData && mapData.topFiles && mapData.topFiles.length > 0) {
-            console.log('[CODEBASE] ' + mapData.topFiles.length + ' high-centrality files. Top: ' + (mapData.topFiles[0].ref || 'unknown') + ' (degree ' + (mapData.topFiles[0].degree || '?') + ')');
+            advisoryLog('[CODEBASE] ' + mapData.topFiles.length + ' high-centrality files. Top: ' + (mapData.topFiles[0].ref || 'unknown') + ' (degree ' + (mapData.topFiles[0].degree || '?') + ')');
           }
           if (mapData && mapData.graphStaleness && mapData.graphStaleness.commitsBehind > 10) {
-            console.log('[CODEBASE] Graph index ' + mapData.graphStaleness.commitsBehind + ' commits behind HEAD — run monograph build');
+            advisoryLog('[CODEBASE] Graph index ' + mapData.graphStaleness.commitsBehind + ' commits behind HEAD — run monograph build');
           }
         }
         // Graph gate connectivity nudge — the pre-search/pre-bash gate
@@ -572,7 +584,7 @@ module.exports = {
               } catch (e) { /* corrupt — warn again to be safe */ }
             }
             if (!alreadyWarnedMcp) {
-              console.log('[MCP] The graph gate blocked a search but no monograph_query/monograph_suggest call followed — the monomind MCP server is likely not connected this session. Run `claude mcp add monomind -- npx monomind@latest mcp start` (then restart), or approve the .mcp.json trust prompt if one is pending.');
+              advisoryLog('[MCP] The graph gate blocked a search but no monograph_query/monograph_suggest call followed — the monomind MCP server is likely not connected this session. Run `claude mcp add monomind -- npx monomind@latest mcp start` (then restart), or approve the .mcp.json trust prompt if one is pending.');
               try {
                 fs.writeFileSync(mcpWarnFile, JSON.stringify({ sessionId: gateSessId, warnedAt: new Date().toISOString() }));
               } catch (e) { /* non-fatal */ }
@@ -588,7 +600,7 @@ module.exports = {
               var finding = ddData.findings[di];
               if (finding.category === 'god_nodes' && finding.items && finding.items.length > 0) {
                 var topGod = finding.items[0];
-                console.log('[DEEPDIVE] ' + finding.items.length + ' god nodes. Top: ' + (topGod.name || 'unknown') + ' (degree ' + (topGod.degree || '?') + ') in ' + (topGod.file || 'unknown'));
+                advisoryLog('[DEEPDIVE] ' + finding.items.length + ' god nodes. Top: ' + (topGod.name || 'unknown') + ' (degree ' + (topGod.degree || '?') + ') in ' + (topGod.file || 'unknown'));
               }
             }
           }
@@ -602,7 +614,7 @@ module.exports = {
               var insight = ulData.insightsGained[ui];
               if (insight.category === 'bridge_nodes' && insight.items && insight.items.length > 0) {
                 var topBridge = insight.items[0];
-                console.log('[ARCHITECTURE] ' + insight.items.length + ' bridge nodes crossing community boundaries. Top: ' + (topBridge.name || 'unknown') + ' (' + (topBridge.crossCommunityEdges || '?') + ' cross-edges) in ' + (topBridge.location || 'unknown'));
+                advisoryLog('[ARCHITECTURE] ' + insight.items.length + ' bridge nodes crossing community boundaries. Top: ' + (topBridge.name || 'unknown') + ' (' + (topBridge.crossCommunityEdges || '?') + ' cross-edges) in ' + (topBridge.location || 'unknown'));
               }
             }
           }
@@ -615,7 +627,7 @@ module.exports = {
             var rssBytes = perfData.workerProcessMemoryUsage.rss || 0;
             var rssMB = Math.round(rssBytes / (1024 * 1024));
             if (rssMB > 512) {
-              console.log('[PERF] optimize worker RSS ' + rssMB + 'MB (>512MB threshold) at last run — reflects that one-shot process, not a persistent daemon');
+              advisoryLog('[PERF] optimize worker RSS ' + rssMB + 'MB (>512MB threshold) at last run — reflects that one-shot process, not a persistent daemon');
             }
           }
         }
@@ -624,7 +636,7 @@ module.exports = {
         if (fs.existsSync(consolFile) && fs.statSync(consolFile).size < 32768) {
           var consolData = JSON.parse(fs.readFileSync(consolFile, 'utf-8'));
           if (consolData && consolData.patternsConsolidated > 0) {
-            console.log('[MEMORY] ' + consolData.patternsConsolidated + ' patterns consolidated into ' + consolData.clustersCreated + ' RAPTOR clusters');
+            advisoryLog('[MEMORY] ' + consolData.patternsConsolidated + ' patterns consolidated into ' + consolData.clustersCreated + ' RAPTOR clusters');
           }
         }
         // Benchmark worker RSS (manual-trigger `daemon trigger -w benchmark`)
@@ -634,7 +646,7 @@ module.exports = {
           if (benchData && benchData.benchmarks && benchData.benchmarks.memoryUsage) {
             var benchRssMB = Math.round((benchData.benchmarks.memoryUsage.rss || 0) / (1024 * 1024));
             if (benchRssMB > 512) {
-              console.log('[PERF] Benchmark snapshot RSS ' + benchRssMB + 'MB (>512MB threshold) at last `daemon trigger -w benchmark` run');
+              advisoryLog('[PERF] Benchmark snapshot RSS ' + benchRssMB + 'MB (>512MB threshold) at last `daemon trigger -w benchmark` run');
             }
           }
         }
@@ -699,7 +711,7 @@ module.exports = {
                   var ago = topMatches[mi].ts ? Math.round((Date.now() - topMatches[mi].ts) / 3600000) + 'h ago' : '';
                   memLines.push('  ' + topMatches[mi].summary.replace(/\n/g, ' ').trim() + (ago ? ' (' + ago + ')' : ''));
                 }
-                console.log(memLines.join('\n'));
+                advisoryLog(memLines.join('\n'));
               }
             }
           }
@@ -775,10 +787,10 @@ module.exports = {
               if (fileLoc && s.startLine != null) fileLoc = fileLoc + ':' + s.startLine;
               return s.name + ' [' + s.label + '] — ' + fileLoc + editTag;
             });
-            console.log('[MONOGRAPH] ' + nodeCount + ' nodes. Top files: ' + hintParts.join(' · '));
+            advisoryLog('[MONOGRAPH] ' + nodeCount + ' nodes. Top files: ' + hintParts.join(' · '));
             hCtx._recordGraphTelemetry('preresolve_hit');
           } else {
-            console.log('[MONOGRAPH] ' + nodeCount + ' nodes. Call mcp__monomind__monograph_suggest to find relevant files.');
+            advisoryLog('[MONOGRAPH] ' + nodeCount + ' nodes. Call mcp__monomind__monograph_suggest to find relevant files.');
             hCtx._recordGraphTelemetry('preresolve_miss');
           }
         }
@@ -786,7 +798,7 @@ module.exports = {
 
       // Swarm mode selection is available on-demand via /mastermind slash command.
     } else {
-      console.log('[INFO] Router not available, using default routing');
+      advisoryLog('[INFO] Router not available, using default routing');
     }
 
     // Task 22: TeamRoutingModes — only log when an explicit swarm config is present
@@ -796,7 +808,7 @@ module.exports = {
         var swarmCfgSt = fs.statSync(swarmCfgPath);
         var topology22 = swarmCfgSt.size <= 1024 * 1024 ? (JSON.parse(fs.readFileSync(swarmCfgPath, 'utf-8')).topology || 'mesh') : 'mesh';
         var mode22 = topology22 === 'hierarchical' ? 'route' : 'coordinate';
-        console.log('[ROUTING_MODE] topology=' + topology22 + ' → mode=' + mode22);
+        advisoryLog('[ROUTING_MODE] topology=' + topology22 + ' → mode=' + mode22);
       }
     } catch (e) { /* non-fatal */ }
   }

@@ -49,7 +49,6 @@ const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   transfer:    async () => (await import('./mcp-tools/transfer-tools.js')).transferTools,
   system:      async () => (await import('./mcp-tools/system-tools.js')).systemTools,
   terminal:    async () => (await import('./mcp-tools/terminal-tools.js')).terminalTools,
-  neural:      async () => (await import('./mcp-tools/neural-tools.js')).neuralTools,
   performance: async () => (await import('./mcp-tools/performance-tools.js')).performanceTools,
   github:      async () => (await import('./mcp-tools/github-tools.js')).githubTools,
   browser:     async () => (await import('./mcp-tools/browser-tools.js')).browserTools,
@@ -60,6 +59,7 @@ const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   coverage:    async () => (await import('./monovector/coverage-tools.js')).coverageRouterTools,
   quality:     async () => (await import('./mcp-tools/quality-tools.js')).qualityTools,
   knowledge:   async () => (await import('./mcp-tools/knowledge-tools.js')).knowledgeTools,
+  monomind:    async () => (await import('./mcp-tools/monomind-tools.js')).monomindTools,
   // system-tools.ts also exports tools with mcp_ and config_ prefixes
   mcp:         async () => (await import('./mcp-tools/system-tools.js')).systemTools,
 };
@@ -110,6 +110,40 @@ function loadDisabledTools(cwd: string = process.cwd()): Set<string> {
 
 export function isToolDisabled(toolName: string, cwd?: string): boolean {
   return loadDisabledTools(cwd).has(toolName);
+}
+
+/**
+ * Core tool roster — the categories advertised via tools/list by default.
+ * Non-core categories remain CALLABLE (callMCPTool/hasTool lazy-load any
+ * category by name) but are not advertised, cutting the per-call schema
+ * payload from ~270 tools to ~80. Set MONOMIND_MCP_FULL=1 to advertise all.
+ */
+const FULL_ROSTER = process.env.MONOMIND_MCP_FULL === '1';
+
+const CORE_TOOL_CATEGORIES = new Set([
+  'memory', 'monograph', 'hooks', 'task', 'session', 'knowledge',
+  'system', 'mcp', 'guidance', 'config', 'agent', 'monomind',
+]);
+
+// Only this subset of hooks is advertised; the rest of hooks (intelligence,
+// model-routing, trajectory, worker tools) is discovery-only.
+const CORE_HOOKS_ALLOWLIST = new Set([
+  'hooks_route', 'hooks_pre-edit', 'hooks_post-edit', 'hooks_pre-command',
+  'hooks_post-command', 'hooks_pre-task', 'hooks_post-task', 'hooks_explain',
+]);
+
+function isCoreAdvertised(tool: MCPTool): boolean {
+  const cat = categoryFromToolName(tool.name);
+  if (!CORE_TOOL_CATEGORIES.has(cat)) return false;
+  if (cat === 'hooks') return CORE_HOOKS_ALLOWLIST.has(tool.name);
+  return true;
+}
+
+let _coreLoaded = false;
+async function ensureCoreLoaded(): Promise<void> {
+  if (_coreLoaded) return;
+  _coreLoaded = true;
+  await Promise.all([...CORE_TOOL_CATEGORIES].map(cat => ensureCategory(cat)));
 }
 
 /**
@@ -297,13 +331,21 @@ export async function getToolMetadata(toolName: string): Promise<Omit<MCPTool, '
  * List all available MCP tools (loads all categories on first call)
  */
 export async function listMCPTools(category?: string): Promise<Array<Omit<MCPTool, 'handler'> & { enabled: boolean }>> {
-  await ensureAllLoaded();
+  if (FULL_ROSTER) {
+    await ensureAllLoaded();
+  } else {
+    await ensureCoreLoaded();
+  }
   const tools = Array.from(TOOL_REGISTRY.values());
   const disabled = loadDisabledTools();
 
+  // Advertise only the core roster unless MONOMIND_MCP_FULL=1. Non-core tools
+  // stay callable via callMCPTool/hasTool and discoverable via monomind_tool_search.
+  const advertised = FULL_ROSTER ? tools : tools.filter(isCoreAdvertised);
+
   const filtered = category
-    ? tools.filter(t => t.category === category)
-    : tools;
+    ? advertised.filter(t => t.category === category)
+    : advertised;
 
   return filtered.map(tool => ({
     name: tool.name,
@@ -326,6 +368,52 @@ export async function getAllMCPTools(): Promise<MCPTool[]> {
   await ensureAllLoaded();
   const disabled = loadDisabledTools();
   return Array.from(TOOL_REGISTRY.values()).filter(t => !disabled.has(t.name));
+}
+
+/**
+ * On-demand discovery of NON-CORE tools — backs the `monomind_tool_search`
+ * MCP tool. Loads every category, then returns full schemas for tools not in
+ * the default advertised roster, ranked by relevance to `query`. This is what
+ * keeps the roster shrink from becoming a capability loss: a tool hidden from
+ * `tools/list` remains findable (and directly callable) by keyword.
+ */
+export async function searchNonCoreTools(
+  query: string,
+  category?: string,
+  limit = 10,
+): Promise<Array<Omit<MCPTool, 'handler'> & { category: string }>> {
+  await ensureAllLoaded();
+  const disabled = loadDisabledTools();
+  const q = (query || '').toLowerCase();
+  const qTokens = q.split(/[\s_-]+/).filter(Boolean);
+
+  const candidates = Array.from(TOOL_REGISTRY.values())
+    .filter(t => !disabled.has(t.name) && !isCoreAdvertised(t))
+    .filter(t => (category ? categoryFromToolName(t.name) === category : true));
+
+  const scored = candidates.map(t => {
+    const name = t.name.toLowerCase();
+    const desc = (t.description || '').toLowerCase();
+    let score = 0;
+    if (name.includes(q)) score += 50;
+    if (desc.includes(q)) score += 20;
+    for (const tok of qTokens) {
+      if (name.includes(tok)) score += 8;
+      if (desc.includes(tok)) score += 3;
+    }
+    return { t, score };
+  });
+
+  return scored
+    .filter(s => s.score > 0 || !q)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(1, limit))
+    .map(s => ({
+      name: s.t.name,
+      description: s.t.description,
+      inputSchema: s.t.inputSchema,
+      category: categoryFromToolName(s.t.name),
+    }));
 }
 
 /**
