@@ -5,6 +5,12 @@ import type { OrgBus } from './bus.js';
 import type { PolicyEngine } from './policy.js';
 import type { Mailbox } from './mailbox.js';
 import type { OrgDef, OrgRole } from './types.js';
+
+/** How long an SDK stream may stay open with zero messages before we say so.
+ *  Comfortably longer than a slow first turn, shorter than the idle watchdog's
+ *  10-minute window so the specific cause is reported before the generic
+ *  "boss appears hung". */
+const SILENT_SESSION_MS = 4 * 60_000;
 import { resolveProviderEnv } from './provider.js';
 
 export type DeliverFn = (from: string, to: string, subject: string, body: string) => Promise<string>;
@@ -207,7 +213,31 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
       } as any,
     });
 
-    for await (const m of stream as AsyncIterable<any>) {
+    // A silent session is its own failure mode, and until now an unnameable
+    // one: nine consecutive cycles of a scheduled org opened all seven streams
+    // and yielded NOTHING — no assistant message, no result, no error, and no
+    // stream end. The only symptom was the idle watchdog reporting the boss
+    // "appears hung" twenty minutes later, which described neither the scope
+    // (every role) nor the cause. Name the condition at the one place that can
+    // see it: the stream itself. Cleared as soon as any message arrives, so a
+    // healthy session never emits it.
+    const openedAt = Date.now();
+    let sawAnyMessage = false;
+    const silentAlarm = setTimeout(() => {
+      if (sawAnyMessage) return;
+      bus.emit({
+        type: 'audit', from: role.id, reason: 'session-silent',
+        msg: `SDK stream open ${Math.round((Date.now() - openedAt) / 1000)}s with zero messages — not an error, not an end, nothing. Set MONOMIND_DEBUG=1 to log raw message types.`,
+      });
+    }, SILENT_SESSION_MS);
+    (silentAlarm as { unref?: () => void }).unref?.();
+
+    try {
+      for await (const m of stream as AsyncIterable<any>) {
+        if (!sawAnyMessage) { sawAnyMessage = true; clearTimeout(silentAlarm); }
+        if (process.env.MONOMIND_DEBUG) {
+          console.error(`[orgrt:${org}/${role.id}] sdk message type=${String(m?.type)} subtype=${String(m?.subtype ?? '-')}`);
+        }
       if (m.session_id) sessionId = m.session_id;
       if (m.type === 'assistant') {
         const text = (m.message?.content ?? [])
@@ -234,6 +264,9 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<string
           mailbox.close();
         }
       }
+      }
+    } finally {
+      clearTimeout(silentAlarm);
     }
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
     return sessionId;
