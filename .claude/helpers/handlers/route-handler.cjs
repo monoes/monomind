@@ -121,6 +121,26 @@ module.exports = {
       const routeFn = router.routeTaskSemantic || router.routeTask;
       var result = await Promise.resolve(routeFn(prompt));
 
+      // When QUIET: the advisory output is suppressed anyway, so skip ALL the
+      // expensive enrichment below (embedding search, second-brain HTTP, monograph
+      // DB queries, metrics reads, episodes search). Just persist the keyword
+      // route for the statusline and exit — this makes the hook nearly instant.
+      if (_HOOK_QUIET) {
+        try {
+          var routeDir = path.join(CWD, '.monomind');
+          fs.mkdirSync(routeDir, { recursive: true });
+          fs.writeFileSync(path.join(routeDir, 'last-route.json'), JSON.stringify({
+            agent: result.agent || 'coder',
+            agentSlug: result.agentSlug || null,
+            confidence: result.confidence,
+            reason: result.reason,
+            prompt: (prompt || '').slice(0, 500),
+            updatedAt: new Date().toISOString(),
+          }), 'utf-8');
+        } catch (e) { /* non-fatal */ }
+        return;
+      }
+
       // ── Enrichment: when router.cjs falls to the broad "coder" catch-all,
       //    try @monoes/routing's richer keyword pre-filter (30+ specialized
       //    rules for Solidity, game engines, DevOps, embedded, etc.) for a

@@ -6,6 +6,12 @@ const path = require('path');
 const fs = require('fs');
 const { injectGodNodesContext } = require('../utils/monograph.cjs');
 
+// QUIET gate — when MONOMIND_HOOK_QUIET=1, suppress ALL session-restore stdout.
+// Session-start output gets cached by Claude Code and re-read on every subsequent
+// message, so even small per-session injections compound into major token costs.
+var _QUIET = String(process.env.MONOMIND_HOOK_QUIET || '').toLowerCase() === '1';
+function log() { if (!_QUIET) console.log.apply(console, arguments); }
+
 module.exports = {
   handleRestore: async function(hCtx) {
     var hookInput = hCtx.hookInput;
@@ -26,9 +32,9 @@ module.exports = {
           session.start && session.start();
         }
       } else {
-        console.log('[OK] Session restored: session-' + Date.now());
+        log('[OK] Session restored: session-' + Date.now());
       }
-    } catch (e) { console.log('[WARN] Session restore failed: ' + e.message); }
+    } catch (e) { log('[WARN] Session restore failed: ' + e.message); }
 
     // ── Non-blocking security scan via @monoes/hooks worker ─────────────
     // The hooks package ships a security worker (worker-security.ts) that scans
@@ -152,7 +158,7 @@ module.exports = {
             }
           }
           if (healed.length > 0) {
-            console.log('[STALE_HELPERS] Refreshed ' + healed.length + ' helper(s) from bundled version: ' + healed.join(', '));
+            log('[STALE_HELPERS] Refreshed ' + healed.length + ' helper(s) from bundled version: ' + healed.join(', '));
           }
         }
 
@@ -215,14 +221,14 @@ module.exports = {
         var settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         if (settingsData.monomind && settingsData.monomind.neural && settingsData.monomind.neural.enabled === false) {
           neuralEnabled = false;
-          console.log('[NEURAL] Disabled via monomind.neural.enabled=false');
+          log('[NEURAL] Disabled via monomind.neural.enabled=false');
         }
       }
     } catch (e) { /* non-fatal */ }
     if (neuralEnabled && intelligence && intelligence.init) {
       var initResult = await runWithTimeout(function() { return intelligence.init(); }, 'intelligence.init()');
       if (initResult && initResult.nodes > 0) {
-        console.log('[INTELLIGENCE] Loaded ' + initResult.nodes + ' patterns, ' + initResult.edges + ' edges');
+        log('[INTELLIGENCE] Loaded ' + initResult.nodes + ' patterns, ' + initResult.edges + ' edges');
       }
     }
 
@@ -235,7 +241,7 @@ module.exports = {
       var hooksModule = hCtx._ensureHooksModule ? await hCtx._ensureHooksModule() : await import('@monoes/hooks');
       if (hooksModule) {
         hCtx._hooksModule = hooksModule;
-        console.log('[INFO] @monoes/hooks workers initialized');
+        log('[INFO] @monoes/hooks workers initialized');
 
         // Gate enforcement lives entirely in gates-handler.cjs (its own regex
         // table, run on every PreToolUse). The @monomind/guidance package that
@@ -317,7 +323,7 @@ module.exports = {
       var knowledgeDir = path.join(CWD, '.monomind', 'knowledge');
       var indexed = _autoIndexKnowledge(knowledgeDir);
       if (indexed > 0) {
-        console.log('[KNOWLEDGE_INDEXED] ' + indexed + ' chunks written from project sources');
+        log('[KNOWLEDGE_INDEXED] ' + indexed + ' chunks written from project sources');
       }
 
       var kSearchFn = _buildKnowledgeSearchFn(knowledgeDir);
@@ -333,12 +339,12 @@ module.exports = {
         var kRetriever = new memoryMod.KnowledgeRetriever(kSearchFn, kStore);
         var kResult = await kRetriever.retrieveForTask('shared', sessionCtx, 5);
         if (kResult.excerpts.length > 0) {
-          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[KNOWLEDGE_PRELOADED] ' + kResult.excerpts.length + ' excerpts (KnowledgeRetriever)');
+          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') log('[KNOWLEDGE_PRELOADED] ' + kResult.excerpts.length + ' excerpts (KnowledgeRetriever)');
         }
       } else {
         var directResults = await kSearchFn(sessionCtx, { namespace: 'knowledge:shared', limit: 5, minScore: 0.3 });
         if (directResults.length > 0) {
-          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[KNOWLEDGE_PRELOADED] ' + directResults.length + ' excerpts (direct keyword search)');
+          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') log('[KNOWLEDGE_PRELOADED] ' + directResults.length + ' excerpts (direct keyword search)');
         }
       }
     } catch (e) { /* non-fatal */ }
@@ -422,7 +428,7 @@ module.exports = {
             // unhandled 'error' event and crashes the whole session-start hook.
             _kbChild.on('error', function () { /* npx unavailable — reindex on a later session */ });
             _kbChild.unref();
-            console.log('[KNOWLEDGE_REINDEX] changed documents detected — re-ingesting in background');
+            log('[KNOWLEDGE_REINDEX] changed documents detected — re-ingesting in background');
           }
         }
       }
@@ -448,7 +454,9 @@ module.exports = {
         var sharedInstr = loader.getSharedInstructions(CWD);
         if (sharedInstr) {
           var sharedInstrSafe = applySharedInstrLimit(sharedInstr, '.agents/shared_instructions.md');
-          console.log('[SHARED_INSTRUCTIONS] Loaded ' + sharedInstrSafe.length + ' chars from .agents/shared_instructions.md');
+          log('[SHARED_INSTRUCTIONS] Loaded ' + sharedInstrSafe.length + ' chars from .agents/shared_instructions.md');
+          // Content injection — NOT gated by QUIET. This is the only path for
+          // shared agent instructions to reach the LLM (no MCP tool exposes it).
           console.log(sharedInstrSafe);
         }
       }
@@ -458,7 +466,8 @@ module.exports = {
         if (fs.existsSync(siPath)) {
           var siContent = fs.readFileSync(siPath, 'utf-8');
           var siContentSafe = applySharedInstrLimit(siContent, siPath);
-          console.log('[SHARED_INSTRUCTIONS] Loaded ' + siContentSafe.length + ' chars from .agents/shared_instructions.md');
+          log('[SHARED_INSTRUCTIONS] Loaded ' + siContentSafe.length + ' chars from .agents/shared_instructions.md');
+          // Content injection — NOT gated by QUIET (see above).
           console.log(siContentSafe);
         }
       } catch (e2) { /* non-fatal */ }
@@ -469,6 +478,8 @@ module.exports = {
       var palace = require(path.join(helpersDir, 'memory-palace.cjs'));
       var palaceContext = palace.wakeUp(CWD);
       if (palaceContext) {
+        // Content injection — NOT gated by QUIET. wakeUp() is called only here;
+        // no other hook or MCP tool exposes L0/L1 palace context to the LLM.
         console.log(palaceContext);
       }
     } catch (e) { /* non-fatal — palace not available */ }
@@ -525,7 +536,7 @@ module.exports = {
         if (fs.existsSync(pendingUpdate) && (function() { try { return fs.statSync(pendingUpdate).size <= MAX_UPD; } catch(_) { return false; } }())) {
           var upd = JSON.parse(fs.readFileSync(pendingUpdate, 'utf-8'));
           if (upd && upd.from && upd.to && upd.from !== upd.to) {
-            console.log('[UPDATE_AVAILABLE] @monomind/cli ' + upd.from + ' → ' + upd.to + ' (run: npx monomind update)');
+            log('[UPDATE_AVAILABLE] @monomind/cli ' + upd.from + ' → ' + upd.to + ' (run: npx monomind update)');
           }
         }
       } catch (e) {}
@@ -536,7 +547,7 @@ module.exports = {
       var tokenTracker = require(path.join(helpersDir, 'token-tracker.cjs'));
       var tokenSummary = tokenTracker.quickSummary();
       if (tokenSummary) {
-        if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log(tokenSummary);
+        if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') log(tokenSummary);
       }
       try {
         var tokenData = tokenTracker.quickSummaryData();
@@ -557,7 +568,7 @@ module.exports = {
         var reg = JSON.parse(fs.readFileSync(regPath, 'utf-8'));
         var agentCount = (reg.agents || []).length;
         if (agentCount > 0) {
-          console.log('[REGISTRY] ' + agentCount + ' agents available in registry');
+          log('[REGISTRY] ' + agentCount + ' agents available in registry');
         }
       }
     } catch (e) { /* non-fatal */ }
@@ -575,13 +586,13 @@ module.exports = {
         var controlPort = 4242;
         var req = http.get('http://localhost:' + controlPort + '/', function(res) {
           if (res.statusCode === 200) {
-            console.log('[CONTROL_UI] UP — http://localhost:' + controlPort);
+            log('[CONTROL_UI] UP — http://localhost:' + controlPort);
           }
           res.resume();
         });
         req.on('error', function() {
           // Only warn when daemon was previously running (pid file exists but server is gone)
-          console.log('[CONTROL_UI] offline — restart with: npx monomind mcp start');
+          log('[CONTROL_UI] offline — restart with: npx monomind mcp start');
         });
         req.setTimeout(800, function() { req.destroy(); });
       } catch (e) { /* non-fatal */ }
