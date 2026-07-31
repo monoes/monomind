@@ -14,6 +14,7 @@ import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, ORG_DIR } from 
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
 import { checkResources, waitForCapacity, getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
+import { captureCheckpoint, validateCheckpoint, isCheckpointExpired, restoreMailboxQueue, type OrgCheckpoint } from './checkpoint.js';
 
 /** OpenTelemetry tracing helper - creates spans for major operations */
 class OtelTracer {
@@ -48,7 +49,7 @@ class OtelTracer {
  *  stop keeps the short bound — see finishStop. */
 const COMPLETE_DRAIN_MS = 5 * 60_000;
 
-interface AgentRuntime {
+export interface AgentRuntime {
   mailbox: Mailbox;
   policy: PolicyEngine;
   done: Promise<void>;
@@ -1068,6 +1069,10 @@ export class OrgDaemon {
   }
 
   private async finishStop(name: string, org: RunningOrg, drainMs?: number): Promise<void> {
+    // Snapshot checkpoint BEFORE closing mailboxes / draining sessions — the
+    // queue is emptied during the drain, so capturing afterwards loses all
+    // unconsumed messages (the whole point of checkpoint-resume).
+    const stopCheckpoint = captureCheckpoint(org);
     // Capture THIS run's forwarder now: an autoWake-restart of the same org
     // during the long tail below (agent wait, flush, history write) would
     // register a NEW forwarder under the same name — settling/unsubscribing
@@ -1143,7 +1148,7 @@ export class OrgDaemon {
     // Same guard for runtime.json: if a new run started during shutdown, its
     // 'running' record must not be overwritten with this old run's 'stopped'.
     // Pass the org directly since we already removed it from the map.
-    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org);
+    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org, stopCheckpoint);
     // Clean up git worktree if one was created for this run.
     if (org.worktreePath) {
       try {
@@ -1367,7 +1372,9 @@ export class OrgDaemon {
 
   /** Resume a previous run from its checkpoint (runtime.json state). Reconstructs
    *  the org's agents and mailboxes from the persisted state, enabling time-travel
-   *  debugging and run recovery after crashes. Returns the resumed RunningOrg or null. */
+   *  debugging and run recovery after crashes. Returns the resumed RunningOrg or null.
+   *  Pattern 3: Full state restoration including mailbox queues, policy counters,
+   *  and session state with TTL and validation. */
   async resumeOrg(name: string): Promise<RunningOrg | null> {
     const rtPath = join(this.root, ORG_DIR, name, 'runtime.json');
     if (!existsSync(rtPath)) {
@@ -1378,8 +1385,7 @@ export class OrgDaemon {
     interface RuntimeState {
       status?: string;
       run?: string;
-      roleMetrics?: Record<string, { tokens: number; costUsd: number; lastMessageId?: string }>;
-      mailboxState?: Record<string, { queued: number; closed: boolean }>;
+      checkpoint?: OrgCheckpoint;
       abandonedRoles?: string[];
     }
 
@@ -1391,8 +1397,21 @@ export class OrgDaemon {
       return null;
     }
 
-    if (rt?.status !== 'running' || !rt?.run) {
-      console.error('resumeOrg failed: invalid runtime state for', name, 'status:', rt?.status, 'run:', rt?.run);
+    // Allow resume from 'stopped' orgs - the checkpoint contains the running state to restore
+    if (!rt?.run || !rt?.checkpoint) {
+      console.error('resumeOrg failed: invalid runtime state for', name, 'status:', rt?.status, 'run:', rt?.run, 'checkpoint:', !!rt?.checkpoint);
+      return null;
+    }
+
+    // Pattern 3: Checkpoint TTL validation - expire stale checkpoints
+    if (rt.checkpoint && isCheckpointExpired(rt.checkpoint)) {
+      console.error('resumeOrg failed: checkpoint expired for', name, 'updated:', rt.checkpoint.updated);
+      return null;
+    }
+
+    // Pattern 3: Checksum validation - detect corrupted state
+    if (rt.checkpoint && !validateCheckpoint(rt.checkpoint)) {
+      console.error('resumeOrg failed: checkpoint validation failed for', name);
       return null;
     }
 
@@ -1427,47 +1446,63 @@ export class OrgDaemon {
 
     const running: RunningOrg = { def, run: rt.run, bus, agents: new Map(), busEvents: () => [...collected] };
 
-    // Reconstruct agents from roleMetrics if available
-    if (rt.roleMetrics) {
-      for (const [roleId, metrics] of Object.entries(rt.roleMetrics)) {
-        const role = def.roles.find(r => r.id === roleId);
-        if (role) {
-          const mailbox = new Mailbox();
-          const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
-          const policy = new PolicyEngine(roleId, { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, this.root);
-          const runtime: AgentRuntime = {
-            mailbox,
-            policy,
-            status: 'running',
-            done: Promise.resolve(),
-            metrics: { tokens: metrics.tokens, costUsd: metrics.costUsd },
-            lastMessageId: metrics.lastMessageId,
-          };
-          running.agents.set(roleId, runtime);
+    // Pattern 3: Full checkpoint restoration - reconstruct agents with complete state
+    if (rt.checkpoint) {
+      const checkpoint = rt.checkpoint;
 
-          // Restore mailbox state if it was closed
-          if (rt.mailboxState?.[roleId]?.closed) {
-            mailbox.close();
-          }
+      // Reconstruct each role from checkpoint state
+      for (const [roleId, roleState] of Object.entries(checkpoint.roleState)) {
+        const role = def.roles.find(r => r.id === roleId);
+        if (!role) continue; // Role no longer exists in org definition
+
+        const mailbox = new Mailbox();
+        const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+        const policy = new PolicyEngine(roleId, { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, this.root);
+
+        const runtime: AgentRuntime = {
+          mailbox,
+          policy,
+          status: roleState.status,
+          done: Promise.resolve(),
+          metrics: { tokens: roleState.tokensUsed, costUsd: roleState.costUsd },
+          lastMessageId: roleState.lastMessageId,
+          error: roleState.error,
+        };
+
+        // Pattern 3: Restore mailbox queue content (not just closed state)
+        if (roleState.mailboxQueue.length > 0) {
+          restoreMailboxQueue(runtime, roleState.mailboxQueue);
         }
+
+        // Pattern 3: Restore mailbox closed state
+        if (roleState.mailboxClosed) {
+          mailbox.close();
+        }
+
+        // Pattern 3: Restore policy usage counters
+        if (roleState.tokensUsed > 0) {
+          policy.setUsage(roleState.tokensUsed);
+        }
+
+        running.agents.set(roleId, runtime);
+      }
+
+      // Set up pending roles for lazy spawn (roles not in checkpoint)
+      const reconstructedRoles = new Set(Object.keys(checkpoint.roleState));
+      const pendingRoles = new Map<string, OrgRole>();
+      for (const role of def.roles) {
+        if (!reconstructedRoles.has(role.id)) {
+          pendingRoles.set(role.id, role);
+        }
+      }
+      if (pendingRoles.size > 0) {
+        running.pendingRoles = pendingRoles;
       }
     }
 
     // Restore abandoned roles tracking
     if (rt.abandonedRoles) {
       this.abandoned.set(name, new Set(rt.abandonedRoles));
-    }
-
-    // Set up pending roles for lazy spawn (roles not yet reconstructed)
-    const reconstructedRoles = new Set(Object.keys(rt.roleMetrics ?? {}));
-    const pendingRoles = new Map<string, OrgRole>();
-    for (const role of def.roles) {
-      if (!reconstructedRoles.has(role.id)) {
-        pendingRoles.set(role.id, role);
-      }
-    }
-    if (pendingRoles.size > 0) {
-      running.pendingRoles = pendingRoles;
     }
 
     this.orgs.set(name, running);
@@ -1534,32 +1569,21 @@ export class OrgDaemon {
    *  said so. Persisted to runtime.json so `org status` can say it out loud. */
   private abandoned = new Map<string, Set<string>>();
 
-  private persistState(name: string, status: string, run: string, org?: RunningOrg): void {
+  private persistState(name: string, status: string, run: string, org?: RunningOrg, checkpointOverride?: OrgCheckpoint | null): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
     const running = org ?? this.orgs.get(name);
-    // Per-role cost tracking: collect live metrics from active agents
-    const roleMetrics: Record<string, { tokens: number; costUsd: number; lastMessageId?: string }> = {};
-    // Mailbox queue state for checkpoint/resume
-    const mailboxState: Record<string, { queued: number; closed: boolean }> = {};
+    // Pattern 3: Capture full checkpoint state for resume. On stop, finishStop
+    // passes a snapshot captured BEFORE mailboxes close and sessions drain —
+    // otherwise the queue is always empty by persist time.
+    let checkpoint: OrgCheckpoint | null = checkpointOverride ?? null;
     if (running) {
-      for (const [roleId, runtime] of running.agents) {
-        roleMetrics[roleId] = {
-          tokens: runtime.policy.usage,
-          costUsd: runtime.metrics.costUsd,
-          lastMessageId: runtime.lastMessageId
-        };
-        mailboxState[roleId] = {
-          queued: runtime.mailbox['queue']?.length ?? 0,
-          closed: runtime.mailbox.isClosed
-        };
-      }
+      checkpoint = captureCheckpoint(running);
     }
     writeFileSync(p, JSON.stringify({
       status, run, pid: process.pid, updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
-      ...(Object.keys(roleMetrics).length ? { roleMetrics } : {}),
-      ...(Object.keys(mailboxState).length ? { mailboxState } : {}),
+      ...(checkpoint ? { checkpoint } : {}),
     }, null, 2));
   }
 

@@ -89,8 +89,8 @@ describe('Batch 2 Priority 1 - Per-role cost tracking', () => {
     // Verify runtime.json persistence
     await d.stopOrg('alpha');
     const rt = JSON.parse(readFileSync(join(root, ORG_DIR, 'alpha', 'runtime.json'), 'utf8'));
-    expect(rt.roleMetrics?.boss?.costUsd).toBeGreaterThan(0);
-    expect(rt.roleMetrics?.coder?.costUsd).toBeGreaterThan(0);
+    expect(rt.checkpoint?.roleState?.boss?.costUsd).toBeGreaterThan(0);
+    expect(rt.checkpoint?.roleState?.coder?.costUsd).toBeGreaterThan(0);
 
     await d.stopAll();
   }, 10_000);
@@ -356,12 +356,11 @@ describe('Batch 2 Priority 1 - Enhanced checkpoint/resume', () => {
     // Wait for state persistence
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Check runtime.json contains mailboxState
+    // Check runtime.json contains checkpoint with mailbox state
     const rt = JSON.parse(readFileSync(join(root, ORG_DIR, 'test', 'runtime.json'), 'utf8'));
-    expect(rt.mailboxState).toBeDefined();
-    expect(rt.mailboxState?.boss).toBeDefined();
-    expect(typeof rt.mailboxState?.boss.queued).toBe('number');
-    expect(typeof rt.mailboxState?.boss.closed).toBe('boolean');
+    expect(rt.checkpoint?.roleState?.boss).toBeDefined();
+    expect(Array.isArray(rt.checkpoint?.roleState?.boss?.mailboxQueue)).toBe(true);
+    expect(typeof rt.checkpoint?.roleState?.boss?.mailboxClosed).toBe('boolean');
 
     await d.stopAll();
   }, 10_000);

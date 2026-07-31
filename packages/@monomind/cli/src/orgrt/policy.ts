@@ -51,6 +51,8 @@ export class PolicyEngine {
 
   addUsage(tokens: number): void { this.used += tokens; }
   get usage(): number { return this.used; }
+  /** Set usage counter directly for checkpoint/resume - Pattern 3 */
+  setUsage(tokens: number): void { this.used = tokens; }
   get overBudget(): boolean {
     return this.policy.maxTokens != null && this.used >= this.policy.maxTokens;
   }
