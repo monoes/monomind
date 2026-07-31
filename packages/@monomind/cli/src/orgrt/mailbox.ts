@@ -89,4 +89,23 @@ export class Mailbox {
       if (gen !== this.generation) return;
     }
   }
+
+  /** Serialize mailbox state for checkpoint/resume - Pattern 3 */
+  serialize(): { queue: string[]; closed: boolean; consumedReal: number } {
+    return {
+      queue: [...this.queue], // Copy array - queue is public for checkpoint access
+      closed: this.closed,
+      consumedReal: this.consumedReal,
+    };
+  }
+
+  /** Deserialize mailbox state from checkpoint - Pattern 3 */
+  deserialize(state: { queue: string[]; closed: boolean; consumedReal: number }): void {
+    this.queue = [...state.queue]; // Restore queue content
+    this.closed = state.closed;
+    this.consumedReal = state.consumedReal;
+    // Reset generation and wake - a new stream() call will set fresh values
+    this.generation = 0;
+    this.wake = null;
+  }
 }
