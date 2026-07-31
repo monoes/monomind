@@ -243,7 +243,18 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
           opts.def?.roles.map(r => r.id) ?? [role.id], opts.glossary),
         model: role.adapter_config?.model,
         cwd,
-        env: resolveProviderEnv(role.provider),
+        env: {
+          ...resolveProviderEnv(role.provider),
+          // Suppress all hook advisory output and expensive graph operations for
+          // SDK-spawned org agent sessions. These agents don't need routing,
+          // intelligence injection, or monograph suggestions — they have their
+          // own role prompt and tools. Without this, every org agent fires all
+          // UserPromptSubmit/PreToolUse/PostToolUse hooks per message, re-reading
+          // the massive cached context on every turn (the #1 token-burn source).
+          MONOMIND_HOOK_QUIET: '1',
+          MONOMIND_GRAPH_GATE: 'off',
+          MONOMIND_SDK_AGENT: '1',
+        },
         mcpServers: { org: orgServer },
         maxTurns: opts.maxTurns ?? 30,
         permissionMode: 'default',
