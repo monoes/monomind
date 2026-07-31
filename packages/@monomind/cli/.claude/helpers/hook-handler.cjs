@@ -282,6 +282,17 @@ async function main() {
     || (typeof toolInput === 'string' ? toolInput : (toolInput.command || toolInput.prompt || ''))
     || process.env.PROMPT || process.env.TOOL_INPUT_command || '';
 
+  // SDK-spawned org agent sessions: skip ALL non-security hooks to eliminate
+  // the #1 token-burn source. Each org agent fires UserPromptSubmit/PreToolUse/
+  // PostToolUse hooks per message, re-reading massive cached context on every
+  // turn. Org agents have their own role prompt + tools — they don't need
+  // routing, intelligence injection, monograph suggestions, or skill matching.
+  // Security gates (pre-bash destructive-ops, pre-write secrets) still run.
+  if (String(process.env.MONOMIND_SDK_AGENT || '') === '1'
+      && command !== 'pre-bash' && command !== 'pre-write') {
+    process.exit(0);
+  }
+
   // Detect prompts that are predefined single-action commands that don't
   // need agent routing or skill suggestions — invoking those adds token
   // overhead without any benefit.

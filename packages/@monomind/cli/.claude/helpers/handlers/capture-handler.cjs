@@ -25,6 +25,7 @@ const crypto = require('crypto');
 const { appendJsonlWithRotation } = require('../utils/fs-helpers.cjs');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+var _QUIET = String(process.env.MONOMIND_HOOK_QUIET || '').toLowerCase() === '1';
 const CAPTURE_DIR = path.join(CWD, '.monomind', 'capture');
 const SNAP_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour — orphaned snapshots are cleaned up this old
 
@@ -281,7 +282,7 @@ async function handleSubagentStart(hookInput) {
     leanMode: leanMode || 'off',
   }));
 
-  console.log('[CAPTURE:start] ' + agentType + ' · snapped ' + snapshot.length + ' files'
+  _QUIET || console.log('[CAPTURE:start] ' + agentType + ' · snapped ' + snapshot.length + ' files'
     + (activeSess ? ' · sess=' + activeSess.sessionId : '')
     + (activeRun ? ' · run=' + activeRun.runId : ' · no active run'));
 
@@ -324,11 +325,11 @@ async function handleSubagentStop(hookInput) {
       .filter(f => f.startsWith('snap-') && f.endsWith('.json') && !f.startsWith('._'))
       .sort(); // lexicographic = timestamp order (FIFO fallback)
     if (snapFiles.length === 0) {
-      console.log('[CAPTURE:stop] No snapshot to diff — skipping');
+      _QUIET || console.log('[CAPTURE:stop] No snapshot to diff — skipping');
       return;
     }
     snapPath = path.join(CAPTURE_DIR, snapFiles[0]);
-    console.log('[CAPTURE:stop] no transcript_path/keyed snapshot — falling back to FIFO match');
+    _QUIET || console.log('[CAPTURE:stop] no transcript_path/keyed snapshot — falling back to FIFO match');
   }
 
   let snap;
@@ -389,7 +390,7 @@ async function handleSubagentStop(hookInput) {
   const { agentType, agentDesc } = snap;
   toolCalls = [...new Set(toolCalls)].slice(0, 20);
 
-  console.log('[CAPTURE:stop] ' + agentType + ' · ' + totalTin + '+' + totalTout
+  _QUIET || console.log('[CAPTURE:stop] ' + agentType + ' · ' + totalTin + '+' + totalTout
     + ' tok · $' + costUsd.toFixed(4) + ' · ' + capturedFiles.length + ' new files'
     + (session ? ' · sess=' + session : '')
     + (org ? ' · ' + org + '/' + runId : ''));
@@ -729,7 +730,7 @@ if (require.main === module) {
     if (eventType === 'subagent-stop')  return handleSubagentStop(hookInput);
     if (eventType === 'pretool')        return handlePreTool(hookInput);
     if (eventType === 'posttool')       return handlePostTool(hookInput);
-    console.log('[CAPTURE] unknown event type: ' + eventType);
+    _QUIET || console.log('[CAPTURE] unknown event type: ' + eventType);
   }).catch(() => process.exit(0));
 }
 

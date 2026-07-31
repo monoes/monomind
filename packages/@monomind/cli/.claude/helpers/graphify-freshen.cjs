@@ -1,6 +1,8 @@
 'use strict';
 // Runs at SessionStart — rebuilds the knowledge graph using @monoes/monograph in the background.
 // Fire-and-forget: spawns detached child, logs start, exits immediately without blocking session.
+// SDK-spawned org agents skip this — no need to rebuild the graph for each agent session.
+if (String(process.env.MONOMIND_SDK_AGENT || '') === '1') process.exit(0);
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -82,7 +84,7 @@ if (fs.existsSync(dbPath)) {
         }).trim();
         const behind = parseInt(out, 10);
         if (behind === 0) {
-          console.log('[graph] index is fresh — skipping rebuild');
+          if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[graph] index is fresh — skipping rebuild');
           db.close();
           process.exit(0);
         }
@@ -101,7 +103,7 @@ if (fs.existsSync(dbPath)) {
 // is treated as abandoned and safely reclaimed.
 const lockPath = path.join(graphDir, 'build.lock');
 if (!claimLock(lockPath, 5 * 60 * 1000)) {
-  console.log('[graph] build already in progress — skipping');
+  if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[graph] build already in progress — skipping');
   process.exit(0);
 }
 
@@ -145,4 +147,4 @@ try {
   fs.writeFileSync(path.join(graphDir, 'build.pid'), String(child.pid), 'utf-8');
 } catch { /* best-effort */ }
 
-console.log('[graph] background build started for ' + projectDir);
+if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') console.log('[graph] background build started for ' + projectDir);

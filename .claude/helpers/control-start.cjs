@@ -9,6 +9,8 @@
  */
 
 /* eslint-disable @typescript-eslint/no-var-requires */
+// SDK-spawned org agents skip control-server startup — they don't need the dashboard
+if (String(process.env.MONOMIND_SDK_AGENT || '') === '1') process.exit(0);
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -147,7 +149,7 @@ async function main() {
     const { isMemoryPressureCritical, getMemoryInfo } = require('./utils/system-pressure.cjs');
     if (isMemoryPressureCritical()) {
       const info = getMemoryInfo();
-      process.stdout.write(`[control] skipping — memory pressure ${info.level} (${info.usedMB}/${info.totalMB} MB used)\n`);
+      if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] skipping — memory pressure ${info.level} (${info.usedMB}/${info.totalMB} MB used)\n`);
       process.exit(0);
     }
   } catch { /* non-critical — proceed without check */ }
@@ -163,12 +165,12 @@ async function main() {
       const reason = staleProject
         ? `rooted in ${live.dir}, not ${CWD}`
         : `started ${Math.round(startedMs / 86400_000)}d ago`;
-      process.stdout.write(`[control] restarting stale server (${reason})\n`);
+      if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] restarting stale server (${reason})\n`);
       try { process.kill(status.pid, 'SIGTERM'); } catch { /* already gone */ }
       // Give it a moment to release the port
       await new Promise(r => setTimeout(r, 1000));
     } else {
-      process.stdout.write(`[control] already running on port ${status.port} (pid ${status.pid})\n`);
+      if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] already running on port ${status.port} (pid ${status.pid})\n`);
       process.exit(0);
     }
   }
@@ -180,7 +182,7 @@ async function main() {
     const live = await probeStatus(p);
     if (live) {
       writeStatus(live.pid || 0, p);
-      process.stdout.write(`[control] adopted running server on port ${p} (pid ${live.pid || 'unknown'})\n`);
+      if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] adopted running server on port ${p} (pid ${live.pid || 'unknown'})\n`);
       process.exit(0);
     }
   }
@@ -195,7 +197,7 @@ async function main() {
   // spawns leaked hundreds of orphan servers on isolated ports).
   if (process.env.MONOMIND_CONTROL_NO_SPAWN === '1') {
     writeStatus(process.pid, DEFAULT_PORT);
-    process.stdout.write(`[control] started Neural Control Room on port ${DEFAULT_PORT} (pid ${process.pid}) [no-spawn]\n`);
+    if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] started Neural Control Room on port ${DEFAULT_PORT} (pid ${process.pid}) [no-spawn]\n`);
     releaseSpawnLock();
     process.exit(0);
   }
@@ -223,7 +225,7 @@ async function main() {
   // Write optimistic status with DEFAULT_PORT immediately so dependent scripts
   // (hooks, boss agents) have something to read while the server starts up.
   writeStatus(child.pid, DEFAULT_PORT);
-  process.stdout.write(`[control] started Neural Control Room on port ${DEFAULT_PORT} (pid ${child.pid})\n`);
+  if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] started Neural Control Room on port ${DEFAULT_PORT} (pid ${child.pid})\n`);
 
   // If port 4242 was in use, server.mjs auto-increments (up to +10).
   // Poll a few ports to find where it actually bound and update control.json.
@@ -265,7 +267,7 @@ async function main() {
           try { fs.unlinkSync(BOUND_REPORT); } catch { /* ignore */ }
           if (rep.port !== DEFAULT_PORT) {
             writeStatus(child.pid, rep.port);
-            process.stdout.write(`[control] server bound to port ${rep.port} (updated control.json)\n`);
+            if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] server bound to port ${rep.port} (updated control.json)\n`);
           }
           return;
         }
@@ -278,7 +280,7 @@ async function main() {
         if (responderPid === child.pid) {
           if (p !== DEFAULT_PORT) {
             writeStatus(child.pid, p);
-            process.stdout.write(`[control] server bound to port ${p} (updated control.json)\n`);
+            if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] server bound to port ${p} (updated control.json)\n`);
           }
           return;
         }
@@ -292,7 +294,7 @@ async function main() {
       // its own port — point control.json at the live server instead of lying,
       // and kill our redundant child.
       try { process.kill(child.pid, 'SIGTERM'); } catch { /* already gone */ }
-      process.stdout.write(`[control] port ${DEFAULT_PORT} is served by another project's control server — reusing it (killed redundant child)\n`);
+      if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] port ${DEFAULT_PORT} is served by another project's control server — reusing it (killed redundant child)\n`);
       const foreignPid = await probePort(DEFAULT_PORT);
       writeStatus(typeof foreignPid === 'number' ? foreignPid : 0, DEFAULT_PORT);
       // Pair with the foreign server: resolve its project dir from its pid,
