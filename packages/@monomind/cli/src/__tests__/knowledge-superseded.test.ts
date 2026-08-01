@@ -155,7 +155,10 @@ describe('knowledge_search matches the CLI fallback behaviour', () => {
     expect(payload.success).toBe(true);
     expect(payload.routing.fellBackToChunks).toBe(true);
     expect(payload.excerpts.length).toBeGreaterThan(0);
-    expect(payload.excerpts.map((e: { text: string }) => e.text).join('\n')).toContain('flamingo');
+    // excerpts is now an id/metadata-only projection (token-efficiency fix) —
+    // full chunk text lives only in the canonical `results` list.
+    expect(payload.excerpts[0]).not.toHaveProperty('text');
+    expect(payload.results.map((e: { text?: string }) => e.text ?? '').join('\n')).toContain('flamingo');
     expect(payload.count).toBeGreaterThan(0);
   }, 600_000);
 });

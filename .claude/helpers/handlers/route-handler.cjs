@@ -467,9 +467,10 @@ module.exports = {
               );
             }
             // Relevance floor: injecting weak matches pollutes every prompt's
-            // context — configurable via .monomind/second-brain.json, default 0.35.
-            var sbFloor = 0.35;
-            var sbInjectionLimit = 5;
+            // context — configurable via .monomind/second-brain.json, default
+            // 0.35 for semantic hits, 0.5 for the noisier keyword fallback.
+            var sbFloor = sbMethod === 'keyword' ? 0.5 : 0.35;
+            var sbInjectionLimit = 3;
             try {
               var sbConf = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'second-brain.json'), 'utf-8'));
               if (typeof sbConf.relevanceFloor === 'number') sbFloor = sbConf.relevanceFloor;
@@ -511,7 +512,7 @@ module.exports = {
               for (var sbI = 0; sbI < sbHits.length; sbI++) {
                 var sbH = sbHits[sbI];
                 var sbSrc = (sbH.metadata && sbH.metadata.filePath) ? String(sbH.metadata.filePath).split('/').slice(-2).join('/') : sbH.key;
-                var sbText = String(sbH.value || '').replace(/\s+/g, ' ').slice(0, 240);
+                var sbText = String(sbH.value || '').replace(/\s+/g, ' ').slice(0, 160);
                 sbLines.push('  • [' + sbSrc + (sbH.global ? ' · global' : '') + '] ' + sbText);
               }
               sbLines.push('  (deeper lookup: mcp__monomind__knowledge_search or `monomind doc search -q "..."`)');
@@ -542,6 +543,25 @@ module.exports = {
       // ── Surface daemon metrics warnings (hook latency, token spikes) ──
       try {
         var metricsDir = path.join(CWD, '.monomind', 'metrics');
+        // Static metrics banners ([CODEBASE]/[DEEPDIVE]/[ARCHITECTURE]/[MEMORY]/
+        // [AUDIT]) carry identical content until the underlying metrics file
+        // changes, so re-injecting them on every prompt is pure token waste.
+        // Show each at most once per session per file version, keyed on the
+        // file's mtime — same marker-file pattern as mcp-not-connected-warned.json
+        // below. If the metrics file is rewritten, the banner may fire again.
+        var bannerSessId = String((hCtx.hookInput && (hCtx.hookInput.sessionId || hCtx.hookInput.session_id)) || '');
+        var bannerShownOnce = function (tag, metricsFilePath) {
+          try {
+            var mtimeMs = fs.statSync(metricsFilePath).mtimeMs;
+            var markerFile = path.join(CWD, '.monomind', 'banner-shown-' + tag + '.json');
+            if (fs.existsSync(markerFile)) {
+              var markerData = JSON.parse(fs.readFileSync(markerFile, 'utf-8'));
+              if (markerData && markerData.sessionId === bannerSessId && markerData.mtimeMs === mtimeMs) return false;
+            }
+            fs.writeFileSync(markerFile, JSON.stringify({ sessionId: bannerSessId, mtimeMs: mtimeMs, shownAt: new Date().toISOString() }));
+            return true;
+          } catch (e) { return true; /* unreadable state — show rather than suppress */ }
+        };
         // Hook latency warnings
         var latencyFile = path.join(metricsDir, 'hook-latency.json');
         if (fs.existsSync(latencyFile) && fs.statSync(latencyFile).size < 32768) {
@@ -566,7 +586,7 @@ module.exports = {
             var serious = secData.findings.filter(function (f) { return f && (f.severity === 'high' || f.severity === 'medium'); });
             if (serious.length > 0) {
               advisoryLog('[SECURITY] ' + serious.length + ' finding(s) from background scan. Review .monomind/metrics/security-audit.json');
-            } else {
+            } else if (bannerShownOnce('audit', secAuditFile)) {
               advisoryLog('[AUDIT] ' + secData.findings.length + ' low-severity note(s) (architecture heuristics, not vulnerabilities) — .monomind/metrics/security-audit.json');
             }
           }
@@ -575,10 +595,10 @@ module.exports = {
         var mapFile = path.join(metricsDir, 'codebase-map.json');
         if (fs.existsSync(mapFile) && fs.statSync(mapFile).size < 32768) {
           var mapData = JSON.parse(fs.readFileSync(mapFile, 'utf-8'));
-          if (mapData && mapData.topFiles && mapData.topFiles.length > 0) {
+          if (mapData && mapData.topFiles && mapData.topFiles.length > 0 && bannerShownOnce('codebase', mapFile)) {
             advisoryLog('[CODEBASE] ' + mapData.topFiles.length + ' high-centrality files. Top: ' + (mapData.topFiles[0].ref || 'unknown') + ' (degree ' + (mapData.topFiles[0].degree || '?') + ')');
           }
-          if (mapData && mapData.graphStaleness && mapData.graphStaleness.commitsBehind > 10) {
+          if (mapData && mapData.graphStaleness && mapData.graphStaleness.commitsBehind > 10 && bannerShownOnce('codebase-staleness', mapFile)) {
             advisoryLog('[CODEBASE] Graph index ' + mapData.graphStaleness.commitsBehind + ' commits behind HEAD — run monograph build');
           }
         }
@@ -618,7 +638,7 @@ module.exports = {
           if (ddData && ddData.findings && ddData.findings.length > 0) {
             for (var di = 0; di < ddData.findings.length; di++) {
               var finding = ddData.findings[di];
-              if (finding.category === 'god_nodes' && finding.items && finding.items.length > 0) {
+              if (finding.category === 'god_nodes' && finding.items && finding.items.length > 0 && bannerShownOnce('deepdive', deepdiveFile)) {
                 var topGod = finding.items[0];
                 advisoryLog('[DEEPDIVE] ' + finding.items.length + ' god nodes. Top: ' + (topGod.name || 'unknown') + ' (degree ' + (topGod.degree || '?') + ') in ' + (topGod.file || 'unknown'));
               }
@@ -632,7 +652,7 @@ module.exports = {
           if (ulData && ulData.insightsGained && ulData.insightsGained.length > 0) {
             for (var ui = 0; ui < ulData.insightsGained.length; ui++) {
               var insight = ulData.insightsGained[ui];
-              if (insight.category === 'bridge_nodes' && insight.items && insight.items.length > 0) {
+              if (insight.category === 'bridge_nodes' && insight.items && insight.items.length > 0 && bannerShownOnce('architecture', ultralearnFile)) {
                 var topBridge = insight.items[0];
                 advisoryLog('[ARCHITECTURE] ' + insight.items.length + ' bridge nodes crossing community boundaries. Top: ' + (topBridge.name || 'unknown') + ' (' + (topBridge.crossCommunityEdges || '?') + ' cross-edges) in ' + (topBridge.location || 'unknown'));
               }
@@ -655,7 +675,7 @@ module.exports = {
         var consolFile = path.join(metricsDir, 'consolidation.json');
         if (fs.existsSync(consolFile) && fs.statSync(consolFile).size < 32768) {
           var consolData = JSON.parse(fs.readFileSync(consolFile, 'utf-8'));
-          if (consolData && consolData.patternsConsolidated > 0) {
+          if (consolData && consolData.patternsConsolidated > 0 && bannerShownOnce('memory', consolFile)) {
             advisoryLog('[MEMORY] ' + consolData.patternsConsolidated + ' patterns consolidated into ' + consolData.clustersCreated + ' RAPTOR clusters');
           }
         }

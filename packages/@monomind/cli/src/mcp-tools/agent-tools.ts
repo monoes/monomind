@@ -141,7 +141,7 @@ async function determineAgentModel(
 export const agentTools: MCPTool[] = [
   {
     name: 'agent_spawn',
-    description: 'Register a new agent record (type, model preference, status) in the persistent agent store. This creates a database entry, not a running agent — use Claude Code\'s Task tool to actually execute work.',
+    description: 'Register a new agent record (type, model, status) in the persistent agent store — a DB entry, not a running agent.',
     category: 'agent',
     inputSchema: {
       type: 'object',

@@ -16,7 +16,7 @@ export const monomindTools: MCPTool[] = [
   {
     name: 'monomind_tool_search',
     description:
-      'Discover non-core monomind MCP tools by keyword. Returns each match\'s full inputSchema so the tool can be called directly. Use when the task needs a capability NOT in the default tool list — e.g. browser automation, github/PR ops, swarm init, claims, terminal sessions, embeddings generation, performance profiling, autopilot.',
+      'Discover hidden (non-advertised) monomind MCP tools by keyword. Returns each match\'s full inputSchema so the tool can be called directly.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -45,7 +45,7 @@ export const monomindTools: MCPTool[] = [
               {
                 count: results.length,
                 note: results.length === 0
-                  ? 'No non-core tools matched. Set MONOMIND_MCP_FULL=1 on the MCP server to advertise the full roster, or rephrase the query.'
+                  ? 'No hidden tools matched. Set MONOMIND_MCP_FULL=1 on the MCP server to advertise the full roster, or rephrase the query.'
                   : 'Call any returned tool directly by name — it is callable even though it is not in the default tool list.',
                 tools: results,
               },

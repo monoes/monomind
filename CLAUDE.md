@@ -191,24 +191,13 @@ npx monomind@latest memory retrieve --key "pattern-auth" --namespace patterns
 
 ## Second Brain — Document Knowledge Base
 
-If the `documents` capability is active (check `.monomind/capabilities.json`), this project indexes documents into a semantic search engine. Supported formats: Word (.docx, .doc), Excel (.xlsx, .xls), PowerPoint (.pptx, .ppt), PDF, OpenDocument (.odt, .ods, .odp), plain text (.md, .txt, .rst, .tex, .csv, .tsv), RTF, EPUB, and Apple Pages. Google Drive files (Docs, Sheets, Slides) are exported as Office formats and handled by the same extractors.
+If the `documents` capability is active (check `.monomind/capabilities.json`), this project indexes documents into a semantic search engine (Office, PDF, text, EPUB, and more; Google Drive files are exported as Office formats).
 
 **When documents are indexed, search knowledge before answering questions about business, compliance, legal, or organizational topics:**
 - Call `mcp__monomind__knowledge_search` with a relevant query (add `store: "project"` or `"global"` to search one brain only; default merges both)
 - Use the returned excerpts as grounding context for your answer
 - Cite the source document name when referencing specific information
 - Add with `mcp__monomind__knowledge_ingest`; retract a wrong or stale document with `mcp__monomind__knowledge_remove` (hides it from search immediately, reversible by re-ingesting)
-
-**CLI access:**
-```bash
-monomind doc search -q "your query"    # Semantic search (project + global brain merged)
-monomind doc search -q "..." --store global   # Personal global brain only
-monomind doc list                       # List indexed docs (--global for the global brain)
-monomind doc ingest ./path              # Ingest new documents (paths outside the project auto-route to the global brain)
-monomind doc export                     # Export as OKF bundle (--global to move your brain between machines)
-monomind doc import ./bundle            # Import an OKF bundle (--global to restore a personal brain)
-monomind doc remove ./docs/old.md       # Forget a document — hidden from search immediately
-```
 
 **Global brain:** the user has a personal cross-project knowledge store at `~/.monomind/global-brain`. All searches (knowledge_search, doc search, per-prompt injection) automatically merge it with project knowledge — project results win ties, global hits are labeled `[global]`. Cite the label so the user knows which brain answered.
 
@@ -231,30 +220,7 @@ Built into monomind — no separate install. Pure TypeScript, parses TS/JS/Pytho
 
 **If graph is empty:** call `mcp__monomind__monograph_build` (runs in background; proceed with grep while it builds).
 
-### Available Tools (prefix: `mcp__monomind__`)
-
-| Tool | Use when |
-|------|----------|
-| `monograph_suggest` | **Start every multi-file task** — ranked by task relevance |
-| `monograph_query` | **Primary code lookup** — BM25 search, returns file + line |
-| `monograph_context` | 360° symbol view: callers, callees, imports, community |
-| `monograph_impact` | Blast radius before a change — transitive callers + risk score |
-| `monograph_build` | Build/rebuild the index (codeOnly:true for code-only) |
-| `monograph_god_nodes` | High-centrality files — find the most connected internal nodes |
-| `monograph_detect_changes` | Git diff → affected symbols since base branch |
-| `monograph_rename` | Dry-run multi-file rename — all reference sites, never writes |
-| `monograph_route_map` | List all HTTP routes with handler info |
-| `monograph_api_impact` | Blast radius of an API route |
-| `monograph_cypher` | Single-hop MATCH query over the graph |
-| `monograph_staleness` | Git commits since last index build |
-| `monograph_stats` | Node/edge/community counts |
-| `monograph_health` | Index freshness vs current HEAD |
-| `monograph_shortest_path` | Shortest dependency path between two symbols |
-| `monograph_community` | All nodes in a community cluster |
-| `monograph_export` | Export graph: json, svg, graphml, cypher, obsidian |
-| `monograph_augment` | Graph-RAG context block for AI prompts |
-| `monograph_doctor` | Platform diagnostics (Node version, DB health) |
-| `monograph_list_repos` | Global registry of indexed repos |
+The four tools above cover daily use; the full tool list (route maps, communities, export, staleness, etc.) is discoverable via the MCP tool listing.
 
 ### Skip monograph for
 Single-file edits, doc/config changes, quick fixes where you already know the exact file.
