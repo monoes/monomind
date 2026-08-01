@@ -1,10 +1,12 @@
 // packages/@monomind/cli/src/orgrt/session.ts
 import { z } from 'zod';
-import { query, tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import type { query } from '@anthropic-ai/claude-agent-sdk';
 import type { OrgBus } from './bus.js';
 import type { PolicyEngine } from './policy.js';
 import { Mailbox } from './mailbox.js';
 import type { OrgDef, OrgRole } from './types.js';
+import type { AgentRunner, AgentMessage, OrgToolDef } from './agent-runner.js';
+import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 
 /** How long an SDK stream may stay open with zero messages before we say so.
  *  Comfortably longer than a slow first turn, shorter than the idle watchdog's
@@ -46,6 +48,10 @@ export interface SessionOpts {
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
+  /** Provider-agnostic runner. Takes precedence over queryFn. When unset,
+   *  session.ts builds a ClaudeAgentRunner from queryFn (or the default),
+   *  preserving the previous Claude-only behaviour exactly. */
+  runner?: AgentRunner;
   /** ID of the last message received by this agent (for threading responses). Function to ensure live reading. */
   lastMessageId?: () => string | undefined;
 }
@@ -135,139 +141,55 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
  *  caller can push a continuation) when the stream ends (mailbox closed or
  *  maxTurns reached). */
 async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
-  const { org, role, bus, policy, mailbox, cwd, deliver } = opts;
+  const { org, role, bus, policy, mailbox, cwd } = opts;
   // Read lastMessageId live from opts instead of capturing at session start
   // This ensures chat responses link to the most recent message delivered
   const getLastMessageId = () => opts.lastMessageId ? opts.lastMessageId() : undefined;
-  const queryFn = opts.queryFn ?? query;
 
-  const orgServer = createSdkMcpServer({
-    name: 'org',
-    version: '1.0.0',
-    tools: [
-      ...(opts.searchKnowledge ? [tool(
-        'knowledge_search',
-        'Semantic search over the user\'s Second Brain: this project\'s indexed documents plus their personal cross-project global brain. Use to ground work in the user\'s actual notes, handbooks, and documents.',
-        { query: z.string() },
-        async (args) => {
-          const text = await opts.searchKnowledge!(role.id, args.query);
-          return { content: [{ type: 'text' as const, text }] };
-        },
-      )] : []),
-      ...(opts.recall ? [tool(
-        'org_recall',
-        'Search this org\'s accumulated memory from previous runs (outcomes, decisions, learnings). Use before starting work that may already have been done.',
-        { query: z.string() },
-        async (args) => {
-          const text = await opts.recall!(role.id, args.query);
-          return { content: [{ type: 'text' as const, text }] };
-        },
-      )] : []),
-      ...(opts.remember ? [tool(
-        'org_remember',
-        'Save a memory for future runs. scope "org" (default) shares it with the whole org; scope "agent" keeps it private to your role. Use for decisions, findings, and state worth recalling later - org_recall searches both.',
-        { content: z.string(), scope: z.enum(['org', 'agent']).optional() },
-        async (args) => {
-          const text = await opts.remember!(role.id, args.content, args.scope ?? 'org');
-          return { content: [{ type: 'text' as const, text }] };
-        },
-      )] : []),
-      ...(opts.learn ? [tool(
-        'org_learn',
-        'Persist durable knowledge from this run into the org\'s knowledge graph: entities ({name, type?, description?}), relationships ({source, target, relation, description?}) and reusable rules ({rule, context?}). Entities merge by name across runs - reuse the exact names listed in your briefing. Call once, before org_complete.',
-        {
-          nodes: z.array(z.object({ name: z.string(), type: z.string().optional(), description: z.string().optional() })).optional(),
-          edges: z.array(z.object({ source: z.string(), target: z.string(), relation: z.string(), description: z.string().optional() })).optional(),
-          rules: z.array(z.object({ rule: z.string(), context: z.string().optional() })).optional(),
-        },
-        async (args) => {
-          const text = await opts.learn!(role.id, args);
-          return { content: [{ type: 'text' as const, text }] };
-        },
-      )] : []),
-      // Gate purely on onComplete: the daemon passes it only to the role its
-      // boss-selection rule picked, so tool availability always matches the
-      // kickoff instruction (reports_to may be non-null for a fallback boss).
-      ...(opts.onComplete ? [tool(
-        'org_complete',
-        'Record the outcome of this run. Call exactly once, when the goal is achieved or clearly cannot be. The outcome and summary are persisted to the org run history and briefed to the next run.',
-        { outcome: z.enum(['achieved', 'partial', 'failed']), summary: z.string() },
-        async (args) => {
-          opts.onComplete!(role.id, args.outcome, args.summary);
-          return { content: [{ type: 'text' as const, text: `outcome "${args.outcome}" recorded` }] };
-        },
-      )] : []),
-      tool(
-        'org_send',
-        'Send a message to another agent (role id) or another org ("org:role"). This is the only inter-agent channel.',
-        { to: z.string(), subject: z.string(), message: z.string() },
-        async (args) => {
-          // Check beforeTool guardrail if available
-          if (opts.beforeTool) {
-            const approved = await opts.beforeTool(role.id, 'org_send');
-            if (approved === false) {
-              return { content: [{ type: 'text' as const, text: 'Tool "org_send" was denied by guardrail approval' }] };
-            }
-            if (approved === null) {
-              return { content: [{ type: 'text' as const, text: 'Tool "org_send" is pending human approval - you will receive the result when it is approved or denied.' }] };
-            }
-          }
-          const receipt = await deliver(role.id, args.to, args.subject, args.message);
-          return { content: [{ type: 'text' as const, text: receipt }] };
-        },
-      ),
-      tool(
-        'ask_human',
-        'Ask a human a free-form question and pause for their answer. Use only when you genuinely need human judgment.',
-        { question: z.string() },
-        async (args) => {
-          if (!opts.askHuman) {
-            return { content: [{ type: 'text' as const, text: 'ask_human is not available in this session' }] };
-          }
-          const receipt = await opts.askHuman(role.id, args.question);
-          return { content: [{ type: 'text' as const, text: receipt }] };
-        },
-      ),
-    ],
-  });
+  // Resolve runner. Precedence: explicit runner > queryFn-wrapped > default.
+  // queryFn stays supported so daemon.ts / test-loop.ts need no changes.
+  const runner: AgentRunner = opts.runner
+    ?? (opts.queryFn ? new ClaudeAgentRunner(opts.queryFn) : defaultClaudeRunner);
+
+  const tools = buildOrgTools(opts);
 
   bus.emit({ type: 'status', from: role.id, msg: 'session starting' });
 
   let sessionId: string | undefined = resume;
   let hitTurnLimit = false;
   try {
-    const stream = queryFn({
+    const stream = runner.run({
+      tools,
       prompt: mailbox.stream(),
-      options: {
-        systemPrompt: buildRolePrompt(role, (opts.def ?? { name: org, goal: '' }) as OrgDef,
-          opts.def?.roles.map(r => r.id) ?? [role.id], opts.glossary),
-        model: role.adapter_config?.model,
-        cwd,
-        env: {
-          ...resolveProviderEnv(role.provider),
-          // Suppress all hook advisory output and expensive graph operations for
-          // SDK-spawned org agent sessions. These agents don't need routing,
-          // intelligence injection, or monograph suggestions — they have their
-          // own role prompt and tools. Without this, every org agent fires all
-          // UserPromptSubmit/PreToolUse/PostToolUse hooks per message, re-reading
-          // the massive cached context on every turn (the #1 token-burn source).
-          MONOMIND_HOOK_QUIET: '1',
-          MONOMIND_GRAPH_GATE: 'off',
-          MONOMIND_SDK_AGENT: '1',
-        },
-        mcpServers: { org: orgServer },
-        maxTurns: opts.maxTurns ?? 30,
-        permissionMode: 'default',
-        resume,
-        canUseTool: async (toolName: string, input: Record<string, unknown>) =>
-          policy.decide(toolName, input),
-        // test seam: lets the scripted fake SDK (test-loop.ts) drive org_send and
-        // tool calls through the real deliver/policy paths; the real SDK ignores it
+      systemPrompt: buildRolePrompt(role, (opts.def ?? { name: org, goal: '' }) as OrgDef,
+        opts.def?.roles.map(r => r.id) ?? [role.id], opts.glossary),
+      model: role.adapter_config?.model,
+      cwd,
+      env: {
+        ...resolveProviderEnv(role.provider),
+        // Suppress all hook advisory output and expensive graph operations for
+        // SDK-spawned org agent sessions. These agents don't need routing,
+        // intelligence injection, or monograph suggestions — they have their
+        // own role prompt and tools. Without this, every org agent fires all
+        // UserPromptSubmit/PreToolUse/PostToolUse hooks per message, re-reading
+        // the massive cached context on every turn (the #1 token-burn source).
+        MONOMIND_HOOK_QUIET: '1',
+        MONOMIND_GRAPH_GATE: 'off',
+        MONOMIND_SDK_AGENT: '1',
+      },
+      maxTurns: opts.maxTurns ?? 30,
+      resume,
+      canUseTool: async (toolName: string, input: Record<string, unknown>) =>
+        policy.decide(toolName, input),
+      // test seam forwarded through extras: lets the scripted fake SDK
+      // (test-loop.ts) drive org_send and tool calls through the real
+      // deliver/policy paths; the real SDK ignores it.
+      extras: opts.runner ? undefined : {
         _orgTest: {
-          deliver: (to: string, subject: string, body: string) => deliver(role.id, to, subject, body),
+          deliver: (to: string, subject: string, body: string) => opts.deliver(role.id, to, subject, body),
           callTool: (name: string, input: Record<string, unknown>) => policy.decide(name, input),
         },
-      } as any,
+      },
     });
 
     // A silent session is its own failure mode, and until now an unnameable
@@ -290,41 +212,38 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
     (silentAlarm as { unref?: () => void }).unref?.();
 
     try {
-      for await (const m of stream as AsyncIterable<any>) {
+      for await (const m of stream) {
         if (!sawAnyMessage) { sawAnyMessage = true; clearTimeout(silentAlarm); }
         if (process.env.MONOMIND_DEBUG) {
-          console.error(`[orgrt:${org}/${role.id}] sdk message type=${String(m?.type)} subtype=${String(m?.subtype ?? '-')}`);
+          console.error(`[orgrt:${org}/${role.id}] runner message type=${m.type} subtype=${String(m.subtype ?? '-')}`);
         }
-      if (m.session_id) sessionId = m.session_id;
-      if (m.type === 'assistant') {
-        const text = (m.message?.content ?? [])
-          .filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
-        if (text.trim()) bus.emit({ type: 'chat', from: role.id, msg: text, parentId: getLastMessageId() });
-      } else if (m.type === 'result') {
-        const tokens = (m.usage?.input_tokens ?? 0) + (m.usage?.output_tokens ?? 0);
-        policy.addUsage(tokens);
-        bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: m.total_cost_usd, subtype: m.subtype } });
-        // A result whose subtype is anything but `success` is the SDK reporting
-        // a failed turn - hit max_turns, refused, rate/usage limited, errored
-        // mid-execution. Recording it only as a usage event made those
-        // indistinguishable from a healthy turn: three consecutive cycles once
-        // produced zero tool calls and zero messages, and the sole signal was
-        // the idle watchdog firing 20 minutes later with no stated cause.
-        if (m.subtype && m.subtype !== 'success') {
-          // max_turns means the role was actively working and got capped - the
-          // caller pushes a continuation so the restarted session resumes work
-          // instead of blocking on an empty mailbox.
-          if (m.subtype === 'error_max_turns') hitTurnLimit = true;
-          bus.emit({
-            type: 'audit', from: role.id, reason: 'session-result-error',
-            msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} - the role produced no usable output`,
-          });
+        if (m.session_id) sessionId = m.session_id;
+        if (m.type === 'assistant') {
+          const text = m.text || '';
+          if (text.trim()) bus.emit({ type: 'chat', from: role.id, msg: text, parentId: getLastMessageId() });
+        } else if (m.type === 'result') {
+          const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+          policy.addUsage(tokens);
+          bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: m.cost_usd, subtype: m.subtype } });
+          // A result whose subtype is anything but `success` is the runner
+          // reporting a failed turn - hit max_turns, refused, rate/usage
+          // limited, errored mid-execution. Recording it only as a usage event
+          // made those indistinguishable from a healthy turn.
+          if (m.subtype && m.subtype !== 'success') {
+            // max_turns means the role was actively working and got capped - the
+            // caller pushes a continuation so the restarted session resumes work
+            // instead of blocking on an empty mailbox.
+            if (m.subtype === 'error_max_turns') hitTurnLimit = true;
+            bus.emit({
+              type: 'audit', from: role.id, reason: 'session-result-error',
+              msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} - the role produced no usable output`,
+            });
+          }
+          if (policy.overBudget) {
+            bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });
+            mailbox.close();
+          }
         }
-        if (policy.overBudget) {
-          bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });
-          mailbox.close();
-        }
-      }
       }
     } finally {
       clearTimeout(silentAlarm);
@@ -335,4 +254,93 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
     bus.emit({ type: 'status', from: role.id, msg: `session error: ${(err as Error).message}` });
     throw err;
   }
+}
+
+/** Build the org tool surface as platform-agnostic OrgToolDef[]. The handlers
+ *  close over sessionOpts callbacks (deliver, recall, remember, …) — same
+ *  wiring as the previous inline createSdkMcpServer block, just decoupled from
+ *  the Claude SDK's tool() shape so any AgentRunner can host them.
+ *
+ *  Behaviour is identical to the old inline definitions: conditional tools are
+ *  gated on their callback being present, org_send/ask_human are always added. */
+function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
+  const { role, deliver } = opts;
+  const tools: OrgToolDef[] = [];
+  const text = (t: string): { text: string } => ({ text: t });
+
+  if (opts.searchKnowledge) {
+    tools.push({
+      name: 'knowledge_search',
+      description: 'Semantic search over the user\'s Second Brain: this project\'s indexed documents plus their personal cross-project global brain. Use to ground work in the user\'s actual notes, handbooks, and documents.',
+      schema: { query: z.string() },
+      handler: async (args) => text(await opts.searchKnowledge!(role.id, args.query as string)),
+    });
+  }
+  if (opts.recall) {
+    tools.push({
+      name: 'org_recall',
+      description: 'Search this org\'s accumulated memory from previous runs (outcomes, decisions, learnings). Use before starting work that may already have been done.',
+      schema: { query: z.string() },
+      handler: async (args) => text(await opts.recall!(role.id, args.query as string)),
+    });
+  }
+  if (opts.remember) {
+    tools.push({
+      name: 'org_remember',
+      description: 'Save a memory for future runs. scope "org" (default) shares it with the whole org; scope "agent" keeps it private to your role. Use for decisions, findings, and state worth recalling later - org_recall searches both.',
+      schema: { content: z.string(), scope: z.enum(['org', 'agent']).optional() },
+      handler: async (args) => text(await opts.remember!(role.id, args.content as string, (args.scope as 'org' | 'agent') ?? 'org')),
+    });
+  }
+  if (opts.learn) {
+    tools.push({
+      name: 'org_learn',
+      description: 'Persist durable knowledge from this run into the org\'s knowledge graph: entities ({name, type?, description?}), relationships ({source, target, relation, description?}) and reusable rules ({rule, context?}). Entities merge by name across runs - reuse the exact names listed in your briefing. Call once, before org_complete.',
+      schema: {
+        nodes: z.array(z.object({ name: z.string(), type: z.string().optional(), description: z.string().optional() })).optional(),
+        edges: z.array(z.object({ source: z.string(), target: z.string(), relation: z.string(), description: z.string().optional() })).optional(),
+        rules: z.array(z.object({ rule: z.string(), context: z.string().optional() })).optional(),
+      },
+      handler: async (args) => text(await opts.learn!(role.id, args as any)),
+    });
+  }
+  // Gate purely on onComplete: the daemon passes it only to the role its
+  // boss-selection rule picked, so tool availability always matches the
+  // kickoff instruction (reports_to may be non-null for a fallback boss).
+  if (opts.onComplete) {
+    tools.push({
+      name: 'org_complete',
+      description: 'Record the outcome of this run. Call exactly once, when the goal is achieved or clearly cannot be. The outcome and summary are persisted to the org run history and briefed to the next run.',
+      schema: { outcome: z.enum(['achieved', 'partial', 'failed']), summary: z.string() },
+      handler: async (args) => {
+        opts.onComplete!(role.id, args.outcome as 'achieved' | 'partial' | 'failed', args.summary as string);
+        return text(`outcome "${args.outcome}" recorded`);
+      },
+    });
+  }
+  tools.push({
+    name: 'org_send',
+    description: 'Send a message to another agent (role id) or another org ("org:role"). This is the only inter-agent channel.',
+    schema: { to: z.string(), subject: z.string(), message: z.string() },
+    handler: async (args) => {
+      if (opts.beforeTool) {
+        const approved = await opts.beforeTool(role.id, 'org_send');
+        if (approved === false) return text('Tool "org_send" was denied by guardrail approval');
+        if (approved === null) return text('Tool "org_send" is pending human approval - you will receive the result when it is approved or denied.');
+      }
+      const receipt = await deliver(role.id, args.to as string, args.subject as string, args.message as string);
+      return text(receipt);
+    },
+  });
+  tools.push({
+    name: 'ask_human',
+    description: 'Ask a human a free-form question and pause for their answer. Use only when you genuinely need human judgment.',
+    schema: { question: z.string() },
+    handler: async (args) => {
+      if (!opts.askHuman) return text('ask_human is not available in this session');
+      const receipt = await opts.askHuman(role.id, args.question as string);
+      return text(receipt);
+    },
+  });
+  return tools;
 }

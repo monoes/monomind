@@ -25,7 +25,7 @@ const PLATFORM_CONFIG_FILES: Record<Platform, string[]> = {
   cursor:      ['.cursorrules', '.cursor/rules/monomind.mdc'],
   vscode:      ['.github/copilot-instructions.md'],
   copilot:     ['.github/copilot-instructions.md'],
-  opencode:    ['OpenCode.md'],
+  opencode:    ['AGENTS.md'],
   aider:       ['.aider.conf.yml'],
   kiro:        ['.kiro/steering/monomind.md'],
   trae:        ['.trae/rules/monomind.md'],

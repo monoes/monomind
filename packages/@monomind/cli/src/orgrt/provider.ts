@@ -43,6 +43,22 @@ export function resolveProviderEnv(
     }
     case 'bedrock': env.CLAUDE_CODE_USE_BEDROCK = '1'; delete env[KEY_VAR]; delete env.ANTHROPIC_AUTH_TOKEN; break;
     case 'vertex': env.CLAUDE_CODE_USE_VERTEX = '1'; delete env[KEY_VAR]; delete env.ANTHROPIC_AUTH_TOKEN; break;
+    case 'gemini': {
+      const name = cfg?.apiKeyEnv ?? 'GEMINI_API_KEY';
+      const key = parentEnv[name];
+      if (key) env.GEMINI_API_KEY = key;
+      delete env[KEY_VAR];
+      delete env.ANTHROPIC_AUTH_TOKEN;
+      break;
+    }
+    case 'openai': {
+      const name = cfg?.apiKeyEnv ?? 'OPENAI_API_KEY';
+      const key = parentEnv[name];
+      if (key) env.OPENAI_API_KEY = key;
+      delete env[KEY_VAR];
+      delete env.ANTHROPIC_AUTH_TOKEN;
+      break;
+    }
   }
   return env;
 }

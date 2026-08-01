@@ -1,0 +1,368 @@
+// packages/@monomind/cli/src/orgrt/kimicode-runner.ts
+/**
+ * KimiCodeAgentRunner — AgentRunner impl backed by the Kimi Code CLI.
+ *
+ * Architectural difference from ClaudeAgentRunner:
+ *   - Claude's `query()` runs the whole agent loop IN-PROCESS (tools execute
+ *     inside the same Node process as the daemon). That's why ClaudeAgentRunner
+ *     can register org tools (org_send, ask_human, …) directly via
+ *     createSdkMcpServer.
+ *   - Kimi Code has no embeddable SDK. The CLI is driven as a subprocess:
+ *     `kimi -p "<prompt>" --output-format stream-json` runs one non-interactive
+ *     turn and emits JSONL events on stdout (verified against kimi 0.29.2:
+ *     {"role":"assistant","content":...} per reply, then a
+ *     {"role":"meta","type":"session.resume_hint",session_id} event).
+ *     Session continuity comes from `--session <id>` on later turns.
+ *     ARG ORDER MATTERS: the prompt must immediately follow `-p` — flags in
+ *     between are consumed as the prompt text.
+ *
+ * Org tools (org_send, knowledge_search, ask_human, …) — FENCE PROTOCOL:
+ *   kimi's tool surface can only be extended via MCP servers or plugins, both
+ *   loaded by the CLI itself, not by an external caller per-turn. Instead the
+ *   tools are rendered INTO the role's system prompt: the model emits
+ *   ```tool_call fenced JSON blocks, this runner parses them out of the
+ *   assistant text, executes the real OrgToolDef handlers in-process (the same
+ *   handlers ClaudeAgentRunner registers with the SDK), and feeds the results
+ *   back as the next prompt IN THE SAME kimi session. Loop repeats until a
+ *   turn produces no tool calls (cap: MAX_TOOL_ROUNDS). Tool-call fences are
+ *   stripped from the text yielded to session.ts so the bus only sees prose.
+ *
+ * Usage accounting — WIRE FILE:
+ *   kimi's stream-json has no usage/result event, but every session writes
+ *   usage.record entries to $KIMI_CODE_HOME/sessions/<wd>/<session_id>/
+ *   agents/main/wire.jsonl. After each CLI turn this runner reads the new
+ *   entries written since each round started (timestamp-filtered, so a
+ *   resumed session's historical entries are never double-counted) and
+ *   attaches the summed tokens to the synthesized result message session.ts
+ *   needs for budget checks.
+ *
+ * Non-disturbance guarantees (mirrors the opencode integration):
+ *   - No new package dependency: the runner shells out to the `kimi` binary
+ *     via node:child_process; nothing is imported at module load time.
+ *   - The runner is only constructed when MONOMIND_RUNTIME=kimicode is set
+ *     (daemon.ts runner resolution). Without the env var, or without a `kimi`
+ *     binary on PATH, the Claude path is byte-for-byte unchanged and run()
+ *     rejects with a clear actionable error instead of crashing at import.
+ */
+
+import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
+import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+
+/** How long a single `kimi -p` invocation may run before we kill it (2 hours,
+ *  matching kimi's own subagent default). */
+const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+
+interface TurnOutcome {
+  /** Assistant texts with tool_call fences stripped. */
+  texts: string[];
+  /** Raw assistant texts (fences intact) for tool-call parsing. */
+  rawTexts: string[];
+  sessionId?: string;
+  exitCode: number;
+  stderrTail: string;
+  timedOut: boolean;
+}
+
+export class KimiCodeAgentRunner implements AgentRunner {
+  constructor(private kimiBin?: string) {}
+
+  async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
+    const bin = this.kimiBin || process.env.KIMI_CLI_BIN || 'kimi';
+
+    // The system prompt reaches kimi as an agent file (--agent-file binds the
+    // agent at session creation; resume restores it, so later turns only need
+    // --session). Written to a per-run temp dir and cleaned up in finally.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-'));
+    const agentFile = path.join(tmpDir, 'org-role.md');
+    fs.writeFileSync(agentFile,
+      `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n---\n\n` +
+      args.systemPrompt + buildToolProtocol(args.tools));
+
+    let sessionId: string | undefined = args.resume;
+
+    try {
+      for await (const p of args.prompt) {
+        const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
+        let nextPrompt = text;
+        let turnInputTokens = 0;
+        let turnOutputTokens = 0;
+
+        // Tool-call loop: keep driving the same kimi session until a turn
+        // produces no tool_call fences (or the round cap hits).
+        for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+          const roundStart = Date.now();
+          const outcome = await this.runTurn(bin, nextPrompt, sessionId, args, agentFile);
+          if (outcome.sessionId) sessionId = outcome.sessionId;
+
+          if (outcome.exitCode !== 0) {
+            throw turnError(outcome, round, bin);
+          }
+
+          for (const t of outcome.texts) {
+            if (t.trim()) yield { type: 'assistant', session_id: sessionId, text: t };
+          }
+
+          const usage = this.readUsageDelta(sessionId, args.env, roundStart);
+          turnInputTokens += usage.input;
+          turnOutputTokens += usage.output;
+
+          const calls = parseToolCalls(outcome.rawTexts);
+          if (calls.length === 0) break;
+
+          if (round === MAX_TOOL_ROUNDS) {
+            yield {
+              type: 'assistant',
+              session_id: sessionId,
+              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
+            };
+            break;
+          }
+
+          // Execute the real OrgToolDef handlers in-process and feed results
+          // back into the same kimi session as the next prompt.
+          const results: string[] = [];
+          for (const call of calls) {
+            results.push(await executeToolCall(args.tools, call));
+          }
+          nextPrompt = formatToolResults(calls, results);
+        }
+
+        // kimi emits no usage/result event, so synthesize one per mailbox
+        // prompt: session.ts uses result messages for usage accounting and
+        // budget checks, and other runners yield exactly one result per turn.
+        yield {
+          type: 'result',
+          session_id: sessionId,
+          subtype: 'success',
+          input_tokens: turnInputTokens,
+          output_tokens: turnOutputTokens,
+        };
+      }
+    } catch (err) {
+      // Spawn-level failure (binary missing) gets the opencode-style guidance.
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new Error(
+          'KimiCodeAgentRunner requires the Kimi Code CLI (kimi) on PATH. ' +
+          'Install it and log in, or unset MONOMIND_RUNTIME to use the Claude runner.',
+        );
+      }
+      throw err;
+    } finally {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+    }
+  }
+
+  /** Run one `kimi -p` invocation and normalize its stream-json output. */
+  private runTurn(
+    bin: string,
+    promptText: string,
+    sessionId: string | undefined,
+    args: AgentRunArgs,
+    agentFile: string,
+  ): Promise<TurnOutcome> {
+    return new Promise<TurnOutcome>((resolve, reject) => {
+      // ARG ORDER MATTERS: -p consumes the IMMEDIATELY following argument as
+      // the prompt. Putting flags in between (e.g. `-p --session <id> text`)
+      // makes kimi consume the flag as the prompt and fail with
+      // "unknown command". Prompt first, flags after.
+      const cliArgs: string[] = ['-p', promptText, '--output-format', 'stream-json'];
+      if (sessionId) {
+        cliArgs.push('--session', sessionId);
+      } else {
+        // First turn: bind the role's system prompt via --agent-file.
+        // (--agent-file and --session/--continue are mutually exclusive.)
+        cliArgs.push('--agent-file', agentFile);
+      }
+      // Model only on the first turn: the session binds it at creation and
+      // kimi rejects model changes on resume.
+      if (args.model && !sessionId) cliArgs.push('--model', args.model);
+
+      const child = spawn(bin, cliArgs, {
+        cwd: args.cwd,
+        env: {
+          ...process.env,
+          ...args.env,
+          // --agent-file (the role's system prompt) requires kimi's v2
+          // engine; without this the CLI exits 1 with
+          // "--agent-file is only available with the v2 engine".
+          KIMI_CODE_EXPERIMENTAL_FLAG: process.env.KIMI_CODE_EXPERIMENTAL_FLAG || '1',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      let stderrTail = '';
+      child.stderr?.on('data', (c: Buffer) => {
+        stderrTail = (stderrTail + c.toString()).slice(-4000);
+      });
+
+      // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+      // killed while we're still reading, not after it finishes.
+      let timedOut = false;
+      const KILL_GRACE_MS = 5000;
+      let killTimer: ReturnType<typeof setTimeout> | undefined;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGTERM');
+        // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
+        // escalate to SIGKILL after a short grace period.
+        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer.unref?.();
+      }, TURN_TIMEOUT_MS);
+
+      // Attach the exit promise BEFORE consuming stdout: on a spawn failure
+      // (ENOENT, bad binary) the 'error' event fires almost immediately —
+      // if no listener is attached yet it escapes as an unhandled 'error'
+      // event and crashes the process instead of reaching our catch block.
+      const exitPromise = new Promise<number>((res, rej) => {
+        child.on('error', rej);
+        child.on('close', (code) => res(code ?? 1));
+      });
+      // Prevent an unhandled-rejection crash if the stdout loop below throws
+      // before we await exitPromise (the await still sees the rejection).
+      exitPromise.catch(() => {});
+
+      (async () => {
+        let buf = '';
+        const lines: string[] = [];
+        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+          buf += chunk.toString();
+          const parts = buf.split('\n');
+          buf = parts.pop() ?? '';
+          for (const line of parts) lines.push(line);
+        }
+        if (buf.trim()) lines.push(buf);
+        return lines;
+      })().then((lines) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ lines, exitCode })))
+        .then(({ lines, exitCode }) => {
+          const parsed = parseStreamJsonLines(lines);
+          resolve({
+            texts: parsed.texts,
+            rawTexts: parsed.rawTexts,
+            sessionId: parsed.sessionId ?? sessionId,
+            exitCode,
+            stderrTail,
+            timedOut,
+          });
+        }, reject);
+    });
+  }
+
+  /**
+   * Sum usage.record entries in the session's wire.jsonl written at or after
+   * `since` (the round's start time). Timestamp filtering (not line offsets)
+   * is what makes resume safe: a resumed session's wire file already contains
+   * historical entries from previous processes, and those must not be
+   * double-counted. Returns zeros when the wire file can't be found — usage
+   * reporting must never break a turn.
+   */
+  private readUsageDelta(sessionId: string | undefined, env: Record<string, string>, since: number): { input: number; output: number } {
+    if (!sessionId) return { input: 0, output: 0 };
+    try {
+      const home = env.KIMI_CODE_HOME || process.env.KIMI_CODE_HOME || path.join(os.homedir(), '.kimi-code');
+      const sessionsDir = path.join(home, 'sessions');
+      const wirePath = findWireFile(sessionsDir, sessionId);
+      if (!wirePath) return { input: 0, output: 0 };
+
+      const lines = fs.readFileSync(wirePath, 'utf-8').split('\n').filter(Boolean);
+      let input = 0, output = 0;
+      for (const line of lines) {
+        let ev: Record<string, unknown>;
+        try { ev = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+        if (ev.type !== 'usage.record') continue;
+        if (typeof ev.time === 'number' && ev.time < since) continue;
+        const u = (ev.usage ?? {}) as Record<string, number>;
+        input += (u.inputOther ?? 0) + (u.inputCacheRead ?? 0) + (u.inputCacheCreation ?? 0);
+        output += u.output ?? 0;
+      }
+      return { input, output };
+    } catch {
+      return { input: 0, output: 0 };
+    }
+  }
+}
+
+/** Locate $KIMI_CODE_HOME/sessions/<wd>/<sessionId>/agents/main/wire.jsonl.
+ *  The wd_ directory name is a hash of the cwd — scan one level instead of
+ *  reimplementing the hash. */
+function findWireFile(sessionsDir: string, sessionId: string): string | null {
+  let wds: string[];
+  try { wds = fs.readdirSync(sessionsDir); } catch { return null; }
+  for (const wd of wds) {
+    const candidate = path.join(sessionsDir, wd, sessionId, 'agents', 'main', 'wire.jsonl');
+    try { if (fs.statSync(candidate).isFile()) return candidate; } catch { /* keep looking */ }
+  }
+  return null;
+}
+
+/**
+ * Parse kimi stream-json lines into normalized texts + session id.
+ * Exported for unit tests — this encodes the wire format verified against
+ * kimi 0.29.2, and a CLI format change should fail loudly in CI, not silently
+ * starve an org at runtime.
+ *
+ * Real shapes (verified):
+ *   {"role":"assistant","content":"..."}                 — reply text
+ *   {"role":"assistant","content":[{"type":"text",...}]} — block form
+ *   {"role":"meta","type":"session.resume_hint",session_id} — resume hint
+ *   {"role":"tool",...}                                  — tool progress (ignored)
+ */
+export function parseStreamJsonLines(lines: string[]): { texts: string[]; rawTexts: string[]; sessionId?: string } {
+  const texts: string[] = [];
+  const rawTexts: string[] = [];
+  let sessionId: string | undefined;
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t || !t.startsWith('{')) continue;
+    let ev: Record<string, unknown>;
+    try { ev = JSON.parse(t) as Record<string, unknown>; } catch { continue; }
+
+    // Capture the session id from ANY event that carries it — resume needs it
+    // on the next turn.
+    const sid = (ev.session_id ?? ev.sessionId ?? (ev.session as Record<string, unknown> | undefined)?.id) as string | undefined;
+    if (sid && typeof sid === 'string') sessionId = sid;
+
+    const role = (ev.role ?? ev.type) as string | undefined;
+    if (role === 'assistant') {
+      const content = ev.content ?? (ev.message as Record<string, unknown> | undefined)?.content;
+      let text = '';
+      if (typeof content === 'string') {
+        text = content;
+      } else if (Array.isArray(content)) {
+        text = content
+          .filter((b: Record<string, unknown>) => b?.type === 'text')
+          .map((b: Record<string, unknown>) => String(b.text ?? ''))
+          .join('\n');
+      } else if (typeof ev.text === 'string') {
+        text = ev.text;
+      }
+      if (text) {
+        rawTexts.push(text);
+        const stripped = text.replace(TOOL_CALL_RE, '').trim();
+        if (stripped) texts.push(stripped);
+      }
+    }
+  }
+  return { texts, rawTexts, sessionId };
+}
+
+/** Build the actionable error for a failed CLI turn. */
+function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
+  if (outcome.timedOut) {
+    return new Error(
+      `KimiCodeAgentRunner: kimi turn (tool round ${round}) exceeded the ${Math.round(TURN_TIMEOUT_MS / 60000)}min ` +
+      `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+    );
+  }
+  const hint = bin === 'kimi' || bin.endsWith('/kimi')
+    ? ' Is the Kimi Code CLI installed and logged in (kimi --version, /login)?'
+    : '';
+  return new Error(
+    `KimiCodeAgentRunner: kimi exited with code ${outcome.exitCode} (tool round ${round}).${hint}` +
+    (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+  );
+}
