@@ -30,7 +30,7 @@
 
 ## What is Monomind?
 
-Monomind is an **open-source CLI and MCP server** that plugs into Claude Code via the standard [Model Context Protocol](https://modelcontextprotocol.io/). It adds capabilities that Claude Code doesn't ship with out of the box:
+Monomind is an **open-source CLI and MCP server** that plugs into Claude Code (and [opencode](https://opencode.ai) / Antigravity) via the standard [Model Context Protocol](https://modelcontextprotocol.io/). It adds capabilities these assistants don't ship with out of the box:
 
 - **Codebase knowledge graph** — tree-sitter parses your code into a SQLite-backed graph of files, functions, classes, and their relationships. Query imports, callers, and blast radius before making changes.
 - **Persistent memory** — a JSON pattern store with episodic recall that survives across sessions. Agents and orgs share context without re-prompting.
@@ -42,6 +42,28 @@ npm install -g monomind        # MIT licensed, runs entirely on your machine
 cd your-project && monomind init
 claude mcp add monomind -- npx -y monomind@latest mcp start
 ```
+
+<details>
+<summary><strong>Using opencode or Antigravity instead?</strong></summary>
+
+```bash
+monomind init --opencode       # emits opencode.json + .opencode/ alongside Claude/Antigravity output
+```
+
+`--opencode` is additive — it never touches your `.claude/` or `.gemini/` config. You get the same MCP tools, agent roster, commands, skills, and security gates, plus a `/monomind-status` command (opencode has no custom statusbar, so the statusline is on-demand). See [opencode guide →](doc/concepts/opencode.md).
+
+</details>
+
+<details>
+<summary><strong>Using Kimi Code instead?</strong></summary>
+
+```bash
+monomind init --kimicode       # emits .kimi-code/ + AGENTS.md alongside Claude/Antigravity output
+```
+
+`--kimicode` is additive — it never touches your `.claude/` or `.gemini/` config. You get the same MCP tools, agent roster, skills, and commands (as project-level flow skills). Install the generated plugin once for `/monomind:*` slash commands and security gates: `/plugins install ./.kimi-code/plugin`. See [Kimi Code guide →](doc/concepts/kimicode.md).
+
+</details>
 
 ### Trust & Security
 
