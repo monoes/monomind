@@ -35,6 +35,7 @@ For slash commands and security gates, install the generated plugin once:
 | **Commands** | Two forms: (a) `.kimi-code/skills/<cat>-<name>/` as `type: flow` skills — invocable project-level via `/skill:<cat>-<name>` with zero install; (b) `.kimi-code/plugin/commands/*.md` — real `/monomind:*` slash commands once the plugin is installed. |
 | **Security gates** | `.kimi-code/plugin/hooks/monomind-gate.mjs` — a bridge that runs monomind's existing pre-bash / pre-write gate handlers (destructive-op blocking, secret detection) through kimi's `PreToolUse` hook event. Active while the plugin is enabled; disabling the plugin disables enforcement. |
 | **Instructions** | `AGENTS.md` (kimi's `CLAUDE.md` equivalent) + the shared `.agents/shared_instructions.md`, both auto-loaded. Skip-if-exists: a hand-written or opencode-generated AGENTS.md is never overwritten without `--force`. |
+| **Status bar** | `~/.kimi-code/statusline.sh` + `[status_line].command` merged into `~/.kimi-code/tui.toml` (only when `~/.kimi-code/` already exists, i.e. you actually run kimi; your own `command` setting is never clobbered). Shows the monomind statusline under the chatbox — version, routing, git, swarm state — driven by the project's `.claude/helpers/statusline.cjs`. |
 
 ---
 

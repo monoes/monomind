@@ -61,7 +61,7 @@ monomind init --opencode       # emits opencode.json + .opencode/ alongside Clau
 monomind init --kimicode       # emits .kimi-code/ + AGENTS.md alongside Claude/Antigravity output
 ```
 
-`--kimicode` is additive — it never touches your `.claude/` or `.gemini/` config. You get the same MCP tools, agent roster, skills, and commands (as project-level flow skills). Install the generated plugin once for `/monomind:*` slash commands and security gates: `/plugins install ./.kimi-code/plugin`. See [Kimi Code guide →](doc/concepts/kimicode.md).
+`--kimicode` is additive — it never touches your `.claude/` or `.gemini/` config. You get the same MCP tools, agent roster, skills, and commands (as project-level flow skills). Install the generated plugin once for `/monomind:*` slash commands and security gates: `/plugins install ./.kimi-code/plugin`. If `~/.kimi-code/` exists, init also wires the monomind status bar into kimi's footer. See [Kimi Code guide →](doc/concepts/kimicode.md).
 
 </details>
 
