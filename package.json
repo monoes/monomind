@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "2.8.1",
+  "version": "2.8.2",
   "description": "Open-source CLI extension for Claude Code and Antigravity (agy). Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. MIT licensed, runs locally, no data leaves your machine.",
   "type": "module",
   "bin": {
