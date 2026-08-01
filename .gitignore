@@ -262,7 +262,6 @@ target/
 target/
 .playwright-mcp/
 GRAPH_REPORT.md
-
 # LanceDB runtime database files
 *.rvf
 *.rvf.lock
