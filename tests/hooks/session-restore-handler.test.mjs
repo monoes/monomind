@@ -218,8 +218,10 @@ describe('session-restore-handler', () => {
   });
 
   it('suppresses [STALE_HELPERS] when running inside the monomind dev repo', async () => {
-    // Create the dev-repo sentinel: packages/@monomind/cli/package.json
-    fs.mkdirSync(path.join(tmpDir, 'packages', '@monomind', 'cli'), { recursive: true });
+    // Create the dev-repo sentinels the handler checks for: BOTH
+    // packages/@monomind/cli/package.json AND packages/@monomind/cli/.claude/helpers.
+    // The handler requires both to avoid false positives; the real dev repo has both.
+    fs.mkdirSync(path.join(tmpDir, 'packages', '@monomind', 'cli', '.claude', 'helpers'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, 'packages', '@monomind', 'cli', 'package.json'), '{"version":"1.0.0"}');
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);

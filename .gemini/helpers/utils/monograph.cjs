@@ -1,0 +1,709 @@
+'use strict';
+// Extracted from hook-handler.cjs — monograph graph helpers.
+// All functions are stateless except for the module-level DB cache.
+
+const path = require('path');
+const fs = require('fs');
+
+const { _getRecentEdits } = require('./telemetry.cjs');
+
+const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+
+// Node's require(esm) support (used below to load @monoes/monograph's ESM
+// entry file) unconditionally prints an ExperimentalWarning to stderr the
+// first time it fires per process. That warning can't be try/caught since
+// it's emitted via process.emitWarning, not thrown — and Claude Code's hook
+// runner surfaces any stderr output as a scary "hook error" even though the
+// hook itself succeeds. Filter out just that one warning; let others through.
+var _origEmitWarning = process.emitWarning;
+process.emitWarning = function (warning) {
+  if (typeof warning === 'string' && /CommonJS module .* is loading ES Module/.test(warning)) return;
+  return _origEmitWarning.apply(process, arguments);
+};
+
+// @monoes/monograph is "type":"module" with an exports map that has no
+// "require" condition — a bare `require('@monoes/monograph')` (or
+// require() of its package directory) always throws "No exports main
+// defined", regardless of whether the package is actually installed.
+// require()-ing the package's *resolved entry file* directly bypasses the
+// exports-map restriction and works via Node's require(esm) support (this
+// codebase targets Node 20+, which has it). Reads the entry path from the
+// package's own package.json instead of hardcoding "dist/src/index.js" so
+// this survives a future monograph dist-layout change.
+function _resolvePkgEntryFile(pkgDir) {
+  try {
+    var pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf-8'));
+    var entry = (pkg.exports && pkg.exports['.'] && (pkg.exports['.'].import || pkg.exports['.'].default)) || pkg.main;
+    if (!entry) return null;
+    var full = path.join(pkgDir, entry);
+    return fs.existsSync(full) ? full : null;
+  } catch (e) { return null; }
+}
+
+function _requireMonograph() {
+  var candidates = [
+    path.join(CWD, 'node_modules/.pnpm/node_modules/@monoes/monograph'),
+    path.join(CWD, 'packages/node_modules/.pnpm/node_modules/@monoes/monograph'),
+    path.join(CWD, 'node_modules/@monoes/monograph'),
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    var entry = fs.existsSync(candidates[i]) ? _resolvePkgEntryFile(candidates[i]) : null;
+    if (entry) { try { return require(entry); } catch (e) {} }
+  }
+  // Ancestor-directory search — the equivalent of bare `require('@monoes/
+  // monograph')`'s own node_modules walk, needed since that call form can
+  // never succeed against this package's exports map.
+  var dir = CWD;
+  for (;;) {
+    var pkgDir = path.join(dir, 'node_modules', '@monoes', 'monograph');
+    var entry = fs.existsSync(pkgDir) ? _resolvePkgEntryFile(pkgDir) : null;
+    if (entry) { try { return require(entry); } catch (e) {} break; }
+    var parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+// Memoized at module scope — opening monograph.db can take 7-10s.
+// Callers MUST NOT close the returned handle.
+var _cachedMonographDb = undefined;
+
+// LRU cache for getMonographSuggestions: avoids re-querying the DB for
+// the same task text within a single hook execution process lifetime.
+// Max 20 entries; evicts the least-recently-used on overflow.
+var _suggestCache = { _map: Object.create(null), _order: [], _max: 20 };
+function _suggestCacheGet(key) {
+  if (key in _suggestCache._map) {
+    // Move to end (most recently used)
+    var idx = _suggestCache._order.indexOf(key);
+    if (idx !== -1) { _suggestCache._order.splice(idx, 1); _suggestCache._order.push(key); }
+    return _suggestCache._map[key];
+  }
+  return undefined;
+}
+function _suggestCacheSet(key, value) {
+  if (!(key in _suggestCache._map)) {
+    if (_suggestCache._order.length >= _suggestCache._max) {
+      var evict = _suggestCache._order.shift();
+      delete _suggestCache._map[evict];
+    }
+    _suggestCache._order.push(key);
+  }
+  _suggestCache._map[key] = value;
+}
+function _isValidDb(p) {
+  try { return fs.statSync(p).size >= 100; } catch (_) { return false; }
+}
+
+function _resolveDbPath() {
+  // monolean: try CWD first, then git root, so hooks work from any subdirectory
+  var candidate = path.join(CWD, '.monomind', 'monograph.db');
+  if (_isValidDb(candidate)) return candidate;
+  try {
+    var { execSync } = require('child_process');
+    var root = execSync('git rev-parse --show-toplevel', { cwd: CWD, encoding: 'utf-8', timeout: 2000 }).trim();
+    candidate = path.join(root, '.monomind', 'monograph.db');
+    if (_isValidDb(candidate)) return candidate;
+  } catch (_) {}
+  return null;
+}
+
+function _openMonographDb() {
+  if (_cachedMonographDb !== undefined) return _cachedMonographDb;
+  try {
+    var dbPath = _resolveDbPath();
+    if (!dbPath) { _cachedMonographDb = null; return null; }
+    var mod = _requireMonograph();
+    if (!mod || !mod.openDb) { _cachedMonographDb = null; return null; }
+    _cachedMonographDb = mod.openDb(dbPath);
+    return _cachedMonographDb;
+  } catch (e) { _cachedMonographDb = null; return null; }
+}
+
+function getMonographSuggestions(taskText, limit) {
+  if (!taskText || typeof taskText !== 'string') return [];
+  // Fast path: return cached result for repeated identical queries.
+  var cacheKey = taskText.slice(0, 200) + '|' + (limit || 5);
+  var cached = _suggestCacheGet(cacheKey);
+  if (cached !== undefined) return cached;
+  var db = _openMonographDb();
+  if (!db) return [];
+  try {
+    var words = String(taskText).toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
+    var stop = { 'this':1,'that':1,'with':1,'from':1,'have':1,'into':1,'their':1,'what':1,'when':1,'where':1,'which':1,'should':1,'would':1,'could':1,'make':1,'just':1,'also':1,'them':1,'they':1,'will':1,'been':1,'were':1,'because':1,'about':1,'does':1,'work':1,'else':1,'more':1,'some':1,'like':1,'need':1,'want':1,'used':1,'using':1,'please':1,'thanks':1,'good':1,'great':1,'nice':1,'thing':1,'things':1,'better':1,'again':1,'first':1,'then':1,'only':1,'even':1 };
+    var uniq = {};
+    for (var i = 0; i < words.length; i++) if (!stop[words[i]]) uniq[words[i]] = 1;
+    var keys = Object.keys(uniq).slice(0, 8);
+    var isSymbolLookup = taskText.length <= 30 && /^[a-zA-Z0-9_\-./:]+$/.test(taskText.trim());
+    if (keys.length === 0) return [];
+    if (keys.length < 2 && !isSymbolLookup) return [];
+
+    var ftsQuery = keys.map(function(k){ return '"' + k.replace(/"/g, '') + '"'; }).join(' OR ');
+    var lim = Math.max(1, limit || 5);
+    var rows = [];
+    try {
+      rows = db.prepare(
+        'SELECT n.id, n.name, n.label, n.file_path AS file, n.start_line AS startLine, ' +
+        'bm25(nodes_fts) AS bm25_score, ' +
+        '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg, ' +
+        'CASE n.label WHEN \'File\' THEN 3 WHEN \'Function\' THEN 3 WHEN \'Class\' THEN 3 ' +
+        '             WHEN \'Method\' THEN 2 WHEN \'Interface\' THEN 2 ELSE 1 END AS label_rank ' +
+        'FROM nodes_fts f JOIN nodes n ON f.rowid = n.rowid ' +
+        'WHERE nodes_fts MATCH ? AND n.file_path IS NOT NULL AND n.file_path != \'\' ' +
+        'AND n.label NOT IN (\'Concept\') ' +
+        'AND n.name NOT LIKE \'(%\' AND n.name NOT LIKE \'%=>%\' AND n.name != \'function\' ' +
+        'AND length(n.name) >= 3 ' +
+        'ORDER BY label_rank DESC, bm25_score ASC, deg DESC LIMIT ?'
+      ).all(ftsQuery, lim);
+    } catch (e) {
+      var likeFrag = keys.map(function(){ return 'lower(n.name) LIKE ?'; }).join(' OR ');
+      var likeArgs = keys.map(function(k){ return '%' + k + '%'; });
+      var stmt = db.prepare(
+        'SELECT n.id, n.name, n.label, n.file_path AS file, n.start_line AS startLine, ' +
+        '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
+        'FROM nodes n WHERE (' + likeFrag + ') AND n.file_path IS NOT NULL AND n.file_path != \'\' ' +
+        'AND n.label NOT IN (\'Concept\') ' +
+        'ORDER BY deg DESC LIMIT ?'
+      );
+      rows = stmt.all.apply(stmt, likeArgs.concat([lim]));
+    }
+    var result = rows || [];
+    _suggestCacheSet(cacheKey, result);
+    return result;
+  } catch (e) { return []; }
+  finally { /* db is shared/cached; do not close */ }
+}
+
+function getMonographNeighbors(filePath) {
+  if (!filePath) return null;
+  var db = _openMonographDb();
+  if (!db) return null;
+  try {
+    var rel = filePath;
+    if (filePath.indexOf(CWD) === 0) rel = filePath.slice(CWD.length + 1);
+    var node = db.prepare(
+      'SELECT id, name FROM nodes WHERE label=\'File\' AND (file_path=? OR file_path=? OR name=? OR name=?) LIMIT 1'
+    ).get(filePath, rel, filePath, rel);
+    if (!node) return null;
+
+    var imports = db.prepare(
+      'SELECT DISTINCT n.name FROM edges e JOIN nodes n ON e.target_id = n.id ' +
+      'WHERE e.source_id=? AND e.relation IN (\'IMPORTS\',\'CALLS\',\'DEPENDS_ON\',\'CONTAINS\',\'DEFINES\') ' +
+      'AND n.file_path IS NOT NULL AND n.file_path != \'\' LIMIT 6'
+    ).all(node.id).map(function(r){ return r.name; });
+    var importedBy = db.prepare(
+      'SELECT DISTINCT n.name FROM edges e JOIN nodes n ON e.source_id = n.id ' +
+      'WHERE e.target_id=? AND e.relation IN (\'IMPORTS\',\'CALLS\',\'DEPENDS_ON\',\'CONTAINS\',\'DEFINES\') ' +
+      'AND n.file_path IS NOT NULL AND n.file_path != \'\' LIMIT 6'
+    ).all(node.id).map(function(r){ return r.name; });
+
+    return { imports: imports, importedBy: importedBy };
+  } catch (e) { return null; }
+  finally { /* db is shared/cached; do not close */ }
+}
+
+var _TOKEN_PER_EVENT = {
+  monograph_call:  300,
+  grep_call:      2000,
+  glob_call:       800,
+  bash_grep_call: 2000,
+  bash_find_call:  800,
+};
+
+// $/M input tokens by model family — Opus sessions save 5x more per graph hit
+var _DOLLAR_RATES = { opus: 15.0, sonnet: 3.0, haiku: 0.25 };
+var _cachedDollarRate = undefined;
+function _rateFromModel(id) {
+  if (id.includes('opus')) return _DOLLAR_RATES.opus;
+  if (id.includes('haiku')) return _DOLLAR_RATES.haiku;
+  if (id.includes('sonnet') || id.includes('fable')) return _DOLLAR_RATES.sonnet;
+  return null;
+}
+function _getDollarRate() {
+  if (_cachedDollarRate !== undefined) return _cachedDollarRate;
+  // 1. Env vars (set by some launchers)
+  var envModel = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_CODE_MODEL || '';
+  var r = _rateFromModel(envModel);
+  if (r) { _cachedDollarRate = r; return r; }
+  // 2. Project settings.json — the configured session model
+  try {
+    var settingsPaths = [
+      path.join(CWD, '.claude', 'settings.json'),
+      path.join(CWD, '.claude', 'settings.local.json'),
+    ];
+    for (var i = 0; i < settingsPaths.length; i++) {
+      var s = JSON.parse(fs.readFileSync(settingsPaths[i], 'utf-8'));
+      if (s.model) { r = _rateFromModel(s.model); if (r) { _cachedDollarRate = r; return r; } }
+    }
+  } catch(e) {}
+  _cachedDollarRate = _DOLLAR_RATES.sonnet;
+  return _cachedDollarRate;
+}
+
+// Staleness guard — skip graph DB lookups when the index is too far behind HEAD.
+// Returns true if it's safe to use the graph, false if stale.
+// Uses last_commit_hash from the DB (not file mtime, which drifts from backups/WAL/VACUUM).
+var _graphFreshnessCache = undefined;
+function _isGraphFresh() {
+  if (_graphFreshnessCache !== undefined) return _graphFreshnessCache;
+  try {
+    var db = _openMonographDb();
+    if (!db) { _graphFreshnessCache = false; return false; }
+    var row = null;
+    try {
+      row = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get() ||
+            db.prepare("SELECT value FROM index_meta WHERE key='lastCommit'").get();
+    } catch (_) {}
+    if (!row || !row.value) {
+      _graphFreshnessCache = false;
+      return false;
+    }
+    if (!/^[0-9a-f]{7,40}$/i.test(row.value)) {
+      _graphFreshnessCache = false;
+      return false;
+    }
+    var { execFileSync } = require('child_process');
+    var out = execFileSync('git', ['rev-list', '--count', row.value + '..HEAD'], {
+      encoding: 'utf-8', timeout: 1500, stdio: ['pipe', 'pipe', 'pipe'], cwd: CWD
+    }).trim();
+    var behind = parseInt(out, 10);
+    if (isNaN(behind)) { _graphFreshnessCache = false; return false; }
+    _graphFreshnessCache = behind <= 50;
+  } catch(e) {
+    // Don't cache transient errors — let next call retry
+    return false;
+  }
+  return _graphFreshnessCache;
+}
+
+function _recordGraphTelemetry(event) {
+  try {
+    var metricsDir = path.join(CWD, '.monomind', 'metrics');
+    var f = path.join(metricsDir, 'graph-usage.json');
+    fs.mkdirSync(metricsDir, { recursive: true });
+    var d = {};
+    try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (e) {}
+    if (typeof d !== 'object' || d === null) d = {};
+    d[event] = (d[event] || 0) + 1;
+    if (event === 'monograph_call' || event === 'preresolve_hit' || event === 'graph_assist_search' || event === 'graph_assist_neighbors') {
+      var saved = (_TOKEN_PER_EVENT.grep_call - _TOKEN_PER_EVENT.monograph_call);
+      d.tokens_saved = (d.tokens_saved || 0) + saved;
+      d.dollars_saved = (d.tokens_saved / 1000000) * _getDollarRate();
+    }
+    if (event === 'grep_call' || event === 'bash_grep_call') {
+      var wasted = (_TOKEN_PER_EVENT.grep_call - _TOKEN_PER_EVENT.monograph_call);
+      d.tokens_wasted = (d.tokens_wasted || 0) + wasted;
+    }
+    d.lastUpdated = Date.now();
+    fs.writeFileSync(f, JSON.stringify(d));
+  } catch (e) { /* non-fatal */ }
+}
+
+// ─── Graph gate ─────────────────────────────────────────────────────────────
+// The pre-search/pre-bash heuristic assist above silently resolves Grep/Bash
+// patterns against the graph and counts that as a "graph win" even when the
+// agent never actually called monograph_query — so the graph-usage % can look
+// healthy while zero real monograph_call events ever fire. This gate forces
+// at least one real monograph_query/monograph_suggest call per session before
+// Grep/Glob/bash grep|find are allowed, by hard-blocking (exitCode 2) the
+// first such call each session. Capped at ONE block per session (never a
+// second) so a subagent with no monograph MCP tool access can't deadlock.
+function _graphGateStateFile() {
+  return path.join(CWD, '.monomind', 'graph-gate-state.json');
+}
+
+// State is a per-session MAP ({ sessions: { [id]: {queried, blockedOnce, ts} } }).
+// It used to be a single {sessionId,...} record — with two Claude sessions open
+// on the same project, each session's grep clobbered the other's latch, so the
+// "once per session" cap ping-ponged into blocking every call in both sessions.
+// Legacy single-record files are migrated on read; entries are pruned to the
+// 20 most recent so the file can't grow unbounded.
+function _graphGateReadSessions() {
+  var d = {};
+  try { d = JSON.parse(fs.readFileSync(_graphGateStateFile(), 'utf-8')); } catch (e) {}
+  if (typeof d !== 'object' || d === null) d = {};
+  var sessions = (typeof d.sessions === 'object' && d.sessions !== null) ? d.sessions : {};
+  if (d.sessionId) { // legacy single-record shape — fold it in
+    sessions[d.sessionId] = { queried: !!d.queried, blockedOnce: !!d.blockedOnce, ts: Date.now() };
+  }
+  return sessions;
+}
+
+// Atomic replace: write a per-process temp file, then rename() over the
+// target. rename() within a directory is atomic on POSIX and on Windows via
+// Node's fs, so a concurrent reader sees either the old file or the new one
+// — never a half-written one. (The previous plain writeFileSync truncated
+// the live file first, so a reader could observe a truncated/torn document.)
+function _graphGateWriteSessions(sessions) {
+  var ids = Object.keys(sessions);
+  if (ids.length > 20) {
+    ids.sort(function (a, b) { return (sessions[a].ts || 0) - (sessions[b].ts || 0); });
+    for (var i = 0; i < ids.length - 20; i++) delete sessions[ids[i]];
+  }
+  var dir = path.join(CWD, '.monomind');
+  fs.mkdirSync(dir, { recursive: true });
+  var target = _graphGateStateFile();
+  var tmp = target + '.' + process.pid + '.' + Math.random().toString(36).slice(2, 8) + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify({ sessions: sessions }));
+    fs.renameSync(tmp, target);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch (_) {}
+    throw e;
+  }
+}
+
+// Cross-process advisory lock around the read-modify-write above.
+//
+// Three concurrent paths touch this state (pre-bash, pre-search, and
+// post-graph-tool's markQueried), each in its own short-lived process. Without
+// a lock, two of them read the same snapshot and the second write erases the
+// first — measured: 12 concurrent writers landed as few as 6 of 12 session
+// records. A lost `queried:true` re-blocks a session that already called
+// monograph; a lost `blockedOnce` can block it a second time.
+//
+// mkdir is the atomic primitive (works on every platform and over network FS).
+// The lock is best-effort: if it can't be taken within the budget, or a stale
+// one is reclaimed, we still perform an atomic-rename write — no worse than the
+// old behavior, and never a hang. Hooks run on every tool call, so the total
+// wait is deliberately tiny.
+// The acquire budget MUST exceed the stale threshold. It used to be 250ms
+// against a 2000ms stale window, which had two consequences:
+//
+//   1. A writer that could not get the lock within 250ms gave up and wrote
+//      UNLOCKED — precisely the lost-update this lock exists to prevent. CI
+//      landed 9 of 16 concurrent writers; a fast machine hides it, because the
+//      critical section is microseconds and the budget is never exhausted.
+//   2. The stale-reclaim branch below was nearly unreachable. Reclaiming needs
+//      the lock to be older than 2000ms, but we stopped waiting after 250ms, so
+//      a crashed holder's lock was almost never actually reclaimed.
+//
+// With the budget above the stale window both paths work: a live holder is
+// waited out (its critical section is a single read-modify-write), and a dead
+// holder's lock is reclaimed at 2s and then taken. The waiting only happens
+// under real contention — an uncontended acquire is one mkdir.
+var _GRAPH_GATE_LOCK_STALE_MS = 2000;
+var _GRAPH_GATE_LOCK_TIMEOUT_MS = 3000;
+
+function _sleepSync(ms) {
+  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch (e) { /* no SAB */ }
+}
+
+function _graphGateAcquireLock() {
+  var lockDir = _graphGateStateFile() + '.lock';
+  var deadline = Date.now() + _GRAPH_GATE_LOCK_TIMEOUT_MS;
+  var held = false;
+  for (;;) {
+    try {
+      fs.mkdirSync(lockDir);
+      held = true;
+      break;
+    } catch (e) {
+      if (e && e.code !== 'EEXIST') break; // can't lock at all — proceed unlocked
+      try {
+        var st = fs.statSync(lockDir);
+        if (Date.now() - st.mtimeMs > _GRAPH_GATE_LOCK_STALE_MS) {
+          fs.rmSync(lockDir, { recursive: true, force: true }); // crashed holder
+          continue;
+        }
+      } catch (_) { continue; } // lock vanished — retry immediately
+      if (Date.now() >= deadline) break; // give up; write unlocked
+      _sleepSync(5);
+    }
+  }
+  return function release() {
+    if (!held) return;
+    try { fs.rmSync(lockDir, { recursive: true, force: true }); } catch (_) {}
+  };
+}
+
+/**
+ * Read-modify-write one session's entry under the lock. `mutate(s, ctx)`
+ * receives the session record (created if absent) and mutates it in place; its
+ * return value is passed through to the caller. A mutator that changed nothing
+ * can call `ctx.noWrite()` to skip the write entirely (the common read-only
+ * case: a session that already called monograph).
+ */
+function _graphGateUpdateSession(sessionId, mutate) {
+  var release = _graphGateAcquireLock();
+  try {
+    var sessions = _graphGateReadSessions();
+    var s = sessions[sessionId] || { queried: false, blockedOnce: false };
+    var write = true;
+    var out = mutate(s, { noWrite: function () { write = false; } });
+    if (!write) return out;
+    s.ts = Date.now();
+    sessions[sessionId] = s;
+    _graphGateWriteSessions(sessions);
+    return out;
+  } finally {
+    release();
+  }
+}
+
+function _graphGateMarkQueried(sessionId) {
+  if (!sessionId) return;
+  try {
+    _graphGateUpdateSession(sessionId, function (s) { s.queried = true; });
+  } catch (e) { /* non-fatal */ }
+}
+
+// Returns 'block' (hard block, exitCode 2), 'warn' (allow but remind), or false (no action).
+function _graphGateShouldBlock(sessionId) {
+  if (String(process.env.MONOMIND_GRAPH_GATE || '').toLowerCase() === 'off') return false;
+  if (!sessionId || !_isGraphFresh()) return false;
+  // Test-and-set blockedOnce atomically: two concurrent greps in the same
+  // session must not both observe blockedOnce=false and both block.
+  try {
+    return _graphGateUpdateSession(sessionId, function (s, ctx) {
+      if (s.queried) { ctx.noWrite(); return false; }
+      if (!s.blockedOnce) {
+        s.blockedOnce = true;
+        return 'block';
+      }
+      // Already blocked once but monograph still not called — warn without
+      // blocking so subagents without MCP access don't deadlock.
+      ctx.noWrite();
+      return 'warn';
+    });
+  } catch (e) {
+    return false; // state unreadable/unwritable — never block on a state error
+  }
+}
+
+function _getNodeCount() {
+  try {
+    var db = _openMonographDb();
+    if (!db) return null;
+    try { return db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c; }
+    finally { db.close(); }
+  } catch (e) { return null; }
+}
+
+function _injectCompactGraphMap() {
+  try {
+    var db = _openMonographDb();
+    if (!db) return;
+    try {
+      var nodeC = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
+      var anchors = [];
+      var seenPaths = {};
+
+      var recentEdits = _getRecentEdits();
+      for (var ri = 0; ri < Math.min(recentEdits.length, 5); ri++) {
+        var rfile = recentEdits[ri].file;
+        // Resolve to absolute for DB lookup (DB stores absolute paths); also keep relative for OR clause
+        var rabs = path.isAbsolute(rfile) ? rfile : path.join(CWD, rfile);
+        var rrel = (rabs.indexOf(CWD) === 0) ? rabs.slice(CWD.length + 1) : rabs;
+        try {
+          var rnode = db.prepare(
+            'SELECT n.name, n.label, n.file_path, ' +
+            '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
+            'FROM nodes n WHERE n.label=\'File\' AND (n.file_path=? OR n.file_path=?) LIMIT 1'
+          ).get(rabs, rrel);
+          if (rnode && !seenPaths[rnode.file_path]) {
+            seenPaths[rnode.file_path] = 1;
+            anchors.push({ name: rnode.name, label: rnode.label, file_path: rnode.file_path, deg: rnode.deg, tag: '✎' });
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      if (anchors.length < 8) {
+        var gods = db.prepare(
+          'SELECT n.name, n.label, n.file_path, ' +
+          '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
+          'FROM nodes n ' +
+          'WHERE n.label NOT IN (\'Concept\') AND n.file_path IS NOT NULL AND n.file_path != \'\' ' +
+          'AND n.file_path NOT LIKE \'%/node_modules/%\' AND n.file_path NOT LIKE \'%node_modules%\' ' +
+          'AND n.name NOT LIKE \'(%\' AND n.name NOT LIKE \'%=>%\' AND length(n.name) >= 3 ' +
+          'ORDER BY deg DESC LIMIT 15'
+        ).all();
+        for (var gi = 0; gi < gods.length && anchors.length < 8; gi++) {
+          if (!seenPaths[gods[gi].file_path]) {
+            seenPaths[gods[gi].file_path] = 1;
+            anchors.push({ name: gods[gi].name, label: gods[gi].label, file_path: gods[gi].file_path, deg: gods[gi].deg, tag: '' });
+          }
+        }
+      }
+
+      if (anchors.length > 0) {
+        console.log('[COMPACT_GRAPH] ' + nodeC + ' nodes. Session context (✎ = recently edited):');
+        for (var ci = 0; ci < anchors.length; ci++) {
+          var g = anchors[ci];
+          console.log('  ' + (g.tag || ' ') + ' ' + g.name + ' [' + g.label + '] — ' + g.file_path + ' (deg ' + g.deg + ')');
+        }
+        console.log('  Use mcp__monomind__monograph_suggest first when navigating.');
+      }
+    } finally { /* db is shared/cached; do not close */ }
+  } catch (e) {}
+}
+
+function _findAffectedTests(filePath) {
+  if (!filePath) return [];
+  var db = _openMonographDb();
+  if (!db) return [];
+  try {
+    var rel = filePath;
+    if (filePath.indexOf(CWD) === 0) rel = filePath.slice(CWD.length + 1);
+    var rows = db.prepare(
+      'SELECT DISTINCT src.file_path FROM edges e ' +
+      'JOIN nodes src ON e.source_id = src.id ' +
+      'JOIN nodes tgt ON e.target_id = tgt.id ' +
+      'WHERE e.relation IN (\'IMPORTS\',\'CALLS\',\'DEPENDS_ON\') ' +
+      'AND (tgt.file_path = ? OR tgt.file_path = ?) ' +
+      'AND src.file_path IS NOT NULL AND src.file_path != \'\' ' +
+      'AND (src.file_path LIKE \'%test%\' OR src.file_path LIKE \'%.spec.%\' OR src.file_path LIKE \'%__tests__%\') ' +
+      'AND src.file_path NOT LIKE \'%.worktrees%\' ' +
+      'LIMIT 5'
+    ).all(filePath, rel);
+    return rows.map(function(r) { return r.file_path; });
+  } catch (e) { return []; }
+  finally { /* db is shared/cached; do not close */ }
+}
+
+function _maybeRebuildMonograph() {
+  try {
+    var metricsDir = path.join(CWD, '.monomind', 'metrics');
+    fs.mkdirSync(metricsDir, { recursive: true });
+    var f = path.join(metricsDir, 'graph-rebuild.json');
+    var d = {};
+    try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (_) {}
+    if (typeof d !== 'object' || d === null) d = {};
+    d.writesSinceRebuild = (d.writesSinceRebuild || 0) + 1;
+    d.lastWriteAt = Date.now();
+    var THRESHOLD = 20;
+    var MIN_INTERVAL_MS = 5 * 60 * 1000;
+    var dueByCount = d.writesSinceRebuild >= THRESHOLD;
+    var dueByTime  = !d.lastRebuildAt || (Date.now() - d.lastRebuildAt) > MIN_INTERVAL_MS;
+    if (dueByCount && dueByTime) {
+      d.writesSinceRebuild = 0;
+      d.lastRebuildAt = Date.now();
+      fs.writeFileSync(f, JSON.stringify(d));
+      try {
+        var freshenScript = path.join(CWD, '.claude', 'helpers', 'graphify-freshen.cjs');
+        if (fs.existsSync(freshenScript)) {
+          var spawn = require('child_process').spawn;
+          var child = spawn(process.execPath, [freshenScript], {
+            detached: true,
+            stdio: 'ignore',
+            cwd: CWD,
+          });
+          child.unref();
+        }
+      } catch (_) {}
+    } else {
+      fs.writeFileSync(f, JSON.stringify(d));
+    }
+  } catch (e) { /* non-fatal */ }
+}
+
+// Inject god-node context at session-restore time: logs MONOGRAPH_CONTEXT,
+// writes the god-node chunk into knowledge/chunks.jsonl for semantic recall.
+// Shared between session-restore-handler and any other caller that needs it.
+function injectGodNodesContext(CWD) {
+  try {
+    var mgDbPath = path.join(CWD, '.monomind', 'monograph.db');
+    if (!fs.existsSync(mgDbPath)) return;
+    var db = _openMonographDb();
+    if (!db) return;
+    try {
+      var nodeCount = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
+      var edgeCount = db.prepare('SELECT COUNT(*) AS c FROM edges').get().c;
+      // Precompute degree via indexed edge lookups to avoid O(N) correlated subquery
+      var godNodes = db.prepare(
+        "WITH deg AS (" +
+        "  SELECT id, SUM(cnt) AS deg FROM (" +
+        "    SELECT source_id AS id, COUNT(*) AS cnt FROM edges GROUP BY source_id " +
+        "    UNION ALL " +
+        "    SELECT target_id AS id, COUNT(*) AS cnt FROM edges GROUP BY target_id" +
+        "  ) GROUP BY id" +
+        ") " +
+        "SELECT n.name, n.label, n.file_path, d.deg " +
+        "FROM deg d JOIN nodes n ON n.id = d.id " +
+        "WHERE n.label NOT IN ('Concept') " +
+        "AND n.file_path IS NOT NULL AND n.file_path != '' " +
+        "AND n.file_path NOT LIKE '%/node_modules/%' AND n.file_path NOT LIKE '%node_modules%' " +
+        "ORDER BY d.deg DESC LIMIT 12"
+      ).all();
+
+      // Staleness indicator: compare stored commit hash with current HEAD.
+      var staleIndicator = '';
+      try {
+        // The orchestrator writes 'last_commit_hash'; fall back to legacy keys.
+        var lastCommitRow = null;
+        try {
+          lastCommitRow = db.prepare("SELECT value FROM index_meta WHERE key='last_commit_hash'").get() ||
+                          db.prepare("SELECT value FROM index_meta WHERE key='lastCommit'").get() ||
+                          db.prepare("SELECT value FROM index_meta WHERE key='ua_last_commit'").get();
+        } catch (_) {}
+        if (lastCommitRow && lastCommitRow.value) {
+          var { execFileSync: execSync } = require('child_process');
+          var currentHead = '';
+          try { currentHead = execSync('git', ['rev-parse', 'HEAD'], { cwd: CWD, encoding: 'utf-8' }).trim(); } catch (_) {}
+          if (currentHead && currentHead !== lastCommitRow.value) {
+            var commitsBehind = 0;
+            try {
+              var revList = execSync('git', ['rev-list', '--count', lastCommitRow.value + '..' + currentHead], { cwd: CWD, encoding: 'utf-8' }).trim();
+              commitsBehind = parseInt(revList, 10) || 0;
+            } catch (_) {}
+            if (commitsBehind > 0) {
+              staleIndicator = ' [⚡ graph ' + commitsBehind + ' commit' + (commitsBehind === 1 ? '' : 's') + ' behind — run: npx monomind monograph build]';
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (godNodes.length > 0) {
+        var godStr = godNodes.slice(0, 8).map(function(n) {
+          return n.name + ' (' + n.label + ', ' + n.deg + ' links)';
+        }).join(', ');
+        if (String(process.env.MONOMIND_HOOK_QUIET || '') !== '1') {
+          console.log('[MONOGRAPH_CONTEXT] ' + nodeCount + ' nodes · ' + edgeCount + ' edges. Key nodes: ' + godStr + staleIndicator);
+          console.log('[MONOGRAPH_ACTIVE] Indexed knowledge graph available — prefer monograph_query / monograph_suggest over grep/find for symbol and definition lookups.');
+        }
+
+        // Write god nodes into knowledge/chunks.jsonl so semantic search finds them.
+        var knowledgeDir = path.join(CWD, '.monomind', 'knowledge');
+        var chunksFile = path.join(knowledgeDir, 'chunks.jsonl');
+        try {
+          fs.mkdirSync(knowledgeDir, { recursive: true });
+          var godChunk = JSON.stringify({
+            id: 'monograph-god-nodes',
+            text: 'Codebase architecture — high-centrality nodes (most depended-on): ' + godNodes.map(function(n) {
+              return n.name + ' [' + n.label + '] at ' + (n.file_path || '') + ' (' + n.deg + ' connections)';
+            }).join('; '),
+            namespace: 'knowledge:monograph',
+            metadata: { label: 'monograph-god-nodes', nodes: nodeCount, edges: edgeCount }
+          });
+          var existing = [];
+          try { existing = fs.readFileSync(chunksFile, 'utf-8').trim().split('\n').filter(Boolean); } catch(e) {}
+          existing = existing.filter(function(line) {
+            try { return JSON.parse(line).id !== 'monograph-god-nodes'; } catch(e) { return true; }
+          });
+          existing.push(godChunk);
+          // Atomic write: tmp file + rename to avoid corruption on kill/timeout
+          var tmpChunks = chunksFile + '.tmp.' + process.pid;
+          fs.writeFileSync(tmpChunks, existing.join('\n') + '\n');
+          fs.renameSync(tmpChunks, chunksFile);
+        } catch(e) {}
+      }
+    } catch(e) { /* non-fatal */ }
+  } catch(e) { /* non-fatal */ }
+}
+
+module.exports = {
+  _requireMonograph,
+  _openMonographDb,
+  _isGraphFresh,
+  getMonographSuggestions,
+  getMonographNeighbors,
+  _recordGraphTelemetry,
+  _injectCompactGraphMap,
+  _findAffectedTests,
+  _maybeRebuildMonograph,
+  _graphGateShouldBlock,
+  _graphGateMarkQueried,
+  _getNodeCount,
+  injectGodNodesContext,
+};

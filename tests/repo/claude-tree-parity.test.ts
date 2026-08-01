@@ -192,8 +192,17 @@ describe('.claude tree parity (root vs npm-shipped CLI copy)', () => {
 
     expect(rootHelpers.length, 'root .claude/helpers is empty or missing').toBeGreaterThan(10);
 
-    const onlyRoot = rootHelpers.filter((f) => !pkgHelpers.includes(f));
-    const onlyPkg = pkgHelpers.filter((f) => !rootHelpers.includes(f));
+    // pre-commit / post-commit are generate-only scaffold (HELPER_FILES entries
+    // with no `forceSync`): they are produced by `monomind init` into the user's
+    // project, not shipped as static assets. The root tree has them only because
+    // init ran there; the package tree correctly lacks them. Excluding them keeps
+    // this guard focused on forceSync/static helpers (the executed code that must
+    // ship identically), not on init-generated scaffold.
+    const GENERATED_SCAFFOLD = new Set(['pre-commit', 'post-commit']);
+    const isShipped = (f: string) => !GENERATED_SCAFFOLD.has(f);
+
+    const onlyRoot = rootHelpers.filter((f) => isShipped(f) && !pkgHelpers.includes(f));
+    const onlyPkg = pkgHelpers.filter((f) => isShipped(f) && !rootHelpers.includes(f));
 
     expect(
       { onlyInRoot: onlyRoot, onlyInShippedPackage: onlyPkg },
