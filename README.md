@@ -44,7 +44,14 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 ```
 
 <details>
-<summary><strong>Using opencode or Antigravity instead?</strong></summary>
+<summary><strong>Using Antigravity (agy)?</strong></summary>
+
+Nothing extra to do — agy output is part of **default** `monomind init`: `GEMINI.md`, `.gemini/rules/`, and a live status bar wired through `.gemini/settings.json`. The MCP server config is shared with Claude Code (`.mcp.json`). See [Antigravity guide →](doc/concepts/antigravity.md).
+
+</details>
+
+<details>
+<summary><strong>Using opencode instead?</strong></summary>
 
 ```bash
 monomind init --opencode       # emits opencode.json + .opencode/ alongside Claude/Antigravity output
