@@ -140,6 +140,19 @@ function swarmOrchestration(): string {
 - MUST call CLI tools AND Task tool in ONE message for complex work`;
 }
 
+// Consolidated spawn/anti-drift rule — emitted ONCE in the standard template
+// (previously repeated across Swarm Orchestration, Anti-Drift, and Execution
+// Rules). Kept out of the minimal template entirely.
+function swarmRules(): string {
+  return `## Swarm Rules
+
+- MUST initialize the swarm for complex tasks: \`npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized\`
+- ALWAYS spawn ALL agents in ONE message via the Task tool with \`run_in_background: true\` — CLI tools coordinate, Task agents do the work
+- After spawning, STOP — never poll TaskOutput or check swarm status; trust agents to return
+- When agent results arrive, review ALL results before proceeding
+- Keep shared memory namespace for all agents; run frequent checkpoints via \`post-task\` hooks`;
+}
+
 function antiDriftConfig(): string {
   return `## Swarm Configuration & Anti-Drift
 
@@ -304,21 +317,14 @@ npx monomind@latest hooks post-task --task-id "[id]" --success true --store-resu
 }
 
 function memoryCommands(): string {
-  return `## Memory Commands Reference
+  return `## Memory Commands
 
 \`\`\`bash
-# Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
 npx monomind@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
-
-# Search (REQUIRED: --query; OPTIONAL: --namespace, --limit, --threshold)
 npx monomind@latest memory search --query "authentication patterns"
+\`\`\`
 
-# List (OPTIONAL: --namespace, --limit)
-npx monomind@latest memory list --namespace patterns --limit 10
-
-# Retrieve (REQUIRED: --key; OPTIONAL: --namespace)
-npx monomind@latest memory retrieve --key "pattern-auth" --namespace patterns
-\`\`\``;
+Full command reference: \`npx monomind@latest memory --help\``;
 }
 
 function securityRulesLight(): string {
@@ -420,24 +426,13 @@ MONOMIND_MEMORY_PATH=./data/memory
 function secondBrainSection(): string {
   return `## Second Brain — Document Knowledge Base
 
-If the \`documents\` capability is active (check \`.monomind/capabilities.json\`), this project indexes documents into a semantic search engine. Supported formats: Word (.docx, .doc), Excel (.xlsx, .xls), PowerPoint (.pptx, .ppt), PDF, OpenDocument (.odt, .ods, .odp), plain text (.md, .txt, .rst, .tex, .csv, .tsv), RTF, EPUB, and Apple Pages. Google Drive files (Docs, Sheets, Slides) are exported as Office formats and handled by the same extractors.
+If the \`documents\` capability is active (check \`.monomind/capabilities.json\`), this project indexes documents (Office, PDF, plain text, and more) into a semantic search engine.
 
 **When documents are indexed, search knowledge before answering questions about business, compliance, legal, or organizational topics:**
 - Call \`mcp__monomind__knowledge_search\` with a relevant query (add \`store: "project"\` or \`"global"\` to search one brain only; default merges both)
 - Use the returned excerpts as grounding context for your answer
 - Cite the source document name when referencing specific information
 - Add with \`mcp__monomind__knowledge_ingest\`; retract a wrong or stale document with \`mcp__monomind__knowledge_remove\` (hides it from search immediately, reversible by re-ingesting)
-
-**CLI access:**
-\`\`\`bash
-monomind doc search -q "your query"    # Semantic search (project + global brain merged)
-monomind doc search -q "..." --store global   # Personal global brain only
-monomind doc list                       # List indexed docs (--global for the global brain)
-monomind doc ingest ./path              # Ingest new documents (paths outside the project auto-route to the global brain)
-monomind doc export                     # Export as OKF bundle (--global to move your brain between machines)
-monomind doc import ./bundle            # Import an OKF bundle (--global to restore a personal brain)
-monomind doc remove ./docs/old.md       # Forget a document — hidden from search immediately
-\`\`\`
 
 **Global brain:** the user has a personal cross-project knowledge store at \`~/.monomind/global-brain\`. All searches (knowledge_search, doc search, per-prompt injection) automatically merge it with project knowledge — project results win ties, global hits are labeled \`[global]\`. Cite the label so the user knows which brain answered.
 
@@ -462,30 +457,7 @@ Built into monomind — no separate install. Pure TypeScript, parses TS/JS/Pytho
 
 **If graph is empty:** call \`mcp__monomind__monograph_build\` (runs in background; proceed with grep while it builds).
 
-### Available Tools (prefix: \`mcp__monomind__\`)
-
-| Tool | Use when |
-|------|----------|
-| \`monograph_suggest\` | **Start every multi-file task** — ranked by task relevance |
-| \`monograph_query\` | **Primary code lookup** — BM25 search, returns file + line |
-| \`monograph_context\` | 360° symbol view: callers, callees, imports, community |
-| \`monograph_impact\` | Blast radius before a change — transitive callers + risk score |
-| \`monograph_build\` | Build/rebuild the index (codeOnly:true for code-only) |
-| \`monograph_god_nodes\` | High-centrality files — find the most connected internal nodes |
-| \`monograph_detect_changes\` | Git diff → affected symbols since base branch |
-| \`monograph_rename\` | Dry-run multi-file rename — all reference sites, never writes |
-| \`monograph_route_map\` | List all HTTP routes with handler info |
-| \`monograph_api_impact\` | Blast radius of an API route |
-| \`monograph_cypher\` | Single-hop MATCH query over the graph |
-| \`monograph_staleness\` | Git commits since last index build |
-| \`monograph_stats\` | Node/edge/community counts |
-| \`monograph_health\` | Index freshness vs current HEAD |
-| \`monograph_shortest_path\` | Shortest dependency path between two symbols |
-| \`monograph_community\` | All nodes in a community cluster |
-| \`monograph_export\` | Export graph: json, svg, graphml, cypher, obsidian |
-| \`monograph_augment\` | Graph-RAG context block for AI prompts |
-| \`monograph_doctor\` | Platform diagnostics (Node version, DB health) |
-| \`monograph_list_repos\` | Global registry of indexed repos |
+Core tools (prefix: \`mcp__monomind__\`): \`monograph_build\`, \`monograph_query\`, \`monograph_suggest\`, \`monograph_impact\` — the full tool list self-describes via MCP.
 
 ### Skip monograph for
 Single-file edits, doc/config changes, quick fixes where you already know the exact file.`;
@@ -530,9 +502,6 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => buildAndTest(),
     (_opts) => securityRulesLight(),
     concurrencyRules,
-    (_opts) => antiDriftConfig(),
-    executionRules,
-    (_opts) => cliCommandsTable(),
     (_opts) => secondBrainSection(),
     (_opts) => graphifySection(),
     (_opts) => setupAndBoundary(),
@@ -545,9 +514,7 @@ const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => s
     (_opts) => buildAndTest(),
     (_opts) => securityRulesLight(),
     concurrencyRules,
-    (_opts) => swarmOrchestration(),
-    (_opts) => antiDriftConfig(),
-    executionRules,
+    (_opts) => swarmRules(),
     (_opts) => cliCommandsTable(),
     (_opts) => agentTypes(),
     (_opts) => memoryCommands(),
@@ -656,8 +623,8 @@ export function generateMinimalClaudeMd(options: InitOptions): string {
 
 /** Available template names for CLI wizard */
 export const CLAUDE_MD_TEMPLATES: Array<{ name: ClaudeMdTemplate; description: string }> = [
-  { name: 'minimal', description: 'Quick start — behavioral rules, anti-drift config, CLI reference (~120 lines)' },
-  { name: 'standard', description: 'Recommended — swarm orchestration, agents, memory commands (~250 lines)' },
+  { name: 'minimal', description: 'Quick start — behavioral rules, CLI reference (~160 lines)' },
+  { name: 'standard', description: 'Recommended — swarm rules, agents, memory commands (~225 lines)' },
   { name: 'full', description: 'Everything — hooks, learning protocol, intelligence system (~400 lines)' },
   { name: 'security', description: 'Security-focused — adds security scanning, audit protocols, CVE checks' },
   { name: 'performance', description: 'Performance-focused — adds benchmarking, profiling, optimization protocols' },

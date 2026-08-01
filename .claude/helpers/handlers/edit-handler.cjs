@@ -172,7 +172,5 @@ module.exports = {
         }, '@monoes/hooks.PostEdit');
       } catch (e) { /* non-fatal */ }
     }
-
-    console.log('[OK] Edit recorded');
   }
 };

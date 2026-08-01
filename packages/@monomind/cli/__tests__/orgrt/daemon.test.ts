@@ -932,3 +932,47 @@ describe('OrgDaemon — crash recovery (worker notify, context-limit, boss auto-
     await d.stopOrg('alpha');
   }, 15_000);
 });
+
+describe('OrgDaemon — oversized mailbox digest', () => {
+  it('digests bodies over 4KB to <workdir>/.mail/<id>.md; smaller bodies stay byte-identical', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-maildigest-'));
+    try {
+      fixture(root, 'alpha');
+      const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+      const running = await d.startOrg('alpha');
+      const coderChat = (needle: string) =>
+        running.busEvents().find(e => e.type === 'chat' && e.from === 'coder' && (e.msg ?? '').includes(needle))?.msg ?? '';
+
+      // Over the boundary: full text goes to disk, mailbox gets a digest.
+      const big = `HEAD ${'B'.repeat(5000)} TAIL`;
+      await d.deliver('alpha', 'boss', 'coder', 'big', big);
+      expect(await waitUntil(() => coderChat('full text at') !== '')).toBe(true);
+      const digestEcho = coderChat('full text at');
+      expect(digestEcho).toContain('[message from boss] subject: big');
+      expect(digestEcho).toContain('HEAD ');
+      expect(digestEcho).not.toContain('TAIL');
+      const { readdirSync, rmSync } = await import('node:fs');
+      const mailDir = join(root, '.mail');
+      const files = readdirSync(mailDir);
+      expect(files.length).toBe(1);
+      expect(files[0]).toMatch(/^[a-zA-Z0-9_-]+\.md$/);
+      expect(readFileSync(join(mailDir, files[0]), 'utf8')).toBe(big);
+
+      // At the boundary (exactly 4KB): no digest, byte-identical delivery.
+      const exact = 'C'.repeat(4096);
+      await d.deliver('alpha', 'boss', 'coder', 'exact', exact);
+      expect(await waitUntil(() => coderChat(`subject: exact\n\n${exact}`) !== '')).toBe(true);
+
+      // Small message: byte-identical delivery, no extra .mail file.
+      await d.deliver('alpha', 'boss', 'coder', 'small', 'hello');
+      expect(await waitUntil(() => coderChat('echo: [message from boss] subject: small\n\nhello') !== '')).toBe(true);
+      expect(readdirSync(mailDir).length).toBe(1);
+
+      await d.stopOrg('alpha');
+      rmSync(root, { recursive: true, force: true });
+    } finally {
+      const { rmSync } = await import('node:fs');
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 20_000);
+});

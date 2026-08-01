@@ -46,17 +46,15 @@ export function buildToolProtocol(tools: OrgToolDef[]): string {
     '',
     '# Tool Protocol (MANDATORY)',
     '',
-    'You have NO native tool-calling channel in this environment. To call a tool,',
-    'output a fenced block EXACTLY like this (one tool call per block):',
+    'You have NO native tool-calling channel. Call a tool by emitting a fenced',
+    'block EXACTLY like this (one tool call per block):',
     '',
     '```tool_call',
     '{"name": "<tool-name>", "arguments": { ... }}',
     '```',
     '',
-    'After your turn, the runtime executes the calls and returns results as',
-    '```tool_result fenced blocks in the next message. Wait for the result',
-    'instead of inventing one. Do NOT wrap the fence in extra prose when you',
-    'only want to call tools.',
+    'Results come back as ```tool_result fences in the next message — wait for',
+    'them; never invent one.',
     '',
     '## Available tools',
     '',
@@ -80,7 +78,10 @@ function describeZod(schema: z.ZodType<any>): string {
   else if (schema instanceof z.ZodBoolean) kind = 'boolean';
   else if (schema instanceof z.ZodArray) kind = 'array';
   else if (schema instanceof z.ZodObject) kind = 'object';
+  else if (schema instanceof z.ZodEnum) kind = (schema.options as string[]).join('|');
   else if (schema instanceof z.ZodOptional) return `optional ${describeZod(schema.unwrap() as z.ZodType<any>)}`;
+  else if (schema instanceof z.ZodNullable) return `nullable ${describeZod(schema.unwrap() as z.ZodType<any>)}`;
+  else if (schema instanceof z.ZodDefault) return `optional ${describeZod(schema._def.innerType as z.ZodType<any>)}`;
   return desc ? `${kind} — ${desc}` : kind;
 }
 

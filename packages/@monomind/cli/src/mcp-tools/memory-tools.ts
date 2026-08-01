@@ -202,7 +202,7 @@ export const memoryPatternSearch: MCPTool = {
 
 export const memoryFeedback: MCPTool = {
   name: 'memory_feedback',
-  description: 'Rate the usefulness of memory entries that produced an answer. Pass the entryIds returned by a prior search — their feedback_weight is EWMA-updated and blended into future ranking. Idempotent per taskId.',
+  description: 'Rate memory entries used in an answer (pass entryIds from a prior search). Updates feedback_weight; idempotent per taskId.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -289,7 +289,7 @@ export const memoryCausalEdge: MCPTool = {
 
 export const memoryKgIngest: MCPTool = {
   name: 'memory_kg_ingest',
-  description: 'Merge extracted entities/relations (and optionally distilled rules) into the persistent knowledge graph. Same-name entities merge idempotently. Call with LLM-extracted nodes/edges — basic types ("Person", "Tool"), coreference-resolved fullest names, snake_case relations, one-sentence edge facts. Pass rawText instead to use the lower-trust regex extractor.',
+  description: 'Merge LLM-extracted entities/relations/rules into the persistent knowledge graph; same-name entities merge idempotently.',
   inputSchema: {
     type: 'object',
     properties: {

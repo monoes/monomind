@@ -4,19 +4,7 @@
 > cross-session memory, semantic Second Brain document search, and autonomous
 > agent organisations. All data stays local — nothing leaves your machine.
 
-## Behavioral Rules (Always Enforced)
-
-- ALWAYS call `mcp__monomind__monograph_suggest` when starting a task touching 3+ files — it ranks files by task relevance and shows blast-radius before you touch anything.
-- ALWAYS call `mcp__monomind__monograph_query` BEFORE running grep/find in the terminal — fall back to grep only if monograph returns zero results or the database does not exist.
-- ALWAYS call `mcp__monomind__monograph_impact` before editing a class or exported symbol — it shows all upstream dependents.
-- ALWAYS call `mcp__monomind__memory_search` before starting a task to recall past solutions, decisions, and architectural rules.
-- After a memory search that actually helped: call `mcp__monomind__memory_feedback` with the entry IDs and quality score to train future ranking.
-- At the end of a session that produced durable insight: call `mcp__monomind__memory_kg_ingest` once with the session ID as `originRef`.
-- Use `mcp__monomind__knowledge_search` to query the project's indexed documents (specs, handbooks, notes) and the user's personal global brain.
-- Do what has been asked; nothing more, nothing less.
-- NEVER commit secrets, credentials, or .env files.
-- NEVER create files unless they are absolutely necessary.
-- ALWAYS prefer editing an existing file over creating a new one.
+Behavioral rules live in `.gemini/rules/monomind.md` and are always enforced.
 
 ## Status Bar
 

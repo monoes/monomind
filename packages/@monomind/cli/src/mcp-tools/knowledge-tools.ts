@@ -167,8 +167,16 @@ const knowledgeSearch: MCPTool = {
             count: fused.length,
             routing: { surfaces, store, confident: route.confident, fellBackToChunks: fellBack },
             results: fused,
-            // Back-compat: excerpt-only view for existing consumers.
-            excerpts: chunkExcerpts,
+            // Back-compat: excerpt-only view for existing consumers. Id/metadata
+            // projection only — `results` already carries the full chunk text, so
+            // repeating it here doubled the payload of every search response.
+            excerpts: chunkExcerpts.map(e => ({
+              id: e.id || `${e.filePath}#${e.chunkIndex}`,
+              filePath: e.filePath,
+              chunkIndex: e.chunkIndex,
+              score: e.similarity,
+              global: e.scope === 'global',
+            })),
           }),
         }],
       };
@@ -183,7 +191,7 @@ const knowledgeSearch: MCPTool = {
 
 const knowledgeRemove: MCPTool = {
   name: 'knowledge_remove',
-  description: 'Forget an indexed document. Hides every chunk of it from knowledge_search, doc search, and per-prompt injection immediately; the stored rows are reclaimed on the next full re-index. Reversible by re-ingesting the file. Errors if the path is not currently indexed under the given scope, so a wrong path never silently reports success.',
+  description: 'Forget an indexed document — hidden from search and prompt injection until re-ingested. Errors if the path is not currently indexed.',
   category: 'knowledge',
   tags: ['documents', 'remove', 'second-brain'],
   inputSchema: {

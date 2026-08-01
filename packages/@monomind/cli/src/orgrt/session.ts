@@ -67,12 +67,10 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `## Communication protocol`,
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
-    `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
-    `Before starting substantial work, call org_recall to check what previous runs already learned or delivered - do not redo finished work.`,
-    `The user's documents (notes, handbooks, specs) are searchable with knowledge_search - ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
+    `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     isCoordinator
-      ? `When the org's goal for this run is achieved (or clearly can't be): first call org_learn ONCE with the durable knowledge this run produced - key entities (basic types, fullest names), their relationships (snake_case, one-sentence facts), and any reusable rules ("when X, do Y") worth keeping. Then call org_complete exactly once with the outcome and a concise summary. Then end your turn.`
+      ? `When the org's goal for this run is achieved (or clearly can't be): first call org_learn ONCE with the durable knowledge this run produced, then call org_complete exactly once with the outcome and a concise summary. Then end your turn.`
       : `When your current work is complete and no reply is needed, end your turn without further tool calls.`,
     isCoordinator && glossary?.length
       ? `Known entities (reuse these EXACT names in org_learn instead of near-duplicates): ${glossary.slice(0, 40).join(', ')}`
