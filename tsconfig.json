@@ -34,6 +34,8 @@
     "**/*.test.ts",
     "**/*.bench.ts",
     "packages/__tests__/**/*.ts",
+    "packages/**/__tests__/**",
+    "packages/**/fixtures/**",
     "packages/*/examples/**/*.ts",
     "packages/@monomind/*/examples/**/*.ts"
   ]
