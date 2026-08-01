@@ -14,6 +14,9 @@ import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, ORG_DIR } from 
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
 import { checkResources, waitForCapacity, getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
+import type { AgentRunner } from './agent-runner.js';
+import { OpencodeAgentRunner } from './opencode-runner.js';
+import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { captureCheckpoint, validateCheckpoint, isCheckpointExpired, restoreMailboxQueue, type OrgCheckpoint } from './checkpoint.js';
 
 /** OpenTelemetry tracing helper - creates spans for major operations */
@@ -78,6 +81,10 @@ export interface RunningOrg {
 
 export interface DaemonOpts {
   queryFn?: typeof query;
+  /** Explicit agent runner (takes precedence over everything). When unset,
+   *  session.ts builds a ClaudeAgentRunner from queryFn/the default — so the
+   *  Claude path is unchanged unless MONOMIND_RUNTIME=opencode is set. */
+  runner?: AgentRunner;
   forward?: boolean;           // POST events to control server (default true)
   controlJson?: string;
   /** Enables cross-process inter-org routing: on a local delivery miss, ask the
@@ -338,6 +345,14 @@ export class OrgDaemon {
           return text;
         },
         queryFn: this.opts.queryFn,
+        // Runner resolution: explicit > opencode/kimicode (when MONOMIND_RUNTIME
+        // selects them) > undefined (session.ts falls back to ClaudeAgentRunner
+        // via queryFn). Leaving it undefined for the default path is what keeps
+        // Claude/Antigravity orgs byte-for-byte unchanged.
+        runner: this.opts.runner
+          ?? (process.env.MONOMIND_RUNTIME === 'opencode' ? new OpencodeAgentRunner()
+            : process.env.MONOMIND_RUNTIME === 'kimicode' ? new KimiCodeAgentRunner()
+            : undefined),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
