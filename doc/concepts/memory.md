@@ -86,50 +86,98 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 ```
 
 ---
-## 2. Pattern Store & Episodic Recall (the hot path)
+## 2. Memory Subsystem Architecture (v3.0.0 Schema)
 
-**Files:** `.monomind/data/auto-memory-store.json`, `patterns.json`, `.monomind/episodic/episodes.jsonl`  
-**Honest framing:** the memory that actually runs on every prompt is plain JSON with keyword matching. There is no vector database or HNSW index in the hot path.
+**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`). Supports standalone `@monoes/memory` core schema (v2, 4 tables at [`sql-schema.ts:28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L28)) and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts:15`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L15): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
-### How It Works
+### Key Memory Stores
 
-- **Pattern store** — `intelligence.init()` loads patterns from `patterns.json` / `auto-memory-store.json` at session start and deduplicates them. Patterns are synthesized from command and route outcomes during consolidation.
-- **Prompt-time recall** — on every `UserPromptSubmit`, the route hook scores stored entries against the prompt (Jaccard/keyword matching) and injects the top matches as an `[INTELLIGENCE]` context panel.
-- **Episodic recall** — recent episodes from `.monomind/episodic/episodes.jsonl` are keyword-matched against the prompt (last ~200 episodes) and injected at prompt time, with per-conversation deduplication.
-- **Consolidation** — at session end, `intelligence.consolidate()` dedupes, detects contradictions, and prunes old patterns.
+| Store Type | Namespace / Location | Implementation File | Feature Highlights |
+|---|---|---|---|
+| **Episodic & Semantic** | Namespace `default` (or custom) in `memory_entries` | [`memory-crud.ts:28-115`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-crud.ts#L28-L115), [`memory-bridge.ts:167-270`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-bridge.ts#L167-L270) | Temporal decay (`decay_rate = 0.01`), access frequency tracking, confidence score, importance weighting (`0.5` default). |
+| **Pattern Store** | `patterns` table & `.swarm/sona-patterns.json` | [`sona-optimizer.ts:43-58`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/sona-optimizer.ts#L43-L58), [`memory-schema.ts:61-76`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L61-L76) | Learned task routing patterns based on keyword extraction, success/failure counts, and EWC diagonal Fisher regularization (`.swarm/ewc-fisher.json`). |
+| **Document Store** | `memory_entries` (`doc:<hash>:<chunk>`) | [`document-pipeline.ts:120-180`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/knowledge/document-pipeline.ts#L120-L180), [`bm25-index.ts:71-75`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/bm25-index.ts#L71-L75) | Multi-format document ingestion, content-hash chunking, Okapi BM25 lexical indexing. |
+| **Knowledge Graph (KG)** | `kg:nodes`, `kg:edges`, `rules` in `memory_entries` | [`memory-kg.ts:34-36`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-kg.ts#L34-L36), [`memory-kg.ts:70-84`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-kg.ts#L70-L84) | Cognee-style concept triplets. Nodes: `n:<normalized-name>`, Edges: `e:<src>\|<rel>\|<dst>`. Deterministic entity keys and rule deduplication threshold (`0.78`). |
 
-### Vector Search Backend
+---
 
-**Path note:** the live bridge code — `memory-bridge.ts` and `hnsw-operations.ts` — lives in `packages/@monomind/cli/src/memory/`, inside the CLI package, **not** in `packages/@monomind/memory/` (`@monoes/memory`). `@monoes/memory` is a separate, lower-level backend library (SQLite/JSON pattern-store implementations) that the CLI's bridge dynamically imports at runtime; it isn't itself the dispatch path.
+## 3. Retrieval & Hybrid Search Architecture
 
-The default and only supported vector engine is **local SQLite with embedded vectors** (`better-sqlite3`, with a `sql.js` WASM fallback) plus local HF embeddings — model `Xenova/all-MiniLM-L6-v2`, 384 dimensions, runs fully locally with no API calls. This backs CLI `memory store`/`memory search`, the MCP memory tools, and the Second Brain — it is **not** the same path as the prompt-time recall described above, which stays plain JSON/keyword.
-
-**LanceDB timeline:** LanceDB was the live engine until commit `b670e65c` (2026-07-18), which swapped the CLI bridge to local SQLite (released as v2.3.1). It then lingered as a vestigial, never-called `LanceDBBackend` in `@monoes/memory` for several releases — that backend, its test, and the migration doc were fully removed in a later cleanup pass. If you still have a legacy LanceDB store, migrate it to SQLite before upgrading past that point; the one-way migration path is gone.
-
-A pure-TypeScript HNSW index (`hnsw-operations.ts`, in the CLI package alongside `memory-bridge.ts`) is **not dead code** — real HNSW graph, quantization, and flash-attention-style search — but it's only reachable when the SQLite bridge itself is unavailable (rare: native binary load failure). `monomind memory search --build-hnsw` builds it, but as of the honesty-review fix, the command is explicit that this index won't be consulted while the bridge is up. Plain `memory search` uses the SQLite backend's brute-force cosine search by default. Treat HNSW as "documented fallback," not "opt-in speedup."
-
-### MCP Tools (use inside Claude Code sessions)
+Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representations with lexical BM25 retrieval across multiple memory surfaces.
 
 ```
-mcp__monomind__memory_store      — store a memory entry
-mcp__monomind__memory_search     — keyword/BM25 search
-mcp__monomind__memory_retrieve   — get by id or key
-mcp__monomind__memory_delete     — delete entry
-mcp__monomind__memory_list       — list with filters
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        HYBRID RRF SEARCH PIPELINE                           │
+│                                                                             │
+│                        Query Input: "auth token"                            │
+│                                     │                                       │
+│                ┌────────────────────┴────────────────────┐                  │
+│                ▼                                         ▼                  │
+│     Dense Arm (ModernBERT 768d)               Lexical Arm (Okapi BM25)      │
+│     Alibaba-NLP/gte-modernbert-base           k1=1.2, b=0.75                │
+│     ONNX + HNSW fallback                      Exact Tokenizer Parity        │
+│                │                                         │                  │
+│                └────────────────────┬────────────────────┘                  │
+│                                     ▼                                       │
+│                        Query Router & Surface Rules                         │
+│                        Negation Gate & 2x Confidence Gate                   │
+│                                     │                                       │
+│                                     ▼                                       │
+│                       Reciprocal Rank Fusion (RRF)                          │
+│         Score(d) = Σ [ 1 / (rrf_k + rank + 1) ] * (0.75 + 0.5 * importance) │
+│                       Adaptive rrf_k ∈ [30, 60]                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### CLI Commands
+### 1. Dense Embeddings
+- **Model:** `Alibaba-NLP/gte-modernbert-base` (768 dimensions) ([`memory-bridge.ts:39-40`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-bridge.ts#L39-L40)).
+- **Engine:** `@xenova/transformers` ONNX feature extraction (`embedding-operations.ts:84-100`).
+- **HNSW Fallback:** Pure-JS `HNSWIndex` used if native SQLite binary loading fails ([`hnsw-operations.ts:29-38`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/hnsw-operations.ts#L29-L38)).
+
+### 2. Lexical Okapi BM25
+- **Parameters:** `BM25_K1 = 1.2`, `BM25_B = 0.75` ([`bm25-index.ts:68-69`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/bm25-index.ts#L68-L69)).
+- **Tokenizer:** Shared `contentTokens` ([`text-tokens.ts:55-100`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/text-tokens.ts#L55-L100)) ensuring exact evaluation harness parity.
+- **Scaling Thresholds:** Live chunk warning at 50,000 chunks; index review threshold at 1,000,000 chunks ([`bm25-index.ts:58-65`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/bm25-index.ts#L58-L65)).
+
+### 3. Query Router & Surface Fusion
+- **Surface Routing:** Evaluates rules across `chunks` (prior=0.5), `kg` (wt=2), `rules` (wt=2), `memory` (wt=2) ([`query-router.ts:71-92`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/query-router.ts#L71-L92)).
+- **Gates:** 20-character negation pre-match window skips negated query terms ([`query-router.ts:43`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/query-router.ts#L43)). Top routing surface must score ≥ 2× runner-up or query broadcasts to all surfaces.
+- **Telemetry:** Override telemetry is logged to `.monomind/metrics/route-overrides.json`.
+
+---
+
+## 4. Open Knowledge Format (OKF) & 20 MCP Tools
+
+### OKF Transfer Engine
+MonoMind supports export/import of memory entries and knowledge documents using the Open Knowledge Format (OKF):
+- **Document OKF:** [`document-pipeline.ts:852-940`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/knowledge/document-pipeline.ts#L852-L940) exports/imports documents with standard YAML frontmatter headers and `index.md` manifest logs.
+- **Memory OKF:** [`memory-transfer.ts:10-207`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/memory-transfer.ts#L10-L207) transfers memory key-values across filesystem boundaries (`monomind memory export --format okf`).
+
+### 20 MCP Memory Tools (`packages/@monomind/cli/src/mcp-tools/memory-tools.ts`)
+
+| Category | Tools | Description |
+|---|---|---|
+| **System & Health** | `memory_health`, `memory_controllers` | Subsystem status, table counts, controller listings |
+| **Pattern & Learning** | `memory_pattern-store`, `memory_pattern-search`, `memory_feedback`, `memory_consolidate` | Stores and searches routing patterns, EWMA feedback updates, EWC consolidation |
+| **Knowledge Graph** | `memory_causal-edge`, `memory_kg_ingest`, `memory_kg_search`, `memory_kg_rollback`, `memory_kg_consolidate`, `memory_kg_stats` | Triplet ingest, edge creation, neighborhood search, extraction rollback, distilled rule ingest |
+| **Routing & Context** | `memory_route`, `memory_semantic-route`, `memory_context-synthesize` | Surface routing, embedding-based route selection, multi-surface context synthesis |
+| **Sessions & Trees** | `memory_session-start`, `memory_session-end`, `memory_hierarchical-store`, `memory_hierarchical-recall`, `memory_batch` | Agent session tracking, tree-structured storage/recall, batch operations |
+
+---
+
+## 5. CLI Memory Commands
 
 ```bash
-monomind memory init             # initialize memory store
-monomind memory store            # store entry (--key, --value, --namespace, --tags)
-monomind memory search "query"   # search stored entries
-monomind memory retrieve         # get entry by key (--key, --namespace)
-monomind memory list             # list entries (--namespace, --limit)
-monomind memory stats            # usage statistics
-monomind memory delete           # delete an entry
-monomind memory export           # export to JSON
-monomind memory import           # import from JSON
+monomind memory init                             # initialize SQLite memory database (schema v3.0.0)
+monomind memory store -k <key> -v <val>          # store entry (--namespace, --tags, --confidence)
+monomind memory edit -k <key> -v <val>           # update memory entry
+monomind memory retrieve -k <key>                # retrieve entry by key
+monomind memory search "query"                   # execute RRF hybrid search (vector + BM25)
+monomind memory list                             # list entries (--namespace, --limit)
+monomind memory delete -k <key>                  # delete entry
+monomind memory stats                            # view table counts and vector status
+monomind memory export --format okf -o <dir>     # export to OKF Markdown bundle
+monomind memory import --format okf -i <dir>     # import from OKF Markdown bundle
 ```
 
 ---

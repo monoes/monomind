@@ -210,23 +210,69 @@ There is no `monomind hooks progress` or `monomind hooks token-optimize` subcomm
 
 ---
 
-## MCP Tools (hooks)
+### Example MCP Tool Call Payloads
 
-Use these inside Claude Code sessions:
+```json
+// Risk Gate Check: hooks_pre-command
+{
+  "name": "hooks_pre-command",
+  "arguments": {
+    "command": "sudo rm -rf /tmp/cache"
+  }
+}
 
-> **Default vs. opt-in routing:** `hooks_route` (and the CLI's bare `monomind route "task"`) uses a lightweight keyword-only stub — fixed 0.75 confidence, 8 hardcoded categories, no embeddings. The real embedding-based semantic router (`@monoes/routing`'s `RouteLayer`: keyword pre-filter → real embedding in an isolated worker process → cosine similarity → Haiku LLM fallback) is opt-in only, reached via `hooks_route_semantic` (or CLI `route semantic` / `agent --task`) — never the default.
-
+// Task Lifecycle Initiation: hooks_pre-task
+{
+  "name": "hooks_pre-task",
+  "arguments": {
+    "taskId": "task-102",
+    "description": "Refactor memory subsystem schema migration",
+    "filePath": "packages/@monomind/cli/src/memory/memory-schema.ts"
+  }
+}
 ```
-mcp__monomind__hooks_route                 — route a task description (keyword-only default)
-mcp__monomind__hooks_route_semantic        — semantic routing (opt-in, real embeddings via @monoes/routing)
-mcp__monomind__hooks_explain               — explain a routing decision
-mcp__monomind__hooks_intelligence          — get intelligence context
-mcp__monomind__hooks_intelligence_stats    — intelligence statistics
-mcp__monomind__hooks_metrics               — hook execution metrics
-mcp__monomind__hooks_list                  — list registered hooks
-mcp__monomind__hooks_pretrain              — bootstrap intelligence from repo
-mcp__monomind__hooks_transfer              — transfer patterns
-```
+
+## MCP Tools (hooks — Version 2.8.3 Ground Truth)
+
+Monomind v2.8.3 exposes 8 primary lifecycle & routing MCP tools registered in `packages/@monomind/cli/src/mcp-tools/hooks-tools.ts` and implemented across `hooks-routing.ts`, `hooks-embedding.ts`, and `hooks-intelligence.ts`:
+
+| MCP Tool | Implementation | Purpose & Key Payloads |
+|---|---|---|
+| `hooks_route` | [`hooks-routing.ts:L264-L453`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L264-L453) | **Task Agent Routing**: Routes task to optimal agent. Tries vector memory routing (`bridgeRouteTask`) first; falls back to keyword matching augmented by neural patterns (`suggestAgentsFromIntelligence`). <br>• *Input*: `{ task, context?, useSemanticRouter? }` <br>• *Output*: `{ routeId, task, routing, primaryAgent, alternativeAgents, estimatedMetrics, swarmRecommendation }` |
+| `hooks_pre-edit` | [`hooks-routing.ts:L41-L89`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L41-L89) | **Pre-Edit Safety & Context**: Retrieves file context, type, related files, and agent suggestions prior to editing. <br>• *Input*: `{ filePath, operation?, context? }` <br>• *Output*: `{ filePath, operation, context: { fileExists, fileType, relatedFiles, suggestedAgents, patterns, risks }, recommendations }` |
+| `hooks_post-edit` | [`hooks-routing.ts:L91-L147`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L91-L147) | **Edit Outcome Feedback**: Records editing outcome to memory store/feedback loop. <br>• *Input*: `{ filePath, success?, agent? }` <br>• *Output*: `{ recorded: true, filePath, success, timestamp, agent, _storedIn }` |
+| `hooks_pre-command` | [`hooks-routing.ts:L149-L190`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L149-L190) | **Command Risk Assessment**: Assesses shell command execution risk and safety enforcement gates. <br>• *Input*: `{ command }` <br>• *Output*: `{ command, riskLevel, risks, recommendations, safeAlternatives, shouldProceed }` |
+| `hooks_post-command` | [`hooks-routing.ts:L192-L262`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L192-L262) | **Command Execution Persistence**: Records command exit code to time-windowed outcome store (`recordCommand`) and persistent memory store. <br>• *Input*: `{ command, exitCode? }` <br>• *Output*: `{ recorded: true, command, exitCode, success, timestamp, _storedIn }` |
+| `hooks_pre-task` | [`hooks-routing.ts:L609-L720`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L609-L720) | **Task Initiation & Heuristics**: Records task start, computes complexity, retrieves ERL (Experience Replay Learning) heuristics and TextGrad warning gradients from vector store. <br>• *Input*: `{ taskId, description, filePath? }` <br>• *Output*: `{ taskId, description, suggestedAgents, complexity, estimatedDuration, risks, recommendations, modelRouting, plan, timestamp }` |
+| `hooks_post-task` | [`hooks-routing.ts:L722-L960`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L722-L960) | **Task Completion & Learning**: Records task completion, derives success from recent command exit codes if non-explicit (`deriveRecentSuccess`), updates feedback (`bridgeRecordFeedback`), writes causal graph edges (`bridgeRecordCausalEdge`), joins outcome back to prior `routeId`, stores ERL heuristics & TextGrad critiques, and computes Multi-Agent Reflection (MAR) status. <br>• *Input*: `{ taskId, success?, agent?, quality?, task?, storeDecisions?, routeId? }` <br>• *Output*: `{ taskId, success, outcomeKnown, successSource, duration, learningUpdates, quality, feedback, marReflection, timestamp }` |
+| `hooks_explain` | [`hooks-routing.ts:L964-L1044`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L964-L1044) | **Routing Transparency**: Explains routing decisions transparently by breaking down keyword weights, historical success rates (`loadRoutingOutcomes`), and decision factors. <br>• *Input*: `{ task, agent?, verbose? }` <br>• *Output*: `{ task, explanation, factors, patterns, decision }` |
+
+---
+
+## Command Risk Assessment & Enforcement Gates
+
+Command safety gating is evaluated dynamically via `assessCommandRisk` in `packages/@monomind/cli/src/mcp-tools/hooks-embedding.ts`:
+
+### Risk Severity Levels & Rules
+- **`rm -rf` / `rm -r`**: Risk Level `0.9` (*Critical*) — Warning: *"Recursive deletion detected - verify target path"*
+- **`curl ... | sh` / `wget ... | bash`**: Risk Level `0.8` (*High*) — Warning: *"Piping remote content to shell"*
+- **`sudo`**: Risk Level `0.7` (*High*) — Warning: *"Elevated privileges requested"*
+- **`> /` or `>> /`**: Risk Level `0.6` (*Medium*) — Warning: *"Writing to system path"*
+- **`chmod` / `chown`**: Risk Level `0.5` (*Medium*) — Warning: *"Permission modification"*
+- **Safe Commands (`npm`, `npx`, `git`, `ls`, `cat`, `echo`)**: Low risk overrides (`0.1`–`0.3`)
+
+### Execution Gate Condition
+In `hooks_pre-command` ([`hooks-routing.ts:L187`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L187)), the evaluation flag `shouldProceed` is calculated deterministically as:
+$$\text{shouldProceed} = (\text{assessment.level} < 0.7)$$
+Commands with a risk level of `0.7` or higher (`sudo`, `curl | sh`, `rm -rf`) are flagged for confirmation or blocked.
+
+---
+
+## Configuration & Persistent Outcome Stores
+
+- **Status Line Integration**: Local status bar / hook integration helper is executed via `.gemini/helpers/statusline.sh` and [`node .gemini/helpers/statusline.cjs`](file:///Users/morteza/Desktop/tools/monomind/.gemini/helpers/statusline.cjs).
+- **Persistent Routing Outcome Store**: Task and routing outcomes are persisted under `.monomind/routing-outcomes.json` ([`hooks-embedding.ts:L22`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-embedding.ts#L22)) and appended to `.monomind/route-outcomes.jsonl`.
+- **Memory Store**: Standard JSON memory fallback state is stored at `.monomind/memory/store.json`.
 
 ---
 
@@ -281,3 +327,4 @@ Hooks are wired in `.claude/settings.json`:
   }
 }
 ```
+

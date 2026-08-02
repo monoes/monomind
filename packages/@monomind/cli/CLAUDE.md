@@ -199,7 +199,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `hooks`     | 29          | Self-learning hooks + 15 background workers                              | Working         |
-| `org`       | 16          | SDK org runtime v2 (run [--dry-run], stop, status, serve, test-loop, logs, report, memory [stats\|search\|rules\|rollback], questions, answer, create, validate, migrate, list, delete, mark-complete) | Working |
+| `org`       | 27          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, status, serve, supervisor, test-loop, logs, report, memory [stats\|search\|rules\|rollback], costs, flow, questions, answer, approve, deny, replay, resume-from [alias of replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
 
@@ -215,7 +215,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `guidance`    | 1           | Governance gate setup (`guidance setup`)                                      | Working          |
 | `monograph`   | -           | Knowledge graph CLI (delegates to @monoes/monograph)                          | Working          |
 | `browse`      | -           | Browser automation via CDP (@monoes/monobrowse)                               | Working          |
-| `doctor`      | 1           | System diagnostics with health checks                                         | Working          |
+| `doctor`      | 0           | System diagnostics — flat command, flags only (`--component` accepts 28 named categories, dispatch table `doctor.ts:97-111`) | Working          |
 | `completions` | 4           | Shell completions (bash, zsh, fish, powershell)                               | Working          |
 
 ### Quick CLI Examples

@@ -38,7 +38,7 @@ node .gemini/helpers/statusline.cjs
 | Category | Key Tools |
 |---|---|
 | **Knowledge Graph** | \`monograph_suggest\`, \`monograph_query\`, \`monograph_impact\`, \`monograph_neighbors\`, \`monograph_context\` |
-| **Memory** | \`memory_search\`, \`memory_store\`, \`memory_feedback\`, \`memory_kg_ingest\`, \`memory_kg_search\` |
+| **Memory** | \`memory_kg_search\`, \`memory_pattern-store\`, \`memory_feedback\`, \`memory_kg_ingest\`, \`memory_kg_search\` |
 | **Documents** | \`knowledge_search\`, \`knowledge_ingest\` |
 | **Orgs** | \`task_create\`, \`task_status\`, \`system_status\` |
 
@@ -72,7 +72,7 @@ export function generateGeminiRulesMd(_options: InitOptions): string {
 
 ## Memory
 
-- Always call \`mcp__monomind__memory_search\` at the start of a task.
+- Always call \`mcp__monomind__memory_kg_search\` at the start of a task.
 - After a helpful search: call \`mcp__monomind__memory_feedback\` with result IDs.
 - At session end: distill insights via \`mcp__monomind__memory_kg_ingest\`.
 
