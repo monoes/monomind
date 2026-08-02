@@ -60,6 +60,7 @@ const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   quality:     async () => (await import('./mcp-tools/quality-tools.js')).qualityTools,
   knowledge:   async () => (await import('./mcp-tools/knowledge-tools.js')).knowledgeTools,
   monomind:    async () => (await import('./mcp-tools/monomind-tools.js')).monomindTools,
+  monodesign:  async () => (await import('./mcp-tools/monodesign-tools.js')).monodesignTools,
   // system-tools.ts also exports tools with mcp_ and config_ prefixes
   mcp:         async () => (await import('./mcp-tools/system-tools.js')).systemTools,
 };
@@ -122,7 +123,7 @@ const FULL_ROSTER = process.env.MONOMIND_MCP_FULL === '1';
 
 const CORE_TOOL_CATEGORIES = new Set([
   'memory', 'monograph', 'hooks', 'task', 'session', 'knowledge',
-  'system', 'mcp', 'guidance', 'config', 'agent', 'monomind',
+  'system', 'mcp', 'guidance', 'config', 'agent', 'monomind', 'monodesign',
 ]);
 
 // Only this subset of hooks is advertised; the rest of hooks (intelligence,
