@@ -38,25 +38,33 @@ export interface ToolCall {
  *   ```
  *
  * Results come back as a user-role prompt containing ```tool_result fences.
+ *
+ * IMPORTANT wording note: the tools listed here are ORG tools (org_send,
+ * org_recall, …) that exist ONLY through this protocol — the model cannot
+ * reach them natively. But the agent also has NATIVE file/shell tools
+ * (Write, Edit, Bash, …) for doing its actual work. Saying "you have no
+ * native tools" makes the model believe it cannot even write files — the
+ * protocol must name the distinction explicitly.
  */
 export function buildToolProtocol(tools: OrgToolDef[]): string {
   if (!tools || tools.length === 0) return '';
   const lines = [
     '',
     '',
-    '# Tool Protocol (MANDATORY)',
+    '# Org Tool Protocol (MANDATORY)',
     '',
-    'You have NO native tool-calling channel. Call a tool by emitting a fenced',
-    'block EXACTLY like this (one tool call per block):',
+    'The org tools listed below are NOT native tools — call each one by',
+    'emitting a fenced block EXACTLY like this (one call per block):',
     '',
     '```tool_call',
     '{"name": "<tool-name>", "arguments": { ... }}',
     '```',
     '',
     'Results come back as ```tool_result fences in the next message — wait for',
-    'them; never invent one.',
+    'them; never invent one. Your native file/shell tools (Write, Edit, Bash,',
+    'Read, Glob, Grep) are used normally for the actual work.',
     '',
-    '## Available tools',
+    '## Org tools (fence protocol only)',
     '',
   ];
   for (const t of tools) {

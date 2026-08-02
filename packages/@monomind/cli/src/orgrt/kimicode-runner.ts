@@ -68,6 +68,8 @@ interface TurnOutcome {
 }
 
 export class KimiCodeAgentRunner implements AgentRunner {
+  private emptySkillsDir = '';
+
   constructor(private kimiBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
@@ -76,11 +78,29 @@ export class KimiCodeAgentRunner implements AgentRunner {
     // The system prompt reaches kimi as an agent file (--agent-file binds the
     // agent at session creation; resume restores it, so later turns only need
     // --session). Written to a per-run temp dir and cleaned up in finally.
+    //
+    // The `tools:` allowlist is load-bearing TWICE over:
+    //   1. Token cost: kimi injects the schemas of every tool the agent may
+    //      see into each request — measured 73KB/turn for the full built-in
+    //      surface (Agent, Skill, Cron, WebSearch, …) that org roles never
+    //      use. This list cuts it to the handful an org role actually needs.
+    //   2. Policy: on the subprocess backends the daemon cannot intercept
+    //      native tool calls (canUseTool only gates Claude's in-process
+    //      tools), so this allowlist IS the tool gate for kimi org roles.
+    //      Keep it minimal — org-specific denials belong here, not prose.
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-'));
     const agentFile = path.join(tmpDir, 'org-role.md');
     fs.writeFileSync(agentFile,
-      `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n---\n\n` +
+      `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n` +
+      `tools: [Bash, Read, Write, Edit, Glob, Grep]\n---\n\n` +
       args.systemPrompt + buildToolProtocol(args.tools));
+
+    // Empty skills dir: kimi loads every user/project skill's description
+    // into the system prompt on launch (measured: 47 skills ≈ several KB per
+    // turn). Org roles get their instructions from the role prompt — user
+    // skills are pure overhead and a source of instruction drift.
+    this.emptySkillsDir = path.join(tmpDir, 'no-skills');
+    fs.mkdirSync(this.emptySkillsDir, { recursive: true });
 
     let sessionId: string | undefined = args.resume;
 
@@ -169,7 +189,7 @@ export class KimiCodeAgentRunner implements AgentRunner {
       // the prompt. Putting flags in between (e.g. `-p --session <id> text`)
       // makes kimi consume the flag as the prompt and fail with
       // "unknown command". Prompt first, flags after.
-      const cliArgs: string[] = ['-p', promptText, '--output-format', 'stream-json'];
+      const cliArgs: string[] = ['-p', promptText, '--output-format', 'stream-json', '--skills-dir', this.emptySkillsDir];
       if (sessionId) {
         cliArgs.push('--session', sessionId);
       } else {
@@ -190,6 +210,12 @@ export class KimiCodeAgentRunner implements AgentRunner {
           // engine; without this the CLI exits 1 with
           // "--agent-file is only available with the v2 engine".
           KIMI_CODE_EXPERIMENTAL_FLAG: process.env.KIMI_CODE_EXPERIMENTAL_FLAG || '1',
+          // Org sessions are single-purpose: each resumed turn re-reads the
+          // whole session history, and keeping prior turns' thinking
+          // ("thinkingKeep: all") inflates every request's cache reads.
+          // Org roles don't need reasoning continuity between turns — the
+          // mailbox + session history carry the state.
+          KIMI_MODEL_THINKING_KEEP: process.env.KIMI_MODEL_THINKING_KEEP || 'off',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -350,6 +376,24 @@ export function parseStreamJsonLines(lines: string[]): { texts: string[]; rawTex
   return { texts, rawTexts, sessionId };
 }
 
+/** Stderr patterns that mark a turn failure as FATAL (non-retryable): auth,
+ *  quota, and billing errors can never be fixed by restarting the session —
+ *  the daemon must not burn its crash-restart budget on them. */
+const FATAL_PATTERNS: Array<{ re: RegExp; label: string }> = [
+  { re: /auth_error|401|403/i, label: 'authentication/permission error' },
+  { re: /usage limit|quota|billing cycle|insufficient.*balance|rate.?limit/i, label: 'provider quota/billing limit' },
+];
+
+export interface FatalErrorInfo { fatal: boolean; label?: string }
+
+/** Classify a CLI turn's stderr: is this a fatal (non-retryable) failure? */
+export function classifyStderr(stderrTail: string): FatalErrorInfo {
+  for (const p of FATAL_PATTERNS) {
+    if (p.re.test(stderrTail)) return { fatal: true, label: p.label };
+  }
+  return { fatal: false };
+}
+
 /** Build the actionable error for a failed CLI turn. */
 function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
   if (outcome.timedOut) {
@@ -357,6 +401,18 @@ function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
       `KimiCodeAgentRunner: kimi turn (tool round ${round}) exceeded the ${Math.round(TURN_TIMEOUT_MS / 60000)}min ` +
       `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
     );
+  }
+  // Fatal provider errors: report what actually happened, and tag the error
+  // so the daemon does NOT restart into the same guaranteed failure (a
+  // restart on quota exhaustion can only hang or fail again).
+  const cls = classifyStderr(outcome.stderrTail);
+  if (cls.fatal) {
+    const err = new Error(
+      `KimiCodeAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
+      (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+    );
+    (err as Error & { fatal?: boolean }).fatal = true;
+    return err;
   }
   const hint = bin === 'kimi' || bin.endsWith('/kimi')
     ? ' Is the Kimi Code CLI installed and logged in (kimi --version, /login)?'

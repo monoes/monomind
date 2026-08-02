@@ -431,6 +431,20 @@ export class OrgDaemon {
                 this.scheduleBossRestart(name);
               }
             };
+            // Fatal errors (provider auth/quota/billing — tagged with
+            // err.fatal by the runner) can NEVER be fixed by a restart: the
+            // same call fails identically or hangs. Skip the backoff loop
+            // and go straight to terminal crash handling instead of burning
+            // the retry budget and wall-clock on a guaranteed failure.
+            const fatal = (err as { fatal?: boolean } | null)?.fatal === true;
+            if (fatal) {
+              bus.emit({
+                type: 'status', from: role.id, reason: 'agent-fatal',
+                msg: `agent "${role.id}" hit a fatal (non-retryable) error — not restarting`,
+              });
+              crash();
+              return;
+            }
             if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) { crash(); return; }
             bus.emit({
               type: 'status', from: role.id, reason: 'agent-restart',
@@ -696,11 +710,20 @@ export class OrgDaemon {
       return `ERROR: recipient "${toQualified}" crashed and will not recover this run — message not delivered (${targetAgent.error ?? 'unknown error'})`;
     }
     if (targetAgent.mailbox.isClosed) {
-      // The org is mid-shutdown: mailboxes close before the org is removed
-      // from `this.orgs`, so a message can arrive in that window. push() would
-      // silently no-op — report the real outcome instead of a false "delivered".
-      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
-      return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
+      // Distinguish two cases that used to share one drop:
+      //  - org mid-shutdown: nothing will ever read the queue again — the
+      //    message genuinely can't be delivered, so report the real outcome.
+      //  - agent session ended but the org is alive (budget exhaustion,
+      //    turn limit, crash-restart in flight): the result is still
+      //    valuable, so persist it to the inbox. The boss-restart/next-run
+      //    drainInbox will deliver it instead of the work vanishing.
+      if (this.stopping.has(targetOrgName)) {
+        src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
+        return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
+      }
+      const q = queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `recipient session closed — queued to inbox: ${subject}`, data: { queued: q } });
+      return `queued to inbox for ${toQualified} (recipient session closed; will be delivered on restart)`;
     }
     // Track message chain: link this message to the target's last message (the one being responded to)
     const targetAgentSrc = targetOrg === src ? src?.agents.get(targetRole) : undefined;
