@@ -323,37 +323,6 @@ flowchart LR
     DB -->|next session| CE
 ```
 
-### 🛠️ Hooks MCP Tools (8)
-
-Monomind exposes 8 core MCP tools for hook lifecycle management, agent routing, risk assessment, and feedback learning:
-
-| MCP Tool | Purpose | Key Inputs / Functionality |
-|---|---|---|
-| [`hooks_route`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L264) | Task-to-agent routing | Keywords & pattern matching with memory/neural fallback. |
-| [`hooks_pre-edit`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L41) | Context & agent hints before editing | Takes `filePath`, `operation`; returns file risks & suggested agents. |
-| [`hooks_post-edit`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L91) | Record edit outcomes | Takes `filePath`, `success`, `agent`; feeds memory bridge learning. |
-| [`hooks_pre-command`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L149) | Risk assessment for shell commands | Evaluates command risk levels (`low`, `medium`, `high`, `critical`). |
-| [`hooks_post-command`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L192) | Record command exit codes | Records exit code in time-windowed outcome store for learning. |
-| [`hooks_pre-task`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L609) | Task registration & routing | Evaluates task complexity, agent suggestions, and ERL hints. |
-| [`hooks_post-task`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L722) | Record task outcome & correlation | Joins recommendations to outcomes, derives success signals, logs ERL/TextGrad. |
-| [`hooks_explain`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L964) | Transparent routing explanation | Details matched keywords, confidence scores, and historical success rates. |
-
-### 🛡️ Command Risk Levels & Security
-
-`hooks_pre-command` uses [`assessCommandRisk`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-embedding.ts#L601) to evaluate safety before shell execution:
-- **`critical` (level ≥ 0.8)**: High-hazard operations such as `rm -rf` / `rm -r` (level 0.9) or piping remote scripts into shell via `curl | sh` / `wget | bash` (level 0.8).
-- **`high` (level ≥ 0.6)**: Privileged or system-altering commands like `sudo` (level 0.7) or writing to system root paths `> /` (level 0.6).
-- **`medium` (level ≥ 0.3)**: Permission modifications like `chmod` or `chown` (level 0.5), or standard build runs like `npm` / `npx` (level 0.3).
-- **`low` (level < 0.3)**: Read-only or safe operations like `git` (level 0.2), `ls`, `cat`, or `echo` (level 0.1).
-
-*Enforcement Gate*: `shouldProceed` returns `false` whenever risk level $\ge 0.7$ ([`hooks-routing.ts:L187`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L187)), blocking `sudo` (0.7), `curl | sh` (0.8), and `rm -rf` (0.9) by default.
-
-### 💾 Routing Outcome Persistence Store
-
-Runtime learning relies on local outcome stores under [`.monomind/routing-outcomes.json`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-embedding.ts#L158):
-- **Persistence Path**: `.monomind/routing-outcomes.json` (capped at 500 entries) and `.monomind/route-outcomes.jsonl` (time-windowed outcome logs).
-- **Feedback & Outcome Joining**: `hooks_post-task` matches actual execution results (explicit or derived from `hooks_post-command` exit codes) against recommended agents. Successful patterns strengthen keyword-to-agent associations (`loadLearnedPatterns`) for continuous routing improvement.
-
 **8 on-demand workers** run at session start (staleness-gated, refreshed when older than 6 hours): `health` · `ddd` · `security` · `cache` · `progress` · `map` · `audit` · `consolidate`.
 
 ---
