@@ -1,8 +1,8 @@
 # CLI Command Reference
 
-> All 32 top-level `monomind` commands, verified against `packages/@monomind/cli/src/commands/index.ts` and `node bin/cli.js <cmd> --help` on the built dist (v2.5.4). Both internal command registries (`loadedCommands` and `commands`) contain the identical 32-entry set — no drift between them as of this sweep.
+> All 32 top-level `monomind` commands, verified against `packages/@monomind/cli/src/commands/index.ts` (both the `loadedCommands` map and the `commands`/`commandsByCategory` exports — identical 32-entry sets, no drift) plus a live `node bin/cli.js --help` run on the built dist (reported `v2.8.2`). Subcommand counts for `doc`, `analyze`, and `org` are read directly from each command's own `subcommands:` array, not estimated.
 
-**⚠️ Known issue:** `monomind --help` only lists commands that appear in the `commandsByCategory` category map (`index.ts:149–184`), which currently has **28** entries — it omits `org`, `design`, `report-crash`, and `crash-reporting` even though all four are fully registered and functional. This is a category-map bug, not a sign the commands are unsupported or hidden intentionally — `org` in particular is a headline feature that `--help` currently fails to surface. Worth a GitHub issue on `monoes/monomind` if you hit it. This doc lists all 32 regardless of what `--help` shows.
+**Note on `--help` coverage:** a live run of `monomind --help` (v2.8.2) shows all 32 commands except `report-crash` — including `org`, `design`, and `crash-reporting`, which a prior version of this note incorrectly claimed were missing (re-checked directly against `commandsByCategory`, `index.ts:149–191`, and the actual CLI output — all three are present). `report-crash` alone is absent, and that's intentional: it's the only command with `hidden: true` (`report-crash.ts:16`), an internal command shelled out to by monotask/mono-clip crash handlers, not meant for interactive use. This doc lists all 32 regardless of what `--help` shows.
 
 ## Full command list (32)
 
@@ -13,8 +13,8 @@
 | `status` | Show system status (watch mode supported) | 3 — agents, tasks, memory |
 | `agent` | Agent lifecycle (in-process, no separate MCP server needed) | 7 — spawn, list, status, stop, metrics, pool, health |
 | `swarm` | Multi-agent swarm coordination (in-process) | 6 — init, start, status, stop, scale, coordinate |
-| `memory` | Memory management — local SQLite + local embeddings | 12 — init, store, edit, retrieve, search, list, delete, templates, stats, configure, export, import |
-| `doc` | Second Brain — document ingestion & retrieval | 4 — ingest, search, list, export |
+| `memory` | Memory management — local SQLite + local embeddings | 12 — init, store, edit, retrieve, search, list, delete, templates, stats, configure, export, import (export/import: `--format okf` only — any other value is rejected at runtime, `memory-transfer.ts:91`) |
+| `doc` | Second Brain — document ingestion & retrieval | 8 — ingest, search, list, export, remove, reconcile, import, eval |
 | `task` | Task creation and lifecycle | 5 — create, list, status, cancel, assign |
 | `session` | Session state management | 6 — list, save, restore, delete, current, replay |
 | `mcp` | MCP server management | 9 — start, stop, status, health, restart, tools, toggle, exec, logs |
@@ -24,9 +24,9 @@
 | `guidance` | Wire enforcement gates into Claude Code hooks | 1 — setup |
 | `autopilot` | Autonomous task execution — persistent swarm run to completion | – |
 | `config` | Configuration management | 7 — init, get, set, providers, reset, export, import |
-| `doctor` | System diagnostics (23 named checks — see below) | flags only: `--fix`, `--install`, `--verbose`, `--component` |
+| `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--component` (`--component` accepts one of 23 named categories — see below) |
 | `completions` | Shell completion scripts | 4 — bash, zsh, fish, powershell |
-| `analyze` | Codebase analysis — diff classification, change risk | ast, diff, imports, complexity |
+| `analyze` | Codebase analysis — diff classification, change risk | 7 — diff, code, deps, ast, complexity, symbols, imports |
 | `route` | Task-to-agent routing (keyword + embedding cascade) | 9 — task (default), semantic, list-agents, stats, feedback, reset, export, import, coverage (alias: cov) |
 | `monograph` | Knowledge graph CLI (delegates to `@monoes/monograph`) | – |
 | `tokens` | Token usage tracking + cost dashboard | dashboard |
