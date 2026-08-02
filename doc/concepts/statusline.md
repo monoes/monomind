@@ -126,12 +126,14 @@ Architectural compliance and security posture.
 
 | Element                             | Meaning                                            | Source                                                                                                                                                                                    |
 | ----------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `82/82 ADRs`                        | Architecture Decision Records: implemented / total | Scans `packages/implementation/adrs/`, `docs/adrs/`, `.monomind/adrs/` for `.md` files starting with `ADR-`. Green = all implemented; gold = some pending                                |
+| `82/82 ADRs`                        | Architecture Decision Records: implemented / total | `getADRStatus()` in `.claude/helpers/statusline.cjs:504-525` checks three hardcoded paths in order — `packages/implementation/adrs/`, `docs/adrs/`, `.monomind/adrs/` — and returns the count from the first one that exists, matching `.md` files starting with `ADR-`/`adr-` or a 4-digit prefix (`^\d{4}-`). Green = all implemented; gold = some pending. **In this repo, none of the three paths exist, so this row always reads `0/0` — see ⚠️ Known issue below.** |
 | `DDD ▰▰▱▱▱ 40%`                     | Domain-Driven Design alignment percentage          | `.monomind/metrics/ddd-progress.json` → `progress` (0–100), written by the `ddd` worker from a real scan of the domain model                                                             |
 | `🛡️ ✔ CLEAN` / `✖ NONE`             | Security scan status badge                         | `.monomind/security/audit-status.json` → `status`. Values: `✔ CLEAN` (scanned, no issues), `✔ SCANNED` (completed), `⟳ STALE` (> 7 days old), `⏸ PENDING` (queued), `✖ NONE` (never run) |
 | `CVE not scanned` / `CVE N/M fixed` | Vulnerability count and fix progress               | Same file → `totalCves`, `cvesFixed`. Green = zero CVEs; coral = unfixed CVEs remain                                                                                                      |
 
 **DDD color scale:** orange (< 40%) → gold (40–74%) → green (≥ 75%).
+
+**⚠️ Known issue:** none of the three paths `getADRStatus()` scans exist in this repo. The repo's real ADRs live in `doc/adrs/` (singular "doc"), which the function never checks — so the ARCH row's ADR count is currently always `0/0` here, regardless of the `82/82` shown in the example dashboards above (those are illustrative samples, not this repo's actual state). If the path list included `doc/adrs/`, the real count would be 2 of its 3 files: `ADR-G004-four-enforcement-gates.md` and `ADR-R001-onnxruntime-process-teardown.md` match the naming filter; `org-dashboard-v2-design.md` does not. This is a gap in `getADRStatus()`'s hardcoded path list, not a documentation error — the fix belongs in source, not here.
 
 ---
 

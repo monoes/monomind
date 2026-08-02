@@ -283,7 +283,7 @@ describe('OrgDaemon', () => {
     expect(audit!.msg).toMatch(/simulated provider outage/);
   });
 
-  it('deliver() reports a real error (not a false "delivered") when the target mailbox is already closed', async () => {
+  it('deliver() queues to inbox (not a false "delivered", not dropped) when the target mailbox closes but the org is alive', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon6-'));
     mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
     writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
@@ -299,7 +299,11 @@ describe('OrgDaemon', () => {
     await d.deliver('alpha', 'boss', 'coder', 'first', 'go');
     await new Promise(r => setTimeout(r, 100)); // let the async session process it and close its mailbox
     const receipt = await d.deliver('alpha', 'boss', 'coder', 'second', 'still there?');
-    expect(receipt).toMatch(/shutting down|not delivered/);
+    // The org is alive (only the coder's session ended from budget), so the
+    // message must be queued to the inbox for a later drain — not dropped
+    // with a "shutting down" error, and not falsely reported as delivered.
+    expect(receipt).toMatch(/queued to inbox/);
+    expect(receipt).not.toMatch(/shutting down/);
     await d.stopAll();
   });
 
