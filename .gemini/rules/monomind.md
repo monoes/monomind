@@ -9,7 +9,7 @@
 
 ## Memory
 
-- Always call `mcp__monomind__memory_search` at the start of a task.
+- Always call `mcp__monomind__memory_kg_search` at the start of a task.
 - After a helpful search: call `mcp__monomind__memory_feedback` with result IDs.
 - At session end: distill insights via `mcp__monomind__memory_kg_ingest`.
 

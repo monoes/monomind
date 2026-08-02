@@ -143,10 +143,13 @@ const CORE_HIDDEN_TOOLS = new Set([
   'monograph_api_impact',
   // memory: routing, admin, batch, hierarchical, and KG maintenance variants
   'memory_route', 'memory_semantic-route', 'memory_causal-edge',
-  'memory_batch', 'memory_context-synthesize', 'memory_kg_stats',
-  'memory_kg_rollback', 'memory_controllers', 'memory_health',
+  'memory_batch', 'memory_context-synthesize', 'memory_controllers', 'memory_health',
   'memory_consolidate', 'memory_kg_consolidate', 'memory_hierarchical-store',
   'memory_hierarchical-recall', 'memory_pattern-search',
+  // NOTE: memory_kg_stats and memory_kg_rollback stay ADVERTISED — the
+  // Memory Loop documented in CLAUDE.md (ingest → search → rollback on bad
+  // ingest, glossary via kg_stats) references them; hiding them broke that
+  // workflow in Claude sessions for ~160 tokens of savings.
 ]);
 
 function isCoreAdvertised(tool: MCPTool): boolean {

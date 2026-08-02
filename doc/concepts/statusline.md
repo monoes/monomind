@@ -5,14 +5,14 @@ The Monomind statusline is a live dashboard embedded in Claude Code's status bar
 It has two modes you can toggle with `/ts`:
 
 - **Compact** — a single line that fits in Claude Code's status bar
-- **Full** — a six-row dashboard printed above every response
+- **Full** — a multi-line dashboard printed above every response
 
 ---
 
 ## Compact Mode
 
 ```
-▊ Monomind ○  │  ⎇ main +1 ~9921 ↑5  │  Sonnet 4.6  │  → Level Designer  │  💡 3%  │  📚 190k  │  🎯 3t  │  ⚡ 14h
+▊ Monomind ○  │  ⎇ main +1 ~9921 ↑5  │  → Level Designer  │  💡 3%  │  📚 190k  │  🎯 3t  │  ⚡ 14h
 ```
 
 | Element              | Meaning                                                          | Source                                                                        |
@@ -24,7 +24,6 @@ It has two modes you can toggle with `/ts`:
 | `~9921`              | Modified but unstaged files                                      | `git status --porcelain` worktree column                                      |
 | `↑5`                 | Commits ahead of remote (need push)                              | `git rev-list --left-right --count HEAD...@{upstream}`                        |
 | `↓N`                 | Commits behind remote (need pull)                                | Same command, right count                                                     |
-| `Sonnet 4.6`         | Active Claude model                                              | Session JSONL → `.claude.json` → `settings.json` → env → `Sonnet 4.6` default |
 | `→ Level Designer`   | Currently routed agent (→ = auto-routed, ● = manually activated) | `.monomind/last-route.json` (written by route hook)                          |
 | `💡 3%`              | Intelligence score — pattern cache fill rate                     | `.monomind/metrics/learning.json` → `intelligence.score`                     |
 | `📚 190k`            | Knowledge base chunks indexed (Task 28)                          | Line count of `.monomind/knowledge/chunks.jsonl`                             |
@@ -33,147 +32,114 @@ It has two modes you can toggle with `/ts`:
 
 Items only appear when they have data — `📚`, `🎯`, `🐝` are hidden when their count is 0.
 
+**Not shown: the Claude model name** (e.g. "Sonnet 4.6"). This line never calls `getModelName()`; see the Full Mode header note below for the full lookup chain and where it's actually exposed.
+
 ---
 
 ## Full Mode
 
-Toggled with `/ts`. Six rows separated by dividers.
+Toggled with `/ts`. Prints a multi-line dashboard above every response. Three sections always appear — Header, 🤖 AGENT, 🧠 CONTEXT — each separated by a divider line. Two more appear only when there's live state to show them; see [Conditional additions](#conditional-additions) below.
 
 ```
-▊ Monomind v2.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ?38  ↑5  │  🤖 Sonnet 4.6
+▊Monomind v2.8.3  ● LIVE  monoes/monomind  │  ◎monomind  │  ⬡nokhodian  │  ⎇main +1 ~12 ?3 ↑5  ⏱42m
 ──────────────────────────────────────────────────────
-💡  INTEL    ▱▱▱▱▱▱ 3%   │   📚 190 chunks   │   76 patterns
+🤖 AGENT  👤 Coder  81%  │  🔄 no active loops
 ──────────────────────────────────────────────────────
-🐝  SWARM    0/15 agents   ⚡ 14/14 hooks   │   🎯 3 triggers · 24 agents   │   → ROUTED  👤 Coder  81%
+🧠 CONTEXT  🔗12kn 34ke ●fresh  │  📊62%·38%grep 💰$4.12  │  ✨2HIL  │  $3.10·$88.40mo
+```
+
+That's what a populated session shows. A fresh one — no git remote, no routed agent yet, no graph/cost data — omits most individual elements too; each is independently conditional (see the tables below).
+
+---
+
+### Header
+
+```
+▊Monomind v2.8.3  ● LIVE  monoes/monomind  │  ◎monomind  │  ⬡nokhodian  │  ⎇main +1 ~12 ?3 ↑5  ⏱42m
+```
+
+Source: `generateDashboard()`, `.claude/helpers/statusline.cjs:1208-1226`.
+
+| Element              | Meaning                                        | Source                                                                                                                                                                          |
+| --------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `▊Monomind v2.8.3`   | Brand mark and package version                 | Nearest `package.json` → `version` (`getVersion()`)                                                                                                                              |
+| `● LIVE` / `○ IDLE`  | Whether swarm coordination looks active        | `getSwarmStatus()` — first of 3 tiers that finds live state wins: agent-registration files in `.monomind/agents/registrations/` (<30 min old), else `swarm-state.json` (<5 min old), else `swarm-activity.json` (<5 min old) |
+| `monoes/monomind`    | Project identifier                             | `getProjectName()` — `owner/repo` parsed from `git remote get-url origin`; falls back to the working-directory folder name when there's no remote                              |
+| `◎monomind`          | Working directory name                         | `path.basename(CWD)`                                                                                                                                                             |
+| `⬡nokhodian`         | Your git identity                              | `git config user.name` (`getGitInfo()`)                                                                                                                                          |
+| `⎇main`              | Active branch                                  | `git branch --show-current`                                                                                                                                                      |
+| `+1` / `~12` / `?3`  | Staged / modified / untracked files            | Parsed from `git status --porcelain`; each segment only appears when its count is > 0                                                                                           |
+| `↑5` / `↓N`          | Commits ahead / behind upstream                | `git rev-list --left-right --count HEAD...@{upstream}`; each only appears when > 0                                                                                              |
+| `⏱42m`               | Session duration, shown only when available    | `.monomind/session.json` or `.claude/session.json` → `startTime`                                                                                                                |
+
+**Not shown: the Claude model name** (e.g. "Sonnet 4.6"). `getModelName()` (`.claude/helpers/statusline.cjs:243`) implements a real lookup chain — live session JSONL (`~/.claude/projects/<escaped-cwd>/*.jsonl`) → `~/.claude.json` → `settings.json` → env vars (`ANTHROPIC_MODEL`/`CLAUDE_MODEL`) → `"Sonnet 4.6"` default — but its only call site anywhere in the file is `generateJSON()`, the `--json` output mode. Neither this header nor Compact Mode ever calls it, so the model name isn't part of either mode's visible output; read it via `node .claude/helpers/statusline.cjs --json` → `user.modelName`.
+
+---
+
+### 🤖 AGENT
+
+```
+🤖 AGENT  👤 Coder  81%  │  🔄 no active loops
+```
+
+Source: `.claude/helpers/statusline.cjs:1228-1267`.
+
+| Element                                     | Meaning                                                     | Source                                                                                                                                                                                                  |
+| ---------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `● ACTIVE` (green, shown only when present)  | Marks an agent loaded manually via `/use-agent`/`load-agent`, as opposed to auto-routed | `.monomind/last-route.json` → `activated` (`getActiveAgent()`)                                                                                                                                            |
+| `👤 Coder`                                   | Currently selected agent name                                | Same file → `name` (falls back to the slug, Title Cased — see below). Reads `👤 no agent routed` (slate) when the file is missing, has no `agent` field, or its `updatedAt` is older than 30 minutes    |
+| `81%` (only for auto-routed agents)          | Routing confidence score                                     | Same file → `confidence` — omitted when `activated` is true                                                                                                                                              |
+| `🔄 no active loops` / `🔄 ⟳ cmd 2/5`        | Active `/loop` runs                                           | `.monomind/loops/*.json` (`getLoopStatus()`), skipping files with no activity in the last 6 hours. Up to 2 shown, `+N more` beyond that. `⏳ HIL` in place of `⟳` marks a loop waiting on a human answer; a `tillend`-type loop shows `run N` instead of `N/max` |
+| `⚡123ms` (only when present)                 | Per-prompt hook latency                                       | `.monomind/metrics/hook-latency.json` (`getHookLatency()`); only shown when > 0ms, coral when > 500ms                                                                                                    |
+
+**Agent display logic:** the agent name is formatted from the slug (`level-designer` → `Level Designer`). If a display name is set in the agent's markdown file, that takes priority. For predefined slash commands (`/ts`, `/commit`, etc.) the command name itself is shown instead of a routing result.
+
+---
+
+### 🧠 CONTEXT
+
+```
+🧠 CONTEXT  🔗12kn 34ke ●fresh  │  📊62%·38%grep 💰$4.12  │  ✨2HIL  │  $3.10·$88.40mo
+```
+
+Source: `.claude/helpers/statusline.cjs:1269-1306`. Everything past the `🔗` graph indicator is independently conditional — each `│`-separated segment only appears when its underlying data exists.
+
+| Element                           | Meaning                                                                | Source                                                                                                                                                                                     |
+| ------------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `🔗12kn 34ke` / `🔗no graph`       | Monograph knowledge-graph node/edge count                                  | `getGraphifyStats()` — tries `.monomind/graph/stats.json`, then a live `sqlite3` query against `.monomind/monograph.db`, then the legacy `.monomind/graph/graph.json` dump, in that order |
+| `●fresh` / `●Nstale` / `●Nbehind`  | Graph freshness vs. commits made since the last build                      | `getGraphFreshness()` — compares the graph's build time to `git rev-list --count --since=<build time> HEAD`; fresh = 0 commits behind, stale = more than 5                                |
+| `📊62%·38%grep`                   | Share of code lookups Monograph answered vs. grep/glob/bash fallback       | `.monomind/metrics/graph-usage.json` (`getGraphUsage()`)                                                                                                                                   |
+| `💰$4.12`                         | Estimated dollars saved by graph-assisted lookups over grep                | Same file → `dollars_saved`                                                                                                                                                                |
+| `✨2HIL`                           | Pending human-in-the-loop questions from `/loop` runs, shown only when > 0 | `.monomind/loops/*-hil.md` files with no reply line yet (`getHILPending()`)                                                                                                                |
+| `$3.10·$88.40mo`                  | Today's / this month's token spend                                         | `.monomind/metrics/token-summary.json` (`getTokenCostSummary()`) — **aggregated across all Claude Code projects on this machine, not just this repo.** Today's figure only shows when the cached data is from today (UTC); the month figure has no such gate |
+
+---
+
+### Conditional additions
+
+Two more pieces of output appear only when there's live state to show — and they attach to the dashboard differently from each other:
+
+**📄 docs — an indented continuation of CONTEXT, not its own row.** Appears directly under the CONTEXT line with no divider before or after it, only when `docStats.exists && parts.length` is true (`getDocStats()`, `.claude/helpers/statusline.cjs:1308-1329`):
+
+```
+🧠 CONTEXT  🔗12kn 34ke ●fresh
+   📄 42docs 190chunks 12mem 3okf
+```
+
+Counts, each only included when > 0: indexed-doc lines in `.monomind/knowledge/doc-metadata.jsonl`, chunk lines in `.monomind/knowledge/chunks.jsonl`, `memory_entries` rows in `.monomind/memory/memory.db`, and exported files in `.monomind/exports/`.
+
+**🏛 ORGS — a real peer row, with its own divider.** Appears only when `orgStatus.count > 0` (`getActiveOrgs()`, `.claude/helpers/statusline.cjs:1331-1343`):
+
+```
 ──────────────────────────────────────────────────────
-🧩  ARCH     82/82 ADRs   │   DDD ▰▰▱▱▱ 40%   │   🛡️ ✖ NONE   │   CVE not scanned
-──────────────────────────────────────────────────────
-🗄️  MEMORY   0 vectors   │   2.0 MB   │   🧪 66 test files   │   MCP 1/1  DB ✔
-──────────────────────────────────────────────────────
-📋  CONTEXT  📄 SI 80% budget (1201/1500 chars)   │   🏗 ▰▰▱▱▱ 2/5 domains   │   💾 47 MB RAM
+🏛 ORGS  ●docs-team now  │  ◌release-team 4m
 ```
+
+Scans `.monomind/orgs/<name>/runs/*.jsonl` — or the equivalent path under the git common directory, for orgs run outside the current worktree — for run files updated in the last 10 minutes. `●` (green) = still running, last event isn't `run:complete`/`org:complete`; `◌` (slate) = finished but recent. Up to 5 orgs shown, each with time since its last event.
 
 ---
 
-### Header Row
-
-```
-▊ Monomind v2.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ?38  ↑5  │  🤖 Sonnet 4.6
-```
-
-| Element              | Meaning                                        | Source                                                                                                                                               |
-| -------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `▊ Monomind v2.0.0` | Brand mark and package version                 | Reads nearest `package.json` → `version` field                                                                                                       |
-| `● LIVE` / `○ IDLE`  | Whether a swarm coordination session is active | `.monomind/swarm/swarm-state.json` — **LIVE** if file is < 5 min old                                                                                |
-| `nokhodian`          | Your git identity                              | `git config user.name`                                                                                                                               |
-| `⎇ main`             | Active branch                                  | `git branch --show-current`                                                                                                                          |
-| `+1`                 | Files staged (index ready to commit)           | `git status --porcelain` — index column not space/`?`                                                                                                |
-| `~9921 mod`          | Files modified but not staged                  | Same output, worktree column                                                                                                                         |
-| `?38`                | Untracked files                                | Lines starting `??` in porcelain output                                                                                                              |
-| `↑5`                 | Commits ahead of upstream                      | `git rev-list --left-right --count HEAD...@{upstream}` left count                                                                                    |
-| `↓N`                 | Commits behind upstream (need pull)            | Same, right count                                                                                                                                    |
-| `🤖 Sonnet 4.6`      | Active Claude model                            | Lookup chain: live session JSONL → `~/.claude.json` `lastModelUsage` → `settings.json` → env vars (`ANTHROPIC_MODEL`, `CLAUDE_MODEL`) → `Sonnet 4.6` |
-
----
-
-### Row 1 — 💡 INTEL
-
-```
-💡  INTEL    ▱▱▱▱▱▱ 3%   │   📚 190 chunks   │   76 patterns
-```
-
-Intelligence and learning subsystem status.
-
-| Element         | Meaning                                                        | Source                                                                                                                                                                                   |
-| --------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `▱▱▱▱▱▱ 3%`     | Intelligence fill — how saturated the pattern cache is         | `.monomind/metrics/learning.json` → `intelligence.score`. Falls back to entry-count heuristic: 2,000 entries = 100%. Color: slate (0%) → orange (1–39%) → gold (40–74%) → green (75%+) |
-| `📚 190 chunks` | Knowledge base entries indexed by Task 28 (AgentKnowledgeBase) | Line count of `.monomind/knowledge/chunks.jsonl`. Chunks are created by splitting CLAUDE.md, todo.md, and last-route.json at session-restore. Grows as sessions accumulate              |
-| `✦ N skills`    | Learned procedural skills (Task 45 — ProceduralMemory)         | Line count of `.monomind/skills.jsonl`. Only shown when > 0                                                                                                                             |
-| `76 patterns`   | Patterns learned across sessions                               | `.monomind/metrics/ddd-progress.json` → `patternsLearned`. Populated by intelligence consolidation at session-end                                                                       |
-
-**How chunks grow:** Each `session-restore` hook call runs `_autoIndexKnowledge()` which reads project files, splits them into ~200-token chunks, hashes each chunk, and appends new ones to `chunks.jsonl`. Already-indexed chunks are skipped. The 190 shown here represent accumulated knowledge from all sessions so far.
-
----
-
-### Row 2 — 🐝 SWARM
-
-```
-🐝  SWARM    0/15 agents   ⚡ 14/14 hooks   │   🎯 3 triggers · 24 agents   │   → ROUTED  👤 Coder  81%
-```
-
-Active agent coordination and routing state.
-
-| Element                     | Meaning                                                        | Source                                                                                                                                                                                                            |
-| --------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0/15 agents`               | Active agents / configured maximum                             | `.monomind/swarm/swarm-state.json` → `agents.length`. Falls back to `.monomind/metrics/swarm-activity.json`. Green when > 0                                                                                     |
-| `⚡ 14/14 hooks`            | Hooks wired / total available                                  | Counts all hook entries in `.claude/settings.json` + `.js`/`.sh` files in `.claude/hooks/`. Mint green = at least one hook active                                                                                 |
-| `🎯 3 triggers · 24 agents` | MicroAgent trigger rules active (Task 32 — MicroagentTriggers) | Reads `.monomind/trigger-index.json`. 3 trigger keywords across 24 specialist agents are indexed and scanned on every route call. Agents with `triggers:` frontmatter in their `.md` definition get auto-matched |
-| `→ ROUTED` / `● ACTIVE`     | How the current agent was selected                             | `→ ROUTED` = selected automatically by `.claude/helpers/router.cjs`'s keyword/regex matcher (`routeTask()`), which writes `.monomind/last-route.json` — **not** `@monoes/routing`'s `RouteLayer` (that's a separate, opt-in embedding-based router, only reached via `route semantic`/`agent --task`/`hooks_route_semantic`); `● ACTIVE` = manually loaded via `/use-agent` or `load-agent` command                                                                                      |
-| `👤 Coder`                  | Currently selected agent name                                  | `.monomind/last-route.json` → `agent` field. Updated on every route call. Stale after 30 minutes                                                                                                                 |
-| `81%`                       | Routing confidence score                                       | Same file → `confidence` field. Shown only for auto-routed agents                                                                                                                                                 |
-
-**Agent display logic:** The agent name is formatted from the slug (`level-designer` → `Level Designer`). If a display name is set in the agent's markdown file, that takes priority. For predefined slash commands (`/ts`, `/commit`, etc.) the command name itself is shown instead of a routing result.
-
----
-
-### Row 3 — 🧩 ARCH
-
-```
-🧩  ARCH     82/82 ADRs   │   DDD ▰▰▱▱▱ 40%   │   🛡️ ✖ NONE   │   CVE not scanned
-```
-
-Architectural compliance and security posture.
-
-| Element                             | Meaning                                            | Source                                                                                                                                                                                    |
-| ----------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `82/82 ADRs`                        | Architecture Decision Records: implemented / total | `getADRStatus()` in `.claude/helpers/statusline.cjs:504-525` checks three hardcoded paths in order — `packages/implementation/adrs/`, `docs/adrs/`, `.monomind/adrs/` — and returns the count from the first one that exists, matching `.md` files starting with `ADR-`/`adr-` or a 4-digit prefix (`^\d{4}-`). Green = all implemented; gold = some pending. **In this repo, none of the three paths exist, so this row always reads `0/0` — see ⚠️ Known issue below.** |
-| `DDD ▰▰▱▱▱ 40%`                     | Domain-Driven Design alignment percentage          | `.monomind/metrics/ddd-progress.json` → `progress` (0–100), written by the `ddd` worker from a real scan of the domain model                                                             |
-| `🛡️ ✔ CLEAN` / `✖ NONE`             | Security scan status badge                         | `.monomind/security/audit-status.json` → `status`. Values: `✔ CLEAN` (scanned, no issues), `✔ SCANNED` (completed), `⟳ STALE` (> 7 days old), `⏸ PENDING` (queued), `✖ NONE` (never run) |
-| `CVE not scanned` / `CVE N/M fixed` | Vulnerability count and fix progress               | Same file → `totalCves`, `cvesFixed`. Green = zero CVEs; coral = unfixed CVEs remain                                                                                                      |
-
-**DDD color scale:** orange (< 40%) → gold (40–74%) → green (≥ 75%).
-
-**⚠️ Known issue:** none of the three paths `getADRStatus()` scans exist in this repo. The repo's real ADRs live in `doc/adrs/` (singular "doc"), which the function never checks — so the ARCH row's ADR count is currently always `0/0` here, regardless of the `82/82` shown in the example dashboards above (those are illustrative samples, not this repo's actual state). If the path list included `doc/adrs/`, the real count would be 2 of its 3 files: `ADR-G004-four-enforcement-gates.md` and `ADR-R001-onnxruntime-process-teardown.md` match the naming filter; `org-dashboard-v2-design.md` does not. This is a gap in `getADRStatus()`'s hardcoded path list, not a documentation error — the fix belongs in source, not here.
-
----
-
-### Row 4 — 🗄️ MEMORY
-
-```
-🗄️  MEMORY   0 entries   │   2.0 MB   │   🧪 66 test files   │   MCP 1/1  DB ✔
-```
-
-Memory store state and integrations.
-
-| Element            | Meaning                                 | Source                                                                                                                                                                                                       |
-| ------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `0 entries`        | Memory entries stored                   | Counts entries in `.monomind/data/auto-memory-store.json`. Also checks `ranked-context.json → entries.length`. Green when > 0                                                                               |
-| `2.0 MB`           | Total on-disk size of all memory stores | Sums sizes of `auto-memory-store.json`, `ranked-context.json`, `memory.db`, `memory.graph`                                                                                                                   |
-| `🧪 66 test files` | Number of test files across the project | Counts files matching `*.test.*` / `*.spec.*` in `tests/`, `src/`, `v1/` — no file reads, stat only                                                                                                          |
-| `MCP 1/1`          | MCP servers: enabled / configured       | `.claude/settings.json` → `mcpServers`. Green = all enabled; gold = partial; coral = none enabled                                                                                                            |
-| `DB ✔`             | Memory database present                 | Presence of `memory.db` in any of: `.swarm/`, `.monomind/`, `data/`                                                                                                                                         |
-| `API ✔`            | AI API key configured                   | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` set in environment                                                                                                                                                   |
-
-**When do entries populate?** The `auto-memory-store.json` is written by the `.claude/helpers/auto-memory-hook.mjs` helper (`import` at `SessionStart`, `sync` at `Stop`) and by intelligence pattern consolidation (`intelligence.init()`/`intelligence.consolidate()`) — not by an `AutoMemoryBridge` class, which has been removed from source entirely. Entries also accumulate via `npx monomind@latest memory store`.
-
----
-
-### Row 5 — 📋 CONTEXT
-
-```
-📋  CONTEXT  📄 SI 80% budget (1201/1500 chars)   │   🏗 ▰▰▱▱▱ 2/5 domains   │   💾 47 MB RAM
-```
-
-Token budget health and session resource usage.
-
-| Element                | Meaning                                                  | Source                                                                                                                                                                         |
-| ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `📄 SI 80% budget`     | Shared Instructions token budget usage (Task 23 monitor) | Reads `.agents/shared_instructions.md` and computes `length / 1500`. Hard limit of 1500 chars is enforced at session-restore — content beyond that is truncated with a warning |
-| `(1201/1500 chars)`    | Exact character count / limit                            | Same file                                                                                                                                                                      |
-| `🏗 ▰▰▱▱▱ 2/5 domains` | DDD domain completion bar                                | `.monomind/metrics/ddd-progress.json` → `domainsCompleted` / `totalDomains`. Block bar (▰ = complete, ▱ = pending)                                                            |
-| `💾 47 MB RAM`         | Process heap usage                                       | `process.memoryUsage().heapUsed` — no shell call. Orange when > 200 MB                                                                                                         |
-
-**SI budget color scale:** green (≤ 80%) → gold (81–100%) → coral (> 100%, file is over limit and being truncated).
+*Unverified aside: the 12 locals `generateDashboard()` computes but never reads (`.claude/helpers/statusline.cjs:1190-1205` — includes ADR, security, DDD-progress, test-count, and knowledge-base data) line up closely with content this section used to document as five additional rows (INTEL/SWARM/ARCH/MEMORY, plus a differently-shaped CONTEXT). That's consistent with a render-side refactor that trimmed the output but left the data-gathering calls in place — not confirmed against git history, and not something this doc can fix; tracked separately for the code owners.*
 
 ---
 
@@ -185,7 +151,7 @@ Token budget health and session resource usage.
 | 🟡 Gold        | `38;5;220` | Good progress, not complete             |
 | 🟠 Orange      | `38;5;208` | Low — attention recommended             |
 | 🔵 Sky blue    | `38;5;117` | Informational / auto-routed agent       |
-| 🟣 Violet      | `38;5;99`  | Model name                              |
+| 🟣 Violet      | `38;5;99`  | Git identity (⬡ symbol, Full Mode header) |
 | 🟦 Teal        | `38;5;51`  | Knowledge / chunk data                  |
 | 🌿 Mint        | `38;5;120` | Hooks / triggers                        |
 | ⚫ Slate       | `38;5;245` | Idle / no data / neutral                |
@@ -208,7 +174,7 @@ Token budget health and session resource usage.
 | `.monomind/security/audit-status.json`  | `monomind security scan`                  | ARCH                |
 | `.monomind/swarm/swarm-state.json`      | Swarm init / coordinator                   | Header, SWARM       |
 | `.agents/shared_instructions.md`         | Hand-edited — size checked at session start | CONTEXT             |
-| `~/.claude/projects/…/*.jsonl`           | Claude Code session writer                 | Header (model name) |
+| `~/.claude/projects/…/*.jsonl`           | Claude Code session writer                 | `--json` output only (not Full/Compact Mode text) |
 | `.claude/settings.json`                  | Project configuration                      | SWARM (hooks, MCP)  |
 
 ---
