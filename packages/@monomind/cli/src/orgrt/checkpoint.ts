@@ -22,6 +22,8 @@ export interface RoleCheckpoint {
   status: 'running' | 'ended' | 'crashed';
   /** Error message if crashed */
   error?: string;
+  /** Terminal scrollback — last N lines of agent output. */
+  scrollback?: string[];
 }
 
 /** Full checkpoint state for an org */
@@ -63,6 +65,7 @@ export function captureCheckpoint(org: RunningOrg): OrgCheckpoint {
       sessionId: undefined, // TODO: extract from session layer
       status: runtime.status,
       error: runtime.error,
+      scrollback: runtime.scrollback?.snapshot(),
     };
   }
 

@@ -259,6 +259,17 @@ const resumeAction = async (ctx: CommandContext): Promise<CommandResult> => {
   return { success: true, message: `org ${name} resumed` };
 };
 
+const reloadAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  const validated = validateOrgName(ctx.args[0]);
+  if (!validated.ok) return validated.result;
+  const name = validated.name;
+  // The reload signal is a file the running daemon polls — same pattern as stop/pause.
+  mkdirSync(join(ctx.cwd, ORG_DIR, name), { recursive: true });
+  writeFileSync(join(ctx.cwd, ORG_DIR, name, 'reload'), new Date().toISOString());
+  log(output.info(`Reload requested for "${name}" — the daemon picks it up within ~2s.`));
+  return { success: true, message: `reload requested for ${name}` };
+};
+
 const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
   let name: string | undefined;
   if (ctx.args[0]) {
@@ -387,6 +398,27 @@ export const pollStopfiles = async (cwd: string, daemon: OrgDaemon): Promise<str
     }
   }
   return stopped;
+};
+
+export const pollReloadfiles = async (cwd: string, daemon: OrgDaemon): Promise<string[]> => {
+  const reloaded: string[] = [];
+  for (const name of daemon.listRunning()) {
+    const reloadFile = join(cwd, ORG_DIR, name, 'reload');
+    if (!existsSync(reloadFile)) continue;
+    try { unlinkSync(reloadFile); } catch { /* already gone */ }
+    try {
+      const result = daemon.reloadOrgDef(name);
+      const parts: string[] = [];
+      if (result.changed.length) parts.push(`${result.changed.length} fields updated`);
+      if (result.newRoles.length) parts.push(`${result.newRoles.length} new roles: ${result.newRoles.join(', ')}`);
+      if (result.removedRoles.length) parts.push(`${result.removedRoles.length} roles removed: ${result.removedRoles.join(', ')}`);
+      log(output.info(`org ${name}: reloaded — ${parts.join('; ') || 'no changes'}`));
+      reloaded.push(name);
+    } catch (err) {
+      log(output.warning(`org ${name}: reload failed — ${err instanceof Error ? err.message : 'unknown'}`));
+    }
+  }
+  return reloaded;
 };
 
 /** One pass of the `org serve` runfile poll — the mirror of pollStopfiles.
@@ -614,6 +646,26 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const { OrgScheduler, parseSchedule } = await import('../orgrt/scheduler.js');
   const sched = new OrgScheduler(async (name, intervalMs) => {
     if (isOrgPaused(ctx.cwd, name)) return;
+    // Run precondition checks before starting a scheduled run
+    try {
+      const defPath = join(ctx.cwd, ORG_DIR, `${name}.json`);
+      if (existsSync(defPath)) {
+        const rawDef = JSON.parse(readFileSync(defPath, 'utf8'));
+        const checks = rawDef?.run_config?.prechecks;
+        if (Array.isArray(checks) && checks.length > 0) {
+          const { runPrechecks } = await import('../orgrt/prechecks.js');
+          const { ok, results } = await runPrechecks(checks, ctx.cwd);
+          if (!ok) {
+            const failed = results.find(r => !r.passed);
+            log(output.warning(`org ${name}: precheck "${failed?.name}" failed — skipping scheduled run`));
+            if (failed?.output) log(output.warning(`  ${failed.output.slice(0, 200)}`));
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      log(output.warning(`org ${name}: precheck evaluation error — ${err instanceof Error ? err.message : 'unknown'}`));
+    }
     // Only ever stop a run THIS tick started. The runfile poll can start an org
     // out-of-band, and the scheduler has no visibility into that — so a tick
     // landing on an already-running org threw "already running", fell into the
@@ -690,10 +742,13 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   stopPoll.unref?.();
   const runPoll = setInterval(() => { void pollRunfiles(ctx.cwd, daemon); }, 2000);
   runPoll.unref?.();
+  const reloadPoll = setInterval(() => { void pollReloadfiles(ctx.cwd, daemon); }, 2000);
+  reloadPoll.unref?.();
 
   await new Promise<void>(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
   clearInterval(stopPoll);
   clearInterval(runPoll);
+  clearInterval(reloadPoll);
   clearInterval(heartbeatInterval);
   sched.stop();
   await daemon.stopAll();
@@ -940,6 +995,7 @@ export const orgCommand: Command = {
     { name: 'stop', description: 'Request a running org daemon to stop', action: stopAction },
     { name: 'pause', description: 'Pause an org — current turns finish, no new cycles start', action: pauseAction },
     { name: 'resume', description: 'Resume a paused org', action: resumeAction },
+    { name: 'reload', description: 'Hot-reload an org definition without stopping sessions', action: reloadAction },
     { name: 'status', description: 'Show runtime state of orgs', action: statusAction },
     {
       name: 'serve', description: 'Start the daemon server only (hosts scheduled orgs)',
@@ -1123,6 +1179,40 @@ export const orgCommand: Command = {
         if (!v.ok) return v.result;
         const { denyAction } = await import('./org-observe.js');
         return denyAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'gates', description: 'List decision gates from an org\'s agents',
+      options: [{ name: 'all', description: 'Include resolved gates', type: 'boolean' }],
+      examples: [
+        { command: 'monomind org gates growth', description: 'Show pending gates' },
+        { command: 'monomind org gates growth --all', description: 'Show all gates' },
+      ],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { gatesAction } = await import('./org-observe.js');
+        return gatesAction(ctx, v.name);
+      },
+    },
+    {
+      name: 'gate-approve', description: 'Approve a pending decision gate',
+      examples: [{ command: 'monomind org gate-approve growth gate-123-ab "ship it"', description: 'Approve gate with resolution' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { gateResolveAction } = await import('./org-observe.js');
+        return gateResolveAction(ctx, v.name, true);
+      },
+    },
+    {
+      name: 'gate-reject', description: 'Reject a pending decision gate',
+      examples: [{ command: 'monomind org gate-reject growth gate-123-ab "not ready"', description: 'Reject gate with reason' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { gateResolveAction } = await import('./org-observe.js');
+        return gateResolveAction(ctx, v.name, false);
       },
     },
     {

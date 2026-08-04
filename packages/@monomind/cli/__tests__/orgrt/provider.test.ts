@@ -47,6 +47,20 @@ describe('resolveProviderEnv', () => {
     expect(env[ANTHROPIC_KEY_VAR]).toBe(PLACEHOLDER);
   });
 
+  it('multi-provider: each role resolves independently', () => {
+    const parent = { ...base, DEV_CRED: PLACEHOLDER, REVIEW_CRED: PLACEHOLDER };
+    const bossEnv = resolveProviderEnv(undefined, parent);
+    const devEnv = resolveProviderEnv({ kind: 'api-key', apiKeyEnv: 'DEV_CRED' }, parent);
+    const reviewEnv = resolveProviderEnv({ kind: 'base-url', baseUrl: 'https://proxy.local', authTokenEnv: 'REVIEW_CRED' }, parent);
+    // Boss uses subscription (no key)
+    expect(bossEnv[ANTHROPIC_KEY_VAR]).toBeUndefined();
+    // Dev uses api-key
+    expect(devEnv[ANTHROPIC_KEY_VAR]).toBe(PLACEHOLDER);
+    // Reviewer uses base-url
+    expect(reviewEnv.ANTHROPIC_BASE_URL).toBe('https://proxy.local');
+    expect(reviewEnv.ANTHROPIC_AUTH_TOKEN).toBe(PLACEHOLDER);
+  });
+
   it('subscription/bedrock/vertex: strips leftover ANTHROPIC_AUTH_TOKEN from parent env', () => {
     const parent = { ...base, ANTHROPIC_AUTH_TOKEN: PLACEHOLDER };
     expect(resolveProviderEnv(undefined, parent).ANTHROPIC_AUTH_TOKEN).toBeUndefined();

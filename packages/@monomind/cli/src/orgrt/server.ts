@@ -46,7 +46,32 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0, credential?: s
   const { randomUUID } = await import('node:crypto');
   const cred = credential ?? randomUUID();
 
+  const sseClients = new Set<http.ServerResponse>();
+
   const server = http.createServer((req, res) => {
+    // SSE endpoint for live bus event streaming (dashboard integration)
+    if (req.method === 'GET' && req.url === '/api/events') {
+      if (req.headers['x-monomind-cred'] !== cred) { json(res, 401, { ok: false, error: 'unauthorized' }); return; }
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.write('data: {"type":"connected"}\n\n');
+      sseClients.add(res);
+      req.on('close', () => sseClients.delete(res));
+      return;
+    }
+
+    // GET endpoint for org status snapshot (dashboard initial load)
+    if (req.method === 'GET' && req.url?.startsWith('/api/status')) {
+      if (req.headers['x-monomind-cred'] !== cred) { json(res, 401, { ok: false, error: 'unauthorized' }); return; }
+      const snapshot = daemon.getStatusSnapshot?.();
+      json(res, 200, snapshot ?? { orgs: [] });
+      return;
+    }
+
     if (req.method !== 'POST') { res.writeHead(404); res.end('not found'); return; }
 
     // Auth gate — all POST endpoints require the daemon credential
@@ -86,6 +111,15 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0, credential?: s
         const result = await daemon.answerQuestion(org, role, questionId, answer!);
         json(res, result.ok ? 200 : 404, result);
 
+      } else if (req.url === '/api/resolve-gate') {
+        const { org, gateId, approved, resolution } = payload as Record<string, unknown>;
+        if (!org || !gateId || approved === undefined) {
+          json(res, 400, { ok: false, error: 'org, gateId, approved are required' });
+          return;
+        }
+        const result = daemon.resolveGate(org as string, gateId as string, !!approved, resolution as string | undefined);
+        json(res, result.ok ? 200 : 404, result);
+
       } else {
         json(res, 404, { ok: false, error: 'not found' });
       }
@@ -96,5 +130,15 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0, credential?: s
 
   await new Promise<void>(r => server.listen(port, r));
   const actual = (server.address() as { port: number }).port;
-  return { port: actual, close: () => { server.close(); }, credential: cred };
+
+  // Wire bus events from all running orgs to SSE clients
+  daemon.onBusEvent?.((event) => {
+    if (sseClients.size === 0) return;
+    const data = JSON.stringify(event);
+    for (const client of sseClients) {
+      try { client.write(`data: ${data}\n\n`); } catch { sseClients.delete(client); }
+    }
+  });
+
+  return { port: actual, close: () => { for (const c of sseClients) c.end(); sseClients.clear(); server.close(); }, credential: cred };
 }
