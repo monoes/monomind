@@ -15,6 +15,9 @@ import { TaskDag } from './task-dag.js';
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
 import { checkResources, waitForCapacity, getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
+import type { AgentRunner } from './agent-runner.js';
+import { OpencodeAgentRunner } from './opencode-runner.js';
+import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { captureCheckpoint, validateCheckpoint, isCheckpointExpired, restoreMailboxQueue, type OrgCheckpoint } from './checkpoint.js';
 
 /** OpenTelemetry tracing helper - creates spans for major operations */
@@ -62,6 +65,11 @@ export class ScrollbackBuffer {
   clear(): void { this.lines.length = 0; }
 }
 
+/** Bodies larger than this are digested to a .mail file (see mailBody). */
+const MAIL_BODY_MAX = 4096;
+/** How much of an oversized body stays inline in the digest. */
+const MAIL_DIGEST_CHARS = 1024;
+
 export interface AgentRuntime {
   mailbox: Mailbox;
   policy: PolicyEngine;
@@ -93,10 +101,16 @@ export interface RunningOrg {
   worktreePath?: string;
   /** Task DAG for structured work ordering. */
   taskDag?: TaskDag;
+  /** Directory role sessions run in — oversized mail digests are written here. */
+  workdir?: string;
 }
 
 export interface DaemonOpts {
   queryFn?: typeof query;
+  /** Explicit agent runner (takes precedence over everything). When unset,
+   *  session.ts builds a ClaudeAgentRunner from queryFn/the default — so the
+   *  Claude path is unchanged unless MONOMIND_RUNTIME=opencode is set. */
+  runner?: AgentRunner;
   forward?: boolean;           // POST events to control server (default true)
   controlJson?: string;
   /** Enables cross-process inter-org routing: on a local delivery miss, ask the
@@ -372,7 +386,7 @@ export class OrgDaemon {
     if (this.opts.forward !== false)
       this.forwarders.set(name, attachForwarder(bus, this.opts.controlJson ?? join(this.root, '.monomind/control.json')));
 
-    const running: RunningOrg = { def, run, bus, agents: new Map(), busEvents: () => [...collected] };
+    const running: RunningOrg = { def, run, bus, agents: new Map(), busEvents: () => [...collected], workdir: cwd };
     this.orgs.set(name, running);
 
     const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
@@ -477,6 +491,14 @@ export class OrgDaemon {
           return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
         },
         queryFn: this.opts.queryFn,
+        // Runner resolution: explicit > opencode/kimicode (when MONOMIND_RUNTIME
+        // selects them) > undefined (session.ts falls back to ClaudeAgentRunner
+        // via queryFn). Leaving it undefined for the default path is what keeps
+        // Claude/Antigravity orgs byte-for-byte unchanged.
+        runner: this.opts.runner
+          ?? (process.env.MONOMIND_RUNTIME === 'opencode' ? new OpencodeAgentRunner()
+            : process.env.MONOMIND_RUNTIME === 'kimicode' ? new KimiCodeAgentRunner()
+            : undefined),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
@@ -548,6 +570,20 @@ export class OrgDaemon {
                 this.scheduleBossRestart(name);
               }
             };
+            // Fatal errors (provider auth/quota/billing — tagged with
+            // err.fatal by the runner) can NEVER be fixed by a restart: the
+            // same call fails identically or hangs. Skip the backoff loop
+            // and go straight to terminal crash handling instead of burning
+            // the retry budget and wall-clock on a guaranteed failure.
+            const fatal = (err as { fatal?: boolean } | null)?.fatal === true;
+            if (fatal) {
+              bus.emit({
+                type: 'status', from: role.id, reason: 'agent-fatal',
+                msg: `agent "${role.id}" hit a fatal (non-retryable) error — not restarting`,
+              });
+              crash();
+              return;
+            }
             if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) { crash(); return; }
             bus.emit({
               type: 'status', from: role.id, reason: 'agent-restart',
@@ -692,7 +728,8 @@ export class OrgDaemon {
       const agent = running.agents.get(msg.toRole);
       if (agent && !agent.mailbox.isClosed) {
         bus.emit({ type: 'xorg', from: msg.fromQualified, to: `${name}:${msg.toRole}`, subject: msg.subject, msg: msg.body });
-        agent.mailbox.push(`[message from ${msg.fromQualified}] subject: ${msg.subject}\n\n${msg.body}`);
+        agent.mailbox.push(this.mailBody(name, running, `[message from ${msg.fromQualified}] subject: ${msg.subject}`, msg.body,
+          `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`));
       }
     }
     if (queued.length) bus.emit({ type: 'status', msg: `drained ${queued.length} queued message(s) from inbox` });
@@ -723,7 +760,8 @@ export class OrgDaemon {
             const agent = running.agents.get(msg.toRole);
             if (agent && !agent.mailbox.isClosed) {
               running.bus.emit({ type: 'xorg', from: msg.fromQualified, to: `${name}:${msg.toRole}`, subject: msg.subject, msg: msg.body });
-              agent.mailbox.push(`[message from ${msg.fromQualified}] subject: ${msg.subject}\n\n${msg.body}`);
+              agent.mailbox.push(this.mailBody(name, running, `[message from ${msg.fromQualified}] subject: ${msg.subject}`, msg.body,
+                `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`));
             }
           }
           return;
@@ -753,6 +791,23 @@ export class OrgDaemon {
     const [orgName, role] = to.split(':', 2);
     if (orgName === fromOrg) return { cross: false, orgName, role, qualified: role }; // self-prefixed — still intra-org
     return { cross: true, orgName, role, qualified: to };
+  }
+
+  /** Mailbox bodies are unbounded — a pasted 20KB file would persist in the
+   *  recipient's context for the whole run. Bodies over MAIL_BODY_MAX are
+   *  written to <org workdir>/.mail/<message-id>.md and replaced with a ~1KB
+   *  digest plus a pointer; smaller messages stay byte-identical. */
+  private mailBody(orgName: string, org: RunningOrg | undefined, header: string, body: string, id: string): string {
+    if (body.length <= MAIL_BODY_MAX) return `${header}\n\n${body}`;
+    const mailDir = join(org?.workdir ?? join(this.root, ORG_DIR, orgName), '.mail');
+    const file = join(mailDir, `${id.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`);
+    try {
+      mkdirSync(mailDir, { recursive: true });
+      writeFileSync(file, body);
+      return `${header}\n\n${body.slice(0, MAIL_DIGEST_CHARS)}\n\n[... truncated — full text at ${file} — Read it if needed]`;
+    } catch {
+      return `${header}\n\n${body}`; // digest write failed — deliver in full rather than lose content
+    }
   }
 
   /** Route a message. to = "role" (same org) or "org:role" (cross-org). Returns a receipt string. */
@@ -817,11 +872,20 @@ export class OrgDaemon {
       return `ERROR: recipient "${toQualified}" crashed and will not recover this run — message not delivered (${targetAgent.error ?? 'unknown error'})`;
     }
     if (targetAgent.mailbox.isClosed) {
-      // The org is mid-shutdown: mailboxes close before the org is removed
-      // from `this.orgs`, so a message can arrive in that window. push() would
-      // silently no-op — report the real outcome instead of a false "delivered".
-      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
-      return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
+      // Distinguish two cases that used to share one drop:
+      //  - org mid-shutdown: nothing will ever read the queue again — the
+      //    message genuinely can't be delivered, so report the real outcome.
+      //  - agent session ended but the org is alive (budget exhaustion,
+      //    turn limit, crash-restart in flight): the result is still
+      //    valuable, so persist it to the inbox. The boss-restart/next-run
+      //    drainInbox will deliver it instead of the work vanishing.
+      if (this.stopping.has(targetOrgName)) {
+        src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
+        return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
+      }
+      const q = queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
+      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `recipient session closed — queued to inbox: ${subject}`, data: { queued: q } });
+      return `queued to inbox for ${toQualified} (recipient session closed; will be delivered on restart)`;
     }
     // Track message chain: link this message to the target's last message (the one being responded to)
     const targetAgentSrc = targetOrg === src ? src?.agents.get(targetRole) : undefined;
@@ -834,7 +898,8 @@ export class OrgDaemon {
     // Also track the source agent's last sent message for cross-org visibility
     const srcAgent = src?.agents.get(fromRole);
     if (srcAgent && emitted) srcAgent.lastMessageId = emitted.id;
-    targetAgent.mailbox.push(`[message from ${evt.from}] subject: ${subject}\n\n${body}`);
+    targetAgent.mailbox.push(this.mailBody(targetOrgName, targetOrg, `[message from ${evt.from}] subject: ${subject}`, body,
+      emitted?.id ?? `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`));
     return `delivered to ${toQualified}`;
   }
 
@@ -950,7 +1015,7 @@ export class OrgDaemon {
     if (agent.mailbox.isClosed) return { ok: false, error: `role "${toRole}" in org "${toOrg}" is shutting down` };
     const messageEvent = org.bus.emit({ type: 'xorg', from: fromQualified, to: `${toOrg}:${toRole}`, subject, msg: body });
     agent.lastMessageId = messageEvent.id; // Track last message ID for response threading
-    agent.mailbox.push(`[message from ${fromQualified}] subject: ${subject}\n\n${body}`);
+    agent.mailbox.push(this.mailBody(toOrg, org, `[message from ${fromQualified}] subject: ${subject}`, body, messageEvent.id));
     return { ok: true, receipt: `delivered to ${toOrg}:${toRole} (remote)` };
   }
 
@@ -1559,12 +1624,12 @@ export class OrgDaemon {
       // Frequency reinforcement is immediate; the feedback rating waits for the
       // run outcome (positive-only — see storeRunMemory).
       bridge.bridgeRecordUsage({ entryIds: ids, dbPath: this.orgMemoryDbPath() }).catch(() => { /* best effort */ });
-      let text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content}`).join('\n\n');
+      let text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content.slice(0, 500)}`).join('\n\n');
       // Structured knowledge: relationship triplets from the org KG, when any.
       try {
         const kg = await import('../memory/memory-kg.js');
         const graph = await kg.kgSearch({ query, dbPath: this.orgMemoryDbPath(), limit: 5 });
-        if (graph.context) text += `\n\nKnowledge graph:\n${graph.context}`;
+        if (graph.context) text += `\n\nKnowledge graph:\n${graph.context.slice(0, 1024)}`;
       } catch { /* best effort */ }
       return { text, hits: results.length };
     } catch (err) {
@@ -1579,10 +1644,10 @@ export class OrgDaemon {
   async searchProjectKnowledge(query: string): Promise<{ text: string; hits: number }> {
     try {
       const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
-      const excerpts = await searchKnowledge(query, { rootDir: this.root, limit: 5, store: 'all' });
+      const excerpts = await searchKnowledge(query, { rootDir: this.root, limit: 3, store: 'all' });
       if (!excerpts.length) return { text: 'No matching documents in the Second Brain for that query.', hits: 0 };
       const text = excerpts.map((e, i) =>
-        `${i + 1}. [${e.filePath || 'unknown'}${e.scope === 'global' ? ' · global' : ''}] (${e.similarity.toFixed(2)})\n${e.text.slice(0, 800)}`
+        `${i + 1}. [${e.filePath || 'unknown'}${e.scope === 'global' ? ' · global' : ''}] (${e.similarity.toFixed(2)})\n${e.text.slice(0, 400)}`
       ).join('\n\n');
       return { text, hits: excerpts.length };
     } catch (err) {

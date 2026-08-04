@@ -505,6 +505,7 @@ function getADRStatus() {
   // Count actual ADR files first — compliance JSON may be stale
   const adrPaths = [
     path.join(CWD, 'packages', 'implementation', 'adrs'),
+    path.join(CWD, 'doc', 'adrs'),
     path.join(CWD, 'docs', 'adrs'),
     path.join(CWD, '.monomind', 'adrs'),
   ];

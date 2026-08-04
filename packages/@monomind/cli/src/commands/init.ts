@@ -86,6 +86,23 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     options.components.claudeMd = false;
   }
 
+  // Opt-in or auto-detect opencode target. Purely additive: emits opencode.json + .opencode/
+  // alongside (never instead of) the Claude/Antigravity output.
+  const hasOpencode = fs.existsSync(path.join(cwd, 'opencode.json')) ||
+                      fs.existsSync(path.join(cwd, '.opencode')) ||
+                      fs.existsSync(path.join(process.env.HOME || '', '.config', 'opencode'));
+  if (ctx.flags.opencode as boolean || (ctx.flags.opencode === undefined && hasOpencode)) {
+    options.components.opencode = true;
+  }
+
+  // Opt-in or auto-detect Kimi Code target. Purely additive: emits .kimi-code/ + AGENTS.md
+  // alongside (never instead of) the Claude/Antigravity output.
+  const hasKimi = fs.existsSync(path.join(cwd, '.kimi-code')) ||
+                  fs.existsSync(path.join(process.env.HOME || '', '.kimi-code'));
+  if (ctx.flags.kimicode as boolean || (ctx.flags.kimicode === undefined && hasKimi)) {
+    options.components.kimicode = true;
+  }
+
   if (onlyClaude) {
     options.components.runtime = false;
   }
@@ -426,6 +443,18 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'opencode',
+      description: 'Also emit opencode artifacts (opencode.json + .opencode/). Additive — Claude/Antigravity output is unchanged.',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'kimicode',
+      description: 'Also emit Kimi Code artifacts (.kimi-code/ + AGENTS.md). Additive — Claude/Antigravity output is unchanged.',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'start-all',
       description: 'Auto-start memory and swarm after init (default: true)',
       type: 'boolean',
@@ -466,6 +495,8 @@ export const initCommand: Command = {
     { command: 'monomind init --force', description: 'Reinitialize and overwrite existing config' },
     { command: 'monomind init --only-claude', description: 'Only create Claude Code integration' },
     { command: 'monomind init --skip-claude', description: 'Only create v1 runtime' },
+    { command: 'monomind init --opencode', description: 'Also emit opencode artifacts (opencode.json + .opencode/)' },
+    { command: 'monomind init --kimicode', description: 'Also emit Kimi Code artifacts (.kimi-code/ + AGENTS.md)' },
     { command: 'monomind init wizard', description: 'Interactive setup wizard' },
     { command: 'monomind init --no-watch', description: 'Initialize without starting the background graph watcher' },
     { command: 'monomind init --with-embeddings', description: 'Initialize with ONNX embeddings' },

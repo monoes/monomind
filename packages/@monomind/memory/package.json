@@ -1,6 +1,6 @@
 {
   "name": "@monoes/memory",
-  "version": "1.0.12",
+  "version": "1.0.14",
   "type": "module",
   "description": "Memory module - JSON pattern store, SQLite + embeddings backend, and a standalone pure-JS HNSW index; not a single unified backend",
   "main": "dist/index.js",
@@ -18,10 +18,8 @@
     "prepublishOnly": "npm run build && node --input-type=module --eval \"import('./dist/index.js').then(m => { const required = ['ControllerRegistry','SQLiteBackend','UnifiedMemoryService']; const missing = required.filter(k => !m[k]); if (missing.length) { console.error('Missing exports:', missing); process.exit(1); } console.log('All required exports present'); });\""
   },
   "dependencies": {
+    "better-sqlite3": "^12.0.0",
     "sql.js": "^1.10.3"
-  },
-  "optionalDependencies": {
-    "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",

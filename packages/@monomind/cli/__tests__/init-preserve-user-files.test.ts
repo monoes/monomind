@@ -62,7 +62,15 @@ describe('init preserves user-authored .claude content', () => {
     };
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    try {
+      // Close any SQLite backends init opened in this process so the tmpdir
+      // rmSync below can't trip over live file handles. (The previous cleanup
+      // called MemoryStore.closeAll — an API that does not exist — and
+      // silently no-oped.)
+      const bridge = await import('../src/memory/memory-bridge.js');
+      await bridge.shutdownBridge();
+    } catch {}
     process.env.HOME = realHome;
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.rmSync(fakeHome, { recursive: true, force: true });

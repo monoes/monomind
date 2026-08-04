@@ -60,6 +60,7 @@ const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   quality:     async () => (await import('./mcp-tools/quality-tools.js')).qualityTools,
   knowledge:   async () => (await import('./mcp-tools/knowledge-tools.js')).knowledgeTools,
   monomind:    async () => (await import('./mcp-tools/monomind-tools.js')).monomindTools,
+  monodesign:  async () => (await import('./mcp-tools/monodesign-tools.js')).monodesignTools,
   // system-tools.ts also exports tools with mcp_ and config_ prefixes
   mcp:         async () => (await import('./mcp-tools/system-tools.js')).systemTools,
 };
@@ -116,13 +117,13 @@ export function isToolDisabled(toolName: string, cwd?: string): boolean {
  * Core tool roster — the categories advertised via tools/list by default.
  * Non-core categories remain CALLABLE (callMCPTool/hasTool lazy-load any
  * category by name) but are not advertised, cutting the per-call schema
- * payload from ~270 tools to ~80. Set MONOMIND_MCP_FULL=1 to advertise all.
+ * payload from ~270 tools to ~70. Set MONOMIND_MCP_FULL=1 to advertise all.
  */
 const FULL_ROSTER = process.env.MONOMIND_MCP_FULL === '1';
 
 const CORE_TOOL_CATEGORIES = new Set([
   'memory', 'monograph', 'hooks', 'task', 'session', 'knowledge',
-  'system', 'mcp', 'guidance', 'config', 'agent', 'monomind',
+  'system', 'mcp', 'guidance', 'config', 'agent', 'monomind', 'monodesign',
 ]);
 
 // Only this subset of hooks is advertised; the rest of hooks (intelligence,
@@ -132,10 +133,31 @@ const CORE_HOOKS_ALLOWLIST = new Set([
   'hooks_post-command', 'hooks_pre-task', 'hooks_post-task', 'hooks_explain',
 ]);
 
+// Rarely-used tools inside otherwise-core categories: not advertised via
+// tools/list, but still callable and discoverable via monomind_tool_search.
+const CORE_HIDDEN_TOOLS = new Set([
+  // monograph: build/index maintenance, impact-map, and route-map variants
+  'monograph_dead_code', 'monograph_route_map', 'monograph_augment',
+  'monograph_staleness', 'monograph_detect_changes', 'monograph_get_node',
+  'monograph_god_nodes', 'monograph_watch', 'monograph_watch_stop',
+  'monograph_doctor', 'monograph_health', 'monograph_stats',
+  'monograph_api_impact',
+  // memory: routing, admin, batch, hierarchical, and KG maintenance variants
+  'memory_route', 'memory_semantic-route', 'memory_causal-edge',
+  'memory_batch', 'memory_context-synthesize', 'memory_controllers', 'memory_health',
+  'memory_consolidate', 'memory_kg_consolidate', 'memory_hierarchical-store',
+  'memory_hierarchical-recall', 'memory_pattern-search',
+  // NOTE: memory_kg_stats and memory_kg_rollback stay ADVERTISED — the
+  // Memory Loop documented in CLAUDE.md (ingest → search → rollback on bad
+  // ingest, glossary via kg_stats) references them; hiding them broke that
+  // workflow in Claude sessions for ~160 tokens of savings.
+]);
+
 function isCoreAdvertised(tool: MCPTool): boolean {
   const cat = categoryFromToolName(tool.name);
   if (!CORE_TOOL_CATEGORIES.has(cat)) return false;
   if (cat === 'hooks') return CORE_HOOKS_ALLOWLIST.has(tool.name);
+  if (CORE_HIDDEN_TOOLS.has(tool.name)) return false;
   return true;
 }
 
@@ -371,10 +393,11 @@ export async function getAllMCPTools(): Promise<MCPTool[]> {
 }
 
 /**
- * On-demand discovery of NON-CORE tools — backs the `monomind_tool_search`
+ * On-demand discovery of hidden MCP tools — backs the `monomind_tool_search`
  * MCP tool. Loads every category, then returns full schemas for tools not in
- * the default advertised roster, ranked by relevance to `query`. This is what
- * keeps the roster shrink from becoming a capability loss: a tool hidden from
+ * the default advertised roster (non-core categories plus tools hidden by
+ * CORE_HIDDEN_TOOLS), ranked by relevance to `query`. This is what keeps the
+ * roster shrink from becoming a capability loss: a tool hidden from
  * `tools/list` remains findable (and directly callable) by keyword.
  */
 export async function searchNonCoreTools(

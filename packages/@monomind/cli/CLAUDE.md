@@ -6,25 +6,18 @@
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions.
 - NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool. ALWAYS use `npx monomind browse`. This rule has no exceptions.
 
-## 🚨 AUTOMATIC SWARM ORCHESTRATION
+## Automatic Swarm Orchestration
 
-**When starting work on complex tasks, Claude Code MUST automatically:**
+For complex work, Claude Code MUST initialize the swarm via CLI (Bash) AND spawn agents via the Task tool in the SAME message — CLI coordinates, Task tool agents do the actual work.
 
-1. **Initialize the swarm** using CLI tools via Bash
-2. **Spawn concurrent agents** using Claude Code's Task tool
-3. **Coordinate via hooks** and memory
+**Swarm spawn-and-wait rules:**
 
-### 🚨 CRITICAL: CLI + Task Tool in SAME Message
+- Spawn ALL agents in ONE message, each with `run_in_background: true` and full instructions
+- After spawning, tell the user what each agent is doing, then STOP — no more tool calls
+- Never poll TaskOutput or check swarm status; don't ask "should I check?" — wait for results
+- When agent results arrive, review ALL results before proceeding
 
-**When user says "spawn swarm" or requests complex work, Claude Code MUST in ONE message:**
-
-1. Call CLI tools via Bash to initialize coordination
-2. **IMMEDIATELY** call Task tool to spawn REAL working agents
-3. Both CLI and Task calls must be in the SAME response
-
-**CLI coordinates, Task tool agents do the actual work!**
-
-### 🛡️ Anti-Drift Config (PREFERRED)
+### Anti-Drift Config (PREFERRED)
 
 **Use this to prevent agent drift:**
 
@@ -52,100 +45,13 @@ npx monomind@latest swarm init --topology hierarchical-mesh --max-agents 15 --st
 - **specialized**: Clear roles, no overlap
 - **consensus**: raft (leader maintains state)
 
----
-
-### 🔄 Auto-Start Swarm Protocol (Background Execution)
-
-When the user requests a complex task, **spawn agents in background and WAIT for completion:**
-
-```javascript
-// STEP 1: Initialize swarm coordination (anti-drift config)
-Bash(
-  "npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized",
-);
-
-// STEP 2: Spawn ALL agents IN BACKGROUND in a SINGLE message
-// Use run_in_background: true so agents work concurrently
-Task({
-  prompt:
-    "Research requirements, analyze codebase patterns, store findings in memory",
-  subagent_type: "researcher",
-  description: "Research phase",
-  run_in_background: true, // ← CRITICAL: Run in background
-});
-Task({
-  prompt: "Design architecture based on research. Document decisions.",
-  subagent_type: "system-architect",
-  description: "Architecture phase",
-  run_in_background: true,
-});
-Task({
-  prompt: "Implement the solution following the design. Write clean code.",
-  subagent_type: "coder",
-  description: "Implementation phase",
-  run_in_background: true,
-});
-Task({
-  prompt: "Write comprehensive tests for the implementation.",
-  subagent_type: "tester",
-  description: "Testing phase",
-  run_in_background: true,
-});
-Task({
-  prompt: "Review code quality, security, and best practices.",
-  subagent_type: "reviewer",
-  description: "Review phase",
-  run_in_background: true,
-});
-
-// STEP 3: WAIT - Tell user agents are working, then STOP
-// Say: "I've spawned 5 agents to work on this in parallel. They'll report back when done."
-// DO NOT check status repeatedly. Just wait for user or agent responses.
-```
-
-### ⏸️ CRITICAL: Spawn and Wait Pattern
-
-**After spawning background agents:**
-
-1. **TELL USER** - "I've spawned X agents working in parallel on: [list tasks]"
-2. **STOP** - Do not continue with more tool calls
-3. **WAIT** - Let the background agents complete their work
-4. **RESPOND** - When agents return results, review and synthesize
-
-**Example response after spawning:**
-
-```
-I've launched 5 concurrent agents to work on this:
-- 🔍 Researcher: Analyzing requirements and codebase
-- 🏗️ Architect: Designing the implementation approach
-- 💻 Coder: Implementing the solution
-- 🧪 Tester: Writing tests
-- 👀 Reviewer: Code review and security check
-
-They're working in parallel. I'll synthesize their results when they complete.
-```
-
-### 🚫 DO NOT:
-
-- Continuously check swarm status
-- Poll TaskOutput repeatedly
-- Add more tool calls after spawning
-- Ask "should I check on the agents?"
-
-### ✅ DO:
-
-- Spawn all agents in ONE message
-- Tell user what's happening
-- Wait for agent results to arrive
-- Synthesize results when they return
-
-## 🧠 Memory Loop (Feedback + Knowledge Graph)
+## Memory Loop (Feedback + Knowledge Graph)
 
 - When memory/knowledge search results helped, call `memory_feedback` with the task id and the result `entryIds` — EWMA-trains ranking (idempotent per taskId).
 - At session wrap-up, distill durable insight (entities/relations/rules) once via `memory_kg_ingest` with `originRef` = session id; reuse existing entity names (`memory_kg_stats` with `glossary:true`).
 - Relationship questions → `memory_kg_search`. Bad ingest → `memory_kg_rollback` with the originRef.
 
-## 🧠 AUTO-LEARNING PROTOCOL
+## AUTO-LEARNING PROTOCOL
 
 ### Before Starting Any Task
 
@@ -201,7 +107,7 @@ Bash("npx monomind@latest hooks worker run optimize")
 - Finding a performance fix (store the optimization)
 - Discovering a security issue (store the vulnerability pattern)
 
-### 📋 Agent Routing (Anti-Drift)
+### Agent Routing (Anti-Drift)
 
 | Code | Task        | Agents                                          |
 | ---- | ----------- | ----------------------------------------------- |
@@ -216,12 +122,10 @@ Bash("npx monomind@latest hooks worker run optimize")
 **Codes 1-11: hierarchical/specialized (anti-drift). Code 13: mesh/balanced**
 
 This table is a convention, not code: nothing in `src/` dispatches on these codes.
-The root `CLAUDE.md` table is authoritative and this one now matches it — it is the
-project-level file Claude Code actually loads, and it is the superset (this file
-previously omitted code 11/Memory and numbered Docs as 11). The narrower table
+The root `CLAUDE.md` table is authoritative and this one matches it. The narrower table
 emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 
-### 🎯 Task Complexity Detection
+### Task Complexity Detection
 
 **AUTO-INVOKE SWARM when task involves:**
 
@@ -241,7 +145,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 - Configuration changes
 - Quick questions/exploration
 
-## 🚨 CRITICAL: CONCURRENT EXECUTION & FILE MANAGEMENT
+## CRITICAL: CONCURRENT EXECUTION & FILE MANAGEMENT
 
 **ABSOLUTE RULES**:
 
@@ -250,17 +154,16 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 3. ALWAYS organize files in appropriate subdirectories
 4. **USE CLAUDE CODE'S TASK TOOL** for spawning agents concurrently, not just MCP
 
-### ⚡ GOLDEN RULE: "1 MESSAGE = ALL RELATED OPERATIONS"
+### GOLDEN RULE: "1 MESSAGE = ALL RELATED OPERATIONS"
 
 **MANDATORY PATTERNS:**
 
 - **TodoWrite**: ALWAYS batch ALL todos in ONE call (5-10+ todos minimum)
-- **Task tool (Claude Code)**: ALWAYS spawn ALL agents in ONE message with full instructions
 - **File operations**: ALWAYS batch ALL reads/writes/edits in ONE message
 - **Bash commands**: ALWAYS batch ALL terminal operations in ONE message
 - **Memory operations**: ALWAYS batch ALL memory store/retrieve in ONE message
 
-### 📁 File Organization Rules
+### File Organization Rules
 
 **NEVER save to root folder. Use these directories:**
 
@@ -296,7 +199,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `hooks`     | 29          | Self-learning hooks + 15 background workers                              | Working         |
-| `org`       | 16          | SDK org runtime v2 (run [--dry-run], stop, status, serve, test-loop, logs, report, memory [stats\|search\|rules\|rollback], questions, answer, create, validate, migrate, list, delete, mark-complete) | Working |
+| `org`       | 27          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, status, serve, supervisor, test-loop, logs, report, memory [stats\|search\|rules\|rollback], costs, flow, questions, answer, approve, deny, replay, resume-from [alias of replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
 
@@ -312,7 +215,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `guidance`    | 1           | Governance gate setup (`guidance setup`)                                      | Working          |
 | `monograph`   | -           | Knowledge graph CLI (delegates to @monoes/monograph)                          | Working          |
 | `browse`      | -           | Browser automation via CDP (@monoes/monobrowse)                               | Working          |
-| `doctor`      | 1           | System diagnostics with health checks                                         | Working          |
+| `doctor`      | 0           | System diagnostics — flat command, flags only (`--component` accepts 28 named categories, dispatch table `doctor.ts:97-111`) | Working          |
 | `completions` | 4           | Shell completions (bash, zsh, fish, powershell)                               | Working          |
 
 ### Quick CLI Examples
@@ -359,11 +262,6 @@ set — names such as `crdt-synchronizer`, `security-manager`, `production-valid
 checked-in definitions in this package, and `src/init/executor.ts` and
 `mcp-tools/guidance-tools.ts` can legitimately reference them.
 
-*(An earlier revision of this section claimed "31 definitions, all 31 registered" and said
-those names "have never existed as agent definitions here". Both were wrong: the 31 was the
-root tree's count applied to this package's doc, and all five names above are files in this
-package. Corrected rather than left as a confident falsehood.)*
-
 ### Core
 
 `coder`, `coordinator`, `planner`, `researcher`, `reviewer`, `tester`
@@ -402,68 +300,9 @@ package was deleted:
 - Path traversal prevention utilities
 - Command injection protection utilities
 
-## 🪝 Hooks System (29 Hook Subcommands + 15 Background Workers)
+## Hooks System (29 Hook Subcommands + 15 Background Workers)
 
-### All Available Hooks
-
-| Hook               | Description                              | Key Options                                 |
-| ------------------ | ---------------------------------------- | ------------------------------------------- |
-| `pre-edit`         | Get context before editing files         | `--file`, `--operation`                     |
-| `post-edit`        | Record editing outcome for learning      | `--file`, `--success`, `--train-neural`     |
-| `pre-command`      | Assess risk before commands              | `--command`, `--validate-safety`            |
-| `post-command`     | Record command execution outcome         | `--command`, `--track-metrics`              |
-| `pre-task`         | Record task start, get agent suggestions | `--description`, `--coordinate-swarm`       |
-| `post-task`        | Record task completion for learning      | `--task-id`, `--success`, `--store-results` |
-| `session-start`    | Start/restore session (v2 compat)        | `--session-id`, `--auto-configure`          |
-| `session-end`      | End session and persist state            | `--generate-summary`, `--export-metrics`    |
-| `session-restore`  | Restore a previous session               | `--session-id`, `--latest`                  |
-| `route`            | Route task to optimal agent              | `--task`, `--context`, `--top-k`            |
-| `route-task`       | (v2 compat) Alias for route              | `--task`, `--auto-swarm`                    |
-| `explain`          | Explain routing decision                 | `--topic`, `--detailed`                     |
-| `pretrain`         | Bootstrap intelligence from repo         | `--model-type`, `--epochs`                  |
-| `build-agents`     | Generate optimized agent configs         | `--agent-types`, `--focus`                  |
-| `metrics`          | View learning metrics dashboard          | `--v1-dashboard`, `--format`                |
-| `transfer`         | Transfer learned patterns from another local project | `from-project`                  |
-| `list`             | List all registered hooks                | `--format`                                  |
-| `intelligence`     | JS pattern/trajectory logging              | `trajectory-*`, `pattern-*`, `stats`        |
-| `notify`           | Send/record a notification event         | `--message`                                 |
-| `worker`           | Background worker management             | `list`, `run`                               |
-| `model-route`      | Route to optimal model (haiku/sonnet/opus) | `--task`                                  |
-| `model-outcome`    | Record model routing outcome             | `--task-id`, `--success`                    |
-| `model-stats`      | View model routing statistics            | `--format`                                  |
-| `statusline`       | Generate dynamic statusline              | `--json`, `--compact`, `--no-color`         |
-| `coverage-route`   | Route based on test coverage gaps        | `--task`, `--path`                          |
-| `coverage-suggest` | Suggest coverage improvements            | `--path`                                    |
-| `coverage-gaps`    | List coverage gaps with priorities       | `--format`, `--limit`                       |
-| `pre-bash`         | (v2 compat) Alias for pre-command        | Same as pre-command                         |
-| `post-bash`        | (v2 compat) Alias for post-command       | Same as post-command                        |
-
-### 15 Background Workers (@monoes/hooks, run in-process)
-
-14 come from the static `WORKER_CONFIGS` table in `worker-manager.ts`; `progress` is
-registered separately and is always on.
-
-| Worker        | Priority   | Description                                          |
-| ------------- | ---------- | ---------------------------------------------------- |
-| `performance` | normal     | Benchmark search, memory, startup performance        |
-| `health`      | high       | Monitor disk, memory, CPU, processes                 |
-| `swarm`       | high       | Monitor swarm activity, agent coordination           |
-| `git`         | normal     | Track uncommitted changes, branch status             |
-| `learning`    | normal     | Optimize learning, SONA adaptation                   |
-| `adr`         | low        | Check ADR compliance across codebase                 |
-| `ddd`         | low        | Track DDD progress → metrics/ddd-progress.json       |
-| `security`    | high       | Scan for secrets, vulnerabilities, CVEs              |
-| `patterns`    | normal     | Consolidate, dedupe, optimize learned patterns       |
-| `cache`       | background | Clean temp files, old logs, stale cache              |
-| `map`         | normal     | Codebase mapping → metrics/codebase-map.json         |
-| `audit`       | high       | Security audit → metrics/security-audit.json         |
-| `optimize`    | normal     | Performance snapshot → metrics/performance.json      |
-| `consolidate` | low        | RAPTOR memory consolidation → metrics/consolidation.json |
-| `progress`    | normal     | Always-on progress tracking (registered outside `WORKER_CONFIGS`) |
-
-The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh
-automatically at session start when their output file is missing or older than
-6 hours. Run any worker on demand with `hooks worker run <name>`.
+Full hook list with flags: `npx monomind@latest hooks list`. Worker list: `npx monomind@latest hooks worker list` (run one on demand with `hooks worker run <name>`). The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their output file is missing or older than 6 hours.
 
 ### Essential Hook Commands
 
@@ -499,7 +338,7 @@ npx monomind@latest hooks statusline
 npx monomind@latest hooks statusline --json
 ```
 
-## 🧠 Intelligence System
+## Intelligence System
 
 The lean build records what happens and measures whether routing helped — no neural training:
 
@@ -509,12 +348,7 @@ The lean build records what happens and measures whether routing helped — no n
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
 - **HNSW**: pure-JS approximate nearest-neighbor (`src/memory/hnsw-operations.ts`) — a dead fallback, not on the default search path. It is reachable only via `memory search --build-hnsw`, which is a no-op unless the SQLite bridge is down and the sql.js WASM fallback is in use.
 
-**SONA and EWC++ are in main, not on a branch.** A previous version of this note claimed "the full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA) lives on the `monoes-full-loop` branch" — that was false for two of them. `src/memory/sona-optimizer.ts` (834 lines) and `src/memory/ewc-consolidation.ts` (894 lines) ship in main and are lazily imported by `mcp-tools/hooks-embedding.ts` and `memory/intelligence.ts`. What they actually do:
-
-- **SONA** — keyword-pattern confidence tracking with exponential time-decay, recency weighting, and pruning, persisted to `.swarm/sona-patterns.json`. Real adaptive weighting; the "Self-Optimizing Neural Architecture" name oversells a decay-weighted pattern store.
-- **EWC++** — per-dimension importance from squared embedding magnitudes (a stand-in for the Fisher diagonal, since there are no gradients and no model), smoothed with an EMA and applied as a quadratic penalty during consolidation. Inspired by Elastic Weight Consolidation; not an implementation of it. See the file header for the full scope note.
-
-MoE, Flash Attention, and LoRA remain unimplemented here.
+**SONA and EWC++ ship in main** (`src/memory/sona-optimizer.ts`, `src/memory/ewc-consolidation.ts`) — see the file headers for their actual scope; MoE, Flash Attention, and LoRA remain unimplemented here.
 
 ## Embeddings (MCP tools + @monoes/memory)
 
@@ -552,7 +386,7 @@ These implement vote-counting logic in a single process (not distributed network
 | MCP Response     | <100ms                   |
 | CLI Startup      | <500ms                   |
 
-## 📊 Performance Optimization Protocol
+## Performance Optimization Protocol
 
 ### Automatic Performance Tracking
 
@@ -587,7 +421,7 @@ Bash("npx monomind@latest hooks intelligence predict --input '[task description]
 Bash("npx monomind@latest hooks intelligence patterns --action list")
 ```
 
-## 🔧 Environment Variables
+## Environment Variables
 
 ```bash
 # Configuration
@@ -609,7 +443,7 @@ MONOMIND_MEMORY_BACKEND=hybrid
 MONOMIND_MEMORY_PATH=./data/memory
 ```
 
-## 🔍 Doctor Health Checks
+## Doctor Health Checks
 
 Run `npx monomind@latest doctor` to check:
 
@@ -624,7 +458,7 @@ Run `npx monomind@latest doctor` to check:
 - TypeScript installation
 - Worker metrics freshness
 
-## 🚀 Quick Setup
+## Quick Setup
 
 ```bash
 # Add MCP servers (requires explicit `mcp start` subcommand)
@@ -634,7 +468,7 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 npx monomind@latest doctor --fix
 ```
 
-## 🎯 Claude Code vs CLI Tools
+## Claude Code vs CLI Tools
 
 ### Claude Code Handles ALL EXECUTION:
 
@@ -656,62 +490,15 @@ npx monomind@latest doctor --fix
 - **Memory retrieve**: `npx monomind@latest memory retrieve --key "mykey" --namespace patterns`
 - **Hooks**: `npx monomind@latest hooks <hook-name> [options]`
 
-## 📝 Memory Commands Reference (IMPORTANT)
-
-### Store Data (ALL options shown)
-
-```bash
-# REQUIRED: --key and --value
-# OPTIONAL: --namespace (default: "default"), --ttl, --tags
-npx monomind@latest memory store --key "pattern-auth" --value "JWT with refresh tokens" --namespace patterns
-npx monomind@latest memory store --key "bug-fix-123" --value "Fixed null check" --namespace solutions --tags "bugfix,auth"
-```
-
-### Search Data (semantic vector search)
-
-```bash
-# REQUIRED: --query (full flag, not -q)
-# OPTIONAL: --namespace, --limit, --threshold
-npx monomind@latest memory search --query "authentication patterns"
-npx monomind@latest memory search --query "error handling" --namespace patterns --limit 5
-```
-
-### List Entries
-
-```bash
-# OPTIONAL: --namespace, --limit
-npx monomind@latest memory list
-npx monomind@latest memory list --namespace patterns --limit 10
-```
-
-### Retrieve Specific Entry
-
-```bash
-# REQUIRED: --key
-# OPTIONAL: --namespace (default: "default")
-npx monomind@latest memory retrieve --key "pattern-auth"
-npx monomind@latest memory retrieve --key "pattern-auth" --namespace patterns
-```
-
-### Initialize Memory Database
-
-```bash
-npx monomind@latest memory init --force --verbose
-```
-
 **KEY**: CLI coordinates the strategy via Bash, Claude Code's Task tool executes with real agents.
 
-## 📚 Full Capabilities Reference
+## Full Capabilities Reference
 
 For a comprehensive overview of all Monomind features, agents, commands, and integrations, see:
 
 **`.monomind/CAPABILITIES.md`** — written by `monomind init` (`writeCapabilities()` in
 `src/init/executor.ts`). It exists only in projects where init has run and did not skip it;
 **it is not present in this repo**, so do not expect to read it here.
-
-Note: the generated CAPABILITIES.md still carries the ~50-name phantom agent list corrected
-in the "Available Agents" section above. Treat this file as the source of truth until
-`src/init/executor.ts` and `src/init/claudemd-generator.ts` are updated to match.
 
 It includes:
 
@@ -739,24 +526,3 @@ NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
 Never save working files, text/mds and tests to the root folder.
-
-## 🚨 SWARM EXECUTION RULES (CRITICAL)
-
-1. **SPAWN IN BACKGROUND**: Use `run_in_background: true` for all agent Task calls
-2. **SPAWN ALL AT ONCE**: Put ALL agent Task calls in ONE message for parallel execution
-3. **TELL USER**: After spawning, list what each agent is doing (use emojis for clarity)
-4. **STOP AND WAIT**: After spawning, STOP - do NOT add more tool calls or check status
-5. **NO POLLING**: Never poll TaskOutput or check swarm status - trust agents to return
-6. **SYNTHESIZE**: When agent results arrive, review ALL results before proceeding
-7. **NO CONFIRMATION**: Don't ask "should I check?" - just wait for results
-
-Example spawn message:
-
-```
-"I've launched 4 agents in background:
-- 🔍 Researcher: [task]
-- 💻 Coder: [task]
-- 🧪 Tester: [task]
-- 👀 Reviewer: [task]
-Working in parallel - I'll synthesize when they complete."
-```

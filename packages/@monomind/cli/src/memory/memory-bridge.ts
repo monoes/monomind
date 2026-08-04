@@ -39,9 +39,17 @@ export function safeParseEmbedding(raw: string | null | undefined): number[] | n
 export const BRIDGE_EMBEDDING_MODEL = 'Alibaba-NLP/gte-modernbert-base';
 export const BRIDGE_EMBEDDING_DIMS = 768;
 const BRIDGE_MAX_KEY_LEN = 4 * 1024;
-const BRIDGE_MAX_VALUE_LEN = 1024 * 1024;
+const BRIDGE_MAX_VALUE_LEN = 16 * 1024;
 const MAX_TAGS = 32;
 const MAX_TAG_LEN = 64;
+// Search results serve the head of the stored content only — full values bloat
+// every MCP payload. Entries needing the full text can read the entry by key.
+const BRIDGE_RESULT_CONTENT_CAP = 500;
+
+function capResultContent(content: string): string {
+  return content.length > BRIDGE_RESULT_CONTENT_CAP
+    ? content.slice(0, BRIDGE_RESULT_CONTENT_CAP) + '…' : content;
+}
 
 // ===== DB path resolution =====
 
@@ -476,8 +484,14 @@ export async function bridgeStoreEntry(options: {
   try {
     const key = typeof options.key === 'string' && options.key.length > BRIDGE_MAX_KEY_LEN
       ? options.key.slice(0, BRIDGE_MAX_KEY_LEN) : options.key;
-    const value = typeof options.value === 'string' && options.value.length > BRIDGE_MAX_VALUE_LEN
-      ? options.value.slice(0, BRIDGE_MAX_VALUE_LEN) : options.value;
+    if (typeof options.value === 'string' && options.value.length > BRIDGE_MAX_VALUE_LEN) {
+      return {
+        success: false,
+        id: '',
+        error: `Value exceeds the ${BRIDGE_MAX_VALUE_LEN}-character cap (BRIDGE_MAX_VALUE_LEN = 16 KB); got ${options.value.length}. Split the content into smaller entries.`,
+      };
+    }
+    const value = options.value;
     const namespace = options.namespace ?? 'default';
     const tags = Array.isArray(options.tags)
       // src: tags carry the ingest source path for excerpt provenance — paths
@@ -629,7 +643,7 @@ export async function bridgeSearchEntries(options: {
           return {
             id: r.entry.id,
             key: r.entry.key,
-            content: r.entry.content || '',
+            content: capResultContent(r.entry.content || ''),
             score: blended,
             namespace: r.entry.namespace,
             provenance: `semantic:${r.score.toFixed(3)}${blended !== r.score ? `→${blended.toFixed(3)}` : ''}`,
@@ -671,7 +685,7 @@ export async function bridgeSearchEntries(options: {
           .map(({ e, score }: any) => ({
             id: e.id,
             key: e.key,
-            content: e.content || '',
+            content: capResultContent(e.content || ''),
             // Raw token-overlap fraction, NOT rescaled to look like a cosine.
             score,
             namespace: e.namespace,
@@ -1504,7 +1518,18 @@ export async function bridgeContextSynthesize(params: {
   });
   if (!result?.success) return null;
 
-  const context = result.results.map(r => `[${r.key}]: ${r.content}`).join('\n');
+  // Per-entry head cap plus a total budget — this block is injected verbatim
+  // into prompts, so unbounded entries here were a token sink.
+  const CONTEXT_TOTAL_CAP = 2560; // ~2.5 KB
+  let total = 0;
+  const lines: string[] = [];
+  for (const r of result.results) {
+    const line = `[${r.key}]: ${capResultContent(r.content)}`;
+    if (total + line.length > CONTEXT_TOTAL_CAP) break;
+    lines.push(line);
+    total += line.length + 1;
+  }
+  const context = lines.join('\n');
   return { success: true, context, sources: result.results.length };
 }
 

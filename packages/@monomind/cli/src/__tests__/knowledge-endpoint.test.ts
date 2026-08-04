@@ -233,7 +233,10 @@ describe('dashboard-token pairing guard (secondary instances)', () => {
     serverB = spawnServer(PORT_B);
     await waitForBind(PORT_B);
     await waitForServer(PORT_B);
-    await waitForFile(`dashboard-token-${PORT_B}`);
+    // Generous timeout: under full-suite parallel load (with the native
+    // better-sqlite3 backend now active), the secondary pairing write can
+    // exceed the 5s default while the server is still perfectly healthy.
+    await waitForFile(`dashboard-token-${PORT_B}`, 20000);
 
     expect(readPairing()).toBe(primaryBefore); // not clobbered
     const portPairing = readPairing(`dashboard-token-${PORT_B}`);
