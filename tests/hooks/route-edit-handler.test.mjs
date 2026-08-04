@@ -182,10 +182,10 @@ describe('edit-handler', () => {
   });
   afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
-  it('always logs [OK] Edit recorded', async () => {
+  it('does not log [OK] Edit recorded (token-efficiency: dropped per-edit noise)', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await capture(() => loadEdit().handle(hCtx));
-    expect(lines.find(l => l.includes('[OK] Edit recorded'))).toBeTruthy();
+    expect(lines.find(l => l.includes('[OK] Edit recorded'))).toBeFalsy();
   });
 
   it('calls session.metric("edits") when session is present', async () => {

@@ -2,7 +2,35 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.8.0] — 2026-07-31
+
+### Antigravity (agy) Support
+
+Monomind now officially supports **Google Antigravity (agy)** alongside Claude Code.
+
+#### What's new
+
+- **`monomind init` generates Antigravity files** — every init run now also creates:
+  - `GEMINI.md` — agent instructions and MCP tool rules read by agy
+  - `.gemini/rules/monomind.md` — workflow rules file (when to call monograph, memory, knowledge_search)
+  - `.gemini/helpers/statusline.sh` — shell wrapper that drives the agy status bar
+  - `.gemini/helpers/statusline.cjs` + `utils/` — full Node.js statusline engine (same as Claude Code)
+  - `.gemini/settings.json` — wires `statusLine.command` so the status bar appears automatically
+
+- **Status bar in agy** — the Monomind status bar (graph node count, stale nodes, agent routing, git state, session cost) now appears at the bottom of the agy chat window, exactly as it does in Claude Code's terminal UI. No manual setup required after `monomind init`.
+
+- **Global agy settings auto-wired** — `monomind init` also updates `~/.gemini/antigravity-cli/settings.json` and writes `~/.gemini/antigravity-cli/statusline.sh` so the status bar works even before project-level init has run.
+
+- **Org Runtime — multi-LLM providers** — `monomind org run` now supports `gemini` and `openai` provider kinds in org JSON files:
+  ```json
+  { "provider": { "kind": "gemini", "apiKeyEnv": "GEMINI_API_KEY" } }
+  ```
+  Org role sessions resolve `GEMINI_API_KEY` / `OPENAI_API_KEY` from the environment without embedding secrets.
+
+- **`isDevRepo` sentinel relaxed** — the `[STALE_HELPERS]` check in `session-restore-handler.cjs` now correctly suppresses auto-heal when running inside the monomind dev repository (only `packages/@monomind/cli/package.json` presence required; no longer also requires the bundled `.claude/helpers` subtree).
+
 ## [2.5.0] — 2026-07-18
+
 
 ### Orgs can read your Second Brain
 - Org agents get a `knowledge_search` tool: merged semantic search over the project's documents **and** your personal global brain, with the same project-first ranking as every other surface. Role briefings instruct agents to ground work in your actual documents; every lookup is a bus event visible in `org logs` / `org report`.

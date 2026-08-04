@@ -254,26 +254,6 @@ function langBestPractices(profile: ProjectProfile): string {
 
   const sections: string[] = [];
 
-  if (language === 'typescript' || language === 'javascript') {
-    sections.push(`## TypeScript / Node.js Best Practices
-- Use \`const\` by default; \`let\` only when the variable must be reassigned
-- Prefer \`async/await\` over raw Promises or callbacks
-- Always type function parameters and return values explicitly — no implicit \`any\`
-- Use \`unknown\` instead of \`any\` at system boundaries; narrow with type guards
-- Keep modules small and focused — one clear responsibility per file
-- Prefer named exports over default exports (easier to refactor and search)
-- Use \`satisfies\` operator to validate literals against types without widening
-- Handle errors explicitly — never swallow them silently`);
-
-    if (language === 'typescript') {
-      sections.push(`## TypeScript Strictness
-- Always enable \`strict: true\` in tsconfig
-- Use \`readonly\` for arrays and objects that shouldn't be mutated
-- Prefer \`interface\` for public API shapes, \`type\` for unions/intersections/computed
-- Use discriminated unions for state machines and result types`);
-    }
-  }
-
   if (language === 'python') {
     sections.push(`## Python Best Practices
 - Use type hints everywhere — run \`mypy\` or \`pyright\` in strict mode
@@ -443,11 +423,8 @@ ${language === 'typescript' ? `${runCmd} typecheck` :
 ## Critical Constraints
 - **Never** modify files outside your assigned task scope
 - **Always** run tests before reporting a task complete
-- **Never** commit secrets, credentials, or .env files
 - **Always** write tests alongside implementation (TDD)
-- Prefer editing existing files over creating new ones
 - Keep commits small and descriptive (conventional commits format)
-${maxFileLines ? `- Keep files under **${maxFileLines} lines** — split when approaching the limit\n` : ''}- NEVER save working files to the root directory — use ${srcDir || 'src'}/ for source, ${testDir || 'tests'}/ for tests
 
 ## Code Quality Non-Negotiables
 - No commented-out code in committed files

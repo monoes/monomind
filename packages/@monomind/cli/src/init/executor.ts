@@ -61,6 +61,13 @@ import {
   INIT_FALLBACK_HELPERS,
 } from './helpers-generator.js';
 import { generateClaudeMd } from './claudemd-generator.js';
+import { generateOpencodeJson, generateAgentsMd, generateHooksPlugin, generateStatusCommand, convertAgentMd, convertCommandMd, convertSkillMd, opencodeCommandFilename } from './opencode-generator.js';
+import { generateKimiMcpJson, mergeKimiMcpJson, generateKimiAgentsMd, generateKimiGateScript, generateKimiPluginManifest, generateKimiStatuslineSh, mergeKimiTuiTomlStatusline, convertKimiAgentMd, convertKimiSkillMd, convertKimiCommandToFlowSkill, convertKimiPluginCommandMd, kimiCommandFilename } from './kimi-generator.js';
+import {
+  generateGeminiMd,
+  generateGeminiRulesMd,
+  generateStatuslineSh,
+} from './geminimd-generator.js';
 
 /**
  * Skills to copy based on configuration
@@ -182,6 +189,10 @@ const DIRECTORIES = {
     '.claude/commands',
     '.claude/agents',
     '.claude/helpers',
+    '.gemini',
+    '.gemini/skills',
+    '.gemini/rules',
+    '.gemini/helpers',
   ],
   runtime: [
     '.monomind',
@@ -319,6 +330,21 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Generate CLAUDE.md
     if (options.components.claudeMd) {
       await writeClaudeMd(targetDir, options, result);
+    }
+
+    // Generate Antigravity (agy) files: GEMINI.md, rules, statusline.sh, settings.json
+    await writeGeminiFiles(targetDir, options, result);
+
+    // Generate opencode artifacts (opt-in via components.opencode, default false).
+    // Purely additive: only writes opencode.json + .opencode/ when enabled.
+    if (options.components.opencode) {
+      await writeOpencodeFiles(targetDir, options, result);
+    }
+
+    // Generate Kimi Code artifacts (opt-in via components.kimicode, default false).
+    // Purely additive: only writes .kimi-code/ + AGENTS.md when enabled.
+    if (options.components.kimicode) {
+      await writeKimiFiles(targetDir, options, result);
     }
 
     // Generate .agents/shared_instructions.md + seed project memory
@@ -1506,6 +1532,8 @@ async function writeHelpers(
     };
 
     copyRecursive(sourceHelpersDir, helpersDir, '');
+    const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
+    copyRecursive(sourceHelpersDir, geminiHelpersDir, '');
   }
 
   // Always run the fallback generator too — it only fills in files still missing
@@ -2355,6 +2383,479 @@ async function writeClaudeMd(
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeClaudeMd] failed to inject token hook into ~/.claude/settings.json:', e);
     }
   }
+}
+
+/**
+ * Write Antigravity (agy) integration files:
+ *   GEMINI.md                       — agent instructions read by agy
+ *   .gemini/rules/monomind.md       — workflow rules file
+ *   .gemini/helpers/statusline.sh   — shell wrapper for the agy status bar
+ *   .gemini/settings.json           — wires the statusline command into agy
+ */
+async function writeGeminiFiles(
+  targetDir: string,
+  options: InitOptions,
+  result: InitResult
+): Promise<void> {
+  // GEMINI.md
+  const geminiMdPath = path.join(targetDir, 'GEMINI.md');
+  if (!fs.existsSync(geminiMdPath) || options.force) {
+    atomicWriteFile(geminiMdPath, generateGeminiMd(options));
+    result.created.files.push('GEMINI.md');
+  } else {
+    result.skipped.push('GEMINI.md');
+  }
+
+  // .gemini/rules/monomind.md
+  const geminiRulesDir = path.join(targetDir, '.gemini', 'rules');
+  fs.mkdirSync(geminiRulesDir, { recursive: true });
+  const rulesPath = path.join(geminiRulesDir, 'monomind.md');
+  if (!fs.existsSync(rulesPath) || options.force) {
+    atomicWriteFile(rulesPath, generateGeminiRulesMd(options));
+    result.created.files.push('.gemini/rules/monomind.md');
+  } else {
+    result.skipped.push('.gemini/rules/monomind.md');
+  }
+
+  // .gemini/helpers/statusline.sh
+  const geminiHelpersDir = path.join(targetDir, '.gemini', 'helpers');
+  fs.mkdirSync(geminiHelpersDir, { recursive: true });
+  const statuslineShPath = path.join(geminiHelpersDir, 'statusline.sh');
+  if (!fs.existsSync(statuslineShPath) || options.force) {
+    atomicWriteFile(statuslineShPath, generateStatuslineSh());
+    try { fs.chmodSync(statuslineShPath, 0o755); } catch { /* ignore on Windows */ }
+    result.created.files.push('.gemini/helpers/statusline.sh');
+  } else {
+    result.skipped.push('.gemini/helpers/statusline.sh');
+  }
+
+  // .gemini/settings.json — only write if not already present (user may have
+  // their own agy settings; never clobber on force either — we only add to it)
+  const geminiSettingsPath = path.join(targetDir, '.gemini', 'settings.json');
+  try {
+    let existing: Record<string, unknown> = {};
+    if (fs.existsSync(geminiSettingsPath) && fs.statSync(geminiSettingsPath).size <= MAX_EXEC_FILE_BYTES) {
+      existing = JSON.parse(fs.readFileSync(geminiSettingsPath, 'utf-8'));
+    }
+    if (!existing.statusLine) {
+      existing.statusLine = { type: 'command', command: '.gemini/helpers/statusline.sh' };
+      atomicWriteFile(geminiSettingsPath, JSON.stringify(existing, null, 2));
+      result.created.files.push('.gemini/settings.json (statusLine wired)');
+    } else {
+      result.skipped.push('.gemini/settings.json (statusLine already configured)');
+    }
+  } catch (e) {
+    result.errors.push(`writeGeminiFiles: failed to write .gemini/settings.json: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // Also update the global ~/.gemini/antigravity-cli/settings.json (best-effort)
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  if (homeDir) {
+    const globalAgyDir = path.join(homeDir, '.gemini', 'antigravity-cli');
+    const globalAgySettings = path.join(globalAgyDir, 'settings.json');
+    const globalStatuslineSh = path.join(globalAgyDir, 'statusline.sh');
+    try {
+      // Only touch the global config when it already exists — i.e. the user
+      // actually runs agy. Creating the directory for non-agy users would be
+      // init mutating state outside the project for no benefit.
+      if (fs.existsSync(globalAgyDir)) {
+      // Write/overwrite the global statusline wrapper
+      if (!fs.existsSync(globalStatuslineSh) || options.force) {
+        atomicWriteFile(globalStatuslineSh, generateStatuslineSh());
+        try { fs.chmodSync(globalStatuslineSh, 0o755); } catch { /* ignore */ }
+        result.created.files.push('~/.gemini/antigravity-cli/statusline.sh');
+      }
+      // Inject statusLine into global agy settings without clobbering existing keys
+      let globalSettings: Record<string, unknown> = {};
+      if (fs.existsSync(globalAgySettings) && fs.statSync(globalAgySettings).size <= MAX_EXEC_FILE_BYTES) {
+        try { globalSettings = JSON.parse(fs.readFileSync(globalAgySettings, 'utf-8')); } catch { /* reset */ }
+      }
+      if (!globalSettings.statusLine) {
+        globalSettings.statusLine = {
+          type: 'command',
+          command: `${globalAgyDir}/statusline.sh`,
+        };
+        atomicWriteFile(globalAgySettings, JSON.stringify(globalSettings, null, 2));
+        result.created.files.push('~/.gemini/antigravity-cli/settings.json (statusLine wired)');
+      }
+      }
+    } catch (e) {
+      // Non-critical — global agy settings is best-effort
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+        console.error('[writeGeminiFiles] failed to update global agy settings:', e);
+      }
+    }
+  }
+}
+
+/**
+ * Write opencode artifacts. ADDITIVE — only invoked when
+ * `components.opencode` is set. Never touches .claude/ or .gemini/.
+ *
+ * Tier 1: opencode.json (MCP server + permissions + instructions).
+ * Tier 2 (added next): AGENTS.md + .opencode/{agent,command,skills}/ converted
+ * from the Claude tree.
+ */
+async function writeOpencodeFiles(
+  targetDir: string,
+  options: InitOptions,
+  result: InitResult
+): Promise<void> {
+  // opencode.json — write only if absent (or --force). Never clobber a user's
+  // hand-written config; mirror writeGeminiFiles' skip-if-exists policy.
+  const opencodeJsonPath = path.join(targetDir, 'opencode.json');
+  if (!fs.existsSync(opencodeJsonPath) || options.force) {
+    atomicWriteFile(opencodeJsonPath, generateOpencodeJson(options));
+    result.created.files.push('opencode.json');
+  } else {
+    result.skipped.push('opencode.json');
+  }
+
+  // AGENTS.md — opencode's instructions file (CLAUDE.md equivalent).
+  const agentsMdPath = path.join(targetDir, 'AGENTS.md');
+  if (!fs.existsSync(agentsMdPath) || options.force) {
+    atomicWriteFile(agentsMdPath, generateAgentsMd());
+    result.created.files.push('AGENTS.md');
+  } else {
+    result.skipped.push('AGENTS.md');
+  }
+
+  // Hook-shim plugin (Tier 3) — bridges monomind's gate handlers into
+  // opencode's tool.execute.before. .opencode/plugins/ (plural) per opencode docs.
+  const pluginDir = path.join(targetDir, '.opencode', 'plugins');
+  const pluginPath = path.join(pluginDir, 'monomind-hooks.ts');
+  if (!fs.existsSync(pluginPath) || options.force) {
+    fs.mkdirSync(pluginDir, { recursive: true });
+    atomicWriteFile(pluginPath, generateHooksPlugin());
+    result.created.files.push('.opencode/plugins/monomind-hooks.ts');
+  } else {
+    result.skipped.push('.opencode/plugins/monomind-hooks.ts');
+  }
+
+  // /monomind-status command — the opencode equivalent of the Claude Code
+  // statusline (opencode has no custom statusbar UI). Runs statusline.cjs
+  // unchanged and reports a formatted summary.
+  const statusCmdPath = path.join(targetDir, '.opencode', 'command', 'monomind-status.md');
+  if (!fs.existsSync(statusCmdPath) || options.force) {
+    fs.mkdirSync(path.dirname(statusCmdPath), { recursive: true });
+    atomicWriteFile(statusCmdPath, generateStatusCommand());
+    result.created.files.push('.opencode/command/monomind-status.md');
+  } else {
+    result.skipped.push('.opencode/command/monomind-status.md');
+  }
+
+  // Convert the .claude/{agents,commands,skills} tree that copyAgents/Skills/
+  // Commands just wrote into opencode shape. Reading from the target .claude/
+  // dir (not the package source) means only the user's selected subset is
+  // converted, and we never re-implement the MAP filtering logic.
+  const claudeDir = path.join(targetDir, '.claude');
+  let agentCount = 0, commandCount = 0, skillCount = 0;
+  const seenAgents = new Set<string>();
+
+  // Agents → .opencode/agent/<name>.md (flattened, deduped by name)
+  const srcAgents = path.join(claudeDir, 'agents');
+  if (fs.existsSync(srcAgents)) {
+    const destAgents = path.join(targetDir, '.opencode', 'agent');
+    for (const rel of walkMdFiles(srcAgents)) {
+      const abs = path.join(srcAgents, rel);
+      if (!isLikelyUserFile(rel)) continue; // skip READMEs etc.
+      const src = fs.readFileSync(abs, 'utf-8');
+      const fallback = path.basename(rel, '.md');
+      const converted = convertAgentMd(src, fallback);
+      const name = extractFmName(converted) || fallback;
+      if (seenAgents.has(name)) continue;
+      seenAgents.add(name);
+      fs.mkdirSync(destAgents, { recursive: true });
+      atomicWriteFile(path.join(destAgents, `${name}.md`), converted);
+      agentCount++;
+    }
+  }
+
+  // Commands → .opencode/command/<category>-<name>.md (namespace preserved)
+  const srcCommands = path.join(claudeDir, 'commands');
+  if (fs.existsSync(srcCommands)) {
+    const destCommands = path.join(targetDir, '.opencode', 'command');
+    for (const rel of walkMdFiles(srcCommands)) {
+      const abs = path.join(srcCommands, rel);
+      if (!isLikelyUserFile(rel)) continue;
+      const segs = rel.split(path.sep);
+      const category = segs.length > 1 ? segs[0] : 'monomind';
+      const fileBase = path.basename(rel, '.md');
+      const src = fs.readFileSync(abs, 'utf-8');
+      const converted = convertCommandMd(src, category, fileBase);
+      fs.mkdirSync(destCommands, { recursive: true });
+      atomicWriteFile(path.join(destCommands, opencodeCommandFilename(category, fileBase)), converted);
+      commandCount++;
+    }
+  }
+
+  // Skills → .opencode/skills/<name>/SKILL.md (same shape)
+  const srcSkills = path.join(claudeDir, 'skills');
+  if (fs.existsSync(srcSkills)) {
+    for (const rel of walkMdFiles(srcSkills)) {
+      // rel looks like "<skillName>/SKILL.md"
+      const segs = rel.split(path.sep);
+      if (segs.length < 2 || segs[segs.length - 1] !== 'SKILL.md') continue;
+      const skillName = segs[0];
+      const abs = path.join(srcSkills, rel);
+      const src = fs.readFileSync(abs, 'utf-8');
+      const converted = convertSkillMd(src, skillName);
+      const destDir = path.join(targetDir, '.opencode', 'skills', skillName);
+      fs.mkdirSync(destDir, { recursive: true });
+      atomicWriteFile(path.join(destDir, 'SKILL.md'), converted);
+      skillCount++;
+    }
+  }
+
+  if (agentCount) result.created.files.push(`.opencode/agent/ (${agentCount} agents)`);
+  if (commandCount) result.created.files.push(`.opencode/command/ (${commandCount} commands)`);
+  if (skillCount) result.created.files.push(`.opencode/skills/ (${skillCount} skills)`);
+}
+
+/**
+ * Write Kimi Code artifacts. ADDITIVE — only invoked when
+ * `components.kimicode` is set. Never touches .claude/, .gemini/, .opencode/.
+ *
+ * Tier 1: .kimi-code/mcp.json (merged, never clobbered), AGENTS.md (skip-if-exists),
+ *         .kimi-code/{agents,skills}/ converted from the Claude tree.
+ * Tier 2: .kimi-code/plugin/hooks/monomind-gate.mjs — stdin/exit-code bridge into
+ *         the existing .claude/helpers gate handlers (kimi has no project-level
+ *         hooks, so enforcement only activates via the Tier 3 plugin).
+ * Tier 3: .kimi-code/plugin/kimi.plugin.json + commands/ — installable via
+ *         `/plugins install ./.kimi-code/plugin` for /monomind:* slash commands
+ *         and auto-wired hooks.
+ */
+async function writeKimiFiles(
+  targetDir: string,
+  options: InitOptions,
+  result: InitResult
+): Promise<void> {
+  const kimiDir = path.join(targetDir, '.kimi-code');
+
+  // .kimi-code/mcp.json — MERGE the monomind server into an existing file;
+  // never clobber the user's other servers. Even --force merges (it refreshes
+  // the monomind entry only) — a full overwrite would destroy unrelated
+  // servers the user configured. Unparseable existing file → skip.
+  const mcpJsonPath = path.join(kimiDir, 'mcp.json');
+  if (!fs.existsSync(mcpJsonPath)) {
+    fs.mkdirSync(kimiDir, { recursive: true });
+    atomicWriteFile(mcpJsonPath, generateKimiMcpJson(options));
+    result.created.files.push('.kimi-code/mcp.json');
+  } else {
+    const current = fs.readFileSync(mcpJsonPath, 'utf-8');
+    const merged = mergeKimiMcpJson(current, options);
+    if (merged === null) {
+      result.skipped.push('.kimi-code/mcp.json (unparseable — not touched)');
+    } else if (merged !== current) {
+      atomicWriteFile(mcpJsonPath, merged);
+      result.updated.push('.kimi-code/mcp.json (merged monomind server)');
+    } else {
+      result.skipped.push('.kimi-code/mcp.json');
+    }
+  }
+
+  // AGENTS.md — kimi's workspace instructions file. Skip-if-exists, ALWAYS:
+  // the opencode target or a hand-written file may already provide one, and
+  // under --force the two generators would otherwise flip the file depending
+  // on write order. Users who want regeneration delete the file first —
+  // same never-clobber spirit as the mcp.json merge above.
+  const agentsMdPath = path.join(targetDir, 'AGENTS.md');
+  if (!fs.existsSync(agentsMdPath)) {
+    atomicWriteFile(agentsMdPath, generateKimiAgentsMd());
+    result.created.files.push('AGENTS.md');
+  } else {
+    result.skipped.push('AGENTS.md');
+  }
+
+  // Convert the .claude/{agents,commands,skills} tree that copyAgents/Skills/
+  // Commands just wrote into kimi shape — same approach as writeOpencodeFiles:
+  // reading from the target .claude/ dir means only the user's selected subset
+  // is converted.
+  const claudeDir = path.join(targetDir, '.claude');
+  let agentCount = 0, commandCount = 0, skillCount = 0;
+  const seenAgents = new Set<string>();
+
+  // Agents → .kimi-code/agents/<name>.md (flattened, deduped by name)
+  const srcAgents = path.join(claudeDir, 'agents');
+  if (fs.existsSync(srcAgents)) {
+    const destAgents = path.join(kimiDir, 'agents');
+    for (const rel of walkMdFiles(srcAgents)) {
+      const abs = path.join(srcAgents, rel);
+      if (!isLikelyUserFile(rel)) continue;
+      const src = fs.readFileSync(abs, 'utf-8');
+      const fallback = path.basename(rel, '.md');
+      const converted = convertKimiAgentMd(src, fallback);
+      const name = extractFmName(converted) || fallback;
+      if (seenAgents.has(name)) continue;
+      seenAgents.add(name);
+      fs.mkdirSync(destAgents, { recursive: true });
+      atomicWriteFile(path.join(destAgents, `${name}.md`), converted);
+      agentCount++;
+    }
+  }
+
+  // Skills → .kimi-code/skills/<name>/SKILL.md (same shape).
+  // Track the directory names written here so command flow-skills below never
+  // overwrite a REAL skill that happens to share the <category>-<name> slug
+  // (e.g. a skill dir "mastermind-debug" vs a command "mastermind/debug.md").
+  const writtenSkillDirs = new Set<string>();
+  const srcSkills = path.join(claudeDir, 'skills');
+  if (fs.existsSync(srcSkills)) {
+    for (const rel of walkMdFiles(srcSkills)) {
+      const segs = rel.split(path.sep);
+      if (segs.length < 2 || segs[segs.length - 1] !== 'SKILL.md') continue;
+      const skillName = segs[0];
+      const abs = path.join(srcSkills, rel);
+      const src = fs.readFileSync(abs, 'utf-8');
+      const converted = convertKimiSkillMd(src, skillName);
+      const destDir = path.join(kimiDir, 'skills', skillName);
+      fs.mkdirSync(destDir, { recursive: true });
+      atomicWriteFile(path.join(destDir, 'SKILL.md'), converted);
+      writtenSkillDirs.add(skillName);
+      skillCount++;
+    }
+  }
+
+  // Commands → TWO outputs from the same source pass:
+  //   (a) .kimi-code/skills/<cat>-<name>/SKILL.md as type:flow skills — the only
+  //       project-level invocable-command mechanism kimi has (/skill:<name>).
+  //   (b) .kimi-code/plugin/commands/<cat>-<name>.md for the Tier 3 plugin
+  //       (/monomind:<name> slash commands once installed).
+  const srcCommands = path.join(claudeDir, 'commands');
+  const pluginDir = path.join(kimiDir, 'plugin');
+  // Always create plugin/commands/ — the manifest declares ./commands/ and a
+  // missing path surfaces as a plugin diagnostic in kimi (e.g. --skip-claude
+  // runs where no commands were converted).
+  const destPluginCommands = path.join(pluginDir, 'commands');
+  fs.mkdirSync(destPluginCommands, { recursive: true });
+  if (fs.existsSync(srcCommands)) {
+    for (const rel of walkMdFiles(srcCommands)) {
+      const abs = path.join(srcCommands, rel);
+      if (!isLikelyUserFile(rel)) continue;
+      const segs = rel.split(path.sep);
+      const category = segs.length > 1 ? segs[0] : 'monomind';
+      const fileBase = path.basename(rel, '.md');
+      const src = fs.readFileSync(abs, 'utf-8');
+
+      // (a) flow skill — skipped when a real skill already owns this directory
+      // name (real skills win; the plugin command below still provides the
+      // command under /monomind:<name>).
+      const flowSkill = convertKimiCommandToFlowSkill(src, category, fileBase);
+      const flowName = extractFmName(flowSkill) || `${category}-${fileBase}`;
+      if (writtenSkillDirs.has(flowName)) {
+        result.skipped.push(`.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`);
+      } else {
+        const flowDir = path.join(kimiDir, 'skills', flowName);
+        fs.mkdirSync(flowDir, { recursive: true });
+        atomicWriteFile(path.join(flowDir, 'SKILL.md'), flowSkill);
+        writtenSkillDirs.add(flowName);
+        skillCount++;
+      }
+
+      // (b) plugin command
+      const pluginCmd = convertKimiPluginCommandMd(src, category, fileBase);
+      fs.mkdirSync(destPluginCommands, { recursive: true });
+      atomicWriteFile(path.join(destPluginCommands, kimiCommandFilename(category, fileBase)), pluginCmd);
+      commandCount++;
+    }
+  }
+
+  // Tier 2: hook gate bridge script.
+  const hooksDir = path.join(pluginDir, 'hooks');
+  const gatePath = path.join(hooksDir, 'monomind-gate.mjs');
+  if (!fs.existsSync(gatePath) || options.force) {
+    fs.mkdirSync(hooksDir, { recursive: true });
+    atomicWriteFile(gatePath, generateKimiGateScript());
+    result.created.files.push('.kimi-code/plugin/hooks/monomind-gate.mjs');
+  } else {
+    result.skipped.push('.kimi-code/plugin/hooks/monomind-gate.mjs');
+  }
+
+  // Tier 3: plugin manifest.
+  const manifestPath = path.join(pluginDir, 'kimi.plugin.json');
+  if (!fs.existsSync(manifestPath) || options.force) {
+    fs.mkdirSync(pluginDir, { recursive: true });
+    atomicWriteFile(manifestPath, generateKimiPluginManifest(options));
+    result.created.files.push('.kimi-code/plugin/kimi.plugin.json');
+  } else {
+    result.skipped.push('.kimi-code/plugin/kimi.plugin.json');
+  }
+
+  if (agentCount) result.created.files.push(`.kimi-code/agents/ (${agentCount} agents)`);
+  if (skillCount) result.created.files.push(`.kimi-code/skills/ (${skillCount} skills)`);
+  if (commandCount) result.created.files.push(`.kimi-code/plugin/commands/ (${commandCount} commands)`);
+
+  // Statusline — the footer under kimi's chatbox. Lives in the USER's
+  // ~/.kimi-code/ (kimi has no project-level statusline config), gated on
+  // that directory already existing (i.e. the user actually runs kimi —
+  // init must not create global state for non-kimi users). The tui.toml
+  // merge never clobbers an existing [status_line].command.
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  if (homeDir) {
+    const kimiHome = path.join(homeDir, '.kimi-code');
+    if (fs.existsSync(kimiHome)) {
+      try {
+        const statuslineShPath = path.join(kimiHome, 'statusline.sh');
+        if (!fs.existsSync(statuslineShPath) || options.force) {
+          atomicWriteFile(statuslineShPath, generateKimiStatuslineSh());
+          try { fs.chmodSync(statuslineShPath, 0o755); } catch { /* ignore on Windows */ }
+          result.created.files.push('~/.kimi-code/statusline.sh');
+        } else {
+          result.skipped.push('~/.kimi-code/statusline.sh');
+        }
+
+        const tuiTomlPath = path.join(kimiHome, 'tui.toml');
+        const relCommand = '~/.kimi-code/statusline.sh';
+        const existingToml = fs.existsSync(tuiTomlPath) ? fs.readFileSync(tuiTomlPath, 'utf-8') : '';
+        const mergedToml = mergeKimiTuiTomlStatusline(existingToml, relCommand);
+        if (mergedToml !== existingToml) {
+          atomicWriteFile(tuiTomlPath, mergedToml);
+          result.created.files.push('~/.kimi-code/tui.toml ([status_line].command wired)');
+        } else {
+          result.skipped.push('~/.kimi-code/tui.toml (status_line.command already set)');
+        }
+      } catch (e) {
+        // Best-effort, like the agy global settings — a statusline failure
+        // must never fail init.
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+          console.error('[writeKimiFiles] failed to wire kimi statusline:', e);
+        }
+      }
+    }
+  }
+}
+
+/** Recursively collect .md files under dir, returned relative to dir. */
+function walkMdFiles(dir: string): string[] {
+  const out: string[] = [];
+  const visit = (d: string, prefix: string) => {
+    let entries: fs.Dirent[];
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); }
+    catch { return; }
+    for (const e of entries) {
+      const rel = prefix ? `${prefix}${path.sep}${e.name}` : e.name;
+      if (e.isDirectory()) visit(path.join(d, e.name), rel);
+      else if (e.isFile() && /\.md$/i.test(e.name)) out.push(rel);
+    }
+  };
+  visit(dir, '');
+  return out;
+}
+
+/** Skip READMEs and other non-definition markdown. */
+function isLikelyUserFile(rel: string): boolean {
+  const base = path.basename(rel).toLowerCase();
+  if (base === 'readme.md' || base === 'readme') return false;
+  return true;
+}
+
+/** Pull the `name:` scalar from a frontmatter block (best-effort). */
+function extractFmName(md: string): string | null {
+  const m = md.match(/^---\r?\n[\s\S]*?\r?\n---/);
+  if (!m) return null;
+  const fm = m[0];
+  const nm = fm.match(/^name\s*:\s*(.+?)\s*$/m);
+  return nm ? nm[1].replace(/^["']|["']$/g, '') : null;
 }
 
 /**

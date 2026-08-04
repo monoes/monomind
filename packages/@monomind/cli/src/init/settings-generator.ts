@@ -315,17 +315,6 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
           },
         ],
       },
-      // Read → graph neighbor footer
-      {
-        matcher: 'Read',
-        hooks: [
-          {
-            type: 'command',
-            command: hookHandlerCmd('post-read'),
-            timeout: 4000,
-          },
-        ],
-      },
       // monograph_* tool calls → telemetry counter
       {
         matcher: 'mcp__monomind__monograph_.*',

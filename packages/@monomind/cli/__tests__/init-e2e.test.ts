@@ -71,7 +71,15 @@ describe('Init Command E2E (real fs)', () => {
     };
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    try {
+      // Close any SQLite backends init opened in this process so the tmpdir
+      // rmSync below can't trip over live file handles. (The previous cleanup
+      // called MemoryStore.closeAll — an API that does not exist — and
+      // silently no-oped.)
+      const bridge = await import('../src/memory/memory-bridge.js');
+      await bridge.shutdownBridge();
+    } catch {}
     process.env.HOME = realHome;
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.rmSync(fakeHome, { recursive: true, force: true });
@@ -136,5 +144,5 @@ describe('Init Command E2E (real fs)', () => {
 
     expect(second.success).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(true);
-  }, 30000); // two real-fs init runs — #33
+  }, 90000); // two real-fs init runs + first-use embedding-model load — #33
 });

@@ -28,6 +28,9 @@ interface TextChunk {
 
 const DEFAULT_CHUNK_SIZE = 3200;
 const DEFAULT_OVERLAP = 400;
+// Head-of-chunk cap for text served by searchKnowledge — chunks are
+// heading-anchored, so the head carries the most relevant content.
+const SEARCH_EXCERPT_TEXT_CAP = 800;
 
 // Inline fallback identical to @monoes/memory's knowledge/document-chunker.ts —
 // used only if the dynamic import below fails (package not installed/built).
@@ -703,7 +706,11 @@ export async function searchKnowledge(
       return {
         id: r.id,
         filePath: srcTag ? srcTag.slice(4) : hashToFile.get(hash) ?? '',
-        text: r.content,
+        // Serve the head of the chunk only — chunks are heading-anchored, so the
+        // head carries the most relevant text, and full chunks (up to ~3.2K
+        // chars) bloat every search response.
+        text: typeof r.content === 'string' && r.content.length > SEARCH_EXCERPT_TEXT_CAP
+          ? r.content.slice(0, SEARCH_EXCERPT_TEXT_CAP) : r.content,
         similarity: r.score + t.boost,
         chunkIndex: isNaN(idx) ? 0 : idx,
         scope: t.label,

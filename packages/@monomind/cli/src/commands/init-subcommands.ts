@@ -85,6 +85,8 @@ export const skillsCommand: Command = {
         runtime: false,
         claudeMd: false,
         graphify: false,
+        opencode: false,
+        kimicode: false,
       },
       skills: {
         all: ctx.flags.all as boolean,
@@ -139,6 +141,8 @@ export const hooksCommand: Command = {
         runtime: false,
         claudeMd: false,
         graphify: false,
+        opencode: false,
+        kimicode: false,
       },
       hooks: minimal
         ? {

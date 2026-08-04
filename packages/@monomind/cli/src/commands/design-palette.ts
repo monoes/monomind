@@ -26,7 +26,8 @@ export interface DesignPaletteResult {
 
 // ─── Seed Library (129 hand-curated OKLCH seeds) ─────────────────────────────
 
-const SEEDS: PaletteSeed[] = [
+// Exported for the monodesign_palette MCP tool (mcp-tools/monodesign-tools.ts).
+export const SEEDS: PaletteSeed[] = [
   { id: "seed-200", oklch: [0.360, 0.137, 0.0],
     mood: "Aesop apothecary shelf — oxblood bottle glass against linen, considered and unhurried",
     strategy: "Seed is a deep desaturated red-brown that reads as brand ink itself; I push primary darker toward bottle-glass oxblood, pair with a pure white surface so the red does the work, and use a clear pale-blush accent that can carry dark text in pills." },
@@ -419,7 +420,8 @@ const SEEDS: PaletteSeed[] = [
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 // Hash a key into a stable float in [0, 1) for deterministic weighted picks.
-function hashUnit(key: string): number {
+// Hash a key into a stable float in [0, 1) for deterministic weighted picks.
+export function hashUnit(key: string): number {
   const h = createHash('sha256').update(key).digest();
   return h.readUInt32BE(0) / 0x100000000;
 }
@@ -438,7 +440,7 @@ function buildWeights(seeds: PaletteSeed[]): { weights: number[]; total: number 
   return { weights, total };
 }
 
-function weightedPick(seeds: PaletteSeed[], unit: number): PaletteSeed {
+export function weightedPick(seeds: PaletteSeed[], unit: number): PaletteSeed {
   const { weights, total } = buildWeights(seeds);
   let target = unit * total;
   for (let i = 0; i < seeds.length; i++) {
@@ -449,14 +451,15 @@ function weightedPick(seeds: PaletteSeed[], unit: number): PaletteSeed {
 }
 
 // Format OKLCH as "oklch(36% 0.137 0)" — percentage L, trimmed trailing zeros.
-function toOklchCss([L, C, H]: [number, number, number]): string {
+// Format OKLCH as "oklch(36% 0.137 0)" — percentage L, trimmed trailing zeros.
+export function toOklchCss([L, C, H]: [number, number, number]): string {
   const lPct = `${Math.round(L * 1000) / 10}%`;
   const cStr = String(Math.round(C * 1000) / 1000);
   const hStr = String(Math.round(H * 10) / 10);
   return `oklch(${lPct} ${cStr} ${hStr})`;
 }
 
-function hueWord(H: number): string {
+export function hueWord(H: number): string {
   if (H < 15 || H >= 345) return 'pure red';
   if (H < 35) return 'warm red / crimson';
   if (H < 55) return 'warm coral / burnt orange';

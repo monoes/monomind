@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 /** Per-role provider config. Default (absent) = subscription login of local Claude Code. */
 export const ProviderSchema = z.object({
-  kind: z.enum(['subscription', 'api-key', 'base-url', 'bedrock', 'vertex']).default('subscription'),
+  kind: z.enum(['subscription', 'api-key', 'base-url', 'bedrock', 'vertex', 'gemini', 'openai']).default('subscription'),
   /** env var NAME holding the API key (never the key itself) */
   apiKeyEnv: z.string().optional(),
   baseUrl: z.string().optional(),

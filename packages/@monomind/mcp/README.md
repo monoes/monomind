@@ -8,9 +8,33 @@
 [![license](https://img.shields.io/npm/l/@monoes/mcp.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
 
-**Standalone MCP server** — stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, and connection pooling. Zero `@monomind/*` dependencies.
+**Standalone MCP server engine** — Version `1.0.1`. Supports stdio, HTTP, and WebSocket transports with tool registry, resources, prompts, sessions, rate limiting, and connection pooling. Zero `@monomind/*` dependencies.
 
 > Part of the [Monomind](https://github.com/monoes/monomind) ecosystem.
+
+---
+
+## Package Architecture & Versioning
+
+The Monomind MCP Subsystem is split across two core packages:
+
+1. **`@monoes/mcp` (`v1.0.1`)** (*This package*): Standalone MCP protocol engine powering stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling, prompt/resource registries, rate limiting, and session lifecycle management.
+2. **`@monoes/monomindcli` (`v2.8.3`)**: Implements CLI integration, binary entry points (`monomind-mcp`), MCP server manager, MCP client loader, and 30+ domain tool modules (`src/mcp-tools/`).
+
+- **Protocol Version**: Returns `protocolVersion: '2024-11-05'` per standard MCP specification release ([`packages/@monomind/cli/src/mcp-server.ts:532`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-server.ts#L532) & [`packages/@monomind/mcp/src/server.ts:91`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/mcp/src/server.ts#L91)).
+- **Server Identity Version Drift**: The binary `monomind-mcp` hardcodes server identity `VERSION = '3.0.0'` in its JSON-RPC `initialize` response (`serverInfo: { name: 'monomind', version: '3.0.0' }` at [`packages/@monomind/cli/bin/mcp-server.js:13`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/bin/mcp-server.js#L13)), decoupled from package versioning (`v2.8.3`).
+
+---
+
+## Server Entry Points
+
+| Entry Point / Module | Location | Description & Role |
+|---|---|---|
+| **`bin/mcp-server.js`** | `packages/@monomind/cli/bin/mcp-server.js` | Direct stdio MCP server binary (`monomind-mcp`). Reads lines from `process.stdin` and handles JSON-RPC calls (`initialize`, `tools/list`, `tools/call`, `ping`, `notifications/initialized`) with hardcoded version `3.0.0` protocol handshake behavior for direct Claude Code integration. |
+| **`commands/mcp.ts`** | `packages/@monomind/cli/src/commands/mcp.ts` | User-facing CLI command handler for `monomind mcp` subcommands (`start`, `stop`, `status`, `list`, `call`, `toggle`, `health`, `logs`, `metrics`, `test`). |
+| **`mcp-server.ts`** | `packages/@monomind/cli/src/mcp-server.ts` | Implements `MCPServerManager` class managing server process lifecycle, PID file management (`~/.monomind/mcp-server.pid`), background daemonization, and health monitoring. |
+
+---
 
 ## Install
 
@@ -40,7 +64,7 @@ await server.start();
 
 ## Transports
 
-> **Note:** monomind's own `mcp start` command uses stdio transport by default, but that path is a separate implementation in the CLI package (`mcp-server.ts`'s `startStdioServer()`) — it does not import this library. This package's stdio transport is used only when explicitly wired up as a standalone MCP server.
+> **Note:** Monomind's `monomind-mcp` binary uses direct stdio transport (`bin/mcp-server.js`) for minimal latency with Claude Code. The `@monoes/mcp` package provides full transport modularity (stdio, HTTP, WebSocket) for custom or standalone integrations.
 
 ```typescript
 import { createMCPServer } from '@monoes/mcp';
@@ -131,3 +155,4 @@ interface IMCPServer {
 ## License
 
 MIT
+

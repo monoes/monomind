@@ -2,7 +2,7 @@
  * Tests for .claude/helpers/handlers/edit-handler.cjs
  * Builds a minimal mock hCtx and calls handler.handle(hCtx) directly.
  * Verifies: session.metric, intelligence.recordEdit, security alerts,
- * test/build suggestions, and the [OK] completion message.
+ * test/build suggestions, and that no unconditional [OK] footer is printed.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRequire } from 'module';
@@ -113,16 +113,16 @@ describe('edit-handler intelligence.recordEdit', () => {
   });
 });
 
-// ── always prints [OK] ─────────────────────────────────────────────────────────
+// ── no unconditional [OK] footer ─────────────────────────────────────────────
 
 describe('edit-handler completion message', () => {
-  it('always prints [OK] Edit recorded', async () => {
+  it('does not print [OK] Edit recorded (token-efficiency: dropped per-edit noise)', async () => {
     const eh = loadEH();
     const hCtx = makeHCtx({});
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
     const output = logSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('[OK] Edit recorded');
+    expect(output).not.toContain('[OK] Edit recorded');
   });
 });
 
