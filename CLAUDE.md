@@ -305,7 +305,7 @@ Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft
 | `MONOMIND_HOOK_QUIET=1` | Silence per-prompt advisory blocks (`[AUDIT]`, `[CODEBASE]`, `[MONOGRAPH]`, `[INTELLIGENCE]`, `[COST]`, knowledge/memory excerpts, etc.). Side-effects (file writes, telemetry, route mutations) are unchanged. |
 | `MONOMIND_MASTERMIND=1` | Emit the Mastermind skill-router table at session start (off by default). |
 | `MONOMIND_SKILL_AUTO=1` | Surface skill-match suggestions in the route hook (off by default). |
-| `MONOMIND_GRAPH_GATE=off` | Disable the bash/search graph-gate that requires a monograph call first (unchanged). |
+| `MONOMIND_GRAPH_GATE=off` | Disable the graph-gate that requires a monograph call before grep/Glob/Grep (gate is **on** by default; set to `off` to opt out). |
 
 ## Quick Setup
 

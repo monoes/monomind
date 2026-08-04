@@ -11,7 +11,13 @@ import type { OrgDef, OrgRole } from './types.js';
  *  10-minute window so the specific cause is reported before the generic
  *  "boss appears hung". */
 const SILENT_SESSION_MS = 4 * 60_000;
+
+/** Matches provider context-window-overflow errors that surface as assistant
+ *  "API Error: … context window limit" text. A role that hits this can't recover
+ *  on its own — every later turn returns the same +0-token error. */
+const CONTEXT_LIMIT_RE = /context[- ]?(window|length|size|limit)|maximum context|exceeds?.{0,12}(context|token)|too many tokens|prompt is too long/i;
 import { resolveProviderEnv } from './provider.js';
+import { StateDetector } from './state-detector.js';
 
 export type DeliverFn = (from: string, to: string, subject: string, body: string) => Promise<string>;
 
@@ -26,6 +32,11 @@ export interface SessionOpts {
   askHuman?: (role: string, question: string) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
   onComplete?: (role: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => void;
+  /** Coordinator-only: fired ONCE if the boss's own session overflows its context
+   *  window (every subsequent turn returns a +0-token context-limit error, so it
+   *  can never recover). The daemon uses this to restart the whole org with fresh
+   *  sessions instead of the idle watchdog nudging a context-full boss for 30 min. */
+  onContextLimit?: () => void;
   /** Search the org's accumulated cross-run memory (memory_namespace). */
   recall?: (role: string, query: string) => Promise<string>;
   /** Write a memory deliberately: scope 'org' (shared, default) or 'agent' (private to this role). */
@@ -43,6 +54,18 @@ export interface SessionOpts {
   searchKnowledge?: (role: string, query: string) => Promise<string>;
   /** Guardrail beforeTool hook: checks if a tool call requires approval before execution. */
   beforeTool?: (role: string, toolName: string) => Promise<boolean | null>;
+  /** Circuit breaker: close role after N consecutive non-success session results. */
+  circuitBreaker?: { threshold: number; state: { failures: number; tripped: boolean } };
+  /** Decision gate: create a human-approval checkpoint. Returns a receipt string. */
+  onGate?: (role: string, name: string, description: string) => Promise<string>;
+  /** Task DAG: create a task with optional dependencies. Returns task JSON. */
+  createTask?: (role: string, title: string, assignee: string, deps: string[]) => string;
+  /** Task DAG: mark a task as done. Returns list of newly-ready task IDs. */
+  completeTask?: (role: string, taskId: string, result?: string) => string;
+  /** Task DAG: list all tasks. Returns JSON array. */
+  listTasks?: () => string;
+  /** Scrollback capture: called with each line of agent output text. */
+  onOutput?: (line: string) => void;
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
@@ -62,6 +85,8 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
     `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
+    `For irreversible or high-risk actions (deployments, deletions, external communications), call org_gate to create a decision gate — a hard-blocking approval checkpoint. End your turn and wait for the human's approval or rejection before proceeding.`,
+    `You can structure work as a task DAG: use org_task to create tasks with dependencies, org_task_done to mark them complete, and org_tasks to see the full DAG. Tasks with satisfied dependencies are automatically dispatched to their assignee.`,
     `Before starting substantial work, call org_recall to check what previous runs already learned or delivered - do not redo finished work.`,
     `The user's documents (notes, handbooks, specs) are searchable with knowledge_search - ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
@@ -228,6 +253,44 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
           return { content: [{ type: 'text' as const, text: receipt }] };
         },
       ),
+      ...(opts.onGate ? [tool(
+        'org_gate',
+        'Create a decision gate — a hard-blocking human-approval checkpoint. Use before irreversible actions (deployments, deletions, external comms). The gate pauses your work until a human approves or rejects it. End your turn after calling this; you will receive the resolution as a new message.',
+        { name: z.string(), description: z.string() },
+        async (args) => {
+          const receipt = await opts.onGate!(role.id, args.name, args.description);
+          return { content: [{ type: 'text' as const, text: receipt }] };
+        },
+      )] : []),
+      ...(opts.createTask ? [
+        tool(
+          'org_task',
+          'Create a task in the DAG with optional dependencies. Dependencies must be existing task IDs. Tasks become ready when all deps are done, then get dispatched to the assignee.',
+          { title: z.string(), assignee: z.string(), deps: z.array(z.string()).default([]) },
+          async (args) => {
+            const result = opts.createTask!(role.id, args.title, args.assignee, args.deps);
+            return { content: [{ type: 'text' as const, text: result }] };
+          },
+        ),
+        tool(
+          'org_task_done',
+          'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.',
+          { taskId: z.string(), result: z.string().optional() },
+          async (args) => {
+            const result = opts.completeTask!(role.id, args.taskId, args.result);
+            return { content: [{ type: 'text' as const, text: result }] };
+          },
+        ),
+        tool(
+          'org_tasks',
+          'List all tasks in the DAG with their current status and dependencies.',
+          {},
+          async () => {
+            const result = opts.listTasks!();
+            return { content: [{ type: 'text' as const, text: result }] };
+          },
+        ),
+      ] : []),
     ],
   });
 
@@ -235,6 +298,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
 
   let sessionId: string | undefined = resume;
   let hitTurnLimit = false;
+  let contextLimitFired = false;
   try {
     const stream = queryFn({
       prompt: mailbox.stream(),
@@ -252,7 +316,6 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
           // UserPromptSubmit/PreToolUse/PostToolUse hooks per message, re-reading
           // the massive cached context on every turn (the #1 token-burn source).
           MONOMIND_HOOK_QUIET: '1',
-          MONOMIND_GRAPH_GATE: 'off',
           MONOMIND_SDK_AGENT: '1',
         },
         mcpServers: { org: orgServer },
@@ -279,6 +342,7 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
     // see it: the stream itself. Cleared as soon as any message arrives, so a
     // healthy session never emits it.
     const openedAt = Date.now();
+    const detector = new StateDetector();
     let sawAnyMessage = false;
     const silentAlarm = setTimeout(() => {
       if (sawAnyMessage) return;
@@ -296,10 +360,31 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
           console.error(`[orgrt:${org}/${role.id}] sdk message type=${String(m?.type)} subtype=${String(m?.subtype ?? '-')}`);
         }
       if (m.session_id) sessionId = m.session_id;
+      const prevState = detector.current();
+      const text_for_detect = m.type === 'assistant'
+        ? (m.message?.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n')
+        : undefined;
+      const newState = detector.onMessage(m.type, m.subtype, text_for_detect);
+      if (newState !== prevState) {
+        bus.emit({ type: 'status', from: role.id, reason: 'state-change', msg: `${prevState} → ${newState}`, data: { from: prevState, to: newState } });
+      }
       if (m.type === 'assistant') {
         const text = (m.message?.content ?? [])
           .filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
-        if (text.trim()) bus.emit({ type: 'chat', from: role.id, msg: text, parentId: getLastMessageId() });
+        if (text.trim()) {
+          opts.onOutput?.(text);
+          bus.emit({ type: 'chat', from: role.id, msg: text, parentId: getLastMessageId() });
+          // #11: a context-window overflow surfaces here as an "API Error: …
+          // context window limit" assistant message. The boss can't recover from
+          // this (every later turn returns the same +0-token error) and it isn't
+          // a crash, so without this signal the idle watchdog just nudges a dead
+          // boss for 30 minutes. Fire the callback once so the daemon restarts.
+          if (opts.onContextLimit && !contextLimitFired && CONTEXT_LIMIT_RE.test(text)) {
+            contextLimitFired = true;
+            bus.emit({ type: 'audit', from: role.id, reason: 'boss-context-limit', msg: 'coordinator context window exhausted — requesting whole-org restart with fresh sessions' });
+            opts.onContextLimit();
+          }
+        }
       } else if (m.type === 'result') {
         const tokens = (m.usage?.input_tokens ?? 0) + (m.usage?.output_tokens ?? 0);
         policy.addUsage(tokens);
@@ -319,6 +404,23 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
             type: 'audit', from: role.id, reason: 'session-result-error',
             msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} - the role produced no usable output`,
           });
+          // Circuit breaker: count consecutive non-success, non-max-turns results.
+          // max_turns is a normal session lifecycle event, not a failure.
+          if (opts.circuitBreaker && m.subtype !== 'error_max_turns') {
+            const cb = opts.circuitBreaker;
+            cb.state.failures++;
+            if (cb.state.failures >= cb.threshold) {
+              cb.state.tripped = true;
+              bus.emit({
+                type: 'audit', from: role.id, reason: 'circuit-breaker-tripped',
+                msg: `circuit breaker tripped after ${cb.state.failures} consecutive failures — closing role`,
+                data: { failures: cb.state.failures, threshold: cb.threshold },
+              });
+              mailbox.close();
+            }
+          }
+        } else if (m.subtype === 'success' && opts.circuitBreaker) {
+          opts.circuitBreaker.state.failures = 0;
         }
         if (policy.overBudget) {
           bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });

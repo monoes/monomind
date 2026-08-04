@@ -212,17 +212,38 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
+    // Migrate: remove legacy MONOMIND_GRAPH_GATE=off from settings.json.
+    // The graph gate is now on by default — monograph_query/suggest must be
+    // called before grep/Glob/Grep once per session. Existing installs that
+    // ran `monomind init` before this change have the env var baked in; this
+    // removes it so the gate activates on next session.
+    var settingsPath = path.join(CWD, '.claude', 'settings.json');
+    var MAX_SETTINGS = 256 * 1024; // 256 KiB
+    var settingsData = null;
+    try {
+      if (fs.existsSync(settingsPath) && (function() { try { return fs.statSync(settingsPath).size <= MAX_SETTINGS; } catch(_) { return false; } }())) {
+        settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        if (settingsData.env && settingsData.env.MONOMIND_GRAPH_GATE === 'off') {
+          delete settingsData.env.MONOMIND_GRAPH_GATE;
+          var tmpSettings = settingsPath + '.' + process.pid + '.tmp';
+          fs.writeFileSync(tmpSettings, JSON.stringify(settingsData, null, 2) + '\n');
+          fs.renameSync(tmpSettings, settingsPath);
+          log('[MIGRATE] Removed MONOMIND_GRAPH_GATE=off — graph gate now enforced by default');
+        }
+      }
+    } catch (e) { /* non-fatal — migration is best-effort */ }
+
     // Initialize intelligence — respects monomind.neural.enabled kill switch.
     var neuralEnabled = true;
     try {
-      var settingsPath = path.join(CWD, '.claude', 'settings.json');
-      var MAX_SETTINGS = 256 * 1024; // 256 KiB
-      if (fs.existsSync(settingsPath) && (function() { try { return fs.statSync(settingsPath).size <= MAX_SETTINGS; } catch(_) { return false; } }())) {
-        var settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        if (settingsData.monomind && settingsData.monomind.neural && settingsData.monomind.neural.enabled === false) {
-          neuralEnabled = false;
-          log('[NEURAL] Disabled via monomind.neural.enabled=false');
+      if (!settingsData) {
+        if (fs.existsSync(settingsPath) && (function() { try { return fs.statSync(settingsPath).size <= MAX_SETTINGS; } catch(_) { return false; } }())) {
+          settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         }
+      }
+      if (settingsData && settingsData.monomind && settingsData.monomind.neural && settingsData.monomind.neural.enabled === false) {
+        neuralEnabled = false;
+        log('[NEURAL] Disabled via monomind.neural.enabled=false');
       }
     } catch (e) { /* non-fatal */ }
     if (neuralEnabled && intelligence && intelligence.init) {

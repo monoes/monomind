@@ -61,9 +61,24 @@ export const OrgDefSchema = z.object({
      *  'isolated' — a scratch dir under .monomind/orgs/<name>/workspace, which the
      *  policy engine's workdir check then confines every path to.
      *  An absolute path is used verbatim. */
-    workspace: z.union([z.literal('repo'), z.literal('isolated'), z.string()]).optional(),
+    workspace: z.union([z.literal('repo'), z.literal('isolated'), z.literal('worktree'), z.literal('worktree-per-role'), z.string()]).optional(),
+    /** Circuit breaker: after N consecutive non-success session results from
+     *  a role, trip the circuit and close the role's mailbox instead of looping. */
+    circuit_breaker: z.object({
+      failure_threshold: z.number().int().positive().default(5),
+      cooldown_ms: z.number().int().nonnegative().default(0),
+    }).partial().optional(),
+    /** Stale-base drift detection: warn (or refuse) when the working tree is
+     *  too many commits behind its tracking branch. 0 disables. */
+    stale_base_threshold: z.number().int().nonnegative().default(0),
+    /** Precondition checks: shell commands that must exit 0 before a scheduled
+     *  run starts. If any fail, the run is skipped and the failure logged. */
+    prechecks: z.array(z.object({
+      name: z.string(),
+      command: z.string(),
+    })).optional(),
   }).partial().passthrough().default({})
-    .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, workspace: 'repo' as string, ...rc })),
+    .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, workspace: 'repo' as string, stale_base_threshold: 0, ...rc })),
   roles: z.array(RoleSchema).min(1),
 }).passthrough();
 
@@ -78,7 +93,7 @@ export interface BusEvent {
   ts: number;
   org: string;
   run: string;
-  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage' | 'question';
+  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage' | 'question' | 'gate';
   from?: string;
   to?: string;
   subject?: string;
@@ -94,6 +109,18 @@ export interface BusEvent {
   conversationId?: string;
   interactionId?: string;
   agentSessionId?: string;
+}
+
+export interface DecisionGate {
+  id: string;
+  name: string;
+  description: string;
+  roleId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: number;
+  resolvedBy?: string;
+  resolvedAt?: number;
+  resolution?: string;
 }
 
 export const ORG_DIR = '.monomind/orgs';

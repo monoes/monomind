@@ -66,10 +66,6 @@ export function generateSettings(options: InitOptions): object {
     // (file writes, telemetry, route mutations) are unchanged. Opt out by
     // removing this or setting MONOMIND_HOOK_VERBOSE=1.
     MONOMIND_HOOK_QUIET: '1',
-    // Monograph stays fully usable; this only removes the bash/search
-    // toll-gate that forced a monograph call before every grep. Call
-    // monograph_query / monograph_suggest whenever you want.
-    MONOMIND_GRAPH_GATE: 'off',
   };
 
   // Detect platform for platform-aware configuration

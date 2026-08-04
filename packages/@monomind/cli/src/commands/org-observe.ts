@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { ORG_DIR, OrgDefSchema, type BusEvent } from '../orgrt/types.js';
+import { ORG_DIR, OrgDefSchema, type BusEvent, type DecisionGate } from '../orgrt/types.js';
 import { formatEvent, listRunDirs, readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
 import { ORG_TEMPLATES, buildFromTemplate } from '../orgrt/templates.js';
 import { checkOrgStructure } from '../orgrt/migrate.js';
@@ -751,4 +751,67 @@ export const decisionsAction = async (ctx: CommandContext, name: string): Promis
   log(output.info('└──────────────────┴─────────────┴────────────────────────────────────────┘'));
 
   return { success: true, message: `${decisionEvents.length} decision traces` };
+};
+
+// ── Decision gates ──────────────────────────────────────────────────────
+
+function readGatesFile(cwd: string, org: string): { gates: DecisionGate[] } {
+  try { return JSON.parse(readFileSync(join(cwd, ORG_DIR, org, 'gates.json'), 'utf8')); } catch { return { gates: [] }; }
+}
+
+export const gatesAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const data = readGatesFile(ctx.cwd, name);
+  const showAll = ctx.flags['all'] === true;
+  const gates = showAll ? data.gates : data.gates.filter(g => g.status === 'pending');
+
+  if (!gates.length) {
+    log(output.info(showAll ? `No gates for org "${name}"` : `No pending gates for org "${name}" (use --all to include resolved)`));
+    return { success: true };
+  }
+
+  log(output.info(`${showAll ? 'All' : 'Pending'} gates for org "${name}" (${gates.length}):\n`));
+  for (const g of gates) {
+    const status = g.status === 'pending' ? '⏳ pending' : g.status === 'approved' ? '✅ approved' : '❌ rejected';
+    log(output.info(`  ${g.id}  ${status}  role:${g.roleId}`));
+    log(output.info(`    name: ${g.name}`));
+    log(output.info(`    desc: ${g.description}`));
+    if (g.resolution) log(output.info(`    resolution: ${g.resolution}`));
+    log('');
+  }
+  return { success: true, message: `${gates.length} gate(s)` };
+};
+
+export const gateResolveAction = async (ctx: CommandContext, name: string, approved: boolean): Promise<CommandResult> => {
+  const gateId = ctx.args[1];
+  const resolution = ctx.args.slice(2).join(' ') || undefined;
+  if (!gateId) return { success: false, message: `usage: monomind org gate-${approved ? 'approve' : 'reject'} ${name} <gate-id> [resolution]` };
+
+  const data = readGatesFile(ctx.cwd, name);
+  const gate = data.gates.find(g => g.id === gateId);
+  if (!gate) return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
+  if (gate.status !== 'pending') return { success: false, message: `gate "${gateId}" already resolved (${gate.status})` };
+
+  const { lookupOrg } = await import('../orgrt/broker.js');
+  const remote = lookupOrg(name);
+  if (remote) {
+    try {
+      const res = await fetch(`${remote.url}/api/resolve-gate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org: name, gateId, approved, resolution }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const d = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      if (res.ok && d.ok) {
+        log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} (live).`));
+        return { success: true, message: `gate ${approved ? 'approved' : 'rejected'}` };
+      }
+      log(output.error(`Live resolution rejected: ${d.error ?? res.status}`));
+      return { success: false, message: d.error ?? `HTTP ${res.status}` };
+    } catch (err) {
+      log(output.error(`Hosting daemon unreachable: ${err instanceof Error ? err.message : 'error'}`));
+      return { success: false, message: 'daemon unreachable — gate can only be resolved while the org is running' };
+    }
+  }
+
+  return { success: false, message: `org "${name}" is not running — gates can only be resolved on a live org` };
 };

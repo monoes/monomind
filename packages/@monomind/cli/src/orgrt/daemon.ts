@@ -10,7 +10,8 @@ import { runAgentSession } from './session.js';
 import { attachForwarder } from './forwarder.js';
 import { BrokerLease, lookupOrg, normalizeCredential } from './broker.js';
 import { queueMessage, drainInbox } from './inbox.js';
-import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, ORG_DIR } from './types.js';
+import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, type DecisionGate, ORG_DIR } from './types.js';
+import { TaskDag } from './task-dag.js';
 import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
 import { checkResources, waitForCapacity, getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
@@ -49,6 +50,18 @@ class OtelTracer {
  *  stop keeps the short bound — see finishStop. */
 const COMPLETE_DRAIN_MS = 5 * 60_000;
 
+/** Bounded ring buffer for agent terminal scrollback. */
+export class ScrollbackBuffer {
+  private lines: string[] = [];
+  constructor(private maxLines = 500) {}
+  push(line: string): void {
+    this.lines.push(line);
+    if (this.lines.length > this.maxLines) this.lines.splice(0, this.lines.length - this.maxLines);
+  }
+  snapshot(): string[] { return [...this.lines]; }
+  clear(): void { this.lines.length = 0; }
+}
+
 export interface AgentRuntime {
   mailbox: Mailbox;
   policy: PolicyEngine;
@@ -60,6 +73,10 @@ export interface AgentRuntime {
   metrics: { tokens: number; costUsd: number };
   /** Track last message ID for threading responses */
   lastMessageId?: string;
+  /** Per-role worktree path (workspace: 'worktree-per-role'). */
+  worktreePath?: string;
+  /** Terminal scrollback — capped ring buffer of agent output lines. */
+  scrollback: ScrollbackBuffer;
 }
 
 export interface RunningOrg {
@@ -74,6 +91,8 @@ export interface RunningOrg {
   spawnRole?: (role: OrgRole) => void;
   /** Git worktree path if workspace: 'worktree' — cleaned up on stop. */
   worktreePath?: string;
+  /** Task DAG for structured work ordering. */
+  taskDag?: TaskDag;
 }
 
 export interface DaemonOpts {
@@ -145,9 +164,82 @@ export class OrgDaemon {
 
   listOrgs(): RunningOrg[] { return [...this.orgs.values()]; }
   getOrg(name: string): RunningOrg | undefined { return this.orgs.get(name); }
+
+  /** Hot-reload an org definition from disk without stopping running sessions.
+   *  Applies: goal, run_config, schedule. New roles are added as pending (lazy-spawnable).
+   *  Removed roles are NOT killed — they finish their current work and won't be re-spawned.
+   *  Returns a summary of what changed. */
+  reloadOrgDef(name: string): { changed: string[]; newRoles: string[]; removedRoles: string[] } {
+    const running = this.orgs.get(name);
+    if (!running) throw new Error(`org ${name} is not running`);
+    const defPath = join(this.root, ORG_DIR, `${name}.json`);
+    const newDef = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
+    const changed: string[] = [];
+    const newRoles: string[] = [];
+    const removedRoles: string[] = [];
+
+    if (newDef.goal !== running.def.goal) {
+      running.def.goal = newDef.goal;
+      changed.push('goal');
+    }
+
+    const oldRc = running.def.run_config as Record<string, unknown>;
+    const newRc = newDef.run_config as Record<string, unknown>;
+    for (const key of new Set([...Object.keys(oldRc), ...Object.keys(newRc)])) {
+      if (JSON.stringify(oldRc[key]) !== JSON.stringify(newRc[key])) {
+        oldRc[key] = newRc[key];
+        changed.push(`run_config.${key}`);
+      }
+    }
+
+    const existingRoleIds = new Set(running.def.roles.map(r => r.id));
+    const newRoleIds = new Set(newDef.roles.map(r => r.id));
+    for (const role of newDef.roles) {
+      if (!existingRoleIds.has(role.id)) {
+        running.def.roles.push(role);
+        if (!running.pendingRoles) running.pendingRoles = new Map();
+        running.pendingRoles.set(role.id, role);
+        newRoles.push(role.id);
+      }
+    }
+    for (const id of existingRoleIds) {
+      if (!newRoleIds.has(id)) removedRoles.push(id);
+    }
+
+    running.bus.emit({ type: 'audit', reason: 'hot-reload',
+      msg: `org def reloaded: ${changed.length} fields changed, ${newRoles.length} new roles, ${removedRoles.length} removed roles`,
+      data: { changed, newRoles, removedRoles } });
+
+    return { changed, newRoles, removedRoles };
+  }
   /** Names of the orgs this daemon currently has running. Snapshot — safe to
    *  iterate while stopOrg() mutates the underlying map. */
   listRunning(): string[] { return [...this.orgs.keys()]; }
+
+  /** Hook for the SSE server — registers a listener for all bus events across all orgs. */
+  onBusEvent?: (fn: (e: BusEvent) => void) => void = (fn) => { this.subscribe(fn); };
+
+  /** Snapshot of all running orgs for dashboard initial load. */
+  getStatusSnapshot?: () => Record<string, unknown> = () => {
+    const orgs: Record<string, unknown>[] = [];
+    for (const [name, running] of this.orgs) {
+      const roles: Record<string, unknown>[] = [];
+      for (const [roleId, agent] of running.agents) {
+        roles.push({
+          id: roleId, status: agent.status,
+          worktree: agent.worktreePath ?? null,
+          metrics: agent.metrics,
+        });
+      }
+      orgs.push({
+        name, run: running.run,
+        roles,
+        pendingRoles: running.pendingRoles ? [...running.pendingRoles.keys()] : [],
+        tasks: running.taskDag?.all() ?? [],
+      });
+    }
+    return { orgs };
+  };
 
   /** Resolve run_config.workspace to 'repo' | 'isolated' | an absolute path.
    *  A relative path is resolved against the project root rather than the
@@ -155,7 +247,7 @@ export class OrgDaemon {
    *  from a subdirectory. */
   private workspaceSetting(def: OrgDef): string {
     const ws = (def.run_config as { workspace?: string }).workspace ?? 'repo';
-    if (ws === 'repo' || ws === 'isolated' || ws === 'worktree') return ws;
+    if (ws === 'repo' || ws === 'isolated' || ws === 'worktree' || ws === 'worktree-per-role') return ws;
     return isAbsolute(ws) ? ws : join(this.root, ws);
   }
 
@@ -210,6 +302,19 @@ export class OrgDaemon {
     // if the operator named a number, that number is the answer.
     if (!process.env.MONOMIND_MAX_SDK_PROCS && getResourceLimits().maxSdkProcesses < def.roles.length) {
       configureResourceLimits({ maxSdkProcesses: def.roles.length });
+    }
+
+    // Validate per-role providers before spawning anything (fail-fast: a
+    // missing env var discovered 10 minutes into a run wastes the entire run).
+    const { resolveProviderEnv: validateProvider } = await import('./provider.js');
+    for (const role of def.roles) {
+      if (role.provider) {
+        try {
+          validateProvider(role.provider);
+        } catch (err) {
+          throw new Error(`org ${name}: role "${role.id}" provider validation failed — ${err instanceof Error ? err.message : err}`);
+        }
+      }
     }
 
     const bus = new OrgBus(name, run, dir);
@@ -297,22 +402,46 @@ export class OrgDaemon {
     // scheduleDeferredSpawn() once resources free up, without re-running the
     // gate logic or duplicating the session-wiring below.
     const spawnRole = (role: OrgRole): void => {
+      let roleCwd = cwd;
+      if (ws === 'worktree-per-role' && role.id !== bossRole.id) {
+        const wtPath = join(this.root, ORG_DIR, name, `worktree-${role.id}`);
+        try {
+          const { execSync: es } = require('node:child_process') as typeof import('node:child_process');
+          if (existsSync(wtPath)) {
+            try { es(`git worktree remove --force "${wtPath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
+          }
+          es(`git worktree add "${wtPath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore' });
+          roleCwd = wtPath;
+        } catch { /* fallback to shared cwd if git worktree fails */ }
+      }
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
-        { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, cwd);
-      const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve(), metrics: { tokens: 0, costUsd: 0 } };
+        { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, roleCwd);
+      const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve(), metrics: { tokens: 0, costUsd: 0 }, worktreePath: roleCwd !== cwd ? roleCwd : undefined, scrollback: new ScrollbackBuffer() };
       const sessionOpts = {
-        org: name, role, bus, policy, mailbox, cwd, def,
+        org: name, role, bus, policy, mailbox, cwd: roleCwd, def,
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
         lastMessageId: () => runtime.lastMessageId,
+        onOutput: (line: string) => runtime.scrollback.push(line),
         deliver: (from: string, to: string, subject: string, body: string) => this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
+        onGate: (r: string, gateName: string, gateDesc: string) => this.createGate(name, r, gateName, gateDesc),
+        circuitBreaker: (() => {
+          const cb = (def.run_config as Record<string, unknown>).circuit_breaker as { failure_threshold?: number; cooldown_ms?: number } | undefined;
+          if (!cb) return undefined;
+          return { threshold: cb.failure_threshold ?? 5, state: { failures: 0, tripped: false } };
+        })(),
         beforeTool: (r: string, toolName: string) => this.checkApproval(name, r, toolName),
         onComplete: role.id === bossRole.id
           ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
               bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });
             }
           : undefined,
+        // #11: a boss that overflows its context window isn't a crash (it keeps
+        // returning +0-token errors forever), so without this the idle watchdog
+        // just nudges it for ~30 min before idle-stopping. Restart the whole org
+        // with fresh sessions instead — bounded by MAX_BOSS_RESTARTS.
+        onContextLimit: role.id === bossRole.id ? () => this.scheduleBossRestart(name) : undefined,
         recall: async (r: string, q: string) => {
           const answer = await this.recallOrgMemory(name, def, q, r);
           bus.emit({ type: 'status', from: r, reason: 'org-recall', msg: `recall: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
@@ -336,6 +465,16 @@ export class OrgDaemon {
             data: { nodes: payload.nodes?.length ?? 0, edges: payload.edges?.length ?? 0, rules: payload.rules?.length ?? 0 },
           });
           return text;
+        },
+        createTask: (r: string, title: string, assignee: string, deps: string[]) => {
+          return this.dagCreateTask(name, r, title, assignee, deps);
+        },
+        completeTask: (r: string, taskId: string, result?: string) => {
+          return this.dagCompleteTask(name, r, taskId, result);
+        },
+        listTasks: () => {
+          const running = this.orgs.get(name);
+          return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
         },
         queryFn: this.opts.queryFn,
       };
@@ -433,6 +572,7 @@ export class OrgDaemon {
     }
     running.pendingRoles = pendingRoles;
     running.spawnRole = spawnRole;
+    running.taskDag = new TaskDag();
     if (worktreePath) running.worktreePath = worktreePath;
 
     // Crash cleanup: reap SDK children if this process exits abnormally.
@@ -448,6 +588,25 @@ export class OrgDaemon {
     };
     process.on('exit', crashCleanup);
     (running as RunningOrg & { _crashCleanup?: () => void })._crashCleanup = crashCleanup;
+
+    // Stale-base drift detection: if the working tree is too many commits behind
+    // its tracking branch, warn or refuse to start. Best-effort — git may not be
+    // available, or the repo may have no tracking branch.
+    const staleThreshold = (def.run_config as Record<string, unknown>).stale_base_threshold as number | undefined;
+    if (staleThreshold && staleThreshold > 0 && cwd === this.root) {
+      try {
+        const { execSync } = await import('node:child_process');
+        const behind = execSync('git rev-list --count HEAD..@{upstream} 2>/dev/null', { cwd, encoding: 'utf8' }).trim();
+        const count = parseInt(behind, 10);
+        if (!isNaN(count) && count > staleThreshold) {
+          bus.emit({
+            type: 'audit', reason: 'stale-base',
+            msg: `working tree is ${count} commits behind upstream (threshold: ${staleThreshold}) — consider pulling before running`,
+            data: { behind: count, threshold: staleThreshold },
+          });
+        }
+      } catch { /* no upstream tracking or git unavailable — skip silently */ }
+    }
 
     const boss = bossRole;
     // Cross-run memory: brief the coordinator on the previous run so scheduled
@@ -483,6 +642,9 @@ export class OrgDaemon {
       };
       const wd = setInterval(() => {
         if (this.restarting.has(name)) return; // boss auto-restart in flight — don't nudge or stop
+        // A pending gate means the org is legitimately waiting for human input
+        const pendingGates = this.readGates(name).gates.filter(g => g.status === 'pending');
+        if (pendingGates.length > 0) return;
         const idleFor = Date.now() - lastActivity;
         if (idleFor < idleMs) { nudgedAt = 0; return; }
         if (nudgedAt === 0) {
@@ -695,8 +857,22 @@ export class OrgDaemon {
         this.autoWake(targetOrgName);
         return `queued for ${to} (org starting)`;
       }
+      // Check SSH remote host registry before giving up
+      try {
+        const { lookupRemoteOrg, deliverRemote: sshDeliver } = await import('./remote.js');
+        const remoteHost = lookupRemoteOrg(targetOrgName, this.root);
+        if (remoteHost) {
+          const result = await sshDeliver(targetOrgName, `${fromOrg}:${fromRole}`, subject, body, remoteHost);
+          if (result.ok) {
+            src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body, data: { remote: 'ssh', host: remoteHost.host } });
+            return `delivered to ${to} via SSH (${remoteHost.host})`;
+          }
+          src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `SSH delivery failed: ${result.output}`, reason: 'ssh-delivery-failed' });
+          return `ERROR: SSH delivery to "${to}" on ${remoteHost.host} failed: ${result.output}`;
+        }
+      } catch { /* remote.ts unavailable or SSH not configured — fall through */ }
       src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
-      return `ERROR: unknown recipient "${to}" (no local org, and no process on this machine has org "${targetOrgName}" registered)`;
+      return `ERROR: unknown recipient "${to}" (no local org, no process on this machine, and no SSH remote configured for "${targetOrgName}")`;
     }
     try {
       const res = await fetch(`${remote.url}/api/xdeliver`, {
@@ -797,6 +973,132 @@ export class OrgDaemon {
     const tmp = `${dest}.${process.pid}.tmp`;
     writeFileSync(tmp, JSON.stringify(data, null, 2));
     renameSync(tmp, dest);
+  }
+
+  // ── Decision gates ──────────────────────────────────────────────────────
+
+  private gatesPath(org: string): string {
+    return join(this.root, ORG_DIR, org, 'gates.json');
+  }
+
+  private readGates(org: string): { gates: DecisionGate[] } {
+    try { return JSON.parse(readFileSync(this.gatesPath(org), 'utf8')); } catch { return { gates: [] }; }
+  }
+
+  private writeGates(org: string, data: { gates: DecisionGate[] }): void {
+    const dest = this.gatesPath(org);
+    mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
+    const tmp = `${dest}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(data, null, 2));
+    renameSync(tmp, dest);
+  }
+
+  async createGate(org: string, role: string, name: string, description: string): Promise<string> {
+    const running = this.orgs.get(org);
+    const gateId = `gate-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const gate: DecisionGate = {
+      id: gateId, name, description, roleId: role,
+      status: 'pending', createdAt: Date.now(),
+    };
+    const data = this.readGates(org);
+    data.gates.push(gate);
+    this.writeGates(org, data);
+    running?.bus.emit({ type: 'gate', from: role, data: { gateId, name, description } });
+    return `Decision gate "${name}" created (id ${gateId}) — a human must approve or reject it before you proceed. End your turn and wait for the resolution.`;
+  }
+
+  resolveGate(org: string, gateId: string, approved: boolean, resolution?: string, resolvedBy?: string): { ok: true } | { ok: false; error: string } {
+    const data = this.readGates(org);
+    const idx = data.gates.findIndex(g => g.id === gateId);
+    if (idx === -1) return { ok: false, error: `gate "${gateId}" not found for org "${org}"` };
+    if (data.gates[idx].status !== 'pending') return { ok: false, error: `gate "${gateId}" already resolved (${data.gates[idx].status})` };
+
+    data.gates[idx].status = approved ? 'approved' : 'rejected';
+    data.gates[idx].resolvedAt = Date.now();
+    data.gates[idx].resolvedBy = resolvedBy ?? 'human';
+    data.gates[idx].resolution = resolution;
+    this.writeGates(org, data);
+
+    const running = this.orgs.get(org);
+    const roleId = data.gates[idx].roleId;
+    if (running) {
+      running.bus.emit({
+        type: 'gate', from: roleId,
+        reason: approved ? 'gate-approved' : 'gate-rejected',
+        data: { gateId, approved, resolution },
+      });
+      const agent = running.agents.get(roleId);
+      if (agent && !agent.mailbox.isClosed) {
+        const verb = approved ? 'approved' : 'rejected';
+        const detail = resolution ?? (approved ? 'approved — proceed' : 'rejected — do not proceed');
+        agent.mailbox.push(`[gate ${verb}] "${data.gates[idx].name}": ${detail}`);
+      }
+    }
+    return { ok: true };
+  }
+
+  listGates(org: string, status?: 'pending' | 'approved' | 'rejected'): DecisionGate[] {
+    const data = this.readGates(org);
+    return status ? data.gates.filter(g => g.status === status) : data.gates;
+  }
+
+  private dagCreateTask(org: string, role: string, title: string, assignee: string, deps: string[]): string {
+    const running = this.orgs.get(org);
+    if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+    try {
+      const task = running.taskDag.add(title, assignee, deps);
+      running.bus.emit({
+        type: 'status', from: role, reason: 'task-created',
+        msg: `task ${task.id} created: "${title}" → ${assignee}`,
+        data: { taskId: task.id, assignee, deps, status: task.status },
+      });
+      if (task.status === 'ready') this.dispatchReadyTasks(org, running);
+      return JSON.stringify(task);
+    } catch (err) {
+      return JSON.stringify({ error: (err as Error).message });
+    }
+  }
+
+  private dagCompleteTask(org: string, role: string, taskId: string, result?: string): string {
+    const running = this.orgs.get(org);
+    if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+    try {
+      running.taskDag.markRunning(taskId);
+      const promoted = running.taskDag.complete(taskId, result);
+      running.bus.emit({
+        type: 'status', from: role, reason: 'task-done',
+        msg: `task ${taskId} completed${promoted.length ? ` — ${promoted.map(t => t.id).join(', ')} now ready` : ''}`,
+        data: { taskId, promoted: promoted.map(t => t.id) },
+      });
+      if (promoted.length > 0) this.dispatchReadyTasks(org, running);
+      return JSON.stringify({ done: taskId, promoted: promoted.map(t => ({ id: t.id, title: t.title, assignee: t.assignee })) });
+    } catch (err) {
+      return JSON.stringify({ error: (err as Error).message });
+    }
+  }
+
+  private dispatchReadyTasks(org: string, running: RunningOrg): void {
+    if (!running.taskDag) return;
+    for (const task of running.taskDag.ready()) {
+      running.taskDag.markRunning(task.id);
+      const agent = running.agents.get(task.assignee);
+      if (agent) {
+        agent.mailbox.push(`[task:${task.id}] ${task.title}`);
+      } else if (running.pendingRoles?.has(task.assignee)) {
+        const pending = running.pendingRoles.get(task.assignee)!;
+        running.pendingRoles.delete(task.assignee);
+        running.spawnRole?.(pending);
+        setTimeout(() => {
+          const spawned = running.agents.get(task.assignee);
+          if (spawned) spawned.mailbox.push(`[task:${task.id}] ${task.title}`);
+        }, 500);
+      }
+      running.bus.emit({
+        type: 'status', from: 'dag', reason: 'task-dispatched',
+        msg: `task ${task.id} dispatched to ${task.assignee}`,
+        data: { taskId: task.id, assignee: task.assignee },
+      });
+    }
   }
 
   /** Check if an action requires human approval (beforeTool hook for guardrails). Returns
@@ -1149,13 +1451,18 @@ export class OrgDaemon {
     // 'running' record must not be overwritten with this old run's 'stopped'.
     // Pass the org directly since we already removed it from the map.
     if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org, stopCheckpoint);
-    // Clean up git worktree if one was created for this run.
-    if (org.worktreePath) {
-      try {
-        const { execSync } = await import('node:child_process');
-        execSync(`git worktree remove --force "${org.worktreePath}"`, { cwd: this.root, stdio: 'ignore' });
-      } catch { /* best-effort — stale worktree can be cleaned up manually */ }
-    }
+    // Clean up git worktrees — shared (workspace: 'worktree') and per-role.
+    try {
+      const { execSync } = await import('node:child_process');
+      if (org.worktreePath) {
+        try { execSync(`git worktree remove --force "${org.worktreePath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
+      }
+      for (const agent of org.agents.values()) {
+        if (agent.worktreePath) {
+          try { execSync(`git worktree remove --force "${agent.worktreePath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
+        }
+      }
+    } catch { /* node:child_process unavailable — skip */ }
   }
 
   async stopAll(): Promise<void> {
@@ -1467,7 +1774,13 @@ export class OrgDaemon {
           metrics: { tokens: roleState.tokensUsed, costUsd: roleState.costUsd },
           lastMessageId: roleState.lastMessageId,
           error: roleState.error,
+          scrollback: new ScrollbackBuffer(),
         };
+
+        // Restore scrollback from checkpoint if available
+        if (roleState.scrollback?.length) {
+          for (const line of roleState.scrollback) runtime.scrollback.push(line);
+        }
 
         // Pattern 3: Restore mailbox queue content (not just closed state)
         if (roleState.mailboxQueue.length > 0) {
