@@ -583,6 +583,13 @@ async function printStats(root: string, topN = 10, detailed = false): Promise<vo
   }
 }
 
+// V2 (deferred): wire up the existing-but-dead startLspServer at
+// packages/@monomind/monograph/src/lsp/server.ts:171. It needs:
+//   1. monograph package to export it from its main entry
+//   2. monograph's tsconfig/build to compile lsp/ into dist/
+//   3. then a CLI subcommand here that loads the DB + calls startLspServer
+// Multi-package change — out of scope for this session.
+
 // ── root command ──────────────────────────────────────────────────────────────
 
 export const monographCommand: Command = {
