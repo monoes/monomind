@@ -28,6 +28,10 @@ export interface RoleCheckpoint {
 
 /** Full checkpoint state for an org */
 export interface OrgCheckpoint {
+  /** R6: schema version — bumped on any breaking shape change so a future
+   *  resumeOrg can detect an old-shape checkpoint instead of failing the
+   *  checksum and silently returning null. */
+  version: number;
   status: 'running' | 'stopped' | 'crashed';
   run: string;
   pid: number;
@@ -41,6 +45,9 @@ export interface OrgCheckpoint {
   /** Checksum for state validation */
   checksum: string;
 }
+
+/** Current checkpoint format version. Bump on breaking shape changes. */
+export const CHECKPOINT_VERSION = 1;
 
 /** Checkpoint TTL config */
 export const CHECKPOINT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours default
@@ -76,6 +83,7 @@ export function captureCheckpoint(org: RunningOrg): OrgCheckpoint {
 
   // Build checkpoint without checksum first
   const partial: Omit<OrgCheckpoint, 'checksum'> = {
+    version: CHECKPOINT_VERSION,
     status: 'running',
     run: org.run,
     pid: process.pid,
@@ -93,9 +101,20 @@ export function captureCheckpoint(org: RunningOrg): OrgCheckpoint {
 
 /**
  * Validate checkpoint integrity using checksum
- * Returns true if checksum matches, false if corrupted
+ * Returns true if checksum matches AND the schema version is current.
+ *
+ * R6: a version field was added so future shape changes can be detected
+ * explicitly. Old checkpoints (no version field) fail with a clear cause
+ * instead of the silent checksum-mismatch → null return that masked the
+ * real reason resume was impossible.
  */
 export function validateCheckpoint(checkpoint: OrgCheckpoint): boolean {
+  if (checkpoint.version !== CHECKPOINT_VERSION) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+      console.error(`[checkpoint] version mismatch: file has ${checkpoint.version ?? 'none'}, current is ${CHECKPOINT_VERSION}`);
+    }
+    return false;
+  }
   const { checksum, ...state } = checkpoint;
   const recomputed = generateChecksum(state);
   return checksum === recomputed;

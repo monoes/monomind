@@ -39,7 +39,27 @@ export class OrgBus {
       if (!this.dirReady) { await mkdir(this.dir, { recursive: true }); this.dirReady = true; }
       await appendFile(this.file, JSON.stringify(e) + '\n', 'utf8');
     }).catch((err) => {
+      // R7: surface durable-log failures instead of swallowing under DEBUG.
+      // Without this, summarizeRun() reads back a partial bus.jsonl and
+      // produces wrong run summaries while the dashboard looks healthy
+      // (in-memory listeners still got the event). Emit a follow-up audit
+      // event so the loss is visible in the next-history read.
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[org-bus] event write failed:', err);
+      try {
+        const audit: BusEvent = {
+          id: `${this.run}-${Date.now()}-${this.seq++}-audit`,
+          ts: Date.now(),
+          org: this.org,
+          run: this.run,
+          type: 'audit',
+          from: 'system',
+          msg: `bus append failed: ${err instanceof Error ? err.message : String(err)}. Event id ${e.id} not persisted.`,
+        };
+        // best-effort second write — if the FS is genuinely down this also
+        // fails silently, but on transient SQLITE_BUSY-style hiccups the
+        // audit line lands and the lost event is at least attributable.
+        void appendFile(this.file, JSON.stringify(audit) + '\n', 'utf8').catch(() => {});
+      } catch { /* nothing more we can do */ }
     });
     for (const fn of this.listeners) { try { fn(e); } catch { /* listener errors never break the bus */ } }
     return e;

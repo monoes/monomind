@@ -14,6 +14,10 @@ import { getProjectCwd } from './types.js';
 
 let _cachedDbPath: string | undefined;
 let _cachedCwd: string | undefined;
+// P2: staleness cache for computeCommitsBehind. Keyed by repoPath, TTL 30s.
+// Cuts the per-call git rev-list spawn from "every monograph_* tool call"
+// down to one per 30s per repo — a 50-100ms saving on the hottest path.
+const _stalenessCache = new Map<string, { ts: number; value: { commitsBehind: number; lastCommit: string } | null }>();
 function _isValidDb(p: string): boolean {
   try { return statSync(p).size >= 100; } catch { return false; }
 }
@@ -67,27 +71,55 @@ function applyPprRerank(
     propagated.set(r.id, r.score);
   }
 
-  const neighborStmt = db.prepare('SELECT target_id FROM edges WHERE source_id = @id');
+  // P3: batched edge lookup — was one SELECT per seed node (N+1 over the
+  // default limit*2=40 seeds). Now a single WHERE source_id IN (?, ?, …)
+  // pulls every neighbor in one round-trip. SQLite parameter limit is 999,
+  // well above the 40-seed default; fall back to chunking if a caller ever
+  // exceeds it.
+  const seedIds = seedNodes.map(r => r.id);
+  const SEED_CHUNK = 500;
+  const sourceToTargets = new Map<string, string[]>();
+  for (let i = 0; i < seedIds.length; i += SEED_CHUNK) {
+    const chunk = seedIds.slice(i, i + SEED_CHUNK);
+    const placeholders = chunk.map(() => '?').join(',');
+    const rows = db.prepare(`SELECT source_id, target_id FROM edges WHERE source_id IN (${placeholders})`).all(...chunk) as
+      Array<{ source_id: string; target_id: string }>;
+    for (const row of rows) {
+      const arr = sourceToTargets.get(row.source_id) ?? [];
+      arr.push(row.target_id);
+      sourceToTargets.set(row.source_id, arr);
+    }
+  }
   for (const r of seedNodes) {
-    const neighbors = neighborStmt.all({ id: r.id }) as Array<{ target_id: string }>;
+    const neighbors = sourceToTargets.get(r.id) ?? [];
     for (const n of neighbors) {
       const boost = r.score * damping;
-      const current = propagated.get(n.target_id) ?? 0;
-      propagated.set(n.target_id, Math.max(current, boost));
+      const current = propagated.get(n) ?? 0;
+      propagated.set(n, Math.max(current, boost));
     }
   }
 
-  const seedIds = new Set(seedNodes.map(r => r.id));
+  const seedIdSet = new Set(seedNodes.map(r => r.id));
   const ranked: Array<PprScoredNode & { combinedScore: number; boostedByNeighbors: boolean }> = seedNodes.map(r => ({
     ...r,
     combinedScore: Math.max(r.score, propagated.get(r.id) ?? 0),
     boostedByNeighbors: false,
   }));
 
+  // P3: batched node lookup for non-seed propagated nodes — was one SELECT
+  // per propagated id (~10 per call). Single WHERE id IN (?, ?, …) instead.
+  const nonSeedIds = [...propagated.keys()].filter(id => !seedIdSet.has(id));
+  const nodeById = new Map<string, { id: string; name: string; label: string; file_path: string; start_line: number | null }>();
+  for (let i = 0; i < nonSeedIds.length; i += SEED_CHUNK) {
+    const chunk = nonSeedIds.slice(i, i + SEED_CHUNK);
+    const placeholders = chunk.map(() => '?').join(',');
+    const rows = db.prepare(`SELECT id, name, label, file_path, start_line FROM nodes WHERE id IN (${placeholders})`).all(...chunk) as
+      Array<{ id: string; name: string; label: string; file_path: string; start_line: number | null }>;
+    for (const row of rows) nodeById.set(row.id, row);
+  }
   for (const [id, score] of propagated) {
-    if (!seedIds.has(id)) {
-      const node = db.prepare('SELECT id, name, label, file_path, start_line FROM nodes WHERE id = @id').get({ id }) as
-        { id: string; name: string; label: string; file_path: string; start_line: number | null } | undefined;
+    if (!seedIdSet.has(id)) {
+      const node = nodeById.get(id);
       if (node) {
         ranked.push({
           id: node.id, name: node.name, label: node.label,
@@ -770,6 +802,15 @@ let _buildInProgress = false;
  * built or git is unavailable.
  */
 async function computeCommitsBehind(repoPath: string): Promise<{ commitsBehind: number; lastCommit: string } | null> {
+  // P2: cache per-repoPath for 30s. computeCommitsBehind fires on every
+  // monograph_query, monograph_suggest, monograph_staleness, and
+  // monograph_health call (4 of the hottest tools) — each one was paying
+  // ~50-100ms for `openDb + git rev-list --count + closeDb`. The result
+  // changes only when the user commits, so a 30s TTL is well inside the
+  // dev cycle and cuts repeated calls to a single git spawn per half-minute.
+  const cached = _stalenessCache.get(repoPath);
+  if (cached && Date.now() - cached.ts < 30_000) return cached.value;
+
   const { openDb, closeDb } = await import('@monoes/monograph');
   const { execSync } = await import('child_process');
   const dbPath = getDbPath(repoPath);
@@ -788,9 +829,11 @@ async function computeCommitsBehind(repoPath: string): Promise<{ commitsBehind: 
     if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit)) return null;
     try {
       const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
-        cwd: repoPath, encoding: 'utf-8',
+        cwd: repoPath, encoding: 'utf-8', timeout: 5_000,
       }).trim();
-      return { commitsBehind: parseInt(out, 10), lastCommit };
+      const value = { commitsBehind: parseInt(out, 10), lastCommit };
+      _stalenessCache.set(repoPath, { ts: Date.now(), value });
+      return value;
     } catch { return null; }
   } finally { closeDb(db); }
 }

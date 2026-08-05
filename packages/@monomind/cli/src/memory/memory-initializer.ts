@@ -350,57 +350,31 @@ export async function initializeMemoryDatabase(options: {
         controllers: controllerResult,
       };
     } else {
-      // Fall back to schema file approach (atomic writes)
-      const schemaPath = path.join(dbDir, 'schema.sql');
-      const schemaTmpFb = schemaPath + '.tmp';
-      fs.writeFileSync(schemaTmpFb, MEMORY_SCHEMA + '\n' + getInitialMetadata(backend));
-      fs.renameSync(schemaTmpFb, schemaPath);
-
-      // Create minimal valid SQLite file
-      const sqliteHeader = Buffer.alloc(4096, 0);
-      // SQLite format 3 header
-      Buffer.from('SQLite format 3\0').copy(sqliteHeader, 0);
-      sqliteHeader[16] = 0x10; // page size high byte (4096)
-      sqliteHeader[17] = 0x00; // page size low byte
-      sqliteHeader[18] = 0x01; // file format write version
-      sqliteHeader[19] = 0x01; // file format read version
-      sqliteHeader[24] = 0x00; // max embedded payload
-      sqliteHeader[25] = 0x40;
-      sqliteHeader[26] = 0x20; // min embedded payload
-      sqliteHeader[27] = 0x20; // leaf payload
-
-      const dbTmpFb = dbPath + '.tmp';
-      fs.writeFileSync(dbTmpFb, sqliteHeader);
-      fs.renameSync(dbTmpFb, dbPath);
-
-      // ADR-053: Activate ControllerRegistry even on fallback path
-      const controllerResult = await activateControllerRegistry(dbPath, verbose);
-
+      // R2: sql.js is missing. The previous code wrote a hand-crafted 4 KB
+      // "SQLite format 3" buffer to disk and reported success:true — every
+      // subsequent read on that file fails (it isn't a real SQLite DB) and
+      // checkMemoryInitialization loops forever reporting "not initialized"
+      // on a file the user thinks is fresh. Honest behavior: report failure
+      // with a clear error so the caller can either install sql.js, switch
+      // to the native backend, or skip memory entirely.
+      if (verbose) {
+        console.error('[memory-initializer] sql.js is not installed and the native @monoes/memory backend is unavailable; refusing to write a fake SQLite header. Install sql.js (npm install sql.js) or @monoes/memory to enable memory.');
+      }
       return {
-        success: true,
+        success: false,
         backend,
         dbPath,
         schemaVersion: '3.0.0',
-        tablesCreated: [
-          'memory_entries (pending)',
-          'patterns (pending)',
-          'pattern_history (pending)',
-          'trajectories (pending)',
-          'trajectory_steps (pending)',
-          'migration_state (pending)',
-          'sessions (pending)',
-          'vector_indexes (pending)',
-          'metadata (pending)'
-        ],
+        tablesCreated: [],
         indexesCreated: [],
         features: {
-          vectorEmbeddings: true,
-          patternLearning: true,
-          temporalDecay: true,
-          hnswIndexing: true,
-          migrationTracking: true
+          vectorEmbeddings: false,
+          patternLearning: false,
+          temporalDecay: false,
+          hnswIndexing: false,
+          migrationTracking: false
         },
-        controllers: controllerResult,
+        error: 'sql.js is not installed and the native @monoes/memory backend is unavailable. Install one of them to enable persistent memory; refusing to write a placeholder SQLite file.'
       };
     }
   } catch (error) {
