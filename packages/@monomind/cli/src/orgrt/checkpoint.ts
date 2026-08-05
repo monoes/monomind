@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/checkpoint.ts
 // Semantic checkpoint state management for org runtime - Pattern 3 implementation
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import type { AgentRuntime, RunningOrg } from './daemon.js';
 
 /** Checkpoint state for a single agent role */
@@ -131,12 +131,39 @@ export function isCheckpointExpired(checkpoint: OrgCheckpoint, ttlMs: number = C
 }
 
 /**
- * Generate checksum over checkpoint state
- * Uses SHA-256 hash of JSON representation
+ * Generate checksum over checkpoint state.
+ *
+ * Uses a stable recursive stringify so semantically-equal checkpoints
+ * (same keys + values, regardless of insertion order) hash identically.
+ * Hashed with SHA-256 (truncated to 16 hex chars = 64 bits — plenty for
+ * tamper detection across realistic checkpoint counts).
+ *
+ * T3 (and a real latent bug): the previous implementation called
+ * `JSON.stringify(state, Object.keys(state).sort())`. Passing an array
+ * as the second argument makes it a *whitelist* — but JSON.stringify
+ * applies that whitelist at every level, not just the top. Since nested
+ * keys like `tokensUsed` / `mailboxQueue` aren't in the top-level keys
+ * list, they were silently stripped from the canonical form. Result: the
+ * checksum was identical for any two checkpoints sharing the same
+ * top-level shape, regardless of roleState values — validateCheckpoint
+ * provided ZERO integrity guarantee.
  */
 function generateChecksum(state: Omit<OrgCheckpoint, 'checksum'>): string {
-  const canonical = JSON.stringify(state, Object.keys(state).sort());
-  return Buffer.from(canonical).toString('base64').slice(0, 16); // Simple checksum for now
+  const canonical = JSON.stringify(stableNormalize(state));
+  return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
+}
+
+/** Recursively produce a canonical form: object keys sorted at every depth,
+ *  arrays preserved in order, primitives passed through. */
+function stableNormalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableNormalize);
+  if (value && typeof value === 'object') {
+    const sortedKeys = Object.keys(value as Record<string, unknown>).sort();
+    const out: Record<string, unknown> = {};
+    for (const k of sortedKeys) out[k] = stableNormalize((value as Record<string, unknown>)[k]);
+    return out;
+  }
+  return value;
 }
 
 /**
