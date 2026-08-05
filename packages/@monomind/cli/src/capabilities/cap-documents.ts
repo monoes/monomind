@@ -31,14 +31,19 @@ const indexedDocs = new Map<string, { path: string; content: string; metadata: R
 // available on macOS/Linux, with a pure-JS fallback.
 
 async function extractFromZip(filePath: string, xmlPaths: string[], stripTags: boolean): Promise<string> {
-  const { execSync } = await import('node:child_process');
+  // C1 hardening: use execFileSync with arg arrays (no shell) so filenames
+  // and zip-entry names cannot trigger shell expansion. The previous
+  // template-string + JSON.stringify form left $(...), `...`, and ${...}
+  // open to evaluation inside the resulting double-quoted shell argument.
+  const { execFileSync } = await import('node:child_process');
   const parts: string[] = [];
 
   for (const xmlPath of xmlPaths) {
     try {
-      const raw = execSync(
-        `unzip -p ${JSON.stringify(filePath)} ${JSON.stringify(xmlPath)} 2>/dev/null`,
-        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000 },
+      const raw = execFileSync(
+        'unzip',
+        ['-p', filePath, xmlPath],
+        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] },
       );
       parts.push(raw);
     } catch {
@@ -48,18 +53,20 @@ async function extractFromZip(filePath: string, xmlPaths: string[], stripTags: b
   if (parts.length === 0) {
     // Fallback: list all XML/HTML files and extract them
     try {
-      const listing = execSync(
-        `unzip -l ${JSON.stringify(filePath)} 2>/dev/null`,
-        { maxBuffer: 1024 * 1024, encoding: 'utf-8', timeout: 5000 },
+      const listing = execFileSync(
+        'unzip',
+        ['-l', filePath],
+        { maxBuffer: 1024 * 1024, encoding: 'utf-8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] },
       );
       const candidates = listing.split('\n')
         .map(l => l.trim().split(/\s+/).pop() || '')
         .filter(f => /\.(xml|html|xhtml)$/i.test(f));
       for (const c of candidates.slice(0, 50)) {
         try {
-          const raw = execSync(
-            `unzip -p ${JSON.stringify(filePath)} ${JSON.stringify(c)} 2>/dev/null`,
-            { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000 },
+          const raw = execFileSync(
+            'unzip',
+            ['-p', filePath, c],
+            { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] },
           );
           parts.push(raw);
         } catch { /* skip */ }
@@ -242,11 +249,13 @@ export async function extractText(file: FileEntry): Promise<string> {
   // .doc / .ppt — legacy binary formats, best-effort via textutil (macOS) or antiword
   if (ext === '.doc' || ext === '.ppt' || ext === '.pages') {
     try {
-      const { execSync } = await import('node:child_process');
-      // macOS textutil handles .doc, .rtf, .pages natively
-      const text = execSync(
-        `textutil -convert txt -stdout ${JSON.stringify(file.absolutePath)} 2>/dev/null`,
-        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 15000 },
+      const { execFileSync } = await import('node:child_process');
+      // C1 hardening: arg-array form (no shell) so filenames containing
+      // $(...), `...`, $VAR etc. cannot be evaluated by the shell.
+      const text = execFileSync(
+        'textutil',
+        ['-convert', 'txt', '-stdout', file.absolutePath],
+        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] },
       );
       return text.trim();
     } catch {
@@ -350,8 +359,8 @@ export const documentsCapability: CapabilityModule = {
 
     // PPTX/ODT/ODP use unzip (system), RTF/CSV are pure JS — always available
     try {
-      const { execSync } = await import('node:child_process');
-      execSync('which unzip', { encoding: 'utf-8', timeout: 2000 });
+      const { execFileSync } = await import('node:child_process');
+      execFileSync('which', ['unzip'], { encoding: 'utf-8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] });
       checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'pass', message: 'unzip available' });
     } catch {
       checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'warn', message: 'unzip not found', hint: 'install unzip (apt install unzip / brew install unzip)' });

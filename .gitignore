@@ -1,10 +1,16 @@
-
+ 
 !/memory/agents/README.md
 !/memory/sessions/README.md
 !bin/monomind
 !packages/@monomind/
 # Binaries
 # Build outputs
+
+# monomind doc-eval reports (Q5: should never have been committed to root)
+eval-row6-*.json
+
+# Test scratch dir (tests/hive-mind/consensus.test.mjs)
+.tmp-audit-test/
 
 # monomind specific
 # Dependencies

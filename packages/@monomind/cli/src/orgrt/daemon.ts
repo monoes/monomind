@@ -1,7 +1,9 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
 import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join, isAbsolute } from 'node:path';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
 import { OrgBus } from './bus.js';
 import { PolicyEngine } from './policy.js';
@@ -420,11 +422,14 @@ export class OrgDaemon {
       if (ws === 'worktree-per-role' && role.id !== bossRole.id) {
         const wtPath = join(this.root, ORG_DIR, name, `worktree-${role.id}`);
         try {
-          const { execSync: es } = require('node:child_process') as typeof import('node:child_process');
+          // Q7: top-level `import { execSync }` replaces the inlined
+          // `require('node:child_process')` that broke ESM at runtime —
+          // vitest's CJS shim masked it in tests but the built package
+          // threw "require is not defined" in real Node ESM execution.
           if (existsSync(wtPath)) {
-            try { es(`git worktree remove --force "${wtPath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
+            try { execSync(`git worktree remove --force "${wtPath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
           }
-          es(`git worktree add "${wtPath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore' });
+          execSync(`git worktree add "${wtPath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore' });
           roleCwd = wtPath;
         } catch { /* fallback to shared cwd if git worktree fails */ }
       }
@@ -1184,10 +1189,10 @@ export class OrgDaemon {
         pending.push({ roleId: role, action, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
         this.approvals.set(org, pending);
       }
-      // Persist to approvals.json
+      // Persist to approvals.json (C4: atomic write)
       const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
       mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
-      writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+      writeJsonFileAtomic(approvalsPath, { approvals: pending });
 
       // Emit a question event for the dashboard
       const running = this.orgs.get(org);
@@ -1208,9 +1213,9 @@ export class OrgDaemon {
     item.approved = approved;
     item.ts = Date.now();
 
-    // Persist updated approval state
+    // Persist updated approval state (C4: atomic write)
     const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
-    writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+    writeJsonFileAtomic(approvalsPath, { approvals: pending });
 
     // Notify the waiting agent via its mailbox
     const running = this.orgs.get(org);
@@ -1901,14 +1906,19 @@ export class OrgDaemon {
 
     try {
       mkdirSync(branchDir, { recursive: true });
-      // Copy bus.jsonl to branch
+      // Copy bus.jsonl to branch (C4: atomic — partial copy on crash leaves
+      // a branch that can't replay its event log).
       const busFile = join(runDir, 'bus.jsonl');
       if (existsSync(busFile)) {
         const busContent = readFileSync(busFile, 'utf8');
-        writeFileSync(join(branchDir, 'bus.jsonl'), busContent);
+        const branchBusFile = join(branchDir, 'bus.jsonl');
+        // Atomic write for raw (non-JSON) content: tmp + rename.
+        const tmp = `${branchBusFile}.${process.pid}.${Date.now()}.tmp`;
+        writeFileSync(tmp, busContent, 'utf8');
+        renameSync(tmp, branchBusFile);
       }
-      // Create branch marker file
-      writeFileSync(join(branchDir, '.branch-source'), JSON.stringify({ from: run, branchedAt: new Date().toISOString() }));
+      // Create branch marker file (atomic)
+      writeJsonFileAtomic(join(branchDir, '.branch-source'), { from: run, branchedAt: new Date().toISOString() });
       return { ok: true, branchRun };
     } catch (err) {
       return { ok: false, error: `failed to create branch: ${err instanceof Error ? err.message : String(err)}` };
@@ -1958,11 +1968,15 @@ export class OrgDaemon {
     if (running) {
       checkpoint = captureCheckpoint(running);
     }
-    writeFileSync(p, JSON.stringify({
+    // C4: writeJsonFileAtomic (tmp + rename) — a direct writeFileSync here
+    // could leave runtime.json truncated on Ctrl-C during `org stop`, which
+    // would brick every subsequent `org status` / isOrgRunning / scheduler
+    // call. The state files in 6 other daemon paths already use this helper.
+    writeJsonFileAtomic(p, {
       status, run, pid: process.pid, updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
       ...(checkpoint ? { checkpoint } : {}),
-    }, null, 2));
+    });
   }
 
   /** Mark every currently-running org as crashed in runtime.json.
@@ -1971,10 +1985,12 @@ export class OrgDaemon {
     for (const [name, org] of this.orgs) {
       try {
         const p = join(this.root, ORG_DIR, name, 'runtime.json');
-        writeFileSync(p, JSON.stringify({
+        // C4: atomic write — crash handler is the most likely place to hit
+        // a partial write since the process is mid-teardown.
+        writeJsonFileAtomic(p, {
           status: 'crashed', run: org.run, pid: process.pid,
           updated: new Date().toISOString(), closedBy: 'crash-handler',
-        }, null, 2));
+        });
       } catch { /* best effort — filesystem may be unavailable */ }
     }
   }
@@ -1989,10 +2005,12 @@ export class OrgDaemon {
     try {
       const p = this.heartbeatPath();
       mkdirSync(join(this.root, '.monomind'), { recursive: true });
-      writeFileSync(p, JSON.stringify({
+      // C4: atomic write — heartbeat corruption is how `org status` reports
+      // a phantom daemon after a crash.
+      writeJsonFileAtomic(p, {
         pid: process.pid, updatedAt: new Date().toISOString(),
         running: this.listRunning(),
-      }, null, 2));
+      });
     } catch { /* best effort */ }
   }
 

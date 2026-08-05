@@ -51,7 +51,7 @@
     "monomind",
     "llm-security"
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/monoes/monomind.git",

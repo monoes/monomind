@@ -55,7 +55,7 @@
     "agents"
   ],
   "author": "Monomind Team",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/monoes/monomind.git",
