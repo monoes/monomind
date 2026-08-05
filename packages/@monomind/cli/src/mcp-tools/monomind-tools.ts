@@ -7,10 +7,17 @@
  * callable but are found through `monomind_tool_search`, which returns their
  * full inputSchema so the model can call them directly. Set
  * MONOMIND_MCP_FULL=1 to advertise the entire roster instead.
+ *
+ * A2: the previous `import { searchNonCoreTools } from '../mcp-client.js'`
+ * was a static cycle — mcp-client.ts lazy-imports monomind-tools.ts, and
+ * monomind-tools.ts statically imported back from mcp-client.ts. The runtime
+ * worked because the dynamic-import side breaks the loop, but any future
+ * refactor that switched to a static import on the client side would break.
+ * Switched to a dynamic import inside the handler so the cycle is broken
+ * on both directions.
  */
 
 import type { MCPTool } from './types.js';
-import { searchNonCoreTools } from '../mcp-client.js';
 
 export const monomindTools: MCPTool[] = [
   {
@@ -36,6 +43,11 @@ export const monomindTools: MCPTool[] = [
       const query = String(input.query ?? '');
       const category = input.category ? String(input.category) : undefined;
       const limit = Number(input.limit ?? 10);
+      // A2: dynamic import breaks the static cycle (mcp-client.ts ↔
+      // monomind-tools.ts). searchNonCoreTools depends on private state
+      // (TOOL_REGISTRY, ensureAllLoaded, isCoreAdvertised) so it can't be
+      // moved out of mcp-client.ts without exposing all of that.
+      const { searchNonCoreTools } = await import('../mcp-client.js');
       const results = await searchNonCoreTools(query, category, limit);
       return {
         content: [
