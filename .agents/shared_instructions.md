@@ -5,7 +5,7 @@
 
 ## Project Overview
 
-Open-source CLI extension for Claude Code and Antigravity (agy). Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. MIT licensed, runs locally, no data leaves your machine.
+Open-source CLI extension for Claude Code and Antigravity (agy). Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. Apache 2.0 licensed, runs locally, no data leaves your machine.
 
 - **Language:** TypeScript
 - **Package manager:** pnpm

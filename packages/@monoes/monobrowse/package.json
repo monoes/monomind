@@ -53,7 +53,7 @@
     "email": "nokhodian@gmail.com",
     "url": "https://github.com/nokhodian"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/monoes/monomind.git",

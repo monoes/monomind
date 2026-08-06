@@ -1054,6 +1054,27 @@ function getGraphifyStats() {
   return { nodes: 0, edges: 0, exists: false };
 }
 
+// V4: how many commits is the monograph behind HEAD?
+// Reads last_commit_hash from index_meta in the SQLite DB and runs
+// git rev-list --count <last>..HEAD. Returns null when the DB is
+// missing, the meta row is absent, or git is unavailable.
+function getGraphStaleness() {
+  const dbPath = path.join(CWD, '.monomind', 'monograph.db');
+  if (!fs.existsSync(dbPath)) return null;
+  try {
+    // Pull the last indexed commit out of index_meta via sqlite3 (same
+    // shell-out convention getGraphifyStats uses for node/edge counts).
+    const lastCommit = safeExec(\`sqlite3 "\${dbPath}" "SELECT value FROM index_meta WHERE key = 'last_commit_hash' OR key = 'lastCommit' LIMIT 1;"\`, 1000);
+    if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit.trim())) return null;
+    const out = safeExec(\`git rev-list --count \${lastCommit.trim()}..HEAD\`, 1500);
+    if (!out) return null;
+    const n = parseInt(out.trim(), 10);
+    return Number.isFinite(n) ? { commitsBehind: n, lastCommit: lastCommit.trim() } : null;
+  } catch {
+    return null;
+  }
+}
+
 function getSIBudget() {
   const SI_LIMIT = 1500;
   const siPath = path.join(CWD, '.agents', 'shared_instructions.md');
@@ -1108,6 +1129,22 @@ function generateStatusline() {
   // Knowledge chunks (Task 28) — show when populated
   if (knowledge.chunks > 0) {
     parts.push(\`\${x.teal}📚 \${knowledge.chunks}k\${x.reset}\`);
+  }
+
+  // V4: graph staleness — visible warning when the monograph is behind HEAD.
+  // Silent staleness is the most dangerous failure mode (the user trusts a
+  // stale answer), so surface commits-behind on the statusline itself.
+  const graph = getGraphifyStats();
+  if (graph.exists && graph.nodes > 0) {
+    const stale = getGraphStaleness();
+    if (stale && stale.commitsBehind > 0) {
+      // Color escalates with staleness: green <=3, gold <=10, coral >10.
+      const staleCol = stale.commitsBehind <= 3 ? x.green
+                     : stale.commitsBehind <= 10 ? x.gold : x.coral;
+      parts.push(\`\${staleCol}⊛ \${graph.nodes}n \${stale.commitsBehind}behind\${x.reset}\`);
+    } else {
+      parts.push(\`\${x.teal}⊛ \${graph.nodes}n\${x.reset}\`);
+    }
   }
 
   // Triggers (Task 32) — show when populated

@@ -1,15 +1,26 @@
 /**
- * Anonymization Pipeline
- * PII detection and redaction for pattern export
+ * Anonymization Pipeline — PII detection
+ *
+ * Q3: redactPII, anonymizeCFP, scanCFPForPII and the CFPFormat / AnonymizationLevel /
+ * AnonymizationRecord types they depended on were deleted along with the
+ * speculative IPFS pattern-marketplace that consumed them. Only detectPII
+ * remains — it backs the `transfer_detect-pii` MCP tool.
  */
 
-import type {
-  CFPFormat,
-  AnonymizationLevel,
-  AnonymizationRecord,
-  PIIDetectionResult,
-} from '../types.js';
 import * as crypto from 'crypto';
+
+/** Result shape returned by detectPII. */
+export interface PIIDetectionResult {
+  found: boolean;
+  count: number;
+  types: Record<string, number>;
+  locations: Array<{
+    type: string;
+    path: string;
+    sample: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+  }>;
+}
 
 /**
  * PII detection patterns
@@ -23,20 +34,6 @@ const PII_PATTERNS = {
   jwt: /\beyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\b/g,
   homePath: /\/(Users|home|Documents)\/[a-zA-Z0-9_.-]+/g,
   windowsPath: /[A-Z]:\\Users\\[a-zA-Z0-9_.-]+/g,
-};
-
-/**
- * Redaction replacements
- */
-const REDACTIONS: Record<string, string | ((match: string) => string)> = {
-  email: (match) => `user_${hash(match).slice(0, 8)}@example.com`,
-  phone: '[REDACTED_PHONE]',
-  ipv4: '0.0.0.0',
-  ipv6: '::1',
-  apiKey: '[REDACTED_API_KEY]',
-  jwt: '[REDACTED_JWT]',
-  homePath: '/user/anonymous',
-  windowsPath: 'C:\\Users\\anonymous',
 };
 
 /**
@@ -70,7 +67,7 @@ export function detectPII(content: string): PIIDetectionResult {
       result.count += matches.length;
       result.types[type] = matches.length;
 
-      for (const match of matches.slice(0, 5)) { // Limit to first 5 samples
+      for (const match of matches.slice(0, 5)) {
         result.locations.push({
           type,
           path: 'content',
@@ -101,126 +98,4 @@ function getSeverity(type: string): 'low' | 'medium' | 'high' | 'critical' {
     default:
       return 'low';
   }
-}
-
-/**
- * Redact PII from a string
- */
-export function redactPII(content: string): string {
-  if (content.length > MAX_SCAN_SIZE) {
-    throw new Error(`redactPII: content too large (${content.length} bytes; max ${MAX_SCAN_SIZE})`);
-  }
-  let result = content;
-
-  for (const [type, pattern] of Object.entries(PII_PATTERNS)) {
-    const replacement = REDACTIONS[type];
-    if (typeof replacement === 'function') {
-      result = result.replace(pattern, replacement);
-    } else {
-      result = result.replace(pattern, replacement);
-    }
-  }
-
-  return result;
-}
-
-/**
- * Apply anonymization to CFP document
- */
-/** Maximum CFP payload size accepted for anonymization (10 MB). */
-const MAX_CFP_ANONYMIZE_SIZE = 10 * 1024 * 1024;
-
-export function anonymizeCFP(
-  cfp: CFPFormat,
-  level: AnonymizationLevel
-): { cfp: CFPFormat; transforms: string[] } {
-  // Guard before deep clone to prevent OOM on a crafted large object
-  const serialized = JSON.stringify(cfp);
-  if (serialized.length > MAX_CFP_ANONYMIZE_SIZE) {
-    throw new Error(`anonymizeCFP: CFP payload too large (${serialized.length} bytes; max ${MAX_CFP_ANONYMIZE_SIZE})`);
-  }
-  const transforms: string[] = [];
-  const anonymized = JSON.parse(serialized) as CFPFormat;
-
-  // Level: Minimal
-  if (['minimal', 'standard', 'strict', 'paranoid'].includes(level)) {
-    // Redact author display name
-    if (anonymized.metadata.author?.displayName) {
-      anonymized.metadata.author.displayName = undefined;
-      transforms.push('author-name-removed');
-    }
-  }
-
-  // Level: Standard
-  if (['standard', 'strict', 'paranoid'].includes(level)) {
-    // Redact PII from all string fields including metadata
-    const jsonStr = JSON.stringify({ patterns: anonymized.patterns, metadata: anonymized.metadata });
-    const redacted = redactPII(jsonStr);
-    const redactedObj = JSON.parse(redacted);
-    anonymized.patterns = redactedObj.patterns;
-    anonymized.metadata = redactedObj.metadata;
-    transforms.push('pii-redacted');
-
-    // Generalize timestamps
-    anonymized.anonymization.timestampsGeneralized = true;
-    transforms.push('timestamps-generalized');
-  }
-
-  // Level: Strict
-  if (['strict', 'paranoid'].includes(level)) {
-    // Hash all IDs
-    for (const pattern of anonymized.patterns.routing) {
-      pattern.id = `pattern_${hash(pattern.id).slice(0, 12)}`;
-    }
-    transforms.push('ids-hashed');
-
-    // Remove context details
-    for (const pattern of anonymized.patterns.routing) {
-      pattern.context = undefined;
-    }
-    transforms.push('context-removed');
-
-    anonymized.anonymization.pathsStripped = true;
-    transforms.push('paths-stripped');
-  }
-
-  // Level: Paranoid
-  if (level === 'paranoid') {
-    // Add noise to numeric values (differential privacy)
-    for (const pattern of anonymized.patterns.routing) {
-      pattern.usageCount = Math.round(pattern.usageCount * (0.9 + Math.random() * 0.2));
-      pattern.successRate = Math.min(1, Math.max(0, pattern.successRate + (Math.random() - 0.5) * 0.1));
-    }
-    transforms.push('differential-privacy-noise');
-
-    // Remove all trajectory learnings
-    for (const traj of anonymized.patterns.trajectory) {
-      traj.learnings = [];
-    }
-    transforms.push('learnings-removed');
-  }
-
-  // Update anonymization record
-  anonymized.anonymization.level = level;
-  anonymized.anonymization.appliedTransforms = transforms;
-  anonymized.anonymization.piiRedacted = level !== 'minimal';
-
-  // Recalculate checksum
-  const content = JSON.stringify({
-    magic: anonymized.magic,
-    version: anonymized.version,
-    metadata: anonymized.metadata,
-    patterns: anonymized.patterns,
-  });
-  anonymized.anonymization.checksum = hash(content);
-
-  return { cfp: anonymized, transforms };
-}
-
-/**
- * Scan CFP for PII without modification
- */
-export function scanCFPForPII(cfp: CFPFormat): PIIDetectionResult {
-  const content = JSON.stringify(cfp.patterns);
-  return detectPII(content);
 }

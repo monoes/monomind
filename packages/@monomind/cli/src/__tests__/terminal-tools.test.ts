@@ -62,6 +62,7 @@ describe('filterSecretEnvVars', () => {
 describe('terminal_execute does not leak secret-shaped env vars to the spawned command', () => {
   let dir: string;
   let originalCwd: () => string;
+  let hadEnableEnv: string | undefined;
   const secretVarName = ['MONOMIND', 'TEST', 'SECRET', 'KEY'].join('_');
   const ordinaryVarName = 'MONOMIND_TEST_ORDINARY_VAR';
 
@@ -69,6 +70,8 @@ describe('terminal_execute does not leak secret-shaped env vars to the spawned c
     dir = mkdtempSync(join(tmpdir(), 'terminal-tools-test-'));
     originalCwd = process.cwd;
     process.cwd = () => dir;
+    hadEnableEnv = process.env.MONOMIND_ENABLE_TERMINAL;
+    process.env.MONOMIND_ENABLE_TERMINAL = '1';
   });
 
   afterEach(() => {
@@ -76,6 +79,8 @@ describe('terminal_execute does not leak secret-shaped env vars to the spawned c
     rmSync(dir, { recursive: true, force: true });
     delete process.env[secretVarName];
     delete process.env[ordinaryVarName];
+    if (hadEnableEnv === undefined) delete process.env.MONOMIND_ENABLE_TERMINAL;
+    else process.env.MONOMIND_ENABLE_TERMINAL = hadEnableEnv;
   });
 
   it('excludes a secret-shaped host env var from the executed command\'s environment, keeps an ordinary one', async () => {
@@ -106,14 +111,19 @@ describe('terminal_execute does not leak secret-shaped env vars to the spawned c
 // session. Migrated to the same loadXOrNull() convention as agent-tools.ts.
 describe('terminal write handlers do not wipe a corrupt terminal store', () => {
   let dir: string;
+  let hadEnableEnv: string | undefined;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'terminal-tools-corrupt-test-'));
     process.env.MONOMIND_CWD = dir;
+    hadEnableEnv = process.env.MONOMIND_ENABLE_TERMINAL;
+    process.env.MONOMIND_ENABLE_TERMINAL = '1';
   });
 
   afterEach(() => {
     delete process.env.MONOMIND_CWD;
+    if (hadEnableEnv === undefined) delete process.env.MONOMIND_ENABLE_TERMINAL;
+    else process.env.MONOMIND_ENABLE_TERMINAL = hadEnableEnv;
     rmSync(dir, { recursive: true, force: true });
   });
 

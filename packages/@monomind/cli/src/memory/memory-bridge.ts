@@ -20,6 +20,20 @@ import * as fs from 'fs';
 const MAX_EMBEDDING_DIMS = 8192;
 const MAX_EMBEDDING_JSON_BYTES = MAX_EMBEDDING_DIMS * 32; // ~256KB ceiling
 
+/**
+ * R1: surface swallowed errors when DEBUG/MONOMIND_DEBUG is on. The bridge
+ * has ~12 `} catch { return null; }` sites that collapse SQLITE_BUSY,
+ * EACCES, disk-full, and schema mismatches into "no matches" with zero
+ * diagnostic. Behavior contract (return null on failure) is unchanged;
+ * observability is added. Caller passes the bridge fn name + the thrown
+ * value so the log is greppable per call site.
+ */
+function logBridgeError(label: string, err: unknown): void {
+  if (!(process.env.DEBUG || process.env.MONOMIND_DEBUG)) return;
+  const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  console.error(`[bridge:${label}] ${msg}`);
+}
+
 export function safeParseEmbedding(raw: string | null | undefined): number[] | null {
   if (typeof raw !== 'string' || raw.length === 0) return null;
   if (raw.length > MAX_EMBEDDING_JSON_BYTES) return null;
@@ -178,7 +192,7 @@ function getAutomemConfig(): { dedupThreshold: number; staleDays: number; feedba
       feedbackInfluence: typeof config?.scaffold?.feedbackInfluence === 'number'
         ? Math.max(0, Math.min(1, config.scaffold.feedbackInfluence)) : defaults.feedbackInfluence,
     };
-  } catch { return defaults; }
+  } catch (e) { logBridgeError('loadBridgeConfig', e); return defaults; }
 }
 
 // ===== Usage/feedback weights (cognee-style, stored in entry metadata) =====
@@ -418,6 +432,12 @@ async function getBackend(dbPath?: string): Promise<any | null> {
           optimize: true,
           defaultNamespace: 'default',
           embeddingGenerator: _embedder ?? undefined,
+          // R3: when the MCP server and a CLI hook subprocess hit the same
+          // memory.db at the same time, SQLite returns SQLITE_BUSY and the
+          // bridge silently no-ops. busy_timeout tells SQLite to wait up to
+          // 5s for a lock before giving up, which covers the normal handoff
+          // window. The native @monoes/memory backend reads this key.
+          busyTimeoutMs: 5000,
         };
 
         const origLog = console.log;
@@ -443,10 +463,11 @@ async function getBackend(dbPath?: string): Promise<any | null> {
         slot.instance = backend;
         slot.available = true;
         return backend;
-      } catch {
+      } catch (e) {
         slot.attempts++;
         slot.promise = null;
         if (slot.attempts >= MAX_INIT_ATTEMPTS) slot.available = false;
+        logBridgeError('getBackend', e);
         return null;
       }
     })();
@@ -760,7 +781,8 @@ export async function bridgeSearchEntries(options: {
       reranked,
       ...(searchMethod === 'semantic' ? {} : { fallbackReason }),
     };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeSearchEntries', e);
     return null;
   }
 }
@@ -814,7 +836,8 @@ export async function bridgeListEntries(options: {
       })),
       total: entries.length,
     };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeListEntries', e);
     return null;
   }
 }
@@ -867,7 +890,8 @@ export async function bridgeGetEntry(options: {
         metadata: entry.metadata ?? {},
       },
     };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeGetEntry', e);
     return null;
   }
 }
@@ -898,7 +922,8 @@ export async function bridgeDeleteEntry(options: {
     if (deleted) await flushBackend(backend);
 
     return { success: true, deleted };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeDeleteEntry', e);
     return { success: false, deleted: false };
   }
 }
@@ -915,7 +940,8 @@ export async function bridgeGenerateEmbedding(
   try {
     const emb = await _embedder(text);
     return { embedding: Array.from(emb), dimensions: emb.length, model: BRIDGE_EMBEDDING_MODEL };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeEmbedText', e);
     return null;
   }
 }
@@ -942,7 +968,8 @@ export async function bridgeLoadEmbeddingModel(
       modelName: BRIDGE_EMBEDDING_MODEL,
       loadTime: Date.now() - startTime,
     };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeLoadEmbeddingModel', e);
     return null;
   }
 }

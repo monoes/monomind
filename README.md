@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>An open-source MCP server that extends Claude Code with a codebase knowledge graph, persistent memory, and multi-agent coordination.</strong><br/>
-  MIT licensed &middot; Fully local &middot; No data leaves your machine
+  Apache 2.0 licensed &middot; Fully local &middot; No data leaves your machine
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/v/monomind?color=%2300D2AA&label=monomind&style=flat-square" alt="npm" /></a>
   <a href="https://www.npmjs.com/package/monomind"><img src="https://img.shields.io/npm/dm/monomind?color=%2310B981&style=flat-square" alt="downloads" /></a>
   <a href="https://github.com/monoes/monomind/stargazers"><img src="https://img.shields.io/github/stars/monoes/monomind?color=%23F59E0B&style=flat-square" alt="stars" /></a>
-  <a href="https://github.com/monoes/monomind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-%238B5CF6?style=flat-square" alt="license" /></a>
+  <a href="https://github.com/monoes/monomind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-%238B5CF6?style=flat-square" alt="license" /></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="node" /></a>
 </p>
 
@@ -38,7 +38,7 @@ Monomind is an **open-source CLI and MCP server** that plugs into Claude Code (a
 - **Reusable slash commands** — 30+ development workflows (build, review, debug, TDD, architecture) available as `/mastermind:*` commands inside Claude Code.
 
 ```bash
-npm install -g monomind        # MIT licensed, runs entirely on your machine
+npm install -g monomind        # Apache 2.0 licensed, runs entirely on your machine
 cd your-project && monomind init
 claude mcp add monomind -- npx -y monomind@latest mcp start
 ```
@@ -236,7 +236,7 @@ Open Claude Code. You now have 49 `/mastermind:*` workflows available:
 
 ```bash
 /mastermind:autodev --tillend     # start autonomous code loop
-monomind org run my-team          # run your first AI org (see .monomind/orgs/sample-team.json)
+monomind org run my-team          # run your first AI org (init writes a runnable sample-team.json — edit it, or run it as-is)
 /mastermind:help                  # show all commands
 ```
 
@@ -445,5 +445,5 @@ graph TD
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/monoes/monomind/main/assets/mascot.png" alt="Monomind" width="72" /><br/>
-  <sub>Built with ♥ by <a href="https://github.com/monoes">monoes</a> · MIT License</sub>
+  <sub>Built with ♥ by <a href="https://github.com/monoes">monoes</a> · Apache 2.0 License</sub>
 </p>

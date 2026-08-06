@@ -128,7 +128,14 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0, credential?: s
     });
   });
 
-  await new Promise<void>(r => server.listen(port, r));
+  // Q6: bind to 127.0.0.1 explicitly. Without a host arg Node binds to
+  // `::` / `0.0.0.0`; even though endpoints require a credential, binding
+  // loopback-only prevents same-LAN credential recovery via process
+  // inspection and shrinks the attack surface. Override via env var for
+  // users running inside containers / port-forwarders that genuinely need
+  // remote connections.
+  const bindHost = process.env.MONOMIND_ORG_SERVER_HOST ?? '127.0.0.1';
+  await new Promise<void>(r => server.listen(port, bindHost, r));
   const actual = (server.address() as { port: number }).port;
 
   // Wire bus events from all running orgs to SSE clients

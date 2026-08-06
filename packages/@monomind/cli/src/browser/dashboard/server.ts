@@ -67,6 +67,8 @@ interface DashboardServer {
   broadcast(event: StepEvent): void;
   close(): void;
   port: number;
+  /** Returns the bound host:port, or null if not listening. */
+  address(): { address: string; port: number } | null;
 }
 
 let instance: DashboardServer | null = null;
@@ -157,7 +159,15 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
     ws.on('error', () => clients.delete(ws));
   });
 
-  httpServer.listen(port);
+  // C3: bind explicitly to 127.0.0.1. Without a host argument, Node binds
+  // to `::` / `0.0.0.0` (every interface) which makes this unauthenticated
+  // server reachable from anyone on the same LAN/VPN/Wi-Fi. The main UI
+  // dashboard (src/ui/server.mjs) and the MCP HTTP server (mcp-server.ts)
+  // already bind loopback-only; this one was missed.
+  // MONOMIND_BROWSE_DASHBOARD_HOST=<host> overrides for users who genuinely
+  // need remote access (e.g. dev container, SSH tunnel terminator).
+  const bindHost = process.env.MONOMIND_BROWSE_DASHBOARD_HOST ?? '127.0.0.1';
+  httpServer.listen(port, bindHost);
 
   // Maintain RunRecords from step events and persist run transitions to
   // ~/.monomind/browse-runs.json so /api/workflow-runs on the main dashboard is live.
@@ -211,6 +221,11 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
       httpServer.close();
       wss.close();
       instance = null;
+    },
+    address() {
+      const a = httpServer.address();
+      if (a === null || typeof a === 'string') return null;
+      return { address: a.address, port: a.port };
     },
   };
 
