@@ -1913,6 +1913,163 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       return;
     }
 
+    // ------------------------------------------------------- GET /api/global-docs
+    // Lists mastermind-generated markdown documents across ALL known projects,
+    // plus the global brain. Returns metadata only — content is fetched
+    // on demand via /api/global-doc/read. Ordered by mtime (newest first)
+    // by the caller; the server returns enough fields for the client to sort
+    // and group either way.
+    if (req.method === 'GET' && url.startsWith('/api/global-docs')) {
+      try {
+        // 1. Gather candidate project roots: every project the dashboard
+        //    knows about (from ~/.claude/projects) + the global brain dir.
+        const projectsBase = path.join(os.homedir(), '.claude', 'projects');
+        const roots = [];
+        try {
+          for (const slug of fs.readdirSync(projectsBase)) {
+            const projDir = path.join(projectsBase, slug);
+            if (!fs.statSync(projDir).isDirectory()) continue;
+            const resolved = resolveSlugToPath(slug, projDir);
+            if (resolved && fs.existsSync(resolved)) roots.push(resolved);
+          }
+        } catch { /* projects tree absent — fine */ }
+        const globalBrain = process.env.MONOMIND_GLOBAL_BRAIN_DIR
+          || path.join(os.homedir(), '.monomind', 'global-brain');
+        if (fs.existsSync(globalBrain)) roots.push(globalBrain);
+
+        // 2. Per-root, scan the known mastermind output directories.
+        //    Order in this array is the category-priority order used when
+        //    no doc-specific category is inferable from the filename.
+        const DOC_DIRS = [
+          { sub: ['docs', 'mastermind', 'plans'],       category: 'plan' },
+          { sub: ['docs', 'mastermind', 'specs'],       category: 'spec' },
+          { sub: ['docs', 'mastermind', 'reviews'],     category: 'review' },
+          { sub: ['docs', 'mastermind', 'reports'],     category: 'report' },
+          { sub: ['docs', 'mastermind', 'wiki'],        category: 'wiki' },
+          { sub: ['docs', 'mastermind', 'decisions'],   category: 'decision' },
+          { sub: ['docs', 'mastermind', 'ideas'],       category: 'idea' },
+          { sub: ['docs', 'mastermind', 'improvements'],category: 'improvement' },
+          { sub: ['docs', 'mastermind', 'tasks'],       category: 'task' },
+          { sub: ['docs', 'mastermind'],                category: 'mastermind' },
+          { sub: ['docs', 'improvements'],              category: 'improvement' },
+          { sub: ['docs', 'ideas'],                     category: 'idea' },
+          { sub: ['docs', 'tasks'],                     category: 'task' },
+          { sub: ['docs', 'adrs'],                      category: 'decision' },
+          { sub: ['docs', 'specs'],                     category: 'spec' },
+          { sub: ['docs', 'reviews'],                   category: 'review' },
+          { sub: ['docs', 'plans'],                     category: 'plan' },
+          { sub: ['docs', 'reports'],                   category: 'report' },
+          { sub: ['docs', 'decisions'],                 category: 'decision' },
+          { sub: ['docs', 'wiki'],                      category: 'wiki' },
+        ];
+
+        const seen = new Set(); // dedupe by absolute path
+        const docs = [];
+        for (const root of roots) {
+          for (const { sub, category } of DOC_DIRS) {
+            const dir = path.join(root, ...sub);
+            if (!fs.existsSync(dir)) continue;
+            let files = [];
+            try { files = fs.readdirSync(dir); } catch { continue; }
+            for (const fname of files) {
+              if (!fname.endsWith('.md') || fname.startsWith('._')) continue;
+              const fullPath = path.join(dir, fname);
+              let st;
+              try { st = fs.statSync(fullPath); } catch { continue; }
+              if (!st.isFile()) continue;
+              if (seen.has(fullPath)) continue;
+              seen.add(fullPath);
+              // Pull the first H1 (or first non-empty line) as the title.
+              let title = fname.replace(/\.md$/i, '');
+              let preview = '';
+              try {
+                const raw = fs.readFileSync(fullPath, 'utf8').slice(0, 4000);
+                const h1 = raw.match(/^#\s+(.+)$/m);
+                if (h1) title = h1[1].trim();
+                // First non-heading, non-frontmatter paragraph as a preview.
+                preview = raw
+                  .replace(/^---[\s\S]*?---/, '')
+                  .split('\n')
+                  .map(l => l.trim())
+                  .filter(l => l && !/^#{1,6}\s/.test(l) && !/^[<|!]/.test(l))
+                  .slice(0, 1)
+                  .join(' ')
+                  .slice(0, 180);
+              } catch { /* unreadable — keep defaults */ }
+              docs.push({
+                path: fullPath,
+                project: root === globalBrain ? 'Global Brain' : (root.split('/').filter(Boolean).pop() || root),
+                projectPath: root,
+                category,
+                filename: fname,
+                title,
+                preview,
+                sizeBytes: st.size,
+                mtime: st.mtimeMs,
+                date: new Date(st.mtimeMs).toISOString(),
+              });
+            }
+          }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ docs }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------------- GET /api/global-doc/read
+    // Returns the raw markdown body of a single doc. The `path` query param
+    // must resolve to a file under one of the project roots or the global
+    // brain — anything else is rejected with 403 to avoid an arbitrary-file-read.
+    if (req.method === 'GET' && url.startsWith('/api/global-doc/read')) {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const target = qs.get('path');
+        if (!target || typeof target !== 'string') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'path query param required' }));
+          return;
+        }
+        const resolved = path.resolve(target);
+        // Reconstruct the allowed roots set and verify containment.
+        const projectsBase = path.join(os.homedir(), '.claude', 'projects');
+        const allowedRoots = [];
+        try {
+          for (const slug of fs.readdirSync(projectsBase)) {
+            const resolvedProj = resolveSlugToPath(slug, path.join(projectsBase, slug));
+            if (resolvedProj) allowedRoots.push(resolvedProj);
+          }
+        } catch {}
+        const globalBrain = process.env.MONOMIND_GLOBAL_BRAIN_DIR
+          || path.join(os.homedir(), '.monomind', 'global-brain');
+        if (fs.existsSync(globalBrain)) allowedRoots.push(globalBrain);
+        const isAllowed = allowedRoots.some(root => {
+          const rel = path.relative(root, resolved);
+          return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+        });
+        if (!isAllowed || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'path is outside the allowed project roots' }));
+          return;
+        }
+        if (!resolved.toLowerCase().endsWith('.md')) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'only markdown (.md) files are readable' }));
+          return;
+        }
+        const body = fs.readFileSync(resolved, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ path: resolved, body }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // ------------------------------------------------------- GET /api/palace
     if (req.method === 'GET' && url === '/api/palace') {
       try {
