@@ -10,6 +10,7 @@
 - Never continuously check status after spawning a swarm — wait for results
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
+- **Versioning policy (NEVER violate)**: When bumping the monomind version, **only the third (patch) digit may ever increase** (e.g. `2.8.4 → 2.8.5`, `2.9.0 → 2.9.1`). **Never** bump the first (major) or second (minor) digit unless the user explicitly says otherwise. This applies to `package.json`, `packages/@monomind/cli/package.json`, `CHANGELOG.md` headers, git tags, and GitHub release names. If unsure, ask — do not guess.
 - ALWAYS call `mcp__monomind__monograph_query` BEFORE running grep/rg/find via Bash for code exploration — only fall back to Bash grep if monograph returns 0 results or the DB does not exist
 - When starting any task that touches 3+ files: call `mcp__monomind__monograph_suggest` first to get relevant nodes ranked by task relevance
 
