@@ -123,6 +123,16 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     spinner.succeed('Monomind initialized successfully!');
 
+    // C5: ensure a runnable sample org exists so the README quickstart
+    // (`monomind org run my-team`) works out of the box. Idempotent — never
+    // overwrites a user's edits. Runs after a successful init (any mode).
+    try {
+      const { writeSampleOrg } = await import('../init/write-sample-org.js');
+      writeSampleOrg(options.targetDir);
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[init] sample org emit failed:', e);
+    }
+
     // Start monograph watch for ongoing file-change rebuilds, unless --no-watch was passed.
     // Guard: skip if a watcher PID file already exists and the process is still alive,
     // preventing duplicate watchers from accumulating on repeated `init --force` runs.

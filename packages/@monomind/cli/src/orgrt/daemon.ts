@@ -1,7 +1,9 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
 import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join, isAbsolute } from 'node:path';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
 import { OrgBus } from './bus.js';
 import { PolicyEngine } from './policy.js';
@@ -149,6 +151,11 @@ export class OrgDaemon {
   private stopping = new Map<string, Promise<void>>();
   private otel = new OtelTracer();
   private approvals = new Map<string, Array<{ roleId: string; action: string; question: string; ts: number; approved: boolean | null }>>();
+  // R5: per-org approval mutex. checkApproval and setApproval both read
+  // this.approvals, await something (mailbox push, markAnswered), then
+  // mutate + writeFileSync. Two concurrent calls in one org race on the
+  // in-memory Map and clobber each other on disk. Serialize them.
+  private approvalLocks = new Map<string, Promise<unknown>>();
   // Roles currently spawning — prevents duplicate lazy spawns from concurrent messages
   private spawning = new Map<string, Set<string>>();
   // #4: bounded whole-org restarts after the boss terminally crashes. A monotonic
@@ -296,10 +303,12 @@ export class OrgDaemon {
       try {
         // Remove stale worktree from a previous run
         if (existsSync(worktreePath)) {
-          execSync(`git worktree remove --force "${worktreePath}"`, { cwd: this.root, stdio: 'ignore' });
+          // R4: bound the call — a wedged git hook (git-lfs, gc lock, gpg sign
+          // prompt) would otherwise hang the whole daemon indefinitely.
+          execSync(`git worktree remove --force "${worktreePath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 });
         }
       } catch { /* best-effort cleanup */ }
-      execSync(`git worktree add "${worktreePath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore' });
+      execSync(`git worktree add "${worktreePath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 });
       cwd = worktreePath;
     } else {
       cwd = ws === 'repo' ? this.root
@@ -420,11 +429,14 @@ export class OrgDaemon {
       if (ws === 'worktree-per-role' && role.id !== bossRole.id) {
         const wtPath = join(this.root, ORG_DIR, name, `worktree-${role.id}`);
         try {
-          const { execSync: es } = require('node:child_process') as typeof import('node:child_process');
+          // Q7: top-level `import { execSync }` replaces the inlined
+          // `require('node:child_process')` that broke ESM at runtime —
+          // vitest's CJS shim masked it in tests but the built package
+          // threw "require is not defined" in real Node ESM execution.
           if (existsSync(wtPath)) {
-            try { es(`git worktree remove --force "${wtPath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
+            try { execSync(`git worktree remove --force "${wtPath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 }); } catch { /* best-effort */ }
           }
-          es(`git worktree add "${wtPath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore' });
+          execSync(`git worktree add "${wtPath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 });
           roleCwd = wtPath;
         } catch { /* fallback to shared cwd if git worktree fails */ }
       }
@@ -632,7 +644,7 @@ export class OrgDaemon {
     if (staleThreshold && staleThreshold > 0 && cwd === this.root) {
       try {
         const { execSync } = await import('node:child_process');
-        const behind = execSync('git rev-list --count HEAD..@{upstream} 2>/dev/null', { cwd, encoding: 'utf8' }).trim();
+        const behind = execSync('git rev-list --count HEAD..@{upstream} 2>/dev/null', { cwd, encoding: 'utf8', timeout: 10_000 }).trim();
         const count = parseInt(behind, 10);
         if (!isNaN(count) && count > staleThreshold) {
           bus.emit({
@@ -1167,60 +1179,79 @@ export class OrgDaemon {
   }
 
   /** Check if an action requires human approval (beforeTool hook for guardrails). Returns
-   *  the approval decision: true = approved, false = denied, null = pending (requires human input). */
+   *  the approval decision: true = approved, false = denied, null = pending (requires human input).
+   *
+   *  R5: serialized per-org via withApprovalLock() — concurrent checkApproval and
+   *  setApproval calls previously raced on this.approvals + approvals.json. */
   private async checkApproval(org: string, role: string, action: string): Promise<boolean | null> {
-    const approvalKey = `${org}:${role}:${action}`;
-    const pending = this.approvals.get(org) ?? [];
-    const existing = pending.find(a => a.roleId === role && a.action === action);
+    return this.withApprovalLock(org, async () => {
+      const approvalKey = `${org}:${role}:${action}`;
+      const pending = this.approvals.get(org) ?? [];
+      const existing = pending.find(a => a.roleId === role && a.action === action);
 
-    // If already approved/denied, return that decision
-    if (existing && existing.approved !== null) return existing.approved;
+      // If already approved/denied, return that decision
+      if (existing && existing.approved !== null) return existing.approved;
 
-    // Require human approval for sensitive actions
-    const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
-    if (sensitiveActions.includes(action)) {
-      // Queue for approval
-      if (!existing) {
-        pending.push({ roleId: role, action, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
-        this.approvals.set(org, pending);
+      // Require human approval for sensitive actions
+      const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
+      if (sensitiveActions.includes(action)) {
+        // Queue for approval
+        if (!existing) {
+          pending.push({ roleId: role, action, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
+          this.approvals.set(org, pending);
+        }
+        // Persist to approvals.json (C4: atomic write)
+        const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
+        mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
+        writeJsonFileAtomic(approvalsPath, { approvals: pending });
+
+        // Emit a question event for the dashboard
+        const running = this.orgs.get(org);
+        running?.bus.emit({ type: 'question', from: role, data: { question: `Approval required for ${action}`, action } });
+        return null; // Pending human approval
       }
-      // Persist to approvals.json
-      const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
-      mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
-      writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
 
-      // Emit a question event for the dashboard
-      const running = this.orgs.get(org);
-      running?.bus.emit({ type: 'question', from: role, data: { question: `Approval required for ${action}`, action } });
-      return null; // Pending human approval
-    }
-
-    return true; // Auto-approved for non-sensitive actions
+      return true; // Auto-approved for non-sensitive actions
+    });
   }
 
-  /** Approve or deny a pending action (called by dashboard or CLI). */
+  /** Approve or deny a pending action (called by dashboard or CLI).
+   *  R5: serialized per-org via withApprovalLock(). */
   async setApproval(org: string, role: string, action: string, approved: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
-    const pending = this.approvals.get(org) ?? [];
-    const item = pending.find(a => a.roleId === role && a.action === action);
+    return this.withApprovalLock(org, async () => {
+      const pending = this.approvals.get(org) ?? [];
+      const item = pending.find(a => a.roleId === role && a.action === action);
 
-    if (!item) return { ok: false, error: `No pending approval found for ${role} action ${action}` };
+      if (!item) return { ok: false, error: `No pending approval found for ${role} action ${action}` };
 
-    item.approved = approved;
-    item.ts = Date.now();
+      item.approved = approved;
+      item.ts = Date.now();
 
-    // Persist updated approval state
-    const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
-    writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+      // Persist updated approval state (C4: atomic write)
+      const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
+      writeJsonFileAtomic(approvalsPath, { approvals: pending });
 
-    // Notify the waiting agent via its mailbox
-    const running = this.orgs.get(org);
-    const agent = running?.agents.get(role);
-    if (agent && !agent.mailbox.isClosed) {
-      agent.mailbox.push(`[approval] ${action}: ${approved ? 'APPROVED' : 'DENIED'}`);
-    }
+      // Notify the waiting agent via its mailbox
+      const running = this.orgs.get(org);
+      const agent = running?.agents.get(role);
+      if (agent && !agent.mailbox.isClosed) {
+        agent.mailbox.push(`[approval] ${action}: ${approved ? 'APPROVED' : 'DENIED'}`);
+      }
 
-    running?.bus.emit({ type: 'status', from: role, msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}` });
-    return { ok: true };
+      running?.bus.emit({ type: 'status', from: role, msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}` });
+      return { ok: true };
+    });
+  }
+
+  /** R5: serialize approval mutations per org. Chains a Promise so concurrent
+   *  callers run strictly in arrival order without blocking the daemon's
+   *  event loop on unrelated orgs. Errors unwind the chain but don't poison
+   *  future callers (the slot is reset to a resolved promise). */
+  private withApprovalLock<T>(org: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.approvalLocks.get(org) ?? Promise.resolve();
+    const next = prev.then(fn, fn);
+    this.approvalLocks.set(org, next.catch(() => { /* slot stays usable for the next caller */ }));
+    return next;
   }
 
   /** Time-travel debugging: replay from a specific checkpoint by run ID.
@@ -1520,11 +1551,11 @@ export class OrgDaemon {
     try {
       const { execSync } = await import('node:child_process');
       if (org.worktreePath) {
-        try { execSync(`git worktree remove --force "${org.worktreePath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
+        try { execSync(`git worktree remove --force "${org.worktreePath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 }); } catch { /* best-effort */ }
       }
       for (const agent of org.agents.values()) {
         if (agent.worktreePath) {
-          try { execSync(`git worktree remove --force "${agent.worktreePath}"`, { cwd: this.root, stdio: 'ignore' }); } catch { /* best-effort */ }
+          try { execSync(`git worktree remove --force "${agent.worktreePath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 }); } catch { /* best-effort */ }
         }
       }
     } catch { /* node:child_process unavailable — skip */ }
@@ -1901,14 +1932,19 @@ export class OrgDaemon {
 
     try {
       mkdirSync(branchDir, { recursive: true });
-      // Copy bus.jsonl to branch
+      // Copy bus.jsonl to branch (C4: atomic — partial copy on crash leaves
+      // a branch that can't replay its event log).
       const busFile = join(runDir, 'bus.jsonl');
       if (existsSync(busFile)) {
         const busContent = readFileSync(busFile, 'utf8');
-        writeFileSync(join(branchDir, 'bus.jsonl'), busContent);
+        const branchBusFile = join(branchDir, 'bus.jsonl');
+        // Atomic write for raw (non-JSON) content: tmp + rename.
+        const tmp = `${branchBusFile}.${process.pid}.${Date.now()}.tmp`;
+        writeFileSync(tmp, busContent, 'utf8');
+        renameSync(tmp, branchBusFile);
       }
-      // Create branch marker file
-      writeFileSync(join(branchDir, '.branch-source'), JSON.stringify({ from: run, branchedAt: new Date().toISOString() }));
+      // Create branch marker file (atomic)
+      writeJsonFileAtomic(join(branchDir, '.branch-source'), { from: run, branchedAt: new Date().toISOString() });
       return { ok: true, branchRun };
     } catch (err) {
       return { ok: false, error: `failed to create branch: ${err instanceof Error ? err.message : String(err)}` };
@@ -1958,11 +1994,15 @@ export class OrgDaemon {
     if (running) {
       checkpoint = captureCheckpoint(running);
     }
-    writeFileSync(p, JSON.stringify({
+    // C4: writeJsonFileAtomic (tmp + rename) — a direct writeFileSync here
+    // could leave runtime.json truncated on Ctrl-C during `org stop`, which
+    // would brick every subsequent `org status` / isOrgRunning / scheduler
+    // call. The state files in 6 other daemon paths already use this helper.
+    writeJsonFileAtomic(p, {
       status, run, pid: process.pid, updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
       ...(checkpoint ? { checkpoint } : {}),
-    }, null, 2));
+    });
   }
 
   /** Mark every currently-running org as crashed in runtime.json.
@@ -1971,10 +2011,12 @@ export class OrgDaemon {
     for (const [name, org] of this.orgs) {
       try {
         const p = join(this.root, ORG_DIR, name, 'runtime.json');
-        writeFileSync(p, JSON.stringify({
+        // C4: atomic write — crash handler is the most likely place to hit
+        // a partial write since the process is mid-teardown.
+        writeJsonFileAtomic(p, {
           status: 'crashed', run: org.run, pid: process.pid,
           updated: new Date().toISOString(), closedBy: 'crash-handler',
-        }, null, 2));
+        });
       } catch { /* best effort — filesystem may be unavailable */ }
     }
   }
@@ -1989,10 +2031,12 @@ export class OrgDaemon {
     try {
       const p = this.heartbeatPath();
       mkdirSync(join(this.root, '.monomind'), { recursive: true });
-      writeFileSync(p, JSON.stringify({
+      // C4: atomic write — heartbeat corruption is how `org status` reports
+      // a phantom daemon after a crash.
+      writeJsonFileAtomic(p, {
         pid: process.pid, updatedAt: new Date().toISOString(),
         running: this.listRunning(),
-      }, null, 2));
+      });
     } catch { /* best effort */ }
   }
 

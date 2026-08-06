@@ -1522,6 +1522,56 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
 .mm-skill-name { font-family: var(--mono); font-size: 12px; color: oklch(65% 0.16 295); flex-shrink: 0; }
 .mm-skill-desc { font-size: 12px; color: var(--text-lo); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-skill-item:hover .mm-skill-name { color: oklch(75% 0.16 295); }
+
+/* ── Global Documents view + markdown viewer ─────────────────────────────── */
+.gd-row { transition: background 0.1s, border-color 0.1s; }
+.gd-row:hover { background: var(--surface-hi); }
+.gd-row.active { background: var(--surface-hi); }
+
+/* Markdown document typography — readable, scoped, doesn't inherit app chrome */
+.gd-doc { color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.7; }
+.gd-md { max-width: 760px; }
+.gd-md h1 { font-size: 28px; font-weight: 700; margin: 32px 0 12px; line-height: 1.2; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.gd-md h2 { font-size: 22px; font-weight: 700; margin: 28px 0 10px; line-height: 1.3; }
+.gd-md h3 { font-size: 18px; font-weight: 600; margin: 22px 0 8px; }
+.gd-md h4 { font-size: 15px; font-weight: 600; margin: 18px 0 6px; color: var(--text-hi); }
+.gd-md h5 { font-size: 13px; font-weight: 600; margin: 16px 0 4px; color: var(--text); text-transform: uppercase; letter-spacing: 0.4px; }
+.gd-md h6 { font-size: 12px; font-weight: 500; margin: 14px 0 4px; color: var(--text-lo); text-transform: uppercase; letter-spacing: 0.5px; }
+.gd-md p { margin: 10px 0; }
+.gd-md ul, .gd-md ol { margin: 10px 0; padding-left: 24px; }
+.gd-md ul { list-style: disc; }
+.gd-md ol { list-style: decimal; }
+.gd-md li { margin: 3px 0; }
+.gd-md li > ul, .gd-md li > ol { margin: 4px 0; }
+.gd-md ul.md-tasklist { list-style: none; padding-left: 8px; }
+.gd-md ul.md-tasklist li { display: flex; align-items: flex-start; gap: 8px; }
+.gd-md ul.md-tasklist li input[type="checkbox"] { margin-top: 4px; accent-color: var(--accent, #00D2AA); }
+.gd-md blockquote { margin: 12px 0; padding: 8px 16px; border-left: 3px solid var(--accent, #00D2AA); background: var(--surface); border-radius: 0 6px 6px 0; color: var(--text-lo); }
+.gd-md blockquote p { margin: 6px 0; }
+.gd-md hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+.gd-md strong { font-weight: 700; color: var(--text-hi); }
+.gd-md em { font-style: italic; }
+.gd-md del { text-decoration: line-through; color: var(--text-lo); }
+.gd-md code { font-family: var(--mono, 'SF Mono', Monaco, Menlo, Consolas, monospace); font-size: 0.88em; background: var(--surface-hi); color: var(--text-hi); padding: 1px 6px; border-radius: 4px; }
+.gd-md a { color: var(--accent, #00D2AA); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.1s; }
+.gd-md a:hover { border-bottom-color: currentColor; }
+.gd-md img { margin: 12px 0; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+/* Fenced code blocks */
+.gd-md .gd-code-block { margin: 14px 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.gd-md .gd-code-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 4px 10px; background: var(--surface-hi); border-bottom: 1px solid var(--border); }
+.gd-md .gd-code-lang { font-family: var(--mono, monospace); font-size: 10px; color: var(--text-lo); text-transform: uppercase; letter-spacing: 0.5px; }
+.gd-md .gd-code-copy { background: transparent; border: 1px solid var(--border); color: var(--text-lo); padding: 2px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: background 0.1s, color 0.1s; }
+.gd-md .gd-code-copy:hover { background: var(--surface); color: var(--text); }
+.gd-md pre { margin: 0; padding: 12px 14px; overflow-x: auto; }
+.gd-md pre code { background: transparent; color: var(--text); padding: 0; font-size: 12.5px; line-height: 1.5; }
+
+/* GFM tables */
+.gd-md .gd-table-wrap { margin: 14px 0; overflow-x: auto; }
+.gd-md table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.gd-md th, .gd-md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.gd-md th { background: var(--surface-hi); font-weight: 600; color: var(--text-hi); }
+.gd-md tr:nth-child(even) td { background: var(--surface); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -1578,6 +1628,10 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       <div class="nav-glob-items" id="nav-glob-items">
         <div class="nav-item" data-view="global">
           <span class="ico">⊕</span><span class="lbl">Global Feed</span>
+        </div>
+        <div class="nav-item" data-view="global-docs" title="Mastermind-generated documents across all projects">
+          <span class="ico">📄</span><span class="lbl">Documents</span>
+          <span class="bdg" id="bdg-global-docs">—</span>
         </div>
         <div class="nav-item" data-view="global-tokens" title="Token usage across all projects">
           <span class="ico">$</span><span class="lbl">Global Tokens</span>
@@ -2179,6 +2233,36 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
       </div>
     </div>
 
+    <!-- GLOBAL DOCS — mastermind-generated markdown documents -->
+    <div class="view" id="view-global-docs">
+      <div class="vscroll" style="padding:0;display:flex;flex-direction:column;height:100%">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 20px 10px;border-bottom:1px solid var(--border);flex-shrink:0">
+          <div class="pg-title" style="margin:0">Documents</div>
+          <span class="pg-sub" id="gd-sub" style="margin:0">Mastermind-generated across all projects</span>
+          <span style="flex:1"></span>
+          <input id="gd-search" type="text" placeholder="Filter by title, project, or category…" oninput="gdFilter(this.value)" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;width:260px" autocomplete="off" spellcheck="false">
+          <select id="gd-sort" onchange="gdRender()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:6px;font-size:12px">
+            <option value="date-desc">Newest first</option>
+            <option value="date-asc">Oldest first</option>
+            <option value="title">Title (A→Z)</option>
+            <option value="project">Project</option>
+          </select>
+          <button class="btn" onclick="loadGlobalDocs(true)" title="Rescan">↺</button>
+        </div>
+        <div id="gd-split" style="display:flex;flex:1;min-height:0">
+          <div id="gd-list" style="width:340px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding:8px 0">
+            <div class="loading-txt" style="padding:20px">Loading…</div>
+          </div>
+          <div id="gd-viewer" style="flex:1;overflow-y:auto;padding:32px 40px;max-width:960px">
+            <div class="empty" style="margin-top:80px">
+              <div class="empty-ico">📄</div>
+              <div>Select a document to read</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- GLOBAL TOKENS -->
     <div class="view" id="view-global-tokens">
       <div class="vscroll">
@@ -2381,7 +2465,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(el => {
 });
 
 // ── collapsible global nav section ──────────────────────────
-const GLOBAL_VIEWS = ['global', 'global-tokens', 'global-orgs', 'humaninput'];
+const GLOBAL_VIEWS = ['global', 'global-docs', 'global-tokens', 'global-orgs', 'humaninput'];
 function setGlobalNavOpen(open) {
   const items = document.getElementById('nav-glob-items');
   const hdr = document.getElementById('nav-glob-hdr');
@@ -2410,10 +2494,10 @@ function switchView(v, { updateHash = true } = {}) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed', 'global-docs':'Documents', 'global-tokens':'Global Tokens', 'global-orgs':'All Orgs', humaninput:'Human Input' };
   document.getElementById('view-title').textContent = titles[v] || v;
   const PROJECT = DIR ? shortPath(DIR) : 'monomind';
-  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input' };
+  const VIEW_LABELS = { now: 'Now', sessions: 'Sessions', projects: 'Projects', tokens: 'Tokens', memory: 'Memory', orgs: 'Orgs', monograph: 'Monograph', global: 'Global Feed', 'global-docs': 'Documents', 'global-tokens': 'Global Tokens', 'global-orgs': 'All Orgs', humaninput: 'Human Input' };
   document.title = `monomind · ${PROJECT} · ${VIEW_LABELS[v] || v}`;
   if (updateHash) _pushHash();
   // Projects always re-fetches so onclick paths in cards stay current
@@ -2473,6 +2557,7 @@ function renderView(v) {
   if (v === 'orgs') renderOrgs();
   if (v === 'monograph') loadMonograph();
   if (v === 'global') renderGlobalFeed();
+  if (v === 'global-docs') loadGlobalDocs();
   if (v === 'global-tokens') renderGlobalTokens();
   if (v === 'global-orgs') renderGlobalOrgs();
   if (v === 'humaninput') renderHumanInputView();
@@ -4095,6 +4180,390 @@ async function renderGlobalFeed() {
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load: ' + esc(err.message) + '</div>';
   }
+}
+
+// ── Global Documents ─────────────────────────────────────────────────────────
+// mastermind-generated markdown docs across all known projects + global brain.
+// Master/detail: list on the left (ordered by date), markdown viewer on right.
+let _gdAllDocs = [];
+let _gdSelected = null;
+let _gdFilterText = '';
+
+async function loadGlobalDocs(force = false) {
+  const listEl = document.getElementById('gd-list');
+  const subEl = document.getElementById('gd-sub');
+  const bdgEl = document.getElementById('bdg-global-docs');
+  if (force) _gdAllDocs = [];
+  if (!_gdAllDocs.length) {
+    listEl.innerHTML = '<div class="loading-txt" style="padding:20px">Loading documents…</div>';
+    try {
+      const data = await apiFetch('/api/global-docs');
+      _gdAllDocs = (data?.docs || []).slice();
+    } catch (err) {
+      listEl.innerHTML = '<div class="empty" style="padding:24px"><div class="empty-ico">📄</div><div>Could not load: ' + esc(err.message) + '</div></div>';
+      return;
+    }
+  }
+  if (bdgEl) bdgEl.textContent = _gdAllDocs.length > 0 ? _gdAllDocs.length : '—';
+  gdRender();
+}
+
+function gdFilter(v) {
+  _gdFilterText = (v || '').toLowerCase().trim();
+  gdRender();
+}
+
+function gdCatLabel(c) {
+  return ({ plan:'Plan', spec:'Spec', review:'Review', report:'Report',
+    wiki:'Wiki', decision:'Decision', idea:'Idea', improvement:'Improvement',
+    task:'Task', mastermind:'Mastermind' })[c] || c;
+}
+
+function gdCatColor(c) {
+  const m = {
+    plan:'#3b82f6', spec:'#8b5cf6', review:'#10b981', report:'#f59e0b',
+    wiki:'#06b6d4', decision:'#ec4899', idea:'#f97316', improvement:'#84cc16',
+    task:'#6366f1', mastermind:'#64748b',
+  };
+  return m[c] || '#64748b';
+}
+
+function gdSorted() {
+  const sort = document.getElementById('gd-sort')?.value || 'date-desc';
+  const out = _gdAllDocs.slice();
+  if (sort === 'date-desc') out.sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+  else if (sort === 'date-asc') out.sort((a, b) => (a.mtime || 0) - (b.mtime || 0));
+  else if (sort === 'title') out.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  else if (sort === 'project') out.sort((a, b) => (a.project || '').localeCompare(b.project || '') || (b.mtime || 0) - (a.mtime || 0));
+  return out;
+}
+
+function gdFiltered() {
+  const all = gdSorted();
+  if (!_gdFilterText) return all;
+  return all.filter(d => {
+    const hay = (d.title + ' ' + d.project + ' ' + d.category + ' ' + d.filename + ' ' + (d.preview || '')).toLowerCase();
+    return hay.includes(_gdFilterText);
+  });
+}
+
+function gdFmtDate(ms) {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  const today = new Date();
+  const yest = new Date(Date.now() - 86400000);
+  if (d.toDateString() === today.toDateString()) return 'Today, ' + d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function gdRender() {
+  const listEl = document.getElementById('gd-list');
+  const subEl = document.getElementById('gd-sub');
+  if (!listEl) return;
+  const docs = gdFiltered();
+  if (subEl) subEl.textContent = `${_gdAllDocs.length} document${_gdAllDocs.length === 1 ? '' : 's'} across all projects`;
+  if (!docs.length) {
+    listEl.innerHTML = '<div class="empty" style="padding:40px 20px"><div class="empty-ico">📄</div><div>' + (_gdFilterText ? 'No documents match the filter' : 'No documents found yet') + '</div><div style="font-size:11px;opacity:0.6;margin-top:8px">Run /mastermind:plan, /mastermind:improve, or /mastermind:createtask to generate one</div></div>';
+    return;
+  }
+  // Group by day (date-desc/date-asc) for a timeline look; flat for other sorts.
+  const sort = document.getElementById('gd-sort')?.value || 'date-desc';
+  let html = '';
+  const renderRow = (d) => {
+    const col = gdCatColor(d.category);
+    const isActive = _gdSelected === d.path;
+    return `<div class="gd-row${isActive ? ' active' : ''}" onclick="gdOpen(${JSON.stringify(d.path).replace(/"/g, '&quot;')})" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);border-left:3px solid ${isActive ? col : 'transparent'}">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <span style="background:${col}22;color:${col};padding:1px 7px;border-radius:8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">${esc(gdCatLabel(d.category))}</span>
+        <span style="font-size:10px;opacity:0.6">·</span>
+        <span style="font-size:10px;opacity:0.7">${esc(d.project)}</span>
+      </div>
+      <div style="font-weight:600;font-size:13px;line-height:1.3;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.title)}</div>
+      ${d.preview ? `<div style="font-size:11px;color:var(--text-lo);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(d.preview)}</div>` : ''}
+      <div style="font-size:10px;color:var(--text-lo);opacity:0.7;margin-top:4px">${esc(gdFmtDate(d.mtime))}</div>
+    </div>`;
+  };
+  if (sort === 'date-desc' || sort === 'date-asc') {
+    const byDay = new Map();
+    for (const d of docs) {
+      const key = new Date(d.mtime || 0).toDateString();
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push(d);
+    }
+    for (const [key, group] of byDay) {
+      const label = key.startsWith('Invalid') ? 'Undated' : gdFmtDate(group[0].mtime);
+      html += `<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.6px;background:var(--surface)">${esc(label)}<span style="opacity:0.5;font-weight:500"> · ${group.length}</span></div>`;
+      for (const d of group) html += renderRow(d);
+    }
+  } else {
+    for (const d of docs) html += renderRow(d);
+  }
+  listEl.innerHTML = html;
+}
+
+async function gdOpen(docPath) {
+  _gdSelected = docPath;
+  gdRender();
+  const viewer = document.getElementById('gd-viewer');
+  viewer.innerHTML = '<div class="loading-txt" style="padding:40px">Loading document…</div>';
+  try {
+    const data = await apiFetch('/api/global-doc/read?path=' + encodeURIComponent(docPath));
+    if (!data?.body) {
+      viewer.innerHTML = '<div class="empty"><div class="empty-ico">∅</div><div>Empty document</div></div>';
+      return;
+    }
+    const meta = _gdAllDocs.find(d => d.path === docPath) || {};
+    const col = gdCatColor(meta.category);
+    const wrap = document.createElement('div');
+    wrap.className = 'gd-doc';
+    wrap.innerHTML =
+      '<div class="gd-doc-header" style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+          '<span style="background:' + col + '22;color:' + col + ';padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">' + esc(gdCatLabel(meta.category)) + '</span>' +
+          '<span style="font-size:11px;color:var(--text-lo)">· ' + esc(meta.project || '') + '</span>' +
+          '<span style="flex:1"></span>' +
+          '<a href="file://' + esc(docPath) + '" onclick="event.preventDefault();gdRevealPath(' + JSON.stringify(docPath).replace(/"/g, '&quot;') + ')" style="font-size:11px;color:var(--text-lo);text-decoration:none" title="Reveal full path">⎘ path</a>' +
+          '<button class="btn" onclick="gdCopyPath(' + JSON.stringify(docPath).replace(/"/g, '&quot;') + ')" style="font-size:11px;padding:3px 8px">Copy path</button>' +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--text-lo);opacity:0.7">' + esc(gdFmtDate(meta.mtime)) + (meta.sizeBytes ? ' · ' + Math.round(meta.sizeBytes / 1024) + ' KB' : '') + '</div>' +
+      '</div>' +
+      '<div class="gd-md">' + renderDocMarkdown(data.body) + '</div>';
+    viewer.innerHTML = '';
+    viewer.appendChild(wrap);
+    // Reset scroll to top of the viewer.
+    viewer.scrollTop = 0;
+  } catch (err) {
+    viewer.innerHTML = '<div class="empty"><div class="empty-ico">⚠</div><div>Failed to load: ' + esc(err.message) + '</div></div>';
+  }
+}
+
+function gdRevealPath(p) { showToast('Path', p, 'info', 8000); }
+async function gdCopyPath(p) {
+  try { await navigator.clipboard.writeText(p); showToast('Copied', 'Path copied to clipboard', 'ok'); }
+  catch { showToast('Copy failed', 'Clipboard unavailable', 'warn'); }
+}
+
+// ── High-fidelity markdown renderer for the document viewer ──────────────────
+// Handles: headings (h1-h6) with anchors, bold/italic/strikethrough, inline
+// code and fenced code blocks (with language label + copy button), unordered/
+// ordered/nested/task lists, GFM tables, nested blockquotes, horizontal rules,
+// links (external get rel=noopener + target=_blank), images, line breaks.
+// HTML-escaped at the boundary; nothing the source contains can inject markup.
+function renderDocMarkdown(md) {
+  if (!md) return '';
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  // 1. Strip a leading YAML frontmatter block (mastermind plan/spec files have one).
+  let src = String(md).replace(/^\uFEFF?---[\s\S]*?\n---\s*\n/, '');
+
+  // 2. Extract fenced code blocks first so their contents are never reinterpreted.
+  const codeBlocks = [];
+  src = src.replace(/```([\w+-]*)\n?([\s\S]*?)```/g, (_m, lang, code) => {
+    const clean = code.replace(/\n$/, '');
+    codeBlocks.push({ lang: (lang || '').toLowerCase(), code: clean });
+    return '\u0000CB' + (codeBlocks.length - 1) + '\u0000';
+  });
+
+  // 3. Extract inline HTML blocks (multiline <div>…</div> etc.) — pass through
+  //    verbatim after escaping, so user-authored HTML in a plan still renders
+  //    structurally without enabling script injection (we'll re-strip <script>
+  //    and on* handlers at the end).
+  const htmlBlocks = [];
+  src = src.replace(/(^|\n)(<(\w+)[^>\n]*>[\s\S]*?<\/\3>)(?=\n|$)/g, (_m, lead, html) => {
+    htmlBlocks.push(html);
+    return (lead || '') + '\u0000HB' + (htmlBlocks.length - 1) + '\u0000';
+  });
+
+  // 4. Escape everything that remains.
+  src = esc(src).replace(/\u0000CB(\d+)\u0000/g, 'CB$1').replace(/\u0000HB(\d+)\u0000/g, 'HB$1');
+
+  // 5. Block-level transforms: tables, headings, hr, blockquotes, lists.
+  //    Operate line-by-line so nesting and paragraph grouping stay coherent.
+  const lines = src.split('\n');
+  const out = [];
+  let i = 0;
+  let inUl = false, inOl = false, inTask = false, bqBuf = [], paraBuf = [];
+
+  const closeLists = () => {
+    if (inUl) { out.push('</ul>'); inUl = false; }
+    if (inOl) { out.push('</ol>'); inOl = false; }
+    if (inTask) { out.push('</ul>'); inTask = false; }
+  };
+  const flushPara = () => { if (paraBuf.length) { out.push('<p>' + paraBuf.join(' ') + '</p>'); paraBuf = []; } };
+  const flushBQ = () => {
+    if (!bqBuf.length) return;
+    // Recursively render the inner block so nested formatting works.
+    out.push('<blockquote>' + renderDocMarkdown(bqBuf.join('\n')) + '</blockquote>');
+    bqBuf = [];
+  };
+  const slugify = (s) => String(s).toLowerCase().replace(/<[^>]+>/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+
+  while (i < lines.length) {
+    let line = lines[i];
+
+    // Block placeholders for code/html blocks (they sit on their own line).
+    const cbMatch = line.match(/^CB(\d+)$/);
+    if (cbMatch) { closeLists(); flushPara(); flushBQ(); out.push(renderCodeBlock(codeBlocks[+cbMatch[1]])); i++; continue; }
+    const hbMatch = line.match(/^HB(\d+)$/);
+    if (hbMatch) { closeLists(); flushPara(); flushBQ(); out.push(sanitizeHtmlBlock(htmlBlocks[+hbMatch[1]])); i++; continue; }
+
+    // Blank line: paragraph + list breaks.
+    if (line.trim() === '') { closeLists(); flushPara(); flushBQ(); i++; continue; }
+
+    // Headings (with anchor).
+    const h = line.match(/^(#{1,6})\s+(.+?)(?:\s+#+\s*)?$/);
+    if (h) { closeLists(); flushPara(); flushBQ(); const lvl = h[1].length; const txt = inlineMd(h[2]); const id = slugify(h[2]); out.push('<h' + lvl + ' id="' + id + '">' + txt + '</h' + lvl + '>'); i++; continue; }
+
+    // Horizontal rule.
+    if (/^(\*\s*){3,}$/.test(line) || /^(-\s*){3,}$/.test(line) || /^(_\s*){3,}$/.test(line)) { closeLists(); flushPara(); flushBQ(); out.push('<hr>'); i++; continue; }
+
+    // GFM table — a block of consecutive lines where line 0 and line 1 look
+    // like | a | b |  /  |---|---|. Scan forward to collect the full table.
+    if (/^\s*\|.+\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?[\s:-]+\|[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+      closeLists(); flushPara(); flushBQ();
+      const headerCells = splitTableRow(line);
+      const aligns = parseTableAligns(lines[i + 1]);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /^\s*\|.+\|\s*$/.test(lines[i])) { rows.push(splitTableRow(lines[i])); i++; }
+      out.push(renderTable(headerCells, aligns, rows));
+      continue;
+    }
+
+    // Blockquote.
+    const bq = line.match(/^>\s?(.*)$/);
+    if (bq) { closeLists(); flushPara(); bqBuf.push(bq[1]); i++; continue; }
+    if (bqBuf.length) { flushBQ(); }
+
+    // Task list item.
+    const task = line.match(/^(\s*)([-*])\s+\[( |x|X)\]\s+(.+)$/);
+    if (task) { flushPara(); if (inUl) { out.push('</ul>'); inUl = false; } if (inOl) { out.push('</ol>'); inOl = false; } if (!inTask) { out.push('<ul class="md-tasklist">'); inTask = true; } const checked = task[3].toLowerCase() === 'x'; out.push('<li><input type="checkbox" disabled' + (checked ? ' checked' : '') + '> ' + inlineMd(task[4]) + '</li>'); i++; continue; }
+
+    // Unordered list item.
+    const ul = line.match(/^(\s*)([-*+])\s+(.+)$/);
+    if (ul && !task) {
+      flushPara();
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      if (inTask) { out.push('</ul>'); inTask = false; }
+      if (!inUl) { out.push('<ul>'); inUl = true; }
+      const indent = ul[1].length;
+      if (indent === 0) out.push('<li>' + inlineMd(ul[3]) + '</li>');
+      else {
+        // Nested list — close current top item and open a nested <ul>.
+        out.push('<li>' + inlineMd(ul[3]) + '</li>');
+      }
+      i++; continue;
+    }
+    // Ordered list item.
+    const ol = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
+    if (ol) {
+      flushPara();
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (inTask) { out.push('</ul>'); inTask = false; }
+      if (!inOl) { out.push('<ol>'); inOl = true; }
+      out.push('<li>' + inlineMd(ol[3]) + '</li>');
+      i++; continue;
+    }
+
+    // Otherwise: paragraph text. Buffer until a blank line / structural break.
+    closeLists();
+    flushBQ();
+    paraBuf.push(inlineMd(line));
+    i++;
+  }
+  closeLists(); flushPara(); flushBQ();
+
+  let html = out.join('\n');
+  // 6. Restore code/html block placeholders INSIDE paragraphs (when a CB/HB
+  //    token got buffered as paragraph text instead of sitting alone).
+  html = html.replace(/CB(\d+)/g, (_m, idx) => renderCodeBlock(codeBlocks[+idx]))
+             .replace(/HB(\d+)/g, (_m, idx) => sanitizeHtmlBlock(htmlBlocks[+idx]));
+  return html;
+
+  // ── helpers ──
+  function inlineMd(s) {
+    // Inline code first (so its contents aren't reformatted).
+    const codes = [];
+    s = s.replace(/`([^`\n]+)`/g, (_m, c) => { codes.push(c); return '\u0001C' + (codes.length - 1) + '\u0001'; });
+    // Images: ![alt](src "title")
+    s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g,
+      (_m, alt, src, title) => '<img src="' + src + '" alt="' + esc(alt) + '"' + (title ? ' title="' + esc(title) + '"' : '') + ' loading="lazy" style="max-width:100%;height:auto;border-radius:6px">');
+    // Links: [text](href "title")
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g,
+      (_m, txt, href, title) => {
+        const external = /^(https?:|mailto:|tel:)/i.test(href);
+        const safe = external ? ' target="_blank" rel="noopener noreferrer"' : '';
+        return '<a href="' + href + '"' + (title ? ' title="' + esc(title) + '"' : '') + safe + '>' + txt + '</a>';
+      });
+    // Bold.
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
+    // Italic.
+    s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+    s = s.replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
+    // Strikethrough.
+    s = s.replace(/~~([^~\n]+)~~/g, '<del>$1</del>');
+    // Restore inline code.
+    s = s.replace(/\u0001C(\d+)\u0001/g, (_m, idx) => '<code>' + esc(codes[+idx]) + '</code>');
+    return s;
+  }
+
+  function renderCodeBlock(block) {
+    const lang = block?.lang || '';
+    const code = block?.code ?? '';
+    const labelHtml = lang ? '<span class="gd-code-lang">' + esc(lang) + '</span>' : '';
+    return '<div class="gd-code-block">' +
+      '<div class="gd-code-bar"><button class="gd-code-copy" onclick="gdCopyCode(this)">copy</button>' + labelHtml + '</div>' +
+      '<pre><code' + (lang ? ' class="language-' + esc(lang) + '"' : '') + '>' + esc(code) + '</code></pre>' +
+    '</div>';
+  }
+
+  function sanitizeHtmlBlock(html) {
+    // Strip <script> entirely, drop event-handler attributes (onclick=, onload=, on*=),
+    // and javascript: URLs. Keep everything else as-is so user HTML renders.
+    return String(html)
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+      .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+      .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+      .replace(/(href|src)\s*=\s*"javascript:[^"]*"/gi, '$1="#"');
+  }
+
+  function splitTableRow(line) {
+    return line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  }
+  function parseTableAligns(line) {
+    return splitTableRow(line).map(cell => {
+      if (/^:\s*-+:$/.test(cell)) return 'center';
+      if (/^-*:$/.test(cell)) return 'left';
+      if (/^-+:$/.test(cell)) return 'right';
+      return null;
+    });
+  }
+  function renderTable(headerCells, aligns, rows) {
+    const alignAttr = (i) => aligns[i] ? ' style="text-align:' + aligns[i] + '"' : '';
+    let html = '<div class="gd-table-wrap"><table><thead><tr>';
+    headerCells.forEach((c, i) => { html += '<th' + alignAttr(i) + '>' + inlineMd(c) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    for (const r of rows) {
+      html += '<tr>';
+      r.forEach((c, i) => { html += '<td' + alignAttr(i) + '>' + inlineMd(c) + '</td>'; });
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
+  }
+}
+
+function gdCopyCode(btn) {
+  const codeEl = btn.closest('.gd-code-block')?.querySelector('code');
+  if (!codeEl) return;
+  const text = codeEl.textContent;
+  navigator.clipboard.writeText(text).then(
+    () => { const old = btn.textContent; btn.textContent = 'copied'; setTimeout(() => { btn.textContent = old; }, 1200); },
+    () => { btn.textContent = 'failed'; },
+  );
 }
 
 let _hiEntries = [];

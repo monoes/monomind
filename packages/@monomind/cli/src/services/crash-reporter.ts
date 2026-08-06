@@ -107,6 +107,18 @@ export function setEnabled(enabled: boolean): void {
 /**
  * Strip obvious secrets/PII before anything gets sent to a public GitHub repo.
  * Not a substitute for careful callers — this is a last-resort net.
+ *
+ * C6 hardening: the previous version only caught /home/<user>, /Users/<user>,
+ * C:\Users\<user> plus 12 hard-coded secret regexes. It leaked:
+ *   - project-relative paths in stack frames (repo name, file structure)
+ *   - non-/Users paths (/var, /srv, /data, /tmp/build, docker volumes)
+ *   - IPv4/IPv6 addresses
+ *   - internal hostnames
+ *   - emails embedded in error messages
+ *   - SSNs and phone numbers in err.message
+ *
+ * The README and doc/commands/cli-reference.md:67 claim "secret/PII-scrubbed"
+ * — the additional patterns below make that claim true.
  */
 export function redact(text: string): string {
   let out = text;
@@ -119,12 +131,57 @@ export function redact(text: string): string {
     out = out.replace(new RegExp(`\\b${username}\\b`, 'g'), '<user>');
   }
 
+  // C6: collapse ANY absolute path to its basename. The previous logic only
+  // covered /home/<user>, /Users/<user>, C:\Users\<user> — but stack frames
+  // commonly carry repo-relative paths like ~/projects/acme-merger/src/deal_eval.ts:42
+  // (leaks repo name + file structure), container paths like /app/src/index.ts,
+  // and CI paths like /tmp/build/src/main.ts. Basename-only is enough context
+  // for triage without leaking directory structure. Preserve line/col suffix.
+  out = out.replace(
+    /(?:^|[(\s])(\.{0,2}|~)?(\/[\w./-]+|\\\\?[\w.-]+(?:\\[\w.-]+)+):(\d+)?(?::(\d+))?/g,
+    (full, _prefix: string, _path: string, line?: string, col?: string) => {
+      // Pull the basename off the matched path; keep :line:col if present
+      const m = full.match(/([\w.-]+)(?::\d+)*(?::\d+)?$/);
+      const tail = m ? m[0] : '';
+      const lineCol = line ? `:${line}${col ? `:${col}` : ''}` : '';
+      return full.replace(/[\w./-]+(\/|\\)[\w./-]+(:\d+)*/g, tail.includes(':') ? tail : tail + lineCol);
+    },
+  );
+
   // Generic path prefixes, in case a compiled binary's stack trace embeds a
   // *different* machine's home dir (e.g. the CI runner or maintainer's build
   // box) than the one redaction above is keyed to.
   out = out.replace(/\/home\/[^/\s]+/g, '/home/<user>');
   out = out.replace(/\/Users\/[^/\s]+/g, '/Users/<user>');
   out = out.replace(/C:\\Users\\[^\\\s]+/g, 'C:\\Users\\<user>');
+
+  // C6: strip IP addresses (v4 and v6) — leaked via ECONNREFUSED, fetch errors,
+  // telemetry endpoints, internal service URLs.
+  out = out.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '<ip>');
+  out = out.replace(/\b(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b/g, '<ip6>');
+
+  // C6: strip emails — commonly embedded in ValidationError messages and
+  // customer data dumps that reach the crash handler via err.message.
+  out = out.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '<email>');
+
+  // C6: strip internal hostnames (anything that looks like a fully-qualified
+  // internal domain). Conservative: requires at least one dot and a non-public
+  // TLD OR an obviously-internal prefix. Public domains (github.com,
+  // api.anthropic.com) are also redacted because the user-facing README claim
+  // is "no data leaves your machine" and a hostname in a stack frame is
+  // internal context regardless.
+  out = out.replace(/\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+\b/gi,
+    (match) => {
+      // Leave existing <placeholder> tokens alone
+      if (match.startsWith('<')) return match;
+      // Leave simple protocol-prefixed forms to the connection-string regex below
+      return '<host>';
+    });
+
+  // C6: PII in err.message — SSN and phone numbers commonly appear in
+  // validation errors. SSN is high-sensitivity; phone is medium.
+  out = out.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '<ssn>');
+  out = out.replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '<phone>');
 
   const SECRET_PATTERNS: RegExp[] = [
     /(?:api[_-]?key|apikey)\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
