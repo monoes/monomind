@@ -114,8 +114,8 @@ importers:
         specifier: ^1.2.2
         version: 1.2.2
       '@monoes/monograph':
-        specifier: ^1.5.4
-        version: 1.5.4(graphology-types@0.24.8)
+        specifier: workspace:*
+        version: link:../monograph
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -882,10 +882,6 @@ packages:
   '@monoes/monodesign@1.2.2':
     resolution: {integrity: sha512-IzWkq8BWTgC40JkVRdO46wEczb7qnMtU2UjaK2IOk+RUSphmo9TW3SEiAKja9vDo5NuFTpqxXkZNFoj0Kku0ZA==}
     hasBin: true
-
-  '@monoes/monograph@1.5.4':
-    resolution: {integrity: sha512-jSdrflNHe0HMz6LFjaTiEDFYpZxvYmWjNCHoni8FI5SYSUDFOL/9uZiodtxK9zOAnv1ADVNsV82/Oq7qWdhLcg==}
-    engines: {node: '>=20.0.0'}
 
   '@monoes/routing@1.0.1':
     resolution: {integrity: sha512-xhM5B+WE6q/xwVeyEIJJgDwuIetSZSiXNuXYvNozzyIAL6Cdmpx5R0/k0xMRTe1KlrugXd90su4JLouIxKzuWg==}
@@ -3364,37 +3360,6 @@ snapshots:
       - utf-8-validate
       - yauzl
 
-  '@monoes/monograph@1.5.4(graphology-types@0.24.8)':
-    dependencies:
-      better-sqlite3: 12.11.1
-      chokidar: 3.6.0
-      express: 4.22.2
-      graphology: 0.25.4(graphology-types@0.24.8)
-      graphology-communities-louvain: 2.0.2(graphology-types@0.24.8)
-      graphology-metrics: 2.4.0(graphology-types@0.24.8)
-      graphology-shortest-path: 2.1.0(graphology-types@0.24.8)
-      graphology-traversal: 0.3.1(graphology-types@0.24.8)
-      micromatch: 4.0.8
-      tree-sitter: 0.22.4
-      tree-sitter-c: 0.24.1(tree-sitter@0.22.4)
-      tree-sitter-c-sharp: 0.23.5(tree-sitter@0.22.4)
-      tree-sitter-cpp: 0.23.4(tree-sitter@0.22.4)
-      tree-sitter-dart: 1.0.0
-      tree-sitter-go: 0.23.4(tree-sitter@0.22.4)
-      tree-sitter-java: 0.23.5(tree-sitter@0.22.4)
-      tree-sitter-kotlin: 0.3.8(tree-sitter@0.22.4)
-      tree-sitter-php: 0.24.2(tree-sitter@0.22.4)
-      tree-sitter-python: 0.23.6(tree-sitter@0.22.4)
-      tree-sitter-ruby: 0.23.1(tree-sitter@0.22.4)
-      tree-sitter-rust: 0.23.3(tree-sitter@0.22.4)
-      tree-sitter-swift: 0.7.1(tree-sitter@0.22.4)
-      tree-sitter-typescript: 0.23.2(tree-sitter@0.22.4)
-      tree-sitter-vue: 0.2.1
-    transitivePeerDependencies:
-      - graphology-types
-      - supports-color
-      - tree_sitter
-
   '@monoes/routing@1.0.1':
     dependencies:
       zod: 3.25.76
@@ -4235,6 +4200,7 @@ snapshots:
       vary: 1.1.2
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   express@5.2.1:
     dependencies:
