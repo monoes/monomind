@@ -215,14 +215,11 @@ describe('monograph.injectGodNodesContext', () => {
 // require.resolve() can't be used here (same exports-map restriction that
 // motivated switching _mgLib itself to dynamic import above) — import.meta.resolve
 // is the ESM-native equivalent and isn't subject to the same "require" condition gate.
+// Resolve via import.meta.resolve FIRST so the fixture uses the same package instance
+// the test imported (_mgLib). The global-install candidates are a CI fallback only;
+// preferring them picks up a stale global copy whose schema/API may diverge from the
+// repo version, silently breaking the DB fixtures.
 const MONOGRAPH_PKG_DIR = (() => {
-  const candidates = [
-    '/opt/homebrew/lib/node_modules/@monoes/monograph',
-    '/usr/local/lib/node_modules/@monoes/monograph',
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(path.join(c, 'package.json'))) return c;
-  }
   try {
     let d = path.dirname(fileURLToPath(import.meta.resolve('@monoes/monograph')));
     while (d !== path.dirname(d)) {
@@ -230,6 +227,13 @@ const MONOGRAPH_PKG_DIR = (() => {
       d = path.dirname(d);
     }
   } catch (_) {}
+  const candidates = [
+    '/opt/homebrew/lib/node_modules/@monoes/monograph',
+    '/usr/local/lib/node_modules/@monoes/monograph',
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, 'package.json'))) return c;
+  }
   return null;
 })();
 
