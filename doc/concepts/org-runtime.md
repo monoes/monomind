@@ -122,13 +122,18 @@ Source: [daemon.ts:L176–L576](file:///Users/morteza/Desktop/tools/monomind/pac
 4. Raises `maxSdkProcesses` to at least `def.roles.length` (prevents SDK throttle).
 5. Creates `OrgBus` (in-memory event tail capped at 1000 events + JSONL disk flush).
 6. Selects boss: `roles.find(r => r.type === 'boss' || r.reports_to === null) ?? roles[0]`.
-7. Resolves runner (daemon.ts:L354–362):
+7. Resolves runner (`resolveRunner()` in daemon.ts):
    ```
    opts.runner
-     ?? (MONOMIND_RUNTIME==='opencode' ? new OpencodeAgentRunner()
-      : MONOMIND_RUNTIME==='kimicode'  ? new KimiCodeAgentRunner()
-      : undefined)          // session.ts falls back to ClaudeAgentRunner
+     ?? resolveRunner(def.runtime)
+   // resolveRunner precedence: org def `runtime` field
+   //   > MONOMIND_RUNTIME env ('opencode' → OpencodeAgentRunner,
+   //     'kimicode' → KimiCodeAgentRunner)
+   //   > undefined          // session.ts falls back to ClaudeAgentRunner
    ```
+   An org def may set a top-level `"runtime": "claude" | "kimicode" | "opencode"`
+   to pin its own runtime regardless of the env var (`"claude"` forces the default
+   Claude path even when `MONOMIND_RUNTIME` selects another runner).
 8. Boss spawns immediately; all other roles are **lazy-spawned** on first `deliver()` message
    (atomic `spawning` guard prevents duplicate spawns).
 9. Starts **idle watchdog** (default 10 min; up to 3 nudges, then `stopOrg()`; disabled with `idle_minutes: 0`).

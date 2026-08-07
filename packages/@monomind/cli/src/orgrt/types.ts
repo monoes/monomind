@@ -80,6 +80,10 @@ export const OrgDefSchema = z.object({
   }).partial().passthrough().default({})
     .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, workspace: 'repo' as string, stale_base_threshold: 0, ...rc })),
   roles: z.array(RoleSchema).min(1),
+  /** Which agent runtime hosts this org's role sessions. When absent, the
+   *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude
+   *  runner. Per-org values override the env var. */
+  runtime: z.enum(['claude', 'kimicode', 'opencode']).optional(),
 }).passthrough();
 
 export type OrgDef = z.infer<typeof OrgDefSchema>;
