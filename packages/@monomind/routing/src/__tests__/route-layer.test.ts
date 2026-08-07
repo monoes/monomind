@@ -131,6 +131,42 @@ describe('RouteLayer', () => {
       const result = await layer.route('implement feature');
       expect(result.agentSlug).toBeDefined();
     });
+
+    it('does not drop pre-configured routes when addRoute runs before initialize (#95)', async () => {
+      // Regression: addRoute() on an uninitialized layer used to set
+      // initialized=true after pushing one centroid, so initialize() returned
+      // early and the configured route table never got centroids.
+      const layer = new RouteLayer(makeConfig({ debug: true })); // 3 configured routes
+      await layer.addRoute({
+        name: 'custom',
+        agentSlug: 'custom-agent',
+        utterances: ['handle custom task', 'do custom work'],
+        threshold: 0.5,
+        fallbackToLLM: false,
+      });
+      const result = await layer.route('implement the login function');
+      // All 3 built-in routes + the added one must participate in scoring
+      expect(result.allScores).toBeDefined();
+      expect(result.allScores!.length).toBe(4);
+      const routeNames = result.allScores!.map(s => s.routeName).sort();
+      expect(routeNames).toEqual(['coder', 'custom', 'reviewer', 'tester']);
+    });
+
+    it('initializes from config when addRoute left centroids incomplete (#95)', async () => {
+      // Same regression, asserting the semantic outcome directly: a query that
+      // clearly matches a built-in route must not be routed to the added route
+      // just because the built-ins lost their centroids.
+      const layer = new RouteLayer(makeConfig());
+      await layer.addRoute({
+        name: 'custom',
+        agentSlug: 'custom-agent',
+        utterances: ['zzzqxv quibblesnack frobnicate', 'zzzqxv wobblenarble'],
+        threshold: 0.5,
+        fallbackToLLM: false,
+      });
+      const result = await layer.route('review this code');
+      expect(result.agentSlug).toBe('reviewer');
+    });
   });
 
   describe('globalThreshold', () => {
