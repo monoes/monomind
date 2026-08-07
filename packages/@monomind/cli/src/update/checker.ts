@@ -5,6 +5,7 @@
 
 import { createRequire } from 'module';
 import { execFileSync } from 'child_process';
+import { npmCommand } from '../utils/npm-command.js';
 // Inline semver shim — avoids external dependency
 const semver = {
   valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
@@ -220,7 +221,7 @@ export function getInstalledVersion(packageName: string): string | null {
 
     // Attempt 3: npm global prefix (covers `npm i -g monomind`)
     try {
-      const prefix = execFileSync('npm', ['prefix', '-g'], { encoding: 'utf8', timeout: 3000 }).trim();
+      const prefix = execFileSync(npmCommand(), ['prefix', '-g'], { encoding: 'utf8', timeout: 3000 }).trim();
       const globalPkg = require(
         require.resolve(`${packageName}/package.json`, { paths: [`${prefix}/lib/node_modules`] })
       );
