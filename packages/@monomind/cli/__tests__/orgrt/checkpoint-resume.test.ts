@@ -4,6 +4,7 @@ import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
+import { generateChecksum } from '../../src/orgrt/checkpoint.js';
 import { existsSync } from 'node:fs';
 
 describe('Semantic Checkpointing (Pattern 3)', () => {
@@ -87,6 +88,10 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     const rt = JSON.parse(readFileSync(rtPath, 'utf8'));
     // Add test messages to the checkpoint
     rt.checkpoint.roleState.boss.mailboxQueue = ['Queued message 1', 'Queued message 2'];
+    // Reseal: resumeOrg validates the checksum over all state, so any manual
+    // edit must recompute it or the checkpoint is (correctly) rejected as tampered.
+    const { checksum: _old, ...state } = rt.checkpoint;
+    rt.checkpoint.checksum = generateChecksum(state);
     writeFileSync(rtPath, JSON.stringify(rt));
 
     // Resume and check mailbox queue was restored
