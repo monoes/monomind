@@ -8,9 +8,8 @@
 //   - History file size cap (rejects oversized files)
 //   - Rate limiter: daily cap, interval enforcement, CI skip
 //
-// NOTE: The executor does NOT pass --ignore-scripts to npm install, and
-// execFileAsync does NOT include a timeout. Both are security gaps
-// documented in the findings section of this issue.
+// The executor passes --ignore-scripts and a timeout to execFileAsync.
+// Tests below verify these security hardening measures.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -72,14 +71,14 @@ function makeUpdate(overrides: Partial<UpdateCheckResult> = {}): UpdateCheckResu
 /** Make execFile resolve successfully. */
 function execFileResolves() {
   execFileMock.mockImplementation(
-    (_cmd: string, _args: string[], cb: (err: Error | null) => void) => cb(null)
+    (_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => cb(null)
   );
 }
 
 /** Make execFile reject with an error. */
 function execFileRejects(msg = 'npm failed') {
   execFileMock.mockImplementation(
-    (_cmd: string, _args: string[], cb: (err: Error | null) => void) =>
+    (_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) =>
       cb(new Error(msg))
   );
 }
@@ -172,29 +171,20 @@ describe('executeUpdate — security boundaries', () => {
     expect(execFileMock).not.toHaveBeenCalled();
   });
 
-  // ---- NOTE: missing --ignore-scripts ----
-
-  it('SECURITY GAP: does NOT pass --ignore-scripts to npm install', async () => {
+  it('passes --ignore-scripts to npm install', async () => {
     execFileResolves();
     await executeUpdate(makeUpdate(), {});
     const args: string[] = execFileMock.mock.calls[0][1];
-    // This test documents the gap. When the fix lands, flip the assertion.
-    expect(args).not.toContain('--ignore-scripts');
+    expect(args).toContain('--ignore-scripts');
   });
 
-  // ---- NOTE: missing timeout ----
-
-  it('SECURITY GAP: execFile callback has no timeout option', async () => {
-    // execFileAsync wraps execFile without a timeout option object.
-    // This test documents the gap. When the fix lands, verify the timeout.
+  it('execFile is called with a timeout option', async () => {
     execFileResolves();
     await executeUpdate(makeUpdate(), {});
-    // execFile receives (cmd, args, callback) — no options object with timeout
     const callArgs = execFileMock.mock.calls[0];
-    // The third argument should be the callback (function), not an options object
-    expect(typeof callArgs[2]).toBe('function');
-    // If a timeout were added, the call would be execFile(cmd, args, {timeout}, cb)
-    // and callArgs[2] would be an object, not a function.
+    expect(typeof callArgs[2]).toBe('object');
+    expect(callArgs[2]).toHaveProperty('timeout');
+    expect(callArgs[2].timeout).toBeGreaterThan(0);
   });
 });
 

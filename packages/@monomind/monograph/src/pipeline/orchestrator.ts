@@ -303,7 +303,6 @@ async function buildIncrementalLocked(
 ): Promise<void> {
   const db = openDb(dbPath);
   const maxSize = options.maxFileSizeBytes ?? DEFAULT_OPTIONS.maxFileSizeBytes;
-  const cache = new ExtractionCache(resolve(join(resolvedRepo, '.monomind', 'parse-cache')));
 
   db.exec('BEGIN');
   try {
@@ -359,10 +358,6 @@ async function buildIncrementalLocked(
           } as MonographNode);
         }
       }
-
-      try {
-        cache.set(absPath, cache.hashContent(source), nodes, edges);
-      } catch { /* non-fatal */ }
 
       insertNodes(db, nodes);
       insertEdges(db, edges);

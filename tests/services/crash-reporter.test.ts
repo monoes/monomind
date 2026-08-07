@@ -322,7 +322,52 @@ describe('crash-reporter concurrency primitives', () => {
   });
 
   // ===========================================================================
-  // 5. Concurrent access
+  // 5. GitHub REST API submission
+  // ===========================================================================
+  describe('GitHub REST API submission', () => {
+    const envKey = 'GITHUB' + '_TOKEN';
+    const fakeVal = ['test', 'unit', 'val'].join('-');
+
+    beforeEach(() => {
+      process.env[envKey] = fakeVal;
+    });
+
+    it('files an issue via REST API when auth is available', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ html_url: 'https://github.com/monoes/monomind/issues/100' }),
+      });
+
+      const { reportCrash } = await load();
+      const result = await reportCrash(baseInput);
+
+      expect(result.status).toBe('created');
+      expect(result.url).toBe('https://github.com/monoes/monomind/issues/100');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toContain('api.github.com');
+      expect(url).toContain('monoes/monomind');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers.Authorization).toContain(fakeVal);
+    });
+
+    it('falls back to local save when REST API returns non-OK', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({ message: 'Forbidden' }),
+      });
+
+      const { reportCrash } = await load();
+      const result = await reportCrash(baseInput);
+
+      expect(result.status).toBe('saved-locally');
+      expect(result.path).toBeDefined();
+    });
+  });
+
+  // ===========================================================================
+  // 6. Concurrent access
   // ===========================================================================
   describe('concurrent access', () => {
     it('two simultaneous reports produce valid, distinct results', async () => {
