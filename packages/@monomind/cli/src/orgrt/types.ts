@@ -17,7 +17,9 @@ export const RolePolicySchema = z.object({
   /** glob patterns relative to org cwd */
   fileWrite: z.array(z.string()).default(['**']),
   fileRead: z.array(z.string()).default(['**']),
-  /** allowed domains for WebFetch/WebSearch; empty array = no web */
+  /** allowed domains for WebFetch/WebSearch; empty array = no web.
+   *  Entries: exact host, subdomain suffix ('example.com' also matches
+   *  'api.example.com'), '*.example.com' wildcard, or '*' for any host. */
   webAllow: z.array(z.string()).optional(),
   maxTokens: z.number().int().positive().optional(),
   /** Git access level: 'none' blocks all git, 'read' allows status/log/diff,

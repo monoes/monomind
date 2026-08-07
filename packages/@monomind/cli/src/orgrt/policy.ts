@@ -119,7 +119,7 @@ export class PolicyEngine {
       if (this.policy.webAllow.length === 0) return deny(`web access disabled for role ${this.role}`);
       if (tool === 'WebFetch') {
         const host = safeHost(String(input.url ?? ''));
-        if (!host || !this.policy.webAllow.some(d => host === d || host.endsWith(`.${d}`)))
+        if (!host || !this.policy.webAllow.some(d => webDomainMatches(d, host)))
           return deny(`domain ${host ?? '?'} not in research allowlist`);
       }
       // WebSearch has no URL up front; allowed if webAllow is non-empty
@@ -127,6 +127,18 @@ export class PolicyEngine {
 
     return allow();
   }
+}
+
+/** webAllow entry matcher. `*` allows any host (the intuitive "no
+ *  restriction" value); `*.example.com` matches the bare domain and every
+ *  subdomain; anything else is an exact host or subdomain suffix match. */
+export function webDomainMatches(pattern: string, host: string): boolean {
+  if (pattern === '*') return true;
+  if (pattern.startsWith('*.')) {
+    const base = pattern.slice(2);
+    return host === base || host.endsWith(`.${base}`);
+  }
+  return host === pattern || host.endsWith(`.${pattern}`);
 }
 
 // Anchored: these are matched against a single extracted subcommand token, so

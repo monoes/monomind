@@ -130,7 +130,13 @@ export class KimiCodeAgentRunner implements AgentRunner {
           turnInputTokens += usage.input;
           turnOutputTokens += usage.output;
 
-          const calls = parseToolCalls(outcome.rawTexts);
+          const malformed: string[] = [];
+          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
+            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+          ));
+          for (const note of malformed) {
+            yield { type: 'assistant', session_id: sessionId, text: note };
+          }
           if (calls.length === 0) break;
 
           if (round === MAX_TOOL_ROUNDS) {

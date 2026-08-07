@@ -60,12 +60,22 @@ Three concrete implementations are available:
 ### 2.2 OpencodeAgentRunner
 
 - **Source:** [`orgrt/opencode-runner.ts:L47`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/opencode-runner.ts#L47)
-- **SDK:** Dynamic import of `@opencode-ai/sdk` (no hard dependency on install).
+- **SDK:** Dynamic import of `@opencode-ai/sdk`, shipped as an
+  **optionalDependency** of `@monoes/monomindcli` since 2.9.x — present after a
+  normal install, but an install failure never breaks the whole CLI. If it is
+  missing (e.g. `--no-optional`), the runner fails with an explicit
+  "Install it (npm i @opencode-ai/sdk)" message.
 - **Activation:** `MONOMIND_RUNTIME=opencode`
 - **Turn timeout:** 2 hours (`TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000`).
+- **Server start timeout:** 30s when spawning an ephemeral server (the SDK
+  default of 5s crashed roles on cold starts).
 - **Tool delivery:** Uses the **Fence Protocol** (`tool-fence.ts`) — org tools are rendered
   in the system prompt as markdown and parsed back from assistant text. Tool rounds capped
-  at `MAX_TOOL_ROUNDS = 10`.
+  at `MAX_TOOL_ROUNDS = 10`. Trailing junk after the JSON object (e.g. an extra
+  `}` — observed from kimi k3) is tolerated by parsing the first balanced JSON
+  object; a truly unparseable fence is surfaced as a `[monomind] ignored
+  malformed tool_call fence …` assistant note on the org bus instead of being
+  silently dropped.
 - **Connects to** an already-running opencode server or spawns an ephemeral one.
 
 ### 2.3 KimiCodeAgentRunner
@@ -216,7 +226,7 @@ Routes `org_send` tool calls:
 | `denyTools` | `[]` | Explicit tool block list |
 | `fileWrite` | `[]` | Glob patterns allowed for writes |
 | `fileRead` | `[]` | Glob patterns allowed for reads |
-| `webAllow` | _(unset)_ | URL prefix allowlist |
+| `webAllow` | _(unset)_ | Domain allowlist for WebFetch/WebSearch: exact host, suffix match, `*.example.com`, or `*` for any host; `[]` = no web |
 | `maxTokens` | _(unset)_ | Per-role token budget override |
 | `git` | `'read'` | `'none'` \| `'read'` \| `'commit'` \| `'push'` |
 

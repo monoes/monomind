@@ -20,6 +20,27 @@ import type { OrgToolDef } from './agent-runner.js';
 /** Fenced block the model uses to call a tool (see buildToolProtocol). */
 export const TOOL_CALL_RE = /```tool_call\s*\n([\s\S]*?)```/g;
 
+/** Return the prefix of `s` ending at the first balanced JSON object/array,
+ *  respecting string literals. Falls back to `s` unchanged when no balanced
+ *  prefix exists (JSON.parse then reports the original error). */
+function firstBalancedJson(s: string): string {
+  let depth = 0, inStr = false, esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\' && inStr) { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{' || c === '[') depth++;
+    else if (c === '}' || c === ']') {
+      depth--;
+      if (depth === 0) return s.slice(0, i + 1);
+      if (depth < 0) return s;
+    }
+  }
+  return s;
+}
+
 /** Max tool_call → tool_result round-trips within a single mailbox prompt.
  *  Guards against a model that keeps calling tools forever. */
 export const MAX_TOOL_ROUNDS = 10;
@@ -93,17 +114,26 @@ function describeZod(schema: z.ZodType<any>): string {
   return desc ? `${kind} — ${desc}` : kind;
 }
 
-/** Extract tool_call fences from raw assistant texts. Invalid JSON or a
- *  missing name is skipped (reported back as an error result is impossible
- *  without a name — so it's silently ignored, matching lenient parsing). */
-export function parseToolCalls(rawTexts: string[]): ToolCall[] {
+/** Extract tool_call fences from raw assistant texts. A fence whose JSON
+ *  cannot be parsed at all is skipped — but NOT silently: `onMalformed` (when
+ *  given) is invoked with the raw fence body and the parse error so callers
+ *  can surface it (runners emit it as an assistant note, which session.ts
+ *  routes to the org bus and scrollback). A parsed object without a string
+ *  `name` is skipped quietly — there is nothing actionable to report. */
+export function parseToolCalls(
+  rawTexts: string[],
+  onMalformed?: (raw: string, error: string) => void,
+): ToolCall[] {
   const calls: ToolCall[] = [];
   for (const text of rawTexts) {
     TOOL_CALL_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = TOOL_CALL_RE.exec(text)) !== null) {
       try {
-        const parsed = JSON.parse(m[1].trim()) as { name?: unknown; arguments?: unknown };
+        // Models sometimes append extra closing braces after the JSON object
+        // (observed with kimi k3: `...}}}`); parse only the first balanced
+        // object instead of rejecting the whole fence.
+        const parsed = JSON.parse(firstBalancedJson(m[1].trim())) as { name?: unknown; arguments?: unknown };
         if (typeof parsed.name !== 'string' || !parsed.name) continue;
         calls.push({
           name: parsed.name,
@@ -111,7 +141,9 @@ export function parseToolCalls(rawTexts: string[]): ToolCall[] {
             ? parsed.arguments as Record<string, unknown>
             : {},
         });
-      } catch { /* malformed fence — ignore */ }
+      } catch (err) {
+        onMalformed?.(m[1].trim(), err instanceof Error ? err.message : String(err));
+      }
     }
   }
   return calls;
