@@ -1,13 +1,13 @@
 /**
  * Memory Migrations
- * Schema column migration and legacy database detection.
+ * Schema column migration for older databases.
  * Extracted from memory-initializer.ts (ARCH-4)
  *
  * @module v1/cli/memory-migrations
  */
 
 import * as fs from 'fs';
-import * as path from 'path';
+import { withDbLock } from '../utils/db-mutex.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
@@ -28,6 +28,7 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       return { success: true, columnsAdded: [] };
     }
 
+    return await withDbLock(dbPath, async () => {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
@@ -46,8 +47,6 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       tableInfo[0]?.values?.map(row => row[1] as string) || []
     );
 
-    // Required columns that may be missing in older schemas
-    // Issue #977: 'type' column was missing from this list, causing store failures on older DBs
     const requiredColumns: Array<{ name: string; definition: string }> = [
       { name: 'content', definition: "content TEXT DEFAULT ''" },
       { name: 'type', definition: "type TEXT DEFAULT 'semantic'" },
@@ -71,14 +70,12 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
           columnsAdded.push(col.name);
           modified = true;
         } catch (e) {
-          // Column might already exist or other error - continue
           if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[ensureSchemaColumns] failed to add column '${col.name}':`, e);
         }
       }
     }
 
     if (modified) {
-      // Save updated database (atomic to avoid corruption on crash)
       const data = db.export();
       const tmp = dbPath + '.tmp';
       fs.writeFileSync(tmp, Buffer.from(data));
@@ -87,6 +84,7 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
 
     db.close();
     return { success: true, columnsAdded };
+    });
   } catch (error) {
     return {
       success: false,
@@ -96,72 +94,3 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
   }
 }
 
-/**
- * Check for legacy database installations and migrate if needed
- */
-export async function checkAndMigrateLegacy(options: {
-  dbPath: string;
-  verbose?: boolean;
-}): Promise<{
-  needsMigration: boolean;
-  legacyVersion?: string;
-  legacyEntries?: number;
-  migrated?: boolean;
-  migratedCount?: number;
-}> {
-  const { dbPath, verbose = false } = options;
-
-  // Check for legacy locations
-  const legacyPaths = [
-    path.join(process.cwd(), 'memory.db'),
-    path.join(process.cwd(), '.claude/memory.db'),
-    path.join(process.cwd(), 'data/memory.db'),
-    path.join(process.cwd(), '.monomind/memory.db')
-  ];
-
-  for (const legacyPath of legacyPaths) {
-    if (fs.existsSync(legacyPath) && legacyPath !== dbPath) {
-      try {
-        const initSqlJs = (await import('sql.js')).default;
-        const SQL = await initSqlJs();
-
-        // Guard against excessively large legacy DB files to prevent OOM.
-        const legacyStat = fs.statSync(legacyPath);
-        if (legacyStat.size > MAX_DB_FILE_BYTES) {
-          if (verbose) {
-            console.warn(`[memory] Skipping legacy DB at ${legacyPath}: file too large (${legacyStat.size} bytes)`);
-          }
-          continue;
-        }
-
-        const legacyBuffer = fs.readFileSync(legacyPath);
-        const legacyDb = new SQL.Database(legacyBuffer);
-
-        // Check if it has data
-        const countResult = legacyDb.exec('SELECT COUNT(*) FROM memory_entries');
-        const count = countResult[0]?.values[0]?.[0] as number || 0;
-
-        // Get version if available
-        let version = 'unknown';
-        try {
-          const versionResult = legacyDb.exec("SELECT value FROM metadata WHERE key='schema_version'");
-          version = versionResult[0]?.values[0]?.[0] as string || 'unknown';
-        } catch { /* no metadata table */ }
-
-        legacyDb.close();
-
-        if (count > 0) {
-          return {
-            needsMigration: true,
-            legacyVersion: version,
-            legacyEntries: count
-          };
-        }
-      } catch {
-        // Not a valid SQLite database, skip
-      }
-    }
-  }
-
-  return { needsMigration: false };
-}

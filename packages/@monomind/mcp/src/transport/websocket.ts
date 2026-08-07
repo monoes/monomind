@@ -16,6 +16,7 @@ import type {
   MCPNotification,
   RequestHandler,
   NotificationHandler,
+  ConnectionCloseHandler,
   TransportHealthStatus,
   ILogger,
   AuthConfig,
@@ -48,6 +49,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
 
   private requestHandler?: RequestHandler;
   private notificationHandler?: NotificationHandler;
+  private connectionCloseHandler?: ConnectionCloseHandler;
   private server?: Server;
   private wss?: WebSocketServer;
   private clients: Map<string, ClientConnection> = new Map();
@@ -191,6 +193,10 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
     this.notificationHandler = handler;
   }
 
+  onConnectionClose(handler: ConnectionCloseHandler): void {
+    this.connectionCloseHandler = handler;
+  }
+
   async getHealthStatus(): Promise<TransportHealthStatus> {
     return {
       healthy: this.running,
@@ -305,12 +311,14 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
           total: this.clients.size,
         });
         this.emit('client:disconnected', clientId);
+        this.connectionCloseHandler?.(clientId);
       });
 
       ws.on('error', (error) => {
         this.logger.error('Client error', { id: clientId, error });
         this.errors++;
         this.clients.delete(clientId);
+        this.connectionCloseHandler?.(clientId);
       });
 
       this.emit('client:connected', clientId);
@@ -356,7 +364,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
 
       if (message.id === undefined) {
         if (this.notificationHandler) {
-          await this.notificationHandler(message as MCPNotification);
+          await this.notificationHandler(message as MCPNotification, client.id);
         }
       } else {
         if (!this.requestHandler) {
@@ -369,7 +377,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
         }
 
         const startTime = performance.now();
-        const response = await this.requestHandler(message as MCPRequest);
+        const response = await this.requestHandler(message as MCPRequest, client.id);
         const duration = performance.now() - startTime;
 
         this.logger.debug('Request processed', {

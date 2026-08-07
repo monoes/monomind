@@ -44,9 +44,8 @@ export {
 export type { UpdateHistoryEntry, UpdateExecutionResult } from './executor.js';
 
 // Re-export a convenience function for startup
-import { checkForUpdates, DEFAULT_CONFIG, getInstalledVersion } from './checker.js';
+import { checkForUpdates, DEFAULT_CONFIG } from './checker.js';
 import type { UpdateCheckResult } from './checker.js';
-import { executeMultipleUpdates } from './executor.js';
 import { getCachedVersions } from './rate-limiter.js';
 // Inline semver shim — avoids external dependency (semver is not listed in package.json)
 const semver = {
@@ -69,7 +68,6 @@ const semver = {
  * Synchronous — reads cached state from last check.
  * Returns a short inline string for the CLI version tagline, e.g.
  *   "  ↑ v1.11.12 available"
- *   "  ↑ v1.11.12 installing..."
  *   "  ✓ up to date"
  *   ""  (no cache yet)
  */
@@ -119,34 +117,10 @@ export async function runStartupUpdateCheck(options: {
     result.checked = true;
     result.updatesAvailable = results;
 
-    // Auto-update if enabled
-    if (options.autoUpdate !== false) {
-      const autoUpdateable = results.filter((r) => r.shouldAutoUpdate);
-
-      if (autoUpdateable.length > 0) {
-        // Notify caller before installation begins
-        options.onInstalling?.(autoUpdateable.map(u => `${u.package}@${u.latestVersion}`));
-
-        // Get current installed packages
-        const installedPackages: Record<string, string> = {};
-        for (const update of autoUpdateable) {
-          const version = getInstalledVersion(update.package);
-          if (version) {
-            installedPackages[update.package] = version;
-          }
-        }
-
-        // Execute updates
-        const updateResults = await executeMultipleUpdates(
-          autoUpdateable,
-          installedPackages
-        );
-
-        result.updatesApplied = updateResults
-          .filter((r) => r.success)
-          .map((r) => `${r.package}@${r.version}`);
-      }
-    }
+    // Notify-only: never auto-install on startup (GitHub issue #83).
+    // The old code ran `npm install` with inherited cwd, silently modifying
+    // the user's project package.json instead of updating the global CLI.
+    // We still populate updatesAvailable so callers can display a message.
 
     return result;
   } catch {

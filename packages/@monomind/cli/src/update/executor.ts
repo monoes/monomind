@@ -156,7 +156,9 @@ export async function executeUpdate(
     if (!semver.valid(version)) {
       throw new Error(`Invalid version: ${version}`);
     }
-    await execFileAsync('npm', ['install', `${pkg}@${version}`, '--save-exact']);
+    // Install globally — -g is critical: without it npm installs into the
+    // user's cwd, silently modifying their project package.json (#83).
+    await execFileAsync('npm', ['install', '-g', `${pkg}@${version}`, '--save-exact']);
 
     // Record successful update
     recordUpdate({
@@ -255,7 +257,8 @@ export async function rollbackUpdate(
     if (!semver.valid(version)) {
       throw new Error(`Invalid version: ${version}`);
     }
-    await execFileAsync('npm', ['install', `${pkg}@${version}`, '--save-exact']);
+    // Install globally — prevents modifying the user's project (#83).
+    await execFileAsync('npm', ['install', '-g', `${pkg}@${version}`, '--save-exact']);
 
     // Record the rollback
     recordUpdate({

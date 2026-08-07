@@ -490,9 +490,20 @@ export interface CompletionResult {
 // Transport Types
 // ============================================================================
 
-export type RequestHandler = (request: MCPRequest) => Promise<MCPResponse>;
+// `connectionId` identifies the physical client connection a message arrived
+// on (a WebSocket socket, or an HTTP keep-alive TCP connection). Transports
+// that are inherently single-client (stdio, in-process) omit it, which tells
+// MCPServer to fall back to its single-session behavior. Transports that can
+// serve multiple concurrent clients (http, websocket) must supply a stable
+// id per connection so MCPServer can keep sessions isolated per client.
+export type RequestHandler = (request: MCPRequest, connectionId?: string) => Promise<MCPResponse>;
 
-export type NotificationHandler = (notification: MCPNotification) => Promise<void>;
+export type NotificationHandler = (notification: MCPNotification, connectionId?: string) => Promise<void>;
+
+// Called with a transport-assigned connectionId when the underlying
+// connection (WebSocket, TCP socket) closes, so the server can tear down any
+// session bound to that connection.
+export type ConnectionCloseHandler = (connectionId: string) => void;
 
 export interface TransportHealthStatus {
   healthy: boolean;
@@ -506,6 +517,7 @@ export interface ITransport {
   stop(): Promise<void>;
   onRequest(handler: RequestHandler): void;
   onNotification(handler: NotificationHandler): void;
+  onConnectionClose?(handler: ConnectionCloseHandler): void;
   sendNotification?(notification: MCPNotification): Promise<void>;
   getHealthStatus(): Promise<TransportHealthStatus>;
 }

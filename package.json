@@ -30,6 +30,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:security": "vitest run tests/security/",
+    "test:semantic-eval": "node --test tests/memory/cognee-port-eval.test.mjs",
     "security:audit": "npm audit --audit-level high",
     "security:fix": "npm audit fix",
     "security:test": "npm run test:security",

@@ -12,6 +12,7 @@ import { safeParseEmbedding } from './memory-bridge.js';
 import { ensureSchemaColumns } from './memory-migrations.js';
 import { generateEmbedding } from './embedding-operations.js';
 import { addToHNSWIndex, rebuildSearchIndex } from './hnsw-operations.js';
+import { withDbLock } from '../utils/db-mutex.js';
 
 // Re-export read operations so existing callers keep working without changes.
 export { searchEntries, listEntries, getEntry } from './memory-read.js';
@@ -57,6 +58,7 @@ export async function verifyMemoryInit(dbPath: string, options?: {
   const tests: { name: string; passed: boolean; details?: string; duration?: number }[] = [];
 
   try {
+    return await withDbLock(dbPath, async () => {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
     const fs = await import('fs');
@@ -230,6 +232,7 @@ export async function verifyMemoryInit(dbPath: string, options?: {
         total: tests.length
       }
     };
+    });
   } catch (error) {
     return {
       success: false,
@@ -291,6 +294,7 @@ export async function storeEntry(options: {
 
     await ensureSchemaColumns(dbPath);
 
+    return await withDbLock(dbPath, async () => {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
@@ -302,20 +306,9 @@ export async function storeEntry(options: {
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
 
-    // memory_entries has no UNIQUE constraint on (key, namespace) — only
-    // `id TEXT PRIMARY KEY`. `INSERT OR REPLACE` only replaces a row when
-    // its PRIMARY KEY collides, so generating a fresh id on every call (as
-    // this used to do unconditionally) meant upsert never actually matched
-    // the existing row for a given key+namespace — it silently inserted a
-    // duplicate instead of replacing it. When upserting, look up the
-    // existing row's real id first and reuse it so the replace actually
-    // collides; only mint a new id when no existing row is found.
     let id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     let existingCreatedAt: number | null = null;
     if (upsert) {
-      // Only match active rows — a soft-deleted row's key+namespace should
-      // not be resurrected by an unrelated upsert; that would both restore
-      // history a delete intentionally cleared and mask the deletion.
       const existingIdResult = db.exec(
         "SELECT id, created_at FROM memory_entries WHERE key = ? AND namespace = ? AND status = 'active' LIMIT 1",
         [key, namespace]
@@ -394,6 +387,7 @@ export async function storeEntry(options: {
       id,
       embedding: embeddingJson ? { dimensions: embeddingDimensions!, model: embeddingModel! } : undefined
     };
+    });
   } catch (error) {
     return {
       success: false,
@@ -470,6 +464,7 @@ export async function deleteEntry(options: {
 
     await ensureSchemaColumns(dbPath);
 
+    return await withDbLock(dbPath, async () => {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
@@ -541,6 +536,7 @@ export async function deleteEntry(options: {
       namespace,
       remainingEntries
     };
+    });
   } catch (error) {
     return {
       success: false,

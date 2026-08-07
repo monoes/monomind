@@ -1,6 +1,7 @@
 import { readFile, mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
+import { withDbLock } from '../../utils/db-mutex.js';
 import type { WorkflowDef, RunRecord } from './types.js';
 
 export class WorkflowStoreError extends Error {
@@ -74,10 +75,10 @@ async function getDb() {
     last_used_at INTEGER NOT NULL
   )`);
 
-  return { db, flush: async () => {
+  return { db, flush: () => withDbLock(DB_PATH, async () => {
     const data = db.export();
     await writeFile(DB_PATH, Buffer.from(data));
-  }};
+  })};
 }
 
 export async function writeRunRecord(record: RunRecord): Promise<void> {

@@ -94,6 +94,16 @@ jobs:
         env:
           CI: true
 
+      # Separate process, not vitest: the local MiniLM embedding model does not
+      # reliably load inside vitest's worker-pool sandbox, which silently
+      # skipped every semantic-quality assertion here instead of running it
+      # (GH issue #32). node --test loads the model directly, so hit-rate/
+      # blend/rule-dedup checks actually execute in CI.
+      - name: Run semantic eval assertions
+        run: npm run test:semantic-eval
+        env:
+          CI: true
+
   windows:
     name: ${{ matrix.name }} (windows)
     runs-on: windows-latest

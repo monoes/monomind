@@ -443,25 +443,15 @@ export class CLI {
     try {
       const result = await runStartupUpdateCheck({
         autoUpdate: true,
-        onInstalling: (pkgs) => {
-          this.output.writeln(
-            this.output.dim(`  ↑ installing ${pkgs.join(', ')}...`)
-          );
-        },
       });
 
       if (!result.checked) return;
 
-      if (result.updatesApplied.length > 0) {
+      // Notify-only: never auto-install (GitHub issue #83).
+      const available = result.updatesAvailable.filter(u => u.updateType !== 'none');
+      if (available.length > 0) {
         this.output.writeln(
-          this.output.dim(`  ✓ updated ${result.updatesApplied.join(', ')}`)
-        );
-      }
-
-      const manual = result.updatesAvailable.filter(u => !u.shouldAutoUpdate);
-      if (manual.length > 0) {
-        this.output.writeln(
-          this.output.dim(`  ↑ ${manual.map(u => `${u.package} v${u.latestVersion}`).join(', ')} available  →  run: ${this.name} update all`)
+          this.output.dim(`  ↑ ${available.map(u => `${u.package} v${u.latestVersion}`).join(', ')} available  →  run: npm install -g ${this.name}@latest`)
         );
       }
     } catch {

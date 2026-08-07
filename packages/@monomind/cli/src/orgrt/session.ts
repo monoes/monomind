@@ -216,79 +216,113 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
     // and yielded NOTHING - no assistant message, no result, no error, and no
     // stream end. The only symptom was the idle watchdog reporting the boss
     // "appears hung" twenty minutes later, which described neither the scope
-    // (every role) nor the cause. Name the condition at the one place that can
-    // see it: the stream itself. Cleared as soon as any message arrives, so a
-    // healthy session never emits it.
+    // (every role) nor the cause.
+    //
+    // Naming it used to be all this did: log an audit event at 4 minutes and
+    // then keep waiting on the same stuck `for await`, so recovery still
+    // depended on the org-wide idle watchdog (10m nudge + 10m stop = 20m of
+    // dead time per cycle - and it kills the WHOLE run, not just the stuck
+    // session). Only the FIRST pull from the stream is raced against the
+    // timeout: once any message has arrived the session is demonstrably
+    // alive, so a slow-but-working tool call is never mistaken for a stall.
+    // On silence, abandon this attempt (best-effort iterator.return() to
+    // signal the SDK) and throw - the caller's crash-retry-with-backoff loop
+    // (daemon.ts's `runtime.done`) already knows how to retry a failed
+    // session with a fresh query() call and, for the boss, escalate to a
+    // whole-org restart if it keeps failing. That gives the SDK several
+    // fresh attempts within a single cycle instead of one silent attempt
+    // followed by twenty minutes of nothing.
     const openedAt = Date.now();
     const detector = new StateDetector();
-    let sawAnyMessage = false;
-    const silentAlarm = setTimeout(() => {
-      if (sawAnyMessage) return;
+    const iterator = stream[Symbol.asyncIterator]();
+    const SILENT = Symbol('silent');
+    let silentTimer: ReturnType<typeof setTimeout> | undefined;
+    const firstPull = await Promise.race([
+      iterator.next(),
+      new Promise<typeof SILENT>(resolve => {
+        silentTimer = setTimeout(() => resolve(SILENT), SILENT_SESSION_MS);
+        (silentTimer as { unref?: () => void }).unref?.();
+      }),
+    ]);
+    clearTimeout(silentTimer);
+    if (firstPull === SILENT) {
       bus.emit({
         type: 'audit', from: role.id, reason: 'session-silent',
-        msg: `SDK stream open ${Math.round((Date.now() - openedAt) / 1000)}s with zero messages - not an error, not an end, nothing. Set MONOMIND_DEBUG=1 to log raw message types.`,
+        msg: `SDK stream open ${Math.round((Date.now() - openedAt) / 1000)}s with zero messages - aborting this attempt and retrying. Set MONOMIND_DEBUG=1 to log raw message types.`,
       });
-    }, SILENT_SESSION_MS);
-    (silentAlarm as { unref?: () => void }).unref?.();
+      try {
+        await Promise.race([
+          iterator.return?.(undefined) ?? Promise.resolve(),
+          new Promise<void>(r => { const t = setTimeout(() => r(), 2_000); (t as { unref?: () => void }).unref?.(); }),
+        ]);
+      } catch { /* best-effort */ }
+      throw new Error(`org "${org}" role "${role.id}": SDK stream silent for ${Math.round(SILENT_SESSION_MS / 1000)}s with zero messages`);
+    }
+    const first: IteratorResult<AgentMessage> = firstPull;
 
-    try {
-      for await (const m of stream) {
-        if (!sawAnyMessage) { sawAnyMessage = true; clearTimeout(silentAlarm); }
-        if (process.env.MONOMIND_DEBUG) {
-          console.error(`[orgrt:${org}/${role.id}] runner message type=${m.type} subtype=${String(m.subtype ?? '-')}`);
+    // Replay the first pulled message, then continue draining normally.
+    async function* rest(): AsyncGenerator<AgentMessage> {
+      if (!first.done) yield first.value;
+      while (true) {
+        const r = await iterator.next();
+        if (r.done) return;
+        yield r.value;
+      }
+    }
+
+    for await (const m of rest()) {
+      if (process.env.MONOMIND_DEBUG) {
+        console.error(`[orgrt:${org}/${role.id}] runner message type=${m.type} subtype=${String(m.subtype ?? '-')}`);
+      }
+      if (m.session_id) sessionId = m.session_id;
+      const prevState = detector.current();
+      const textForDetect = m.type === 'assistant' ? (m.text || '') : undefined;
+      const newState = detector.onMessage(m.type, m.subtype, textForDetect);
+      if (newState !== prevState) {
+        bus.emit({ type: 'status', from: role.id, reason: 'state-change', msg: `${prevState} → ${newState}`, data: { from: prevState, to: newState } });
+      }
+      if (m.type === 'assistant') {
+        const text = m.text || '';
+        if (text.trim()) {
+          opts.onOutput?.(text);
+          bus.emit({ type: 'chat', from: role.id, msg: text, parentId: getLastMessageId() });
+          if (opts.onContextLimit && !contextLimitFired && CONTEXT_LIMIT_RE.test(text)) {
+            contextLimitFired = true;
+            bus.emit({ type: 'audit', from: role.id, reason: 'boss-context-limit', msg: 'coordinator context window exhausted — requesting whole-org restart with fresh sessions' });
+            opts.onContextLimit();
+          }
         }
-        if (m.session_id) sessionId = m.session_id;
-        const prevState = detector.current();
-        const textForDetect = m.type === 'assistant' ? (m.text || '') : undefined;
-        const newState = detector.onMessage(m.type, m.subtype, textForDetect);
-        if (newState !== prevState) {
-          bus.emit({ type: 'status', from: role.id, reason: 'state-change', msg: `${prevState} → ${newState}`, data: { from: prevState, to: newState } });
-        }
-        if (m.type === 'assistant') {
-          const text = m.text || '';
-          if (text.trim()) {
-            opts.onOutput?.(text);
-            bus.emit({ type: 'chat', from: role.id, msg: text, parentId: getLastMessageId() });
-            if (opts.onContextLimit && !contextLimitFired && CONTEXT_LIMIT_RE.test(text)) {
-              contextLimitFired = true;
-              bus.emit({ type: 'audit', from: role.id, reason: 'boss-context-limit', msg: 'coordinator context window exhausted — requesting whole-org restart with fresh sessions' });
-              opts.onContextLimit();
+      } else if (m.type === 'result') {
+        const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
+        policy.addUsage(tokens);
+        bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: m.cost_usd, subtype: m.subtype } });
+        if (m.subtype && m.subtype !== 'success') {
+          if (m.subtype === 'error_max_turns') hitTurnLimit = true;
+          bus.emit({
+            type: 'audit', from: role.id, reason: 'session-result-error',
+            msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} - the role produced no usable output`,
+          });
+          if (opts.circuitBreaker && m.subtype !== 'error_max_turns') {
+            const cb = opts.circuitBreaker;
+            cb.state.failures++;
+            if (cb.state.failures >= cb.threshold) {
+              cb.state.tripped = true;
+              bus.emit({
+                type: 'audit', from: role.id, reason: 'circuit-breaker-tripped',
+                msg: `circuit breaker tripped after ${cb.state.failures} consecutive failures — closing role`,
+                data: { failures: cb.state.failures, threshold: cb.threshold },
+              });
+              mailbox.close();
             }
           }
-        } else if (m.type === 'result') {
-          const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
-          policy.addUsage(tokens);
-          bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: m.cost_usd, subtype: m.subtype } });
-          if (m.subtype && m.subtype !== 'success') {
-            if (m.subtype === 'error_max_turns') hitTurnLimit = true;
-            bus.emit({
-              type: 'audit', from: role.id, reason: 'session-result-error',
-              msg: `turn ended with subtype "${m.subtype}"${m.is_error ? ' (is_error)' : ''} - the role produced no usable output`,
-            });
-            if (opts.circuitBreaker && m.subtype !== 'error_max_turns') {
-              const cb = opts.circuitBreaker;
-              cb.state.failures++;
-              if (cb.state.failures >= cb.threshold) {
-                cb.state.tripped = true;
-                bus.emit({
-                  type: 'audit', from: role.id, reason: 'circuit-breaker-tripped',
-                  msg: `circuit breaker tripped after ${cb.state.failures} consecutive failures — closing role`,
-                  data: { failures: cb.state.failures, threshold: cb.threshold },
-                });
-                mailbox.close();
-              }
-            }
-          } else if (m.subtype === 'success' && opts.circuitBreaker) {
-            opts.circuitBreaker.state.failures = 0;
-          }
-          if (policy.overBudget) {
-            bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });
-            mailbox.close();
-          }
+        } else if (m.subtype === 'success' && opts.circuitBreaker) {
+          opts.circuitBreaker.state.failures = 0;
+        }
+        if (policy.overBudget) {
+          bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });
+          mailbox.close();
         }
       }
-    } finally {
-      clearTimeout(silentAlarm);
     }
     bus.emit({ type: 'status', from: role.id, msg: 'session ended' });
     return { sessionId, hitTurnLimit };

@@ -49,6 +49,13 @@ export interface SQLiteBackendConfig {
 
   /** Enable verbose logging */
   verbose: boolean;
+
+  /** SQLite busy timeout in milliseconds. When another connection holds a lock,
+   *  SQLite will wait up to this long before returning SQLITE_BUSY. Default: 0
+   *  (fail immediately). Callers sharing a database across processes (e.g. CLI
+   *  hooks and the MCP server hitting the same memory.db) should set this to
+   *  several seconds (e.g. 5000). */
+  busyTimeoutMs: number;
 }
 
 const DEFAULT_CONFIG: SQLiteBackendConfig = {
@@ -58,6 +65,7 @@ const DEFAULT_CONFIG: SQLiteBackendConfig = {
   defaultNamespace: 'default',
   maxEntries: 1000000,
   verbose: false,
+  busyTimeoutMs: 0,
 };
 
 /**
@@ -105,6 +113,7 @@ export class SQLiteBackend extends SqlBackend {
       verbose: this.sqliteConfig.verbose ? console.log : undefined,
     });
 
+    if (this.sqliteConfig.busyTimeoutMs > 0) db.pragma(`busy_timeout = ${this.sqliteConfig.busyTimeoutMs}`);
     if (this.sqliteConfig.walMode) db.pragma('journal_mode = WAL');
     if (this.sqliteConfig.optimize) {
       db.pragma('synchronous = NORMAL');

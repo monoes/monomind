@@ -124,12 +124,12 @@ describe('switchToFrame', () => {
     frameTree: { childFrames: [{ frame: { id: 'F1', url, securityOrigin: 'https://f.test' } }] },
   });
 
-  it('returns null when the selector does not resolve to an IFRAME', async () => {
+  it('returns null url when the selector does not resolve to an IFRAME', async () => {
     const { client, calls } = stubClient({
       'Runtime.evaluate': { result: { result: { value: null } } },
       'Page.getFrameTree': { frameTree: {} },
     });
-    await expect(switchToFrame(client, 'S1', 'div.not-a-frame')).resolves.toBeNull();
+    await expect(switchToFrame(client, 'S1', 'div.not-a-frame')).resolves.toEqual({ url: null, sessionId: null });
     // The selector is embedded as a JSON string literal, never interpolated raw.
     const expr = (calls[0]!.params as { expression: string }).expression;
     expect(expr).toContain('document.querySelector("div.not-a-frame")');
@@ -145,17 +145,17 @@ describe('switchToFrame', () => {
     expect(expr).toContain(JSON.stringify('iframe[title="a\\"b"]'));
   });
 
-  it('returns the frame src and skips OOPIF attach when no target matches', async () => {
+  it('returns the frame src with null sessionId when no OOPIF target matches', async () => {
     const { client, calls } = stubClient({
       'Runtime.evaluate': { result: { result: { value: 'https://f.test/frame' } } },
       'Page.getFrameTree': frameTreeWith('https://f.test/frame'),
       'Target.getTargets': { targetInfos: [{ targetId: 'T1', type: 'page', url: 'https://x.test' }] },
     });
-    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toBe('https://f.test/frame');
+    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({ url: 'https://f.test/frame', sessionId: null });
     expect(calls.map((c) => c.method)).not.toContain('Target.attachToTarget');
   });
 
-  it('attaches flat to a matching out-of-process iframe target', async () => {
+  it('attaches flat to a matching OOPIF target and returns its sessionId', async () => {
     const { client, calls } = stubClient({
       'Runtime.evaluate': { result: { result: { value: 'https://f.test/frame' } } },
       'Page.getFrameTree': frameTreeWith('https://f.test/frame'),
@@ -165,19 +165,19 @@ describe('switchToFrame', () => {
           { targetId: 'T-OOPIF', type: 'iframe', url: 'https://f.test/frame' },
         ],
       },
+      'Target.attachToTarget': { sessionId: 'S-FRAME' },
     });
-    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toBe('https://f.test/frame');
+    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({ url: 'https://f.test/frame', sessionId: 'S-FRAME' });
     const attach = calls.find((c) => c.method === 'Target.attachToTarget');
-    // Must pick the iframe target, not the same-URL page target.
     expect(attach!.params).toEqual({ targetId: 'T-OOPIF', flatten: true });
   });
 
-  it('returns the src without probing targets when the frame tree has no match', async () => {
+  it('returns the src with null sessionId when the frame tree has no match', async () => {
     const { client, calls } = stubClient({
       'Runtime.evaluate': { result: { result: { value: 'https://f.test/frame' } } },
       'Page.getFrameTree': frameTreeWith('https://other.test/elsewhere'),
     });
-    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toBe('https://f.test/frame');
+    await expect(switchToFrame(client, 'S1', 'iframe')).resolves.toEqual({ url: 'https://f.test/frame', sessionId: null });
     expect(calls.map((c) => c.method)).not.toContain('Target.getTargets');
   });
 });

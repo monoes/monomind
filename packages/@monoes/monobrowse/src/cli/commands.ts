@@ -16,6 +16,8 @@ let _sessionId = '';
 let _targetId = '';
 let _port = DEFAULT_PORT;
 let _refs: Map<string, ElementRef> = new Map();
+// Saved parent sessionId when inside an iframe — restored by `frame main`.
+let _parentSessionId = '';
 
 async function getBrowser() {
   return import('../index.js');
@@ -62,6 +64,7 @@ async function ensureConnected(port: number, targetId?: string) {
     _client = conn.client;
     _sessionId = conn.sessionId;
     _targetId = conn.target.id;
+    _parentSessionId = '';
     _refs = new Map();
     await hydrateRefsFromCache(browser, _targetId, conn.target.url);
   }
@@ -157,6 +160,7 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
     _client.close();
     _client = null;
     _sessionId = '';
+    _parentSessionId = '';
     _targetId = '';
   }
 
@@ -203,6 +207,7 @@ async function switchToHeaded(url: string, port: number): Promise<void> {
   _client.close();
   _client = null;
   _sessionId = '';
+  _parentSessionId = '';
   _targetId = '';
 
   // Relaunch headless and restore session
@@ -277,6 +282,7 @@ const openCommand: Command = {
       prevClient.close();
       _client = null;
       _sessionId = '';
+      _parentSessionId = '';
       _targetId = '';
       _refs = new Map();
     }
@@ -1275,6 +1281,7 @@ const closeCommand: Command = {
       client.close();
       _client = null;
       _sessionId = '';
+      _parentSessionId = '';
       _targetId = '';
       _refs = new Map();
       // Session is gone — forget the persisted port and stale refs so later
@@ -1919,10 +1926,23 @@ const frameCommand: Command = {
     if (!target) throw new Error('Usage: monomind browse frame <selector>|main');
 
     if (target === 'main') {
+      if (_parentSessionId) {
+        // Detach from the OOPIF session (best-effort — it may already be gone)
+        await client.send('Target.detachFromTarget', { sessionId: _sessionId }).catch(() => {});
+        _sessionId = _parentSessionId;
+        _parentSessionId = '';
+      }
       output.printSuccess('Switched to main frame');
     } else {
-      const frameSrc = await browser.switchToFrame(client, sessionId, target);
-      output.printSuccess(`Switched to frame: ${frameSrc ?? target}`);
+      const frameResult = await browser.switchToFrame(client, sessionId, target);
+      if (frameResult.sessionId) {
+        // Save the parent session so `frame main` can restore it
+        _parentSessionId = _sessionId;
+        _sessionId = frameResult.sessionId;
+        // Enable CDP domains on the iframe's session so subsequent commands work
+        await browser.enableSessionDomains(client, _sessionId);
+      }
+      output.printSuccess(`Switched to frame: ${frameResult.url ?? target}`);
     }
     return { success: true };
   },
@@ -1974,6 +1994,7 @@ const tabCommand: Command = {
           client.close();
           _client = null;
           _sessionId = '';
+          _parentSessionId = '';
           _targetId = '';
           _refs = new Map();
         } else {
@@ -2726,6 +2747,7 @@ const connectCommand: Command = {
       prevClient.close();
       _client = null;
       _sessionId = '';
+      _parentSessionId = '';
       _targetId = '';
       _refs = new Map();
     }

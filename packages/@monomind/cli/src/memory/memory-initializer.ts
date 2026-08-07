@@ -12,6 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
+import { withDbLock } from '../utils/db-mutex.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
@@ -55,7 +56,6 @@ export {
 
 export {
   ensureSchemaColumns,
-  checkAndMigrateLegacy,
 } from './memory-migrations.js';
 
 export {
@@ -79,7 +79,7 @@ export {
 // ============================================================================
 
 import { MEMORY_SCHEMA } from './memory-schema.js';
-import { checkAndMigrateLegacy, ensureSchemaColumns } from './memory-migrations.js';
+import { ensureSchemaColumns } from './memory-migrations.js';
 import { rebuildSearchIndex } from './hnsw-operations.js';
 import {
   verifyMemoryInit,
@@ -210,14 +210,12 @@ export async function initializeMemoryDatabase(options: {
   dbPath?: string;
   force?: boolean;
   verbose?: boolean;
-  migrate?: boolean;
 }): Promise<MemoryInitResult> {
   const {
     backend = 'hybrid',
     dbPath: customPath,
     force = false,
     verbose = false,
-    migrate = true
   } = options;
 
   const swarmDir = path.join(process.cwd(), '.swarm');
@@ -228,14 +226,6 @@ export async function initializeMemoryDatabase(options: {
     // Create directory if needed
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true });
-    }
-
-    // Check for legacy installations
-    if (migrate) {
-      const legacyCheck = await checkAndMigrateLegacy({ dbPath, verbose });
-      if (legacyCheck.needsMigration && verbose) {
-        console.log(`Found legacy database (v${legacyCheck.legacyVersion}) with ${legacyCheck.legacyEntries} entries`);
-      }
     }
 
     // Check existing database
@@ -481,10 +471,10 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
   const path_ = dbPath || path.join(swarmDir, 'memory.db');
 
   try {
+    return await withDbLock(path_, async () => {
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
-    // Guard against excessively large DB files to prevent OOM.
     const decayStat = fs.statSync(path_);
     if (decayStat.size > MAX_DB_FILE_BYTES) {
       return { success: false, patternsDecayed: 0, error: `Database file too large: ${decayStat.size} bytes` };
@@ -493,7 +483,6 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
     const fileBuffer = fs.readFileSync(path_);
     const db = new SQL.Database(fileBuffer);
 
-    // Apply decay: confidence *= exp(-decay_rate * days_since_last_use)
     const now = Date.now();
     const decayQuery = `
       UPDATE patterns
@@ -509,7 +498,6 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 
     const changes = db.getRowsModified();
 
-    // Save atomically
     const data = db.export();
     const dbTmpDecay = path_ + '.tmp';
     fs.writeFileSync(dbTmpDecay, Buffer.from(data));
@@ -520,6 +508,7 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
       success: true,
       patternsDecayed: changes
     };
+    });
   } catch (error) {
     return {
       success: false,
@@ -532,7 +521,6 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 export default {
   initializeMemoryDatabase,
   checkMemoryInitialization,
-  checkAndMigrateLegacy,
   ensureSchemaColumns,
   applyTemporalDecay,
   loadEmbeddingModel,
