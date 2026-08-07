@@ -150,6 +150,15 @@ export class RouteLayer {
     const centroid = computeCentroid(vectors);
     this.centroids.push({ route, centroid });
     this.config.routes.push(route);
-    if (!this.initialized) this.initialized = true;
+    // Only mark initialized when centroids cover every configured route. If
+    // addRoute() runs before initialize() on a non-empty route table, the
+    // pre-existing config.routes still lack centroids — setting initialized
+    // here would make initialize() return early and silently drop the whole
+    // configured table. Leaving it false lets the next initialize() (called
+    // automatically by route()) compute centroids for all routes, including
+    // this one.
+    if (!this.initialized && this.centroids.length === this.config.routes.length) {
+      this.initialized = true;
+    }
   }
 }

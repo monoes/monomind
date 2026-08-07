@@ -1,97 +1,149 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+/**
+ * Consolidation lock coordination — drives the REAL implementations:
+ * - lock acquire/release/stale-override via claimLock/releaseLock from
+ *   .claude/helpers/utils/fs-helpers.cjs (the primitive the daemon-side
+ *   code uses for .monomind locks)
+ * - the session-end skip via .claude/helpers/handlers/session-handler.cjs,
+ *   which checks .monomind/consolidation.lock under hCtx.CWD
+ *
+ * Everything runs against a per-test tmpDir — never the repo's own
+ * .monomind directory (the previous version of this file re-implemented
+ * the logic inline and wrote a lock into process.cwd(), leaving stale
+ * locks that made real session-ends skip consolidation).
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createRequire } from 'module';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { fileURLToPath } from 'url';
 
-describe('consolidation lock coordination', () => {
-  let tmpDir;
-  let lockPath;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const HELPERS = path.resolve(__dirname, '../../.claude/helpers');
+const { claimLock, releaseLock } = require(path.join(HELPERS, 'utils/fs-helpers.cjs'));
+const SH_PATH = path.join(HELPERS, 'handlers/session-handler.cjs');
 
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mono-lock-test-'));
-    lockPath = path.join(tmpDir, '.monomind', 'consolidation.lock');
-    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-  });
+function loadSessionHandler() {
+  delete require.cache[SH_PATH];
+  return require(SH_PATH);
+}
 
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
+let tmpDir;
+let lockPath;
 
-  it('O_EXCL lock file creation succeeds when no lock exists', () => {
-    const fd = fs.openSync(lockPath, 'wx');
-    fs.writeSync(fd, JSON.stringify({ pid: process.pid, ts: Date.now() }));
-    fs.closeSync(fd);
+beforeEach(() => {
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mono-lock-test-'));
+  lockPath = path.join(tmpDir, '.monomind', 'consolidation.lock');
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+});
+
+afterEach(() => {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  vi.restoreAllMocks();
+});
+
+describe('claimLock (real fs-helpers implementation)', () => {
+  it('acquires the lock when none exists and records the pid', () => {
+    expect(claimLock(lockPath)).toBe(true);
     expect(fs.existsSync(lockPath)).toBe(true);
+    expect(Number(fs.readFileSync(lockPath, 'utf-8'))).toBe(process.pid);
   });
 
-  it('O_EXCL lock creation fails when lock already exists', () => {
-    // Create first lock
-    const fd = fs.openSync(lockPath, 'wx');
-    fs.closeSync(fd);
-
-    // Second attempt should throw EEXIST
-    expect(() => {
-      const fd2 = fs.openSync(lockPath, 'wx');
-      fs.closeSync(fd2);
-    }).toThrow(/EEXIST/);
+  it('fails to acquire while a fresh lock is held', () => {
+    expect(claimLock(lockPath)).toBe(true);
+    // A second claim by this process (same pid, fresh mtime) must fail —
+    // the lock is held, not stale.
+    expect(claimLock(lockPath)).toBe(false);
   });
 
-  it('stale lock (> 5 minutes) is overridable', () => {
-    // Create a "stale" lock file with old mtime
-    fs.writeFileSync(lockPath, JSON.stringify({ pid: 99999, ts: Date.now() - 6 * 60 * 1000 }));
-    // Set file mtime to 6 minutes ago
+  it('overrides a stale lock (mtime older than staleMs)', () => {
+    // Simulate a lock left behind by a killed run
+    fs.writeFileSync(lockPath, '99999', 'utf-8');
     const sixMinsAgo = new Date(Date.now() - 6 * 60 * 1000);
     fs.utimesSync(lockPath, sixMinsAgo, sixMinsAgo);
 
-    const stat = fs.statSync(lockPath);
-    expect(Date.now() - stat.mtimeMs).toBeGreaterThan(5 * 60 * 1000);
+    expect(claimLock(lockPath, 5 * 60 * 1000)).toBe(true);
+    // The stale break is atomic (rename-to-claim), and the new lock is ours
+    expect(Number(fs.readFileSync(lockPath, 'utf-8'))).toBe(process.pid);
+    // mtime is fresh again
+    expect(Date.now() - fs.statSync(lockPath).mtimeMs).toBeLessThan(5 * 60 * 1000);
   });
 
-  it('releaseLock removes the lock file', () => {
-    // Create lock
-    const fd = fs.openSync(lockPath, 'wx');
-    fs.closeSync(fd);
-    expect(fs.existsSync(lockPath)).toBe(true);
+  it('does not override a lock that is old but within staleMs', () => {
+    fs.writeFileSync(lockPath, '99999', 'utf-8');
+    const oneMinAgo = new Date(Date.now() - 60 * 1000);
+    fs.utimesSync(lockPath, oneMinAgo, oneMinAgo);
+    expect(claimLock(lockPath, 5 * 60 * 1000)).toBe(false);
+  });
+});
 
-    // Release lock (simulate releaseLock)
-    try { fs.unlinkSync(lockPath); } catch { /* already gone */ }
+describe('releaseLock (real fs-helpers implementation)', () => {
+  it('removes a lock owned by this process', () => {
+    expect(claimLock(lockPath)).toBe(true);
+    releaseLock(lockPath);
     expect(fs.existsSync(lockPath)).toBe(false);
   });
 
-  it('releaseLock is safe to call when lock does not exist', () => {
-    // Should not throw when lock file is absent
-    expect(() => {
-      try { fs.unlinkSync(lockPath); } catch { /* already gone */ }
-    }).not.toThrow();
+  it('does not remove a lock owned by another pid', () => {
+    fs.writeFileSync(lockPath, '99999', 'utf-8');
+    releaseLock(lockPath);
+    expect(fs.existsSync(lockPath)).toBe(true);
   });
 
-  it('session-end skips consolidation when lock file exists', () => {
-    // Create lock file at the path session-handler checks
-    const dotMonomind = path.join(process.cwd(), '.monomind');
-    const realLockPath = path.join(dotMonomind, 'consolidation.lock');
+  it('is safe to call when no lock exists', () => {
+    expect(() => releaseLock(lockPath)).not.toThrow();
+  });
 
-    const wasLocked = fs.existsSync(realLockPath);
-    if (!wasLocked) {
-      fs.mkdirSync(dotMonomind, { recursive: true });
-      fs.writeFileSync(realLockPath, JSON.stringify({ pid: process.pid, ts: Date.now() }));
-    }
+  it('released lock can be re-acquired', () => {
+    expect(claimLock(lockPath)).toBe(true);
+    releaseLock(lockPath);
+    expect(claimLock(lockPath)).toBe(true);
+  });
+});
 
+describe('session-handler coordination with the lock', () => {
+  function makeHCtx(intelligence) {
+    return {
+      hookInput: {},
+      CWD: tmpDir,
+      session: null,
+      intelligence,
+      getLearningService: async () => null,
+      runWithTimeout: async (fn) => fn(),
+      _hooksModule: null,
+    };
+  }
+
+  it('session-end skips consolidation while the lock is held', async () => {
+    const sh = loadSessionHandler();
+    expect(claimLock(lockPath)).toBe(true); // daemon holds it
+    const consolidate = vi.fn();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
-      // Verify lock exists and fs.existsSync returns true (what session-handler checks)
-      expect(fs.existsSync(realLockPath)).toBe(true);
+      await sh.handleEnd(makeHCtx({ consolidate }));
+      expect(consolidate).not.toHaveBeenCalled();
+      const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+      expect(output).toContain('daemon holds lock');
     } finally {
-      if (!wasLocked) fs.unlinkSync(realLockPath);
+      releaseLock(lockPath);
     }
   });
 
-  it('lock content records pid and timestamp', () => {
-    const fd = fs.openSync(lockPath, 'wx');
-    const content = JSON.stringify({ pid: process.pid, ts: Date.now() });
-    fs.writeSync(fd, content);
-    fs.closeSync(fd);
+  it('session-end consolidates again once the lock is released', async () => {
+    const sh = loadSessionHandler();
+    expect(claimLock(lockPath)).toBe(true);
+    releaseLock(lockPath);
+    const consolidate = vi.fn().mockResolvedValue({ entries: 0, edges: 0, newEntries: 0 });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    await sh.handleEnd(makeHCtx({ consolidate }));
+    expect(consolidate).toHaveBeenCalled();
+  });
 
-    const read = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
-    expect(read.pid).toBe(process.pid);
-    expect(typeof read.ts).toBe('number');
+  it('never touches the repository lock — all paths stay inside tmpDir', () => {
+    // Guard against regression to the old fake test, which wrote a lock into
+    // path.join(process.cwd(), '.monomind', 'consolidation.lock').
+    expect(lockPath.startsWith(tmpDir)).toBe(true);
+    expect(path.resolve(tmpDir)).not.toBe(path.resolve(process.cwd()));
   });
 });
