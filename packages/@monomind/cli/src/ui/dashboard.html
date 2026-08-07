@@ -1973,6 +1973,7 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <button class="odt-btn" data-memtab="swarm" onclick="switchMemTab('swarm')">Swarm</button>
           <button class="odt-btn" data-memtab="chunks" onclick="switchMemTab('chunks')">Chunks</button>
           <button class="odt-btn" data-memtab="agent-graph" onclick="switchMemTab('agent-graph')">Agent Graph</button>
+          <button class="odt-btn" data-memtab="store" onclick="switchMemTab('store')">Store</button>
         </div>
         <div id="mem-tab-memories">
           <div class="mem-split" id="mem-split">
@@ -2035,6 +2036,19 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
               <div style="color:var(--text-lo);font-size:13px;padding:20px 0">Select a session</div>
             </div>
           </div>
+        </div>
+        <div id="mem-tab-store" style="display:none">
+          <div class="filter-bar" style="margin-bottom:6px;display:flex;gap:6px;align-items:center">
+            <input class="filter-input" id="store-search-input" type="text" placeholder="Search SQLite memory store…"
+              onkeydown="if(event.key==='Enter')storeSearch()" style="flex:1">
+            <input class="filter-input" id="store-ns-input" type="text" placeholder="namespace" style="width:120px"
+              onkeydown="if(event.key==='Enter'){storeSearch()||loadStoreEntries()}">
+            <button class="btn" onclick="storeSearch()" title="Semantic search">Search</button>
+            <button class="btn" onclick="loadStoreEntries()" title="List entries">List</button>
+            <button class="btn" onclick="openStoreNewModal()">+ New</button>
+          </div>
+          <div id="store-results" style="margin-bottom:8px"></div>
+          <div id="store-entries-grid"></div>
         </div>
       </div>
     </div>
@@ -3455,7 +3469,7 @@ function switchMemTab(tab) {
   _currentMemTab = tab;
   document.querySelectorAll('.mem-tab-bar .odt-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.memtab === tab));
-  ['memories','routing','usage','adrs','swarm','chunks','agent-graph'].forEach(t => {
+  ['memories','routing','usage','adrs','swarm','chunks','agent-graph','store'].forEach(t => {
     const el = document.getElementById('mem-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
@@ -3466,6 +3480,7 @@ function switchMemTab(tab) {
   else if (tab === 'swarm') loadSwarmTab();
   else if (tab === 'chunks') loadChunksTab();
   else if (tab === 'agent-graph') loadAgentGraphTab();
+  else if (tab === 'store') loadStoreEntries();
 }
 
 async function loadMemRouting() {
@@ -13733,6 +13748,121 @@ async function deleteMem(filename) {
     if (detail) detail.innerHTML = '<div style="color:var(--text-lo);font-size:13px;padding:20px 0">Select a memory</div>';
     await loadMemoriesTab();
   } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+// ── SQLite store tab ──────────────────────────────────────
+let _storeLoaded = false;
+
+async function loadStoreEntries() {
+  const grid = document.getElementById('store-entries-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading-txt" style="padding:8px">Loading…</div>';
+  const ns = (document.getElementById('store-ns-input')?.value || '').trim() || undefined;
+  try {
+    let url = '/api/memory/entries?limit=100';
+    if (ns) url += '&namespace=' + encodeURIComponent(ns);
+    const data = await apiFetch(url);
+    const entries = data.entries || [];
+    if (!entries.length) { grid.innerHTML = '<div class="empty">No entries' + (ns ? ' in namespace "' + escHtml(ns) + '"' : '') + '</div>'; return; }
+    let html = '<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Key</th><th>Namespace</th><th>Content</th><th>Tags</th><th>Updated</th><th></th></tr></thead><tbody>';
+    for (const e of entries) {
+      const preview = escHtml((e.content || '').slice(0, 80)) + (e.content?.length > 80 ? '…' : '');
+      const tags = (e.tags || []).map(t => '<span style="background:var(--bg-hi);padding:1px 4px;border-radius:3px;font-size:10px">' + escHtml(t) + '</span>').join(' ');
+      const updated = e.updatedAt ? new Date(e.updatedAt).toLocaleDateString() : '';
+      const emb = e.hasEmbedding ? ' title="Has embedding"' : '';
+      html += '<tr>';
+      html += '<td style="font-weight:500;white-space:nowrap"' + emb + '>' + (e.hasEmbedding ? '&#x25C9; ' : '') + escHtml(e.key) + '</td>';
+      html += '<td style="color:var(--text-lo)">' + escHtml(e.namespace) + '</td>';
+      html += '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + preview + '</td>';
+      html += '<td>' + tags + '</td>';
+      html += '<td style="color:var(--text-lo);white-space:nowrap">' + updated + '</td>';
+      html += '<td style="white-space:nowrap"><button class="btn" style="font-size:10px;padding:1px 6px" onclick="viewStoreEntry(\'' + escHtml(e.key) + '\',\'' + escHtml(e.namespace) + '\')">View</button>';
+      html += ' <button class="btn" style="font-size:10px;padding:1px 6px;color:var(--red);border-color:var(--red)" onclick="deleteStoreEntry(\'' + escHtml(e.id || '') + '\',\'' + escHtml(e.key) + '\',\'' + escHtml(e.namespace) + '\')">Del</button></td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    grid.innerHTML = html;
+    _storeLoaded = true;
+  } catch (e) {
+    grid.innerHTML = '<div class="empty" style="color:var(--red)">Error: ' + escHtml(e.message) + '</div>';
+  }
+}
+
+async function storeSearch() {
+  const q = (document.getElementById('store-search-input')?.value || '').trim();
+  if (!q) return false;
+  const ns = (document.getElementById('store-ns-input')?.value || '').trim() || undefined;
+  const res = document.getElementById('store-results');
+  if (!res) return false;
+  res.style.display = '';
+  res.innerHTML = '<div class="loading-txt">Searching…</div>';
+  try {
+    let url = '/api/memory/search?q=' + encodeURIComponent(q) + '&limit=20';
+    if (ns) url += '&namespace=' + encodeURIComponent(ns);
+    const data = await apiFetch(url);
+    const results = data.results || [];
+    if (!results.length) { res.innerHTML = '<div class="empty">No results for "' + escHtml(q) + '"</div>'; return true; }
+    let html = '<div class="m-group-title" style="margin-bottom:4px">Search results (' + results.length + ') <span style="font-size:10px;color:var(--text-xs);font-weight:400">' + (data.searchMethod || '') + ', ' + (data.searchTime || 0) + 'ms</span></div>';
+    html += '<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Key</th><th>Score</th><th>NS</th><th>Content</th></tr></thead><tbody>';
+    for (const r of results) {
+      const preview = escHtml((r.content || '').slice(0, 100)) + (r.content?.length > 100 ? '…' : '');
+      html += '<tr><td style="font-weight:500">' + escHtml(r.key) + '</td>';
+      html += '<td style="color:var(--text-lo)">' + (r.score?.toFixed(3) || '') + '</td>';
+      html += '<td style="color:var(--text-lo)">' + escHtml(r.namespace) + '</td>';
+      html += '<td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + preview + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    res.innerHTML = html;
+  } catch (e) {
+    res.innerHTML = '<div class="empty" style="color:var(--red)">Search error: ' + escHtml(e.message) + '</div>';
+  }
+  return true;
+}
+
+function viewStoreEntry(key, ns) {
+  const content = prompt('View/edit content for "' + key + '" (namespace: ' + ns + ').\nEdit below and press OK to save, or Cancel to dismiss.');
+  if (content === null) return;
+  fetch('/api/memory/entry', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, value: content, namespace: ns }),
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { showToast('Saved', 'Entry updated', 'ok'); loadStoreEntries(); }
+    else showToast('Error', d.error || 'Save failed', 'err');
+  }).catch(e => showToast('Error', e.message, 'err'));
+}
+
+async function deleteStoreEntry(id, key, ns) {
+  if (!confirm('Delete entry "' + key + '" from namespace "' + ns + '"?')) return;
+  try {
+    const r = await fetch('/api/memory/entry', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id || undefined, key, namespace: ns }),
+    });
+    const d = await r.json();
+    if (d.ok) { showToast('Deleted', 'Entry removed', 'ok'); loadStoreEntries(); }
+    else showToast('Error', d.error || 'Delete failed', 'err');
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+function openStoreNewModal() {
+  const key = prompt('Entry key (unique identifier):');
+  if (!key) return;
+  const ns = (document.getElementById('store-ns-input')?.value || '').trim() || 'default';
+  const value = prompt('Entry content:');
+  if (!value) return;
+  const tags = (prompt('Tags (comma-separated, optional):') || '').split(',').map(t => t.trim()).filter(Boolean);
+  fetch('/api/memory/entry', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, value, namespace: ns, tags }),
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      showToast('Stored', d.duplicate ? 'Near-duplicate reinforced' : 'Entry created', 'ok');
+      loadStoreEntries();
+    } else showToast('Error', d.error || 'Store failed', 'err');
+  }).catch(e => showToast('Error', e.message, 'err'));
 }
 
 // ── swarm memory tab ───────────────────────────────────────

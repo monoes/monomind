@@ -583,12 +583,40 @@ async function printStats(root: string, topN = 10, detailed = false): Promise<vo
   }
 }
 
-// V2 (deferred): wire up the existing-but-dead startLspServer at
-// packages/@monomind/monograph/src/lsp/server.ts:171. It needs:
-//   1. monograph package to export it from its main entry
-//   2. monograph's tsconfig/build to compile lsp/ into dist/
-//   3. then a CLI subcommand here that loads the DB + calls startLspServer
-// Multi-package change — out of scope for this session.
+// ── lsp subcommand ───────────────────────────────────────────────────────────
+
+const lspCommand: Command = {
+  name: 'lsp',
+  description: 'Start the Monograph LSP server over stdio (for editor integration)',
+  options: [
+    { name: 'path', short: 'p', type: 'string', description: 'Root path (default: cwd)' },
+  ],
+  examples: [
+    { command: 'monomind monograph lsp', description: 'Start LSP server for current project' },
+    { command: 'monomind monograph lsp -p /path/to/project', description: 'Start LSP server for a specific project' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const root = resolve((ctx.flags.path as string | undefined) ?? process.cwd());
+    const dbPath = getDbPath(root);
+
+    if (!existsSync(dbPath)) {
+      output.printError('No monograph database found. Run `monomind monograph build` first.');
+      return { success: false, exitCode: 1 };
+    }
+
+    try {
+      const { openDb } = await import('@monoes/monograph');
+      const { startLspServer } = await import('@monoes/monograph/lsp');
+      const db = openDb(dbPath);
+      startLspServer(db, root);
+      // startLspServer blocks on stdin until the editor disconnects
+      return { success: true };
+    } catch (err) {
+      output.printError(err instanceof Error ? err.message : String(err));
+      return { success: false, exitCode: 1 };
+    }
+  },
+};
 
 // ── root command ──────────────────────────────────────────────────────────────
 
@@ -596,7 +624,7 @@ export const monographCommand: Command = {
   name: 'monograph',
   description: 'Knowledge graph for code and documents — build, search, explore',
   aliases: ['kg'],
-  subcommands: [buildCommand, wikiCommand, searchCommand, statsCommand, watchCommand],
+  subcommands: [buildCommand, wikiCommand, searchCommand, statsCommand, watchCommand, lspCommand],
   examples: [
     { command: 'monomind monograph wiki', description: 'Build KG from all docs and PDFs' },
     { command: 'monomind monograph wiki --llm', description: 'Build KG with Claude semantic extraction' },
@@ -604,6 +632,7 @@ export const monographCommand: Command = {
     { command: 'monomind monograph search -q "authentication"', description: 'Search the knowledge graph' },
     { command: 'monomind monograph stats', description: 'Show graph statistics' },
     { command: 'monomind monograph watch', description: 'Watch for changes and rebuild' },
+    { command: 'monomind monograph lsp', description: 'Start LSP server for editor integration' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -617,6 +646,7 @@ export const monographCommand: Command = {
       'search    — Search across code, sections, and concepts',
       'stats     — Node/edge counts, top concepts',
       'watch     — Auto-rebuild on file changes',
+      'lsp       — Start LSP server over stdio (editor integration)',
     ]);
     output.writeln();
     output.writeln('Examples:');

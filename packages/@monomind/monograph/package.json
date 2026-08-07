@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
+    },
+    "./lsp": {
+      "types": "./dist/src/lsp/server.d.ts",
+      "import": "./dist/src/lsp/server.js"
     }
   },
   "engines": {
