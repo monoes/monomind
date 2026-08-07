@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 import { withDbLock } from '../utils/db-mutex.js';
+import { secureDbFilePermissions } from './file-permissions.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
@@ -285,6 +286,7 @@ export async function initializeMemoryDatabase(options: {
       const dbTmp = dbPath + '.tmp';
       fs.writeFileSync(dbTmp, buffer);
       fs.renameSync(dbTmp, dbPath);
+      secureDbFilePermissions(dbPath);
 
       // Close database
       db.close();
@@ -506,6 +508,7 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
     const dbTmpDecay = path_ + '.tmp';
     fs.writeFileSync(dbTmpDecay, Buffer.from(data));
     fs.renameSync(dbTmpDecay, path_);
+    secureDbFilePermissions(path_);
     db.close();
 
     return {

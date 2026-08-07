@@ -13,6 +13,7 @@ import { ensureSchemaColumns } from './memory-migrations.js';
 import { generateEmbedding } from './embedding-operations.js';
 import { addToHNSWIndex, rebuildSearchIndex } from './hnsw-operations.js';
 import { withDbLock } from '../utils/db-mutex.js';
+import { secureDbFilePermissions } from './file-permissions.js';
 
 // Re-export read operations so existing callers keep working without changes.
 export { searchEntries, listEntries, getEntry } from './memory-read.js';
@@ -218,6 +219,7 @@ export async function verifyMemoryInit(dbPath: string, options?: {
     const dbTmpHealth = dbPath + '.tmp';
     fs.writeFileSync(dbTmpHealth, Buffer.from(data));
     fs.renameSync(dbTmpHealth, dbPath);
+    secureDbFilePermissions(dbPath);
     db.close();
 
     const passed = tests.filter(t => t.passed).length;
@@ -392,6 +394,7 @@ export async function storeEntry(options: {
     const dbTmpStore = dbPath + '.tmp';
     fs.writeFileSync(dbTmpStore, Buffer.from(data));
     fs.renameSync(dbTmpStore, dbPath);
+    secureDbFilePermissions(dbPath);
     db.close();
 
     // Add to HNSW index for faster future searches
@@ -548,6 +551,7 @@ export async function deleteEntry(options: {
     const dbTmpDelete = dbPath + '.tmp';
     fs.writeFileSync(dbTmpDelete, Buffer.from(data));
     fs.renameSync(dbTmpDelete, dbPath);
+    secureDbFilePermissions(dbPath);
 
     db.close();
 

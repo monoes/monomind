@@ -8,6 +8,7 @@
 
 import * as fs from 'fs';
 import { withDbLock } from '../utils/db-mutex.js';
+import { secureDbFilePermissions } from './file-permissions.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
@@ -80,6 +81,7 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       const tmp = dbPath + '.tmp';
       fs.writeFileSync(tmp, Buffer.from(data));
       fs.renameSync(tmp, dbPath);
+      secureDbFilePermissions(dbPath);
     }
 
     db.close();

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -94,6 +94,18 @@ describe('memory-crud commands (sql.js fallback path)', () => {
       expect(got.success).toBe(true);
       expect((got.data as any).content).toBe('JWT implementation');
       expect((got.data as any).namespace).toBe('patterns');
+    });
+
+    // memory.db holds personal "second brain" data — it must never be
+    // world-readable. POSIX-only assertion: Windows has no chmod modes.
+    it.skipIf(process.platform === 'win32')('persists .swarm/memory.db with owner-only (0600) permissions', async () => {
+      const result = await run(storeCommand, 
+        ctx({ flags: { _: [], key: 'perm-check', value: 'secret', namespace: 'perms' } }),
+      );
+      expect(result.success).toBe(true);
+
+      const mode = statSync(join(dir, '.swarm', 'memory.db')).mode & 0o777;
+      expect(mode).toBe(0o600);
     });
 
     it('stores without an explicit namespace, defaulting to "default"', async () => {
