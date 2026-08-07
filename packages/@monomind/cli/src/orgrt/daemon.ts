@@ -1,6 +1,6 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
-import { readFileSync, mkdirSync, writeFileSync, existsSync, renameSync, unlinkSync } from 'node:fs';
+import { readFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { join, isAbsolute } from 'node:path';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
@@ -10,17 +10,26 @@ import { PolicyEngine } from './policy.js';
 import { Mailbox } from './mailbox.js';
 import { runAgentSession } from './session.js';
 import { attachForwarder } from './forwarder.js';
-import { BrokerLease, lookupOrg, normalizeCredential } from './broker.js';
-import { queueMessage, drainInbox } from './inbox.js';
+import { BrokerLease, normalizeCredential } from './broker.js';
+import { drainInbox } from './inbox.js';
 import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, type DecisionGate, ORG_DIR } from './types.js';
 import { TaskDag } from './task-dag.js';
-import { summarizeRun, readRunEvents, readHistory, historyFile } from './reporting.js';
-import { checkResources, waitForCapacity, getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
+import { summarizeRun, readRunEvents, readHistory, historyFile, type RunSummary } from './reporting.js';
+import { getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentRunner } from './agent-runner.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
-import { captureCheckpoint, validateCheckpoint, isCheckpointExpired, restoreMailboxQueue, type OrgCheckpoint } from './checkpoint.js';
+import { captureCheckpoint, type OrgCheckpoint } from './checkpoint.js';
+
+// ── Extracted module imports ────────────────────────────────────────────
+import * as approvalOps from './approvals.js';
+import * as questionOps from './questions.js';
+import * as decisionOps from './decisions.js';
+import * as crossOrg from './cross-org.js';
+import * as scheduler from './scheduler-integration.js';
+import * as orgMemory from './org-memory.js';
+import * as checkpointOps from './checkpoint-ops.js';
 
 /** OpenTelemetry tracing helper - creates spans for major operations */
 class OtelTracer {
@@ -66,11 +75,6 @@ export class ScrollbackBuffer {
   snapshot(): string[] { return [...this.lines]; }
   clear(): void { this.lines.length = 0; }
 }
-
-/** Bodies larger than this are digested to a .mail file (see mailBody). */
-const MAIL_BODY_MAX = 4096;
-/** How much of an oversized body stays inline in the digest. */
-const MAIL_DIGEST_CHARS = 1024;
 
 export interface AgentRuntime {
   mailbox: Mailbox;
@@ -142,37 +146,32 @@ export interface DaemonOpts {
 }
 
 export class OrgDaemon {
-  private orgs = new Map<string, RunningOrg>();
-  private waking = new Set<string>();
-  private globalSubscribers = new Set<(e: BusEvent) => void>();
-  private leases = new Map<string, BrokerLease>();
-  private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
-  private watchdogs = new Map<string, ReturnType<typeof setInterval>>();
-  private stopping = new Map<string, Promise<void>>();
-  private otel = new OtelTracer();
-  private approvals = new Map<string, Array<{ roleId: string; action: string; question: string; ts: number; approved: boolean | null }>>();
-  // R5: per-org approval mutex. checkApproval and setApproval both read
-  // this.approvals, await something (mailbox push, markAnswered), then
-  // mutate + writeFileSync. Two concurrent calls in one org race on the
-  // in-memory Map and clobber each other on disk. Serialize them.
-  private approvalLocks = new Map<string, Promise<unknown>>();
-  // Per-org gates and questions mutexes — same TOCTOU pattern as approvalLocks.
-  private gatesLocks = new Map<string, Promise<unknown>>();
-  private questionsLocks = new Map<string, Promise<unknown>>();
-  // Roles currently spawning — prevents duplicate lazy spawns from concurrent messages
-  private spawning = new Map<string, Set<string>>();
-  // #4: bounded whole-org restarts after the boss terminally crashes. A monotonic
-  // per-org counter so a crashing boss can never burn money in an infinite loop;
-  // reset only by an explicit (non-restart) startOrg.
-  private static readonly MAX_BOSS_RESTARTS = 2;
-  private static readonly BOSS_RESTART_BACKOFF_MS = [10_000, 30_000];
-  private bossRestartCounts = new Map<string, number>();
-  private restarting = new Set<string>();
+  /** @internal */ orgs = new Map<string, RunningOrg>();
+  /** @internal */ waking = new Set<string>();
+  /** @internal */ globalSubscribers = new Set<(e: BusEvent) => void>();
+  /** @internal */ private leases = new Map<string, BrokerLease>();
+  /** @internal */ private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
+  /** @internal */ private watchdogs = new Map<string, ReturnType<typeof setInterval>>();
+  /** @internal */ stopping = new Map<string, Promise<void>>();
+  /** @internal */ private otel = new OtelTracer();
+  /** @internal */ approvals = new Map<string, Array<{ roleId: string; action: string; question: string; ts: number; approved: boolean | null }>>();
+  /** @internal */ approvalLocks = new Map<string, Promise<unknown>>();
+  /** @internal */ gatesLocks = new Map<string, Promise<unknown>>();
+  /** @internal */ questionsLocks = new Map<string, Promise<unknown>>();
+  /** @internal */ spawning = new Map<string, Set<string>>();
+  static readonly MAX_BOSS_RESTARTS = 2;
+  static readonly BOSS_RESTART_BACKOFF_MS = [10_000, 30_000];
+  /** @internal */ bossRestartCounts = new Map<string, number>();
+  /** @internal */ restarting = new Set<string>();
   // #3: recognizes provider context-window-overflow errors so the boss can be told
   // to chunk the work instead of re-dispatching the same oversized task verbatim.
   private static readonly CONTEXT_LIMIT_RE = /context[- ]?(window|length|size|limit)|maximum context|exceeds?.{0,12}(context|token)|too many tokens|prompt is too long/i;
 
-  constructor(private root: string, private opts: DaemonOpts = {}) {}
+  /** @internal */ recallUsage = new Map<string, Set<string>>();
+  /** @internal */ orgLearnedRuns = new Set<string>();
+  /** @internal */ abandoned = new Map<string, Set<string>>();
+
+  constructor(/** @internal */ public root: string, /** @internal */ public opts: DaemonOpts = {}) {}
 
   /** Publish this daemon's inbox so orgs started AFTER this call register with the broker. */
   setInboxUrl(url: string, credential?: string): void {
@@ -752,723 +751,10 @@ export class OrgDaemon {
     return running;
   }
 
-  /** A role that failed its resource gate at boot isn't abandoned — keep polling
-   *  for capacity in the background (bounded) and spawn it the moment resources
-   *  free up, instead of silently running the org shorthanded for its whole life.
-   *  Bails quietly if the org is stopped (or restarted under the same name)
-   *  before capacity returns; `running` is compared by identity, not `name`,
-   *  so a stale retry can never spawn into a different run. */
-  private scheduleDeferredSpawn(name: string, running: RunningOrg, role: OrgRole, spawnRole: (role: OrgRole) => void): void {
-    const MAX_ATTEMPTS = 6; // ~30 min of retrying before giving up loudly
-    (async () => {
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        const waited = await waitForCapacity(5 * 60_000);
-        if (this.orgs.get(name) !== running) return; // org stopped/restarted — abandon quietly
-        if (waited.ok) {
-          running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-recovered',
-            msg: `resources recovered after ${attempt} retr${attempt === 1 ? 'y' : 'ies'} — spawning deferred role "${role.id}"` });
-          // Drain messages queued while the role was deferred BEFORE spawning
-          // to prevent race condition where messages arrive during spawn window
-          const queued = drainInbox(this.root, name);
-          spawnRole(role);
-          for (const msg of queued) {
-            const agent = running.agents.get(msg.toRole);
-            if (agent && !agent.mailbox.isClosed) {
-              running.bus.emit({ type: 'xorg', from: msg.fromQualified, to: `${name}:${msg.toRole}`, subject: msg.subject, msg: msg.body });
-              agent.mailbox.push(this.mailBody(name, running, `[message from ${msg.fromQualified}] subject: ${msg.subject}`, msg.body,
-                `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`));
-            }
-          }
-          return;
-        }
-        running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-pressure',
-          msg: `still under pressure (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying "${role.id}" spawn: ${waited.reason}` });
-      }
-      const missing = this.abandoned.get(name) ?? new Set<string>();
-      missing.add(role.id);
-      this.abandoned.set(name, missing);
-      this.persistState(name, 'running', running.run);
-      running.bus.emit({ type: 'audit', from: role.id, reason: 'resource-abandoned',
-        msg: `giving up spawning "${role.id}" after ${MAX_ATTEMPTS} retries — org will run without this role until manually restarted` });
-    })().catch(err => console.error(`org ${name}: deferred spawn of "${role.id}" failed:`, err instanceof Error ? err.message : err));
-  }
-
-  /**
-   * Resolves an org_send `to` address ("role" for same-org, "org:role" for
-   * cross-org) into its parts. Centralizes the one addressing rule that
-   * matters (an "own-org:role" self-prefix is intra-org, not cross-org) so
-   * deliver()/deliverRemote() don't each re-derive it — the qualified `to`
-   * string returned is always the canonical display form for that address.
-   */
-  private resolveAddress(fromOrg: string, to: string): { cross: boolean; orgName: string; role: string; qualified: string } {
-    const cross = to.includes(':');
-    if (!cross) return { cross: false, orgName: fromOrg, role: to, qualified: to };
-    const [orgName, role] = to.split(':', 2);
-    if (orgName === fromOrg) return { cross: false, orgName, role, qualified: role }; // self-prefixed — still intra-org
-    return { cross: true, orgName, role, qualified: to };
-  }
-
-  /** Mailbox bodies are unbounded — a pasted 20KB file would persist in the
-   *  recipient's context for the whole run. Bodies over MAIL_BODY_MAX are
-   *  written to <org workdir>/.mail/<message-id>.md and replaced with a ~1KB
-   *  digest plus a pointer; smaller messages stay byte-identical. */
-  private mailBody(orgName: string, org: RunningOrg | undefined, header: string, body: string, id: string): string {
-    if (body.length <= MAIL_BODY_MAX) return `${header}\n\n${body}`;
-    const mailDir = join(org?.workdir ?? join(this.root, ORG_DIR, orgName), '.mail');
-    const file = join(mailDir, `${id.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`);
-    try {
-      mkdirSync(mailDir, { recursive: true });
-      writeFileSync(file, body);
-      return `${header}\n\n${body.slice(0, MAIL_DIGEST_CHARS)}\n\n[... truncated — full text at ${file} — Read it if needed]`;
-    } catch {
-      return `${header}\n\n${body}`; // digest write failed — deliver in full rather than lose content
-    }
-  }
-
-  /** Route a message. to = "role" (same org) or "org:role" (cross-org). Returns a receipt string. */
-  async deliver(fromOrg: string, fromRole: string, to: string, subject: string, body: string): Promise<string> {
-    const { cross, orgName: targetOrgName, role: targetRole, qualified: toQualified } = this.resolveAddress(fromOrg, to);
-    const targetOrg = this.orgs.get(targetOrgName);
-    const src = this.orgs.get(fromOrg);
-    // Lazy spawn: if the role is pending (not yet spawned), spawn it now.
-    // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages
-    const spawning = this.spawning.get(targetOrgName) ?? new Set<string>();
-    this.spawning.set(targetOrgName, spawning);
-    if (targetOrg && !targetOrg.agents.has(targetRole) && targetOrg.pendingRoles?.has(targetRole) && !spawning.has(targetRole)) {
-      const role = targetOrg.pendingRoles.get(targetRole)!;
-      targetOrg.pendingRoles.delete(targetRole);
-      spawning.add(targetRole); // Mark as spawning before async work
-      const check = checkResources();
-      if (!check.ok) {
-        const waited = await waitForCapacity(60_000);
-        spawning.delete(targetRole); // Clear spawning flag after check
-        if (!waited.ok) {
-          targetOrg.bus.emit({ type: 'audit', from: targetRole, reason: 'resource-skip',
-            msg: `deferring lazy spawn of "${targetRole}": ${waited.reason}` });
-          // Queue the triggering message so it survives the deferred spawn — without
-          // this the sender got "queued" but the message was silently lost.
-          // B5 FIX: Queue FIRST, then schedule spawn only if queue succeeds.
-          // If queueing fails, we return the error without modifying spawn state.
-          const queued = queueMessage(this.root, targetOrgName, {
-            fromQualified: cross ? `${fromOrg}:${fromRole}` : fromRole,
-            toRole: targetRole, subject, body, ts: Date.now(),
-          });
-          if (!queued) {
-            src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `queue failed: ${subject}`, reason: 'queue-failed' });
-            return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
-          }
-          this.scheduleDeferredSpawn(targetOrgName, targetOrg, role, targetOrg.spawnRole!);
-          return `queued for ${toQualified} (role starting — waiting for resources)`;
-        }
-      }
-      targetOrg.spawnRole!(role);
-      spawning.delete(targetRole); // Clear spawning flag after spawn completes
-      targetOrg.bus.emit({ type: 'status', from: targetRole, msg: `lazy-spawned on first message from ${fromRole}` });
-    }
-    if (!targetOrg || !targetOrg.agents.has(targetRole)) {
-      if (cross && this.opts.crossProcess) return this.deliverRemote(fromOrg, fromRole, targetOrgName, targetRole, toQualified, subject, body, src);
-      // Queue + auto-wake: if the org definition exists locally but isn't running, spool the message and start it
-      if (cross && this.hasOrgDef(targetOrgName)) {
-        const queued = queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
-        if (!queued) {
-          src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `queue failed: ${subject}`, reason: 'queue-failed' });
-          return `ERROR: could not queue message for ${toQualified} (disk full or permissions)`;
-        }
-        src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to: toQualified, subject, msg: body, data: { queued: true } });
-        this.autoWake(targetOrgName);
-        return `queued for ${toQualified} (org starting)`;
-      }
-      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
-      return `ERROR: unknown recipient "${toQualified}" (known: ${[...(targetOrg?.agents.keys() ?? this.orgs.keys())].join(', ')})`;
-    }
-    const targetAgent = targetOrg.agents.get(targetRole)!;
-    if (targetAgent.status === 'crashed') {
-      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'recipient crashed (retry budget exhausted)' });
-      return `ERROR: recipient "${toQualified}" crashed and will not recover this run — message not delivered (${targetAgent.error ?? 'unknown error'})`;
-    }
-    if (targetAgent.mailbox.isClosed) {
-      // Distinguish two cases that used to share one drop:
-      //  - org mid-shutdown: nothing will ever read the queue again — the
-      //    message genuinely can't be delivered, so report the real outcome.
-      //  - agent session ended but the org is alive (budget exhaustion,
-      //    turn limit, crash-restart in flight): the result is still
-      //    valuable, so persist it to the inbox. The boss-restart/next-run
-      //    drainInbox will deliver it instead of the work vanishing.
-      if (this.stopping.has(targetOrgName)) {
-        src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `undeliverable: ${subject}`, reason: 'target mailbox closed (org shutting down)' });
-        return `ERROR: recipient "${toQualified}" is shutting down — message not delivered`;
-      }
-      const q = queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
-      src?.bus.emit({ type: 'audit', from: fromRole, to: toQualified, msg: `recipient session closed — queued to inbox: ${subject}`, data: { queued: q } });
-      return `queued to inbox for ${toQualified} (recipient session closed; will be delivered on restart)`;
-    }
-    // Track message chain: link this message to the target's last message (the one being responded to)
-    const targetAgentSrc = targetOrg === src ? src?.agents.get(targetRole) : undefined;
-    const parentId = targetAgentSrc?.lastMessageId;
-    const evt = { from: cross ? `${fromOrg}:${fromRole}` : fromRole, to: toQualified, subject, msg: body, parentId };
-    const emitted = src?.bus.emit({ type: cross ? 'xorg' : 'message', ...evt });
-    if (cross && targetOrg !== src) targetOrg.bus.emit({ type: 'xorg', ...evt });
-    // Store message ID for the target (so responses can link to it)
-    if (targetAgentSrc && emitted) targetAgentSrc.lastMessageId = emitted.id;
-    // Also track the source agent's last sent message for cross-org visibility
-    const srcAgent = src?.agents.get(fromRole);
-    if (srcAgent && emitted) srcAgent.lastMessageId = emitted.id;
-    targetAgent.mailbox.push(this.mailBody(targetOrgName, targetOrg, `[message from ${evt.from}] subject: ${subject}`, body,
-      emitted?.id ?? `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`));
-    return `delivered to ${toQualified}`;
-  }
-
-  /** Cross-process leg of deliver(): ask the machine-local broker who hosts targetOrgName, then POST over HTTP.
-   *  `to` here is always the fully-qualified "org:role" display form (resolveAddress already normalized it). */
-  private async deliverRemote(
-    fromOrg: string, fromRole: string, targetOrgName: string, targetRole: string,
-    to: string, subject: string, body: string, src: RunningOrg | undefined,
-  ): Promise<string> {
-    const remote = lookupOrg(targetOrgName, this.opts.brokerDir);
-    if (!remote) {
-      // No remote host either — queue + auto-wake if the org def exists locally
-      if (this.hasOrgDef(targetOrgName)) {
-        const queued = queueMessage(this.root, targetOrgName, { fromQualified: `${fromOrg}:${fromRole}`, toRole: targetRole, subject, body, ts: Date.now() });
-        if (!queued) {
-          src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `queue failed: ${subject}`, reason: 'queue-failed' });
-          return `ERROR: could not queue message for ${to} (disk full or permissions)`;
-        }
-        src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body, data: { queued: true } });
-        this.autoWake(targetOrgName);
-        return `queued for ${to} (org starting)`;
-      }
-      // Check SSH remote host registry before giving up
-      try {
-        const { lookupRemoteOrg, deliverRemote: sshDeliver } = await import('./remote.js');
-        const remoteHost = lookupRemoteOrg(targetOrgName, this.root);
-        if (remoteHost) {
-          const result = await sshDeliver(targetOrgName, `${fromOrg}:${fromRole}`, subject, body, remoteHost);
-          if (result.ok) {
-            src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body, data: { remote: 'ssh', host: remoteHost.host } });
-            return `delivered to ${to} via SSH (${remoteHost.host})`;
-          }
-          src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `SSH delivery failed: ${result.output}`, reason: 'ssh-delivery-failed' });
-          return `ERROR: SSH delivery to "${to}" on ${remoteHost.host} failed: ${result.output}`;
-        }
-      } catch { /* remote.ts unavailable or SSH not configured — fall through */ }
-      src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `undeliverable: ${subject}`, reason: 'unknown recipient' });
-      return `ERROR: unknown recipient "${to}" (no local org, no process on this machine, and no SSH remote configured for "${targetOrgName}")`;
-    }
-    try {
-      const res = await fetch(`${remote.url}/api/xdeliver`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(remote.credential ? { 'x-monomind-cred': remote.credential } : {}),
-        },
-        body: JSON.stringify({ fromOrg, fromRole, toOrg: targetOrgName, toRole: targetRole, subject, body }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; receipt?: string; error?: string };
-      if (res.ok && data.ok) {
-        src?.bus.emit({ type: 'xorg', from: `${fromOrg}:${fromRole}`, to, subject, msg: body });
-        return data.receipt ?? `delivered to ${to} (remote)`;
-      }
-      src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `remote delivery rejected: ${data.error ?? res.status}`, reason: 'remote-delivery-rejected' });
-      return `ERROR: remote org "${to}" rejected delivery: ${data.error ?? res.status}`;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      src?.bus.emit({ type: 'audit', from: fromRole, to, msg: `remote delivery failed: ${message}`, reason: 'remote-delivery-failed' });
-      return `ERROR: remote org "${targetOrgName}" unreachable: ${message}`;
-    }
-  }
-
-  /** Inbound handler for cross-process delivery — called by the server's POST /api/xdeliver route
-   *  when ANOTHER process's deliverRemote() reaches this daemon. Pushes straight into the target
-   *  agent's mailbox; the agent picks it up on its own next turn (see Mailbox — never interrupts). */
-  receiveRemote(
-    toOrg: string, toRole: string, fromQualified: string, subject: string, body: string,
-  ): { ok: true; receipt: string } | { ok: false; error: string } {
-    const org = this.orgs.get(toOrg);
-    if (!org) {
-      // Org not running — queue the message and auto-wake if the def exists
-      if (this.hasOrgDef(toOrg)) {
-        const queued = queueMessage(this.root, toOrg, { fromQualified, toRole, subject, body, ts: Date.now() });
-        if (!queued) {
-          return { ok: false, error: `could not queue message for ${toOrg}:${toRole} (disk full or permissions)` };
-        }
-        this.autoWake(toOrg);
-        return { ok: true, receipt: `queued for ${toOrg}:${toRole} (org waking)` };
-      }
-      return { ok: false, error: `org "${toOrg}" not hosted here` };
-    }
-    // Lazy-spawn pending roles on cross-process delivery (matches deliver/answerQuestion)
-    // ATOMIC GUARD: Check spawning Set to prevent duplicate spawns from concurrent messages
-    const spawning = this.spawning.get(toOrg) ?? new Set<string>();
-    this.spawning.set(toOrg, spawning);
-    if (!org.agents.has(toRole) && org.pendingRoles?.has(toRole) && !spawning.has(toRole)) {
-      const role = org.pendingRoles.get(toRole)!;
-      org.pendingRoles.delete(toRole);
-      spawning.add(toRole); // Mark as spawning before async work
-      // Resource gate check before spawning (prevents bypass in cross-process delivery)
-      const check = checkResources();
-      if (!check.ok) {
-        spawning.delete(toRole); // Clear spawning flag after check
-        org.bus.emit({ type: 'audit', from: toRole, reason: 'resource-pressure',
-          msg: `cross-process lazy spawn deferred: ${check.reason}` });
-        // B4 FIX: Queue the triggering message FIRST, then schedule spawn only if queue succeeds.
-        // This matches the pattern in deliver() and prevents message loss if queue fails.
-        const queued = queueMessage(this.root, toOrg, { fromQualified, toRole, subject, body, ts: Date.now() });
-        if (!queued) {
-          return { ok: false, error: `could not queue message for ${toOrg}:${toRole} (disk full or permissions)` };
-        }
-        this.scheduleDeferredSpawn(toOrg, org, role, org.spawnRole!);
-        return { ok: true, receipt: `queued for ${toOrg}:${toRole} (role starting — waiting for resources)` };
-      }
-      org.spawnRole?.(role);
-      spawning.delete(toRole); // Clear spawning flag after spawn completes
-      org.bus.emit({ type: 'status', from: toRole, msg: `lazy-spawned on remote delivery from ${fromQualified}` });
-    }
-    const agent = org.agents.get(toRole);
-    if (!agent) return { ok: false, error: `role "${toRole}" not found in org "${toOrg}"` };
-    if (agent.status === 'crashed') return { ok: false, error: `role "${toRole}" in org "${toOrg}" crashed and will not recover this run` };
-    if (agent.mailbox.isClosed) return { ok: false, error: `role "${toRole}" in org "${toOrg}" is shutting down` };
-    const messageEvent = org.bus.emit({ type: 'xorg', from: fromQualified, to: `${toOrg}:${toRole}`, subject, msg: body });
-    agent.lastMessageId = messageEvent.id; // Track last message ID for response threading
-    agent.mailbox.push(this.mailBody(toOrg, org, `[message from ${fromQualified}] subject: ${subject}`, body, messageEvent.id));
-    return { ok: true, receipt: `delivered to ${toOrg}:${toRole} (remote)` };
-  }
-
-  private hasOrgDef(name: string): boolean {
+  /** @internal */
+  hasOrgDef(name: string): boolean {
     if (!/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(name)) return false;
     return existsSync(join(this.root, ORG_DIR, `${name}.json`));
-  }
-
-  private questionsPath(org: string): string {
-    return join(this.root, ORG_DIR, org, 'questions.json');
-  }
-
-  private readQuestions(org: string): { questions: Array<{ questionId: string; role: string; question: string; ts: number; answer: string | null; answeredAt: number | null }> } {
-    try { return JSON.parse(readFileSync(this.questionsPath(org), 'utf8')); } catch { return { questions: [] }; }
-  }
-
-  private writeQuestions(org: string, data: ReturnType<OrgDaemon['readQuestions']>): void {
-    const dest = this.questionsPath(org);
-    mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
-    const tmp = `${dest}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(data, null, 2));
-    renameSync(tmp, dest);
-  }
-
-  // ── Decision gates ──────────────────────────────────────────────────────
-
-  private gatesPath(org: string): string {
-    return join(this.root, ORG_DIR, org, 'gates.json');
-  }
-
-  private readGates(org: string): { gates: DecisionGate[] } {
-    try { return JSON.parse(readFileSync(this.gatesPath(org), 'utf8')); } catch { return { gates: [] }; }
-  }
-
-  private writeGates(org: string, data: { gates: DecisionGate[] }): void {
-    const dest = this.gatesPath(org);
-    mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
-    const tmp = `${dest}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(data, null, 2));
-    renameSync(tmp, dest);
-  }
-
-  async createGate(org: string, role: string, name: string, description: string): Promise<string> {
-    return this.withGatesLock(org, async () => {
-      const running = this.orgs.get(org);
-      const gateId = `gate-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const gate: DecisionGate = {
-        id: gateId, name, description, roleId: role,
-        status: 'pending', createdAt: Date.now(),
-      };
-      const data = this.readGates(org);
-      data.gates.push(gate);
-      this.writeGates(org, data);
-      running?.bus.emit({ type: 'gate', from: role, data: { gateId, name, description } });
-      return `Decision gate "${name}" created (id ${gateId}) — a human must approve or reject it before you proceed. End your turn and wait for the resolution.`;
-    });
-  }
-
-  async resolveGate(org: string, gateId: string, approved: boolean, resolution?: string, resolvedBy?: string): Promise<{ ok: true } | { ok: false; error: string }> {
-    return this.withGatesLock(org, async () => {
-      const data = this.readGates(org);
-      const idx = data.gates.findIndex(g => g.id === gateId);
-      if (idx === -1) return { ok: false, error: `gate "${gateId}" not found for org "${org}"` };
-      if (data.gates[idx].status !== 'pending') return { ok: false, error: `gate "${gateId}" already resolved (${data.gates[idx].status})` };
-
-      data.gates[idx].status = approved ? 'approved' : 'rejected';
-      data.gates[idx].resolvedAt = Date.now();
-      data.gates[idx].resolvedBy = resolvedBy ?? 'human';
-      data.gates[idx].resolution = resolution;
-      this.writeGates(org, data);
-
-      const running = this.orgs.get(org);
-      const roleId = data.gates[idx].roleId;
-      if (running) {
-        running.bus.emit({
-          type: 'gate', from: roleId,
-          reason: approved ? 'gate-approved' : 'gate-rejected',
-          data: { gateId, approved, resolution },
-        });
-        const agent = running.agents.get(roleId);
-        if (agent && !agent.mailbox.isClosed) {
-          const verb = approved ? 'approved' : 'rejected';
-          const detail = resolution ?? (approved ? 'approved — proceed' : 'rejected — do not proceed');
-          agent.mailbox.push(`[gate ${verb}] "${data.gates[idx].name}": ${detail}`);
-        }
-      }
-      return { ok: true };
-    });
-  }
-
-  listGates(org: string, status?: 'pending' | 'approved' | 'rejected'): DecisionGate[] {
-    const data = this.readGates(org);
-    return status ? data.gates.filter(g => g.status === status) : data.gates;
-  }
-
-  private dagCreateTask(org: string, role: string, title: string, assignee: string, deps: string[]): string {
-    const running = this.orgs.get(org);
-    if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
-    try {
-      const task = running.taskDag.add(title, assignee, deps);
-      running.bus.emit({
-        type: 'status', from: role, reason: 'task-created',
-        msg: `task ${task.id} created: "${title}" → ${assignee}`,
-        data: { taskId: task.id, assignee, deps, status: task.status },
-      });
-      if (task.status === 'ready') this.dispatchReadyTasks(org, running);
-      return JSON.stringify(task);
-    } catch (err) {
-      return JSON.stringify({ error: (err as Error).message });
-    }
-  }
-
-  private dagCompleteTask(org: string, role: string, taskId: string, result?: string): string {
-    const running = this.orgs.get(org);
-    if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
-    try {
-      running.taskDag.markRunning(taskId);
-      const promoted = running.taskDag.complete(taskId, result);
-      running.bus.emit({
-        type: 'status', from: role, reason: 'task-done',
-        msg: `task ${taskId} completed${promoted.length ? ` — ${promoted.map(t => t.id).join(', ')} now ready` : ''}`,
-        data: { taskId, promoted: promoted.map(t => t.id) },
-      });
-      if (promoted.length > 0) this.dispatchReadyTasks(org, running);
-      return JSON.stringify({ done: taskId, promoted: promoted.map(t => ({ id: t.id, title: t.title, assignee: t.assignee })) });
-    } catch (err) {
-      return JSON.stringify({ error: (err as Error).message });
-    }
-  }
-
-  private dispatchReadyTasks(org: string, running: RunningOrg): void {
-    if (!running.taskDag) return;
-    for (const task of running.taskDag.ready()) {
-      running.taskDag.markRunning(task.id);
-      const agent = running.agents.get(task.assignee);
-      if (agent) {
-        agent.mailbox.push(`[task:${task.id}] ${task.title}`);
-      } else if (running.pendingRoles?.has(task.assignee)) {
-        const pending = running.pendingRoles.get(task.assignee)!;
-        running.pendingRoles.delete(task.assignee);
-        running.spawnRole?.(pending);
-        setTimeout(() => {
-          const spawned = running.agents.get(task.assignee);
-          if (spawned) spawned.mailbox.push(`[task:${task.id}] ${task.title}`);
-        }, 500);
-      }
-      running.bus.emit({
-        type: 'status', from: 'dag', reason: 'task-dispatched',
-        msg: `task ${task.id} dispatched to ${task.assignee}`,
-        data: { taskId: task.id, assignee: task.assignee },
-      });
-    }
-  }
-
-  /** Check if an action requires human approval (beforeTool hook for guardrails). Returns
-   *  the approval decision: true = approved, false = denied, null = pending (requires human input).
-   *
-   *  R5: serialized per-org via withApprovalLock() — concurrent checkApproval and
-   *  setApproval calls previously raced on this.approvals + approvals.json. */
-  private async checkApproval(org: string, role: string, action: string): Promise<boolean | null> {
-    return this.withApprovalLock(org, async () => {
-      const approvalKey = `${org}:${role}:${action}`;
-      const pending = this.approvals.get(org) ?? [];
-      const existing = pending.find(a => a.roleId === role && a.action === action);
-
-      // If already approved/denied, return that decision
-      if (existing && existing.approved !== null) return existing.approved;
-
-      // Require human approval for sensitive actions
-      const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
-      if (sensitiveActions.includes(action)) {
-        // Queue for approval
-        if (!existing) {
-          pending.push({ roleId: role, action, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
-          this.approvals.set(org, pending);
-        }
-        // Persist to approvals.json (C4: atomic write)
-        const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
-        mkdirSync(join(this.root, ORG_DIR, org), { recursive: true });
-        writeJsonFileAtomic(approvalsPath, { approvals: pending });
-
-        // Emit a question event for the dashboard
-        const running = this.orgs.get(org);
-        running?.bus.emit({ type: 'question', from: role, data: { question: `Approval required for ${action}`, action } });
-        return null; // Pending human approval
-      }
-
-      return true; // Auto-approved for non-sensitive actions
-    });
-  }
-
-  /** Approve or deny a pending action (called by dashboard or CLI).
-   *  R5: serialized per-org via withApprovalLock(). */
-  async setApproval(org: string, role: string, action: string, approved: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
-    return this.withApprovalLock(org, async () => {
-      const pending = this.approvals.get(org) ?? [];
-      const item = pending.find(a => a.roleId === role && a.action === action);
-
-      if (!item) return { ok: false, error: `No pending approval found for ${role} action ${action}` };
-
-      item.approved = approved;
-      item.ts = Date.now();
-
-      // Persist updated approval state (C4: atomic write)
-      const approvalsPath = join(this.root, ORG_DIR, org, 'approvals.json');
-      writeJsonFileAtomic(approvalsPath, { approvals: pending });
-
-      // Notify the waiting agent via its mailbox
-      const running = this.orgs.get(org);
-      const agent = running?.agents.get(role);
-      if (agent && !agent.mailbox.isClosed) {
-        agent.mailbox.push(`[approval] ${action}: ${approved ? 'APPROVED' : 'DENIED'}`);
-      }
-
-      running?.bus.emit({ type: 'status', from: role, msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}` });
-      return { ok: true };
-    });
-  }
-
-  /** R5: serialize approval mutations per org. Chains a Promise so concurrent
-   *  callers run strictly in arrival order without blocking the daemon's
-   *  event loop on unrelated orgs. Errors unwind the chain but don't poison
-   *  future callers (the slot is reset to a resolved promise). */
-  private withApprovalLock<T>(org: string, fn: () => Promise<T>): Promise<T> {
-    const prev = this.approvalLocks.get(org) ?? Promise.resolve();
-    const next = prev.then(fn, fn);
-    this.approvalLocks.set(org, next.catch(() => { /* slot stays usable for the next caller */ }));
-    return next;
-  }
-
-  /** Serialize gate mutations per org (same pattern as withApprovalLock).
-   *  createGate and resolveGate race on gates.json without this. */
-  private withGatesLock<T>(org: string, fn: () => Promise<T>): Promise<T> {
-    const prev = this.gatesLocks.get(org) ?? Promise.resolve();
-    const next = prev.then(fn, fn);
-    this.gatesLocks.set(org, next.catch(() => { /* slot stays usable for the next caller */ }));
-    return next;
-  }
-
-  /** Serialize question mutations per org (same pattern as withApprovalLock).
-   *  askHuman and answerQuestion race on questions.json without this. */
-  private withQuestionsLock<T>(org: string, fn: () => Promise<T>): Promise<T> {
-    const prev = this.questionsLocks.get(org) ?? Promise.resolve();
-    const next = prev.then(fn, fn);
-    this.questionsLocks.set(org, next.catch(() => { /* slot stays usable for the next caller */ }));
-    return next;
-  }
-
-  /** Time-travel debugging: replay from a specific checkpoint by run ID.
-   *  Creates a fresh daemon instance and replays events from the target run's bus.jsonl. */
-  async replayFrom(name: string, run: string): Promise<RunningOrg | null> {
-    const runDir = join(this.root, ORG_DIR, name, run);
-    if (!existsSync(runDir)) return null;
-
-    const busFile = join(runDir, 'bus.jsonl');
-    if (!existsSync(busFile)) return null;
-
-    // Create a replay org with a fresh run ID
-    const replayRun = `replay-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
-    const replayDir = join(this.root, ORG_DIR, name, replayRun);
-    mkdirSync(replayDir, { recursive: true });
-
-    // Read original events
-    const events = readFileSync(busFile, 'utf8').split('\n').filter(Boolean)
-      .map(l => { try { return JSON.parse(l) as BusEvent; } catch { return null; } })
-      .filter((e): e is BusEvent => e !== null);
-
-    if (!events.length) return null;
-
-    // Load org definition
-    const defPath = join(this.root, ORG_DIR, `${name}.json`);
-    if (!existsSync(defPath)) return null;
-
-    const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
-
-    // Create replay bus
-    const bus = new OrgBus(name, replayRun, replayDir);
-    const MAX_COLLECTED = 1000;
-    const collected: BusEvent[] = [];
-    bus.subscribe(e => {
-      const slim: BusEvent = e.data?.content != null
-        ? { ...e, data: { ...e.data, content: undefined } }
-        : e;
-      collected.push(slim);
-      if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
-      for (const fn of this.globalSubscribers) fn(e);
-    });
-
-    const running: RunningOrg = { def, run: replayRun, bus, agents: new Map(), busEvents: () => [...collected] };
-
-    // Reemit events into the replay bus with updated timestamps
-    const startTime = Date.now();
-    for (const e of events) {
-      const replayEvent: BusEvent = { ...e, org: name, run: replayRun, ts: startTime };
-      bus.emit(replayEvent);
-    }
-
-    this.orgs.set(name, running);
-    bus.emit({ type: 'status', msg: `replay started from ${run} (${events.length} events replayed)` });
-    this.persistState(name, 'running', replayRun);
-    return running;
-  }
-
-  /** Agent-initiated human question (ask_human tool). Persists to questions.json (survives
-   *  process/dashboard restarts) and emits a 'question' BusEvent so the dashboard's SSE
-   *  stream and global inbox pick it up in real time. Returns a receipt string for the tool call.
-   *  Serialized per-org via withQuestionsLock() (same TOCTOU pattern as approvals). */
-  async askHuman(org: string, role: string, question: string): Promise<string> {
-    return this.withQuestionsLock(org, async () => {
-      const running = this.orgs.get(org);
-      const questionId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const data = this.readQuestions(org);
-      data.questions.push({ questionId, role, question, ts: Date.now(), answer: null, answeredAt: null });
-      this.writeQuestions(org, data);
-      running?.bus.emit({ type: 'question', from: role, data: { questionId, question } });
-      return `Question recorded (id ${questionId}) — a human will answer it; you'll receive the answer as a new message.`;
-    });
-  }
-
-  /** Delivers a human's answer to a pending ask_human question. If the org is still
-   *  running, pushes straight into the role's live mailbox (picked up on its very next
-   *  generator tick — see Mailbox.stream()). If the org has since stopped, queues the
-   *  answer via the same offline fallback deliver()/receiveRemote() already use
-   *  (inbox.ts + autoWake) and it's delivered when the org next starts.
-   *
-   *  PERSIST-AFTER-DELIVERY: questions.json is only marked answered once delivery has
-   *  actually happened (mailbox push, or the message landing in inbox.jsonl). Marking it
-   *  first meant a rejected delivery — unknown role, mailbox closed mid-shutdown, a
-   *  queueMessage that threw on a full/read-only disk — left the question recorded as
-   *  answered while nobody ever received the answer, and the `already answered` guard
-   *  then refused every retry. The answer was simply gone. The inverse failure (crash
-   *  between delivery and the write) merely re-shows the question as pending, which a
-   *  human can act on; a silently swallowed answer is not recoverable. */
-  async answerQuestion(org: string, role: string, questionId: string, answer: string): Promise<{ ok: true } | { ok: false; error: string }> {
-    return this.withQuestionsLock(org, async () => {
-      const data = this.readQuestions(org);
-      const idx = data.questions.findIndex(q => q.questionId === questionId);
-      if (idx === -1) return { ok: false, error: `question "${questionId}" not found for org "${org}"` };
-      if (data.questions[idx].answer !== null) return { ok: false, error: `question "${questionId}" already answered` };
-      const question = data.questions[idx].question;
-      // Applied to questions.json ONLY after the delivery below succeeds.
-      const markAnswered = (): void => {
-        // Re-read so a question the daemon appended (or answered) meanwhile isn't
-        // clobbered by this stale snapshot — merge by questionId, never replace.
-        const fresh = this.readQuestions(org);
-        const fIdx = fresh.questions.findIndex(q => q.questionId === questionId);
-        if (fIdx === -1) fresh.questions.push({ ...data.questions[idx], answer, answeredAt: Date.now() });
-        else fresh.questions[fIdx] = { ...fresh.questions[fIdx], answer, answeredAt: Date.now() };
-        this.writeQuestions(org, fresh);
-      };
-
-      const running = this.orgs.get(org);
-      if (running) {
-        // Org IS running — deliver or report a real error, but never fall through to the
-        // offline queue+autoWake path below: autoWake() no-ops when this.orgs already has
-        // the org (see its own guard), so a role-specific delivery failure here (mailbox
-        // closed, role unknown) would otherwise queue the answer forever with no real error
-        // and no delivery. Mirrors deliver()'s existing "shutting down" error for the same
-        // mid-shutdown-mailbox-closed race.
-        // Spawn a lazily-deferred role before giving up on it. Roles are no longer
-        // all spawned at boot, so `agents` legitimately lacks a role that simply
-        // has not been needed yet — and rejecting on that dropped the human's
-        // answer with "role not found" for a role that exists and is about to
-        // run. deliver() does the same lookup; a human answer must not be the one
-        // delivery path that cannot wake a role.
-        if (!running.agents.has(role) && running.pendingRoles?.has(role)) {
-          const pending = running.pendingRoles.get(role)!;
-          running.pendingRoles.delete(role);
-          running.spawnRole?.(pending);
-        }
-        const agent = running.agents.get(role);
-        if (!agent) return { ok: false, error: `role "${role}" not found in org "${org}"` };
-        if (agent.mailbox.isClosed) return { ok: false, error: `role "${role}" in org "${org}" is shutting down — answer not delivered` };
-        try {
-          agent.mailbox.push(`[answer from human] question: ${question}\n\nanswer: ${answer}`);
-        } catch (err) {
-          return { ok: false, error: `delivery to "${role}" in org "${org}" failed — answer not recorded (${err instanceof Error ? err.message : String(err)})` };
-        }
-        markAnswered();
-        running.bus.emit({ type: 'status', from: role, msg: 'question answered', data: { questionId } });
-        return { ok: true };
-      }
-      // Org not running at all — queue for delivery on next start, matching deliver()'s
-      // existing offline fallback exactly (inbox.ts + autoWake).
-      if (!this.hasOrgDef(org)) return { ok: false, error: `org "${org}" not found (no saved definition)` };
-      const queued = queueMessage(this.root, org, {
-        fromQualified: 'human', toRole: role,
-        subject: `answer:${questionId}`,
-        body: `question: ${question}\n\nanswer: ${answer}`,
-        ts: Date.now(),
-      });
-      if (!queued) {
-        return { ok: false, error: `could not queue answer for org "${org}" — answer not recorded (disk full or permissions)` };
-      }
-      markAnswered();
-      this.autoWake(org);
-      return { ok: true };
-    });
-  }
-
-  /** Start an offline org in the background so queued messages get drained.
-   *  Fire-and-forget — errors are logged but don't propagate to the sender. */
-  private autoWake(name: string): void {
-    if (this.orgs.has(name) || this.waking.has(name)) return;
-    this.waking.add(name);
-    this.startOrg(name)
-      .catch(err => { console.error(`auto-wake org "${name}" failed:`, err instanceof Error ? err.message : err); })
-      .finally(() => { this.waking.delete(name); });
-  }
-
-  /** #4: bounded whole-org restart after the boss terminally crashes. Stops the
-   *  dead run and re-launches it with fresh sessions (shedding any bloated
-   *  context). Capped at MAX_BOSS_RESTARTS per explicit start so a crashing boss
-   *  can't loop forever; beyond the cap it gives up and lets the idle watchdog
-   *  shut the run down for a human. */
-  private scheduleBossRestart(name: string): void {
-    if (this.stopping.has(name) || this.restarting.has(name)) return;
-    const count = this.bossRestartCounts.get(name) ?? 0;
-    const bus = this.orgs.get(name)?.bus;
-    if (count >= OrgDaemon.MAX_BOSS_RESTARTS) {
-      bus?.emit({ type: 'audit', reason: 'boss-restart-exhausted',
-        msg: `boss crashed again after ${count} auto-restart(s) — giving up; manual restart required` });
-      return;
-    }
-    const backoffSchedule = this.opts.bossRestartBackoffMs ?? OrgDaemon.BOSS_RESTART_BACKOFF_MS;
-    const backoff = backoffSchedule[Math.min(count, backoffSchedule.length - 1)];
-    this.bossRestartCounts.set(name, count + 1);
-    this.restarting.add(name);
-    bus?.emit({ type: 'audit', reason: 'boss-restart',
-      msg: `boss crashed — auto-restarting org with fresh sessions in ${Math.round(backoff / 1000)}s (attempt ${count + 1}/${OrgDaemon.MAX_BOSS_RESTARTS})` });
-    const t = setTimeout(() => {
-      if (this.stopping.has(name)) { this.restarting.delete(name); return; } // a manual stop won
-      this.stopOrg(name)
-        .then(() => (this.stopping.has(name) ? null : this.startOrg(name)))
-        .then(() => { this.restarting.delete(name); })
-        .catch(err => { this.restarting.delete(name); console.error(`org ${name}: boss auto-restart failed:`, err instanceof Error ? err.message : err); });
-    }, backoff);
-    (t as { unref?: () => void }).unref?.();
   }
 
   /** @param opts.drainMs how long to let in-flight agent sessions finish before
@@ -1598,422 +884,8 @@ export class OrgDaemon {
     ]);
   }
 
-  private orgMemoryNamespace(name: string, def: OrgDef): string {
-    return def.run_config.memory_namespace ?? `org:${name}`;
-  }
-
-  /** Store dir for org cross-run memory — inside the org root so the bridge's
-   *  path guard accepts it when the daemon runs from the project (the normal
-   *  case) and test roots stay isolated. */
-  private orgMemoryDbPath(): string {
-    return join(this.root, '.monomind', 'org-memory');
-  }
-
-  /** The memory bridge's traversal guard silently redirects out-of-tree paths
-   *  to the per-project default store. For an org rooted outside cwd (tests,
-   *  unusual daemon setups) that redirect would write into the WRONG project's
-   *  memory — verify the guard kept our path, and skip org memory otherwise. */
-  private async orgMemoryUsable(): Promise<boolean> {
-    try {
-      const { bridgeGetDbPath } = await import('../memory/memory-bridge.js');
-      const want = this.orgMemoryDbPath();
-      const got = bridgeGetDbPath(want);
-      const { realpathSync } = await import('node:fs');
-      const real = (p: string): string => { try { return realpathSync(p); } catch { return p; } };
-      return real(got) === real(want);
-    } catch { return false; }
-  }
-
-  /** Namespace for a role's PRIVATE memories, inside the org memory DB. */
-  private agentMemoryNamespace(name: string, def: OrgDef, role: string): string {
-    return `agent:${this.orgMemoryNamespace(name, def)}:${role}`;
-  }
-
-  /** org_remember implementation: a deliberate write to org-shared or
-   *  role-private memory (both in the org memory DB, split by namespace). */
-  private async rememberOrgMemory(name: string, def: OrgDef, role: string, content: string, scope: 'org' | 'agent', run: string): Promise<string> {
-    try {
-      if (!(await this.orgMemoryUsable())) return 'org memory is not available in this environment.';
-      const { bridgeStoreEntry } = await import('../memory/memory-bridge.js');
-      const namespace = scope === 'agent' ? this.agentMemoryNamespace(name, def, role) : this.orgMemoryNamespace(name, def);
-      const res = await bridgeStoreEntry({
-        key: `mem-${run}-${Date.now().toString(36)}`,
-        value: content.slice(0, 20_000),
-        namespace,
-        dbPath: this.orgMemoryDbPath(),
-        tags: [scope, role],
-        metadata: { origin_refs: [`run:${run}`], by: role },
-      });
-      if (res?.duplicate) return `Already remembered (near-duplicate exists) — reinforced instead.`;
-      return res?.success ? `Remembered (${scope} scope).` : `Could not store memory${res?.error ? `: ${res.error}` : ''}.`;
-    } catch (err) {
-      return `org_remember failed (${err instanceof Error ? err.message : 'error'})`;
-    }
-  }
-
-  /** Entry IDs served by org_recall during the current run, per org. This is
-   *  the usage record the run-outcome auto-rating consumes (cognee's
-   *  used_graph_element_ids pattern) — recall renders text to the agent, so
-   *  the IDs must be captured here or they're gone. */
-  private recallUsage = new Map<string, Set<string>>();
-
-  /** org_recall implementation: search the org's memory namespace via the
-   *  memory bridge (semantic when the local model is available, tokenized
-   *  keyword otherwise). Failures return a message, never throw into the tool. */
-  private async recallOrgMemory(name: string, def: OrgDef, query: string, role?: string): Promise<{ text: string; hits: number }> {
-    try {
-      if (!(await this.orgMemoryUsable())) return { text: 'org memory is not available in this environment.', hits: 0 };
-      const bridge = await import('../memory/memory-bridge.js');
-      // Shared org memory plus the caller's private agent scope, merged by score.
-      const [shared, priv] = await Promise.all([
-        bridge.bridgeSearchEntries({
-          query, namespace: this.orgMemoryNamespace(name, def), limit: 5, dbPath: this.orgMemoryDbPath(),
-        }),
-        role ? bridge.bridgeSearchEntries({
-          query, namespace: this.agentMemoryNamespace(name, def, role), limit: 3, dbPath: this.orgMemoryDbPath(),
-        }) : null,
-      ]);
-      const results = [
-        ...(shared?.results ?? []),
-        ...(priv?.results ?? []).map(r => ({ ...r, key: `${r.key} (private)` })),
-      ].sort((a, b) => b.score - a.score).slice(0, 6);
-      if (!results.length) return { text: 'No matching org memory found — this may be the first run covering this topic.', hits: 0 };
-      const ids = results.map(r => r.id).filter(Boolean);
-      let used = this.recallUsage.get(name);
-      if (!used) { used = new Set(); this.recallUsage.set(name, used); }
-      for (const id of ids) used.add(id);
-      // Frequency reinforcement is immediate; the feedback rating waits for the
-      // run outcome (positive-only — see storeRunMemory).
-      bridge.bridgeRecordUsage({ entryIds: ids, dbPath: this.orgMemoryDbPath() }).catch(() => { /* best effort */ });
-      let text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content.slice(0, 500)}`).join('\n\n');
-      // Structured knowledge: relationship triplets from the org KG, when any.
-      try {
-        const kg = await import('../memory/memory-kg.js');
-        const graph = await kg.kgSearch({ query, dbPath: this.orgMemoryDbPath(), limit: 5 });
-        if (graph.context) text += `\n\nKnowledge graph:\n${graph.context.slice(0, 1024)}`;
-      } catch { /* best effort */ }
-      return { text, hits: results.length };
-    } catch (err) {
-      return { text: `org memory unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
-    }
-  }
-
-  /** knowledge_search implementation for org agents: the user's Second Brain
-   *  (this project's documents + the personal global brain), merged with the
-   *  same project-first ranking every other surface uses. Failures return a
-   *  message, never throw into the tool call. */
-  async searchProjectKnowledge(query: string): Promise<{ text: string; hits: number }> {
-    try {
-      const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
-      const excerpts = await searchKnowledge(query, { rootDir: this.root, limit: 3, store: 'all' });
-      if (!excerpts.length) return { text: 'No matching documents in the Second Brain for that query.', hits: 0 };
-      const text = excerpts.map((e, i) =>
-        `${i + 1}. [${e.filePath || 'unknown'}${e.scope === 'global' ? ' · global' : ''}] (${e.similarity.toFixed(2)})\n${e.text.slice(0, 400)}`
-      ).join('\n\n');
-      return { text, hits: excerpts.length };
-    } catch (err) {
-      return { text: `knowledge search unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
-    }
-  }
-
-  /** org_learn implementation: merge coordinator-extracted entities/relations/
-   *  rules into the org's knowledge graph (LLM extraction happens inside the
-   *  agent's own subscription-auth SDK session — no separate LLM call here). */
-  private orgLearnedRuns = new Set<string>();
-  private async learnOrgKnowledge(name: string, run: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }): Promise<string> {
-    try {
-      if (!(await this.orgMemoryUsable())) return 'org memory is not available in this environment.';
-      const kg = await import('../memory/memory-kg.js');
-      const dbPath = this.orgMemoryDbPath();
-      const originRef = `run:${run}`;
-      const graph = await kg.kgIngest({
-        nodes: (payload.nodes ?? []) as import('../memory/memory-kg.js').KgNodeInput[],
-        edges: (payload.edges ?? []) as import('../memory/memory-kg.js').KgEdgeInput[],
-        originRef, dbPath,
-      });
-      const rules = Array.isArray(payload.rules) && payload.rules.length
-        ? await kg.kgIngestRules({ rules: payload.rules as { rule: string; context?: string }[], originRef, dbPath })
-        : null;
-      this.orgLearnedRuns.add(`${name}:${run}`);
-      const parts = [
-        `entities: +${graph.nodesAdded} new, ${graph.nodesMerged} merged`,
-        `relations: +${graph.edgesAdded} new, ${graph.edgesMerged} merged`,
-      ];
-      if (rules) parts.push(`rules: ${rules.accepted} accepted, ${rules.verdicts.filter(v => v.verdict === 'already_known').length} already known`);
-      return `Recorded in org knowledge graph — ${parts.join('; ')}. Rollback ref: ${originRef}.`;
-    } catch (err) {
-      return `org_learn failed (${err instanceof Error ? err.message : 'error'})`;
-    }
-  }
-
-  /** Persist the run's outcome into cross-run org memory so org_recall (and
-   *  future runs) can find it by meaning, not just recency. Best-effort. */
-  private async storeRunMemory(name: string, def: OrgDef, run: string, summary: import('./reporting.js').RunSummary): Promise<void> {
-    try {
-      if (!(await this.orgMemoryUsable())) return;
-      const { bridgeStoreEntry } = await import('../memory/memory-bridge.js');
-      const when = summary.endedAt ? new Date(summary.endedAt).toISOString().slice(0, 10) : '';
-      const lines = [
-        `Org run ${run}${when ? ` (${when})` : ''} — goal: ${def.goal}`,
-        summary.outcome
-          ? `Outcome: ${summary.outcome.status} — ${summary.outcome.summary}`
-          : `Outcome: not recorded (${summary.messages} messages exchanged)`,
-        summary.assets.length ? `Assets produced: ${summary.assets.slice(0, 10).join(', ')}` : '',
-        summary.crashes.length ? `Crashed agents: ${summary.crashes.join(', ')}` : '',
-      ].filter(Boolean);
-      await bridgeStoreEntry({
-        key: `run-${run}`,
-        value: lines.join('\n'),
-        namespace: this.orgMemoryNamespace(name, def),
-        dbPath: this.orgMemoryDbPath(),
-        upsert: true,
-      });
-
-      // Heuristic KG fallback: if the coordinator never called org_learn this
-      // run, extract lower-trust entities from the outcome summary so the
-      // graph still accumulates something. LLM-quality extraction only comes
-      // from org_learn (the agent's own session).
-      if (!this.orgLearnedRuns.delete(`${name}:${run}`)) {
-        try {
-          const kg = await import('../memory/memory-kg.js');
-          const extracted = kg.heuristicExtract(lines.join('\n'), { sourceName: `run:${run}` });
-          if (extracted.nodes.length) {
-            await kg.kgIngest({ ...extracted, originRef: `run:${run}`, dbPath: this.orgMemoryDbPath() });
-          }
-        } catch { /* best effort */ }
-      }
-
-      // Auto-rate the memories this run recalled — POSITIVE-ONLY: a failed run
-      // proves nothing about the recalled memories (the failure may be entirely
-      // unrelated), so failure never rates them down. Idempotent per run via
-      // the feedback ledger, so a retried stopOrg can't double-apply.
-      const used = this.recallUsage.get(name);
-      this.recallUsage.delete(name);
-      if (used?.size && summary.outcome?.status === 'achieved') {
-        const { bridgeApplyFeedback } = await import('../memory/memory-bridge.js');
-        await bridgeApplyFeedback({
-          entryIds: [...used],
-          score: 0.9,
-          ledgerKey: `org-${name}-${run}`,
-          dbPath: this.orgMemoryDbPath(),
-        }).catch(() => { /* best effort */ });
-      }
-    } catch (err) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`org ${name}: run memory store failed:`, err instanceof Error ? err.message : err);
-    }
-  }
-
-  /** Resume a previous run from its checkpoint (runtime.json state). Reconstructs
-   *  the org's agents and mailboxes from the persisted state, enabling time-travel
-   *  debugging and run recovery after crashes. Returns the resumed RunningOrg or null.
-   *  Pattern 3: Full state restoration including mailbox queues, policy counters,
-   *  and session state with TTL and validation. */
-  async resumeOrg(name: string): Promise<RunningOrg | null> {
-    const rtPath = join(this.root, ORG_DIR, name, 'runtime.json');
-    if (!existsSync(rtPath)) {
-      console.error('resumeOrg failed: runtime.json missing for', name);
-      return null;
-    }
-
-    interface RuntimeState {
-      status?: string;
-      run?: string;
-      checkpoint?: OrgCheckpoint;
-      abandonedRoles?: string[];
-    }
-
-    let rt: RuntimeState | undefined;
-    try {
-      rt = JSON.parse(readFileSync(rtPath, 'utf8'));
-    } catch (err) {
-      console.error('resumeOrg failed: invalid JSON in runtime.json for', name, err instanceof Error ? err.message : err);
-      return null;
-    }
-
-    // Allow resume from 'stopped' orgs - the checkpoint contains the running state to restore
-    if (!rt?.run || !rt?.checkpoint) {
-      console.error('resumeOrg failed: invalid runtime state for', name, 'status:', rt?.status, 'run:', rt?.run, 'checkpoint:', !!rt?.checkpoint);
-      return null;
-    }
-
-    // Pattern 3: Checkpoint TTL validation - expire stale checkpoints
-    if (rt.checkpoint && isCheckpointExpired(rt.checkpoint)) {
-      console.error('resumeOrg failed: checkpoint expired for', name, 'updated:', rt.checkpoint.updated);
-      return null;
-    }
-
-    // Pattern 3: Checksum validation - detect corrupted state
-    if (rt.checkpoint && !validateCheckpoint(rt.checkpoint)) {
-      console.error('resumeOrg failed: checkpoint validation failed for', name);
-      return null;
-    }
-
-    // Load the org definition
-    const defPath = join(this.root, ORG_DIR, `${name}.json`);
-    if (!existsSync(defPath)) {
-      console.error('resumeOrg failed: org definition missing for', name);
-      return null;
-    }
-
-    const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
-    const dir = join(this.root, ORG_DIR, name, rt.run);
-
-    // Check if run directory exists
-    if (!existsSync(dir)) {
-      console.error('resumeOrg failed: run directory missing', dir);
-      return null;
-    }
-
-    // Reconstruct the bus from history
-    const bus = new OrgBus(name, rt.run, dir);
-    const MAX_COLLECTED = 1000;
-    const collected: BusEvent[] = [];
-    bus.subscribe(e => {
-      const slim: BusEvent = e.data?.content != null
-        ? { ...e, data: { ...e.data, content: undefined } }
-        : e;
-      collected.push(slim);
-      if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
-      for (const fn of this.globalSubscribers) fn(e);
-    });
-
-    const running: RunningOrg = { def, run: rt.run, bus, agents: new Map(), busEvents: () => [...collected] };
-
-    // Pattern 3: Full checkpoint restoration - reconstruct agents with complete state
-    if (rt.checkpoint) {
-      const checkpoint = rt.checkpoint;
-
-      // Reconstruct each role from checkpoint state
-      for (const [roleId, roleState] of Object.entries(checkpoint.roleState)) {
-        const role = def.roles.find(r => r.id === roleId);
-        if (!role) continue; // Role no longer exists in org definition
-
-        const mailbox = new Mailbox();
-        const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
-        const policy = new PolicyEngine(roleId, { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, this.root);
-
-        const runtime: AgentRuntime = {
-          mailbox,
-          policy,
-          status: roleState.status,
-          done: Promise.resolve(),
-          metrics: { tokens: roleState.tokensUsed, costUsd: roleState.costUsd },
-          lastMessageId: roleState.lastMessageId,
-          error: roleState.error,
-          scrollback: new ScrollbackBuffer(),
-        };
-
-        // Restore scrollback from checkpoint if available
-        if (roleState.scrollback?.length) {
-          for (const line of roleState.scrollback) runtime.scrollback.push(line);
-        }
-
-        // Pattern 3: Restore mailbox queue content (not just closed state)
-        if (roleState.mailboxQueue.length > 0) {
-          restoreMailboxQueue(runtime, roleState.mailboxQueue);
-        }
-
-        // Pattern 3: Restore mailbox closed state
-        if (roleState.mailboxClosed) {
-          mailbox.close();
-        }
-
-        // Pattern 3: Restore policy usage counters
-        if (roleState.tokensUsed > 0) {
-          policy.setUsage(roleState.tokensUsed);
-        }
-
-        running.agents.set(roleId, runtime);
-      }
-
-      // Set up pending roles for lazy spawn (roles not in checkpoint)
-      const reconstructedRoles = new Set(Object.keys(checkpoint.roleState));
-      const pendingRoles = new Map<string, OrgRole>();
-      for (const role of def.roles) {
-        if (!reconstructedRoles.has(role.id)) {
-          pendingRoles.set(role.id, role);
-        }
-      }
-      if (pendingRoles.size > 0) {
-        running.pendingRoles = pendingRoles;
-      }
-    }
-
-    // Restore abandoned roles tracking
-    if (rt.abandonedRoles) {
-      this.abandoned.set(name, new Set(rt.abandonedRoles));
-    }
-
-    this.orgs.set(name, running);
-    bus.emit({ type: 'status', msg: `org resumed from checkpoint (${rt.run})` });
-    this.persistState(name, 'running', rt.run);
-    return running;
-  }
-
-  /** Create a branch from a checkpoint for "what-if" experiments */
-  branchCheckpoint(name: string, run: string, branchName: string): { ok: true; branchRun: string } | { ok: false; error: string } {
-    const runDir = join(this.root, ORG_DIR, name, run);
-    if (!existsSync(runDir)) {
-      return { ok: false, error: `run ${run} not found for org ${name}` };
-    }
-
-    const branchRun = `branch-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
-    const branchDir = join(this.root, ORG_DIR, name, branchRun);
-
-    try {
-      mkdirSync(branchDir, { recursive: true });
-      // Copy bus.jsonl to branch (C4: atomic — partial copy on crash leaves
-      // a branch that can't replay its event log).
-      const busFile = join(runDir, 'bus.jsonl');
-      if (existsSync(busFile)) {
-        const busContent = readFileSync(busFile, 'utf8');
-        const branchBusFile = join(branchDir, 'bus.jsonl');
-        // Atomic write for raw (non-JSON) content: tmp + rename.
-        const tmp = `${branchBusFile}.${process.pid}.${Date.now()}.tmp`;
-        writeFileSync(tmp, busContent, 'utf8');
-        renameSync(tmp, branchBusFile);
-      }
-      // Create branch marker file (atomic)
-      writeJsonFileAtomic(join(branchDir, '.branch-source'), { from: run, branchedAt: new Date().toISOString() });
-      return { ok: true, branchRun };
-    } catch (err) {
-      return { ok: false, error: `failed to create branch: ${err instanceof Error ? err.message : String(err)}` };
-    }
-  }
-
-  /** Record a structured decision trace for Rifft-style debugging */
-  recordDecision(org: string, role: string, decision: {
-    type: 'tool' | 'handoff' | 'approval' | 'routing';
-    context: string;
-    reasoning: string;
-    alternatives?: Array<{ choice: string; score: number; reason: string }>;
-    outcome: string;
-  }): void {
-    const running = this.orgs.get(org);
-    if (!running) return;
-
-    running.bus.emit({
-      type: 'audit',
-      from: role,
-      reason: 'decision-trace',
-      data: {
-        decisionType: decision.type,
-        context: decision.context,
-        reasoning: decision.reasoning,
-        alternatives: decision.alternatives,
-        outcome: decision.outcome,
-        ts: new Date().toISOString()
-      },
-    });
-  }
-
-  /** Roles that never spawned, per org. An org missing a role is still reported
-   *  `running` by every status path, so the absence was visible only as one
-   *  audit line in the log — a run went 40 minutes with no tester and nothing
-   *  said so. Persisted to runtime.json so `org status` can say it out loud. */
-  private abandoned = new Map<string, Set<string>>();
-
-  private persistState(name: string, status: string, run: string, org?: RunningOrg, checkpointOverride?: OrgCheckpoint | null): void {
+  /** @internal */
+  persistState(name: string, status: string, run: string, org?: RunningOrg, checkpointOverride?: OrgCheckpoint | null): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
     const running = org ?? this.orgs.get(name);
@@ -2073,5 +945,102 @@ export class OrgDaemon {
   clearHeartbeat(): void {
     try { unlinkSync(this.heartbeatPath()); }
     catch { /* already gone or never written */ }
+  }
+
+  // ── Delegated methods — extracted to focused modules ──────────────────
+
+  // approvals.ts
+  private checkApproval(org: string, role: string, action: string): Promise<boolean | null> {
+    return approvalOps.checkApproval(this, org, role, action);
+  }
+  async setApproval(org: string, role: string, action: string, approved: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+    return approvalOps.setApproval(this, org, role, action, approved);
+  }
+
+  // questions.ts
+  async askHuman(org: string, role: string, question: string): Promise<string> {
+    return questionOps.askHuman(this, org, role, question);
+  }
+  async answerQuestion(org: string, role: string, questionId: string, answer: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    return questionOps.answerQuestion(this, org, role, questionId, answer);
+  }
+
+  // decisions.ts
+  private readGates(org: string): { gates: DecisionGate[] } {
+    return decisionOps.readGates(this.root, org);
+  }
+  async createGate(org: string, role: string, name: string, description: string): Promise<string> {
+    return decisionOps.createGate(this, org, role, name, description);
+  }
+  async resolveGate(org: string, gateId: string, approved: boolean, resolution?: string, resolvedBy?: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    return decisionOps.resolveGate(this, org, gateId, approved, resolution, resolvedBy);
+  }
+  listGates(org: string, status?: 'pending' | 'approved' | 'rejected'): DecisionGate[] {
+    return decisionOps.listGates(this, org, status);
+  }
+  private dagCreateTask(org: string, role: string, title: string, assignee: string, deps: string[]): string {
+    return decisionOps.dagCreateTask(this, org, role, title, assignee, deps);
+  }
+  private dagCompleteTask(org: string, role: string, taskId: string, result?: string): string {
+    return decisionOps.dagCompleteTask(this, org, role, taskId, result);
+  }
+  recordDecision(org: string, role: string, decision: {
+    type: 'tool' | 'handoff' | 'approval' | 'routing';
+    context: string; reasoning: string;
+    alternatives?: Array<{ choice: string; score: number; reason: string }>;
+    outcome: string;
+  }): void {
+    decisionOps.recordDecision(this, org, role, decision);
+  }
+
+  // cross-org.ts
+  async deliver(fromOrg: string, fromRole: string, to: string, subject: string, body: string): Promise<string> {
+    return crossOrg.deliver(this, fromOrg, fromRole, to, subject, body);
+  }
+  receiveRemote(toOrg: string, toRole: string, fromQualified: string, subject: string, body: string): { ok: true; receipt: string } | { ok: false; error: string } {
+    return crossOrg.receiveRemote(this, toOrg, toRole, fromQualified, subject, body);
+  }
+  private mailBody(orgName: string, org: RunningOrg | undefined, header: string, body: string, id: string): string {
+    return crossOrg.mailBody(this.root, orgName, org, header, body, id);
+  }
+
+  // scheduler-integration.ts
+  /** @internal */
+  autoWake(name: string): void { scheduler.autoWake(this, name); }
+  private scheduleBossRestart(name: string): void { scheduler.scheduleBossRestart(this, name); }
+  /** @internal */
+  scheduleDeferredSpawn(name: string, running: RunningOrg, role: OrgRole, spawnRole: (role: OrgRole) => void): void {
+    scheduler.scheduleDeferredSpawn(this, name, running, role, spawnRole);
+  }
+
+  // org-memory.ts
+  private orgMemoryNamespace(name: string, def: OrgDef): string { return orgMemory.orgMemoryNamespace(name, def); }
+  private orgMemoryDbPath(): string { return orgMemory.orgMemoryDbPath(this.root); }
+  private orgMemoryUsable(): Promise<boolean> { return orgMemory.orgMemoryUsable(this.root); }
+  private async rememberOrgMemory(name: string, def: OrgDef, role: string, content: string, scope: 'org' | 'agent', run: string): Promise<string> {
+    return orgMemory.rememberOrgMemory(this.root, name, def, role, content, scope, run);
+  }
+  private async recallOrgMemory(name: string, def: OrgDef, query: string, role?: string): Promise<{ text: string; hits: number }> {
+    return orgMemory.recallOrgMemory(this, name, def, query, role);
+  }
+  async searchProjectKnowledge(query: string): Promise<{ text: string; hits: number }> {
+    return orgMemory.searchProjectKnowledge(this.root, query);
+  }
+  private async learnOrgKnowledge(name: string, run: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }): Promise<string> {
+    return orgMemory.learnOrgKnowledge(this, name, run, payload);
+  }
+  private async storeRunMemory(name: string, def: OrgDef, run: string, summary: RunSummary): Promise<void> {
+    return orgMemory.storeRunMemory(this, name, def, run, summary);
+  }
+
+  // checkpoint-ops.ts
+  async replayFrom(name: string, run: string): Promise<RunningOrg | null> {
+    return checkpointOps.replayFrom(this, name, run);
+  }
+  async resumeOrg(name: string): Promise<RunningOrg | null> {
+    return checkpointOps.resumeOrg(this, name);
+  }
+  branchCheckpoint(name: string, run: string, branchName: string): { ok: true; branchRun: string } | { ok: false; error: string } {
+    return checkpointOps.branchCheckpoint(this, name, run, branchName);
   }
 }
