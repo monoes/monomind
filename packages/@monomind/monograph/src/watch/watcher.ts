@@ -59,17 +59,19 @@ export async function watchAsync(
   };
 
   let building = false;
-  let rerun = false;
+  let pendingFiles = new Set<string>();
   watcher.on('monograph:updated', async (files: string[]) => {
     resetIdle();
-    if (building) { rerun = true; return; }
+    for (const f of files) pendingFiles.add(f);
+    if (building) return;
     building = true;
     try {
-      do {
-        rerun = false;
-        opts.onProgress?.({ phase: 'watch', message: `Changed: ${files.slice(0, 3).join(', ')}` });
+      while (pendingFiles.size > 0) {
+        const batch = [...pendingFiles];
+        pendingFiles = new Set();
+        opts.onProgress?.({ phase: 'watch', message: `Changed: ${batch.slice(0, 3).join(', ')}` });
         try {
-          await buildIncrementalAsync(repoPath, files, {
+          await buildIncrementalAsync(repoPath, batch, {
             onProgress: opts.onProgress, force: opts.force,
             codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0,
           });
@@ -80,7 +82,7 @@ export async function watchAsync(
           watcher.emit('monograph:error', err);
           opts.onProgress?.({ phase: 'watch', message: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}` });
         }
-      } while (rerun);
+      }
     } finally {
       building = false;
     }

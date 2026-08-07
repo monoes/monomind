@@ -37,7 +37,7 @@ const MAX_HISTORY_FILE_BYTES = 1 * 1024 * 1024; // 1 MB
 
 function execFileAsync(cmd: string, args: string[]): Promise<void> {
   return new Promise<void>((resolve, reject) =>
-    execFile(cmd, args, (err) => (err ? reject(err) : resolve()))
+    execFile(cmd, args, { timeout: 120_000 }, (err) => (err ? reject(err) : resolve()))
   );
 }
 
@@ -159,9 +159,7 @@ export async function executeUpdate(
     }
     // Install globally — -g is critical: without it npm installs into the
     // user's cwd, silently modifying their project package.json (#83).
-    // npmCommand() resolves npm.cmd on Windows — execFile of the bare 'npm'
-    // .cmd shim throws EINVAL on Node >= 18.20.2 (#84).
-    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact']);
+    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact', '--ignore-scripts']);
 
     // Record successful update
     recordUpdate({
@@ -261,8 +259,7 @@ export async function rollbackUpdate(
       throw new Error(`Invalid version: ${version}`);
     }
     // Install globally — prevents modifying the user's project (#83).
-    // npmCommand(): .cmd shim on Windows, see #84.
-    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact']);
+    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact', '--ignore-scripts']);
 
     // Record the rollback
     recordUpdate({

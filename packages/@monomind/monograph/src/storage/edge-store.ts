@@ -80,10 +80,8 @@ export function getEdgesForTarget(db: Database.Database, targetId: string): Mono
  * `deleteEdgesForFile` then `deleteNodesForFile`, never the reverse.
  */
 export function deleteEdgesForFile(db: Database.Database, filePath: string): void {
-  db.prepare(`
-    DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)
-       OR target_id IN (SELECT id FROM nodes WHERE file_path = ?)
-  `).run(filePath, filePath);
+  db.prepare(`DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)`).run(filePath);
+  db.prepare(`DELETE FROM edges WHERE target_id IN (SELECT id FROM nodes WHERE file_path = ?)`).run(filePath);
 }
 
 export function countEdges(db: Database.Database): number {
