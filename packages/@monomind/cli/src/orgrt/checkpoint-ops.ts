@@ -9,7 +9,7 @@ import { PolicyEngine } from './policy.js';
 import { OrgDefSchema, ORG_DIR, type BusEvent, type OrgRole } from './types.js';
 import { validateCheckpoint, isCheckpointExpired, restoreMailboxQueue, type OrgCheckpoint } from './checkpoint.js';
 import type { OrgDaemon, RunningOrg, AgentRuntime, ScrollbackBuffer as ScrollbackBufferType } from './daemon.js';
-import { ScrollbackBuffer } from './daemon.js';
+import { ScrollbackBuffer, roleTokenBudget } from './daemon.js';
 
 /** Time-travel debugging: replay from a specific checkpoint by run ID.
  *  Creates a fresh daemon instance and replays events from the target run's bus.jsonl. */
@@ -152,7 +152,7 @@ export async function resumeOrg(daemon: OrgDaemon, name: string): Promise<Runnin
       if (!role) continue; // Role no longer exists in org definition
 
       const mailbox = new Mailbox();
-      const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+      const perRoleBudget = roleTokenBudget(role, def);
       const policy = new PolicyEngine(roleId, { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, daemon.root);
 
       const runtime: AgentRuntime = {
