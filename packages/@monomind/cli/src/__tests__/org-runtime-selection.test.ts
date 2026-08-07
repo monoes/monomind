@@ -7,10 +7,10 @@
  * unchanged).
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { resolveRunner } from '../orgrt/daemon.js';
+import { resolveRunner, resolveRoleRunner } from '../orgrt/daemon.js';
 import { KimiCodeAgentRunner } from '../orgrt/kimicode-runner.js';
 import { OpencodeAgentRunner } from '../orgrt/opencode-runner.js';
-import { OrgDefSchema } from '../orgrt/types.js';
+import { OrgDefSchema, RoleSchema } from '../orgrt/types.js';
 
 describe('resolveRunner', () => {
   let saved: string | undefined;
@@ -74,5 +74,68 @@ describe('OrgDefSchema runtime field', () => {
 
   it('rejects an unknown runtime value', () => {
     expect(() => OrgDefSchema.parse({ ...baseOrg, runtime: 'gpt' })).toThrow();
+  });
+});
+
+describe('resolveRoleRunner (per-role override)', () => {
+  let saved: string | undefined;
+  beforeEach(() => {
+    saved = process.env.MONOMIND_RUNTIME;
+    delete process.env.MONOMIND_RUNTIME;
+  });
+  afterEach(() => {
+    if (saved === undefined) delete process.env.MONOMIND_RUNTIME;
+    else process.env.MONOMIND_RUNTIME = saved;
+  });
+
+  it('role runtime beats org def runtime', () => {
+    expect(resolveRoleRunner('kimicode', 'opencode')).toBeInstanceOf(KimiCodeAgentRunner);
+    expect(resolveRoleRunner('opencode', 'kimicode')).toBeInstanceOf(OpencodeAgentRunner);
+  });
+
+  it('role runtime beats MONOMIND_RUNTIME env', () => {
+    process.env.MONOMIND_RUNTIME = 'opencode';
+    expect(resolveRoleRunner('kimicode', undefined)).toBeInstanceOf(KimiCodeAgentRunner);
+  });
+
+  it("role runtime 'claude' forces the default Claude path even when org/env select another runtime", () => {
+    process.env.MONOMIND_RUNTIME = 'kimicode';
+    expect(resolveRoleRunner('claude', 'opencode')).toBeUndefined();
+    expect(resolveRoleRunner('claude', undefined)).toBeUndefined();
+  });
+
+  it('role without runtime inherits the org runner', () => {
+    expect(resolveRoleRunner(undefined, 'opencode')).toBeInstanceOf(OpencodeAgentRunner);
+    process.env.MONOMIND_RUNTIME = 'kimicode';
+    expect(resolveRoleRunner(undefined, undefined)).toBeInstanceOf(KimiCodeAgentRunner);
+  });
+});
+
+describe('RoleSchema runtime field', () => {
+  it('accepts a per-role runtime field', () => {
+    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'opencode' });
+    expect(role.runtime).toBe('opencode');
+  });
+
+  it('leaves runtime undefined when absent', () => {
+    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss' });
+    expect(role.runtime).toBeUndefined();
+  });
+
+  it('rejects an unknown runtime value', () => {
+    expect(() => RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'gpt' })).toThrow();
+  });
+
+  it('org def round-trips roles with per-role runtime', () => {
+    const def = OrgDefSchema.parse({
+      name: 'demo',
+      runtime: 'kimicode',
+      roles: [
+        { id: 'boss', reports_to: null, runtime: 'claude' },
+        { id: 'dev', reports_to: 'boss' },
+      ],
+    });
+    expect(def.roles[0].runtime).toBe('claude');
+    expect(def.roles[1].runtime).toBeUndefined();
   });
 });

@@ -56,15 +56,27 @@ class OtelTracer {
 const COMPLETE_DRAIN_MS = 5 * 60_000;
 
 /** Resolve which AgentRunner hosts an org's role sessions.
- *  Precedence: org def `runtime` field > MONOMIND_RUNTIME env > undefined
- *  (the default path, where session.ts falls back to ClaudeAgentRunner).
- *  Returning undefined for the default path keeps Claude/Antigravity orgs
- *  byte-for-byte unchanged. */
+ *  Precedence: role `runtime` field > org def `runtime` field >
+ *  MONOMIND_RUNTIME env > undefined (the default path, where session.ts
+ *  falls back to ClaudeAgentRunner). Returning undefined for the default
+ *  path keeps Claude/Antigravity orgs byte-for-byte unchanged. Callers
+ *  pass `role.runtime ?? def.runtime` as `orgRuntime` (see resolveRoleRunner). */
 export function resolveRunner(orgRuntime?: 'claude' | 'kimicode' | 'opencode'): AgentRunner | undefined {
   const selected = orgRuntime ?? process.env.MONOMIND_RUNTIME;
   if (selected === 'opencode') return new OpencodeAgentRunner();
   if (selected === 'kimicode') return new KimiCodeAgentRunner();
   return undefined;
+}
+
+/** Per-session variant: a role's own `runtime` field wins over the org-level
+ *  one (and the env var) — including `role.runtime === 'claude'`, which forces
+ *  the default Claude path even when the org/env select another runtime.
+ *  Roles without a `runtime` inherit the org-level resolution unchanged. */
+export function resolveRoleRunner(
+  roleRuntime?: 'claude' | 'kimicode' | 'opencode',
+  orgRuntime?: 'claude' | 'kimicode' | 'opencode',
+): AgentRunner | undefined {
+  return resolveRunner(roleRuntime ?? orgRuntime);
 }
 
 /** Bounded ring buffer for agent terminal scrollback. */
@@ -515,12 +527,13 @@ export class OrgDaemon {
           return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
         },
         queryFn: this.opts.queryFn,
-        // Runner resolution: explicit opts.runner > org def `runtime` field >
-        // MONOMIND_RUNTIME env (opencode/kimicode) > undefined (session.ts
-        // falls back to ClaudeAgentRunner via queryFn). Leaving it undefined
-        // for the default path is what keeps Claude/Antigravity orgs
-        // byte-for-byte unchanged.
-        runner: this.opts.runner ?? resolveRunner(def.runtime),
+        // Runner resolution: explicit opts.runner > role `runtime` field >
+        // org def `runtime` field > MONOMIND_RUNTIME env (opencode/kimicode) >
+        // undefined (session.ts falls back to ClaudeAgentRunner via queryFn).
+        // Leaving it undefined for the default path is what keeps
+        // Claude/Antigravity orgs byte-for-byte unchanged. Session opts are
+        // built per role here in spawnRole, so each role gets its own runner.
+        runner: this.opts.runner ?? resolveRoleRunner(role.runtime, def.runtime),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
