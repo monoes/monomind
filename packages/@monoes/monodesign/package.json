@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monodesign",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Frontend design intelligence for AI agents — design tokens, antipattern detection, and the monodesign skill",
   "type": "module",
   "main": "./src/index.ts",
@@ -22,8 +22,7 @@
   "scripts": {
     "build": "tsc",
     "test": "node scripts/run-tests.mjs",
-    "sync": "node scripts/sync-skill.mjs",
-    "prepare": "node scripts/sync-skill.mjs"
+    "sync": "node scripts/sync-skill.mjs"
   },
   "keywords": [
     "design-system",
