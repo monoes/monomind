@@ -122,18 +122,23 @@ Source: [daemon.ts:L176–L576](file:///Users/morteza/Desktop/tools/monomind/pac
 4. Raises `maxSdkProcesses` to at least `def.roles.length` (prevents SDK throttle).
 5. Creates `OrgBus` (in-memory event tail capped at 1000 events + JSONL disk flush).
 6. Selects boss: `roles.find(r => r.type === 'boss' || r.reports_to === null) ?? roles[0]`.
-7. Resolves runner (`resolveRunner()` in daemon.ts):
+7. Resolves runner per role (`resolveRoleRunner()` in daemon.ts):
    ```
    opts.runner
-     ?? resolveRunner(def.runtime)
-   // resolveRunner precedence: org def `runtime` field
+     ?? resolveRoleRunner(role.runtime, def.runtime)
+   // precedence: role `runtime` field
+   //   > org def `runtime` field
    //   > MONOMIND_RUNTIME env ('opencode' → OpencodeAgentRunner,
    //     'kimicode' → KimiCodeAgentRunner)
    //   > undefined          // session.ts falls back to ClaudeAgentRunner
    ```
    An org def may set a top-level `"runtime": "claude" | "kimicode" | "opencode"`
    to pin its own runtime regardless of the env var (`"claude"` forces the default
-   Claude path even when `MONOMIND_RUNTIME` selects another runner).
+   Claude path even when `MONOMIND_RUNTIME` selects another runner). Each role may
+   additionally set its own `runtime` field, which overrides the org-level value
+   for that role's sessions only — enabling mixed-runtime orgs (e.g. a Claude
+   coordinator with opencode workers). A role with `"runtime": "claude"` stays on
+   the Claude default even when the org or env selects another runtime.
 8. Boss spawns immediately; all other roles are **lazy-spawned** on first `deliver()` message
    (atomic `spawning` guard prevents duplicate spawns).
 9. Starts **idle watchdog** (default 10 min; up to 3 nudges, then `stopOrg()`; disabled with `idle_minutes: 0`).
@@ -199,6 +204,7 @@ Routes `org_send` tool calls:
 | `type` | `'specialist'` | `'boss'` or `'specialist'` |
 | `reports_to` | _(required)_ | `null` → boss |
 | `adapter_config.model` | `'claude-sonnet-4-5'` | Model string passed to runner |
+| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
 | `provider.kind` | `'subscription'` | See §3 above |
 | `policy` | see below | Per-role tool/file/web policy |
 
