@@ -235,7 +235,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
     for (const r of def.roles) {
       const max = (r.policy as { maxTokens?: number } | undefined)?.maxTokens;
-      roleCeiling.set(r.id, max ?? perRoleBudget);
+      roleCeiling.set(r.id, max ?? r.budget_tokens ?? perRoleBudget);
     }
   } catch { /* config gone or invalid — report without budget context */ }
   const budgetNote = (id: string, tokens: number): string => {

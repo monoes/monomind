@@ -88,6 +88,12 @@ export function resolveRoleRunner(
   return resolveRunner(roleRuntime ?? orgRuntime);
 }
 
+/** Per-role token budget: a role's own `budget_tokens` wins; otherwise the
+ *  even split of run_config.budget_tokens across all roles. */
+export function roleTokenBudget(role: OrgRole, def: OrgDef): number {
+  return role.budget_tokens ?? Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+}
+
 /** Bounded ring buffer for agent terminal scrollback. */
 export class ScrollbackBuffer {
   private lines: string[] = [];
@@ -424,6 +430,7 @@ export class OrgDaemon {
     const running: RunningOrg = { def, run, bus, agents: new Map(), busEvents: () => [...collected], workdir: cwd };
     this.orgs.set(name, running);
 
+    // Even-split budget; a role's own budget_tokens overrides it (roleTokenBudget).
     const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
     // Single boss-selection rule for kickoff AND org_complete gating — the
     // session layer previously keyed the tool on reports_to===null while the
@@ -468,7 +475,7 @@ export class OrgDaemon {
       }
       const mailbox = new Mailbox();
       const policy = new PolicyEngine(role.id,
-        { maxTokens: perRoleBudget, ...(role.policy ?? {}) }, bus, roleCwd);
+        { maxTokens: role.budget_tokens ?? perRoleBudget, ...(role.policy ?? {}) }, bus, roleCwd);
       const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve(), metrics: { tokens: 0, costUsd: 0 }, worktreePath: roleCwd !== cwd ? roleCwd : undefined, scrollback: new ScrollbackBuffer() };
       const sessionOpts = {
         org: name, role, bus, policy, mailbox, cwd: roleCwd, def,

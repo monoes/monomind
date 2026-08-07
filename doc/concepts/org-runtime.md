@@ -201,7 +201,7 @@ Routes `org_send` tool calls:
 | Field | Default | Purpose |
 |---|---|---|
 | `max_concurrent_agents` | `4` | How many role sessions run concurrently |
-| `budget_tokens` | `1 000 000` | Token spend ceiling for the entire org run |
+| `budget_tokens` | `1 000 000` | Token spend ceiling for the entire org run, split evenly across roles unless a role sets its own `budget_tokens` |
 | `max_turns_per_message` | `30` | Agent turns cap per inbound mailbox message |
 | `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` |
 | `idle_minutes` | _(unset)_ | Idle timeout before watchdog `stopOrg()` |
@@ -215,6 +215,7 @@ Routes `org_send` tool calls:
 | `reports_to` | _(required)_ | `null` → boss |
 | `adapter_config.model` | `'claude-sonnet-4-5'` | Model string passed to runner |
 | `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
+| `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins |
 | `provider.kind` | `'subscription'` | See §3 above |
 | `policy` | see below | Per-role tool/file/web policy |
 

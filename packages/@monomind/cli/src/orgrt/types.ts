@@ -49,6 +49,10 @@ export const RoleSchema = z.object({
    *  need many more turns per message (e.g. a developer doing sequential build/fix/verify
    *  cycles) than others (e.g. docs, pm) shouldn't be forced onto one global budget. */
   max_turns_per_message: z.number().int().positive().optional(),
+  /** Per-role override of the even run_config.budget_tokens split — a role on a
+   *  token-hungry model (e.g. GLM via opencode) can get a larger budget without
+   *  inflating the org-wide budget for every other role. Unset = even split. */
+  budget_tokens: z.number().int().positive().optional(),
 }).passthrough();
 
 export const OrgDefSchema = z.object({
