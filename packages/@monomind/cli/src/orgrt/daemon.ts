@@ -55,6 +55,18 @@ class OtelTracer {
  *  stop keeps the short bound — see finishStop. */
 const COMPLETE_DRAIN_MS = 5 * 60_000;
 
+/** Resolve which AgentRunner hosts an org's role sessions.
+ *  Precedence: org def `runtime` field > MONOMIND_RUNTIME env > undefined
+ *  (the default path, where session.ts falls back to ClaudeAgentRunner).
+ *  Returning undefined for the default path keeps Claude/Antigravity orgs
+ *  byte-for-byte unchanged. */
+export function resolveRunner(orgRuntime?: 'claude' | 'kimicode' | 'opencode'): AgentRunner | undefined {
+  const selected = orgRuntime ?? process.env.MONOMIND_RUNTIME;
+  if (selected === 'opencode') return new OpencodeAgentRunner();
+  if (selected === 'kimicode') return new KimiCodeAgentRunner();
+  return undefined;
+}
+
 /** Bounded ring buffer for agent terminal scrollback. */
 export class ScrollbackBuffer {
   private lines: string[] = [];
@@ -503,14 +515,12 @@ export class OrgDaemon {
           return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
         },
         queryFn: this.opts.queryFn,
-        // Runner resolution: explicit > opencode/kimicode (when MONOMIND_RUNTIME
-        // selects them) > undefined (session.ts falls back to ClaudeAgentRunner
-        // via queryFn). Leaving it undefined for the default path is what keeps
-        // Claude/Antigravity orgs byte-for-byte unchanged.
-        runner: this.opts.runner
-          ?? (process.env.MONOMIND_RUNTIME === 'opencode' ? new OpencodeAgentRunner()
-            : process.env.MONOMIND_RUNTIME === 'kimicode' ? new KimiCodeAgentRunner()
-            : undefined),
+        // Runner resolution: explicit opts.runner > org def `runtime` field >
+        // MONOMIND_RUNTIME env (opencode/kimicode) > undefined (session.ts
+        // falls back to ClaudeAgentRunner via queryFn). Leaving it undefined
+        // for the default path is what keeps Claude/Antigravity orgs
+        // byte-for-byte unchanged.
+        runner: this.opts.runner ?? resolveRunner(def.runtime),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
