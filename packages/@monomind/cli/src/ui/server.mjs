@@ -3166,7 +3166,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               ok(`Risk Profile — ${new Date().toISOString().split('T')[0]}\n${'─'.repeat(50)}\n${risks.length ? risks.join('\n') : '  No significant risks detected.'}\n\nSummary: ${n} nodes · ${e} edges · ${files} files`);
 
             } else if (tool === 'monograph_author_analytics') {
-              const limit = input.limit || 20;
+              // Clamp to a safe integer — this value is interpolated into a shell command below.
+              const limit = Math.min(Math.max(parseInt(input.limit, 10) || 20, 1), 100);
               const { execSync: execS } = await import('child_process');
               try {
                 const log = execS(`git log --format="%ae" --no-merges -- . 2>/dev/null | sort | uniq -c | sort -rn | head -${limit}`, { cwd: d2, encoding: 'utf-8', timeout: 5000 });
@@ -3287,7 +3288,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               const { execSync: execS2 } = await import('child_process');
               let churnMap = {};
               try {
-                const since = input.since || '6 months ago';
+                // Whitelist the --since value — it is interpolated into a shell command below.
+                const sinceRaw = String(input.since || '');
+                const since = /^\d+ (day|week|month|year)s? ago$/.test(sinceRaw) ? sinceRaw : '6 months ago';
                 const log2 = execS2(`git log --since="${since}" --name-only --format="" -- . 2>/dev/null | grep -v '^$' | sort | uniq -c | sort -rn | head -200`, { cwd: d2, encoding: 'utf-8', timeout: 8000 });
                 for (const line of log2.trim().split('\n')) {
                   const m = line.trim().match(/^(\d+)\s+(.+)$/);
