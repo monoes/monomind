@@ -230,12 +230,23 @@ export async function quickStart(
   config: Partial<MCPServerConfig>,
   logger?: ILogger
 ): Promise<MCPServer> {
-  const defaultLogger: ILogger = logger || {
-    debug: (msg, data) => console.debug(`[DEBUG] ${msg}`, data || ''),
-    info: (msg, data) => console.info(`[INFO] ${msg}`, data || ''),
-    warn: (msg, data) => console.warn(`[WARN] ${msg}`, data || ''),
-    error: (msg, data) => console.error(`[ERROR] ${msg}`, data || ''),
-  };
+  // With stdio transport, stdout is the JSON-RPC protocol channel — the
+  // default logger must write everything to stderr or it corrupts the wire
+  // (issue #94).
+  const isStdio = (config.transport ?? 'stdio') === 'stdio';
+  const defaultLogger: ILogger = logger || (isStdio
+    ? {
+        debug: (msg, data) => console.error(`[DEBUG] ${msg}`, data || ''),
+        info: (msg, data) => console.error(`[INFO] ${msg}`, data || ''),
+        warn: (msg, data) => console.error(`[WARN] ${msg}`, data || ''),
+        error: (msg, data) => console.error(`[ERROR] ${msg}`, data || ''),
+      }
+    : {
+        debug: (msg, data) => console.debug(`[DEBUG] ${msg}`, data || ''),
+        info: (msg, data) => console.info(`[INFO] ${msg}`, data || ''),
+        warn: (msg, data) => console.warn(`[WARN] ${msg}`, data || ''),
+        error: (msg, data) => console.error(`[ERROR] ${msg}`, data || ''),
+      });
 
   const server = createMCPServer(config, defaultLogger);
 
