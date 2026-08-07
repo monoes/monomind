@@ -120,26 +120,30 @@ export const doctorCommand: Command = {
     const results: HealthCheck[] = [];
     const fixes: string[] = [];
 
-    const spinner = output.createSpinner({ text: 'Running health checks in parallel...', spinner: 'dots' });
+    // Checks are run sequentially rather than via Promise.all/allSettled — several
+    // of them shell out (git, npm, npx tsc, claude --version, etc.), and running
+    // those concurrently was observed to race/fail intermittently. The checks are
+    // individually fast, so sequential execution has no meaningful cost.
+    const spinner = output.createSpinner({ text: 'Running health checks...', spinner: 'dots' });
     spinner.start();
 
     try {
-      const settled = await Promise.allSettled(checksToRun.map(check => check()));
+      const settled: HealthCheck[] = [];
+      for (const check of checksToRun) {
+        try {
+          settled.push(await check());
+        } catch (err) {
+          settled.push({ name: 'Check', status: 'fail', message: err instanceof Error ? err.message : 'Unknown error' });
+        }
+      }
       spinner.stop();
 
-      for (const result of settled) {
-        if (result.status === 'fulfilled') {
-          const r = result.value;
-          results.push(r);
-          output.writeln(formatCheck(r));
-          if (r.fix && r.status === 'fail') output.writeln(output.dim(`  Fix: ${r.fix}`));
-          else if (r.fix && r.status === 'warn') output.writeln(output.dim(`  Hint: ${r.fix}`));
-          if (r.fix && (r.status === 'fail' || r.status === 'warn')) fixes.push(`${r.name}: ${r.fix}`);
-        } else {
-          const err: HealthCheck = { name: 'Check', status: 'fail', message: result.reason?.message || 'Unknown error' };
-          results.push(err);
-          output.writeln(formatCheck(err));
-        }
+      for (const r of settled) {
+        results.push(r);
+        output.writeln(formatCheck(r));
+        if (r.fix && r.status === 'fail') output.writeln(output.dim(`  Fix: ${r.fix}`));
+        else if (r.fix && r.status === 'warn') output.writeln(output.dim(`  Hint: ${r.fix}`));
+        if (r.fix && (r.status === 'fail' || r.status === 'warn')) fixes.push(`${r.name}: ${r.fix}`);
       }
     } catch {
       spinner.stop();

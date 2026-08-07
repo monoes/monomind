@@ -1,14 +1,6 @@
 /**
  * CLI Route Command
- * Intelligent task-to-agent routing using keyword matching
- *
- * Features:
- * - Keyword-based agent selection
- * - Semantic task understanding
- * - Confidence scoring
- * - Learning from feedback
- *
- * github.com/monoes/monomind
+ * Task-to-agent routing via keyword matching with outcome tracking.
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -82,8 +74,8 @@ const routeTaskCommand: Command = {
   description: 'Route a task to the optimal agent using keyword matching',
   options: [
     {
-      name: 'q-learning',
-      short: 'q',
+      name: 'keyword',
+      short: 'k',
       description: 'Use keyword routing for agent selection (default: true)',
       type: 'boolean',
       default: true,
@@ -95,13 +87,6 @@ const routeTaskCommand: Command = {
       type: 'string',
     },
     {
-      name: 'explore',
-      short: 'e',
-      description: 'Enable exploration (random selection chance)',
-      type: 'boolean',
-      default: true,
-    },
-    {
       name: 'json',
       short: 'j',
       description: 'Output in JSON format',
@@ -111,13 +96,12 @@ const routeTaskCommand: Command = {
   ],
   examples: [
     { command: 'monomind route task "implement authentication"', description: 'Route task to best agent' },
-    { command: 'monomind route task "write unit tests" --q-learning', description: 'Use keyword-based routing' },
+    { command: 'monomind route task "write unit tests"', description: 'Route test task to tester agent' },
     { command: 'monomind route task "review code" --agent reviewer', description: 'Force specific agent' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rawTask = ctx.args[0];
     const forceAgent = ctx.flags.agent as string | undefined;
-    const useExploration = ctx.flags.explore as boolean;
     const jsonOutput = ctx.flags.json as boolean;
 
     if (!rawTask) {
@@ -173,7 +157,7 @@ const routeTaskCommand: Command = {
 
       // Use keyword-based routing
       const router = await getRouter();
-      const result: RouteDecision = await router.route(taskDescription, useExploration);
+      const result: RouteDecision = await router.route(taskDescription);
       const agent = getAgentType(result.route) || AGENT_TYPES[0];
 
       spinner.succeed(`Routed to ${agent.name}`);
@@ -184,8 +168,6 @@ const routeTaskCommand: Command = {
           agentId: result.route,
           agentName: agent.name,
           confidence: result.confidence,
-          qValues: result.qValues,
-          explored: result.explored,
           alternatives: (result.alternatives || []).map(a => ({
             agentId: a.route,
             agentName: getAgentType(a.route)?.name || a.route,
@@ -203,8 +185,6 @@ const routeTaskCommand: Command = {
             ? (text: string) => output.warning(text)
             : (text: string) => output.error(text);
 
-        const qValues = result.qValues || [0];
-        const maxQValue = Math.max(...qValues);
         const capabilities = agent.capabilities || [];
         const alternatives = result.alternatives || [];
 
@@ -213,8 +193,6 @@ const routeTaskCommand: Command = {
           ``,
           `Agent: ${output.highlight(agent.name)} (${result.route})`,
           `Confidence: ${confidenceColor(`${(confidence * 100).toFixed(1)}%`)}`,
-          `Q-Value: ${maxQValue.toFixed(3)}`,
-          `Exploration: ${result.explored ? output.warning('Yes') : 'No'}`,
           ``,
           `Description: ${agent.description}`,
           `Capabilities: ${capabilities.join(', ')}`,
@@ -329,14 +307,16 @@ const statsCommand: Command = {
 
     try {
       const router = await getRouter();
-      const stats = router.getStats();
+      const stats = await router.getStats();
 
       if (jsonOutput) {
         output.printJson({ stats, backend: 'keyword-routing-js' });
       } else {
         output.writeln();
-        output.writeln(output.bold('Keyword Router Statistics'));
+        output.writeln(output.bold('Route Outcome Statistics'));
         output.writeln();
+
+        const fmt = (v: number | null) => v === null ? 'n/a' : `${(v * 100).toFixed(1)}%`;
 
         output.printTable({
           columns: [
@@ -344,9 +324,10 @@ const statsCommand: Command = {
             { key: 'value', header: 'Value', width: 20, align: 'right' },
           ],
           data: [
-            { metric: 'Update Count', value: String(stats.updateCount) },
-            { metric: 'Pattern Count', value: String(stats.qTableSize) },
-            { metric: 'Step Count', value: String(stats.stepCount) },
+            { metric: 'Outcomes Recorded', value: String(stats.outcomeCount) },
+            { metric: 'Accuracy', value: fmt(stats.accuracy) },
+            { metric: 'Adherence', value: fmt(stats.adherence) },
+            { metric: 'Trend (recent-prior)', value: stats.trend === null ? 'n/a' : `${stats.trend > 0 ? '+' : ''}${(stats.trend * 100).toFixed(1)}%` },
             { metric: 'Backend', value: 'keyword-routing (JS)' },
           ],
         });
@@ -434,7 +415,7 @@ const feedbackCommand: Command = {
     try {
       const router = await getRouter();
       const clampedReward = Math.max(-1, Math.min(1, reward));
-      const tdError = router.update(taskDescription, agentId, clampedReward, nextTask);
+      await router.update(taskDescription, agentId, clampedReward, nextTask);
 
       output.printSuccess(`Feedback recorded for agent "${agent.name}"`);
       output.writeln();
@@ -442,11 +423,10 @@ const feedbackCommand: Command = {
         `Task: ${taskDescription}`,
         `Agent: ${agent.name} (${agentId})`,
         `Reward: ${clampedReward >= 0 ? output.success(clampedReward.toFixed(2)) : output.error(clampedReward.toFixed(2))}`,
-        `TD Error: ${Math.abs(tdError).toFixed(4)}`,
-        nextTask ? `Next Task: ${nextTask}` : '',
+        `Outcome: ${clampedReward > 0 ? 'success' : 'failure'} (persisted to route-outcomes.jsonl)`,
       ].filter(Boolean).join('\n'), 'Feedback Recorded');
 
-      return { success: true, data: { tdError } };
+      return { success: true };
     } catch (error) {
       output.printError(error instanceof Error ? error.message : String(error));
       return { success: false, exitCode: 1 };
@@ -478,15 +458,15 @@ const resetCommand: Command = {
     const force = ctx.flags.force as boolean;
 
     if (!force && ctx.interactive) {
-      output.printWarning('This will reset all learned Q-values and statistics.');
+      output.printWarning('This will clear all route outcome history.');
       output.writeln(output.dim('Use --force to skip this confirmation.'));
       return { success: false, exitCode: 1 };
     }
 
     try {
       const router = await getRouter();
-      router.reset();
-      output.printSuccess('Keyword router state has been reset');
+      await router.reset();
+      output.printSuccess('Route outcome history cleared');
       return { success: true };
     } catch (error) {
       output.printError(error instanceof Error ? error.message : String(error));
@@ -501,7 +481,7 @@ const resetCommand: Command = {
 
 const exportCommand: Command = {
   name: 'export',
-  description: 'Export Q-table for persistence',
+  description: 'Export route outcome history',
   options: [
     {
       name: 'file',
@@ -511,19 +491,17 @@ const exportCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind route export', description: 'Export Q-table to stdout' },
-    { command: 'monomind route export -f qtable.json', description: 'Export to file' },
+    { command: 'monomind route export', description: 'Export outcomes to stdout' },
+    { command: 'monomind route export -f outcomes.json', description: 'Export to file' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const filePath = ctx.flags.file as string | undefined;
 
     try {
       const router = await getRouter();
-      const data = router.export();
+      const data = await router.export();
 
       if (filePath) {
-        // Containment check — without it, --file /etc/cron.d/x writes
-        // attacker-controlled JSON anywhere the CLI can write.
         const path = await import('node:path');
         const projectRoot = path.resolve(process.cwd());
         const fullPath = path.resolve(process.cwd(), filePath);
@@ -537,7 +515,7 @@ const exportCommand: Command = {
         }
         const fs = await import('node:fs/promises');
         await fs.writeFile(fullPath, JSON.stringify(data, null, 2));
-        output.printSuccess(`Q-table exported to ${fullPath}`);
+        output.printSuccess(`Route outcomes exported to ${fullPath} (${data.length} records)`);
       } else {
         output.printJson(data);
       }
@@ -552,7 +530,7 @@ const exportCommand: Command = {
 
 const importCommand: Command = {
   name: 'import',
-  description: 'Import Q-table from file',
+  description: 'Import route outcome history from file',
   options: [
     {
       name: 'file',
@@ -563,7 +541,7 @@ const importCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind route import -f qtable.json', description: 'Import Q-table from file' },
+    { command: 'monomind route import -f outcomes.json', description: 'Import route outcomes from file' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const filePath = ctx.flags.file as string;
@@ -575,7 +553,7 @@ const importCommand: Command = {
 
     try {
       // Containment + extension whitelist + size cap. Without these,
-      // --file /proc/self/environ leaks process env into the Q-table import,
+      // --file /proc/self/environ leaks process env into the import,
       // and a planted multi-GB JSON OOM-kills the process on readFile.
       const path = await import('node:path');
       const projectRoot = path.resolve(process.cwd());
@@ -598,10 +576,10 @@ const importCommand: Command = {
       const data = JSON.parse(content);
 
       const router = await getRouter();
-      router.import(data);
+      await router.import(data);
 
-      output.printSuccess(`Q-table imported from ${fullPath}`);
-      output.writeln(output.dim(`Loaded ${Object.keys(data).length} state entries`));
+      output.printSuccess(`Route outcomes imported from ${fullPath}`);
+      output.writeln(output.dim(`Loaded ${Array.isArray(data) ? data.length : 0} records`));
 
       return { success: true };
     } catch (error) {
@@ -966,8 +944,8 @@ export const routeCommand: Command = {
   ],
   options: [
     {
-      name: 'q-learning',
-      short: 'q',
+      name: 'keyword',
+      short: 'k',
       description: 'Use keyword-based agent selection',
       type: 'boolean',
       default: true,
@@ -981,7 +959,7 @@ export const routeCommand: Command = {
   ],
   examples: [
     { command: 'monomind route "implement feature"', description: 'Route task to best agent' },
-    { command: 'monomind route "write tests" --q-learning', description: 'Use keyword-based routing' },
+    { command: 'monomind route "write tests"', description: 'Route test task to tester agent' },
     { command: 'monomind route --agent coder "fix bug"', description: 'Force specific agent' },
     { command: 'monomind route list-agents', description: 'List available agents' },
     { command: 'monomind route stats', description: 'Show routing statistics' },
@@ -996,8 +974,8 @@ export const routeCommand: Command = {
 
     // Show help
     output.writeln();
-    output.writeln(output.bold('Q-Learning Agent Router'));
-    output.writeln(output.dim('Intelligent task-to-agent routing using reinforcement learning'));
+    output.writeln(output.bold('Keyword Agent Router'));
+    output.writeln(output.dim('Task-to-agent routing with outcome tracking'));
     output.writeln();
 
     output.writeln('Usage: monomind route <task> [options]');
@@ -1008,19 +986,19 @@ export const routeCommand: Command = {
     output.printList([
       `${output.highlight('task')}         - Route a task to optimal agent`,
       `${output.highlight('list-agents')}  - List available agent types`,
-      `${output.highlight('stats')}        - Show router statistics`,
-      `${output.highlight('feedback')}     - Provide routing feedback`,
-      `${output.highlight('reset')}        - Reset router state`,
-      `${output.highlight('export')}       - Export Q-table`,
-      `${output.highlight('import')}       - Import Q-table`,
+      `${output.highlight('stats')}        - Show routing accuracy and adherence`,
+      `${output.highlight('feedback')}     - Record routing outcome`,
+      `${output.highlight('reset')}        - Clear outcome history`,
+      `${output.highlight('export')}       - Export route outcomes`,
+      `${output.highlight('import')}       - Import route outcomes`,
     ]);
     output.writeln();
 
     output.writeln(output.bold('How It Works:'));
     output.printList([
-      'Analyzes task description using hash-based state encoding',
-      'Uses Q-Learning to learn from routing outcomes',
-      'Epsilon-greedy exploration for continuous improvement',
+      'Routes tasks to agents via keyword matching',
+      'Records outcomes in route-outcomes.jsonl',
+      'Tracks accuracy and adherence over time',
       'Provides confidence scores and alternatives',
     ]);
     output.writeln();

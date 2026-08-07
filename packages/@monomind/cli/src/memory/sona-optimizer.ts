@@ -2,7 +2,7 @@
  * SONA (Self-Optimizing Neural Architecture) Optimizer
  *
  * Processes trajectory outcomes to learn optimal routing patterns.
- * Integrates with Q-learning router and persistence layer.
+ * Integrates with keyword router and persistence layer.
  *
  * Features:
  * - Processes trajectory outcomes from hooksTrajectoryEnd

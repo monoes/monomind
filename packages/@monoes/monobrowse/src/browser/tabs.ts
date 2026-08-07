@@ -24,11 +24,16 @@ export async function activateTab(client: CdpClient, oldSessionId: string, targe
   return result.sessionId;
 }
 
+export interface FrameSwitchResult {
+  url: string | null;
+  sessionId: string | null;
+}
+
 export async function switchToFrame(
   client: CdpClient,
   sessionId: string,
   frameSelector: string
-): Promise<string | null> {
+): Promise<FrameSwitchResult> {
   const { result } = await client.send<{ result: { result: { value: string | null } } }>(
     'Runtime.evaluate',
     {
@@ -50,7 +55,7 @@ export async function switchToFrame(
   const match = frameTree.childFrames?.find(
     (cf) => cf.frame.url === frameSrc || cf.frame.id === frameSelector
   );
-  if (!match) return frameSrc;
+  if (!match) return { url: frameSrc, sessionId: null };
 
   const targets = await client.send<{ targetInfos: Array<{ targetId: string; type: string; url: string }> }>(
     'Target.getTargets', {}
@@ -59,8 +64,11 @@ export async function switchToFrame(
     (t) => t.type === 'iframe' && t.url === match.frame.url
   );
   if (oopif) {
-    await client.send('Target.attachToTarget', { targetId: oopif.targetId, flatten: true });
+    const attached = await client.send<{ sessionId: string }>(
+      'Target.attachToTarget', { targetId: oopif.targetId, flatten: true }
+    );
+    return { url: frameSrc, sessionId: attached.sessionId };
   }
 
-  return frameSrc;
+  return { url: frameSrc, sessionId: null };
 }

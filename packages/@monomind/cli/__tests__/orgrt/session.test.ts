@@ -1,5 +1,5 @@
 // packages/@monomind/cli/__tests__/orgrt/session.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -189,6 +189,45 @@ describe('runAgentSession', () => {
     // m1 + at most MAX_CONTINUATIONS(3) no-progress continuations + 1 parked call.
     // Without the bound this hangs (unbounded self-continuation).
     expect(callCount).toBeLessThanOrEqual(6);
+  });
+
+  it('aborts a silent SDK session instead of hanging on it forever (issue #59: scheduled cycles opened a stream and got zero messages back)', async () => {
+    // Regression for orgrt#59: 9 of 11 scheduled cycles opened an SDK stream
+    // that never yielded anything - no assistant message, no result, no
+    // error, no end - and the only recovery was the org-wide idle watchdog
+    // 20 minutes later, which kills the whole run. A stalled first pull must
+    // instead be treated as a failure so the caller's crash-retry-with-backoff
+    // loop gets a chance to recover within the same cycle.
+    vi.useFakeTimers();
+    try {
+      const bus = new OrgBus('o', 'r', dir());
+      const audits: string[] = [];
+      bus.subscribe(e => { if (e.type === 'audit') audits.push(e.reason ?? ''); });
+      const mailbox = new Mailbox();
+      mailbox.push('do the thing');
+
+      // Fake SDK that opens a stream and never yields anything, ever - the
+      // exact failure mode reported in the issue.
+      const fakeQuery = () => (async function* () {
+        await new Promise<void>(() => { /* never resolves */ });
+      })();
+
+      const policy = new PolicyEngine('coder', {}, bus, '/work');
+      const donePromise = runAgentSession({
+        org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+        bus, policy, mailbox, cwd: '/work',
+        deliver: async () => 'delivered',
+        queryFn: fakeQuery as any,
+      });
+      donePromise.catch(() => { /* asserted via rejects below */ });
+
+      await vi.advanceTimersByTimeAsync(4 * 60_000 + 3_000);
+
+      expect(audits).toContain('session-silent');
+      await expect(donePromise).rejects.toThrow(/silent/i);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {

@@ -56,6 +56,11 @@ export interface SqlJsBackendConfig {
 
   /** Explicit path to sql-wasm.wasm, overriding local resolution */
   wasmPath?: string;
+
+  /** SQLite busy timeout in milliseconds. Passed through to the driver's pragma
+   *  for parity with SQLiteBackend; largely a no-op for the in-memory sql.js
+   *  engine, but applied when the database file is shared. Default: 0. */
+  busyTimeoutMs: number;
 }
 
 /**
@@ -83,6 +88,7 @@ const DEFAULT_CONFIG: SqlJsBackendConfig = {
   maxEntries: 1000000,
   verbose: false,
   autoPersistInterval: 5000,
+  busyTimeoutMs: 0,
 };
 
 export class SqlJsBackend extends SqlBackend {

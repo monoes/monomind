@@ -2033,7 +2033,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           res.end(JSON.stringify({ error: 'path query param required' }));
           return;
         }
-        const resolved = path.resolve(target);
+        let resolved = path.resolve(target);
+        // Resolve symlinks so the containment check can't be bypassed by a
+        // symlink that lexically sits inside an allowed root but physically
+        // points outside it. Fall back to the lexical path if the target
+        // doesn't exist yet — the existsSync check below will 403 it anyway.
+        try { resolved = fs.realpathSync(resolved); } catch {}
         // Reconstruct the allowed roots set and verify containment.
         const projectsBase = path.join(os.homedir(), '.claude', 'projects');
         const allowedRoots = [];

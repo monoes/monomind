@@ -14,6 +14,7 @@ import { createServer, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import helmet from 'helmet';
+import type { Socket } from 'net';
 import type {
   ITransport,
   TransportType,
@@ -22,6 +23,7 @@ import type {
   MCPNotification,
   RequestHandler,
   NotificationHandler,
+  ConnectionCloseHandler,
   TransportHealthStatus,
   ILogger,
   AuthConfig,
@@ -45,11 +47,19 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
   private requestHandler?: RequestHandler;
   private notificationHandler?: NotificationHandler;
+  private connectionCloseHandler?: ConnectionCloseHandler;
   private app: Express;
   private server?: Server;
   private wss?: WebSocketServer;
   private running = false;
   private activeConnections = new Set<WebSocket>();
+  // Per-connection identity, so each WebSocket or keep-alive HTTP TCP socket
+  // maps to a stable connectionId for the lifetime of that connection —
+  // this is what lets MCPServer keep sessions isolated per client instead of
+  // sharing one singleton session across every connected client.
+  private wsConnectionIds = new WeakMap<WebSocket, string>();
+  private httpConnectionIds = new WeakMap<Socket, string>();
+  private connectionIdCounter = 0;
 
   private messagesReceived = 0;
   private messagesSent = 0;
@@ -215,6 +225,45 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
   onNotification(handler: NotificationHandler): void {
     this.notificationHandler = handler;
+  }
+
+  onConnectionClose(handler: ConnectionCloseHandler): void {
+    this.connectionCloseHandler = handler;
+  }
+
+  /**
+   * Resolve (creating if needed) the stable connectionId for the TCP socket
+   * underlying an HTTP request. Node reuses the same `net.Socket` across
+   * every keep-alive request on a connection, so this id stays stable for
+   * the connection's lifetime and lets per-connection sessions survive
+   * multiple `/rpc` calls from the same client without colliding with other
+   * clients' sessions. Cleaned up once, on socket close.
+   */
+  private getOrCreateHttpConnectionId(socket: Socket): string {
+    let id = this.httpConnectionIds.get(socket);
+    if (id) {
+      return id;
+    }
+
+    id = `http-conn-${++this.connectionIdCounter}-${Date.now()}`;
+    this.httpConnectionIds.set(socket, id);
+
+    const finalize = () => {
+      this.httpConnectionIds.delete(socket);
+      this.connectionCloseHandler?.(id!);
+    };
+    socket.once('close', finalize);
+
+    return id;
+  }
+
+  private getOrCreateWsConnectionId(ws: WebSocket): string {
+    let id = this.wsConnectionIds.get(ws);
+    if (!id) {
+      id = `http-ws-conn-${++this.connectionIdCounter}-${Date.now()}`;
+      this.wsConnectionIds.set(ws, id);
+    }
+    return id;
   }
 
   async getHealthStatus(): Promise<TransportHealthStatus> {
@@ -418,12 +467,22 @@ export class HttpTransport extends EventEmitter implements ITransport {
         this.logger.info('WebSocket client disconnected', {
           total: this.activeConnections.size,
         });
+        const connId = this.wsConnectionIds.get(ws);
+        this.wsConnectionIds.delete(ws);
+        if (connId) {
+          this.connectionCloseHandler?.(connId);
+        }
       });
 
       ws.on('error', (error) => {
         this.logger.error('WebSocket error', { error });
         this.errors++;
         this.activeConnections.delete(ws);
+        const connId = this.wsConnectionIds.get(ws);
+        this.wsConnectionIds.delete(ws);
+        if (connId) {
+          this.connectionCloseHandler?.(connId);
+        }
       });
     });
   }
@@ -431,6 +490,8 @@ export class HttpTransport extends EventEmitter implements ITransport {
   private async handleHttpRequest(req: Request, res: Response): Promise<void> {
     this.httpRequests++;
     this.messagesReceived++;
+
+    const connectionId = this.getOrCreateHttpConnectionId(req.socket);
 
     const requiresAuth = this.config.auth?.enabled !== false;
 
@@ -502,7 +563,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
       if (message.id === undefined) {
         if (this.notificationHandler) {
-          await this.notificationHandler(message as MCPNotification);
+          await this.notificationHandler(message as MCPNotification, connectionId);
         }
         res.status(204).end();
       } else {
@@ -516,7 +577,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
         }
 
         try {
-          const response = await this.requestHandler(message as MCPRequest);
+          const response = await this.requestHandler(message as MCPRequest, connectionId);
           res.json(response);
           this.messagesSent++;
         } catch (error) {
@@ -555,6 +616,8 @@ export class HttpTransport extends EventEmitter implements ITransport {
     this.wsMessages++;
     this.messagesReceived++;
 
+    const connectionId = this.getOrCreateWsConnectionId(ws);
+
     try {
       const message = JSON.parse(data);
 
@@ -569,7 +632,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
       if (message.id === undefined) {
         if (this.notificationHandler) {
-          await this.notificationHandler(message as MCPNotification);
+          await this.notificationHandler(message as MCPNotification, connectionId);
         }
       } else {
         if (!this.requestHandler) {
@@ -581,7 +644,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
           return;
         }
 
-        const response = await this.requestHandler(message as MCPRequest);
+        const response = await this.requestHandler(message as MCPRequest, connectionId);
         ws.send(JSON.stringify(response));
         this.messagesSent++;
       }

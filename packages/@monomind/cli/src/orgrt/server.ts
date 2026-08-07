@@ -117,7 +117,7 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0, credential?: s
           json(res, 400, { ok: false, error: 'org, gateId, approved are required' });
           return;
         }
-        const result = daemon.resolveGate(org as string, gateId as string, !!approved, resolution as string | undefined);
+        const result = await daemon.resolveGate(org as string, gateId as string, !!approved, resolution as string | undefined);
         json(res, result.ok ? 200 : 404, result);
 
       } else {

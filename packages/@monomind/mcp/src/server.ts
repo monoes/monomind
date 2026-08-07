@@ -79,7 +79,15 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   private running = false;
   private startTime?: Date;
   private startupDuration?: number;
+  // Fallback singleton session, used only for transports that are inherently
+  // single-client (stdio, in-process) where the transport never supplies a
+  // connectionId to handleRequest/handleNotification.
   private currentSession?: MCPSession;
+  // connectionId -> session, for multi-client transports (http, websocket).
+  // Without this, every connection shared `currentSession` above and a
+  // second client's `initialize` would silently reassign the session out
+  // from under the first client (issue #93).
+  private readonly connectionSessions: Map<string, MCPSession> = new Map();
   private resourceSubscriptions: Map<string, Set<string>> = new Map(); // sessionId -> subscribed URIs
 
   private readonly serverInfo = {
@@ -221,12 +229,20 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         requestTimeout: this.config.requestTimeout,
       } as any);
 
-      this.transport.onRequest(async (request) => {
-        return await this.handleRequest(request);
+      this.transport.onRequest(async (request, connectionId) => {
+        return await this.handleRequest(request, connectionId);
       });
 
-      this.transport.onNotification(async (notification) => {
-        await this.handleNotification(notification);
+      this.transport.onNotification(async (notification, connectionId) => {
+        await this.handleNotification(notification, connectionId);
+      });
+
+      // Transports that support multiple concurrent clients (http, websocket)
+      // report when a connection closes so its session can be torn down —
+      // without this a disconnected client's session (and any resource
+      // subscriptions) would leak for the full sessionTimeout.
+      this.transport.onConnectionClose?.((connectionId) => {
+        this.closeConnectionSession(connectionId);
       });
 
       await this.transport.start();
@@ -275,6 +291,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
       this.running = false;
       this.currentSession = undefined;
+      this.connectionSessions.clear();
 
       this.logger.info('MCP server stopped');
       this.emit('server:stopped');
@@ -375,10 +392,54 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     if (this.currentSession?.id === sessionId) {
       this.currentSession = undefined;
     }
+    for (const [connectionId, session] of this.connectionSessions) {
+      if (session.id === sessionId) {
+        this.connectionSessions.delete(connectionId);
+      }
+    }
     return result;
   }
 
-  private async handleRequest(request: MCPRequest): Promise<MCPResponse> {
+  /**
+   * Resolve the session bound to a connection without creating one.
+   * Multi-client transports (http, websocket) pass a `connectionId`, which is
+   * looked up in `connectionSessions`. Single-client transports (stdio,
+   * in-process) omit it, falling back to the `currentSession` singleton.
+   */
+  private getSessionForConnection(connectionId?: string): MCPSession | undefined {
+    if (connectionId) {
+      return this.connectionSessions.get(connectionId);
+    }
+    return this.currentSession;
+  }
+
+  /**
+   * Bind a newly-created session to a connection: per-connectionId when the
+   * transport supports multiple clients, otherwise the singleton fallback.
+   */
+  private bindSessionToConnection(session: MCPSession, connectionId?: string): void {
+    if (connectionId) {
+      this.connectionSessions.set(connectionId, session);
+    } else {
+      this.currentSession = session;
+    }
+  }
+
+  /**
+   * Tear down the session owned by a connection when the transport reports
+   * that connection has closed — prevents closed clients' sessions (and any
+   * resource subscriptions) from lingering until the idle-timeout sweep.
+   */
+  private closeConnectionSession(connectionId: string): void {
+    const session = this.connectionSessions.get(connectionId);
+    this.connectionSessions.delete(connectionId);
+    if (session) {
+      this.resourceSubscriptions.delete(session.id);
+      this.sessionManager.closeSession(session.id, 'Connection closed');
+    }
+  }
+
+  private async handleRequest(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
     const startTime = performance.now();
     this.requestStats.total++;
 
@@ -389,7 +450,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
     // Rate limiting check (skip for initialize)
     if (request.method !== 'initialize') {
-      const sessionId = this.currentSession?.id;
+      const sessionId = this.getSessionForConnection(connectionId)?.id;
       const rateLimitResult = this.rateLimiter.check(sessionId);
       if (!rateLimitResult.allowed) {
         this.requestStats.failed++;
@@ -408,10 +469,10 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
     try {
       if (request.method === 'initialize') {
-        return await this.handleInitialize(request);
+        return await this.handleInitialize(request, connectionId);
       }
 
-      const session = this.getOrCreateSession();
+      const session = this.getOrCreateSession(connectionId);
 
       if (!session.isInitialized && request.method !== 'initialized') {
         return this.createErrorResponse(
@@ -423,7 +484,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
       this.sessionManager.updateActivity(session.id);
 
-      const response = await this.routeRequest(request);
+      const response = await this.routeRequest(request, connectionId);
 
       const duration = performance.now() - startTime;
       this.requestStats.successful++;
@@ -456,7 +517,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
   }
 
-  private async handleNotification(notification: MCPNotification): Promise<void> {
+  private async handleNotification(notification: MCPNotification, connectionId?: string): Promise<void> {
     this.logger.debug('Handling notification', { method: notification.method });
 
     switch (notification.method) {
@@ -473,7 +534,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
   }
 
-  private async handleInitialize(request: MCPRequest): Promise<MCPResponse> {
+  private async handleInitialize(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
     const params = request.params as unknown as MCPInitializeParams | undefined;
 
     if (!params) {
@@ -486,7 +547,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
     const session = this.sessionManager.createSession(this.config.transport);
     this.sessionManager.initializeSession(session.id, params);
-    this.currentSession = session;
+    this.bindSessionToConnection(session, connectionId);
 
     const result: MCPInitializeResult = {
       protocolVersion: this.protocolVersion,
@@ -507,13 +568,13 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     };
   }
 
-  private async routeRequest(request: MCPRequest): Promise<MCPResponse> {
+  private async routeRequest(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
     switch (request.method) {
       // Tool methods
       case 'tools/list':
         return this.handleToolsList(request);
       case 'tools/call':
-        return this.handleToolsCall(request);
+        return this.handleToolsCall(request, connectionId);
 
       // Resource methods (MCP 2025-11-25)
       case 'resources/list':
@@ -521,9 +582,9 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       case 'resources/read':
         return this.handleResourcesRead(request);
       case 'resources/subscribe':
-        return this.handleResourcesSubscribe(request);
+        return this.handleResourcesSubscribe(request, connectionId);
       case 'resources/unsubscribe':
-        return this.handleResourcesUnsubscribe(request);
+        return this.handleResourcesUnsubscribe(request, connectionId);
 
       // Prompt methods (MCP 2025-11-25)
       case 'prompts/list':
@@ -547,7 +608,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
       // Sampling (MCP 2025-11-25)
       case 'sampling/createMessage':
-        return this.handleSamplingCreateMessage(request);
+        return this.handleSamplingCreateMessage(request, connectionId);
 
       // Utility
       case 'ping':
@@ -560,7 +621,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       default:
         // Check if it's a direct tool call
         if (this.toolRegistry.hasTool(request.method)) {
-          return this.handleToolExecution(request);
+          return this.handleToolExecution(request, connectionId);
         }
 
         return this.createErrorResponse(
@@ -585,7 +646,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     };
   }
 
-  private async handleToolsCall(request: MCPRequest): Promise<MCPResponse> {
+  private async handleToolsCall(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
     const params = request.params as { name: string; arguments?: Record<string, unknown> };
 
     if (!params?.name) {
@@ -597,7 +658,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
 
     const context: ToolContext = {
-      sessionId: this.currentSession?.id || 'unknown',
+      sessionId: this.getSessionForConnection(connectionId)?.id || 'unknown',
       requestId: request.id,
       orchestrator: this.orchestrator,
       swarmCoordinator: this.swarmCoordinator,
@@ -616,9 +677,9 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     };
   }
 
-  private async handleToolExecution(request: MCPRequest): Promise<MCPResponse> {
+  private async handleToolExecution(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
     const context: ToolContext = {
-      sessionId: this.currentSession?.id || 'unknown',
+      sessionId: this.getSessionForConnection(connectionId)?.id || 'unknown',
       requestId: request.id,
       orchestrator: this.orchestrator,
       swarmCoordinator: this.swarmCoordinator,
@@ -679,9 +740,9 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
   }
 
-  private handleResourcesSubscribe(request: MCPRequest): MCPResponse {
+  private handleResourcesSubscribe(request: MCPRequest, connectionId?: string): MCPResponse {
     const params = request.params as { uri: string } | undefined;
-    const sessionId = this.currentSession?.id;
+    const sessionId = this.getSessionForConnection(connectionId)?.id;
 
     if (!params?.uri) {
       return this.createErrorResponse(
@@ -728,9 +789,9 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
   }
 
-  private handleResourcesUnsubscribe(request: MCPRequest): MCPResponse {
+  private handleResourcesUnsubscribe(request: MCPRequest, connectionId?: string): MCPResponse {
     const params = request.params as { uri: string } | undefined;
-    const sessionId = this.currentSession?.id;
+    const sessionId = this.getSessionForConnection(connectionId)?.id;
 
     if (!params?.uri) {
       return this.createErrorResponse(
@@ -932,7 +993,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   // Sampling Handler (MCP 2025-11-25)
   // ============================================================================
 
-  private async handleSamplingCreateMessage(request: MCPRequest): Promise<MCPResponse> {
+  private async handleSamplingCreateMessage(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
     const params = request.params as {
       messages: Array<{ role: string; content: { type: string; text?: string } }>;
       maxTokens: number;
@@ -978,7 +1039,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
           metadata: params.metadata,
         },
         {
-          sessionId: this.currentSession?.id || 'unknown',
+          sessionId: this.getSessionForConnection(connectionId)?.id || 'unknown',
           serverId: this.serverInfo.name,
         }
       );
@@ -1011,13 +1072,18 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     }
   }
 
-  private getOrCreateSession(): MCPSession {
-    if (this.currentSession) {
-      return this.currentSession;
+  private getOrCreateSession(connectionId?: string): MCPSession {
+    const existing = this.getSessionForConnection(connectionId);
+    if (existing) {
+      return existing;
     }
 
+    // A client is calling a non-initialize method on a connection that never
+    // sent `initialize` (or whose session already expired). Create a fresh
+    // session bound to this specific connection rather than reusing/
+    // overwriting another client's session.
     const session = this.sessionManager.createSession(this.config.transport);
-    this.currentSession = session;
+    this.bindSessionToConnection(session, connectionId);
     return session;
   }
 
