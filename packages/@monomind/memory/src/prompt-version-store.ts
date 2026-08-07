@@ -13,6 +13,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { writeFileAtomicSync } from './atomic-file.js';
 
 // ===== Types =====
 
@@ -236,7 +237,8 @@ export class PromptVersionStore {
 
   private writeVersions(versions: PromptVersion[]): void {
     const data = versions.map((v) => JSON.stringify(versionToRecord(v))).join('\n') + '\n';
-    fs.writeFileSync(this.versionsPath, data, 'utf-8');
+    // #90: atomic rewrite (tmp + rename) so a crash can't destroy the index
+    writeFileAtomicSync(this.versionsPath, data, 'utf-8');
   }
 
   private readExperiments(): PromptExperiment[] {
@@ -248,6 +250,7 @@ export class PromptVersionStore {
 
   private writeExperiments(experiments: PromptExperiment[]): void {
     const data = experiments.map((e) => JSON.stringify(experimentToRecord(e))).join('\n') + '\n';
-    fs.writeFileSync(this.experimentsPath, data, 'utf-8');
+    // #90: atomic rewrite (tmp + rename) so a crash can't destroy the index
+    writeFileAtomicSync(this.experimentsPath, data, 'utf-8');
   }
 }

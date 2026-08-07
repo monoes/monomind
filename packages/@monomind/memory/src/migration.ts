@@ -260,8 +260,8 @@ export class MemoryMigrator extends EventEmitter {
     }
   }
 
-  private async loadFromJSON(): Promise<LegacyEntry[]> {
-    const filePath = this.config.sourcePath;
+  private async loadFromJSON(filePathOverride?: string): Promise<LegacyEntry[]> {
+    const filePath = filePathOverride ?? this.config.sourcePath;
 
     try {
       const content = await fs.readFile(filePath, 'utf-8');
@@ -304,7 +304,14 @@ export class MemoryMigrator extends EventEmitter {
       try {
         const fullPath = path.resolve(this.config.sourcePath, p);
         await fs.access(fullPath);
-        return this.loadFromJSON();
+        // #85: read the verified fullPath, not this.config.sourcePath — the
+        // latter is the search directory, so readFile() on it throws EISDIR,
+        // the catch swallowed it, and the migration silently returned [].
+        // `await` is required: a bare `return promise` inside try/catch does
+        // not route rejections through the catch below.
+        const stat = await fs.stat(fullPath);
+        if (!stat.isFile()) continue;
+        return await this.loadFromJSON(fullPath);
       } catch {
         continue;
       }
