@@ -148,7 +148,7 @@ export function isCheckpointExpired(checkpoint: OrgCheckpoint, ttlMs: number = C
  * top-level shape, regardless of roleState values — validateCheckpoint
  * provided ZERO integrity guarantee.
  */
-function generateChecksum(state: Omit<OrgCheckpoint, 'checksum'>): string {
+export function generateChecksum(state: Omit<OrgCheckpoint, 'checksum'>): string {
   const canonical = JSON.stringify(stableNormalize(state));
   return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
 }
