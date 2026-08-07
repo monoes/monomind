@@ -1535,6 +1535,31 @@ export const hooksSessionEnd: MCPTool = {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-end] memory bridge failed:', e);
     }
 
+    // KG nudge: check if knowledge graph is empty and suggest distillation
+    let kgNudge: { empty: boolean; prompt?: string } = { empty: false };
+    if (process.env.MONOMIND_KG_NUDGE !== 'false') {
+      try {
+        const kg = await import('../memory/memory-kg.js');
+        const stats = await kg.kgStats();
+        const kgEmpty = stats.nodes === 0 && stats.edges === 0 && stats.rules === 0;
+        if (kgEmpty && taskCount > 0) {
+          kgNudge = {
+            empty: true,
+            prompt: [
+              'The knowledge graph is empty (0 nodes, 0 edges, 0 rules). Before ending, distill 2-5 key insights:',
+              '1. Identify important entities (functions, patterns, architectural decisions)',
+              '2. Call memory_kg_ingest with nodes [{name, type, description}], edges [{source, target, relation}],',
+              '   and any durable rules [{rule, context}] — use session ID as originRef',
+              '3. Check existing entities first: memory_kg_stats with glossary:true',
+              'Skip for trivial sessions. Disable with MONOMIND_KG_NUDGE=false',
+            ].join('\n'),
+          };
+        }
+      } catch {
+        // non-fatal — skip nudge if KG module unavailable
+      }
+    }
+
     return {
       sessionId,
       statePath: saveState ? `.claude/sessions/${sessionId}.json` : undefined,
@@ -1550,6 +1575,7 @@ export const hooksSessionEnd: MCPTool = {
         patternsLearned: patternCount,
         trajectoriesRecorded: trajectoryCount,
       },
+      kgNudge,
     };
   },
 };

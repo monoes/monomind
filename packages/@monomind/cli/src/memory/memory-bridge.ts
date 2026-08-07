@@ -686,34 +686,62 @@ export async function bridgeSearchEntries(options: {
     // so keyword results are merged into semantic results (union, deduplicated
     // by key) to ensure every findable entry surfaces regardless of whether
     // it has an embedding.  Semantic hits take priority on score.
+    //
+    // Issue #66: When the backend has FTS5, keyword matching runs inside
+    // SQLite via MATCH — orders of magnitude faster than the old path that
+    // loaded up to 50k rows and scanned them in JS. The JS fallback is
+    // kept for sql.js WASM builds that lack the FTS5 extension.
     {
-      const entries = await backend.query({
-        type: 'exact',
-        ...(namespace ? { namespace } : {}),
-        limit: 50000,
-      });
       const tokens = queryStr.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 1);
+      let keywordHits: any[] = [];
+
       if (tokens.length) {
-        const keywordHits = entries
-          .map((e: any) => {
-            const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();
-            const hits = tokens.filter(t => haystack.includes(t)).length;
-            return { e, score: hits / tokens.length };
-          })
-          .filter((x: any) => x.score > 0)
-          .sort((a: any, b: any) => b.score - a.score)
-          .slice(0, limit)
-          .map(({ e, score }: any) => ({
-            id: e.id,
-            key: e.key,
-            content: capResultContent(e.content || ''),
-            // Raw token-overlap fraction, NOT rescaled to look like a cosine.
-            score,
-            namespace: e.namespace,
-            provenance: `keyword:${score.toFixed(2)}`,
-            tags: e.tags ?? [],
-            _createdAt: e.createdAt || 0,
+        // ── FTS5 fast path ──────────────────────────────────────────
+        const fts5Results: any[] | null = typeof backend.keywordSearch === 'function'
+          ? await backend.keywordSearch(queryStr, { namespace, limit }).catch(() => null)
+          : null;
+
+        if (fts5Results !== null && fts5Results.length > 0) {
+          // FTS5 rank is negative (lower = better); normalise to 0–1.
+          const maxRank = Math.max(...fts5Results.map((r: any) => Math.abs(r.rank)), 1);
+          keywordHits = fts5Results.map((r: any) => ({
+            id: r.id,
+            key: r.key,
+            content: capResultContent(r.content || ''),
+            score: Math.abs(r.rank) / maxRank, // normalised 0–1
+            namespace: r.namespace,
+            provenance: `keyword-fts5:${(Math.abs(r.rank) / maxRank).toFixed(2)}`,
+            tags: [] as string[],
+            _createdAt: 0,
           }));
+        } else {
+          // ── JS fallback (no FTS5 or empty FTS5 result) ────────────
+          const entries = await backend.query({
+            type: 'exact',
+            ...(namespace ? { namespace } : {}),
+            limit: 50000,
+          });
+          keywordHits = entries
+            .map((e: any) => {
+              const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();
+              const hits = tokens.filter(t => haystack.includes(t)).length;
+              return { e, score: hits / tokens.length };
+            })
+            .filter((x: any) => x.score > 0)
+            .sort((a: any, b: any) => b.score - a.score)
+            .slice(0, limit)
+            .map(({ e, score }: any) => ({
+              id: e.id,
+              key: e.key,
+              content: capResultContent(e.content || ''),
+              // Raw token-overlap fraction, NOT rescaled to look like a cosine.
+              score,
+              namespace: e.namespace,
+              provenance: `keyword:${score.toFixed(2)}`,
+              tags: e.tags ?? [],
+              _createdAt: e.createdAt || 0,
+            }));
+        }
 
         if (results.length === 0) {
           // No semantic results — keyword is all we have.

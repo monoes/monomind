@@ -14,33 +14,13 @@ import {
   type DiffFile,
   type RiskLevel,
 } from '../monovector/diff-classifier.js';
+import { sanitizeError, validateRef } from '../utils/input-guards.js';
 
-// ===== Shared validation helpers =====
+// ===== MCP-specific constants =====
 
-const MAX_REF_LEN = 256;      // git ref: branch/commit/tag names are bounded
 const MAX_PATH_LEN = 4096;    // OS path limit
 const MAX_LIMIT = 100;
 const VALID_FILE_STATUS = new Set(['added', 'modified', 'deleted', 'renamed']);
-// Strip filesystem paths from error messages to avoid leaking internal layout
-function sanitizeError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message
-      .replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/')
-      .substring(0, 500);
-  }
-  return 'Internal error';
-}
-// Validate a git ref: non-empty string, bounded length, no shell metacharacters.
-// execFileSync already prevents shell injection but we still cap the length and
-// reject control chars / obvious injection patterns so error messages don't echo
-// attacker-supplied content back.
-const REF_SAFE_RE = /^[a-zA-Z0-9_./:@^~\-\.{}\[\]]+$/;
-function validateRef(value: unknown): string | null {
-  if (typeof value !== 'string' || value.length === 0) return 'HEAD';
-  if (value.length > MAX_REF_LEN) return null;
-  if (!REF_SAFE_RE.test(value)) return null;
-  return value;
-}
 
 /**
  * Diff Analysis Tool

@@ -12,46 +12,17 @@
  */
 
 import type { MCPTool } from './types.js';
+import {
+  sanitizeError,
+  validateMcpString as validateString,
+  validatePositiveInt,
+  validateScore,
+} from '../utils/input-guards.js';
 
-// ===== Shared validation helpers =====
+// ===== MCP-specific constants =====
 
-const MAX_STRING_LENGTH = 100_000; // 100KB max for any string input
 const MAX_BATCH_SIZE = 500;        // Max entries per batch operation
 const MAX_TOP_K = 100;             // Max results per query
-
-// Reject NUL and C0 control chars except \t \n \r. NUL truncates strings at
-// the C-API boundary in some bridge backends (key collision); ANSI/control
-// chars enable terminal injection when values are echoed back; \r/\n in
-// values fed to log files breaks log-line integrity.
-const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
-function validateString(value: unknown, name: string, maxLen = MAX_STRING_LENGTH): string | null {
-  if (typeof value !== 'string' || value.length === 0) return null;
-  if (value.length > maxLen) return null;
-  if (CONTROL_CHAR_RE.test(value)) return null;
-  return value;
-}
-
-function validatePositiveInt(value: unknown, defaultVal: number, max: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return defaultVal;
-  const n = Math.floor(value);
-  return n > 0 ? Math.min(n, max) : defaultVal;
-}
-
-function validateScore(value: unknown, defaultVal: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return defaultVal;
-  return Math.max(0, Math.min(1, value));
-}
-
-function sanitizeError(error: unknown): string {
-  if (error instanceof Error) {
-    // Strip filesystem paths from error messages — match path components even
-    // when no trailing slash (path at end of message before whitespace, colon, EOL)
-    return error.message
-      .replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/')
-      .substring(0, 500);
-  }
-  return 'Internal error';
-}
 
 // Lazy-cached bridge module
 let bridgeModule: typeof import('../memory/memory-bridge.js') | null = null;

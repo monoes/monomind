@@ -197,6 +197,88 @@ export function validateInput(
 }
 
 /* ------------------------------------------------------------------ */
+/*  MCP tool helpers — shared across MCP handler files                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Sanitize an error before returning it to MCP callers.
+ * Strips filesystem paths from error messages to avoid leaking internal layout.
+ */
+export function sanitizeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+      .replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/')
+      .substring(0, 500);
+  }
+  return 'Internal error';
+}
+
+/**
+ * Reject NUL and C0 control chars except \t \n \r.
+ * NUL truncates strings at the C-API boundary in some bridge backends
+ * (key collision); ANSI/control chars enable terminal injection when
+ * values are echoed back; \r/\n in values fed to log files breaks
+ * log-line integrity.
+ */
+const MCP_CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
+
+/**
+ * Validate a string value for MCP tool handlers.
+ * Returns the string when valid, or null when invalid.
+ * Lighter-weight than `validateInput({ type: 'string' })` — designed
+ * for the fast-path guard pattern used in MCP tool handlers.
+ */
+export function validateMcpString(
+  value: unknown,
+  _name: string,
+  maxLen = 100_000,
+): string | null {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  if (value.length > maxLen) return null;
+  if (MCP_CONTROL_CHAR_RE.test(value)) return null;
+  return value;
+}
+
+/**
+ * Validate a positive integer for MCP tool parameters.
+ * Returns the clamped value or the default.
+ */
+export function validatePositiveInt(
+  value: unknown,
+  defaultVal: number,
+  max: number,
+): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return defaultVal;
+  const n = Math.floor(value);
+  return n > 0 ? Math.min(n, max) : defaultVal;
+}
+
+/**
+ * Validate a score (0–1 range) for MCP tool parameters.
+ * Returns the clamped value or the default.
+ */
+export function validateScore(
+  value: unknown,
+  defaultVal: number,
+): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return defaultVal;
+  return Math.max(0, Math.min(1, value));
+}
+
+/**
+ * Validate a git ref: non-empty string, bounded length, no shell
+ * metacharacters. Returns the sanitized ref, 'HEAD' for empty/missing
+ * input, or null for invalid input.
+ */
+const REF_SAFE_RE = /^[a-zA-Z0-9_./:@^~\-\.{}\[\]]+$/;
+export function validateRef(value: unknown, maxLen = 256): string | null {
+  if (typeof value !== 'string' || value.length === 0) return 'HEAD';
+  if (value.length > maxLen) return null;
+  if (!REF_SAFE_RE.test(value)) return null;
+  return value;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Prompt-injection guard for external / untrusted content            */
 /* ------------------------------------------------------------------ */
 
