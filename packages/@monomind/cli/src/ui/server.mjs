@@ -2386,6 +2386,141 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       return;
     }
 
+    // ------------------------------------------ GET /api/memory/entries (SQLite)
+    if (req.method === 'GET' && url === '/api/memory/entries') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const ns = qs.get('namespace') || undefined;
+        const limit = Math.min(parseInt(qs.get('limit') || '50', 10) || 50, 200);
+        const offset = parseInt(qs.get('offset') || '0', 10) || 0;
+        const bridge = await _getKnowledgeBridge();
+        if (!bridge) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Memory bridge unavailable' }));
+          return;
+        }
+        const result = await bridge.bridgeListEntries({ namespace: ns, limit, offset });
+        if (!result || !result.success) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: result?.error || 'Failed to list entries' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ entries: result.entries, total: result.total }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // --------------------------------------- GET /api/memory/search (SQLite)
+    if (req.method === 'GET' && url === '/api/memory/search') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const query = qs.get('q') || '';
+        const ns = qs.get('namespace') || undefined;
+        const limit = Math.min(parseInt(qs.get('limit') || '20', 10) || 20, 100);
+        if (!query) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing query parameter q' }));
+          return;
+        }
+        const bridge = await _getKnowledgeBridge();
+        if (!bridge) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Memory bridge unavailable' }));
+          return;
+        }
+        const result = await bridge.bridgeSearchEntries({ query, namespace: ns, limit });
+        if (!result || !result.success) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: result?.error || 'Search failed' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ results: result.results, searchTime: result.searchTime, searchMethod: result.searchMethod }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------- POST /api/memory/entry (SQLite)
+    if (req.method === 'POST' && url === '/api/memory/entry') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('end', async () => {
+        try {
+          const { key, value, namespace, tags } = JSON.parse(body);
+          if (!key || !value) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing key or value' }));
+            return;
+          }
+          const bridge = await _getKnowledgeBridge();
+          if (!bridge) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Memory bridge unavailable' }));
+            return;
+          }
+          const result = await bridge.bridgeStoreEntry({
+            key: String(key),
+            value: String(value),
+            namespace: namespace || 'default',
+            tags: Array.isArray(tags) ? tags : [],
+            upsert: true,
+          });
+          if (!result || !result.success) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: result?.error || 'Store failed' }));
+            return;
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.end(JSON.stringify({ ok: true, id: result.id, duplicate: result.duplicate }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    // ------------------------------------ DELETE /api/memory/entry (SQLite)
+    if (req.method === 'DELETE' && url === '/api/memory/entry') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('end', async () => {
+        try {
+          const { key, id, namespace } = JSON.parse(body);
+          if (!key && !id) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing key or id' }));
+            return;
+          }
+          const bridge = await _getKnowledgeBridge();
+          if (!bridge) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Memory bridge unavailable' }));
+            return;
+          }
+          const result = await bridge.bridgeDeleteEntry({ key, id, namespace: namespace || 'default' });
+          if (!result || !result.success) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: result?.error || 'Delete failed' }));
+            return;
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.end(JSON.stringify({ ok: true, deleted: result.deleted }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
     // ---------------------------------------------------------- GET /api/loops
     if (req.method === 'GET' && url === '/api/loops') {
       try {
