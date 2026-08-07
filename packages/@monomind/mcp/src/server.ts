@@ -88,7 +88,11 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   // second client's `initialize` would silently reassign the session out
   // from under the first client (issue #93).
   private readonly connectionSessions: Map<string, MCPSession> = new Map();
-  private resourceSubscriptions: Map<string, Set<string>> = new Map(); // sessionId -> subscribed URIs
+  // sessionId -> (uri -> subscriptionId). The registry-issued subscriptionId
+  // must be retained so resources/unsubscribe (and session teardown) can call
+  // resourceRegistry.unsubscribe(id) — without it callbacks leak and phantom
+  // notifications fire after unsubscribe (issue #92).
+  private resourceSubscriptions: Map<string, Map<string, string>> = new Map();
 
   private readonly serverInfo = {
     name: 'Monomind MCP Server V1',
@@ -282,6 +286,11 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
       this.sessionManager.clearAll();
       this.taskManager.destroy();
+      // Safety net: detach any subscription whose session already vanished
+      // without a session:closed event reaching the purge handler.
+      for (const sessionId of [...this.resourceSubscriptions.keys()]) {
+        this.purgeSessionSubscriptions(sessionId);
+      }
       this.resourceSubscriptions.clear();
       this.rateLimiter.destroy();
 
@@ -434,9 +443,26 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     const session = this.connectionSessions.get(connectionId);
     this.connectionSessions.delete(connectionId);
     if (session) {
-      this.resourceSubscriptions.delete(session.id);
+      // closeSession emits 'session:closed', which purges the session's
+      // resource subscriptions (see setupEventHandlers).
       this.sessionManager.closeSession(session.id, 'Connection closed');
     }
+  }
+
+  /**
+   * Detach every registry subscription owned by a session. Called whenever a
+   * session ends (terminated, connection closed, expired, server stopped) so
+   * no update callback outlives its session (issue #92).
+   */
+  private purgeSessionSubscriptions(sessionId: string): void {
+    const sessionSubs = this.resourceSubscriptions.get(sessionId);
+    if (!sessionSubs) {
+      return;
+    }
+    for (const subscriptionId of sessionSubs.values()) {
+      this.resourceRegistry.unsubscribe(subscriptionId);
+    }
+    this.resourceSubscriptions.delete(sessionId);
   }
 
   private async handleRequest(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
@@ -764,8 +790,15 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       // Track subscription for this session
       let sessionSubs = this.resourceSubscriptions.get(sessionId);
       if (!sessionSubs) {
-        sessionSubs = new Set();
+        sessionSubs = new Map();
         this.resourceSubscriptions.set(sessionId, sessionSubs);
+      }
+
+      // Re-subscribing the same URI replaces the previous subscription —
+      // otherwise the old callback would keep firing with no way to reach it.
+      const existingId = sessionSubs.get(params.uri);
+      if (existingId) {
+        this.resourceRegistry.unsubscribe(existingId);
       }
 
       const subscriptionId = this.resourceRegistry.subscribe(params.uri, (uri, content) => {
@@ -773,7 +806,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         this.sendNotification('notifications/resources/updated', { uri });
       });
 
-      sessionSubs.add(params.uri);
+      sessionSubs.set(params.uri, subscriptionId);
 
       return {
         jsonrpc: '2.0',
@@ -803,8 +836,16 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
     if (sessionId) {
       const sessionSubs = this.resourceSubscriptions.get(sessionId);
-      if (sessionSubs) {
+      const subscriptionId = sessionSubs?.get(params.uri);
+      if (sessionSubs && subscriptionId) {
+        // Actually detach the registry callback — just forgetting the URI
+        // locally left the callback live, producing phantom notifications
+        // (issue #92).
+        this.resourceRegistry.unsubscribe(subscriptionId);
         sessionSubs.delete(params.uri);
+        if (sessionSubs.size === 0) {
+          this.resourceSubscriptions.delete(sessionId);
+        }
       }
     }
 
@@ -1181,10 +1222,24 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     });
 
     this.sessionManager.on('session:closed', (data) => {
+      this.purgeSessionSubscriptions(data.session.id);
       this.emit('session:closed', data);
     });
 
     this.sessionManager.on('session:expired', (session) => {
+      this.purgeSessionSubscriptions(session.id);
+      // Drop references to the expired session — otherwise `currentSession` /
+      // `connectionSessions` keep pointing at a session the manager has
+      // already reaped, and subsequent updateActivity calls fail silently
+      // against the ghost (issue #93).
+      if (this.currentSession?.id === session.id) {
+        this.currentSession = undefined;
+      }
+      for (const [connectionId, s] of this.connectionSessions) {
+        if (s.id === session.id) {
+          this.connectionSessions.delete(connectionId);
+        }
+      }
       this.emit('session:expired', session);
     });
   }

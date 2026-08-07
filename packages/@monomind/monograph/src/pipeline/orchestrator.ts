@@ -198,15 +198,6 @@ async function buildAsyncLocked(
       }
     }
 
-    // Skip expensive report regeneration when all files were cached (nothing changed) —
-    // this is purely a performance optimization, not correctness-critical, so it stays
-    // gated behind allFilesCached.
-    if (!ctx.allFilesCached) {
-      const suggestOut = outputs.get('suggest') as { questions: SuggestedQuestion[] } | undefined;
-      const questions = suggestOut?.questions ?? [];
-      await generateGraphReport(resolve(repoPath), undefined, dbPath, questions);
-    }
-
     // Populate churnScore on File nodes from git history (6-month window)
     try {
       const churnResult = await analyzeChurn(ctx.repoPath, '6m');
@@ -248,6 +239,22 @@ async function buildAsyncLocked(
     }
     db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
     db.exec('COMMIT');
+
+    // Skip expensive report regeneration when all files were cached (nothing changed) —
+    // this is purely a performance optimization, not correctness-critical, so it stays
+    // gated behind allFilesCached. This MUST run after COMMIT (issue #91): the async
+    // generateGraphReport overload opens its own DB connection, which in WAL mode only
+    // sees the last committed snapshot — run inside the open transaction, it would render
+    // the report from the previous build (or an empty DB on the first build).
+    if (!ctx.allFilesCached) {
+      try {
+        const suggestOut = outputs.get('suggest') as { questions: SuggestedQuestion[] } | undefined;
+        const questions = suggestOut?.questions ?? [];
+        await generateGraphReport(resolve(repoPath), undefined, dbPath, questions);
+      } catch {
+        // Report generation is non-fatal — the build itself already committed.
+      }
+    }
   } catch (err) {
     // Best-effort: if the connection is already broken (e.g. the failure was
     // itself a corrupt-database error), rolling back can throw too — the
