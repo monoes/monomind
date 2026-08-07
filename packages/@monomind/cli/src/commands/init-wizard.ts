@@ -47,7 +47,7 @@ export const wizardCommand: Command = {
           options: [
             { value: 'claudeMd', label: 'CLAUDE.md', hint: 'Swarm guidance and project configuration', selected: true },
             { value: 'settings', label: 'settings.json', hint: 'Claude Code hooks configuration', selected: true },
-            { value: 'skills', label: 'Skills', hint: 'Claude Code skills in .claude/skills/', selected: true },
+            { value: 'skills', label: 'Skills', hint: 'Skills in .claude/skills/, .gemini/skills/, .agents/skills/', selected: true },
             { value: 'commands', label: 'Commands', hint: 'Claude Code commands in .claude/commands/', selected: true },
             { value: 'agents', label: 'Agents', hint: 'Agent definitions in .claude/agents/', selected: true },
             { value: 'helpers', label: 'Helpers', hint: 'Utility scripts in .claude/helpers/', selected: true },

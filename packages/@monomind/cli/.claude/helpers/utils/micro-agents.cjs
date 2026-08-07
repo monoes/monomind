@@ -213,7 +213,29 @@ function _autoIndexKnowledge(knowledgeDir) {
     { filePath: path.join(CWD, 'CLAUDE.md'), label: 'project-instructions' },
     { filePath: path.join(CWD, 'docs/todo.md'), label: 'project-todo' },
     { filePath: path.join(CWD, 'CLAUDE.local.md'), label: 'local-instructions' },
+    { filePath: path.join(CWD, 'README.md'), label: 'project-readme' },
+    { filePath: path.join(CWD, 'CONTRIBUTING.md'), label: 'project-contributing' },
+    { filePath: path.join(CWD, 'CHANGELOG.md'), label: 'project-changelog' },
   ];
+
+  // Scan doc/ and docs/ directories for markdown files (depth 1 only to keep
+  // the keyword index bounded — the full Second Brain ingestion handles deeper
+  // trees via the embedding pipeline on init and session-start re-index).
+  var _docDirs = ['doc', 'docs'];
+  for (var _ddi = 0; _ddi < _docDirs.length; _ddi++) {
+    var _ddPath = path.join(CWD, _docDirs[_ddi]);
+    try {
+      if (fs.existsSync(_ddPath) && fs.statSync(_ddPath).isDirectory()) {
+        var _ddFiles = fs.readdirSync(_ddPath);
+        for (var _dfi = 0; _dfi < _ddFiles.length; _dfi++) {
+          var _dfName = _ddFiles[_dfi];
+          if (_dfName.charAt(0) === '.' || _dfName.charAt(0) === '_') continue;
+          if (!_dfName.endsWith('.md') && !_dfName.endsWith('.txt')) continue;
+          sources.push({ filePath: path.join(_ddPath, _dfName), label: _docDirs[_ddi] + '/' + _dfName });
+        }
+      }
+    } catch (e) {}
+  }
 
   var hashInput = '';
   for (var i = 0; i < sources.length; i++) {

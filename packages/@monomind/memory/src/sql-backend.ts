@@ -19,7 +19,7 @@
 import { EventEmitter } from 'node:events';
 import { cosineSimilarity } from './math-utils.js';
 import type { SqlDriver, SqlParam } from './sql-driver.js';
-import { initializeSchema, type MigrationReport } from './sql-schema.js';
+import { initializeSchema, hasFTS5Table, type MigrationReport } from './sql-schema.js';
 import {
   IMemoryBackend,
   MemoryEntry,
@@ -59,6 +59,8 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   protected initialized = false;
   /** Populated during initialize(); surfaced for diagnostics. */
   migrationReport: MigrationReport | null = null;
+  /** Whether the FTS5 full-text index is available (Issue #66). */
+  private _fts5Available = false;
 
   private stats = { queryCount: 0, totalQueryTime: 0, writeCount: 0, totalWriteTime: 0 };
   /** Debounce counter: the agent_reads purge is expensive, so it is amortised. */
@@ -87,6 +89,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     }
 
     this.migrationReport = initializeSchema(this.driver);
+    this._fts5Available = hasFTS5Table(this.driver);
     if (this.config.verbose && this.migrationReport.legacyColumnFound) {
       console.log(
         `[SqlBackend] migrated ${this.migrationReport.migrated} inline embedding(s); ` +
@@ -418,6 +421,70 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     }
     results.sort((a, b) => b.score - a.score);
     return results.slice(0, options.k);
+  }
+
+  /**
+   * FTS5-accelerated keyword search (Issue #66).
+   *
+   * When the FTS5 index is available, text matching runs inside SQLite via
+   * `MATCH` — orders of magnitude faster than loading 50k rows into JS. When
+   * FTS5 is unavailable (e.g. sql.js WASM compiled without the extension) the
+   * method returns `null` so the caller can fall back to JS-side matching.
+   *
+   * `queryText` is the raw user query; it is FTS5-tokenized automatically.
+   * Special characters are escaped to prevent FTS5 syntax errors.
+   */
+  async keywordSearch(queryText: string, options: {
+    namespace?: string;
+    limit?: number;
+  } = {}): Promise<{ id: string; key: string; content: string; namespace: string; rank: number }[] | null> {
+    this.ensureInitialized();
+    if (!this._fts5Available) return null;
+
+    const limit = Math.min(Math.max(1, options.limit ?? 50), MAX_QUERY_LIMIT);
+
+    // Escape FTS5 special characters and build a query where every token must
+    // appear (implicit AND). Tokens shorter than 2 chars are dropped — they
+    // produce noise and FTS5 may reject single-char tokens depending on the
+    // tokenizer configuration.
+    const tokens = queryText
+      .replace(/[":*^~(){}[\]\\]/g, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 1)
+      .map((t) => `"${t}"`)
+      .join(' ');
+    if (!tokens) return null;
+
+    const d = this.driver!;
+    const ns = options.namespace;
+
+    const rows = d.all(
+      `SELECT f.entry_id, f.key, f.content, e.namespace, rank
+         FROM memory_entries_fts f
+         JOIN memory_entries e ON e.id = f.entry_id
+        WHERE memory_entries_fts MATCH ?
+          AND (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)
+          ${ns ? 'AND e.namespace = ?' : ''}
+        ORDER BY rank
+        LIMIT ?`,
+      ns
+        ? [tokens, Date.now(), ns, limit]
+        : [tokens, Date.now(), limit],
+    );
+
+    return rows.map((r) => ({
+      id: String(r.entry_id),
+      key: String(r.key),
+      content: String(r.content),
+      namespace: String(r.namespace),
+      // FTS5 rank is negative (lower = better match); invert to a 0–1 score.
+      rank: Number(r.rank),
+    }));
+  }
+
+  /** Whether FTS5 full-text search is available on this backend instance. */
+  get fts5Available(): boolean {
+    return this._fts5Available;
   }
 
   async count(namespace?: string): Promise<number> {

@@ -12,7 +12,7 @@ import path from 'path';
 export interface InitComponents {
   /** Create .claude/settings.json with hooks */
   settings: boolean;
-  /** Copy skills to .claude/skills/ */
+  /** Copy skills to .claude/skills/, .gemini/skills/, .agents/skills/ */
   skills: boolean;
   /** Copy commands to .claude/commands/ */
   commands: boolean;

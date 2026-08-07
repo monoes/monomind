@@ -492,6 +492,17 @@ module.exports = {
                   fs.writeFileSync(sbMetricsFile, sbOld.slice(-500).join('\n') + '\n', 'utf-8');
                 }
               } catch (_) {}
+              // Derive store provenance from individual hits: 'project', 'global',
+              // or 'mixed' when both brains contributed. Hits carry a boolean
+              // `global` flag set by the warm endpoint / fallback path above.
+              var _sbStore = 'none';
+              if (sbHits && sbHits.length > 0) {
+                var _sbHasProject = false, _sbHasGlobal = false;
+                for (var _sbSi = 0; _sbSi < sbHits.length; _sbSi++) {
+                  if (sbHits[_sbSi].global) _sbHasGlobal = true; else _sbHasProject = true;
+                }
+                _sbStore = _sbHasProject && _sbHasGlobal ? 'mixed' : _sbHasGlobal ? 'global' : 'project';
+              }
               fs.appendFileSync(sbMetricsFile, JSON.stringify({
                 ts: Date.now(),
                 method: sbMethod,
@@ -501,6 +512,7 @@ module.exports = {
                 terms: _sbSubstantive.length,
                 corpus: sbCorpus,
                 injected: !!(sbHits && sbHits.length > 0),
+                store: _sbStore,
               }) + '\n', 'utf-8');
             } catch (_) { /* telemetry never blocks */ }
 

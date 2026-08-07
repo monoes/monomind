@@ -187,6 +187,12 @@ const postTaskCommand: Command = {
       short: 'o',
       description: 'Outcome description',
       type: 'string'
+    },
+    {
+      name: 'route-id',
+      short: 'r',
+      description: 'Route ID from a prior hooks route call (joins recommendation to outcome)',
+      type: 'string'
     }
   ],
   examples: [
@@ -221,6 +227,7 @@ const postTaskCommand: Command = {
         success,
         duration: ctx.flags.duration,
         outcome: ctx.flags.outcome,
+        routeId: ctx.flags['route-id'],
         timestamp: Date.now(),
       });
 
@@ -290,6 +297,7 @@ const sessionEndCommand: Command = {
           filesModified: number;
           agentsSpawned: number;
         };
+        kgNudge?: { empty: boolean; prompt?: string };
       }>('hooks_session-end', {
         saveState: ctx.flags['save-state'] ?? true,
         timestamp: Date.now(),
@@ -324,6 +332,14 @@ const sessionEndCommand: Command = {
       if (result.statePath) {
         output.writeln();
         output.writeln(output.dim(`State saved to: ${result.statePath}`));
+      }
+
+      if (result.kgNudge?.empty && result.kgNudge.prompt) {
+        output.writeln();
+        output.printWarning('Knowledge Graph nudge:');
+        for (const line of result.kgNudge.prompt.split('\n')) {
+          output.writeln(`  ${line}`);
+        }
       }
 
       return { success: true, data: result };

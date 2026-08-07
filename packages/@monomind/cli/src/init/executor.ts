@@ -193,6 +193,8 @@ const DIRECTORIES = {
     '.gemini/skills',
     '.gemini/rules',
     '.gemini/helpers',
+    '.agents',
+    '.agents/skills',
   ],
   runtime: [
     '.monomind',
@@ -260,11 +262,16 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       for (const cap of capMgr.getActive()) {
         console.log(`  ✓ ${cap.name}`);
       }
-      // Second Brain: if documents capability is active, index documents
+      // Second Brain: if documents capability is active, index the full tree.
+      // Even when it is NOT active (code-only projects), ingest common
+      // documentation files so the Second Brain is seeded with project context
+      // that would otherwise cause zero-hits on every prompt.
       const activeNames = capMgr.getActive().map((c: any) => c.name);
-      if (activeNames.includes('documents')) {
-        try {
-          const { ingestDirectory } = await import('../knowledge/document-pipeline.js');
+      try {
+        const { ingestDirectory, ingestDocument } = await import('../knowledge/document-pipeline.js');
+        const fs = await import('node:fs');
+
+        if (activeNames.includes('documents')) {
           console.log('\nIndexing documents for Second Brain...');
           const docResult = await ingestDirectory(targetDir, 'shared', { rootDir: targetDir });
           if (docResult.filesProcessed > 0) {
@@ -272,10 +279,44 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
           } else {
             console.log('  ✓ Knowledge base initialized (no new documents to index)');
           }
-          result.created.files.push('.monomind/knowledge/');
-        } catch (docErr) {
-          result.skipped.push(`knowledge indexing: ${docErr instanceof Error ? docErr.message : String(docErr)}`);
+        } else {
+          // Code-only project: ingest common doc directories and root files
+          // so the Second Brain is not empty. Skip silently when nothing exists.
+          console.log('\nSeeding Second Brain with project docs...');
+          let seeded = 0;
+          let seededChunks = 0;
+
+          // Ingest doc directories (doc/, docs/) if present
+          for (const docDir of ['doc', 'docs']) {
+            const dirPath = path.join(targetDir, docDir);
+            if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
+              const dirResult = await ingestDirectory(dirPath, 'shared', { rootDir: targetDir });
+              seeded += dirResult.filesProcessed;
+              seededChunks += dirResult.totalChunks;
+            }
+          }
+
+          // Ingest common root markdown files
+          for (const rootDoc of ['README.md', 'CONTRIBUTING.md', 'CHANGELOG.md', 'CLAUDE.md']) {
+            const filePath = path.join(targetDir, rootDoc);
+            if (fs.existsSync(filePath)) {
+              const fileResult = await ingestDocument(filePath, 'shared', targetDir);
+              if (!fileResult.skipped) {
+                seeded++;
+                seededChunks += fileResult.chunksIndexed;
+              }
+            }
+          }
+
+          if (seeded > 0) {
+            console.log(`  ✓ ${seededChunks} chunks from ${seeded} documents`);
+          } else {
+            console.log('  ✓ Knowledge base initialized (no project docs found)');
+          }
         }
+        result.created.files.push('.monomind/knowledge/');
+      } catch (docErr) {
+        result.skipped.push(`knowledge indexing: ${docErr instanceof Error ? docErr.message : String(docErr)}`);
       }
     } catch (scanError) {
       // Scanner/fingerprint/activation failed — non-fatal, continue without capabilities
@@ -935,6 +976,23 @@ export async function executeUpgradeWithMissing(targetDir: string, upgradeSettin
           result.created.push(`.claude/skills/${skillName}`);
         }
       }
+
+      // Mirror added skills to .gemini/skills/ and .agents/skills/ (#100)
+      if (result.addedSkills.length > 0) {
+        const mirrorDirs = [
+          path.join(targetDir, '.gemini', 'skills'),
+          path.join(targetDir, '.agents', 'skills'),
+        ];
+        for (const mirrorDir of mirrorDirs) {
+          fs.mkdirSync(mirrorDir, { recursive: true });
+          for (const skillName of result.addedSkills) {
+            const sourcePath = path.join(sourceSkillsDir, skillName);
+            if (fs.existsSync(sourcePath)) {
+              copyDirRecursive(sourcePath, path.join(mirrorDir, skillName));
+            }
+          }
+        }
+      }
     }
 
     // Add missing agents
@@ -1254,6 +1312,21 @@ async function copySkills(
     n => !writtenSkills.includes(n) && fs.existsSync(path.join(targetSkillsDir, n))
   );
   recordGenerated(targetDir, 'skills', [...writtenSkills, ...retainedSkills]);
+
+  // Mirror written skills to .gemini/skills/ and .agents/skills/ (#100)
+  const mirrorDirs = [
+    path.join(targetDir, '.gemini', 'skills'),
+    path.join(targetDir, '.agents', 'skills'),
+  ];
+  for (const mirrorDir of mirrorDirs) {
+    fs.mkdirSync(mirrorDir, { recursive: true });
+    for (const skillName of writtenSkills) {
+      const sourcePath = path.join(sourceSkillsDir, skillName);
+      if (fs.existsSync(sourcePath)) {
+        copyDirRecursive(sourcePath, path.join(mirrorDir, skillName));
+      }
+    }
+  }
 }
 
 /**

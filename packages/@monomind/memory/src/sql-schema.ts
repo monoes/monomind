@@ -25,7 +25,7 @@
 import type { SqlDriver } from './sql-driver.js';
 
 /** Bumped when the canonical schema changes; stored in PRAGMA user_version. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /**
  * Create the canonical schema. Safe to run repeatedly.
@@ -184,14 +184,100 @@ export function migrateLegacyInlineEmbeddings(driver: SqlDriver): MigrationRepor
   return report;
 }
 
+// ===== FTS5 Full-Text Search Index (Issue #66) =============================
+
+/**
+ * True when the FTS5 virtual table already exists.
+ */
+export function hasFTS5Table(driver: SqlDriver): boolean {
+  try {
+    const row = driver.get(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'memory_entries_fts'",
+    );
+    return row !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create FTS5 virtual table + sync triggers.  Idempotent and fail-safe:
+ *
+ *   - **FTS5 unavailable** (sql.js compiled without the extension, or very old
+ *     SQLite): the CREATE VIRTUAL TABLE will throw; we catch and return false.
+ *     Keyword search falls back to the existing JS scan — no data loss.
+ *   - **Already exists**: nothing to do; triggers are IF NOT EXISTS.
+ *   - **Existing data**: bulk-populated in a single INSERT … SELECT.
+ *
+ * The FTS5 table is standalone (not external-content) with an `entry_id`
+ * column marked UNINDEXED so `MATCH` only considers `key` and `content`.
+ * Triggers keep it in lock-step with the source table on every write.
+ *
+ * Returns true if the FTS5 table is usable after this call.
+ */
+export function createFTS5Index(driver: SqlDriver): boolean {
+  if (hasFTS5Table(driver)) return true;
+
+  try {
+    driver.exec(`
+      CREATE VIRTUAL TABLE memory_entries_fts USING fts5(
+        entry_id UNINDEXED,
+        key,
+        content,
+        tokenize = 'porter unicode61'
+      );
+    `);
+  } catch {
+    // FTS5 extension not available on this build (common for sql.js WASM).
+    return false;
+  }
+
+  try {
+    // Populate from existing data.
+    driver.exec(`
+      INSERT INTO memory_entries_fts(entry_id, key, content)
+        SELECT id, key, content FROM memory_entries;
+    `);
+
+    // Keep in sync via triggers.
+    driver.exec(`
+      CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ai
+      AFTER INSERT ON memory_entries BEGIN
+        INSERT INTO memory_entries_fts(entry_id, key, content)
+          VALUES (NEW.id, NEW.key, NEW.content);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS memory_entries_fts_ad
+      AFTER DELETE ON memory_entries BEGIN
+        DELETE FROM memory_entries_fts WHERE entry_id = OLD.id;
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS memory_entries_fts_au
+      AFTER UPDATE OF key, content ON memory_entries BEGIN
+        DELETE FROM memory_entries_fts WHERE entry_id = OLD.id;
+        INSERT INTO memory_entries_fts(entry_id, key, content)
+          VALUES (NEW.id, NEW.key, NEW.content);
+      END;
+    `);
+    return true;
+  } catch {
+    // Trigger or populate failed — drop the half-built FTS table so the next
+    // init attempt gets a clean retry rather than a corrupt partial index.
+    try { driver.exec('DROP TABLE IF EXISTS memory_entries_fts'); } catch { /* ignore */ }
+    return false;
+  }
+}
+
 /**
  * Bring a database to the canonical schema: create tables, migrate legacy
- * inline embeddings, enforce uniqueness, and record the version.
+ * inline embeddings, enforce uniqueness, build the FTS5 index, and record
+ * the version.
  */
 export function initializeSchema(driver: SqlDriver): MigrationReport {
   createCanonicalSchema(driver);
   const report = migrateLegacyInlineEmbeddings(driver);
   enforceNamespaceKeyUnique(driver);
+  createFTS5Index(driver);
   try {
     driver.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   } catch {

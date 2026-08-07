@@ -3695,11 +3695,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   // Also forwards new bytes to per-org SSE clients (runStreamClients) so the chat tab
   // receives bash-written lifecycle events in real-time (Phase 3 gap-fill).
   const _orgsFileSizes = new Map(); // absPath → last known byte offset
+  const _MAX_ORGS_FILE_SIZES = 1000;
   function _readNewOrgLines(absPath, orgName, runId) {
     try {
       const stat = fs.statSync(absPath);
       const prevSize = _orgsFileSizes.get(absPath) || 0;
       if (stat.size <= prevSize) return; // nothing new
+      if (!_orgsFileSizes.has(absPath) && _orgsFileSizes.size >= _MAX_ORGS_FILE_SIZES) {
+        const oldest = _orgsFileSizes.keys().next().value;
+        _orgsFileSizes.delete(oldest);
+      }
       _orgsFileSizes.set(absPath, stat.size);
       // Read only the new bytes to avoid re-processing existing lines
       const fd = fs.openSync(absPath, 'r');
@@ -3755,7 +3760,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const _runsDir = path.join(_orgsDir, _org, 'runs');
         if (!fs.existsSync(_runsDir)) continue;
         for (const _f of fs.readdirSync(_runsDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.warm.jsonl') && !f.endsWith('.convs.jsonl'))) {
-          try { _orgsFileSizes.set(path.join(_runsDir, _f), fs.statSync(path.join(_runsDir, _f)).size); } catch (_) {}
+          try {
+            const _absF = path.join(_runsDir, _f);
+            if (_orgsFileSizes.size >= _MAX_ORGS_FILE_SIZES) { const _k = _orgsFileSizes.keys().next().value; _orgsFileSizes.delete(_k); }
+            _orgsFileSizes.set(_absF, fs.statSync(_absF).size);
+          } catch (_) {}
         }
       }
     } catch (_) {}

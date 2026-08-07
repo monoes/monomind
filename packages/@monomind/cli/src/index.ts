@@ -666,57 +666,5 @@ export {
   type IntelligenceStats,
 } from './memory/intelligence.js';
 
-// Production Hardening
-export {
-  ErrorHandler,
-  withErrorHandling,
-} from './production/error-handler.js';
-export type {
-  ErrorContext,
-  ErrorHandlerConfig,
-} from './production/error-handler.js';
-
-export {
-  RateLimiter,
-  createRateLimiter,
-} from './production/rate-limiter.js';
-export type {
-  RateLimiterConfig,
-  RateLimitResult,
-} from './production/rate-limiter.js';
-
-export {
-  withRetry,
-  makeRetryable,
-} from './production/retry.js';
-export type {
-  RetryConfig,
-  RetryResult,
-  RetryStrategy,
-} from './production/retry.js';
-
-export {
-  CircuitBreaker,
-  getCircuitBreaker,
-  getAllCircuitStats,
-  resetAllCircuits,
-} from './production/circuit-breaker.js';
-export type {
-  CircuitBreakerConfig,
-  CircuitState,
-} from './production/circuit-breaker.js';
-
-export {
-  MonitoringHooks,
-  createMonitor,
-  getMonitor,
-} from './production/monitoring.js';
-export type {
-  MonitorConfig,
-  MetricEvent,
-  HealthStatus,
-  PerformanceMetrics,
-} from './production/monitoring.js';
-
 // Default export
 export default CLI;

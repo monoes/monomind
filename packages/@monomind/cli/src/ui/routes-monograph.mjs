@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 
+const _MAX_BUILD_DOCS_STATE = 500;
+
 export async function handleMonographRoutes(req, res, url, corsOrigin, ctx) {
   // ------------------------------------------------------- GET /api/monograph-html
   if (req.method === 'GET' && url === '/api/monograph-html') {
@@ -283,6 +285,10 @@ new Sigma(g,document.getElementById('g'),{renderEdgeLabels:false,labelColor:{col
       }
 
       const startedAt = Date.now();
+      if (!ctx.buildDocsState.has(d) && ctx.buildDocsState.size >= _MAX_BUILD_DOCS_STATE) {
+        const oldest = ctx.buildDocsState.keys().next().value;
+        ctx.buildDocsState.delete(oldest);
+      }
       ctx.buildDocsState.set(d, { status: 'pending', sections: 0, files: 0, error: null, startedAt });
       res.writeHead(202, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
       res.end(JSON.stringify({ status: 'pending', dir: d }));
