@@ -1,5 +1,6 @@
-import { resolve, join } from 'path';
+import { resolve, join, extname } from 'path';
 import { execSync } from 'child_process';
+import { existsSync, readFileSync, statSync } from 'fs';
 import Graph from 'graphology';
 import { openDb, closeDb } from '../storage/db.js';
 import { PipelineRunner } from './runner.js';
@@ -25,10 +26,16 @@ import { importResolverPhase } from './phases/import-resolver.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import type { PipelineOptions, PipelineContext } from './types.js';
 import { DEFAULT_OPTIONS } from './types.js';
-import type { PipelineProgress, SuggestedQuestion } from '../types.js';
+import type { MonographNode, MonographEdge, PipelineProgress, SuggestedQuestion } from '../types.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
 import { analyzeChurn } from '../analysis/churn.js';
 import { ExtractionCache } from '../cache/extraction-cache.js';
+import { insertNodes, deleteNodesForFile } from '../storage/node-store.js';
+import { insertEdges, deleteEdgesForFile } from '../storage/edge-store.js';
+import { parseFile } from '../parsers/loader.js';
+import { isSupportedExtension } from '../parsers/loader.js';
+import { extractVariables, variableToNode } from './phases/variables.js';
+import { extractArrowFunctions, extractCsharpNamespaces } from './phases/parse.js';
 
 function getCurrentCommitHash(repoPath: string): string | null {
   try {
@@ -245,6 +252,128 @@ async function buildAsyncLocked(
     // Best-effort: if the connection is already broken (e.g. the failure was
     // itself a corrupt-database error), rolling back can throw too — the
     // original error is what matters and must not be masked by this one.
+    try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+    throw err;
+  } finally {
+    closeDb(db);
+  }
+}
+
+const INCREMENTAL_THRESHOLD = 20;
+
+export async function buildIncrementalAsync(
+  repoPath: string,
+  changedAbsPaths: string[],
+  options: BuildOptions = {},
+): Promise<void> {
+  if (changedAbsPaths.length === 0) return;
+  if (changedAbsPaths.length > INCREMENTAL_THRESHOLD) {
+    return buildAsync(repoPath, options);
+  }
+
+  const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
+  if (!existsSync(dbPath)) {
+    return buildAsync(repoPath, options);
+  }
+
+  const releaseLock = await acquireBuildLock(dbPath);
+  if (!releaseLock) {
+    options.onProgress?.({ phase: 'skip', message: 'Another build is in progress — skipping incremental' });
+    return;
+  }
+  try {
+    await buildIncrementalLocked(resolve(repoPath), dbPath, changedAbsPaths, options);
+  } finally {
+    releaseLock();
+  }
+}
+
+async function buildIncrementalLocked(
+  resolvedRepo: string,
+  dbPath: string,
+  changedAbsPaths: string[],
+  options: BuildOptions,
+): Promise<void> {
+  const db = openDb(dbPath);
+  const maxSize = options.maxFileSizeBytes ?? DEFAULT_OPTIONS.maxFileSizeBytes;
+  const cache = new ExtractionCache(resolve(join(resolvedRepo, '.monomind', 'parse-cache')));
+
+  db.exec('BEGIN');
+  try {
+    let parsed = 0;
+    let deleted = 0;
+
+    for (const absPath of changedAbsPaths) {
+      const ext = extname(absPath).toLowerCase();
+      if (!isSupportedExtension(ext)) continue;
+      if (ext === '.md' || ext === '.markdown') continue;
+
+      const relPath = absPath.startsWith(resolvedRepo)
+        ? absPath.slice(resolvedRepo.length + 1)
+        : absPath;
+
+      deleteEdgesForFile(db, relPath);
+      deleteNodesForFile(db, relPath);
+
+      if (!existsSync(absPath)) {
+        deleted++;
+        continue;
+      }
+
+      let source: string;
+      try {
+        const stat = statSync(absPath);
+        if (stat.size > maxSize) continue;
+        source = readFileSync(absPath, 'utf-8');
+      } catch { continue; }
+
+      const result = await parseFile(absPath, source, relPath);
+      const nodes: MonographNode[] = [...result.nodes];
+      const edges: MonographEdge[] = [...result.edges];
+
+      if (ext === '.cs') {
+        for (const ns of extractCsharpNamespaces(source, relPath)) {
+          nodes.push({
+            id: `${ns.filePath}::namespace::${ns.name}`,
+            name: ns.name, label: 'Namespace', normLabel: 'namespace',
+            filePath: ns.filePath, line: ns.line, isExported: true,
+          } as MonographNode);
+        }
+      }
+
+      if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
+        const varInfos = extractVariables(source, relPath);
+        nodes.push(...varInfos.map(v => variableToNode(v)));
+        for (const fn of extractArrowFunctions(source, relPath)) {
+          nodes.push({
+            id: `${fn.filePath}::fn::${fn.name}`,
+            name: fn.name, label: 'Function', normLabel: 'function',
+            filePath: fn.filePath, line: fn.line, isExported: fn.isExported,
+          } as MonographNode);
+        }
+      }
+
+      try {
+        cache.set(absPath, cache.hashContent(source), nodes, edges);
+      } catch { /* non-fatal */ }
+
+      insertNodes(db, nodes);
+      insertEdges(db, edges);
+      parsed++;
+    }
+
+    const hash = getCurrentCommitHash(resolvedRepo);
+    if (hash) {
+      db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
+    }
+    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
+    db.exec('COMMIT');
+
+    options.onProgress?.({
+      phase: 'incremental',
+      message: `Incremental: ${parsed} re-parsed, ${deleted} removed`,
+    });
+  } catch (err) {
     try { db.exec('ROLLBACK'); } catch { /* ignore */ }
     throw err;
   } finally {

@@ -22,11 +22,10 @@ export async function watchAsync(
   repoPath: string,
   opts: WatchAsyncOptions = {},
 ): Promise<{ stop: () => Promise<void> }> {
-  const { buildAsync } = await import('../pipeline/orchestrator.js');
+  const { buildAsync, buildIncrementalAsync } = await import('../pipeline/orchestrator.js');
   const watcher = new MonographWatcher(repoPath, { debounceMs: opts.debounceMs ?? 3000 });
 
-  // Idle timeout: auto-stop after prolonged inactivity to reclaim resources.
-  const idleMs = opts.idleTimeoutMs ?? 30 * 60_000; // default 30min
+  const idleMs = opts.idleTimeoutMs ?? 30 * 60_000;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   const resetIdle = (): void => {
     if (idleMs <= 0) return;
@@ -38,26 +37,46 @@ export async function watchAsync(
     (idleTimer as { unref?: () => void }).unref?.();
   };
 
-  // monolean: full rebuild per change-batch, serialized — true incremental rebuild
-  // (re-parse only changed files) requires restructuring the phase pipeline.
+  // After 60s of no incremental activity, run a full rebuild to refresh
+  // aggregate phases (communities, god-nodes, surprises, churn, report).
+  const FULL_REBUILD_IDLE_MS = 60_000;
+  let fullRebuildTimer: ReturnType<typeof setTimeout> | null = null;
+  let incrementalSinceLastFull = false;
+  const scheduleFullRebuild = (): void => {
+    if (fullRebuildTimer) clearTimeout(fullRebuildTimer);
+    fullRebuildTimer = setTimeout(async () => {
+      if (!incrementalSinceLastFull) return;
+      incrementalSinceLastFull = false;
+      opts.onProgress?.({ phase: 'watch', message: 'Deferred full rebuild for aggregate analysis...' });
+      try {
+        await buildAsync(repoPath, { onProgress: opts.onProgress, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
+        opts.onProgress?.({ phase: 'watch', message: 'Full rebuild complete.' });
+      } catch (err) {
+        watcher.emit('monograph:error', err);
+      }
+    }, FULL_REBUILD_IDLE_MS);
+    (fullRebuildTimer as { unref?: () => void }).unref?.();
+  };
+
   let building = false;
   let rerun = false;
   watcher.on('monograph:updated', async (files: string[]) => {
     resetIdle();
-    if (building) { rerun = true; return; } // coalesce saves that land mid-build
+    if (building) { rerun = true; return; }
     building = true;
     try {
       do {
         rerun = false;
         opts.onProgress?.({ phase: 'watch', message: `Changed: ${files.slice(0, 3).join(', ')}` });
         try {
-          await buildAsync(repoPath, { onProgress: opts.onProgress, force: opts.force, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
-          opts.onProgress?.({ phase: 'watch', message: 'Graph rebuilt.' });
+          await buildIncrementalAsync(repoPath, files, {
+            onProgress: opts.onProgress, force: opts.force,
+            codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0,
+          });
+          incrementalSinceLastFull = true;
+          scheduleFullRebuild();
+          opts.onProgress?.({ phase: 'watch', message: 'Graph updated (incremental).' });
         } catch (err) {
-          // A rebuild failure (locked DB past busy_timeout, disk full, transient
-          // I/O error) must not crash the watch process — log it, notify listeners,
-          // and keep watching for the next change instead of letting an unhandled
-          // rejection escape this listener.
           watcher.emit('monograph:error', err);
           opts.onProgress?.({ phase: 'watch', message: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}` });
         }
@@ -68,10 +87,11 @@ export async function watchAsync(
   });
 
   await watcher.start();
-  resetIdle(); // start the idle clock
+  resetIdle();
   return {
     stop: async () => {
       if (idleTimer) clearTimeout(idleTimer);
+      if (fullRebuildTimer) clearTimeout(fullRebuildTimer);
       await watcher.stop();
     },
   };
