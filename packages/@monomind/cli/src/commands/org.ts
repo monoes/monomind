@@ -135,8 +135,24 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // The task rides along in the runfile. Dropping it here would have made
     // `org run <name> --task "..."` silently start a generic cycle — the flag
     // accepted, the instruction discarded.
-    writeFileSync(join(orgsDir, name, 'run'), JSON.stringify({ ts: Date.now(), task: taskFlag ?? null }), 'utf8');
-    log(output.info(`org ${name}: start requested from the serve daemon (pid ${serveOwner}) — it picks this up within ~2s`));
+    const runfile = join(orgsDir, name, 'run');
+    writeFileSync(runfile, JSON.stringify({ ts: Date.now(), task: taskFlag ?? null }), 'utf8');
+    // Ack: the serve daemon's runfile poll consumes (deletes) the file within
+    // one tick (~2s). The liveness check above is racy — a pid can die or be
+    // recycled between the check and the poll, leaving a runfile nobody reads
+    // while we report success. Verify consumption; on timeout, retract the
+    // runfile and fail loudly instead of losing the run.
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline && existsSync(runfile)) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    if (existsSync(runfile)) {
+      rmSync(runfile, { force: true });
+      log(output.error(`org ${name}: serve daemon (pid ${serveOwner}) did not pick up the run within 15s — it is dead or wedged.`));
+      log(output.info(`Remove the stale heartbeat (.monomind/serve-heartbeat.json) and retry, or start a fresh daemon with: monomind org serve`));
+      return { success: false, message: 'serve daemon did not acknowledge the run request' };
+    }
+    log(output.info(`org ${name}: start requested from the serve daemon (pid ${serveOwner}) — acknowledged`));
     log(output.dim(`  watch it with: monomind org logs ${name} --follow`));
     return { success: true, message: 'start requested' };
   }

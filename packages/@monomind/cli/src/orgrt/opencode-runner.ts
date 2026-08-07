@@ -88,7 +88,11 @@ export class OpencodeAgentRunner implements AgentRunner {
       if (typeof sdk.createOpencode !== 'function') {
         throw new Error('OpencodeAgentRunner: @opencode-ai/sdk has no createOpencode — check the SDK version.');
       }
-      const started = await sdk.createOpencode({ hostname: '127.0.0.1', port: 0 });
+      // The SDK's default server-start timeout is 5s — too tight for a cold
+      // machine (first spawn of the opencode binary can take longer, and a
+      // timeout crashes the role session). 30s is safely above cold-start
+      // time while still failing fast enough for the retry backoff to help.
+      const started = await sdk.createOpencode({ hostname: '127.0.0.1', port: 0, timeout: 30_000 });
       client = started.client;
       server = started.server;
     }
@@ -150,7 +154,13 @@ export class OpencodeAgentRunner implements AgentRunner {
             if (stripped) yield { type: 'assistant', session_id: sessionId, text: stripped };
           }
 
-          const calls = parseToolCalls(texts);
+          const malformed: string[] = [];
+          const calls = parseToolCalls(texts, (raw, err) => malformed.push(
+            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+          ));
+          for (const note of malformed) {
+            yield { type: 'assistant', session_id: sessionId, text: note };
+          }
           if (calls.length === 0) break;
 
           if (round === MAX_TOOL_ROUNDS) {

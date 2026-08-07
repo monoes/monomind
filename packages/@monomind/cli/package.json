@@ -116,6 +116,7 @@
     "@monoes/mcp": "^1.0.1",
     "@monoes/memory": "^1.0.10",
     "@monoes/routing": "^1.0.1",
+    "@opencode-ai/sdk": "^1.18.15",
     "monofence-ai": "^1.0.2",
     "sql.js": "^1.14.1"
   },
