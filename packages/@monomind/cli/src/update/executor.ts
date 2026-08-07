@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { UpdateCheckResult } from './checker.js';
 import { validateUpdate, ValidationResult } from './validator.js';
+import { npmCommand } from '../utils/npm-command.js';
 
 // Inline semver shim — avoids external dependency (semver is not in package.json)
 const semver = {
@@ -158,7 +159,9 @@ export async function executeUpdate(
     }
     // Install globally — -g is critical: without it npm installs into the
     // user's cwd, silently modifying their project package.json (#83).
-    await execFileAsync('npm', ['install', '-g', `${pkg}@${version}`, '--save-exact']);
+    // npmCommand() resolves npm.cmd on Windows — execFile of the bare 'npm'
+    // .cmd shim throws EINVAL on Node >= 18.20.2 (#84).
+    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact']);
 
     // Record successful update
     recordUpdate({
@@ -258,7 +261,8 @@ export async function rollbackUpdate(
       throw new Error(`Invalid version: ${version}`);
     }
     // Install globally — prevents modifying the user's project (#83).
-    await execFileAsync('npm', ['install', '-g', `${pkg}@${version}`, '--save-exact']);
+    // npmCommand(): .cmd shim on Windows, see #84.
+    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact']);
 
     // Record the rollback
     recordUpdate({

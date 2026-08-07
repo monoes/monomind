@@ -10,6 +10,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as https from 'https';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
+import { npmCommand } from '../utils/npm-command.js';
 
 // ─── CVE helpers ─────────────────────────────────────────────────────────────
 
@@ -210,7 +211,7 @@ export const cveCommand: Command = {
 
       let auditOutput = '';
       try {
-        const { stdout } = await execFileAsync('npm', ['audit', '--json'], {
+        const { stdout } = await execFileAsync(npmCommand(), ['audit', '--json'], {
           cwd: ctx.cwd,
           timeout: 30000,
         });
