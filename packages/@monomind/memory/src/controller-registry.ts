@@ -291,6 +291,21 @@ export class ControllerRegistry extends EventEmitter {
 
     this.controllers.clear();
     this.initialized = false;
+
+    // #89: shut down the backend after controller teardown. SqlBackend.shutdown
+    // is where the final persist() happens — skipping it loses buffered writes
+    // on process exit.
+    if (this.backend) {
+      try {
+        await this.backend.shutdown();
+      } catch (error) {
+        this.emit('backend:shutdown-error', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      this.backend = null;
+    }
+
     this.emit('shutdown');
   }
 

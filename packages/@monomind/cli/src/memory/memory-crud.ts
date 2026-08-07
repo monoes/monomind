@@ -308,6 +308,7 @@ export async function storeEntry(options: {
 
     let id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     let existingCreatedAt: number | null = null;
+    let matchedExisting = false;
     if (upsert) {
       const existingIdResult = db.exec(
         "SELECT id, created_at FROM memory_entries WHERE key = ? AND namespace = ? AND status = 'active' LIMIT 1",
@@ -317,6 +318,7 @@ export async function storeEntry(options: {
       const existingId = existingRow?.[0];
       if (typeof existingId === 'string') {
         id = existingId;
+        matchedExisting = true;
         const createdAt = existingRow?.[1];
         if (typeof createdAt === 'number') existingCreatedAt = createdAt;
       }
@@ -335,32 +337,55 @@ export async function storeEntry(options: {
       embeddingModel = embResult.model;
     }
 
-    const insertSql = upsert
-      ? `INSERT OR REPLACE INTO memory_entries (
-          id, key, namespace, content, type,
-          embedding, embedding_dimensions, embedding_model,
-          tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
-      : `INSERT INTO memory_entries (
+    const isUpdate = upsert && matchedExisting;
+    if (isUpdate) {
+      // #88: upsert against an existing row must UPDATE in place. The old
+      // INSERT OR REPLACE omitted access_count, confidence, importance_score,
+      // last_accessed_at, owner_id, agent_id, session_id and hardcoded
+      // metadata '{}' — every update silently wiped all learned stats.
+      db.run(
+        `UPDATE memory_entries SET
+           content = ?,
+           embedding = ?,
+           embedding_dimensions = ?,
+           embedding_model = ?,
+           tags = ?,
+           updated_at = ?,
+           expires_at = ?
+         WHERE id = ?`,
+        [
+          value,
+          embeddingJson,
+          embeddingDimensions,
+          embeddingModel,
+          tags.length > 0 ? JSON.stringify(tags) : null,
+          now,
+          ttl ? now + (ttl * 1000) : null,
+          id
+        ]
+      );
+    } else {
+      const insertSql = `INSERT INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
           tags, metadata, created_at, updated_at, expires_at, status
         ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
 
-    db.run(insertSql, [
-      id,
-      key,
-      namespace,
-      value,
-      embeddingJson,
-      embeddingDimensions,
-      embeddingModel,
-      tags.length > 0 ? JSON.stringify(tags) : null,
-      '{}',
-      createdAt,
-      now,
-      ttl ? now + (ttl * 1000) : null
-    ]);
+      db.run(insertSql, [
+        id,
+        key,
+        namespace,
+        value,
+        embeddingJson,
+        embeddingDimensions,
+        embeddingModel,
+        tags.length > 0 ? JSON.stringify(tags) : null,
+        '{}',
+        createdAt,
+        now,
+        ttl ? now + (ttl * 1000) : null
+      ]);
+    }
 
     // Save atomically
     const data = db.export();

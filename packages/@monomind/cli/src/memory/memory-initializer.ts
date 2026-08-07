@@ -484,10 +484,14 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
     const db = new SQL.Database(fileBuffer);
 
     const now = Date.now();
+    // #87: the decay formula is linear (`confidence * (1 - rate * days)`), which
+    // goes negative after ~20 days at the default rate 0.05 — downstream code
+    // rejects confidence outside [0,1], so stale patterns silently vanished.
+    // Clamp at 0.0 so confidence decays to zero instead of wrapping negative.
     const decayQuery = `
       UPDATE patterns
       SET
-        confidence = confidence * (1.0 - decay_rate * ((? - COALESCE(last_matched_at, created_at)) / 86400000.0)),
+        confidence = MAX(0.0, confidence * (1.0 - decay_rate * ((? - COALESCE(last_matched_at, created_at)) / 86400000.0))),
         updated_at = ?
       WHERE status = 'active'
         AND confidence > 0.1
