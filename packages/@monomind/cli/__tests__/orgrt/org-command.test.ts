@@ -1,6 +1,6 @@
 // packages/@monomind/cli/__tests__/orgrt/org-command.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { orgCommand, clearStopfile } from '../../src/commands/org.js';
@@ -215,6 +215,79 @@ describe('org command', () => {
       try {
         const res = await del(cwd);
         expect(res?.success).toBe(true);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+  });
+
+  describe('inbox', () => {
+    const inbox = (cwd: string, args: string[], flags: Record<string, unknown> = {}) =>
+      orgCommand.subcommands!.find(c => c.name === 'inbox')!
+        .action!({ args, flags, cwd, interactive: false } as any);
+    const writeOrg = (cwd: string, name: string): void => {
+      mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+      writeFileSync(join(cwd, ORG_DIR, `${name}.json`), JSON.stringify({
+        name, roles: [
+          { id: 'boss', type: 'boss', reports_to: null },
+          { id: 'worker', reports_to: 'boss' },
+        ],
+      }));
+    };
+
+    it('queues a --json payload to the coordinator when no daemon hosts the org', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-inbox-'));
+      try {
+        writeOrg(cwd, 'target');
+        const res = await inbox(cwd, ['target'], { json: JSON.stringify({ from: 'sales:boss', subject: 'leads', body: 'weekly leads attached' }) });
+        expect(res?.success).toBe(true);
+        expect(res?.message).toMatch(/queued for target:boss/);
+        const spooled = readFileSync(join(cwd, ORG_DIR, 'target', 'inbox.jsonl'), 'utf8').trim();
+        const msg = JSON.parse(spooled);
+        expect(msg).toMatchObject({ fromQualified: 'sales:boss', toRole: 'boss', subject: 'leads', body: 'weekly leads attached' });
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('honors --to over the coordinator default', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-inbox-'));
+      try {
+        writeOrg(cwd, 'target');
+        const res = await inbox(cwd, ['target'], { json: JSON.stringify({ from: 'a:b', subject: 's', body: 'x' }), to: 'worker' });
+        expect(res?.success).toBe(true);
+        const msg = JSON.parse(readFileSync(join(cwd, ORG_DIR, 'target', 'inbox.jsonl'), 'utf8').trim());
+        expect(msg.toRole).toBe('worker');
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('rejects a payload without from/body', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-inbox-'));
+      try {
+        writeOrg(cwd, 'target');
+        const res = await inbox(cwd, ['target'], { json: JSON.stringify({ from: 'sales:boss' }) });
+        expect(res?.success).toBe(false);
+        expect(existsSync(join(cwd, ORG_DIR, 'target', 'inbox.jsonl'))).toBe(false);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('rejects malformed --json', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-inbox-'));
+      try {
+        writeOrg(cwd, 'target');
+        const res = await inbox(cwd, ['target'], { json: '{nope' });
+        expect(res?.success).toBe(false);
+      } finally { rmSync(cwd, { recursive: true, force: true }); }
+    });
+
+    it('rejects a path-traversal org name', async () => {
+      const res = await inbox(process.cwd(), ['../../etc'], { json: JSON.stringify({ from: 'a:b', body: 'x' }) });
+      expect(res?.success).toBe(false);
+    });
+
+    it('fails cleanly when the org does not exist', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'org-inbox-'));
+      try {
+        mkdirSync(join(cwd, ORG_DIR), { recursive: true });
+        const res = await inbox(cwd, ['ghost'], { json: JSON.stringify({ from: 'a:b', body: 'x' }) });
+        expect(res?.success).toBe(false);
+        expect(res?.message).toMatch(/not found/);
       } finally { rmSync(cwd, { recursive: true, force: true }); }
     });
   });

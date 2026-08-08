@@ -403,6 +403,93 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   return { success: true };
 };
 
+/** `org inbox <name> --json '{"from":"orgA:role","subject":"...","body":"..."}' [--to role]`
+ *  Inbound entrypoint for cross-org/remote delivery — orgrt/remote.ts's deliverRemote()
+ *  shells out to exactly this command over SSH. Live path: POST to the hosting daemon's
+ *  /api/xdeliver when the org is registered with the broker (mirrors cross-org.ts's
+ *  deliverRemote). Offline path: spool into inbox.jsonl, which the daemon drains into
+ *  the target role's mailbox on the org's next start (daemon.ts drainInbox) — the same
+ *  semantics as a queued human answer. */
+export const inboxAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  let payload: { from?: unknown; subject?: unknown; body?: unknown } = {};
+  const rawJson = ctx.flags['json'];
+  if (typeof rawJson === 'string') {
+    try { payload = JSON.parse(rawJson) as typeof payload; }
+    catch { return { success: false, message: 'org inbox: --json is not valid JSON' }; }
+  } else {
+    payload = { from: ctx.flags['from'], subject: ctx.flags['subject'], body: ctx.flags['body'] };
+  }
+  const from = typeof payload.from === 'string' ? payload.from.trim() : '';
+  const subject = typeof payload.subject === 'string' ? payload.subject : '';
+  const body = typeof payload.body === 'string' ? payload.body : '';
+  if (!from || !body) {
+    log(output.error('org inbox: payload requires "from" and "body" (via --json or --from/--body)'));
+    return { success: false, message: 'inbox payload requires from and body' };
+  }
+
+  // Target role: explicit --to, else the org's coordinator (reports_to == null),
+  // else the first role — matching where a role-less cross-org message should land.
+  let toRole = typeof ctx.flags['to'] === 'string' ? ctx.flags['to'] : '';
+  if (toRole && !/^[a-z0-9][a-z0-9_-]*$/i.test(toRole)) {
+    log(output.error(`Invalid role id: ${toRole}`));
+    return { success: false, message: 'invalid role id' };
+  }
+  if (!toRole) {
+    const defPath = join(ctx.cwd, ORG_DIR, `${name}.json`);
+    if (!existsSync(defPath)) {
+      log(output.error(`Org not found: ${name}`));
+      return { success: false, message: 'org not found' };
+    }
+    try {
+      const def = JSON.parse(readFileSync(defPath, 'utf8')) as { roles?: { id?: string; reports_to?: string | null }[] };
+      const roles = Array.isArray(def.roles) ? def.roles : [];
+      toRole = roles.find(r => r.reports_to == null)?.id ?? roles[0]?.id ?? '';
+    } catch (err) {
+      log(output.error(`Could not read org config for ${name}: ${err instanceof Error ? err.message : String(err)}`));
+      return { success: false, message: 'org config unreadable' };
+    }
+    if (!toRole) {
+      log(output.error(`Org "${name}" has no roles to deliver to — pass --to <role>.`));
+      return { success: false, message: 'no deliverable role' };
+    }
+  }
+
+  // Live path: a hosting daemon registered this org with the broker.
+  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
+  const remote = lookupOrg(name);
+  if (remote) {
+    const [fromOrg, fromRole] = from.includes(':') ? from.split(':', 2) : ['external', from];
+    const cred = normalizeCredential(remote.credential);
+    try {
+      const res = await fetch(`${remote.url}/api/xdeliver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
+        body: JSON.stringify({ fromOrg, fromRole, toOrg: name, toRole, subject, body }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; receipt?: string; error?: string };
+      if (res.ok && data.ok) {
+        log(output.success(data.receipt ?? `delivered to ${name}:${toRole}`));
+        return { success: true, message: data.receipt ?? 'delivered' };
+      }
+      log(output.warning(`Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`));
+    } catch (err) {
+      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
+    }
+  }
+
+  // Offline path: spool; drained into the role's mailbox when the org next starts.
+  const { queueMessage } = await import('../orgrt/inbox.js');
+  const queued = queueMessage(ctx.cwd, name, { fromQualified: from, toRole, subject, body, ts: Date.now() });
+  if (!queued) {
+    log(output.error(`Could not queue the message for ${name}:${toRole} (disk full or permissions).`));
+    return { success: false, message: 'queueing failed' };
+  }
+  const receipt = `queued for ${name}:${toRole} (delivered when the org next runs)`;
+  log(output.success(receipt));
+  return { success: true, message: receipt };
+};
+
 /** `org create <name> --template <t> [--goal g] [--schedule s]` — scaffold a config from a template. */
 export const createAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const templateName = typeof ctx.flags['template'] === 'string' ? ctx.flags['template'] : '';

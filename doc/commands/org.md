@@ -22,6 +22,7 @@
 | [`report`](#report) | Summarize a run (cost, tokens, assets, crashes) |
 | [`memory`](#memory) | Cross-run knowledge-graph memory |
 | [`costs`](#costs) | Per-role cost tracking |
+| [`inbox`](#inbox) | Deliver an inbound cross-org message (live or queued) |
 | [`flow`](#flow) | Export Mermaid message flow diagram |
 | [`questions`](#questions) | List pending ask_human questions |
 | [`answer`](#answer) | Deliver answer to an ask_human question |
@@ -237,6 +238,25 @@ Per-role cost tracking from `runtime.json`.
 ```bash
 monomind org costs <name> [--run <run-id>]
 ```
+
+---
+
+## `inbox`
+
+Deliver an inbound cross-org message to an org — the entrypoint that cross-org/SSH
+delivery (`orgrt/remote.ts`) shells out to on the target machine.
+
+```bash
+monomind org inbox <name> --json '{"from":"sales:boss","subject":"...","body":"..."}' [--to <role>]
+```
+
+- **`from`** is the qualified sender (`"<org>:<role>"`); **`--to`** defaults to the org's
+  coordinator role (`reports_to: null`). `--from`/`--subject`/`--body` flags are accepted
+  as an alternative to `--json`.
+- **Live delivery** via the hosting daemon's `/api/xdeliver` when the org is registered
+  with the broker (running under `org run`/`org serve` on this machine).
+- **Queued to `inbox.jsonl`** otherwise — drained into the target role's mailbox when
+  the org next starts, with the same semantics as a queued human answer.
 
 ---
 
