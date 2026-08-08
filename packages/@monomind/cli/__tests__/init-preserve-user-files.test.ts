@@ -56,7 +56,12 @@ describe('init preserves user-authored .claude content', () => {
     process.env.HOME = fakeHome;
     ctx = {
       args: [],
-      flags: { _: [], 'no-watch': true },
+      // --no-start-all skips the service auto-start block (real memory
+      // backend init, npx swarm init, metrics seeding) — none of the
+      // assertions below cover it, and it is the dominant source of
+      // full-suite parallel-load timeouts. Watch behavior is gated by
+      // --watch, not startAll, so the pid-file tests are unaffected.
+      flags: { _: [], 'no-watch': true, 'no-start-all': true },
       cwd: tmpDir,
       interactive: false,
     };
@@ -119,12 +124,12 @@ describe('init preserves user-authored .claude content', () => {
     manifest.commands.push(staleName);
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
-    ctx.flags = { force: true, yes: true, _: [], 'no-watch': true };
+    ctx.flags = { force: true, yes: true, _: [], 'no-watch': true, 'no-start-all': true };
     const second = await initCommand.action!(ctx);
     expect(second.success).toBe(true);
 
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'commands', staleName))).toBe(false);
-  }, 90000);
+  }, 180000); // two real-fs init runs + first-use embedding-model load; under full-suite parallel load 90s proved insufficient (#33)
 });
 
 describe('init --no-watch has an observable effect', () => {
@@ -171,21 +176,21 @@ describe('init --no-watch has an observable effect', () => {
   // per throwaway sandbox (#50). It now auto-starts only for an interactive
   // user; this test runs without a TTY, so it must ask.
   it('starts the graph watcher when --watch is passed (writes a watcher pid file)', async () => {
-    const result = await runInit(['init', '--watch']);
+    const result = await runInit(['init', '--watch', '--no-start-all']);
 
     expect(result.success).toBe(true);
     expect(fs.existsSync(pidFile())).toBe(true);
   }, 60000);
 
   it('starts no watcher in a non-interactive run when the flag is absent', async () => {
-    const result = await runInit(['init']);
+    const result = await runInit(['init', '--no-start-all']);
 
     expect(result.success).toBe(true);
     expect(fs.existsSync(pidFile())).toBe(false);
   }, 60000);
 
   it('skips the graph watcher when --no-watch is passed on the command line', async () => {
-    const result = await runInit(['init', '--no-watch']);
+    const result = await runInit(['init', '--no-watch', '--no-start-all']);
 
     expect(result.success).toBe(true);
     expect(fs.existsSync(pidFile())).toBe(false);

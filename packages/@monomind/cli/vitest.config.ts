@@ -7,7 +7,19 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', '**/._*'],
     setupFiles: ['__tests__/setup/resource-governor.setup.ts'],
     globals: true,
-    testTimeout: 15000,
+    // Cap worker count: this box-class (10 cores / 16 GB) cannot sustain the
+    // default ~10 workers when several test files each load a 100MB+ ONNX
+    // embedding model and native SQLite per worker — the kernel swaps, every
+    // test slows 5-10x, and even 60-90s timeouts trip variably. 4 workers
+    // keeps peak memory sane; the suite wall-time is unchanged in practice
+    // because the thrash was already serializing everything.
+    maxWorkers: 4,
+    // 30s default: this suite intentionally runs real-fs / real-subprocess
+    // tests (init, doctor, memory backends with first-use embedding-model
+    // loads). At 15s those tests were green in isolation but timed out
+    // variably under full-suite parallel load — pure contention flakiness.
+    // Tests that need longer still carry their own explicit timeout.
+    testTimeout: 30000,
     server: {
       // @monoes/monobrowse resolves through the pnpm workspace symlink into
       // node_modules, so Vitest externalizes it by default and vi.mock('ws')

@@ -126,7 +126,7 @@ describe('getProjectRoot', () => {
     // the slug test below still pins the root-vs-cwd invariant on the
     // directory-name side there.
     await shutdownBridge().catch(() => { /* best effort */ });
-  });
+  }, 60000); // bridgeStoreEntry triggers first-use backend/embedding load — exceeds the 15s default under parallel-suite load
 
   // MONOMIND_CWD is how monograph and swarm state already learn which project
   // they belong to. An MCP server is launched with whatever cwd the client

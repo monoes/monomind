@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -25,8 +26,26 @@ const CLI_ROOT = path.resolve(__dirname, '..', '..');
 const SERVER_MJS = path.join(CLI_ROOT, 'dist', 'src', 'ui', 'server.mjs');
 const KG_MJS = path.join(CLI_ROOT, 'dist', 'src', 'memory', 'memory-kg.js');
 
-const PORT_A = 14361;
-const PORT_B = 14373;
+// Ports are picked at runtime (kernel-assigned free ports, then released)
+// instead of being hardcoded — a fixed port makes the whole file fail on any
+// machine where that port happens to be occupied, which is machine-state
+// dependence, not a product signal. There is a small inherent race between
+// closing the probe socket and the server binding, but the bound-report check
+// in waitForBind() catches it loudly (foreign occupant → wrong port → throw).
+async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const addr = srv.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      srv.close(() => (port ? resolve(port) : reject(new Error('no port assigned'))));
+    });
+  });
+}
+
+let PORT_A = 0;
+let PORT_B = 0;
 
 let tmpDir = '';
 let globalBrainDir = '';
@@ -64,10 +83,13 @@ function spawnServer(port: number): ChildProcess {
   // probe can't tell our server from a foreign occupant of the fixed port).
   const env = childEnv();
   env.MONOMIND_BOUND_REPORT = path.join(tmpDir, `bound-${port}.json`);
+  // stderr goes to a per-port log — when a pairing file never lands the log
+  // is the only way to tell a slow start from a crashed server.
+  const errFd = fs.openSync(path.join(tmpDir, `server-${port}.log`), 'a');
   return spawn(process.execPath, [SERVER_MJS, String(port)], {
     cwd: tmpDir,
     env,
-    stdio: 'ignore',
+    stdio: ['ignore', 'ignore', errFd],
     detached: false,
   });
 }
@@ -98,7 +120,19 @@ async function waitForFile(name: string, timeoutMs = 5000): Promise<void> {
   const fp = path.join(tmpDir, '.monomind', name);
   const deadline = Date.now() + timeoutMs;
   while (!fs.existsSync(fp) && Date.now() < deadline) await new Promise(r => setTimeout(r, 150));
-  if (!fs.existsSync(fp)) throw new Error(`${name} was not written within ${timeoutMs}ms`);
+  if (!fs.existsSync(fp)) {
+    // Include the server's stderr tail when this is a port-scoped token —
+    // on a timeout the log is the only evidence of what the child was doing.
+    let logTail = '';
+    const m = name.match(/-(\d+)$/);
+    if (m) {
+      try {
+        const log = fs.readFileSync(path.join(tmpDir, `server-${m[1]}.log`), 'utf-8');
+        logTail = `\nserver-${m[1]}.log tail:\n${log.slice(-1500)}`;
+      } catch { /* no log */ }
+    }
+    throw new Error(`${name} was not written within ${timeoutMs}ms${logTail}`);
+  }
 }
 
 async function waitForServer(port: number, timeoutMs = 20_000): Promise<void> {
@@ -163,6 +197,9 @@ beforeAll(async () => {
   globalBrainDir = path.join(tmpDir, 'global-brain');
   fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
   fs.mkdirSync(globalBrainDir, { recursive: true });
+
+  PORT_A = await freePort();
+  PORT_B = await freePort();
 
   serverA = spawnServer(PORT_A);
   await waitForBind(PORT_A);

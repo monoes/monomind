@@ -10,6 +10,13 @@
  * prefix) fail fast instead of making real network/npx calls — they're
  * all wrapped in try/catch in production code and don't affect
  * result.success either way.
+ *
+ * All runs pass --no-start-all: the startAll block (in-process memory DB
+ * init with the real @monoes/memory backend registry, npx swarm init, worker
+ * metrics seeding) is by far the slowest part of init and none of the
+ * assertions below cover it — under full-suite parallel load it alone pushed
+ * these tests past even a 90s timeout. The watcher is gated by --watch, not
+ * startAll, so watch behavior is still exercised where asserted.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -65,7 +72,7 @@ describe('Init Command E2E (real fs)', () => {
     process.env.HOME = fakeHome;
     ctx = {
       args: [],
-      flags: { _: [], 'no-watch': true },
+      flags: { _: [], 'no-watch': true, 'no-start-all': true },
       cwd: tmpDir,
       interactive: false
     };
@@ -95,7 +102,7 @@ describe('Init Command E2E (real fs)', () => {
   }, 30000); // real-fs init under full-suite parallel load can exceed the 15s default (#33)
 
   it('should initialize with minimal configuration', async () => {
-    ctx.flags = { minimal: true, _: [], 'no-watch': true };
+    ctx.flags = { minimal: true, _: [], 'no-watch': true, 'no-start-all': true };
     const result = await initCommand.action!(ctx);
 
     expect(result.success).toBe(true);
@@ -110,14 +117,14 @@ describe('Init Command E2E (real fs)', () => {
   }, 30000); // #33
 
   it('should initialize with full configuration', async () => {
-    ctx.flags = { full: true, _: [], 'no-watch': true };
+    ctx.flags = { full: true, _: [], 'no-watch': true, 'no-start-all': true };
     const result = await initCommand.action!(ctx);
 
     expect(result.success).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'commands'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'agents'))).toBe(true);
-  });
+  }, 60000); // #33 — full config copies the most; only test here without an explicit timeout
 
   it('should always write auto-memory-hook.mjs even when it is absent from the source helpers dir', async () => {
     // Regression test: writeHelpers() used to return early as soon as it copied
@@ -139,7 +146,7 @@ describe('Init Command E2E (real fs)', () => {
     expect(first.success).toBe(true);
 
     // Re-run with --force --yes (yes skips the non-interactive "already initialized" error)
-    ctx.flags = { force: true, yes: true, _: [], 'no-watch': true };
+    ctx.flags = { force: true, yes: true, _: [], 'no-watch': true, 'no-start-all': true };
     const second = await initCommand.action!(ctx);
 
     expect(second.success).toBe(true);
