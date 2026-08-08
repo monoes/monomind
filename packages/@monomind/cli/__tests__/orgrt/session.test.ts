@@ -230,6 +230,76 @@ describe('runAgentSession', () => {
     }
   });
 
+  it('emits per-result cost DELTAS, not the SDK\'s cumulative session total_cost_usd', async () => {
+    // Regression: in streaming-input mode one query() call emits one result
+    // per mailbox message, and each result's total_cost_usd is the CUMULATIVE
+    // cost of the whole SDK session. daemon.ts and reporting.ts sum usage
+    // events, so forwarding the raw cumulative value re-charged every previous
+    // turn on each new message (~10-20x inflation on long org runs). The
+    // emitted cost_usd must be the delta since the previous result.
+    const bus = new OrgBus('o', 'r', dir());
+    const costs: (number | undefined)[] = [];
+    bus.subscribe(e => { if (e.type === 'usage') costs.push((e.data as { cost_usd?: number }).cost_usd); });
+    const mailbox = new Mailbox();
+    mailbox.push('m1');
+    mailbox.push('m2');
+    mailbox.push('m3');
+    mailbox.close();
+
+    const fakeQuery = ({ prompt }: any) => (async function* () {
+      let cumulative = 0;
+      for await (const _ of prompt) {
+        cumulative += 0.5;
+        yield { type: 'result', subtype: 'success', session_id: 'sdk-sess-1', usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: cumulative };
+      }
+    })();
+
+    const policy = new PolicyEngine('coder', {}, bus, '/work');
+    await runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    expect(costs).toEqual([0.5, 0.5, 0.5]); // deltas summing to 1.5, not cumulative 0.5+1.0+1.5=3.0
+  });
+
+  it('treats a fresh SDK session id as a new cost baseline (no negative deltas)', async () => {
+    // A maxTurns restart resumes the same session id (cumulative continues),
+    // but a genuinely new session id starts its own cumulative total — the
+    // first result of the new session must count in full.
+    const bus = new OrgBus('o', 'r', dir());
+    const costs: (number | undefined)[] = [];
+    bus.subscribe(e => { if (e.type === 'usage') costs.push((e.data as { cost_usd?: number }).cost_usd); });
+    const mailbox = new Mailbox();
+    mailbox.push('m1');
+
+    let callCount = 0;
+    const fakeQuery = ({ prompt }: any) => (async function* () {
+      callCount++;
+      const it = prompt[Symbol.asyncIterator]();
+      await it.next(); // consume one message, then the session "ends" like a crash/maxTurns cutoff
+      // Each query() call is its own SDK session with its own cumulative total.
+      yield { type: 'result', subtype: 'success', session_id: `sdk-sess-${callCount}`, usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0.5 };
+    })();
+
+    const policy = new PolicyEngine('coder', {}, bus, '/work');
+    const donePromise = runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    await new Promise(r => setTimeout(r, 20)); // first session ends, restart fires
+    mailbox.push('m2');
+    mailbox.close();
+    await donePromise;
+
+    expect(costs.reduce((a, c) => (a ?? 0) + (c ?? 0), 0)).toBeCloseTo(1.0); // 0.5 per session, both counted
+  });
+
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {
     const p = buildRolePrompt(
       { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: ['write code'] } as any,

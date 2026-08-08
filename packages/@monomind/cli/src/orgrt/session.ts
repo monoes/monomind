@@ -122,13 +122,23 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
   // watchdog re-engage — so a stuck role can't burn tokens forever.
   const MAX_CONTINUATIONS = 3;
   let consecutiveSpin = 0;
+  // The SDK's result message reports total_cost_usd CUMULATIVELY for the whole
+  // SDK session: one query() call stays open across every mailbox message
+  // (streaming-input mode) and emits one result per message, and the running
+  // total even survives a resume after a maxTurns restart. daemon.ts and
+  // reporting.ts both SUM the cost_usd of usage events, so forwarding the raw
+  // value charged every previous turn again on each new message - observed as
+  // ~10-20x cost inflation on long org runs. Track the last-seen total per
+  // SDK session id here (it must outlive individual runOneSession calls,
+  // since resume continues the same billing session) and emit only deltas.
+  const sessionCostTotals = new Map<string, number>();
   // Always run at least once: a mailbox can be closed with queued items still
   // pending (stream() drains the queue before honoring `closed`), which is a
   // normal, valid starting state - checking isClosed before the first run
   // would skip that drain entirely.
   while (true) {
     const realBefore = mailbox.consumedRealCount;
-    const { sessionId, hitTurnLimit } = await runOneSession(opts, resumeSessionId);
+    const { sessionId, hitTurnLimit } = await runOneSession(opts, resumeSessionId, sessionCostTotals);
     resumeSessionId = sessionId;
     // The dead session's generator may still hold the waker - drop it so a
     // push() before the next stream() starts only queues instead of being
@@ -158,7 +168,7 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
  *  resuming on restart) and whether it ended by hitting the turn limit (so the
  *  caller can push a continuation) when the stream ends (mailbox closed or
  *  maxTurns reached). */
-async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
+async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Map<string, number>): Promise<{ sessionId?: string; hitTurnLimit?: boolean }> {
   const { org, role, bus, policy, mailbox, cwd } = opts;
   // Read lastMessageId live from opts instead of capturing at session start
   // This ensures chat responses link to the most recent message delivered
@@ -295,7 +305,18 @@ async function runOneSession(opts: SessionOpts, resume?: string): Promise<{ sess
       } else if (m.type === 'result') {
         const tokens = (m.input_tokens ?? 0) + (m.output_tokens ?? 0);
         policy.addUsage(tokens);
-        bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: m.cost_usd, subtype: m.subtype } });
+        // Convert the SDK's cumulative-per-session total_cost_usd into a
+        // per-result delta before emitting - downstream sums usage events.
+        // A value below the stored total means the billing session restarted
+        // (fresh session id), in which case the full value is the delta.
+        let costDelta = m.cost_usd;
+        if (costTotals && typeof m.cost_usd === 'number' && Number.isFinite(m.cost_usd)) {
+          const sid = m.session_id ?? sessionId ?? '';
+          const prev = costTotals.get(sid);
+          costDelta = prev === undefined || m.cost_usd < prev ? m.cost_usd : m.cost_usd - prev;
+          costTotals.set(sid, m.cost_usd);
+        }
+        bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: costDelta, subtype: m.subtype } });
         if (m.subtype && m.subtype !== 'success') {
           if (m.subtype === 'error_max_turns') hitTurnLimit = true;
           bus.emit({
