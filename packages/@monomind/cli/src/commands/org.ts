@@ -1146,6 +1146,23 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'inbox', description: 'Deliver an inbound cross-org message (live to a running org, queued to inbox.jsonl otherwise) — remote.ts shells out to this over SSH',
+      options: [
+        { name: 'json', description: 'JSON payload: {"from":"orgA:role","subject":"...","body":"..."}', type: 'string' },
+        { name: 'to', description: 'Target role (default: the org\'s coordinator)', type: 'string' },
+        { name: 'from', description: 'Sender, qualified "org:role" (alternative to --json)', type: 'string' },
+        { name: 'subject', description: 'Subject (alternative to --json)', type: 'string' },
+        { name: 'body', description: 'Body (alternative to --json)', type: 'string' },
+      ],
+      examples: [{ command: 'monomind org inbox growth --json \'{"from":"sales:boss","subject":"leads","body":"..."}\'', description: 'Deliver a message to the growth org' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { inboxAction } = await import('./org-observe.js');
+        return inboxAction(ctx, v.name);
+      },
+    },
+    {
       name: 'flow', description: 'Export org flow as Mermaid diagram',
       options: [{ name: 'run', description: 'Run ID (defaults to latest)', type: 'string' }],
       examples: [{ command: 'monomind org flow growth --run run-20250130120000', description: 'Export Mermaid flowchart' }],
@@ -1319,7 +1336,7 @@ export const orgCommand: Command = {
     // index.ts's dispatcher never prints result.message on a failed action —
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
-    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|questions|answer|approve|deny|replay|resume-from|branch|decisions|create|validate|migrate|list|delete|mark-complete>';
+    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|inbox|questions|answer|approve|deny|replay|resume-from|branch|decisions|create|validate|migrate|list|delete|mark-complete>';
     log(output.error(message));
     return { success: false, message };
   },
