@@ -12,9 +12,15 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-const execFileMock = vi.fn(
-  (_cmd: string, _args: string[], cb: (err: Error | null) => void) => cb(null)
-);
+// The production code calls execFile(cmd, args, { timeout }, cb) — the
+// callback is the LAST argument, not the third. A mock that assumes
+// (cmd, args, cb) picks up the options object as `cb` and throws
+// "cb is not a function", which executeUpdate catches and reports as a
+// failed update (success: false) — a mock-shape bug, not a product bug.
+const execFileMock = vi.fn((...args: unknown[]) => {
+  const cb = args[args.length - 1] as (err: Error | null) => void;
+  cb(null);
+});
 
 vi.mock('child_process', () => ({
   execFile: (...args: unknown[]) =>

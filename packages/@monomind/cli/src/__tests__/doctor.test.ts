@@ -116,7 +116,7 @@ describe('doctorCommand', () => {
     // Bare temp dir with no .git — this must be the real "not a repo" warning.
     const gitRepoCheck = data.results.find(c => c.name === 'Git Repository')!;
     expect(gitRepoCheck.status).toBe('warn');
-  }, 15000);
+  }, 60000); // full default check set shells out (git, df, npm view, npx tsc) — exceeds 15s under parallel-suite load
 
   it('skips code-only checks when the fingerprint says this is not a code project', async () => {
     mkdirSync(join(dir, '.monomind'), { recursive: true });
@@ -149,7 +149,7 @@ describe('doctorCommand', () => {
     expect(names).toContain('Node.js Version');
     expect(names).toContain('Config File');
     expect(data.results.length).toBe(21);
-  }, 15000);
+  }, 60000); // full default check set shells out — see the bare-project test above
 
   it('--fix applies the real local Helper Files fix and re-checks it in place', async () => {
     // Starting state: no .claude/helpers at all in this temp project, so the

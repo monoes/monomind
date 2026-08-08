@@ -6,10 +6,15 @@
  * running on effectively every prompt. These tests drive the real public API
  * against an isolated data directory.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+// Most tests here call initializeIntelligence()/recordStep(), which generate
+// real embeddings — the first-use model load alone can exceed the 15s default
+// testTimeout when the full suite runs in parallel. Give the whole file 60s.
+vi.setConfig({ testTimeout: 60000 });
 
 let dir: string;
 let prevCwd: string | undefined;

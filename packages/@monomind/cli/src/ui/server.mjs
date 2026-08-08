@@ -816,10 +816,21 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const ctl = JSON.parse(fs.readFileSync(path.join(authFileDir, 'control.json'), 'utf8'));
         const ctlPort = Number(ctl.port || (String(ctl.url || '').match(/:(\d+)/) || [])[1]);
         if (ctlPort && ctlPort !== actualPort && !(Number.isInteger(ctl.pid) && ctl.pid === process.pid)) {
-          try {
-            await fetch(`http://127.0.0.1:${ctlPort}/api/status`, { signal: AbortSignal.timeout(800) });
-            primary = false; // something answered — a live server owns the primary token
-          } catch (_) { primary = true; } // nothing answering — stale record
+          // A single 800ms probe is not enough evidence to declare the record
+          // stale: on a loaded host the primary's event loop can be blocked for
+          // seconds (heavy search/KG work, parallel test suites), the probe
+          // times out, and a secondary would wrongly claim primary and CLOBBER
+          // the live server's token — the exact failure this gate exists to
+          // prevent. Retry before concluding "nothing answering" so the gate
+          // stays conservative on ambiguity.
+          for (let attempt = 0; attempt < 3 && primary; attempt++) {
+            try {
+              await fetch(`http://127.0.0.1:${ctlPort}/api/status`, { signal: AbortSignal.timeout(1500) });
+              primary = false; // something answered — a live server owns the primary token
+            } catch (_) {
+              if (attempt < 2) await new Promise(r => setTimeout(r, 250));
+            }
+          }
         }
       } catch (_) { /* no readable control.json — treat as primary */ }
       fs.writeFileSync(
