@@ -199,7 +199,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
 | `hooks`     | 29          | Self-learning hooks + 15 background workers                              | Working         |
-| `org`       | 27          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, status, serve, supervisor, test-loop, logs, report, memory [stats\|search\|rules\|rollback], costs, flow, questions, answer, approve, deny, replay, resume-from [alias of replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
+| `org`       | 31          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, memory [stats\|search\|rules\|rollback], costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [alias of replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
 
@@ -496,8 +496,8 @@ npx monomind@latest doctor --fix
 
 For a comprehensive overview of all Monomind features, agents, commands, and integrations, see:
 
-**`.monomind/CAPABILITIES.md`** — written by `monomind init` (`writeCapabilities()` in
-`src/init/executor.ts`). It exists only in projects where init has run and did not skip it;
+**`.monomind/CAPABILITIES.md`** — written by `monomind init` (`writeCapabilitiesDoc()` in
+`src/init/write-capabilities.ts`, split out of `executor.ts` in the god-file refactor). It exists only in projects where init has run and did not skip it;
 **it is not present in this repo**, so do not expect to read it here.
 
 It includes:

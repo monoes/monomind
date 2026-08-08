@@ -1,7 +1,7 @@
 # MCP Command Reference (`monomind mcp`)
 
 > Reference for `monomind mcp` CLI subcommands and background process management.
-> CLI Version: `@monoes/monomindcli` `v2.8.3` | Core Engine: `@monoes/mcp` `v1.0.1`
+> CLI Version: `@monoes/monomindcli` `v2.9.0` | Core Engine: `@monoes/mcp` `v1.0.1`
 
 ---
 

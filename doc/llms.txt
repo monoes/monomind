@@ -58,3 +58,8 @@
 - Native browser automation directly over Chrome DevTools Protocol (CDP) WebSocket connections.
 - Automatically handles headless-to-headed redirects for login/CAPTCHA walls.
 - Concept Doc: [`doc/concepts/monobrowse.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/monobrowse.md)
+
+### Documents Dashboard
+- "Documents" tab in the existing web dashboard (`localhost:4242`, auto-spawned by a SessionStart hook) — not a new server or CLI subcommand.
+- Master/detail markdown browser for mastermind-generated docs (plans/specs/reviews/reports/wikis/decisions/ideas/improvements/tasks) across every project plus the global brain.
+- Concept Doc: [`doc/concepts/documents-dashboard.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/documents-dashboard.md)

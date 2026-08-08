@@ -1,6 +1,6 @@
 # Security Subsystem (MonoFence AI)
 
-> **Monomind v2.8.3** incorporates **MonoFence AI** (`packages/monofence-ai/`), an embedded, local-first AI Manipulation Defense System (AIMDS). MonoFence AI protects agents and tools against prompt injection, jailbreaks, data exfiltration, obfuscation evasions, and PII leaks with sub-10ms single-scan latency.
+> **Monomind v2.9.0** incorporates **MonoFence AI** (`packages/monofence-ai/`), an embedded, local-first AI Manipulation Defense System (AIMDS). MonoFence AI protects agents and tools against prompt injection, jailbreaks, data exfiltration, obfuscation evasions, and PII leaks with sub-10ms single-scan latency.
 
 ---
 

@@ -1,7 +1,7 @@
 # Routing Subsystem
 
-> **Version 2.8.3**  
-> Task-to-agent routing in Monomind maps developer tasks and natural language prompts to optimal target agents. It combines a 4-tier cascade (deterministic regex pre-filtering, vector cosine similarity matching, neural ReasoningBank augmentation, and LLM fallback classification) with dynamic complexity scoring and Q-learning trajectory updates.
+> **Version 2.9.0**  
+> Task-to-agent routing in Monomind maps developer tasks and natural language prompts to optimal target agents. It combines a 4-tier cascade (deterministic regex pre-filtering, vector cosine similarity matching, neural ReasoningBank augmentation, and LLM fallback classification) with dynamic complexity scoring and an outcome-tracking ledger. There is no reinforcement learning anywhere in this subsystem — no Q-table, no epsilon exploration, no learned state-action values.
 
 ---
 
@@ -29,8 +29,8 @@ flowchart TD
     VEC --> SIM[Cosine Similarity vs Centroids]
     SIM -- Score >= Threshold --> R2[Return Agent: method = 'semantic', confidence = norm(score)]
     
-    SIM -- Score < Threshold --> T3{Tier 3: Neural Augmentation / LanceDB}
-    T3 -- LanceDB / ReasoningBank Match --> R3[Return Blended Agent: confidence = 0.65*neural + 0.35*keyword]
+    SIM -- Score < Threshold --> T3{Tier 3: Neural Augmentation}
+    T3 -- Vector / ReasoningBank Match --> R3[Return Blended Agent: confidence = 0.65*neural + 0.35*keyword]
     
     T3 -- Low Confidence --> T4{Tier 4: LLM Fallback Classifier}
     T4 -- Valid LLM Slug Match --> R4[Return Agent: method = 'llm_fallback', confidence = 0.85]
@@ -59,9 +59,9 @@ The routing subsystem includes Vitest test suites under [`packages/@monomind/rou
     - `HNSWEncoder`: Wraps host-injected transformer pipeline embedder (e.g. HuggingFace feature-extraction pipeline); falls back to `LocalEncoder` when unavailable.
   - **Scoring**: Computes cosine similarity between task vector and centroids. If `score >= threshold` (default `0.5`), returns `method: 'semantic'` with normalized confidence `(score + 1) / 2`.
 
-### Tier 3: Neural & LanceDB Augmentation (`hooks_route`)
+### Tier 3: Neural & SQLite-Backed Augmentation (`hooks_route`)
 - **File**: [`packages/@monomind/cli/src/mcp-tools/hooks-routing.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L293-L391)
-- **Mechanism**: Evaluates task vectors against the LanceDB vector store (`bridgeRouteTask`). If similarity is below `0.5`, queries neural `ReasoningBank` patterns (`suggestAgentsFromIntelligence`), prepending learned neural agents and blending confidence ($0.65 \times \text{neural} + 0.35 \times \text{keyword}$).
+- **Mechanism**: Evaluates task vectors against the memory-bridge vector store (`bridgeRouteTask`) — SQLite-backed since 2026-07 (LanceDB was fully removed, `memory-bridge.ts:5-7`), though its output still labels itself `lancedb` for backward compatibility (`backend: 'lancedb'`, `method: 'memory-lancedb'`, `hooks-routing.ts:303-322`). If similarity is below `0.5`, queries neural `ReasoningBank` patterns (`suggestAgentsFromIntelligence`), prepending learned neural agents and blending confidence ($0.65 \times \text{neural} + 0.35 \times \text{keyword}$).
 
 ### Tier 4: LLM Fallback Classifier
 - **Files**: [`packages/@monomind/routing/src/llm-fallback.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/src/llm-fallback.ts#L20-L88), [`packages/@monomind/routing/src/capability-index.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/src/capability-index.ts)
@@ -84,17 +84,25 @@ Monomind assesses task complexity across CLI and MCP routing tools to estimate d
    - **`low`**: Description length $< 50$ characters OR contains `'simple'` / `'fix'`. Duration: **10-30 min**.
    - **`medium`**: Default / all other tasks. Duration: **30-60 min**.
 
-2. **Q-Learning Exploration & Q-Values**:
-   - Evaluated in [`monomind route task`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/route.ts#L175-L221).
-   - Task states are encoded via hash functions to maintain a state-agent Q-table. In `--q-learning` mode, agent selection favors maximum Q-values with optional epsilon exploration (`--explore`). Rewards are logged via `monomind route feedback`.
-
-3. **Coverage-Aware Effort & Impact**:
-   - Evaluated in [`monomind route coverage`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/route.ts#L618-L800).
+2. **Coverage-Aware Effort & Impact**:
+   - Evaluated in [`monomind route coverage`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/route.ts#L596).
    - Computes gap scores (`targetCoverage - currentCoverage`), priority scores (1-10), and estimated implementation effort in hours based on un-covered AST line counts and test gaps.
 
 ---
 
-## 4. Benchmark & Test Suite
+## 4. Outcome Tracking & Route Statistics
+
+The keyword router (`createKeywordRouter`, [`monovector/index.ts:92`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/monovector/index.ts#L92)) is a fixed keyword-substring matcher — it does not learn. What it does track is an append-only outcome ledger, read back to report routing quality over time:
+
+- **Recording**: [`monomind route feedback`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/route.ts#L349) writes a reward (`-1.0`–`1.0`) for a task/agent pair. Internally, `KeywordRouter.update()` ([`monovector/index.ts:127`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/monovector/index.ts#L127)) joins it to the latest unresolved route record (or creates a manual-feedback record) and appends it to `route-outcomes.jsonl` — no model weights are touched.
+- **Statistics**: [`monomind route stats`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/route.ts#L290) reports `KeywordRouterStats` ([`monovector/index.ts:66-72`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/monovector/index.ts#L66-L72)): `outcomeCount`, `accuracy`, `adherence` (fraction of joined routes where the agent actually used matched the recommendation), `trend` (recent-half accuracy minus prior-half accuracy), and a `byMode: { native, js }` split. Computed by `computeRoutingAccuracy()` / `computeAdherence()` in [`route-outcomes.ts:169,194`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/monovector/route-outcomes.ts#L169).
+- **Management**: `route reset` clears `route-outcomes.jsonl`; `route export`/`import` move the same ledger to/from a JSON file (50MB cap, path-containment checked on both).
+
+This is a measurement layer, not a control loop: nothing in this subsystem feeds outcomes back into future routing decisions.
+
+---
+
+## 5. Benchmark & Test Suite
 
 The routing subsystem is validated by automated test suites in `packages/@monomind/routing/src/__tests__/`:
 

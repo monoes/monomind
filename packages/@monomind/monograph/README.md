@@ -29,20 +29,25 @@ Monograph walks your source tree with [tree-sitter](https://tree-sitter.github.i
 
 ```bash
 # Build the graph for the current project
-monograph build
+monomind monograph build
 
-# Query symbols
-monograph query "UserService"
+# Search the knowledge graph (BM25, semantic, or hybrid)
+monomind monograph search -q "authentication flow"
 
-# Find blast radius of a change
-monograph impact src/auth.ts
+# Show graph statistics
+monomind monograph stats
 
-# Check index freshness
-monograph health
+# Watch for changes and rebuild incrementally
+monomind monograph watch
 
-# Find high-centrality files
-monograph god-nodes
+# Start the LSP server for editor integration
+monomind monograph lsp
+
+# Build a document knowledge graph from docs & PDFs (separate from the code graph above)
+monomind monograph wiki
 ```
+
+> `impact` (blast radius), `god-nodes` (high-centrality files), and freshness/staleness checks have no CLI subcommand — they're MCP-tool-only (`monograph_impact`, `monograph_god_nodes`, `monograph_health`, `monograph_staleness`), see [MCP tools](#mcp-tools) below. `stats` above reports graph size, not freshness — don't confuse the two.
 
 ## Programmatic usage
 
@@ -72,6 +77,10 @@ When used via Monomind's MCP server, monograph exposes 19 tools by default (+27 
 | `monograph_dead_code` | Dead exports, orphan files, stale dist |
 | `monograph_detect_changes` | Map git diff to affected graph nodes |
 | `monograph_route_map` | List HTTP routes with handlers |
+| `monograph_watch` | Start incremental file watcher — rebuilds on file changes |
+| `monograph_watch_stop` | Stop the incremental file watcher |
+| `monograph_health` | Manual, on-demand staleness check |
+| `monograph_staleness` | Staleness check — auto-triggers a background rebuild if >3 commits behind HEAD |
 
 ## Supported languages & Parsers
 
@@ -122,6 +131,13 @@ Monograph maintains graph synchronization with git repository state without full
 - **Change Diffing**: If hashes diverge, executes `git diff --name-only <indexedCommit>..HEAD` to populate `changedSince` files.
 - **Divergence Timestamp**: Identifies `staleSince` ISO timestamp via `git log --format="%ai" <indexedCommit>..HEAD --reverse --max-count=1`.
 - **File Content Caching**: Computes SHA-256 hashes (`file_cache` table) to skip parsing untouched files during incremental builds.
+
+### Incremental Watch Mode
+
+`monomind monograph watch` (and the `monograph_watch` MCP tool) debounces file changes by 3s ([`watcher.ts:108-110`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/watch/watcher.ts#L108-L110)), then updates the graph per changed file — delete existing nodes/edges for that file, re-parse, re-insert ([`orchestrator.ts:312-365`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/pipeline/orchestrator.ts#L312-L365)):
+
+- **Incremental Threshold**: If a batch exceeds `INCREMENTAL_THRESHOLD` (20 changed files), it falls back to a full rebuild instead of per-file updates ([`orchestrator.ts:269-279`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/pipeline/orchestrator.ts#L269-L279)).
+- **Deferred Full Rebuild**: After `FULL_REBUILD_IDLE_MS` (60s) with no further incremental activity, watch mode runs one full rebuild to refresh aggregate phases (communities, god-nodes, surprises, churn, report) that incremental updates don't recompute ([`watcher.ts:40-59`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/watch/watcher.ts#L40-L59)).
 
 ## Links
 

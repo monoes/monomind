@@ -1,13 +1,13 @@
 # Monograph Command Reference (`monomind monograph`)
 
 > Command reference for `monomind monograph` CLI subcommands and native `monograph_*` MCP tools.
-> Package Version: `@monoes/monograph` `v1.5.5` | CLI Integration: `@monoes/monomindcli` `v2.8.3`
+> Package Version: `@monoes/monograph` `v1.5.6` | CLI Integration: `@monoes/monomindcli` `v2.9.0`
 
 ---
 
 ## Overview
 
-The `monomind monograph` command family manages Monomind's codebase knowledge graph (`@monoes/monograph` `v1.5.5`). It parses 25 Tree-sitter file extensions and 5 regex fallback languages into SQLite WAL-mode tables. using Tree-sitter parsers across 25 language extensions (plus 5 regex fallbacks), tracks graph freshness via Git commits, calculates change blast radius, and generates automated wiki documentation.
+The `monomind monograph` command family manages Monomind's codebase knowledge graph (`@monoes/monograph` `v1.5.6`). It parses 25 Tree-sitter file extensions and 5 regex fallback languages into SQLite WAL-mode tables, tracks graph freshness via Git commits, calculates change blast radius, and generates automated wiki documentation.
 
 Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`.
 

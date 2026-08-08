@@ -19,10 +19,10 @@
 The Monomind MCP Subsystem is split across two core packages:
 
 1. **`@monoes/mcp` (`v1.0.1`)** (*This package*): Standalone MCP protocol engine powering stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling, prompt/resource registries, rate limiting, and session lifecycle management.
-2. **`@monoes/monomindcli` (`v2.8.3`)**: Implements CLI integration, binary entry points (`monomind-mcp`), MCP server manager, MCP client loader, and 30+ domain tool modules (`src/mcp-tools/`).
+2. **`@monoes/monomindcli` (`v2.9.0`)**: Implements CLI integration, binary entry points (`monomind-mcp`), MCP server manager, MCP client loader, and 30+ domain tool modules (`src/mcp-tools/`).
 
 - **Protocol Version**: Returns `protocolVersion: '2024-11-05'` per standard MCP specification release ([`packages/@monomind/cli/src/mcp-server.ts:532`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-server.ts#L532) & [`packages/@monomind/mcp/src/server.ts:91`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/mcp/src/server.ts#L91)).
-- **Server Identity Version Drift**: The binary `monomind-mcp` hardcodes server identity `VERSION = '3.0.0'` in its JSON-RPC `initialize` response (`serverInfo: { name: 'monomind', version: '3.0.0' }` at [`packages/@monomind/cli/bin/mcp-server.js:13`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/bin/mcp-server.js#L13)), decoupled from package versioning (`v2.8.3`).
+- **Server Identity Version Drift**: The binary `monomind-mcp` hardcodes server identity `VERSION = '3.0.0'` in its JSON-RPC `initialize` response (`serverInfo: { name: 'monomind', version: '3.0.0' }` at [`packages/@monomind/cli/bin/mcp-server.js:13`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/bin/mcp-server.js#L13)), decoupled from package versioning (`v2.9.0`).
 
 ---
 

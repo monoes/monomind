@@ -289,3 +289,6 @@ GRAPH_REPORT.md
 # CI or another developer.
 .monodesign/*
 !.monodesign/config.json
+
+# org runtime cross-org mailbox scratch (<org workdir>/.mail/, orgrt/cross-org.ts)
+.mail/

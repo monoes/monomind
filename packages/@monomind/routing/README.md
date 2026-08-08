@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/npm/l/@monoes/routing?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 
-> **Semantic task-to-agent routing** for Monomind (`@monoes/routing` `v1.0.3` / Monomind CLI `v2.8.3`).
+> **Semantic task-to-agent routing** for Monomind (`@monoes/routing` `v1.0.3` / Monomind CLI `v2.9.0`).
 
 Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. Handles deterministic keyword filtering, vector centroid embedding matching, neural routing, and LLM fallback classification to route user tasks to specialized agent roles.
 

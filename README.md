@@ -236,7 +236,7 @@ Open Claude Code. You now have 49 `/mastermind:*` workflows available:
 
 ```bash
 /mastermind:autodev --tillend     # start autonomous code loop
-monomind org run my-team          # run your first AI org (init writes a runnable sample-team.json — edit it, or run it as-is)
+monomind org run sample-team      # run your first AI org (init writes a runnable sample-team.json — edit it, or run it as-is)
 /mastermind:help                  # show all commands
 ```
 

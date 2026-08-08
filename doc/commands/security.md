@@ -1,6 +1,6 @@
 # Security Command & MCP Reference
 
-> **Monomind v2.8.3** features **MonoFence AI**, providing CLI commands and Model Context Protocol (MCP) tools for scanning prompts, analyzing multi-turn attack escalation, monitoring security performance telemetry, and registering learned threat mitigation patterns.
+> **Monomind v2.9.0** features **MonoFence AI**, providing CLI commands and Model Context Protocol (MCP) tools for scanning prompts, analyzing multi-turn attack escalation, monitoring security performance telemetry, and registering learned threat mitigation patterns.
 
 ---
 

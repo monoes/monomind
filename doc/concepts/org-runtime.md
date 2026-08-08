@@ -1,6 +1,6 @@
 # Org Runtime Subsystem
 
-> **Monomind v2.8.x** Autonomous Agent Organizations — every role is a live,
+> **Monomind v2.9.0** Autonomous Agent Organizations — every role is a live,
 > provider-backed AI session coordinated by the **OrgDaemon**.
 > This page covers architecture, runner backends, daemon lifecycle, config schema,
 > inter-role communication, fault tolerance, and the human-in-the-loop flow.
@@ -12,8 +12,8 @@
 ```
 monomind org <subcommand>
          │
-         ▼  commands/org.ts (27 subcommands)
-     OrgDaemon  (orgrt/daemon.ts — 1 691 lines)
+         ▼  commands/org.ts (31 subcommands)
+     OrgDaemon  (orgrt/daemon.ts — 1 076 lines)
          │
          ├── startOrg()
          │    ├── OrgBus (bus.ts)           ← append-only JSONL event log + in-process fanout
@@ -116,12 +116,12 @@ Configured per role via the `provider` key in the org JSON. Resolved by
 
 ## 4. OrgDaemon Lifecycle
 
-**Class:** `OrgDaemon` — [`orgrt/daemon.ts:L123`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L123)
+**Class:** `OrgDaemon` — [`orgrt/daemon.ts:L178`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L178)
 **Constructor:** `constructor(private root: string, private opts: DaemonOpts = {})`
 
 ### 4.1 `startOrg(name, taskOverride?)`
 
-Source: [daemon.ts:L176–L576](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L176-L576)
+Source: [daemon.ts:L307](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L307)
 
 1. Parses `<root>/.monomind/orgs/<name>.json` via `OrgDefSchema.parse()`.
 2. Generates Run ID: `run-YYYYMMDDHHMMSS-<4-char-random>`.
@@ -157,7 +157,7 @@ Source: [daemon.ts:L176–L576](file:///Users/morteza/Desktop/tools/monomind/pac
 
 ### 4.2 `stopOrg(name, opts?)`
 
-Source: [daemon.ts:L1114](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1114)
+Source: [daemon.ts:L793](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L793)
 
 - Reentrant-safe: joins any in-flight stop via the `stopping` map.
 - Captures `OrgCheckpoint` **before** mailboxes close.
@@ -169,7 +169,7 @@ Source: [daemon.ts:L1114](file:///Users/morteza/Desktop/tools/monomind/packages/
 
 ### 4.3 `deliver()`
 
-Source: [daemon.ts:L652](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L652)
+Source: [daemon.ts:L1027](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1027)
 
 Routes `org_send` tool calls:
 - **Intra-org:** pushes directly to target role's Mailbox.
@@ -179,13 +179,13 @@ Routes `org_send` tool calls:
 
 ### 4.4 Boss Crash Recovery
 
-`scheduleBossRestart()` ([daemon.ts:L1086](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1086)):
+`scheduleBossRestart()` ([daemon.ts:L1040](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1040) — now a 1-line delegate to `scheduler.ts`):
 - Bounded restarts: `MAX_BOSS_RESTARTS = 2` with backoffs `[10_000ms, 30_000ms]`.
 - Beyond limit, org transitions to `crashed` state.
 
 ### 4.5 Resume
 
-`resumeOrg()` ([daemon.ts:L1443](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1443)):
+`resumeOrg()` ([daemon.ts:L1070](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1070)):
 - Restores full `OrgCheckpoint` (role mailbox queues, session IDs, token budgets).
 - Validates TTL (24h) and checksum before applying.
 
@@ -196,6 +196,12 @@ Routes `org_send` tool calls:
 **Source:** [`orgrt/types.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts)  
 **Location:** `.monomind/orgs/<name>.json`
 
+`workspace: 'worktree-per-role'` is a real, distinct fourth mode beyond the three above: each
+non-boss role gets its own `git worktree add <path> HEAD --detach` under
+`.monomind/orgs/<name>/worktree-<role-id>/` ([`daemon.ts:L462-474`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L462-L474)), cleaned up on stop
+alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L899-L904)). Falls back to the shared cwd if the
+`git worktree add` call fails for a given role.
+
 ### Top-level `run_config` defaults
 
 | Field | Default | Purpose |
@@ -203,8 +209,10 @@ Routes `org_send` tool calls:
 | `max_concurrent_agents` | `4` | How many role sessions run concurrently |
 | `budget_tokens` | `1 000 000` | Token spend ceiling for the entire org run, split evenly across roles unless a role sets its own `budget_tokens` |
 | `max_turns_per_message` | `30` | Agent turns cap per inbound mailbox message |
-| `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` |
+| `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` \| `'worktree-per-role'` |
 | `idle_minutes` | _(unset)_ | Idle timeout before watchdog `stopOrg()` |
+| `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts:L78-81`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts#L78-L81), applied [`daemon.ts:L488-489`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L488-L489)) |
+| `stale_base_threshold` | `0` (disabled) | Warn when the working tree is more than N commits behind its tracking branch ([`types.ts:L84`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts#L84), checked at start in [`daemon.ts:L672-688`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L672-L688) — best-effort, skips silently if git or an upstream tracking branch is unavailable) |
 
 ### Role fields (`RoleSchema`)
 
@@ -237,7 +245,7 @@ Routes `org_send` tool calls:
 
 ### Org directory constant
 
-`ORG_DIR = '.monomind/orgs'` ([types.ts:L99](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts#L99))
+`ORG_DIR = '.monomind/orgs'` ([types.ts:L142](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts#L142))
 
 ---
 
@@ -248,8 +256,49 @@ Routes `org_send` tool calls:
 - Append-only JSONL event log at `<org>/bus.jsonl` + in-process fan-out.
 - `emit()` queues disk writes serially (never blocks callers), fans out synchronously.
 - `flush()` awaits all pending disk writes.
-- 9 event types: `message | xorg | tool | asset | chat | status | audit | usage | question`
+- 10 event types: `message | xorg | tool | asset | chat | status | audit | usage | question | gate`
 - `OrgBus.readHistory()` (static) — reads bus.jsonl from disk for replay.
+
+### State Detector (`state-detector.ts`)
+
+Infers a role's current activity from the raw SDK message stream — wired into the session
+loop at [`session.ts:L236`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/session.ts#L236) (`const detector = new StateDetector()`):
+
+- `AgentState = 'idle' | 'working' | 'tool-call' | 'blocked' | 'error' | 'completed'`
+- `onMessage(type, subtype, text)` — `result`/`tool_use` message types map directly to
+  `idle`/`error`/`tool-call`; assistant text is matched against a small default regex table
+  (error/traceback → `error`; waiting on approval/gate/human input → `blocked`;
+  calling/running a tool → `tool-call`; completed/finished/done → `completed`; otherwise
+  `working`).
+- `checkIdle()` — separately flags `working`/`tool-call` as stale back to `idle` after 30s
+  (`idleThresholdMs`) of no activity.
+- Every state transition emits a `status` BusEvent with `reason: 'state-change'` and
+  `data: { from, to }`.
+
+### Prechecks (`prechecks.ts`)
+
+`runPrechecks(checks, cwd)` runs a `run_config.prechecks` array (`{ name, command }` shell
+commands) sequentially, stopping at the first failure — wired into a scheduled run's start
+path at [`commands/org.ts:L672-673`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L672-L673). If any check fails, the run is skipped rather
+than started, and the failure is logged.
+
+### Remote Hosts — SSH Cross-Org Dispatch (`remote.ts`)
+
+A **separate SSH-based transport** from the broker's HTTP cross-process delivery described in
+§4.3 above — the two are not the same mechanism and shouldn't be conflated. Hosts are
+registered in `.monomind/orgs/remote-hosts.json` (`RemoteRegistry`); `lookupRemoteOrg(name,
+projectRoot)` resolves a target org name to a `RemoteHost` ([`remote.ts:L34`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/remote.ts#L34)), and
+`deliverRemote()` ([`remote.ts:L52`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/remote.ts#L52)) shells out over SSH to deliver a message. It's the last
+fallback in `deliver()`'s cross-org path, tried after local-org and broker lookups both come up
+empty ([`cross-org.ts:L162-163`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/cross-org.ts#L162-L163)).
+
+> **Known issue — SSH dispatch currently fails.** `deliverRemote()` shells out to
+> `npx monomind org inbox <name> --json ...` on the remote host ([`remote.ts:L61`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/remote.ts#L61)), but
+> `inbox` is not a registered `org` subcommand (the full 31-entry list is in the
+> [`monomind org` command reference](../commands/org.md) — `inbox` isn't in it). The remote
+> host rejects the command as unknown, so SSH-federated cross-org dispatch does not currently
+> work end to end. `pingRemote()` (connectivity check) is unaffected. This is a real,
+> discoverable code path — not vaporware — it just doesn't complete its delivery yet.
 
 ### Broker (`broker.ts`)
 
@@ -283,7 +332,10 @@ Resume state persistence:
 - `OrgCheckpoint` includes: `status`, `run`, `pid`, `updated`, `roleState`, `pendingRoles`,
   `abandonedRoles`, `checksum`.
 - `RoleCheckpoint` includes: `mailboxQueue`, `mailboxClosed`, `tokensUsed`, `costUsd`,
-  `lastMessageId`, `sessionId`, `status`, `error`.
+  `lastMessageId`, `sessionId`, `status`, `error`, `scrollback?: string[]` (last N lines of
+  terminal output, [`checkpoint.ts:L26`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/checkpoint.ts#L26) — backed by the bounded ring-buffer `ScrollbackBuffer`
+  class, [`daemon.ts:L98-107`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L98-L107), 500-line default cap; restored on resume at
+  [`checkpoint-ops.ts:L169-172`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#L169-L172)).
 - TTL: 24 hours (`CHECKPOINT_TTL_MS`).
 - `captureCheckpoint()` — called **before** mailboxes close in `finishStop()`.
 - `validateCheckpoint()` — recomputes checksum before applying.
@@ -312,7 +364,12 @@ Constructs system prompt containing:
 | `ask_human` | All roles | Pause and queue a question for human answer |
 | `org_recall` / `org_remember` / `org_learn` | All roles | Cross-run knowledge-graph memory |
 | `knowledge_search` | All roles (if enabled) | Semantic search over Second Brain |
+| `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`session.ts:L399`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/session.ts#L399)) |
+| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts:L407,413,419`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/session.ts#L407), backed by the `TaskDag` class, [`task-dag.ts:L15-109`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/task-dag.ts#L15-L109)) |
 | `org_complete` | Boss only | Signal that the org's goal is achieved |
+
+`org_gate` and the `org_task*` trio are literally the tools this org's own agents use for
+gated approvals and dependency-tracked work.
 
 ### Silent Session Alarm
 

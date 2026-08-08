@@ -1,13 +1,13 @@
 # Monograph Subsystem Concept & Architecture (`@monoes/monograph`)
 
 > Public reference for Monograph, Monomind's codebase knowledge graph subsystem.
-> Architectural guide and technical reference for `@monoes/monograph` `v1.5.5` (CLI integration `@monoes/monomindcli` `v2.8.3`).
+> Architectural guide and technical reference for `@monoes/monograph` `v1.5.6` (CLI integration `@monoes/monomindcli` `v2.9.0`).
 
 ---
 
 ## Executive Overview
 
-Monomind Monograph (`@monoes/monograph` `v1.5.5`) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, HippoRAG-style PPR reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
+Monomind Monograph (`@monoes/monograph` `v1.5.6`) is an in-process, SQLite-backed codebase knowledge graph subsystem. It parses source files into ASTs using Tree-sitter, extracts code symbols and structural relationships into SQLite database tables, performs graph analysis (blast radius calculation, HippoRAG-style PPR reranking, central god nodes detection, graph surprisingness, and community clustering), tracks graph freshness via Git commits and file content hashing, and exposes native MCP tools for agentic code intelligence.
 
 Defined in `packages/@monomind/monograph/` ([package.json:3](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/package.json#L3)) and integrated into CLI MCP tools at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`.
 
@@ -86,26 +86,61 @@ Monograph guarantees index accuracy through a three-layer freshness system:
    Compares `last_commit_hash` in `index_meta` against `git rev-parse HEAD`. If different, runs `git diff --name-only <indexed>..HEAD` to detect changed files and mark graph nodes as stale.
 2. **SHA-256 File Content Hashing** ([`file-cache.ts:12-21`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/storage/file-cache.ts#L12-L21)):
    Computes file content hashes and compares against the `file_cache` table to skip unchanged files during incremental graph builds.
-3. **Live File System Watcher** ([`monograph-tools.ts:660-688`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L660-L688)):
-   Listens for file system change events in `monograph_watch` to update SQLite nodes and edges incrementally during active editing sessions.
+3. **Live File System Watcher** (`monograph_watch`, [`mcp-tools/monograph/build-tools.ts:L42`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#L42), backed by [`packages/@monomind/monograph/src/watch/watcher.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/watch/watcher.ts)):
+   Listens for file system change events and keeps the graph in sync during an active editing session, with two distinct thresholds:
+   - **`INCREMENTAL_THRESHOLD = 20`** ([`monograph/src/pipeline/orchestrator.ts:L269`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/pipeline/orchestrator.ts#L269)) — if a batch of changed files exceeds 20, the watcher falls back to a full rebuild instead of an incremental update.
+   - **`FULL_REBUILD_IDLE_MS = 60_000`** ([`watch/watcher.ts:L42`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/watch/watcher.ts#L42)) — after 60s of no further file-change events, the watcher schedules one deferred full rebuild to reconcile any drift from the incremental updates it applied in between.
+
+   (This is unrelated to any separate watcher idle/auto-stop timeout elsewhere in the CLI — the two numbers above are the incremental-vs-full-rebuild mechanics specific to this watcher, not a "stop watching" timeout.)
 
 ---
 
-## 6. MCP Tools Suite (14 `monograph_*` Tools)
+## 6. MCP Tools Suite (Selected `monograph_*` Tools)
 
-The CLI exposes 14 native `monograph_*` tools via `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`:
+`packages/@monomind/cli/src/mcp-tools/monograph-tools.ts` is now an 8-line backward-compat
+re-export shim — the real implementations live in individual files under
+`packages/@monomind/cli/src/mcp-tools/monograph/`. The 15 tools below are selected examples,
+not a curated "top 15" or a meaningful tier — see the note after the list for the real
+category boundary (default vs. advanced-gated):
 
-1. `monograph_build` ([L111](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L111)): Rebuilds or incrementally updates knowledge graph.
-2. `monograph_query` ([L141](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L141)): BM25/FTS search with HippoRAG Personalized PageRank (PPR) reranking.
-3. `monograph_stats` ([L249](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L249)): Reports node/edge totals and graph density metrics.
-4. `monograph_health` ([L270](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L270)): Computes graph connectivity and complexity health scores.
-5. `monograph_god_nodes` ([L321](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L321)): Identifies central high-degree nodes (architectural hubs).
-6. `monograph_get_node` ([L366](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L366)): Retrieves attributes and edge connections for a specific node.
-7. `monograph_shortest_path` ([L393](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L393)): Executes BFS pathfinding between two code nodes.
-8. `monograph_community` ([L425](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L425)): Inspects Louvain community clusters.
-9. `monograph_surprises` ([L459](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L459)): Detects unusual cross-boundary coupling and non-obvious dependencies.
-10. `monograph_suggest` ([L513](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L513)): Recommends relevant code files for task prompts.
-11. `monograph_staleness` ([L828](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L828)): Checks graph freshness against Git HEAD commit.
-12. `monograph_context` ([L1036](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L1036)): Assembles deep multi-hop graph context for LLM prompts.
-13. `monograph_impact` ([L1104](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L1104)): Computes change blast radius and affected downstream files.
-14. `monograph_cypher` ([L1368](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L1368)): Executes custom subset Cypher pattern queries against the SQLite graph.
+1. `monograph_build` ([`build-tools.ts:L12`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#L12)): Rebuilds or incrementally updates the knowledge graph.
+2. `monograph_watch` ([`build-tools.ts:L42`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/build-tools.ts#L42)): Starts the live file-watcher described in §5.3 above.
+3. `monograph_query` ([`query-tools.ts:L9`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L9)): BM25/FTS search with HippoRAG Personalized PageRank (PPR) reranking.
+4. `monograph_stats` ([`health-tools.ts:L8`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#L8)): Reports node/edge totals and graph density metrics.
+5. `monograph_health` ([`health-tools.ts:L29`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#L29)): Computes graph connectivity and complexity health scores.
+6. `monograph_god_nodes` ([`query-tools.ts:L350`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L350)): Identifies central high-degree nodes (architectural hubs).
+7. `monograph_get_node` ([`query-tools.ts:L323`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L323)): Retrieves attributes and edge connections for a specific node.
+8. `monograph_shortest_path` ([`query-tools.ts:L469`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L469)): Executes BFS pathfinding between two code nodes.
+9. `monograph_community` ([`group-tools.ts:L9`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/group-tools.ts#L9)): Inspects Louvain community clusters.
+10. `monograph_surprises` ([`group-tools.ts:L43`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/group-tools.ts#L43)): Detects unusual cross-boundary coupling and non-obvious dependencies.
+11. `monograph_suggest` ([`query-tools.ts:L117`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L117)): Recommends relevant code files for task prompts.
+12. `monograph_staleness` ([`health-tools.ts:L80`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/health-tools.ts#L80)): Checks graph freshness against the Git HEAD commit.
+13. `monograph_context` ([`query-tools.ts:L212`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L212)): Assembles deep multi-hop graph context for LLM prompts.
+14. `monograph_impact` ([`impact-tools.ts:L10`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/impact-tools.ts#L10)): Computes change blast radius and affected downstream files.
+15. `monograph_cypher` ([`query-tools.ts:L432`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/query-tools.ts#L432)): Executes custom subset Cypher pattern queries against the SQLite graph.
+
+> **The 15 tools listed above are not a meaningful subset — they're carried over from an
+> earlier, smaller version of this section (14 tools) plus the one addition below, not a
+> deliberately curated "most important" or "most used" list.** The real, principled category
+> boundary is default vs. advanced-gated. The full registry
+> ([`mcp-tools/monograph/index.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/index.ts)) exposes **19 tools by default** plus **27 more
+> gated behind `MONOGRAPH_MCP_ADVANCED=1`** — 46 total (matching the count already correctly
+> stated in `doc/index.html`'s package table). Of the 15 above, `monograph_shortest_path`,
+> `monograph_community`, `monograph_surprises`, and `monograph_cypher` happen to be in the
+> advanced-gated set (`index.ts:L46-49`); the other 11 happen to be in the default set. The
+> remaining ~31 tools (including `monograph_doctor`, `monograph_dead_code`, `monograph_rename`,
+> `monograph_wiki`, the `monograph_group_*` family, `monograph_agent_*` family, and more)
+> aren't individually catalogued here yet.
+
+---
+
+## 7. LSP Server
+
+Monograph ships a Language Server Protocol server as a real, separate capability from the
+MCP tool suite above:
+
+- **Package export:** `@monoes/monograph` exposes a dedicated `./lsp` subpath
+  ([`package.json:L13-16`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/package.json#L13-L16): `import "@monoes/monograph/lsp"` resolves to `dist/src/lsp/server.js`).
+- **CLI subcommand:** `monomind monograph lsp` ([`commands/monograph.ts:L589`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/monograph.ts#L589)) starts it.
+- **Source:** [`packages/@monomind/monograph/src/lsp/`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/lsp/).
+- **Test coverage:** 6 dedicated suites under [`tests/monograph/lsp/`](file:///Users/morteza/Desktop/tools/monomind/tests/monograph/lsp/) — `server`, `hover`, `code-lens`, `code-actions`, `diagnostics`, `diagnostics-ext`.
