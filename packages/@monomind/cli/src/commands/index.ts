@@ -43,6 +43,7 @@ import { reportCrashCommand } from './report-crash.js';
 import { crashReportingCommand } from './crash-reporting.js';
 import { docCommand } from './doc.js';
 import { orgCommand } from './org.js';
+import { downloadEmbeddingsCommand } from './download-embeddings.js';
 
 // Populate command cache
 loadedCommands.set('init', initCommand);
@@ -77,6 +78,7 @@ loadedCommands.set('report-crash', reportCrashCommand);
 loadedCommands.set('crash-reporting', crashReportingCommand);
 loadedCommands.set('doc', docCommand);
 loadedCommands.set('org', orgCommand);
+loadedCommands.set('download-embeddings', downloadEmbeddingsCommand);
 
 // =============================================================================
 // Exports
@@ -141,6 +143,7 @@ export const commands: Command[] = [
   updateCommand,
   tokensCommand,
   reportCrashCommand,
+  downloadEmbeddingsCommand,
 ];
 
 /**
@@ -188,6 +191,7 @@ export const commandsByCategory = {
     cleanupCommand,
     platformsCommand,
     browseCommand,
+    downloadEmbeddingsCommand,
   ],
 };
 

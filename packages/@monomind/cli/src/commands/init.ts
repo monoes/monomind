@@ -19,6 +19,12 @@ import { wizardCommand } from './init-wizard.js';
 import { upgradeCommand } from './init-upgrade.js';
 import { checkCommand, skillsCommand, hooksCommand } from './init-subcommands.js';
 import { initializeMemoryDatabase } from '../memory/memory-initializer.js';
+import {
+  EMBEDDING_MODEL_SIZE_LABEL,
+  downloadEmbeddingModel,
+  embeddingDownloadDecision,
+  isEmbeddingModelCached,
+} from '../routing/model-download.js';
 
 function isInitialized(cwd: string): { claude: boolean; monomind: boolean } {
   const claudePath = path.join(cwd, '.claude', 'settings.json');
@@ -371,6 +377,46 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         output.writeln(output.dim('    Run "embeddings init --download" to download model'));
       } catch {
         output.writeln(output.warning('  Embedding initialization skipped (run manually)'));
+      }
+    }
+
+    // Semantic routing needs the arctic-embed weights (~88 MB) cached on disk;
+    // on a fresh install they are absent and routing silently falls back to
+    // keyword mode. Downloading must be OPT-IN: ask interactively, default No,
+    // and never download from a non-TTY/CI run.
+    const embeddingDecision = embeddingDownloadDecision({
+      cached: isEmbeddingModelCached(),
+      stdinTTY: process.stdin.isTTY === true,
+      stdoutTTY: process.stdout.isTTY === true,
+      ci: !!process.env.CI,
+    });
+
+    if (embeddingDecision === 'non-interactive') {
+      output.printInfo(
+        '◈ Semantic-routing embedding model not downloaded (non-interactive run) — ' +
+        'run `monomind download-embeddings` later to enable semantic routing',
+      );
+    } else if (embeddingDecision === 'prompt') {
+      output.writeln();
+      const wantsModel = await confirm({
+        message: `Download semantic-routing embedding model (${EMBEDDING_MODEL_SIZE_LABEL})?`,
+        default: false,
+      });
+      if (wantsModel) {
+        try {
+          await downloadEmbeddingModel((line) => output.writeln(output.dim(`  ${line}`)));
+          output.printSuccess('  ✓ Embedding model cached — semantic routing enabled');
+        } catch (e) {
+          output.printWarning(
+            `  Embedding model download failed (${e instanceof Error ? e.message : String(e)}) — ` +
+            'semantic routing will use keyword fallback. Retry with `monomind download-embeddings`.',
+          );
+        }
+      } else {
+        output.printInfo(
+          '  Skipped — semantic routing falls back to keyword mode. ' +
+          'Download later with `monomind download-embeddings`.',
+        );
       }
     }
 

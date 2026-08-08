@@ -232,6 +232,8 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 monomind doctor --fix
 ```
 
+> **Semantic routing (opt-in download):** embedding-based task routing needs a local model (~88 MB, `Snowflake/snowflake-arctic-embed-xs` via transformers.js). `monomind init` asks interactively whether to download it — the default is No, and non-interactive/CI installs never download it silently. Declining is fine: routing falls back to keyword mode. Fetch it any time with `monomind download-embeddings` (or `node scripts/download-embedding-model.mjs` on a source checkout).
+
 Open Claude Code. You now have 49 `/mastermind:*` workflows available:
 
 ```bash

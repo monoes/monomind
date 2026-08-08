@@ -51,7 +51,7 @@ Runs for every user message. Four-phase routing:
 
 1. **Simple command detection** — trivial prompts skip full routing
 2. **Intelligence context** — top-5 memory entries via Jaccard scoring → `[INTELLIGENCE]`
-3. **Keyword/pattern routing** — `router.cjs`'s `routeTask()`, a 4-tier waterfall over regex `TASK_PATTERNS` + domain keyword arrays → primary recommendation panel. This is **not** semantic routing — `router.cjs` sets `semanticRouting: false` on every return path (including the default fallthrough) and never imports `@monoes/routing`/`RouteLayer` or any embedding library; it's a separate CJS reimplementation of the same keyword-only approach as the CLI's `createKeywordRouter` stub. Real embedding-based semantic routing is opt-in only — see Environment Variables/MCP Tools below.
+3. **Keyword/pattern routing** — `router.cjs`'s `routeTask()`, a 4-tier waterfall over regex `TASK_PATTERNS` + domain keyword arrays → primary recommendation panel. This is **not** semantic routing — `router.cjs` sets `semanticRouting: false` on every return path (including the default fallthrough) and never imports `@monoes/routing`/`RouteLayer` or any embedding library; it's a separate CJS reimplementation of the same keyword-only approach as the CLI's `createKeywordRouter` stub. Real embedding-based semantic routing is opt-in only — it needs the `Snowflake/snowflake-arctic-embed-xs` weights (~88 MB), fetched explicitly via the `monomind init` prompt or `monomind download-embeddings`; without them routing stays in keyword mode. See Environment Variables/MCP Tools below.
 4. **MicroAgent trigger scan** — regex match against cached agent triggers
 
 Output: routing panels injected as system context.
