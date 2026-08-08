@@ -11,7 +11,7 @@
 **Frontend design intelligence for AI agents** — OKLCH design tokens, a 51-rule AI-slop
 antipattern detector, and the `/monodesign` agent skill for Claude Code and Gemini agy.
 
-> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. v1.2.3 · Apache-2.0
+> Part of the [Monomind](https://github.com/monoes/monomind) ecosystem. v1.2.4 · Apache-2.0
 
 ---
 

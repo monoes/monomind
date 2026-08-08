@@ -1,6 +1,6 @@
 # `monomind org` — Command Reference
 
-> **27 subcommands** for starting, stopping, monitoring, and managing autonomous agent
+> **31 subcommands** for starting, stopping, monitoring, and managing autonomous agent
 > organizations. All commands target a named org config in `.monomind/orgs/<name>.json`.
 
 ---
@@ -13,6 +13,7 @@
 | [`stop`](#stop) | Stop a running org |
 | [`pause`](#pause) | Pause org (suspend message delivery) |
 | [`resume`](#resume) | Resume a paused org |
+| [`reload`](#reload) | Hot-reload an org definition without stopping sessions |
 | [`status`](#status) | Show org runtime status |
 | [`serve`](#serve) | Long-running daemon for multiple/scheduled orgs |
 | [`supervisor`](#supervisor) | Generate launchd/systemd unit for persistent serve |
@@ -26,6 +27,9 @@
 | [`answer`](#answer) | Deliver answer to an ask_human question |
 | [`approve`](#approve) | Approve pending tool guardrail |
 | [`deny`](#deny) | Deny pending tool guardrail |
+| [`gates`](#gates) | List decision gates from an org's agents |
+| [`gate-approve`](#gate-approve) | Approve a pending decision gate |
+| [`gate-reject`](#gate-reject) | Reject a pending decision gate |
 | [`replay`](#replay) | Time-travel debug from a run ID |
 | [`resume-from`](#resume-from) | Alias for replay |
 | [`branch`](#branch) | Create what-if branch from checkpoint |
@@ -67,7 +71,7 @@ Validates that `runtime.json` PID is alive before writing the stopfile.
 monomind org stop <name>
 ```
 
-**Source:** [`commands/org.ts:L199`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L199)
+**Source:** [`commands/org.ts:L215`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L215)
 
 ---
 
@@ -91,6 +95,21 @@ monomind org resume <name>
 
 ---
 
+## `reload`
+
+Hot-reload a running org's definition from disk without stopping any in-flight agent sessions.
+Applies changes to `goal`, `run_config`, and `schedule`; new roles are added as pending
+(lazy-spawnable on first message), removed roles are **not** killed — they finish their
+current work and are simply never re-spawned.
+
+```bash
+monomind org reload <name>
+```
+
+**Source:** [`commands/org.ts:L1014`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1014) (subcommand entry), [`orgrt/daemon.ts:L225`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L225) (`reloadOrgDef()`)
+
+---
+
 ## `status`
 
 Read `runtime.json` for each org and display a live summary.
@@ -102,7 +121,7 @@ monomind org status [<name>]
 Shows: elapsed time, events, messages, tool calls, roles, tokens used, cost in USD.
 Detects stale PIDs (process no longer alive).
 
-**Source:** [`commands/org.ts:L262`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L262)
+**Source:** [`commands/org.ts:L289`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L289)
 
 ---
 
@@ -119,7 +138,7 @@ monomind org serve [--forward <url>]
 - Writes heartbeat to `serve-heartbeat.json` every 30 seconds.
 - Runs `OrgScheduler` for orgs with a `schedule` field.
 
-**Source:** [`commands/org.ts:L549`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L549)
+**Source:** [`commands/org.ts:L597`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L597)
 
 ---
 
@@ -137,7 +156,7 @@ monomind org supervisor <name> [--install]
 
 Generates a per-project slug from a SHA256 hash of the current working directory.
 
-**Source:** [`commands/org.ts:L450`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L450)
+**Source:** [`commands/org.ts:L498`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L498)
 
 ---
 
@@ -149,7 +168,7 @@ Run the org's test loop (delegates to `orgrt/test-loop.ts::runTestLoop()`).
 monomind org test-loop <name>
 ```
 
-**Source:** [`commands/org.ts:L705`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L705)
+**Source:** [`commands/org.ts:L776`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L776)
 
 ---
 
@@ -207,7 +226,7 @@ monomind org memory <name> <subcommand>
 | `rules` | List up to 50 stored "when X do Y" rules |
 | `rollback <run-ref>` | Undo all memory written by a specific run |
 
-**Source:** [`commands/org.ts:L1012`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1012)
+**Source:** [`commands/org.ts:L1077`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1077)
 
 ---
 
@@ -277,6 +296,43 @@ monomind org deny <name> <decision-id>
 
 ---
 
+## `gates`
+
+List decision gates raised by an org's agents via the `org_gate` tool (hard-blocking
+human-approval checkpoints). Add `--all` to include already-resolved gates.
+
+```bash
+monomind org gates <name> [--all]
+```
+
+**Source:** [`commands/org.ts:L1201`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1201)
+
+---
+
+## `gate-approve`
+
+Approve a pending decision gate, unblocking the agent that raised it.
+
+```bash
+monomind org gate-approve <name> <gate-id> ["<resolution note>"]
+```
+
+**Source:** [`commands/org.ts:L1215`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1215)
+
+---
+
+## `gate-reject`
+
+Reject a pending decision gate.
+
+```bash
+monomind org gate-reject <name> <gate-id> ["<reason>"]
+```
+
+**Source:** [`commands/org.ts:L1225`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1225)
+
+---
+
 ## `replay`
 
 Time-travel debugging — re-emit all bus events from a historical run.
@@ -285,7 +341,7 @@ Time-travel debugging — re-emit all bus events from a historical run.
 monomind org replay <name> --run <run-id>
 ```
 
-**Source:** [`daemon.ts:L926`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L926) (`replayFrom()`)
+**Source:** [`commands/org.ts:L1234`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1234) (subcommand entry) → [`orgrt/daemon.ts:L1067`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1067) (`replayFrom()`, now a 2-line delegate) → [`orgrt/checkpoint-ops.ts:L16`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#L16)
 
 ---
 
@@ -307,7 +363,7 @@ Create a what-if branch from a checkpoint for divergent experimentation.
 monomind org branch <name> --run <run-id>
 ```
 
-**Source:** [`daemon.ts:L1580`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1580) (`branchCheckpoint()`)
+**Source:** [`commands/org.ts:L1254`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L1254) (subcommand entry) → [`orgrt/daemon.ts:L1073`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1073) (`branchCheckpoint()`, now a 1-line delegate) → [`orgrt/checkpoint-ops.ts:L217`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#L217)
 
 ---
 
@@ -353,7 +409,7 @@ monomind org migrate <name>
 
 Saves a backup as `<name>.v1.json` before overwriting.
 
-**Source:** [`commands/org.ts:L895`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L895)
+**Source:** [`commands/org.ts:L966`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L966)
 
 ---
 
@@ -367,7 +423,7 @@ monomind org list
 
 Excludes artifact suffixes (`-state`, `-goals`, `-threads`, etc.) and `.v1.json` backups.
 
-**Source:** [`commands/org.ts:L718`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L718)
+**Source:** [`commands/org.ts:L789`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L789)
 
 ---
 
@@ -384,7 +440,7 @@ monomind org delete <name> [--yes] [--force]
 | `--yes` | Skip confirmation prompt |
 | `--force` | Delete even if org is currently running |
 
-**Source:** [`commands/org.ts:L759`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L759)
+**Source:** [`commands/org.ts:L830`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L830)
 
 ---
 
@@ -398,13 +454,13 @@ monomind org mark-complete <name>
 
 Writes `{status:'stopped', closedBy:'mark-complete'}` to `runtime.json`.
 
-**Source:** [`commands/org.ts:L830`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L830)
+**Source:** [`commands/org.ts:L901`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L901)
 
 ---
 
 ## Name Validation
 
 Org names must match: `/^[a-z0-9][a-z0-9_-]*$/i`  
-([`commands/org.ts:L20`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L20))
+([`commands/org.ts:L18`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L18))
 
 This prevents path traversal attacks.

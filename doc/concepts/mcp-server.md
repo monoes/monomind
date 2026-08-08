@@ -1,7 +1,7 @@
 # MCP Server Architecture & Integration Reference
 
 > Public reference for the MonoMind Model Context Protocol (MCP) subsystem.
-> Core Protocol Engine: `@monoes/mcp` `v1.0.1` | CLI Integration: `@monoes/monomindcli` `v2.8.3`
+> Core Protocol Engine: `@monoes/mcp` `v1.0.1` | CLI Integration: `@monoes/monomindcli` `v2.9.0`
 
 ---
 
@@ -13,7 +13,7 @@ MonoMind provides a complete Model Context Protocol (MCP) subsystem, split into 
    - Located at `packages/@monomind/mcp/` ([package.json:3](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/mcp/package.json#L3)).  
    - Standalone, lightweight protocol engine implementing stdio, HTTP (Express/Cors/Helmet), and WebSocket (`ws`) transports, connection pooling (`src/connection-pool.ts`), tool registry with Zod validation (`src/tool-registry.ts`), prompt registry (`src/prompt-registry.ts`), resource registry (`src/resource-registry.ts`), rate limiting, and session lifecycle management.
 
-2. **CLI Integration Package (`@monoes/monomindcli` v2.8.3)**  
+2. **CLI Integration Package (`@monoes/monomindcli` v2.9.0)**  
    - Located at `packages/@monomind/cli/` ([package.json:3](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/package.json#L3)).  
    - Integrates the MCP engine into the CLI, exposing `monomind mcp` CLI subcommands, background daemon process management, and over 30 domain-specific tool modules under `src/mcp-tools/`.
 
@@ -40,7 +40,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 | Category | Source File | Tools Included |
 |---|---|---|
 | **Guidance** | [`guidance-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/guidance-tools.ts) | `guidance_capabilities`, `guidance_recommend`, `guidance_discover`, `guidance_workflow`, `guidance_quickref` |
-| **Monograph** | [`monograph-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts) | `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact`, `monograph_context`, `monograph_neighbors` |
+| **Monograph** | [`mcp-tools/monograph/`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph/) (`monograph-tools.ts` is now a re-export shim, not the source) | `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact`, `monograph_context`, `monograph_neighbors`, and 40 more — see [Monograph concept doc](../concepts/monograph.md) for the full 19-default/27-advanced-gated breakdown |
 | **Memory** | [`memory-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/memory-tools.ts) | `memory_search`, `memory_store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
 | **Second Brain** | [`knowledge-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts) | `knowledge_ingest`, `knowledge_search`, `knowledge_remove` |
 | **Monomind Tool Index** | [`monomind-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monomind-tools.ts) | `monomind_tool_search` |

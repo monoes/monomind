@@ -232,9 +232,9 @@ There is no `monomind hooks progress` or `monomind hooks token-optimize` subcomm
 }
 ```
 
-## MCP Tools (hooks — Version 2.8.3 Ground Truth)
+## MCP Tools (hooks — Version 2.9.0 Ground Truth)
 
-Monomind v2.8.3 exposes 8 primary lifecycle & routing MCP tools registered in `packages/@monomind/cli/src/mcp-tools/hooks-tools.ts` and implemented across `hooks-routing.ts`, `hooks-embedding.ts`, and `hooks-intelligence.ts`:
+Monomind v2.9.0 exposes 8 primary lifecycle & routing MCP tools registered in `packages/@monomind/cli/src/mcp-tools/hooks-tools.ts` and implemented across `hooks-routing.ts`, `hooks-embedding.ts`, and `hooks-intelligence.ts`:
 
 | MCP Tool | Implementation | Purpose & Key Payloads |
 |---|---|---|

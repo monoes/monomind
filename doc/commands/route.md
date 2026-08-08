@@ -1,7 +1,7 @@
 # `monomind route` Command Reference
 
-> **Version 2.8.3**  
-> CLI reference for `monomind route` subcommands. Task routing maps developer tasks to specialized agent types using deterministic keyword pre-filters, 256-D vector cosine similarity (`RouteLayer`), Q-learning reinforcement state tables, and coverage gap analysis.
+> **Version 2.9.0**  
+> CLI reference for `monomind route` subcommands. Task routing maps developer tasks to specialized agent types using deterministic keyword matching (`route task`, the default), 256-D vector cosine similarity (`RouteLayer`, via `route semantic`), and coverage gap analysis (`route coverage`) — backed by an outcome-tracking ledger (`route stats`/`feedback`) that measures routing accuracy over time. There is no reinforcement learning of any kind: no Q-table, no epsilon exploration, no learned state-action values. `route task`'s router is a fixed keyword-substring matcher (`createKeywordRouter`, `monovector/index.ts`).
 
 ---
 
@@ -16,14 +16,14 @@ monomind route <subcommand> [options]
 
 | Subcommand | Alias | Description |
 |---|---|---|
-| `task` | *(default)* | Route a task to optimal agent using keyword / Q-learning matching |
+| `task` | *(default)* | Route a task to the optimal agent using keyword matching |
 | `semantic` | `sem` | Route a task via vector cosine similarity (`RouteLayer`) |
 | `list-agents` | `agents`, `ls` | List all available agent types ordered by priority |
-| `stats` | — | Show keyword router statistics and Q-table metrics |
-| `feedback` | — | Record feedback / reward signal (-1.0 to 1.0) for routing decisions |
-| `reset` | — | Reset router Q-table state and learned statistics |
-| `export` | — | Export router Q-table state to stdout or a JSON file |
-| `import` | — | Import router Q-table state from a JSON file |
+| `stats` | — | Show keyword router outcome statistics (accuracy, adherence, trend) |
+| `feedback` | — | Record a reward signal (-1.0 to 1.0) for a routing decision, into the outcomes ledger |
+| `reset` | — | Clear the route-outcomes history file |
+| `export` | — | Export route-outcome history to stdout or a JSON file |
+| `import` | — | Import route-outcome history from a JSON file |
 | `coverage` | `cov` | Route tasks based on test coverage analysis and gaps (ADR-017) |
 
 ---
@@ -31,18 +31,17 @@ monomind route <subcommand> [options]
 ## Subcommand Details
 
 ### 1. `monomind route task` *(default)*
-Routes a task description to an agent type using keyword matching and Q-learning state tables.
+Routes a task description to an agent type using keyword substring matching (`createKeywordRouter`, `monovector/index.ts`) — a fixed set of `.includes()` checks against the task text (e.g. `"test"` → `tester`, `"review"`/`"security"` → `reviewer`), not a trained or learned model.
 
 ```bash
 monomind route task "implement authentication system"
-monomind route task "write unit tests" --q-learning
+monomind route task "write unit tests"
 monomind route task "review security" --agent reviewer
 ```
 
-- **Flags**:
-  - `-q, --q-learning`: Use keyword routing for agent selection (default: `true`).
+- **Flags** (`commands/route.ts` `routeTaskCommand.options`):
+  - `-k, --keyword`: Use keyword routing for agent selection (default: `true`).
   - `-a, --agent <id>`: Force specific agent ID (bypasses automatic routing).
-  - `-e, --explore`: Enable epsilon exploration chance (default: `true`).
   - `-j, --json`: Output decision as JSON.
 
 ---
@@ -108,7 +107,7 @@ When invoking `monomind route task --json` or `monomind route semantic --json`, 
 ---
 
 ### 4. `monomind route feedback`
-Records feedback rewards to tune Q-learning state-action tables.
+Records a feedback outcome (task, agent used, reward) into the route-outcomes ledger (`route-outcomes.jsonl`) — read back by `route stats` to compute accuracy/adherence/trend. This does not update any live routing weights or model state: `route task`'s keyword matcher is fixed and unaffected by feedback.
 
 ```bash
 monomind route feedback -t "implement auth" -a coder -r 0.9
@@ -119,7 +118,7 @@ monomind route feedback -t "write tests" -a tester -r -0.5
   - `-t, --task <string>`: Task description context (**required**).
   - `-a, --agent <id>`: Agent ID that executed the task (**required**).
   - `-r, --reward <number>`: Reward value between `-1.0` and `1.0` (default: `0.8`).
-  - `-n, --next-task <string>`: Next task description for multi-step trajectory learning.
+  - `-n, --next-task <string>`: Accepted but currently has no effect — threaded through to `KeywordRouter.update()` (`monovector/index.ts:127`), whose implementation takes only `task`/`agentId`/`reward` and never stores or reads `nextTask` in the TS source. Not wired to any multi-step-learning behavior.
 
 ---
 
@@ -143,7 +142,9 @@ monomind route coverage --gaps
 
 ### 6. `monomind route stats`, `reset`, `export`, `import`
 
-- `monomind route stats`: Displays Q-table size, update count, and step count.
-- `monomind route reset [-f]`: Resets learned Q-values (requires `--force` in non-interactive sessions).
-- `monomind route export [-f <file.json>]`: Exports Q-table JSON within project directory.
-- `monomind route import -f <file.json>`: Imports Q-table JSON (enforces 50MB file size limit and path containment).
+All four operate on the same route-outcomes ledger (`route-outcomes.jsonl`) — there is no separate learned-model state to inspect, reset, export, or import.
+
+- `monomind route stats`: Displays outcome count, accuracy, adherence, and trend (recent-half vs. prior-half accuracy), split by native/JS backend (`KeywordRouterStats`, `monovector/index.ts:66-72`).
+- `monomind route reset [-f]`: Clears the route-outcomes history file. In an interactive session this requires `--force` to skip a confirmation warning; non-interactive runs (e.g. CI) proceed without it.
+- `monomind route export [-f <file.json>]`: Exports route-outcome history as JSON — to stdout, or to a file (path must resolve inside the project directory and end in `.json`).
+- `monomind route import -f <file.json>`: Imports route-outcome history from JSON (enforces a 50MB file size limit and the same path containment / `.json`-extension checks as export).

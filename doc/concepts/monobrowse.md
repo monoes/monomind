@@ -1,6 +1,6 @@
 # Monobrowse Subsystem (`@monoes/monobrowse`)
 
-> **Monomind v2.8.x** · `@monoes/monobrowse` v1.0.6 · MIT  
+> **Monomind v2.9.0** · `@monoes/monobrowse` v1.0.6 · MIT  
 > Lightweight browser automation powered directly by the **Chrome DevTools Protocol (CDP)** over WebSockets. Designed specifically for AI agents, omitting the weight of Puppeteer or Playwright.
 
 ---

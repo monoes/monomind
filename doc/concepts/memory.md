@@ -88,7 +88,7 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 ---
 ## 2. Memory Subsystem Architecture (v3.0.0 Schema)
 
-**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`). Supports standalone `@monoes/memory` core schema (v2, 4 tables at [`sql-schema.ts:28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L28)) and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts:15`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L15): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
+**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`); the database file itself is created `chmod 0600` (owner read/write only). Supports standalone `@monoes/memory` core schema (schema version **3** — `SCHEMA_VERSION` constant, [`sql-schema.ts:L28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L28), applied via `PRAGMA user_version`; previously documented here as "v2", now stale) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts:L187-218`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L187-L218), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts:15`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L15): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
 ### Key Memory Stores
 
@@ -184,7 +184,7 @@ monomind memory import --format okf -i <dir>     # import from OKF Markdown bund
 
 ## 3. Monograph (Code Knowledge Graph)
 
-**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v1.4.0) — the lower-level parse/storage/query engine: tree-sitter across 14 grammars (15 recognized languages — the TypeScript grammar also parses JavaScript), `better-sqlite3` storage, `graphology` for graph algorithms.  
+**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v1.5.6) — the lower-level parse/storage/query engine: tree-sitter across 14 grammars (15 recognized languages — the TypeScript grammar also parses JavaScript), `better-sqlite3` storage, `graphology` for graph algorithms.  
 **MCP tool layer:** registration and gating for all 19+27 tools actually lives in the CLI package at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`, **not** inside `packages/@monomind/monograph/` itself — the CLI wraps the engine and exposes it over MCP, same split pattern as the memory subsystem's `memory-bridge.ts`.  
 **Database:** `.monomind/monograph.db` (SQLite)  
 **Tools:** 19 MCP tools by default (`mcp__monomind__monograph_*`); 27 more advanced tools are exposed when `MONOGRAPH_MCP_ADVANCED=1` is set

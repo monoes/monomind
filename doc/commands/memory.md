@@ -1,13 +1,13 @@
 # Memory Command Reference (`monomind memory`)
 
 > Reference for `monomind memory` CLI subcommands, search options, and storage management.
-> CLI Version: `@monoes/monomindcli` `v2.8.3` | Memory Schema: `v3.0.0`
+> CLI Version: `@monoes/monomindcli` `v2.9.0` | Memory Schema: `v3.0.0`
 
 ---
 
 ## Overview
 
-The `monomind memory` command family provides direct CLI access to Monomind's persistent SQLite memory store (operating in WAL mode). Supports standalone `@monoes/memory` core schema (v2, 4 tables at [`sql-schema.ts:28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L28)) and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts:15`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L15): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
+The `monomind memory` command family provides direct CLI access to Monomind's persistent SQLite memory store (operating in WAL mode). Supports standalone `@monoes/memory` core schema (schema version 3 — `SCHEMA_VERSION` constant at [`sql-schema.ts:28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L28), applied via `PRAGMA user_version` — 5 tables: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 virtual table `memory_entries_fts`) and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts:15`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L15): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
 Defined in `packages/@monomind/cli/src/commands/memory.ts` and `memory-transfer.ts`.
 
