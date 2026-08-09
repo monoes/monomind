@@ -43,14 +43,16 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
   async execute(ctx: PipelineContext) {
     if (ctx.options.codeOnly) return { sectionNodes: [], pdfFiles: 0 };
 
-    // Dynamically load pdf-parse — skip silently if not installed.
-    // Use Function() to prevent TypeScript from resolving the optional module at build time.
-    let extractText: ((buf: Buffer) => Promise<string>) | null = null;
+    // Dynamically load @firecrawl/pdf-inspector — skip silently if not installed.
+    let extractMarkdown: ((buf: Buffer) => string) | null = null;
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mod = await (new Function('return import("pdf-parse")')() as Promise<any>);
-      const fn = mod.default ?? mod;
-      extractText = async (buf: Buffer) => (await fn(buf)).text as string;
+      const mod = await (new Function('return import("@firecrawl/pdf-inspector")')() as Promise<any>);
+      const processPdf = mod.processPdf;
+      extractMarkdown = (buf: Buffer) => {
+        const result = processPdf(buf);
+        return result.markdown ?? '';
+      };
     } catch {
       return { sectionNodes: [], pdfFiles: 0 };
     }
@@ -68,13 +70,12 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
       let text: string;
       try {
         const buf = readFileSync(absPath);
-        if (buf.length > ctx.options.maxFileSizeBytes * 10) continue; // 5 MB limit for PDFs
-        text = await extractText(buf);
+        if (buf.length > ctx.options.maxFileSizeBytes * 10) continue;
+        text = extractMarkdown(buf);
       } catch { continue; }
 
       if (!text || text.trim().length === 0) continue;
 
-      // Split into ~1500-char paragraphs with 150-char overlap (knowledge_graph style)
       const CHUNK = 1500;
       const OVERLAP = 150;
       const chunks: Array<{ content: string; startChar: number }> = [];
@@ -108,8 +109,6 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
     }
 
     if (sectionNodes.length > 0) {
-      // File nodes are not persisted by structure/parse phases for non-code files —
-      // insert them here before edges to satisfy the FK constraint.
       const seenFileIds = new Set<string>();
       const fileNodes: MonographNode[] = [];
       for (const edge of allEdges) {
