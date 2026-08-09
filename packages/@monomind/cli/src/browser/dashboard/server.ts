@@ -4,8 +4,27 @@ import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { z } from 'zod';
 import type { StepEvent, RunRecord } from '../workflow/types.js';
 import { getMonomindDataRoot } from '../../mcp-tools/types.js';
+
+// Matches StepEvent (workflow/types.ts) exactly. Anything that doesn't fit this
+// shape is rejected rather than relayed — the endpoint used to broadcast whatever
+// JSON it was handed verbatim to every connected client, which the dashboard then
+// wrote into innerHTML with no escaping.
+const StepEventSchema = z.object({
+  runId: z.string().max(256),
+  workflowId: z.string().max(256),
+  workflowName: z.string().max(500),
+  nodeId: z.string().max(256),
+  nodeName: z.string().max(256),
+  eventType: z.enum(['run_started', 'step_started', 'step_completed', 'step_failed', 'run_completed', 'run_stopped']),
+  itemIndex: z.number().optional(),
+  itemTotal: z.number().optional(),
+  durationMs: z.number().optional(),
+  error: z.string().max(2000).optional(),
+  timestamp: z.number(),
+});
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // 4243: the main monomind dashboard owns 4242 — keep this server off that port
@@ -129,17 +148,37 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
       return;
     }
     if (req.method === 'POST' && req.url === '/api/mastermind/event') {
+      // Browsers always set Origin on a cross-origin fetch/XHR POST, so a page open
+      // in another tab that tries to forge an event here is caught here — reject it
+      // before even reading the body. A same-machine, non-browser forwarder (the
+      // endpoint's actual intended caller) sends no Origin header at all and is
+      // unaffected.
+      const origin = req.headers.origin;
+      if (typeof origin === 'string') {
+        const host = req.headers.host;
+        let originHost: string | null = null;
+        try { originHost = new URL(origin).host; } catch { /* malformed Origin — treated as mismatch below */ }
+        if (!host || originHost !== host) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'cross-origin request rejected' }));
+          return;
+        }
+      }
       const chunks: Buffer[] = [];
       req.on('data', (chunk: Buffer) => chunks.push(chunk));
       req.on('end', () => {
         try {
           const body = Buffer.concat(chunks).toString('utf8');
-          JSON.parse(body); // validate before broadcast
+          const parsed = StepEventSchema.parse(JSON.parse(body));
+          const validated = JSON.stringify(parsed);
           for (const client of clients) {
-            if (client.readyState === client.OPEN) client.send(body);
+            if (client.readyState === client.OPEN) client.send(validated);
           }
         } catch (e) {
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[dashboard] /api/mastermind/event received invalid JSON, not broadcast:', e);
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[dashboard] /api/mastermind/event rejected invalid payload, not broadcast:', e);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'payload does not match the expected event shape' }));
+          return;
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"ok":true}');

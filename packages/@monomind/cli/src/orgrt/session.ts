@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 import type { OrgBus } from './bus.js';
-import type { PolicyEngine } from './policy.js';
+import type { PolicyEngine, Decision } from './policy.js';
 import { Mailbox } from './mailbox.js';
 import type { OrgDef, OrgRole } from './types.js';
 import type { AgentRunner, AgentMessage, OrgToolDef } from './agent-runner.js';
@@ -18,6 +18,29 @@ const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.c
 import { resolveProviderEnv } from './provider.js';
 
 export type DeliverFn = (from: string, to: string, subject: string, body: string) => Promise<string>;
+
+/** The SDK's `canUseTool` gate, composed from two independent layers: PolicyEngine's
+ *  static config checks (deny/allow lists, path scoping, git level, web allowlist,
+ *  budget), then — only for calls policy would allow — the human-approval guardrail
+ *  (`beforeTool`, i.e. daemon.checkApproval) for whatever action names it treats as
+ *  sensitive (Bash/WebFetch/WebSearch/org_complete). Exported standalone so this
+ *  composition is unit-testable without spinning up a real SDK session: previously
+ *  `beforeTool` was wired into SessionOpts but never actually called from here, so
+ *  none of those sensitive actions ever paused for a human. */
+export function gatedCanUseTool(
+  policy: PolicyEngine,
+  beforeTool: SessionOpts['beforeTool'],
+  roleId: string,
+): (toolName: string, input: Record<string, unknown>) => Promise<Decision> {
+  return async (toolName: string, input: Record<string, unknown>): Promise<Decision> => {
+    const decision = await policy.decide(toolName, input);
+    if (decision.behavior === 'deny' || !beforeTool) return decision;
+    const approved = await beforeTool(roleId, toolName);
+    if (approved === false) return { behavior: 'deny', message: `Tool "${toolName}" was denied by guardrail approval` };
+    if (approved === null) return { behavior: 'deny', message: `Tool "${toolName}" is pending human approval — it will be available once approved or denied via 'monomind org approve/deny'.` };
+    return decision;
+  };
+}
 
 export interface SessionOpts {
   org: string;
@@ -208,8 +231,7 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
       },
       maxTurns: opts.maxTurns ?? 30,
       resume,
-      canUseTool: async (toolName: string, input: Record<string, unknown>) =>
-        policy.decide(toolName, input),
+      canUseTool: gatedCanUseTool(policy, opts.beforeTool, role.id),
       // test seam forwarded through extras: lets the scripted fake SDK
       // (test-loop.ts) drive org_send and tool calls through the real
       // deliver/policy paths; the real SDK ignores it.

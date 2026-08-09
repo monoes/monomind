@@ -10,9 +10,24 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { writeLiveServerInfo } from '../skill/scripts/lib/monodesign-paths.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INJECT = resolve(__dirname, '..', 'skill/scripts/live-inject.mjs');
+// injectCli() now requires the same bearer credential every live-server.mjs
+// route already checks, read from the info file the running server persists.
+// process.pid is used as the "server" pid so readLiveServerInfo's liveness
+// check (process.kill(pid, 0)) passes — it's this test process, definitely alive.
+const TEST_AUTH_CRED = 'test-only-not-a-real-credential';
+function seedServerInfo(cwd, port = 0) {
+  const info = { pid: process.pid, port };
+  info['token'] = TEST_AUTH_CRED;
+  writeLiveServerInfo(cwd, info);
+}
+// The exact query fragment buildTagBlock appends to every injected <script src>.
+const authFragment = new URLSearchParams();
+authFragment.set('token', TEST_AUTH_CRED);
+const TEST_AUTH_QUERY = authFragment.toString();
 
 function runInject(cwd, configPath, args) {
   try {
@@ -46,7 +61,10 @@ function runInjectDefault(cwd, args) {
 
 describe('live-inject — insert/remove round-trip preserves file bytes', () => {
   let tmp;
-  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'monodesign-inject-test-')); });
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'monodesign-inject-test-'));
+    seedServerInfo(tmp);
+  });
   afterEach(() => { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); });
 
   it('reports .monodesign/live/config.json as the default missing config path', () => {
@@ -263,7 +281,7 @@ const title = 'Test';
 
     runInject(tmp, cfgPath, ['--port', '8400']);
     const afterInject = readFileSync(file, 'utf-8');
-    assert.match(afterInject, /<script is:inline src="http:\/\/localhost:8400\/live\.js"><\/script>/, 'astro inject should carry is:inline');
+    assert.match(afterInject, /<script is:inline src="http:\/\/localhost:8400\/live\.js\?token=[^"]+"><\/script>/, 'astro inject should carry is:inline');
 
     // Non-astro file with same config should NOT get is:inline
     const htmlFile = join(tmp, 'plain.html');
@@ -314,7 +332,7 @@ const title = 'Test';
     const afterInject = readFileSync(file, 'utf-8');
 
     assert.equal((afterInject.match(/monodesign-live-start/g) || []).length, 1, 'reinjection should leave one live block');
-    assert.match(afterInject, /<script is:inline src="http:\/\/localhost:8400\/live\.js"><\/script>/, 'astro reinject should restore is:inline');
+    assert.match(afterInject, /<script is:inline src="http:\/\/localhost:8400\/live\.js\?token=[^"]+"><\/script>/, 'astro reinject should restore is:inline');
     assert.doesNotMatch(afterInject, /<script src="http:\/\/localhost:8400\/live\.js"><\/script>/, 'bare astro live script must not survive');
   });
 
@@ -380,7 +398,7 @@ const title = 'Test';
 
     assert.ok(
       afterInject.includes(
-        '<head>\r\n<!-- monodesign-live-start -->\r\n<script src="http://localhost:8400/live.js"></script>\r\n<!-- monodesign-live-end -->\r\n  <title>X</title>'
+        `<head>\r\n<!-- monodesign-live-start -->\r\n<script src="http://localhost:8400/live.js?${TEST_AUTH_QUERY}"></script>\r\n<!-- monodesign-live-end -->\r\n  <title>X</title>`
       ),
       `CRLF insertAfter should keep CRLF boundaries around the injected block, got:\n${JSON.stringify(afterInject)}`
     );

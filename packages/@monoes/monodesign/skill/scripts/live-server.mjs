@@ -63,6 +63,8 @@ const DESIGN_MD_PATH = PROJECT_CONTEXT.designPath
   : null;
 const DEFAULT_POLL_TIMEOUT = 600_000;   // 10 min — agent re-polls on timeout anyway
 const SSE_HEARTBEAT_INTERVAL = 30_000;  // keepalive ping every 30s
+// Query param name every protected route checks against the per-process credential.
+const AUTH_QUERY_KEY = 'token';
 
 // ---------------------------------------------------------------------------
 // Port detection
@@ -383,6 +385,20 @@ function statOrNull(filePath) {
   try { return fs.statSync(filePath); } catch { return null; }
 }
 
+// Shared gate for every protected route, including /live.js (see its call
+// site for why that one needs it too). Writes the 401 itself and returns
+// false so callers can `if (!requireAuthQueryCred(url, res)) return;`.
+function requireAuthQueryCred(url, res) {
+  const provided = url.searchParams.get(AUTH_QUERY_KEY);
+  const expected = state[AUTH_QUERY_KEY];
+  if (provided !== expected) {
+    res.writeHead(401);
+    res.end('Unauthorized');
+    return false;
+  }
+  return true;
+}
+
 // HTTP request handler
 // ---------------------------------------------------------------------------
 
@@ -398,6 +414,15 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
 
     // --- Scripts ---
     if (p === '/live.js') {
+      // This response embeds the shared bearer credential (below) — unlike
+      // /detect.js and the vendored scripts, it must be gated the same way
+      // every OTHER protected route already is. Without this, requesting this
+      // one route defeats every other route's check: whoever fetches it walks
+      // away with the value that's supposed to distinguish the legitimate
+      // preview tab from any other page. See requireAuthQueryCred() below —
+      // callers must supply the credential the running server printed at
+      // startup (also mirrored into the live-server info file for tooling).
+      if (!requireAuthQueryCred(url, res)) return;
       // Re-read from disk each request so edits to live-browser.js land on
       // the next tab reload. No-store headers prevent browser caching across
       // sessions — during iteration, a cached old script silently breaks
@@ -604,8 +629,19 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
       if (token !== state.token) { res.writeHead(401); res.end('Unauthorized'); return; }
       const filePath = url.searchParams.get('path');
       if (!filePath || filePath.includes('..')) { res.writeHead(400); res.end('Bad path'); return; }
-      const absPath = path.resolve(process.cwd(), filePath);
-      if (!absPath.startsWith(process.cwd())) { res.writeHead(403); res.end('Forbidden'); return; }
+      // Resolve symlinks on BOTH sides before comparing: a lexical prefix check
+      // (path.resolve + startsWith) can't tell a symlink that lexically resolves
+      // inside cwd from one that physically points outside it, and startsWith on
+      // its own also has no path-boundary — "/proj-evil" lexically "starts with"
+      // "/proj". realpath + path.relative closes both gaps (the same pattern
+      // already used correctly elsewhere in this package).
+      let root, absPath;
+      try {
+        root = fs.realpathSync(process.cwd());
+        absPath = fs.realpathSync(path.resolve(process.cwd(), filePath));
+      } catch { res.writeHead(404); res.end('File not found'); return; }
+      const rel = path.relative(root, absPath);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) { res.writeHead(403); res.end('Forbidden'); return; }
       let content;
       try { content = fs.readFileSync(absPath, 'utf-8'); }
       catch { res.writeHead(404); res.end('File not found'); return; }

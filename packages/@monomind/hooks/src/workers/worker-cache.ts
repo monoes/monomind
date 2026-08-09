@@ -6,7 +6,7 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
-import { safePath } from './worker-utils.js';
+import { safePathAsync } from './worker-utils.js';
 
 export function createCacheWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
@@ -25,7 +25,11 @@ export function createCacheWorker(projectRoot: string): WorkerHandler {
 
     for (const relDir of safeCleanDirs) {
       try {
-        const dir = safePath(projectRoot, relDir);
+        // safePathAsync realpaths both sides before comparing, so a symlink that's
+        // lexically inside .monomind/cache but physically points elsewhere can't
+        // smuggle a recursive delete (fs.rm below) outside projectRoot — the gap
+        // the lexical-only safePath() left open.
+        const dir = await safePathAsync(projectRoot, relDir);
         const entries = await fs.readdir(dir, { withFileTypes: true });
 
         for (const entry of entries) {
@@ -36,7 +40,7 @@ export function createCacheWorker(projectRoot: string): WorkerHandler {
           const entryPath = path.join(dir, entry.name);
 
           try {
-            safePath(projectRoot, relDir, entry.name);
+            await safePathAsync(projectRoot, relDir, entry.name);
           } catch {
             continue;
           }

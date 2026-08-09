@@ -76,7 +76,7 @@ monomind init --kimicode       # emits .kimi-code/ + AGENTS.md alongside Claude/
 
 | Concern | Answer |
 |---|---|
-| **License** | [MIT](LICENSE) — use it however you want |
+| **License** | [Apache 2.0](LICENSE) — use it however you want |
 | **Data privacy** | Everything runs locally — your code and memory store never leave your machine. The one exception: crash reporting is on by default (`monomind crash-reporting disable` to opt out) — a hard crash in monomind/mono-agent/monotask/mono-clip files a GitHub issue on that tool's own repo via the GitHub API. That's the only network call Monomind itself makes; it never phones a monoes-controlled server. |
 | **Dependencies** | Standard npm packages (tree-sitter, better-sqlite3, sql.js, zod). tree-sitter and better-sqlite3 are native (prebuilt) Node addons, not pure JS/WASM — sql.js is WASM. No post-install scripts that download code. |
 | **Permissions** | Registers as an MCP server — Claude Code controls what tools are available and prompts you before executing anything sensitive. |

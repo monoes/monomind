@@ -13,6 +13,7 @@
   "exclude": ["node_modules", "dist", "src/swarm/flow-visualizer.ts"],
   "references": [
     { "path": "../mcp" },
+    { "path": "../monograph" },
     { "path": "../routing" }
   ]
 }
