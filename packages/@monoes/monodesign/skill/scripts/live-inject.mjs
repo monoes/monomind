@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveLiveConfigPath } from './lib/monodesign-paths.mjs';
+import { resolveLiveConfigPath, readLiveServerInfo } from './lib/monodesign-paths.mjs';
 import {
   applySvelteKitLiveAdapter,
   detectSvelteKitProject,
@@ -27,6 +27,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = resolveLiveConfigPath({ cwd: process.cwd(), scriptsDir: __dirname });
 const MARKER_OPEN_TEXT = 'monodesign-live-start';
 const MARKER_CLOSE_TEXT = 'monodesign-live-end';
+// Query param name live-server.mjs checks on every protected route.
+const AUTH_QUERY_KEY = 'token';
 const IGNORE_MARKER_OPEN = '# monodesign-live-ignore-start';
 const IGNORE_MARKER_CLOSE = '# monodesign-live-ignore-end';
 
@@ -145,10 +147,19 @@ Output (JSON):
     console.error(JSON.stringify({ ok: false, error: 'missing_port' }));
     process.exit(1);
   }
+  // The injected tag must authenticate like every other server route does —
+  // read the per-process credential live-server.mjs persisted at startup.
+  const liveInfo = readLiveServerInfo(process.cwd());
+  const credentialFields = liveInfo?.info ?? {};
+  const authCred = credentialFields['token'];
+  if (!authCred) {
+    console.error(JSON.stringify({ ok: false, error: 'missing_auth_credential', detail: 'no running live server info found for this project — start it before injecting' }));
+    process.exit(1);
+  }
   const gitIgnore = ensureLiveGitIgnores(process.cwd());
 
   if (svelteKit) {
-    const adapterResult = applySvelteKitLiveAdapter({ cwd: process.cwd(), port, config });
+    const adapterResult = applySvelteKitLiveAdapter({ cwd: process.cwd(), port, authCred, config });
     console.log(JSON.stringify({ ok: true, port, adapter: 'sveltekit', gitIgnore, results: [adapterResult] }));
     return;
   }
@@ -158,7 +169,7 @@ Output (JSON):
     if (!fs.existsSync(absFile)) return { file: relFile, error: 'file_not_found' };
     const content = fs.readFileSync(absFile, 'utf-8');
     const withoutOld = revertCspMeta(removeTag(content, config.commentSyntax));
-    const withTag = insertTag(withoutOld, config, port, relFile);
+    const withTag = insertTag(withoutOld, config, port, authCred, relFile);
     if (withTag === withoutOld) {
       return { file: relFile, error: 'insertion_point_not_found', anchor: config.insertBefore || config.insertAfter };
     }
@@ -356,16 +367,18 @@ function validateConfig(cfg) {
 function commentOpen(syntax) { return syntax === 'jsx' ? '{/*' : '<!--'; }
 function commentClose(syntax) { return syntax === 'jsx' ? '*/}' : '-->'; }
 
-function buildTagBlock(syntax, port, filePath) {
+function buildTagBlock(syntax, port, authCred, filePath) {
   const open = commentOpen(syntax);
   const close = commentClose(syntax);
   // Astro processes <script> tags by default and rewrites src to its own
   // bundled URL. is:inline opts out so the literal external src survives.
   const isAstro = typeof filePath === 'string' && filePath.endsWith('.astro');
   const scriptAttrs = isAstro ? 'is:inline ' : '';
+  const authQuery = new URLSearchParams();
+  authQuery.set(AUTH_QUERY_KEY, authCred);
   return (
     open + ' ' + MARKER_OPEN_TEXT + ' ' + close + '\n' +
-    '<script ' + scriptAttrs + 'src="http://localhost:' + port + '/live.js"></script>\n' +
+    '<script ' + scriptAttrs + 'src="http://localhost:' + port + '/live.js?' + authQuery.toString() + '"></script>\n' +
     open + ' ' + MARKER_CLOSE_TEXT + ' ' + close + '\n'
   );
 }
@@ -387,9 +400,9 @@ function readLineEndingAt(content, index) {
   return '';
 }
 
-function insertTag(content, config, port, filePath) {
+function insertTag(content, config, port, authCred, filePath) {
   const lineEnding = detectLineEnding(content);
-  const block = normalizeLineEndings(buildTagBlock(config.commentSyntax, port, filePath), lineEnding);
+  const block = normalizeLineEndings(buildTagBlock(config.commentSyntax, port, authCred, filePath), lineEnding);
   // insertBefore: match the LAST occurrence. Anchors like `</body>` naturally
   // belong at the end, and the same literal can appear earlier in code blocks
   // within rendered documentation pages.

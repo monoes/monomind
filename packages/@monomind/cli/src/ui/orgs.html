@@ -2063,9 +2063,15 @@ function mkArtifact(art, ts) {
   const labelRaw = art.label || (art.path || 'artifact').split('/').pop();
   const meta = [art.mimeType, art.size ? `${Math.round(art.size/1024*10)/10} KB` : null, art.path ? art.path.split('/').slice(-2).join('/') : null].filter(Boolean).join(' · ');
   const viewBtn = isText && art.path
-    ? `<button onclick="viewArtifact(${JSON.stringify(art.path)},${JSON.stringify(labelRaw)})" style="background:#1a3a5a;color:#5d9fd9;border:1px solid #2980b944;border-radius:4px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:auto">View</button>`
+    ? `<button class="artifact-view-btn" data-path="${esc(art.path)}" data-label="${esc(labelRaw)}" style="background:#1a3a5a;color:#5d9fd9;border:1px solid #2980b944;border-radius:4px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:auto">View</button>`
     : `<span style="font-size:10px;color:#555">Binary</span>`;
   el.innerHTML = `<div class="cbubble" style="padding:0"><div style="background:#1a1a2e;border:1px solid #3333aa44;border-radius:6px;padding:7px 10px;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📄</span><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(labelRaw)}</div><div style="font-size:10px;color:#888">${esc(meta)}</div></div>${viewBtn}</div><span style="color:var(--dim);font-size:9px;padding:4px 6px 2px">${ts}</span></div>`;
+  // data-* attributes (escaped for the HTML-attribute context above) + a direct
+  // listener here, instead of building an onclick="viewArtifact(...)" string from
+  // art.path: JSON.stringify escapes for a JS-string context, not an HTML-attribute
+  // context, so a literal quote in the path broke out of the onclick attribute.
+  const btn = el.querySelector('.artifact-view-btn');
+  if (btn) btn.addEventListener('click', () => viewArtifact(btn.dataset.path, btn.dataset.label));
   return el;
 }
 

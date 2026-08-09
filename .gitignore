@@ -156,7 +156,7 @@ analyzing
 api-project/
 bin/monomind-*
 build/
-monomind
+/monomind
 monomind-mcp-wrapper
 monomind.config.json
 monomind.db
@@ -222,7 +222,7 @@ monomind.config.json
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
-monomind
+/monomind
 # docs/ is local-only — published docs live in doc/
 docs/
 .superpowers/

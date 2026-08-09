@@ -6393,7 +6393,7 @@ function v2RenderOrgChart() {
       <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''} — click for details</title>
       ${outerRing}
       <circle r="${R}" fill="oklch(12% 0.008 55)" stroke="${color}" stroke-width="${leader ? 2.5 : 1.8}" filter="url(#v2glow)"/>
-      <image href="${avatarSrc}" x="${-avR}" y="${-avR}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
+      <image href="${esc(avatarSrc)}" x="${-avR}" y="${-avR}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
       <rect x="${(-lblW / 2).toFixed(0)}" y="${nameY - 11}" width="${lblW.toFixed(0)}" height="${lblH}" rx="3" fill="oklch(12% 0.008 55 / 0.85)"/>
       <text text-anchor="middle" y="${nameY}" font-size="9" font-weight="${leader?'600':'500'}" font-family="'Inter',system-ui,sans-serif" fill="${color}">${esc(nameText)}</text>
       ${subTypeText ? `<text text-anchor="middle" y="${nameY + 11}" font-size="7.5" font-family="'Inter',system-ui,sans-serif" fill="oklch(58% 0.005 75)">${esc(subTypeText)}</text>` : ''}
@@ -6816,7 +6816,7 @@ function v2RenderOrgRoles() {
     const avatarSrc = v2RoleAvatar(r, _rolesAvMap);
     return `<div class="role-v2" style="border-top:2px solid ${color}" onclick="v2OpenAgent('${String(r.id).replace(/['\\]/g,'\\$&')}')" title="View agent characteristics, skills & instructions">
       <div class="rv2-head">
-        <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" width="48" height="48" onerror="this.src='data/avatars/coder.svg'"/>
+        <img class="rv2-avatar" src="${esc(avatarSrc)}" alt="${esc(displayName)}" loading="lazy" width="48" height="48" onerror="this.src='data/avatars/coder.svg'"/>
         <div class="rv2-info">
           <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}${isRunning ? ' <span class="live-dot" style="display:inline-block;vertical-align:middle;margin-left:4px"></span>' : ''}</div>
           ${roleType ? `<span class="rv2-agent">${esc(roleType)}</span>` : ''}
@@ -6875,7 +6875,7 @@ function v2RenderAgentDrawer(data) {
 
   headEl.innerHTML = `
     <div class="oad-avatar-wrap" onclick="v2TriggerAvatarUpload('${String(role.id).replace(/['\\]/g,'\\$&')}')" title="Change avatar">
-      <img class="oad-avatar" id="oad-avatar-img" src="${avatar}" alt="${esc(name)}" width="46" height="46" onerror="this.src='data/avatars/coder.svg'"/>
+      <img class="oad-avatar" id="oad-avatar-img" src="${esc(avatar)}" alt="${esc(name)}" width="46" height="46" onerror="this.src='data/avatars/coder.svg'"/>
       <div class="oad-avatar-edit">✎</div>
     </div>
     <input type="file" id="oad-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" onchange="v2HandleAvatarFile(this)"/>

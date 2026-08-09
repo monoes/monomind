@@ -5,7 +5,7 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, execSync, spawn } from 'node:child_process';
@@ -235,7 +235,9 @@ describe('live-server integration', () => {
     // rather than an inline copy, so the server must serialize the canonical
     // vocabulary into /live.js (next to the token/port).
     const { LIVE_COMMANDS } = await import('../skill/scripts/live/vocabulary.mjs');
-    const body = await (await fetch(`http://localhost:${server.port}/live.js`)).text();
+    const authQ = new URLSearchParams();
+    authQ.set('token', server.token);
+    const body = await (await fetch(`http://localhost:${server.port}/live.js?${authQ}`)).text();
     assert.match(body, /window\.__MONODESIGN_VOCAB__\s*=/);
     const injected = JSON.parse(body.match(/window\.__MONODESIGN_VOCAB__\s*=\s*(\[.*?\]);/s)[1]);
     assert.deepEqual(injected, LIVE_COMMANDS);
@@ -293,7 +295,9 @@ describe('live-server integration', () => {
   });
 
   it('/live.js serves script with token injected', async () => {
-    const res = await fetch(`http://localhost:${server.port}/live.js`);
+    const authQ = new URLSearchParams();
+    authQ.set('token', server.token);
+    const res = await fetch(`http://localhost:${server.port}/live.js?${authQ}`);
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('content-type'), 'application/javascript');
     const text = await res.text();
@@ -334,6 +338,13 @@ describe('live-server integration', () => {
       domHelperIndex < browserInitIndex,
       'event=live_server.browser_helper_order actor=browser operation=load_live_js risk=dom_helper_missing_before_browser_init expected=dom helper before live init actual=' + domHelperIndex + ':' + browserInitIndex,
     );
+  });
+
+  it('/live.js rejects requests with no credential — it hands out the shared secret every other route checks, so it must be gated too', async () => {
+    const res = await fetch(`http://localhost:${server.port}/live.js`);
+    assert.equal(res.status, 401);
+    const body = await res.text();
+    assert.ok(!body.includes(server.token), 'unauthenticated response must not leak the credential');
   });
 
   it('/design-system.json reads DESIGN.md plus .monodesign/design.json', async () => {
@@ -2541,6 +2552,27 @@ colors: {}
     } catch {
       // Server may close socket on 404 for some Node versions
       assert.ok(true, 'Server rejected request for missing file');
+    }
+  });
+
+  it('/source rejects a symlink inside cwd that points outside it', async () => {
+    // path.resolve + startsWith can't tell a symlink that's lexically inside
+    // cwd from one that physically points elsewhere — this is the actual
+    // exploit the realpath-based fix closes, not just the traversal-string
+    // check above (which only catches ".." appearing in the query param).
+    const outside = mkdtempSync(join(tmpdir(), 'monodesign-outside-'));
+    const secretPath = join(outside, 'secret.txt');
+    writeFileSync(secretPath, 'TOP SECRET — should never be readable via /source');
+    const linkPath = join(serverCwd, 'innocuous-link.html');
+    const authQ = new URLSearchParams();
+    authQ.set('token', server.token);
+    try {
+      symlinkSync(secretPath, linkPath);
+      const res = await fetch(`http://localhost:${server.port}/source?${authQ}&path=innocuous-link.html`);
+      assert.equal(res.status, 403);
+    } finally {
+      rmSync(linkPath, { force: true });
+      rmSync(outside, { recursive: true, force: true });
     }
   });
 

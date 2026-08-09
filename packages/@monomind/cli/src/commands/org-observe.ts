@@ -651,35 +651,62 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
 };
 
 /** `org approve <org> <role> <action>` — approve a pending tool/action approval */
+/** Shared by approveAction/denyAction: try the live daemon first (updates its
+ *  in-memory state and notifies the waiting agent's mailbox immediately), and
+ *  fall back to writing approvals.json directly when the org isn't running or
+ *  the daemon is unreachable — mirrors answerAction's live-then-offline shape. */
+async function resolveApproval(ctx: CommandContext, name: string, role: string, action: string, approved: boolean): Promise<CommandResult> {
+  const verb = approved ? 'approved' : 'denied';
+
+  const { lookupOrg } = await import('../orgrt/broker.js');
+  const remote = lookupOrg(name);
+  if (remote) {
+    try {
+      const res = await fetch(`${remote.url}/api/set-approval`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org: name, role, action, approved }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      if (res.ok && data.ok) {
+        log(approved ? output.success(`Approved: ${role} may execute ${action} (live).`) : output.info(`Denied: ${role} may NOT execute ${action} (live).`));
+        return { success: true, message: `${verb} ${action} for ${role}` };
+      }
+      log(output.warning(`Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`));
+    } catch (err) {
+      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
+    }
+  }
+
+  // Offline path: org isn't live (or the live call failed) — write approvals.json directly.
+  const approvalsPath = join(ctx.cwd, ORG_DIR, name, 'approvals.json');
+  if (!existsSync(approvalsPath)) {
+    return { success: false, message: `no pending approvals for org ${name}` };
+  }
+  const data = JSON.parse(readFileSync(approvalsPath, 'utf8'));
+  const pending = data.approvals ?? [];
+  const item = pending.find((a: { roleId: string; action: string }) => a.roleId === role && a.action === action);
+
+  if (!item) {
+    return { success: false, message: `no pending approval found for role ${role} action ${action}` };
+  }
+
+  item.approved = approved;
+  item.ts = Date.now();
+  writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
+
+  log(approved ? output.success(`Approved: ${role} may execute ${action}`) : output.info(`Denied: ${role} may NOT execute ${action}`));
+  return { success: true, message: `${verb} ${action} for ${role}` };
+}
+
+/** `org approve <org> <role> <action>` — approve a pending tool/action approval */
 export const approveAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const role = ctx.args[1];
   const action = ctx.args[2];
   if (!role || !action) {
     return { success: false, message: 'usage: org approve <org> <role> <action>' };
   }
-
-  // Check if approvals.json exists
-  const approvalsPath = join(ctx.cwd, ORG_DIR, name, 'approvals.json');
-  if (!existsSync(approvalsPath)) {
-    return { success: false, message: `no pending approvals for org ${name}` };
-  }
-
-  // Load approvals
-  const data = JSON.parse(readFileSync(approvalsPath, 'utf8'));
-  const pending = data.approvals ?? [];
-  const item = pending.find((a: { roleId: string; question: string }) => a.roleId === role && a.question === action);
-
-  if (!item) {
-    return { success: false, message: `no pending approval found for role ${role} action ${action}` };
-  }
-
-  // Update approval state
-  item.approved = true;
-  item.ts = Date.now();
-  writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
-
-  log(output.success(`Approved: ${role} may execute ${action}`));
-  return { success: true, message: `approved ${action} for ${role}` };
+  return resolveApproval(ctx, name, role, action, true);
 };
 
 /** `org deny <org> <role> <action>` — deny a pending tool/action approval */
@@ -689,29 +716,7 @@ export const denyAction = async (ctx: CommandContext, name: string): Promise<Com
   if (!role || !action) {
     return { success: false, message: 'usage: org deny <org> <role> <action>' };
   }
-
-  // Check if approvals.json exists
-  const approvalsPath = join(ctx.cwd, ORG_DIR, name, 'approvals.json');
-  if (!existsSync(approvalsPath)) {
-    return { success: false, message: `no pending approvals for org ${name}` };
-  }
-
-  // Load approvals
-  const data = JSON.parse(readFileSync(approvalsPath, 'utf8'));
-  const pending = data.approvals ?? [];
-  const item = pending.find((a: { roleId: string; question: string }) => a.roleId === role && a.question === action);
-
-  if (!item) {
-    return { success: false, message: `no pending approval found for role ${role} action ${action}` };
-  }
-
-  // Update approval state
-  item.approved = false;
-  item.ts = Date.now();
-  writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
-
-  log(output.info(`Denied: ${role} may NOT execute ${action}`));
-  return { success: true, message: `denied ${action} for ${role}` };
+  return resolveApproval(ctx, name, role, action, false);
 };
 
 /** `org replay <org> <run-id>` — time-travel debugging: resume from checkpoint */

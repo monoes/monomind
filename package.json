@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Open-source CLI extension for Claude Code and Antigravity (agy). Adds an MCP server with a codebase knowledge graph, persistent memory, multi-agent coordination, and reusable slash commands. Apache 2.0 licensed, runs locally, no data leaves your machine.",
   "type": "module",
   "bin": {
@@ -55,7 +55,8 @@
     "sharp": ">=0.35.0",
     "adm-zip": ">=0.6.0",
     "body-parser": ">=1.20.6",
-    "better-sqlite3": ">=12.0.0"
+    "better-sqlite3": ">=12.0.0",
+    "nanoid": ">=3.3.17"
   },
   "pnpm": {
     "overrides": {
@@ -83,7 +84,8 @@
       "sharp": ">=0.35.0",
       "adm-zip": ">=0.6.0",
       "body-parser": ">=1.20.6",
-      "better-sqlite3": ">=12.0.0"
+      "better-sqlite3": ">=12.0.0",
+      "nanoid": ">=3.3.17"
     },
     "peerDependencyRules": {
       "allowedVersions": {

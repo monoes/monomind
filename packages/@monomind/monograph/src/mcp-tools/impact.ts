@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
+import { getNodesByIds } from '../storage/node-store.js';
 
 // ── Row → MonographNode mapper ─────────────────────────────────────────────────
 
@@ -125,17 +126,6 @@ export function getMonographImpact(
   // Reverse BFS to find all callers (depth 0 = start node)
   const visited = reverseBfs(nodeId, db, maxDepth, {});
   return { node, ...extractCallerResult(db, nodeId, visited) };
-}
-
-// ── Shared helper: fetch nodes by IDs in a single query ───────────────────────
-
-function getNodesByIds(db: Database.Database, ids: string[]): MonographNode[] {
-  if (ids.length === 0) return [];
-  const placeholders = ids.map(() => '?').join(',');
-  const rows = db
-    .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`)
-    .all(...ids) as Record<string, unknown>[];
-  return rows.map(rowToNode);
 }
 
 // ── Shared helper: turn a visited map into structured caller lists ─────────────

@@ -123,7 +123,7 @@ describe('live mode e2e: boot → wrap → accept', { skip: !gitAvailable && 'gi
     auth = { [AUTH_FIELD]: boot.serverToken };
 
     const html = readFileSync(join(dir, 'public', 'index.html'), 'utf-8');
-    assert.match(html, /<script src="http:\/\/localhost:\d+\/live\.js"><\/script>/);
+    assert.match(html, /<script src="http:\/\/localhost:\d+\/live\.js\?[^"]+"><\/script>/);
   });
 
   it('delivers a browser generate event to the agent poll', async () => {

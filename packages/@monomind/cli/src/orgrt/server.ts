@@ -120,6 +120,15 @@ export async function startOrgServer(daemon: OrgDaemon, port = 0, credential?: s
         const result = await daemon.resolveGate(org as string, gateId as string, !!approved, resolution as string | undefined);
         json(res, result.ok ? 200 : 404, result);
 
+      } else if (req.url === '/api/set-approval') {
+        const { org, role, action, approved } = payload as Record<string, unknown>;
+        if (!org || !role || !action || approved === undefined) {
+          json(res, 400, { ok: false, error: 'org, role, action, approved are required' });
+          return;
+        }
+        const result = await daemon.setApproval(org as string, role as string, action as string, !!approved);
+        json(res, result.ok ? 200 : 404, result);
+
       } else {
         json(res, 404, { ok: false, error: 'not found' });
       }

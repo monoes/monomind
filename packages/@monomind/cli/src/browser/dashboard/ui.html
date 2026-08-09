@@ -221,26 +221,26 @@ function render() {
     const stepHtml = (run.steps || []).map(s => `
       <div class="step ${s.status}">
         <span class="step-icon">${s.status==='done'?'✓':s.status==='error'?'✗':'○'}</span>
-        <span class="step-name">${s.name}</span>
-        <span class="step-time">${s.duration ? s.duration+'ms' : ''}</span>
+        <span class="step-name">${escapeHtml(s.name)}</span>
+        <span class="step-time">${s.duration ? escapeHtml(s.duration+'ms') : ''}</span>
       </div>`).join('') + (run.currentStep ? `
       <div class="step current">
         <span class="step-icon">⠸</span>
-        <span class="step-name">${run.currentStep}</span>
+        <span class="step-name">${escapeHtml(run.currentStep)}</span>
         <span class="step-time">running</span>
       </div>` : '');
 
     const pct = run.itemsTotal > 0 ? Math.round(run.itemsProcessed / run.itemsTotal * 100) : 0;
-    const runLog = (logs.get(run.id) || []).slice(-3).join('\n');
+    const runLog = (logs.get(run.id) || []).slice(-3).map(escapeHtml).join('\n');
     return `<div class="run ${run.status==='running'?'active':run.status}">
       <div class="run-header">
-        <div><span class="run-name">${run.workflowName}</span>
-          <span class="status-badge status-${run.status}">${run.status==='completed'?'✓ done':run.status}</span>
+        <div><span class="run-name">${escapeHtml(run.workflowName)}</span>
+          <span class="status-badge status-${run.status}">${run.status==='completed'?'✓ done':escapeHtml(run.status)}</span>
         </div>
         <div class="run-meta">
-          <span>items: ${run.itemsProcessed}/${run.itemsTotal}</span>
+          <span>items: ${escapeHtml(run.itemsProcessed)}/${escapeHtml(run.itemsTotal)}</span>
           <span>elapsed: ${elapsed(run.startedAt)}</span>
-          ${run.status==='running'?'<button class="stop-btn" onclick="stopRun(\''+run.id+'\')">stop</button>':''}
+          ${run.status==='running'?`<button class="stop-btn" data-run-id="${escapeHtml(run.id)}">stop</button>`:''}
         </div>
       </div>
       ${run.itemsTotal > 0 ? `<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>` : ''}
@@ -253,6 +253,16 @@ function render() {
 async function stopRun(runId) {
   await fetch(`/stop/${runId}`, { method: 'POST' }).catch(() => {});
 }
+
+// Delegated listener on the stable container — survives render()'s innerHTML
+// replacement of its children, so this only needs to be wired up once. Reading
+// the id from a data-attribute (rather than building an inline onclick="..."
+// string from run.id) means an attacker-controlled run id can't break out of a
+// JS string literal embedded in an HTML attribute.
+document.getElementById('runs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.stop-btn');
+  if (btn) stopRun(btn.dataset.runId);
+});
 
 connect();
 setInterval(render, 1000); // Update elapsed time

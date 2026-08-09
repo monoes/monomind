@@ -390,7 +390,12 @@ async function getBackend(dbPath?: string): Promise<any | null> {
     if (backendSlots.size >= MAX_BACKEND_SLOTS) {
       const oldest = backendSlots.keys().next().value!;
       const evicted = backendSlots.get(oldest);
-      try { evicted?.instance?.close?.(); } catch { /* best effort */ }
+      // shutdownBridge() below uses .shutdown() — that's the real method these
+      // backends expose. .close() doesn't exist on either backend class, so this
+      // resolved to undefined via the optional chain every time and never actually
+      // released the connection: every 6th distinct database path opened in this
+      // process leaked the oldest slot's connection for the process lifetime.
+      try { await evicted?.instance?.shutdown?.(); } catch { /* best effort */ }
       backendSlots.delete(oldest);
     }
     slot = { promise: null, instance: null, available: null, attempts: 0 };

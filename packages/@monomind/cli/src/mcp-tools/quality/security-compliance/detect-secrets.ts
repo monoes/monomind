@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { readFileSync, statSync, existsSync, readdirSync } from 'node:fs';
 import { join, extname, relative } from 'node:path';
+import { validateInput } from '../../../utils/input-guards.js';
 
 // Input schema for detect-secrets tool
 export const DetectSecretsInputSchema = z.object({
@@ -180,6 +181,33 @@ export async function handler(
     // Validate input
     const validatedInput = DetectSecretsInputSchema.parse(input);
 
+    // targetPath reaches the filesystem walker below with no other gate — without
+    // this, a caller (or an agent following injected instructions) can point it at
+    // ~/.aws, /etc, or any other readable path on disk.
+    const pathCheck = validateInput(validatedInput.targetPath, { type: 'path' });
+    if (!pathCheck.valid) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: false,
+                error: `Invalid targetPath: ${pathCheck.error}`,
+                findings: [],
+                metadata: {
+                  scannedAt: new Date().toISOString(),
+                  durationMs: Date.now() - startTime,
+                },
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+
     // Scan for secrets
     const { findings, scanStats } = await scanForSecrets(
       validatedInput.targetPath,
@@ -345,6 +373,13 @@ async function scanForSecrets(
           const entropy = shannonEntropy(rawValue);
           if (includeEntropy && entropy < entropyThreshold) continue;
 
+          // context must never carry the raw secret — replace every occurrence on
+          // this line with its masked form before truncating for display. (Previously
+          // this sat right next to the correctly-masked `masked` field below, handing
+          // back verbatim exactly what masking exists to hide.)
+          const masked = maskValue(rawValue);
+          const redactedLine = line.split(rawValue).join(masked);
+
           findings.push({
             id: `SEC-${patternInfo.type}-${findingIndex++}`,
             type: patternInfo.type,
@@ -353,8 +388,8 @@ async function scanForSecrets(
               file: filePath,
               line: lineIdx + 1,
               column: match.index + 1,
-              context: line.trim().slice(0, 120),
-              masked: maskValue(rawValue),
+              context: redactedLine.trim().slice(0, 120),
+              masked,
             },
             pattern: patternInfo.description,
             entropy: Math.round(entropy * 100) / 100,
