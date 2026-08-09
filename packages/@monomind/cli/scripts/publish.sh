@@ -1,6 +1,14 @@
 #!/bin/bash
-# Publish script for @monomind/cli
-# Publishes to both @monomind/cli@alpha AND monomind@alpha
+# Alpha-prerelease publish script for @monoes/monomindcli.
+#
+# The root `monomind` package is a separate, thin wrapper (bin/cli.js +
+# README + LICENSE) with a real npm dependency on this package — pnpm
+# rewrites its `workspace:*` pin to a real version at publish time, so it
+# self-publishes correctly on its own (`pnpm publish` from the repo root).
+# This script used to also hand-build and republish a renamed copy of this
+# package's own dist/ as "monomind"; that duplicated what the root package
+# already does correctly and had gone stale (it still referenced this
+# package's pre-rename "@monomind/cli" name), so it's been removed.
 
 set -e
 
@@ -19,43 +27,21 @@ npm run build
 VERSION=$(node -p "require('./package.json').version")
 echo "Publishing version: $VERSION"
 
-# 1. Publish @monomind/cli with alpha tag
 echo ""
-echo "=== Publishing @monomind/cli@$VERSION (alpha tag) ==="
-npm publish --tag alpha
-
-# 2. Publish to monomind with alpha tag
-echo ""
-echo "=== Publishing monomind@$VERSION (alpha tag) ==="
-
-# Create temp directory
-TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
-
-# Copy necessary files
-cp -r dist bin src package.json README.md "$TEMP_DIR/"
-
-# Change package name to unscoped
-cd "$TEMP_DIR"
-sed -i 's/"name": "@monomind\/cli"/"name": "monomind"/' package.json
-
-# Publish with alpha tag
+echo "=== Publishing @monoes/monomindcli@$VERSION (alpha tag) ==="
 npm publish --tag alpha
 
 echo ""
 echo "=== Updating dist-tags ==="
-
-# Update all tags to point to the new version
-npm dist-tag add @monomind/cli@$VERSION alpha
-npm dist-tag add @monomind/cli@$VERSION latest
-npm dist-tag add monomind@$VERSION alpha
-npm dist-tag add monomind@$VERSION latest
+npm dist-tag add @monoes/monomindcli@$VERSION alpha
+npm dist-tag add @monoes/monomindcli@$VERSION latest
 
 echo ""
 echo "=== Published successfully ==="
-echo "  @monomind/cli@$VERSION (alpha, latest)"
-echo "  monomind@$VERSION (alpha, latest)"
+echo "  @monoes/monomindcli@$VERSION (alpha, latest)"
 echo ""
 echo "Install with:"
-echo "  npx monomind@alpha"
-echo "  npx @monomind/cli@latest"
+echo "  npx @monoes/monomindcli@alpha"
+echo ""
+echo "To also publish the root 'monomind' wrapper package, run from the repo root:"
+echo "  pnpm publish --no-git-checks"
