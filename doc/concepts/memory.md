@@ -255,7 +255,7 @@ Second Brain indexes your project's documents into a searchable knowledge base w
 | Microsoft PowerPoint | `.pptx` `.ppt` | ZIP+XML slide extraction (PPTX), textutil (PPT — macOS) |
 | Google Docs / Sheets / Slides | `.docx` `.xlsx` `.pptx` | Google exports as Office formats — same extractors |
 | OpenDocument | `.odt` `.ods` `.odp` | ZIP+XML / SheetJS (ODS) |
-| PDF | `.pdf` | pdf-parse |
+| PDF | `.pdf` | @firecrawl/pdf-inspector (Rust, markdown + tables) |
 | Plain text | `.md` `.txt` `.rst` `.tex` `.csv` `.tsv` | Direct UTF-8 read |
 | Rich Text | `.rtf` | Built-in RTF parser (no dependency) |
 | eBook | `.epub` | ZIP+XHTML extraction |
@@ -279,7 +279,7 @@ Use `memory_kg_ingest` to extract entities and relationships from documents into
 ### Pipeline
 
 1. **SCAN** — Directory scanner classifies files by extension (22 formats). If enough match, the "documents" capability activates.
-2. **EXTRACT** — Format-specific text extraction: mammoth (DOCX), xlsx (spreadsheets), pdf-parse (PDF), ZIP+XML (PPTX/ODT/ODP/EPUB), built-in RTF parser, textutil (legacy DOC/PPT/Pages on macOS), or direct read (plain text/CSV).
+2. **EXTRACT** — Format-specific text extraction: mammoth (DOCX), xlsx (spreadsheets), @firecrawl/pdf-inspector (PDF — native Rust, markdown with tables), ZIP+XML (PPTX/ODT/ODP/EPUB), built-in RTF parser, textutil (legacy DOC/PPT/Pages on macOS), or direct read (plain text/CSV).
 3. **CHUNK** — Each document is chunked into 3200-char segments with 400-char overlap, respecting paragraph boundaries.
 4. **INDEX** — SHA-256 content hashing for dedup. Chunks stored under `knowledge:<scope>` namespace. Metadata logged to `doc-metadata.jsonl`.
 5. **QUERY** — Search via `knowledge_search` MCP tool or `monomind doc search` CLI.

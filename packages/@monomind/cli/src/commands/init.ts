@@ -25,6 +25,7 @@ import {
   embeddingDownloadDecision,
   isEmbeddingModelCached,
 } from '../routing/model-download.js';
+import { ingestDirectory } from '../knowledge/document-pipeline.js';
 
 function isInitialized(cwd: string): { claude: boolean; monomind: boolean } {
   const claudePath = path.join(cwd, '.claude', 'settings.json');
@@ -417,6 +418,38 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
           '  Skipped — semantic routing falls back to keyword mode. ' +
           'Download later with `monomind download-embeddings`.',
         );
+      }
+    }
+
+    if (ctx.interactive && !ctx.flags.yes && process.env.CI !== 'true') {
+      const ingestDocs = await confirm({
+        message: 'Ingest documents in this folder into the knowledge graph? (Second Brain)',
+        default: true,
+      });
+
+      if (ingestDocs) {
+        output.writeln();
+        const docSpinner = output.createSpinner({ text: 'Scanning for documents...' });
+        docSpinner.start();
+        try {
+          const batchResult = await ingestDirectory(cwd, 'shared', {
+            rootDir: cwd,
+            onProgress: (_file, done, total) => {
+              docSpinner.setText(`Ingesting documents... (${done}/${total})`);
+            },
+          });
+          if (batchResult.filesProcessed > 0) {
+            docSpinner.succeed(`${batchResult.filesProcessed} document${batchResult.filesProcessed === 1 ? '' : 's'} ingested (${batchResult.totalChunks} chunks)`);
+          } else {
+            docSpinner.succeed('No supported documents found');
+          }
+          if (batchResult.errors.length > 0) {
+            output.writeln(output.dim(`  ${batchResult.errors.length} file(s) skipped due to errors`));
+          }
+        } catch (e) {
+          docSpinner.fail(`Document ingestion failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        output.writeln();
       }
     }
 
