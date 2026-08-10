@@ -29,6 +29,21 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MiB guard
 const RING_BUFFER_MAX = 50;
 const MAX_ENTRIES = 200;
 
+// Same list as src/memory/text-tokens.ts's STOPWORDS (inlined — this is a
+// standalone hook script with no access to the TS build). Without this,
+// getContext()'s 2-word-overlap bar counts connector words like "you"/"can"/
+// "the"/"that"/"any" as evidence of relevance, so almost any two prompts
+// spuriously "match" and a stale, unrelated stored entry keeps resurfacing.
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'if', 'of', 'to', 'in', 'on', 'at', 'by',
+  'for', 'with', 'from', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'do',
+  'does', 'did', 'doing', 'have', 'has', 'had', 'i', 'we', 'you', 'it', 'its',
+  'that', 'this', 'these', 'those', 'what', 'which', 'who', 'how', 'when', 'where',
+  'why', 'can', 'could', 'should', 'would', 'will', 'my', 'our', 'me', 'us', 'as',
+  'so', 'than', 'then', 'there', 'here', 'not', 'no', 'all', 'any', 'some', 'get',
+  'got', 'about', 'into', 'over', 'out', 'up', 'down', 'again', 'am', 'they',
+]);
+
 var _entries = [];        // deduplicated memory entries loaded from store
 var _recentEdits = [];    // ring buffer of recently edited paths (in-memory, may be empty across subprocesses)
 var _lastContext = null;  // last non-null context returned by getContext()
@@ -163,7 +178,7 @@ function getContext(prompt) {
   if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') return null;
   if (_entries.length === 0) return null;
 
-  var promptWords = prompt.toLowerCase().split(/\W+/).filter(function(w) { return w.length >= 3; });
+  var promptWords = prompt.toLowerCase().split(/\W+/).filter(function(w) { return w.length >= 3 && !STOPWORDS.has(w); });
   var promptSet = new Set(promptWords);
   if (promptSet.size < 2) return null; // need at least 2 meaningful words
 
@@ -171,11 +186,15 @@ function getContext(prompt) {
   for (var i = 0; i < _entries.length; i++) {
     var e = _entries[i];
     var content = ((e.content || '') + ' ' + (e.summary || '')).toLowerCase();
-    var words = content.split(/\W+/).filter(function(w) { return w.length >= 3; });
+    var words = content.split(/\W+/).filter(function(w) { return w.length >= 3 && !STOPWORDS.has(w); });
+    // Count DISTINCT overlapping words, not raw occurrences — content and
+    // summary commonly repeat the same filenames, so a single shared word
+    // (e.g. "review" in both a file's name and its own summary restating it)
+    // was inflating hits to 2+ on its own, undermining the "distinct" bar
+    // this comment already promised.
+    var entrySet = new Set(words);
     var hits = 0;
-    for (var j = 0; j < words.length; j++) {
-      if (promptSet.has(words[j])) hits++;
-    }
+    promptSet.forEach(function(w) { if (entrySet.has(w)) hits++; });
     // Require at least 2 distinct word matches to reduce false positives
     if (hits >= 2) {
       scored.push({ entry: e, hits: hits });
@@ -191,7 +210,9 @@ function getContext(prompt) {
   });
 
   var top = scored[0].entry;
-  var result = '[INTELLIGENCE] ' + (top.summary || top.content || top.id || 'context match');
+  var text = String(top.summary || top.content || top.id || 'context match');
+  if (text.length > 160) text = text.slice(0, 160) + '…';
+  var result = '[INTELLIGENCE] ' + text;
   _lastContext = result;
   return result;
 }
