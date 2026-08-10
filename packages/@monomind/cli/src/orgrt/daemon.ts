@@ -21,6 +21,7 @@ import type { AgentRunner } from './agent-runner.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { captureCheckpoint, type OrgCheckpoint } from './checkpoint.js';
+import { loadGlobalFenceConfig, mergeFenceConfigs, createFenceForRole, type RoleFence } from './fence.js';
 
 // ── Extracted module imports ────────────────────────────────────────────
 import * as approvalOps from './approvals.js';
@@ -139,6 +140,8 @@ export interface RunningOrg {
   taskDag?: TaskDag;
   /** Directory role sessions run in — oversized mail digests are written here. */
   workdir?: string;
+  /** MonoFence guardrail instances keyed by role ID. */
+  fences?: Map<string, RoleFence>;
 }
 
 export interface DaemonOpts {
@@ -430,6 +433,28 @@ export class OrgDaemon {
     const running: RunningOrg = { def, run, bus, agents: new Map(), busEvents: () => [...collected], workdir: cwd };
     this.orgs.set(name, running);
 
+    // ── MonoFence guardrail: pre-create per-role instances ────────────────
+    const globalFence = loadGlobalFenceConfig(this.root);
+    const orgFence = (def as Record<string, unknown>).fence as Record<string, unknown> | undefined;
+    const roleFences = new Map<string, RoleFence>();
+    for (const role of def.roles) {
+      const roleFenceCfg = (role.policy as Record<string, unknown> | undefined)?.fence as Record<string, unknown> | undefined;
+      const merged = mergeFenceConfigs(globalFence ?? undefined, orgFence as any, roleFenceCfg as any);
+      if (merged.enabled === false) continue;
+      if (!globalFence && !orgFence && !roleFenceCfg) continue;
+      try {
+        const instance = await createFenceForRole(merged);
+        if (instance) {
+          roleFences.set(role.id, {
+            instance,
+            abortThreshold: typeof merged.abortThreshold === 'number' ? merged.abortThreshold : 0.8,
+            scanMessages: merged.scanMessages !== false,
+          });
+        }
+      } catch { /* monofence-ai not installed — skip silently */ }
+    }
+    if (roleFences.size > 0) running.fences = roleFences;
+
     // Even-split budget; a role's own budget_tokens overrides it (roleTokenBudget).
     const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
     // Single boss-selection rule for kickoff AND org_complete gating — the
@@ -491,6 +516,7 @@ export class OrgDaemon {
           return { threshold: cb.failure_threshold ?? 5, state: { failures: 0, tripped: false } };
         })(),
         beforeTool: (r: string, toolName: string) => this.checkApproval(name, r, toolName),
+        fence: roleFences.get(role.id),
         onComplete: role.id === bossRole.id
           ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
               bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });

@@ -7,6 +7,7 @@ import { queueMessage } from './inbox.js';
 import { checkResources, waitForCapacity } from '../utils/resource-governor.js';
 import { ORG_DIR } from './types.js';
 import type { OrgDaemon, RunningOrg } from './daemon.js';
+import { scanMessage } from './fence.js';
 
 /** Bodies larger than this are digested to a .mail file (see mailBody). */
 const MAIL_BODY_MAX = 4096;
@@ -133,6 +134,13 @@ export async function deliver(daemon: OrgDaemon, fromOrg: string, fromRole: stri
   // Also track the source agent's last sent message for cross-org visibility
   const srcAgent = src?.agents.get(fromRole);
   if (srcAgent && emitted) srcAgent.lastMessageId = emitted.id;
+  const roleFence = targetOrg.fences?.get(targetRole);
+  if (roleFence?.scanMessages) {
+    const safe = await scanMessage(roleFence.instance, body, roleFence.abortThreshold, targetOrg.bus, evt.from ?? fromRole);
+    if (!safe) {
+      return `ERROR: message to ${toQualified} blocked by security fence`;
+    }
+  }
   targetAgent.mailbox.push(mailBody(daemon.root, targetOrgName, targetOrg, `[message from ${evt.from}] subject: ${subject}`, body,
     emitted?.id ?? `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`));
   return `delivered to ${toQualified}`;
