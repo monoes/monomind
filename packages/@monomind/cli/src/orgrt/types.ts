@@ -11,6 +11,31 @@ export const ProviderSchema = z.object({
   authTokenEnv: z.string().optional(),
 }).strict();
 
+const THREAT_TYPES = ['prompt_injection', 'jailbreak', 'pii_exposure', 'instruction_override',
+  'role_switching', 'context_manipulation', 'encoding_attack', 'data_exfiltration', 'unknown'] as const;
+
+export const FenceAllowlistRuleSchema = z.object({
+  id: z.string().min(1),
+  pattern: z.string().min(1),
+  types: z.array(z.enum(THREAT_TYPES)).default([]),
+  context: z.string().optional(),
+  reason: z.string().optional(),
+  source: z.string().optional(),
+});
+
+export const FenceConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  confidenceThreshold: z.number().min(0).max(1).optional(),
+  enablePIIDetection: z.boolean().optional(),
+  scanMessages: z.boolean().default(true),
+  scanOutput: z.boolean().default(false),
+  abortThreshold: z.number().min(0).max(1).default(0.8),
+  allowlist: z.array(FenceAllowlistRuleSchema).default([]),
+}).partial().passthrough();
+
+export type FenceConfig = z.infer<typeof FenceConfigSchema>;
+export type FenceAllowlistRule = z.infer<typeof FenceAllowlistRuleSchema>;
+
 export const RolePolicySchema = z.object({
   allowTools: z.array(z.string()).optional(),
   denyTools: z.array(z.string()).default([]),
@@ -25,6 +50,7 @@ export const RolePolicySchema = z.object({
   /** Git access level: 'none' blocks all git, 'read' allows status/log/diff,
    *  'commit' allows add/commit, 'push' allows push. Default: 'read'. */
   git: z.enum(['none', 'read', 'commit', 'push']).default('read'),
+  fence: FenceConfigSchema.optional(),
 }).partial().passthrough();
 
 export const RoleSchema = z.object({
@@ -90,6 +116,7 @@ export const OrgDefSchema = z.object({
     })).optional(),
   }).partial().passthrough().default({})
     .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, workspace: 'repo' as string, stale_base_threshold: 0, ...rc })),
+  fence: FenceConfigSchema.optional(),
   roles: z.array(RoleSchema).min(1),
   /** Which agent runtime hosts this org's role sessions. When absent, the
    *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude
