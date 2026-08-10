@@ -5,6 +5,8 @@ import type { OrgBus } from './bus.js';
 import type { PolicyEngine, Decision } from './policy.js';
 import { Mailbox } from './mailbox.js';
 import type { OrgDef, OrgRole } from './types.js';
+import type { RoleFence } from './fence.js';
+import { scanInput } from './fence.js';
 import type { AgentRunner, AgentMessage, OrgToolDef } from './agent-runner.js';
 import { ClaudeAgentRunner, defaultClaudeRunner } from './agent-runner.js';
 import { StateDetector } from './state-detector.js';
@@ -31,8 +33,17 @@ export function gatedCanUseTool(
   policy: PolicyEngine,
   beforeTool: SessionOpts['beforeTool'],
   roleId: string,
+  fence?: RoleFence,
 ): (toolName: string, input: Record<string, unknown>) => Promise<Decision> {
   return async (toolName: string, input: Record<string, unknown>): Promise<Decision> => {
+    if (fence) {
+      const text = typeof input.command === 'string' ? input.command
+        : typeof input.content === 'string' ? input.content
+        : typeof input.url === 'string' ? input.url
+        : JSON.stringify(input);
+      const fenceDecision = await scanInput(fence.instance, text, fence.abortThreshold);
+      if (fenceDecision.behavior === 'deny') return fenceDecision;
+    }
     const decision = await policy.decide(toolName, input);
     if (decision.behavior === 'deny' || !beforeTool) return decision;
     const approved = await beforeTool(roleId, toolName);
@@ -85,6 +96,8 @@ export interface SessionOpts {
   circuitBreaker?: { threshold: number; state: { failures: number; tripped: boolean } };
   /** Called when the coordinator's context window is exhausted. */
   onContextLimit?: () => void;
+  /** MonoFence guardrail instance for this role. */
+  fence?: RoleFence;
   /** Decision gate: creates a hard-blocking human-approval checkpoint. */
   onGate?: (role: string, name: string, description: string) => Promise<string>;
   /** Task DAG: create a task with dependencies. */
@@ -231,7 +244,7 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
       },
       maxTurns: opts.maxTurns ?? 30,
       resume,
-      canUseTool: gatedCanUseTool(policy, opts.beforeTool, role.id),
+      canUseTool: gatedCanUseTool(policy, opts.beforeTool, role.id, opts.fence),
       // test seam forwarded through extras: lets the scripted fake SDK
       // (test-loop.ts) drive org_send and tool calls through the real
       // deliver/policy paths; the real SDK ignores it.

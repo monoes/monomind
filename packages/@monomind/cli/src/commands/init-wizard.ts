@@ -12,6 +12,7 @@ import {
   FULL_INIT_OPTIONS,
   type InitOptions,
 } from '../init/index.js';
+import { ingestDirectory } from '../knowledge/document-pipeline.js';
 
 export const wizardCommand: Command = {
   name: 'wizard',
@@ -241,6 +242,39 @@ export const wizardCommand: Command = {
         }
       }
 
+      let docsIngested = 0;
+      let docsChunks = 0;
+      const ingestDocs = await confirm({
+        message: 'Ingest documents in this folder into the knowledge graph? (Second Brain)',
+        default: true,
+      });
+
+      if (ingestDocs) {
+        output.writeln();
+        const docSpinner = output.createSpinner({ text: 'Scanning for documents...' });
+        docSpinner.start();
+        try {
+          const batchResult = await ingestDirectory(ctx.cwd, 'shared', {
+            rootDir: ctx.cwd,
+            onProgress: (file, done, total) => {
+              docSpinner.setText(`Ingesting documents... (${done}/${total})`);
+            },
+          });
+          docsIngested = batchResult.filesProcessed;
+          docsChunks = batchResult.totalChunks;
+          if (docsIngested > 0) {
+            docSpinner.succeed(`${docsIngested} document${docsIngested === 1 ? '' : 's'} ingested (${docsChunks} chunks)`);
+          } else {
+            docSpinner.succeed('No supported documents found');
+          }
+          if (batchResult.errors.length > 0) {
+            output.writeln(output.dim(`  ${batchResult.errors.length} file(s) skipped due to errors`));
+          }
+        } catch (e) {
+          docSpinner.fail(`Document ingestion failed: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+
       output.writeln();
 
       output.printTable({
@@ -262,6 +296,7 @@ export const wizardCommand: Command = {
           { setting: 'Agents', value: `${result.summary.agentsCount} installed` },
           { setting: 'Hooks', value: `${result.summary.hooksEnabled} enabled` },
           { setting: 'Enforcement Gates', value: gatesEnabled ? 'Enabled' : 'Disabled' },
+          { setting: 'Documents', value: ingestDocs ? (docsIngested > 0 ? `${docsIngested} ingested (${docsChunks} chunks)` : 'No documents found') : 'Skipped' },
         ],
       });
 

@@ -155,13 +155,13 @@ export async function extractText(file: FileEntry): Promise<string> {
     } catch { return ''; }
   }
 
-  // PDF
+  // PDF — native Rust extraction via @firecrawl/pdf-inspector
   if (ext === '.pdf') {
     try {
-      const pdfParse = (await import('pdf-parse')).default;
+      const { processPdf } = await import('@firecrawl/pdf-inspector');
       const buffer = fs.readFileSync(file.absolutePath);
-      const data = await pdfParse(buffer);
-      return data.text;
+      const result = processPdf(buffer);
+      return result.markdown ?? '';
     } catch {
       return '';
     }
@@ -336,10 +336,10 @@ export const documentsCapability: CapabilityModule = {
     const checks: HealthCheck[] = [];
 
     try {
-      await import('pdf-parse');
-      checks.push({ name: 'PDF', status: 'pass', message: 'pdf-parse available' });
+      await import('@firecrawl/pdf-inspector');
+      checks.push({ name: 'PDF', status: 'pass', message: '@firecrawl/pdf-inspector available' });
     } catch {
-      checks.push({ name: 'PDF', status: 'warn', message: 'pdf-parse not installed', hint: 'pnpm add pdf-parse' });
+      checks.push({ name: 'PDF', status: 'warn', message: '@firecrawl/pdf-inspector not installed', hint: 'pnpm add @firecrawl/pdf-inspector' });
     }
 
     try {
