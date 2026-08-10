@@ -29,4 +29,20 @@ describe('Python parser', () => {
   it('extracts IMPORTS edge for os.path', () => {
     expect(result.edges.some(e => e.relation === 'IMPORTS')).toBe(true);
   });
+
+  it('marks public names as exported', () => {
+    const cls = result.nodes.find(n => n.name === 'UserService');
+    expect(cls).toBeDefined();
+    expect(cls!.isExported).toBe(true);
+
+    const fn = result.nodes.find(n => n.name === 'helper_fn');
+    expect(fn).toBeDefined();
+    expect(fn!.isExported).toBe(true);
+  });
+
+  it('marks underscore-prefixed names as unexported', () => {
+    const privateFn = result.nodes.find(n => n.name === '_private_fn');
+    expect(privateFn).toBeDefined();
+    expect(privateFn!.isExported).toBe(false);
+  });
 });

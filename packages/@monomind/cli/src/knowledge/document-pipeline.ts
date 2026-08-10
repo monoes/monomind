@@ -687,6 +687,7 @@ export async function searchKnowledge(
     const result = await bridge.bridgeSearchEntries({
       query, namespace: t.ns, limit: fetchLimit, threshold: minScore, dbPath: t.dbPath,
       skipRerank: opts?.skipRerank,
+      includeSuperseded,
     }).catch(() => null);
     if (!result?.success || !result.results.length) return [];
     const hashToFile = new Map<string, string>();

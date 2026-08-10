@@ -7,7 +7,7 @@
 import { EventEmitter } from 'events';
 import { WebSocketServer, WebSocket, RawData } from 'ws';
 import { createServer, Server } from 'http';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeCompare } from '../auth.js';
 import type {
   ITransport,
   TransportType,
@@ -441,29 +441,13 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
       return false;
     }
     for (const entry of configured) {
-      if (this.timingSafeCompare(supplied, entry)) {
+      if (timingSafeCompare(supplied, entry)) {
         return true;
       }
     }
     return false;
   }
 
-  /**
-   * SECURITY: Timing-safe comparison to prevent timing attacks. Mismatched
-   * lengths still run a constant-time compare (against itself) before
-   * returning false, so length differences aren't observable via timing.
-   */
-  private timingSafeCompare(a: string, b: string): boolean {
-    const bufA = Buffer.from(a, 'utf-8');
-    const bufB = Buffer.from(b, 'utf-8');
-
-    if (bufA.length !== bufB.length) {
-      timingSafeEqual(bufA, bufA);
-      return false;
-    }
-
-    return timingSafeEqual(bufA, bufB);
-  }
 
   private parseMessage(data: RawData): any {
     if (this.config.enableBinaryMode && Buffer.isBuffer(data)) {

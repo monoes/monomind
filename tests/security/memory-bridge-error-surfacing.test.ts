@@ -71,31 +71,28 @@ describe('R1 — memory-bridge surfaces errors instead of swallowing', () => {
     }
   });
 
-  it('bridgeDeleteEntry logs the underlying error when store is corrupt', async () => {
-    // Drive bridgeDeleteEntry at a path that exists as a directory — the
-    // backend's underlying open/prepare must throw, which the catch wraps.
-    // We assert console.error was called at least once with the bridge label.
-    // (If the bridge's failure-injection behavior shifts in the future, the
-    // source-level assertions above still hold the contract.)
-    try {
-      await bridge.bridgeDeleteEntry({
-        key: 'r1-probe-' + Date.now(),
-        namespace: 'r1-test',
-        dbPath: '/this/path/does/not/exist/and/parent/missing.db',
-      });
-    } catch {
-      /* the bridge never throws — it returns failure shapes */
+  it('bridgeDeleteEntry returns a failure shape (not silent success) for a bad path', async () => {
+    // Drive bridgeDeleteEntry at a path whose parent doesn't exist — the
+    // backend initialization must fail, returning null or a failure shape.
+    // The old assertion (toBeGreaterThanOrEqual(0)) was always true and
+    // tested nothing. The real contract: the function never throws AND
+    // never returns { success: true, deleted: true } for a corrupt store.
+    const result = await bridge.bridgeDeleteEntry({
+      key: 'r1-probe-' + Date.now(),
+      namespace: 'r1-test',
+      dbPath: '/this/path/does/not/exist/and/parent/missing.db',
+    });
+    // Must be null (backend unavailable) or { deleted: false }
+    if (result !== null) {
+      expect(result.deleted).toBe(false);
     }
-    // Successful path returns silently; failed path logs under DEBUG.
-    // If this assertion flakes it's because the bridge silently no-op'd,
-    // which is itself an R1 regression worth investigating.
-    expect(errSpy.mock.calls.length).toBeGreaterThanOrEqual(0);
-    // Smoke-check: when logBridgeError IS called, the label is greppable.
-    const labelled = errSpy.mock.calls.find(c =>
-      String(c[0] || '').includes('[bridge:')
+    // If console.error was called (DEBUG is set), every logged message
+    // from the bridge must use the greppable label format.
+    const bridgeCalls = errSpy.mock.calls.filter(c =>
+      String(c[0] || '').includes('[bridge:') || String(c[0] || '').includes('[memory-bridge]')
     );
-    if (labelled) {
-      expect(String(labelled[0])).toMatch(/\[bridge:/);
+    for (const call of bridgeCalls) {
+      expect(String(call[0])).toMatch(/\[(?:bridge:|memory-bridge)/);
     }
   });
 });

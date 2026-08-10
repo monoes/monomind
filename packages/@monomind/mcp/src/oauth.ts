@@ -382,29 +382,6 @@ export function createOAuthManager(logger: ILogger, config: OAuthConfig): OAuthM
   return new OAuthManager(logger, config);
 }
 
-/**
- * OAuth middleware for Express/Connect
- */
-export function oauthMiddleware(oauthManager: OAuthManager, storageKey: string = 'default') {
-  return async (req: any, res: any, next: () => void) => {
-    const token = await oauthManager.getAccessToken(storageKey);
-
-    if (!token) {
-      res.status(401).json({
-        jsonrpc: '2.0',
-        id: null,
-        error: {
-          code: -32000,
-          message: 'Unauthorized - OAuth authentication required',
-        },
-      });
-      return;
-    }
-
-    req.oauthToken = token;
-    next();
-  };
-}
 
 /**
  * Create GitHub OAuth provider config

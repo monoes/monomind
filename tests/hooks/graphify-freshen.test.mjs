@@ -18,7 +18,7 @@ function run(env = {}, { cwd } = {}) {
     cwd: cwd || os.tmpdir(),
     encoding: 'utf-8',
     timeout: 10000,
-    env: { ...process.env, ...env },
+    env: { ...process.env, MONOMIND_HOOK_QUIET: '', ...env },
   });
 }
 
