@@ -848,7 +848,12 @@ export async function bridgeListEntries(options: {
   try {
     const entries = await backend.query({
       type: 'exact' as any,
-      namespace: options.namespace ?? 'default',
+      // No namespace means "all namespaces" — the query builder (sql-backend.ts)
+      // already skips its filter clause on a falsy namespace. Defaulting to the
+      // literal string 'default' here (as this used to) overrode that legitimate
+      // "no filter" signal and silently scoped every unfiltered list/search to a
+      // namespace that's usually near-empty in practice.
+      namespace: options.namespace,
       limit: options.limit ?? 100,
       offset: options.offset,
     });

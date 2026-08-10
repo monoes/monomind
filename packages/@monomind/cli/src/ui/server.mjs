@@ -7,7 +7,7 @@ import zlib from 'zlib';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { spawn } from 'child_process';
-import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
+import { collectAll, getWatchPaths, collectProject, collectSessions, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
 import { addSseClient, removeSseClient, broadcast, getSseClientCount, closeSseClients, addMmClient, removeMmClient, broadcastMm, getMmClientCount } from './sse-manager.mjs';
 import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
@@ -179,7 +179,6 @@ function buildSectionData(name, dir) {
   const d = path.resolve(dir);
   switch (name) {
     case 'sessions': return { sessions: collectSessions(d) };
-    case 'swarm':    return { swarm: collectSwarm(d), swarmHistory: collectSwarmHistory(d), agents: collectAgents(d) };
     case 'agents':   return { agents: collectAgents(d) };
     case 'tokens':   return { tokens: collectTokens(d) };
     case 'hooks':    return { hooks: collectHooks(d) };
@@ -3336,211 +3335,96 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       return;
     }
 
-
-    // ------------------------------------------------------- GET /api/graph
-    if (req.method === 'GET' && url === '/api/graph') {
+    // -------------------------------------------------------- GET /api/docs
+    if (req.method === 'GET' && url === '/api/docs') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
-        const d = path.resolve(dir || process.cwd());
+        const root = path.resolve(dir);
+        const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage']);
+        const DOC_EXT = new Set(['.md', '.mdx']);
+        const files = [];
 
-        // Find session files — sort by mtime descending before processing
-        const homeDir = os.homedir();
-        const slug = d.replace(/\//g, '-');
-        const sessionsDir = fs.existsSync(path.join(homeDir, '.claude', 'projects', slug))
-          ? path.join(homeDir, '.claude', 'projects', slug)
-          : path.join(d, '.claude', 'sessions');
-
-        let sessionFiles = [];
-        try {
-          sessionFiles = fs.readdirSync(sessionsDir)
-            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
-            .map(f => ({ f, mtime: (() => { try { return fs.statSync(path.join(sessionsDir, f)).mtimeMs; } catch { return 0; } })() }))
-            .sort((a, b) => b.mtime - a.mtime)
-            .map(({ f }) => f);
-        } catch {}
-
-        // Parse each session: count tool categories + agent type spawns
-        const TOOL_CAT = name => {
-          if (['Read','Write','Edit','MultiEdit','Glob','Grep','LS'].includes(name)) return 'file';
-          if (name === 'Bash') return 'bash';
-          if (['Agent','Task'].includes(name)) return 'agent';
-          if (name.startsWith('mcp__monomind__memory') || name.startsWith('mcp__monomind__agentdb')) return 'memory';
-          if (['WebFetch','WebSearch'].includes(name)) return 'web';
-          if (name === 'Skill') return 'skill';
-          return 'other';
+        // Dirent.isDirectory() is false for a symlinked directory (it reflects
+        // the entry's own type, not the resolved target), so this never
+        // follows a symlink into a loop or outside root — no extra guard needed.
+        const walk = (abs, rel) => {
+          let entries;
+          try { entries = fs.readdirSync(abs, { withFileTypes: true }); } catch { return; }
+          for (const entry of entries) {
+            if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
+            const childAbs = path.join(abs, entry.name);
+            const childRel = rel ? rel + '/' + entry.name : entry.name;
+            if (entry.isDirectory()) {
+              walk(childAbs, childRel);
+            } else if (entry.isFile() && DOC_EXT.has(path.extname(entry.name))) {
+              let stat;
+              try { stat = fs.statSync(childAbs); } catch { continue; }
+              files.push({ path: childRel, size: stat.size, mtime: stat.mtimeMs });
+            }
+          }
         };
+        walk(root, '');
+        files.sort((a, b) => b.mtime - a.mtime);
 
-        const nodes = [];
-        const edges = [];
-        const agentTypeNodes = {}; // subagent_type → node id
+        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ files, total: files.length }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
 
-        for (const fname of sessionFiles) {
-          const sid = fname.replace('.jsonl','');
-          const fp = path.join(sessionsDir, fname);
-          let stat = null;
-          try { stat = fs.statSync(fp); } catch { continue; }
-
-          // Skip files over size cap to avoid memory spikes on large sessions
-          // But still do a lightweight scan for agent spawns (tool_use blocks named Agent/Task)
-          if (stat.size > JSONL_SIZE_CAP) {
-            const truncSpawns = {};
-            try {
-              const raw = fs.readFileSync(fp, 'utf8');
-              for (const line of raw.split('\n')) {
-                if (!line.includes('"tool_use"') || (!line.includes('"Agent"') && !line.includes('"Task"'))) continue;
-                let e; try { e = JSON.parse(line); } catch { continue; }
-                if (e.type !== 'assistant') continue;
-                for (const block of (e.message?.content || [])) {
-                  if (!block || block.type !== 'tool_use') continue;
-                  if (block.name !== 'Agent' && block.name !== 'Task') continue;
-                  const sub = block.input?.subagent_type || block.input?.description || '?';
-                  truncSpawns[sub] = (truncSpawns[sub] || 0) + 1;
-                }
-              }
-            } catch {}
-            nodes.push({ id: sid, type: 'session', label: sid.slice(0,8), turns: 0, totalTools: 0,
-              toolCounts: {}, cost: 0, mtime: stat.mtimeMs, size: stat.size, agentSpawns: truncSpawns, truncated: true });
-            for (const [subType, count] of Object.entries(truncSpawns)) {
-              const nodeId = 'agent::' + subType;
-              if (!agentTypeNodes[subType]) {
-                agentTypeNodes[subType] = true;
-                nodes.push({ id: nodeId, type: 'agenttype', label: subType, totalSpawns: 0 });
-              }
-              const aNode = nodes.find(n => n.id === nodeId);
-              if (aNode) aNode.totalSpawns = (aNode.totalSpawns || 0) + count;
-              edges.push({ source: sid, target: nodeId, weight: count, label: String(count) });
-            }
-            continue;
-          }
-
-          const toolCounts = {};
-          const agentSpawns = {}; // subagent_type → count
-          let turns = 0, totalCost = 0, _costIncomplete = false;
-
-          try {
-            const raw = fs.readFileSync(fp, 'utf8').replace(/\r\n/g, '\n');
-            const lines = raw.split('\n').filter(Boolean);
-            for (const line of lines) {
-              let e; try { e = JSON.parse(line); } catch { continue; }
-              if (e.type === 'user') {
-                // Only count actual human turns, not tool-result responses
-                const ct = e.message?.content;
-                const isToolResult = Array.isArray(ct) && ct.length > 0 && ct.every(b => b && b.type === 'tool_result');
-                if (!isToolResult) turns++;
-              }
-              if (e.type === 'assistant') {
-                for (const block of (e.message?.content || [])) {
-                  if (!block || block.type !== 'tool_use') continue;
-                  const cat = TOOL_CAT(block.name);
-                  toolCounts[cat] = (toolCounts[cat] || 0) + 1;
-                  if (cat === 'agent') {
-                    const sub = block.input?.subagent_type || block.input?.description || '?';
-                    agentSpawns[sub] = (agentSpawns[sub] || 0) + 1;
-                  }
-                }
-                if (e.message?.usage) {
-                  const _m = e.message.model || '';
-                  totalCost += _sjCalcCost(_m, e.message.usage);
-                  if (!_sjHasPricing(_m)) _costIncomplete = true;
-                }
-              }
-            }
-          } catch {}
-
-          const totalTools = Object.values(toolCounts).reduce((a,b)=>a+b,0);
-          nodes.push({
-            id: sid, type: 'session', label: sid.slice(0,8),
-            turns, totalTools, toolCounts,
-            cost: totalCost, costIncomplete: _costIncomplete, mtime: stat.mtimeMs, size: stat.size,
-            agentSpawns
-          });
-
-          // Create/link agent type nodes
-          for (const [subType, count] of Object.entries(agentSpawns)) {
-            const nodeId = 'agent::' + subType;
-            if (!agentTypeNodes[subType]) {
-              agentTypeNodes[subType] = true;
-              nodes.push({ id: nodeId, type: 'agenttype', label: subType, totalSpawns: 0 });
-            }
-            const aNode = nodes.find(n => n.id === nodeId);
-            if (aNode) aNode.totalSpawns = (aNode.totalSpawns || 0) + count;
-            edges.push({ source: sid, target: nodeId, weight: count, label: String(count) });
-          }
+    // -------------------------------------------------------- GET /api/doc-read
+    // Returns the raw content of one file discovered by /api/docs. Content
+    // exposure is a bigger deal than the metadata /api/docs lists, so
+    // containment is checked against known project roots (same allowlist
+    // /api/global-doc/read uses) rather than trusting the client-supplied
+    // `dir` alone — otherwise `?dir=/` would make any .md file on disk
+    // "contained".
+    if (req.method === 'GET' && url.startsWith('/api/doc-read')) {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const rel = qs.get('path');
+        if (!rel || typeof rel !== 'string') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'path query param required' }));
+          return;
         }
+        let resolved = path.resolve(dir, rel);
+        try { resolved = fs.realpathSync(resolved); } catch {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ nodes, edges }));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-      return;
-    }
+        const allowedRoots = [path.resolve(projectDir || process.cwd())];
+        const projectsBase = path.join(os.homedir(), '.claude', 'projects');
+        try {
+          for (const slug of fs.readdirSync(projectsBase)) {
+            const resolvedProj = resolveSlugToPath(slug, path.join(projectsBase, slug));
+            if (resolvedProj) allowedRoots.push(resolvedProj);
+          }
+        } catch { /* projects tree absent — fine */ }
+        const globalBrain = process.env.MONOMIND_GLOBAL_BRAIN_DIR
+          || path.join(os.homedir(), '.monomind', 'global-brain');
+        if (fs.existsSync(globalBrain)) allowedRoots.push(globalBrain);
 
-    // ------------------------------------------------- GET /api/swarm-history
-    if (req.method === 'GET' && url === '/api/swarm-history') {
-      try {
-        const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir || process.cwd();
-        const entries = collectSwarmHistory(path.resolve(dir));
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-          'Cache-Control': 'no-cache',
+        const isAllowed = allowedRoots.some(root => {
+          const relCheck = path.relative(root, resolved);
+          return relCheck && !relCheck.startsWith('..') && !path.isAbsolute(relCheck);
         });
-        res.end(JSON.stringify({ entries }));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-      return;
-    }
-
-    // ------------------------------------------------- GET /api/swarm-events
-    if (req.method === 'GET' && url === '/api/swarm-events') {
-      try {
-        const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir || process.cwd();
-        // Cap swarmId and agentId to prevent O(n×m) DoS: filter() compares
-        // each event against the query string, so a megabyte-scale ID causes
-        // O(events × m) string comparisons.
-        const _rawSwarmId = qs.get('swarmId') || undefined;
-        const _rawAgentId = qs.get('agentId') || undefined;
-        const swarmId = typeof _rawSwarmId === 'string' ? _rawSwarmId.slice(0, 256) : undefined;
-        const agentId = typeof _rawAgentId === 'string' ? _rawAgentId.slice(0, 256) : undefined;
-        const last = qs.get('last') ? parseInt(qs.get('last')) : undefined;
-        const events = collectSwarmEvents(path.resolve(dir), { swarmId, agentId, last });
+        if (!isAllowed || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'path is outside the allowed project roots' }));
+          return;
+        }
+        if (!/\.(md|mdx)$/i.test(resolved)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'only markdown (.md/.mdx) files are readable' }));
+          return;
+        }
+        const body = fs.readFileSync(resolved, 'utf8');
         res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ events, count: events.length }));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-      return;
-    }
-
-    // ------------------------------------------------- GET /api/swarm-data-size
-    if (req.method === 'GET' && url === '/api/swarm-data-size') {
-      try {
-        const dir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
-        const size = getSwarmDataSize(path.resolve(dir));
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
-        res.end(JSON.stringify(size));
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-      return;
-    }
-
-    // ------------------------------------------------- DELETE /api/swarm-clean
-    if (req.method === 'DELETE' && url === '/api/swarm-clean') {
-      try {
-        const dir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
-        const result = cleanSwarmData(path.resolve(dir));
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
-        res.end(JSON.stringify({ success: true, ...result }));
+        res.end(JSON.stringify({ body }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));

@@ -208,54 +208,6 @@ function collectSwarm(projectDir) {
   };
 }
 
-function collectSwarmHistory(projectDir) {
-  const historyPath = path.join(projectDir, '.monomind', 'swarm', 'history.jsonl');
-  const byId = new Map();
-
-  // 1. Persisted history (if any swarm ever appended on terminal status)
-  for (const e of readJSONL(historyPath)) {
-    const id = e && (e.swarmId || e.id);
-    if (id) byId.set(id, e);
-  }
-
-  // 2. Derive from the live swarm-state.json. The writer stores a NESTED
-  //    { swarms: { <id>: {...} } } map, but collectSwarm() only appends to
-  //    history.jsonl when a FLAT top-level swarmId/status is present — which
-  //    this format never has. So without this fallback the tab is empty even
-  //    though swarms exist. Derive entries directly from the map here.
-  try {
-    const state = readFirstJSON(
-      path.join(monomindDataRoot(projectDir), 'swarm', 'swarm-state.json'),
-      path.join(projectDir, '.monomind', 'swarm', 'swarm-state.json'),
-    ) || {};
-    const swarmsMap = state.swarms || (state.swarmId ? { [state.swarmId]: state } : {});
-    for (const [key, s] of Object.entries(swarmsMap)) {
-      if (!s || typeof s !== 'object') continue;
-      const sid = s.swarmId || s.id || key;
-      if (byId.has(sid)) continue; // a real history entry wins over derived
-      const cfg = s.config || {};
-      const agents = Array.isArray(s.agents) ? s.agents : [];
-      byId.set(sid, {
-        swarmId: sid,
-        topology: s.topology || cfg.topology || '—',
-        consensus: s.consensus || cfg.consensusMechanism || '—',
-        strategy: s.strategy || cfg.strategy || '—',
-        status: s.status || 'unknown',
-        agentCount: agents.length || s.maxAgents || cfg.maxAgents || 0,
-        agents,
-        taskCount: Array.isArray(s.tasks) ? s.tasks.length : (s.taskCount || 0),
-        startedAt: s.createdAt || s.startedAt || null,
-        endedAt: s.updatedAt || s.endedAt || null,
-        derived: true,
-      });
-    }
-  } catch {}
-
-  // newest-first
-  return Array.from(byId.values()).sort((a, b) =>
-    new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
-}
-
 function appendSwarmHistory(projectDir, entry) {
   const dir = path.join(projectDir, '.monomind', 'swarm');
   if (!fs.existsSync(dir)) {
@@ -263,38 +215,6 @@ function appendSwarmHistory(projectDir, entry) {
   }
   const historyPath = path.join(dir, 'history.jsonl');
   fs.appendFileSync(historyPath, JSON.stringify(entry) + '\n');
-}
-
-function collectSwarmEvents(projectDir, opts = {}) {
-  const eventsPath = path.join(projectDir, '.monomind', 'swarm', 'events.jsonl');
-  const events = readJSONL(eventsPath, opts.last || null);
-  if (opts.swarmId) return events.filter(e => e.swarmId === opts.swarmId);
-  if (opts.agentId) return events.filter(e => e.agentId === opts.agentId);
-  return events;
-}
-
-function getSwarmDataSize(projectDir) {
-  const dir = path.join(projectDir, '.monomind', 'swarm');
-  let totalBytes = 0;
-  let fileCount = 0;
-  const files = ['history.jsonl', 'events.jsonl'];
-  for (const f of files) {
-    const stat = fileStat(path.join(dir, f));
-    if (stat) { totalBytes += stat.size; fileCount++; }
-  }
-  return { totalBytes, fileCount, humanSize: totalBytes < 1024 ? totalBytes + ' B' : totalBytes < 1048576 ? (totalBytes / 1024).toFixed(1) + ' KB' : (totalBytes / 1048576).toFixed(1) + ' MB' };
-}
-
-function cleanSwarmData(projectDir) {
-  const dir = path.join(projectDir, '.monomind', 'swarm');
-  const files = ['history.jsonl', 'events.jsonl'];
-  let removed = 0;
-  for (const f of files) {
-    const fp = path.join(dir, f);
-    try { fs.unlinkSync(fp); removed++; } catch {}
-  }
-  _appendedSwarmIds.clear();
-  return { removed, files };
 }
 
 function collectAgents(projectDir) {
@@ -838,7 +758,7 @@ export function collectAll(projectDir) {
   };
 }
 
-export { collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost };
+export { collectProject, collectSessions, collectSwarm, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost };
 
 export function getWatchPaths(projectDir) {
   const resolvedDir = path.resolve(projectDir);

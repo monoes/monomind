@@ -215,12 +215,6 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .sr-compact-badge { display: inline-block; font-size: 10px; padding: 1px 6px; background: oklch(72% 0.18 75 / 0.12); color: var(--accent); border-radius: 8px; margin-left: 6px; white-space: nowrap; }
 .sr-meta { font-size: 11px; color: var(--text-lo); margin-top: 3px; }
 
-/* swarm tab */
-.swarm-run-row { padding: 7px 8px; cursor: pointer; border-radius: 5px; margin-bottom: 3px; transition: background 0.1s; }
-.swarm-run-row:hover { background: var(--surface-hi); }
-.swarm-run-row.active { background: oklch(72% 0.18 75 / 0.1); }
-.swarm-topo-pill { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); font-family: var(--mono); }
-.swarm-live { font-size: 10px; color: var(--green); font-weight: 600; margin-left: 6px; }
 /* chunks tab */
 .chunk-stats-bar { display: flex; gap: 20px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); align-items: center; }
 .chunk-stat { display: flex; flex-direction: column; gap: 2px; }
@@ -377,18 +371,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .cv-excerpt-item { font-size:10px; color:var(--text-lo); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 .cv-excerpt-item .cv-ex-tag { font-size:8px; color:var(--text-xs); margin-right:5px; display:inline-block; min-width:30px; }
 
-/* agent detail drawer (slides in from right within the org detail pane) */
-#org-agent-drawer {
-  position: absolute; top: 0; right: 0; height: 100%;
-  width: min(420px, 82%);
-  background: var(--surface); border-left: 1px solid var(--border);
-  box-shadow: -16px 0 44px -14px oklch(0% 0 0 / 0.5);
-  transform: translateX(101%);
-  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex; flex-direction: column; z-index: 40; min-width: 0;
+/* agent detail modal */
+#org-agent-drawer { display: none; position: fixed; inset: 0; z-index: 3000; background: oklch(0% 0 0 / 0.65); align-items: center; justify-content: center; }
+#org-agent-drawer.open { display: flex; }
+#oad-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 20px 60px -10px oklch(0% 0 0 / 0.5);
+  width: min(560px, 92vw); max-height: 88vh;
+  display: flex; flex-direction: column; overflow: hidden; min-width: 0;
 }
-#org-agent-drawer.open { transform: translateX(0); }
-@media (prefers-reduced-motion: reduce) { #org-agent-drawer { transition: none; } }
 #oad-head { display: flex; align-items: center; gap: 11px; padding: 16px 16px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .oad-avatar { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; background: var(--surface-hi); object-fit: cover; }
 .oad-avatar-wrap { position: relative; width: 46px; height: 46px; flex-shrink: 0; cursor: pointer; }
@@ -436,11 +427,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .role-v2:hover { transform: translateY(-1px); }
 .rv2-more { margin-top: 9px; font-size: 10.5px; color: var(--accent); opacity: 0.85; }
 
-/* org meta strip */
-.org-meta-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+/* org meta strip (cells reused inside #org-meta-modal) */
 .oms-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; }
 .oms-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-lo); margin-bottom: 4px; }
 .oms-val { font-size: 12px; color: var(--text-hi); word-break: break-word; line-height: 1.4; }
+
+/* org meta — condensed one-line summary, click for full detail */
+.org-meta-line { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 16px; cursor: pointer; overflow: hidden; }
+.org-meta-line:hover { background: var(--surface-hi); }
+.oml-item { display: flex; align-items: baseline; gap: 5px; min-width: 0; flex-shrink: 0; }
+.oml-item.goal { flex: 1 1 auto; min-width: 0; }
+.oml-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-lo); flex-shrink: 0; }
+.oml-val { font-size: 12px; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oml-sep { color: var(--text-lo); opacity: 0.5; flex-shrink: 0; }
+#org-meta-modal { display: none; position: fixed; inset: 0; z-index: 3000; background: oklch(0% 0 0 / 0.65); align-items: center; justify-content: center; }
+#org-meta-modal.open { display: flex; }
+#org-meta-modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: min(520px, 90vw); padding: 20px; display: flex; flex-direction: column; gap: 10px; max-height: 85vh; overflow-y: auto; }
 
 /* SVG org chart */
 .org-chart-wrap { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 12px; }
@@ -1417,6 +1419,13 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 #mem-modal-ta { width: 100%; height: 280px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 12px; color: var(--text-hi); resize: vertical; outline: none; overflow-y: auto; }
 #mem-modal-ta:focus { border-color: var(--accent); }
 .mem-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
+/* docs reader modal */
+#docs-modal { display: none; position: fixed; inset: 0; z-index: 3000; background: oklch(0% 0 0 / 0.65); align-items: center; justify-content: center; }
+#docs-modal.open { display: flex; }
+#docs-modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: min(820px, 94vw); padding: 20px; display: flex; flex-direction: column; gap: 12px; max-height: 88vh; }
+#docs-modal-title { font-size: 13px; font-weight: 600; color: var(--text-hi); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#docs-modal-body { overflow-y: auto; }
+.docs-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ── playbook view tabs ────────────────────────────────────── */
 .wf-pane { display: none; }
@@ -1970,9 +1979,8 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <button class="odt-btn" data-memtab="routing" onclick="switchMemTab('routing')">Routing</button>
           <button class="odt-btn" data-memtab="usage" onclick="switchMemTab('usage')">Usage</button>
           <button class="odt-btn" data-memtab="adrs" onclick="switchMemTab('adrs')">ADRs</button>
-          <button class="odt-btn" data-memtab="swarm" onclick="switchMemTab('swarm')">Swarm</button>
           <button class="odt-btn" data-memtab="chunks" onclick="switchMemTab('chunks')">Chunks</button>
-          <button class="odt-btn" data-memtab="agent-graph" onclick="switchMemTab('agent-graph')">Agent Graph</button>
+          <button class="odt-btn" data-memtab="docs" onclick="switchMemTab('docs')">Docs</button>
           <button class="odt-btn" data-memtab="store" onclick="switchMemTab('store')">Store</button>
         </div>
         <div id="mem-tab-memories">
@@ -1993,15 +2001,6 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <input class="filter-input" id="adr-filter" type="text" placeholder="Filter ADRs…" oninput="filterADRs(this.value)">
           </div>
           <div id="adr-content"><div class="loading-txt">Loading…</div></div>
-        </div>
-        <div id="mem-tab-swarm" style="display:none">
-          <div style="display:flex;height:380px;gap:0">
-            <div id="swarm-run-list" style="width:200px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;padding:6px"></div>
-            <div id="swarm-run-detail" style="flex:1;padding:14px;overflow-y:auto">
-              <div style="color:var(--text-lo);font-size:13px">Select a swarm run</div>
-            </div>
-          </div>
-          <button class="btn" style="margin-top:10px;color:var(--red);border-color:var(--red)" onclick="cleanSwarmData()">&#x232B; Clean Data</button>
         </div>
         <div id="mem-tab-chunks" style="display:none">
           <div class="chunk-stats-bar" id="chunk-stats-bar">
@@ -2028,14 +2027,13 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           </div>
           <div id="chunks-grid"></div>
         </div>
-        <div id="mem-tab-agent-graph" style="display:none">
-          <div id="ag-summary-bar" style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)"></div>
-          <div style="display:flex;gap:0;min-height:280px">
-            <div id="ag-sess-list" style="width:190px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding-right:8px"></div>
-            <div id="ag-detail" style="flex:1;padding:0 14px;overflow-y:auto">
-              <div style="color:var(--text-lo);font-size:13px;padding:20px 0">Select a session</div>
-            </div>
+        <div id="mem-tab-docs" style="display:none">
+          <div id="docs-stats-bar" style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)"></div>
+          <div class="filter-bar">
+            <input class="filter-input" type="text" id="docs-filter" placeholder="Filter by path…" oninput="filterDocs(this.value)" />
+            <button class="btn" onclick="_docsLoaded=false;loadDocsTab()" title="Refresh">↺</button>
           </div>
+          <div id="docs-grid"></div>
         </div>
         <div id="mem-tab-store" style="display:none">
           <div class="filter-bar" style="margin-bottom:6px;display:flex;gap:6px;align-items:center">
@@ -2129,9 +2127,11 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             </div>
           </div>
           <div id="org-import-input-wrap" style="display:none"><input type="file" id="org-import-file" accept=".json" style="display:none"></div>
-        <div id="org-agent-drawer" aria-hidden="true">
-          <div id="oad-head"></div>
-          <div id="oad-body"></div>
+        <div id="org-agent-drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Agent details" onclick="if(event.target===this)v2CloseAgent()">
+          <div id="oad-box">
+            <div id="oad-head"></div>
+            <div id="oad-body"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -2356,6 +2356,27 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     <div class="mem-modal-btns">
       <button class="btn" onclick="closeMemModal()">Cancel</button>
       <button class="btn" style="color:var(--accent);border-color:var(--accent)" onclick="saveMemModal()">Save</button>
+    </div>
+  </div>
+</div>
+<!-- docs reader modal -->
+<div id="docs-modal" onclick="if(event.target===this)closeDocModal()">
+  <div id="docs-modal-box">
+    <div id="docs-modal-title">Document</div>
+    <div id="docs-modal-body" class="gd-md"></div>
+    <div class="docs-modal-btns">
+      <button class="btn" onclick="closeDocModal()">Close</button>
+    </div>
+  </div>
+</div>
+<!-- org meta detail modal -->
+<div id="org-meta-modal" onclick="if(event.target===this)v2CloseMetaModal()">
+  <div id="org-meta-modal-box">
+    <div class="oms-cell"><div class="oms-lbl">Goal</div><div class="oms-val" id="omm-goal" style="color:var(--text-mid)"></div></div>
+    <div class="oms-cell"><div class="oms-lbl">Topology</div><div class="oms-val" id="omm-topo"></div></div>
+    <div class="oms-cell"><div class="oms-lbl">Created</div><div class="oms-val" id="omm-created" style="color:var(--text-mid)"></div></div>
+    <div class="docs-modal-btns">
+      <button class="btn" onclick="v2CloseMetaModal()">Close</button>
     </div>
   </div>
 </div>
@@ -2698,8 +2719,7 @@ function switchProject(path) {
   DIR = path;
   // Reset cached tab data on project change
   _chunksLoaded = false;
-  _agData = null;
-  _swarmRuns = [];
+  _docsLoaded = false;
   _memFiles = [];
   _selMemFilename = null;
   _editMemFilename = null;
@@ -3469,7 +3489,7 @@ function switchMemTab(tab) {
   _currentMemTab = tab;
   document.querySelectorAll('.mem-tab-bar .odt-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.memtab === tab));
-  ['memories','routing','usage','adrs','swarm','chunks','agent-graph','store'].forEach(t => {
+  ['memories','routing','usage','adrs','chunks','docs','store'].forEach(t => {
     const el = document.getElementById('mem-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
@@ -3477,9 +3497,8 @@ function switchMemTab(tab) {
   else if (tab === 'routing') loadMemRouting();
   else if (tab === 'usage') loadMemUsage();
   else if (tab === 'adrs') loadMemADRs();
-  else if (tab === 'swarm') loadSwarmTab();
   else if (tab === 'chunks') loadChunksTab();
-  else if (tab === 'agent-graph') loadAgentGraphTab();
+  else if (tab === 'docs') loadDocsTab();
   else if (tab === 'store') loadStoreEntries();
 }
 
@@ -6122,6 +6141,23 @@ function v2ToggleChartExpand(open) {
   }
 }
 
+// Recomputed from _v2OrgData at click time (not cached) so the modal never
+// shows a stale goal/topology/created after switching orgs.
+function v2OpenMetaModal() {
+  const d = _v2OrgData;
+  if (!d) return;
+  const goalText = d.goal || '—';
+  const topo = (d.topology || 'hierarchical').toLowerCase();
+  const created = d.created_at ? new Date(d.created_at).toLocaleDateString('en', {month:'short',day:'numeric',year:'numeric'}) : '—';
+  document.getElementById('omm-goal').textContent = goalText;
+  document.getElementById('omm-topo').textContent = topo;
+  document.getElementById('omm-created').textContent = created;
+  document.getElementById('org-meta-modal').classList.add('open');
+}
+function v2CloseMetaModal() {
+  document.getElementById('org-meta-modal').classList.remove('open');
+}
+
 function v2RenderOrgChart() {
   if (!_v2SelOrg) return;
   const d = _v2OrgData;
@@ -6180,6 +6216,11 @@ function v2RenderOrgChart() {
   // a node center) or edge-column bubbles clip against the chart border.
   const PAD_X = (_v2ChartExpanded || _crowded) ? Math.max(R + 20, 78) : R + 20;
   const PAD_Y = (_v2ChartExpanded || _crowded) ? R + 96 : R + 24;
+  // Space a node's label needs below its center before the viewBox clips it:
+  // the label rect is y=(R+14-11), height=26 when a subtype line is present,
+  // so its bottom edge sits at R+29 — plus a small cushion so labels never
+  // sit flush against the chart's bottom edge.
+  const LBL_BELOW = R + 29 + 8;
   const roleIds = new Set(roles.map(r => r.id));
   // all leaders at depth 0 (supports co-lead orgs)
   const leaders = roles.filter(_v2OrgIsLeader);
@@ -6205,7 +6246,7 @@ function v2RenderOrgChart() {
       pos[r.id] = { x, y: subY };
     });
     const _hasBothRows = leaders.length > 0 && subs.length > 0;
-    _layoutH = _hasBothRows ? PAD_Y + 220 + R + 8 : PAD_Y + R + 8;
+    _layoutH = _hasBothRows ? PAD_Y + 220 + LBL_BELOW : PAD_Y + LBL_BELOW;
   };
 
   if (!roles.length) {
@@ -6222,7 +6263,7 @@ function v2RenderOrgChart() {
       const a = (2 * Math.PI * i / n) - Math.PI / 2;
       pos[r.id] = { x: cx + rad * Math.cos(a), y: cy + rad * Math.sin(a) };
     });
-    _layoutH = Math.round(cy + rad + PAD_Y);
+    _layoutH = Math.round(cy + rad + LBL_BELOW);
   } else if (topo === 'ring' || topo === 'pipeline') {
     // linear sequence
     const usableW = W - PAD_X * 2;
@@ -6261,7 +6302,7 @@ function v2RenderOrgChart() {
       roles.forEach(r => layerOf[depth[r.id]].push(r));
 
       const LAYER_H = 110;
-      _layoutH = PAD_Y + maxDepth * LAYER_H + R + 24; // bottom row center + radius + margin
+      _layoutH = PAD_Y + maxDepth * LAYER_H + LBL_BELOW; // bottom row center + label space
 
       for (let d2 = 0; d2 <= maxDepth; d2++) {
         const layer = layerOf[d2];
@@ -6297,7 +6338,7 @@ function v2RenderOrgChart() {
       });
       const rows = Math.ceil(seq.length / perRow);
       W = PAD_X * 2 + (perRow - 1) * COL_W;
-      _layoutH = PAD_Y + (rows - 1) * ROW_H + R + 28;
+      _layoutH = PAD_Y + (rows - 1) * ROW_H + LBL_BELOW;
     }
   }
 
@@ -6406,10 +6447,12 @@ function v2RenderOrgChart() {
   // ── assemble HTML ─────────────────────────────────────
   // Expanded view: the chart owns the space — meta cards stay in the tab.
   pane.innerHTML = `
-    ${_v2ChartExpanded ? '' : `<div class="org-meta-strip">
-      <div class="oms-cell"><div class="oms-lbl">Goal</div><div class="oms-val" style="color:var(--text-mid);font-size:11px;line-height:1.4">${esc(goalText)}</div></div>
-      <div class="oms-cell"><div class="oms-lbl">Topology</div><div class="oms-val">${esc(topo)}</div></div>
-      <div class="oms-cell"><div class="oms-lbl">Created</div><div class="oms-val" style="color:var(--text-mid)">${esc(created)}</div></div>
+    ${_v2ChartExpanded ? '' : `<div class="org-meta-line" onclick="v2OpenMetaModal()" title="Click for full details">
+      <span class="oml-item goal"><span class="oml-lbl">Goal</span><span class="oml-val">${esc(goalText)}</span></span>
+      <span class="oml-sep">·</span>
+      <span class="oml-item"><span class="oml-lbl">Topology</span><span class="oml-val">${esc(topo)}</span></span>
+      <span class="oml-sep">·</span>
+      <span class="oml-item"><span class="oml-lbl">Created</span><span class="oml-val">${esc(created)}</span></span>
     </div>`}
     <div class="org-chart-wrap">
       ${_v2ChartExpanded ? '' : `<button class="v2-chart-expand" onclick="v2ToggleChartExpand(true)" title="Expand chart to full page" aria-label="Expand chart to full page">⛶</button>`}
@@ -10068,7 +10111,7 @@ document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (document.getElementById('cmd-palette').classList.contains('open')) return;
 
-  if (e.key === 'Escape') { closeDetail(); closeCmdPalette(); closeShortcutHelp(); closeMastermind(); closeBudgetModal(); if (document.getElementById('app').classList.contains('ambient')) toggleAmbient(); }
+  if (e.key === 'Escape') { closeDetail(); closeCmdPalette(); closeShortcutHelp(); closeMastermind(); closeBudgetModal(); closeDocModal(); v2CloseAgent(); v2CloseMetaModal(); if (document.getElementById('app').classList.contains('ambient')) toggleAmbient(); }
   if (e.key === '?') { e.preventDefault(); openShortcutHelp(); return; }
   if (e.key === 'm' || e.key === 'M') { e.preventDefault(); openMastermind(); return; }
   const _vkeys = { '1':'now','2':'sessions','3':'projects','4':'loops','5':'tokens','6':'memory','7':'orgs','8':'monograph','9':'global' };
@@ -13763,28 +13806,28 @@ async function loadStoreEntries() {
     if (ns) url += '&namespace=' + encodeURIComponent(ns);
     const data = await apiFetch(url);
     const entries = data.entries || [];
-    if (!entries.length) { grid.innerHTML = '<div class="empty">No entries' + (ns ? ' in namespace "' + escHtml(ns) + '"' : '') + '</div>'; return; }
+    if (!entries.length) { grid.innerHTML = '<div class="empty">No entries' + (ns ? ' in namespace "' + esc(ns) + '"' : '') + '</div>'; return; }
     let html = '<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Key</th><th>Namespace</th><th>Content</th><th>Tags</th><th>Updated</th><th></th></tr></thead><tbody>';
     for (const e of entries) {
-      const preview = escHtml((e.content || '').slice(0, 80)) + (e.content?.length > 80 ? '…' : '');
-      const tags = (e.tags || []).map(t => '<span style="background:var(--bg-hi);padding:1px 4px;border-radius:3px;font-size:10px">' + escHtml(t) + '</span>').join(' ');
+      const preview = esc((e.content || '').slice(0, 80)) + (e.content?.length > 80 ? '…' : '');
+      const tags = (e.tags || []).map(t => '<span style="background:var(--bg-hi);padding:1px 4px;border-radius:3px;font-size:10px">' + esc(t) + '</span>').join(' ');
       const updated = e.updatedAt ? new Date(e.updatedAt).toLocaleDateString() : '';
       const emb = e.hasEmbedding ? ' title="Has embedding"' : '';
       html += '<tr>';
-      html += '<td style="font-weight:500;white-space:nowrap"' + emb + '>' + (e.hasEmbedding ? '&#x25C9; ' : '') + escHtml(e.key) + '</td>';
-      html += '<td style="color:var(--text-lo)">' + escHtml(e.namespace) + '</td>';
+      html += '<td style="font-weight:500;white-space:nowrap"' + emb + '>' + (e.hasEmbedding ? '&#x25C9; ' : '') + esc(e.key) + '</td>';
+      html += '<td style="color:var(--text-lo)">' + esc(e.namespace) + '</td>';
       html += '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + preview + '</td>';
       html += '<td>' + tags + '</td>';
       html += '<td style="color:var(--text-lo);white-space:nowrap">' + updated + '</td>';
-      html += '<td style="white-space:nowrap"><button class="btn" style="font-size:10px;padding:1px 6px" onclick="viewStoreEntry(\'' + escHtml(e.key) + '\',\'' + escHtml(e.namespace) + '\')">View</button>';
-      html += ' <button class="btn" style="font-size:10px;padding:1px 6px;color:var(--red);border-color:var(--red)" onclick="deleteStoreEntry(\'' + escHtml(e.id || '') + '\',\'' + escHtml(e.key) + '\',\'' + escHtml(e.namespace) + '\')">Del</button></td>';
+      html += '<td style="white-space:nowrap"><button class="btn" style="font-size:10px;padding:1px 6px" onclick="viewStoreEntry(\'' + esc(e.key) + '\',\'' + esc(e.namespace) + '\')">View</button>';
+      html += ' <button class="btn" style="font-size:10px;padding:1px 6px;color:var(--red);border-color:var(--red)" onclick="deleteStoreEntry(\'' + esc(e.id || '') + '\',\'' + esc(e.key) + '\',\'' + esc(e.namespace) + '\')">Del</button></td>';
       html += '</tr>';
     }
     html += '</tbody></table>';
     grid.innerHTML = html;
     _storeLoaded = true;
   } catch (e) {
-    grid.innerHTML = '<div class="empty" style="color:var(--red)">Error: ' + escHtml(e.message) + '</div>';
+    grid.innerHTML = '<div class="empty" style="color:var(--red)">Error: ' + esc(e.message) + '</div>';
   }
 }
 
@@ -13801,20 +13844,20 @@ async function storeSearch() {
     if (ns) url += '&namespace=' + encodeURIComponent(ns);
     const data = await apiFetch(url);
     const results = data.results || [];
-    if (!results.length) { res.innerHTML = '<div class="empty">No results for "' + escHtml(q) + '"</div>'; return true; }
+    if (!results.length) { res.innerHTML = '<div class="empty">No results for "' + esc(q) + '"</div>'; return true; }
     let html = '<div class="m-group-title" style="margin-bottom:4px">Search results (' + results.length + ') <span style="font-size:10px;color:var(--text-xs);font-weight:400">' + (data.searchMethod || '') + ', ' + (data.searchTime || 0) + 'ms</span></div>';
     html += '<table class="tbl" style="width:100%;font-size:12px"><thead><tr><th>Key</th><th>Score</th><th>NS</th><th>Content</th></tr></thead><tbody>';
     for (const r of results) {
-      const preview = escHtml((r.content || '').slice(0, 100)) + (r.content?.length > 100 ? '…' : '');
-      html += '<tr><td style="font-weight:500">' + escHtml(r.key) + '</td>';
+      const preview = esc((r.content || '').slice(0, 100)) + (r.content?.length > 100 ? '…' : '');
+      html += '<tr><td style="font-weight:500">' + esc(r.key) + '</td>';
       html += '<td style="color:var(--text-lo)">' + (r.score?.toFixed(3) || '') + '</td>';
-      html += '<td style="color:var(--text-lo)">' + escHtml(r.namespace) + '</td>';
+      html += '<td style="color:var(--text-lo)">' + esc(r.namespace) + '</td>';
       html += '<td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + preview + '</td></tr>';
     }
     html += '</tbody></table>';
     res.innerHTML = html;
   } catch (e) {
-    res.innerHTML = '<div class="empty" style="color:var(--red)">Search error: ' + escHtml(e.message) + '</div>';
+    res.innerHTML = '<div class="empty" style="color:var(--red)">Search error: ' + esc(e.message) + '</div>';
   }
   return true;
 }
@@ -13863,167 +13906,6 @@ function openStoreNewModal() {
       loadStoreEntries();
     } else showToast('Error', d.error || 'Store failed', 'err');
   }).catch(e => showToast('Error', e.message, 'err'));
-}
-
-// ── swarm memory tab ───────────────────────────────────────
-let _swarmRuns = [];
-
-async function loadSwarmTab() {
-  const list = document.getElementById('swarm-run-list');
-  if (!list) return;
-  list.innerHTML = '<div class="loading-txt" style="padding:8px">Loading…</div>';
-  try {
-    const data = await apiFetch('/api/swarm-history?dir=' + enc(DIR));
-    _swarmRuns = Array.isArray(data) ? data : (data.runs || data.history || []);
-    _renderSwarmRunList();
-  } catch (e) {
-    list.innerHTML = '<div class="empty" style="padding:8px">Failed: ' + esc(e.message) + '</div>';
-  }
-}
-
-function _renderSwarmRunList() {
-  const list = document.getElementById('swarm-run-list');
-  if (!_swarmRuns.length) {
-    list.innerHTML = '<div style="padding:8px;color:var(--text-lo);font-size:12px">No swarm runs found</div>';
-    return;
-  }
-  list.innerHTML = _swarmRuns.map((r, i) => {
-    const topo = r.topology || 'hierarchical';
-    const live = r.status === 'running' || r.active;
-    return '<div class="swarm-run-row" onclick="selectSwarmRun(' + i + ')">' +
-      '<div style="display:flex;align-items:center;gap:5px">' +
-      '<span class="swarm-topo-pill">' + esc(topo) + '</span>' +
-      (live ? '<span class="swarm-live">⬤ LIVE</span>' : '') +
-      '</div>' +
-      '<div style="font-size:11px;color:var(--text-lo);margin-top:2px">' + (r.agentCount || 0) + ' agents · ' + relTime(r.startedAt || r.created_at) + '</div>' +
-      '</div>';
-  }).join('');
-}
-
-async function selectSwarmRun(idx) {
-  const run = _swarmRuns[idx];
-  if (!run) return;
-  document.querySelectorAll('.swarm-run-row').forEach((el, i) => el.classList.toggle('active', i === idx));
-  const detail = document.getElementById('swarm-run-detail');
-  if (!detail) return;
-  detail.innerHTML =
-    '<div style="margin-bottom:10px">' +
-      '<div style="font-size:13px;font-weight:600;color:var(--text-hi)">' + esc((run.swarmId || run.id || '—').toString().slice(0, 14)) + '</div>' +
-      '<div style="font-size:11px;color:var(--text-lo);margin-top:3px">' + esc(run.topology || '—') + ' · ' + (run.consensus ? esc(run.consensus) + ' vote-threshold' : '—') + ' · ' + (run.agentCount || 0) + ' agents</div>' +
-    '</div>' +
-    '<canvas id="swarm-topo-canvas" style="width:100%;max-width:380px;height:190px;display:block;border:1px solid var(--border);border-radius:6px;margin-bottom:12px"></canvas>' +
-    '<div id="swarm-agent-list" style="margin-bottom:10px"></div>' +
-    '<div id="swarm-event-log" style="font-size:11px;font-family:var(--mono);max-height:150px;overflow-y:auto"></div>';
-  _drawSwarmTopology(run);
-  _renderSwarmAgents(run);
-  _loadSwarmEvents(run.swarmId || run.id);
-}
-
-function _drawSwarmTopology(run) {
-  const canvas = document.getElementById('swarm-topo-canvas');
-  if (!canvas) return;
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.offsetWidth || 380, H = 190;
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  const agents = run.agents || Array.from({ length: Math.min(run.agentCount || 4, 12) }, (_, i) => ({ id: 'agent-' + i, type: 'worker' }));
-  const n = agents.length;
-  if (!n) return;
-  const topo = (run.topology || 'hierarchical').toLowerCase();
-  const cx = W / 2, cy = H / 2;
-  const pos = [];
-  if (topo.includes('hierarchical') || topo.includes('centralized')) {
-    pos.push({ x: cx, y: 28 });
-    const workers = agents.slice(1);
-    workers.forEach((_, i) => {
-      const spread = Math.min(W * 0.42, 160);
-      const x = cx + (workers.length > 1 ? (i / (workers.length - 1) - 0.5) * spread * 2 : 0);
-      pos.push({ x: x, y: H - 32 });
-    });
-  } else {
-    agents.forEach((_, i) => {
-      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-      const r = Math.min(W, H) * 0.36;
-      pos.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
-    });
-  }
-  ctx.strokeStyle = 'oklch(40% 0.006 75 / 0.35)'; ctx.lineWidth = 1;
-  if (topo.includes('hierarchical') || topo.includes('centralized')) {
-    for (let i = 1; i < pos.length; i++) {
-      ctx.beginPath(); ctx.moveTo(pos[0].x, pos[0].y); ctx.lineTo(pos[i].x, pos[i].y); ctx.stroke();
-    }
-  } else {
-    let drawn = 0;
-    for (let i = 0; i < n && drawn < 30; i++)
-      for (let j = i + 1; j < n && drawn < 30; j++, drawn++) {
-        ctx.beginPath(); ctx.moveTo(pos[i].x, pos[i].y); ctx.lineTo(pos[j].x, pos[j].y); ctx.stroke();
-      }
-  }
-  agents.forEach((ag, i) => {
-    const { x, y } = pos[i];
-    const isQ = i === 0 && (topo.includes('hierarchical') || topo.includes('centralized'));
-    const r = isQ ? 9 : 5;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = isQ ? 'oklch(72% 0.18 75)' : 'oklch(52% 0.008 75)';
-    ctx.fill();
-    ctx.fillStyle = isQ ? 'oklch(11% 0.009 55)' : 'oklch(90% 0.005 75)';
-    ctx.font = isQ ? 'bold 9px sans-serif' : '8px sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(isQ ? 'Q' : String(i), x, y);
-    if (!isQ) {
-      ctx.fillStyle = 'oklch(50% 0.006 75)';
-      ctx.font = '9px sans-serif';
-      ctx.fillText((ag.type || '').slice(0, 5), x, y + 14);
-    }
-  });
-}
-
-function _renderSwarmAgents(run) {
-  const el = document.getElementById('swarm-agent-list');
-  if (!el) return;
-  const agents = run.agents || [];
-  if (!agents.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="m-group-title" style="margin-bottom:4px">Agents</div>' +
-    agents.slice(0, 15).map(a =>
-      '<div style="display:flex;gap:10px;padding:3px 0;font-size:11px;border-bottom:1px solid var(--border)">' +
-        '<span style="color:var(--text-lo);font-family:var(--mono);min-width:70px">' + esc((a.id || '').toString().slice(0, 10)) + '</span>' +
-        '<span style="color:var(--text-hi)">' + esc(a.type || a.role || 'worker') + '</span>' +
-        '<span style="margin-left:auto;color:var(--text-xs)">' + esc(a.status || '—') + '</span>' +
-      '</div>'
-    ).join('');
-}
-
-async function _loadSwarmEvents(swarmId) {
-  if (!swarmId) return;
-  const el = document.getElementById('swarm-event-log');
-  if (!el) return;
-  try {
-    const data = await apiFetch('/api/swarm-events?agentId=' + enc(swarmId) + '&dir=' + enc(DIR));
-    const events = Array.isArray(data) ? data : (data.events || []);
-    if (!events.length) { el.innerHTML = ''; return; }
-    el.innerHTML = '<div class="m-group-title" style="margin-bottom:3px">Events</div>' +
-      events.slice(-40).map(e =>
-        '<div style="color:var(--text-lo);padding:2px 0;border-bottom:1px solid var(--border)">' +
-          esc(relTime(e.ts || e.timestamp)) + ' <span style="color:var(--text-mid)">' + esc(e.type || e.kind || '?') + '</span> ' +
-          esc((e.message || e.data || '').toString().slice(0, 70)) +
-        '</div>'
-      ).join('');
-    el.scrollTop = el.scrollHeight;
-  } catch (_) {}
-}
-
-async function cleanSwarmData() {
-  if (!confirm('Delete all swarm run data? This cannot be undone.')) return;
-  try {
-    await fetch('/api/swarm-clean?dir=' + enc(DIR), { method: 'DELETE' });
-    showToast('Cleaned', 'Swarm data deleted', 'ok');
-    _swarmRuns = [];
-    _renderSwarmRunList();
-    const detail = document.getElementById('swarm-run-detail');
-    if (detail) detail.innerHTML = '<div style="color:var(--text-lo);font-size:13px">Select a swarm run</div>';
-  } catch (e) { showToast('Error', e.message, 'err'); }
 }
 
 // ── chunks memory tab ──────────────────────────────────────
@@ -14244,113 +14126,75 @@ async function deleteChunk(id) {
   } catch (e) { showToast('Error', e.message, 'err'); }
 }
 
-// ── agent graph memory tab ─────────────────────────────────
-let _agData = null;
+// ── docs memory tab ─────────────────────────────────────────
+let _docsFiles = [], _docsLoaded = false;
 
-async function loadAgentGraphTab() {
-  if (_agData) { _renderAgSummary(); _renderAgSessList(); return; }
-  const bar = document.getElementById('ag-summary-bar');
+async function loadDocsTab() {
+  if (_docsLoaded) { _renderDocs(); return; }
+  const bar = document.getElementById('docs-stats-bar');
+  const grid = document.getElementById('docs-grid');
   if (bar) bar.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const data = await apiFetch('/api/graph?dir=' + enc(DIR));
-    // /api/graph returns {nodes, edges} — session nodes + agenttype nodes.
-    // Transform into the summary/sessions shape this tab renders.
-    const nodes = Array.isArray(data && data.nodes) ? data.nodes : [];
-    const sessNodes = nodes.filter(n => n.type === 'session').sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
-    const agNodes = nodes.filter(n => n.type === 'agenttype');
-    const sessions = sessNodes.map(n => ({
-      id: n.id,
-      turns: n.turns || 0,
-      spawnCount: Object.values(n.agentSpawns || {}).reduce((a, b) => a + b, 0),
-      toolCount: n.totalTools || 0,
-      tools: n.toolCounts || {},
-      agentTypes: n.agentSpawns || {},
-      cost: n.cost,
-    }));
-    _agData = {
-      sessions,
-      sessionCount: sessions.length,
-      agentTypes: agNodes.length,
-      totalSpawns: agNodes.reduce((a, n) => a + (n.totalSpawns || 0), 0),
-      totalToolCalls: sessions.reduce((a, s) => a + (s.toolCount || 0), 0),
-      totalCost: sessions.reduce((a, s) => a + (Number(s.cost) || 0), 0),
-    };
-    _renderAgSummary();
-    _renderAgSessList();
+    const data = await apiFetch('/api/docs?dir=' + enc(DIR));
+    _docsFiles = Array.isArray(data && data.files) ? data.files : [];
+    _docsLoaded = true;
+    _renderDocs();
   } catch (e) {
+    if (grid) grid.innerHTML = '';
     if (bar) bar.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>';
   }
 }
 
-function _renderAgSummary() {
-  const el = document.getElementById('ag-summary-bar');
-  if (!_agData || !el) return;
-  const d = _agData;
-  const stats = [
-    { l: 'Sessions',    v: d.sessionCount != null ? d.sessionCount : (d.sessions && d.sessions.length != null ? d.sessions.length : '—') },
-    { l: 'Agent Types', v: d.agentTypes   != null ? d.agentTypes   : '—' },
-    { l: 'Spawns',      v: d.totalSpawns  != null ? d.totalSpawns  : '—' },
-    { l: 'Tool Calls',  v: d.totalToolCalls != null ? Number(d.totalToolCalls).toLocaleString() : '—' },
-    { l: 'Total Cost',  v: d.totalCost    != null ? '$' + Number(d.totalCost).toFixed(3) : '—' },
-  ];
-  el.innerHTML = stats.map(s =>
+function _renderDocs() {
+  const bar = document.getElementById('docs-stats-bar');
+  const grid = document.getElementById('docs-grid');
+  if (bar) bar.innerHTML =
     '<div>' +
-      '<div style="font-size:10px;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.07em">' + esc(s.l) + '</div>' +
-      '<div style="font-size:16px;font-weight:700;color:var(--text-hi);font-family:var(--mono)">' + esc(String(s.v)) + '</div>' +
-    '</div>'
-  ).join('');
-}
-
-function _renderAgSessList() {
-  const el = document.getElementById('ag-sess-list');
-  if (!_agData || !el) return;
-  const sessions = _agData.sessions || [];
-  if (!sessions.length) { el.innerHTML = '<div class="empty" style="font-size:12px">No sessions</div>'; return; }
-  el.innerHTML = sessions.map((s, i) =>
-    '<div class="sess-row" style="margin-bottom:4px" onclick="selectAgSession(' + i + ')">' +
-      '<div class="sr-top">' +
-        '<div class="sr-prompt" style="font-size:11px">' + esc((s.id || s.file || '').slice(-16)) + '</div>' +
+      '<div style="font-size:10px;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.07em">Markdown Files</div>' +
+      '<div style="font-size:16px;font-weight:700;color:var(--text-hi);font-family:var(--mono)">' + _docsFiles.length + '</div>' +
+    '</div>';
+  if (!grid) return;
+  if (!_docsFiles.length) {
+    grid.innerHTML = '<div class="empty">No markdown files found.</div>';
+    return;
+  }
+  grid.innerHTML = _docsFiles.map(f => {
+    const sizeKb = ((f.size || 0) / 1024).toFixed(1) + ' KB';
+    return '<div class="chunk-card" style="cursor:pointer" data-search="' + esc(f.path.toLowerCase()) + '" onclick="openDocModal(' + JSON.stringify(f.path).replace(/"/g, '&quot;') + ')">' +
+      '<div class="chunk-src">' + esc(f.path) + '</div>' +
+      '<div class="chunk-footer" style="margin-top:3px">' +
+        '<span class="chunk-ns">' + esc(sizeKb) + '</span>' +
+        '<span style="font-size:11px;color:var(--text-lo)">' + esc(relTime(f.mtime)) + '</span>' +
       '</div>' +
-      '<div style="font-size:10px;color:var(--text-lo);margin-top:1px">' + (s.spawnCount || 0) + ' spawns · ' + (s.toolCount || 0) + ' tools</div>' +
-    '</div>'
-  ).join('');
+    '</div>';
+  }).join('');
 }
 
-function selectAgSession(idx) {
-  const s = (_agData && _agData.sessions || [])[idx];
-  if (!s) return;
-  document.querySelectorAll('#ag-sess-list .sess-row').forEach((el, i) => el.classList.toggle('active', i === idx));
-  const detail = document.getElementById('ag-detail');
-  if (!detail) return;
-  const agArr   = Object.entries(s.agentTypes || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
-  const toolArr = Object.entries(s.tools       || {}).sort((a, b) => b[1] - a[1]).slice(0, 15);
-  const maxAg   = agArr.length  ? Math.max(...agArr.map(x => x[1]))   : 1;
-  const maxTool = toolArr.length ? Math.max(...toolArr.map(x => x[1])) : 1;
-  detail.innerHTML =
-    '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12px">' +
-      '<span>Turns: <b>' + (s.turns || 0) + '</b></span>' +
-      '<span>Spawns: <b>' + (s.spawnCount || 0) + '</b></span>' +
-      '<span>Tools: <b>' + (s.toolCount || 0) + '</b></span>' +
-      (s.cost != null ? '<span style="color:var(--accent)">$' + Number(s.cost).toFixed(4) + '</span>' : '') +
-    '</div>' +
-    (agArr.length ? '<div class="m-group-title" style="margin-bottom:5px">Agent Types</div>' +
-      agArr.map(function(entry) {
-        var type = entry[0], count = entry[1];
-        return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">' +
-          '<div style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi)">' + esc(type) + '</div>' +
-          '<div style="flex:1;height:7px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:' + Math.round(count/maxAg*100) + '%;height:100%;background:var(--accent);border-radius:2px"></div></div>' +
-          '<div style="width:22px;text-align:right;color:var(--text-lo);font-size:11px;font-family:var(--mono)">' + count + '</div>' +
-        '</div>';
-      }).join('') : '') +
-    (toolArr.length ? '<div class="m-group-title" style="margin-bottom:5px;margin-top:14px">Top Tools</div>' +
-      toolArr.map(function(entry) {
-        var tool = entry[0], count = entry[1];
-        return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">' +
-          '<div style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi);font-family:var(--mono);font-size:11px">' + esc(tool) + '</div>' +
-          '<div style="flex:1;height:7px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:' + Math.round(count/maxTool*100) + '%;height:100%;background:oklch(62% 0.12 195);border-radius:2px"></div></div>' +
-          '<div style="width:22px;text-align:right;color:var(--text-lo);font-size:11px;font-family:var(--mono)">' + count + '</div>' +
-        '</div>';
-      }).join('') : '');
+function filterDocs(q) {
+  const lq = q.toLowerCase();
+  document.querySelectorAll('#docs-grid .chunk-card').forEach(el => {
+    el.style.display = (!lq || (el.dataset.search || '').includes(lq)) ? '' : 'none';
+  });
+}
+
+async function openDocModal(relPath) {
+  const modal = document.getElementById('docs-modal');
+  const title = document.getElementById('docs-modal-title');
+  const body = document.getElementById('docs-modal-body');
+  title.textContent = relPath;
+  body.innerHTML = '<div class="loading-txt">Loading…</div>';
+  modal.classList.add('open');
+  try {
+    const data = await apiFetch('/api/doc-read?dir=' + enc(DIR) + '&path=' + enc(relPath));
+    body.innerHTML = data && data.body ? renderDocMarkdown(data.body) : '<div class="empty">Empty document</div>';
+    body.scrollTop = 0;
+  } catch (e) {
+    body.innerHTML = '<div class="empty">Failed to load: ' + esc(e.message) + '</div>';
+  }
+}
+
+function closeDocModal() {
+  document.getElementById('docs-modal').classList.remove('open');
 }
 
 // ── Mastermind overlay ─────────────────────────────────────
