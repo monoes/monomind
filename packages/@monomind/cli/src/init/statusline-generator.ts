@@ -1174,6 +1174,39 @@ function generateStatusline() {
   return parts.join(\`  \${DIV}  \`);
 }
 
+// Neural Control Room liveness. Port comes from .monomind/control.json, written
+// by control-start.cjs when it spawns src/ui/server.mjs. No control.json means
+// the dashboard was never started in this project — caller hides the row.
+function getDashboardHealth() {
+  const ctl = readJSON(path.join(CWD, '.monomind', 'control.json'));
+  const port = ctl && Number(ctl.port);
+  if (!port) return { configured: false, port: 0, frontendUp: false, backendUp: false };
+  // One curl, two transfers (curl re-applies -w after each URL/-o pair) — half the
+  // process-spawn cost of two calls. The trailing space in '%{http_code} ' is what
+  // separates the two codes; without it they'd concatenate into "200401".
+  // curl's own --max-time fires before safeExec's outer timeout so a hung server
+  // yields curl's clean empty-string failure instead of an execSync kill.
+  const out = safeExec(
+    "curl -s --max-time 0.4 --connect-timeout 0.2 -w '%{http_code} '"
+    + " -o /dev/null http://127.0.0.1:" + port + "/"
+    + " -o /dev/null http://127.0.0.1:" + port + "/api/status",
+    900,
+  );
+  const codes = out.split(' ');
+  const back = Number(codes[1]);
+  return {
+    configured: true,
+    port: port,
+    // '/' is an open route (server.mjs _OPEN_ROUTES) — a real 200 proves the HTML
+    // bundle serves. Must be GET: HEAD / 404s, the handler only matches GET.
+    frontendUp: codes[0] === '200',
+    // /api/status is auth-gated (401 without a token) — any HTTP status at all
+    // proves the process is answering. Mirrors server.mjs's own unauthenticated
+    // liveness probe in writeDashboardToken() (fetch + no status check).
+    backendUp: back >= 100 && back <= 599,
+  };
+}
+
 // ── Multi-line dashboard (full mode) ─────────────────────────────
 function generateDashboard() {
   const git         = getGitInfo();
@@ -1321,6 +1354,18 @@ function generateDashboard() {
   if (alertParts.length > 0) {
     lines.push(SEP);
     lines.push(\`\${x.purple}⚙️  WORKERS\${x.reset}  \${alertParts.join(\`   \${DIV}   \`)}\`);
+  }
+
+  // ── Row: Neural Control Room liveness ──────────────────────
+  const dash = getDashboardHealth();
+  if (dash.configured) {
+    lines.push(SEP);
+    const fe = \`\${dot(dash.frontendUp ? 'good' : 'error')}\${x.slate} ui\${x.reset}\`;
+    const be = \`\${dot(dash.backendUp ? 'good' : 'error')}\${x.slate} api\${x.reset}\`;
+    const where = (dash.frontendUp || dash.backendUp)
+      ? \`\${x.dim}:\${dash.port}\${x.reset}\`
+      : \`\${x.coral}down :\${dash.port}\${x.reset}\`;
+    lines.push(\`\${x.purple}🖥  DASH\${x.reset}  \${fe}  \${be}   \${DIV}   \${where}\`);
   }
 
   return lines.join('\\n');
