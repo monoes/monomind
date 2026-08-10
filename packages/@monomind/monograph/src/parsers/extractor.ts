@@ -57,9 +57,10 @@ export function extractSymbols(
       const isActuallyMethod = isBothFunctionAndMethod
         ? config.classNodeTypes.has(node.parent?.parent?.type ?? '')
         : isMethod;
-      const label = isClass ? 'Class' : isStruct ? 'Struct' : isEnum ? 'Enum' :
+      const rawLabel = isClass ? 'Class' : isStruct ? 'Struct' : isEnum ? 'Enum' :
                     isInterface ? 'Interface' : isActuallyMethod ? 'Method' :
                     isConstructor ? 'Constructor' : 'Function';
+      const label = config.labelRefiner ? config.labelRefiner(node, rawLabel) : rawLabel;
       const id = nodeId(name, repoPath, label.toLowerCase());
       const isExported = config.exportDetector
         ? config.exportDetector(node, source)

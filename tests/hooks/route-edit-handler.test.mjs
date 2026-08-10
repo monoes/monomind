@@ -11,6 +11,13 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
+const _savedHookQuiet = process.env.MONOMIND_HOOK_QUIET;
+beforeEach(() => { delete process.env.MONOMIND_HOOK_QUIET; });
+afterEach(() => {
+  if (_savedHookQuiet !== undefined) process.env.MONOMIND_HOOK_QUIET = _savedHookQuiet;
+  else delete process.env.MONOMIND_HOOK_QUIET;
+});
+
 function makeHCtx(overrides = {}) {
   const cwd = overrides.CWD || os.tmpdir();
   return {

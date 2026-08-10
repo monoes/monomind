@@ -23,4 +23,10 @@ export const pythonConfig: LanguageConfig = {
     const moduleNode = node.childForFieldName('module_name') ?? node.child(1);
     return moduleNode?.text ?? null;
   },
+  exportDetector: (node, _source) => {
+    // Python convention: names starting with '_' are private.
+    const nameNode = node.childForFieldName('name');
+    const name = nameNode?.text ?? '';
+    return name.length > 0 && !name.startsWith('_');
+  },
 };

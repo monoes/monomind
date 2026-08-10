@@ -606,6 +606,10 @@ export async function bridgeSearchEntries(options: {
   dbPath?: string;
   /** Skip cross-encoder reranking even if the model is loaded. */
   skipRerank?: boolean;
+  /** When true, superseded knowledge chunks are kept in the results
+   *  (flagged by the caller). Default false — removed documents are
+   *  filtered out for security. */
+  includeSuperseded?: boolean;
 }): Promise<{
   success: boolean;
   results: {
@@ -636,10 +640,36 @@ export async function bridgeSearchEntries(options: {
     const namespace = options.namespace && options.namespace !== 'all' ? options.namespace : undefined;
     const startTime = Date.now();
 
+    // ── Knowledge removal support (issue #106) ──────────────────────
+    // Pre-compute live document hashes for knowledge namespaces so we can
+    // (a) over-fetch to compensate for superseded entries being filtered,
+    // (b) filter them out after retrieval — ensuring removed documents
+    //     are invisible to EVERY caller, not just searchKnowledge.
+    // Dynamic import breaks the circular dependency: document-pipeline
+    // imports getProjectRoot from this module.
+    let _knowledgeLive: Set<string> | null = null;
+    let _knowledgeHasMeta = false;
+    let _isSupersededKey: ((key: string, live: Set<string>, metaPresent: boolean) => boolean) | null = null;
+    const knowledgeFilterActive = namespace?.startsWith('knowledge:') && !options.includeSuperseded;
+    if (knowledgeFilterActive) {
+      try {
+        const dp = await import('../knowledge/document-pipeline.js');
+        const rootDir = options.dbPath === GLOBAL_BRAIN
+          ? getGlobalBrainDir() : getProjectRoot();
+        _knowledgeLive = dp.liveContentHashes(rootDir);
+        _knowledgeHasMeta = dp.hasKnowledgeMetadata(rootDir);
+        _isSupersededKey = dp.isSupersededKey;
+      } catch { /* non-fatal: skip filtering when pipeline is unavailable */ }
+    }
+
     // Over-retrieve when the reranker is available: fetch more candidates so the
     // cross-encoder can reshuffle them. The reranker trims back to `limit`.
+    // For knowledge namespaces, also over-fetch to compensate for superseded
+    // document versions that will be filtered out below.
     const rerankerActive = !options.skipRerank && _reranker !== null && process.env.MONOMIND_RERANKER !== '0';
-    const retrieveK = rerankerActive ? Math.min(limit * 3, 20) : limit;
+    const knowledgeLimit = (_knowledgeLive && _knowledgeLive.size > 0)
+      ? Math.min(Math.max(limit * 20, limit), 300) : limit;
+    const retrieveK = rerankerActive ? Math.min(knowledgeLimit * 3, Math.max(20, knowledgeLimit)) : knowledgeLimit;
 
     let results: any[] = [];
     let searchMethod: 'semantic' | 'keyword' | 'keyword-fallback' = 'keyword';
@@ -788,6 +818,19 @@ export async function bridgeSearchEntries(options: {
         || !r._createdAt || r._createdAt > staleCutoff);
     }
     results.forEach((r: any) => delete r._createdAt);
+
+    // ── Knowledge superseded filtering (issue #106) ─────────────────
+    // Remove document chunks whose content hash is no longer current
+    // (i.e. the document was removed via `knowledge_remove` or replaced
+    // by a newer ingest). This runs inside the bridge so every caller —
+    // embeddings_search, CLI `memory search`, and searchKnowledge — gets
+    // the same removal guarantee.
+    if (_knowledgeLive && _isSupersededKey && results.length > 0) {
+      results = results.filter((r: any) =>
+        !_isSupersededKey!(String(r.key ?? ''), _knowledgeLive!, _knowledgeHasMeta));
+      // Trim back to the originally requested limit after overfetch.
+      if (results.length > limit) results = results.slice(0, limit);
+    }
 
     // ── Cross-encoder reranking ──────────────────────────────────────
     // Fires only when: reranker loaded, >1 result, not explicitly skipped.

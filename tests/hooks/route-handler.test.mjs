@@ -14,6 +14,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const RH_PATH = path.resolve(__dirname, '../../.claude/helpers/handlers/route-handler.cjs');
 
+const _savedHookQuiet = process.env.MONOMIND_HOOK_QUIET;
+
 function loadRH() {
   delete require.cache[RH_PATH];
   return require(RH_PATH);
@@ -22,10 +24,13 @@ function loadRH() {
 let tmpDir;
 
 beforeEach(() => {
+  delete process.env.MONOMIND_HOOK_QUIET;
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rh-test-'));
 });
 
 afterEach(() => {
+  if (_savedHookQuiet !== undefined) process.env.MONOMIND_HOOK_QUIET = _savedHookQuiet;
+  else delete process.env.MONOMIND_HOOK_QUIET;
   fs.rmSync(tmpDir, { recursive: true, force: true });
   vi.restoreAllMocks();
 });

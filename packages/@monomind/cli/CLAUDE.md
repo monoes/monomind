@@ -198,7 +198,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `hooks`     | 29          | Self-learning hooks + 15 background workers                              | Working         |
+| `hooks`     | 29          | Self-learning hooks + 8 background workers                               | Working         |
 | `org`       | 31          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, memory [stats\|search\|rules\|rollback], costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [alias of replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
@@ -300,7 +300,7 @@ package was deleted:
 - Path traversal prevention utilities
 - Command injection protection utilities
 
-## Hooks System (29 Hook Subcommands + 15 Background Workers)
+## Hooks System (29 Hook Subcommands + 8 Background Workers)
 
 Full hook list with flags: `npx monomind@latest hooks list`. Worker list: `npx monomind@latest hooks worker list` (run one on demand with `hooks worker run <name>`). The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their output file is missing or older than 6 hours.
 
@@ -504,7 +504,7 @@ It includes:
 
 - Agent type definitions with recommendations
 - All 32 CLI commands
-- All 29 hook subcommands + 15 background workers (@monoes/hooks)
+- All 29 hook subcommands + 8 background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, agentic-jujutsu)

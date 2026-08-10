@@ -264,6 +264,14 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.Low,
     timeout: 30_000,
   },
+  'progress': {
+    name: 'progress',
+    description: 'Implementation metrics — writes .monomind/metrics/progress.json',
+    interval: 21_600_000,
+    enabled: false,
+    priority: WorkerPriority.Normal,
+    timeout: 30_000,
+  },
 };
 
 // Worker alias map (legacy daemon-era alias → canonical internal name).

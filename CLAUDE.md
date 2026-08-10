@@ -67,8 +67,8 @@
 - **Topology**: hierarchical-mesh
 - **Max Agents**: 15
 - **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
+- **HNSW**: Available (fallback path only)
+- **Neural**: Disabled (keyword routing only)
 
 ## Build & Test
 
@@ -143,7 +143,7 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 | `memory` | 12 | SQLite memory with ANN search |
 | `task` | 5 | Task creation and lifecycle |
 | `session` | 6 | Session state management |
-| `hooks` | 29 | Self-learning hooks + 15 background workers _(unavailable in this install)_ |
+| `hooks` | 29 | Self-learning hooks + 8 background workers _(unavailable in this install)_ |
 
 > Note: there is no `hive-mind` or `neural` CLI command. Hive-mind
 > consensus (byzantine/raft/quorum) is available exclusively via MCP tools

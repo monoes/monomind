@@ -9,3 +9,6 @@ class UserService:
 
 def helper_fn(x: int) -> int:
     return x * 2
+
+def _private_fn(y: int) -> int:
+    return y + 1

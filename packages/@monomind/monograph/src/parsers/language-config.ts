@@ -6,6 +6,10 @@ export interface ExportDetector {
   (node: import('tree-sitter').SyntaxNode, sourceText: string): boolean;
 }
 
+export interface LabelRefiner {
+  (node: import('tree-sitter').SyntaxNode, defaultLabel: string): import('../types.js').NodeLabel;
+}
+
 export interface LanguageConfig {
   name: string;
   extensions: string[];
@@ -25,4 +29,5 @@ export interface LanguageConfig {
   packageScopeType?: string;
   importExtractor?: ImportExtractor;
   exportDetector?: ExportDetector;
+  labelRefiner?: LabelRefiner;
 }

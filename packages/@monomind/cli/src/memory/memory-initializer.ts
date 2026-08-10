@@ -151,57 +151,6 @@ export interface MemoryInitResult {
   error?: string;
 }
 
-/**
- * ADR-053: Activate ControllerRegistry so memory-backend controllers
- * (ReasoningBank, SkillLibrary, ExplainableRecall, etc.) are instantiated.
- *
- * Uses the memory-bridge's getControllerRegistry() which lazily creates
- * a singleton ControllerRegistry and initializes it with the given dbPath.
- * After this call, all enabled controllers are ready for immediate use.
- *
- * Failures are isolated: if @monomind/memory or the SQLite backend is not
- * available, this returns an empty result without throwing.
- */
-async function activateControllerRegistry(
-  dbPath: string,
-  verbose?: boolean,
-): Promise<{ activated: string[]; failed: string[]; initTimeMs: number }> {
-  const startTime = performance.now();
-  const activated: string[] = [];
-  const failed: string[] = [];
-
-  try {
-    const bridge = await getBridge();
-    if (!bridge) {
-      return { activated, failed, initTimeMs: performance.now() - startTime };
-    }
-
-    const registry = await bridge.getControllerRegistry(dbPath);
-    if (!registry) {
-      return { activated, failed, initTimeMs: performance.now() - startTime };
-    }
-
-    // Collect controller status from the registry
-    if (typeof registry.listControllers === 'function') {
-      const controllers = registry.listControllers();
-      for (const ctrl of controllers) {
-        if (ctrl.enabled) {
-          activated.push(ctrl.name);
-        } else {
-          failed.push(ctrl.name);
-        }
-      }
-    }
-
-    if (verbose && activated.length > 0) {
-      console.log(`ControllerRegistry: ${activated.length} controllers activated`);
-    }
-  } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[activateControllers] ControllerRegistry activation failed:', e);
-  }
-
-  return { activated, failed, initTimeMs: performance.now() - startTime };
-}
 
 /**
  * Initialize the memory database properly using sql.js
@@ -297,10 +246,6 @@ export async function initializeMemoryDatabase(options: {
       fs.writeFileSync(schemaTmp, MEMORY_SCHEMA + '\n' + getInitialMetadata(backend));
       fs.renameSync(schemaTmp, schemaPath);
 
-      // ADR-053: Activate ControllerRegistry so controllers (ReasoningBank,
-      // SkillLibrary, ExplainableRecall, etc.) are instantiated during init
-      const controllerResult = await activateControllerRegistry(dbPath, verbose);
-
       return {
         success: true,
         backend,
@@ -339,7 +284,6 @@ export async function initializeMemoryDatabase(options: {
           hnswIndexing: true,
           migrationTracking: true
         },
-        controllers: controllerResult,
       };
     } else {
       // R2: sql.js is missing. The previous code wrote a hand-crafted 4 KB

@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type { InitOptions } from './types.js';
-import { detectPlatform, DEFAULT_INIT_OPTIONS } from './types.js';
+import { DEFAULT_INIT_OPTIONS } from './types.js';
 import { generateSettings } from './settings-generator.js';
 import { generateStatuslineScript } from './statusline-generator.js';
 import {
@@ -48,15 +48,9 @@ export interface UpgradeResult {
  */
 function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<string, unknown> {
   const merged = { ...existing };
-  const platform = detectPlatform();
-  const isWindows = platform.os === 'windows';
 
-  // Platform-specific command wrappers
-  // Windows: Use PowerShell-compatible commands
-  // Mac/Linux: Use bash-compatible commands with 2>/dev/null
-  // NOTE: teammateIdleCmd and taskCompletedCmd were removed.
-  // TeammateIdle/TaskCompleted are not valid Claude Code hook events and caused warnings.
-  // Agent Teams hook config lives in monomind.agentTeams.hooks instead.
+  // Hook commands now use portable `node` (from PATH) instead of
+  // platform-specific wrappers — see settings-generator.ts.
 
   // 1. Merge env vars (preserve existing, add new)
   const existingEnv = (existing.env as Record<string, string>) || {};
