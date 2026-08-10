@@ -2,53 +2,14 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.9.2] — 2026-08-09
+
+### PDF engine swap + post-init document ingestion
+
+- **Replace pdf-parse with @firecrawl/pdf-inspector** — native Rust PDF extraction via napi-rs. Produces markdown output with headings, tables, and multi-column detection instead of plain text. ~47KB + platform binary vs 21MB for pdf-parse. Affects both Second Brain ingestion (`cap-documents.ts`) and knowledge graph indexing (`monograph/pdf-parse.ts`).
+- **Post-init document ingestion prompt** — both `monomind init` and `monomind init --wizard` now ask whether to ingest documents into the knowledge graph (Second Brain) immediately after initialization.
+
 ## [2.9.1] — 2026-08-09
-
-### Critical + quick-win fixes from a 28-agent full-codebase audit
-
-Driven by a 28-agent parallel audit spanning every package (166 raw findings, deduped to 30 defects + 8 value opportunities + 12 quick wins). This release closes the 5 findings scored critical and 9 of the 12 quick wins (3 more were folded into the critical fixes below, since they targeted the same lines).
-
-**Test results:** cli package — CI had never once passed (see below), so there is no prior baseline; first clean run is **1721 passed / 1 skipped / 0 failed** (+26 new regression tests this release). hooks package: 58/58. monodesign package: 1029 tests, 1020 passed / 9 skipped / 0 failed (+2 new). monograph: unaffected, 34/34 impact-suite tests still pass.
-
-#### 🔒 Security
-
-- **CI had never actually passed** — `packages/@monomind/cli/tsconfig.json`'s project references omitted its own `@monoes/monograph` workspace dependency, so `tsc` failed with ~70 `TS2307` errors before any test executed. Confirmed via `gh run list`: 29 of the last 30 workflow runs failed at this exact step. Every fix merged since the workflow's creation — including every other fix in this release — shipped with zero automated regression coverage until now. Fixed by adding the missing project reference.
-- **Org runtime's human-approval gate never fired on any real path.** `canUseTool` (the SDK's actual per-tool-call gate) delegated entirely to `PolicyEngine.decide()`, which has no concept of "pause for a human" — the approval hook (`checkApproval`/`beforeTool`) was only ever invoked from the `org_send` tool's own handler, hardcoded to check the literal action name `'org_send'` (not in the sensitive-actions list, so always a no-op). Bash/WebFetch/WebSearch/`org_complete` never consulted the gate at all. Separately, `org approve`/`org deny` compared the CLI's raw action argument against the stored record's `question` field (a full sentence) instead of its `action` field (the raw name), so a real invocation like `org approve myorg boss Bash` could never match a pending entry. Fixed: `canUseTool` now composes policy's static checks with the approval gate (extracted as `gatedCanUseTool`, exported for testability); `org approve`/`org deny` compare the correct field and gained a live-daemon HTTP path (`/api/set-approval`, mirroring `gate-approve`/`answer`) instead of only ever writing `approvals.json` offline. 15 new regression tests.
-- **`detect-secrets` MCP tool leaked the raw secret it just found.** Every finding's `context` field was the full, unescaped source line sitting next to the deliberately masked value — handing back exactly what masking exists to hide. `targetPath` also had no path validation, so a caller (or an agent following injected instructions) could point it at `~/.aws` or any other readable path. Fixed: `context` is now redacted the same way `masked` is built, and `targetPath` is validated via the shared `utils/input-guards.ts` entry point. 4 new tests.
-- **Unauthenticated dashboard endpoint relayed arbitrary attacker JSON into unescaped `innerHTML`.** `POST /api/mastermind/event` on the monobrowse workflow dashboard (`browser/dashboard/server.ts`) only checked that the body parsed as JSON, then broadcast it verbatim to every connected WebSocket client; `ui.html` wrote several fields unescaped into `innerHTML`, including one spliced into a single-quoted JS string inside an inline `onclick` handler (a JS-string breakout, not just HTML injection). Fixed: the endpoint now validates the body against the real `StepEvent` schema and rejects cross-origin `Origin` headers before broadcasting; `ui.html` escapes every field and the stop button uses a `data-run-id` attribute + a delegated listener instead of building `onclick="stopRun('...')"` from attacker-controlled text. 7 new tests.
-- **monodesign's live-preview server handed out its own auth token via an unauthenticated route.** `/live.js` had no bearer-token check (every other route already had one) and its response embedded the token verbatim — requesting that one route defeated every other route's gate. `/source?path=` also had a lexical-only (no `fs.realpathSync`) containment check, the same symlink-escape class already fixed correctly elsewhere in the same package. Fixed: `/live.js` now requires the token (threaded through `live-inject.mjs` and the SvelteKit adapter, which construct the injected `<script src>` tag), and `/source` resolves symlinks on both sides before comparing. 4 new/updated tests.
-- **Two dashboard files rendered attacker-influenceable strings unescaped into HTML.** `dashboard.html`'s org-role avatar renderer spliced `role.avatar` into `href`/`src` attributes with no escaping at 3 call sites; `orgs.html`'s artifact "View" button built `onclick="viewArtifact(${JSON.stringify(art.path)},...)"` — `JSON.stringify` escapes for a JS-string context, not an HTML-attribute context, so a literal quote in the path broke out of the attribute. Fixed: avatars go through the existing `esc()` helper; the artifact button uses `data-path`/`data-label` attributes + a direct listener instead of building `onclick` from a JSON-stringified path.
-- **A bypassable symlink path-containment pattern recurred in the cache-eviction worker.** `worker-cache.ts` used the lexical-only `safePath()` to validate `.monomind/cache`/`.monomind/temp` before a *recursive delete* — if either were a symlink pointing outside the project root, `fs.rm(..., {recursive:true})` would follow it. Fixed: switched to the already-correct, already-existing `safePathAsync()` (realpaths both sides before comparing). 1 new test proving files outside the project root survive.
-
-#### 🧱 Robustness
-
-- **Memory-bridge backend eviction called a nonexistent method, leaking a SQLite connection per eviction.** The LRU-style eviction path called `.close?.()`; neither backend class exposes `close()`, only `shutdown()` (the method `shutdownBridge()` already used correctly two functions away). Because the call used optional chaining, the nonexistent-method call silently resolved to `undefined` — every 6th distinct database path opened in one process leaked the oldest slot's connection for the process lifetime. One-line fix.
-
-#### 🚀 Performance
-
-- **`impact.ts` had its own unbatched `getNodesByIds`**, building one `WHERE id IN (...)` query per call regardless of size — a wide-fan-in node's caller list could exceed SQLite's variable-count limit and crash the query. `storage/node-store.ts` already exports a correctly-batched version (50 IDs per query). Deduped: `impact.ts` now imports the shared implementation instead of shadowing it with its own.
-
-#### 📦 Packaging & repo hygiene
-
-- **`@monoes/monograph` shipped with no `files` allowlist** — 2181 files / 5.5MB including raw source and test directories on every install. Added `"files": ["dist", "README.md"]`, matching every sibling package's convention. Unpacked size: 5.5MB → 3.4MB.
-- **`nanoid` had no override pinning it past a known-vulnerable resolved version** (3.3.16) — the one gap in an otherwise 25-entry `pnpm.overrides` list. Added `"nanoid": ">=3.3.17"` to both `overrides` and `pnpm.overrides`; resolves to `6.0.1`.
-- **`.gitignore`'s bare `monomind` pattern (two occurrences) matched any path component named exactly "monomind," anywhere in the tree** — not just the intended root-level scratch directory. It was silently excluding `packages/@monomind/cli/.claude/skills/monomind/` (a real, already-tracked skill directory) from ever being re-added if removed. Anchored both to `/monomind`.
-- **10 stale, month-old `.monograph/cache/churn-*.json` files were still tracked in git** — committed 2026-07-09, three days before a directory-level `.monograph/` gitignore rule was added on 2026-07-12, which (correctly) never retroactively untracked already-committed files. Removed from tracking with `git rm --cached`; the files themselves are untouched on disk.
-
-#### 📝 Docs
-
-- **README's Trust & Security table claimed the license is MIT** — contradicted by `LICENSE`, both `package.json` files, and the same README's own header and footer three lines away. Corrected to Apache 2.0.
-
-#### 📋 Only partially addressed
-
-Two fixes above close one instance of a pattern the audit found repeated more broadly — worth flagging so they don't read as fully resolved:
-
-- **The symlink-containment fix only covers `worker-cache.ts`.** The audit found the same lexical-only `path.resolve()`/`startsWith()` pattern in ~9 other places (`ui/server.mjs`'s `PUT /api/memory-file`, `ui/routes-org.mjs`, `@monomind/mcp`'s `resource-registry.ts`, `services/config-file-manager.ts`, and a few read-only sites), several backing real write/delete operations — those remain open.
-- **The README fix only corrects the license line.** The same defect also covers a documented `/mastermind:approve` slash command that doesn't exist, `monomind init` writing "HNSW: Enabled"/"Neural: Enabled" into every new project's `CLAUDE.md` despite the CLI's own docs saying otherwise, and a raft-consensus description that contradicts the project's own concept doc — those remain open.
-
-The other 23 non-critical defects and all 8 value/product opportunities the audit surfaced are untouched by this release.
-
----
 
 ## [2.9.0] — 2026-08-06
 
