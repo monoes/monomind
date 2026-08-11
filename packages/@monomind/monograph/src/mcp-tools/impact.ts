@@ -1,24 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
-import { getNodesByIds } from '../storage/node-store.js';
-
-// ── Row → MonographNode mapper ─────────────────────────────────────────────────
-
-function rowToNode(row: Record<string, unknown>): MonographNode {
-  return {
-    id: row.id as string,
-    label: row.label as MonographNode['label'],
-    name: row.name as string,
-    normLabel: row.norm_label as string,
-    filePath: row.file_path as string | undefined,
-    startLine: row.start_line as number | undefined,
-    endLine: row.end_line as number | undefined,
-    communityId: row.community_id as number | undefined,
-    isExported: (row.is_exported as number) === 1,
-    language: row.language as string | undefined,
-    properties: row.properties ? JSON.parse(row.properties as string) : undefined,
-  };
-}
+import { getNodesByIds, rowToNode } from '../storage/node-store.js';
 
 // ── Risk level ─────────────────────────────────────────────────────────────────
 
@@ -67,12 +49,17 @@ function reverseBfs(
   // reports "0 symbols affected, risk LOW" for changes that are anything but low
   // risk. Callers that need the old narrow/fast behavior can still pass
   // relationTypes: ['CALLS'] explicitly.
-  const relations = options.relationTypes ?? ['CALLS', 'IMPORTS', 'REFERENCES', 'EXTENDS', 'RE_EXPORTS'];
+  const relations = options.relationTypes ?? [
+    'CALLS',
+    'IMPORTS',
+    'REFERENCES',
+    'EXTENDS',
+    'RE_EXPORTS',
+  ];
   const placeholders = relations.map(() => '?').join(',');
   const baseQuery = `SELECT source_id FROM edges WHERE target_id = ? AND relation IN (${placeholders})`;
-  const query = options.minConfidenceScore !== undefined
-    ? `${baseQuery} AND confidence_score >= ?`
-    : baseQuery;
+  const query =
+    options.minConfidenceScore !== undefined ? `${baseQuery} AND confidence_score >= ?` : baseQuery;
 
   const stmt = db.prepare(query);
 
@@ -111,13 +98,20 @@ export function getMonographImpact(
       .prepare('SELECT * FROM nodes WHERE name = ? AND file_path = ? LIMIT 1')
       .get(input.name, input.filePath) as Record<string, unknown> | undefined;
   } else {
-    nodeRow = db
-      .prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1')
-      .get(input.name) as Record<string, unknown> | undefined;
+    nodeRow = db.prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1').get(input.name) as
+      | Record<string, unknown>
+      | undefined;
   }
 
   if (!nodeRow) {
-    return { node: null, directCallers: [], transitiveCallers: [], affectedFiles: [], riskScore: 0, riskLevel: 'LOW' };
+    return {
+      node: null,
+      directCallers: [],
+      transitiveCallers: [],
+      affectedFiles: [],
+      riskScore: 0,
+      riskLevel: 'LOW',
+    };
   }
 
   const node = rowToNode(nodeRow);
@@ -157,16 +151,22 @@ function extractCallerResult(
     transitiveCallers.push({ depth, nodes: getNodesByIds(db, byDepth.get(depth)!) });
   }
 
-  const allAffectedNodes = [...directCallers, ...transitiveCallers.flatMap(t => t.nodes)];
-  const affectedFiles = [...new Set(
-    allAffectedNodes.map(n => n.filePath).filter((p): p is string => p != null),
-  )];
+  const allAffectedNodes = [...directCallers, ...transitiveCallers.flatMap((t) => t.nodes)];
+  const affectedFiles = [
+    ...new Set(allAffectedNodes.map((n) => n.filePath).filter((p): p is string => p != null)),
+  ];
 
   const totalCallerCount = visited.size - 1; // exclude start node
   const rawScore = Math.min(Math.log2(totalCallerCount + 1), 10);
   const riskScore = rawScore / 10;
 
-  return { directCallers, transitiveCallers, affectedFiles, riskScore, riskLevel: computeRiskLevel(riskScore) };
+  return {
+    directCallers,
+    transitiveCallers,
+    affectedFiles,
+    riskScore,
+    riskLevel: computeRiskLevel(riskScore),
+  };
 }
 
 // ── id-based impact with filtering options ────────────────────────────────────
@@ -178,12 +178,19 @@ export async function monographImpact(
 ): Promise<MonographImpactResult> {
   const maxDepth = Math.min(options.maxDepth ?? 3, 6);
 
-  const nodeRow = db
-    .prepare('SELECT * FROM nodes WHERE id = ? LIMIT 1')
-    .get(nodeId) as Record<string, unknown> | undefined;
+  const nodeRow = db.prepare('SELECT * FROM nodes WHERE id = ? LIMIT 1').get(nodeId) as
+    | Record<string, unknown>
+    | undefined;
 
   if (!nodeRow) {
-    return { node: null, directCallers: [], transitiveCallers: [], affectedFiles: [], riskScore: 0, riskLevel: 'LOW' };
+    return {
+      node: null,
+      directCallers: [],
+      transitiveCallers: [],
+      affectedFiles: [],
+      riskScore: 0,
+      riskLevel: 'LOW',
+    };
   }
 
   const node = rowToNode(nodeRow);

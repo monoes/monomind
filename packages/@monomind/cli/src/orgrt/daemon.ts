@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
 import { readFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { join, isAbsolute } from 'node:path';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
@@ -12,16 +12,37 @@ import { runAgentSession } from './session.js';
 import { attachForwarder } from './forwarder.js';
 import { BrokerLease, normalizeCredential } from './broker.js';
 import { drainInbox } from './inbox.js';
-import { OrgDefSchema, type OrgDef, type OrgRole, type BusEvent, type DecisionGate, ORG_DIR } from './types.js';
+import {
+  OrgDefSchema,
+  type OrgDef,
+  type OrgRole,
+  type BusEvent,
+  type DecisionGate,
+  ORG_DIR,
+} from './types.js';
 import { TaskDag } from './task-dag.js';
-import { summarizeRun, readRunEvents, readHistory, historyFile, type RunSummary } from './reporting.js';
+import {
+  summarizeRun,
+  readRunEvents,
+  readHistory,
+  historyFile,
+  type RunSummary,
+} from './reporting.js';
 import { getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentRunner } from './agent-runner.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
+import { VercelAgentRunner } from './vercel-runner.js';
+import { CodexAgentRunner } from './codex-runner.js';
+import { AntigravityAgentRunner } from './antigravity-runner.js';
 import { captureCheckpoint, type OrgCheckpoint } from './checkpoint.js';
-import { loadGlobalFenceConfig, mergeFenceConfigs, createFenceForRole, type RoleFence } from './fence.js';
+import {
+  loadGlobalFenceConfig,
+  mergeFenceConfigs,
+  createFenceForRole,
+  type RoleFence,
+} from './fence.js';
 
 // ── Extracted module imports ────────────────────────────────────────────
 import * as approvalOps from './approvals.js';
@@ -37,7 +58,9 @@ class OtelTracer {
   private enabled = false;
   private spans = new Map<string, { start: number; metadata: Record<string, unknown> }>();
 
-  enable(): void { this.enabled = true; }
+  enable(): void {
+    this.enabled = true;
+  }
 
   startSpan(name: string, metadata: Record<string, unknown> = {}): void {
     if (!this.enabled) return;
@@ -67,32 +90,70 @@ const COMPLETE_DRAIN_MS = 5 * 60_000;
 
 /** Resolve which AgentRunner hosts an org's role sessions.
  *  Precedence: role `runtime` field > org def `runtime` field >
- *  MONOMIND_RUNTIME env > undefined (the default path, where session.ts
- *  falls back to ClaudeAgentRunner). Returning undefined for the default
- *  path keeps Claude/Antigravity orgs byte-for-byte unchanged. Callers
- *  pass `role.runtime ?? def.runtime` as `orgRuntime` (see resolveRoleRunner). */
-export function resolveRunner(orgRuntime?: 'claude' | 'kimicode' | 'opencode'): AgentRunner | undefined {
-  const selected = orgRuntime ?? process.env.MONOMIND_RUNTIME;
+ *  MONOMIND_RUNTIME env > auto-resolve from provider kind > undefined (the
+ *  default path, where session.ts falls back to ClaudeAgentRunner). Returning
+ *  undefined for the default path keeps Claude/Antigravity orgs byte-for-byte
+ *  unchanged. Callers pass `role.runtime ?? def.runtime` as `orgRuntime`
+ *  (see resolveRoleRunner). */
+export type RuntimeKind = 'claude' | 'kimicode' | 'opencode' | 'vercel' | 'codex' | 'antigravity';
+export type ProviderKind =
+  | 'subscription'
+  | 'api-key'
+  | 'base-url'
+  | 'bedrock'
+  | 'vertex'
+  | 'gemini'
+  | 'openai'
+  | 'vercel-api-key'
+  | 'codex'
+  | 'antigravity';
+
+/** Auto-resolve runtime from provider kind. Returns undefined for Claude default. */
+function autoRuntimeFromProvider(kind?: ProviderKind): RuntimeKind | undefined {
+  if (kind === 'vercel-api-key') return 'vercel';
+  if (kind === 'codex') return 'codex';
+  if (kind === 'antigravity') return 'antigravity';
+  return undefined;
+}
+
+export function resolveRunner(
+  orgRuntime?: RuntimeKind,
+  providerKind?: ProviderKind,
+): AgentRunner | undefined {
+  const selected =
+    orgRuntime ??
+    autoRuntimeFromProvider(providerKind) ??
+    (process.env.MONOMIND_RUNTIME as RuntimeKind | undefined);
   if (selected === 'opencode') return new OpencodeAgentRunner();
   if (selected === 'kimicode') return new KimiCodeAgentRunner();
+  if (selected === 'vercel') return new VercelAgentRunner();
+  if (selected === 'codex') return new CodexAgentRunner();
+  if (selected === 'antigravity') return new AntigravityAgentRunner();
   return undefined;
 }
 
 /** Per-session variant: a role's own `runtime` field wins over the org-level
  *  one (and the env var) — including `role.runtime === 'claude'`, which forces
  *  the default Claude path even when the org/env select another runtime.
- *  Roles without a `runtime` inherit the org-level resolution unchanged. */
+ *  Roles without a `runtime` inherit the org-level resolution unchanged.
+ *  If no explicit runtime is set, auto-resolve from the provider kind. */
 export function resolveRoleRunner(
-  roleRuntime?: 'claude' | 'kimicode' | 'opencode',
-  orgRuntime?: 'claude' | 'kimicode' | 'opencode',
+  roleRuntime?: RuntimeKind,
+  orgRuntime?: RuntimeKind,
+  roleProviderKind?: ProviderKind,
+  orgProviderKind?: ProviderKind,
 ): AgentRunner | undefined {
-  return resolveRunner(roleRuntime ?? orgRuntime);
+  const explicit = roleRuntime ?? orgRuntime;
+  if (explicit) return resolveRunner(explicit);
+  return resolveRunner(undefined, roleProviderKind ?? orgProviderKind);
 }
 
 /** Per-role token budget: a role's own `budget_tokens` wins; otherwise the
  *  even split of run_config.budget_tokens across all roles. */
 export function roleTokenBudget(role: OrgRole, def: OrgDef): number {
-  return role.budget_tokens ?? Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+  return (
+    role.budget_tokens ?? Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length)
+  );
 }
 
 /** Bounded ring buffer for agent terminal scrollback. */
@@ -103,8 +164,12 @@ export class ScrollbackBuffer {
     this.lines.push(line);
     if (this.lines.length > this.maxLines) this.lines.splice(0, this.lines.length - this.maxLines);
   }
-  snapshot(): string[] { return [...this.lines]; }
-  clear(): void { this.lines.length = 0; }
+  snapshot(): string[] {
+    return [...this.lines];
+  }
+  clear(): void {
+    this.lines.length = 0;
+  }
 }
 
 export interface AgentRuntime {
@@ -150,7 +215,7 @@ export interface DaemonOpts {
    *  session.ts builds a ClaudeAgentRunner from queryFn/the default — so the
    *  Claude path is unchanged unless MONOMIND_RUNTIME=opencode is set. */
   runner?: AgentRunner;
-  forward?: boolean;           // POST events to control server (default true)
+  forward?: boolean; // POST events to control server (default true)
   controlJson?: string;
   /** Enables cross-process inter-org routing: on a local delivery miss, ask the
    *  machine-local broker whether another `monomind org` process (e.g. a
@@ -187,7 +252,16 @@ export class OrgDaemon {
   /** @internal */ private watchdogs = new Map<string, ReturnType<typeof setInterval>>();
   /** @internal */ stopping = new Map<string, Promise<void>>();
   /** @internal */ private otel = new OtelTracer();
-  /** @internal */ approvals = new Map<string, Array<{ roleId: string; action: string; question: string; ts: number; approved: boolean | null }>>();
+  /** @internal */ approvals = new Map<
+    string,
+    Array<{
+      roleId: string;
+      action: string;
+      question: string;
+      ts: number;
+      approved: boolean | null;
+    }>
+  >();
   /** @internal */ approvalLocks = new Map<string, Promise<unknown>>();
   /** @internal */ gatesLocks = new Map<string, Promise<unknown>>();
   /** @internal */ questionsLocks = new Map<string, Promise<unknown>>();
@@ -198,13 +272,17 @@ export class OrgDaemon {
   /** @internal */ restarting = new Set<string>();
   // #3: recognizes provider context-window-overflow errors so the boss can be told
   // to chunk the work instead of re-dispatching the same oversized task verbatim.
-  private static readonly CONTEXT_LIMIT_RE = /context[- ]?(window|length|size|limit)|maximum context|exceeds?.{0,12}(context|token)|too many tokens|prompt is too long/i;
+  private static readonly CONTEXT_LIMIT_RE =
+    /context[- ]?(window|length|size|limit)|maximum context|exceeds?.{0,12}(context|token)|too many tokens|prompt is too long/i;
 
   /** @internal */ recallUsage = new Map<string, Set<string>>();
   /** @internal */ orgLearnedRuns = new Set<string>();
   /** @internal */ abandoned = new Map<string, Set<string>>();
 
-  constructor(/** @internal */ public root: string, /** @internal */ public opts: DaemonOpts = {}) {}
+  constructor(
+    /** @internal */ public root: string,
+    /** @internal */ public opts: DaemonOpts = {},
+  ) {}
 
   /** Publish this daemon's inbox so orgs started AFTER this call register with the broker. */
   setInboxUrl(url: string, credential?: string): void {
@@ -218,8 +296,12 @@ export class OrgDaemon {
     return () => this.globalSubscribers.delete(fn);
   }
 
-  listOrgs(): RunningOrg[] { return [...this.orgs.values()]; }
-  getOrg(name: string): RunningOrg | undefined { return this.orgs.get(name); }
+  listOrgs(): RunningOrg[] {
+    return [...this.orgs.values()];
+  }
+  getOrg(name: string): RunningOrg | undefined {
+    return this.orgs.get(name);
+  }
 
   /** Hot-reload an org definition from disk without stopping running sessions.
    *  Applies: goal, run_config, schedule. New roles are added as pending (lazy-spawnable).
@@ -248,8 +330,8 @@ export class OrgDaemon {
       }
     }
 
-    const existingRoleIds = new Set(running.def.roles.map(r => r.id));
-    const newRoleIds = new Set(newDef.roles.map(r => r.id));
+    const existingRoleIds = new Set(running.def.roles.map((r) => r.id));
+    const newRoleIds = new Set(newDef.roles.map((r) => r.id));
     for (const role of newDef.roles) {
       if (!existingRoleIds.has(role.id)) {
         running.def.roles.push(role);
@@ -262,18 +344,25 @@ export class OrgDaemon {
       if (!newRoleIds.has(id)) removedRoles.push(id);
     }
 
-    running.bus.emit({ type: 'audit', reason: 'hot-reload',
+    running.bus.emit({
+      type: 'audit',
+      reason: 'hot-reload',
       msg: `org def reloaded: ${changed.length} fields changed, ${newRoles.length} new roles, ${removedRoles.length} removed roles`,
-      data: { changed, newRoles, removedRoles } });
+      data: { changed, newRoles, removedRoles },
+    });
 
     return { changed, newRoles, removedRoles };
   }
   /** Names of the orgs this daemon currently has running. Snapshot — safe to
    *  iterate while stopOrg() mutates the underlying map. */
-  listRunning(): string[] { return [...this.orgs.keys()]; }
+  listRunning(): string[] {
+    return [...this.orgs.keys()];
+  }
 
   /** Hook for the SSE server — registers a listener for all bus events across all orgs. */
-  onBusEvent?: (fn: (e: BusEvent) => void) => void = (fn) => { this.subscribe(fn); };
+  onBusEvent?: (fn: (e: BusEvent) => void) => void = (fn) => {
+    this.subscribe(fn);
+  };
 
   /** Snapshot of all running orgs for dashboard initial load. */
   getStatusSnapshot?: () => Record<string, unknown> = () => {
@@ -282,13 +371,15 @@ export class OrgDaemon {
       const roles: Record<string, unknown>[] = [];
       for (const [roleId, agent] of running.agents) {
         roles.push({
-          id: roleId, status: agent.status,
+          id: roleId,
+          status: agent.status,
           worktree: agent.worktreePath ?? null,
           metrics: agent.metrics,
         });
       }
       orgs.push({
-        name, run: running.run,
+        name,
+        run: running.run,
         roles,
         pendingRoles: running.pendingRoles ? [...running.pendingRoles.keys()] : [],
         tasks: running.taskDag?.all() ?? [],
@@ -303,7 +394,8 @@ export class OrgDaemon {
    *  from a subdirectory. */
   private workspaceSetting(def: OrgDef): string {
     const ws = (def.run_config as { workspace?: string }).workspace ?? 'repo';
-    if (ws === 'repo' || ws === 'isolated' || ws === 'worktree' || ws === 'worktree-per-role') return ws;
+    if (ws === 'repo' || ws === 'isolated' || ws === 'worktree' || ws === 'worktree-per-role')
+      return ws;
     return isAbsolute(ws) ? ws : join(this.root, ws);
   }
 
@@ -312,6 +404,11 @@ export class OrgDaemon {
     // cap holds; any other (explicit) start resets it so a manual re-run gets a
     // fresh budget.
     if (!this.restarting.has(name)) this.bossRestartCounts.delete(name);
+    // Join any in-flight stop for this org before checking `this.orgs` — otherwise a
+    // start racing a stop's drain window (up to stopWaitMs) can share the stopping
+    // run's worktree path while it's still being force-removed.
+    const inflightStop = this.stopping.get(name);
+    if (inflightStop) await inflightStop;
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
@@ -334,21 +431,35 @@ export class OrgDaemon {
     let worktreePath: string | undefined;
     if (ws === 'worktree') {
       worktreePath = join(this.root, ORG_DIR, name, 'worktree');
-      const { execSync } = await import('node:child_process');
+      const { execFileSync } = await import('node:child_process');
       try {
         // Remove stale worktree from a previous run
         if (existsSync(worktreePath)) {
           // R4: bound the call — a wedged git hook (git-lfs, gc lock, gpg sign
           // prompt) would otherwise hang the whole daemon indefinitely.
-          execSync(`git worktree remove --force "${worktreePath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 });
+          // SEC-5: execFileSync + argv — no shell interpolation of worktreePath.
+          execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+            cwd: this.root,
+            stdio: 'ignore',
+            timeout: 30_000,
+          });
         }
-      } catch { /* best-effort cleanup */ }
-      execSync(`git worktree add "${worktreePath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 });
+      } catch {
+        /* best-effort cleanup */
+      }
+      execFileSync('git', ['worktree', 'add', worktreePath, 'HEAD', '--detach'], {
+        cwd: this.root,
+        stdio: 'ignore',
+        timeout: 30_000,
+      });
       cwd = worktreePath;
     } else {
-      cwd = ws === 'repo' ? this.root
-        : ws === 'isolated' ? join(this.root, ORG_DIR, name, 'workspace')
-          : ws;
+      cwd =
+        ws === 'repo'
+          ? this.root
+          : ws === 'isolated'
+            ? join(this.root, ORG_DIR, name, 'workspace')
+            : ws;
     }
     mkdirSync(cwd, { recursive: true });
 
@@ -358,7 +469,16 @@ export class OrgDaemon {
     // its 7th, and the work that role owned simply never happened. Raise the
     // ceiling to the role count. An explicit MONOMIND_MAX_SDK_PROCS still wins:
     // if the operator named a number, that number is the answer.
-    if (!process.env.MONOMIND_MAX_SDK_PROCS && getResourceLimits().maxSdkProcesses < def.roles.length) {
+    //
+    // Runner process model (relevant for sizing): ClaudeAgentRunner and
+    // VercelAgentRunner are in-process (no subprocess per role). KimiCodeAgentRunner,
+    // OpencodeAgentRunner, and CodexAgentRunner each spawn one subprocess per role.
+    // The current sizing (def.roles.length) is therefore safe — it over-provisions
+    // for in-process runners but never under-provisions for subprocess runners.
+    if (
+      !process.env.MONOMIND_MAX_SDK_PROCS &&
+      getResourceLimits().maxSdkProcesses < def.roles.length
+    ) {
       configureResourceLimits({ maxSdkProcesses: def.roles.length });
     }
 
@@ -370,7 +490,9 @@ export class OrgDaemon {
         try {
           validateProvider(role.provider);
         } catch (err) {
-          throw new Error(`org ${name}: role "${role.id}" provider validation failed — ${err instanceof Error ? err.message : err}`);
+          throw new Error(
+            `org ${name}: role "${role.id}" provider validation failed — ${err instanceof Error ? err.message : err}`,
+          );
         }
       }
     }
@@ -382,10 +504,9 @@ export class OrgDaemon {
     const MAX_COLLECTED = 1000;
     const collected: BusEvent[] = [];
     let lastActivity = Date.now();
-    bus.subscribe(e => {
-      const slim: BusEvent = e.data?.content != null
-        ? { ...e, data: { ...e.data, content: undefined } }
-        : e;
+    bus.subscribe((e) => {
+      const slim: BusEvent =
+        e.data?.content != null ? { ...e, data: { ...e.data, content: undefined } } : e;
       collected.push(slim);
       if (collected.length > MAX_COLLECTED) collected.splice(0, collected.length - MAX_COLLECTED);
       // The watchdog's own nudge event must not count as org activity, or a
@@ -398,7 +519,12 @@ export class OrgDaemon {
       // against a concurrent manual stop.
       if (e.type === 'status' && e.reason === 'org-complete') {
         const t = setTimeout(() => {
-          this.stopOrg(name, { drainMs: COMPLETE_DRAIN_MS }).catch(err => console.error(`org ${name}: auto-stop after org_complete failed:`, err instanceof Error ? err.message : err));
+          this.stopOrg(name, { drainMs: COMPLETE_DRAIN_MS }).catch((err) =>
+            console.error(
+              `org ${name}: auto-stop after org_complete failed:`,
+              err instanceof Error ? err.message : err,
+            ),
+          );
         }, 1000);
         (t as { unref?: () => void }).unref?.();
       }
@@ -428,9 +554,19 @@ export class OrgDaemon {
       for (const fn of this.globalSubscribers) fn(e);
     });
     if (this.opts.forward !== false)
-      this.forwarders.set(name, attachForwarder(bus, this.opts.controlJson ?? join(this.root, '.monomind/control.json')));
+      this.forwarders.set(
+        name,
+        attachForwarder(bus, this.opts.controlJson ?? join(this.root, '.monomind/control.json')),
+      );
 
-    const running: RunningOrg = { def, run, bus, agents: new Map(), busEvents: () => [...collected], workdir: cwd };
+    const running: RunningOrg = {
+      def,
+      run,
+      bus,
+      agents: new Map(),
+      busEvents: () => [...collected],
+      workdir: cwd,
+    };
     this.orgs.set(name, running);
 
     // ── MonoFence guardrail: pre-create per-role instances ────────────────
@@ -438,8 +574,14 @@ export class OrgDaemon {
     const orgFence = (def as Record<string, unknown>).fence as Record<string, unknown> | undefined;
     const roleFences = new Map<string, RoleFence>();
     for (const role of def.roles) {
-      const roleFenceCfg = (role.policy as Record<string, unknown> | undefined)?.fence as Record<string, unknown> | undefined;
-      const merged = mergeFenceConfigs(globalFence ?? undefined, orgFence as any, roleFenceCfg as any);
+      const roleFenceCfg = (role.policy as Record<string, unknown> | undefined)?.fence as
+        | Record<string, unknown>
+        | undefined;
+      const merged = mergeFenceConfigs(
+        globalFence ?? undefined,
+        orgFence as any,
+        roleFenceCfg as any,
+      );
       if (merged.enabled === false) continue;
       if (!globalFence && !orgFence && !roleFenceCfg) continue;
       try {
@@ -451,18 +593,23 @@ export class OrgDaemon {
             scanMessages: merged.scanMessages !== false,
           });
         }
-      } catch { /* monofence-ai not installed — skip silently */ }
+      } catch {
+        /* monofence-ai not installed — skip silently */
+      }
     }
     if (roleFences.size > 0) running.fences = roleFences;
 
     // Even-split budget; a role's own budget_tokens overrides it (roleTokenBudget).
-    const perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
+    const perRoleBudget = Math.floor(
+      (def.run_config.budget_tokens ?? 1_000_000) / def.roles.length,
+    );
     // Single boss-selection rule for kickoff AND org_complete gating — the
     // session layer previously keyed the tool on reports_to===null while the
     // kickoff went to (type==='boss' || reports_to===null || roles[0]), so a
     // fallback-selected boss could be told to call org_complete without having
     // the tool.
-    const bossRole = def.roles.find(r => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
+    const bossRole =
+      def.roles.find((r) => r.type === 'boss' || r.reports_to === null) ?? def.roles[0];
     // Canonical entity names from the org KG — injected into the coordinator
     // prompt so org_learn extractions reuse them instead of minting duplicates.
     const glossary = await (async () => {
@@ -470,7 +617,9 @@ export class OrgDaemon {
         if (!(await this.orgMemoryUsable())) return [];
         const kg = await import('../memory/memory-kg.js');
         return await kg.kgGlossary({ dbPath: this.orgMemoryDbPath() });
-      } catch { return []; }
+      } catch {
+        return [];
+      }
     })();
     // Resource-gated staggered spawn: check memory/process limits before each
     // NON-BOSS agent, wait if under pressure. The boss always spawns immediately
@@ -487,41 +636,89 @@ export class OrgDaemon {
       if (ws === 'worktree-per-role' && role.id !== bossRole.id) {
         const wtPath = join(this.root, ORG_DIR, name, `worktree-${role.id}`);
         try {
-          // Q7: top-level `import { execSync }` replaces the inlined
+          // Q7: top-level `import { execFileSync }` replaces the inlined
           // `require('node:child_process')` that broke ESM at runtime —
           // vitest's CJS shim masked it in tests but the built package
           // threw "require is not defined" in real Node ESM execution.
+          // SEC-5: argv-array form, no shell.
           if (existsSync(wtPath)) {
-            try { execSync(`git worktree remove --force "${wtPath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 }); } catch { /* best-effort */ }
+            try {
+              execFileSync('git', ['worktree', 'remove', '--force', wtPath], {
+                cwd: this.root,
+                stdio: 'ignore',
+                timeout: 30_000,
+              });
+            } catch {
+              /* best-effort */
+            }
           }
-          execSync(`git worktree add "${wtPath}" HEAD --detach`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 });
+          execFileSync('git', ['worktree', 'add', wtPath, 'HEAD', '--detach'], {
+            cwd: this.root,
+            stdio: 'ignore',
+            timeout: 30_000,
+          });
           roleCwd = wtPath;
-        } catch { /* fallback to shared cwd if git worktree fails */ }
+        } catch {
+          /* fallback to shared cwd if git worktree fails */
+        }
       }
       const mailbox = new Mailbox();
-      const policy = new PolicyEngine(role.id,
-        { maxTokens: role.budget_tokens ?? perRoleBudget, ...(role.policy ?? {}) }, bus, roleCwd);
-      const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve(), metrics: { tokens: 0, costUsd: 0 }, worktreePath: roleCwd !== cwd ? roleCwd : undefined, scrollback: new ScrollbackBuffer() };
+      const policy = new PolicyEngine(
+        role.id,
+        { maxTokens: role.budget_tokens ?? perRoleBudget, ...(role.policy ?? {}) },
+        bus,
+        roleCwd,
+      );
+      const runtime: AgentRuntime = {
+        mailbox,
+        policy,
+        status: 'running',
+        done: Promise.resolve(),
+        metrics: { tokens: 0, costUsd: 0 },
+        worktreePath: roleCwd !== cwd ? roleCwd : undefined,
+        scrollback: new ScrollbackBuffer(),
+      };
       const sessionOpts = {
-        org: name, role, bus, policy, mailbox, cwd: roleCwd, def,
+        org: name,
+        role,
+        bus,
+        policy,
+        mailbox,
+        cwd: roleCwd,
+        def,
+        // Pass the org state directory so runners that persist per-role state
+        // (VercelAgentRunner session files) write under .monomind/orgs/<name>
+        // instead of polluting the workspace cwd.
+        orgDir: join(this.root, ORG_DIR, name),
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
         lastMessageId: () => runtime.lastMessageId,
         onOutput: (line: string) => runtime.scrollback.push(line),
-        deliver: (from: string, to: string, subject: string, body: string) => this.deliver(name, from, to, subject, body),
+        deliver: (from: string, to: string, subject: string, body: string) =>
+          this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
-        onGate: (r: string, gateName: string, gateDesc: string) => this.createGate(name, r, gateName, gateDesc),
+        onGate: (r: string, gateName: string, gateDesc: string) =>
+          this.createGate(name, r, gateName, gateDesc),
         circuitBreaker: (() => {
-          const cb = (def.run_config as Record<string, unknown>).circuit_breaker as { failure_threshold?: number; cooldown_ms?: number } | undefined;
+          const cb = (def.run_config as Record<string, unknown>).circuit_breaker as
+            | { failure_threshold?: number; cooldown_ms?: number }
+            | undefined;
           if (!cb) return undefined;
           return { threshold: cb.failure_threshold ?? 5, state: { failures: 0, tripped: false } };
         })(),
         beforeTool: (r: string, toolName: string) => this.checkApproval(name, r, toolName),
         fence: roleFences.get(role.id),
-        onComplete: role.id === bossRole.id
-          ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
-              bus.emit({ type: 'status', from: r, reason: 'org-complete', msg: `run outcome: ${outcome}`, data: { outcome, summary } });
-            }
-          : undefined,
+        onComplete:
+          role.id === bossRole.id
+            ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
+                bus.emit({
+                  type: 'status',
+                  from: r,
+                  reason: 'org-complete',
+                  msg: `run outcome: ${outcome}`,
+                  data: { outcome, summary },
+                });
+              }
+            : undefined,
         // #11: a boss that overflows its context window isn't a crash (it keeps
         // returning +0-token errors forever), so without this the idle watchdog
         // just nudges it for ~30 min before idle-stopping. Restart the whole org
@@ -529,25 +726,53 @@ export class OrgDaemon {
         onContextLimit: role.id === bossRole.id ? () => this.scheduleBossRestart(name) : undefined,
         recall: async (r: string, q: string) => {
           const answer = await this.recallOrgMemory(name, def, q, r);
-          bus.emit({ type: 'status', from: r, reason: 'org-recall', msg: `recall: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
+          bus.emit({
+            type: 'status',
+            from: r,
+            reason: 'org-recall',
+            msg: `recall: ${q.slice(0, 80)}`,
+            data: { hits: answer.hits },
+          });
           return answer.text;
         },
         searchKnowledge: async (r: string, q: string) => {
           const answer = await this.searchProjectKnowledge(q);
-          bus.emit({ type: 'status', from: r, reason: 'knowledge-search', msg: `knowledge: ${q.slice(0, 80)}`, data: { hits: answer.hits } });
+          bus.emit({
+            type: 'status',
+            from: r,
+            reason: 'knowledge-search',
+            msg: `knowledge: ${q.slice(0, 80)}`,
+            data: { hits: answer.hits },
+          });
           return answer.text;
         },
         glossary,
         remember: async (r: string, content: string, scope: 'org' | 'agent') => {
           const text = await this.rememberOrgMemory(name, def, r, content, scope, run);
-          bus.emit({ type: 'status', from: r, reason: 'org-remember', msg: `remember (${scope}): ${content.slice(0, 80)}`, data: { scope } });
+          bus.emit({
+            type: 'status',
+            from: r,
+            reason: 'org-remember',
+            msg: `remember (${scope}): ${content.slice(0, 80)}`,
+            data: { scope },
+          });
           return text;
         },
-        learn: async (r: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }) => {
+        learn: async (
+          r: string,
+          payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] },
+        ) => {
           const text = await this.learnOrgKnowledge(name, run, payload);
           bus.emit({
-            type: 'status', from: r, reason: 'org-learn', msg: `learn: ${text.slice(0, 120)}`,
-            data: { nodes: payload.nodes?.length ?? 0, edges: payload.edges?.length ?? 0, rules: payload.rules?.length ?? 0 },
+            type: 'status',
+            from: r,
+            reason: 'org-learn',
+            msg: `learn: ${text.slice(0, 120)}`,
+            data: {
+              nodes: payload.nodes?.length ?? 0,
+              edges: payload.edges?.length ?? 0,
+              rules: payload.rules?.length ?? 0,
+            },
           });
           return text;
         },
@@ -561,6 +786,18 @@ export class OrgDaemon {
           const running = this.orgs.get(name);
           return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
         },
+        splitTask: (r: string, parentId: string, children: { title: string; assignee: string }[]) => {
+          return this.dagSplitTask(name, r, parentId, children);
+        },
+        mergeTask: (r: string, sourceId: string, targetId: string) => {
+          return this.dagMergeTask(name, r, sourceId, targetId);
+        },
+        cancelTask: (r: string, taskId: string, reason?: string) => {
+          return this.dagCancelTask(name, r, taskId, reason);
+        },
+        planGraph: (r: string, specs: decisionOps.PlanTaskSpec[]) => {
+          return this.dagPlanGraph(name, r, specs);
+        },
         queryFn: this.opts.queryFn,
         // Runner resolution: explicit opts.runner > role `runtime` field >
         // org def `runtime` field > MONOMIND_RUNTIME env (opencode/kimicode) >
@@ -568,7 +805,9 @@ export class OrgDaemon {
         // Leaving it undefined for the default path is what keeps
         // Claude/Antigravity orgs byte-for-byte unchanged. Session opts are
         // built per role here in spawnRole, so each role gets its own runner.
-        runner: this.opts.runner ?? resolveRoleRunner(role.runtime, def.runtime),
+        runner:
+          this.opts.runner ??
+          resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, undefined),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
@@ -597,7 +836,8 @@ export class OrgDaemon {
               if (killedByStop) {
                 runtime.status = 'ended';
                 bus.emit({
-                  type: 'status', from: role.id,
+                  type: 'status',
+                  from: role.id,
                   msg: `agent "${role.id}" terminated by stop (was still working when drain window expired)`,
                   reason: 'terminated-by-stop',
                 });
@@ -611,10 +851,16 @@ export class OrgDaemon {
               mailbox.close();
               const isContextLimit = OrgDaemon.CONTEXT_LIMIT_RE.test(message);
               bus.emit({
-                type: 'audit', from: role.id,
+                type: 'audit',
+                from: role.id,
                 msg: `agent "${role.id}" crashed: ${message}`,
                 reason: isContextLimit ? 'agent-context-limit' : 'agent-session-crash',
-                data: { agentId: role.id, error: message, restarts: attempt, contextLimit: isContextLimit },
+                data: {
+                  agentId: role.id,
+                  error: message,
+                  restarts: attempt,
+                  contextLimit: isContextLimit,
+                },
               });
               if (role.id !== bossRole.id) {
                 // #2/#3: a worker is gone for the rest of this run. Without this
@@ -629,9 +875,14 @@ export class OrgDaemon {
                     ? ' This was a context-window overflow — re-dispatching the same task verbatim will fail identically. Break the work into smaller pieces (one file or section at a time) and do not paste large file contents in a single message.'
                     : '';
                   bossRt.mailbox.push(
-                    `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`);
-                  bus.emit({ type: 'audit', from: bossRole.id, reason: 'worker-crashed',
-                    msg: `worker "${role.id}" crashed (contextLimit=${isContextLimit}); coordinator notified to reassign` });
+                    `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`,
+                  );
+                  bus.emit({
+                    type: 'audit',
+                    from: bossRole.id,
+                    reason: 'worker-crashed',
+                    msg: `worker "${role.id}" crashed (contextLimit=${isContextLimit}); coordinator notified to reassign`,
+                  });
                 }
               } else {
                 // #4: the coordinator itself died. Don't go silent and wait for a
@@ -648,19 +899,32 @@ export class OrgDaemon {
             const fatal = (err as { fatal?: boolean } | null)?.fatal === true;
             if (fatal) {
               bus.emit({
-                type: 'status', from: role.id, reason: 'agent-fatal',
+                type: 'status',
+                from: role.id,
+                reason: 'agent-fatal',
                 msg: `agent "${role.id}" hit a fatal (non-retryable) error — not restarting`,
               });
               crash();
               return;
             }
-            if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) { crash(); return; }
+            if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) {
+              crash();
+              return;
+            }
             bus.emit({
-              type: 'status', from: role.id, reason: 'agent-restart',
+              type: 'status',
+              from: role.id,
+              reason: 'agent-restart',
               msg: `agent "${role.id}" crashed (${message}) — restarting in ${BACKOFFS_MS[attempt]}ms (attempt ${attempt + 1}/${BACKOFFS_MS.length})`,
             });
-            await new Promise<void>(r => { const t = setTimeout(r, BACKOFFS_MS[attempt]); (t as { unref?: () => void }).unref?.(); });
-            if (mailbox.isClosed) { crash(); return; } // org stopped during backoff — never recovered
+            await new Promise<void>((r) => {
+              const t = setTimeout(r, BACKOFFS_MS[attempt]);
+              (t as { unref?: () => void }).unref?.();
+            });
+            if (mailbox.isClosed) {
+              crash();
+              return;
+            } // org stopped during backoff — never recovered
           }
         }
       })();
@@ -690,7 +954,9 @@ export class OrgDaemon {
         // "require is not defined" in this ESM package. Guarded by
         // no-cjs-require-in-esm.test.ts.
         reapOrphanedSdkProcesses(new Set(), process.pid);
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     };
     process.on('exit', crashCleanup);
     (running as RunningOrg & { _crashCleanup?: () => void })._crashCleanup = crashCleanup;
@@ -698,20 +964,29 @@ export class OrgDaemon {
     // Stale-base drift detection: if the working tree is too many commits behind
     // its tracking branch, warn or refuse to start. Best-effort — git may not be
     // available, or the repo may have no tracking branch.
-    const staleThreshold = (def.run_config as Record<string, unknown>).stale_base_threshold as number | undefined;
+    const staleThreshold = (def.run_config as Record<string, unknown>).stale_base_threshold as
+      | number
+      | undefined;
     if (staleThreshold && staleThreshold > 0 && cwd === this.root) {
       try {
         const { execSync } = await import('node:child_process');
-        const behind = execSync('git rev-list --count HEAD..@{upstream} 2>/dev/null', { cwd, encoding: 'utf8', timeout: 10_000 }).trim();
+        const behind = execSync('git rev-list --count HEAD..@{upstream} 2>/dev/null', {
+          cwd,
+          encoding: 'utf8',
+          timeout: 10_000,
+        }).trim();
         const count = parseInt(behind, 10);
         if (!isNaN(count) && count > staleThreshold) {
           bus.emit({
-            type: 'audit', reason: 'stale-base',
+            type: 'audit',
+            reason: 'stale-base',
             msg: `working tree is ${count} commits behind upstream (threshold: ${staleThreshold}) — consider pulling before running`,
             data: { behind: count, threshold: staleThreshold },
           });
         }
-      } catch { /* no upstream tracking or git unavailable — skip silently */ }
+      } catch {
+        /* no upstream tracking or git unavailable — skip silently */
+      }
     }
 
     const boss = bossRole;
@@ -725,10 +1000,17 @@ export class OrgDaemon {
           : `no recorded outcome (${prev.messages} messages, ${prev.assets.length} assets${prev.crashes.length ? `, ${prev.crashes.length} crashed agent(s)` : ''})`) +
         `\nBuild on that work — do not redo what is already done.`
       : '';
-    running.agents.get(boss.id)!.mailbox.push(
-      `Org "${name}" started (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
-      `Coordinate your team via org_send. When the goal is achieved (or clearly can't be), record it with org_complete, then end your turn.${prevBrief}`);
-    bus.emit({ type: 'status', msg: `org started (${def.roles.length} agents)`, data: { goal: taskOverride ?? def.goal } });
+    running.agents
+      .get(boss.id)!
+      .mailbox.push(
+        `Org "${name}" started (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
+          `Coordinate your team via org_send. When the goal is achieved (or clearly can't be), record it with org_complete, then end your turn.${prevBrief}`,
+      );
+    bus.emit({
+      type: 'status',
+      msg: `org started (${def.roles.length} agents)`,
+      data: { goal: taskOverride ?? def.goal },
+    });
     this.persistState(name, 'running', run);
 
     // Idle watchdog: a hung tool call (or a run that quietly finished without
@@ -744,40 +1026,65 @@ export class OrgDaemon {
       let nudges = 0;
       const idleStop = (msg: string): void => {
         bus.emit({ type: 'audit', reason: 'idle-stop', msg });
-        this.stopOrg(name).catch(err => console.error(`org ${name}: idle-stop failed:`, err instanceof Error ? err.message : err));
+        this.stopOrg(name).catch((err) =>
+          console.error(`org ${name}: idle-stop failed:`, err instanceof Error ? err.message : err),
+        );
       };
-      const wd = setInterval(() => {
-        if (this.restarting.has(name)) return; // boss auto-restart in flight — don't nudge or stop
-        // A pending gate means the org is legitimately waiting for human input
-        const pendingGates = this.readGates(name).gates.filter(g => g.status === 'pending');
-        if (pendingGates.length > 0) return;
-        const idleFor = Date.now() - lastActivity;
-        if (idleFor < idleMs) { nudgedAt = 0; return; }
-        if (nudgedAt === 0) {
-          if (nudges >= MAX_IDLE_NUDGES) {
-            idleStop(`org idle again after ${nudges} nudges — stopping run`);
+      const wd = setInterval(
+        () => {
+          if (this.restarting.has(name)) return; // boss auto-restart in flight — don't nudge or stop
+          // A pending gate means the org is legitimately waiting for human input
+          const pendingGates = this.readGates(name).gates.filter((g) => g.status === 'pending');
+          if (pendingGates.length > 0) return;
+          const idleFor = Date.now() - lastActivity;
+          if (idleFor < idleMs) {
+            nudgedAt = 0;
             return;
           }
-          const bossRt = running.agents.get(bossRole.id);
-          if (!bossRt || bossRt.status !== 'running' || bossRt.mailbox.isClosed) {
-            idleStop(`org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`);
-            return;
+          if (nudgedAt === 0) {
+            if (nudges >= MAX_IDLE_NUDGES) {
+              idleStop(`org idle again after ${nudges} nudges — stopping run`);
+              return;
+            }
+            const bossRt = running.agents.get(bossRole.id);
+            if (!bossRt || bossRt.status !== 'running' || bossRt.mailbox.isClosed) {
+              idleStop(
+                `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`,
+              );
+              return;
+            }
+            nudges++;
+            nudgedAt = Date.now();
+            bus.emit({
+              type: 'audit',
+              from: bossRole.id,
+              reason: 'idle-nudge',
+              msg: `no org activity for ${Math.round(idleFor / 60_000)}m — nudging boss (${nudges}/${MAX_IDLE_NUDGES})`,
+            });
+            bossRt.mailbox.push(
+              `[watchdog] No activity in org "${name}" for ${Math.round(idleFor / 60_000)} minute(s). ` +
+                `If the goal is achieved (or clearly can't be), call org_complete now. Otherwise check on your team via org_send and reassign stalled work.`,
+            );
+          } else if (Date.now() - nudgedAt >= idleMs) {
+            idleStop(
+              `nudge produced no activity for another ${Math.round(idleMs / 60_000)}m — boss appears hung, stopping run`,
+            );
           }
-          nudges++; nudgedAt = Date.now();
-          bus.emit({ type: 'audit', from: bossRole.id, reason: 'idle-nudge', msg: `no org activity for ${Math.round(idleFor / 60_000)}m — nudging boss (${nudges}/${MAX_IDLE_NUDGES})` });
-          bossRt.mailbox.push(
-            `[watchdog] No activity in org "${name}" for ${Math.round(idleFor / 60_000)} minute(s). ` +
-            `If the goal is achieved (or clearly can't be), call org_complete now. Otherwise check on your team via org_send and reassign stalled work.`);
-        } else if (Date.now() - nudgedAt >= idleMs) {
-          idleStop(`nudge produced no activity for another ${Math.round(idleMs / 60_000)}m — boss appears hung, stopping run`);
-        }
-      }, Math.max(200, Math.min(idleMs / 2, 30_000)));
+        },
+        Math.max(200, Math.min(idleMs / 2, 30_000)),
+      );
       (wd as { unref?: () => void }).unref?.();
       this.watchdogs.set(name, wd);
     }
 
     if (this.opts.crossProcess && this.opts.inboxUrl) {
-      const lease = new BrokerLease(name, this.opts.inboxUrl, this.opts.brokerDir, undefined, normalizeCredential(this.opts.inboxCredential));
+      const lease = new BrokerLease(
+        name,
+        this.opts.inboxUrl,
+        this.opts.brokerDir,
+        undefined,
+        normalizeCredential(this.opts.inboxCredential),
+      );
       lease.start();
       this.leases.set(name, lease);
     }
@@ -797,12 +1104,26 @@ export class OrgDaemon {
       }
       const agent = running.agents.get(msg.toRole);
       if (agent && !agent.mailbox.isClosed) {
-        bus.emit({ type: 'xorg', from: msg.fromQualified, to: `${name}:${msg.toRole}`, subject: msg.subject, msg: msg.body });
-        agent.mailbox.push(this.mailBody(name, running, `[message from ${msg.fromQualified}] subject: ${msg.subject}`, msg.body,
-          `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`));
+        bus.emit({
+          type: 'xorg',
+          from: msg.fromQualified,
+          to: `${name}:${msg.toRole}`,
+          subject: msg.subject,
+          msg: msg.body,
+        });
+        agent.mailbox.push(
+          this.mailBody(
+            name,
+            running,
+            `[message from ${msg.fromQualified}] subject: ${msg.subject}`,
+            msg.body,
+            `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`,
+          ),
+        );
       }
     }
-    if (queued.length) bus.emit({ type: 'status', msg: `drained ${queued.length} queued message(s) from inbox` });
+    if (queued.length)
+      bus.emit({ type: 'status', msg: `drained ${queued.length} queued message(s) from inbox` });
 
     return running;
   }
@@ -835,7 +1156,11 @@ export class OrgDaemon {
     this.orgs.delete(name);
     const p = this.finishStop(name, org, opts?.drainMs);
     this.stopping.set(name, p);
-    try { await p; } finally { this.stopping.delete(name); }
+    try {
+      await p;
+    } finally {
+      this.stopping.delete(name);
+    }
   }
 
   private async finishStop(name: string, org: RunningOrg, drainMs?: number): Promise<void> {
@@ -852,7 +1177,10 @@ export class OrgDaemon {
     const cleanup = (org as RunningOrg & { _crashCleanup?: () => void })._crashCleanup;
     if (cleanup) process.removeListener('exit', cleanup);
     const wd = this.watchdogs.get(name);
-    if (wd) { clearInterval(wd); this.watchdogs.delete(name); }
+    if (wd) {
+      clearInterval(wd);
+      this.watchdogs.delete(name);
+    }
     this.leases.get(name)?.stop();
     this.leases.delete(name);
     for (const a of org.agents.values()) a.mailbox.close();
@@ -866,19 +1194,32 @@ export class OrgDaemon {
     // "crashed") and threw the work away. allSettled resolves as soon as every
     // session ends, so a long drain is a ceiling, not a delay.
     const stopWaitMs = drainMs ?? this.opts.stopWaitMs ?? 15_000;
-    const allDone = Promise.allSettled([...org.agents.values()].map(a => a.done)).then(() => false);
-    const timedOut = await Promise.race([allDone, new Promise<boolean>(r => setTimeout(() => r(true), stopWaitMs))]);
+    const allDone = Promise.allSettled([...org.agents.values()].map((a) => a.done)).then(
+      () => false,
+    );
+    const timedOut = await Promise.race([
+      allDone,
+      new Promise<boolean>((r) => setTimeout(() => r(true), stopWaitMs)),
+    ]);
     if (timedOut) {
       org.bus.emit({
-        type: 'audit', msg: `org stop timed out after ${stopWaitMs}ms waiting for agent sessions to finish — proceeding anyway`,
+        type: 'audit',
+        msg: `org stop timed out after ${stopWaitMs}ms waiting for agent sessions to finish — proceeding anyway`,
         reason: 'stop-timeout',
       });
       // Reap only SDK processes spawned by THIS node process — ownerPid filter
       // ensures other `monomind org run` daemons' agents are untouched.
       try {
         const reaped = reapOrphanedSdkProcesses(new Set(), process.pid);
-        if (reaped > 0) org.bus.emit({ type: 'audit', reason: 'orphan-reap', msg: `reaped ${reaped} orphaned SDK process(es) after stop timeout` });
-      } catch { /* best-effort */ }
+        if (reaped > 0)
+          org.bus.emit({
+            type: 'audit',
+            reason: 'orphan-reap',
+            msg: `reaped ${reaped} orphaned SDK process(es) after stop timeout`,
+          });
+      } catch {
+        /* best-effort */
+      }
     }
     org.bus.emit({ type: 'status', msg: 'org stopped' });
     await org.bus.flush();
@@ -895,7 +1236,10 @@ export class OrgDaemon {
         await this.storeRunMemory(name, org.def, org.run, summary);
       }
     } catch (err) {
-      console.error(`org ${name}: could not write run history:`, err instanceof Error ? err.message : err);
+      console.error(
+        `org ${name}: could not write run history:`,
+        err instanceof Error ? err.message : err,
+      );
     } finally {
       this.recallUsage.delete(name);
       this.orgLearnedRuns.delete(`${name}:${org.run}`);
@@ -908,7 +1252,10 @@ export class OrgDaemon {
     if (forwarder) {
       await Promise.race([
         forwarder.settle(),
-        new Promise<void>(r => { const t = setTimeout(r, 5_000); (t as { unref?: () => void }).unref?.(); }),
+        new Promise<void>((r) => {
+          const t = setTimeout(r, 5_000);
+          (t as { unref?: () => void }).unref?.();
+        }),
       ]);
       forwarder.unsubscribe();
       // Only remove from the map if it's still OURS — an autoWake-restart may
@@ -921,27 +1268,51 @@ export class OrgDaemon {
     if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org, stopCheckpoint);
     // Clean up git worktrees — shared (workspace: 'worktree') and per-role.
     try {
-      const { execSync } = await import('node:child_process');
+      const { execFileSync } = await import('node:child_process');
       if (org.worktreePath) {
-        try { execSync(`git worktree remove --force "${org.worktreePath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 }); } catch { /* best-effort */ }
+        try {
+          execFileSync('git', ['worktree', 'remove', '--force', org.worktreePath], {
+            cwd: this.root,
+            stdio: 'ignore',
+            timeout: 30_000,
+          });
+        } catch {
+          /* best-effort */
+        }
       }
       for (const agent of org.agents.values()) {
         if (agent.worktreePath) {
-          try { execSync(`git worktree remove --force "${agent.worktreePath}"`, { cwd: this.root, stdio: 'ignore', timeout: 30_000 }); } catch { /* best-effort */ }
+          try {
+            execFileSync('git', ['worktree', 'remove', '--force', agent.worktreePath], {
+              cwd: this.root,
+              stdio: 'ignore',
+              timeout: 30_000,
+            });
+          } catch {
+            /* best-effort */
+          }
         }
       }
-    } catch { /* node:child_process unavailable — skip */ }
+    } catch {
+      /* node:child_process unavailable — skip */
+    }
   }
 
   async stopAll(): Promise<void> {
     await Promise.all([
-      ...[...this.orgs.keys()].map(n => this.stopOrg(n)),
+      ...[...this.orgs.keys()].map((n) => this.stopOrg(n)),
       ...this.stopping.values(), // detached self-stops still flushing
     ]);
   }
 
   /** @internal */
-  persistState(name: string, status: string, run: string, org?: RunningOrg, checkpointOverride?: OrgCheckpoint | null): void {
+  persistState(
+    name: string,
+    status: string,
+    run: string,
+    org?: RunningOrg,
+    checkpointOverride?: OrgCheckpoint | null,
+  ): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
     const running = org ?? this.orgs.get(name);
@@ -957,7 +1328,10 @@ export class OrgDaemon {
     // would brick every subsequent `org status` / isOrgRunning / scheduler
     // call. The state files in 6 other daemon paths already use this helper.
     writeJsonFileAtomic(p, {
-      status, run, pid: process.pid, updated: new Date().toISOString(),
+      status,
+      run,
+      pid: process.pid,
+      updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
       ...(checkpoint ? { checkpoint } : {}),
     });
@@ -972,10 +1346,15 @@ export class OrgDaemon {
         // C4: atomic write — crash handler is the most likely place to hit
         // a partial write since the process is mid-teardown.
         writeJsonFileAtomic(p, {
-          status: 'crashed', run: org.run, pid: process.pid,
-          updated: new Date().toISOString(), closedBy: 'crash-handler',
+          status: 'crashed',
+          run: org.run,
+          pid: process.pid,
+          updated: new Date().toISOString(),
+          closedBy: 'crash-handler',
         });
-      } catch { /* best effort — filesystem may be unavailable */ }
+      } catch {
+        /* best effort — filesystem may be unavailable */
+      }
     }
   }
 
@@ -992,15 +1371,21 @@ export class OrgDaemon {
       // C4: atomic write — heartbeat corruption is how `org status` reports
       // a phantom daemon after a crash.
       writeJsonFileAtomic(p, {
-        pid: process.pid, updatedAt: new Date().toISOString(),
+        pid: process.pid,
+        updatedAt: new Date().toISOString(),
         running: this.listRunning(),
       });
-    } catch { /* best effort */ }
+    } catch {
+      /* best effort */
+    }
   }
 
   clearHeartbeat(): void {
-    try { unlinkSync(this.heartbeatPath()); }
-    catch { /* already gone or never written */ }
+    try {
+      unlinkSync(this.heartbeatPath());
+    } catch {
+      /* already gone or never written */
+    }
   }
 
   // ── Delegated methods — extracted to focused modules ──────────────────
@@ -1009,7 +1394,12 @@ export class OrgDaemon {
   private checkApproval(org: string, role: string, action: string): Promise<boolean | null> {
     return approvalOps.checkApproval(this, org, role, action);
   }
-  async setApproval(org: string, role: string, action: string, approved: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+  async setApproval(
+    org: string,
+    role: string,
+    action: string,
+    approved: boolean,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
     return approvalOps.setApproval(this, org, role, action, approved);
   }
 
@@ -1017,7 +1407,12 @@ export class OrgDaemon {
   async askHuman(org: string, role: string, question: string): Promise<string> {
     return questionOps.askHuman(this, org, role, question);
   }
-  async answerQuestion(org: string, role: string, questionId: string, answer: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  async answerQuestion(
+    org: string,
+    role: string,
+    questionId: string,
+    answer: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
     return questionOps.answerQuestion(this, org, role, questionId, answer);
   }
 
@@ -1028,64 +1423,147 @@ export class OrgDaemon {
   async createGate(org: string, role: string, name: string, description: string): Promise<string> {
     return decisionOps.createGate(this, org, role, name, description);
   }
-  async resolveGate(org: string, gateId: string, approved: boolean, resolution?: string, resolvedBy?: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  async resolveGate(
+    org: string,
+    gateId: string,
+    approved: boolean,
+    resolution?: string,
+    resolvedBy?: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
     return decisionOps.resolveGate(this, org, gateId, approved, resolution, resolvedBy);
   }
   listGates(org: string, status?: 'pending' | 'approved' | 'rejected'): DecisionGate[] {
     return decisionOps.listGates(this, org, status);
   }
-  private dagCreateTask(org: string, role: string, title: string, assignee: string, deps: string[]): string {
+  private dagCreateTask(
+    org: string,
+    role: string,
+    title: string,
+    assignee: string,
+    deps: string[],
+  ): string {
     return decisionOps.dagCreateTask(this, org, role, title, assignee, deps);
   }
   private dagCompleteTask(org: string, role: string, taskId: string, result?: string): string {
     return decisionOps.dagCompleteTask(this, org, role, taskId, result);
   }
-  recordDecision(org: string, role: string, decision: {
-    type: 'tool' | 'handoff' | 'approval' | 'routing';
-    context: string; reasoning: string;
-    alternatives?: Array<{ choice: string; score: number; reason: string }>;
-    outcome: string;
-  }): void {
+  private dagSplitTask(org: string, role: string, parentId: string, children: { title: string; assignee: string }[]): string {
+    return decisionOps.dagSplitTask(this, org, role, parentId, children);
+  }
+  private dagMergeTask(org: string, role: string, sourceId: string, targetId: string): string {
+    return decisionOps.dagMergeTask(this, org, role, sourceId, targetId);
+  }
+  private dagCancelTask(org: string, role: string, taskId: string, reason?: string): string {
+    return decisionOps.dagCancelTask(this, org, role, taskId, reason);
+  }
+  private dagPlanGraph(org: string, role: string, specs: decisionOps.PlanTaskSpec[]): string {
+    return decisionOps.dagPlanGraph(this, org, role, specs);
+  }
+  recordDecision(
+    org: string,
+    role: string,
+    decision: {
+      type: 'tool' | 'handoff' | 'approval' | 'routing';
+      context: string;
+      reasoning: string;
+      alternatives?: Array<{ choice: string; score: number; reason: string }>;
+      outcome: string;
+    },
+  ): void {
     decisionOps.recordDecision(this, org, role, decision);
   }
 
   // cross-org.ts
-  async deliver(fromOrg: string, fromRole: string, to: string, subject: string, body: string): Promise<string> {
+  async deliver(
+    fromOrg: string,
+    fromRole: string,
+    to: string,
+    subject: string,
+    body: string,
+  ): Promise<string> {
     return crossOrg.deliver(this, fromOrg, fromRole, to, subject, body);
   }
-  receiveRemote(toOrg: string, toRole: string, fromQualified: string, subject: string, body: string): { ok: true; receipt: string } | { ok: false; error: string } {
+  receiveRemote(
+    toOrg: string,
+    toRole: string,
+    fromQualified: string,
+    subject: string,
+    body: string,
+  ): { ok: true; receipt: string } | { ok: false; error: string } {
     return crossOrg.receiveRemote(this, toOrg, toRole, fromQualified, subject, body);
   }
-  private mailBody(orgName: string, org: RunningOrg | undefined, header: string, body: string, id: string): string {
+  private mailBody(
+    orgName: string,
+    org: RunningOrg | undefined,
+    header: string,
+    body: string,
+    id: string,
+  ): string {
     return crossOrg.mailBody(this.root, orgName, org, header, body, id);
   }
 
   // scheduler-integration.ts
   /** @internal */
-  autoWake(name: string): void { scheduler.autoWake(this, name); }
-  private scheduleBossRestart(name: string): void { scheduler.scheduleBossRestart(this, name); }
+  autoWake(name: string): void {
+    scheduler.autoWake(this, name);
+  }
+  private scheduleBossRestart(name: string): void {
+    scheduler.scheduleBossRestart(this, name);
+  }
   /** @internal */
-  scheduleDeferredSpawn(name: string, running: RunningOrg, role: OrgRole, spawnRole: (role: OrgRole) => void): void {
+  scheduleDeferredSpawn(
+    name: string,
+    running: RunningOrg,
+    role: OrgRole,
+    spawnRole: (role: OrgRole) => void,
+  ): void {
     scheduler.scheduleDeferredSpawn(this, name, running, role, spawnRole);
   }
 
   // org-memory.ts
-  private orgMemoryNamespace(name: string, def: OrgDef): string { return orgMemory.orgMemoryNamespace(name, def); }
-  private orgMemoryDbPath(): string { return orgMemory.orgMemoryDbPath(this.root); }
-  private orgMemoryUsable(): Promise<boolean> { return orgMemory.orgMemoryUsable(this.root); }
-  private async rememberOrgMemory(name: string, def: OrgDef, role: string, content: string, scope: 'org' | 'agent', run: string): Promise<string> {
+  private orgMemoryNamespace(name: string, def: OrgDef): string {
+    return orgMemory.orgMemoryNamespace(name, def);
+  }
+  private orgMemoryDbPath(): string {
+    return orgMemory.orgMemoryDbPath(this.root);
+  }
+  private orgMemoryUsable(): Promise<boolean> {
+    return orgMemory.orgMemoryUsable(this.root);
+  }
+  private async rememberOrgMemory(
+    name: string,
+    def: OrgDef,
+    role: string,
+    content: string,
+    scope: 'org' | 'agent',
+    run: string,
+  ): Promise<string> {
     return orgMemory.rememberOrgMemory(this.root, name, def, role, content, scope, run);
   }
-  private async recallOrgMemory(name: string, def: OrgDef, query: string, role?: string): Promise<{ text: string; hits: number }> {
+  private async recallOrgMemory(
+    name: string,
+    def: OrgDef,
+    query: string,
+    role?: string,
+  ): Promise<{ text: string; hits: number }> {
     return orgMemory.recallOrgMemory(this, name, def, query, role);
   }
   async searchProjectKnowledge(query: string): Promise<{ text: string; hits: number }> {
     return orgMemory.searchProjectKnowledge(this.root, query);
   }
-  private async learnOrgKnowledge(name: string, run: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }): Promise<string> {
+  private async learnOrgKnowledge(
+    name: string,
+    run: string,
+    payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] },
+  ): Promise<string> {
     return orgMemory.learnOrgKnowledge(this, name, run, payload);
   }
-  private async storeRunMemory(name: string, def: OrgDef, run: string, summary: RunSummary): Promise<void> {
+  private async storeRunMemory(
+    name: string,
+    def: OrgDef,
+    run: string,
+    summary: RunSummary,
+  ): Promise<void> {
     return orgMemory.storeRunMemory(this, name, def, run, summary);
   }
 
@@ -1096,7 +1574,11 @@ export class OrgDaemon {
   async resumeOrg(name: string): Promise<RunningOrg | null> {
     return checkpointOps.resumeOrg(this, name);
   }
-  branchCheckpoint(name: string, run: string, branchName: string): { ok: true; branchRun: string } | { ok: false; error: string } {
+  branchCheckpoint(
+    name: string,
+    run: string,
+    branchName: string,
+  ): { ok: true; branchRun: string } | { ok: false; error: string } {
     return checkpointOps.branchCheckpoint(this, name, run, branchName);
   }
 }

@@ -11,7 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { chunkDocument, type TextChunk } from './document-chunker.js';
-import { writeFileAtomicSync } from '../atomic-file.js';
+import { appendJsonl as sharedAppendJsonl, readJsonl as sharedReadJsonl, rewriteJsonl } from '../utils/jsonl-store.js';
 
 /** Metadata record persisted in metadata.jsonl */
 export interface MetadataRecord {
@@ -150,20 +150,16 @@ export class KnowledgeStore {
   }
 
   private appendJsonl<T>(file: string, record: T): void {
-    fs.appendFileSync(file, JSON.stringify(record) + '\n', 'utf-8');
+    sharedAppendJsonl(file, record);
   }
 
   private readJsonl<T>(file: string): T[] {
-    if (!fs.existsSync(file)) return [];
-    const lines = fs.readFileSync(file, 'utf-8').split('\n').filter(Boolean);
-    return lines.map((line) => JSON.parse(line) as T);
+    return sharedReadJsonl<T>(file);
   }
 
   private filterJsonl<T>(file: string, predicate: (record: T) => boolean): void {
     const records = this.readJsonl<T>(file);
     const filtered = records.filter(predicate);
-    // #90: full-file JSONL rewrites must be atomic (tmp + rename) — a crash
-    // mid-writeFileSync would leave a truncated index and lose every record.
-    writeFileAtomicSync(file, filtered.map((r) => JSON.stringify(r)).join('\n') + (filtered.length ? '\n' : ''), 'utf-8');
+    rewriteJsonl(file, filtered);
   }
 }

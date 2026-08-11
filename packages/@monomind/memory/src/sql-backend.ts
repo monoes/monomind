@@ -139,7 +139,9 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     // one it already had.
     let embeddingToStore = entry.embedding;
     if (!embeddingToStore) {
-      const existing = d.get('SELECT embedding FROM memory_embeddings WHERE entry_id = ?', [entry.id]);
+      const existing = d.get('SELECT embedding FROM memory_embeddings WHERE entry_id = ?', [
+        entry.id,
+      ]);
       const buf = existing?.embedding as Buffer | Uint8Array | undefined;
       if (buf && buf.byteLength > 0) {
         embeddingToStore = new Float32Array(
@@ -157,17 +159,32 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
          access_count, last_accessed_at
        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
-        entry.id, entry.key, entry.content, entry.type, entry.namespace,
-        JSON.stringify(entry.tags), JSON.stringify(entry.metadata),
-        entry.ownerId || null, entry.accessLevel,
-        entry.createdAt, entry.updatedAt, entry.expiresAt || null, entry.eventAt ?? null,
-        entry.version, JSON.stringify(entry.references), entry.accessCount, entry.lastAccessedAt,
+        entry.id,
+        entry.key,
+        entry.content,
+        entry.type,
+        entry.namespace,
+        JSON.stringify(entry.tags),
+        JSON.stringify(entry.metadata),
+        entry.ownerId || null,
+        entry.accessLevel,
+        entry.createdAt,
+        entry.updatedAt,
+        entry.expiresAt || null,
+        entry.eventAt ?? null,
+        entry.version,
+        JSON.stringify(entry.references),
+        entry.accessCount,
+        entry.lastAccessedAt,
       ] as SqlParam[],
     );
 
     d.run('DELETE FROM memory_entry_tags WHERE entry_id = ?', [entry.id]);
     for (const tag of entry.tags) {
-      d.run('INSERT OR IGNORE INTO memory_entry_tags (entry_id, tag) VALUES (?, ?)', [entry.id, tag]);
+      d.run('INSERT OR IGNORE INTO memory_entry_tags (entry_id, tag) VALUES (?, ?)', [
+        entry.id,
+        tag,
+      ]);
     }
 
     if (embeddingToStore) {
@@ -268,7 +285,10 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   async get(id: string, agentId?: string): Promise<MemoryEntry | null> {
     this.ensureInitialized();
     const startTime = performance.now();
-    const row = this.driver!.get('SELECT * FROM memory_entries WHERE id = ?', [id]);
+    const row = this.driver!.get(
+      'SELECT memory_entries.*, emb.embedding AS _emb FROM memory_entries LEFT JOIN memory_embeddings emb ON emb.entry_id = memory_entries.id WHERE memory_entries.id = ?',
+      [id],
+    );
     if (!row) return null;
 
     // Collaborative memory promotion — https://arxiv.org/abs/2505.18279
@@ -305,19 +325,20 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       [entryId, cutoff],
     );
     if (Number(row?.cnt ?? 0) >= 3) {
-      d.run("UPDATE memory_entries SET access_level = 'team' WHERE id = ? AND access_level = 'private'", [
-        entryId,
-      ]);
+      d.run(
+        "UPDATE memory_entries SET access_level = 'team' WHERE id = ? AND access_level = 'private'",
+        [entryId],
+      );
     }
   }
 
   async getByKey(namespace: string, key: string): Promise<MemoryEntry | null> {
     this.ensureInitialized();
     const startTime = performance.now();
-    const row = this.driver!.get('SELECT * FROM memory_entries WHERE namespace = ? AND key = ?', [
-      namespace,
-      key,
-    ]);
+    const row = this.driver!.get(
+      'SELECT memory_entries.*, emb.embedding AS _emb FROM memory_entries LEFT JOIN memory_embeddings emb ON emb.entry_id = memory_entries.id WHERE memory_entries.namespace = ? AND memory_entries.key = ?',
+      [namespace, key],
+    );
     if (!row) return null;
     const entry = this.rowToEntry(row);
     this.emit('entry:retrieved', { namespace, key, duration: performance.now() - startTime });
@@ -328,22 +349,61 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     this.ensureInitialized();
     const startTime = performance.now();
 
-    let sql = 'SELECT * FROM memory_entries WHERE 1=1';
+    // PKG-3: LEFT JOIN memory_embeddings once so rowToEntry can read the
+    // embedding column without an N+1 round-trip per result row.
+    let sql =
+      'SELECT memory_entries.*, emb.embedding AS _emb FROM memory_entries LEFT JOIN memory_embeddings emb ON emb.entry_id = memory_entries.id WHERE 1=1';
     const params: SqlParam[] = [];
 
-    if (query.namespace) { sql += ' AND namespace = ?'; params.push(query.namespace); }
-    if (query.key) { sql += ' AND key = ?'; params.push(query.key); }
-    if (query.keyPrefix) { sql += ' AND key LIKE ?'; params.push(`${query.keyPrefix}%`); }
-    if (query.memoryType) { sql += ' AND type = ?'; params.push(query.memoryType); }
-    if (query.accessLevel) { sql += ' AND access_level = ?'; params.push(query.accessLevel); }
-    if (query.ownerId) { sql += ' AND owner_id = ?'; params.push(query.ownerId); }
-    if (query.createdAfter) { sql += ' AND created_at >= ?'; params.push(query.createdAfter); }
-    if (query.createdBefore) { sql += ' AND created_at <= ?'; params.push(query.createdBefore); }
-    if (query.updatedAfter) { sql += ' AND updated_at >= ?'; params.push(query.updatedAfter); }
-    if (query.updatedBefore) { sql += ' AND updated_at <= ?'; params.push(query.updatedBefore); }
+    if (query.namespace) {
+      sql += ' AND namespace = ?';
+      params.push(query.namespace);
+    }
+    if (query.key) {
+      sql += ' AND key = ?';
+      params.push(query.key);
+    }
+    if (query.keyPrefix) {
+      sql += ' AND key LIKE ?';
+      params.push(`${query.keyPrefix}%`);
+    }
+    if (query.memoryType) {
+      sql += ' AND type = ?';
+      params.push(query.memoryType);
+    }
+    if (query.accessLevel) {
+      sql += ' AND access_level = ?';
+      params.push(query.accessLevel);
+    }
+    if (query.ownerId) {
+      sql += ' AND owner_id = ?';
+      params.push(query.ownerId);
+    }
+    if (query.createdAfter) {
+      sql += ' AND created_at >= ?';
+      params.push(query.createdAfter);
+    }
+    if (query.createdBefore) {
+      sql += ' AND created_at <= ?';
+      params.push(query.createdBefore);
+    }
+    if (query.updatedAfter) {
+      sql += ' AND updated_at >= ?';
+      params.push(query.updatedAfter);
+    }
+    if (query.updatedBefore) {
+      sql += ' AND updated_at <= ?';
+      params.push(query.updatedBefore);
+    }
     // Bi-temporal event-time filters (arXiv:2501.13956 — Zep/Graphiti)
-    if (query.eventAfter) { sql += ' AND event_at >= ?'; params.push(query.eventAfter); }
-    if (query.eventBefore) { sql += ' AND event_at <= ?'; params.push(query.eventBefore); }
+    if (query.eventAfter) {
+      sql += ' AND event_at >= ?';
+      params.push(query.eventAfter);
+    }
+    if (query.eventBefore) {
+      sql += ' AND event_at <= ?';
+      params.push(query.eventBefore);
+    }
 
     if (!query.includeExpired) {
       sql += ' AND (expires_at IS NULL OR expires_at > ?)';
@@ -365,8 +425,11 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     }
 
     const colMap: Record<string, string> = {
-      createdAt: 'created_at', updatedAt: 'updated_at',
-      lastAccessedAt: 'last_accessed_at', accessCount: 'access_count', key: 'key',
+      createdAt: 'created_at',
+      updatedAt: 'updated_at',
+      lastAccessedAt: 'last_accessed_at',
+      accessCount: 'access_count',
+      key: 'key',
     };
     const orderCol =
       query.sortField && query.sortField !== 'score' && colMap[query.sortField]
@@ -377,7 +440,10 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
 
     const effectiveLimit = Math.min(Math.max(1, query.limit ?? MAX_QUERY_LIMIT), MAX_QUERY_LIMIT);
     params.push(effectiveLimit);
-    if (query.offset) { sql += ' OFFSET ?'; params.push(query.offset); }
+    if (query.offset) {
+      sql += ' OFFSET ?';
+      params.push(query.offset);
+    }
 
     const rows = this.driver!.all(sql, params);
     const results = rows.map((r) => this.rowToEntry(r));
@@ -415,9 +481,9 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       if (vec.length !== embedding.length) continue;
       const similarity = cosineSimilarity(embedding, vec);
       if (options.threshold !== undefined && similarity < options.threshold) continue;
-      const clean = { ...row };
-      delete (clean as Record<string, unknown>)._emb;
-      results.push({ entry: this.rowToEntry(clean), score: similarity, distance: 1 - similarity });
+      // PKG-3: row already carries _emb from the JOIN; rowToEntry reads it
+      // directly instead of re-querying memory_embeddings per row.
+      results.push({ entry: this.rowToEntry(row), score: similarity, distance: 1 - similarity });
     }
     results.sort((a, b) => b.score - a.score);
     return results.slice(0, options.k);
@@ -434,10 +500,15 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
    * `queryText` is the raw user query; it is FTS5-tokenized automatically.
    * Special characters are escaped to prevent FTS5 syntax errors.
    */
-  async keywordSearch(queryText: string, options: {
-    namespace?: string;
-    limit?: number;
-  } = {}): Promise<{ id: string; key: string; content: string; namespace: string; rank: number }[] | null> {
+  async keywordSearch(
+    queryText: string,
+    options: {
+      namespace?: string;
+      limit?: number;
+    } = {},
+  ): Promise<
+    { id: string; key: string; content: string; namespace: string; rank: number }[] | null
+  > {
     this.ensureInitialized();
     if (!this._fts5Available) return null;
 
@@ -467,9 +538,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
           ${ns ? 'AND e.namespace = ?' : ''}
         ORDER BY rank
         LIMIT ?`,
-      ns
-        ? [tokens, Date.now(), ns, limit]
-        : [tokens, Date.now(), limit],
+      ns ? [tokens, Date.now(), ns, limit] : [tokens, Date.now(), limit],
     );
 
     return rows.map((r) => ({
@@ -490,7 +559,9 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   async count(namespace?: string): Promise<number> {
     this.ensureInitialized();
     const row = namespace
-      ? this.driver!.get('SELECT COUNT(*) as count FROM memory_entries WHERE namespace = ?', [namespace])
+      ? this.driver!.get('SELECT COUNT(*) as count FROM memory_entries WHERE namespace = ?', [
+          namespace,
+        ])
       : this.driver!.get('SELECT COUNT(*) as count FROM memory_entries');
     return Number(row?.count ?? 0);
   }
@@ -509,12 +580,17 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     const d = this.driver!;
 
     const entriesByNamespace: Record<string, number> = {};
-    for (const row of d.all('SELECT namespace, COUNT(*) as count FROM memory_entries GROUP BY namespace')) {
+    for (const row of d.all(
+      'SELECT namespace, COUNT(*) as count FROM memory_entries GROUP BY namespace',
+    )) {
       entriesByNamespace[String(row.namespace)] = Number(row.count);
     }
 
     const entriesByType: Record<MemoryType, number> = {
-      episodic: 0, semantic: 0, working: 0, cache: 0,
+      episodic: 0,
+      semantic: 0,
+      working: 0,
+      cache: 0,
     };
     for (const row of d.all('SELECT type, COUNT(*) as count FROM memory_entries GROUP BY type')) {
       entriesByType[String(row.type) as MemoryType] = Number(row.count);
@@ -534,7 +610,8 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       entriesByNamespace,
       entriesByType,
       memoryUsage,
-      avgQueryTime: this.stats.queryCount > 0 ? this.stats.totalQueryTime / this.stats.queryCount : 0,
+      avgQueryTime:
+        this.stats.queryCount > 0 ? this.stats.totalQueryTime / this.stats.queryCount : 0,
       avgSearchTime: 0,
     };
   }
@@ -640,14 +717,13 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   }
 
   private rowToEntry(row: Record<string, unknown>): MemoryEntry {
+    // PKG-3: callers LEFT JOIN memory_embeddings AS _emb so the embedding is
+    // already on the row — no extra SELECT per entry. The buffer slice
+    // pattern matches storeSync(): Node pools small Buffers in a shared 4KB
+    // slab, so `.buffer` alone can span unrelated memory.
     let embedding: Float32Array | undefined;
-    const embRow = this.driver!.get('SELECT embedding FROM memory_embeddings WHERE entry_id = ?', [
-      String(row.id),
-    ]);
-    const buf = embRow?.embedding as Buffer | Uint8Array | undefined;
+    const buf = row._emb as Buffer | Uint8Array | undefined;
     if (buf && buf.byteLength > 0) {
-      // Slice by byteOffset/byteLength — see storeSync for why `.buffer` alone
-      // can span unrelated pooled memory.
       embedding = new Float32Array(buf.buffer as ArrayBuffer, buf.byteOffset, buf.byteLength / 4);
     }
 

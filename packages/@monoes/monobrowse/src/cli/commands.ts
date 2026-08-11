@@ -23,6 +23,45 @@ async function getBrowser() {
   return import('../index.js');
 }
 
+// Best-effort cleanup on Ctrl-C / kill so a launched Chrome doesn't linger as
+// an orphan process when a command is interrupted mid-flight (e.g. during a
+// long-running wait/eval that CdpClient.send()'s own timeout hasn't tripped
+// yet).
+//
+// This module is imported for EVERY `monomind` CLI invocation (commands/
+// index.ts statically imports browse.ts, which imports this file) — not just
+// browse commands — so the handler is only *registered* once a browser
+// session is actually launched here (see ensureSignalCleanupHandlers(),
+// called from the `open` action below), not at module load. Registering
+// unconditionally at import time would call process.exit() on Ctrl-C for
+// every unrelated monomind command (e.g. a long-running `org run` daemon),
+// pre-empting whatever other SIGINT/SIGTERM handling that process needs.
+const SIGNAL_EXIT_CODES: Record<'SIGINT' | 'SIGTERM', number> = { SIGINT: 130, SIGTERM: 143 };
+let _signalHandlersRegistered = false;
+function ensureSignalCleanupHandlers(): void {
+  if (_signalHandlersRegistered) return;
+  _signalHandlersRegistered = true;
+  for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(sig, () => {
+      void (async () => {
+        try {
+          const browser = await getBrowser();
+          if (_client) {
+            await browser.closeBrowser(_client, _port);
+          } else {
+            const pid = browser.getLaunchedPid(_port);
+            if (pid !== undefined) {
+              try { process.kill(pid, 'SIGKILL'); } catch { /* already exited */ }
+            }
+          }
+        } catch {
+          // best-effort — never block process exit on cleanup failure
+        }
+      })().finally(() => process.exit(SIGNAL_EXIT_CODES[sig]));
+    });
+  }
+}
+
 // Each CLI invocation is a fresh process, so this module's `_port` variable
 // is always freshly initialized to DEFAULT_PORT — a `--port 9333` passed to
 // an earlier `open` command has no effect on this process's own default.
@@ -289,8 +328,33 @@ const openCommand: Command = {
 
     _port = await browser.launchBrowser({ port, headless: !forceHeaded });
     // Persist the active port so subsequent CLI invocations (each a fresh
-    // process) default to attaching here instead of hardcoded 9222.
-    await browser.saveActivePort(_port);
+    // process) default to attaching here instead of hardcoded 9222. Also
+    // persist the launched PID/userDataDir so a later process's closeBrowser
+    // can still kill this Chrome even though launchedPids (browser.ts) is
+    // per-process and empty there.
+    //
+    // launchBrowser() can either LAUNCH a fresh Chrome or ATTACH to one
+    // already listening on the requested port (see its own "attach if
+    // already Chrome" comment) — it returns only a port number, with no
+    // signal telling this caller which happened. getLaunchedPid(_port) is
+    // undefined on the attach path (this process never spawned anything).
+    // Bug fixed here: unconditionally saving {pid: undefined, ...} on
+    // attach used to CLOBBER a real PID a previous `open` had already
+    // persisted for this exact port, destroying the only way a later
+    // process's closeBrowser() PID-kill fallback could ever find it.
+    const freshPid = browser.getLaunchedPid(_port);
+    const freshUserDataDir = browser.getLaunchedUserDataDir(_port);
+    if (freshPid !== undefined) {
+      await browser.saveActivePort(_port, { pid: freshPid, userDataDir: freshUserDataDir });
+    } else {
+      // Attach path: preserve whatever PID/userDataDir was already on file
+      // for this port (most likely from the process that originally
+      // launched it) instead of overwriting with undefined.
+      const existing = await browser.loadActivePortInfo();
+      const preserved = existing && existing.port === _port ? existing : undefined;
+      await browser.saveActivePort(_port, { pid: preserved?.pid, userDataDir: preserved?.userDataDir });
+    }
+    ensureSignalCleanupHandlers();
     const conn = await browser.connectToTarget(_port);
     _client = conn.client;
     _sessionId = conn.sessionId;

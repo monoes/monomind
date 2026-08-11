@@ -52,6 +52,17 @@ export interface MCPResponse extends MCPMessage {
 
 export type TransportType = 'stdio' | 'http' | 'websocket' | 'in-process';
 
+/**
+ * Inbound auth method for THIS server's transports (see auth.ts's
+ * `validateCredential`, wired into transport/http.ts and
+ * transport/websocket.ts). `'token'` and `'api-key'` are implemented.
+ * `'oauth'` is accepted here for forward-compat but `validateCredential`
+ * currently rejects it with "OAuth inbound validation not implemented" —
+ * there is no JWKS/introspection-based resource-server verifier in this
+ * package. The `oauth` block below is unrelated: it configures oauth.ts's
+ * OAuthManager, an OUTBOUND client for calling a third-party provider, not
+ * an inbound verifier — nothing currently reads it for inbound auth.
+ */
 export type AuthMethod = 'token' | 'oauth' | 'api-key' | 'none';
 
 export interface AuthConfig {
@@ -60,6 +71,7 @@ export interface AuthConfig {
   tokens?: string[];
   apiKeys?: string[];
   jwtSecret?: string;
+  /** Outbound OAuth client config (see oauth.ts's OAuthConfig) — not used for inbound auth. */
   oauth?: {
     clientId: string;
     clientSecret: string;

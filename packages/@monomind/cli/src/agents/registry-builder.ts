@@ -15,8 +15,8 @@ type AgentRegistryEntry = {
 };
 type AgentRegistry = { version: string; generatedAt: string; totalAgents: number; agents: AgentRegistryEntry[] };
 
-/** Parsed YAML frontmatter value: scalar string/boolean or a string array. */
-type FrontmatterValue = string | boolean | string[];
+/** Parsed YAML frontmatter value: scalar, string array, or array of nested objects. */
+type FrontmatterValue = string | boolean | string[] | Record<string, string>[];
 
 /** Parsed YAML frontmatter as a flat key-value map. */
 type Frontmatter = Record<string, FrontmatterValue>;
@@ -54,6 +54,99 @@ function collectMdFiles(root: string, base: string = root): string[] {
 }
 
 /**
+ * Parse nested YAML list items (lines starting with `- `) under a parent key
+ * whose value was empty on its own line (e.g. `triggers:\n  - pattern: ...`).
+ *
+ * Returns simple `string[]` when every item is a plain scalar, or
+ * `Record<string, string>[]` when items contain key-value pairs.
+ * Returns `null` when no list items were found (the caller falls through to
+ * existing flat-value handling).
+ */
+function parseNestedYamlList(
+  lines: string[],
+  startIdx: number,
+  parentIndent: number,
+): { value: FrontmatterValue | null; consumed: number } {
+  const objects: Record<string, string>[] = [];
+  const simpleItems: string[] = [];
+  let current: Record<string, string> | null = null;
+  let consumed = 0;
+  let hasObjects = false;
+
+  for (let i = startIdx; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip blank lines and comments within the nested block
+    if (!trimmed || trimmed.startsWith('#')) {
+      consumed++;
+      continue;
+    }
+
+    const indent = line.length - line.trimStart().length;
+    // Stop when we return to the parent indent level or shallower
+    if (indent <= parentIndent) break;
+
+    if (trimmed.startsWith('- ')) {
+      const itemContent = trimmed.slice(2);
+      const colonSpaceIdx = itemContent.indexOf(': ');
+      if (colonSpaceIdx !== -1) {
+        // Object list item: `- key: value`
+        hasObjects = true;
+        current = {};
+        const k = itemContent.slice(0, colonSpaceIdx).trim();
+        let v = itemContent.slice(colonSpaceIdx + 2).trim();
+        if (
+          (v.startsWith('"') && v.endsWith('"')) ||
+          (v.startsWith("'") && v.endsWith("'"))
+        ) {
+          v = v.slice(1, -1);
+        }
+        current[k] = v;
+        objects.push(current);
+      } else {
+        // Simple string item: `- value`
+        let v = itemContent.trim();
+        if (
+          (v.startsWith('"') && v.endsWith('"')) ||
+          (v.startsWith("'") && v.endsWith("'"))
+        ) {
+          v = v.slice(1, -1);
+        }
+        simpleItems.push(v);
+      }
+      consumed++;
+    } else if (current && hasObjects) {
+      // Continuation line for the current object item: `key: value`
+      const colonSpaceIdx = trimmed.indexOf(': ');
+      if (colonSpaceIdx !== -1) {
+        const k = trimmed.slice(0, colonSpaceIdx).trim();
+        let v = trimmed.slice(colonSpaceIdx + 2).trim();
+        if (
+          (v.startsWith('"') && v.endsWith('"')) ||
+          (v.startsWith("'") && v.endsWith("'"))
+        ) {
+          v = v.slice(1, -1);
+        }
+        current[k] = v;
+      }
+      consumed++;
+    } else {
+      // Non-list indented content (e.g. nested key-value block) — stop
+      break;
+    }
+  }
+
+  if (hasObjects && objects.length > 0) {
+    return { value: objects, consumed };
+  }
+  if (simpleItems.length > 0) {
+    return { value: simpleItems, consumed };
+  }
+  return { value: null, consumed };
+}
+
+/**
  * Parse YAML frontmatter from markdown content using simple regex.
  * Returns key-value pairs from the `---` delimited block.
  */
@@ -62,13 +155,27 @@ function parseFrontmatter(content: string): Frontmatter {
   if (!match) return {};
   const block = match[1];
   const result: Frontmatter = {};
-  for (const line of block.split('\n')) {
+  const lines = block.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const colonIdx = trimmed.indexOf(':');
     if (colonIdx === -1) continue;
     const key = trimmed.slice(0, colonIdx).trim();
     let value: FrontmatterValue = trimmed.slice(colonIdx + 1).trim();
+
+    // When the value is empty, look ahead for nested YAML list items
+    if (value === '') {
+      const parentIndent = line.length - line.trimStart().length;
+      const nested = parseNestedYamlList(lines, i + 1, parentIndent);
+      if (nested.value !== null) {
+        result[key] = nested.value;
+        i += nested.consumed;
+        continue;
+      }
+    }
+
     // Handle YAML arrays written as "[a, b, c]"
     if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
       value = value

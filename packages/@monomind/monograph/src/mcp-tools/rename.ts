@@ -1,24 +1,7 @@
 import { readFileSync, statSync } from 'fs';
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
-
-// ── Row → MonographNode mapper ─────────────────────────────────────────────────
-
-function rowToNode(row: Record<string, unknown>): MonographNode {
-  return {
-    id: row.id as string,
-    label: row.label as MonographNode['label'],
-    name: row.name as string,
-    normLabel: row.norm_label as string,
-    filePath: row.file_path as string | undefined,
-    startLine: row.start_line as number | undefined,
-    endLine: row.end_line as number | undefined,
-    communityId: row.community_id as number | undefined,
-    isExported: (row.is_exported as number) === 1,
-    language: row.language as string | undefined,
-    properties: row.properties ? JSON.parse(row.properties as string) : undefined,
-  };
-}
+import { rowToNode } from '../storage/node-store.js';
 
 // ── Output type ────────────────────────────────────────────────────────────────
 
@@ -42,9 +25,9 @@ export function getMonographRename(
       .prepare('SELECT * FROM nodes WHERE name = ? AND file_path = ? LIMIT 1')
       .get(input.oldName, input.filePath) as Record<string, unknown> | undefined;
   } else {
-    nodeRow = db
-      .prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1')
-      .get(input.oldName) as Record<string, unknown> | undefined;
+    nodeRow = db.prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1').get(input.oldName) as
+      | Record<string, unknown>
+      | undefined;
   }
 
   if (!nodeRow) {
@@ -64,7 +47,7 @@ export function getMonographRename(
     )
     .all(nodeId) as Array<{ id: string; file_path: string; start_line: number | null }>;
 
-  const referencingFiles = [...new Set(referencingRows.map(r => r.file_path))];
+  const referencingFiles = [...new Set(referencingRows.map((r) => r.file_path))];
 
   // Build changes list by reading source files
   const changes: Array<{ file: string; line: number; before: string; after: string }> = [];
@@ -80,7 +63,10 @@ export function getMonographRename(
     if (fileLineCache.has(filePath)) return fileLineCache.get(filePath)!;
     try {
       const st = statSync(filePath);
-      if (st.size > MAX_FILE_BYTES) { fileLineCache.set(filePath, []); return []; }
+      if (st.size > MAX_FILE_BYTES) {
+        fileLineCache.set(filePath, []);
+        return [];
+      }
       const content = readFileSync(filePath, 'utf-8');
       const lines = content.split('\n');
       fileLineCache.set(filePath, lines);

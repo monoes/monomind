@@ -5,10 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-// Static import: this package is ESM ("type": "module"), so a bare
-// require('crypto') throws "require is not defined" in the built output —
-// which would break token comparison in timingSafeCompare() below.
-import { timingSafeEqual } from 'crypto';
+import { validateCredential, type AuthValidationResult } from '../auth.js';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import { createServer, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -423,31 +420,31 @@ export class HttpTransport extends EventEmitter implements ITransport {
         // access logs and intermediate proxy logs. Only fall back to the
         // query param for clients that cannot set upgrade headers.
         const authHeader = req.headers.authorization;
-        const fromHeader = authHeader ? authHeader.replace(/^Bearer\s+/i, '') : undefined;
         const url = new URL(req.url || '', `http://${req.headers.host}`);
         const fromQuery = url.searchParams.get('token');
-        const credential = fromHeader || fromQuery || undefined;
+        const apiKeyHeader = req.headers['x-api-key'] as string | undefined;
+        // #110-review: the PRE-existing inline check's `.replace(/^Bearer\s+/i, '')`
+        // was a no-op for a bare (non-'Bearer'-prefixed) Authorization header,
+        // so a client sending the raw token value with no prefix authenticated
+        // successfully — that behavior must not regress just because this now
+        // routes through validateCredential(), whose 'token' branch requires a
+        // literal 'Bearer ' prefix to match. Synthesize one when the header is
+        // present but doesn't already carry it, same as the query-fallback case
+        // right below already does.
+        const authHeaderWithScheme = authHeader
+          ? (/^Bearer\s+/i.test(authHeader) ? authHeader : `Bearer ${authHeader}`)
+          : undefined;
+        // synthesize a Bearer header from the query fallback so this goes
+        // through the SAME validateCredential() the HTTP path uses — the
+        // previous inline loop only ever checked `auth.tokens`, so an
+        // `api-key`-configured server silently rejected every WS client.
+        const effectiveAuthHeader = authHeaderWithScheme ?? (fromQuery ? `Bearer ${fromQuery}` : undefined);
 
-        if (!credential) {
-          this.logger.warn('WebSocket connection rejected: no authentication token');
-          ws.close(4001, 'Authentication required');
-          return;
-        }
-
-        // SECURITY: Timing-safe token validation
-        let valid = false;
-        if (this.config.auth.tokens?.length) {
-          for (const validToken of this.config.auth.tokens) {
-            if (this.timingSafeCompare(credential, validToken)) {
-              valid = true;
-              break;
-            }
-          }
-        }
-
-        if (!valid) {
-          this.logger.warn('WebSocket connection rejected: invalid token');
-          ws.close(4003, 'Invalid token');
+        const authResult = validateCredential(this.config.auth, effectiveAuthHeader, apiKeyHeader);
+        if (!authResult.valid) {
+          const noCredentialOffered = !effectiveAuthHeader && !apiKeyHeader;
+          this.logger.warn('WebSocket connection rejected', { error: authResult.error });
+          ws.close(noCredentialOffered ? 4001 : 4003, authResult.error ?? 'Unauthorized');
           return;
         }
       }
@@ -669,60 +666,12 @@ export class HttpTransport extends EventEmitter implements ITransport {
     }
   }
 
-  /**
-   * SECURITY: Timing-safe token comparison to prevent timing attacks
-   */
-  private timingSafeCompare(a: string, b: string): boolean {
-    // Ensure both strings are the same length for timing-safe comparison
-    const bufA = Buffer.from(a, 'utf-8');
-    const bufB = Buffer.from(b, 'utf-8');
-
-    // If lengths differ, still do a comparison to prevent length-based timing
-    if (bufA.length !== bufB.length) {
-      // Compare against itself to maintain constant time
-      timingSafeEqual(bufA, bufA);
-      return false;
-    }
-
-    return timingSafeEqual(bufA, bufB);
-  }
-
-  private validateAuth(req: Request): { valid: boolean; error?: string } {
-    const auth = req.headers.authorization;
-
-    if (!auth) {
-      return { valid: false, error: 'Authorization header required' };
-    }
-
-    const tokenMatch = auth.match(/^Bearer\s+(.+)$/i);
-    if (!tokenMatch) {
-      return { valid: false, error: 'Invalid authorization format' };
-    }
-
-    const token = tokenMatch[1];
-
-    // SECURITY: an empty/missing token list with auth.enabled=true must
-    // reject every request (reject-all). The previous `if (tokens?.length)`
-    // guard skipped validation entirely when the list was empty, which
-    // accepted ANY bearer value as valid (accept-all).
-    const configuredTokens = this.config.auth?.tokens;
-    if (!configuredTokens || configuredTokens.length === 0) {
-      return { valid: false, error: 'No tokens configured for authentication' };
-    }
-
-    let valid = false;
-    for (const validToken of configuredTokens) {
-      // SECURITY: Use timing-safe comparison to prevent timing attacks
-      if (this.timingSafeCompare(token, validToken)) {
-        valid = true;
-        break;
-      }
-    }
-    if (!valid) {
-      return { valid: false, error: 'Invalid token' };
-    }
-
-    return { valid: true };
+  private validateAuth(req: Request): AuthValidationResult {
+    return validateCredential(
+      this.config.auth!,
+      req.headers.authorization,
+      req.headers['x-api-key'] as string | undefined,
+    );
   }
 }
 

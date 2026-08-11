@@ -18,7 +18,10 @@ export class RouteLayer {
   private keywordFilter?: KeywordPreFilter;
 
   constructor(config: RouteLayerConfig) {
-    this.config = config;
+    // PKG-4: defensive copy of routes so addRoute()'s push does not mutate
+    // the caller's array. Two RouteLayers built from one shared config would
+    // otherwise leak additions into each other.
+    this.config = { ...config, routes: [...config.routes] };
     // A real injected embedder (or explicit 'hnsw') uses HNSWEncoder; otherwise
     // the deterministic hash-based LocalEncoder. When embeddingGenerator is
     // present, HNSWEncoder embeds with it exclusively (no dimension mixing).
@@ -61,7 +64,7 @@ export class RouteLayer {
         const vectors = await this.encoder.encodeAll(route.utterances);
         const centroid = computeCentroid(vectors);
         return { route, centroid };
-      })
+      }),
     );
     this.initialized = true;
   }
@@ -113,9 +116,13 @@ export class RouteLayer {
 
     // Delegate to LLM fallback when below threshold and configured
     if (belowThreshold && this.llmFallback) {
-      const fallbackResult = await this.llmFallback.classify(taskDescription, this.config.routes, scores);
+      const fallbackResult = await this.llmFallback.classify(
+        taskDescription,
+        this.config.routes,
+        scores,
+      );
       if (this.config.debug) {
-        fallbackResult.allScores = scores.map(s => ({
+        fallbackResult.allScores = scores.map((s) => ({
           routeName: s.routeName,
           agentSlug: s.agentSlug,
           score: s.score,
@@ -132,7 +139,7 @@ export class RouteLayer {
     };
 
     if (this.config.debug) {
-      result.allScores = scores.map(s => ({
+      result.allScores = scores.map((s) => ({
         routeName: s.routeName,
         agentSlug: s.agentSlug,
         score: s.score,

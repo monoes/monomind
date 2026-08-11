@@ -1,5 +1,6 @@
 import { execFileSync } from 'child_process';
 import * as path from 'path';
+import { validateGitRef as sharedValidateGitRef, InvalidGitRefError } from './git-ref.js';
 
 export class ChangedFilesError extends Error {
   constructor(message: string, public readonly kind: 'invalid_ref' | 'git_failed' | 'parse_error') {
@@ -8,25 +9,18 @@ export class ChangedFilesError extends Error {
   }
 }
 
-// Leading '-' is rejected explicitly (not just by the character class) so a
-// value like "--output=/tmp/pwned" can't be passed through and interpreted
-// by git as a command-line option instead of a ref (git option injection).
-const VALID_REF_RE = /^[a-zA-Z0-9\-_./@~^]+$/;
-
+/** @deprecated use git-ref.js's validateGitRef directly for new code — kept
+ *  here so existing importers of this module's validateGitRef keep getting
+ *  a typed ChangedFilesError('invalid_ref') instead of InvalidGitRefError. */
 export function validateGitRef(ref: string): string {
-  if (ref.startsWith('-')) {
-    throw new ChangedFilesError(
-      `Invalid git ref: "${ref}". Refs must not start with '-' (would be interpreted as a git option)`,
-      'invalid_ref',
-    );
+  try {
+    return sharedValidateGitRef(ref);
+  } catch (err) {
+    if (err instanceof InvalidGitRefError) {
+      throw new ChangedFilesError(err.message, 'invalid_ref');
+    }
+    throw err;
   }
-  if (VALID_REF_RE.test(ref)) {
-    return ref;
-  }
-  throw new ChangedFilesError(
-    `Invalid git ref: "${ref}". Must match ${VALID_REF_RE.source}`,
-    'invalid_ref',
-  );
 }
 
 export async function getChangedFiles(root: string, sinceRef: string): Promise<Set<string>> {

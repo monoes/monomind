@@ -31,3 +31,11 @@ declare module 'monovector' {
   export const createIndex: (...args: any[]) => any;
   export default any;
 }
+
+/**
+ * @monoes/mcp is an optional peer dependency resolved at runtime (the CLI
+ * only needs it when an external MCP client connects over HTTP/WS). Typed
+ * loosely as `any` to avoid hard-coupling the build to a sibling workspace
+ * package that may be absent in production installs.
+ */
+declare module '@monoes/mcp';

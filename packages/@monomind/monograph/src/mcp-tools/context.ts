@@ -1,23 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
-
-// ── Row → MonographNode mapper ─────────────────────────────────────────────────
-
-function rowToNode(row: Record<string, unknown>): MonographNode {
-  return {
-    id: row.id as string,
-    label: row.label as MonographNode['label'],
-    name: row.name as string,
-    normLabel: row.norm_label as string,
-    filePath: row.file_path as string | undefined,
-    startLine: row.start_line as number | undefined,
-    endLine: row.end_line as number | undefined,
-    communityId: row.community_id as number | undefined,
-    isExported: (row.is_exported as number) === 1,
-    language: row.language as string | undefined,
-    properties: row.properties ? JSON.parse(row.properties as string) : undefined,
-  };
-}
+import { rowToNode } from '../storage/node-store.js';
 
 // ── Output type ────────────────────────────────────────────────────────────────
 
@@ -42,9 +25,7 @@ function queryRelated(
 ): MonographNode[] {
   // inbound=true  → this node is the target; source nodes are the result
   // inbound=false → this node is the source; target nodes are the result
-  const [filterCol, joinCol] = inbound
-    ? ['target_id', 'source_id']
-    : ['source_id', 'target_id'];
+  const [filterCol, joinCol] = inbound ? ['target_id', 'source_id'] : ['source_id', 'target_id'];
 
   const rows = db
     .prepare(
@@ -71,23 +52,31 @@ export function getMonographContext(
       .prepare('SELECT * FROM nodes WHERE name = ? AND file_path = ? LIMIT 1')
       .get(input.name, input.filePath) as Record<string, unknown> | undefined;
   } else {
-    nodeRow = db
-      .prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1')
-      .get(input.name) as Record<string, unknown> | undefined;
+    nodeRow = db.prepare('SELECT * FROM nodes WHERE name = ? LIMIT 1').get(input.name) as
+      | Record<string, unknown>
+      | undefined;
   }
 
   if (!nodeRow) {
-    return { node: null, callers: [], callees: [], imports: [], importedBy: [], community: null, inProcesses: [] };
+    return {
+      node: null,
+      callers: [],
+      callees: [],
+      imports: [],
+      importedBy: [],
+      community: null,
+      inProcesses: [],
+    };
   }
 
   const node = rowToNode(nodeRow);
   const nodeId = node.id;
 
   // 2–5. Callers / callees / imports / importedBy via shared helper
-  const callers    = queryRelated(db, nodeId, 'CALLS',   true,  LIMIT);
-  const callees    = queryRelated(db, nodeId, 'CALLS',   false, LIMIT);
-  const imports    = queryRelated(db, nodeId, 'IMPORTS', false, LIMIT);
-  const importedBy = queryRelated(db, nodeId, 'IMPORTS', true,  LIMIT);
+  const callers = queryRelated(db, nodeId, 'CALLS', true, LIMIT);
+  const callees = queryRelated(db, nodeId, 'CALLS', false, LIMIT);
+  const imports = queryRelated(db, nodeId, 'IMPORTS', false, LIMIT);
+  const importedBy = queryRelated(db, nodeId, 'IMPORTS', true, LIMIT);
 
   // 6. Community: from node's community_id field
   let community: { id: number; label?: string } | null = null;

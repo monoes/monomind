@@ -13,6 +13,8 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
+const _savedHookQuiet = process.env.MONOMIND_HOOK_QUIET;
+
 // ── Minimal hCtx factory ─────────────────────────────────────────────────────
 
 function makeHCtx(overrides = {}) {
@@ -65,12 +67,15 @@ describe('session-restore-handler', () => {
   let tmpDir;
 
   beforeEach(() => {
+    delete process.env.MONOMIND_HOOK_QUIET;
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-test-'));
     fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, '.claude'), { recursive: true });
   });
 
   afterEach(() => {
+    if (_savedHookQuiet !== undefined) process.env.MONOMIND_HOOK_QUIET = _savedHookQuiet;
+    else delete process.env.MONOMIND_HOOK_QUIET;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 

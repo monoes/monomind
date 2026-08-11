@@ -22,4 +22,14 @@ export const rustConfig: LanguageConfig = {
   importExtractor: (_source, node) => {
     return node.text.replace(/^use\s+/, '').replace(/;$/, '').trim();
   },
+  exportDetector: (node, _source) => {
+    // Rust exports items with a `pub` visibility modifier.
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i)!;
+      if (child.type === 'visibility_modifier') {
+        return child.text.startsWith('pub');
+      }
+    }
+    return false;
+  },
 };

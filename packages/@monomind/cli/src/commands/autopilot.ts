@@ -8,16 +8,28 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import {
-  loadState, saveState, appendLog, loadLog, discoverTasks,
-  getProgress, calculateReward, tryLoadLearning, validateNumber,
-  validateTaskSources, LOG_FILE,
+  loadState,
+  saveState,
+  appendLog,
+  loadLog,
+  discoverTasks,
+  getProgress,
+  calculateReward,
+  tryLoadLearning,
+  validateNumber,
+  validateTaskSources,
+  LOG_FILE,
 } from '../autopilot-state.js';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // ── Check Handler (for Stop hook) ─────────────────────────────
 
-export async function autopilotCheck(): Promise<{ allowStop: boolean; reason: string; continueWith?: string }> {
+export async function autopilotCheck(): Promise<{
+  allowStop: boolean;
+  reason: string;
+  continueWith?: string;
+}> {
   const state = loadState();
 
   if (!state.enabled) {
@@ -53,33 +65,61 @@ export async function autopilotCheck(): Promise<{ allowStop: boolean; reason: st
     const reward = calculateReward(state.iterations, elapsed);
     state.enabled = false;
     saveState(state);
-    appendLog({ ts: Date.now(), event: 'all-tasks-complete', total: progress.total, iterations: state.iterations, durationMs: elapsed, reward });
-    return { allowStop: true, reason: `All ${progress.total} tasks complete (${state.iterations} iterations, reward: ${reward})` };
+    appendLog({
+      ts: Date.now(),
+      event: 'all-tasks-complete',
+      total: progress.total,
+      iterations: state.iterations,
+      durationMs: elapsed,
+      reward,
+    });
+    return {
+      allowStop: true,
+      reason: `All ${progress.total} tasks complete (${state.iterations} iterations, reward: ${reward})`,
+    };
   }
 
   // Stall detection
   const recentHistory = state.history.slice(-5);
-  const isStalled = recentHistory.length >= 5 && recentHistory.every(h => h.completed === progress.completed);
+  const isStalled =
+    recentHistory.length >= 5 && recentHistory.every((h) => h.completed === progress.completed);
 
   if (isStalled && state.history.length >= 10) {
     state.enabled = false;
     saveState(state);
-    appendLog({ ts: Date.now(), event: 'stall-auto-disable', iterations: state.iterations, completed: progress.completed });
-    return { allowStop: true, reason: `Stalled: no progress in 10 iterations (${progress.completed}/${progress.total} complete)` };
+    appendLog({
+      ts: Date.now(),
+      event: 'stall-auto-disable',
+      iterations: state.iterations,
+      completed: progress.completed,
+    });
+    return {
+      allowStop: true,
+      reason: `Stalled: no progress in 10 iterations (${progress.completed}/${progress.total} complete)`,
+    };
   }
 
   // Re-engage
   state.iterations++;
   state.lastCheck = Date.now();
-  state.history.push({ ts: Date.now(), iteration: state.iterations, completed: progress.completed, total: progress.total });
+  state.history.push({
+    ts: Date.now(),
+    iteration: state.iterations,
+    completed: progress.completed,
+    total: progress.total,
+  });
   saveState(state);
 
   const stallWarning = isStalled
     ? '\nWARNING: No progress in 5 iterations. Consider breaking tasks into smaller subtasks or trying a different approach.'
     : '';
 
-  const taskList = progress.incomplete.slice(0, 5).map(t => `- ${t.subject} (${t.status})`).join('\n');
-  const moreCount = progress.incomplete.length > 5 ? `\n... and ${progress.incomplete.length - 5} more` : '';
+  const taskList = progress.incomplete
+    .slice(0, 5)
+    .map((t) => `- ${t.subject} (${t.status})`)
+    .join('\n');
+  const moreCount =
+    progress.incomplete.length > 5 ? `\n... and ${progress.incomplete.length - 5} more` : '';
 
   const continuePrompt = [
     `AUTOPILOT: ${progress.completed}/${progress.total} tasks complete (${progress.percent}%).`,
@@ -89,9 +129,19 @@ export async function autopilotCheck(): Promise<{ allowStop: boolean; reason: st
     `Continue working on the remaining tasks. Do not stop until all are complete.`,
   ].join('\n');
 
-  appendLog({ ts: Date.now(), event: 're-engaging', iteration: state.iterations, completed: progress.completed, remaining: progress.incomplete.length });
+  appendLog({
+    ts: Date.now(),
+    event: 're-engaging',
+    iteration: state.iterations,
+    completed: progress.completed,
+    remaining: progress.incomplete.length,
+  });
 
-  return { allowStop: false, reason: `${progress.incomplete.length}/${progress.total} tasks remaining (iteration ${state.iterations}/${state.maxIterations})`, continueWith: continuePrompt };
+  return {
+    allowStop: false,
+    reason: `${progress.incomplete.length}/${progress.total} tasks remaining (iteration ${state.iterations}/${state.maxIterations})`,
+    continueWith: continuePrompt,
+  };
 }
 
 // ── Subcommands ───────────────────────────────────────────────
@@ -108,8 +158,12 @@ const statusCommand: Command = {
 
     if (ctx.flags?.json) {
       output.printJson({
-        enabled: state.enabled, sessionId: state.sessionId, iterations: state.iterations,
-        maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes, elapsedMs: elapsed,
+        enabled: state.enabled,
+        sessionId: state.sessionId,
+        iterations: state.iterations,
+        maxIterations: state.maxIterations,
+        timeoutMinutes: state.timeoutMinutes,
+        elapsedMs: elapsed,
         tasks: { completed: progress.completed, total: progress.total, percent: progress.percent },
         taskSources: state.taskSources,
       });
@@ -143,8 +197,17 @@ const enableCommand: Command = {
     state.startTime = Date.now();
     state.iterations = 0;
     saveState(state);
-    appendLog({ ts: Date.now(), event: 'enabled', sessionId: state.sessionId, maxIterations: state.maxIterations });
-    output.writeln(output.success(`Autopilot enabled (max ${state.maxIterations} iterations, ${state.timeoutMinutes} min timeout)`));
+    appendLog({
+      ts: Date.now(),
+      event: 'enabled',
+      sessionId: state.sessionId,
+      maxIterations: state.maxIterations,
+    });
+    output.writeln(
+      output.success(
+        `Autopilot enabled (max ${state.maxIterations} iterations, ${state.timeoutMinutes} min timeout)`,
+      ),
+    );
     return { success: true };
   },
 };
@@ -167,7 +230,11 @@ const configCommand: Command = {
   name: 'config',
   description: 'Configure max iterations, timeout, and task sources',
   options: [
-    { name: 'max-iterations', type: 'string', description: 'Max re-engagement iterations (1-1000)' },
+    {
+      name: 'max-iterations',
+      type: 'string',
+      description: 'Max re-engagement iterations (1-1000)',
+    },
     { name: 'timeout', type: 'string', description: 'Timeout in minutes (1-1440)' },
     { name: 'task-sources', type: 'string', description: 'Comma-separated task sources' },
   ],
@@ -182,12 +249,25 @@ const configCommand: Command = {
     if (sources) {
       // Cap total sources string length before splitting to prevent O(n) split on huge input
       const cappedSources = sources.length > 512 ? sources.slice(0, 512) : sources;
-      state.taskSources = validateTaskSources(cappedSources.split(',').map(s => s.trim()).filter(Boolean));
+      state.taskSources = validateTaskSources(
+        cappedSources
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      );
     }
 
     saveState(state);
-    appendLog({ ts: Date.now(), event: 'config-updated', maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes, taskSources: state.taskSources });
-    output.writeln(`Config updated: maxIterations=${state.maxIterations}, timeout=${state.timeoutMinutes}min, sources=${state.taskSources.join(',')}`);
+    appendLog({
+      ts: Date.now(),
+      event: 'config-updated',
+      maxIterations: state.maxIterations,
+      timeoutMinutes: state.timeoutMinutes,
+      taskSources: state.taskSources,
+    });
+    output.writeln(
+      `Config updated: maxIterations=${state.maxIterations}, timeout=${state.timeoutMinutes}min, sources=${state.taskSources.join(',')}`,
+    );
     return { success: true };
   },
 };
@@ -218,7 +298,11 @@ const logCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     if (ctx.flags?.clear) {
-      try { writeFileSync(resolve(LOG_FILE), '[]'); } catch { /* ignore */ }
+      try {
+        writeFileSync(resolve(LOG_FILE), '[]');
+      } catch {
+        /* ignore */
+      }
       output.writeln('Autopilot log cleared');
       return { success: true };
     }
@@ -240,7 +324,10 @@ const logCommand: Command = {
 
     for (const e of entries) {
       const time = new Date(e.ts).toISOString().slice(11, 19);
-      const details = Object.entries(e).filter(([k]) => k !== 'ts' && k !== 'event').map(([k, v]) => `${k}=${v}`).join(' ');
+      const details = Object.entries(e)
+        .filter(([k]) => k !== 'ts' && k !== 'event')
+        .map(([k, v]) => `${k}=${v}`)
+        .join(' ');
       output.writeln(`[${time}] ${e.event} ${details}`);
     }
     return { success: true };
@@ -254,12 +341,22 @@ const learnCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const learning = await tryLoadLearning();
     if (!learning) {
-      output.writeln('Learning not available (memory backend not initialized). Autopilot still works for task completion tracking.');
+      output.writeln(
+        'Learning not available (memory backend not initialized). Autopilot still works for task completion tracking.',
+      );
       return { success: true };
     }
 
-    const metrics = await (learning as any).getMetrics();
-    const patterns = await (learning as any).discoverSuccessPatterns();
+    const metrics = (await learning.getMetrics()) as {
+      episodes: number;
+      patterns: number;
+      trajectories: number;
+    };
+    const patterns = (await learning.discoverSuccessPatterns()) as Array<{
+      pattern: string;
+      frequency: number;
+      avgReward: number;
+    }>;
 
     if (ctx.flags?.json) {
       output.printJson({ metrics, patterns });
@@ -273,7 +370,9 @@ const learnCommand: Command = {
     if (patterns.length > 0) {
       output.writeln('\nDiscovered patterns:');
       for (const p of patterns) {
-        output.writeln(`  - ${p.pattern} (freq: ${p.frequency}, reward: ${p.avgReward.toFixed(2)})`);
+        output.writeln(
+          `  - ${p.pattern} (freq: ${p.frequency}, reward: ${p.avgReward.toFixed(2)})`,
+        );
       }
     }
     return { success: true };
@@ -308,7 +407,7 @@ const historyCommand: Command = {
       return { success: true };
     }
 
-    const results = await (learning as any).recallSimilarTasks(query, limit);
+    const results = (await learning.recallSimilarTasks(query, limit)) as unknown[];
     if (ctx.flags?.json) {
       output.printJson(results);
     } else if (results.length === 0) {
@@ -329,13 +428,18 @@ const predictCommand: Command = {
     const learning = await tryLoadLearning();
 
     if (learning) {
-      const prediction = await (learning as any).predictNextAction(state);
+      const prediction = (await learning.predictNextAction(state)) as {
+        action?: string;
+        confidence?: number;
+        alternatives?: string[];
+      } | null;
       if (ctx.flags?.json) {
         output.printJson(prediction);
       } else {
         output.writeln(`Action: ${prediction?.action || 'unknown'}`);
         output.writeln(`Confidence: ${prediction?.confidence || 0}`);
-        if (prediction?.alternatives?.length > 0) output.writeln(`Alternatives: ${prediction.alternatives.join(', ')}`);
+        if (prediction?.alternatives?.length)
+          output.writeln(`Alternatives: ${prediction.alternatives.join(', ')}`);
       }
       return { success: true };
     }
@@ -350,7 +454,11 @@ const predictCommand: Command = {
     }
 
     const next = progress.incomplete[0];
-    const result = { action: `Work on: ${next.subject}`, confidence: 0.5, remaining: progress.incomplete.length };
+    const result = {
+      action: `Work on: ${next.subject}`,
+      confidence: 0.5,
+      remaining: progress.incomplete.length,
+    };
     if (ctx.flags?.json) {
       output.printJson(result);
     } else {
@@ -383,11 +491,25 @@ export const autopilotCommand: Command = {
   name: 'autopilot',
   description: 'Persistent swarm completion — keeps agents working until ALL tasks are done',
   aliases: ['ap'],
-  subcommands: [statusCommand, enableCommand, disableCommand, configCommand, resetCommand, logCommand, learnCommand, historyCommand, predictCommand, checkCommand],
+  subcommands: [
+    statusCommand,
+    enableCommand,
+    disableCommand,
+    configCommand,
+    resetCommand,
+    logCommand,
+    learnCommand,
+    historyCommand,
+    predictCommand,
+    checkCommand,
+  ],
   examples: [
     { command: 'monomind autopilot status', description: 'Show current state and progress' },
     { command: 'monomind autopilot enable', description: 'Enable persistent completion' },
-    { command: 'monomind autopilot config --max-iterations 100 --timeout 180', description: 'Configure limits' },
+    {
+      command: 'monomind autopilot config --max-iterations 100 --timeout 180',
+      description: 'Configure limits',
+    },
     { command: 'monomind autopilot predict', description: 'Get recommended next action' },
   ],
   action: async (): Promise<CommandResult> => {

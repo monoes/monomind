@@ -56,13 +56,18 @@ export async function deliverRemote(
   body: string,
   host: RemoteHost,
 ): Promise<{ ok: boolean; output: string }> {
-  const { execSync } = await import('node:child_process');
+  // SEC-4: execFileSync bypasses the shell. The previous `ssh ${args.map(...).join(' ')}`
+  // template ran in /bin/sh, and JSON.stringify does NOT escape $(), ``, or ${}
+  // inside double quotes — a malicious host.cwd / host.host from
+  // remote-hosts.json could RCE on the operator's machine. The remote command
+  // stays a single argv element after `--` so ssh receives it verbatim.
+  const { execFileSync } = await import('node:child_process');
   const payload = JSON.stringify({ from, subject, body });
   const remoteCmd = `cd ${JSON.stringify(host.cwd)} && npx monomind org inbox ${orgName} --json ${JSON.stringify(payload)}`;
   const args = sshArgs(host);
-  args.push(remoteCmd);
+  args.push('--', remoteCmd);
   try {
-    const output = execSync(`ssh ${args.map(a => JSON.stringify(a)).join(' ')}`, {
+    const output = execFileSync('ssh', args, {
       encoding: 'utf8',
       timeout: 30_000,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -76,11 +81,12 @@ export async function deliverRemote(
 
 /** Check if a remote host is reachable via SSH (connectivity test). */
 export async function pingRemote(host: RemoteHost): Promise<boolean> {
-  const { execSync } = await import('node:child_process');
+  // SEC-4: same shell-injection class as deliverRemote. execFileSync + argv.
+  const { execFileSync } = await import('node:child_process');
   const args = sshArgs(host);
-  args.push('echo ok');
+  args.push('--', 'echo ok');
   try {
-    execSync(`ssh ${args.map(a => JSON.stringify(a)).join(' ')}`, {
+    execFileSync('ssh', args, {
       encoding: 'utf8',
       timeout: 10_000,
       stdio: ['pipe', 'pipe', 'pipe'],

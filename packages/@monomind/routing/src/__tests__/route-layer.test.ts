@@ -124,6 +124,32 @@ describe('RouteLayer', () => {
       expect(result.agentSlug).toBe('custom-agent');
     });
 
+    it('does not mutate the caller config.routes array (PKG-4)', async () => {
+      const sharedRoutes: Route[] = [{ ...coderRoute }];
+      const config: RouteLayerConfig = { routes: sharedRoutes, enableKeywordFilter: false };
+
+      const layer1 = new RouteLayer(config);
+      const layer2 = new RouteLayer(config);
+
+      await layer1.addRoute({
+        name: 'extra',
+        agentSlug: 'extra-agent',
+        utterances: ['do extra thing'],
+        threshold: 0.5,
+        fallbackToLLM: false,
+      });
+
+      // Caller's original array is not mutated by layer1.addRoute.
+      expect(sharedRoutes.length).toBe(1);
+      expect(sharedRoutes[0].name).toBe('coder');
+
+      // layer2 was built from the same config but does not see the addition —
+      // its routes table still has only the single original route, so routing
+      // for the added utterance falls back rather than resolving to 'extra'.
+      const result = await layer2.route('do extra thing');
+      expect(result.agentSlug).not.toBe('extra-agent');
+    });
+
     it('marks layer as initialized after addRoute', async () => {
       const layer = new RouteLayer(makeConfig({ routes: [] }));
       await layer.addRoute(coderRoute);
@@ -148,7 +174,7 @@ describe('RouteLayer', () => {
       // All 3 built-in routes + the added one must participate in scoring
       expect(result.allScores).toBeDefined();
       expect(result.allScores!.length).toBe(4);
-      const routeNames = result.allScores!.map(s => s.routeName).sort();
+      const routeNames = result.allScores!.map((s) => s.routeName).sort();
       expect(routeNames).toEqual(['coder', 'custom', 'reviewer', 'tester']);
     });
 
@@ -172,9 +198,11 @@ describe('RouteLayer', () => {
   describe('globalThreshold', () => {
     it('overrides per-route thresholds', async () => {
       // With a very high global threshold, everything should fall below it
-      const layer = new RouteLayer(makeConfig({
-        globalThreshold: 0.99,
-      }));
+      const layer = new RouteLayer(
+        makeConfig({
+          globalThreshold: 0.99,
+        }),
+      );
       await layer.initialize();
       const result = await layer.route('implement something');
       // With LocalEncoder the cosine similarity for hash-based embeddings
@@ -188,10 +216,12 @@ describe('RouteLayer', () => {
   describe('LLM fallback', () => {
     it('triggers LLM fallback when below threshold and configured', async () => {
       const llmCaller = vi.fn().mockResolvedValue('tester');
-      const layer = new RouteLayer(makeConfig({
-        globalThreshold: 0.99, // ensure below threshold
-        llmFallback: { llmCaller, onFallback: vi.fn() },
-      }));
+      const layer = new RouteLayer(
+        makeConfig({
+          globalThreshold: 0.99, // ensure below threshold
+          llmFallback: { llmCaller, onFallback: vi.fn() },
+        }),
+      );
       await layer.initialize();
       const result = await layer.route('implement something');
       expect(llmCaller).toHaveBeenCalled();
@@ -200,10 +230,12 @@ describe('RouteLayer', () => {
     });
 
     it('does not trigger LLM fallback when not configured', async () => {
-      const layer = new RouteLayer(makeConfig({
-        globalThreshold: 0.99,
-        // No llmFallback configured
-      }));
+      const layer = new RouteLayer(
+        makeConfig({
+          globalThreshold: 0.99,
+          // No llmFallback configured
+        }),
+      );
       const result = await layer.route('implement something');
       // Below threshold with no LLM configured => degraded, not llm_fallback.
       expect(result.method).toBe('semantic_degraded');
@@ -217,9 +249,9 @@ describe('RouteLayer', () => {
       const dim = 256;
       // Create distinct centroids for each route
       const centroids = [
-        Array.from({ length: dim }, (_, i) => i === 0 ? 1 : 0),
-        Array.from({ length: dim }, (_, i) => i === 1 ? 1 : 0),
-        Array.from({ length: dim }, (_, i) => i === 2 ? 1 : 0),
+        Array.from({ length: dim }, (_, i) => (i === 0 ? 1 : 0)),
+        Array.from({ length: dim }, (_, i) => (i === 1 ? 1 : 0)),
+        Array.from({ length: dim }, (_, i) => (i === 2 ? 1 : 0)),
       ];
       const layer = new RouteLayer(makeConfig({ centroids }));
       await layer.initialize();
@@ -228,9 +260,14 @@ describe('RouteLayer', () => {
     });
 
     it('ignores centroids if count does not match routes', async () => {
-      const layer = new RouteLayer(makeConfig({
-        centroids: [[1, 0], [0, 1]], // only 2, but 3 routes
-      }));
+      const layer = new RouteLayer(
+        makeConfig({
+          centroids: [
+            [1, 0],
+            [0, 1],
+          ], // only 2, but 3 routes
+        }),
+      );
       // Should fall back to computing centroids from utterances
       await layer.initialize();
       const result = await layer.route('test');
@@ -282,13 +319,15 @@ describe('RouteLayer', () => {
         vec[0] = 1; // unit vector
         return vec;
       });
-      const routes: Route[] = [{
-        name: 'test-route',
-        agentSlug: 'test-agent',
-        utterances: ['test utterance'],
-        threshold: 0.0,
-        fallbackToLLM: false,
-      }];
+      const routes: Route[] = [
+        {
+          name: 'test-route',
+          agentSlug: 'test-agent',
+          utterances: ['test utterance'],
+          threshold: 0.0,
+          fallbackToLLM: false,
+        },
+      ];
       const layer = new RouteLayer({
         routes,
         embeddingGenerator: mockEmbed,

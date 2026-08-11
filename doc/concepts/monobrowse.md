@@ -82,3 +82,14 @@ Located at `packages/@monoes/monobrowse/`.
 | **CLI command** | `packages/@monomind/cli/src/commands/index.ts` | Registered as `monomind browse` |
 | **Monodesign** | `@monoes/monodesign/cli/engine/` | Optional Puppeteer dependency fallback for live visual audits |
 | **Active Port Cache** | `ref-cache.ts` | Persists debug port to ensure multiple CLI calls connect to the same browser instance |
+
+---
+
+## 5. Recovery — if a command hangs or Chrome is left running
+
+CLAUDE.md mandates `monomind browse` over Playwright/Puppeteer with no exceptions. That mandate now has a real fallback path instead of none:
+
+- **A command that hangs on an unresponsive page** no longer hangs forever — every CDP command sent via `CdpClient.send()` times out after 30s by default (`DEFAULT_CDP_SEND_TIMEOUT_MS` in `cdp.ts`), and a `Target.targetCrashed`/`Target.targetDestroyed` event flushes all in-flight commands immediately rather than waiting out the timeout. If a command still appears stuck past ~30s, it will resolve with a timeout error on its own — just wait, or Ctrl-C.
+- **Ctrl-C / SIGTERM during an active browse session** now runs best-effort cleanup before the process exits: if this process launched Chrome, it calls `Browser.close` (falling back to a PID kill) before terminating. This only fires once a `browse open` has actually launched a browser in the current process — unrelated `monomind` commands are unaffected.
+- **A Chrome process orphaned by an earlier crash** (e.g. the CLI process itself was killed with `SIGKILL`, which no handler can intercept) can still be cleaned up: `open` persists the launched PID to `.monomind/monobrowse/active-port.json` (`ref-cache.ts`'s `saveActivePort`), and a later `monomind browse close` run in a *fresh* process reads that file and kills the PID directly — this is what makes `closeBrowser()`'s PID-kill fallback work across CLI invocations, not just within one.
+- **If none of the above helps** (e.g. the persisted PID file itself is stale or was deleted): find and kill the process manually — `ps aux | grep remote-debugging-port` — then run `monomind browse open` again to start fresh. This manual step is the actual last-resort exception to "no exceptions," and should be rare now that the three mechanisms above cover hang, interrupt, and orphan-after-crash.

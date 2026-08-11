@@ -172,7 +172,7 @@ monomind org delete <name>          # remove an org
 monomind org memory <name>          # cross-run KG memory: stats (default) | search <q> | rules | rollback <run-ref>
 ```
 
-`org` has 16 subcommands total (run, stop, status, serve, test-loop, logs, report, memory, questions, answer, create, validate, migrate, list, delete, mark-complete) — `org memory` is the newest addition.
+`org` has 31 subcommands total (run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, memory, costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete) — `org memory` is the newest addition.
 
 > **Note:** `/mastermind:runorg` now delegates directly to the Org Runtime v2 daemon (the same path as `monomind org run`) — there is no boss agent, no monotask board, and no manual curl calls in this path. The old prompt-orchestrated flow (Task-tool boss agent, monotask board, manual dashboard event posting) is retired to `/mastermind:runorgv1`, reachable only by that explicit legacy name, kept only for orgs not yet migrated off the v1 config shape. New orgs should use `monomind org run` (or `/mastermind:runorg`) against a hand-authored `.monomind/orgs/<name>.json`.
 
@@ -263,6 +263,8 @@ Retrieval quality is a tested invariant, not a hope: a golden-set eval (paraphra
 
 > **Privacy note:** the embedding model (~90MB) is fetched once from HuggingFace's CDN when your first document is indexed, then cached locally forever. That download is the only outbound request the Second Brain ever makes — your documents and queries never leave your machine. Offline at first index? Search degrades gracefully to keyword matching and `monomind doctor` tells you how to warm up later.
 
+> **Which model where?** Monomind uses three local embedding models, each scoped to one subsystem: `Snowflake/snowflake-arctic-embed-xs` (~88MB) for semantic task routing, MiniLM (~90MB) for Second Brain document retrieval, and `Alibaba-NLP/gte-modernbert-base` (768-dim) for the persistent memory store. See [Embeddings](./doc/commands/memory.md#hybrid-search-architecture--options) for which model each subsystem uses.
+
 ---
 
 ## 🧠 Memory That Persists
@@ -285,7 +287,7 @@ graph TD
 ```
 
 ```bash
-monomind memory store "key insight" --namespace my-project
+monomind memory store --key "key insight" --value "…" --namespace my-project
 monomind memory search "auth implementation"     # semantic (local embeddings) with keyword fallback
 ```
 
@@ -369,7 +371,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `monomind org run <name>` | Start an org as a real SDK-backed daemon |
 | `monomind org status` / `list` | Runtime state for one or all orgs |
 | `monomind org stop <name>` | Request a graceful stop |
-| `/mastermind:approve` | Action pending approval requests |
+| `/mastermind:approvev1` | Action pending approval requests |
 
 ### Business Domains
 | Command | What it does |
@@ -398,6 +400,8 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `@monoes/monobrowse` | [![npm](https://img.shields.io/npm/v/@monoes/monobrowse?style=flat-square&color=06B6D4)](https://www.npmjs.com/package/@monoes/monobrowse) | Browser automation via CDP |
 | `@monoes/monodesign` | [![npm](https://img.shields.io/npm/v/@monoes/monodesign?style=flat-square&color=EC4899)](https://www.npmjs.com/package/@monoes/monodesign) | Frontend design intelligence |
 | `monofence-ai` | [![npm](https://img.shields.io/npm/v/monofence-ai?style=flat-square&color=EF4444)](https://www.npmjs.com/package/monofence-ai) | AI manipulation defence |
+
+See [CLI Reference](./doc/commands/cli-reference.md) for the full 32-command index.
 
 ---
 

@@ -742,9 +742,9 @@ export const replayAction = async (ctx: CommandContext, name: string): Promise<C
   const { OrgDaemon } = await import('../orgrt/daemon.js');
   const daemon = new OrgDaemon(ctx.cwd, { forward: false });
 
-  const resumed = await daemon.resumeOrg(name);
+  const resumed = await daemon.replayFrom(name, run);
   if (!resumed) {
-    return { success: false, message: `resume failed - check runtime.json for ${name} is valid` };
+    return { success: false, message: `replay failed - check bus.jsonl and org config for ${name} are valid` };
   }
 
   log(output.success(`Org ${name} resumed from ${run} - ${resumed.agents.size} role(s) restored`));

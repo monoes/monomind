@@ -332,6 +332,26 @@ describe('OrgDaemon', () => {
     expect(Date.now() - start).toBeLessThan(2000);
     expect(running.busEvents().some(e => e.type === 'audit' && e.reason === 'stop-timeout')).toBe(true);
   });
+
+  it('#114: startOrg joins an in-flight stopOrg for the same name instead of racing its drain/worktree cleanup', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon9-'));
+    fixture(root, 'alpha');
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, stopWaitMs: 150 });
+    const first = await d.startOrg('alpha');
+    const firstRun = first.run;
+
+    // Kick off stopOrg but don't await it yet — its drain window is still open.
+    const stopPromise = d.stopOrg('alpha');
+
+    // A start racing that in-flight stop must wait for it to finish rather than
+    // throwing "already running" (this.orgs still has the entry mid-drain) or
+    // colliding on the shared worktree path being torn down.
+    const second = await d.startOrg('alpha');
+    await stopPromise;
+
+    expect(second.run).not.toBe(firstRun);
+    await d.stopOrg('alpha');
+  });
 });
 
 describe('OrgDaemon — completion & idle watchdog', () => {

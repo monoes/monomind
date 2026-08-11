@@ -2,6 +2,108 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Graph engineering playbook — dynamic work graphs + structured handoffs
+
+Adaptation of the July 2026 "Graph Engineering for Multi-Agentic Systems"
+playbook (Ng). The org runtime's TaskDag graduates from a static dependency
+tracker to a dynamic work graph. Source of truth: `docs/graph-engineering-playbook.md`.
+
+#### Dynamic TaskDag operations (`task-dag.ts`)
+
+- **`split(parentId, children)`** — scope expansion (playbook §2.2).
+- **`merge(sourceId, targetId)`** — early convergence (playbook §2.2).
+- **`cancel(taskId, reason?)`** — evidence made it moot (playbook §2.2).
+- New statuses: `split`, `merged`, `cancelled`. New fields: `splitFrom`, `mergedInto`.
+
+#### New agent tools (`session.ts`)
+
+- **`org_task_split`**, **`org_task_merge`**, **`org_task_cancel`** — wrap the new DAG ops.
+- **`org_plan_graph`** — work graph generator (playbook §2.4).
+
+#### Structured Handoff Protocol (`types.ts`)
+
+- **`OrgHandoffSchema`** — typed envelope for inter-role context packages (playbook §2.3).
+
+#### Per-node failure routing (`types.ts`)
+
+- **`FailureRoutingSchema`** — retry / fallback / escalate rules (playbook §2.6).
+
+#### Graph observability (`types.ts`)
+
+- **`trace` BusEvent type** — per-node execution traces (playbook §2.5).
+
+#### Org templates (`templates.ts`)
+
+- **`kg-extraction`** — 4-role multi-agent knowledge-graph extraction pipeline.
+- **`advisor-orchestrator`** — cost-efficient planner + workers pattern (playbook §2.7).
+
+#### Tests
+
+- 61 new tests in `tests/orgrt/` (task-dag, graph-engineering-types, dag-ops, templates, session-tools).
+
+### Universal provider support — Vercel AI SDK + Codex CLI runners
+
+Two new `AgentRunner` implementations extend the org runtime beyond the
+Claude/Kimi/Opencode trio. Combined with the existing runners, every major
+subscription and API key auth path now has a first-class home.
+
+#### `VercelAgentRunner` — any API-key provider via the Vercel AI SDK
+
+- **Activation:** `runtime: 'vercel'` (per-role or org-level) or auto-resolved from `provider.kind: 'vercel-api-key'`
+- **Vendor registry:** 15 providers — OpenAI, Anthropic, Google, xAI, DeepSeek, **GLM** (z.ai), Mistral, Groq, Together, Fireworks, Cohere, Perplexity, Alibaba, OpenRouter, Ollama — plus a generic `openai-compatible` escape hatch
+- **Primitive:** `streamText + stopWhen: isStepCount(N)` (Vercel v7)
+- **Tool delivery:** Native Vercel `tool()` calling with `canUseTool` policy gating (no fence protocol needed)
+- **Session resume:** `VercelSessionStore` persists message history to disk (Vercel SDK is stateless)
+- **Cost tracking:** Token-only (`cost_usd: 0` — Vercel returns no USD; token budgets still enforce via policy.ts)
+- **Files:** `orgrt/vercel-runner.ts`, `orgrt/vercel-providers.ts`, `orgrt/vercel-session-store.ts`
+- **Optional deps:** `ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`, `@ai-sdk/xai`, `@ai-sdk/deepseek`, `@ai-sdk/mistral`, `@ai-sdk/groq`, `@ai-sdk/togetherai`, `@ai-sdk/fireworks`, `@ai-sdk/cohere`, `@ai-sdk/perplexity`, `@ai-sdk/alibaba`, `@openrouter/ai-sdk-provider`, `ollama-ai-provider`
+
+#### `CodexAgentRunner` — ChatGPT subscription via Codex CLI subprocess
+
+- **Activation:** `runtime: 'codex'` or auto-resolved from `provider.kind: 'codex'`
+- **Auth:** Inherits `~/.codex/auth.json` from `codex login` (ChatGPT Plus/Pro/Team/Enterprise). No API key needed.
+- **Pattern:** Subprocess (same as `KimiCodeAgentRunner`) — spawns `codex exec --experimental-json --sandbox danger-full-access`, parses JSONL events
+- **Tool delivery:** Fence protocol (same as kimi/opencode) — `executeToolCall` now accepts `canUseTool` for policy gating
+- **Protocol:** Byte-accurate against `openai/codex/sdk/typescript/src` — `thread.started` captures `thread_id`, `item.completed` with `type: 'agent_message'` yields assistant text, `turn.completed` carries usage
+- **Resume:** `codex exec resume <thread_id>` (positional, not a flag)
+- **Files:** `orgrt/codex-runner.ts`, `orgrt/tool-fence.ts` (executeToolCall signature extended)
+
+#### `AntigravityAgentRunner` — Google AI Pro/Ultra via Antigravity CLI
+
+- **Activation:** `runtime: 'antigravity'` or auto-resolved from `provider.kind: 'antigravity'`
+- **Auth:** OS keyring credentials from running `agy` interactively once (Google OAuth). Google AI Pro/Ultra consumer subscription flows through this — Gemini CLI's consumer OAuth was sunset June 18, 2026; Antigravity is the official replacement.
+- **Pattern:** Subprocess (same as `KimiCodeAgentRunner` / `CodexAgentRunner`) — spawns `agy -p "<prompt>" --output-format stream-json --dangerously-skip-permissions`, parses NDJSON events
+- **Protocol:** Event types `init` → `step_update` (multiple) → `result`. Session ID captured from `conversation_id`. Per-token streaming accumulated and emitted as one assistant message per turn (fence stripping needs full text; matches kimi/codex behavior).
+- **Resume:** `--conversation <conversation_id>`
+- **Tool delivery:** Fence protocol (same as kimi/codex/opencode)
+- **Install:** Go binary via `curl -fsSL https://antigravity.google/cli/install.sh | bash` (no npm package)
+- **Files:** `orgrt/antigravity-runner.ts`
+
+#### Schema + provider resolution
+
+- `ProviderSchema.kind` extended: `'vercel-api-key'`, `'codex'` (existing kinds unchanged — backward compatible)
+- `ProviderSchema.vendor` field added (15 values + `openai-compatible`)
+- `runtime` enum extended in `RoleSchema` + `OrgDefSchema`: `'vercel'`, `'codex'`
+- `resolveRunner()` + `resolveRoleRunner()` in `daemon.ts` now auto-resolve runtime from provider kind when no explicit `runtime` field is set
+- `resolveModel()` in `session.ts` returns per-vendor default models (e.g. GLM → `glm-5.2`, Codex → `gpt-5.6-terra`, DeepSeek → `deepseek-chat`); explicit `adapter_config.model` always wins
+
+#### SDK upgrades
+
+- `@anthropic-ai/claude-agent-sdk` 0.3.207 → 0.3.226 — unlocks Opus 5 (`model: 'opus'` or `'claude-opus-5'`), includes MCP-connection bug fixes, better error surfacing. No breaking changes.
+- **Subagent depth change:** Claude SDK 0.3.217 lowered default subagent spawn depth from 5 to 1. Swarm code relying on deep nesting must set `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=5`.
+- **Kimi stderr fix:** `kimicode-runner.ts` now defensively extracts `session_id` from stderr as well as stdout (kimi 0.33+ may emit `session.resume_hint` on stderr in stream-json mode).
+
+## [2.9.3] — 2026-08-11
+
+### Publish, CLI startup, and doctor fixes (#119, #130, #131, #132)
+
+- **#130 (critical) — `2.9.2` was uninstallable.** `packages/@monomind/cli/scripts/publish.sh` published with plain `npm publish`, which copies pnpm's `workspace:*` protocol verbatim into the tarball — `@monoes/monograph` resolved to the literal string `"workspace:*"`, which no consumer can install. Switched to `pnpm publish` (which resolves the pin correctly, same as the root package already does) and added `scripts/check-workspace-deps.mjs`, wired into the CLI package's `prepublishOnly`, to hard-block any future non-pnpm publish of a workspace-linked package.
+- **#119 — lazy CLI command loading.** Every invocation (including `--version`) used to eagerly import all 32 command modules and their transitive dependencies (including the Claude Agent SDK via `org.ts`). `commands/index.ts` now lazy-loads each command on demand; `--version` imports none of them. A two-phase parse in `index.ts` resolves and registers only the invoked command's full subtree before parsing, preserving correct flag/alias scoping at any subcommand depth.
+- **#131 — `doctor`'s npm check swallowed real errors.** `checkNpmVersion` mapped every failure (timeout, spawn error, genuine absence) to a fixed "npm not found" message even when npm was actually installed and working. It now distinguishes timeout vs `ENOENT` vs other errors and includes the underlying error detail.
+- **#132 — `init` ran an undisclosed global install with no opt-out.** `monomind init` unconditionally ran `doctor --install` (which may `npm install -g @anthropic-ai/claude-code`) with no way to skip it and no notice before the network call. Added `monomind init --no-install`, and a one-line disclosure printed before the install actually runs.
+
 ## [2.9.2] — 2026-08-09
 
 ### PDF engine swap + post-init document ingestion

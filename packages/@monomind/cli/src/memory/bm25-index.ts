@@ -2,6 +2,23 @@
  * In-process Okapi BM25 over live document chunks — the lexical arm of the
  * hybrid retrieval stack (Second Brain plan item 1).
  *
+ * WIRING STATUS (#126)
+ * ---------------------
+ * As of this change, `memory-bridge.ts`'s `bridgeSearchEntries()` calls this
+ * as its JS-fallback keyword scorer (replacing a naive token-overlap-fraction
+ * scan) WHEN the FTS5 fast path is unavailable/empty AND the queried entry
+ * set is small enough to build cheaply (currently capped at 1,500 entries —
+ * see BM25_ENTRY_CAP in memory-bridge.ts; this module's own measured cost of
+ * ~1.7s/12.5k chunks is why a cap exists at all). Above the cap, or with
+ * `MONOMIND_BM25=0`, the old token-overlap scan still runs. The 0.697
+ * Recall@5 cited below was measured by the EVAL HARNESS's separate scorer
+ * (`knowledge/eval/retrievers.ts`) against the full corpus with no size cap
+ * and no FTS5-availability branching — it does NOT automatically transfer to
+ * this capped, conditional production wiring. Treat it as the number that
+ * justified building this module, not as a live guarantee; re-measure via
+ * `monomind doc eval` after this change to get the real number for the
+ * actual wired path.
+ *
  * WHY THIS IS NOT FTS5
  * --------------------
  * The plan specified "add FTS5 over `memory_entries.content`". It was changed

@@ -211,4 +211,74 @@ describe('.claude tree parity (root vs npm-shipped CLI copy)', () => {
         'a missing behaviour for whichever side lacks it.',
     ).toEqual({ onlyInRoot: [], onlyInShippedPackage: [] });
   });
+
+  it('#127: the skills/ trees hold the same SET of skill directories, modulo the known intentional exceptions', () => {
+    // Byte-parity for any skill dir present in both trees is already covered
+    // by the "every file present in BOTH trees is byte-identical" block
+    // above — this only needs to catch a skill quietly added to one tree
+    // and not the other (the actual #127 finding: two real, independently
+    // maintained directory trees had already drifted apart in *membership*,
+    // and a session's skill listing showed both the bare and package-
+    // prefixed name for anything present in both, roughly doubling the
+    // apparent skill count).
+    const listSkillDirs = (skillsRoot: string): string[] => {
+      let entries: string[];
+      try {
+        entries = readdirSync(skillsRoot);
+      } catch {
+        return [];
+      }
+      return entries
+        .filter((name) => !isIgnored(name))
+        .filter((name) => {
+          const full = join(skillsRoot, name);
+          try {
+            return statSync(full).isDirectory() && existsSync(join(full, 'SKILL.md'));
+          } catch {
+            return false;
+          }
+        })
+        .sort();
+    };
+
+    const rootSkills = listSkillDirs(join(ROOT_TREE, 'skills'));
+    const pkgSkills = listSkillDirs(join(PKG_TREE, 'skills'));
+
+    expect(rootSkills.length, 'root .claude/skills is empty or missing').toBeGreaterThan(20);
+    expect(pkgSkills.length, 'packaged .claude/skills is empty or missing').toBeGreaterThan(20);
+
+    // Deliberate, known exceptions — update this list (with a reason) if a
+    // skill is intentionally added to only one tree; do not widen it to
+    // silence an accidental new drift.
+    const ROOT_ONLY_ALLOWED = new Set(['monoagent-image', 'monodoc']);
+    const PKG_ONLY_ALLOWED = new Set([
+      'github-issue-triage', 'github-repo-recap', 'github-toolkit',
+      'memory-toolkit', 'stop-slop',
+    ]);
+
+    const onlyRoot = rootSkills.filter((s) => !pkgSkills.includes(s));
+    const onlyPkg = pkgSkills.filter((s) => !rootSkills.includes(s));
+
+    const unexpectedOnlyRoot = onlyRoot.filter((s) => !ROOT_ONLY_ALLOWED.has(s));
+    const unexpectedOnlyPkg = onlyPkg.filter((s) => !PKG_ONLY_ALLOWED.has(s));
+
+    expect(
+      { unexpectedOnlyInRoot: unexpectedOnlyRoot, unexpectedOnlyInShippedPackage: unexpectedOnlyPkg },
+      'The two .claude/skills/ trees hold a different SET of skill directories ' +
+        'beyond the known/allowed exceptions. Either mirror the new skill into ' +
+        'the other tree, or add it to ROOT_ONLY_ALLOWED/PKG_ONLY_ALLOWED here ' +
+        'with a reason if the asymmetry is intentional.',
+    ).toEqual({ unexpectedOnlyInRoot: [], unexpectedOnlyInShippedPackage: [] });
+
+    // Also assert the allow-lists themselves aren't stale (a skill that used
+    // to be root/package-only but is now mirrored, or was removed).
+    expect(
+      [...ROOT_ONLY_ALLOWED].filter((s) => !onlyRoot.includes(s)),
+      'ROOT_ONLY_ALLOWED lists a skill that is no longer root-only (mirrored or removed) — shrink the allow-list.',
+    ).toEqual([]);
+    expect(
+      [...PKG_ONLY_ALLOWED].filter((s) => !onlyPkg.includes(s)),
+      'PKG_ONLY_ALLOWED lists a skill that is no longer package-only (mirrored or removed) — shrink the allow-list.',
+    ).toEqual([]);
+  });
 });

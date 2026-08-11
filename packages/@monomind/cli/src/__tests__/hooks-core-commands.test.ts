@@ -10,7 +10,10 @@ import type { CommandContext, CommandResult } from '../types.js';
 // this one dependency lets the command handlers under test run for real (real MCP tool
 // registry dispatch, real risk assessment, real file writes for command-outcomes.jsonl)
 // without paying for or depending on that heavy subsystem.
-const bridgeRecordFeedback = vi.fn(async (_opts: unknown) => ({ success: true, id: 'mock-feedback-id' }));
+const bridgeRecordFeedback = vi.fn(async (_opts: unknown) => ({
+  success: true,
+  id: 'mock-feedback-id',
+}));
 const bridgeStoreEntry = vi.fn(async (_opts: unknown) => ({ success: true, id: 'mock-entry-id' }));
 vi.mock('../memory/memory-bridge.js', () => ({
   bridgeRecordFeedback: (opts: unknown) => bridgeRecordFeedback(opts),
@@ -35,7 +38,7 @@ beforeEach(async () => {
 // narrows that away instead of sprinkling non-null assertions across every call site.
 async function run(
   command: { action?: (ctx: CommandContext) => Promise<CommandResult | void> },
-  ctx: CommandContext
+  ctx: CommandContext,
 ): Promise<CommandResult> {
   const result = await command.action!(ctx);
   if (!result) throw new Error(`${JSON.stringify(ctx.flags)} produced no CommandResult`);
@@ -91,7 +94,10 @@ describe('hooks-core-commands', () => {
 
       const { spy } = captureStdout();
       try {
-        const result = await run(preEditCommand, makeCtx({ flags: { _: [], format: 'json', file: filePath } }));
+        const result = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: filePath } }),
+        );
         expect(result.success).toBe(true);
         const data = result.data as any;
         expect(data.filePath).toBe(filePath);
@@ -113,7 +119,10 @@ describe('hooks-core-commands', () => {
 
       const { spy } = captureStdout();
       try {
-        const result = await run(preEditCommand, makeCtx({ flags: { _: [], format: 'json', file: filePath } }));
+        const result = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: filePath } }),
+        );
         const data = result.data as any;
         expect(data.context.fileExists).toBe(true);
       } finally {
@@ -124,13 +133,26 @@ describe('hooks-core-commands', () => {
     it('branches suggested agents by file extension (.md vs .py vs no extension)', async () => {
       const { spy } = captureStdout();
       try {
-        const md = await run(preEditCommand, makeCtx({ flags: { _: [], format: 'json', file: 'README.md' } }));
+        const md = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'README.md' } }),
+        );
         expect((md.data as any).context.suggestedAgents).toEqual(['researcher', 'documenter']);
 
-        const py = await run(preEditCommand, makeCtx({ flags: { _: [], format: 'json', file: 'script.py' } }));
-        expect((py.data as any).context.suggestedAgents).toEqual(['coder', 'ml-developer', 'researcher']);
+        const py = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'script.py' } }),
+        );
+        expect((py.data as any).context.suggestedAgents).toEqual([
+          'coder',
+          'ml-developer',
+          'researcher',
+        ]);
 
-        const noExt = await run(preEditCommand, makeCtx({ flags: { _: [], format: 'json', file: 'Makefile' } }));
+        const noExt = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'Makefile' } }),
+        );
         expect((noExt.data as any).context.fileType).toBe('unknown');
         expect((noExt.data as any).context.suggestedAgents).toEqual(['coder', 'architect']);
       } finally {
@@ -141,8 +163,9 @@ describe('hooks-core-commands', () => {
     it('recognizes test files (.test.ts) and suggests tester/reviewer regardless of extension mapping', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(preEditCommand, 
-          makeCtx({ flags: { _: [], format: 'json', file: 'src/utils.test.ts' } })
+        const result = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'src/utils.test.ts' } }),
         );
         expect((result.data as any).context.suggestedAgents).toEqual(['tester', 'reviewer']);
       } finally {
@@ -153,12 +176,16 @@ describe('hooks-core-commands', () => {
     it('flags deletion as a risk when operation=delete, but not for the default update operation', async () => {
       const { spy } = captureStdout();
       try {
-        const del = await run(preEditCommand, 
-          makeCtx({ flags: { _: [], format: 'json', file: 'x.ts', operation: 'delete' } })
+        const del = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'x.ts', operation: 'delete' } }),
         );
         expect((del.data as any).context.risks).toEqual(['File deletion is irreversible']);
 
-        const update = await run(preEditCommand, makeCtx({ flags: { _: [], format: 'json', file: 'x.ts' } }));
+        const update = await run(
+          preEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'x.ts' } }),
+        );
         expect((update.data as any).context.risks).toEqual([]);
       } finally {
         spy.mockRestore();
@@ -195,15 +222,16 @@ describe('hooks-core-commands', () => {
     it('records a successful edit outcome and forwards it to the feedback bridge with outcome=success', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(postEditCommand, 
-          makeCtx({ flags: { _: [], format: 'json', file: 'src/a.ts', success: true } })
+        const result = await run(
+          postEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'src/a.ts', success: true } }),
         );
         expect(result.success).toBe(true);
         const data = result.data as any;
         expect(data.recorded).toBe(true);
         expect(data.success).toBe(true);
         expect(data.learningUpdate).toBe('pattern_reinforced');
-        expect(data.feedback).toEqual({ recorded: true, controller: 'lancedb', updates: 1 });
+        expect(data.feedback).toEqual({ recorded: true, controller: 'sqlite', updates: 1 });
 
         expect(bridgeRecordFeedback).toHaveBeenCalledTimes(1);
         const call = bridgeRecordFeedback.mock.calls[0][0] as any;
@@ -218,8 +246,17 @@ describe('hooks-core-commands', () => {
     it('records a failed edit outcome with outcome=failure and a lower confidence', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(postEditCommand, 
-          makeCtx({ flags: { _: [], format: 'json', file: 'src/a.ts', success: false, outcome: 'Type error' } })
+        const result = await run(
+          postEditCommand,
+          makeCtx({
+            flags: {
+              _: [],
+              format: 'json',
+              file: 'src/a.ts',
+              success: false,
+              outcome: 'Type error',
+            },
+          }),
         );
         const data = result.data as any;
         expect(data.success).toBe(false);
@@ -237,7 +274,10 @@ describe('hooks-core-commands', () => {
     it('defaults success to true when --success is not passed (PostToolUse compat)', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(postEditCommand, makeCtx({ flags: { _: [], format: 'json', file: 'src/a.ts' } }));
+        const result = await run(
+          postEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'src/a.ts' } }),
+        );
         expect((result.data as any).success).toBe(true);
       } finally {
         spy.mockRestore();
@@ -248,8 +288,9 @@ describe('hooks-core-commands', () => {
       bridgeRecordFeedback.mockRejectedValueOnce(new Error('backend unavailable'));
       const { spy } = captureStdout();
       try {
-        const result = await run(postEditCommand, 
-          makeCtx({ flags: { _: [], format: 'json', file: 'src/a.ts', success: true } })
+        const result = await run(
+          postEditCommand,
+          makeCtx({ flags: { _: [], format: 'json', file: 'src/a.ts', success: true } }),
         );
         // The command itself still succeeds — the bridge failure is caught internally.
         expect(result.success).toBe(true);
@@ -264,8 +305,11 @@ describe('hooks-core-commands', () => {
     it('prints a success line and no filesystem writes are required for the command to succeed', async () => {
       const { spy, text } = captureStdout();
       try {
-        const result = await run(postEditCommand, 
-          makeCtx({ flags: { _: [], file: 'src/a.ts', success: true, metrics: 'time:500,quality:0.95' } })
+        const result = await run(
+          postEditCommand,
+          makeCtx({
+            flags: { _: [], file: 'src/a.ts', success: true, metrics: 'time:500,quality:0.95' },
+          }),
         );
         expect(result.success).toBe(true);
         expect(text()).toContain('Outcome recorded for src/a.ts');
@@ -282,8 +326,9 @@ describe('hooks-core-commands', () => {
     it('assesses an obviously safe command ("ls -la") as low risk and shouldProceed=true', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(preCommandCommand, 
-          makeCtx({ flags: { _: [], format: 'json', command: 'ls -la' } })
+        const result = await run(
+          preCommandCommand,
+          makeCtx({ flags: { _: [], format: 'json', command: 'ls -la' } }),
         );
         expect(result.success).toBe(true);
         const data = result.data as any;
@@ -298,14 +343,19 @@ describe('hooks-core-commands', () => {
     it('assesses an obviously risky command ("rm -rf dist") as critical risk and shouldProceed=false', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(preCommandCommand, 
-          makeCtx({ flags: { _: [], format: 'json', command: 'rm -rf dist' } })
+        const result = await run(
+          preCommandCommand,
+          makeCtx({ flags: { _: [], format: 'json', command: 'rm -rf dist' } }),
         );
         const data = result.data as any;
         expect(data.riskLevel).toBe('critical');
         expect(data.shouldProceed).toBe(false);
         expect(data.risks).toEqual([
-          { type: 'risk-1', severity: 'high', description: 'Recursive deletion detected - verify target path' },
+          {
+            type: 'risk-1',
+            severity: 'high',
+            description: 'Recursive deletion detected - verify target path',
+          },
         ]);
       } finally {
         spy.mockRestore();
@@ -315,8 +365,9 @@ describe('hooks-core-commands', () => {
     it('assesses a medium-severity risk ("sudo apt install foo") as high, distinct from critical', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(preCommandCommand, 
-          makeCtx({ flags: { _: [], format: 'json', command: 'sudo apt install foo' } })
+        const result = await run(
+          preCommandCommand,
+          makeCtx({ flags: { _: [], format: 'json', command: 'sudo apt install foo' } }),
         );
         const data = result.data as any;
         expect(data.riskLevel).toBe('high');
@@ -356,8 +407,9 @@ describe('hooks-core-commands', () => {
     it('records a successful command outcome (exit code 0) to the real command-outcomes.jsonl file', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(postCommandCommand, 
-          makeCtx({ flags: { _: [], format: 'json', command: 'npm test', 'exit-code': 0 } })
+        const result = await run(
+          postCommandCommand,
+          makeCtx({ flags: { _: [], format: 'json', command: 'npm test', 'exit-code': 0 } }),
         );
         expect(result.success).toBe(true);
         const data = result.data as any;
@@ -382,8 +434,17 @@ describe('hooks-core-commands', () => {
       try {
         // Passing --success (unused by the handler for the derived flag) alongside a
         // non-zero exit code: the recorded/returned success is driven by exitCode only.
-        const result = await run(postCommandCommand, 
-          makeCtx({ flags: { _: [], format: 'json', command: 'npm run build', success: true, 'exit-code': 1 } })
+        const result = await run(
+          postCommandCommand,
+          makeCtx({
+            flags: {
+              _: [],
+              format: 'json',
+              command: 'npm run build',
+              success: true,
+              'exit-code': 1,
+            },
+          }),
         );
         const data = result.data as any;
         expect(data.exitCode).toBe(1);
@@ -402,8 +463,9 @@ describe('hooks-core-commands', () => {
     it('defaults exit code to 0 (success) when --exit-code is not passed', async () => {
       const { spy } = captureStdout();
       try {
-        const result = await run(postCommandCommand, 
-          makeCtx({ flags: { _: [], format: 'json', command: 'echo hi' } })
+        const result = await run(
+          postCommandCommand,
+          makeCtx({ flags: { _: [], format: 'json', command: 'echo hi' } }),
         );
         expect((result.data as any).exitCode).toBe(0);
         expect((result.data as any).success).toBe(true);
@@ -426,8 +488,9 @@ describe('hooks-core-commands', () => {
     it('prints a confirmation line in text mode', async () => {
       const { spy, text } = captureStdout();
       try {
-        const result = await run(postCommandCommand, 
-          makeCtx({ flags: { _: [], command: 'npm run lint', 'exit-code': 0 } })
+        const result = await run(
+          postCommandCommand,
+          makeCtx({ flags: { _: [], command: 'npm run lint', 'exit-code': 0 } }),
         );
         expect(result.success).toBe(true);
         expect(text()).toContain('Command outcome recorded');

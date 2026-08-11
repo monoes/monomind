@@ -38,7 +38,7 @@ Runs 8 sequential phases at the start of every session:
 |---|---|---|
 | 1 | `session.restore()` | Restores `current.json` |
 | 2 | `intelligence.init()` | Loads patterns from `patterns.json`, deduplicates |
-| 3 | Init 15 background workers | Metrics workers refresh if output is missing or older than 6 hours |
+| 3 | Init <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers | Metrics workers refresh if output is missing or older than 6 hours |
 | 4 | Knowledge base preload | CLAUDE.md + docs chunked → `[KNOWLEDGE_PRELOADED]` |
 | 5 | Shared instructions | `.agents/shared_instructions.md` → `[SHARED_INSTRUCTIONS]` |
 | 6 | Memory Palace wakeUp | identity.md + top-5 drawers → `[MEMORY_PALACE_L0/L1]` |
@@ -120,27 +120,20 @@ Defined in `packages/@monomind/hooks/src/types.ts`:
 
 ---
 
-## Background Workers (15)
+## Background Workers (<!-- doc-count:workers -->8<!-- /doc-count:workers -->)
 
-There is no separate background daemon. All 15 workers live in `@monoes/hooks` (`WorkerManager`), run in-process, and are initialized at session start — 14 come from the static `WORKER_CONFIGS` map, plus `progress`, which is always-on and registered separately (see table). The metrics-producing workers (`map`, `audit`, `optimize`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `ddd` runs unconditionally every session start (`always: true`), the other four only when stale; `doctor` reports worker-metrics freshness.
+There is no separate background daemon. All <!-- doc-count:workers -->8<!-- /doc-count:workers --> workers (`health`, `ddd`, `security`, `cache`, `map`, `audit`, `consolidate`, `progress`) live in `@monoes/hooks` (`WorkerManager`) as entries in the static `WORKER_CONFIGS` map, run in-process, and are initialized at session start (see table). The metrics-producing workers (`map`, `audit`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `ddd` runs unconditionally every session start (`always: true`), the other three only when stale; `doctor` reports worker-metrics freshness.
 
 | Worker | Interval | Priority | Purpose |
 |---|---|---|---|
-| `performance` | 5 min | Normal | Benchmark search, memory, startup; measures heap, CPU, codebase lines |
-| `health` | 5 min | High | Monitor disk, memory, CPU, uptime, load average |
-| `patterns` | 15 min | Normal | Consolidate, deduplicate, optimize learned patterns |
-| `ddd` | 10 min | Low | Track DDD domain implementation progress → `.monomind/metrics/ddd-progress.json` |
-| `adr` | 15 min | Low | Check ADR compliance (ADR-001 through ADR-012) |
-| `security` | 30 min | High | Scan for secrets, vulnerabilities, insecure patterns |
-| `learning` | 30 min | Normal | Outcome/trajectory logging and pattern consolidation |
-| `cache` | 1 hour | Background | Clean `.monomind/cache` and `.monomind/temp`, files older than 7 days |
-| `git` | 5 min | Normal | Track uncommitted changes, branch, staged/modified counts |
-| `swarm` | 1 min | High | Monitor swarm activity and queue pending agent messages |
-| `progress` | 1 min (default) | Normal | Always-on; writes `.monomind/metrics/v1-progress.json`. Registered dynamically via a fallback path — it is the one worker **not** present in the static `WORKER_CONFIGS` map, which is why some docs undercount at 14. |
-| `map` | 6 hours | Normal | Codebase mapping → `.monomind/metrics/codebase-map.json` |
+| `health` | 5 min | High | Monitor disk, memory, CPU, processes |
+| `security` | 30 min | High | Scan for secrets, vulnerabilities, CVEs |
 | `audit` | 6 hours | High | Security audit → `.monomind/metrics/security-audit.json` |
-| `optimize` | 6 hours | Normal | Performance snapshot → `.monomind/metrics/performance.json` |
-| `consolidate` | 6 hours | Low | Memory consolidation → `.monomind/metrics/consolidation.json` |
+| `map` | 6 hours | Normal | Codebase mapping → `.monomind/metrics/codebase-map.json` |
+| `progress` | 6 hours | Normal | Implementation metrics → `.monomind/metrics/progress.json` |
+| `ddd` | 10 min | Low | Track DDD domain implementation progress |
+| `consolidate` | 6 hours | Low | RAPTOR memory consolidation → `.monomind/metrics/consolidation.json` |
+| `cache` | 1 hour | Background | Clean temp files, old logs, stale cache |
 
 ```bash
 monomind hooks worker list        # list all workers and status
