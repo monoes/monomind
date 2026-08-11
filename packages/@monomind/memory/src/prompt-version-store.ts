@@ -13,7 +13,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { writeFileAtomicSync } from './atomic-file.js';
+import { appendJsonl, readJsonl, rewriteJsonl } from './utils/jsonl-store.js';
 
 // ===== Types =====
 
@@ -142,8 +142,7 @@ export class PromptVersionStore {
   // ---- versions ----
 
   save(version: PromptVersion): void {
-    const line = JSON.stringify(versionToRecord(version)) + '\n';
-    fs.appendFileSync(this.versionsPath, line, 'utf-8');
+    appendJsonl(this.versionsPath, versionToRecord(version));
   }
 
   getActive(agentSlug: string): PromptVersion | null {
@@ -207,8 +206,7 @@ export class PromptVersionStore {
   // ---- experiments ----
 
   saveExperiment(exp: PromptExperiment): void {
-    const line = JSON.stringify(experimentToRecord(exp)) + '\n';
-    fs.appendFileSync(this.experimentsPath, line, 'utf-8');
+    appendJsonl(this.experimentsPath, experimentToRecord(exp));
   }
 
   getExperiment(agentSlug: string): PromptExperiment | null {
@@ -229,28 +227,20 @@ export class PromptVersionStore {
   // ---- private I/O ----
 
   private readVersions(): PromptVersion[] {
-    if (!fs.existsSync(this.versionsPath)) return [];
-    const content = fs.readFileSync(this.versionsPath, 'utf-8').trim();
-    if (!content) return [];
-    return content.split('\n').filter(Boolean).map((line) => recordToVersion(JSON.parse(line)));
+    return readJsonl<ReturnType<typeof versionToRecord>>(this.versionsPath).map(recordToVersion);
   }
 
   private writeVersions(versions: PromptVersion[]): void {
-    const data = versions.map((v) => JSON.stringify(versionToRecord(v))).join('\n') + '\n';
     // #90: atomic rewrite (tmp + rename) so a crash can't destroy the index
-    writeFileAtomicSync(this.versionsPath, data, 'utf-8');
+    rewriteJsonl(this.versionsPath, versions.map(versionToRecord));
   }
 
   private readExperiments(): PromptExperiment[] {
-    if (!fs.existsSync(this.experimentsPath)) return [];
-    const content = fs.readFileSync(this.experimentsPath, 'utf-8').trim();
-    if (!content) return [];
-    return content.split('\n').filter(Boolean).map((line) => recordToExperiment(JSON.parse(line)));
+    return readJsonl<ReturnType<typeof experimentToRecord>>(this.experimentsPath).map(recordToExperiment);
   }
 
   private writeExperiments(experiments: PromptExperiment[]): void {
-    const data = experiments.map((e) => JSON.stringify(experimentToRecord(e))).join('\n') + '\n';
     // #90: atomic rewrite (tmp + rename) so a crash can't destroy the index
-    writeFileAtomicSync(this.experimentsPath, data, 'utf-8');
+    rewriteJsonl(this.experimentsPath, experiments.map(experimentToRecord));
   }
 }

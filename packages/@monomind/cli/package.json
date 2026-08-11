@@ -84,8 +84,8 @@
   ],
   "scripts": {
     "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
-    "build": "tsc && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html && node ../../../scripts/build-fs.mjs copy-into dist/src/ui src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/routes-monograph.mjs src/ui/routes-org.mjs src/ui/mastermind-diagram-fallback.html && node ../../../scripts/build-fs.mjs clean dist/src/ui/data && node ../../../scripts/build-fs.mjs copy-dir src/ui/data dist/src/ui/data",
-    "build:loose": "tsc --noEmitOnError false || true && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html && node ../../../scripts/build-fs.mjs copy-into dist/src/ui src/ui/dashboard.html src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/routes-monograph.mjs src/ui/routes-org.mjs src/ui/mastermind-diagram-fallback.html && node ../../../scripts/build-fs.mjs clean dist/src/ui/data && node ../../../scripts/build-fs.mjs copy-dir src/ui/data dist/src/ui/data",
+    "build": "tsc && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html && node ../../../scripts/build-fs.mjs copy-into dist/src/ui src/ui/dashboard.html src/ui/markdown.js src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/routes-monograph.mjs src/ui/routes-org.mjs src/ui/mastermind-diagram-fallback.html && node ../../../scripts/build-fs.mjs clean dist/src/ui/data && node ../../../scripts/build-fs.mjs copy-dir src/ui/data dist/src/ui/data",
+    "build:loose": "tsc --noEmitOnError false || true && node ../../../scripts/build-fs.mjs copy-into dist/src/browser/dashboard src/browser/dashboard/ui.html && node ../../../scripts/build-fs.mjs copy-into dist/src/ui src/ui/dashboard.html src/ui/markdown.js src/ui/server.mjs src/ui/collector.mjs src/ui/orgs.html src/ui/orgs-files.js src/ui/sse-manager.mjs src/ui/routes-monograph.mjs src/ui/routes-org.mjs src/ui/mastermind-diagram-fallback.html && node ../../../scripts/build-fs.mjs clean dist/src/ui/data && node ../../../scripts/build-fs.mjs copy-dir src/ui/data dist/src/ui/data",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
@@ -99,7 +99,7 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.207",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.226",
     "@monoes/monobrowse": "^1.0.6",
     "@monoes/monodesign": "^1.2.2",
     "@monoes/monograph": "workspace:*",
@@ -111,6 +111,21 @@
     "zod": "^4.0.0"
   },
   "optionalDependencies": {
+    "@ai-sdk/alibaba": "^4.0.0",
+    "@ai-sdk/anthropic": "^4.0.36",
+    "@ai-sdk/cohere": "^4.0.25",
+    "@ai-sdk/deepseek": "^4.0.0",
+    "@ai-sdk/fireworks": "^3.0.30",
+    "@ai-sdk/google": "^4.0.39",
+    "@ai-sdk/groq": "^4.0.26",
+    "@ai-sdk/mistral": "^4.0.27",
+    "@ai-sdk/openai": "^4.0.36",
+    "@ai-sdk/perplexity": "^4.0.0",
+    "@ai-sdk/togetherai": "^3.0.29",
+    "@ai-sdk/xai": "^4.0.0",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
+    "ai": "^7.0.58",
+    "ollama-ai-provider": "^1.0.0",
     "@huggingface/transformers": "^3.8.1",
     "@monoes/hooks": "^1.0.1",
     "@monoes/mcp": "^1.0.1",

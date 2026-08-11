@@ -8,6 +8,7 @@ import type { BrowserConfig, CdpTarget } from './types.js';
 import { CHROME_EXECUTABLES } from './types.js';
 import { enableConsoleCapture, setupConsoleCapture } from './console-log.js';
 import { setupDialogAutoHandling } from './dialog.js';
+import { loadActivePortInfo } from './ref-cache.js';
 
 const DEFAULT_PORT = 9222;
 const LAUNCH_TIMEOUT = 10_000;
@@ -20,6 +21,19 @@ const BROWSER_CLOSE_TIMEOUT_MS = 3000;
 // to (already-running browser) are never recorded here — we only ever kill
 // processes we launched ourselves.
 const launchedPids = new Map<number, number>();
+// userDataDir per launched port — informational, persisted alongside the pid
+// so a later process could clean up the temp profile dir too if ever needed.
+const launchedUserDataDirs = new Map<number, string>();
+
+/** PID of the Chrome instance *this process* launched on `port`, if any. */
+export function getLaunchedPid(port: number): number | undefined {
+  return launchedPids.get(port);
+}
+
+/** userDataDir of the Chrome instance *this process* launched on `port`, if any. */
+export function getLaunchedUserDataDir(port: number): string | undefined {
+  return launchedUserDataDirs.get(port);
+}
 
 function findChrome(executablePath?: string): string {
   if (executablePath) {
@@ -185,7 +199,10 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
     stdio: 'ignore',
   });
   child.unref();
-  if (child.pid) launchedPids.set(port, child.pid);
+  if (child.pid) {
+    launchedPids.set(port, child.pid);
+    launchedUserDataDirs.set(port, userDataDir);
+  }
 
   const deadline = Date.now() + LAUNCH_TIMEOUT;
   while (Date.now() < deadline) {
@@ -277,7 +294,21 @@ export async function closeBrowser(client: CdpClient, port: number): Promise<voi
     // fall through to PID-kill fallback below
   }
 
-  const pid = launchedPids.get(port);
+  let pid = launchedPids.get(port);
+  if (pid === undefined) {
+    // Fresh process (each CLI invocation is its own node process — see
+    // module header) — launchedPids is per-process and empty here even
+    // though a prior `open` in a DIFFERENT process launched this Chrome.
+    // Fall back to the PID that process persisted via saveActivePort().
+    try {
+      const persisted = await loadActivePortInfo();
+      if (persisted && persisted.port === port && persisted.launched && persisted.pid) {
+        pid = persisted.pid;
+      }
+    } catch {
+      // best-effort — fall through to "nothing to kill" below
+    }
+  }
   if (pid === undefined) return; // not a process we launched — nothing to kill
   launchedPids.delete(port);
 

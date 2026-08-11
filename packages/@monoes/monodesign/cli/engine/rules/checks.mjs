@@ -2635,6 +2635,29 @@ function checkElementTextOverflowDOM(el) {
 // conditions can't be read off a resting element. Shared by the regex, static
 // and browser engines (each hands over its own CSS text).
 
+// Split a selector list on top-level commas only — i.e. commas inside a
+// functional pseudo-class's parens (`:is(a, button)`, `:where(a, b)`,
+// `:not(a, b)`, `:has(x, y)`) don't split. A naive `str.split(',')` breaks
+// `:is(a, button):focus { outline: none }` into `:is(a` and `button):focus`,
+// which both selectorTargetsInteractive() and the dark/light selector maps
+// below then treat as two unrelated (and malformed) selectors — producing
+// false-positive missing-focus-visible findings and double-counted rules.
+function splitTopLevelCommas(str) {
+  const parts = [];
+  let depth = 0, start = 0;
+  for (let k = 0; k < str.length; k++) {
+    const ch = str[k];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (ch === ',' && depth === 0) {
+      parts.push(str.slice(start, k));
+      start = k + 1;
+    }
+  }
+  parts.push(str.slice(start));
+  return parts;
+}
+
 // Parse flat CSS into { selector, body, dark } tuples, tracking one level of
 // dark-scheme context (a `@media (prefers-color-scheme: dark)` ancestor).
 // @supports / @layer / @container / @scope are transparently descended.
@@ -2664,7 +2687,7 @@ function collectCssRules(css, dark = false, depth = 0) {
       }
       continue;
     }
-    for (const sel of prelude.split(',').map(s => s.trim()).filter(Boolean)) {
+    for (const sel of splitTopLevelCommas(prelude).map(s => s.trim()).filter(Boolean)) {
       out.push({ selector: sel, body, dark });
     }
   }

@@ -43,6 +43,7 @@ export * from './web/analyze-api.js';
 export * from './web/mcp-http.js';
 export * from './mcp-resources/index.js';
 export * from './analysis/shape-extractor.js';
+export * from './analysis/git-ref.js';
 export * from './mcp-tools/tool-map.js';
 export * from './mcp-tools/shape-check.js';
 export * from './mcp-tools/neighbors.js';

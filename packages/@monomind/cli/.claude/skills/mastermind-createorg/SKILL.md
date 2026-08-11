@@ -79,8 +79,14 @@ Persona roles work the same as any other role in v2 — there is no separate `ag
 
 For any role that needs non-default behavior, set (all optional — omit to inherit defaults):
 
-- `adapter_config.model`: a model id (e.g. `"claude-opus-4-7"`) — default is `"claude-sonnet-4-5"` (`orgrt/types.ts:33`)
-- `provider`: `{ kind: "subscription" | "api-key" | "base-url" | "bedrock" | "vertex", apiKeyEnv?, baseUrl?, authTokenEnv? }` — default `subscription` (local Claude Code login); only set this if the role needs a different provider/credential
+- `adapter_config.model`: a model id (e.g. `"claude-opus-5"`, `"glm-5.2"`, `"gpt-5.6-terra"`) — default depends on runtime/vendor (see `resolveModel()` in `orgrt/session.ts`); explicit value always wins
+- `provider`: `{ kind, vendor?, apiKeyEnv?, baseUrl?, authTokenEnv? }` — default `subscription` (local Claude Code login). `kind` is one of:
+  - `"subscription"` (default) — Claude Pro/Max via `claude login`
+  - `"api-key"` — Anthropic API key
+  - `"base-url"` / `"bedrock"` / `"vertex"` / `"gemini"` / `"openai"` — legacy kinds (preserved for backward compat)
+  - `"vercel-api-key"` — any API-key provider via the Vercel AI SDK runner; pair with `vendor` (one of `openai`, `anthropic`, `google`, `xai`, `deepseek`, `glm`, `mistral`, `groq`, `together`, `fireworks`, `cohere`, `perplexity`, `alibaba`, `openrouter`, `ollama`, `openai-compatible`). Auto-resolves `runtime: 'vercel'`.
+  - `"codex"` — ChatGPT subscription via `codex login` (no env vars needed). Auto-resolves `runtime: 'codex'`.
+- `runtime`: `"claude"` | `"kimicode"` | `"opencode"` | `"vercel"` | `"codex"` — per-role override of the agent loop backend. Usually unnecessary (auto-resolved from `provider.kind`); set explicitly only when you need to force a specific runner regardless of provider.
 - `policy`: `{ allowTools?, denyTools?, fileWrite?, fileRead?, webAllow?, maxTokens? }` — glob-based tool/file/web restrictions for that role; leave unset unless the user asked for sandboxing
 
 Do not invent values for these — only populate a field the user actually specified or clearly implied (e.g. "the researcher should use Opus" → that role's `adapter_config.model`).

@@ -2,6 +2,13 @@
 
 > **Version 2.9.0**  
 > Task-to-agent routing in Monomind maps developer tasks and natural language prompts to optimal target agents. It combines a 4-tier cascade (deterministic regex pre-filtering, vector cosine similarity matching, neural ReasoningBank augmentation, and LLM fallback classification) with dynamic complexity scoring and an outcome-tracking ledger. There is no reinforcement learning anywhere in this subsystem — no Q-table, no epsilon exploration, no learned state-action values.
+>
+> **On "neural" below:** every "Neural"/"Tier 3" label on this page names an
+> embedding-similarity lookup against a stored pattern set (`ReasoningBank`),
+> not a trained or trainable model — same scope as `CLAUDE.md`'s Intelligence
+> System section ("no neural training"). The name predates that clarification
+> and is kept for backward compatibility with existing method/backend string
+> values (`method: 'memory-lancedb'`, etc.) that callers may already match on.
 
 ---
 

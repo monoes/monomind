@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { validateCredential, timingSafeCompare, type AuthValidationResult } from '../auth.js';
+import { validateCredential, type AuthValidationResult } from '../auth.js';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import { createServer, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -420,31 +420,20 @@ export class HttpTransport extends EventEmitter implements ITransport {
         // access logs and intermediate proxy logs. Only fall back to the
         // query param for clients that cannot set upgrade headers.
         const authHeader = req.headers.authorization;
-        const fromHeader = authHeader ? authHeader.replace(/^Bearer\s+/i, '') : undefined;
         const url = new URL(req.url || '', `http://${req.headers.host}`);
         const fromQuery = url.searchParams.get('token');
-        const credential = fromHeader || fromQuery || undefined;
+        const apiKeyHeader = req.headers['x-api-key'] as string | undefined;
+        // synthesize a Bearer header from the query fallback so this goes
+        // through the SAME validateCredential() the HTTP path uses — the
+        // previous inline loop only ever checked `auth.tokens`, so an
+        // `api-key`-configured server silently rejected every WS client.
+        const effectiveAuthHeader = authHeader ?? (fromQuery ? `Bearer ${fromQuery}` : undefined);
 
-        if (!credential) {
-          this.logger.warn('WebSocket connection rejected: no authentication token');
-          ws.close(4001, 'Authentication required');
-          return;
-        }
-
-        // SECURITY: Timing-safe token validation
-        let valid = false;
-        if (this.config.auth.tokens?.length) {
-          for (const validToken of this.config.auth.tokens) {
-            if (timingSafeCompare(credential, validToken)) {
-              valid = true;
-              break;
-            }
-          }
-        }
-
-        if (!valid) {
-          this.logger.warn('WebSocket connection rejected: invalid token');
-          ws.close(4003, 'Invalid token');
+        const authResult = validateCredential(this.config.auth, effectiveAuthHeader, apiKeyHeader);
+        if (!authResult.valid) {
+          const noCredentialOffered = !effectiveAuthHeader && !apiKeyHeader;
+          this.logger.warn('WebSocket connection rejected', { error: authResult.error });
+          ws.close(noCredentialOffered ? 4001 : 4003, authResult.error ?? 'Unauthorized');
           return;
         }
       }

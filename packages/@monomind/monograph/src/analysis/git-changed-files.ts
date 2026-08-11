@@ -1,18 +1,17 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
+import { validateGitRef as sharedValidateGitRef } from './git-ref.js';
 
-const GIT_REF_ALLOWLIST = /^[a-zA-Z0-9._/~^@{}[\]:-]+$/;
-const DANGEROUS_PATTERNS = /\.\.|`|\$\(|;|&&|\|\|/;
-
+/** @deprecated use git-ref.js's validateGitRef directly for new code. Kept
+ *  as a void-returning wrapper so existing call sites in this file don't
+ *  need to change shape. */
 export function validateGitRef(ref: string): void {
-  if (!GIT_REF_ALLOWLIST.test(ref) || DANGEROUS_PATTERNS.test(ref)) {
-    throw new Error(`Invalid git ref: ${JSON.stringify(ref)} — only alphanumeric, dots, slashes, hyphens, and common git ref characters are allowed`);
-  }
+  sharedValidateGitRef(ref);
 }
 
 export function resolveGitToplevel(cwd: string): string {
   try {
-    return execSync('git rev-parse --show-toplevel', { cwd, encoding: 'utf8' }).trim();
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
   } catch {
     return cwd;
   }
@@ -20,14 +19,19 @@ export function resolveGitToplevel(cwd: string): string {
 
 export function collectGitPaths(root: string, since?: string): string[] {
   try {
-    let cmd: string;
+    // execFileSync with an array argv — no shell involved, so `since` and
+    // `root` cannot break out via `;`/`&&`/`$(...)` even without the
+    // DANGEROUS_PATTERNS deny-list this file used to rely on instead
+    // (the deny-list was also the only implementation among the four
+    // duplicated validators that rejected the common `main..HEAD` range).
+    let args: string[];
     if (since) {
-      validateGitRef(since);
-      cmd = `git diff --name-only --diff-filter=ACM ${since}`;
+      sharedValidateGitRef(since);
+      args = ['diff', '--name-only', '--diff-filter=ACM', since];
     } else {
-      cmd = 'git ls-files';
+      args = ['ls-files'];
     }
-    const output = execSync(cmd, { cwd: root, encoding: 'utf8' });
+    const output = execFileSync('git', args, { cwd: root, encoding: 'utf8' });
     return output
       .split('\n')
       .map(l => l.trim())

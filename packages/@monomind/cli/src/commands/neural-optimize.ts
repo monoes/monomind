@@ -4,6 +4,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import { redact } from '../utils/redaction.js';
 
 // ─── optimize subcommand ─────────────────────────────────────────────────────
 
@@ -227,16 +228,19 @@ export const exportCommand: Command = {
 
         for (const pattern of patterns) {
           if (stripPii && pattern.content) {
-            pattern.content = pattern.content
-              .replace(/\/Users\/[^\/]+/g, '/Users/[REDACTED]')
-              .replace(/\/home\/[^\/]+/g, '/home/[REDACTED]')
-              .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]')
-              .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[IP_REDACTED]');
+            // Full redact() (paths incl. Windows, PII, and secret patterns) —
+            // this export is signed and published, so it gets the most
+            // coverage, not the least. Previously a narrower, POSIX-only,
+            // no-secrets set of 4 patterns that missed Windows paths entirely.
+            pattern.content = redact(pattern.content);
           }
+          const rawId = pattern.id || crypto.randomBytes(8).toString('hex');
+          const rawTrigger = pattern.trigger || pattern.type || 'general';
+          const rawAction = pattern.action || pattern.recommendation || 'apply-pattern';
           exportData.patterns.push({
-            id: pattern.id || crypto.randomBytes(8).toString('hex'),
-            trigger: pattern.trigger || pattern.type || 'general',
-            action: pattern.action || pattern.recommendation || 'apply-pattern',
+            id: stripPii ? redact(rawId) : rawId,
+            trigger: stripPii ? redact(rawTrigger) : rawTrigger,
+            action: stripPii ? redact(rawAction) : rawAction,
             confidence: pattern.confidence || 0.85,
             usageCount: pattern.usageCount || 1,
           });

@@ -161,6 +161,37 @@ describe('active-port persistence', () => {
     await expect(mod.clearActivePort()).resolves.toBeUndefined();
   });
 
+  it('#115: pid and userDataDir persist and round-trip so a later process can kill an orphaned launch', async () => {
+    const mod = await importRefCache();
+    await mod.saveActivePort(9333, { pid: 54321, userDataDir: '/tmp/monomind-browser-9333' });
+    expect(await mod.loadActivePortInfo()).toEqual({
+      port: 9333,
+      launched: true,
+      pid: 54321,
+      userDataDir: '/tmp/monomind-browser-9333',
+    });
+  });
+
+  it('#115: an attached (launched:false) session never persists a pid to kill', async () => {
+    const mod = await importRefCache();
+    await mod.saveActivePort(9229, { launched: false });
+    const info = await mod.loadActivePortInfo();
+    expect(info!.launched).toBe(false);
+    expect(info!.pid).toBeUndefined();
+  });
+
+  it('#115: a non-numeric or non-positive persisted pid is dropped, not trusted', async () => {
+    const mod = await importRefCache();
+    const { writeFile, mkdir } = await import('fs/promises');
+    const dir = join(process.cwd(), '.monomind', 'monobrowse');
+    await mkdir(dir, { recursive: true });
+    for (const badPid of ['54321', -1, 0, 1.5, null]) {
+      await writeFile(join(dir, 'active-port.json'), JSON.stringify({ port: 9333, launched: true, pid: badPid }));
+      const info = await mod.loadActivePortInfo();
+      expect(info!.pid).toBeUndefined();
+    }
+  });
+
   it('rejects out-of-range or non-integer persisted ports', async () => {
     const mod = await importRefCache();
     const { writeFile, mkdir } = await import('fs/promises');

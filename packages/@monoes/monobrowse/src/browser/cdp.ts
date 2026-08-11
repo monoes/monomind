@@ -1,12 +1,40 @@
 import { WebSocket } from 'ws';
 import type { CdpCommand, CdpResponse, CdpTarget } from './types.js';
 
+// send() had no timeout of its own — a command whose response never arrives
+// (wedged/crashed renderer, dropped socket that never fires 'close') left a
+// pendingCommands entry forever, hanging whatever awaited it (and, since
+// most CLI actions await a single send(), the whole CLI process). Ad-hoc
+// timeouts were previously patched in at a handful of call sites (e.g.
+// actions.ts's evaluateJs) instead of here, so most commands had no
+// protection at all. This is the default for every send() unless a caller
+// passes 0 (no timeout) or a different value.
+export const DEFAULT_CDP_SEND_TIMEOUT_MS = 30_000;
+
 export class CdpClient {
   private ws: WebSocket | null = null;
-  private pendingCommands = new Map<number, { resolve: (r: CdpResponse) => void; reject: (e: Error) => void }>();
+  private pendingCommands = new Map<number, { resolve: (r: CdpResponse) => void; reject: (e: Error) => void; timer?: ReturnType<typeof setTimeout> }>();
   private eventListeners = new Map<string, Set<(params: Record<string, unknown>, sessionId?: string) => void>>();
   private nextId = 1;
   private connected = false;
+
+  constructor() {
+    // Target.targetCrashed/targetDestroyed fire over the same WS connection
+    // as command responses, but a crashed renderer's connection can otherwise
+    // sit open with no 'close'/'error' event ever firing — flush pending
+    // commands here so send() doesn't have to wait out its own timeout.
+    this.on('Target.targetCrashed', () => this.flushPending(new Error('CDP target crashed')));
+    this.on('Target.targetDestroyed', () => this.flushPending(new Error('CDP target destroyed')));
+  }
+
+  private flushPending(err: Error): void {
+    this.connected = false;
+    for (const { reject: r, timer } of this.pendingCommands.values()) {
+      if (timer) clearTimeout(timer);
+      r(err);
+    }
+    this.pendingCommands.clear();
+  }
 
   async connect(wsUrl: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -22,18 +50,12 @@ export class CdpClient {
           reject(err);
         } else {
           // Post-connect: flush all pending commands — 'close' may not fire on all platforms
-          this.connected = false;
-          for (const { reject: r } of this.pendingCommands.values()) r(err);
-          this.pendingCommands.clear();
+          this.flushPending(err instanceof Error ? err : new Error(String(err)));
         }
       });
 
       this.ws.on('close', () => {
-        this.connected = false;
-        for (const { reject: r } of this.pendingCommands.values()) {
-          r(new Error('CDP connection closed'));
-        }
-        this.pendingCommands.clear();
+        this.flushPending(new Error('CDP connection closed'));
       });
 
       this.ws.on('message', (data) => {
@@ -62,7 +84,12 @@ export class CdpClient {
     });
   }
 
-  send<T = Record<string, unknown>>(method: string, params?: Record<string, unknown>, sessionId?: string): Promise<T> {
+  send<T = Record<string, unknown>>(
+    method: string,
+    params?: Record<string, unknown>,
+    sessionId?: string,
+    timeoutMs: number = DEFAULT_CDP_SEND_TIMEOUT_MS
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       if (!this.ws || !this.connected) {
         reject(new Error('CDP not connected'));
@@ -76,12 +103,24 @@ export class CdpClient {
       const id = this.nextId++;
       const cmd: CdpCommand = { id, method, params };
       if (sessionId) cmd.sessionId = sessionId;
+
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          this.pendingCommands.delete(id);
+          reject(new Error(`CDP command "${method}" timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+        timer.unref?.();
+      }
+
       this.pendingCommands.set(id, {
-        resolve: (r) => resolve((r.result ?? {}) as T),
-        reject,
+        resolve: (r) => { if (timer) clearTimeout(timer); resolve((r.result ?? {}) as T); },
+        reject: (e) => { if (timer) clearTimeout(timer); reject(e); },
+        timer,
       });
       this.ws.send(JSON.stringify(cmd), (err) => {
         if (err) {
+          if (timer) clearTimeout(timer);
           this.pendingCommands.delete(id);
           reject(err);
         }
@@ -120,9 +159,7 @@ export class CdpClient {
   }
 
   close(): void {
-    this.connected = false;
-    for (const { reject: r } of this.pendingCommands.values()) r(new Error('CDP connection closed'));
-    this.pendingCommands.clear();
+    this.flushPending(new Error('CDP connection closed'));
     this.ws?.close();
     this.ws = null;
     this.eventListeners.clear();
