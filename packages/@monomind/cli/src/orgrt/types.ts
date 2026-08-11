@@ -1,6 +1,31 @@
 // packages/@monomind/cli/src/orgrt/types.ts
 import { z } from 'zod';
 
+export const ContextSliceSchema = z.object({ source: z.string(), summary: z.string() });
+export type ContextSlice = z.infer<typeof ContextSliceSchema>;
+export const ArtifactRefSchema = z.object({ path: z.string(), description: z.string().optional() });
+export type ArtifactRef = z.infer<typeof ArtifactRefSchema>;
+export const HandoffDecisionSchema = z.object({ text: z.string(), rationale: z.string().optional() });
+export type HandoffDecision = z.infer<typeof HandoffDecisionSchema>;
+export const OrgHandoffSchema = z.object({
+  taskId: z.string().optional(),
+  contextPackage: z.array(ContextSliceSchema).default([]),
+  artifacts: z.array(ArtifactRefSchema).default([]),
+  decisions: z.array(HandoffDecisionSchema).default([]),
+  nextAction: z.string(),
+});
+export type OrgHandoff = z.infer<typeof OrgHandoffSchema>;
+
+export const FailureRoutingSchema = z.object({
+  retry: z.object({
+    maxAttempts: z.number().int().positive(),
+    backoffMs: z.array(z.number().int().nonnegative()).optional(),
+  }).partial().optional(),
+  fallbackAssignee: z.string().optional(),
+  escalate: z.boolean().optional(),
+}).partial();
+export type FailureRouting = z.infer<typeof FailureRoutingSchema>;
+
 /** Per-role provider config. Default (absent) = subscription login of local Claude Code. */
 export const ProviderSchema = z.object({
   kind: z.enum([
@@ -115,6 +140,7 @@ export const OrgDefSchema = z.object({
       failure_threshold: z.number().int().positive().default(5),
       cooldown_ms: z.number().int().nonnegative().default(0),
     }).partial().optional(),
+    failure_routing: FailureRoutingSchema.optional(),
     /** Stale-base drift detection: warn (or refuse) when the working tree is
      *  too many commits behind its tracking branch. 0 disables. */
     stale_base_threshold: z.number().int().nonnegative().default(0),
@@ -146,7 +172,7 @@ export interface BusEvent {
   ts: number;
   org: string;
   run: string;
-  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage' | 'question' | 'gate';
+  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage' | 'question' | 'gate' | 'trace';
   from?: string;
   to?: string;
   subject?: string;
@@ -162,6 +188,10 @@ export interface BusEvent {
   conversationId?: string;
   interactionId?: string;
   agentSessionId?: string;
+  traceNodeId?: string;
+  traceDurationMs?: number;
+  traceTokensIn?: number;
+  traceTokensOut?: number;
 }
 
 export interface DecisionGate {

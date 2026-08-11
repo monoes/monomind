@@ -4,6 +4,45 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Graph engineering playbook — dynamic work graphs + structured handoffs
+
+Adaptation of the July 2026 "Graph Engineering for Multi-Agentic Systems"
+playbook (Ng). The org runtime's TaskDag graduates from a static dependency
+tracker to a dynamic work graph. Source of truth: `docs/graph-engineering-playbook.md`.
+
+#### Dynamic TaskDag operations (`task-dag.ts`)
+
+- **`split(parentId, children)`** — scope expansion (playbook §2.2).
+- **`merge(sourceId, targetId)`** — early convergence (playbook §2.2).
+- **`cancel(taskId, reason?)`** — evidence made it moot (playbook §2.2).
+- New statuses: `split`, `merged`, `cancelled`. New fields: `splitFrom`, `mergedInto`.
+
+#### New agent tools (`session.ts`)
+
+- **`org_task_split`**, **`org_task_merge`**, **`org_task_cancel`** — wrap the new DAG ops.
+- **`org_plan_graph`** — work graph generator (playbook §2.4).
+
+#### Structured Handoff Protocol (`types.ts`)
+
+- **`OrgHandoffSchema`** — typed envelope for inter-role context packages (playbook §2.3).
+
+#### Per-node failure routing (`types.ts`)
+
+- **`FailureRoutingSchema`** — retry / fallback / escalate rules (playbook §2.6).
+
+#### Graph observability (`types.ts`)
+
+- **`trace` BusEvent type** — per-node execution traces (playbook §2.5).
+
+#### Org templates (`templates.ts`)
+
+- **`kg-extraction`** — 4-role multi-agent knowledge-graph extraction pipeline.
+- **`advisor-orchestrator`** — cost-efficient planner + workers pattern (playbook §2.7).
+
+#### Tests
+
+- 61 new tests in `tests/orgrt/` (task-dag, graph-engineering-types, dag-ops, templates, session-tools).
+
 ### Universal provider support — Vercel AI SDK + Codex CLI runners
 
 Two new `AgentRunner` implementations extend the org runtime beyond the

@@ -786,6 +786,18 @@ export class OrgDaemon {
           const running = this.orgs.get(name);
           return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
         },
+        splitTask: (r: string, parentId: string, children: { title: string; assignee: string }[]) => {
+          return this.dagSplitTask(name, r, parentId, children);
+        },
+        mergeTask: (r: string, sourceId: string, targetId: string) => {
+          return this.dagMergeTask(name, r, sourceId, targetId);
+        },
+        cancelTask: (r: string, taskId: string, reason?: string) => {
+          return this.dagCancelTask(name, r, taskId, reason);
+        },
+        planGraph: (r: string, specs: decisionOps.PlanTaskSpec[]) => {
+          return this.dagPlanGraph(name, r, specs);
+        },
         queryFn: this.opts.queryFn,
         // Runner resolution: explicit opts.runner > role `runtime` field >
         // org def `runtime` field > MONOMIND_RUNTIME env (opencode/kimicode) >
@@ -1434,6 +1446,18 @@ export class OrgDaemon {
   }
   private dagCompleteTask(org: string, role: string, taskId: string, result?: string): string {
     return decisionOps.dagCompleteTask(this, org, role, taskId, result);
+  }
+  private dagSplitTask(org: string, role: string, parentId: string, children: { title: string; assignee: string }[]): string {
+    return decisionOps.dagSplitTask(this, org, role, parentId, children);
+  }
+  private dagMergeTask(org: string, role: string, sourceId: string, targetId: string): string {
+    return decisionOps.dagMergeTask(this, org, role, sourceId, targetId);
+  }
+  private dagCancelTask(org: string, role: string, taskId: string, reason?: string): string {
+    return decisionOps.dagCancelTask(this, org, role, taskId, reason);
+  }
+  private dagPlanGraph(org: string, role: string, specs: decisionOps.PlanTaskSpec[]): string {
+    return decisionOps.dagPlanGraph(this, org, role, specs);
   }
   recordDecision(
     org: string,

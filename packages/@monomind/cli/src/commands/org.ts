@@ -1291,7 +1291,7 @@ export const orgCommand: Command = {
     {
       name: 'create', description: 'Scaffold an org config from a starter template',
       options: [
-        { name: 'template', description: 'content-team | dev-team | research-pod', type: 'string' },
+        { name: 'template', description: 'content-team | dev-team | research-pod | kg-extraction | advisor-orchestrator', type: 'string' },
         { name: 'goal', description: 'Org goal (defaults to the template\'s placeholder)', type: 'string' },
         { name: 'schedule', description: 'Daemon schedule, e.g. 30m or 2h', type: 'string' },
         { name: 'force', description: 'Overwrite an existing org config', type: 'boolean' },

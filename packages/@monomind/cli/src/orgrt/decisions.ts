@@ -104,6 +104,114 @@ export function dagCreateTask(daemon: OrgDaemon, org: string, role: string, titl
   }
 }
 
+export interface PlanTaskSpec {
+  name: string;
+  title: string;
+  assignee: string;
+  after?: string[];
+}
+
+export function dagPlanGraph(
+  daemon: OrgDaemon, org: string, role: string,
+  specs: PlanTaskSpec[],
+): string {
+  const running = daemon.orgs.get(org);
+  if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  try {
+    const nameToId = new Map<string, string>();
+    const created: { name: string; id: string; title: string; assignee: string; status: string }[] = [];
+    const pending = [...specs];
+    let progress = true;
+    while (pending.length > 0 && progress) {
+      progress = false;
+      for (let i = 0; i < pending.length; i++) {
+        const s = pending[i];
+        const afters = s.after ?? [];
+        if (!afters.every(a => nameToId.has(a) || running.taskDag!.get(a))) continue;
+        const depIds = afters.map(a => nameToId.get(a) ?? a);
+        const task = running.taskDag.add(s.title, s.assignee, depIds);
+        nameToId.set(s.name, task.id);
+        created.push({ name: s.name, id: task.id, title: task.title, assignee: task.assignee, status: task.status });
+        pending.splice(i, 1);
+        progress = true;
+        break;
+      }
+    }
+    if (pending.length > 0) {
+      return JSON.stringify({ error: `unresolved dependencies in plan: ${pending.map(s => s.name).join(', ')}`, created });
+    }
+    running.bus.emit({
+      type: 'status', from: role, reason: 'plan-graph',
+      msg: `planned ${created.length} tasks: ${created.map(c => `${c.name}→${c.id}`).join(', ')}`,
+      data: { count: created.length, tasks: created.map(c => ({ name: c.name, id: c.id })) },
+    });
+    dispatchReadyTasks(daemon, org, running);
+    return JSON.stringify({ planned: created.length, tasks: created });
+  } catch (err) {
+    return JSON.stringify({ error: (err as Error).message });
+  }
+}
+
+export function dagSplitTask(
+  daemon: OrgDaemon, org: string, role: string,
+  parentId: string, children: { title: string; assignee: string }[],
+): string {
+  const running = daemon.orgs.get(org);
+  if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  try {
+    const created = running.taskDag.split(parentId, children);
+    running.bus.emit({
+      type: 'status', from: role, reason: 'task-split',
+      msg: `task ${parentId} split into ${created.map(t => t.id).join(', ')}`,
+      data: { parentId, children: created.map(t => t.id) },
+    });
+    dispatchReadyTasks(daemon, org, running);
+    return JSON.stringify({ split: parentId, children: created.map(t => ({ id: t.id, title: t.title, assignee: t.assignee })) });
+  } catch (err) {
+    return JSON.stringify({ error: (err as Error).message });
+  }
+}
+
+export function dagMergeTask(
+  daemon: OrgDaemon, org: string, role: string,
+  sourceId: string, targetId: string,
+): string {
+  const running = daemon.orgs.get(org);
+  if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  try {
+    const target = running.taskDag.merge(sourceId, targetId);
+    running.bus.emit({
+      type: 'status', from: role, reason: 'task-merged',
+      msg: `task ${sourceId} merged into ${targetId}`,
+      data: { sourceId, targetId },
+    });
+    dispatchReadyTasks(daemon, org, running);
+    return JSON.stringify({ merged: sourceId, into: targetId, target: { id: target.id, title: target.title, status: target.status } });
+  } catch (err) {
+    return JSON.stringify({ error: (err as Error).message });
+  }
+}
+
+export function dagCancelTask(
+  daemon: OrgDaemon, org: string, role: string,
+  taskId: string, reason?: string,
+): string {
+  const running = daemon.orgs.get(org);
+  if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  try {
+    const promoted = running.taskDag.cancel(taskId, reason);
+    running.bus.emit({
+      type: 'status', from: role, reason: 'task-cancelled',
+      msg: `task ${taskId} cancelled${reason ? `: ${reason}` : ''}${promoted.length ? ` — ${promoted.map(t => t.id).join(', ')} now ready` : ''}`,
+      data: { taskId, reason, promoted: promoted.map(t => t.id) },
+    });
+    if (promoted.length > 0) dispatchReadyTasks(daemon, org, running);
+    return JSON.stringify({ cancelled: taskId, promoted: promoted.map(t => ({ id: t.id, title: t.title, assignee: t.assignee })) });
+  } catch (err) {
+    return JSON.stringify({ error: (err as Error).message });
+  }
+}
+
 export function dagCompleteTask(daemon: OrgDaemon, org: string, role: string, taskId: string, result?: string): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
