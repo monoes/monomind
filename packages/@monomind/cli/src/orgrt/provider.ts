@@ -59,6 +59,31 @@ export function resolveProviderEnv(
       delete env.ANTHROPIC_AUTH_TOKEN;
       break;
     }
+    case 'vercel-api-key': {
+      // Vercel runners consume the API key from process.env directly via the
+      // named env var; surface it so the child process inherits it. Throw
+      // symmetrically with 'api-key'/'base-url' so daemon.ts fail-fast
+      // validation catches a missing key before the run starts (otherwise the
+      // first vendor request 401s ~10 minutes into the run).
+      const name = cfg?.apiKeyEnv;
+      if (name) {
+        const key = parentEnv[name];
+        if (!key) throw new Error(`provider vercel-api-key: env var ${name} is not set`);
+        env[name] = key;
+      }
+      break;
+    }
+    case 'codex': {
+      // Codex CLI reads ~/.codex/auth.json (created by `codex login`); no env
+      // setup needed. Don't manipulate ANTHROPIC_* — codex is independent.
+      break;
+    }
+    case 'antigravity': {
+      // Antigravity CLI (agy) stores Google OAuth credentials in the OS keyring
+      // after `agy` interactive login; no env setup needed. The CLI is a Go
+      // binary installed via curl, independent of Node/Anthropic env.
+      break;
+    }
   }
   return env;
 }

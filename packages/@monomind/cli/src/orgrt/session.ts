@@ -19,6 +19,48 @@ const SILENT_SESSION_MS = 4 * 60_000;
 const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.context/i;
 import { resolveProviderEnv } from './provider.js';
 
+/** Per-vendor/per-runtime default models. Used when a role doesn't pin
+ *  adapter_config.model explicitly. Explicit model always wins. */
+const VENDOR_DEFAULTS: Record<string, string> = {
+  openai: 'gpt-5.5',
+  anthropic: 'claude-sonnet-5',
+  glm: 'glm-5.2',
+  google: 'gemini-3.1-pro',
+  xai: 'grok-4.5',
+  deepseek: 'deepseek-chat',
+  mistral: 'mistral-large-latest',
+  groq: 'moonshotai/kimi-k2-instruct-0905',
+  together: 'zai-org/GLM-5',
+  fireworks: 'accounts/fireworks/models/glm-5p2',
+  cohere: 'command-a-reasoning-08-2025',
+  perplexity: 'sonar-reasoning-pro',
+  alibaba: 'qwen3-max',
+  openrouter: 'anthropic/claude-sonnet-5',
+  ollama: 'llama3.3',
+  'openai-compatible': '',
+};
+
+/** Resolve the model string for a role: explicit adapter_config.model wins;
+ *  otherwise fall back to the vendor/runtime default. */
+export function resolveModel(
+  role: OrgRole,
+  runtime?: string,
+  vendor?: string,
+): string {
+  const explicit = role.adapter_config?.model;
+  if (explicit) return explicit;
+  if (vendor && VENDOR_DEFAULTS[vendor]) return VENDOR_DEFAULTS[vendor];
+  switch (runtime) {
+    case 'claude': return 'claude-sonnet-4-5';
+    case 'kimicode': return 'k3';
+    case 'opencode': return 'glm-5.2';   // opencode is typically paired with a vendor; this is the bare-runtime fallback
+    case 'codex': return 'gpt-5.6-terra';
+    case 'antigravity': return 'gemini-3.6-flash-high';
+    case 'vercel': return 'gpt-5.5';
+    default: return 'claude-sonnet-4-5';
+  }
+}
+
 export type DeliverFn = (from: string, to: string, subject: string, body: string) => Promise<string>;
 
 /** The SDK's `canUseTool` gate, composed from two independent layers: PolicyEngine's
@@ -60,6 +102,10 @@ export interface SessionOpts {
   policy: PolicyEngine;
   mailbox: Mailbox;
   cwd: string;
+  /** Org state directory (`.monomind/orgs/<name>`). Used to pass
+   *  MONOMIND_ORG_DIR to runners that persist per-role state (VercelAgentRunner
+   *  stores session history under `<orgDir>/sessions/`). */
+  orgDir?: string;
   deliver: DeliverFn;
   askHuman?: (role: string, question: string) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
@@ -228,7 +274,7 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
       prompt: mailbox.stream(),
       systemPrompt: buildRolePrompt(role, (opts.def ?? { name: org, goal: '' }) as OrgDef,
         opts.def?.roles.map(r => r.id) ?? [role.id], opts.glossary),
-      model: role.adapter_config?.model,
+      model: resolveModel(role, role.runtime, role.provider?.vendor),
       cwd,
       env: {
         ...resolveProviderEnv(role.provider),
@@ -241,6 +287,12 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
         MONOMIND_HOOK_QUIET: '1',
         MONOMIND_GRAPH_GATE: 'off',
         MONOMIND_SDK_AGENT: '1',
+        // Per-role scoping for runners that persist state under the org dir
+        // (VercelAgentRunner session files). Without these, session files would
+        // land in args.cwd (project root for workspace:'repo') under the literal
+        // 'default' roleId, polluting the repo and making files unattributable.
+        MONOMIND_ORG_DIR: opts.orgDir ?? opts.cwd,
+        MONOMIND_ROLE_ID: role.id,
       },
       maxTurns: opts.maxTurns ?? 30,
       resume,
@@ -254,7 +306,10 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
           callTool: (name: string, input: Record<string, unknown>) => policy.decide(name, input),
         },
       },
-    });
+      // VercelAgentRunner-only fields — ignored by other runners.
+      vendor: role.provider?.vendor,
+      providerConfig: role.provider,
+    } as any);
 
     // A silent session is its own failure mode, and until now an unnameable
     // one: nine consecutive cycles of a scheduled org opened all seven streams

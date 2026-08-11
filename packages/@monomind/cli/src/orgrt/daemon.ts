@@ -20,6 +20,9 @@ import type { query } from '@anthropic-ai/claude-agent-sdk';
 import type { AgentRunner } from './agent-runner.js';
 import { OpencodeAgentRunner } from './opencode-runner.js';
 import { KimiCodeAgentRunner } from './kimicode-runner.js';
+import { VercelAgentRunner } from './vercel-runner.js';
+import { CodexAgentRunner } from './codex-runner.js';
+import { AntigravityAgentRunner } from './antigravity-runner.js';
 import { captureCheckpoint, type OrgCheckpoint } from './checkpoint.js';
 import { loadGlobalFenceConfig, mergeFenceConfigs, createFenceForRole, type RoleFence } from './fence.js';
 
@@ -67,26 +70,51 @@ const COMPLETE_DRAIN_MS = 5 * 60_000;
 
 /** Resolve which AgentRunner hosts an org's role sessions.
  *  Precedence: role `runtime` field > org def `runtime` field >
- *  MONOMIND_RUNTIME env > undefined (the default path, where session.ts
- *  falls back to ClaudeAgentRunner). Returning undefined for the default
- *  path keeps Claude/Antigravity orgs byte-for-byte unchanged. Callers
- *  pass `role.runtime ?? def.runtime` as `orgRuntime` (see resolveRoleRunner). */
-export function resolveRunner(orgRuntime?: 'claude' | 'kimicode' | 'opencode'): AgentRunner | undefined {
-  const selected = orgRuntime ?? process.env.MONOMIND_RUNTIME;
+ *  MONOMIND_RUNTIME env > auto-resolve from provider kind > undefined (the
+ *  default path, where session.ts falls back to ClaudeAgentRunner). Returning
+ *  undefined for the default path keeps Claude/Antigravity orgs byte-for-byte
+ *  unchanged. Callers pass `role.runtime ?? def.runtime` as `orgRuntime`
+ *  (see resolveRoleRunner). */
+export type RuntimeKind = 'claude' | 'kimicode' | 'opencode' | 'vercel' | 'codex' | 'antigravity';
+export type ProviderKind =
+  | 'subscription' | 'api-key' | 'base-url' | 'bedrock' | 'vertex' | 'gemini' | 'openai'
+  | 'vercel-api-key' | 'codex' | 'antigravity';
+
+/** Auto-resolve runtime from provider kind. Returns undefined for Claude default. */
+function autoRuntimeFromProvider(kind?: ProviderKind): RuntimeKind | undefined {
+  if (kind === 'vercel-api-key') return 'vercel';
+  if (kind === 'codex') return 'codex';
+  if (kind === 'antigravity') return 'antigravity';
+  return undefined;
+}
+
+export function resolveRunner(
+  orgRuntime?: RuntimeKind,
+  providerKind?: ProviderKind,
+): AgentRunner | undefined {
+  const selected = orgRuntime ?? autoRuntimeFromProvider(providerKind) ?? process.env.MONOMIND_RUNTIME as RuntimeKind | undefined;
   if (selected === 'opencode') return new OpencodeAgentRunner();
   if (selected === 'kimicode') return new KimiCodeAgentRunner();
+  if (selected === 'vercel') return new VercelAgentRunner();
+  if (selected === 'codex') return new CodexAgentRunner();
+  if (selected === 'antigravity') return new AntigravityAgentRunner();
   return undefined;
 }
 
 /** Per-session variant: a role's own `runtime` field wins over the org-level
  *  one (and the env var) — including `role.runtime === 'claude'`, which forces
  *  the default Claude path even when the org/env select another runtime.
- *  Roles without a `runtime` inherit the org-level resolution unchanged. */
+ *  Roles without a `runtime` inherit the org-level resolution unchanged.
+ *  If no explicit runtime is set, auto-resolve from the provider kind. */
 export function resolveRoleRunner(
-  roleRuntime?: 'claude' | 'kimicode' | 'opencode',
-  orgRuntime?: 'claude' | 'kimicode' | 'opencode',
+  roleRuntime?: RuntimeKind,
+  orgRuntime?: RuntimeKind,
+  roleProviderKind?: ProviderKind,
+  orgProviderKind?: ProviderKind,
 ): AgentRunner | undefined {
-  return resolveRunner(roleRuntime ?? orgRuntime);
+  const explicit = roleRuntime ?? orgRuntime;
+  if (explicit) return resolveRunner(explicit);
+  return resolveRunner(undefined, roleProviderKind ?? orgProviderKind);
 }
 
 /** Per-role token budget: a role's own `budget_tokens` wins; otherwise the
@@ -363,6 +391,12 @@ export class OrgDaemon {
     // its 7th, and the work that role owned simply never happened. Raise the
     // ceiling to the role count. An explicit MONOMIND_MAX_SDK_PROCS still wins:
     // if the operator named a number, that number is the answer.
+    //
+    // Runner process model (relevant for sizing): ClaudeAgentRunner and
+    // VercelAgentRunner are in-process (no subprocess per role). KimiCodeAgentRunner,
+    // OpencodeAgentRunner, and CodexAgentRunner each spawn one subprocess per role.
+    // The current sizing (def.roles.length) is therefore safe — it over-provisions
+    // for in-process runners but never under-provisions for subprocess runners.
     if (!process.env.MONOMIND_MAX_SDK_PROCS && getResourceLimits().maxSdkProcesses < def.roles.length) {
       configureResourceLimits({ maxSdkProcesses: def.roles.length });
     }
@@ -509,6 +543,10 @@ export class OrgDaemon {
       const runtime: AgentRuntime = { mailbox, policy, status: 'running', done: Promise.resolve(), metrics: { tokens: 0, costUsd: 0 }, worktreePath: roleCwd !== cwd ? roleCwd : undefined, scrollback: new ScrollbackBuffer() };
       const sessionOpts = {
         org: name, role, bus, policy, mailbox, cwd: roleCwd, def,
+        // Pass the org state directory so runners that persist per-role state
+        // (VercelAgentRunner session files) write under .monomind/orgs/<name>
+        // instead of polluting the workspace cwd.
+        orgDir: join(this.root, ORG_DIR, name),
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
         lastMessageId: () => runtime.lastMessageId,
         onOutput: (line: string) => runtime.scrollback.push(line),
@@ -573,7 +611,7 @@ export class OrgDaemon {
         // Leaving it undefined for the default path is what keeps
         // Claude/Antigravity orgs byte-for-byte unchanged. Session opts are
         // built per role here in spawnRole, so each role gets its own runner.
-        runner: this.opts.runner ?? resolveRoleRunner(role.runtime, def.runtime),
+        runner: this.opts.runner ?? resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, undefined),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
