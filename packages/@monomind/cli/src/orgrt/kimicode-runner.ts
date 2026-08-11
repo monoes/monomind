@@ -271,10 +271,15 @@ export class KimiCodeAgentRunner implements AgentRunner {
       })().then((lines) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ lines, exitCode })))
         .then(({ lines, exitCode }) => {
           const parsed = parseStreamJsonLines(lines);
+          // Also scan stderr for session_id — kimi 0.33+ may emit
+          // session.resume_hint on stderr instead of stdout. The stdout parser
+          // already captures session_id from any event that carries it; this
+          // ensures we catch it regardless of which stream kimi emits it on.
+          const stderrSid = extractStderrSessionId(stderrTail);
           resolve({
             texts: parsed.texts,
             rawTexts: parsed.rawTexts,
-            sessionId: parsed.sessionId ?? sessionId,
+            sessionId: parsed.sessionId ?? stderrSid ?? sessionId,
             exitCode,
             stderrTail,
             timedOut,
@@ -380,6 +385,25 @@ export function parseStreamJsonLines(lines: string[]): { texts: string[]; rawTex
     }
   }
   return { texts, rawTexts, sessionId };
+}
+
+/** Scan stderr for session_id events. Kimi 0.33+ emits session.resume_hint on
+ *  stderr (not stdout) in stream-json mode; the stdout parser captures session_id
+ *  from assistant events, but if kimi emits it ONLY on stderr we'd miss it and
+ *  fall back to a cold session on every turn. This defensive scan catches it
+ *  regardless of which stream kimi writes it to. */
+function extractStderrSessionId(stderr: string): string | undefined {
+  let sessionId: string | undefined;
+  for (const line of stderr.split('\n')) {
+    const t = line.trim();
+    if (!t || !t.startsWith('{')) continue;
+    try {
+      const ev = JSON.parse(t) as Record<string, unknown>;
+      const sid = (ev.session_id ?? ev.sessionId) as string | undefined;
+      if (sid && typeof sid === 'string') sessionId = sid;
+    } catch { /* not JSON, skip */ }
+  }
+  return sessionId;
 }
 
 /** Stderr patterns that mark a turn failure as FATAL (non-retryable): auth,

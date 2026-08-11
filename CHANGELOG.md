@@ -2,6 +2,60 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [Unreleased]
+
+### Universal provider support — Vercel AI SDK + Codex CLI runners
+
+Two new `AgentRunner` implementations extend the org runtime beyond the
+Claude/Kimi/Opencode trio. Combined with the existing runners, every major
+subscription and API key auth path now has a first-class home.
+
+#### `VercelAgentRunner` — any API-key provider via the Vercel AI SDK
+
+- **Activation:** `runtime: 'vercel'` (per-role or org-level) or auto-resolved from `provider.kind: 'vercel-api-key'`
+- **Vendor registry:** 15 providers — OpenAI, Anthropic, Google, xAI, DeepSeek, **GLM** (z.ai), Mistral, Groq, Together, Fireworks, Cohere, Perplexity, Alibaba, OpenRouter, Ollama — plus a generic `openai-compatible` escape hatch
+- **Primitive:** `streamText + stopWhen: isStepCount(N)` (Vercel v7)
+- **Tool delivery:** Native Vercel `tool()` calling with `canUseTool` policy gating (no fence protocol needed)
+- **Session resume:** `VercelSessionStore` persists message history to disk (Vercel SDK is stateless)
+- **Cost tracking:** Token-only (`cost_usd: 0` — Vercel returns no USD; token budgets still enforce via policy.ts)
+- **Files:** `orgrt/vercel-runner.ts`, `orgrt/vercel-providers.ts`, `orgrt/vercel-session-store.ts`
+- **Optional deps:** `ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`, `@ai-sdk/xai`, `@ai-sdk/deepseek`, `@ai-sdk/mistral`, `@ai-sdk/groq`, `@ai-sdk/togetherai`, `@ai-sdk/fireworks`, `@ai-sdk/cohere`, `@ai-sdk/perplexity`, `@ai-sdk/alibaba`, `@openrouter/ai-sdk-provider`, `ollama-ai-provider`
+
+#### `CodexAgentRunner` — ChatGPT subscription via Codex CLI subprocess
+
+- **Activation:** `runtime: 'codex'` or auto-resolved from `provider.kind: 'codex'`
+- **Auth:** Inherits `~/.codex/auth.json` from `codex login` (ChatGPT Plus/Pro/Team/Enterprise). No API key needed.
+- **Pattern:** Subprocess (same as `KimiCodeAgentRunner`) — spawns `codex exec --experimental-json --sandbox danger-full-access`, parses JSONL events
+- **Tool delivery:** Fence protocol (same as kimi/opencode) — `executeToolCall` now accepts `canUseTool` for policy gating
+- **Protocol:** Byte-accurate against `openai/codex/sdk/typescript/src` — `thread.started` captures `thread_id`, `item.completed` with `type: 'agent_message'` yields assistant text, `turn.completed` carries usage
+- **Resume:** `codex exec resume <thread_id>` (positional, not a flag)
+- **Files:** `orgrt/codex-runner.ts`, `orgrt/tool-fence.ts` (executeToolCall signature extended)
+
+#### `AntigravityAgentRunner` — Google AI Pro/Ultra via Antigravity CLI
+
+- **Activation:** `runtime: 'antigravity'` or auto-resolved from `provider.kind: 'antigravity'`
+- **Auth:** OS keyring credentials from running `agy` interactively once (Google OAuth). Google AI Pro/Ultra consumer subscription flows through this — Gemini CLI's consumer OAuth was sunset June 18, 2026; Antigravity is the official replacement.
+- **Pattern:** Subprocess (same as `KimiCodeAgentRunner` / `CodexAgentRunner`) — spawns `agy -p "<prompt>" --output-format stream-json --dangerously-skip-permissions`, parses NDJSON events
+- **Protocol:** Event types `init` → `step_update` (multiple) → `result`. Session ID captured from `conversation_id`. Per-token streaming accumulated and emitted as one assistant message per turn (fence stripping needs full text; matches kimi/codex behavior).
+- **Resume:** `--conversation <conversation_id>`
+- **Tool delivery:** Fence protocol (same as kimi/codex/opencode)
+- **Install:** Go binary via `curl -fsSL https://antigravity.google/cli/install.sh | bash` (no npm package)
+- **Files:** `orgrt/antigravity-runner.ts`
+
+#### Schema + provider resolution
+
+- `ProviderSchema.kind` extended: `'vercel-api-key'`, `'codex'` (existing kinds unchanged — backward compatible)
+- `ProviderSchema.vendor` field added (15 values + `openai-compatible`)
+- `runtime` enum extended in `RoleSchema` + `OrgDefSchema`: `'vercel'`, `'codex'`
+- `resolveRunner()` + `resolveRoleRunner()` in `daemon.ts` now auto-resolve runtime from provider kind when no explicit `runtime` field is set
+- `resolveModel()` in `session.ts` returns per-vendor default models (e.g. GLM → `glm-5.2`, Codex → `gpt-5.6-terra`, DeepSeek → `deepseek-chat`); explicit `adapter_config.model` always wins
+
+#### SDK upgrades
+
+- `@anthropic-ai/claude-agent-sdk` 0.3.207 → 0.3.226 — unlocks Opus 5 (`model: 'opus'` or `'claude-opus-5'`), includes MCP-connection bug fixes, better error surfacing. No breaking changes.
+- **Subagent depth change:** Claude SDK 0.3.217 lowered default subagent spawn depth from 5 to 1. Swarm code relying on deep nesting must set `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=5`.
+- **Kimi stderr fix:** `kimicode-runner.ts` now defensively extracts `session_id` from stderr as well as stdout (kimi 0.33+ may emit `session.resume_hint` on stderr in stream-json mode).
+
 ## [2.9.2] — 2026-08-09
 
 ### PDF engine swap + post-init document ingestion
