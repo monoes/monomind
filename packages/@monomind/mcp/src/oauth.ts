@@ -1,7 +1,22 @@
 /**
- * @monoes/mcp - OAuth 2.1 Authentication
+ * @monoes/mcp - Outbound OAuth 2.1 client helper
  *
- * MCP 2025-11-25 compliant OAuth 2.1 with PKCE
+ * This module is an OUTBOUND OAuth 2.1 + PKCE client: it builds authorization
+ * URLs, exchanges codes for tokens, refreshes/revokes tokens, and stores them
+ * — for use when THIS server needs to call OUT to a third-party OAuth
+ * provider (e.g. a GitHub- or Google-backed tool). It does not validate
+ * incoming credentials and has no importers outside this file and its
+ * factories (createGitHubOAuthConfig/createGoogleOAuthConfig) — nothing here
+ * authenticates a caller of this MCP server.
+ *
+ * For INBOUND auth (verifying a request/connection reaching this server),
+ * see auth.ts's `validateCredential`/`authMiddleware`, wired into both
+ * transports (transport/http.ts, transport/websocket.ts). `validateCredential`
+ * currently supports `token` and `api-key` methods; an `oauth`-method
+ * AuthConfig explicitly rejects with "OAuth inbound validation not
+ * implemented" (auth.ts) rather than silently accepting requests — inbound
+ * OAuth (JWKS/introspection-based resource-server verification) is not
+ * implemented anywhere in this package.
  */
 
 import { EventEmitter } from 'events';
@@ -93,7 +108,10 @@ export class InMemoryTokenStorage implements TokenStorage {
 }
 
 /**
- * OAuth 2.1 Manager
+ * Outbound OAuth 2.1 client — drives the authorization-code + PKCE flow
+ * against a third-party provider on this server's behalf. Not a resource-
+ * server verifier; it never inspects an incoming request. See the module
+ * header for the inbound-auth pointer (auth.ts).
  */
 export class OAuthManager extends EventEmitter {
   private readonly config: OAuthConfig;

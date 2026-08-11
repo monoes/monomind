@@ -4,11 +4,19 @@
 
 - For ANY web animation, motion graphics, or animation request: ALWAYS invoke `Skill("monomotion")` FIRST — no exceptions.
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions.
-- NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool. ALWAYS use `npx monomind browse`. This rule has no exceptions.
+- NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool. ALWAYS use `npx monomind browse`. This rule has no exceptions. If a `browse` command appears to hang or a Chrome process is left running after one, see `doc/concepts/monobrowse.md#5-recovery--if-a-command-hangs-or-chrome-is-left-running` for the recovery path (commands time out on their own after ~30s; Ctrl-C runs best-effort cleanup; `browse close` in a fresh process can kill an orphan via its persisted PID) before reaching for a different tool.
 
 ## Automatic Swarm Orchestration
 
 For complex work, Claude Code MUST initialize the swarm via CLI (Bash) AND spawn agents via the Task tool in the SAME message — CLI coordinates, Task tool agents do the actual work.
+
+This is in-process coordination among Claude Code Task-tool agents in a
+single session, not a distributed system — no networking between machines.
+"Topology" below describes how agents relate and vote, not a network
+architecture. See `doc/concepts/swarm.md` for the full picture, including
+the "Hive-Mind Consensus" section further down, which is exact about what
+`raft`/`byzantine`/`quorum` actually compute (majority/threshold vote
+counting, not real distributed-consensus protocols).
 
 **Swarm spawn-and-wait rules:**
 
@@ -43,7 +51,7 @@ npx monomind@latest swarm init --topology hierarchical-mesh --max-agents 15 --st
 - **hierarchical**: Coordinator catches divergence
 - **max-agents 6-8**: Smaller team = less drift
 - **specialized**: Clear roles, no overlap
-- **consensus**: raft (leader maintains state)
+- **consensus**: raft — in-process majority-vote counting (tolerates fewer than half the voters being wrong), not real Raft leader election or log replication
 
 ## Memory Loop (Feedback + Knowledge Graph)
 
@@ -198,7 +206,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `hooks`     | 29          | Self-learning hooks + 8 background workers                               | Working         |
+| `hooks`     | 29          | Self-learning hooks + <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers                               | Working         |
 | `org`       | 31          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, memory [stats\|search\|rules\|rollback], costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [alias of replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
@@ -432,6 +440,18 @@ MONOMIND_LOG_LEVEL=info
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=...
+GOOGLE_GENERATIVE_AI_API_KEY=...    # @ai-sdk/google (Gemini API)
+ZHIPU_API_KEY=...                    # GLM via z.ai (Vercel runner, vendor: 'glm')
+XAI_API_KEY=...                      # xAI Grok (Vercel runner, vendor: 'xai')
+DEEPSEEK_API_KEY=...                 # DeepSeek (Vercel runner, vendor: 'deepseek')
+MISTRAL_API_KEY=...                  # Mistral (Vercel runner, vendor: 'mistral')
+GROQ_API_KEY=...                     # Groq (Vercel runner, vendor: 'groq')
+TOGETHER_API_KEY=...                 # Together AI (Vercel runner, vendor: 'together')
+FIREWORKS_API_KEY=...                # Fireworks AI (Vercel runner, vendor: 'fireworks')
+COHERE_API_KEY=...                   # Cohere (Vercel runner, vendor: 'cohere')
+PERPLEXITY_API_KEY=...               # Perplexity Sonar (Vercel runner, vendor: 'perplexity')
+ALIBABA_API_KEY=...                  # Alibaba Qwen (Vercel runner, vendor: 'alibaba')
+OPENROUTER_API_KEY=...               # OpenRouter aggregator (Vercel runner, vendor: 'openrouter')
 
 # MCP Server
 MONOMIND_MCP_PORT=3000
@@ -504,7 +524,7 @@ It includes:
 
 - Agent type definitions with recommendations
 - All 32 CLI commands
-- All 29 hook subcommands + 8 background workers (@monoes/hooks)
+- All 29 hook subcommands + <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, agentic-jujutsu)

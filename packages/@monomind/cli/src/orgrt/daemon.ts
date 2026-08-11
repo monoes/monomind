@@ -312,6 +312,11 @@ export class OrgDaemon {
     // cap holds; any other (explicit) start resets it so a manual re-run gets a
     // fresh budget.
     if (!this.restarting.has(name)) this.bossRestartCounts.delete(name);
+    // Join any in-flight stop for this org before checking `this.orgs` — otherwise a
+    // start racing a stop's drain window (up to stopWaitMs) can share the stopping
+    // run's worktree path while it's still being force-removed.
+    const inflightStop = this.stopping.get(name);
+    if (inflightStop) await inflightStop;
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));

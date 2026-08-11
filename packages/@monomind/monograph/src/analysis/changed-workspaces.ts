@@ -1,6 +1,7 @@
 import { execFileSync } from 'child_process';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join, relative, resolve } from 'path';
+import { validateGitRef } from './git-ref.js';
 
 export interface WorkspacePackage {
   name: string;
@@ -48,15 +49,7 @@ export function getChangedWorkspaces(
   sinceRef: string,
   workspaceRoots?: string[],
 ): WorkspacePackage[] {
-  // Validate git ref (same allowlist as changed-files.ts). Leading '-' is
-  // rejected explicitly so a value like "--output=/tmp/pwned" can't be
-  // interpreted by git as a command-line option (git option injection).
-  if (sinceRef.startsWith('-')) {
-    throw new Error(`Invalid git ref: "${sinceRef}". Refs must not start with '-' (would be interpreted as a git option)`);
-  }
-  if (!/^[a-zA-Z0-9\-_./@~^]+$/.test(sinceRef)) {
-    throw new Error(`Invalid git ref: "${sinceRef}"`);
-  }
+  validateGitRef(sinceRef);
 
   let changedFiles: Set<string>;
   try {

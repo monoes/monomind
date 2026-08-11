@@ -144,6 +144,66 @@ describe('send', () => {
     client.close();
     await Promise.all(inflight);
   });
+
+  describe('#115: default timeout (a response that never arrives must not hang forever)', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('rejects a command with no response after the default 30s timeout', async () => {
+      const { client } = await connected();
+      const p = client.send('Runtime.evaluate');
+      const assertion = expect(p).rejects.toThrow('CDP command "Runtime.evaluate" timed out after 30000ms');
+      await vi.advanceTimersByTimeAsync(30_000);
+      await assertion;
+    });
+
+    it('honors a caller-supplied timeout shorter than the default', async () => {
+      const { client } = await connected();
+      const p = client.send('Runtime.evaluate', {}, undefined, 500);
+      const assertion = expect(p).rejects.toThrow('timed out after 500ms');
+      await vi.advanceTimersByTimeAsync(500);
+      await assertion;
+    });
+
+    it('timeoutMs: 0 disables the timeout entirely', async () => {
+      const { client, ws } = await connected();
+      const p = client.send('A', {}, undefined, 0);
+      await vi.advanceTimersByTimeAsync(60_000);
+      // Still pending — no timeout fired.
+      let settled = false;
+      void p.then(() => { settled = true; }).catch(() => { settled = true; });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      ws.deliver({ id: 1, result: {} });
+      await expect(p).resolves.toEqual({});
+    });
+
+    it('a response arriving before the timeout clears the timer (does not also reject later)', async () => {
+      const { client, ws } = await connected();
+      const p = client.send('A');
+      ws.deliver({ id: 1, result: { ok: true } });
+      await expect(p).resolves.toEqual({ ok: true });
+      // Advancing past the timeout window must not throw/reject anything further.
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+  });
+
+  describe('#115: Target.targetCrashed / targetDestroyed flush pending commands', () => {
+    it('targetCrashed rejects in-flight commands instead of leaving them pending', async () => {
+      const { client, ws } = await connected();
+      const p = client.send('Runtime.evaluate');
+      ws.deliver({ method: 'Target.targetCrashed', params: {} });
+      await expect(p).rejects.toThrow('CDP target crashed');
+      expect(client.isConnected()).toBe(false);
+    });
+
+    it('targetDestroyed rejects in-flight commands', async () => {
+      const { client, ws } = await connected();
+      const p = client.send('Runtime.evaluate');
+      ws.deliver({ method: 'Target.targetDestroyed', params: {} });
+      await expect(p).rejects.toThrow('CDP target destroyed');
+    });
+  });
 });
 
 describe('event dispatch', () => {

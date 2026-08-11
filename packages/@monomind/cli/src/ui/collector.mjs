@@ -241,10 +241,12 @@ const _TOK_PRICES = {
   'claude-fable-5':    { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
   'claude-mythos-5':   { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
   // Opus
+  'claude-opus-5':     { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-7':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
+  'claude-opus-4-1':   { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
   'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
   // Sonnet
   'claude-sonnet-5':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
@@ -258,6 +260,7 @@ const _TOK_PRICES = {
   'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
   'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
   // OpenAI
+  'gpt-5':             { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6  },
   'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6  },
   'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
   // Google
@@ -269,10 +272,21 @@ function _tokPrice(model) {
   k = _ALIAS[k] || k;
   if (_TOK_PRICES[k]) return _TOK_PRICES[k];
   for (const p of Object.keys(_TOK_PRICES)) { if (k.startsWith(p) || k.includes(p)) return _TOK_PRICES[p]; }
-  return { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 }; // sonnet default
+  // #124: previously silently returned a hardcoded Sonnet rate here, so an
+  // unrecognized model (e.g. a newly-released one not yet in this table)
+  // was costed AS Sonnet with no indication anything was estimated —
+  // wrong in either direction depending on the actual model's real price.
+  // null (matching server.mjs's _sjGetPricing) is the honest answer: "we
+  // don't know" is not the same claim as "$0" or "same as Sonnet".
+  return null;
+}
+/** True when this model has a pricing row (directly, by alias, or by prefix match). Mirrors server.mjs's _sjHasPricing. */
+function _tokHasPricing(model) {
+  return _tokPrice(model) !== null;
 }
 function _tokCost(model, usage) {
   const p = _tokPrice(model);
+  if (!p) return 0; // unpriced model — see _tokPrice's comment; 0 here, not a guessed price
   const webSearch = ((usage.server_tool_use || {}).web_search_requests || 0) * 0.01;
   return (usage.input_tokens || 0) * p.in
        + (usage.output_tokens || 0) * p.out
@@ -758,7 +772,7 @@ export function collectAll(projectDir) {
   };
 }
 
-export { collectProject, collectSessions, collectSwarm, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost };
+export { collectProject, collectSessions, collectSwarm, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost, _tokHasPricing };
 
 export function getWatchPaths(projectDir) {
   const resolvedDir = path.resolve(projectDir);

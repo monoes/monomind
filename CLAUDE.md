@@ -105,6 +105,12 @@ npm run lint
 
 ## Swarm Orchestration
 
+"Swarm" here means: multiple Claude Code Task-tool agents running in this one
+process, coordinated by CLI-tracked state and (for hive-mind) simple
+majority-vote arbitration between them — not a distributed system. There is
+no networking between separate machines. See `doc/concepts/swarm.md` for the
+full picture, including what "consensus" actually computes.
+
 - MUST initialize the swarm using CLI tools when starting complex tasks
 - MUST spawn concurrent agents using Claude Code's Task tool
 - Never use CLI tools alone for execution — Task tool agents do the actual work
@@ -115,7 +121,9 @@ npm run lint
 - ALWAYS use hierarchical topology for coding swarms
 - Keep maxAgents at 6-8 for tight coordination
 - Use specialized strategy for clear role boundaries
-- Use `raft` consensus for hive-mind (leader maintains authoritative state)
+- Use `raft` consensus for hive-mind — in-process majority-vote counting
+  (tolerates fewer than half the voters being wrong), not real Raft leader
+  election or log replication
 - Run frequent checkpoints via `post-task` hooks
 - Keep shared memory namespace for all agents
 
@@ -143,7 +151,7 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 | `memory` | 12 | SQLite memory with ANN search |
 | `task` | 5 | Task creation and lifecycle |
 | `session` | 6 | Session state management |
-| `hooks` | 29 | Self-learning hooks + 8 background workers _(unavailable in this install)_ |
+| `hooks` | 29 | Self-learning hooks + <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers _(unavailable in this install)_ |
 
 > Note: there is no `hive-mind` or `neural` CLI command. Hive-mind
 > consensus (byzantine/raft/quorum) is available exclusively via MCP tools

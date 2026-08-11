@@ -20,10 +20,16 @@ const buildDocsState = new Map();
 
 // Pricing per token (mirrors token-tracker.cjs FALLBACK_PRICING)
 const _SJ_PRICING = {
+  'claude-fable-5':    { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6    },
+  'claude-mythos-5':   { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6    },
+  'claude-opus-5':     { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
   'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
+  'claude-opus-4-7':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
   'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
+  'claude-opus-4-1':   { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6  },
   'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6  },
+  'claude-sonnet-5':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
   'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
   'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
   'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
@@ -32,6 +38,7 @@ const _SJ_PRICING = {
   'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,    cw: 1.25e-6,  cr: 0.1e-6  },
   'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6 },
   'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6 },
+  'gpt-5':             { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6 },
   'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6 },
   'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
   'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
@@ -1335,7 +1342,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   // (all of /api/*, GET or not) requires _checkAuth. These serve the HTML/JS
   // that embeds the token in a <meta name="mm-token"> tag on page load, so
   // they must be reachable before any fetch() call could attach the token.
-  const _OPEN_ROUTES = new Set(['/', '/v2', '/mastermind', '/orgs', '/orgs-files.js', '/favicon.ico']);
+  const _OPEN_ROUTES = new Set(['/', '/v2', '/mastermind', '/orgs', '/orgs-files.js', '/markdown.js', '/favicon.ico']);
   const _isOpenRoute = (url, method) =>
     (method === 'GET' || method === 'HEAD' || method === 'OPTIONS')
     && (_OPEN_ROUTES.has(url) || /^\/data\/avatars\/[A-Za-z0-9._-]+\.svg$/.test(url));
@@ -1395,6 +1402,25 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`Failed to load dashboard.html: ${err.message}`);
+      }
+      return;
+    }
+
+    // ------------------------------------------------ GET /markdown.js
+    // Markdown renderer, split out of dashboard.html (#124) — same pattern
+    // as GET /orgs-files.js in routes-org.mjs (a sibling asset served via
+    // its own hardcoded route, not a generic static-file handler). Must be
+    // in _OPEN_ROUTES above: dashboard.html's own <script src="markdown.js">
+    // request happens before the page has the auth token to attach.
+    if (req.method === 'GET' && url === '/markdown.js') {
+      try {
+        const jsPath = path.join(__dirname, 'markdown.js');
+        const js = fs.readFileSync(jsPath, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+        res.end(js);
+      } catch (err) {
+        res.writeHead(404);
+        res.end(`markdown.js not found: ${err.message}`);
       }
       return;
     }

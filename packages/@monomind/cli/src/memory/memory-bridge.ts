@@ -756,26 +756,64 @@ export async function bridgeSearchEntries(options: {
             ...(namespace ? { namespace } : {}),
             limit: 50000,
           });
-          keywordHits = entries
-            .map((e: any) => {
-              const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();
-              const hits = tokens.filter(t => haystack.includes(t)).length;
-              return { e, score: hits / tokens.length };
-            })
-            .filter((x: any) => x.score > 0)
-            .sort((a: any, b: any) => b.score - a.score)
-            .slice(0, limit)
-            .map(({ e, score }: any) => ({
-              id: e.id,
-              key: e.key,
-              content: capResultContent(e.content || ''),
-              // Raw token-overlap fraction, NOT rescaled to look like a cosine.
-              score,
-              namespace: e.namespace,
-              provenance: `keyword:${score.toFixed(2)}`,
-              tags: e.tags ?? [],
-              _createdAt: e.createdAt || 0,
-            }));
+
+          // #126: Bm25Index.build() costs real time at scale (measured in
+          // bm25-index.ts's own header: ~113ms/673 chunks, ~1.7s/12.5k
+          // chunks) — this fallback can be handed up to 50,000 entries, so
+          // building a fresh index on every call without a cap would make
+          // large stores' searches slower, not better. Below the cap, BM25
+          // (proper IDF weighting) replaces the naive token-overlap-fraction
+          // scan; above it, the fast scan keeps running so latency never
+          // regresses. MONOMIND_BM25=0 disables this arm entirely (mirrors
+          // the MONOMIND_RERANKER kill-switch).
+          const BM25_ENTRY_CAP = 1500;
+          const bm25Enabled = (process.env.MONOMIND_BM25 ?? '1') !== '0';
+
+          if (bm25Enabled && entries.length > 0 && entries.length <= BM25_ENTRY_CAP) {
+            const { Bm25Index } = await import('./bm25-index.js');
+            const byKey = new Map<string, any>(entries.map((e: any) => [e.key, e]));
+            const idx = Bm25Index.build(
+              entries.map((e: any) => ({ key: e.key, text: `${e.key || ''} ${e.content || ''}` })),
+              () => false, // no superseded concept at this generic KV level — filtered later by callers that care
+            );
+            const hits = idx.search(queryStr, limit);
+            const maxScore = Math.max(...hits.map(h => h.score), 1);
+            keywordHits = hits.map((h) => {
+              const e = byKey.get(h.key);
+              const normalized = h.score / maxScore; // BM25 scores aren't comparable across queries/corpora — normalise 0-1 like the FTS5 path does
+              return {
+                id: e.id,
+                key: e.key,
+                content: capResultContent(e.content || ''),
+                score: normalized,
+                namespace: e.namespace,
+                provenance: `keyword-bm25:${normalized.toFixed(2)}`,
+                tags: e.tags ?? [],
+                _createdAt: e.createdAt || 0,
+              };
+            });
+          } else {
+            keywordHits = entries
+              .map((e: any) => {
+                const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();
+                const hits = tokens.filter(t => haystack.includes(t)).length;
+                return { e, score: hits / tokens.length };
+              })
+              .filter((x: any) => x.score > 0)
+              .sort((a: any, b: any) => b.score - a.score)
+              .slice(0, limit)
+              .map(({ e, score }: any) => ({
+                id: e.id,
+                key: e.key,
+                content: capResultContent(e.content || ''),
+                // Raw token-overlap fraction, NOT rescaled to look like a cosine.
+                score,
+                namespace: e.namespace,
+                provenance: `keyword:${score.toFixed(2)}`,
+                tags: e.tags ?? [],
+                _createdAt: e.createdAt || 0,
+              }));
+          }
         }
 
         if (results.length === 0) {

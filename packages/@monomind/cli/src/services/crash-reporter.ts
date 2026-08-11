@@ -16,6 +16,7 @@ import { join } from 'path';
 import { createHash } from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { redact } from '../utils/redaction.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -108,103 +109,12 @@ export function setEnabled(enabled: boolean): void {
  * Strip obvious secrets/PII before anything gets sent to a public GitHub repo.
  * Not a substitute for careful callers — this is a last-resort net.
  *
- * C6 hardening adds: absolute-path collapse (any multi-segment path to
- * basename), hostname redaction (contextual after ://@, standalone with
- * TLD heuristic — excludes version numbers, known code extensions, and
- * decimals), IPv4/IPv6, emails, SSNs, and phone numbers.
+ * Implementation lives in utils/redaction.ts (shared with input-guards.ts's
+ * sanitizeError() and neural-optimize.ts's stripPii export path — this was
+ * the fullest of the three duplicated implementations, so the others were
+ * consolidated onto this one rather than the reverse).
  */
-export function redact(text: string): string {
-  let out = text;
-
-  const home = homedir();
-  if (home) out = out.split(home).join('~');
-
-  const username = home.split('/').pop();
-  if (username && username.length > 2) {
-    out = out.replace(new RegExp(`\\b${username}\\b`, 'g'), '<user>');
-  }
-
-  // Generic path prefixes, in case a compiled binary's stack trace embeds a
-  // *different* machine's home dir (e.g. the CI runner or maintainer's build
-  // box) than the one redaction above is keyed to.
-  out = out.replace(/\/home\/[^/\s]+/g, '/home/<user>');
-  out = out.replace(/\/Users\/[^/\s]+/g, '/Users/<user>');
-  out = out.replace(/C:\\Users\\[^\\\s]+/g, 'C:\\Users\\<user>');
-
-  // C6: strip IPv4 addresses — leaked via ECONNREFUSED, fetch errors,
-  // telemetry endpoints, internal service URLs. IPv6 is handled later with
-  // bracket, full, and compressed :: forms.
-  out = out.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '<ip>');
-
-  // C6: strip emails — commonly embedded in ValidationError messages and
-  // customer data dumps that reach the crash handler via err.message.
-  out = out.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '<email>');
-
-  // C6: PII in err.message — SSN and phone numbers commonly appear in
-  // validation errors. SSN is high-sensitivity; phone is medium.
-  out = out.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '<ssn>');
-  out = out.replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '<phone>');
-
-  const SECRET_PATTERNS: RegExp[] = [
-    /(?:api[_-]?key|apikey)\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-    /(?:secret|password|passwd|pwd)\s*[:=]\s*['"]?[^\s'"]{8,}['"]?/gi,
-    /(?:token|bearer)\s*[:=]\s*['"]?[^\s'"]{10,}['"]?/gi,
-    /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
-    /sk-ant-[a-zA-Z0-9_-]{20,}/g,
-    /sk-[a-zA-Z0-9_-]{20,}/g,
-    /ghp_[a-zA-Z0-9]{36}/g,
-    /gho_[a-zA-Z0-9]{36}/g,
-    /npm_[a-zA-Z0-9]{36}/g,
-    /AKIA[0-9A-Z]{16}/g,
-    /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, // JWT
-    /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g,        // user:pass@host connection strings
-  ];
-  for (const pattern of SECRET_PATTERNS) out = out.replace(pattern, '[redacted]');
-
-  // Collapse any remaining multi-segment absolute path to its basename,
-  // preserving optional :line:col suffixes for debuggability.  Fires on
-  // /a/b, ~/a/b, C:\a\b — single-segment paths (/tmp) are not touched.
-  // Runs AFTER home-dir and username replacement.
-  out = out.replace(
-    /(?:~\/|(?<![:/>\w])\/(?!\/)|[A-Z]:\\)(?:[^\s'"]*[/\\])([\w.-]+(?::\d+(?::\d+)?)?)/g,
-    '<path>/$1'
-  );
-
-  // Hostname / domain redaction.
-  // 1. Contextual: hostnames that follow :// or @ (requires at least one dot).
-  out = out.replace(
-    /(\/\/|@)([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+)/g,
-    '$1<host>'
-  );
-  // 2. Standalone: 3+ dot-separated segments with a TLD-like tail (2-6
-  //    alpha chars).  Excludes version numbers (v2.9.0, 1.2.3), filenames
-  //    whose last segment is a known code/config extension, and bare
-  //    decimal numbers.
-  const KNOWN_CODE_EXTS = /\.(?:js|ts|jsx|tsx|json|md|yaml|yml|html|css|mjs|cjs|toml|xml|txt|log|sql|sh|py|go|rs|rb|java|c|cpp|h|hpp|swift|kt|lock|map)$/i;
-  out = out.replace(
-    /\b([a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9-]*)+\.[a-zA-Z]{2,6})\b/g,
-    (match) => {
-      if (/^v?\d+(\.\d+)+$/.test(match)) return match;       // version
-      if (KNOWN_CODE_EXTS.test(match)) return match;          // filename
-      if (/^\d+(\.\d+)+$/.test(match)) return match;          // decimal
-      return '<host>';
-    }
-  );
-
-  // IPv6 addresses.
-  // Bracketed form (URLs): [::1], [fe80::1], [2001:db8::1]
-  out = out.replace(/\[(?:[0-9a-fA-F]{0,4}:){2,}[0-9a-fA-F]{0,4}\]/g, '[<ipv6>]');
-  // Full unbracketed: 3+ colon-separated hex groups (avoids HH:MM:SS false positives)
-  out = out.replace(/(?<![:\w])(?:[0-9a-fA-F]{1,4}:){3,7}[0-9a-fA-F]{0,4}(?![:\w])/g, '<ipv6>');
-  // Compressed :: with leading hex groups: fe80::1, 2001:db8::1.
-  // Uses \b (not lookbehind) so hex digits before :: don't block the match.
-  // std::vector is safe: 's' is not [0-9a-fA-F].
-  out = out.replace(/\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?\b/g, '<ipv6>');
-  // Compressed :: without leading hex: ::1, ::ffff:10.0.0.1
-  out = out.replace(/(?<![:\w])::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?![:\w])/g, '<ipv6>');
-
-  return out;
-}
+export { redact };
 
 /**
  * Normalize a title before hashing so crashes that differ only in a varying
