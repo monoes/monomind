@@ -49,6 +49,30 @@ export const ORG_TEMPLATES: Record<string, Template> = {
         responsibilities: ['Verify claims in draft briefs against sources', 'Flag unverifiable claims for removal or hedging'] },
     ],
   },
+  'kg-extraction': {
+    goal: 'Extract a validated knowledge graph from source documents into the org memory',
+    roles: [
+      { id: 'kg-lead', title: 'KG Extraction Lead', type: 'boss', reports_to: null,
+        responsibilities: ['Decompose source documents into extraction tasks', 'Dispatch chunks to the entity extractor', 'Call org_learn with the final validated graph'] },
+      { id: 'entity-extractor', title: 'Entity Extractor', type: 'specialist', reports_to: 'kg-lead',
+        responsibilities: ['Read assigned document chunks', 'Extract entities with types and descriptions', 'Hand raw entities to the relationship resolver'] },
+      { id: 'relationship-resolver', title: 'Relationship Resolver', type: 'specialist', reports_to: 'kg-lead',
+        responsibilities: ['Receive extracted entities', 'Resolve coreferences and deduplicate near-matches', 'Emit typed source-relation-target edges'] },
+      { id: 'ontology-validator', title: 'Ontology Validator', type: 'reviewer', reports_to: 'kg-lead', model: FAST_MODEL,
+        responsibilities: ['Check extracted edges against the existing org glossary', 'Reject contradictory or malformed triples', 'Return clean graphs to the lead for org_learn'] },
+    ],
+  },
+  'advisor-orchestrator': {
+    goal: 'Execute complex multi-step work with a frontier planner and fast workers',
+    roles: [
+      { id: 'advisor', title: 'Advisor (Planner)', type: 'boss', reports_to: null,
+        responsibilities: ['Read the full task context and decompose it', 'Call org_plan_graph to propose the work graph in one shot', 'Synthesize worker outputs and verify completeness'] },
+      { id: 'worker-1', title: 'Worker 1', type: 'specialist', reports_to: 'advisor', model: FAST_MODEL,
+        responsibilities: ['Execute assigned tasks', 'Report results via org_send with a structured handoff', 'Flag scope expansion for org_task_split'] },
+      { id: 'worker-2', title: 'Worker 2', type: 'specialist', reports_to: 'advisor', model: FAST_MODEL,
+        responsibilities: ['Execute assigned tasks', 'Report results via org_send with a structured handoff', 'Flag scope expansion for org_task_split'] },
+    ],
+  },
 };
 
 export function buildFromTemplate(templateName: string, orgName: string, goal?: string): OrgDef | null {

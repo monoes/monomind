@@ -6,6 +6,6 @@ capabilities:
   - refactoring
   - debugging
 optimizations:
-  - flash-attention
   - token-reduction
-createdAt: "2026-02-09T18:14:40.510Z"
+  - context-caching
+createdAt: "2026-08-11T19:23:18.244Z"

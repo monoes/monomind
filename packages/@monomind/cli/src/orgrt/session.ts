@@ -152,6 +152,10 @@ export interface SessionOpts {
   completeTask?: (role: string, taskId: string, result?: string) => string;
   /** Task DAG: list all tasks. */
   listTasks?: () => string;
+  splitTask?: (role: string, parentId: string, children: { title: string; assignee: string }[]) => string;
+  mergeTask?: (role: string, sourceId: string, targetId: string) => string;
+  cancelTask?: (role: string, taskId: string, reason?: string) => string;
+  planGraph?: (role: string, specs: { name: string; title: string; assignee: string; after?: string[] }[]) => string;
 }
 
 /** Role briefing given to each agent session (SDK systemPrompt option). */
@@ -168,6 +172,7 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     `For irreversible or high-risk actions (deployments, deletions, external communications), call org_gate to create a decision gate — a hard-blocking approval checkpoint. End your turn and wait for the human's approval or rejection before proceeding.`,
     `You can structure work as a task DAG: use org_task to create tasks with dependencies, org_task_done to mark them complete, and org_tasks to see the full DAG. Tasks with satisfied dependencies are automatically dispatched to their assignee.`,
+    `The work graph is dynamic: call org_task_split when scope expands, org_task_merge when parallel branches converge early, or org_task_cancel when evidence makes a planned task moot. Use org_plan_graph to propose a full work graph in one call when you know the plan upfront.`,
     `Before starting substantial work, call org_recall to check what previous runs already learned or delivered - do not redo finished work.`,
     `The user's documents (notes, handbooks, specs) are searchable with knowledge_search - ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
@@ -450,7 +455,7 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
  *
  *  Behaviour is identical to the old inline definitions: conditional tools are
  *  gated on their callback being present, org_send/ask_human are always added. */
-function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
+export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   const { role, deliver } = opts;
   const tools: OrgToolDef[] = [];
   const text = (t: string): { text: string } => ({ text: t });
@@ -531,6 +536,38 @@ function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       description: 'List all tasks in the DAG with their current status and dependencies.',
       schema: {},
       handler: async () => text(opts.listTasks!()),
+    });
+  }
+  if (opts.splitTask) {
+    tools.push({
+      name: 'org_task_split',
+      description: 'Split a task into parallel children when scope expands. The parent becomes "split"; children inherit its deps; downstream tasks are rewired to depend on all children.',
+      schema: { parentId: z.string(), children: z.array(z.object({ title: z.string(), assignee: z.string() })).min(1) },
+      handler: async (args) => text(opts.splitTask!(role.id, args.parentId as string, (args.children as { title: string; assignee: string }[]) ?? [])),
+    });
+  }
+  if (opts.mergeTask) {
+    tools.push({
+      name: 'org_task_merge',
+      description: 'Merge one task into another when parallel branches converge early. The source becomes "merged"; downstream deps are rewired to the target.',
+      schema: { sourceId: z.string(), targetId: z.string() },
+      handler: async (args) => text(opts.mergeTask!(role.id, args.sourceId as string, args.targetId as string)),
+    });
+  }
+  if (opts.cancelTask) {
+    tools.push({
+      name: 'org_task_cancel',
+      description: 'Cancel a task as moot. The task becomes "cancelled" and unblocks downstream work.',
+      schema: { taskId: z.string(), reason: z.string().optional() },
+      handler: async (args) => text(opts.cancelTask!(role.id, args.taskId as string, args.reason as string | undefined)),
+    });
+  }
+  if (opts.planGraph) {
+    tools.push({
+      name: 'org_plan_graph',
+      description: 'Propose a full work graph in one call. Each task spec uses a local "name" and references other specs by name in "after".',
+      schema: { tasks: z.array(z.object({ name: z.string(), title: z.string(), assignee: z.string(), after: z.array(z.string()).default([]) })).min(1) },
+      handler: async (args) => text(opts.planGraph!(role.id, (args.tasks as { name: string; title: string; assignee: string; after?: string[] }[]) ?? [])),
     });
   }
   tools.push({
