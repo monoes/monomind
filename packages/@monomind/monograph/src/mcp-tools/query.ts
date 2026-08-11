@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { openDb, closeDb } from '../storage/db.js';
-import { hybridQuery } from '../search/hybrid-query.js';
+import { hybridSearch } from '../storage/fts-store.js';
 import type { MonographDb } from '../storage/db.js';
 
 export interface QueryResult {
@@ -24,7 +24,8 @@ export interface MonographQueryOutput {
 export const monographQueryTool = {
   name: 'monograph_query',
   description:
-    'Process-aware hybrid search across the monograph knowledge graph. Returns symbols and process nodes ranked by relevance.',
+    'Keyword + fuzzy + LIKE hybrid search across the monograph knowledge graph. ' +
+    'Returns symbols and process nodes ranked by combined BM25 + subsequence + node-type bonus.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -60,24 +61,28 @@ export const monographQueryTool = {
     }
 
     try {
-      const hits = await hybridQuery(db, query, { limit: topK * 3 });
+      // Route through hybridSearch (BM25 + LIKE + in-memory fuzzy + node-type bonus)
+      // — the same ranker the CLI uses. The previous hybridQuery call was BM25-only,
+      // so MCP users got weaker ranking than CLI users for the same graph.
+      const hits = hybridSearch(db, query, topK * 3);
       const results: QueryResult[] = hits
-        .filter(h => includeProcesses || h.label !== 'Process')
-        .map(h => ({
+        .filter((h) => includeProcesses || h.label !== 'Process')
+        .map((h) => ({
           id: h.id,
           label: h.label ?? 'Symbol',
           name: h.name ?? h.id,
           filePath: h.filePath ?? undefined,
           startLine: h.startLine ?? null,
-          score: h.score,
+          score: h.combinedScore,
           isProcess: h.label === 'Process',
-        }));
+        }))
+        .slice(0, topK);
 
       return {
         query,
         results,
-        processCount: results.filter(r => r.isProcess).length,
-        symbolCount: results.filter(r => !r.isProcess).length,
+        processCount: results.filter((r) => r.isProcess).length,
+        symbolCount: results.filter((r) => !r.isProcess).length,
       };
     } finally {
       if (shouldClose && db) closeDb(db);

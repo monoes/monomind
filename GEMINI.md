@@ -1,4 +1,4 @@
-# Monomind for Antigravity (agy) — v2.8.0
+# Monomind for Antigravity (agy) — v2.9.3
 
 > Monomind extends agy with a codebase knowledge graph (Monograph), persistent
 > cross-session memory, semantic Second Brain document search, and autonomous

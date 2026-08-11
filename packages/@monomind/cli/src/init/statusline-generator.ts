@@ -71,7 +71,7 @@ function getVersion() {
       if (pkg.version && (pkg.name === 'monomind' || pkg.name === '@monomind/cli' || (pkg.name || '').startsWith('@monomind'))) {
         return \`v\${pkg.version}\`;
       }
-    } catch { /* ignore */ }
+    } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   }
   // 2. Fallback: npm global prefix (lib/node_modules on POSIX, node_modules on Windows)
   try {
@@ -87,7 +87,7 @@ function getVersion() {
       const pkg = JSON.parse(fs.readFileSync(globalPkgPath, 'utf-8'));
       if (pkg.version) return \`v\${pkg.version}\`;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return 'v?';
 }
 const VERSION = getVersion();
@@ -120,7 +120,8 @@ function safeExec(cmd, timeoutMs = 2000) {
       timeout: timeoutMs,
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
-  } catch {
+  } catch (err) {
+    if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err);
     return '';
   }
 }
@@ -133,7 +134,7 @@ function readJSON(filePath) {
     if (fs.existsSync(filePath) && fs.statSync(filePath).size <= MAX_JSON_READ_BYTES) {
       return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return null;
 }
 
@@ -141,7 +142,7 @@ function readJSON(filePath) {
 function safeStat(filePath) {
   try {
     return fs.statSync(filePath);
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return null;
 }
 
@@ -163,7 +164,7 @@ function getProjectName() {
       const m = remote.match(/[/:]([\\w.-]+)\\/([\\w.-]+?)(?:\\.git)?$/);
       if (m) return \`\${m[1]}/\${m[2]}\`;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return path.basename(CWD);
 }
 
@@ -237,7 +238,7 @@ function getModelFromSessionJSONL() {
     // Most recently modified JSONL = current (or latest) session
     const files = fs.readdirSync(projectsDir)
       .filter(f => f.endsWith('.jsonl'))
-      .map(f => ({ f, mt: (() => { try { return fs.statSync(path.join(projectsDir, f)).mtimeMs; } catch { return 0; } })() }))
+      .map(f => ({ f, mt: (() => { try { return fs.statSync(path.join(projectsDir, f)).mtimeMs; } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); return 0; } })() }))
       .sort((a, b) => b.mt - a.mt);
     if (files.length === 0) return null;
 
@@ -255,9 +256,9 @@ function getModelFromSessionJSONL() {
         if (model && typeof model === 'string' && model.startsWith('claude')) {
           return model;
         }
-      } catch { /* skip malformed line */ }
+      } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* skip malformed line */ }
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return null;
 }
 
@@ -297,7 +298,7 @@ function getModelName() {
         }
       }
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
 
   // TERTIARY: settings.json model field (configured default, not live session).
   const settings = getSettings();
@@ -343,7 +344,7 @@ function getLearningStats() {
     if (fs.existsSync(sessDir)) {
       sessions = fs.readdirSync(sessDir).filter(f => f.endsWith('.json')).length;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
 
   return { patterns: 0, sessions };
 }
@@ -397,7 +398,7 @@ function getSecurityStatus() {
     if (fs.existsSync(scanDir)) {
       scanCount = fs.readdirSync(scanDir).filter(f => f.endsWith('.json')).length;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
 
   return {
     status: scanCount > 0 ? 'SCANNED' : 'NONE',
@@ -421,7 +422,7 @@ function getSwarmStatus() {
       const liveCount = files.filter(f => {
         try {
           return (now - fs.statSync(path.join(regDir, f)).mtimeMs) < agentRegTtlMs;
-        } catch { return false; }
+        } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); return false; }
       }).length;
       if (liveCount > 0) {
         return {
@@ -430,7 +431,7 @@ function getSwarmStatus() {
           coordinationActive: true,
         };
       }
-    } catch { /* fall through */ }
+    } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* fall through */ }
   }
 
   // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh
@@ -469,7 +470,7 @@ function getSwarmStatus() {
 function getSystemMetrics() {
   const memoryMB = Math.floor(process.memoryUsage().heapUsed / 1024 / 1024);
   const learning = getLearningStats();
-  const lancedbStats = getMemoryStats();
+  const memoryStats = getMemoryStats();
 
   // Intelligence from learning.json
   const learningData = readJSON(path.join(CWD, '.monomind', 'metrics', 'learning.json'));
@@ -481,7 +482,7 @@ function getSystemMetrics() {
   } else {
     // Use actual vector/entry counts — 2000 entries = 100%
     const fromPatterns = learning.patterns > 0 ? Math.min(100, Math.floor(learning.patterns / 20)) : 0;
-    const fromVectors = lancedbStats.vectorCount > 0 ? Math.min(100, Math.floor(lancedbStats.vectorCount / 20)) : 0;
+    const fromVectors = memoryStats.vectorCount > 0 ? Math.min(100, Math.floor(memoryStats.vectorCount / 20)) : 0;
     intelligencePct = Math.max(fromPatterns, fromVectors);
   }
 
@@ -532,7 +533,7 @@ function getADRStatus() {
         // Report actual count — don't guess compliance without reading files
         return { count: files.length, implemented: files.length, compliance: 0 };
       }
-    } catch { /* ignore */ }
+    } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   }
 
   return { count: 0, implemented: 0, compliance: 0 };
@@ -565,7 +566,7 @@ function getHooksStatus() {
       total = Math.max(total, hookFiles);
       enabled = Math.max(enabled, hookFiles);
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
 
   return { enabled, total };
 }
@@ -595,7 +596,7 @@ function getActiveAgent() {
       confidence: data.confidence || 0,
       activated: data.activated || false,   // true = manually loaded extras agent
     };
-  } catch { return null; }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); return null; }
 }
 
 // Memory (SQLite) stats — count real entries
@@ -614,7 +615,7 @@ function getMemoryStats() {
       const store = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
       if (Array.isArray(store)) vectorCount += store.length;
       else if (store?.entries) vectorCount += store.entries.length;
-    } catch { /* fall back to size estimate */ }
+    } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* fall back to size estimate */ }
   }
 
   // 2. Count entries from ranked-context.json
@@ -622,7 +623,7 @@ function getMemoryStats() {
   try {
     const ranked = readJSON(rankedPath);
     if (ranked?.entries?.length > vectorCount) vectorCount = ranked.entries.length;
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
 
   // 3. Add DB file sizes
   const dbFiles = [
@@ -689,7 +690,7 @@ function getTestStats() {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   }
 
   // Scan all source directories
@@ -826,13 +827,13 @@ function getKnowledgeStats() {
     if (chunksStat && chunksStat.size <= MAX_JSON_READ_BYTES) {
       chunks = fs.readFileSync(chunksPath, 'utf-8').split('\\n').filter(Boolean).length;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   try {
     const skillsStat = safeStat(skillsPath);
     if (skillsStat && skillsStat.size <= MAX_JSON_READ_BYTES) {
       skills = fs.readFileSync(skillsPath, 'utf-8').split('\\n').filter(Boolean).length;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return { chunks, skills };
 }
 
@@ -848,21 +849,21 @@ function getDocStats() {
       docs = fs.readFileSync(docPath, 'utf-8').split('\\n').filter(Boolean).length;
       exists = true;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   try {
     const cs = safeStat(chunksPath);
     if (cs && cs.size > 0 && cs.size <= MAX_JSON_READ_BYTES) {
       chunks = fs.readFileSync(chunksPath, 'utf-8').split('\\n').filter(Boolean).length;
       exists = true;
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   try {
     if (fs.existsSync(memDbPath)) {
       const result = spawnSync('sqlite3', [memDbPath, 'SELECT COUNT(*) FROM memory_entries;'], { encoding: 'utf-8', timeout: 1000 });
       const n = parseInt((result.stdout || '').trim(), 10) || 0;
       if (n > 0) { memories = n; exists = true; }
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return { docs, chunks, memories, exists };
 }
 
@@ -876,7 +877,7 @@ function getTriggerStats() {
     const triggers = Object.keys(idx).length;
     const agents = Object.values(idx).flat().length;
     return { triggers, agents };
-  } catch { return { triggers: 0, agents: 0 }; }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); return { triggers: 0, agents: 0 }; }
 }
 
 // Daemon worker alerts — security-audit, testgaps, benchmark. Fast: single
@@ -931,7 +932,7 @@ function getHookLatency() {
       if (!slowest || d[k].mean > slowest.mean) slowest = { name: k, mean: d[k].mean };
     }
     return { perPromptMs: totalMs, slowest: slowest };
-  } catch { return null; }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); return null; }
 }
 
 // Graph usage telemetry — counts ALL graph wins (MCP calls + silent assists)
@@ -949,7 +950,7 @@ function getGraphUsage() {
     const total = graphWins + searches + (d.preresolve_miss || 0);
     if (total === 0) return null;
     return { graphWins: graphWins, searches: searches, pct: Math.round((graphWins / total) * 100), dollarsSaved: d.dollars_saved || 0 };
-  } catch { return null; }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); return null; }
 }
 
 // Graph freshness — compare last build time vs commits since
@@ -961,7 +962,7 @@ function getGraphFreshness() {
     const lockStat = safeStat(lockPath);
     const dbStat   = safeStat(dbPath);
     buildMs = Math.max(lockStat?.mtimeMs || 0, dbStat?.mtimeMs || 0);
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   if (!buildMs) return { commitsBehind: -1, stale: true, fresh: false };
   const buildIso = new Date(buildMs).toISOString();
   const out = safeExec(\`git rev-list --count --since='\${buildIso}' HEAD 2>/dev/null\`, 1500);
@@ -992,7 +993,7 @@ function getLoopStatus() {
         status: d.status || 'running',
       });
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return { count: loops.length, loops };
 }
 
@@ -1011,9 +1012,9 @@ function getHILPending() {
         const txt = fs.readFileSync(hilPath, 'utf-8');
         const answered = /^[ \\t]*>[ \\t]+\\S/m.test(txt);
         if (!answered) pending++;
-      } catch { /* ignore */ }
+      } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return { pending };
 }
 
@@ -1030,7 +1031,7 @@ function getGraphifyStats() {
   try {
     const s = readJSON(statsPath);
     if (s && s.nodes !== undefined) return { nodes: s.nodes, edges: s.edges || 0, exists: true };
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
 
   try {
     if (fs.existsSync(dbPath)) {
@@ -1040,7 +1041,7 @@ function getGraphifyStats() {
         if (n > 0) return { nodes: n, edges: e, exists: true };
       }
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
 
   try {
     const stat = safeStat(graphPath);
@@ -1050,7 +1051,7 @@ function getGraphifyStats() {
       const edges = (Array.isArray(g.edges) ? g.edges : (Array.isArray(g.links) ? g.links : [])).length;
       return { nodes, edges, exists: true };
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return { nodes: 0, edges: 0, exists: false };
 }
 
@@ -1070,7 +1071,8 @@ function getGraphStaleness() {
     if (!out) return null;
     const n = parseInt(out.trim(), 10);
     return Number.isFinite(n) ? { commitsBehind: n, lastCommit: lastCommit.trim() } : null;
-  } catch {
+  } catch (err) {
+    if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err);
     return null;
   }
 }
@@ -1084,7 +1086,7 @@ function getSIBudget() {
     if (siStat.size > 2 * 1024 * 1024) return null; // skip > 2 MB
     const len = fs.readFileSync(siPath, 'utf-8').length;
     return { len, pct: Math.round((len / SI_LIMIT) * 100), limit: SI_LIMIT };
-  } catch { return null; }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); return null; }
 }
 
 // ── Single-line statusline (compact) ─────────────────────────────
@@ -1217,7 +1219,7 @@ function generateDashboard() {
   const system      = getSystemMetrics();
   const adrs        = getADRStatus();
   const hooks       = getHooksStatus();
-  const lancedbStats = getMemoryStats();
+  const memoryStats  = getMemoryStats();
   const tests       = getTestStats();
   const session     = getSessionStats();
   const integration = getIntegrationStatus();
@@ -1382,7 +1384,7 @@ function generateJSON() {
     system:     getSystemMetrics(),
     adrs:       getADRStatus(),
     hooks:      getHooksStatus(),
-    lancedb: getMemoryStats(),
+    memory:     getMemoryStats(),
     tests:      getTestStats(),
     git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
     daemonAlerts: getDaemonAlerts(),
@@ -1399,7 +1401,7 @@ function readMode() {
     if (modeStat && modeStat.size <= 1024) {
       return fs.readFileSync(MODE_FILE, 'utf-8').trim();
     }
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   return 'full'; // default
 }
 
@@ -1417,7 +1419,7 @@ if (process.argv.includes('--json')) {
   try {
     fs.mkdirSync(path.dirname(MODE_FILE), { recursive: true });
     fs.writeFileSync(MODE_FILE, next, 'utf-8');
-  } catch { /* ignore */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore */ }
   if (next === 'compact') {
     console.log(generateStatusline());
   } else {
@@ -1440,7 +1442,7 @@ if (process.argv.includes('--json')) {
         servedFromCache = true;
       }
     }
-  } catch { /* cache miss — regenerate */ }
+  } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* cache miss — regenerate */ }
 
   if (!servedFromCache) {
     const statusOutput = mode === 'compact' ? generateStatusline() : generateDashboard();
@@ -1449,7 +1451,7 @@ if (process.argv.includes('--json')) {
     try {
       fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
       fs.writeFileSync(CACHE_FILE, JSON.stringify({ mode, output: statusOutput }), 'utf-8');
-    } catch { /* ignore cache write failures */ }
+    } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* ignore cache write failures */ }
   }
 }
 `;

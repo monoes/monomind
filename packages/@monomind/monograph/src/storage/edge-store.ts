@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { EvidenceEntry, MonographEdge } from '../types.js';
+import { safeJsonParse } from './utils.js';
 
 export function insertEdge(db: Database.Database, edge: MonographEdge): void {
   db.prepare(`
@@ -60,16 +61,18 @@ export function getEdgesForSources(db: Database.Database, sourceIds: string[]): 
 }
 
 export function getEdgesForSource(db: Database.Database, sourceId: string): MonographEdge[] {
-  const rows = db
-    .prepare('SELECT * FROM edges WHERE source_id = ?')
-    .all(sourceId) as Record<string, unknown>[];
+  const rows = db.prepare('SELECT * FROM edges WHERE source_id = ?').all(sourceId) as Record<
+    string,
+    unknown
+  >[];
   return rows.map(rowToEdge);
 }
 
 export function getEdgesForTarget(db: Database.Database, targetId: string): MonographEdge[] {
-  const rows = db
-    .prepare('SELECT * FROM edges WHERE target_id = ?')
-    .all(targetId) as Record<string, unknown>[];
+  const rows = db.prepare('SELECT * FROM edges WHERE target_id = ?').all(targetId) as Record<
+    string,
+    unknown
+  >[];
   return rows.map(rowToEdge);
 }
 
@@ -80,8 +83,12 @@ export function getEdgesForTarget(db: Database.Database, targetId: string): Mono
  * `deleteEdgesForFile` then `deleteNodesForFile`, never the reverse.
  */
 export function deleteEdgesForFile(db: Database.Database, filePath: string): void {
-  db.prepare(`DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)`).run(filePath);
-  db.prepare(`DELETE FROM edges WHERE target_id IN (SELECT id FROM nodes WHERE file_path = ?)`).run(filePath);
+  db.prepare(`DELETE FROM edges WHERE source_id IN (SELECT id FROM nodes WHERE file_path = ?)`).run(
+    filePath,
+  );
+  db.prepare(`DELETE FROM edges WHERE target_id IN (SELECT id FROM nodes WHERE file_path = ?)`).run(
+    filePath,
+  );
 }
 
 export function countEdges(db: Database.Database): number {
@@ -89,7 +96,7 @@ export function countEdges(db: Database.Database): number {
   return row.n;
 }
 
-function rowToEdge(row: Record<string, unknown>): MonographEdge {
+export function rowToEdge(row: Record<string, unknown>): MonographEdge {
   return {
     id: row.id as string,
     sourceId: row.source_id as string,
@@ -98,6 +105,6 @@ function rowToEdge(row: Record<string, unknown>): MonographEdge {
     confidence: row.confidence as MonographEdge['confidence'],
     confidenceScore: row.confidence_score as number,
     reason: row.reason as string | undefined,
-    evidence: row.evidence ? JSON.parse(row.evidence as string) as EvidenceEntry[] : undefined,
+    evidence: safeJsonParse<EvidenceEntry[] | undefined>(row.evidence as string | null, undefined),
   };
 }

@@ -54,14 +54,14 @@ describe('hooks worker list', () => {
 
     // Cross-check against the real package export so this test can't
     // silently drift from the source of truth if a worker is added/removed.
-    // Note: CLAUDE.md documents "15 background workers" / the parent
-    // hooksCommand's own help text says "(12 workers)" — WORKER_CONFIGS
-    // currently has 14 entries. Both doc references are stale; this
-    // assertion tracks the real registry rather than either doc count.
+    // The workspace @monoes/hooks has 8 on-demand workers (health, ddd,
+    // security, cache, map, audit, consolidate, progress). CLI's package.json
+    // uses workspace:* so this test sees the real registry, not the stale
+    // published 1.0.1 with 14 entries.
     const expectedNames = Object.keys(WORKER_CONFIGS);
     expect(data.total).toBe(expectedNames.length);
     expect(data.workers.length).toBe(expectedNames.length);
-    expect(expectedNames.length).toBe(14);
+    expect(expectedNames.length).toBe(8);
 
     const listedNames = data.workers.map((w) => w.name).sort();
     expect(listedNames).toEqual([...expectedNames].sort());
@@ -117,17 +117,16 @@ describe('hooks worker run', () => {
     expect(existsSync(join(dir, '.monomind', 'metrics'))).toBe(true);
   });
 
-  it('runs the "git" worker end-to-end (non-repo temp dir still succeeds, reports unavailable)', async () => {
-    const result = await workerRunCommand.action!(makeCtx(['git'], { format: 'json' }));
+  it('runs the "ddd" worker end-to-end (empty temp dir still succeeds, reports no progress)', async () => {
+    const result = await workerRunCommand.action!(makeCtx(['ddd'], { format: 'json' }));
 
     expect(result?.success).toBe(true);
-    const data = result?.data as { worker: string; success: boolean; data?: { available: boolean } };
-    expect(data.worker).toBe('git');
+    const data = result?.data as { worker: string; success: boolean; data?: { progress?: number } };
+    expect(data.worker).toBe('ddd');
     expect(data.success).toBe(true);
-    // The temp dir created by mkdtempSync is not a git repository, so the
-    // real worker's git commands fail internally and it reports
-    // available: false rather than throwing.
-    expect(data.data?.available).toBe(false);
+    // The temp dir created by mkdtempSync has no source files, so the
+    // ddd worker reports 0 domain progress rather than throwing.
+    expect(typeof data.data?.progress).toBe('number');
   });
 
   it('accepts the worker name via positional arg or --name flag identically', async () => {

@@ -1,23 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
-
-// ── Row → MonographNode mapper ─────────────────────────────────────────────────
-
-function rowToNode(row: Record<string, unknown>): MonographNode {
-  return {
-    id: row.id as string,
-    label: row.label as MonographNode['label'],
-    name: row.name as string,
-    normLabel: row.norm_label as string,
-    filePath: row.file_path as string | undefined,
-    startLine: row.start_line as number | undefined,
-    endLine: row.end_line as number | undefined,
-    communityId: row.community_id as number | undefined,
-    isExported: (row.is_exported as number) === 1,
-    language: row.language as string | undefined,
-    properties: row.properties ? JSON.parse(row.properties as string) : undefined,
-  };
-}
+import { rowToNode } from '../storage/node-store.js';
 
 // ── Output types ───────────────────────────────────────────────────────────────
 
@@ -40,9 +23,7 @@ function forwardBfs(
   const queue: Array<{ id: string; depth: number }> = [{ id: startId, depth: 0 }];
   const result: Array<{ depth: number; nodeId: string }> = [];
 
-  const stmt = db.prepare(
-    `SELECT target_id FROM edges WHERE source_id = ? AND relation = 'CALLS'`,
-  );
+  const stmt = db.prepare(`SELECT target_id FROM edges WHERE source_id = ? AND relation = 'CALLS'`);
 
   while (queue.length > 0) {
     const { id, depth } = queue.shift()!;

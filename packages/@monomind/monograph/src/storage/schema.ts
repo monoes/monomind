@@ -79,6 +79,12 @@ export const CREATE_INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_confidence ON edges(confidence)`,
+  // MONO-6: compound (target_id, relation) index — hottest path for blast-radius
+  // queries (reverseBfs in impact.ts:70-72 filters on `target_id + relation IN (...)`).
+  // The partial idx_edges_calls_lookup only helps `relation='CALLS'`; this compound
+  // index covers the default `['CALLS','IMPORTS','REFERENCES','EXTENDS','RE_EXPORTS']`
+  // set. Idempotent — safe on pre-existing DBs (CREATE INDEX IF NOT EXISTS).
+  `CREATE INDEX IF NOT EXISTS idx_edges_target_relation ON edges(target_id, relation)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_calls_lookup ON edges(source_id, target_id, relation) WHERE relation = 'CALLS'`,
 ];
 

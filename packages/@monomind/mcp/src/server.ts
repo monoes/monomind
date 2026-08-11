@@ -32,7 +32,12 @@ import { PromptRegistry, createPromptRegistry } from './prompt-registry.js';
 import { TaskManager, createTaskManager } from './task-manager.js';
 import { createTransport, TransportManager, createTransportManager } from './transport/index.js';
 import { RateLimiter, createRateLimiter, type RateLimitConfig } from './rate-limiter.js';
-import { SamplingManager, createSamplingManager, type SamplingConfig, type LLMProvider } from './sampling.js';
+import {
+  SamplingManager,
+  createSamplingManager,
+  type SamplingConfig,
+  type LLMProvider,
+} from './sampling.js';
 
 const DEFAULT_CONFIG: Partial<MCPServerConfig> = {
   name: 'Monomind MCP Server V1',
@@ -126,7 +131,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     config: Partial<MCPServerConfig>,
     private readonly logger: ILogger,
     private readonly orchestrator?: unknown,
-    private readonly swarmCoordinator?: unknown
+    private readonly swarmCoordinator?: unknown,
   ) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config } as MCPServerConfig;
@@ -158,7 +163,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       this.connectionPool = createConnectionPool(
         this.config.connectionPool,
         logger,
-        this.config.transport
+        this.config.transport,
       );
     }
 
@@ -264,7 +269,6 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         startupTime: this.startupDuration,
         tools: this.toolRegistry.getToolCount(),
       });
-
     } catch (error) {
       this.logger.error('Failed to start MCP server', { error });
       throw new MCPServerError('Failed to start server', ErrorCodes.INTERNAL_ERROR, { error });
@@ -284,7 +288,10 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         this.transport = undefined;
       }
 
-      this.sessionManager.clearAll();
+      // PKG-1: destroy() runs stopCleanupTimer + clearAll + removeAllListeners.
+      // clearAll() alone left the SessionManager cleanup interval (setInterval
+      // at session-manager.ts:303) firing forever after stop().
+      this.sessionManager.destroy();
       this.taskManager.destroy();
       // Safety net: detach any subscription whose session already vanished
       // without a session:closed event reaching the purge handler.
@@ -304,7 +311,6 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
       this.logger.info('MCP server stopped');
       this.emit('server:stopped');
-
     } catch (error) {
       this.logger.error('Error stopping MCP server', { error });
       throw error;
@@ -357,7 +363,6 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         error: transportHealth.error,
         metrics,
       };
-
     } catch (error) {
       return {
         healthy: false,
@@ -374,13 +379,12 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       totalRequests: this.requestStats.total,
       successfulRequests: this.requestStats.successful,
       failedRequests: this.requestStats.failed,
-      averageResponseTime: this.requestStats.total > 0
-        ? this.requestStats.totalResponseTime / this.requestStats.total
-        : 0,
+      averageResponseTime:
+        this.requestStats.total > 0
+          ? this.requestStats.totalResponseTime / this.requestStats.total
+          : 0,
       activeSessions: sessionMetrics.active,
-      toolInvocations: Object.fromEntries(
-        registryStats.topTools.map((t) => [t.name, t.calls])
-      ),
+      toolInvocations: Object.fromEntries(registryStats.topTools.map((t) => [t.name, t.calls])),
       errors: {},
       lastReset: this.startTime || new Date(),
       startupTime: this.startupDuration,
@@ -504,7 +508,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         return this.createErrorResponse(
           request.id,
           ErrorCodes.SERVER_NOT_INITIALIZED,
-          'Server not initialized'
+          'Server not initialized',
         );
       }
 
@@ -523,7 +527,6 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       });
 
       return response;
-
     } catch (error) {
       const duration = performance.now() - startTime;
       this.requestStats.failed++;
@@ -538,12 +541,15 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INTERNAL_ERROR,
-        error instanceof Error ? error.message : 'Internal error'
+        error instanceof Error ? error.message : 'Internal error',
       );
     }
   }
 
-  private async handleNotification(notification: MCPNotification, connectionId?: string): Promise<void> {
+  private async handleNotification(
+    notification: MCPNotification,
+    connectionId?: string,
+  ): Promise<void> {
     this.logger.debug('Handling notification', { method: notification.method });
 
     switch (notification.method) {
@@ -564,11 +570,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     const params = request.params as unknown as MCPInitializeParams | undefined;
 
     if (!params) {
-      return this.createErrorResponse(
-        request.id,
-        ErrorCodes.INVALID_PARAMS,
-        'Invalid params'
-      );
+      return this.createErrorResponse(request.id, ErrorCodes.INVALID_PARAMS, 'Invalid params');
     }
 
     const session = this.sessionManager.createSession(this.config.transport);
@@ -653,7 +655,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         return this.createErrorResponse(
           request.id,
           ErrorCodes.METHOD_NOT_FOUND,
-          `Method not found: ${request.method}`
+          `Method not found: ${request.method}`,
         );
     }
   }
@@ -679,7 +681,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'Tool name is required'
+        'Tool name is required',
       );
     }
 
@@ -690,11 +692,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       swarmCoordinator: this.swarmCoordinator,
     };
 
-    const result = await this.toolRegistry.execute(
-      params.name,
-      params.arguments || {},
-      context
-    );
+    const result = await this.toolRegistry.execute(params.name, params.arguments || {}, context);
 
     return {
       jsonrpc: '2.0',
@@ -703,7 +701,10 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     };
   }
 
-  private async handleToolExecution(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
+  private async handleToolExecution(
+    request: MCPRequest,
+    connectionId?: string,
+  ): Promise<MCPResponse> {
     const context: ToolContext = {
       sessionId: this.getSessionForConnection(connectionId)?.id || 'unknown',
       requestId: request.id,
@@ -714,7 +715,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     const result = await this.toolRegistry.execute(
       request.method,
       (request.params as Record<string, unknown>) || {},
-      context
+      context,
     );
 
     return {
@@ -746,7 +747,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'Resource URI is required'
+        'Resource URI is required',
       );
     }
 
@@ -761,7 +762,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        error instanceof Error ? error.message : 'Resource read failed'
+        error instanceof Error ? error.message : 'Resource read failed',
       );
     }
   }
@@ -774,7 +775,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'Resource URI is required'
+        'Resource URI is required',
       );
     }
 
@@ -782,7 +783,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.SERVER_NOT_INITIALIZED,
-        'No active session'
+        'No active session',
       );
     }
 
@@ -817,7 +818,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INTERNAL_ERROR,
-        error instanceof Error ? error.message : 'Subscription failed'
+        error instanceof Error ? error.message : 'Subscription failed',
       );
     }
   }
@@ -830,7 +831,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'Resource URI is required'
+        'Resource URI is required',
       );
     }
 
@@ -872,13 +873,15 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   }
 
   private async handlePromptsGet(request: MCPRequest): Promise<MCPResponse> {
-    const params = request.params as { name: string; arguments?: Record<string, string> } | undefined;
+    const params = request.params as
+      | { name: string; arguments?: Record<string, string> }
+      | undefined;
 
     if (!params?.name) {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'Prompt name is required'
+        'Prompt name is required',
       );
     }
 
@@ -893,7 +896,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        error instanceof Error ? error.message : 'Prompt get failed'
+        error instanceof Error ? error.message : 'Prompt get failed',
       );
     }
   }
@@ -911,7 +914,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         return this.createErrorResponse(
           request.id,
           ErrorCodes.INVALID_PARAMS,
-          `Task not found: ${params.taskId}`
+          `Task not found: ${params.taskId}`,
         );
       }
       return {
@@ -933,11 +936,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     const params = request.params as { taskId: string; reason?: string } | undefined;
 
     if (!params?.taskId) {
-      return this.createErrorResponse(
-        request.id,
-        ErrorCodes.INVALID_PARAMS,
-        'Task ID is required'
-      );
+      return this.createErrorResponse(request.id, ErrorCodes.INVALID_PARAMS, 'Task ID is required');
     }
 
     const success = this.taskManager.cancelTask(params.taskId, params.reason);
@@ -954,16 +953,18 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   // ============================================================================
 
   private handleCompletion(request: MCPRequest): MCPResponse {
-    const params = request.params as {
-      ref: { type: string; name?: string; uri?: string };
-      argument: { name: string; value: string };
-    } | undefined;
+    const params = request.params as
+      | {
+          ref: { type: string; name?: string; uri?: string };
+          argument: { name: string; value: string };
+        }
+      | undefined;
 
     if (!params?.ref || !params?.argument) {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'Completion reference and argument are required'
+        'Completion reference and argument are required',
       );
     }
 
@@ -1014,7 +1015,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'Log level is required'
+        'Log level is required',
       );
     }
 
@@ -1034,23 +1035,33 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   // Sampling Handler (MCP 2025-11-25)
   // ============================================================================
 
-  private async handleSamplingCreateMessage(request: MCPRequest, connectionId?: string): Promise<MCPResponse> {
-    const params = request.params as {
-      messages: Array<{ role: string; content: { type: string; text?: string } }>;
-      maxTokens: number;
-      systemPrompt?: string;
-      modelPreferences?: { hints?: Array<{ name?: string }>; intelligencePriority?: number; speedPriority?: number; costPriority?: number };
-      includeContext?: string;
-      temperature?: number;
-      stopSequences?: string[];
-      metadata?: Record<string, unknown>;
-    } | undefined;
+  private async handleSamplingCreateMessage(
+    request: MCPRequest,
+    connectionId?: string,
+  ): Promise<MCPResponse> {
+    const params = request.params as
+      | {
+          messages: Array<{ role: string; content: { type: string; text?: string } }>;
+          maxTokens: number;
+          systemPrompt?: string;
+          modelPreferences?: {
+            hints?: Array<{ name?: string }>;
+            intelligencePriority?: number;
+            speedPriority?: number;
+            costPriority?: number;
+          };
+          includeContext?: string;
+          temperature?: number;
+          stopSequences?: string[];
+          metadata?: Record<string, unknown>;
+        }
+      | undefined;
 
     if (!params?.messages || !params?.maxTokens) {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INVALID_PARAMS,
-        'messages and maxTokens are required'
+        'messages and maxTokens are required',
       );
     }
 
@@ -1060,7 +1071,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INTERNAL_ERROR,
-        'No LLM provider available for sampling'
+        'No LLM provider available for sampling',
       );
     }
 
@@ -1082,7 +1093,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         {
           sessionId: this.getSessionForConnection(connectionId)?.id || 'unknown',
           serverId: this.serverInfo.name,
-        }
+        },
       );
 
       return {
@@ -1094,7 +1105,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       return this.createErrorResponse(
         request.id,
         ErrorCodes.INTERNAL_ERROR,
-        error instanceof Error ? error.message : 'Sampling failed'
+        error instanceof Error ? error.message : 'Sampling failed',
       );
     }
   }
@@ -1131,7 +1142,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   private createErrorResponse(
     id: string | number | null,
     code: number,
-    message: string
+    message: string,
   ): MCPResponse {
     return {
       jsonrpc: '2.0',
@@ -1249,7 +1260,7 @@ export function createMCPServer(
   config: Partial<MCPServerConfig>,
   logger: ILogger,
   orchestrator?: unknown,
-  swarmCoordinator?: unknown
+  swarmCoordinator?: unknown,
 ): MCPServer {
   return new MCPServer(config, logger, orchestrator, swarmCoordinator);
 }

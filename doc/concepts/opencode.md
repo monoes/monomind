@@ -70,4 +70,4 @@ Every opencode artifact is opt-in and additive:
 - opencode reads `opencode.json` and `.opencode/`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`. They never touch each other's files.
 - The hook-shim plugin only **spawns** monomind's existing `.claude/helpers/*.cjs` gate handlers unchanged — it never edits them, so Claude Code's own hook path is unaffected.
 
-For the internal architecture, isolation guarantees, and the `AgentRunner` seam, see [`docs/opencode-architecture.md`](../../docs/opencode-architecture.md).
+The internal architecture, isolation guarantees, and `AgentRunner` seam follow the same pattern as the other adapters in this family.

@@ -51,7 +51,8 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
 
           // Top 3 god nodes (high degree internal files) — same SQL as monograph_god_nodes tool
           const excluded = ['File', 'Folder', 'Community', 'Concept'];
-          const rows = db.prepare(`
+          const rows = db
+            .prepare(`
             SELECT n.name, n.file_path, n.start_line,
                    COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
             FROM nodes n
@@ -60,12 +61,20 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
             WHERE n.label NOT IN (${excluded.map(() => '?').join(',')})
             GROUP BY n.id HAVING degree > 0
             ORDER BY degree DESC LIMIT 3
-          `).all(...excluded) as Array<{ name: string; file_path?: string; start_line?: number; degree: number }>;
+          `)
+            .all(...excluded) as Array<{
+            name: string;
+            file_path?: string;
+            start_line?: number;
+            degree: number;
+          }>;
 
           if (rows.length > 0) {
-            map['topFiles'] = rows.map(r => ({
+            map['topFiles'] = rows.map((r) => ({
               ref: r.file_path
-                ? (r.start_line != null ? `${r.file_path}:${r.start_line}` : r.file_path)
+                ? r.start_line != null
+                  ? `${r.file_path}:${r.start_line}`
+                  : r.file_path
                 : r.name,
               degree: r.degree,
             }));
@@ -73,26 +82,50 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
 
           // Index staleness via git — same approach as monograph_health tool
           try {
-            const { execSync } = await import('child_process');
-            const lastHash = (db.prepare(
-              "SELECT value FROM meta WHERE key = 'last_commit_hash' LIMIT 1"
-            ).get() as { value?: string } | undefined)?.value;
+            const { execFileSync } = await import('child_process');
+            const lastHash = (
+              db.prepare("SELECT value FROM meta WHERE key = 'last_commit_hash' LIMIT 1").get() as
+                | { value?: string }
+                | undefined
+            )?.value;
             if (lastHash) {
-              const countOut = execSync(
-                `git -C ${JSON.stringify(projectRoot)} rev-list --count ${lastHash}..HEAD`,
-                { timeout: 5000 }
-              ).toString().trim();
-              const commitsBehind = parseInt(countOut, 10);
-              if (!isNaN(commitsBehind)) {
-                map['graphStaleness'] = { commitsBehind };
+              // SEC-1: gate the DB-sourced hash before use. Same regex as
+              // monograph staleness sites; drop silently on mismatch (the
+              // `monograph.db` is build-time output, but a poisoned clone
+              // could ship a row with shell metacharacters — never interpolate
+              // raw).
+              if (!/^[0-9a-f]{7,40}$/i.test(lastHash)) {
+                if (process.env.MONOMIND_DEBUG) {
+                  console.warn(
+                    `[worker-map] skipping staleness: invalid last_commit_hash ${JSON.stringify(lastHash)}`,
+                  );
+                }
+              } else {
+                // execFileSync bypasses the shell entirely — no $() / `` / ${}
+                // expansion regardless of what projectRoot or lastHash contain.
+                const countOut = execFileSync(
+                  'git',
+                  ['-C', projectRoot, 'rev-list', '--count', `${lastHash}..HEAD`],
+                  { timeout: 5000 },
+                )
+                  .toString()
+                  .trim();
+                const commitsBehind = parseInt(countOut, 10);
+                if (!isNaN(commitsBehind)) {
+                  map['graphStaleness'] = { commitsBehind };
+                }
               }
             }
-          } catch { /* git unavailable — skip staleness */ }
+          } catch {
+            /* git unavailable — skip staleness */
+          }
         } finally {
           closeDb(db);
         }
       }
-    } catch { /* monograph unavailable — skip graph enrichment */ }
+    } catch {
+      /* monograph unavailable — skip graph enrichment */
+    }
 
     // Atomic write: tmp + rename, so readers never see a partial file.
     const tmp = metricsFile + '.tmp';

@@ -107,5 +107,31 @@ export function createWorkerManager(projectRoot?: string): WorkerManager {
   return manager;
 }
 
-// Default instance
-export const workerManager = createWorkerManager();
+// PKG-2: the old `export const workerManager = createWorkerManager();` ran at
+// module evaluation, pinning process.cwd() at import time before the host
+// process had a chance to chdir to the project root. Construction is now
+// deferred to first access. Callers that just need a one-off instance should
+// call createWorkerManager() directly with an explicit projectRoot.
+let _workerManager: WorkerManager | undefined;
+
+/**
+ * Lazy singleton accessor — construction (and the cwd() it pins) is deferred
+ * to first call. Use this instead of the old top-level `workerManager` value.
+ */
+export function getWorkerManager(): WorkerManager {
+  if (!_workerManager) _workerManager = createWorkerManager();
+  return _workerManager;
+}
+
+// Backwards-compat named export. Construction is deferred to first property
+// access via a Proxy so importing this module no longer pins cwd. New
+// consumers should prefer getWorkerManager() or createWorkerManager().
+export const workerManager: WorkerManager = new Proxy({} as WorkerManager, {
+  get(_target, prop, receiver) {
+    const wm = getWorkerManager();
+    const value = Reflect.get(wm as object, prop, receiver);
+    return typeof value === 'function'
+      ? (value as (...args: unknown[]) => unknown).bind(wm)
+      : value;
+  },
+});

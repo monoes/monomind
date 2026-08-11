@@ -9,6 +9,18 @@ import { EventEmitter } from 'events';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { writeFileSync, renameSync } from 'node:fs';
+
+/**
+ * Atomic write — write to a tmp path then rename. A crash mid-write leaves
+ * the previous file intact rather than a truncated one. Inlined locally
+ * (rather than imported from @monoes/memory/atomic-file) per PKG-7 plan.
+ */
+function writeFileAtomicSync(filePath: string, content: string): void {
+  const tmp = `${filePath}.tmp.${process.pid}`;
+  writeFileSync(tmp, content);
+  renameSync(tmp, filePath);
+}
 
 // ============================================================================
 // Security Constants
@@ -26,7 +38,7 @@ const MAX_CONCURRENCY = 5;
 export interface WorkerConfig {
   name: string;
   description: string;
-  interval: number;  // milliseconds
+  interval: number; // milliseconds
   enabled: boolean;
   priority: WorkerPriority;
   timeout: number;
@@ -109,12 +121,8 @@ export const DEFAULT_THRESHOLDS: Record<string, AlertThreshold[]> = {
     { metric: 'secrets', warning: 1, critical: 5, comparison: 'gt' },
     { metric: 'vulnerabilities', warning: 10, critical: 50, comparison: 'gt' },
   ],
-  adr: [
-    { metric: 'compliance', warning: 70, critical: 50, comparison: 'lt' },
-  ],
-  performance: [
-    { metric: 'memory.systemPct', warning: 80, critical: 95, comparison: 'gt' },
-  ],
+  adr: [{ metric: 'compliance', warning: 70, critical: 50, comparison: 'lt' }],
+  performance: [{ metric: 'memory.systemPct', warning: 80, critical: 95, comparison: 'gt' }],
 };
 
 // ============================================================================
@@ -124,13 +132,16 @@ export const DEFAULT_THRESHOLDS: Record<string, AlertThreshold[]> = {
 export interface PersistedWorkerState {
   version: string;
   lastSaved: string;
-  workers: Record<string, {
-    lastRun?: string;
-    lastResult?: Record<string, unknown>;
-    runCount: number;
-    errorCount: number;
-    avgDuration: number;
-  }>;
+  workers: Record<
+    string,
+    {
+      lastRun?: string;
+      lastResult?: Record<string, unknown>;
+      runCount: number;
+      errorCount: number;
+      avgDuration: number;
+    }
+  >;
   history: HistoricalMetric[];
 }
 
@@ -208,7 +219,7 @@ export interface StatuslineData {
 // (performance, patterns, adr, learning, git, swarm, optimize) — see the
 // 2026-07-17 audit plan for the full analysis.
 export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
-  'health': {
+  health: {
     name: 'health',
     description: 'Monitor disk, memory, CPU, processes',
     interval: 300_000,
@@ -216,7 +227,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.High,
     timeout: 10_000,
   },
-  'ddd': {
+  ddd: {
     name: 'ddd',
     description: 'Track DDD domain implementation progress',
     interval: 600_000,
@@ -224,7 +235,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.Low,
     timeout: 30_000,
   },
-  'security': {
+  security: {
     name: 'security',
     description: 'Scan for secrets, vulnerabilities, CVEs',
     interval: 1_800_000,
@@ -232,7 +243,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.High,
     timeout: 120_000,
   },
-  'cache': {
+  cache: {
     name: 'cache',
     description: 'Clean temp files, old logs, stale cache',
     interval: 3_600_000,
@@ -240,7 +251,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.Background,
     timeout: 30_000,
   },
-  'map': {
+  map: {
     name: 'map',
     description: 'Codebase mapping — writes .monomind/metrics/codebase-map.json',
     interval: 21_600_000,
@@ -248,7 +259,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.Normal,
     timeout: 30_000,
   },
-  'audit': {
+  audit: {
     name: 'audit',
     description: 'Security audit — writes .monomind/metrics/security-audit.json',
     interval: 21_600_000,
@@ -256,7 +267,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.High,
     timeout: 30_000,
   },
-  'consolidate': {
+  consolidate: {
     name: 'consolidate',
     description: 'RAPTOR memory consolidation — writes .monomind/metrics/consolidation.json',
     interval: 21_600_000,
@@ -264,7 +275,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.Low,
     timeout: 30_000,
   },
-  'progress': {
+  progress: {
     name: 'progress',
     description: 'Implementation metrics — writes .monomind/metrics/progress.json',
     interval: 21_600_000,
@@ -377,7 +388,10 @@ export class WorkerManager extends EventEmitter {
       const state: PersistedWorkerState = safeJsonParse(content);
 
       if (state.version !== PERSISTENCE_VERSION) {
-        this.emit('persistence:version-mismatch', { expected: PERSISTENCE_VERSION, got: state.version });
+        this.emit('persistence:version-mismatch', {
+          expected: PERSISTENCE_VERSION,
+          got: state.version,
+        });
         return false;
       }
 
@@ -430,7 +444,10 @@ export class WorkerManager extends EventEmitter {
         };
       }
 
-      await fs.writeFile(this.persistPath, JSON.stringify(state, null, 2));
+      // PKG-7: atomic write (tmp + rename) so a crash mid-write cannot leave
+      // workers-state.json truncated/empty. The previous bare fs.writeFile
+      // would zero the file on SIGKILL or power loss.
+      writeFileAtomicSync(this.persistPath, JSON.stringify(state, null, 2));
       this.emit('persistence:saved');
     } catch (error) {
       this.emit('persistence:error', { error });
@@ -573,7 +590,7 @@ export class WorkerManager extends EventEmitter {
   getHistory(worker?: string, limit = 100): HistoricalMetric[] {
     let filtered = this.history;
     if (worker) {
-      filtered = this.history.filter(h => h.worker === worker);
+      filtered = this.history.filter((h) => h.worker === worker);
     }
     return filtered.slice(-limit);
   }
@@ -587,12 +604,16 @@ export class WorkerManager extends EventEmitter {
    */
   getStatuslineData(): StatuslineData {
     const workers = Array.from(this.metrics.values());
-    const activeWorkers = workers.filter(w => w.status === 'running').length;
-    const errorWorkers = workers.filter(w => w.status === 'error').length;
-    const totalWorkers = workers.filter(w => w.status !== 'disabled').length;
+    const activeWorkers = workers.filter((w) => w.status === 'running').length;
+    const errorWorkers = workers.filter((w) => w.status === 'error').length;
+    const totalWorkers = workers.filter((w) => w.status !== 'disabled').length;
 
-    const healthResult = this.metrics.get('health')?.lastResult as Record<string, unknown> | undefined;
-    const securityResult = this.metrics.get('security')?.lastResult as Record<string, unknown> | undefined;
+    const healthResult = this.metrics.get('health')?.lastResult as
+      | Record<string, unknown>
+      | undefined;
+    const securityResult = this.metrics.get('security')?.lastResult as
+      | Record<string, unknown>
+      | undefined;
     const dddResult = this.metrics.get('ddd')?.lastResult as Record<string, unknown> | undefined;
 
     return {
@@ -602,18 +623,18 @@ export class WorkerManager extends EventEmitter {
         errors: errorWorkers,
       },
       health: {
-        status: healthResult?.status as 'healthy' | 'warning' | 'critical' ?? 'healthy',
-        memory: (healthResult?.memory as Record<string, unknown>)?.usedPct as number ?? 0,
-        disk: (healthResult?.disk as Record<string, unknown>)?.usedPct as number ?? 0,
+        status: (healthResult?.status as 'healthy' | 'warning' | 'critical') ?? 'healthy',
+        memory: ((healthResult?.memory as Record<string, unknown>)?.usedPct as number) ?? 0,
+        disk: ((healthResult?.disk as Record<string, unknown>)?.usedPct as number) ?? 0,
       },
       security: {
         status: toSecurityStatus(securityResult?.status),
-        issues: securityResult?.totalIssues as number ?? 0,
+        issues: (securityResult?.totalIssues as number) ?? 0,
       },
       ddd: {
-        progress: dddResult?.progress as number ?? 0,
+        progress: (dddResult?.progress as number) ?? 0,
       },
-      alerts: this.alerts.filter(a => a.severity === AlertSeverity.Critical).slice(-5),
+      alerts: this.alerts.filter((a) => a.severity === AlertSeverity.Critical).slice(-5),
       lastUpdate: new Date().toISOString(),
     };
   }
@@ -642,15 +663,20 @@ export class WorkerManager extends EventEmitter {
     parts.push(`👷${data.workers.active}/${data.workers.total}`);
 
     // Health
-    const healthIcon = data.health.status === 'critical' ? '🔴' :
-                       data.health.status === 'warning' ? '🟡' : '🟢';
+    const healthIcon =
+      data.health.status === 'critical' ? '🔴' : data.health.status === 'warning' ? '🟡' : '🟢';
     parts.push(`${healthIcon}${data.health.memory}%`);
 
     // Security. 'incomplete' gets its own icon: the shield reads as "all
     // clear", which is exactly the claim an unfinished scan cannot make.
-    const secIcon = data.security.status === 'critical' ? '🚨' :
-                    data.security.status === 'warning' ? '⚠️' :
-                    data.security.status === 'incomplete' ? '❔' : '🛡️';
+    const secIcon =
+      data.security.status === 'critical'
+        ? '🚨'
+        : data.security.status === 'warning'
+          ? '⚠️'
+          : data.security.status === 'incomplete'
+            ? '❔'
+            : '🛡️';
     parts.push(`${secIcon}${data.security.issues}`);
 
     // DDD Progress
@@ -758,7 +784,7 @@ export class WorkerManager extends EventEmitter {
     this.running = false;
 
     // Clear all timers
-    Array.from(this.timers.values()).forEach(timer => {
+    Array.from(this.timers.values()).forEach((timer) => {
       clearTimeout(timer);
     });
     this.timers.clear();
@@ -825,7 +851,8 @@ export class WorkerManager extends EventEmitter {
       metrics.lastRun = new Date();
       metrics.lastDuration = duration;
       metrics.runCount++;
-      metrics.avgDuration = (metrics.avgDuration * (metrics.runCount - 1) + duration) / metrics.runCount;
+      metrics.avgDuration =
+        (metrics.avgDuration * (metrics.runCount - 1) + duration) / metrics.runCount;
       metrics.lastResult = result.data;
 
       // Check alerts and record history
@@ -868,9 +895,7 @@ export class WorkerManager extends EventEmitter {
     // Process in batches to limit concurrency
     for (let i = 0; i < workers.length; i += concurrency) {
       const batch = workers.slice(i, i + concurrency);
-      const batchResults = await Promise.all(
-        batch.map(name => this.runWorker(name))
-      );
+      const batchResults = await Promise.all(batch.map((name) => this.runWorker(name)));
       results.push(...batchResults);
     }
 
@@ -896,18 +921,16 @@ export class WorkerManager extends EventEmitter {
    */
   getStatuslineMetrics(): Record<string, unknown> {
     const workers = Array.from(this.metrics.values());
-    const running = workers.filter(w => w.status === 'running').length;
-    const errors = workers.filter(w => w.status === 'error').length;
-    const total = workers.filter(w => w.status !== 'disabled').length;
+    const running = workers.filter((w) => w.status === 'running').length;
+    const errors = workers.filter((w) => w.status === 'error').length;
+    const total = workers.filter((w) => w.status !== 'disabled').length;
 
     return {
       workersActive: running,
       workersTotal: total,
       workersError: errors,
       lastResults: Object.fromEntries(
-        workers
-          .filter(w => w.lastResult)
-          .map(w => [w.name, w.lastResult])
+        workers.filter((w) => w.lastResult).map((w) => [w.name, w.lastResult]),
       ),
     };
   }
@@ -932,7 +955,8 @@ export class WorkerManager extends EventEmitter {
     try {
       await fs.mkdir(this.metricsDir, { recursive: true });
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[ensureMetricsDir] failed to create metrics dir:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[ensureMetricsDir] failed to create metrics dir:', e);
     }
   }
 }
