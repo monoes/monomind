@@ -328,6 +328,14 @@ export interface InitOptions {
   runtime: RuntimeConfig;
   /** Embeddings configuration */
   embeddings: EmbeddingsConfig;
+  /**
+   * Run the post-init `doctor --install` pass, which may perform a global
+   * `npm install -g @anthropic-ai/claude-code` if the Claude Code CLI isn't
+   * already present. Defaults to true (undefined is treated as true) for
+   * backward compatibility; set false (`monomind init --no-install`) to skip
+   * it entirely.
+   */
+  installClaudeCode?: boolean;
 }
 
 /**

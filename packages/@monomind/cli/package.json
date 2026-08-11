@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "type": "module",
   "description": "CLI engine for Monomind — an open-source MCP server that extends Claude Code with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. Apache 2.0 licensed, fully local.",
   "main": "dist/src/index.js",
@@ -89,7 +89,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
-    "prepublishOnly": "node ../../@monoes/monodesign/scripts/sync-skill.mjs && node ../../../scripts/build-fs.mjs copy-into . ../../../README.md && npm run build",
+    "prepublishOnly": "node scripts/check-workspace-deps.mjs && node ../../@monoes/monodesign/scripts/sync-skill.mjs && node ../../../scripts/build-fs.mjs copy-into . ../../../README.md && npm run build",
     "release": "npm version prerelease --preid=alpha && npm run publish:all",
     "publish:all": "./scripts/publish.sh"
   },

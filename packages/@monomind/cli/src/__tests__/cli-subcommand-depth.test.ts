@@ -22,9 +22,14 @@
  * disabling commands.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import type { Command } from '../types.js';
-import { commands } from '../commands/index.js';
+import { loadAllCommands } from '../commands/index.js';
+
+let commands: Command[];
+beforeAll(async () => {
+  commands = await loadAllCommands();
+}, 120000); // full commands/index.js import graph is heavy under parallel-worker contention (#33)
 
 /**
  * Mirror of the dispatcher's resolution: descend through subcommands consuming

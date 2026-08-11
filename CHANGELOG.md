@@ -56,6 +56,15 @@ subscription and API key auth path now has a first-class home.
 - **Subagent depth change:** Claude SDK 0.3.217 lowered default subagent spawn depth from 5 to 1. Swarm code relying on deep nesting must set `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=5`.
 - **Kimi stderr fix:** `kimicode-runner.ts` now defensively extracts `session_id` from stderr as well as stdout (kimi 0.33+ may emit `session.resume_hint` on stderr in stream-json mode).
 
+## [2.9.3] — 2026-08-11
+
+### Publish, CLI startup, and doctor fixes (#119, #130, #131, #132)
+
+- **#130 (critical) — `2.9.2` was uninstallable.** `packages/@monomind/cli/scripts/publish.sh` published with plain `npm publish`, which copies pnpm's `workspace:*` protocol verbatim into the tarball — `@monoes/monograph` resolved to the literal string `"workspace:*"`, which no consumer can install. Switched to `pnpm publish` (which resolves the pin correctly, same as the root package already does) and added `scripts/check-workspace-deps.mjs`, wired into the CLI package's `prepublishOnly`, to hard-block any future non-pnpm publish of a workspace-linked package.
+- **#119 — lazy CLI command loading.** Every invocation (including `--version`) used to eagerly import all 32 command modules and their transitive dependencies (including the Claude Agent SDK via `org.ts`). `commands/index.ts` now lazy-loads each command on demand; `--version` imports none of them. A two-phase parse in `index.ts` resolves and registers only the invoked command's full subtree before parsing, preserving correct flag/alias scoping at any subcommand depth.
+- **#131 — `doctor`'s npm check swallowed real errors.** `checkNpmVersion` mapped every failure (timeout, spawn error, genuine absence) to a fixed "npm not found" message even when npm was actually installed and working. It now distinguishes timeout vs `ENOENT` vs other errors and includes the underlying error detail.
+- **#132 — `init` ran an undisclosed global install with no opt-out.** `monomind init` unconditionally ran `doctor --install` (which may `npm install -g @anthropic-ai/claude-code`) with no way to skip it and no notice before the network call. Added `monomind init --no-install`, and a one-line disclosure printed before the install actually runs.
+
 ## [2.9.2] — 2026-08-09
 
 ### PDF engine swap + post-init document ingestion

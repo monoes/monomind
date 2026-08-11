@@ -29,7 +29,12 @@ echo "Publishing version: $VERSION"
 
 echo ""
 echo "=== Publishing @monoes/monomindcli@$VERSION (alpha tag) ==="
-npm publish --tag alpha
+# pnpm publish (not npm) — this package has a workspace:* dependency on
+# @monoes/monograph. pnpm rewrites that to the resolved version as it builds
+# the tarball; npm copies it verbatim, shipping an uninstallable package
+# (#130). check-workspace-deps.mjs (wired into prepublishOnly) also catches
+# this if the script is bypassed.
+pnpm publish --tag alpha --no-git-checks
 
 echo ""
 echo "=== Updating dist-tags ==="

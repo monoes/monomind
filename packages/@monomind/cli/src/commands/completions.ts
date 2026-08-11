@@ -16,8 +16,8 @@ import { output } from '../output.js';
 // the async command actions below) avoids evaluating the circular import
 // (index.ts -> completions.ts -> index.ts) at module-load time.
 async function getRegistry(): Promise<Command[]> {
-  const { commands } = await import('./index.js');
-  return commands;
+  const { loadAllCommands } = await import('./index.js');
+  return loadAllCommands();
 }
 
 function topLevelCommandNames(commands: Command[]): string[] {
