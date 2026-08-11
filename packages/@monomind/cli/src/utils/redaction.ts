@@ -46,8 +46,22 @@ function stripIPv4(text: string): string {
   return text.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '<ip>');
 }
 
+// #124-review: the original `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`
+// has the same catastrophic-backtracking shape as the hostname regex fixed
+// above, in TWO places: the unbounded local-part quantifier backtracks
+// character-by-character at every scan position when no `@` follows (a
+// long dotted string with no `@` at all — ~2s on 40K chars), and the
+// domain part's `[A-Za-z0-9.-]+` vs the final `\.[A-Za-z]{2,}` has the
+// exact middle-vs-final split ambiguity the hostname fix removes. Local
+// part bounded to 64 chars (RFC 5321's actual limit); domain rewritten so
+// each label's trailing dot is consumed by the SAME repeated group, never
+// re-attemptable as part of the final TLD segment, with the repetition
+// itself capped at 10 labels (real hostnames essentially never need more).
 function stripEmail(text: string): string {
-  return text.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '<email>');
+  return text.replace(
+    /\b[A-Za-z0-9._%+-]{1,64}@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.){1,10}[A-Za-z]{2,24}\b/g,
+    '<email>'
+  );
 }
 
 function stripSsnAndPhone(text: string): string {
@@ -101,12 +115,27 @@ function stripHostnames(text: string): string {
   // Standalone: 3+ dot-separated segments with a TLD-like tail (2-6 alpha
   // chars). Excludes version numbers (v2.9.0, 1.2.3), filenames whose last
   // segment is a known code/config extension, and bare decimal numbers.
+  //
+  // #124-review: the original two-part regex (`(?:\.seg)+` immediately
+  // followed by a required `\.[a-zA-Z]{2,6}`) let the engine backtrack over
+  // every way to split a long run of dot-segments between "middle
+  // repetitions" and "the final segment" before concluding no match —
+  // catastrophic (measured ~quadratic) backtracking on a crafted non-
+  // matching input (e.g. a long chain of short dotted tokens with no valid
+  // trailing TLD), reachable via both crash-reporter's redact() and
+  // neural-optimize.ts's public pattern-export path. Rewritten so segments
+  // can never contain a dot themselves — there is exactly one way to parse
+  // any input, so there is nothing to backtrack over. The "last segment
+  // must be a short alpha TLD" check moves into the callback instead of the
+  // regex, since the regex itself no longer distinguishes middle vs final.
   out = out.replace(
-    /\b([a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9-]*)+\.[a-zA-Z]{2,6})\b/g,
+    /\b[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9-]*){2,}\b/g,
     (match) => {
       if (/^v?\d+(\.\d+)+$/.test(match)) return match;       // version
       if (KNOWN_CODE_EXTS.test(match)) return match;          // filename
       if (/^\d+(\.\d+)+$/.test(match)) return match;          // decimal
+      const lastSegment = match.slice(match.lastIndexOf('.') + 1);
+      if (!/^[a-zA-Z]{2,6}$/.test(lastSegment)) return match; // not a TLD-shaped tail
       return '<host>';
     }
   );

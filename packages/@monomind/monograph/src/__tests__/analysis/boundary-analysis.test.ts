@@ -1,9 +1,23 @@
 // Regression coverage for #118: the boundary checker only looped over
-// `mod.reExports` (barrel `export ... from` edges), so a plain
-// `import { x } from '...'` — the primary way code actually crosses a zone
-// boundary — was invisible to it and silently passed with zero violations.
-// This file had zero tests before this fix (findBoundaryViolations and
-// analyzeBoundaries were dead code with zero callers and zero coverage).
+// `mod.reExports` (barrel `export ... from` edges); this adds a second pass
+// over `mod.references` so an edge that reaches this function's input DOES
+// get checked either way. This file had zero tests before this fix
+// (findBoundaryViolations and analyzeBoundaries were dead code with zero
+// callers and zero coverage — still true; see boundary-analysis.ts's own
+// module comment).
+//
+// IMPORTANT CAVEAT (found in a later review pass, kept here rather than
+// silently reverted): these fixtures hand-construct `references` directly,
+// which is NOT representative of a real parsed codebase — the only writer
+// of `ModuleNode.references` anywhere in this package is
+// graph/re-exports/propagate.ts's barrel-re-export propagation. A genuine
+// plain `import { x } from '...'` with no barrel/re-export in the chain
+// never populates `references` in the real graph, so this fix does NOT
+// actually close the "plain import invisible to the checker" gap in
+// production — it closes it only for the (currently synthetic) case where
+// `references` happens to be populated. See boundary-analysis.ts's
+// edgesForModule() comment for the pointer to the checker that DOES work
+// today (pipeline/phases/boundary.ts's detectBoundaryViolations).
 import { describe, it, expect } from 'vitest';
 import { findBoundaryViolations, analyzeBoundaries } from '../../analyze/boundary-analysis.js';
 import { resolveBoundaryConfig } from '../../config/boundary-config.js';

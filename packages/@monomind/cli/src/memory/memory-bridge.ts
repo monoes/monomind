@@ -769,30 +769,55 @@ export async function bridgeSearchEntries(options: {
           const BM25_ENTRY_CAP = 1500;
           const bm25Enabled = (process.env.MONOMIND_BM25 ?? '1') !== '0';
 
+          let bm25Ok = false;
           if (bm25Enabled && entries.length > 0 && entries.length <= BM25_ENTRY_CAP) {
-            const { Bm25Index } = await import('./bm25-index.js');
-            const byKey = new Map<string, any>(entries.map((e: any) => [e.key, e]));
-            const idx = Bm25Index.build(
-              entries.map((e: any) => ({ key: e.key, text: `${e.key || ''} ${e.content || ''}` })),
-              () => false, // no superseded concept at this generic KV level — filtered later by callers that care
-            );
-            const hits = idx.search(queryStr, limit);
-            const maxScore = Math.max(...hits.map(h => h.score), 1);
-            keywordHits = hits.map((h) => {
-              const e = byKey.get(h.key);
-              const normalized = h.score / maxScore; // BM25 scores aren't comparable across queries/corpora — normalise 0-1 like the FTS5 path does
-              return {
-                id: e.id,
-                key: e.key,
-                content: capResultContent(e.content || ''),
-                score: normalized,
-                namespace: e.namespace,
-                provenance: `keyword-bm25:${normalized.toFixed(2)}`,
-                tags: e.tags ?? [],
-                _createdAt: e.createdAt || 0,
-              };
-            });
-          } else {
+            try {
+              const { Bm25Index } = await import('./bm25-index.js');
+              // #126-review: index by the entry's ARRAY POSITION, not e.key —
+              // memory_entries only enforces UNIQUE(namespace, key), so a bare
+              // key string can legitimately repeat across namespaces (e.g. two
+              // agents each storing a 'summary' key in their own namespace).
+              // Keying by e.key alone collided in that case: every BM25 hit
+              // sharing that key string resolved to whichever entry happened
+              // to be inserted last into the lookup map, silently returning
+              // the wrong entry's id/content/namespace.
+              const chunks = entries.map((e: any, i: number) => ({ key: String(i), text: `${e.key || ''} ${e.content || ''}` }));
+              const idx = Bm25Index.build(chunks, () => false); // no superseded concept at this generic KV level — filtered later by callers that care
+              const hits = idx.search(queryStr, limit);
+              // #126-review: Math.max(..., 1) as a divide-by-zero guard also
+              // silently floors the normalization divisor whenever every real
+              // score is < 1 (common for small/sparse corpora — exactly the
+              // regime this capped fallback runs in), so the top hit stopped
+              // normalizing to 1.0 as the comment below claims. Only fall
+              // back to 1 when there is no positive score to divide by.
+              const rawMax = hits.length ? Math.max(...hits.map(h => h.score)) : 0;
+              const maxScore = rawMax > 0 ? rawMax : 1;
+              keywordHits = hits.map((h) => {
+                const e = entries[Number(h.key)];
+                const normalized = h.score / maxScore; // BM25 scores aren't comparable across queries/corpora — normalise 0-1 like the FTS5 path does
+                return {
+                  id: e.id,
+                  key: e.key,
+                  content: capResultContent(e.content || ''),
+                  score: normalized,
+                  namespace: e.namespace,
+                  provenance: `keyword-bm25:${normalized.toFixed(2)}`,
+                  tags: e.tags ?? [],
+                  _createdAt: e.createdAt || 0,
+                };
+              });
+              bm25Ok = true;
+            } catch (e) {
+              // #126-review: BM25 build/search had no local try/catch, unlike
+              // every other sub-path in this function — an exception here
+              // used to propagate to the function's single outer catch,
+              // discarding the whole call (including already-computed
+              // semantic results) instead of degrading to the naive scan
+              // below, which is what every other keyword-path failure does.
+              if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] BM25 keyword search failed — falling back to token-overlap scan:', e);
+            }
+          }
+          if (!bm25Ok) {
             keywordHits = entries
               .map((e: any) => {
                 const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();

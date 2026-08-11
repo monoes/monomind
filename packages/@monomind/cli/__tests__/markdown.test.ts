@@ -123,4 +123,36 @@ describe('markdown.js: renderDocMarkdown', () => {
   it('empty/falsy input returns an empty string', () => {
     expect(renderDocMarkdown('')).toBe('');
   });
+
+  it('#124-review: blocks a javascript: URI in a markdown link (escAttr() alone only stops attribute-breakout, not scheme-based execution)', () => {
+    const html = renderDocMarkdown('[click me](javascript:alert(document.cookie))');
+    expect(html).toContain('href="#"');
+    expect(html).not.toContain('javascript:');
+  });
+
+  it('#124-review: blocks a javascript: URI in a markdown image src', () => {
+    const html = renderDocMarkdown('![img](javascript:alert(1))');
+    expect(html).toContain('src="#"');
+    expect(html).not.toContain('javascript:');
+  });
+
+  it('#124-review: still allows http(s)/mailto/tel and relative URLs', () => {
+    expect(renderDocMarkdown('[a](https://example.com)')).toContain('href="https://example.com"');
+    expect(renderDocMarkdown('[a](mailto:x@example.com)')).toContain('href="mailto:x@example.com"');
+    expect(renderDocMarkdown('[a](./relative/path)')).toContain('href="./relative/path"');
+  });
+
+  it('#124-review: a fenced code block nested inside a blockquote renders its real content, not an empty block', () => {
+    const html = renderDocMarkdown('> quote line\n> ```js\n> const x = 1;\n> ```\n> after');
+    expect(html).toContain('const x = 1;');
+    expect(html).toContain('class="language-js"');
+    expect(html).toContain('gd-code-lang">js</span>');
+    expect(html).not.toContain('<pre><code></code></pre>'); // the bug's exact empty-block signature
+  });
+
+  it('#124-review: a top-level (non-blockquote) fenced code block still extracts and renders normally', () => {
+    const html = renderDocMarkdown('```js\nconst y = 2;\n```');
+    expect(html).toContain('const y = 2;');
+    expect(html).toContain('class="language-js"');
+  });
 });

@@ -171,6 +171,30 @@ describe('#110: HTTP transport\'s embedded /ws upgrade path routes through valid
     });
     expect(closeCode).toBe(4001);
   });
+
+  it('#110-review: accepts a bare (non-"Bearer"-prefixed) Authorization header for token method — regressed when this path was rewritten to use validateCredential', async () => {
+    const tokenValue = 'plain-token-abc-123';
+    transport = createHttpTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port: 0,
+      corsEnabled: false,
+      auth: { enabled: true, method: 'token', tokens: [tokenValue] },
+    });
+    await transport.start();
+
+    const port = (transport as any).server.address().port;
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+      headers: { Authorization: tokenValue }, // no "Bearer " prefix
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', () => resolve());
+      ws.once('error', reject);
+      ws.once('close', (code) => reject(new Error('closed before open: ' + code)));
+    });
+
+    ws.close();
+  });
 });
 
 describe('WebSocket transport auth (P0-8)', () => {

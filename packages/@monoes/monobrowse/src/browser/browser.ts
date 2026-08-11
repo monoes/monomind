@@ -14,6 +14,9 @@ const DEFAULT_PORT = 9222;
 const LAUNCH_TIMEOUT = 10_000;
 const POLL_INTERVAL = 200;
 const BROWSER_CLOSE_TIMEOUT_MS = 3000;
+// A cross-process persisted PID older than this is not trusted for the
+// SIGKILL fallback in closeBrowser() — see the call site for why.
+const PERSISTED_PID_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 // Tracks the PID of Chrome instances *we* spawned, keyed by CDP port, so
 // closeBrowser() has a kill fallback when the graceful `Browser.close` CDP
@@ -303,17 +306,34 @@ export async function closeBrowser(client: CdpClient, port: number): Promise<voi
     try {
       const persisted = await loadActivePortInfo();
       if (persisted && persisted.port === port && persisted.launched && persisted.pid) {
-        pid = persisted.pid;
+        // Bound how far we trust a cross-process PID: if the Chrome we
+        // launched died outside this flow (OOM-killed, host slept, etc.)
+        // without active-port.json ever being cleared, the OS can recycle
+        // that PID for an unrelated process. There is no cmdline/start-time
+        // check available portably, so a coarse age bound is the practical
+        // guard — a PID persisted more than a day ago is far more likely to
+        // be stale/reused than to still be the same live Chrome.
+        const age = persisted.savedAt !== undefined ? Date.now() - persisted.savedAt : undefined;
+        if (age === undefined || age <= PERSISTED_PID_MAX_AGE_MS) {
+          pid = persisted.pid;
+        }
       }
     } catch {
       // best-effort — fall through to "nothing to kill" below
     }
   }
-  if (pid === undefined) return; // not a process we launched — nothing to kill
+  if (pid === undefined) return; // not a process we launched, or too stale to trust — nothing to kill
   launchedPids.delete(port);
 
+  // Liveness-check before every SIGKILL (not just the safety-net path below)
+  // — process.kill(pid, 0) throws ESRCH if the PID is no longer running,
+  // which also catches the case where the PID has already been recycled by
+  // an unrelated process that happens to have exited too.
   if (!gracefullyClosed) {
-    try { process.kill(pid, 'SIGKILL'); } catch { /* already exited */ }
+    try {
+      process.kill(pid, 0);
+      process.kill(pid, 'SIGKILL');
+    } catch { /* already exited, or never was — nothing to do */ }
     return;
   }
 

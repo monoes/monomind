@@ -45,6 +45,30 @@ describe('redactPaths', () => {
   });
 });
 
+describe('#124-review: stripHostnames() is not vulnerable to catastrophic backtracking (ReDoS)', () => {
+  it('a long chain of dot-separated tokens with no valid trailing TLD resolves near-instantly', () => {
+    // The original two-part regex let the engine backtrack over every way to
+    // split this into "middle repetitions" vs "final segment" before
+    // concluding no match — quadratic-plus blowup. This is reachable via
+    // neural-optimize.ts's public pattern-export path (content up to 100MB)
+    // and crash-reporter.ts's redact() on arbitrary error/stack text.
+    const evil = 'a' + '.a'.repeat(20_000);
+    const start = Date.now();
+    redactPii(evil);
+    expect(Date.now() - start).toBeLessThan(500);
+  });
+
+  it('still redacts a genuine multi-segment hostname', () => {
+    expect(redactPii('leaked at deep.sub.example.com in the logs')).toContain('<host>');
+  });
+
+  it('still leaves a real 2-segment domain-looking string alone when only 2 segments (needs 3+)', () => {
+    // example.com alone is 2 segments — the contextual (://  or @) pass
+    // handles that case; the standalone pass requires 3+ segments by design.
+    expect(redactPii('see example.com for details')).toBe('see example.com for details');
+  });
+});
+
 describe('redactPii', () => {
   it('redacts an email address', () => {
     expect(redactPii('contact: alice@example.com')).toContain('<email>');

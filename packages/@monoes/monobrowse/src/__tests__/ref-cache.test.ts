@@ -138,13 +138,13 @@ describe('active-port persistence', () => {
     const mod = await importRefCache();
     await mod.saveActivePort(9333);
     expect(await mod.loadActivePort()).toBe(9333);
-    expect(await mod.loadActivePortInfo()).toEqual({ port: 9333, launched: true });
+    expect(await mod.loadActivePortInfo()).toEqual({ port: 9333, launched: true, savedAt: expect.any(Number) });
   });
 
   it('connect provenance: launched:false survives the round-trip', async () => {
     const mod = await importRefCache();
     await mod.saveActivePort(9229, { launched: false });
-    expect(await mod.loadActivePortInfo()).toEqual({ port: 9229, launched: false });
+    expect(await mod.loadActivePortInfo()).toEqual({ port: 9229, launched: false, savedAt: expect.any(Number) });
   });
 
   it('clear removes the file; load returns null afterwards', async () => {
@@ -169,15 +169,29 @@ describe('active-port persistence', () => {
       launched: true,
       pid: 54321,
       userDataDir: '/tmp/monomind-browser-9333',
+      savedAt: expect.any(Number),
     });
   });
 
-  it('#115: an attached (launched:false) session never persists a pid to kill', async () => {
+  it('#115: an attached (launched:false) session with no pid argument persists none', async () => {
     const mod = await importRefCache();
     await mod.saveActivePort(9229, { launched: false });
     const info = await mod.loadActivePortInfo();
     expect(info!.launched).toBe(false);
     expect(info!.pid).toBeUndefined();
+  });
+
+  it('#124-review: saveActivePort does NOT strip pid when launched:false — callers must not pass one for an attach', async () => {
+    // The property above (attach sessions have no pid) is caller discipline,
+    // not something this function enforces — the one production caller
+    // (commands.ts's `connect` action) simply never passes a pid alongside
+    // launched:false. This test documents that explicitly so it can't be
+    // mistaken for an invariant the code itself guarantees.
+    const mod = await importRefCache();
+    await mod.saveActivePort(9229, { launched: false, pid: 4242 });
+    const info = await mod.loadActivePortInfo();
+    expect(info!.launched).toBe(false);
+    expect(info!.pid).toBe(4242);
   });
 
   it('#115: a non-numeric or non-positive persisted pid is dropped, not trusted', async () => {
