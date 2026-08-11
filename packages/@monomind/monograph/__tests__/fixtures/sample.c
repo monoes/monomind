@@ -16,6 +16,10 @@ int multiply(int a, int b) {
   return a * b;
 }
 
+static int internal_helper(int x) {
+  return x * 2;
+}
+
 int main(void) {
   Point p;
   p.x = add(1, 2);

@@ -169,6 +169,23 @@ async function buildAsyncLocked(
 
     const outputs = await runner.run(ctx);
 
+    // MONO-2: surface parse-time errors (malformed files, failed grammar loads,
+    // unreadable sources) to the user. parsePhase already collects these into
+    // its output's `parseErrors` array, but without this wiring the warnings
+    // stay invisible — the build silently produces a partial graph.
+    const parseOut = outputs.get('parse') as { parseErrors?: string[] } | undefined;
+    const parseErrors = parseOut?.parseErrors ?? [];
+    if (parseErrors.length > 0) {
+      const summary = `${parseErrors.length} parse warning(s): ${parseErrors.slice(0, 3).join('; ')}${parseErrors.length > 3 ? ` (+${parseErrors.length - 3} more)` : ''}`;
+      if (options.onProgress) {
+        for (const err of parseErrors) {
+          options.onProgress({ phase: 'warning', message: err } as PipelineProgress);
+        }
+      } else {
+        process.stderr.write(`[monograph] ${summary}\n`);
+      }
+    }
+
     // Sweep orphaned rows for files that were renamed/deleted since the last build.
     // This MUST run unconditionally — even when every remaining file cache-hit
     // (ctx.allFilesCached === true), a file may have been deleted from disk between

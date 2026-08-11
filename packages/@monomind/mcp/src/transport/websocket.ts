@@ -7,7 +7,7 @@
 import { EventEmitter } from 'events';
 import { WebSocketServer, WebSocket, RawData } from 'ws';
 import { createServer, Server } from 'http';
-import { timingSafeEqual } from 'crypto';
+import { validateCredential } from '../auth.js';
 import type {
   ITransport,
   TransportType,
@@ -406,19 +406,22 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
   }
 
   /**
-   * SECURITY: Real `authenticate` handler. Validates the client-supplied
-   * credential against `config.auth.tokens` with a timing-safe comparison
-   * and only sets `client.isAuthenticated = true` on success. The
-   * `authenticate` message itself is never forwarded to `requestHandler` —
-   * a response is sent directly here regardless of outcome.
+   * SECURITY: Real `authenticate` handler. Routes through the SAME
+   * validateCredential() the HTTP transport uses instead of a private
+   * comparison against only `config.auth.tokens` — previously this always
+   * failed for a server configured with the api-key method, silently
+   * ignoring `method`/`apiKeys` entirely. The credential field is
+   * synthesized into a Bearer authorization value so the previously
+   * supported flow behaves exactly as it did before. Only sets
+   * `client.isAuthenticated = true` on success. The `authenticate` message
+   * itself is never forwarded to `requestHandler` — a response is sent
+   * directly here regardless of outcome.
    */
   private handleAuthenticate(client: ClientConnection, message: any): void {
-    const supplied: unknown = message?.params?.token;
-    const configured = this.config.auth?.tokens;
+    const params = (message?.params ?? {}) as Record<string, unknown>;
+    const result = this.resolveAuthResult(params);
 
-    const success = this.checkCredential(supplied, configured);
-
-    if (success) {
+    if (result.valid) {
       client.isAuthenticated = true;
       this.logger.info('WebSocket client authenticated', { clientId: client.id });
       client.ws.send(this.serializeMessage({
@@ -427,7 +430,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
         result: { authenticated: true },
       } as MCPResponse));
     } else {
-      this.logger.warn('WebSocket authenticate failed', { clientId: client.id });
+      this.logger.warn('WebSocket authenticate failed', { clientId: client.id, error: result.error });
       client.ws.send(this.serializeMessage({
         jsonrpc: '2.0',
         id: message?.id ?? null,
@@ -436,34 +439,21 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
     }
   }
 
-  private checkCredential(supplied: unknown, configured: string[] | undefined): boolean {
-    if (typeof supplied !== 'string' || !configured || configured.length === 0) {
-      return false;
-    }
-    for (const entry of configured) {
-      if (this.timingSafeCompare(supplied, entry)) {
-        return true;
-      }
-    }
-    return false;
+  private resolveAuthResult(params: Record<string, unknown>): { valid: boolean; error?: string } {
+    const authConfig = this.config.auth;
+    if (!authConfig) return { valid: false, error: 'No auth config' };
+
+    let authHeader: string | undefined;
+    const field1 = params.token;
+    if (typeof field1 === 'string') authHeader = 'Bearer ' + field1;
+
+    let keyHeader: string | undefined;
+    const field2 = params['apiKey'];
+    if (typeof field2 === 'string') keyHeader = field2;
+
+    return validateCredential(authConfig, authHeader, keyHeader);
   }
 
-  /**
-   * SECURITY: Timing-safe comparison to prevent timing attacks. Mismatched
-   * lengths still run a constant-time compare (against itself) before
-   * returning false, so length differences aren't observable via timing.
-   */
-  private timingSafeCompare(a: string, b: string): boolean {
-    const bufA = Buffer.from(a, 'utf-8');
-    const bufB = Buffer.from(b, 'utf-8');
-
-    if (bufA.length !== bufB.length) {
-      timingSafeEqual(bufA, bufA);
-      return false;
-    }
-
-    return timingSafeEqual(bufA, bufB);
-  }
 
   private parseMessage(data: RawData): any {
     if (this.config.enableBinaryMode && Buffer.isBuffer(data)) {

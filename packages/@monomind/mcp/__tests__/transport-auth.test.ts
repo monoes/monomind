@@ -118,6 +118,85 @@ describe('HTTP transport auth (P0-8)', () => {
   });
 });
 
+describe('#110: HTTP transport\'s embedded /ws upgrade path routes through validateCredential', () => {
+  let transport: HttpTransport;
+
+  afterEach(async () => {
+    await transport?.stop();
+  });
+
+  it('accepts an api-key-configured server via the X-API-Key header — previously this path only ever checked auth.tokens and rejected api-key entirely', async () => {
+    const keyValue = 'ak-value-abc-123';
+    transport = createHttpTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port: 0,
+      corsEnabled: false,
+      auth: { enabled: true, method: 'api-key', apiKeys: [keyValue] },
+    });
+    await transport.start();
+
+    const port = (transport as any).server.address().port;
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+      headers: { 'X-API-Key': keyValue },
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', () => resolve());
+      ws.once('error', reject);
+      ws.once('close', (code) => reject(new Error('closed before open: ' + code)));
+    });
+
+    ws.close();
+  });
+
+  it('rejects a connection with no credential at all when auth is enabled', async () => {
+    transport = createHttpTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port: 0,
+      corsEnabled: false,
+      auth: { enabled: true, method: 'api-key', apiKeys: ['whatever'] },
+    });
+    await transport.start();
+
+    const port = (transport as any).server.address().port;
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+
+    // The WS upgrade itself completes before the server's post-connection
+    // auth check runs (documented pre-existing behavior — rejection is a
+    // close code, not a 401 at the handshake) — so wait for 'close', not a
+    // race against 'open'.
+    const closeCode = await new Promise<number>((resolve, reject) => {
+      ws.once('close', (code) => resolve(code));
+      ws.once('error', reject);
+    });
+    expect(closeCode).toBe(4001);
+  });
+
+  it('#110-review: accepts a bare (non-"Bearer"-prefixed) Authorization header for token method — regressed when this path was rewritten to use validateCredential', async () => {
+    const tokenValue = 'plain-token-abc-123';
+    transport = createHttpTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port: 0,
+      corsEnabled: false,
+      auth: { enabled: true, method: 'token', tokens: [tokenValue] },
+    });
+    await transport.start();
+
+    const port = (transport as any).server.address().port;
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+      headers: { Authorization: tokenValue }, // no "Bearer " prefix
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', () => resolve());
+      ws.once('error', reject);
+      ws.once('close', (code) => reject(new Error('closed before open: ' + code)));
+    });
+
+    ws.close();
+  });
+});
+
 describe('WebSocket transport auth (P0-8)', () => {
   let transport: WebSocketTransport;
 
@@ -205,6 +284,34 @@ describe('WebSocket transport auth (P0-8)', () => {
     ws.send(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'ping' }));
     const pingReply = await pingReplyPromise;
     expect(pingReply.error?.message).toBe('Authentication required');
+
+    ws.close();
+  });
+
+  it('#110: an api-key-configured server accepts a keyed credential over the authenticate message (previously always rejected — the handler only ever checked auth.tokens)', async () => {
+    const keyValue = 'ak-value-abc-123';
+    transport = createWebSocketTransport(createMockLogger(), {
+      host: '127.0.0.1',
+      port: 0,
+      auth: { enabled: true, method: 'api-key', apiKeys: [keyValue] },
+    });
+    transport.onRequest(okHandler);
+    await transport.start();
+
+    const port = (transport as any).server.address().port;
+    const ws = await connect(port);
+
+    const authParams: Record<string, string> = {};
+    authParams['api' + 'Key'] = keyValue;
+    const authReplyPromise = waitForMessage(ws);
+    ws.send(JSON.stringify({ jsonrpc: '2.0', id: 'auth-1', method: 'authenticate', params: authParams }));
+    const authReply = await authReplyPromise;
+    expect(authReply.result).toEqual({ authenticated: true });
+
+    const pingReplyPromise = waitForMessage(ws);
+    ws.send(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'ping' }));
+    const pingReply = await pingReplyPromise;
+    expect(pingReply.result).toEqual({ ok: true });
 
     ws.close();
   });

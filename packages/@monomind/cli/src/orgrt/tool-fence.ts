@@ -151,13 +151,32 @@ export function parseToolCalls(
 
 /** Execute one tool call against the OrgToolDef handlers, validating args
  *  against the tool's zod shape. Handler errors come back as text so the
- *  model sees the failure instead of the turn dying. */
-export async function executeToolCall(tools: OrgToolDef[], call: ToolCall): Promise<string> {
+ *  model sees the failure instead of the turn dying.
+ *
+ *  When `canUseTool` is provided (passed by fence-protocol runners like
+ *  CodexAgentRunner that can't use the SDK's native permission gate), it is
+ *  invoked AFTER zod validation but BEFORE the handler — a deny decision
+ *  short-circuits with a policy-error message instead of executing. */
+export async function executeToolCall(
+  tools: OrgToolDef[],
+  call: ToolCall,
+  canUseTool?: (toolName: string, input: Record<string, unknown>) => Promise<unknown>,
+): Promise<string> {
   const tool = tools.find((t) => t.name === call.name);
   if (!tool) return `ERROR: unknown tool "${call.name}". Available: ${tools.map((t) => t.name).join(', ')}`;
   const parsed = z.object(tool.schema).safeParse(call.arguments);
   if (!parsed.success) {
     return `ERROR: invalid arguments for ${call.name}: ${parsed.error.issues.map((i) => i.path.join('.') + ' ' + i.message).join('; ')}`;
+  }
+  if (canUseTool) {
+    const decision = await canUseTool(call.name, parsed.data as Record<string, unknown>);
+    if (decision && typeof decision === 'object' && 'behavior' in decision) {
+      if ((decision as { behavior: string }).behavior === 'deny') {
+        return `ERROR: ${call.name} denied by policy: ${(decision as { message?: string }).message ?? 'denied'}`;
+      }
+    } else if (decision === false) {
+      return `ERROR: ${call.name} denied by policy`;
+    }
   }
   try {
     const r = await tool.handler(parsed.data as Record<string, unknown>);

@@ -119,7 +119,7 @@ export interface SwarmConfig {
 }
 
 export interface MemoryConfig {
-  backend: 'lancedb' | 'sqlite' | 'memory' | 'hybrid';
+  backend: 'sqlite' | 'memory' | 'hybrid';
   persistPath: string;
   cacheSize: number;
   enableHNSW: boolean;
@@ -247,7 +247,7 @@ export class CLIError extends Error {
     message: string,
     public code: string,
     public exitCode: number = 1,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
     this.name = 'CLIError';

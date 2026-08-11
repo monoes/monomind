@@ -65,10 +65,10 @@
 ### Project Config
 
 - **Topology**: hierarchical-mesh
-- **Max Agents**: 15
+- **Max Agents**: 8
 - **Memory**: hybrid
-- **HNSW**: Enabled
-- **Neural**: Enabled
+- **HNSW**: Available (fallback path only)
+- **Neural**: Disabled (keyword routing only)
 
 ## Build & Test
 
@@ -105,6 +105,12 @@ npm run lint
 
 ## Swarm Orchestration
 
+"Swarm" here means: multiple Claude Code Task-tool agents running in this one
+process, coordinated by CLI-tracked state and (for hive-mind) simple
+majority-vote arbitration between them — not a distributed system. There is
+no networking between separate machines. See `doc/concepts/swarm.md` for the
+full picture, including what "consensus" actually computes.
+
 - MUST initialize the swarm using CLI tools when starting complex tasks
 - MUST spawn concurrent agents using Claude Code's Task tool
 - Never use CLI tools alone for execution — Task tool agents do the actual work
@@ -115,7 +121,9 @@ npm run lint
 - ALWAYS use hierarchical topology for coding swarms
 - Keep maxAgents at 6-8 for tight coordination
 - Use specialized strategy for clear role boundaries
-- Use `raft` consensus for hive-mind (leader maintains authoritative state)
+- Use `raft` consensus for hive-mind — in-process majority-vote counting
+  (tolerates fewer than half the voters being wrong), not real Raft leader
+  election or log replication
 - Run frequent checkpoints via `post-task` hooks
 - Keep shared memory namespace for all agents
 
@@ -137,18 +145,47 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| `init` | 5 | Project initialization |
-| `agent` | 7 | Agent lifecycle management |
-| `swarm` | 6 | Multi-agent swarm coordination |
-| `memory` | 12 | SQLite memory with ANN search |
-| `task` | 5 | Task creation and lifecycle |
-| `session` | 6 | Session state management |
-| `hooks` | 29 | Self-learning hooks + 15 background workers _(unavailable in this install)_ |
+| `init` | 5 | Project initialization with wizard, presets, skills, hooks |
+| `agent` | 7 | Agent lifecycle (spawn, list, status, stop, metrics, pool, health) — runs in-process, no MCP server needed |
+| `swarm` | 6 | Multi-agent swarm coordination and orchestration — runs in-process |
+| `memory` | 12 | Memory store (SQLite/JSON; optional vector search) |
+| `mcp` | 9 | MCP server management and tool execution |
+| `task` | 5 | Task creation, assignment, and lifecycle |
+| `session` | 6 | Session state management, persistence, and replay (`session replay`) |
+| `config` | 7 | Configuration management and provider setup |
+| `status` | 3 | System status monitoring with watch mode |
+| `hooks` | 29 | Self-learning hooks + <!-- doc-count:workers -->0<!-- /doc-count:workers --> background workers |
+| `org` | 31 | SDK org runtime v2 (run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, memory, costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete) |
 
-> Note: there is no `hive-mind` or `neural` CLI command. Hive-mind
-> consensus (byzantine/raft/quorum) is available exclusively via MCP tools
-> (`hive-mind_*`), not the CLI. Neural pattern learning was merged into
-> `hooks intelligence`.
+### Advanced Commands
+
+`agent` and `swarm` above execute MCP tool handlers directly in-process via the local tool registry — they do **not** require a running `mcp start` server.
+
+> **Note:** Hive-mind functionality (byzantine/raft/quorum consensus) is available exclusively via MCP tools (`hive-mind_*`), not as a CLI command. Neural pattern learning was merged into `hooks intelligence`.
+
+| Command | Subcommands | Description |
+|---------|-------------|-------------|
+| `security` | 6 | Security scanning (scan, cve, audit, secrets, defend, redteam). `audit --action export/log/clear` and `redteam --target` are unimplemented |
+| `performance` | 4 | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements |
+| `providers` | 4 | AI providers (list, configure, remove, test) |
+| `guidance` | 1 | Governance gate setup (`guidance setup`) |
+| `monograph` | – | Knowledge graph CLI (delegates to @monoes/monograph) |
+| `browse` | – | Browser automation via CDP (@monoes/monobrowse) |
+| `doctor` | 0 | System diagnostics — flat command, flags only |
+| `completions` | 4 | Shell completions (bash, zsh, fish, powershell) |
+| `autopilot` | 10 | Autonomous task execution (status, enable, disable, config, reset, log, learn, history, predict, check) |
+| `tokens` | 4 | Token usage tracking (dashboard, summary, today, lean-delta) |
+| `search` | 1 | Universal search (`search scan` refreshes fingerprint) |
+| `analyze` | 7 | Codebase analysis (diff, code, deps, ast, complexity, symbols, imports) |
+| `route` | 9 | Task-to-agent routing (task, semantic, list-agents, stats, feedback, reset, export, import, coverage) |
+| `update` | 5 | Self-update check (check, all, history, rollback, clear-cache) |
+| `cleanup` | 0 | Remove monomind project artifacts — flat command, flags only |
+| `platforms` | 3 | Install/uninstall Monograph context for AI platforms (install, uninstall, setup) |
+| `design` | 4 | Design tooling (detect, fix, ignores, palette) |
+| `doc` | 8 | Second Brain — document ingestion & retrieval (ingest, search, list, export, remove, reconcile, import, eval) |
+| `start` | 3 | Orchestration system (stop, restart, quick) |
+| `crash-reporting` | 3 | Configure crash reporting (enable, disable, status) |
+| `report-crash` | – | Internal: file a GitHub issue for a crash (hidden; shelled out to by monotask/mono-clip) |
 
 ### Quick CLI Examples
 

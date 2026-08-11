@@ -25,4 +25,18 @@ describe('C parser', () => {
     if (result.nodes.length === 0) return;
     expect(result.parseErrors).toHaveLength(0);
   });
+
+  it('marks non-static functions as exported (skipped if grammar unavailable)', () => {
+    if (result.nodes.length === 0) return;
+    const addFn = result.nodes.find(n => n.name === 'add');
+    expect(addFn).toBeDefined();
+    expect(addFn!.isExported).toBe(true);
+  });
+
+  it('marks static functions as unexported (skipped if grammar unavailable)', () => {
+    if (result.nodes.length === 0) return;
+    const helper = result.nodes.find(n => n.name === 'internal_helper');
+    expect(helper).toBeDefined();
+    expect(helper!.isExported).toBe(false);
+  });
 });

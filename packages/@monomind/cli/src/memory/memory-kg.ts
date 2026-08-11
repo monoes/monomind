@@ -248,12 +248,27 @@ export async function kgIngestRules(options: {
         query: rule, namespace: RULES_NS, limit: 1, threshold, dbPath: options.dbPath,
       });
       const top = similar?.results?.[0];
-      // Dedup on the RAW cosine (from provenance), not the blended rank score —
-      // the Phase 1 feedback blend shifts scores and would corrupt the gate.
-      const rawScore = top?.provenance?.startsWith('semantic:')
-        ? parseFloat(top.provenance.slice('semantic:'.length)) : top?.score ?? 0;
-      if (top && rawScore >= threshold) {
-        verdicts.push({ rule, verdict: 'already_known', similarTo: top.key });
+      // Issue #111: FTS5 keyword scores are min-max normalized per batch.
+      // With limit:1, the sole result always scores 1.0 — any rule sharing
+      // even one keyword was falsely marked as a duplicate.
+      //
+      // Only trust embedding-backed (semantic) cosine scores for dedup.
+      // Keyword-only matches can't distinguish paraphrases from merely
+      // overlapping vocabulary — fall back to exact-text comparison.
+      // (Key-based upsert on store already handles identical keys.)
+      const isSemantic = top?.provenance?.startsWith('semantic:');
+      let isDuplicate = false;
+      if (top && isSemantic) {
+        const rawCosine = parseFloat(top.provenance!.slice('semantic:'.length));
+        isDuplicate = rawCosine >= threshold;
+      } else if (top) {
+        // Keyword-only: only suppress true near-exact duplicates.
+        const existing = (top.content || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const candidate = rule.replace(/\s+/g, ' ').trim().toLowerCase();
+        isDuplicate = existing === candidate;
+      }
+      if (isDuplicate) {
+        verdicts.push({ rule, verdict: 'already_known', similarTo: top!.key });
         continue;
       }
 

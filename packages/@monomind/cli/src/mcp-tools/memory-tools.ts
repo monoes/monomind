@@ -64,19 +64,13 @@ export const memoryControllers: MCPTool = {
     properties: {},
   },
   handler: async () => {
-    try {
-      const bridge = await getBridge();
-      const controllers = await bridge.bridgeListControllers();
-      if (!controllers) return { available: false, controllers: [], error: 'Memory bridge not available — @monomind/memory not installed or missing controller-registry. Use memory_store/memory_search tools instead.' };
-      return {
-        available: true,
-        controllers: controllers.controllers,
-        total: controllers.controllers.length,
-        active: controllers.active.length,
-      };
-    } catch (error) {
-      return { available: false, error: sanitizeError(error) };
-    }
+    return {
+      available: false,
+      controllers: [],
+      total: 0,
+      active: 0,
+      note: 'ControllerRegistry is not implemented. Memory operations use the SQLite bridge directly via memory_store/memory_search tools.',
+    };
   },
 };
 

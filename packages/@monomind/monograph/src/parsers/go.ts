@@ -14,7 +14,7 @@ export const goConfig: LanguageConfig = {
   functionNodeTypes: new Set(['function_declaration']),
   methodNodeTypes: new Set(['method_declaration']),
   constructorNodeTypes: new Set([]),
-  interfaceNodeTypes: new Set(['interface_type']),
+  interfaceNodeTypes: new Set([]),
   importNodeTypes: new Set(['import_declaration', 'import_spec']),
   callNodeTypes: new Set(['call_expression']),
   decoratorNodeTypes: new Set([]),
@@ -23,5 +23,19 @@ export const goConfig: LanguageConfig = {
   importExtractor: (_source, node) => {
     const pathNode = node.childForFieldName('path') ?? node.child(1);
     return pathNode?.text.replace(/['"]/g, '') ?? null;
+  },
+  exportDetector: (node, _source) => {
+    // Go exports identifiers that start with an uppercase letter.
+    const nameNode = node.childForFieldName('name');
+    const name = nameNode?.text ?? '';
+    return name.length > 0 && name[0] >= 'A' && name[0] <= 'Z';
+  },
+  labelRefiner: (node, defaultLabel): import('../types.js').NodeLabel => {
+    if (node.type !== 'type_spec') return defaultLabel as import('../types.js').NodeLabel;
+    const typeChild = node.childForFieldName('type');
+    if (!typeChild) return defaultLabel as import('../types.js').NodeLabel;
+    if (typeChild.type === 'struct_type') return 'Struct';
+    if (typeChild.type === 'interface_type') return 'Interface';
+    return 'TypeAlias';
   },
 };

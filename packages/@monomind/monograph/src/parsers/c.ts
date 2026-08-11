@@ -28,4 +28,16 @@ export const cConfig: LanguageConfig = {
     const pathNode = node.childForFieldName('path') ?? node.child(1);
     return pathNode?.text.replace(/[<>"]/g, '') ?? null;
   },
+  exportDetector: (node, _source) => {
+    // C: non-static top-level functions/variables are exported (external linkage).
+    // function_declarator lives inside function_definition; check parent for 'static'.
+    const defNode = node.parent?.type === 'function_definition' ? node.parent : node;
+    for (let i = 0; i < defNode.childCount; i++) {
+      const child = defNode.child(i)!;
+      if (child.type === 'storage_class_specifier' && child.text === 'static') {
+        return false;
+      }
+    }
+    return true;
+  },
 };

@@ -205,7 +205,7 @@ export interface RuntimeConfig {
   /** Maximum agents */
   maxAgents: number;
   /** Memory backend */
-  memoryBackend: 'memory' | 'sqlite' | 'lancedb' | 'hybrid';
+  memoryBackend: 'memory' | 'sqlite' | 'hybrid';
   /** Enable HNSW indexing */
   enableHNSW: boolean;
   /** Enable neural learning */
@@ -219,7 +219,13 @@ export interface RuntimeConfig {
 }
 
 /** Template variants for generated CLAUDE.md files */
-export type ClaudeMdTemplate = 'minimal' | 'standard' | 'full' | 'security' | 'performance' | 'solo';
+export type ClaudeMdTemplate =
+  | 'minimal'
+  | 'standard'
+  | 'full'
+  | 'security'
+  | 'performance'
+  | 'solo';
 
 /**
  * Embeddings configuration
@@ -228,7 +234,11 @@ export interface EmbeddingsConfig {
   /** Enable embedding subsystem */
   enabled: boolean;
   /** ONNX model ID */
-  model: 'Xenova/all-MiniLM-L6-v2' | 'Xenova/all-mpnet-base-v2' | 'Xenova/bge-small-en-v1.5' | string;
+  model:
+    | 'Xenova/all-MiniLM-L6-v2'
+    | 'Xenova/all-mpnet-base-v2'
+    | 'Xenova/bge-small-en-v1.5'
+    | string;
   /** Enable hyperbolic (Poincaré ball) embeddings */
   hyperbolic: boolean;
   /** Poincaré ball curvature (negative value, typically -1) */
@@ -284,7 +294,11 @@ export function detectPlatform(): PlatformInfo {
       break;
     default:
       osType = 'linux';
-      shell = process.env.SHELL?.includes('zsh') ? 'zsh' : (process.env.SHELL?.includes('bash') ? 'bash' : 'sh');
+      shell = process.env.SHELL?.includes('zsh')
+        ? 'zsh'
+        : process.env.SHELL?.includes('bash')
+          ? 'bash'
+          : 'sh';
       configDir = process.env.XDG_CONFIG_HOME || path.join(homeDir, '.config');
   }
 
@@ -328,6 +342,14 @@ export interface InitOptions {
   runtime: RuntimeConfig;
   /** Embeddings configuration */
   embeddings: EmbeddingsConfig;
+  /**
+   * Run the post-init `doctor --install` pass, which may perform a global
+   * `npm install -g @anthropic-ai/claude-code` if the Claude Code CLI isn't
+   * already present. Defaults to true (undefined is treated as true) for
+   * backward compatibility; set false (`monomind init --no-install`) to skip
+   * it entirely.
+   */
+  installClaudeCode?: boolean;
 }
 
 /**
@@ -423,7 +445,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     model: 'Xenova/all-MiniLM-L6-v2',
     hyperbolic: true,
     curvature: -1.0,
-    predownload: false,  // Don't auto-download to speed up init
+    predownload: false, // Don't auto-download to speed up init
     cacheSize: 256,
     neuralSubstrate: true,
   },
@@ -543,7 +565,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     model: 'Xenova/all-MiniLM-L6-v2',
     hyperbolic: true,
     curvature: -1.0,
-    predownload: true,  // Pre-download for full init
+    predownload: true, // Pre-download for full init
     cacheSize: 256,
     neuralSubstrate: true,
   },

@@ -12,6 +12,7 @@
 import { resolve, isAbsolute, relative, dirname, basename } from 'node:path';
 import { cwd } from 'node:process';
 import { realpathSync } from 'node:fs';
+import { redactPaths } from './redaction.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -202,13 +203,14 @@ export function validateInput(
 
 /**
  * Sanitize an error before returning it to MCP callers.
- * Strips filesystem paths from error messages to avoid leaking internal layout.
+ * Strips filesystem paths (POSIX and Windows) from error messages to avoid
+ * leaking internal layout. Shared with crash-reporter.ts and
+ * neural-optimize.ts's PII stripping via utils/redaction.ts — this used to
+ * be a single POSIX-only regex with no Windows-path handling.
  */
 export function sanitizeError(error: unknown): string {
   if (error instanceof Error) {
-    return error.message
-      .replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/')
-      .substring(0, 500);
+    return redactPaths(error.message).substring(0, 500);
   }
   return 'Internal error';
 }

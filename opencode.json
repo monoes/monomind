@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["CLAUDE.md"],
+  "mcp": {
+    "monomind": {
+      "type": "local",
+      "command": ["npx", "-y", "monomind@latest", "mcp", "start"],
+      "enabled": true
+    }
+  },
+  "permission": {
+    "bash": { "*": "ask", "npx monomind*": "allow", "monomind*": "allow" },
+    "edit": "ask",
+    "read": "allow"
+  }
+}

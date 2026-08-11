@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { validateGitRef as sharedValidateGitRef } from '@monoes/monograph';
 
 // ============================================================================
 // 1. Path Traversal Prevention in Session Tools
@@ -60,20 +61,14 @@ describe('Path Traversal Prevention', () => {
 // 2. Command Injection Prevention in Diff Classifier
 // ============================================================================
 describe('Command Injection Prevention - Git Ref Validation', () => {
-  // Reproduce validateGitRef from diff-classifier.ts:367-382
-  function validateGitRef(ref: string): void {
-    if (!/^[a-zA-Z0-9_\-./~^@]+$/.test(ref)) {
-      throw new Error('Invalid git ref: contains unsafe characters');
-    }
-    if (ref.includes('..') && !ref.match(/^[a-zA-Z0-9_\-]+\.\.\.?[a-zA-Z0-9_\-]+$/)) {
-      if (!/^\w+\.\.[.\w]+$/.test(ref)) {
-        throw new Error('Invalid git ref: suspicious pattern');
-      }
-    }
-    if (ref.length > 256) {
-      throw new Error('Invalid git ref: too long');
-    }
-  }
+  // #124: this used to hand-reimplement validateGitRef from
+  // diff-classifier.ts:367-382 — a copy of a copy, verifying nothing about
+  // the actual shared implementation now used by diff-classifier.ts,
+  // changed-files.ts, git-changed-files.ts, and changed-workspaces.ts (all
+  // of which had drifted from each other, notably disagreeing on whether
+  // `main..HEAD` — a valid, extremely common git range — is even legal).
+  // Import the real, single implementation instead.
+  const validateGitRef = (ref: string): void => { sharedValidateGitRef(ref); };
 
   it('should allow valid git refs', () => {
     expect(() => validateGitRef('HEAD')).not.toThrow();
@@ -85,17 +80,27 @@ describe('Command Injection Prevention - Git Ref Validation', () => {
     expect(() => validateGitRef('origin/main')).not.toThrow();
   });
 
+  it('#124: allows a two-dot and three-dot range (main..HEAD, main...HEAD) — the case the divergent implementations disagreed on', () => {
+    expect(() => validateGitRef('main..HEAD')).not.toThrow();
+    expect(() => validateGitRef('main...HEAD')).not.toThrow();
+  });
+
   it('should reject command injection via shell metacharacters', () => {
-    expect(() => validateGitRef('HEAD; rm -rf /')).toThrow('unsafe characters');
-    expect(() => validateGitRef('HEAD && cat /etc/passwd')).toThrow('unsafe characters');
-    expect(() => validateGitRef('HEAD | whoami')).toThrow('unsafe characters');
-    expect(() => validateGitRef('$(whoami)')).toThrow('unsafe characters');
-    expect(() => validateGitRef('`whoami`')).toThrow('unsafe characters');
+    expect(() => validateGitRef('HEAD; rm -rf /')).toThrow();
+    expect(() => validateGitRef('HEAD && cat /etc/passwd')).toThrow();
+    expect(() => validateGitRef('HEAD | whoami')).toThrow();
+    expect(() => validateGitRef('$(whoami)')).toThrow();
+    expect(() => validateGitRef('`whoami`')).toThrow();
+  });
+
+  it('should reject a leading dash (git option injection)', () => {
+    expect(() => validateGitRef('--output=/tmp/pwned')).toThrow();
+    expect(() => validateGitRef('-G.*')).toThrow();
   });
 
   it('should reject refs that are too long (DoS prevention)', () => {
     const longRef = 'a'.repeat(257);
-    expect(() => validateGitRef(longRef)).toThrow('too long');
+    expect(() => validateGitRef(longRef)).toThrow();
   });
 });
 

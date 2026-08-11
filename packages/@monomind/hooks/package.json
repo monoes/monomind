@@ -1,7 +1,7 @@
 {
   "name": "@monoes/hooks",
   "version": "1.0.3",
-  "description": "Hook type definitions, an in-memory HookRegistry/HookExecutor, and a WorkerManager with 15 background workers (performance/health/swarm/git/learning/adr/ddd/security/patterns/cache/progress/map/audit/optimize/consolidate). Not the runtime hook dispatcher \u2014 the live path is .claude/helpers/ (CJS handlers driven by settings.json), which bridges into this package's workers.",
+  "description": "Hook type definitions, an in-memory HookRegistry/HookExecutor, and a WorkerManager with 8 on-demand background workers (health/ddd/security/cache/map/audit/consolidate/progress). Not the runtime hook dispatcher \u2014 the live path is .claude/helpers/ (CJS handlers driven by settings.json), which bridges into this package's workers.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -34,7 +34,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@monoes/memory": "^1.0.5"
+    "@monoes/memory": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

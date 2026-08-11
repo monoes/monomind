@@ -4,6 +4,7 @@
 
 import { execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { validateGitRef as sharedValidateGitRef, InvalidGitRefError } from '@monoes/monograph';
 
 const execFileAsync = promisify(execFile);
 
@@ -363,29 +364,17 @@ const CACHE_TTL_MS = 5000; // 5 seconds - short TTL since diffs change frequentl
 const DIFF_CACHE_MAX_ENTRIES = 50;
 
 /**
- * Validate git ref to prevent command injection
- * Only allows safe characters: alphanumeric, -, _, /, ., ~, ^
+ * Validate git ref to prevent command injection.
+ * Delegates to @monoes/monograph's shared validator (this was the reference
+ * implementation it was extracted from) — kept as a local void-returning
+ * wrapper so call sites below don't need to change shape.
  */
 function validateGitRef(ref: string): void {
-  // Block shell metacharacters and dangerous patterns
-  if (!/^[a-zA-Z0-9_\-./~^@]+$/.test(ref)) {
-    throw new Error(`Invalid git ref: contains unsafe characters`);
-  }
-  // Reject leading dash — git interprets `-`-prefixed refs as flags (e.g. --output=...,
-  // -G<regex>, -S<string>). execFile defeats shell injection but does NOT prevent the
-  // git binary itself from treating an attacker-controlled ref as a flag.
-  if (ref.startsWith('-')) {
-    throw new Error(`Invalid git ref: must not start with '-'`);
-  }
-  // Block multiple dots (path traversal)
-  if (ref.includes('..') && !ref.match(/^[a-zA-Z0-9_\-]+\.\.\.?[a-zA-Z0-9_\-]+$/)) {
-    if (!/^\w+\.\.[.\w]+$/.test(ref)) {
-      throw new Error(`Invalid git ref: suspicious pattern`);
-    }
-  }
-  // Max length check
-  if (ref.length > 256) {
-    throw new Error(`Invalid git ref: too long`);
+  try {
+    sharedValidateGitRef(ref);
+  } catch (err) {
+    if (err instanceof InvalidGitRefError) throw new Error(err.message);
+    throw err;
   }
 }
 

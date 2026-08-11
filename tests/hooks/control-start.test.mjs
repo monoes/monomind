@@ -22,7 +22,7 @@ function run({ cwd, env } = {}) {
     // probe, lock, control.json write, log lines) WITHOUT spawning a real
     // detached server — real spawns from this suite leaked ~900 orphan server
     // processes on isolated ports and exhausted the machine's process table.
-    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd || os.tmpdir(), MONOMIND_CONTROL_NO_SPAWN: '1', ...env },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd || os.tmpdir(), MONOMIND_CONTROL_NO_SPAWN: '1', MONOMIND_HOOK_QUIET: '', ...env },
   });
 }
 

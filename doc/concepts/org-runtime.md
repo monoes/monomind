@@ -93,7 +93,45 @@ Three concrete implementations are available:
 
 > **There is no GeminiAgentRunner.** `gemini` is a _provider env kind_ only — `provider.ts`
 > sets `GEMINI_API_KEY` in the subprocess env, but the agent loop still runs through one of
-> the three runners above.
+> the runners above.
+
+### 2.4 VercelAgentRunner (API-key providers)
+
+- **Source:** [`orgrt/vercel-runner.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/vercel-runner.ts)
+- **Backend:** In-process Vercel AI SDK (`ai` + per-vendor `@ai-sdk/*` package). Not a subprocess.
+- **Activation:** `runtime: 'vercel'` (per-role or org-level) **or** auto-resolved from `provider.kind: 'vercel-api-key'`.
+- **Vendor registry:** 15 providers + `openai-compatible` escape hatch — see [`orgrt/vercel-providers.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/vercel-providers.ts). GLM uses the z.ai international endpoint (`https://api.z.ai/api/paas/v4`) via `@ai-sdk/openai` with custom `baseURL`.
+- **Primitive:** `streamText({ model, system, messages, tools, stopWhen: isStepCount(N) })` — Vercel v7.
+- **Tool delivery:** Native Vercel `tool()` calling — no fence protocol. Every `execute()` wraps `canUseTool` for policy gating (bypassing it would defeat the per-role policy engine).
+- **Session resume:** `VercelSessionStore` persists message history to `<org>/sessions/<role>-<uuid>.json` (Vercel SDK is stateless server-side; we maintain history on disk).
+- **Cost tracking:** Token-only (`cost_usd: 0`). Vercel returns token usage but no USD; pricing is vendor-specific and drifts, so we ship with zero and let token budgets enforce.
+- **Optional deps:** All Vercel packages ship as `optionalDependencies`. Missing packages fail with a clear actionable error (`npm install <pkg>`).
+
+### 2.5 CodexAgentRunner (ChatGPT subscription)
+
+- **Source:** [`orgrt/codex-runner.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/codex-runner.ts)
+- **Backend:** Spawns the `codex` binary as a subprocess (same pattern as KimiCodeAgentRunner — no SDK dependency).
+- **Activation:** `runtime: 'codex'` **or** auto-resolved from `provider.kind: 'codex'`.
+- **Auth:** Inherits `~/.codex/auth.json` from `codex login` (ChatGPT Plus/Pro/Team/Enterprise). No env vars needed.
+- **Subprocess protocol:** `codex exec --experimental-json --sandbox danger-full-access --skip-git-repo-check [--model X] [--cd Y] [resume <thread_id>] "<prompt>"`. JSONL events on stdout: `thread.started` (carries `thread_id`), `item.completed` with `item.type === 'agent_message'` (assistant text), `turn.completed` (usage), `turn.failed`/`error` (failures). No per-token streaming — whole items only.
+- **Resume:** `codex exec resume <thread_id> "<followup>"` (positional subcommand, not a flag).
+- **Tool delivery:** Fence Protocol (same as kimi/opencode) — `executeToolCall` now accepts `canUseTool` for policy gating.
+- **Turn timeout:** 2 hours.
+- **Fatal error detection:** `turn.failed` events surface the provider error message; crash-restart budget is not consumed on auth/quota failures.
+
+### 2.6 AntigravityAgentRunner (Google AI Pro/Ultra subscription)
+
+- **Source:** [`orgrt/antigravity-runner.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/antigravity-runner.ts)
+- **Backend:** Spawns the `agy` (Antigravity CLI) binary as a subprocess — same pattern as KimiCodeAgentRunner / CodexAgentRunner. Antigravity is Google's replacement for the consumer-OAuth path of Gemini CLI (sunset June 18, 2026 for Google AI Pro/Ultra tiers).
+- **Activation:** `runtime: 'antigravity'` **or** auto-resolved from `provider.kind: 'antigravity'`.
+- **Auth:** OS keyring credentials from running `agy` interactively once (Google OAuth login). Google AI Pro/Ultra consumer subscription flows through this. No env vars needed.
+- **Install:** Go binary via `curl -fsSL https://antigravity.google/cli/install.sh | bash` (NOT npm — agy is a Go binary, not a Node package). No Node SDK exists (Python SDK only).
+- **Subprocess protocol:** `agy -p "<prompt>" --output-format stream-json [--model X] [--dangerously-skip-permissions] [--conversation <id>]`. NDJSON events on stdout: `init` (carries `conversation_id`), `step_update` with `step_type === 'agent_response'` and `text_delta` (per-token streaming), `result` (carries `conversation_id`, `status`, `usage`).
+- **Text accumulation:** agy streams text per-token via `step_update.text_delta`, but the runner accumulates all deltas for a turn and emits one assistant message with fences stripped (fence parsing needs the full text; per-token deltas would split ```tool_call fences across events). This matches kimi/codex behavior at the bus level.
+- **Resume:** `--conversation <conversation_id>` (distinct from Gemini CLI's `--resume`/`--session-id` flags — agy uses different flags).
+- **Tool delivery:** Fence Protocol (same as kimi/codex/opencode).
+- **Turn timeout:** 2 hours.
+- **Error detection:** Non-SUCCESS `result.status` (ERROR/CANCELED/INTERRUPTED/etc.) surfaces the error message.
 
 ---
 
@@ -111,6 +149,9 @@ Configured per role via the `provider` key in the org JSON. Resolved by
 | `vertex` | Sets `CLAUDE_CODE_USE_VERTEX=1` |
 | `gemini` | Sets `GEMINI_API_KEY` from `cfg.apiKeyEnv ?? 'GEMINI_API_KEY'` |
 | `openai` | Sets `OPENAI_API_KEY` from `cfg.apiKeyEnv ?? 'OPENAI_API_KEY'` |
+| `vercel-api-key` | Surfaces the named `apiKeyEnv` for the Vercel runner to read; **auto-resolves runtime to `'vercel'`**. Pair with `vendor` to pick the provider. |
+| `codex` | No env setup — Codex CLI reads `~/.codex/auth.json` from `codex login`; **auto-resolves runtime to `'codex'`** |
+| `antigravity` | No env setup — Antigravity CLI (`agy`) reads Google OAuth credentials from the OS keyring after interactive login; **auto-resolves runtime to `'antigravity'`** |
 
 ---
 
@@ -142,7 +183,7 @@ Source: [daemon.ts:L307](file:///Users/morteza/Desktop/tools/monomind/packages/@
    //     'kimicode' → KimiCodeAgentRunner)
    //   > undefined          // session.ts falls back to ClaudeAgentRunner
    ```
-   An org def may set a top-level `"runtime": "claude" | "kimicode" | "opencode"`
+   An org def may set a top-level `"runtime": "claude" | "kimicode" | "opencode" | "vercel" | "codex" | "antigravity"`
    to pin its own runtime regardless of the env var (`"claude"` forces the default
    Claude path even when `MONOMIND_RUNTIME` selects another runner). Each role may
    additionally set its own `runtime` field, which overrides the org-level value
@@ -222,9 +263,10 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](file:///Users/mor
 | `type` | `'specialist'` | `'boss'` or `'specialist'` |
 | `reports_to` | _(required)_ | `null` → boss |
 | `adapter_config.model` | `'claude-sonnet-4-5'` | Model string passed to runner |
-| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
+| `runtime` | _(unset)_ | Per-role runtime override: `'claude'` \| `'kimicode'` \| `'opencode'` \| `'vercel'` \| `'codex'` \| `'antigravity'`; beats the org-level `runtime` and `MONOMIND_RUNTIME` for this role's sessions |
 | `budget_tokens` | _(unset)_ | Per-role token budget override — replaces this role's even split of `run_config.budget_tokens`, so a token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide budget. `policy.maxTokens`, when set, still wins |
 | `provider.kind` | `'subscription'` | See §3 above |
+| `provider.vendor` | _(unset)_ | Which Vercel AI SDK provider to use (only when `kind='vercel-api-key'`): `'openai'` \| `'anthropic'` \| `'google'` \| `'xai'` \| `'deepseek'` \| `'glm'` \| `'mistral'` \| `'groq'` \| `'together'` \| `'fireworks'` \| `'cohere'` \| `'perplexity'` \| `'alibaba'` \| `'openrouter'` \| `'ollama'` \| `'openai-compatible'` |
 | `policy` | see below | Per-role tool/file/web policy |
 
 ### Role Policy (`RolePolicySchema`)
@@ -241,7 +283,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](file:///Users/mor
 
 ### Provider kinds (`ProviderSchema`)
 
-`subscription` (default) | `api-key` | `base-url` | `bedrock` | `vertex` | `gemini` | `openai`
+`subscription` (default) | `api-key` | `base-url` | `bedrock` | `vertex` | `gemini` | `openai` | `vercel-api-key` | `codex` | `antigravity`
 
 ### Org directory constant
 

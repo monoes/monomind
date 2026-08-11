@@ -97,14 +97,29 @@ export async function clearRefCache(): Promise<void> {
  * falling back to the hardcoded default port and launching/attaching to a
  * second, unrelated Chrome instance.
  */
-export async function saveActivePort(port: number, opts?: { launched?: boolean }): Promise<void> {
+export async function saveActivePort(
+  port: number,
+  opts?: { launched?: boolean; pid?: number; userDataDir?: string }
+): Promise<void> {
   try {
     await mkdir(CACHE_DIR, { recursive: true });
     // `launched` records provenance: true = monobrowse spawned this Chrome
     // (safe to Browser.close later); false = attached to a browser someone
     // else owns (must never be killed). Absent (old files) reads as launched
     // — matches pre-flag behavior where every persisted port came from open.
-    await writeFile(PORT_FILE, JSON.stringify({ port, launched: opts?.launched !== false, savedAt: Date.now() }));
+    //
+    // `pid`/`userDataDir` are persisted so a LATER, fresh CLI process (each
+    // command is its own node process — see module header) can still find
+    // and kill the Chrome this one launched. Without this, closeBrowser()'s
+    // PID-kill fallback can never fire outside the launching process, since
+    // the in-memory launchedPids Map (browser.ts) is empty there.
+    await writeFile(PORT_FILE, JSON.stringify({
+      port,
+      launched: opts?.launched !== false,
+      pid: opts?.pid,
+      userDataDir: opts?.userDataDir,
+      savedAt: Date.now(),
+    }));
   } catch {
     // Best-effort — persistence failure just means the next process falls
     // back to the hardcoded default port, matching prior behavior.
@@ -126,13 +141,21 @@ export async function loadActivePort(): Promise<number | null> {
   return (await loadActivePortInfo())?.port ?? null;
 }
 
-/** Load the persisted active port with its provenance flag. */
-export async function loadActivePortInfo(): Promise<{ port: number; launched: boolean } | null> {
+/** Load the persisted active port with its provenance flag, PID, user-data-dir, and save timestamp. */
+export async function loadActivePortInfo(): Promise<
+  { port: number; launched: boolean; pid?: number; userDataDir?: string; savedAt?: number } | null
+> {
   try {
     const raw = await readFile(PORT_FILE, 'utf8');
-    const data = JSON.parse(raw) as { port?: unknown; launched?: unknown };
+    const data = JSON.parse(raw) as { port?: unknown; launched?: unknown; pid?: unknown; userDataDir?: unknown; savedAt?: unknown };
     if (typeof data.port === 'number' && Number.isInteger(data.port) && data.port >= 1024 && data.port <= 65535) {
-      return { port: data.port, launched: data.launched !== false };
+      return {
+        port: data.port,
+        launched: data.launched !== false,
+        pid: typeof data.pid === 'number' && Number.isInteger(data.pid) && data.pid > 0 ? data.pid : undefined,
+        userDataDir: typeof data.userDataDir === 'string' ? data.userDataDir : undefined,
+        savedAt: typeof data.savedAt === 'number' ? data.savedAt : undefined,
+      };
     }
     return null;
   } catch {

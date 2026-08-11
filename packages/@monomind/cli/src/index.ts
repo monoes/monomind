@@ -11,7 +11,7 @@ import { dirname, join } from 'path';
 import type { Command, CommandContext, CommandResult, MonomindConfig, CLIError } from './types.js';
 import { CommandParser, commandParser } from './parser.js';
 import { OutputFormatter, output } from './output.js';
-import { commands, commandsByCategory, commandRegistry, getCommand, getCommandAsync, getCommandNames, hasCommand } from './commands/index.js';
+import { getCommand, getCommandAsync, getCommandNames, hasCommand, getCommandsByCategory } from './commands/index.js';
 import { suggestCommand } from './suggest.js';
 import { runStartupUpdateCheck, getUpdateTagline } from './update/index.js';
 
@@ -59,11 +59,6 @@ export class CLI {
     this.parser = commandParser;
     this.output = output;
     this.interactive = options.interactive ?? process.stdin.isTTY ?? false;
-
-    // Register all commands
-    for (const cmd of commands) {
-      this.parser.registerCommand(cmd);
-    }
   }
 
   /**
@@ -71,6 +66,19 @@ export class CLI {
    */
   async run(args: string[] = process.argv.slice(2)): Promise<void> {
     try {
+      // Two-phase parse: peek at the first non-flag token and, if it names a
+      // real command, lazy-load and register ONLY that command's full tree
+      // (subcommands/options included) before parsing. This keeps flag/alias
+      // scoping correct for arbitrarily deep subcommands (parse() needs the
+      // real Command object, not just its name) while never importing the
+      // other 31 commands. `--version` and friends need no command at all,
+      // so they skip this without importing anything.
+      const firstPositional = args.find(a => !a.startsWith('-'));
+      if (firstPositional && hasCommand(firstPositional) && !this.parser.getCommand(firstPositional)) {
+        const cmd = await getCommandAsync(firstPositional);
+        if (cmd) this.parser.registerCommand(cmd);
+      }
+
       // Parse arguments
       const parseResult = this.parser.parse(args);
       const { command: commandPath, flags, positional } = parseResult;
@@ -134,12 +142,12 @@ export class CLI {
           // First positional looks like an attempted command - suggest correction
           const attemptedCommand = positional[0];
           this.output.printError(`Unknown command: ${attemptedCommand}`);
-          const availableCommands = Array.from(new Set([...commands.map(c => c.name), ...getCommandNames()]));
+          const availableCommands = getCommandNames();
           const { message } = suggestCommand(attemptedCommand, availableCommands);
           this.output.writeln(this.output.dim(`  ${message}`));
           process.exit(1);
         } else {
-          this.showHelp();
+          await this.showHelp();
         }
         return;
       }
@@ -158,7 +166,7 @@ export class CLI {
       if (!command) {
         this.output.printError(`Unknown command: ${commandName}`);
         // Smart suggestions - include lazy-loadable commands in suggestions
-        const availableCommands = Array.from(new Set([...commands.map(c => c.name), ...getCommandNames()]));
+        const availableCommands = getCommandNames();
         const { message } = suggestCommand(commandName, availableCommands);
         this.output.writeln(this.output.dim(`  ${message}`));
         process.exit(1);
@@ -268,7 +276,9 @@ export class CLI {
   /**
    * Show main help
    */
-  private showHelp(): void {
+  private async showHelp(): Promise<void> {
+    const commandsByCategory = await getCommandsByCategory();
+
     this.output.writeln();
     const tagline = getUpdateTagline(this.version);
     this.output.writeln(this.output.bold(`${this.name} v${this.version}`) + this.output.dim(tagline));

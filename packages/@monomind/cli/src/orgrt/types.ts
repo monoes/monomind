@@ -1,9 +1,44 @@
 // packages/@monomind/cli/src/orgrt/types.ts
 import { z } from 'zod';
 
+export const ContextSliceSchema = z.object({ source: z.string(), summary: z.string() });
+export type ContextSlice = z.infer<typeof ContextSliceSchema>;
+export const ArtifactRefSchema = z.object({ path: z.string(), description: z.string().optional() });
+export type ArtifactRef = z.infer<typeof ArtifactRefSchema>;
+export const HandoffDecisionSchema = z.object({ text: z.string(), rationale: z.string().optional() });
+export type HandoffDecision = z.infer<typeof HandoffDecisionSchema>;
+export const OrgHandoffSchema = z.object({
+  taskId: z.string().optional(),
+  contextPackage: z.array(ContextSliceSchema).default([]),
+  artifacts: z.array(ArtifactRefSchema).default([]),
+  decisions: z.array(HandoffDecisionSchema).default([]),
+  nextAction: z.string(),
+});
+export type OrgHandoff = z.infer<typeof OrgHandoffSchema>;
+
+export const FailureRoutingSchema = z.object({
+  retry: z.object({
+    maxAttempts: z.number().int().positive(),
+    backoffMs: z.array(z.number().int().nonnegative()).optional(),
+  }).partial().optional(),
+  fallbackAssignee: z.string().optional(),
+  escalate: z.boolean().optional(),
+}).partial();
+export type FailureRouting = z.infer<typeof FailureRoutingSchema>;
+
 /** Per-role provider config. Default (absent) = subscription login of local Claude Code. */
 export const ProviderSchema = z.object({
-  kind: z.enum(['subscription', 'api-key', 'base-url', 'bedrock', 'vertex', 'gemini', 'openai']).default('subscription'),
+  kind: z.enum([
+    'subscription', 'api-key', 'base-url', 'bedrock', 'vertex', 'gemini', 'openai',
+    'vercel-api-key', 'codex', 'antigravity',
+  ]).default('subscription'),
+  /** Which Vercel AI SDK provider to use (only when kind='vercel-api-key'). */
+  vendor: z.enum([
+    'openai', 'anthropic', 'google', 'xai', 'deepseek', 'glm',
+    'mistral', 'groq', 'together', 'fireworks', 'cohere',
+    'perplexity', 'alibaba', 'openrouter', 'ollama',
+    'openai-compatible',
+  ]).optional(),
   /** env var NAME holding the API key (never the key itself) */
   apiKeyEnv: z.string().optional(),
   baseUrl: z.string().optional(),
@@ -70,7 +105,7 @@ export const RoleSchema = z.object({
    *  agent runtime regardless of the org-level `runtime` field or the
    *  MONOMIND_RUNTIME env var ('claude' explicitly forces the Claude default).
    *  Enables mixed-runtime orgs — e.g. a Claude coordinator with opencode workers. */
-  runtime: z.enum(['claude', 'kimicode', 'opencode']).optional(),
+  runtime: z.enum(['claude', 'kimicode', 'opencode', 'vercel', 'codex', 'antigravity']).optional(),
   /** Per-role override of run_config.max_turns_per_message — roles that legitimately
    *  need many more turns per message (e.g. a developer doing sequential build/fix/verify
    *  cycles) than others (e.g. docs, pm) shouldn't be forced onto one global budget. */
@@ -105,6 +140,7 @@ export const OrgDefSchema = z.object({
       failure_threshold: z.number().int().positive().default(5),
       cooldown_ms: z.number().int().nonnegative().default(0),
     }).partial().optional(),
+    failure_routing: FailureRoutingSchema.optional(),
     /** Stale-base drift detection: warn (or refuse) when the working tree is
      *  too many commits behind its tracking branch. 0 disables. */
     stale_base_threshold: z.number().int().nonnegative().default(0),
@@ -122,7 +158,7 @@ export const OrgDefSchema = z.object({
    *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude
    *  runner. Per-org values override the env var, and a role's own `runtime`
    *  field (see RoleSchema) overrides this per role. */
-  runtime: z.enum(['claude', 'kimicode', 'opencode']).optional(),
+  runtime: z.enum(['claude', 'kimicode', 'opencode', 'vercel', 'codex', 'antigravity']).optional(),
 }).passthrough();
 
 export type OrgDef = z.infer<typeof OrgDefSchema>;
@@ -136,7 +172,7 @@ export interface BusEvent {
   ts: number;
   org: string;
   run: string;
-  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage' | 'question' | 'gate';
+  type: 'message' | 'xorg' | 'tool' | 'asset' | 'chat' | 'status' | 'audit' | 'usage' | 'question' | 'gate' | 'trace';
   from?: string;
   to?: string;
   subject?: string;
@@ -152,6 +188,10 @@ export interface BusEvent {
   conversationId?: string;
   interactionId?: string;
   agentSessionId?: string;
+  traceNodeId?: string;
+  traceDurationMs?: number;
+  traceTokensIn?: number;
+  traceTokensOut?: number;
 }
 
 export interface DecisionGate {

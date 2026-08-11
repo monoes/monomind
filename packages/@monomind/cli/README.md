@@ -369,7 +369,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `monomind org run <name>` | Start an org as a real SDK-backed daemon |
 | `monomind org status` / `list` | Runtime state for one or all orgs |
 | `monomind org stop <name>` | Request a graceful stop |
-| `/mastermind:approve` | Action pending approval requests |
+| `/mastermind:approvev1` | Action pending approval requests |
 
 ### Business Domains
 | Command | What it does |

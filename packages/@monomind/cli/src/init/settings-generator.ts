@@ -152,34 +152,21 @@ export function generateSettings(options: InitOptions): object {
 }
 
 /**
- * Detect if we're on Windows for platform-aware hook commands.
- */
-const IS_WINDOWS = process.platform === 'win32';
-
-/**
- * Absolute path to the Node binary that ran `monomind init`.
- * Baked into generated hook commands so they work even when node
- * isn't on the bare PATH (e.g. nvm-managed installs where sh -c
- * doesn't source ~/.bashrc).
- */
-const NODE_BIN = process.execPath;
-
-/**
  * Build a hook command with reliable $CLAUDE_PROJECT_DIR expansion.
- * Wraps in `sh -c` to guarantee shell expansion on all platforms (macOS zsh,
- * Linux bash). Falls back to "." if CLAUDE_PROJECT_DIR is unset, since
- * Claude Code runs hooks from the project root.
- * On Windows, uses `cmd /c` with %CLAUDE_PROJECT_DIR%.
+ *
+ * Uses portable `node` (resolved from PATH at runtime) instead of baking
+ * the absolute `process.execPath` from the machine that ran `monomind init`.
+ * The old approach broke when settings.json was copied across platforms
+ * (e.g. Windows → macOS via git) because the absolute path and `cmd /c`
+ * wrapper were specific to the generating OS.
+ *
+ * Claude Code runs hook commands through the user's shell, so `node` is
+ * on PATH for nvm/fnm/volta-managed installs that load via shell profile.
  */
 function hookCmd(script: string, subcommand: string): string {
-  if (IS_WINDOWS) {
-    return `cmd /c "${NODE_BIN}" "%CLAUDE_PROJECT_DIR%/${script}" ${subcommand}`.trim();
-  }
-  // Use sh -c to ensure $CLAUDE_PROJECT_DIR is expanded by a real shell,
-  // even if Claude Code doesn't invoke hooks through a shell on macOS.
   // eslint-disable-next-line no-template-curly-in-string
   const dir = '${CLAUDE_PROJECT_DIR:-.}';
-  return `sh -c 'exec "${NODE_BIN}" "${dir}/${script}" ${subcommand}'`;
+  return `sh -c 'exec node "${dir}/${script}" ${subcommand}'`;
 }
 
 /** Shorthand for CJS hook-handler commands */
@@ -194,19 +181,17 @@ function autoMemoryCmd(subcommand: string): string {
 
 /** Shorthand for capture-handler (agent telemetry for org dashboard) */
 function captureHandlerCmd(subcommand: string): string {
-  // capture-handler does not use sh -c wrapper — it reads stdin directly
-  const dir = IS_WINDOWS ? '%CLAUDE_PROJECT_DIR%' : '${CLAUDE_PROJECT_DIR:-.}';
-  return `"${NODE_BIN}" "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
+  // capture-handler reads stdin directly — no sh -c wrapper
+  // eslint-disable-next-line no-template-curly-in-string
+  const dir = '${CLAUDE_PROJECT_DIR:-.}';
+  return `node "${dir}/.claude/helpers/handlers/capture-handler.cjs" ${subcommand}`;
 }
 
 /** Shorthand for standalone CJS helper scripts (no subcommand) */
 function standaloneHelperCmd(script: string): string {
-  if (IS_WINDOWS) {
-    return `cmd /c "${NODE_BIN}" "%CLAUDE_PROJECT_DIR%/.claude/helpers/${script}"`;
-  }
   // eslint-disable-next-line no-template-curly-in-string
   const dir = '${CLAUDE_PROJECT_DIR:-.}';
-  return `sh -c 'exec "${NODE_BIN}" "${dir}/.claude/helpers/${script}"'`;
+  return `sh -c 'exec node "${dir}/.claude/helpers/${script}"'`;
 }
 
 /**
@@ -217,19 +202,11 @@ function generateStatusLineConfig(_options: InitOptions): object {
   // Claude Code pipes JSON session data to the script via stdin.
   // Valid fields: type, command, padding (optional).
   // The script runs after each assistant message (debounced 300ms).
-  // NOTE: statusline must NOT use `cmd /c` on Windows either — Claude Code
-  // manages stdin directly for statusline commands; wrappers block forwarding.
-  if (IS_WINDOWS) {
-    return {
-      type: 'command',
-      command: `"${NODE_BIN}" "%CLAUDE_PROJECT_DIR%/.claude/helpers/statusline.cjs"`,
-    };
-  }
   // eslint-disable-next-line no-template-curly-in-string
   const dir = '${CLAUDE_PROJECT_DIR:-.}';
   return {
     type: 'command',
-    command: `sh -c 'exec "${NODE_BIN}" "${dir}/.claude/helpers/statusline.cjs"'`,
+    command: `sh -c 'exec node "${dir}/.claude/helpers/statusline.cjs"'`,
   };
 }
 

@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
 import { toNormLabel, MonographError } from '../types.js';
+import { safeJsonParse } from './utils.js';
 
 export function insertNode(db: Database.Database, node: MonographNode): void {
   db.prepare(`
@@ -71,16 +72,17 @@ export function getNodesByIds(db: Database.Database, ids: string[]): MonographNo
 }
 
 export function getNode(db: Database.Database, id: string): MonographNode | undefined {
-  const row = db
-    .prepare('SELECT * FROM nodes WHERE id = ?')
-    .get(id) as Record<string, unknown> | undefined;
+  const row = db.prepare('SELECT * FROM nodes WHERE id = ?').get(id) as
+    | Record<string, unknown>
+    | undefined;
   return row ? rowToNode(row) : undefined;
 }
 
 export function getNodesForFile(db: Database.Database, filePath: string): MonographNode[] {
-  const rows = db
-    .prepare('SELECT * FROM nodes WHERE file_path = ?')
-    .all(filePath) as Record<string, unknown>[];
+  const rows = db.prepare('SELECT * FROM nodes WHERE file_path = ?').all(filePath) as Record<
+    string,
+    unknown
+  >[];
   return rows.map(rowToNode);
 }
 
@@ -111,7 +113,7 @@ function rowToPropDef(row: Record<string, unknown>): PropertyDef {
     type: row.type as string,
     cardinality: row.cardinality as string,
     viewContext: row.view_context as string,
-    closedValues: row.closed_values ? JSON.parse(row.closed_values as string) : null,
+    closedValues: safeJsonParse<string[] | null>(row.closed_values as string | null, null),
     description: (row.description as string | null) ?? null,
     queryable: (row.queryable as number) === 1,
   };
@@ -119,13 +121,18 @@ function rowToPropDef(row: Record<string, unknown>): PropertyDef {
 
 /** List all registered property definitions */
 export function listProperties(db: Database.Database): PropertyDef[] {
-  const rows = db.prepare('SELECT * FROM node_properties ORDER BY ident').all() as Record<string, unknown>[];
+  const rows = db.prepare('SELECT * FROM node_properties ORDER BY ident').all() as Record<
+    string,
+    unknown
+  >[];
   return rows.map(rowToPropDef);
 }
 
 /** Get a single property definition */
 export function getProperty(db: Database.Database, ident: string): PropertyDef | null {
-  const row = db.prepare('SELECT * FROM node_properties WHERE ident = ?').get(ident) as Record<string, unknown> | undefined;
+  const row = db.prepare('SELECT * FROM node_properties WHERE ident = ?').get(ident) as
+    | Record<string, unknown>
+    | undefined;
   return row ? rowToPropDef(row) : null;
 }
 
@@ -165,25 +172,37 @@ export function queryByProperty(
   value: string | number | boolean,
   comparator: '=' | 'LIKE' | '>' | '<' = '=',
   limit = 100,
-): Array<{ id: string; name: string; label: string; filePath: string | null; propertyValue: unknown }> {
+): Array<{
+  id: string;
+  name: string;
+  label: string;
+  filePath: string | null;
+  propertyValue: unknown;
+}> {
   const propDef = getProperty(db, ident);
   if (!propDef) {
-    throw new MonographError(`Unknown property: '${ident}'. Register it first with upsertProperty.`);
+    throw new MonographError(
+      `Unknown property: '${ident}'. Register it first with upsertProperty.`,
+    );
   }
   if (!propDef.queryable) {
-    throw new MonographError(`Property '${ident}' is not queryable (view_context may be 'never' or queryable=false).`);
+    throw new MonographError(
+      `Property '${ident}' is not queryable (view_context may be 'never' or queryable=false).`,
+    );
   }
 
   const extractExpr = `json_extract(properties, '$.${ident}')`;
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT id, name, label, file_path, ${extractExpr} AS property_value
     FROM nodes
     WHERE properties IS NOT NULL
       AND ${extractExpr} ${comparator} ?
     LIMIT ?
-  `).all(value, limit) as Array<Record<string, unknown>>;
+  `)
+    .all(value, limit) as Array<Record<string, unknown>>;
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id as string,
     name: r.name as string,
     label: r.label as string,
@@ -192,7 +211,7 @@ export function queryByProperty(
   }));
 }
 
-function rowToNode(row: Record<string, unknown>): MonographNode {
+export function rowToNode(row: Record<string, unknown>): MonographNode {
   return {
     id: row.id as string,
     label: row.label as MonographNode['label'],
@@ -204,6 +223,9 @@ function rowToNode(row: Record<string, unknown>): MonographNode {
     communityId: row.community_id as number | undefined,
     isExported: (row.is_exported as number) === 1,
     language: row.language as string | undefined,
-    properties: row.properties ? JSON.parse(row.properties as string) : undefined,
+    properties: safeJsonParse<Record<string, unknown> | undefined>(
+      row.properties as string | null,
+      undefined,
+    ),
   };
 }

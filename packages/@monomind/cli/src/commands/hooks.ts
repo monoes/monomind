@@ -52,30 +52,36 @@ const preTaskCommand: Command = {
       name: 'task-id',
       short: 'i',
       description: 'Unique task identifier (auto-generated if omitted)',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'description',
       short: 'd',
       description: 'Task description',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'auto-spawn',
       short: 'a',
       description: 'Auto-spawn suggested agents',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
-    { command: 'monomind hooks pre-task -i task-123 -d "Fix auth bug"', description: 'Record task start' },
-    { command: 'monomind hooks pre-task -i task-456 -d "Implement feature" --auto-spawn', description: 'With auto-spawn' }
+    {
+      command: 'monomind hooks pre-task -i task-123 -d "Fix auth bug"',
+      description: 'Record task start',
+    },
+    {
+      command: 'monomind hooks pre-task -i task-456 -d "Implement feature" --auto-spawn',
+      description: 'With auto-spawn',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const taskId = (ctx.flags['task-id'] as string) || `task-${Date.now().toString(36)}`;
-    const description = ctx.args[0] || ctx.flags.description as string;
+    const description = ctx.args[0] || (ctx.flags.description as string);
 
     if (!description) {
       output.printError('Description is required: --description "your task"');
@@ -115,9 +121,9 @@ const preTaskCommand: Command = {
           `Task ID: ${result.taskId}`,
           `Description: ${result.description}`,
           `Complexity: ${result.complexity.toUpperCase()}`,
-          `Est. Duration: ${result.estimatedDuration}`
+          `Est. Duration: ${result.estimatedDuration}`,
         ].join('\n'),
-        'Task Registered'
+        'Task Registered',
       );
 
       if (result.suggestedAgents.length > 0) {
@@ -126,17 +132,23 @@ const preTaskCommand: Command = {
         output.printTable({
           columns: [
             { key: 'type', header: 'Agent Type', width: 20 },
-            { key: 'confidence', header: 'Confidence', width: 12, align: 'right', format: (v) => `${(Number(v) * 100).toFixed(1)}%` },
-            { key: 'reason', header: 'Reason', width: 35 }
+            {
+              key: 'confidence',
+              header: 'Confidence',
+              width: 12,
+              align: 'right',
+              format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
+            },
+            { key: 'reason', header: 'Reason', width: 35 },
           ],
-          data: result.suggestedAgents
+          data: result.suggestedAgents,
         });
       }
 
       if (result.risks.length > 0) {
         output.writeln();
         output.writeln(output.bold(output.error('Potential Risks')));
-        output.printList(result.risks.map(r => output.warning(r)));
+        output.printList(result.risks.map((r) => output.warning(r)));
       }
 
       if (result.recommendations.length > 0) {
@@ -154,7 +166,7 @@ const preTaskCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Post-task subcommand
@@ -167,40 +179,46 @@ const postTaskCommand: Command = {
       short: 'i',
       description: 'Task identifier',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'success',
       short: 's',
       description: 'Whether the task succeeded',
       type: 'boolean',
-      required: false
+      required: false,
     },
     {
       name: 'duration',
       short: 'd',
       description: 'Task duration in milliseconds',
-      type: 'number'
+      type: 'number',
     },
     {
       name: 'outcome',
       short: 'o',
       description: 'Outcome description',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'route-id',
       short: 'r',
       description: 'Route ID from a prior hooks route call (joins recommendation to outcome)',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   examples: [
-    { command: 'monomind hooks post-task -i task-123 --success true', description: 'Record successful task' },
-    { command: 'monomind hooks post-task -i task-456 --success false -o "Build failed"', description: 'Record failed task' }
+    {
+      command: 'monomind hooks post-task -i task-123 --success true',
+      description: 'Record successful task',
+    },
+    {
+      command: 'monomind hooks post-task -i task-456 --success false -o "Build failed"',
+      description: 'Record failed task',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = ctx.args[0] || ctx.flags['task-id'] as string;
+    const taskId = ctx.args[0] || (ctx.flags['task-id'] as string);
     // Default success to true for backward compatibility
     const success = ctx.flags.success !== undefined ? (ctx.flags.success as boolean) : true;
 
@@ -241,9 +259,17 @@ const postTaskCommand: Command = {
 
       if (result.learningUpdates) {
         output.writeln();
-        output.writeln(output.dim(`Agent patterns updated: ${result.learningUpdates.agentPatternsUpdated}`));
-        output.writeln(output.dim(`Strategies learned: ${result.learningUpdates.taskStrategiesLearned}`));
-        output.writeln(output.dim(`Complexity model: ${result.learningUpdates.complexityModelUpdated ? 'Updated' : 'No change'}`));
+        output.writeln(
+          output.dim(`Agent patterns updated: ${result.learningUpdates.agentPatternsUpdated}`),
+        );
+        output.writeln(
+          output.dim(`Strategies learned: ${result.learningUpdates.taskStrategiesLearned}`),
+        );
+        output.writeln(
+          output.dim(
+            `Complexity model: ${result.learningUpdates.complexityModelUpdated ? 'Updated' : 'No change'}`,
+          ),
+        );
       }
 
       if (result.nextRecommendations && result.nextRecommendations.length > 0) {
@@ -261,7 +287,7 @@ const postTaskCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Session-end subcommand
@@ -274,12 +300,12 @@ const sessionEndCommand: Command = {
       short: 's',
       description: 'Save session state for later restoration',
       type: 'boolean',
-      default: true
-    }
+      default: true,
+    },
   ],
   examples: [
     { command: 'monomind hooks session-end', description: 'End and save session' },
-    { command: 'monomind hooks session-end --save-state false', description: 'End without saving' }
+    { command: 'monomind hooks session-end --save-state false', description: 'End without saving' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.printInfo('Ending session...');
@@ -316,17 +342,20 @@ const sessionEndCommand: Command = {
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 25 },
-          { key: 'value', header: 'Value', width: 15, align: 'right' }
+          { key: 'value', header: 'Value', width: 15, align: 'right' },
         ],
         data: [
           { metric: 'Duration', value: `${(result.duration / 1000 / 60).toFixed(1)} min` },
           { metric: 'Tasks Executed', value: result.summary.tasksExecuted },
-          { metric: 'Tasks Succeeded', value: output.success(String(result.summary.tasksSucceeded)) },
+          {
+            metric: 'Tasks Succeeded',
+            value: output.success(String(result.summary.tasksSucceeded)),
+          },
           { metric: 'Tasks Failed', value: output.error(String(result.summary.tasksFailed)) },
           { metric: 'Commands Executed', value: result.summary.commandsExecuted },
           { metric: 'Files Modified', value: result.summary.filesModified },
-          { metric: 'Agents Spawned', value: result.summary.agentsSpawned }
-        ]
+          { metric: 'Agents Spawned', value: result.summary.agentsSpawned },
+        ],
       });
 
       if (result.statePath) {
@@ -351,7 +380,7 @@ const sessionEndCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Session-restore subcommand
@@ -364,29 +393,32 @@ const sessionRestoreCommand: Command = {
       short: 'i',
       description: 'Session ID to restore (use "latest" for most recent)',
       type: 'string',
-      default: 'latest'
+      default: 'latest',
     },
     {
       name: 'restore-agents',
       short: 'a',
       description: 'Restore spawned agents',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'restore-tasks',
       short: 't',
       description: 'Restore active tasks',
       type: 'boolean',
-      default: true
-    }
+      default: true,
+    },
   ],
   examples: [
     { command: 'monomind hooks session-restore', description: 'Restore latest session' },
-    { command: 'monomind hooks session-restore -i session-12345', description: 'Restore specific session' }
+    {
+      command: 'monomind hooks session-restore -i session-12345',
+      description: 'Restore specific session',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const sessionId = ctx.args[0] || ctx.flags['session-id'] as string || 'latest';
+    const sessionId = ctx.args[0] || (ctx.flags['session-id'] as string) || 'latest';
 
     output.printInfo(`Restoring session: ${output.highlight(sessionId)}`);
 
@@ -421,19 +453,22 @@ const sessionRestoreCommand: Command = {
       output.printTable({
         columns: [
           { key: 'item', header: 'Item', width: 25 },
-          { key: 'count', header: 'Count', width: 15, align: 'right' }
+          { key: 'count', header: 'Count', width: 15, align: 'right' },
         ],
         data: [
           { item: 'Tasks', count: result.restoredState.tasksRestored },
           { item: 'Agents', count: result.restoredState.agentsRestored },
-          { item: 'Memory Bridge', count: result.restoredState.memoryBridgeInitialized ? 'ready' : 'unavailable' }
-        ]
+          {
+            item: 'Memory Bridge',
+            count: result.restoredState.memoryBridgeInitialized ? 'ready' : 'unavailable',
+          },
+        ],
       });
 
       if (result.warnings && result.warnings.length > 0) {
         output.writeln();
         output.writeln(output.bold(output.warning('Warnings')));
-        output.printList(result.warnings.map(w => output.warning(w)));
+        output.printList(result.warnings.map((w) => output.warning(w)));
       }
 
       return { success: true, data: result };
@@ -445,7 +480,7 @@ const sessionRestoreCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Backward-compatible aliases for v2 hooks
@@ -455,7 +490,10 @@ const routeTaskCommand: Command = {
   description: '(DEPRECATED: Use "route" instead) Route task to optimal agent',
   options: routeCommand.options,
   examples: [
-    { command: 'monomind hooks route-task --auto-swarm true', description: 'Route with auto-swarm (v2 compat)' },
+    {
+      command: 'monomind hooks route-task --auto-swarm true',
+      description: 'Route with auto-swarm (v2 compat)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Silently handle v2-specific flags that don't exist in v1
@@ -465,7 +503,7 @@ const routeTaskCommand: Command = {
       return result || { success: true };
     }
     return { success: true };
-  }
+  },
 };
 
 const sessionStartCommand: Command = {
@@ -478,17 +516,20 @@ const sessionStartCommand: Command = {
       name: 'auto-configure',
       description: '(v2 compat) Auto-configure session',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'restore-context',
       description: '(v2 compat) Restore context',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
-    { command: 'monomind hooks session-start --auto-configure true', description: 'Start session (v2 compat)' },
+    {
+      command: 'monomind hooks session-start --auto-configure true',
+      description: 'Start session (v2 compat)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Map to session-restore for backward compatibility
@@ -497,7 +538,7 @@ const sessionStartCommand: Command = {
       return result || { success: true };
     }
     return { success: true };
-  }
+  },
 };
 
 // Pre-bash alias for pre-command (v2 compat)
@@ -506,7 +547,7 @@ const preBashCommand: Command = {
   description: '(ALIAS) Same as pre-command',
   options: preCommandCommand.options,
   examples: preCommandCommand.examples,
-  action: preCommandCommand.action
+  action: preCommandCommand.action,
 };
 
 // Post-bash alias for post-command (v2 compat)
@@ -515,7 +556,7 @@ const postBashCommand: Command = {
   description: '(ALIAS) Same as post-command',
   options: postCommandCommand.options,
   examples: postCommandCommand.examples,
-  action: postCommandCommand.action
+  action: postCommandCommand.action,
 };
 
 // Main hooks command
@@ -541,7 +582,7 @@ export const hooksCommand: Command = {
     intelligenceCommand,
     notifyCommand,
     workerCommand,
-      statuslineCommand,
+    statuslineCommand,
     // Coverage-aware routing commands
     coverageRouteCommand,
     coverageSuggestCommand,
@@ -558,10 +599,19 @@ export const hooksCommand: Command = {
   ],
   options: [],
   examples: [
-    { command: 'monomind hooks pre-edit -f src/utils.ts', description: 'Get context before editing' },
-    { command: 'monomind hooks route -t "Fix authentication bug"', description: 'Route task to optimal agent' },
+    {
+      command: 'monomind hooks pre-edit -f src/utils.ts',
+      description: 'Get context before editing',
+    },
+    {
+      command: 'monomind hooks route -t "Fix authentication bug"',
+      description: 'Route task to optimal agent',
+    },
     { command: 'monomind hooks pretrain', description: 'Bootstrap intelligence from repository' },
-    { command: 'monomind hooks metrics --v1-dashboard', description: 'View v1 performance metrics' }
+    {
+      command: 'monomind hooks metrics --v1-dashboard',
+      description: 'View v1 performance metrics',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -588,7 +638,7 @@ export const hooksCommand: Command = {
       `${output.highlight('metrics')}         - View learning metrics dashboard`,
       `${output.highlight('transfer')}        - Transfer patterns from another project`,
       `${output.highlight('list')}            - List all registered hooks`,
-      `${output.highlight('worker')}          - Background worker management (12 workers)`,
+      `${output.highlight('worker')}          - Background worker management (0 workers)`,
       `${output.highlight('statusline')}      - Generate dynamic statusline display`,
       `${output.highlight('coverage-route')}  - Route tasks based on coverage gaps (monovector)`,
       `${output.highlight('coverage-suggest')}- Suggest coverage improvements`,
@@ -606,11 +656,11 @@ export const hooksCommand: Command = {
       '🎯 Keyword routing + route-outcome measurement',
       '🔍 SQLite-backed vector search (ANN)',
       '🎯 32.3% token reduction',
-      '👥 Agent Teams integration (auto task assignment)'
+      '👥 Agent Teams integration (auto task assignment)',
     ]);
 
     return { success: true };
-  }
+  },
 };
 
 export default hooksCommand;

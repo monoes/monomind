@@ -166,11 +166,10 @@ export {
 } from './sampling.js';
 export type { LLMProvider, SamplingConfig, SamplingContext } from './sampling.js';
 
-// OAuth 2.1
+// OAuth 2.1 (outbound client)
 export {
   OAuthManager,
   createOAuthManager,
-  oauthMiddleware,
   InMemoryTokenStorage,
   createGitHubOAuthConfig,
   createGoogleOAuthConfig,
@@ -181,6 +180,14 @@ export type {
   TokenStorage,
   AuthorizationRequest,
 } from './oauth.js';
+
+// Inbound auth middleware
+export {
+  authMiddleware,
+  validateCredential,
+  timingSafeCompare,
+} from './auth.js';
+export type { AuthInfo, AuthValidationResult } from './auth.js';
 
 // Transport layer
 export {

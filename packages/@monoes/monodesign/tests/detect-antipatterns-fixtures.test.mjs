@@ -772,6 +772,37 @@ describe('detectHtml — missing-focus-visible', () => {
     const pass = detectText('button:focus { outline: none; } button:focus-visible { outline: 2px solid blue; }', path.join(FIXTURES, 'fv-pass.css'));
     assert.equal(pass.some(r => r.antipattern === 'missing-focus-visible'), false);
   });
+
+  // #124: collectCssRules() used to split selector lists on every comma,
+  // including ones inside :is()/:where()/:not()/:has() parens. That broke
+  // `:is(a, button):focus { outline: none }` into two bogus selectors
+  // (`:is(a` and `button):focus`) — the first phantom fragment could false-
+  // positive as interactive-with-no-focus-visible, and a real
+  // :focus-visible replacement inside :where(...) could get attributed to
+  // the wrong fragment. Fixed by making the comma-split paren-depth-aware.
+  it('#124: :is()/:where() with an internal comma is not split mid-selector', () => {
+    const flag = detectText(':is(a, button):focus { outline: none; }', path.join(FIXTURES, 'fv-is-flag.css'));
+    const hits = flag.filter(r => r.antipattern === 'missing-focus-visible');
+    assert.equal(hits.length, 1, `expected exactly one finding for the single :is() selector, got: ${hits.map(r => r.snippet).join('; ')}`);
+
+    const pass = detectText(':where(a, button):focus-visible { outline: 2px solid blue; }', path.join(FIXTURES, 'fv-where-pass.css'));
+    assert.equal(pass.some(r => r.antipattern === 'missing-focus-visible'), false);
+  });
+
+  it('#124: a real selector list alongside a functional pseudo-class still splits on its own top-level comma, not the parenthesized one', () => {
+    // `.a:focus, :is(b, c):focus` is TWO real selectors: `.a:focus` (the
+    // top-level comma should split here) and `:is(b, c):focus` (the comma
+    // inside the parens must NOT split here). checkFocusVisible reports at
+    // most one finding per stylesheet (first suppressor wins), so the
+    // regression check is that the reported selector is the real,
+    // unsplit `.a:focus` — never a phantom fragment like `:is(b` that a
+    // naive comma-split would have produced.
+    const flag = detectText('.a:focus, :is(b, c):focus { outline: none; }', path.join(FIXTURES, 'fv-mixed.css'));
+    const hits = flag.filter(r => r.antipattern === 'missing-focus-visible');
+    assert.equal(hits.length, 1, `expected exactly one finding, got: ${hits.map(r => r.snippet).join('; ')}`);
+    assert.match(hits[0].snippet, /"\.a:focus"/);
+    assert.doesNotMatch(hits[0].snippet, /:is\(b"/, 'must not report a phantom split fragment');
+  });
 });
 
 describe('detectHtml — hover-only-affordance', () => {

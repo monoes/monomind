@@ -59,7 +59,9 @@ function extractZig(src: string, fp: string): SymbolExtract[] {
 }
 
 // ── PowerShell ───────────────────────────────────────────────────────
-const PS_FN_RE = /^[ \t]*function\s+([\w-]+)\s*\{/gim;
+// PowerShell allows `function Name { ... }` and `function Name($a, $b) { ... }` —
+// the parameter list is optional and sits between the identifier and the body.
+const PS_FN_RE = /^[ \t]*function\s+([\w-]+)\s*(?:\([^)]*\))?\s*\{/gim;
 
 function extractPowershell(src: string, fp: string): SymbolExtract[] {
   const out: SymbolExtract[] = [];

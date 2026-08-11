@@ -16,6 +16,7 @@ const WEB_SEARCH_COST = 0.01;
 const FALLBACK_PRICING = {
   'claude-fable-5':   { in: 10e-6, out: 50e-6, cw: 12.5e-6, cr: 1e-6,   fast: 1 },
   'claude-mythos-5':  { in: 10e-6, out: 50e-6, cw: 12.5e-6, cr: 1e-6,   fast: 1 },
+  'claude-opus-5':    { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6,  fast: 6 },
   'claude-opus-4-8':  { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6,  fast: 6 },
   'claude-opus-4-7':  { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6,  fast: 6 },
   'claude-sonnet-5':  { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6,  fast: 1 },
@@ -29,6 +30,7 @@ const FALLBACK_PRICING = {
   'claude-3-7-sonnet':{ in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6,  fast: 1 },
   'claude-3-5-sonnet':{ in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6,  fast: 1 },
   'claude-haiku-4-5': { in: 1e-6, out: 5e-6,  cw: 1.25e-6, cr: 0.1e-6,  fast: 1 },
+  'claude-haiku-4':   { in: 0.8e-6, out: 4e-6, cw: 1e-6,   cr: 0.08e-6, fast: 1 },
   'claude-3-5-haiku': { in: 0.8e-6, out: 4e-6, cw: 1e-6,   cr: 0.08e-6, fast: 1 },
   'gpt-4o':           { in: 2.5e-6, out: 10e-6, cw: 2.5e-6, cr: 1.25e-6, fast: 1 },
   'gpt-4o-mini':      { in: 0.15e-6, out: 0.6e-6, cw: 0.15e-6, cr: 0.075e-6, fast: 1 },
@@ -39,6 +41,7 @@ const FALLBACK_PRICING = {
 const SHORT_MODEL_NAMES = {
   'claude-fable-5': 'Fable 5',
   'claude-mythos-5': 'Mythos 5',
+  'claude-opus-5': 'Opus 5',
   'claude-opus-4-8': 'Opus 4.8',
   'claude-opus-4-7': 'Opus 4.7',
   'claude-sonnet-5': 'Sonnet 5',
@@ -52,6 +55,7 @@ const SHORT_MODEL_NAMES = {
   'claude-3-7-sonnet': 'Sonnet 3.7',
   'claude-3-5-sonnet': 'Sonnet 3.5',
   'claude-haiku-4-5':  'Haiku 4.5',
+  'claude-haiku-4':    'Haiku 4',
   'claude-3-5-haiku':  'Haiku 3.5',
   'gpt-4o-mini': 'GPT-4o Mini',
   'gpt-4o':      'GPT-4o',
@@ -59,8 +63,16 @@ const SHORT_MODEL_NAMES = {
   'gemini-2.5-pro': 'Gemini 2.5 Pro',
 };
 
+// Short-name aliases -> canonical model keys. The other three pricing
+// tables in this repo (model-pricing.ts, collector.mjs, server.mjs) all
+// carry this map; this file previously lacked it entirely, so a caller
+// using a bare "--model sonnet"/"haiku"/"opus" string went unpriced here
+// even though every sibling table would have resolved it.
+var MODEL_ALIAS = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-6' };
+
 function getCanonical(model) {
-  return model.replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  var stripped = model.replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  return MODEL_ALIAS[stripped] || stripped;
 }
 
 function getModelCosts(model) {

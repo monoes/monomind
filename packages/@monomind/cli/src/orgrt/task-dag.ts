@@ -1,16 +1,28 @@
 // packages/@monomind/cli/src/orgrt/task-dag.ts
 
+export type OrgTaskStatus = 'pending' | 'ready' | 'running' | 'done' | 'failed' | 'split' | 'merged' | 'cancelled';
+
 export interface OrgTask {
   id: string;
   title: string;
   assignee: string;
   deps: string[];
-  status: 'pending' | 'ready' | 'running' | 'done' | 'failed';
+  status: OrgTaskStatus;
   result?: string;
   createdAt: number;
   startedAt?: number;
   completedAt?: number;
+  splitFrom?: string;
+  mergedInto?: string;
 }
+
+export interface SplitChild {
+  title: string;
+  assignee: string;
+}
+
+const TERMINAL = new Set<OrgTaskStatus>(['done', 'failed', 'split', 'merged', 'cancelled']);
+const SATISFIED = new Set<OrgTaskStatus>(['done', 'cancelled']);
 
 export class TaskDag {
   private tasks = new Map<string, OrgTask>();
@@ -27,7 +39,7 @@ export class TaskDag {
       this.tasks.delete(id);
       throw new Error(`adding "${id}" would create a cycle`);
     }
-    if (deps.length === 0 || deps.every(d => this.tasks.get(d)!.status === 'done')) {
+    if (deps.length === 0 || deps.every(d => SATISFIED.has(this.tasks.get(d)!.status))) {
       task.status = 'ready';
     }
     return task;
@@ -58,6 +70,94 @@ export class TaskDag {
     }
   }
 
+  split(parentId: string, children: SplitChild[]): OrgTask[] {
+    const parent = this.tasks.get(parentId);
+    if (!parent) throw new Error(`task "${parentId}" not found`);
+    if (TERMINAL.has(parent.status)) throw new Error(`task "${parentId}" is terminal (${parent.status})`);
+    if (children.length === 0) throw new Error('split requires at least one child');
+
+    const parentDeps = [...parent.deps];
+    const parentSatisfied = parentDeps.length === 0 || parentDeps.every(d => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'));
+    const created: OrgTask[] = [];
+    const childIds: string[] = [];
+    for (const c of children) {
+      const id = `task-${++this.counter}`;
+      const child: OrgTask = {
+        id, title: c.title, assignee: c.assignee,
+        deps: [...parentDeps],
+        status: parentSatisfied ? 'ready' : 'pending',
+        createdAt: Date.now(),
+        splitFrom: parentId,
+      };
+      this.tasks.set(id, child);
+      created.push(child);
+      childIds.push(id);
+    }
+
+    parent.status = 'split';
+    parent.completedAt = Date.now();
+
+    for (const t of this.tasks.values()) {
+      if (t.id === parentId) continue;
+      if (t.deps.includes(parentId)) {
+        t.deps = t.deps.filter(d => d !== parentId);
+        for (const cid of childIds) {
+          if (!t.deps.includes(cid)) t.deps.push(cid);
+        }
+      }
+    }
+
+    if (this.hasCycle()) {
+      for (const c of created) this.tasks.delete(c.id);
+      parent.status = parentSatisfied ? 'ready' : 'pending';
+      parent.completedAt = undefined;
+      throw new Error(`splitting "${parentId}" would create a cycle`);
+    }
+
+    return created;
+  }
+
+  merge(sourceId: string, targetId: string): OrgTask {
+    const source = this.tasks.get(sourceId);
+    const target = this.tasks.get(targetId);
+    if (!source) throw new Error(`task "${sourceId}" not found`);
+    if (!target) throw new Error(`task "${targetId}" not found`);
+    if (sourceId === targetId) throw new Error(`cannot merge a task into itself`);
+
+    source.status = 'merged';
+    source.mergedInto = targetId;
+    source.completedAt = Date.now();
+
+    for (const d of source.deps) {
+      if (d !== targetId && !target.deps.includes(d)) target.deps.push(d);
+    }
+
+    for (const t of this.tasks.values()) {
+      if (t.id === sourceId || t.id === targetId) continue;
+      if (t.deps.includes(sourceId)) {
+        t.deps = t.deps.filter(d => d !== sourceId);
+        if (!t.deps.includes(targetId)) t.deps.push(targetId);
+      }
+    }
+
+    if (target.status === 'pending' && target.deps.every(d => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'))) {
+      target.status = 'ready';
+    }
+    this.promoteReady();
+
+    return target;
+  }
+
+  cancel(id: string, reason?: string): OrgTask[] {
+    const t = this.tasks.get(id);
+    if (!t) throw new Error(`task "${id}" not found`);
+    if (TERMINAL.has(t.status)) throw new Error(`task "${id}" is terminal (${t.status})`);
+    t.status = 'cancelled';
+    t.result = reason;
+    t.completedAt = Date.now();
+    return this.promoteReady();
+  }
+
   ready(): OrgTask[] {
     return [...this.tasks.values()].filter(t => t.status === 'ready');
   }
@@ -82,7 +182,7 @@ export class TaskDag {
     const promoted: OrgTask[] = [];
     for (const t of this.tasks.values()) {
       if (t.status !== 'pending') continue;
-      if (t.deps.every(d => this.tasks.get(d)?.status === 'done')) {
+      if (t.deps.every(d => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'))) {
         t.status = 'ready';
         promoted.push(t);
       }

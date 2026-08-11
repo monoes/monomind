@@ -23,18 +23,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CommandParser } from '../parser.js';
 import { CLI } from '../index.js';
-import { commands } from '../commands/index.js';
+import { loadAllCommands } from '../commands/index.js';
 import type { Command } from '../types.js';
 
-function realParser(): CommandParser {
+async function realParser(): Promise<CommandParser> {
   const parser = new CommandParser({ allowUnknownFlags: true });
+  const commands = await loadAllCommands();
   for (const cmd of commands) parser.registerCommand(cmd);
   return parser;
 }
 
 describe('unknown command is never silently replaced by a later token', () => {
-  it('does not promote the second token to the command when the first is unknown', () => {
-    const parser = realParser();
+  it('does not promote the second token to the command when the first is unknown', async () => {
+    const parser = await realParser();
     const result = parser.parse(['zzzgarbage', 'status']);
 
     // Before the fix: command === ['status'], positional === ['zzzgarbage'].
@@ -42,16 +43,16 @@ describe('unknown command is never silently replaced by a later token', () => {
     expect(result.positional).toEqual(['zzzgarbage', 'status']);
   });
 
-  it('still resolves a real command that follows only global flags', () => {
-    const parser = realParser();
+  it('still resolves a real command that follows only global flags', async () => {
+    const parser = await realParser();
     // `--verbose` is a declared global boolean, so it consumes no value and
     // `status` is still the first non-flag token.
     expect(parser.parse(['--verbose', 'status']).command).toEqual(['status']);
     expect(parser.parse(['status']).command).toEqual(['status']);
   });
 
-  it('does not treat a subcommand name as the command when the parent is a typo', () => {
-    const parser = realParser();
+  it('does not treat a subcommand name as the command when the parent is a typo', async () => {
+    const parser = await realParser();
     // `list` exists as a subcommand of several commands but not top-level;
     // `memory` does. A typo'd parent must not fall through to anything.
     const result = parser.parse(['memry', 'memory', 'list']);
@@ -59,8 +60,8 @@ describe('unknown command is never silently replaced by a later token', () => {
     expect(result.positional[0]).toBe('memry');
   });
 
-  it('keeps positional args of a resolved command working', () => {
-    const parser = realParser();
+  it('keeps positional args of a resolved command working', async () => {
+    const parser = await realParser();
     const result = parser.parse(['status', 'zzzgarbage']);
     expect(result.command).toEqual(['status']);
     expect(result.positional).toEqual(['zzzgarbage']);
@@ -68,8 +69,8 @@ describe('unknown command is never silently replaced by a later token', () => {
 });
 
 describe('options on subcommands nested 2+ levels deep are visible to the parser', () => {
-  it('resolves a depth-2 short flag to its own option, not the global alias pool', () => {
-    const parser = realParser();
+  it('resolves a depth-2 short flag to its own option, not the global alias pool', async () => {
+    const parser = await realParser();
     const result = parser.parse(['hooks', 'worker', 'run', '-n', 'audit']);
 
     // Before the fix: flags.name was undefined and flags.limit === 'audit',

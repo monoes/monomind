@@ -17,14 +17,30 @@ export interface ModelPrice {
   cr:  number;
 }
 
-/** Canonical pricing map — union of all models from collector + server tables. */
+/**
+ * Canonical pricing map — union of all models across every pricing table in
+ * this repo (this file, src/ui/collector.mjs, src/ui/server.mjs, and
+ * .claude/helpers/token-tracker.cjs). Those four are plain JS/CJS that
+ * cannot `import` this `.ts` module directly, so they carry their own
+ * hand-synced copies of this table; `tests/*-pricing-parity.test.ts` (or
+ * the equivalent per-package test) asserts they all cover the same model
+ * *set* so a newly added model here doesn't quietly stay unpriced in the
+ * others.
+ */
 export const MODEL_PRICING: Record<string, ModelPrice> = {
+  // ── Frontier (Fable/Mythos) ────────────────────────────────────────────────
+  'claude-fable-5':    { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
+  'claude-mythos-5':   { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
   // ── Opus ────────────────────────────────────────────────────────────────────
+  'claude-opus-5':     { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
+  'claude-opus-4-7':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
+  'claude-opus-4-1':   { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
   'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
   // ── Sonnet ──────────────────────────────────────────────────────────────────
+  'claude-sonnet-5':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
   'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
   'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
   'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
@@ -35,6 +51,7 @@ export const MODEL_PRICING: Record<string, ModelPrice> = {
   'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
   'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
   // ── OpenAI ──────────────────────────────────────────────────────────────────
+  'gpt-5':             { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6  },
   'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6  },
   'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
   // ── Google ──────────────────────────────────────────────────────────────────

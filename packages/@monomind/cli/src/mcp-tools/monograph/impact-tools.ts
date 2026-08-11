@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { join, resolve, sep } from 'path';
 import { existsSync, readdirSync } from 'fs';
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
@@ -8,7 +8,8 @@ import { getDbPath, _isValidDb, text } from './shared.js';
 
 export const monographImpactTool: MCPTool = {
   name: 'monograph_impact',
-  description: 'Blast radius analysis: finds all direct and transitive callers of a symbol and computes a risk score.',
+  description:
+    'Blast radius analysis: finds all direct and transitive callers of a symbol and computes a risk score.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -27,16 +28,22 @@ export const monographImpactTool: MCPTool = {
       const MAX_IMPACT_NAME_LEN = 512;
       const MAX_IMPACT_PATH_LEN = 4 * 1024;
       const rawImpactName = input.name as string;
-      const impactName = typeof rawImpactName === 'string' && rawImpactName.length > MAX_IMPACT_NAME_LEN
-        ? rawImpactName.slice(0, MAX_IMPACT_NAME_LEN) : rawImpactName;
+      const impactName =
+        typeof rawImpactName === 'string' && rawImpactName.length > MAX_IMPACT_NAME_LEN
+          ? rawImpactName.slice(0, MAX_IMPACT_NAME_LEN)
+          : rawImpactName;
       const rawImpactPath = input.filePath as string | undefined;
-      const impactPath = typeof rawImpactPath === 'string' && rawImpactPath.length > MAX_IMPACT_PATH_LEN
-        ? rawImpactPath.slice(0, MAX_IMPACT_PATH_LEN) : rawImpactPath;
+      const impactPath =
+        typeof rawImpactPath === 'string' && rawImpactPath.length > MAX_IMPACT_PATH_LEN
+          ? rawImpactPath.slice(0, MAX_IMPACT_PATH_LEN)
+          : rawImpactPath;
       const rawDepth = input.depth as number | undefined;
-      const depth = rawDepth === undefined
-        ? undefined
-        : (typeof rawDepth === 'number' && Number.isFinite(rawDepth) && rawDepth > 0
-          ? Math.min(Math.floor(rawDepth), 6) : 3);
+      const depth =
+        rawDepth === undefined
+          ? undefined
+          : typeof rawDepth === 'number' && Number.isFinite(rawDepth) && rawDepth > 0
+            ? Math.min(Math.floor(rawDepth), 6)
+            : 3;
       const result = getMonographImpact(db, {
         name: impactName,
         filePath: impactPath,
@@ -46,7 +53,11 @@ export const monographImpactTool: MCPTool = {
 
       // Format impact as structured text for direct LLM consumption
       const root = result.node as any;
-      const rootLoc = root.filePath ? (root.startLine != null ? `${root.filePath}:${root.startLine}` : root.filePath) : '';
+      const rootLoc = root.filePath
+        ? root.startLine != null
+          ? `${root.filePath}:${root.startLine}`
+          : root.filePath
+        : '';
       const lines: string[] = [
         `[${root.label ?? '?'}] ${root.name}  ${rootLoc}`,
         '',
@@ -54,14 +65,21 @@ export const monographImpactTool: MCPTool = {
       ];
 
       if (result.riskScore != null) {
-        const riskLabel = (result.riskScore as number) >= 0.8 ? 'HIGH' : (result.riskScore as number) >= 0.5 ? 'MEDIUM' : 'LOW';
+        const riskLabel =
+          (result.riskScore as number) >= 0.8
+            ? 'HIGH'
+            : (result.riskScore as number) >= 0.5
+              ? 'MEDIUM'
+              : 'LOW';
         lines.push(`Risk score: ${(result.riskScore as number).toFixed(2)} (${riskLabel})`);
       }
       lines.push('');
 
       const affected = [
         ...((result.directCallers as any[]) ?? []),
-        ...((result.transitiveCallers as Array<{ depth: number; nodes: any[] }>) ?? []).flatMap(t => t.nodes ?? []),
+        ...((result.transitiveCallers as Array<{ depth: number; nodes: any[] }>) ?? []).flatMap(
+          (t) => t.nodes ?? [],
+        ),
       ] as any[];
       if (affected.length > 0) {
         lines.push(`Affected callers (${affected.length}):`);
@@ -76,7 +94,9 @@ export const monographImpactTool: MCPTool = {
       }
 
       return text(lines.join('\n').trim());
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -84,7 +104,8 @@ export const monographImpactTool: MCPTool = {
 
 export const monographApiImpactTool: MCPTool = {
   name: 'monograph_api_impact',
-  description: 'Analyze the blast radius of an API route: finds the handler, performs forward BFS through CALLS edges, and computes a risk score.',
+  description:
+    'Analyze the blast radius of an API route: finds the handler, performs forward BFS through CALLS edges, and computes a risk score.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -102,32 +123,44 @@ export const monographApiImpactTool: MCPTool = {
         routePath: input.routePath as string,
         method: input.method as string | undefined,
       });
-      if (!result.route) return text(`Route not found: ${input.routePath as string}. Run monograph_build or check the path.`);
-      const riskLabel = result.riskScore >= 0.7 ? 'HIGH' : result.riskScore >= 0.4 ? 'MEDIUM' : 'LOW';
+      if (!result.route)
+        return text(
+          `Route not found: ${input.routePath as string}. Run monograph_build or check the path.`,
+        );
+      const riskLabel =
+        result.riskScore >= 0.7 ? 'HIGH' : result.riskScore >= 0.4 ? 'MEDIUM' : 'LOW';
       const lines: string[] = [
         `Route: ${result.route.method} ${result.route.path}  risk=${riskLabel} (${result.riskScore.toFixed(2)})`,
       ];
       if (result.handler) {
         const hLoc = result.handler.filePath
-          ? (result.handler.startLine != null ? `${result.handler.filePath}:${result.handler.startLine}` : result.handler.filePath)
+          ? result.handler.startLine != null
+            ? `${result.handler.filePath}:${result.handler.startLine}`
+            : result.handler.filePath
           : '';
         lines.push(`Handler: ${result.handler.name}${hLoc ? `  ${hLoc}` : ''}`);
       }
       if (result.callees.length > 0) {
-        lines.push(`Callees (${result.callees.length}):`)
+        lines.push(`Callees (${result.callees.length}):`);
         for (const c of result.callees.slice(0, 15)) {
           const loc = c.node.filePath
-            ? (c.node.startLine != null ? `${c.node.filePath}:${c.node.startLine}` : c.node.filePath)
+            ? c.node.startLine != null
+              ? `${c.node.filePath}:${c.node.startLine}`
+              : c.node.filePath
             : '';
-          lines.push(`  ${'  '.repeat(c.depth)}→ ${c.node.name} [${c.node.label}]${loc ? `  ${loc}` : ''}`);
+          lines.push(
+            `  ${'  '.repeat(c.depth)}→ ${c.node.name} [${c.node.label}]${loc ? `  ${loc}` : ''}`,
+          );
         }
         if (result.callees.length > 15) lines.push(`  … ${result.callees.length - 15} more`);
       }
       if (result.affectedProcesses.length > 0) {
-        lines.push(`Affected processes: ${result.affectedProcesses.map(p => p.name).join(', ')}`);
+        lines.push(`Affected processes: ${result.affectedProcesses.map((p) => p.name).join(', ')}`);
       }
       return text(lines.join('\n'));
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -135,7 +168,8 @@ export const monographApiImpactTool: MCPTool = {
 
 export const monographDeadCodeTool: MCPTool = {
   name: 'monograph_dead_code',
-  description: 'Detect dead code: exported functions with zero inbound references, files with no importers, and stale dist build artifacts. Returns structured JSON with candidates grouped by category. Always verify candidates with grep before deleting.',
+  description:
+    'Detect dead code: exported functions with zero inbound references, files with no importers, and stale dist build artifacts. Returns structured JSON with candidates grouped by category. Always verify candidates with grep before deleting.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -150,7 +184,11 @@ export const monographDeadCodeTool: MCPTool = {
   handler: async (input) => {
     const { openDb } = await import('@monoes/monograph');
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
-    const cats = (input.categories as string[] | undefined) ?? ['dead-functions', 'orphan-files', 'stale-dist'];
+    const cats = (input.categories as string[] | undefined) ?? [
+      'dead-functions',
+      'orphan-files',
+      'stale-dist',
+    ];
     const result: Record<string, unknown> = {};
 
     const dbPath = getDbPath(repoPath);
@@ -158,7 +196,9 @@ export const monographDeadCodeTool: MCPTool = {
     // @monoes/monograph release this CLI depends on — check validity
     // ourselves so a missing DB doesn't get silently auto-created empty.
     if (!_isValidDb(dbPath)) {
-      return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
+      return text(
+        JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }),
+      );
     }
     let db: ReturnType<typeof openDb> | null = null;
     try {
@@ -169,12 +209,18 @@ export const monographDeadCodeTool: MCPTool = {
       // create exactly that as a side effect of an unrelated tool call before
       // monograph_build ever runs). Verify actual content post-open so this
       // reports "never built" instead of a misleading "0 dead functions found".
-      const { count } = db.prepare('SELECT COUNT(*) as count FROM nodes').get() as { count: number };
+      const { count } = db.prepare('SELECT COUNT(*) as count FROM nodes').get() as {
+        count: number;
+      };
       if (count === 0) {
-        return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
+        return text(
+          JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }),
+        );
       }
     } catch {
-      return text(JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }));
+      return text(
+        JSON.stringify({ error: 'No monograph index found. Run monograph_build first.' }),
+      );
     }
 
     try {
@@ -183,26 +229,45 @@ export const monographDeadCodeTool: MCPTool = {
         const { readFileSync } = await import('fs');
         const nodes = detectDeadCodeNodes(db);
         // Filter out stale graph nodes: verify the function name actually appears in the source file
-        const verified = nodes.filter(n => {
+        // SEC-6: n.filePath is DB-sourced. A poisoned monograph.db could
+        // ship `../../etc/passwd` and exfiltrate (or, with a malicious
+        // `name`, probe for known strings). Resolve against repoPath and
+        // refuse anything that escapes it.
+        const repoRoot = resolve(repoPath);
+        const verified = nodes.filter((n) => {
           if (!n.filePath) return false;
+          const resolved = resolve(repoPath, n.filePath);
+          if (!resolved.startsWith(repoRoot + sep) && resolved !== repoRoot) return false;
           try {
-            const content = readFileSync(join(repoPath, n.filePath), 'utf-8');
+            const content = readFileSync(resolved, 'utf-8');
             return content.includes(n.name);
-          } catch { return false; }
+          } catch {
+            return false;
+          }
         });
         const staleCount = nodes.length - verified.length;
         result['dead-functions'] = {
           count: verified.length,
-          candidates: verified.map(n => ({
+          candidates: verified.map((n) => ({
             name: n.name,
-            location: n.filePath ? (n.startLine ? `${n.filePath}:${n.startLine}` : n.filePath) : null,
+            location: n.filePath
+              ? n.startLine
+                ? `${n.filePath}:${n.startLine}`
+                : n.filePath
+              : null,
           })),
-          ...(staleCount > 0 ? { staleIndexEntries: staleCount, note: 'Some graph entries reference deleted functions. Rebuild the index with monograph_build to clean up.' } : {}),
+          ...(staleCount > 0
+            ? {
+                staleIndexEntries: staleCount,
+                note: 'Some graph entries reference deleted functions. Rebuild the index with monograph_build to clean up.',
+              }
+            : {}),
         };
       }
 
       if (cats.includes('orphan-files')) {
-        const rows = db.prepare(`
+        const rows = db
+          .prepare(`
           SELECT n.name, n.file_path,
             (SELECT COUNT(*) FROM edges e WHERE e.source_id = n.id AND e.relation = 'IMPORTS') as imports_out,
             (SELECT COUNT(*) FROM edges e WHERE e.target_id = n.id AND e.relation = 'IMPORTS') as imported_by
@@ -225,7 +290,13 @@ export const monographDeadCodeTool: MCPTool = {
             AND n.file_path NOT LIKE '%/dist/%'
             AND n.file_path NOT LIKE '%node_modules%'
           ORDER BY n.file_path
-        `).all() as Array<{ name: string; file_path: string; imports_out: number; imported_by: number }>;
+        `)
+          .all() as Array<{
+          name: string;
+          file_path: string;
+          imports_out: number;
+          imported_by: number;
+        }>;
 
         const withOutbound = rows.filter((r: any) => r.imports_out > 0);
         const isolated = rows.filter((r: any) => r.imports_out === 0);
@@ -233,14 +304,19 @@ export const monographDeadCodeTool: MCPTool = {
         result['orphan-files'] = {
           count: withOutbound.length,
           note: 'Files that import other modules but nothing imports them. May be lazy-loaded or dynamically imported — verify with grep.',
-          candidates: withOutbound.map((r: any) => ({ file: r.file_path, outboundImports: r.imports_out })),
-          ...(isolated.length > 0 ? {
-            isolated: {
-              count: isolated.length,
-              note: 'Files with zero edges in either direction — likely standalone scripts or entry points.',
-              files: isolated.map((r: any) => r.file_path),
-            },
-          } : {}),
+          candidates: withOutbound.map((r: any) => ({
+            file: r.file_path,
+            outboundImports: r.imports_out,
+          })),
+          ...(isolated.length > 0
+            ? {
+                isolated: {
+                  count: isolated.length,
+                  note: 'Files with zero edges in either direction — likely standalone scripts or entry points.',
+                  files: isolated.map((r: any) => r.file_path),
+                },
+              }
+            : {}),
         };
       }
 
@@ -270,26 +346,32 @@ function findStaleDist(repoPath: string): Record<string, unknown> {
     let resourceForks = 0;
 
     try {
-      const distDirs = readdirSync(pkgDistSrc, { withFileTypes: true })
-        .filter(d => d.isDirectory() && !d.name.startsWith('.') && !d.name.startsWith('._'));
+      const distDirs = readdirSync(pkgDistSrc, { withFileTypes: true }).filter(
+        (d) => d.isDirectory() && !d.name.startsWith('.') && !d.name.startsWith('._'),
+      );
       const srcDirs = new Set(
         readdirSync(pkgSrc, { withFileTypes: true })
-          .filter(d => d.isDirectory() && !d.name.startsWith('.'))
-          .map(d => d.name),
+          .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+          .map((d) => d.name),
       );
       for (const d of distDirs) {
         if (!srcDirs.has(d.name)) staleDirs.push(d.name);
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
 
     try {
-      const distFiles = readdirSync(pkgDistSrc)
-        .filter(f => f.endsWith('.js') && !f.startsWith('.') && !f.startsWith('._'));
+      const distFiles = readdirSync(pkgDistSrc).filter(
+        (f) => f.endsWith('.js') && !f.startsWith('.') && !f.startsWith('._'),
+      );
       for (const f of distFiles) {
         const tsName = f.replace(/\.js$/, '.ts');
         if (!existsSync(join(pkgSrc, tsName))) staleFiles.push(f);
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
 
     // Count macOS resource fork files
     const countRF = (dir: string) => {
@@ -298,7 +380,9 @@ function findStaleDist(repoPath: string): Record<string, unknown> {
           if (entry.name.startsWith('._')) resourceForks++;
           else if (entry.isDirectory()) countRF(join(dir, entry.name));
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     };
     countRF(pkgDistSrc);
 
@@ -341,10 +425,16 @@ function findStaleDist(repoPath: string): Record<string, unknown> {
         if (f) findings.push(f);
       }
     }
-  } catch { /* skip */ }
+  } catch {
+    /* skip */
+  }
 
   return {
-    count: findings.reduce((s, f) => s + ((f.staleDirs as string[])?.length ?? 0) + ((f.staleFiles as string[])?.length ?? 0), 0),
+    count: findings.reduce(
+      (s, f) =>
+        s + ((f.staleDirs as string[])?.length ?? 0) + ((f.staleFiles as string[])?.length ?? 0),
+      0,
+    ),
     note: 'Directories/files in dist/src/ with no corresponding source. Fix: rm -rf dist && npm run build.',
     findings,
   };
@@ -354,13 +444,23 @@ function findStaleDist(repoPath: string): Record<string, unknown> {
 
 export const monographRouteMapTool: MCPTool = {
   name: 'monograph_route_map',
-  description: 'List all HTTP routes in the codebase with their handler info. Supports filtering by URL prefix or HTTP method.',
+  description:
+    'List all HTTP routes in the codebase with their handler info. Supports filtering by URL prefix or HTTP method.',
   inputSchema: {
     type: 'object',
     properties: {
-      prefix: { type: 'string', description: 'Filter routes whose path contains this prefix (e.g. /api)' },
-      method: { type: 'string', description: 'Filter by HTTP method: GET, POST, PUT, DELETE, PATCH, ANY' },
-      includeMiddleware: { type: 'boolean', description: 'Include middleware/use routes (default: false)' },
+      prefix: {
+        type: 'string',
+        description: 'Filter routes whose path contains this prefix (e.g. /api)',
+      },
+      method: {
+        type: 'string',
+        description: 'Filter by HTTP method: GET, POST, PUT, DELETE, PATCH, ANY',
+      },
+      includeMiddleware: {
+        type: 'boolean',
+        description: 'Include middleware/use routes (default: false)',
+      },
     },
   },
   handler: async (input) => {
@@ -373,17 +473,25 @@ export const monographRouteMapTool: MCPTool = {
         method: input.method as string | undefined,
         includeMiddleware: input.includeMiddleware as boolean | undefined,
       });
-      if (result.routes.length === 0) return text('No routes found. Run monograph_build first or adjust your filters.');
+      if (result.routes.length === 0)
+        return text('No routes found. Run monograph_build first or adjust your filters.');
       const lines = [`Routes (${result.total} total):`];
       for (const r of result.routes) {
         const loc = r.handlerFile
-          ? (r.handlerLine != null ? `${r.handlerFile}:${r.handlerLine}` : r.handlerFile)
+          ? r.handlerLine != null
+            ? `${r.handlerFile}:${r.handlerLine}`
+            : r.handlerFile
           : '';
-        const mw = r.middlewareChain.length > 0 ? `  middleware: ${r.middlewareChain.join(' → ')}` : '';
-        lines.push(`  ${r.method} ${r.path}${r.handlerName ? ` → ${r.handlerName}` : ''}${loc ? `  (${loc})` : ''}${mw}`);
+        const mw =
+          r.middlewareChain.length > 0 ? `  middleware: ${r.middlewareChain.join(' → ')}` : '';
+        lines.push(
+          `  ${r.method} ${r.path}${r.handlerName ? ` → ${r.handlerName}` : ''}${loc ? `  (${loc})` : ''}${mw}`,
+        );
       }
       return text(lines.join('\n'));
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -391,7 +499,8 @@ export const monographRouteMapTool: MCPTool = {
 
 export const monographShapeCheckTool: MCPTool = {
   name: 'monograph_shape_check',
-  description: 'Validate API route response shapes: checks that handler return keys match consumer property accesses. Detects shape mismatches between producer and consumer.',
+  description:
+    'Validate API route response shapes: checks that handler return keys match consumer property accesses. Detects shape mismatches between producer and consumer.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -426,7 +535,9 @@ export const monographShapeCheckTool: MCPTool = {
         lines.push(`  Accessed keys: ${result.shape.accessedKeys.join(', ')}`);
       }
       if (result.shape.mismatches.length > 0) {
-        lines.push(`  Mismatches (accessed but not returned): ${result.shape.mismatches.join(', ')}`);
+        lines.push(
+          `  Mismatches (accessed but not returned): ${result.shape.mismatches.join(', ')}`,
+        );
       }
       if (result.shape.extra.length > 0) {
         lines.push(`  Unused returned keys: ${result.shape.extra.join(', ')}`);
@@ -441,7 +552,9 @@ export const monographShapeCheckTool: MCPTool = {
         }
       }
       return text(lines.join('\n'));
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -449,14 +562,18 @@ export const monographShapeCheckTool: MCPTool = {
 
 export const monographRenameTool: MCPTool = {
   name: 'monograph_rename',
-  description: 'Dry-run multi-file rename: finds all references to a symbol and shows before/after diffs without writing files.',
+  description:
+    'Dry-run multi-file rename: finds all references to a symbol and shows before/after diffs without writing files.',
   inputSchema: {
     type: 'object',
     properties: {
       oldName: { type: 'string', description: 'Current symbol name' },
       newName: { type: 'string', description: 'New symbol name' },
       filePath: { type: 'string', description: 'Optional file path to disambiguate the symbol' },
-      dryRun: { type: 'boolean', description: 'Always true — files are never modified (default: true)' },
+      dryRun: {
+        type: 'boolean',
+        description: 'Always true — files are never modified (default: true)',
+      },
     },
     required: ['oldName', 'newName'],
   },
@@ -489,7 +606,9 @@ export const monographRenameTool: MCPTool = {
       }
       if (occurrences.length > 30) lines.push(`  … ${occurrences.length - 30} more`);
       return text(lines.join('\n').trim());
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -497,7 +616,8 @@ export const monographRenameTool: MCPTool = {
 
 export const monographToolMapTool: MCPTool = {
   name: 'monograph_tool_map',
-  description: 'List MCP/RPC tool definitions in the knowledge graph with handler associations. Shows which functions handle each tool.',
+  description:
+    'List MCP/RPC tool definitions in the knowledge graph with handler associations. Shows which functions handle each tool.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -511,13 +631,17 @@ export const monographToolMapTool: MCPTool = {
     try {
       const results = getToolMap(db, { tool: input.tool as string | undefined });
       if (results.length === 0) return text('No tools found. Run monograph_build first.');
-      const lines = results.map(r => {
+      const lines = results.map((r) => {
         const loc = r.handlerFile
-          ? (r.handlerLine != null ? `${r.handlerFile}:${r.handlerLine}` : r.handlerFile)
+          ? r.handlerLine != null
+            ? `${r.handlerFile}:${r.handlerLine}`
+            : r.handlerFile
           : (r.filePath ?? '');
         return `${r.name}${r.handlerName ? ` → ${r.handlerName}` : ''}${loc ? `  (${loc})` : ''}`;
       });
       return text(`Tools (${results.length}):\n${lines.join('\n')}`);
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
