@@ -308,8 +308,9 @@ export function generateKimiAgentsMd(): string {
 /**
  * Generate ~/.kimi-code/statusline.sh — reads the cwd out of kimi's stdin
  * JSON snapshot and delegates to that project's monomind statusline helper,
- * printing only the first line (kimi ignores the rest). Exits 0 with no
- * output when there's nothing to show (kimi then keeps its built-in layout).
+ * joining its multi-line output into the single footer line kimi renders.
+ * Exits 0 with no output when there's nothing to show (kimi then keeps its
+ * built-in layout).
  *
  * The script must be free of backticks and ${...} outside its own template
  * usage — it is embedded into a TypeScript template literal by the caller.
@@ -325,6 +326,10 @@ export function generateKimiStatuslineSh(): string {
 # killed and kimi permanently falls back to its built-in layout. So this
 # wrapper never renders inline: it prints the last cached line instantly and
 # refreshes the cache in a detached background job every few seconds.
+#
+# Kimi renders ONLY the first stdout line as the footer, but the monomind
+# renderer outputs 4+ lines. So the background refresh joins all content
+# lines (skipping the ─── separator lines) into a single line for the cache.
 INPUT=$(cat)
 
 # Cheap cwd extraction (no node startup — that alone costs ~50ms of the cap).
@@ -347,10 +352,12 @@ if [ $((now - mtime)) -ge $TTL ]; then
   mkdir -p "$CACHE_DIR" 2>/dev/null
   (
     LINE=""
+    # Join all rendered lines into one (kimi reads only the first stdout
+    # line); drop the pure ─── separator lines first.
     if [ -f "$PROJECT_DIR/.claude/helpers/statusline.cjs" ]; then
-      LINE=$(CLAUDE_PROJECT_DIR="$PROJECT_DIR" node "$PROJECT_DIR/.claude/helpers/statusline.cjs" 2>/dev/null | head -1)
+      LINE=$(CLAUDE_PROJECT_DIR="$PROJECT_DIR" node "$PROJECT_DIR/.claude/helpers/statusline.cjs" 2>/dev/null | grep -v '──' | paste -sd' ' -)
     elif [ -f "$PROJECT_DIR/.gemini/helpers/statusline.cjs" ]; then
-      LINE=$(CLAUDE_PROJECT_DIR="$PROJECT_DIR" node "$PROJECT_DIR/.gemini/helpers/statusline.cjs" 2>/dev/null | head -1)
+      LINE=$(CLAUDE_PROJECT_DIR="$PROJECT_DIR" node "$PROJECT_DIR/.gemini/helpers/statusline.cjs" 2>/dev/null | grep -v '──' | paste -sd' ' -)
     fi
     [ -n "$LINE" ] && printf '%s\\n' "$LINE" > "$CACHE.tmp" && mv "$CACHE.tmp" "$CACHE"
   ) >/dev/null 2>&1 &
