@@ -141,19 +141,20 @@ export async function loadActivePort(): Promise<number | null> {
   return (await loadActivePortInfo())?.port ?? null;
 }
 
-/** Load the persisted active port with its provenance flag, PID, and user-data-dir. */
+/** Load the persisted active port with its provenance flag, PID, user-data-dir, and save timestamp. */
 export async function loadActivePortInfo(): Promise<
-  { port: number; launched: boolean; pid?: number; userDataDir?: string } | null
+  { port: number; launched: boolean; pid?: number; userDataDir?: string; savedAt?: number } | null
 > {
   try {
     const raw = await readFile(PORT_FILE, 'utf8');
-    const data = JSON.parse(raw) as { port?: unknown; launched?: unknown; pid?: unknown; userDataDir?: unknown };
+    const data = JSON.parse(raw) as { port?: unknown; launched?: unknown; pid?: unknown; userDataDir?: unknown; savedAt?: unknown };
     if (typeof data.port === 'number' && Number.isInteger(data.port) && data.port >= 1024 && data.port <= 65535) {
       return {
         port: data.port,
         launched: data.launched !== false,
         pid: typeof data.pid === 'number' && Number.isInteger(data.pid) && data.pid > 0 ? data.pid : undefined,
         userDataDir: typeof data.userDataDir === 'string' ? data.userDataDir : undefined,
+        savedAt: typeof data.savedAt === 'number' ? data.savedAt : undefined,
       };
     }
     return null;

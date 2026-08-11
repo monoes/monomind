@@ -332,10 +332,28 @@ const openCommand: Command = {
     // persist the launched PID/userDataDir so a later process's closeBrowser
     // can still kill this Chrome even though launchedPids (browser.ts) is
     // per-process and empty there.
-    await browser.saveActivePort(_port, {
-      pid: browser.getLaunchedPid(_port),
-      userDataDir: browser.getLaunchedUserDataDir(_port),
-    });
+    //
+    // launchBrowser() can either LAUNCH a fresh Chrome or ATTACH to one
+    // already listening on the requested port (see its own "attach if
+    // already Chrome" comment) — it returns only a port number, with no
+    // signal telling this caller which happened. getLaunchedPid(_port) is
+    // undefined on the attach path (this process never spawned anything).
+    // Bug fixed here: unconditionally saving {pid: undefined, ...} on
+    // attach used to CLOBBER a real PID a previous `open` had already
+    // persisted for this exact port, destroying the only way a later
+    // process's closeBrowser() PID-kill fallback could ever find it.
+    const freshPid = browser.getLaunchedPid(_port);
+    const freshUserDataDir = browser.getLaunchedUserDataDir(_port);
+    if (freshPid !== undefined) {
+      await browser.saveActivePort(_port, { pid: freshPid, userDataDir: freshUserDataDir });
+    } else {
+      // Attach path: preserve whatever PID/userDataDir was already on file
+      // for this port (most likely from the process that originally
+      // launched it) instead of overwriting with undefined.
+      const existing = await browser.loadActivePortInfo();
+      const preserved = existing && existing.port === _port ? existing : undefined;
+      await browser.saveActivePort(_port, { pid: preserved?.pid, userDataDir: preserved?.userDataDir });
+    }
     ensureSignalCleanupHandlers();
     const conn = await browser.connectToTarget(_port);
     _client = conn.client;

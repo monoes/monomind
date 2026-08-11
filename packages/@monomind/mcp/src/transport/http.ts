@@ -423,11 +423,22 @@ export class HttpTransport extends EventEmitter implements ITransport {
         const url = new URL(req.url || '', `http://${req.headers.host}`);
         const fromQuery = url.searchParams.get('token');
         const apiKeyHeader = req.headers['x-api-key'] as string | undefined;
+        // #110-review: the PRE-existing inline check's `.replace(/^Bearer\s+/i, '')`
+        // was a no-op for a bare (non-'Bearer'-prefixed) Authorization header,
+        // so a client sending the raw token value with no prefix authenticated
+        // successfully — that behavior must not regress just because this now
+        // routes through validateCredential(), whose 'token' branch requires a
+        // literal 'Bearer ' prefix to match. Synthesize one when the header is
+        // present but doesn't already carry it, same as the query-fallback case
+        // right below already does.
+        const authHeaderWithScheme = authHeader
+          ? (/^Bearer\s+/i.test(authHeader) ? authHeader : `Bearer ${authHeader}`)
+          : undefined;
         // synthesize a Bearer header from the query fallback so this goes
         // through the SAME validateCredential() the HTTP path uses — the
         // previous inline loop only ever checked `auth.tokens`, so an
         // `api-key`-configured server silently rejected every WS client.
-        const effectiveAuthHeader = authHeader ?? (fromQuery ? `Bearer ${fromQuery}` : undefined);
+        const effectiveAuthHeader = authHeaderWithScheme ?? (fromQuery ? `Bearer ${fromQuery}` : undefined);
 
         const authResult = validateCredential(this.config.auth, effectiveAuthHeader, apiKeyHeader);
         if (!authResult.valid) {

@@ -86,15 +86,14 @@ Bash("npx monomind@latest hooks post-edit --file '[main-file]' --train-neural tr
 # 3. Record task completion with metrics
 Bash("npx monomind@latest hooks post-task --task-id '[id]' --success true --store-results true")
 
-# 4. Trigger optimization worker if performance-related
-Bash("npx monomind@latest hooks worker run optimize")
+# 4. Refresh the codebase map worker after a structural change
+Bash("npx monomind@latest hooks worker run map")
 ```
 
 ### Continuous Improvement Triggers
 
 | Trigger                | Worker        | When to Use              |
 | ---------------------- | ------------- | ------------------------ |
-| After major refactor   | `optimize`    | Performance snapshot     |
 | After security changes | `audit`       | Security analysis        |
 | Every 5+ file changes  | `map`         | Update codebase map      |
 | After heavy sessions   | `consolidate` | Memory consolidation     |
@@ -310,7 +309,7 @@ package was deleted:
 
 ## Hooks System (29 Hook Subcommands + 8 Background Workers)
 
-Full hook list with flags: `npx monomind@latest hooks list`. Worker list: `npx monomind@latest hooks worker list` (run one on demand with `hooks worker run <name>`). The metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh automatically at session start when their output file is missing or older than 6 hours.
+Full hook list with flags: `npx monomind@latest hooks list`. Worker list: `npx monomind@latest hooks worker list` (run one on demand with `hooks worker run <name>`). The metrics-producing workers (ddd, map, audit, consolidate) refresh automatically at session start when their output file is missing or older than 6 hours.
 
 ### Essential Hook Commands
 

@@ -29,13 +29,26 @@ interface CrossFileEdge {
 
 /**
  * Every file `mod` reaches into another module through: barrel re-exports
- * (`mod.reExports`) AND ordinary symbol references from `import { x } from
- * '...'` (`mod.references`, where `fromFile` is the file the imported symbol
- * lives in — see graph/node-types.ts). Only `reExports` was checked before,
- * so a plain import with no re-export passed with zero violations no matter
- * how badly it crossed a zone boundary — the primary case this check exists
- * to catch. `references` carries real line numbers; `reExports` does not, so
- * those edges still report line 1.
+ * (`mod.reExports`) and, WHEN PRESENT, symbol references (`mod.references`,
+ * where `fromFile` is the file the imported symbol lives in — see
+ * graph/node-types.ts). `references` carries real line numbers; `reExports`
+ * does not, so those edges still report line 1.
+ *
+ * CAVEAT (found in review, kept here rather than silently reverted): the
+ * ONLY writer of `ModuleNode.references` anywhere in this package is
+ * graph/re-exports/propagate.ts's barrel-re-export propagation — a plain
+ * `import { x } from '../other-zone/y'` with no barrel/re-export anywhere in
+ * the chain never populates `references` at all, so this function does NOT
+ * actually catch that case despite reading as if it does. Fixing that
+ * properly means teaching some real import-graph builder to push a
+ * SymbolReference for every ordinary import, which nothing in this package
+ * currently does — `analyzeBoundaries`/`findBoundaryViolations` here (and
+ * their sibling `unused-exports.ts`) have zero production callers; both
+ * operate purely on hand-constructed ModuleNode fixtures in their own test
+ * files, not on any real parsed codebase. If you need working, wired-up
+ * boundary checking today, use `pipeline/phases/boundary.ts`'s
+ * `detectBoundaryViolations`, which queries the SQLite `edges` table
+ * directly and already covers every import edge, barrel or not.
  */
 function edgesForModule(mod: ModuleNode): CrossFileEdge[] {
   const seen = new Set<string>();
