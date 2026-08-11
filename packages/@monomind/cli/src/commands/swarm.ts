@@ -10,7 +10,7 @@ import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
-import { getMonomindDataRoot, getProjectCwd, migrateLegacyStoreFile } from '../mcp-tools/types.js';
+import { getMonomindDataRoot, getProjectCwd, migrateLegacyStoreFile } from '../utils/paths.js';
 
 // Canonical paths — resolved through getMonomindDataRoot() so the CLI and the MCP
 // tools (agent-tools.ts / swarm-tools.ts / task-tools.ts) read and write the SAME
@@ -72,7 +72,8 @@ function getSwarmStatus(swarmId?: string) {
             const running = Object.values(swarms)
               .filter((s: Record<string, unknown>) => s.status !== 'terminated')
               .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
-                String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+                String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
+              );
             if (running.length > 0) swarmState = running[0];
           }
         } else if (store?.id || store?.swarmId) {
@@ -113,7 +114,7 @@ function getSwarmStatus(swarmId?: string) {
   let sessionCount = 0;
   if (fs.existsSync(sessionDir)) {
     try {
-      sessionCount = fs.readdirSync(sessionDir).filter(f => f.endsWith('.json')).length;
+      sessionCount = fs.readdirSync(sessionDir).filter((f) => f.endsWith('.json')).length;
     } catch {
       // Ignore
     }
@@ -139,7 +140,7 @@ function getSwarmStatus(swarmId?: string) {
   const tasksDir = path.join(getSwarmDir(), 'tasks');
   if (fs.existsSync(tasksDir)) {
     try {
-      const taskFiles = fs.readdirSync(tasksDir).filter(f => f.endsWith('.json'));
+      const taskFiles = fs.readdirSync(tasksDir).filter((f) => f.endsWith('.json'));
       for (const file of taskFiles) {
         try {
           const taskFilePath = path.join(tasksDir, file);
@@ -185,7 +186,11 @@ function getSwarmStatus(swarmId?: string) {
   }
 
   return {
-    id: swarmId || (swarmState as Record<string, string>)?.swarmId || (swarmState as Record<string, string>)?.id || 'no-active-swarm',
+    id:
+      swarmId ||
+      (swarmState as Record<string, string>)?.swarmId ||
+      (swarmState as Record<string, string>)?.id ||
+      'no-active-swarm',
     topology: (swarmState as Record<string, string>)?.topology || 'none',
     status,
     objective: (swarmState as Record<string, string>)?.objective || 'No active objective',
@@ -194,38 +199,46 @@ function getSwarmStatus(swarmId?: string) {
       total: totalAgents,
       active: activeAgents,
       idle: Math.max(0, totalAgents - activeAgents),
-      completed: 0
+      completed: 0,
     },
     progress,
     tasks: {
       total: totalTasks,
       completed: completedTasks,
       inProgress: inProgressTasks,
-      pending: pendingTasks
+      pending: pendingTasks,
     },
     metrics: {
       tokensUsed: 0,
       avgResponseTime: '--',
       successRate: totalTasks > 0 ? `${Math.round((completedTasks / totalTasks) * 100)}%` : '--',
-      elapsedTime: '--'
+      elapsedTime: '--',
     },
     coordination: {
       consensusRounds: 0,
       messagesSent: 0,
-      conflictsResolved: 0
+      conflictsResolved: 0,
     },
-    hasActiveSwarm: !!swarmState || totalAgents > 0
+    hasActiveSwarm: !!swarmState || totalAgents > 0,
   };
 }
 
 // Swarm topologies
 const TOPOLOGIES = [
-  { value: 'hierarchical', label: 'Hierarchical', hint: 'Queen-led coordination with worker agents' },
+  {
+    value: 'hierarchical',
+    label: 'Hierarchical',
+    hint: 'Queen-led coordination with worker agents',
+  },
   { value: 'mesh', label: 'Mesh', hint: 'Fully connected peer-to-peer network' },
   { value: 'ring', label: 'Ring', hint: 'Circular communication pattern' },
   { value: 'star', label: 'Star', hint: 'Central coordinator with spoke agents' },
   { value: 'hybrid', label: 'Hybrid', hint: 'Hierarchical mesh for maximum flexibility' },
-  { value: 'hierarchical-mesh', label: 'Hierarchical Mesh', hint: 'v1 15-agent queen + peer communication (recommended)' }
+  {
+    value: 'hierarchical-mesh',
+    label: 'Hierarchical Mesh',
+    hint: 'v1 15-agent queen + peer communication (recommended)',
+  },
 ];
 
 // Swarm strategies
@@ -238,7 +251,7 @@ const STRATEGIES = [
   { value: 'testing', label: 'Testing', hint: 'Comprehensive test coverage' },
   { value: 'optimization', label: 'Optimization', hint: 'Performance optimization' },
   { value: 'maintenance', label: 'Maintenance', hint: 'Codebase maintenance and refactoring' },
-  { value: 'analysis', label: 'Analysis', hint: 'Code analysis and documentation' }
+  { value: 'analysis', label: 'Analysis', hint: 'Code analysis and documentation' },
 ];
 
 // Initialize swarm
@@ -251,39 +264,39 @@ const initCommand: Command = {
       short: 't',
       description: 'Swarm topology',
       type: 'string',
-      choices: TOPOLOGIES.map(t => t.value),
-      default: 'hierarchical'
+      choices: TOPOLOGIES.map((t) => t.value),
+      default: 'hierarchical',
     },
     {
       name: 'max-agents',
       short: 'm',
       description: 'Maximum number of agents',
       type: 'number',
-      default: 15
+      default: 15,
     },
     {
       name: 'auto-scale',
       description: 'Enable automatic scaling',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'strategy',
       short: 's',
       description: 'Coordination strategy',
       type: 'string',
-      choices: STRATEGIES.map(s => s.value)
+      choices: STRATEGIES.map((s) => s.value),
     },
     {
       name: 'v1-mode',
       description: 'Enable v1 15-agent hierarchical mesh mode',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let topology = ctx.flags.topology as string;
-    const maxAgents = ctx.flags['max-agents'] as number || 15;
+    const maxAgents = (ctx.flags['max-agents'] as number) || 15;
     const v1Mode = ctx.flags.v1Mode as boolean;
 
     // mode enables hierarchical-mesh hybrid
@@ -297,7 +310,7 @@ const initCommand: Command = {
       topology = await select({
         message: 'Select swarm topology:',
         options: TOPOLOGIES,
-        default: 'hierarchical'
+        default: 'hierarchical',
       });
     }
 
@@ -318,7 +331,14 @@ const initCommand: Command = {
           autoScaling?: boolean;
         };
       }>('swarm_init', {
-        topology: topology as 'hierarchical' | 'mesh' | 'adaptive' | 'ring' | 'star' | 'hybrid' | 'hierarchical-mesh',
+        topology: topology as
+          | 'hierarchical'
+          | 'mesh'
+          | 'adaptive'
+          | 'ring'
+          | 'star'
+          | 'hybrid'
+          | 'hierarchical-mesh',
         maxAgents,
         config: {
           communicationProtocol: 'message-bus',
@@ -347,7 +367,7 @@ const initCommand: Command = {
       output.printTable({
         columns: [
           { key: 'property', header: 'Property', width: 20 },
-          { key: 'value', header: 'Value', width: 35 }
+          { key: 'value', header: 'Value', width: 35 },
         ],
         data: [
           { property: 'Swarm ID', value: result.swarmId },
@@ -355,8 +375,8 @@ const initCommand: Command = {
           { property: 'Max Agents', value: result.config.maxAgents },
           { property: 'Auto Scale', value: result.config.autoScaling ? 'Enabled' : 'Disabled' },
           { property: 'Protocol', value: result.config.communicationProtocol || 'N/A' },
-          { property: 'v1 Mode', value: v1Mode ? 'Enabled' : 'Disabled' }
-        ]
+          { property: 'v1 Mode', value: v1Mode ? 'Enabled' : 'Disabled' },
+        ],
       });
 
       output.writeln();
@@ -372,7 +392,11 @@ const initCommand: Command = {
         const stateFile = path.join(swarmDir2, SWARM_STATE_FILE);
         let store: Record<string, unknown> = { swarms: {}, version: '3.0.0' };
         if (fs.existsSync(stateFile)) {
-          try { store = JSON.parse(fs.readFileSync(stateFile, 'utf-8')); } catch { /* use default */ }
+          try {
+            store = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+          } catch {
+            /* use default */
+          }
         }
         if (!store.swarms || typeof store.swarms !== 'object') store.swarms = {};
         (store.swarms as Record<string, unknown>)[result.swarmId] = {
@@ -384,11 +408,12 @@ const initCommand: Command = {
           tasks: [],
           config: { strategy: ctx.flags.strategy || 'development', v1Mode },
           createdAt: result.initializedAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         };
         writeJsonFileAtomic(stateFile, store);
       } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[swarm-init] failed to persist swarm state file:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[swarm-init] failed to persist swarm state file:', e);
       }
 
       if (ctx.flags.format === 'json') {
@@ -404,7 +429,7 @@ const initCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Start swarm execution
@@ -417,35 +442,41 @@ const startCommand: Command = {
       short: 'o',
       description: 'Swarm objective/task',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'strategy',
       short: 's',
       description: 'Execution strategy',
       type: 'string',
-      choices: STRATEGIES.map(s => s.value)
+      choices: STRATEGIES.map((s) => s.value),
     },
     {
       name: 'parallel',
       short: 'p',
       description: 'Enable parallel execution',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'monitor',
       description: 'Enable real-time monitoring',
       type: 'boolean',
-      default: true
-    }
+      default: true,
+    },
   ],
   examples: [
-    { command: 'monomind swarm start -o "Build REST API" -s development', description: 'Start development swarm' },
-    { command: 'monomind swarm start -o "Analyze codebase" --parallel', description: 'Parallel analysis' }
+    {
+      command: 'monomind swarm start -o "Build REST API" -s development',
+      description: 'Start development swarm',
+    },
+    {
+      command: 'monomind swarm start -o "Analyze codebase" --parallel',
+      description: 'Parallel analysis',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const objective = ctx.args[0] || ctx.flags.objective as string;
+    const objective = ctx.args[0] || (ctx.flags.objective as string);
     let strategy = ctx.flags.strategy as string;
 
     if (!objective) {
@@ -458,7 +489,7 @@ const startCommand: Command = {
       strategy = await select({
         message: 'Select execution strategy:',
         options: STRATEGIES,
-        default: 'development'
+        default: 'development',
       });
     }
 
@@ -477,16 +508,16 @@ const startCommand: Command = {
         { key: 'role', header: 'Role', width: 20 },
         { key: 'type', header: 'Type', width: 15 },
         { key: 'count', header: 'Count', width: 8, align: 'right' },
-        { key: 'purpose', header: 'Purpose', width: 30 }
+        { key: 'purpose', header: 'Purpose', width: 30 },
       ],
-      data: agentPlan
+      data: agentPlan,
     });
 
     // Confirm execution
     if (ctx.interactive) {
       const confirmed = await confirm({
         message: `Deploy ${agentPlan.reduce((sum, a) => sum + a.count, 0)} agents?`,
-        default: true
+        default: true,
       });
 
       if (!confirmed) {
@@ -500,7 +531,10 @@ const startCommand: Command = {
     const totalAgents = agentPlan.reduce((sum: number, a: { count: number }) => sum + a.count, 0);
 
     output.writeln();
-    const spinner = output.createSpinner({ text: 'Initializing swarm via MCP...', spinner: 'dots' });
+    const spinner = output.createSpinner({
+      text: 'Initializing swarm via MCP...',
+      spinner: 'dots',
+    });
     spinner.start();
 
     let resolvedSwarmId = swarmId;
@@ -521,7 +555,11 @@ const startCommand: Command = {
       // threw (bad input, filesystem/config issue, etc.), not that a server is down.
       spinner.fail('swarm_init failed — swarm metadata saved locally only');
       output.writeln(output.dim(`  Error: ${err instanceof Error ? err.message : String(err)}`));
-      output.writeln(output.dim('  Run with -v/--verbose for more detail, or `monomind doctor` to check config/permission issues.'));
+      output.writeln(
+        output.dim(
+          '  Run with -v/--verbose for more detail, or `monomind doctor` to check config/permission issues.',
+        ),
+      );
     }
 
     // Persist swarm state to MCP-canonical path so CLI and MCP share state
@@ -532,7 +570,11 @@ const startCommand: Command = {
     const stateFile2 = path.join(swarmDir, SWARM_STATE_FILE);
     let startStore: Record<string, unknown> = { swarms: {}, version: '3.0.0' };
     if (fs.existsSync(stateFile2)) {
-      try { startStore = JSON.parse(fs.readFileSync(stateFile2, 'utf-8')); } catch { /* use default */ }
+      try {
+        startStore = JSON.parse(fs.readFileSync(stateFile2, 'utf-8'));
+      } catch {
+        /* use default */
+      }
     }
     if (!startStore.swarms || typeof startStore.swarms !== 'object') startStore.swarms = {};
     (startStore.swarms as Record<string, unknown>)[resolvedSwarmId] = {
@@ -544,7 +586,7 @@ const startCommand: Command = {
       tasks: [],
       config: { strategy, objective, agentPlan, parallel: ctx.flags.parallel ?? true },
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
     writeJsonFileAtomic(stateFile2, startStore);
@@ -552,11 +594,16 @@ const startCommand: Command = {
     output.writeln();
     output.printSuccess(`Swarm ${resolvedSwarmId} initialized with ${totalAgents} agent slots`);
     output.writeln(output.dim('  Note: Agents are registered but actual task execution requires'));
-    output.writeln(output.dim('  Claude Code Task tool or hive-mind spawn --claude to drive work.'));
+    output.writeln(
+      output.dim('  Claude Code Task tool or hive-mind spawn --claude to drive work.'),
+    );
     output.writeln(output.dim(`  Monitor: monomind swarm status ${resolvedSwarmId}`));
 
-    return { success: true, data: { swarmId: resolvedSwarmId, objective, strategy, agents: totalAgents } };
-  }
+    return {
+      success: true,
+      data: { swarmId: resolvedSwarmId, objective, strategy, agents: totalAgents },
+    };
+  },
 };
 
 // Swarm status
@@ -599,14 +646,14 @@ const statusCommand: Command = {
     output.printTable({
       columns: [
         { key: 'status', header: 'Status', width: 12 },
-        { key: 'count', header: 'Count', width: 10, align: 'right' }
+        { key: 'count', header: 'Count', width: 10, align: 'right' },
       ],
       data: [
         { status: output.success('Active'), count: status.agents.active },
         { status: output.warning('Idle'), count: status.agents.idle },
         { status: output.dim('Completed'), count: status.agents.completed },
-        { status: 'Total', count: status.agents.total }
-      ]
+        { status: 'Total', count: status.agents.total },
+      ],
     });
 
     output.writeln();
@@ -616,14 +663,14 @@ const statusCommand: Command = {
     output.printTable({
       columns: [
         { key: 'status', header: 'Status', width: 12 },
-        { key: 'count', header: 'Count', width: 10, align: 'right' }
+        { key: 'count', header: 'Count', width: 10, align: 'right' },
       ],
       data: [
         { status: output.success('Completed'), count: status.tasks.completed },
         { status: output.info('In Progress'), count: status.tasks.inProgress },
         { status: output.dim('Pending'), count: status.tasks.pending },
-        { status: 'Total', count: status.tasks.total }
-      ]
+        { status: 'Total', count: status.tasks.total },
+      ],
     });
 
     output.writeln();
@@ -634,7 +681,7 @@ const statusCommand: Command = {
       `Tokens Used: ${status.metrics.tokensUsed.toLocaleString()}`,
       `Avg Response Time: ${status.metrics.avgResponseTime}`,
       `Success Rate: ${status.metrics.successRate}`,
-      `Elapsed Time: ${status.metrics.elapsedTime}`
+      `Elapsed Time: ${status.metrics.elapsedTime}`,
     ]);
 
     output.writeln();
@@ -644,11 +691,11 @@ const statusCommand: Command = {
     output.printList([
       `Consensus Rounds: ${status.coordination.consensusRounds}`,
       `Messages Sent: ${status.coordination.messagesSent}`,
-      `Conflicts Resolved: ${status.coordination.conflictsResolved}`
+      `Conflicts Resolved: ${status.coordination.conflictsResolved}`,
     ]);
 
     return { success: true, data: status };
-  }
+  },
 };
 
 // Stop swarm
@@ -661,14 +708,14 @@ const stopCommand: Command = {
       short: 'f',
       description: 'Force immediate stop',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'save-state',
       description: 'Save current state for resume',
       type: 'boolean',
-      default: true
-    }
+      default: true,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const swarmId = ctx.args[0];
@@ -682,7 +729,7 @@ const stopCommand: Command = {
     if (ctx.interactive && !force) {
       const confirmed = await confirm({
         message: `Stop swarm ${swarmId}? Progress will be saved.`,
-        default: false
+        default: false,
       });
 
       if (!confirmed) {
@@ -732,7 +779,7 @@ const stopCommand: Command = {
     output.printSuccess(`Swarm ${swarmId} stopped`);
 
     return { success: true, data: { swarmId, stopped: true, force } };
-  }
+  },
 };
 
 // Scale swarm
@@ -745,14 +792,14 @@ const scaleCommand: Command = {
       short: 'a',
       description: 'Target number of agents',
       type: 'number',
-      required: true
+      required: true,
     },
     {
       name: 'type',
       short: 't',
       description: 'Agent type to scale',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const swarmId = ctx.args[0];
@@ -794,19 +841,25 @@ const scaleCommand: Command = {
       }
 
       if (result.spawned.length > 0) {
-        output.printSuccess(`Spawned ${result.spawned.length} agent(s): ${result.spawned.join(', ')}`);
+        output.printSuccess(
+          `Spawned ${result.spawned.length} agent(s): ${result.spawned.join(', ')}`,
+        );
       }
       if (result.terminated.length > 0) {
-        output.printSuccess(`Terminated ${result.terminated.length} agent(s): ${result.terminated.join(', ')}`);
+        output.printSuccess(
+          `Terminated ${result.terminated.length} agent(s): ${result.terminated.join(', ')}`,
+        );
       }
       output.writeln(output.dim(`  ${result.previousCount} → ${result.currentCount} agents`));
 
       return { success: true, data: result };
     } catch (error) {
-      output.printError(`Scale error: ${error instanceof MCPClientError ? error.message : String(error)}`);
+      output.printError(
+        `Scale error: ${error instanceof MCPClientError ? error.message : String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Coordinate command (v1 specific)
@@ -818,16 +871,16 @@ const coordinateCommand: Command = {
       name: 'agents',
       description: 'Number of agents',
       type: 'number',
-      default: 15
+      default: 15,
     },
     {
       name: 'domains',
       description: 'Domains to activate',
-      type: 'array'
-    }
+      type: 'array',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const agentCount = ctx.flags.agents as number || 15;
+    const agentCount = (ctx.flags.agents as number) || 15;
 
     output.writeln();
     output.writeln(output.bold('v1 15-Agent Hierarchical Mesh Coordination'));
@@ -849,7 +902,7 @@ const coordinateCommand: Command = {
       { id: 12, role: 'MCP Specialist', domain: 'Integration', status: 'active' },
       { id: 13, role: 'Project Coordinator', domain: 'Management', status: 'active' },
       { id: 14, role: 'Documentation Lead', domain: 'Management', status: 'standby' },
-      { id: 15, role: 'DevOps Engineer', domain: 'Management', status: 'standby' }
+      { id: 15, role: 'DevOps Engineer', domain: 'Management', status: 'standby' },
     ].slice(0, agentCount);
 
     output.printTable({
@@ -857,13 +910,18 @@ const coordinateCommand: Command = {
         { key: 'id', header: '#', width: 3, align: 'right' },
         { key: 'role', header: 'Role', width: 22 },
         { key: 'domain', header: 'Domain', width: 15 },
-        { key: 'status', header: 'Status', width: 10, format: (v) => {
-          if (v === 'primary') return output.highlight(String(v));
-          if (v === 'active') return output.success(String(v));
-          return output.dim(String(v));
-        }}
+        {
+          key: 'status',
+          header: 'Status',
+          width: 10,
+          format: (v) => {
+            if (v === 'primary') return output.highlight(String(v));
+            if (v === 'active') return output.success(String(v));
+            return output.dim(String(v));
+          },
+        },
       ],
-      data: v1Agents
+      data: v1Agents,
     });
 
     // Actually initialize via MCP instead of just displaying (#1423)
@@ -884,19 +942,29 @@ const coordinateCommand: Command = {
     output.writeln(output.dim('drive actual agent execution. This command sets up the topology.'));
 
     return { success: true, data: { agents: v1Agents, count: agentCount } };
-  }
+  },
 };
 
 // Main swarm command
 export const swarmCommand: Command = {
   name: 'swarm',
   description: 'Swarm coordination commands',
-  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand],
+  subcommands: [
+    initCommand,
+    startCommand,
+    statusCommand,
+    stopCommand,
+    scaleCommand,
+    coordinateCommand,
+  ],
   options: [],
   examples: [
     { command: 'monomind swarm init --v1-mode', description: 'Initialize swarm' },
-    { command: 'monomind swarm start -o "Build API" -s development', description: 'Start development swarm' },
-    { command: 'monomind swarm coordinate --agents 15', description: 'v1 coordination' }
+    {
+      command: 'monomind swarm start -o "Build API" -s development',
+      description: 'Start development swarm',
+    },
+    { command: 'monomind swarm coordinate --agents 15', description: 'v1 coordination' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -911,67 +979,77 @@ export const swarmCommand: Command = {
       `${output.highlight('status')}      - Show swarm status`,
       `${output.highlight('stop')}        - Stop swarm execution`,
       `${output.highlight('scale')}       - Scale swarm agent count`,
-      `${output.highlight('coordinate')}  - 15-agent coordination`
+      `${output.highlight('coordinate')}  - 15-agent coordination`,
     ]);
 
     return { success: true };
-  }
+  },
 };
 
 // Helper function
-function getAgentPlan(strategy: string): Array<{ role: string; type: string; count: number; purpose: string }> {
-  const plans: Record<string, Array<{ role: string; type: string; count: number; purpose: string }>> = {
+function getAgentPlan(
+  strategy: string,
+): Array<{ role: string; type: string; count: number; purpose: string }> {
+  const plans: Record<
+    string,
+    Array<{ role: string; type: string; count: number; purpose: string }>
+  > = {
     specialized: [
-      { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Central orchestration (anti-drift)' },
+      {
+        role: 'Coordinator',
+        type: 'coordinator',
+        count: 1,
+        purpose: 'Central orchestration (anti-drift)',
+      },
       { role: 'Researcher', type: 'researcher', count: 1, purpose: 'Requirements analysis' },
       { role: 'Architect', type: 'architect', count: 1, purpose: 'System design' },
       { role: 'Coder', type: 'coder', count: 2, purpose: 'Implementation' },
       { role: 'Tester', type: 'tester', count: 1, purpose: 'Quality assurance' },
-      { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Code review' }
+      { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Code review' },
     ],
     balanced: [
       { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Orchestrate workflow' },
       { role: 'Worker', type: 'coder', count: 4, purpose: 'General implementation' },
-      { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Quality review' }
+      { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Quality review' },
     ],
     adaptive: [
       { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Dynamic orchestration' },
       { role: 'Scout', type: 'researcher', count: 1, purpose: 'Task analysis' },
-      { role: 'Worker', type: 'coder', count: 3, purpose: 'Adaptive execution' }
+      { role: 'Worker', type: 'coder', count: 3, purpose: 'Adaptive execution' },
     ],
     development: [
       { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Orchestrate workflow' },
       { role: 'Architect', type: 'architect', count: 1, purpose: 'System design' },
       { role: 'Coder', type: 'coder', count: 3, purpose: 'Implementation' },
       { role: 'Tester', type: 'tester', count: 2, purpose: 'Quality assurance' },
-      { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Code review' }
+      { role: 'Reviewer', type: 'reviewer', count: 1, purpose: 'Code review' },
     ],
     research: [
       { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Research coordination' },
       { role: 'Researcher', type: 'researcher', count: 4, purpose: 'Data gathering' },
-      { role: 'Analyst', type: 'analyst', count: 2, purpose: 'Analysis and synthesis' }
+      { role: 'Analyst', type: 'analyst', count: 2, purpose: 'Analysis and synthesis' },
     ],
     testing: [
       { role: 'Test Lead', type: 'tester', count: 1, purpose: 'Test strategy' },
       { role: 'Unit Tester', type: 'tester', count: 2, purpose: 'Unit tests' },
       { role: 'Integration Tester', type: 'tester', count: 2, purpose: 'Integration tests' },
-      { role: 'QA Reviewer', type: 'reviewer', count: 1, purpose: 'Quality review' }
+      { role: 'QA Reviewer', type: 'reviewer', count: 1, purpose: 'Quality review' },
     ],
     optimization: [
       { role: 'Performance Lead', type: 'optimizer', count: 1, purpose: 'Performance strategy' },
       { role: 'Profiler', type: 'analyst', count: 2, purpose: 'Profiling' },
-      { role: 'Optimizer', type: 'coder', count: 2, purpose: 'Optimization' }
+      { role: 'Optimizer', type: 'coder', count: 2, purpose: 'Optimization' },
     ],
     maintenance: [
       { role: 'Coordinator', type: 'coordinator', count: 1, purpose: 'Maintenance planning' },
       { role: 'Refactorer', type: 'coder', count: 2, purpose: 'Code cleanup' },
-      { role: 'Documenter', type: 'researcher', count: 1, purpose: 'Documentation' }
+      { role: 'Documenter', type: 'researcher', count: 1, purpose: 'Documentation' },
     ],
     analysis: [
       { role: 'Analyst Lead', type: 'analyst', count: 1, purpose: 'Analysis coordination' },
       { role: 'Code Analyst', type: 'analyst', count: 2, purpose: 'Code analysis' },
-      { role: 'Security Analyst', type: 'reviewer', count: 1, purpose: 'Security review' }
-    ]
+      { role: 'Security Analyst', type: 'reviewer', count: 1, purpose: 'Security review' },
+    ],
   };
 
   return plans[strategy] || plans.development;

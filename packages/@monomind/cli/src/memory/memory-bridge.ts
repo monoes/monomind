@@ -38,7 +38,12 @@ export function safeParseEmbedding(raw: string | null | undefined): number[] | n
   if (typeof raw !== 'string' || raw.length === 0) return null;
   if (raw.length > MAX_EMBEDDING_JSON_BYTES) return null;
   let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { return null; }
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    logBridgeError('safeParseEmbedding', e);
+    return null;
+  }
   if (!Array.isArray(parsed)) return null;
   if (parsed.length === 0 || parsed.length > MAX_EMBEDDING_DIMS) return null;
   for (let i = 0; i < parsed.length; i++) {
@@ -62,7 +67,8 @@ const BRIDGE_RESULT_CONTENT_CAP = 500;
 
 function capResultContent(content: string): string {
   return content.length > BRIDGE_RESULT_CONTENT_CAP
-    ? content.slice(0, BRIDGE_RESULT_CONTENT_CAP) + '…' : content;
+    ? content.slice(0, BRIDGE_RESULT_CONTENT_CAP) + '…'
+    : content;
 }
 
 // ===== DB path resolution =====
@@ -83,8 +89,11 @@ function walkToProjectRoot(start: string): string {
   for (;;) {
     if (dir === home) break;
     try {
-      if (fs.existsSync(path.join(dir, '.monomind')) || fs.existsSync(path.join(dir, '.git'))) return dir;
-    } catch { /* unreadable dir — keep walking */ }
+      if (fs.existsSync(path.join(dir, '.monomind')) || fs.existsSync(path.join(dir, '.git')))
+        return dir;
+    } catch (e) {
+      logBridgeError('walkToProjectRoot', e); /* unreadable dir — keep walking */
+    }
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -133,14 +142,23 @@ export function getProjectRoot(from: string = process.env.MONOMIND_CWD || proces
 function projectDataDir(): string {
   const resolved = path.resolve(getProjectRoot());
   const hash = crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 16);
-  const readable = path.basename(resolved).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 40) || 'project';
+  const readable =
+    path
+      .basename(resolved)
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .slice(0, 40) || 'project';
   return path.join(os.homedir(), '.monomind', 'projects', `${readable}-${hash}`);
 }
 
 /** Resolve symlinks so the traversal check below can't be bypassed by a link
  * that lexically resolves inside the allowed trees but points outside them. */
 function realOrResolved(p: string): string {
-  try { return fs.realpathSync(p); } catch { return p; }
+  try {
+    return fs.realpathSync(p);
+  } catch (e) {
+    logBridgeError('realOrResolved', e);
+    return p;
+  }
 }
 
 /** The personal, cross-project knowledge store. Deliberately a SIBLING of
@@ -149,7 +167,9 @@ function realOrResolved(p: string): string {
  *  users who keep their brain on a synced/external location. Resolved lazily
  *  so the override works regardless of import order. */
 export function getGlobalBrainDir(): string {
-  return process.env.MONOMIND_GLOBAL_BRAIN_DIR || path.join(os.homedir(), '.monomind', 'global-brain');
+  return (
+    process.env.MONOMIND_GLOBAL_BRAIN_DIR || path.join(os.homedir(), '.monomind', 'global-brain')
+  );
 }
 /** Sentinel callers pass as dbPath to address the global brain. */
 export const GLOBAL_BRAIN = '@global';
@@ -178,7 +198,11 @@ export function bridgeGetDbPath(customPath?: string): string {
   return getDbPath(customPath);
 }
 
-function getAutomemConfig(): { dedupThreshold: number; staleDays: number; feedbackInfluence: number } {
+function getAutomemConfig(): {
+  dedupThreshold: number;
+  staleDays: number;
+  feedbackInfluence: number;
+} {
   const defaults = { dedupThreshold: 0.85, staleDays: 7, feedbackInfluence: 0.2 };
   try {
     const configPath = path.join(process.cwd(), '.monomind', 'automem-config.json');
@@ -187,12 +211,23 @@ function getAutomemConfig(): { dedupThreshold: number; staleDays: number; feedba
     if (stat.size > 64 * 1024) return defaults;
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     return {
-      dedupThreshold: typeof config?.scaffold?.dedupThreshold === 'number' ? config.scaffold.dedupThreshold : defaults.dedupThreshold,
-      staleDays: typeof config?.scaffold?.staleDays === 'number' ? config.scaffold.staleDays : defaults.staleDays,
-      feedbackInfluence: typeof config?.scaffold?.feedbackInfluence === 'number'
-        ? Math.max(0, Math.min(1, config.scaffold.feedbackInfluence)) : defaults.feedbackInfluence,
+      dedupThreshold:
+        typeof config?.scaffold?.dedupThreshold === 'number'
+          ? config.scaffold.dedupThreshold
+          : defaults.dedupThreshold,
+      staleDays:
+        typeof config?.scaffold?.staleDays === 'number'
+          ? config.scaffold.staleDays
+          : defaults.staleDays,
+      feedbackInfluence:
+        typeof config?.scaffold?.feedbackInfluence === 'number'
+          ? Math.max(0, Math.min(1, config.scaffold.feedbackInfluence))
+          : defaults.feedbackInfluence,
     };
-  } catch (e) { logBridgeError('loadBridgeConfig', e); return defaults; }
+  } catch (e) {
+    logBridgeError('loadBridgeConfig', e);
+    return defaults;
+  }
 }
 
 // ===== Usage/feedback weights (cognee-style, stored in entry metadata) =====
@@ -210,10 +245,14 @@ const FREQUENCY_NORM_CAP = 10;
 
 function entryWeights(metadata: unknown): { feedback: number; frequency: number } {
   const md = (metadata ?? {}) as Record<string, unknown>;
-  const fw = typeof md.feedback_weight === 'number' && Number.isFinite(md.feedback_weight)
-    ? Math.max(0, Math.min(1, md.feedback_weight)) : DEFAULT_FEEDBACK_WEIGHT;
-  const freq = typeof md.frequency_weight === 'number' && Number.isFinite(md.frequency_weight)
-    ? Math.max(0, md.frequency_weight) : 0;
+  const fw =
+    typeof md.feedback_weight === 'number' && Number.isFinite(md.feedback_weight)
+      ? Math.max(0, Math.min(1, md.feedback_weight))
+      : DEFAULT_FEEDBACK_WEIGHT;
+  const freq =
+    typeof md.frequency_weight === 'number' && Number.isFinite(md.frequency_weight)
+      ? Math.max(0, md.frequency_weight)
+      : 0;
   return { feedback: fw, frequency: freq };
 }
 
@@ -221,9 +260,14 @@ function entryWeights(metadata: unknown): { feedback: number; frequency: number 
  *  Cognee guard: never applied to keyword-fallback scores — those carry no
  *  real relevance signal, and blending there lets a high-feedback stale entry
  *  outrank relevant matches and self-reinforce (rich-get-richer). */
-function blendScore(cosineSim: number, weights: { feedback: number; frequency: number }, influence: number): number {
+function blendScore(
+  cosineSim: number,
+  weights: { feedback: number; frequency: number },
+  influence: number,
+): number {
   if (influence <= 0) return cosineSim;
-  const usefulness = 0.7 * weights.feedback + 0.3 * Math.min(1, weights.frequency / FREQUENCY_NORM_CAP);
+  const usefulness =
+    0.7 * weights.feedback + 0.3 * Math.min(1, weights.frequency / FREQUENCY_NORM_CAP);
   return (1 - influence) * cosineSim + influence * usefulness;
 }
 
@@ -296,9 +340,16 @@ export async function loadReranker(): Promise<void> {
         const hf = await import('@huggingface/transformers' as string);
         const opts = { local_files_only: true };
         const tokenizer = await (hf as any).AutoTokenizer.from_pretrained(modelId, opts);
-        const model = await (hf as any).AutoModelForSequenceClassification.from_pretrained(modelId, opts);
+        const model = await (hf as any).AutoModelForSequenceClassification.from_pretrained(
+          modelId,
+          opts,
+        );
         _reranker = async (query: string, passage: string) => {
-          const inputs = await tokenizer(query, { text_pair: passage, padding: true, truncation: true });
+          const inputs = await tokenizer(query, {
+            text_pair: passage,
+            padding: true,
+            truncation: true,
+          });
           const output = await model(inputs);
           const logits: Float32Array = output.logits.data;
           // num_labels=1 → [1,1] regression score, apply sigmoid
@@ -306,7 +357,8 @@ export async function loadReranker(): Promise<void> {
         };
       } catch (e) {
         _rerankerPromise = null; // allow retry
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] reranker failed to load:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[memory-bridge] reranker failed to load:', e);
       }
     })();
   }
@@ -335,7 +387,8 @@ async function rerankResults(
     scored.sort((a, b) => b.score - a.score);
     return { reranked: scored.slice(0, limit), applied: true };
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] reranking failed — returning original order:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[memory-bridge] reranking failed — returning original order:', e);
     return { reranked: results, applied: false };
   }
 }
@@ -344,7 +397,11 @@ async function rerankResults(
  *  only reaches disk via persist(); the CLI process is short-lived, so waiting
  *  for an auto-persist interval would lose writes. No-op on better-sqlite3. */
 async function flushBackend(backend: any): Promise<void> {
-  try { await backend?.persist?.(); } catch { /* best effort */ }
+  try {
+    await backend?.persist?.();
+  } catch (e) {
+    logBridgeError('flushBackend', e); /* best effort */
+  }
 }
 
 /** Loads the local embedding model.
@@ -369,14 +426,22 @@ async function loadEmbedder(): Promise<void> {
         // silently killed embeddings (every search degraded to keyword matching)
         // dtype pinned explicitly: transformers.js logs a "dtype not specified"
         // warning to the console on every load otherwise (leaks into CLI output).
-        const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { revision: 'main', dtype: 'q8', local_files_only: true });
+        const extractor = await (hf as any).pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, {
+          revision: 'main',
+          dtype: 'q8',
+          local_files_only: true,
+        });
         _embedder = async (text: string) => {
           const output = await extractor(text, { pooling: 'cls', normalize: true });
           return new Float32Array(output.data);
         };
       } catch (e) {
         _embedderPromise = null; // allow retry (e.g. first call offline)
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] embedding model failed to load — store and search without vectors:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error(
+            '[memory-bridge] embedding model failed to load — store and search without vectors:',
+            e,
+          );
       }
     })();
   }
@@ -395,14 +460,21 @@ async function getBackend(dbPath?: string): Promise<any | null> {
       // resolved to undefined via the optional chain every time and never actually
       // released the connection: every 6th distinct database path opened in this
       // process leaked the oldest slot's connection for the process lifetime.
-      try { await evicted?.instance?.shutdown?.(); } catch { /* best effort */ }
+      try {
+        await evicted?.instance?.shutdown?.();
+      } catch (e) {
+        logBridgeError('getBackend.evictedShutdown', e); /* best effort */
+      }
       backendSlots.delete(oldest);
     }
     slot = { promise: null, instance: null, available: null, attempts: 0 };
     backendSlots.set(dir, slot);
   }
   if (slot.available === false) return null;
-  if (slot.attempts >= MAX_INIT_ATTEMPTS) { slot.available = false; return null; }
+  if (slot.attempts >= MAX_INIT_ATTEMPTS) {
+    slot.available = false;
+    return null;
+  }
   if (slot.instance) return slot.instance;
 
   if (!slot.promise) {
@@ -428,8 +500,15 @@ async function getBackend(dbPath?: string): Promise<any | null> {
             // would make `cleanup --data` prune the WHOLE project's brain as
             // orphaned.
             const originFile = path.join(projectDataDir(), 'origin.json');
-            fs.writeFileSync(originFile, JSON.stringify({ path: getProjectRoot(), updatedAt: new Date().toISOString() }) + '\n', 'utf-8');
-          } catch { /* non-fatal */ }
+            fs.writeFileSync(
+              originFile,
+              JSON.stringify({ path: getProjectRoot(), updatedAt: new Date().toISOString() }) +
+                '\n',
+              'utf-8',
+            );
+          } catch (e) {
+            logBridgeError('getBackend.originWrite', e); /* non-fatal */
+          }
         }
         const cfg = {
           databasePath: path.join(dir, 'memory.db'),
@@ -457,7 +536,11 @@ async function getBackend(dbPath?: string): Promise<any | null> {
             backend = new mod.SQLiteBackend(cfg);
             await backend.initialize();
           } catch (e) {
-            if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] better-sqlite3 unavailable — using sql.js backend:', e);
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+              console.error(
+                '[memory-bridge] better-sqlite3 unavailable — using sql.js backend:',
+                e,
+              );
             backend = new mod.SqlJsBackend(cfg);
             await backend.initialize();
           }
@@ -508,8 +591,10 @@ export async function bridgeStoreEntry(options: {
   if (!backend) return null;
 
   try {
-    const key = typeof options.key === 'string' && options.key.length > BRIDGE_MAX_KEY_LEN
-      ? options.key.slice(0, BRIDGE_MAX_KEY_LEN) : options.key;
+    const key =
+      typeof options.key === 'string' && options.key.length > BRIDGE_MAX_KEY_LEN
+        ? options.key.slice(0, BRIDGE_MAX_KEY_LEN)
+        : options.key;
     if (typeof options.value === 'string' && options.value.length > BRIDGE_MAX_VALUE_LEN) {
       return {
         success: false,
@@ -520,9 +605,16 @@ export async function bridgeStoreEntry(options: {
     const value = options.value;
     const namespace = options.namespace ?? 'default';
     const tags = Array.isArray(options.tags)
-      // src: tags carry the ingest source path for excerpt provenance — paths
-      // routinely exceed the general 64-char tag cap, so they get 512.
-      ? options.tags.filter(t => typeof t === 'string' && t.length > 0 && t.length <= (t.startsWith('src:') ? 512 : MAX_TAG_LEN)).slice(0, MAX_TAGS)
+      ? // src: tags carry the ingest source path for excerpt provenance — paths
+        // routinely exceed the general 64-char tag cap, so they get 512.
+        options.tags
+          .filter(
+            (t) =>
+              typeof t === 'string' &&
+              t.length > 0 &&
+              t.length <= (t.startsWith('src:') ? 512 : MAX_TAG_LEN),
+          )
+          .slice(0, MAX_TAGS)
       : [];
 
     const now = Date.now();
@@ -537,7 +629,11 @@ export async function bridgeStoreEntry(options: {
         embedding = await _embedder(value);
         embeddingInfo = { dimensions: embedding.length, model: BRIDGE_EMBEDDING_MODEL };
       } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] embedding generation failed — storing entry without embedding:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error(
+            '[memory-bridge] embedding generation failed — storing entry without embedding:',
+            e,
+          );
       }
     }
 
@@ -561,7 +657,9 @@ export async function bridgeStoreEntry(options: {
     if (options.upsert) {
       try {
         upsertVictim = await backend.getByKey(namespace, key);
-      } catch { /* treat as no existing entry */ }
+      } catch (e) {
+        logBridgeError('bridgeStoreEntry.upsertLookup', e); /* treat as no existing entry */
+      }
     }
 
     // Dedup gate: skip if a near-duplicate already exists IN THIS NAMESPACE —
@@ -571,30 +669,42 @@ export async function bridgeStoreEntry(options: {
     if (embedding && !options.upsert) {
       try {
         const similar = await backend.search(embedding, {
-          k: 1, threshold: automemCfg.dedupThreshold,
+          k: 1,
+          threshold: automemCfg.dedupThreshold,
           filters: { type: 'exact', namespace },
         });
         if (similar.length > 0 && similar[0].score >= automemCfg.dedupThreshold) {
           // Re-storing near-identical content is a usage signal: the fact keeps
           // being worth remembering. Reinforce the surviving entry.
-          await recordUsageOnBackend(backend, [similar[0].entry.id]).catch(() => { /* best effort */ });
+          await recordUsageOnBackend(backend, [similar[0].entry.id]).catch(() => {
+            /* best effort */
+          });
           return { success: true, id: similar[0].entry.id, duplicate: true };
         }
-      } catch { /* non-fatal — store anyway */ }
+      } catch (e) {
+        logBridgeError('bridgeStoreEntry.dedupSearch', e); /* non-fatal — store anyway */
+      }
     }
 
     await backend.store(entry);
     if (upsertVictim && upsertVictim.id !== id) {
-      try { await backend.delete(upsertVictim.id); }
-      catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] upsert stored new entry but failed to delete the old one — duplicate may remain:', e);
+      try {
+        await backend.delete(upsertVictim.id);
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error(
+            '[memory-bridge] upsert stored new entry but failed to delete the old one — duplicate may remain:',
+            e,
+          );
       }
     }
     await flushBackend(backend);
 
     return { success: true, id, embedding: embeddingInfo };
-  } catch (err: any) {
-    return { success: false, id: '', error: String(err?.message ?? err) };
+  } catch (err: unknown) {
+    logBridgeError('bridgeStoreEntry', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, id: '', error: message };
   }
 }
 
@@ -628,7 +738,11 @@ export async function bridgeSearchEntries(options: {
   /** Whether a cross-encoder reranker was applied to the final results. */
   reranked?: boolean;
   /** Why the vector path did not serve these results (absent when it did). */
-  fallbackReason?: 'no-embedding-model' | 'empty-query' | 'embedding-failed' | 'no-semantic-matches';
+  fallbackReason?:
+    | 'no-embedding-model'
+    | 'empty-query'
+    | 'embedding-failed'
+    | 'no-semantic-matches';
   error?: string;
 } | null> {
   const backend = await getBackend(options.dbPath);
@@ -637,7 +751,8 @@ export async function bridgeSearchEntries(options: {
   try {
     const { query: queryStr, limit = 10, threshold = 0.3 } = options;
     // CLI callers pass 'all' as a no-filter sentinel — never treat it as a literal namespace
-    const namespace = options.namespace && options.namespace !== 'all' ? options.namespace : undefined;
+    const namespace =
+      options.namespace && options.namespace !== 'all' ? options.namespace : undefined;
     const startTime = Date.now();
 
     // ── Knowledge removal support (issue #106) ──────────────────────
@@ -649,37 +764,54 @@ export async function bridgeSearchEntries(options: {
     // imports getProjectRoot from this module.
     let _knowledgeLive: Set<string> | null = null;
     let _knowledgeHasMeta = false;
-    let _isSupersededKey: ((key: string, live: Set<string>, metaPresent: boolean) => boolean) | null = null;
+    let _isSupersededKey:
+      | ((key: string, live: Set<string>, metaPresent: boolean) => boolean)
+      | null = null;
     const knowledgeFilterActive = namespace?.startsWith('knowledge:') && !options.includeSuperseded;
     if (knowledgeFilterActive) {
       try {
         const dp = await import('../knowledge/document-pipeline.js');
-        const rootDir = options.dbPath === GLOBAL_BRAIN
-          ? getGlobalBrainDir() : getProjectRoot();
+        const rootDir = options.dbPath === GLOBAL_BRAIN ? getGlobalBrainDir() : getProjectRoot();
         _knowledgeLive = dp.liveContentHashes(rootDir);
         _knowledgeHasMeta = dp.hasKnowledgeMetadata(rootDir);
         _isSupersededKey = dp.isSupersededKey;
-      } catch { /* non-fatal: skip filtering when pipeline is unavailable */ }
+      } catch (e) {
+        logBridgeError(
+          'bridgeSearchEntries.knowledgeFilter',
+          e,
+        ); /* non-fatal: skip filtering when pipeline is unavailable */
+      }
     }
 
     // Over-retrieve when the reranker is available: fetch more candidates so the
     // cross-encoder can reshuffle them. The reranker trims back to `limit`.
     // For knowledge namespaces, also over-fetch to compensate for superseded
     // document versions that will be filtered out below.
-    const rerankerActive = !options.skipRerank && _reranker !== null && process.env.MONOMIND_RERANKER !== '0';
-    const knowledgeLimit = (_knowledgeLive && _knowledgeLive.size > 0)
-      ? Math.min(Math.max(limit * 20, limit), 300) : limit;
-    const retrieveK = rerankerActive ? Math.min(knowledgeLimit * 3, Math.max(20, knowledgeLimit)) : knowledgeLimit;
+    const rerankerActive =
+      !options.skipRerank && _reranker !== null && process.env.MONOMIND_RERANKER !== '0';
+    const knowledgeLimit =
+      _knowledgeLive && _knowledgeLive.size > 0
+        ? Math.min(Math.max(limit * 20, limit), 300)
+        : limit;
+    const retrieveK = rerankerActive
+      ? Math.min(knowledgeLimit * 3, Math.max(20, knowledgeLimit))
+      : knowledgeLimit;
 
     let results: any[] = [];
     let searchMethod: 'semantic' | 'keyword' | 'keyword-fallback' = 'keyword';
     // Reported to callers so "(semantic)" can never be printed over keyword hits.
     // The two reasons for skipping the vector path are distinct and must not be
     // conflated: a healthy model given an empty query is not a missing model.
-    let fallbackReason: 'no-embedding-model' | 'empty-query' | 'embedding-failed' | 'no-semantic-matches' | undefined =
-      !_embedder ? 'no-embedding-model'
-        : queryStr.length === 0 ? 'empty-query'
-          : undefined;
+    let fallbackReason:
+      | 'no-embedding-model'
+      | 'empty-query'
+      | 'embedding-failed'
+      | 'no-semantic-matches'
+      | undefined = !_embedder
+      ? 'no-embedding-model'
+      : queryStr.length === 0
+        ? 'empty-query'
+        : undefined;
     let semanticAttempted = false;
 
     if (_embedder && queryStr.length > 0) {
@@ -692,27 +824,33 @@ export async function bridgeSearchEntries(options: {
           filters: namespace ? { type: 'exact', namespace } : undefined,
         });
         const { feedbackInfluence } = getAutomemConfig();
-        results = searchResults.map((r: any) => {
-          const weights = entryWeights(r.entry.metadata);
-          // Blend only here (semantic path): r.score is a genuine cosine similarity.
-          const blended = blendScore(r.score, weights, feedbackInfluence);
-          return {
-            id: r.entry.id,
-            key: r.entry.key,
-            content: capResultContent(r.entry.content || ''),
-            score: blended,
-            namespace: r.entry.namespace,
-            provenance: `semantic:${r.score.toFixed(3)}${blended !== r.score ? `→${blended.toFixed(3)}` : ''}`,
-            tags: r.entry.tags ?? [],
-            _createdAt: r.entry.createdAt || 0,
-          };
-        }).sort((a: any, b: any) => b.score - a.score);
+        results = searchResults
+          .map((r: any) => {
+            const weights = entryWeights(r.entry.metadata);
+            // Blend only here (semantic path): r.score is a genuine cosine similarity.
+            const blended = blendScore(r.score, weights, feedbackInfluence);
+            return {
+              id: r.entry.id,
+              key: r.entry.key,
+              content: capResultContent(r.entry.content || ''),
+              score: blended,
+              namespace: r.entry.namespace,
+              provenance: `semantic:${r.score.toFixed(3)}${blended !== r.score ? `→${blended.toFixed(3)}` : ''}`,
+              tags: r.entry.tags ?? [],
+              _createdAt: r.entry.createdAt || 0,
+            };
+          })
+          .sort((a: any, b: any) => b.score - a.score);
         searchMethod = 'semantic';
         fallbackReason = undefined;
       } catch (e) {
         // fall through to keyword search — but never claim this was semantic
         fallbackReason = 'embedding-failed';
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] semantic search failed — falling back to keyword matching:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error(
+            '[memory-bridge] semantic search failed — falling back to keyword matching:',
+            e,
+          );
       }
     }
 
@@ -727,14 +865,18 @@ export async function bridgeSearchEntries(options: {
     // loaded up to 50k rows and scanned them in JS. The JS fallback is
     // kept for sql.js WASM builds that lack the FTS5 extension.
     {
-      const tokens = queryStr.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 1);
+      const tokens = queryStr
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t.length > 1);
       let keywordHits: any[] = [];
 
       if (tokens.length) {
         // ── FTS5 fast path ──────────────────────────────────────────
-        const fts5Results: any[] | null = typeof backend.keywordSearch === 'function'
-          ? await backend.keywordSearch(queryStr, { namespace, limit }).catch(() => null)
-          : null;
+        const fts5Results: any[] | null =
+          typeof backend.keywordSearch === 'function'
+            ? await backend.keywordSearch(queryStr, { namespace, limit }).catch(() => null)
+            : null;
 
         if (fts5Results !== null && fts5Results.length > 0) {
           // FTS5 rank is negative (lower = better); normalise to 0–1.
@@ -781,7 +923,10 @@ export async function bridgeSearchEntries(options: {
               // sharing that key string resolved to whichever entry happened
               // to be inserted last into the lookup map, silently returning
               // the wrong entry's id/content/namespace.
-              const chunks = entries.map((e: any, i: number) => ({ key: String(i), text: `${e.key || ''} ${e.content || ''}` }));
+              const chunks = entries.map((e: any, i: number) => ({
+                key: String(i),
+                text: `${e.key || ''} ${e.content || ''}`,
+              }));
               const idx = Bm25Index.build(chunks, () => false); // no superseded concept at this generic KV level — filtered later by callers that care
               const hits = idx.search(queryStr, limit);
               // #126-review: Math.max(..., 1) as a divide-by-zero guard also
@@ -790,7 +935,7 @@ export async function bridgeSearchEntries(options: {
               // regime this capped fallback runs in), so the top hit stopped
               // normalizing to 1.0 as the comment below claims. Only fall
               // back to 1 when there is no positive score to divide by.
-              const rawMax = hits.length ? Math.max(...hits.map(h => h.score)) : 0;
+              const rawMax = hits.length ? Math.max(...hits.map((h) => h.score)) : 0;
               const maxScore = rawMax > 0 ? rawMax : 1;
               keywordHits = hits.map((h) => {
                 const e = entries[Number(h.key)];
@@ -814,14 +959,18 @@ export async function bridgeSearchEntries(options: {
               // discarding the whole call (including already-computed
               // semantic results) instead of degrading to the naive scan
               // below, which is what every other keyword-path failure does.
-              if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] BM25 keyword search failed — falling back to token-overlap scan:', e);
+              if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+                console.error(
+                  '[memory-bridge] BM25 keyword search failed — falling back to token-overlap scan:',
+                  e,
+                );
             }
           }
           if (!bm25Ok) {
             keywordHits = entries
               .map((e: any) => {
                 const haystack = `${e.key || ''} ${e.content || ''}`.toLowerCase();
-                const hits = tokens.filter(t => haystack.includes(t)).length;
+                const hits = tokens.filter((t) => haystack.includes(t)).length;
                 return { e, score: hits / tokens.length };
               })
               .filter((x: any) => x.score > 0)
@@ -871,14 +1020,20 @@ export async function bridgeSearchEntries(options: {
     // stale cutoff.
     // org:* (cross-run org memory) and rules are durable learned state like
     // documents — the stale cliff silently erased org recall after a week.
-    const durableNs = (ns: string) => ns.startsWith('knowledge:') || ns.startsWith('org:') || ns.startsWith('agent:') || ns.startsWith('kg:') || ns === 'rules';
+    const durableNs = (ns: string) =>
+      ns.startsWith('knowledge:') ||
+      ns.startsWith('org:') ||
+      ns.startsWith('agent:') ||
+      ns.startsWith('kg:') ||
+      ns === 'rules';
     const isKnowledgeNs = namespace ? durableNs(namespace) : false;
     if (!isKnowledgeNs) {
       const { staleDays } = getAutomemConfig();
       const staleCutoff = Date.now() - staleDays * 86400000;
-      results = results.filter((r: any) =>
-        durableNs(String(r.namespace ?? ''))
-        || !r._createdAt || r._createdAt > staleCutoff);
+      results = results.filter(
+        (r: any) =>
+          durableNs(String(r.namespace ?? '')) || !r._createdAt || r._createdAt > staleCutoff,
+      );
     }
     results.forEach((r: any) => delete r._createdAt);
 
@@ -889,8 +1044,9 @@ export async function bridgeSearchEntries(options: {
     // embeddings_search, CLI `memory search`, and searchKnowledge — gets
     // the same removal guarantee.
     if (_knowledgeLive && _isSupersededKey && results.length > 0) {
-      results = results.filter((r: any) =>
-        !_isSupersededKey!(String(r.key ?? ''), _knowledgeLive!, _knowledgeHasMeta));
+      results = results.filter(
+        (r: any) => !_isSupersededKey!(String(r.key ?? ''), _knowledgeLive!, _knowledgeHasMeta),
+      );
       // Trim back to the originally requested limit after overfetch.
       if (results.length > limit) results = results.slice(0, limit);
     }
@@ -903,7 +1059,9 @@ export async function bridgeSearchEntries(options: {
       if (!_reranker && !_rerankerPromise) {
         // First qualifying search — kick off the lazy load. This search
         // proceeds without reranking; the NEXT search will use it.
-        loadReranker().catch(() => { /* swallowed — retry next time */ });
+        loadReranker().catch(() => {
+          /* swallowed — retry next time */
+        });
       }
       if (_reranker) {
         const rr = await rerankResults(queryStr, results, limit);
@@ -1090,9 +1248,7 @@ export async function bridgeGenerateEmbedding(
   }
 }
 
-export async function bridgeLoadEmbeddingModel(
-  dbPath?: string,
-): Promise<{
+export async function bridgeLoadEmbeddingModel(dbPath?: string): Promise<{
   success: boolean;
   dimensions: number;
   modelName: string;
@@ -1120,7 +1276,11 @@ export async function bridgeLoadEmbeddingModel(
 
 export async function bridgeGetBackendStats(
   dbPath?: string,
-): Promise<{ totalEntries: number; entriesByNamespace: Record<string, number>; memoryUsage: number } | null> {
+): Promise<{
+  totalEntries: number;
+  entriesByNamespace: Record<string, number>;
+  memoryUsage: number;
+} | null> {
   const backend = await getBackend(dbPath);
   if (!backend) return null;
   try {
@@ -1130,16 +1290,15 @@ export async function bridgeGetBackendStats(
       entriesByNamespace: stats?.entriesByNamespace ?? {},
       memoryUsage: stats?.memoryUsage ?? 0,
     };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeGetBackendStats', e);
     return null;
   }
 }
 
 // ===== HNSW (replaced by the SQLite backend's ANN search — stubs kept for API compat) =====
 
-export async function bridgeGetHNSWStatus(
-  dbPath?: string,
-): Promise<{
+export async function bridgeGetHNSWStatus(dbPath?: string): Promise<{
   built: boolean;
   size: number;
   dimensions: number;
@@ -1151,7 +1310,8 @@ export async function bridgeGetHNSWStatus(
   try {
     const stats = await backend.getStats();
     return { built: true, size: stats?.totalEntries ?? 0, dimensions: BRIDGE_EMBEDDING_DIMS };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeGetHNSWStatus', e);
     return { built: false, size: 0, dimensions: BRIDGE_EMBEDDING_DIMS };
   }
 }
@@ -1180,7 +1340,12 @@ export async function bridgeSearchHNSW(options: {
   if (!result) return null;
   return {
     success: result.success,
-    results: result.results.map(r => ({ id: r.id, key: r.key, score: r.score, namespace: r.namespace })),
+    results: result.results.map((r) => ({
+      id: r.id,
+      key: r.key,
+      score: r.score,
+      namespace: r.namespace,
+    })),
     searchTime: result.searchTime,
   };
 }
@@ -1197,7 +1362,8 @@ export async function bridgeAddToHNSW(options: {
   try {
     const stats = await backend.getStats();
     return { success: true, indexSize: stats?.totalEntries ?? 0 };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeAddToHNSW', e);
     return { success: true };
   }
 }
@@ -1241,7 +1407,11 @@ export async function getControllerRegistry(dbPath?: string): Promise<any | null
 export async function shutdownBridge(): Promise<void> {
   for (const slot of backendSlots.values()) {
     if (slot.instance) {
-      try { await slot.instance.shutdown(); } catch { /* ignore */ }
+      try {
+        await slot.instance.shutdown();
+      } catch (e) {
+        logBridgeError('bridgeShutdown.slotShutdown', e); /* ignore */
+      }
     }
   }
   backendSlots.clear();
@@ -1295,9 +1465,13 @@ export async function bridgeSearchPatterns(options: {
 
   return {
     success: result.success,
-    patterns: result.results.map(r => {
+    patterns: result.results.map((r) => {
       let parsed: any = {};
-      try { parsed = JSON.parse(r.content); } catch { /* use raw */ }
+      try {
+        parsed = JSON.parse(r.content);
+      } catch (e) {
+        logBridgeError('bridgeSearchPatterns.parseContent', e); /* use raw */
+      }
       return {
         id: r.id,
         pattern: parsed.pattern ?? r.content,
@@ -1324,7 +1498,9 @@ async function recordUsageOnBackend(backend: any, entryIds: string[]): Promise<n
         lastAccessedAt: Date.now(),
       });
       updated++;
-    } catch { /* skip unreadable entries */ }
+    } catch (e) {
+      logBridgeError('recordUsageOnBackend.entryUpdate', e); /* skip unreadable entries */
+    }
   }
   return updated;
 }
@@ -1341,7 +1517,8 @@ export async function bridgeRecordUsage(options: {
     const updated = await recordUsageOnBackend(backend, (options.entryIds ?? []).slice(0, 100));
     if (updated) await flushBackend(backend);
     return { success: true, updated };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeRecordUsage', e);
     return { success: false, updated: 0 };
   }
 }
@@ -1356,13 +1533,21 @@ export async function bridgeApplyFeedback(options: {
   ledgerKey?: string;
   alpha?: number;
   dbPath?: string;
-}): Promise<{ success: boolean; applied: number; alreadyApplied?: boolean; error?: string } | null> {
+}): Promise<{
+  success: boolean;
+  applied: number;
+  alreadyApplied?: boolean;
+  error?: string;
+} | null> {
   const backend = await getBackend(options.dbPath);
   if (!backend) return null;
 
   try {
     const score = Math.max(0, Math.min(1, options.score));
-    const alpha = typeof options.alpha === 'number' ? Math.max(0, Math.min(1, options.alpha)) : FEEDBACK_EWMA_ALPHA;
+    const alpha =
+      typeof options.alpha === 'number'
+        ? Math.max(0, Math.min(1, options.alpha))
+        : FEEDBACK_EWMA_ALPHA;
     const ledgerEntryKey = options.ledgerKey ? `applied_${options.ledgerKey.slice(0, 500)}` : null;
 
     if (ledgerEntryKey) {
@@ -1380,13 +1565,20 @@ export async function bridgeApplyFeedback(options: {
         const next = Math.max(0, Math.min(1, feedback + alpha * (score - feedback)));
         await backend.update(id, { metadata: { feedback_weight: next } });
         applied++;
-      } catch { /* skip unreadable entries */ }
+      } catch (e) {
+        logBridgeError('bridgeApplyFeedback.entryUpdate', e); /* skip unreadable entries */
+      }
     }
 
     if (ledgerEntryKey) {
       await bridgeStoreEntry({
         key: ledgerEntryKey,
-        value: JSON.stringify({ score, entryIds: options.entryIds.slice(0, 100), appliedAt: Date.now(), applied }),
+        value: JSON.stringify({
+          score,
+          entryIds: options.entryIds.slice(0, 100),
+          appliedAt: Date.now(),
+          applied,
+        }),
         namespace: 'feedback',
         generateEmbeddingFlag: false,
         dbPath: options.dbPath,
@@ -1395,8 +1587,10 @@ export async function bridgeApplyFeedback(options: {
     }
     if (applied) await flushBackend(backend);
     return { success: true, applied };
-  } catch (err: any) {
-    return { success: false, applied: 0, error: String(err?.message ?? err) };
+  } catch (err: unknown) {
+    logBridgeError('bridgeApplyFeedback', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, applied: 0, error: message };
   }
 }
 
@@ -1490,8 +1684,14 @@ export async function bridgeSessionEnd(options: {
     const existing = await backend.getByKey('sessions', `session_${options.sessionId}`);
     if (existing) {
       let data: any = {};
-      try { data = JSON.parse(existing.content); } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[memory-bridge] session content failed to parse — ending session with empty prior state:', e);
+      try {
+        data = JSON.parse(existing.content);
+      } catch (e) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error(
+            '[memory-bridge] session content failed to parse — ending session with empty prior state:',
+            e,
+          );
       }
       await backend.update(existing.id, {
         content: JSON.stringify({
@@ -1506,7 +1706,8 @@ export async function bridgeSessionEnd(options: {
       await flushBackend(backend);
     }
     return { success: true };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeSessionEnd', e);
     return { success: false };
   }
 }
@@ -1532,9 +1733,13 @@ export async function bridgeRouteTask(options: {
 
   return {
     success: result.success,
-    routes: result.results.map(r => {
+    routes: result.results.map((r) => {
       let parsed: any = {};
-      try { parsed = JSON.parse(r.content); } catch { /* use raw */ }
+      try {
+        parsed = JSON.parse(r.content);
+      } catch (e) {
+        logBridgeError('bridgeRouteTask.parseContent', e); /* use raw */
+      }
       return {
         agentType: parsed.taskType ?? 'coder',
         confidence: r.score,
@@ -1546,9 +1751,7 @@ export async function bridgeRouteTask(options: {
 
 // ===== Health check =====
 
-export async function bridgeHealthCheck(
-  dbPath?: string,
-): Promise<{
+export async function bridgeHealthCheck(dbPath?: string): Promise<{
   healthy: boolean;
   backend: string;
   stats?: { totalEntries: number; namespaces: string[] };
@@ -1563,12 +1766,15 @@ export async function bridgeHealthCheck(
     return {
       healthy: health?.healthy ?? true,
       backend: 'sqlite',
-      stats: stats ? {
-        totalEntries: stats.totalEntries ?? 0,
-        namespaces: Object.keys(stats.entriesByNamespace ?? {}),
-      } : undefined,
+      stats: stats
+        ? {
+            totalEntries: stats.totalEntries ?? 0,
+            namespaces: Object.keys(stats.entriesByNamespace ?? {}),
+          }
+        : undefined,
     };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeHealthCheck', e);
     return { healthy: false, backend: 'sqlite' };
   }
 }
@@ -1636,15 +1842,21 @@ export async function bridgeConsolidate(params: {
       const { feedback, frequency } = entryWeights(e.metadata);
       // Weight-aware GC (first real consumer of the closed loop): entries the
       // system learned are useful never age out; unused, unrated ones do.
-      if (feedback > 0.6 || frequency >= 3) { kept++; continue; }
+      if (feedback > 0.6 || frequency >= 3) {
+        kept++;
+        continue;
+      }
       if ((e.accessCount ?? 0) === 0) {
-        await backend.delete(e.id).catch(() => { /* non-fatal */ });
+        await backend.delete(e.id).catch(() => {
+          /* non-fatal */
+        });
         deleted++;
       }
     }
     if (deleted) await flushBackend(backend);
     return { success: true, consolidated: deleted, preserved: kept };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeConsolidate', e);
     return { success: false, consolidated: 0 };
   }
 }
@@ -1662,7 +1874,11 @@ export async function bridgeBatchOperation(params: {
     let processed = 0;
     if (params.operation === 'store') {
       for (const e of params.entries) {
-        const result = await bridgeStoreEntry({ key: e.key, value: e.value, namespace: e.namespace });
+        const result = await bridgeStoreEntry({
+          key: e.key,
+          value: e.value,
+          namespace: e.namespace,
+        });
         if (result?.success) processed++;
       }
     } else if (params.operation === 'delete') {
@@ -1672,7 +1888,8 @@ export async function bridgeBatchOperation(params: {
       }
     }
     return { success: true, processed };
-  } catch {
+  } catch (e) {
+    logBridgeError('bridgeBatchOperation', e);
     return { success: false, processed: 0 };
   }
 }

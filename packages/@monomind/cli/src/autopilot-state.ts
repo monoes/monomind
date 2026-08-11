@@ -98,7 +98,12 @@ export function safeJsonParse<T>(raw: string): T {
  * Validate and coerce a numeric parameter. Returns the default if
  * the input is NaN, undefined, or outside the allowed range.
  */
-export function validateNumber(value: unknown, min: number, max: number, defaultValue: number): number {
+export function validateNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  defaultValue: number,
+): number {
   if (value === undefined || value === null) return defaultValue;
   const num = Number(value);
   if (!Number.isFinite(num)) return defaultValue;
@@ -114,8 +119,8 @@ export function validateTaskSources(sources: unknown): string[] {
   if (!Array.isArray(sources)) return defaults;
   const valid = sources
     .filter((s): s is string => typeof s === 'string')
-    .map(s => s.trim())
-    .filter(s => VALID_TASK_SOURCES.has(s));
+    .map((s) => s.trim())
+    .filter((s) => VALID_TASK_SOURCES.has(s));
   return valid.length > 0 ? valid : defaults;
 }
 
@@ -154,7 +159,8 @@ export function loadState(): AutopilotState {
       return merged;
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[autopilot-state] failed to load state file, using defaults:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[autopilot-state] failed to load state file, using defaults:', e);
   }
   return defaults;
 }
@@ -195,7 +201,9 @@ export function appendLog(entry: AutopilotLogEntry): void {
     if (stat.size > 4 * 1024 * 1024) {
       compactLog(filePath);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -205,7 +213,10 @@ export function appendLog(entry: AutopilotLogEntry): void {
 function compactLog(filePath: string): void {
   let lines: string[];
   try {
-    lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(l => l.trim().length > 0);
+    lines = fs
+      .readFileSync(filePath, 'utf-8')
+      .split('\n')
+      .filter((l) => l.trim().length > 0);
   } catch {
     return;
   }
@@ -215,16 +226,20 @@ function compactLog(filePath: string): void {
     try {
       const e = safeJsonParse<AutopilotLogEntry>(line);
       if (e && typeof e === 'object') entries.push(e);
-    } catch { corrupt++; }
+    } catch {
+      corrupt++;
+    }
   }
   if (corrupt > 0) {
     try {
       fs.copyFileSync(filePath, `${filePath}.corrupt-${Date.now()}`);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   const trimmed = entries.length > MAX_LOG_ENTRIES ? entries.slice(-MAX_LOG_ENTRIES) : entries;
   const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, trimmed.map(e => JSON.stringify(e)).join('\n') + '\n');
+  fs.writeFileSync(tmp, trimmed.map((e) => JSON.stringify(e)).join('\n') + '\n');
   fs.renameSync(tmp, filePath);
 }
 
@@ -246,12 +261,15 @@ export function loadLog(): AutopilotLogEntry[] {
         try {
           const entry = safeJsonParse<AutopilotLogEntry>(line);
           if (entry && typeof entry === 'object') out.push(entry);
-        } catch { /* skip corrupt line */ }
+        } catch {
+          /* skip corrupt line */
+        }
       }
       return out;
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[autopilot-state] failed to load log file, returning empty:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[autopilot-state] failed to load log file, returning empty:', e);
   }
   return [];
 }
@@ -262,7 +280,7 @@ export function discoverTasks(sources: string[]): TaskInfo[] {
   const tasks: TaskInfo[] = [];
 
   // Only process valid sources
-  const validSources = sources.filter(s => VALID_TASK_SOURCES.has(s));
+  const validSources = sources.filter((s) => VALID_TASK_SOURCES.has(s));
 
   for (const source of validSources) {
     if (source === 'team-tasks') {
@@ -278,26 +296,36 @@ export function discoverTasks(sources: string[]): TaskInfo[] {
               try {
                 const taskFilePath = path.join(teamDir, file);
                 if (fs.statSync(taskFilePath).size > MAX_STATE_FILE_BYTES) continue;
-                const data = safeJsonParse<Record<string, unknown>>(fs.readFileSync(taskFilePath, 'utf-8'));
+                const data = safeJsonParse<Record<string, unknown>>(
+                  fs.readFileSync(taskFilePath, 'utf-8'),
+                );
                 tasks.push({
                   id: String(data.id || file.replace('.json', '')),
                   subject: String(data.subject || data.title || file),
                   status: String(data.status || 'unknown'),
                   source: 'team-tasks',
                 });
-              } catch { /* skip individual file */ }
+              } catch {
+                /* skip individual file */
+              }
             }
           }
         }
-      } catch { /* skip source */ }
+      } catch {
+        /* skip source */
+      }
     }
 
     if (source === 'swarm-tasks') {
       const swarmFile = path.resolve('.monomind/swarm-tasks.json');
       try {
         if (fs.existsSync(swarmFile) && fs.statSync(swarmFile).size <= MAX_STATE_FILE_BYTES) {
-          const data = safeJsonParse<Record<string, unknown> | unknown[]>(fs.readFileSync(swarmFile, 'utf-8'));
-          const swarmTasks = Array.isArray(data) ? data : ((data as Record<string, unknown>).tasks as unknown[] || []);
+          const data = safeJsonParse<Record<string, unknown> | unknown[]>(
+            fs.readFileSync(swarmFile, 'utf-8'),
+          );
+          const swarmTasks = Array.isArray(data)
+            ? data
+            : ((data as Record<string, unknown>).tasks as unknown[]) || [];
           for (const t of swarmTasks) {
             if (t && typeof t === 'object') {
               const task = t as Record<string, unknown>;
@@ -310,15 +338,24 @@ export function discoverTasks(sources: string[]): TaskInfo[] {
             }
           }
         }
-      } catch { /* skip source */ }
+      } catch {
+        /* skip source */
+      }
     }
 
     if (source === 'file-checklist') {
       const checklistFile = path.resolve('.monomind/data/checklist.json');
       try {
-        if (fs.existsSync(checklistFile) && fs.statSync(checklistFile).size <= MAX_STATE_FILE_BYTES) {
-          const data = safeJsonParse<Record<string, unknown> | unknown[]>(fs.readFileSync(checklistFile, 'utf-8'));
-          const items = Array.isArray(data) ? data : ((data as Record<string, unknown>).items as unknown[] || []);
+        if (
+          fs.existsSync(checklistFile) &&
+          fs.statSync(checklistFile).size <= MAX_STATE_FILE_BYTES
+        ) {
+          const data = safeJsonParse<Record<string, unknown> | unknown[]>(
+            fs.readFileSync(checklistFile, 'utf-8'),
+          );
+          const items = Array.isArray(data)
+            ? data
+            : ((data as Record<string, unknown>).items as unknown[]) || [];
           for (const item of items) {
             if (item && typeof item === 'object') {
               const i = item as Record<string, unknown>;
@@ -331,7 +368,9 @@ export function discoverTasks(sources: string[]): TaskInfo[] {
             }
           }
         }
-      } catch { /* skip source */ }
+      } catch {
+        /* skip source */
+      }
     }
   }
 
@@ -345,10 +384,10 @@ export function isTerminal(status: string): boolean {
 }
 
 export function getProgress(tasks: TaskInfo[]): TaskProgress {
-  const completed = tasks.filter(t => isTerminal(t.status)).length;
+  const completed = tasks.filter((t) => isTerminal(t.status)).length;
   const total = tasks.length;
   const percent = total === 0 ? 100 : Math.round((completed / total) * 100);
-  const incomplete = tasks.filter(t => !isTerminal(t.status));
+  const incomplete = tasks.filter((t) => !isTerminal(t.status));
   return { completed, total, percent, incomplete };
 }
 
@@ -362,14 +401,32 @@ export function calculateReward(iterations: number, durationMs: number): number 
 
 // ── Learning Integration ──────────────────────────────────────
 
-export async function tryLoadLearning(): Promise<{ initialize: () => Promise<boolean>; [key: string]: unknown } | null> {
+/**
+ * Interface for the optional agentic-flow AutopilotLearning peer. Methods are
+ * typed loosely (return `Promise<unknown>`) because the peer module is not a
+ * declared dependency — its API may differ across versions. The CLI's job is
+ * to call these methods when the peer is present and fall back to heuristics
+ * when it isn't (see commands/autopilot.ts). The interface exists so callers
+ * do not need `as any` casts that would silently swallow API drift.
+ */
+export interface AutopilotLearningInterface {
+  initialize(): Promise<boolean>;
+  getMetrics(): Promise<unknown>;
+  discoverSuccessPatterns(...args: unknown[]): Promise<unknown>;
+  recallSimilarTasks(...args: unknown[]): Promise<unknown>;
+  predictNextAction(...args: unknown[]): Promise<unknown>;
+}
+
+export async function tryLoadLearning(): Promise<AutopilotLearningInterface | null> {
   try {
     const modPath = 'agentic-flow/dist/coordination/autopilot-learning.js';
     const mod = await import(/* webpackIgnore: true */ modPath).catch(() => null);
     if (mod?.AutopilotLearning) {
-      const instance = new mod.AutopilotLearning();
+      const instance = new mod.AutopilotLearning() as AutopilotLearningInterface;
       if (await instance.initialize()) return instance;
     }
-  } catch { /* not available */ }
+  } catch {
+    /* not available */
+  }
   return null;
 }

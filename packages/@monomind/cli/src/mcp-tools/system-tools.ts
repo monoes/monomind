@@ -70,15 +70,19 @@ function loadMetrics(): SystemMetrics {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadMetrics] failed to read/parse metrics.json, using defaults:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[loadMetrics] failed to read/parse metrics.json, using defaults:', e);
   }
   return {
     startTime: new Date().toISOString(),
     lastCheck: new Date().toISOString(),
     uptime: 0,
     health: 1.0,
-    cpu: os.loadavg()[0] * 100 / os.cpus().length,
-    memory: { used: Math.round((os.totalmem() - os.freemem()) / 1024 / 1024), total: Math.round(os.totalmem() / 1024 / 1024) },
+    cpu: (os.loadavg()[0] * 100) / os.cpus().length,
+    memory: {
+      used: Math.round((os.totalmem() - os.freemem()) / 1024 / 1024),
+      total: Math.round(os.totalmem() / 1024 / 1024),
+    },
     agents: { active: 0, total: 0 },
     tasks: { pending: 0, completed: 0, failed: 0 },
     requests: { total: 0, success: 0, errors: 0 },
@@ -102,7 +106,11 @@ export const systemTools: MCPTool[] = [
       type: 'object',
       properties: {
         verbose: { type: 'boolean', description: 'Include detailed information' },
-        components: { type: 'array', items: { type: 'string' }, description: 'Specific components to check' },
+        components: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Specific components to check',
+        },
       },
     },
     handler: async (input) => {
@@ -110,15 +118,25 @@ export const systemTools: MCPTool[] = [
       const uptime = Date.now() - new Date(metrics.startTime).getTime();
 
       const status = {
-        status: metrics.health >= 0.8 ? 'healthy' : metrics.health >= 0.5 ? 'degraded' : 'unhealthy',
+        status:
+          metrics.health >= 0.8 ? 'healthy' : metrics.health >= 0.5 ? 'degraded' : 'unhealthy',
         uptime,
         uptimeFormatted: `${Math.floor(uptime / 3600000)}h ${Math.floor((uptime % 3600000) / 60000)}m`,
         version: PKG_VERSION,
         components: {
           swarm: { status: 'running', health: metrics.health },
-          memory: { status: 'unknown', _note: 'Health not measured — use system_health for real checks' },
-          neural: { status: 'unknown', _note: 'Health not measured — use system_health for real checks' },
-          mcp: { status: 'unknown', _note: 'Health not measured — use system_health for real checks' },
+          memory: {
+            status: 'unknown',
+            _note: 'Health not measured — use system_health for real checks',
+          },
+          neural: {
+            status: 'unknown',
+            _note: 'Health not measured — use system_health for real checks',
+          },
+          mcp: {
+            status: 'unknown',
+            _note: 'Health not measured — use system_health for real checks',
+          },
         },
         lastCheck: new Date().toISOString(),
       };
@@ -145,9 +163,17 @@ export const systemTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        category: { type: 'string', enum: ['all', 'cpu', 'memory', 'agents', 'tasks', 'requests'], description: 'Metrics category' },
+        category: {
+          type: 'string',
+          enum: ['all', 'cpu', 'memory', 'agents', 'tasks', 'requests'],
+          description: 'Metrics category',
+        },
         timeRange: { type: 'string', description: 'Time range (e.g., 1h, 24h, 7d)' },
-        format: { type: 'string', enum: ['json', 'table', 'summary'], description: 'Output format' },
+        format: {
+          type: 'string',
+          enum: ['json', 'table', 'summary'],
+          description: 'Output format',
+        },
       },
     },
     handler: async (input) => {
@@ -166,73 +192,95 @@ export const systemTools: MCPTool[] = [
       // Read real agent/task counts — try memory backend first, fallback to JSON stores
       let agentCounts = { active: 0, total: 0 };
       let taskCounts = { pending: 0, completed: 0, failed: 0 };
-      let _metricsSource: 'lancedb' | 'json-store' | 'none' = 'none';
+      let _metricsSource: 'sqlite' | 'json-store' | 'none' = 'none';
 
       // Primary: SQLite-backed memory bridge
       try {
         const bridge = await import('../memory/memory-bridge.js');
-        const agentResults = await bridge.bridgeListEntries({ namespace: 'agents', limit: 10000 }) as { entries?: Array<{ metadata?: string; value?: string }> } | null;
+        const agentResults = (await bridge.bridgeListEntries({
+          namespace: 'agents',
+          limit: 10000,
+        })) as { entries?: Array<{ metadata?: string; value?: string }> } | null;
         const agentEntries = agentResults?.entries;
         if (agentEntries && agentEntries.length > 0) {
           let active = 0;
           for (const a of agentEntries) {
             try {
-              const meta = a.metadata ? JSON.parse(a.metadata) : (a.value ? JSON.parse(a.value) : {});
+              const meta = a.metadata ? JSON.parse(a.metadata) : a.value ? JSON.parse(a.value) : {};
               if (meta.status === 'active' || meta.status === 'running') active++;
-            } catch { /* skip unparseable */ }
+            } catch {
+              /* skip unparseable */
+            }
           }
           agentCounts = { total: agentEntries.length, active };
-          _metricsSource = 'lancedb';
+          _metricsSource = 'sqlite';
         }
-        const taskResults = await bridge.bridgeListEntries({ namespace: 'tasks', limit: 10000 }) as { entries?: Array<{ metadata?: string; value?: string }> } | null;
+        const taskResults = (await bridge.bridgeListEntries({
+          namespace: 'tasks',
+          limit: 10000,
+        })) as { entries?: Array<{ metadata?: string; value?: string }> } | null;
         const taskEntries = taskResults?.entries;
         if (taskEntries && taskEntries.length > 0) {
-          let pending = 0, completed = 0, failed = 0;
+          let pending = 0,
+            completed = 0,
+            failed = 0;
           for (const t of taskEntries) {
             try {
-              const meta = t.metadata ? JSON.parse(t.metadata) : (t.value ? JSON.parse(t.value) : {});
+              const meta = t.metadata ? JSON.parse(t.metadata) : t.value ? JSON.parse(t.value) : {};
               if (meta.status === 'pending' || meta.status === 'assigned') pending++;
               else if (meta.status === 'completed') completed++;
               else if (meta.status === 'failed') failed++;
-            } catch { /* skip */ }
+            } catch {
+              /* skip */
+            }
           }
           taskCounts = { pending, completed, failed };
-          _metricsSource = 'lancedb';
+          _metricsSource = 'sqlite';
         }
-      } catch { /* memory backend unavailable, try JSON fallback */ }
+      } catch {
+        /* memory backend unavailable, try JSON fallback */
+      }
 
       // Fallback: JSON store files (backward compatibility)
       if (_metricsSource === 'none') {
         try {
           const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
-          if (existsSync(agentStorePath) && statSync(agentStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
+          if (
+            existsSync(agentStorePath) &&
+            statSync(agentStorePath).size <= MAX_SYSTEM_STORE_BYTES
+          ) {
             const agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
             const agents = Object.values(agentStore.agents || {}) as Array<{ status: string }>;
             agentCounts = {
               total: agents.length,
-              active: agents.filter(a => a.status === 'active' || a.status === 'running').length,
+              active: agents.filter((a) => a.status === 'active' || a.status === 'running').length,
             };
             _metricsSource = 'json-store';
           }
-        } catch { /* agent store not available */ }
+        } catch {
+          /* agent store not available */
+        }
         try {
           const taskStorePath = join(getMonomindDataRoot(), 'tasks', 'store.json');
           if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_SYSTEM_STORE_BYTES) {
             const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
             const tasks = Object.values(taskStore.tasks || {}) as Array<{ status: string }>;
             taskCounts = {
-              pending: tasks.filter(t => t.status === 'pending' || t.status === 'assigned').length,
-              completed: tasks.filter(t => t.status === 'completed').length,
-              failed: tasks.filter(t => t.status === 'failed').length,
+              pending: tasks.filter((t) => t.status === 'pending' || t.status === 'assigned')
+                .length,
+              completed: tasks.filter((t) => t.status === 'completed').length,
+              failed: tasks.filter((t) => t.status === 'failed').length,
             };
             _metricsSource = 'json-store';
           }
-        } catch { /* task store not available */ }
+        } catch {
+          /* task store not available */
+        }
       }
 
       const currentMetrics: SystemMetrics = {
         ...store,
-        cpu: loadAvg[0] * 100 / cpus.length, // Real CPU load percentage
+        cpu: (loadAvg[0] * 100) / cpus.length, // Real CPU load percentage
         memory: {
           used: Math.round((totalMem - freeMem) / 1024 / 1024), // Real MB used
           total: Math.round(totalMem / 1024 / 1024), // Real total MB
@@ -246,7 +294,9 @@ export const systemTools: MCPTool[] = [
             if (live.total > 0) {
               return { total: live.total, success: live.success, errors: live.errors };
             }
-          } catch { /* tracker not available — fall back to stored value */ }
+          } catch {
+            /* tracker not available — fall back to stored value */
+          }
           return store.requests;
         })(),
         uptime: Date.now() - new Date(store.startTime).getTime(),
@@ -301,13 +351,18 @@ export const systemTools: MCPTool[] = [
       type: 'object',
       properties: {
         deep: { type: 'boolean', description: 'Perform deep health check' },
-        components: { type: 'array', items: { type: 'string' }, description: 'Components to check' },
+        components: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Components to check',
+        },
         fix: { type: 'boolean', description: 'Attempt to fix issues' },
       },
     },
     handler: async (input) => {
       const metrics = loadMetrics();
-      const checks: Array<{ name: string; status: string; latency?: number; message?: string }> = [];
+      const checks: Array<{ name: string; status: string; latency?: number; message?: string }> =
+        [];
       const projectCwd = getProjectCwd();
 
       // Memory DB check — verify the store file exists
@@ -345,7 +400,9 @@ export const systemTools: MCPTool[] = [
         checks.push({
           name: 'mcp',
           status: isStdio ? 'healthy' : 'unknown',
-          message: isStdio ? 'MCP stdio server running (this process)' : 'Not running as MCP server',
+          message: isStdio
+            ? 'MCP stdio server running (this process)'
+            : 'Not running as MCP server',
         });
       }
 
@@ -401,7 +458,7 @@ export const systemTools: MCPTool[] = [
         }
       }
 
-      const healthy = checks.filter(c => c.status === 'healthy').length;
+      const healthy = checks.filter((c) => c.status === 'healthy').length;
       const total = checks.length;
       const overallHealth = healthy / total;
 
@@ -416,11 +473,13 @@ export const systemTools: MCPTool[] = [
         healthy,
         total,
         timestamp: new Date().toISOString(),
-        issues: checks.filter(c => c.status !== 'healthy').map(c => ({
-          component: c.name,
-          status: c.status,
-          suggestion: `Check ${c.name} component configuration`,
-        })),
+        issues: checks
+          .filter((c) => c.status !== 'healthy')
+          .map((c) => ({
+            component: c.name,
+            status: c.status,
+            suggestion: `Check ${c.name} component configuration`,
+          })),
       };
     },
   },
@@ -431,7 +490,11 @@ export const systemTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        include: { type: 'array', items: { type: 'string' }, description: 'Information to include' },
+        include: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Information to include',
+        },
       },
     },
     handler: async () => {
@@ -465,7 +528,10 @@ export const systemTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        component: { type: 'string', description: 'Component to reset (all, metrics, agents, tasks)' },
+        component: {
+          type: 'string',
+          description: 'Component to reset (all, metrics, agents, tasks)',
+        },
         confirm: { type: 'boolean', description: 'Confirm reset' },
       },
       required: ['confirm'],
@@ -487,8 +553,11 @@ export const systemTools: MCPTool[] = [
         lastCheck: new Date().toISOString(),
         uptime: 0,
         health: 1.0,
-        cpu: os.loadavg()[0] * 100 / os.cpus().length,
-        memory: { used: Math.round((os.totalmem() - os.freemem()) / 1024 / 1024), total: Math.round(os.totalmem() / 1024 / 1024) },
+        cpu: (os.loadavg()[0] * 100) / os.cpus().length,
+        memory: {
+          used: Math.round((os.totalmem() - os.freemem()) / 1024 / 1024),
+          total: Math.round(os.totalmem() / 1024 / 1024),
+        },
         agents: { active: 0, total: 0 },
         tasks: { pending: 0, completed: 0, failed: 0 },
         requests: { total: 0, success: 0, errors: 0 },
@@ -582,15 +651,16 @@ export const systemTools: MCPTool[] = [
           tasks = Object.values(store.tasks || {});
         }
       } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_summary] failed to read/parse task store:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[task_summary] failed to read/parse task store:', e);
       }
 
       return {
         total: tasks.length,
-        pending: tasks.filter(t => t.status === 'pending').length,
-        running: tasks.filter(t => t.status === 'in_progress').length,
-        completed: tasks.filter(t => t.status === 'completed').length,
-        failed: tasks.filter(t => t.status === 'failed').length,
+        pending: tasks.filter((t) => t.status === 'pending').length,
+        running: tasks.filter((t) => t.status === 'in_progress').length,
+        completed: tasks.filter((t) => t.status === 'completed').length,
+        failed: tasks.filter((t) => t.status === 'failed').length,
       };
     },
   },

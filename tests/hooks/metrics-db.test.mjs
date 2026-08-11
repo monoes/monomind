@@ -18,7 +18,9 @@ const sqlJsAvailable = (() => {
   try {
     require.resolve('sql.js', { paths: [path.resolve(__dirname, '../../')] });
     return true;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 })();
 
 function run(command, opts = {}) {
@@ -40,8 +42,10 @@ describe('metrics-db dependency check', () => {
     expect(typeof r.status).toBe('number');
   });
 
-  it('exits non-zero with error message when sql.js is missing', () => {
-    if (sqlJsAvailable) return; // skip assertion when sql.js IS present
+  // `it.skipIf` (not a bare `return`) so the test is REPORTED as skipped when
+  // sql.js is present and actually RUNS when it is absent — the previous
+  // `if (sqlJsAvailable) return;` form silently passed in both cases.
+  it.skipIf(sqlJsAvailable)('exits non-zero with error message when sql.js is missing', () => {
     const r = run('sync');
     expect(r.status).toBe(1);
     // stderr should mention the missing module
@@ -60,7 +64,7 @@ describe.skipIf(!sqlJsAvailable)('metrics-db sync', () => {
   it('prints valid JSON to stdout', () => {
     const r = run('sync');
     const lines = r.stdout.split('\n').filter(Boolean);
-    const jsonLine = lines.find(l => l.startsWith('{') || l.startsWith('['));
+    const jsonLine = lines.find((l) => l.startsWith('{') || l.startsWith('['));
     expect(jsonLine).toBeTruthy();
     expect(() => JSON.parse(jsonLine)).not.toThrow();
   });

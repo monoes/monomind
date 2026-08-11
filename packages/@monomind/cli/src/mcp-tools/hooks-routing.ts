@@ -5,9 +5,19 @@
  * Extracted from hooks-tools.ts.
  */
 
-import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, readdirSync, rmSync } from 'fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  renameSync,
+  existsSync,
+  readFileSync,
+  statSync,
+  readdirSync,
+  rmSync,
+} from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
+import { validateMcpString, validatePositiveInt } from '../utils/input-guards.js';
 import { randomUUID } from 'node:crypto';
 import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
 import { recordCommand, deriveRecentSuccess } from '../monovector/command-outcomes.js';
@@ -45,7 +55,10 @@ export const hooksPreEdit: MCPTool = {
     type: 'object',
     properties: {
       filePath: { type: 'string', description: 'Path to the file being edited' },
-      operation: { type: 'string', description: 'Type of operation (create, update, delete, refactor)' },
+      operation: {
+        type: 'string',
+        description: 'Type of operation (create, update, delete, refactor)',
+      },
       context: { type: 'string', description: 'Additional context' },
     },
     required: ['filePath'],
@@ -55,14 +68,12 @@ export const hooksPreEdit: MCPTool = {
     // response.  Cap operation to prevent oversized strings in recommendations.
     const MAX_PRE_EDIT_PATH_LEN = 4 * 1024;
     const MAX_PRE_EDIT_OP_LEN = 64;
-    const rawFilePath = params.filePath as string;
-    const filePath = typeof rawFilePath === 'string' && rawFilePath.length > MAX_PRE_EDIT_PATH_LEN
-      ? rawFilePath.slice(0, MAX_PRE_EDIT_PATH_LEN)
-      : rawFilePath;
-    const rawOperation = (params.operation as string) || 'update';
-    const operation = typeof rawOperation === 'string' && rawOperation.length > MAX_PRE_EDIT_OP_LEN
-      ? rawOperation.slice(0, MAX_PRE_EDIT_OP_LEN)
-      : rawOperation;
+    const filePath = validateMcpString(params.filePath, 'filePath', MAX_PRE_EDIT_PATH_LEN);
+    if (!filePath) {
+      return { error: 'filePath is required (non-empty string, no control chars, max 4KB)' };
+    }
+    const operation =
+      validateMcpString(params.operation, 'operation', MAX_PRE_EDIT_OP_LEN) ?? 'update';
 
     const suggestedAgents = suggestAgentsForFile(filePath);
     const ext = getFileExtension(filePath);
@@ -75,9 +86,7 @@ export const hooksPreEdit: MCPTool = {
         fileType: ext || 'unknown',
         relatedFiles: [],
         suggestedAgents,
-        patterns: [
-          { pattern: `${ext} file editing`, confidence: 0.85 },
-        ],
+        patterns: [{ pattern: `${ext} file editing`, confidence: 0.85 }],
         risks: operation === 'delete' ? ['File deletion is irreversible'] : [],
       },
       recommendations: [
@@ -106,15 +115,12 @@ export const hooksPostEdit: MCPTool = {
     // Cap agent: stored in feedback record and forwarded to bridge.
     const MAX_POST_EDIT_PATH_LEN = 4 * 1024;
     const MAX_POST_EDIT_AGENT_LEN = 256;
-    const rawFilePath = params.filePath as string;
-    const filePath = typeof rawFilePath === 'string' && rawFilePath.length > MAX_POST_EDIT_PATH_LEN
-      ? rawFilePath.slice(0, MAX_POST_EDIT_PATH_LEN)
-      : rawFilePath;
+    const filePath = validateMcpString(params.filePath, 'filePath', MAX_POST_EDIT_PATH_LEN);
+    if (!filePath) {
+      return { error: 'filePath is required (non-empty string, no control chars, max 4KB)' };
+    }
     const success = params.success !== false;
-    const rawAgent = params.agent as string | undefined;
-    const agent = typeof rawAgent === 'string' && rawAgent.length > MAX_POST_EDIT_AGENT_LEN
-      ? rawAgent.slice(0, MAX_POST_EDIT_AGENT_LEN)
-      : rawAgent;
+    const agent = validateMcpString(params.agent, 'agent', MAX_POST_EDIT_AGENT_LEN) ?? undefined;
 
     // Wire recordFeedback through bridge (issue #1209)
     let feedbackResult: { success: boolean; id?: string; error?: string } | null = null;
@@ -128,7 +134,8 @@ export const hooksPostEdit: MCPTool = {
       });
     } catch (e) {
       // Bridge not available — continue with basic response
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-post-edit] memory bridge feedback failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-post-edit] memory bridge feedback failed:', e);
     }
 
     return {
@@ -137,11 +144,13 @@ export const hooksPostEdit: MCPTool = {
       success,
       timestamp: new Date().toISOString(),
       learningUpdate: success ? 'pattern_reinforced' : 'pattern_adjusted',
-      feedback: feedbackResult ? {
-        recorded: feedbackResult.success,
-        controller: feedbackResult.success ? 'lancedb' : 'unavailable',
-        updates: feedbackResult.success ? 1 : 0,
-      } : { recorded: false, controller: 'unavailable', updates: 0 },
+      feedback: feedbackResult
+        ? {
+            recorded: feedbackResult.success,
+            controller: feedbackResult.success ? 'sqlite' : 'unavailable',
+            updates: feedbackResult.success ? 1 : 0,
+          }
+        : { recorded: false, controller: 'unavailable', updates: 0 },
     };
   },
 };
@@ -161,16 +170,20 @@ export const hooksPreCommand: MCPTool = {
     // raw command is reflected verbatim in the response.  Limit to 4 KB which
     // is far beyond any realistic shell command.
     const MAX_CMD_LEN = 4 * 1024;
-    const rawCommand = params.command as string;
-    const command = typeof rawCommand === 'string' && rawCommand.length > MAX_CMD_LEN
-      ? rawCommand.slice(0, MAX_CMD_LEN)
-      : rawCommand;
+    const command = validateMcpString(params.command, 'command', MAX_CMD_LEN);
+    if (!command) {
+      return { error: 'command is required (non-empty string, no control chars, max 4KB)' };
+    }
     const assessment = assessCommandRisk(command);
 
-    const riskLevel = assessment.level >= 0.8 ? 'critical'
-      : assessment.level >= 0.6 ? 'high'
-        : assessment.level >= 0.3 ? 'medium'
-          : 'low';
+    const riskLevel =
+      assessment.level >= 0.8
+        ? 'critical'
+        : assessment.level >= 0.6
+          ? 'high'
+          : assessment.level >= 0.3
+            ? 'medium'
+            : 'low';
 
     return {
       command,
@@ -180,9 +193,10 @@ export const hooksPreCommand: MCPTool = {
         severity: assessment.level >= 0.6 ? 'high' : 'medium',
         description: warning,
       })),
-      recommendations: assessment.warnings.length > 0
-        ? ['Review warnings before proceeding', 'Consider using safer alternative']
-        : ['Command appears safe to execute'],
+      recommendations:
+        assessment.warnings.length > 0
+          ? ['Review warnings before proceeding', 'Consider using safer alternative']
+          : ['Command appears safe to execute'],
       safeAlternatives: [],
       shouldProceed: assessment.level < 0.7,
     };
@@ -207,11 +221,14 @@ export const hooksPostCommand: MCPTool = {
     // already caps to 200 chars; apply a consistent 4 KB cap here that still
     // covers any realistic shell command.
     const MAX_POST_CMD_LEN = 4 * 1024;
-    const rawPostCommand = params.command as string;
-    const command = typeof rawPostCommand === 'string' && rawPostCommand.length > MAX_POST_CMD_LEN
-      ? rawPostCommand.slice(0, MAX_POST_CMD_LEN)
-      : rawPostCommand;
-    const exitCode = (params.exitCode as number) || 0;
+    const command = validateMcpString(params.command, 'command', MAX_POST_CMD_LEN);
+    if (!command) {
+      return { error: 'command is required (non-empty string, no control chars, max 4KB)' };
+    }
+    const exitCode =
+      typeof params.exitCode === 'number' && Number.isFinite(params.exitCode)
+        ? Math.floor(params.exitCode)
+        : 0;
     const success = exitCode === 0;
 
     // Record the real exit code in the time-windowed command-outcome store so
@@ -224,7 +241,7 @@ export const hooksPostCommand: MCPTool = {
     });
 
     // Persist command outcome via memory backend
-    let _storedIn: 'lancedb' | 'json-store' | 'none' = 'none';
+    let _storedIn: 'sqlite' | 'json-store' | 'none' = 'none';
     try {
       const bridge = await import('../memory/memory-bridge.js');
       await bridge.bridgeStoreEntry({
@@ -233,13 +250,18 @@ export const hooksPostCommand: MCPTool = {
         namespace: 'commands',
         tags: [success ? 'success' : 'error'],
       });
-      _storedIn = 'lancedb';
+      _storedIn = 'sqlite';
     } catch {
       // memory backend unavailable — store in JSON
       try {
         const store = loadMemoryStore();
         const key = `cmd-${Date.now()}`;
-        store.entries[key] = { key, value: JSON.stringify({ command, exitCode, success }), namespace: 'commands', createdAt: new Date().toISOString() } as any;
+        store.entries[key] = {
+          key,
+          value: JSON.stringify({ command, exitCode, success }),
+          namespace: 'commands',
+          createdAt: new Date().toISOString(),
+        } as any;
         const memDir = join(getProjectCwd(), MEMORY_DIR);
         if (!existsSync(memDir)) mkdirSync(memDir, { recursive: true });
         const _mp = getMemoryPath();
@@ -247,7 +269,9 @@ export const hooksPostCommand: MCPTool = {
         writeFileSync(_mptmp, JSON.stringify(store, null, 2), 'utf-8');
         renameSync(_mptmp, _mp);
         _storedIn = 'json-store';
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     return {
@@ -269,7 +293,10 @@ export const hooksRoute: MCPTool = {
     properties: {
       task: { type: 'string', description: 'Task description' },
       context: { type: 'string', description: 'Additional context' },
-      useSemanticRouter: { type: 'boolean', description: 'Use semantic similarity routing (default: true)' },
+      useSemanticRouter: {
+        type: 'boolean',
+        description: 'Use semantic similarity routing (default: true)',
+      },
     },
     required: ['task'],
   },
@@ -279,14 +306,11 @@ export const hooksRoute: MCPTool = {
     // route-outcomes.jsonl.  16 KB matches the cap in hooksPatternSearch.
     const MAX_ROUTE_TASK_LEN = 16 * 1024;
     const MAX_ROUTE_CTX_LEN = 4 * 1024;
-    const rawTask = params.task as string;
-    const task = typeof rawTask === 'string' && rawTask.length > MAX_ROUTE_TASK_LEN
-      ? rawTask.slice(0, MAX_ROUTE_TASK_LEN)
-      : rawTask;
-    const rawContext = params.context as string | undefined;
-    const context = typeof rawContext === 'string' && rawContext.length > MAX_ROUTE_CTX_LEN
-      ? rawContext.slice(0, MAX_ROUTE_CTX_LEN)
-      : rawContext;
+    const task = validateMcpString(params.task, 'task', MAX_ROUTE_TASK_LEN);
+    if (!task) {
+      return { error: 'task is required (non-empty string, no control chars, max 16KB)' };
+    }
+    const context = validateMcpString(params.context, 'context', MAX_ROUTE_CTX_LEN) ?? undefined;
     const useSemanticRouter = params.useSemanticRouter !== false;
 
     // Phase 5: Try memory backend SemanticRouter / LearningSystem first
@@ -300,7 +324,7 @@ export const hooksRoute: MCPTool = {
           if (routeConfidence > 0.5) {
             const agents = memoryRoute.routes.map((r: { agentType: string }) => r.agentType);
             const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
-            const memoryMethod = 'memory-lancedb';
+            const memoryMethod = 'memory-sqlite';
             const memoryConfidence = Math.round(routeConfidence * 100) / 100;
             const matchedPattern = topRoute.pattern ?? task.slice(0, 60);
             // Record the route recommendation so post-task can join the actual outcome
@@ -319,7 +343,7 @@ export const hooksRoute: MCPTool = {
               task,
               routing: {
                 method: memoryMethod,
-                backend: 'lancedb',
+                backend: 'sqlite',
                 latencyMs: 0,
                 throughput: 'N/A',
               },
@@ -328,19 +352,27 @@ export const hooksRoute: MCPTool = {
               primaryAgent: {
                 type: agents[0],
                 confidence: memoryConfidence,
-                reason: `memory:lancedb: "${matchedPattern}" (${Math.round(routeConfidence * 100)}%)`,
+                reason: `memory:sqlite: "${matchedPattern}" (${Math.round(routeConfidence * 100)}%)`,
               },
               alternativeAgents: agents.slice(1).map((agent: string, i: number) => ({
                 type: agent,
-                confidence: Math.round((routeConfidence - (0.1 * (i + 1))) * 100) / 100,
-                reason: 'Alternative from lancedb',
+                confidence: Math.round((routeConfidence - 0.1 * (i + 1)) * 100) / 100,
+                reason: 'Alternative from sqlite',
               })),
               estimatedMetrics: {
                 successProbability: memoryConfidence,
-                estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
+                estimatedDuration:
+                  complexity === 'high'
+                    ? '2-4 hours'
+                    : complexity === 'medium'
+                      ? '30-60 min'
+                      : '10-30 min',
                 complexity,
               },
-              swarmRecommendation: agents.length > 2 ? { topology: 'hierarchical', agents, coordination: 'queen-led' } : null,
+              swarmRecommendation:
+                agents.length > 2
+                  ? { topology: 'hierarchical', agents, coordination: 'queen-led' }
+                  : null,
             };
           }
         }
@@ -350,7 +382,8 @@ export const hooksRoute: MCPTool = {
     }
 
     // Deterministic keyword routing is the baseline (and only) local path.
-    const semanticResult: { intent: string; score: number; metadata: Record<string, unknown> }[] = [];
+    const semanticResult: { intent: string; score: number; metadata: Record<string, unknown> }[] =
+      [];
     let routingMethod = 'keyword';
     const routingLatencyMs = 0;
     let backendInfo = '';
@@ -376,14 +409,18 @@ export const hooksRoute: MCPTool = {
       if (intelSuggestion && intelSuggestion.confidence > 0.5) {
         // Prepend neural agents (deduped) and boost confidence
         const existingSet = new Set(agents);
-        const neuralOnly = intelSuggestion.agents.filter(a => !existingSet.has(a));
-        agents = [...intelSuggestion.agents, ...agents.filter(a => !new Set(intelSuggestion.agents).has(a))];
+        const neuralOnly = intelSuggestion.agents.filter((a) => !existingSet.has(a));
+        agents = [
+          ...intelSuggestion.agents,
+          ...agents.filter((a) => !new Set(intelSuggestion.agents).has(a)),
+        ];
         const neuralWeight = intelSuggestion.confidence > 0.7 ? 0.65 : 0.5;
         const keywordWeight = 1 - neuralWeight;
-        confidence = Math.min(0.95,
+        confidence = Math.min(
+          0.95,
           intelSuggestion.confidence * neuralWeight +
-          confidence * keywordWeight +
-          (neuralOnly.length > 0 ? 0.03 : 0)
+            confidence * keywordWeight +
+            (neuralOnly.length > 0 ? 0.03 : 0),
         );
         matchedPattern = 'neural+keyword';
         routingMethod = 'neural-augmented';
@@ -393,11 +430,12 @@ export const hooksRoute: MCPTool = {
 
     // Determine complexity
     const taskLower = task.toLowerCase();
-    const complexity = taskLower.includes('complex') || taskLower.includes('architecture') || task.length > 200
-      ? 'high'
-      : taskLower.includes('simple') || taskLower.includes('fix') || task.length < 50
-        ? 'low'
-        : 'medium';
+    const complexity =
+      taskLower.includes('complex') || taskLower.includes('architecture') || task.length > 200
+        ? 'high'
+        : taskLower.includes('simple') || taskLower.includes('fix') || task.length < 50
+          ? 'low'
+          : 'medium';
 
     const primaryConfidence = Math.round(confidence * 100) / 100;
     // Record the route recommendation so post-task can join the actual outcome
@@ -419,10 +457,11 @@ export const hooksRoute: MCPTool = {
         method: routingMethod,
         backend: backendInfo,
         latencyMs: routingLatencyMs,
-        throughput: routingLatencyMs > 0 ? `${Math.round(1000 / routingLatencyMs)} routes/s` : 'N/A',
+        throughput:
+          routingLatencyMs > 0 ? `${Math.round(1000 / routingLatencyMs)} routes/s` : 'N/A',
       },
       matchedPattern,
-      semanticMatches: semanticResult.slice(0, 3).map(r => ({
+      semanticMatches: semanticResult.slice(0, 3).map((r) => ({
         pattern: r.intent,
         score: Math.round(r.score * 100) / 100,
       })),
@@ -435,19 +474,23 @@ export const hooksRoute: MCPTool = {
       },
       alternativeAgents: agents.slice(1).map((agent, i) => ({
         type: agent,
-        confidence: Math.round((confidence - (0.1 * (i + 1))) * 100) / 100,
+        confidence: Math.round((confidence - 0.1 * (i + 1)) * 100) / 100,
         reason: `Alternative agent for ${agent} capabilities`,
       })),
       estimatedMetrics: {
         successProbability: Math.round(confidence * 100) / 100,
-        estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
+        estimatedDuration:
+          complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
         complexity,
       },
-      swarmRecommendation: agents.length > 2 ? {
-        topology: 'hierarchical',
-        agents,
-        coordination: 'queen-led',
-      } : null,
+      swarmRecommendation:
+        agents.length > 2
+          ? {
+              topology: 'hierarchical',
+              agents,
+              coordination: 'queen-led',
+            }
+          : null,
     };
   },
 };
@@ -464,20 +507,20 @@ export const hooksRouteSemantic: MCPTool = {
     type: 'object',
     properties: {
       task: { type: 'string', description: 'Task description' },
-      debug: { type: 'boolean', description: 'Include all route scores in the response (default: false)' },
+      debug: {
+        type: 'boolean',
+        description: 'Include all route scores in the response (default: false)',
+      },
     },
     required: ['task'],
   },
   handler: async (params: Record<string, unknown>) => {
     const MAX_ROUTE_TASK_LEN = 2000; // matches route-layer-factory's MAX_TASK_LENGTH
-    const rawTask = params.task as string;
-    const task = typeof rawTask === 'string' && rawTask.length > MAX_ROUTE_TASK_LEN
-      ? rawTask.slice(0, MAX_ROUTE_TASK_LEN)
-      : rawTask;
+    const task = validateMcpString(params.task, 'task', MAX_ROUTE_TASK_LEN);
     const debug = params.debug === true;
 
-    if (!task || typeof task !== 'string') {
-      throw new Error('task is required');
+    if (!task) {
+      throw new Error('task is required (non-empty string, no control chars, max 2000 chars)');
     }
 
     const { createConfiguredRouteLayer } = await import('../routing/route-layer-factory.js');
@@ -493,7 +536,9 @@ export const hooksRouteSemantic: MCPTool = {
       routingMethod: `routing-pkg:${result.method}`,
       confidence: result.confidence,
       learningMode: 'js' as const,
-    }).catch(() => { /* non-fatal — outcome joining is best-effort */ });
+    }).catch(() => {
+      /* non-fatal — outcome joining is best-effort */
+    });
 
     return { routeId, task, ...result };
   },
@@ -510,21 +555,24 @@ export const hooksMetrics: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const period = (params.period as string) || '24h';
+    const period = validateMcpString(params.period, 'period', 32) ?? '24h';
 
     // Try to read real counts from memory store
     const store = loadMemoryStore();
     const entries = Object.values(store.entries);
 
     // Count patterns by looking at stored pattern entries
-    const patternEntries = entries.filter(e => e.key.includes('pattern'));
-    const routingEntries = entries.filter(e => e.key.includes('route') || e.key.includes('routing'));
-    const taskEntries = entries.filter(e => e.key.includes('task'));
+    const patternEntries = entries.filter((e) => e.key.includes('pattern'));
+    const routingEntries = entries.filter(
+      (e) => e.key.includes('route') || e.key.includes('routing'),
+    );
+    const taskEntries = entries.filter((e) => e.key.includes('task'));
 
     if (entries.length === 0) {
       return {
         _real: true,
-        _note: 'No metrics data collected yet. Data populates from hooks_post-task, hooks_post-edit, hooks_post-command, and hooks_route calls.',
+        _note:
+          'No metrics data collected yet. Data populates from hooks_post-task, hooks_post-edit, hooks_post-command, and hooks_route calls.',
         period,
         patterns: { total: 0, successful: 0, failed: 0, avgConfidence: null },
         agents: { routingAccuracy: null, totalRoutes: 0, topAgent: null },
@@ -537,7 +585,8 @@ export const hooksMetrics: MCPTool = {
       period,
       patterns: {
         total: patternEntries.length,
-        _note: 'Success/failure breakdown not tracked yet — store outcomes via hooks_post-task to populate.',
+        _note:
+          'Success/failure breakdown not tracked yet — store outcomes via hooks_post-task to populate.',
       },
       agents: {
         totalRoutes: routingEntries.length,
@@ -608,7 +657,8 @@ export const hooksList: MCPTool = {
 
 export const hooksPreTask: MCPTool = {
   name: 'hooks_pre-task',
-  description: 'Record task start and get agent suggestions with intelligent model routing (ADR-026)',
+  description:
+    'Record task start and get agent suggestions with intelligent model routing (ADR-026)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -624,28 +674,31 @@ export const hooksPreTask: MCPTool = {
     // in causal-graph edges persisted to SQLite. An uncapped ID can inflate the DB key
     // column and every JSON payload that includes the ID.
     const MAX_TASK_ID_LEN = 256;
-    const rawTaskId = params.taskId as string;
-    const taskId = typeof rawTaskId === 'string' && rawTaskId.length > MAX_TASK_ID_LEN
-      ? rawTaskId.slice(0, MAX_TASK_ID_LEN)
-      : rawTaskId;
+    const taskId = validateMcpString(params.taskId, 'taskId', MAX_TASK_ID_LEN);
+    if (!taskId) {
+      return { error: 'taskId is required (non-empty string, no control chars, max 256 chars)' };
+    }
     // Cap description: it is forwarded to generateEmbedding twice (ERL heuristics
     // + TextGrad gradient queries) and used in O(n) keyword extraction.
     // 16 KB matches the cap applied in hooks_route and hooksPatternSearch.
     const MAX_PRE_TASK_DESC_LEN = 16 * 1024;
-    const rawDescription = params.description as string;
-    const description = typeof rawDescription === 'string' && rawDescription.length > MAX_PRE_TASK_DESC_LEN
-      ? rawDescription.slice(0, MAX_PRE_TASK_DESC_LEN)
-      : rawDescription;
-    const filePath = params.filePath as string | undefined;
+    const description = validateMcpString(params.description, 'description', MAX_PRE_TASK_DESC_LEN);
+    if (!description) {
+      return { error: 'description is required (non-empty string, no control chars, max 16KB)' };
+    }
+    const filePath = validateMcpString(params.filePath, 'filePath', 4 * 1024) ?? undefined;
     const suggestion = suggestAgentsForTask(description);
 
     // Determine complexity
     const descLower = description.toLowerCase();
-    const complexity: 'low' | 'medium' | 'high' = descLower.includes('complex') || descLower.includes('architecture') || description.length > 200
-      ? 'high'
-      : descLower.includes('simple') || descLower.includes('fix') || description.length < 50
-        ? 'low'
-        : 'medium';
+    const complexity: 'low' | 'medium' | 'high' =
+      descLower.includes('complex') ||
+      descLower.includes('architecture') ||
+      description.length > 200
+        ? 'high'
+        : descLower.includes('simple') || descLower.includes('fix') || description.length < 50
+          ? 'low'
+          : 'medium';
 
     // Enhanced model routing module was never shipped — modelRouting stays undefined.
     const modelRouting: Record<string, unknown> | undefined = undefined;
@@ -662,13 +715,21 @@ export const hooksPreTask: MCPTool = {
           limit: 3,
           threshold: 0.6,
         });
-        for (const r of (heuristicResults?.results ?? [])) {
+        for (const r of heuristicResults?.results ?? []) {
           try {
-            const h = JSON.parse(r.content ?? '{}') as { condition?: string; action?: string; confidence?: number };
+            const h = JSON.parse(r.content ?? '{}') as {
+              condition?: string;
+              action?: string;
+              confidence?: number;
+            };
             if (h.action && h.confidence !== undefined && h.confidence >= 0.6) {
-              erlHints.push(`ERL hint (conf=${h.confidence.toFixed(2)}): use "${h.action}" for tasks involving "${h.condition ?? 'similar context'}"`);
+              erlHints.push(
+                `ERL hint (conf=${h.confidence.toFixed(2)}): use "${h.action}" for tasks involving "${h.condition ?? 'similar context'}"`,
+              );
             }
-          } catch { /* skip malformed */ }
+          } catch {
+            /* skip malformed */
+          }
         }
 
         // TextGrad: also inject relevant past failure gradients to guide away from known pitfalls
@@ -679,14 +740,16 @@ export const hooksPreTask: MCPTool = {
           limit: 2,
           threshold: 0.55,
         });
-        for (const r of (gradientResults?.results ?? [])) {
+        for (const r of gradientResults?.results ?? []) {
           const critique = r.content ?? '';
           if (critique && critique.length > 10) {
             erlHints.push(`TextGrad warning: ${critique.slice(0, 120)}`);
           }
         }
       }
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
 
     // NOTE: a LATS planning pass used to be attempted here via
     // `import('@monoes/hooks').buildLATSPlan` — that function never existed
@@ -699,17 +762,21 @@ export const hooksPreTask: MCPTool = {
       description,
       suggestedAgents: suggestion.agents.map((agent, i) => ({
         type: agent,
-        confidence: suggestion.confidence - (0.05 * i),
-        reason: i === 0
-          ? `Primary agent for ${agent} tasks based on learned patterns`
-          : `Alternative agent with ${agent} capabilities`,
+        confidence: suggestion.confidence - 0.05 * i,
+        reason:
+          i === 0
+            ? `Primary agent for ${agent} tasks based on learned patterns`
+            : `Alternative agent with ${agent} capabilities`,
       })),
       complexity,
-      estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
+      estimatedDuration:
+        complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
       risks: complexity === 'high' ? ['Complex task may require multiple iterations'] : [],
       recommendations: [
         `Use ${suggestion.agents[0]} as primary agent`,
-        suggestion.agents.length > 2 ? 'Consider using swarm coordination' : 'Single agent recommended',
+        suggestion.agents.length > 2
+          ? 'Consider using swarm coordination'
+          : 'Single agent recommended',
         ...erlHints,
       ],
       modelRouting,
@@ -729,9 +796,16 @@ export const hooksPostTask: MCPTool = {
       success: { type: 'boolean', description: 'Whether task was successful' },
       agent: { type: 'string', description: 'Agent that completed the task' },
       quality: { type: 'number', description: 'Quality score (0-1)' },
-      task: { type: 'string', description: 'Task description text (used for learning keyword extraction)' },
+      task: {
+        type: 'string',
+        description: 'Task description text (used for learning keyword extraction)',
+      },
       storeDecisions: { type: 'boolean', description: 'Also store routing decision in memory DB' },
-      routeId: { type: 'string', description: 'Route ID from a prior hooks_route call — joins the recommendation to this outcome' },
+      routeId: {
+        type: 'string',
+        description:
+          'Route ID from a prior hooks_route call — joins the recommendation to this outcome',
+      },
     },
     required: ['taskId'],
   },
@@ -741,10 +815,10 @@ export const hooksPostTask: MCPTool = {
     // into causal-graph edge IDs persisted to the DB.  Without a cap an attacker can
     // inflate every row that stores the raw ID.
     const MAX_POST_TASK_ID_LEN = 256;
-    const rawPostTaskId = params.taskId as string;
-    const taskId = typeof rawPostTaskId === 'string' && rawPostTaskId.length > MAX_POST_TASK_ID_LEN
-      ? rawPostTaskId.slice(0, MAX_POST_TASK_ID_LEN)
-      : rawPostTaskId;
+    const taskId = validateMcpString(params.taskId, 'taskId', MAX_POST_TASK_ID_LEN);
+    if (!taskId) {
+      return { error: 'taskId is required (non-empty string, no control chars, max 256 chars)' };
+    }
     // The success flag, when the caller asserts it (--success true), is taken as
     // ground truth. But callers usually do NOT pass it. Rather than treating every
     // unverified task as "unknown" (and thus excluding it from learning), we now
@@ -763,7 +837,9 @@ export const hooksPostTask: MCPTool = {
     const explicitSuccess = typeof params.success === 'boolean';
     let outcomeKnown = explicitSuccess;
     let success = params.success !== false;
-    let successSource: 'explicit' | 'derived-commands' | 'unknown' = explicitSuccess ? 'explicit' : 'unknown';
+    let successSource: 'explicit' | 'derived-commands' | 'unknown' = explicitSuccess
+      ? 'explicit'
+      : 'unknown';
 
     if (!explicitSuccess) {
       const derived = await deriveRecentSuccess(getRouteOutcomesBaseDir());
@@ -777,19 +853,18 @@ export const hooksPostTask: MCPTool = {
     // feedback record and used as a tag string in the JSON store.  An uncapped
     // agent value inflates the on-disk store entry.
     const MAX_POST_TASK_AGENT_LEN = 256;
-    const rawPostTaskAgent = params.agent as string | undefined;
-    const agent = typeof rawPostTaskAgent === 'string' && rawPostTaskAgent.length > MAX_POST_TASK_AGENT_LEN
-      ? rawPostTaskAgent.slice(0, MAX_POST_TASK_AGENT_LEN)
-      : rawPostTaskAgent;
-    const quality = (params.quality as number) || (success ? 0.85 : 0.3);
+    const agent = validateMcpString(params.agent, 'agent', MAX_POST_TASK_AGENT_LEN) ?? undefined;
+    const quality =
+      typeof params.quality === 'number' && Number.isFinite(params.quality)
+        ? Math.max(0, Math.min(1, params.quality as number))
+        : success
+          ? 0.85
+          : 0.3;
     const startTime = Date.now();
     // Cap task description: passed to generateEmbedding via bridgeRecordFeedback
     // and persisted to route-outcomes.jsonl.  16 KB matches hooks_route cap.
     const MAX_POST_TASK_LEN = 16 * 1024;
-    const rawPostTask = params.task as string | undefined;
-    const cappedPostTask = typeof rawPostTask === 'string' && rawPostTask.length > MAX_POST_TASK_LEN
-      ? rawPostTask.slice(0, MAX_POST_TASK_LEN)
-      : rawPostTask;
+    const cappedPostTask = validateMcpString(params.task, 'task', MAX_POST_TASK_LEN) ?? undefined;
 
     // Phase 3: Wire recordFeedback through bridge → LearningSystem + ReasoningBank
     let feedbackResult: { success: boolean; id?: string; error?: string } | null = null;
@@ -798,13 +873,27 @@ export const hooksPostTask: MCPTool = {
       feedbackResult = await bridge.bridgeRecordFeedback({
         taskType: agent ?? 'task',
         action: cappedPostTask?.slice(0, 80) ?? taskId,
-        outcome: success ? 'success' : (outcomeKnown ? 'failure' : 'partial'),
+        outcome: success ? 'success' : outcomeKnown ? 'failure' : 'partial',
         confidence: quality,
-        metadata: { taskId, duration: (params.duration as number) || undefined, patterns: (params.patterns as string[]) || undefined },
+        metadata: {
+          taskId,
+          duration:
+            typeof params.duration === 'number' && Number.isFinite(params.duration)
+              ? params.duration
+              : undefined,
+          patterns: Array.isArray(params.patterns)
+            ? (params.patterns as unknown[])
+                .filter(
+                  (p): p is string => typeof p === 'string' && p.length > 0 && p.length <= 200,
+                )
+                .slice(0, 50)
+            : undefined,
+        },
       });
     } catch (e) {
       // Bridge not available — continue with basic response
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-post-task] memory bridge feedback failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-post-task] memory bridge feedback failed:', e);
     }
 
     // Phase 3: Record causal edge (task → outcome)
@@ -818,7 +907,8 @@ export const hooksPostTask: MCPTool = {
       });
     } catch (e) {
       // Non-fatal
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-post-task] causal edge record failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-post-task] causal edge record failed:', e);
     }
 
     // Persist routing outcome for runtime learning (file-based, always reliable).
@@ -828,7 +918,13 @@ export const hooksPostTask: MCPTool = {
     const taskText = cappedPostTask || '';
     const outcomeKeywords = extractKeywords(taskText);
     let outcomePersisted = false;
-    if (outcomeKnown && taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
+    if (
+      outcomeKnown &&
+      taskText &&
+      agent &&
+      agent.length <= 100 &&
+      /^[a-zA-Z0-9_-]+$/.test(agent)
+    ) {
       try {
         const outcomes = loadRoutingOutcomes();
         outcomes.push({
@@ -841,7 +937,9 @@ export const hooksPostTask: MCPTool = {
         });
         saveRoutingOutcomes(outcomes);
         outcomePersisted = true;
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     // Join this outcome back onto the original route recommendation. This is the
@@ -858,7 +956,10 @@ export const hooksPostTask: MCPTool = {
         quality: typeof params.quality === 'number' ? (params.quality as number) : undefined,
       };
       if (params.routeId) {
-        await joinOutcome(getRouteOutcomesBaseDir(), params.routeId as string, outcome);
+        const routeId = validateMcpString(params.routeId, 'routeId', 256);
+        if (routeId) {
+          await joinOutcome(getRouteOutcomesBaseDir(), routeId, outcome);
+        }
       } else {
         await joinLatestUnresolved(getRouteOutcomesBaseDir(), outcome);
       }
@@ -882,7 +983,9 @@ export const hooksPostTask: MCPTool = {
             tags: ['erl', agent, success ? 'success' : 'failure'],
           });
         }
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     // Optionally store in memory DB for cross-session vector retrieval
@@ -893,11 +996,19 @@ export const hooksPostTask: MCPTool = {
           await storeFn({
             key: `routing-decision:${taskId}`,
             namespace: 'patterns',
-            value: JSON.stringify({ task: taskText, agent, success, quality, keywords: outcomeKeywords }),
+            value: JSON.stringify({
+              task: taskText,
+              agent,
+              success,
+              quality,
+              keywords: outcomeKeywords,
+            }),
             tags: ['routing-decision'],
           });
         }
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     const duration = Date.now() - startTime;
@@ -908,7 +1019,8 @@ export const hooksPostTask: MCPTool = {
       try {
         const storeFn = await getRealStoreFunction();
         if (storeFn) {
-          const critique = `Task "${taskText.slice(0, 80)}" failed with agent "${agent}". ` +
+          const critique =
+            `Task "${taskText.slice(0, 80)}" failed with agent "${agent}". ` +
             `Quality score: ${quality ?? 'unknown'}. ` +
             `Improvement direction: review agent selection, consider more capable agent or task decomposition.`;
           await storeFn({
@@ -918,22 +1030,29 @@ export const hooksPostTask: MCPTool = {
             tags: ['textual_gradient', agent ?? 'unknown', 'failure'],
           });
         }
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     // MAR: Structured multi-agent reflection on failure
     // Source: https://arxiv.org/html/2512.20845 (MAR — December 2025)
-    const marReflection = !success ? {
-      needed: true,
-      suggestedAgents: [
-        { role: 'diagnoser', description: 'Analyze root cause of task failure' },
-        { role: 'critic-1', description: 'Critique from correctness angle (temperature 0.3)' },
-        { role: 'critic-2', description: 'Critique from efficiency angle (temperature 0.8)' },
-        { role: 'aggregator', description: 'Synthesize critiques into actionable reflection heuristic' },
-      ],
-      storeAs: 'heuristics',
-      note: 'Spawn agents sequentially: Diagnoser → Critics in parallel → Aggregator',
-    } : { needed: false };
+    const marReflection = !success
+      ? {
+          needed: true,
+          suggestedAgents: [
+            { role: 'diagnoser', description: 'Analyze root cause of task failure' },
+            { role: 'critic-1', description: 'Critique from correctness angle (temperature 0.3)' },
+            { role: 'critic-2', description: 'Critique from efficiency angle (temperature 0.8)' },
+            {
+              role: 'aggregator',
+              description: 'Synthesize critiques into actionable reflection heuristic',
+            },
+          ],
+          storeAs: 'heuristics',
+          note: 'Spawn agents sequentially: Diagnoser → Critics in parallel → Aggregator',
+        }
+      : { needed: false };
 
     return {
       taskId,
@@ -945,15 +1064,17 @@ export const hooksPostTask: MCPTool = {
         patternsUpdated: feedbackResult?.success ? (success ? 2 : 1) : 0,
         newPatterns: success ? 1 : 0,
         trajectoryId: `traj-${Date.now()}`,
-        controller: feedbackResult?.success ? 'lancedb' : 'none',
+        controller: feedbackResult?.success ? 'sqlite' : 'none',
         outcomePersisted,
       },
       quality,
-      feedback: feedbackResult ? {
-        recorded: feedbackResult.success,
-        controller: feedbackResult.success ? 'lancedb' : 'unavailable',
-        updates: feedbackResult.success ? 1 : 0,
-      } : { recorded: false, controller: 'unavailable', updates: 0 },
+      feedback: feedbackResult
+        ? {
+            recorded: feedbackResult.success,
+            controller: feedbackResult.success ? 'sqlite' : 'unavailable',
+            updates: feedbackResult.success ? 1 : 0,
+          }
+        : { recorded: false, controller: 'unavailable', updates: 0 },
       marReflection,
       timestamp: new Date().toISOString(),
     };
@@ -977,10 +1098,10 @@ export const hooksExplain: MCPTool = {
     // Cap task: forwarded to suggestAgentsForTask (O(n) keyword loop + extractKeywords),
     // .toLowerCase() (O(n)), and reflected verbatim in the response.
     const MAX_EXPLAIN_TASK_LEN = 16 * 1024;
-    const rawExplainTask = params.task as string;
-    const task = typeof rawExplainTask === 'string' && rawExplainTask.length > MAX_EXPLAIN_TASK_LEN
-      ? rawExplainTask.slice(0, MAX_EXPLAIN_TASK_LEN)
-      : rawExplainTask;
+    const task = validateMcpString(params.task, 'task', MAX_EXPLAIN_TASK_LEN);
+    if (!task) {
+      return { error: 'task is required (non-empty string, no control chars, max 16KB)' };
+    }
     const suggestion = suggestAgentsForTask(task);
     const taskLower = task.toLowerCase();
 
@@ -1005,28 +1126,57 @@ export const hooksExplain: MCPTool = {
         const data = JSON.parse(readFileSync(outcomesPath, 'utf-8'));
         const outcomes: Array<{ success: boolean }> = data.outcomes || [];
         if (outcomes.length > 0) {
-          historicalSuccess = outcomes.filter(o => o.success).length / outcomes.length;
+          historicalSuccess = outcomes.filter((o) => o.success).length / outcomes.length;
           historicalNote = `Calculated from ${outcomes.length} recorded outcomes`;
         }
       }
     } catch (e) {
       // File unreadable or corrupt; leave as null
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-explain] routing outcomes file read/parse failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-explain] routing outcomes file read/parse failed:', e);
     }
 
     return {
       task,
-      explanation: `The routing decision was made based on keyword analysis of the task description. ` +
+      explanation:
+        `The routing decision was made based on keyword analysis of the task description. ` +
         `The task contains keywords that match the "${suggestion.agents[0]}" specialization with ${(suggestion.confidence * 100).toFixed(0)}% confidence.`,
       factors: [
-        { factor: 'Keyword Match', weight: 0.4, value: suggestion.confidence, impact: 'Primary routing signal' },
-        { factor: 'Historical Success', weight: 0.3, value: historicalSuccess, impact: historicalNote },
-        { factor: 'Agent Availability', weight: 0.2, value: null, impact: 'Agent availability tracking not implemented' },
-        { factor: 'Task Complexity', weight: 0.1, value: task.length > 100 ? 0.8 : 0.3, impact: 'Complexity assessment' },
+        {
+          factor: 'Keyword Match',
+          weight: 0.4,
+          value: suggestion.confidence,
+          impact: 'Primary routing signal',
+        },
+        {
+          factor: 'Historical Success',
+          weight: 0.3,
+          value: historicalSuccess,
+          impact: historicalNote,
+        },
+        {
+          factor: 'Agent Availability',
+          weight: 0.2,
+          value: null,
+          impact: 'Agent availability tracking not implemented',
+        },
+        {
+          factor: 'Task Complexity',
+          weight: 0.1,
+          value: task.length > 100 ? 0.8 : 0.3,
+          impact: 'Complexity assessment',
+        },
       ],
-      patterns: matchedPatterns.length > 0 ? matchedPatterns : [
-        { pattern: 'general-task', matchScore: 0.7, examples: ['Default pattern for unclassified tasks'] }
-      ],
+      patterns:
+        matchedPatterns.length > 0
+          ? matchedPatterns
+          : [
+              {
+                pattern: 'general-task',
+                matchScore: 0.7,
+                examples: ['Default pattern for unclassified tasks'],
+              },
+            ],
       decision: {
         agent: suggestion.agents[0],
         confidence: suggestion.confidence,
@@ -1046,7 +1196,8 @@ export const hooksExplain: MCPTool = {
 // Pretrain hook - repository analysis for intelligence bootstrap
 export const hooksPretrain: MCPTool = {
   name: 'hooks_pretrain',
-  description: 'Walk the repository counting file extensions and directory patterns to seed the keyword router. This is a filesystem scan writing JSON state — despite the name, no model is trained.',
+  description:
+    'Walk the repository counting file extensions and directory patterns to seed the keyword router. This is a filesystem scan writing JSON state — despite the name, no model is trained.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -1056,12 +1207,16 @@ export const hooksPretrain: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const repoPath = resolve((params.path as string) || '.');
+    const repoPath = resolve(validateMcpString(params.path, 'path', 4 * 1024) ?? '.');
     const projectRoot = getProjectCwd();
     if (repoPath !== projectRoot && !repoPath.startsWith(projectRoot + sep)) {
       return { error: 'Invalid path: must be within the project directory.' };
     }
-    const depth = (params.depth as string) || 'medium';
+    const depth = validateMcpString(params.depth, 'depth', 16) ?? 'medium';
+    const allowedDepths = new Set(['shallow', 'medium', 'deep']);
+    if (!allowedDepths.has(depth)) {
+      return { error: 'Invalid depth: must be shallow, medium, or deep' };
+    }
     const startTime = performance.now();
 
     // Real file scanning — count files by extension, extract patterns
@@ -1077,12 +1232,15 @@ export const hooksPretrain: MCPTool = {
       try {
         const entries = readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
-          if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
+          if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist')
+            continue;
           const full = join(dir, entry.name);
           if (entry.isDirectory()) {
             scan(full, currentDepth + 1);
           } else if (entry.isFile()) {
-            const ext = entry.name.includes('.') ? entry.name.slice(entry.name.lastIndexOf('.')) : '';
+            const ext = entry.name.includes('.')
+              ? entry.name.slice(entry.name.lastIndexOf('.'))
+              : '';
             if (ext) extCounts[ext] = (extCounts[ext] || 0) + 1;
             filesAnalyzed++;
             // For code files, count lines and extract imports
@@ -1099,18 +1257,27 @@ export const hooksPretrain: MCPTool = {
                 // Extract import patterns (first 50 files max for performance)
                 if (filesAnalyzed <= 50) {
                   for (const line of lines.slice(0, 30)) {
-                    if (line.startsWith('import ') || line.startsWith('from ') || line.startsWith('const ') && line.includes('require(')) {
+                    if (
+                      line.startsWith('import ') ||
+                      line.startsWith('from ') ||
+                      (line.startsWith('const ') && line.includes('require('))
+                    ) {
                       const trimmed = line.trim();
-                      if (trimmed.length < 120 && !patterns.includes(trimmed)) patterns.push(trimmed);
+                      if (trimmed.length < 120 && !patterns.includes(trimmed))
+                        patterns.push(trimmed);
                       if (patterns.length >= 100) break;
                     }
                   }
                 }
-              } catch { /* skip unreadable */ }
+              } catch {
+                /* skip unreadable */
+              }
             }
           }
         }
-      } catch { /* skip inaccessible dirs */ }
+      } catch {
+        /* skip inaccessible dirs */
+      }
     };
 
     scan(repoPath, 0);
@@ -1122,14 +1289,22 @@ export const hooksPretrain: MCPTool = {
       const bridge = await import('../memory/memory-bridge.js');
       await bridge.bridgeStoreEntry({
         key: `pretrain-${Date.now()}`,
-        value: JSON.stringify({ filesAnalyzed, totalLines, topExtensions: Object.entries(extCounts).sort((a, b) => b[1] - a[1]).slice(0, 10), importPatterns: patterns.slice(0, 20) }),
+        value: JSON.stringify({
+          filesAnalyzed,
+          totalLines,
+          topExtensions: Object.entries(extCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10),
+          importPatterns: patterns.slice(0, 20),
+        }),
         namespace: 'pretrain',
         tags: ['pretrain', depth],
       });
       patternsStored = patterns.length;
     } catch (e) {
       /* memory backend unavailable */
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-pretrain] pattern store failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-pretrain] pattern store failed:', e);
     }
 
     // Feed extracted import patterns into the neural training system so
@@ -1138,19 +1313,27 @@ export const hooksPretrain: MCPTool = {
     if (patterns.length > 0) {
       try {
         const intel = await import('../memory/intelligence.js');
-        await intel.initializeIntelligence({ confidenceLearningRate: 0.002, maxTrajectorySize: patterns.length });
+        await intel.initializeIntelligence({
+          confidenceLearningRate: 0.002,
+          maxTrajectorySize: patterns.length,
+        });
         // Record each extracted pattern as an action step
         for (const pat of patterns.slice(0, 50)) {
-          await intel.recordStep({ type: 'action', content: pat, metadata: { source: 'pretrain', depth } });
+          await intel.recordStep({
+            type: 'action',
+            content: pat,
+            metadata: { source: 'pretrain', depth },
+          });
         }
         // Record the entire scan as a completed trajectory
-        const steps = patterns.slice(0, 50).map(p => ({ type: 'action' as const, content: p }));
+        const steps = patterns.slice(0, 50).map((p) => ({ type: 'action' as const, content: p }));
         await intel.recordTrajectory(steps, 'success');
         intel.flushPatterns();
         neuralPatternsLearned = steps.length;
       } catch (e) {
         /* intelligence not available */
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-pretrain] intelligence training failed:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[hooks-pretrain] intelligence training failed:', e);
       }
     }
 
@@ -1166,7 +1349,10 @@ export const hooksPretrain: MCPTool = {
         patternsExtracted: patterns.length,
         patternsStored,
         neuralPatternsLearned,
-        fileTypes: Object.entries(extCounts).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([ext, count]) => ({ ext, count })),
+        fileTypes: Object.entries(extCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 15)
+          .map(([ext, count]) => ({ ext, count })),
       },
     };
   },
@@ -1180,40 +1366,73 @@ export const hooksBuildAgents: MCPTool = {
     type: 'object',
     properties: {
       outputDir: { type: 'string', description: 'Output directory for configs' },
-      focus: { type: 'string', description: 'Focus area (v1-implementation, security, performance, all)' },
+      focus: {
+        type: 'string',
+        description: 'Focus area (v1-implementation, security, performance, all)',
+      },
       format: { type: 'string', description: 'Config format (yaml, json)' },
       persist: { type: 'boolean', description: 'Write configs to disk' },
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const rawOutputDir = resolve((params.outputDir as string) || './agents');
+    const rawOutputDir = resolve(
+      validateMcpString(params.outputDir, 'outputDir', 4 * 1024) ?? './agents',
+    );
     const outputDir = rawOutputDir;
     if (!outputDir.startsWith(getProjectCwd() + sep) && outputDir !== getProjectCwd()) {
       return { error: 'Invalid outputDir: must be within the project directory.' };
     }
-    const focus = (params.focus as string) || 'all';
+    const focus = validateMcpString(params.focus, 'focus', 64) ?? 'all';
     // Strict allowlist on `format` — without this, `format = "yaml/../../../etc/cron.d/x"`
     // collapses through `join` and lets writes escape the validated outputDir.
     const ALLOWED_FORMATS = new Set(['yaml', 'json']);
-    const formatRaw = (params.format as string) || 'yaml';
-    if (!ALLOWED_FORMATS.has(formatRaw)) {
+    const format = validateMcpString(params.format, 'format', 16) ?? 'yaml';
+    if (!ALLOWED_FORMATS.has(format)) {
       return { error: 'Invalid format: must be yaml or json' };
     }
-    const format = formatRaw;
     const persist = params.persist !== false; // Default to true
 
     const agents = [
-      { type: 'coder', configFile: join(outputDir, `coder.${format}`), capabilities: ['code-generation', 'refactoring', 'debugging'], optimizations: ['token-reduction', 'context-caching'] },
-      { type: 'architect', configFile: join(outputDir, `architect.${format}`), capabilities: ['system-design', 'api-design', 'documentation'], optimizations: ['context-caching', 'memory-persistence'] },
-      { type: 'tester', configFile: join(outputDir, `tester.${format}`), capabilities: ['unit-testing', 'integration-testing', 'coverage'], optimizations: ['parallel-execution'] },
-      { type: 'security-architect', configFile: join(outputDir, `security-architect.${format}`), capabilities: ['threat-modeling', 'vulnerability-analysis', 'security-review'], optimizations: ['pattern-matching'] },
-      { type: 'reviewer', configFile: join(outputDir, `reviewer.${format}`), capabilities: ['code-review', 'quality-analysis', 'best-practices'], optimizations: ['incremental-analysis'] },
+      {
+        type: 'coder',
+        configFile: join(outputDir, `coder.${format}`),
+        capabilities: ['code-generation', 'refactoring', 'debugging'],
+        optimizations: ['token-reduction', 'context-caching'],
+      },
+      {
+        type: 'architect',
+        configFile: join(outputDir, `architect.${format}`),
+        capabilities: ['system-design', 'api-design', 'documentation'],
+        optimizations: ['context-caching', 'memory-persistence'],
+      },
+      {
+        type: 'tester',
+        configFile: join(outputDir, `tester.${format}`),
+        capabilities: ['unit-testing', 'integration-testing', 'coverage'],
+        optimizations: ['parallel-execution'],
+      },
+      {
+        type: 'security-architect',
+        configFile: join(outputDir, `security-architect.${format}`),
+        capabilities: ['threat-modeling', 'vulnerability-analysis', 'security-review'],
+        optimizations: ['pattern-matching'],
+      },
+      {
+        type: 'reviewer',
+        configFile: join(outputDir, `reviewer.${format}`),
+        capabilities: ['code-review', 'quality-analysis', 'best-practices'],
+        optimizations: ['incremental-analysis'],
+      },
     ];
 
-    const filteredAgents = focus === 'all' ? agents :
-      focus === 'security' ? agents.filter(a => a.type.includes('security') || a.type === 'reviewer') :
-      focus === 'performance' ? agents.filter(a => ['coder', 'tester'].includes(a.type)) :
-      agents;
+    const filteredAgents =
+      focus === 'all'
+        ? agents
+        : focus === 'security'
+          ? agents.filter((a) => a.type.includes('security') || a.type === 'reviewer')
+          : focus === 'performance'
+            ? agents.filter((a) => ['coder', 'tester'].includes(a.type))
+            : agents;
 
     // Persist configs to disk if requested
     if (persist) {
@@ -1232,9 +1451,10 @@ export const hooksBuildAgents: MCPTool = {
           createdAt: new Date().toISOString(),
         };
 
-        const content = format === 'json'
-          ? JSON.stringify(config, null, 2)
-          : `# ${agent.type} agent configuration\ntype: ${agent.type}\nversion: "3.0.0"\ncapabilities:\n${agent.capabilities.map(c => `  - ${c}`).join('\n')}\noptimizations:\n${agent.optimizations.map(o => `  - ${o}`).join('\n')}\ncreatedAt: "${config.createdAt}"\n`;
+        const content =
+          format === 'json'
+            ? JSON.stringify(config, null, 2)
+            : `# ${agent.type} agent configuration\ntype: ${agent.type}\nversion: "3.0.0"\ncapabilities:\n${agent.capabilities.map((c) => `  - ${c}`).join('\n')}\noptimizations:\n${agent.optimizations.map((o) => `  - ${o}`).join('\n')}\ncreatedAt: "${config.createdAt}"\n`;
 
         const _cftmp = agent.configFile + '.tmp';
         writeFileSync(_cftmp, content, 'utf-8');
@@ -1270,9 +1490,15 @@ export const hooksTransfer: MCPTool = {
     required: ['sourcePath'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const sourcePath = params.sourcePath as string;
-    const minConfidence = (params.minConfidence as number) || 0.7;
-    const filter = params.filter as string;
+    const sourcePath = validateMcpString(params.sourcePath, 'sourcePath', 4 * 1024);
+    if (!sourcePath) {
+      return { error: 'sourcePath is required (non-empty string, no control chars, max 4KB)' };
+    }
+    const minConfidence =
+      typeof params.minConfidence === 'number' && Number.isFinite(params.minConfidence)
+        ? Math.max(0, Math.min(1, params.minConfidence as number))
+        : 0.7;
+    const filter = validateMcpString(params.filter, 'filter', 64) ?? undefined;
 
     // Validate sourcePath is an existing directory before reading from it
     const resolvedSource = resolve(sourcePath);
@@ -1297,26 +1523,38 @@ export const hooksTransfer: MCPTool = {
 
     const MAX_SOURCE_STORE_BYTES = 50 * 1024 * 1024; // 50 MB — matches other store readers
     try {
-      if (existsSync(sourceMemoryPath) && statSync(sourceMemoryPath).size <= MAX_SOURCE_STORE_BYTES) {
+      if (
+        existsSync(sourceMemoryPath) &&
+        statSync(sourceMemoryPath).size <= MAX_SOURCE_STORE_BYTES
+      ) {
         sourceStore = JSON.parse(readFileSync(sourceMemoryPath, 'utf-8'));
       }
     } catch (e) {
       // Fall back to empty store
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-transfer] source memory store read/parse failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-transfer] source memory store read/parse failed:', e);
     }
 
     const sourceEntries = Object.values(sourceStore.entries);
 
     // Count patterns by type from source
     const byType: Record<string, number> = {
-      'file-patterns': sourceEntries.filter(e => e.key.includes('file') || e.metadata?.type === 'file-pattern').length,
-      'task-routing': sourceEntries.filter(e => e.key.includes('routing') || e.metadata?.type === 'routing').length,
-      'command-risk': sourceEntries.filter(e => e.key.includes('command') || e.metadata?.type === 'command-risk').length,
-      'agent-success': sourceEntries.filter(e => e.key.includes('agent') || e.metadata?.type === 'agent-success').length,
+      'file-patterns': sourceEntries.filter(
+        (e) => e.key.includes('file') || e.metadata?.type === 'file-pattern',
+      ).length,
+      'task-routing': sourceEntries.filter(
+        (e) => e.key.includes('routing') || e.metadata?.type === 'routing',
+      ).length,
+      'command-risk': sourceEntries.filter(
+        (e) => e.key.includes('command') || e.metadata?.type === 'command-risk',
+      ).length,
+      'agent-success': sourceEntries.filter(
+        (e) => e.key.includes('agent') || e.metadata?.type === 'agent-success',
+      ).length,
     };
 
     // If source has no patterns, report honestly instead of substituting demo data
-    if (Object.values(byType).every(v => v === 0)) {
+    if (Object.values(byType).every((v) => v === 0)) {
       return {
         success: false,
         message: 'No patterns found in source project',
@@ -1326,7 +1564,7 @@ export const hooksTransfer: MCPTool = {
     }
 
     if (filter) {
-      Object.keys(byType).forEach(key => {
+      Object.keys(byType).forEach((key) => {
         if (!key.includes(filter)) delete byType[key];
       });
     }
@@ -1357,8 +1595,9 @@ export const hooksSessionStart: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const sessionId = (params.sessionId as string) || `session-${Date.now()}`;
-    const restoreLatest = params.restoreLatest as boolean;
+    const sessionId =
+      validateMcpString(params.sessionId, 'sessionId', 256) ?? `session-${Date.now()}`;
+    const restoreLatest = params.restoreLatest === true;
 
     // Phase 5: Wire ReflexionMemory session start via bridge
     let sessionMemory: { controller: string; restoredPatterns: number } | null = null;
@@ -1370,13 +1609,14 @@ export const hooksSessionStart: MCPTool = {
       });
       if (result) {
         sessionMemory = {
-          controller: result.success ? 'lancedb' : 'none',
+          controller: result.success ? 'sqlite' : 'none',
           restoredPatterns: 0,
         };
       }
     } catch (e) {
       // Bridge not available
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-start] memory bridge failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-session-start] memory bridge failed:', e);
     }
 
     return {
@@ -1389,11 +1629,13 @@ export const hooksSessionStart: MCPTool = {
         memoryPersistence: true,
       },
       sessionMemory: sessionMemory || { controller: 'none', restoredPatterns: 0 },
-      previousSession: restoreLatest ? {
-        id: `session-${Date.now() - 86400000}`,
-        tasksRestored: sessionMemory?.restoredPatterns || 0,
-        memoryRestored: sessionMemory?.restoredPatterns || 0,
-      } : null,
+      previousSession: restoreLatest
+        ? {
+            id: `session-${Date.now() - 86400000}`,
+            tasksRestored: sessionMemory?.restoredPatterns || 0,
+            memoryRestored: sessionMemory?.restoredPatterns || 0,
+          }
+        : null,
     };
   },
 };
@@ -1408,17 +1650,24 @@ export const hooksSessionStart: MCPTool = {
 // implementation rather than a fabricated one.
 export const hooksSessionRestore: MCPTool = {
   name: 'hooks_session-restore',
-  description: 'Restore a previous session — reports currently-live agents/tasks and reinitializes memory-bridge session context',
+  description:
+    'Restore a previous session — reports currently-live agents/tasks and reinitializes memory-bridge session context',
   inputSchema: {
     type: 'object',
     properties: {
       sessionId: { type: 'string', description: 'Session ID to restore, or "latest"' },
-      restoreAgents: { type: 'boolean', description: 'Include a count of currently-live agents (default true)' },
-      restoreTasks: { type: 'boolean', description: 'Include a count of currently-live tasks (default true)' },
+      restoreAgents: {
+        type: 'boolean',
+        description: 'Include a count of currently-live agents (default true)',
+      },
+      restoreTasks: {
+        type: 'boolean',
+        description: 'Include a count of currently-live tasks (default true)',
+      },
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const originalSessionId = (params.sessionId as string) || 'latest';
+    const originalSessionId = validateMcpString(params.sessionId, 'sessionId', 256) ?? 'latest';
     const newSessionId = `session-${Date.now()}`;
     const warnings: string[] = [];
 
@@ -1427,10 +1676,13 @@ export const hooksSessionRestore: MCPTool = {
       try {
         const { loadAgentStore } = await import('./agent-tools.js');
         const store = loadAgentStore();
-        agentsRestored = Object.values(store.agents).filter((a) => a.status !== 'terminated').length;
+        agentsRestored = Object.values(store.agents).filter(
+          (a) => a.status !== 'terminated',
+        ).length;
       } catch (e) {
         warnings.push('Agent store unavailable — agent count not restored');
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-restore] agent store read failed:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[hooks-session-restore] agent store read failed:', e);
       }
     }
 
@@ -1439,10 +1691,13 @@ export const hooksSessionRestore: MCPTool = {
       try {
         const { loadTaskStore } = await import('./task-tools.js');
         const store = loadTaskStore();
-        tasksRestored = Object.values(store.tasks).filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
+        tasksRestored = Object.values(store.tasks).filter(
+          (t) => t.status === 'pending' || t.status === 'in_progress',
+        ).length;
       } catch (e) {
         warnings.push('Task store unavailable — task count not restored');
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-restore] task store read failed:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[hooks-session-restore] task store read failed:', e);
       }
     }
 
@@ -1464,7 +1719,8 @@ export const hooksSessionRestore: MCPTool = {
       }
     } catch (e) {
       warnings.push('Memory bridge failed to initialize');
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-restore] memory bridge failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-session-restore] memory bridge failed:', e);
     }
 
     return {
@@ -1491,16 +1747,17 @@ export const hooksSessionEnd: MCPTool = {
     const saveState = params.saveState !== false;
     // Use caller-supplied sessionId if provided, otherwise generate a current-time ID.
     // The -3600000 offset was incorrect — it prevented matching session-start IDs.
-    const sessionId = typeof params.sessionId === 'string' && params.sessionId
-      ? params.sessionId
-      : `session-${Date.now()}`;
+    const sessionId =
+      typeof params.sessionId === 'string' && params.sessionId
+        ? params.sessionId
+        : `session-${Date.now()}`;
 
     // Read actual counts from stores
     const store = loadMemoryStore();
     const allEntries = Object.values(store.entries);
-    const taskCount = allEntries.filter(e => e.key.includes('task')).length;
-    const agentCount = allEntries.filter(e => e.key.includes('agent')).length;
-    const patternCount = allEntries.filter(e => e.key.includes('pattern')).length;
+    const taskCount = allEntries.filter((e) => e.key.includes('task')).length;
+    const agentCount = allEntries.filter((e) => e.key.includes('agent')).length;
+    const patternCount = allEntries.filter((e) => e.key.includes('pattern')).length;
     const trajectoryCount = activeTrajectories.size;
 
     // Check for pending-insights.jsonl
@@ -1526,13 +1783,14 @@ export const hooksSessionEnd: MCPTool = {
       });
       if (result) {
         sessionPersistence = {
-          controller: result.success ? 'lancedb' : 'none',
+          controller: result.success ? 'sqlite' : 'none',
           persisted: result.success,
         };
       }
     } catch (e) {
       // Bridge not available
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-session-end] memory bridge failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-session-end] memory bridge failed:', e);
     }
 
     // KG nudge: check if knowledge graph is empty and suggest distillation
@@ -1596,7 +1854,7 @@ export const hooksIntelligence: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const mode = (params.mode as string) || 'balanced';
+    const mode = validateMcpString(params.mode, 'mode', 32) ?? 'balanced';
     const enableSona = params.enableSona !== false;
     const enableMoe = params.enableMoe !== false;
     const enableHnsw = params.enableHnsw !== false;
@@ -1669,14 +1927,24 @@ export const hooksIntelligence: MCPTool = {
       },
       implementationStatus: {
         working: [
-          'memory-store', 'embeddings', 'trajectory-recording', 'claims', 'swarm-coordination',
-          'hnsw-index', 'pattern-storage', 'keyword-routing'
+          'memory-store',
+          'embeddings',
+          'trajectory-recording',
+          'claims',
+          'swarm-coordination',
+          'hnsw-index',
+          'pattern-storage',
+          'keyword-routing',
         ],
         partial: [],
         notImplemented: [],
         removed: [
-          'moe-routing', 'flash-attention', 'lora-adapter',
-          'native-sona-engine', 'native-router', 'native-attention',
+          'moe-routing',
+          'flash-attention',
+          'lora-adapter',
+          'native-sona-engine',
+          'native-router',
+          'native-attention',
         ],
       },
       version: '3.0.0-alpha.102',

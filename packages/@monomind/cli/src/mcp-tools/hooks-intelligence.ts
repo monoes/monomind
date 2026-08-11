@@ -7,7 +7,16 @@
  * the worker daemon -- real workers live in @monoes/hooks (`hooks worker run`).
  */
 
-import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, readdirSync, unlinkSync } from 'fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  renameSync,
+  existsSync,
+  readFileSync,
+  statSync,
+  readdirSync,
+  unlinkSync,
+} from 'fs';
 import { dirname, join } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { randomUUID } from 'node:crypto';
@@ -114,13 +123,15 @@ export const hooksTrajectoryStart: MCPTool = {
     const MAX_TASK_LEN = 4 * 1024; // 4 KB — same cap as trajectory-step fields
     const MAX_AGENT_LEN = 256;
     const rawTask = params.task as string;
-    const task = typeof rawTask === 'string' && rawTask.length > MAX_TASK_LEN
-      ? rawTask.slice(0, MAX_TASK_LEN)
-      : rawTask;
+    const task =
+      typeof rawTask === 'string' && rawTask.length > MAX_TASK_LEN
+        ? rawTask.slice(0, MAX_TASK_LEN)
+        : rawTask;
     const rawAgent = (params.agent as string) || 'coder';
-    const agent = typeof rawAgent === 'string' && rawAgent.length > MAX_AGENT_LEN
-      ? rawAgent.slice(0, MAX_AGENT_LEN)
-      : rawAgent;
+    const agent =
+      typeof rawAgent === 'string' && rawAgent.length > MAX_AGENT_LEN
+        ? rawAgent.slice(0, MAX_AGENT_LEN)
+        : rawAgent;
     const trajectoryId = `traj-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     const startedAt = new Date().toISOString();
 
@@ -174,12 +185,14 @@ export const hooksTrajectoryStep: MCPTool = {
     const MAX_STEPS_PER_TRAJECTORY = 1000;
     const rawAction = params.action as string;
     const rawResult = (params.result as string) || 'success';
-    const action = typeof rawAction === 'string' && rawAction.length > MAX_STEP_STRING_LEN
-      ? rawAction.slice(0, MAX_STEP_STRING_LEN)
-      : rawAction;
-    const result = typeof rawResult === 'string' && rawResult.length > MAX_STEP_STRING_LEN
-      ? rawResult.slice(0, MAX_STEP_STRING_LEN)
-      : rawResult;
+    const action =
+      typeof rawAction === 'string' && rawAction.length > MAX_STEP_STRING_LEN
+        ? rawAction.slice(0, MAX_STEP_STRING_LEN)
+        : rawAction;
+    const result =
+      typeof rawResult === 'string' && rawResult.length > MAX_STEP_STRING_LEN
+        ? rawResult.slice(0, MAX_STEP_STRING_LEN)
+        : rawResult;
     const quality = (params.quality as number) || 0.85;
     const timestamp = new Date().toISOString();
     const stepId = `step-${Date.now()}`;
@@ -258,7 +271,10 @@ export const hooksTrajectoryEnd: MCPTool = {
             tags: [trajectory.agent, success ? 'success' : 'failure', 'sona-trajectory'],
           });
         } catch (error) {
-          persistResult = { success: false, error: error instanceof Error ? error.message : String(error) };
+          persistResult = {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
         }
       }
 
@@ -292,16 +308,20 @@ export const hooksTrajectoryEnd: MCPTool = {
       } catch (e) {
         // Non-fatal: intelligence bridge unavailable, trajectory is still
         // persisted via the legacy store above.
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] intelligence bridge recordStep failed:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[hooks-intelligence] intelligence bridge recordStep failed:', e);
       }
     }
 
     // SONA Learning - process trajectory outcome for routing optimization
     let sonaResult: { learned: boolean; patternKey: string; confidence: number } = {
-      learned: false, patternKey: '', confidence: 0
+      learned: false,
+      patternKey: '',
+      confidence: 0,
     };
     let ewcResult: { consolidated: boolean; penalty: number } = {
-      consolidated: false, penalty: 0
+      consolidated: false,
+      penalty: 0,
     };
 
     if (trajectory && persistResult.success) {
@@ -328,7 +348,8 @@ export const hooksTrajectoryEnd: MCPTool = {
           };
         } catch (e) {
           // SONA learning failed, continue without it
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] SONA processTrajectoryOutcome failed:', e);
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+            console.error('[hooks-intelligence] SONA processTrajectoryOutcome failed:', e);
         }
       }
 
@@ -339,9 +360,9 @@ export const hooksTrajectoryEnd: MCPTool = {
           try {
             // Record gradient sample for Fisher matrix update
             // Create a simple gradient from trajectory steps
-            const gradients = new Array(384).fill(0).map((_, i) =>
-              Math.sin(i * 0.01) * (trajectory.steps.length / 10)
-            );
+            const gradients = new Array(384)
+              .fill(0)
+              .map((_, i) => Math.sin(i * 0.01) * (trajectory.steps.length / 10));
             ewc.recordGradient(`trajectory-${trajectoryId}`, gradients, success);
             const stats = ewc.getConsolidationStats();
             ewcResult = {
@@ -350,7 +371,8 @@ export const hooksTrajectoryEnd: MCPTool = {
             };
           } catch (e) {
             // EWC consolidation failed, continue without it
-            if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] EWC consolidation failed:', e);
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+              console.error('[hooks-intelligence] EWC consolidation failed:', e);
           }
         }
       }
@@ -373,16 +395,26 @@ export const hooksTrajectoryEnd: MCPTool = {
         patternsExtracted: trajectory?.steps.length || 0,
         learningTimeMs,
       },
-      trajectory: trajectory ? {
-        task: trajectory.task,
-        agent: trajectory.agent,
-        totalSteps: trajectory.steps.length,
-        duration: trajectory.startedAt ? new Date(endedAt).getTime() - new Date(trajectory.startedAt).getTime() : 0,
-      } : null,
-      implementation: sonaResult.learned ? 'real-sona-learning' : (persistResult.success ? 'real-persistence' : 'memory-only'),
+      trajectory: trajectory
+        ? {
+            task: trajectory.task,
+            agent: trajectory.agent,
+            totalSteps: trajectory.steps.length,
+            duration: trajectory.startedAt
+              ? new Date(endedAt).getTime() - new Date(trajectory.startedAt).getTime()
+              : 0,
+          }
+        : null,
+      implementation: sonaResult.learned
+        ? 'real-sona-learning'
+        : persistResult.success
+          ? 'real-persistence'
+          : 'memory-only',
       note: sonaResult.learned
         ? `SONA learned pattern "${sonaResult.patternKey}" with ${(sonaResult.confidence * 100).toFixed(1)}% confidence`
-        : (persistResult.success ? 'Trajectory persisted for future learning' : (persistResult.error || 'Trajectory not found')),
+        : persistResult.success
+          ? 'Trajectory persisted for future learning'
+          : persistResult.error || 'Trajectory not found',
     };
   },
 };
@@ -407,13 +439,15 @@ export const hooksPatternStore: MCPTool = {
     const MAX_PATTERN_LEN = 16 * 1024; // 16 KB
     const MAX_TYPE_LEN = 256;
     const rawPattern = params.pattern as string;
-    const pattern = typeof rawPattern === 'string' && rawPattern.length > MAX_PATTERN_LEN
-      ? rawPattern.slice(0, MAX_PATTERN_LEN)
-      : rawPattern;
+    const pattern =
+      typeof rawPattern === 'string' && rawPattern.length > MAX_PATTERN_LEN
+        ? rawPattern.slice(0, MAX_PATTERN_LEN)
+        : rawPattern;
     const rawType = (params.type as string) || 'general';
-    const type = typeof rawType === 'string' && rawType.length > MAX_TYPE_LEN
-      ? rawType.slice(0, MAX_TYPE_LEN)
-      : rawType;
+    const type =
+      typeof rawType === 'string' && rawType.length > MAX_TYPE_LEN
+        ? rawType.slice(0, MAX_TYPE_LEN)
+        : rawType;
     const confidence = (params.confidence as number) || 0.8;
     const metadata = params.metadata as Record<string, unknown> | undefined;
     const timestamp = new Date().toISOString();
@@ -429,7 +463,12 @@ export const hooksPatternStore: MCPTool = {
     }
 
     // Fallback: persist using memory-initializer store
-    let storeResult: { success: boolean; id?: string; embedding?: { dimensions: number; model: string }; error?: string } = { success: false };
+    let storeResult: {
+      success: boolean;
+      id?: string;
+      embedding?: { dimensions: number; model: string };
+      error?: string;
+    } = { success: false };
     if (!reasoningResult) {
       const storeFn = await getRealStoreFunction();
       if (storeFn) {
@@ -442,13 +481,20 @@ export const hooksPatternStore: MCPTool = {
             tags: [type, `confidence-${Math.round(confidence * 100)}`, 'reasoning-pattern'],
           });
         } catch (error) {
-          storeResult = { success: false, error: error instanceof Error ? error.message : String(error) };
+          storeResult = {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
         }
       }
     }
 
     const success = reasoningResult?.success || storeResult.success;
-    const controller = reasoningResult?.success ? 'lancedb' : (storeResult.success ? 'bridge-store' : 'none');
+    const controller = reasoningResult?.success
+      ? 'sqlite'
+      : storeResult.success
+        ? 'bridge-store'
+        : 'none';
 
     return {
       patternId: reasoningResult?.id || storeResult.id || patternId,
@@ -456,21 +502,30 @@ export const hooksPatternStore: MCPTool = {
       type,
       confidence,
       indexed: success,
-      hnswIndexed: success && (!!storeResult.embedding || controller === 'lancedb'),
+      hnswIndexed: success && (!!storeResult.embedding || controller === 'sqlite'),
       embedding: storeResult.embedding,
       timestamp,
       controller,
-      implementation: controller === 'lancedb' ? 'lancedb-controller' : (storeResult.success ? 'real-hnsw-indexed' : 'memory-only'),
-      note: controller === 'lancedb'
-        ? 'Pattern stored via SQLite-backed memory bridge with HNSW indexing'
-        : (storeResult.success ? 'Pattern stored with vector embedding for semantic search' : (storeResult.error || 'Store function unavailable')),
+      implementation:
+        controller === 'sqlite'
+          ? 'sqlite-controller'
+          : storeResult.success
+            ? 'real-hnsw-indexed'
+            : 'memory-only',
+      note:
+        controller === 'sqlite'
+          ? 'Pattern stored via SQLite-backed memory bridge with HNSW indexing'
+          : storeResult.success
+            ? 'Pattern stored with vector embedding for semantic search'
+            : storeResult.error || 'Store function unavailable',
     };
   },
 };
 
 export const hooksPatternSearch: MCPTool = {
   name: 'hooks_intelligence_pattern-search',
-  description: 'Search patterns using REAL vector search (HNSW when available, brute-force fallback)',
+  description:
+    'Search patterns using REAL vector search (HNSW when available, brute-force fallback)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -487,13 +542,13 @@ export const hooksPatternSearch: MCPTool = {
     const MAX_SEARCH_QUERY_LEN = 16 * 1024; // 16 KB — matches neural_patterns cap
     const MAX_TOP_K = 100;
     const rawQuery = params.query as string;
-    const query = typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LEN
-      ? rawQuery.slice(0, MAX_SEARCH_QUERY_LEN)
-      : rawQuery;
+    const query =
+      typeof rawQuery === 'string' && rawQuery.length > MAX_SEARCH_QUERY_LEN
+        ? rawQuery.slice(0, MAX_SEARCH_QUERY_LEN)
+        : rawQuery;
     const rawTopK = params.topK as number;
-    const topK = Number.isFinite(rawTopK) && rawTopK > 0
-      ? Math.min(Math.floor(rawTopK), MAX_TOP_K)
-      : 5;
+    const topK =
+      Number.isFinite(rawTopK) && rawTopK > 0 ? Math.min(Math.floor(rawTopK), MAX_TOP_K) : 5;
     const minConfidence = (params.minConfidence as number) || 0.3;
     const namespace = (params.namespace as string) || 'pattern';
 
@@ -514,7 +569,7 @@ export const hooksPatternSearch: MCPTool = {
               namespace,
             })),
           searchTimeMs: 0,
-          backend: 'lancedb',
+          backend: 'sqlite',
           note: 'Results from SQLite-backed memory bridge',
         };
       }
@@ -537,7 +592,7 @@ export const hooksPatternSearch: MCPTool = {
         if (searchResult.success && searchResult.results.length > 0) {
           return {
             query,
-            results: searchResult.results.map(r => ({
+            results: searchResult.results.map((r) => ({
               patternId: r.id,
               pattern: r.content,
               similarity: r.score,
@@ -557,7 +612,9 @@ export const hooksPatternSearch: MCPTool = {
           results: [],
           searchTimeMs: searchResult.searchTime,
           backend: 'real-vector-search',
-          note: searchResult.error || 'No matching patterns found. Store patterns first using memory/store with namespace "pattern".',
+          note:
+            searchResult.error ||
+            'No matching patterns found. Store patterns first using memory/store with namespace "pattern".',
         };
       } catch (error) {
         // Fall through to empty response with error
@@ -621,9 +678,8 @@ export const hooksIntelligenceStats: MCPTool = {
         avgLearningTimeMs: realSona.lastUpdate ? 0.042 : 0, // Theoretical when active
         patternsLearned: realSona.totalPatterns,
         patternCategories: { learned: realSona.totalPatterns }, // Simplified
-        successRate: totalRoutes > 0
-          ? Math.round((realSona.successfulRoutings / totalRoutes) * 100) / 100
-          : 0,
+        successRate:
+          totalRoutes > 0 ? Math.round((realSona.successfulRoutings / totalRoutes) * 100) / 100 : 0,
         implementation: 'real-sona',
       };
     }
@@ -656,7 +712,11 @@ export const hooksIntelligenceStats: MCPTool = {
       routingDecisions: memoryStats.routing.decisions,
       avgRoutingTimeMs: 0,
       avgConfidence: memoryStats.routing.avgConfidence,
-      loadBalance: null as { giniCoefficient: number; coefficientOfVariation: number; expertUsage: Record<string, number> } | null,
+      loadBalance: null as {
+        giniCoefficient: number;
+        coefficientOfVariation: number;
+        expertUsage: Record<string, number>;
+      } | null,
       implementation: 'not-loaded' as string,
     };
 
@@ -686,10 +746,11 @@ export const hooksIntelligenceStats: MCPTool = {
       hnsw: {
         indexSize: memoryStats.memory.indexSize,
         avgSearchTimeMs: 0.12,
-        cacheHitRate: memoryStats.memory.totalAccessCount > 0
-          ? Math.min(0.95, 0.5 + (memoryStats.memory.totalAccessCount / 1000))
-          : 0.78,
-        memoryUsageMb: Math.round(memoryStats.memory.memorySizeBytes / 1024 / 1024 * 100) / 100,
+        cacheHitRate:
+          memoryStats.memory.totalAccessCount > 0
+            ? Math.min(0.95, 0.5 + memoryStats.memory.totalAccessCount / 1000)
+            : 0.78,
+        memoryUsageMb: Math.round((memoryStats.memory.memorySizeBytes / 1024 / 1024) * 100) / 100,
       },
       dataSource: sona ? 'real-implementations' : 'memory-fallback',
       lastUpdated: new Date().toISOString(),
@@ -721,11 +782,16 @@ export const hooksIntelligenceStats: MCPTool = {
 // Intelligence learn hook
 export const hooksIntelligenceLearn: MCPTool = {
   name: 'hooks_intelligence_learn',
-  description: 'Run a consolidation pass over the local keyword-pattern store: time-decay confidence weighting, pruning, and an EWC++-style quadratic penalty derived from squared embedding magnitudes. There are no gradients and no model — no ML training occurs.',
+  description:
+    'Run a consolidation pass over the local keyword-pattern store: time-decay confidence weighting, pruning, and an EWC++-style quadratic penalty derived from squared embedding magnitudes. There are no gradients and no model — no ML training occurs.',
   inputSchema: {
     type: 'object',
     properties: {
-      trajectoryIds: { type: 'array', items: { type: 'string' }, description: 'Specific trajectories to learn from' },
+      trajectoryIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Specific trajectories to learn from',
+      },
       consolidate: { type: 'boolean', description: 'Run EWC++ consolidation' },
     },
   },
@@ -779,9 +845,14 @@ export const hooksIntelligenceLearn: MCPTool = {
       updates: {
         trajectoriesProcessed: sonaStats.trajectoriesProcessed,
         patternsLearned: sonaStats.totalPatterns,
-        successRate: sonaStats.trajectoriesProcessed > 0
-          ? (sonaStats.successfulRoutings / (sonaStats.successfulRoutings + sonaStats.failedRoutings) * 100).toFixed(1) + '%'
-          : '0%',
+        successRate:
+          sonaStats.trajectoriesProcessed > 0
+            ? (
+                (sonaStats.successfulRoutings /
+                  (sonaStats.successfulRoutings + sonaStats.failedRoutings)) *
+                100
+              ).toFixed(1) + '%'
+            : '0%',
       },
       ewc: consolidate ? ewcStats : null,
       confidence: {
@@ -834,7 +905,10 @@ export const hooksIntelligenceAttention: MCPTool = {
         computeTimeMs,
         speedup: implementation.startsWith('real-') ? computeTimeMs : null,
         _stub: implementation === 'none',
-        _note: implementation === 'none' ? 'Pure-JS similarity only; native attention backends are not part of the lean build.' : undefined,
+        _note:
+          implementation === 'none'
+            ? 'Pure-JS similarity only; native attention backends are not part of the lean build.'
+            : undefined,
       },
       implementation,
     };
@@ -859,9 +933,10 @@ export const hooksModelRoute: MCPTool = {
     // for each keyword; an unbounded task string causes event-loop DoS.
     const MAX_MODEL_ROUTE_TASK_LEN = 16 * 1024;
     const rawTask = params.task as string;
-    const task = typeof rawTask === 'string' && rawTask.length > MAX_MODEL_ROUTE_TASK_LEN
-      ? rawTask.slice(0, MAX_MODEL_ROUTE_TASK_LEN)
-      : rawTask;
+    const task =
+      typeof rawTask === 'string' && rawTask.length > MAX_MODEL_ROUTE_TASK_LEN
+        ? rawTask.slice(0, MAX_MODEL_ROUTE_TASK_LEN)
+        : rawTask;
     // Native neural model-router removed in the lean build — keyword complexity heuristic.
     const complexity = analyzeComplexityFallback(task);
     return {
@@ -883,9 +958,20 @@ export const hooksModelOutcome: MCPTool = {
     properties: {
       task: { type: 'string', description: 'Original task' },
       model: { type: 'string', enum: ['haiku', 'sonnet', 'opus'], description: 'Model used' },
-      outcome: { type: 'string', enum: ['success', 'failure', 'escalated'], description: 'Task outcome' },
-      verifier_type: { type: 'string', enum: ['tsc', 'vitest', 'eslint', 'llm_judge'], description: 'RLVR verifier type for grounded reward signal' },
-      exit_code: { type: 'number', description: 'Verifier exit code (0 = pass); overrides outcome when verifier_type is set' },
+      outcome: {
+        type: 'string',
+        enum: ['success', 'failure', 'escalated'],
+        description: 'Task outcome',
+      },
+      verifier_type: {
+        type: 'string',
+        enum: ['tsc', 'vitest', 'eslint', 'llm_judge'],
+        description: 'RLVR verifier type for grounded reward signal',
+      },
+      exit_code: {
+        type: 'number',
+        description: 'Verifier exit code (0 = pass); overrides outcome when verifier_type is set',
+      },
     },
     required: ['task', 'model', 'outcome'],
   },
@@ -894,17 +980,21 @@ export const hooksModelOutcome: MCPTool = {
     // unbounded task string causes unnecessary memory allocation before the slice.
     const MAX_MODEL_OUTCOME_TASK_LEN = 16 * 1024;
     const rawOutcomeTask = params.task as string;
-    const task = typeof rawOutcomeTask === 'string' && rawOutcomeTask.length > MAX_MODEL_OUTCOME_TASK_LEN
-      ? rawOutcomeTask.slice(0, MAX_MODEL_OUTCOME_TASK_LEN)
-      : rawOutcomeTask;
+    const task =
+      typeof rawOutcomeTask === 'string' && rawOutcomeTask.length > MAX_MODEL_OUTCOME_TASK_LEN
+        ? rawOutcomeTask.slice(0, MAX_MODEL_OUTCOME_TASK_LEN)
+        : rawOutcomeTask;
     const model = params.model as 'haiku' | 'sonnet' | 'opus';
     // RLVR: derive effective outcome from verifier exit_code when provided
     // Source: https://github.com/opendilab/awesome-RLVR
     const verifierType = params.verifier_type as string | undefined;
     const exitCode = params.exit_code as number | undefined;
-    const effectiveOutcome = verifierType !== undefined && exitCode !== undefined
-      ? (exitCode === 0 ? 'success' : 'failure')
-      : params.outcome as 'success' | 'failure' | 'escalated';
+    const effectiveOutcome =
+      verifierType !== undefined && exitCode !== undefined
+        ? exitCode === 0
+          ? 'success'
+          : 'failure'
+        : (params.outcome as 'success' | 'failure' | 'escalated');
     const outcome = effectiveOutcome;
 
     // Native model-router removed in the lean build — outcome is acknowledged but not
@@ -942,12 +1032,20 @@ function analyzeComplexityFallback(task: string): number {
   const taskLower = task.toLowerCase();
 
   // High complexity indicators
-  const highIndicators = ['architect', 'design', 'refactor', 'security', 'audit', 'complex', 'analyze'];
-  const highCount = highIndicators.filter(ind => taskLower.includes(ind)).length;
+  const highIndicators = [
+    'architect',
+    'design',
+    'refactor',
+    'security',
+    'audit',
+    'complex',
+    'analyze',
+  ];
+  const highCount = highIndicators.filter((ind) => taskLower.includes(ind)).length;
 
   // Low complexity indicators
   const lowIndicators = ['simple', 'typo', 'format', 'rename', 'comment'];
-  const lowCount = lowIndicators.filter(ind => taskLower.includes(ind)).length;
+  const lowCount = lowIndicators.filter((ind) => taskLower.includes(ind)).length;
 
   // Base on length
   const lengthScore = Math.min(1, task.length / 200);

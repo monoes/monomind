@@ -74,4 +74,4 @@ Every kimi artifact is opt-in and additive:
 - The gate bridge only **spawns** monomind's existing `.claude/helpers/hook-handler.cjs` unchanged — it never edits it, so Claude Code's own hook path is unaffected. When the handler is absent, the bridge fails open (allows), matching both platforms' "hook errors never block" policy.
 - The org runner is only constructed when `MONOMIND_RUNTIME=kimicode` is set; there is no new package dependency (it shells out to the `kimi` binary).
 
-For the internal architecture, isolation guarantees, and the `AgentRunner` seam, see [`docs/kimicode-architecture.md`](../../docs/kimicode-architecture.md).
+The internal architecture, isolation guarantees, and `AgentRunner` seam follow the same pattern as the other adapters in this family.

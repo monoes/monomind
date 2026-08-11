@@ -5,8 +5,7 @@
  * - Hook events and priorities
  * - Hook handlers and context
  * - Execution results
- * - Daemon configuration
- * - Statusline data
+ * - Statusline configuration
  */
 
 /**
@@ -54,18 +53,18 @@ export enum HookEvent {
  * Hook priority levels
  */
 export enum HookPriority {
-  Critical = 1000,    // Security, validation - runs first
-  High = 100,         // Pre-processing, preparation
-  Normal = 50,        // Standard hooks
-  Low = 10,           // Logging, metrics
-  Background = 1,     // Async operations - runs last
+  Critical = 1000, // Security, validation - runs first
+  High = 100, // Pre-processing, preparation
+  Normal = 50, // Standard hooks
+  Low = 10, // Logging, metrics
+  Background = 1, // Async operations - runs last
 }
 
 /**
  * Hook handler function type
  */
 export type HookHandler<T = unknown> = (
-  context: HookContext<T>
+  context: HookContext<T>,
 ) => Promise<HookResult> | HookResult;
 
 /**
@@ -311,136 +310,8 @@ export interface HookListFilter {
 }
 
 // ============================================================================
-// Daemon Types
-// ============================================================================
-
-/**
- * Daemon status
- */
-export type DaemonStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'error';
-
-/**
- * Daemon configuration
- */
-export interface DaemonConfig {
-  /** Daemon name */
-  name: string;
-
-  /** Update interval in milliseconds */
-  interval: number;
-
-  /** Whether the daemon is enabled */
-  enabled: boolean;
-
-  /** PID file path */
-  pidFile?: string;
-
-  /** Log file path */
-  logFile?: string;
-
-  /** Custom configuration */
-  config?: Record<string, unknown>;
-}
-
-/**
- * Daemon state
- */
-export interface DaemonState {
-  /** Daemon name */
-  name: string;
-
-  /** Current status */
-  status: DaemonStatus;
-
-  /** Process ID if running */
-  pid?: number;
-
-  /** Started timestamp */
-  startedAt?: Date;
-
-  /** Last update timestamp */
-  lastUpdateAt?: Date;
-
-  /** Error message if status is 'error' */
-  error?: string;
-
-  /** Execution count */
-  executionCount: number;
-
-  /** Failure count */
-  failureCount: number;
-}
-
-/**
- * Daemon manager configuration
- */
-export interface DaemonManagerConfig {
-  /** Base directory for PID files */
-  pidDirectory: string;
-
-  /** Base directory for log files */
-  logDirectory: string;
-
-  /** Daemons to manage */
-  daemons: DaemonConfig[];
-
-  /** Auto-restart on failure */
-  autoRestart: boolean;
-
-  /** Max restart attempts */
-  maxRestartAttempts: number;
-}
-
-// ============================================================================
 // Statusline Types
 // ============================================================================
-
-/**
- * Statusline data
- */
-export interface StatuslineData {
-  /** V1 implementation progress */
-  devProgress: {
-    domainsCompleted: number;
-    totalDomains: number;
-    dddProgress: number;
-    modulesCount: number;
-    filesCount: number;
-    linesCount: number;
-  };
-
-  /** Security status */
-  security: {
-    status: 'PENDING' | 'IN_PROGRESS' | 'CLEAN';
-    cvesFixed: number;
-    totalCves: number;
-  };
-
-  /** Swarm activity */
-  swarm: {
-    activeAgents: number;
-    maxAgents: number;
-    coordinationActive: boolean;
-  };
-
-  /** Hooks metrics */
-  hooks: {
-    status: 'ACTIVE' | 'INACTIVE';
-    patternsLearned: number;
-    routingAccuracy: number;
-    totalOperations: number;
-  };
-
-  /** Performance targets */
-  performance: {
-    flashAttentionTarget: string;
-    searchImprovement: string;
-    memoryReduction: string;
-  };
-
-  /** Last update timestamp */
-  lastUpdated: Date;
-}
 
 /**
  * Statusline configuration
@@ -470,19 +341,6 @@ export interface StatuslineConfig {
 // ============================================================================
 
 /**
- * Hooks metrics record
- */
-export interface HooksMetricsRecord {
-  id: number;
-  totalExecutions: number;
-  totalFailures: number;
-  avgExecutionTime: number;
-  patternsLearned: number;
-  routingConfidence: number;
-  lastUpdated: string;
-}
-
-/**
  * Hook stats record
  */
 export interface HookStatsRecord {
@@ -494,43 +352,9 @@ export interface HookStatsRecord {
   lastExecuted: string;
 }
 
-/**
- * Routing history record
- */
-export interface RoutingHistoryRecord {
-  id: number;
-  taskHash: string;
-  recommendedAgent: string;
-  confidence: number;
-  wasSuccessful: boolean;
-  timestamp: string;
-}
-
-/**
- * Learning pattern record
- */
-export interface LearningPatternRecord {
-  patternId: string;
-  category: string;
-  qualityScore: number;
-  usageCount: number;
-  createdAt: string;
-  lastUsed: string;
-}
-
 // ============================================================================
 // MCP Tool Types
 // ============================================================================
-
-/**
- * Pre-edit hook input
- */
-export interface PreEditInput {
-  filePath: string;
-  operation?: 'create' | 'modify' | 'delete';
-  includeContext?: boolean;
-  includeSuggestions?: boolean;
-}
 
 /**
  * Pre-edit hook result
@@ -569,29 +393,6 @@ export interface PostEditInput {
 }
 
 /**
- * Post-edit hook result
- */
-export interface PostEditResult {
-  filePath: string;
-  operation: string;
-  success: boolean;
-  recorded: boolean;
-  recordedAt: string;
-  patternId?: string;
-}
-
-/**
- * Route task input
- */
-export interface RouteTaskInput {
-  task: string;
-  context?: string;
-  preferredAgents?: string[];
-  constraints?: Record<string, unknown>;
-  includeExplanation?: boolean;
-}
-
-/**
  * Route task result
  */
 export interface RouteTaskResult {
@@ -626,39 +427,4 @@ export interface MetricsQueryInput {
   timeRange?: 'hour' | 'day' | 'week' | 'month' | 'all';
   includeDetailedStats?: boolean;
   format?: 'json' | 'summary';
-}
-
-/**
- * Metrics query result
- */
-export interface MetricsQueryResult {
-  category: string;
-  timeRange: string;
-  summary: {
-    totalOperations: number;
-    successRate: number;
-    avgQuality: number;
-    patternsLearned: number;
-  };
-  routing?: {
-    totalRoutes: number;
-    avgConfidence: number;
-    topAgents: Array<{
-      agent: string;
-      count: number;
-      successRate: number;
-    }>;
-  };
-  edits?: {
-    totalEdits: number;
-    successRate: number;
-    commonPatterns: string[];
-  };
-  commands?: {
-    totalCommands: number;
-    successRate: number;
-    avgExecutionTime: number;
-    commonCommands: string[];
-  };
-  detailedStats?: Record<string, unknown>;
 }

@@ -53,4 +53,4 @@ The provider resolver sets `GEMINI_API_KEY` for that role's session and strips t
 - agy output is **not** behind a component flag (it's part of default init) — the opt-in flags are `--opencode` and `--kimicode`. `--skip-claude` skips the Claude tree; the agy tree is still emitted.
 - The statusline wrapper delegates to `.gemini/helpers/statusline.cjs`, falling back to `.claude/helpers/statusline.cjs` — one implementation, two entry points.
 
-For maintainer internals, see [`docs/opencode-architecture.md`](../../docs/opencode-architecture.md) — the agy target follows the same additive pattern (the agy generator is the older of the adaptation family; opencode and kimi were modeled on it).
+The agy target follows the same additive pattern as the other adapters in this family (the agy generator is the oldest; opencode and kimi were modeled on it).

@@ -86,7 +86,8 @@ For any role that needs non-default behavior, set (all optional — omit to inhe
   - `"base-url"` / `"bedrock"` / `"vertex"` / `"gemini"` / `"openai"` — legacy kinds (preserved for backward compat)
   - `"vercel-api-key"` — any API-key provider via the Vercel AI SDK runner; pair with `vendor` (one of `openai`, `anthropic`, `google`, `xai`, `deepseek`, `glm`, `mistral`, `groq`, `together`, `fireworks`, `cohere`, `perplexity`, `alibaba`, `openrouter`, `ollama`, `openai-compatible`). Auto-resolves `runtime: 'vercel'`.
   - `"codex"` — ChatGPT subscription via `codex login` (no env vars needed). Auto-resolves `runtime: 'codex'`.
-- `runtime`: `"claude"` | `"kimicode"` | `"opencode"` | `"vercel"` | `"codex"` — per-role override of the agent loop backend. Usually unnecessary (auto-resolved from `provider.kind`); set explicitly only when you need to force a specific runner regardless of provider.
+  - `"antigravity"` — Google AI Pro/Ultra subscription via `agy` CLI (Google OAuth in OS keyring). Auto-resolves `runtime: 'antigravity'`. This is the replacement for the consumer-OAuth path of Gemini CLI (sunset June 18, 2026).
+- `runtime`: `"claude"` | `"kimicode"` | `"opencode"` | `"vercel"` | `"codex"` | `"antigravity"` — per-role override of the agent loop backend. Usually unnecessary (auto-resolved from `provider.kind`); set explicitly only when you need to force a specific runner regardless of provider.
 - `policy`: `{ allowTools?, denyTools?, fileWrite?, fileRead?, webAllow?, maxTokens? }` — glob-based tool/file/web restrictions for that role; leave unset unless the user asked for sandboxing
 
 Do not invent values for these — only populate a field the user actually specified or clearly implied (e.g. "the researcher should use Opus" → that role's `adapter_config.model`).

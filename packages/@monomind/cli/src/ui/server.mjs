@@ -7,8 +7,31 @@ import zlib from 'zlib';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import { spawn } from 'child_process';
-import { collectAll, getWatchPaths, collectProject, collectSessions, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
-import { addSseClient, removeSseClient, broadcast, getSseClientCount, closeSseClients, addMmClient, removeMmClient, broadcastMm, getMmClientCount } from './sse-manager.mjs';
+import {
+  collectAll,
+  getWatchPaths,
+  collectProject,
+  collectSessions,
+  collectAgents,
+  collectTokens,
+  collectHooks,
+  collectKnowledge,
+  collectMetrics,
+  collectMemory,
+  collectMemoryFiles,
+  collectSystem,
+} from './collector.mjs';
+import {
+  addSseClient,
+  removeSseClient,
+  broadcast,
+  getSseClientCount,
+  closeSseClients,
+  addMmClient,
+  removeMmClient,
+  broadcastMm,
+  getMmClientCount,
+} from './sse-manager.mjs';
 import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
 
@@ -20,35 +43,41 @@ const buildDocsState = new Map();
 
 // Pricing per token (mirrors token-tracker.cjs FALLBACK_PRICING)
 const _SJ_PRICING = {
-  'claude-fable-5':    { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6    },
-  'claude-mythos-5':   { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6    },
-  'claude-opus-5':     { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
-  'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
-  'claude-opus-4-7':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
-  'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
-  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
-  'claude-opus-4-1':   { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6  },
-  'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6  },
-  'claude-sonnet-5':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
-  'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
-  'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
-  'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
-  'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
-  'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
-  'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,    cw: 1.25e-6,  cr: 0.1e-6  },
-  'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6 },
-  'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6 },
-  'gpt-5':             { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6 },
-  'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6 },
-  'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
-  'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
+  'claude-fable-5': { in: 10e-6, out: 50e-6, cw: 12.5e-6, cr: 1e-6 },
+  'claude-mythos-5': { in: 10e-6, out: 50e-6, cw: 12.5e-6, cr: 1e-6 },
+  'claude-opus-5': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-8': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-7': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-6': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-5': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-1': { in: 15e-6, out: 75e-6, cw: 18.75e-6, cr: 1.5e-6 },
+  'claude-opus-4': { in: 15e-6, out: 75e-6, cw: 18.75e-6, cr: 1.5e-6 },
+  'claude-sonnet-5': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-sonnet-4-6': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-sonnet-4-5': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-sonnet-4': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-3-7-sonnet': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-3-5-sonnet': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-haiku-4-5': { in: 1e-6, out: 5e-6, cw: 1.25e-6, cr: 0.1e-6 },
+  'claude-haiku-4': { in: 0.8e-6, out: 4e-6, cw: 1e-6, cr: 0.08e-6 },
+  'claude-3-5-haiku': { in: 0.8e-6, out: 4e-6, cw: 1e-6, cr: 0.08e-6 },
+  'gpt-5': { in: 2.5e-6, out: 10e-6, cw: 2.5e-6, cr: 1.25e-6 },
+  'gpt-4o': { in: 2.5e-6, out: 10e-6, cw: 2.5e-6, cr: 1.25e-6 },
+  'gpt-4o-mini': { in: 0.15e-6, out: 0.6e-6, cw: 0.15e-6, cr: 0.075e-6 },
+  'gemini-2.5-pro': { in: 1.25e-6, out: 10e-6, cw: 1.25e-6, cr: 0.315e-6 },
 };
 function _sjGetPricing(model) {
-  const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
+  const _ALIAS = {
+    haiku: 'claude-haiku-4-5',
+    opus: 'claude-opus-4-6',
+    sonnet: 'claude-sonnet-4-6',
+  };
   let canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
   canonical = _ALIAS[canonical] || canonical;
   if (_SJ_PRICING[canonical]) return _SJ_PRICING[canonical];
-  for (const k of Object.keys(_SJ_PRICING)) { if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k]; }
+  for (const k of Object.keys(_SJ_PRICING)) {
+    if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k];
+  }
   return null;
 }
 /**
@@ -65,11 +94,13 @@ function _sjCalcCost(model, usage) {
   const p = _sjGetPricing(model);
   if (!p || !usage) return 0;
   const webSearch = ((usage.server_tool_use || {}).web_search_requests || 0) * 0.01;
-  return (usage.input_tokens || 0) * p.in
-       + (usage.output_tokens || 0) * p.out
-       + (usage.cache_creation_input_tokens || 0) * p.cw
-       + (usage.cache_read_input_tokens || 0) * p.cr
-       + webSearch;
+  return (
+    (usage.input_tokens || 0) * p.in +
+    (usage.output_tokens || 0) * p.out +
+    (usage.cache_creation_input_tokens || 0) * p.cw +
+    (usage.cache_read_input_tokens || 0) * p.cr +
+    webSearch
+  );
 } // key: resolved dir → { status, sections, files, error, startedAt, completedAt }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -84,20 +115,21 @@ let MASTERMIND_DIAGRAM_HTML;
 try {
   MASTERMIND_DIAGRAM_HTML = fs.readFileSync(
     path.join(__dirname, 'mastermind-diagram-fallback.html'),
-    'utf8'
+    'utf8',
   );
 } catch (_) {
-  MASTERMIND_DIAGRAM_HTML = '<!DOCTYPE html><html><body>mastermind-diagram-fallback.html is missing from this install.</body></html>';
+  MASTERMIND_DIAGRAM_HTML =
+    '<!DOCTYPE html><html><body>mastermind-diagram-fallback.html is missing from this install.</body></html>';
 }
-
 
 // ─── Session JSONL parser ────────────────────────────────────────────────────
 function categorizeTool(name) {
-  if (['Read','Write','Edit','MultiEdit','Glob','Grep','LS'].includes(name)) return 'file';
+  if (['Read', 'Write', 'Edit', 'MultiEdit', 'Glob', 'Grep', 'LS'].includes(name)) return 'file';
   if (name === 'Bash') return 'bash';
-  if (['Agent','Task'].includes(name)) return 'agent';
-  if (name.startsWith('mcp__monomind__memory') || name.startsWith('mcp__monomind__agentdb')) return 'memory';
-  if (['WebFetch','WebSearch'].includes(name)) return 'web';
+  if (['Agent', 'Task'].includes(name)) return 'agent';
+  if (name.startsWith('mcp__monomind__memory') || name.startsWith('mcp__monomind__agentdb'))
+    return 'memory';
+  if (['WebFetch', 'WebSearch'].includes(name)) return 'web';
   if (name === 'TodoWrite' || name === 'TodoRead') return 'task';
   if (name === 'Skill') return 'skill';
   if (name === 'ToolSearch') return 'search';
@@ -112,7 +144,11 @@ function parseSessionLines(lines) {
 
   for (const line of lines) {
     let entry;
-    try { entry = JSON.parse(line); } catch { continue; }
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
     const type = entry.type;
     const ts = entry.timestamp || null;
     const uuid = entry.uuid || null;
@@ -122,14 +158,17 @@ function parseSessionLines(lines) {
       let text = '';
       if (typeof content === 'string') text = content;
       else if (Array.isArray(content)) {
-        text = content.filter(b => b && b.type === 'text').map(b => b.text).join('');
+        text = content
+          .filter((b) => b && b.type === 'text')
+          .map((b) => b.text)
+          .join('');
       }
       if (text && text.length > 0) {
         events.push({ kind: 'user', text: text.slice(0, 500), uuid, ts });
       }
     } else if (type === 'assistant') {
       const content = entry.message?.content || [];
-      for (const block of (Array.isArray(content) ? content : [])) {
+      for (const block of Array.isArray(content) ? content : []) {
         if (!block || typeof block !== 'object') continue;
         if (block.type === 'thinking') {
           events.push({ kind: 'thinking', text: (block.thinking || '').slice(0, 200), uuid, ts });
@@ -151,14 +190,26 @@ function parseSessionLines(lines) {
       }
     } else if (type === 'tool') {
       const content = entry.message?.content || [];
-      for (const block of (Array.isArray(content) ? content : [])) {
+      for (const block of Array.isArray(content) ? content : []) {
         if (!block || block.type !== 'tool_result') continue;
         const resultText = Array.isArray(block.content)
-          ? block.content.filter(b => b && b.type === 'text').map(b => b.text).join('').slice(0, 400)
+          ? block.content
+              .filter((b) => b && b.type === 'text')
+              .map((b) => b.text)
+              .join('')
+              .slice(0, 400)
           : String(block.content || '').slice(0, 400);
         const isError = !!block.is_error;
         const toolIdx = toolMap.get(block.tool_use_id);
-        events.push({ kind: 'tool_result', tool_use_id: block.tool_use_id, text: resultText, isError, toolIdx, uuid, ts });
+        events.push({
+          kind: 'tool_result',
+          tool_use_id: block.tool_use_id,
+          text: resultText,
+          isError,
+          toolIdx,
+          uuid,
+          ts,
+        });
       }
     }
   }
@@ -167,17 +218,21 @@ function parseSessionLines(lines) {
 
 function buildToolLabel(name, input) {
   if (name === 'Read') return input.file_path ? `Read ${path.basename(input.file_path)}` : 'Read';
-  if (name === 'Write') return input.file_path ? `Write ${path.basename(input.file_path)}` : 'Write';
+  if (name === 'Write')
+    return input.file_path ? `Write ${path.basename(input.file_path)}` : 'Write';
   if (name === 'Edit') return input.file_path ? `Edit ${path.basename(input.file_path)}` : 'Edit';
   if (name === 'Bash') return (input.description || input.command || 'Bash').slice(0, 60);
   if (name === 'Grep') return `Grep ${(input.pattern || '').slice(0, 30)}`;
   if (name === 'Glob') return `Glob ${(input.pattern || '').slice(0, 30)}`;
-  if (name === 'Agent' || name === 'Task') return `→ ${input.subagent_type || input.description || 'agent'}`;
+  if (name === 'Agent' || name === 'Task')
+    return `→ ${input.subagent_type || input.description || 'agent'}`;
   if (name === 'WebFetch') return `Fetch ${(input.url || '').slice(0, 50)}`;
   if (name === 'WebSearch') return `Search ${(input.query || '').slice(0, 40)}`;
   if (name === 'Skill') return `Skill: ${input.skill || '?'}`;
-  if (name.startsWith('mcp__monomind__memory')) return name.replace('mcp__monomind__memory_', 'mem:');
-  if (name.startsWith('mcp__')) return name.replace('mcp__monomind__', '⬡ ').replace('mcp__', '⬡ ').slice(0, 40);
+  if (name.startsWith('mcp__monomind__memory'))
+    return name.replace('mcp__monomind__memory_', 'mem:');
+  if (name.startsWith('mcp__'))
+    return name.replace('mcp__monomind__', '⬡ ').replace('mcp__', '⬡ ').slice(0, 40);
   return name.slice(0, 40);
 }
 
@@ -185,19 +240,28 @@ function buildToolLabel(name, input) {
 function buildSectionData(name, dir) {
   const d = path.resolve(dir);
   switch (name) {
-    case 'sessions': return { sessions: collectSessions(d) };
-    case 'agents':   return { agents: collectAgents(d) };
-    case 'tokens':   return { tokens: collectTokens(d) };
-    case 'hooks':    return { hooks: collectHooks(d) };
-    case 'knowledge':return { knowledge: collectKnowledge(d) };
-    case 'metrics':  return { metrics: collectMetrics(d) };
-    case 'system':   return { system: collectSystem() };
+    case 'sessions':
+      return { sessions: collectSessions(d) };
+    case 'agents':
+      return { agents: collectAgents(d) };
+    case 'tokens':
+      return { tokens: collectTokens(d) };
+    case 'hooks':
+      return { hooks: collectHooks(d) };
+    case 'knowledge':
+      return { knowledge: collectKnowledge(d) };
+    case 'metrics':
+      return { metrics: collectMetrics(d) };
+    case 'system':
+      return { system: collectSystem() };
     case 'memory': {
       const s = collectSessions(d);
       return { sessions: { palace: s.palace }, memory: collectMemory(d) };
     }
-    case 'overview': return { project: collectProject(d), system: collectSystem() };
-    default: return {};
+    case 'overview':
+      return { project: collectProject(d), system: collectSystem() };
+    default:
+      return {};
   }
 }
 
@@ -205,17 +269,28 @@ function buildSectionData(name, dir) {
 function pathToSections(filename) {
   if (!filename) return null;
   const f = filename.toLowerCase();
-  if (f.includes('swarm'))                          return ['swarm'];
-  if (f.includes('token'))                          return ['tokens'];
+  if (f.includes('swarm')) return ['swarm'];
+  if (f.includes('token')) return ['tokens'];
   if (f.includes('registry') || f.includes('registrations')) return ['agents'];
-  if (f.includes('route') || f.includes('worker-dispatch'))  return ['hooks'];
+  if (f.includes('route') || f.includes('worker-dispatch')) return ['hooks'];
   if (f.includes('chunk') || f.includes('skills')) return ['knowledge'];
-  if (f.includes('auto-memory-store') || f.includes('episodes.jsonl') ||
-      (f.includes('/memory/') && f.endsWith('.md'))) return ['memory', 'sessions'];
-  if (f.includes('palace') || f.includes('drawers') || f.includes('identity')) return ['memory', 'sessions'];
+  if (
+    f.includes('auto-memory-store') ||
+    f.includes('episodes.jsonl') ||
+    (f.includes('/memory/') && f.endsWith('.md'))
+  )
+    return ['memory', 'sessions'];
+  if (f.includes('palace') || f.includes('drawers') || f.includes('identity'))
+    return ['memory', 'sessions'];
   if (f.includes('consolidation')) return ['metrics', 'memory'];
-  if (f.includes('ddd') || f.includes('audit') || f.includes('codebase-map') ||
-      f.includes('security-audit') || f.includes('performance')) return ['metrics'];
+  if (
+    f.includes('ddd') ||
+    f.includes('audit') ||
+    f.includes('codebase-map') ||
+    f.includes('security-audit') ||
+    f.includes('performance')
+  )
+    return ['metrics'];
   if (f.endsWith('.jsonl') || f.includes('sessions')) return ['sessions'];
   return ['sessions', 'swarm', 'agents', 'tokens', 'hooks'];
 }
@@ -239,8 +314,8 @@ const runStreamClients = new Map(); // orgName → Set<res>
 const _writeQueue = new Map(); // filePath → Promise (in-flight write)
 
 // ── sql.js WAL run-event index (Phase 1.5) ──────────────────────────────────
-let _runDb = null;           // sql.js in-memory Database
-let _runDbPath = null;       // disk path for persistence
+let _runDb = null; // sql.js in-memory Database
+let _runDbPath = null; // disk path for persistence
 let _runDbPersistTimer = null;
 let _runDbInsertStmt = null; // prepared INSERT statement
 
@@ -257,7 +332,9 @@ function looksLikeOurProcess(pid, dir) {
     const { execSync } = _require('child_process');
     const cmd = execSync(`ps -p ${pid} -o command=`, { timeout: 2000, encoding: 'utf-8' }).trim();
     const looksLikeNode = cmd.includes('node') || cmd.includes('npx') || cmd.includes('npm exec');
-    return looksLikeNode && (cmd.includes('monomind') || cmd.includes('monograph') || cmd.includes(dir));
+    return (
+      looksLikeNode && (cmd.includes('monomind') || cmd.includes('monograph') || cmd.includes(dir))
+    );
   } catch {
     return false;
   }
@@ -270,7 +347,9 @@ async function _initRunDb(monoHome) {
     _runDbPath = path.join(monoHome, '.monomind', 'run-events.db');
     fs.mkdirSync(path.dirname(_runDbPath), { recursive: true });
     let fileData;
-    try { fileData = fs.readFileSync(_runDbPath); } catch (_) {}
+    try {
+      fileData = fs.readFileSync(_runDbPath);
+    } catch (_) {}
     _runDb = fileData ? new SQL.Database(fileData) : new SQL.Database();
     _runDb.run('PRAGMA journal_mode=WAL');
     _runDb.run('PRAGMA synchronous=NORMAL');
@@ -287,7 +366,7 @@ async function _initRunDb(monoHome) {
     _runDb.run('CREATE INDEX IF NOT EXISTS idx_re_org_id ON run_events(org, id)');
     _runDb.run('CREATE INDEX IF NOT EXISTS idx_re_ts    ON run_events(ts)');
     _runDbInsertStmt = _runDb.prepare(
-      'INSERT OR IGNORE INTO run_events (org, run_id, type, raw, ts, source) VALUES (?,?,?,?,?,?)'
+      'INSERT OR IGNORE INTO run_events (org, run_id, type, raw, ts, source) VALUES (?,?,?,?,?,?)',
     );
     // Compact old events at startup: keep last 30 days
     const _cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -337,7 +416,9 @@ function _claimRunDbLock(staleMs) {
     } catch (_) {
       return false; // another process already reclaimed it
     }
-    try { fs.unlinkSync(claimed); } catch (_) {}
+    try {
+      fs.unlinkSync(claimed);
+    } catch (_) {}
     return tryCreate();
   } catch (_) {
     // Lock vanished between our failed create and this stat — retry once.
@@ -377,12 +458,21 @@ function _insertRunEvent(ev, source) {
     const org = String(ev.org || '').trim();
     const runId = String(ev.runId || '').trim();
     if (!org || !runId) return;
-    _runDbInsertStmt.run([org, runId, String(ev.type || ''), JSON.stringify(ev), Number(ev.ts || Date.now()), source || 'http']);
+    _runDbInsertStmt.run([
+      org,
+      runId,
+      String(ev.type || ''),
+      JSON.stringify(ev),
+      Number(ev.ts || Date.now()),
+      source || 'http',
+    ]);
     _persistRunDb();
   } catch (_) {
     // sql.js leaves the prepared statement in a dirty state after any error (step() throws but
     // reset() is never called). Reset it so subsequent inserts aren't permanently broken.
-    try { _runDbInsertStmt.reset(); } catch (_2) {}
+    try {
+      _runDbInsertStmt.reset();
+    } catch (_2) {}
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -434,10 +524,14 @@ function _readHeadText(filePath, maxBytes) {
 function appendToFile(filePath, line) {
   const prev = _writeQueue.get(filePath) || Promise.resolve();
   const next = prev.then(() => {
-    try { fs.appendFileSync(filePath, line); } catch (_) {}
+    try {
+      fs.appendFileSync(filePath, line);
+    } catch (_) {}
   });
   _writeQueue.set(filePath, next);
-  next.then(() => { if (_writeQueue.get(filePath) === next) _writeQueue.delete(filePath); });
+  next.then(() => {
+    if (_writeQueue.get(filePath) === next) _writeQueue.delete(filePath);
+  });
   return next;
 }
 
@@ -460,7 +554,10 @@ function _getGitMonomindDir(workDir) {
       result = path.join(gitEntry, 'monomind');
     } else if (st.isFile()) {
       // Worktree: .git is a text file "gitdir: /main/.git/worktrees/name"
-      const m = fs.readFileSync(gitEntry, 'utf8').trim().match(/^gitdir:\s*(.+)/);
+      const m = fs
+        .readFileSync(gitEntry, 'utf8')
+        .trim()
+        .match(/^gitdir:\s*(.+)/);
       if (m) {
         // Resolve relative paths (gitdir can be relative to the worktree root)
         const worktreeDir = path.resolve(workDir, m[1].trim());
@@ -498,8 +595,8 @@ function _resolveOrgProjectDir(orgName, serverRoot) {
   const dirs = new Set([serverRoot]);
   try {
     const kf = path.join(serverRoot, 'data', 'known-projects.json');
-    if (fs.existsSync(kf)) JSON.parse(fs.readFileSync(kf, 'utf8')).forEach(p => dirs.add(p));
-  } catch(_) {}
+    if (fs.existsSync(kf)) JSON.parse(fs.readFileSync(kf, 'utf8')).forEach((p) => dirs.add(p));
+  } catch (_) {}
   for (const d of dirs) {
     if (fs.existsSync(path.join(d, '.monomind', 'orgs', `${orgName}.json`))) return d;
   }
@@ -513,7 +610,11 @@ function _readRunState(orgName, rootDir) {
   const base = _getGitMonomindDir(projDir) || path.join(projDir, '.monomind');
   const file = path.join(base, 'orgs', `${orgName}-runstate.json`);
   if (!fs.existsSync(file)) return null;
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return null; }
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (_) {
+    return null;
+  }
 }
 
 // Returns the current runId from runstate (for events that omit it after restart).
@@ -526,7 +627,8 @@ function _getAllowedArtifactDirs(serverRoot) {
   const dirs = [path.resolve(serverRoot)];
   try {
     const kf = path.join(serverRoot, 'data', 'known-projects.json');
-    if (fs.existsSync(kf)) JSON.parse(fs.readFileSync(kf, 'utf8')).forEach(p => dirs.push(path.resolve(p)));
+    if (fs.existsSync(kf))
+      JSON.parse(fs.readFileSync(kf, 'utf8')).forEach((p) => dirs.push(path.resolve(p)));
   } catch (_) {}
   return dirs;
 }
@@ -534,26 +636,51 @@ function _getAllowedArtifactDirs(serverRoot) {
 // Detects a basic mime type from file extension for artifact responses.
 function _detectMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
-  const map = { '.ts': 'text/typescript', '.js': 'text/javascript', '.mjs': 'text/javascript',
-    '.json': 'application/json', '.md': 'text/markdown', '.txt': 'text/plain',
-    '.html': 'text/html', '.css': 'text/css', '.py': 'text/x-python',
-    '.sh': 'text/x-shellscript', '.yaml': 'text/yaml', '.yml': 'text/yaml',
-    '.toml': 'text/plain', '.env': 'text/plain', '.xml': 'text/xml',
-    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
+  const map = {
+    '.ts': 'text/typescript',
+    '.js': 'text/javascript',
+    '.mjs': 'text/javascript',
+    '.json': 'application/json',
+    '.md': 'text/markdown',
+    '.txt': 'text/plain',
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.py': 'text/x-python',
+    '.sh': 'text/x-shellscript',
+    '.yaml': 'text/yaml',
+    '.yml': 'text/yaml',
+    '.toml': 'text/plain',
+    '.env': 'text/plain',
+    '.xml': 'text/xml',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.webp': 'image/webp',
+  };
   return map[ext] || 'application/octet-stream';
 }
 
 // Writes runstate.json for state-changing events. Debounces lastEventAt for frequent events.
 const _runstateDebouncers = new Map();
 function _updateRunState(event, rootDir) {
-  const orgName = String(event.org || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+  const orgName = String(event.org || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_');
   if (!orgName) return;
   const projDir = _resolveOrgProjectDir(orgName, rootDir) || rootDir;
   const base = _getGitMonomindDir(projDir) || path.join(projDir, '.monomind');
   const orgsDir = path.join(base, 'orgs');
   const file = path.join(orgsDir, `${orgName}-runstate.json`);
-  const stateChanging = ['org:start','org:stop','org:complete','run:complete','org:agent:online','org:agent:offline'];
+  const stateChanging = [
+    'org:start',
+    'org:stop',
+    'org:complete',
+    'run:complete',
+    'org:agent:online',
+    'org:agent:offline',
+  ];
   const ts = event.ts || Date.now();
 
   if (stateChanging.includes(event.type)) {
@@ -562,7 +689,11 @@ function _updateRunState(event, rootDir) {
     if (pending?.timer) clearTimeout(pending.timer);
     _runstateDebouncers.delete(orgName);
     let cur = null;
-    try { cur = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {}; } catch (_) { cur = {}; }
+    try {
+      cur = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+    } catch (_) {
+      cur = {};
+    }
     if (event.type === 'org:start') {
       cur.runId = event.runId || cur.runId;
       cur.status = 'running';
@@ -586,7 +717,10 @@ function _updateRunState(event, rootDir) {
       }
     }
     cur.lastEventAt = ts;
-    try { fs.mkdirSync(orgsDir, { recursive: true }); fs.writeFileSync(file, JSON.stringify(cur, null, 2)); } catch (_) {}
+    try {
+      fs.mkdirSync(orgsDir, { recursive: true });
+      fs.writeFileSync(file, JSON.stringify(cur, null, 2));
+    } catch (_) {}
   } else {
     // Frequent event: debounce lastEventAt write by 5s
     const existing = _runstateDebouncers.get(orgName);
@@ -627,7 +761,9 @@ const _LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
  * (`[::1]:4242` → `[::1]`), which is how they appear in a Host header.
  */
 export function parseHostHeader(hostHeader) {
-  const h = String(hostHeader ?? '').trim().toLowerCase();
+  const h = String(hostHeader ?? '')
+    .trim()
+    .toLowerCase();
   if (!h) return '';
   if (h.startsWith('[')) {
     const end = h.indexOf(']');
@@ -664,7 +800,7 @@ export function isAllowedHost(hostHeader, extraHosts = []) {
 /** Parse the configured extra-host allow-list from an option + env var. */
 export function resolveAllowedHosts(optionValue) {
   const raw = []
-    .concat(Array.isArray(optionValue) ? optionValue : (optionValue ? [optionValue] : []))
+    .concat(Array.isArray(optionValue) ? optionValue : optionValue ? [optionValue] : [])
     .concat(String(process.env.MONOMIND_DASHBOARD_ALLOWED_HOSTS || '').split(','));
   return raw.map((s) => String(s).trim().toLowerCase()).filter(Boolean);
 }
@@ -687,8 +823,8 @@ async function openUrl(url) {
     process.platform === 'darwin'
       ? `open "${url}"`
       : process.platform === 'win32'
-      ? `start "${url}"`
-      : `xdg-open "${url}"`;
+        ? `start "${url}"`
+        : `xdg-open "${url}"`;
   exec(cmd);
 }
 
@@ -777,11 +913,19 @@ function _resolveSlugToPathUncached(slug, projDir) {
 
   // 2. Try reading cwd from a session file
   try {
-    const sfiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
+    const sfiles = fs
+      .readdirSync(projDir)
+      .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'));
     for (const sf of sfiles) {
       try {
-        const line = fs.readFileSync(path.join(projDir, sf), 'utf-8').split('\n').find(l => l.includes('"cwd"'));
-        if (line) { const m = line.match(/"cwd"\s*:\s*"([^"]+)"/); if (m?.[1]) return m[1]; }
+        const line = fs
+          .readFileSync(path.join(projDir, sf), 'utf-8')
+          .split('\n')
+          .find((l) => l.includes('"cwd"'));
+        if (line) {
+          const m = line.match(/"cwd"\s*:\s*"([^"]+)"/);
+          if (m?.[1]) return m[1];
+        }
       } catch {}
     }
   } catch {}
@@ -790,7 +934,12 @@ function _resolveSlugToPathUncached(slug, projDir) {
   return slug.replace(/-/g, '/');
 }
 
-export async function startServer({ port = 4242, projectDir, openBrowser = true, allowedHosts } = {}) {
+export async function startServer({
+  port = 4242,
+  projectDir,
+  openBrowser = true,
+  allowedHosts,
+} = {}) {
   // Extra Host names accepted beyond loopback (see isAllowedHost above).
   const _allowedHosts = resolveAllowedHosts(allowedHosts);
   // ── Security: per-process auth credential for mutating (non-GET) requests ─
@@ -821,7 +970,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       try {
         const ctl = JSON.parse(fs.readFileSync(path.join(authFileDir, 'control.json'), 'utf8'));
         const ctlPort = Number(ctl.port || (String(ctl.url || '').match(/:(\d+)/) || [])[1]);
-        if (ctlPort && ctlPort !== actualPort && !(Number.isInteger(ctl.pid) && ctl.pid === process.pid)) {
+        if (
+          ctlPort &&
+          ctlPort !== actualPort &&
+          !(Number.isInteger(ctl.pid) && ctl.pid === process.pid)
+        ) {
           // A single 800ms probe is not enough evidence to declare the record
           // stale: on a loaded host the primary's event loop can be blocked for
           // seconds (heavy search/KG work, parallel test suites), the probe
@@ -831,17 +984,22 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           // stays conservative on ambiguity.
           for (let attempt = 0; attempt < 3 && primary; attempt++) {
             try {
-              await fetch(`http://127.0.0.1:${ctlPort}/api/status`, { signal: AbortSignal.timeout(1500) });
+              await fetch(`http://127.0.0.1:${ctlPort}/api/status`, {
+                signal: AbortSignal.timeout(1500),
+              });
               primary = false; // something answered — a live server owns the primary token
             } catch (_) {
-              if (attempt < 2) await new Promise(r => setTimeout(r, 250));
+              if (attempt < 2) await new Promise((r) => setTimeout(r, 250));
             }
           }
         }
-      } catch (_) { /* no readable control.json — treat as primary */ }
+      } catch (_) {
+        /* no readable control.json — treat as primary */
+      }
       fs.writeFileSync(
         path.join(authFileDir, primary ? 'dashboard-token' : `dashboard-token-${actualPort}`),
-        dashboardAuthValue, { mode: 0o600 },
+        dashboardAuthValue,
+        { mode: 0o600 },
       );
       // Sweep stale secondary tokens (dead scratch/test instances) so they
       // don't accumulate as orphaned credential files.
@@ -870,9 +1028,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const _kpCtl = JSON.parse(fs.readFileSync(path.join(_kpMono, 'control.json'), 'utf8'));
           // Only pair projects that direct their traffic to this server's port.
           if (_kpCtl && String(_kpCtl.url || '').includes(`:${actualPort}`)) {
-            fs.writeFileSync(path.join(_kpMono, 'dashboard-token'), dashboardAuthValue, { mode: 0o600 });
+            fs.writeFileSync(path.join(_kpMono, 'dashboard-token'), dashboardAuthValue, {
+              mode: 0o600,
+            });
           }
-        } catch (_) { /* project missing/unreadable — skip */ }
+        } catch (_) {
+          /* project missing/unreadable — skip */
+        }
       }
     } catch (_) {}
   }
@@ -882,26 +1044,40 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   function parseAgentDef(raw) {
     const out = { name: '', description: '', capability: {}, document: '' };
     const fm = String(raw).match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
-    let front = '', body = String(raw);
-    if (fm) { front = fm[1]; body = fm[2]; }
+    let front = '',
+      body = String(raw);
+    if (fm) {
+      front = fm[1];
+      body = fm[2];
+    }
     out.document = body.trim();
     const strip = (s) => s.trim().replace(/^["']|["']$/g, '');
-    let inCap = false, listKey = null;
+    let inCap = false,
+      listKey = null;
     for (const line of front.split('\n')) {
       const top = line.match(/^([a-z_]+):\s*(.*)$/i);
       if (top && !/^\s/.test(line)) {
-        inCap = (top[1] === 'capability'); listKey = null;
+        inCap = top[1] === 'capability';
+        listKey = null;
         if (top[1] === 'name') out.name = strip(top[2]);
         else if (top[1] === 'description') out.description = strip(top[2]);
         continue;
       }
       if (!inCap) continue;
       const li = line.match(/^\s+-\s+(.+)$/);
-      if (li && listKey) { (out.capability[listKey] = out.capability[listKey] || []).push(strip(li[1])); continue; }
+      if (li && listKey) {
+        (out.capability[listKey] = out.capability[listKey] || []).push(strip(li[1]));
+        continue;
+      }
       const kv = line.match(/^\s+([a-z_]+):\s*(.*)$/i);
       if (kv) {
-        if (kv[2].trim() === '') { listKey = kv[1]; out.capability[kv[1]] = out.capability[kv[1]] || []; }
-        else { listKey = null; out.capability[kv[1]] = strip(kv[2]); }
+        if (kv[2].trim() === '') {
+          listKey = kv[1];
+          out.capability[kv[1]] = out.capability[kv[1]] || [];
+        } else {
+          listKey = null;
+          out.capability[kv[1]] = strip(kv[2]);
+        }
       }
     }
     return out;
@@ -913,18 +1089,32 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   // persists to JSONL files, broadcasts to SSE clients, returns {ok:true}.
   async function handleMastermindEvent(req, res, corsOrigin) {
     let body = '';
-    for await (const chunk of req) { body += chunk; if (body.length > 2097152) { req.destroy(); break; } }
+    for await (const chunk of req) {
+      body += chunk;
+      if (body.length > 2097152) {
+        req.destroy();
+        break;
+      }
+    }
     let event = {};
-    try { event = JSON.parse(body); } catch (_) {}
+    try {
+      event = JSON.parse(body);
+    } catch (_) {}
     event.ts = event.ts || Date.now();
     // Event type validation: accept any {scope}:{action} pattern — future event types
     // auto-work without whitelist maintenance. Malformed types are logged and rejected.
     if (event.type != null) {
-      if (typeof event.type !== 'string' || !/^[a-z][a-z0-9-]*:[a-z][a-z0-9:-]*$/.test(event.type)) {
+      if (
+        typeof event.type !== 'string' ||
+        !/^[a-z][a-z0-9-]*:[a-z][a-z0-9:-]*$/.test(event.type)
+      ) {
         try {
           const _badLog = path.join(projectDir || process.cwd(), 'data', 'unknown-events.jsonl');
           fs.mkdirSync(path.dirname(_badLog), { recursive: true });
-          fs.appendFileSync(_badLog, JSON.stringify({ ts: Date.now(), type: event.type, body: body.slice(0, 256) }) + '\n');
+          fs.appendFileSync(
+            _badLog,
+            JSON.stringify({ ts: Date.now(), type: event.type, body: body.slice(0, 256) }) + '\n',
+          );
         } catch (_) {}
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: 'invalid event type' }));
@@ -939,12 +1129,37 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // Cap to 4096 chars to prevent OOM from huge path strings.
     const _rawProject = event.project ?? event.projectDir;
     let eventProject = null;
-    if (typeof _rawProject === 'string' && _rawProject.length > 0 && _rawProject.length <= 4096
-        && path.isAbsolute(_rawProject)) {
+    if (
+      typeof _rawProject === 'string' &&
+      _rawProject.length > 0 &&
+      _rawProject.length <= 4096 &&
+      path.isAbsolute(_rawProject)
+    ) {
       // Reject filesystem root and common system directories
       const _norm = path.resolve(_rawProject);
-      const _systemPaths = ['/', '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib64', '/boot', '/dev', '/sys', '/proc', '/tmp', os.tmpdir(), (() => { try { return fs.realpathSync(os.tmpdir()); } catch (_) { return ''; } })()].filter(Boolean);
-      if (!_systemPaths.includes(_norm) && !_systemPaths.some(p => _norm.startsWith(p + '/'))) {
+      const _systemPaths = [
+        '/',
+        '/etc',
+        '/usr',
+        '/bin',
+        '/sbin',
+        '/lib',
+        '/lib64',
+        '/boot',
+        '/dev',
+        '/sys',
+        '/proc',
+        '/tmp',
+        os.tmpdir(),
+        (() => {
+          try {
+            return fs.realpathSync(os.tmpdir());
+          } catch (_) {
+            return '';
+          }
+        })(),
+      ].filter(Boolean);
+      if (!_systemPaths.includes(_norm) && !_systemPaths.some((p) => _norm.startsWith(p + '/'))) {
         eventProject = _norm;
       }
     }
@@ -953,18 +1168,27 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // dir, not the server's (the dashboard reads the org project's run files).
     let _orgHome = null;
     if (!eventProject && event.org) {
-      try { _orgHome = _resolveOrgProjectDir(String(event.org).trim(), projectDir || process.cwd()); } catch (_) {}
+      try {
+        _orgHome = _resolveOrgProjectDir(String(event.org).trim(), projectDir || process.cwd());
+      } catch (_) {}
     }
     const root = eventProject || _orgHome || projectDir || process.cwd();
     const dataDir = path.join(root, 'data');
-    try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+    } catch (_) {}
     // Track known project dirs for aggregated session listing
     if (eventProject) {
       const knownFile = path.join(projectDir || process.cwd(), 'data', 'known-projects.json');
       try {
         let known = [];
-        try { known = JSON.parse(fs.readFileSync(knownFile, 'utf8')); } catch (_) {}
-        if (!known.includes(eventProject)) { known.push(eventProject); fs.writeFileSync(knownFile, JSON.stringify(known)); }
+        try {
+          known = JSON.parse(fs.readFileSync(knownFile, 'utf8'));
+        } catch (_) {}
+        if (!known.includes(eventProject)) {
+          known.push(eventProject);
+          fs.writeFileSync(knownFile, JSON.stringify(known));
+        }
       } catch (_) {}
     }
     // Track active runs and enrich event with runId BEFORE persisting so the JSONL replay
@@ -976,45 +1200,79 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       // Any event with both org+runId updates the active run map (run:start written directly to file so org:start is first via curl)
       if (event.runId) activeOrgRuns.set(_orgKey, String(event.runId).trim());
       else if (activeOrgRuns.has(_orgKey)) event.runId = activeOrgRuns.get(_orgKey);
-      else { const _rsId = _getActiveRunId(_orgKey, root); if (_rsId) event.runId = _rsId; }
-      if (event.type === 'run:complete' || event.type === 'org:complete' || event.type === 'org:stop') activeOrgRuns.delete(_orgKey);
+      else {
+        const _rsId = _getActiveRunId(_orgKey, root);
+        if (_rsId) event.runId = _rsId;
+      }
+      if (
+        event.type === 'run:complete' ||
+        event.type === 'org:complete' ||
+        event.type === 'org:stop'
+      )
+        activeOrgRuns.delete(_orgKey);
       // Persist active-run.json so capture-handler.cjs can find the current org/runId without HTTP calls.
       // Use process.cwd() (server's own dir, same as CLAUDE_PROJECT_DIR in the session) — not root (org project dir),
       // because capture-handler.cjs reads from CLAUDE_PROJECT_DIR which is the server's working directory.
       try {
         const _captureDir = path.join(MONOMIND_HOME, '.monomind', 'capture');
         const _activeRunFile = path.join(_captureDir, 'active-run.json');
-        if ((event.type === 'run:start' || event.type === 'org:start') && event.org && event.runId) {
+        if (
+          (event.type === 'run:start' || event.type === 'org:start') &&
+          event.org &&
+          event.runId
+        ) {
           fs.mkdirSync(_captureDir, { recursive: true });
-          fs.writeFileSync(_activeRunFile, JSON.stringify({ org: String(event.org).trim(), runId: String(event.runId).trim(), ts: Date.now() }));
-        } else if ((event.type === 'run:complete' || event.type === 'org:complete' || event.type === 'org:stop') && fs.existsSync(_activeRunFile)) {
+          fs.writeFileSync(
+            _activeRunFile,
+            JSON.stringify({
+              org: String(event.org).trim(),
+              runId: String(event.runId).trim(),
+              ts: Date.now(),
+            }),
+          );
+        } else if (
+          (event.type === 'run:complete' ||
+            event.type === 'org:complete' ||
+            event.type === 'org:stop') &&
+          fs.existsSync(_activeRunFile)
+        ) {
           fs.unlinkSync(_activeRunFile);
           // Phase 1: Clean up ppid-keyed files for this org (Issue 3)
           try {
             const _ppidDir = path.join(_captureDir, 'active-runs');
             const _completedOrg = String(event.org || '').trim();
             if (_completedOrg && fs.existsSync(_ppidDir)) {
-              fs.readdirSync(_ppidDir).filter(f => f.endsWith('.json')).forEach(_pf => {
-                try {
-                  const _pData = JSON.parse(fs.readFileSync(path.join(_ppidDir, _pf), 'utf8'));
-                  if (_pData.org === _completedOrg) fs.unlinkSync(path.join(_ppidDir, _pf));
-                } catch (_) {}
-              });
+              fs.readdirSync(_ppidDir)
+                .filter((f) => f.endsWith('.json'))
+                .forEach((_pf) => {
+                  try {
+                    const _pData = JSON.parse(fs.readFileSync(path.join(_ppidDir, _pf), 'utf8'));
+                    if (_pData.org === _completedOrg) fs.unlinkSync(path.join(_ppidDir, _pf));
+                  } catch (_) {}
+                });
             }
           } catch (_e) {}
         }
-      } catch(_e) {}
+      } catch (_e) {}
     }
     // Update durable runstate.json — survives server restarts
     if (event.org) _updateRunState(event, root);
-    appendToFile(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n').catch(() => {});
+    appendToFile(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n').catch(
+      () => {},
+    );
     // Persist to git-safe run file (survives branch switches + shared across worktrees)
     if (event.org && event.runId) {
       try {
         const _orn = String(event.org).trim();
         const _rid = String(event.runId).trim();
-        if (_orn.length > 0 && _orn.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_orn)
-            && _rid.length > 0 && _rid.length <= 80 && /^[a-z0-9][a-z0-9_-]*$/i.test(_rid)) {
+        if (
+          _orn.length > 0 &&
+          _orn.length <= 64 &&
+          /^[a-z0-9][a-z0-9_-]*$/i.test(_orn) &&
+          _rid.length > 0 &&
+          _rid.length <= 80 &&
+          /^[a-z0-9][a-z0-9_-]*$/i.test(_rid)
+        ) {
           const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
           const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
           fs.mkdirSync(_runDir, { recursive: true });
@@ -1024,10 +1282,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           if (event.type === 'agent:usage' && event.role) {
             try {
               const _arole = String(event.role).trim();
-              if (_arole.length > 0 && _arole.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/i.test(_arole)) {
+              if (
+                _arole.length > 0 &&
+                _arole.length <= 64 &&
+                /^[a-z0-9][a-z0-9_-]*$/i.test(_arole)
+              ) {
                 const _stateFile = path.join(root, '.monomind', 'orgs', `${_orn}-state.json`);
                 let _st = {};
-                try { _st = JSON.parse(fs.readFileSync(_stateFile, 'utf8')); } catch(_e) {}
+                try {
+                  _st = JSON.parse(fs.readFileSync(_stateFile, 'utf8'));
+                } catch (_e) {}
                 if (!_st.agents) _st.agents = {};
                 const _ex = _st.agents[_arole] || {};
                 _st.agents[_arole] = {
@@ -1039,15 +1303,33 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                 };
                 fs.writeFileSync(_stateFile, JSON.stringify(_st, null, 2));
               }
-            } catch(_e) {}
+            } catch (_e) {}
           }
           // Solution 3: dedicated conversation log — org:comms only, for easy replay
           if (event.type === 'org:comms') {
-            const _conv = { ts: event.ts, run_id: _rid, from: event.from, to: event.to, msg: event.msg };
-            await appendToFile(path.join(_runDir, `${_rid}.convs.jsonl`), JSON.stringify(_conv) + '\n');
+            const _conv = {
+              ts: event.ts,
+              run_id: _rid,
+              from: event.from,
+              to: event.to,
+              msg: event.msg,
+            };
+            await appendToFile(
+              path.join(_runDir, `${_rid}.convs.jsonl`),
+              JSON.stringify(_conv) + '\n',
+            );
             // Also write to org-level threads.jsonl so the dashboard Threads tab shows agent conversations
             const _orgThreadsFile = path.join(root, '.monomind', 'orgs', `${_orn}-threads.jsonl`);
-            const _thread = { type: 'message', id: `${_rid}-${event.ts}`, run_id: _rid, ts: event.ts, from: event.from, to: event.to, msg: event.msg, subject: `Run ${_rid}` };
+            const _thread = {
+              type: 'message',
+              id: `${_rid}-${event.ts}`,
+              run_id: _rid,
+              ts: event.ts,
+              from: event.from,
+              to: event.to,
+              msg: event.msg,
+              subject: `Run ${_rid}`,
+            };
             appendToFile(_orgThreadsFile, JSON.stringify(_thread) + '\n').catch(() => {});
           }
           // Phase 4: Compact completed run to three-tier retention (Issue 7)
@@ -1065,26 +1347,28 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                 }
                 // Compact warm files older than 24h to cold gzip
                 const _24h = 24 * 60 * 60 * 1000;
-                fs.readdirSync(_runDir).filter(f => f.endsWith('.warm.jsonl') && !f.startsWith('._')).forEach(_wf => {
-                  const _wp = path.join(_runDir, _wf);
-                  try {
-                    if (Date.now() - fs.statSync(_wp).mtimeMs < _24h) return;
-                    const _coldPath = _wp.replace('.warm.jsonl', '.cold.jsonl.gz');
-                    if (fs.existsSync(_coldPath)) return; // already compacted
-                    const _warmData = fs.readFileSync(_wp);
-                    // `zlib` is a static ESM import at the top of this file. It used to be
-                    // `require('zlib')`, which is undefined in an ESM module — the
-                    // ReferenceError was swallowed by the surrounding catch, so cold-tier
-                    // compaction silently never ran. See tests/repo/no-cjs-require-in-esm.
-                    zlib.gzip(_warmData, (_err, _gz) => {
-                      if (_err) return;
-                      try {
-                        fs.writeFileSync(_coldPath, _gz);
-                        fs.unlinkSync(_wp); // remove warm after cold written
-                      } catch (_) {}
-                    });
-                  } catch (_) {}
-                });
+                fs.readdirSync(_runDir)
+                  .filter((f) => f.endsWith('.warm.jsonl') && !f.startsWith('._'))
+                  .forEach((_wf) => {
+                    const _wp = path.join(_runDir, _wf);
+                    try {
+                      if (Date.now() - fs.statSync(_wp).mtimeMs < _24h) return;
+                      const _coldPath = _wp.replace('.warm.jsonl', '.cold.jsonl.gz');
+                      if (fs.existsSync(_coldPath)) return; // already compacted
+                      const _warmData = fs.readFileSync(_wp);
+                      // `zlib` is a static ESM import at the top of this file. It used to be
+                      // `require('zlib')`, which is undefined in an ESM module — the
+                      // ReferenceError was swallowed by the surrounding catch, so cold-tier
+                      // compaction silently never ran. See tests/repo/no-cjs-require-in-esm.
+                      zlib.gzip(_warmData, (_err, _gz) => {
+                        if (_err) return;
+                        try {
+                          fs.writeFileSync(_coldPath, _gz);
+                          fs.unlinkSync(_wp); // remove warm after cold written
+                        } catch (_) {}
+                      });
+                    } catch (_) {}
+                  });
               } catch (_) {}
             });
           }
@@ -1096,23 +1380,30 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     try {
       const _evOrg = event.org ? String(event.org).trim() : null;
       if (event.type === 'session:start' && event.session && _evOrg) {
-        activeSessionsByOrg.set(_evOrg, { sessionId: String(event.session), ts: event.ts || Date.now() });
+        activeSessionsByOrg.set(_evOrg, {
+          sessionId: String(event.session),
+          ts: event.ts || Date.now(),
+        });
         // Write active-session.json so capture-handler.cjs can read it without HTTP
         try {
           const _captureDir = path.join(root, '.monomind', 'capture');
           fs.mkdirSync(_captureDir, { recursive: true });
-          fs.writeFileSync(path.join(_captureDir, 'active-session.json'),
-            JSON.stringify({ org: _evOrg, sessionId: String(event.session), ts: Date.now() }));
-        } catch(_) {}
+          fs.writeFileSync(
+            path.join(_captureDir, 'active-session.json'),
+            JSON.stringify({ org: _evOrg, sessionId: String(event.session), ts: Date.now() }),
+          );
+        } catch (_) {}
       } else if (event.type === 'session:complete' && _evOrg) {
         activeSessionsByOrg.delete(_evOrg);
-        try { fs.unlinkSync(path.join(root, '.monomind', 'capture', 'active-session.json')); } catch(_) {}
+        try {
+          fs.unlinkSync(path.join(root, '.monomind', 'capture', 'active-session.json'));
+        } catch (_) {}
       }
       // Enrich events that have org but no session (agent:usage, org:comms, agent:spawn, intercom)
       if (_evOrg && !event.session && activeSessionsByOrg.has(_evOrg)) {
         event.session = activeSessionsByOrg.get(_evOrg).sessionId;
       }
-    } catch(_) {}
+    } catch (_) {}
     // ── Per-session JSONL persistence (append-only, O(1) per event) ──────────
     // Replaces the old monolithic mastermind-sessions.json (O(N) read+write per event).
     // Format: data/sessions/<sessionId>.jsonl  +  data/sessions/_index.json
@@ -1122,25 +1413,43 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const sessDir = path.join(dataDir, 'sessions');
         fs.mkdirSync(sessDir, { recursive: true });
         // Append event to per-session JSONL (O(1), no read)
-        appendToFile(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n').catch(() => {});
+        appendToFile(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n').catch(
+          () => {},
+        );
         // Update lightweight index (id, ts, prompt, status, org, startedAt, endedAt, domains only)
         const indexFile = path.join(sessDir, '_index.json');
         let _idx = [];
-        try { _idx = JSON.parse(fs.readFileSync(indexFile, 'utf8')); } catch(_) {}
-        const _entry = _idx.find(e => e.id === _sid);
+        try {
+          _idx = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+        } catch (_) {}
+        const _entry = _idx.find((e) => e.id === _sid);
         if (event.type === 'session:start') {
           if (!_entry) {
-            _idx.unshift({ id: _sid, ts: event.ts, prompt: event.prompt || '', status: 'running',
-              org: event.org || '', startedAt: event.ts, domains: [] });
+            _idx.unshift({
+              id: _sid,
+              ts: event.ts,
+              prompt: event.prompt || '',
+              status: 'running',
+              org: event.org || '',
+              startedAt: event.ts,
+              domains: [],
+            });
             if (_idx.length > 2000) _idx = _idx.slice(0, 2000);
           }
         } else if (_entry) {
-          if (event.type === 'session:complete') { _entry.status = event.status || 'complete'; _entry.endedAt = event.ts; }
+          if (event.type === 'session:complete') {
+            _entry.status = event.status || 'complete';
+            _entry.endedAt = event.ts;
+          }
           if (event.type === 'domain:dispatch' && event.domain) {
             _entry.domains = _entry.domains || [];
             if (!_entry.domains.includes(event.domain)) _entry.domains.push(event.domain);
           }
-          if (event.type === 'agent:usage' || event.type === 'agent:spawn' || event.type === 'agent:complete') {
+          if (
+            event.type === 'agent:usage' ||
+            event.type === 'agent:spawn' ||
+            event.type === 'agent:complete'
+          ) {
             _entry.hasAgents = true;
           }
         }
@@ -1151,17 +1460,33 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     try {
       const sessFile = path.join(dataDir, 'mastermind-sessions.json');
       let sessions = [];
-      try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8')); } catch (_) {}
+      try {
+        sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
+      } catch (_) {}
       if (event.type === 'session:start' && event.session) {
-        if (!sessions.find(s => s.id === event.session)) {
-          sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
-            status: 'running', org: event.org || '', domains: [], startedAt: event.ts });
+        if (!sessions.find((s) => s.id === event.session)) {
+          sessions.unshift({
+            id: event.session,
+            ts: event.ts,
+            prompt: event.prompt || '',
+            status: 'running',
+            org: event.org || '',
+            domains: [],
+            startedAt: event.ts,
+          });
         }
       } else if (event.session) {
-        const s = sessions.find(s => s.id === event.session);
+        const s = sessions.find((s) => s.id === event.session);
         if (s) {
-          if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endedAt = event.ts; }
-          if (event.type === 'domain:dispatch' && event.domain && !s.domains?.includes(event.domain))
+          if (event.type === 'session:complete') {
+            s.status = event.status || 'complete';
+            s.endedAt = event.ts;
+          }
+          if (
+            event.type === 'domain:dispatch' &&
+            event.domain &&
+            !s.domains?.includes(event.domain)
+          )
             (s.domains = s.domains || []).push(event.domain);
         }
       }
@@ -1180,7 +1505,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             fs.writeFileSync(path.join(stopDir, `${orgName}.stop`), String(Date.now()));
           } else {
             // org:start — remove stop file so the org can appear running
-            try { fs.unlinkSync(path.join(stopDir, `${orgName}.stop`)); } catch (_) {}
+            try {
+              fs.unlinkSync(path.join(stopDir, `${orgName}.stop`));
+            } catch (_) {}
           }
         }
       } catch (_) {}
@@ -1194,11 +1521,18 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       if (_fwdClients && _fwdClients.size > 0) {
         const _fwdLine = `data: ${JSON.stringify(event)}\n\n`;
         for (const _fwdClient of _fwdClients) {
-          try { _fwdClient.write(_fwdLine); } catch (_) { _fwdClients.delete(_fwdClient); }
+          try {
+            _fwdClient.write(_fwdLine);
+          } catch (_) {
+            _fwdClients.delete(_fwdClient);
+          }
         }
       }
     }
-    res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+    });
     res.end('{"ok":true}');
   }
 
@@ -1216,18 +1550,28 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     if (!_knowledgeBridgePromise) {
       _knowledgeBridgePromise = import('../memory/memory-bridge.js').catch((err) => {
         _knowledgeBridgePromise = null; // allow retry on next request
-        if (process.env.MONOMIND_DEBUG) console.error('[knowledge] bridge import failed:', err.message);
+        if (process.env.MONOMIND_DEBUG)
+          console.error('[knowledge] bridge import failed:', err.message);
         return null;
       });
     }
     return _knowledgeBridgePromise;
   };
   try {
-    if (fs.existsSync(path.join(projectDir || process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl'))) {
+    if (
+      fs.existsSync(
+        path.join(projectDir || process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl'),
+      )
+    ) {
       // Warm off the startup path: first hook request should hit a hot model.
       const _warmTimer = setTimeout(() => {
-        _getKnowledgeBridge().then(b => b?.bridgeSearchEntries?.({ query: 'warmup', namespace: 'knowledge:shared', limit: 1 }))
-          .catch(() => { /* warm-up is best-effort */ });
+        _getKnowledgeBridge()
+          .then((b) =>
+            b?.bridgeSearchEntries?.({ query: 'warmup', namespace: 'knowledge:shared', limit: 1 }),
+          )
+          .catch(() => {
+            /* warm-up is best-effort */
+          });
       }, 3000);
       if (_warmTimer.unref) _warmTimer.unref();
 
@@ -1239,7 +1583,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       // platforms/volumes; the session-start reindex remains the backstop.
       try {
         const _sbDocExts = new Set(['.md', '.txt', '.pdf', '.docx']);
-        const _sbSkip = /(^|\/)(node_modules|\.git|dist|\.monomind|\.claude|\.next|__pycache__|\.venv|vendor)(\/|$)/;
+        const _sbSkip =
+          /(^|\/)(node_modules|\.git|dist|\.monomind|\.claude|\.next|__pycache__|\.venv|vendor)(\/|$)/;
         const _sbPending = new Map(); // file -> debounce timer
         const _sbRoot = path.resolve(projectDir || process.cwd());
         const _sbWatcher = fs.watch(_sbRoot, { recursive: true }, (_evt, rel) => {
@@ -1255,21 +1600,32 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             if (!_sbDocExts.has(path.extname(relStr).toLowerCase())) return;
             const full = path.join(_sbRoot, relStr);
             clearTimeout(_sbPending.get(full));
-            _sbPending.set(full, setTimeout(async () => {
-              _sbPending.delete(full);
-              try {
-                if (!fs.existsSync(full)) return; // deleted — session-start reindex handles removal
-                const pipeline = await import('../knowledge/document-pipeline.js');
-                const r = await pipeline.ingestDocument(full, 'shared', _sbRoot);
-                if (r.chunksIndexed > 0 && !r.skipped) {
-                  console.log(`[knowledge] live-ingested ${path.basename(full)} (${r.chunksIndexed} chunks)`);
+            _sbPending.set(
+              full,
+              setTimeout(async () => {
+                _sbPending.delete(full);
+                try {
+                  if (!fs.existsSync(full)) return; // deleted — session-start reindex handles removal
+                  const pipeline = await import('../knowledge/document-pipeline.js');
+                  const r = await pipeline.ingestDocument(full, 'shared', _sbRoot);
+                  if (r.chunksIndexed > 0 && !r.skipped) {
+                    console.log(
+                      `[knowledge] live-ingested ${path.basename(full)} (${r.chunksIndexed} chunks)`,
+                    );
+                  }
+                } catch (_) {
+                  /* single-file ingest failure never matters here */
                 }
-              } catch (_) { /* single-file ingest failure never matters here */ }
-            }, 5000));
-          } catch (_) { /* watcher callback must never throw */ }
+              }, 5000),
+            );
+          } catch (_) {
+            /* watcher callback must never throw */
+          }
         });
         activeWatchers.push(_sbWatcher);
-      } catch (_) { /* recursive watch unavailable — the sweep below still covers it */ }
+      } catch (_) {
+        /* recursive watch unavailable — the sweep below still covers it */
+      }
 
       // Polling sweep backstop: fs.watch/fsevents silently stops delivering on
       // some volumes (exFAT/SMB — exactly where many projects live). Every 60s,
@@ -1277,7 +1633,17 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       // when nothing changed; skips while a sweep is already running.
       try {
         const _sbDocExts2 = new Set(['.md', '.txt', '.pdf', '.docx']);
-        const _sbSkipDirs = new Set(['node_modules', '.git', 'dist', '.monomind', '.claude', '.next', '__pycache__', '.venv', 'vendor']);
+        const _sbSkipDirs = new Set([
+          'node_modules',
+          '.git',
+          'dist',
+          '.monomind',
+          '.claude',
+          '.next',
+          '__pycache__',
+          '.venv',
+          'vendor',
+        ]);
         const _sbSweepRoot = path.resolve(projectDir || process.cwd());
         let _sbLastSweep = Date.now();
         let _sbSweeping = false;
@@ -1292,14 +1658,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             const walk = (dir, depth) => {
               if (depth > 4 || scanned > 3000 || changed.length >= 20) return;
               let names;
-              try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+              try {
+                names = fs.readdirSync(dir, { withFileTypes: true });
+              } catch (_) {
+                return;
+              }
               for (const ent of names) {
                 if (scanned++ > 3000 || changed.length >= 20) return;
                 if (ent.name.startsWith('.') || _sbSkipDirs.has(ent.name)) continue;
                 const full = path.join(dir, ent.name);
-                if (ent.isDirectory()) { walk(full, depth + 1); continue; }
+                if (ent.isDirectory()) {
+                  walk(full, depth + 1);
+                  continue;
+                }
                 if (!_sbDocExts2.has(path.extname(ent.name).toLowerCase())) continue;
-                try { if (fs.statSync(full).mtimeMs > since) changed.push(full); } catch (_) {}
+                try {
+                  if (fs.statSync(full).mtimeMs > since) changed.push(full);
+                } catch (_) {}
               }
             };
             walk(_sbSweepRoot, 0);
@@ -1308,28 +1683,44 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               for (const f of changed) {
                 try {
                   const r = await pipeline.ingestDocument(f, 'shared', _sbSweepRoot);
-                  if (r.chunksIndexed > 0 && !r.skipped) console.log(`[knowledge] sweep-ingested ${path.basename(f)} (${r.chunksIndexed} chunks)`);
-                } catch (_) { /* per-file failures never matter here */ }
+                  if (r.chunksIndexed > 0 && !r.skipped)
+                    console.log(
+                      `[knowledge] sweep-ingested ${path.basename(f)} (${r.chunksIndexed} chunks)`,
+                    );
+                } catch (_) {
+                  /* per-file failures never matter here */
+                }
               }
             }
-          } catch (_) { /* sweep is best-effort */ }
-          finally { _sbSweeping = false; }
+          } catch (_) {
+            /* sweep is best-effort */
+          } finally {
+            _sbSweeping = false;
+          }
         }, 60_000);
         if (_sbSweepTimer.unref) _sbSweepTimer.unref();
         activeWatchers.push({ close: () => clearInterval(_sbSweepTimer) });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
-  } catch (_) { /* non-fatal */ }
+  } catch (_) {
+    /* non-fatal */
+  }
 
   const _checkAuth = (req) => {
     let _suppliedAuth = req.headers['x-monomind-token'] || '';
     if (!_suppliedAuth) {
-      try { _suppliedAuth = new URL(req.url, 'http://localhost').searchParams.get('token') || ''; } catch (_) {}
+      try {
+        _suppliedAuth = new URL(req.url, 'http://localhost').searchParams.get('token') || '';
+      } catch (_) {}
     }
     const _suppliedAuthBuf = Buffer.from(String(_suppliedAuth));
     const _expectedAuthBuf = Buffer.from(dashboardAuthValue);
-    return _suppliedAuthBuf.length === _expectedAuthBuf.length
-      && crypto.timingSafeEqual(_suppliedAuthBuf, _expectedAuthBuf);
+    return (
+      _suppliedAuthBuf.length === _expectedAuthBuf.length &&
+      crypto.timingSafeEqual(_suppliedAuthBuf, _expectedAuthBuf)
+    );
   };
   const _sendUnauthorized = (res, corsOrigin) => {
     res.writeHead(401, {
@@ -1342,10 +1733,18 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   // (all of /api/*, GET or not) requires _checkAuth. These serve the HTML/JS
   // that embeds the token in a <meta name="mm-token"> tag on page load, so
   // they must be reachable before any fetch() call could attach the token.
-  const _OPEN_ROUTES = new Set(['/', '/v2', '/mastermind', '/orgs', '/orgs-files.js', '/markdown.js', '/favicon.ico']);
+  const _OPEN_ROUTES = new Set([
+    '/',
+    '/v2',
+    '/mastermind',
+    '/orgs',
+    '/orgs-files.js',
+    '/markdown.js',
+    '/favicon.ico',
+  ]);
   const _isOpenRoute = (url, method) =>
-    (method === 'GET' || method === 'HEAD' || method === 'OPTIONS')
-    && (_OPEN_ROUTES.has(url) || /^\/data\/avatars\/[A-Za-z0-9._-]+\.svg$/.test(url));
+    (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') &&
+    (_OPEN_ROUTES.has(url) || /^\/data\/avatars\/[A-Za-z0-9._-]+\.svg$/.test(url));
 
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
@@ -1355,8 +1754,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // hands out the auth token. Fails closed with a bare 403 and no CORS header.
     if (!isAllowedHost(req.headers.host, _allowedHosts)) {
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Forbidden: Host header is not a loopback address. '
-        + 'Set MONOMIND_DASHBOARD_ALLOWED_HOSTS to permit another host name.\n');
+      res.end(
+        'Forbidden: Host header is not a loopback address. ' +
+          'Set MONOMIND_DASHBOARD_ALLOWED_HOSTS to permit another host name.\n',
+      );
       return;
     }
 
@@ -1383,7 +1784,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // unauthenticated. Default-deny is the only version of this fix that
     // doesn't silently miss a route.
     if (!_isOpenRoute(url, req.method)) {
-      if (!_checkAuth(req)) { _sendUnauthorized(res, corsOrigin); return; }
+      if (!_checkAuth(req)) {
+        _sendUnauthorized(res, corsOrigin);
+        return;
+      }
     }
 
     // ------------------------------------------------------------------ GET /
@@ -1396,8 +1800,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         // block) — every non-GET route above requires it, but the served HTML was
         // previously never given a way to know it, so every write action 401'd from
         // the actual browser UI.
-        html = html.replace('<head>', `<head>\n<meta name="mm-token" content="${dashboardAuthValue}">`);
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+        html = html.replace(
+          '<head>',
+          `<head>\n<meta name="mm-token" content="${dashboardAuthValue}">`,
+        );
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        });
         res.end(html);
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -1429,20 +1839,34 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     if (req.method === 'GET' && /^\/data\/avatars\/[A-Za-z0-9._-]+\.svg$/.test(url)) {
       try {
         const name = path.basename(decodeURIComponent(url));
-        if (!/^[A-Za-z0-9._-]+\.svg$/.test(name) || name.includes('..')) { res.writeHead(400); res.end(); return; }
+        if (!/^[A-Za-z0-9._-]+\.svg$/.test(name) || name.includes('..')) {
+          res.writeHead(400);
+          res.end();
+          return;
+        }
         const avatarsDir = path.join(__dirname, 'data', 'avatars');
         const filePath = path.join(avatarsDir, name);
-        if (!filePath.startsWith(avatarsDir + path.sep) || !fs.existsSync(filePath)) { res.writeHead(404); res.end(); return; }
+        if (!filePath.startsWith(avatarsDir + path.sep) || !fs.existsSync(filePath)) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
         const svg = fs.readFileSync(filePath);
-        res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+        res.writeHead(200, {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+        });
         res.end(svg);
-      } catch (_) { res.writeHead(404); res.end(); }
+      } catch (_) {
+        res.writeHead(404);
+        res.end();
+      }
       return;
     }
 
     // ----------------------------------------------------------------- GET /v2 (alias → /)
     if (req.method === 'GET' && url === '/v2') {
-      res.writeHead(301, { 'Location': '/' });
+      res.writeHead(301, { Location: '/' });
       res.end();
       return;
     }
@@ -1455,7 +1879,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const name = gitExec('git config user.name', { cwd, encoding: 'utf8' }).trim();
         const email = gitExec('git config user.email', { cwd, encoding: 'utf8' }).trim();
         let remoteUrl = '';
-        try { remoteUrl = gitExec('git remote get-url origin', { cwd, encoding: 'utf8' }).trim(); } catch {}
+        try {
+          remoteUrl = gitExec('git remote get-url origin', { cwd, encoding: 'utf8' }).trim();
+        } catch {}
         // Normalise SSH remote to HTTPS URL for browser linking
         if (remoteUrl.startsWith('git@')) {
           remoteUrl = remoteUrl.replace(/^git@([^:]+):/, 'https://$1/').replace(/\.git$/, '');
@@ -1463,12 +1889,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           remoteUrl = remoteUrl.slice(0, -4);
         }
         let branch = '';
-        try { branch = gitExec('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf8' }).trim(); } catch {}
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        try {
+          branch = gitExec('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf8' }).trim();
+        } catch {}
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
         res.end(JSON.stringify({ name, email, cwd, remoteUrl, branch }));
       } catch (_) {
         const cwd2 = projectDir || process.cwd();
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
         res.end(JSON.stringify({ name: '', email: '', cwd: cwd2, remoteUrl: '', branch: '' }));
       }
       return;
@@ -1516,9 +1950,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         // happens to start with the same string would pass a naive startsWith.
         // Require the separator (or exact equality to the root itself) so only
         // true descendants pass.
-        if (_resolvedFile !== _sessionsRoot && !_resolvedFile.startsWith(_sessionsRoot + path.sep)) {
+        if (
+          _resolvedFile !== _sessionsRoot &&
+          !_resolvedFile.startsWith(_sessionsRoot + path.sep)
+        ) {
           res.writeHead(403, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Access denied: file must be within ~/.claude/projects' }));
+          res.end(
+            JSON.stringify({ error: 'Access denied: file must be within ~/.claude/projects' }),
+          );
           return;
         }
         // Only allow JSONL files (session logs).
@@ -1555,9 +1994,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
 
         let sessionFiles = [];
         try {
-          sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
-            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+          sessionFiles = fs
+            .readdirSync(projectClaudeDir)
+            .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'))
+            .map((f) => {
+              try {
+                return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs };
+              } catch {
+                return null;
+              }
+            })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
             .slice(0, 50);
@@ -1567,7 +2013,18 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         for (const { f, mtime } of sessionFiles) {
           const fp = path.join(projectClaudeDir, f);
           const id = f.replace('.jsonl', '');
-          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null, totalCost = 0, toolCalls = 0, userMessages = 0, cacheReadTokens = 0, totalInputTokens = 0, errorCount = 0;
+          let lastPrompt = '',
+            summaries = [],
+            totalDurationMs = 0,
+            totalMessages = 0,
+            firstTs = null,
+            lastTs = null,
+            totalCost = 0,
+            toolCalls = 0,
+            userMessages = 0,
+            cacheReadTokens = 0,
+            totalInputTokens = 0,
+            errorCount = 0;
           const modelBreakdown = {};
           const unknownPricingModels = new Set();
           const filesTouchedSet = new Set();
@@ -1575,12 +2032,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             const lines = _readTailLines(fp);
             let pendingCompact = false;
             for (const line of lines) {
-              let e; try { e = JSON.parse(line); } catch { continue; }
-              if (e.timestamp) { if (!firstTs) firstTs = e.timestamp; lastTs = e.timestamp; }
+              let e;
+              try {
+                e = JSON.parse(line);
+              } catch {
+                continue;
+              }
+              if (e.timestamp) {
+                if (!firstTs) firstTs = e.timestamp;
+                lastTs = e.timestamp;
+              }
               if (e.type === 'last-prompt' && e.lastPrompt) lastPrompt = e.lastPrompt;
               if (e.type === 'user') {
                 userMessages++;
-                for (const b of (e.message?.content || [])) {
+                for (const b of e.message?.content || []) {
                   if (b && b.type === 'tool_result' && b.is_error) errorCount++;
                 }
               }
@@ -1589,18 +2054,27 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                 const msg = e.message || {};
                 const ct = msg.content || [];
                 let text = '';
-                if (Array.isArray(ct)) { for (const b of ct) { if (b && b.type === 'text') { text = b.text; break; } } }
-                else if (typeof ct === 'string') text = ct;
+                if (Array.isArray(ct)) {
+                  for (const b of ct) {
+                    if (b && b.type === 'text') {
+                      text = b.text;
+                      break;
+                    }
+                  }
+                } else if (typeof ct === 'string') text = ct;
                 const m = text.match(/Summary:\s*([\s\S]+)/);
                 if (m) summaries.push({ ts: e.timestamp, text: m[1].trim() });
                 pendingCompact = false;
               }
               if (e.type === 'assistant') {
                 const msg = e.message || {};
-                for (const block of (msg.content || [])) {
+                for (const block of msg.content || []) {
                   if (block && block.type === 'tool_use') {
                     toolCalls++;
-                    if (['Write','Edit','Read','MultiEdit'].includes(block.name) && block.input?.file_path) {
+                    if (
+                      ['Write', 'Edit', 'Read', 'MultiEdit'].includes(block.name) &&
+                      block.input?.file_path
+                    ) {
                       filesTouchedSet.add(path.basename(block.input.file_path));
                     }
                   }
@@ -1618,10 +2092,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                     modelBreakdown[mk].unknownPricing = true;
                     unknownPricingModels.add(mk);
                   }
-                  cacheReadTokens += (msg.usage.cache_read_input_tokens || 0);
-                  totalInputTokens += (msg.usage.input_tokens || 0)
-                                    + (msg.usage.cache_creation_input_tokens || 0)
-                                    + (msg.usage.cache_read_input_tokens || 0);
+                  cacheReadTokens += msg.usage.cache_read_input_tokens || 0;
+                  totalInputTokens +=
+                    (msg.usage.input_tokens || 0) +
+                    (msg.usage.cache_creation_input_tokens || 0) +
+                    (msg.usage.cache_read_input_tokens || 0);
                 }
               }
               if (e.type === 'system' && e.subtype === 'turn_duration') {
@@ -1635,9 +2110,35 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const summary = summaries.length ? summaries[summaries.length - 1].text : null;
           // costIncomplete => totalCost is a LOWER BOUND: at least one model had no
           // pricing row, so its spend is missing from the sum entirely.
-          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, summary, compactCount, errorCount, totalDurationMs, totalMessages, totalCost, costIncomplete: unknownPricingModels.size > 0, unknownPricingModels: [...unknownPricingModels], toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
+          sessions.push({
+            id,
+            mtime,
+            firstTs,
+            lastTs,
+            lastPrompt,
+            summaries,
+            summary,
+            compactCount,
+            errorCount,
+            totalDurationMs,
+            totalMessages,
+            totalCost,
+            costIncomplete: unknownPricingModels.size > 0,
+            unknownPricingModels: [...unknownPricingModels],
+            toolCalls,
+            userMessages,
+            cacheReadTokens,
+            totalInputTokens,
+            modelBreakdown,
+            filesTouched,
+            file: fp,
+          });
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ sessions }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1652,7 +2153,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       const dir = qs.get('dir') || '';
       const q = (qs.get('q') || '').toLowerCase().trim();
       if (!q || q.length < 2) {
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
         res.end(JSON.stringify({ results: [] }));
         return;
       }
@@ -1662,9 +2166,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
-          sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
-            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+          sessionFiles = fs
+            .readdirSync(projectClaudeDir)
+            .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'))
+            .map((f) => {
+              try {
+                return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs };
+              } catch {
+                return null;
+              }
+            })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
             .slice(0, 20);
@@ -1678,22 +2189,38 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           try {
             const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
             for (const line of lines) {
-              let e; try { e = JSON.parse(line); } catch { continue; }
+              let e;
+              try {
+                e = JSON.parse(line);
+              } catch {
+                continue;
+              }
               if (e.type === 'last-prompt' && e.lastPrompt) lastPrompt = e.lastPrompt;
               if (e.type === 'user') {
                 const msg = e.message || {};
                 const ct = msg.content || [];
                 let text = '';
-                if (Array.isArray(ct)) { for (const b of ct) { if (b && b.type === 'text') { text = b.text; break; } } }
-                else if (typeof ct === 'string') text = ct;
-                if (text.toLowerCase().includes(q)) matches.push({ text: text.slice(0, 150), ts: e.timestamp });
+                if (Array.isArray(ct)) {
+                  for (const b of ct) {
+                    if (b && b.type === 'text') {
+                      text = b.text;
+                      break;
+                    }
+                  }
+                } else if (typeof ct === 'string') text = ct;
+                if (text.toLowerCase().includes(q))
+                  matches.push({ text: text.slice(0, 150), ts: e.timestamp });
               }
               if (matches.length >= 3) break;
             }
           } catch {}
           if (matches.length) results.push({ id, file: fp, lastPrompt, mtime, matches });
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ results, q }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1713,9 +2240,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
-          sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
-            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+          sessionFiles = fs
+            .readdirSync(projectClaudeDir)
+            .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'))
+            .map((f) => {
+              try {
+                return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs };
+              } catch {
+                return null;
+              }
+            })
             .filter(Boolean)
             .sort((a, b) => b.mtime - a.mtime)
             .slice(0, 5); // check last 5 sessions
@@ -1729,19 +2263,38 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           try {
             const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean).slice(-200);
             for (const line of lines) {
-              let e; try { e = JSON.parse(line); } catch { continue; }
+              let e;
+              try {
+                e = JSON.parse(line);
+              } catch {
+                continue;
+              }
               if (e.type === 'assistant') {
                 const content = e.message?.content || [];
                 for (const block of content) {
                   if (block?.type === 'tool_use') {
-                    events.push({ kind: 'tool', ts: e.timestamp, tool: block.name, session: sessId });
+                    events.push({
+                      kind: 'tool',
+                      ts: e.timestamp,
+                      tool: block.name,
+                      session: sessId,
+                    });
                   }
                 }
               } else if (e.type === 'user') {
                 const content = e.message?.content || [];
                 for (const block of content) {
-                  if (block?.type === 'text' && block.text?.trim() && !HOOK_RE.test(block.text.trim())) {
-                    events.push({ kind: 'user', ts: e.timestamp, text: block.text.slice(0, 120), session: sessId });
+                  if (
+                    block?.type === 'text' &&
+                    block.text?.trim() &&
+                    !HOOK_RE.test(block.text.trim())
+                  ) {
+                    events.push({
+                      kind: 'user',
+                      ts: e.timestamp,
+                      text: block.text.slice(0, 120),
+                      session: sessId,
+                    });
                   }
                 }
               }
@@ -1756,7 +2309,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           return tb - ta;
         });
 
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
         res.end(JSON.stringify({ events: events.slice(0, limit) }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1775,27 +2331,45 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
-          sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
-            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
-            .filter(Boolean).sort((a,b) => b.mtime - a.mtime).slice(0, 10);
+          sessionFiles = fs
+            .readdirSync(projectClaudeDir)
+            .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'))
+            .map((f) => {
+              try {
+                return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs };
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.mtime - a.mtime)
+            .slice(0, 10);
         } catch {}
         // tool_use id → name map, then count is_error:true tool_result per tool name
-        const errorCounts = {}, totalCounts = {};
+        const errorCounts = {},
+          totalCounts = {};
         for (const { f } of sessionFiles) {
           const fp = path.join(projectClaudeDir, f);
           try {
             const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
             const toolIdMap = {};
             for (const line of lines) {
-              let e; try { e = JSON.parse(line); } catch { continue; }
+              let e;
+              try {
+                e = JSON.parse(line);
+              } catch {
+                continue;
+              }
               if (e.type === 'assistant') {
-                for (const b of (e.message?.content || [])) {
-                  if (b && b.type === 'tool_use') { toolIdMap[b.id] = b.name; totalCounts[b.name] = (totalCounts[b.name] || 0) + 1; }
+                for (const b of e.message?.content || []) {
+                  if (b && b.type === 'tool_use') {
+                    toolIdMap[b.id] = b.name;
+                    totalCounts[b.name] = (totalCounts[b.name] || 0) + 1;
+                  }
                 }
               }
               if (e.type === 'user') {
-                for (const b of (e.message?.content || [])) {
+                for (const b of e.message?.content || []) {
                   if (b && b.type === 'tool_result' && b.is_error) {
                     const name = toolIdMap[b.tool_use_id] || '?';
                     errorCounts[name] = (errorCounts[name] || 0) + 1;
@@ -1807,8 +2381,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         }
         const errors = Object.entries(errorCounts)
           .map(([tool, count]) => ({ tool, count, total: totalCounts[tool] || count }))
-          .sort((a,b) => b.count - a.count);
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+          .sort((a, b) => b.count - a.count);
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ errors }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1827,26 +2405,44 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
-          sessionFiles = fs.readdirSync(projectClaudeDir)
-            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._'))
-            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
-            .filter(Boolean).sort((a,b) => b.mtime - a.mtime).slice(0, 30);
+          sessionFiles = fs
+            .readdirSync(projectClaudeDir)
+            .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'))
+            .map((f) => {
+              try {
+                return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs };
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.mtime - a.mtime)
+            .slice(0, 30);
         } catch {}
-        const toolCounts = {}, errorCounts = {};
+        const toolCounts = {},
+          errorCounts = {};
         for (const { f } of sessionFiles) {
           const fp = path.join(projectClaudeDir, f);
           try {
             const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
             const toolIdMap = {};
             for (const line of lines) {
-              let e; try { e = JSON.parse(line); } catch { continue; }
+              let e;
+              try {
+                e = JSON.parse(line);
+              } catch {
+                continue;
+              }
               if (e.type === 'assistant') {
-                for (const b of (e.message?.content || [])) {
-                  if (b && b.type === 'tool_use') { toolIdMap[b.id] = b.name; toolCounts[b.name] = (toolCounts[b.name] || 0) + 1; }
+                for (const b of e.message?.content || []) {
+                  if (b && b.type === 'tool_use') {
+                    toolIdMap[b.id] = b.name;
+                    toolCounts[b.name] = (toolCounts[b.name] || 0) + 1;
+                  }
                 }
               }
               if (e.type === 'user') {
-                for (const b of (e.message?.content || [])) {
+                for (const b of e.message?.content || []) {
                   if (b && b.type === 'tool_result' && b.is_error) {
                     const name = toolIdMap[b.tool_use_id] || '?';
                     errorCounts[name] = (errorCounts[name] || 0) + 1;
@@ -1858,8 +2454,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         }
         const tools = Object.entries(toolCounts)
           .map(([tool, count]) => ({ tool, count, errors: errorCounts[tool] || 0 }))
-          .sort((a,b) => b.count - a.count);
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+          .sort((a, b) => b.count - a.count);
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ tools }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1873,13 +2473,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       try {
         const projectsBase = path.join(os.homedir(), '.claude', 'projects');
         let slugDirs = [];
-        try { slugDirs = fs.readdirSync(projectsBase, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); } catch {}
+        try {
+          slugDirs = fs
+            .readdirSync(projectsBase, { withFileTypes: true })
+            .filter((e) => e.isDirectory())
+            .map((e) => e.name);
+        } catch {}
         const projectCosts = [];
         for (const slug of slugDirs) {
           const projDir = path.join(projectsBase, slug);
           const projPath = resolveSlugToPath(slug, projDir);
           let sessionFiles = [];
-          try { sessionFiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._')).map(f => path.join(projDir, f)); } catch {}
+          try {
+            sessionFiles = fs
+              .readdirSync(projDir)
+              .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'))
+              .map((f) => path.join(projDir, f));
+          } catch {}
           if (!sessionFiles.length) continue;
           let totalCost = 0;
           const unknownPricingModels = new Set();
@@ -1887,11 +2497,17 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             try {
               const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
               for (const line of lines) {
-                let e; try { e = JSON.parse(line); } catch { continue; }
+                let e;
+                try {
+                  e = JSON.parse(line);
+                } catch {
+                  continue;
+                }
                 if (e.type === 'assistant' && e.message?.usage) {
                   const _m = e.message.model || '';
                   totalCost += _sjCalcCost(_m, e.message.usage);
-                  if (!_sjHasPricing(_m)) unknownPricingModels.add(_m.replace(/@.*$/, '').replace(/-\d{8}$/, ''));
+                  if (!_sjHasPricing(_m))
+                    unknownPricingModels.add(_m.replace(/@.*$/, '').replace(/-\d{8}$/, ''));
                 }
               }
             } catch {}
@@ -1900,14 +2516,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           // were dropped by `totalCost > 0` and simply vanished from the cost list.
           if (totalCost > 0 || unknownPricingModels.size > 0) {
             projectCosts.push({
-              path: projPath, cost: totalCost, sessions: sessionFiles.length,
+              path: projPath,
+              cost: totalCost,
+              sessions: sessionFiles.length,
               costIncomplete: unknownPricingModels.size > 0,
               unknownPricingModels: [...unknownPricingModels],
             });
           }
         }
         projectCosts.sort((a, b) => b.cost - a.cost);
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ projects: projectCosts }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1921,26 +2543,57 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       try {
         const projectsBase = path.join(os.homedir(), '.claude', 'projects');
         let slugDirs = [];
-        try { slugDirs = fs.readdirSync(projectsBase, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); } catch {}
-        const projects = slugDirs.map(slug => {
-          const projDir = path.join(projectsBase, slug);
-          const projPath = resolveSlugToPath(slug, projDir);
-          const name = projPath.split('/').filter(Boolean).pop() || slug.split('-').filter(Boolean).pop() || slug;
-          let sessionCount = 0; let lastActivity = 0; let memoryCount = 0;
-          try {
-            const files = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
-            sessionCount = files.length;
-            for (const f of files) {
-              try { const st = fs.statSync(path.join(projDir, f)); if (st.mtimeMs > lastActivity) lastActivity = st.mtimeMs; } catch {}
-            }
-          } catch {}
-          try {
-            const memDir = path.join(projDir, 'memory');
-            memoryCount = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md').length;
-          } catch {}
-          return { slug, path: projPath, name, sessionCount, memoryCount, lastActivity: lastActivity || null };
-        }).filter(p => p.sessionCount > 0 || fs.existsSync(path.join(p.path, '.monomind'))).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        try {
+          slugDirs = fs
+            .readdirSync(projectsBase, { withFileTypes: true })
+            .filter((e) => e.isDirectory())
+            .map((e) => e.name);
+        } catch {}
+        const projects = slugDirs
+          .map((slug) => {
+            const projDir = path.join(projectsBase, slug);
+            const projPath = resolveSlugToPath(slug, projDir);
+            const name =
+              projPath.split('/').filter(Boolean).pop() ||
+              slug.split('-').filter(Boolean).pop() ||
+              slug;
+            let sessionCount = 0;
+            let lastActivity = 0;
+            let memoryCount = 0;
+            try {
+              const files = fs
+                .readdirSync(projDir)
+                .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'));
+              sessionCount = files.length;
+              for (const f of files) {
+                try {
+                  const st = fs.statSync(path.join(projDir, f));
+                  if (st.mtimeMs > lastActivity) lastActivity = st.mtimeMs;
+                } catch {}
+              }
+            } catch {}
+            try {
+              const memDir = path.join(projDir, 'memory');
+              memoryCount = fs
+                .readdirSync(memDir)
+                .filter((f) => f.endsWith('.md') && f !== 'MEMORY.md').length;
+            } catch {}
+            return {
+              slug,
+              path: projPath,
+              name,
+              sessionCount,
+              memoryCount,
+              lastActivity: lastActivity || null,
+            };
+          })
+          .filter((p) => p.sessionCount > 0 || fs.existsSync(path.join(p.path, '.monomind')))
+          .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ projects }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -1968,35 +2621,38 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             const resolved = resolveSlugToPath(slug, projDir);
             if (resolved && fs.existsSync(resolved)) roots.push(resolved);
           }
-        } catch { /* projects tree absent — fine */ }
-        const globalBrain = process.env.MONOMIND_GLOBAL_BRAIN_DIR
-          || path.join(os.homedir(), '.monomind', 'global-brain');
+        } catch {
+          /* projects tree absent — fine */
+        }
+        const globalBrain =
+          process.env.MONOMIND_GLOBAL_BRAIN_DIR ||
+          path.join(os.homedir(), '.monomind', 'global-brain');
         if (fs.existsSync(globalBrain)) roots.push(globalBrain);
 
         // 2. Per-root, scan the known mastermind output directories.
         //    Order in this array is the category-priority order used when
         //    no doc-specific category is inferable from the filename.
         const DOC_DIRS = [
-          { sub: ['docs', 'mastermind', 'plans'],       category: 'plan' },
-          { sub: ['docs', 'mastermind', 'specs'],       category: 'spec' },
-          { sub: ['docs', 'mastermind', 'reviews'],     category: 'review' },
-          { sub: ['docs', 'mastermind', 'reports'],     category: 'report' },
-          { sub: ['docs', 'mastermind', 'wiki'],        category: 'wiki' },
-          { sub: ['docs', 'mastermind', 'decisions'],   category: 'decision' },
-          { sub: ['docs', 'mastermind', 'ideas'],       category: 'idea' },
-          { sub: ['docs', 'mastermind', 'improvements'],category: 'improvement' },
-          { sub: ['docs', 'mastermind', 'tasks'],       category: 'task' },
-          { sub: ['docs', 'mastermind'],                category: 'mastermind' },
-          { sub: ['docs', 'improvements'],              category: 'improvement' },
-          { sub: ['docs', 'ideas'],                     category: 'idea' },
-          { sub: ['docs', 'tasks'],                     category: 'task' },
-          { sub: ['docs', 'adrs'],                      category: 'decision' },
-          { sub: ['docs', 'specs'],                     category: 'spec' },
-          { sub: ['docs', 'reviews'],                   category: 'review' },
-          { sub: ['docs', 'plans'],                     category: 'plan' },
-          { sub: ['docs', 'reports'],                   category: 'report' },
-          { sub: ['docs', 'decisions'],                 category: 'decision' },
-          { sub: ['docs', 'wiki'],                      category: 'wiki' },
+          { sub: ['docs', 'mastermind', 'plans'], category: 'plan' },
+          { sub: ['docs', 'mastermind', 'specs'], category: 'spec' },
+          { sub: ['docs', 'mastermind', 'reviews'], category: 'review' },
+          { sub: ['docs', 'mastermind', 'reports'], category: 'report' },
+          { sub: ['docs', 'mastermind', 'wiki'], category: 'wiki' },
+          { sub: ['docs', 'mastermind', 'decisions'], category: 'decision' },
+          { sub: ['docs', 'mastermind', 'ideas'], category: 'idea' },
+          { sub: ['docs', 'mastermind', 'improvements'], category: 'improvement' },
+          { sub: ['docs', 'mastermind', 'tasks'], category: 'task' },
+          { sub: ['docs', 'mastermind'], category: 'mastermind' },
+          { sub: ['docs', 'improvements'], category: 'improvement' },
+          { sub: ['docs', 'ideas'], category: 'idea' },
+          { sub: ['docs', 'tasks'], category: 'task' },
+          { sub: ['docs', 'adrs'], category: 'decision' },
+          { sub: ['docs', 'specs'], category: 'spec' },
+          { sub: ['docs', 'reviews'], category: 'review' },
+          { sub: ['docs', 'plans'], category: 'plan' },
+          { sub: ['docs', 'reports'], category: 'report' },
+          { sub: ['docs', 'decisions'], category: 'decision' },
+          { sub: ['docs', 'wiki'], category: 'wiki' },
         ];
 
         const seen = new Set(); // dedupe by absolute path
@@ -2006,12 +2662,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             const dir = path.join(root, ...sub);
             if (!fs.existsSync(dir)) continue;
             let files = [];
-            try { files = fs.readdirSync(dir); } catch { continue; }
+            try {
+              files = fs.readdirSync(dir);
+            } catch {
+              continue;
+            }
             for (const fname of files) {
               if (!fname.endsWith('.md') || fname.startsWith('._')) continue;
               const fullPath = path.join(dir, fname);
               let st;
-              try { st = fs.statSync(fullPath); } catch { continue; }
+              try {
+                st = fs.statSync(fullPath);
+              } catch {
+                continue;
+              }
               if (!st.isFile()) continue;
               if (seen.has(fullPath)) continue;
               seen.add(fullPath);
@@ -2026,15 +2690,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                 preview = raw
                   .replace(/^---[\s\S]*?---/, '')
                   .split('\n')
-                  .map(l => l.trim())
-                  .filter(l => l && !/^#{1,6}\s/.test(l) && !/^[<|!]/.test(l))
+                  .map((l) => l.trim())
+                  .filter((l) => l && !/^#{1,6}\s/.test(l) && !/^[<|!]/.test(l))
                   .slice(0, 1)
                   .join(' ')
                   .slice(0, 180);
-              } catch { /* unreadable — keep defaults */ }
+              } catch {
+                /* unreadable — keep defaults */
+              }
               docs.push({
                 path: fullPath,
-                project: root === globalBrain ? 'Global Brain' : (root.split('/').filter(Boolean).pop() || root),
+                project:
+                  root === globalBrain
+                    ? 'Global Brain'
+                    : root.split('/').filter(Boolean).pop() || root,
                 projectPath: root,
                 category,
                 filename: fname,
@@ -2047,7 +2716,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             }
           }
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ docs }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2074,7 +2747,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         // symlink that lexically sits inside an allowed root but physically
         // points outside it. Fall back to the lexical path if the target
         // doesn't exist yet — the existsSync check below will 403 it anyway.
-        try { resolved = fs.realpathSync(resolved); } catch {}
+        try {
+          resolved = fs.realpathSync(resolved);
+        } catch {}
         // Reconstruct the allowed roots set and verify containment.
         const projectsBase = path.join(os.homedir(), '.claude', 'projects');
         const allowedRoots = [];
@@ -2084,10 +2759,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             if (resolvedProj) allowedRoots.push(resolvedProj);
           }
         } catch {}
-        const globalBrain = process.env.MONOMIND_GLOBAL_BRAIN_DIR
-          || path.join(os.homedir(), '.monomind', 'global-brain');
+        const globalBrain =
+          process.env.MONOMIND_GLOBAL_BRAIN_DIR ||
+          path.join(os.homedir(), '.monomind', 'global-brain');
         if (fs.existsSync(globalBrain)) allowedRoots.push(globalBrain);
-        const isAllowed = allowedRoots.some(root => {
+        const isAllowed = allowedRoots.some((root) => {
           const rel = path.relative(root, resolved);
           return rel && !rel.startsWith('..') && !path.isAbsolute(rel);
         });
@@ -2102,7 +2778,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           return;
         }
         const body = fs.readFileSync(resolved, 'utf8');
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ path: resolved, body }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2122,16 +2802,35 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         let drawers = [];
         try {
           const raw = fs.readFileSync(path.join(palaceDir, 'drawers.jsonl'), 'utf8');
-          drawers = raw.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+          drawers = raw
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => {
+              try {
+                return JSON.parse(l);
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
         } catch {}
 
         let identity = null;
-        try { identity = fs.readFileSync(path.join(palaceDir, 'identity.md'), 'utf8'); } catch {}
+        try {
+          identity = fs.readFileSync(path.join(palaceDir, 'identity.md'), 'utf8');
+        } catch {}
 
         let kg = [];
-        try { const raw = fs.readFileSync(path.join(palaceDir, 'kg.json'), 'utf8'); kg = JSON.parse(raw); } catch {}
+        try {
+          const raw = fs.readFileSync(path.join(palaceDir, 'kg.json'), 'utf8');
+          kg = JSON.parse(raw);
+        } catch {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ drawers, identity, kg }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2147,42 +2846,70 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
 
-        const adrDirs = [
-          { path: path.join(d, 'docs', 'adrs'), group: 'all' },
-        ];
+        const adrDirs = [{ path: path.join(d, 'docs', 'adrs'), group: 'all' }];
 
         const adrs = [];
         for (const { path: adrDir, group } of adrDirs) {
           if (!fs.existsSync(adrDir)) continue;
           // Skip AppleDouble junk ('._*') — exFAT volumes litter these and they aren't real ADRs
-          const files = fs.readdirSync(adrDir).filter(f => f.endsWith('.md') && !f.startsWith('._') && f !== 'README.md' && f !== 'v3-adrs.md' && f !== 'SECURITY-REVIEW-SUMMARY.md');
+          const files = fs
+            .readdirSync(adrDir)
+            .filter(
+              (f) =>
+                f.endsWith('.md') &&
+                !f.startsWith('._') &&
+                f !== 'README.md' &&
+                f !== 'v3-adrs.md' &&
+                f !== 'SECURITY-REVIEW-SUMMARY.md',
+            );
           for (const fname of files.sort()) {
             const resolvedGroup = /^ADR-G/i.test(fname) ? 'guidance' : 'implementation';
             try {
               const raw = fs.readFileSync(path.join(adrDir, fname), 'utf8');
               const titleMatch = raw.match(/^#\s+(.+)$/m);
               const header = raw.split('\n').slice(0, 20).join('\n');
-              const statusTableMatch = header.match(/^\|\s*\*{0,2}Status\*{0,2}\s*\|\s*\*{0,2}([^|*\n]{2,40}?)\*{0,2}\s*\|/im);
-              const statusInlineMatch = header.match(/\*\*Status[:\s]+\*?\*?\s*(Accepted|Implemented|Proposed|Superseded|Deprecated|Draft|Rejected|Complete|Active|Retired)[^*]*/i);
+              const statusTableMatch = header.match(
+                /^\|\s*\*{0,2}Status\*{0,2}\s*\|\s*\*{0,2}([^|*\n]{2,40}?)\*{0,2}\s*\|/im,
+              );
+              const statusInlineMatch = header.match(
+                /\*\*Status[:\s]+\*?\*?\s*(Accepted|Implemented|Proposed|Superseded|Deprecated|Draft|Rejected|Complete|Active|Retired)[^*]*/i,
+              );
               const statusMatch = statusTableMatch || statusInlineMatch;
-              const dateInlineMatch = header.match(/\*\*Date[:\s]+\*?\*?\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/i);
-              const dateMatch = raw.match(/\|\s*\*{0,2}Date\*{0,2}\s*\|\s*\*{0,2}([^|*\n]+?)\*{0,2}\s*\|/i) || dateInlineMatch || raw.match(/Date[:\s]+([0-9]{4}-[0-9]{2}-[0-9]{2})/);
+              const dateInlineMatch = header.match(
+                /\*\*Date[:\s]+\*?\*?\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/i,
+              );
+              const dateMatch =
+                raw.match(/\|\s*\*{0,2}Date\*{0,2}\s*\|\s*\*{0,2}([^|*\n]+?)\*{0,2}\s*\|/i) ||
+                dateInlineMatch ||
+                raw.match(/Date[:\s]+([0-9]{4}-[0-9]{2}-[0-9]{2})/);
               const numMatch = fname.match(/ADR-([A-Z]*[0-9]+)/i);
-              const summaryMatch = raw.match(/##\s+(?:Context|Summary|Problem Statement)[^\n]*\n+([\s\S]{20,300})/i);
+              const summaryMatch = raw.match(
+                /##\s+(?:Context|Summary|Problem Statement)[^\n]*\n+([\s\S]{20,300})/i,
+              );
               adrs.push({
                 number: numMatch ? 'ADR-' + numMatch[1] : fname.replace('.md', ''),
-                title: titleMatch ? titleMatch[1].replace(/^ADR-[A-Z0-9-]+[:\s]+/i, '').trim() : fname.replace('.md', ''),
+                title: titleMatch
+                  ? titleMatch[1].replace(/^ADR-[A-Z0-9-]+[:\s]+/i, '').trim()
+                  : fname.replace('.md', ''),
                 status: statusMatch ? statusMatch[1].trim() : 'Unknown',
                 date: dateMatch ? dateMatch[1].trim() : null,
-                summary: summaryMatch ? summaryMatch[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim() : null,
+                summary: summaryMatch
+                  ? summaryMatch[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+                  : null,
                 group: resolvedGroup,
                 file: fname,
               });
-            } catch { /* skip unreadable */ }
+            } catch {
+              /* skip unreadable */
+            }
           }
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ adrs }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2202,28 +2929,50 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const memDir = path.join(homeDir, '.claude', 'projects', slug, 'memory');
 
         let files = [];
-        try { files = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md'); } catch {}
+        try {
+          files = fs.readdirSync(memDir).filter((f) => f.endsWith('.md') && f !== 'MEMORY.md');
+        } catch {}
 
-        const memories = files.map(fname => {
-          const fp = path.join(memDir, fname);
-          let stat = null; try { stat = fs.statSync(fp); } catch {}
-          let raw = ''; try { raw = fs.readFileSync(fp, 'utf8').replace(/\r\n/g, '\n'); } catch {}
-          // Parse frontmatter — escHtml ordering: bold replace runs on already-escaped content (safe)
-          let name = fname.replace('.md', ''), description = '', type = 'project', body = raw;
-          const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-          if (fm) {
-            body = fm[2].trim();
-            for (const line of fm[1].split('\n')) {
-              const m = line.match(/^(\w+):\s*(.+)$/);
-              if (m) {
-                if (m[1] === 'name') name = m[2].trim();
-                if (m[1] === 'description') description = m[2].trim();
-                if (m[1] === 'type') type = m[2].trim();
+        const memories = files
+          .map((fname) => {
+            const fp = path.join(memDir, fname);
+            let stat = null;
+            try {
+              stat = fs.statSync(fp);
+            } catch {}
+            let raw = '';
+            try {
+              raw = fs.readFileSync(fp, 'utf8').replace(/\r\n/g, '\n');
+            } catch {}
+            // Parse frontmatter — escHtml ordering: bold replace runs on already-escaped content (safe)
+            let name = fname.replace('.md', ''),
+              description = '',
+              type = 'project',
+              body = raw;
+            const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+            if (fm) {
+              body = fm[2].trim();
+              for (const line of fm[1].split('\n')) {
+                const m = line.match(/^(\w+):\s*(.+)$/);
+                if (m) {
+                  if (m[1] === 'name') name = m[2].trim();
+                  if (m[1] === 'description') description = m[2].trim();
+                  if (m[1] === 'type') type = m[2].trim();
+                }
               }
             }
-          }
-          return { filename: fname, name, description, type, body, source: 'file', readonly: false, mtime: stat ? stat.mtimeMs : null };
-        }).sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+            return {
+              filename: fname,
+              name,
+              description,
+              type,
+              body,
+              source: 'file',
+              readonly: false,
+              mtime: stat ? stat.mtimeMs : null,
+            };
+          })
+          .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
 
         // Merge backend store (AgentDB / auto-memory bridge). These live in the
         // SQLite-backed store, not as .md files, so the file-only listing above
@@ -2234,13 +2983,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const storePath = path.join(d, '.monomind', 'data', 'auto-memory-store.json');
           if (fs.existsSync(storePath)) {
             const raw = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-            const rows = Array.isArray(raw) ? raw : (raw.entries || []);
+            const rows = Array.isArray(raw) ? raw : raw.entries || [];
             backend = rows
-              .filter(e => e && (e.content != null) && e.status !== 'deleted')
-              .map(e => ({
+              .filter((e) => e && e.content != null && e.status !== 'deleted')
+              .map((e) => ({
                 filename: 'backend:' + (e.key || e.id),
                 name: e.key || e.id || 'entry',
-                description: e.namespace ? ('namespace: ' + e.namespace) : '',
+                description: e.namespace ? 'namespace: ' + e.namespace : '',
                 type: e.type || 'semantic',
                 body: String(e.content),
                 source: 'backend',
@@ -2251,7 +3000,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           }
         } catch {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ memories: memories.concat(backend), memDir }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2263,7 +3016,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // ------------------------------------------------------- PUT /api/memory-file
     if (req.method === 'PUT' && url === '/api/memory-file') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -2271,7 +3030,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const slug = d.replace(/\//g, '-');
           const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
           const { filename, content } = JSON.parse(body);
-          if (!filename || filename.includes('..') || !filename.endsWith('.md') || filename.includes('/')) {
+          if (
+            !filename ||
+            filename.includes('..') ||
+            !filename.endsWith('.md') ||
+            filename.includes('/')
+          ) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Invalid filename' }));
             return;
@@ -2284,7 +3048,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           }
           fs.mkdirSync(memDir, { recursive: true });
           fs.writeFileSync(fp, content || '', 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2297,7 +3064,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // ------------------------------------------------------- DELETE /api/memory-file
     if (req.method === 'DELETE' && url === '/api/memory-file') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -2305,7 +3078,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const slug = d.replace(/\//g, '-');
           const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
           const { filename } = JSON.parse(body);
-          if (!filename || filename.includes('..') || !filename.endsWith('.md') || filename.includes('/')) {
+          if (
+            !filename ||
+            filename.includes('..') ||
+            !filename.endsWith('.md') ||
+            filename.includes('/')
+          ) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Invalid filename' }));
             return;
@@ -2317,7 +3095,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             return;
           }
           fs.unlinkSync(fp);
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2336,9 +3117,22 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         let rows = [];
         if (fs.existsSync(feedbackPath)) {
           const raw = fs.readFileSync(feedbackPath, 'utf-8');
-          rows = raw.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+          rows = raw
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => {
+              try {
+                return JSON.parse(l);
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
         res.end(JSON.stringify(rows));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2355,13 +3149,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const slug = d.replace(/\//g, '-');
         const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
 
-        let total = 0, namespaces = 0, size = 0, lastWrite = null;
+        let total = 0,
+          namespaces = 0,
+          size = 0,
+          lastWrite = null;
         const byType = {};
         if (fs.existsSync(memDir)) {
-          const files = fs.readdirSync(memDir).filter(f => f.endsWith('.md'));
+          const files = fs.readdirSync(memDir).filter((f) => f.endsWith('.md'));
           total = files.length;
           namespaces = files.length; // each .md file is a memory namespace
-          files.forEach(f => {
+          files.forEach((f) => {
             const fp = path.join(memDir, f);
             try {
               const st = fs.statSync(fp);
@@ -2374,23 +3171,34 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         }
 
         // Real v2 memory sources: auto-memory pattern store + episodic log
-        let patterns = 0, patternsUpdated = null;
+        let patterns = 0,
+          patternsUpdated = null;
         try {
-          const store = JSON.parse(fs.readFileSync(path.join(d, '.monomind', 'data', 'auto-memory-store.json'), 'utf8'));
+          const store = JSON.parse(
+            fs.readFileSync(path.join(d, '.monomind', 'data', 'auto-memory-store.json'), 'utf8'),
+          );
           if (Array.isArray(store)) {
             patterns = store.length;
             for (const e of store) {
-              if (e && typeof e.ts === 'number' && (!patternsUpdated || e.ts > patternsUpdated)) patternsUpdated = e.ts;
+              if (e && typeof e.ts === 'number' && (!patternsUpdated || e.ts > patternsUpdated))
+                patternsUpdated = e.ts;
             }
           }
         } catch {}
 
-        let episodes = 0, lastEpisode = null;
+        let episodes = 0,
+          lastEpisode = null;
         try {
-          const lines = fs.readFileSync(path.join(d, '.monomind', 'episodic', 'episodes.jsonl'), 'utf8').split('\n').filter(Boolean);
+          const lines = fs
+            .readFileSync(path.join(d, '.monomind', 'episodic', 'episodes.jsonl'), 'utf8')
+            .split('\n')
+            .filter(Boolean);
           episodes = lines.length;
           if (lines.length) {
-            try { const last = JSON.parse(lines[lines.length - 1]); lastEpisode = last.ts || last.timestamp || null; } catch {}
+            try {
+              const last = JSON.parse(lines[lines.length - 1]);
+              lastEpisode = last.ts || last.timestamp || null;
+            } catch {}
           }
         } catch {}
 
@@ -2413,7 +3221,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           lastWrite,
           memDir,
         };
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
         res.end(JSON.stringify({ stats }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2441,7 +3252,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           res.end(JSON.stringify({ error: result?.error || 'Failed to list entries' }));
           return;
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ entries: result.entries, total: result.total }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2474,8 +3289,18 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           res.end(JSON.stringify({ error: result?.error || 'Search failed' }));
           return;
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ results: result.results, searchTime: result.searchTime, searchMethod: result.searchMethod }));
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
+        res.end(
+          JSON.stringify({
+            results: result.results,
+            searchTime: result.searchTime,
+            searchMethod: result.searchMethod,
+          }),
+        );
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -2486,7 +3311,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // -------------------------------------- POST /api/memory/entry (SQLite)
     if (req.method === 'POST' && url === '/api/memory/entry') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', async () => {
         try {
           const { key, value, namespace, tags } = JSON.parse(body);
@@ -2513,7 +3344,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             res.end(JSON.stringify({ error: result?.error || 'Store failed' }));
             return;
           }
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true, id: result.id, duplicate: result.duplicate }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2526,7 +3360,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // ------------------------------------ DELETE /api/memory/entry (SQLite)
     if (req.method === 'DELETE' && url === '/api/memory/entry') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', async () => {
         try {
           const { key, id, namespace } = JSON.parse(body);
@@ -2541,13 +3381,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             res.end(JSON.stringify({ error: 'Memory bridge unavailable' }));
             return;
           }
-          const result = await bridge.bridgeDeleteEntry({ key, id, namespace: namespace || 'default' });
+          const result = await bridge.bridgeDeleteEntry({
+            key,
+            id,
+            namespace: namespace || 'default',
+          });
           if (!result || !result.success) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: result?.error || 'Delete failed' }));
             return;
           }
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true, deleted: result.deleted }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2566,8 +3413,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         let loops = [];
         let stopFiles = new Set();
         try {
-          const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('.json'));
-          stopFiles = new Set(fs.readdirSync(loopsDir).filter(f => f.endsWith('.stop')).map(f => f.replace('.stop', '')));
+          const files = fs.readdirSync(loopsDir).filter((f) => f.endsWith('.json'));
+          stopFiles = new Set(
+            fs
+              .readdirSync(loopsDir)
+              .filter((f) => f.endsWith('.stop'))
+              .map((f) => f.replace('.stop', '')),
+          );
           for (const file of files) {
             try {
               const data = JSON.parse(fs.readFileSync(path.join(loopsDir, file), 'utf-8'));
@@ -2575,7 +3427,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               loops.push(data);
             } catch {}
           }
-        } catch (e) { if (e.code !== 'ENOENT') throw e; }
+        } catch (e) {
+          if (e.code !== 'ENOENT') throw e;
+        }
 
         // Also read .claude/scheduled_tasks.lock — active Claude Code /loop sessions
         // that haven't had their ScheduleWakeup hook fire yet (or running on older version)
@@ -2587,14 +3441,25 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             const pid = lock.pid;
             // Verify PID is alive
             let alive = false;
-            try { process.kill(pid, 0); alive = true; } catch {}
-            const alreadyTracked = loops.some(l => l.id === sessionId || l.sessionId === sessionId);
+            try {
+              process.kill(pid, 0);
+              alive = true;
+            } catch {}
+            const alreadyTracked = loops.some(
+              (l) => l.id === sessionId || l.sessionId === sessionId,
+            );
             if (alive && sessionId && !alreadyTracked && !stopFiles.has(sessionId)) {
               // Try to extract ScheduleWakeup context from session JSONL
               let loopEntry = null;
               try {
                 const escaped = cwd.replace(/\//g, '-');
-                const sessionFile = path.join(os.homedir(), '.claude', 'projects', escaped, `${sessionId}.jsonl`);
+                const sessionFile = path.join(
+                  os.homedir(),
+                  '.claude',
+                  'projects',
+                  escaped,
+                  `${sessionId}.jsonl`,
+                );
                 if (fs.existsSync(sessionFile)) {
                   const stat = fs.statSync(sessionFile);
                   const readStart = Math.max(0, stat.size - 100000);
@@ -2625,12 +3490,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                     const repM = (reason || prompt).match(/(\d+)\s*\/\s*(\d+)/);
                     const currentRep = repM ? parseInt(repM[1]) : 1;
                     const maxReps = repM ? parseInt(repM[2]) : 0;
-                    const repFlag = (prompt).match(/--rep\s+(\d+)/);
-                    const timesFlag = (prompt).match(/--times\s+(\d+)/);
+                    const repFlag = prompt.match(/--rep\s+(\d+)/);
+                    const timesFlag = prompt.match(/--times\s+(\d+)/);
                     const finalRep = repFlag ? parseInt(repFlag[1]) : currentRep;
                     const finalMax = timesFlag ? parseInt(timesFlag[1]) : maxReps;
                     const isTillendPrompt = /--tillend/i.test(prompt);
-                    const type = isTillendPrompt ? 'tillend' : (finalMax > 0 || /repeat|loop/i.test(prompt)) ? 'repeat' : 'do';
+                    const type = isTillendPrompt
+                      ? 'tillend'
+                      : finalMax > 0 || /repeat|loop/i.test(prompt)
+                        ? 'repeat'
+                        : 'do';
                     const cmdMatch = prompt.match(/^\s*(\/[\w:_-]+)/);
                     const command = cmdMatch ? cmdMatch[1] : '';
                     loopEntry = {
@@ -2673,32 +3542,60 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         } catch {}
 
         // Dedup: suppress scheduled_tasks_lock noise when real repeat loops exist
-        const hasRepeatLoops = loops.some(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
-        if (hasRepeatLoops) loops = loops.filter(l => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook');
+        const hasRepeatLoops = loops.some(
+          (l) => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook',
+        );
+        if (hasRepeatLoops)
+          loops = loops.filter(
+            (l) => l.source !== 'scheduled_tasks_lock' && l.source !== 'schedule_wakeup_hook',
+          );
 
         loops.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ loops }));
-      } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+      } catch (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
 
     // ---------------------------------------------------------- POST /api/loops/stop
     if (req.method === 'POST' && url === '/api/loops/stop') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', () => {
         try {
           const { id } = JSON.parse(body);
-          if (!id) { res.writeHead(400); res.end(JSON.stringify({ error: 'id required' })); return; }
+          if (!id) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: 'id required' }));
+            return;
+          }
           const _stopQs = new URL(req.url, 'http://localhost').searchParams;
           const _stopDir = path.resolve(_stopQs.get('dir') || projectDir || process.cwd());
           const loopsDir = path.join(_stopDir, '.monomind', 'loops');
           fs.mkdirSync(loopsDir, { recursive: true });
           fs.writeFileSync(path.join(loopsDir, `${id}.stop`), `stop-requested-${Date.now()}`);
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true }));
-        } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+        } catch (err) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: err.message }));
+        }
       });
       return;
     }
@@ -2706,31 +3603,72 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // ---------------------------------------------------------- POST /api/loops/create
     if (req.method === 'POST' && url === '/api/loops/create') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', () => {
         try {
           const _qs = new URL(req.url, 'http://localhost').searchParams;
-          const { name: _rawName, prompt: _rawPrompt, interval: _rawInterval, maxReps: _rawMaxReps } = JSON.parse(body);
+          const {
+            name: _rawName,
+            prompt: _rawPrompt,
+            interval: _rawInterval,
+            maxReps: _rawMaxReps,
+          } = JSON.parse(body);
           // Cap field sizes to prevent individual large-field disk inflation.
           // The 2MB body cap already limits total payload, but a single field
           // near 2MB would produce a multi-MB loop config file per request.
-          const MAX_LOOP_PROMPT_LEN = 64 * 1024;  // 64 KB
+          const MAX_LOOP_PROMPT_LEN = 64 * 1024; // 64 KB
           const MAX_LOOP_NAME_LEN = 512;
           const MAX_LOOP_INTERVAL_LEN = 64;
-          const prompt = typeof _rawPrompt === 'string' ? _rawPrompt.slice(0, MAX_LOOP_PROMPT_LEN) : null;
+          const prompt =
+            typeof _rawPrompt === 'string' ? _rawPrompt.slice(0, MAX_LOOP_PROMPT_LEN) : null;
           const name = typeof _rawName === 'string' ? _rawName.slice(0, MAX_LOOP_NAME_LEN) : null;
-          const interval = typeof _rawInterval === 'string' ? _rawInterval.slice(0, MAX_LOOP_INTERVAL_LEN) : null;
-          const maxReps = typeof _rawMaxReps === 'number' && Number.isFinite(_rawMaxReps) ? Math.max(1, Math.min(Math.floor(_rawMaxReps), 10000)) : null;
-          if (!prompt) { res.writeHead(400); res.end(JSON.stringify({ error: 'prompt required' })); return; }
-          const loopsDir = path.join(path.resolve(_qs.get('dir') || projectDir || process.cwd()), '.monomind', 'loops');
+          const interval =
+            typeof _rawInterval === 'string' ? _rawInterval.slice(0, MAX_LOOP_INTERVAL_LEN) : null;
+          const maxReps =
+            typeof _rawMaxReps === 'number' && Number.isFinite(_rawMaxReps)
+              ? Math.max(1, Math.min(Math.floor(_rawMaxReps), 10000))
+              : null;
+          if (!prompt) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ error: 'prompt required' }));
+            return;
+          }
+          const loopsDir = path.join(
+            path.resolve(_qs.get('dir') || projectDir || process.cwd()),
+            '.monomind',
+            'loops',
+          );
           fs.mkdirSync(loopsDir, { recursive: true });
-          const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+          const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
           const nowMs = Date.now();
-          const loop = { id, type: 'repeat', name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps, status: 'active', currentRep: 0, startedAt: nowMs, lastRunAt: null };
+          const loop = {
+            id,
+            type: 'repeat',
+            name: name || prompt.slice(0, 40),
+            prompt,
+            interval: interval || '1h',
+            maxReps,
+            status: 'active',
+            currentRep: 0,
+            startedAt: nowMs,
+            lastRunAt: null,
+          };
           fs.writeFileSync(path.join(loopsDir, `${id}.json`), JSON.stringify(loop, null, 2));
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true, id }));
-        } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+        } catch (err) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: err.message }));
+        }
       });
       return;
     }
@@ -2746,11 +3684,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       const slug = d.replace(/\//g, '-');
       const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
       try {
-        const files = fs.readdirSync(projectClaudeDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._'));
+        const files = fs
+          .readdirSync(projectClaudeDir)
+          .filter((f) => f.endsWith('.jsonl') && !f.startsWith('._'));
         let fp = null;
         // Find the file matching sessionId
         for (const f of files) {
-          if (f.includes(sessionId) || sessionId === f.replace('.jsonl', '')) { fp = path.join(projectClaudeDir, f); break; }
+          if (f.includes(sessionId) || sessionId === f.replace('.jsonl', '')) {
+            fp = path.join(projectClaudeDir, f);
+            break;
+          }
         }
         if (!fp) {
           // fallback: find by scanning — the sessionId lives in the first JSONL line, so a
@@ -2759,11 +3702,21 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             const head = _readHeadText(path.join(projectClaudeDir, f));
             const firstLine = head.split('\n', 1)[0];
             if (firstLine) {
-              try { const first = JSON.parse(firstLine); if (first.sessionId === sessionId) { fp = path.join(projectClaudeDir, f); break; } } catch {}
+              try {
+                const first = JSON.parse(firstLine);
+                if (first.sessionId === sessionId) {
+                  fp = path.join(projectClaudeDir, f);
+                  break;
+                }
+              } catch {}
             }
           }
         }
-        if (!fp) { res.writeHead(404); res.end(JSON.stringify({ errors: [] })); return; }
+        if (!fp) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ errors: [] }));
+          return;
+        }
         // Only the most recent portion of the file matters for a dashboard error feed —
         // tail-cap the read so a multi-hundred-MB session log doesn't get buffered whole.
         const lines = _readTailLines(fp);
@@ -2775,15 +3728,24 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             if (!Array.isArray(content)) continue;
             for (const block of content) {
               if (block.type === 'tool_result' && block.is_error) {
-                const errText = Array.isArray(block.content) ? block.content.map(c => c.text || '').join('') : String(block.content || '');
-                if (errText) errors.push({ toolUseId: block.tool_use_id || '', text: errText.slice(0, 500) });
+                const errText = Array.isArray(block.content)
+                  ? block.content.map((c) => c.text || '').join('')
+                  : String(block.content || '');
+                if (errText)
+                  errors.push({ toolUseId: block.tool_use_id || '', text: errText.slice(0, 500) });
               }
             }
           } catch {}
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+        });
         res.end(JSON.stringify({ errors: errors.slice(0, 50) }));
-      } catch (err) { res.writeHead(500); res.end(JSON.stringify({ errors: [], error: err.message })); }
+      } catch (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ errors: [], error: err.message }));
+      }
       return;
     }
 
@@ -2796,10 +3758,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
         ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       });
-      const send = (ev, data) => { try { res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`); } catch {} };
+      const send = (ev, data) => {
+        try {
+          res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
+        } catch {}
+      };
       send('connected', { ts: Date.now() });
       let watcher = null;
       try {
@@ -2807,15 +3773,30 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           if (evtype === 'change' || evtype === 'rename') send('update', { ts: Date.now() });
         });
       } catch {}
-      const pingInterval = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 20000);
-      req.on('close', () => { clearInterval(pingInterval); try { watcher?.close(); } catch {} });
+      const pingInterval = setInterval(() => {
+        try {
+          res.write(': ping\n\n');
+        } catch {}
+      }, 20000);
+      req.on('close', () => {
+        clearInterval(pingInterval);
+        try {
+          watcher?.close();
+        } catch {}
+      });
       return;
     }
 
     // ------------------------------------------------------- DELETE /api/knowledge-chunk
     if (req.method === 'DELETE' && url === '/api/knowledge-chunk') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -2832,16 +3813,34 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             res.end(JSON.stringify({ error: 'chunks.jsonl not found' }));
             return;
           }
-          const entries = fs.readFileSync(chunksFile, 'utf8').split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+          const entries = fs
+            .readFileSync(chunksFile, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => {
+              try {
+                return JSON.parse(l);
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
           const before = entries.length;
-          const filtered = entries.filter(e => e.chunkId !== chunkId);
+          const filtered = entries.filter((e) => e.chunkId !== chunkId);
           if (filtered.length === before) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Chunk not found' }));
             return;
           }
-          fs.writeFileSync(chunksFile, filtered.map(e => JSON.stringify(e)).join('\n') + (filtered.length ? '\n' : ''), 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          fs.writeFileSync(
+            chunksFile,
+            filtered.map((e) => JSON.stringify(e)).join('\n') + (filtered.length ? '\n' : ''),
+            'utf8',
+          );
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true, removed: before - filtered.length }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2854,7 +3853,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // ------------------------------------------------------- PUT /api/knowledge-chunk
     if (req.method === 'PUT' && url === '/api/knowledge-chunk') {
       let body = '';
-      req.on('data', chunk => { body += chunk; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', () => {
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
@@ -2871,16 +3876,34 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             res.end(JSON.stringify({ error: 'chunks.jsonl not found' }));
             return;
           }
-          const entries = fs.readFileSync(chunksFile, 'utf8').split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-          const idx = entries.findIndex(e => e.chunkId === chunkId);
+          const entries = fs
+            .readFileSync(chunksFile, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => {
+              try {
+                return JSON.parse(l);
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
+          const idx = entries.findIndex((e) => e.chunkId === chunkId);
           if (idx === -1) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Chunk not found' }));
             return;
           }
           entries[idx] = { ...entries[idx], text };
-          fs.writeFileSync(chunksFile, entries.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf8');
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+          fs.writeFileSync(
+            chunksFile,
+            entries.map((e) => JSON.stringify(e)).join('\n') + '\n',
+            'utf8',
+          );
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2891,11 +3914,21 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     }
 
     // ── Monograph routes (extracted to routes-monograph.mjs) ──────────────
-    if (await handleMonographRoutes(req, res, url, corsOrigin, { projectDir, buildDocsState, looksLikeOurProcess })) return;
+    if (
+      await handleMonographRoutes(req, res, url, corsOrigin, {
+        projectDir,
+        buildDocsState,
+        looksLikeOurProcess,
+      })
+    )
+      return;
 
     // -------------------------------------------------- POST /api/shutdown
     if (req.method === 'POST' && url === '/api/shutdown') {
-      res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+      });
       res.end(JSON.stringify({ ok: true }));
       // Kill monograph watcher if running
       const d = projectDir || process.cwd();
@@ -2904,13 +3937,22 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const wp = path.join(d, '.monomind', pidName);
           if (fs.statSync(wp).size > 32) continue;
           const wpid = parseInt(fs.readFileSync(wp, 'utf-8').trim(), 10);
-          if (!Number.isInteger(wpid) || wpid <= 0) { try { fs.unlinkSync(wp); } catch {} continue; }
+          if (!Number.isInteger(wpid) || wpid <= 0) {
+            try {
+              fs.unlinkSync(wp);
+            } catch {}
+            continue;
+          }
           if (looksLikeOurProcess(wpid, d)) process.kill(wpid, 'SIGTERM');
-          try { fs.unlinkSync(wp); } catch {}
+          try {
+            fs.unlinkSync(wp);
+          } catch {}
         } catch {}
       }
       // Remove control.json so startup knows we're gone
-      try { fs.unlinkSync(path.join(d, '.monomind', 'control.json')); } catch {}
+      try {
+        fs.unlinkSync(path.join(d, '.monomind', 'control.json'));
+      } catch {}
       setTimeout(shutdown, 100);
       return;
     }
@@ -2918,11 +3960,37 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     // -------------------------------------------------- POST /api/mcp/call
     if (req.method === 'POST' && url === '/api/mcp/call') {
       let body = '';
-      req.on('data', c => { body += c; if (body.length > 2097152) { req.destroy(); return; } });
+      req.on('data', (c) => {
+        body += c;
+        if (body.length > 2097152) {
+          req.destroy();
+          return;
+        }
+      });
       req.on('end', async () => {
-        const json = res => { res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) }); };
-        const ok = (data) => { json(res); res.end(JSON.stringify({ content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] })); };
-        const err = (msg) => { json(res); res.end(JSON.stringify({ error: msg })); };
+        const json = (res) => {
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          });
+        };
+        const ok = (data) => {
+          json(res);
+          res.end(
+            JSON.stringify({
+              content: [
+                {
+                  type: 'text',
+                  text: typeof data === 'string' ? data : JSON.stringify(data, null, 2),
+                },
+              ],
+            }),
+          );
+        };
+        const err = (msg) => {
+          json(res);
+          res.end(JSON.stringify({ error: msg }));
+        };
         try {
           const { tool, input = {}, args = {} } = JSON.parse(body);
           const qs2 = new URL(req.url, 'http://localhost').searchParams;
@@ -2930,12 +3998,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const dir2 = qs2.get('dir') || args.dir || input.dir || projectDir;
           const d2 = path.resolve(dir2 || process.cwd());
           const dbPath2 = path.join(d2, '.monomind', 'monograph.db');
-          if (!fs.existsSync(dbPath2)) { err('monograph.db not found — run monograph build first'); return; }
+          if (!fs.existsSync(dbPath2)) {
+            err('monograph.db not found — run monograph build first');
+            return;
+          }
           // Import only graphology-free storage modules to avoid broken graphology dep
-          const { openDb, closeDb } = await import(new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href);
-          const { ftsSearch } = await import(new URL('../../../../monograph/dist/src/storage/fts-store.js', import.meta.url).href);
-          const { countNodes } = await import(new URL('../../../../monograph/dist/src/storage/node-store.js', import.meta.url).href);
-          const { countEdges } = await import(new URL('../../../../monograph/dist/src/storage/edge-store.js', import.meta.url).href);
+          const { openDb, closeDb } = await import(
+            new URL('../../../../monograph/dist/src/storage/db.js', import.meta.url).href
+          );
+          const { ftsSearch } = await import(
+            new URL('../../../../monograph/dist/src/storage/fts-store.js', import.meta.url).href
+          );
+          const { countNodes } = await import(
+            new URL('../../../../monograph/dist/src/storage/node-store.js', import.meta.url).href
+          );
+          const { countEdges } = await import(
+            new URL('../../../../monograph/dist/src/storage/edge-store.js', import.meta.url).href
+          );
           const getShortestPath = (db, fromId, toId, maxDepth = 6) => {
             if (fromId === toId) return [fromId];
             const visited = new Set([fromId]);
@@ -2944,7 +4023,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               const next = [];
               for (const chain of frontier) {
                 const cur = chain[chain.length - 1];
-                const neighbors = db.prepare('SELECT target_id AS id FROM edges WHERE source_id=? UNION SELECT source_id AS id FROM edges WHERE target_id=?').all(cur, cur);
+                const neighbors = db
+                  .prepare(
+                    'SELECT target_id AS id FROM edges WHERE source_id=? UNION SELECT source_id AS id FROM edges WHERE target_id=?',
+                  )
+                  .all(cur, cur);
                 for (const { id } of neighbors) {
                   if (!visited.has(id)) {
                     const newChain = [...chain, id];
@@ -2962,41 +4045,59 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           const db2 = openDb(dbPath2);
           try {
             if (tool === 'monograph_stats') {
-              const n = countNodes(db2), e = countEdges(db2);
+              const n = countNodes(db2),
+                e = countEdges(db2);
               ok(`nodes: ${n}\nedges: ${e}`);
             } else if (tool === 'monograph_cypher') {
               // Translate basic MATCH (n:Label) queries to SQL
-              const q = (String(input.query || '')).trim().slice(0, 4096);
+              const q = String(input.query || '')
+                .trim()
+                .slice(0, 4096);
               const labelMatch = q.match(/MATCH\s+\(n:(\w+)\)/i);
               if (labelMatch) {
                 const label = labelMatch[1];
-                const rows = db2.prepare('SELECT name FROM nodes WHERE label = ? LIMIT 5000').all(label);
-                ok(rows.map(r => r.name).join('\n'));
+                const rows = db2
+                  .prepare('SELECT name FROM nodes WHERE label = ? LIMIT 5000')
+                  .all(label);
+                ok(rows.map((r) => r.name).join('\n'));
               } else {
                 ok('Cypher: unsupported query pattern');
               }
             } else if (tool === 'monograph_cohesion') {
               const limit = input.limit || 30;
               // Check if community_id is populated
-              const hasCommunities = db2.prepare('SELECT COUNT(*) as c FROM nodes WHERE community_id IS NOT NULL').get().c > 0;
+              const hasCommunities =
+                db2.prepare('SELECT COUNT(*) as c FROM nodes WHERE community_id IS NOT NULL').get()
+                  .c > 0;
               if (hasCommunities) {
-                const rows = db2.prepare('SELECT community_id, COUNT(*) as size FROM nodes GROUP BY community_id ORDER BY size DESC LIMIT ?').all(limit);
-                ok(rows.map(r => `community ${r.community_id}: ${r.size} nodes`).join('\n'));
+                const rows = db2
+                  .prepare(
+                    'SELECT community_id, COUNT(*) as size FROM nodes GROUP BY community_id ORDER BY size DESC LIMIT ?',
+                  )
+                  .all(limit);
+                ok(rows.map((r) => `community ${r.community_id}: ${r.size} nodes`).join('\n'));
               } else {
                 // Fallback: group by type (label)
-                const rows = db2.prepare('SELECT label, COUNT(*) as cnt FROM nodes GROUP BY label ORDER BY cnt DESC LIMIT ?').all(limit);
+                const rows = db2
+                  .prepare(
+                    'SELECT label, COUNT(*) as cnt FROM nodes GROUP BY label ORDER BY cnt DESC LIMIT ?',
+                  )
+                  .all(limit);
                 const total = db2.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
-                const lines = rows.map(r => {
+                const lines = rows.map((r) => {
                   const pct = ((r.cnt / total) * 100).toFixed(1);
                   const bar = '█'.repeat(Math.round(pct / 3));
                   return `${(r.label || 'unknown').padEnd(12)} ${r.cnt.toString().padStart(6)} nodes  (${pct}%)  ${bar}`;
                 });
-                ok(`Type Distribution (community clustering not yet run)\n${'─'.repeat(50)}\n${lines.join('\n')}`);
+                ok(
+                  `Type Distribution (community clustering not yet run)\n${'─'.repeat(50)}\n${lines.join('\n')}`,
+                );
               }
             } else if (tool === 'monograph_bridge') {
               const limit = input.limit || 20;
               // Find hub nodes that connect many different directories (cross-module connectors)
-              const rows = db2.prepare(`
+              const rows = db2
+                .prepare(`
                 SELECT n.name, n.label, n.file_path,
                   COUNT(DISTINCT CASE WHEN e.source_id = n.id THEN n2.file_path ELSE NULL END) +
                   COUNT(DISTINCT CASE WHEN e.target_id = n.id THEN n2.file_path ELSE NULL END) as cross_file_count,
@@ -3007,34 +4108,57 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                 GROUP BY n.id
                 HAVING cross_file_count > 2
                 ORDER BY cross_file_count DESC, total_degree DESC
-                LIMIT ?`).all(limit);
+                LIMIT ?`)
+                .all(limit);
               if (!rows.length) {
-                ok('No cross-module bridge nodes found in top results. Try running monograph build to index more files.');
-              } else {
-                const lines = rows.map(r =>
-                  `${r.name} (${r.label})\n  → connects ${r.cross_file_count} files, degree ${r.total_degree}\n  ${r.file_path || '?'}`
+                ok(
+                  'No cross-module bridge nodes found in top results. Try running monograph build to index more files.',
                 );
-                ok(`Cross-Module Bridge Nodes (${rows.length})\n${'─'.repeat(50)}\n${lines.join('\n\n')}`);
+              } else {
+                const lines = rows.map(
+                  (r) =>
+                    `${r.name} (${r.label})\n  → connects ${r.cross_file_count} files, degree ${r.total_degree}\n  ${r.file_path || '?'}`,
+                );
+                ok(
+                  `Cross-Module Bridge Nodes (${rows.length})\n${'─'.repeat(50)}\n${lines.join('\n\n')}`,
+                );
               }
             } else if (tool === 'monograph_detect_changes') {
               const { execSync } = await import('child_process');
               let changed = '';
-              try { changed = execSync('git diff --name-only HEAD', { cwd: d2, encoding: 'utf-8' }); } catch { changed = '(git not available)'; }
+              try {
+                changed = execSync('git diff --name-only HEAD', { cwd: d2, encoding: 'utf-8' });
+              } catch {
+                changed = '(git not available)';
+              }
               ok(changed.trim() || 'No changed files detected');
             } else if (tool === 'monograph_diff') {
-              ok('Graph diff: compare two snapshots using monograph snapshot + monograph diff commands');
+              ok(
+                'Graph diff: compare two snapshots using monograph snapshot + monograph diff commands',
+              );
             } else if (tool === 'monograph_rename') {
               // Cap sym to prevent O(n) FTS scan DoS via oversized query string.
               const sym = String(input.symbolName || '').slice(0, 4096);
-              if (!sym) { ok('Provide symbolName to rename'); return; }
+              if (!sym) {
+                ok('Provide symbolName to rename');
+                return;
+              }
               const hits = ftsSearch(db2, sym, 20);
-              ok(`Found ${hits.length} occurrences of "${sym}":\n` + hits.map(h => `  ${h.filePath || '?'}:${h.startLine || '?'} — ${h.name}`).join('\n'));
+              ok(
+                `Found ${hits.length} occurrences of "${sym}":\n` +
+                  hits
+                    .map((h) => `  ${h.filePath || '?'}:${h.startLine || '?'} — ${h.name}`)
+                    .join('\n'),
+              );
             } else if (tool === 'monograph_impact') {
               const target = String(input.target || '').slice(0, 4096);
               const dir3 = input.direction || 'both';
               const depth = input.maxDepth || 4;
               const hits = ftsSearch(db2, target, 5);
-              if (!hits.length) { ok(`Node not found: ${target}`); return; }
+              if (!hits.length) {
+                ok(`Node not found: ${target}`);
+                return;
+              }
               const nodeId = hits[0].id;
               const visited = new Set([nodeId]);
               const frontier = [nodeId];
@@ -3042,77 +4166,178 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               for (let d3 = 0; d3 < depth && frontier.length; d3++) {
                 const next = [];
                 for (const id of frontier) {
-                  const outgoing = dir3 !== 'upstream' ? db2.prepare('SELECT target_id, relation FROM edges WHERE source_id = ?').all(id) : [];
-                  const incoming = dir3 !== 'downstream' ? db2.prepare('SELECT source_id as target_id, relation FROM edges WHERE target_id = ?').all(id) : [];
+                  const outgoing =
+                    dir3 !== 'upstream'
+                      ? db2
+                          .prepare('SELECT target_id, relation FROM edges WHERE source_id = ?')
+                          .all(id)
+                      : [];
+                  const incoming =
+                    dir3 !== 'downstream'
+                      ? db2
+                          .prepare(
+                            'SELECT source_id as target_id, relation FROM edges WHERE target_id = ?',
+                          )
+                          .all(id)
+                      : [];
                   for (const e of [...outgoing, ...incoming]) {
                     if (!visited.has(e.target_id)) {
                       visited.add(e.target_id);
                       next.push(e.target_id);
-                      const n3 = db2.prepare('SELECT name, label FROM nodes WHERE id = ?').get(e.target_id);
-                      if (n3) results.push(`  [hop ${d3+1}] ${n3.name} (${n3.label}) via ${e.relation}`);
+                      const n3 = db2
+                        .prepare('SELECT name, label FROM nodes WHERE id = ?')
+                        .get(e.target_id);
+                      if (n3)
+                        results.push(
+                          `  [hop ${d3 + 1}] ${n3.name} (${n3.label}) via ${e.relation}`,
+                        );
                     }
                   }
                 }
-                frontier.length = 0; frontier.push(...next);
+                frontier.length = 0;
+                frontier.push(...next);
               }
-              ok(`Impact of "${hits[0].name}" (${dir3}, depth=${depth}):\n` + (results.join('\n') || '  (no dependencies found)'));
+              ok(
+                `Impact of "${hits[0].name}" (${dir3}, depth=${depth}):\n` +
+                  (results.join('\n') || '  (no dependencies found)'),
+              );
             } else if (tool === 'monograph_context') {
               const id = String(input.id || '').slice(0, 4096);
               const hits = ftsSearch(db2, id, 5);
-              if (!hits.length) { ok(`Node not found: ${id}`); return; }
+              if (!hits.length) {
+                ok(`Node not found: ${id}`);
+                return;
+              }
               const node = hits[0];
-              const outEdges = db2.prepare('SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.target_id WHERE e.source_id = ? LIMIT 20').all(node.id);
-              const inEdges = db2.prepare('SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.source_id WHERE e.target_id = ? LIMIT 20').all(node.id);
-              ok(`# ${node.name} (${node.label})\nFile: ${node.filePath || '?'}\n\n**Imports / depends on (${outEdges.length}):**\n${outEdges.map(e => `  → ${e.name} [${e.relation}]`).join('\n') || '  (none)'}\n\n**Used by / depended on by (${inEdges.length}):**\n${inEdges.map(e => `  ← ${e.name} [${e.relation}]`).join('\n') || '  (none)'}`);
+              const outEdges = db2
+                .prepare(
+                  'SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.target_id WHERE e.source_id = ? LIMIT 20',
+                )
+                .all(node.id);
+              const inEdges = db2
+                .prepare(
+                  'SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.source_id WHERE e.target_id = ? LIMIT 20',
+                )
+                .all(node.id);
+              ok(
+                `# ${node.name} (${node.label})\nFile: ${node.filePath || '?'}\n\n**Imports / depends on (${outEdges.length}):**\n${outEdges.map((e) => `  → ${e.name} [${e.relation}]`).join('\n') || '  (none)'}\n\n**Used by / depended on by (${inEdges.length}):**\n${inEdges.map((e) => `  ← ${e.name} [${e.relation}]`).join('\n') || '  (none)'}`,
+              );
             } else if (tool === 'monograph_query' || tool === 'monograph_suggest') {
               const q2 = String(input.query || input.task || '').slice(0, 4096);
               const hits2 = ftsSearch(db2, q2, 20);
-              ok(hits2.map(h => `${h.name} (${h.label}) — ${h.filePath || '?'}:${h.startLine || '?'}`).join('\n') || 'No results');
-
+              ok(
+                hits2
+                  .map((h) => `${h.name} (${h.label}) — ${h.filePath || '?'}:${h.startLine || '?'}`)
+                  .join('\n') || 'No results',
+              );
             } else if (tool === 'monograph_unlinked_refs') {
               const limit = input.limit || 50;
-              const rows = db2.prepare(`SELECT n.name, n.label, n.file_path FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label IN ('Function','Class','Variable','Interface','Method','Module') ORDER BY n.name LIMIT ?`).all(limit);
-              if (!rows.length) { ok('No unlinked symbols found — all exports appear to be referenced.'); }
-              else { ok(`Unlinked Symbols (${rows.length}) — potentially unused exports:\n${'─'.repeat(50)}\n${rows.map(r => `  ${r.name} (${r.label})\n    ${r.file_path || '?'}`).join('\n\n')}`); }
-
+              const rows = db2
+                .prepare(
+                  `SELECT n.name, n.label, n.file_path FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label IN ('Function','Class','Variable','Interface','Method','Module') ORDER BY n.name LIMIT ?`,
+                )
+                .all(limit);
+              if (!rows.length) {
+                ok('No unlinked symbols found — all exports appear to be referenced.');
+              } else {
+                ok(
+                  `Unlinked Symbols (${rows.length}) — potentially unused exports:\n${'─'.repeat(50)}\n${rows.map((r) => `  ${r.name} (${r.label})\n    ${r.file_path || '?'}`).join('\n\n')}`,
+                );
+              }
             } else if (tool === 'monograph_reachability') {
               const limit = input.limit || 30;
-              const unreachable = db2.prepare(`SELECT n.name, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as out_deg FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label = 'File' ORDER BY out_deg DESC LIMIT ?`).all(limit);
-              const total = db2.prepare("SELECT COUNT(*) as c FROM nodes WHERE label = 'File'").get().c;
-              if (!unreachable.length) { ok(`All ${total} files are reachable from at least one other file.`); }
-              else { ok(`Unreachable Files (${unreachable.length} of ${total} total):\n${'─'.repeat(50)}\n${unreachable.map(r => `  ${r.name}${r.out_deg ? ` (imports ${r.out_deg} others)` : ''}\n    ${r.file_path || '?'}`).join('\n\n')}`); }
-
+              const unreachable = db2
+                .prepare(
+                  `SELECT n.name, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as out_deg FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label = 'File' ORDER BY out_deg DESC LIMIT ?`,
+                )
+                .all(limit);
+              const total = db2
+                .prepare("SELECT COUNT(*) as c FROM nodes WHERE label = 'File'")
+                .get().c;
+              if (!unreachable.length) {
+                ok(`All ${total} files are reachable from at least one other file.`);
+              } else {
+                ok(
+                  `Unreachable Files (${unreachable.length} of ${total} total):\n${'─'.repeat(50)}\n${unreachable.map((r) => `  ${r.name}${r.out_deg ? ` (imports ${r.out_deg} others)` : ''}\n    ${r.file_path || '?'}`).join('\n\n')}`,
+                );
+              }
             } else if (tool === 'monograph_boundary_check') {
               const limit = input.limit || 40;
-              const rows = db2.prepare(`SELECT n1.file_path as src, n2.file_path as dst, e.relation, COUNT(*) as cnt FROM edges e JOIN nodes n1 ON n1.id = e.source_id JOIN nodes n2 ON n2.id = e.target_id WHERE n1.file_path IS NOT NULL AND n2.file_path IS NOT NULL AND n1.file_path != n2.file_path GROUP BY n1.file_path, n2.file_path ORDER BY cnt DESC LIMIT ?`).all(limit);
-              const suspicious = rows.filter(r => { const s = (r.src||'').toLowerCase(), t = (r.dst||'').toLowerCase(); return (s.includes('test') && !t.includes('test')) || (s.includes('spec') && !t.includes('spec')) || (s.includes('/ui/') && t.includes('/db/')) || (s.includes('/view') && t.includes('/model')); });
-              if (!suspicious.length) { ok(`Boundary check: ${rows.length} cross-file edge groups — no obvious violations.\nTop connections:\n${rows.slice(0,10).map(r => `  ${r.src} → ${r.dst} [${r.cnt}x]`).join('\n')}`); }
-              else { ok(`Boundary Violations (${suspicious.length} suspicious):\n${'─'.repeat(50)}\n${suspicious.map(r => `  ⚠ ${r.src}\n    → ${r.dst}  [${r.cnt} edges]`).join('\n\n')}`); }
-
-            } else if (tool === 'monograph_regression_check' || tool === 'monograph_baseline_compare') {
-              const n = countNodes(db2), e = countEdges(db2);
+              const rows = db2
+                .prepare(
+                  `SELECT n1.file_path as src, n2.file_path as dst, e.relation, COUNT(*) as cnt FROM edges e JOIN nodes n1 ON n1.id = e.source_id JOIN nodes n2 ON n2.id = e.target_id WHERE n1.file_path IS NOT NULL AND n2.file_path IS NOT NULL AND n1.file_path != n2.file_path GROUP BY n1.file_path, n2.file_path ORDER BY cnt DESC LIMIT ?`,
+                )
+                .all(limit);
+              const suspicious = rows.filter((r) => {
+                const s = (r.src || '').toLowerCase(),
+                  t = (r.dst || '').toLowerCase();
+                return (
+                  (s.includes('test') && !t.includes('test')) ||
+                  (s.includes('spec') && !t.includes('spec')) ||
+                  (s.includes('/ui/') && t.includes('/db/')) ||
+                  (s.includes('/view') && t.includes('/model'))
+                );
+              });
+              if (!suspicious.length) {
+                ok(
+                  `Boundary check: ${rows.length} cross-file edge groups — no obvious violations.\nTop connections:\n${rows
+                    .slice(0, 10)
+                    .map((r) => `  ${r.src} → ${r.dst} [${r.cnt}x]`)
+                    .join('\n')}`,
+                );
+              } else {
+                ok(
+                  `Boundary Violations (${suspicious.length} suspicious):\n${'─'.repeat(50)}\n${suspicious.map((r) => `  ⚠ ${r.src}\n    → ${r.dst}  [${r.cnt} edges]`).join('\n\n')}`,
+                );
+              }
+            } else if (
+              tool === 'monograph_regression_check' ||
+              tool === 'monograph_baseline_compare'
+            ) {
+              const n = countNodes(db2),
+                e = countEdges(db2);
               const bPath = path.join(d2, '.monomind', 'monograph-baseline.json');
               if (!fs.existsSync(bPath)) {
-                fs.writeFileSync(bPath, JSON.stringify({ nodes: n, edges: e, savedAt: new Date().toISOString() }), 'utf-8');
+                fs.writeFileSync(
+                  bPath,
+                  JSON.stringify({ nodes: n, edges: e, savedAt: new Date().toISOString() }),
+                  'utf-8',
+                );
                 ok(`Baseline saved (${n} nodes, ${e} edges). Run again to compare.`);
               } else {
                 const base = JSON.parse(fs.readFileSync(bPath, 'utf-8'));
-                const dn = n - base.nodes, de = e - base.edges;
-                const sign = v => v > 0 ? `+${v}` : String(v);
-                ok(`Comparison vs baseline (${base.savedAt || 'unknown'}):\n${'─'.repeat(50)}\n  Nodes: ${base.nodes} → ${n} (${sign(dn)})\n  Edges: ${base.edges} → ${e} (${sign(de)})\n\n${dn === 0 && de === 0 ? '✓ No structural regressions detected.' : '⚠ Graph has changed since baseline.'}`);
+                const dn = n - base.nodes,
+                  de = e - base.edges;
+                const sign = (v) => (v > 0 ? `+${v}` : String(v));
+                ok(
+                  `Comparison vs baseline (${base.savedAt || 'unknown'}):\n${'─'.repeat(50)}\n  Nodes: ${base.nodes} → ${n} (${sign(dn)})\n  Edges: ${base.edges} → ${e} (${sign(de)})\n\n${dn === 0 && de === 0 ? '✓ No structural regressions detected.' : '⚠ Graph has changed since baseline.'}`,
+                );
               }
-
             } else if (tool === 'monograph_clone_detect' || tool === 'monograph_similar_files') {
               const limit = input.limit || 20;
-              const fileNodes = db2.prepare("SELECT id, name, file_path FROM nodes WHERE label = 'File' LIMIT 300").all();
+              const fileNodes = db2
+                .prepare("SELECT id, name, file_path FROM nodes WHERE label = 'File' LIMIT 300")
+                .all();
               const deps = {};
-              for (const f of fileNodes) { deps[f.id] = { name: f.name, set: new Set(db2.prepare('SELECT target_id FROM edges WHERE source_id = ?').all(f.id).map(r => r.target_id)) }; }
-              const keys = Object.keys(deps), pairs = [];
+              for (const f of fileNodes) {
+                deps[f.id] = {
+                  name: f.name,
+                  set: new Set(
+                    db2
+                      .prepare('SELECT target_id FROM edges WHERE source_id = ?')
+                      .all(f.id)
+                      .map((r) => r.target_id),
+                  ),
+                };
+              }
+              const keys = Object.keys(deps),
+                pairs = [];
               for (let i = 0; i < Math.min(keys.length, 150); i++) {
                 for (let j = i + 1; j < Math.min(keys.length, 150); j++) {
-                  const a = deps[keys[i]], b = deps[keys[j]];
+                  const a = deps[keys[i]],
+                    b = deps[keys[j]];
                   if (!a.set.size && !b.set.size) continue;
-                  const inter = [...a.set].filter(x => b.set.has(x)).length;
+                  const inter = [...a.set].filter((x) => b.set.has(x)).length;
                   const union = new Set([...a.set, ...b.set]).size;
                   const jac = union ? inter / union : 0;
                   if (jac > 0.5) pairs.push({ a: a.name, b: b.name, jac });
@@ -3120,126 +4345,282 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               }
               pairs.sort((x, y) => y.jac - x.jac);
               const top = pairs.slice(0, limit);
-              if (!top.length) { ok('No similar file pairs found (Jaccard threshold: 0.5).'); }
-              else { ok(`Similar File Pairs (${top.length}, by import pattern):\n${'─'.repeat(50)}\n${top.map(p => `  ${(p.jac*100).toFixed(0)}% similar\n    ${p.a}\n    ${p.b}`).join('\n\n')}`); }
-
+              if (!top.length) {
+                ok('No similar file pairs found (Jaccard threshold: 0.5).');
+              } else {
+                ok(
+                  `Similar File Pairs (${top.length}, by import pattern):\n${'─'.repeat(50)}\n${top.map((p) => `  ${(p.jac * 100).toFixed(0)}% similar\n    ${p.a}\n    ${p.b}`).join('\n\n')}`,
+                );
+              }
             } else if (tool === 'monograph_mirrored_dirs') {
-              const fileNodes = db2.prepare("SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL").all();
+              const fileNodes = db2
+                .prepare(
+                  "SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL",
+                )
+                .all();
               const dirFiles = {};
-              for (const f of fileNodes) { const dir = path.dirname(f.file_path), base = path.basename(f.file_path); if (!dirFiles[dir]) dirFiles[dir] = new Set(); dirFiles[dir].add(base); }
-              const dirs = Object.keys(dirFiles), pairs = [];
+              for (const f of fileNodes) {
+                const dir = path.dirname(f.file_path),
+                  base = path.basename(f.file_path);
+                if (!dirFiles[dir]) dirFiles[dir] = new Set();
+                dirFiles[dir].add(base);
+              }
+              const dirs = Object.keys(dirFiles),
+                pairs = [];
               for (let i = 0; i < dirs.length; i++) {
                 for (let j = i + 1; j < dirs.length; j++) {
-                  const a = dirFiles[dirs[i]], b = dirFiles[dirs[j]];
-                  const inter = [...a].filter(x => b.has(x)).length;
+                  const a = dirFiles[dirs[i]],
+                    b = dirFiles[dirs[j]];
+                  const inter = [...a].filter((x) => b.has(x)).length;
                   const union = new Set([...a, ...b]).size;
                   const jac = union ? inter / union : 0;
-                  if (jac >= 0.5 && inter >= 2) pairs.push({ a: dirs[i], b: dirs[j], overlap: inter, jac });
+                  if (jac >= 0.5 && inter >= 2)
+                    pairs.push({ a: dirs[i], b: dirs[j], overlap: inter, jac });
                 }
               }
               pairs.sort((x, y) => y.jac - x.jac);
-              if (!pairs.length) { ok('No mirrored directory pairs detected (Jaccard ≥ 0.5, min 2 shared files).'); }
-              else { ok(`Mirrored Directories (${pairs.length} pairs):\n${'─'.repeat(50)}\n${pairs.slice(0,20).map(p => `  ${(p.jac*100).toFixed(0)}% overlap (${p.overlap} shared files)\n    ${p.a}\n    ${p.b}`).join('\n\n')}`); }
-
-            } else if (tool === 'monograph_health_score' || tool === 'monograph_vital_signs_snapshot') {
-              const n = countNodes(db2), e = countEdges(db2);
-              const dead = db2.prepare("SELECT COUNT(*) as c FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label IN ('Function','Class','Method')").get().c;
-              const hubs = db2.prepare('SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*) > 20)').get().c;
-              const density = n > 1 ? (2 * e / (n * (n - 1))).toFixed(4) : '0';
-              const deadRatio = n ? (dead / n * 100).toFixed(1) : '0';
-              const score = Math.max(0, Math.min(100, 100 - Math.min(30, parseFloat(deadRatio) * 0.5) - Math.min(20, hubs * 2))).toFixed(0);
-              const status = parseInt(score) >= 70 ? '✓ OK' : parseInt(score) >= 40 ? '⚠ WARNING' : '✗ CRITICAL';
-              ok(`Vital Signs — ${new Date().toISOString()}\n${'─'.repeat(50)}\n  Health Score:  ${score}/100  ${status}\n  Nodes:         ${n}\n  Edges:         ${e}\n  Density:       ${density}\n  Dead symbols:  ${dead} (${deadRatio}%)\n  Hub nodes:     ${hubs} nodes with >20 edges`);
-
+              if (!pairs.length) {
+                ok('No mirrored directory pairs detected (Jaccard ≥ 0.5, min 2 shared files).');
+              } else {
+                ok(
+                  `Mirrored Directories (${pairs.length} pairs):\n${'─'.repeat(50)}\n${pairs
+                    .slice(0, 20)
+                    .map(
+                      (p) =>
+                        `  ${(p.jac * 100).toFixed(0)}% overlap (${p.overlap} shared files)\n    ${p.a}\n    ${p.b}`,
+                    )
+                    .join('\n\n')}`,
+                );
+              }
+            } else if (
+              tool === 'monograph_health_score' ||
+              tool === 'monograph_vital_signs_snapshot'
+            ) {
+              const n = countNodes(db2),
+                e = countEdges(db2);
+              const dead = db2
+                .prepare(
+                  "SELECT COUNT(*) as c FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label IN ('Function','Class','Method')",
+                )
+                .get().c;
+              const hubs = db2
+                .prepare(
+                  'SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*) > 20)',
+                )
+                .get().c;
+              const density = n > 1 ? ((2 * e) / (n * (n - 1))).toFixed(4) : '0';
+              const deadRatio = n ? ((dead / n) * 100).toFixed(1) : '0';
+              const score = Math.max(
+                0,
+                Math.min(
+                  100,
+                  100 - Math.min(30, parseFloat(deadRatio) * 0.5) - Math.min(20, hubs * 2),
+                ),
+              ).toFixed(0);
+              const status =
+                parseInt(score) >= 70 ? '✓ OK' : parseInt(score) >= 40 ? '⚠ WARNING' : '✗ CRITICAL';
+              ok(
+                `Vital Signs — ${new Date().toISOString()}\n${'─'.repeat(50)}\n  Health Score:  ${score}/100  ${status}\n  Nodes:         ${n}\n  Edges:         ${e}\n  Density:       ${density}\n  Dead symbols:  ${dead} (${deadRatio}%)\n  Hub nodes:     ${hubs} nodes with >20 edges`,
+              );
             } else if (tool === 'monograph_health_trend') {
               const bPath = path.join(d2, '.monomind', 'monograph-baseline.json');
-              if (!fs.existsSync(bPath)) { ok('No trend data yet. Run "Health Score" or "Regression Check" first to save a baseline.'); }
-              else {
+              if (!fs.existsSync(bPath)) {
+                ok(
+                  'No trend data yet. Run "Health Score" or "Regression Check" first to save a baseline.',
+                );
+              } else {
                 const base = JSON.parse(fs.readFileSync(bPath, 'utf-8'));
-                const n = countNodes(db2), e = countEdges(db2);
-                const dn = n - base.nodes, de = e - base.edges;
-                const sign = v => v > 0 ? `+${v}` : String(v);
-                ok(`Health Trend (vs ${base.savedAt || 'unknown'}):\n${'─'.repeat(50)}\n  Nodes: ${base.nodes} → ${n} (${sign(dn)})\n  Edges: ${base.edges} → ${e} (${sign(de)})\n  Trend: ${dn === 0 && de === 0 ? 'stable' : dn > 0 ? 'growing' : 'shrinking'}`);
+                const n = countNodes(db2),
+                  e = countEdges(db2);
+                const dn = n - base.nodes,
+                  de = e - base.edges;
+                const sign = (v) => (v > 0 ? `+${v}` : String(v));
+                ok(
+                  `Health Trend (vs ${base.savedAt || 'unknown'}):\n${'─'.repeat(50)}\n  Nodes: ${base.nodes} → ${n} (${sign(dn)})\n  Edges: ${base.edges} → ${e} (${sign(de)})\n  Trend: ${dn === 0 && de === 0 ? 'stable' : dn > 0 ? 'growing' : 'shrinking'}`,
+                );
               }
-
             } else if (tool === 'monograph_hotspots') {
               const limit = input.limit || 20;
-              const rows = db2.prepare(`SELECT n.name, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id OR target_id = n.id) as degree, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as fan_out, (SELECT COUNT(*) FROM edges WHERE target_id = n.id) as fan_in FROM nodes n WHERE n.label = 'File' ORDER BY degree DESC LIMIT ?`).all(limit);
-              if (!rows.length) { ok('No file hotspots found.'); }
-              else { ok(`Hotspot Files (top ${rows.length} by degree):\n${'─'.repeat(50)}\n${rows.map((r,i) => `  ${i+1}. ${r.name}  [degree ${r.degree}: ↑${r.fan_in} in, ↓${r.fan_out} out]\n     ${r.file_path || '?'}`).join('\n')}`); }
-
+              const rows = db2
+                .prepare(
+                  `SELECT n.name, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id OR target_id = n.id) as degree, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as fan_out, (SELECT COUNT(*) FROM edges WHERE target_id = n.id) as fan_in FROM nodes n WHERE n.label = 'File' ORDER BY degree DESC LIMIT ?`,
+                )
+                .all(limit);
+              if (!rows.length) {
+                ok('No file hotspots found.');
+              } else {
+                ok(
+                  `Hotspot Files (top ${rows.length} by degree):\n${'─'.repeat(50)}\n${rows.map((r, i) => `  ${i + 1}. ${r.name}  [degree ${r.degree}: ↑${r.fan_in} in, ↓${r.fan_out} out]\n     ${r.file_path || '?'}`).join('\n')}`,
+                );
+              }
             } else if (tool === 'monograph_maintainability') {
               const limit = input.limit || 25;
-              const rows = db2.prepare(`SELECT n.name, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as fan_out, (SELECT COUNT(*) FROM edges WHERE target_id = n.id) as fan_in FROM nodes n WHERE n.label = 'File' ORDER BY fan_out DESC LIMIT ?`).all(limit);
-              if (!rows.length) { ok('No file data for maintainability analysis.'); }
-              else {
-                const maxOut = Math.max(...rows.map(r => r.fan_out), 1);
-                const lines = rows.map(r => { const mi = Math.max(0, 100 - (r.fan_out / maxOut) * 60 - (r.fan_in > 10 ? 20 : 0)).toFixed(0); return `  ${parseInt(mi) >= 70 ? '✓' : parseInt(mi) >= 40 ? '⚠' : '✗'} MI:${mi.padStart(3)}  out:${String(r.fan_out).padStart(4)}  in:${String(r.fan_in).padStart(4)}  ${r.name}`; });
-                ok(`Maintainability Index (estimated from fan-out/fan-in):\n${'─'.repeat(60)}\n${lines.join('\n')}`);
+              const rows = db2
+                .prepare(
+                  `SELECT n.name, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as fan_out, (SELECT COUNT(*) FROM edges WHERE target_id = n.id) as fan_in FROM nodes n WHERE n.label = 'File' ORDER BY fan_out DESC LIMIT ?`,
+                )
+                .all(limit);
+              if (!rows.length) {
+                ok('No file data for maintainability analysis.');
+              } else {
+                const maxOut = Math.max(...rows.map((r) => r.fan_out), 1);
+                const lines = rows.map((r) => {
+                  const mi = Math.max(
+                    0,
+                    100 - (r.fan_out / maxOut) * 60 - (r.fan_in > 10 ? 20 : 0),
+                  ).toFixed(0);
+                  return `  ${parseInt(mi) >= 70 ? '✓' : parseInt(mi) >= 40 ? '⚠' : '✗'} MI:${mi.padStart(3)}  out:${String(r.fan_out).padStart(4)}  in:${String(r.fan_in).padStart(4)}  ${r.name}`;
+                });
+                ok(
+                  `Maintainability Index (estimated from fan-out/fan-in):\n${'─'.repeat(60)}\n${lines.join('\n')}`,
+                );
               }
-
             } else if (tool === 'monograph_complexity' || tool === 'monograph_crap_score') {
               const limit = input.limit || 25;
-              const rows = db2.prepare(`SELECT n.name, n.label, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as out_deg FROM nodes n WHERE n.label IN ('Function','Method','Class') ORDER BY out_deg DESC LIMIT ?`).all(limit);
-              if (!rows.length) { ok('No function/method nodes found. Build the graph first.'); }
-              else {
+              const rows = db2
+                .prepare(
+                  `SELECT n.name, n.label, n.file_path, (SELECT COUNT(*) FROM edges WHERE source_id = n.id) as out_deg FROM nodes n WHERE n.label IN ('Function','Method','Class') ORDER BY out_deg DESC LIMIT ?`,
+                )
+                .all(limit);
+              if (!rows.length) {
+                ok('No function/method nodes found. Build the graph first.');
+              } else {
                 const isCrap = tool === 'monograph_crap_score';
-                const header = isCrap ? 'CRAP Score proxy (degree² — lower is better)' : 'Complexity by Out-Degree';
-                ok(`${header}:\n${'─'.repeat(50)}\n${rows.map(r => `  ${r.name} (${r.label})  ${isCrap ? 'CRAP' : 'complexity'}: ${isCrap ? Math.pow(r.out_deg,2) : r.out_deg}\n    ${r.file_path || '?'}`).join('\n')}`);
+                const header = isCrap
+                  ? 'CRAP Score proxy (degree² — lower is better)'
+                  : 'Complexity by Out-Degree';
+                ok(
+                  `${header}:\n${'─'.repeat(50)}\n${rows.map((r) => `  ${r.name} (${r.label})  ${isCrap ? 'CRAP' : 'complexity'}: ${isCrap ? Math.pow(r.out_deg, 2) : r.out_deg}\n    ${r.file_path || '?'}`).join('\n')}`,
+                );
               }
-
             } else if (tool === 'monograph_risk_profile') {
-              const n = countNodes(db2), e = countEdges(db2);
-              const dead = db2.prepare("SELECT COUNT(*) as c FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label IN ('Function','Class','Method')").get().c;
-              const hubs = db2.prepare('SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*) > 15)').get().c;
-              const files = db2.prepare("SELECT COUNT(*) as c FROM nodes WHERE label = 'File'").get().c;
-              const orphans = db2.prepare("SELECT COUNT(*) as c FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label = 'File'").get().c;
+              const n = countNodes(db2),
+                e = countEdges(db2);
+              const dead = db2
+                .prepare(
+                  "SELECT COUNT(*) as c FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label IN ('Function','Class','Method')",
+                )
+                .get().c;
+              const hubs = db2
+                .prepare(
+                  'SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*) > 15)',
+                )
+                .get().c;
+              const files = db2
+                .prepare("SELECT COUNT(*) as c FROM nodes WHERE label = 'File'")
+                .get().c;
+              const orphans = db2
+                .prepare(
+                  "SELECT COUNT(*) as c FROM nodes n LEFT JOIN edges e ON e.target_id = n.id WHERE e.target_id IS NULL AND n.label = 'File'",
+                )
+                .get().c;
               const risks = [];
               if (dead > 10) risks.push(`  HIGH   Dead symbols: ${dead} unreferenced nodes`);
               if (hubs > 3) risks.push(`  MEDIUM Hub nodes: ${hubs} nodes with >15 dependencies`);
-              if (orphans > files * 0.3) risks.push(`  MEDIUM Orphan files: ${orphans} of ${files} files unreachable`);
-              if (n > 0 && e / n < 0.5) risks.push(`  LOW    Sparse graph: avg degree ${(e/n).toFixed(2)}`);
-              ok(`Risk Profile — ${new Date().toISOString().split('T')[0]}\n${'─'.repeat(50)}\n${risks.length ? risks.join('\n') : '  No significant risks detected.'}\n\nSummary: ${n} nodes · ${e} edges · ${files} files`);
-
+              if (orphans > files * 0.3)
+                risks.push(`  MEDIUM Orphan files: ${orphans} of ${files} files unreachable`);
+              if (n > 0 && e / n < 0.5)
+                risks.push(`  LOW    Sparse graph: avg degree ${(e / n).toFixed(2)}`);
+              ok(
+                `Risk Profile — ${new Date().toISOString().split('T')[0]}\n${'─'.repeat(50)}\n${risks.length ? risks.join('\n') : '  No significant risks detected.'}\n\nSummary: ${n} nodes · ${e} edges · ${files} files`,
+              );
             } else if (tool === 'monograph_author_analytics') {
               // Clamp to a safe integer — this value is interpolated into a shell command below.
               const limit = Math.min(Math.max(parseInt(input.limit, 10) || 20, 1), 100);
               const { execSync: execS } = await import('child_process');
               try {
-                const log = execS(`git log --format="%ae" --no-merges -- . 2>/dev/null | sort | uniq -c | sort -rn | head -${limit}`, { cwd: d2, encoding: 'utf-8', timeout: 5000 });
-                if (!log.trim()) { ok('No git history found for this project directory.'); }
-                else { ok(`Author Analytics (by commit count):\n${'─'.repeat(50)}\n${log.trim().split('\n').map(l => { const m = l.trim().match(/^(\d+)\s+(.+)$/); return m ? `  ${m[2].padEnd(45)} ${m[1]} commits` : l; }).join('\n')}`); }
-              } catch { ok('Author analytics requires git. Ensure this directory is a git repository.'); }
-
+                const log = execS(
+                  `git log --format="%ae" --no-merges -- . 2>/dev/null | sort | uniq -c | sort -rn | head -${limit}`,
+                  { cwd: d2, encoding: 'utf-8', timeout: 5000 },
+                );
+                if (!log.trim()) {
+                  ok('No git history found for this project directory.');
+                } else {
+                  ok(
+                    `Author Analytics (by commit count):\n${'─'.repeat(50)}\n${log
+                      .trim()
+                      .split('\n')
+                      .map((l) => {
+                        const m = l.trim().match(/^(\d+)\s+(.+)$/);
+                        return m ? `  ${m[2].padEnd(45)} ${m[1]} commits` : l;
+                      })
+                      .join('\n')}`,
+                  );
+                }
+              } catch {
+                ok('Author analytics requires git. Ensure this directory is a git repository.');
+              }
             } else if (tool === 'monograph_reachability') {
               // Files with no inbound edges (nothing imports them)
-              const allNodes = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label IN ('File','Module') LIMIT 5000`).all();
-              const inboundSet = new Set(db2.prepare(`SELECT DISTINCT target_id FROM edges`).all().map(r => r.target_id));
-              const unreachable = allNodes.filter(n => !inboundSet.has(n.id)).slice(0, 40);
-              const outdeg = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`);
+              const allNodes = db2
+                .prepare(
+                  `SELECT id, name, file_path FROM nodes WHERE label IN ('File','Module') LIMIT 5000`,
+                )
+                .all();
+              const inboundSet = new Set(
+                db2
+                  .prepare(`SELECT DISTINCT target_id FROM edges`)
+                  .all()
+                  .map((r) => r.target_id),
+              );
+              const unreachable = allNodes.filter((n) => !inboundSet.has(n.id)).slice(0, 40);
+              const outdeg = db2.prepare(
+                `SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`,
+              );
               const degMap = {};
               for (const r of outdeg.all()) degMap[r.source_id] = r.c;
-              if (!unreachable.length) { ok('All files have at least one inbound reference.'); }
-              else ok(`Unreachable Files (${unreachable.length} of ${allNodes.length} total):\n${'─'.repeat(50)}\n${unreachable.slice(0,30).map(n => `  ${n.name || n.id.split('/').pop()} (imports ${degMap[n.id]||0} others)\n    ${n.file_path||''}`).join('\n\n')}`);
-
+              if (!unreachable.length) {
+                ok('All files have at least one inbound reference.');
+              } else
+                ok(
+                  `Unreachable Files (${unreachable.length} of ${allNodes.length} total):\n${'─'.repeat(50)}\n${unreachable
+                    .slice(0, 30)
+                    .map(
+                      (n) =>
+                        `  ${n.name || n.id.split('/').pop()} (imports ${degMap[n.id] || 0} others)\n    ${n.file_path || ''}`,
+                    )
+                    .join('\n\n')}`,
+                );
             } else if (tool === 'monograph_vital_signs_snapshot') {
               // Same as health_score — kept for backward compatibility
               const n = db2.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
               const e = db2.prepare('SELECT COUNT(*) as c FROM edges').get().c;
-              const dead = db2.prepare(`SELECT COUNT(*) as c FROM nodes n WHERE NOT EXISTS (SELECT 1 FROM edges WHERE source_id=n.id OR target_id=n.id)`).get().c;
-              const hubs = db2.prepare(`SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*)>20)`).get().c;
-              const density = n > 1 ? (e / (n * (n-1))).toFixed(6) : '0';
-              const score = Math.max(0, Math.min(100, Math.round(100 - (dead/Math.max(n,1)*30) - (hubs/Math.max(n,1)*500))));
-              ok(`Vital Signs — ${new Date().toISOString()}\n${'─'.repeat(50)}\n  Health Score:  ${score}/100  ${score>=80?'✓ OK':score>=60?'⚠ Warning':'✗ Critical'}\n  Nodes:         ${n}\n  Edges:         ${e}\n  Density:       ${density}\n  Dead symbols:  ${dead} (${(dead/Math.max(n,1)*100).toFixed(1)}%)\n  Hub nodes:     ${hubs} nodes with >20 edges`);
-
+              const dead = db2
+                .prepare(
+                  `SELECT COUNT(*) as c FROM nodes n WHERE NOT EXISTS (SELECT 1 FROM edges WHERE source_id=n.id OR target_id=n.id)`,
+                )
+                .get().c;
+              const hubs = db2
+                .prepare(
+                  `SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*)>20)`,
+                )
+                .get().c;
+              const density = n > 1 ? (e / (n * (n - 1))).toFixed(6) : '0';
+              const score = Math.max(
+                0,
+                Math.min(
+                  100,
+                  Math.round(100 - (dead / Math.max(n, 1)) * 30 - (hubs / Math.max(n, 1)) * 500),
+                ),
+              );
+              ok(
+                `Vital Signs — ${new Date().toISOString()}\n${'─'.repeat(50)}\n  Health Score:  ${score}/100  ${score >= 80 ? '✓ OK' : score >= 60 ? '⚠ Warning' : '✗ Critical'}\n  Nodes:         ${n}\n  Edges:         ${e}\n  Density:       ${density}\n  Dead symbols:  ${dead} (${((dead / Math.max(n, 1)) * 100).toFixed(1)}%)\n  Hub nodes:     ${hubs} nodes with >20 edges`,
+              );
             } else if (tool === 'monograph_circular_deps') {
               // Find import cycles using iterative DFS
-              const limit = Math.min(parseInt(input.limit||'10'), 20);
-              const importEdges = db2.prepare(`SELECT source_id, target_id FROM edges WHERE relation IN ('IMPORTS','REQUIRES','USES','DEPENDS_ON') LIMIT 50000`).all();
+              const limit = Math.min(parseInt(input.limit || '10') || 10, 20);
+              const importEdges = db2
+                .prepare(
+                  `SELECT source_id, target_id FROM edges WHERE relation IN ('IMPORTS','REQUIRES','USES','DEPENDS_ON') LIMIT 50000`,
+                )
+                .all();
               const adj = {};
-              for (const e of importEdges) { (adj[e.source_id] = adj[e.source_id]||[]).push(e.target_id); }
+              for (const e of importEdges) {
+                (adj[e.source_id] = adj[e.source_id] || []).push(e.target_id);
+              }
               const cycles = [];
-              const visited = new Set(), inStack = new Set();
+              const visited = new Set(),
+                inStack = new Set();
               function dfs(node, path) {
                 if (cycles.length >= limit) return;
                 if (inStack.has(node)) {
@@ -3248,115 +4629,237 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
                   return;
                 }
                 if (visited.has(node)) return;
-                visited.add(node); inStack.add(node); path.push(node);
-                for (const nb of (adj[node]||[])) dfs(nb, path);
-                path.pop(); inStack.delete(node);
+                visited.add(node);
+                inStack.add(node);
+                path.push(node);
+                for (const nb of adj[node] || []) dfs(nb, path);
+                path.pop();
+                inStack.delete(node);
               }
               for (const node of Object.keys(adj).slice(0, 2000)) dfs(node, []);
-              const getName = id => id.split('/').slice(-2).join('/');
-              if (!cycles.length) ok(`No circular dependencies found among ${Object.keys(adj).length} nodes with import edges.`);
-              else ok(`Circular Dependencies (${cycles.length} found):\n${'─'.repeat(50)}\n${cycles.slice(0,limit).map((c,i) => `  ${i+1}. ${c.map(getName).join(' → ')}`).join('\n')}`);
-
+              const getName = (id) => id.split('/').slice(-2).join('/');
+              if (!cycles.length)
+                ok(
+                  `No circular dependencies found among ${Object.keys(adj).length} nodes with import edges.`,
+                );
+              else
+                ok(
+                  `Circular Dependencies (${cycles.length} found):\n${'─'.repeat(50)}\n${cycles
+                    .slice(0, limit)
+                    .map((c, i) => `  ${i + 1}. ${c.map(getName).join(' → ')}`)
+                    .join('\n')}`,
+                );
             } else if (tool === 'monograph_largest_files') {
-              const limit2 = Math.min(parseInt(input.limit||'25'), 50);
-              const rows = db2.prepare(`SELECT file_path, MAX(end_line) as lines, COUNT(*) as symbols FROM nodes WHERE file_path IS NOT NULL AND end_line IS NOT NULL AND end_line > 0 GROUP BY file_path ORDER BY lines DESC LIMIT ${limit2}`).all();
-              if (!rows.length) ok('No line-count data available. Ensure the index was built with source parsing enabled.');
-              else ok(`Largest Files by Line Count:\n${'─'.repeat(50)}\n${rows.map((r,i) => `  ${String(i+1).padStart(2)}. ${r.lines.toString().padStart(5)} lines  ${r.symbols} symbols  ${r.file_path.split('/').slice(-2).join('/')}`).join('\n')}`);
-
+              const limit2 = Math.min(parseInt(input.limit || '25') || 25, 50);
+              const rows = db2
+                .prepare(
+                  `SELECT file_path, MAX(end_line) as lines, COUNT(*) as symbols FROM nodes WHERE file_path IS NOT NULL AND end_line IS NOT NULL AND end_line > 0 GROUP BY file_path ORDER BY lines DESC LIMIT ${limit2}`,
+                )
+                .all();
+              if (!rows.length)
+                ok(
+                  'No line-count data available. Ensure the index was built with source parsing enabled.',
+                );
+              else
+                ok(
+                  `Largest Files by Line Count:\n${'─'.repeat(50)}\n${rows.map((r, i) => `  ${String(i + 1).padStart(2)}. ${r.lines.toString().padStart(5)} lines  ${r.symbols} symbols  ${r.file_path.split('/').slice(-2).join('/')}`).join('\n')}`,
+                );
             } else if (tool === 'monograph_coupling_balance') {
               // Fan-out (what this file uses) vs Fan-in (what uses this file)
-              const limit3 = Math.min(parseInt(input.limit||'20'), 40);
-              const fanOut = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`).all();
-              const fanIn  = db2.prepare(`SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`).all();
-              const outMap = {}, inMap = {};
+              const limit3 = Math.min(parseInt(input.limit || '20') || 20, 40);
+              const fanOut = db2
+                .prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`)
+                .all();
+              const fanIn = db2
+                .prepare(`SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`)
+                .all();
+              const outMap = {},
+                inMap = {};
               for (const r of fanOut) outMap[r.source_id] = r.c;
-              for (const r of fanIn)  inMap[r.target_id]  = r.c;
+              for (const r of fanIn) inMap[r.target_id] = r.c;
               const allIds = new Set([...Object.keys(outMap), ...Object.keys(inMap)]);
-              const nodes3 = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`).all();
-              const fileSet = new Set(nodes3.map(n => n.id));
-              const entries = [...allIds].filter(id => fileSet.has(id)).map(id => {
-                const o = outMap[id]||0, i = inMap[id]||0;
-                const n = nodes3.find(x=>x.id===id);
-                return { name: n?.name || id.split('/').pop(), path: n?.file_path||'', out: o, inn: i, ratio: i > 0 ? (o/i).toFixed(1) : '∞' };
-              }).filter(x => x.out > 0 || x.inn > 0).sort((a,b) => (b.out+b.inn) - (a.out+a.inn)).slice(0, limit3);
-              ok(`Coupling Balance (Fan-out vs Fan-in, top ${limit3} by activity):\n${'─'.repeat(60)}\n  ${'File'.padEnd(35)} Out  In  Ratio\n${'─'.repeat(60)}\n${entries.map(e => `  ${e.name.slice(0,35).padEnd(35)} ${String(e.out).padStart(3)}  ${String(e.inn).padStart(2)}  ${e.ratio}`).join('\n')}`);
-
+              const nodes3 = db2
+                .prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`)
+                .all();
+              const fileSet = new Set(nodes3.map((n) => n.id));
+              const entries = [...allIds]
+                .filter((id) => fileSet.has(id))
+                .map((id) => {
+                  const o = outMap[id] || 0,
+                    i = inMap[id] || 0;
+                  const n = nodes3.find((x) => x.id === id);
+                  return {
+                    name: n?.name || id.split('/').pop(),
+                    path: n?.file_path || '',
+                    out: o,
+                    inn: i,
+                    ratio: i > 0 ? (o / i).toFixed(1) : '∞',
+                  };
+                })
+                .filter((x) => x.out > 0 || x.inn > 0)
+                .sort((a, b) => b.out + b.inn - (a.out + a.inn))
+                .slice(0, limit3);
+              ok(
+                `Coupling Balance (Fan-out vs Fan-in, top ${limit3} by activity):\n${'─'.repeat(60)}\n  ${'File'.padEnd(35)} Out  In  Ratio\n${'─'.repeat(60)}\n${entries.map((e) => `  ${e.name.slice(0, 35).padEnd(35)} ${String(e.out).padStart(3)}  ${String(e.inn).padStart(2)}  ${e.ratio}`).join('\n')}`,
+              );
             } else if (tool === 'monograph_dead_exports') {
               // Exported symbols with zero inbound edges
-              const exported = db2.prepare(`SELECT id, name, label, file_path FROM nodes WHERE is_exported=1 LIMIT 10000`).all();
-              const inbound = new Set(db2.prepare(`SELECT DISTINCT target_id FROM edges`).all().map(r => r.target_id));
-              const dead2 = exported.filter(n => !inbound.has(n.id));
-              if (!dead2.length) ok('No dead exports found — all exported symbols have at least one inbound reference.');
-              else ok(`Dead Exports — exported but never imported (${dead2.length} of ${exported.length} exported symbols):\n${'─'.repeat(50)}\n${dead2.slice(0,30).map(n => `  ${n.label.padEnd(12)} ${n.name}  →  ${(n.file_path||'').split('/').slice(-2).join('/')}`).join('\n')}`);
-
+              const exported = db2
+                .prepare(
+                  `SELECT id, name, label, file_path FROM nodes WHERE is_exported=1 LIMIT 10000`,
+                )
+                .all();
+              const inbound = new Set(
+                db2
+                  .prepare(`SELECT DISTINCT target_id FROM edges`)
+                  .all()
+                  .map((r) => r.target_id),
+              );
+              const dead2 = exported.filter((n) => !inbound.has(n.id));
+              if (!dead2.length)
+                ok(
+                  'No dead exports found — all exported symbols have at least one inbound reference.',
+                );
+              else
+                ok(
+                  `Dead Exports — exported but never imported (${dead2.length} of ${exported.length} exported symbols):\n${'─'.repeat(50)}\n${dead2
+                    .slice(0, 30)
+                    .map(
+                      (n) =>
+                        `  ${n.label.padEnd(12)} ${n.name}  →  ${(n.file_path || '').split('/').slice(-2).join('/')}`,
+                    )
+                    .join('\n')}`,
+                );
             } else if (tool === 'monograph_language_breakdown') {
-              const rows2 = db2.prepare(`SELECT language, COUNT(*) as c FROM nodes WHERE language IS NOT NULL AND language != '' GROUP BY language ORDER BY c DESC`).all();
+              const rows2 = db2
+                .prepare(
+                  `SELECT language, COUNT(*) as c FROM nodes WHERE language IS NOT NULL AND language != '' GROUP BY language ORDER BY c DESC`,
+                )
+                .all();
               if (!rows2.length) ok('No language metadata available in this graph index.');
               else {
-                const total2 = rows2.reduce((s,r) => s+r.c, 0);
+                const total2 = rows2.reduce((s, r) => s + r.c, 0);
                 const maxC = rows2[0].c;
-                ok(`Language Breakdown:\n${'─'.repeat(50)}\n${rows2.map(r => { const bar = '█'.repeat(Math.round(r.c/maxC*20)); const pct = (r.c/total2*100).toFixed(1); return `  ${r.language.padEnd(15)} ${bar.padEnd(20)} ${String(r.c).padStart(6)} (${pct}%)`; }).join('\n')}\n\n  Total nodes: ${total2}`);
+                ok(
+                  `Language Breakdown:\n${'─'.repeat(50)}\n${rows2
+                    .map((r) => {
+                      const bar = '█'.repeat(Math.round((r.c / maxC) * 20));
+                      const pct = ((r.c / total2) * 100).toFixed(1);
+                      return `  ${r.language.padEnd(15)} ${bar.padEnd(20)} ${String(r.c).padStart(6)} (${pct}%)`;
+                    })
+                    .join('\n')}\n\n  Total nodes: ${total2}`,
+                );
               }
-
             } else if (tool === 'monograph_instability') {
               // Robert Martin's Instability = Ce / (Ca + Ce)
               // Ca = afferent coupling (in-degree), Ce = efferent coupling (out-degree)
-              const limit4 = Math.min(parseInt(input.limit||'25'), 50);
-              const outRows = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`).all();
-              const inRows  = db2.prepare(`SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`).all();
-              const Ce = {}, Ca = {};
+              const limit4 = Math.min(parseInt(input.limit || '25') || 25, 50);
+              const outRows = db2
+                .prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`)
+                .all();
+              const inRows = db2
+                .prepare(`SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`)
+                .all();
+              const Ce = {},
+                Ca = {};
               for (const r of outRows) Ce[r.source_id] = r.c;
-              for (const r of inRows)  Ca[r.target_id]  = r.c;
-              const fileNodes = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`).all();
-              const entries4 = fileNodes.map(n => {
-                const ca = Ca[n.id]||0, ce = Ce[n.id]||0;
-                const total = ca + ce;
-                const inst = total > 0 ? ce / total : 0;
-                return { name: n.name||n.id.split('/').pop(), ca, ce, inst };
-              }).filter(x => x.ca+x.ce > 0).sort((a,b) => b.inst - a.inst);
-              const risky = entries4.filter(x => x.inst > 0.7 && x.ca > 3);
-              const stable = entries4.filter(x => x.inst < 0.2 && x.ce > 3);
-              ok(`Instability Index (Ce÷(Ca+Ce), 0=stable 1=unstable):\n${'─'.repeat(60)}\n\n  ⚠  High instability + high dependents (blast radius risk):\n${risky.slice(0,10).map(x => `     ${x.name.slice(0,40).padEnd(40)} I=${x.inst.toFixed(2)}  Ca=${x.ca}  Ce=${x.ce}`).join('\n')||'  none'}\n\n  ✓  Stable (low instability, many dependents on them):\n${stable.slice(0,8).map(x => `     ${x.name.slice(0,40).padEnd(40)} I=${x.inst.toFixed(2)}  Ca=${x.ca}  Ce=${x.ce}`).join('\n')||'  none'}\n\n  Total files analyzed: ${entries4.length}`);
-
+              for (const r of inRows) Ca[r.target_id] = r.c;
+              const fileNodes = db2
+                .prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`)
+                .all();
+              const entries4 = fileNodes
+                .map((n) => {
+                  const ca = Ca[n.id] || 0,
+                    ce = Ce[n.id] || 0;
+                  const total = ca + ce;
+                  const inst = total > 0 ? ce / total : 0;
+                  return { name: n.name || n.id.split('/').pop(), ca, ce, inst };
+                })
+                .filter((x) => x.ca + x.ce > 0)
+                .sort((a, b) => b.inst - a.inst);
+              const risky = entries4.filter((x) => x.inst > 0.7 && x.ca > 3);
+              const stable = entries4.filter((x) => x.inst < 0.2 && x.ce > 3);
+              ok(
+                `Instability Index (Ce÷(Ca+Ce), 0=stable 1=unstable):\n${'─'.repeat(60)}\n\n  ⚠  High instability + high dependents (blast radius risk):\n${
+                  risky
+                    .slice(0, 10)
+                    .map(
+                      (x) =>
+                        `     ${x.name.slice(0, 40).padEnd(40)} I=${x.inst.toFixed(2)}  Ca=${x.ca}  Ce=${x.ce}`,
+                    )
+                    .join('\n') || '  none'
+                }\n\n  ✓  Stable (low instability, many dependents on them):\n${
+                  stable
+                    .slice(0, 8)
+                    .map(
+                      (x) =>
+                        `     ${x.name.slice(0, 40).padEnd(40)} I=${x.inst.toFixed(2)}  Ca=${x.ca}  Ce=${x.ce}`,
+                    )
+                    .join('\n') || '  none'
+                }\n\n  Total files analyzed: ${entries4.length}`,
+              );
             } else if (tool === 'monograph_churn_hotspots') {
               // Combines git churn frequency with structural complexity (out-degree)
-              const limit5 = Math.min(parseInt(input.limit||'15'), 30);
+              const limit5 = Math.min(parseInt(input.limit || '15') || 15, 30);
               const { execSync: execS2 } = await import('child_process');
               let churnMap = {};
               try {
                 // Whitelist the --since value — it is interpolated into a shell command below.
                 const sinceRaw = String(input.since || '');
-                const since = /^\d+ (day|week|month|year)s? ago$/.test(sinceRaw) ? sinceRaw : '6 months ago';
-                const log2 = execS2(`git log --since="${since}" --name-only --format="" -- . 2>/dev/null | grep -v '^$' | sort | uniq -c | sort -rn | head -200`, { cwd: d2, encoding: 'utf-8', timeout: 8000 });
+                const since = /^\d+ (day|week|month|year)s? ago$/.test(sinceRaw)
+                  ? sinceRaw
+                  : '6 months ago';
+                const log2 = execS2(
+                  `git log --since="${since}" --name-only --format="" -- . 2>/dev/null | grep -v '^$' | sort | uniq -c | sort -rn | head -200`,
+                  { cwd: d2, encoding: 'utf-8', timeout: 8000 },
+                );
                 for (const line of log2.trim().split('\n')) {
                   const m = line.trim().match(/^(\d+)\s+(.+)$/);
                   if (m) churnMap[m[2]] = parseInt(m[1]);
                 }
               } catch {}
-              if (!Object.keys(churnMap).length) { ok('No git history found — churn analysis requires a git repository.'); }
-              else {
-                const outDeg = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`).all();
+              if (!Object.keys(churnMap).length) {
+                ok('No git history found — churn analysis requires a git repository.');
+              } else {
+                const outDeg = db2
+                  .prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`)
+                  .all();
                 const degMap2 = {};
                 for (const r of outDeg) degMap2[r.source_id] = r.c;
-                const fileNodes2 = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`).all();
+                const fileNodes2 = db2
+                  .prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`)
+                  .all();
                 const maxChurn = Math.max(...Object.values(churnMap), 1);
                 const maxDeg2 = Math.max(...Object.values(degMap2), 1);
-                const scored = fileNodes2.map(n => {
-                  const fp = n.file_path || '';
-                  const churn = churnMap[fp] || Object.entries(churnMap).find(([k]) => fp.endsWith(k))?.[1] || 0;
-                  const deg = degMap2[n.id] || 0;
-                  const score2 = (churn/maxChurn * 0.6) + (deg/maxDeg2 * 0.4);
-                  return { name: n.name||fp.split('/').pop(), fp, churn, deg, score: score2 };
-                }).filter(x => x.churn > 0 || x.deg > 5).sort((a,b) => b.score - a.score).slice(0, limit5);
+                const scored = fileNodes2
+                  .map((n) => {
+                    const fp = n.file_path || '';
+                    const churn =
+                      churnMap[fp] ||
+                      Object.entries(churnMap).find(([k]) => fp.endsWith(k))?.[1] ||
+                      0;
+                    const deg = degMap2[n.id] || 0;
+                    const score2 = (churn / maxChurn) * 0.6 + (deg / maxDeg2) * 0.4;
+                    return { name: n.name || fp.split('/').pop(), fp, churn, deg, score: score2 };
+                  })
+                  .filter((x) => x.churn > 0 || x.deg > 5)
+                  .sort((a, b) => b.score - a.score)
+                  .slice(0, limit5);
                 if (!scored.length) ok('No files matched both churn and complexity criteria.');
-                else ok(`Churn × Complexity Hotspots (60% churn weight + 40% coupling weight):\n${'─'.repeat(60)}\n  ${'File'.padEnd(38)} Churn  Deps  Score\n${'─'.repeat(60)}\n${scored.map(x => `  ${x.name.slice(0,38).padEnd(38)} ${String(x.churn).padStart(5)}  ${String(x.deg).padStart(4)}  ${(x.score*100).toFixed(0)}%`).join('\n')}\n\n  Analyzed: ${scored.length} hotspot candidates from last ${input.since||'6 months'}`);
+                else
+                  ok(
+                    `Churn × Complexity Hotspots (60% churn weight + 40% coupling weight):\n${'─'.repeat(60)}\n  ${'File'.padEnd(38)} Churn  Deps  Score\n${'─'.repeat(60)}\n${scored.map((x) => `  ${x.name.slice(0, 38).padEnd(38)} ${String(x.churn).padStart(5)}  ${String(x.deg).padStart(4)}  ${(x.score * 100).toFixed(0)}%`).join('\n')}\n\n  Analyzed: ${scored.length} hotspot candidates from last ${input.since || '6 months'}`,
+                  );
               }
-
             } else {
               ok(`Tool "${tool}" not implemented in control panel`);
             }
-          } finally { closeDb(db2); }
-        } catch(e2) { err(String(e2)); }
+          } finally {
+            closeDb(db2);
+          }
+        } catch (e2) {
+          err(String(e2));
+        }
       });
       return;
     }
@@ -3376,7 +4879,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         // follows a symlink into a loop or outside root — no extra guard needed.
         const walk = (abs, rel) => {
           let entries;
-          try { entries = fs.readdirSync(abs, { withFileTypes: true }); } catch { return; }
+          try {
+            entries = fs.readdirSync(abs, { withFileTypes: true });
+          } catch {
+            return;
+          }
           for (const entry of entries) {
             if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
             const childAbs = path.join(abs, entry.name);
@@ -3385,7 +4892,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               walk(childAbs, childRel);
             } else if (entry.isFile() && DOC_EXT.has(path.extname(entry.name))) {
               let stat;
-              try { stat = fs.statSync(childAbs); } catch { continue; }
+              try {
+                stat = fs.statSync(childAbs);
+              } catch {
+                continue;
+              }
               files.push({ path: childRel, size: stat.size, mtime: stat.mtimeMs });
             }
           }
@@ -3393,7 +4904,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         walk(root, '');
         files.sort((a, b) => b.mtime - a.mtime);
 
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ files, total: files.length }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -3420,7 +4935,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           return;
         }
         let resolved = path.resolve(dir, rel);
-        try { resolved = fs.realpathSync(resolved); } catch {}
+        try {
+          resolved = fs.realpathSync(resolved);
+        } catch {}
 
         const allowedRoots = [path.resolve(projectDir || process.cwd())];
         const projectsBase = path.join(os.homedir(), '.claude', 'projects');
@@ -3429,12 +4946,15 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             const resolvedProj = resolveSlugToPath(slug, path.join(projectsBase, slug));
             if (resolvedProj) allowedRoots.push(resolvedProj);
           }
-        } catch { /* projects tree absent — fine */ }
-        const globalBrain = process.env.MONOMIND_GLOBAL_BRAIN_DIR
-          || path.join(os.homedir(), '.monomind', 'global-brain');
+        } catch {
+          /* projects tree absent — fine */
+        }
+        const globalBrain =
+          process.env.MONOMIND_GLOBAL_BRAIN_DIR ||
+          path.join(os.homedir(), '.monomind', 'global-brain');
         if (fs.existsSync(globalBrain)) allowedRoots.push(globalBrain);
 
-        const isAllowed = allowedRoots.some(root => {
+        const isAllowed = allowedRoots.some((root) => {
           const relCheck = path.relative(root, resolved);
           return relCheck && !relCheck.startsWith('..') && !path.isAbsolute(relCheck);
         });
@@ -3449,7 +4969,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           return;
         }
         const body = fs.readFileSync(resolved, 'utf8');
-        res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+          'Cache-Control': 'no-cache',
+        });
         res.end(JSON.stringify({ body }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -3464,26 +4988,85 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const qs = new URL(req.url, 'http://localhost').searchParams;
         // Frontend sends ?range=..., older callers use ?period=... — accept both
         const _periodRaw = qs.get('period') || qs.get('range');
-        const period = ['today','week','30days','month'].includes(_periodRaw) ? _periodRaw : 'today';
+        const period = ['today', 'week', '30days', 'month'].includes(_periodRaw)
+          ? _periodRaw
+          : 'today';
         const dir = path.resolve(qs.get('dir') || projectDir || process.cwd());
         const trackerPath = path.join(dir, '.claude', 'helpers', 'token-tracker.cjs');
         const fallback = () => {
-          const summary = (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, '.monomind', 'metrics', 'token-summary.json'), 'utf8')); } catch { return {}; } })();
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
-          const fbSum = { todayCost: summary.todayCost || 0, cost: summary.todayCost || 0, todayCalls: summary.todayCalls || 0, calls: summary.todayCalls || 0, totalTokens: 0, totalTokensIn: 0, totalTokensOut: 0, cacheTokens: 0, modelCount: 0 };
-          res.end(JSON.stringify({ summary: fbSum, totalCost: summary.todayCost || 0, totalCalls: summary.todayCalls || 0, totalIn: 0, totalOut: 0, totalCR: 0, totalCW: 0, rows: [], models: [], categories: [], tools: [], mcpServers: [], projects: [], modelBreakdown: {}, categoryBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, periodLabel: period }));
+          const summary = (() => {
+            try {
+              return JSON.parse(
+                fs.readFileSync(
+                  path.join(dir, '.monomind', 'metrics', 'token-summary.json'),
+                  'utf8',
+                ),
+              );
+            } catch {
+              return {};
+            }
+          })();
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+            'Cache-Control': 'no-cache',
+          });
+          const fbSum = {
+            todayCost: summary.todayCost || 0,
+            cost: summary.todayCost || 0,
+            todayCalls: summary.todayCalls || 0,
+            calls: summary.todayCalls || 0,
+            totalTokens: 0,
+            totalTokensIn: 0,
+            totalTokensOut: 0,
+            cacheTokens: 0,
+            modelCount: 0,
+          };
+          res.end(
+            JSON.stringify({
+              summary: fbSum,
+              totalCost: summary.todayCost || 0,
+              totalCalls: summary.todayCalls || 0,
+              totalIn: 0,
+              totalOut: 0,
+              totalCR: 0,
+              totalCW: 0,
+              rows: [],
+              models: [],
+              categories: [],
+              tools: [],
+              mcpServers: [],
+              projects: [],
+              modelBreakdown: {},
+              categoryBreakdown: {},
+              toolBreakdown: {},
+              mcpBreakdown: {},
+              periodLabel: period,
+            }),
+          );
         };
-        if (!fs.existsSync(trackerPath)) { fallback(); return; }
+        if (!fs.existsSync(trackerPath)) {
+          fallback();
+          return;
+        }
         try {
           const _req = createRequire(import.meta.url);
           const tracker = _req(trackerPath);
           const range = tracker.getDateRange(period);
           const projects = tracker.parseAllSessions(range.start, range.end);
-          let totalCost = 0, totalIn = 0, totalOut = 0, totalCR = 0, totalCW = 0, totalCalls = 0;
-          const modelBreakdown = {}, categoryBreakdown = {}, toolBreakdown = {}, mcpBreakdown = {};
+          let totalCost = 0,
+            totalIn = 0,
+            totalOut = 0,
+            totalCR = 0,
+            totalCW = 0,
+            totalCalls = 0;
+          const modelBreakdown = {},
+            categoryBreakdown = {},
+            toolBreakdown = {},
+            mcpBreakdown = {};
           for (const p of projects) {
             totalCost += p.totalCost || 0;
-            for (const s of (p.sessions || [])) {
+            for (const s of p.sessions || []) {
               totalIn += s.totalInputTokens || 0;
               totalOut += s.totalOutputTokens || 0;
               totalCR += s.totalCacheRead || 0;
@@ -3511,24 +5094,77 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
             }
           }
           // Build client-friendly arrays from breakdown dicts
-          const models = Object.entries(modelBreakdown).map(([model, m]) => ({ model, cost: m.cost, calls: m.calls, tokens: m.tokens })).sort((a, b) => b.cost - a.cost);
-          const categories = Object.entries(categoryBreakdown).map(([category, c]) => ({ category, turns: c.turns, cost: c.cost })).sort((a, b) => b.turns - a.turns);
-          const tools = Object.entries(toolBreakdown).map(([tool, t]) => ({ tool, count: t.calls })).sort((a, b) => b.count - a.count);
-          const mcpServers = Object.entries(mcpBreakdown).map(([server, m]) => ({ server, count: m.calls })).sort((a, b) => b.count - a.count);
-          const projectRows = projects.map(p => ({ project: p.name || p.slug || p.dir || '?', cost: p.totalCost || 0 })).sort((a, b) => b.cost - a.cost);
+          const models = Object.entries(modelBreakdown)
+            .map(([model, m]) => ({ model, cost: m.cost, calls: m.calls, tokens: m.tokens }))
+            .sort((a, b) => b.cost - a.cost);
+          const categories = Object.entries(categoryBreakdown)
+            .map(([category, c]) => ({ category, turns: c.turns, cost: c.cost }))
+            .sort((a, b) => b.turns - a.turns);
+          const tools = Object.entries(toolBreakdown)
+            .map(([tool, t]) => ({ tool, count: t.calls }))
+            .sort((a, b) => b.count - a.count);
+          const mcpServers = Object.entries(mcpBreakdown)
+            .map(([server, m]) => ({ server, count: m.calls }))
+            .sort((a, b) => b.count - a.count);
+          const projectRows = projects
+            .map((p) => ({ project: p.name || p.slug || p.dir || '?', cost: p.totalCost || 0 }))
+            .sort((a, b) => b.cost - a.cost);
           // Build rows array from sessions for per-session table
           const rows = [];
           for (const p of projects) {
-            for (const s of (p.sessions || [])) {
-              rows.push({ id: s.id || '', session: s.lastPrompt || s.id || '', calls: s.apiCalls || 0, cost: s.totalCost || 0, tokens: (s.totalInputTokens || 0) + (s.totalOutputTokens || 0) });
+            for (const s of p.sessions || []) {
+              rows.push({
+                id: s.id || '',
+                session: s.lastPrompt || s.id || '',
+                calls: s.apiCalls || 0,
+                cost: s.totalCost || 0,
+                tokens: (s.totalInputTokens || 0) + (s.totalOutputTokens || 0),
+              });
             }
           }
           rows.sort((a, b) => b.cost - a.cost);
           // Summary object matching client expectations
-          const summary = { todayCost: totalCost, cost: totalCost, todayCalls: totalCalls, calls: totalCalls, totalTokens: totalIn + totalOut, totalTokensIn: totalIn, totalTokensOut: totalOut, cacheTokens: totalCR, modelCount: models.length };
-          res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}), 'Cache-Control': 'no-cache' });
-          res.end(JSON.stringify({ summary, totalCost, totalCalls, totalIn, totalOut, totalCR, totalCW, rows, models, categories, tools, mcpServers, projects: projectRows, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown, periodLabel: period }));
-        } catch (e) { fallback(); }
+          const summary = {
+            todayCost: totalCost,
+            cost: totalCost,
+            todayCalls: totalCalls,
+            calls: totalCalls,
+            totalTokens: totalIn + totalOut,
+            totalTokensIn: totalIn,
+            totalTokensOut: totalOut,
+            cacheTokens: totalCR,
+            modelCount: models.length,
+          };
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
+            'Cache-Control': 'no-cache',
+          });
+          res.end(
+            JSON.stringify({
+              summary,
+              totalCost,
+              totalCalls,
+              totalIn,
+              totalOut,
+              totalCR,
+              totalCW,
+              rows,
+              models,
+              categories,
+              tools,
+              mcpServers,
+              projects: projectRows,
+              modelBreakdown,
+              categoryBreakdown,
+              toolBreakdown,
+              mcpBreakdown,
+              periodLabel: period,
+            }),
+          );
+        } catch (e) {
+          fallback();
+        }
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -3546,11 +5182,26 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         let partial = buildSectionData(name, dir || process.cwd());
         // For full knowledge request, include all chunks
         if (name === 'knowledge' && full) {
-          const chunksPath = path.join(path.resolve(dir || process.cwd()), '.monomind', 'knowledge', 'chunks.jsonl');
+          const chunksPath = path.join(
+            path.resolve(dir || process.cwd()),
+            '.monomind',
+            'knowledge',
+            'chunks.jsonl',
+          );
           let allChunks = [];
           try {
             const raw = fs.readFileSync(chunksPath, 'utf8');
-            allChunks = raw.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+            allChunks = raw
+              .split('\n')
+              .filter(Boolean)
+              .map((l) => {
+                try {
+                  return JSON.parse(l);
+                } catch {
+                  return null;
+                }
+              })
+              .filter(Boolean);
           } catch {}
           partial = { knowledge: { ...partial.knowledge, allChunks } };
         }
@@ -3611,7 +5262,34 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     }
 
     // ── Org/mastermind routes (extracted to routes-org.mjs) ────────────────
-    if (await handleOrgRoutes(req, res, url, corsOrigin, { projectDir, activeOrgRuns, _resolveOrgProjectDir, runStreamClients, broadcastMm, appendToFile, _getActiveRunId, removeMmClient, _runDb, parseAgentDef, MONOMIND_HOME, handleMastermindEvent, addMmClient, _getGitMonomindDir, _detectMimeType, _readRunState, _getAllowedArtifactDirs, _updateRunState, _getKnowledgeBridge, SESSION_ID_RE, MASTERMIND_DIAGRAM_HTML, dashboardAuthValue, __dirname })) return;
+    if (
+      await handleOrgRoutes(req, res, url, corsOrigin, {
+        projectDir,
+        activeOrgRuns,
+        _resolveOrgProjectDir,
+        runStreamClients,
+        broadcastMm,
+        appendToFile,
+        _getActiveRunId,
+        removeMmClient,
+        _runDb,
+        parseAgentDef,
+        MONOMIND_HOME,
+        handleMastermindEvent,
+        addMmClient,
+        _getGitMonomindDir,
+        _detectMimeType,
+        _readRunState,
+        _getAllowedArtifactDirs,
+        _updateRunState,
+        _getKnowledgeBridge,
+        SESSION_ID_RE,
+        MASTERMIND_DIAGRAM_HTML,
+        dashboardAuthValue,
+        __dirname,
+      })
+    )
+      return;
 
     // ------------------------------------------------------------------ 404
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -3631,7 +5309,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         if (!_gfOrg || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
         // Resolve the latest run_id for this org, then check if it has a terminal event
         const _gfLatRunStmt = _runDb.prepare(
-          "SELECT run_id FROM run_events WHERE org=? ORDER BY id DESC LIMIT 1"
+          'SELECT run_id FROM run_events WHERE org=? ORDER BY id DESC LIMIT 1',
         );
         _gfLatRunStmt.bind([_gfOrg]);
         let _gfLatestRun = null;
@@ -3640,7 +5318,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         let _gfDone = false;
         if (_gfLatestRun) {
           const _gfRunStmt = _runDb.prepare(
-            "SELECT type FROM run_events WHERE org=? AND run_id=? AND type IN ('run:complete','org:complete','org:stop') LIMIT 1"
+            "SELECT type FROM run_events WHERE org=? AND run_id=? AND type IN ('run:complete','org:complete','org:stop') LIMIT 1",
           );
           _gfRunStmt.bind([_gfOrg, _gfLatestRun]);
           if (_gfRunStmt.step()) _gfDone = true;
@@ -3657,16 +5335,30 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
           if (!_gfOrg || _gfOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
           const _gfRunsDir = path.join(_gfOrgsDir, _gfOrg, 'runs');
           if (!fs.existsSync(_gfRunsDir)) continue;
-          const _gfFiles = fs.readdirSync(_gfRunsDir)
-            .filter(f => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.convs.jsonl'))
-            .sort().reverse();
+          const _gfFiles = fs
+            .readdirSync(_gfRunsDir)
+            .filter(
+              (f) => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.convs.jsonl'),
+            )
+            .sort()
+            .reverse();
           for (const _gfF of _gfFiles.slice(0, 5)) {
             try {
               const _gfId = _gfF.replace('.jsonl', '');
               const _gfContent = fs.readFileSync(path.join(_gfRunsDir, _gfF), 'utf8');
               const _gfLast = _gfContent.trim().split('\n').filter(Boolean).slice(-10);
-              const _gfDone = _gfLast.some(l => { try { const e = JSON.parse(l); return e.type === 'run:complete' || e.type === 'org:complete'; } catch { return false; } });
-              if (!_gfDone) { activeOrgRuns.set(_gfOrg, _gfId); break; }
+              const _gfDone = _gfLast.some((l) => {
+                try {
+                  const e = JSON.parse(l);
+                  return e.type === 'run:complete' || e.type === 'org:complete';
+                } catch {
+                  return false;
+                }
+              });
+              if (!_gfDone) {
+                activeOrgRuns.set(_gfOrg, _gfId);
+                break;
+              }
             } catch (_) {}
           }
         }
@@ -3684,8 +5376,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   if (process.env.MONOMIND_BOUND_REPORT) {
     try {
       fs.mkdirSync(path.dirname(process.env.MONOMIND_BOUND_REPORT), { recursive: true });
-      fs.writeFileSync(process.env.MONOMIND_BOUND_REPORT, JSON.stringify({ pid: process.pid, port: boundPort, ts: Date.now() }));
-    } catch (_) { /* non-fatal — spawner falls back to pid-matched HTTP probe */ }
+      fs.writeFileSync(
+        process.env.MONOMIND_BOUND_REPORT,
+        JSON.stringify({ pid: process.pid, port: boundPort, ts: Date.now() }),
+      );
+    } catch (_) {
+      /* non-fatal — spawner falls back to pid-matched HTTP probe */
+    }
   }
   await writeDashboardToken(boundPort);
   propagateDashboardToken(boundPort);
@@ -3703,21 +5400,34 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         const _migOld = JSON.parse(fs.readFileSync(_migOldFile, 'utf8'));
         fs.mkdirSync(_migSessDir, { recursive: true });
         const _migIndex = [];
-        for (const sess of (_migOld || [])) {
+        for (const sess of _migOld || []) {
           const _msid = String(sess.id || '').trim();
           if (!_msid || !SESSION_ID_RE.test(_msid)) continue;
           // Write per-session JSONL
-          const _mEvts = (sess.events || []);
-          const _mLines = _mEvts.map(e => JSON.stringify(e)).join('\n');
-          fs.writeFileSync(path.join(_migSessDir, `${_msid}.jsonl`), _mLines + (_mLines ? '\n' : ''));
-          _migIndex.push({ id: _msid, ts: sess.ts, prompt: sess.prompt || '',
-            status: sess.status || 'complete', org: sess.org || '',
-            startedAt: sess.ts || sess.startedAt, endedAt: sess.endTs || sess.endedAt,
-            domains: sess.domains || [] });
+          const _mEvts = sess.events || [];
+          const _mLines = _mEvts.map((e) => JSON.stringify(e)).join('\n');
+          fs.writeFileSync(
+            path.join(_migSessDir, `${_msid}.jsonl`),
+            _mLines + (_mLines ? '\n' : ''),
+          );
+          _migIndex.push({
+            id: _msid,
+            ts: sess.ts,
+            prompt: sess.prompt || '',
+            status: sess.status || 'complete',
+            org: sess.org || '',
+            startedAt: sess.ts || sess.startedAt,
+            endedAt: sess.endTs || sess.endedAt,
+            domains: sess.domains || [],
+          });
         }
         fs.writeFileSync(_migIndexFile, JSON.stringify(_migIndex));
-        console.log('[server] migrated ' + _migIndex.length + ' sessions to per-session JSONL format');
-      } catch(_me) { console.warn('[server] session migration failed:', _me.message); }
+        console.log(
+          '[server] migrated ' + _migIndex.length + ' sessions to per-session JSONL format',
+        );
+      } catch (_me) {
+        console.warn('[server] session migration failed:', _me.message);
+      }
     }
   } catch (_) {}
 
@@ -3727,12 +5437,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
 
   function scheduleRefresh(event, filename) {
     const sections = pathToSections(filename);
-    if (sections) sections.forEach(s => pendingSections.add(s));
+    if (sections) sections.forEach((s) => pendingSections.add(s));
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      const changed = pendingSections.size > 0
-        ? Array.from(pendingSections)
-        : ['sessions', 'swarm', 'agents', 'tokens', 'hooks', 'memory', 'knowledge', 'metrics'];
+      const changed =
+        pendingSections.size > 0
+          ? Array.from(pendingSections)
+          : ['sessions', 'swarm', 'agents', 'tokens', 'hooks', 'memory', 'knowledge', 'metrics'];
       pendingSections.clear();
       broadcast({ kind: 'changed', sections: changed });
     }, 500);
@@ -3776,7 +5487,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       const clients = runStreamClients.get(orgName);
       for (const _rawLine of newLines) {
         let ev;
-        try { ev = JSON.parse(_rawLine); } catch { continue; }
+        try {
+          ev = JSON.parse(_rawLine);
+        } catch {
+          continue;
+        }
         if (!ev || !ev.type) continue;
         // Index in SQLite (watcher path — bash-written lifecycle events)
         if (!ev.org) ev.org = orgName;
@@ -3785,13 +5500,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         // Update activeOrgRuns based on file-watcher evidence
         if ((ev.type === 'run:start' || ev.type === 'org:start') && ev.runId) {
           activeOrgRuns.set(orgName, String(ev.runId).trim());
-        } else if (ev.type === 'run:complete' || ev.type === 'org:complete' || ev.type === 'org:stop') {
+        } else if (
+          ev.type === 'run:complete' ||
+          ev.type === 'org:complete' ||
+          ev.type === 'org:stop'
+        ) {
           activeOrgRuns.delete(orgName);
         }
         // Forward to per-org SSE clients so the chat tab gets live bash-written events
         if (clients && clients.size > 0) {
           const _sseData = `data: ${_rawLine}\n\n`;
-          for (const _cl of clients) { try { _cl.write(_sseData); } catch (_) { clients.delete(_cl); } }
+          for (const _cl of clients) {
+            try {
+              _cl.write(_sseData);
+            } catch (_) {
+              clients.delete(_cl);
+            }
+          }
         }
         // Also broadcast to mastermind-stream for the org activity strip
         if (ev.org && ev.org === orgName) broadcastMm({ ...ev, _fromWatcher: true });
@@ -3818,10 +5543,21 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       for (const _org of fs.readdirSync(_orgsDir)) {
         const _runsDir = path.join(_orgsDir, _org, 'runs');
         if (!fs.existsSync(_runsDir)) continue;
-        for (const _f of fs.readdirSync(_runsDir).filter(f => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.warm.jsonl') && !f.endsWith('.convs.jsonl'))) {
+        for (const _f of fs
+          .readdirSync(_runsDir)
+          .filter(
+            (f) =>
+              f.endsWith('.jsonl') &&
+              !f.startsWith('._') &&
+              !f.endsWith('.warm.jsonl') &&
+              !f.endsWith('.convs.jsonl'),
+          )) {
           try {
             const _absF = path.join(_runsDir, _f);
-            if (_orgsFileSizes.size >= _MAX_ORGS_FILE_SIZES) { const _k = _orgsFileSizes.keys().next().value; _orgsFileSizes.delete(_k); }
+            if (_orgsFileSizes.size >= _MAX_ORGS_FILE_SIZES) {
+              const _k = _orgsFileSizes.keys().next().value;
+              _orgsFileSizes.delete(_k);
+            }
             _orgsFileSizes.set(_absF, fs.statSync(_absF).size);
           } catch (_) {}
         }
@@ -3849,7 +5585,12 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         if (parts.length >= 3 && parts[1] === 'runs') {
           const _wOrgName = parts[0];
           const _wRunId = parts[2].replace('.jsonl', '');
-          if (_wOrgName && _wRunId && /^[a-z0-9][a-z0-9_-]*$/i.test(_wOrgName) && /^[a-z0-9][a-z0-9_-]*$/i.test(_wRunId)) {
+          if (
+            _wOrgName &&
+            _wRunId &&
+            /^[a-z0-9][a-z0-9_-]*$/i.test(_wOrgName) &&
+            /^[a-z0-9][a-z0-9_-]*$/i.test(_wRunId)
+          ) {
             _readNewOrgLines(absPath, _wOrgName, _wRunId);
           }
         }
@@ -3858,23 +5599,46 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
       _chokidarWatcher.on('change', _handleChokidarPath);
       activeWatchers.push({ close: () => _chokidarWatcher.close() });
       _watcherStarted = true;
-    } catch (_chokidarErr) { /* chokidar unavailable — fall through to fs.watch */ }
+    } catch (_chokidarErr) {
+      /* chokidar unavailable — fall through to fs.watch */
+    }
     if (!_watcherStarted) {
       try {
-        const _orgsWatcher = fs.watch(_orgsDir, { recursive: true, persistent: false }, (_evType, _fname) => {
-          if (!_fname || !_fname.endsWith('.jsonl') || _fname.endsWith('.warm.jsonl') || _fname.endsWith('.convs.jsonl')) return;
-          const _parts = _fname.replace(/\\/g, '/').split('/');
-          if (_parts.length >= 3 && _parts[1] === 'runs') {
-            const _wOrgName = _parts[0];
-            const _wRunId = _parts[2].replace('.jsonl', '');
-            if (_wOrgName && _wRunId && /^[a-z0-9][a-z0-9_-]*$/i.test(_wOrgName) && /^[a-z0-9][a-z0-9_-]*$/i.test(_wRunId)) {
-              _readNewOrgLines(path.join(_orgsDir, _fname.replace(/\\/g, '/')), _wOrgName, _wRunId);
+        const _orgsWatcher = fs.watch(
+          _orgsDir,
+          { recursive: true, persistent: false },
+          (_evType, _fname) => {
+            if (
+              !_fname ||
+              !_fname.endsWith('.jsonl') ||
+              _fname.endsWith('.warm.jsonl') ||
+              _fname.endsWith('.convs.jsonl')
+            )
+              return;
+            const _parts = _fname.replace(/\\/g, '/').split('/');
+            if (_parts.length >= 3 && _parts[1] === 'runs') {
+              const _wOrgName = _parts[0];
+              const _wRunId = _parts[2].replace('.jsonl', '');
+              if (
+                _wOrgName &&
+                _wRunId &&
+                /^[a-z0-9][a-z0-9_-]*$/i.test(_wOrgName) &&
+                /^[a-z0-9][a-z0-9_-]*$/i.test(_wRunId)
+              ) {
+                _readNewOrgLines(
+                  path.join(_orgsDir, _fname.replace(/\\/g, '/')),
+                  _wOrgName,
+                  _wRunId,
+                );
+              }
             }
-          }
-        });
+          },
+        );
         activeWatchers.push(_orgsWatcher);
       } catch (_wErr) {
-        console.warn('[monomind] watchOrgsDir: both chokidar and fs.watch failed — bash-written lifecycle events will not reach SSE clients. HTTP-posted events still work via spool DLQ.');
+        console.warn(
+          '[monomind] watchOrgsDir: both chokidar and fs.watch failed — bash-written lifecycle events will not reach SSE clients. HTTP-posted events still work via spool DLQ.',
+        );
       }
     }
   }
@@ -3898,8 +5662,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   const _spoolTimer = setInterval(() => {
     if (!fs.existsSync(_spoolBaseDir)) return;
     try {
-      const _spoolFiles = fs.readdirSync(_spoolBaseDir)
-        .filter(f => f.endsWith('.json') && !f.startsWith('.'))
+      const _spoolFiles = fs
+        .readdirSync(_spoolBaseDir)
+        .filter((f) => f.endsWith('.json') && !f.startsWith('.'))
         .sort() // chronological (timestamp prefix)
         .slice(0, 20); // max 20 per cycle to avoid flooding
       for (const _sf of _spoolFiles) {
@@ -3907,19 +5672,31 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
         try {
           const _spoolEvent = JSON.parse(fs.readFileSync(_sfPath, 'utf8'));
           const _spoolBody = JSON.stringify(_spoolEvent);
-          const _spoolReq = http.request({
-            hostname: 'localhost', port: boundPort,
-            path: '/api/mastermind/event', method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(_spoolBody) },
-          }, (_spoolRes) => {
-            // Delete only after confirmed delivery; leave file on failure for next poll cycle
-            if (_spoolRes.statusCode >= 200 && _spoolRes.statusCode < 300) {
-              try { fs.unlinkSync(_sfPath); } catch (_) {}
-            }
-            _spoolRes.resume();
-          });
+          const _spoolReq = http.request(
+            {
+              hostname: 'localhost',
+              port: boundPort,
+              path: '/api/mastermind/event',
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(_spoolBody),
+              },
+            },
+            (_spoolRes) => {
+              // Delete only after confirmed delivery; leave file on failure for next poll cycle
+              if (_spoolRes.statusCode >= 200 && _spoolRes.statusCode < 300) {
+                try {
+                  fs.unlinkSync(_sfPath);
+                } catch (_) {}
+              }
+              _spoolRes.resume();
+            },
+          );
           _spoolReq.on('error', () => {});
-          _spoolReq.setTimeout(2000, () => { _spoolReq.destroy(); });
+          _spoolReq.setTimeout(2000, () => {
+            _spoolReq.destroy();
+          });
           _spoolReq.write(_spoolBody);
           _spoolReq.end();
         } catch (_e) {}
@@ -3930,12 +5707,14 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   try {
     if (fs.existsSync(_spoolBaseDir)) {
       const _staleMs = 8 * 60 * 60 * 1000;
-      fs.readdirSync(_spoolBaseDir).filter(f => f.endsWith('.json')).forEach(_staleF => {
-        const _staleP = path.join(_spoolBaseDir, _staleF);
-        try {
-          if (Date.now() - fs.statSync(_staleP).mtimeMs > _staleMs) fs.unlinkSync(_staleP);
-        } catch (_) {}
-      });
+      fs.readdirSync(_spoolBaseDir)
+        .filter((f) => f.endsWith('.json'))
+        .forEach((_staleF) => {
+          const _staleP = path.join(_spoolBaseDir, _staleF);
+          try {
+            if (Date.now() - fs.statSync(_staleP).mtimeMs > _staleMs) fs.unlinkSync(_staleP);
+          } catch (_) {}
+        });
     }
   } catch (_) {}
 
@@ -3947,8 +5726,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     if (!fs.existsSync(_rbDir)) return;
     try {
       fs.readdirSync(_rbDir)
-        .filter(f => f.startsWith('read-batch-') && f.endsWith('.json'))
-        .forEach(_rbf => {
+        .filter((f) => f.startsWith('read-batch-') && f.endsWith('.json'))
+        .forEach((_rbf) => {
           const _rbPath = path.join(_rbDir, _rbf);
           try {
             const _rbData = JSON.parse(fs.readFileSync(_rbPath, 'utf8'));
@@ -3960,18 +5739,28 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
               type: 'agent:read:batch',
               org: _rbOrg,
               runId: _rbRunId,
-              paths: _rbData.map(e => String(e.path || '').slice(0, 256)),
+              paths: _rbData.map((e) => String(e.path || '').slice(0, 256)),
               count: _rbData.length,
               ts: Date.now(),
             };
             const _rbBody = JSON.stringify(_rbEvent);
-            const _rbReq = http.request({
-              hostname: 'localhost', port: boundPort,
-              path: '/api/mastermind/event', method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(_rbBody) },
-            }, () => {});
+            const _rbReq = http.request(
+              {
+                hostname: 'localhost',
+                port: boundPort,
+                path: '/api/mastermind/event',
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': Buffer.byteLength(_rbBody),
+                },
+              },
+              () => {},
+            );
             _rbReq.on('error', () => {});
-            _rbReq.setTimeout(2000, () => { _rbReq.destroy(); });
+            _rbReq.setTimeout(2000, () => {
+              _rbReq.destroy();
+            });
             _rbReq.write(_rbBody);
             _rbReq.end();
           } catch (_e) {}
@@ -3986,36 +5775,54 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
   const _heartbeatTimer = setInterval(() => {
     if (!fs.existsSync(_ppidCheckDir)) return;
     try {
-      fs.readdirSync(_ppidCheckDir).filter(f => f.endsWith('.json')).forEach(_ppf => {
-        const _ppPath = path.join(_ppidCheckDir, _ppf);
-        try {
-          const _ppData = JSON.parse(fs.readFileSync(_ppPath, 'utf8'));
-          const _ppid = parseInt(_ppf.replace('.json', ''), 10);
-          if (!_ppid || isNaN(_ppid)) return;
-          // Check if the ppid process is still alive (signal 0 = probe, no kill)
+      fs.readdirSync(_ppidCheckDir)
+        .filter((f) => f.endsWith('.json'))
+        .forEach((_ppf) => {
+          const _ppPath = path.join(_ppidCheckDir, _ppf);
           try {
-            process.kill(_ppid, 0);
-            // Process alive — no action
-          } catch (_psErr) {
-            // Process gone — emit org:stop and remove the ppid file
-            fs.unlinkSync(_ppPath);
-            const _staleOrg = String(_ppData.org || '').trim();
-            const _staleRun = String(_ppData.runId || '').trim();
-            if (_staleOrg && activeOrgRuns.has(_staleOrg)) {
-              const _stopBody = JSON.stringify({ type: 'org:stop', org: _staleOrg, runId: _staleRun, reason: 'ppid-dead', ts: Date.now() });
-              const _stopReq = http.request({
-                hostname: 'localhost', port: boundPort,
-                path: '/api/mastermind/event', method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(_stopBody) },
-              }, () => {});
-              _stopReq.on('error', () => {});
-              _stopReq.setTimeout(2000, () => { _stopReq.destroy(); });
-              _stopReq.write(_stopBody);
-              _stopReq.end();
+            const _ppData = JSON.parse(fs.readFileSync(_ppPath, 'utf8'));
+            const _ppid = parseInt(_ppf.replace('.json', ''), 10);
+            if (!_ppid || isNaN(_ppid)) return;
+            // Check if the ppid process is still alive (signal 0 = probe, no kill)
+            try {
+              process.kill(_ppid, 0);
+              // Process alive — no action
+            } catch (_psErr) {
+              // Process gone — emit org:stop and remove the ppid file
+              fs.unlinkSync(_ppPath);
+              const _staleOrg = String(_ppData.org || '').trim();
+              const _staleRun = String(_ppData.runId || '').trim();
+              if (_staleOrg && activeOrgRuns.has(_staleOrg)) {
+                const _stopBody = JSON.stringify({
+                  type: 'org:stop',
+                  org: _staleOrg,
+                  runId: _staleRun,
+                  reason: 'ppid-dead',
+                  ts: Date.now(),
+                });
+                const _stopReq = http.request(
+                  {
+                    hostname: 'localhost',
+                    port: boundPort,
+                    path: '/api/mastermind/event',
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(_stopBody),
+                    },
+                  },
+                  () => {},
+                );
+                _stopReq.on('error', () => {});
+                _stopReq.setTimeout(2000, () => {
+                  _stopReq.destroy();
+                });
+                _stopReq.write(_stopBody);
+                _stopReq.end();
+              }
             }
-          }
-        } catch (_) {}
-      });
+          } catch (_) {}
+        });
     } catch (_) {}
   }, 60000); // every 60s — intentionally infrequent, just a safety net
 
@@ -4046,15 +5853,17 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true,
     closeSseClients();
 
     // Drain in-flight JSONL appends before closing (prevents truncated writes on fast SIGTERM)
-    Promise.all([..._writeQueue.values()]).catch(() => {}).finally(() => {
-      server.close(() => {
-        running = false;
-        currentPort = null;
-        currentUrl = null;
-        activeServer = null;
-        process.exit(0);
+    Promise.all([..._writeQueue.values()])
+      .catch(() => {})
+      .finally(() => {
+        server.close(() => {
+          running = false;
+          currentPort = null;
+          currentUrl = null;
+          activeServer = null;
+          process.exit(0);
+        });
       });
-    });
   }
 
   process.once('SIGTERM', shutdown);
@@ -4088,7 +5897,7 @@ const _isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPa
 if (_isMain) {
   const _port = parseInt(process.argv[2] || process.env.CONTROL_PORT || '4242', 10);
   const _dir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  startServer({ port: _port, openBrowser: false, projectDir: _dir }).catch(err => {
+  startServer({ port: _port, openBrowser: false, projectDir: _dir }).catch((err) => {
     process.stderr.write(`[server] failed to start: ${err.message}\n`);
     process.exit(1);
   });

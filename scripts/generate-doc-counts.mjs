@@ -99,6 +99,24 @@ const DOC_FILES = [
   'doc/concepts/statusline.md',
 ];
 
+/**
+ * CLI source strings that embed the worker count as a plain literal (no HTML
+ * comment marker — TS source can't use one inside a template string without it
+ * surfacing in --help output). Each entry is { file, regex, replacePattern }
+ * where replacePattern uses %COUNT% as the substitution token.
+ *
+ * Kept conservative: one distinctive match per file.
+ */
+const CLI_SOURCE_PATCHES = [
+  {
+    file: 'packages/@monomind/cli/src/commands/hooks.ts',
+    // Matches: `${output.highlight('worker')}          - Background worker management (N workers)`,
+    regex:
+      /(`\$\{output\.highlight\('worker'\)}\s+-\s+Background worker management\s+\()\d+(\s+workers\)`,)/,
+    replacePattern: '$1%COUNT%$2',
+  },
+];
+
 function markerRegex(name) {
   // Non-greedy: matches the shortest run up to the next closing marker, so
   // adjacent same-name markers on one line don't bleed into each other.
@@ -139,6 +157,32 @@ function main() {
         writeFileSync(join(REPO_ROOT, relPath), out, 'utf8');
         console.log(`updated: ${relPath}`);
       }
+    }
+  }
+
+  // CLI source strings: plain literals, not <!-- doc-count --> markers.
+  for (const { file, regex, replacePattern } of CLI_SOURCE_PATCHES) {
+    let content;
+    try {
+      content = read(file);
+    } catch {
+      continue;
+    }
+    if (!regex.test(content)) continue;
+    // Re-extract the current count with a tight probe (regex above captures
+    // prefix/suffix groups but not the digit on its own — kept readable).
+    const digitMatch = content.match(/Background worker management\s+\((\d+)\s+workers\)/);
+    const current = digitMatch ? Number(digitMatch[1]) : NaN;
+    if (current === COUNTS.workers) continue;
+    if (checkOnly) {
+      stale.push(`${file} (worker-count literal: ${current} → ${COUNTS.workers})`);
+    } else {
+      const next = content.replace(
+        regex,
+        replacePattern.replace('%COUNT%', String(COUNTS.workers)),
+      );
+      writeFileSync(join(REPO_ROOT, file), next, 'utf8');
+      console.log(`updated: ${file} (worker-count literal)`);
     }
   }
 

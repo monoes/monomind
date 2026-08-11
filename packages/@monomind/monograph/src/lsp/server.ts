@@ -1,5 +1,5 @@
 import { createInterface } from 'readline';
-import type { MonographDb } from '../storage/db.js';
+import { closeDb, type MonographDb } from '../storage/db.js';
 
 // Minimal LSP stdio server exposing monograph diagnostics
 // Start with: node server.js --db /path/to/monograph.db
@@ -7,7 +7,7 @@ import type { MonographDb } from '../storage/db.js';
 export interface LspDiagnostic {
   uri: string;
   range: { start: { line: number; character: number }; end: { line: number; character: number } };
-  severity: 1 | 2 | 3 | 4;   // Error=1, Warning=2, Information=3, Hint=4
+  severity: 1 | 2 | 3 | 4; // Error=1, Warning=2, Information=3, Hint=4
   source: 'monograph';
   message: string;
   code?: string;
@@ -18,7 +18,10 @@ const FILE_RANGE = {
   end: { line: 0, character: 0 },
 };
 
-export function buildDiagnosticsFromDb(db: MonographDb, repoRoot: string): Map<string, LspDiagnostic[]> {
+export function buildDiagnosticsFromDb(
+  db: MonographDb,
+  repoRoot: string,
+): Map<string, LspDiagnostic[]> {
   const result = new Map<string, LspDiagnostic[]>();
 
   const normRoot = repoRoot.replace(/\/$/, '');
@@ -27,7 +30,9 @@ export function buildDiagnosticsFromDb(db: MonographDb, repoRoot: string): Map<s
     if (filePath.startsWith('/')) {
       return `file://${filePath}`;
     }
-    return `file:///${normRoot}/${filePath}`.replace(/\/+/g, '/').replace(/^file:\/\/\//, 'file:///');
+    return `file:///${normRoot}/${filePath}`
+      .replace(/\/+/g, '/')
+      .replace(/^file:\/\/\//, 'file:///');
   }
 
   function addDiag(filePath: string, diag: LspDiagnostic): void {
@@ -39,11 +44,13 @@ export function buildDiagnosticsFromDb(db: MonographDb, repoRoot: string): Map<s
 
   // Unreachable files → Warning
   try {
-    const unreachableFiles = db.prepare(
-      `SELECT file_path FROM nodes
+    const unreachableFiles = db
+      .prepare(
+        `SELECT file_path FROM nodes
        WHERE label = 'File'
-         AND json_extract(properties, '$.reachabilityRole') = 'unreachable'`
-    ).all() as { file_path: string }[];
+         AND json_extract(properties, '$.reachabilityRole') = 'unreachable'`,
+      )
+      .all() as { file_path: string }[];
 
     for (const row of unreachableFiles) {
       if (!row.file_path) continue;
@@ -66,11 +73,11 @@ export function buildDiagnosticsFromDb(db: MonographDb, repoRoot: string): Map<s
     // Use p95 fan-in as the threshold (consistent with god-nodes pipeline phase)
     const GOD_NODE_DEGREE_THRESHOLD = 10; // fallback if we can't compute from DB
 
-    const fanInRows = db.prepare(
-      `SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`
-    ).all() as { target_id: string; c: number }[];
+    const fanInRows = db
+      .prepare(`SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`)
+      .all() as { target_id: string; c: number }[];
 
-    const sorted = fanInRows.map(r => r.c).sort((a, b) => a - b);
+    const sorted = fanInRows.map((r) => r.c).sort((a, b) => a - b);
     let threshold = GOD_NODE_DEGREE_THRESHOLD;
     if (sorted.length > 0) {
       const idx = Math.min(Math.floor(0.95 * sorted.length), sorted.length - 1);
@@ -82,14 +89,16 @@ export function buildDiagnosticsFromDb(db: MonographDb, repoRoot: string): Map<s
       fanInByNode.set(row.target_id, row.c);
     }
 
-    const godNodeRows = db.prepare(
-      `SELECT n.id, n.file_path, COUNT(e.source_id) as fan_in
+    const godNodeRows = db
+      .prepare(
+        `SELECT n.id, n.file_path, COUNT(e.source_id) as fan_in
        FROM nodes n
        JOIN edges e ON e.target_id = n.id
        WHERE n.label = 'File'
        GROUP BY n.id
-       HAVING COUNT(e.source_id) > ?`
-    ).all(threshold) as { id: string; file_path: string; fan_in: number }[];
+       HAVING COUNT(e.source_id) > ?`,
+      )
+      .all(threshold) as { id: string; file_path: string; fan_in: number }[];
 
     const totalNodes = (db.prepare('SELECT COUNT(*) as n FROM nodes').get() as { n: number }).n;
 
@@ -112,14 +121,16 @@ export function buildDiagnosticsFromDb(db: MonographDb, repoRoot: string): Map<s
 
   // STRUCTURALLY_SIMILAR edges → Information
   try {
-    const similarEdges = db.prepare(
-      `SELECT e.source_id, e.target_id, e.confidence_score,
+    const similarEdges = db
+      .prepare(
+        `SELECT e.source_id, e.target_id, e.confidence_score,
               ns.file_path as source_path, nt.file_path as target_path
        FROM edges e
        JOIN nodes ns ON ns.id = e.source_id
        JOIN nodes nt ON nt.id = e.target_id
-       WHERE e.relation = 'STRUCTURALLY_SIMILAR'`
-    ).all() as {
+       WHERE e.relation = 'STRUCTURALLY_SIMILAR'`,
+      )
+      .all() as {
       source_id: string;
       target_id: string;
       confidence_score: number;
@@ -176,7 +187,11 @@ export function startLspServer(db: MonographDb, repoRoot: string): void {
   let buffer = Buffer.alloc(0);
   let expectedLength: number | null = null;
 
-  process.stdin.on('data', (chunk: Buffer) => {
+  // MONO-7: track registered listeners so the 'shutdown' handler can remove them
+  // (otherwise the process holds open stdin listeners + the DB handle forever,
+  // and only `process.exit(0)` on the 'exit' notification or stdin-end reclaims them).
+  let shutdownRequested = false;
+  const onData = (chunk: Buffer): void => {
     buffer = Buffer.concat([buffer, chunk]);
 
     while (true) {
@@ -227,10 +242,26 @@ export function startLspServer(db: MonographDb, repoRoot: string): void {
           break;
 
         case 'shutdown':
+          // MONO-7: send the response, then release the DB handle so the native
+          // better-sqlite3 file lock is freed. Listeners stay attached so the
+          // subsequent 'exit' notification still parses and reaches its handler
+          // (LSP spec: shutdown only means "no more requests"; exit drives termination).
+          // Final listener removal happens in the 'exit'/stdin-end path.
           sendResponse(id ?? null, null);
+          if (!shutdownRequested) {
+            shutdownRequested = true;
+            try {
+              closeDb(db);
+            } catch {
+              /* best-effort — may already be closed */
+            }
+          }
           break;
 
         case 'exit':
+          // MONO-7: now safe to remove listeners before terminating.
+          process.stdin.removeListener('data', onData);
+          process.stdin.removeListener('end', onEnd);
           process.exit(0);
           break;
 
@@ -246,9 +277,13 @@ export function startLspServer(db: MonographDb, repoRoot: string): void {
           break;
       }
     }
-  });
+  };
 
-  process.stdin.on('end', () => {
+  const onEnd = (): void => {
+    process.stdin.removeListener('data', onData);
     process.exit(0);
-  });
+  };
+
+  process.stdin.on('data', onData);
+  process.stdin.on('end', onEnd);
 }
