@@ -15,7 +15,7 @@ import {
   findTransformersCacheDir,
   isEmbeddingModelCached,
 } from '../routing/model-download.js';
-import { getCommand } from '../commands/index.js';
+import { getCommandAsync } from '../commands/index.js';
 
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -82,8 +82,8 @@ describe('standalone downloader script', () => {
 });
 
 describe('download-embeddings command', () => {
-  it('is registered', () => {
-    const cmd = getCommand('download-embeddings');
+  it('is registered', async () => {
+    const cmd = await getCommandAsync('download-embeddings');
     expect(cmd).toBeDefined();
     expect(cmd!.name).toBe('download-embeddings');
     expect(typeof cmd!.action).toBe('function');

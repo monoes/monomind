@@ -225,7 +225,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     }
 
     // Run doctor auto-fix (non-blocking, best-effort)
-    await runDoctorFix(targetDir, result);
+    await runDoctorFix(targetDir, result, options.installClaudeCode !== false);
 
     // Register this project in ~/.monomind-projects.json so upgrade --all finds it
     _registerMonomindProject(targetDir);
@@ -322,23 +322,40 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
 /**
  * Run doctor --install to auto-fix any remaining issues.
  * Non-fatal: best-effort health check and auto-install.
+ *
+ * `install` gates the Claude Code CLI auto-install specifically (a real
+ * network fetch + global write, `npm install -g @anthropic-ai/claude-code`)
+ * — pass false (`monomind init --no-install`) to run only the local,
+ * no-network doctor fixes. When it will run, disclose it up front rather
+ * than letting it appear silently mid-summary (#132).
  */
-async function runDoctorFix(targetDir: string, result: InitResult): Promise<void> {
+async function runDoctorFix(targetDir: string, result: InitResult, install = true): Promise<void> {
   try {
     const { doctorCommand } = await import('../commands/doctor.js');
     if (!doctorCommand.action) {
       result.skipped.push('doctor: auto-fix unavailable (run: monomind doctor --install)');
       return;
     }
+    if (install) {
+      const { checkClaudeCode } = await import('../commands/doctor-env-checks.js');
+      const claudeCheck = await checkClaudeCode();
+      if (claudeCheck.status !== 'pass') {
+        const { output } = await import('../output.js');
+        output.printInfo('Installing Claude Code CLI globally (npm install -g @anthropic-ai/claude-code) — pass --no-install to skip');
+      }
+    }
     const res = await doctorCommand.action({
       args: [],
-      flags: { install: true },
+      // `fix: true` keeps the local, no-network fixes (monoes tool shims,
+      // gitignore coverage) running even when `install` is false — only the
+      // Claude Code CLI's global npm install is gated by `install`.
+      flags: { install, fix: true },
       cwd: targetDir,
     } as never);
     if (res && (res as { success?: boolean }).success === false) {
       result.skipped.push('doctor: reported issues (run: monomind doctor for details)');
     } else {
-      result.created.files.push('doctor --install (health check + auto-fix)');
+      result.created.files.push(install ? 'doctor --install (health check + auto-fix)' : 'doctor --fix (health check, no network install)');
     }
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);

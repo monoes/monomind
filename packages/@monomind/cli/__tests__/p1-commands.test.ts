@@ -976,8 +976,16 @@ describe('Session Command', () => {
 });
 
 describe('Command Index Exports', () => {
-  it('should export all P1 commands', async () => {
-    const { commands, initCommand: init, startCommand: start, statusCommand: status, taskCommand: task, sessionCommand: session } = await import('../src/commands/index.js');
+  it('should lazy-load all P1 commands by name', async () => {
+    const { getCommandAsync } = await import('../src/commands/index.js');
+
+    const [init, start, status, task, session] = await Promise.all([
+      getCommandAsync('init'),
+      getCommandAsync('start'),
+      getCommandAsync('status'),
+      getCommandAsync('task'),
+      getCommandAsync('session'),
+    ]);
 
     expect(init).toBeDefined();
     expect(start).toBeDefined();
@@ -985,10 +993,10 @@ describe('Command Index Exports', () => {
     expect(task).toBeDefined();
     expect(session).toBeDefined();
 
-    expect(commands).toContain(init);
-    expect(commands).toContain(start);
-    expect(commands).toContain(status);
-    expect(commands).toContain(task);
-    expect(commands).toContain(session);
+    expect(init!.name).toBe('init');
+    expect(start!.name).toBe('start');
+    expect(status!.name).toBe('status');
+    expect(task!.name).toBe('task');
+    expect(session!.name).toBe('session');
   }, 120000); // full commands/index.js import graph is heavy under parallel-worker contention (#33) — 30s still timed out on a loaded box
 });

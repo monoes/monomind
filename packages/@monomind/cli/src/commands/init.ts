@@ -42,6 +42,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const full = ctx.flags.full as boolean;
   const skipClaude = ctx.flags['skip-claude'] as boolean;
   const onlyClaude = ctx.flags['only-claude'] as boolean;
+  const noInstall = (ctx.flags['no-install'] || ctx.flags.noInstall) as boolean;
   const cwd = ctx.cwd;
 
   const initialized = isInitialized(cwd);
@@ -112,6 +113,10 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   if (onlyClaude) {
     options.components.runtime = false;
+  }
+
+  if (noInstall) {
+    options.installClaudeCode = false;
   }
 
   const spinner = output.createSpinner({ text: 'Initializing...' });
@@ -528,6 +533,12 @@ export const initCommand: Command = {
     {
       name: 'only-claude',
       description: 'Only create .claude/ directory (skip runtime)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'no-install',
+      description: 'Skip the post-init `doctor --install` pass, which may otherwise run a global `npm install -g @anthropic-ai/claude-code`',
       type: 'boolean',
       default: false,
     },

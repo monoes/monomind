@@ -54,8 +54,20 @@ export async function checkNpmVersion(): Promise<HealthCheck> {
     const major = parseInt(version.split('.')[0], 10);
     if (major >= 9) return { name: 'npm Version', status: 'pass', message: `v${version}` };
     return { name: 'npm Version', status: 'warn', message: `v${version} (>= 9 recommended)`, fix: 'npm install -g npm@latest' };
-  } catch {
-    return { name: 'npm Version', status: 'fail', message: 'npm not found', fix: 'Install Node.js from https://nodejs.org' };
+  } catch (err) {
+    // Don't collapse every failure mode (timeout, non-zero exit, spawn error,
+    // genuine absence) into the same "npm not found" message — it's actively
+    // misleading when npm is actually present, and gives no signal for the
+    // next occurrence to diagnose from (#131).
+    const e = err as NodeJS.ErrnoException & { killed?: boolean; signal?: string | null };
+    if (e?.killed || e?.signal) {
+      return { name: 'npm Version', status: 'fail', message: 'npm --version timed out', fix: 'Re-run `monomind doctor` — if this persists, check for a slow/misconfigured npm config or proxy' };
+    }
+    if (e?.code === 'ENOENT') {
+      return { name: 'npm Version', status: 'fail', message: 'npm not found', fix: 'Install Node.js from https://nodejs.org' };
+    }
+    const detail = e instanceof Error ? e.message : String(e);
+    return { name: 'npm Version', status: 'fail', message: `npm check failed (${detail})`, fix: 'Run `npm --version` manually to see the underlying error' };
   }
 }
 
