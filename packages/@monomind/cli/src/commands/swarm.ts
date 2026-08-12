@@ -354,13 +354,10 @@ const initCommand: Command = {
       });
 
       // Display initialization progress
-      output.writeln(output.dim('  Creating coordination topology...'));
-      output.writeln(output.dim('  Initializing memory namespace...'));
-      output.writeln(output.dim('  Setting up communication channels...'));
+      output.writeln(output.dim(`  Wrote swarm config: ${result.swarmId}`));
 
       if (v1Mode) {
-        output.writeln(output.dim('  Configuring SQLite-backed vector search (ANN)....'));
-        output.writeln(output.dim('  Initializing keyword routing + outcome measurement...'));
+        output.writeln(output.dim('  (v1-mode: topology renamed to hierarchical-mesh; no ANN or keyword routing is performed during init)'));
       }
 
       output.writeln();
@@ -403,7 +400,10 @@ const initCommand: Command = {
           swarmId: result.swarmId,
           topology: result.topology,
           maxAgents: result.config.maxAgents,
-          status: 'running',
+          // P0-4: no agents are actually running yet at init time — the
+          // printed message says so; the persisted state must agree, or
+          // `swarm status --format json` contradicts the human-readable output.
+          status: 'configured',
           agents: [],
           tasks: [],
           config: { strategy: ctx.flags.strategy || 'development', v1Mode },
@@ -581,7 +581,9 @@ const startCommand: Command = {
       swarmId: resolvedSwarmId,
       topology: 'hierarchical',
       maxAgents: totalAgents,
-      status: 'running',
+      // P0-4: same fix as swarm init — persisted status must match the
+      // "No agents are running" message below, not claim 'running'.
+      status: 'configured',
       agents: [],
       tasks: [],
       config: { strategy, objective, agentPlan, parallel: ctx.flags.parallel ?? true },
@@ -592,11 +594,7 @@ const startCommand: Command = {
     writeJsonFileAtomic(stateFile2, startStore);
 
     output.writeln();
-    output.printSuccess(`Swarm ${resolvedSwarmId} initialized with ${totalAgents} agent slots`);
-    output.writeln(output.dim('  Note: Agents are registered but actual task execution requires'));
-    output.writeln(
-      output.dim('  Claude Code Task tool or hive-mind spawn --claude to drive work.'),
-    );
+    output.printSuccess(`Swarm ${resolvedSwarmId} config written (${totalAgents} agent slots reserved). No agents are running — use 'agent spawn' or hive-mind spawn --claude to dispatch Task-tool agents.`);
     output.writeln(output.dim(`  Monitor: monomind swarm status ${resolvedSwarmId}`));
 
     return {
@@ -932,14 +930,13 @@ const coordinateCommand: Command = {
         maxAgents: agentCount,
         strategy: 'specialized',
       });
-      output.printSuccess(`Swarm coordination initialized with ${agentCount} agent slots via MCP`);
+      output.printSuccess(`Swarm coordination config written (${agentCount} agent slots reserved) via MCP. No agents are running.`);
     } catch {
-      output.printWarning('MCP unavailable — showing agent plan only (no active coordination)');
+      output.printWarning('MCP unavailable — showing agent plan only (no swarm state written)');
     }
 
     output.writeln();
-    output.writeln(output.dim('Note: Use Claude Code Task tool or hive-mind spawn --claude to'));
-    output.writeln(output.dim('drive actual agent execution. This command sets up the topology.'));
+    output.writeln(output.dim('Use Claude Code Task tool or hive-mind spawn --claude to drive actual agent execution.'));
 
     return { success: true, data: { agents: v1Agents, count: agentCount } };
   },

@@ -36,6 +36,40 @@ interface EmbeddingModel {
 
 let embeddingModelState: EmbeddingModel | null = null;
 
+// P2-6: BGE-M3 opt-in model registry. When the user passes --embedder=bge-m3,
+// load this model via transformers.js instead of the default. Lazy-fetched from
+// HuggingFace CDN on first use (~600MB-2GB depending on variant); cached forever.
+const EMBEDDER_REGISTRY: Record<string, { model: string; dimensions: number; description: string }> = {
+  'bge-m3': {
+    model: 'Xenova/bge-m3',
+    dimensions: 1024,
+    description: 'BAAI/bge-m3 — 1024d, 8192-token context, 100+ languages, dense+sparse+ColBERT',
+  },
+  'minilm': {
+    model: 'Xenova/all-MiniLM-L6-v2',
+    dimensions: 384,
+    description: 'all-MiniLM-L6-v2 — 384d, lightweight default',
+  },
+};
+
+// Currently active embedder override (set by --embedder flag on doc ingest)
+let _embedderOverride: string | null = null;
+
+/** P2-6: Set the embedder model override (e.g. 'bge-m3'). Call before loadEmbeddingModel. */
+export function setEmbedderOverride(name: string | null): void {
+  if (name && !EMBEDDER_REGISTRY[name]) {
+    throw new Error(`Unknown embedder: ${name}. Available: ${Object.keys(EMBEDDER_REGISTRY).join(', ')}`);
+  }
+  _embedderOverride = name;
+  // Force reload on next use
+  embeddingModelState = null;
+}
+
+/** P2-6: Get the currently configured embedder name (or null for default chain). */
+export function getEmbedderOverride(): string | null {
+  return _embedderOverride;
+}
+
 /**
  * Lazy load ONNX embedding model
  * Only loads when first embedding is requested
@@ -64,24 +98,69 @@ export async function loadEmbeddingModel(options?: {
   }
 
   // ADR-053: Try SQLite-backed memory bridge first
-  const bridge = await getBridge();
-  if (bridge) {
-    const bridgeResult = await bridge.bridgeLoadEmbeddingModel();
-    if (bridgeResult && bridgeResult.success) {
-      // Mark local state as loaded too so subsequent calls use cache
-      embeddingModelState = {
-        loaded: true,
-        model: null, // Bridge handles embedding
-        tokenizer: null,
-        dimensions: bridgeResult.dimensions
-      };
-      return bridgeResult;
+  // P2-6: Skip bridge when an explicit embedder override is set — the user
+  // chose a specific model; the bridge's own model would ignore that choice.
+  if (!_embedderOverride) {
+    const bridge = await getBridge();
+    if (bridge) {
+      const bridgeResult = await bridge.bridgeLoadEmbeddingModel();
+      if (bridgeResult && bridgeResult.success) {
+        embeddingModelState = {
+          loaded: true,
+          model: null,
+          tokenizer: null,
+          dimensions: bridgeResult.dimensions
+        };
+        return bridgeResult;
+      }
+    }
+  }
+
+  // P2-6: Explicit embedder override (e.g. --embedder=bge-m3).
+  // Lazy-fetches from HuggingFace CDN on first use; cached forever by transformers.js.
+  if (_embedderOverride) {
+    const config = EMBEDDER_REGISTRY[_embedderOverride];
+    if (config) {
+      try {
+        const transformers = await import('@huggingface/transformers').catch(() => null);
+        if (transformers) {
+          if (verbose) {
+            console.log(`Loading ${_embedderOverride} (${config.model}, ${config.dimensions}d)...`);
+            console.log(`  ${config.description}`);
+            console.log(`  First use will download the model from HuggingFace (~600MB+). Subsequent uses are cached.`);
+          }
+          const { pipeline } = transformers;
+          // Note: local_files_only is NOT set here — the model needs to be fetched
+          // from HuggingFace on first use. Subsequent calls use the local cache.
+          const embedder = await pipeline('feature-extraction', config.model);
+          embeddingModelState = {
+            loaded: true,
+            model: embedder,
+            tokenizer: null,
+            dimensions: config.dimensions
+          };
+          return {
+            success: true,
+            dimensions: config.dimensions,
+            modelName: config.model,
+            loadTime: Date.now() - startTime
+          };
+        }
+      } catch (err) {
+        // Model download/init failed — fall through to default chain
+        if (verbose) {
+          console.log(`Failed to load ${_embedderOverride}: ${err instanceof Error ? err.message : String(err)}`);
+          console.log('Falling back to default embedder chain...');
+        }
+      }
     }
   }
 
   try {
-    // Try to import @xenova/transformers for ONNX embeddings
-    const transformers = await import('@xenova/transformers').catch(() => null);
+    // Try to import @huggingface/transformers for ONNX embeddings
+    // (@huggingface/transformers is the maintained successor to @xenova/transformers,
+    // same maintainers/API — this is the package actually declared as a dependency)
+    const transformers = await import('@huggingface/transformers').catch(() => null);
 
     if (transformers) {
       if (verbose) {

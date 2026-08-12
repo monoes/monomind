@@ -11,19 +11,30 @@ const ingestCommand: Command = {
   name: 'ingest',
   description: 'Ingest documents into the knowledge base',
   options: [
-    // No `default` on scope: the auto-global routing below must be able to
-    // tell "user typed --scope shared" apart from "user typed nothing" — a
-    // parser-injected default makes them indistinguishable.
     { name: 'scope', short: 's', description: 'Knowledge scope (default: shared; auto-routes to global for paths outside the project)', type: 'string' },
     { name: 'global', short: 'g', description: 'Ingest into the personal cross-project global brain (~/.monomind/global-brain)', type: 'boolean' },
+    { name: 'embedder', description: 'Embedding model for this ingest: minilm (default, 384d) or bge-m3 (1024d, 8192-token context, 100+ languages; ~600MB+ download on first use)', type: 'string', default: 'minilm' },
   ],
   examples: [
     { command: 'monomind doc ingest ./docs', description: 'Ingest all docs in a directory' },
     { command: 'monomind doc ingest ~/notes --global', description: 'Ingest into the global brain (auto-detected for paths outside the project)' },
     { command: 'monomind doc ingest report.pdf', description: 'Ingest a single file' },
+    { command: 'monomind doc ingest ./docs --embedder bge-m3', description: 'Ingest using BGE-M3 (higher quality, larger model)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.args[0] || '.';
+
+    // P2-6: Wire embedder override before any embedding work happens.
+    const embedder = ctx.flags.embedder as string | undefined;
+    if (embedder && embedder !== 'minilm') {
+      const { setEmbedderOverride } = await import('../memory/embedding-operations.js');
+      try {
+        setEmbedderOverride(embedder);
+        output.writeln(output.dim(`  Using embedder: ${embedder}`));
+      } catch (e) {
+        output.printWarning(`Unknown embedder '${embedder}'. Available: minilm, bge-m3. Using default.`);
+      }
+    }
 
     const { ingestDocument, ingestDirectory } = await import('../knowledge/document-pipeline.js');
     const fs = await import('node:fs');
