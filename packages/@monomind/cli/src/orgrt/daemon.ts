@@ -183,6 +183,8 @@ export interface AgentRuntime {
   metrics: { tokens: number; costUsd: number };
   /** Track last message ID for threading responses */
   lastMessageId?: string;
+  /** SDK session ID — set by the session layer on first response (P2-13). Enables checkpoint resume. */
+  sessionId?: string;
   /** Per-role worktree path (workspace: 'worktree-per-role'). */
   worktreePath?: string;
   /** Terminal scrollback — capped ring buffer of agent output lines. */
@@ -675,6 +677,7 @@ export class OrgDaemon {
         status: 'running',
         done: Promise.resolve(),
         metrics: { tokens: 0, costUsd: 0 },
+        sessionId: undefined,
         worktreePath: roleCwd !== cwd ? roleCwd : undefined,
         scrollback: new ScrollbackBuffer(),
       };
@@ -693,6 +696,7 @@ export class OrgDaemon {
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
         lastMessageId: () => runtime.lastMessageId,
         onOutput: (line: string) => runtime.scrollback.push(line),
+        onSessionId: (id: string) => { runtime.sessionId = id; },
         deliver: (from: string, to: string, subject: string, body: string) =>
           this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
