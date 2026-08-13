@@ -400,7 +400,10 @@ const initCommand: Command = {
           swarmId: result.swarmId,
           topology: result.topology,
           maxAgents: result.config.maxAgents,
-          status: 'running',
+          // P0-4: no agents are actually running yet at init time — the
+          // printed message says so; the persisted state must agree, or
+          // `swarm status --format json` contradicts the human-readable output.
+          status: 'configured',
           agents: [],
           tasks: [],
           config: { strategy: ctx.flags.strategy || 'development', v1Mode },
@@ -578,7 +581,9 @@ const startCommand: Command = {
       swarmId: resolvedSwarmId,
       topology: 'hierarchical',
       maxAgents: totalAgents,
-      status: 'running',
+      // P0-4: same fix as swarm init — persisted status must match the
+      // "No agents are running" message below, not claim 'running'.
+      status: 'configured',
       agents: [],
       tasks: [],
       config: { strategy, objective, agentPlan, parallel: ctx.flags.parallel ?? true },

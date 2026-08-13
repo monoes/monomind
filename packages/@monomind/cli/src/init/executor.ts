@@ -219,7 +219,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 
     // Build knowledge graph in background (non-blocking) — code-project only
     if (options.components.graphify && (capMgr === null || capMgr.isActive('code'))) {
-      await initKnowledgeGraph(targetDir, result);
+      await initKnowledgeGraph(targetDir, result, options.installClaudeCode !== false);
     } else if (options.components.graphify) {
       result.skipped.push('knowledge graph: not a code project (skipping monograph indexing)');
     }
@@ -244,7 +244,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
  * Uses the same build.lock file as graphify-freshen.cjs — if a session-start
  * hook build is already running, we skip to avoid SQLITE_BUSY.
  */
-async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
+async function initKnowledgeGraph(targetDir: string, result: InitResult, allowInstall: boolean): Promise<void> {
   const outputDir = path.join(targetDir, '.monomind', 'graph');
   fs.mkdirSync(outputDir, { recursive: true });
 
@@ -272,12 +272,19 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
     if (fs.existsSync(fallback)) entryPoint = fallback;
   }
   if (!entryPoint) {
+    // P1-13: --no-install (options.installClaudeCode === false) must actually
+    // gate this install, not just say it does — skip entirely when disallowed.
+    if (!allowInstall) {
+      result.skipped.push('knowledge graph: @monoes/monograph not found (auto-install skipped, --no-install)');
+      return;
+    }
     // Auto-install @monoes/monograph and retry before giving up.
-    // P1-13: disclose the install before running it (consistent with the
+    // Disclose the install before running it (consistent with the
     // claude-code global install disclosure pattern from #131/#132).
     try {
       const { execSync } = await import('child_process');
-      process.stdout.write(`  Installing @monoes/monograph (knowledge graph dependency) — pass --no-monograph to skip...\n`);
+      const { output } = await import('../output.js');
+      output.printInfo('Installing @monoes/monograph (knowledge graph dependency) — pass --no-install to skip');
       execSync('npm install @monoes/monograph', { cwd: targetDir, stdio: 'ignore', timeout: 60000 });
       try {
         const cliRequire2 = createRequire(import.meta.url);
@@ -344,7 +351,7 @@ async function runDoctorFix(targetDir: string, result: InitResult, install = tru
       const claudeCheck = await checkClaudeCode();
       if (claudeCheck.status !== 'pass') {
         const { output } = await import('../output.js');
-        output.printInfo('Installing Claude Code CLI globally (npm install -g @anthropic-ai/claude-code) — pass --no-monograph to skip');
+        output.printInfo('Installing Claude Code CLI globally (npm install -g @anthropic-ai/claude-code) — pass --no-install to skip');
       }
     }
     const res = await doctorCommand.action({

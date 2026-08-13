@@ -1,6 +1,7 @@
 // packages/@monomind/cli/src/commands/org.ts
 import { readFileSync, writeFileSync, existsSync, unlinkSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
@@ -182,6 +183,12 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // provider tokens. Print an estimate before sessions start; honor --budget-usd
   // as a hard stop and --yes to skip the confirmation prompt. Rates are defaults
   // (per 1M tokens, input+output blended, Aug 2026); override via the model id.
+  //
+  // No provider Usage API is queried (that needs Admin/Org API credentials most
+  // users won't have configured) — rates come from this hardcoded table, or from
+  // a user-editable ~/.monomind/rates.json override when present. Either way this
+  // is static data, not a live query, so a "stale rates" warning is always shown
+  // to make that limitation visible rather than implying live pricing.
   const MODEL_RATE_PER_1M: Record<string, number> = {
     'claude-opus-5': 75, 'claude-opus-4': 75,
     'claude-sonnet-5': 15, 'claude-sonnet-4': 15, 'claude-sonnet-4-5': 15,
@@ -193,20 +200,37 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const AVG_TOKENS_PER_TURN = 2000;
   const budgetUsd = ctx.flags['budgetUsd'] as number | undefined;
   const skipConfirm = ctx.flags['yes'] === true;
+
+  // User-editable rate overrides: ~/.monomind/rates.json, e.g.
+  //   { "claude-opus-5": 90, "my-custom-model": 5 }
+  const ratesPath = join(homedir(), '.monomind', 'rates.json');
+  let userRates: Record<string, number> = {};
+  let ratesFileUsed = false;
+  try {
+    const parsed = JSON.parse(readFileSync(ratesPath, 'utf8'));
+    if (parsed && typeof parsed === 'object') {
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === 'number') userRates[k] = v;
+      }
+      ratesFileUsed = Object.keys(userRates).length > 0;
+    }
+  } catch { /* no rates.json (or invalid) — hardcoded defaults only */ }
+
   try {
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')));
     const maxTurns = def.run_config.max_turns_per_message ?? 30;
     let totalTokens = 0;
     const perRoleRows = def.roles.map((r) => {
       const model = String(r.adapter_config?.model ?? 'claude-sonnet-5');
-      const rate = MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
+      const rate = userRates[model] ?? MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
       const tokens = maxTurns * AVG_TOKENS_PER_TURN;
       totalTokens += tokens;
       return { id: r.id, model, tokens, cost: (tokens * rate) / 1_000_000 };
     });
     const estimate = perRoleRows.reduce((s, r) => s + r.cost, 0);
     log(output.bold('\nCost estimate'));
-    log(output.dim(`  (roles × max_turns × ~${AVG_TOKENS_PER_TURN} tokens/turn × model rate; default rates, will vary with real usage)`));
+    log(output.dim(`  (roles × max_turns × ~${AVG_TOKENS_PER_TURN} tokens/turn × model rate; ${ratesFileUsed ? `rates.json overrides + ` : ''}static defaults, will vary with real usage)`));
+    log(output.warning(`  ⚠ stale rates: no live provider pricing lookup — ${ratesFileUsed ? `using ~/.monomind/rates.json + ` : ''}hardcoded table (edit ~/.monomind/rates.json to override)`));
     for (const r of perRoleRows) {
       log(`    ${r.id.padEnd(20)} ${r.model.padEnd(22)} ~$${r.cost.toFixed(2)}`);
     }

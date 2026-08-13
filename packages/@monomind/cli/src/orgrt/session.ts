@@ -140,6 +140,10 @@ export interface SessionOpts {
   onOutput?: (line: string) => void;
   /** Callback when the SDK assigns a session ID — enables checkpoint resume (P2-13). */
   onSessionId?: (id: string) => void;
+  /** SDK session ID persisted in a checkpoint from a prior run — when set, the
+   *  first query() call resumes it instead of starting a fresh conversation
+   *  (P2-13: this is what actually makes checkpoint resume resume). */
+  resumeSessionId?: string;
   /** Circuit breaker config for this role. */
   circuitBreaker?: { threshold: number; state: { failures: number; tripped: boolean } };
   /** Called when the coordinator's context window is exhausted. */
@@ -202,7 +206,9 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
   // Carries the SDK's own session_id across a maxTurns restart so the next
   // query() call resumes the prior conversation instead of starting cold -
   // without this, a restart silently discarded all in-progress reasoning.
-  let resumeSessionId: string | undefined;
+  // Seeded from opts.resumeSessionId (a checkpoint's persisted sessionId) when
+  // this is a checkpoint resume, not a fresh run — P2-13.
+  let resumeSessionId: string | undefined = opts.resumeSessionId;
   // #1: when a session ends on the turn limit mid-work, push a continuation so
   // the restarted query() has input to act on instead of blocking on an empty
   // mailbox until the 10-minute idle watchdog. Bounded: if the role consumed no
