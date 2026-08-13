@@ -4,7 +4,7 @@
 
 import { execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { validateGitRef as sharedValidateGitRef, InvalidGitRefError } from '@monoes/monograph';
+import * as monograph from '@monoes/monograph';
 
 const execFileAsync = promisify(execFile);
 
@@ -371,9 +371,9 @@ const DIFF_CACHE_MAX_ENTRIES = 50;
  */
 function validateGitRef(ref: string): void {
   try {
-    sharedValidateGitRef(ref);
+    monograph.validateGitRef(ref);
   } catch (err) {
-    if (err instanceof InvalidGitRefError) throw new Error(err.message);
+    if (monograph.InvalidGitRefError && err instanceof monograph.InvalidGitRefError) throw new Error(err.message);
     throw err;
   }
 }
