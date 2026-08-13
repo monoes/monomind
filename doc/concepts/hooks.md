@@ -38,7 +38,7 @@ Runs 8 sequential phases at the start of every session:
 |---|---|---|
 | 1 | `session.restore()` | Restores `current.json` |
 | 2 | `intelligence.init()` | Loads patterns from `patterns.json`, deduplicates |
-| 3 | Init <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers | Metrics workers refresh if output is missing or older than 6 hours |
+| 3 | Init <!-- doc-count:workers -->0<!-- /doc-count:workers --> background workers | Metrics workers refresh if output is missing or older than 6 hours |
 | 4 | Knowledge base preload | CLAUDE.md + docs chunked → `[KNOWLEDGE_PRELOADED]` |
 | 5 | Shared instructions | `.agents/shared_instructions.md` → `[SHARED_INSTRUCTIONS]` |
 | 6 | Memory Palace wakeUp | identity.md + top-5 drawers → `[MEMORY_PALACE_L0/L1]` |
@@ -120,9 +120,9 @@ Defined in `packages/@monomind/hooks/src/types.ts`:
 
 ---
 
-## Background Workers (<!-- doc-count:workers -->8<!-- /doc-count:workers -->)
+## Background Workers (<!-- doc-count:workers -->0<!-- /doc-count:workers -->)
 
-There is no separate background daemon. All <!-- doc-count:workers -->8<!-- /doc-count:workers --> workers (`health`, `ddd`, `security`, `cache`, `map`, `audit`, `consolidate`, `progress`) live in `@monoes/hooks` (`WorkerManager`) as entries in the static `WORKER_CONFIGS` map, run in-process, and are initialized at session start (see table). The metrics-producing workers (`map`, `audit`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `ddd` runs unconditionally every session start (`always: true`), the other three only when stale; `doctor` reports worker-metrics freshness.
+There is no separate background daemon. All <!-- doc-count:workers -->0<!-- /doc-count:workers --> workers (`health`, `ddd`, `security`, `cache`, `map`, `audit`, `consolidate`, `progress`) live in `@monoes/hooks` (`WorkerManager`) as entries in the static `WORKER_CONFIGS` map, run in-process, and are initialized at session start (see table). The metrics-producing workers (`map`, `audit`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `ddd` runs unconditionally every session start (`always: true`), the other three only when stale; `doctor` reports worker-metrics freshness.
 
 | Worker | Interval | Priority | Purpose |
 |---|---|---|---|

@@ -205,7 +205,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `session`   | 6           | Session state management, persistence, and replay (`session replay`)     | Working         |
 | `config`    | 7           | Configuration management and provider setup                              | Working         |
 | `status`    | 3           | System status monitoring with watch mode                                 | Working         |
-| `hooks`     | 29          | Self-learning hooks + <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers                               | Working         |
+| `hooks`     | 29          | Self-learning hooks + <!-- doc-count:workers -->0<!-- /doc-count:workers --> background workers                               | Working         |
 | `org`       | 31          | SDK org runtime v2 (run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, memory [stats\|search\|rules\|rollback], costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from [alias of replay], branch, decisions, create, validate, migrate, list, delete, mark-complete) | Working |
 
 ### Advanced Commands
@@ -523,7 +523,7 @@ It includes:
 
 - Agent type definitions with recommendations
 - All 32 CLI commands
-- All 29 hook subcommands + <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers (@monoes/hooks)
+- All 29 hook subcommands + <!-- doc-count:workers -->0<!-- /doc-count:workers --> background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, agentic-jujutsu)
