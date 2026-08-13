@@ -167,23 +167,35 @@ export async function loadEmbeddingModel(options?: {
         console.log('Loading ONNX embedding model (gte-modernbert-base)...');
       }
 
-      // Use the bridge's model for local embeddings
-      const { pipeline } = transformers;
-      const embedder = await pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { local_files_only: true });
+      // Own try/catch: with local_files_only:true, pipeline() throws when the
+      // model isn't cached locally (fresh installs, sandboxed/offline test
+      // environments). That failure must fall through to the fallback chain
+      // below, not bail out of the whole function via the outer catch — the
+      // outer catch returns without ever setting embeddingModelState, which
+      // left it null and crashed every generateEmbedding() caller with
+      // "Cannot read properties of null (reading 'model')".
+      try {
+        const { pipeline } = transformers;
+        const embedder = await pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { local_files_only: true });
 
-      embeddingModelState = {
-        loaded: true,
-        model: embedder,
-        tokenizer: null,
-        dimensions: BRIDGE_EMBEDDING_DIMS
-      };
+        embeddingModelState = {
+          loaded: true,
+          model: embedder,
+          tokenizer: null,
+          dimensions: BRIDGE_EMBEDDING_DIMS
+        };
 
-      return {
-        success: true,
-        dimensions: BRIDGE_EMBEDDING_DIMS,
-        modelName: BRIDGE_EMBEDDING_MODEL,
-        loadTime: Date.now() - startTime
-      };
+        return {
+          success: true,
+          dimensions: BRIDGE_EMBEDDING_DIMS,
+          modelName: BRIDGE_EMBEDDING_MODEL,
+          loadTime: Date.now() - startTime
+        };
+      } catch (err) {
+        if (verbose) {
+          console.log(`ONNX model not available locally (${err instanceof Error ? err.message : String(err)}) — falling back.`);
+        }
+      }
     }
 
     // Fallback: Check for monovector ONNX embedder (bundled MiniLM-L6-v2 since v0.2.15)
@@ -276,10 +288,14 @@ export async function generateEmbedding(text: string): Promise<{
     await loadEmbeddingModel();
   }
 
-  const state = embeddingModelState!;
+  // Defensive: loadEmbeddingModel() is expected to always set
+  // embeddingModelState (even on failure, via the hash-fallback branch), but
+  // don't crash the caller if some future code path breaks that contract —
+  // fall straight to the hash-based embedding instead.
+  const state = embeddingModelState;
 
   // Use ONNX model if available
-  if (state.model && typeof (state.model as any) === 'function') {
+  if (state?.model && typeof (state.model as any) === 'function') {
     try {
       const output = await (state.model as any)(text, { pooling: 'cls', normalize: true });
       // Handle both @xenova/transformers (output.data) and monovector (plain array) formats
@@ -299,10 +315,11 @@ export async function generateEmbedding(text: string): Promise<{
   }
 
   // Deterministic hash-based fallback (for testing/demo without ONNX)
-  const embedding = generateHashEmbedding(text, state.dimensions);
+  const dimensions = state?.dimensions ?? 128;
+  const embedding = generateHashEmbedding(text, dimensions);
   return {
     embedding,
-    dimensions: state.dimensions,
+    dimensions,
     model: 'hash-fallback'
   };
 }

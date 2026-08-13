@@ -199,7 +199,7 @@ Current mode is persisted in `.monomind/statusline-mode.txt`.
 
 ## Background Workers
 
-There is no separate background daemon. The statusline reads `.monomind/metrics/*.json` files written by the <!-- doc-count:workers -->8<!-- /doc-count:workers --> background workers in `@monoes/hooks` (`ddd`, `map`, `audit`, `consolidate`, and others). Workers are initialized at session start; the metrics-producing ones refresh automatically when their output file is missing or older than 6 hours. `monomind doctor` reports worker-metrics freshness, and you can refresh any metric on demand:
+There is no separate background daemon. The statusline reads `.monomind/metrics/*.json` files written by the <!-- doc-count:workers -->0<!-- /doc-count:workers --> background workers in `@monoes/hooks` (`ddd`, `map`, `audit`, `consolidate`, and others). Workers are initialized at session start; the metrics-producing ones refresh automatically when their output file is missing or older than 6 hours. `monomind doctor` reports worker-metrics freshness, and you can refresh any metric on demand:
 
 ```bash
 monomind hooks worker list        # list workers and their status
