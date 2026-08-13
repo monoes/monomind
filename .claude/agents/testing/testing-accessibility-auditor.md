@@ -4,7 +4,6 @@ description: Expert accessibility specialist who audits interfaces against WCAG 
 color: "#0077B6"
 emoji: ♿
 vibe: If it's not tested with a screen reader, it's not accessible.
-tools: Read, Write, Edit, Bash, Glob, Grep
 triggers:
   - pattern: "\\b(a11y|accessibility|wcag|aria|screen.?reader|voiceover|nvda|jaws)\\b"
     mode: "inject"

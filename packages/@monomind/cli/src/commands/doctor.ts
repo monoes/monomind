@@ -27,6 +27,7 @@ import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 function formatCheck(check: HealthCheck): string {
   const icon = check.status === 'pass' ? output.success('✓') :
                check.status === 'warn' ? output.warning('⚠') :
+               check.status === 'info' ? output.dim('ℹ') :
                output.error('✗');
   return `${icon} ${check.name}: ${check.message}`;
 }
@@ -137,6 +138,34 @@ export const doctorCommand: Command = {
         }
       }
       spinner.stop();
+
+      // P2-14: Quiet the fresh-install doctor. On a brand-new install, 9+ checks
+      // report warnings that are actually expected states. Detect fresh install
+      // (`.monomind/` dir < 5 min old) and downgrade expected warnings to info
+      // unless --verbose is set.
+      const verbose = ctx.flags.verbose as boolean;
+      if (!verbose) {
+          const monomindDir = path.join(ctx.cwd, '.monomind');
+        let isFreshInstall = false;
+        try {
+          const { statSync } = await import('node:fs');
+          const stat = statSync(monomindDir);
+          isFreshInstall = (Date.now() - stat.birthtimeMs) < 5 * 60 * 1000; // < 5 min old
+        } catch { /* dir doesn't exist — not our project */ }
+        if (isFreshInstall) {
+          const FRESH_EXPECTED = new Set([
+            'Memory Database', 'Memory Knowledge Graph', 'Second Brain Model',
+            'Graph freshness', 'MCP Servers', 'Worker Metrics',
+            'Security Audit', 'Helper Files', 'AppleDouble Sidecars',
+            'Monoes Memory',
+          ]);
+          for (let i = 0; i < settled.length; i++) {
+            if (settled[i].status === 'warn' && FRESH_EXPECTED.has(settled[i].name)) {
+              settled[i] = { ...settled[i], status: 'info' as const, message: `${settled[i].message} (expected on fresh install — run with --verbose for details)` };
+            }
+          }
+        }
+      }
 
       for (const r of settled) {
         results.push(r);

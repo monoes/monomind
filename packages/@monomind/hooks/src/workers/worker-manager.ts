@@ -283,6 +283,14 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
     priority: WorkerPriority.Normal,
     timeout: 30_000,
   },
+  reflexion: {
+    name: 'reflexion',
+    description: 'Self-learning from failures (P2-15) — reflects on failed tasks, stores lessons for future retrieval',
+    interval: 3_600_000,
+    enabled: false,
+    priority: WorkerPriority.Normal,
+    timeout: 30_000,
+  },
 };
 
 // Worker alias map (legacy daemon-era alias → canonical internal name).

@@ -22,7 +22,7 @@ This skill provides professional pair programming capabilities with AI assistanc
 ## Prerequisites
 
 **Required:**
-- Monomind CLI installed (`npm install -g monomind@alpha`)
+- Monomind CLI installed (`npm install -g monomind@latest`)
 - Git repository (optional but recommended)
 
 **Recommended:**

@@ -4,7 +4,6 @@ description: Expert detection engineer specializing in SIEM rule development, MI
 color: "#7b2d8e"
 emoji: 🎯
 vibe: Builds the detection layer that catches attackers after they bypass prevention.
-tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 triggers:
   - pattern: "\\b(siem|splunk|sentinel|elastic|detection.?rule|sigma.?rule|yara)\\b"
     mode: "inject"

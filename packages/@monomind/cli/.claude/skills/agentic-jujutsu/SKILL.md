@@ -1,23 +1,23 @@
 ---
 name: agentic-jujutsu
 description: |
-  Quantum-resistant, self-learning version control for AI agents with ReasoningBank intelligence and multi-agent coordination
+  Self-learning version control for AI agents with ReasoningBank intelligence and multi-agent coordination. Wraps the separate `agentic-jujutsu` npm package.
 ---
 
 # Agentic Jujutsu - AI Agent Version Control
 
-> Quantum-ready, self-learning version control designed for multiple AI agents working simultaneously without conflicts.
+> Self-learning version control designed for multiple AI agents working simultaneously without conflicts.
 
 ## When to Use This Skill
 
 Use **agentic-jujutsu** when you need:
 - Multiple AI agents modifying code simultaneously
-- Lock-free version control (23x faster than Git)
+- Lock-free version control
 - Self-learning AI that improves from experience
-- Quantum-resistant security for future-proof protection
-- Automatic conflict resolution (87% success rate)
 - Pattern recognition and intelligent suggestions
 - Multi-agent coordination without blocking
+
+> **Note:** this skill wraps the separate `agentic-jujutsu` npm package. Performance and feature claims should be verified against that package's own documentation before relying on them.
 
 ## Quick Start
 
@@ -143,9 +143,9 @@ const similar = JSON.parse(tester.queryTrajectories('test feature', 5));
 console.log(`Found ${similar.length} similar test approaches`);
 ```
 
-### 5. Quantum-Resistant Security (v2.3.0+)
+### 5. Cryptographic Integrity (v2.3.0+)
 
-Fast integrity verification with quantum-resistant cryptography:
+Fast integrity verification with SHA3-512 hashing:
 
 ```javascript
 const { generateQuantumFingerprint, verifyQuantumFingerprint } = require('agentic-jujutsu');
@@ -405,7 +405,7 @@ for (let i = 1; i <= 10; i++) {
 | `getUserOperations(limit)` | Get user operations only | JjOperation[] |
 | `clearLog()` | Clear operation log | void |
 
-### Quantum Security Methods (v2.3.0+)
+### Cryptographic Methods (v2.3.0+)
 
 | Method | Description | Returns |
 |--------|-------------|---------|
@@ -417,13 +417,15 @@ for (let i = 1; i <= 10; i++) {
 
 ## Performance Characteristics
 
-| Metric | Git | Agentic Jujutsu |
+> The following figures are **vendor-published for the `agentic-jujutsu` npm package and not independently verified by monomind**. Treat as marketing claims until you benchmark against your own workload.
+
+| Metric | Git | Agentic Jujutsu (vendor-claimed) |
 |--------|-----|-----------------|
-| Concurrent commits | 15 ops/s | 350 ops/s (23x) |
-| Context switching | 500-1000ms | 50-100ms (10x) |
-| Conflict resolution | 30-40% auto | 87% auto (2.5x) |
-| Lock waiting | 50 min/day | 0 min (∞) |
-| Quantum fingerprints | N/A | <1ms |
+| Concurrent commits | 15 ops/s | 350 ops/s (claimed ~23x) |
+| Context switching | 500-1000ms | 50-100ms (claimed ~10x) |
+| Conflict resolution | 30-40% auto | 87% auto (claimed ~2.5x) |
+| Lock waiting | 50 min/day | 0 min (claimed) |
+| SHA3-512 fingerprints | N/A | <1ms |
 
 ## Best Practices
 
@@ -634,7 +636,7 @@ async function agentSwarm(taskList) {
 
 - **v2.3.2** - Documentation updates
 - **v2.3.1** - Validation fixes for ReasoningBank
-- **v2.3.0** - Quantum-resistant security with @qudag/napi-core
+- **v2.3.0** - Cryptographic security (SHA3-512) with @qudag/napi-core
 - **v2.1.0** - Self-learning AI with ReasoningBank
 - **v2.0.0** - Zero-dependency installation with embedded jj binary
 

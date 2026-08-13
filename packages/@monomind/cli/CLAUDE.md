@@ -329,7 +329,7 @@ npx monomind@latest hooks route --task "[task]"
 npx monomind@latest hooks explain --topic "[topic]"
 
 # Neural learning
-npx monomind@latest hooks pretrain --model-type moe --epochs 10
+npx monomind@latest hooks pretrain --path . --depth medium
 npx monomind@latest hooks build-agents --agent-types coder,tester
 
 # Background workers

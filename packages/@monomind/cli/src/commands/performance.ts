@@ -172,7 +172,7 @@ const benchmarkCommand: Command = {
 
         const mean = searchTimes.reduce((a, b) => a + b, 0) / searchTimes.length;
         // Brute force baseline: ~0.5μs per vector comparison, 1000 vectors = 0.5ms
-        // HNSW should be O(log n) ~150x faster
+        // HNSW should be O(log n) faster
         const baselineBruteForce = hnswStatus.entryCount * 0.0005;
         const speedup = baselineBruteForce / (mean / 1000);
         const hnswTargetMet = speedup > 10;

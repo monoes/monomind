@@ -17,18 +17,18 @@ Defined in `packages/@monomind/cli/src/commands/monograph.ts` and `packages/@mon
 
 | Subcommand | Description | Key Flags | Source Reference |
 |---|---|---|---|
-| `build` | Builds or rebuilds knowledge graph using Tree-sitter parsers | `--force`, `--incremental`, `--concurrency N` | [`monograph.ts:592`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/monograph.ts#L592) |
-| `wiki` | Generates architectural Markdown wiki documentation from graph | `--output-dir`, `--format md` | [`wiki-build.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/mcp-tools/wiki-build.ts) |
-| `search` | FTS5 trigram + vector search across codebase symbols | `--query`, `--limit N`, `--type symbol\|file` | [`query.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/mcp-tools/query.ts) |
-| `stats` | Displays node/edge counts, communities, and complexity health metrics | `--json` | [`stats.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/graph/stats.ts) |
-| `watch` | Starts background file watcher for incremental real-time AST updates | `--debounce-ms 300` | [`monograph-tools.ts:660`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L660) |
-| `impact` | Calculates blast radius and ripple impact for a target node or file | `--target "..."`, `--depth N` | [`monograph-tools.ts:1104`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L1104) |
+| `build` | Builds or rebuilds knowledge graph using Tree-sitter parsers | `--force`, `--incremental`, `--concurrency N` | [`monograph.ts:592`](packages/@monomind/cli/src/commands/monograph.ts#L592) |
+| `wiki` | Generates architectural Markdown wiki documentation from graph | `--output-dir`, `--format md` | [`wiki-build.ts`](packages/@monomind/monograph/src/mcp-tools/wiki-build.ts) |
+| `search` | FTS5 trigram + vector search across codebase symbols | `--query`, `--limit N`, `--type symbol\|file` | [`query.ts`](packages/@monomind/monograph/src/mcp-tools/query.ts) |
+| `stats` | Displays node/edge counts, communities, and complexity health metrics | `--json` | [`stats.ts`](packages/@monomind/monograph/src/graph/stats.ts) |
+| `watch` | Starts background file watcher for incremental real-time AST updates | `--debounce-ms 300` | [`monograph-tools.ts:660`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L660) |
+| `impact` | Calculates blast radius and ripple impact for a target node or file | `--target "..."`, `--depth N` | [`monograph-tools.ts:1104`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts#L1104) |
 
 ---
 
 ## Native MCP Tools (14)
 
-In addition to CLI commands, Monomind exposes 14 native `monograph_*` tools for Model Context Protocol integration ([`monograph-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/monograph-tools.ts)):
+In addition to CLI commands, Monomind exposes 14 native `monograph_*` tools for Model Context Protocol integration ([`monograph-tools.ts`](packages/@monomind/cli/src/mcp-tools/monograph-tools.ts)):
 
 | Tool Name | Key Arguments | Purpose |
 |---|---|---|

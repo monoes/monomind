@@ -1,8 +1,7 @@
 ---
 name: Email Marketing Specialist
 description: Expert in email sequences, drip campaigns, lifecycle email programs, and cold outreach. Write and optimize welcome series, nurture sequences, re-engagement campaigns, onboarding flows, and B2B cold email. Use when the task involves any multi-email automated flow, cold prospecting, or email copywriting.
-tools: WebFetch, WebSearch, Read, Write, Edit
-color: blue
+color: "#3b82f6"
 emoji: 📧
 vibe: Turns inboxes into relationships — one well-timed email at a time.
 ---

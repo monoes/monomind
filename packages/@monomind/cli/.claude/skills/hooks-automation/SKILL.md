@@ -23,7 +23,7 @@ This skill provides a comprehensive hook system that automatically manages devel
 ## Prerequisites
 
 **Required:**
-- Monomind CLI installed (`npm install -g monomind@alpha`)
+- Monomind CLI installed (`npm install -g monomind@latest`)
 - Claude Code with hooks enabled
 - `.claude/settings.json` with hook configurations
 

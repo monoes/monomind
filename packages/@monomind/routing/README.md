@@ -47,23 +47,23 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
 ```
 
 ### 1. Tier 1: Deterministic Keyword Pre-Filter
-- **Source**: [`keyword-pre-filter.ts:18-93`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/src/keyword-pre-filter.ts#L18-L93)
+- **Source**: [`keyword-pre-filter.ts:18-93`](packages/@monomind/routing/src/keyword-pre-filter.ts#L18-L93)
 - Evaluates tasks using fast regular expression matching against 30+ default rule definitions (e.g., CVE security checks, unit test files, Docker/DevOps configs, Solidity/ZK contracts, MCP tools).
 - Returns immediate match with `confidence: 1.0` and `method: 'keyword'`.
 
 ### 2. Tier 2: Cosine Centroid Embedding Match
-- **Source**: [`route-layer.ts:73-106`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/src/route-layer.ts#L73-L106), [`cosine.ts:5-20`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/src/cosine.ts#L5-L20)
+- **Source**: [`route-layer.ts:73-106`](packages/@monomind/routing/src/route-layer.ts#L73-L106), [`cosine.ts:5-20`](packages/@monomind/routing/src/cosine.ts#L5-L20)
 - Computes cosine similarity between task vector embeddings and agent route centroid vectors.
 - Supports lightweight 256-D MD5/SHA-256 hash embeddings (`LocalEncoder`) or transformer embeddings (`HNSWEncoder`).
 - If similarity $\ge \text{threshold}$ (default: 0.5), routes task with `method: 'semantic'`.
 
 ### 3. Tier 3: Neural & LanceDB Vector Reranking
-- **Source**: [`hooks-routing.ts:293-391`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L293-L391)
+- **Source**: [`hooks-routing.ts:293-391`](packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L293-L391)
 - Blends neural model score with keyword match score: $\text{FinalScore} = 0.65 \times \text{neuralScore} + 0.35 \times \text{keywordMatchScore}$.
 - Consults local LanceDB vector indices for past successful route outcomes.
 
 ### 4. Tier 4: LLM Fallback Classification
-- **Source**: [`llm-fallback.ts:20-88`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/src/llm-fallback.ts#L20-L88), [`prompts/classify.ts:4-28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/src/prompts/classify.ts#L4-L28)
+- **Source**: [`llm-fallback.ts:20-88`](packages/@monomind/routing/src/llm-fallback.ts#L20-L88), [`prompts/classify.ts:4-28`](packages/@monomind/routing/src/prompts/classify.ts#L4-L28)
 - Constructs a compact capability prompt (max 8,000 chars) detailing candidate agent descriptions and returns classification with `confidence: 0.85` and `method: 'llm_fallback'`.
 - On API failure or missing key, degrades gracefully to the default route with `method: 'semantic_degraded'`.
 
@@ -71,7 +71,7 @@ When a task description is processed, `@monoes/routing` executes a multi-tier ca
 
 ## 💻 CLI Command Reference (`monomind route`)
 
-The Monomind CLI provides 9 subcommands under `monomind route` (defined in [`src/commands/route.ts:80-800`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/route.ts#L80-L800)):
+The Monomind CLI provides 9 subcommands under `monomind route` (defined in [`src/commands/route.ts:80-800`](packages/@monomind/cli/src/commands/route.ts#L80-L800)):
 
 | Subcommand | Usage | Description | Key Flags |
 |---|---|---|---|
@@ -94,7 +94,7 @@ Task complexity is dynamically calculated to estimate execution duration, budget
 - **High Complexity** ("2–4 hours"): Prompts containing architecture refactoring, full stack migrations, multi-package dependencies, or text length $> 500$ chars.
 - **Medium Complexity** ("30–60 min"): Standard feature implementations, multi-file bugfixes, API integration, or text length $> 150$ chars.
 - **Complexity Scoring**:
-  - `High` (Estimated 2-4 hours): Task description contains `'complex'` or `'architecture'` OR character `length > 200` ([`hooks-routing.ts:395-400`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L395-L400)).
+  - `High` (Estimated 2-4 hours): Task description contains `'complex'` or `'architecture'` OR character `length > 200` ([`hooks-routing.ts:395-400`](packages/@monomind/cli/src/mcp-tools/hooks-routing.ts#L395-L400)).
   - `Low` (Estimated 10-30 min): Task description contains `'simple'` or `'fix'` OR character `length < 50`.
   - `Medium` (Estimated 30-60 min): All other standard task prompts.
 
@@ -102,7 +102,7 @@ Task complexity is dynamically calculated to estimate execution duration, budget
 
 ## Test Suites
 
-Vitest test suites are located in [`packages/@monomind/routing/__tests__/`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/routing/__tests__/):
+Vitest test suites are located in [`packages/@monomind/routing/__tests__/`](packages/@monomind/routing/__tests__/):
 - `route-layer.test.ts`: Cascade evaluation, thresholds, and fallback behavior.
 - `keyword-pre-filter.test.ts`: Regex rule precedence and pattern matching.
 - `encoder.test.ts`: 256-D MD5/SHA-256 local encoding and LRU cache eviction.

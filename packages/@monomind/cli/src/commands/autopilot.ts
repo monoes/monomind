@@ -489,7 +489,7 @@ const checkCommand: Command = {
 
 export const autopilotCommand: Command = {
   name: 'autopilot',
-  description: 'Persistent swarm completion — keeps agents working until ALL tasks are done',
+  description: 'Persistent swarm completion — keeps agents working until ALL tasks are done. (Deprecated: prefer `monomind org run` for autonomous loops — see doc 06 P1-7.)',
   aliases: ['ap'],
   subcommands: [
     statusCommand,
@@ -513,6 +513,12 @@ export const autopilotCommand: Command = {
     { command: 'monomind autopilot predict', description: 'Get recommended next action' },
   ],
   action: async (): Promise<CommandResult> => {
+    // P1-7: Deprecation notice. `org run` is the sole recommended autonomous loop.
+    output.writeln(output.warning('⚠ Deprecation notice: autopilot is superseded by `monomind org run`.'));
+    output.writeln(output.dim('  The org runtime provides the same autonomous-completion capability with'));
+    output.writeln(output.dim('  governance, budgets, and dashboard support. Autopilot will be collapsed into'));
+    output.writeln(output.dim('  org run in a future release (doc 06 P3-1).'));
+    output.writeln();
     output.writeln(output.bold('Autopilot — Persistent Swarm Completion'));
     output.writeln(output.dim('Keeps agents working until ALL tasks are done'));
     output.writeln();

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schema.json",
+  "name": "monomind",
+  "description": "Local-first AI coding assistant extension: code knowledge graph (Monograph), persistent memory, multi-agent org runtime, Second Brain document RAG, and 66+ MCP tools. Fully local — no cloud LLM or embeddings required.",
+  "homepage": "https://github.com/monoes/monomind",
+  "license": "Apache-2.0",
+  "categories": ["code-intelligence", "memory", "agent-orchestration", "developer-tools"],
+  "install": {
+    "command": "npx",
+    "args": ["-y", "monomind@latest", "mcp", "start"],
+    "transport": "stdio"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true,
+    "tasks": true
+  },
+  "toolCount": 66,
+  "tags": ["local-first", "code-graph", "tree-sitter", "sqlite", "offline", "mcp"],
+  "languages": ["TypeScript", "JavaScript", "Python", "Go", "Rust", "C", "C++", "Java", "Ruby", "Swift"]
+}

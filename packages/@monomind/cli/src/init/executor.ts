@@ -272,9 +272,12 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
     if (fs.existsSync(fallback)) entryPoint = fallback;
   }
   if (!entryPoint) {
-    // Auto-install @monoes/monograph and retry before giving up
+    // Auto-install @monoes/monograph and retry before giving up.
+    // P1-13: disclose the install before running it (consistent with the
+    // claude-code global install disclosure pattern from #131/#132).
     try {
       const { execSync } = await import('child_process');
+      process.stdout.write(`  Installing @monoes/monograph (knowledge graph dependency) — pass --no-monograph to skip...\n`);
       execSync('npm install @monoes/monograph', { cwd: targetDir, stdio: 'ignore', timeout: 60000 });
       try {
         const cliRequire2 = createRequire(import.meta.url);
@@ -341,7 +344,7 @@ async function runDoctorFix(targetDir: string, result: InitResult, install = tru
       const claudeCheck = await checkClaudeCode();
       if (claudeCheck.status !== 'pass') {
         const { output } = await import('../output.js');
-        output.printInfo('Installing Claude Code CLI globally (npm install -g @anthropic-ai/claude-code) — pass --no-install to skip');
+        output.printInfo('Installing Claude Code CLI globally (npm install -g @anthropic-ai/claude-code) — pass --no-monograph to skip');
       }
     }
     const res = await doctorCommand.action({

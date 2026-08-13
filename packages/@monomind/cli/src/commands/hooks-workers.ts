@@ -55,13 +55,13 @@ export const intelligenceCommand: Command = {
     },
     {
       name: 'enable-moe',
-      description: 'Enable Mixture of Experts routing',
+      description: 'Inert — MoE is not implemented. Flag preserved for backwards compatibility; has no effect on the response.',
       type: 'boolean',
       default: true
     },
     {
       name: 'enable-hnsw',
-      description: 'Enable HNSW 150x faster search',
+      description: 'Enable HNSW vector search (dead fallback path; no-op unless SQLite bridge is down)',
       type: 'boolean',
       default: true
     },
@@ -227,11 +227,11 @@ export const intelligenceCommand: Command = {
             avgQuality: Number(mcpSona?.avgQuality ?? (patternsLearned > 0 ? 0.75 : 0)),
           },
           moe: {
-            enabled: enableMoe,
-            status: String(mcpMoe?.status ?? (hasLocalData ? 'active' : 'idle')),
-            expertsActive: Number(mcpMoe?.expertsActive ?? (hasLocalData ? 8 : 0)),
-            routingAccuracy: Number(mcpMoe?.routingAccuracy ?? (hasLocalData ? 0.82 : 0)),
-            loadBalance: Number(mcpMoe?.loadBalance ?? (hasLocalData ? 0.9 : 0)),
+            enabled: false,
+            status: 'not-loaded',
+            expertsActive: Number(mcpMoe?.expertsActive ?? 0),
+            routingAccuracy: Number(mcpMoe?.routingAccuracy ?? 0),
+            loadBalance: Number(mcpMoe?.loadBalance ?? 0),
           },
           hnsw: {
             enabled: enableHnsw,
@@ -294,7 +294,7 @@ export const intelligenceCommand: Command = {
         flushPatterns();
 
         const updatedStats = getStats();
-        spinner.succeed(`Training cycle complete — ${updatedStats.patternsLearned} patterns, EWC+LoRA applied`);
+        spinner.succeed(`Training cycle complete — ${updatedStats.patternsLearned} patterns, EWC consolidation applied`);
         return {
           success: true,
           data: { patternsLearned: updatedStats.patternsLearned, trajectoriesRecorded: updatedStats.trajectoriesRecorded },

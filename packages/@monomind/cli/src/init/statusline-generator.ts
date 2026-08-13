@@ -17,7 +17,7 @@ import type { InitOptions } from './types.js';
  * Output format:
  * ▊ Monomind ● user  │  ⎇ branch  │  Opus 4.6 (1M context)
  * ─────────────────────────────────────────────────────
- * 🏗️  DDD Domains    [●●○○○]  2/5    ⚡ HNSW 150x
+ * 🏗️  DDD Domains    [●●○○○]  2/5    ⚡ HNSW
  * 🤖 Swarm  ◉ [ 5/15]  👥 2    🪝 10/17    🟢 CVE 3/3    💾 4MB    🧠  63%
  * 🔧 Architecture    ADRs ●71%  │  DDD ● 13%  │  Security ●CLEAN
  * 📊 SQLite    Vectors ●3104⚡  │  Size 216KB  │  Tests ●6 (~24 cases)  │  MCP ●1/1

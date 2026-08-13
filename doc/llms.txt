@@ -11,55 +11,55 @@
 
 ### CLI Subsystem
 - The core CLI engine is `@monoes/monomindcli` (`packages/@monomind/cli/`).
-- Entrypoint: [`packages/@monomind/cli/src/commands/index.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/index.ts)
+- Entrypoint: [`packages/@monomind/cli/src/commands/index.ts`](packages/@monomind/cli/src/commands/index.ts)
 - Exposes 32 top-level commands (e.g. `monomind monograph`, `monomind route`, `monomind org`).
 
 ### Model Context Protocol (MCP) Server
 - Core protocol engine is `@monoes/mcp` (`packages/@monomind/mcp/`).
 - CLI integration exposing `monomind mcp` commands.
 - Exposes 23 tool groups including `guidance_*`, `monograph_*`, `memory_*`, `knowledge_*`.
-- Concept Doc: [`doc/concepts/mcp-server.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/mcp-server.md)
+- Concept Doc: [`doc/concepts/mcp-server.md`](doc/concepts/mcp-server.md)
 
 ### Memory Subsystem
 - Persistent SQLite memory backend in WAL mode (`PRAGMA journal_mode = WAL`).
 - Three layers: Memory Palace (verbatim chunk search), JSON pattern store (episodic/routing paths), and Monograph.
-- Concept Doc: [`doc/concepts/memory.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/memory.md)
+- Concept Doc: [`doc/concepts/memory.md`](doc/concepts/memory.md)
 
 ### Monograph (Codebase Knowledge Graph)
 - Tree-sitter-based AST symbol extraction across 25 language extensions, plus 5 regex fallbacks.
 - Blast radius calculations based on outgoing BFS traversal and exponential depth decay.
-- Concept Doc: [`doc/concepts/monograph.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/monograph.md)
+- Concept Doc: [`doc/concepts/monograph.md`](doc/concepts/monograph.md)
 
 ### Routing Subsystem
 - Maps prompts to specialist agents via a 4-tier cascade: Regex Pre-Filter, Vector Cosine Similarity, Neural Augmentation, and LLM Fallback.
-- Concept Doc: [`doc/concepts/routing.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/routing.md)
+- Concept Doc: [`doc/concepts/routing.md`](doc/concepts/routing.md)
 
 ### Hooks Subsystem
 - Lifecycle event interception including pre-edit, post-edit, pre-command, post-command, pre-task, and post-task hooks.
-- Concept Doc: [`doc/concepts/hooks.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/hooks.md)
+- Concept Doc: [`doc/concepts/hooks.md`](doc/concepts/hooks.md)
 
 ### Security (MonoFence AI)
 - Embedded local-first AI Manipulation Defense System (AIMDS).
 - 7-stage evasion normalizer (NFKC, homoglyphs, separators, leetspeak, zero-width, Base64).
 - 4-state context escalation tracker (clean -> probing -> escalating -> attack).
-- Concept Doc: [`doc/concepts/security.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/security.md)
+- Concept Doc: [`doc/concepts/security.md`](doc/concepts/security.md)
 
 ### Org Runtime
 - Autonomous multi-agent organization coordinator (`OrgDaemon`).
 - Supports three runtime execution backends: ClaudeAgentRunner, OpencodeAgentRunner, and KimiCodeAgentRunner.
-- Concept Doc: [`doc/concepts/org-runtime.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/org-runtime.md)
+- Concept Doc: [`doc/concepts/org-runtime.md`](doc/concepts/org-runtime.md)
 
 ### Monodesign Subsystem
 - Frontend design intelligence system targeting OKLCH design tokens.
 - Static analysis engine identifying 51 rules of UI/UX defects and AI-slop tells.
-- Concept Doc: [`doc/concepts/monodesign.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/monodesign.md)
+- Concept Doc: [`doc/concepts/monodesign.md`](doc/concepts/monodesign.md)
 
 ### Monobrowse Subsystem
 - Native browser automation directly over Chrome DevTools Protocol (CDP) WebSocket connections.
 - Automatically handles headless-to-headed redirects for login/CAPTCHA walls.
-- Concept Doc: [`doc/concepts/monobrowse.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/monobrowse.md)
+- Concept Doc: [`doc/concepts/monobrowse.md`](doc/concepts/monobrowse.md)
 
 ### Documents Dashboard
 - "Documents" tab in the existing web dashboard (`localhost:4242`, auto-spawned by a SessionStart hook) — not a new server or CLI subcommand.
 - Master/detail markdown browser for mastermind-generated docs (plans/specs/reviews/reports/wikis/decisions/ideas/improvements/tasks) across every project plus the global brain.
-- Concept Doc: [`doc/concepts/documents-dashboard.md`](file:///Users/morteza/Desktop/tools/monomind/doc/concepts/documents-dashboard.md)
+- Concept Doc: [`doc/concepts/documents-dashboard.md`](doc/concepts/documents-dashboard.md)

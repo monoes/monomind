@@ -387,14 +387,14 @@ export const allHiveMindTools: MCPTool[] = [
   },
   {
     name: 'hive-mind_init',
-    description: 'Create the hive state file recording topology, consensus strategy, and an empty worker list. Writes JSON state only — nothing is started, and no collective process exists. Note "gossip" and "crdt" strategies are rejected: they are not implemented.',
+    description: 'Create the hive state file recording topology, consensus strategy, and an empty worker list. Writes JSON state only — nothing is started, and no collective process exists. Supported consensus strategies: byzantine, bft, raft, quorum. The gossip and crdt strategies are not implemented and will be rejected with an error.',
     category: 'hive-mind',
     inputSchema: {
       type: 'object',
       properties: {
         topology: { type: 'string', enum: ['mesh', 'hierarchical', 'ring', 'star'], description: 'Network topology' },
         queenId: { type: 'string', description: 'Initial queen agent ID' },
-        consensus: { type: 'string', enum: ['byzantine', 'bft', 'raft', 'quorum'], description: 'Consensus strategy to govern hive-mind_consensus propose/vote (gossip/crdt are planned but not implemented and fall back to byzantine). Default: byzantine.' },
+        consensus: { type: 'string', enum: ['byzantine', 'bft', 'raft', 'quorum'], description: 'Consensus strategy to govern hive-mind_consensus propose/vote. Supported: byzantine, bft, raft, quorum. The values gossip and crdt are not implemented and will be rejected with an error. Default: byzantine.' },
         maxAgents: { type: 'number', description: 'Maximum number of agents in the hive. Default: 15.' },
         persist: { type: 'boolean', description: 'Whether to persist hive state to disk. Default: true.' },
         memoryBackend: { type: 'string', description: 'Shared memory backend for the hive. Default: hybrid.' },
@@ -409,16 +409,19 @@ export const allHiveMindTools: MCPTool[] = [
         ? rawQueenId.slice(0, MAX_QUEEN_ID_LEN) : rawQueenId;
       const now = new Date().toISOString();
 
-      // Validate consensus strategy: gossip and crdt are planned but not implemented
+      // Validate consensus strategy: gossip and crdt are not implemented.
+      // Reject (do not silently substitute) so callers learn the supported set.
       const SUPPORTED_CONSENSUS = ['byzantine', 'bft', 'raft', 'quorum'];
-      const PLANNED_CONSENSUS = ['gossip', 'crdt'];
+      const REJECTED_CONSENSUS = ['gossip', 'crdt'];
       const requestedConsensus = (input.consensus as string) || 'byzantine';
-      const consensusWarning = PLANNED_CONSENSUS.includes(requestedConsensus)
-        ? `Strategy "${requestedConsensus}" is planned but not yet implemented; defaulting to "byzantine".`
-        : undefined;
-      const effectiveConsensus = PLANNED_CONSENSUS.includes(requestedConsensus)
-        ? 'byzantine'
-        : (SUPPORTED_CONSENSUS.includes(requestedConsensus) ? requestedConsensus : 'byzantine');
+      if (REJECTED_CONSENSUS.includes(requestedConsensus)) {
+        return {
+          success: false,
+          error: `Consensus strategy "${requestedConsensus}" is not implemented. Supported: byzantine | bft | raft | quorum.`,
+          supported: SUPPORTED_CONSENSUS,
+        };
+      }
+      const effectiveConsensus = SUPPORTED_CONSENSUS.includes(requestedConsensus) ? requestedConsensus : 'byzantine';
 
       const state: HiveState = {
         initialized: true,
@@ -449,7 +452,6 @@ export const allHiveMindTools: MCPTool[] = [
         queenId,
         neuralLearning: 'unavailable',
         status: 'initialized',
-        ...(consensusWarning ? { warning: consensusWarning } : {}),
         config: {
           topology: state.topology,
           consensus: effectiveConsensus,

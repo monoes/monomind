@@ -53,9 +53,9 @@ export const AGENT_TYPES = [
   { value: 'optimizer', label: 'Optimizer', hint: 'Performance optimization and bottleneck analysis' },
   { value: 'security-architect', label: 'Security Architect', hint: 'Security architecture and threat modeling' },
   { value: 'security-auditor', label: 'Security Auditor', hint: 'CVE remediation and security testing' },
-  { value: 'memory-specialist', label: 'Memory Specialist', hint: 'SQLite-backed ANN search (150x-12,500x faster)' },
+  { value: 'memory-specialist', label: 'Memory Specialist', hint: 'Local SQLite-backed memory operations' },
   { value: 'swarm-specialist', label: 'Swarm Specialist', hint: 'Unified coordination engine' },
-  { value: 'performance-engineer', label: 'Performance Engineer', hint: '2.49x-7.47x optimization targets' },
+  { value: 'performance-engineer', label: 'Performance Engineer', hint: 'Performance optimization and bottleneck analysis' },
   { value: 'core-architect', label: 'Core Architect', hint: 'Domain-driven design restructure' },
   { value: 'test-architect', label: 'Test Architect', hint: 'TDD London School methodology' },
 ];
@@ -69,7 +69,7 @@ export function getAgentCapabilities(type: string): string[] {
     architect: ['system-design', 'pattern-analysis', 'scalability', 'documentation'],
     coordinator: ['task-orchestration', 'agent-management', 'workflow-control'],
     'security-architect': ['threat-modeling', 'security-patterns', 'compliance', 'audit'],
-    'memory-specialist': ['vector-search', 'lancedb', 'caching', 'optimization'],
+    'memory-specialist': ['vector-search', 'sqlite', 'caching', 'optimization'],
     'performance-engineer': ['benchmarking', 'profiling', 'optimization', 'monitoring'],
   };
   return capabilities[type] || ['general'];

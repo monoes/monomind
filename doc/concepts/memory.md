@@ -88,16 +88,16 @@ Triples with `valid_from`/`valid_to` for bi-temporal queries:
 ---
 ## 2. Memory Subsystem Architecture (v3.0.0 Schema)
 
-**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`); the database file itself is created `chmod 0600` (owner read/write only). Supports standalone `@monoes/memory` core schema (schema version **3** — `SCHEMA_VERSION` constant, [`sql-schema.ts:L28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L28), applied via `PRAGMA user_version`; previously documented here as "v2", now stale) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts:L187-218`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L187-L218), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts:15`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L15): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
+**Schema Architecture**: Embedded SQLite database operating in **WAL mode** (`PRAGMA journal_mode = WAL`); the database file itself is created `chmod 0600` (owner read/write only). Supports standalone `@monoes/memory` core schema (schema version **3** — `SCHEMA_VERSION` constant, [`sql-schema.ts:L28`](packages/@monomind/memory/src/sql-schema.ts#L28), applied via `PRAGMA user_version`; previously documented here as "v2", now stale) — **5 tables**: `memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`, plus the FTS5 full-text virtual table `memory_entries_fts` ([`sql-schema.ts:L187-218`](packages/@monomind/memory/src/sql-schema.ts#L187-L218), added for issue #66) — and CLI project memory schema (v3.0.0, 9 tables at [`memory-schema.ts:15`](packages/@monomind/cli/src/memory/memory-schema.ts#L15): `memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
 ### Key Memory Stores
 
 | Store Type | Namespace / Location | Implementation File | Feature Highlights |
 |---|---|---|---|
-| **Episodic & Semantic** | Namespace `default` (or custom) in `memory_entries` | [`memory-crud.ts:28-115`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-crud.ts#L28-L115), [`memory-bridge.ts:167-270`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-bridge.ts#L167-L270) | Temporal decay (`decay_rate = 0.01`), access frequency tracking, confidence score, importance weighting (`0.5` default). |
-| **Pattern Store** | `patterns` table & `.swarm/sona-patterns.json` | [`sona-optimizer.ts:43-58`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/sona-optimizer.ts#L43-L58), [`memory-schema.ts:61-76`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L61-L76) | Learned task routing patterns based on keyword extraction, success/failure counts, and EWC diagonal Fisher regularization (`.swarm/ewc-fisher.json`). |
-| **Document Store** | `memory_entries` (`doc:<hash>:<chunk>`) | [`document-pipeline.ts:120-180`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/knowledge/document-pipeline.ts#L120-L180), [`bm25-index.ts:71-75`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/bm25-index.ts#L71-L75) | Multi-format document ingestion, content-hash chunking, Okapi BM25 lexical indexing. |
-| **Knowledge Graph (KG)** | `kg:nodes`, `kg:edges`, `rules` in `memory_entries` | [`memory-kg.ts:34-36`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-kg.ts#L34-L36), [`memory-kg.ts:70-84`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-kg.ts#L70-L84) | Cognee-style concept triplets. Nodes: `n:<normalized-name>`, Edges: `e:<src>\|<rel>\|<dst>`. Deterministic entity keys and rule deduplication threshold (`0.78`). |
+| **Episodic & Semantic** | Namespace `default` (or custom) in `memory_entries` | [`memory-crud.ts:28-115`](packages/@monomind/cli/src/memory/memory-crud.ts#L28-L115), [`memory-bridge.ts:167-270`](packages/@monomind/cli/src/memory/memory-bridge.ts#L167-L270) | Temporal decay (`decay_rate = 0.01`), access frequency tracking, confidence score, importance weighting (`0.5` default). |
+| **Pattern Store** | `patterns` table & `.swarm/sona-patterns.json` | [`sona-optimizer.ts:43-58`](packages/@monomind/cli/src/memory/sona-optimizer.ts#L43-L58), [`memory-schema.ts:61-76`](packages/@monomind/cli/src/memory/memory-schema.ts#L61-L76) | Learned task routing patterns based on keyword extraction, success/failure counts, and EWC diagonal Fisher regularization (`.swarm/ewc-fisher.json`). |
+| **Document Store** | `memory_entries` (`doc:<hash>:<chunk>`) | [`document-pipeline.ts:120-180`](packages/@monomind/cli/src/knowledge/document-pipeline.ts#L120-L180), [`bm25-index.ts:71-75`](packages/@monomind/cli/src/memory/bm25-index.ts#L71-L75) | Multi-format document ingestion, content-hash chunking, Okapi BM25 lexical indexing. |
+| **Knowledge Graph (KG)** | `kg:nodes`, `kg:edges`, `rules` in `memory_entries` | [`memory-kg.ts:34-36`](packages/@monomind/cli/src/memory/memory-kg.ts#L34-L36), [`memory-kg.ts:70-84`](packages/@monomind/cli/src/memory/memory-kg.ts#L70-L84) | Cognee-style concept triplets. Nodes: `n:<normalized-name>`, Edges: `e:<src>\|<rel>\|<dst>`. Deterministic entity keys and rule deduplication threshold (`0.78`). |
 
 ---
 
@@ -130,18 +130,18 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 ```
 
 ### 1. Dense Embeddings
-- **Model:** `Alibaba-NLP/gte-modernbert-base` (768 dimensions) ([`memory-bridge.ts:39-40`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-bridge.ts#L39-L40)).
+- **Model:** `Alibaba-NLP/gte-modernbert-base` (768 dimensions) ([`memory-bridge.ts:39-40`](packages/@monomind/cli/src/memory/memory-bridge.ts#L39-L40)).
 - **Engine:** `@xenova/transformers` ONNX feature extraction (`embedding-operations.ts:84-100`).
-- **HNSW Fallback:** Pure-JS `HNSWIndex` used if native SQLite binary loading fails ([`hnsw-operations.ts:29-38`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/hnsw-operations.ts#L29-L38)).
+- **HNSW Fallback:** Pure-JS `HNSWIndex` used if native SQLite binary loading fails ([`hnsw-operations.ts:29-38`](packages/@monomind/cli/src/memory/hnsw-operations.ts#L29-L38)).
 
 ### 2. Lexical Okapi BM25
-- **Parameters:** `BM25_K1 = 1.2`, `BM25_B = 0.75` ([`bm25-index.ts:68-69`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/bm25-index.ts#L68-L69)).
-- **Tokenizer:** Shared `contentTokens` ([`text-tokens.ts:55-100`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/text-tokens.ts#L55-L100)) ensuring exact evaluation harness parity.
-- **Scaling Thresholds:** Live chunk warning at 50,000 chunks; index review threshold at 1,000,000 chunks ([`bm25-index.ts:58-65`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/bm25-index.ts#L58-L65)).
+- **Parameters:** `BM25_K1 = 1.2`, `BM25_B = 0.75` ([`bm25-index.ts:68-69`](packages/@monomind/cli/src/memory/bm25-index.ts#L68-L69)).
+- **Tokenizer:** Shared `contentTokens` ([`text-tokens.ts:55-100`](packages/@monomind/cli/src/memory/text-tokens.ts#L55-L100)) ensuring exact evaluation harness parity.
+- **Scaling Thresholds:** Live chunk warning at 50,000 chunks; index review threshold at 1,000,000 chunks ([`bm25-index.ts:58-65`](packages/@monomind/cli/src/memory/bm25-index.ts#L58-L65)).
 
 ### 3. Query Router & Surface Fusion
-- **Surface Routing:** Evaluates rules across `chunks` (prior=0.5), `kg` (wt=2), `rules` (wt=2), `memory` (wt=2) ([`query-router.ts:71-92`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/query-router.ts#L71-L92)).
-- **Gates:** 20-character negation pre-match window skips negated query terms ([`query-router.ts:43`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/query-router.ts#L43)). Top routing surface must score ≥ 2× runner-up or query broadcasts to all surfaces.
+- **Surface Routing:** Evaluates rules across `chunks` (prior=0.5), `kg` (wt=2), `rules` (wt=2), `memory` (wt=2) ([`query-router.ts:71-92`](packages/@monomind/cli/src/memory/query-router.ts#L71-L92)).
+- **Gates:** 20-character negation pre-match window skips negated query terms ([`query-router.ts:43`](packages/@monomind/cli/src/memory/query-router.ts#L43)). Top routing surface must score ≥ 2× runner-up or query broadcasts to all surfaces.
 - **Telemetry:** Override telemetry is logged to `.monomind/metrics/route-overrides.json`.
 
 ---
@@ -150,8 +150,8 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 
 ### OKF Transfer Engine
 MonoMind supports export/import of memory entries and knowledge documents using the Open Knowledge Format (OKF):
-- **Document OKF:** [`document-pipeline.ts:852-940`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/knowledge/document-pipeline.ts#L852-L940) exports/imports documents with standard YAML frontmatter headers and `index.md` manifest logs.
-- **Memory OKF:** [`memory-transfer.ts:10-207`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/memory-transfer.ts#L10-L207) transfers memory key-values across filesystem boundaries (`monomind memory export --format okf`).
+- **Document OKF:** [`document-pipeline.ts:852-940`](packages/@monomind/cli/src/knowledge/document-pipeline.ts#L852-L940) exports/imports documents with standard YAML frontmatter headers and `index.md` manifest logs.
+- **Memory OKF:** [`memory-transfer.ts:10-207`](packages/@monomind/cli/src/commands/memory-transfer.ts#L10-L207) transfers memory key-values across filesystem boundaries (`monomind memory export --format okf`).
 
 ### 20 MCP Memory Tools (`packages/@monomind/cli/src/mcp-tools/memory-tools.ts`)
 

@@ -467,7 +467,7 @@ function setupAndBoundary(): string {
   return `## Quick Setup
 
 \`\`\`bash
-# Add MCP server — includes monograph, swarm, memory, hooks, all 200+ tools
+# Add MCP server — includes monograph, swarm, memory, hooks, all 66+ tools
 claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Verify everything works

@@ -33,7 +33,7 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
 
 /**
  * Search entries using sql.js with vector similarity
- * Uses HNSW index for 150x faster search when available
+ * Uses HNSW index for search when available
  */
 export async function searchEntries(options: {
   query: string;
@@ -104,7 +104,7 @@ export async function searchEntries(options: {
     // semantic content, so the methods below must not claim otherwise.
     const realVectors = queryEmb.model !== 'hash-fallback';
 
-    // Try HNSW search first (150x faster)
+    // Try HNSW search first (faster)
     const hnswResults = await searchHNSWIndex(queryEmbedding, { k: limit, namespace: effectiveNamespace });
     if (hnswResults && hnswResults.length > 0) {
       const filtered = hnswResults.filter(r => r.score >= threshold);

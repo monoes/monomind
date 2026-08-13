@@ -757,6 +757,22 @@ export const hooksPreTask: MCPTool = {
     // silently on every call. The dead block was removed.
     let plan: string | undefined;
 
+    // P2-15: Retrieve Reflexion reflections for this task — past failures
+    // on similar tasks are injected as recommendations so the agent avoids
+    // repeating mistakes. This closes the self-learning loop.
+    let reflexionWarnings: string[] = [];
+    try {
+      const hooksPkg = await import('@monoes/hooks').catch(() => null);
+      const fn = (hooksPkg as Record<string, unknown> | null)?.getReflectionsForTask;
+      if (typeof fn === 'function') {
+        const cwd = process.cwd();
+        const reflections = await (fn as (root: string, desc: string, limit?: number) => Promise<Array<{ reflection: string }> >)(cwd, description, 3);
+        reflexionWarnings = reflections.map(r => `⚠ Past failure: ${r.reflection.slice(0, 200)}`);
+      }
+    } catch {
+      /* non-critical — reflexion store may not exist yet */
+    }
+
     return {
       taskId,
       description,
@@ -778,6 +794,7 @@ export const hooksPreTask: MCPTool = {
           ? 'Consider using swarm coordination'
           : 'Single agent recommended',
         ...erlHints,
+        ...reflexionWarnings,
       ],
       modelRouting,
       plan,
