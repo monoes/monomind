@@ -2,6 +2,23 @@
 
 All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
+## [2.9.5] — 2026-08-13
+
+### Fixed
+
+- **Org control-server credential dropped at registration** (#135) — `startOrgServer()`
+  returns a per-process credential that both `org run` and `org serve` dropped when
+  calling `daemon.setInboxUrl()`, so the broker never persisted it and every
+  cross-process `org approve`/`answer`/`deny` request 401'd unconditionally,
+  deadlocking any org whose roles needed human approval on a sensitive tool call.
+  Both call sites now thread `srv.credential` through.
+- **Fresh install crash: stale global `@monoes/monograph` shadows pinned dep** (#134) —
+  `diff-classifier.ts` used a named ESM import of `InvalidGitRefError` from
+  `@monoes/monograph`, which throws at module-link time (crashing the whole CLI)
+  if an older globally-installed monograph shadows the pinned version and lacks
+  that export. Switched to a namespace import with a defensive `instanceof`
+  check so the CLI degrades gracefully instead of crashing.
+
 ## [Unreleased]
 
 ### Universal provider support — Vercel AI SDK + Codex CLI runners
