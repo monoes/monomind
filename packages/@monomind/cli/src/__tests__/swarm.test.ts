@@ -315,7 +315,8 @@ describe('swarm init persists state to .monomind/swarm/swarm-state.json', () => 
       swarmId: 'swarm-mock-123',
       topology: 'mesh',
       maxAgents: 6,
-      status: 'running',
+      // P0-4: init reserves agent slots but doesn't run anything yet.
+      status: 'configured',
     });
     expect(swarms['swarm-mock-123'].createdAt).toBeTruthy();
     expect(swarms['swarm-mock-123'].updatedAt).toBeTruthy();

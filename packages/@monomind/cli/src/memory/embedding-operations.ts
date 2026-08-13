@@ -122,7 +122,7 @@ export async function loadEmbeddingModel(options?: {
     const config = EMBEDDER_REGISTRY[_embedderOverride];
     if (config) {
       try {
-        const transformers = await import('@xenova/transformers').catch(() => null);
+        const transformers = await import('@huggingface/transformers').catch(() => null);
         if (transformers) {
           if (verbose) {
             console.log(`Loading ${_embedderOverride} (${config.model}, ${config.dimensions}d)...`);
@@ -157,8 +157,10 @@ export async function loadEmbeddingModel(options?: {
   }
 
   try {
-    // Try to import @xenova/transformers for ONNX embeddings
-    const transformers = await import('@xenova/transformers').catch(() => null);
+    // Try to import @huggingface/transformers for ONNX embeddings
+    // (@huggingface/transformers is the maintained successor to @xenova/transformers,
+    // same maintainers/API — this is the package actually declared as a dependency)
+    const transformers = await import('@huggingface/transformers').catch(() => null);
 
     if (transformers) {
       if (verbose) {
