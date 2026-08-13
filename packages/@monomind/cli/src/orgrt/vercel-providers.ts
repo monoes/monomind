@@ -41,12 +41,17 @@ export const VERCEL_PROVIDERS: Record<string, VercelProviderDef> = {
   },
   glm: {
     vendor: 'glm',
-    package: '@ai-sdk/openai',
-    factory: 'createOpenAI',
+    package: '@ai-sdk/anthropic',
+    factory: 'createAnthropic',
     defaultModel: 'glm-5.2',
     envVar: 'ZHIPU_API_KEY',
-    defaultBaseUrl: 'https://api.z.ai/api/paas/v4',
-    isOpenAiCompatible: true,
+    // z.ai's Anthropic-compatible endpoint — billed against the GLM coding-plan
+    // resource package, unlike the paas/v4 Chat Completions endpoint which
+    // draws from a separate pay-per-token balance.
+    // createAnthropic() does not auto-append /v1 the way the official default
+    // baseURL does — it must be included explicitly or z.ai 404s with a 200
+    // status + JSON error body (looks like a stream, isn't one).
+    defaultBaseUrl: 'https://api.z.ai/api/anthropic/v1',
   },
   google: {
     vendor: 'google',

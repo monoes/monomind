@@ -22,6 +22,7 @@
  * (real-time token streaming), while the Codex runner yields whole
  * agent_message items at once. This matches each vendor's native behavior.
  */
+import { z } from 'zod';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { loadVercelProvider, VERCEL_PROVIDERS } from './vercel-providers.js';
 import { VercelSessionStore } from './vercel-session-store.js';
@@ -92,7 +93,7 @@ export class VercelAgentRunner implements AgentRunner {
       for (const t of args.tools) {
         vercelTools[t.name] = tool({
           description: t.description,
-          inputSchema: t.schema,
+          inputSchema: z.object(t.schema),
           execute: async (input: Record<string, unknown>): Promise<string> => {
             if (args.canUseTool) {
               const decision = await args.canUseTool(t.name, input);

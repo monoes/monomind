@@ -11,6 +11,8 @@
  *   3. cost_usd: 0 (Vercel returns no USD)
  *   4. Mailbox turn-loop consumption
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VercelAgentRunner } from '../orgrt/vercel-runner.js';
 import { VERCEL_PROVIDERS } from '../orgrt/vercel-providers.js';
@@ -43,9 +45,10 @@ describe('VERCEL_PROVIDERS registry', () => {
     }
   });
 
-  it('GLM uses z.ai international endpoint', () => {
-    expect(VERCEL_PROVIDERS.glm.defaultBaseUrl).toBe('https://api.z.ai/api/paas/v4');
-    expect(VERCEL_PROVIDERS.glm.isOpenAiCompatible).toBe(true);
+  it('GLM uses z.ai Anthropic-compatible endpoint', () => {
+    expect(VERCEL_PROVIDERS.glm.defaultBaseUrl).toBe('https://api.z.ai/api/anthropic/v1');
+    expect(VERCEL_PROVIDERS.glm.package).toBe('@ai-sdk/anthropic');
+    expect(VERCEL_PROVIDERS.glm.factory).toBe('createAnthropic');
     expect(VERCEL_PROVIDERS.glm.envVar).toBe('ZHIPU_API_KEY');
   });
 
@@ -61,6 +64,19 @@ describe('VERCEL_PROVIDERS registry', () => {
 
   it('has 16 entries (15 vendors + openai-compatible)', () => {
     expect(Object.keys(VERCEL_PROVIDERS)).toHaveLength(16);
+  });
+
+  // Regression guard: createAnthropic() does not auto-append /v1 to a custom
+  // baseURL the way the official api.anthropic.com default does. A vendor
+  // pointed at a third-party Anthropic-compatible proxy without /v1 gets a
+  // silent 404 (HTTP 200 + JSON error body) that surfaces as a misleading
+  // "stream ended without a finish chunk" error instead of an obvious one.
+  it('every createAnthropic vendor with a custom baseURL includes /v1', () => {
+    for (const [name, def] of Object.entries(VERCEL_PROVIDERS)) {
+      if (def.factory === 'createAnthropic' && def.defaultBaseUrl) {
+        expect(def.defaultBaseUrl, `${name} defaultBaseUrl`).toMatch(/\/v1$/);
+      }
+    }
   });
 });
 
@@ -91,5 +107,22 @@ describe('VercelAgentRunner error handling', () => {
     // test above proves the vendor check works; the model check is the next
     // gate after a successful import.
     expect(VERCEL_PROVIDERS['openai-compatible'].defaultModel).toBe('');
+  });
+});
+
+// Regression guard: OrgToolDef.schema (agent-runner.ts) is a raw zod SHAPE
+// object (e.g. { query: z.string() }) — the Claude SDK's tool() and
+// opencode's tool() both wrap a shape internally, but the Vercel ai-sdk's
+// tool({ inputSchema }) needs a full schema instance. Passing the bare shape
+// crashes every tool call with "TypeError: schema is not a function" the
+// instant a role tries to use one. Source-level check (not a live import)
+// because 'ai' isn't mocked in this test env — see file header comment.
+describe('VercelAgentRunner tool schema wrapping', () => {
+  it('wraps OrgToolDef shape objects in z.object() before passing to ai-sdk tool()', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../orgrt/vercel-runner.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(src).toMatch(/inputSchema:\s*z\.object\(t\.schema\)/);
   });
 });
