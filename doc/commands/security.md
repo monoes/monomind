@@ -6,7 +6,7 @@
 
 ## 1. CLI Commands (`monomind security`)
 
-The CLI `security` command ([`packages/@monomind/cli/src/commands/security.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/security.ts)) exposes 6 subcommands for vulnerability scanning, CVE checking, secret scanning, and MonoFence AI defense:
+The CLI `security` command ([`packages/@monomind/cli/src/commands/security.ts`](packages/@monomind/cli/src/commands/security.ts)) exposes 6 subcommands for vulnerability scanning, CVE checking, secret scanning, and MonoFence AI defense:
 
 ```bash
 monomind security <subcommand> [flags]
@@ -16,18 +16,18 @@ monomind security <subcommand> [flags]
 
 | Subcommand | Description | Key Flags & Options | Reference |
 |---|---|---|---|
-| `scan` | Run static security scan on input prompt or codebase files | `--input <text>`, `--file <path>`, `--json` | [`security.ts:L45`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/security.ts#L45) |
-| `defend` | Invoke MonoFence AI threat detection & evasion normalizer on prompt text | `--input <text>`, `--context-id <id>`, `--verbose` | [`security-misc.ts:L30`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/security-misc.ts#L30) |
-| `cve` | Audit package dependencies for known CVE vulnerabilities | `--package <pkg>`, `--severity <level>`, `--fix` | [`security.ts:L110`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/security.ts#L110) |
-| `secrets` | Scan repository files for exposed API keys, tokens, and private keys | `--path <dir>`, `--ignore-vendor` | [`security.ts:L160`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/security.ts#L160) |
-| `audit` | Summarize security audit event history *(Note: reads synthetic events from `.swarm/*.json` filenames)* | `--format <json\|table>` | [`security.ts:L210`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/security.ts#L210) |
-| `redteam` | Execute dry-run adversarial prompt injection test suite against security gates | `--dry-run`, `--categories <list>` | [`security.ts:L260`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/security.ts#L260) |
+| `scan` | Run static security scan on input prompt or codebase files | `--input <text>`, `--file <path>`, `--json` | [`security.ts:L45`](packages/@monomind/cli/src/commands/security.ts#L45) |
+| `defend` | Invoke MonoFence AI threat detection & evasion normalizer on prompt text | `--input <text>`, `--context-id <id>`, `--verbose` | [`security-misc.ts:L30`](packages/@monomind/cli/src/commands/security-misc.ts#L30) |
+| `cve` | Audit package dependencies for known CVE vulnerabilities | `--package <pkg>`, `--severity <level>`, `--fix` | [`security.ts:L110`](packages/@monomind/cli/src/commands/security.ts#L110) |
+| `secrets` | Scan repository files for exposed API keys, tokens, and private keys | `--path <dir>`, `--ignore-vendor` | [`security.ts:L160`](packages/@monomind/cli/src/commands/security.ts#L160) |
+| `audit` | Summarize security audit event history *(Note: reads synthetic events from `.swarm/*.json` filenames)* | `--format <json\|table>` | [`security.ts:L210`](packages/@monomind/cli/src/commands/security.ts#L210) |
+| `redteam` | Execute dry-run adversarial prompt injection test suite against security gates | `--dry-run`, `--categories <list>` | [`security.ts:L260`](packages/@monomind/cli/src/commands/security.ts#L260) |
 
 ---
 
 ## 2. Model Context Protocol (MCP) Security Tools (`monofence_*`)
 
-MonoFence AI exposes 4 dedicated MCP tools through the Monomind MCP server implementation ([`packages/@monomind/cli/src/mcp-tools/security-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591)).
+MonoFence AI exposes 4 dedicated MCP tools through the Monomind MCP server implementation ([`packages/@monomind/cli/src/mcp-tools/security-tools.ts`](packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591)).
 
 ### 1. `monofence_scan`
 Scans input text through the 64 KB bounds check, allowlist, 7-stage evasion normalizer, and threat classifier.
@@ -100,6 +100,6 @@ Registers a newly observed threat pattern or mitigation strategy into the active
 
 ## 3. Integration with Lifecycle Hooks
 
-MonoFence AI automatically binds to system execution hooks (`pre-task` and `pre-command`) with critical priority (priority `1000`) via [`packages/monofence-ai/src/hooks/security-hook.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/hooks/security-hook.ts#L75-L204).
+MonoFence AI automatically binds to system execution hooks (`pre-task` and `pre-command`) with critical priority (priority `1000`) via [`packages/monofence-ai/src/hooks/security-hook.ts`](packages/monofence-ai/src/hooks/security-hook.ts#L75-L204).
 
 When an incoming prompt or command payload yields a threat confidence score $\ge 0.8$ or transitions the context state machine into `attack`, the security hook halts execution immediately and returns a structured intervention block to the caller.

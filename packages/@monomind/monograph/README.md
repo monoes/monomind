@@ -88,13 +88,13 @@ Monograph utilizes a dual-tier parsing strategy for extracting code structure an
 
 1. **Tree-sitter AST Parsers (25 supported extensions)**:
    - **Extensions**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.py`, `.go`, `.rs`, `.java`, `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`, `.cs`, `.rb`, `.swift`, `.php`, `.vue`, `.kt`, `.kts`, `.dart`.
-   - **Grammar Loader**: Dynamically loads and caches Tree-sitter grammars per extension via `getParser(ext)` ([`loader.ts:64-83`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/parsers/loader.ts#L64-L83)). Supports `<script>` block isolation for `.vue` files ([`loader.ts:128-142`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/parsers/loader.ts#L128-L142)).
+   - **Grammar Loader**: Dynamically loads and caches Tree-sitter grammars per extension via `getParser(ext)` ([`loader.ts:64-83`](packages/@monomind/monograph/src/parsers/loader.ts#L64-L83)). Supports `<script>` block isolation for `.vue` files ([`loader.ts:128-142`](packages/@monomind/monograph/src/parsers/loader.ts#L128-L142)).
 2. **Regex Fallback Parsers (5 languages)**:
-   - Lightweight regex-based symbol extractors for languages when Tree-sitter grammars are uninstalled or unsupported: **Scala**, **Lua**, **Zig**, **PowerShell**, and **Elixir** ([`language-parsers.ts:1-100`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/parsers/language-parsers.ts#L1-L100)).
+   - Lightweight regex-based symbol extractors for languages when Tree-sitter grammars are uninstalled or unsupported: **Scala**, **Lua**, **Zig**, **PowerShell**, and **Elixir** ([`language-parsers.ts:1-100`](packages/@monomind/monograph/src/parsers/language-parsers.ts#L1-L100)).
 
 ## SQLite Database Schema
 
-The graph is stored in a WAL-mode SQLite database (`PRAGMA journal_mode = WAL`) managed in [`schema.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/storage/schema.ts) and [`db.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/storage/db.ts):
+The graph is stored in a WAL-mode SQLite database (`PRAGMA journal_mode = WAL`) managed in [`schema.ts`](packages/@monomind/monograph/src/storage/schema.ts) and [`db.ts`](packages/@monomind/monograph/src/storage/db.ts):
 
 - **`nodes`**: Code symbols and files (`id`, `label`, `name`, `norm_label`, `file_path`, `start_line`, `end_line`, `community_id`, `is_exported`, `language`, `properties`, `embedding`).
 - **`edges`**: Directed relationships between nodes (`id`, `source_id`, `target_id`, `relation`, `confidence`, `confidence_score`, `weight`, `reason`, `evidence`).
@@ -105,7 +105,7 @@ The graph is stored in a WAL-mode SQLite database (`PRAGMA journal_mode = WAL`) 
 
 ## Relationship Types
 
-Monograph defines typed edges ([`types.ts:20-29`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/types.ts#L20-L29)) categorized into structural, static analysis, and semantic relationships:
+Monograph defines typed edges ([`types.ts:20-29`](packages/@monomind/monograph/src/types.ts#L20-L29)) categorized into structural, static analysis, and semantic relationships:
 
 - **`CONTAINS`**: Parent container to child element (e.g. File contains Class/Function, Class contains Method).
 - **`IMPORTS`**: File/Module import dependency (`import { x } from './y'`).
@@ -115,7 +115,7 @@ Monograph defines typed edges ([`types.ts:20-29`](file:///Users/morteza/Desktop/
 
 ## Blast Radius Calculation (`rippleImpact`)
 
-Monograph calculates downstream cascade impact using the multi-hop `rippleImpact` BFS algorithm ([`ripple-impact.ts:51-84`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/graph/ripple-impact.ts#L51-L84)):
+Monograph calculates downstream cascade impact using the multi-hop `rippleImpact` BFS algorithm ([`ripple-impact.ts:51-84`](packages/@monomind/monograph/src/graph/ripple-impact.ts#L51-L84)):
 
 - **Algorithm**: Breadth-First Search propagating through outgoing directed edge adjacency maps.
 - **Scoring Formula**:
@@ -125,7 +125,7 @@ Monograph calculates downstream cascade impact using the multi-hop `rippleImpact
 
 ## Graph Freshness & Git Staleness Tracking
 
-Monograph maintains graph synchronization with git repository state without full re-indexes ([`git-staleness.ts:13-66`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/staleness/git-staleness.ts#L13-L66)):
+Monograph maintains graph synchronization with git repository state without full re-indexes ([`git-staleness.ts:13-66`](packages/@monomind/monograph/src/staleness/git-staleness.ts#L13-L66)):
 
 - **Commit Verification**: Compares stored `last_commit_hash` in `index_meta` against `git rev-parse HEAD`.
 - **Change Diffing**: If hashes diverge, executes `git diff --name-only <indexedCommit>..HEAD` to populate `changedSince` files.
@@ -134,10 +134,10 @@ Monograph maintains graph synchronization with git repository state without full
 
 ### Incremental Watch Mode
 
-`monomind monograph watch` (and the `monograph_watch` MCP tool) debounces file changes by 3s ([`watcher.ts:108-110`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/watch/watcher.ts#L108-L110)), then updates the graph per changed file — delete existing nodes/edges for that file, re-parse, re-insert ([`orchestrator.ts:312-365`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/pipeline/orchestrator.ts#L312-L365)):
+`monomind monograph watch` (and the `monograph_watch` MCP tool) debounces file changes by 3s ([`watcher.ts:108-110`](packages/@monomind/monograph/src/watch/watcher.ts#L108-L110)), then updates the graph per changed file — delete existing nodes/edges for that file, re-parse, re-insert ([`orchestrator.ts:312-365`](packages/@monomind/monograph/src/pipeline/orchestrator.ts#L312-L365)):
 
-- **Incremental Threshold**: If a batch exceeds `INCREMENTAL_THRESHOLD` (20 changed files), it falls back to a full rebuild instead of per-file updates ([`orchestrator.ts:269-279`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/pipeline/orchestrator.ts#L269-L279)).
-- **Deferred Full Rebuild**: After `FULL_REBUILD_IDLE_MS` (60s) with no further incremental activity, watch mode runs one full rebuild to refresh aggregate phases (communities, god-nodes, surprises, churn, report) that incremental updates don't recompute ([`watcher.ts:40-59`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/watch/watcher.ts#L40-L59)).
+- **Incremental Threshold**: If a batch exceeds `INCREMENTAL_THRESHOLD` (20 changed files), it falls back to a full rebuild instead of per-file updates ([`orchestrator.ts:269-279`](packages/@monomind/monograph/src/pipeline/orchestrator.ts#L269-L279)).
+- **Deferred Full Rebuild**: After `FULL_REBUILD_IDLE_MS` (60s) with no further incremental activity, watch mode runs one full rebuild to refresh aggregate phases (communities, god-nodes, surprises, churn, report) that incremental updates don't recompute ([`watcher.ts:40-59`](packages/@monomind/monograph/src/watch/watcher.ts#L40-L59)).
 
 ## Links
 

@@ -24,7 +24,7 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
 }
 
 // ============================================================================
-// HNSW INDEX SINGLETON (150x faster vector search)
+// HNSW INDEX SINGLETON (0 faster vector search)
 //
 // Two-tier ANN fallback strategy:
 //   1. SQLite-backed memory bridge (memory-bridge.ts) — primary ANN search,
@@ -240,7 +240,7 @@ export async function addToHNSWIndex(
 }
 
 /**
- * Search HNSW index (150x faster than brute-force)
+ * Search HNSW index (0 faster than brute-force)
  * Returns results sorted by similarity (highest first)
  */
 export async function searchHNSWIndex(

@@ -26,8 +26,8 @@ npm install better-sqlite3
 ### Schema Architecture & Storage Engine
 - **Storage Driver**: Operates over SQLite with WAL mode (`PRAGMA journal_mode = WAL`) using `better-sqlite3` with a WASM `sql.js` fallback.
 - **Dual Schema Support**:
-  - Standalone `@monoes/memory` core schema ([`packages/@monomind/memory/src/sql-schema.ts:28`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/memory/src/sql-schema.ts#L28)): `SCHEMA_VERSION = 2` managing **4 tables** (`memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`).
-  - CLI project memory schema ([`packages/@monomind/cli/src/memory/memory-schema.ts:15`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/memory/memory-schema.ts#L15)): Schema version `3.0.0` managing **9 tables** (`memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
+  - Standalone `@monoes/memory` core schema ([`packages/@monomind/memory/src/sql-schema.ts:28`](packages/@monomind/memory/src/sql-schema.ts#L28)): `SCHEMA_VERSION = 2` managing **4 tables** (`memory_entries`, `memory_embeddings`, `memory_entry_tags`, `agent_reads`).
+  - CLI project memory schema ([`packages/@monomind/cli/src/memory/memory-schema.ts:15`](packages/@monomind/cli/src/memory/memory-schema.ts#L15)): Schema version `3.0.0` managing **9 tables** (`memory_entries`, `patterns`, `pattern_history`, `trajectories`, `trajectory_steps`, `migration_state`, `sessions`, `vector_indexes`, `metadata`).
 
 ## Hybrid Search: ONNX ModernBERT 768d + BM25 RRF
 

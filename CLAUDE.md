@@ -65,10 +65,10 @@
 ### Project Config
 
 - **Topology**: hierarchical-mesh
-- **Max Agents**: 8
-- **Memory**: hybrid
-- **HNSW**: Available (fallback path only)
-- **Neural**: Disabled (keyword routing only)
+- **Max Agents**: 15 (CLI default), capped at 50 (`Math.min(Math.max(x|8, 1), 50)` in `swarm-tools.ts`)
+- **Memory**: local-sqlite chain `better-sqlite3 → sql.js (WASM) → JSON` (silent degradation; `database-provider.ts:127-169`). The config value `hybrid` is a backwards-compat alias for this chain.
+- **HNSW**: Dead fallback, not on the default search path. `memory search --build-hnsw` is a no-op unless the SQLite bridge is down.
+- **Neural**: Disabled at runtime (keyword routing only). `hooks intelligence status` MoE/LoRA/HNSW tables report `not-loaded` / zero defaults.
 
 ## Build & Test
 
@@ -266,7 +266,7 @@ Single-file edits, doc/config changes, quick fixes where you already know the ex
 ## Quick Setup
 
 ```bash
-# Add MCP server — includes monograph, swarm, memory, hooks, all 200+ tools
+# Add MCP server — includes monograph, swarm, memory, hooks, all 66+ tools
 claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Verify everything works

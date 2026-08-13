@@ -13,10 +13,10 @@ Master advanced swarm patterns for distributed research, development, and testin
 ### Prerequisites
 ```bash
 # Ensure Monomind is installed
-npm install -g monomind@alpha
+npm install -g monomind@latest
 
 # Add MCP server (if using MCP tools)
-claude mcp add monomind npx monomind@alpha mcp start
+claude mcp add monomind npx monomind@latest mcp start
 ```
 
 ### Basic Pattern

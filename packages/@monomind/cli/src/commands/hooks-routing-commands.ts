@@ -249,7 +249,7 @@ export const explainCommand: Command = {
 // Pretrain subcommand
 export const pretrainCommand: Command = {
   name: 'pretrain',
-  description: 'Bootstrap intelligence from repository (4-step pipeline + embeddings)',
+  description: 'Scan hook activity and write consolidated JSON state. No model is trained.',
   options: [
     {
       name: 'path',
@@ -306,50 +306,28 @@ export const pretrainCommand: Command = {
     const fileTypes = (ctx.flags['file-types'] || ctx.flags.fileTypes || 'ts,js,py,md,json') as string;
 
     output.writeln();
-    output.writeln(output.bold('Pretraining Intelligence (4-Step Pipeline + Embeddings)'));
+    output.writeln(output.bold('Indexing hook activity into local JSON state'));
     output.writeln();
 
-    const steps = [
-      { name: 'RETRIEVE', desc: 'Top-k memory injection with MMR diversity' },
-      { name: 'JUDGE', desc: 'LLM-as-judge trajectory evaluation' },
-      { name: 'DISTILL', desc: 'Extract strategy memories from trajectories' },
-      { name: 'CONSOLIDATE', desc: 'Dedup, detect contradictions, prune old patterns' }
-    ];
-
-    // Add embedding steps if enabled
-    if (withEmbeddings) {
-      steps.push(
-        { name: 'EMBED', desc: `Index documents with ${embeddingModel} (ONNX)` },
-        { name: 'HYPERBOLIC', desc: 'Project to Poincaré ball for hierarchy preservation' }
-      );
-    }
-
-    const spinner = output.createSpinner({ text: 'Starting pretraining...', spinner: 'dots' });
+    const spinner = output.createSpinner({ text: 'Scanning repository...', spinner: 'dots' });
 
     try {
       spinner.start();
 
-      // Display progress for each step
-      for (const step of steps) {
-        spinner.setText(`${step.name}: ${step.desc}`);
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
-
-      // Call MCP tool for pretraining
+      // Call MCP tool for the filesystem scan
       const result = await callMCPTool<{
         path: string;
         depth: string;
         stats: {
           filesAnalyzed: number;
+          totalLines?: number;
           patternsExtracted: number;
-          strategiesLearned: number;
-          trajectoriesEvaluated: number;
-          contradictionsResolved: number;
+          patternsStored?: number;
+          neuralPatternsLearned?: number;
           documentsIndexed?: number;
           embeddingsGenerated?: number;
-          hyperbolicProjections?: number;
         };
-        duration: number;
+        durationMs: number;
       }>('hooks_pretrain', {
         path: repoPath,
         depth,
@@ -368,25 +346,26 @@ export const pretrainCommand: Command = {
 
       output.writeln();
 
-      // Base stats
+      // Base stats — these reflect the actual filesystem scan work performed by the MCP tool
       const tableData: Array<{ metric: string; value: string | number }> = [
         { metric: 'Files Analyzed', value: result.stats.filesAnalyzed },
         { metric: 'Patterns Extracted', value: result.stats.patternsExtracted },
-        { metric: 'Strategies Learned', value: result.stats.strategiesLearned },
-        { metric: 'Trajectories Evaluated', value: result.stats.trajectoriesEvaluated },
-        { metric: 'Contradictions Resolved', value: result.stats.contradictionsResolved },
       ];
 
-      // Add embedding stats if available
+      // Optional stats returned by the MCP scan
+      if (result.stats.patternsStored !== undefined) {
+        tableData.push({ metric: 'Patterns Stored', value: result.stats.patternsStored });
+      }
+
+      // Embedding stats (when indexing was actually performed by the MCP tool)
       if (withEmbeddings && result.stats.documentsIndexed !== undefined) {
         tableData.push(
           { metric: 'Documents Indexed', value: result.stats.documentsIndexed },
-          { metric: 'Embeddings Generated', value: result.stats.embeddingsGenerated || 0 },
-          { metric: 'Hyperbolic Projections', value: result.stats.hyperbolicProjections || 0 }
+          { metric: 'Embeddings Generated', value: result.stats.embeddingsGenerated || 0 }
         );
       }
 
-      tableData.push({ metric: 'Duration', value: `${(result.duration / 1000).toFixed(1)}s` });
+      tableData.push({ metric: 'Duration', value: `${((result.durationMs ?? 0) / 1000).toFixed(1)}s` });
 
       output.printTable({
         columns: [

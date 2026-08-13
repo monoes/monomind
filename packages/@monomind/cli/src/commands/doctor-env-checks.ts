@@ -20,7 +20,7 @@ const execAsync = promisify(exec);
 
 export interface HealthCheck {
   name: string;
-  status: 'pass' | 'warn' | 'fail';
+  status: 'pass' | 'warn' | 'fail' | 'info';
   message: string;
   fix?: string;
 }

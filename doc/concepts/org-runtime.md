@@ -38,7 +38,7 @@ All source files are under `packages/@monomind/cli/src/orgrt/`.
 
 ## 2. Agent Runner Backends
 
-The `AgentRunner` interface ([`orgrt/agent-runner.ts:L66`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/agent-runner.ts#L66)) decouples the agent loop from any specific provider SDK:
+The `AgentRunner` interface ([`orgrt/agent-runner.ts:L66`](packages/@monomind/cli/src/orgrt/agent-runner.ts#L66)) decouples the agent loop from any specific provider SDK:
 
 ```typescript
 interface AgentRunner {
@@ -50,7 +50,7 @@ Three concrete implementations are available:
 
 ### 2.1 ClaudeAgentRunner (Default)
 
-- **Source:** [`orgrt/agent-runner.ts:L77`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/agent-runner.ts#L77)
+- **Source:** [`orgrt/agent-runner.ts:L77`](packages/@monomind/cli/src/orgrt/agent-runner.ts#L77)
 - **SDK:** `@anthropic-ai/claude-agent-sdk` — wraps `query`, `tool`, `createSdkMcpServer`.
 - **Activation:** Default when `MONOMIND_RUNTIME` is unset. Also the fallback inside `runOneSession()`.
 - **Singleton:** `defaultClaudeRunner` (line 132) — stateless, reused across sessions.
@@ -59,7 +59,7 @@ Three concrete implementations are available:
 
 ### 2.2 OpencodeAgentRunner
 
-- **Source:** [`orgrt/opencode-runner.ts:L47`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/opencode-runner.ts#L47)
+- **Source:** [`orgrt/opencode-runner.ts:L47`](packages/@monomind/cli/src/orgrt/opencode-runner.ts#L47)
 - **SDK:** Dynamic import of `@opencode-ai/sdk`, shipped as an
   **optionalDependency** of `@monoes/monomindcli` since 2.9.x — present after a
   normal install, but an install failure never breaks the whole CLI. If it is
@@ -80,7 +80,7 @@ Three concrete implementations are available:
 
 ### 2.3 KimiCodeAgentRunner
 
-- **Source:** [`orgrt/kimicode-runner.ts:L70`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/kimicode-runner.ts#L70)
+- **Source:** [`orgrt/kimicode-runner.ts:L70`](packages/@monomind/cli/src/orgrt/kimicode-runner.ts#L70)
 - **Backend:** Spawns the `kimi` binary as a subprocess.
 - **Activation:** `MONOMIND_RUNTIME=kimicode`
 - **Turn timeout:** 2 hours.
@@ -97,10 +97,10 @@ Three concrete implementations are available:
 
 ### 2.4 VercelAgentRunner (API-key providers)
 
-- **Source:** [`orgrt/vercel-runner.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/vercel-runner.ts)
+- **Source:** [`orgrt/vercel-runner.ts`](packages/@monomind/cli/src/orgrt/vercel-runner.ts)
 - **Backend:** In-process Vercel AI SDK (`ai` + per-vendor `@ai-sdk/*` package). Not a subprocess.
 - **Activation:** `runtime: 'vercel'` (per-role or org-level) **or** auto-resolved from `provider.kind: 'vercel-api-key'`.
-- **Vendor registry:** 15 providers + `openai-compatible` escape hatch — see [`orgrt/vercel-providers.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/vercel-providers.ts). GLM uses the z.ai international endpoint (`https://api.z.ai/api/paas/v4`) via `@ai-sdk/openai` with custom `baseURL`.
+- **Vendor registry:** 15 providers + `openai-compatible` escape hatch — see [`orgrt/vercel-providers.ts`](packages/@monomind/cli/src/orgrt/vercel-providers.ts). GLM uses the z.ai international endpoint (`https://api.z.ai/api/paas/v4`) via `@ai-sdk/openai` with custom `baseURL`.
 - **Primitive:** `streamText({ model, system, messages, tools, stopWhen: isStepCount(N) })` — Vercel v7.
 - **Tool delivery:** Native Vercel `tool()` calling — no fence protocol. Every `execute()` wraps `canUseTool` for policy gating (bypassing it would defeat the per-role policy engine).
 - **Session resume:** `VercelSessionStore` persists message history to `<org>/sessions/<role>-<uuid>.json` (Vercel SDK is stateless server-side; we maintain history on disk).
@@ -109,7 +109,7 @@ Three concrete implementations are available:
 
 ### 2.5 CodexAgentRunner (ChatGPT subscription)
 
-- **Source:** [`orgrt/codex-runner.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/codex-runner.ts)
+- **Source:** [`orgrt/codex-runner.ts`](packages/@monomind/cli/src/orgrt/codex-runner.ts)
 - **Backend:** Spawns the `codex` binary as a subprocess (same pattern as KimiCodeAgentRunner — no SDK dependency).
 - **Activation:** `runtime: 'codex'` **or** auto-resolved from `provider.kind: 'codex'`.
 - **Auth:** Inherits `~/.codex/auth.json` from `codex login` (ChatGPT Plus/Pro/Team/Enterprise). No env vars needed.
@@ -121,7 +121,7 @@ Three concrete implementations are available:
 
 ### 2.6 AntigravityAgentRunner (Google AI Pro/Ultra subscription)
 
-- **Source:** [`orgrt/antigravity-runner.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/antigravity-runner.ts)
+- **Source:** [`orgrt/antigravity-runner.ts`](packages/@monomind/cli/src/orgrt/antigravity-runner.ts)
 - **Backend:** Spawns the `agy` (Antigravity CLI) binary as a subprocess — same pattern as KimiCodeAgentRunner / CodexAgentRunner. Antigravity is Google's replacement for the consumer-OAuth path of Gemini CLI (sunset June 18, 2026 for Google AI Pro/Ultra tiers).
 - **Activation:** `runtime: 'antigravity'` **or** auto-resolved from `provider.kind: 'antigravity'`.
 - **Auth:** OS keyring credentials from running `agy` interactively once (Google OAuth login). Google AI Pro/Ultra consumer subscription flows through this. No env vars needed.
@@ -138,7 +138,7 @@ Three concrete implementations are available:
 ## 3. Provider Environment Resolution
 
 Configured per role via the `provider` key in the org JSON. Resolved by
-[`orgrt/provider.ts:L11`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/provider.ts#L11):
+[`orgrt/provider.ts:L11`](packages/@monomind/cli/src/orgrt/provider.ts#L11):
 
 | `kind` | Behavior |
 |---|---|
@@ -157,12 +157,12 @@ Configured per role via the `provider` key in the org JSON. Resolved by
 
 ## 4. OrgDaemon Lifecycle
 
-**Class:** `OrgDaemon` — [`orgrt/daemon.ts:L178`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L178)
+**Class:** `OrgDaemon` — [`orgrt/daemon.ts:L178`](packages/@monomind/cli/src/orgrt/daemon.ts#L178)
 **Constructor:** `constructor(private root: string, private opts: DaemonOpts = {})`
 
 ### 4.1 `startOrg(name, taskOverride?)`
 
-Source: [daemon.ts:L307](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L307)
+Source: [daemon.ts:L307](packages/@monomind/cli/src/orgrt/daemon.ts#L307)
 
 1. Parses `<root>/.monomind/orgs/<name>.json` via `OrgDefSchema.parse()`.
 2. Generates Run ID: `run-YYYYMMDDHHMMSS-<4-char-random>`.
@@ -198,7 +198,7 @@ Source: [daemon.ts:L307](file:///Users/morteza/Desktop/tools/monomind/packages/@
 
 ### 4.2 `stopOrg(name, opts?)`
 
-Source: [daemon.ts:L793](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L793)
+Source: [daemon.ts:L793](packages/@monomind/cli/src/orgrt/daemon.ts#L793)
 
 - Reentrant-safe: joins any in-flight stop via the `stopping` map.
 - Captures `OrgCheckpoint` **before** mailboxes close.
@@ -210,7 +210,7 @@ Source: [daemon.ts:L793](file:///Users/morteza/Desktop/tools/monomind/packages/@
 
 ### 4.3 `deliver()`
 
-Source: [daemon.ts:L1027](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1027)
+Source: [daemon.ts:L1027](packages/@monomind/cli/src/orgrt/daemon.ts#L1027)
 
 Routes `org_send` tool calls:
 - **Intra-org:** pushes directly to target role's Mailbox.
@@ -220,13 +220,13 @@ Routes `org_send` tool calls:
 
 ### 4.4 Boss Crash Recovery
 
-`scheduleBossRestart()` ([daemon.ts:L1040](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1040) — now a 1-line delegate to `scheduler.ts`):
+`scheduleBossRestart()` ([daemon.ts:L1040](packages/@monomind/cli/src/orgrt/daemon.ts#L1040) — now a 1-line delegate to `scheduler.ts`):
 - Bounded restarts: `MAX_BOSS_RESTARTS = 2` with backoffs `[10_000ms, 30_000ms]`.
 - Beyond limit, org transitions to `crashed` state.
 
 ### 4.5 Resume
 
-`resumeOrg()` ([daemon.ts:L1070](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L1070)):
+`resumeOrg()` ([daemon.ts:L1070](packages/@monomind/cli/src/orgrt/daemon.ts#L1070)):
 - Restores full `OrgCheckpoint` (role mailbox queues, session IDs, token budgets).
 - Validates TTL (24h) and checksum before applying.
 
@@ -234,13 +234,13 @@ Routes `org_send` tool calls:
 
 ## 5. Org Config Schema
 
-**Source:** [`orgrt/types.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts)  
+**Source:** [`orgrt/types.ts`](packages/@monomind/cli/src/orgrt/types.ts)  
 **Location:** `.monomind/orgs/<name>.json`
 
 `workspace: 'worktree-per-role'` is a real, distinct fourth mode beyond the three above: each
 non-boss role gets its own `git worktree add <path> HEAD --detach` under
-`.monomind/orgs/<name>/worktree-<role-id>/` ([`daemon.ts:L462-474`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L462-L474)), cleaned up on stop
-alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L899-L904)). Falls back to the shared cwd if the
+`.monomind/orgs/<name>/worktree-<role-id>/` ([`daemon.ts:L462-474`](packages/@monomind/cli/src/orgrt/daemon.ts#L462-L474)), cleaned up on stop
+alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](packages/@monomind/cli/src/orgrt/daemon.ts#L899-L904)). Falls back to the shared cwd if the
 `git worktree add` call fails for a given role.
 
 ### Top-level `run_config` defaults
@@ -252,8 +252,8 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](file:///Users/mor
 | `max_turns_per_message` | `30` | Agent turns cap per inbound mailbox message |
 | `workspace` | `'repo'` | `'repo'` \| `'isolated'` \| `'worktree'` \| `'worktree-per-role'` |
 | `idle_minutes` | _(unset)_ | Idle timeout before watchdog `stopOrg()` |
-| `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts:L78-81`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts#L78-L81), applied [`daemon.ts:L488-489`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L488-L489)) |
-| `stale_base_threshold` | `0` (disabled) | Warn when the working tree is more than N commits behind its tracking branch ([`types.ts:L84`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts#L84), checked at start in [`daemon.ts:L672-688`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L672-L688) — best-effort, skips silently if git or an upstream tracking branch is unavailable) |
+| `circuit_breaker` | _(unset)_ | `{ failure_threshold?, cooldown_ms? }` — trip after N consecutive non-success session results from a role and close its mailbox instead of looping ([`types.ts:L78-81`](packages/@monomind/cli/src/orgrt/types.ts#L78-L81), applied [`daemon.ts:L488-489`](packages/@monomind/cli/src/orgrt/daemon.ts#L488-L489)) |
+| `stale_base_threshold` | `0` (disabled) | Warn when the working tree is more than N commits behind its tracking branch ([`types.ts:L84`](packages/@monomind/cli/src/orgrt/types.ts#L84), checked at start in [`daemon.ts:L672-688`](packages/@monomind/cli/src/orgrt/daemon.ts#L672-L688) — best-effort, skips silently if git or an upstream tracking branch is unavailable) |
 
 ### Role fields (`RoleSchema`)
 
@@ -287,7 +287,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](file:///Users/mor
 
 ### Org directory constant
 
-`ORG_DIR = '.monomind/orgs'` ([types.ts:L142](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/types.ts#L142))
+`ORG_DIR = '.monomind/orgs'` ([types.ts:L142](packages/@monomind/cli/src/orgrt/types.ts#L142))
 
 ---
 
@@ -304,7 +304,7 @@ alongside the shared `'worktree'` mode ([`daemon.ts:L899-904`](file:///Users/mor
 ### State Detector (`state-detector.ts`)
 
 Infers a role's current activity from the raw SDK message stream — wired into the session
-loop at [`session.ts:L236`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/session.ts#L236) (`const detector = new StateDetector()`):
+loop at [`session.ts:L236`](packages/@monomind/cli/src/orgrt/session.ts#L236) (`const detector = new StateDetector()`):
 
 - `AgentState = 'idle' | 'working' | 'tool-call' | 'blocked' | 'error' | 'completed'`
 - `onMessage(type, subtype, text)` — `result`/`tool_use` message types map directly to
@@ -321,7 +321,7 @@ loop at [`session.ts:L236`](file:///Users/morteza/Desktop/tools/monomind/package
 
 `runPrechecks(checks, cwd)` runs a `run_config.prechecks` array (`{ name, command }` shell
 commands) sequentially, stopping at the first failure — wired into a scheduled run's start
-path at [`commands/org.ts:L672-673`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/org.ts#L672-L673). If any check fails, the run is skipped rather
+path at [`commands/org.ts:L672-673`](packages/@monomind/cli/src/commands/org.ts#L672-L673). If any check fails, the run is skipped rather
 than started, and the failure is logged.
 
 ### Remote Hosts — SSH Cross-Org Dispatch (`remote.ts`)
@@ -329,13 +329,13 @@ than started, and the failure is logged.
 A **separate SSH-based transport** from the broker's HTTP cross-process delivery described in
 §4.3 above — the two are not the same mechanism and shouldn't be conflated. Hosts are
 registered in `.monomind/orgs/remote-hosts.json` (`RemoteRegistry`); `lookupRemoteOrg(name,
-projectRoot)` resolves a target org name to a `RemoteHost` ([`remote.ts:L34`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/remote.ts#L34)), and
-`deliverRemote()` ([`remote.ts:L52`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/remote.ts#L52)) shells out over SSH to deliver a message. It's the last
+projectRoot)` resolves a target org name to a `RemoteHost` ([`remote.ts:L34`](packages/@monomind/cli/src/orgrt/remote.ts#L34)), and
+`deliverRemote()` ([`remote.ts:L52`](packages/@monomind/cli/src/orgrt/remote.ts#L52)) shells out over SSH to deliver a message. It's the last
 fallback in `deliver()`'s cross-org path, tried after local-org and broker lookups both come up
-empty ([`cross-org.ts:L162-163`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/cross-org.ts#L162-L163)).
+empty ([`cross-org.ts:L162-163`](packages/@monomind/cli/src/orgrt/cross-org.ts#L162-L163)).
 
 > **Known issue — SSH dispatch currently fails.** `deliverRemote()` shells out to
-> `npx monomind org inbox <name> --json ...` on the remote host ([`remote.ts:L61`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/remote.ts#L61)), but
+> `npx monomind org inbox <name> --json ...` on the remote host ([`remote.ts:L61`](packages/@monomind/cli/src/orgrt/remote.ts#L61)), but
 > `inbox` is not a registered `org` subcommand (the full 31-entry list is in the
 > [`monomind org` command reference](../commands/org.md) — `inbox` isn't in it). The remote
 > host rejects the command as unknown, so SSH-federated cross-org dispatch does not currently
@@ -375,9 +375,9 @@ Resume state persistence:
   `abandonedRoles`, `checksum`.
 - `RoleCheckpoint` includes: `mailboxQueue`, `mailboxClosed`, `tokensUsed`, `costUsd`,
   `lastMessageId`, `sessionId`, `status`, `error`, `scrollback?: string[]` (last N lines of
-  terminal output, [`checkpoint.ts:L26`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/checkpoint.ts#L26) — backed by the bounded ring-buffer `ScrollbackBuffer`
-  class, [`daemon.ts:L98-107`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/daemon.ts#L98-L107), 500-line default cap; restored on resume at
-  [`checkpoint-ops.ts:L169-172`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#L169-L172)).
+  terminal output, [`checkpoint.ts:L26`](packages/@monomind/cli/src/orgrt/checkpoint.ts#L26) — backed by the bounded ring-buffer `ScrollbackBuffer`
+  class, [`daemon.ts:L98-107`](packages/@monomind/cli/src/orgrt/daemon.ts#L98-L107), 500-line default cap; restored on resume at
+  [`checkpoint-ops.ts:L169-172`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#L169-L172)).
 - TTL: 24 hours (`CHECKPOINT_TTL_MS`).
 - `captureCheckpoint()` — called **before** mailboxes close in `finishStop()`.
 - `validateCheckpoint()` — recomputes checksum before applying.
@@ -386,7 +386,7 @@ Resume state persistence:
 
 ## 7. Session and Tools
 
-**Source:** [`orgrt/session.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/session.ts)
+**Source:** [`orgrt/session.ts`](packages/@monomind/cli/src/orgrt/session.ts)
 
 ### Role System Prompt (`buildRolePrompt()`)
 
@@ -406,8 +406,8 @@ Constructs system prompt containing:
 | `ask_human` | All roles | Pause and queue a question for human answer |
 | `org_recall` / `org_remember` / `org_learn` | All roles | Cross-run knowledge-graph memory |
 | `knowledge_search` | All roles (if enabled) | Semantic search over Second Brain |
-| `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`session.ts:L399`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/session.ts#L399)) |
-| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts:L407,413,419`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/session.ts#L407), backed by the `TaskDag` class, [`task-dag.ts:L15-109`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/orgrt/task-dag.ts#L15-L109)) |
+| `org_gate` | All roles | Create a decision gate — a hard-blocking human-approval checkpoint for irreversible actions ([`session.ts:L399`](packages/@monomind/cli/src/orgrt/session.ts#L399)) |
+| `org_task` / `org_task_done` / `org_tasks` | All roles | Create, complete, and list tasks in a dependency DAG — deps must already exist, ready tasks auto-dispatch to their assignee ([`session.ts:L407,413,419`](packages/@monomind/cli/src/orgrt/session.ts#L407), backed by the `TaskDag` class, [`task-dag.ts:L15-109`](packages/@monomind/cli/src/orgrt/task-dag.ts#L15-L109)) |
 | `org_complete` | Boss only | Signal that the org's goal is achieved |
 
 `org_gate` and the `org_task*` trio are literally the tools this org's own agents use for

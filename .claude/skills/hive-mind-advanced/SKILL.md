@@ -6,689 +6,342 @@ description: |
 
 # Hive Mind Advanced Skill
 
-Master the advanced Hive Mind collective intelligence system for sophisticated multi-agent coordination using queen-led architecture, Byzantine consensus, and collective memory.
+Queen-led multi-agent coordination with shared JSON state, threshold-based voting, and a collective memory blob. Use when a task needs a declared coordinator (queen) plus N workers who must reach a documented decision before proceeding.
 
-## Overview
+## What Hive-Mind Is — and Is Not
 
-The Hive Mind system represents the pinnacle of multi-agent coordination in Monomind, implementing a queen-led hierarchical architecture where a strategic queen coordinator directs specialized worker agents through collective decision-making and shared memory.
+**Is:** An MCP-only surface that tracks queen + workers, proposals/votes, and a shared key/value blob in a single JSON state file at `.monomind/hive-mind/state.json`. Real execution happens in Claude Code Task-tool agents; the hive only records bookkeeping.
+
+**Is not:** A distributed system. The consensus strategies (`bft` / `raft` / `quorum`) are **vote-count thresholds applied to one in-process tally** — not Raft leader election, not Byzantine agreement, not Paxos. There is no log replication, no network model, no adversarial fault model. The strategy names are kept for CLI/API compatibility; see the honesty note in `packages/@monomind/cli/src/mcp-tools/hive-mind-tools.ts:2-12`.
+
+If you need to actually coordinate work in parallel, use `monomind swarm` (real CLI) — see "Swarm vs Hive-Mind" below.
+
+## Visibility Requires `MONOMIND_MCP_SPECULATIVE=1`
+
+Only two hive-mind tools are visible to MCP clients by default: `hive-mind_status` and `hive-mind_join`. To see and call the full surface (`init`, `spawn`, `consensus`, `memory`, `broadcast`, `shutdown`, `audit_*`), the MCP server must run with:
+
+```bash
+MONOMIND_MCP_SPECULATIVE=1
+```
+
+If a tool returns "unknown tool" or isn't listed, this flag is missing. Set it on the `mcp start` invocation (e.g. in `claude mcp add monomind -- env MONOMIND_MCP_SPECULATIVE=1 npx -y monomind@latest mcp start`).
 
 ## Core Concepts
 
-### Architecture Patterns
+### Queen / Worker Roles
 
-**Queen-Led Coordination**
-- Strategic queen agents orchestrate high-level objectives
-- Tactical queens manage mid-level execution
-- Adaptive queens dynamically adjust strategies based on performance
+- **Queen** — the agent ID recorded as hive coordinator at `hive-mind_init`. Pure bookkeeping label; the queen has no special powers in code. Strategic/tactical/adaptive "queen types" from older docs are **not implemented** — pick the queen by passing its `queenId`.
+- **Worker** — generalist agent joined to the hive.
+- **Specialist** — worker with a defined specialty.
+- **Scout** — worker role for exploration / information gathering.
 
-**Worker Specialization**
-- Researcher agents: Analysis and investigation
-- Coder agents: Implementation and development
-- Analyst agents: Data processing and metrics
-- Tester agents: Quality assurance and validation
-- Architect agents: System design and planning
-- Reviewer agents: Code review and improvement
-- Optimizer agents: Performance enhancement
-- Documenter agents: Documentation generation
+### Topologies (recorded on state, not enforced)
 
-**Collective Memory System**
-- Shared knowledge base across all agents
-- LRU cache with memory pressure handling
-- SQLite persistence with WAL mode
-- Memory consolidation and association
-- Access pattern tracking and optimization
+`mesh`, `hierarchical`, `ring`, `star`. The topology is a label stored on the state file; nothing in the hive-mind tools routes messages differently based on it. Real coordination topology comes from how **you** spawn and instruct Task-tool agents.
 
-### Consensus Mechanisms
+### Consensus Strategies — Honest Definitions
 
-**Majority Consensus**
-Simple voting where the option with most votes wins.
+Source: `hive-mind-tools.ts:98-124` and `hive-mind_consensus` description at `hive-mind-tools.ts:662-663`.
 
-**Weighted Consensus**
-Queen vote counts as 3x weight, providing strategic guidance.
+| Strategy | Required votes to resolve | Tolerates | Notes |
+|---|---|---|---|
+| `bft` (CLI alias: `byzantine`) | `floor(2n/3) + 1` | `f < n/3` "faulty" voters | Cross-proposal conflicting votes are flagged in `byzantineVoters`. Still a single-process tally. |
+| `raft` | `floor(n/2) + 1` (majority) | `f < n/2` | One pending proposal per `term`. Re-proposal timeout defaults to 30s. No leader election. |
+| `quorum` | Configurable preset | depends on preset | Presets: `majority`, `supermajority`, `unanimous`. `unanimous` rejects on the first dissent. |
 
-**Byzantine Fault Tolerance**
-Requires 2/3 majority for decision approval, ensuring robust consensus even with faulty agents.
+**Not implemented:** `gossip` and `crdt`. Passing them to `hive-mind_init` or `hive-mind_consensus` returns an explicit error.
 
-## Getting Started
+**O-Information anti-groupthink gate** (`minDivergenceRounds`, optional): forces a proposal to wait through N rounds of non-unanimous votes before it can resolve, even if the threshold is already met. Source: arXiv:2510.05174. Off by default.
 
-### 1. Initialize Hive Mind
+## Swarm vs Hive-Mind — Pick the Right Surface
 
-```bash
-# Basic initialization
-npx monomind hive-mind init
+| Need | Use |
+|---|---|
+| Real CLI to register agents, set topology, run an objective | `monomind swarm init/start/status/stop` (real commands) |
+| Threshold-vote a decision and keep an audit trail | `mcp__monomind__hive-mind_*` (this skill) |
+| Both at once | Initialize a swarm for execution **and** a hive-mind for the decision record |
 
-# Force reinitialize
-npx monomind hive-mind init --force
+Hive-mind tools do **not** spawn processes. `hive-mind_spawn` writes agent records into the agent store and joins their IDs to the hive state file — actual work happens in Task-tool agents you start yourself.
 
-# Custom configuration
-npx monomind hive-mind init --config hive-config.json
+## MCP Tool Reference
+
+All tools are called as `mcp__monomind__<tool_name>` from inside Claude Code.
+
+### Lifecycle
+
+```
+mcp__monomind__hive-mind_init {
+  topology: "mesh" | "hierarchical" | "ring" | "star",   // default: mesh
+  queenId: "<agent-id>",                                  // default: queen-<ts>
+  consensus: "byzantine" | "bft" | "raft" | "quorum",     // default: byzantine
+  maxAgents: 15,                                          // default: 15
+  persist: true,
+  memoryBackend: "hybrid"
+}
 ```
 
-### 2. Spawn a Swarm
+Persists `state.json` with empty workers. Returns `hiveId`, elected queen, and the resolved consensus strategy. The strategy chosen here governs `hive-mind_consensus` propose/vote when the caller doesn't pass one explicitly.
 
-```bash
-# Basic spawn with objective
-npx monomind hive-mind spawn "Build microservices architecture"
-
-# Strategic queen type
-npx monomind hive-mind spawn "Research AI patterns" --queen-type strategic
-
-# Tactical queen with max workers
-npx monomind hive-mind spawn "Implement API" --queen-type tactical --max-workers 12
-
-# Adaptive queen with consensus
-npx monomind hive-mind spawn "Optimize system" --queen-type adaptive --consensus byzantine
-
-# Generate Claude Code commands
-npx monomind hive-mind spawn "Build full-stack app" --claude
+```
+mcp__monomind__hive-mind_spawn {
+  count: 1,                                    // 1-20 per call
+  role: "worker" | "specialist" | "scout",     // default: worker
+  agentType: "worker",                         // recorded on agent record
+  prefix: "hive-worker"                        // agent-id prefix
+}
 ```
 
-### 3. Monitor Status
+Creates agent records **and** joins them to the hive in one call. Caps: 20 workers per call, 100 workers max in the hive.
 
-```bash
-# Check hive mind status
-npx monomind hive-mind status
-
-# Get detailed metrics
-npx monomind hive-mind metrics
-
-# Monitor collective memory
-npx monomind hive-mind memory
+```
+mcp__monomind__hive-mind_join   { agentId, role }    // join an existing agent
+mcp__monomind__hive-mind_leave  { agentId }          // remove from hive
 ```
 
-## Advanced Workflows
+Use `join` when the agent was created elsewhere (e.g. via `monomind agent spawn`). `agentId` must match `^[a-zA-Z0-9_-]+$` and is capped at 128 chars.
 
-### Session Management
-
-**Create and Manage Sessions**
-
-```bash
-# List active sessions
-npx monomind hive-mind sessions
-
-# Pause a session
-npx monomind hive-mind pause <session-id>
-
-# Resume a paused session
-npx monomind hive-mind resume <session-id>
-
-# Stop a running session
-npx monomind hive-mind stop <session-id>
+```
+mcp__monomind__hive-mind_shutdown { graceful: true, force: false }
 ```
 
-**Session Features**
-- Automatic checkpoint creation
-- Progress tracking with completion percentages
-- Parent-child process management
-- Session logs with event tracking
-- Export/import capabilities
+Removes worker records from the agent store and clears pending proposals. Graceful shutdown refuses to run with pending proposals unless `force: true`. Consensus **history** is kept for audit.
 
-### Consensus Building
+### Status & Memory
 
-The Hive Mind builds consensus through structured voting:
-
-```javascript
-// Programmatic consensus building
-const decision = await hiveMind.buildConsensus(
-  'Architecture pattern selection',
-  ['microservices', 'monolith', 'serverless']
-);
-
-// Result includes:
-// - decision: Winning option
-// - confidence: Vote percentage
-// - votes: Individual agent votes
+```
+mcp__monomind__hive-mind_status { verbose: false }
 ```
 
-**Consensus Algorithms**
+Returns hive state: queen, worker count, pending/history proposals, and task counters computed from the task store.
 
-1. **Majority** - Simple democratic voting
-2. **Weighted** - Queen has 3x voting power
-3. **Byzantine** - 2/3 supermajority required
-
-### Collective Memory
-
-**Storing Knowledge**
-
-```javascript
-// Store in collective memory
-await memory.store('api-patterns', {
-  rest: { pros: [...], cons: [...] },
-  graphql: { pros: [...], cons: [...] }
-}, 'knowledge', { confidence: 0.95 });
+```
+mcp__monomind__hive-mind_memory {
+  action: "get" | "set" | "delete" | "list",
+  key: "<string>",         // required for get/set/delete, ≤256 chars
+  value: <any>             // required for set, ≤1 MiB string or any JSON
+}
 ```
 
-**Memory Types**
-- `knowledge`: Permanent insights (no TTL)
-- `context`: Session context (1 hour TTL)
-- `task`: Task-specific data (30 min TTL)
-- `result`: Execution results (permanent, compressed)
-- `error`: Error logs (24 hour TTL)
-- `metric`: Performance metrics (1 hour TTL)
-- `consensus`: Decision records (permanent)
-- `system`: System configuration (permanent)
+Plain key/value blob on `state.sharedMemory`. Bounded: 1000 keys max, 1 MiB per string value. `set` also mirrors the entry into the searchable memory bridge (`namespace: hive-memory`) so `memory search` can find it. This is **not** a replicated KV store — it's JSON on disk.
 
-**Searching and Retrieval**
-
-```javascript
-// Search memory by pattern
-const results = await memory.search('api*', {
-  type: 'knowledge',
-  minConfidence: 0.8,
-  limit: 50
-});
-
-// Get related memories
-const related = await memory.getRelated('api-patterns', 10);
-
-// Build associations
-await memory.associate('rest-api', 'authentication', 0.9);
+```
+mcp__monomind__hive-mind_broadcast {
+  message: "<text>",                          // ≤1 MiB
+  priority: "low" | "normal" | "high" | "critical",
+  fromId: "<agent-id>"
+}
 ```
 
-### Task Distribution
+Appends to a capped 100-entry noticeboard on `state.sharedMemory.broadcasts`. **Not message delivery** — no listener is notified. A worker sees a broadcast only when something later reads `hive-mind_status` or `hive-mind_memory get`. `recipients` in the response is just `state.workers.length`.
 
-**Automatic Worker Assignment**
+### Consensus
 
-The system intelligently assigns tasks based on:
-- Keyword matching with agent specialization
-- Historical performance metrics
-- Worker availability and load
-- Task complexity analysis
-
-```javascript
-// Create task (auto-assigned)
-const task = await hiveMind.createTask(
-  'Implement user authentication',
-  priority: 8,
-  { estimatedDuration: 30000 }
-);
+```
+mcp__monomind__hive-mind_consensus {
+  action: "propose" | "vote" | "status" | "list",
+  // propose:
+  type: "<proposal-type>",       // ≤128 chars, e.g. "architecture"
+  value: <any>,                  // ≤64 KiB if string
+  voterId: "<agent-id>",         // recorded as proposedBy
+  strategy: "bft" | "raft" | "quorum",     // default: from hive-mind_init, then "raft"
+  quorumPreset: "majority" | "supermajority" | "unanimous",
+  term: 1,                       // raft only
+  timeoutMs: 30000,              // raft re-proposal timeout
+  minDivergenceRounds: 0,        // O-Information gate, default 0 (off)
+  // vote / status:
+  proposalId: "<id>",
+  vote: true | false
+}
 ```
 
-**Auto-Scaling**
+**propose** creates a pending proposal, computes required votes from current worker count, and (for raft) blocks duplicate proposals in the same term. **vote** records a boolean vote and tries to resolve: approved if `votesFor >= required`, rejected if `votesAgainst >= required` (or, for `unanimous`, on any dissent). Deadlock (neither side can reach threshold) rejects. **status** / **list** read pending and historical proposals.
 
-```javascript
-// Configure auto-scaling
-const config = {
-  autoScale: true,
-  maxWorkers: 12,
-  scaleUpThreshold: 2, // Pending tasks per idle worker
-  scaleDownThreshold: 2 // Idle workers above pending tasks
-};
+Each resolved decision is HMAC-signed and appended to a tamper-evident JSONL audit trail at `.monomind/consensus/`. The signing secret comes from `MONOMIND_SESSION_SECRET` if set, otherwise a per-project generated secret at `.monomind/hive-mind/session-secret`.
+
+### Audit
+
+```
+mcp__monomind__hive-mind_audit_list   { swarmId?, limit: 50 }   // max 500
+mcp__monomind__hive-mind_audit_verify { decisionId }
 ```
 
-## Integration Patterns
+List signed decision records, or verify that all vote signatures and the record signature on a specific decision still validate against the project secret.
 
-### With Claude Code
+## Workflow Patterns
 
-Generate Claude Code spawn commands directly:
+### Pattern 1: Decide-then-Build (queen + workers + vote)
 
-```bash
-npx monomind hive-mind spawn "Build REST API" --claude
+Use when an architectural choice must be documented before implementation begins.
+
+```
+# 1. Initialize hive with a known queen and byzantine threshold
+mcp__monomind__hive-mind_init {
+  topology: "hierarchical",
+  queenId: "architect-1",
+  consensus: "byzantine"
+}
+
+# 2. Spawn or join workers (specialist role for SMEs)
+mcp__monomind__hive-mind_spawn { count: 4, role: "specialist", agentType: "reviewer" }
+
+# 3. Queen proposes the architecture decision
+mcp__monomind__hive-mind_consensus {
+  action: "propose",
+  type: "architecture",
+  value: { pattern: "modular-monolith", modules: ["auth","billing","shipping"] },
+  voterId: "architect-1"
+}
+# → returns proposalId
+
+# 4. Each worker votes (in parallel Task-tool agents)
+mcp__monomind__hive-mind_consensus {
+  action: "vote", proposalId: "<id>",
+  vote: true, voterId: "reviewer-2"
+}
+
+# 5. Once threshold reached, store the decision rationale
+mcp__monomind__hive-mind_memory {
+  action: "set", key: "decision-architecture-v1",
+  value: { summary: "...", proposalId: "<id>", decidedAt: "..." }
+}
+
+# 6. Spin up a real swarm to execute, sharing the decision via memory namespace
+#    (CLI)
+npx monomind@latest swarm init --topology hierarchical --max-agents 6
+npx monomind@latest swarm start --objective "Implement modular monolith per decision-architecture-v1"
 ```
 
-Output:
-```javascript
-Task("Queen Coordinator", "Orchestrate REST API development...", "coordinator")
-Task("Backend Developer", "Implement Express routes...", "backend-dev")
-Task("Database Architect", "Design PostgreSQL schema...", "code-analyzer")
-Task("Test Engineer", "Create Jest test suite...", "tester")
+### Pattern 2: Release Gate (raft majority for go/no-go)
+
+```
+mcp__monomind__hive-mind_init { topology: "star", queenId: "release-manager", consensus: "raft" }
+mcp__monomind__hive-mind_spawn { count: 3, role: "specialist", agentType: "reviewer" }
+
+# One proposal per term — propose "ship v2.9.5"
+mcp__monomind__hive-mind_consensus {
+  action: "propose", type: "release-gate",
+  value: { version: "2.9.5" }, voterId: "release-manager", term: 1
+}
+# Reviewers vote; majority of 4 nodes = 3 votes needed
 ```
 
-### With GitHub Integration
+If the term times out (30s default), re-propose with `term: 2`.
 
-```bash
-# Repository analysis with hive mind
-npx monomind hive-mind spawn "Analyze repo quality" --objective "owner/repo"
+### Pattern 3: Unanimous Consent (quorum/unanimous for high-bar decisions)
 
-# PR review coordination
-npx monomind hive-mind spawn "Review PR #123" --queen-type tactical
+```
+mcp__monomind__hive-mind_consensus {
+  action: "propose", type: "policy-change",
+  value: "...", strategy: "quorum", quorumPreset: "unanimous",
+  voterId: "queen-1"
+}
+# Any single dissent rejects the proposal immediately.
 ```
 
-## Performance Optimization
+### Pattern 4: Shared Scratchpad (no voting, just memory)
 
-### Memory Optimization
+For loose coordination without a formal vote — skip consensus entirely.
 
-The collective memory system includes advanced optimizations:
-
-**LRU Cache**
-- Configurable cache size (default: 1000 entries)
-- Memory pressure handling (default: 50MB)
-- Automatic eviction of least-used entries
-
-**Database Optimization**
-- WAL (Write-Ahead Logging) mode
-- 64MB cache size
-- 256MB memory mapping
-- Prepared statements for common queries
-- Automatic ANALYZE and OPTIMIZE
-
-**Object Pooling**
-- Query result pooling
-- Memory entry pooling
-- Reduced garbage collection pressure
-
-### Performance Metrics
-
-```javascript
-// Get performance insights
-const insights = hiveMind.getPerformanceInsights();
-
-// Includes:
-// - asyncQueue utilization
-// - Batch processing stats
-// - Success rates
-// - Average processing times
-// - Memory efficiency
 ```
+mcp__monomind__hive-mind_init { topology: "mesh", queenId: "coord-1", consensus: "raft" }
+mcp__monomind__hive-mind_join { agentId: "agent-a", role: "worker" }
+mcp__monomind__hive-mind_join { agentId: "agent-b", role: "worker" }
 
-### Task Execution
-
-**Parallel Processing**
-- Batch agent spawning (5 agents per batch)
-- Concurrent task orchestration
-- Async operation optimization
-- Non-blocking task assignment
-
-**Benchmarks**
-- 10-20x faster batch spawning
-- 2.8-4.4x speed improvement overall
-- 32.3% token reduction
-- 84.8% SWE-Bench solve rate
+# Agents write findings into shared memory via MCP, in their Task-tool bodies
+mcp__monomind__hive-mind_memory { action: "set", key: "auth-findings", value: { ... } }
+mcp__monomind__hive-mind_memory { action: "list" }
+```
 
 ## Configuration
 
-### Hive Mind Config
+The hive config is the `state.json` written by `hive-mind_init`. There is no separate config file. Notable fields persisted:
 
-```javascript
-{
-  "objective": "Build microservices",
-  "name": "my-hive",
-  "queenType": "strategic", // strategic | tactical | adaptive
-  "maxWorkers": 8,
-  "consensusAlgorithm": "byzantine", // majority | weighted | byzantine
-  "autoScale": true,
-  "memorySize": 100, // MB
-  "taskTimeout": 60, // minutes
-  "encryption": false
-}
-```
+| Field | Meaning |
+|---|---|
+| `hiveId` | Random `hive-<ts>-<rand>` identifier |
+| `topology` | One of `mesh` / `hierarchical` / `ring` / `star` (label only) |
+| `queen` | `{ agentId, electedAt, term }` |
+| `consensusStrategy` | `bft` / `raft` / `quorum` — the default for `hive-mind_consensus` |
+| `workers` | Array of joined agent IDs (≤100) |
+| `sharedMemory` | Free-form key/value object (≤1000 keys) |
+| `consensus.pending` / `consensus.history` | Open and resolved proposals (history capped at 1000) |
 
-### Memory Config
-
-```javascript
-{
-  "maxSize": 100, // MB
-  "compressionThreshold": 1024, // bytes
-  "gcInterval": 300000, // 5 minutes
-  "cacheSize": 1000,
-  "cacheMemoryMB": 50,
-  "enablePooling": true,
-  "enableAsyncOperations": true
-}
-```
-
-## Hooks Integration
-
-Hive Mind integrates with Monomind hooks for automation:
-
-**Pre-Task Hooks**
-- Auto-assign agents by file type
-- Validate objective complexity
-- Optimize topology selection
-- Cache search patterns
-
-**Post-Task Hooks**
-- Auto-format deliverables
-- Train neural patterns
-- Update collective memory
-- Analyze performance bottlenecks
-
-**Session Hooks**
-- Generate session summaries
-- Persist checkpoint data
-- Track comprehensive metrics
-- Restore execution context
+Hive state file is capped at 10 MiB; larger files are treated as corrupt and reset to defaults.
 
 ## Best Practices
 
-### 1. Choose the Right Queen Type
+### 1. Pick the strategy by decision shape
 
-**Strategic Queens** - For research, planning, and analysis
-```bash
-npx monomind hive-mind spawn "Research ML frameworks" --queen-type strategic
-```
+- **High-bar policy / breaking change** → `quorum` with `unanimous` or `supermajority`
+- **Adversarial review with distrusted input** → `bft` (raises threshold to 2/3, flags conflicting voters)
+- **Standard majority decision** → `raft` (simple majority, one proposal per term)
+- **Quick informal coordination** → skip consensus, use `hive-mind_memory` only
 
-**Tactical Queens** - For implementation and execution
-```bash
-npx monomind hive-mind spawn "Build authentication" --queen-type tactical
-```
+### 2. Initialize before spawn/join
 
-**Adaptive Queens** - For optimization and dynamic tasks
-```bash
-npx monomind hive-mind spawn "Optimize performance" --queen-type adaptive
-```
+`spawn`, `join`, `consensus`, `broadcast`, and `memory` all error with `"Hive-mind not initialized"` until `hive-mind_init` has written `state.json`.
 
-### 2. Leverage Consensus
+### 3. Set `MONOMIND_MCP_SPECULATIVE=1` once, up front
 
-Use consensus for critical decisions:
-- Architecture pattern selection
-- Technology stack choices
-- Implementation approach
-- Code review approval
-- Release readiness
+Without it only `status` and `join` are exposed. If `init`, `spawn`, `consensus`, `memory`, `broadcast`, `shutdown`, or `audit_*` are reported as unknown tools, the flag is missing.
 
-### 3. Utilize Collective Memory
+### 4. Real parallelism comes from Task-tool agents
 
-**Store Learnings**
-```javascript
-// After successful pattern implementation
-await memory.store('auth-pattern', {
-  approach: 'JWT with refresh tokens',
-  pros: ['Stateless', 'Scalable'],
-  cons: ['Token size', 'Revocation complexity'],
-  implementation: {...}
-}, 'knowledge', { confidence: 0.95 });
-```
+`hive-mind_spawn` writes records; it does not start anything. For each worker, spawn a Task-tool agent with `run_in_background: true` in **one** message, and let each agent call `hive-mind_consensus vote` / `hive-mind_memory set` via MCP from inside its work.
 
-**Build Associations**
-```javascript
-// Link related concepts
-await memory.associate('jwt-auth', 'refresh-tokens', 0.9);
-await memory.associate('jwt-auth', 'oauth2', 0.7);
-```
+### 5. Don't use the broadcast tool as a message bus
 
-### 4. Monitor Performance
+`hive-mind_broadcast` is a noticeboard, not delivery. For real task assignment use `mcp__monomind__task_create` / `task_assign`, or pass instructions in each Task-tool agent's prompt directly.
 
-```bash
-# Regular status checks
-npx monomind hive-mind status
+### 6. Verify important decisions cryptographically
 
-# Track metrics
-npx monomind hive-mind metrics
-
-# Analyze memory usage
-npx monomind hive-mind memory
-```
-
-### 5. Session Management
-
-**Checkpoint Frequently**
-```javascript
-// Create checkpoints at key milestones
-await sessionManager.saveCheckpoint(
-  sessionId,
-  'api-routes-complete',
-  { completedRoutes: [...], remaining: [...] }
-);
-```
-
-**Resume Sessions**
-```bash
-# Resume from any previous state
-npx monomind hive-mind resume <session-id>
-```
+For any decision that will be cited later (release gates, architecture calls), record the `decisionId` and run `hive-mind_audit_verify` after the fact to prove the vote signatures still validate.
 
 ## Troubleshooting
 
-### Memory Issues
+### "Hive-mind not initialized"
 
-**High Memory Usage**
-```bash
-# Run garbage collection
-npx monomind hive-mind memory --gc
+Run `mcp__monomind__hive-mind_init` first. The state file lives at `.monomind/hive-mind/state.json` — if it's missing or >10 MiB, the hive resets to the uninitialized default.
 
-# Optimize database
-npx monomind hive-mind memory --optimize
+### "Consensus strategy X is not implemented"
 
-# Export and clear
-npx monomind hive-mind memory --export --clear
-```
+`gossip` and `crdt` are rejected. Use `bft`, `raft`, or `quorum` (`byzantine` is accepted as an alias for `bft` at init time only).
 
-**Low Cache Hit Rate**
-```javascript
-// Increase cache size in config
-{
-  "cacheSize": 2000,
-  "cacheMemoryMB": 100
-}
-```
+### "Raft term N already has a pending proposal"
 
-### Performance Issues
+Either wait for the current proposal in that term to resolve, re-propose with a higher `term`, or switch strategy. One pending raft proposal per term is allowed.
 
-**Slow Task Assignment**
-```javascript
-// Enable worker type caching
-// The system caches best worker matches for 5 minutes
-// Automatic - no configuration needed
-```
+### "Cannot gracefully shutdown with N pending consensus items"
 
-**High Queue Utilization**
-```javascript
-// Increase async queue concurrency
-{
-  "asyncQueueConcurrency": 20 // Default: min(maxWorkers * 2, 20)
-}
-```
+Resolve the proposals (vote them through or let them reject) or pass `force: true`.
 
-### Consensus Failures
+### "Shared memory full (max 1000 keys)"
 
-**No Consensus Reached (Byzantine)**
-```bash
-# Switch to weighted consensus for more decisive results
-npx monomind hive-mind spawn "..." --consensus weighted
+Delete unused keys with `hive-mind_memory delete`, or move bulk context to the regular memory store (`mcp__monomind__memory_store`) under a hive namespace.
 
-# Or use simple majority
-npx monomind hive-mind spawn "..." --consensus majority
-```
+### Tool isn't visible
 
-## Advanced Topics
-
-### Custom Worker Types
-
-Define specialized workers in `.claude/agents/`:
-
-```yaml
-name: security-auditor
-type: specialist
-capabilities:
-  - vulnerability-scanning
-  - security-review
-  - penetration-testing
-  - compliance-checking
-priority: high
-```
-
-### Neural Pattern Training
-
-The system trains on successful patterns:
-
-```javascript
-// Automatic pattern learning
-// Happens after successful task completion
-// Stores in collective memory
-// Improves future task matching
-```
-
-### Multi-Hive Coordination
-
-Run multiple hive minds simultaneously:
-
-```bash
-# Frontend hive
-npx monomind hive-mind spawn "Build UI" --name frontend-hive
-
-# Backend hive
-npx monomind hive-mind spawn "Build API" --name backend-hive
-
-# They share collective memory for coordination
-```
-
-### Export/Import Sessions
-
-```bash
-# Export session for backup
-npx monomind hive-mind export <session-id> --output backup.json
-
-# Import session
-npx monomind hive-mind import backup.json
-```
-
-## API Reference
-
-### HiveMindCore
-
-```javascript
-const hiveMind = new HiveMindCore({
-  objective: 'Build system',
-  queenType: 'strategic',
-  maxWorkers: 8,
-  consensusAlgorithm: 'byzantine'
-});
-
-await hiveMind.initialize();
-await hiveMind.spawnQueen(queenData);
-await hiveMind.spawnWorkers(['coder', 'tester']);
-await hiveMind.createTask('Implement feature', 7);
-const decision = await hiveMind.buildConsensus('topic', options);
-const status = hiveMind.getStatus();
-await hiveMind.shutdown();
-```
-
-### CollectiveMemory
-
-```javascript
-const memory = new CollectiveMemory({
-  swarmId: 'hive-123',
-  maxSize: 100,
-  cacheSize: 1000
-});
-
-await memory.store(key, value, type, metadata);
-const data = await memory.retrieve(key);
-const results = await memory.search(pattern, options);
-const related = await memory.getRelated(key, limit);
-await memory.associate(key1, key2, strength);
-const stats = memory.getStatistics();
-const analytics = memory.getAnalytics();
-const health = await memory.healthCheck();
-```
-
-### HiveMindSessionManager
-
-```javascript
-const sessionManager = new HiveMindSessionManager();
-
-const sessionId = await sessionManager.createSession(
-  swarmId, swarmName, objective, metadata
-);
-
-await sessionManager.saveCheckpoint(sessionId, name, data);
-const sessions = await sessionManager.getActiveSessions();
-const session = await sessionManager.getSession(sessionId);
-await sessionManager.pauseSession(sessionId);
-await sessionManager.resumeSession(sessionId);
-await sessionManager.stopSession(sessionId);
-await sessionManager.completeSession(sessionId);
-```
-
-## Examples
-
-### Full-Stack Development
-
-```bash
-# Initialize hive mind
-npx monomind hive-mind init
-
-# Spawn full-stack hive
-npx monomind hive-mind spawn "Build e-commerce platform" \
-  --queen-type strategic \
-  --max-workers 10 \
-  --consensus weighted \
-  --claude
-
-# Output generates Claude Code commands:
-# - Queen coordinator
-# - Frontend developers (React)
-# - Backend developers (Node.js)
-# - Database architects
-# - DevOps engineers
-# - Security auditors
-# - Test engineers
-# - Documentation specialists
-```
-
-### Research and Analysis
-
-```bash
-# Spawn research hive
-npx monomind hive-mind spawn "Research GraphQL vs REST" \
-  --queen-type adaptive \
-  --consensus byzantine
-
-# Researchers gather data
-# Analysts process findings
-# Queen builds consensus on recommendation
-# Results stored in collective memory
-```
-
-### Code Review
-
-```bash
-# Review coordination
-npx monomind hive-mind spawn "Review PR #456" \
-  --queen-type tactical \
-  --max-workers 6
-
-# Spawns:
-# - Code analyzers
-# - Security reviewers
-# - Performance reviewers
-# - Test coverage analyzers
-# - Documentation reviewers
-# - Consensus on approval/changes
-```
-
-## Skill Progression
-
-### Beginner
-1. Initialize hive mind
-2. Spawn basic swarms
-3. Monitor status
-4. Use majority consensus
-
-### Intermediate
-1. Configure queen types
-2. Implement session management
-3. Use weighted consensus
-4. Access collective memory
-5. Enable auto-scaling
-
-### Advanced
-1. Byzantine fault tolerance
-2. Memory optimization
-3. Custom worker types
-4. Multi-hive coordination
-5. Neural pattern training
-6. Session export/import
-7. Performance tuning
+Set `MONOMIND_MCP_SPECULATIVE=1` on the MCP server process. Only `hive-mind_status` and `hive-mind_join` are unconditionally visible.
 
 ## Related Skills
 
-- `swarm-orchestration`: Basic swarm coordination
-- `consensus-mechanisms`: Distributed decision making
-- `memory-systems`: Advanced memory management
-- `github-integration`: Repository coordination
+- `swarm-orchestration` — real CLI swarm coordination (the execution side)
+- `swarm-advanced` — advanced swarm patterns
+- `mastermind-debug` — systematic root-cause debugging protocol
+- `verification-quality` — truth scoring and rollback
 
 ## References
 
-- [Hive Mind Documentation](https://github.com/monoes/monomind/docs/hive-mind)
-- [Collective Intelligence Patterns](https://github.com/monoes/monomind/docs/patterns)
-- [Byzantine Consensus](https://github.com/monoes/monomind/docs/consensus)
-- [Memory Optimization](https://github.com/monoes/monomind/docs/memory)
+- Implementation: `packages/@monomind/cli/src/mcp-tools/hive-mind-tools.ts`
+- Honest scope note: `hive-mind-tools.ts:2-12`
+- Vote-threshold math: `hive-mind-tools.ts:98-124`
+- Consensus description: `hive-mind-tools.ts:662-663`
+- State file: `.monomind/hive-mind/state.json` (capped at 10 MiB)
+- Audit trail: `.monomind/consensus/` (HMAC-signed JSONL)
+- Concepts doc: `doc/concepts/swarm.md` (Hive-Mind Consensus section)
 
 ---
 
-**Skill Version**: 1.0.0
-**Last Updated**: 2025-10-19
+**Skill Version**: 2.0.0
+**Last Updated**: 2026-08-12
 **Maintained By**: Monomind Team
-**License**: MIT

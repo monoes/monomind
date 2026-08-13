@@ -36,7 +36,7 @@ npm install @monoes/monodesign
 
 ## Design Tokens
 
-Source: [`src/tokens.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monoes/monodesign/src/tokens.ts) + [`src/tokens.css`](file:///Users/morteza/Desktop/tools/monomind/packages/@monoes/monodesign/src/tokens.css)
+Source: [`src/tokens.ts`](packages/@monoes/monodesign/src/tokens.ts) + [`src/tokens.css`](packages/@monoes/monodesign/src/tokens.css)
 
 All color tokens are in **OKLCH** — no hex colors in the token system.
 
@@ -81,7 +81,7 @@ console.log(radius.lg);       // 12px
 
 ## Antipattern Detection (51 Rules)
 
-Source: [`cli/engine/registry/antipatterns.mjs`](file:///Users/morteza/Desktop/tools/monomind/packages/@monoes/monodesign/cli/engine/registry/antipatterns.mjs) — 564 lines, 51 entries.
+Source: [`cli/engine/registry/antipatterns.mjs`](packages/@monoes/monodesign/cli/engine/registry/antipatterns.mjs) — 564 lines, 51 entries.
 
 ### Rule Categories
 
@@ -112,7 +112,7 @@ Source: [`cli/engine/registry/antipatterns.mjs`](file:///Users/morteza/Desktop/t
 
 ## OKLCH Palette Seed Library
 
-Source: [`packages/@monomind/cli/src/commands/design-palette.ts:29–417`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/design-palette.ts#L29-L417)
+Source: [`packages/@monomind/cli/src/commands/design-palette.ts:29–417`](packages/@monomind/cli/src/commands/design-palette.ts#L29-L417)
 
 - **129 hand-curated seeds** spanning the full hue wheel (0°–360°)
 - Each seed: `{ id, oklch: [L, C, H], mood: string, strategy: string }`
@@ -123,7 +123,7 @@ Source: [`packages/@monomind/cli/src/commands/design-palette.ts:29–417`](file:
 
 ## The `/monodesign` Agent Skill
 
-Source: [`skill/SKILL.src.md`](file:///Users/morteza/Desktop/tools/monomind/packages/@monoes/monodesign/skill/SKILL.src.md) · v2.0.0 · Apache-2.0
+Source: [`skill/SKILL.src.md`](packages/@monoes/monodesign/skill/SKILL.src.md) · v2.0.0 · Apache-2.0
 
 Triggers: `/monodesign`, `/design`, `/frontend-design`, plus 40+ natural-language triggers.
 
@@ -178,7 +178,7 @@ Manage via `monomind design ignores` or `/monodesign hooks <on|off|status|ignore
 
 ## Design System Consistency
 
-Source: [`cli/engine/design-system.mjs`](file:///Users/morteza/Desktop/tools/monomind/packages/@monoes/monodesign/cli/engine/design-system.mjs) — 815 lines
+Source: [`cli/engine/design-system.mjs`](packages/@monoes/monodesign/cli/engine/design-system.mjs) — 815 lines
 
 Parses `DESIGN.md` / `.monodesign/design.json` to enforce consistency rules (`design-system-font`, `design-system-color`, `design-system-radius`, `design-system-font-size`). The skill writes `DESIGN.md`; the detector reads it for drift detection.
 

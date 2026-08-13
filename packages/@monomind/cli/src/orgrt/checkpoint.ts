@@ -69,7 +69,7 @@ export function captureCheckpoint(org: RunningOrg): OrgCheckpoint {
       tokensUsed: runtime.policy.usage,
       costUsd: runtime.metrics.costUsd,
       lastMessageId: runtime.lastMessageId,
-      sessionId: undefined, // TODO: extract from session layer
+      sessionId: runtime.sessionId, // P2-13: populated by session layer via onSessionId callback
       status: runtime.status,
       error: runtime.error,
       scrollback: runtime.scrollback?.snapshot(),

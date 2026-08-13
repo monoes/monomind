@@ -6,7 +6,7 @@
 
 ## 1. System Overview & Architecture
 
-MonoFence AI is integrated into the Monomind platform via critical-priority lifecycle hooks and MCP tools ([`packages/@monomind/cli/src/mcp-tools/security-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591)). It operates entirely locally — no user data, prompts, or tool execution content leave your machine.
+MonoFence AI is integrated into the Monomind platform via critical-priority lifecycle hooks and MCP tools ([`packages/@monomind/cli/src/mcp-tools/security-tools.ts`](packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591)). It operates entirely locally — no user data, prompts, or tool execution content leave your machine.
 
 ```
 Incoming User Prompt / Tool Payload
@@ -37,7 +37,7 @@ Incoming User Prompt / Tool Payload
 
 ## 2. Threat Classification Engine
 
-MonoFence AI categorizes security events into 9 primary threat classifications ([`packages/monofence-ai/src/domain/entities/threat.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/entities/threat.ts#L9-L22)):
+MonoFence AI categorizes security events into 9 primary threat classifications ([`packages/monofence-ai/src/domain/entities/threat.ts`](packages/monofence-ai/src/domain/entities/threat.ts#L9-L22)):
 
 | Threat Category | Description | Example / Detection Rule |
 |---|---|---|
@@ -55,7 +55,7 @@ MonoFence AI categorizes security events into 9 primary threat classifications (
 
 ## 3. Evasion Normalization Pipeline
 
-Attackers frequently employ character-level obfuscation to evade static pattern matching. MonoFence AI passes all input text through a 7-stage normalization pipeline prior to pattern matching ([`packages/monofence-ai/src/domain/services/evasion-detector.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/services/evasion-detector.ts#L53-L189)):
+Attackers frequently employ character-level obfuscation to evade static pattern matching. MonoFence AI passes all input text through a 7-stage normalization pipeline prior to pattern matching ([`packages/monofence-ai/src/domain/services/evasion-detector.ts`](packages/monofence-ai/src/domain/services/evasion-detector.ts#L53-L189)):
 
 1. **Unicode Normalization**: Applies standard `NFKC` Unicode decomposition and compatibility normalization.
 2. **Homoglyph Replacement**: Replaces Cyrillic, Greek, IPA small caps, and Fullwidth ASCII lookalike characters with canonical Latin equivalents (e.g. Cyrillic `а` $\rightarrow$ Latin `a`).
@@ -71,7 +71,7 @@ Attackers frequently employ character-level obfuscation to evade static pattern 
 
 ## 4. Multi-Turn Context Tracker & Escalation States
 
-Single-turn scanners miss slow, multi-turn probing attacks. MonoFence AI maintains state across conversation turns using an escalation state machine ([`packages/monofence-ai/src/domain/services/context-tracker.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/services/context-tracker.ts#L30-L139)):
+Single-turn scanners miss slow, multi-turn probing attacks. MonoFence AI maintains state across conversation turns using an escalation state machine ([`packages/monofence-ai/src/domain/services/context-tracker.ts`](packages/monofence-ai/src/domain/services/context-tracker.ts#L30-L139)):
 
 ```
                      [ clean ] (Initial state, cumulative score < 0.3)
@@ -98,7 +98,7 @@ Single-turn scanners miss slow, multi-turn probing attacks. MonoFence AI maintai
 
 ## 5. Output Verification & Sanitization
 
-MonoFence AI scans post-generation output payloads before delivering them to users or tools ([`packages/monofence-ai/src/domain/services/output-scanner.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/services/output-scanner.ts#L76-L124)):
+MonoFence AI scans post-generation output payloads before delivering them to users or tools ([`packages/monofence-ai/src/domain/services/output-scanner.ts`](packages/monofence-ai/src/domain/services/output-scanner.ts#L76-L124)):
 
 - **PII Leakage Scanning**: Scans output text for exposed emails, phone numbers, Social Security Numbers, and credit card numbers.
 - **Prompt Echo Detection**: Computes character trigram Jaccard similarity between output content and system/prompt instructions. Triggers `echoDetected` if similarity exceeds $\ge 0.4$ (`ECHO_THRESHOLD`).
@@ -109,7 +109,7 @@ MonoFence AI scans post-generation output payloads before delivering them to use
 
 ## 6. Security Telemetry & MCP Tools
 
-MonoFence AI reports real-time latency and threat metrics via the CLI and MCP tool surface ([`packages/@monomind/cli/src/mcp-tools/security-tools.ts`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591)):
+MonoFence AI reports real-time latency and threat metrics via the CLI and MCP tool surface ([`packages/@monomind/cli/src/mcp-tools/security-tools.ts`](packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591)):
 
 ### Available MCP Tools (`monofence_*`)
 
@@ -126,10 +126,10 @@ MonoFence AI reports real-time latency and threat metrics via the CLI and MCP to
 
 | Component | Source File Pointer |
 |---|---|
-| Defence Facade API | [`packages/monofence-ai/src/index.ts:L86-L496`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/index.ts#L86-L496) |
-| Threat Detection Rules | [`packages/monofence-ai/src/domain/services/threat-detection-service.ts:L37-L200`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/services/threat-detection-service.ts#L37-L200) |
-| Evasion Normalizer | [`packages/monofence-ai/src/domain/services/evasion-detector.ts:L53-L189`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/services/evasion-detector.ts#L53-L189) |
-| Multi-Turn Context Tracker | [`packages/monofence-ai/src/domain/services/context-tracker.ts:L30-L139`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/services/context-tracker.ts#L30-L139) |
-| Output Verification Scanner | [`packages/monofence-ai/src/domain/services/output-scanner.ts:L76-L124`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/domain/services/output-scanner.ts#L76-L124) |
-| Security Lifecycle Hooks | [`packages/monofence-ai/src/hooks/security-hook.ts:L75-L204`](file:///Users/morteza/Desktop/tools/monomind/packages/monofence-ai/src/hooks/security-hook.ts#L75-L204) |
-| CLI MCP Security Tools | [`packages/@monomind/cli/src/mcp-tools/security-tools.ts:L35-L591`](file:///Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591) |
+| Defence Facade API | [`packages/monofence-ai/src/index.ts:L86-L496`](packages/monofence-ai/src/index.ts#L86-L496) |
+| Threat Detection Rules | [`packages/monofence-ai/src/domain/services/threat-detection-service.ts:L37-L200`](packages/monofence-ai/src/domain/services/threat-detection-service.ts#L37-L200) |
+| Evasion Normalizer | [`packages/monofence-ai/src/domain/services/evasion-detector.ts:L53-L189`](packages/monofence-ai/src/domain/services/evasion-detector.ts#L53-L189) |
+| Multi-Turn Context Tracker | [`packages/monofence-ai/src/domain/services/context-tracker.ts:L30-L139`](packages/monofence-ai/src/domain/services/context-tracker.ts#L30-L139) |
+| Output Verification Scanner | [`packages/monofence-ai/src/domain/services/output-scanner.ts:L76-L124`](packages/monofence-ai/src/domain/services/output-scanner.ts#L76-L124) |
+| Security Lifecycle Hooks | [`packages/monofence-ai/src/hooks/security-hook.ts:L75-L204`](packages/monofence-ai/src/hooks/security-hook.ts#L75-L204) |
+| CLI MCP Security Tools | [`packages/@monomind/cli/src/mcp-tools/security-tools.ts:L35-L591`](packages/@monomind/cli/src/mcp-tools/security-tools.ts#L35-L591) |

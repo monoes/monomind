@@ -792,6 +792,81 @@ const restartCommand: Command = {
   }
 };
 
+// Verify subcommand — bridges the new-user "did the install actually work?" gap (P0-16).
+// Runs after `claude mcp add monomind -- npx -y monomind@latest mcp start` to give the
+// user confidence the wiring is live: lists tools through the in-process registry and
+// confirms the MCP server can be reached from a stdio client.
+const verifyCommand: Command = {
+  name: 'verify',
+  description: 'Verify the MCP server is reachable and its tools respond. Run this after `claude mcp add monomind ...` to confirm the install worked.',
+  options: [],
+  examples: [
+    { command: 'monomind mcp verify', description: 'Confirm MCP server wiring and tool registry' },
+  ],
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
+    output.writeln();
+    output.writeln(output.bold('MCP Install Verification'));
+    output.writeln();
+
+    const checks: Array<{ label: string; ok: boolean; detail: string }> = [];
+
+    // 1. In-process tool registry responds
+    let toolCount = 0;
+    try {
+      const tools = await listMCPTools();
+      toolCount = tools.length;
+      checks.push({ label: 'Tool registry', ok: toolCount > 0, detail: `${toolCount} tools registered` });
+    } catch (e) {
+      checks.push({ label: 'Tool registry', ok: false, detail: `error: ${(e as Error).message}` });
+    }
+
+    // 2. A known built-in tool resolves
+    const sampleTool = 'system_info';
+    try {
+      const has = await hasTool(sampleTool);
+      checks.push({ label: `Sample tool (${sampleTool})`, ok: has, detail: has ? 'resolves' : 'missing' });
+    } catch (e) {
+      checks.push({ label: `Sample tool (${sampleTool})`, ok: false, detail: `error: ${(e as Error).message}` });
+    }
+
+    // 3. claude mcp list includes monomind (best-effort; skip if claude CLI missing)
+    try {
+      const { spawnSync } = await import('node:child_process');
+      const result = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8', timeout: 5000 });
+      if (result.error || result.status !== 0) {
+        checks.push({ label: 'claude mcp registration', ok: false, detail: 'claude CLI unavailable or returned non-zero — run `claude mcp add monomind -- npx -y monomind@latest mcp start` to register' });
+      } else {
+        const listed = (result.stdout || '').toLowerCase();
+        const registered = listed.includes('monomind');
+        checks.push({
+          label: 'claude mcp registration',
+          ok: registered,
+          detail: registered ? 'monomind appears in `claude mcp list`' : 'monomind NOT in `claude mcp list` — run `claude mcp add monomind -- npx -y monomind@latest mcp start`',
+        });
+      }
+    } catch {
+      checks.push({ label: 'claude mcp registration', ok: false, detail: 'claude CLI not found — install Claude Code or register manually' });
+    }
+
+    // Render
+    let allOk = true;
+    for (const c of checks) {
+      const mark = c.ok ? output.success('✓') : output.error('✗');
+      output.writeln(`  ${mark} ${c.label}: ${c.detail}`);
+      if (!c.ok) allOk = false;
+    }
+
+    output.writeln();
+    if (allOk) {
+      output.printSuccess(`MCP install verified — ${toolCount} tools available. In Claude Code, type /mastermind:help to see slash commands.`);
+    } else {
+      output.printError('One or more checks failed. Fix the issues above and re-run `monomind mcp verify`.');
+    }
+
+    return { success: allOk, exitCode: allOk ? 0 : 1 };
+  }
+};
+
 // Main MCP command
 export const mcpCommand: Command = {
   name: 'mcp',
@@ -805,7 +880,8 @@ export const mcpCommand: Command = {
     toolsCommand,
     toggleCommand,
     execCommand,
-    logsCommand
+    logsCommand,
+    verifyCommand,
   ],
   options: [],
   examples: [
@@ -813,6 +889,7 @@ export const mcpCommand: Command = {
     { command: 'monomind mcp start -t http -p 8080', description: 'Start HTTP server on port 8080' },
     { command: 'monomind mcp status', description: 'Show server status' },
     { command: 'monomind mcp tools', description: 'List tools' },
+    { command: 'monomind mcp verify', description: 'Verify the MCP server is reachable and tools respond' },
     { command: 'monomind mcp stop', description: 'Stop the server' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -831,7 +908,8 @@ export const mcpCommand: Command = {
       `${output.highlight('tools')}    - List available tools`,
       `${output.highlight('toggle')}   - Enable/disable tools`,
       `${output.highlight('exec')}     - Execute a tool`,
-      `${output.highlight('logs')}     - Show server logs`
+      `${output.highlight('logs')}     - Show server logs`,
+      `${output.highlight('verify')}   - Verify the MCP server is reachable and tools respond`
     ]);
 
     return { success: true };

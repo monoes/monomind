@@ -1,674 +1,350 @@
 ---
 name: verification-quality
-description: |
-  Comprehensive truth scoring, code quality verification, and automatic rollback system with 0.95 accuracy threshold for ensuring high-quality agent outputs and codebase reliability.
+description: Comprehensive truth scoring, code quality verification, and automatic rollback system with a 0.95 confidence threshold for ensuring high-quality agent outputs and codebase reliability.
 ---
 
-# Verification & Quality Assurance Skill
+# verification-quality — Evidence Before Claims
 
-## What This Skill Does
+## Overview
 
-This skill provides a comprehensive verification and quality assurance system that ensures code quality and correctness through:
+Claims without evidence are noise. "It works", "tests pass", "I fixed it" — none of
+these mean anything until verified against the codebase, the test suite, and the build.
 
-- **Truth Scoring**: Real-time reliability metrics (0.0-1.0 scale) for code, agents, and tasks
-- **Verification Checks**: Automated code correctness, security, and best practices validation
-- **Automatic Rollback**: Instant reversion of changes that fail verification (default threshold: 0.95)
-- **Quality Metrics**: Statistical analysis with trends, confidence intervals, and improvement tracking
-- **CI/CD Integration**: Export capabilities for continuous integration pipelines
-- **Real-time Monitoring**: Live dashboards and watch modes for ongoing verification
+This skill wires four concepts to monomind's real command surface: **truth scoring**
+(a 0.0–1.0 confidence score from citable evidence), an **evidence-before-claims
+protocol** (require `file:line`, test names, or build output before marking done),
+**auto-rollback** (regression detection via `analyze diff`, revert via git), and a
+**multi-angle quality workflow** (correctness, tests, security, performance, docs).
 
-## Prerequisites
+**Core principle:** NO CLAIM IS TRUE UNTIL VERIFIED AGAINST EVIDENCE.
 
-- Monomind installed (`npx monomind@alpha`)
-- Git repository (for rollback features)
-- Node.js 18+ (for dashboard features)
+**Iron Law:**
+```
+NO "DONE" WITHOUT A TRUTH SCORE ≥ 0.95 BACKED BY CITABLE EVIDENCE
+```
 
-## Quick Start
+If you cannot point to a `file:line`, a passing test name, or a green build, you
+have not finished. You have started.
 
+## When to Use
+
+Use for ANY task that ends in a claim of completion: "I implemented X", "the bug is
+fixed", "tests pass", "ready to ship", or any agent-returned work.
+
+**Use this ESPECIALLY when:** the agent (or you) is in a hurry — that's when false
+claims slip in; the change touches security, money, auth, or data integrity; a
+previous attempt already failed; you're about to commit, push, open a PR, or merge.
+
+**Don't skip when:** "it's a tiny change" (tiny changes break tests too) or "I'm sure"
+(confidence without evidence is the failure mode this skill prevents).
+
+## The Real Command Surface
+
+These are the ONLY commands this skill wires to. Anything else is invented.
+
+| Command | What it does | Phase |
+|---|---|---|
+| `monomind analyze diff` | Git diff risk + change classification | Evidence, regression |
+| `monomind analyze code` | Static code analysis | Verification |
+| `monomind analyze deps --security` | Dependency CVEs | Verification |
+| `monomind analyze complexity` | Cyclomatic complexity | Verification |
+| `monomind analyze symbols` | Extract functions/classes/types | Evidence |
+| `monomind analyze imports` | Import graph | Verification |
+| `monomind security scan` | Vulnerability + secret scan | Verification |
+| `monomind security secrets` | Dedicated secret detection | Verification |
+| `monomind security audit` | Security audit log | Verification |
+| `monomind performance benchmark` | Run benchmarks (wasm/memory/search) | Evidence |
+| `monomind performance metrics` | View/export metrics | Monitoring |
+| `monomind performance bottleneck` | Identify bottlenecks | Verification |
+| `monomind doctor` / `doctor --fix` | 28 health-check categories | Baseline, monitoring |
+| `monomind hooks metrics` | Learning-hook metrics | Monitoring |
+| `monomind hooks intelligence` | Neural/MoE/HNSW status | Monitoring |
+| `monomind monograph search` | Knowledge graph search (BM25/semantic/hybrid) | Evidence |
+| `monomind monograph build` | Build/rebuild the knowledge graph | Baseline |
+| `monomind tokens dashboard` | Token spend | Monitoring |
+
+> Use `npx monomind@latest ...` from outside the repo; inside the repo
+> `node packages/@monomind/cli/bin/cli.js ...` works too. **Never use `monomind@alpha`** —
+> it does not exist.
+
+### MCP tools (called by Claude Code, not the CLI)
+
+| Tool | Use |
+|---|---|
+| `mcp__monomind__hooks_pre-task` | Capture task intent + acceptance criteria before work |
+| `mcp__monomind__hooks_post-task` | Record outcome + evidence after work |
+| `mcp__monomind__monograph_query` | Find `file:line` for a symbol before citing it |
+| `mcp__monomind__monograph_impact` | Blast radius before risky edits |
+| `mcp__monomind__monograph_context` | 360° callers/callees for the change site |
+| `mcp__monomind__system_health` | Snapshot system health before declaring done |
+| `mcp__monomind__system_metrics` | Objective metrics for the verification record |
+
+---
+
+## Core Concept: The Truth Score
+
+A truth score is a 0.0–1.0 confidence value derived from **evidence you can cite**,
+not a feeling. The default ship threshold is **0.95**. The score is computed in
+Phase 3 from real command output; the action mapping lives in Phase 4. You do not
+invent it.
+
+---
+
+## The Four Phases
+
+Complete each phase before moving on. Skipping a phase produces unverified claims.
+
+### Phase 1: Evidence Collection
+
+BEFORE claiming work is done, gather evidence it actually works.
+
+**1a. State the claim precisely:**
+> "I claim X is done. Acceptance criteria: [list]. Evidence required: [list]."
+
+**1b. Capture task intent (MCP) and cite the change site via the knowledge graph:**
+```
+mcp__monomind__hooks_pre-task({ task: "...", acceptance: ["...", "..."] })
+mcp__monomind__monograph_query(symbol: "refreshToken")     # cite before editing
+mcp__monomind__monograph_impact(file: "src/auth/refresh.ts")
+```
+Every cited location must be `file:line`. "Somewhere in auth" is not a citation.
+
+**1c. Capture the diff as evidence:**
 ```bash
-# View current truth scores
-npx monomind@alpha truth
+npx monomind@latest analyze diff --risk --classify -v > evidence-diff.json
+npx monomind@latest analyze imports src/auth --external    # import-graph blast radius
+```
 
-# Run verification check
-npx monomind@alpha verify check
+**Success criteria:** acceptance criteria written, diff classified on disk, every
+changed symbol cited as `file:line`.
 
-# Verify specific file with custom threshold
-npx monomind@alpha verify check --file src/app.js --threshold 0.98
+---
 
-# Rollback last failed verification
-npx monomind@alpha verify rollback --last-good
+### Phase 2: Multi-Angle Verification
+
+Run each angle that applies. **All applicable angles must pass** or the truth score
+drops. Skip an angle only when it genuinely does not apply (and say so).
+
+**Angle 1 — Correctness (always applies):**
+```bash
+npx monomind@latest analyze code src/auth/    # static analysis on touched paths
+npm run build && npm run typecheck            # use the project's real commands
+```
+
+**Angle 2 — Tests (always applies when tests exist):**
+```bash
+npm test -- --reporter=spec
+```
+The evidence is **test names + counts**, not "tests passed".
+
+**Angle 3 — Security (applies to auth, crypto, input boundaries, deps):**
+```bash
+npx monomind@latest security scan
+npx monomind@latest security secrets
+npx monomind@latest analyze deps --security
+```
+
+**Angle 4 — Performance (applies to hot paths, queries, bundles):**
+```bash
+npx monomind@latest performance benchmark -s all -i 100 -o json > bench.json
+npx monomind@latest performance bottleneck
+npx monomind@latest analyze complexity src/auth/ -t 10
+```
+
+**Angle 5 — Documentation (applies to public APIs, behavior changes):**
+```bash
+npx monomind@latest analyze symbols src/auth/refresh.ts   # did docs track changes?
+```
+If exported symbols changed and docs didn't, this angle fails.
+
+**Angle 6 — System health:**
+```bash
+npx monomind@latest doctor
+```
+A red doctor category blocks the claim, even if the code looks fine.
+
+---
+
+### Phase 3: Truth Score Computation
+
+Score each applicable angle — judgment against a checklist, not a vibe:
+
+| Angle | 1.0 (full) | 0.5 (partial) | 0.0 (fail/no evidence) |
+|---|---|---|---|
+| Correctness | Build + typecheck + analyze code clean | Typecheck clean, build warnings | Build or typecheck fails |
+| Tests | All relevant tests pass, names captured | New tests pass, one pre-existing flake | Any relevant test fails |
+| Security | `security scan`, `secrets`, `deps --security` clean | One informational finding, no exploit path | Any HIGH/CRITICAL or leaked secret |
+| Performance | Benchmark within baseline, no new hotspot | Within ±5% of baseline | Regression vs. baseline |
+| Documentation | All changed symbols documented | Minor export undocumented | Public API change with no doc update |
+| System health | `doctor` green | Yellows acknowledged | Any red category |
+
+**Composite score formula:**
+```
+truth_score = (sum of angle scores) / (number of applicable angles)
+```
+
+A failing angle zeroes its row. **Any 0.0 angle caps the composite at 0.85** —
+critical findings always block shipping regardless of the average.
+
+Write the score and per-angle evidence to the task record:
+```
+mcp__monomind__hooks_post-task({
+  task: "Fix auth refresh race", outcome: "complete", truth_score: 0.96,
+  evidence: {
+    diff: "evidence-diff.json",
+    tests: "auth.test.ts: 42 passed, 0 failed",
+    security: "scan clean; deps --security 0 HIGH",
+    performance: "benchmark within 1.2% of baseline",
+    health: "doctor green",
+    citations: ["src/auth/refresh.ts:87", "src/auth/refresh.ts:134"]
+  }
+})
 ```
 
 ---
 
-## Complete Guide
+### Phase 4: Decision — Ship, Fix, or Rollback
 
-### Truth Scoring System
+Use the composite score from Phase 3:
 
-#### View Truth Metrics
+| Score | Decision | Required action |
+|---|---|---|
+| `≥ 0.95` | **Ship** | Record evidence via `hooks_post-task`; proceed to commit/PR |
+| `0.85–0.94` | **Ship with caveats** | Record the gaps explicitly in the PR description |
+| `0.75–0.84` | **Fix** | Return to Phase 1 with the failing angle as the new task |
+| `< 0.75` | **Rollback** | See Auto-Rollback below; do not leave broken code on the branch |
 
-Display comprehensive quality and reliability metrics for your codebase and agent tasks.
+**3 or more fix loops without reaching 0.95 → architectural problem.** Stop, discuss
+with the user. Do not attempt a 4th loop. (Same rule as `mastermind-debug` Phase 4.5.)
 
-**Basic Usage:**
+---
 
+## Methodology: Auto-Rollback
+
+When a change scores below 0.75, or a regression is detected after merge, revert.
+monomind does not have a magic `verify rollback` subcommand — rollback is **git +
+evidence from `analyze diff`**.
+
+**1. Confirm the regression is real:**
 ```bash
-# View current truth scores (default: table format)
-npx monomind@alpha truth
-
-# View scores for specific time period
-npx monomind@alpha truth --period 7d
-
-# View scores for specific agent
-npx monomind@alpha truth --agent coder --period 24h
-
-# Find files/tasks below threshold
-npx monomind@alpha truth --threshold 0.8
+npx monomind@latest analyze diff --risk -v              # was it high-risk at review?
+npx monomind@latest analyze complexity src/ -t 15 -f json
+npx monomind@latest performance benchmark -s all -i 100 -o json > now.json
+# diff now.json against the saved baseline
 ```
 
-**Output Formats:**
-
+**2. Roll back to the last known-good state:**
 ```bash
-# Table format (default)
-npx monomind@alpha truth --format table
-
-# JSON for programmatic access
-npx monomind@alpha truth --format json
-
-# CSV for spreadsheet analysis
-npx monomind@alpha truth --format csv
-
-# HTML report with visualizations
-npx monomind@alpha truth --format html --export report.html
+git log --oneline -10
+git revert <bad-commit> --no-edit          # preserves the diagnosis in history
+# or, if nothing downstream depends on it:
+git reset --hard <last-good-commit>
 ```
 
-**Real-time Monitoring:**
-
+**3. Prevent recurrence:**
 ```bash
-# Watch mode with live updates
-npx monomind@alpha truth --watch
-
-# Export metrics automatically
-npx monomind@alpha truth --export .monomind/metrics/truth-$(date +%Y%m%d).json
+# Add a regression test for the failure mode BEFORE re-attempting (see mastermind-tdd)
+npx monomind@latest doctor                  # re-verify the rolled-back state
+npx monomind@latest security scan
 ```
 
-#### Truth Score Dashboard
+**Rules:**
+- Never rollback silently — record what failed and why in the postmortem.
+- Selective rollback (revert one file, keep another) is fine **if** `analyze diff`
+  shows the changes are independent. Otherwise revert as a unit.
+- Always re-verify the rolled-back state passes the failing angle.
 
-Example dashboard output:
+---
 
-```
-📊 Truth Metrics Dashboard
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Methodology: CI/CD Integration
 
-Overall Truth Score: 0.947 ✅
-Trend: ↗️ +2.3% (7d)
+Wire the same four phases into CI so unverified work cannot merge.
 
-Top Performers:
-  verification-agent   0.982 ⭐
-  code-analyzer       0.971 ⭐
-  test-generator      0.958 ✅
-
-Needs Attention:
-  refactor-agent      0.821 ⚠️
-  docs-generator      0.794 ⚠️
-
-Recent Tasks:
-  task-456  0.991 ✅  "Implement auth"
-  task-455  0.967 ✅  "Add tests"
-  task-454  0.743 ❌  "Refactor API"
-```
-
-#### Metrics Explained
-
-**Truth Scores (0.0-1.0):**
-
-- `1.0-0.95`: Excellent (production-ready)
-- `0.94-0.85`: Good (acceptable quality)
-- `0.84-0.75`: Warning (needs attention)
-- `<0.75`: Critical (requires immediate action)
-
-**Trend Indicators:**
-
-- ↗️ Improving (positive trend)
-- → Stable (consistent performance)
-- ↘️ Declining (quality regression detected)
-
-**Statistics:**
-
-- **Mean Score**: Average truth score across all measurements
-- **Median Score**: Middle value (less affected by outliers)
-- **Standard Deviation**: Consistency of scores (lower = more consistent)
-- **Confidence Interval**: Statistical reliability of measurements
-
-### Verification Checks
-
-#### Run Verification
-
-Execute comprehensive verification checks on code, tasks, or agent outputs.
-
-**File Verification:**
-
-```bash
-# Verify single file
-npx monomind@alpha verify check --file src/app.js
-
-# Verify directory recursively
-npx monomind@alpha verify check --directory src/
-
-# Verify with auto-fix enabled
-npx monomind@alpha verify check --file src/utils.js --auto-fix
-
-# Verify current working directory
-npx monomind@alpha verify check
-```
-
-**Task Verification:**
-
-```bash
-# Verify specific task output
-npx monomind@alpha verify check --task task-123
-
-# Verify with custom threshold
-npx monomind@alpha verify check --task task-456 --threshold 0.99
-
-# Verbose output for debugging
-npx monomind@alpha verify check --task task-789 --verbose
-```
-
-**Batch Verification:**
-
-```bash
-# Verify multiple files in parallel
-npx monomind@alpha verify batch --files "*.js" --parallel
-
-# Verify with pattern matching
-npx monomind@alpha verify batch --pattern "src/**/*.ts"
-
-# Integration test suite
-npx monomind@alpha verify integration --test-suite full
-```
-
-#### Verification Criteria
-
-The verification system evaluates:
-
-1. **Code Correctness**
-   - Syntax validation
-   - Type checking (TypeScript)
-   - Logic flow analysis
-   - Error handling completeness
-
-2. **Best Practices**
-   - Code style adherence
-   - SOLID principles
-   - Design patterns usage
-   - Modularity and reusability
-
-3. **Security**
-   - Vulnerability scanning
-   - Secret detection
-   - Input validation
-   - Authentication/authorization checks
-
-4. **Performance**
-   - Algorithmic complexity
-   - Memory usage patterns
-   - Database query optimization
-   - Bundle size impact
-
-5. **Documentation**
-   - JSDoc/TypeDoc completeness
-   - README accuracy
-   - API documentation
-   - Code comments quality
-
-#### JSON Output for CI/CD
-
-```bash
-# Get structured JSON output
-npx monomind@alpha verify check --json > verification.json
-
-# Example JSON structure:
-{
-  "overallScore": 0.947,
-  "passed": true,
-  "threshold": 0.95,
-  "checks": [
-    {
-      "name": "code-correctness",
-      "score": 0.98,
-      "passed": true
-    },
-    {
-      "name": "security",
-      "score": 0.91,
-      "passed": false,
-      "issues": [...]
-    }
-  ]
-}
-```
-
-### Automatic Rollback
-
-#### Rollback Failed Changes
-
-Automatically revert changes that fail verification checks.
-
-**Basic Rollback:**
-
-```bash
-# Rollback to last known good state
-npx monomind@alpha verify rollback --last-good
-
-# Rollback to specific commit
-npx monomind@alpha verify rollback --to-commit abc123
-
-# Interactive rollback with preview
-npx monomind@alpha verify rollback --interactive
-```
-
-**Smart Rollback:**
-
-```bash
-# Rollback only failed files (preserve good changes)
-npx monomind@alpha verify rollback --selective
-
-# Rollback with automatic backup
-npx monomind@alpha verify rollback --backup-first
-
-# Dry-run mode (preview without executing)
-npx monomind@alpha verify rollback --dry-run
-```
-
-**Rollback Performance:**
-
-- Git-based rollback: <1 second
-- Selective file rollback: <500ms
-- Backup creation: Automatic before rollback
-
-### Verification Reports
-
-#### Generate Reports
-
-Create detailed verification reports with metrics and visualizations.
-
-**Report Formats:**
-
-```bash
-# JSON report
-npx monomind@alpha verify report --format json
-
-# HTML report with charts
-npx monomind@alpha verify report --export metrics.html --format html
-
-# CSV for data analysis
-npx monomind@alpha verify report --format csv --export metrics.csv
-
-# Markdown summary
-npx monomind@alpha verify report --format markdown
-```
-
-**Time-based Reports:**
-
-```bash
-# Last 24 hours
-npx monomind@alpha verify report --period 24h
-
-# Last 7 days
-npx monomind@alpha verify report --period 7d
-
-# Last 30 days with trends
-npx monomind@alpha verify report --period 30d --include-trends
-
-# Custom date range
-npx monomind@alpha verify report --from 2025-01-01 --to 2025-01-31
-```
-
-**Report Content:**
-
-- Overall truth scores
-- Per-agent performance metrics
-- Task completion quality
-- Verification pass/fail rates
-- Rollback frequency
-- Quality improvement trends
-- Statistical confidence intervals
-
-### Interactive Dashboard
-
-#### Launch Dashboard
-
-Run interactive web-based verification dashboard with real-time updates.
-
-```bash
-# Launch dashboard on default port (3000)
-npx monomind@alpha verify dashboard
-
-# Custom port
-npx monomind@alpha verify dashboard --port 8080
-
-# Export dashboard data
-npx monomind@alpha verify dashboard --export
-
-# Dashboard with auto-refresh
-npx monomind@alpha verify dashboard --refresh 5s
-```
-
-**Dashboard Features:**
-
-- Real-time truth score updates (WebSocket)
-- Interactive charts and graphs
-- Agent performance comparison
-- Task history timeline
-- Rollback history viewer
-- Export to PDF/HTML
-- Filter by time period/agent/score
-
-### Configuration
-
-#### Default Configuration
-
-Set verification preferences in `.monomind/config.json`:
-
-```json
-{
-  "verification": {
-    "threshold": 0.95,
-    "autoRollback": true,
-    "gitIntegration": true,
-    "hooks": {
-      "preCommit": true,
-      "preTask": true,
-      "postEdit": true
-    },
-    "checks": {
-      "codeCorrectness": true,
-      "security": true,
-      "performance": true,
-      "documentation": true,
-      "bestPractices": true
-    }
-  },
-  "truth": {
-    "defaultFormat": "table",
-    "defaultPeriod": "24h",
-    "warningThreshold": 0.85,
-    "criticalThreshold": 0.75,
-    "autoExport": {
-      "enabled": true,
-      "path": ".monomind/metrics/truth-daily.json"
-    }
-  }
-}
-```
-
-#### Threshold Configuration
-
-**Adjust verification strictness:**
-
-```bash
-# Strict mode (99% accuracy required)
-npx monomind@alpha verify check --threshold 0.99
-
-# Lenient mode (90% acceptable)
-npx monomind@alpha verify check --threshold 0.90
-
-# Set default threshold
-npx monomind@alpha config set verification.threshold 0.98
-```
-
-**Per-environment thresholds:**
-
-```json
-{
-  "verification": {
-    "thresholds": {
-      "production": 0.99,
-      "staging": 0.95,
-      "development": 0.9
-    }
-  }
-}
-```
-
-### Integration Examples
-
-#### CI/CD Integration
-
-**GitHub Actions:**
-
+**GitHub Action — quality gate on PRs:**
 ```yaml
 name: Quality Verification
-
-on: [push, pull_request]
-
+on: [pull_request]
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Run Verification
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # analyze diff needs history
+      - run: npm ci
+      - name: Build + typecheck + tests   # Angle 1 + 2
         run: |
-          npx monomind@alpha verify check --json > verification.json
-
-      - name: Check Truth Score
+          npm run build
+          npm run typecheck
+          npm test
+      - name: Diff risk + security        # Angle 3
         run: |
-          score=$(jq '.overallScore' verification.json)
-          if (( $(echo "$score < 0.95" | bc -l) )); then
-            echo "Truth score too low: $score"
-            exit 1
-          fi
-
-      - name: Upload Report
-        uses: actions/upload-artifact@v1
-        with:
-          name: verification-report
-          path: verification.json
+          npx monomind@latest analyze diff main..HEAD --risk --classify --format json > diff-risk.json
+          npx monomind@latest security scan
+          npx monomind@latest analyze deps --security
+      - name: Health + benchmark          # Angle 4 + 6
+        run: |
+          npx monomind@latest doctor
+          npx monomind@latest performance benchmark -s all -i 50 -o json > bench.json
+      - uses: actions/upload-artifact@v4
+        with: { name: verification-evidence, path: "diff-risk.json\nbench.json" }
 ```
 
-**GitLab CI:**
+> Prefer **risk classification** (qualitative, stable) over **hard latency thresholds**
+> (fragile, flaky) for the gate. Use metrics for trend analysis offline.
 
-```yaml
-verify:
-  stage: test
-  script:
-    - npx monomind@alpha verify check --threshold 0.95 --json > verification.json
-    - |
-      score=$(jq '.overallScore' verification.json)
-      if [ $(echo "$score < 0.95" | bc) -eq 1 ]; then
-        echo "Verification failed with score: $score"
-        exit 1
-      fi
-  artifacts:
-    paths:
-      - verification.json
-    reports:
-      junit: verification.json
-```
+---
 
-#### Swarm Integration
+## Methodology: Continuous Monitoring
 
-Run verification automatically during swarm operations:
+Verification is not just a PR gate. Keep watching after merge:
 
 ```bash
-# Swarm with verification enabled
-npx monomind@alpha swarm --verify --threshold 0.98
-
-# Hive Mind with auto-rollback
-npx monomind@alpha hive-mind --verify --rollback-on-fail
-
-# Training pipeline with verification
-npx monomind@alpha train --verify --threshold 0.99
+npx monomind@latest doctor                                          # daily health
+npx monomind@latest performance metrics -t 7d -f json > "metrics-$(date +%Y%m%d).json"
+npx monomind@latest hooks metrics                                   # what hooks learned
+npx monomind@latest hooks intelligence                              # neural/HNSW status (usually not-loaded)
+npx monomind@latest tokens dashboard -p week --no-interactive       # spend surprises → quality problems
 ```
 
-#### Pair Programming Integration
+For long-term storage, pipe `performance metrics -f prometheus` into Prometheus and
+alert on trend, not on single values.
 
-Enable real-time verification during collaborative development:
+---
 
-```bash
-# Pair with verification
-npx monomind@alpha pair --verify --real-time
+## Red Flags — STOP and Return to Phase 1
 
-# Pair with custom threshold
-npx monomind@alpha pair --verify --threshold 0.97 --auto-fix
-```
+| Thought / Action | What it means |
+|---|---|
+| "It works" with no test names or file:line | No evidence. Phase 1. |
+| "Tests pass" with no output captured | Untested claim. Re-run and capture. |
+| "It's a tiny change, skip verification" | Tiny changes break tests too. Phase 2. |
+| "Security probably isn't affected" | Probably ≠ verified. If auth/crypto/input touched, run `security scan`. |
+| "Performance feels fine" | Feeling is not measurement. Run `performance benchmark`. |
+| Skipping an angle without saying why | Silent skips are how bugs ship. State "N/A because…". |
+| "Doctor has a red but it's unrelated" | Verify the unrelated-ness, don't assume. |
+| 3+ fix loops, still < 0.95 | Architectural problem. Stop, discuss design. |
+| Merging with score 0.85 "to unblock" | Below threshold is below threshold. Fix the gap. |
+| "The agent said it's done" / "it compiled" | Agent claims and clean compiles are inputs to verify, not conclusions. |
 
-### Advanced Workflows
+---
 
-#### Continuous Verification
+## Related Skills
 
-Monitor codebase continuously during development:
+- [`mastermind-debug`](../mastermind-debug/SKILL.md) — root-cause methodology when verification finds a failure
+- [`mastermind-tdd`](../mastermind-tdd/SKILL.md) — failing-test-first in Phase 1 evidence collection
+- [`performance-analysis`](../performance-analysis/SKILL.md) — Phase 2 Angle 4 deep-dive
+- [`mastermind-receive-review`](../mastermind-receive-review/SKILL.md) — same rigor applied to incoming review feedback
+- [`swarm-orchestration`](../swarm-orchestration/SKILL.md) — every agent output runs through Phase 1–4 before merge
 
-```bash
-# Watch directory for changes
-npx monomind@alpha verify watch --directory src/
+## Quick Reference
 
-# Watch with auto-fix
-npx monomind@alpha verify watch --directory src/ --auto-fix
+| Phase | Key commands | Success criteria |
+|---|---|---|
+| **1. Evidence** | `analyze diff --risk`, `monograph query/impact`, `hooks_pre-task` | Acceptance criteria + cited `file:line` on disk |
+| **2. Verification** | `analyze code`, `security scan`, `performance benchmark`, `analyze complexity`, `doctor` | Every applicable angle scored |
+| **3. Truth score** | Composite formula above | Numeric score + per-angle evidence recorded via `hooks_post-task` |
+| **4. Decision** | `git` (rollback when `< 0.75`) | Ship ≥ 0.95, fix 0.75–0.94, rollback `< 0.75` |
 
-# Watch with notifications
-npx monomind@alpha verify watch --notify --threshold 0.95
-```
+---
 
-#### Monitoring Integration
-
-Send metrics to external monitoring systems:
-
-```bash
-# Export to Prometheus
-npx monomind@alpha truth --format json | \
-  curl -X POST https://pushgateway.example.com/metrics/job/monomind \
-  -d @-
-
-# Send to DataDog
-npx monomind@alpha verify report --format json | \
-  curl -X POST "https://api.datadoghq.com/api/v1/series?api_key=${DD_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d @-
-
-# Custom webhook
-npx monomind@alpha truth --format json | \
-  curl -X POST https://metrics.example.com/api/truth \
-  -H "Content-Type: application/json" \
-  -d @-
-```
-
-#### Pre-commit Hooks
-
-Automatically verify before commits:
-
-```bash
-# Install pre-commit hook
-npx monomind@alpha verify install-hook --pre-commit
-
-# .git/hooks/pre-commit example:
-#!/bin/bash
-npx monomind@alpha verify check --threshold 0.95 --json > /tmp/verify.json
-
-score=$(jq '.overallScore' /tmp/verify.json)
-if (( $(echo "$score < 0.95" | bc -l) )); then
-  echo "❌ Verification failed with score: $score"
-  echo "Run 'npx monomind@alpha verify check --verbose' for details"
-  exit 1
-fi
-
-echo "✅ Verification passed with score: $score"
-```
-
-### Performance Metrics
-
-**Verification Speed:**
-
-- Single file check: <100ms
-- Directory scan: <500ms (per 100 files)
-- Full codebase analysis: <5s (typical project)
-- Truth score calculation: <50ms
-
-**Rollback Speed:**
-
-- Git-based rollback: <1s
-- Selective file rollback: <500ms
-- Backup creation: <2s
-
-**Dashboard Performance:**
-
-- Initial load: <1s
-- Real-time updates: <100ms latency (WebSocket)
-- Chart rendering: 60 FPS
-
-### Troubleshooting
-
-#### Common Issues
-
-**Low Truth Scores:**
-
-```bash
-# Get detailed breakdown
-npx monomind@alpha truth --verbose --threshold 0.0
-
-# Check specific criteria
-npx monomind@alpha verify check --verbose
-
-# View agent-specific issues
-npx monomind@alpha truth --agent <agent-name> --format json
-```
-
-**Rollback Failures:**
-
-```bash
-# Check git status
-git status
-
-# View rollback history
-npx monomind@alpha verify rollback --history
-
-# Manual rollback
-git reset --hard HEAD~1
-```
-
-**Verification Timeouts:**
-
-```bash
-# Increase timeout
-npx monomind@alpha verify check --timeout 60s
-
-# Verify in batches
-npx monomind@alpha verify batch --batch-size 10
-```
-
-### Exit Codes
-
-Verification commands return standard exit codes:
-
-- `0`: Verification passed (score ≥ threshold)
-- `1`: Verification failed (score < threshold)
-- `2`: Error during verification (invalid input, system error)
-
-### Related Commands
-
-- `npx monomind@alpha pair` - Collaborative development with verification
-- `npx monomind@alpha train` - Training with verification feedback
-- `npx monomind@alpha swarm` - Multi-agent coordination with quality checks
-- `npx monomind@alpha report` - Generate comprehensive project reports
-
-### Best Practices
-
-1. **Set Appropriate Thresholds**: Use 0.99 for critical code, 0.95 for standard, 0.90 for experimental
-2. **Enable Auto-rollback**: Prevent bad code from persisting
-3. **Monitor Trends**: Track improvement over time, not just current scores
-4. **Integrate with CI/CD**: Make verification part of your pipeline
-5. **Use Watch Mode**: Get immediate feedback during development
-6. **Export Metrics**: Track quality metrics in your monitoring system
-7. **Review Rollbacks**: Understand why changes were rejected
-8. **Train Agents**: Use verification feedback to improve agent performance
-
-### Additional Resources
-
-- Truth Scoring Algorithm: See `/docs/truth-scoring.md`
-- Verification Criteria: See `/docs/verification-criteria.md`
-- Integration Examples: See `/examples/verification/`
-- API Reference: See `/docs/api/verification.md`
+**Version**: 2.0.0 · **Last Updated**: 2026-08-12

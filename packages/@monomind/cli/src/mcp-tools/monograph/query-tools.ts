@@ -16,6 +16,7 @@ export const monographQueryTool: MCPTool = {
       label: { type: 'string', description: 'Filter by node type: Class, Function, Method, etc.' },
       rerank: { type: 'boolean', description: 'Apply HippoRAG-style PPR graph reranking to boost neighbors of top hits (default: true)' },
       damping: { type: 'number', description: 'PPR damping factor when rerank=true (0-1, default 0.5)' },
+      tokenBudget: { type: 'number', description: 'P2-9: Prune results to fit within this approximate token budget (drops lowest-scored results first)' },
     },
     required: ['query'],
   },
@@ -43,6 +44,39 @@ export const monographQueryTool: MCPTool = {
       const label = input.label as string | undefined;
       const rerank = (input.rerank as boolean | undefined) ?? true;
       const damping = (input.damping as number | undefined) ?? 0.5;
+      const tokenBudget = input.tokenBudget as number | undefined;
+
+      // P2-9/P2-10: Post-processing for token budget and reason annotations.
+      // Applied after all search paths below via a shared helper.
+      function annotateAndPrune(results: Array<{ label: string; name: string; filePath?: string; startLine?: number | null; score: number; boostedByNeighbors?: boolean }>): string[] {
+        const lines = results.map(r => {
+          const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
+          const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
+          // P2-10: Agentic reason field — deterministic template, no LLM call.
+          const reasonParts: string[] = [];
+          reasonParts.push(`score: ${r.score.toFixed(3)}`);
+          if (r.boostedByNeighbors) reasonParts.push('boosted by graph neighbors');
+          else reasonParts.push('direct BM25 match');
+          const reason = `reason: ${reasonParts.join(', ')}`;
+          return `[${r.label}] ${r.name}  ${loc}  (${reason})${tag}`;
+        });
+        // P2-9: Token-budget pruning — ~4 chars per token heuristic.
+        if (tokenBudget && tokenBudget > 0) {
+          let totalChars = 0;
+          const pruned: string[] = [];
+          for (const line of lines) { // already sorted by score desc
+            const lineChars = line.length + 1; // +1 for newline
+            if (totalChars + lineChars > tokenBudget * 4) break;
+            totalChars += lineChars;
+            pruned.push(line);
+          }
+          if (pruned.length < lines.length) {
+            pruned.push(`(${lines.length - pruned.length} more results pruned to fit token budget of ${tokenBudget})`);
+          }
+          return pruned;
+        }
+        return lines;
+      }
 
       const zeroResultHint = /\s/.test(query) && !/[A-Z]/.test(query.replace(/\s+/g, '').slice(1))
         ? ' Hint: monograph indexes identifiers and filenames — try camelCase/PascalCase (e.g. "AgentSpawn") or a filename instead of a phrase.'
@@ -69,18 +103,15 @@ export const monographQueryTool: MCPTool = {
             score: r.score,
           }));
           const reranked = applyPprRerank(db, seeds, damping, limit);
-          const lines = reranked.map(r => {
-            const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
-            const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
-            return `[${r.label}] ${r.name}  ${loc}  (score: ${r.score.toFixed(4)})${tag}`;
-          });
+          const lines = annotateAndPrune(reranked);
           return text(lines.join('\n') + stalenessNote);
         }
 
-        const lines = results.map(r => {
-          const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
-          return `[${r.label ?? '?'}] ${r.name ?? r.id}  ${loc}  (score: ${r.score.toFixed(4)})`;
-        });
+        const lines = annotateAndPrune(results.map(r => ({
+          id: r.id, label: r.label ?? '?', name: r.name ?? r.id,
+          filePath: r.filePath ?? '', startLine: r.startLine ?? null,
+          score: r.score, boostedByNeighbors: false,
+        })));
         return text(lines.join('\n') + stalenessNote);
       }
 
@@ -94,18 +125,15 @@ export const monographQueryTool: MCPTool = {
           score: Math.abs(r.rank),
         }));
         const reranked = applyPprRerank(db, seeds, damping, limit);
-        const lines = reranked.map(r => {
-          const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
-          const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
-          return `[${r.label}] ${r.name}  ${loc}  (score: ${r.score.toFixed(3)})${tag}`;
-        });
+        const lines = annotateAndPrune(reranked);
         return text(lines.join('\n') + stalenessNote);
       }
 
-      const lines = results.map(r => {
-        const loc = r.filePath ? (r.startLine != null ? `${r.filePath}:${r.startLine}` : r.filePath) : '';
-        return `[${r.label}] ${r.name}  ${loc}  (score: ${r.rank.toFixed(3)})`;
-      });
+      const lines = annotateAndPrune(results.map(r => ({
+        label: r.label, name: r.name,
+        filePath: r.filePath ?? '', startLine: r.startLine ?? null,
+        score: Math.abs(r.rank), boostedByNeighbors: false,
+      })));
       return text(lines.join('\n') + stalenessNote);
     } finally { closeDb(db); }
   },

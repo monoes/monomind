@@ -1,560 +1,304 @@
 ---
 name: performance-analysis
-description: |
-  Comprehensive performance analysis, bottleneck detection, and optimization recommendations for Monomind swarms
+description: Comprehensive performance analysis, bottleneck detection, and optimization recommendations for Monomind swarms
 ---
 
-# Performance Analysis Skill
-
-Comprehensive performance analysis suite for identifying bottlenecks, profiling swarm operations, generating detailed reports, and providing actionable optimization recommendations.
+# performance-analysis — Measure, Don't Guess
 
 ## Overview
 
-This skill consolidates all performance analysis capabilities:
-- **Bottleneck Detection**: Identify performance bottlenecks across communication, processing, memory, and network
-- **Performance Profiling**: Real-time monitoring and historical analysis of swarm operations
-- **Report Generation**: Create comprehensive performance reports in multiple formats
-- **Optimization Recommendations**: AI-powered suggestions for improving performance
+Performance work without measurement is superstition. This skill wires a disciplined
+methodology to monomind's real `performance` and `analyze` command surfaces.
 
-## Quick Start
+**Core principle:** ALWAYS measure before optimizing. ALWAYS confirm a bottleneck is
+real before fixing it. Symptoms are not root causes.
 
-### Basic Bottleneck Detection
-```bash
-npx monomind bottleneck detect
+**Iron Law:**
+```
+NO OPTIMIZATION WITHOUT A MEASURED BOTTLENECK FIRST
 ```
 
-### Generate Performance Report
-```bash
-npx monomind analysis performance-report --format html --include-metrics
-```
-
-### Analyze and Auto-Fix
-```bash
-npx monomind bottleneck detect --fix --threshold 15
-```
-
-## Core Capabilities
-
-### 1. Bottleneck Detection
-
-#### Command Syntax
-```bash
-npx monomind bottleneck detect [options]
-```
-
-#### Options
-- `--swarm-id, -s <id>` - Analyze specific swarm (default: current)
-- `--time-range, -t <range>` - Analysis period: 1h, 24h, 7d, all (default: 1h)
-- `--threshold <percent>` - Bottleneck threshold percentage (default: 20)
-- `--export, -e <file>` - Export analysis to file
-- `--fix` - Apply automatic optimizations
-
-#### Usage Examples
-```bash
-# Basic detection for current swarm
-npx monomind bottleneck detect
-
-# Analyze specific swarm over 24 hours
-npx monomind bottleneck detect --swarm-id swarm-123 -t 24h
-
-# Export detailed analysis
-npx monomind bottleneck detect -t 24h -e bottlenecks.json
-
-# Auto-fix detected issues
-npx monomind bottleneck detect --fix --threshold 15
-
-# Low threshold for sensitive detection
-npx monomind bottleneck detect --threshold 10 --export critical-issues.json
-```
-
-#### Metrics Analyzed
-
-**Communication Bottlenecks:**
-- Message queue delays
-- Agent response times
-- Coordination overhead
-- Memory access patterns
-- Inter-agent communication latency
-
-**Processing Bottlenecks:**
-- Task completion times
-- Agent utilization rates
-- Parallel execution efficiency
-- Resource contention
-- CPU/memory usage patterns
-
-**Memory Bottlenecks:**
-- Cache hit rates
-- Memory access patterns
-- Storage I/O performance
-- Neural pattern loading times
-- Memory allocation efficiency
-
-**Network Bottlenecks:**
-- API call latency
-- MCP communication delays
-- External service timeouts
-- Concurrent request limits
-- Network throughput issues
-
-#### Output Format
-```
-🔍 Bottleneck Analysis Report
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 Summary
-├── Time Range: Last 1 hour
-├── Agents Analyzed: 6
-├── Tasks Processed: 42
-└── Critical Issues: 2
-
-🚨 Critical Bottlenecks
-1. Agent Communication (35% impact)
-   └── coordinator → coder-1 messages delayed by 2.3s avg
-
-2. Memory Access (28% impact)
-   └── Neural pattern loading taking 1.8s per access
-
-⚠️ Warning Bottlenecks
-1. Task Queue (18% impact)
-   └── 5 tasks waiting > 10s for assignment
-
-💡 Recommendations
-1. Switch to hierarchical topology (est. 40% improvement)
-2. Enable memory caching (est. 25% improvement)
-3. Increase agent concurrency to 8 (est. 20% improvement)
-
-✅ Quick Fixes Available
-Run with --fix to apply:
-- Enable smart caching
-- Optimize message routing
-- Adjust agent priorities
-```
-
-### 2. Performance Profiling
-
-#### Real-time Detection
-Automatic analysis during task execution:
-- Execution time vs. complexity
-- Agent utilization rates
-- Resource constraints
-- Operation patterns
-
-#### Common Bottleneck Patterns
-
-**Time Bottlenecks:**
-- Tasks taking > 5 minutes
-- Sequential operations that could parallelize
-- Redundant file operations
-- Inefficient algorithm implementations
-
-**Coordination Bottlenecks:**
-- Single agent for complex tasks
-- Unbalanced agent workloads
-- Poor topology selection
-- Excessive synchronization points
-
-**Resource Bottlenecks:**
-- High operation count (> 100)
-- Memory constraints
-- I/O limitations
-- Thread pool saturation
-
-#### MCP Integration
-```javascript
-// Check for bottlenecks in Claude Code
-mcp__monomind__bottleneck_detect({
-  timeRange: "1h",
-  threshold: 20,
-  autoFix: false
-})
-
-// Get detailed task results with bottleneck analysis
-mcp__monomind__task_results({
-  taskId: "task-123",
-  format: "detailed"
-})
-```
-
-**Result Format:**
-```json
-{
-  "bottlenecks": [
-    {
-      "type": "coordination",
-      "severity": "high",
-      "description": "Single agent used for complex task",
-      "recommendation": "Spawn specialized agents for parallel work",
-      "impact": "35%",
-      "affectedComponents": ["coordinator", "coder-1"]
-    }
-  ],
-  "improvements": [
-    {
-      "area": "execution_time",
-      "suggestion": "Use parallel task execution",
-      "expectedImprovement": "30-50% time reduction",
-      "implementationSteps": [
-        "Split task into smaller units",
-        "Spawn 3-4 specialized agents",
-        "Use mesh topology for coordination"
-      ]
-    }
-  ],
-  "metrics": {
-    "avgExecutionTime": "142s",
-    "agentUtilization": "67%",
-    "cacheHitRate": "82%",
-    "parallelizationFactor": 1.2
-  }
-}
-```
-
-### 3. Report Generation
-
-#### Command Syntax
-```bash
-npx monomind analysis performance-report [options]
-```
-
-#### Options
-- `--format <type>` - Report format: json, html, markdown (default: markdown)
-- `--include-metrics` - Include detailed metrics and charts
-- `--compare <id>` - Compare with previous swarm
-- `--time-range <range>` - Analysis period: 1h, 24h, 7d, 30d, all
-- `--output <file>` - Output file path
-- `--sections <list>` - Comma-separated sections to include
-
-#### Report Sections
-1. **Executive Summary**
-   - Overall performance score
-   - Key metrics overview
-   - Critical findings
-
-2. **Swarm Overview**
-   - Topology configuration
-   - Agent distribution
-   - Task statistics
-
-3. **Performance Metrics**
-   - Execution times
-   - Throughput analysis
-   - Resource utilization
-   - Latency breakdown
-
-4. **Bottleneck Analysis**
-   - Identified bottlenecks
-   - Impact assessment
-   - Optimization priorities
-
-5. **Comparative Analysis** (when --compare used)
-   - Performance trends
-   - Improvement metrics
-   - Regression detection
-
-6. **Recommendations**
-   - Prioritized action items
-   - Expected improvements
-   - Implementation guidance
-
-#### Usage Examples
-```bash
-# Generate HTML report with all metrics
-npx monomind analysis performance-report --format html --include-metrics
-
-# Compare current swarm with previous
-npx monomind analysis performance-report --compare swarm-123 --format markdown
-
-# Custom output with specific sections
-npx monomind analysis performance-report \
-  --sections summary,metrics,recommendations \
-  --output reports/perf-analysis.html \
-  --format html
-
-# Weekly performance report
-npx monomind analysis performance-report \
-  --time-range 7d \
-  --include-metrics \
-  --format markdown \
-  --output docs/weekly-performance.md
-
-# JSON format for CI/CD integration
-npx monomind analysis performance-report \
-  --format json \
-  --output build/performance.json
-```
-
-#### Sample Markdown Report
-```markdown
-# Performance Analysis Report
-
-## Executive Summary
-- **Overall Score**: 87/100
-- **Analysis Period**: Last 24 hours
-- **Swarms Analyzed**: 3
-- **Critical Issues**: 1
-
-## Key Metrics
-| Metric | Value | Trend | Target |
-|--------|-------|-------|--------|
-| Avg Task Time | 42s | ↓ 12% | 35s |
-| Agent Utilization | 78% | ↑ 5% | 85% |
-| Cache Hit Rate | 91% | → | 90% |
-| Parallel Efficiency | 2.3x | ↑ 0.4x | 2.5x |
-
-## Bottleneck Analysis
-### Critical
-1. **Agent Communication Delay** (Impact: 35%)
-   - Coordinator → Coder messages delayed by 2.3s avg
-   - **Fix**: Switch to hierarchical topology
-
-### Warnings
-1. **Memory Access Pattern** (Impact: 18%)
-   - Neural pattern loading: 1.8s per access
-   - **Fix**: Enable memory caching
-
-## Recommendations
-1. **High Priority**: Switch to hierarchical topology (40% improvement)
-2. **Medium Priority**: Enable memory caching (25% improvement)
-3. **Low Priority**: Increase agent concurrency to 8 (20% improvement)
-```
-
-### 4. Optimization Recommendations
-
-#### Automatic Fixes
-When using `--fix`, the following optimizations may be applied:
-
-**1. Topology Optimization**
-- Switch to more efficient topology (mesh → hierarchical)
-- Adjust communication patterns
-- Reduce coordination overhead
-- Optimize message routing
-
-**2. Caching Enhancement**
-- Enable memory caching
-- Optimize cache strategies
-- Preload common patterns
-- Implement cache warming
-
-**3. Concurrency Tuning**
-- Adjust agent counts
-- Optimize parallel execution
-- Balance workload distribution
-- Implement load balancing
-
-**4. Priority Adjustment**
-- Reorder task queues
-- Prioritize critical paths
-- Reduce wait times
-- Implement fair scheduling
-
-**5. Resource Optimization**
-- Optimize memory usage
-- Reduce I/O operations
-- Batch API calls
-- Implement connection pooling
-
-#### Performance Impact
-Typical improvements after bottleneck resolution:
-
-- **Communication**: 30-50% faster message delivery
-- **Processing**: 20-40% reduced task completion time
-- **Memory**: 40-60% fewer cache misses
-- **Network**: 25-45% reduced API latency
-- **Overall**: 25-45% total performance improvement
-
-## Advanced Usage
-
-### Continuous Monitoring
-```bash
-# Monitor performance in real-time
-npx monomind swarm monitor --interval 5
-
-# Generate hourly reports
-while true; do
-  npx monomind analysis performance-report \
-    --format json \
-    --output logs/perf-$(date +%Y%m%d-%H%M).json
-  sleep 3600
-done
-```
-
-### CI/CD Integration
-```yaml
-# .github/workflows/performance.yml
-name: Performance Analysis
-on: [push, pull_request]
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run Performance Analysis
-        run: |
-          npx monomind analysis performance-report \
-            --format json \
-            --output performance.json
-      - name: Check Performance Thresholds
-        run: |
-          npx monomind bottleneck detect \
-            --threshold 15 \
-            --export bottlenecks.json
-      - name: Upload Reports
-        uses: actions/upload-artifact@v2
-        with:
-          name: performance-reports
-          path: |
-            performance.json
-            bottlenecks.json
-```
-
-### Custom Analysis Scripts
-```javascript
-// scripts/analyze-performance.js
-const { exec } = require('child_process');
-const fs = require('fs');
-
-async function analyzePerformance() {
-  // Run bottleneck detection
-  const bottlenecks = await runCommand(
-    'npx monomind bottleneck detect --format json'
-  );
-
-  // Generate performance report
-  const report = await runCommand(
-    'npx monomind analysis performance-report --format json'
-  );
-
-  // Analyze results
-  const analysis = {
-    bottlenecks: JSON.parse(bottlenecks),
-    performance: JSON.parse(report),
-    timestamp: new Date().toISOString()
-  };
-
-  // Save combined analysis
-  fs.writeFileSync(
-    'analysis/combined-report.json',
-    JSON.stringify(analysis, null, 2)
-  );
-
-  // Generate alerts if needed
-  if (analysis.bottlenecks.critical.length > 0) {
-    console.error('CRITICAL: Performance bottlenecks detected!');
-    process.exit(1);
-  }
-}
-
-function runCommand(cmd) {
-  return new Promise((resolve, reject) => {
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) reject(error);
-      else resolve(stdout);
-    });
-  });
-}
-
-analyzePerformance().catch(console.error);
-```
-
-## Best Practices
-
-### 1. Regular Analysis
-- Run bottleneck detection after major changes
-- Generate weekly performance reports
-- Monitor trends over time
-- Set up automated alerts
-
-### 2. Threshold Tuning
-- Start with default threshold (20%)
-- Lower for production systems (10-15%)
-- Higher for development (25-30%)
-- Adjust based on requirements
-
-### 3. Fix Strategy
-- Always review before applying --fix
-- Test fixes in development first
-- Apply fixes incrementally
-- Monitor impact after changes
-
-### 4. Report Integration
-- Include in documentation
-- Share with team regularly
-- Track improvements over time
-- Use for capacity planning
-
-### 5. Continuous Optimization
-- Learn from each analysis
-- Build performance budgets
-- Establish baselines
-- Set improvement goals
-
-## Troubleshooting
-
-### Common Issues
-
-**High Memory Usage**
-```bash
-# Analyze memory bottlenecks
-npx monomind bottleneck detect --threshold 10
-
-# Check cache performance
-npx monomind cache manage --action stats
-
-# Review memory metrics
-npx monomind memory usage
-```
-
-**Slow Task Execution**
-```bash
-# Identify slow tasks
-npx monomind task status --detailed
-
-# Analyze coordination overhead
-npx monomind bottleneck detect --time-range 1h
-
-# Check agent utilization
-npx monomind agent metrics
-```
-
-**Poor Cache Performance**
-```bash
-# Analyze cache hit rates
-npx monomind analysis performance-report --sections metrics
-
-# Review cache strategy
-npx monomind cache manage --action analyze
-
-# Enable cache warming
-npx monomind bottleneck detect --fix
-```
-
-## Integration with Other Skills
-
-- **swarm-orchestration**: Use performance data to optimize topology
-- **memory-management**: Improve cache strategies based on analysis
-- **task-coordination**: Adjust scheduling based on bottlenecks
-- **neural-training**: Train patterns from performance data
-
-## Related Commands
-
-- `npx monomind swarm monitor` - Real-time monitoring
-- `npx monomind token usage` - Token optimization analysis
-- `npx monomind cache manage` - Cache optimization
-- `npx monomind agent metrics` - Agent performance metrics
-- `npx monomind task status` - Task execution analysis
-
-## See Also
-
-- [Bottleneck Detection Guide](https://github.com/monoes/monomind/wiki/bottleneck-detect)
-- [Performance Report Guide](https://github.com/monoes/monomind/wiki/performance-report)
-- [Performance Bottlenecks Overview](https://github.com/monoes/monomind/wiki/performance-bottlenecks)
-- [Swarm Monitoring Documentation](../swarm-orchestration/SKILL.md)
-- [Memory Management Documentation](../memory-management/SKILL.md)
+## When to Use
+
+- Something feels slow (swarm run, memory search, build, MCP tool call)
+- Before/after a change that could affect performance
+- A regression report or user complaint about latency
+- Capacity planning — picking `maxAgents`, topology, or memory backend
+- Token burn higher than expected
+
+**Use ESPECIALLY when:** the fix "feels obvious". Obvious fixes without measurement
+are the most common source of fake optimizations.
+
+## The Real Command Surface
+
+These are the ONLY performance/analysis commands. Anything else is wrong.
+
+| Command | What it does |
+|---|---|
+| `monomind performance benchmark` | Run benchmarks (wasm/neural/memory/search) |
+| `monomind performance profile` | Profile CPU/memory/IO over a window |
+| `monomind performance metrics` | View/export metrics (1h/24h/7d/30d) |
+| `monomind performance bottleneck` | Identify bottlenecks (quick or full) |
+| `monomind analyze diff` | Git diff risk + change classification |
+| `monomind analyze code` | Static code analysis |
+| `monomind analyze deps` | Dependency analysis (`--security` for CVEs) |
+| `monomind analyze ast` | AST analysis via tree-sitter |
+| `monomind analyze complexity` | Code complexity metrics |
+| `monomind analyze symbols` | Extract functions/classes/types |
+| `monomind analyze imports` | Import dependency graph |
+| `monomind doctor` | 28 health-check categories |
+| `monomind hooks metrics` | Learning metrics dashboard |
+| `monomind tokens dashboard` | Token usage (`today`/`week`/`30days`/`month`) |
+
+> Use `npx monomind@latest ...` from outside the repo; inside the repo `node packages/@monomind/cli/bin/cli.js ...` works too. Never use `monomind@alpha`.
+
+## The Four Phases
+
+Complete each phase before moving on. Skipping a phase produces fake optimizations.
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: 2025-10-19
-**Maintainer**: Monomind Team
+### Phase 1: Establish a Baseline
+
+Before changing anything, capture the current state so later comparison is honest.
+
+```bash
+# Benchmark the subsystems you care about
+npx monomind@latest performance benchmark -s all -i 100 -o json > baseline-bench.json
+
+# Snapshot current metrics for the relevant window
+npx monomind@latest performance metrics -t 24h -f json > baseline-metrics.json
+
+# Capture a profile so you know where time is going today
+npx monomind@latest performance profile -t all -d 60 -o baseline-profile.json
+```
+
+**Success criteria:** you have numbers on disk for "before". No before, no after.
+
+---
+
+### Phase 2: Find the Bottleneck (don't guess, ask the system)
+
+`performance bottleneck` answers the question "where is time being spent?".
+
+```bash
+# Quick triage across the whole system
+npx monomind@latest performance bottleneck
+
+# Deep dive when quick confirms something is off
+npx monomind@latest performance bottleneck -d full
+
+# Scope to a suspected component (e.g. network, memory, search)
+npx monomind@latest performance bottleneck -c memory
+```
+
+**Map symptoms to components:**
+
+| Symptom | First component to check |
+|---|---|
+| Slow swarm coordination | network (inter-agent messages) |
+| Memory search slow | memory (SQLite vs. WASM fallback path) |
+| Token burn surprise | cpu / model invocation |
+| Boot/startup slow | io (file reads, graph load) |
+| MCP tool latency | network (server round-trip) |
+
+**If `bottleneck` reports nothing:** the problem may be code-level, not system-level.
+Move to Phase 2b.
+
+#### Phase 2b: Code-Level Analysis
+
+When the system is healthy but the code is slow, switch to `analyze`:
+
+```bash
+# Riskiest recent change — most likely regression source
+npx monomind@latest analyze diff --risk --classify -v
+
+# Flag high-complexity hotspots (default threshold 10)
+npx monomind@latest analyze complexity src/ -t 15 -f json
+
+# Inspect import graph for accidental heavy dependencies
+npx monomind@latest analyze imports src/ --external
+
+# Dependency audit (CVEs and bloat both hurt performance)
+npx monomind@latest analyze deps --security
+```
+
+**Heuristic:** a regression that appeared in the last N commits is almost always
+visible in `analyze diff --risk`. Start there before going deeper.
+
+---
+
+### Phase 3: Interpret the Metrics
+
+Numbers without interpretation are noise. Read the dashboard, then explain it.
+
+```bash
+# Pull a metrics view for the affected window
+npx monomind@latest performance metrics -t 7d -f text
+
+# Prometheus export for Grafana / long-term storage
+npx monomind@latest performance metrics -t 30d -f prometheus > metrics.prom
+
+# Cross-check learning hooks (these run in the background and affect timings)
+npx monomind@latest hooks metrics
+
+# Token spend — high burn often correlates with perf pain
+npx monomind@latest tokens dashboard -p week --no-interactive
+```
+
+**Interpretation rules:**
+
+- A single high number is not a bottleneck. A high number *with user-visible pain*
+  is. Always tie metrics back to a symptom.
+- Compare like-for-like: same window, same load, same machine. A 7d average next to
+  a 1h spike is meaningless.
+- Latency has tails. Always look at p95/p99, not just mean — means hide outliers.
+- Cache hit rate below ~80% usually means the working set is bigger than the cache
+  OR the eviction policy is wrong. Both are fixable.
+
+---
+
+### Phase 4: Apply One Fix, Re-measure, Decide
+
+One change. One measurement. Then decide.
+
+```bash
+# Apply the single fix you hypothesized from Phase 2/3 evidence
+
+# Re-run the EXACT same baseline commands
+npx monomind@latest performance benchmark -s all -i 100 -o json > after-bench.json
+npx monomind@latest performance metrics -t 24h -f json > after-metrics.json
+npx monomind@latest performance profile -t all -d 60 -o after-profile.json
+
+# Diff before vs after. Did the targeted metric move? Did anything else regress?
+```
+
+**Decision rules:**
+
+- Target metric improved, nothing regressed → ship it.
+- Target metric improved, something else regressed → weigh tradeoffs explicitly.
+  Don't ship on hope.
+- Target metric unchanged → the bottleneck was misdiagnosed. Return to Phase 2 with
+  new evidence. Do not apply a second fix on top of a failed one.
+- 3+ fixes in a row with no movement → this is architectural (see below).
+
+---
+
+## Methodology: Regression Detection
+
+Performance regressions slip in through code changes. Catch them at the diff, not in
+production.
+
+```bash
+# Before merging any change that touches a hot path:
+npx monomind@latest analyze diff --risk -v
+
+# Classify the change so reviewers know what they're looking at
+npx monomind@latest analyze diff --classify --reviewers
+
+# Compare the current branch against main explicitly
+npx monomind@latest analyze diff main..HEAD --risk --format json
+```
+
+**CI integration (GitHub Action):**
+
+```yaml
+name: Performance Gate
+on: [pull_request]
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Risk-classify the diff
+        run: npx monomind@latest analyze diff main..HEAD --risk --format json > diff-risk.json
+      - name: Snapshot metrics
+        run: npx monomind@latest performance metrics -t 24h -f json > metrics.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perf-gate
+          path: |
+            diff-risk.json
+            metrics.json
+```
+
+> Don't fail CI on a raw number threshold unless you have a stable baseline. Prefer
+> *risk classification* (qualitative) over *latency thresholds* (fragile) for the
+> gate, and use metrics for trend analysis offline.
+
+---
+
+## Methodology: Optimization Recommendations
+
+When `performance bottleneck` reports findings, map them to actions in this order:
+
+| Bottleneck type | First-action recommendation |
+|---|---|
+| network | Check topology (`hierarchical` vs `mesh`); reduce message round-trips |
+| memory | Confirm SQLite bridge is up (not the WASM/JSON fallback); widen cache |
+| cpu | Profile (`performance profile -t cpu`) to find the hot function |
+| io | Batch file reads; lazy-load graphs; check for sync I/O on hot path |
+| search | Rebuild monograph; verify BM25 index is current |
+| coordination | Lower `maxAgents` if utilization is low; raise it if queue is deep |
+
+**Always:** state the recommendation as a hypothesis, apply it as a single change,
+and verify with Phase 4. Recommendations without re-measurement are guesses.
+
+---
+
+## Continuous Monitoring
+
+```bash
+# Weekly metrics snapshot for trend analysis
+npx monomind@latest performance metrics -t 7d -f json > "perf-$(date +%Y%m%d).json"
+
+# Doctor runs 28 health categories — include it in weekly review
+npx monomind@latest doctor
+
+# Hooks metrics show what the background workers are costing you
+npx monomind@latest hooks metrics
+```
+
+For long-term storage, pipe `performance metrics -f prometheus` into a Prometheus
+instance and let Grafana draw the trends.
+
+---
+
+## Red Flags — STOP and Return to Phase 1
+
+| Thought / Action | What it means |
+|---|---|
+| "This is obviously slow, let me optimize it" | No measured bottleneck. Phase 1 first. |
+| "I'll add a cache, that always helps" | Cache without a measured miss rate is bloat. |
+| "Let me try a few optimizations together" | Can't isolate what worked. One change. |
+| "Benchmark improved so we're done" | Did anything else regress? Check, don't assume. |
+| "It feels faster now" | Feeling is not measurement. Re-run baseline. |
+| 3+ fixes applied, no movement | Architectural problem. Stop, discuss design. |
+
+## Integration with Other Skills
+
+- **`mastermind-debug`** — Phase 1 root-cause methodology underpins this skill
+- **`swarm-orchestration`** — topology decisions driven by bottleneck findings
+- **`verification-quality`** — confirm the optimization actually held
+- **`mastermind-verify`** — evidence-before-claims for "is it faster?"
+
+## Quick Reference
+
+| Phase | Key command | Success criteria |
+|---|---|---|
+| 1. Baseline | `performance benchmark` + `metrics` | Numbers on disk |
+| 2. Bottleneck | `performance bottleneck -d full` | Named component or code hotspot |
+| 2b. Code-level | `analyze diff --risk`, `analyze complexity` | Risky change or hotspot file found |
+| 3. Interpret | `performance metrics`, `tokens dashboard` | Metric tied to a symptom |
+| 4. Fix + re-measure | same baseline commands | Target moved, nothing regressed |
+
+## See Also
+
+- [Systematic Debugging](../mastermind-debug/SKILL.md)
+- [Swarm Orchestration](../swarm-orchestration/SKILL.md)
+- [Verification & Quality](../verification-quality/SKILL.md)
+
+---
+
+**Version**: 2.0.0
+**Last Updated**: 2026-08-12

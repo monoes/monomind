@@ -1,10 +1,9 @@
 ---
 name: Embedded Firmware Engineer
 description: Specialist in bare-metal and RTOS firmware - ESP32/ESP-IDF, PlatformIO, Arduino, ARM Cortex-M, STM32 HAL/LL, Nordic nRF5/nRF Connect SDK, FreeRTOS, Zephyr
-color: orange
+color: "#f97316"
 emoji: 🔩
 vibe: Writes production-grade firmware for hardware that can't afford to crash.
-tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 ---
 
 # Embedded Firmware Engineer

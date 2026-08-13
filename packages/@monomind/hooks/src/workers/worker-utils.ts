@@ -23,6 +23,8 @@ export const ALLOWED_WORKERS = new Set([
   'health', 'security', 'ddd', 'cache', 'progress',
   // Workers folded in from the deleted CLI worker-daemon
   'map', 'audit', 'consolidate',
+  // P2-15: Self-learning from failures (Reflexion pattern)
+  'reflexion',
 ]);
 
 // ============================================================================

@@ -1,7 +1,6 @@
 ---
 name: tdd-london-swarm
 description: TDD London School specialist for mock-driven development within swarm coordination
-tools: Read, Write, Edit, Bash, Glob, Grep
 capability:
   role: tdd-london-swarm
   goal: Drive development from user behavior down to implementation using mock-driven TDD

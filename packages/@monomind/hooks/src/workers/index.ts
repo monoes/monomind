@@ -77,6 +77,8 @@ export { createProgressWorker } from './worker-progress.js';
 export { createMapWorker } from './worker-map.js';
 export { createAuditWorker } from './worker-audit.js';
 export { createConsolidateWorker } from './worker-consolidate.js';
+export { createReflexionWorker } from './worker-reflexion.js';
+export { getReflectionsForTask } from './worker-reflexion.js';
 
 // ============================================================================
 // Factory
@@ -90,6 +92,7 @@ import { createProgressWorker } from './worker-progress.js';
 import { createMapWorker } from './worker-map.js';
 import { createAuditWorker } from './worker-audit.js';
 import { createConsolidateWorker } from './worker-consolidate.js';
+import { createReflexionWorker } from './worker-reflexion.js';
 
 export function createWorkerManager(projectRoot?: string): WorkerManager {
   const root = projectRoot || process.cwd();
@@ -103,6 +106,7 @@ export function createWorkerManager(projectRoot?: string): WorkerManager {
   manager.register('map', createMapWorker(root));
   manager.register('audit', createAuditWorker(root));
   manager.register('consolidate', createConsolidateWorker(root));
+  manager.register('reflexion', createReflexionWorker(root));
 
   return manager;
 }

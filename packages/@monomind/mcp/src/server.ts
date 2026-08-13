@@ -256,6 +256,8 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
       await this.transport.start();
       await this.registerBuiltInTools();
+      this.registerBuiltInResources();
+      this.registerBuiltInPrompts();
 
       this.running = true;
       this.startupDuration = performance.now() - startTime;
@@ -1209,6 +1211,105 @@ export class MCPServer extends EventEmitter implements IMCPServer {
     this.logger.info('Built-in tools registered', {
       count: 4,
     });
+  }
+
+  // P2-1: Populate the Resources registry with system-level resources.
+  // The registry scaffolding always shipped empty — these adapter registrations
+  // surface monomind's state to MCP clients as app-driven context.
+  private registerBuiltInResources(): void {
+    this.resourceRegistry.registerResource(
+      {
+        uri: 'monomind://system/status',
+        name: 'System Status',
+        description: 'Current monomind MCP server health, uptime, and tool count',
+        mimeType: 'application/json',
+      },
+      async (uri: string) => [{
+        uri,
+        mimeType: 'application/json',
+        text: JSON.stringify({
+          status: 'running',
+          uptime: this.startTime ? Date.now() - this.startTime.getTime() : 0,
+          tools: this.toolRegistry.listTools().length,
+          version: this.serverInfo.version,
+        }, null, 2),
+      }],
+    );
+
+    this.resourceRegistry.registerResource(
+      {
+        uri: 'monomind://system/metrics',
+        name: 'Server Metrics',
+        description: 'Request count, cache hit rate, error rate',
+        mimeType: 'application/json',
+      },
+      async (uri: string) => [{
+        uri,
+        mimeType: 'application/json',
+        text: JSON.stringify(this.getMetrics(), null, 2),
+      }],
+    );
+
+    this.resourceRegistry.registerResource(
+      {
+        uri: 'monomind://system/tools',
+        name: 'Tool Inventory',
+        description: 'Complete list of registered MCP tools with categories',
+        mimeType: 'application/json',
+      },
+      async (uri: string) => [{
+        uri,
+        mimeType: 'application/json',
+        text: JSON.stringify(this.toolRegistry.listTools(), null, 2),
+      }],
+    );
+
+    this.logger.info('Built-in resources registered', { count: 3 });
+  }
+
+  // P2-2: Populate the Prompts registry with curated workflow templates.
+  // These give MCP clients pre-built prompt structures for common dev tasks.
+  private registerBuiltInPrompts(): void {
+    this.promptRegistry.register({
+      name: 'monomind:research-plan',
+      description: 'Generate a structured research plan for a topic',
+      arguments: [{ name: 'topic', description: 'The research topic', required: true }],
+      handler: async (args: Record<string, string>) => [{
+        role: 'user' as const,
+        content: {
+          type: 'text' as const,
+          text: `Research plan for: ${args.topic ?? '(unspecified)'}\n\n1. Define scope and key questions\n2. Identify sources and prior work\n3. Outline methodology\n4. Execute research (parallel agents if appropriate)\n5. Synthesize findings\n6. Review and refine`,
+        },
+      }],
+    });
+
+    this.promptRegistry.register({
+      name: 'monomind:pr-review',
+      description: 'Structured pull-request review checklist',
+      arguments: [{ name: 'changes', description: 'Description of the changes', required: true }],
+      handler: async (args: Record<string, string>) => [{
+        role: 'user' as const,
+        content: {
+          type: 'text' as const,
+          text: `PR Review checklist for: ${args.changes ?? '(unspecified)'}\n\n- [ ] Correctness: does the code do what it claims?\n- [ ] Tests: are there tests covering the changes?\n- [ ] Security: any input validation gaps?\n- [ ] Performance: any O(n²) or unnecessary allocations?\n- [ ] Docs: are relevant docs updated?\n- [ ] Breaking changes: any removed APIs or changed behavior?\n- [ ] Honesty: any fabricated metrics or misleading output?`,
+        },
+      }],
+    });
+
+    this.promptRegistry.register({
+      name: 'monomind:debug-protocol',
+      description: 'Systematic root-cause debugging protocol (4-phase)',
+      arguments: [{ name: 'symptom', description: 'Description of the bug or unexpected behavior', required: true }],
+      handler: async (args: Record<string, string>) => [{
+        role: 'user' as const,
+        content: {
+          type: 'text' as const,
+          text: `Debug protocol for: ${args.symptom ?? '(unspecified)'}\n\nPhase 1 — REPRODUCE: Write a test that triggers the bug. Verify it fails.\nPhase 2 — ISOLATE: Binary-search the cause. What's the smallest change that triggers it?\nPhase 3 — FIX: Make the test pass with the minimal code change.\nPhase 4 — VERIFY: Run the full test suite. Confirm no regressions.`,
+        },
+      }],
+    });
+
+    this.logger.info('Built-in prompts registered', { count: 3 });
   }
 
   private setupEventHandlers(): void {

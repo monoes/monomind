@@ -470,14 +470,21 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     output.writeln('');
     output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    output.writeln(output.bold('  Run /mastermind:understand next'));
+    output.writeln(output.bold('  Next steps'));
     output.writeln('');
-    output.writeln('  In Claude Code, type:  /mastermind:understand');
+    output.writeln('  1. Register the MCP server with Claude Code:');
+    output.writeln(`     ${output.highlight('claude mcp add monomind -- npx -y monomind@latest mcp start')}`);
     output.writeln('');
-    output.writeln('  This analyzes your project with an LLM and enriches the');
-    output.writeln('  knowledge graph with semantic summaries, tags, and layers.');
-    output.writeln('  Claude Code will have a much richer mental model of your');
-    output.writeln('  codebase from the very first session.');
+    output.writeln(`  2. Verify the install worked:`);
+    output.writeln(`     ${output.highlight('monomind mcp verify')}`);
+    output.writeln('');
+    output.writeln('  3. Open Claude Code and type:');
+    output.writeln(`     ${output.highlight('/mastermind:help')}   ${output.dim('# see all available slash commands')}`);
+    output.writeln(`     ${output.highlight('/mastermind:understand')}   ${output.dim('# analyze your project with an LLM')}`);
+    output.writeln('');
+    output.writeln(output.dim('  The /mastermind:* slash commands are the primary way to use'));
+    output.writeln(output.dim('  monomind from inside Claude Code. They become available once'));
+    output.writeln(output.dim('  the MCP server is registered (step 1) and Claude Code is open.'));
     output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
 
     if (ctx.flags.format === 'json') {
@@ -492,10 +499,78 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
 };
 
+// Quickstart subcommand (P1-15) — one-command setup: init + claude mcp add + verify
+const quickstartCommand: Command = {
+  name: 'quickstart',
+  description: 'One-command setup: init with defaults + register MCP + verify. Fastest path to first payoff.',
+  options: [
+    { name: 'force', short: 'f', description: 'Overwrite existing configuration', type: 'boolean', default: false },
+  ],
+  examples: [
+    { command: 'monomind init quickstart', description: 'Set up everything with sensible defaults' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const { execSync } = await import('child_process');
+    output.writeln();
+    output.writeln(output.bold('Monomind Quickstart'));
+    output.writeln(output.dim('  Running init with defaults, registering MCP, and verifying.'));
+    output.writeln();
+
+    // Step 1: Init with defaults
+    output.writeln(output.bold('Step 1/3: Initialize project'));
+    try {
+      const initArgs = ['init'];
+      if (ctx.flags.force) initArgs.push('--force');
+      initArgs.push('--yes');
+      execSync(`node "${process.argv[1]}" ${initArgs.join(' ')}`, {
+        cwd: ctx.cwd, stdio: 'inherit', timeout: 120000,
+      });
+    } catch {
+      output.printWarning('Init step completed with warnings — continuing.');
+    }
+    output.writeln();
+
+    // Step 2: Register MCP with Claude Code
+    output.writeln(output.bold('Step 2/3: Register MCP server'));
+    try {
+      execSync('claude mcp add monomind -- npx -y monomind@latest mcp start', {
+        cwd: ctx.cwd, stdio: 'pipe', timeout: 10000,
+      });
+      output.printSuccess('MCP server registered with Claude Code');
+    } catch {
+      output.printWarning('Could not auto-register with Claude Code. Run manually:');
+      output.writeln(output.dim('  claude mcp add monomind -- npx -y monomind@latest mcp start'));
+    }
+    output.writeln();
+
+    // Step 3: Verify
+    output.writeln(output.bold('Step 3/3: Verify install'));
+    try {
+      execSync(`node "${process.argv[1]}" mcp verify`, {
+        cwd: ctx.cwd, stdio: 'inherit', timeout: 15000,
+      });
+    } catch {
+      output.printWarning('Verify step found issues — see above.');
+    }
+    output.writeln();
+
+    output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    output.writeln(output.bold('  Next step'));
+    output.writeln();
+    output.writeln('  Open Claude Code in this project and type:');
+    output.writeln(`    ${output.highlight('/mastermind:help')}`);
+    output.writeln();
+    output.writeln(output.dim('  See doc/getting-started.md for the full walkthrough.'));
+    output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+
+    return { success: true, message: 'quickstart complete' };
+  }
+};
+
 export const initCommand: Command = {
   name: 'init',
   description: 'Initialize MonoMind in the current directory',
-  subcommands: [wizardCommand, checkCommand, skillsCommand, hooksCommand, upgradeCommand],
+  subcommands: [wizardCommand, checkCommand, skillsCommand, hooksCommand, upgradeCommand, quickstartCommand],
   options: [
     {
       name: 'force',

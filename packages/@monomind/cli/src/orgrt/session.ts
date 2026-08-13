@@ -138,6 +138,8 @@ export interface SessionOpts {
   lastMessageId?: () => string | undefined;
   /** Callback for each output line — feeds ScrollbackBuffer. */
   onOutput?: (line: string) => void;
+  /** Callback when the SDK assigns a session ID — enables checkpoint resume (P2-13). */
+  onSessionId?: (id: string) => void;
   /** Circuit breaker config for this role. */
   circuitBreaker?: { threshold: number; state: { failures: number; tripped: boolean } };
   /** Called when the coordinator's context window is exhausted. */
@@ -379,7 +381,12 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
       if (process.env.MONOMIND_DEBUG) {
         console.error(`[orgrt:${org}/${role.id}] runner message type=${m.type} subtype=${String(m.subtype ?? '-')}`);
       }
-      if (m.session_id) sessionId = m.session_id;
+      if (m.session_id) {
+        sessionId = m.session_id;
+        // P2-13: propagate the session ID back to the daemon so checkpoints
+        // can resume the SDK session after a crash/restart.
+        opts.onSessionId?.(sessionId);
+      }
       const prevState = detector.current();
       const textForDetect = m.type === 'assistant' ? (m.text || '') : undefined;
       const newState = detector.onMessage(m.type, m.subtype, textForDetect);

@@ -158,6 +158,79 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
 
   const crossProcess = ctx.flags['crossProcess'] !== false;
+
+  // P1-1: v1 deprecation warning. Detect v1-shaped configs and warn.
+  // Gate on MONOMIND_V1_LEGACY=off to refuse v1 orgs entirely (patch-versioning-
+  // compliant mechanism — no minor bump needed).
+  const V1_ORG_KEYS = ['topology', 'consensus', 'strategy', 'board_id', 'todo_col_id', 'doing_col_id', 'done_col_id', 'loop'];
+  try {
+    const rawCfg = JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')) as Record<string, unknown>;
+    const isV1 = V1_ORG_KEYS.some(k => k in rawCfg);
+    if (isV1) {
+      const v1Legacy = process.env.MONOMIND_V1_LEGACY;
+      if (v1Legacy === 'off') {
+        log(output.error(`Org "${name}" uses the v1 config format, but MONOMIND_V1_LEGACY=off.`));
+        log(output.info(`Run "monomind org migrate ${name}" to upgrade to v2, or unset MONOMIND_V1_LEGACY to proceed anyway.`));
+        return { success: false, message: 'v1 org blocked by MONOMIND_V1_LEGACY=off' };
+      }
+      log(output.warning(`Org "${name}" uses the v1 config format (deprecated). It will be auto-migrated in-memory.`));
+      log(output.dim(`  To silence: run "monomind org migrate ${name}". To block v1 orgs: set MONOMIND_V1_LEGACY=off.`));
+    }
+  } catch { /* config parse errors surface below in cost estimate or daemon.startOrg */ }
+
+  // P0-17: Upfront cost estimate. `org run` and `/mastermind:autodev` spend real
+  // provider tokens. Print an estimate before sessions start; honor --budget-usd
+  // as a hard stop and --yes to skip the confirmation prompt. Rates are defaults
+  // (per 1M tokens, input+output blended, Aug 2026); override via the model id.
+  const MODEL_RATE_PER_1M: Record<string, number> = {
+    'claude-opus-5': 75, 'claude-opus-4': 75,
+    'claude-sonnet-5': 15, 'claude-sonnet-4': 15, 'claude-sonnet-4-5': 15,
+    'gpt-5': 10, 'gpt-4': 10,
+    'glm-5.2': 2, 'glm-4': 2,
+    'kimi-latest': 3, 'kimi-k2': 3,
+  };
+  const DEFAULT_RATE_PER_1M = 10;
+  const AVG_TOKENS_PER_TURN = 2000;
+  const budgetUsd = ctx.flags['budgetUsd'] as number | undefined;
+  const skipConfirm = ctx.flags['yes'] === true;
+  try {
+    const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')));
+    const maxTurns = def.run_config.max_turns_per_message ?? 30;
+    let totalTokens = 0;
+    const perRoleRows = def.roles.map((r) => {
+      const model = String(r.adapter_config?.model ?? 'claude-sonnet-5');
+      const rate = MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
+      const tokens = maxTurns * AVG_TOKENS_PER_TURN;
+      totalTokens += tokens;
+      return { id: r.id, model, tokens, cost: (tokens * rate) / 1_000_000 };
+    });
+    const estimate = perRoleRows.reduce((s, r) => s + r.cost, 0);
+    log(output.bold('\nCost estimate'));
+    log(output.dim(`  (roles × max_turns × ~${AVG_TOKENS_PER_TURN} tokens/turn × model rate; default rates, will vary with real usage)`));
+    for (const r of perRoleRows) {
+      log(`    ${r.id.padEnd(20)} ${r.model.padEnd(22)} ~$${r.cost.toFixed(2)}`);
+    }
+    log(`  ${output.bold('Total estimate:'.padEnd(28))} ~$${estimate.toFixed(2)}`);
+    if (budgetUsd != null && estimate > budgetUsd) {
+      log(output.error(`Estimate $${estimate.toFixed(2)} exceeds --budget-usd $${budgetUsd}. Aborting before any tokens are spent.`));
+      return { success: false, message: 'cost estimate exceeded --budget-usd' };
+    }
+    if (!skipConfirm && process.stdin.isTTY) {
+      const { confirm } = await import('../prompt.js');
+      const ok = await confirm({ message: `Start ${def.roles.length}-role org? This will spend real provider tokens.`, default: true });
+      if (!ok) {
+        log(output.dim('Aborted — no tokens spent.'));
+        return { success: false, message: 'user declined cost-estimate prompt' };
+      }
+    }
+  } catch (err) {
+    // If the config can't be parsed here, daemon.startOrg below will surface a
+    // proper error. Don't double-report — just skip the estimate.
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+      log(output.dim(`(cost estimate skipped: ${err instanceof Error ? err.message : String(err)})`));
+    }
+  }
+
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
@@ -178,6 +251,20 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     return { success: false, message: 'org start failed' };
   }
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
+
+  // P1-12: Print the dashboard URL so CLI users know where to look.
+  // The dashboard is spawned by a Claude Code SessionStart hook
+  // (.claude/helpers/control-start.cjs); pure-CLI users need to know this.
+  const controlPath = join(ctx.cwd, '.monomind', 'control.json');
+  if (existsSync(controlPath)) {
+    try {
+      const ctl = JSON.parse(readFileSync(controlPath, 'utf8')) as { port?: number; url?: string };
+      const dashUrl = ctl.url || (ctl.port ? `http://localhost:${ctl.port}` : 'http://localhost:4242');
+      log(output.dim(`  Dashboard: ${dashUrl}`));
+    } catch { /* non-critical */ }
+  } else {
+    log(output.dim('  Dashboard: open Claude Code to launch it, or run: monomind org dashboard'));
+  }
 
   // stopfile poll lets `org stop` work from another terminal; the daemon can
   // also stop the org itself (boss called org_complete, or the idle watchdog
@@ -1004,6 +1091,8 @@ export const orgCommand: Command = {
         { name: 'task', description: 'Override the org goal for this run', type: 'string' },
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
         { name: 'dry-run', description: 'Validate and print each role\'s briefing without starting any agent sessions', type: 'boolean' },
+        { name: 'budget-usd', description: 'Hard-stop the run if the upfront cost estimate exceeds this USD value (e.g. --budget-usd 5)', type: 'number' },
+        { name: 'yes', short: 'y', description: 'Skip the interactive cost-estimate confirmation prompt', type: 'boolean' },
       ],
       examples: [{ command: 'monomind org run growth --task "weekly report"', description: 'Run the growth org once with a task' }],
       action: runAction,
