@@ -51,9 +51,10 @@ export const optimizeCommand: Command = {
 
         let quantized = 0;
         let savedBytes = 0;
+        let cosineDriftSum = 0;
+        let cosineDriftCount = 0;
 
         // Int8 quantization: compress Float32 embeddings to Int8 by scaling to [-127, 127]
-        // Reduces embedding storage by ~4x with minimal retrieval quality loss.
         const quantizedPatterns = patterns.map(p => {
           if (!p.embedding || p.embedding.length === 0) return p;
 
@@ -61,10 +62,28 @@ export const optimizeCommand: Command = {
           const scale = 127 / maxAbs;
           const int8Embedding = Array.from(p.embedding).map((v: number) => Math.round(v * scale) / scale);
 
+          // Measure the real cosine similarity between the original and quantized
+          // embedding so "Quality Impact" reports a computed number, not a claim.
+          let dot = 0;
+          let normOrig = 0;
+          let normQuant = 0;
+          for (let i = 0; i < p.embedding.length; i++) {
+            dot += p.embedding[i] * int8Embedding[i];
+            normOrig += p.embedding[i] * p.embedding[i];
+            normQuant += int8Embedding[i] * int8Embedding[i];
+          }
+          const denom = Math.sqrt(normOrig) * Math.sqrt(normQuant);
+          if (denom > 1e-12) {
+            cosineDriftSum += 1 - dot / denom;
+            cosineDriftCount++;
+          }
+
           savedBytes += (p.embedding.length * 4) - (p.embedding.length * 1);
           quantized++;
           return { ...p, embedding: int8Embedding, _quantized: true, _scale: scale };
         });
+
+        const avgCosineDrift = cosineDriftCount > 0 ? cosineDriftSum / cosineDriftCount : null;
 
         const patternFile = path.join(patternDir, 'patterns.json');
         const { writeJsonFileAtomic } = await import('../utils/json-file.js');
@@ -81,10 +100,15 @@ export const optimizeCommand: Command = {
             { metric: 'Patterns Quantized', value: String(quantized) },
             { metric: 'Memory Saved', value: `~${(savedBytes / 1024).toFixed(1)} KB` },
             { metric: 'Compression', value: '~4x (Float32 → Int8)' },
-            { metric: 'Quality Impact', value: 'Minimal (<1% cosine error)' },
+            {
+              metric: 'Quality Impact',
+              value: avgCosineDrift !== null
+                ? `${(avgCosineDrift * 100).toFixed(3)}% mean cosine drift (measured)`
+                : 'not measured (no embeddings)',
+            },
           ],
         });
-        return { success: true, data: { quantized, savedBytes } };
+        return { success: true, data: { quantized, savedBytes, avgCosineDrift } };
 
       } else if (method === 'analyze') {
         spinner.succeed('Analysis complete');
@@ -241,13 +265,13 @@ export const exportCommand: Command = {
             id: stripPii ? redact(rawId) : rawId,
             trigger: stripPii ? redact(rawTrigger) : rawTrigger,
             action: stripPii ? redact(rawAction) : rawAction,
-            confidence: pattern.confidence || 0.85,
+            confidence: pattern.confidence ?? 0,
             usageCount: pattern.usageCount || 1,
           });
         }
       }
 
-      exportData.metadata.accuracy = (stats as { retrievalPrecision?: number }).retrievalPrecision || 0.85;
+      exportData.metadata.accuracy = (stats as { retrievalPrecision?: number }).retrievalPrecision ?? 0;
       exportData.metadata.totalUsage = exportData.patterns.reduce((sum, p) => sum + p.usageCount, 0);
 
       spinner.setText('Generating secure signature...');
