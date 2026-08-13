@@ -259,7 +259,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
     srv = await startOrgServer(daemon, 0);
-    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.credential);
   }
   let running: Awaited<ReturnType<typeof daemon.startOrg>>;
   try {
@@ -711,7 +711,7 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
     srv = await startOrgServer(daemon, 0);
-    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`);
+    daemon.setInboxUrl(`http://127.0.0.1:${srv.port}`, srv.credential);
   }
 
   // Crash handlers: log the reason and persist crashed state so `org status`
