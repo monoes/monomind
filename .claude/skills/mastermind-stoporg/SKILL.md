@@ -91,25 +91,6 @@ touch ".monomind/orgs/.stops/${org_name}.stop"
 ---
 
 <!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
-## Step 4 — Emit Dashboard Events
-
-```bash
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-
-# org:stop — signals dashboard to update status to stopped
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -cn \
-    --arg session "${session_id:-manual}" \
-    --arg org "$org_name" \
-    --arg proj "$REPO_ROOT" \
-    '{type:"org:stop",session:$session,org:$org,project:$proj,ts:(now*1000|floor)}')" || true
-```
-
----
-
-<!-- LEGACY-ORG-V1: remove this step when v1 orgs are gone -->
 ## Step 5 — Report to User (v1 only)
 
 ```

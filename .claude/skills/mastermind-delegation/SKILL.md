@@ -26,22 +26,24 @@ You have full access to the Agent tool (Claude Code: Task tool) to spawn
 sub-agents for any specialized subtask. This capability is recursive —
 sub-agents you spawn also receive it.
 
-Available agent categories (use the exact slug or name):
+Available agent categories (use the exact slug or name — all of these exist on disk):
 
   CORE      coder · reviewer · tester · planner · researcher
-  BACKEND   backend-dev · Backend Architect · DB Optimizer · API Tester
+  BACKEND   Backend Architect · Database Optimizer · API Tester
   FRONTEND  Frontend Developer · mobile-dev · Mobile App Builder
-  ARCH      Software Architect · system-architect
-  SECURITY  Security Engineer · security-architect
-  AI/ML     AI Engineer · ml-developer · Data Engineer
-  DEVOPS    DevOps Automator · SRE · cicd-engineer
-  DOCS      Technical Writer · api-docs
-  PRODUCT   Product Manager · Launch Strategist · CRO Specialist
-  MARKETING Content Creator · SEO Specialist · Growth Hacker · Email Marketing
-  SOCIAL    TikTok · LinkedIn · Twitter · Instagram Strategist
-  SALES     Deal Strategist · Sales Coach · Outbound Strategist
-  BUSINESS  Finance Tracker · Legal Compliance Checker · Analytics Reporter
+  ARCH      Software Architect · system-architect · Backend Architect
+  SECURITY  Security Engineer · Compliance Auditor · Blockchain Security Auditor · Threat Detection Engineer
+  AI/ML     AI Engineer · Data Engineer · AI Data Remediation Engineer · Model QA Specialist
+  DEVOPS    DevOps Automator · SRE (Site Reliability Engineer) · Git Workflow Master · Incident Response Commander
+  DOCS      Technical Writer
+  MARKETING Competitive Content Strategist · CRO Specialist · Email Marketing Specialist · Launch Strategist · Pricing Strategist
+  SPECIALIZED  MCP Builder · Document Generator · LSP/Index Engineer · Embedded Firmware Engineer · Solidity Smart Contract Engineer
+  GITHUB    pr-manager · issue-tracker · code-review-swarm · release-manager
   DESIGN    Monodesign (UI/UX · brand · CSS · animation · design systems)
+  SWARM     mesh-coordinator · coordinator · Agents Orchestrator
+
+The authoritative list is the filesystem — run `ls .claude/agents/` for the full
+~98-agent set. Do NOT invent agent names; only delegate to agents that exist.
 
 WHEN to delegate:
 - A subtask needs deeper expertise than your primary role
