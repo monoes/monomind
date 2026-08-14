@@ -4,6 +4,13 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.10] — 2026-08-14
+
+### GitHub issue fixes (#141 follow-up, #142)
+
+- **#141 follow-up — `control-start.cjs` is now synced by `monomind init upgrade`.** It was never in the `HELPER_FILES` force-sync registry, so existing projects never picked up the #141 EINVAL fix automatically; users had to manually copy the file out of `node_modules`. Registered alongside `statusline.cjs`/`graphify-freshen.cjs` (force-synced, doctor-tracked, no fallback generator).
+- **#142 — `confirmPort()`'s 10s window is now 30s for the `npx` fallback path.** Every other `findCliPath()` branch spawns `node` directly against an already-resolved path and pays no resolve cost, but the last-resort `npx monomind@latest ui` fallback pays npx's own first-time package resolve into its `_npx` cache — measured at ~12.4s cold vs ~3.4s warm. On a fresh install this killed the dashboard child as a false "orphan" before it could ever bind, exactly on the first-session case auto-start exists for.
+
 ## [2.9.9] — 2026-08-14
 
 ### GitHub issue fixes (#141)
