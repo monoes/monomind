@@ -277,10 +277,23 @@ async function main() {
   // pid matches our child. A foreign server answering on DEFAULT_PORT must
   // NOT be mistaken for ours — that lie misroutes every event emitter in
   // this project (root cause of orgs running invisibly).
+  // Absolute safety net so a wedged-but-still-alive process can't hang this
+  // hook forever — CONFIRM_ATTEMPTS below is a minimum grace period, not a
+  // hard budget (#142 follow-up).
+  const HARD_CEILING_ATTEMPTS = 600; // 500ms/attempt: 5 min
   async function confirmPort() {
     let sawForeignOnDefault = false;
-    for (let attempt = 0; attempt < CONFIRM_ATTEMPTS; attempt++) {
+    let attempt = 0;
+    for (; attempt < HARD_CEILING_ATTEMPTS; attempt++) {
       await new Promise(r => setTimeout(r, 500));
+      // Past the minimum grace period, a dead child means it's not coming
+      // back — stop waiting immediately instead of burning the rest of the
+      // budget. A LIVE child that simply hasn't reported yet (npm/AV
+      // contention on a freshly-written node_modules right after install,
+      // measured once at ~142s vs the normal ~5-9s — #142 follow-up) keeps
+      // getting the benefit of the doubt up to HARD_CEILING_ATTEMPTS instead
+      // of being killed on a fixed guess.
+      if (attempt >= CONFIRM_ATTEMPTS && !isPidAlive(child.pid)) break;
       // 1) Authoritative: child self-reported its bound port. Identity comes
       // from BOUND_REPORT's own per-invocation-unique path (nothing else on
       // the machine knows it, since it's only handed to this child via env),
@@ -370,7 +383,7 @@ async function main() {
     // The next session-start simply retries.
     try { process.kill(child.pid, 'SIGTERM'); } catch { /* already gone */ }
     try { fs.unlinkSync(STATUS_FILE); } catch { /* ignore */ }
-    process.stdout.write(`[control] server did not respond within ${CONFIRM_ATTEMPTS / 2} s — killed orphan, will retry next session\n`);
+    process.stdout.write(`[control] server did not respond within ${((attempt + 1) * 500 / 1000).toFixed(1)} s — killed orphan, will retry next session\n`);
   }
 
   confirmPort().catch(() => {}).finally(() => { releaseSpawnLock(); process.exit(0); });
