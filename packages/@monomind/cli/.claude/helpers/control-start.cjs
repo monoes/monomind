@@ -219,6 +219,9 @@ async function main() {
     stdio: 'ignore',
     cwd: CWD,
     env: { ...process.env, CLAUDE_PROJECT_DIR: CWD, MONOMIND_BOUND_REPORT: BOUND_REPORT },
+    // Windows cannot exec a .cmd/.bat file directly — without shell:true,
+    // spawning the npx.cmd fallback throws EINVAL synchronously.
+    shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(cmd),
   });
 
   child.on('error', (err) => {
@@ -360,4 +363,10 @@ async function main() {
   confirmPort().catch(() => {}).finally(() => { releaseSpawnLock(); process.exit(0); });
 }
 
-main().catch(() => process.exit(0));
+main().catch((err) => {
+  if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") {
+    process.stderr.write(`[control] failed to start: ${err && err.message ? err.message : err}\n`);
+  }
+  releaseSpawnLock();
+  process.exit(0);
+});
