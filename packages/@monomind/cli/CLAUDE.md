@@ -251,17 +251,19 @@ npx monomind@latest security scan --depth full
 npx monomind@latest performance benchmark --suite all
 ```
 
-## Available Agents (121 definitions in this package's `.claude/agents/`, 120 registered)
+## Available Agents (98 definitions in this package's `.claude/agents/`, 97 registered)
 
 **Counts are for THIS package, not the repo root.** `packages/@monomind/cli/.claude/agents/`
-holds 121 `.md` files with 120 entries in `packages/@monomind/cli/.monomind/registry.json`;
-the repo-root `.claude/agents/` tree is a different, much smaller set (31). Because
-`package.json`'s `files` array includes `.claude`, all 121 ship to npm users — so the
+holds 98 `.md` files with 97 entries in `packages/@monomind/cli/.monomind/registry.json`;
+the repo-root `.claude/agents/` tree is a different set (90 files). Unlike the repo-root
+tree, this package's tree has no `generated/` subdirectory — the one generated definition
+(`dashboard-verifier`) lives only under the repo-root `.claude/agents/generated/`. Because
+`package.json`'s `files` array includes `.claude`, all 98 ship to npm users — so the
 package's own tree is the number that matters here.
 
-By directory: generated 23, engineering 23, specialized 14, github 12, testing 9,
-reengineer-squad 9, core 6, optimization 5, marketing 5, hive-mind 4, consensus 3,
-templates 2, plus the design and swarm entries listed below.
+By directory: engineering 23, specialized 15, github 12, testing 9, reengineer-squad 9,
+core 6, optimization 5, marketing 5, hive-mind 4, consensus 3, templates 2, plus one
+file each in architecture, design, goal, specialists, and swarm.
 
 The curated roster below is the subset worth routing to by hand. It is **not** the complete
 set — names such as `crdt-synchronizer`, `security-manager`, `production-validator`,

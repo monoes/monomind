@@ -227,7 +227,7 @@ function cliCommandsTable(): string {
 | \`memory\` | 12 | SQLite memory with ANN search |
 | \`task\` | 5 | Task creation and lifecycle |
 | \`session\` | 6 | Session state management |
-| \`hooks\` | 29 | Self-learning hooks + 15 background workers${unavailNote(avail.hooks)} |
+| \`hooks\` | 29 | Self-learning hooks + 8 background workers${unavailNote(avail.hooks)} |
 
 > Note: there is no \`hive-mind\` or \`neural\` CLI command. Hive-mind
 > consensus (byzantine/raft/quorum) is available exclusively via MCP tools
@@ -252,10 +252,10 @@ function agentTypes(): string {
 \`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`
 
 ### Specialized
-\`security-architect\`, \`security-auditor\`, \`memory-specialist\`, \`performance-engineer\`
+\`security-architect\`
 
 ### Swarm Coordination
-\`hierarchical-coordinator\`, \`mesh-coordinator\`, \`adaptive-coordinator\`
+\`mesh-coordinator\`
 
 ### GitHub & Repository
 \`pr-manager\`, \`code-review-swarm\`, \`issue-tracker\`, \`release-manager\``;
@@ -263,14 +263,14 @@ function agentTypes(): string {
 
 function hooksSystem(): string {
   const avail = detectOptionalPackages();
-  return `## Hooks System (29 Hook Subcommands + 15 Background Workers)
+  return `## Hooks System (29 Hook Subcommands + 8 Background Workers)
 
 ### Essential Hooks
 
 | Hook | Description |
 |------|-------------|
 | \`pre-task\` / \`post-task\` | Task lifecycle with learning |
-| \`pre-edit\` / \`post-edit\` | File editing with neural training |
+| \`pre-edit\` / \`post-edit\` | File editing with pattern logging |
 | \`session-start\` / \`session-end\` | Session state persistence |
 | \`route\` | Route task to optimal agent |
 | \`intelligence\` | Pattern-learning intelligence system |
@@ -286,7 +286,7 @@ function hooksSystem(): string {
 | \`consolidate\` | low | Memory consolidation |
 | \`ddd\` | low | DDD progress tracking |
 | \`security\` | high | Secret/vulnerability scan |
-| \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full 15 |
+| \`performance\`, \`health\`, \`swarm\`, \`git\`, \`learning\`, \`adr\`, \`patterns\`, \`cache\`, \`progress\` | various | See \`hooks worker list\` for the full 8 |
 
 Metrics-producing workers refresh at session start when output is >6h old.
 ${avail.hooks ? '' : '\n> \\@monoes/hooks is not resolvable in this install — background workers will fail to load (see `hooks worker list`). This is an install/publish gap, not a project misconfiguration.\n'}
@@ -374,7 +374,6 @@ npx monomind@latest security cve --check
 
 ### Security Agents
 - \`security-architect\` — threat modeling, architecture review
-- \`security-auditor\` — code audit, vulnerability detection
 - Use agent routing code 9 (hierarchical/specialized) for security tasks`;
 }
 
@@ -395,7 +394,6 @@ npx monomind@latest performance metrics --format table
 \`\`\`
 
 ### Performance Agents
-- \`performance-engineer\` — profiling, benchmarking, optimization
 - \`perf-analyzer\` — bottleneck detection, analysis
 - Use agent routing code 7 (hierarchical/specialized) for performance tasks`;
 }

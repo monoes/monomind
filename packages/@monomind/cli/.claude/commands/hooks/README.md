@@ -20,7 +20,7 @@ Self-learning hooks system for intelligent workflow automation. Invoked as `npx 
 
 ```
 pre-edit          Get context and agent suggestions before editing a file
-post-edit         Record editing outcome for neural pattern learning
+post-edit         Record editing outcome for pattern logging
 pre-command       Assess risk before executing a command
 post-command      Record command execution outcome
 pre-task          Register task start and get agent suggestions + model routing

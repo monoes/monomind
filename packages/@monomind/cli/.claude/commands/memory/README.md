@@ -4,13 +4,13 @@ name: memory:README
 
 # Memory Commands
 
-Commands for the LanceDB memory system — vector search, namespaced storage, HNSW indexing, and cross-session persistence.
+Commands for the memory system — local SQLite persistent cache (sql.js/WASM) + local HF embeddings, namespaced storage, keyword fallback search, and cross-session persistence.
 
 ## Available Subcommands
 
 | Subcommand | Description |
 |---|---|
-| `memory init` | Initialize memory backend (lancedb, sqlite, hybrid) |
+| `memory init` | Initialize memory backend (sqlite, hybrid) |
 | `memory store` | Store a memory entry with optional vector embedding |
 | `memory retrieve` | Retrieve a memory entry by key |
 | `memory search` | Search memory (semantic / keyword / hybrid) |
@@ -35,7 +35,7 @@ npx monomind memory init --backend hybrid
 npx monomind memory store --key "auth-pattern" --value "Use JWT with refresh tokens" --namespace "patterns"
 
 # Search
-npx monomind memory search --query "authentication" --type hybrid --build-hnsw
+npx monomind memory search --query "authentication" --type hybrid
 
 # Retrieve exact key
 npx monomind memory retrieve --key "auth-pattern"
@@ -50,7 +50,7 @@ npx monomind memory import --input backup.json --merge
 
 ## Files
 
-- [memory-search.md](./memory-search.md) — Search memory (semantic/keyword/hybrid + HNSW)
+- [memory-search.md](./memory-search.md) — Search memory (semantic/keyword/hybrid; pure-JS HNSW is a dead fallback path, not the default)
 
 ## MCP Tools
 
@@ -68,12 +68,11 @@ npx monomind memory import --input backup.json --merge
 
 | Backend | Description | Recommended |
 |---|---|---|
-| `lancedb` | Full LanceDB with HNSW vector search | Production |
 | `sqlite` | SQLite-only, no vector search | Lightweight |
-| `hybrid` | SQLite + LanceDB HNSW | Default (recommended) |
+| `hybrid` | SQLite + local HF embeddings (keyword fallback; pure-JS HNSW is a dead fallback path, not the default) | Default (recommended) |
 
 ## See Also
 
 - `hooks intelligence` — pattern learning on top of memory
-- `neural` — neural pattern training
+- `neural` — pattern logging
 - `session` — session state (separate from memory)

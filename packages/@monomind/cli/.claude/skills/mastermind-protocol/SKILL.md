@@ -29,12 +29,12 @@ This makes delegation recursive: every spawned agent can itself spawn sub-agents
 Execute at the START of every mastermind run (master or standalone domain command). Load in this order:
 
 **Step A — Tier 3 core principles (all domains):**
-Try `mcp__monomind__lancedb_hierarchical-recall` with query `"mastermind principles"`, topK 20.
+Try `mcp__monomind__memory_hierarchical-recall` with query `"mastermind principles"`, topK 20.
 If it returns `"LanceDB bridge not available"` or any error, fall back to:
 `mcp__monomind__memory_search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
 
 **Step B — Tier 2 weekly summary for this domain:**
-Try `mcp__monomind__lancedb_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
+Try `mcp__monomind__memory_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
 If it fails, fall back to:
 `mcp__monomind__memory_search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
 
@@ -69,7 +69,7 @@ score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
 - `uses`: 1 (first write)
 
 **Step 2 — Append to Tier 1 raw log:**
-Try `mcp__monomind__lancedb_hierarchical-store` with:
+Try `mcp__monomind__memory_hierarchical-store` with:
 - namespace: `mastermind:<domain>:raw`
 - content: [full unified output schema YAML from this run, as a string]
 - metadata: `{ score, project, run_id, date: ISO8601, domain }`
@@ -81,19 +81,19 @@ If LanceDB is unavailable, fall back to `mcp__monomind__memory_store`:
 - tags: `["mastermind", "<domain>", "run"]`
 
 **Step 3 — Check weekly compaction trigger:**
-Try `mcp__monomind__lancedb_health` on namespace `mastermind:<domain>:raw`.
+Try `mcp__monomind__memory_health` on namespace `mastermind:<domain>:raw`.
 If unavailable, call `mcp__monomind__memory_stats` and check entry count manually.
 If `entry_count >= 20` OR `days_since_last_compaction >= 7`:
 1. Retrieve all Tier 1 entries since last compaction
 2. Produce a per-domain weekly summary (use LLM synthesis: "Summarize the key decisions, patterns, and lessons from these run logs in under 300 words")
-3. Store summary: `mcp__monomind__lancedb_hierarchical-store` namespace `mastermind:<domain>:weekly`
+3. Store summary: `mcp__monomind__memory_hierarchical-store` namespace `mastermind:<domain>:weekly`
 4. Archive (do not delete) Tier 1 entries with score < 0.1 by updating their metadata: `{ archived: true }`
 
 **Step 4 — Check graph consolidation trigger:**
 Call `mcp__monomind__monograph_community` for nodes matching `mastermind:<domain>`.
 If 3+ similar memory nodes are detected in a cluster:
 1. Merge into a single principle via LLM: "Distill these memories into one clear principle in 1-2 sentences"
-2. Store principle: `mcp__monomind__lancedb_hierarchical-store` namespace `mastermind:principles`
+2. Store principle: `mcp__monomind__memory_hierarchical-store` namespace `mastermind:principles`
 3. Add `EXCEPTION` edge in Monograph for any conflicting memory: `mcp__monomind__monograph_add_fact`
 
 ---
@@ -139,124 +139,6 @@ score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
 | `uses` | Incremented each time this memory is returned by brain load |
 | Archive threshold | score < 0.1 |
 | Reinforcement | Increment `uses` on every brain load hit |
-
----
-
-## Real-Time Dashboard Event Logging
-
-Every mastermind run MUST emit structured events to the live dashboard via curl (NOT WebFetch — WebFetch is blocked for localhost in Claude Code runtimes). The dashboard at `docs/mastermind-diagram.html` listens on SSE and animates each event in real time.
-
-**Dashboard endpoint:** `<CTRL_URL>/api/mastermind/event`
-Resolve `CTRL_URL` at runtime: `jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242"` — the control server port auto-increments on collision and writes the actual URL to `.monomind/control.json`.
-**Method:** POST, `Content-Type: application/json`
-
-### Event Types and When to Emit
-
-**1. session:start** — emit at the very start of Step 3 (Intake) once the prompt is resolved:
-```json
-{
-  "type": "session:start",
-  "session": "<uuid-v4>",
-  "prompt": "<resolved user prompt>",
-  "mode": "auto|confirm",
-  "project": "<absolute path of current working directory>",
-  "ts": 1234567890000
-}
-```
-
-**2. domain:dispatch** — emit once per domain BEFORE spawning the domain manager agent:
-```json
-{
-  "type": "domain:dispatch",
-  "session": "<same-uuid>",
-  "domain": "build|marketing|review|research|content|release|sales|ops|finance|idea",
-  "cmd": "<one-line description of what this domain will do>",
-  "ts": 1234567890000
-}
-```
-
-**3. agent:spawn** — domain managers MUST emit this when they spawn each specialized agent:
-```json
-{
-  "type": "agent:spawn",
-  "session": "<same-uuid>",
-  "domain": "<domain-id>",
-  "agent": "<agent-slug, e.g. backend-dev>",
-  "task": "<task description>",
-  "ts": 1234567890000
-}
-```
-
-**4. intercom** — emit when a domain manager or agent sends output/context to another domain:
-```json
-{
-  "type": "intercom",
-  "session": "<same-uuid>",
-  "from": "<domain-id>",
-  "to": "<domain-id>",
-  "msg": "<one-line summary of what was transferred>",
-  "ts": 1234567890000
-}
-```
-
-**5. domain:complete** — emit when a domain manager returns its unified output schema:
-```json
-{
-  "type": "domain:complete",
-  "session": "<same-uuid>",
-  "domain": "<domain-id>",
-  "status": "complete|partial|blocked",
-  "artifacts": ["<path1>", "<path2>"],
-  "decisions": [{"what": "...", "confidence": 0.9}],
-  "ts": 1234567890000
-}
-```
-
-**6. session:complete** — emit at the end of Step 9 (Synthesize) after all domains have reported:
-```json
-{
-  "type": "session:complete",
-  "session": "<same-uuid>",
-  "status": "complete|partial|blocked",
-  "domains": ["build", "marketing"],
-  "ts": 1234567890000
-}
-```
-
-### How to Emit (curl-first — WebFetch is blocked for localhost in Claude Code runtimes)
-
-**Always use curl via Bash.** WebFetch is restricted for `localhost` URLs in Claude Code agent runtimes and will return ECONNREFUSED even when the server is running. **Always resolve the control URL dynamically** — the server auto-increments the port on collision. Use this pattern:
-
-```bash
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -cn \
-    --arg sid "$SESSION_ID" \
-    --arg type "session:start" \
-    --arg prompt "$resolved_prompt" \
-    --arg mode "$mode" \
-    --arg proj "$(pwd)" \
-    '{type:$type,session:$sid,prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
-```
-
-**Always append `|| true`** — event emission is non-blocking and MUST NOT abort the run.
-
-**If Bash is unavailable** (e.g. the agent type has no Bash tool): skip dashboard events entirely. They are observability-only and do not affect pipeline correctness. The master context always has Bash and emits session:start, domain:dispatch, and session:complete on behalf of the run.
-
-**Session ID:** Generate once at session:start and reuse across all subsequent events for this run. A simple ID format: `mm-<ISO8601-compact>` (e.g. `mm-20260505T142300`).
-
-### Where Each Role Emits
-
-| Role | Events to emit |
-|---|---|
-| **Master** (master.md Step 3) | `session:start` |
-| **Master** (master.md Step 7, per domain) | `domain:dispatch` × N |
-| **Master** (master.md Step 9) | `session:complete` |
-| **Domain Manager** (on agent spawn) | `agent:spawn` × M |
-| **Domain Manager** (on cross-domain handoff) | `intercom` |
-| **Domain Manager** (on return) | `domain:complete` |
 
 ---
 

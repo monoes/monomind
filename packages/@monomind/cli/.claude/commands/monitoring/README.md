@@ -13,7 +13,7 @@ Commands for monitoring Monomind system health — swarm status, agents, tasks, 
 | `status` | Full system status (swarm, agents, tasks, memory, MCP) |
 | `status agents` | Detailed agent table with uptime and success rate |
 | `status tasks` | Detailed task table with progress and priority |
-| `status memory` | Memory backend stats and HNSW performance |
+| `status memory` | Memory backend stats (SQLite + local embeddings; keyword fallback) |
 | `agent metrics` | Agent performance metrics by type and time period |
 | `agent health` | Per-agent health check with optional watch mode |
 | `swarm status` | Swarm-specific status (topology, consensus, agents) |
