@@ -61,7 +61,15 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.CLAUDE_CONFIG_DIR;
-  rmSync(home, { recursive: true, force: true });
+  // quickSummary() (tested below) spawns a REAL detached child process to
+  // refresh the cache out of band (by design — see _spawnQuickRefresh in
+  // token-tracker.cjs) and never gives the caller a handle to await it. If
+  // that child is still writing into `home` when this runs, a plain rmSync
+  // can throw ENOTEMPTY — force:true only swallows ENOENT, not a concurrent
+  // writer. maxRetries/retryDelay is Node's own documented answer to exactly
+  // this race (rm retries on ENOTEMPTY/EBUSY/etc.); it does nothing to the
+  // default single-attempt behavior when the dir was already empty.
+  rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 const cachePath = () => join(home, '.monomind-token-summary.json');
