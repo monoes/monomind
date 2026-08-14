@@ -134,9 +134,12 @@ export class VercelAgentRunner implements AgentRunner {
 
         let assistantText = '';
         for await (const part of result.fullStream) {
+          // ai-sdk v7's text-delta stream part carries the chunk under `text`,
+          // not `textDelta` — the latter is always undefined, which silently
+          // concatenates the literal string "undefined" into assistantText.
           if (part.type === 'text-delta') {
-            assistantText += part.textDelta;
-            yield { type: 'assistant', session_id: store.sessionId, text: part.textDelta };
+            assistantText += part.text;
+            yield { type: 'assistant', session_id: store.sessionId, text: part.text };
           }
         }
 
@@ -145,18 +148,21 @@ export class VercelAgentRunner implements AgentRunner {
 
         // Vercel SDK v4+: `result.usage` is a Promise that resolves only AFTER
         // the stream completes. Awaiting it here (post-fullStream drain) gives
-        // the real token counts; without the await, `.totalInputTokens` would
+        // the real token counts; without the await, `.inputTokens` would
         // be undefined and budgets would silently never enforce.
         const usage = await result.usage;
 
         // Yield token usage; cost_usd: 0 (Vercel returns no USD; documented —
-        // token budgets still enforce via policy.ts).
+        // token budgets still enforce via policy.ts). `result.usage` resolves
+        // to `totalUsage`, whose fields are `inputTokens`/`outputTokens` — not
+        // `totalInputTokens`/`totalOutputTokens` (that prefix doesn't exist on
+        // this object and silently zeroed every vercel-routed role's usage).
         yield {
           type: 'result',
           session_id: store.sessionId,
           subtype: 'success',
-          input_tokens: usage?.totalInputTokens ?? 0,
-          output_tokens: usage?.totalOutputTokens ?? 0,
+          input_tokens: usage?.inputTokens ?? 0,
+          output_tokens: usage?.outputTokens ?? 0,
           cost_usd: 0,
           is_error: false,
         };

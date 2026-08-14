@@ -126,3 +126,33 @@ describe('VercelAgentRunner tool schema wrapping', () => {
     expect(src).toMatch(/inputSchema:\s*z\.object\(t\.schema\)/);
   });
 });
+
+// Regression guard: ai-sdk v7's real stream/usage field names, confirmed by
+// instrumenting a live streamText() call against z.ai — `fullStream`'s
+// text-delta parts carry the chunk under `part.text` (not `part.textDelta`,
+// always undefined) and `await result.usage` resolves to `totalUsage`, whose
+// fields are `inputTokens`/`outputTokens` (not `totalInputTokens`/
+// `totalOutputTokens`, which don't exist on that object). Both wrong names
+// silently produced garbage: assistantText filled with the literal string
+// "undefinedundefined..." (corrupting persisted session-resume history) and
+// every vercel-routed role's usage/cost permanently reporting zero. Neither
+// threw, so nothing caught it until a live run was inspected by hand.
+// Source-level check — see file header comment on why 'ai' isn't mocked here.
+describe('VercelAgentRunner stream/usage field names', () => {
+  const src = readFileSync(
+    fileURLToPath(new URL('../orgrt/vercel-runner.ts', import.meta.url)),
+    'utf8',
+  );
+
+  it('reads text-delta chunks from part.text, not part.textDelta', () => {
+    expect(src).not.toMatch(/part\.textDelta/);
+    expect(src).toMatch(/assistantText \+= part\.text\b/);
+  });
+
+  it('reads usage from inputTokens/outputTokens, not totalInputTokens/totalOutputTokens', () => {
+    expect(src).not.toMatch(/usage\?\.\s*totalInputTokens/);
+    expect(src).not.toMatch(/usage\?\.\s*totalOutputTokens/);
+    expect(src).toMatch(/usage\?\.\s*inputTokens/);
+    expect(src).toMatch(/usage\?\.\s*outputTokens/);
+  });
+});
