@@ -932,9 +932,18 @@ function getHILPending() {
   return { pending };
 }
 
-// Active org runs — scan .monomind/orgs/*/runs/*.jsonl for recent activity
-// Also checks .git/monomind/orgs/ (git-safe path used by mastermind orgs).
-// An org is "active" if it has an events file modified within the last 10 minutes.
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Active org runs — scan .monomind/orgs/*/runtime.json (Org Runtime v2)
+// and fallback to .monomind/orgs/*/runs/*.jsonl / <runId>/bus.jsonl.
 function getActiveOrgs() {
   // Try git-common-dir path first (mastermind orgs store run files there)
   let orgsDir = path.join(CWD, '.monomind', 'orgs');
@@ -954,31 +963,54 @@ function getActiveOrgs() {
   try {
     const orgNames = fs.readdirSync(orgsDir).filter(f => !f.startsWith('.'));
     for (const orgName of orgNames.slice(0, 20)) {
-      const runsDir = path.join(orgsDir, orgName, 'runs');
-      if (!fs.existsSync(runsDir)) continue;
+      const orgPath = path.join(orgsDir, orgName);
+      const runtimePath = path.join(orgPath, 'runtime.json');
+      // 1) Org Runtime v2: runtime.json is authoritative
+      if (fs.existsSync(runtimePath)) {
+        try {
+          const stat = safeStat(runtimePath);
+          const age = stat ? now - stat.mtimeMs : 0;
+          const data = readJSON(runtimePath);
+          if (data && typeof data === 'object') {
+            const isRunning = data.status === 'running' && (typeof data.pid === 'number' ? isPidAlive(data.pid) : age < STALE_MS);
+            if (isRunning || age < STALE_MS) {
+              active.push({
+                name: orgName,
+                runId: typeof data.run === 'string' ? data.run : 'active',
+                ageMs: age,
+                running: isRunning,
+              });
+              continue;
+            }
+          }
+        } catch { /* fallback to directory scan */ }
+      }
+
+      // 2) Fallback: scan runs/ or <runId>/bus.jsonl
+      const runsDir = path.join(orgPath, 'runs');
+      const scanDir = fs.existsSync(runsDir) ? runsDir : orgPath;
       try {
-        const files = cleanEntries(runsDir, f => f.endsWith('.jsonl'));
+        const files = cleanEntries(scanDir, f => f.endsWith('.jsonl') || f.endsWith('bus.jsonl'));
         if (!files.length) continue;
         files.sort();
         const latest = files[files.length - 1];
-        const stat = safeStat(path.join(runsDir, latest));
+        const stat = safeStat(path.join(scanDir, latest));
         if (!stat) continue;
         const age = now - stat.mtimeMs;
         if (age < STALE_MS) {
-          // Check last event type to determine if still running
           let isRunning = true;
           try {
             const MAX_RUN = 512 * 1024; // 512 KiB
             if (stat.size <= MAX_RUN) {
-              const raw = fs.readFileSync(path.join(runsDir, latest), 'utf-8');
+              const raw = fs.readFileSync(path.join(scanDir, latest), 'utf-8');
               const lines = raw.trim().split('\n').filter(Boolean);
               if (lines.length) {
                 const lastEv = JSON.parse(lines[lines.length - 1]);
-                if (lastEv.type === 'run:complete' || lastEv.type === 'org:complete') isRunning = false;
+                if (lastEv.type === 'run:complete' || lastEv.type === 'org:complete' || (lastEv.type === 'status' && lastEv.msg === 'org stopped')) isRunning = false;
               }
             }
           } catch { /* treat as running */ }
-          active.push({ name: orgName, runId: latest.replace('.jsonl', ''), ageMs: age, running: isRunning });
+          active.push({ name: orgName, runId: latest.replace('.jsonl', '').replace('/bus', ''), ageMs: age, running: isRunning });
         }
       } catch { /* skip */ }
     }
@@ -1361,6 +1393,7 @@ function generateJSON() {
     tests:      getTestStats(),
     git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
     tokenCost:  getTokenCostSummary(),
+    activeOrgs: getActiveOrgs(),
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -1384,6 +1417,7 @@ if (require.main !== module) {
     getSecurityStatus, getSwarmStatus, getADRStatus,
     getHooksStatus, getActiveAgent, getLanceDBStats,
     getLearningStats, getTestStats, getIntegrationStatus,
+    getActiveOrgs,
     generateJSON,
   };
 }

@@ -101,6 +101,49 @@ module.exports = {
           // Only write the success flag when derived from actual evidence (commits, outcomes)
           if (typeof sessionSuccess === 'boolean') feedbackEntry.intelligenceFeedback = sessionSuccess;
           fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
+
+          // Also join/record into route-outcomes.jsonl if routeId exists or outcome measured
+          if (typeof sessionSuccess === 'boolean') {
+            try {
+              var routeOutcomesPath = path.join(CWD, '.monomind', 'route-outcomes.jsonl');
+              if (fs.existsSync(routeOutcomesPath)) {
+                var roLines = fs.readFileSync(routeOutcomesPath, 'utf-8').trim().split('\n').filter(Boolean);
+                var updated = false;
+                if (lastRoute.routeId) {
+                  for (var ri = roLines.length - 1; ri >= 0; ri--) {
+                    try {
+                      var roRec = JSON.parse(roLines[ri]);
+                      if (roRec.routeId === lastRoute.routeId) {
+                        roRec.agentActuallyUsed = agentSlug;
+                        roRec.measuredSuccess = sessionSuccess;
+                        roLines[ri] = JSON.stringify(roRec);
+                        updated = true;
+                        break;
+                      }
+                    } catch (_) {}
+                  }
+                }
+                if (!updated) {
+                  // If not found by routeId, join latest unresolved record
+                  for (var ri2 = roLines.length - 1; ri2 >= 0; ri2--) {
+                    try {
+                      var roRec2 = JSON.parse(roLines[ri2]);
+                      if (roRec2.measuredSuccess === undefined) {
+                        roRec2.agentActuallyUsed = agentSlug;
+                        roRec2.measuredSuccess = sessionSuccess;
+                        roLines[ri2] = JSON.stringify(roRec2);
+                        updated = true;
+                        break;
+                      }
+                    } catch (_) {}
+                  }
+                }
+                if (updated) {
+                  fs.writeFileSync(routeOutcomesPath, roLines.join('\n') + '\n', 'utf-8');
+                }
+              }
+            } catch (eRo) { /* non-fatal */ }
+          }
           // Rotate: keep last 1000 lines to prevent unbounded growth.
           try {
             var MAX_FEEDBACK = 512 * 1024; // 512 KiB

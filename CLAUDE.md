@@ -146,6 +146,7 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
 | `init` | 5 | Project initialization with wizard, presets, skills, hooks |
+| `ui` | 0 | Start the Neural Control Room dashboard (`--no-open`, `--port`; alias `dashboard`) |
 | `agent` | 7 | Agent lifecycle (spawn, list, status, stop, metrics, pool, health) — runs in-process, no MCP server needed |
 | `swarm` | 6 | Multi-agent swarm coordination and orchestration — runs in-process |
 | `memory` | 12 | Memory store (SQLite/JSON; optional vector search) |
