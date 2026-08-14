@@ -71,7 +71,19 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
   });
 
   it('should restore mailbox queues on resume', async () => {
-    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const receivedPrompts: string[] = [];
+    const daemon = new OrgDaemon(testRoot, {
+      stopWaitMs: 100,
+      crossProcess: false,
+      queryFn: (async function* ({ prompt }: any) {
+        if (prompt && typeof prompt[Symbol.asyncIterator] === 'function') {
+          for await (const msg of prompt) {
+            receivedPrompts.push(typeof msg === 'string' ? msg : JSON.stringify(msg));
+          }
+        }
+        yield { type: 'result', session_id: 'test-session', subtype: 'success' };
+      }) as any,
+    });
     const def = createTestDef('Mailbox queue restoration test');
     writeFileSync(join(testRoot, '.monomind', 'orgs', `${orgName}.json`), JSON.stringify(def));
 
@@ -94,18 +106,18 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     rt.checkpoint.checksum = generateChecksum(state);
     writeFileSync(rtPath, JSON.stringify(rt));
 
-    // Resume and check mailbox queue was restored
+    // Resume and check mailbox queue was restored and processed by the live session
     const resumed = await daemon.resumeOrg(orgName);
     expect(resumed).toBeDefined();
 
-    // The resumed agent should have messages in its mailbox
-    const resumedMailbox = resumed!.agents.get('boss')?.mailbox;
-    expect(resumedMailbox).toBeDefined();
+    // The resumed agent should be active
+    const resumedAgent = resumed!.agents.get('boss');
+    expect(resumedAgent).toBeDefined();
 
-    // Check that the mailbox has the restored messages
-    const serialized = resumedMailbox!.serialize();
-    expect(serialized.queue).toHaveLength(2);
-    expect(serialized.queue).toEqual(['Queued message 1', 'Queued message 2']);
+    // Wait a tick for the live session to process restored queued messages
+    await new Promise((r) => setTimeout(r, 100));
+    expect(receivedPrompts.some((p) => p.includes('Queued message 1'))).toBe(true);
+    expect(receivedPrompts.some((p) => p.includes('Queued message 2'))).toBe(true);
   });
 
   it('should persist policy counters (budget tracking)', async () => {

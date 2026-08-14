@@ -513,6 +513,7 @@ export const createAction = async (ctx: CommandContext, name: string): Promise<C
   mkdirSync(join(ctx.cwd, ORG_DIR), { recursive: true });
   writeFileSync(file, JSON.stringify(def, null, 2) + '\n', 'utf8');
   log(output.success(`Org "${name}" created from template "${templateName}" (${def.roles.length} roles).`));
+  log(output.info(`  Budget: ${def.run_config.budget_tokens} tokens · Turn limit: ${def.run_config.max_turns_per_message} per message (effectively unlimited by default — set run_config.max_turns_per_message, or a role's own max_turns_per_message, to cap it).`));
   log(output.info(`  Edit the goal/roles in ${file}, then: monomind org run ${name}`));
   return { success: true };
 };

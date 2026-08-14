@@ -116,6 +116,14 @@ export const RoleSchema = z.object({
   budget_tokens: z.number().int().positive().optional(),
 }).passthrough();
 
+/** Default per-message turn budget for a role session. Deliberately huge so
+ *  the ceiling never bricks a legitimately long-running task (#140: a role
+ *  mid-task on `error_max_turns` used to crash with no recovery) — real
+ *  guardrails are budget_tokens, the idle watchdog, and the circuit breaker.
+ *  Set run_config.max_turns_per_message (or a role's own
+ *  max_turns_per_message) to cap turns when you want a hard limit. */
+export const DEFAULT_MAX_TURNS_PER_MESSAGE = 100_000;
+
 export const OrgDefSchema = z.object({
   name: z.string().min(1),
   goal: z.string().default(''),
@@ -125,7 +133,7 @@ export const OrgDefSchema = z.object({
     max_concurrent_agents: z.number().int().positive().default(4),
     budget_tokens: z.number().int().positive().default(1_000_000),
     memory_namespace: z.string().optional(),
-    max_turns_per_message: z.number().int().positive().default(30),
+    max_turns_per_message: z.number().int().positive().default(DEFAULT_MAX_TURNS_PER_MESSAGE),
     /** idle watchdog window in minutes (fractions allowed); 0 disables. Default 10. */
     idle_minutes: z.number().nonnegative().optional(),
     /** Where role sessions run.
@@ -151,7 +159,7 @@ export const OrgDefSchema = z.object({
       command: z.string(),
     })).optional(),
   }).partial().passthrough().default({})
-    .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: 30, workspace: 'repo' as string, stale_base_threshold: 0, ...rc })),
+    .transform(rc => ({ max_concurrent_agents: 4, budget_tokens: 1_000_000, max_turns_per_message: DEFAULT_MAX_TURNS_PER_MESSAGE, workspace: 'repo' as string, stale_base_threshold: 0, ...rc })),
   fence: FenceConfigSchema.optional(),
   roles: z.array(RoleSchema).min(1),
   /** Which agent runtime hosts this org's role sessions. When absent, the

@@ -221,7 +221,11 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   try {
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')));
-    const maxTurns = def.run_config.max_turns_per_message ?? 30;
+    const defaultMaxTurns = def.run_config.max_turns_per_message ?? 30;
+    // Estimate against a realistic planning ceiling, NOT the runtime limit —
+    // the schema default is effectively unlimited (DEFAULT_MAX_TURNS_PER_MESSAGE),
+    // which would balloon the upfront figure into meaninglessness.
+    const ESTIMATE_TURNS_CAP = 30;
     let totalTokens = 0;
     const perRoleRows = def.roles.map((r) => {
       // Mirror the actual runtime's model resolution (session.ts resolveModel)
@@ -230,13 +234,14 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       // vercel roles relying on their runtime default) is mislabeled here.
       const model = String(r.adapter_config?.model ?? resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor));
       const rate = userRates[model] ?? MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
-      const tokens = maxTurns * AVG_TOKENS_PER_TURN;
+      const roleTurns = Math.min(r.max_turns_per_message ?? defaultMaxTurns, ESTIMATE_TURNS_CAP);
+      const tokens = roleTurns * AVG_TOKENS_PER_TURN;
       totalTokens += tokens;
       return { id: r.id, model, tokens, cost: (tokens * rate) / 1_000_000 };
     });
     const estimate = perRoleRows.reduce((s, r) => s + r.cost, 0);
     log(output.bold('\nCost estimate'));
-    log(output.dim(`  (roles × max_turns × ~${AVG_TOKENS_PER_TURN} tokens/turn × model rate; ${ratesFileUsed ? `rates.json overrides + ` : ''}static defaults, will vary with real usage)`));
+    log(output.dim(`  (roles × max_turns × ~${AVG_TOKENS_PER_TURN} tokens/turn × model rate; estimated at ≤${ESTIMATE_TURNS_CAP} turns/message — the runtime default is effectively unlimited; ${ratesFileUsed ? `rates.json overrides + ` : ''}static defaults, will vary with real usage)`));
     log(output.warning(`  ⚠ stale rates: no live provider pricing lookup — ${ratesFileUsed ? `using ~/.monomind/rates.json + ` : ''}hardcoded table (edit ~/.monomind/rates.json to override)`));
     for (const r of perRoleRows) {
       log(`    ${r.id.padEnd(20)} ${r.model.padEnd(22)} ~$${r.cost.toFixed(2)}`);
@@ -262,6 +267,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
   }
 
+  const resumeFlag = ctx.flags['resume'] === true;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
@@ -270,7 +276,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
   let running: Awaited<ReturnType<typeof daemon.startOrg>>;
   try {
-    running = await daemon.startOrg(name, taskFlag as string | undefined);
+    running = await daemon.startOrg(name, taskFlag as string | undefined, { resume: resumeFlag });
   } catch (err) {
     // Don't leave the inbox server holding the event loop open on a failed start.
     srv?.close();
@@ -1120,6 +1126,7 @@ export const orgCommand: Command = {
       name: 'run', description: 'Start an org (foreground daemon)',
       options: [
         { name: 'task', description: 'Override the org goal for this run', type: 'string' },
+        { name: 'resume', description: 'Resume an org run from its persisted checkpoint instead of starting fresh', type: 'boolean' },
         { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
         { name: 'dry-run', description: 'Validate and print each role\'s briefing without starting any agent sessions', type: 'boolean' },
         { name: 'budget-usd', description: 'Hard-stop the run if the upfront cost estimate exceeds this USD value (e.g. --budget-usd 5)', type: 'number' },
