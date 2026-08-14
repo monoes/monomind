@@ -209,6 +209,14 @@ async function main() {
     ? [...args, String(DEFAULT_PORT)]
     : [...args, 'ui', '--no-open', '--port', String(DEFAULT_PORT)];
 
+  // Every other findCliPath() branch spawns `process.execPath` directly
+  // against an already-resolved .mjs/.js path — no resolve cost. Only the
+  // npx-fallback branch (cmd is 'npx'/'npx.cmd') pays npx's own first-time
+  // package resolve into its `_npx` cache, measured at ~12s cold vs ~3s warm
+  // (#142) — comfortably over the 10s budget every other branch needs.
+  const isNpxFallback = cmd !== process.execPath;
+  const CONFIRM_ATTEMPTS = isNpxFallback ? 60 : 20; // 500ms/attempt: 30s vs 10s
+
   // The child writes its ACTUAL bound port here — the only identity-proof
   // signal. An HTTP probe alone can be answered by another project's server
   // already holding the port (which then leaves control.json lying about
@@ -271,7 +279,7 @@ async function main() {
   // this project (root cause of orgs running invisibly).
   async function confirmPort() {
     let sawForeignOnDefault = false;
-    for (let attempt = 0; attempt < 20; attempt++) {
+    for (let attempt = 0; attempt < CONFIRM_ATTEMPTS; attempt++) {
       await new Promise(r => setTimeout(r, 500));
       // 1) Authoritative: child self-reported its bound port
       try {
@@ -357,7 +365,7 @@ async function main() {
     // The next session-start simply retries.
     try { process.kill(child.pid, 'SIGTERM'); } catch { /* already gone */ }
     try { fs.unlinkSync(STATUS_FILE); } catch { /* ignore */ }
-    process.stdout.write('[control] server did not respond within 10 s — killed orphan, will retry next session\n');
+    process.stdout.write(`[control] server did not respond within ${CONFIRM_ATTEMPTS / 2} s — killed orphan, will retry next session\n`);
   }
 
   confirmPort().catch(() => {}).finally(() => { releaseSpawnLock(); process.exit(0); });
