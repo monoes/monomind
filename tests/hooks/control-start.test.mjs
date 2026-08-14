@@ -183,3 +183,25 @@ describe('control-start: BOUND_REPORT identity check survives shell:true (#143)'
     expect(src).toMatch(/writeStatus\(rep\.pid,\s*rep\.port\)/);
   });
 });
+
+describe('control-start: confirmPort waits on liveness, not a fixed budget (#142 follow-up)', () => {
+  // A live child that simply hasn't reported yet (npm/AV contention on a
+  // freshly-written node_modules right after install — measured once at
+  // ~142s vs the normal ~5-9s) must not be killed just because
+  // CONFIRM_ATTEMPTS elapsed. Assert CONFIRM_ATTEMPTS is now only a minimum
+  // grace period before liveness is checked, bounded by an absolute
+  // ceiling — not the hard budget itself.
+  it('only gives up early, before the hard ceiling, once the child has actually exited', () => {
+    const src = fs.readFileSync(SCRIPT, 'utf-8');
+    expect(src).toMatch(/attempt\s*<\s*HARD_CEILING_ATTEMPTS/);
+    expect(src).toMatch(/attempt\s*>=\s*CONFIRM_ATTEMPTS\s*&&\s*!isPidAlive\(child\.pid\)/);
+    const ceilingMatch = src.match(/HARD_CEILING_ATTEMPTS\s*=\s*(\d+)/);
+    expect(ceilingMatch).not.toBeNull();
+    const hardCeilingAttempts = Number(ceilingMatch[1]);
+    const budgetMatch = src.match(/CONFIRM_ATTEMPTS\s*=\s*isNpxFallback\s*\?\s*(\d+)\s*:\s*\d+/);
+    const npxAttempts = Number(budgetMatch[1]);
+    // The ceiling must be strictly larger than the npx-fallback grace period,
+    // or it isn't a safety net at all — just the same budget renamed.
+    expect(hardCeilingAttempts).toBeGreaterThan(npxAttempts);
+  });
+});
