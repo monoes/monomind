@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { OrgDaemon } from '../orgrt/daemon.js';
+import { resolveModel } from '../orgrt/session.js';
 import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
@@ -194,7 +195,9 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     'claude-sonnet-5': 15, 'claude-sonnet-4': 15, 'claude-sonnet-4-5': 15,
     'gpt-5': 10, 'gpt-4': 10,
     'glm-5.2': 2, 'glm-4': 2,
-    'kimi-latest': 3, 'kimi-k2': 3,
+    'kimi-latest': 3, 'kimi-k2': 3, 'kimi-code/k3': 3, 'kimi-code/k3-256k': 3,
+    'gemini-3.1-pro': 8, 'gemini-3.6-flash-high': 1,
+    'gpt-5.6-terra': 10, 'gpt-5.5': 10,
   };
   const DEFAULT_RATE_PER_1M = 10;
   const AVG_TOKENS_PER_TURN = 2000;
@@ -221,7 +224,11 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     const maxTurns = def.run_config.max_turns_per_message ?? 30;
     let totalTokens = 0;
     const perRoleRows = def.roles.map((r) => {
-      const model = String(r.adapter_config?.model ?? 'claude-sonnet-5');
+      // Mirror the actual runtime's model resolution (session.ts resolveModel)
+      // instead of a hardcoded 'claude-sonnet-5' fallback — otherwise every
+      // role without an explicit adapter_config.model (kimicode, antigravity,
+      // vercel roles relying on their runtime default) is mislabeled here.
+      const model = String(r.adapter_config?.model ?? resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor));
       const rate = userRates[model] ?? MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
       const tokens = maxTurns * AVG_TOKENS_PER_TURN;
       totalTokens += tokens;
