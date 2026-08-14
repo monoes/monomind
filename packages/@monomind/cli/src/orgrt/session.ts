@@ -236,8 +236,25 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
   // would skip that drain entirely.
   while (true) {
     const realBefore = mailbox.consumedRealCount;
-    const { sessionId, hitTurnLimit } = await runOneSession(opts, resumeSessionId, sessionCostTotals);
-    resumeSessionId = sessionId;
+    let sessionId: string | undefined;
+    let hitTurnLimit: boolean | undefined = false;
+    try {
+      const res = await runOneSession(opts, resumeSessionId, sessionCostTotals);
+      sessionId = res.sessionId;
+      hitTurnLimit = res.hitTurnLimit;
+      resumeSessionId = sessionId;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (/Reached maximum number of turns|error_max_turns/i.test(errMsg)) {
+        // Runner/SDK threw an error on max turns or exhausted turns on resume.
+        // Drop the dead resumeSessionId and grant continuation turn with fresh session.
+        sessionId = undefined;
+        resumeSessionId = undefined;
+        hitTurnLimit = true;
+      } else {
+        throw err;
+      }
+    }
     // The dead session's generator may still hold the waker - drop it so a
     // push() before the next stream() starts only queues instead of being
     // consumed by the abandoned generator (silent message loss).

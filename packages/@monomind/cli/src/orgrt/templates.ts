@@ -2,7 +2,7 @@
 // Starter org configs for `monomind org create <name> --template <t>`.
 // Each validates against OrgDefSchema; goal is a placeholder the user edits
 // (or supplies via --goal).
-import { OrgDefSchema, type OrgDef } from './types.js';
+import { DEFAULT_MAX_TURNS_PER_MESSAGE, OrgDefSchema, type OrgDef } from './types.js';
 
 // Per-role model hints keep scheduled-org economics sane: coordinators keep
 // the default (strongest) model since they synthesize and decide; verification
@@ -84,7 +84,7 @@ export function buildFromTemplate(templateName: string, orgName: string, goal?: 
     goal: goal ?? t.goal,
     status: 'stopped',
     schedule: null,
-    run_config: { max_concurrent_agents: 4, budget_tokens: 1_000_000, memory_namespace: `org:${orgName}`, max_turns_per_message: 30 },
+    run_config: { max_concurrent_agents: 4, budget_tokens: 1_000_000, memory_namespace: `org:${orgName}`, max_turns_per_message: DEFAULT_MAX_TURNS_PER_MESSAGE },
     roles: t.roles.map(({ model, ...r }) => model ? { ...r, adapter_config: { model } } : r),
   });
 }

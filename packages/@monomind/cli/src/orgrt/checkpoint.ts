@@ -56,7 +56,10 @@ export const CHECKPOINT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours default
  * Extract full checkpoint state from a RunningOrg
  * Called by persistState() to capture complete state for resume
  */
-export function captureCheckpoint(org: RunningOrg): OrgCheckpoint {
+export function captureCheckpoint(
+  org: RunningOrg,
+  status: 'running' | 'stopped' | 'crashed' = 'running',
+): OrgCheckpoint {
   const roleState: Record<string, RoleCheckpoint> = {};
   const pendingRoles: string[] = [];
   const abandonedRoles: string[] = [];
@@ -84,7 +87,7 @@ export function captureCheckpoint(org: RunningOrg): OrgCheckpoint {
   // Build checkpoint without checksum first
   const partial: Omit<OrgCheckpoint, 'checksum'> = {
     version: CHECKPOINT_VERSION,
-    status: 'running',
+    status,
     run: org.run,
     pid: process.pid,
     updated: new Date().toISOString(),
