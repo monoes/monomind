@@ -36,7 +36,15 @@ import { KimiCodeAgentRunner } from './kimicode-runner.js';
 import { VercelAgentRunner } from './vercel-runner.js';
 import { CodexAgentRunner } from './codex-runner.js';
 import { AntigravityAgentRunner } from './antigravity-runner.js';
-import { captureCheckpoint, type OrgCheckpoint } from './checkpoint.js';
+import {
+  captureCheckpoint,
+  generateChecksum,
+  validateCheckpoint,
+  isCheckpointExpired,
+  restoreMailboxQueue,
+  type OrgCheckpoint,
+  type RoleCheckpoint,
+} from './checkpoint.js';
 import {
   loadGlobalFenceConfig,
   mergeFenceConfigs,
@@ -401,7 +409,7 @@ export class OrgDaemon {
     return isAbsolute(ws) ? ws : join(this.root, ws);
   }
 
-  async startOrg(name: string, taskOverride?: string): Promise<RunningOrg> {
+  async startOrg(name: string, taskOverride?: string, options?: { resume?: boolean }): Promise<RunningOrg> {
     // A restart-driven start (scheduleBossRestart) keeps its crash counter so the
     // cap holds; any other (explicit) start resets it so a manual re-run gets a
     // fresh budget.
@@ -414,9 +422,27 @@ export class OrgDaemon {
     if (this.orgs.has(name)) throw new Error(`org ${name} already running`);
     const defPath = join(this.root, ORG_DIR, `${name}.json`);
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(defPath, 'utf8')));
-    // random suffix: second-precision stamps collide across processes (two CLI
-    // invocations in the same second would share a run dir and its bus.jsonl)
-    const run = `run-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
+
+    let run: string;
+    let checkpoint: OrgCheckpoint | undefined;
+    if (options?.resume) {
+      const rtPath = join(this.root, ORG_DIR, name, 'runtime.json');
+      if (!existsSync(rtPath)) throw new Error(`cannot resume org "${name}": runtime.json not found`);
+      const rt = JSON.parse(readFileSync(rtPath, 'utf8'));
+      if (!rt?.run || !rt?.checkpoint) throw new Error(`cannot resume org "${name}": no valid checkpoint found`);
+      if (isCheckpointExpired(rt.checkpoint)) throw new Error(`cannot resume org "${name}": checkpoint expired`);
+      if (!validateCheckpoint(rt.checkpoint)) throw new Error(`cannot resume org "${name}": checkpoint validation failed`);
+      run = rt.run;
+      checkpoint = rt.checkpoint;
+      if (rt.abandonedRoles) {
+        this.abandoned.set(name, new Set(rt.abandonedRoles));
+      }
+    } else {
+      this.abandoned.delete(name); // a previous run's missing roles say nothing about this one
+      // random suffix: second-precision stamps collide across processes (two CLI
+      // invocations in the same second would share a run dir and its bus.jsonl)
+      run = `run-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
+    }
     const dir = join(this.root, ORG_DIR, name, run);
     mkdirSync(dir, { recursive: true });
     // Role sessions run at the project root by default. They used to run in an
@@ -427,7 +453,6 @@ export class OrgDaemon {
     // not path-scoped, meaning the sandbox blocked the safe tools and let the
     // unrestricted one through. Opt back in with run_config.workspace:
     // 'isolated', or pin an absolute path.
-    this.abandoned.delete(name); // a previous run's missing roles say nothing about this one
     const ws = this.workspaceSetting(def);
     let cwd: string;
     let worktreePath: string | undefined;
@@ -633,7 +658,8 @@ export class OrgDaemon {
     // Extracted so a role that fails its gate check can be spawned later by
     // scheduleDeferredSpawn() once resources free up, without re-running the
     // gate logic or duplicating the session-wiring below.
-    const spawnRole = (role: OrgRole): void => {
+    const spawnRole = (role: OrgRole, roleCheckpoint?: RoleCheckpoint): void => {
+      if (running.agents.has(role.id)) return;
       let roleCwd = cwd;
       if (ws === 'worktree-per-role' && role.id !== bossRole.id) {
         const wtPath = join(this.root, ORG_DIR, name, `worktree-${role.id}`);
@@ -665,22 +691,36 @@ export class OrgDaemon {
         }
       }
       const mailbox = new Mailbox();
+      if (roleCheckpoint?.mailboxQueue?.length) {
+        restoreMailboxQueue({ mailbox } as any, roleCheckpoint.mailboxQueue);
+      }
+      if (roleCheckpoint?.mailboxClosed) {
+        mailbox.close();
+      }
       const policy = new PolicyEngine(
         role.id,
         { maxTokens: role.budget_tokens ?? perRoleBudget, ...(role.policy ?? {}) },
         bus,
         roleCwd,
       );
+      if (roleCheckpoint?.tokensUsed) {
+        policy.setUsage(roleCheckpoint.tokensUsed);
+      }
       const runtime: AgentRuntime = {
         mailbox,
         policy,
-        status: 'running',
+        status: roleCheckpoint?.status ?? 'running',
         done: Promise.resolve(),
-        metrics: { tokens: 0, costUsd: 0 },
-        sessionId: undefined,
+        metrics: { tokens: roleCheckpoint?.tokensUsed ?? 0, costUsd: roleCheckpoint?.costUsd ?? 0 },
+        lastMessageId: roleCheckpoint?.lastMessageId,
+        error: roleCheckpoint?.error,
+        sessionId: roleCheckpoint?.sessionId,
         worktreePath: roleCwd !== cwd ? roleCwd : undefined,
         scrollback: new ScrollbackBuffer(),
       };
+      if (roleCheckpoint?.scrollback?.length) {
+        for (const line of roleCheckpoint.scrollback) runtime.scrollback.push(line);
+      }
       const sessionOpts = {
         org: name,
         role,
@@ -694,6 +734,7 @@ export class OrgDaemon {
         // instead of polluting the workspace cwd.
         orgDir: join(this.root, ORG_DIR, name),
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
+        resumeSessionId: roleCheckpoint?.sessionId,
         lastMessageId: () => runtime.lastMessageId,
         onOutput: (line: string) => runtime.scrollback.push(line),
         onSessionId: (id: string) => { runtime.sessionId = id; },
@@ -821,6 +862,7 @@ export class OrgDaemon {
       // status chatter) so a dead agent surfaces instead of a run that
       // silently never progresses.
       const BACKOFFS_MS = this.opts.crashBackoffsMs ?? [1000, 5000, 15000];
+      if (!mailbox.isClosed && runtime.status !== 'crashed') {
       runtime.done = (async () => {
         for (let attempt = 0; ; attempt++) {
           try {
@@ -833,6 +875,22 @@ export class OrgDaemon {
             // wake the dead generator to swallow it.
             mailbox.detach();
             const message = err instanceof Error ? err.message : String(err);
+            const isTurnLimit = /Reached maximum number of turns|error_max_turns/i.test(message);
+            // Bounded like every other recovery: attempt counts every pass
+            // through this loop, so a role that keeps surfacing max-turns
+            // errors here (session.ts already swallows the normal ones)
+            // falls through to crash handling instead of looping forever.
+            if (isTurnLimit && !mailbox.isClosed && attempt < BACKOFFS_MS.length) {
+              sessionOpts.resumeSessionId = undefined;
+              mailbox.push(`${Mailbox.CONTINUE_PREFIX} You reached the turn limit on your task. Continue your in-progress work from where you left off; if finished, end your turn.`);
+              bus.emit({
+                type: 'status',
+                from: role.id,
+                reason: 'turn-limit-recover',
+                msg: `agent "${role.id}" hit turn limit error — continuing with fresh session`,
+              });
+              continue;
+            }
             // Exit 143 = SIGTERM. If the mailbox is already closed, we
             // sent the signal ourselves during stop — not a crash.
             const killedByStop = mailbox.isClosed && /exit(?:ed)? with code 143/.test(message);
@@ -932,22 +990,41 @@ export class OrgDaemon {
           }
         }
       })();
+      }
       running.agents.set(role.id, runtime);
     };
 
-    spawnRole(bossRole); // always, ungated — see comment above
+    if (options?.resume && checkpoint) {
+      const restoredRoles = new Set(Object.keys(checkpoint.roleState));
+      for (const [roleId, roleState] of Object.entries(checkpoint.roleState)) {
+        const role = def.roles.find((r) => r.id === roleId);
+        if (role) spawnRole(role, roleState);
+      }
+      const pendingRoles = new Map<string, OrgRole>();
+      for (const role of def.roles) {
+        if (!restoredRoles.has(role.id)) {
+          pendingRoles.set(role.id, role);
+        }
+      }
+      running.pendingRoles = pendingRoles;
+      running.spawnRole = spawnRole;
+      running.taskDag = new TaskDag();
+      if (worktreePath) running.worktreePath = worktreePath;
+    } else {
+      spawnRole(bossRole); // always, ungated — see comment above
 
-    // Lazy spawn: register non-boss roles as pending. They spawn on first
-    // message (see deliver()), avoiding the memory gate stampede at startup.
-    const pendingRoles = new Map<string, OrgRole>();
-    for (const role of def.roles) {
-      if (role.id === bossRole.id) continue;
-      pendingRoles.set(role.id, role);
+      // Lazy spawn: register non-boss roles as pending. They spawn on first
+      // message (see deliver()), avoiding the memory gate stampede at startup.
+      const pendingRoles = new Map<string, OrgRole>();
+      for (const role of def.roles) {
+        if (role.id === bossRole.id) continue;
+        pendingRoles.set(role.id, role);
+      }
+      running.pendingRoles = pendingRoles;
+      running.spawnRole = spawnRole;
+      running.taskDag = new TaskDag();
+      if (worktreePath) running.worktreePath = worktreePath;
     }
-    running.pendingRoles = pendingRoles;
-    running.spawnRole = spawnRole;
-    running.taskDag = new TaskDag();
-    if (worktreePath) running.worktreePath = worktreePath;
 
     // Crash cleanup: reap SDK children if this process exits abnormally.
     // monolean: process-scoped listener — upgrade path = per-org tracking
@@ -994,27 +1071,43 @@ export class OrgDaemon {
     }
 
     const boss = bossRole;
-    // Cross-run memory: brief the coordinator on the previous run so scheduled
-    // orgs accumulate instead of starting cold every interval.
-    const prev = readHistory(this.root, name).at(-1);
-    const prevBrief = prev
-      ? `\n\nPrevious run (${prev.run}${prev.endedAt ? `, ${new Date(prev.endedAt).toISOString()}` : ''}): ` +
-        (prev.outcome
-          ? `outcome "${prev.outcome.status}" — ${prev.outcome.summary}`
-          : `no recorded outcome (${prev.messages} messages, ${prev.assets.length} assets${prev.crashes.length ? `, ${prev.crashes.length} crashed agent(s)` : ''})`) +
-        `\nBuild on that work — do not redo what is already done.`
-      : '';
-    running.agents
-      .get(boss.id)!
-      .mailbox.push(
-        `Org "${name}" started (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
-          `Coordinate your team via org_send. When the goal is achieved (or clearly can't be), record it with org_complete, then end your turn.${prevBrief}`,
-      );
-    bus.emit({
-      type: 'status',
-      msg: `org started (${def.roles.length} agents)`,
-      data: { goal: taskOverride ?? def.goal },
-    });
+    if (options?.resume) {
+      if (running.agents.get(boss.id)?.mailbox.serialize().queue.length === 0) {
+        running.agents
+          .get(boss.id)
+          ?.mailbox.push(
+            `Org "${name}" resumed from checkpoint (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
+              `Outstanding tasks and role states have been restored. Continue coordinating your team.`,
+          );
+      }
+      bus.emit({
+        type: 'status',
+        msg: `org resumed from checkpoint (${run})`,
+        data: { goal: taskOverride ?? def.goal },
+      });
+    } else {
+      // Cross-run memory: brief the coordinator on the previous run so scheduled
+      // orgs accumulate instead of starting cold every interval.
+      const prev = readHistory(this.root, name).at(-1);
+      const prevBrief = prev
+        ? `\n\nPrevious run (${prev.run}${prev.endedAt ? `, ${new Date(prev.endedAt).toISOString()}` : ''}): ` +
+          (prev.outcome
+            ? `outcome "${prev.outcome.status}" — ${prev.outcome.summary}`
+            : `no recorded outcome (${prev.messages} messages, ${prev.assets.length} assets${prev.crashes.length ? `, ${prev.crashes.length} crashed agent(s)` : ''})`) +
+          `\nBuild on that work — do not redo what is already done.`
+        : '';
+      running.agents
+        .get(boss.id)!
+        .mailbox.push(
+          `Org "${name}" started (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
+            `Coordinate your team via org_send. When the goal is achieved (or clearly can't be), record it with org_complete, then end your turn.${prevBrief}`,
+        );
+      bus.emit({
+        type: 'status',
+        msg: `org started (${def.roles.length} agents)`,
+        data: { goal: taskOverride ?? def.goal },
+      });
+    }
     this.persistState(name, 'running', run);
 
     // Idle watchdog: a hung tool call (or a run that quietly finished without
@@ -1171,7 +1264,7 @@ export class OrgDaemon {
     // Snapshot checkpoint BEFORE closing mailboxes / draining sessions — the
     // queue is emptied during the drain, so capturing afterwards loses all
     // unconsumed messages (the whole point of checkpoint-resume).
-    const stopCheckpoint = captureCheckpoint(org);
+    const stopCheckpoint = captureCheckpoint(org, 'stopped');
     // Capture THIS run's forwarder now: an autoWake-restart of the same org
     // during the long tail below (agent wait, flush, history write) would
     // register a NEW forwarder under the same name — settling/unsubscribing
@@ -1320,12 +1413,20 @@ export class OrgDaemon {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
     const running = org ?? this.orgs.get(name);
+    const validStatus = status === 'stopped' || status === 'crashed' ? status : 'running';
     // Pattern 3: Capture full checkpoint state for resume. On stop, finishStop
     // passes a snapshot captured BEFORE mailboxes close and sessions drain —
     // otherwise the queue is always empty by persist time.
     let checkpoint: OrgCheckpoint | null = checkpointOverride ?? null;
-    if (running) {
-      checkpoint = captureCheckpoint(running);
+    if (!checkpoint && running) {
+      checkpoint = captureCheckpoint(running, validStatus as 'running' | 'stopped' | 'crashed');
+    } else if (checkpoint && checkpoint.status !== validStatus) {
+      const { checksum: _, ...state } = checkpoint;
+      checkpoint = {
+        ...state,
+        status: validStatus as 'running' | 'stopped' | 'crashed',
+        checksum: generateChecksum({ ...state, status: validStatus as 'running' | 'stopped' | 'crashed' }),
+      };
     }
     // C4: writeJsonFileAtomic (tmp + rename) — a direct writeFileSync here
     // could leave runtime.json truncated on Ctrl-C during `org stop`, which
