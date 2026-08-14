@@ -197,6 +197,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | Command     | Subcommands | Description                                                              | Status          |
 | ----------- | ----------- | ------------------------------------------------------------------------ | --------------- |
 | `init`      | 5           | Project initialization with wizard, presets, skills, hooks               | Working         |
+| `ui`        | 0           | Start the Neural Control Room dashboard (`--no-open`, `--port`; alias `dashboard`) | Working         |
 | `agent`     | 7           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health)       | Working — runs in-process, no MCP server needed |
 | `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         | Working — runs in-process, no MCP server needed |
 | `memory`    | 12          | Memory store (SQLite/JSON; optional vector search)                        | Working         |

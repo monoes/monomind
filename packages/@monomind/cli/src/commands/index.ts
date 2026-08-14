@@ -45,7 +45,9 @@ const COMMAND_LOADERS: Record<string, CommandLoader> = {
   'crash-reporting': async () => (await import('./crash-reporting.js')).crashReportingCommand,
   doc: async () => (await import('./doc.js')).docCommand,
   org: async () => (await import('./org.js')).orgCommand,
-  'download-embeddings': async () => (await import('./download-embeddings.js')).downloadEmbeddingsCommand,
+  ui: async () => (await import('./ui.js')).uiCommand,
+  'download-embeddings': async () =>
+    (await import('./download-embeddings.js')).downloadEmbeddingsCommand,
 };
 
 // Top-level command aliases -> canonical loader key. Kept as a static table
@@ -57,6 +59,7 @@ const COMMAND_ALIASES: Record<string, string> = {
   ls: 'session',
   an: 'analyze',
   clean: 'cleanup',
+  dashboard: 'ui',
 };
 
 /**
@@ -66,7 +69,21 @@ const COMMAND_ALIASES: Record<string, string> = {
  * on demand by `getCommandsByCategory()`.
  */
 const CATEGORY_NAMES = {
-  primary: ['init', 'start', 'status', 'agent', 'swarm', 'org', 'memory', 'doc', 'task', 'session', 'mcp', 'hooks'],
+  primary: [
+    'init',
+    'start',
+    'status',
+    'ui',
+    'agent',
+    'swarm',
+    'org',
+    'memory',
+    'doc',
+    'task',
+    'session',
+    'mcp',
+    'hooks',
+  ],
   advanced: ['security', 'performance', 'guidance', 'autopilot', 'design'],
   utility: ['config', 'doctor', 'completions', 'report-crash', 'crash-reporting'],
   analysis: ['analyze', 'route', 'monograph', 'tokens', 'search'],
@@ -125,25 +142,27 @@ export function getCommandNames(): string[] {
  */
 export async function loadAllCommands(): Promise<Command[]> {
   const names = Object.keys(COMMAND_LOADERS);
-  const all = await Promise.all(names.map(name => loadCommand(name)));
+  const all = await Promise.all(names.map((name) => loadCommand(name)));
   return all.filter((cmd): cmd is Command => Boolean(cmd));
 }
 
 export async function getUniqueCommands(): Promise<Command[]> {
   const all = await loadAllCommands();
-  return all.filter(cmd => !cmd.hidden);
+  return all.filter((cmd) => !cmd.hidden);
 }
 
 /**
  * Real Command objects grouped by category, for help display. Loads
  * everything (help is a cold path — see `loadAllCommands`).
  */
-export async function getCommandsByCategory(): Promise<Record<keyof typeof CATEGORY_NAMES, Command[]>> {
+export async function getCommandsByCategory(): Promise<
+  Record<keyof typeof CATEGORY_NAMES, Command[]>
+> {
   await loadAllCommands();
   const result = {} as Record<keyof typeof CATEGORY_NAMES, Command[]>;
   for (const category of Object.keys(CATEGORY_NAMES) as (keyof typeof CATEGORY_NAMES)[]) {
     result[category] = CATEGORY_NAMES[category]
-      .map(name => loadedCommands.get(name))
+      .map((name) => loadedCommands.get(name))
       .filter((cmd): cmd is Command => Boolean(cmd));
   }
   return result;

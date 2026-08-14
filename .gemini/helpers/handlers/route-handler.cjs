@@ -302,23 +302,42 @@ module.exports = {
       var output = [];
       var conf = result.confidence != null ? result.confidence : 0;
 
-      // ── Persist routing result for statusline display ─────────────
+      // ── Persist routing result for statusline display & outcome correlation ─
       try {
+        var crypto = require('crypto');
+        var routeId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : ('route-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
         var routeDir = path.join(CWD, '.monomind');
         fs.mkdirSync(routeDir, { recursive: true });
+        var agentName = result.agent || 'coder';
+        var confVal = typeof result.confidence === 'number' ? result.confidence : 0;
+        var promptSlice = (prompt || '').slice(0, 500);
         fs.writeFileSync(
           path.join(routeDir, 'last-route.json'),
           JSON.stringify({
-            agent: result.agent || 'coder',
+            routeId: routeId,
+            agent: agentName,
             agentSlug: result.agentSlug || null,
             confidence: result.confidence,
             reason: result.reason,
-            prompt: (prompt || '').slice(0, 500),
+            prompt: promptSlice,
             historicalPattern: result.historicalPattern || null,
             updatedAt: new Date().toISOString(),
           }),
           'utf-8'
         );
+
+        // Append initial route recommendation to route-outcomes.jsonl
+        var routeRec = {
+          routeId: routeId,
+          ts: Date.now(),
+          task: promptSlice,
+          recommendedAgent: agentName,
+          routingMethod: result.routingMethod || 'keyword',
+          confidence: confVal,
+          learningMode: 'js',
+        };
+        var outcomesPath = path.join(routeDir, 'route-outcomes.jsonl');
+        fs.appendFileSync(outcomesPath, JSON.stringify(routeRec) + '\n', 'utf-8');
       } catch (e) { /* non-fatal */ }
 
       // ── Skill auto-activation (the one thing the hook does better than Claude) ──
