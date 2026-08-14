@@ -169,3 +169,17 @@ describe('control-start: confirmPort timeout budget (#142)', () => {
     expect(npxAttempts * 500).toBeGreaterThanOrEqual(25_000);
   });
 });
+
+describe('control-start: BOUND_REPORT identity check survives shell:true (#143)', () => {
+  // Same real-spawn-too-slow constraint as #142's test. Under shell:true
+  // (#141's Windows fix), child.pid is the wrapping cmd.exe's pid, not the
+  // real server's — a `rep.pid === child.pid` comparison against the
+  // server-reported pid can never succeed on that path, no matter the
+  // timeout (#143). Assert the check no longer depends on child.pid, and
+  // that control.json gets the real, server-reported pid instead.
+  it('confirms ownership from BOUND_REPORT alone, not a child.pid match', () => {
+    const src = fs.readFileSync(SCRIPT, 'utf-8');
+    expect(src).not.toMatch(/rep\.pid\s*===\s*child\.pid/);
+    expect(src).toMatch(/writeStatus\(rep\.pid,\s*rep\.port\)/);
+  });
+});
