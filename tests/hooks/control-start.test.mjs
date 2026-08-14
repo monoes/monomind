@@ -150,3 +150,22 @@ describe('control-start: not running', () => {
     expect(data.pid).not.toBe(9999999);
   });
 });
+
+describe('control-start: confirmPort timeout budget (#142)', () => {
+  // MONOMIND_CONTROL_NO_SPAWN short-circuits before findCliPath()/confirmPort()
+  // ever run, and a real npx-fallback spawn takes 3-12s+ (the exact bug this
+  // covers) — too slow/flaky for a unit test. Assert on the source instead:
+  // the npx-fallback branch (cmd isn't process.execPath) must get a longer
+  // confirmPort budget than every other branch, which spawns node directly
+  // against an already-resolved path and pays no npx-resolve cost.
+  it('gives the npx-fallback path a longer confirmPort budget than the direct-spawn paths', () => {
+    const src = fs.readFileSync(SCRIPT, 'utf-8');
+    expect(src).toMatch(/isNpxFallback\s*=\s*cmd\s*!==\s*process\.execPath/);
+    const match = src.match(/CONFIRM_ATTEMPTS\s*=\s*isNpxFallback\s*\?\s*(\d+)\s*:\s*(\d+)/);
+    expect(match).not.toBeNull();
+    const [npxAttempts, directAttempts] = match.slice(1).map(Number);
+    expect(npxAttempts).toBeGreaterThan(directAttempts);
+    // #142: cold npx resolve measured at ~12.4s — budget must clear that.
+    expect(npxAttempts * 500).toBeGreaterThanOrEqual(25_000);
+  });
+});
