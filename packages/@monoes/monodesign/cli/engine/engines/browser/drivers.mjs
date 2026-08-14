@@ -143,7 +143,14 @@ async function launchMonobrowseBrowser(options = {}) {
     if (port === null) throw new Error('Could not find a free CDP port for monobrowse');
   }
 
-  const launchedPort = await mb.launchBrowser({ port, headless, args: launchArgs });
+  // CI runners (observed on the Windows GH Actions runner) are slower to get
+  // Chrome's CDP port open than the 10s default — a batch of sequential
+  // headless launches in the same job intermittently misses that window and
+  // fails with "Chrome failed to start... within 10000ms" even though the
+  // browser starts fine, just later. Give CI more runway; local dev keeps
+  // the tighter default so a genuinely broken launch still fails fast.
+  const launchTimeoutMs = options.launchTimeoutMs ?? (process.env.CI ? 30000 : undefined);
+  const launchedPort = await mb.launchBrowser({ port, headless, args: launchArgs, launchTimeoutMs });
   // Control connection (to the initial about:blank tab) — used for lifecycle
   // commands; detection pages get their own dedicated connections.
   const control = await mb.connectToTarget(launchedPort);

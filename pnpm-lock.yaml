@@ -106,8 +106,8 @@ importers:
         version: 18.0.6
     optionalDependencies:
       '@monoes/monobrowse':
-        specifier: ^1.0.6
-        version: 1.0.6
+        specifier: ^1.0.7
+        version: 1.0.7
       puppeteer:
         specifier: ^25.1.0
         version: 25.3.0(yauzl@2.10.0)
@@ -1019,6 +1019,11 @@ packages:
 
   '@monoes/monobrowse@1.0.6':
     resolution: {integrity: sha512-PnVW14+PCzmn63tMoWrHEegroOwqraOTB4B4C5++Qc74qeRzlvfh0UDzfc8leI+PTPFvrzohKkHXUFq3PSKjyA==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
+
+  '@monoes/monobrowse@1.0.7':
+    resolution: {integrity: sha512-hau9R9jDtE/6VyKCN+BLaGjn5M9Td2XClbSdVldg5L7BnCKieXD1Raxg0G9S2jMr5Uz5CdN/w2Ywgth3BOoBGw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -3460,6 +3465,15 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@monoes/monobrowse@1.0.7':
+    dependencies:
+      commander: 12.1.0
+      ws: 8.21.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+    optional: true
 
   '@monoes/monodesign@1.2.2':
     dependencies:

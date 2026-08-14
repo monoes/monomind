@@ -44,7 +44,7 @@
     "marked": "^18.0.0"
   },
   "optionalDependencies": {
-    "@monoes/monobrowse": "^1.0.6",
+    "@monoes/monobrowse": "^1.0.7",
     "puppeteer": "^25.1.0"
   }
 }
