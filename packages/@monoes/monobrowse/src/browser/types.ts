@@ -9,10 +9,6 @@ export interface BrowserConfig {
   executablePath?: string;
   userDataDir?: string;
   args?: string[];
-  /** Milliseconds to wait for the launched Chrome to open its CDP port
-   *  before giving up. Default 10000 — raise this for environments where
-   *  process spawn is consistently slower (e.g. constrained CI runners). */
-  launchTimeoutMs?: number;
 }
 
 export interface SessionState {
