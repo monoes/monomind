@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.14] — 2026-08-15
+
+### GitHub issue fixes (#146)
+
+- **#146 — `statusline.cjs` `getVersion()` always showed the `v1.0.6` placeholder on Windows.** The npm-global-prefix fallback only checked the Unix layout (`<prefix>/lib/node_modules/monomind/package.json`), but npm on Windows puts global packages directly under `<prefix>/node_modules/` — so the fallback silently failed on every Windows install and the hardcoded placeholder won. Now both layouts are checked in turn (Windows first, then macOS/Linux), and only when both miss does the placeholder remain.
+
 ## [2.9.13] — 2026-08-15
 
 ### GitHub issue fixes (#144)
