@@ -43,7 +43,7 @@ function countWorkers() {
   if (start === -1) throw new Error('WORKER_CONFIGS not found in worker-manager.ts');
   const end = src.indexOf('\n};', start);
   const body = src.slice(start, end === -1 ? undefined : end);
-  const keys = [...body.matchAll(/^\s*'([a-zA-Z0-9_-]+)':\s*\{/gm)];
+  const keys = [...body.matchAll(/^\s*'?([a-zA-Z0-9_-]+)'?:\s*\{/gm)];
   return keys.length;
 }
 

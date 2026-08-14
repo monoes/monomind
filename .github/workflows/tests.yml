@@ -81,6 +81,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      # The CLI imports @monoes/hooks, @monoes/memory and @monoes/monograph as
+      # workspace:* deps whose package.json "types"/"main" point at dist/ — pnpm
+      # symlinks the source directory, but tsc can't resolve declarations that
+      # don't exist yet. Build cli's workspace dependencies (topological order)
+      # before building cli itself, or its own build fails with "Cannot find
+      # module '@monoes/hooks'" even though the package is correctly linked.
+      - name: Build CLI's workspace dependencies
+        run: pnpm --filter "@monoes/monomindcli^..." run build
+
       # Several root tests import from packages/@monomind/cli/dist — e.g.
       # tests/memory/cognee-port-eval.test.mjs pulls dist/src/memory/
       # memory-bridge.js. Without this they fail with ERR_MODULE_NOT_FOUND,
@@ -362,6 +371,15 @@ jobs:
       # resolving each package against the registry instead of its sibling.
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
+
+      # cli imports @monoes/hooks, @monoes/memory and @monoes/monograph as
+      # workspace:* deps whose "types"/"main" point at dist/ — the symlink pnpm
+      # creates is not enough, tsc needs those dist/ declarations to exist.
+      # Only cli needs this: it's the only matrix package importing siblings
+      # that aren't already built by their own matrix job before this one runs.
+      - name: Build cli's workspace dependencies
+        if: matrix.name == 'cli'
+        run: pnpm --filter "@monoes/monomindcli^..." run build
 
       # Build before testing: some suites exercise build OUTPUT rather than
       # source — the CLI's knowledge-endpoint test loads dist/src/ui/server.mjs

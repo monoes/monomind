@@ -54,14 +54,14 @@ describe('hooks worker list', () => {
 
     // Cross-check against the real package export so this test can't
     // silently drift from the source of truth if a worker is added/removed.
-    // The workspace @monoes/hooks has 8 on-demand workers (health, ddd,
-    // security, cache, map, audit, consolidate, progress). CLI's package.json
-    // uses workspace:* so this test sees the real registry, not the stale
-    // published 1.0.1 with 14 entries.
+    // The workspace @monoes/hooks has 9 on-demand workers (health, ddd,
+    // security, cache, map, audit, consolidate, progress, reflexion). CLI's
+    // package.json uses workspace:* so this test sees the real registry, not
+    // the stale published 1.0.1 with 14 entries.
     const expectedNames = Object.keys(WORKER_CONFIGS);
     expect(data.total).toBe(expectedNames.length);
     expect(data.workers.length).toBe(expectedNames.length);
-    expect(expectedNames.length).toBe(8);
+    expect(expectedNames.length).toBe(9);
 
     const listedNames = data.workers.map((w) => w.name).sort();
     expect(listedNames).toEqual([...expectedNames].sort());
