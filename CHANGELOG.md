@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.13] — 2026-08-15
+
+### GitHub issue fixes (#144)
+
+- **#144 — `confirmPort()` decoupled from the SessionStart hook's 5s timeout.** #142/#143's liveness-based wait can legitimately take up to ~5 minutes (cold npx resolve, AV/filesystem contention right after an install), but it ran inline inside the same process the hook kills at 5s — so in real usage it almost always got truncated before confirmation ever completed, defeating those fixes and leaving `control.json` stuck on its pre-confirmation optimistic guess. `main()` now spawns the dashboard, writes the optimistic status, hands confirmation off to a second fully independent detached process, and exits immediately — matching this file's own module docstring, which wasn't actually true before this change. The new `runConfirm()` process is free to take as long as it legitimately needs without the hook's timeout ever touching it.
+
 ## [2.9.12] — 2026-08-14
 
 ### GitHub issue fixes (#142 follow-up)
