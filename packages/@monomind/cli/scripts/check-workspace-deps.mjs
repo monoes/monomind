@@ -19,7 +19,12 @@ import { dirname, join } from 'node:path';
 const pkgDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
 
-const workspaceDeps = Object.entries({ ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies })
+const workspaceDeps = Object.entries({
+  ...pkg.dependencies,
+  ...pkg.devDependencies,
+  ...pkg.peerDependencies,
+  ...pkg.optionalDependencies,
+})
   .filter(([, version]) => typeof version === 'string' && version.startsWith('workspace:'))
   .map(([name]) => name);
 
