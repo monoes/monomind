@@ -89,7 +89,8 @@ function findCliPath() {
   }
 
   // Try npx monomind as last resort
-  return { cmd: 'npx', args: ['monomind@latest'], usePort: false };
+  const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  return { cmd: npxCmd, args: ['monomind@latest'], usePort: false };
 }
 
 function readAuthCredential() {
@@ -220,6 +221,13 @@ async function main() {
     env: { ...process.env, CLAUDE_PROJECT_DIR: CWD, MONOMIND_BOUND_REPORT: BOUND_REPORT },
   });
 
+  child.on('error', (err) => {
+    if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") {
+      process.stderr.write(`[control] spawn error: ${err.message}\n`);
+    }
+    releaseSpawnLock();
+  });
+
   child.unref();
 
   // Write optimistic status with DEFAULT_PORT immediately so dependent scripts
@@ -230,8 +238,8 @@ async function main() {
   // If port 4242 was in use, server.mjs auto-increments (up to +10).
   // Poll a few ports to find where it actually bound and update control.json.
   const http = require('http');
-  // Resolves to the responder's pid (number), null for "answers but pid
-  // unreadable" (auth-walled or old server), or false for "no answer".
+  // Resolves to the responder's pid (number), 'foreign-authwalled' for an
+  // auth-gated monomind server, null for unreadable, or false for "no answer".
   function probePort(p) {
     return new Promise((resolve) => {
       const req = http.get({ hostname: 'localhost', port: p, path: '/api/status', timeout: 1000 }, (res) => {
@@ -240,8 +248,10 @@ async function main() {
         res.on('end', () => {
           if (res.statusCode >= 500) return resolve(false);
           try {
-            const pid = JSON.parse(body).pid;
-            resolve(typeof pid === 'number' ? pid : null);
+            const parsed = JSON.parse(body);
+            if (typeof parsed.pid === 'number') return resolve(parsed.pid);
+            if (res.statusCode === 401 && parsed.error) return resolve('foreign-authwalled');
+            resolve(null);
           } catch { resolve(null); }
         });
       });
@@ -284,7 +294,9 @@ async function main() {
           }
           return;
         }
-        if (p === DEFAULT_PORT && typeof responderPid === 'number') sawForeignOnDefault = true;
+        if (p === DEFAULT_PORT && (typeof responderPid === 'number' || responderPid === 'foreign-authwalled')) {
+          sawForeignOnDefault = true;
+        }
         // pid mismatch or unreadable — not provably ours, keep scanning
       }
     }
@@ -295,7 +307,15 @@ async function main() {
       // and kill our redundant child.
       try { process.kill(child.pid, 'SIGTERM'); } catch { /* already gone */ }
       if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] port ${DEFAULT_PORT} is served by another project's control server — reusing it (killed redundant child)\n`);
-      const foreignPid = await probePort(DEFAULT_PORT);
+      let foreignPid = await probePort(DEFAULT_PORT);
+      if (typeof foreignPid !== 'number' || foreignPid <= 0) {
+        try {
+          const { execFileSync } = require('child_process');
+          const lsofOut = execFileSync('lsof', ['-ti', `:${DEFAULT_PORT}`, '-sTCP:LISTEN'], { encoding: 'utf8', timeout: 3000 }).trim();
+          const parsedPid = parseInt(lsofOut.split('\n')[0], 10);
+          if (Number.isInteger(parsedPid) && parsedPid > 0) foreignPid = parsedPid;
+        } catch { /* ignore */ }
+      }
       writeStatus(typeof foreignPid === 'number' ? foreignPid : 0, DEFAULT_PORT);
       // Pair with the foreign server: resolve its project dir from its pid,
       // copy its dashboard-token beside OUR control.json (ingest is
