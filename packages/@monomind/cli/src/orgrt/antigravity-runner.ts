@@ -43,11 +43,19 @@ import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, 
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching kimi/codex runners
 
-interface AgyStepUpdate {
-  type: 'step_update';
-  step_type?: 'user_input' | 'agent_response' | 'tool' | 'checkpoint';
+// Wire shape (verified against agy 0.35.0 stream-json output): each line is
+// { "event": "init" | "step_update" | "result", ...payload nested under a
+// key matching the event name }. init's conversation_id is a sibling of
+// "event"/"init"; step_update's and result's fields live inside their own
+// nested object — NOT flat on the top-level event.
+interface AgyStepUpdatePayload {
+  conversation_id?: string;
+  step_index?: number;
+  step_type?: 'user_input' | 'agent_response' | 'tool' | 'checkpoint' | 'unknown';
   state?: 'ACTIVE' | 'DONE';
   text_delta?: string;
+  duration_seconds?: number;
+  usage?: AgyUsage;
   tool_info?: { name: string; args?: Record<string, unknown> };
   subagent_info?: { name?: string };
 }
@@ -60,21 +68,23 @@ interface AgyUsage {
   total_tokens?: number;
 }
 
-interface AgyResult {
-  type: 'result';
+interface AgyResultPayload {
   conversation_id?: string;
   status?: 'SUCCESS' | 'ERROR' | 'CANCELED' | 'INTERRUPTED' | 'INVALID' | 'WAITING' | 'RUNNING';
   response?: string;
   error?: string;
   usage?: AgyUsage;
+  duration_seconds?: number;
+  num_turns?: number;
 }
 
-interface AgyInit {
-  type: 'init';
+interface AgyEvent {
+  event: 'init' | 'step_update' | 'result' | string;
   conversation_id?: string;
+  init?: { model?: string; cwd?: string; tools?: string[]; permission_mode?: string };
+  step_update?: AgyStepUpdatePayload;
+  result?: AgyResultPayload;
 }
-
-type AgyEvent = AgyStepUpdate | AgyResult | AgyInit | { type: string; [key: string]: unknown };
 
 interface TurnOutcome {
   /** Concatenated agent_response text (fences stripped for the bus). */
@@ -260,15 +270,15 @@ export class AntigravityAgentRunner implements AgentRunner {
           // complete cleaned text — matching kimi/codex behavior.
           let rawAccumulated = '';
           for (const ev of events) {
-            if (ev.type === 'init' && (ev as AgyInit).conversation_id) {
-              outcome.conversationId = (ev as AgyInit).conversation_id;
-            } else if (ev.type === 'step_update') {
-              const step = ev as AgyStepUpdate;
+            if (ev.event === 'init' && ev.conversation_id) {
+              outcome.conversationId = ev.conversation_id;
+            } else if (ev.event === 'step_update' && ev.step_update) {
+              const step = ev.step_update;
               if (step.step_type === 'agent_response' && typeof step.text_delta === 'string') {
                 rawAccumulated += step.text_delta;
               }
-            } else if (ev.type === 'result') {
-              const result = ev as AgyResult;
+            } else if (ev.event === 'result' && ev.result) {
+              const result = ev.result;
               if (result.conversation_id) outcome.conversationId = result.conversation_id;
               if (result.status && result.status !== 'SUCCESS') {
                 outcome.error = result.error ?? `status: ${result.status}`;
@@ -287,7 +297,7 @@ export class AntigravityAgentRunner implements AgentRunner {
             if (stripped) outcome.texts.push(stripped);
           } else {
             // Fallback for agy versions that only return result.response (no streaming)
-            const resultEvent = events.find(e => e.type === 'result') as AgyResult | undefined;
+            const resultEvent = events.find(e => e.event === 'result')?.result;
             if (resultEvent?.response) {
               outcome.rawTexts.push(resultEvent.response);
               const stripped = resultEvent.response.replace(TOOL_CALL_RE, '').trim();

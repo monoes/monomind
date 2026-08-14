@@ -52,7 +52,10 @@ export function resolveModel(
   if (vendor && VENDOR_DEFAULTS[vendor]) return VENDOR_DEFAULTS[vendor];
   switch (runtime) {
     case 'claude': return 'claude-sonnet-4-5';
-    case 'kimicode': return 'k3';
+    // Kimi Code CLI namespaces model ids as <provider>/<model> (its own
+    // default_model is "kimi-code/kimi-for-coding-highspeed") — a bare "k3"
+    // 404s with "Model \"k3\" is not configured in config.toml".
+    case 'kimicode': return 'kimi-code/k3';
     case 'opencode': return 'glm-5.2';   // opencode is typically paired with a vendor; this is the bare-runtime fallback
     case 'codex': return 'gpt-5.6-terra';
     case 'antigravity': return 'gemini-3.6-flash-high';
