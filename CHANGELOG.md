@@ -4,6 +4,14 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.15] — 2026-08-15
+
+### Critical fix — broken 2.9.14 publish (#148)
+
+- **`monomind@2.9.14`/`@monoes/monomindcli@2.9.14` were published with 5 unresolved `workspace:*` dependencies and were uninstallable** (`npm error code EUNSUPPORTEDPROTOCOL`) — this release supersedes them via a correct `pnpm publish`, verified against the registry after publishing (all 5 previously-`workspace:*` deps resolve to real version numbers). `2.9.14` is deprecated on npm pointing here.
+- **Closed a blind spot in the #130 publish guard** (`check-workspace-deps.mjs`) that let this through undetected: it only scanned `dependencies`/`devDependencies`/`peerDependencies`, missing 4 of the 5 affected deps (`@monoes/hooks`, `@monoes/mcp`, `@monoes/memory`, `@monoes/routing`), which live under `optionalDependencies`. It now scans that too.
+- The actual #146 fix (statusline `getVersion()` on Windows) is included here as well — it shipped correctly in the 2.9.14 *source*, just not the broken publish.
+
 ## [2.9.14] — 2026-08-15
 
 ### GitHub issue fixes (#146)
