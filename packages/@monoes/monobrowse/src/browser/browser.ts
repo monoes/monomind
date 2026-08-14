@@ -207,7 +207,8 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
     launchedUserDataDirs.set(port, userDataDir);
   }
 
-  const deadline = Date.now() + LAUNCH_TIMEOUT;
+  const launchTimeout = config.launchTimeoutMs ?? LAUNCH_TIMEOUT;
+  const deadline = Date.now() + launchTimeout;
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL);
     if (await isPortOpen(port)) {
@@ -224,12 +225,12 @@ async function launchOnFreePort(config: BrowserConfig, port: number): Promise<nu
   // squatting the port" (confusing generic timeout otherwise) via a raw TCP probe.
   if (await isTcpPortOpen(port)) {
     throw new Error(
-      `Port ${port} is occupied by a non-Chrome process (TCP connection succeeds but no CDP response within ${LAUNCH_TIMEOUT}ms). ` +
+      `Port ${port} is occupied by a non-Chrome process (TCP connection succeeds but no CDP response within ${launchTimeout}ms). ` +
       `Free the port or pass a different one.`
     );
   }
 
-  throw new Error(`Chrome failed to start on port ${port} within ${LAUNCH_TIMEOUT}ms`);
+  throw new Error(`Chrome failed to start on port ${port} within ${launchTimeout}ms`);
 }
 
 export async function enableSessionDomains(client: CdpClient, sessionId: string): Promise<void> {

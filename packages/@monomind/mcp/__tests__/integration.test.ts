@@ -71,9 +71,11 @@ describe('MCP 2025-11-25 Integration', () => {
         registry.registerResource(resource, handler);
       }
 
-      // Verify listing
+      // Verify listing — every server also registers 3 built-in
+      // `monomind://system/*` resources (see registerBuiltInResources in
+      // server.ts), so the total is the 3 registered here plus those 3.
       const list = registry.list();
-      expect(list.resources.length).toBe(3);
+      expect(list.resources.length).toBe(6);
 
       // Verify reading
       const config = await registry.read('file://config.json');
@@ -162,9 +164,11 @@ describe('MCP 2025-11-25 Integration', () => {
         }
       ));
 
-      // List prompts
+      // List prompts — every server also registers 3 built-in
+      // `monomind:*` prompts (see registerBuiltInPrompts in server.ts), so
+      // the total is the 2 registered here plus those 3.
       const list = registry.list();
-      expect(list.prompts.length).toBe(2);
+      expect(list.prompts.length).toBe(5);
 
       // Execute code review
       const review = await registry.get('code_review', {
@@ -323,12 +327,14 @@ describe('MCP 2025-11-25 Integration', () => {
         return { findings: ['All good!'] };
       });
 
-      // Verify all components work together
+      // Verify all components work together — plus the 3 built-in resources
+      // and 3 built-in prompts every server registers (see
+      // registerBuiltInResources/registerBuiltInPrompts in server.ts).
       const resourceList = resourceRegistry.list();
-      expect(resourceList.resources.length).toBe(1);
+      expect(resourceList.resources.length).toBe(4);
 
       const promptList = promptRegistry.list();
-      expect(promptList.prompts.length).toBe(1);
+      expect(promptList.prompts.length).toBe(4);
 
       const taskResult = await taskManager.waitForTask(analysisTaskId, 5000);
       expect(taskResult.state).toBe('completed');

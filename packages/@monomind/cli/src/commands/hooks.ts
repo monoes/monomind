@@ -638,7 +638,7 @@ export const hooksCommand: Command = {
       `${output.highlight('metrics')}         - View learning metrics dashboard`,
       `${output.highlight('transfer')}        - Transfer patterns from another project`,
       `${output.highlight('list')}            - List all registered hooks`,
-      `${output.highlight('worker')}          - Background worker management (0 workers)`,
+      `${output.highlight('worker')}          - Background worker management (9 workers)`,
       `${output.highlight('statusline')}      - Generate dynamic statusline display`,
       `${output.highlight('coverage-route')}  - Route tasks based on coverage gaps (monovector)`,
       `${output.highlight('coverage-suggest')}- Suggest coverage improvements`,
