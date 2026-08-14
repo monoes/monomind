@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.11] — 2026-08-14
+
+### GitHub issue fixes (#143)
+
+- **#143 — `confirmPort()`'s identity check couldn't survive #141's `shell: true` fix.** Under `shell: true`, `child.pid` is the wrapping `cmd.exe`'s pid, not the real dashboard server's — so the `rep.pid === child.pid` comparison against the server-reported pid (`BOUND_REPORT`) could never match on the npx-fallback path, no matter the timeout (#142's fix didn't help). The npx-fallback path always fell through to "server did not respond" and killed a server that was, in practice, already up. Identity was never really about the pid match: `BOUND_REPORT`'s path is already unique per invocation, so its mere presence with a valid port is sufficient proof of ownership. Dropped the pid comparison and switched `control.json` to record the real, server-reported pid (`rep.pid`) instead of `child.pid`.
+
 ## [2.9.10] — 2026-08-14
 
 ### GitHub issue fixes (#141 follow-up, #142)
