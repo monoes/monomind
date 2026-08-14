@@ -69,14 +69,6 @@ Set `TILLEND_EMPTY=true` **only if git shows no changes AND your self-assessment
   [tillend] Empty round — nothing found, nothing changed in run <current_rep>.
   /<command> tillend loop complete (ran <current_rep> run(s)).
   ```
-- Emit dashboard event (non-fatal if control server is not running):
-  ```bash
-  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
-    -H "Content-Type: application/json" \
-    -d "{\"type\":\"loop:complete\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"mode\":\"tillend\",\"ranReps\":<current_rep>,\"reason\":\"empty-round\",\"project\":\"${REPO_ROOT}\",\"ts\":$(date +%s)000}" || true
-  ```
 - Run: `rm -f ".monomind/loops/${LOOP_ID}.json"`
 - **END**.
 
@@ -99,14 +91,6 @@ Set `TILLEND_EMPTY=true` **only if git shows no changes AND your self-assessment
 
 If `current_rep >= repeat_count`:
 - Output: `[repeat] All <repeat_count> runs of /<command> complete.`
-- Emit dashboard event:
-  ```bash
-  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
-    -H "Content-Type: application/json" \
-    -d "{\"type\":\"loop:complete\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"ranReps\":<repeat_count>,\"project\":\"${REPO_ROOT}\",\"ts\":$(date +%s)000}" || true
-  ```
 - Run: `rm -f ".monomind/loops/${LOOP_ID}.json"`
 - **END**.
 
@@ -145,15 +129,6 @@ cat > ".monomind/loops/${LOOP_ID}.json" << EOF
   "source": "mastermind-repeat/SKILL.md"
 }
 EOF
-```
-
-Emit `loop:tick`:
-```bash
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
-curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "x-monomind-token: $(cat "${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}/.monomind/dashboard-token" 2>/dev/null || true)" \
-  -H "Content-Type: application/json" \
-  -d "{\"type\":\"loop:tick\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"completedRep\":<current_rep>,\"nextRep\":<next_rep>,\"nextAt\":${NEXT_AT},\"project\":\"${REPO_ROOT}\",\"ts\":$(date +%s)000}" || true
 ```
 
 **Call `ScheduleWakeup` now** — this is a mandatory tool call:

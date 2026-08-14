@@ -34,7 +34,7 @@ export async function writeCapabilitiesDoc(
 2. [Swarm Orchestration](#swarm-orchestration)
 3. [Available Agents (60+)](#available-agents)
 4. [CLI Commands](#cli-commands)
-5. [Hooks System (29 Hook Subcommands + 15 Background Workers)](#hooks-system)
+5. [Hooks System (29 Hook Subcommands + 8 Background Workers)](#hooks-system)
 6. [Memory & Intelligence](#memory--intelligence)
 7. [Hive-Mind Consensus](#hive-mind-consensus)
 8. [Performance Targets](#performance-targets)
@@ -101,11 +101,11 @@ npx monomind@latest swarm monitor
 ### Core Development (5)
 \`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`
 
-### V1 Specialized (4)
-\`security-architect\`, \`security-auditor\`, \`memory-specialist\`, \`performance-engineer\`
+### V1 Specialized (1)
+\`security-architect\`
 
-### Swarm Coordination (5)
-\`hierarchical-coordinator\`, \`mesh-coordinator\`, \`adaptive-coordinator\`, \`collective-intelligence-coordinator\`, \`swarm-memory-manager\`
+### Swarm Coordination (3)
+\`mesh-coordinator\`, \`collective-intelligence-coordinator\`, \`swarm-memory-manager\`
 
 ### Consensus & Distributed (7)
 \`byzantine-coordinator\`, \`raft-manager\`, \`gossip-coordinator\`, \`consensus-builder\`, \`crdt-synchronizer\`, \`quorum-manager\`, \`security-manager\`
@@ -148,7 +148,7 @@ npx monomind@latest swarm monitor
 | \`session\` | 6 | Session persistence |
 | \`config\` | 7 | Configuration |
 | \`status\` | 3 | System monitoring |
-| \`hooks\` | 29 | Self-learning hooks + 15 background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
+| \`hooks\` | 29 | Self-learning hooks + 8 background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
 
 > Note: there is no \`hive-mind\`, \`workflow\`, \`neural\`, \`embeddings\`, \`claims\`, \`migrate\`, or \`process\` CLI command.
 > Hive-Mind consensus (byzantine/raft/quorum) is available exclusively via MCP tools, not the CLI.
@@ -220,7 +220,7 @@ npx monomind@latest doctor --fix
 | \`coverage-suggest\` | Improvement suggestions |
 | \`coverage-gaps\` | Gap analysis |
 
-### 15 Background Workers (@monoes/hooks, run in-process)
+### 8 Background Workers (@monoes/hooks, run in-process)
 | Worker | Priority | Purpose |
 |--------|----------|---------|
 | \`performance\` | normal | Benchmark performance |
