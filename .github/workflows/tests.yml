@@ -98,6 +98,19 @@ jobs:
         working-directory: packages/@monomind/cli
         run: npm run build
 
+      # doc-eval-asserts-fire.test.ts, doc-eval-metrics.test.ts, and
+      # knowledge-superseded.test.ts need the real embedding (and reranker)
+      # weights on disk to run for real — the eval harness deliberately
+      # refuses to download them mid-query (see knowledge/eval/model-presence.ts),
+      # so CI has to provision them as an explicit prior step instead, exactly
+      # like a human would locally. Not cached: this is a one-time ~280MB
+      # fetch per run, and predicting the exact pnpm-mangled cache path to
+      # cache reliably isn't worth the complexity for a job that already
+      # takes minutes.
+      - name: Provision embedding models
+        working-directory: packages/@monomind/cli
+        run: node bin/cli.js doc eval --provision-model
+
       - name: Run root tests
         run: npx vitest run --reporter=verbose
         env:
@@ -400,6 +413,14 @@ jobs:
         if: matrix.build != 'skip'
         working-directory: ${{ matrix.dir }}
         run: npm run build --if-present
+
+      # Same reasoning as the root job's identical step: cli's doc-eval and
+      # knowledge-superseded suites need the real embedding/reranker weights
+      # on disk, provisioned as an explicit non-query-time step.
+      - name: Provision embedding models
+        if: matrix.name == 'cli'
+        working-directory: ${{ matrix.dir }}
+        run: node bin/cli.js doc eval --provision-model
 
       - name: Run ${{ matrix.name }} tests
         working-directory: ${{ matrix.dir }}

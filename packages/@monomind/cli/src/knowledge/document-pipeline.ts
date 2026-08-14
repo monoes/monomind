@@ -688,6 +688,7 @@ export async function searchKnowledge(
       query, namespace: t.ns, limit: fetchLimit, threshold: minScore, dbPath: t.dbPath,
       skipRerank: opts?.skipRerank,
       includeSuperseded,
+      rootDir: t.root,
     }).catch(() => null);
     if (!result?.success || !result.results.length) return [];
     const hashToFile = new Map<string, string>();

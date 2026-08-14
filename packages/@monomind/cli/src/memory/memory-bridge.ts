@@ -720,6 +720,14 @@ export async function bridgeSearchEntries(options: {
    *  (flagged by the caller). Default false — removed documents are
    *  filtered out for security. */
   includeSuperseded?: boolean;
+  /** Project root to read document metadata from for the knowledge-superseded
+   *  check (default: getProjectRoot(), i.e. process.cwd()-derived). Callers
+   *  operating on an explicit project directory that differs from cwd — e.g.
+   *  searchKnowledge({ rootDir }) — must pass the SAME root here, or every
+   *  freshly-ingested doc in that directory reads as superseded (its content
+   *  hash won't be found in metadata read from the wrong place) and gets
+   *  filtered out despite matching the query. */
+  rootDir?: string;
 }): Promise<{
   success: boolean;
   results: {
@@ -771,7 +779,9 @@ export async function bridgeSearchEntries(options: {
     if (knowledgeFilterActive) {
       try {
         const dp = await import('../knowledge/document-pipeline.js');
-        const rootDir = options.dbPath === GLOBAL_BRAIN ? getGlobalBrainDir() : getProjectRoot();
+        const rootDir = options.dbPath === GLOBAL_BRAIN
+          ? getGlobalBrainDir()
+          : (options.rootDir ?? getProjectRoot());
         _knowledgeLive = dp.liveContentHashes(rootDir);
         _knowledgeHasMeta = dp.hasKnowledgeMetadata(rootDir);
         _isSupersededKey = dp.isSupersededKey;
@@ -997,10 +1007,17 @@ export async function bridgeSearchEntries(options: {
           if (semanticAttempted && !fallbackReason) fallbackReason = 'no-semantic-matches';
         } else {
           // Merge: union deduplicated by key, semantic wins on duplicates.
+          // Extras are flagged _keywordOnly so the reranking step below can
+          // skip them — the cross-encoder scores r.content, and an entry
+          // findable ONLY by keyword (e.g. a placeholder/near-empty content
+          // whose relevance lives in the key) reranks as noise and gets
+          // sliced off by the final `limit`, silently defeating the whole
+          // point of merging it in. Guaranteed inclusion has to survive
+          // reranking, not just the merge.
           const seenKeys = new Set(results.map((r: any) => r.key));
           const extras = keywordHits.filter((kh: any) => !seenKeys.has(kh.key));
           if (extras.length) {
-            results = [...results, ...extras];
+            results = [...results, ...extras.map((e: any) => ({ ...e, _keywordOnly: true }))];
             // searchMethod stays 'semantic' — the primary path succeeded;
             // keyword only supplemented entries that lacked embeddings.
           }
@@ -1047,15 +1064,29 @@ export async function bridgeSearchEntries(options: {
       results = results.filter(
         (r: any) => !_isSupersededKey!(String(r.key ?? ''), _knowledgeLive!, _knowledgeHasMeta),
       );
-      // Trim back to the originally requested limit after overfetch.
-      if (results.length > limit) results = results.slice(0, limit);
+      // Trim back to the originally requested limit after overfetch — but
+      // never let this blind size-based cut drop a _keywordOnly extra (see
+      // the merge above): reserve its slot and trim the rest first.
+      if (results.length > limit) {
+        const extras = results.filter((r: any) => r._keywordOnly);
+        const main = results.filter((r: any) => !r._keywordOnly);
+        const keep = Math.max(0, limit - extras.length);
+        results = [...main.slice(0, keep), ...extras.slice(0, limit)];
+      }
     }
+
+    // Keyword-only extras are guaranteed to survive to the final result —
+    // pull them out before reranking so the cross-encoder (which scores
+    // r.content only) can't outrank them into oblivion, then reserve their
+    // slots when re-merging below.
+    const keywordOnlyResults = results.filter((r: any) => r._keywordOnly);
+    let rerankPool = results.filter((r: any) => !r._keywordOnly);
 
     // ── Cross-encoder reranking ──────────────────────────────────────
     // Fires only when: reranker loaded, >1 result, not explicitly skipped.
     // Lazy-load on first qualifying search so startup stays fast.
     let reranked = false;
-    if (!options.skipRerank && process.env.MONOMIND_RERANKER !== '0' && results.length > 1) {
+    if (!options.skipRerank && process.env.MONOMIND_RERANKER !== '0' && rerankPool.length > 1) {
       if (!_reranker && !_rerankerPromise) {
         // First qualifying search — kick off the lazy load. This search
         // proceeds without reranking; the NEXT search will use it.
@@ -1064,11 +1095,19 @@ export async function bridgeSearchEntries(options: {
         });
       }
       if (_reranker) {
-        const rr = await rerankResults(queryStr, results, limit);
-        results = rr.reranked;
+        const rr = await rerankResults(queryStr, rerankPool, limit);
+        rerankPool = rr.reranked;
         reranked = rr.applied;
       }
     }
+
+    if (keywordOnlyResults.length) {
+      const keep = Math.max(0, limit - keywordOnlyResults.length);
+      results = [...rerankPool.slice(0, keep), ...keywordOnlyResults.slice(0, limit)];
+    } else {
+      results = rerankPool;
+    }
+    results.forEach((r: any) => delete r._keywordOnly);
 
     return {
       success: true,
