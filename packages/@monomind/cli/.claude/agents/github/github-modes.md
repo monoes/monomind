@@ -2,7 +2,6 @@
 name: github-modes
 description: |
   Comprehensive GitHub integration modes for workflow orchestration, PR management, and repository coordination with batch optimization
-tools: mcp__monomind__swarm_init, mcp__monomind__agent_spawn, Bash, TodoWrite, Read, Write
 ---
 
 # GitHub Integration Modes
