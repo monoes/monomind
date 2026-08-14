@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.9] — 2026-08-14
+
+### GitHub issue fixes (#141)
+
+- **#141 — `control-start.cjs` no longer silently fails to auto-start the dashboard on Windows.** The `npx.cmd` last-resort fallback was spawned without `shell: true`, which Windows requires to exec a `.cmd`/`.bat` file; the call threw `EINVAL` synchronously and the wrapper's `main().catch(() => process.exit(0))` swallowed it with zero diagnostics. `spawn()` now sets `shell: true` when the resolved command ends in `.cmd`/`.bat` on `win32`, and the outer catch logs the failure (unless `MONOMIND_HOOK_QUIET`) and releases the spawn lock instead of exiting silently.
+
 ## [2.9.8] — 2026-08-14
 
 > Rollup release cut from `main`. The 2.9.5–2.9.7 patch releases were cut from
