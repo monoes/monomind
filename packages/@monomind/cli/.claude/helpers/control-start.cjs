@@ -281,15 +281,20 @@ async function main() {
     let sawForeignOnDefault = false;
     for (let attempt = 0; attempt < CONFIRM_ATTEMPTS; attempt++) {
       await new Promise(r => setTimeout(r, 500));
-      // 1) Authoritative: child self-reported its bound port
+      // 1) Authoritative: child self-reported its bound port. Identity comes
+      // from BOUND_REPORT's own per-invocation-unique path (nothing else on
+      // the machine knows it, since it's only handed to this child via env),
+      // NOT a pid match: under shell:true (#141's Windows EINVAL fix),
+      // child.pid is the wrapping cmd.exe's pid, not the real server's —
+      // rep.pid !== child.pid always, so a pid comparison here can never
+      // succeed on the npx-fallback path regardless of how long we wait
+      // (#143). rep.pid is the real server pid — use it for control.json.
       try {
         const rep = JSON.parse(fs.readFileSync(BOUND_REPORT, 'utf8'));
-        if (rep && rep.pid === child.pid && typeof rep.port === 'number') {
+        if (rep && typeof rep.pid === 'number' && typeof rep.port === 'number') {
           try { fs.unlinkSync(BOUND_REPORT); } catch { /* ignore */ }
-          if (rep.port !== DEFAULT_PORT) {
-            writeStatus(child.pid, rep.port);
-            if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] server bound to port ${rep.port} (updated control.json)\n`);
-          }
+          writeStatus(rep.pid, rep.port);
+          if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] server bound to port ${rep.port} (pid ${rep.pid})\n`);
           return;
         }
       } catch { /* not written yet or old server — fall through to probe */ }
