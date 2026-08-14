@@ -4,6 +4,35 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.8] — 2026-08-14
+
+> Rollup release cut from `main`. The 2.9.5–2.9.7 patch releases were cut from
+> a `release/v2.9.5` branch and never ported their changelog back; 2.9.8
+> reconciles both lines — everything below is in the 2.9.8 tarball.
+
+### GitHub issue fixes (#133, #136–#140)
+
+- **#140 — a role hitting `max_turns_per_message` no longer crashes the org.** A turn-limit error (thrown or `error_max_turns` result) now grants a bounded continuation turn with a fresh session instead of permanently dropping the role mid-task. **`monomind org run <name> --resume`** reconstructs role state from the persisted checkpoint (mailbox queues, policy usage, metrics, scrollback, SDK session ids) via `startOrg({resume})` — the checkpoint was previously write-only. `checkpoint.status` now tracks the runtime status it was captured under instead of always claiming `running`.
+- **Default `max_turns_per_message` is now 100,000** (`DEFAULT_MAX_TURNS_PER_MESSAGE`) — effectively unlimited so the ceiling can never brick a legitimately long task. Real guardrails remain `budget_tokens`, the idle watchdog, and the circuit breaker. `org create` mentions it budget-style; explicit per-org/per-role values are preserved. The `org run` cost estimate caps its planning math at 30 turns/message so the unlimited default doesn't balloon it.
+- **#139 — new `monomind ui` command** (alias `dashboard`) starts the Neural Control Room from the published CLI — `control-start.cjs`'s `npx monomind@latest ui` fallback path works now (`--port`, `--no-open`, `--project-dir`).
+- **#137 — Windows SessionStart crash fixed.** The npx fallback resolves `npx.cmd` on win32 and the spawned child carries an `error` listener that releases the spawn lock instead of crashing the hook.
+- **#138 — statusline `getActiveOrgs()` reads Org Runtime v2 `runtime.json`** (status + pid liveness) instead of a `runs/` directory the daemon never writes — the active-org row appears while an org is running. Also exposed in `--json` output.
+- **#136 — dashboard visibility self-heals.** `control-start.cjs` treats an auth-walled 401 from `/api/status` as a foreign server (the adoption path was dead code under real auth). The org-run event forwarder warns once — unconditionally — when no live dashboard exists, treats a dead recorded pid as no-dashboard, and spawns the dashboard server itself (single-flight, same bound-report contract as control-start) so `org run` events no longer silently go nowhere.
+- **#133 — route-outcome correlation wired.** `hooks route` records a `routeId` recommendation to `route-outcomes.jsonl`; session-end joins by `routeId` and backfills the measured outcome — the caller wiring `doctor`'s primary routing-learning path was waiting on.
+
+### Runner fixes
+
+- Vercel AI SDK v7 stream/usage field names corrected in `vercel-runner.ts` (usage deltas arrive on the final chunk; per-chunk field access produced NaN token counts).
+- Kimi model namespace (`kimi-code/k3`) and Antigravity event parsing (`init` → `step_update` → `result`) corrections.
+- `org run`'s cost estimate resolves each role's actual model (`resolveModel`) for labels instead of a hardcoded default.
+
+### Library bumps (carrying main-only work to npm)
+
+- `@monoes/hooks` 1.0.5 — Reflexion background worker (`worker-reflexion.ts`).
+- `@monoes/mcp` 1.0.3 — MCP registry population (`registry-metadata.json`, `/registry` server routes).
+- `@monoes/memory` 1.0.15, `@monoes/routing` 1.0.4 — version sync with npm content (no code change); keeps workspace pins monotone.
+- `@monoes/monograph` stays 1.5.8.
+
 ### Graph engineering playbook — dynamic work graphs + structured handoffs
 
 Adaptation of the July 2026 "Graph Engineering for Multi-Agentic Systems"
