@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.12] — 2026-08-14
+
+### GitHub issue fixes (#142 follow-up)
+
+- **#142 follow-up — `confirmPort()` now waits on liveness, not a fixed budget.** #142's 30s npx-fallback budget helps the common case, but a follow-up report found it's still occasionally too tight right after a fresh global reinstall — one run measured the server taking ~142s to report (vs. the normal ~5-9s), likely npm/AV-scan contention on a freshly-written `node_modules` tree, not registry resolve time. `CONFIRM_ATTEMPTS` is now a minimum grace period, not the hard budget: past it, `confirmPort()` only gives up once the child has actually exited — a live child that simply hasn't reported yet keeps getting the benefit of the doubt, up to a 5-minute absolute safety-net ceiling.
+
 ## [2.9.11] — 2026-08-14
 
 ### GitHub issue fixes (#143)
