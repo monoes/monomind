@@ -29,6 +29,8 @@ pnpm typecheck
 ```
 
 ## Critical Constraints
+- **Default Git Worktree Isolation:** Always work inside an isolated git worktree (`.worktrees/<task-slug>`) instead of writing directly to the active branch, unless the user explicitly instructs to apply changes directly on branch.
+- **End-of-Session Confirmation:** At the end of the task, always prompt the user with choices to (1) Commit & Merge, (2) Commit & Keep Branch, or (3) Discard the worktree.
 - **Never** modify files outside your assigned task scope
 - **Always** run tests before reporting a task complete
 - **Always** write tests alongside implementation (TDD)

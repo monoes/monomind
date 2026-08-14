@@ -4,7 +4,9 @@
 > cross-session memory, semantic Second Brain document search, and autonomous
 > agent organisations. All data stays local — nothing leaves your machine.
 
-Behavioral rules live in `.gemini/rules/monomind.md` and are always enforced.
+Behavioral rules live in `.gemini/rules/monomind.md` and `.gemini/rules/worktree-session.md` and are always enforced.
+- **Default Worktree Mode**: Always work in a dedicated git worktree (`.worktrees/<slug>`) unless explicitly requested to work directly on branch.
+- **End-of-Session**: Always ask the user to commit & merge, commit & keep branch, or discard before concluding.
 
 ## Status Bar
 

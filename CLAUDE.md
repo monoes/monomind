@@ -11,6 +11,8 @@
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
 - **Versioning policy (NEVER violate)**: When bumping the monomind version, **only the third (patch) digit may ever increase** (e.g. `2.8.4 → 2.8.5`, `2.9.0 → 2.9.1`). **Never** bump the first (major) or second (minor) digit unless the user explicitly says otherwise. This applies to `package.json`, `packages/@monomind/cli/package.json`, `CHANGELOG.md` headers, git tags, and GitHub release names. If unsure, ask — do not guess.
+- **Default Worktree Isolation**: By default, every session/task involving modifications MUST operate on an isolated git worktree (`.worktrees/<slug>`) rather than writing directly to the active branch.
+- **End-of-Session Confirmation**: At the end of the session, always present the changes and ask the user to commit & merge, commit & keep branch, or discard, unless the user explicitly specified to work directly on the branch.
 - ALWAYS call `mcp__monomind__monograph_query` BEFORE running grep/rg/find via Bash for code exploration — only fall back to Bash grep if monograph returns 0 results or the DB does not exist
 - When starting any task that touches 3+ files: call `mcp__monomind__monograph_suggest` first to get relevant nodes ranked by task relevance
 
