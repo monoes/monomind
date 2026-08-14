@@ -194,7 +194,10 @@ describe('control-start: confirmPort waits on liveness, not a fixed budget (#142
   it('only gives up early, before the hard ceiling, once the child has actually exited', () => {
     const src = fs.readFileSync(SCRIPT, 'utf-8');
     expect(src).toMatch(/attempt\s*<\s*HARD_CEILING_ATTEMPTS/);
-    expect(src).toMatch(/attempt\s*>=\s*CONFIRM_ATTEMPTS\s*&&\s*!isPidAlive\(child\.pid\)/);
+    // childPid, not child.pid: runConfirm (see #144 below) takes a plain pid
+    // number, since it runs in its own process and no longer has the
+    // original ChildProcess object to read .pid off of.
+    expect(src).toMatch(/attempt\s*>=\s*CONFIRM_ATTEMPTS\s*&&\s*!isPidAlive\(childPid\)/);
     const ceilingMatch = src.match(/HARD_CEILING_ATTEMPTS\s*=\s*(\d+)/);
     expect(ceilingMatch).not.toBeNull();
     const hardCeilingAttempts = Number(ceilingMatch[1]);
@@ -203,5 +206,28 @@ describe('control-start: confirmPort waits on liveness, not a fixed budget (#142
     // The ceiling must be strictly larger than the npx-fallback grace period,
     // or it isn't a safety net at all — just the same budget renamed.
     expect(hardCeilingAttempts).toBeGreaterThan(npxAttempts);
+  });
+});
+
+describe('control-start: confirmation runs detached from the hook-invoked process (#144)', () => {
+  // The SessionStart hook that invokes this script has only a 5s timeout
+  // (settings.json), far short of what confirmPort/runConfirm can
+  // legitimately need (up to HARD_CEILING_ATTEMPTS's ~5 min). Awaiting
+  // confirmation inline meant the hook almost always got the process killed
+  // mid-wait before #142/#143's own fixes ever got a chance to run — control
+  // .json stayed stuck on its pre-confirmation optimistic guess every time
+  // resolution took longer than ~4.5s, which per #142's own measurements is
+  // the common case, not the exception. Confirmation now runs in a second,
+  // fully independent detached process instead, so the hook-invoked process
+  // can write the optimistic status and exit immediately — matching this
+  // file's own module docstring ("exits immediately after spawning").
+  it('spawns a detached confirm-mode process and returns without awaiting it', () => {
+    const src = fs.readFileSync(SCRIPT, 'utf-8');
+    expect(src).toMatch(/MONOMIND_CONTROL_CONFIRM_MODE:\s*'1'/);
+    expect(src).toMatch(/detached:\s*true/);
+    // main() must not itself await runConfirm/confirmPort — it hands off and
+    // returns. There should be no `await runConfirm` or `await confirmPort`
+    // left anywhere in the file.
+    expect(src).not.toMatch(/await\s+(runConfirm|confirmPort)\(/);
   });
 });
