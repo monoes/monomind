@@ -2124,23 +2124,6 @@ fence.resetContext();                 <span class="comment">// start a new conve
 <span class="comment">// consensus.consensus  → 'safe' | 'threat' | 'uncertain'</span>
 <span class="comment">// consensus.confidence → 0.0 – 1.0</span>
 <span class="comment">// consensus.criticalThreats → string[]</span></div>
-
-    <div class="section-title reveal">Migration from @monomind/monodefence</div>
-    <div class="table-wrap reveal">
-    <table class="doc-table">
-      <thead><tr><th>Old (deprecated)</th><th>New</th></tr></thead>
-      <tbody>
-        <tr><td class="mono">@monomind/monodefence</td><td class="mono">monofence-ai</td></tr>
-        <tr><td class="mono">createAIDefence()</td><td class="mono">createMonoDefence()</td></tr>
-        <tr><td class="mono">getAIDefence()</td><td class="mono">getMonoDefence()</td></tr>
-        <tr><td class="mono">AIDefenceConfig</td><td class="mono">MonoDefenceConfig</td></tr>
-        <tr><td class="mono">AIDefence</td><td class="mono">MonoDefence</td></tr>
-        <tr><td class="mono">--security-check</td><td class="mono">--monofence-ai-check</td></tr>
-        <tr><td class="mono">--security-deep</td><td class="mono">--monofence-ai-security-deep</td></tr>
-      </tbody>
-    </table>
-    </div>
-    <p class="reveal" style="color:var(--text2);font-size:13.5px;margin-top:8px">Deprecated aliases (<code>createAIDefence</code>, <code>@monomind/monodefence</code> import) remain available until v2. Migrate before the next major release.</p>
   </div>
 </div>
 <!-- ══════════════ END MONOFENCE AI PAGE ══════════════ -->
