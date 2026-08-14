@@ -33,6 +33,34 @@ function loadSL() {
   return require(SL_PATH);
 }
 
+// ── getVersion ────────────────────────────────────────────────────────────────
+
+describe('getVersion', () => {
+  // Real-world regression: on any per-project deployment (statusline.cjs
+  // copied into a user project's .claude/helpers/, not living inside the
+  // monomind package's own directory tree — the common case for every real
+  // install), strategy 1's walk-up never finds a matching package.json, so
+  // resolution falls to strategy 2 (npm global prefix). npm's global layout
+  // differs by platform: packages live directly under <prefix>/node_modules
+  // on Windows, but under <prefix>/lib/node_modules on macOS/Linux. Checking
+  // only the Unix shape meant this fallback silently failed on every Windows
+  // install, always landing on the 'v1.0.6' placeholder regardless of the
+  // actual installed version — reproduced live: `monomind --version` reported
+  // v2.9.13, the statusline showed "Monomind v1.0.6".
+  //
+  // Testing this end-to-end would require faking __filename's resolved
+  // directory (the real path here, inside this repo, makes strategy 1
+  // succeed trivially before ever reaching the fallback) — impractical for a
+  // portable unit test, same real-spawn-too-slow-to-simulate situation the
+  // #142/#143 tests above hit for shell:true/npx timing. Assert on the
+  // source instead: both platform path shapes must be checked.
+  it('checks both the Windows and macOS/Linux npm global package layouts in the prefix fallback', () => {
+    const src = fs.readFileSync(SL_PATH, 'utf-8');
+    expect(src).toMatch(/path\.join\(prefix,\s*'node_modules',\s*'monomind',\s*'package\.json'\)/);
+    expect(src).toMatch(/path\.join\(prefix,\s*'lib',\s*'node_modules',\s*'monomind',\s*'package\.json'\)/);
+  });
+});
+
 // ── readJSON ──────────────────────────────────────────────────────────────────
 
 describe('readJSON', () => {

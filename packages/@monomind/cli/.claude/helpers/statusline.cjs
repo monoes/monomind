@@ -46,12 +46,25 @@ function getVersion() {
       }
     } catch { /* ignore */ }
   }
-  // 2. Fallback: npm global prefix
+  // 2. Fallback: npm global prefix. Layout differs by platform — npm puts
+  // global packages directly under <prefix>/node_modules on Windows, but
+  // under <prefix>/lib/node_modules on macOS/Linux. Checking only the Unix
+  // shape meant this fallback silently failed on every Windows install,
+  // always landing on the hardcoded placeholder below regardless of the
+  // actual installed version.
   try {
     const { execSync } = require('child_process');
     const prefix = execSync('npm config get prefix', { encoding: 'utf-8', timeout: 2000 }).trim();
-    const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json'), 'utf-8'));
-    if (pkg.version) return `v${pkg.version}`;
+    const prefixCandidates = [
+      path.join(prefix, 'node_modules', 'monomind', 'package.json'),      // Windows
+      path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json'), // macOS/Linux
+    ];
+    for (const p of prefixCandidates) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+        if (pkg.version) return `v${pkg.version}`;
+      } catch { /* try next candidate */ }
+    }
   } catch { /* ignore */ }
   return 'v1.0.6';
 }
@@ -1458,7 +1471,7 @@ function readMode() {
 // ─── Testability export (when required as a module, not run as CLI) ──────────
 if (require.main !== module) {
   module.exports = {
-    readJSON, safeStat, modelLabel,
+    readJSON, safeStat, modelLabel, getVersion,
     getSecurityStatus, getSwarmStatus, getADRStatus,
     getHooksStatus, getActiveAgent, getLanceDBStats,
     getLearningStats, getTestStats, getIntegrationStatus,
