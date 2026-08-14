@@ -131,7 +131,7 @@ module.exports = {
         if (bundledDir) {
           var healed = [];
           // Top-level critical files — mirrors executor.ts's `criticalHelpers` list.
-          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'graphify-freshen.cjs', 'intelligence.cjs', 'auto-memory-hook.mjs', 'build-skill-registry.cjs'];
+          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'graphify-freshen.cjs', 'control-start.cjs', 'intelligence.cjs', 'auto-memory-hook.mjs', 'build-skill-registry.cjs'];
           for (var hi = 0; hi < helpersToCheck.length; hi++) {
             var hName = helpersToCheck[hi];
             var healedName = _healIfStale(

@@ -1323,6 +1323,7 @@ export const HELPER_FILES: Record<string, HelperFileSpec> = {
   'auto-memory-hook.mjs': { forceSync: true, generate: generateAutoMemoryHook },
   'statusline.cjs': { forceSync: true, doctorTracked: true },
   'graphify-freshen.cjs': { forceSync: true, doctorTracked: true },
+  'control-start.cjs': { forceSync: true, doctorTracked: true },
   'router.cjs': { forceSync: true, doctorTracked: true, generate: generateAgentRouter },
   // Regenerates skill-registry.json (which router.cjs's matchSkills reads) from
   // the live .claude/commands + .claude/skills trees. No fallback generator:
