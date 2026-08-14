@@ -67,10 +67,7 @@ export const GOLDEN_SET: GoldenPair[] = [
 
   // -- process skills --
   { id: 'skill-worktree', query: 'getting a throwaway checkout so risky changes never touch the main working copy', relevant: ['.claude/skills/mastermind-worktree/SKILL.md'], tags: ['process'] },
-  { id: 'skill-tdd', query: 'the discipline that demands a failing check exist before any production logic, especially when rushed', relevant: ['.claude/skills/mastermind-tdd/SKILL.md'], tags: ['process'] },
   { id: 'skill-debug', query: 'find the true cause before attempting any repair', relevant: ['.claude/skills/mastermind-debug/SKILL.md'], tags: ['process'] },
-  { id: 'skill-verify', query: 'refusing to claim something is done without showing proof it works', relevant: ['.claude/skills/mastermind-verify/SKILL.md'], tags: ['process'] },
-  { id: 'skill-finish', query: 'deciding between merging opening a request or throwing the branch away once work is finished', relevant: ['.claude/skills/mastermind-finish/SKILL.md'], tags: ['process'] },
   { id: 'skill-plan', query: 'writing the full step by step document with exact paths before touching any code', relevant: ['.claude/skills/mastermind-plan/SKILL.md'], tags: ['process'] },
   { id: 'skill-execute', query: 'working through an already written implementation document task by task', relevant: ['.claude/skills/mastermind-execute/SKILL.md'], tags: ['process'] },
   { id: 'skill-design', query: 'talking through what the user actually wants before building anything', relevant: ['.claude/skills/mastermind-design/SKILL.md'], tags: ['process'] },
@@ -87,7 +84,6 @@ export const GOLDEN_SET: GoldenPair[] = [
   // -- org / company management skills --
   { id: 'skill-createorg', query: 'defining a new automated company with its roles and reporting lines and saving it to disk', relevant: ['.claude/skills/mastermind-createorg/SKILL.md'], tags: ['org'] },
   { id: 'skill-bootstrap', query: 'priming the chief agent once with context and a signed joining token before the first run', relevant: ['.claude/skills/mastermind-bootstrap/SKILL.md'], tags: ['org'] },
-  { id: 'skill-orgchart', query: 'drawing the reporting hierarchy as text art', relevant: ['.claude/skills/mastermind-org-chart/SKILL.md'], tags: ['org'] },
   { id: 'skill-budgets', query: 'watching how fast each worker is burning its allowance and capping it', relevant: ['.claude/skills/mastermind-budgets/SKILL.md'], tags: ['org'] },
   { id: 'skill-backup', query: 'rolling every company state file into one dated compressed archive that can be restored', relevant: ['.claude/skills/mastermind-backup/SKILL.md'], tags: ['org'] },
   { id: 'skill-invites', query: 'handing out joining tokens and clearing the queue of people and bots asking to be let in', relevant: ['.claude/skills/mastermind-invites/SKILL.md', '.claude/skills/mastermind-join-queue/SKILL.md'], tags: ['org'] },
@@ -103,13 +99,8 @@ export const GOLDEN_SET: GoldenPair[] = [
   { id: 'skill-stoporg', query: 'bringing a running automated company to a halt', relevant: ['.claude/skills/mastermind-stoporg/SKILL.md'], tags: ['org'] },
 
   // -- domain skills --
-  { id: 'skill-marketing', query: 'campaigns search visibility and social posts coordinated by one manager', relevant: ['.claude/skills/mastermind-marketing/SKILL.md'], tags: ['domain'] },
-  { id: 'skill-content', query: 'a pipeline that researches drafts edits and then publishes long form writing', relevant: ['.claude/skills/mastermind-content/SKILL.md'], tags: ['domain'] },
-  { id: 'skill-finance', query: 'billing documents spend forecasting and money tracking agents', relevant: ['.claude/skills/mastermind-finance/SKILL.md'], tags: ['domain'] },
-  { id: 'skill-architect', query: 'hunting duplicate file structures tangled dependencies and tight coupling', relevant: ['.claude/skills/mastermind-architect/SKILL.md'], tags: ['domain'] },
   { id: 'skill-review-domain', query: 'several specialists inspecting the same change from different angles at once', relevant: ['.claude/skills/mastermind-review/SKILL.md'], tags: ['domain'] },
   { id: 'skill-idea', query: 'divergent brainstorming about products and pivots then narrowing to actionable pieces', relevant: ['.claude/skills/mastermind-idea/SKILL.md'], tags: ['domain'] },
-  { id: 'skill-autodev', query: 'an unattended cycle that investigates picks an improvement builds it and critiques itself repeatedly', relevant: ['.claude/skills/mastermind-autodev/SKILL.md'], tags: ['domain'] },
   { id: 'skill-release', query: 'version numbering change logs and pushing a new build out', relevant: ['.claude/skills/mastermind-release/SKILL.md'], tags: ['domain'] },
 
   // -- tooling references --
@@ -130,8 +121,6 @@ export const GOLDEN_SET: GoldenPair[] = [
   { id: 'anim-presets', query: 'ready made motion recipes you can drop in without writing the tween yourself', relevant: ['.claude/skills/monomotion/rules/effects.md'], tags: ['animation'] },
 
   // -- persuasion / copy references --
-  { id: 'copy-frameworks', query: 'named structures for arranging persuasive sales writing', relevant: ['.claude/skills/mastermind-marketing/references/copywriting-frameworks.md'], tags: ['reference'] },
-  { id: 'copy-psychology', query: 'the mental levers that make readers more likely to act on a message', relevant: ['.claude/skills/mastermind-marketing/references/persuasion-psychology.md'], tags: ['reference'] },
 
   // -- agent definitions --
   { id: 'agent-pr', query: 'the worker that shepherds a change request through checks and gets it landed', relevant: ['.claude/agents/github/pr-manager.md', 'packages/@monomind/cli/.claude/commands/github/pr-manager.md'], tags: ['agents'] },
@@ -242,16 +231,11 @@ GOLDEN_SET.push(
   { id: 'b0-impl-specialist', query: 'which teammate persona is meant for turning a spec into working production code and tidying up existing modules', relevant: ['.claude/agents/core/coder.md'], tags: ['b0'] },
   { id: 'b0-ml-into-product', query: 'who should i hand work that puts a trained model behind a live product feature', relevant: ['.claude/agents/engineering/engineering-ai-engineer.md'], tags: ['b0'] },
   { id: 'b0-startup-shared-state', query: 'setting up a group of helpers so every one of them is forced to post its progress into a common store before work is handed out', relevant: ['.claude/agents/templates/coordinator-swarm-init.md'], tags: ['b0'] },
-  { id: 'b0-newfeature-conflict', query: 'why can i not combine the keep going until done switch with asking for a set number of fresh capabilities', relevant: ['.claude/commands/mastermind/autodev.md'], tags: ['b0'] },
   { id: 'b0-loop-never-stops', query: 'unattended repeat keeps going forever when studying another codebase because nothing is ever actually executed', relevant: ['.claude/commands/mastermind/techport.md'], tags: ['b0'] },
   { id: 'b0-restore-brain-bundle', query: 'pulling a previously saved knowledge package back into the local store without accidentally indexing its manifest file', relevant: ['.claude/commands/mastermind/okf-import.md'], tags: ['b0'] },
   { id: 'b0-pi-harness', query: 'what do i do about task lists and spawned helpers when working inside pi', relevant: ['.claude/commands/mastermind/references/pi-tools.md'], tags: ['b0'] },
   { id: 'b0-shrink-bottom-bar', query: 'switch the info strip at the bottom of the terminal between the tall version and one row', relevant: ['.claude/commands/ts.md'], tags: ['b0'] },
-  { id: 'b0-old-signoff-queue', query: 'before the web view existed how did you see and clear requests where a worker paused for permission', relevant: ['.claude/skills/mastermind-approvev1/SKILL.md'], tags: ['b0'] },
-  { id: 'b0-manual-wake', query: 'make one role in an older company check for work right now instead of waiting for its timer', relevant: ['.claude/skills/mastermind-heartbeatv1/SKILL.md'], tags: ['b0'] },
   { id: 'b0-hire-worker', query: 'add another member to an existing company choosing its backend model who it answers to and its spending cap', relevant: ['.claude/skills/mastermind-new-agent/SKILL.md'], tags: ['b0'] },
-  { id: 'b0-legacy-org-start', query: 'how companies used to be launched before the daemon existed with everything driven from one long prompt and a card wall', relevant: ['.claude/skills/mastermind-runorgv1/SKILL.md'], tags: ['b0'] },
-  { id: 'b0-handoff-wording', query: 'exact wording to give a helper when handing it one step of a written plan including telling it to raise concerns instead of guessing', relevant: ['.claude/skills/mastermind-taskdev/implementer-prompt.md'], tags: ['b0'] },
   { id: 'b0-checkout-inventory', query: 'list every separate working copy in a company with what is running in it and tidy the idle ones', relevant: ['.claude/skills/mastermind-workspaces/SKILL.md'], tags: ['b0'] },
   { id: 'b0-premerge-list', query: 'gate to run through before landing changes that touch request handling or live event streams', relevant: ['.github/SECURITY_CHECKLIST.md'], tags: ['b0'] },
   { id: 'b0-mental-effort', query: 'how do i tell whether a screen is demanding too much thinking from the person using it and what to trim', relevant: ['packages/@monoes/monodesign/skill/reference/cognitive-load.md', 'packages/@monoes/monodesign/skill/reference/critique.md'], tags: ['b0'] },
@@ -279,7 +263,6 @@ GOLDEN_SET.push(
   { id: 'b0-ready-recipes', query: 'copy and paste starting points for a research team versus a build team including which roles to create', relevant: ['packages/@monomind/cli/.claude/commands/swarm/examples.md'], tags: ['b0'] },
   { id: 'b0-saved-pipeline', query: 'kick off a saved multi stage run from a template then check on it and stop it', relevant: ['packages/@monomind/cli/.claude/commands/workflows/README.md'], tags: ['b0'] },
   { id: 'b0-ticket-pileup', query: 'work through a backlog of open tickets spotting near identical ones and the ones nobody has touched in a month', relevant: ['packages/@monomind/cli/.claude/skills/github-issue-triage/SKILL.md'], tags: ['b0'] },
-  { id: 'b0-what-can-we-cut', query: 'a pass that looks only for things worth removing rather than for bugs', relevant: ['packages/@monomind/cli/.claude/skills/monolean-review/SKILL.md'], tags: ['b0'] },
   { id: 'b0-capture-session-file', query: 'keep a moving picture of what the automated browser did so a failure can be replayed later', relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-references/video-recording.md'], tags: ['b0'] },
   { id: 'b0-narrow-the-roster', query: 'narrowing a huge list of possible experts down to one by first choosing a field then a name', relevant: ['packages/@monomind/cli/.claude/skills/specialagent/SKILL.md'], tags: ['b0'] },
   { id: 'b0-auto-revert-bad', query: 'scoring how trustworthy an output is and automatically undoing anything that falls below the bar', relevant: ['packages/@monomind/cli/.claude/skills/verification-quality/SKILL.md'], tags: ['b0'] },
@@ -294,12 +277,7 @@ GOLDEN_SET.push(
   { id: 'b1-author-capability', query: 'write a new capability document for the assistant and confirm it actually fires before shipping it', relevant: ['.claude/commands/mastermind/skill-builder.md'], tags: ['b1'] },
   { id: 'b1-shape-picker', query: 'i cant decide whether my helpers should all talk to each other or report up to one boss', relevant: ['.claude/commands/mastermind/topology.md'], tags: ['b1'] },
   { id: 'b1-who-can-do-what', query: 'control which people are allowed to create workers or wave newcomers into a company', relevant: ['.claude/skills/mastermind-access/SKILL.md'], tags: ['b1'] },
-  { id: 'b1-many-file-feature', query: 'a bug fix spanning several source files that also needs tests written which routine takes charge of the coding crew', relevant: ['.claude/skills/mastermind-build/SKILL.md'], tags: ['b1'] },
-  { id: 'b1-retention-and-redaction', query: 'change how long nightly archives are kept and hide operator names from log output', relevant: ['.claude/skills/mastermind-instance-settings/SKILL.md'], tags: ['b1'] },
-  { id: 'b1-automate-routine', query: 'take a repetitive internal procedure that is done by hand today and have it automated with regular reporting', relevant: ['.claude/skills/mastermind-ops/SKILL.md'], tags: ['b1'] },
   { id: 'b1-my-name-and-numbers', query: 'change my shown name and see how many items i finished and how much i spent', relevant: ['.claude/skills/mastermind-profile/SKILL.md'], tags: ['b1'] },
-  { id: 'b1-cold-outreach', query: 'help me approach prospects who never heard of us put together a written pitch and look over which deals might close', relevant: ['.claude/skills/mastermind-sales/SKILL.md'], tags: ['b1'] },
-  { id: 'b1-trust-nothing-checker', query: 'boilerplate wording for a checker that independently confirms the builder made exactly what was asked and nothing extra without believing their own writeup', relevant: ['.claude/skills/mastermind-taskdev/spec-reviewer-prompt.md'], tags: ['b1'] },
   { id: 'b1-moving-page', query: 'get elements gliding across the screen in a way i can scrub back and forth from code, no video file involved', relevant: ['.claude/skills/monomotion/SKILL.md'], tags: ['b1'] },
   { id: 'b1-whats-new-history', query: 'the running list of what was added or altered in each numbered release', relevant: ['CHANGELOG.md'], tags: ['b1'] },
   { id: 'b1-measurable-web-report', query: 'check a live page against objective criteria and give back numbers plus a list of whats wrong, changing nothing', relevant: ['packages/@monoes/monodesign/skill/commands/audit.md'], tags: ['b1'] },
@@ -344,17 +322,14 @@ GOLDEN_SET.push(
   { id: 'b2-frontend-dev', query: 'who should own the part users actually see in the browser and make it work on small screens too', relevant: ['.claude/agents/engineering/engineering-frontend-developer.md'], tags: ['b2'] },
   { id: 'b2-shared-loop-snippet', query: 'the common fragment other entry points pull in so repeated runs behave identically everywhere', relevant: ['.claude/commands/mastermind/_repeat.md'], tags: ['b2'] },
   { id: 'b2-rerun-wrapper', query: 'how do i make an arbitrary prompt run again on its own every fifteen minutes for ten rounds', relevant: ['.claude/commands/mastermind/repeat.md'], tags: ['b2'] },
-  { id: 'b2-ship-feature-cmd', query: 'entry point that kicks off shipping a feature or squashing a defect by putting a dev lead in charge of task cards', relevant: ['.claude/commands/mastermind/build.md', '.claude/commands/mastermind/research.md'], tags: ['b2'] },
   { id: 'b2-work-through-list', query: 'burn down the queue of outstanding items with a handful of workers going in parallel', relevant: ['.claude/commands/mastermind/do.md'], tags: ['b2'] },
   { id: 'b2-study-and-suggest', query: 'take one area apart see how others handle it and leave behind a dated writeup of proposed changes', relevant: ['.claude/commands/mastermind/improve.md'], tags: ['b2'] },
   { id: 'b2-list-saved-companies', query: 'print each stored outfit with its cadence and the timestamps of the previous and upcoming firing', relevant: ['.claude/commands/mastermind/orgs.md'], tags: ['b2'] },
   { id: 'b2-pick-persona', query: 'browse the narrow role characters by grouping and switch one on or have it guess from context', relevant: ['.claude/commands/mastermind/specialagents.md'], tags: ['b2'] },
   { id: 'b2-enrich-code-map', query: 'have this chat write short descriptions and grouping labels into the prebuilt project index without paying for tokens elsewhere', relevant: ['.claude/commands/mastermind/understand.md'], tags: ['b2'] },
   { id: 'b2-recent-events-feed', query: 'give me a chronological trail of what changed recently across tickets initiatives and workers with who did it', relevant: ['.claude/skills/mastermind-activity/SKILL.md'], tags: ['b2'] },
-  { id: 'b2-switch-active-company', query: 'change which company is currently the default one and rename or throw away an old one', relevant: ['.claude/skills/mastermind-companies/SKILL.md'], tags: ['b2'] },
   { id: 'b2-machine-wide-limits', query: 'where do i set caps that apply to the whole machine and the wake timer shared by every company', relevant: ['.claude/skills/mastermind-instance/SKILL.md'], tags: ['b2'] },
   { id: 'b2-edit-company-config', query: 'change one companys mission text spending allowance and cadence in its stored definition and dump it to a portable file', relevant: ['.claude/skills/mastermind-org-settings/SKILL.md'], tags: ['b2'] },
-  { id: 'b2-single-initiative', query: 'drill into one initiative to see its colour label who can view it and its spending policy', relevant: ['.claude/skills/mastermind-project-detail/SKILL.md'], tags: ['b2'] },
   { id: 'b2-find-across-companies', query: 'hunt for a word anywhere in my records without knowing which company it belongs to', relevant: ['.claude/skills/mastermind-search/SKILL.md'], tags: ['b2'] },
   { id: 'b2-card-columns', query: 'put a work item into a column hand it to a role and hang it under a bigger parent item', relevant: ['.claude/skills/mastermind-tasks/SKILL.md'], tags: ['b2'] },
   { id: 'b2-embed-timeline', query: 'put a scripted sequence on a bare page and let the surrounding document start and scrub it through a nested frame', relevant: ['.claude/skills/monomotion/rules/integration.md'], tags: ['b2'] },
@@ -402,14 +377,10 @@ GOLDEN_SET.push(
   { id: 'b3-repeated-critique-loop', query: 'run several critics in parallel over my recent changes for a few rounds fixing what is safe and parking the judgement calls in a dated file', relevant: ['.claude/commands/mastermind/code-review.md'], tags: ['b3'] },
   { id: 'b3-campaign-entrypoint', query: 'entry point for copywriting seo and social campaign work that checks with me before acting unless told otherwise', relevant: ['.claude/commands/mastermind/content.md', '.claude/commands/mastermind/finance.md', '.claude/commands/mastermind/marketing.md', '.claude/commands/mastermind/sales.md'], tags: ['b3'] },
   { id: 'b3-single-company-health', query: 'inspect one saved company in detail including when it last woke up and how long until the next cycle', relevant: ['.claude/commands/mastermind/orgstatus.md'], tags: ['b3'] },
-  { id: 'b3-market-scan-entry', query: 'kick off competitor and trend investigation from a slash entry point that proceeds unattended by default', relevant: ['.claude/commands/mastermind/build.md', '.claude/commands/mastermind/research.md', '.claude/commands/mastermind/review.md'], tags: ['b3'] },
   { id: 'b3-kill-recurring-loop', query: 'make a recurring background company quit cleanly so the next scheduled wakeup does nothing and never reschedules', relevant: ['.claude/commands/mastermind/stoporg.md'], tags: ['b3'] },
-  { id: 'b3-proof-gate', query: 'gate that forces me to show actual output before i am allowed to say something works or is finished', relevant: ['.claude/commands/mastermind/verify.md'], tags: ['b3'] },
   { id: 'b3-single-hire-inspect', query: 'pull up one hired worker inside a company to see its settings recent runs and last check in and wipe it back to defaults', relevant: ['.claude/skills/mastermind-agent-detail/SKILL.md'], tags: ['b3'] },
-  { id: 'b3-burn-rate', query: 'how fast is this company eating its allowance and warn me when it gets close to the ceiling', relevant: ['.claude/skills/mastermind-costs/SKILL.md'], tags: ['b3'] },
   { id: 'b3-redeem-join-link', query: 'someone sent me a share link to join their company how do i redeem it either as a person or by attaching a bot', relevant: ['.claude/skills/mastermind-invite-landing/SKILL.md'], tags: ['b3'] },
   { id: 'b3-list-all-companies', query: 'show every company i have set up in one table with whether each is halted or ticking', relevant: ['.claude/skills/mastermind-orgs/SKILL.md'], tags: ['b3'] },
-  { id: 'b3-where-code-lives', query: 'point a project at where its source actually lives local folder cloned checkout or hosted elsewhere and set commands to run on creation and teardown', relevant: ['.claude/skills/mastermind-project-workspace/SKILL.md'], tags: ['b3'] },
   { id: 'b3-who-can-use-what', query: 'find out which capability documents exist on disk and which roles are permitted to reach each one', relevant: ['.claude/skills/mastermind-skills/SKILL.md'], tags: ['b3'] },
   { id: 'b3-ticket-discussion', query: 'read and post back and forth messages attached to a ticket inside a company', relevant: ['.claude/skills/mastermind-threads/SKILL.md'], tags: ['b3'] },
   { id: 'b3-letters-fly-in', query: 'make a headline reveal one letter at a time and have a number roll up to its final value', relevant: ['.claude/skills/monomotion/rules/text.md'], tags: ['b3'] },
@@ -465,8 +436,6 @@ GOLDEN_SET.push(
   { id: 'b4-runtime-config-audit', query: 'check whether the model provider storage token signing and log settings are actually filled in for a company or still missing', relevant: ['.claude/skills/mastermind-env/SKILL.md'], tags: ['b4'] },
   { id: 'b4-one-ticket-deep', query: 'open a single work item and see its whole conversation past attempts attached files and children then reassign or close it', relevant: ['.claude/skills/mastermind-issue-detail/SKILL.md'], tags: ['b4'] },
   { id: 'b4-next-iteration-eta', query: 'how long until the next automatic wake up for one particular company and is its cycle still healthy', relevant: ['.claude/skills/mastermind-orgstatus/SKILL.md'], tags: ['b4'] },
-  { id: 'b4-group-under-initiative', query: 'bundle related work under a named initiative give it an owner and archive it when finished', relevant: ['.claude/skills/mastermind-projects/SKILL.md'], tags: ['b4'] },
-  { id: 'b4-fresh-helper-per-item', query: 'give every item to a brand new helper with none of my chat history then check the result twice first against the requirements then for craftsmanship', relevant: ['.claude/skills/mastermind-taskdev/SKILL.md'], tags: ['b4'] },
   { id: 'b4-pause-runaway-branch', query: 'put a runaway chain of work on ice without killing it permanently and make sure there is always a way to let it go again', relevant: ['.claude/skills/mastermind-tree-control/SKILL.md'], tags: ['b4'] },
   { id: 'b4-repro-form', query: 'the form that asks a person what they expected to happen versus what actually happened plus which handset and browser version', relevant: ['.github/ISSUE_TEMPLATE/bug_report.md'], tags: ['b4'] },
   { id: 'b4-cut-plates-from-mock', query: 'carve reusable picture files out of an approved mockup without reinventing the look and strip out anything the stylesheet should draw instead', relevant: ['packages/@monoes/monodesign/skill/agents/monodesign-asset-producer.md'], tags: ['b4'] },
@@ -507,7 +476,6 @@ GOLDEN_SET.push(
   { id: 'b4-thin-command-layer', query: 'how a terminal subcommand should stay display only and route through a wrapper to where the real logic actually lives', relevant: ['packages/@monomind/cli/docs/MCP_CLIENT_GUIDE.md'], tags: ['b4'] },
   { id: 'b5-qa-role-card', query: 'which roster entry is responsible for proving odd inputs behave and that nothing already working broke', relevant: ['.claude/agents/core/tester.md'], tags: ['b5'] },
   { id: 'b5-repo-workflow-personas', query: 'what preset operating personas exist for driving merge requests and repository chores with batched calls', relevant: ['.claude/agents/github/github-modes.md', 'packages/@monomind/cli/.claude/commands/github/github-modes.md'], tags: ['b5'] },
-  { id: 'b5-legacy-signoff-queue', query: 'the retired file based waiting list where a bot pauses for a person to sign off before doing something risky', relevant: ['.claude/commands/mastermind/approvev1.md'], tags: ['b5'] },
   { id: 'b5-standing-team-setup', query: 'how do i write down a lasting crew of assistants with duties and a chain of command so the background service can launch it later', relevant: ['.claude/commands/mastermind/createorg.md'], tags: ['b5'] },
   { id: 'b5-cross-session-notes-cli', query: 'what are all the ways to save recall and prune notes that survive between conversations with similarity lookup', relevant: ['.claude/commands/mastermind/memory.md'], tags: ['b5'] },
   { id: 'b5-payroll-listing', query: 'see everyone currently working inside a live team with how much they are burning and put one of them on hold', relevant: ['.claude/skills/mastermind-agents/SKILL.md'], tags: ['b5'] },
@@ -515,8 +483,6 @@ GOLDEN_SET.push(
   { id: 'b5-ticket-board-ops', query: 'file a new ticket on the team board and search the whole board by who owns it or what state it is in', relevant: ['.claude/skills/mastermind-issues/SKILL.md'], tags: ['b5'] },
   { id: 'b5-extension-install-lifecycle', query: 'pull an add on down from the package registry and later tear it out with a double confirmation step', relevant: ['.claude/skills/mastermind-plugin-manager/SKILL.md'], tags: ['b5'] },
   { id: 'b5-keep-going-postamble', query: 'make work continue across sessions until it is genuinely done with guardrails against talking yourself into quitting early', relevant: ['.claude/skills/mastermind-repeat/SKILL.md'], tags: ['b5'] },
-  { id: 'b5-second-pass-reviewer-text', query: 'what should i tell a fresh helper that inspects the changes for maintainability once the requirements check already came back clean', relevant: ['.claude/skills/mastermind-taskdev/code-quality-reviewer-prompt.md'], tags: ['b5'] },
-  { id: 'b5-team-knowledge-pages', query: 'how does a crew build up long lived written answers it can consult later instead of working things out again from scratch', relevant: ['.claude/skills/mastermind-wiki/SKILL.md'], tags: ['b5'] },
   { id: 'b5-proposal-form', query: 'the fill in the blanks form for suggesting a new capability including what alternatives you weighed', relevant: ['.github/ISSUE_TEMPLATE/feature_request.md'], tags: ['b5'] },
   { id: 'b5-inline-copy-writeback', query: 'the helper that takes text tweaks a person accepted in the live preview and writes them back into real source', relevant: ['packages/@monoes/monodesign/skill/agents/monodesign-manual-edit-applier.md'], tags: ['b5'] },
   { id: 'b5-motion-restraint', query: 'our transitions feel gratuitous which ones are worth keeping and roughly how long should they last', relevant: ['packages/@monoes/monodesign/skill/reference/animate.md'], tags: ['b5'] },
@@ -552,20 +518,16 @@ GOLDEN_SET.push(
   { id: 'b5-distributed-catalog-hosting', query: 'host a catalog of downloadable add ons on content addressed storage with a third party pinning service and cloud functions', relevant: ['packages/@monomind/cli/scripts/setup-ipfs-registry.md'], tags: ['b5'] },
   { id: 'b6-one-design-agent', query: 'we used to have eight different helpers for look and feel who handles all of that now', relevant: ['.claude/agents/design/design-monodesign.md'], tags: ['b6'] },
   { id: 'b6-cross-package-glue', query: 'who keeps the separate modules in this repo from drifting apart when one of them changes its interface', relevant: ['.claude/agents/specialists/integration-architect.md'], tags: ['b6'] },
-  { id: 'b6-structure-cleanup-cmd', query: 'i want a pass over how the project is laid out to find near identical modules and tighten boundaries', relevant: ['.claude/commands/mastermind/architect.md'], tags: ['b6'] },
   { id: 'b6-spec-to-workitems', query: 'chop a long requirements write up into separate numbered chunks of work i can hand off one by one', relevant: ['.claude/commands/mastermind/createtask.md'], tags: ['b6'] },
   { id: 'b6-cheatsheet', query: 'i forgot what slash entry points exist show me a one page overview of everything available', relevant: ['.claude/commands/mastermind/help.md'], tags: ['b6'] },
   { id: 'b6-portable-knowledge', query: 'package up everything stored in my notes system so it can be carried to another machine', relevant: ['.claude/commands/mastermind/okf-export.md'], tags: ['b6'] },
   { id: 'b6-instructions-file-location', query: 'where does the assistant look for its persistent project instructions and what does dispatch a helper actually map to', relevant: ['.claude/commands/mastermind/references/claude-code-tools.md'], tags: ['b6'] },
-  { id: 'b6-old-org-runner', query: 'the older way of starting a company of bots before the background daemon existed', relevant: ['.claude/commands/mastermind/runorgv1.md'], tags: ['b6'] },
-  { id: 'b6-failing-test-first', query: 'command that makes me write the failing check before the code and refuses to skip the loop', relevant: ['.claude/commands/mastermind/tdd.md'], tags: ['b6'] },
   { id: 'b6-spend-dashboard', query: 'see how much i burned this week and how many calls it took', relevant: ['.claude/commands/tokens.md'], tags: ['b6'] },
   { id: 'b6-single-permission-request', query: 'a helper is waiting on my sign off for one specific thing let me look at it and bounce it back for rework', relevant: ['.claude/skills/mastermind-approval-detail/SKILL.md'], tags: ['b6'] },
   { id: 'b6-nested-objectives', query: 'track nested objectives with success measures in a tree for a bot company', relevant: ['.claude/skills/mastermind-goals/SKILL.md'], tags: ['b6'] },
   { id: 'b6-my-queue', query: 'show only the tickets on my plate and let me grab an unclaimed one', relevant: ['.claude/skills/mastermind-my-issues/SKILL.md'], tags: ['b6'] },
   { id: 'b6-extension-folder-access', query: 'let an installed add on touch one directory on disk and see whether it is still responding', relevant: ['.claude/skills/mastermind-plugin-settings/SKILL.md'], tags: ['b6'] },
   { id: 'b6-market-intel', query: 'spin up helpers to size a market and study what rivals are charging', relevant: ['.claude/skills/mastermind-research/SKILL.md'], tags: ['b6'] },
-  { id: 'b6-whole-branch-review-prompt', query: 'canned wording to hand a second opinion the whole set of changes plus the original blueprint before it lands on main', relevant: ['.claude/skills/mastermind-taskdev/final-reviewer-prompt.md'], tags: ['b6'] },
   { id: 'b6-runtime-sandbox', query: 'inspect the isolated place a helper actually executes code in, its background services, and its startup and shutdown scripts', relevant: ['.claude/skills/mastermind-workspace-detail/SKILL.md'], tags: ['b6'] },
   { id: 'b6-pr-boxes', query: 'what boxes do i have to tick before opening a change request in this repo', relevant: ['.github/PULL_REQUEST_TEMPLATE.md'], tags: ['b6'] },
   { id: 'b6-same-product-new-audience', query: 'the same screen now has to serve a different country language direction and a far more expert crowd', relevant: ['packages/@monoes/monodesign/skill/commands/adapt.md'], tags: ['b6'] },
@@ -615,11 +577,7 @@ GOLDEN_SET.push(
 
   // -- packages/@monomind/cli/.claude/commands/mastermind/* (batch 1) --
   { id: 'b7-record-tech-choice', query: 'how to document a significant technical choice with its rationale and consequences', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/adr.md'], tags: ['b7'] },
-  { id: 'b7-legacy-approve', query: 'grant permission for a pending action in the legacy workflow', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/approvev1.md'], tags: ['b7'] },
-  { id: 'b7-module-layout', query: 'lay out the high-level structure and module boundaries of a system', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/architect.md'], tags: ['b7'] },
-  { id: 'b7-unattended-ship', query: 'let the machine write and ship a feature without constant human steering', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/autodev.md'], tags: ['b7'] },
   { id: 'b7-stored-wisdom', query: 'tap into stored knowledge and accumulated institutional wisdom', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/brain.md'], tags: ['b7'] },
-  { id: 'b7-produce-artifact', query: 'compile the project artifacts and produce a distributable output', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/build.md'], tags: ['b7'] },
   { id: 'b7-inspect-changeset', query: 'have someone else inspect my changeset for correctness and style', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/code-review.md'], tags: ['b7'] },
   { id: 'b7-written-material', query: 'produce written material like blog posts or announcements for the product', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/content.md'], tags: ['b7'] },
   { id: 'b7-new-group', query: 'set up a brand new collaborative group from scratch', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/createorg.md'], tags: ['b7'] },
@@ -629,7 +587,6 @@ GOLDEN_SET.push(
   { id: 'b7-just-do-it', query: 'just carry out whatever is needed right now without further deliberation', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/do.md'], tags: ['b7'] },
   { id: 'b7-run-procedure', query: 'run the concrete steps of a previously outlined procedure', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/execute.md'], tags: ['b7'] },
   { id: 'b7-fiscal-health', query: 'track monetary inflows outflows and overall fiscal health of operations', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/finance.md'], tags: ['b7'] },
-  { id: 'b7-wrap-up', query: 'wrap up all remaining loose ends and mark the effort as complete', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/finish.md'], tags: ['b7'] },
   // b7-dep-map-health removed: target file is 156 bytes, under the 400-byte corpus minimum
   { id: 'b7-available-commands', query: 'show me the available instructions and what each capability does', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/help.md'], tags: ['b7'] },
   { id: 'b7-raw-spark', query: 'capture a raw spark of inspiration before it gets lost', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/idea.md'], tags: ['b7'] },
@@ -648,17 +605,14 @@ GOLDEN_SET.push(
   { id: 'b7-redo-once-more', query: 'redo the previous action or cycle through it once more', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/repeat.md'], tags: ['b7'] },
   { id: 'b7-investigate-topic', query: 'investigate a topic thoroughly by gathering and synthesizing information', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/research.md'], tags: ['b7'] },
   { id: 'b7-critique-quality', query: 'examine and critique someone else s contribution for quality', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/review.md'], tags: ['b7'] },
-  { id: 'b7-v1-runtime', query: 'launch the legacy version one collaborative group runtime', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/runorgv1.md'], tags: ['b7'] },
   { id: 'b7-close-deals', query: 'pursue leads and close deals with prospective buyers', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/sales.md'], tags: ['b7'] },
   { id: 'b7-reusable-package', query: 'create a reusable capability package that others can invoke later', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/skill-builder.md'], tags: ['b7'] },
   { id: 'b7-narrow-experts', query: 'deploy purpose built workers with narrow domain expertise', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/specialagents.md'], tags: ['b7'] },
   { id: 'b7-shutdown-group', query: 'shut down a running collaborative group gracefully', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/stoporg.md'], tags: ['b7'] },
   { id: 'b7-fleet-shared', query: 'coordinate a fleet of parallel workers on a shared objective', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/swarm.md'], tags: ['b7'] },
-  { id: 'b7-assertions-first', query: 'write the assertions first and then make them pass with implementation', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/tdd.md'], tags: ['b7'] },
   { id: 'b7-transfer-infra', query: 'transfer a codebase to a different hosting platform or infrastructure', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/techport.md'], tags: ['b7'] },
   { id: 'b7-best-arrangement', query: 'pick the best arrangement of nodes and communication pattern for the fleet', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/topology.md'], tags: ['b7'] },
   { id: 'b7-comprehend-area', query: 'deeply comprehend an unfamiliar area of the codebase before changing it', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/understand.md'], tags: ['b7'] },
-  { id: 'b7-confirm-e2e', query: 'confirm the recent changes actually work correctly end to end', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/verify.md'], tags: ['b7'] },
   { id: 'b7-isolated-copy', query: 'use an isolated copy of the repository so parallel efforts do not collide', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/worktree.md'], tags: ['b7'] },
   // b7-spending-cap removed: target is under the 400-byte corpus minimum
   { id: 'b7-pi-equivalent', query: 'what are the equivalent capabilities when using the Inflection personal assistant', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/references/pi-tools.md'], tags: ['b7'] },
@@ -670,7 +624,6 @@ GOLDEN_SET.push(
   // b7-spending-limits removed: target is under the 400-byte corpus minimum
   { id: 'b7-troubleshoot-flow', query: 'how to troubleshoot and diagnose errors in my workflow', relevant: ['.claude/commands/mastermind/debug.md'], tags: ['b7'] },
   { id: 'b7-carry-out-step', query: 'how to run a prepared action or carry out a scheduled step', relevant: ['.claude/commands/mastermind/execute.md'], tags: ['b7'] },
-  { id: 'b7-close-out-work', query: 'how do i wrap up and close out a completed piece of work', relevant: ['.claude/commands/mastermind/finish.md'], tags: ['b7'] },
   // b7-index-state removed: target is under the 400-byte corpus minimum
   // b7-repeating-cycles removed: target is under the 400-byte corpus minimum
   // b7-strategy-to-items removed: target file is not tracked in git, so it is not in the corpus
@@ -741,13 +694,6 @@ GOLDEN_SET.push(
   { id: 'b7-chain-delays', query: 'chain multiple items to appear one after another with delays', relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/sequencing.md'], tags: ['b7'] },
   { id: 'b7-morph-paths', query: 'morph paths and draw lines in vector graphics with code', relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/svg.md'], tags: ['b7'] },
   { id: 'b7-letter-reveal', query: 'letter by letter reveal and word fly in headline effects', relevant: ['packages/@monomind/cli/.claude/skills/monomotion/rules/text.md'], tags: ['b7'] },
-  { id: 'b7-cta-templates', query: 'templates for writing landing page headlines and ctas that convert', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-marketing/references/copywriting-frameworks.md'], tags: ['b7'] },
-  { id: 'b7-cognitive-biases', query: 'behavioral triggers and cognitive biases for better ad engagement', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-marketing/references/persuasion-psychology.md'], tags: ['b7'] },
-  { id: 'b7-ticket-to-code', query: 'automated workflow that picks up tickets and writes the code changes', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-taskdev/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-pr-maintainability', query: 'checklist for evaluating maintainability and style of a pull request', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-taskdev/code-quality-reviewer-prompt.md'], tags: ['b7'] },
-  { id: 'b7-branch-last-pass', query: 'holistic last pass inspection of all commits on a feature branch', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-taskdev/final-reviewer-prompt.md'], tags: ['b7'] },
-  { id: 'b7-worker-instructions', query: 'instructions the worker agent follows when writing actual source files', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-taskdev/implementer-prompt.md'], tags: ['b7'] },
-  { id: 'b7-spec-match', query: 'verify the delivered work matches the original requirements document', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-taskdev/spec-reviewer-prompt.md'], tags: ['b7'] },
   { id: 'b7-nav-screenshot', query: 'end to end website navigation and screenshot verification suite', relevant: ['packages/@monomind/cli/.claude/skills/agent-browser-testing/SKILL.md'], tags: ['b7'] },
   { id: 'b7-perm-levels', query: 'who can view or modify resources and permission levels', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-access/SKILL.md'], tags: ['b7'] },
   { id: 'b7-event-timeline', query: 'see a timeline of recent actions and events in the system', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-activity/SKILL.md'], tags: ['b7'] },
@@ -757,16 +703,9 @@ GOLDEN_SET.push(
   { id: 'b7-roster-pick', query: 'pick the right specialist from the roster for a given job', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-agent-select/SKILL.md'], tags: ['b7'] },
   { id: 'b7-workers-dashboard', query: 'overview dashboard of all running autonomous workers', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-agents/SKILL.md'], tags: ['b7'] },
   { id: 'b7-signoff-requests', query: 'review pending sign off requests and their justification', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-approval-detail/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-green-light', query: 'green light a queued action so it can proceed to execution', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-approvev1/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-structure-modules', query: 'plan the high level structure and module boundaries of a project', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-architect/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-auto-iterate', query: 'let the system autonomously write and iterate on a feature', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-autodev/SKILL.md'], tags: ['b7'] },
   { id: 'b7-snapshot-restore', query: 'snapshot and restore project state in case something goes wrong', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-backup/SKILL.md'], tags: ['b7'] },
   { id: 'b7-scaffold-fresh', query: 'scaffold a fresh workspace with all dependencies ready to go', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-bootstrap/SKILL.md'], tags: ['b7'] },
   { id: 'b7-resource-allocation', query: 'track spending limits and resource allocation across teams', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-budgets/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-produce-distributable', query: 'compile the source and produce distributable artifacts', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-build/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-client-records', query: 'manage client or vendor records linked to the organization', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-companies/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-draft-copy', query: 'draft blog posts articles and marketing copy with ai', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-content/SKILL.md'], tags: ['b7'] },
-  { id: 'b7-expense-breakdown', query: 'break down expenses and see where tokens or compute went', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-costs/SKILL.md'], tags: ['b7'] },
   { id: 'b7-team-workspace', query: 'spin up a brand new team workspace from scratch', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-createorg/SKILL.md'], tags: ['b7'] },
   { id: 'b7-root-cause-method', query: 'methodical root cause analysis when something is broken', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-debug/SKILL.md'], tags: ['b7'] },
   { id: 'b7-subtask-handoff', query: 'hand off a subtask to another autonomous worker mid flight', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-delegation/SKILL.md'], tags: ['b7'] },
@@ -788,7 +727,6 @@ GOLDEN_SET.push(
 
   // -- uncovered documents --
   { id: 'c3-runorg-daemon-launch', query: 'how do I boot up a previously configured team of agents through the background service', relevant: ['.claude/commands/mastermind/runorg.md'], tags: ['c3'] },
-  { id: 'c3-taskdev-subagent-steps', query: 'walk through an implementation checklist one item at a time using fresh workers', relevant: ['.claude/commands/mastermind/taskdev.md'], tags: ['c3'] },
   { id: 'c3-live-variant-picker', query: 'click on parts of my running site and get alternative visual options generated instantly', relevant: ['packages/@monoes/monodesign/skill/commands/live.md'], tags: ['c3'] },
   { id: 'c3-quieter-visual-tone', query: 'the page feels too loud and busy how to dial back the visual energy without losing character', relevant: ['packages/@monoes/monodesign/skill/commands/quieter.md'], tags: ['c3'] },
 
@@ -839,14 +777,8 @@ GOLDEN_SET.push(
   // -- re-queries: process skills --
   { id: 'c3-worktree-isolation', query: 'working on a feature without touching my main checkout or dirtying my branch', relevant: ['.claude/skills/mastermind-worktree/SKILL.md'], tags: ['c3'] },
   { id: 'c3-worktree-cleanup', query: 'how to safely remove a temporary parallel copy of the repo after finishing', relevant: ['.claude/skills/mastermind-worktree/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-tdd-red-green', query: 'write a failing test first then make it pass then clean up the code', relevant: ['.claude/skills/mastermind-tdd/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-tdd-no-excuses', query: 'what if I want to skip writing tests for something really simple or obvious', relevant: ['.claude/skills/mastermind-tdd/SKILL.md'], tags: ['c3'] },
   { id: 'c3-debug-root-cause', query: 'my fix keeps not working how to systematically find the real underlying problem', relevant: ['.claude/skills/mastermind-debug/SKILL.md'], tags: ['c3'] },
   { id: 'c3-debug-escalation', query: 'when repeated attempts at a patch keep failing and the problem might be deeper', relevant: ['.claude/skills/mastermind-debug/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-verify-evidence', query: 'how to prove something actually works before claiming the job is done', relevant: ['.claude/skills/mastermind-verify/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-verify-common-lies', query: 'what are typical ways people fool themselves into thinking code is ready when it is not', relevant: ['.claude/skills/mastermind-verify/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-finish-branch-options', query: 'done coding on my branch what are my choices for wrapping up and delivering', relevant: ['.claude/skills/mastermind-finish/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-finish-worktree-detect', query: 'how does the completion workflow know if I am in a temporary copy versus the real repo', relevant: ['.claude/skills/mastermind-finish/SKILL.md'], tags: ['c3'] },
   { id: 'c3-plan-no-placeholders', query: 'creating a step by step blueprint where every step has real code not just comments', relevant: ['.claude/skills/mastermind-plan/SKILL.md'], tags: ['c3'] },
   { id: 'c3-plan-handoff', query: 'after writing out the implementation roadmap how does it get turned into actual work', relevant: ['.claude/skills/mastermind-plan/SKILL.md'], tags: ['c3'] },
   { id: 'c3-execute-plan-follow', query: 'picking up a written plan document and carrying out each step exactly as specified', relevant: ['.claude/skills/mastermind-execute/SKILL.md'], tags: ['c3'] },
@@ -867,10 +799,6 @@ GOLDEN_SET.push(
   { id: 'c3-research-parallel-streams', query: 'fanning out a big investigation into separate tracks that run simultaneously', relevant: ['.claude/skills/mastermind-research/SKILL.md'], tags: ['c3'] },
   { id: 'c3-idea-divergent', query: 'brainstorming from many different angles then scoring ideas by impact versus effort', relevant: ['.claude/skills/mastermind-idea/SKILL.md'], tags: ['c3'] },
   { id: 'c3-idea-decompose', query: 'turning an approved concept into concrete subtasks split between engineering and operations', relevant: ['.claude/skills/mastermind-idea/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-build-complexity-assess', query: 'how does the system decide whether a change is small enough to do inline or needs a team', relevant: ['.claude/skills/mastermind-build/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-build-parallel-specialists', query: 'spinning up frontend backend and testing workers to build something in parallel', relevant: ['.claude/skills/mastermind-build/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-autodev-improvement-loop', query: 'automatically finding and delivering the next best codebase improvement in a loop', relevant: ['.claude/skills/mastermind-autodev/SKILL.md'], tags: ['c3'] },
-  { id: 'c3-autodev-feature-pipeline', query: 'discover and ship multiple brand new capabilities without manual intervention', relevant: ['.claude/skills/mastermind-autodev/SKILL.md'], tags: ['c3'] },
 
   // -- re-queries: project config --
   { id: 'c3-claudemd-package-table', query: 'which folders in the monorepo correspond to which published packages', relevant: ['CLAUDE.md'], tags: ['c3'] },
@@ -902,7 +830,6 @@ GOLDEN_SET.push(
   { id: 'c3lo-cross-package-wiring', query: 'making sure changes in one library do not break contracts with the other libraries in this project', relevant: ['.claude/agents/specialists/integration-architect.md'], tags: ['c3-lo'] },
   { id: 'c3lo-pull-request-lifecycle', query: 'managing the full journey of a code contribution from creation through review to merging', relevant: ['.claude/agents/github/pr-manager.md'], tags: ['c3-lo'] },
   { id: 'c3lo-choose-arrangement', query: 'picking whether my AI workers should be in a flat group or have someone directing traffic', relevant: ['.claude/commands/mastermind/topology.md'], tags: ['c3-lo'] },
-  { id: 'c3lo-write-tests-first-workflow', query: 'making failing checks before writing any real logic then cleaning up after they pass', relevant: ['.claude/commands/mastermind/tdd.md'], tags: ['c3-lo'] },
   { id: 'c3lo-find-root-cause', query: 'investigating why something broke before attempting any repair', relevant: ['.claude/commands/mastermind/debug.md'], tags: ['c3-lo'] },
   { id: 'c3lo-write-implementation-roadmap', query: 'creating a step-by-step blueprint from requirements before anyone writes code', relevant: ['.claude/commands/mastermind/plan.md'], tags: ['c3-lo'] },
   { id: 'c3lo-start-ai-company', query: 'launching a saved group of workers through the newer background process instead of the old way', relevant: ['.claude/commands/mastermind/runorg.md'], tags: ['c3-lo'] },
@@ -917,9 +844,7 @@ GOLDEN_SET.push(
   { id: 'c3lo-ensure-forward-motion', query: 'verifying every active piece of work has a clear next step or explicit blocker', relevant: ['.claude/skills/mastermind-liveness/SKILL.md'], tags: ['c3-lo'] },
   { id: 'c3lo-local-task-board', query: 'the P2P SQLite-based project board used for tracking cards with columns and subtasks', relevant: ['.claude/skills/mastermind-monotask/SKILL.md'], tags: ['c3-lo'] },
   { id: 'c3lo-forever-polling-executor', query: 'a long-running watcher that picks up new items from issue trackers and assigns them to workers', relevant: ['.claude/skills/mastermind-monitor/SKILL.md'], tags: ['c3-lo'] },
-  { id: 'c3lo-ascii-hierarchy-picture', query: 'drawing a text-based tree showing who reports to whom in a group', relevant: ['.claude/skills/mastermind-org-chart/SKILL.md'], tags: ['c3-lo'] },
   { id: 'c3lo-api-key-vault', query: 'storing and rotating credentials that workers need without exposing them in logs', relevant: ['.claude/skills/mastermind-secrets/SKILL.md'], tags: ['c3-lo'] },
-  { id: 'c3lo-knowledge-base-pages', query: 'a per-group encyclopedia that ingests sources and answers questions with citations', relevant: ['.claude/skills/mastermind-wiki/SKILL.md'], tags: ['c3-lo'] },
   { id: 'c3lo-pause-runaway-work', query: 'stopping a chain of tasks that is spinning out of control without killing everything else', relevant: ['.claude/skills/mastermind-tree-control/SKILL.md'], tags: ['c3-lo'] },
   { id: 'c3lo-browser-animation-gsap', query: 'creating moving visuals in the browser controlled by a timeline you can play and pause via an API', relevant: ['.claude/skills/monomotion/SKILL.md'], tags: ['c3-lo'] },
   { id: 'c3lo-gemini-browser-images', query: 'generating pictures using a real browser logged into an AI image service with no billing', relevant: ['.claude/skills/monoagent-image/SKILL.md'], tags: ['c3-lo'] },
@@ -958,27 +883,22 @@ GOLDEN_SET.push(
   { id: 'c3lo2-elephant-never-forgets', query: 'all the different ways I can save and retrieve things the system learned in earlier conversations', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/memory.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-ship-it', query: 'how do I cut a new version and push it out to users with changelog and everything', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/release.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-waking-the-crew', query: 'how do I boot up a saved team of AI workers so they start processing their backlog', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/runorg.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-assembly-line', query: 'how does the system walk through a written blueprint one step at a time using fresh helpers for each piece', relevant: ['packages/@monomind/cli/.claude/commands/mastermind/taskdev.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-robot-clicks-buttons', query: 'how do I make the AI open a webpage and interact with it like a real person would', relevant: ['packages/@monomind/cli/.claude/commands/monobrowse.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (execution/export/finance/finish) --
   { id: 'c3lo2-follow-the-blueprint', query: 'once a detailed blueprint exists how does the system carry it out step by step stopping on any blocker', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-execute/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-pack-your-bags', query: 'how can I bundle up everything about a team configuration so I can move it to another machine', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-export/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-counting-pennies', query: 'who handles invoices and budget forecasting when the work involves money tracking', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-finance/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-crossing-the-line', query: 'what happens when all the coding is done and I need to decide whether to merge or open a pull request', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-finish/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (goals) --
   { id: 'c3lo2-zoom-into-ambition', query: 'how do I drill into a single objective to see its children and linked work items', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-goal-detail/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-north-star-tracker', query: 'where do I define what the team is trying to achieve and see how far along each objective is', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-goals/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (heartbeat/idea/import/inbox) --
-  { id: 'c3lo2-old-school-pulse', query: 'in the legacy system how did a sleeping worker wake up and check if there was anything to do', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-heartbeatv1/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-lightbulb-factory', query: 'how does the system generate a bunch of creative concepts then score and break them into actionable pieces', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-idea/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-unpack-suitcase', query: 'how do I restore a previously exported team configuration from an archive file', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-import/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-morning-briefing', query: 'where do I see everything that needs my attention right now across all my teams', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-inbox/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (instance/intake/invites) --
-  { id: 'c3lo2-control-panel-knobs', query: 'how do I change the global admin preferences like authentication and backup retention', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-instance-settings/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-mothership-dashboard', query: 'how do I see a bird-eye view of every running team and their combined resource limits', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-instance/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-twenty-questions', query: 'when I give a vague instruction how does the system figure out what I actually want before starting', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-intake/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-welcome-mat', query: 'what happens when someone clicks an invitation link to join a team as either a person or a bot', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-invite-landing/SKILL.md'], tags: ['c3-lo2'] },
@@ -991,7 +911,6 @@ GOLDEN_SET.push(
   { id: 'c3lo2-stuck-detector', query: 'how does the system notice when a worker has gone silent on something it owns and force a recovery', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-liveness/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (marketing/memory/monitor/monotask) --
-  { id: 'c3lo2-megaphone-crew', query: 'who handles promotional campaigns and content creation when I need to get the word out', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-marketing/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-institutional-wisdom', query: 'how does a team keep its accumulated know-how organized using a notebook-style system with daily entries', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-memory/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-tireless-watchman', query: 'is there something that continuously polls external boards and automatically picks up new items to work on', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-monitor/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-kanban-swiss-army', query: 'what is the local-first board system with columns and cards that supports subtasks and prerequisite chains', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-monotask/SKILL.md'], tags: ['c3-lo2'] },
@@ -999,8 +918,6 @@ GOLDEN_SET.push(
   // -- untouched: skills (my-issues/new-agent/ops/org-chart) --
   { id: 'c3lo2-my-plate', query: 'how do I see only the work items that are currently assigned to me personally', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-my-issues/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-hiring-a-new-bot', query: 'how do I add a brand new AI worker to my team with a specific role and model preference', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-new-agent/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-behind-the-curtain', query: 'who handles the operational side like automating workflows and generating reports', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-ops/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-family-tree', query: 'how do I visualize who reports to whom in my AI team as a text diagram', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-org-chart/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (org-settings/orgs/orgstatus) --
   { id: 'c3lo2-rename-the-band', query: 'how do I change the name or configuration fields of an existing team setup', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-org-settings/SKILL.md'], tags: ['c3-lo2'] },
@@ -1016,9 +933,6 @@ GOLDEN_SET.push(
 
   // -- untouched: skills (profile/project-detail/project-workspace/projects) --
   { id: 'c3lo2-who-am-i', query: 'where do I change my display name and see how much work I have completed across all teams', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-profile/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-project-deep-dive', query: 'how do I inspect a single initiative to see its budget rules and linked workspaces', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-project-detail/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-sandbox-wiring', query: 'how do I configure the git repo and branch that a particular initiative uses for its isolated coding area', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-project-workspace/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-project-cabinet', query: 'how do I create scoped work areas within a team and assign a lead to each one', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-projects/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (protocol/receive-review/release/repeat) --
   { id: 'c3lo2-shared-grammar', query: 'what are the common rules every domain specialist follows for loading context and formatting output', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-protocol/SKILL.md'], tags: ['c3-lo2'] },
@@ -1034,8 +948,6 @@ GOLDEN_SET.push(
 
   // -- untouched: skills (runorg/runorgv1/sales) --
   { id: 'c3lo2-flip-the-switch', query: 'what is the procedure to activate a saved AI crew using the new daemon-based backend', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-runorg/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-old-engine', query: 'how did the original prompt-based orchestrator coordinate roles before the daemon existed', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-runorgv1/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-closing-deals', query: 'who writes outreach sequences and proposals when I need help with revenue generation', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-sales/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (search/secrets/skill-builder/skills) --
   { id: 'c3lo2-needle-in-haystack', query: 'how do I find a specific item across all teams when I only remember part of its name', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-search/SKILL.md'], tags: ['c3-lo2'] },
@@ -1046,14 +958,11 @@ GOLDEN_SET.push(
   // -- untouched: skills (stoporg/tasks/tdd/techport) --
   { id: 'c3lo2-pull-the-plug', query: 'how do I gracefully shut down a running AI team so it stops consuming resources', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-stoporg/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-card-shuffler', query: 'how do I move work items between columns and chain them with parent-child relationships', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tasks/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-write-the-exam-first', query: 'what is the strict discipline where you must have a failing check before writing any real code', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tdd/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-transplant-surgery', query: 'how do I analyze a foreign codebase and safely bring its best parts into this project with proper renaming', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-techport/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (threads/tree-control/verify/wiki) --
   { id: 'c3lo2-conversation-trail', query: 'where are the ongoing discussions stored and how do I reply to one within a specific team', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-threads/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-emergency-brake', query: 'how do I pause a runaway chain of subtasks and optionally cancel the whole branch', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-tree-control/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-show-your-receipts', query: 'what enforces that every completion claim must be backed by fresh terminal output as proof', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-verify/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-team-encyclopedia', query: 'where does the team keep its synthesized knowledge pages with citations and raw source material', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-wiki/SKILL.md'], tags: ['c3-lo2'] },
 
   // -- untouched: skills (workspace-detail/workspaces/worktree/monomotion) --
   { id: 'c3lo2-sandbox-inspector', query: 'how do I see the services and logs running inside one specific isolated coding environment', relevant: ['packages/@monomind/cli/.claude/skills/mastermind-workspace-detail/SKILL.md'], tags: ['c3-lo2'] },
@@ -1108,7 +1017,6 @@ GOLDEN_SET.push(
   { id: 'c3lo2-detective-work', query: 'how do I systematically track down why something broke using structured investigation', relevant: ['.claude/commands/mastermind/debug.md'], tags: ['c3-lo2'] },
 
   // -- touched: root skills --
-  { id: 'c3lo2-hands-free-coding', query: 'how do I have the system autonomously pick up work items and implement them without me steering', relevant: ['.claude/skills/mastermind-autodev/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-task-handoff', query: 'how does work get distributed to the right specialist based on what the job requires', relevant: ['.claude/skills/mastermind-delegation/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-system-doctor', query: 'how do I figure out what is wrong when the whole setup feels sluggish or broken', relevant: ['.claude/skills/mastermind-diagnose/SKILL.md'], tags: ['c3-lo2'] },
 
@@ -1128,8 +1036,6 @@ GOLDEN_SET.push(
   { id: 'c3lo2-what-changed-when', query: 'where is the chronological record of every notable modification across all versions', relevant: ['CHANGELOG.md'], tags: ['c3-lo2'] },
 
   // -- touched: misc skills and references --
-  { id: 'c3lo2-mind-tricks', query: 'what psychological principles make people more likely to say yes to an offer', relevant: ['.claude/skills/mastermind-marketing/references/persuasion-psychology.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-worker-bee-brief', query: 'what instructions does the fresh helper receive before it starts writing the actual code', relevant: ['.claude/skills/mastermind-taskdev/implementer-prompt.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-hollow-scaffolding', query: 'what are the common document shapes and paragraph patterns that signal empty filler content', relevant: ['packages/@monomind/cli/.claude/skills/stop-slop/references/structures.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-chat-navigator', query: 'how do I have the AI read and interact with a team messaging workspace in the cloud', relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-slack.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-deployment-dashboard', query: 'how do I have the AI check on my hosted web application through the hosting provider portal', relevant: ['packages/@monomind/cli/.claude/skills/monomind/browse-vercel.md'], tags: ['c3-lo2'] },
@@ -1153,7 +1059,6 @@ GOLDEN_SET.push(
   { id: 'c3lo2-visual-sparkle', query: 'what are the available visual flourishes like particle bursts and glowing halos', relevant: ['.claude/skills/monomotion/rules/effects.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-choreograph-order', query: 'how do I control which animations play first and which ones overlap in time', relevant: ['.claude/skills/monomotion/rules/sequencing.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-picture-generator', query: 'how do I create actual images from text descriptions rather than just writing the specs', relevant: ['.claude/skills/monoagent-image/SKILL.md'], tags: ['c3-lo2'] },
-  { id: 'c3lo2-construction-foreman', query: 'how do I kick off the actual construction phase after the plan has been written', relevant: ['.claude/commands/mastermind/build.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-waste-scanner', query: 'how do I get a report on dead code and unused dependencies that are adding weight', relevant: ['packages/@monomind/cli/.claude/skills/monolean-audit/SKILL.md'], tags: ['c3-lo2'] },
   { id: 'c3lo2-proof-standards', query: 'what constitutes sufficient evidence that a change works before it can be called done', relevant: ['packages/@monomind/cli/.claude/skills/verification-quality/SKILL.md'], tags: ['c3-lo2'] },
 );

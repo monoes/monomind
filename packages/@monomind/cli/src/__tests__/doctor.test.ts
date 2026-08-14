@@ -98,13 +98,20 @@ describe('doctorCommand', () => {
     expect(typeof r.success).toBe('boolean');
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
-    // alwaysOnChecks (20) + codeOnlyChecks (5) — no fingerprint present, so
+    // alwaysOnChecks (21) + codeOnlyChecks (5) — no fingerprint present, so
     // isCodeProject defaults to true and the full set runs.
     expect(data.results.length).toBe(26);
-    expect(data.passed + data.warnings + data.failed).toBe(data.results.length);
+    // Not every result counts toward passed/warnings/failed: the P2-14
+    // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
+    // checks to 'info' status when `.monomind/` is < 5 min old — true for
+    // every run here, since beforeEach creates a brand-new temp dir. 'info'
+    // is deliberately excluded from the numeric summary, so the real
+    // invariant includes it as a fourth bucket, not just pass+warn+fail.
+    const info = data.results.filter(r => r.status === 'info').length;
+    expect(data.passed + data.warnings + data.failed + info).toBe(data.results.length);
     for (const check of data.results) {
       expect(typeof check.name).toBe('string');
-      expect(['pass', 'warn', 'fail']).toContain(check.status);
+      expect(['pass', 'warn', 'fail', 'info']).toContain(check.status);
       expect(typeof check.message).toBe('string');
     }
     // Spot-check a few checks that must be present in a code-project run.
