@@ -413,16 +413,6 @@ export async function checkThreats(input: string): Promise<ThreatDetectionResult
   return getMonoDefence().detect(input);
 }
 
-/** @deprecated Use createMonoDefence */
-export const createAIDefence = createMonoDefence;
-/** @deprecated Use getMonoDefence */
-export const getAIDefence = getMonoDefence;
-
-/** @deprecated Use MonoDefenceConfig */
-export type AIDefenceConfig = MonoDefenceConfig;
-/** @deprecated Use MonoDefence */
-export type AIDefence = MonoDefence;
-
 /**
  * Integration with Monomind attention mechanisms
  * Use for multi-agent security consensus

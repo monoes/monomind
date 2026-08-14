@@ -162,12 +162,6 @@ vi.mock('../src/mcp-tools/auto-install.js', () => ({
   autoInstallPackage: vi.fn(async () => false),
 }));
 
-// Mock security package
-vi.mock('@monomind/monodefence', () => {
-  throw new Error('Cannot find package');
-});
-
-
 // ============================================================================
 // Import all tool modules (after mocks are set up)
 // ============================================================================

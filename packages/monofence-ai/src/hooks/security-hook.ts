@@ -8,7 +8,7 @@
  * Both hooks abort when a threat is detected with confidence >= 0.8.
  *
  * Usage (called once at startup by the hooks executor):
- *   import { registerSecurityHooks } from '@monomind/monodefence/hooks';
+ *   import { registerSecurityHooks } from 'monofence-ai/hooks';
  *   registerSecurityHooks(defaultRegistry);
  *
  * The function accepts any object whose `register` signature is compatible
