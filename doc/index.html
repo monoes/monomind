@@ -255,7 +255,6 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <button class="nav-link" data-page="mastermind"><span class="nav-dot"></span>Mastermind</button>
     <button class="nav-link" data-page="slash"><span class="nav-dot"></span>Slash Commands</button>
     <button class="nav-link" data-page="dashboard"><span class="nav-dot"></span>Dashboard</button>
-    <button class="nav-link" data-page="swarm"><span class="nav-dot"></span>Swarm Coordination</button>
     <button class="nav-link" data-page="commands"><span class="nav-dot"></span>CLI Commands</button>
   </div>
   <div class="nav-section">
@@ -322,7 +321,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="section-title reveal">Why Monomind?</div>
     <div class="card-grid">
       <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, plus a JSON pattern store with episodic recall injected at prompt time. Context survives across sessions.</div></div>
-      <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Experimental in-process multi-agent coordination — hierarchical, mesh, adaptive, and hybrid topologies with vote-count consensus thresholds (bft, raft, quorum).</div></div>
+      <div class="card reveal"><div class="card-icon">🏢</div><div class="card-title">Org Runtime</div><div class="card-desc">Run real agent organizations — role hierarchies, goals, budgets, and approval workflows backed by actual Claude Agent SDK sessions per role, with a live dashboard.</div></div>
       <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 19 MCP tools by default (27 more via MONOGRAPH_MCP_ADVANCED=1) for impact analysis, dead code detection, path finding, and multi-repo queries.</div></div>
       <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:autodev --tillend researches, builds, reviews, and loops while you sleep.</div></div>
@@ -713,70 +712,6 @@ monomind doc ingest ./their-knowledge -s shared
     }]}]
   }
 }</div>
-  </div>
-</div>
-
-<!-- SWARM -->
-<div id="page-swarm" class="page">
-  <div class="page-content">
-    <div class="page-header">
-      <span class="page-tag">Concepts</span>
-      <h1 class="page-title">Swarm Coordination</h1>
-      <p class="page-desc">Experimental in-process multi-agent coordination — seven topologies and vote-count consensus thresholds, all running inside a single Node process.</p>
-    </div>
-    <div class="reveal" style="margin-bottom:24px">
-      <img src="assets/swarm-illustration.svg" alt="Swarm topology diagram" style="width:100%;max-width:600px;border-radius:10px;display:block">
-    </div>
-    <div class="section-title reveal">Topologies</div>
-    <div class="topo-grid reveal">
-      <div class="topo-card"><div class="topo-name">Hierarchical</div><div class="topo-desc">Queen → domain leads → workers. Best for complex feature development. Default.</div></div>
-      <div class="topo-card"><div class="topo-name">Mesh</div><div class="topo-desc">Peer-to-peer, all agents equal. Best for distributed analysis with no single authority.</div></div>
-      <div class="topo-card"><div class="topo-name">Hierarchical-Mesh</div><div class="topo-desc">Queen manages peer clusters. Recommended for large swarms.</div></div>
-      <div class="topo-card"><div class="topo-name">Adaptive</div><div class="topo-desc">Reconfigures topology dynamically. High overhead — use for long-running sessions.</div></div>
-      <div class="topo-card"><div class="topo-name">Ring</div><div class="topo-desc">Circular communication pattern — each agent talks to its neighbors in a loop.</div></div>
-      <div class="topo-card"><div class="topo-name">Star</div><div class="topo-desc">Hub-and-spoke. Testing swarms — one orchestrator, N independent runners.</div></div>
-      <div class="topo-card"><div class="topo-name">Hybrid</div><div class="topo-desc">Hierarchical mesh for maximum flexibility — combines hierarchy with peer links.</div></div>
-    </div>
-    <div class="section-title reveal">Consensus Strategies (Vote-Count Thresholds)</div>
-    <div class="table-wrap reveal">
-    <table class="doc-table">
-      <thead><tr><th>Strategy</th><th>Threshold</th><th>Best For</th></tr></thead>
-      <tbody>
-        <tr><td class="mono">raft</td><td>Simple majority</td><td>Default. Majority vote counting — no leader election or log replication.</td></tr>
-        <tr><td class="mono">bft</td><td>2f+1 votes</td><td>Byzantine-style threshold for an adversarial fault model.</td></tr>
-        <tr><td class="mono">quorum</td><td>Preset: majority / supermajority / unanimous</td><td>Custom agreement thresholds.</td></tr>
-      </tbody>
-    </table>
-    </div>
-    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">These are vote-count thresholds applied inside a single process — not distributed consensus protocols. Gossip and CRDT strategies are not implemented.</p>
-    <div class="section-title reveal">15-Agent Domain Hierarchy</div>
-    <div class="table-wrap reveal">
-    <table class="doc-table">
-      <thead><tr><th>Domain</th><th>Agents</th></tr></thead>
-      <tbody>
-        <tr><td>Queen / Orchestration</td><td>QueenCoordinator, AttentionCoordinator</td></tr>
-        <tr><td>Architecture</td><td>Architect, SystemDesigner</td></tr>
-        <tr><td>Engineering</td><td>Coder, BackendDev, FrontendDev</td></tr>
-        <tr><td>Quality</td><td>Tester, Reviewer, SecurityAuditor</td></tr>
-        <tr><td>Memory / Intelligence</td><td>MemorySpecialist, MemoryCoordinator</td></tr>
-        <tr><td>Operations</td><td>PerfEngineer, MonitorAgent</td></tr>
-        <tr><td>Research</td><td>ResearchAgent</td></tr>
-      </tbody>
-    </table>
-    </div>
-    <div class="section-title reveal">Quick Launch</div>
-    <div class="code-block reveal">
-<span class="comment"># Hierarchical swarm, 8 agents, specialized strategy</span>
-<span class="cmd">npx monomind swarm init \
-  --topology hierarchical \
-  --max-agents 8 \
-  --strategy specialized</span>
-
-<span class="comment"># Hive-mind (MCP tools only — no CLI command)</span>
-<span class="comment"># mcp__monomind__hive-mind_init with topology + consensus strategy</span>
-
-<span class="comment"># Interactive topology picker in Claude Code</span>
-<span class="keyword">/mastermind</span></div>
   </div>
 </div>
 
@@ -1806,6 +1741,20 @@ Session N: empty round (zero findings AND zero actions)
 #page-orgs .otask.done { opacity: 0.6; }
 #page-orgs .otask.done .otask-t { text-decoration: line-through; color: var(--muted); }
 
+/* Org tree (real run example) */
+#page-orgs .org-tree { display: flex; flex-direction: column; align-items: center; margin-top: 40px; }
+#page-orgs .ot-root { margin-bottom: 8px; }
+#page-orgs .ot-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; padding-top: 24px; border-top: 1px dashed var(--border); width: 100%; }
+#page-orgs .ot-branch { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#page-orgs .ot-subrow { display: flex; gap: 8px; padding-top: 12px; border-top: 1px dashed var(--border); }
+#page-orgs .ot-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; min-width: 120px; text-align: center; }
+#page-orgs .ot-sub { padding: 8px 12px; min-width: 100px; }
+#page-orgs .ot-boss { border-color: oklch(72% 0.22 168 / 0.5); background: oklch(72% 0.22 168 / 0.07); }
+#page-orgs .ot-mgr { border-color: oklch(72% 0.18 65 / 0.45); background: oklch(72% 0.18 65 / 0.06); }
+#page-orgs .ot-rev { border-color: oklch(66% 0.17 295 / 0.45); background: oklch(66% 0.17 295 / 0.06); }
+#page-orgs .ot-title { font-family: var(--ff-d); font-size: 13px; font-weight: 600; }
+#page-orgs .ot-type { font-family: var(--ff-m); font-size: 10px; color: var(--muted); margin-top: 2px; }
+
 /* Topology */
 #page-orgs .topo-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-top: 40px; }
 #page-orgs .tcard { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 24px 20px; }
@@ -1986,6 +1935,62 @@ Session N: empty round (zero findings AND zero actions)
   <div class="ocase-detail" id="ocase-detail">
     <div><div class="ocd-h">Team composition</div><div class="ocd-roles" id="ocd-roles"></div></div>
     <div><div class="ocd-h">Run it</div><div class="oterm" id="ocase-term"><div class="oterm-hd"><span class="od od-r"></span><span class="od od-y"></span><span class="od od-g"></span><span class="oterm-ttl" id="ocase-term-ttl"></span></div><div class="oterm-bd" id="ocase-term-bd"></div></div></div>
+  </div>
+</div>
+
+<!-- A real run: org chart -->
+<div class="orgs-section">
+  <div class="osec-label">A real run — 8 roles, one goal</div>
+  <h2 class="osec-title">The org chart, from an actual <code style="font-family:var(--ff-m);font-size:0.65em">monomind org run</code></h2>
+  <p class="osec-sub">This is the live hierarchy from an 8-role org ("Ship the v3 dashboard redesign") captured while writing this page — a Tech Lead as boss, with a Product Manager, four specialists, and two reviewers reporting in. It's what the dashboard's <strong>Chart</strong> tab renders as an animated SVG; here it's the same <code style="font-family:var(--ff-m);font-size:0.65em">reports_to</code> shape, laid out statically.</p>
+  <div class="org-tree reveal">
+    <div class="ot-root">
+      <div class="ot-card ot-boss"><div class="ot-title">Tech Lead</div><div class="ot-type">boss · reports_to: null</div></div>
+    </div>
+    <div class="ot-row">
+      <div class="ot-branch">
+        <div class="ot-card ot-mgr"><div class="ot-title">Product Manager</div><div class="ot-type">specialist</div></div>
+        <div class="ot-subrow">
+          <div class="ot-card ot-sub"><div class="ot-title">Product Designer</div><div class="ot-type">specialist</div></div>
+          <div class="ot-card ot-sub"><div class="ot-title">Docs Writer</div><div class="ot-type">specialist</div></div>
+        </div>
+      </div>
+      <div class="ot-card"><div class="ot-title">Developer</div><div class="ot-type">specialist</div></div>
+      <div class="ot-card"><div class="ot-title">Backend Developer</div><div class="ot-type">specialist</div></div>
+      <div class="ot-card ot-rev"><div class="ot-title">Code Reviewer</div><div class="ot-type">reviewer</div></div>
+      <div class="ot-card ot-rev"><div class="ot-title">Security Reviewer</div><div class="ot-type">reviewer</div></div>
+      <div class="ot-card"><div class="ot-title">QA Engineer</div><div class="ot-type">specialist</div></div>
+      <div class="ot-card"><div class="ot-title">DevOps Engineer</div><div class="ot-type">specialist</div></div>
+    </div>
+  </div>
+  <p class="reveal" style="font-size:12.5px;color:var(--muted);margin-top:16px">Real numbers from that run, via <code style="font-family:var(--ff-m);font-size:0.9em">monomind org report docsite-demo</code>:</p>
+  <div class="how-row reveal" style="margin-top:12px">
+    <div class="how-cell"><div class="hc-num">DURATION</div><div class="hc-title">15m 20s</div><div class="hc-desc">573 events · 29 inter-agent messages · 199 tool calls, isolated workspace</div></div>
+    <div class="how-cell"><div class="hc-num">TOKENS &amp; COST</div><div class="hc-title">201.3k tokens</div><div class="hc-desc">$9.22 total across 8 role sessions — Costs and Budgets tabs break this down per role, live</div></div>
+    <div class="how-cell"><div class="hc-num">ASSETS</div><div class="hc-title">63 files written</div><div class="hc-desc">A scaffolded Next.js dashboard app, Terraform modules, and a style guide — all inside <code style="font-family:var(--ff-m);font-size:0.8em">.monomind/orgs/&lt;name&gt;/workspace/</code> when <code style="font-family:var(--ff-m);font-size:0.8em">workspace: "isolated"</code></div></div>
+  </div>
+</div>
+
+<!-- Dashboard tabs -->
+<div class="orgs-section alt">
+  <div class="osec-label">Per-org dashboard</div>
+  <h2 class="osec-title">Every org gets 29 tabs</h2>
+  <p class="osec-sub">Selecting an org in the dashboard opens its own detail view. The tabs below are the ones you'll reach for most — the full 29-tab reference lives on the <a href="#dashboard" style="color:var(--accent)">Dashboard</a> page.</p>
+  <div class="table-wrap reveal" style="margin-top:32px">
+    <table class="doc-table">
+      <thead><tr><th>Tab</th><th>What it shows</th></tr></thead>
+      <tbody>
+        <tr><td>Chart</td><td>Org hierarchy as an animated SVG — nodes for each role, animated edges for reporting lines (the static version of the tree above)</td></tr>
+        <tr><td>Activity</td><td>Chronological event log of every agent action, message, and tool call within the org</td></tr>
+        <tr><td>Goals</td><td>Hierarchical goal tree with progress bars for each objective and sub-objective</td></tr>
+        <tr><td>Budgets</td><td>Fill bars showing spend vs. token budget limit per agent and in aggregate</td></tr>
+        <tr><td>Approvals</td><td>Approve/reject queue for actions that require human sign-off before an agent proceeds</td></tr>
+        <tr><td>Members</td><td>Human and agent member list with role assignments and reporting lines</td></tr>
+        <tr><td>Issues</td><td>Full issue table: title, status, priority, assignee, labels, created date</td></tr>
+        <tr><td>Workspaces</td><td>Per-agent workspace rows: branch, working directory path, running services</td></tr>
+        <tr><td>Settings</td><td>Org configuration form that generates the equivalent CLI command for reproducibility</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
