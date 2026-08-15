@@ -1471,7 +1471,7 @@ function readMode() {
 // ─── Testability export (when required as a module, not run as CLI) ──────────
 if (require.main !== module) {
   module.exports = {
-    readJSON, safeStat, modelLabel,
+    readJSON, safeStat, modelLabel, getVersion,
     getSecurityStatus, getSwarmStatus, getADRStatus,
     getHooksStatus, getActiveAgent, getLanceDBStats,
     getLearningStats, getTestStats, getIntegrationStatus,

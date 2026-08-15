@@ -4,6 +4,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.16] — 2026-08-15
+
+### GitHub issue fixes (#150)
+
+- **`control-start.cjs` no longer trusts a live-but-auth-mismatched dashboard.** `probeStatus()` used to collapse "no server there" and "a server answered but rejected our dashboard-token" (401) into the same `null` result, so a live server left over from a prior port collision — up, but pairing-mismatched — was indistinguishable from a healthy one. It now returns a distinct `'unauthorized'` sentinel, and the "already running" check treats that as stale and restarts, same as a project or build mismatch.
+- **`monomind org run` now actively verifies/heals the dashboard on every run**, instead of only trusting whatever `control.json` already had. It (re)invokes the project's own `.claude/helpers/control-start.cjs` if `monomind init` has set one up, so a stale/dead/mismatched dashboard self-heals per run, not only once at Claude Code `SessionStart`.
+
+### Fix
+- Synced a leftover cross-copy drift in `statusline.cjs` (root `.claude/`/`.gemini/` were missing the `getVersion` testability export that `packages/@monomind/cli/.claude/` already had, from #146/PR #147) — caught by this repo's own tree-parity check.
+
 ## [2.9.15] — 2026-08-15
 
 ### Critical fix — broken 2.9.14 publish (#148)
