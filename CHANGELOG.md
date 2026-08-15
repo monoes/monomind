@@ -4,6 +4,14 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.19] — 2026-08-15
+
+### Refactor (#122, PR #154)
+- Pruned unwired memory consolidation subsystems (`ControllerRegistry`, `database-provider.ts`, `UnifiedMemoryService`, `TieredCacheManager`) that were maintained against mocks and never invoked by the live CLI or MCP runtime — net -3,244 lines. Fixed a build-breaking re-export of already-deleted functions introduced during the PR's own merge before shipping it.
+
+### GitHub issue fixes (#155)
+- **Dashboard's `activeOrgs` gap-fill never detected a completed run.** The SQLite path checked `type IN ('run:complete','org:complete','org:stop')` — daemon.ts never emits any of these; the real terminal signal is a `type:'status'` event with `msg:'org stopped'` or `reason:'org-complete'`, carried in the JSON-stringified `raw` column, not a dedicated type string. Every org's latest run was always reported active regardless of whether it had actually finished. The JSONL fallback (used when sql.js is unavailable) had the same stale `<org>/runs/` path bug already fixed in #138 for `statusline.cjs` — Org Runtime v2 writes `<org>/<runId>/bus.jsonl`, not a `runs/` directory. Both paths now match the real terminal signals/paths.
+
 ## [2.9.18] — 2026-08-15
 
 ### GitHub issue fixes (#149)
