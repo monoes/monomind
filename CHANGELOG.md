@@ -4,6 +4,13 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.17] — 2026-08-15
+
+### GitHub issue fixes (#152)
+
+- **The org-stop drain-timeout audit event no longer hides which roles were cut off mid-work.** On a real 22-role org run, `org_complete` was called while six workers were still actively writing files; the 5-minute drain window let most finish, but at least one was still mid-write when it expired and got force-stopped — the resulting audit event said only "proceeding anyway," with no way to tell real in-progress work being cut off from idle-but-not-yet-reaped sessions. `finishStop()` now collects every role still `'running'` (mid-turn) at the moment the drain window expires, includes that roster in both the audit message and structured `data.stillActive`, and omits the "still active" suffix entirely when nothing was actually cut off.
+- `org_complete`'s tool description now tells the boss to check `org_tasks` and avoid calling it while siblings have in-progress work, reaching the model at the exact moment it decides to call it.
+
 ## [2.9.16] — 2026-08-15
 
 ### GitHub issue fixes (#150)
