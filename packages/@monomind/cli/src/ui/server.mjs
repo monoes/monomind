@@ -5298,71 +5298,38 @@ export async function startServer({
 
   // ── Gap-fill ordering (ADR Issue 7): rebuild activeOrgRuns BEFORE the server
   // starts accepting connections so the first incoming event already has runId context.
-  // Uses SQLite when available; falls back to JSONL scan.
   await _initRunDb(MONOMIND_HOME);
+  // #155 follow-up: the original gap-fill scanned run_events (SQLite) / a
+  // run's bus.jsonl for a terminal event — but run_events is populated by
+  // LIVE forwarding while a dashboard is connected, not backfilled from a
+  // run's actual history. A dashboard that starts after a run has already
+  // stopped never saw most (or any) of that run's events, including its
+  // terminal one, so there was nothing for the corrected #155 query to
+  // match against even once the query itself was fixed. runtime.json's own
+  // top-level `status` field is authoritative regardless of dashboard
+  // uptime — it's the exact thing `monomind org status` reads — so check
+  // that directly instead of reconstructing "done" from an event log that
+  // may simply never have recorded it.
   try {
-    if (_runDb) {
-      // SQLite gap-fill: for each org, find latest run_id and check if it has run:complete
-      const _gfOrgsStmt = _runDb.prepare('SELECT DISTINCT org FROM run_events');
-      while (_gfOrgsStmt.step()) {
-        const _gfOrg = _gfOrgsStmt.getAsObject().org;
-        if (!_gfOrg || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
-        // Resolve the latest run_id for this org, then check if it has a terminal event
-        const _gfLatRunStmt = _runDb.prepare(
-          'SELECT run_id FROM run_events WHERE org=? ORDER BY id DESC LIMIT 1',
-        );
-        _gfLatRunStmt.bind([_gfOrg]);
-        let _gfLatestRun = null;
-        if (_gfLatRunStmt.step()) _gfLatestRun = _gfLatRunStmt.getAsObject().run_id;
-        _gfLatRunStmt.free();
-        let _gfDone = false;
-        if (_gfLatestRun) {
-          // #155: daemon.ts never emits type IN ('run:complete','org:complete',
-          // 'org:stop') — the real terminal signals are type:'status' events
-          // with msg:'org stopped' (stopOrg) or reason:'org-complete'
-          // (org_complete tool). Both land in the JSON-stringified `raw`
-          // column, not a dedicated type string, so match on that instead.
-          const _gfRunStmt = _runDb.prepare(
-            "SELECT type FROM run_events WHERE org=? AND run_id=? AND type='status' AND (raw LIKE '%\"msg\":\"org stopped\"%' OR raw LIKE '%\"reason\":\"org-complete\"%') LIMIT 1",
-          );
-          _gfRunStmt.bind([_gfOrg, _gfLatestRun]);
-          if (_gfRunStmt.step()) _gfDone = true;
-          _gfRunStmt.free();
-        }
-        if (_gfLatestRun && !_gfDone) activeOrgRuns.set(_gfOrg, _gfLatestRun);
-      }
-      _gfOrgsStmt.free();
-    } else {
-      // JSONL fallback (sql.js unavailable). #155: Org Runtime v2 never
-      // writes <org>/runs/*.jsonl — the actual event log per run is
-      // <org>/<runId>/bus.jsonl (OrgBus, bus.ts). runtime.json's `run` field
-      // names the current/latest run id, matching the #138 fix already
-      // shipped for statusline.cjs's getActiveOrgs().
-      const _gfOrgsDir = path.join(MONOMIND_HOME, '.monomind', 'orgs');
-      if (fs.existsSync(_gfOrgsDir)) {
-        for (const _gfOrg of fs.readdirSync(_gfOrgsDir)) {
-          if (!_gfOrg || _gfOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
-          try {
-            const _gfRuntimePath = path.join(_gfOrgsDir, _gfOrg, 'runtime.json');
-            if (!fs.existsSync(_gfRuntimePath)) continue;
-            const _gfRt = JSON.parse(fs.readFileSync(_gfRuntimePath, 'utf8'));
-            const _gfId = typeof _gfRt?.run === 'string' ? _gfRt.run : null;
-            if (!_gfId) continue;
-            const _gfBusPath = path.join(_gfOrgsDir, _gfOrg, _gfId, 'bus.jsonl');
-            if (!fs.existsSync(_gfBusPath)) continue;
-            const _gfContent = fs.readFileSync(_gfBusPath, 'utf8');
-            const _gfLast = _gfContent.trim().split('\n').filter(Boolean).slice(-10);
-            const _gfDone = _gfLast.some((l) => {
-              try {
-                const e = JSON.parse(l);
-                return e.type === 'status' && (e.msg === 'org stopped' || e.reason === 'org-complete');
-              } catch {
-                return false;
-              }
-            });
-            if (!_gfDone) activeOrgRuns.set(_gfOrg, _gfId);
-          } catch (_) {}
-        }
+    const _gfOrgsDir = path.join(MONOMIND_HOME, '.monomind', 'orgs');
+    if (fs.existsSync(_gfOrgsDir)) {
+      for (const _gfOrg of fs.readdirSync(_gfOrgsDir)) {
+        if (!_gfOrg || _gfOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
+        try {
+          const _gfRuntimePath = path.join(_gfOrgsDir, _gfOrg, 'runtime.json');
+          if (!fs.existsSync(_gfRuntimePath)) continue;
+          const _gfRt = JSON.parse(fs.readFileSync(_gfRuntimePath, 'utf8'));
+          const _gfId = typeof _gfRt?.run === 'string' ? _gfRt.run : null;
+          if (!_gfId) continue;
+          // Mirrors org.ts's statusAction: a "running" record whose pid is
+          // gone means the daemon died without its stopOrg cleanup — treat
+          // that as not-active too, not just a literal status !== 'running'.
+          let _gfActive = _gfRt.status === 'running';
+          if (_gfActive && typeof _gfRt.pid === 'number') {
+            try { process.kill(_gfRt.pid, 0); } catch { _gfActive = false; }
+          }
+          if (_gfActive) activeOrgRuns.set(_gfOrg, _gfId);
+        } catch (_) {}
       }
     }
   } catch (_) {}
