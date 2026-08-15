@@ -4,6 +4,11 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.20] — 2026-08-15
+
+### GitHub issue fixes (#155 follow-up)
+- **Dashboard's `activeOrgs` gap-fill still couldn't detect a completed run after the first #155 fix** — the corrected event-string matching was right, but `run_events` (SQLite) is only populated by *live* event forwarding while a dashboard is connected, not backfilled from a run's actual history. A dashboard started after a run had already stopped never saw most (or any) of that run's events — including its terminal one — so the query had nothing to match. Replaced the whole event-scanning approach with a direct read of `runtime.json`'s own authoritative `status` field (the exact thing `monomind org status` reads), also treating a `"running"` record with a dead pid as not-active. Verified end-to-end against a real running server instance, not just unit tests.
+
 ## [2.9.19] — 2026-08-15
 
 ### Refactor (#122, PR #154)
