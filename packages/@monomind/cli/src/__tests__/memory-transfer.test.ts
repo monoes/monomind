@@ -17,7 +17,6 @@ vi.mock('../memory/memory-bridge.js', async (importOriginal) => {
     bridgeGetEntry: async () => null,
     bridgeGenerateEmbedding: async () => null,
     bridgeLoadEmbeddingModel: async () => null,
-    getControllerRegistry: async () => null,
   };
 });
 
