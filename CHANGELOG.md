@@ -4,6 +4,13 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.18] — 2026-08-15
+
+### GitHub issue fixes (#149)
+
+- **`org run --resume` no longer dies silently on a stale SDK session.** The reported symptom (org idle 10m, boss "unreachable", zero messages/tokens exchanged) traced to `resumeSessionId` being seeded from the checkpoint's persisted SDK session_id — which can legitimately no longer exist on the provider's side by resume time (the repro resumed ~8h after `org stop`). Any error on that first resumed call besides the turn-limit pattern was rethrown straight into the crash/backoff path: 3 attempts over ~21s, then a terminal crash that closes the mailbox — matching "Messages: 0" and "boss unreachable" exactly. Mirrors the existing turn-limit-recovery pattern: the first failure on a checkpoint-provided session id now drops it and retries once with a fresh session instead of crashing, bounded so a second, real failure still crashes normally.
+- Note: the issue's own proposed root cause (mailboxes staying closed after `org stop`) was verified **not** to hold on current code — `finishStop()` snapshots the checkpoint before closing mailboxes specifically so this doesn't happen. A fix built on that diagnosis was drafted and discarded after it regressed the existing "no zombie agents on resume" invariant for genuinely crashed roles.
+
 ## [2.9.17] — 2026-08-15
 
 ### GitHub issue fixes (#152)
