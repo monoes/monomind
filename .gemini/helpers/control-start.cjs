@@ -342,10 +342,16 @@ async function main() {
 
   // Adopt an already-listening server (e.g. started manually or by another session)
   // instead of spawning a duplicate that would bind port+1 and clobber control.json.
+  // probeStatus() returns the string 'unauthorized' (not null) for a server that
+  // answers but rejects our dashboard-token (added for the staleAuth check above,
+  // #150) — a non-empty string is truthy in JS, so `if (live)` alone would "adopt"
+  // an auth-mismatched server exactly like a healthy one, writing pid:0 (a string
+  // has no .pid) and leaving the mismatch in place instead of fixing it. Skip it
+  // and keep scanning for an actually-adoptable server on a later port instead.
   for (let delta = 0; delta <= 10; delta++) {
     const p = DEFAULT_PORT + delta;
     const live = await probeStatus(p);
-    if (live) {
+    if (live && live !== 'unauthorized') {
       writeStatus(live.pid || 0, p);
       if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] adopted running server on port ${p} (pid ${live.pid || 'unknown'})\n`);
       process.exit(0);
