@@ -212,6 +212,16 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
   // Seeded from opts.resumeSessionId (a checkpoint's persisted sessionId) when
   // this is a checkpoint resume, not a fresh run — P2-13.
   let resumeSessionId: string | undefined = opts.resumeSessionId;
+  // #149: a resumeSessionId seeded from a persisted checkpoint (org run
+  // --resume) points at an SDK session that may no longer exist on the
+  // provider's side by the time resume happens — hours can pass between
+  // `org stop` and `org run --resume`. Track whether we've already tried
+  // falling back to a fresh session for THIS specific session id, so a
+  // stale checkpoint session gets one recovery attempt instead of crashing
+  // the whole role outright, but a second failure (a real, non-staleness
+  // error) still crashes normally rather than looping forever.
+  const initialResumeSessionId = opts.resumeSessionId;
+  let triedFreshAfterResumeFailure = false;
   // #1: when a session ends on the turn limit mid-work, push a continuation so
   // the restarted query() has input to act on instead of blocking on an empty
   // mailbox until the 10-minute idle watchdog. Bounded: if the role consumed no
@@ -251,6 +261,25 @@ export async function runAgentSession(opts: SessionOpts): Promise<void> {
         sessionId = undefined;
         resumeSessionId = undefined;
         hitTurnLimit = true;
+      } else if (
+        resumeSessionId &&
+        resumeSessionId === initialResumeSessionId &&
+        !triedFreshAfterResumeFailure
+      ) {
+        // #149: first failure on a checkpoint-provided session id — treat as
+        // a stale/expired resume, not a genuine crash. Retry once with a
+        // fresh session before falling into the crash/backoff path below;
+        // a second failure with no resumeSessionId in play is a real error.
+        triedFreshAfterResumeFailure = true;
+        sessionId = undefined;
+        resumeSessionId = undefined;
+        hitTurnLimit = false;
+        opts.bus.emit({
+          type: 'status',
+          from: opts.role.id,
+          reason: 'resume-session-stale',
+          msg: `agent "${opts.role.id}" could not resume its prior session (${errMsg}) — retrying with a fresh session`,
+        });
       } else {
         throw err;
       }
