@@ -5317,8 +5317,13 @@ export async function startServer({
         _gfLatRunStmt.free();
         let _gfDone = false;
         if (_gfLatestRun) {
+          // #155: daemon.ts never emits type IN ('run:complete','org:complete',
+          // 'org:stop') — the real terminal signals are type:'status' events
+          // with msg:'org stopped' (stopOrg) or reason:'org-complete'
+          // (org_complete tool). Both land in the JSON-stringified `raw`
+          // column, not a dedicated type string, so match on that instead.
           const _gfRunStmt = _runDb.prepare(
-            "SELECT type FROM run_events WHERE org=? AND run_id=? AND type IN ('run:complete','org:complete','org:stop') LIMIT 1",
+            "SELECT type FROM run_events WHERE org=? AND run_id=? AND type='status' AND (raw LIKE '%\"msg\":\"org stopped\"%' OR raw LIKE '%\"reason\":\"org-complete\"%') LIMIT 1",
           );
           _gfRunStmt.bind([_gfOrg, _gfLatestRun]);
           if (_gfRunStmt.step()) _gfDone = true;
@@ -5328,39 +5333,35 @@ export async function startServer({
       }
       _gfOrgsStmt.free();
     } else {
-      // JSONL fallback
+      // JSONL fallback (sql.js unavailable). #155: Org Runtime v2 never
+      // writes <org>/runs/*.jsonl — the actual event log per run is
+      // <org>/<runId>/bus.jsonl (OrgBus, bus.ts). runtime.json's `run` field
+      // names the current/latest run id, matching the #138 fix already
+      // shipped for statusline.cjs's getActiveOrgs().
       const _gfOrgsDir = path.join(MONOMIND_HOME, '.monomind', 'orgs');
       if (fs.existsSync(_gfOrgsDir)) {
         for (const _gfOrg of fs.readdirSync(_gfOrgsDir)) {
           if (!_gfOrg || _gfOrg.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(_gfOrg)) continue;
-          const _gfRunsDir = path.join(_gfOrgsDir, _gfOrg, 'runs');
-          if (!fs.existsSync(_gfRunsDir)) continue;
-          const _gfFiles = fs
-            .readdirSync(_gfRunsDir)
-            .filter(
-              (f) => f.endsWith('.jsonl') && !f.startsWith('._') && !f.endsWith('.convs.jsonl'),
-            )
-            .sort()
-            .reverse();
-          for (const _gfF of _gfFiles.slice(0, 5)) {
-            try {
-              const _gfId = _gfF.replace('.jsonl', '');
-              const _gfContent = fs.readFileSync(path.join(_gfRunsDir, _gfF), 'utf8');
-              const _gfLast = _gfContent.trim().split('\n').filter(Boolean).slice(-10);
-              const _gfDone = _gfLast.some((l) => {
-                try {
-                  const e = JSON.parse(l);
-                  return e.type === 'run:complete' || e.type === 'org:complete';
-                } catch {
-                  return false;
-                }
-              });
-              if (!_gfDone) {
-                activeOrgRuns.set(_gfOrg, _gfId);
-                break;
+          try {
+            const _gfRuntimePath = path.join(_gfOrgsDir, _gfOrg, 'runtime.json');
+            if (!fs.existsSync(_gfRuntimePath)) continue;
+            const _gfRt = JSON.parse(fs.readFileSync(_gfRuntimePath, 'utf8'));
+            const _gfId = typeof _gfRt?.run === 'string' ? _gfRt.run : null;
+            if (!_gfId) continue;
+            const _gfBusPath = path.join(_gfOrgsDir, _gfOrg, _gfId, 'bus.jsonl');
+            if (!fs.existsSync(_gfBusPath)) continue;
+            const _gfContent = fs.readFileSync(_gfBusPath, 'utf8');
+            const _gfLast = _gfContent.trim().split('\n').filter(Boolean).slice(-10);
+            const _gfDone = _gfLast.some((l) => {
+              try {
+                const e = JSON.parse(l);
+                return e.type === 'status' && (e.msg === 'org stopped' || e.reason === 'org-complete');
+              } catch {
+                return false;
               }
-            } catch (_) {}
-          }
+            });
+            if (!_gfDone) activeOrgRuns.set(_gfOrg, _gfId);
+          } catch (_) {}
         }
       }
     }
