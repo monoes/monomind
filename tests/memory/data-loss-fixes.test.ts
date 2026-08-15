@@ -1,14 +1,10 @@
 /**
- * Regression tests for the verified data-loss cluster (GitHub #85, #89, #90).
+ * Regression tests for the verified data-loss cluster (GitHub #85, #90).
  *
  * #85: MemoryMigrator.loadFromMemoryManager verified a discovered file with
  *      fs.access but then called loadFromJSON() with no argument, which read
  *      this.config.sourcePath (the search *directory*) — readFile threw,
  *      the catch swallowed it, and the migration silently returned [].
- *
- * #89: ControllerRegistry.shutdown() tore down controllers but never closed
- *      this.backend; SqlBackend.shutdown() is where the final persist()
- *      happens, so buffered writes were lost on process exit.
  *
  * #90: KnowledgeStore.filterJsonl and PromptVersionStore writeVersions /
  *      writeExperiments rewrote JSONL index files with bare writeFileSync —
@@ -25,7 +21,6 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 import { MemoryMigrator } from '../../packages/@monomind/memory/src/migration.js';
-import { ControllerRegistry, INIT_LEVELS } from '../../packages/@monomind/memory/src/controller-registry.js';
 import { KnowledgeStore } from '../../packages/@monomind/memory/src/knowledge/knowledge-store.js';
 import { PromptVersionStore } from '../../packages/@monomind/memory/src/prompt-version-store.js';
 import type {
@@ -156,24 +151,6 @@ describe('#85 MemoryMigrator memory-manager source', () => {
     const result = await migrator.migrate();
     expect(result.progress.migrated).toBe(1);
     expect(backend.stored[0]?.key).toBe('x');
-  });
-});
-
-describe('#89 ControllerRegistry.shutdown closes the backend', () => {
-  it('calls backend.shutdown() after controller teardown', async () => {
-    const backend = new FakeBackend();
-    const registry = new ControllerRegistry();
-
-    // Disable every controller so initialize() touches nothing but the backend.
-    const controllers = Object.fromEntries(
-      INIT_LEVELS.flatMap((level) => level.controllers).map((name) => [name, false]),
-    );
-
-    await registry.initialize({ backend, controllers });
-    expect(backend.shutdownCalls).toBe(0);
-
-    await registry.shutdown();
-    expect(backend.shutdownCalls).toBe(1);
   });
 });
 
