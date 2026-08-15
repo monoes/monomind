@@ -73,12 +73,6 @@ export {
   listEntries,
   getEntry,
   deleteEntry,
-  clearNamespace,
-  listNamespaces,
-  compactDatabase,
-  getMemoryStats,
-  checkMemoryHealth,
-  repairMemoryDatabase,
 } from './memory-crud.js';
 
 // ============================================================================
