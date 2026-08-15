@@ -140,6 +140,41 @@ describe('control-start: stale-token pairing self-heals instead of being trusted
       mock.kill('SIGTERM');
     }
   });
+
+  // Regression in the fix above: probeStatus() started returning the string
+  // 'unauthorized' instead of null for a 401 (needed so the "already
+  // running" check above could tell the two apart) — but the separate
+  // "adopt an already-listening server" loop in main() only checked
+  // `if (live)`, and a non-empty string is truthy in JS. So it "adopted" a
+  // 401-rejecting server exactly like a healthy one: `live.pid` is
+  // undefined on a string, so `writeStatus(live.pid || 0, p)` wrote pid:0
+  // into control.json and printed "adopted running server (pid unknown)" —
+  // silently leaving the mismatch in place instead of moving past it.
+  it('does not adopt a 401-rejecting server as if it were healthy', async () => {
+    const { spawn } = await import('child_process');
+    const port = isolatedPort();
+    const mockScript = path.join(tmpDir, 'mock401-adopt.cjs');
+    fs.writeFileSync(mockScript, `
+      const http = require('http');
+      const server = http.createServer((req, res) => {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
+      });
+      server.listen(${port}, 'localhost', () => process.stderr.write('READY'));
+    `);
+    const mock = spawn(process.execPath, [mockScript], { stdio: ['ignore', 'ignore', 'pipe'] });
+    await new Promise((resolve) => mock.stderr.on('data', resolve));
+    try {
+      // No control.json written — main() reaches the adopt loop directly,
+      // which scans MONOMIND_CONTROL_PORT (== port here) for a live server.
+      const r = run({ cwd: tmpDir, env: { MONOMIND_CONTROL_PORT: String(port) } });
+      expect(r.stdout).not.toContain('adopted running server');
+      const data = readControlJson(tmpDir);
+      expect(data.pid).not.toBe(0);
+    } finally {
+      mock.kill('SIGTERM');
+    }
+  });
 });
 
 // ── not running ──────────────────────────────────────────────────────────────
