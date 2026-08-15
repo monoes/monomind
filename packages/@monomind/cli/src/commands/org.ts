@@ -290,17 +290,46 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
 
   // P1-12: Print the dashboard URL so CLI users know where to look.
-  // The dashboard is spawned by a Claude Code SessionStart hook
-  // (.claude/helpers/control-start.cjs); pure-CLI users need to know this.
+  // The dashboard is normally spawned by a Claude Code SessionStart hook
+  // (.claude/helpers/control-start.cjs) — but `org run` doesn't require
+  // Claude Code, and even when the hook exists it only fires once at
+  // session start, not per org run. If control.json is stale (points at a
+  // dead pid, a server rooted in a different project, or one that no longer
+  // accepts our dashboard-token — the exact case control-start.cjs's own
+  // "already running" check now self-heals, see its staleAuth handling),
+  // `org run` used to just print whatever URL was on file with zero
+  // verification. Actively (re)run the same control-start.cjs the hook
+  // uses, from this project's own .claude/helpers/ if it's been set up
+  // (monomind init), so a stale/dead/mismatched dashboard gets healed on
+  // every org run instead of silently trusting old state.
   const controlPath = join(ctx.cwd, '.monomind', 'control.json');
+  const controlStartPath = join(ctx.cwd, '.claude', 'helpers', 'control-start.cjs');
+  if (existsSync(controlStartPath)) {
+    try {
+      const { spawnSync } = await import('node:child_process');
+      spawnSync(process.execPath, [controlStartPath], {
+        cwd: ctx.cwd,
+        env: { ...process.env, CLAUDE_PROJECT_DIR: ctx.cwd, MONOMIND_HOOK_QUIET: '1' },
+        timeout: 5000,
+        stdio: 'ignore',
+      });
+    } catch { /* best-effort — fall through to whatever control.json already has */ }
+  }
   if (existsSync(controlPath)) {
     try {
       const ctl = JSON.parse(readFileSync(controlPath, 'utf8')) as { port?: number; url?: string };
       const dashUrl = ctl.url || (ctl.port ? `http://localhost:${ctl.port}` : 'http://localhost:4242');
       log(output.dim(`  Dashboard: ${dashUrl}`));
     } catch { /* non-critical */ }
+  } else if (existsSync(controlStartPath)) {
+    // control-start.cjs ran above (spawnSync'd synchronously with a 5s cap)
+    // but control.json still doesn't exist — its own confirm-mode child is
+    // still working in the background (npx cold-resolve etc., #142/#144)
+    // rather than having failed outright. Point at the default port; the
+    // confirm process will correct control.json once it lands.
+    log(output.dim('  Dashboard: http://localhost:4242 (starting — check back in a few seconds if unreachable)'));
   } else {
-    log(output.dim('  Dashboard: open Claude Code to launch it, or run: monomind org dashboard'));
+    log(output.dim('  Dashboard: run `monomind init` to set up .claude/helpers/, then re-run to launch it automatically'));
   }
 
   // stopfile poll lets `org stop` work from another terminal; the daemon can

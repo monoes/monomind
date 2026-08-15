@@ -99,6 +99,17 @@ function readAuthCredential() {
   } catch { return ''; }
 }
 
+// Resolves to the parsed /api/status body, 'unauthorized' if a server answered
+// but rejected our current dashboard-token (401 — the pairing recorded in
+// control.json no longer matches what that server actually expects, e.g.
+// stale state left over from a prior collision/restart), or null for "no
+// server there at all" (connection error, timeout, or 5xx). These used to
+// collapse into a single null result, which meant a stale-token server was
+// indistinguishable from a healthy one to the caller below — the "already
+// running" check had no way to tell "reachable but I can't actually talk to
+// it" from "not reachable", so it trusted a server it could never
+// authenticate against as healthy and exited immediately instead of fixing
+// the pairing.
 function probeStatus(p) {
   const http = require('http');
   const cred = readAuthCredential();
@@ -110,7 +121,8 @@ function probeStatus(p) {
       let body = '';
       res.on('data', (c) => { if (body.length < 64 * 1024) body += c; });
       res.on('end', () => {
-        if (res.statusCode >= 500 || res.statusCode === 401) return resolve(null);
+        if (res.statusCode === 401) return resolve('unauthorized');
+        if (res.statusCode >= 500) return resolve(null);
         try { resolve(JSON.parse(body)); } catch { resolve({}); }
       });
     });
@@ -305,13 +317,19 @@ async function main() {
   const status = readStatus();
   if (status && status.pid && isPidAlive(status.pid)) {
     const live = await probeStatus(status.port);
-    const staleProject = live && live.dir && path.resolve(live.dir) !== path.resolve(CWD);
+    // A server that's up but rejects our token is unusable to us regardless
+    // of whose project it's rooted in or how old it is — force a restart the
+    // same as any other staleness reason instead of accepting it as healthy.
+    const staleAuth = live === 'unauthorized';
+    const staleProject = live && live !== 'unauthorized' && live.dir && path.resolve(live.dir) !== path.resolve(CWD);
     const startedMs = status.startedAt ? Date.now() - new Date(status.startedAt).getTime() : 0;
     const staleBuild = startedMs > 7 * 24 * 3600_000; // older than 7 days
-    if (staleProject || staleBuild) {
-      const reason = staleProject
-        ? `rooted in ${live.dir}, not ${CWD}`
-        : `started ${Math.round(startedMs / 86400_000)}d ago`;
+    if (staleAuth || staleProject || staleBuild) {
+      const reason = staleAuth
+        ? `token mismatch — server on port ${status.port} rejected our dashboard-token`
+        : staleProject
+          ? `rooted in ${live.dir}, not ${CWD}`
+          : `started ${Math.round(startedMs / 86400_000)}d ago`;
       if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] restarting stale server (${reason})\n`);
       try { process.kill(status.pid, 'SIGTERM'); } catch { /* already gone */ }
       // Give it a moment to release the port
