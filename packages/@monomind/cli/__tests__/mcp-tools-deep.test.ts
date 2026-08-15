@@ -61,7 +61,6 @@ vi.mock('child_process', () => ({
 // Mock the memory bridge for memory tools
 vi.mock('../src/memory/memory-bridge.js', () => ({
   bridgeHealthCheck: vi.fn(async () => ({ available: true, status: 'healthy' })),
-  bridgeListControllers: vi.fn(async () => []),
   bridgeStorePattern: vi.fn(async () => ({ success: true })),
   bridgeSearchPatterns: vi.fn(async () => ({ results: [] })),
   bridgeRecordFeedback: vi.fn(async () => ({ success: true })),
