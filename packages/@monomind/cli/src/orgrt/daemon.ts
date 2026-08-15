@@ -1299,10 +1299,24 @@ export class OrgDaemon {
       new Promise<boolean>((r) => setTimeout(() => r(true), stopWaitMs)),
     ]);
     if (timedOut) {
+      // #152: "proceeding anyway" alone didn't say WHO got cut off — a run
+      // reviewer had no way to tell whether real, in-progress work (a
+      // mid-build, a mid-write) was force-stopped, or the drain window
+      // simply outlived a handful of already-idle sessions. status is only
+      // 'ended'/'crashed' once a role's session promise has actually
+      // settled; still 'running' here means it was mid-turn when the
+      // ceiling hit, not merely idle-but-not-yet-reaped.
+      const stillActive = [...org.agents.entries()]
+        .filter(([, a]) => a.status === 'running')
+        .map(([roleId]) => roleId);
+      const rosterSuffix = stillActive.length
+        ? ` — still active: ${stillActive.join(', ')}`
+        : '';
       org.bus.emit({
         type: 'audit',
-        msg: `org stop timed out after ${stopWaitMs}ms waiting for agent sessions to finish — proceeding anyway`,
+        msg: `org stop timed out after ${stopWaitMs}ms waiting for agent sessions to finish — proceeding anyway${rosterSuffix}`,
         reason: 'stop-timeout',
+        data: { stillActive },
       });
       // Reap only SDK processes spawned by THIS node process — ownerPid filter
       // ensures other `monomind org run` daemons' agents are untouched.

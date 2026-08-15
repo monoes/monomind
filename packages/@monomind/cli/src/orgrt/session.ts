@@ -535,7 +535,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   if (opts.onComplete) {
     tools.push({
       name: 'org_complete',
-      description: 'Record the outcome of this run. Call exactly once, when the goal is achieved or clearly cannot be. The outcome and summary are persisted to the org run history and briefed to the next run.',
+      description: 'Record the outcome of this run. Call exactly once, when the goal is achieved or clearly cannot be. This ends the run: check org_tasks first — siblings with in-progress work only get a short drain window to finish before being cut off, so do not call this while others are still mid-build or mid-edit unless the run genuinely cannot continue. The outcome and summary are persisted to the org run history and briefed to the next run.',
       schema: { outcome: z.enum(['achieved', 'partial', 'failed']), summary: z.string() },
       handler: async (args) => {
         opts.onComplete!(role.id, args.outcome as 'achieved' | 'partial' | 'failed', args.summary as string);
