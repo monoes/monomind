@@ -69,7 +69,7 @@ export const memoryControllers: MCPTool = {
       controllers: [],
       total: 0,
       active: 0,
-      note: 'ControllerRegistry is not implemented. Memory operations use the SQLite bridge directly via memory_store/memory_search tools.',
+      note: 'Memory operations use the SQLite bridge directly via memory_store/memory_search tools.',
     };
   },
 };

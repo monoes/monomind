@@ -11,9 +11,8 @@
  * @module v1/memory/sqlite-backend
  */
 
-// better-sqlite3 is an OPTIONAL dependency — sql.js is the documented fallback,
-// and database-provider.ts recommends it outright on Windows, where node-gyp
-// routinely fails to build native modules. This import must therefore be lazy.
+// better-sqlite3 is an OPTIONAL dependency — sql.js is the documented fallback
+// on platforms where native compilation is unavailable. This import must therefore be lazy.
 //
 // It used to be a static top-level import, and because index.ts re-exports
 // SQLiteBackend, that made `import '@monoes/memory'` throw

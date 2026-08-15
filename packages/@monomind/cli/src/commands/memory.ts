@@ -151,7 +151,7 @@ const initMemoryCommand: Command = {
       output.printBox(featureLines.join('\n'), 'Configuration');
       output.writeln();
 
-      // ADR-053: Show ControllerRegistry activation results
+      // Show memory controller activation results
       if (result.controllers) {
         const { activated, failed, initTimeMs } = result.controllers;
         if (activated.length > 0 || failed.length > 0) {

@@ -67,24 +67,20 @@ Supports document and memory export/import via Open Knowledge Format (OKF) Markd
 
 | Export | What it does |
 |---|---|
-| `UnifiedMemoryService` | High-level store/get/search facade backed by `SQLiteBackend` |
-| `SQLiteBackend` / `SqlJsBackend` | Structured key-value storage in SQLite WAL mode |
+| `SQLiteBackend` / `SqlJsBackend` | Structured key-value storage in SQLite WAL mode (native + WASM fallback) |
 | `HNSWIndex` | Standalone pure-JS approximate nearest-neighbor index (`768d`) |
-| `EpisodicStore` | JSON-lines episodic memory store |
 | `chunkDocument`, `KnowledgeStore`, `KnowledgeRetriever` | Document chunking + retrieval pipeline |
 | `QueryBuilder` / `query()` | Fluent query construction |
-| `CacheManager`, `TieredCacheManager` | LRU caching with size/TTL limits |
-| `createDatabase`, `getPlatformInfo` | Platform-aware provider selection (`better-sqlite3` native → `sql.js` WASM) |
+| `CacheManager` | In-memory LRU caching with size/TTL limits |
 | `SwarmCheckpointer` | Persist/restore swarm agent state snapshots |
 | `MemoryMigrator` | Import from SQLite, JSON, or Markdown sources |
-| `PromptVersionStore`, `ControllerRegistry` | Prompt version history & controller registry |
+| `PromptVersionStore` | Prompt version history & prompt experiment tracking |
 
 ## Cross-Platform Notes
 
-`createDatabase()` picks the best available provider per platform:
-`better-sqlite3` (native, fastest) → `sql.js` (WASM, zero compilation, works
-everywhere including Windows without a toolchain) → JSON file fallback. See
-`docs/CROSS_PLATFORM.md` and `docs/WINDOWS_SUPPORT.md`.
+The memory storage engine selects the best available SQLite driver per platform:
+`better-sqlite3` (native, fastest) with automatic fallback to `sql.js` (WASM, zero compilation, works
+everywhere including Windows without a toolchain).
 
 ## Links
 

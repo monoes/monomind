@@ -3,7 +3,7 @@
  * Properly initializes the memory database with sql.js (WASM SQLite)
  * Includes pattern tables, vector embeddings, migration state tracking
  *
- * ADR-053: Routes through ControllerRegistry → SQLite-backed memory bridge
+ * Routes through SQLite-backed memory bridge
  * when available, falls back to raw sql.js for backwards compatibility.
  *
  * @module v1/cli/memory-initializer
@@ -18,7 +18,7 @@ import { secureDbFilePermissions } from './file-permissions.js';
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 
-// ADR-053: Lazy import of SQLite-backed memory bridge
+// Lazy import of SQLite-backed memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
@@ -73,6 +73,12 @@ export {
   listEntries,
   getEntry,
   deleteEntry,
+  clearNamespace,
+  listNamespaces,
+  compactDatabase,
+  getMemoryStats,
+  checkMemoryHealth,
+  repairMemoryDatabase,
 } from './memory-crud.js';
 
 // ============================================================================
@@ -142,7 +148,7 @@ export interface MemoryInitResult {
     hnswIndexing: boolean;
     migrationTracking: boolean;
   };
-  /** ADR-053: Controllers activated via ControllerRegistry */
+  /** Memory controllers activation state */
   controllers?: {
     activated: string[];
     failed: string[];

@@ -1407,40 +1407,11 @@ export async function bridgeAddToHNSW(options: {
   }
 }
 
-// ===== Controller stubs (the SQLite backend has no equivalent controllers) =====
-
-export async function bridgeGetController(
-  controllerName: string,
-  dbPath?: string,
-): Promise<any | null> {
-  await getBackend(dbPath);
-  return null;
-}
-
-export async function bridgeHasController(
-  controllerName: string,
-  dbPath?: string,
-): Promise<boolean> {
-  return false;
-}
-
-export async function bridgeListControllers(
-  dbPath?: string,
-): Promise<{ controllers: string[]; active: string[] } | null> {
-  const backend = await getBackend(dbPath);
-  if (!backend) return null;
-  return { controllers: [], active: [] };
-}
-
 // ===== Availability / lifecycle =====
 
 export async function isBridgeAvailable(dbPath?: string): Promise<boolean> {
   const backend = await getBackend(dbPath);
   return !!backend;
-}
-
-export async function getControllerRegistry(dbPath?: string): Promise<any | null> {
-  return getBackend(dbPath);
 }
 
 export async function shutdownBridge(): Promise<void> {
