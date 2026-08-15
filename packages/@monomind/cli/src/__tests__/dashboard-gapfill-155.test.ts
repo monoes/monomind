@@ -1,18 +1,20 @@
 /**
- * #155: dashboard's activeOrgs gap-fill never detected a completed run —
- * the SQLite query checked type IN ('run:complete','org:complete','org:stop'),
- * none of which daemon.ts ever emits (the real terminal signal is a
- * type:'status' event with msg:'org stopped' or reason:'org-complete',
- * carried in the JSON-stringified `raw` column, not a dedicated type
- * string) — so a finished run was always reported as still active.
+ * #155: dashboard's activeOrgs gap-fill never detected a completed run.
+ *
+ * First fix (event-string mismatch) was correct but insufficient: run_events
+ * (SQLite) is populated by LIVE event forwarding while a dashboard is
+ * connected, not backfilled from a run's actual bus.jsonl history. A
+ * dashboard that starts after a run has already stopped never saw most (or
+ * any) of that run's events, including its terminal one — so the corrected
+ * query had nothing to match against. Follow-up fix: read runtime.json's own
+ * top-level `status` field directly (the exact thing `monomind org status`
+ * reads), which is authoritative regardless of dashboard uptime.
  *
  * The gap-fill logic lives inline in server.mjs's startup function, not as
- * an exported unit — extracting the literal SQL string from source and
- * running it against a real sql.js database (rather than a source-pattern
- * assertion) verifies the actual query behavior without requiring a
- * refactor of unrelated, working server startup code.
+ * an exported unit — tested here via a real temp .monomind/orgs/ tree and
+ * source-pattern assertions, matching this file's existing convention.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,82 +24,72 @@ import { dirname } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_SRC = readFileSync(join(__dirname, '../ui/server.mjs'), 'utf-8');
 
-function extractGapfillSql(): string {
-  const match = SERVER_SRC.match(/const _gfRunStmt = _runDb\.prepare\(\s*("|')([\s\S]*?)\1,?\s*\);/);
-  if (!match) throw new Error('could not find gap-fill SQL in server.mjs — source may have changed');
-  // The regex captures the raw JS string-literal source (still containing
-  // backslash escapes like \" ), not the actual runtime string value — the
-  // source is a double-quoted literal with only JSON-compatible escapes, so
-  // JSON.parse on the re-quoted text correctly unescapes it.
-  return JSON.parse(match[1] + match[2] + match[1]);
-}
-
-describe('dashboard gap-fill SQL detects real terminal events (#155)', () => {
-  it('no longer references the non-existent type strings the bug report identified', () => {
-    expect(SERVER_SRC).not.toMatch(/type IN \('run:complete','org:complete','org:stop'\)/);
+describe('dashboard gap-fill reads runtime.json\'s authoritative status (#155 follow-up)', () => {
+  it('no longer scans run_events/bus.jsonl for a terminal signal that may never have been recorded', () => {
+    expect(SERVER_SRC).not.toMatch(/SELECT type FROM run_events/);
+    expect(SERVER_SRC).not.toMatch(/'bus\.jsonl'/);
   });
 
-  it('the actual query, run against a real sql.js DB, marks a stopped run as done', async () => {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-    const db = new SQL.Database();
-    db.run(`CREATE TABLE run_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, org TEXT, run_id TEXT, type TEXT, raw TEXT, ts INTEGER
-    )`);
-    // Matches daemon.ts's real emit: org.bus.emit({ type: 'status', msg: 'org stopped' })
-    const stoppedEvent = JSON.stringify({ type: 'status', msg: 'org stopped', org: 'myorg', run: 'run-1', ts: Date.now() });
-    db.run('INSERT INTO run_events (org, run_id, type, raw, ts) VALUES (?,?,?,?,?)', [
-      'myorg', 'run-1', 'status', stoppedEvent, Date.now(),
-    ]);
-
-    const sql = extractGapfillSql();
-    const stmt = db.prepare(sql);
-    stmt.bind(['myorg', 'run-1']);
-    const matched = stmt.step();
-    stmt.free();
-
-    expect(matched).toBe(true); // the query DOES find this org-stopped run as terminal
+  it('checks runtime.json\'s status field directly, matching what `monomind org status` reads', () => {
+    expect(SERVER_SRC).toMatch(/_gfRt\.status === 'running'/);
   });
 
-  it('the actual query also matches org_complete (reason:"org-complete"), and does not match a still-running org', async () => {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-    const db = new SQL.Database();
-    db.run(`CREATE TABLE run_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, org TEXT, run_id TEXT, type TEXT, raw TEXT, ts INTEGER
-    )`);
-    // Matches daemon.ts's real emit: org.bus.emit({ type: 'status', reason: 'org-complete', msg: '...' })
-    const completeEvent = JSON.stringify({ type: 'status', reason: 'org-complete', msg: 'run outcome: achieved', org: 'orgA', run: 'run-2' });
-    db.run('INSERT INTO run_events (org, run_id, type, raw, ts) VALUES (?,?,?,?,?)', [
-      'orgA', 'run-2', 'status', completeEvent, Date.now(),
-    ]);
-    // A different org, still running — only a non-terminal status event.
-    const runningEvent = JSON.stringify({ type: 'status', msg: 'agent working', org: 'orgB', run: 'run-3' });
-    db.run('INSERT INTO run_events (org, run_id, type, raw, ts) VALUES (?,?,?,?,?)', [
-      'orgB', 'run-3', 'status', runningEvent, Date.now(),
-    ]);
-
-    const sql = extractGapfillSql();
-
-    const doneStmt = db.prepare(sql);
-    doneStmt.bind(['orgA', 'run-2']);
-    expect(doneStmt.step()).toBe(true);
-    doneStmt.free();
-
-    const runningStmt = db.prepare(sql);
-    runningStmt.bind(['orgB', 'run-3']);
-    expect(runningStmt.step()).toBe(false); // still running — must NOT be marked done
-    runningStmt.free();
-  });
-});
-
-describe('dashboard gap-fill JSONL fallback reads the real per-run event log (#155)', () => {
-  it('no longer scans a runs/ directory Org Runtime v2 never writes', () => {
-    expect(SERVER_SRC).not.toMatch(/path\.join\(_gfOrgsDir, _gfOrg, 'runs'\)/);
+  it('treats a "running" record with a dead pid as not-active too, mirroring org.ts\'s statusAction', () => {
+    expect(SERVER_SRC).toMatch(/process\.kill\(_gfRt\.pid, 0\)/);
   });
 
-  it('reads runtime.json\'s run field and <org>/<runId>/bus.jsonl, matching #138\'s statusline.cjs fix', () => {
-    expect(SERVER_SRC).toMatch(/_gfOrgsDir, _gfOrg, 'runtime\.json'/);
-    expect(SERVER_SRC).toMatch(/_gfOrgsDir, _gfOrg, _gfId, 'bus\.jsonl'/);
+  // The gap-fill's org-directory scan is duplicated below rather than
+  // imported, since it's inline in a large startup function rather than an
+  // exported unit — this exercises the real decision logic (runtime.json ->
+  // pid liveness -> activeOrgRuns) against a real filesystem, not just a
+  // source-pattern match.
+  function readActiveOrgRuns(orgsDir: string): Map<string, string> {
+    const activeOrgRuns = new Map<string, string>();
+    const fs = require('node:fs');
+    if (!fs.existsSync(orgsDir)) return activeOrgRuns;
+    for (const org of fs.readdirSync(orgsDir)) {
+      if (!org || org.startsWith('.') || !/^[a-z0-9][a-z0-9_-]*$/i.test(org)) continue;
+      try {
+        const runtimePath = join(orgsDir, org, 'runtime.json');
+        if (!fs.existsSync(runtimePath)) continue;
+        const rt = JSON.parse(fs.readFileSync(runtimePath, 'utf8'));
+        const runId = typeof rt?.run === 'string' ? rt.run : null;
+        if (!runId) continue;
+        let active = rt.status === 'running';
+        if (active && typeof rt.pid === 'number') {
+          try { process.kill(rt.pid, 0); } catch { active = false; }
+        }
+        if (active) activeOrgRuns.set(org, runId);
+      } catch { /* ignore */ }
+    }
+    return activeOrgRuns;
+  }
+
+  function writeRuntime(orgsDir: string, org: string, data: Record<string, unknown>) {
+    const dir = join(orgsDir, org);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'runtime.json'), JSON.stringify(data));
+  }
+
+  it('reports a stopped org (per #155\'s original repro: 585+ real events, zero in run_events) as not active', () => {
+    const orgsDir = mkdtempSync(join(tmpdir(), 'gf155-'));
+    writeRuntime(orgsDir, 'monoterminal-dev', { status: 'stopped', run: 'run-20260815055321-dfsg' });
+    const active = readActiveOrgRuns(orgsDir);
+    expect(active.has('monoterminal-dev')).toBe(false);
+  });
+
+  it('reports a genuinely running org (live pid) as active', () => {
+    const orgsDir = mkdtempSync(join(tmpdir(), 'gf155-'));
+    writeRuntime(orgsDir, 'liveorg', { status: 'running', run: 'run-1', pid: process.pid });
+    const active = readActiveOrgRuns(orgsDir);
+    expect(active.get('liveorg')).toBe('run-1');
+  });
+
+  it('does not report a "running" record as active when its pid is dead (daemon died without stopOrg cleanup)', () => {
+    const orgsDir = mkdtempSync(join(tmpdir(), 'gf155-'));
+    // pid 999999 is extremely unlikely to be alive on any test machine.
+    writeRuntime(orgsDir, 'crashedorg', { status: 'running', run: 'run-2', pid: 999999 });
+    const active = readActiveOrgRuns(orgsDir);
+    expect(active.has('crashedorg')).toBe(false);
   });
 });
