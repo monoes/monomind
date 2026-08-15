@@ -97,6 +97,51 @@ describe('control-start: already running', () => {
   });
 });
 
+describe('control-start: stale-token pairing self-heals instead of being trusted', () => {
+  // Regression: probeStatus() used to collapse "no server there" and
+  // "a server answered but rejected our dashboard-token" into the same null
+  // result, so a live-but-mismatched server (e.g. left over from a port
+  // collision that pushed the real dashboard onto a different port while
+  // control.json still pointed at the old one) was indistinguishable from a
+  // healthy one — the "already running" check trusted it and exited 0
+  // without ever actually being able to talk to it.
+  it('treats a 401 from the recorded port as stale and attempts a restart, not "already running"', async () => {
+    const { spawn } = await import('child_process');
+    const port = isolatedPort();
+    // run() below uses spawnSync, which blocks this test process's entire
+    // event loop until control-start.cjs exits — an in-process
+    // http.createServer() mock would never get a chance to answer the very
+    // request that spawnSync is synchronously waiting on. The mock server
+    // has to live in its own separate process so its event loop keeps
+    // running independently of this one being blocked.
+    const mockScript = path.join(tmpDir, 'mock401.cjs');
+    fs.writeFileSync(mockScript, `
+      const http = require('http');
+      const server = http.createServer((req, res) => {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
+      });
+      server.listen(${port}, 'localhost', () => process.stderr.write('READY'));
+    `);
+    const mock = spawn(process.execPath, [mockScript], { stdio: ['ignore', 'ignore', 'pipe'] });
+    await new Promise((resolve) => mock.stderr.on('data', resolve));
+    // control-start.cjs's own staleAuth restart path SIGTERMs the recorded
+    // pid — must NOT be this test process's own pid (would kill the test
+    // runner). Use a real, alive, harmless child instead.
+    const sentinel = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)']);
+    try {
+      writeControlJson(tmpDir, sentinel.pid, port);
+      const r = run({ cwd: tmpDir });
+      expect(r.stdout).not.toContain('already running');
+      expect(r.stdout).toContain('restarting stale server');
+      expect(r.stdout).toContain('token mismatch');
+    } finally {
+      sentinel.kill('SIGTERM');
+      mock.kill('SIGTERM');
+    }
+  });
+});
+
 // ── not running ──────────────────────────────────────────────────────────────
 
 describe('control-start: not running', () => {
