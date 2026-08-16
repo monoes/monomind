@@ -878,6 +878,32 @@ if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/ap
   return true;
 }
 
+// GET /api/org/:name/gates — decision gate log (read-only explorer; resolving stays
+// CLI-only via `org gate-approve`/`gate-reject`, which needs the daemon's
+// x-monomind-cred auth header for live delivery — out of scope for a read-only view)
+if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/gates(\?.*)?$/i)) {
+  try {
+    const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
+    if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return true; }
+    const _gatesQs = new URL(req.url, 'http://localhost').searchParams;
+    const base = path.join(path.resolve(_gatesQs.get('dir') || ctx.projectDir || process.cwd()), '.monomind', 'orgs');
+    const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
+    const data = readJsonSafe(path.join(base, orgName, 'gates.json')) || { gates: [] };
+    const gates = (data.gates || [])
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .map(g => ({
+        id: g.id, name: g.name, description: g.description, roleId: g.roleId,
+        status: g.status || 'pending', createdAt: g.createdAt || null,
+        resolvedBy: g.resolvedBy || null, resolvedAt: g.resolvedAt || null,
+        resolution: g.resolution || null,
+      }));
+    const pending = gates.filter(g => g.status === 'pending').length;
+    res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+    res.end(JSON.stringify({ gates, pending }));
+  } catch(_) { res.writeHead(500); res.end('{"gates":[],"pending":0}'); }
+  return true;
+}
+
 // GET /api/questions?dir=<ctx.projectDir> — list ask_human questions (pending and
 // answered) for every org in one project. Mirrors the existing -approvals.json
 // sidecar convention, but reads this feature's .monomind/orgs/<org>/questions.json
