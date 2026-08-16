@@ -147,6 +147,52 @@ describe('checkApproval / setApproval — end-to-end state machine', () => {
   });
 });
 
+describe('checkApproval — role.policy.autoApproveTools bypasses the human-approval pause', () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'org-auto-approve-'));
+  });
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  function daemonWithRole(policy: Record<string, unknown> | undefined): OrgDaemon {
+    const orgs = new Map([
+      ['myorg', { def: { roles: [{ id: 'boss', policy }] }, bus: { emit: () => {} } }],
+    ]);
+    return { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs } as unknown as OrgDaemon;
+  }
+
+  it('skips the pending queue for a sensitive action named in autoApproveTools', async () => {
+    const daemon = daemonWithRole({ autoApproveTools: ['Bash'] });
+    const result = await checkApproval(daemon, 'myorg', 'boss', 'Bash');
+    expect(result).toBe(true);
+    expect(daemon.approvals.get('myorg')).toBeUndefined();
+    expect(existsSync(join(cwd, ORG_DIR, 'myorg', 'approvals.json'))).toBe(false);
+  });
+
+  it('only bypasses the named action — a different sensitive action still queues', async () => {
+    const daemon = daemonWithRole({ autoApproveTools: ['Bash'] });
+    const result = await checkApproval(daemon, 'myorg', 'boss', 'WebFetch');
+    expect(result).toBeNull();
+    expect(daemon.approvals.get('myorg')).toHaveLength(1);
+  });
+
+  it('a role with no autoApproveTools still requires approval as before', async () => {
+    const daemon = daemonWithRole(undefined);
+    const result = await checkApproval(daemon, 'myorg', 'boss', 'Bash');
+    expect(result).toBeNull();
+  });
+
+  it('only applies to the named role — a different role in the same org still queues', async () => {
+    const daemon = daemonWithRole({ autoApproveTools: ['Bash'] });
+    const result = await checkApproval(daemon, 'myorg', 'someone-else', 'Bash');
+    expect(result).toBeNull();
+  });
+});
+
 describe('org approve / deny — offline field-matching fix', () => {
   let cwd: string;
 
