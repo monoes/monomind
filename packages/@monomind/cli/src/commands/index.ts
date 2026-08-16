@@ -46,6 +46,7 @@ const COMMAND_LOADERS: Record<string, CommandLoader> = {
   doc: async () => (await import('./doc.js')).docCommand,
   org: async () => (await import('./org.js')).orgCommand,
   ui: async () => (await import('./ui.js')).uiCommand,
+  events: async () => (await import('./events.js')).eventsCommand,
   'download-embeddings': async () =>
     (await import('./download-embeddings.js')).downloadEmbeddingsCommand,
 };
@@ -85,7 +86,7 @@ const CATEGORY_NAMES = {
     'hooks',
   ],
   advanced: ['security', 'performance', 'guidance', 'autopilot', 'design'],
-  utility: ['config', 'doctor', 'completions', 'report-crash', 'crash-reporting'],
+  utility: ['config', 'doctor', 'completions', 'report-crash', 'crash-reporting', 'events'],
   analysis: ['analyze', 'route', 'monograph', 'tokens', 'search'],
   management: ['providers', 'update', 'cleanup', 'platforms', 'browse', 'download-embeddings'],
 } as const;
