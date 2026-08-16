@@ -1100,7 +1100,8 @@ export class OrgDaemon {
         .get(boss.id)!
         .mailbox.push(
           `Org "${name}" started (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
-            `Coordinate your team via org_send. When the goal is achieved (or clearly can't be), record it with org_complete, then end your turn.${prevBrief}`,
+            `Coordinate your team via org_send. Only when the FULL goal above is achieved (or clearly can't be) — not merely "this batch of dispatched tasks finished" — record it with org_complete, then end your turn. ` +
+            `If a batch finishes but the goal has more scope left, dispatch the next batch instead of ending the run.${prevBrief}`,
         );
       bus.emit({
         type: 'status',
@@ -1160,7 +1161,9 @@ export class OrgDaemon {
             });
             bossRt.mailbox.push(
               `[watchdog] No activity in org "${name}" for ${Math.round(idleFor / 60_000)} minute(s). ` +
-                `If the goal is achieved (or clearly can't be), call org_complete now. Otherwise check on your team via org_send and reassign stalled work.`,
+                `Check org_tasks first, then pick ONE: (1) the org's full stated goal is achieved or clearly cannot be — call org_complete now (this ends the run for good, not just this batch); ` +
+                `(2) someone has stalled or unstarted work — check on your team via org_send and reassign it; ` +
+                `(3) the current task batch is done but the goal has more scope left — do NOT call org_complete for this case, instead dispatch the next batch of work with org_task/createTask so the org keeps making progress.`,
             );
           } else if (Date.now() - nudgedAt >= idleMs) {
             idleStop(
