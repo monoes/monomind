@@ -2098,6 +2098,9 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <button class="odt-btn secondary" data-tab="costs"        onclick="v2SwitchOrgTab('costs')">Costs</button>
             <button class="odt-btn secondary" data-tab="config"        onclick="v2SwitchOrgTab('config')">Config</button>
             <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
+            <button class="odt-btn secondary" data-tab="approvals"    onclick="v2SwitchOrgTab('approvals')">Approvals</button>
+            <button class="odt-btn secondary" data-tab="budgets"      onclick="v2SwitchOrgTab('budgets')">Budgets</button>
+            <button class="odt-btn secondary" data-tab="decisions"    onclick="v2SwitchOrgTab('decisions')">Decisions</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -2108,6 +2111,9 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <div class="odt-pane" id="odt-costs"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-approvals"></div>
+            <div class="odt-pane" id="odt-budgets"></div>
+            <div class="odt-pane" id="odt-decisions"></div>
           </div>
         </div>
           <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
@@ -5863,6 +5869,7 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'routines')  v2RenderOrgRoutines();
   else if (tab === 'myissues')  v2RenderOrgMyIssues();
   else if (tab === 'budgets')   v2RenderOrgBudgets();
+  else if (tab === 'decisions') v2RenderOrgDecisions();
   else if (tab === 'plugins')   v2RenderOrgPlugins();
   else if (tab === 'charts')       v2RenderOrgCharts();
   else if (tab === 'projects')     v2RenderOrgProjects();
@@ -7169,6 +7176,62 @@ async function orgApprovalAction(id, action) {
     showToast('Done', action + 'd', 'ok');
     v2RenderOrgApprovals();
   } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+// ── DECISIONS ──────────────────────────────────────────────
+let _v2DecisionsCache = [];
+let _v2DecisionsStatusFilter = 'all';
+let _v2DecisionsRoleFilter = 'all';
+
+async function v2RenderOrgDecisions() {
+  const el = document.getElementById('odt-decisions');
+  if (!el || !_v2SelOrg) return;
+  const _rendOrg = _v2SelOrg;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_rendOrg);
+    const data = await fetch(`/api/org/${_enc}/gates${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : { gates: [] }).catch(() => ({ gates: [] }));
+    if (_v2SelOrg !== _rendOrg) return;
+    _v2DecisionsCache = Array.isArray(data) ? data : (data.gates || []);
+    _v2DecisionsStatusFilter = 'all';
+    _v2DecisionsRoleFilter = 'all';
+    v2RenderDecisionsTable();
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+function v2RenderDecisionsTable() {
+  const el = document.getElementById('odt-decisions');
+  if (!el) return;
+  const gates = _v2DecisionsCache;
+  const roles = [...new Set(gates.map(g => g.roleId || '—'))].sort();
+  const filtered = gates.filter(g =>
+    (_v2DecisionsStatusFilter === 'all' || (g.status || 'pending') === _v2DecisionsStatusFilter) &&
+    (_v2DecisionsRoleFilter === 'all' || (g.roleId || '—') === _v2DecisionsRoleFilter)
+  );
+  const filterBar = `<div style="display:flex;gap:10px;margin-bottom:10px">
+    <select class="filter-input" style="width:auto" onchange="_v2DecisionsStatusFilter=this.value;v2RenderDecisionsTable()">
+      ${['all', 'pending', 'approved', 'rejected'].map(s => `<option value="${s}" ${_v2DecisionsStatusFilter===s?'selected':''}>${s === 'all' ? 'All statuses' : s}</option>`).join('')}
+    </select>
+    <select class="filter-input" style="width:auto" onchange="_v2DecisionsRoleFilter=this.value;v2RenderDecisionsTable()">
+      <option value="all" ${_v2DecisionsRoleFilter==='all'?'selected':''}>All roles</option>
+      ${roles.map(r => `<option value="${esc(r)}" ${_v2DecisionsRoleFilter===r?'selected':''}>${esc(r)}</option>`).join('')}
+    </select>
+  </div>`;
+  if (!filtered.length) { el.innerHTML = filterBar + '<div class="empty">No decision gates match</div>'; return; }
+  el.innerHTML = filterBar + `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="color:var(--text-xs);text-align:left">
+      <th style="padding:6px 8px">Role</th><th>Gate</th><th>Status</th><th>Resolution</th><th>Date</th>
+    </tr></thead><tbody>` +
+    filtered.slice(0, 100).map(g => {
+      const cls = g.status === 'approved' ? 'on' : g.status === 'rejected' ? 'warn' : '';
+      return `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:6px 8px;color:var(--text-hi)">${esc(g.roleId || '—')}</td>
+        <td style="padding:6px 8px;color:var(--text-lo);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(g.description || '')}">${esc(g.name || '—')}</td>
+        <td style="padding:6px 8px"><span class="ss-pill ${cls}">${esc(g.status || 'pending')}</span></td>
+        <td style="padding:6px 8px;color:var(--text-lo);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.resolution || '—')}</td>
+        <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(g.resolvedAt || g.createdAt)}</td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
 }
 
 // ── SECRETS ────────────────────────────────────────────────
