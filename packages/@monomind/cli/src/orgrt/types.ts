@@ -86,6 +86,13 @@ export const RolePolicySchema = z.object({
    *  'commit' allows add/commit, 'push' allows push. Default: 'read'. */
   git: z.enum(['none', 'read', 'commit', 'push']).default('read'),
   fence: FenceConfigSchema.optional(),
+  /** Tool/action names this role may use WITHOUT pausing for human approval,
+   *  even when the action is on checkApproval's sensitive-actions list
+   *  (Bash, WebFetch, WebSearch, org_complete). Still subject to allowTools/
+   *  denyTools and the policy engine's own allow/deny decision — this only
+   *  skips the "pause and wait for a human" step for a role the operator has
+   *  already decided to trust for that specific action. */
+  autoApproveTools: z.array(z.string()).optional(),
 }).partial().passthrough();
 
 export const RoleSchema = z.object({

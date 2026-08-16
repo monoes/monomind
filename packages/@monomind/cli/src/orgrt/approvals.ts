@@ -19,6 +19,11 @@ export function checkApproval(daemon: OrgDaemon, org: string, role: string, acti
     // If already approved/denied, return that decision
     if (existing && existing.approved !== null) return existing.approved;
 
+    // A role's policy.autoApproveTools can name specific sensitive actions it's
+    // pre-trusted for, skipping the human-approval pause entirely for those.
+    const roleDef = daemon.orgs.get(org)?.def.roles.find(r => r.id === role);
+    if (roleDef?.policy?.autoApproveTools?.includes(action)) return true;
+
     // Require human approval for sensitive actions
     const sensitiveActions = ['Bash', 'WebFetch', 'WebSearch', 'org_complete'];
     if (sensitiveActions.includes(action)) {
