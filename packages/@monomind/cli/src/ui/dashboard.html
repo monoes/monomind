@@ -2098,6 +2098,8 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <button class="odt-btn secondary" data-tab="costs"        onclick="v2SwitchOrgTab('costs')">Costs</button>
             <button class="odt-btn secondary" data-tab="config"        onclick="v2SwitchOrgTab('config')">Config</button>
             <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
+            <button class="odt-btn secondary" data-tab="approvals"    onclick="v2SwitchOrgTab('approvals')">Approvals</button>
+            <button class="odt-btn secondary" data-tab="budgets"      onclick="v2SwitchOrgTab('budgets')">Budgets</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -2108,6 +2110,8 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
             <div class="odt-pane" id="odt-costs"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
+            <div class="odt-pane" id="odt-approvals"></div>
+            <div class="odt-pane" id="odt-budgets"></div>
           </div>
         </div>
           <div id="org-copy-dialog" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.72);z-index:90;align-items:center;justify-content:center">
