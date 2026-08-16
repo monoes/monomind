@@ -4,6 +4,17 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.21] — 2026-08-16
+
+### GitHub issue fixes
+- **#156 — `control-start.cjs` adopt-loop silently adopted an auth-mismatched server after #150's own fix.** `probeStatus()` returns the string `'unauthorized'` (not `null`) for a server that answers but rejects the dashboard token — a non-empty string is truthy in JS, so the adopt loop treated a 401-rejecting server exactly like a healthy one, writing `pid:0` and leaving the mismatch in place instead of skipping past it to scan for an actually-adoptable server.
+- **#158 — idle-nudge and `org_complete` guidance let the boss end a multi-phase goal after just one batch.** The idle-watchdog nudge offered only a binary choice ("call `org_complete`" or "reassign stalled work"), with no option for "nothing's stalled, but the goal has more scope left — dispatch the next batch instead." Combined with ambiguous "goal is achieved" wording that never distinguished "this batch" from "the org's full stated goal," the boss had no textual signal steering it away from over-eagerly ending a run with real scope remaining. Reworded the kickoff briefing, the idle-nudge (now a real three-way choice), and the `org_complete` tool description to make that distinction explicit.
+- **#160 — `org approve`/`deny`/`answer`/`gate-approve` never sent the daemon auth credential on the live-delivery path.** `/api/answer-question`, `/api/set-approval`, and `/api/resolve-gate` all require an `x-monomind-cred` header; the client attached it correctly for `/api/xdeliver` but not these three, so every live delivery 401'd and silently fell back to the slower offline file-write path (only a warning printed — easy to miss).
+- **#163 — `countSdkProcesses`/`reapOrphanedSdkProcesses` spammed console errors on Windows.** Both unconditionally shelled out to `pgrep`/`ps`, which don't exist on native Windows; the failure was caught, but `execSync` inherits stderr by default, so every lazy role spawn printed `'pgrep' is not recognized...` to the console. Now skips the shell-out entirely on `win32` (returns 0 / unknown) and silences inherited stderr on the platforms where the commands do exist.
+
+### Added
+- **`policy.autoApproveTools`** — a role's policy can now name specific sensitive actions (`Bash`, `WebFetch`, `WebSearch`, `org_complete`, …) it's pre-trusted for, bypassing the human-approval pause for just those actions on that role. Still subject to `allowTools`/`denyTools` and the policy engine's own decision — this only skips the "pause and wait for a human" step for actions the operator has explicitly opted the role into.
+
 ## [2.9.20] — 2026-08-15
 
 ### GitHub issue fixes (#155 follow-up)
