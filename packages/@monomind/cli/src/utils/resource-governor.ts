@@ -52,10 +52,15 @@ export function getAvailableMemBytes(): number {
 }
 
 export function countSdkProcesses(): number {
+  // pgrep doesn't exist on native Windows — every call would fail (and, since
+  // execSync inherits stderr by default, print "'pgrep' is not recognized..."
+  // to the console on every lazy role spawn that hits this check). The
+  // concurrency cap it feeds just isn't enforceable there; treat as unknown.
+  if (platform() === 'win32') return 0;
   try {
     // Match only actual SDK agent binaries (have --output-format in argv),
     // not processes that merely reference the SDK package path.
-    const out = execSync('pgrep -f "claude-agent-sdk.*--output-format"', { encoding: 'utf8', timeout: 5000 });
+    const out = execSync('pgrep -f "claude-agent-sdk.*--output-format"', { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
     return out.trim().split('\n').filter(Boolean).length;
   } catch { return 0; } // pgrep exits 1 when no matches
 }
@@ -110,8 +115,10 @@ export async function waitForCapacity(timeoutMs = 60_000): Promise<ResourceCheck
  *  @param ownerPid Only kill SDK processes whose parent is this PID.
  *    Prevents killing agents from OTHER monomind org processes. */
 export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: number): number {
+  // ps doesn't exist on native Windows — same rationale as countSdkProcesses above.
+  if (platform() === 'win32') return 0;
   try {
-    const out = execSync('ps -eo pid,ppid,command', { encoding: 'utf8', timeout: 5000 });
+    const out = execSync('ps -eo pid,ppid,command', { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
     let reaped = 0;
     for (const line of out.split('\n')) {
       if (!line.includes('claude-agent-sdk') || !line.includes('--output-format')) continue;
