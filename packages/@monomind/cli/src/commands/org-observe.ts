@@ -336,12 +336,13 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   if (q.answer !== null) return { success: false, message: `question "${questionId}" was already answered` };
 
   // Live path: the hosting daemon updates questions.json and pushes into the role's mailbox.
-  const { lookupOrg } = await import('../orgrt/broker.js');
+  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
   const remote = lookupOrg(name);
   if (remote) {
+    const cred = normalizeCredential(remote.credential);
     try {
       const res = await fetch(`${remote.url}/api/answer-question`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
         body: JSON.stringify({ org: name, role: q.role, questionId, answer }),
         signal: AbortSignal.timeout(10_000),
       });
@@ -659,12 +660,13 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
 async function resolveApproval(ctx: CommandContext, name: string, role: string, action: string, approved: boolean): Promise<CommandResult> {
   const verb = approved ? 'approved' : 'denied';
 
-  const { lookupOrg } = await import('../orgrt/broker.js');
+  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
   const remote = lookupOrg(name);
   if (remote) {
+    const cred = normalizeCredential(remote.credential);
     try {
       const res = await fetch(`${remote.url}/api/set-approval`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
         body: JSON.stringify({ org: name, role, action, approved }),
         signal: AbortSignal.timeout(10_000),
       });
@@ -884,12 +886,13 @@ export const gateResolveAction = async (ctx: CommandContext, name: string, appro
   if (!gate) return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
   if (gate.status !== 'pending') return { success: false, message: `gate "${gateId}" already resolved (${gate.status})` };
 
-  const { lookupOrg } = await import('../orgrt/broker.js');
+  const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
   const remote = lookupOrg(name);
   if (remote) {
+    const cred = normalizeCredential(remote.credential);
     try {
       const res = await fetch(`${remote.url}/api/resolve-gate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
         body: JSON.stringify({ org: name, gateId, approved, resolution }),
         signal: AbortSignal.timeout(10_000),
       });
