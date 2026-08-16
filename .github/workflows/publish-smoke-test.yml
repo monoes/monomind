@@ -316,7 +316,13 @@ jobs:
         working-directory: ${{ env.install_dir }}
         run: |
           set -uo pipefail
-          HOOK="node_modules/monomind/packages/@monomind/cli/.claude/helpers/hook-handler.cjs"
+          # The root "monomind" package is a thin bin/ wrapper (files: bin/**
+          # only) that depends on @monoes/monomindcli — npm installs that as
+          # a sibling under node_modules/, not nested inside node_modules/
+          # monomind/. The nested packages/@monomind/cli/... path never
+          # existed after a real install; verified against a fresh
+          # `npm install monomind@latest`.
+          HOOK="node_modules/@monoes/monomindcli/.claude/helpers/hook-handler.cjs"
           if [ ! -f "${HOOK}" ]; then
             echo "::error::the published package does not contain .claude/helpers/hook-handler.cjs — the security gates are not shipping at all"
             exit 1
