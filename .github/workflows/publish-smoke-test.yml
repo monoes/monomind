@@ -78,16 +78,37 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build CLI package
-        working-directory: packages/@monomind/cli
-        run: npm run build
+      # `npm run build` inside the CLI package alone type-checks against
+      # unbuilt sibling workspace packages (@monoes/monograph, hooks, mcp,
+      # memory, routing — all "workspace:*" deps whose types/main point into
+      # a gitignored, untracked dist/). A fresh checkout has none of those
+      # dist/ dirs, so tsc fails with "Cannot find module '@monoes/monograph'
+      # or its corresponding type declarations" (and the same for the other
+      # four) before ever reaching the CLI's own code. The pnpm "..." filter
+      # selects the CLI plus everything it depends on and builds them in
+      # dependency order (memory before hooks, all of them before the CLI).
+      - name: Build CLI package (and its workspace dependencies)
+        run: pnpm --filter "@monoes/monomindcli..." run build
 
-      - name: npm pack (${{ matrix.package.name }})
+      # `npm pack` doesn't understand the pnpm "workspace:*" protocol and
+      # copies it into the tarball's package.json verbatim (e.g.
+      # "@monoes/monograph": "workspace:*") — installing that tarball outside
+      # this workspace then fails with EUNSUPPORTEDPROTOCOL. `pnpm pack`
+      # rewrites each workspace:* dep to its real resolved version before
+      # packing, which is also what `pnpm publish` does for the real release
+      # (see prepublishOnly's check-publish-versions.mjs guard) — so this
+      # matches what actually ships.
+      - name: pnpm pack (${{ matrix.package.name }})
         id: pack
         working-directory: ${{ matrix.package.dir }}
         run: |
           set -euo pipefail
-          TARBALL="$(npm pack --silent)"
+          pnpm pack --json > /tmp/pnpm-pack-output.json
+          # The root package's own "prepare" lifecycle script (fires on pack,
+          # not just install) writes its own banner to the same stdout ahead
+          # of the JSON — sed from the first '{' line so this is robust
+          # whether or not a package has a noisy prepare/prepack hook.
+          TARBALL="$(sed -n '/^{/,$p' /tmp/pnpm-pack-output.json | node -e "console.log(JSON.parse(require('fs').readFileSync(0,'utf8')).filename)")"
           echo "tarball_path=$(pwd)/${TARBALL}" >> "$GITHUB_OUTPUT"
           echo "Packed: ${TARBALL}"
 
