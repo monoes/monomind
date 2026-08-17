@@ -164,6 +164,25 @@ export function roleTokenBudget(role: OrgRole, def: OrgDef): number {
   );
 }
 
+/** Idle watchdog's per-tick recovery check: given the previous nudge timestamp
+ *  and the cumulative nudge count, returns the nudge count that should carry
+ *  forward now that fresh activity means the org is no longer idle.
+ *
+ *  `nudgedAt !== 0` means we're recovering from an outstanding nudge — real
+ *  activity arrived, so that nudge was answered, not ignored, and this idle
+ *  spell is resolved. Resetting the counter here means it only ever tracks
+ *  UNRESOLVED idle spells in a row, not a lifetime total — a long-running org
+ *  that goes idle and recovers any number of times (e.g. periodic checkpoints
+ *  on a slow background task) is never punished for having had several
+ *  separate, healthy idle spells over its lifetime. Before this fix `nudges`
+ *  only ever incremented, so a run that answered every single nudge with real
+ *  work still hit the "org idle again after 3 nudges" cap and got
+ *  force-stopped on its 4th idle spell — observed live killing an in-progress
+ *  24h soak test under 90 minutes in. */
+export function resolvedIdleNudgeCount(nudgedAt: number, nudges: number): number {
+  return nudgedAt !== 0 ? 0 : nudges;
+}
+
 /** Bounded ring buffer for agent terminal scrollback. */
 export class ScrollbackBuffer {
   private lines: string[] = [];
@@ -439,6 +458,7 @@ export class OrgDaemon {
       }
     } else {
       this.abandoned.delete(name); // a previous run's missing roles say nothing about this one
+      approvalOps.clearApprovalsForFreshStart(this, name); // a previous run's approvals are moot for this one
       // random suffix: second-precision stamps collide across processes (two CLI
       // invocations in the same second would share a run dir and its bus.jsonl)
       run = `run-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -1115,8 +1135,9 @@ export class OrgDaemon {
     // org_complete) produces no bus events, and every agent just waits. After
     // idle_minutes of silence, nudge the boss to complete or reassign; if the
     // nudge itself produces no activity (boss hung/crashed), or the org keeps
-    // going idle after MAX_IDLE_NUDGES nudges, stop the run instead of letting
-    // it freeze forever. idle_minutes: 0 disables.
+    // going idle after MAX_IDLE_NUDGES nudges in a row without ever recovering
+    // (see resolvedIdleNudgeCount), stop the run instead of letting it freeze
+    // forever. idle_minutes: 0 disables.
     const idleMs = (def.run_config.idle_minutes ?? 10) * 60_000;
     if (idleMs > 0) {
       const MAX_IDLE_NUDGES = 3;
@@ -1136,6 +1157,7 @@ export class OrgDaemon {
           if (pendingGates.length > 0) return;
           const idleFor = Date.now() - lastActivity;
           if (idleFor < idleMs) {
+            nudges = resolvedIdleNudgeCount(nudgedAt, nudges);
             nudgedAt = 0;
             return;
           }
