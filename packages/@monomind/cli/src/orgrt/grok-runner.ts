@@ -34,29 +34,11 @@
  *     from any event carrying `session_id` / `sessionId` / `thread_id`.
  *   - stderr is human diagnostics; buffered and surfaced on non-zero exit.
  */
-import type { ChildProcessByStdio } from 'node:child_process';
-import { spawn as nodeSpawn } from 'node:child_process';
-import type { Readable } from 'node:stream';
+import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching the other subprocess runners
-
-/** The subset of a spawned child process every subprocess runner consumes:
- *  stdin closed ('ignore'), stdout/stderr as byte streams. */
-export type SpawnedProcess = ChildProcessByStdio<null, Readable, Readable>;
-
-/** Injectable process factory — the seam PtyAgentRunner swaps to run the
- *  same CLI inside a pseudo-terminal instead of plain stdio pipes. Default
- *  is node:child_process.spawn. */
-export type SpawnProcess = (
-  bin: string,
-  args: string[],
-  opts: { cwd: string; env: Record<string, string | undefined> },
-) => SpawnedProcess;
-
-export const defaultSpawnProcess: SpawnProcess = (bin, args, opts) =>
-  nodeSpawn(bin, args, { cwd: opts.cwd, env: opts.env, stdio: ['ignore', 'pipe', 'pipe'] });
 
 interface TurnOutcome {
   texts: string[];
@@ -157,7 +139,7 @@ export function parseGrokEvents(lines: string[]): {
 }
 
 export class GrokAgentRunner implements AgentRunner {
-  constructor(private grokBin?: string, private spawnProcess: SpawnProcess = defaultSpawnProcess) {}
+  constructor(private grokBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     const bin = this.grokBin || process.env.GROK_CLI_BIN || 'grok';
@@ -244,7 +226,11 @@ export class GrokAgentRunner implements AgentRunner {
       cliArgs.push('--cwd', args.cwd);
       if (sessionId) cliArgs.push('--resume', sessionId);
 
-      const child = this.spawnProcess(bin, cliArgs, { cwd: args.cwd, env: { ...process.env, ...args.env } });
+      const child = spawn(bin, cliArgs, {
+        cwd: args.cwd,
+        env: { ...process.env, ...args.env },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
       let stderrTail = '';
       child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });

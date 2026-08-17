@@ -44,17 +44,10 @@
  *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
-import { spawn as nodeSpawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
-import type { SpawnProcess, SpawnedProcess } from './grok-runner.js';
-
-export type { SpawnProcess } from './grok-runner.js';
-
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
-
-export const defaultSpawnProcess: SpawnProcess = (bin, args, opts): SpawnedProcess =>
-  nodeSpawn(bin, args, { cwd: opts.cwd, env: opts.env, stdio: ['ignore', 'pipe', 'pipe'] });
 
 interface CopilotEvent {
   type?: string;
@@ -110,7 +103,7 @@ interface TurnOutcome {
 }
 
 export class CopilotAgentRunner implements AgentRunner {
-  constructor(private copilotBin?: string, private spawnProcess: SpawnProcess = defaultSpawnProcess) {}
+  constructor(private copilotBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     const bin = this.copilotBin || process.env.COPILOT_CLI_BIN || 'copilot';
@@ -173,7 +166,11 @@ export class CopilotAgentRunner implements AgentRunner {
       if (args.model) cliArgs.push(`--model=${args.model}`);
       cliArgs.push('--add-dir', args.cwd);
 
-      const child = this.spawnProcess(bin, cliArgs, { cwd: args.cwd, env: { ...process.env, ...args.env } });
+      const child = spawn(bin, cliArgs, {
+        cwd: args.cwd,
+        env: { ...process.env, ...args.env },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
       let stderrTail = '';
       child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });

@@ -27,17 +27,10 @@
  *     themselves via canUseTool/tool-fence, so CLI-level approval prompts
  *     would otherwise hang a non-interactive run).
  */
-import { spawn as nodeSpawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
-import type { SpawnProcess, SpawnedProcess } from './grok-runner.js';
-
-export type { SpawnProcess } from './grok-runner.js';
-
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
-
-export const defaultSpawnProcess: SpawnProcess = (bin, args, opts): SpawnedProcess =>
-  nodeSpawn(bin, args, { cwd: opts.cwd, env: opts.env, stdio: ['ignore', 'pipe', 'pipe'] });
 
 interface QwenMessage {
   content?: Array<{ type: string; text?: string }>;
@@ -108,7 +101,7 @@ export function parseQwenEvents(lines: string[]): {
 }
 
 export class QwenAgentRunner implements AgentRunner {
-  constructor(private qwenBin?: string, private spawnProcess: SpawnProcess = defaultSpawnProcess) {}
+  constructor(private qwenBin?: string) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     const bin = this.qwenBin || process.env.QWEN_CLI_BIN || 'qwen';
@@ -194,7 +187,11 @@ export class QwenAgentRunner implements AgentRunner {
       if (args.model) cliArgs.push('-m', args.model);
       if (sessionId) cliArgs.push('--resume', sessionId);
 
-      const child = this.spawnProcess(bin, cliArgs, { cwd: args.cwd, env: { ...process.env, ...args.env } });
+      const child = spawn(bin, cliArgs, {
+        cwd: args.cwd,
+        env: { ...process.env, ...args.env },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
       let stderrTail = '';
       child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });

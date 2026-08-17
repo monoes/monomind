@@ -41,7 +41,6 @@ import { QwenAgentRunner } from './qwen-runner.js';
 import { CrushAgentRunner } from './crush-runner.js';
 import { CopilotAgentRunner } from './copilot-runner.js';
 import { PiAgentRunner } from './pi-runner.js';
-import { buildPtyRunner, isPtyCapableRuntime, ptyAttachRegistry } from './pty-runner.js';
 import {
   captureCheckpoint,
   generateChecksum,
@@ -151,17 +150,6 @@ export function resolveRunner(
   if (selected === 'copilot') return new CopilotAgentRunner();
   if (selected === 'pi') return new PiAgentRunner();
   return undefined;
-}
-
-/** The runtime a role/org resolves to, independent of constructing the
- *  runner — used by the pty wiring below to decide whether `role.pty` is
- *  even applicable before paying for a node-pty import. Mirrors
- *  resolveRoleRunner's precedence exactly (role > org > env). */
-export function resolveRoleRuntimeKind(
-  roleRuntime?: RuntimeKind,
-  orgRuntime?: RuntimeKind,
-): RuntimeKind | undefined {
-  return roleRuntime ?? orgRuntime ?? (process.env.MONOMIND_RUNTIME as RuntimeKind | undefined);
 }
 
 /** Per-session variant: a role's own `runtime` field wins over the org-level
@@ -888,33 +876,6 @@ export class OrgDaemon {
       const BACKOFFS_MS = this.opts.crashBackoffsMs ?? [1000, 5000, 15000];
       if (!mailbox.isClosed && runtime.status !== 'crashed') {
       runtime.done = (async () => {
-        // PTY mode (role.pty: true): swap in the pty-backed runner just
-        // before the first turn. Deferred to here (rather than resolved
-        // synchronously above with the rest of sessionOpts) because
-        // node-pty is an optional dependency loaded via dynamic import —
-        // this is the first point in spawnRole that's already async.
-        // Falls back to the non-pty runner (not a hard failure) if node-pty
-        // isn't installed or the runtime isn't pty-capable, since a role
-        // that works fine headless shouldn't crash over an opt-in feature.
-        let ptyOrgDir: string | undefined;
-        if (role.pty && !this.opts.runner) {
-          const kind = resolveRoleRuntimeKind(role.runtime, def.runtime);
-          if (isPtyCapableRuntime(kind)) {
-            try {
-              ptyOrgDir = join(this.root, ORG_DIR, name);
-              sessionOpts.runner = await buildPtyRunner(kind, ptyOrgDir, name, role.id);
-            } catch (err) {
-              ptyOrgDir = undefined;
-              bus.emit({
-                type: 'status',
-                from: role.id,
-                reason: 'pty-setup-failed',
-                msg: `pty mode unavailable (${err instanceof Error ? err.message : String(err)}) — continuing without it`,
-              });
-            }
-          }
-        }
-        try {
         for (let attempt = 0; ; attempt++) {
           try {
             await runAgentSession(sessionOpts);
@@ -1039,9 +1000,6 @@ export class OrgDaemon {
               return;
             } // org stopped during backoff — never recovered
           }
-        }
-        } finally {
-          if (ptyOrgDir) ptyAttachRegistry.unregister(ptyOrgDir, name, role.id);
         }
       })();
       }

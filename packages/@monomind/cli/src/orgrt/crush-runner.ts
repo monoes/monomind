@@ -37,18 +37,12 @@
  *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
-import { spawn as nodeSpawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
-import type { SpawnProcess, SpawnedProcess } from './grok-runner.js';
 import { UsageProxyServer } from './usage-proxy.js';
 
-export type { SpawnProcess } from './grok-runner.js';
-
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
-
-export const defaultSpawnProcess: SpawnProcess = (bin, args, opts): SpawnedProcess =>
-  nodeSpawn(bin, args, { cwd: opts.cwd, env: opts.env, stdio: ['ignore', 'pipe', 'pipe'] });
 
 /** Strip tool_call fences and normalize whitespace on crush's plain-text
  *  stdout. Exported for unit testing (crush-runner.test.ts). */
@@ -68,7 +62,6 @@ interface TurnOutcome {
 
 export interface CrushAgentRunnerOptions {
   crushBin?: string;
-  spawnProcess?: SpawnProcess;
   /** Enable usage-proxy accounting. Off by default since the base-URL env
    *  var it relies on is an unconfirmed guess (see file header). */
   usageProxy?: { upstreamBaseUrl: string; baseUrlEnvVar?: string };
@@ -76,12 +69,10 @@ export interface CrushAgentRunnerOptions {
 
 export class CrushAgentRunner implements AgentRunner {
   private crushBin?: string;
-  private spawnProcess: SpawnProcess;
   private usageProxyOpts?: { upstreamBaseUrl: string; baseUrlEnvVar: string };
 
   constructor(opts: CrushAgentRunnerOptions = {}) {
     this.crushBin = opts.crushBin;
-    this.spawnProcess = opts.spawnProcess ?? defaultSpawnProcess;
     if (opts.usageProxy) {
       this.usageProxyOpts = {
         upstreamBaseUrl: opts.usageProxy.upstreamBaseUrl,
@@ -183,7 +174,7 @@ export class CrushAgentRunner implements AgentRunner {
       const env: Record<string, string | undefined> = { ...process.env, ...args.env };
       if (proxy && this.usageProxyOpts) env[this.usageProxyOpts.baseUrlEnvVar] = proxy.url();
 
-      const child = this.spawnProcess(bin, cliArgs, { cwd: args.cwd, env });
+      const child = spawn(bin, cliArgs, { cwd: args.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
 
       let stderrTail = '';
       child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
