@@ -46,6 +46,12 @@ import { join } from 'node:path';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+/** Distinct from TURN_TIMEOUT_MS: catches a hung first-run interactive prompt
+ *  fast instead of waiting out the full turn timeout. Any output at all
+ *  disarms it. Per pi's own docs, `-p`/`--mode json`/`--mode rpc` do NOT show
+ *  a trust prompt (see this file's --approve comment above), so this is a
+ *  defensive backstop rather than a known risk the way it is for copilot. */
+const STARTUP_GRACE_MS = 45_000;
 
 interface PiContentBlock { type?: string; text?: string; }
 interface PiUsage { input?: number; output?: number; }
@@ -95,6 +101,9 @@ interface TurnOutcome {
   exitCode: number;
   stderrTail: string;
   timedOut: boolean;
+  /** True when the process was killed by STARTUP_GRACE_MS with no output —
+   *  likely stuck on a first-run interactive prompt headless mode can't answer. */
+  hangSuspected: boolean;
   inputTokens: number;
   outputTokens: number;
 }
@@ -120,6 +129,14 @@ export class PiAgentRunner implements AgentRunner {
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
           const outcome = await this.runTurn(bin, nextPrompt, sessionDir, args);
 
+          if (outcome.hangSuspected) {
+            throw new Error(
+              `PiAgentRunner: pi produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
+              'This usually means it is stuck on a prompt headless mode has no way to answer — pi\'s own ' +
+              'docs say --mode json should not show a trust prompt, so this is unexpected. Run `pi` once ' +
+              `manually in a real terminal in this project to check, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+            );
+          }
           if (outcome.exitCode !== 0) {
             throw new Error(
               `PiAgentRunner: pi failed (exit ${outcome.exitCode})` +
@@ -179,14 +196,19 @@ export class PiAgentRunner implements AgentRunner {
 
       const child = spawn(bin, cliArgs, {
         cwd: args.cwd,
-        env: { ...process.env, ...args.env },
+        // PI_TELEMETRY/PI_SKIP_VERSION_CHECK: confirmed via pi's own docs —
+        // suppresses install/update telemetry and version-check network calls
+        // that otherwise add latency/flakiness to every headless turn.
+        env: { ...process.env, PI_TELEMETRY: '0', PI_SKIP_VERSION_CHECK: '1', ...args.env },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
       let stderrTail = '';
       child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
 
+      let sawOutput = false;
       let timedOut = false;
+      let hangSuspected = false;
       const KILL_GRACE_MS = 5000;
       let killTimer: ReturnType<typeof setTimeout> | undefined;
       const timer = setTimeout(() => {
@@ -195,6 +217,14 @@ export class PiAgentRunner implements AgentRunner {
         killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
+
+      // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
+      let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+        hangSuspected = true;
+        child.kill('SIGTERM');
+        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer.unref?.();
+      }, STARTUP_GRACE_MS);
 
       const exitPromise = new Promise<number>((res, rej) => {
         child.on('error', rej);
@@ -206,6 +236,7 @@ export class PiAgentRunner implements AgentRunner {
         const lines: string[] = [];
         let buf = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
           buf += chunk.toString();
           const parts = buf.split('\n');
           buf = parts.pop() ?? '';
@@ -214,7 +245,11 @@ export class PiAgentRunner implements AgentRunner {
         if (buf.trim()) lines.push(buf);
         return lines;
       })()
-        .then((lines) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ lines, exitCode })))
+        .then((lines) => exitPromise.finally(() => {
+          clearTimeout(timer);
+          if (hangTimer) clearTimeout(hangTimer);
+          if (killTimer) clearTimeout(killTimer);
+        }).then((exitCode) => ({ lines, exitCode })))
         .then(({ lines, exitCode }) => {
           const parsed = parsePiEvents(lines);
           resolve({
@@ -223,6 +258,7 @@ export class PiAgentRunner implements AgentRunner {
             exitCode,
             stderrTail,
             timedOut,
+            hangSuspected,
             inputTokens: parsed.inputTokens,
             outputTokens: parsed.outputTokens,
           });

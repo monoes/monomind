@@ -43,6 +43,11 @@ import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, 
 import { UsageProxyServer } from './usage-proxy.js';
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+/** Distinct from TURN_TIMEOUT_MS: catches a hung first-run interactive prompt
+ *  (trust/telemetry gate) fast instead of waiting out the full turn timeout.
+ *  Fires only if the process has produced ZERO stdout by this point — any
+ *  output at all disarms it, since a slow model response is not a hang. */
+const STARTUP_GRACE_MS = 45_000;
 
 /** Strip tool_call fences and normalize whitespace on crush's plain-text
  *  stdout. Exported for unit testing (crush-runner.test.ts). */
@@ -58,6 +63,9 @@ interface TurnOutcome {
   exitCode: number;
   stderrTail: string;
   timedOut: boolean;
+  /** True when the process was killed by STARTUP_GRACE_MS with no output —
+   *  likely stuck on a first-run interactive prompt headless mode can't answer. */
+  hangSuspected: boolean;
 }
 
 export interface CrushAgentRunnerOptions {
@@ -105,6 +113,14 @@ export class CrushAgentRunner implements AgentRunner {
           const outcome = await this.runTurn(bin, nextPrompt, args, proxy, sessionStarted);
           sessionStarted = true;
 
+          if (outcome.hangSuspected) {
+            throw new Error(
+              `CrushAgentRunner: crush produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
+              'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
+              'that headless mode has no way to answer. Run `crush` once manually in a real terminal in ' +
+              `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+            );
+          }
           if (outcome.exitCode !== 0) {
             throw new Error(
               `CrushAgentRunner: crush run failed (exit ${outcome.exitCode})` +
@@ -171,7 +187,14 @@ export class CrushAgentRunner implements AgentRunner {
       if (args.model) cliArgs.push('--model', args.model);
       if (continueSession) cliArgs.push('--continue');
 
-      const env: Record<string, string | undefined> = { ...process.env, ...args.env };
+      // CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: confirmed via crush's own docs —
+      // suppresses a first-run/periodic provider-list update check that would
+      // otherwise add an unpredictable network round-trip to a headless turn.
+      const env: Record<string, string | undefined> = {
+        ...process.env,
+        CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: '1',
+        ...args.env,
+      };
       if (proxy && this.usageProxyOpts) env[this.usageProxyOpts.baseUrlEnvVar] = proxy.url();
 
       const child = spawn(bin, cliArgs, { cwd: args.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -179,7 +202,9 @@ export class CrushAgentRunner implements AgentRunner {
       let stderrTail = '';
       child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
 
+      let sawOutput = false;
       let timedOut = false;
+      let hangSuspected = false;
       const KILL_GRACE_MS = 5000;
       let killTimer: ReturnType<typeof setTimeout> | undefined;
       const timer = setTimeout(() => {
@@ -189,6 +214,14 @@ export class CrushAgentRunner implements AgentRunner {
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
 
+      // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
+      let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+        hangSuspected = true;
+        child.kill('SIGTERM');
+        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer.unref?.();
+      }, STARTUP_GRACE_MS);
+
       const exitPromise = new Promise<number>((res, rej) => {
         child.on('error', rej);
         child.on('close', (code) => res(code ?? 1));
@@ -197,13 +230,20 @@ export class CrushAgentRunner implements AgentRunner {
 
       (async () => {
         let stdout = '';
-        for await (const chunk of child.stdout as AsyncIterable<Buffer>) stdout += chunk.toString();
+        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
+          stdout += chunk.toString();
+        }
         return stdout;
       })()
-        .then((stdout) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ stdout, exitCode })))
+        .then((stdout) => exitPromise.finally(() => {
+          clearTimeout(timer);
+          if (hangTimer) clearTimeout(hangTimer);
+          if (killTimer) clearTimeout(killTimer);
+        }).then((exitCode) => ({ stdout, exitCode })))
         .then(({ stdout, exitCode }) => {
           const parsed = parseCrushOutput(stdout);
-          resolve({ text: parsed.text, rawText: parsed.rawText, exitCode, stderrTail, timedOut });
+          resolve({ text: parsed.text, rawText: parsed.rawText, exitCode, stderrTail, timedOut, hangSuspected });
         }, reject);
     });
   }
