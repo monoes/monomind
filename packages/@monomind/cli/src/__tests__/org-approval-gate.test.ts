@@ -147,6 +147,65 @@ describe('checkApproval / setApproval — end-to-end state machine', () => {
   });
 });
 
+describe('checkApproval — org_complete arrives namespaced as mcp__org__org_complete and must still be gated', () => {
+  let cwd: string;
+  let daemon: OrgDaemon;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'org-mcp-prefix-'));
+    daemon = {
+      root: cwd,
+      approvals: new Map(),
+      approvalLocks: new Map(),
+      orgs: new Map(),
+    } as unknown as OrgDaemon;
+  });
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('queues mcp__org__org_complete as pending, not auto-approved', async () => {
+    // This is the exact string the SDK's canUseTool passes for a custom MCP
+    // tool from the 'org' server (createSdkMcpServer({ name: 'org', ... })) —
+    // NOT the bare 'org_complete' sensitiveActions was written against.
+    const result = await checkApproval(daemon, 'myorg', 'eng-director', 'mcp__org__org_complete');
+    expect(result).toBeNull(); // pending human approval — NOT auto-approved (was: true, unconditionally)
+    const pending = daemon.approvals.get('myorg');
+    expect(pending).toHaveLength(1);
+    // Stored under the clean name, so a human can resolve it with
+    // `monomind org approve myorg eng-director org_complete`, not the
+    // internal MCP-namespaced form.
+    expect(pending?.[0]).toMatchObject({ roleId: 'eng-director', action: 'org_complete', approved: null });
+  });
+
+  it('setApproval(true) for the normalized name resolves the mcp__org__-prefixed pending request', async () => {
+    await checkApproval(daemon, 'myorg', 'eng-director', 'mcp__org__org_complete');
+    const set = await setApproval(daemon, 'myorg', 'eng-director', 'org_complete', true);
+    expect(set).toEqual({ ok: true });
+
+    const result = await checkApproval(daemon, 'myorg', 'eng-director', 'mcp__org__org_complete');
+    expect(result).toBe(true);
+  });
+
+  it('a real SDK built-in tool (Bash) is unaffected — never had the mcp__org__ prefix to begin with', async () => {
+    const result = await checkApproval(daemon, 'myorg', 'boss', 'Bash');
+    expect(result).toBeNull();
+    expect(daemon.approvals.get('myorg')?.[0]).toMatchObject({ action: 'Bash' });
+  });
+
+  it('role.policy.autoApproveTools also matches against the normalized name', async () => {
+    const orgs = new Map([
+      ['myorg', { def: { roles: [{ id: 'eng-director', policy: { autoApproveTools: ['org_complete'] } }] }, bus: { emit: () => {} } }],
+    ]);
+    const trustedDaemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs } as unknown as OrgDaemon;
+
+    const result = await checkApproval(trustedDaemon, 'myorg', 'eng-director', 'mcp__org__org_complete');
+    expect(result).toBe(true);
+    expect(trustedDaemon.approvals.get('myorg')).toBeUndefined(); // never queued at all
+  });
+});
+
 describe('checkApproval — role.policy.autoApproveTools bypasses the human-approval pause', () => {
   let cwd: string;
 
