@@ -12,20 +12,29 @@
  * Subprocess protocol — per public docs, NOT byte-verified against a running
  * binary:
  *   - Invocation: `copilot -p "<prompt>" --output-format json -s
- *                 --allow-all-tools [--model=<model>]`. `-s` (silent)
- *     suppresses the stats/decoration footer that otherwise mixes into
- *     stdout (documented GitHub issue: without `-s`, response text can be
- *     absent from plain stdout entirely — `--output-format json` + `-s` is
- *     the documented workaround).
+ *                 --allow-all-tools --no-ask-user [--model=<model>]`. `-s`
+ *     (silent) suppresses the stats/decoration footer that otherwise mixes
+ *     into stdout (documented GitHub issue: without `-s`, response text can
+ *     be absent from plain stdout entirely — `--output-format json` + `-s`
+ *     is the documented workaround). `--no-ask-user` disables the CLI's
+ *     ask_user tool so a headless run can never block waiting on a question
+ *     with no human to answer it — confirmed by cross-checking a second,
+ *     independent public agentic-CLI wrapper's provider table, which lists
+ *     the identical `-s --allow-all-tools --no-ask-user` combination for
+ *     Copilot's non-interactive mode; this runner was missing `--no-ask-user`
+ *     until that cross-check.
  *   - Output: NDJSON; assistant text arrives on `assistant.message`-shaped
  *     events. The exact full field list isn't published, so parseCopilotEvents
  *     tolerates a couple of plausible shapes (an explicit `type`/`kind` of
  *     'assistant.message' or 'assistant' carrying `content`/`text`) and
  *     fails closed (no text extracted) on anything else, rather than
  *     guessing wrong and emitting garbage.
- *   - Session/resume: NOT documented for headless use. Every mailbox prompt
+ *   - Session/resume: Copilot documents a `--resume=<id>` flag, but nothing
+ *     in this runner's output parsing surfaces a session id to pass back in
+ *     (the same gap the cross-check source above notes about its own
+ *     integration), so resume can't be wired up yet — every mailbox prompt
  *     is a fresh `copilot -p` invocation, same disclosed limitation as
- *     CrushAgentRunner — no continuity between turns.
+ *     CrushAgentRunner. Revisit if a session-id-bearing event/field is found.
  *   - Token usage: NOT documented for `--output-format json`, and Copilot
  *     CLI has no documented custom-base-URL override (it talks to GitHub's
  *     own Copilot backend, not a passthrough-able OpenAI/Anthropic
@@ -160,7 +169,7 @@ export class CopilotAgentRunner implements AgentRunner {
 
   private runTurn(bin: string, prompt: string, args: AgentRunArgs): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
-      const cliArgs: string[] = ['-p', prompt, '--output-format', 'json', '-s', '--allow-all-tools'];
+      const cliArgs: string[] = ['-p', prompt, '--output-format', 'json', '-s', '--allow-all-tools', '--no-ask-user'];
       if (args.model) cliArgs.push(`--model=${args.model}`);
       cliArgs.push('--add-dir', args.cwd);
 
