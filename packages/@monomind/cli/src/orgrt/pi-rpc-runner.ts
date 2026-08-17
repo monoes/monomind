@@ -167,7 +167,12 @@ export class PiRpcAgentRunner implements AgentRunner {
       }
     };
     child.stdout?.on('data', (c: Buffer) => { lastEventAt = Date.now(); pushEvents(decoder.feed(c.toString())); });
-    child.on('close', (code) => { closed = true; closeCode = code; pushEvents([{ type: '__closed__', code }]); });
+    // Distinct from `closed` (which WE set to stop routing new commands, e.g.
+    // as soon as a hang is suspected) — this is only true once the OS
+    // confirms the process actually exited. The finally block below uses it
+    // to decide whether a pending SIGKILL escalation is still needed.
+    let processExited = false;
+    child.on('close', (code) => { closed = true; processExited = true; closeCode = code; pushEvents([{ type: '__closed__', code }]); });
     child.on('error', (err) => { closed = true; pushEvents([{ type: '__error__', error: err }]); });
 
     const nextEvent = (): Promise<Record<string, unknown>> => {
@@ -209,9 +214,17 @@ export class PiRpcAgentRunner implements AgentRunner {
     // since a turn's own wait can legitimately take a long time (real model
     // latency) — what matters is total SILENCE from the process, not how
     // long any one turn takes.
+    //
+    // PAUSED (not just clock-bumped) while an org tool call is in flight —
+    // executeToolCall can run ask_human, which waits on a real person and
+    // can legitimately take far longer than MID_SESSION_SILENCE_MS. A pure
+    // "bump lastEventAt once before the await" would still let the watchdog
+    // fire mid-wait for anything slower than the silence window itself;
+    // pausing the check entirely for the duration is the correct fix.
+    let toolCallInFlight = false;
     const MID_SESSION_SILENCE_MS = SETTLE_TIMEOUT_MS; // reuse the same bound the settle-heuristic gives up at
     const silenceWatchdog: ReturnType<typeof setInterval> = setInterval(() => {
-      if (closed) return;
+      if (closed || toolCallInFlight) return;
       if (Date.now() - lastEventAt > MID_SESSION_SILENCE_MS) {
         closed = true;
         killChild();
@@ -242,6 +255,13 @@ export class PiRpcAgentRunner implements AgentRunner {
             const ev = await nextEvent();
             disarmHang();
             const kind = ev.type as string | undefined;
+
+            // Checked on EVERY event, not only get_state responses — a
+            // stream of message_update/message_end events with pi never
+            // actually answering get_state (e.g. it doesn't recognize the
+            // command, or a response gets lost) would otherwise never hit
+            // the deadline check below and could wait past it indefinitely.
+            if (sawMessageEnd && Date.now() > settleDeadline) break;
 
             if (kind === '__closed__' || kind === '__error__' || kind === '__hang__') {
               if (kind === '__error__') {
@@ -327,8 +347,18 @@ export class PiRpcAgentRunner implements AgentRunner {
             break turnLoop;
           }
 
+          // Pause the silence watchdog for the duration — see its
+          // declaration above for why a call like ask_human blocking on a
+          // human isn't "pi is wedged". Always un-paused in `finally` so an
+          // exception out of executeToolCall can't leave it stuck off.
+          toolCallInFlight = true;
           const results: string[] = [];
-          for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          try {
+            for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          } finally {
+            toolCallInFlight = false;
+            lastEventAt = Date.now(); // the post-tool-call silence window starts fresh, not already partway elapsed
+          }
           nextMessage = formatToolResults(calls, results);
         }
 
@@ -350,9 +380,21 @@ export class PiRpcAgentRunner implements AgentRunner {
       throw err;
     } finally {
       if (hangTimer) clearTimeout(hangTimer);
-      if (killTimer) clearTimeout(killTimer);
       clearInterval(silenceWatchdog);
-      try { child.kill('SIGTERM'); } catch { /* already gone */ }
+      if (processExited) {
+        // Process is confirmed dead — any pending SIGKILL escalation from
+        // killChild() is no longer needed.
+        if (killTimer) clearTimeout(killTimer);
+      } else {
+        // NOT confirmed dead (e.g. the hang/silence watchdog fired and
+        // sent SIGTERM, but the process hasn't closed yet). Clearing
+        // killTimer here would cancel the SIGKILL escalation mid-grace-
+        // period and orphan a process that's ignoring SIGTERM — exactly
+        // the wedged case these watchdogs exist to handle. Leave the
+        // existing (unref'd) escalation timer running, or arm a fresh one
+        // if we're exiting via a path that never called killChild() at all.
+        if (!killTimer) killChild();
+      }
     }
   }
 }

@@ -239,4 +239,71 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
 
     await expect(resultsPromise).rejects.toThrow(/requires the Pi coding agent CLI \(pi\) on PATH/);
   });
+
+  it('does not let the silence watchdog kill a healthy session while a tool call (e.g. ask_human) blocks for longer than the silence window — regression: an earlier revision only bumped the silence clock AFTER the tool call resolved, leaving the watchdog free to fire while it was still pending', async () => {
+    vi.useFakeTimers();
+    try {
+      const proc = fakeProcess();
+      const runner = new PiRpcAgentRunner('pi', () => proc);
+
+      let releaseTool: () => void = () => {};
+      const toolBlocked = new Promise<void>((resolve) => { releaseTool = resolve; });
+      const args = baseArgs(singlePrompt('hello'));
+      args.tools = [{
+        name: 'ask_human',
+        description: 'ask a human',
+        schema: {},
+        handler: async () => { await toolBlocked; return { text: 'answered' }; },
+      }];
+
+      const resultsPromise = collect(runner.run(args));
+      await vi.advanceTimersByTimeAsync(10);
+
+      const fence = '```tool_call\n{"name":"ask_human","arguments":{}}\n```';
+      proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: `Asking.\n${fence}` }] } }) + '\n');
+      await vi.advanceTimersByTimeAsync(10);
+      proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+      await vi.advanceTimersByTimeAsync(10);
+
+      // The tool call is now blocked ("waiting on a human"). Advance well
+      // past the 10-minute silence window while it's still pending.
+      await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
+      expect(proc.kill).not.toHaveBeenCalled();
+
+      // Let the human "answer" and finish the turn normally.
+      releaseTool();
+      await vi.advanceTimersByTimeAsync(10);
+      proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'Done.' }] } }) + '\n');
+      await vi.advanceTimersByTimeAsync(10);
+      proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+      proc.emitClose(0);
+      await vi.advanceTimersByTimeAsync(10);
+
+      const messages = await resultsPromise;
+      expect(messages.some((m) => m.type === 'assistant' && m.text === 'Done.')).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a genuinely wedged session (no tool call pending, no output at all) still eventually gets killed — sanity check that the watchdogs are not neutered by the toolCallInFlight pause added above', async () => {
+    vi.useFakeTimers();
+    try {
+      const proc = fakeProcess();
+      const runner = new PiRpcAgentRunner('pi', () => proc);
+      const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
+
+      // Total silence from the very first moment — whichever watchdog
+      // catches it first (the one-shot startup timer or the rolling
+      // mid-session one; which one wins the race isn't the point of this
+      // test, only that SOME kill path fires and toolCallInFlight — which
+      // defaults to false and is never set here — doesn't block it).
+      await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
+
+      await expect(resultsPromise).rejects.toThrow(/produced no output|process ended unexpectedly/);
+      expect(proc.kill).toHaveBeenCalledWith('SIGTERM');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
