@@ -21,12 +21,12 @@
  * so this is testable in isolation.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { gatedCanUseTool } from '../orgrt/session.js';
 import type { PolicyEngine, Decision } from '../orgrt/policy.js';
-import { checkApproval, setApproval } from '../orgrt/approvals.js';
+import { checkApproval, setApproval, clearApprovalsForFreshStart } from '../orgrt/approvals.js';
 import { approveAction, denyAction } from '../commands/org-observe.js';
 import { ORG_DIR } from '../orgrt/types.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
@@ -190,6 +190,64 @@ describe('checkApproval — role.policy.autoApproveTools bypasses the human-appr
     const daemon = daemonWithRole({ autoApproveTools: ['Bash'] });
     const result = await checkApproval(daemon, 'myorg', 'someone-else', 'Bash');
     expect(result).toBeNull();
+  });
+});
+
+describe('clearApprovalsForFreshStart — stale approvals from a previous run never resurface', () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'org-clear-approvals-'));
+  });
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('wipes the in-memory Map entry for the org', () => {
+    const daemon = { root: cwd, approvals: new Map([['myorg', [{ roleId: 'boss', action: 'Bash', question: 'q', ts: 1, approved: null }]]]), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    clearApprovalsForFreshStart(daemon, 'myorg');
+    expect(daemon.approvals.get('myorg')).toBeUndefined();
+  });
+
+  it('resets an existing approvals.json to an empty array instead of leaving a stale pending entry', () => {
+    const orgDir = join(cwd, ORG_DIR, 'myorg');
+    mkdirSync(orgDir, { recursive: true });
+    const approvalsPath = join(orgDir, 'approvals.json');
+    writeFileSync(approvalsPath, JSON.stringify({
+      approvals: [{ roleId: 'ghost-role', action: 'Bash', question: 'Approve Bash tool call?', ts: 1, approved: null }],
+    }));
+    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+
+    clearApprovalsForFreshStart(daemon, 'myorg');
+
+    const onDisk = JSON.parse(readFileSync(approvalsPath, 'utf8'));
+    expect(onDisk.approvals).toEqual([]);
+  });
+
+  it('is a no-op when no approvals.json exists yet — does not create one', () => {
+    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    clearApprovalsForFreshStart(daemon, 'myorg');
+    expect(existsSync(join(cwd, ORG_DIR, 'myorg', 'approvals.json'))).toBe(false);
+  });
+
+  it('a role that legitimately needs the same action approved in the new run gets a fresh, resolvable pending entry', async () => {
+    const orgDir = join(cwd, ORG_DIR, 'myorg');
+    mkdirSync(orgDir, { recursive: true });
+    writeFileSync(join(orgDir, 'approvals.json'), JSON.stringify({
+      approvals: [{ roleId: 'boss', action: 'Bash', question: 'Approve Bash tool call?', ts: 1, approved: null }],
+    }));
+    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    clearApprovalsForFreshStart(daemon, 'myorg');
+
+    // Simulates the new run's boss calling Bash again — must queue a fresh
+    // entry, not silently resolve against the wiped stale one.
+    const result = await checkApproval(daemon, 'myorg', 'boss', 'Bash');
+    expect(result).toBeNull();
+    expect(daemon.approvals.get('myorg')).toHaveLength(1);
+
+    const set = await setApproval(daemon, 'myorg', 'boss', 'Bash', true);
+    expect(set).toEqual({ ok: true }); // live delivery now finds it — no more "No pending approval found"
   });
 });
 
