@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/approvals.ts
 // Extracted from daemon.ts — approval checking and setting for org tool calls.
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { ORG_DIR } from './types.js';
 import type { OrgDaemon } from './daemon.js';
@@ -21,6 +21,26 @@ import type { OrgDaemon } from './daemon.js';
 function normalizeToolAction(rawAction: string): string {
   const prefix = 'mcp__org__';
   return rawAction.startsWith(prefix) ? rawAction.slice(prefix.length) : rawAction;
+}
+
+/** Discard every approval — pending or resolved — left over from a previous
+ *  run. Call on a fresh (non-resume) startOrg.
+ *
+ *  approvals.json is keyed per-org, not per-run, and daemon.approvals is an
+ *  in-memory Map that starts empty in every fresh CLI process. A pending
+ *  approval queued by a role in a PREVIOUS run — never resolved before that
+ *  run ended — otherwise survives on disk forever: it looks "pending" to
+ *  anything reading the file directly (dashboard, status checks, even
+ *  `org approve`'s own live-delivery-then-fallback path), but the role that
+ *  requested it is gone and no live daemon will ever have a matching
+ *  in-memory record for it, so `org approve`'s live path always 404s with
+ *  "No pending approval found" and silently falls back to patching a ghost
+ *  entry nobody is listening for. A fresh start means every previous
+ *  approval is moot for this run. */
+export function clearApprovalsForFreshStart(daemon: OrgDaemon, org: string): void {
+  daemon.approvals.delete(org);
+  const approvalsPath = join(daemon.root, ORG_DIR, org, 'approvals.json');
+  if (existsSync(approvalsPath)) writeJsonFileAtomic(approvalsPath, { approvals: [] });
 }
 
 /** Check if an action requires human approval (beforeTool hook for guardrails). Returns
