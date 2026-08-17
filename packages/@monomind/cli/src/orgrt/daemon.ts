@@ -1256,7 +1256,8 @@ export class OrgDaemon {
               `[watchdog] No activity in org "${name}" for ${Math.round(idleFor / 60_000)} minute(s). ` +
                 `Check org_tasks first, then pick ONE: (1) the org's full stated goal is achieved or clearly cannot be — call org_complete now (this ends the run for good, not just this batch); ` +
                 `(2) someone has stalled or unstarted work — check on your team via org_send and reassign it; ` +
-                `(3) the current task batch is done but the goal has more scope left — do NOT call org_complete for this case, instead dispatch the next batch of work with org_task/createTask so the org keeps making progress.`,
+                `(3) the current task batch is done but the goal has more scope left — do NOT call org_complete for this case, instead dispatch the next batch of work with org_task/createTask so the org keeps making progress; ` +
+                `(4) a task is stuck 'running' only because it's genuinely waiting on a real-world time (a scheduled process, a deadline) and there is nothing else to dispatch right now — do NOT just leave it and re-confirm this every time you get nudged, call org_task_block(taskId, untilIso, reason) instead so this watchdog stops nudging you about it and auto-resumes the task when the time arrives.`,
             );
           } else if (Date.now() - nudgedAt >= idleMs) {
             idleStop(
