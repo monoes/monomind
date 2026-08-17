@@ -1213,14 +1213,6 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'attach', description: 'Attach this terminal to a live pty-mode role (role config: pty: true). Ctrl-] to detach.',
-      examples: [{ command: 'monomind org attach growth researcher', description: 'Watch/type into the researcher role\'s live session' }],
-      action: async (ctx: CommandContext): Promise<CommandResult> => {
-        const { attachAction } = await import('./org-attach.js');
-        return attachAction(ctx);
-      },
-    },
-    {
       name: 'report', description: 'Summarize an org run: outcome, per-role activity, tokens, assets, crashes',
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
