@@ -161,7 +161,15 @@ export class GrokAgentRunner implements AgentRunner {
         let turnOutputTokens = 0;
 
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-          const promptWithSystem = (round === 0 && !sessionId)
+          // Gated on !sessionId alone, NOT `round === 0 && !sessionId` — if
+          // a session id never gets parsed out of grok's output (a real
+          // risk, per this file's header: the exact event shape is a
+          // documented guess), every round after the first would otherwise
+          // spawn a completely fresh, contextless grok invocation carrying
+          // only the tool-result text — no system prompt, no session to
+          // resume. Once a session id IS captured, --resume takes over and
+          // this stops re-sending the system prompt.
+          const promptWithSystem = !sessionId
             ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
             : nextPrompt;
 
@@ -312,7 +320,15 @@ export class GrokAgentRunner implements AgentRunner {
             outputTokens: parsed.outputTokens,
             error: parsed.error,
           });
-        }, reject)
+        }, (err) => {
+          // A stdout stream error (the reject path) means the process is
+          // still ALIVE and unmanaged — none of the timeout/hang timers
+          // would have fired to kill it. Without this, that error would
+          // orphan the child. child.kill() on an already-dead process is a
+          // documented no-op, so this is safe on every path.
+          try { child.kill('SIGTERM'); } catch { /* already gone */ }
+          reject(err);
+        })
         .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);

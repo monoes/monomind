@@ -292,6 +292,11 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
       const proc = fakeProcess();
       const runner = new PiRpcAgentRunner('pi', () => proc);
       const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
+      // Mark as handled immediately — the actual rejection happens during
+      // the long advanceTimersByTimeAsync() below, well before the
+      // `.rejects.toThrow()` assertion runs, which Node's unhandled-
+      // rejection tracking otherwise (harmlessly, but noisily) flags.
+      resultsPromise.catch(() => {});
 
       // Total silence from the very first moment — whichever watchdog
       // catches it first (the one-shot startup timer or the rolling
