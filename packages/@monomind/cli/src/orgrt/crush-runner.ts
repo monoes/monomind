@@ -14,6 +14,18 @@
  * context is NOT re-derived from scratch every turn the way the original
  * (pre-cross-check) revision of this runner did.
  *
+ * RISK, not independently confirmed either way: if crush's "most recently
+ * used session" is scoped GLOBALLY rather than per working directory, two
+ * different crush-backed roles running concurrently in the same org (each
+ * with its OWN cwd via args.cwd) could cross-contaminate — role B's
+ * `--continue` might resume role A's conversation instead of its own. crush
+ * DOES support an explicit `--session <id>` flag per the same source, which
+ * would be the correct fix (capture the session id crush's own output
+ * reports, if any, and pass it explicitly instead of relying on "most
+ * recent") — not implemented here because crush's plain-text stdout doesn't
+ * appear to surface a session id to capture. Validate against a live
+ * install before running multiple concurrent crush roles in one org.
+ *
  * Usage accounting — crush's plain-text output carries no token counts, so
  * this runner optionally routes crush's LLM traffic through a
  * UsageProxyServer (usage-proxy.ts): crush supports pointing its provider at
@@ -108,8 +120,12 @@ export class CrushAgentRunner implements AgentRunner {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
         let nextPrompt = sessionStarted ? text : `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`;
 
+        // Reset ONCE per mailbox prompt, not per tool-call round — totals()
+        // is read after the LAST round below, so resetting inside the round
+        // loop was discarding every round's usage except the final one.
+        proxy?.reset();
+
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-          proxy?.reset();
           const outcome = await this.runTurn(bin, nextPrompt, args, proxy, sessionStarted);
           sessionStarted = true;
 
@@ -124,6 +140,7 @@ export class CrushAgentRunner implements AgentRunner {
           if (outcome.exitCode !== 0) {
             throw new Error(
               `CrushAgentRunner: crush run failed (exit ${outcome.exitCode})` +
+              (outcome.timedOut ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` : '') +
               (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
             );
           }
@@ -228,23 +245,30 @@ export class CrushAgentRunner implements AgentRunner {
       });
       exitPromise.catch(() => {});
 
-      (async () => {
+      const readStdout = (async () => {
         let stdout = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
           if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
           stdout += chunk.toString();
         }
         return stdout;
-      })()
-        .then((stdout) => exitPromise.finally(() => {
+      })();
+
+      // Timer cleanup lives in a top-level .finally() (not nested inside a
+      // success-path .then()) so it runs on EITHER path — a stdout stream
+      // error would otherwise skip straight to reject() and leave the
+      // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
+      // process's actual lifetime.
+      Promise.all([readStdout, exitPromise])
+        .then(([stdout, exitCode]) => {
+          const parsed = parseCrushOutput(stdout);
+          resolve({ text: parsed.text, rawText: parsed.rawText, exitCode, stderrTail, timedOut, hangSuspected });
+        }, reject)
+        .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);
           if (killTimer) clearTimeout(killTimer);
-        }).then((exitCode) => ({ stdout, exitCode })))
-        .then(({ stdout, exitCode }) => {
-          const parsed = parseCrushOutput(stdout);
-          resolve({ text: parsed.text, rawText: parsed.rawText, exitCode, stderrTail, timedOut, hangSuspected });
-        }, reject);
+        });
     });
   }
 }

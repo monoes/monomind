@@ -154,6 +154,10 @@ export class PiRpcAgentRunner implements AgentRunner {
     const waiters: Array<(ev: Record<string, unknown>) => void> = [];
     let closed = false;
     let closeCode: number | null = null;
+    // Bumped only by REAL stdout activity (not the synthetic __closed__/
+    // __error__/__hang__ events pushed below) — see silenceWatchdog further
+    // down, which uses this to detect a mid-session hang.
+    let lastEventAt = Date.now();
 
     const pushEvents = (evs: Record<string, unknown>[]) => {
       for (const ev of evs) {
@@ -162,7 +166,7 @@ export class PiRpcAgentRunner implements AgentRunner {
         else eventQueue.push(ev);
       }
     };
-    child.stdout?.on('data', (c: Buffer) => pushEvents(decoder.feed(c.toString())));
+    child.stdout?.on('data', (c: Buffer) => { lastEventAt = Date.now(); pushEvents(decoder.feed(c.toString())); });
     child.on('close', (code) => { closed = true; closeCode = code; pushEvents([{ type: '__closed__', code }]); });
     child.on('error', (err) => { closed = true; pushEvents([{ type: '__error__', error: err }]); });
 
@@ -177,15 +181,44 @@ export class PiRpcAgentRunner implements AgentRunner {
       child.stdin?.write(encodePiRpcCommand(cmd));
     };
 
+    // SIGTERM→SIGKILL escalation, matching the other subprocess runners'
+    // pattern — a hang detection that only ever sends SIGTERM would leave a
+    // zombie process behind if pi ignores it.
+    const KILL_GRACE_MS = 5000;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const killChild = (): void => {
+      try { child.kill('SIGTERM'); } catch { /* already gone */ }
+      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    };
+
     // Startup-hang detection — same rationale as the other subprocess
     // runners' STARTUP_GRACE_MS, applied once at process start rather than
     // per turn since the process is long-lived here.
     let sawAnyEvent = false;
     let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-      if (!sawAnyEvent) { closed = true; child.kill('SIGTERM'); pushEvents([{ type: '__hang__' }]); }
+      if (!sawAnyEvent) { closed = true; killChild(); pushEvents([{ type: '__hang__' }]); }
     }, STARTUP_GRACE_MS);
 
     const disarmHang = () => { if (!sawAnyEvent) { sawAnyEvent = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } } };
+
+    // Rolling watchdog — catches a hang AFTER the startup check has already
+    // passed (e.g. pi wedges mid-session on turn 5), which the one-shot
+    // startup timer above can't see since it disarms itself on the first
+    // event. Checked periodically rather than a single per-turn timer,
+    // since a turn's own wait can legitimately take a long time (real model
+    // latency) — what matters is total SILENCE from the process, not how
+    // long any one turn takes.
+    const MID_SESSION_SILENCE_MS = SETTLE_TIMEOUT_MS; // reuse the same bound the settle-heuristic gives up at
+    const silenceWatchdog: ReturnType<typeof setInterval> = setInterval(() => {
+      if (closed) return;
+      if (Date.now() - lastEventAt > MID_SESSION_SILENCE_MS) {
+        closed = true;
+        killChild();
+        pushEvents([{ type: '__hang__' }]);
+      }
+    }, 30_000);
+    silenceWatchdog.unref?.();
 
     try {
       let first = true;
@@ -211,6 +244,14 @@ export class PiRpcAgentRunner implements AgentRunner {
             const kind = ev.type as string | undefined;
 
             if (kind === '__closed__' || kind === '__error__' || kind === '__hang__') {
+              if (kind === '__error__') {
+                // Rethrow the ORIGINAL spawn error (not a fresh generic one)
+                // so the outer catch's `err.code === 'ENOENT'` check below
+                // can actually match it — a wrapped/re-created Error loses
+                // the .code property, which silently broke the "missing pi
+                // binary" install-instructions message.
+                throw ev.error as Error;
+              }
               const hangSuspected = kind === '__hang__';
               throw new Error(
                 hangSuspected
@@ -223,6 +264,17 @@ export class PiRpcAgentRunner implements AgentRunner {
             }
 
             if (kind === 'message_update') {
+              // Overwrite (not accumulate) — the confirmed example in this
+              // file's header shows `usage` as a running total FOR THE
+              // CURRENT RESPONSE, so the latest value read during a turn is
+              // that turn's correct total. UNCONFIRMED: whether it's scoped
+              // to the current prompt or to the whole (session-lifetime) rpc
+              // process. If it turns out to be session-cumulative, every
+              // turn after the first would over-report by including prior
+              // turns' tokens — inflating org budget consumption. Validate
+              // against a live pi install before relying on this for tight
+              // budget enforcement; this is exactly the kind of gap opt-in
+              // 'pi-rpc' (vs. default 'pi') is meant to warn callers about.
               const usage = ev.usage as { input?: number; output?: number } | undefined;
               if (usage) {
                 turnInputTokens = usage.input ?? turnInputTokens;
@@ -298,6 +350,8 @@ export class PiRpcAgentRunner implements AgentRunner {
       throw err;
     } finally {
       if (hangTimer) clearTimeout(hangTimer);
+      if (killTimer) clearTimeout(killTimer);
+      clearInterval(silenceWatchdog);
       try { child.kill('SIGTERM'); } catch { /* already gone */ }
     }
   }

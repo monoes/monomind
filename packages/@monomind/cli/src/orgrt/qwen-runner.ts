@@ -141,6 +141,7 @@ export class QwenAgentRunner implements AgentRunner {
           if (outcome.exitCode !== 0 || outcome.error) {
             throw new Error(
               `QwenAgentRunner: qwen failed (exit ${outcome.exitCode})` +
+              (outcome.timedOut ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` : '') +
               (outcome.error ? `: ${outcome.error}` : '') +
               (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
             );
@@ -238,7 +239,7 @@ export class QwenAgentRunner implements AgentRunner {
       });
       exitPromise.catch(() => {});
 
-      (async () => {
+      const readLines = (async () => {
         const lines: string[] = [];
         let buf = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
@@ -250,13 +251,15 @@ export class QwenAgentRunner implements AgentRunner {
         }
         if (buf.trim()) lines.push(buf);
         return lines;
-      })()
-        .then((lines) => exitPromise.finally(() => {
-          clearTimeout(timer);
-          if (hangTimer) clearTimeout(hangTimer);
-          if (killTimer) clearTimeout(killTimer);
-        }).then((exitCode) => ({ lines, exitCode })))
-        .then(({ lines, exitCode }) => {
+      })();
+
+      // Timer cleanup lives in a top-level .finally() (not nested inside a
+      // success-path .then()) so it runs on EITHER path — a stdout stream
+      // error would otherwise skip straight to reject() and leave the
+      // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
+      // process's actual lifetime.
+      Promise.all([readLines, exitPromise])
+        .then(([lines, exitCode]) => {
           const parsed = parseQwenEvents(lines);
           resolve({
             texts: parsed.texts,
@@ -270,7 +273,12 @@ export class QwenAgentRunner implements AgentRunner {
             outputTokens: parsed.outputTokens,
             error: parsed.error,
           });
-        }, reject);
+        }, reject)
+        .finally(() => {
+          clearTimeout(timer);
+          if (hangTimer) clearTimeout(hangTimer);
+          if (killTimer) clearTimeout(killTimer);
+        });
     });
   }
 }

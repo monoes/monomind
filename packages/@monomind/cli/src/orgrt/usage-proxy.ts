@@ -40,56 +40,85 @@ export interface UsageProxyOptions {
 
 /** Extract usage tokens from a single parsed JSON body (a plain
  *  chat-completion response, or one SSE `data:` chunk). Returns undefined
- *  when the body has no usage field — callers accumulate across chunks. */
-function extractUsageFromBody(body: unknown, apiStyle: UsageApiStyle): UsageTotals | undefined {
+ *  when the body has no usage field — callers accumulate across chunks.
+ *
+ *  Anthropic-specific: input_tokens arrives on the `message_start` SSE event
+ *  under `message.usage` (NOT top-level `usage`), while output_tokens
+ *  arrives on later `message_delta` events under top-level `usage` — the two
+ *  fields legitimately arrive in DIFFERENT chunks of the same stream. Fields
+ *  are OPTIONAL in the return value (omitted, not defaulted to 0) precisely
+ *  so the caller can merge per-field across chunks instead of the last
+ *  chunk's presence/absence clobbering an earlier chunk's value — a body
+ *  shape returning always-present-defaulted-to-0 fields made that merge
+ *  impossible to do correctly upstream. */
+function extractUsageFromBody(body: unknown, apiStyle: UsageApiStyle): Partial<UsageTotals> | undefined {
   if (!body || typeof body !== 'object') return undefined;
-  const usage = (body as Record<string, unknown>).usage;
-  if (!usage || typeof usage !== 'object') return undefined;
-  const u = usage as Record<string, unknown>;
+  const record = body as Record<string, unknown>;
+  const topUsage = record.usage;
+  const nestedMessageUsage = apiStyle === 'anthropic' && record.message && typeof record.message === 'object'
+    ? (record.message as Record<string, unknown>).usage
+    : undefined;
+
   if (apiStyle === 'anthropic') {
-    const input = u.input_tokens;
-    const output = u.output_tokens;
-    if (typeof input === 'number' || typeof output === 'number') {
-      return { inputTokens: typeof input === 'number' ? input : 0, outputTokens: typeof output === 'number' ? output : 0 };
-    }
-    return undefined;
+    const topU = (topUsage && typeof topUsage === 'object') ? topUsage as Record<string, unknown> : undefined;
+    const nestedU = (nestedMessageUsage && typeof nestedMessageUsage === 'object') ? nestedMessageUsage as Record<string, unknown> : undefined;
+    if (!topU && !nestedU) return undefined;
+    const input = nestedU?.input_tokens ?? topU?.input_tokens;
+    const output = topU?.output_tokens ?? nestedU?.output_tokens;
+    const result: Partial<UsageTotals> = {};
+    if (typeof input === 'number') result.inputTokens = input;
+    if (typeof output === 'number') result.outputTokens = output;
+    return (result.inputTokens !== undefined || result.outputTokens !== undefined) ? result : undefined;
   }
+
   // openai style
-  const input = u.prompt_tokens;
-  const output = u.completion_tokens;
-  if (typeof input === 'number' || typeof output === 'number') {
-    return { inputTokens: typeof input === 'number' ? input : 0, outputTokens: typeof output === 'number' ? output : 0 };
-  }
-  return undefined;
+  if (!topUsage || typeof topUsage !== 'object') return undefined;
+  const u = topUsage as Record<string, unknown>;
+  const result: Partial<UsageTotals> = {};
+  if (typeof u.prompt_tokens === 'number') result.inputTokens = u.prompt_tokens;
+  if (typeof u.completion_tokens === 'number') result.outputTokens = u.completion_tokens;
+  return (result.inputTokens !== undefined || result.outputTokens !== undefined) ? result : undefined;
 }
 
-/** Parse a (possibly SSE) response body buffer for the last usage object it
- *  carries. Handles both a single JSON document and `data: {...}\n\n` SSE
- *  framing (some providers only attach usage to the final SSE chunk).
- *  Exported for unit testing without spinning up a real server. */
+/** Merge a newly-seen partial usage reading into an accumulator, per field —
+ *  a later chunk that doesn't report a field must not erase an earlier
+ *  chunk's value for that field (see extractUsageFromBody's header). */
+function mergeUsage(acc: Partial<UsageTotals>, next: Partial<UsageTotals>): void {
+  if (next.inputTokens !== undefined) acc.inputTokens = next.inputTokens;
+  if (next.outputTokens !== undefined) acc.outputTokens = next.outputTokens;
+}
+
+/** Parse a (possibly SSE) response body buffer for the usage it carries,
+ *  merging per-field across every JSON document / SSE chunk found (not
+ *  "last chunk wins" as a whole object — see mergeUsage). Handles both a
+ *  single JSON document and `data: {...}\n\n` SSE framing. Exported for unit
+ *  testing without spinning up a real server. */
 export function parseUsageFromResponseBody(body: string, apiStyle: UsageApiStyle): UsageTotals | undefined {
   const trimmed = body.trim();
   if (!trimmed) return undefined;
+  const merged: Partial<UsageTotals> = {};
 
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) {
-        let last: UsageTotals | undefined;
         for (const item of parsed) {
           const u = extractUsageFromBody(item, apiStyle);
-          if (u) last = u;
+          if (u) mergeUsage(merged, u);
         }
-        return last;
+      } else {
+        const u = extractUsageFromBody(parsed, apiStyle);
+        if (u) mergeUsage(merged, u);
       }
-      return extractUsageFromBody(parsed, apiStyle);
     } catch {
       return undefined;
     }
+    return (merged.inputTokens !== undefined || merged.outputTokens !== undefined)
+      ? { inputTokens: merged.inputTokens ?? 0, outputTokens: merged.outputTokens ?? 0 }
+      : undefined;
   }
 
-  // SSE framing: scan every `data: ` line, keep the last usage found.
-  let last: UsageTotals | undefined;
+  // SSE framing: scan every `data: ` line, merging per field across chunks.
   for (const rawLine of trimmed.split('\n')) {
     const line = rawLine.trim();
     if (!line.startsWith('data:')) continue;
@@ -97,12 +126,14 @@ export function parseUsageFromResponseBody(body: string, apiStyle: UsageApiStyle
     if (!payload || payload === '[DONE]') continue;
     try {
       const u = extractUsageFromBody(JSON.parse(payload), apiStyle);
-      if (u) last = u;
+      if (u) mergeUsage(merged, u);
     } catch {
       // ignore malformed SSE chunk — best-effort side-channel
     }
   }
-  return last;
+  return (merged.inputTokens !== undefined || merged.outputTokens !== undefined)
+    ? { inputTokens: merged.inputTokens ?? 0, outputTokens: merged.outputTokens ?? 0 }
+    : undefined;
 }
 
 export class UsageProxyServer {
@@ -147,7 +178,15 @@ export class UsageProxyServer {
   private handle(clientReq: IncomingMessage, clientRes: ServerResponse): void {
     const isHttps = this.upstream.protocol === 'https:';
     const upstreamPath = (clientReq.url ?? '/');
+    // Force identity encoding: parseUsageFromResponseBody reads the response
+    // body as raw utf8 text. If the CLI's HTTP client sends its own
+    // Accept-Encoding and the upstream honors it with a compressed (gzip)
+    // response, that read silently produces garbage — JSON.parse fails,
+    // usage extraction returns undefined, and accounting stays at 0 with no
+    // error surfaced anywhere. Stripping it here means the upstream always
+    // sends plain text, which this proxy can actually parse.
     const headers = { ...clientReq.headers, host: this.upstream.host };
+    delete headers['accept-encoding'];
 
     const upstreamReq = (isHttps ? httpsRequest : httpRequest)(
       {
