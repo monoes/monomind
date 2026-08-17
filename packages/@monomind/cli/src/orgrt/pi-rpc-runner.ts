@@ -215,16 +215,21 @@ export class PiRpcAgentRunner implements AgentRunner {
     // latency) — what matters is total SILENCE from the process, not how
     // long any one turn takes.
     //
-    // PAUSED (not just clock-bumped) while an org tool call is in flight —
-    // executeToolCall can run ask_human, which waits on a real person and
-    // can legitimately take far longer than MID_SESSION_SILENCE_MS. A pure
-    // "bump lastEventAt once before the await" would still let the watchdog
-    // fire mid-wait for anything slower than the silence window itself;
-    // pausing the check entirely for the duration is the correct fix.
+    // PAUSED (not just clock-bumped) whenever this runner isn't actually
+    // waiting on pi — either an org tool call is in flight (executeToolCall
+    // can run ask_human, which waits on a real person and can legitimately
+    // take far longer than MID_SESSION_SILENCE_MS), or there's no turn in
+    // flight at all: `for await (const p of args.prompt)` blocks on the
+    // ROLE'S OWN MAILBOX (session.ts), which idles for as long as the role
+    // has nothing new to do — completely normal, and NOT "pi is wedged".
+    // A pure "bump lastEventAt" approach would still let the watchdog fire
+    // mid-wait for anything slower than the silence window itself; pausing
+    // the check entirely for the duration is the correct fix in both cases.
     let toolCallInFlight = false;
+    let turnInFlight = false;
     const MID_SESSION_SILENCE_MS = SETTLE_TIMEOUT_MS; // reuse the same bound the settle-heuristic gives up at
     const silenceWatchdog: ReturnType<typeof setInterval> = setInterval(() => {
-      if (closed || toolCallInFlight) return;
+      if (closed || toolCallInFlight || !turnInFlight) return;
       if (Date.now() - lastEventAt > MID_SESSION_SILENCE_MS) {
         closed = true;
         killChild();
@@ -244,6 +249,13 @@ export class PiRpcAgentRunner implements AgentRunner {
         let turnOutputTokens = 0;
         let round = 0;
 
+        // The silence watchdog only applies from here to the end of this
+        // turn's work — see its declaration above. Always cleared in
+        // `finally` so a thrown error (which exits the loop) can't leave it
+        // stuck true and permanently disable the watchdog for the rest of
+        // the session.
+        turnInFlight = true;
+        try {
         turnLoop: for (;;) {
           send({ type: 'prompt', message: nextMessage });
 
@@ -360,6 +372,9 @@ export class PiRpcAgentRunner implements AgentRunner {
             lastEventAt = Date.now(); // the post-tool-call silence window starts fresh, not already partway elapsed
           }
           nextMessage = formatToolResults(calls, results);
+        }
+        } finally {
+          turnInFlight = false;
         }
 
         yield {

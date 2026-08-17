@@ -244,7 +244,15 @@ export class CopilotAgentRunner implements AgentRunner {
         .then(([lines, exitCode]) => {
           const parsed = parseCopilotEvents(lines);
           resolve({ texts: parsed.texts, rawTexts: parsed.rawTexts, exitCode, stderrTail, timedOut, hangSuspected });
-        }, reject)
+        }, (err) => {
+          // A stdout stream error (the reject path) means the process is
+          // still ALIVE and unmanaged — none of the timeout/hang timers
+          // would have fired to kill it. Without this, that error would
+          // orphan the child. child.kill() on an already-dead process is a
+          // documented no-op, so this is safe on every path.
+          try { child.kill('SIGTERM'); } catch { /* already gone */ }
+          reject(err);
+        })
         .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);
