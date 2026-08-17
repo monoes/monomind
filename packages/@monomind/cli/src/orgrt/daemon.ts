@@ -176,6 +176,36 @@ export function roleTokenBudget(role: OrgRole, def: OrgDef): number {
   );
 }
 
+/** Idle watchdog's per-tick recovery check: given the previous nudge timestamp,
+ *  the cumulative nudge count, and the timestamp of the most recent real tool
+ *  call, returns the nudge count that should carry forward now that fresh
+ *  activity means the org is no longer idle.
+ *
+ *  `nudgedAt !== 0` means we're recovering from an outstanding nudge. Resetting
+ *  the counter here means it only ever tracks UNRESOLVED idle spells in a row,
+ *  not a lifetime total — a long-running org that goes idle and recovers any
+ *  number of times (e.g. periodic checkpoints on a slow background task) is
+ *  never punished for having had several separate, healthy idle spells over
+ *  its lifetime. Before this existed, `nudges` only ever incremented, so a run
+ *  that answered every single nudge with real work still hit the "org idle
+ *  again after 3 nudges" cap and got force-stopped on its 4th idle spell —
+ *  observed live killing an in-progress 24h soak test under 90 minutes in.
+ *
+ *  But "recovering" must mean genuine forward progress, not just any bus
+ *  event — a bare, content-free reply to the nudge (a boss that answers with
+ *  "✓ Complete" and calls no tools at all) still updates lastActivity, so the
+ *  org isn't flagged as silent, but it accomplishes nothing: nobody outside
+ *  the boss's own turn ever sees it, since role coordination only happens via
+ *  tool calls (org_send, org_task, ...). Requiring `lastToolActivity >=
+ *  nudgedAt` — a real tool call happened AFTER this nudge was sent — closes
+ *  that gap: observed live, a boss stuck responding to four consecutive
+ *  10-minute nudges with one-line acknowledgments and zero tool calls looped
+ *  indefinitely making no progress, because every trivial reply reset the cap
+ *  that was supposed to catch exactly this. */
+export function resolvedIdleNudgeCount(nudgedAt: number, nudges: number, lastToolActivity: number): number {
+  return nudgedAt !== 0 && lastToolActivity >= nudgedAt ? 0 : nudges;
+}
+
 /** Bounded ring buffer for agent terminal scrollback. */
 export class ScrollbackBuffer {
   private lines: string[] = [];
@@ -543,6 +573,16 @@ export class OrgDaemon {
     const MAX_COLLECTED = 1000;
     const collected: BusEvent[] = [];
     let lastActivity = Date.now();
+    // Separate from lastActivity: only real tool calls (org_send, org_task,
+    // Bash, ...) count here, not status pings or chat-only turns. The idle
+    // watchdog's nudge-recovery check (resolvedIdleNudgeCount) uses this to
+    // tell genuine forward progress apart from a boss that "answers" a nudge
+    // with a bare acknowledgment ("✓ Complete") and does nothing — a
+    // content-free reply still updates lastActivity (so the org isn't
+    // flagged as silent), but must not reset the cumulative nudge cap, or a
+    // boss that's genuinely out of ideas can loop forever making zero
+    // progress without ever tripping the watchdog.
+    let lastToolActivity = 0;
     bus.subscribe((e) => {
       const slim: BusEvent =
         e.data?.content != null ? { ...e, data: { ...e.data, content: undefined } } : e;
@@ -551,6 +591,7 @@ export class OrgDaemon {
       // The watchdog's own nudge event must not count as org activity, or a
       // hung boss would never trip the "nudge produced no activity" stop.
       if (e.reason !== 'idle-nudge') lastActivity = Date.now();
+      if (e.type === 'tool') lastToolActivity = Date.now();
       // org_complete IS the end of the run — self-stop instead of sitting
       // "running" forever after a recorded outcome. Deferred (unref'd) so the
       // tool call's receipt reaches the boss and its final turn text still
@@ -1127,8 +1168,9 @@ export class OrgDaemon {
     // org_complete) produces no bus events, and every agent just waits. After
     // idle_minutes of silence, nudge the boss to complete or reassign; if the
     // nudge itself produces no activity (boss hung/crashed), or the org keeps
-    // going idle after MAX_IDLE_NUDGES nudges, stop the run instead of letting
-    // it freeze forever. idle_minutes: 0 disables.
+    // going idle after MAX_IDLE_NUDGES nudges in a row without ever recovering
+    // (see resolvedIdleNudgeCount), stop the run instead of letting it freeze
+    // forever. idle_minutes: 0 disables.
     const idleMs = (def.run_config.idle_minutes ?? 10) * 60_000;
     if (idleMs > 0) {
       const MAX_IDLE_NUDGES = 3;
@@ -1148,6 +1190,7 @@ export class OrgDaemon {
           if (pendingGates.length > 0) return;
           const idleFor = Date.now() - lastActivity;
           if (idleFor < idleMs) {
+            nudges = resolvedIdleNudgeCount(nudgedAt, nudges, lastToolActivity);
             nudgedAt = 0;
             return;
           }

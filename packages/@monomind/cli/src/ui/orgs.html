@@ -1406,7 +1406,14 @@ function renderTab(tab) {
 function renderChart() {
   const d = orgDetailData;
   const roles = Array.isArray(d.roles) ? d.roles : [];
-  const comms = Array.isArray(d.communication) ? d.communication : [];
+  // Structural report lines come straight from each role's reports_to (the
+  // authoritative chain also shown in the Roles tab) — declared communication
+  // edges (command/feedback/handoff busses) don't reflect who actually reports
+  // to whom, e.g. a hierarchical topology's queen commanding every worker directly.
+  const reportEdges = roles
+    .filter(r => r.reports_to && r.reports_to !== r.id)
+    .map(r => ({ from: r.id, to: r.reports_to, type: 'report' }));
+  const comms = reportEdges.concat(Array.isArray(d.communication) ? d.communication : []);
   const running = !!(allOrgs.find(o => o.name === selectedOrg) || {}).running;
 
   // Meta bar
