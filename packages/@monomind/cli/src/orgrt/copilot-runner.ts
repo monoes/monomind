@@ -48,6 +48,13 @@ import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+/** Distinct from TURN_TIMEOUT_MS: catches a hung first-run interactive prompt
+ *  fast instead of waiting out the full turn timeout. Any output at all
+ *  disarms it. Copilot CLI has a DOCUMENTED bug where its directory-trust
+ *  and path-access prompts can hang indefinitely in CI/headless invocations
+ *  with no way to answer them — this is the primary mitigation for copilot
+ *  specifically, not just a defensive backstop. */
+const STARTUP_GRACE_MS = 45_000;
 
 interface CopilotEvent {
   type?: string;
@@ -100,6 +107,9 @@ interface TurnOutcome {
   exitCode: number;
   stderrTail: string;
   timedOut: boolean;
+  /** True when the process was killed by STARTUP_GRACE_MS with no output —
+   *  likely stuck on copilot's documented directory-trust/path-access hang. */
+  hangSuspected: boolean;
 }
 
 export class CopilotAgentRunner implements AgentRunner {
@@ -116,6 +126,15 @@ export class CopilotAgentRunner implements AgentRunner {
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
           const outcome = await this.runTurn(bin, nextPrompt, args);
 
+          if (outcome.hangSuspected) {
+            throw new Error(
+              `CopilotAgentRunner: copilot produced no output within ${STARTUP_GRACE_MS / 1000}s and was ` +
+              'killed. This is a documented copilot CLI issue: its directory-trust/path-access prompts can ' +
+              'hang indefinitely in headless invocations with no way to answer them. Run `copilot` once ' +
+              'manually in a real terminal in this project to accept any prompts (and confirm --add-dir ' +
+              `covers every path it needs), then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+            );
+          }
           if (outcome.exitCode !== 0) {
             throw new Error(
               `CopilotAgentRunner: copilot failed (exit ${outcome.exitCode})` +
@@ -175,7 +194,9 @@ export class CopilotAgentRunner implements AgentRunner {
       let stderrTail = '';
       child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
 
+      let sawOutput = false;
       let timedOut = false;
+      let hangSuspected = false;
       const KILL_GRACE_MS = 5000;
       let killTimer: ReturnType<typeof setTimeout> | undefined;
       const timer = setTimeout(() => {
@@ -184,6 +205,14 @@ export class CopilotAgentRunner implements AgentRunner {
         killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
+
+      // See STARTUP_GRACE_MS — disarmed by the first stdout chunk below.
+      let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+        hangSuspected = true;
+        child.kill('SIGTERM');
+        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer.unref?.();
+      }, STARTUP_GRACE_MS);
 
       const exitPromise = new Promise<number>((res, rej) => {
         child.on('error', rej);
@@ -195,6 +224,7 @@ export class CopilotAgentRunner implements AgentRunner {
         const lines: string[] = [];
         let buf = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
           buf += chunk.toString();
           const parts = buf.split('\n');
           buf = parts.pop() ?? '';
@@ -203,10 +233,14 @@ export class CopilotAgentRunner implements AgentRunner {
         if (buf.trim()) lines.push(buf);
         return lines;
       })()
-        .then((lines) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ lines, exitCode })))
+        .then((lines) => exitPromise.finally(() => {
+          clearTimeout(timer);
+          if (hangTimer) clearTimeout(hangTimer);
+          if (killTimer) clearTimeout(killTimer);
+        }).then((exitCode) => ({ lines, exitCode })))
         .then(({ lines, exitCode }) => {
           const parsed = parseCopilotEvents(lines);
-          resolve({ texts: parsed.texts, rawTexts: parsed.rawTexts, exitCode, stderrTail, timedOut });
+          resolve({ texts: parsed.texts, rawTexts: parsed.rawTexts, exitCode, stderrTail, timedOut, hangSuspected });
         }, reject);
     });
   }

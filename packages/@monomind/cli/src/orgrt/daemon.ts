@@ -41,6 +41,7 @@ import { QwenAgentRunner } from './qwen-runner.js';
 import { CrushAgentRunner } from './crush-runner.js';
 import { CopilotAgentRunner } from './copilot-runner.js';
 import { PiAgentRunner } from './pi-runner.js';
+import { PiRpcAgentRunner } from './pi-rpc-runner.js';
 import {
   captureCheckpoint,
   generateChecksum,
@@ -110,7 +111,19 @@ const COMPLETE_DRAIN_MS = 5 * 60_000;
  *  (see resolveRoleRunner). */
 export type RuntimeKind =
   | 'claude' | 'kimicode' | 'opencode' | 'vercel' | 'codex' | 'antigravity'
-  | 'grok' | 'qwen' | 'crush' | 'copilot' | 'pi';
+  | 'grok' | 'qwen' | 'crush' | 'copilot' | 'pi'
+  /** Opt-in alternate to 'pi': keeps the pi subprocess alive for the whole
+   *  mailbox session (--mode rpc) instead of spawning fresh per turn — see
+   *  pi-rpc-runner.ts's header for the protocol source and its one
+   *  documented-but-unverified heuristic (turn-completion detection via
+   *  get_state polling). Prefer plain 'pi' unless you specifically want
+   *  session-lifetime context continuity and have validated this against a
+   *  live pi install. No 'qwen-rpc' equivalent exists yet — qwen's
+   *  --input-format stream-json is real but its exact message schema wasn't
+   *  independently confirmed the way pi's rpc.md was, so implementing it
+   *  would mean guessing at a wire format rather than building against a
+   *  literal, sourced example. */
+  | 'pi-rpc';
 export type ProviderKind =
   | 'subscription'
   | 'api-key'
@@ -149,6 +162,7 @@ export function resolveRunner(
   if (selected === 'crush') return new CrushAgentRunner();
   if (selected === 'copilot') return new CopilotAgentRunner();
   if (selected === 'pi') return new PiAgentRunner();
+  if (selected === 'pi-rpc') return new PiRpcAgentRunner();
   return undefined;
 }
 

@@ -84,4 +84,49 @@ describe('org watch', () => {
     expect(text).toContain('from the older run');
     expect(text).not.toContain('from the latest run');
   });
+
+  it('hides status events by default and shows them with --verbose', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-watch-'));
+    setupOrgRun(cwd, 'test', [
+      { id: '1', ts: 1, org: 'test', run: RUN, type: 'status', from: 'researcher', reason: 'agent-restart', msg: 'agent "researcher" crashed — restarting in 1000ms' },
+      { id: '2', ts: 2, org: 'test', run: RUN, type: 'chat', from: 'researcher', msg: 'back at it' },
+    ]);
+
+    const quiet = captureLog();
+    const quietRes = await watchAction({ args: ['test', 'researcher'], flags: { follow: false }, cwd, interactive: false } as any, 'test');
+    quiet.restore();
+    expect(quietRes.success).toBe(true);
+    expect(quiet.output.join('\n')).not.toContain('crashed — restarting');
+
+    const verbose = captureLog();
+    const verboseRes = await watchAction({ args: ['test', 'researcher'], flags: { follow: false, verbose: true }, cwd, interactive: false } as any, 'test');
+    verbose.restore();
+    expect(verboseRes.success).toBe(true);
+    const verboseText = verbose.output.join('\n');
+    expect(verboseText).toContain('crashed — restarting');
+    expect(verboseText).toContain('back at it');
+  });
+
+  it('hides usage events by default and prints a running token/cost total with --stats', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'org-watch-'));
+    setupOrgRun(cwd, 'test', [
+      { id: '1', ts: 1, org: 'test', run: RUN, type: 'usage', from: 'researcher', data: { tokens: 100, cost_usd: 0.01 } },
+      { id: '2', ts: 2, org: 'test', run: RUN, type: 'usage', from: 'researcher', data: { tokens: 50, cost_usd: 0.005 } },
+      { id: '3', ts: 3, org: 'test', run: RUN, type: 'usage', from: 'coder', data: { tokens: 999, cost_usd: 9 } },
+    ]);
+
+    const quiet = captureLog();
+    await watchAction({ args: ['test', 'researcher'], flags: { follow: false }, cwd, interactive: false } as any, 'test');
+    quiet.restore();
+    expect(quiet.output.join('\n')).not.toContain('[stats]');
+
+    const stats = captureLog();
+    const res = await watchAction({ args: ['test', 'researcher'], flags: { follow: false, stats: true }, cwd, interactive: false } as any, 'test');
+    stats.restore();
+    expect(res.success).toBe(true);
+    const text = stats.output.join('\n');
+    expect(text).toContain('total 100');
+    expect(text).toContain('total 150'); // running total after the second usage event
+    expect(text).not.toContain('999'); // coder's usage, not researcher's
+  });
 });
