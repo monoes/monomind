@@ -46,6 +46,36 @@ describe('parseUsageFromResponseBody', () => {
     const body = ['data: {not json', '', 'data: {"usage":{"prompt_tokens":1,"completion_tokens":2}}', ''].join('\n');
     expect(parseUsageFromResponseBody(body, 'openai')).toEqual({ inputTokens: 1, outputTokens: 2 });
   });
+
+  it('finds anthropic input_tokens nested under message.usage on message_start, merged with output_tokens from a later message_delta chunk (regression: real Anthropic streaming shape — the two fields land in different chunks)', () => {
+    const body = [
+      'data: {"type":"message_start","message":{"id":"msg_1","usage":{"input_tokens":123,"output_tokens":1}}}',
+      '',
+      'data: {"type":"content_block_delta","delta":{"text":"hi"}}',
+      '',
+      'data: {"type":"message_delta","delta":{},"usage":{"output_tokens":45}}',
+      '',
+    ].join('\n');
+    expect(parseUsageFromResponseBody(body, 'anthropic')).toEqual({ inputTokens: 123, outputTokens: 45 });
+  });
+
+  it('does not let a later chunk missing a field erase an earlier chunk\'s value for that field (openai style)', () => {
+    const body = [
+      'data: {"usage":{"prompt_tokens":50}}', // only input this chunk
+      '',
+      'data: {"usage":{"completion_tokens":30}}', // only output this chunk — must not zero out input
+      '',
+    ].join('\n');
+    expect(parseUsageFromResponseBody(body, 'openai')).toEqual({ inputTokens: 50, outputTokens: 30 });
+  });
+
+  it('merges across full JSON-array bodies the same way as SSE chunks', () => {
+    const body = JSON.stringify([
+      { message: { usage: { input_tokens: 10 } } },
+      { usage: { output_tokens: 5 } },
+    ]);
+    expect(parseUsageFromResponseBody(body, 'anthropic')).toEqual({ inputTokens: 10, outputTokens: 5 });
+  });
 });
 
 describe('UsageProxyServer (end-to-end via loopback)', () => {
@@ -139,5 +169,31 @@ describe('UsageProxyServer (end-to-end via loopback)', () => {
 
     const res = await fetch(`${proxy.url()}/missing`);
     expect(res.status).toBe(404);
+  });
+
+  it('strips accept-encoding before forwarding, so the upstream never compresses a response this proxy would otherwise fail to parse (regression: a gzipped body silently parsed as garbage → 0 usage forever)', async () => {
+    let receivedAcceptEncoding: string | undefined = 'not-set';
+    upstream = createServer((req, res) => {
+      receivedAcceptEncoding = req.headers['accept-encoding'] as string | undefined;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ usage: { prompt_tokens: 1, completion_tokens: 1 } }));
+    });
+    await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', () => resolve()));
+    const addr = upstream.address();
+    upstreamUrl = `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 0}`;
+
+    const proxy = new UsageProxyServer({ upstreamBaseUrl: upstreamUrl, apiStyle: 'openai' });
+    proxies.push(proxy);
+    await proxy.start();
+
+    await fetch(`${proxy.url()}/chat`, {
+      method: 'POST',
+      headers: { 'accept-encoding': 'gzip, deflate, br' },
+      body: '{}',
+    });
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(receivedAcceptEncoding).toBeUndefined();
+    expect(proxy.totals()).toEqual({ inputTokens: 1, outputTokens: 1 });
   });
 });

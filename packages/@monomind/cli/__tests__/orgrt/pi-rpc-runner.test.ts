@@ -72,7 +72,7 @@ describe('extractPiRpcText', () => {
 /** A minimal fake PiRpcProcess: an EventEmitter-backed duplex that records
  *  every command written to stdin and lets the test script server-side
  *  events onto stdout on its own schedule. */
-function fakeProcess(): PiRpcProcess & { written: string[]; emitStdout: (line: string) => void; emitClose: (code: number) => void } {
+function fakeProcess(): PiRpcProcess & { written: string[]; emitStdout: (line: string) => void; emitClose: (code: number) => void; emitError: (err: Error) => void } {
   const emitter = new EventEmitter();
   const stdoutEmitter = new EventEmitter();
   const written: string[] = [];
@@ -85,6 +85,7 @@ function fakeProcess(): PiRpcProcess & { written: string[]; emitStdout: (line: s
     written,
     emitStdout: (line: string) => stdoutEmitter.emit('data', Buffer.from(line)),
     emitClose: (code: number) => emitter.emit('close', code),
+    emitError: (err: Error) => emitter.emit('error', err),
   };
 }
 
@@ -225,5 +226,17 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     proc.emitClose(1);
 
     await expect(resultsPromise).rejects.toThrow(/pi rpc process ended unexpectedly/);
+  });
+
+  it('surfaces the ORIGINAL spawn error (with its .code intact) instead of a generic wrapper — regression: an earlier revision discarded the real error, so ENOENT (missing pi binary) never matched the install-instructions branch', async () => {
+    const proc = fakeProcess();
+    const runner = new PiRpcAgentRunner('pi', () => proc);
+    const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
+    await new Promise((r) => setTimeout(r, 10));
+
+    const enoent = Object.assign(new Error('spawn pi ENOENT'), { code: 'ENOENT' });
+    proc.emitError(enoent);
+
+    await expect(resultsPromise).rejects.toThrow(/requires the Pi coding agent CLI \(pi\) on PATH/);
   });
 });
