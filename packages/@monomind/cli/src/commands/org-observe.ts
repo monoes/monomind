@@ -113,6 +113,53 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
   return { success: true };
 };
 
+/**
+ * `org watch <name> <role>` — live-tail one role's assistant chat text.
+ *
+ * Every runner (Claude included — this isn't specific to the subprocess CLI
+ * runners) funnels through session.ts's shared message loop, which emits
+ * each assistant-text chunk onto the bus as a `chat` event. This command is
+ * just `logsAction` pre-filtered to that event type + role and formatted as
+ * a plain transcript instead of the full annotated event line — a friendlier
+ * front door onto infrastructure that already exists and already covers
+ * every runtime uniformly. For the fuller event stream (tool calls, status
+ * changes, audit decisions) use `org logs <name> --role <role> --follow`
+ * directly.
+ */
+export const watchAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const role = ctx.args[1];
+  if (!role) return { success: false, message: 'usage: monomind org watch <org> <role>' };
+  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
+  if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
+  const file = join(ctx.cwd, ORG_DIR, name, run, 'bus.jsonl');
+
+  const show = (e: BusEvent): void => {
+    if (e.type !== 'chat' || e.from !== role) return;
+    log(`${output.info(role + ':')} ${e.msg ?? ''}`);
+  };
+  log(output.info(`watching ${name}/${role} — ${run} (Ctrl-C to stop; org logs ${name} --role ${role} --follow for the full event stream)`));
+  let seenLines = 0;
+  const drain = (): void => {
+    if (!existsSync(file)) return;
+    const lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
+    for (let i = seenLines; i < lines.length; i++) {
+      try { show(JSON.parse(lines[i]) as BusEvent); seenLines = i + 1; }
+      catch {
+        if (i === lines.length - 1) break; // only the final line may be a mid-append partial write
+        seenLines = i + 1;
+      }
+    }
+  };
+  drain();
+  if (ctx.flags['follow'] === false) return { success: true }; // --follow=false opts out of the default live tail
+  await new Promise<void>(resolve => {
+    const iv = setInterval(drain, 500);
+    process.once('SIGINT', () => { clearInterval(iv); resolve(); });
+    process.once('SIGTERM', () => { clearInterval(iv); resolve(); });
+  });
+  return { success: true };
+};
+
 /** `org report <name> [--run id] [--all] [--by-role] [--format mermaid]` — summarize a run (or list run history). */
 export const reportAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   if (ctx.flags['all'] === true) {

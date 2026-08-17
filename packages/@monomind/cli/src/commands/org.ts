@@ -1213,6 +1213,20 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'watch', description: 'Live-tail one role\'s assistant chat text (any runtime) — a filtered, friendlier `logs --follow`',
+      options: [
+        { name: 'run', description: 'Run id (default: latest)', type: 'string' },
+        { name: 'follow', description: 'Set --follow=false to print current output once and exit instead of live-tailing', type: 'boolean', default: true },
+      ],
+      examples: [{ command: 'monomind org watch growth researcher', description: 'Watch the researcher role\'s live output' }],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { watchAction } = await import('./org-observe.js');
+        return watchAction(ctx, v.name);
+      },
+    },
+    {
       name: 'report', description: 'Summarize an org run: outcome, per-role activity, tokens, assets, crashes',
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
