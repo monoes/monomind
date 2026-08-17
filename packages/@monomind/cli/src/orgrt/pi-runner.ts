@@ -12,10 +12,20 @@
  * Subprocess protocol — per public docs (pi-mono's rpc.md + README), NOT
  * byte-verified against a running binary. `pi --mode json` shares its event
  * vocabulary with pi's RPC mode:
- *   - Invocation: `pi --mode json --session-dir <dir> -p "<prompt>"`
+ *   - Invocation: `pi --mode json --approve --session-dir <dir> "<prompt>"`.
+ *     The prompt is POSITIONAL (matching pi's own interactive-mode CLI shape
+ *     and the same convention codex uses) — an earlier revision of this
+ *     runner passed it via a `-p` flag, which a second-source cross-check
+ *     against another public agentic-CLI wrapper's tool table indicated was
+ *     wrong; corrected here. `--approve` accepts the cwd as a trusted
+ *     project so pi doesn't stop to ask (pi has no single "yolo" flag; tool
+ *     auto-approval for individual actions is a separate, not-yet-wired
+ *     concern for this runner — org tool calls go through canUseTool
+ *     regardless, since they use the tool-fence protocol, not pi's native
+ *     tool surface).
  *     (`--session-dir` also gives turn-to-turn continuity: pi persists
  *     sessions in that directory and resumes the latest one by default —
- *     there is no documented explicit `--resume <id>` flag for headless use,
+ *     there is no confirmed explicit `--resume <id>` flag for headless use,
  *     so this runner points every turn at the SAME per-run session dir
  *     rather than tracking a session id, and disclaims true cross-process
  *     resume as best-effort).
@@ -168,8 +178,11 @@ export class PiAgentRunner implements AgentRunner {
 
   private runTurn(bin: string, prompt: string, sessionDir: string, args: AgentRunArgs): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
-      const cliArgs: string[] = ['--mode', 'json', '--session-dir', sessionDir, '-p', prompt];
+      // Prompt is positional (see file header) — always LAST so no later flag
+      // is mistaken for part of it.
+      const cliArgs: string[] = ['--mode', 'json', '--approve', '--session-dir', sessionDir];
       if (args.model) cliArgs.push('--model', args.model);
+      cliArgs.push(prompt);
 
       const child = this.spawnProcess(bin, cliArgs, { cwd: args.cwd, env: { ...process.env, ...args.env } });
 

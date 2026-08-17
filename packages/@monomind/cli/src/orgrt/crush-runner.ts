@@ -5,14 +5,14 @@
  *
  * Architectural difference from the other subprocess runners: `crush run
  * "<prompt>"` (per its public CLI docs) is a plain one-shot invocation —
- * text response to stdout, no documented JSON output mode and no documented
- * session-resume flag for headless use. Every mailbox prompt is therefore
- * a FRESH crush invocation with no continuity between turns; conversational
- * memory across turns is lost for roles on this runtime (session.ts's
- * mailbox/history context still gives the model recent context on each
- * fresh turn, same as any runner's very first turn). If a future crush
- * release adds documented headless session resume, wire it in here the same
- * way codex/qwen/grok do (capture + pass a --resume-style flag).
+ * text response to stdout, no documented JSON output mode. On the FIRST turn
+ * this runner sends the system prompt + tool protocol; subsequent turns add
+ * `--continue` (resume the most-recently-used session — confirmed by
+ * cross-checking a second, independent public agentic-CLI wrapper's provider
+ * table, which lists `--session <id>` / `--continue` as crush's resume
+ * mechanism) instead of re-sending the full system prompt, so conversational
+ * context is NOT re-derived from scratch every turn the way the original
+ * (pre-cross-check) revision of this runner did.
  *
  * Usage accounting — crush's plain-text output carries no token counts, so
  * this runner optionally routes crush's LLM traffic through a
@@ -24,8 +24,16 @@
  * config is normally a JSON file, `~/.config/crush/crush.json`), so the var
  * name is an OVERRIDABLE BEST GUESS (`OPENAI_BASE_URL`, constructor param
  * `baseUrlEnvVar`) — if it doesn't match your crush config, usage simply
- * stays at 0 (fails closed, never breaks the turn itself). Fix the org's
- * provider config or pass the right var name once confirmed.
+ * stays at 0 (fails closed, never breaks the turn itself). A second,
+ * independent source's own integration notes state more confidently that
+ * crush has NO base-URL env override at all and instead reads a runtime
+ * `provider.base_url` from a generated JSON config file pointed to by an
+ * env var — if true, this env-var guess does nothing (which the fails-closed
+ * design already tolerates) and the real fix is writing that config file
+ * before spawn, not renaming the env var. Left as a known follow-up rather
+ * than implemented here, since that source's own claim isn't independently
+ * confirmed either. Fix the org's provider config or pass the right var
+ * name via `baseUrlEnvVar` once confirmed against a live install.
  *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
@@ -91,14 +99,20 @@ export class CrushAgentRunner implements AgentRunner {
       await proxy.start();
     }
 
+    // Set once the first crush invocation completes — subsequent calls pass
+    // --continue (resume the most-recently-used session) instead of
+    // re-sending the full system prompt from scratch every turn.
+    let sessionStarted = false;
+
     try {
       for await (const p of args.prompt) {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
-        let nextPrompt = `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`;
+        let nextPrompt = sessionStarted ? text : `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`;
 
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
           proxy?.reset();
-          const outcome = await this.runTurn(bin, nextPrompt, args, proxy);
+          const outcome = await this.runTurn(bin, nextPrompt, args, proxy, sessionStarted);
+          sessionStarted = true;
 
           if (outcome.exitCode !== 0) {
             throw new Error(
@@ -132,11 +146,12 @@ export class CrushAgentRunner implements AgentRunner {
             break;
           }
 
-          // No native session to resume: each retry re-sends system prompt +
-          // tool protocol + accumulated tool results as a fresh crush call.
+          // sessionStarted is true by now (set right after the first
+          // runTurn call above) — the retry continues the same crush
+          // session via --continue instead of re-sending the system prompt.
           const results: string[] = [];
           for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
-          nextPrompt = `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${formatToolResults(calls, results)}`;
+          nextPrompt = formatToolResults(calls, results);
         }
       }
     } catch (err) {
@@ -158,9 +173,12 @@ export class CrushAgentRunner implements AgentRunner {
     prompt: string,
     args: AgentRunArgs,
     proxy: UsageProxyServer | undefined,
+    continueSession: boolean,
   ): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
       const cliArgs: string[] = ['run', prompt, '--yolo'];
+      if (args.model) cliArgs.push('--model', args.model);
+      if (continueSession) cliArgs.push('--continue');
 
       const env: Record<string, string | undefined> = { ...process.env, ...args.env };
       if (proxy && this.usageProxyOpts) env[this.usageProxyOpts.baseUrlEnvVar] = proxy.url();
