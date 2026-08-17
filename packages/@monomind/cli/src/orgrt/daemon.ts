@@ -881,6 +881,9 @@ export class OrgDaemon {
         cancelTask: (r: string, taskId: string, reason?: string) => {
           return this.dagCancelTask(name, r, taskId, reason);
         },
+        blockTask: (r: string, taskId: string, untilIso: string, reason?: string) => {
+          return this.dagBlockTask(name, r, taskId, untilIso, reason);
+        },
         planGraph: (r: string, specs: decisionOps.PlanTaskSpec[]) => {
           return this.dagPlanGraph(name, r, specs);
         },
@@ -1176,6 +1179,27 @@ export class OrgDaemon {
           // A pending gate means the org is legitimately waiting for human input
           const pendingGates = this.readGates(name).gates.filter((g) => g.status === 'pending');
           if (pendingGates.length > 0) return;
+          // Auto-resume any task whose org_task_block time has passed: flip it
+          // back to 'running' and re-push it into the assignee's mailbox, same
+          // as a fresh dispatch. This IS real activity, so fall through to the
+          // normal idleFor check below rather than returning early — an
+          // unblocked task should reset the idle clock, not just silently
+          // update state nobody notices until the next nudge.
+          const unblocked = running.taskDag?.unblockExpired(Date.now()) ?? [];
+          for (const task of unblocked) {
+            const agent = running.agents.get(task.assignee);
+            if (agent && !agent.mailbox.isClosed) {
+              agent.mailbox.push(`[task:${task.id}] Block expired — resuming: ${task.title}`);
+            }
+            bus.emit({
+              type: 'status', from: 'dag', reason: 'task-unblocked',
+              msg: `task ${task.id} block expired — resumed and re-dispatched to ${task.assignee}`,
+              data: { taskId: task.id, assignee: task.assignee },
+            });
+          }
+          // A task blocked on a real-world time still in the future is
+          // legitimate waiting, same as a pending gate — don't nudge about it.
+          if (running.taskDag?.hasActiveBlock(Date.now())) return;
           const idleFor = Date.now() - lastActivity;
           if (idleFor < idleMs) {
             nudges = resolvedIdleNudgeCount(nudgedAt, nudges, lastToolActivity);
@@ -1620,6 +1644,9 @@ export class OrgDaemon {
   }
   private dagCancelTask(org: string, role: string, taskId: string, reason?: string): string {
     return decisionOps.dagCancelTask(this, org, role, taskId, reason);
+  }
+  private dagBlockTask(org: string, role: string, taskId: string, untilIso: string, reason?: string): string {
+    return decisionOps.dagBlockTask(this, org, role, taskId, untilIso, reason);
   }
   private dagPlanGraph(org: string, role: string, specs: decisionOps.PlanTaskSpec[]): string {
     return decisionOps.dagPlanGraph(this, org, role, specs);
