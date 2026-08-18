@@ -122,7 +122,7 @@ export const RoleSchema = z.object({
    *  agent runtime regardless of the org-level `runtime` field or the
    *  MONOMIND_RUNTIME env var ('claude' explicitly forces the Claude default).
    *  Enables mixed-runtime orgs — e.g. a Claude coordinator with opencode workers. */
-  runtime: z.enum(['claude', 'kimicode', 'opencode', 'vercel', 'codex', 'antigravity', 'grok', 'qwen', 'crush', 'copilot', 'pi', 'pi-rpc']).optional(),
+  runtime: z.enum(['claude', 'kimicode', 'opencode', 'vercel', 'codex', 'antigravity', 'grok', 'qwen', 'crush', 'copilot', 'pi', 'pi-rpc', 'qwen-rpc']).optional(),
   /** Per-role override of run_config.max_turns_per_message — roles that legitimately
    *  need many more turns per message (e.g. a developer doing sequential build/fix/verify
    *  cycles) than others (e.g. docs, pm) shouldn't be forced onto one global budget. */
@@ -183,7 +183,7 @@ export const OrgDefSchema = z.object({
    *  MONOMIND_RUNTIME env var is honored, falling back to the default Claude
    *  runner. Per-org values override the env var, and a role's own `runtime`
    *  field (see RoleSchema) overrides this per role. */
-  runtime: z.enum(['claude', 'kimicode', 'opencode', 'vercel', 'codex', 'antigravity', 'grok', 'qwen', 'crush', 'copilot', 'pi', 'pi-rpc']).optional(),
+  runtime: z.enum(['claude', 'kimicode', 'opencode', 'vercel', 'codex', 'antigravity', 'grok', 'qwen', 'crush', 'copilot', 'pi', 'pi-rpc', 'qwen-rpc']).optional(),
 }).passthrough();
 
 export type OrgDef = z.infer<typeof OrgDefSchema>;
