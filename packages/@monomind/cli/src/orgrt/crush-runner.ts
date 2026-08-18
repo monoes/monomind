@@ -14,38 +14,43 @@
  * context is NOT re-derived from scratch every turn the way the original
  * (pre-cross-check) revision of this runner did.
  *
- * RISK, not independently confirmed either way: if crush's "most recently
- * used session" is scoped GLOBALLY rather than per working directory, two
- * different crush-backed roles running concurrently in the same org (each
- * with its OWN cwd via args.cwd) could cross-contaminate — role B's
- * `--continue` might resume role A's conversation instead of its own. crush
- * DOES support an explicit `--session <id>` flag per the same source, which
- * would be the correct fix (capture the session id crush's own output
- * reports, if any, and pass it explicitly instead of relying on "most
- * recent") — not implemented here because crush's plain-text stdout doesn't
- * appear to surface a session id to capture. Validate against a live
- * install before running multiple concurrent crush roles in one org.
+ * RESOLVED against a live v0.89.0 install (issue #180): crush's session
+ * store is a per-project SQLite DB at `<cwd>/.crush/crush.db` (created
+ * fresh per working directory unless `--data-dir` is overridden), so `crush
+ * session list` and `--continue`'s "most recently used session" are
+ * inherently scoped PER CWD, not global. Verified concretely: seeded two
+ * concurrent sessions from two different cwds with distinct secret words,
+ * then ran `crush run --continue` in each cwd — each one correctly recalled
+ * only its own secret, with zero cross-contamination. This runner never
+ * passes `--data-dir`, so the safe-by-default behavior applies as long as
+ * that stays true. The `--session <id>` capture-and-pass-explicitly
+ * alternative is therefore unnecessary.
+ *
+ * Also caught and fixed while validating live: this runner used to pass
+ * `--yolo` to `crush run`, which crush v0.89.0 REJECTS outright ("Unknown
+ * flag: --yolo") — `--yolo`/`-y` is a root-only flag for the interactive
+ * TUI and is not accepted by the `run` subcommand in any position. That
+ * made every single invocation fail with a non-zero exit. Confirmed live
+ * that it's also unnecessary: non-interactive `run` mode auto-approves tool
+ * calls without it (a file-write tool call completed with zero prompting).
  *
  * Usage accounting — crush's plain-text output carries no token counts, so
  * this runner optionally routes crush's LLM traffic through a
- * UsageProxyServer (usage-proxy.ts): crush supports pointing its provider at
- * a custom OpenAI-compatible base URL for BYOK/self-hosted setups, so the
- * runner sets that env var to the local proxy before spawning and reads
- * totals() after the turn. The exact env var crush reads for a runtime
- * base-URL override was not confirmed against a live install (its provider
- * config is normally a JSON file, `~/.config/crush/crush.json`), so the var
- * name is an OVERRIDABLE BEST GUESS (`OPENAI_BASE_URL`, constructor param
- * `baseUrlEnvVar`) — if it doesn't match your crush config, usage simply
- * stays at 0 (fails closed, never breaks the turn itself). A second,
- * independent source's own integration notes state more confidently that
- * crush has NO base-URL env override at all and instead reads a runtime
- * `provider.base_url` from a generated JSON config file pointed to by an
- * env var — if true, this env-var guess does nothing (which the fails-closed
- * design already tolerates) and the real fix is writing that config file
- * before spawn, not renaming the env var. Left as a known follow-up rather
- * than implemented here, since that source's own claim isn't independently
- * confirmed either. Fix the org's provider config or pass the right var
- * name via `baseUrlEnvVar` once confirmed against a live install.
+ * UsageProxyServer (usage-proxy.ts) by setting a base-URL env var before
+ * spawning and reading totals() after the turn. CONFIRMED BROKEN against a
+ * live install: crush ignores `OPENAI_BASE_URL` entirely (pointed it at an
+ * unreachable port with a real custom provider configured — crush still
+ * reached the real upstream, proving the env var is never read). crush's
+ * provider base_url is only configurable via a JSON config file
+ * (`~/.config/crush/crush.json`, `providers.<id>.base_url`, confirmed
+ * working live) — there is no runtime env-var override. `baseUrlEnvVar` as
+ * currently implemented does nothing for crush; it fails closed (usage
+ * stays at 0, turns aren't broken) but never actually collects usage. Real
+ * fix: write/merge a temp provider entry into crush's JSON config (or a
+ * `--data-dir`-scoped copy of it) pointed at the proxy before spawn, instead
+ * of setting an env var — not implemented here, since that requires
+ * deciding how to safely merge into a user's existing crush.json rather
+ * than just confirming a fact.
  *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
@@ -83,7 +88,10 @@ interface TurnOutcome {
 export interface CrushAgentRunnerOptions {
   crushBin?: string;
   /** Enable usage-proxy accounting. Off by default since the base-URL env
-   *  var it relies on is an unconfirmed guess (see file header). */
+   *  var it relies on is CONFIRMED not read by crush at all (see file
+   *  header) — turning this on fails closed (usage stays 0) rather than
+   *  breaking turns, but collects nothing until the JSON-config-based fix
+   *  described in the file header is implemented. */
   usageProxy?: { upstreamBaseUrl: string; baseUrlEnvVar?: string };
 }
 
@@ -200,7 +208,14 @@ export class CrushAgentRunner implements AgentRunner {
     continueSession: boolean,
   ): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
-      const cliArgs: string[] = ['run', prompt, '--yolo'];
+      // No --yolo here: confirmed against a live v0.89.0 install that `crush
+      // run` rejects it outright ("Unknown flag: --yolo") — --yolo/-y is a
+      // root-only flag for the interactive TUI, not propagated to `run`.
+      // Non-interactive `run` mode auto-approves tool calls without it
+      // (confirmed live: a file-write tool call completed with no prompt),
+      // so this isn't a missing-permission gap either — passing it just
+      // made every single invocation fail with a non-zero exit. See #180.
+      const cliArgs: string[] = ['run', prompt];
       if (args.model) cliArgs.push('--model', args.model);
       if (continueSession) cliArgs.push('--continue');
 
