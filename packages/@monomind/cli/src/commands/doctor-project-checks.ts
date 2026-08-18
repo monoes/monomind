@@ -676,7 +676,7 @@ export async function checkMetricsFreshness(): Promise<HealthCheck> {
     name: 'Worker Metrics',
     status: 'warn',
     message: `${stale.length} stale (>12h): ${stale.join(', ')}${fresh.length > 0 ? ` — ${fresh.length} fresh` : ''}`,
-    fix: 'monomind hooks worker run <name>  # map, audit, optimize, consolidate, ddd',
+    fix: 'monomind hooks worker run <name>  # map, audit, consolidate, ddd',
   };
 }
 

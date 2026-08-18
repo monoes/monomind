@@ -377,12 +377,6 @@ export const stopCommand: Command = {
         return { success: false, exitCode: 1 };
       }
 
-      if (!force) {
-        output.writeln(output.dim('  Completing current task...'));
-        output.writeln(output.dim('  Saving state...'));
-        output.writeln(output.dim('  Releasing resources...'));
-      }
-
       output.printSuccess(`Agent ${agentId} stopped successfully`);
       updateSwarmActivityMetrics(-1);
 

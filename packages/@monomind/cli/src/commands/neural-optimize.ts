@@ -10,17 +10,17 @@ import { redact } from '../utils/redaction.js';
 
 export const optimizeCommand: Command = {
   name: 'optimize',
-  description: 'Optimize pattern storage (Int8 quantization, memory compression)',
+  description: 'Optimize pattern storage (memory compression, usage analysis)',
   options: [
-    { name: 'method', type: 'string', description: 'Method: quantize, analyze, compact', default: 'quantize' },
+    { name: 'method', type: 'string', description: 'Method: analyze, compact, quantize (alias for compact — no real quantization exists for JSON-backed storage)', default: 'compact' },
     { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
   ],
   examples: [
-    { command: 'monomind hooks intelligence optimize --method quantize', description: 'Quantize patterns to Int8' },
+    { command: 'monomind hooks intelligence optimize --method compact', description: 'Remove near-duplicate patterns' },
     { command: 'monomind hooks intelligence optimize --method analyze -v', description: 'Analyze memory usage' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const method = ctx.flags.method as string || 'quantize';
+    const method = ctx.flags.method as string || 'compact';
     const verbose = ctx.flags.verbose === true;
 
     output.writeln();
@@ -47,68 +47,27 @@ export const optimizeCommand: Command = {
       } catch { /* ignore */ }
 
       if (method === 'quantize') {
-        spinner.setText('Applying Int8 quantization to pattern embeddings...');
-
-        let quantized = 0;
-        let savedBytes = 0;
-        let cosineDriftSum = 0;
-        let cosineDriftCount = 0;
-
-        // Int8 quantization: compress Float32 embeddings to Int8 by scaling to [-127, 127]
-        const quantizedPatterns = patterns.map(p => {
-          if (!p.embedding || p.embedding.length === 0) return p;
-
-          const maxAbs = p.embedding.reduce((m: number, v: number) => Math.max(m, Math.abs(v)), 1e-8);
-          const scale = 127 / maxAbs;
-          const int8Embedding = Array.from(p.embedding).map((v: number) => Math.round(v * scale) / scale);
-
-          // Measure the real cosine similarity between the original and quantized
-          // embedding so "Quality Impact" reports a computed number, not a claim.
-          let dot = 0;
-          let normOrig = 0;
-          let normQuant = 0;
-          for (let i = 0; i < p.embedding.length; i++) {
-            dot += p.embedding[i] * int8Embedding[i];
-            normOrig += p.embedding[i] * p.embedding[i];
-            normQuant += int8Embedding[i] * int8Embedding[i];
-          }
-          const denom = Math.sqrt(normOrig) * Math.sqrt(normQuant);
-          if (denom > 1e-12) {
-            cosineDriftSum += 1 - dot / denom;
-            cosineDriftCount++;
-          }
-
-          savedBytes += (p.embedding.length * 4) - (p.embedding.length * 1);
-          quantized++;
-          return { ...p, embedding: int8Embedding, _quantized: true, _scale: scale };
-        });
-
-        const avgCosineDrift = cosineDriftCount > 0 ? cosineDriftSum / cosineDriftCount : null;
-
-        const patternFile = path.join(patternDir, 'patterns.json');
-        const { writeJsonFileAtomic } = await import('../utils/json-file.js');
-        writeJsonFileAtomic(patternFile, quantizedPatterns);
-
-        spinner.succeed(`Quantized ${quantized} patterns`);
+        // There is no real Int8 quantization path for the JSON-backed pattern
+        // store: values round-trip through JSON as floats regardless of how
+        // they're rounded in memory, so no bytes are actually saved on disk.
+        // 'quantize' is an alias for 'compact', the closest real optimization.
+        output.writeln(output.dim('  No quantization exists for JSON-backed pattern storage — running compact instead.'));
+        spinner.setText('Compacting pattern storage...');
+        const compacted = await compactPatterns(0.95);
+        spinner.succeed(`Compacted ${compacted.removed} patterns`);
         output.writeln();
         output.printTable({
           columns: [
-            { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'value', header: 'Value', width: 20 },
+            { key: 'metric', header: 'Metric', width: 20 },
+            { key: 'value', header: 'Value', width: 15 },
           ],
           data: [
-            { metric: 'Patterns Quantized', value: String(quantized) },
-            { metric: 'Memory Saved', value: `~${(savedBytes / 1024).toFixed(1)} KB` },
-            { metric: 'Compression', value: '~4x (Float32 → Int8)' },
-            {
-              metric: 'Quality Impact',
-              value: avgCosineDrift !== null
-                ? `${(avgCosineDrift * 100).toFixed(3)}% mean cosine drift (measured)`
-                : 'not measured (no embeddings)',
-            },
+            { metric: 'Patterns Before', value: String(compacted.before) },
+            { metric: 'Patterns After', value: String(compacted.after) },
+            { metric: 'Removed', value: String(compacted.removed) },
+            { metric: 'Similarity Threshold', value: '95%' },
           ],
         });
-        return { success: true, data: { quantized, savedBytes, avgCosineDrift } };
 
       } else if (method === 'analyze') {
         spinner.succeed('Analysis complete');
@@ -138,7 +97,7 @@ export const optimizeCommand: Command = {
           output.writeln(output.bold('Optimization Recommendations'));
           const recommendations: string[] = [];
           if (patterns.length > 1000) recommendations.push('- Consider pruning low-usage patterns');
-          if (embeddingBytes > 1024 * 1024) recommendations.push('- Int8 quantization would reduce memory by ~75%');
+          if (embeddingBytes > 1024 * 1024) recommendations.push('- Run --method compact to remove near-duplicate patterns');
           if (stats.trajectoriesRecorded > 100) recommendations.push('- Trajectory consolidation available');
           if (recommendations.length === 0) recommendations.push('- Patterns are already well optimized');
           recommendations.forEach(r => output.writeln(r));

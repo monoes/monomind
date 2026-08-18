@@ -16,7 +16,7 @@ const benchmarkCommand: Command = {
     { name: 'suite', short: 's', type: 'string', description: 'Benchmark suite: all, wasm, neural, memory, search', default: 'all' },
     { name: 'iterations', short: 'i', type: 'number', description: 'Number of iterations', default: '100' },
     { name: 'warmup', short: 'w', type: 'number', description: 'Warmup iterations', default: '10' },
-    { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json, csv', default: 'text' },
+    { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
   ],
   examples: [
     { command: 'monomind performance benchmark -s neural', description: 'Benchmark neural operations' },
@@ -44,8 +44,11 @@ const benchmarkCommand: Command = {
     const iterations = Number.isFinite(iterationsRaw) ? Math.min(Math.max(1, iterationsRaw), MAX_ITERATIONS) : 100;
     const warmup = Number.isFinite(warmupRaw) ? Math.min(Math.max(0, warmupRaw), MAX_WARMUP) : 10;
     const outputFormatRaw = ctx.flags.output as string || 'text';
-    const VALID_OUTPUT_FORMATS = new Set(['text', 'json', 'csv']);
+    const VALID_OUTPUT_FORMATS = new Set(['text', 'json']);
     const outputFormat = VALID_OUTPUT_FORMATS.has(outputFormatRaw) ? outputFormatRaw : 'text';
+    if (outputFormatRaw === 'csv') {
+      output.writeln(output.warning('csv output is not implemented — printing text'));
+    }
 
     output.writeln();
     output.writeln(output.bold('Performance Benchmark (Real Measurements)'));

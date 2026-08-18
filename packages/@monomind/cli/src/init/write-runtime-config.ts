@@ -36,7 +36,6 @@ swarm:
 
 memory:
   backend: ${options.runtime.memoryBackend}
-  enableHNSW: ${options.runtime.enableHNSW}
   persistPath: .monomind/data
   cacheSize: 100
   # ADR-049: Self-Learning Memory

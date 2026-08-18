@@ -21,11 +21,15 @@ import {
 } from '../mcp-server.js';
 import { listMCPTools, callMCPTool, hasTool, getToolMetadata } from '../mcp-client.js';
 
-// MCP tools categories
+// MCP tools categories — `value` must match the literal `category` field set
+// on registered MCPTool entries (see mcp-tools/*.ts), not the lazy-load
+// category key in mcp-client.ts's CATEGORY_LOADERS. Values that don't match
+// any tool's `category` field always return zero results from the real
+// registry (previously masked by a fabricated static fallback list).
 const TOOL_CATEGORIES = [
-  { value: 'coordination', label: 'Coordination', hint: 'Swarm and agent coordination tools' },
-  { value: 'monitoring', label: 'Monitoring', hint: 'Status and metrics monitoring' },
-  { value: 'memory', label: 'Memory', hint: 'Memory and neural features' },
+  { value: 'swarm', label: 'Coordination', hint: 'Swarm and agent coordination tools' },
+  { value: 'performance', label: 'Monitoring', hint: 'Status and metrics monitoring' },
+  { value: 'knowledge', label: 'Memory', hint: 'Memory and neural features' },
   { value: 'github', label: 'GitHub', hint: 'GitHub integration tools' },
   { value: 'system', label: 'System', hint: 'System and benchmark tools' }
 ];
@@ -412,60 +416,17 @@ const toolsCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const category = ctx.flags.category as string;
 
-    // Use local tool registry
-    let tools: Array<{ name: string; category: string; description: string; enabled: boolean }>;
-
-    // Get tools from local registry
+    // Use local tool registry — no static fallback. If the registry can't be
+    // loaded, let the error propagate rather than showing a fabricated list.
     const registeredTools = await listMCPTools(category);
 
-    if (registeredTools.length > 0) {
-      tools = registeredTools.map(tool => ({
+    const tools: Array<{ name: string; category: string; description: string; enabled: boolean }> =
+      registeredTools.map(tool => ({
         name: tool.name,
         category: tool.category || 'uncategorized',
         description: tool.description,
         enabled: tool.enabled
       }));
-    } else {
-      // Fallback to static tool list
-      tools = [
-        // Agent tools
-        { name: 'agent_spawn', category: 'agent', description: 'Spawn a new agent', enabled: true },
-        { name: 'agent_list', category: 'agent', description: 'List all agents', enabled: true },
-        { name: 'agent_terminate', category: 'agent', description: 'Terminate an agent', enabled: true },
-        { name: 'agent_status', category: 'agent', description: 'Get agent status', enabled: true },
-
-        // Swarm tools
-        { name: 'swarm_init', category: 'swarm', description: 'Initialize swarm topology', enabled: true },
-        { name: 'swarm_status', category: 'swarm', description: 'Get swarm status', enabled: true },
-        { name: 'swarm_scale', category: 'swarm', description: 'Scale swarm size', enabled: true },
-
-        // Memory tools
-        { name: 'memory_store', category: 'memory', description: 'Store in memory', enabled: true },
-        { name: 'memory_search', category: 'memory', description: 'Search memory', enabled: true },
-        { name: 'memory_list', category: 'memory', description: 'List memory entries', enabled: true },
-
-        // Config tools
-        { name: 'config_load', category: 'config', description: 'Load configuration', enabled: true },
-        { name: 'config_save', category: 'config', description: 'Save configuration', enabled: true },
-        { name: 'config_validate', category: 'config', description: 'Validate configuration', enabled: true },
-
-        // Hooks tools
-        { name: 'hooks_pre-edit', category: 'hooks', description: 'Pre-edit hook', enabled: true },
-        { name: 'hooks_post-edit', category: 'hooks', description: 'Post-edit hook', enabled: true },
-        { name: 'hooks_pre-command', category: 'hooks', description: 'Pre-command hook', enabled: true },
-        { name: 'hooks_post-command', category: 'hooks', description: 'Post-command hook', enabled: true },
-        { name: 'hooks_route', category: 'hooks', description: 'Route task to agent', enabled: true },
-        { name: 'hooks_explain', category: 'hooks', description: 'Explain routing', enabled: true },
-        { name: 'hooks_pretrain', category: 'hooks', description: 'Pretrain from repo', enabled: true },
-        { name: 'hooks_metrics', category: 'hooks', description: 'Learning metrics', enabled: true },
-        { name: 'hooks_list', category: 'hooks', description: 'List hooks', enabled: true },
-
-        // System tools
-        { name: 'system_info', category: 'system', description: 'System information', enabled: true },
-        { name: 'system_health', category: 'system', description: 'Health status', enabled: true },
-        { name: 'system_metrics', category: 'system', description: 'Server metrics', enabled: true },
-      ].filter(t => !category || t.category === category);
-    }
 
     if (ctx.flags.format === 'json') {
       output.printJson(tools);
@@ -475,6 +436,11 @@ const toolsCommand: Command = {
     output.writeln();
     output.writeln(output.bold('Available MCP Tools'));
     output.writeln();
+
+    if (tools.length === 0) {
+      output.printInfo(category ? `0 tools matched category "${category}"` : '0 tools matched');
+      return { success: true, data: tools };
+    }
 
     // Group by category
     const grouped = tools.reduce((acc, tool) => {

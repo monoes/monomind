@@ -67,7 +67,6 @@ ${caseArms}
 }
 
 complete -F _monomind_completions monomind
-complete -F _monomind_completions npx\\ @monomind/cli@v1alpha
 `;
 }
 

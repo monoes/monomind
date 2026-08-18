@@ -275,12 +275,6 @@ const initCommand: Command = {
       default: 15,
     },
     {
-      name: 'auto-scale',
-      description: 'Enable automatic scaling',
-      type: 'boolean',
-      default: true,
-    },
-    {
       name: 'strategy',
       short: 's',
       description: 'Coordination strategy',
@@ -327,8 +321,6 @@ const initCommand: Command = {
           topology: string;
           maxAgents: number;
           currentAgents: number;
-          communicationProtocol?: string;
-          autoScaling?: boolean;
         };
       }>('swarm_init', {
         topology: topology as
@@ -341,11 +333,8 @@ const initCommand: Command = {
           | 'hierarchical-mesh',
         maxAgents,
         config: {
-          communicationProtocol: 'message-bus',
-          consensusMechanism: 'majority',
           failureHandling: 'retry',
           loadBalancing: true,
-          autoScaling: ctx.flags['auto-scale'] ?? true,
         },
         metadata: {
           v1Mode,
@@ -370,8 +359,6 @@ const initCommand: Command = {
           { property: 'Swarm ID', value: result.swarmId },
           { property: 'Topology', value: result.topology },
           { property: 'Max Agents', value: result.config.maxAgents },
-          { property: 'Auto Scale', value: result.config.autoScaling ? 'Enabled' : 'Disabled' },
-          { property: 'Protocol', value: result.config.communicationProtocol || 'N/A' },
           { property: 'v1 Mode', value: v1Mode ? 'Enabled' : 'Disabled' },
         ],
       });
@@ -455,12 +442,6 @@ const startCommand: Command = {
       name: 'parallel',
       short: 'p',
       description: 'Enable parallel execution',
-      type: 'boolean',
-      default: true,
-    },
-    {
-      name: 'monitor',
-      description: 'Enable real-time monitoring',
       type: 'boolean',
       default: true,
     },

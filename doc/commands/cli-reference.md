@@ -22,7 +22,7 @@
 | `security` | Security scanning, CVE, threat modeling, AI defense | 6 — scan, cve, audit, secrets, defend, redteam. **Two are partial stubs**: `audit` doesn't read a real audit log — it infers synthetic events from `.swarm/*.json` filenames and appends one row; its declared `--action log/export/clear` flags are not implemented (only list/default behavior works). `redteam` has a real 20-prompt/4-category attack library and a working `--dry-run`, but live `--target` execution is not implemented — it always prints "requires a running agent target" and returns failure, with no actual HTTP/agent invocation. |
 | `performance` | Profiling, benchmarking, real metrics | 4 — benchmark, profile, metrics, bottleneck |
 | `guidance` | Wire enforcement gates into Claude Code hooks | 1 — setup |
-| `autopilot` | Autonomous task execution — persistent swarm run to completion | 10 — status, enable, disable, config, reset, log, learn, history, predict, check |
+| `autopilot` | Autonomous task execution — persistent swarm run to completion | 8 — status, enable, disable, config, reset, log, predict, check |
 | `config` | Configuration management | 7 — init, get, set, providers, reset, export, import |
 | `doctor` | System diagnostics — flat command, no subcommands | 0 — flags only: `--fix`, `--install`, `--verbose`, `--component` (`--component` accepts one of 28 named categories — see below) |
 | `completions` | Shell completion scripts | 4 — bash, zsh, fish, powershell |

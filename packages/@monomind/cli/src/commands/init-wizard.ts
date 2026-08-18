@@ -138,14 +138,6 @@ export const wizardCommand: Command = {
       });
       options.runtime.memoryBackend = memoryBackend as InitOptions['runtime']['memoryBackend'];
 
-      if (memoryBackend === 'lancedb' || memoryBackend === 'hybrid') {
-        const enableHNSW = await confirm({
-          message: 'Enable HNSW indexing for faster vector search?',
-          default: true,
-        });
-        options.runtime.enableHNSW = enableHNSW;
-      }
-
       const enableNeural = await confirm({
         message: 'Enable neural pattern learning?',
         default: options.runtime.enableNeural,
@@ -287,7 +279,6 @@ export const wizardCommand: Command = {
           { setting: 'Topology', value: options.runtime.topology },
           { setting: 'Max Agents', value: String(options.runtime.maxAgents) },
           { setting: 'Memory Backend', value: options.runtime.memoryBackend },
-          { setting: 'HNSW Indexing', value: options.runtime.enableHNSW ? 'Enabled' : 'Disabled' },
           { setting: 'Neural Learning', value: options.runtime.enableNeural ? 'Enabled' : 'Disabled' },
           { setting: 'Self-Learning', value: options.runtime.enableLearningBridge ? 'Graph + Scopes' : 'Disabled' },
           { setting: 'Embeddings', value: enableEmbeddings ? `${embeddingModel} (hyperbolic)` : 'Disabled' },

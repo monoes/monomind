@@ -122,7 +122,6 @@ export interface MemoryConfig {
   backend: 'sqlite' | 'memory' | 'hybrid';
   persistPath: string;
   cacheSize: number;
-  enableHNSW: boolean;
   vectorDimension: number;
 }
 
