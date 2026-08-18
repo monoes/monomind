@@ -164,6 +164,11 @@ export interface SessionOpts {
   splitTask?: (role: string, parentId: string, children: { title: string; assignee: string }[]) => string;
   mergeTask?: (role: string, sourceId: string, targetId: string) => string;
   cancelTask?: (role: string, taskId: string, reason?: string) => string;
+  /** Task DAG: mark a 'running' task as waiting on a real-world time (not a
+   *  dependency) — e.g. a scheduled soak test, a CI run, a human-set
+   *  deadline. The idle watchdog skips nudging while any task is actively
+   *  blocked, and auto-resumes (re-dispatches) it once the time passes. */
+  blockTask?: (role: string, taskId: string, untilIso: string, reason?: string) => string;
   planGraph?: (role: string, specs: { name: string; title: string; assignee: string; after?: string[] }[]) => string;
 }
 
@@ -181,7 +186,7 @@ export function buildRolePrompt(role: OrgRole, def: Pick<OrgDef, 'name' | 'goal'
     `If you need a human decision, call ask_human with your question, then end your turn - you'll receive the human's answer as a new message when it arrives. Do not call ask_human for anything you can resolve yourself.`,
     `For irreversible or high-risk actions (deployments, deletions, external communications), call org_gate to create a decision gate — a hard-blocking approval checkpoint. End your turn and wait for the human's approval or rejection before proceeding.`,
     `You can structure work as a task DAG: use org_task to create tasks with dependencies, org_task_done to mark them complete, and org_tasks to see the full DAG. Tasks with satisfied dependencies are automatically dispatched to their assignee.`,
-    `The work graph is dynamic: call org_task_split when scope expands, org_task_merge when parallel branches converge early, or org_task_cancel when evidence makes a planned task moot. Use org_plan_graph to propose a full work graph in one call when you know the plan upfront.`,
+    `The work graph is dynamic: call org_task_split when scope expands, org_task_merge when parallel branches converge early, or org_task_cancel when evidence makes a planned task moot. Use org_plan_graph to propose a full work graph in one call when you know the plan upfront. If a task genuinely can't proceed until a specific real-world time — a scheduled long-running process, a deadline someone gave you, anything with a known future unblock time — call org_task_block instead of leaving it idle: it stops the idle watchdog from nudging you about it and automatically resumes the task when the time arrives, instead of you repeatedly re-confirming "still waiting" every idle cycle.`,
     `Before starting substantial work, call org_recall to check what previous runs already learned or delivered - do not redo finished work.`,
     `The user's documents (notes, handbooks, specs) are searchable with knowledge_search - ground your work in them instead of guessing; results labeled [global] come from the user's personal cross-project brain.`,
     `When you receive a message, act on it, then org_send your result to the requester.`,
@@ -622,6 +627,14 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       description: 'Cancel a task as moot. The task becomes "cancelled" and unblocks downstream work.',
       schema: { taskId: z.string(), reason: z.string().optional() },
       handler: async (args) => text(opts.cancelTask!(role.id, args.taskId as string, args.reason as string | undefined)),
+    });
+  }
+  if (opts.blockTask) {
+    tools.push({
+      name: 'org_task_block',
+      description: 'Mark a task you are actively working (status "running") as blocked on a real-world time, not on other tasks — e.g. a scheduled soak test, a CI run that takes hours, a human-set deadline. Use this INSTEAD of leaving the task "running" with nothing actually happening, and instead of calling org_complete just because there is genuinely nothing to do right now: the idle watchdog will stop nudging you about this task until the time you give arrives, then automatically re-dispatch it to you. Give untilIso as an ISO 8601 date/time (e.g. "2026-08-19T09:00:00Z").',
+      schema: { taskId: z.string(), untilIso: z.string(), reason: z.string().optional() },
+      handler: async (args) => text(opts.blockTask!(role.id, args.taskId as string, args.untilIso as string, args.reason as string | undefined)),
     });
   }
   if (opts.planGraph) {
