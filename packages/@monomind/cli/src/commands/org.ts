@@ -1213,6 +1213,25 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'watch', description: 'Live-tail one role\'s assistant chat text (any runtime) — a filtered, friendlier `logs --follow`',
+      options: [
+        { name: 'run', description: 'Run id (default: latest)', type: 'string' },
+        { name: 'follow', description: 'Set --follow=false to print current output once and exit instead of live-tailing', type: 'boolean', default: true },
+        { name: 'verbose', description: 'Also interleave status events (restart/crash/state-change) into the transcript', type: 'boolean' },
+        { name: 'stats', description: 'Print a running token/cost line as usage events arrive', type: 'boolean' },
+      ],
+      examples: [
+        { command: 'monomind org watch growth researcher', description: 'Watch the researcher role\'s live output' },
+        { command: 'monomind org watch growth researcher --verbose --stats', description: 'Also show restarts/crashes and a running token/cost total' },
+      ],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { watchAction } = await import('./org-observe.js');
+        return watchAction(ctx, v.name);
+      },
+    },
+    {
       name: 'report', description: 'Summarize an org run: outcome, per-role activity, tokens, assets, crashes',
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },

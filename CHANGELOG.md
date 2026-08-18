@@ -4,6 +4,27 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.22] — 2026-08-17
+
+### Added (PR #167)
+- **5 new subprocess-CLI org runtimes** — `grok`, `qwen`, `crush`, `copilot`, `pi`, each wrapping the corresponding vendor CLI the same way `codex`/`kimicode` already do (spawn, parse output, normalize into the shared `AgentRunner` stream). Wire protocols (flags, JSON event shapes) are sourced from public docs, not verified against a live install — see #178 for follow-up.
+- **`pi-rpc` runtime** (opt-in alternate to `pi`) — keeps the `pi --mode rpc` subprocess alive for a whole mailbox session instead of respawning per turn, using a literal JSON schema pulled from pi-mono's own `rpc.md` source. Turn-completion detection is an explicitly-flagged best-effort heuristic — see #179.
+- **`usage-proxy.ts`** — a generic loopback HTTP proxy that extracts token usage from OpenAI/Anthropic-shaped LLM traffic for CLIs (`crush`) that don't self-report it. Built and tested, but not yet wired into org/role config — see #177.
+- **`org watch <org> <role> [--verbose] [--stats]`** — a thin, role-filtered live-tail of a role's assistant chat text, off the same bus event every runtime already emits. `--verbose` interleaves status/restart events; `--stats` shows a running token/cost ticker.
+- Startup-hang fail-fast timer (45s, distinct from the 2h turn timeout) in all 5 new runners, plus confirmed trust-gate/telemetry env-var suppressions (`PI_TELEMETRY`, `PI_SKIP_VERSION_CHECK`, `CRUSH_DISABLE_PROVIDER_AUTO_UPDATE`).
+
+### Fixed (found across 4 rounds of adversarial review of the above, same PR)
+- pi-rpc: original spawn error was discarded before the ENOENT check could match it, hiding the "install pi" message behind a generic error.
+- pi-rpc: the mid-session silence watchdog could kill a healthy role that was simply idle (waiting on its own mailbox) or blocked on `ask_human` — both are now correctly excluded from counting as "pi is wedged".
+- pi-rpc: a SIGKILL escalation could be cancelled mid-grace-period by its own cleanup path, risking an orphaned process.
+- `crush`/`grok`/`qwen`/`copilot`/`pi` runners: timer cleanup could be skipped entirely on a stdout stream error, leaking the turn timeout and orphaning the child process (now also killed on that path).
+- `crush`: usage-proxy totals were reset every tool-call round instead of once per turn, discarding all but the last round's usage.
+- `grok`/`qwen`: tool-result rounds after the first could silently lose all conversational context if session-id parsing ever failed.
+- `usage-proxy`: Accept-Encoding wasn't stripped (a gzipped upstream response silently parsed to garbage → 0 usage forever); Anthropic's `input_tokens` (nested under `message.usage` on `message_start`) was never checked, and "last chunk wins" logic could erase an earlier chunk's field when a later chunk didn't repeat it.
+
+### Known follow-ups
+See #177 (wire up usage-proxy), #178 (install & validate all 6 CLI-backed runtimes incl. `codex`), #179 (verify pi-rpc's completion heuristic), #180 (confirm `crush --continue` session scoping), #181 (copilot has no usage accounting), #182 (session-lifetime `qwen-rpc`, blocked on confirming qwen's bidirectional wire format).
+
 ## [2.9.21] — 2026-08-16
 
 ### GitHub issue fixes
