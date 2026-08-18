@@ -3,7 +3,8 @@
  *
  * Tests the Codex CLI subprocess protocol parsing without requiring the actual
  * codex binary — mocks child_process.spawn and feeds it scripted JSONL events
- * matching the byte-accurate schema from openai/codex/sdk/typescript/src.
+ * matching the legacy v1 EventMsg wire format (codex-rs/protocol/src/protocol.rs
+ * + legacy_events.rs), confirmed live against codex v0.21.0/v0.147.0 (#178).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CodexAgentRunner } from '../orgrt/codex-runner.js';
@@ -29,8 +30,12 @@ function makeMockChild(stdoutLines: string[], exitCode = 0): cp.ChildProcess {
   return child as cp.ChildProcess;
 }
 
-/** Usage event helper */
-const USAGE = { input_tokens: 10, output_tokens: 5, cached_input_tokens: 0, cache_write_input_tokens: 0, reasoning_output_tokens: 0 };
+/** token_count event helper — last_token_usage is per-turn (see file header:
+ *  the runner reads THIS field, not total_token_usage, which is cumulative). */
+const TOKEN_COUNT = {
+  type: 'token_count',
+  info: { last_token_usage: { input_tokens: 10, output_tokens: 5, cached_input_tokens: 0, cache_write_input_tokens: 0, reasoning_output_tokens: 0, total_tokens: 15 } },
+};
 
 describe('CodexAgentRunner', () => {
   let runner: CodexAgentRunner;
@@ -40,11 +45,11 @@ describe('CodexAgentRunner', () => {
     vi.clearAllMocks();
   });
 
-  it('builds correct argv: codex exec --experimental-json', async () => {
+  it('builds correct argv: codex exec --json', async () => {
     const mockChild = makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-      JSON.stringify({ type: 'turn.started' }),
-      JSON.stringify({ type: 'turn.completed', usage: USAGE }),
+      JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+      JSON.stringify({ type: 'task_started' }),
+      JSON.stringify(TOKEN_COUNT),
     ]);
     vi.mocked(cp.spawn).mockReturnValue(mockChild);
 
@@ -63,7 +68,8 @@ describe('CodexAgentRunner', () => {
     const spawnArgs = vi.mocked(cp.spawn).mock.calls[0];
     expect(spawnArgs[0]).toBe('/usr/bin/codex');
     expect(spawnArgs[1]).toContain('exec');
-    expect(spawnArgs[1]).toContain('--experimental-json');
+    expect(spawnArgs[1]).toContain('--json');
+    expect(spawnArgs[1]).not.toContain('--experimental-json');
     expect(spawnArgs[1]).toContain('--model');
     expect(spawnArgs[1]).toContain('gpt-5.6-terra');
     expect(spawnArgs[1]).toContain('--sandbox');
@@ -71,10 +77,10 @@ describe('CodexAgentRunner', () => {
     expect(spawnArgs[1]).toContain('--skip-git-repo-check');
   });
 
-  it('captures thread_id from thread.started event', async () => {
+  it('captures session id from session_configured event', async () => {
     vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 'test-thread-123' }),
-      JSON.stringify({ type: 'turn.completed', usage: USAGE }),
+      JSON.stringify({ type: 'session_configured', session_id: 'test-thread-123', thread_id: 'test-thread-123' }),
+      JSON.stringify(TOKEN_COUNT),
     ]));
 
     const gen = runner.run({
@@ -93,11 +99,11 @@ describe('CodexAgentRunner', () => {
     expect(resultMsg.session_id).toBe('test-thread-123');
   });
 
-  it('extracts agent_message text from item.completed', async () => {
+  it('extracts text from agent_message events', async () => {
     vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'Hello world!' } }),
-      JSON.stringify({ type: 'turn.completed', usage: USAGE }),
+      JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+      JSON.stringify({ type: 'agent_message', message: 'Hello world!' }),
+      JSON.stringify(TOKEN_COUNT),
     ]));
 
     const gen = runner.run({
@@ -117,10 +123,16 @@ describe('CodexAgentRunner', () => {
     expect(assistantMsg.text).toBe('Hello world!');
   });
 
-  it('extracts usage from turn.completed', async () => {
+  it('extracts per-turn usage from token_count.info.last_token_usage (not the cumulative total_token_usage)', async () => {
     vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-      JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 24763, output_tokens: 122, cached_input_tokens: 24448, cache_write_input_tokens: 0, reasoning_output_tokens: 0 } }),
+      JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+      JSON.stringify({
+        type: 'token_count',
+        info: {
+          last_token_usage: { input_tokens: 24763, output_tokens: 122, cached_input_tokens: 24448, cache_write_input_tokens: 0, reasoning_output_tokens: 0, total_tokens: 24885 },
+          total_token_usage: { input_tokens: 999999, output_tokens: 999999, cached_input_tokens: 0, cache_write_input_tokens: 0, reasoning_output_tokens: 0, total_tokens: 1999998 },
+        },
+      }),
     ]));
 
     const gen = runner.run({
@@ -140,10 +152,10 @@ describe('CodexAgentRunner', () => {
     expect(resultMsg.output_tokens).toBe(122);
   });
 
-  it('surfaces error from turn.failed event', async () => {
+  it('surfaces error from task_complete.error', async () => {
     vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-      JSON.stringify({ type: 'turn.failed', error: { message: 'rate limited' } }),
+      JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+      JSON.stringify({ type: 'task_complete', turn_id: 'turn1', last_agent_message: null, error: { message: 'rate limited' } }),
     ]));
 
     const gen = runner.run({
@@ -160,8 +172,8 @@ describe('CodexAgentRunner', () => {
 
   it('uses resume positional arg when threadId provided', async () => {
     vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 'existing-thread' }),
-      JSON.stringify({ type: 'turn.completed', usage: USAGE }),
+      JSON.stringify({ type: 'session_configured', session_id: 'existing-thread', thread_id: 'existing-thread' }),
+      JSON.stringify(TOKEN_COUNT),
     ]));
 
     const gen = runner.run({
@@ -214,14 +226,14 @@ describe('CodexAgentRunner', () => {
     // with no tool calls → loop ends.
     vi.mocked(cp.spawn)
       .mockReturnValueOnce(makeMockChild([
-        JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-        JSON.stringify({ type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'Sending...\n\n```tool_call\n{"name": "org_send", "arguments": {"to": "boss"}}\n```' } }),
-        JSON.stringify({ type: 'turn.completed', usage: USAGE }),
+        JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+        JSON.stringify({ type: 'agent_message', message: 'Sending...\n\n```tool_call\n{"name": "org_send", "arguments": {"to": "boss"}}\n```' }),
+        JSON.stringify(TOKEN_COUNT),
       ]))
       .mockReturnValueOnce(makeMockChild([
-        JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-        JSON.stringify({ type: 'item.completed', item: { id: 'i2', type: 'agent_message', text: 'Done.' } }),
-        JSON.stringify({ type: 'turn.completed', usage: USAGE }),
+        JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+        JSON.stringify({ type: 'agent_message', message: 'Done.' }),
+        JSON.stringify(TOKEN_COUNT),
       ]));
 
     const gen = runner.run({
