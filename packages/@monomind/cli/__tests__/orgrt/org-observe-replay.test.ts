@@ -65,8 +65,17 @@ describe('org replay CLI action — honors the requested run id (#114)', () => {
       expect(result.success).toBe(true);
       expect(result.message).toContain(firstRun);
     } finally {
+      // replayAction leaves the org running by design (it prints "Stop with:
+      // monomind org stop ..."), with its own internal OrgDaemon still
+      // writing bus.jsonl/checkpoints under root. A bare rmSync can race
+      // that write and throw ENOTEMPTY; retry and don't let leftover temp
+      // files fail the test.
       const { rmSync } = await import('node:fs');
-      rmSync(root, { recursive: true, force: true });
+      try {
+        rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      } catch {
+        /* best effort — see comment above */
+      }
     }
   }, 20_000);
 
@@ -86,8 +95,15 @@ describe('org replay CLI action — honors the requested run id (#114)', () => {
       expect(result.success).toBe(false);
       expect(result.message).toContain('not found');
     } finally {
+      // See comment in the previous test's finally block — the first
+      // startOrg/stopOrg cycle here also leaves internal daemon state that
+      // can race a bare rmSync.
       const { rmSync } = await import('node:fs');
-      rmSync(root, { recursive: true, force: true });
+      try {
+        rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      } catch {
+        /* best effort */
+      }
     }
   }, 20_000);
 });
