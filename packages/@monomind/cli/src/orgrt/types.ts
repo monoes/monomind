@@ -44,6 +44,16 @@ export const ProviderSchema = z.object({
   baseUrl: z.string().optional(),
   /** env var NAME holding the auth token for base-url providers */
   authTokenEnv: z.string().optional(),
+  /** Opt in to UsageProxyServer token accounting for runtimes whose CLI output
+   *  doesn't self-report usage (currently just `runtime: 'crush'`). When true,
+   *  `baseUrl` above is treated as the upstream the CLI's own provider config
+   *  points at, and the runner routes its traffic through a local proxy that
+   *  parses usage out of the relayed request/response bodies. No effect for
+   *  runtimes that don't support it (usage-proxy.ts, crush-runner.ts). */
+  usageProxy: z.boolean().optional(),
+  /** Override the env var the proxied CLI reads for its base-URL override.
+   *  Defaults to CrushAgentRunner's own guess (OPENAI_BASE_URL) when unset. */
+  usageProxyEnvVar: z.string().optional(),
 }).strict();
 
 const THREAT_TYPES = ['prompt_injection', 'jailbreak', 'pii_exposure', 'instruction_override',
