@@ -645,7 +645,6 @@ export const hooksList: MCPTool = {
       { name: 'intelligence_pattern-search', type: 'intelligence', status: 'active' },
       { name: 'intelligence_stats', type: 'analytics', status: 'active' },
       { name: 'intelligence_learn', type: 'intelligence', status: 'active' },
-      { name: 'intelligence_attention', type: 'intelligence', status: 'active' },
     ];
     return {
       _note: 'Static registry — update this list when hooks are added or removed.',

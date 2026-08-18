@@ -15,7 +15,6 @@ import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSyn
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd, getMonomindDataRoot, migrateLegacyStoreFile } from './types.js';
-import { weightedTally } from '../consensus/tally.js';
 // Reuse agent-tools.ts's hardened store loader (50MB size cap + __proto__
 // rejection) instead of maintaining a second, weaker copy that reads the
 // same physical file — see loadAgentStore export note there.
@@ -70,11 +69,10 @@ interface ConsensusProposal {
   byzantineVoters?: string[]; // BFT: detected Byzantine voters
   timeoutAt?: string;         // Raft: timeout for re-proposal
   /**
-   * O-Information anti-convergence gate.
-   * Minimum number of voting rounds that must show divergent votes (not unanimous)
-   * before the proposal can resolve, even if the quorum threshold is already met.
-   * Prevents groupthink / premature consensus in high-synergy swarms.
-   * Source: arXiv:2510.05174 — O-Information Decomposition for Emergent Coordination
+   * Anti-groupthink delay: minimum number of voting rounds that must show
+   * divergent votes (not unanimous) before the proposal can resolve, even if
+   * the quorum threshold is already met. Delays premature consensus when
+   * votes have so far all agreed.
    */
   minDivergenceRounds?: number;
   /** Counter: number of rounds so far where votes were not unanimous */
@@ -675,7 +673,7 @@ export const allHiveMindTools: MCPTool[] = [
         quorumPreset: { type: 'string', enum: ['unanimous', 'majority', 'supermajority'], description: 'Quorum threshold preset (for quorum strategy, default: majority)' },
         term: { type: 'number', description: 'Term number (for raft strategy)' },
         timeoutMs: { type: 'number', description: 'Timeout in ms for raft re-proposal (default: 30000)' },
-        minDivergenceRounds: { type: 'number', description: 'O-Information anti-groupthink gate: minimum rounds with divergent votes required before resolution (arXiv:2510.05174). Default: 0 (disabled).' },
+        minDivergenceRounds: { type: 'number', description: 'Anti-groupthink delay: minimum rounds with divergent votes required before resolution. Default: 0 (disabled).' },
       },
       required: ['action'],
     },
@@ -887,25 +885,15 @@ export const allHiveMindTools: MCPTool[] = [
         const votesFor = Object.values(proposal.votes).filter(v => v).length;
         const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
 
-        // O-Information divergence tracking (arXiv:2510.05174)
-        // Count this voting round as divergent if not all votes are the same direction.
-        // A divergent round signals synergy is still "in play" among agents.
+        // Anti-groupthink delay: count this voting round as divergent if not
+        // all votes are the same direction (i.e. voters currently disagree).
         const allVotes = Object.values(proposal.votes);
         const isUnanimous = allVotes.every(v => v) || allVotes.every(v => !v);
         if (!isUnanimous && allVotes.length >= 2) {
           proposal.divergenceRoundsSeen = (proposal.divergenceRoundsSeen ?? 0) + 1;
         }
 
-        // CP-WBFT: weighted tally using uniform confidence (1.0) until probe scores available
-        // Source: https://arxiv.org/abs/2511.10400
-        const weightedVotes = Object.entries(proposal.votes).map(([aid, v]) => ({
-          agentId: aid,
-          vote: v,
-          confidence: 1.0, // uniform until confidence-probe is wired
-        }));
-        const cpwbftTally = weightedTally(weightedVotes);
-
-        // O-Information gate: defer resolution if we haven't seen enough divergent rounds.
+        // Anti-groupthink gate: defer resolution if we haven't seen enough divergent rounds.
         // BUT: if every expected voter has already cast a vote (electorate
         // exhausted), no more votes can ever arrive to produce a divergent
         // round — a unanimous first-round vote would otherwise deadlock the
@@ -1015,13 +1003,12 @@ export const allHiveMindTools: MCPTool[] = [
           status: proposal.status,
           term: proposal.term,
           byzantineVoters: proposal.byzantineVoters?.length ? proposal.byzantineVoters : undefined,
-          cpwbft: cpwbftTally,
-          // O-Information divergence gate status
+          // Anti-groupthink delay gate status
           divergenceGateOpen,
           divergenceRoundsSeen: proposal.divergenceRoundsSeen ?? 0,
           minDivergenceRounds: proposal.minDivergenceRounds,
           divergenceHint: !divergenceGateOpen
-            ? `O-Information gate: ${proposal.divergenceRoundsSeen ?? 0}/${proposal.minDivergenceRounds} divergent rounds seen. Resolution deferred to prevent groupthink.`
+            ? `Anti-groupthink delay: ${proposal.divergenceRoundsSeen ?? 0}/${proposal.minDivergenceRounds} divergent rounds seen. Resolution deferred.`
             : undefined,
         };
       }

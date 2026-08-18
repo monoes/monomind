@@ -103,11 +103,9 @@
     "@monoes/monobrowse": "^1.0.6",
     "@monoes/monodesign": "^1.2.2",
     "@monoes/monograph": "workspace:*",
-    "@noble/ed25519": "^2.1.0",
     "mammoth": "^1.12.0",
     "@firecrawl/pdf-inspector": "^1.12.0",
     "ws": "^8.21.0",
-    "yaml": "^2.8.0",
     "zod": "^4.0.0"
   },
   "optionalDependencies": {

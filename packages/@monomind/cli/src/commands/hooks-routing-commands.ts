@@ -646,17 +646,6 @@ export const metricsCommand: Command = {
       });
       if (result.commands._note) output.writeln(output.dim(`  ${result.commands._note}`));
 
-      if (v1Dashboard && result.performance) {
-        const p = result.performance;
-        output.writeln();
-        output.writeln(output.bold('🚀 v1 Performance Gains'));
-        output.printList([
-          `Memory Reduction: ${output.success(p.memoryReduction ?? 'N/A')}`,
-          `Search Improvement: ${output.success(p.searchImprovement ?? 'N/A')}`,
-          `Token Reduction: ${output.success(p.tokenReduction ?? 'N/A')}`
-        ]);
-      }
-
       return { success: true, data: result };
     } catch (error) {
       if (error instanceof MCPClientError) {

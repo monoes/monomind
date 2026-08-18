@@ -165,7 +165,7 @@ monomind hooks explain         # Explain routing decision
 monomind hooks pretrain        # Run the 4-step learning pipeline
 monomind hooks build-agents    # Build agent roster from patterns
 monomind hooks metrics         # Show hook execution metrics
-monomind hooks transfer        # Transfer patterns via IPFS
+monomind hooks transfer        # Transfer patterns (local file copy; for IPFS transfer see `hooks intelligence export --ipfs`)
 monomind hooks list            # List all registered hooks
 ```
 
@@ -184,7 +184,8 @@ monomind hooks coverage-suggest # Suggest coverage improvements
 monomind hooks coverage-gaps    # Show coverage gaps
 ```
 
-### Model routing — tiny-dancer integration (3)
+### Model routing (3)
+Keyword complexity heuristic (fixed 0.7 confidence).
 ```bash
 monomind hooks model-route     # Model tier routing for a task
 monomind hooks model-outcome   # Record model outcome for learning

@@ -116,7 +116,6 @@ function projectArchitecture(options: InitOptions): string {
 - **Topology**: ${options.runtime.topology}
 - **Max Agents**: ${options.runtime.maxAgents}
 - **Memory**: ${options.runtime.memoryBackend}
-- **HNSW**: ${options.runtime.enableHNSW ? 'Available (fallback path)' : 'Disabled'}
 - **Neural**: Disabled (keyword routing only)`;
 }
 

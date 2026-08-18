@@ -29,7 +29,7 @@ export interface RoleCheckpoint {
 /** Full checkpoint state for an org */
 export interface OrgCheckpoint {
   /** R6: schema version — bumped on any breaking shape change so a future
-   *  resumeOrg can detect an old-shape checkpoint instead of failing the
+   *  consumer can detect an old-shape checkpoint instead of failing the
    *  checksum and silently returning null. */
   version: number;
   status: 'running' | 'stopped' | 'crashed';

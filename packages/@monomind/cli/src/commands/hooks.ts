@@ -587,7 +587,7 @@ export const hooksCommand: Command = {
     coverageRouteCommand,
     coverageSuggestCommand,
     coverageGapsCommand,
-    // Model routing (tiny-dancer integration)
+    // Model routing (keyword complexity heuristic, fixed 0.7 confidence)
     modelRouteCommand,
     modelOutcomeCommand,
     modelStatsCommand,

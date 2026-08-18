@@ -36,7 +36,6 @@ import {
   hooksPatternSearch,
   hooksIntelligenceStats,
   hooksIntelligenceLearn,
-  hooksIntelligenceAttention,
   hooksModelRoute,
   hooksModelOutcome,
   hooksModelStats,
@@ -71,7 +70,6 @@ export const hooksTools: MCPTool[] = [
   hooksPatternSearch,
   hooksIntelligenceStats,
   hooksIntelligenceLearn,
-  hooksIntelligenceAttention,
   // Model routing tools
   hooksModelRoute,
   hooksModelOutcome,

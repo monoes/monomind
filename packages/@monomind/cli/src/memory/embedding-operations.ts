@@ -198,45 +198,6 @@ export async function loadEmbeddingModel(options?: {
       }
     }
 
-    // Fallback: Check for monovector ONNX embedder (bundled MiniLM-L6-v2 since v0.2.15)
-    // v0.2.16: LoRA B=0 fix makes AdaptiveEmbedder safe (identity when untrained)
-    // Note: isReady() returns false until first embed() call (lazy init), so we
-    // skip the isReady() gate and verify with a probe embed instead.
-    const monovector = await import('monovector').catch(() => null) as any;
-
-    if (monovector?.initOnnxEmbedder) {
-      try {
-        await monovector.initOnnxEmbedder();
-
-        // Fallback: OptimizedOnnxEmbedder (raw ONNX, lazy-inits on first embed)
-        const onnxEmb = monovector.getOptimizedOnnxEmbedder?.();
-        if (onnxEmb?.embed) {
-          // Probe embed to trigger lazy ONNX init and verify it works
-          const probe = await onnxEmb.embed('test');
-          const probeArr: number[] = ArrayBuffer.isView(probe) ? Array.from(probe as unknown as ArrayLike<number>) : (Array.isArray(probe) ? probe : []);
-          if (probe && probe.length > 0 && probeArr.some((v: number) => v !== 0)) {
-            if (verbose) {
-              console.log(`Loading monovector ONNX embedder (all-MiniLM-L6-v2, ${probe.length}d)...`);
-            }
-            embeddingModelState = {
-              loaded: true,
-              model: (text: string) => onnxEmb.embed(text),
-              tokenizer: null,
-              dimensions: probe.length || 384
-            };
-            return {
-              success: true,
-              dimensions: probe.length || 384,
-              modelName: 'monovector/onnx',
-              loadTime: Date.now() - startTime
-            };
-          }
-        }
-      } catch {
-        // monovector ONNX init failed, continue to next fallback
-      }
-    }
-
     // No ONNX model available - use fallback
     embeddingModelState = {
       loaded: true,

@@ -121,8 +121,6 @@ export const DEFAULT_THRESHOLDS: Record<string, AlertThreshold[]> = {
     { metric: 'secrets', warning: 1, critical: 5, comparison: 'gt' },
     { metric: 'vulnerabilities', warning: 10, critical: 50, comparison: 'gt' },
   ],
-  adr: [{ metric: 'compliance', warning: 70, critical: 50, comparison: 'lt' }],
-  performance: [{ metric: 'memory.systemPct', warning: 80, critical: 95, comparison: 'gt' }],
 };
 
 // ============================================================================
@@ -294,7 +292,7 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
 };
 
 // Worker alias map (legacy daemon-era alias → canonical internal name).
-// map/audit/optimize/consolidate are real workers now, and the remaining
+// map/audit/consolidate are real workers now, and the remaining
 // daemon-only worker names (predict, document, refactor, preload, ultralearn,
 // deepdive, benchmark, testgaps) were deleted with the daemon.
 export const WORKER_ALIAS_MAP: Record<string, string> = {};

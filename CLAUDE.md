@@ -176,7 +176,7 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 | `browse` | – | Browser automation via CDP (@monoes/monobrowse) |
 | `doctor` | 0 | System diagnostics — flat command, flags only |
 | `completions` | 4 | Shell completions (bash, zsh, fish, powershell) |
-| `autopilot` | 10 | Autonomous task execution (status, enable, disable, config, reset, log, learn, history, predict, check) |
+| `autopilot` | 8 | Autonomous task execution (status, enable, disable, config, reset, log, predict, check) |
 | `tokens` | 4 | Token usage tracking (dashboard, summary, today, lean-delta) |
 | `search` | 1 | Universal search (`search scan` refreshes fingerprint) |
 | `analyze` | 7 | Codebase analysis (diff, code, deps, ast, complexity, symbols, imports) |
