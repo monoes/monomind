@@ -16,18 +16,72 @@
  *   agent_message text, executes the real OrgToolDef handlers in-process
  *   (gated through canUseTool), and feeds results back as the next prompt.
  *
- * Subprocess protocol (byte-accurate from openai/codex/sdk/typescript/src):
- *   - Subcommand: `codex exec --experimental-json [--model X] [--cd Y]
- *                  [--skip-git-repo-check] [--sandbox danger-full-access]
- *                  [resume <thread_id>] "<prompt>"`
- *   - JSONL on stdout, one event per line
- *   - 8 event types: thread.started, turn.started, turn.completed,
- *     turn.failed, item.started, item.updated, item.completed, error
- *   - Assistant text arrives via item.completed with item.type === 'agent_message'
- *   - NO per-token streaming (whole items only)
- *   - Resume: positional `resume <thread_id>` (NOT a flag)
- *   - Session ID captured from thread.started.thread_id
- *   - stderr is human diagnostics; buffer and surface on non-zero exit only
+ * Subprocess protocol — REWRITTEN against openai/codex's own Rust source
+ * (issue #178). This runner previously assumed a "thread.started" /
+ * "item.completed" event shape sourced from `openai/codex/sdk/typescript`,
+ * which turned out to be a DIFFERENT wire format than what `codex exec
+ * --json` actually emits. Confirmed two ways: (1) live output from an
+ * installed codex v0.21.0 (`brew install codex`) showed events shaped like
+ * `{"id":"1","msg":{"type":"task_started"}}` — nothing resembling
+ * "thread.started"; (2) cross-checked against
+ * `codex-rs/protocol/src/protocol.rs`'s `EventMsg` enum
+ * (`#[serde(tag = "type", rename_all = "snake_case")]`) and
+ * `codex-rs/protocol/src/legacy_events.rs`, which is EXACTLY this wire
+ * format and is explicitly comment-labeled "v1 wire format" (still the
+ * live default for `--json`, not a deprecated relic).
+ *
+ *   - Invocation: `codex exec --json [--model X] [--cd Y]
+ *                 [--skip-git-repo-check] [--sandbox danger-full-access]
+ *                 [resume <sessionId> "<prompt>"]`. `--experimental-json`
+ *     (the old flag name) doesn't exist in v0.21.0 — confirmed live
+ *     ("unexpected argument '--experimental-json' found"); `--json` is
+ *     correct in both v0.21.0 and the current v0.147.0 (where
+ *     `--experimental-json` IS an alias again, per current
+ *     `codex-rs/exec/src/cli.rs` — but v0.21.0 predates that alias).
+ *   - `resume` is a SUBCOMMAND of `exec`, not a positional after other exec
+ *     flags in isolation — `codex exec resume <sessionId> ["<prompt>"]`,
+ *     with `exec`'s own global flags (--json, --model, --sandbox, etc.)
+ *     specified BEFORE the `resume` token. Confirmed live (v0.147.0) that
+ *     this exact arg order parses cleanly — it got past all argument
+ *     parsing straight to an (unrelated, expired-token) auth error, not a
+ *     flag/subcommand error. v0.21.0 has no `resume` subcommand at all
+ *     (confirmed live: "resume" was consumed as the PROMPT text itself,
+ *     then the actual session id was rejected as an unexpected extra
+ *     positional) — so resume silently can't work pre-~v0.12x. This runner
+ *     doesn't detect codex's version; if resume fails on an old install,
+ *     each turn falls back to a fresh (contextless) session rather than
+ *     erroring — a real limitation, not fixed here.
+ *   - JSONL on stdout, one event per line. Confirmed real EventMsg variants
+ *     (source: `EventMsg` enum + each variant's struct, all in
+ *     `protocol.rs`):
+ *       {"type":"session_configured","session_id":"...","thread_id":"...",
+ *        "model":"...",...}                            — session/thread id
+ *       {"type":"task_started"}                          — turn started
+ *       {"type":"agent_message","message":"...","phase":...}
+ *                                                         — assistant text
+ *       {"type":"token_count","info":{"last_token_usage":
+ *        {"input_tokens":N,"output_tokens":N,"reasoning_output_tokens":N,
+ *         "total_tokens":N,...},"total_token_usage":{...}},...}
+ *                       — `last_token_usage` is per-TURN (not cumulative);
+ *                         `total_token_usage` IS cumulative — use the former
+ *       {"type":"task_complete","turn_id":"...",
+ *        "last_agent_message":"...","error":{"message":"..."}|absent,...}
+ *       {"type":"error","message":"...",...}
+ *   - NO per-token streaming in this event set (whole agent_message events
+ *     only, unlike the discarded thread/item assumption).
+ *   - Session ID: captured from `session_configured.session_id` (or
+ *     `.thread_id` — both present, same value in observed live output),
+ *     NOT from a "thread.started" event, which doesn't exist in this
+ *     protocol.
+ *   - stderr is human diagnostics; buffer and surface on non-zero exit only.
+ *
+ * STILL UNVERIFIED end-to-end (this environment's ~/.codex/auth.json had a
+ * dead refresh token — "refresh token was already used... sign in again" —
+ * needs a fresh `codex login`, not something driven here): a full
+ * successful `task_complete`/`token_count` pair was never actually
+ * observed. The struct field names above are taken directly from the Rust
+ * source (high confidence, not a guess), but a live confirmation of the
+ * exact JSON once auth works would still be worthwhile.
  */
 import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
@@ -35,27 +89,38 @@ import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, 
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching kimi runner
 
-interface CodexItem {
-  id: string;
-  type: 'agent_message' | 'reasoning' | 'command_execution' | 'file_change' | 'mcp_tool_call' | 'web_search' | 'todo_list' | 'error';
-  text?: string;
-  message?: string;
-  [key: string]: unknown;
+/** `EventMsg`'s legacy v1 wire format — see file header for the source
+ *  citation (codex-rs/protocol/src/protocol.rs + legacy_events.rs). Only
+ *  the variants this runner acts on are typed; everything else (exec
+ *  command begin/end, mcp tool call begin/end, reasoning, …) is ignored. */
+interface CodexTokenUsage {
+  input_tokens: number;
+  cached_input_tokens?: number;
+  cache_write_input_tokens?: number;
+  output_tokens: number;
+  reasoning_output_tokens?: number;
+  total_tokens?: number;
 }
 
 interface CodexEvent {
-  type: 'thread.started' | 'turn.started' | 'turn.completed' | 'turn.failed' | 'item.started' | 'item.updated' | 'item.completed' | 'error';
+  type:
+    | 'session_configured'
+    | 'task_started'
+    | 'agent_message'
+    | 'token_count'
+    | 'task_complete'
+    | 'error';
+  // session_configured
+  session_id?: string;
   thread_id?: string;
-  item?: CodexItem;
-  usage?: {
-    input_tokens: number;
-    cached_input_tokens: number;
-    cache_write_input_tokens: number;
-    output_tokens: number;
-    reasoning_output_tokens: number;
-  };
-  error?: { message: string };
+  // agent_message
   message?: string;
+  // token_count
+  info?: { last_token_usage?: CodexTokenUsage; total_token_usage?: CodexTokenUsage };
+  // task_complete
+  turn_id?: string;
+  last_agent_message?: string;
+  error?: { message: string };
 }
 
 interface TurnOutcome {
@@ -169,11 +234,11 @@ export class CodexAgentRunner implements AgentRunner {
     args: AgentRunArgs,
   ): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
-      // ARG ORDER (byte-accurate from codex SDK source):
-      //   codex exec --experimental-json [--model X] [--cd Y]
+      // ARG ORDER — see file header for the live-verified citation:
+      //   codex exec --json [--model X] [--cd Y]
       //              [--skip-git-repo-check] [--sandbox danger-full-access]
       //              [resume <threadId>] "<prompt>"
-      const cliArgs: string[] = ['exec', '--experimental-json'];
+      const cliArgs: string[] = ['exec', '--json'];
       if (args.model) cliArgs.push('--model', args.model);
       cliArgs.push('--cd', args.cwd);
       cliArgs.push('--skip-git-repo-check');
@@ -236,15 +301,21 @@ export class CodexAgentRunner implements AgentRunner {
             inputTokens: 0, outputTokens: 0,
           };
           for (const ev of events) {
-            if (ev.type === 'thread.started' && ev.thread_id) {
-              outcome.threadId = ev.thread_id;
-            } else if (ev.type === 'item.completed' && ev.item?.type === 'agent_message' && ev.item.text) {
-              outcome.rawTexts.push(ev.item.text);
-            } else if (ev.type === 'turn.completed' && ev.usage) {
-              outcome.inputTokens = ev.usage.input_tokens ?? 0;
-              outcome.outputTokens = ev.usage.output_tokens ?? 0;
-            } else if (ev.type === 'turn.failed' && ev.error) {
-              outcome.error = ev.error.message;
+            if (ev.type === 'session_configured' && (ev.session_id || ev.thread_id)) {
+              outcome.threadId = ev.session_id ?? ev.thread_id;
+            } else if (ev.type === 'agent_message' && ev.message) {
+              outcome.rawTexts.push(ev.message);
+            } else if (ev.type === 'token_count' && ev.info?.last_token_usage) {
+              // last_token_usage is per-TURN; total_token_usage is
+              // cumulative for the whole session — using the latter here
+              // would over-report on every turn after the first.
+              outcome.inputTokens = ev.info.last_token_usage.input_tokens ?? 0;
+              outcome.outputTokens = ev.info.last_token_usage.output_tokens ?? 0;
+            } else if (ev.type === 'task_complete') {
+              if (ev.error) outcome.error = ev.error.message;
+              // last_agent_message is a convenience summary already covered
+              // by the agent_message events collected above — not pushed
+              // again here to avoid duplicating the same text.
             } else if (ev.type === 'error' && ev.message) {
               outcome.error = ev.message;
             }
