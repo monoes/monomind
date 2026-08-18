@@ -18,6 +18,7 @@ import {
   type OrgRole,
   type BusEvent,
   type DecisionGate,
+  type ProviderConfig,
   ORG_DIR,
 } from './types.js';
 import { TaskDag } from './task-dag.js';
@@ -147,6 +148,7 @@ function autoRuntimeFromProvider(kind?: ProviderKind): RuntimeKind | undefined {
 export function resolveRunner(
   orgRuntime?: RuntimeKind,
   providerKind?: ProviderKind,
+  provider?: ProviderConfig,
 ): AgentRunner | undefined {
   const selected =
     orgRuntime ??
@@ -159,7 +161,18 @@ export function resolveRunner(
   if (selected === 'antigravity') return new AntigravityAgentRunner();
   if (selected === 'grok') return new GrokAgentRunner();
   if (selected === 'qwen') return new QwenAgentRunner();
-  if (selected === 'crush') return new CrushAgentRunner();
+  if (selected === 'crush') {
+    // Issue #177: usage-proxy accounting is opt-in via provider.usageProxy +
+    // provider.baseUrl (the upstream the crush CLI's own provider config
+    // points at). Absent either, CrushAgentRunner falls back to its
+    // documented 0-token behavior — this never blocks a turn either way.
+    if (provider?.usageProxy && provider.baseUrl) {
+      return new CrushAgentRunner({
+        usageProxy: { upstreamBaseUrl: provider.baseUrl, baseUrlEnvVar: provider.usageProxyEnvVar },
+      });
+    }
+    return new CrushAgentRunner();
+  }
   if (selected === 'copilot') return new CopilotAgentRunner();
   if (selected === 'pi') return new PiAgentRunner();
   if (selected === 'pi-rpc') return new PiRpcAgentRunner();
@@ -176,10 +189,11 @@ export function resolveRoleRunner(
   orgRuntime?: RuntimeKind,
   roleProviderKind?: ProviderKind,
   orgProviderKind?: ProviderKind,
+  roleProvider?: ProviderConfig,
 ): AgentRunner | undefined {
   const explicit = roleRuntime ?? orgRuntime;
-  if (explicit) return resolveRunner(explicit);
-  return resolveRunner(undefined, roleProviderKind ?? orgProviderKind);
+  if (explicit) return resolveRunner(explicit, undefined, roleProvider);
+  return resolveRunner(undefined, roleProviderKind ?? orgProviderKind, roleProvider);
 }
 
 /** Per-role token budget: a role's own `budget_tokens` wins; otherwise the
@@ -919,7 +933,7 @@ export class OrgDaemon {
         // built per role here in spawnRole, so each role gets its own runner.
         runner:
           this.opts.runner ??
-          resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, undefined),
+          resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, undefined, role.provider),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
