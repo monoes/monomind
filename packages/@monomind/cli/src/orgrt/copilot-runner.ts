@@ -39,8 +39,18 @@
  *     CLI has no documented custom-base-URL override (it talks to GitHub's
  *     own Copilot backend, not a passthrough-able OpenAI/Anthropic
  *     endpoint), so this runner does not attempt usage-proxy accounting —
- *     it always reports 0 tokens. Revisit if GitHub documents a usage field
- *     or a proxyable endpoint later.
+ *     it always reports 0 tokens. UPDATE (issue #181 research): Copilot CLI
+ *     does expose token counts via OpenTelemetry file export
+ *     (`COPILOT_OTEL_ENABLED=true`, `COPILOT_OTEL_EXPORTER_TYPE=file`,
+ *     `COPILOT_OTEL_FILE_EXPORTER_PATH=<path>`, writing to
+ *     `~/.copilot/otel/*.jsonl` by default), but this is opt-in (not emitted
+ *     on `--output-format json` stdout) and no source with literal, quotable
+ *     JSON field names for the OTel span schema was found — only prose
+ *     descriptions ("chat spans ... cache read/creation ... reasoning output
+ *     tokens"). Implementing a parser against a guessed schema risks the
+ *     exact wrong-guess failure mode `pi-rpc-runner.ts`'s header warns
+ *     against. Still needs a live `copilot` install with OTel file export
+ *     enabled to capture a real JSONL sample before this can be wired up.
  *
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
