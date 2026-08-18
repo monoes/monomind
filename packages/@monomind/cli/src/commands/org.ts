@@ -1470,6 +1470,7 @@ export const orgCommand: Command = {
         { name: 'goal', description: 'Org goal (defaults to the template\'s placeholder)', type: 'string' },
         { name: 'schedule', description: 'Daemon schedule, e.g. 30m or 2h', type: 'string' },
         { name: 'force', description: 'Overwrite an existing org config', type: 'boolean' },
+        { name: 'yes', short: 'y', description: 'Skip the per-role model confirmation prompt (TTY only)', type: 'boolean' },
       ],
       examples: [{ command: 'monomind org create blog --template content-team --goal "3 posts/week"', description: 'Create a content org' }],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
