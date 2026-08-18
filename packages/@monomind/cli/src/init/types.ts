@@ -206,8 +206,6 @@ export interface RuntimeConfig {
   maxAgents: number;
   /** Memory backend */
   memoryBackend: 'memory' | 'sqlite' | 'hybrid';
-  /** Enable HNSW indexing */
-  enableHNSW: boolean;
   /** Enable neural learning */
   enableNeural: boolean;
   /** Enable learning system - connects insights to the pattern store */
@@ -435,7 +433,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     topology: 'hierarchical-mesh',
     maxAgents: 15,
     memoryBackend: 'hybrid',
-    enableHNSW: true,
     enableNeural: true,
     enableLearningBridge: true,
     enableAgentScopes: true,
@@ -502,7 +499,6 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     topology: 'mesh',
     maxAgents: 5,
     memoryBackend: 'memory',
-    enableHNSW: false,
     enableNeural: false,
     enableLearningBridge: false,
     enableAgentScopes: false,

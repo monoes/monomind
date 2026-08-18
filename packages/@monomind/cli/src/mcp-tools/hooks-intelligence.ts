@@ -353,29 +353,10 @@ export const hooksTrajectoryEnd: MCPTool = {
         }
       }
 
-      // Try EWC++ consolidation on successful trajectories
-      if (success) {
-        const ewc = await getEWCConsolidator();
-        if (ewc) {
-          try {
-            // Record gradient sample for Fisher matrix update
-            // Create a simple gradient from trajectory steps
-            const gradients = new Array(384)
-              .fill(0)
-              .map((_, i) => Math.sin(i * 0.01) * (trajectory.steps.length / 10));
-            ewc.recordGradient(`trajectory-${trajectoryId}`, gradients, success);
-            const stats = ewc.getConsolidationStats();
-            ewcResult = {
-              consolidated: true,
-              penalty: stats.avgPenalty,
-            };
-          } catch (e) {
-            // EWC consolidation failed, continue without it
-            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
-              console.error('[hooks-intelligence] EWC consolidation failed:', e);
-          }
-        }
-      }
+      // EWC++ consolidation requires a real gradient proxy (e.g. a pattern
+      // embedding — see recordPatternOutcome in ewc-consolidation.ts). No such
+      // embedding is available from a trajectory here, so consolidation is
+      // left un-run rather than fed a fabricated gradient.
     }
 
     const learningTimeMs = Date.now() - startTime;
@@ -701,7 +682,7 @@ export const hooksIntelligenceStats: MCPTool = {
         fisherUpdates: realEwc.consolidationCount,
         avgPenalty: Math.round(realEwc.avgPenalty * 1000) / 1000,
         totalPatterns: realEwc.totalPatterns,
-        implementation: 'real-ewc++',
+        implementation: 'ewc-inspired-heuristic',
       };
     }
 
@@ -860,57 +841,6 @@ export const hooksIntelligenceLearn: MCPTool = {
         implementation: sona ? 'real-sona' : 'not-available',
       },
       implementation: sona ? 'real-sona-learning' : 'placeholder',
-    };
-  },
-};
-
-// Intelligence attention hook
-export const hooksIntelligenceAttention: MCPTool = {
-  name: 'hooks_intelligence_attention',
-  description: 'Compute attention-weighted similarity (pure-JS cosine/hyperbolic)',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: { type: 'string', description: 'Query for attention computation' },
-      mode: { type: 'string', description: 'Attention mode (flash, moe, hyperbolic)' },
-      topK: { type: 'number', description: 'Top-k results' },
-    },
-    required: ['query'],
-  },
-  handler: async (params: Record<string, unknown>) => {
-    const query = params.query as string;
-    const mode = (params.mode as string) || 'flash';
-    const topK = (params.topK as number) || 5;
-    const startTime = performance.now();
-
-    let implementation = 'placeholder';
-    const results: Array<{ index: number; weight: number; pattern: string; expert?: string }> = [];
-
-    // Native MoE-router / Flash-attention backends were removed in the lean build.
-    // Both modes degrade to the honest empty result handled below.
-    void mode;
-
-    // If no real implementation worked, return empty with honest marker
-    if (results.length === 0) {
-      implementation = 'none';
-    }
-
-    const computeTimeMs = performance.now() - startTime;
-
-    return {
-      query,
-      mode,
-      results,
-      stats: {
-        computeTimeMs,
-        speedup: implementation.startsWith('real-') ? computeTimeMs : null,
-        _stub: implementation === 'none',
-        _note:
-          implementation === 'none'
-            ? 'Pure-JS similarity only; native attention backends are not part of the lean build.'
-            : undefined,
-      },
-      implementation,
     };
   },
 };

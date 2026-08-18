@@ -206,7 +206,6 @@ export const intelligenceCommand: Command = {
       const mcpMoe = mcpComponents?.moe;
       const mcpHnsw = mcpComponents?.hnsw;
       const mcpEmb = mcpComponents?.embeddings;
-      const mcpPerf = (mcpResult as { performance?: Record<string, string> } | null)?.performance;
 
       const patternsLearned = Math.max(localStats.patternsLearned, patternsFileEntries, Number(mcpSona?.patternsLearned ?? 0));
       const trajectories = Math.max(localStats.trajectoriesRecorded, trajectoriesFromDisk, Number(mcpSona?.trajectoriesRecorded ?? 0));
@@ -252,12 +251,6 @@ export const intelligenceCommand: Command = {
             dimension: 128,
             cacheHitRate: 0,
           },
-        },
-        performance: mcpPerf ?? {
-          memoryReduction: patternsFileSize > 0 ? `${(patternsFileSize / 1024).toFixed(1)} KB on disk` : 'N/A',
-          searchImprovement: localStats.reasoningBankSize > 0 ? 'pure-JS HNSW' : 'N/A',
-          tokenReduction: 'N/A',
-          sweBenchScore: 'N/A',
         },
         lastTrainingMs: lastAdaptation ? Date.now() - lastAdaptation : undefined,
         persistence: {
@@ -421,19 +414,6 @@ export const intelligenceCommand: Command = {
         }
       }
 
-      // Performance
-      const perf = result.performance;
-      if (perf) {
-        output.writeln();
-        output.writeln(output.bold('v1 Performance Gains'));
-        output.printList([
-          `Memory Reduction: ${output.success(String(perf.memoryReduction ?? 'N/A'))}`,
-          `Search Improvement: ${output.success(String(perf.searchImprovement ?? 'N/A'))}`,
-          `Token Reduction: ${output.success(String(perf.tokenReduction ?? 'N/A'))}`,
-          `SWE-Bench Score: ${output.success(String(perf.sweBenchScore ?? 'N/A'))}`
-        ]);
-      }
-
       return { success: true, data: result };
     } catch (error) {
       spinner.fail('Intelligence system error');
@@ -574,7 +554,7 @@ export const workerCommand: Command = {
     output.writeln(output.bold('Background Worker System (@monoes/hooks)'));
     output.writeln();
     output.writeln('Workers run in-process and write their results to .monomind/metrics/.');
-    output.writeln('The metrics-producing workers (ddd, map, audit, optimize, consolidate)');
+    output.writeln('The metrics-producing workers (ddd, map, audit, consolidate)');
     output.writeln('also refresh automatically at session start when their output is stale.');
     output.writeln();
     output.writeln('Subcommands:');

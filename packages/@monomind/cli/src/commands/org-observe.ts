@@ -827,7 +827,10 @@ export const denyAction = async (ctx: CommandContext, name: string): Promise<Com
   return resolveApproval(ctx, name, role, action, false);
 };
 
-/** `org replay <org> <run-id>` — time-travel debugging: resume from checkpoint */
+/** `org replay <org> <run-id>` — time-travel debugging: re-emit a past run's bus
+ *  events into a fresh replay run for inspection. This is event-log replay only —
+ *  it does not restart agent execution or restore live sessions. To actually
+ *  resume an org's execution from where it left off, use `org run --resume`. */
 export const replayAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const run = ctx.args[1];
   if (!run) {
@@ -844,9 +847,9 @@ export const replayAction = async (ctx: CommandContext, name: string): Promise<C
     return { success: false, message: `no bus events found for run ${run}` };
   }
 
-  log(output.info(`Resuming org ${name} from checkpoint ${run}...`));
+  log(output.info(`Replaying org ${name} events from checkpoint ${run}...`));
 
-  // Create daemon and resume from checkpoint
+  // Create daemon and replay the bus events for debugging/inspection
   const { OrgDaemon } = await import('../orgrt/daemon.js');
   const daemon = new OrgDaemon(ctx.cwd, { forward: false });
 
@@ -855,22 +858,32 @@ export const replayAction = async (ctx: CommandContext, name: string): Promise<C
     return { success: false, message: `replay failed - check bus.jsonl and org config for ${name} are valid` };
   }
 
-  log(output.success(`Org ${name} resumed from ${run} - ${resumed.agents.size} role(s) restored`));
+  log(output.success(`Org ${name} events replayed from ${run} as run ${resumed.run}`));
   log(output.info(`Use: monomind org logs ${name} --run ${resumed.run} to inspect events.`));
-  log(output.info(`Stop with: monomind org stop ${name}`));
+  log(output.info(`This is debug replay only — it does not restart agent execution. To resume live execution, use: monomind org run ${name} --resume`));
 
-  return { success: true, message: `resumed from checkpoint ${run} as ${resumed.run}` };
+  return { success: true, message: `replayed events from checkpoint ${run} as ${resumed.run}` };
 };
 
-/** `org resume-from <org> <run-id>` — resume from checkpoint (alias for replay) */
+/** `org resume-from <org>` — resume live execution from the org's persisted
+ *  checkpoint (runtime.json): restores mailbox queues, policy/token counters,
+ *  and session state, subject to checkpoint TTL and checksum validation. Unlike
+ *  `replay`, this restarts real agent execution via `startOrg(..., { resume: true })`. */
 export const resumeFromAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
-  const run = ctx.args[1];
-  if (!run) {
-    return { success: false, message: 'usage: org resume-from <org> <run-id>' };
+  log(output.info(`Resuming org ${name} from checkpoint...`));
+
+  const { OrgDaemon } = await import('../orgrt/daemon.js');
+  const daemon = new OrgDaemon(ctx.cwd, { forward: false });
+
+  const resumed = await daemon.resumeOrg(name);
+  if (!resumed) {
+    return { success: false, message: `resume failed for ${name} - check runtime.json checkpoint is present, unexpired, and valid` };
   }
 
-  // Reuse replay logic
-  return replayAction(ctx, name);
+  log(output.success(`Org ${name} resumed - ${resumed.agents.size} role(s) restored`));
+  log(output.info(`Stop with: monomind org stop ${name}`));
+
+  return { success: true, message: `resumed ${name} - ${resumed.agents.size} role(s) restored` };
 };
 
 /** `org branch <org> <run-id> <branch-name>` — create a branch from checkpoint for what-if experiments */
