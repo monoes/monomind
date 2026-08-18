@@ -23,7 +23,7 @@
   "scripts": {
     "postinstall": "node -e \"if(process.platform!=='win32'){try{require('child_process').execSync('find node_modules -name ._* -delete 2>/dev/null',{stdio:'ignore'})}catch{}}\"",
     "prepare": "node scripts/install-hooks.mjs",
-    "dev": "tsx watch src/index.ts",
+    "dev": "cd packages/@monomind/cli && tsx watch src/index.ts",
     "build": "tsc",
     "build:ts": "cd packages/@monomind/cli && npm run build",
     "check:versions": "node scripts/check-publish-versions.mjs",

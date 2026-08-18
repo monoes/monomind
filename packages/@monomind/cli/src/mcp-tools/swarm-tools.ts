@@ -88,20 +88,18 @@ export const swarmTools: MCPTool[] = [
         topology: { type: 'string', description: 'Swarm topology type (hierarchical, mesh, hierarchical-mesh, ring, star, hybrid, adaptive)' },
         maxAgents: { type: 'number', description: 'Maximum number of agents (1-50)' },
         strategy: { type: 'string', description: 'Agent strategy (specialized, balanced, adaptive)' },
-        config: { type: 'object', description: 'Additional swarm configuration' },
       },
     },
     handler: async (input) => {
       const topology = (input.topology as string) || 'hierarchical-mesh';
       const maxAgents = Math.min(Math.max((input.maxAgents as number) || 8, 1), 50);
-      // Cap strategy and config string fields: all are persisted in the swarm
-      // JSON store.  topology is already validated against VALID_TOPOLOGIES so
-      // an invalid long value is rejected; the others have no validation.
+      // Cap strategy field length: it's persisted in the swarm JSON store.
+      // topology is already validated against VALID_TOPOLOGIES so an invalid
+      // long value is rejected; strategy has no such validation.
       const MAX_SWARM_FIELD_LEN = 256;
       const rawStrategy = (input.strategy as string) || 'specialized';
       const strategy = typeof rawStrategy === 'string' && rawStrategy.length > MAX_SWARM_FIELD_LEN
         ? rawStrategy.slice(0, MAX_SWARM_FIELD_LEN) : rawStrategy;
-      const config = (input.config || {}) as Record<string, unknown>;
 
       if (!VALID_TOPOLOGIES.has(topology)) {
         return {
@@ -124,15 +122,6 @@ export const swarmTools: MCPTool[] = [
           topology,
           maxAgents,
           strategy,
-          communicationProtocol: (() => {
-            const raw = (config.communicationProtocol as string) || 'message-bus';
-            return typeof raw === 'string' && raw.length > MAX_SWARM_FIELD_LEN ? raw.slice(0, MAX_SWARM_FIELD_LEN) : raw;
-          })(),
-          autoScaling: (config.autoScaling as boolean) ?? true,
-          consensusMechanism: (() => {
-            const raw = (config.consensusMechanism as string) || 'majority';
-            return typeof raw === 'string' && raw.length > MAX_SWARM_FIELD_LEN ? raw.slice(0, MAX_SWARM_FIELD_LEN) : raw;
-          })(),
         },
         createdAt: now,
         updatedAt: now,

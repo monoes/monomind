@@ -399,34 +399,3 @@ export function calculateReward(iterations: number, durationMs: number): number 
   return Math.round((iterFactor + timeFactor) * 100) / 100;
 }
 
-// ── Learning Integration ──────────────────────────────────────
-
-/**
- * Interface for the optional agentic-flow AutopilotLearning peer. Methods are
- * typed loosely (return `Promise<unknown>`) because the peer module is not a
- * declared dependency — its API may differ across versions. The CLI's job is
- * to call these methods when the peer is present and fall back to heuristics
- * when it isn't (see commands/autopilot.ts). The interface exists so callers
- * do not need `as any` casts that would silently swallow API drift.
- */
-export interface AutopilotLearningInterface {
-  initialize(): Promise<boolean>;
-  getMetrics(): Promise<unknown>;
-  discoverSuccessPatterns(...args: unknown[]): Promise<unknown>;
-  recallSimilarTasks(...args: unknown[]): Promise<unknown>;
-  predictNextAction(...args: unknown[]): Promise<unknown>;
-}
-
-export async function tryLoadLearning(): Promise<AutopilotLearningInterface | null> {
-  try {
-    const modPath = 'agentic-flow/dist/coordination/autopilot-learning.js';
-    const mod = await import(/* webpackIgnore: true */ modPath).catch(() => null);
-    if (mod?.AutopilotLearning) {
-      const instance = new mod.AutopilotLearning() as AutopilotLearningInterface;
-      if (await instance.initialize()) return instance;
-    }
-  } catch {
-    /* not available */
-  }
-  return null;
-}

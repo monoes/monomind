@@ -42,7 +42,6 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
     backend: 'hybrid',
     persistPath: './data/memory',
     cacheSize: 1000,
-    enableHNSW: true,
     vectorDimension: 384,
   },
   mcp: {

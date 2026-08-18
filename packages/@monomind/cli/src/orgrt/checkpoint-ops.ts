@@ -64,20 +64,10 @@ export async function replayFrom(daemon: OrgDaemon, name: string, run: string): 
 }
 
 /** Resume a previous run from its checkpoint (runtime.json state). Reconstructs
- *  the org's agents and mailboxes from the persisted state, enabling time-travel
- *  debugging and run recovery after crashes. Returns the resumed RunningOrg or null.
- *  Pattern 3: Full state restoration including mailbox queues, policy counters,
- *  and session state with TTL and validation.
- *
- *  P2-13 status: the reconstructed AgentRuntime now carries the persisted SDK
- *  `sessionId` (restored below) and session.ts's runAgentSession honors it via
- *  `opts.resumeSessionId` — so the plumbing to actually resume the SDK
- *  conversation exists. BUT this function has no CLI caller today: `org
- *  replay`/`org resume-from` both route to `replayFrom` above (pure bus-event
- *  replay for debugging, no live session), not here, and nothing else in the
- *  codebase calls `daemon.resumeOrg`. Until a command wires spawnRole-equivalent
- *  session driving to the roles/pendingRoles this function reconstructs,
- *  "checkpoint resume" restores in-memory state but does not restart execution. */
+ *  the org's agents and mailboxes from the persisted state, enabling
+ *  run recovery after crashes/stops. Wired to `org resume-from` — full state
+ *  restoration including mailbox queues, policy counters, and session state,
+ *  with checkpoint TTL and checksum validation. Returns the resumed RunningOrg or null. */
 export async function resumeOrg(daemon: OrgDaemon, name: string): Promise<RunningOrg | null> {
   const rtPath = join(daemon.root, ORG_DIR, name, 'runtime.json');
   if (!existsSync(rtPath)) {

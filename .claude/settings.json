@@ -339,7 +339,6 @@
     },
     "memory": {
       "backend": "hybrid",
-      "enableHNSW": true,
       "learningBridge": {
         "enabled": true
       },

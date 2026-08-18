@@ -15,7 +15,6 @@ import {
   discoverTasks,
   getProgress,
   calculateReward,
-  tryLoadLearning,
   validateNumber,
   validateTaskSources,
   LOG_FILE,
@@ -334,117 +333,12 @@ const logCommand: Command = {
   },
 };
 
-const learnCommand: Command = {
-  name: 'learn',
-  description: 'Discover success patterns from past completions',
-  options: [{ name: 'json', type: 'boolean', description: 'Output as JSON' }],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const learning = await tryLoadLearning();
-    if (!learning) {
-      output.writeln(
-        'Learning not available (memory backend not initialized). Autopilot still works for task completion tracking.',
-      );
-      return { success: true };
-    }
-
-    const metrics = (await learning.getMetrics()) as {
-      episodes: number;
-      patterns: number;
-      trajectories: number;
-    };
-    const patterns = (await learning.discoverSuccessPatterns()) as Array<{
-      pattern: string;
-      frequency: number;
-      avgReward: number;
-    }>;
-
-    if (ctx.flags?.json) {
-      output.printJson({ metrics, patterns });
-      return { success: true };
-    }
-
-    output.writeln(`Episodes: ${metrics.episodes}`);
-    output.writeln(`Patterns: ${metrics.patterns}`);
-    output.writeln(`Trajectories: ${metrics.trajectories}`);
-
-    if (patterns.length > 0) {
-      output.writeln('\nDiscovered patterns:');
-      for (const p of patterns) {
-        output.writeln(
-          `  - ${p.pattern} (freq: ${p.frequency}, reward: ${p.avgReward.toFixed(2)})`,
-        );
-      }
-    }
-    return { success: true };
-  },
-};
-
-const historyCommand: Command = {
-  name: 'history',
-  description: 'Search past completion episodes',
-  options: [
-    { name: 'query', type: 'string', description: 'Search query', required: true },
-    { name: 'limit', type: 'string', description: 'Max results (default 10)' },
-    { name: 'json', type: 'boolean', description: 'Output as JSON' },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const rawQuery = (ctx.flags?.query || '') as string;
-    const limit = validateNumber(ctx.flags?.limit, 1, 100, 10);
-
-    if (!rawQuery) {
-      output.writeln('Usage: autopilot history --query "search terms" [--limit N]');
-      return { success: false, message: 'Missing --query' };
-    }
-    if (rawQuery.length > 1024) {
-      output.writeln('Error: --query too long (max 1024 characters)');
-      return { success: false, message: 'Query too long' };
-    }
-    const query = rawQuery;
-
-    const learning = await tryLoadLearning();
-    if (!learning) {
-      output.writeln('Learning not available. No history to search.');
-      return { success: true };
-    }
-
-    const results = (await learning.recallSimilarTasks(query, limit)) as unknown[];
-    if (ctx.flags?.json) {
-      output.printJson(results);
-    } else if (results.length === 0) {
-      output.writeln(`No matching episodes for: "${query}"`);
-    } else {
-      output.printJson(results);
-    }
-    return { success: true };
-  },
-};
-
 const predictCommand: Command = {
   name: 'predict',
-  description: 'Predict optimal next action',
+  description: 'Suggest the next action — a heuristic over locally discovered tasks, not ML prediction',
   options: [{ name: 'json', type: 'boolean', description: 'Output as JSON' }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const state = loadState();
-    const learning = await tryLoadLearning();
-
-    if (learning) {
-      const prediction = (await learning.predictNextAction(state)) as {
-        action?: string;
-        confidence?: number;
-        alternatives?: string[];
-      } | null;
-      if (ctx.flags?.json) {
-        output.printJson(prediction);
-      } else {
-        output.writeln(`Action: ${prediction?.action || 'unknown'}`);
-        output.writeln(`Confidence: ${prediction?.confidence || 0}`);
-        if (prediction?.alternatives?.length)
-          output.writeln(`Alternatives: ${prediction.alternatives.join(', ')}`);
-      }
-      return { success: true };
-    }
-
-    // Heuristic fallback
     const tasks = discoverTasks(state.taskSources);
     const progress = getProgress(tasks);
 
@@ -463,7 +357,7 @@ const predictCommand: Command = {
       output.printJson(result);
     } else {
       output.writeln(`Action: ${result.action}`);
-      output.writeln(`Confidence: ${result.confidence} (heuristic — learning not available)`);
+      output.writeln(`Confidence: ${result.confidence} (heuristic)`);
       output.writeln(`Remaining: ${result.remaining} tasks`);
     }
     return { success: true };
@@ -498,8 +392,6 @@ export const autopilotCommand: Command = {
     configCommand,
     resetCommand,
     logCommand,
-    learnCommand,
-    historyCommand,
     predictCommand,
     checkCommand,
   ],
@@ -529,9 +421,7 @@ export const autopilotCommand: Command = {
       'config    — Configure max iterations, timeout, sources',
       'reset     — Reset iteration counter and timer',
       'log       — View autopilot event log',
-      'learn     — Discover success patterns',
-      'history   — Search past completion episodes',
-      'predict   — Predict optimal next action',
+      'predict   — Suggest optimal next action (heuristic)',
       'check     — Run completion check (stop hook)',
     ]);
     return { success: true };

@@ -58,7 +58,6 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 | Topology | ${options.runtime.topology} |
 | Max Agents | ${options.runtime.maxAgents} |
 | Memory Backend | ${options.runtime.memoryBackend} |
-| HNSW Indexing | ${options.runtime.enableHNSW ? 'Enabled' : 'Disabled'} |
 | Neural Learning | ${options.runtime.enableNeural ? 'Enabled' : 'Disabled'} |
 | Learning | ${options.runtime.enableLearningBridge ? 'Enabled' : 'Disabled'} |
 | Agent Scopes | ${options.runtime.enableAgentScopes ? 'Enabled (project/local/user)' : 'Disabled'} |
@@ -236,10 +235,9 @@ npx monomind@latest doctor --fix
 | \`progress\` | normal | Progress tracking |
 | \`map\` | normal | Codebase mapping |
 | \`audit\` | high | Security audit metrics |
-| \`optimize\` | normal | Performance snapshot |
 | \`consolidate\` | low | Memory consolidation |
 
-Metrics-producing workers (ddd, map, audit, optimize, consolidate) refresh at
+Metrics-producing workers (ddd, map, audit, consolidate) refresh at
 session start when their output is >6h old; run on demand with
 \`monomind hooks worker run <name>\`.
 
@@ -375,7 +373,7 @@ npx monomind@latest memory search --query "patterns"
 
 # Hooks
 npx monomind@latest hooks pre-task --description "task"
-npx monomind@latest hooks worker run optimize
+npx monomind@latest hooks worker run map
 \`\`\`
 
 ### File Structure

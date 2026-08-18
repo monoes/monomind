@@ -1,7 +1,7 @@
 /**
  * Autopilot MCP Tools
  *
- * 10 MCP tools for persistent swarm completion management.
+ * 8 MCP tools for persistent swarm completion management.
  * Allows programmatic control of the autopilot loop via MCP.
  *
  * ADR-072: Autopilot Integration
@@ -11,7 +11,7 @@
 import type { MCPTool } from './types.js';
 import {
   loadState, saveState, appendLog, loadLog, discoverTasks,
-  isTerminal, tryLoadLearning,
+  isTerminal,
   validateNumber, validateTaskSources,
   VALID_TASK_SOURCES,
 } from '../autopilot-state.js';
@@ -163,72 +163,13 @@ const autopilotProgress: MCPTool = {
   },
 };
 
-const autopilotLearn: MCPTool = {
-  name: 'autopilot_learn',
-  description: 'Report success patterns from the optional agentic-flow learning module. That module is not a declared dependency and is absent in normal installs, so this returns available:false with an empty pattern list — no pattern discovery occurs.',
-  category: 'autopilot',
-  inputSchema: { type: 'object', properties: {} },
-  handler: async () => {
-    const learning = await tryLoadLearning();
-    if (learning) {
-      const [metrics, patterns] = await Promise.all([
-        (learning as any).getMetrics(),
-        (learning as any).discoverSuccessPatterns(),
-      ]);
-      return ok({ metrics, patterns });
-    }
-    return ok({ available: false, reason: 'memory backend/AutopilotLearning not initialized', patterns: [] });
-  },
-};
-
-const autopilotHistory: MCPTool = {
-  name: 'autopilot_history',
-  description: 'Search past completion episodes by keyword. Requires memory backend.',
-  category: 'autopilot',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: { type: 'string', description: 'Search query' },
-      limit: { type: 'number', description: 'Max results (default 10)' },
-    },
-    required: ['query'],
-  },
-  handler: async (params: Record<string, unknown>) => {
-    // Reject non-string queries and cap length so embedding/regex on the
-    // input cannot become a CPU/memory amplifier. Without this an attacker
-    // could pass an object whose toString() returns multi-MB content.
-    if (params.query !== undefined && typeof params.query !== 'string') {
-      return ok({ query: '', results: [], error: 'query must be a string' });
-    }
-    const raw = (params.query as string | undefined) ?? '';
-    if (raw.length > 1024) {
-      return ok({ query: '', results: [], error: 'query too long (max 1024 chars)' });
-    }
-    const query = raw;
-    const limit = validateNumber(params.limit, 1, 100, 10);
-    const learning = await tryLoadLearning();
-    if (learning) {
-      const results = await (learning as any).recallSimilarTasks(query, limit);
-      return ok({ query, results });
-    }
-    return ok({ query, results: [], available: false });
-  },
-};
-
 const autopilotPredict: MCPTool = {
   name: 'autopilot_predict',
-  description: 'Suggest the next action by returning the first incomplete discovered task with a fixed 0.5 confidence — a heuristic over local task files, not ML prediction. The optional agentic-flow learning module that would refine this is not a declared dependency and is absent in normal installs.',
+  description: 'Suggest the next action by returning the first incomplete discovered task with a fixed 0.5 confidence — a heuristic over local task files, not ML prediction.',
   category: 'autopilot',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
     const state = loadState();
-    const learning = await tryLoadLearning();
-    if (learning) {
-      const prediction = await (learning as any).predictNextAction(state);
-      return ok(prediction);
-    }
-
-    // Heuristic fallback
     const tasks = discoverTasks(state.taskSources);
     const incomplete = tasks.filter(t => !isTerminal(t.status));
     if (incomplete.length === 0) {
@@ -237,7 +178,7 @@ const autopilotPredict: MCPTool = {
     return ok({
       action: `Work on: ${incomplete[0].subject}`,
       confidence: 0.5,
-      reason: 'Heuristic (learning not available)',
+      reason: 'Heuristic',
       remaining: incomplete.length,
     });
   },
@@ -253,7 +194,5 @@ export const autopilotTools: MCPTool[] = [
   autopilotReset,
   autopilotLog,
   autopilotProgress,
-  autopilotLearn,
-  autopilotHistory,
   autopilotPredict,
 ];

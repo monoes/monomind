@@ -147,11 +147,11 @@ export function findSecretsInDir(
 
 export const scanCommand: Command = {
   name: 'scan',
-  description: 'Run security scan on target (code, dependencies, containers)',
+  description: 'Run security scan on target (code, dependencies)',
   options: [
-    { name: 'target', short: 't', type: 'string', description: 'Target path or URL to scan', default: '.' },
+    { name: 'target', short: 't', type: 'string', description: 'Target path to scan', default: '.' },
     { name: 'depth', short: 'd', type: 'string', description: 'Scan depth: quick, standard, deep', default: 'standard' },
-    { name: 'type', type: 'string', description: 'Scan type: code, deps, container, all', default: 'all' },
+    { name: 'type', type: 'string', description: 'Scan type: code, deps, all', default: 'all' },
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json, sarif', default: 'text' },
     { name: 'fix', short: 'f', type: 'boolean', description: 'Auto-fix vulnerabilities where possible' },
   ],
@@ -164,6 +164,11 @@ export const scanCommand: Command = {
     const depth = ctx.flags.depth as string || 'standard';
     const scanType = ctx.flags.type as string || 'all';
     const fix = ctx.flags.fix as boolean;
+
+    if (scanType === 'container') {
+      output.printError('container scanning is not implemented — no container engine exists');
+      return { success: false };
+    }
 
     if (target !== '.') {
       try {

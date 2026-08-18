@@ -1424,8 +1424,8 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'replay', description: 'Time-travel debugging: replay from a checkpoint',
-      examples: [{ command: 'monomind org replay growth run-20250130120000-abc', description: 'Replay from checkpoint' }],
+      name: 'replay', description: 'Time-travel debugging: replay a run\'s bus events (does not resume live execution — use "org run --resume" for that)',
+      examples: [{ command: 'monomind org replay growth run-20250130120000-abc', description: 'Replay a checkpoint\'s events for inspection' }],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1434,8 +1434,8 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'resume-from', description: 'Resume from checkpoint (alias for replay)',
-      examples: [{ command: 'monomind org resume-from growth run-20250130120000-abc', description: 'Resume from checkpoint' }],
+      name: 'resume-from', description: 'Resume live execution from the org\'s persisted checkpoint (restores mailbox/policy/session state; subject to TTL and checksum validation)',
+      examples: [{ command: 'monomind org resume-from growth', description: 'Resume growth from its last checkpoint' }],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;

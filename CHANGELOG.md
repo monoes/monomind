@@ -256,6 +256,8 @@ subscription and API key auth path now has a first-class home.
 
 ## [2.9.1] — 2026-08-09
 
+Release chore only — no user-facing changes.
+
 ## [2.9.0] — 2026-08-06
 
 ### Comprehensive review-fix release
