@@ -212,6 +212,27 @@ export function dagCancelTask(
   }
 }
 
+export function dagBlockTask(
+  daemon: OrgDaemon, org: string, role: string,
+  taskId: string, untilIso: string, reason?: string,
+): string {
+  const running = daemon.orgs.get(org);
+  if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
+  const untilMs = Date.parse(untilIso);
+  if (Number.isNaN(untilMs)) return JSON.stringify({ error: `"${untilIso}" is not a valid ISO date/time` });
+  try {
+    const task = running.taskDag.block(taskId, untilMs, reason);
+    running.bus.emit({
+      type: 'status', from: role, reason: 'task-blocked',
+      msg: `task ${taskId} blocked until ${new Date(untilMs).toISOString()}${reason ? `: ${reason}` : ''}`,
+      data: { taskId, blockedUntil: untilMs, reason },
+    });
+    return JSON.stringify({ blocked: taskId, until: new Date(untilMs).toISOString(), status: task.status });
+  } catch (err) {
+    return JSON.stringify({ error: (err as Error).message });
+  }
+}
+
 export function dagCompleteTask(daemon: OrgDaemon, org: string, role: string, taskId: string, result?: string): string {
   const running = daemon.orgs.get(org);
   if (!running?.taskDag) return JSON.stringify({ error: 'org not running' });
