@@ -9,6 +9,7 @@ import { ORG_DIR, OrgDefSchema, type BusEvent, type DecisionGate } from '../orgr
 import { formatEvent, listRunDirs, readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
 import { ORG_TEMPLATES, buildFromTemplate } from '../orgrt/templates.js';
 import { checkOrgStructure } from '../orgrt/migrate.js';
+import { resolveModel } from '../orgrt/session.js';
 import { listOrgConfigFiles, validateOrgName } from './org.js';
 
 const log = (text: string): void => { console.log(text); };
@@ -583,11 +584,42 @@ export const createAction = async (ctx: CommandContext, name: string): Promise<C
     return { success: false, message: 'org exists' };
   }
   OrgDefSchema.parse(def); // templates must always produce a runnable config
+
+  // Per-role model — the single most consequential setting the template picked on
+  // the user's behalf. Mirror resolveModel() (same helper `org run`'s cost estimate
+  // uses) so a role relying on its runtime/vendor default isn't mislabeled here.
+  const modelRows = def.roles.map((r) => {
+    const explicit = r.adapter_config?.model;
+    return {
+      id: r.id,
+      model: String(explicit ?? resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor)),
+      explicit: !!explicit,
+    };
+  });
+  const printModels = (): void => {
+    log(output.bold('  Models:'));
+    for (const r of modelRows) {
+      log(`    ${r.id.padEnd(20)} ${r.model}${r.explicit ? '' : '  (default)'}`);
+    }
+  };
+
+  if (ctx.interactive && ctx.flags['yes'] !== true) {
+    log(output.bold(`\nAbout to create org "${name}" from template "${templateName}" (${def.roles.length} roles):`));
+    printModels();
+    const { confirm } = await import('../prompt.js');
+    const proceed = await confirm({ message: 'Create this org?', default: true });
+    if (!proceed) {
+      log(output.info('Cancelled — no file written. Adjust --template/--goal, or edit the template, then retry (pass --yes to skip this prompt).'));
+      return { success: false, message: 'cancelled by user' };
+    }
+  }
+
   const { mkdirSync } = await import('node:fs');
   mkdirSync(join(ctx.cwd, ORG_DIR), { recursive: true });
   writeFileSync(file, JSON.stringify(def, null, 2) + '\n', 'utf8');
   log(output.success(`Org "${name}" created from template "${templateName}" (${def.roles.length} roles).`));
   log(output.info(`  Budget: ${def.run_config.budget_tokens} tokens · Turn limit: ${def.run_config.max_turns_per_message} per message (effectively unlimited by default — set run_config.max_turns_per_message, or a role's own max_turns_per_message, to cap it).`));
+  if (!ctx.interactive || ctx.flags['yes'] === true) printModels();
   log(output.info(`  Edit the goal/roles in ${file}, then: monomind org run ${name}`));
   return { success: true };
 };

@@ -131,13 +131,26 @@ Only include `adapter_config`, `provider`, or `policy` on a role when Step 2.3 p
 
 ## Step 4 — Show Plan and Confirm (confirm mode)
 
-Render the org plan in a clear human-readable format:
+Render the org plan in a clear human-readable format. **The model assigned to each role is the single most important thing for the user to review here** — give it its own table, not just a line buried inside each role's block, so it can't be skimmed past:
 
 ```
 ╔══════════════════════════════════════════════════╗
 ║  ORG: <org_name>                                 ║
 ║  GOAL: <goal>                                    ║
 ╚══════════════════════════════════════════════════╝
+
+MODELS  ← review this first
+────────────────────────────────────────────────────
+  ROLE                MODEL
+  ──────────────────  ────────────────────────────
+  boss                claude-opus-5
+  content-writer       (runtime default)
+  content-reviewer     (runtime default)
+
+  Only roles with an explicit adapter_config.model show a value; "(runtime
+  default)" roles inherit whatever resolveModel() picks for their
+  runtime/vendor at run time. To pin a role to a specific model, say so now
+  (e.g. "put content-writer on glm-5.2").
 
 ROLES  (N roles — exactly one boss, every reports_to resolves to a real role id)
 ─────
@@ -156,10 +169,10 @@ Max run: <run_config.max_run, or "schedule interval" when unset>
 Memory namespace: org:<org_name>
 Schedule: <"every <N> <unit>" if schedule set; otherwise "manual — run with `monomind org run <org_name>`">
 
-Type "go" to save this org, or describe changes.
+Type "go" to accept (including the models above as shown), or describe changes.
 ```
 
-In **auto** mode, skip the confirmation prompt.
+In **auto** mode, skip this confirmation prompt entirely — but still surface the same MODELS table, non-blocking, appended to the Step 6 save confirmation (see Step 6).
 
 If the user requests changes, apply them and re-render. Repeat until confirmed.
 
@@ -253,6 +266,16 @@ If `schedule` was set, also print:
 ```
   Schedule: every <N> <unit> — pick it up with: monomind org serve
 ```
+
+In **auto** mode (where Step 4's plan/model confirmation was skipped), always also print the models table so the user still sees — after the fact — what each role will run on, even though nothing blocked on it:
+```
+  Models:
+    boss                claude-opus-5
+    content-writer       (runtime default)
+    content-reviewer     (runtime default)
+  Adjust with: /mastermind:org-settings, or edit .monomind/orgs/<org_name>.json directly
+```
+In **confirm** mode this table was already shown and accepted in Step 4 — do not repeat it here.
 
 ---
 
