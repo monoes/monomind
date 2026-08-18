@@ -111,7 +111,7 @@ async function collect(iter: AsyncIterable<AgentMessage>): Promise<AgentMessage[
 }
 
 describe('PiRpcAgentRunner — turn-completion state machine', () => {
-  it('sends one prompt command and yields assistant text once isStreaming settles to false', async () => {
+  it('sends one prompt command and yields assistant text once agent_end arrives', async () => {
     const proc = fakeProcess();
     const runner = new PiRpcAgentRunner('pi', () => proc);
 
@@ -122,12 +122,18 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     expect(proc.written[0]).toContain('"type":"prompt"');
 
     proc.emitStdout('{"type":"agent_start"}\n');
-    proc.emitStdout('{"type":"message_end","message":{"content":[{"type":"text","text":"Hi there"}]}}\n');
-    await new Promise((r) => setTimeout(r, 10));
-    // The runner should have asked get_state after message_end.
-    expect(proc.written.some((w) => w.includes('"type":"get_state"'))).toBe(true);
-
-    proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+    // Intermediate turn_start/turn_end/message_* events are drained and
+    // ignored — only agent_end carries the signal this runner acts on.
+    proc.emitStdout('{"type":"turn_start"}\n');
+    proc.emitStdout('{"type":"message_end","message":{"content":[{"type":"text","text":"ignored — not agent_end"}]}}\n');
+    proc.emitStdout('{"type":"turn_end"}\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'Hi there' }], usage: { input: 10, output: 5 } },
+      ],
+    }) + '\n');
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -135,32 +141,39 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     expect(assistant.map((m) => m.text)).toEqual(['Hi there']);
     const result = messages.find((m) => m.type === 'result');
     expect(result).toBeDefined();
+    expect(result?.input_tokens).toBe(10);
+    expect(result?.output_tokens).toBe(5);
   });
 
-  it('keeps waiting through multiple message_end cycles while pi is still streaming', async () => {
+  it('consolidates text and sums usage across multiple internal turns in one agent_end (pi\'s own native tool use)', async () => {
     const proc = fakeProcess();
     const runner = new PiRpcAgentRunner('pi', () => proc);
     const resultsPromise = collect(runner.run(baseArgs(singlePrompt('hello'))));
     await new Promise((r) => setTimeout(r, 10));
 
-    // First internal cycle: pi is still working (its own native tool use).
-    proc.emitStdout('{"type":"message_end","message":{"content":[{"type":"text","text":"working on it"}]}}\n');
-    await new Promise((r) => setTimeout(r, 10));
-    proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":true}}\n');
-    await new Promise((r) => setTimeout(r, 10));
-
-    // Second cycle: now it's actually done.
-    proc.emitStdout('{"type":"message_end","message":{"content":[{"type":"text","text":"done now"}]}}\n');
-    await new Promise((r) => setTimeout(r, 10));
-    proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+    // agent_end.messages carries one assistant entry per internal turn,
+    // each with its OWN per-turn usage — confirmed live against pi v0.73.1
+    // (see file header). The runner must sum across all of them, not just
+    // read the last one.
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [
+        { role: 'user', content: [{ type: 'text', text: 'hello' }] },
+        { role: 'assistant', content: [{ type: 'thinking', thinking: '...' }, { type: 'toolCall', id: 'c1', name: 'bash', arguments: {} }], usage: { input: 10, output: 20 } },
+        { role: 'toolResult', content: [{ type: 'text', text: 'tool output' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'done now' }], usage: { input: 15, output: 8 } },
+      ],
+    }) + '\n');
     proc.emitClose(0);
 
     const messages = await resultsPromise;
-    // Text from both internal cycles is consolidated into one assistant
-    // message once the turn actually settles (isStreaming:false) — not one
-    // yield per message_end, since intermediate cycles aren't "done" yet.
     const assistant = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
-    expect(assistant).toEqual(['working on it\ndone now']);
+    // Only text blocks from assistant entries are surfaced — toolResult and
+    // toolCall entries are not text the org bus should see.
+    expect(assistant).toEqual(['done now']);
+    const result = messages.find((m) => m.type === 'result');
+    expect(result?.input_tokens).toBe(25); // 10 + 15
+    expect(result?.output_tokens).toBe(28); // 20 + 8
   });
 
   it('extracts an org tool_call fence, executes it, and continues the same session', async () => {
@@ -180,9 +193,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     const fence = '```tool_call\n{"name":"org_send","arguments":{"to":"boss","subject":"s","message":"m"}}\n```';
-    proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: `Sending now.\n${fence}` }] } }) + '\n');
-    await new Promise((r) => setTimeout(r, 10));
-    proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: `Sending now.\n${fence}` }], usage: { input: 1, output: 1 } }],
+    }) + '\n');
     await new Promise((r) => setTimeout(r, 10));
 
     // The runner should have sent a follow-up prompt with the tool result —
@@ -191,9 +205,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
     expect(secondPrompt).toBeDefined();
     expect(secondPrompt).not.toContain('You are a test agent'); // no system prompt re-sent
 
-    proc.emitStdout('{"type":"message_end","message":{"content":[{"type":"text","text":"Done."}]}}\n');
-    await new Promise((r) => setTimeout(r, 10));
-    proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Done.' }], usage: { input: 1, output: 1 } }],
+    }) + '\n');
     proc.emitClose(0);
 
     const messages = await resultsPromise;
@@ -210,9 +225,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
 
     expect(proc.written[0]).toContain('You are a test agent');
 
-    proc.emitStdout('{"type":"message_end","message":{"content":[{"type":"text","text":"ok"}]}}\n');
-    await new Promise((r) => setTimeout(r, 10));
-    proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+    proc.emitStdout(JSON.stringify({
+      type: 'agent_end',
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'ok' }], usage: { input: 1, output: 1 } }],
+    }) + '\n');
     proc.emitClose(0);
     await resultsPromise;
   });
@@ -260,9 +276,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
       await vi.advanceTimersByTimeAsync(10);
 
       const fence = '```tool_call\n{"name":"ask_human","arguments":{}}\n```';
-      proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: `Asking.\n${fence}` }] } }) + '\n');
-      await vi.advanceTimersByTimeAsync(10);
-      proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+      proc.emitStdout(JSON.stringify({
+        type: 'agent_end',
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: `Asking.\n${fence}` }], usage: { input: 1, output: 1 } }],
+      }) + '\n');
       await vi.advanceTimersByTimeAsync(10);
 
       // The tool call is now blocked ("waiting on a human"). Advance well
@@ -273,9 +290,10 @@ describe('PiRpcAgentRunner — turn-completion state machine', () => {
       // Let the human "answer" and finish the turn normally.
       releaseTool();
       await vi.advanceTimersByTimeAsync(10);
-      proc.emitStdout(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'Done.' }] } }) + '\n');
-      await vi.advanceTimersByTimeAsync(10);
-      proc.emitStdout('{"type":"response","command":"get_state","success":true,"data":{"isStreaming":false}}\n');
+      proc.emitStdout(JSON.stringify({
+        type: 'agent_end',
+        messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Done.' }], usage: { input: 1, output: 1 } }],
+      }) + '\n');
       proc.emitClose(0);
       await vi.advanceTimersByTimeAsync(10);
 
