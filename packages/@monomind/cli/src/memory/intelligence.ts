@@ -1,11 +1,11 @@
 /**
  * V1 Intelligence Module
- * Optimized SONA (Self-Optimizing Neural Architecture) and ReasoningBank
+ * SONA and ReasoningBank
  * for adaptive learning and pattern recognition
  *
  * Performance targets:
  * - Signal recording: <0.05ms (achieved: ~0.01ms)
- * - Pattern search: O(log n) with HNSW
+ * - Pattern search: O(n) cosine scan
  * - Memory efficient circular buffers
  *
  * @module v1/cli/intelligence

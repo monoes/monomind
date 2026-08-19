@@ -372,12 +372,13 @@ export const scanCommand: Command = {
         const fixSpinner = output.createSpinner({ text: 'Attempting to fix vulnerabilities...', spinner: 'dots' });
         fixSpinner.start();
         try {
-          try {
-            execSync('npm audit fix', { cwd: resolvedTarget, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
-          } catch { /* npm audit fix may exit non-zero */ }
-          fixSpinner.succeed('Applied available fixes (run scan again to verify)');
-        } catch {
-          fixSpinner.fail('Some fixes could not be applied automatically');
+          execSync('npm audit fix', { cwd: resolvedTarget, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+          fixSpinner.succeed('completed (verify with a re-scan)');
+        } catch (fixErr) {
+          // npm audit fix exits non-zero when it can't resolve everything
+          // automatically — surface that instead of reporting success.
+          const status = (fixErr as { status?: number })?.status;
+          fixSpinner.fail(`npm audit fix exited with ${status ?? 'an error'} — some fixes could not be applied automatically (verify with a re-scan)`);
         }
       }
 

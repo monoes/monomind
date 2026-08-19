@@ -22,7 +22,9 @@
 | `hybrid` | Complex work requiring both hierarchy and peer communication |
 | `ring` | Circular communication pattern |
 | `star` | Central coordinator with spokes |
-| `adaptive` | Self-organizing — reconfigures based on task load |
+| `adaptive` | Topology label recorded in swarm state; coordination behavior is chosen by the caller — no automatic reconfiguration. |
+
+Topology labels are recorded state (persisted with the swarm), not enforced runtime behavior — nothing in monomind reconfigures agent coordination automatically based on the label.
 
 ### Default Config
 

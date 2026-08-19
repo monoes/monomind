@@ -599,6 +599,25 @@ export class OrgDaemon {
           );
         }
       }
+      // provider.kind 'gemini'/'openai' only sets env vars (GEMINI_API_KEY /
+      // OPENAI_API_KEY — see provider.ts) for a CLI that never reads them:
+      // autoRuntimeFromProvider has no case for either kind, so
+      // resolveRoleRunner falls through to `undefined` and session.ts spawns
+      // the default ClaudeAgentRunner. The role silently runs on Claude while
+      // its config claims gemini/openai — surface that loudly at start time
+      // instead of leaving it to be discovered mid-run.
+      const kind = role.provider?.kind;
+      if (
+        (kind === 'gemini' || kind === 'openai') &&
+        !resolveRoleRunner(role.runtime, def.runtime, kind, undefined, role.provider)
+      ) {
+        console.error(
+          `org ${name}: role "${role.id}" sets provider.kind="${kind}" but no runtime honors it — ` +
+            `this role will actually run on the Claude Agent SDK, not ${kind}. ` +
+            `Set role.runtime (or the org's runtime) explicitly, or use provider.kind="vercel-api-key" ` +
+            `with vendor="${kind === 'gemini' ? 'google' : 'openai'}" to route through a real ${kind} model.`,
+        );
+      }
     }
 
     const bus = new OrgBus(name, run, dir);

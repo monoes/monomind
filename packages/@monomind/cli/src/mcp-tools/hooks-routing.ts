@@ -1862,18 +1862,12 @@ export const hooksIntelligence: MCPTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      mode: { type: 'string', description: 'Intelligence mode' },
-      enableSona: { type: 'boolean', description: 'Enable SONA learning' },
-      enableMoe: { type: 'boolean', description: 'Enable MoE routing' },
       enableHnsw: { type: 'boolean', description: 'Enable HNSW search' },
       forceTraining: { type: 'boolean', description: 'Force training cycle' },
       showStatus: { type: 'boolean', description: 'Show status only' },
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const mode = validateMcpString(params.mode, 'mode', 32) ?? 'balanced';
-    const enableSona = params.enableSona !== false;
-    const enableMoe = params.enableMoe !== false;
     const enableHnsw = params.enableHnsw !== false;
 
     // Get REAL statistics from memory store
@@ -1883,11 +1877,10 @@ export const hooksIntelligence: MCPTool = {
     const sonaAvailable = (await getSONAOptimizer()) !== null;
 
     return {
-      mode,
       status: 'active',
       components: {
         sona: {
-          enabled: enableSona,
+          enabled: sonaAvailable,
           status: sonaAvailable ? 'active' : 'idle',
           implemented: true,
           trajectoriesRecorded: realStats.trajectories.total,

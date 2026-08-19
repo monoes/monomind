@@ -27,8 +27,11 @@ interface PerfMetrics {
   timestamp: string;
   cpu: { usage: number; cores: number };
   memory: { used: number; total: number; heap: number };
-  latency: { avg: number; p50: number; p95: number; p99: number };
-  throughput: { requests: number; operations: number };
+  // No real latency/throughput instrumentation feeds this store — these are
+  // only populated when genuinely measured (never today), so they must stay
+  // nullable rather than seeded with made-up numbers on first run.
+  latency: { avg: number; p50: number; p95: number; p99: number } | null;
+  throughput: { requests: number; operations: number } | null;
   errors: { count: number; rate: number };
 }
 
@@ -68,16 +71,28 @@ function ensurePerfDir(): void {
 
 const MAX_PERF_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 
+// Bumped from 3.0.0: pre-3.1.0 stores may contain `metrics` entries whose
+// latency/throughput fields were fabricated on first run (50/40/100/200ms,
+// +1/+10 ops) and then compounded into "history" averages on every
+// subsequent call. Those fields are dropped on load so old fake data can't
+// keep poisoning stats — cpu/memory history (which was always real) is kept.
+const PERF_STORE_VERSION = '3.1.0';
+
 function loadPerfStore(): PerfStore {
   try {
     const path = getPerfPath();
     if (existsSync(path) && statSync(path).size <= MAX_PERF_STORE_BYTES) {
-      return JSON.parse(readFileSync(path, 'utf-8'));
+      const store = JSON.parse(readFileSync(path, 'utf-8')) as PerfStore;
+      if (store.version !== PERF_STORE_VERSION) {
+        store.metrics = (store.metrics || []).map((m) => ({ ...m, latency: null, throughput: null }));
+        store.version = PERF_STORE_VERSION;
+      }
+      return store;
     }
   } catch (e) {
     if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[performance-tools] failed to load perf store, using empty store:', e);
   }
-  return { metrics: [], benchmarks: {}, version: '3.0.0' };
+  return { metrics: [], benchmarks: {}, version: PERF_STORE_VERSION };
 }
 
 function savePerfStore(store: PerfStore): void {
@@ -125,16 +140,10 @@ export const performanceTools: MCPTool[] = [
           total: Math.round(totalMem / 1024 / 1024),
           heap: Math.round(memUsage.heapUsed / 1024 / 1024),
         },
-        latency: {
-          avg: store.metrics.length > 0 ? store.metrics.slice(-10).reduce((s, m) => s + m.latency.avg, 0) / Math.min(store.metrics.length, 10) : 50,
-          p50: store.metrics.length > 0 ? store.metrics.slice(-10).reduce((s, m) => s + m.latency.p50, 0) / Math.min(store.metrics.length, 10) : 40,
-          p95: store.metrics.length > 0 ? store.metrics.slice(-10).reduce((s, m) => s + m.latency.p95, 0) / Math.min(store.metrics.length, 10) : 100,
-          p99: store.metrics.length > 0 ? store.metrics.slice(-10).reduce((s, m) => s + m.latency.p99, 0) / Math.min(store.metrics.length, 10) : 200,
-        },
-        throughput: {
-          requests: store.metrics.length > 0 ? store.metrics[store.metrics.length - 1].throughput.requests + 1 : 1,
-          operations: store.metrics.length > 0 ? store.metrics[store.metrics.length - 1].throughput.operations + 10 : 10,
-        },
+        // No real latency/throughput instrumentation exists anywhere in this
+        // tool — do not seed fake numbers. Report null with a note instead.
+        latency: null,
+        throughput: null,
         errors: { count: 0, rate: 0 },
       };
 
@@ -147,14 +156,13 @@ export const performanceTools: MCPTool[] = [
 
       if (format === 'summary') {
         return {
-          _real: true,
           status: 'healthy',
-          cpu: `${currentMetrics.cpu.usage.toFixed(1)}%`,
-          memory: `${currentMetrics.memory.used}MB / ${currentMetrics.memory.total}MB`,
-          heap: `${currentMetrics.memory.heap}MB`,
-          latency: `${currentMetrics.latency.avg.toFixed(0)}ms avg`,
-          throughput: `${currentMetrics.throughput.operations} ops/s`,
-          errorRate: `${(currentMetrics.errors.rate * 100).toFixed(2)}%`,
+          cpu: { value: `${currentMetrics.cpu.usage.toFixed(1)}%`, _real: true },
+          memory: { value: `${currentMetrics.memory.used}MB / ${currentMetrics.memory.total}MB`, _real: true },
+          heap: { value: `${currentMetrics.memory.heap}MB`, _real: true },
+          latency: { value: null, _real: false, _note: 'No latency telemetry recorded yet — no instrumentation wired up here.' },
+          throughput: { value: null, _real: false, _note: 'No throughput telemetry recorded yet — no instrumentation wired up here.' },
+          errorRate: { value: `${(currentMetrics.errors.rate * 100).toFixed(2)}%`, _real: false, _note: 'No error tracking wired up — always 0.' },
           timestamp: currentMetrics.timestamp,
         };
       }
@@ -169,8 +177,8 @@ export const performanceTools: MCPTool[] = [
         : 'stable';
 
       return {
-        _real: true,
         current: currentMetrics,
+        _real: { cpu: true, memory: true, latency: false, throughput: false, errors: false },
         history,
         system: {
           platform: process.platform,
@@ -182,8 +190,10 @@ export const performanceTools: MCPTool[] = [
         trends: {
           cpu: cpuTrend,
           memory: memTrend,
-          latency: 'stable',
+          latency: { value: 'unknown', _note: 'No latency telemetry recorded — trend cannot be computed.' },
         },
+        // Rule-based thresholds on real cpu/memory readings — not an ML model.
+        _recommendationEngine: 'rule-based (static thresholds on real cpu/memory readings)',
         recommendations: currentMetrics.memory.used / currentMetrics.memory.total > 0.8
           ? [{ priority: 'high', message: 'Memory usage above 80% - consider cleanup' }]
           : currentMetrics.cpu.usage > 70
@@ -516,7 +526,7 @@ export const performanceTools: MCPTool[] = [
   },
   {
     name: 'performance_optimize',
-    description: 'Apply performance optimizations',
+    description: 'Rule-based recommendation engine over real system metrics; only GC collection and probe-file cleanup are actually applied automatically — everything else is a suggestion',
     category: 'performance',
     inputSchema: {
       type: 'object',
@@ -606,6 +616,7 @@ export const performanceTools: MCPTool[] = [
       return {
         success: true,
         _real: true,
+        _recommendationEngine: 'rule-based (static thresholds on real cpu/memory/disk readings) — not ML-based',
         target,
         aggressive,
         before: { cpuPercent: Math.round(cpuPercentBefore * 10) / 10, memoryMB: memMBBefore, diskLatencyMs: diskLatencyBefore },

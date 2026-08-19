@@ -26,10 +26,21 @@ export const FailureRoutingSchema = z.object({
 }).partial();
 export type FailureRouting = z.infer<typeof FailureRoutingSchema>;
 
-/** Per-role provider config. Default (absent) = subscription login of local Claude Code. */
+/** Per-role provider config. Default (absent) = subscription login of local Claude Code.
+ *
+ *  @deprecated kind: 'gemini' | 'openai' — these only set GEMINI_API_KEY /
+ *  OPENAI_API_KEY on the child env (see provider.ts); no runtime actually
+ *  reads them (daemon.ts's autoRuntimeFromProvider has no case for either),
+ *  so the role silently falls through to the default ClaudeAgentRunner and
+ *  runs on Claude regardless. daemon.ts#startOrg warns loudly at start time
+ *  when this happens. Use kind: 'vercel-api-key' with vendor: 'google' or
+ *  vendor: 'openai' instead — that path actually routes to the requested
+ *  provider via VercelAgentRunner. */
 export const ProviderSchema = z.object({
   kind: z.enum([
-    'subscription', 'api-key', 'base-url', 'bedrock', 'vertex', 'gemini', 'openai',
+    'subscription', 'api-key', 'base-url', 'bedrock', 'vertex',
+    'gemini', // @deprecated — env-var-only; falls through to Claude. See class doc above.
+    'openai', // @deprecated — env-var-only; falls through to Claude. See class doc above.
     'vercel-api-key', 'codex', 'antigravity',
   ]).default('subscription'),
   /** Which Vercel AI SDK provider to use (only when kind='vercel-api-key'). */

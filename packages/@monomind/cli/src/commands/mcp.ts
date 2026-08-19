@@ -190,6 +190,18 @@ const startCommand: Command = {
       // Start the server
       const status = await manager.start();
 
+      let toolsValue: string;
+      if (!tools || tools === 'all') {
+        // Report the real count of tools that will actually be advertised,
+        // rather than a hardcoded figure — this varies with MONOMIND_MCP_FULL
+        // and any disabled-tools config.
+        const registeredTools = await listMCPTools();
+        const enabledCount = registeredTools.filter(t => t.enabled).length;
+        toolsValue = `${enabledCount} enabled`;
+      } else {
+        toolsValue = `${tools.split(',').length} enabled`;
+      }
+
       output.writeln();
       output.printTable({
         columns: [
@@ -201,7 +213,7 @@ const startCommand: Command = {
           { property: 'Transport', value: transport },
           { property: 'Host', value: host },
           { property: 'Port', value: port },
-          { property: 'Tools', value: !tools || tools === 'all' ? '27 enabled' : `${tools.split(',').length} enabled` },
+          { property: 'Tools', value: toolsValue },
           { property: 'Status', value: output.success('Running') }
         ]
       });

@@ -8,7 +8,7 @@
 [![license](https://img.shields.io/npm/l/@monoes/hooks.svg?style=flat-square)](https://github.com/monoes/monomind/blob/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-blue?style=flat-square)](https://nodejs.org)
 
-**A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, and a `WorkerManager` with 15 background workers for Monomind.
+**A library, not a runtime dispatcher.** Provides hook type definitions, an in-memory `HookRegistry`/`HookExecutor` for defining handlers, and a `WorkerManager` with 9 background workers for Monomind.
 
 > Part of the [Monomind](https://github.com/monoes/monomind) ecosystem.
 
@@ -83,8 +83,8 @@ const result = await executor.preEdit('src/app.ts', 'modify');
 
 ## Background workers
 
-8 on-demand workers (7 in `WORKER_CONFIGS` + `progress` registered separately),
-each a factory function managed by `WorkerManager`:
+9 on-demand workers, all registered in `WORKER_CONFIGS`, each a factory
+function managed by `WorkerManager`:
 
 | Worker | Purpose |
 |--------|---------|
@@ -96,6 +96,7 @@ each a factory function managed by `WorkerManager`:
 | `map` | Codebase map → `.monomind/metrics/codebase-map.json` |
 | `audit` | Security audit → `.monomind/metrics/security-audit.json` |
 | `consolidate` | Memory consolidation → `.monomind/metrics/consolidation.json` |
+| `reflexion` | Self-learning from failures — reflects on failed tasks, stores lessons for future retrieval |
 
 The metrics-producing workers run at session start (via the CJS session
 handler) and are staleness-gated: each only runs when its output file is

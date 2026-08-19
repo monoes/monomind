@@ -66,8 +66,12 @@ describe('P1-19: Command-output-honesty regression (prevents P0-1 to P0-6 recurr
       expect(src).not.toContain('LoRA applied');
     });
 
-    it('DOES claim "EWC consolidation applied"', () => {
-      expect(src).toContain('EWC consolidation applied');
+    it('reports real consolidation counts instead of a canned message', () => {
+      // Wave 2 (IN-3): --train now runs the real compactPatterns() pass and
+      // reports actual before/after/removed counts instead of a fixed
+      // "EWC consolidation applied" string.
+      expect(src).not.toContain('EWC consolidation applied');
+      expect(src).toContain('consolidation removed');
     });
   });
 
@@ -120,11 +124,15 @@ describe('P1-19: Command-output-honesty regression (prevents P0-1 to P0-6 recurr
     });
   });
 
-  describe('P0-14: enable-moe flag is marked inert', () => {
+  describe('P0-14: enable-moe flag removed (was never read)', () => {
     const src = readSrc('commands/hooks-workers.ts');
 
-    it('enable-moe description says "Inert"', () => {
-      expect(src).toContain('Inert');
+    it('the dead --enable-moe/-m/--enable-sona/--embedding-provider flags are gone, not just relabeled', () => {
+      // Wave 2 (IN-14): these were echoed but never read, so they were
+      // deleted outright rather than kept around with an "Inert" label.
+      expect(src).not.toContain('enable-moe');
+      expect(src).not.toContain('enable-sona');
+      expect(src).not.toContain('embedding-provider');
     });
   });
 });

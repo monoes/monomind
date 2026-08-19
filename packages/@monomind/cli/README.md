@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>An open-source MCP server that extends Claude Code with a codebase knowledge graph, persistent memory, and multi-agent coordination.</strong><br/>
-  Apache 2.0 licensed &middot; Fully local &middot; No data leaves your machine
+  Apache 2.0 licensed &middot; Your code and memory stay local — see [Trust & Security](#trust--security) for the network calls Monomind does make
 </p>
 
 <p align="center">
@@ -77,7 +77,7 @@ monomind init --kimicode       # emits .kimi-code/ + AGENTS.md alongside Claude/
 | Concern | Answer |
 |---|---|
 | **License** | [Apache 2.0](LICENSE) — use it however you want |
-| **Data privacy** | Everything runs locally — your code and memory store never leave your machine. The one exception: crash reporting is on by default (`monomind crash-reporting disable` to opt out) — a hard crash in monomind/mono-agent/monotask/mono-clip files a GitHub issue on that tool's own repo via the GitHub API. That's the only network call Monomind itself makes; it never phones a monoes-controlled server. |
+| **Data privacy** | Your code and memory store stay local. Monomind does make outbound network calls, all to third-party services — never to a monoes-controlled server: crash reporting (on by default, `monomind crash-reporting disable` to opt out) files a GitHub issue via the GitHub API on a hard crash; `security cve` queries the OSV vulnerability database; `update` checks the npm registry for new versions; the embedding model is downloaded from the HuggingFace CDN on first use; and the neural pattern export/import features push/pull data via Pinata/IPFS gateways. |
 | **Dependencies** | Standard npm packages (tree-sitter, better-sqlite3, sql.js, zod). tree-sitter and better-sqlite3 are native (prebuilt) Node addons, not pure JS/WASM — sql.js is WASM. No post-install scripts that download code. |
 | **Permissions** | Registers as an MCP server — Claude Code controls what tools are available and prompts you before executing anything sensitive. |
 | **Source** | Fully open. Read every line at [github.com/monoes/monomind](https://github.com/monoes/monomind). |
@@ -327,7 +327,7 @@ flowchart LR
     DB -->|next session| CE
 ```
 
-**8 on-demand workers** run at session start (staleness-gated, refreshed when older than 6 hours): `health` · `ddd` · `security` · `cache` · `progress` · `map` · `audit` · `consolidate`.
+**9 on-demand workers** run at session start (staleness-gated, refreshed when older than 6 hours): `health` · `ddd` · `security` · `cache` · `progress` · `map` · `audit` · `consolidate` · `reflexion`.
 
 ---
 
@@ -394,7 +394,7 @@ Everything runs from inside Claude Code via slash commands. Here's the highlight
 | `@monoes/monomindcli` | [![npm](https://img.shields.io/npm/v/@monoes/monomindcli?style=flat-square&color=4F46E5)](https://www.npmjs.com/package/@monoes/monomindcli) | CLI engine (32 commands, MCP server) |
 | `@monoes/monograph` | [![npm](https://img.shields.io/npm/v/@monoes/monograph?style=flat-square&color=F59E0B)](https://www.npmjs.com/package/@monoes/monograph) | Code knowledge graph (tree-sitter + SQLite) |
 | `@monoes/memory` | [![npm](https://img.shields.io/npm/v/@monoes/memory?style=flat-square&color=8B5CF6)](https://www.npmjs.com/package/@monoes/memory) | Persistent memory backends (SQLite + vectors) |
-| `@monoes/hooks` | [![npm](https://img.shields.io/npm/v/@monoes/hooks?style=flat-square&color=10B981)](https://www.npmjs.com/package/@monoes/hooks) | Hook registry + 8 on-demand workers |
+| `@monoes/hooks` | [![npm](https://img.shields.io/npm/v/@monoes/hooks?style=flat-square&color=10B981)](https://www.npmjs.com/package/@monoes/hooks) | Hook registry + 9 on-demand workers |
 | `@monoes/mcp` | [![npm](https://img.shields.io/npm/v/@monoes/mcp?style=flat-square&color=3B82F6)](https://www.npmjs.com/package/@monoes/mcp) | MCP server framework (stdio/HTTP/WebSocket) |
 | `@monoes/routing` | [![npm](https://img.shields.io/npm/v/@monoes/routing?style=flat-square&color=F97316)](https://www.npmjs.com/package/@monoes/routing) | Semantic task-to-agent routing |
 | `@monoes/monobrowse` | [![npm](https://img.shields.io/npm/v/@monoes/monobrowse?style=flat-square&color=06B6D4)](https://www.npmjs.com/package/@monoes/monobrowse) | Browser automation via CDP |
@@ -432,7 +432,7 @@ graph TD
     style ORG fill:#F59E0B22,stroke:#F59E0B
 ```
 
-**Claude Code's Task tool drives in-session multi-agent work; `monomind org run` drives persistent background orgs.** Your data never leaves your machine.
+**Claude Code's Task tool drives in-session multi-agent work; `monomind org run` drives persistent background orgs.** Your code and memory stay local — see [Trust & Security](#trust--security) for the network calls Monomind does make.
 
 ---
 
