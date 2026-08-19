@@ -76,7 +76,7 @@ Bash(`gh api repos/:owner/:repo/contents/packages/@monomind/cli/CLAUDE.md \
   -f sha="$(gh api repos/:owner/:repo/contents/packages/@monomind/cli/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
 
 // Store sync state in memory
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   key: "sync/documentation/status",
   value: { timestamp: Date.now(), status: "synchronized", files: ["CLAUDE.md"] }
 }
@@ -184,7 +184,7 @@ Generated with Claude Code using Monomind swarm coordination`
   ]}
   
   // Store comprehensive sync state
-  mcp__monomind__memory_store {
+  mcp__monomind__memory_pattern-store {
     key: "sync/complete/status",
     value: {
       timestamp: Date.now(),

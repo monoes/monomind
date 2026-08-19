@@ -61,8 +61,8 @@ npx monomind memory retrieve --key "pattern-auth" --namespace patterns
 ## MCP equivalents
 
 ```javascript
-mcp__monomind__memory_store({ key: "pattern-auth", value: "...", namespace: "patterns" })
-mcp__monomind__memory_search({ query: "authentication patterns", namespace: "default", limit: 10, threshold: 0.7, type: "hybrid" })
+mcp__monomind__memory_pattern-store({ key: "pattern-auth", value: "...", namespace: "patterns" })
+mcp__monomind__memory_pattern-search({ query: "authentication patterns", namespace: "default", limit: 10, threshold: 0.7, type: "hybrid" })
 ```
 
 ## After completing non-trivial work

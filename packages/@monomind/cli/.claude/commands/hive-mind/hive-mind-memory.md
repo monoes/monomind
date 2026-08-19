@@ -46,7 +46,7 @@ mcp__monomind__hive-mind_memory({ action: "delete", key: "project-goal" })
 `hive-mind memory` operates on the **hive's shared memory namespace** — a
 single JSON blob on the hive state file, visible to all agents coordinating
 in the current hive. This is distinct from the global memory tools
-(`memory_store` / `memory_retrieve` / CLI `monomind memory`), which are
+(`memory_pattern-store` / `memory_pattern-search` / CLI `monomind memory`), which are
 backed by local SQLite (with `sql.js`/WASM as a fallback) — not LanceDB,
 which has been fully removed from this codebase.
 

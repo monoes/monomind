@@ -62,7 +62,7 @@ mcp__monomind__workflow_run({
 mcp__monomind__workflow_status({ workflowId: "wf-123" })
 
 // Store findings for future sessions
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   key: "dev-pattern-rest-api",
   value: "JWT auth + Express + Zod validation worked well",
   namespace: "patterns"

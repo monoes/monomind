@@ -226,7 +226,7 @@ jobs:
   ]}
 
   // Store architecture analysis
-  mcp__monomind__memory_store {
+  mcp__monomind__memory_pattern-store {
     key: "architecture/analysis/results",
     value: {
       timestamp: Date.now(),
