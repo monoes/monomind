@@ -691,7 +691,7 @@ const healthCommand: Command = {
 };
 
 // Logs command
-const logsCommand: Command = {
+export const logsCommand: Command = {
   name: 'logs',
   description: 'Show MCP server logs',
   options: [
@@ -718,9 +718,11 @@ const logsCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const lines = (ctx.flags.lines as number) || 50;
+    const follow = ctx.flags.follow as boolean;
+    const levelFilter = (ctx.flags.level as string | undefined)?.toLowerCase();
 
     // Try to find and read the actual log file
-    const { existsSync, readFileSync, statSync } = await import('fs');
+    const { existsSync, readFileSync, statSync, watch, createReadStream } = await import('fs');
     const { join } = await import('path');
 
     const MAX_MCP_LOG_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -739,23 +741,93 @@ const logsCommand: Command = {
     if (!logFile) {
       output.writeln(output.dim('No log files found. Start the MCP server to generate logs.'));
       output.writeln(output.dim(`Checked: ${logPaths.map(p => p.replace(ctx.cwd, '.')).join(', ')}`));
+      if (follow) {
+        output.printError('--follow requires an existing log file to watch — none was found.');
+        return { success: false };
+      }
       return { success: true };
     }
 
+    // Best-effort text match: log line formats vary (bracketed, "level:", JSON),
+    // so match the level as a whole word anywhere in the line rather than
+    // assuming one format.
+    const levelPattern = levelFilter ? new RegExp(`\\b${levelFilter}\\b`, 'i') : null;
+    const matchesLevel = (line: string): boolean => !levelPattern || levelPattern.test(line);
+
     const content = readFileSync(logFile, 'utf8');
-    const logLines = content.trim().split('\n').filter(Boolean);
+    const logLines = content.trim().split('\n').filter(Boolean).filter(matchesLevel);
     const tail = logLines.slice(-lines);
 
     if (tail.length === 0) {
-      output.writeln(output.dim('Log file is empty.'));
+      output.writeln(output.dim(levelFilter ? `Log file has no lines matching level "${levelFilter}".` : 'Log file is empty.'));
+    } else {
+      output.writeln(output.dim(
+        `Showing last ${tail.length} lines from ${logFile.replace(ctx.cwd, '.')}` +
+        (levelFilter ? ` (level=${levelFilter})` : ''),
+      ));
+      output.writeln();
+      tail.forEach(line => output.writeln(line));
+    }
+
+    if (!follow) {
       return { success: true };
     }
 
-    output.writeln(output.dim(`Showing last ${tail.length} lines from ${logFile.replace(ctx.cwd, '.')}`));
+    // Real tail -f: watch the file for growth and stream newly appended lines,
+    // filtered the same way as the initial tail. Exits on Ctrl+C.
     output.writeln();
-    tail.forEach(line => output.writeln(line));
+    output.writeln(output.dim('Following log output — press Ctrl+C to stop.'));
 
-    return { success: true };
+    return new Promise<CommandResult>((resolve) => {
+      let position = statSync(logFile).size;
+      let pendingPartialLine = '';
+      let reading = false;
+
+      const readNewData = () => {
+        if (reading) return;
+        reading = true;
+        let size: number;
+        try {
+          size = statSync(logFile).size;
+        } catch {
+          reading = false;
+          return;
+        }
+        if (size < position) {
+          // File was truncated or rotated — restart from the beginning.
+          position = 0;
+          pendingPartialLine = '';
+        }
+        if (size <= position) {
+          reading = false;
+          return;
+        }
+        const stream = createReadStream(logFile, { start: position, end: size - 1, encoding: 'utf8' });
+        let chunkData = '';
+        stream.on('data', (chunk) => { chunkData += chunk; });
+        stream.on('end', () => {
+          position = size;
+          const combined = pendingPartialLine + chunkData;
+          const parts = combined.split('\n');
+          pendingPartialLine = parts.pop() ?? '';
+          for (const line of parts) {
+            if (line && matchesLevel(line)) output.writeln(line);
+          }
+          reading = false;
+        });
+        stream.on('error', () => { reading = false; });
+      };
+
+      const watcher = watch(logFile, { persistent: true }, (eventType) => {
+        if (eventType === 'change') readNewData();
+      });
+
+      const stop = () => {
+        watcher.close();
+        resolve({ success: true });
+      };
+      process.once('SIGINT', stop);
+    });
   }
 };
 

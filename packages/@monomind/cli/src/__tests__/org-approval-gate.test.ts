@@ -99,6 +99,7 @@ describe('checkApproval / setApproval — end-to-end state machine', () => {
       root: cwd,
       approvals: new Map(),
       approvalLocks: new Map(),
+      recordDecision: () => {},
       orgs: new Map(),
     } as unknown as OrgDaemon;
   });
@@ -157,6 +158,7 @@ describe('checkApproval — org_complete arrives namespaced as mcp__org__org_com
       root: cwd,
       approvals: new Map(),
       approvalLocks: new Map(),
+      recordDecision: () => {},
       orgs: new Map(),
     } as unknown as OrgDaemon;
   });
@@ -198,7 +200,7 @@ describe('checkApproval — org_complete arrives namespaced as mcp__org__org_com
     const orgs = new Map([
       ['myorg', { def: { roles: [{ id: 'eng-director', policy: { autoApproveTools: ['org_complete'] } }] }, bus: { emit: () => {} } }],
     ]);
-    const trustedDaemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs } as unknown as OrgDaemon;
+    const trustedDaemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs } as unknown as OrgDaemon;
 
     const result = await checkApproval(trustedDaemon, 'myorg', 'eng-director', 'mcp__org__org_complete');
     expect(result).toBe(true);
@@ -221,7 +223,7 @@ describe('checkApproval — role.policy.autoApproveTools bypasses the human-appr
     const orgs = new Map([
       ['myorg', { def: { roles: [{ id: 'boss', policy }] }, bus: { emit: () => {} } }],
     ]);
-    return { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs } as unknown as OrgDaemon;
+    return { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs } as unknown as OrgDaemon;
   }
 
   it('skips the pending queue for a sensitive action named in autoApproveTools', async () => {
@@ -264,7 +266,7 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
   });
 
   it('wipes the in-memory Map entry for the org', () => {
-    const daemon = { root: cwd, approvals: new Map([['myorg', [{ roleId: 'boss', action: 'Bash', question: 'q', ts: 1, approved: null }]]]), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = { root: cwd, approvals: new Map([['myorg', [{ roleId: 'boss', action: 'Bash', question: 'q', ts: 1, approved: null }]]]), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
     clearApprovalsForFreshStart(daemon, 'myorg');
     expect(daemon.approvals.get('myorg')).toBeUndefined();
   });
@@ -276,7 +278,7 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
     writeFileSync(approvalsPath, JSON.stringify({
       approvals: [{ roleId: 'ghost-role', action: 'Bash', question: 'Approve Bash tool call?', ts: 1, approved: null }],
     }));
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
 
     clearApprovalsForFreshStart(daemon, 'myorg');
 
@@ -285,7 +287,7 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
   });
 
   it('is a no-op when no approvals.json exists yet — does not create one', () => {
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
     clearApprovalsForFreshStart(daemon, 'myorg');
     expect(existsSync(join(cwd, ORG_DIR, 'myorg', 'approvals.json'))).toBe(false);
   });
@@ -296,7 +298,7 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
     writeFileSync(join(orgDir, 'approvals.json'), JSON.stringify({
       approvals: [{ roleId: 'boss', action: 'Bash', question: 'Approve Bash tool call?', ts: 1, approved: null }],
     }));
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
     clearApprovalsForFreshStart(daemon, 'myorg');
 
     // Simulates the new run's boss calling Bash again — must queue a fresh
@@ -320,7 +322,7 @@ describe('org approve / deny — offline field-matching fix', () => {
   beforeEach(async () => {
     cwd = mkdtempSync(join(tmpdir(), 'org-approve-cli-'));
     // Seed a pending approval the same shape checkApproval writes: roleId/action/question/ts/approved.
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
     await checkApproval(daemon, 'myorg', 'boss', 'Bash');
   });
 

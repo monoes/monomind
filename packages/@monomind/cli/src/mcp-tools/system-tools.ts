@@ -530,7 +530,7 @@ export const systemTools: MCPTool[] = [
       properties: {
         component: {
           type: 'string',
-          description: 'Component to reset (all, metrics, agents, tasks)',
+          description: 'Component to reset (all, metrics)',
         },
         confirm: { type: 'boolean', description: 'Confirm reset' },
       },
@@ -541,11 +541,20 @@ export const systemTools: MCPTool[] = [
         return { success: false, error: 'Reset requires confirmation' };
       }
 
-      // Validate component against the allowed set to prevent unbounded string
-      // reflection in the response message.
-      const VALID_COMPONENTS = new Set(['all', 'metrics', 'agents', 'tasks']);
+      // The implementation below only ever resets metrics — there is no
+      // separate agents/tasks reset path. `component` used to accept
+      // 'agents'/'tasks' and silently reset metrics anyway while reporting
+      // success for whatever was asked, which misrepresented what actually
+      // happened. Only accept the values this handler can genuinely fulfill.
+      const VALID_COMPONENTS = new Set(['all', 'metrics']);
       const rawComponent = (input.component as string) || 'metrics';
-      const component = VALID_COMPONENTS.has(rawComponent) ? rawComponent : 'metrics';
+      if (!VALID_COMPONENTS.has(rawComponent)) {
+        return {
+          success: false,
+          error: `Unsupported component '${rawComponent}'. system_reset only supports: ${[...VALID_COMPONENTS].join(', ')}.`,
+        };
+      }
+      const component = rawComponent;
 
       // Reset metrics to defaults
       const defaultMetrics: SystemMetrics = {

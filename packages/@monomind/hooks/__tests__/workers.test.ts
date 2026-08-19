@@ -747,3 +747,205 @@ describe('Remaining Built-in Workers', () => {
     expect((result.data as Record<string, unknown>)?.totalIssues).toBeTypeOf('number');
   });
 });
+
+// ============================================================================
+// Regression Tests - Reflexion Worker (MEM-14)
+// ============================================================================
+// The reflexion worker used to filter route-outcomes.jsonl records on
+// `o.success` / `o.taskDescription`, but the real records written by
+// recordRoute()/joinOutcome() (packages/@monomind/cli/src/monovector/
+// route-outcomes.ts) use `measuredSuccess` / `task` / `recommendedAgent` /
+// a numeric `ts`, and never carry an `error` field. The mismatch meant the
+// filter never matched anything and the self-learning loop could never
+// fire. These tests feed the worker a real-format JSONL line and assert it
+// actually processes it.
+
+describe('Reflexion Worker (MEM-14 regression)', () => {
+  let manager: WorkerManager;
+
+  beforeEach(async () => {
+    await setupTestDir();
+    manager = createWorkerManager(TEST_PROJECT_ROOT);
+  });
+
+  afterEach(async () => {
+    await cleanupTestDir();
+  });
+
+  async function writeRouteOutcomes(records: Record<string, unknown>[]): Promise<void> {
+    const outcomesPath = path.join(TEST_PROJECT_ROOT, '.monomind', 'route-outcomes.jsonl');
+    const jsonl = records.map(r => JSON.stringify(r)).join('\n') + '\n';
+    await fs.writeFile(outcomesPath, jsonl, 'utf-8');
+  }
+
+  it('processes a real-format failure record and generates a reflection', async () => {
+    // Real record shape: `task`, `measuredSuccess`, `recommendedAgent`,
+    // numeric `ts` — and deliberately no `error` field.
+    await writeRouteOutcomes([
+      {
+        routeId: 'route-1',
+        ts: 1700000000000,
+        task: 'refactor the payment module to use the new API client',
+        recommendedAgent: 'coder',
+        routingMethod: 'keyword',
+        confidence: 0.8,
+        learningMode: 'js',
+        agentActuallyUsed: 'coder',
+        measuredSuccess: false,
+      },
+    ]);
+
+    const result = await manager.runWorker('reflexion');
+
+    expect(result.success).toBe(true);
+    const data = result.data as Record<string, unknown>;
+    expect(data.outcomesProcessed).toBe(1);
+    expect(data.failuresFound).toBe(1);
+    expect(data.reflectionsGenerated).toBe(1);
+    expect(data.totalReflections).toBe(1);
+
+    const storePath = path.join(TEST_PROJECT_ROOT, '.monomind', 'reflexion-store.json');
+    const stored = JSON.parse(await fs.readFile(storePath, 'utf-8'));
+    expect(stored).toHaveLength(1);
+    expect(stored[0].taskDescription).toBe('refactor the payment module to use the new API client');
+    expect(stored[0].agentType).toBe('coder');
+    // No `error` field on the real record — must degrade gracefully, not
+    // crash or print "undefined".
+    expect(stored[0].error).toBe('(no error message)');
+    expect(stored[0].error).not.toMatch(/undefined/);
+    // Numeric `ts` must be converted to an ISO timestamp, not parsed as a string.
+    expect(stored[0].timestamp).toBe(new Date(1700000000000).toISOString());
+    expect(stored[0].reflection).toContain('refactor the payment module');
+    expect(stored[0].reflection).not.toMatch(/undefined/);
+  });
+
+  it('ignores successful outcomes and outcomes with no task', async () => {
+    await writeRouteOutcomes([
+      {
+        routeId: 'route-2', ts: 1700000001000, task: 'a task that succeeded',
+        recommendedAgent: 'coder', routingMethod: 'keyword', confidence: 0.9,
+        learningMode: 'js', measuredSuccess: true,
+      },
+      {
+        routeId: 'route-3', ts: 1700000002000, task: '',
+        recommendedAgent: 'coder', routingMethod: 'keyword', confidence: 0.5,
+        learningMode: 'js', measuredSuccess: false,
+      },
+    ]);
+
+    const result = await manager.runWorker('reflexion');
+
+    expect(result.success).toBe(true);
+    const data = result.data as Record<string, unknown>;
+    expect(data.reflectionsGenerated).toBe(0);
+  });
+
+  it('does not duplicate reflections for the same outcome record across runs', async () => {
+    await writeRouteOutcomes([
+      {
+        routeId: 'route-4', ts: 1700000003000, task: 'flaky integration test suite',
+        recommendedAgent: 'tester', routingMethod: 'keyword', confidence: 0.7,
+        learningMode: 'js', measuredSuccess: false,
+      },
+    ]);
+
+    const first = await manager.runWorker('reflexion');
+    expect((first.data as Record<string, unknown>).reflectionsGenerated).toBe(1);
+
+    const second = await manager.runWorker('reflexion');
+    expect((second.data as Record<string, unknown>).reflectionsGenerated).toBe(0);
+    expect((second.data as Record<string, unknown>).totalReflections).toBe(1);
+  });
+});
+
+// ============================================================================
+// Regression Tests - DDD Worker Package Discovery (MEM-13)
+// ============================================================================
+// The DDD worker used to hardcode this repo's own package paths
+// (`@monoes/hooks`, `@monoes/mcp`, `@monomind/memory`), so every other
+// project always scored 0% forever, and two of the three paths were wrong
+// even for this repo. These tests verify dynamic discovery of workspace
+// packages in a synthetic project — both a scoped monorepo layout and a
+// single-package fallback layout — with no reference to this repo's paths.
+
+describe('DDD Worker Package Discovery (MEM-13 regression)', () => {
+  const DDD_TEST_ROOT = path.join(os.tmpdir(), 'monomind-ddd-test-' + Date.now());
+
+  afterEach(async () => {
+    await fs.rm(DDD_TEST_ROOT, { recursive: true, force: true }).catch(() => {});
+  });
+
+  it('discovers packages in a synthetic scoped + flat monorepo layout', async () => {
+    // Scoped package: packages/@acme/widgets
+    const scopedSrc = path.join(DDD_TEST_ROOT, 'packages', '@acme', 'widgets', 'src');
+    await fs.mkdir(scopedSrc, { recursive: true });
+    await fs.writeFile(
+      path.join(DDD_TEST_ROOT, 'packages', '@acme', 'widgets', 'package.json'),
+      JSON.stringify({ name: '@acme/widgets' })
+    );
+    await fs.writeFile(
+      path.join(scopedSrc, 'widget.entity.ts'),
+      'export class WidgetEntity {}\n'
+    );
+
+    // Flat package: packages/gizmos
+    const flatSrc = path.join(DDD_TEST_ROOT, 'packages', 'gizmos', 'src');
+    await fs.mkdir(flatSrc, { recursive: true });
+    await fs.writeFile(
+      path.join(DDD_TEST_ROOT, 'packages', 'gizmos', 'package.json'),
+      JSON.stringify({ name: 'gizmos' })
+    );
+    await fs.writeFile(
+      path.join(flatSrc, 'gizmo.repository.ts'),
+      'export interface IGizmoRepository {}\n'
+    );
+
+    // A directory that looks like a package scope but has no package.json —
+    // must NOT be picked up as a module.
+    await fs.mkdir(path.join(DDD_TEST_ROOT, 'packages', '@acme', 'not-a-package', 'src'), { recursive: true });
+
+    await fs.mkdir(path.join(DDD_TEST_ROOT, '.monomind', 'metrics'), { recursive: true });
+
+    const manager = createWorkerManager(DDD_TEST_ROOT);
+    const result = await manager.runWorker('ddd');
+
+    expect(result.success).toBe(true);
+    const data = result.data as Record<string, unknown>;
+    const modules = data.modules as Record<string, unknown>;
+
+    expect(Object.keys(modules).sort()).toEqual([path.join('@acme', 'widgets'), 'gizmos'].sort());
+    expect(data.modulesTracked).toBe(2);
+    expect(data.score).toBeGreaterThan(0);
+    // Never falls back to this repo's own hardcoded paths.
+    expect(modules['@monoes/hooks']).toBeUndefined();
+    expect(modules['@monoes/mcp']).toBeUndefined();
+    expect(modules['@monomind/memory']).toBeUndefined();
+  });
+
+  it('falls back to scanning src/ for a single-package project with no packages/ dir', async () => {
+    const src = path.join(DDD_TEST_ROOT, 'src');
+    await fs.mkdir(src, { recursive: true });
+    await fs.writeFile(path.join(src, 'order.aggregate.ts'), 'export class OrderAggregate {}\n');
+    await fs.mkdir(path.join(DDD_TEST_ROOT, '.monomind', 'metrics'), { recursive: true });
+
+    const manager = createWorkerManager(DDD_TEST_ROOT);
+    const result = await manager.runWorker('ddd');
+
+    expect(result.success).toBe(true);
+    const data = result.data as Record<string, unknown>;
+    expect(data.modulesTracked).toBe(1);
+    expect(data.score).toBeGreaterThan(0);
+  });
+
+  it('reports zero modules for a project with neither packages/ nor src/', async () => {
+    await fs.mkdir(path.join(DDD_TEST_ROOT, '.monomind', 'metrics'), { recursive: true });
+
+    const manager = createWorkerManager(DDD_TEST_ROOT);
+    const result = await manager.runWorker('ddd');
+
+    expect(result.success).toBe(true);
+    const data = result.data as Record<string, unknown>;
+    expect(data.modulesTracked).toBe(0);
+    expect(data.progress).toBe(0);
+  });
+});

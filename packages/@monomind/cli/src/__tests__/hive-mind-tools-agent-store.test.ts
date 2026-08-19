@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -79,5 +79,56 @@ describe('hive-mind_spawn / hive-mind_shutdown do not wipe a corrupt agent store
     const storePath = join(getMonomindDataRoot(dir), 'agents', 'store.json');
     const store = JSON.parse(readFileSync(storePath, 'utf-8'));
     expect(Object.keys(store.agents)).toHaveLength(2);
+  });
+});
+
+describe('hive-mind tools are registered unconditionally (MONOMIND_MCP_SPECULATIVE gate removed)', () => {
+  const originalEnv = process.env.MONOMIND_MCP_SPECULATIVE;
+
+  afterEach(() => {
+    if (originalEnv === undefined) delete process.env.MONOMIND_MCP_SPECULATIVE;
+    else process.env.MONOMIND_MCP_SPECULATIVE = originalEnv;
+  });
+
+  const EXPECTED_NAMES = [
+    'hive-mind_spawn',
+    'hive-mind_init',
+    'hive-mind_status',
+    'hive-mind_join',
+    'hive-mind_leave',
+    'hive-mind_consensus',
+    'hive-mind_broadcast',
+    'hive-mind_shutdown',
+    'hive-mind_memory',
+    'hive-mind_audit_list',
+    'hive-mind_audit_verify',
+  ];
+
+  it('exposes all 11 hive-mind tools via `hiveMindTools` with MONOMIND_MCP_SPECULATIVE unset', async () => {
+    delete process.env.MONOMIND_MCP_SPECULATIVE;
+    vi.resetModules();
+    const { hiveMindTools: exported } = await import('../mcp-tools/hive-mind-tools.js');
+
+    expect(exported).toHaveLength(11);
+    expect(exported.map((t) => t.name).sort()).toEqual([...EXPECTED_NAMES].sort());
+    for (const tool of exported) {
+      expect(typeof tool.handler).toBe('function');
+    }
+  });
+
+  it('still exposes all 11 tools even when MONOMIND_MCP_SPECULATIVE=1 is set (no behavior change from the old speculative flag)', async () => {
+    process.env.MONOMIND_MCP_SPECULATIVE = '1';
+    vi.resetModules();
+    const { hiveMindTools: exported } = await import('../mcp-tools/hive-mind-tools.js');
+
+    expect(exported).toHaveLength(11);
+  });
+
+  it('`hiveMindTools` and `allHiveMindTools` are the same list post-cleanup', async () => {
+    delete process.env.MONOMIND_MCP_SPECULATIVE;
+    vi.resetModules();
+    const { hiveMindTools: exported, allHiveMindTools: all } = await import('../mcp-tools/hive-mind-tools.js');
+
+    expect(exported.map((t) => t.name).sort()).toEqual(all.map((t) => t.name).sort());
   });
 });

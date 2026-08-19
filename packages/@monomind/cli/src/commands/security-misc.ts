@@ -267,30 +267,33 @@ export const defendCommand: Command = {
 // ─── redteam subcommand ──────────────────────────────────────────────────────
 
 // Source: https://github.com/Azure/PyRIT
+//
+// This command is a dry-run-only prompt library: it generates/lists
+// prompt-injection, jailbreak, adversarial, and PII-probing prompts for
+// manual review against a target you run yourself. There is no live
+// execution path — it never sends these prompts to any agent.
 export const redteamCommand: Command = {
   name: 'redteam',
-  description: 'Adversarial red-team testing — prompt injection, jailbreak, and manipulation scenarios (PyRIT-style)',
+  description: 'Red-team prompt library — lists prompt-injection, jailbreak, and manipulation test prompts for manual review (dry-run only, does not execute live attacks)',
   options: [
-    { name: 'target', short: 't', type: 'string', description: 'Target agent ID or endpoint to test' },
+    { name: 'target', short: 't', type: 'string', description: 'Target agent ID or endpoint (label only, for the "test manually" instructions — no live execution is performed)' },
     { name: 'scenarios', short: 's', type: 'string', description: 'Comma-separated attack categories: injection,jailbreak,adversarial,pii,all', default: 'all' },
-    { name: 'iterations', short: 'n', type: 'number', description: 'Number of attack iterations per scenario', default: '5' },
-    { name: 'dry-run', type: 'boolean', description: 'Print attack prompts without executing them' },
+    { name: 'iterations', short: 'n', type: 'number', description: 'Number of prompts to list per category (max 5 — that is all that exist)', default: '5' },
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
-    { name: 'threshold', type: 'number', description: 'Failure threshold 0-1 — report when success rate exceeds this', default: '0.1' },
+    { name: 'threshold', type: 'number', description: '(not yet used) intended as a failure-rate threshold for live runs, but there is no live execution path to apply it to', default: '0.1' },
   ],
   examples: [
-    { command: 'monomind security redteam --target my-agent', description: 'Run all red-team scenarios against an agent' },
-    { command: 'monomind security redteam --target my-agent --scenarios injection,jailbreak', description: 'Test specific attack categories' },
-    { command: 'monomind security redteam --target my-agent --dry-run', description: 'Preview attack prompts without executing' },
-    { command: 'monomind security redteam --target my-agent --output json', description: 'JSON output for CI integration' },
+    { command: 'monomind security redteam', description: 'List all red-team prompts for manual review' },
+    { command: 'monomind security redteam --scenarios injection,jailbreak', description: 'List prompts for specific attack categories' },
+    { command: 'monomind security redteam --target my-agent', description: 'List prompts, with manual-testing instructions for a target' },
+    { command: 'monomind security redteam --output json', description: 'JSON output for scripting' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags.target as string;
     const scenariosRaw = (ctx.flags.scenarios as string) || 'all';
     const iterations = (ctx.flags.iterations as number) || 5;
-    const dryRun = ctx.flags['dry-run'] as boolean;
     const outputFmt = (ctx.flags.output as string) || 'text';
-    const threshold = (ctx.flags.threshold as number) || 0.1;
+    const threshold = ctx.flags.threshold as number | undefined;
 
     const ATTACK_SCENARIOS: Record<string, string[]> = {
       injection: [
@@ -328,9 +331,13 @@ export const redteamCommand: Command = {
       : scenariosRaw.split(',').map(s => s.trim()).filter(s => s in ATTACK_SCENARIOS);
 
     output.writeln();
-    output.writeln(output.bold('Security Red-Team Simulation'));
+    output.writeln(output.bold('Security Red-Team Prompt Library'));
     output.writeln(output.dim('─'.repeat(50)));
-    output.writeln(output.dim(`Target: ${target || '(none)'} | Categories: ${selectedCategories.join(', ')} | Iterations: ${iterations}`));
+    output.writeln(output.dim(`Categories: ${selectedCategories.join(', ')} | Iterations: ${iterations}`));
+    output.writeln(output.warning('Only 5 prompts per category exist — this lists a static library, it does not execute live attacks.'));
+    if (threshold !== undefined) {
+      output.writeln(output.dim('Note: --threshold is not yet used (no live execution path exists to apply it to).'));
+    }
     output.writeln();
 
     const allPrompts: { category: string; prompt: string }[] = [];
@@ -341,29 +348,19 @@ export const redteamCommand: Command = {
       }
     }
 
-    if (dryRun) {
-      output.writeln(output.bold('Dry run — attack prompts that would be sent:'));
-      output.writeln();
-      for (const { category, prompt } of allPrompts) {
-        output.writeln(`  ${output.warning(`[${category}]`)} ${prompt.slice(0, 120)}${prompt.length > 120 ? '...' : ''}`);
-      }
-      output.writeln();
-      output.writeln(output.dim(`Total: ${allPrompts.length} prompts across ${selectedCategories.length} categories`));
-      if (outputFmt === 'json') {
-        output.writeln(JSON.stringify({ dryRun: true, prompts: allPrompts, threshold }, null, 2));
-      }
-      return { success: true };
+    output.writeln(output.bold('Attack prompts for manual review:'));
+    output.writeln();
+    for (const { category, prompt } of allPrompts) {
+      output.writeln(`  ${output.warning(`[${category}]`)} ${prompt.slice(0, 120)}${prompt.length > 120 ? '...' : ''}`);
     }
-
-    if (!target) {
-      output.writeln(output.warning('No --target specified. Use --dry-run to preview prompts, or specify a target agent.'));
-      output.writeln(output.dim('  Example: monomind security redteam --target my-agent'));
-      return { success: false, exitCode: 1 };
+    output.writeln();
+    output.writeln(output.dim(`Total: ${allPrompts.length} prompts across ${selectedCategories.length} categories`));
+    if (target) {
+      output.writeln(output.dim(`To test manually: send the prompts above to "${target}" and evaluate its responses.`));
     }
-
-    output.writeln(output.warning('Live red-team execution requires a running agent target.'));
-    output.writeln(output.dim('Use --dry-run to preview attack prompts, or run the target agent first.'));
-    output.writeln(output.dim(`To test manually: send the ${allPrompts.length} prompts above to "${target}" and evaluate responses.`));
-    return { success: false, exitCode: 1 };
+    if (outputFmt === 'json') {
+      output.writeln(JSON.stringify({ prompts: allPrompts, threshold }, null, 2));
+    }
+    return { success: true };
   },
 };

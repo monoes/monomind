@@ -16,12 +16,18 @@ monomind security <subcommand> [flags]
 
 | Subcommand | Description | Key Flags & Options | Reference |
 |---|---|---|---|
-| `scan` | Run static security scan on input prompt or codebase files | `--input <text>`, `--file <path>`, `--json` | [`security.ts:L45`](packages/@monomind/cli/src/commands/security.ts#L45) |
+| `scan` | Run security scan on the codebase (dependency CVEs via `npm audit`, hardcoded secrets, risky code patterns) | `--target <path>`, `--depth <quick\|standard\|deep>`, `--type <code\|deps\|container\|all>`, `--output <text\|json\|sarif>`, `--fix` | [`security-scan.ts`](packages/@monomind/cli/src/commands/security-scan.ts) |
 | `defend` | Invoke MonoFence AI threat detection & evasion normalizer on prompt text | `--input <text>`, `--context-id <id>`, `--verbose` | [`security-misc.ts:L30`](packages/@monomind/cli/src/commands/security-misc.ts#L30) |
 | `cve` | Audit package dependencies for known CVE vulnerabilities | `--package <pkg>`, `--severity <level>`, `--fix` | [`security.ts:L110`](packages/@monomind/cli/src/commands/security.ts#L110) |
 | `secrets` | Scan repository files for exposed API keys, tokens, and private keys | `--path <dir>`, `--ignore-vendor` | [`security.ts:L160`](packages/@monomind/cli/src/commands/security.ts#L160) |
 | `audit` | Summarize security audit event history *(Note: reads synthetic events from `.swarm/*.json` filenames)* | `--format <json\|table>` | [`security.ts:L210`](packages/@monomind/cli/src/commands/security.ts#L210) |
 | `redteam` | Execute dry-run adversarial prompt injection test suite against security gates | `--dry-run`, `--categories <list>` | [`security.ts:L260`](packages/@monomind/cli/src/commands/security.ts#L260) |
+
+#### `scan --output` formats
+
+- `text` (default): human-readable table + summary box.
+- `json`: structured findings (`severity`, `type`, `location`, `description`), a `summary` count block, and `coverage` gap info — printed instead of the table.
+- `sarif`: SARIF 2.1.0 document, produced by adapting scan findings into monograph's real SARIF exporter (`exportHealthSarif` in [`packages/@monomind/monograph/src/export/sarif.ts`](packages/@monomind/monograph/src/export/sarif.ts)) rather than a second SARIF implementation.
 
 ---
 

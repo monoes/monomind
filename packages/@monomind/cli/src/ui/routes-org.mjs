@@ -1135,13 +1135,29 @@ if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/bu
         total_cost_usd: s.total_cost_usd || 0,
       }));
     } catch(_) {}
-    // Scan org run jsonl files for agent:usage events (fallback when state.json has no token data)
+    // Scan org run jsonl files for usage events (fallback when state.json has no token data).
+    // Two event-type variants show up here in practice and must BOTH be matched, each with its
+    // own field mapping — matching only one silently drops real v2 cost data from the UI:
+    //  - 'agent:usage': flattened { role, tokens_in, tokens_out, cost_usd } (legacy/direct writers).
+    //  - 'org:usage': orgrt's actual forwarded shape (attachForwarder's translate() default case
+    //    for a raw OrgBus 'usage' event) — { from, data: { tokens, cost_usd } }. orgrt never emits
+    //    'agent:usage' itself, so scanning for that alone means this fallback never fires for real runs.
     const _hasTokenData = agents.some(a => a.tokens_in > 0 || a.tokens_out > 0 || a.total_cost_usd > 0);
     if (!_hasTokenData) {
       try {
         const _runsDir = path.join(base, orgName, 'runs');
         if (fs.existsSync(_runsDir)) {
           const _usageByRole = {};
+          const _bump = (role, tokensIn, tokensOut, tokensTotal, costUsd) => {
+            if (!role) return;
+            role = String(role).trim();
+            if (!role) return;
+            if (!_usageByRole[role]) _usageByRole[role] = { tokens_in: 0, tokens_out: 0, tokens_used: 0, total_cost_usd: 0 };
+            _usageByRole[role].tokens_in += tokensIn;
+            _usageByRole[role].tokens_out += tokensOut;
+            _usageByRole[role].tokens_used += tokensIn + tokensOut + tokensTotal;
+            _usageByRole[role].total_cost_usd += costUsd;
+          };
           for (const f of fs.readdirSync(_runsDir)) {
             if (!f.endsWith('.jsonl') || f.startsWith('._')) continue;
             const lines = fs.readFileSync(path.join(_runsDir, f), 'utf8').split('\n').filter(Boolean);
@@ -1149,11 +1165,9 @@ if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/bu
               try {
                 const ev = JSON.parse(l);
                 if (ev.type === 'agent:usage' && ev.role) {
-                  const role = String(ev.role).trim();
-                  if (!_usageByRole[role]) _usageByRole[role] = { tokens_in: 0, tokens_out: 0, total_cost_usd: 0 };
-                  _usageByRole[role].tokens_in += Number(ev.tokens_in) || 0;
-                  _usageByRole[role].tokens_out += Number(ev.tokens_out) || 0;
-                  _usageByRole[role].total_cost_usd += Number(ev.cost_usd) || 0;
+                  _bump(ev.role, Number(ev.tokens_in) || 0, Number(ev.tokens_out) || 0, 0, Number(ev.cost_usd) || 0);
+                } else if (ev.type === 'org:usage' && ev.from) {
+                  _bump(ev.from, 0, 0, Number(ev.data?.tokens) || 0, Number(ev.data?.cost_usd) || 0);
                 }
               } catch(_) {}
             }
@@ -1162,7 +1176,13 @@ if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/bu
             // Merge usage into agents list; preserve role titles
             agents = agents.map(a => {
               const u = _usageByRole[a.id] || {};
-              return { ...a, tokens_in: u.tokens_in || 0, tokens_out: u.tokens_out || 0, total_cost_usd: u.total_cost_usd || 0 };
+              return {
+                ...a,
+                tokens_in: u.tokens_in || 0,
+                tokens_out: u.tokens_out || 0,
+                tokens_used: u.tokens_used || ((u.tokens_in || 0) + (u.tokens_out || 0)),
+                total_cost_usd: u.total_cost_usd || 0,
+              };
             });
             // Add any roles that appeared in events but aren't in config
             for (const [role, u] of Object.entries(_usageByRole)) {

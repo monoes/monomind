@@ -6,6 +6,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { existsSync, statSync, readFileSync, readdirSync, realpathSync } from 'fs';
 import { join, resolve, sep, relative } from 'path';
+import { exportHealthSarif, type SarifHealthFinding } from '@monoes/monograph';
 
 // ─── Shared secret scanning ─────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ export const SECRET_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
   { pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/gi, type: 'Hardcoded Password' },
 ];
 
-export type SecretFinding = { severity: string; type: string; location: string; description: string };
+export type SecretFinding = { severity: string; type: string; location: string; description: string; rawSeverity?: 'critical' | 'high' | 'medium' | 'low' };
 
 /**
  * Records what the scanner could NOT look at.
@@ -135,12 +136,43 @@ export function findSecretsInDir(
               type: 'Hardcoded Secret',
               location: `${relative(baseDir, fullPath)}:${i + 1}`,
               description: type,
+              rawSeverity: 'high',
             });
           }
         }
       }
     }
   }
+}
+
+// ─── SARIF adapter ───────────────────────────────────────────────────────────
+
+/**
+ * Adapts security-scan findings (file:line-ish locations, flat rawSeverity) into
+ * the shape monograph's SARIF exporter expects. Reused rather than reimplemented —
+ * see doc/commands/security.md.
+ */
+export function findingsToSarif(
+  findings: Array<{ type: string; location: string; description: string; rawSeverity: 'critical' | 'high' | 'medium' | 'low' }>,
+): SarifHealthFinding[] {
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return findings.map(f => {
+    const lastColon = f.location.lastIndexOf(':');
+    const maybeLine = lastColon >= 0 ? Number(f.location.slice(lastColon + 1)) : NaN;
+    const hasLine = Number.isFinite(maybeLine) && maybeLine > 0;
+    const filePath = hasLine ? f.location.slice(0, lastColon) : f.location;
+    const line = hasLine ? maybeLine : 0;
+    return {
+      filePath,
+      functionName: f.type,
+      startLine: line,
+      endLine: line,
+      ruleId: `security-scan/${slug(f.type)}`,
+      message: f.description,
+      severity: f.rawSeverity === 'critical' || f.rawSeverity === 'high' ? 'error'
+        : f.rawSeverity === 'medium' ? 'warning' : 'note',
+    };
+  });
 }
 
 // ─── scan subcommand ─────────────────────────────────────────────────────────
@@ -164,6 +196,8 @@ export const scanCommand: Command = {
     const depth = ctx.flags.depth as string || 'standard';
     const scanType = ctx.flags.type as string || 'all';
     const fix = ctx.flags.fix as boolean;
+    const rawOutputFormat = (ctx.flags.output as string) || 'text';
+    const outputFormat = rawOutputFormat === 'json' || rawOutputFormat === 'sarif' ? rawOutputFormat : 'text';
 
     if (target !== '.') {
       try {
@@ -186,7 +220,7 @@ export const scanCommand: Command = {
     const spinner = output.createSpinner({ text: `Scanning ${target}...`, spinner: 'dots' });
     spinner.start();
 
-    const findings: Array<{ severity: string; type: string; location: string; description: string }> = [];
+    const findings: Array<{ severity: string; type: string; location: string; description: string; rawSeverity: 'critical' | 'high' | 'medium' | 'low' }> = [];
     const coverage = createScanCoverage();
     let criticalCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
 
@@ -232,6 +266,7 @@ export const scanCommand: Command = {
                     type: 'Dependency CVE',
                     location: `package.json:${pkg}`,
                     description: title.substring(0, 35),
+                    rawSeverity: sev === 'critical' ? 'critical' : sev === 'high' ? 'high' : sev === 'moderate' || sev === 'medium' ? 'medium' : 'low',
                   });
                 }
               }
@@ -303,6 +338,7 @@ export const scanCommand: Command = {
                       type,
                       location: `${path.relative(target, fullPath)}:${i + 1}`,
                       description: desc,
+                      rawSeverity: severity === 'high' ? 'high' : 'medium',
                     });
                   }
                 }
@@ -323,7 +359,36 @@ export const scanCommand: Command = {
       }
 
       output.writeln();
-      if (findings.length > 0) {
+      if (outputFormat === 'json') {
+        const jsonPayload = {
+          target,
+          depth,
+          type: scanType,
+          findings: findings.map(f => ({
+            severity: f.rawSeverity,
+            type: f.type,
+            location: f.location,
+            description: f.description,
+          })),
+          summary: {
+            critical: criticalCount,
+            high: highCount,
+            medium: mediumCount,
+            low: lowCount,
+            total: findings.length,
+          },
+          coverage: {
+            filesScanned: coverage.filesScanned,
+            dirsScanned: coverage.dirsScanned,
+            complete: gaps.length === 0,
+            gaps,
+          },
+        };
+        output.writeln(JSON.stringify(jsonPayload, null, 2));
+      } else if (outputFormat === 'sarif') {
+        const sarifDoc = exportHealthSarif(findingsToSarif(findings), resolve(target));
+        output.writeln(JSON.stringify(sarifDoc, null, 2));
+      } else if (findings.length > 0) {
         output.printTable({
           columns: [
             { key: 'severity', header: 'Severity', width: 12 },
@@ -341,24 +406,26 @@ export const scanCommand: Command = {
         output.writeln(output.success('No security issues found!'));
       }
 
-      if (gaps.length > 0) {
-        output.writeln();
-        output.writeln(output.warning('Incomplete coverage:'));
-        for (const g of gaps) output.writeln(output.warning(`  - ${g}`));
-      }
+      if (outputFormat === 'text') {
+        if (gaps.length > 0) {
+          output.writeln();
+          output.writeln(output.warning('Incomplete coverage:'));
+          for (const g of gaps) output.writeln(output.warning(`  - ${g}`));
+        }
 
-      output.writeln();
-      output.printBox([
-        `Target: ${target}`,
-        `Depth: ${depth}`,
-        `Type: ${scanType}`,
-        ``,
-        `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
-        `Total Issues: ${findings.length}`,
-        ``,
-        `Coverage: ${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned`,
-        `Coverage status: ${gaps.length === 0 ? 'complete' : `INCOMPLETE (${gaps.length} gap type(s))`}`,
-      ].join('\n'), 'Scan Summary');
+        output.writeln();
+        output.printBox([
+          `Target: ${target}`,
+          `Depth: ${depth}`,
+          `Type: ${scanType}`,
+          ``,
+          `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
+          `Total Issues: ${findings.length}`,
+          ``,
+          `Coverage: ${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned`,
+          `Coverage status: ${gaps.length === 0 ? 'complete' : `INCOMPLETE (${gaps.length} gap type(s))`}`,
+        ].join('\n'), 'Scan Summary');
+      }
 
       if (fix && criticalCount + highCount > 0) {
         const resolvedTarget = realpathSync(path.resolve(target));

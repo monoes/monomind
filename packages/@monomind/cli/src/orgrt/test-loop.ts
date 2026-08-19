@@ -5,7 +5,8 @@ import { OrgDaemon } from './daemon.js';
 import { startOrgServer } from './server.js';
 import { OrgBus } from './bus.js';
 import { queueMessage } from './inbox.js';
-import { ORG_DIR, type BusEvent } from './types.js';
+import { ORG_DIR, RolePolicySchema, type BusEvent } from './types.js';
+import { PolicyEngine } from './policy.js';
 
 /** Test scenario definition - declarative scenario files for scripted org tests */
 interface TestScenario {
@@ -48,7 +49,42 @@ function loadScenario(root: string, scenarioFile: string): TestScenario | null {
   }
 }
 
-/** Run a declarative test scenario instead of the hardcoded scriptedQuery */
+/**
+ * Parses an `expect` DSL string of the form `<eventType>` or
+ * `<eventType>:field=value[,field=value...]` (fields: from, to, tool,
+ * decision, reason, subject) and checks it against events actually observed
+ * on the org buses so far — not a hardcoded pass.
+ */
+function evaluateExpect(expect: string, observed: BusEvent[]): boolean {
+  const [type, fieldsPart] = expect.split(':', 2);
+  const wantType = type.trim();
+  const fields = fieldsPart
+    ? Object.fromEntries(fieldsPart.split(',').map(kv => {
+        const [k, v] = kv.split('=', 2);
+        return [k?.trim(), v?.trim()];
+      }))
+    : {};
+  return observed.some(e => {
+    if (e.type !== wantType) return false;
+    for (const [k, v] of Object.entries(fields)) {
+      const actual = (e as unknown as Record<string, unknown>)[k];
+      if (actual === undefined || String(actual) !== v) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Run a declarative test scenario instead of the hardcoded scriptedQuery.
+ *
+ * IMPORTANT: this drives 'tool' checks through the REAL PolicyEngine and
+ * 'expect' checks against events REALLY emitted on the org buses so far —
+ * but scenario orgs are never actually started via daemon.startOrg() (no
+ * real agent SDK sessions run), so 'send' steps only exercise deliver()'s
+ * routing/queuing logic, not a live agent receiving and acting on the
+ * message. The report is labeled "structural dry-run" to be honest that not
+ * every check type here is verified against a fully live run.
+ */
 function runScenario(daemon: OrgDaemon, scenario: TestScenario, root: string): Promise<LoopReport> {
   return (async () => {
     // Create org definitions from scenario
@@ -61,6 +97,31 @@ function runScenario(daemon: OrgDaemon, scenario: TestScenario, root: string): P
         roles: orgDef.roles,
       }, null, 2));
     }
+
+    // One OrgBus per scenario org, so 'tool' policy decisions have somewhere
+    // real to emit to and 'expect' has real events to check against.
+    const buses = new Map<string, OrgBus>();
+    const observed: BusEvent[] = [];
+    for (const orgDef of scenario.orgs) {
+      const bus = new OrgBus(orgDef.name, 'scenario', join(root, ORG_DIR, orgDef.name, 'scenario'));
+      bus.subscribe(e => observed.push(e));
+      buses.set(orgDef.name, bus);
+    }
+    // Cache one PolicyEngine per org:role so budget/usage state (this.used)
+    // accumulates realistically across a scenario's steps, same as a live run.
+    const policies = new Map<string, PolicyEngine>();
+    const policyFor = (orgName: string, roleId: string): PolicyEngine | null => {
+      const key = `${orgName}:${roleId}`;
+      const cached = policies.get(key);
+      if (cached) return cached;
+      const orgDef = scenario.orgs.find(o => o.name === orgName);
+      const role = orgDef?.roles.find(r => r.id === roleId);
+      const bus = buses.get(orgName);
+      if (!orgDef || !role || !bus) return null;
+      const engine = new PolicyEngine(role.id, RolePolicySchema.parse(role.policy ?? {}), bus, root);
+      policies.set(key, engine);
+      return engine;
+    };
 
     const iterations: IterationResult[] = [];
     let stepIndex = 0;
@@ -76,7 +137,6 @@ function runScenario(daemon: OrgDaemon, scenario: TestScenario, root: string): P
             if (step.to) {
               const parts = step.to.split(':');
               const orgName = parts[0];
-              const roleName = parts[1];
               const receipt = await daemon.deliver(
                 orgName,
                 step.from,
@@ -88,14 +148,29 @@ function runScenario(daemon: OrgDaemon, scenario: TestScenario, root: string): P
             }
             break;
 
-          case 'tool':
-            // Tool calls are validated via policy in real runs - here we simulate the check
-            checks[`step_${stepIndex}_tool_allowed`] = true;
+          case 'tool': {
+            // Real policy evaluation — not a stub. step.expect (optional) names the
+            // expected Decision behavior ('allow' | 'deny'); defaults to 'allow'.
+            const orgName = scenario.orgs.find(o => o.roles.some(r => r.id === step.from))?.name
+              ?? scenario.orgs[0]?.name;
+            const engine = orgName ? policyFor(orgName, step.from) : null;
+            if (!engine || !step.tool) {
+              checks[`step_${stepIndex}_tool_allowed`] = false;
+              break;
+            }
+            const decision = await engine.decide(step.tool, step.input ?? {});
+            const expectedBehavior = step.expect === 'deny' ? 'deny' : 'allow';
+            checks[`step_${stepIndex}_tool_allowed`] = decision.behavior === expectedBehavior;
             break;
+          }
 
           case 'expect':
-            // Check if expected condition is met
-            checks[`step_${stepIndex}_expectation`] = true;
+            // Real check against events actually observed on the scenario's org
+            // buses so far (populated by 'send' and 'tool' steps above) — not a
+            // hardcoded pass.
+            checks[`step_${stepIndex}_expectation`] = step.expect
+              ? evaluateExpect(step.expect, observed)
+              : false;
             break;
         }
 
@@ -107,7 +182,7 @@ function runScenario(daemon: OrgDaemon, scenario: TestScenario, root: string): P
     }
 
     const failed = iterations.filter(it => Object.values(it.checks).some(v => !v)).length;
-    const summary = `Scenario "${scenario.name}": ${iterations.length - failed}/${iterations.length} steps passed`;
+    const summary = `[structural dry-run] Scenario "${scenario.name}": ${iterations.length - failed}/${iterations.length} steps passed`;
 
     return { iterations, failed, summary };
   })();

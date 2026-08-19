@@ -110,3 +110,4 @@ export * from './export/adjacency-matrix.js';
 export * from './ingest/query-memory.js';
 export * from './ingest/git-clone.js';
 export * from './ingest/transcribe.js';
+export * from './export/sarif.js';
