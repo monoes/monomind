@@ -43,6 +43,7 @@ import { CrushAgentRunner } from './crush-runner.js';
 import { CopilotAgentRunner } from './copilot-runner.js';
 import { PiAgentRunner } from './pi-runner.js';
 import { PiRpcAgentRunner } from './pi-rpc-runner.js';
+import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
 import {
   captureCheckpoint,
   generateChecksum,
@@ -115,16 +116,21 @@ export type RuntimeKind =
   | 'grok' | 'qwen' | 'crush' | 'copilot' | 'pi'
   /** Opt-in alternate to 'pi': keeps the pi subprocess alive for the whole
    *  mailbox session (--mode rpc) instead of spawning fresh per turn — see
-   *  pi-rpc-runner.ts's header for the protocol source and its one
-   *  documented-but-unverified heuristic (turn-completion detection via
-   *  get_state polling). Prefer plain 'pi' unless you specifically want
-   *  session-lifetime context continuity and have validated this against a
-   *  live pi install. No 'qwen-rpc' equivalent exists yet — qwen's
-   *  --input-format stream-json is real but its exact message schema wasn't
-   *  independently confirmed the way pi's rpc.md was, so implementing it
-   *  would mean guessing at a wire format rather than building against a
-   *  literal, sourced example. */
-  | 'pi-rpc';
+   *  pi-rpc-runner.ts's header for the protocol source (live-verified
+   *  against pi v0.73.1, issue #179). Prefer plain 'pi' unless you
+   *  specifically want session-lifetime context continuity. */
+  | 'pi-rpc'
+  /** Opt-in alternate to 'qwen': keeps the qwen subprocess alive for the
+   *  whole mailbox session (--input-format/--output-format stream-json)
+   *  instead of spawning fresh per turn — see qwen-rpc-runner.ts's header
+   *  for the protocol source (live-verified against qwen-code v0.21.13,
+   *  issue #182). One gap not independently re-verified: whether `result`
+   *  fires exactly once per turn even when qwen runs several of its own
+   *  native tools in sequence first (inferred by symmetry with the non-RPC
+   *  QwenAgentRunner, not separately live-tested for this runner). Prefer
+   *  plain 'qwen' unless you specifically want session-lifetime context
+   *  continuity. */
+  | 'qwen-rpc';
 export type ProviderKind =
   | 'subscription'
   | 'api-key'
@@ -176,6 +182,7 @@ export function resolveRunner(
   if (selected === 'copilot') return new CopilotAgentRunner();
   if (selected === 'pi') return new PiAgentRunner();
   if (selected === 'pi-rpc') return new PiRpcAgentRunner();
+  if (selected === 'qwen-rpc') return new QwenRpcAgentRunner();
   return undefined;
 }
 
@@ -591,6 +598,25 @@ export class OrgDaemon {
             `org ${name}: role "${role.id}" provider validation failed — ${err instanceof Error ? err.message : err}`,
           );
         }
+      }
+      // provider.kind 'gemini'/'openai' only sets env vars (GEMINI_API_KEY /
+      // OPENAI_API_KEY — see provider.ts) for a CLI that never reads them:
+      // autoRuntimeFromProvider has no case for either kind, so
+      // resolveRoleRunner falls through to `undefined` and session.ts spawns
+      // the default ClaudeAgentRunner. The role silently runs on Claude while
+      // its config claims gemini/openai — surface that loudly at start time
+      // instead of leaving it to be discovered mid-run.
+      const kind = role.provider?.kind;
+      if (
+        (kind === 'gemini' || kind === 'openai') &&
+        !resolveRoleRunner(role.runtime, def.runtime, kind, undefined, role.provider)
+      ) {
+        console.error(
+          `org ${name}: role "${role.id}" sets provider.kind="${kind}" but no runtime honors it — ` +
+            `this role will actually run on the Claude Agent SDK, not ${kind}. ` +
+            `Set role.runtime (or the org's runtime) explicitly, or use provider.kind="vercel-api-key" ` +
+            `with vendor="${kind === 'gemini' ? 'google' : 'openai'}" to route through a real ${kind} model.`,
+        );
       }
     }
 

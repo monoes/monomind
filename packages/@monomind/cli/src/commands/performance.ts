@@ -68,7 +68,11 @@ const benchmarkCommand: Command = {
     } = await import('../memory/memory-initializer.js');
     const { benchmarkAdaptation, initializeIntelligence } = await import('../memory/intelligence.js');
 
-    const results: { operation: string; mean: string; p95: string; p99: string; improvement: string; targetMet: boolean }[] = [];
+    // `hasTarget: false` marks entries that only report a measured latency,
+    // with no baseline to compare against — they're excluded from the
+    // "all targets met" rollup instead of being scored against an invented
+    // baseline constant.
+    const results: { operation: string; mean: string; p95: string; p99: string; improvement: string; targetMet: boolean; hasTarget?: boolean }[] = [];
     const startTotal = Date.now();
 
     // Helper to compute percentiles
@@ -131,17 +135,18 @@ const benchmarkCommand: Command = {
       }
 
       const mean = flashTimes.reduce((a, b) => a + b, 0) / flashTimes.length;
-      // Compare to baseline (single-vector comparison takes ~0.5μs, so 100 vectors baseline ~0.05ms)
-      const baselineMs = 0.05;
-      const speedup = baselineMs / mean;
-      const flashTargetMet = speedup > 1;
+      // No independent baseline implementation exists to compare against —
+      // flashAttentionSearch is a thin wrapper around batchCosineSim, so
+      // there's nothing slower to measure a real speedup off of. Report the
+      // measured latency only, without a fabricated speedup ratio.
       results.push({
         operation: 'Batch Vector Ops',
         mean: `${mean.toFixed(3)}ms`,
         p95: `${percentile(flashTimes, 95).toFixed(3)}ms`,
         p99: `${percentile(flashTimes, 99).toFixed(3)}ms`,
-        improvement: flashTargetMet ? output.success(`${speedup.toFixed(2)}x`) : output.dim(`${speedup.toFixed(2)}x`),
-        targetMet: flashTargetMet,
+        improvement: output.dim('measured (no baseline)'),
+        targetMet: true,
+        hasTarget: false,
       });
     }
 
@@ -174,18 +179,17 @@ const benchmarkCommand: Command = {
         }
 
         const mean = searchTimes.reduce((a, b) => a + b, 0) / searchTimes.length;
-        // Brute force baseline: ~0.5μs per vector comparison, 1000 vectors = 0.5ms
-        // HNSW should be O(log n) faster
-        const baselineBruteForce = hnswStatus.entryCount * 0.0005;
-        const speedup = baselineBruteForce / (mean / 1000);
-        const hnswTargetMet = speedup > 10;
+        // No brute-force baseline is measured over the actual stored entries
+        // here, so we report the measured latency only rather than a
+        // speedup ratio computed against an invented per-comparison cost.
         results.push({
           operation: `HNSW Search (n=${hnswStatus.entryCount})`,
           mean: `${mean.toFixed(2)}ms`,
           p95: `${percentile(searchTimes, 95).toFixed(2)}ms`,
           p99: `${percentile(searchTimes, 99).toFixed(2)}ms`,
-          improvement: hnswTargetMet ? output.success(`~${Math.round(speedup)}x`) : output.dim(`${speedup.toFixed(1)}x`),
-          targetMet: hnswTargetMet,
+          improvement: output.dim('measured (no baseline)'),
+          targetMet: true,
+          hasTarget: false,
         });
       } else {
         results.push({
@@ -264,7 +268,7 @@ const benchmarkCommand: Command = {
       });
 
       output.writeln();
-      const allTargetsMet = results.every(r => r.targetMet);
+      const allTargetsMet = results.filter(r => r.hasTarget !== false).every(r => r.targetMet);
       output.printBox([
         `Suite: ${suite}`,
         `Iterations: ${iterations}`,
@@ -406,12 +410,13 @@ const metricsCommand: Command = {
     const format = VALID_FORMATS.has(formatRaw) ? formatRaw : 'text';
 
     output.writeln();
-    output.writeln(output.bold(`Performance Metrics (${timeframe})`));
+    output.writeln(output.bold(`Performance Metrics (snapshot)`));
     output.writeln(output.dim('─'.repeat(50)));
+    if (ctx.flags.timeframe) {
+      output.writeln(output.warning('--timeframe is not used for filtering: time history not recorded yet. Showing a live snapshot instead.'));
+    }
 
     const os = await import('os');
-    const fs = await import('fs');
-    const path = await import('path');
 
     // Real system metrics
     const memUsage = process.memoryUsage();
@@ -438,14 +443,13 @@ const metricsCommand: Command = {
       hnswEntries = status?.entryCount || 0;
     } catch { /* HNSW not initialized */ }
 
-    // Try to get real cache stats
+    // Try to get real cache stats — a real SELECT COUNT(*) via the memory
+    // backend, not a file-size approximation.
     let cacheEntries = 0;
     try {
-      const cachePath = path.resolve('.cache/embeddings.db');
-      if (fs.existsSync(cachePath)) {
-        const stats = fs.statSync(cachePath);
-        cacheEntries = Math.floor(stats.size / 1600); // Approximate entries
-      }
+      const { bridgeGetBackendStats } = await import('../memory/memory-bridge.js');
+      const stats = await bridgeGetBackendStats();
+      cacheEntries = stats?.totalEntries ?? 0;
     } catch { /* no cache */ }
 
     // Benchmark a quick operation to get real latency

@@ -12,14 +12,18 @@
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners
  * (see tool-fence.ts).
  *
- * Subprocess protocol — per Qwen Code's public "Headless Mode" docs, NOT
- * byte-verified against a running binary:
+ * Subprocess protocol — LIVE-VERIFIED against qwen-code v0.21.13 (issue
+ * #182 investigation; z.ai/GLM-5.3 as the OpenAI-compatible backend, `qwen
+ * --auth-type openai` + `OPENAI_API_KEY`/`OPENAI_BASE_URL`/`OPENAI_MODEL`):
  *   - Invocation: `qwen -p "<prompt>" --output-format stream-json --yolo
  *                 [-m <model>] [--resume <sessionId> | --continue]`
- *   - stream-json emits one JSON object per line; documented shape:
+ *   - stream-json emits one JSON object per line; CONFIRMED shape (the
+ *     public docs' `usage.tokens.{input,output}` nesting does NOT match
+ *     live output — real usage fields are flat):
  *       { type: 'system'|'assistant'|'result', subtype, uuid, session_id,
  *         role: 'assistant',
- *         message: { content: [{type:'text', text}], usage: { tokens: { input, output, total } } } }
+ *         message: { content: [{type:'text', text}],
+ *                     usage: { input_tokens, output_tokens, cache_read_input_tokens, total_tokens } } }
  *   - Session continuity: `--resume [sessionId]` resumes a specific session,
  *     `--continue` resumes the most recent one; `session_id` is carried on
  *     every event.
@@ -39,7 +43,6 @@ const STARTUP_GRACE_MS = 45_000;
 
 interface QwenMessage {
   content?: Array<{ type: string; text?: string }>;
-  usage?: { tokens?: { input?: number; output?: number } };
 }
 
 interface QwenEvent {
@@ -47,6 +50,11 @@ interface QwenEvent {
   subtype?: string;
   session_id?: string;
   message?: QwenMessage;
+  /** Confirmed live (issue #182): on `result` events, usage is TOP-LEVEL
+   *  and flat, NOT nested under `message.usage.tokens` as the public docs
+   *  suggest. `assistant` events don't carry a top-level `usage` at all in
+   *  observed output. */
+  usage?: { input_tokens?: number; output_tokens?: number };
   error?: { message?: string } | string;
 }
 
@@ -93,10 +101,9 @@ export function parseQwenEvents(lines: string[]): {
     }
 
     if (ev.type === 'result') {
-      const tokens = ev.message?.usage?.tokens;
-      if (tokens) {
-        inputTokens = tokens.input ?? 0;
-        outputTokens = tokens.output ?? 0;
+      if (ev.usage) {
+        inputTokens = ev.usage.input_tokens ?? 0;
+        outputTokens = ev.usage.output_tokens ?? 0;
       }
       if (ev.subtype === 'error') {
         error = typeof ev.error === 'string' ? ev.error : ev.error?.message ?? 'qwen result: error';

@@ -230,8 +230,11 @@ if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/activity$/i.
     if (cfg) {
       const createdMs = cfg.created_at ? Date.parse(cfg.created_at) : null;
       if (createdMs) events.push({ type: 'org:create', ts: createdMs, msg: String(cfg.goal || 'Org created').slice(0, 80) });
-      (cfg.roles || []).forEach((r, i) => {
-        events.push({ type: 'role:defined', ts: createdMs ? createdMs + (i + 1) * 1000 : null, role: r.title || r.id, msg: r.agent_type || '' });
+      // Roles are defined atomically at org creation — there is no per-role
+      // timestamp in the config, so every role:defined event uses the org's
+      // real created_at instead of a fabricated per-index offset.
+      (cfg.roles || []).forEach((r) => {
+        events.push({ type: 'role:defined', ts: createdMs, role: r.title || r.id, msg: r.agent_type || '' });
       });
     }
     const goals = readJ(path.join(orgsDir, `${orgName}-goals.json`));
@@ -308,10 +311,30 @@ if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/adapters$/i.
       let defaultAdapter = 'claude-sonnet-4-6';
       try { defaultAdapter = JSON.parse(fs.readFileSync(orgFile, 'utf8'))?.run_config?.ceo_adapter || defaultAdapter; } catch(_) {}
       res.writeHead(200, { 'Content-Type': 'application/json', ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
+      // This list mirrors the runtimes orgrt/daemon.ts actually registers
+      // (resolveRunner()'s if-chain + the ClaudeAgentRunner default it falls
+      // through to) rather than an independent, hand-maintained catalog — a
+      // standalone 'gemini-local' entry used to be advertised here even
+      // though no runner is ever registered for it (autoRuntimeFromProvider
+      // has no 'gemini' case, so a role requesting it silently falls back to
+      // Claude — see daemon.ts#startOrg's fail-fast warning). Gemini is only
+      // actually reachable via the 'vercel' runtime (vendor: 'google') or via
+      // 'antigravity' (Google-account CLI), both listed below. 'http' maps to
+      // provider.kind === 'base-url' (ANTHROPIC_BASE_URL + optional auth
+      // token) — a real, usable path, not disabled.
       res.end(JSON.stringify({ default_adapter: defaultAdapter, adapters: [
         { type: 'claude-local', label: 'Claude (local CLI)', source: 'built-in', disabled: false, modelsCount: 3 },
-        { type: 'gemini-local', label: 'Gemini (local)', source: 'built-in', disabled: false, modelsCount: 1 },
-        { type: 'http', label: 'HTTP Adapter', source: 'built-in', disabled: true, modelsCount: 0 },
+        { type: 'codex-local', label: 'Codex CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'antigravity', label: 'Antigravity (Google CLI)', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'grok', label: 'Grok CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'qwen', label: 'Qwen CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'crush', label: 'Crush CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'copilot', label: 'GitHub Copilot CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'pi', label: 'Pi CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'opencode', label: 'OpenCode CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'kimicode', label: 'KimiCode CLI', source: 'built-in', disabled: false, modelsCount: 1 },
+        { type: 'vercel', label: 'Vercel AI SDK (multi-vendor, incl. Gemini/OpenAI)', source: 'built-in', disabled: false, modelsCount: 14 },
+        { type: 'http', label: 'Custom HTTP (base-url provider)', source: 'built-in', disabled: false, modelsCount: 0 },
       ]}));
       return true;
     }

@@ -82,7 +82,7 @@ export const metricsCommand: Command = {
       data: [
         { metric: 'Total Agents', value: metrics.summary.totalAgents },
         { metric: 'Active Agents', value: metrics.summary.activeAgents },
-        { metric: 'Tasks Completed', value: metrics.summary.tasksCompleted },
+        { metric: 'Task Count', value: metrics.summary.tasksCompleted },
         { metric: 'Success Rate', value: metrics.summary.avgSuccessRate },
         { metric: 'Memory Entries', value: metrics.summary.vectorCount },
       ],
@@ -244,7 +244,10 @@ async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
           latency: { avg: number; p99: number };
           errors: { count: number; lastError?: string };
         }>;
-        overall: { healthy: number; degraded: number; unhealthy: number; avgCpu: number; avgMemory: number };
+        // Real tool fields are `cpu`/`memory` (both `null` today — per-agent
+        // OS metrics aren't tracked; see agent_health's `_note`), not
+        // `avgCpu`/`avgMemory`.
+        overall: { healthy: number; degraded: number; unhealthy: number; cpu: number | null; memory: number | null };
       }>('agent_health', { agentId, detailed });
 
       if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
@@ -253,14 +256,17 @@ async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
       output.writeln(output.bold('Agent Health'));
       output.writeln();
 
-      const overall = result.overall ?? { healthy: 0, degraded: 0, unhealthy: 0, avgCpu: 0, avgMemory: 0 };
-      output.printBox([
+      const overall = result.overall ?? { healthy: 0, degraded: 0, unhealthy: 0, cpu: null, memory: null };
+      const overallParts = [
         `Healthy: ${output.success(String(overall.healthy ?? 0))}`,
         `Degraded: ${output.warning(String(overall.degraded ?? 0))}`,
         `Unhealthy: ${output.error(String(overall.unhealthy ?? 0))}`,
-        `Avg CPU: ${(overall.avgCpu ?? 0).toFixed(1)}%`,
-        `Avg Memory: ${((overall.avgMemory ?? 0) * 100).toFixed(1)}%`,
-      ].join('  |  '), 'Overall Status');
+      ];
+      // CPU/memory aren't tracked per agent yet — omit rather than show a
+      // fake 0.0%.
+      if (overall.cpu != null) overallParts.push(`Avg CPU: ${overall.cpu.toFixed(1)}%`);
+      if (overall.memory != null) overallParts.push(`Avg Memory: ${(overall.memory * 100).toFixed(1)}%`);
+      output.printBox(overallParts.join('  |  '), 'Overall Status');
 
       const healthAgents = result.agents ?? [];
       output.writeln();
@@ -269,11 +275,9 @@ async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
           { key: 'id', header: 'Agent ID', width: 18 },
           { key: 'type', header: 'Type', width: 12 },
           { key: 'health', header: 'Health', width: 10, format: formatHealthStatus },
-          { key: 'cpu', header: 'CPU %', width: 8, align: 'right', format: (v) => `${Number(v ?? 0).toFixed(1)}%` },
-          { key: 'memory', header: 'Memory', width: 10, align: 'right', format: (v: unknown) => {
-            const mem = v as { used: number; limit: number } | undefined;
-            return mem ? `${(mem.used / mem.limit * 100).toFixed(0)}%` : '0%';
-          }},
+          // CPU/Memory columns removed — agent_health doesn't return
+          // per-agent OS metrics (see its `_note` field); showing them
+          // rendered a fake 0.0% for every agent.
           { key: 'tasks', header: 'Tasks', width: 12, align: 'right', format: (v: unknown) => {
             const t = v as { active: number; completed: number } | undefined;
             return t ? `${t.active ?? 0}/${t.completed ?? 0}` : '0/0';
