@@ -33,7 +33,7 @@
 | [`gate-reject`](#gate-reject) | Reject a pending decision gate |
 | [`replay`](#replay) | Time-travel debug from a run ID |
 | [`resume-from`](#resume-from) | Alias for replay |
-| [`branch`](#branch) | Create what-if branch from checkpoint |
+| [`branch`](#branch) | Snapshot a run's event log for replay |
 | [`decisions`](#decisions) | Show rifft-style decision traces |
 | [`create`](#create) | Scaffold org from template |
 | [`validate`](#validate) | Validate org config(s) against schema |
@@ -377,13 +377,15 @@ monomind org resume-from <name> --run <run-id>
 
 ## `branch`
 
-Create a what-if branch from a checkpoint for divergent experimentation.
+Snapshot a run's event log (bus.jsonl) into a new run directory for replay. This
+is a point-in-time snapshot, not an executable what-if scenario — it does not
+fork or re-run agent execution.
 
 ```bash
 monomind org branch <name> --run <run-id>
 ```
 
-**Source:** [`commands/org.ts:L1254`](packages/@monomind/cli/src/commands/org.ts#L1254) (subcommand entry) → [`orgrt/daemon.ts:L1073`](packages/@monomind/cli/src/orgrt/daemon.ts#L1073) (`branchCheckpoint()`, now a 1-line delegate) → [`orgrt/checkpoint-ops.ts:L217`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts#L217)
+**Source:** [`commands/org-observe.ts`](packages/@monomind/cli/src/commands/org-observe.ts) (`branchAction`) → [`orgrt/checkpoint-ops.ts`](packages/@monomind/cli/src/orgrt/checkpoint-ops.ts) (`branchCheckpoint()`)
 
 ---
 

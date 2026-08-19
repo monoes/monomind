@@ -200,7 +200,10 @@ npx monomind@latest memory search --query "authentication patterns"
 npx monomind@latest doctor --fix
 ```
 
-## Available Agents (60+ Types)
+## Available Agents (Curated Subset)
+
+The full roster ships as `.claude/agents/**/*.md` (88 definitions) — the list
+below is a hand-picked subset worth routing to by name; it is not the complete set.
 
 ### Core Development
 `coder`, `reviewer`, `tester`, `planner`, `researcher`

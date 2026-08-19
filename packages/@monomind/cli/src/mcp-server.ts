@@ -376,7 +376,7 @@ export class MCPServerManager extends EventEmitter {
     );
 
     // Auto-initialize memory database before tools are registered (#1524)
-    // This ensures memory_store and other memory tools work immediately
+    // This ensures memory_pattern-store and other memory tools work immediately
     // without waiting for the first tool call to trigger lazy init.
     try {
       const { initializeMemoryDatabase, checkMemoryInitialization } = await import(

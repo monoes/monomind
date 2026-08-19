@@ -642,7 +642,7 @@ export {
   dequantizeInt8,
   quantizedCosineSim,
   getQuantizationStats,
-  // Flash Attention-style batch operations
+  // Batched cosine similarity operations
   batchCosineSim,
   softmaxAttention,
   topKIndices,

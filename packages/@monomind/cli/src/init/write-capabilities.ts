@@ -106,8 +106,8 @@ npx monomind@latest swarm monitor
 ### Swarm Coordination (3)
 \`mesh-coordinator\`, \`collective-intelligence-coordinator\`, \`swarm-memory-manager\`
 
-### Consensus & Distributed (7)
-\`byzantine-coordinator\`, \`raft-manager\`, \`gossip-coordinator\`, \`consensus-builder\`, \`crdt-synchronizer\`, \`quorum-manager\`, \`security-manager\`
+### Consensus & Distributed (5)
+\`byzantine-coordinator\`, \`raft-manager\`, \`consensus-builder\`, \`quorum-manager\`, \`security-manager\`
 
 ### Performance & Optimization (5)
 \`perf-analyzer\`, \`performance-benchmarker\`, \`task-orchestrator\`, \`memory-coordinator\`, \`smart-agent\`
@@ -203,13 +203,12 @@ npx monomind@latest doctor --fix
 | \`session-restore\` | Restore previous |
 | \`notify\` | Cross-agent notifications |
 
-#### Intelligence Hooks (5)
+#### Intelligence Hooks (4)
 | Hook | Description |
 |------|-------------|
 | \`route\` | Optimal agent routing |
 | \`explain\` | Routing decisions |
 | \`pretrain\` | Bootstrap intelligence |
-| \`build-agents\` | Generate configs |
 | \`transfer\` | Pattern transfer |
 
 #### Coverage Hooks (3)

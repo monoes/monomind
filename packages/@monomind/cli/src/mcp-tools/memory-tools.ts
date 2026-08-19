@@ -69,7 +69,7 @@ export const memoryControllers: MCPTool = {
       controllers: [],
       total: 0,
       active: 0,
-      note: 'Memory operations use the SQLite bridge directly via memory_store/memory_search tools.',
+      note: 'Memory operations use the SQLite bridge directly via memory_pattern-store/memory_pattern-search tools.',
     };
   },
 };
@@ -111,7 +111,7 @@ export const memoryPatternStore: MCPTool = {
         taskType: validateString(params.type, 'type', 200) ?? 'general',
         confidence: validateScore(params.confidence, 0.8),
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -205,7 +205,7 @@ export const memoryFeedback: MCPTool = {
         confidence: validateScore(params.quality, 0.85),
         metadata: { taskId, entryIds },
       });
-      if (!result) return { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      if (!result) return { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
       return { ...result, weighting };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
@@ -435,7 +435,7 @@ export const memorySessionStart: MCPTool = {
         sessionId,
         metadata: { context: validateString(params.context, 'context', 10_000) ?? undefined },
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -466,7 +466,7 @@ export const memorySessionEnd: MCPTool = {
         summary: validateString(params.summary, 'summary', 50_000) ?? undefined,
         metrics: { tasksCompleted: validatePositiveInt(params.tasksCompleted, 0, 10_000) },
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -504,7 +504,7 @@ export const memoryHierarchicalStore: MCPTool = {
       }
       const bridge = await getBridge();
       const result = await bridge.bridgeHierarchicalStore({ key, value, tier });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -539,7 +539,7 @@ export const memoryHierarchicalRecall: MCPTool = {
         tier: tier ?? undefined,
         topK: validatePositiveInt(params.topK, 5, MAX_TOP_K),
       });
-      return result ?? { results: [], error: 'Memory bridge not available. Use memory_search instead.' };
+      return result ?? { results: [], error: 'Memory bridge not available. Use memory_pattern-search instead.' };
     } catch (error) {
       return { results: [], error: sanitizeError(error) };
     }
@@ -577,7 +577,7 @@ export const memoryConsolidate: MCPTool = {
           : undefined,
         namespace: validateString(params.namespace, 'namespace', 128) ?? undefined,
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -650,7 +650,7 @@ export const memoryBatch: MCPTool = {
         operation,
         entries: validatedEntries,
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -690,7 +690,7 @@ export const memoryContextSynthesize: MCPTool = {
         query,
         maxEntries: validatePositiveInt(params.maxEntries, 10, MAX_TOP_K),
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_store/memory_search instead.' };
+      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }

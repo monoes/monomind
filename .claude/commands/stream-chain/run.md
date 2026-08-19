@@ -142,7 +142,7 @@ Then direct the stream chain:
 Use memory tools to persist chain results for future sessions:
 
 ```javascript
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   key: "stream-chain-result",
   value: "summary of findings",
   namespace: "stream-chain"

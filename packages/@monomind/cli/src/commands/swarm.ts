@@ -830,88 +830,6 @@ const scaleCommand: Command = {
   },
 };
 
-// Coordinate command (v1 specific)
-const coordinateCommand: Command = {
-  name: 'coordinate',
-  description: 'Execute v1 15-agent hierarchical mesh coordination',
-  options: [
-    {
-      name: 'agents',
-      description: 'Number of agents',
-      type: 'number',
-      default: 15,
-    },
-    {
-      name: 'domains',
-      description: 'Domains to activate',
-      type: 'array',
-    },
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const agentCount = (ctx.flags.agents as number) || 15;
-
-    output.writeln();
-    output.writeln(output.bold('v1 15-Agent Hierarchical Mesh Coordination'));
-    output.writeln();
-
-    // agent structure
-    const v1Agents = [
-      { id: 1, role: 'Queen Coordinator', domain: 'Orchestration', status: 'primary' },
-      { id: 2, role: 'Security Architect', domain: 'Security', status: 'active' },
-      { id: 3, role: 'Security Auditor', domain: 'Security', status: 'active' },
-      { id: 4, role: 'Test Architect', domain: 'Security', status: 'active' },
-      { id: 5, role: 'Core Architect', domain: 'Core', status: 'active' },
-      { id: 6, role: 'Memory Specialist', domain: 'Core', status: 'active' },
-      { id: 7, role: 'Swarm Specialist', domain: 'Core', status: 'active' },
-      { id: 8, role: 'Integration Architect', domain: 'Integration', status: 'active' },
-      { id: 9, role: 'Performance Engineer', domain: 'Integration', status: 'active' },
-      { id: 10, role: 'CLI Developer', domain: 'Integration', status: 'active' },
-      { id: 11, role: 'Hooks Developer', domain: 'Integration', status: 'active' },
-      { id: 12, role: 'MCP Specialist', domain: 'Integration', status: 'active' },
-      { id: 13, role: 'Project Coordinator', domain: 'Management', status: 'active' },
-      { id: 14, role: 'Documentation Lead', domain: 'Management', status: 'standby' },
-      { id: 15, role: 'DevOps Engineer', domain: 'Management', status: 'standby' },
-    ].slice(0, agentCount);
-
-    output.printTable({
-      columns: [
-        { key: 'id', header: '#', width: 3, align: 'right' },
-        { key: 'role', header: 'Role', width: 22 },
-        { key: 'domain', header: 'Domain', width: 15 },
-        {
-          key: 'status',
-          header: 'Status',
-          width: 10,
-          format: (v) => {
-            if (v === 'primary') return output.highlight(String(v));
-            if (v === 'active') return output.success(String(v));
-            return output.dim(String(v));
-          },
-        },
-      ],
-      data: v1Agents,
-    });
-
-    // Actually initialize via MCP instead of just displaying (#1423)
-    output.writeln();
-    try {
-      await callMCPTool('swarm_init', {
-        topology: 'hierarchical-mesh',
-        maxAgents: agentCount,
-        strategy: 'specialized',
-      });
-      output.printSuccess(`Swarm coordination config written (${agentCount} agent slots reserved) via MCP. No agents are running.`);
-    } catch {
-      output.printWarning('MCP unavailable — showing agent plan only (no swarm state written)');
-    }
-
-    output.writeln();
-    output.writeln(output.dim('Use Claude Code Task tool or hive-mind spawn --claude to drive actual agent execution.'));
-
-    return { success: true, data: { agents: v1Agents, count: agentCount } };
-  },
-};
-
 // Main swarm command
 export const swarmCommand: Command = {
   name: 'swarm',
@@ -922,7 +840,6 @@ export const swarmCommand: Command = {
     statusCommand,
     stopCommand,
     scaleCommand,
-    coordinateCommand,
   ],
   options: [],
   examples: [
@@ -931,7 +848,6 @@ export const swarmCommand: Command = {
       command: 'monomind swarm start -o "Build API" -s development',
       description: 'Start development swarm',
     },
-    { command: 'monomind swarm coordinate --agents 15', description: 'v1 coordination' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -946,7 +862,6 @@ export const swarmCommand: Command = {
       `${output.highlight('status')}      - Show swarm status`,
       `${output.highlight('stop')}        - Stop swarm execution`,
       `${output.highlight('scale')}       - Scale swarm agent count`,
-      `${output.highlight('coordinate')}  - 15-agent coordination`,
     ]);
 
     return { success: true };

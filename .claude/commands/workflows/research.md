@@ -58,14 +58,14 @@ mcp__monomind__workflow_run({
 })
 
 // Store research findings in memory
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   key: "research-web-frameworks-2026",
   value: "React/Next.js leads for SSR; Astro for static; Svelte for performance",
   namespace: "research"
 })
 
 // Search past research before starting
-mcp__monomind__memory_search({
+mcp__monomind__memory_pattern-search({
   query: "web framework performance analysis",
   namespace: "research",
   limit: 5

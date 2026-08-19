@@ -4,6 +4,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import { mergeRecordsById } from '../utils/json-file.js';
 
 // ─── list subcommand ─────────────────────────────────────────────────────────
 
@@ -299,9 +300,8 @@ export const importCommand: Command = {
         existingPatterns = JSON.parse(fs.readFileSync(patternsFile, 'utf8'));
       }
 
-      const existingIds = new Set(existingPatterns.map(p => p.id));
-      const newPatterns = validPatterns.filter(p => !existingIds.has(p.id));
-      const finalPatterns = merge ? [...existingPatterns, ...newPatterns] : validPatterns;
+      const { merged: mergedPatterns, added: newPatterns } = mergeRecordsById(existingPatterns, validPatterns);
+      const finalPatterns = merge ? mergedPatterns : validPatterns;
 
       const tmpPatterns = `${patternsFile}.${process.pid}.${Date.now()}.tmp`;
       fs.writeFileSync(tmpPatterns, JSON.stringify(finalPatterns, null, 2), { flag: 'wx' });

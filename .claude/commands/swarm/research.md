@@ -55,14 +55,14 @@ mcp__monomind__agent_spawn({ type: "documenter", capabilities: ["synthesis", "te
 
 ```javascript
 // Store research findings for future sessions
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   key: "research-findings",
   value: "summary of findings",
   namespace: "research"
 })
 
 // Search existing research
-mcp__monomind__memory_search({
+mcp__monomind__memory_pattern-search({
   query: "topic X",
   namespace: "research",
   limit: 20

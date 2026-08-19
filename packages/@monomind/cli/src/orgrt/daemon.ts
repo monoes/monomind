@@ -1852,11 +1852,4 @@ export class OrgDaemon {
   async resumeOrg(name: string): Promise<RunningOrg | null> {
     return checkpointOps.resumeOrg(this, name);
   }
-  branchCheckpoint(
-    name: string,
-    run: string,
-    branchName: string,
-  ): { ok: true; branchRun: string } | { ok: false; error: string } {
-    return checkpointOps.branchCheckpoint(this, name, run, branchName);
-  }
 }

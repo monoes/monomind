@@ -79,7 +79,7 @@ mcp__github__merge_pull_request {
 }
 
 // Post-merge coordination
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "pr/54/merged",
   value: { timestamp: Date.now(), status: "success" }

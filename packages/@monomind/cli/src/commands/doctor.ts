@@ -21,6 +21,7 @@ import {
   checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
   checkSecondBrainModel, checkMemoryKnowledgeGraph,
   checkAppleDoubleSidecars, fixAppleDoubleSidecars,
+  checkDocumentExtractors,
 } from './doctor-project-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
 
@@ -40,7 +41,7 @@ export const doctorCommand: Command = {
     { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
       name: 'component', short: 'c',
-      description: 'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit)',
+      description: 'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit, documents)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -78,24 +79,25 @@ export const doctorCommand: Command = {
       isCodeProject = true;
     }
 
-    const alwaysOnChecks: (() => Promise<HealthCheck>)[] = [
+    const alwaysOnChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = [
       checkVersionFreshness, checkNodeVersion, checkNpmVersion, checkClaudeCode,
       checkConfigFile, checkMemoryDatabase, checkDiskSpace,
       checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
       checkGuidanceGates, checkAgentRegistry, checkGit, checkApiKeys,
       checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
       checkSecondBrainModel, checkMemoryKnowledgeGraph, checkAppleDoubleSidecars,
+      checkDocumentExtractors,
     ];
-    const codeOnlyChecks: (() => Promise<HealthCheck>)[] = [
+    const codeOnlyChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = [
       checkGitRepo, checkMcpServers,
       checkBuildTools, checkMonographFreshness, checkGitignoreCoverage,
     ];
 
-    const allChecks: (() => Promise<HealthCheck>)[] = isCodeProject
+    const allChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = isCodeProject
       ? [...alwaysOnChecks, ...codeOnlyChecks]
       : alwaysOnChecks;
 
-    const componentMap: Record<string, () => Promise<HealthCheck>> = {
+    const componentMap: Record<string, () => Promise<HealthCheck | HealthCheck[]>> = {
       version: checkVersionFreshness, freshness: checkVersionFreshness,
       node: checkNodeVersion, npm: checkNpmVersion, claude: checkClaudeCode,
       config: checkConfigFile, memory: checkMemoryDatabase,
@@ -109,6 +111,7 @@ export const doctorCommand: Command = {
       registry: checkAgentRegistry, 'memory-proficiency': checkMemoryProficiency,
       'monoes-tools': checkMonoesTools,
       'metrics-freshness': checkMetricsFreshness, 'security-audit': checkSecurityAuditFindings,
+      documents: checkDocumentExtractors, 'doc-extractors': checkDocumentExtractors,
     };
 
     if (component && !componentMap[component]) {
@@ -132,7 +135,9 @@ export const doctorCommand: Command = {
       const settled: HealthCheck[] = [];
       for (const check of checksToRun) {
         try {
-          settled.push(await check());
+          const result = await check();
+          if (Array.isArray(result)) settled.push(...result);
+          else settled.push(result);
         } catch (err) {
           settled.push({ name: 'Check', status: 'fail', message: err instanceof Error ? err.message : 'Unknown error' });
         }

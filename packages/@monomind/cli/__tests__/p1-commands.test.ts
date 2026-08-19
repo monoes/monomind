@@ -24,13 +24,9 @@ vi.mock('fs', () => ({
   renameSync: vi.fn()
 }));
 
-// Partially mock child_process's `spawn` — 'start --daemon' spawns a real
-// detached child process (see src/commands/start.ts) that re-invokes the CLI
-// with an internal marker flag; tests must never actually spawn a process.
-// The parent checks isPidAlive(child.pid) via process.kill(pid, 0), so the
-// mocked pid must be this test process's own real pid (guaranteed alive)
-// rather than a fake one. Other child_process exports (exec, etc. — used by
-// unrelated commands like doctor) pass through untouched via importActual.
+// Partially mock child_process's `spawn` for other commands under test in this
+// file (e.g. doctor) that use it; 'start --daemon' no longer spawns anything —
+// it refuses outright (see src/commands/start.ts, ASL-10).
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
   return {
@@ -505,22 +501,16 @@ describe('Start Command', () => {
       expect(result.data).toHaveProperty('topology', 'mesh');
     });
 
-    it('should start in daemon mode', async () => {
-      // Daemon mode (parent side) spawns a real detached child process (see
-      // src/commands/start.ts) and waits ~500ms to confirm the child's pid is
-      // alive before returning. child_process is mocked above to return this
-      // test process's own real pid (so isPidAlive's process.kill(pid, 0)
-      // check succeeds) without ever spawning anything. Real timers are used
-      // for the 500ms confirmation wait — fake timers would need the clock
-      // advanced past an await boundary inside production code we don't
-      // control the exact timing of.
+    it('should refuse --daemon since no long-running process exists', async () => {
+      // ASL-10: `--daemon` used to spawn a detached child that did nothing but
+      // watch its own pid file — no real background work happened. It now
+      // refuses outright with an honest message instead of pretending to
+      // start a daemon.
       ctx.flags = { daemon: true, _: [] };
 
       const result = await startCommand.action!(ctx);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('daemon', true);
-      expect(result.data).toHaveProperty('pid', process.pid);
+      expect(result.success).toBe(false);
     });
 
     it('should fail if not initialized', async () => {

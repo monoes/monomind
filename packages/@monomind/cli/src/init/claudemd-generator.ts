@@ -245,7 +245,10 @@ npx monomind@latest doctor --fix
 }
 
 function agentTypes(): string {
-  return `## Available Agents (60+ Types)
+  return `## Available Agents (Curated Subset)
+
+The full roster ships as \`.claude/agents/**/*.md\` — this is a hand-picked
+subset worth routing to by name; it is not the complete set.
 
 ### Core Development
 \`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`

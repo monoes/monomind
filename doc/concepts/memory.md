@@ -115,7 +115,7 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 │                ▼                                         ▼                  │
 │     Dense Arm (ModernBERT 768d)               Lexical Arm (Okapi BM25)      │
 │     Alibaba-NLP/gte-modernbert-base           k1=1.2, b=0.75                │
-│     ONNX + HNSW fallback                      Exact Tokenizer Parity        │
+│     ONNX + HNSW-first search                  Exact Tokenizer Parity        │
 │                │                                         │                  │
 │                └────────────────────┬────────────────────┘                  │
 │                                     ▼                                       │
@@ -132,7 +132,7 @@ Monomind uses Reciprocal Rank Fusion (RRF) to combine dense vector representatio
 ### 1. Dense Embeddings
 - **Model:** `Alibaba-NLP/gte-modernbert-base` (768 dimensions) ([`memory-bridge.ts:39-40`](packages/@monomind/cli/src/memory/memory-bridge.ts#L39-L40)).
 - **Engine:** `@xenova/transformers` ONNX feature extraction (`embedding-operations.ts:84-100`).
-- **HNSW Fallback:** Pure-JS `HNSWIndex` used if native SQLite binary loading fails ([`hnsw-operations.ts:29-38`](packages/@monomind/cli/src/memory/hnsw-operations.ts#L29-L38)).
+- **HNSW-First:** When the optional `@monoes/memory` package is installed, `memory-read.ts` tries the pure-JS `HNSWIndex` *first* on every semantic search — it is not merely a fallback for when the native SQLite binding fails to load ([`memory-read.ts:107-118`](packages/@monomind/cli/src/memory/memory-read.ts#L107-L118)). Only when HNSW returns no results (e.g. the package isn't installed, so [`getHNSWIndex()`](packages/@monomind/cli/src/memory/hnsw-operations.ts#L142-L198) returns `null`) does the search fall through to brute-force SQLite.
 
 ### 2. Lexical Okapi BM25
 - **Parameters:** `BM25_K1 = 1.2`, `BM25_B = 0.75` ([`bm25-index.ts:68-69`](packages/@monomind/cli/src/memory/bm25-index.ts#L68-L69)).
@@ -184,7 +184,7 @@ monomind memory import --format okf -i <dir>     # import from OKF Markdown bund
 
 ## 3. Monograph (Code Knowledge Graph)
 
-**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v1.5.6) — the lower-level parse/storage/query engine: tree-sitter across 14 grammars (15 recognized languages — the TypeScript grammar also parses JavaScript), `better-sqlite3` storage, `graphology` for graph algorithms.  
+**Engine package:** `packages/@monomind/monograph/` (published as `@monoes/monograph`, v1.5.6) — the lower-level parse/storage/query engine: tree-sitter grammars plus a regex fallback tier (see `packages/@monomind/monograph/README.md#supported-languages--parsers` for the authoritative language/grammar count), `better-sqlite3` storage, `graphology` for graph algorithms.  
 **MCP tool layer:** registration and gating for all 19+27 tools actually lives in the CLI package at `packages/@monomind/cli/src/mcp-tools/monograph-tools.ts`, **not** inside `packages/@monomind/monograph/` itself — the CLI wraps the engine and exposes it over MCP, same split pattern as the memory subsystem's `memory-bridge.ts`.  
 **Database:** `.monomind/monograph.db` (SQLite)  
 **Tools:** 19 MCP tools by default (`mcp__monomind__monograph_*`); 27 more advanced tools are exposed when `MONOGRAPH_MCP_ADVANCED=1` is set
@@ -250,16 +250,18 @@ Second Brain indexes your project's documents into a searchable knowledge base w
 
 | Category | Extensions | Extractor |
 |---|---|---|
-| Microsoft Word | `.docx` `.doc` | mammoth (DOCX), textutil (DOC — macOS) |
-| Microsoft Excel | `.xlsx` `.xls` | SheetJS — all sheets extracted as tab-separated text |
-| Microsoft PowerPoint | `.pptx` `.ppt` | ZIP+XML slide extraction (PPTX), textutil (PPT — macOS) |
+| Microsoft Word | `.docx` `.doc` | mammoth (DOCX, cross-platform), textutil (`.doc` — **macOS only**; returns empty text on Linux/Windows) |
+| Microsoft Excel | `.xlsx` `.xls` | SheetJS/`xlsx` (cross-platform) — all sheets extracted as tab-separated text |
+| Microsoft PowerPoint | `.pptx` `.ppt` | ZIP+XML slide extraction via `fflate` (PPTX, cross-platform), textutil (`.ppt` — **macOS only**; returns empty text on Linux/Windows) |
 | Google Docs / Sheets / Slides | `.docx` `.xlsx` `.pptx` | Google exports as Office formats — same extractors |
-| OpenDocument | `.odt` `.ods` `.odp` | ZIP+XML / SheetJS (ODS) |
+| OpenDocument | `.odt` `.ods` `.odp` | ZIP+XML via `fflate` / SheetJS (ODS) — cross-platform |
 | PDF | `.pdf` | @firecrawl/pdf-inspector (Rust, markdown + tables) |
 | Plain text | `.md` `.txt` `.rst` `.tex` `.csv` `.tsv` | Direct UTF-8 read |
 | Rich Text | `.rtf` | Built-in RTF parser (no dependency) |
-| eBook | `.epub` | ZIP+XHTML extraction |
-| Apple Pages | `.pages` | textutil (macOS) |
+| eBook | `.epub` | ZIP+XHTML extraction via `fflate` (cross-platform) |
+| Apple Pages | `.pages` | textutil — **macOS only**; returns empty text on Linux/Windows |
+
+Legacy binary `.doc`/`.ppt` and `.pages` shell out to macOS's `textutil`, which has no cross-platform equivalent — on Linux/Windows those three extensions index with empty content rather than failing. `monomind doctor -c documents` reports this per-extractor, including whether `textutil` is actually available on the current machine.
 
 ### Second Brain KG vs Monograph
 
@@ -268,7 +270,7 @@ Monomind has **two knowledge graphs** that serve different purposes:
 |  | Monograph (Code KG) | Second Brain KG (Document KG) |
 |---|---|---|
 | **What it indexes** | Source code — functions, classes, imports, dependencies | Documents — PDFs, Office files, Markdown, specs, policies |
-| **Parser** | tree-sitter (static analysis, 14 language grammars) | Text extraction + chunking (format-specific parsers) |
+| **Parser** | tree-sitter (static analysis — see monograph README for the grammar count) | Text extraction + chunking (format-specific parsers) |
 | **Storage** | `.monomind/monograph.db` (nodes + edges) | `.monomind/knowledge/` + `.monomind/memory/memory.db` |
 | **Query tools** | `monograph_query`, `monograph_suggest`, `monograph_impact` | `knowledge_search`, `memory_kg_search`, `monomind doc search` |
 | **Entities** | Files, functions, classes, methods, variables | Concepts, decisions, people, rules, relationships |
@@ -279,7 +281,7 @@ Use `memory_kg_ingest` to extract entities and relationships from documents into
 ### Pipeline
 
 1. **SCAN** — Directory scanner classifies files by extension (22 formats). If enough match, the "documents" capability activates.
-2. **EXTRACT** — Format-specific text extraction: mammoth (DOCX), xlsx (spreadsheets), @firecrawl/pdf-inspector (PDF — native Rust, markdown with tables), ZIP+XML (PPTX/ODT/ODP/EPUB), built-in RTF parser, textutil (legacy DOC/PPT/Pages on macOS), or direct read (plain text/CSV).
+2. **EXTRACT** — Format-specific text extraction: mammoth (DOCX), xlsx (spreadsheets), @firecrawl/pdf-inspector (PDF — native Rust, markdown with tables), ZIP+XML via `fflate` (PPTX/ODT/ODP/EPUB — pure JS, no system dependency), built-in RTF parser, textutil (legacy DOC/PPT/Pages — **macOS only**), or direct read (plain text/CSV).
 3. **CHUNK** — Each document is chunked into 3200-char segments with 400-char overlap, respecting paragraph boundaries.
 4. **INDEX** — SHA-256 content hashing for dedup. Chunks stored under `knowledge:<scope>` namespace. Metadata logged to `doc-metadata.jsonl`.
 5. **QUERY** — Search via `knowledge_search` MCP tool or `monomind doc search` CLI.

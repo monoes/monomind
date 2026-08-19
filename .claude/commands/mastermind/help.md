@@ -111,8 +111,8 @@ npx monomind performance benchmark --suite all
 
 ```javascript
 // Memory
-mcp__monomind__memory_store({ key: "...", value: "...", namespace: "..." })
-mcp__monomind__memory_search({ query: "...", namespace: "..." })
+mcp__monomind__memory_pattern-store({ key: "...", value: "...", namespace: "..." })
+mcp__monomind__memory_pattern-search({ query: "...", namespace: "..." })
 
 // Knowledge graph
 mcp__monomind__monograph_suggest({ task: "..." })

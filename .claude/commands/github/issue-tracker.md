@@ -95,7 +95,7 @@ mcp__github__add_issue_comment {
 }
 
 // Store progress in swarm memory
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   key: "issue/54/latest_update",
   value: { timestamp: Date.now(), progress: "89%", status: "near_completion" }
 }
@@ -160,7 +160,7 @@ mcp__github__update_issue {
   ]}
   
   // Store initial coordination state
-  mcp__monomind__memory_store {
+  mcp__monomind__memory_pattern-store {
     key: "project/github_integration/issues",
     value: { created: Date.now(), total_issues: 3, status: "initialized" }
   }

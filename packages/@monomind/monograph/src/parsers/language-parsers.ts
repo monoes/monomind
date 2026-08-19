@@ -1,4 +1,4 @@
-export type SupportedLanguage = 'scala' | 'lua' | 'zig' | 'powershell' | 'elixir';
+export type SupportedLanguage = 'scala' | 'lua' | 'zig' | 'powershell' | 'elixir' | 'dart';
 
 export interface SymbolExtract {
   name: string;
@@ -94,12 +94,38 @@ function extractElixir(src: string, fp: string): SymbolExtract[] {
   return out;
 }
 
+// ── Dart ─────────────────────────────────────────────────────────────
+// MEM-2: fallback used only when the tree-sitter-dart native grammar fails to
+// load (see loader.ts's parseFile) — dart.ts still owns the primary,
+// tree-sitter-based config.
+const DART_CLASS_RE = /^[ \t]*(?:abstract\s+)?class\s+(\w+)/gm;
+const DART_FN_RE =
+  /^[ \t]*(?:static\s+)?(?:Future<[^>]*>|void|int|double|String|bool|var|[\w<>.]+)\s+(\w+)\s*\([^;{]*\)\s*(?:async\s*)?\{/gm;
+
+function extractDart(src: string, fp: string): SymbolExtract[] {
+  const out: SymbolExtract[] = [];
+  let m: RegExpExecArray | null;
+
+  DART_CLASS_RE.lastIndex = 0;
+  while ((m = DART_CLASS_RE.exec(src)) !== null) {
+    const line = (src.slice(0, m.index).match(/\n/g)?.length ?? 0) + 1;
+    out.push({ name: m[1]!, label: 'Class', isExported: !m[1]!.startsWith('_'), line, filePath: fp });
+  }
+  DART_FN_RE.lastIndex = 0;
+  while ((m = DART_FN_RE.exec(src)) !== null) {
+    const line = (src.slice(0, m.index).match(/\n/g)?.length ?? 0) + 1;
+    out.push({ name: m[1]!, label: 'Function', isExported: !m[1]!.startsWith('_'), line, filePath: fp });
+  }
+  return out;
+}
+
 const DISPATCH: Record<SupportedLanguage, (src: string, fp: string) => SymbolExtract[]> = {
   scala: extractScala,
   lua: extractLua,
   zig: extractZig,
   powershell: extractPowershell,
   elixir: extractElixir,
+  dart: extractDart,
 };
 
 export function extractSymbolsForLanguage(

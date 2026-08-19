@@ -1,6 +1,6 @@
 /**
  * Hooks Routing Commands
- * Route/explain/pretrain/build-agents/metrics/transfer/list subcommands
+ * Route/explain/pretrain/metrics/transfer/list subcommands
  * Extracted from hooks.ts (ARCH-1)
  */
 
@@ -380,125 +380,12 @@ export const pretrainCommand: Command = {
       if (withEmbeddings) {
         output.writeln(output.dim('  Semantic search enabled: Use "embeddings search -q <query>" to search'));
       }
-      output.writeln(output.dim('  Next step: Run "monomind hooks build-agents" to generate optimized configs'));
 
       return { success: true, data: result };
     } catch (error) {
       spinner.fail('Pretraining failed');
       if (error instanceof MCPClientError) {
         output.printError(`Pretraining error: ${error.message}`);
-      } else {
-        output.printError(`Unexpected error: ${String(error)}`);
-      }
-      return { success: false, exitCode: 1 };
-    }
-  }
-};
-
-// Build agents subcommand
-export const buildAgentsCommand: Command = {
-  name: 'build-agents',
-  description: 'Generate optimized agent configs from pretrain data',
-  options: [
-    {
-      name: 'output',
-      short: 'o',
-      description: 'Output directory for agent configs',
-      type: 'string',
-      default: './agents'
-    },
-    {
-      name: 'focus',
-      short: 'f',
-      description: 'Focus area (v1-implementation, security, performance, all)',
-      type: 'string',
-      default: 'all'
-    },
-    {
-      name: 'config-format',
-      description: 'Config format (yaml, json)',
-      type: 'string',
-      default: 'yaml',
-      choices: ['yaml', 'json']
-    }
-  ],
-  examples: [
-    { command: 'monomind hooks build-agents', description: 'Build all agent configs' },
-    { command: 'monomind hooks build-agents --focus security -o ./config/agents', description: 'Build security-focused configs' }
-  ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const output_dir = ctx.flags.output as string || './agents';
-    const focus = ctx.flags.focus as string || 'all';
-    const configFormat = ctx.flags.configFormat as string || 'yaml';
-
-    output.printInfo(`Building agent configs (focus: ${output.highlight(focus)})`);
-
-    const spinner = output.createSpinner({ text: 'Generating configs...', spinner: 'dots' });
-
-    try {
-      spinner.start();
-
-      // Call MCP tool for building agents
-      const result = await callMCPTool<{
-        outputDir: string;
-        focus: string;
-        agents: Array<{
-          type: string;
-          configFile: string;
-          capabilities: string[];
-          optimizations: string[];
-        }>;
-        stats: {
-          configsGenerated: number;
-          patternsApplied: number;
-          optimizationsIncluded: number;
-        };
-      }>('hooks_build-agents', {
-        outputDir: output_dir,
-        focus,
-        format: configFormat,
-        includePretrained: true,
-      });
-
-      spinner.succeed(`Generated ${result.agents.length} agent configs`);
-
-      if (ctx.flags.format === 'json') {
-        output.printJson(result);
-        return { success: true, data: result };
-      }
-
-      output.writeln();
-      output.writeln(output.bold('Generated Agent Configs'));
-      output.printTable({
-        columns: [
-          { key: 'type', header: 'Agent Type', width: 20 },
-          { key: 'configFile', header: 'Config File', width: 30 },
-          { key: 'capabilities', header: 'Capabilities', width: 10, align: 'right', format: (v) => String(Array.isArray(v) ? v.length : 0) }
-        ],
-        data: result.agents
-      });
-
-      output.writeln();
-      output.printTable({
-        columns: [
-          { key: 'metric', header: 'Metric', width: 30 },
-          { key: 'value', header: 'Value', width: 15, align: 'right' }
-        ],
-        data: [
-          { metric: 'Configs Generated', value: result.stats.configsGenerated },
-          { metric: 'Patterns Applied', value: result.stats.patternsApplied },
-          { metric: 'Optimizations Included', value: result.stats.optimizationsIncluded }
-        ]
-      });
-
-      output.writeln();
-      output.printSuccess(`Agent configs saved to ${output_dir}`);
-
-      return { success: true, data: result };
-    } catch (error) {
-      spinner.fail('Agent config generation failed');
-      if (error instanceof MCPClientError) {
-        output.printError(`Build agents error: ${error.message}`);
       } else {
         output.printError(`Unexpected error: ${String(error)}`);
       }

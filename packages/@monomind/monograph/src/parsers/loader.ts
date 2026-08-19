@@ -1,4 +1,3 @@
-import { createRequire } from 'module';
 import Parser from 'tree-sitter';
 import type { LanguageConfig } from './language-config.js';
 import { LANGUAGE_EXTENSIONS, extractSymbolsForLanguage } from './language-parsers.js';
@@ -6,10 +5,11 @@ import type { SymbolExtract } from './language-parsers.js';
 import { makeId, toNormLabel, CONFIDENCE_SCORE } from '../types.js';
 import type { MonographNode, MonographEdge, NodeLabel } from '../types.js';
 
-const require = createRequire(import.meta.url);
-
 const parserCache = new Map<string, Parser>();
 const configCache = new Map<string, LanguageConfig>();
+// MEM-2: records why a grammar failed to load for a given extension, so
+// parseFile() can report a diagnostic instead of silently returning 0 nodes.
+const loadErrors = new Map<string, string>();
 
 export async function loadConfig(ext: string): Promise<LanguageConfig | null> {
   if (configCache.has(ext)) return configCache.get(ext)!;
@@ -92,11 +92,19 @@ export async function getParser(
     const lang = config.getLanguage();
     if (!lang) throw new Error('getLanguage() returned undefined');
     const parser = new Parser();
+    // Validate the loaded Language before trusting it: some grammar packages
+    // `require()` successfully while still returning an ABI-incompatible
+    // Language object (no throw on load, only on use). Binding it to a fresh
+    // Parser here is what actually proves the grammar is usable.
     parser.setLanguage(lang);
     parserCache.set(ext, parser);
+    loadErrors.delete(ext);
     return { parser, config };
-  } catch {
-    // Grammar unavailable at runtime (ABI mismatch, native build failure, etc.) — skip silently.
+  } catch (err) {
+    // Grammar unavailable at runtime (ABI mismatch, native build failure, etc.).
+    // Record why so callers can report a diagnostic instead of silently
+    // returning 0 nodes.
+    loadErrors.set(ext, `${config.treeSitterModule ?? config.name}: ${err instanceof Error ? err.message : err}`);
     return null;
   }
 }
@@ -200,11 +208,31 @@ export async function parseFile(
   // build doesn't silently emit a successful-looking empty result for that
   // language family.
   if (config && !entry) {
-    return {
-      nodes: [],
-      edges: [],
-      parseErrors: [`${repoRelativePath}: ${config.name} grammar load failed`],
-    };
+    const reason = loadErrors.get(ext);
+    const message = reason
+      ? `${repoRelativePath}: ${config.name} grammar load failed (${reason})`
+      : `${repoRelativePath}: ${config.name} grammar load failed`;
+
+    // MEM-2: Dart has no alternate native grammar to fall back to (unlike Vue,
+    // which falls back to tree-sitter-typescript). Rather than silently
+    // returning an empty result, fall back to the regex-based extractor and
+    // still report the underlying grammar failure so callers know real
+    // tree-sitter parsing did not happen.
+    if (config.name === 'dart') {
+      try {
+        const result = convertSymbolExtracts(
+          extractSymbolsForLanguage(sourceText, repoRelativePath, 'dart'),
+          repoRelativePath,
+          'dart',
+        );
+        result.parseErrors.push(`${message} — fell back to regex extraction`);
+        return result;
+      } catch (err) {
+        return { nodes: [], edges: [], parseErrors: [message, `${repoRelativePath}: regex fallback also failed: ${err}`] };
+      }
+    }
+
+    return { nodes: [], edges: [], parseErrors: [message] };
   }
 
   // No tree-sitter grammar available — try the regex-based extractor for the
@@ -230,15 +258,12 @@ export async function parseFile(
     // so the TypeScript parser does not choke on the HTML <template> and <style> sections.
     let source = sourceText;
     if (ext === '.vue') {
-      let vueGrammarAvailable = false;
-      try {
-        require('tree-sitter-vue');
-        vueGrammarAvailable = true;
-      } catch {
-        vueGrammarAvailable = false;
-      }
-      if (!vueGrammarAvailable) {
-        const { extractVueScriptContent } = await import('./vue.js');
+      // MEM-2: a bare require() can succeed while the loaded Language object is
+      // still ABI-incompatible, so ask vue.ts's validated check (which actually
+      // binds the language to a scratch Parser) rather than re-deriving this
+      // from require() alone.
+      const { isVueGrammarUsable, extractVueScriptContent } = await import('./vue.js');
+      if (!isVueGrammarUsable()) {
         const extracted = extractVueScriptContent(sourceText);
         source = extracted.content || sourceText;
       }

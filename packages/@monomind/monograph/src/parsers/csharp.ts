@@ -1,21 +1,14 @@
 import { createRequire } from 'module';
-import { dirname, join } from 'path';
 import type { LanguageConfig } from './language-config.js';
 
 const require = createRequire(import.meta.url);
 
+// MEM-2: tree-sitter-c-sharp@0.23.5+ ships an ESM module with top-level await,
+// which cannot be loaded via require() — that pinned us to a prebuilds-path
+// workaround. Pinned to 0.23.1 (see package.json), which is a plain CJS
+// module require() handles directly.
 function getLanguage(): import('tree-sitter').Language {
-  // tree-sitter-c-sharp@0.23+ uses an ESM module with top-level await, which
-  // cannot be loaded via require(). Load the prebuilt native binding directly.
-  try {
-    const pkgPath = require.resolve('tree-sitter-c-sharp/package.json');
-    const pkgDir = dirname(pkgPath);
-    const binPath = join(pkgDir, 'prebuilds', `${process.platform}-${process.arch}`, 'tree-sitter-c-sharp.node');
-    const mod = require(binPath);
-    return mod.language as import('tree-sitter').Language;
-  } catch (err) {
-    throw new Error(`tree-sitter-c-sharp unavailable: ${err}`);
-  }
+  return require('tree-sitter-c-sharp').language as import('tree-sitter').Language;
 }
 
 export const csharpConfig: LanguageConfig = {

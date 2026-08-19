@@ -237,12 +237,8 @@ function collectAgents(projectDir) {
 // Single source-of-truth for all model pricing (canonical list from src/pricing/model-pricing.ts).
 // server.mjs imports _tokPrice and _tokCost from here instead of duplicating this table.
 const _TOK_PRICES = {
-  // Frontier (Fable/Mythos)
-  'claude-fable-5':    { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
-  'claude-mythos-5':   { in: 10e-6,   out: 50e-6,   cw: 12.5e-6,  cr: 1e-6     },
   // Opus
   'claude-opus-5':     { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
-  'claude-opus-4-8':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-7':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
   'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },

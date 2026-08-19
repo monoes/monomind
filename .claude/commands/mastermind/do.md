@@ -103,7 +103,7 @@ Group tasks by `context_group`:
 
 **File mode:** Read `recommended_mode` from the frontmatter of `TASK_FILE`. Use as the default.
 
-**Monotask mode:** Call `mcp__monomind__memory_search` with `"task-strategy:<REPO_NAME>"`. If found, use `recommended_execution_mode` as default.
+**Monotask mode:** Call `mcp__monomind__memory_pattern-search` with `"task-strategy:<REPO_NAME>"`. If found, use `recommended_execution_mode` as default.
 
 ### 2e: Choose execution mode
 
@@ -328,7 +328,7 @@ Collect in parallel (skip any that error):
 
 1. **README**: Read `README.md` (first 200 lines).
 2. **Package manifest**: Read whichever exists first: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`.
-3. **Memory search**: Call `mcp__monomind__memory_search` with the first task's title.
+3. **Memory search**: Call `mcp__monomind__memory_pattern-search` with the first task's title.
 4. **Knowledge graph**: Call `mcp__monomind__monograph_suggest` with the first task's title.
 
 Bundle into `PROJECT_CONTEXT` and include in every agent prompt.
@@ -500,7 +500,7 @@ To repeat this command on a schedule, wrap it with `/mastermind:repeat`.
 
 ### Store execution outcome in session memory
 
-Call `mcp__monomind__memory_store` with:
+Call `mcp__monomind__memory_pattern-store` with:
 ```json
 {
   "key": "execution-outcome:<REPO_NAME>:<timestamp>",

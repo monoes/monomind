@@ -24,17 +24,17 @@ export const monographQueryTool: MCPTool = {
     const dbPath = getDbPath();
     if (!_isValidDb(dbPath)) return text('Monograph index not built yet. Run monograph_build first.');
     const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
-    const { hybridQuery } = await import('@monoes/monograph');
+    const { bm25Query } = await import('@monoes/monograph');
     const db = openDb(dbPath);
     try {
-      // Cap limit: passed directly to SQLite queries and hybridQuery; an
+      // Cap limit: passed directly to SQLite queries and bm25Query; an
       // unlimited value saturates memory with rows.
       const MAX_QUERY_LIMIT = 1_000;
       const rawLimit = (input.limit as number | undefined) ?? 20;
       const limit = Number.isFinite(rawLimit) && rawLimit > 0
         ? Math.min(Math.floor(rawLimit), MAX_QUERY_LIMIT)
         : 20;
-      // Cap query: passed to FTS5 and hybridQuery; very long queries waste
+      // Cap query: passed to FTS5 and bm25Query; very long queries waste
       // parse time and can stress the FTS tokenizer.
       const MAX_MONOGRAPH_QUERY_LEN = 16 * 1024;
       const rawQuery = input.query as string;
@@ -93,7 +93,7 @@ export const monographQueryTool: MCPTool = {
       }
 
       if (process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
-        const results = await hybridQuery(db, query, { limit: rerank ? limit * 2 : limit, label });
+        const results = await bm25Query(db, query, { limit: rerank ? limit * 2 : limit, label });
         if (results.length === 0) return text('No results found.' + zeroResultHint + stalenessNote);
 
         if (rerank) {
@@ -170,11 +170,11 @@ export const monographSuggestTool: MCPTool = {
     const dbPath = getDbPath();
     if (!_isValidDb(dbPath)) return text('Monograph index not built yet. Run monograph_build first.' + stalenessAnnotation);
     const { openDb, closeDb } = await import('@monoes/monograph');
-    const { hybridQuery } = await import('@monoes/monograph');
+    const { bm25Query } = await import('@monoes/monograph');
     const db = openDb(dbPath);
     try {
       // Cap limit and task: limit is passed directly to SQL LIMIT clause;
-      // task is forwarded to hybridQuery (embedding path) or FTS.
+      // task is forwarded to bm25Query (embedding path) or FTS.
       const MAX_SUGGEST_LIMIT = 1_000;
       const MAX_SUGGEST_TASK_LEN = 16 * 1024;
       const rawSuggestLimit = (input.limit as number | undefined) ?? 10;
@@ -195,15 +195,15 @@ export const monographSuggestTool: MCPTool = {
         return `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})${locHint}`;
       };
 
-      // When a task is provided, use BM25/FTS5 (via hybridQuery) to find
+      // When a task is provided, use BM25/FTS5 (via bm25Query) to find
       // relevant nodes and restrict the edge-level questions to them. This
-      // used to be gated behind MONOGRAPH_EMBEDDINGS=true, but hybridQuery
+      // used to be gated behind MONOGRAPH_EMBEDDINGS=true, but bm25Query
       // is BM25-only now (the embeddings table stayed empty in practice —
       // see hybrid-query.ts) so the env var gated nothing and just left this
       // better-ranked path off unless a caller happened to know about it.
       let hitIds: string[] = [];
       if (task) {
-        const hits = await hybridQuery(db, task, { limit: 20 });
+        const hits = await bm25Query(db, task, { limit: 20 });
         const { SYMBOL_NODE_LABELS } = await import('@monoes/monograph');
         const relevantHits = preferSymbolHits(hits, SYMBOL_NODE_LABELS);
         hitIds = [...new Set(relevantHits.map(h => h.id))];
