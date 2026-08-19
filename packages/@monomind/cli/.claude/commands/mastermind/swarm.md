@@ -13,7 +13,6 @@ Multi-agent swarm coordination with hierarchical topology, distributed memory, a
 | `status` | Show current swarm status and progress |
 | `stop` | Stop swarm execution |
 | `scale` | Scale swarm agent count up or down |
-| `coordinate` | Launch v1 15-agent hierarchical-mesh coordination |
 
 ## init — Initialize a Swarm
 
@@ -48,7 +47,7 @@ npx monomind swarm init --topology hierarchical-mesh --max-agents 15 --strategy 
 | `mesh` | Research, analysis — broad coverage |
 | `star` | Parallel testing, parallel maintenance |
 | `ring` | Sequential pipeline processing |
-| `hybrid` | Dynamic topology switching |
+| `hybrid` | Topology label recorded in swarm state; coordination behavior is chosen by the caller — no automatic reconfiguration |
 
 ## Strategies
 
@@ -109,18 +108,6 @@ npx monomind swarm scale swarm-abc123 --agents 12
 # Scale a specific agent type
 npx monomind swarm scale swarm-abc123 --agents 8 --type coder
 ```
-
-## coordinate — v1 15-Agent Coordination
-
-```bash
-# Full v1 15-agent hierarchical mesh
-npx monomind swarm coordinate
-
-# Subset of agents
-npx monomind swarm coordinate --agents 8
-```
-
-Activates the v1 agent roster: Queen Coordinator, Security Architect, Security Auditor, Test Architect, Core Architect, Memory Specialist, Swarm Specialist, Integration Architect, Performance Engineer, CLI Developer, Hooks Developer, MCP Specialist, Project Coordinator, Documentation Lead, DevOps Engineer.
 
 ## MCP Tools
 

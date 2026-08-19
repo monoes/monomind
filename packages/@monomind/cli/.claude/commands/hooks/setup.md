@@ -100,9 +100,6 @@ npx monomind hooks pretrain
 
 # Deep analysis only, no embeddings
 npx monomind hooks pretrain --depth deep --no-with-embeddings
-
-# Generate optimized agent configs from pretrain data
-npx monomind hooks build-agents
 ```
 
 ### Session Persistence

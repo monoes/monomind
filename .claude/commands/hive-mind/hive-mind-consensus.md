@@ -4,69 +4,56 @@ name: hive-mind:hive-mind-consensus
 
 # hive-mind consensus
 
-Manage consensus proposals and voting within the hive.
+Propose or vote on a threshold-based decision, single-process only. This is
+vote-count bookkeeping over one JSON state file — not real distributed
+consensus (no leader election, log replication, or network model).
 
-## Usage
-```bash
-npx monomind hive-mind consensus [options]
-```
+There is no `npx monomind hive-mind consensus` CLI command — this is invoked
+directly as an MCP tool call (see below).
 
-## Options
+## Parameters
 
-| Flag | Short | Type | Default | Description |
-|---|---|---|---|---|
-| `--action` | `-a` | string | `list` | Action: `propose`, `vote`, `status`, `list` |
-| `--proposal-id` | `-p` | string | — | Proposal ID (required for `vote` and `status`) |
-| `--type` | `-t` | string | — | Proposal type (used with `propose`) |
-| `--value` | — | string | — | Proposal value (used with `propose`) |
-| `--vote` | `-v` | string | — | Vote to cast: `yes` or `no` (used with `vote`) |
-| `--voter-id` | — | string | — | Voter agent ID (used with `vote`) |
-| `--format` | — | string | — | Output format: `json` |
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `action` | string | — | `propose`, `vote`, `status`, `list` (required) |
+| `proposalId` | string | — | Proposal ID (required for `vote` and `status`) |
+| `type` | string | — | Proposal type (used with `propose`) |
+| `value` | any | — | Proposal value (used with `propose`) |
+| `vote` | boolean | — | `true` = for, `false` = against (used with `vote`) |
+| `voterId` | string | — | Voter agent ID (used with `vote`) |
+| `strategy` | string | hive's configured strategy, else `raft` | `bft`, `raft`, `quorum` |
+| `quorumPreset` | string | `majority` | `unanimous`, `majority`, `supermajority` (for `quorum` strategy) |
+| `term` | number | — | Term number (for `raft` strategy) |
+| `timeoutMs` | number | `30000` | Timeout in ms for raft re-proposal |
 
 ## Examples
 
-```bash
-# List all pending proposals
-npx monomind hive-mind consensus
-
-# Create a new proposal
-npx monomind hive-mind consensus -a propose -t config-change --value '{"maxAgents":20}'
-
-# Vote on a proposal
-npx monomind hive-mind consensus -a vote -p proposal-abc123 -v yes --voter-id agent-1
-
-# Check proposal status
-npx monomind hive-mind consensus -a status -p proposal-abc123
-
-# List pending proposals as JSON
-npx monomind hive-mind consensus -a list --format json
-```
-
-## Actions
-
-- **`list`** — Show all pending proposals (default)
-- **`propose`** — Create a new consensus proposal (requires `--type` and `--value`)
-- **`vote`** — Cast a vote on a proposal (requires `--proposal-id`, `--vote`, and `--voter-id`)
-- **`status`** — Check the current vote tally for a proposal (requires `--proposal-id`)
-
-## MCP Tool
-
 ```javascript
-// List proposals
+// List all pending proposals
 mcp__monomind__hive-mind_consensus({ action: "list" })
 
-// Create proposal
+// Create a new proposal
 mcp__monomind__hive-mind_consensus({
   action: "propose",
   type: "config-change",
-  value: '{"maxAgents":20}'
+  value: { maxAgents: 20 }
 })
 
-// Vote
+// Vote on a proposal
 mcp__monomind__hive-mind_consensus({
   action: "vote",
   proposalId: "proposal-abc123",
   vote: true,
   voterId: "agent-1"
 })
+
+// Check proposal status
+mcp__monomind__hive-mind_consensus({ action: "status", proposalId: "proposal-abc123" })
 ```
+
+## Actions
+
+- **`list`** — Show all pending proposals
+- **`propose`** — Create a new consensus proposal (requires `type` and `value`)
+- **`vote`** — Cast a vote on a proposal (requires `proposalId`, `vote`, and `voterId`)
+- **`status`** — Check the current vote tally for a proposal (requires `proposalId`)

@@ -1,6 +1,6 @@
 # `monomind org` — Command Reference
 
-> **31 subcommands** for starting, stopping, monitoring, and managing autonomous agent
+> **33 subcommands** for starting, stopping, monitoring, and managing autonomous agent
 > organizations. All commands target a named org config in `.monomind/orgs/<name>.json`.
 
 ---
@@ -19,6 +19,7 @@
 | [`supervisor`](#supervisor) | Generate launchd/systemd unit for persistent serve |
 | [`test-loop`](#test-loop) | Run org test loop |
 | [`logs`](#logs) | Stream or filter bus.jsonl event log |
+| [`watch`](#watch) | Live-tail one role's assistant chat text |
 | [`report`](#report) | Summarize a run (cost, tokens, assets, crashes) |
 | [`memory`](#memory) | Cross-run knowledge-graph memory |
 | [`costs`](#costs) | Per-role cost tracking |
@@ -32,7 +33,7 @@
 | [`gate-approve`](#gate-approve) | Approve a pending decision gate |
 | [`gate-reject`](#gate-reject) | Reject a pending decision gate |
 | [`replay`](#replay) | Time-travel debug from a run ID |
-| [`resume-from`](#resume-from) | Alias for replay |
+| [`resume-from`](#resume-from) | Resume live execution from a persisted checkpoint |
 | [`branch`](#branch) | Snapshot a run's event log for replay |
 | [`decisions`](#decisions) | Show rifft-style decision traces |
 | [`create`](#create) | Scaffold org from template |
@@ -190,6 +191,25 @@ monomind org logs <name> [options]
 | `--tools-only` | Show only `tool` type events |
 | `--audit-filter` | Show only `audit` events |
 | `--follow` | Follow live (like `tail -f`) |
+
+---
+
+## `watch`
+
+Live-tail one role's assistant chat text (any runtime) — a filtered, friendlier `logs --follow`.
+
+```bash
+monomind org watch <name> <role> [options]
+```
+
+| Flag | Purpose |
+|---|---|
+| `--run <run-id>` | Run id (default: latest) |
+| `--follow=false` | Print current output once and exit instead of live-tailing |
+| `--verbose` | Also interleave status events (restart/crash/state-change) into the transcript |
+| `--stats` | Print a running token/cost line as usage events arrive |
+
+**Source:** [`commands/org.ts`](packages/@monomind/cli/src/commands/org.ts)
 
 ---
 
@@ -367,10 +387,10 @@ monomind org replay <name> --run <run-id>
 
 ## `resume-from`
 
-Alias for `replay`.
+Resume live execution from the org's persisted checkpoint — restores mailbox/policy/session state, subject to TTL and checksum validation. Distinct from `replay`, which only re-emits a past run's bus events for debugging and does not restart agent execution.
 
 ```bash
-monomind org resume-from <name> --run <run-id>
+monomind org resume-from <name>
 ```
 
 ---

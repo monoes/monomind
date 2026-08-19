@@ -300,6 +300,43 @@ describe('runAgentSession', () => {
     expect(costs.reduce((a, c) => (a ?? 0) + (c ?? 0), 0)).toBeCloseTo(1.0); // 0.5 per session, both counted
   });
 
+  it('floors the delta at 0 on a same-session cost dip instead of re-adding the full cumulative value', async () => {
+    // Regression (mastermind:review finding): the SAME session_id can report
+    // a total_cost_usd that ticks down between results (float rounding, a
+    // provider-side cost correction) without the session having restarted.
+    // The old code treated any decrease as "session restarted" and re-added
+    // the full cumulative value as the delta — since this feeds real USD
+    // budget enforcement (ORG-7, policy.addUsageUsd -> overBudgetUsd closes
+    // the mailbox), that could massively over-count usage and incorrectly
+    // kill a well-behaved, still-under-budget session.
+    const bus = new OrgBus('o', 'r', dir());
+    const costs: (number | undefined)[] = [];
+    bus.subscribe(e => { if (e.type === 'usage') costs.push((e.data as { cost_usd?: number }).cost_usd); });
+    const mailbox = new Mailbox();
+    mailbox.push('m1');
+    mailbox.push('m2');
+    mailbox.close();
+
+    const totals = [1.0, 0.9999999999]; // same sid, tiny float-rounding dip on the 2nd result
+    let i = 0;
+    const fakeQuery = ({ prompt }: any) => (async function* () {
+      for await (const _ of prompt) {
+        yield { type: 'result', subtype: 'success', session_id: 'sdk-sess-stable', usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: totals[i++] };
+      }
+    })();
+
+    const policy = new PolicyEngine('coder', {}, bus, '/work');
+    await runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    expect(costs[0]).toBeCloseTo(1.0); // first result: full cumulative
+    expect(costs[1]).toBe(0); // dip floored at 0, NOT re-added as ~1.0 (which would ~double-count usage)
+  });
+
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {
     const p = buildRolePrompt(
       { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: ['write code'] } as any,

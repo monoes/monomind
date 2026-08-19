@@ -37,13 +37,13 @@
 | `platforms` | Install/uninstall Monograph context for AI platforms | 3 — install, uninstall, setup |
 | `browse` | Browser automation via CDP (`@monoes/monobrowse`) | action/platform/workflow builders |
 | `design` | Design tooling — anti-pattern detection, OKLCH palette seeding | 4 — detect, fix, ignores, palette |
-| `org` | SDK org runtime v2 — daemon-controlled agent orgs | 31 — run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, report, **memory** (stats\|search\|rules\|rollback), costs, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from (alias of replay), branch, decisions, create, validate, migrate, list, delete, mark-complete |
+| `org` | SDK org runtime v2 — daemon-controlled agent orgs | 33 — run, stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, watch, report, **memory** (stats\|search\|rules\|rollback), costs, inbox, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from (resumes live execution from a checkpoint — distinct from replay's debug-only event replay), branch, decisions, create, validate, migrate, list, delete, mark-complete |
 | `report-crash` | File a GitHub issue for a crash (internal; used by panic handlers) | – |
 | `crash-reporting` | Configure crash reporting | 3 — enable, disable, status |
 
 `org` has grown well past its original set — pause/resume/reload (daemon lifecycle), costs/flow/decisions (observability), approve/deny/gates/gate-approve/gate-reject (human-in-the-loop gating), and replay/resume-from/branch (time-travel debugging) bring it to 31 subcommands total, 30 distinct (`resume-from` is an explicit alias for `replay`, `org.ts:1245`). For the full architecture (SDK-session-per-role model, human-in-the-loop flow, config schema), see [Org Runtime v2](../concepts/org-runtime.md).
 
-**Hooks availability:** all 29 `hooks` subcommands are always registered in the CLI parser — this doesn't depend on whether the optional `@monoes/hooks` package resolved at install time.
+**Hooks availability:** all 28 `hooks` subcommands are always registered in the CLI parser — this doesn't depend on whether the optional `@monoes/hooks` package resolved at install time.
 
 ## Entry points
 
