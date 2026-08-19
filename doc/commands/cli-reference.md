@@ -41,7 +41,7 @@
 | `report-crash` | File a GitHub issue for a crash (internal; used by panic handlers) | – |
 | `crash-reporting` | Configure crash reporting | 3 — enable, disable, status |
 
-`org` has grown well past its original set — pause/resume/reload (daemon lifecycle), costs/flow/decisions (observability), approve/deny/gates/gate-approve/gate-reject (human-in-the-loop gating), and replay/resume-from/branch (time-travel debugging) bring it to 31 subcommands total, 30 distinct (`resume-from` is an explicit alias for `replay`, `org.ts:1245`). For the full architecture (SDK-session-per-role model, human-in-the-loop flow, config schema), see [Org Runtime v2](../concepts/org-runtime.md).
+`org` has grown well past its original set — pause/resume/reload (daemon lifecycle), watch/costs/flow/decisions (observability), inbox (cross-org messaging), approve/deny/gates/gate-approve/gate-reject (human-in-the-loop gating), and replay/resume-from/branch (time-travel debugging and checkpoint resume — `resume-from` restores live execution from a checkpoint, distinct from `replay`'s debug-only event replay) bring it to 33 subcommands total. For the full architecture (SDK-session-per-role model, human-in-the-loop flow, config schema), see [Org Runtime v2](../concepts/org-runtime.md).
 
 **Hooks availability:** all 28 `hooks` subcommands are always registered in the CLI parser — this doesn't depend on whether the optional `@monoes/hooks` package resolved at install time.
 
