@@ -787,12 +787,17 @@ export class OrgDaemon {
       }
       const policy = new PolicyEngine(
         role.id,
-        { maxTokens: role.budget_tokens ?? perRoleBudget, ...(role.policy ?? {}) },
+        { maxTokens: role.budget_tokens ?? perRoleBudget, maxUsd: role.budget_usd, ...(role.policy ?? {}) },
         bus,
         roleCwd,
       );
       if (roleCheckpoint?.tokensUsed) {
         policy.setUsage(roleCheckpoint.tokensUsed);
+      }
+      // ORG-7: restore accumulated USD spend across resume so a stop/resume
+      // cycle can't reset a role's USD budget back to zero.
+      if (roleCheckpoint?.costUsd) {
+        policy.setUsageUsd(roleCheckpoint.costUsd);
       }
       const runtime: AgentRuntime = {
         mailbox,
@@ -840,6 +845,20 @@ export class OrgDaemon {
         })(),
         beforeTool: (r: string, toolName: string) => this.checkApproval(name, r, toolName),
         fence: roleFences.get(role.id),
+        // ORG-1: gatedCanUseTool denials are a natural decision point — record them so
+        // `org decisions` shows real traces instead of always reporting none.
+        onDecision: (r: string, toolName: string, message: string) => {
+          this.recordDecision(name, r, {
+            type: 'tool',
+            context: `tool call: ${toolName}`,
+            reasoning: message,
+            outcome: 'denied',
+          });
+        },
+        // ORG-9: decision gates are documented as "hard-blocking" — make that
+        // true by actually denying tool use while this role has a pending gate,
+        // the same way pending approvals already do.
+        hasPendingGate: () => this.listGates(name, 'pending').some(g => g.roleId === role.id),
         onComplete:
           role.id === bossRole.id
             ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {

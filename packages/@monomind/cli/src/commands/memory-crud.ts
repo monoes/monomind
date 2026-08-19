@@ -358,16 +358,37 @@ export const searchCommand: Command = {
       const actualMethod = searchResult.searchMethod ?? 'unknown';
       const fallbackReason = searchResult.fallbackReason;
 
+      // `--type` is not (yet) threaded through to the backend — it cannot force
+      // which search path runs. So the honest thing is to compare what was
+      // requested against what actually ran and say so when they diverge,
+      // rather than let the flag look like it did something it didn't.
+      const METHOD_FAMILY: Record<string, 'semantic' | 'hybrid' | 'keyword' | 'unknown'> = {
+        semantic: 'semantic',
+        hybrid: 'hybrid',
+        keyword: 'keyword',
+        'keyword-fallback': 'keyword',
+        'hash-vector': 'semantic',
+        'hash-hybrid': 'hybrid',
+        unknown: 'unknown',
+      };
+      const actualFamily = METHOD_FAMILY[actualMethod] ?? 'unknown';
+      const typeMismatch = actualFamily !== 'unknown' && actualFamily !== searchType;
+
       if (ctx.flags.format === 'json') {
         output.printJson({
           query,
           searchType,
           searchMethod: actualMethod,
+          ...(typeMismatch ? { requestedTypeHonored: false } : {}),
           ...(fallbackReason ? { fallbackReason } : {}),
           results,
           searchTime: `${searchResult.searchTime}ms`,
         });
         return { success: true, data: results };
+      }
+
+      if (typeMismatch) {
+        output.printWarning(`Requested --type ${searchType} but the backend used method "${actualMethod}" instead.`);
       }
 
       // Performance stats — method first, so a keyword fallback is never hidden

@@ -1278,10 +1278,19 @@ export async function startServer({
           fs.mkdirSync(_runDir, { recursive: true });
           await appendToFile(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
           _insertRunEvent(event, 'http');
-          // agent:usage — persist per-role token/cost data to state.json (accumulated across runs)
-          if (event.type === 'agent:usage' && event.role) {
+          // Usage accumulation — persist per-role token/cost data to state.json (accumulated
+          // across runs). Real producers emit two distinct shapes and both must be handled:
+          //  - 'agent:usage': flattened { role, tokens_in, tokens_out, cost_usd } (legacy/direct).
+          //  - 'org:usage': orgrt's actual forwarded shape (attachForwarder's translate(), the
+          //    default case for a raw OrgBus 'usage' event) — { from, data: { tokens, cost_usd } }.
+          //    orgrt never emits 'agent:usage' itself, so without this branch real v2 cost data
+          //    never reaches state.json even though the UI displays it as if it did.
+          const _usageRole = event.type === 'agent:usage' ? event.role
+            : event.type === 'org:usage' ? event.from
+            : null;
+          if (_usageRole) {
             try {
-              const _arole = String(event.role).trim();
+              const _arole = String(_usageRole).trim();
               if (
                 _arole.length > 0 &&
                 _arole.length <= 64 &&
@@ -1294,11 +1303,20 @@ export async function startServer({
                 } catch (_e) {}
                 if (!_st.agents) _st.agents = {};
                 const _ex = _st.agents[_arole] || {};
+                const _tokensIn = event.type === 'agent:usage' ? (Number(event.tokens_in) || 0) : 0;
+                const _tokensOut = event.type === 'agent:usage' ? (Number(event.tokens_out) || 0) : 0;
+                // 'org:usage' carries a single total (data.tokens), not an in/out split —
+                // counted toward tokens_used so the budget total still reflects it honestly.
+                const _tokensTotal = event.type === 'org:usage' ? (Number(event.data?.tokens) || 0) : 0;
+                const _costUsd = event.type === 'agent:usage'
+                  ? (Number(event.cost_usd) || 0)
+                  : (Number(event.data?.cost_usd) || 0);
                 _st.agents[_arole] = {
                   ..._ex,
-                  tokens_in: (_ex.tokens_in || 0) + (Number(event.tokens_in) || 0),
-                  tokens_out: (_ex.tokens_out || 0) + (Number(event.tokens_out) || 0),
-                  total_cost_usd: (_ex.total_cost_usd || 0) + (Number(event.cost_usd) || 0),
+                  tokens_in: (_ex.tokens_in || 0) + _tokensIn,
+                  tokens_out: (_ex.tokens_out || 0) + _tokensOut,
+                  tokens_used: (_ex.tokens_used || 0) + _tokensIn + _tokensOut + _tokensTotal,
+                  total_cost_usd: (_ex.total_cost_usd || 0) + _costUsd,
                   lastUpdated: event.ts,
                 };
                 fs.writeFileSync(_stateFile, JSON.stringify(_st, null, 2));

@@ -137,13 +137,12 @@ const leanDeltaSubcommand: Command = {
   options: [],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const { join: pathJoin, dirname: pathDirname } = await import('path');
-      const { fileURLToPath } = await import('url');
+      const { join: pathJoin } = await import('path');
       const { readdirSync, readFileSync } = await import('fs');
 
-      // Locate capture directory
-      const __dirname = pathDirname(fileURLToPath(import.meta.url));
-      const projectRoot = pathJoin(__dirname, '..', '..', '..', '..', '..', '..');
+      // Locate capture directory relative to the invoking project (cwd),
+      // matching how the rest of the CLI resolves `.monomind` paths.
+      const projectRoot = process.cwd();
       const captureDir = pathJoin(projectRoot, '.monomind', 'capture');
 
       // Load all run capture logs
