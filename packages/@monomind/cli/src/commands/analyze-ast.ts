@@ -1,13 +1,13 @@
 /**
  * Analyze AST subcommand
- * AST-based code analysis using monovector tree-sitter with regex fallback
+ * Heuristic (regex-based) code analysis — there is no AST/tree-sitter parser here
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import * as fs from 'fs/promises';
 import { resolve } from 'path';
-import { getASTAnalyzer, safeWriteOutputFile, scanSourceFiles, fallbackAnalyze } from './analyze.js';
+import { safeWriteOutputFile, scanSourceFiles, fallbackAnalyze, FILE_SCAN_CAP, reportFileCap } from './analyze.js';
 
 /**
  * Helper: Truncate file path for display
@@ -55,7 +55,7 @@ export function getComplexityRatingAst(value: number): string {
  */
 export const astCommand: Command = {
   name: 'ast',
-  description: 'Analyze code using AST parsing (tree-sitter via monovector)',
+  description: 'Heuristic (regex-based) analysis — no AST/tree-sitter parser is used',
   options: [
     {
       name: 'complexity',
@@ -117,12 +117,6 @@ export const astCommand: Command = {
     spinner.start();
 
     try {
-      const astModule = await getASTAnalyzer();
-      if (!astModule) {
-        spinner.stop();
-        output.printWarning('AST analyzer not available, using regex fallback');
-      }
-
       // Resolve path and check if file or directory
       const resolvedPath = resolve(targetPath);
       const stat = await fs.stat(resolvedPath);
@@ -143,19 +137,13 @@ export const astCommand: Command = {
         const files = await scanSourceFiles(resolvedPath);
         spinner.stop();
         output.printInfo(`Found ${files.length} source files`);
+        reportFileCap(files.length);
         spinner.start();
 
-        for (const file of files.slice(0, 100)) {
+        for (const file of files.slice(0, FILE_SCAN_CAP)) {
           try {
             const content = await fs.readFile(file, 'utf-8');
-            if (astModule) {
-              const analyzer = astModule.createASTAnalyzer();
-              const analysis = analyzer.analyze(content, file);
-              results.push(analysis);
-            } else {
-              // Fallback analysis
-              results.push(fallbackAnalyze(content, file));
-            }
+            results.push(fallbackAnalyze(content, file));
           } catch {
             // Skip files that can't be analyzed
           }
@@ -163,13 +151,7 @@ export const astCommand: Command = {
       } else {
         // Single file
         const content = await fs.readFile(resolvedPath, 'utf-8');
-        if (astModule) {
-          const analyzer = astModule.createASTAnalyzer();
-          const analysis = analyzer.analyze(content, resolvedPath);
-          results.push(analysis);
-        } else {
-          results.push(fallbackAnalyze(content, resolvedPath));
-        }
+        results.push(fallbackAnalyze(content, resolvedPath));
       }
 
       spinner.stop();
@@ -233,7 +215,7 @@ export const astCommand: Command = {
         output.printTable({
           columns: [
             { key: 'file', header: 'File', width: 40 },
-            { key: 'cyclomatic', header: 'Cyclo', width: 8, align: 'right', format: (v) => formatComplexityValueAst(v as number) },
+            { key: 'cyclomatic', header: 'Decisions', width: 8, align: 'right', format: (v) => formatComplexityValueAst(v as number) },
             { key: 'cognitive', header: 'Cogni', width: 8, align: 'right' },
             { key: 'loc', header: 'LOC', width: 8, align: 'right' },
             { key: 'rating', header: 'Rating', width: 15 },

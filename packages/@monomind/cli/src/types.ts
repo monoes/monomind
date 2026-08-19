@@ -40,6 +40,7 @@ export interface CommandOption {
   required?: boolean;
   choices?: string[];
   validate?: (value: unknown) => boolean | string;
+  hidden?: boolean;
 }
 
 export interface CommandExample {

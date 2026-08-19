@@ -650,12 +650,11 @@ export const hooksCommand: Command = {
     output.writeln();
     output.writeln('Run "monomind hooks <subcommand> --help" for subcommand help');
     output.writeln();
-    output.writeln(output.bold('v1 Features:'));
+    output.writeln(output.bold('Features:'));
     output.printList([
       '🧠 Trajectory + outcome logging',
       '🎯 Keyword routing + route-outcome measurement',
       '🔍 SQLite-backed vector search (ANN)',
-      '🎯 32.3% token reduction',
       '👥 Agent Teams integration (auto task assignment)',
     ]);
 

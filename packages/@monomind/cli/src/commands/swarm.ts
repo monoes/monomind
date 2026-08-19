@@ -199,7 +199,10 @@ function getSwarmStatus(swarmId?: string) {
       total: totalAgents,
       active: activeAgents,
       idle: Math.max(0, totalAgents - activeAgents),
-      completed: 0,
+      // Not tracked anywhere — nothing distinguishes a "completed" agent
+      // from an active/idle one in the agent store. '--' rather than a
+      // fake 0.
+      completed: '--',
     },
     progress,
     tasks: {
@@ -209,15 +212,11 @@ function getSwarmStatus(swarmId?: string) {
       pending: pendingTasks,
     },
     metrics: {
-      tokensUsed: 0,
+      // Token usage isn't tracked here — '--' rather than a fake 0.
+      tokensUsed: '--',
       avgResponseTime: '--',
       successRate: totalTasks > 0 ? `${Math.round((completedTasks / totalTasks) * 100)}%` : '--',
       elapsedTime: '--',
-    },
-    coordination: {
-      consensusRounds: 0,
-      messagesSent: 0,
-      conflictsResolved: 0,
     },
     hasActiveSwarm: !!swarmState || totalAgents > 0,
   };
@@ -676,20 +675,10 @@ const statusCommand: Command = {
     // Metrics
     output.writeln(output.bold('Performance Metrics'));
     output.printList([
-      `Tokens Used: ${status.metrics.tokensUsed.toLocaleString()}`,
+      `Tokens Used: ${status.metrics.tokensUsed}`,
       `Avg Response Time: ${status.metrics.avgResponseTime}`,
       `Success Rate: ${status.metrics.successRate}`,
       `Elapsed Time: ${status.metrics.elapsedTime}`,
-    ]);
-
-    output.writeln();
-
-    // Coordination stats
-    output.writeln(output.bold('Coordination'));
-    output.printList([
-      `Consensus Rounds: ${status.coordination.consensusRounds}`,
-      `Messages Sent: ${status.coordination.messagesSent}`,
-      `Conflicts Resolved: ${status.coordination.conflictsResolved}`,
     ]);
 
     return { success: true, data: status };

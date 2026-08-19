@@ -12,7 +12,7 @@ is not a live package — see "Deprecated aliases" below.
 | `@monoes/monomindcli` | `packages/@monomind/cli/` | The real CLI engine (all commands, MCP server, `.claude` tree) |
 | `@monoes/monograph` | `packages/@monomind/monograph/` | Knowledge graph |
 | `@monoes/memory` | `packages/@monomind/memory/` | Memory backend library |
-| `@monoes/hooks` | `packages/@monomind/hooks/` | Hook registry + 8 on-demand workers |
+| `@monoes/hooks` | `packages/@monomind/hooks/` | Hook registry + 9 on-demand workers |
 | `@monoes/mcp` | `packages/@monomind/mcp/` | MCP server framework |
 | `@monoes/routing` | `packages/@monomind/routing/` | Semantic routing |
 | `@monoes/monobrowse` | `packages/@monoes/monobrowse/` | CDP browser automation |

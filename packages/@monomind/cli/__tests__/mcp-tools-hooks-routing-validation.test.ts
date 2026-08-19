@@ -381,14 +381,18 @@ describe('CLI-1 — hooks-routing input validation', () => {
   describe('hooks_intelligence', () => {
     const tool = hooksIntelligence;
 
-    it('falls back to default mode for non-string input', async () => {
-      const r = await tool.handler({ mode: 42 }) as { mode: string };
-      expect(r.mode).toBe('balanced');
+    // Wave 2 (IN-14): `mode` was a dead parameter — echoed but never read —
+    // and has been removed entirely rather than validated/defaulted. These
+    // cases now assert it's simply ignored, not that it falls back to a
+    // canned default value.
+    it('does not error and does not echo back a mode field for non-string input', async () => {
+      const r = await tool.handler({ mode: 42 }) as { mode?: string };
+      expect(r.mode).toBeUndefined();
     });
 
-    it('falls back to default mode for NUL byte', async () => {
-      const r = await tool.handler({ mode: NUL }) as { mode: string };
-      expect(r.mode).toBe('balanced');
+    it('does not error and does not echo back a mode field for NUL byte', async () => {
+      const r = await tool.handler({ mode: NUL }) as { mode?: string };
+      expect(r.mode).toBeUndefined();
     });
   });
 });

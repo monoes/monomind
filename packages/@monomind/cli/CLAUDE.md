@@ -44,7 +44,7 @@ npx monomind@latest swarm init --topology hierarchical-mesh --max-agents 15 --st
 - `mesh` - Fully connected peer network
 - `ring` - Circular communication pattern
 - `star` - Central coordinator with spokes
-- `hybrid` - Dynamic topology switching
+- `hybrid` - Topology label recorded in swarm state; coordination behavior is chosen by the caller — no automatic reconfiguration
 
 **Anti-Drift Guidelines:**
 
@@ -310,7 +310,7 @@ package was deleted:
 - Path traversal prevention utilities
 - Command injection protection utilities
 
-## Hooks System (29 Hook Subcommands + 8 Background Workers)
+## Hooks System (29 Hook Subcommands + 9 Background Workers)
 
 Full hook list with flags: `npx monomind@latest hooks list`. Worker list: `npx monomind@latest hooks worker list` (run one on demand with `hooks worker run <name>`). The metrics-producing workers (ddd, map, audit, consolidate) refresh automatically at session start when their output file is missing or older than 6 hours.
 
@@ -376,7 +376,7 @@ Features:
 - `hierarchical` - Queen controls workers directly
 - `mesh` - Fully connected peer network
 - `hierarchical-mesh` - Hybrid (recommended)
-- `adaptive` - Dynamic based on load
+- `adaptive` - Topology label recorded in swarm state; coordination behavior is chosen by the caller — no automatic reconfiguration
 
 ### Consensus Strategies
 

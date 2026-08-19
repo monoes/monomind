@@ -124,7 +124,10 @@ export const systemTools: MCPTool[] = [
         uptimeFormatted: `${Math.floor(uptime / 3600000)}h ${Math.floor((uptime % 3600000) / 60000)}m`,
         version: PKG_VERSION,
         components: {
-          swarm: { status: 'running', health: metrics.health },
+          swarm: {
+            status: 'unknown',
+            _note: 'Swarm status not measured — no live health probe wired up here; use system_health for real checks',
+          },
           memory: {
             status: 'unknown',
             _note: 'Health not measured — use system_health for real checks',
@@ -508,15 +511,20 @@ export const systemTools: MCPTool[] = [
         features: {
           swarm: true,
           memory: true,
-          neural: true,
-          hnsw: true,
+          // Neural pattern learning and the HNSW index are dead paths at
+          // runtime (keyword routing only; HNSW is a sql.js-fallback that's
+          // a no-op unless the SQLite bridge is down) — see hooks-intelligence.ts
+          // where both report 'not-loaded'.
+          neural: false,
+          hnsw: false,
           quantization: true,
           flashAttention: false,
         },
         limits: {
-          maxAgents: 100,
+          // Real clamp applied in swarm-tools.ts: Math.min(Math.max(x || 8, 1), 50)
+          maxAgents: 50,
           maxTasks: 1000,
-          maxMemory: '4GB',
+          maxMemory: `${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB`,
         },
       };
     },

@@ -418,6 +418,7 @@ export class CLI {
     if (target.options && target.options.length > 0) {
       this.output.writeln(this.output.bold('OPTIONS:'));
       for (const opt of target.options) {
+        if (opt.hidden) continue;
         const flags = opt.short ? `-${opt.short}, --${opt.name}` : `    --${opt.name}`;
         const required = opt.required ? this.output.error(' (required)') : '';
         const defaultVal = opt.default !== undefined ? this.output.dim(` [default: ${opt.default}]`) : '';

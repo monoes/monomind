@@ -346,7 +346,7 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
 
   // Performance section
   if (status.running) {
-    output.writeln(output.bold('v1 Performance Gains'));
+    output.writeln(output.bold('Performance'));
     output.printList([
       `Vector Search: ${output.success(status.performance.searchSpeed)}`,
       `CPU Usage: ${status.performance.cpuUsage.toFixed(1)}%`,

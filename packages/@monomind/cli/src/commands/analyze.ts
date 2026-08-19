@@ -1,11 +1,11 @@
 /**
  * CLI Analyze Command
- * Code analysis, diff classification, AST analysis, and change risk assessment
+ * Code analysis, diff classification, heuristic (regex-based) analysis, and change risk assessment
  *
  * Features:
- * - AST analysis using monovector (tree-sitter) with graceful fallback
+ * - Heuristic (regex-based) analysis — no AST/tree-sitter integration ships here
  * - Symbol extraction (functions, classes, variables, types)
- * - Cyclomatic complexity scoring
+ * - Decision-point counting (cyclomatic approximation)
  * - Diff classification and risk assessment
  *
  * github.com/monoes/monomind
@@ -22,16 +22,22 @@ import { astCommand } from './analyze-ast.js';
 import { complexityAstCommand, symbolsCommand } from './analyze-symbols.js';
 import { importsCommand, depsCommand } from './analyze-imports.js';
 
-// The AST analyzer module was never shipped. This resolver always returns
-// null, so every call site takes its regex / null-guarded fallback path.
-// The return type stays loose (as the old dynamic-import did) so the unreachable
-// "module loaded" branches at the call sites still type-check.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnalyzerModule = any;
+/**
+ * Maximum number of files scanned per invocation, for the directory-mode
+ * subcommands below. When a directory contains more files than this, only
+ * the first FILE_SCAN_CAP are analyzed — callers must surface that fact
+ * rather than truncating silently.
+ */
+export const FILE_SCAN_CAP = 100;
 
-// AST analyzer module was never shipped — always falls back to the regex path.
-export async function getASTAnalyzer(): Promise<AnalyzerModule | null> {
-  return null;
+/**
+ * Print a notice when the file-scan cap was hit, so results are never
+ * presented as if the whole directory was analyzed.
+ */
+export function reportFileCap(totalFiles: number): void {
+  if (totalFiles > FILE_SCAN_CAP) {
+    output.printInfo(`analyzing first ${FILE_SCAN_CAP} of ${totalFiles} files (cap)`);
+  }
 }
 
 /**
@@ -86,7 +92,33 @@ export async function scanSourceFiles(dir: string, maxDepth: number = 10): Promi
 }
 
 /**
- * Fallback analysis when monovector is not available
+ * Find the line number of the closing brace matching the first '{' found at
+ * or after `fromIndex`, by counting brace depth. Falls back to the start
+ * line itself if no brace is found (e.g. a single-expression arrow function).
+ */
+function findBlockEndLine(code: string, fromIndex: number): number {
+  const openIdx = code.indexOf('{', fromIndex);
+  if (openIdx === -1) {
+    return code.substring(0, fromIndex).split('\n').length;
+  }
+  let depth = 0;
+  for (let i = openIdx; i < code.length; i++) {
+    if (code[i] === '{') depth++;
+    else if (code[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        return code.substring(0, i + 1).split('\n').length;
+      }
+    }
+  }
+  return code.split('\n').length;
+}
+
+/**
+ * Heuristic (regex-based) analysis. There is no AST/tree-sitter parser
+ * behind this — it pattern-matches common function/class/import shapes and
+ * will miss or misparse anything unusual. Line ranges are computed via
+ * brace-depth matching, not real parsing.
  */
 export function fallbackAnalyze(code: string, filePath: string) {
   const lines = code.split('\n');
@@ -102,7 +134,8 @@ export function fallbackAnalyze(code: string, filePath: string) {
     const name = match[1] || match[2] || match[3];
     if (name && !['if', 'while', 'for', 'switch'].includes(name)) {
       const lineNum = code.substring(0, match.index).split('\n').length;
-      functions.push({ name, startLine: lineNum, endLine: lineNum + 10 });
+      const endLine = findBlockEndLine(code, match.index);
+      functions.push({ name, startLine: lineNum, endLine: Math.max(lineNum, endLine) });
     }
   }
 
@@ -110,7 +143,8 @@ export function fallbackAnalyze(code: string, filePath: string) {
   const classPattern = /(?:export\s+)?class\s+(\w+)/gm;
   while ((match = classPattern.exec(code)) !== null) {
     const lineNum = code.substring(0, match.index).split('\n').length;
-    classes.push({ name: match[1], startLine: lineNum, endLine: lineNum + 20 });
+    const endLine = findBlockEndLine(code, match.index);
+    classes.push({ name: match[1], startLine: lineNum, endLine: Math.max(lineNum, endLine) });
   }
 
   // Extract imports
@@ -129,10 +163,16 @@ export function fallbackAnalyze(code: string, filePath: string) {
     exports.push(match[1]);
   }
 
-  // Calculate complexity
+  // Calculate decision points (cyclomatic approx.). `\b` word boundaries only
+  // work around word characters, so symbol operators (&&, ||, ?) are matched
+  // as literal substrings instead — under `\b` they could never match at all.
+  // `else`/`case` are excluded: true cyclomatic complexity doesn't count them
+  // (they don't add a branch beyond the `if`/`switch` they belong to).
   const nonEmptyLines = lines.filter(l => l.trim().length > 0).length;
   const commentLines = lines.filter(l => /^\s*(\/\/|\/\*|\*|#)/.test(l)).length;
-  const decisionPoints = (code.match(/\b(if|else|for|while|switch|case|catch|&&|\|\||\?)\b/g) || []).length;
+  const keywordDecisionPoints = (code.match(/\b(if|for|while|catch)\b/g) || []).length;
+  const operatorDecisionPoints = (code.match(/&&|\|\||\?/g) || []).length;
+  const decisionPoints = keywordDecisionPoints + operatorDecisionPoints;
 
   let cognitive = 0;
   let nestingLevel = 0;
@@ -198,7 +238,7 @@ export const analyzeCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind analyze ast src/', description: 'Analyze code with AST parsing' },
+    { command: 'monomind analyze ast src/', description: 'Heuristic (regex-based) analysis of code' },
     { command: 'monomind analyze complexity src/ --threshold 15', description: 'Find high-complexity files' },
     { command: 'monomind analyze symbols src/ --type function', description: 'Extract all functions' },
     { command: 'monomind analyze imports src/ --external', description: 'List npm dependencies' },
@@ -217,15 +257,15 @@ export const analyzeCommand: Command = {
     output.writeln(`  ${output.highlight('diff')}         Analyze git diff for change risk and classification`);
     output.writeln(`  ${output.highlight('code')}         Static code analysis and quality assessment`);
     output.writeln(`  ${output.highlight('deps')}         Analyze project dependencies`);
-    output.writeln(`  ${output.highlight('ast')}          AST analysis with symbol extraction and complexity`);
+    output.writeln(`  ${output.highlight('ast')}          Heuristic (regex-based) analysis with symbol extraction and complexity`);
     output.writeln(`  ${output.highlight('complexity')}   Analyze cyclomatic and cognitive complexity`);
     output.writeln(`  ${output.highlight('symbols')}      Extract functions, classes, and types`);
     output.writeln(`  ${output.highlight('imports')}      Analyze import dependencies`);
     output.writeln();
 
-    output.writeln(output.bold('AST Analysis Examples:'));
+    output.writeln(output.bold('Heuristic Analysis Examples:'));
     output.writeln();
-    output.writeln(`  ${output.dim('monomind analyze ast src/')}                  # Full AST analysis`);
+    output.writeln(`  ${output.dim('monomind analyze ast src/')}                  # Heuristic (regex-based) analysis`);
     output.writeln(`  ${output.dim('monomind analyze ast src/index.ts -c')}       # Include complexity`);
     output.writeln(`  ${output.dim('monomind analyze complexity src/ -t 15')}     # Flag high complexity`);
     output.writeln(`  ${output.dim('monomind analyze symbols src/ --type fn')}    # Extract functions`);
