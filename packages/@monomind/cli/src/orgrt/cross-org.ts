@@ -143,6 +143,17 @@ export async function deliver(daemon: OrgDaemon, fromOrg: string, fromRole: stri
   }
   targetAgent.mailbox.push(mailBody(daemon.root, targetOrgName, targetOrg, `[message from ${evt.from}] subject: ${subject}`, body,
     emitted?.id ?? `mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`));
+  // ORG-1: a cross-org deliver() is a "handoff" — work/context crossing an org
+  // boundary — a natural decision point. Recorded here (not for every intra-org
+  // org_send, which would be too noisy) so `org decisions` shows real traces.
+  if (cross) {
+    daemon.recordDecision(fromOrg, fromRole, {
+      type: 'handoff',
+      context: `deliver to ${toQualified}: ${subject}`,
+      reasoning: `cross-org handoff from ${fromOrg}:${fromRole} to ${toQualified}`,
+      outcome: 'delivered',
+    });
+  }
   return `delivered to ${toQualified}`;
 }
 

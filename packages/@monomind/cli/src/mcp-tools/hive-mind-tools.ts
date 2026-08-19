@@ -289,10 +289,9 @@ function saveAgentStore(store: { agents: Record<string, unknown> }): void {
 // Every hive-mind_* tool operates on a single JSON state file in one process —
 // "consensus"/"spawn"/"broadcast" etc. are vote-threshold bookkeeping and
 // record-keeping, not real distributed coordination (see CLAUDE.md's Hive-Mind
-// Consensus section and hive-mind_consensus's own description). Only status/join
-// are legitimate no-drama primitives (read state / register into it) and stay
-// visible by default; everything else is gated behind MONOMIND_MCP_SPECULATIVE=1.
-/** Ungated — internal/test use only. MCP clients get `hiveMindTools` below. */
+// Consensus section and hive-mind_consensus's own description). All 11 tools
+// are registered unconditionally — see `hiveMindTools` below.
+/** All 11 hive-mind tools. `hiveMindTools` below is the same list, re-exported for MCP clients. */
 export const allHiveMindTools: MCPTool[] = [
   {
     name: 'hive-mind_spawn',
@@ -1420,9 +1419,10 @@ export const allHiveMindTools: MCPTool[] = [
   },
 ];
 
-const SPECULATIVE = process.env['MONOMIND_MCP_SPECULATIVE'] === '1';
-const CORE_HIVE_MIND_NAMES = new Set(['hive-mind_status', 'hive-mind_join']);
-
-export const hiveMindTools: MCPTool[] = SPECULATIVE
-  ? allHiveMindTools
-  : allHiveMindTools.filter(t => CORE_HIVE_MIND_NAMES.has(t.name));
+// Previously gated behind MONOMIND_MCP_SPECULATIVE=1 (only hive-mind_status/
+// hive-mind_join were visible by default). Post-cleanup, all hive-mind_* tools
+// are honest about what they actually do (single-process vote-threshold
+// bookkeeping, not real distributed coordination — see the comment above
+// allHiveMindTools and CLAUDE.md's Hive-Mind Consensus section), so the gate
+// has been removed and all 11 tools register unconditionally.
+export const hiveMindTools: MCPTool[] = allHiveMindTools;

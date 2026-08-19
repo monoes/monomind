@@ -4,53 +4,41 @@ name: hive-mind:hive-mind-status
 
 # hive-mind status
 
-Show hive mind status including queen, workers, and optional detailed metrics.
+Show hive mind status including queen, workers, and task/consensus metrics.
 
-## Usage
-```bash
-npx monomind hive-mind status [options]
+There is no `npx monomind hive-mind status` CLI command — this is invoked
+directly as an MCP tool call:
+
+```javascript
+mcp__monomind__hive-mind_status({ verbose: true })
 ```
 
-## Options
+## Parameters
 
-| Flag | Short | Type | Default | Description |
-|---|---|---|---|---|
-| `--detailed` | `-d` | boolean | `false` | Include metrics (task counts, avg time, consensus rounds, memory) and health breakdown |
-| `--watch` | `-w` | boolean | `false` | Watch for changes and refresh |
-| `--format` | — | string | — | Output format: `json` |
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `verbose` | boolean | `false` | Include worker id list, recent consensus history, and full shared-memory contents |
 
 ## Examples
 
-```bash
-# Basic status
-npx monomind hive-mind status
+```javascript
+// Basic status
+mcp__monomind__hive-mind_status({})
 
-# Full metrics and health breakdown
-npx monomind hive-mind status --detailed
-
-# Watch mode (refreshes on change)
-npx monomind hive-mind status --watch
-
-# JSON output for scripting
-npx monomind hive-mind status --format json
+// Verbose: adds workerDetails, consensusHistory, sharedMemory
+mcp__monomind__hive-mind_status({ verbose: true })
 ```
 
 ## Output
 
-Basic status shows:
-- Hive ID, status (active / idle / degraded / offline), topology, consensus
-- Queen agent ID, status, load %, and queued task count
-- Worker table: ID, type, status, current task, tasks completed
+Basic status includes:
+- `hiveId`, `status` (`active` / `offline`), `topology`, `consensus`
+- `queen`: id, status, load, queued task count, elected-at, term
+- `workers`: array of `{ id, type, status, tasksCompleted }` (`currentTask` is always `null` — the agent store has no such field)
+- `metrics`: total/completed/active/pending task counts (real, sourced from the task store), `consensusRounds`, `memoryUsage`
+- `health`: overall/queen/workers/consensus/memory status labels
 
-`--detailed` adds:
-- Metrics table: total tasks, completed, failed, avg task time, consensus rounds, memory usage
-- Health breakdown: overall, queen, workers, consensus, memory
-
-## MCP Tool
-
-```javascript
-mcp__monomind__hive-mind_status({
-  includeMetrics: true,  // set by --detailed
-  includeWorkers: true
-})
-```
+`verbose: true` adds:
+- `workerDetails` — raw worker id list
+- `consensusHistory` — last 10 consensus decisions
+- `sharedMemory` — full shared-memory object

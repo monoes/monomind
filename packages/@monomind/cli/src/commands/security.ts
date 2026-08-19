@@ -31,7 +31,7 @@ export const securityCommand: Command = {
       'audit    - Security audit logging and compliance',
       'secrets  - Detect and manage secrets in codebase',
       'defend   - AI manipulation defense (prompt injection, jailbreaks, PII)',
-      'redteam  - Adversarial red-team testing (PyRIT-style attack orchestration)',
+      'redteam  - Red-team prompt library for manual review (dry-run only, no live attacks)',
     ]);
     output.writeln();
     output.writeln('Use --help with subcommands for more info');

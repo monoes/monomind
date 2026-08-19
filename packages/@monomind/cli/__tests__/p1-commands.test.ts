@@ -631,9 +631,25 @@ describe('Status Command', () => {
     it('should perform health check', async () => { // Skip: requires live MCP context
       ctx.flags = { 'health-check': true, _: [] };
 
-      const result = await statusCommand.action!(ctx);
+      // ASL-17: `running` is now derived from a real daemon.pid liveness
+      // check (fs.existsSync + fs.readFileSync + process.kill(pid, 0)),
+      // not hardcoded true. Mock daemon.pid to hold this test process's
+      // own real pid (guaranteed alive) so the "System Running" check
+      // reflects a genuinely-live daemon, matching the pattern already
+      // used for the `start --daemon` spawn mock above.
+      vi.mocked(fs.readFileSync).mockReturnValue(String(process.pid));
 
-      expect(result.success).toBe(true);
+      const result = await statusCommand.action!(ctx) as { data: { checks: Array<{ name: string; status: string }>; summary: unknown } };
+
+      // Not asserting overall `success` here: this mocked context has no
+      // real swarm/memory backend, so subsystem checks (agents, memory,
+      // task success rate) honestly report unhealthy — that's correct
+      // behavior now that the health check no longer fakes "all pass".
+      // The regression this guards is specifically the daemon-liveness
+      // check itself, which must reflect the mocked-alive pid, not a
+      // hardcoded value in either direction.
+      const runningCheck = result.data.checks.find((c) => c.name === 'System Running');
+      expect(runningCheck?.status).toBe('pass');
       expect(result.data).toHaveProperty('checks');
       expect(result.data).toHaveProperty('summary');
     });

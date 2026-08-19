@@ -42,6 +42,8 @@ export function globToRegExp(glob: string): RegExp {
 
 export class PolicyEngine {
   private used = 0;
+  /** ORG-7: accumulated USD cost for this role, mirrors `used` (tokens). */
+  private usedUsd = 0;
   constructor(
     readonly role: string,
     readonly policy: RolePolicy,
@@ -55,6 +57,18 @@ export class PolicyEngine {
   setUsage(tokens: number): void { this.used = tokens; }
   get overBudget(): boolean {
     return this.policy.maxTokens != null && this.used >= this.policy.maxTokens;
+  }
+
+  /** ORG-7: accumulate real USD cost (from 'usage' bus events' data.cost_usd). */
+  addUsageUsd(costUsd: number): void { this.usedUsd += costUsd; }
+  get usageUsd(): number { return this.usedUsd; }
+  /** Set USD usage counter directly for checkpoint/resume, mirrors setUsage(). */
+  setUsageUsd(costUsd: number): void { this.usedUsd = costUsd; }
+  /** ORG-7: parallel to overBudget (token), but for the role's USD spend cap
+   *  (policy.maxUsd, from OrgRole.budget_usd). Unset maxUsd means no USD
+   *  enforcement for this role — only overBudget (tokens) applies. */
+  get overBudgetUsd(): boolean {
+    return this.policy.maxUsd != null && this.usedUsd >= this.policy.maxUsd;
   }
 
   async decide(tool: string, input: Record<string, unknown>): Promise<Decision> {
@@ -85,6 +99,7 @@ export class PolicyEngine {
     if (HARNESS_MESSAGING_TOOLS.has(tool))
       return deny(`${tool} does not reach org agents — inter-agent messaging goes through the org_send tool only; resend via org_send (to, subject, message)`);
     if (this.overBudget) return deny(`token budget exhausted (${this.used}/${this.policy.maxTokens})`);
+    if (this.overBudgetUsd) return deny(`USD budget exhausted ($${this.usedUsd.toFixed(4)}/$${this.policy.maxUsd})`);
     if (this.policy.denyTools?.includes(tool)) return deny(`tool ${tool} is denied for role ${this.role}`);
     if (this.policy.allowTools && !this.policy.allowTools.includes(tool) && !tool.startsWith('mcp__org__'))
       return deny(`tool ${tool} not in allowlist for role ${this.role}`);

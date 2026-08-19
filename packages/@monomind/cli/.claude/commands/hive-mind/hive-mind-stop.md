@@ -4,52 +4,40 @@ name: hive-mind:hive-mind-stop
 
 # hive-mind shutdown
 
-Gracefully shutdown the hive mind, terminating all agents.
+Clear hive workers from the shared agent store and reset hive state.
 
-## Usage
-```bash
-npx monomind hive-mind shutdown [options]
+There is no `npx monomind hive-mind shutdown` CLI command — this is invoked
+directly as an MCP tool call:
+
+```javascript
+mcp__monomind__hive-mind_shutdown({ graceful: true, force: false })
 ```
 
-## Options
+## Parameters
 
-| Flag | Short | Type | Default | Description |
-|---|---|---|---|---|
-| `--force` | `-f` | boolean | `false` | Force immediate shutdown without confirmation |
-| `--save-state` | `-s` | boolean | `true` | Save hive state before shutdown (default: on) |
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `graceful` | boolean | `true` | If pending consensus items exist, refuse to shut down unless `force: true` |
+| `force` | boolean | `false` | Override the graceful refusal above |
+
+There is no interactive confirmation prompt (this is a direct tool call, not
+a CLI), and no `saveState` option — consensus history is always kept,
+shared memory is always cleared.
 
 ## Examples
 
-```bash
-# Graceful shutdown with confirmation prompt
-npx monomind hive-mind shutdown
+```javascript
+// Graceful shutdown — fails if there are pending consensus items
+mcp__monomind__hive-mind_shutdown({})
 
-# Force shutdown immediately, no prompt
-npx monomind hive-mind shutdown --force
-
-# Shutdown and save state for later recovery
-npx monomind hive-mind shutdown --save-state
-
-# Force shutdown without saving state
-npx monomind hive-mind shutdown --force --save-state false
+// Force shutdown even with pending consensus items
+mcp__monomind__hive-mind_shutdown({ force: true })
 ```
 
 ## Behavior
 
-Without `--force`, the CLI prompts for confirmation before proceeding.
-
-The shutdown report includes:
-- Number of agents terminated
-- Whether state was saved
-- Shutdown timestamp
-
-When `--save-state` is enabled (default), hive state is persisted and can be referenced in future sessions via `monomind session list`.
-
-## MCP Tool
-
-```javascript
-mcp__monomind__hive-mind_shutdown({
-  force: false,
-  saveState: true
-})
-```
+Removes all hive worker ids from the agent store, then resets hive state:
+`initialized: false`, no queen, empty worker list, cleared pending consensus
+and shared memory. Consensus history is retained on the state file. The
+response includes `workersTerminated`, `previousQueen`, `consensusCleared`,
+and a summary `message`.

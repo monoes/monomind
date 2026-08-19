@@ -8,6 +8,55 @@ import * as fs from 'fs/promises';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 import { searchDDDPatterns } from './worker-utils.js';
 
+/**
+ * Discover workspace packages under `packagesPath`, supporting both flat
+ * layouts (`packages/foo/package.json`) and npm-scoped layouts
+ * (`packages/@scope/foo/package.json`). Returns paths relative to
+ * `packagesPath` (e.g. `'foo'` or `'@scope/foo'`) for directories that
+ * actually contain a package.json — not the package's declared `name`,
+ * since what matters here is the on-disk module directory to scan.
+ */
+async function discoverWorkspacePackages(packagesPath: string): Promise<string[]> {
+  const found: string[] = [];
+  let entries;
+  try {
+    entries = await fs.readdir(packagesPath, { withFileTypes: true });
+  } catch {
+    return found;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const entryPath = path.join(packagesPath, entry.name);
+
+    if (entry.name.startsWith('@')) {
+      // Scoped scope directory (e.g. `@monomind`) — look one level deeper.
+      let scopedEntries;
+      try {
+        scopedEntries = await fs.readdir(entryPath, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const scoped of scopedEntries) {
+        if (!scoped.isDirectory()) continue;
+        const pkgJsonPath = path.join(entryPath, scoped.name, 'package.json');
+        try {
+          await fs.access(pkgJsonPath);
+          found.push(path.join(entry.name, scoped.name));
+        } catch { /* not a package directory */ }
+      }
+    } else {
+      const pkgJsonPath = path.join(entryPath, 'package.json');
+      try {
+        await fs.access(pkgJsonPath);
+        found.push(entry.name);
+      } catch { /* not a package directory */ }
+    }
+  }
+
+  return found;
+}
+
 export function createDDDWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
     const startTime = Date.now();
@@ -17,15 +66,24 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
     let totalScore = 0;
     let maxScore = 0;
 
-    const modules = [
-      '@monoes/hooks',
-      '@monoes/mcp',
-      '@monomind/memory',
-    ];
+    // Discover real workspace packages instead of hardcoding this repo's own
+    // package paths — every other project previously scored 0% forever.
+    let modules = await discoverWorkspacePackages(packagesPath);
+    let basePath = packagesPath;
+    if (modules.length === 0) {
+      // Single-package project layout: no packages/*/package.json anywhere.
+      // Fall back to treating the project root itself as the one module to
+      // scan, provided it has a src/ directory.
+      try {
+        await fs.access(path.join(projectRoot, 'src'));
+        modules = [path.basename(projectRoot) || 'project'];
+        basePath = projectRoot;
+      } catch { /* no packages/ and no src/ — nothing to score */ }
+    }
 
     const moduleResults = await Promise.all(
       modules.map(async (mod) => {
-        const modPath = path.join(packagesPath, mod);
+        const modPath = basePath === projectRoot ? projectRoot : path.join(basePath, mod);
         const modMetrics: Record<string, number> = {
           entities: 0,
           valueObjects: 0,

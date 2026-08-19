@@ -79,21 +79,54 @@ export function gatedCanUseTool(
   beforeTool: SessionOpts['beforeTool'],
   roleId: string,
   fence?: RoleFence,
+  /** Optional hook invoked whenever this gate denies a tool call — wired to
+   *  daemon.recordDecision() so denials show up in `org decisions` traces. */
+  onDeny?: (toolName: string, input: Record<string, unknown>, decision: Extract<Decision, { behavior: 'deny' }>) => void,
+  /** ORG-9: reports whether this role has a pending (unresolved) decision gate.
+   *  org_gate is documented as creating a "hard-blocking" checkpoint, but until
+   *  this was wired in nothing actually stopped tool use while a gate sat
+   *  pending — only approvals did that. When set and true, ALL tool calls are
+   *  denied (not just the sensitive subset approvals gate) until the gate is
+   *  resolved, matching the "hard-blocking" description. */
+  hasPendingGate?: () => boolean,
 ): (toolName: string, input: Record<string, unknown>) => Promise<Decision> {
   return async (toolName: string, input: Record<string, unknown>): Promise<Decision> => {
+    if (hasPendingGate?.()) {
+      const decision: Decision = {
+        behavior: 'deny',
+        message: `Tool "${toolName}" is blocked — awaiting gate resolution. A decision gate is pending; wait for a human to approve or reject it via 'monomind org gate-approve/gate-reject'.`,
+      };
+      onDeny?.(toolName, input, decision);
+      return decision;
+    }
     if (fence) {
       const text = typeof input.command === 'string' ? input.command
         : typeof input.content === 'string' ? input.content
         : typeof input.url === 'string' ? input.url
         : JSON.stringify(input);
       const fenceDecision = await scanInput(fence.instance, text, fence.abortThreshold);
-      if (fenceDecision.behavior === 'deny') return fenceDecision;
+      if (fenceDecision.behavior === 'deny') {
+        onDeny?.(toolName, input, fenceDecision);
+        return fenceDecision;
+      }
     }
     const decision = await policy.decide(toolName, input);
-    if (decision.behavior === 'deny' || !beforeTool) return decision;
+    if (decision.behavior === 'deny') {
+      onDeny?.(toolName, input, decision);
+      return decision;
+    }
+    if (!beforeTool) return decision;
     const approved = await beforeTool(roleId, toolName);
-    if (approved === false) return { behavior: 'deny', message: `Tool "${toolName}" was denied by guardrail approval` };
-    if (approved === null) return { behavior: 'deny', message: `Tool "${toolName}" is pending human approval — it will be available once approved or denied via 'monomind org approve/deny'.` };
+    if (approved === false) {
+      const denied: Decision = { behavior: 'deny', message: `Tool "${toolName}" was denied by guardrail approval` };
+      onDeny?.(toolName, input, denied);
+      return denied;
+    }
+    if (approved === null) {
+      const pending: Decision = { behavior: 'deny', message: `Tool "${toolName}" is pending human approval — it will be available once approved or denied via 'monomind org approve/deny'.` };
+      onDeny?.(toolName, input, pending);
+      return pending;
+    }
     return decision;
   };
 }
@@ -130,6 +163,13 @@ export interface SessionOpts {
   searchKnowledge?: (role: string, query: string) => Promise<string>;
   /** Guardrail beforeTool hook: checks if a tool call requires approval before execution. */
   beforeTool?: (role: string, toolName: string) => Promise<boolean | null>;
+  /** Called whenever gatedCanUseTool denies a tool call — wired to daemon.recordDecision()
+   *  so those denials show up in `org decisions` traces. */
+  onDecision?: (role: string, toolName: string, message: string) => void;
+  /** ORG-9: reports whether this role currently has a pending decision gate —
+   *  wired to daemon.listGates(org, 'pending'). When true, gatedCanUseTool
+   *  denies every tool call until the gate is resolved. */
+  hasPendingGate?: () => boolean;
   def?: OrgDef;
   maxTurns?: number;
   queryFn?: typeof query; // injectable for tests
@@ -363,7 +403,11 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
       },
       maxTurns: opts.maxTurns ?? 30,
       resume,
-      canUseTool: gatedCanUseTool(policy, opts.beforeTool, role.id, opts.fence),
+      canUseTool: gatedCanUseTool(policy, opts.beforeTool, role.id, opts.fence,
+        opts.onDecision
+          ? (toolName, _input, decision) => opts.onDecision!(role.id, toolName, decision.message ?? 'denied')
+          : undefined,
+        opts.hasPendingGate),
       // test seam forwarded through extras: lets the scripted fake SDK
       // (test-loop.ts) drive org_send and tool calls through the real
       // deliver/policy paths; the real SDK ignores it.
@@ -478,6 +522,8 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
           costDelta = prev === undefined || m.cost_usd < prev ? m.cost_usd : m.cost_usd - prev;
           costTotals.set(sid, m.cost_usd);
         }
+        // ORG-7: accumulate real USD cost so policy.overBudgetUsd (role.budget_usd) is enforceable.
+        if (typeof costDelta === 'number' && Number.isFinite(costDelta)) policy.addUsageUsd(costDelta);
         bus.emit({ type: 'usage', from: role.id, data: { tokens, cost_usd: costDelta, subtype: m.subtype } });
         if (m.subtype && m.subtype !== 'success') {
           if (m.subtype === 'error_max_turns') hitTurnLimit = true;
@@ -503,6 +549,11 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
         }
         if (policy.overBudget) {
           bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });
+          mailbox.close();
+        }
+        // ORG-7: parallel USD-budget enforcement, same pattern as the token check above.
+        if (policy.overBudgetUsd) {
+          bus.emit({ type: 'status', from: role.id, reason: 'budget-exhausted', msg: 'USD budget exhausted - closing session' });
           mailbox.close();
         }
       }

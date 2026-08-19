@@ -103,6 +103,9 @@ export const RolePolicySchema = z.object({
    *  'api.example.com'), '*.example.com' wildcard, or '*' for any host. */
   webAllow: z.array(z.string()).optional(),
   maxTokens: z.number().int().positive().optional(),
+  /** USD spend cap for this role (ORG-7). Enforced the same way maxTokens/overBudget
+   *  is: PolicyEngine.decide() denies once accumulated cost meets or exceeds it. */
+  maxUsd: z.number().positive().optional(),
   /** Git access level: 'none' blocks all git, 'read' allows status/log/diff,
    *  'commit' allows add/commit, 'push' allows push. Default: 'read'. */
   git: z.enum(['none', 'read', 'commit', 'push']).default('read'),
@@ -142,6 +145,12 @@ export const RoleSchema = z.object({
    *  token-hungry model (e.g. GLM via opencode) can get a larger budget without
    *  inflating the org-wide budget for every other role. Unset = even split. */
   budget_tokens: z.number().int().positive().optional(),
+  /** Per-role USD spend cap (ORG-7). Unlike budget_tokens, there is no org-wide
+   *  even split for USD — unset means no USD enforcement for this role (only
+   *  token budgets apply). Enforced via PolicyEngine (see RolePolicySchema.maxUsd)
+   *  and session.ts's overBudgetUsd check, which mirrors the token-budget-exhausted
+   *  close-mailbox pattern. */
+  budget_usd: z.number().positive().optional(),
 }).passthrough();
 
 /** Default per-message turn budget for a role session. Deliberately huge so
