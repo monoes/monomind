@@ -49,21 +49,28 @@ function isInitialized(cwd: string): boolean {
   return fs.existsSync(configPath);
 }
 
-// Format uptime
-function formatUptime(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+// Check liveness of a pid via a zero-signal, matching the pattern used in
+// commands/start.ts (isPidAlive) / .claude/helpers/control-start.cjs.
+function isPidAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-  if (days > 0) {
-    return `${days}d ${hours % 24}h ${minutes % 60}m`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
+// Whether the `monomind start --daemon` background process is actually
+// alive, determined by reading its real pid file — not assumed.
+function isDaemonRunning(cwd: string): boolean {
+  const daemonPidPath = path.join(cwd, '.monomind', 'daemon.pid');
+  if (!fs.existsSync(daemonPidPath)) return false;
+  try {
+    const pid = Number(fs.readFileSync(daemonPidPath, 'utf-8').trim());
+    return isPidAlive(pid);
+  } catch {
+    return false;
   }
 }
 
@@ -77,15 +84,18 @@ function formatBytes(bytes: number): string {
 }
 
 // Get system status data
-async function getSystemStatus(): Promise<{
+async function getSystemStatus(cwd: string): Promise<{
   initialized: boolean;
   running: boolean;
   swarm: {
     id: string | null;
     topology: string;
-    agents: { total: number; active: number; idle: number };
-    health: string;
-    uptime: number;
+    // swarm_status (mcp-tools/swarm-tools.ts) only ever returns a `status`
+    // string and an `agentCount` number for agents — never a health verdict,
+    // an uptime, or an active/idle breakdown. Those used to be read anyway
+    // and silently resolved to `undefined`/`NaN` in the display.
+    status: string;
+    agents: { total: number };
   };
   mcp: {
     running: boolean;
@@ -111,14 +121,22 @@ async function getSystemStatus(): Promise<{
     searchSpeed: string;
   };
 }> {
+  // Real daemon liveness — replaces a literal `running: true` that claimed
+  // "running" for every project where the MCP tool calls below happened not
+  // to throw, regardless of whether any Monomind process was actually alive.
+  const daemonRunning = isDaemonRunning(cwd);
+
   try {
-    // Get swarm status
+    // Get swarm status. swarm_status genuinely returns: swarmId, status,
+    // topology, maxAgents, agentCount, taskCount, config, createdAt,
+    // updatedAt — no `agents.{total,active,idle}` object, no `health`, no
+    // `uptime`. Reading those non-existent fields used to resolve to
+    // `undefined`/`NaN` in the rendered table instead of throwing.
     const swarmStatus = await callMCPTool<{
-      swarmId: string;
-      topology: string;
-      agents: { total: number; active: number; idle: number; terminated: number };
-      health: string;
-      uptime: number;
+      swarmId?: string;
+      status?: string;
+      topology?: string;
+      agentCount?: number;
     }>('swarm_status', { includeMetrics: true });
 
     // Get MCP status
@@ -176,22 +194,12 @@ async function getSystemStatus(): Promise<{
 
     return {
       initialized: true,
-      running: true,
+      running: daemonRunning,
       swarm: {
-        id: swarmStatus.swarmId,
-        topology: swarmStatus.topology,
-        // swarm_status omits `agents` entirely when no swarm has been
-        // initialised — the common case in a fresh project. Reading
-        // .agents.total threw, and the catch below turned that into an
-        // all-zero "system not running" report for EVERY panel, including
-        // memory and tasks that were perfectly readable.
-        agents: {
-          total: swarmStatus.agents?.total ?? 0,
-          active: swarmStatus.agents?.active ?? 0,
-          idle: swarmStatus.agents?.idle ?? 0
-        },
-        health: swarmStatus.health,
-        uptime: swarmStatus.uptime
+        id: swarmStatus.swarmId ?? null,
+        topology: swarmStatus.topology ?? 'none',
+        status: swarmStatus.status ?? 'no_swarm',
+        agents: { total: swarmStatus.agentCount ?? 0 }
       },
       mcp: mcpStatus,
       memory: {
@@ -226,13 +234,12 @@ async function getSystemStatus(): Promise<{
     }
     return {
       initialized: true,
-      running: false,
+      running: daemonRunning,
       swarm: {
         id: null,
         topology: 'none',
-        agents: { total: 0, active: 0, idle: 0 },
-        health: 'stopped',
-        uptime: 0
+        status: 'no_swarm',
+        agents: { total: 0 }
       },
       mcp: { running: false, port: null, transport: 'stdio' },
       memory: {
@@ -262,9 +269,11 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   output.writeln(`${output.bold('Monomind')} ${statusIcon}`);
   output.writeln();
 
-  // Swarm section
+  // Swarm section. swarm_status never returns a health verdict, an uptime,
+  // or an active/idle breakdown — only `status`/`topology`/`agentCount` — so
+  // those are the only fields shown here.
   output.writeln(output.bold('Swarm'));
-  if (status.running) {
+  if (status.swarm.id) {
     output.printTable({
       columns: [
         { key: 'property', header: 'Property', width: 15 },
@@ -273,12 +282,11 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
       data: [
         { property: 'ID', value: status.swarm.id },
         { property: 'Topology', value: status.swarm.topology },
-        { property: 'Health', value: formatHealth(status.swarm.health) },
-        { property: 'Uptime', value: formatUptime(status.swarm.uptime) }
+        { property: 'Status', value: status.swarm.status }
       ]
     });
   } else {
-    output.printInfo('  Swarm not running');
+    output.printInfo('  No active swarm');
   }
   output.writeln();
 
@@ -290,8 +298,6 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
       { key: 'count', header: 'Count', width: 10, align: 'right' }
     ],
     data: [
-      { status: 'Active', count: status.swarm.agents.active },
-      { status: 'Idle', count: status.swarm.agents.idle },
       { status: output.bold('Total'), count: status.swarm.agents.total }
     ]
   });
@@ -407,7 +413,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
 
   // Get status
-  const status = await getSystemStatus();
+  const status = await getSystemStatus(cwd);
 
   // Health check mode
   if (healthCheck) {
@@ -422,7 +428,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   // Watch mode
   if (watch) {
-    return watchStatus(interval);
+    return watchStatus(interval, cwd);
   }
 
   // Single status display
@@ -451,18 +457,17 @@ async function performHealthCheck(
   // Check swarm health
   if (status.running) {
     checks.push({
-      name: 'Swarm Health',
-      status: status.swarm.health === 'healthy' ? 'pass' :
-              status.swarm.health === 'degraded' ? 'warn' : 'fail',
-      message: `Swarm is ${status.swarm.health}`
+      name: 'Swarm Status',
+      status: status.swarm.status === 'running' ? 'pass' :
+              status.swarm.status === 'no_swarm' ? 'fail' : 'warn',
+      message: `Swarm status: ${status.swarm.status}`
     });
 
     // Check agent count
     checks.push({
       name: 'Agents Available',
-      status: status.swarm.agents.active > 0 ? 'pass' :
-              status.swarm.agents.idle > 0 ? 'warn' : 'fail',
-      message: `${status.swarm.agents.active} active, ${status.swarm.agents.idle} idle`
+      status: status.swarm.agents.total > 0 ? 'pass' : 'fail',
+      message: `${status.swarm.agents.total} agent(s)`
     });
 
     // Check MCP
@@ -520,7 +525,7 @@ async function performHealthCheck(
 }
 
 // Watch mode - continuous status updates
-async function watchStatus(intervalSeconds: number): Promise<CommandResult> {
+async function watchStatus(intervalSeconds: number, cwd: string): Promise<CommandResult> {
   output.writeln();
   output.writeln(output.bold('Watch Mode'));
   output.writeln(output.dim(`Refreshing every ${intervalSeconds}s. Press Ctrl+C to exit.`));
@@ -533,7 +538,7 @@ async function watchStatus(intervalSeconds: number): Promise<CommandResult> {
     output.writeln(output.dim(`Last updated: ${new Date().toLocaleTimeString()}`));
     output.writeln();
 
-    const status = await getSystemStatus();
+    const status = await getSystemStatus(cwd);
     await displayStatus(status);
   };
 
@@ -562,14 +567,20 @@ const agentsCommand: Command = {
   description: 'Show detailed agent status',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
+      // agent_list (mcp-tools/agent-tools.ts) returns agentId/agentType/status/
+      // health/taskCount/createdAt/domain — it never returns `id`, `type`,
+      // `task`, `uptime`, or a `metrics.successRate` object. Reading
+      // `a.metrics.successRate` on the real shape threw a TypeError
+      // ("Cannot read properties of undefined") for every agent in the store.
       const result = await callMCPTool<{
         agents: Array<{
-          id: string;
-          type: string;
+          agentId: string;
+          agentType: string;
           status: string;
-          task?: string;
-          uptime: number;
-          metrics: { tasksCompleted: number; successRate: number };
+          health: number;
+          taskCount: number;
+          createdAt: string;
+          domain?: string;
         }>;
       }>('agent_list', { includeMetrics: true, status: 'all' });
 
@@ -592,17 +603,17 @@ const agentsCommand: Command = {
           { key: 'id', header: 'ID', width: 20 },
           { key: 'type', header: 'Type', width: 12 },
           { key: 'status', header: 'Status', width: 10 },
-          { key: 'task', header: 'Current Task', width: 25 },
-          { key: 'uptime', header: 'Uptime', width: 12 },
-          { key: 'success', header: 'Success', width: 8 }
+          { key: 'tasks', header: 'Tasks', width: 8 },
+          { key: 'created', header: 'Created', width: 22 },
+          { key: 'health', header: 'Health', width: 8 }
         ],
         data: result.agents.map(a => ({
-          id: a.id,
-          type: a.type,
-          status: formatHealth(a.status),
-          task: a.task || '-',
-          uptime: formatUptime(a.uptime),
-          success: `${(a.metrics.successRate * 100).toFixed(0)}%`
+          id: a.agentId ?? 'N/A',
+          type: a.agentType ?? 'N/A',
+          status: a.status ? formatHealth(a.status) : 'N/A',
+          tasks: a.taskCount ?? 'N/A',
+          created: a.createdAt ?? 'N/A',
+          health: typeof a.health === 'number' ? a.health.toFixed(2) : 'N/A'
         }))
       });
 

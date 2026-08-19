@@ -134,15 +134,26 @@ describe('poolCommand', () => {
     expect(data.agents.map((a) => a.type).sort()).toEqual(['coder', 'tester']);
   });
 
-  it('scales the pool up for a given agent type by spawning bare pool agents directly into the store', async () => {
+  it('scales the pool up for the default agent type when --size is passed', async () => {
     const result = (await poolCommand.action!(
-      makeCtx({ flags: { size: 3, min: 1, max: 10, _: [] } })) as CommandResult
+      makeCtx({ flags: { size: 3, _: [] } })) as CommandResult
     );
-    // poolCommand always calls agent_pool with action defaulted to 'status'
-    // (agent-tools.ts L397) — CLI does not expose a way to trigger 'scale'
-    // via its flags today, so this documents current pass-through behavior.
+    // --size now maps to a real agent_pool 'scale' call (targetSize), which
+    // actually spawns/removes bare pool agents in the store.
     expect(result.success).toBe(true);
-    expect((result.data as { currentSize: number }).currentSize).toBe(0);
+    const data = result.data as { previousSize: number; targetSize: number; newSize: number; added: string[] };
+    expect(data.previousSize).toBe(0);
+    expect(data.targetSize).toBe(3);
+    expect(data.newSize).toBe(3);
+    expect(data.added).toHaveLength(3);
+  });
+
+  it('no longer accepts --min, --max, or --auto-scale (there is no autoscaler)', () => {
+    const optionNames = (poolCommand.options ?? []).map((o) => o.name);
+    expect(optionNames).not.toContain('min');
+    expect(optionNames).not.toContain('max');
+    expect(optionNames).not.toContain('auto-scale');
+    expect(optionNames).toEqual(['size']);
   });
 });
 

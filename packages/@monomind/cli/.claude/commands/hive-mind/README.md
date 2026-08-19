@@ -4,39 +4,40 @@ name: hive-mind:README
 
 # Hive-Mind Commands
 
-Queen-led consensus-based multi-agent coordination system. All operations use the `mcp__monomind__hive-mind_*` MCP tools.
+Queen-led consensus-based multi-agent coordination system. There is no
+`npx monomind hive-mind` CLI subcommand — all operations use the
+`mcp__monomind__hive-mind_*` MCP tools directly.
 
 ## Commands (invoke as slash commands)
 
-- [hive-mind](./hive-mind.md) — overview of all subcommands, topologies, and quick start
+- [hive-mind](./hive-mind.md) — overview of all 11 tools, topologies, and quick start
 - [hive-mind-init](./hive-mind-init.md) — initialize hive with topology and consensus settings
-- [hive-mind-spawn](./hive-mind-spawn.md) — spawn workers; `--claude` launches Claude Code as Queen
+- [hive-mind-spawn](./hive-mind-spawn.md) — register worker agent records into the hive
 - [hive-mind-status](./hive-mind-status.md) — show hive status, workers, and metrics
-- [hive-mind-stop](./hive-mind-stop.md) — shutdown the hive (the `shutdown` subcommand)
+- [hive-mind-stop](./hive-mind-stop.md) — shut down the hive (the `shutdown` tool)
 - [hive-mind-consensus](./hive-mind-consensus.md) — manage proposals and voting
 - [hive-mind-memory](./hive-mind-memory.md) — access hive shared memory
 
-## Real Subcommands (11 total)
+## Real Tools (11 total)
 
 ```
-init           Initialize hive with topology and consensus
-spawn          Spawn workers; --claude launches Claude Code as Queen
-status         Show status, workers, and metrics
-task           Submit a task for distributed execution
-join           Add an agent to the hive
-leave          Remove an agent from the hive
-consensus      Manage consensus proposals and voting
-broadcast      Broadcast a message to all workers
-memory         Access hive shared memory
-optimize-memory Optimize memory patterns and consolidation
-shutdown       Gracefully shutdown the hive
+hive-mind_init            Create the hive state file (topology, consensus, empty worker list)
+hive-mind_spawn           Register worker records into the agent store and hive
+hive-mind_status          Read hive status: queen, workers, task/consensus metrics
+hive-mind_join            Add an existing agent id to the hive's worker list
+hive-mind_leave           Remove an agent id from the hive's worker list
+hive-mind_consensus       Propose/vote/check status on threshold-based decisions
+hive-mind_broadcast       Write a message into the hive's shared memory
+hive-mind_memory          Get/set/delete/list keys in the hive's shared memory
+hive-mind_audit_list      List signed consensus decision records
+hive-mind_audit_verify    Verify a consensus decision's vote/record signatures
+hive-mind_shutdown        Clear hive workers from the agent store, reset hive state
 ```
 
 ## Real Tools Used
 
 - `mcp__monomind__hive-mind_init` / `hive-mind_spawn` / `hive-mind_status` — lifecycle
-- `mcp__monomind__hive-mind_task` / `hive-mind_join` / `hive-mind_leave` — task and agent management
+- `mcp__monomind__hive-mind_join` / `hive-mind_leave` — worker membership
 - `mcp__monomind__hive-mind_consensus` / `hive-mind_broadcast` — coordination
-- `mcp__monomind__hive-mind_memory` / `hive-mind_optimize-memory` / `hive-mind_shutdown` — memory and shutdown
-- `mcp__monomind__coordination_orchestrate` — cross-agent task distribution
-- `mcp__monomind__memory_store` / `memory_retrieve` — global persistent memory
+- `mcp__monomind__hive-mind_audit_list` / `hive-mind_audit_verify` — decision-record auditing
+- `mcp__monomind__hive-mind_memory` / `hive-mind_shutdown` — shared memory and shutdown

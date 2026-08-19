@@ -23,6 +23,12 @@ monomind security <subcommand> [flags]
 | `defend` | AI manipulation defense — detect prompt injection, jailbreaks, and PII | `--input/-i <text>`, `--file/-f <path>`, `--quick/-Q`, `--learn/-l` (default `true`), `--stats/-s`, `--output/-o <text\|json>` (default `text`) | [`security-misc.ts:L101`](packages/@monomind/cli/src/commands/security-misc.ts#L101) |
 | `redteam` | Adversarial red-team testing — prompt injection, jailbreak, and manipulation scenarios (PyRIT-style) *(has a real prompt library and a working `--dry-run`; live `--target` execution is not implemented)* | `--target/-t <id>`, `--scenarios/-s <list>` (default `all`), `--iterations/-n <n>` (default `5`), `--dry-run`, `--output/-o <text\|json>` (default `text`), `--threshold <0-1>` (default `0.1`) | [`security-misc.ts:L270`](packages/@monomind/cli/src/commands/security-misc.ts#L270) |
 
+#### `scan --output` formats
+
+- `text` (default): human-readable table + summary box.
+- `json`: structured findings (`severity`, `type`, `location`, `description`), a `summary` count block, and `coverage` gap info — printed instead of the table.
+- `sarif`: SARIF 2.1.0 document, produced by adapting scan findings into monograph's real SARIF exporter (`exportHealthSarif` in [`packages/@monomind/monograph/src/export/sarif.ts`](packages/@monomind/monograph/src/export/sarif.ts)) rather than a second SARIF implementation.
+
 ---
 
 ## 2. Model Context Protocol (MCP) Security Tools (`monofence_*`)

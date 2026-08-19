@@ -117,27 +117,43 @@ export const metricsCommand: Command = {
 
 export const poolCommand: Command = {
   name: 'pool',
-  description: 'Manage agent pool for scaling',
+  description: 'Show agent pool status, or scale it to a target size',
   options: [
-    { name: 'size', short: 's', description: 'Pool size', type: 'number' },
-    { name: 'min', description: 'Minimum pool size', type: 'number', default: 1 },
-    { name: 'max', description: 'Maximum pool size', type: 'number', default: 10 },
-    { name: 'auto-scale', short: 'a', description: 'Enable auto-scaling', type: 'boolean', default: true },
+    { name: 'size', short: 's', description: 'Scale the pool to this many agents (omit to just show status)', type: 'number' },
   ],
   examples: [
-    { command: 'monomind agent pool --size 5', description: 'Set pool size' },
-    { command: 'monomind agent pool --min 2 --max 15', description: 'Configure auto-scaling' },
+    { command: 'monomind agent pool', description: 'Show current pool status' },
+    { command: 'monomind agent pool --size 5', description: 'Scale the pool to 5 agents' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
+      const size = ctx.flags.size as number | undefined;
+
+      if (size !== undefined) {
+        const result = await callMCPTool<{
+          agentType: string; previousSize: number; targetSize: number; newSize: number;
+          added: string[]; removed: string[];
+        }>('agent_pool', { action: 'scale', targetSize: size });
+
+        if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
+
+        output.writeln();
+        output.printBox([
+          `Agent Type: ${result.agentType}`,
+          `Previous Size: ${result.previousSize}`,
+          `Target Size: ${result.targetSize}`,
+          `New Size: ${result.newSize}`,
+          ...(result.added.length > 0 ? [`Added: ${result.added.join(', ')}`] : []),
+          ...(result.removed.length > 0 ? [`Removed: ${result.removed.join(', ')}`] : []),
+        ].join('\n'), 'Agent Pool Scale');
+
+        return { success: true, data: result };
+      }
+
       const result = await callMCPTool<{
-        poolId: string; currentSize: number; minSize: number; maxSize: number;
-        autoScale: boolean; utilization: number;
+        poolId: string; currentSize: number; utilization: number;
         agents: Array<{ id: string; type: string; status: string }>;
-      }>('agent_pool', {
-        size: ctx.flags.size, min: ctx.flags.min, max: ctx.flags.max,
-        autoScale: ctx.flags['auto-scale'] ?? true,
-      });
+      }>('agent_pool', {});
 
       if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
 
@@ -146,8 +162,6 @@ export const poolCommand: Command = {
       output.printBox([
         `Pool ID: ${result.poolId ?? 'default'}`,
         `Current Size: ${result.currentSize ?? 0}`,
-        `Min/Max: ${result.minSize ?? 0}/${result.maxSize ?? 100}`,
-        `Auto-Scale: ${result.autoScale ? 'Yes' : 'No'}`,
         `Utilization: ${(utilization * 100).toFixed(1)}%`,
       ].join('\n'), 'Agent Pool');
 

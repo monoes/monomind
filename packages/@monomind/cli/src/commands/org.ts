@@ -930,9 +930,10 @@ const testLoopAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // non-literal specifier: test-loop.ts lands in a later task; keeps tsc clean until then
   const testLoopModule = '../orgrt/test-loop.js';
   const { runTestLoop } = await import(testLoopModule) as
-    { runTestLoop: (cwd: string, times: number) => Promise<{ summary: string; failed: number }> };
+    { runTestLoop: (cwd: string, times: number, scenarioFile?: string) => Promise<{ summary: string; failed: number }> };
   const n = Number(ctx.flags['times'] ?? ctx.flags['n'] ?? 5);
-  const report = await runTestLoop(ctx.cwd, n);
+  const scenario = typeof ctx.flags['scenario'] === 'string' ? ctx.flags['scenario'] : undefined;
+  const report = await runTestLoop(ctx.cwd, n, scenario);
   log(output.info(report.summary));
   return { success: report.failed === 0, message: report.summary };
 };
@@ -1187,7 +1188,10 @@ export const orgCommand: Command = {
     },
     {
       name: 'test-loop', description: 'Run the org e2e verification loop N times',
-      options: [{ name: 'times', short: 'n', description: 'Iterations', type: 'number', default: 5 }],
+      options: [
+        { name: 'times', short: 'n', description: 'Iterations', type: 'number', default: 5 },
+        { name: 'scenario', description: 'Run a declarative scenario file (.monomind/scenarios/<file>) instead of the built-in fixture — structural dry-run only', type: 'string' },
+      ],
       action: testLoopAction,
     },
     {

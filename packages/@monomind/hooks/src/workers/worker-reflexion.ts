@@ -15,19 +15,37 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 
+/**
+ * Shape of a route-outcomes.jsonl record, as actually written by
+ * recordRoute()/joinOutcome() in
+ * packages/@monomind/cli/src/monovector/route-outcomes.ts. Notably: the
+ * task description field is `task` (not `taskDescription`), the recommended
+ * agent is `recommendedAgent` (not `agentType`), success is `measuredSuccess`
+ * (not `success`), the timestamp `ts` is a numeric epoch-ms value (not an
+ * ISO string), and there is no `error` field at all — outcome records don't
+ * carry failure text, only pass/fail.
+ */
 interface RouteOutcome {
-  taskId?: string;
-  taskDescription?: string;
-  agentType?: string;
-  agentId?: string;
-  success?: boolean;
+  routeId?: string;
+  ts?: number;
+  task?: string;
+  recommendedAgent?: string;
+  agentActuallyUsed?: string;
+  measuredSuccess?: boolean;
+  quality?: number;
+  /**
+   * Not part of the real route-outcomes.jsonl schema — outcome records only
+   * carry pass/fail, no failure text. Kept optional here so the reflection
+   * template degrades gracefully (falls back to a placeholder) rather than
+   * assuming this field exists.
+   */
   error?: string;
-  timestamp?: string;
-  durationMs?: number;
 }
 
 interface Reflection {
   id: string;
+  /** routeId + task + ts of the source outcome record, used to dedup across runs. */
+  sourceKey: string;
   taskDescription: string;
   agentType: string;
   error: string;
@@ -63,8 +81,10 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
       };
     }
 
-    // Filter for failures
-    const failures = outcomes.filter(o => o.success === false && o.taskDescription);
+    // Filter for failures. Real records report failure via `measuredSuccess
+    // === false` and the task text lives in `task` (not `success` /
+    // `taskDescription`, which don't exist on the real record shape).
+    const failures = outcomes.filter(o => o.measuredSuccess === false && o.task);
     if (failures.length === 0) {
       return {
         worker: 'reflexion', success: true, duration: Date.now() - startTime, timestamp: ts,
@@ -72,32 +92,40 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
       };
     }
 
-    // Load existing reflections (dedup by task+error)
+    // Load existing reflections (dedup by source record identity)
     let existing: Reflection[] = [];
     try {
       const content = await fs.readFile(storePath, 'utf-8');
       existing = JSON.parse(content) as Reflection[];
     } catch { /* first run */ }
-    const existingKeys = new Set(existing.map(r => `${r.taskDescription}::${r.error}`));
+    // There's no `error` field in the real schema to dedup on, so dedup
+    // uses the source outcome record's identity (routeId + task + ts) instead.
+    const dedupKey = (o: RouteOutcome) => `${o.routeId ?? ''}::${o.task ?? ''}::${o.ts ?? ''}`;
+    const existingKeys = new Set(existing.map(r => r.sourceKey));
 
     // Generate reflections for new failures
     const newReflections: Reflection[] = [];
     for (const failure of failures) {
-      const key = `${failure.taskDescription}::${failure.error}`;
+      const key = dedupKey(failure);
       if (existingKeys.has(key)) continue;
 
-      const keywords = (failure.taskDescription || '')
+      const keywords = (failure.task || '')
         .toLowerCase()
         .split(/[\s,;:.()/[\]{}'"-]+/)
         .filter(w => w.length > 3 && !['the', 'this', 'that', 'with', 'from', 'have', 'been', 'will', 'into', 'your'].includes(w))
         .slice(0, 8);
 
+      // Real route-outcomes.jsonl records use a numeric epoch-ms `ts`, not a
+      // timestamp string — convert explicitly rather than treating it as one.
+      const timestamp = typeof failure.ts === 'number' ? new Date(failure.ts).toISOString() : new Date().toISOString();
+
       newReflections.push({
         id: `reflection-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        taskDescription: failure.taskDescription || '(unknown)',
-        agentType: failure.agentType || '(unknown)',
+        sourceKey: key,
+        taskDescription: failure.task || '(unknown)',
+        agentType: failure.recommendedAgent || '(unknown)',
         error: failure.error || '(no error message)',
-        timestamp: failure.timestamp || new Date().toISOString(),
+        timestamp,
         reflection: generateReflection(failure),
         keywords,
       });
@@ -134,12 +162,14 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
  * use natural-language reflection on execution traces.
  */
 function generateReflection(failure: RouteOutcome): string {
-  const task = failure.taskDescription || 'the task';
-  const agent = failure.agentType || 'the agent';
-  const error = failure.error || 'an unknown error';
-  const duration = failure.durationMs ? ` after ${(failure.durationMs / 1000).toFixed(1)}s` : '';
+  const task = failure.task || 'the task';
+  const agent = failure.recommendedAgent || 'the agent';
+  // Real route-outcomes.jsonl records carry no failure text — this is
+  // expected, not a bug; degrade to a placeholder rather than printing
+  // "undefined".
+  const error = failure.error || '(no error message)';
 
-  return `When "${task}" was routed to ${agent}, it failed${duration} with: ${error}. ` +
+  return `When "${task}" was routed to ${agent}, it failed with: ${error}. ` +
     `Next time this task type is attempted, consider: (1) a different agent type, ` +
     `(2) breaking the task into smaller steps, (3) checking prerequisites before starting. ` +
     `This reflection was generated automatically by the Reflexion worker (P2-15).`;

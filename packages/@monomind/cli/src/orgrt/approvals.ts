@@ -109,6 +109,16 @@ export async function setApproval(daemon: OrgDaemon, org: string, role: string, 
     }
 
     running?.bus.emit({ type: 'status', from: role, msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}` });
+
+    // ORG-1: an approval resolving (approve or reject) is a natural decision
+    // point — record it so `org decisions` shows real traces.
+    daemon.recordDecision(org, role, {
+      type: 'approval',
+      context: `approval request: ${action}`,
+      reasoning: approved ? 'approved by human' : 'rejected by human',
+      outcome: approved ? 'approved' : 'rejected',
+    });
+
     return { ok: true };
   });
 }

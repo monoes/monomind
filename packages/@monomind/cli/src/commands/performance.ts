@@ -640,7 +640,7 @@ const bottleneckCommand: Command = {
     const perf = (config.performance ?? {}) as Record<string, unknown>;
     const hnsw = (perf.hnsw ?? {}) as Record<string, unknown>;
     if (!hnsw.quantization) {
-      findings.push({ component: 'Vector Search', bottleneck: 'No HNSW quantization', severity: output.error('High'), solution: 'Run: monomind performance optimize --apply -t memory' });
+      findings.push({ component: 'Vector Search', bottleneck: 'No HNSW quantization', severity: output.error('High'), solution: 'Run: monomind hooks intelligence optimize --method quantize' });
     }
 
     const tracesDir = '.monomind/traces';
@@ -659,13 +659,13 @@ const bottleneckCommand: Command = {
       const stat = fs.statSync(dbFile).size ?? 0;
       const sizeMB = stat / 1024 / 1024;
       if (sizeMB > 100) {
-        findings.push({ component: 'Memory DB', bottleneck: `SQLite ${sizeMB.toFixed(0)}MB`, severity: output.warning('Medium'), solution: 'Run: monomind memory compact' });
+        findings.push({ component: 'Memory DB', bottleneck: `SQLite ${sizeMB.toFixed(0)}MB`, severity: output.warning('Medium'), solution: 'No automated SQLite compaction exists yet — prune stale entries with: monomind memory delete --key <key> --namespace <ns>' });
       }
     } catch { /* no memory.db yet */ }
 
     const network = (perf.network ?? {}) as Record<string, unknown>;
     if (!network.batching) {
-      findings.push({ component: 'Network', bottleneck: 'No request batching', severity: output.info('Low'), solution: 'Run: monomind performance optimize --apply -t latency' });
+      findings.push({ component: 'Network', bottleneck: 'No request batching', severity: output.info('Low'), solution: 'No automated fix available — request batching requires a manual code change, not exposed via any CLI command yet' });
     }
 
     let results = findings;
