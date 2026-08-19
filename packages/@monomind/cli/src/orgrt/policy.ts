@@ -1,5 +1,5 @@
 // packages/@monomind/cli/src/orgrt/policy.ts
-import { relative, resolve } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
 import type { OrgBus } from './bus.js';
 import type { RolePolicy } from './types.js';
 
@@ -104,7 +104,15 @@ export class PolicyEngine {
       if (p !== null) {
         const rel = relative(this.cwd, resolve(this.cwd, p));
         if (rel.startsWith('..')) return deny(`path escapes org workdir: ${p}`);
-        if (!globs.some(g => globToRegExp(g).test(rel))) return deny(`path ${rel} outside ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope`);
+        // fileWrite/fileRead globs are always authored with '/' separators (POSIX
+        // convention, matches every example in types.ts and the skill docs) — but
+        // path.relative()/path.resolve() return '\'-separated paths on Windows, and
+        // globToRegExp treats '\' as a literal character, not a separator. Without
+        // normalizing, every glob with a '/' in it silently fails to match on
+        // Windows and a role with ANY fileWrite/fileRead scope narrower than the
+        // unrestricted ['**'] default is denied on every single call.
+        const relPosix = rel.split(sep).join('/');
+        if (!globs.some(g => globToRegExp(g).test(relPosix))) return deny(`path ${rel} outside ${WRITE_TOOLS.has(tool) ? 'write' : 'read'} scope`);
       }
     }
 
