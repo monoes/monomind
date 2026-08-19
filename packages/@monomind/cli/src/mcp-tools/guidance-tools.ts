@@ -97,7 +97,7 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
   'memory-knowledge': {
     name: 'Memory & Knowledge',
     description: 'Persistent memory with ANN vector search, SQLite storage, and embeddings.',
-    tools: ['memory_store', 'memory_retrieve', 'memory_search', 'memory_list', 'memory_delete', 'memory_init', 'memory_export', 'memory_import', 'memory_stats', 'memory_compact', 'memory_namespace'],
+    tools: ['memory_pattern-store', 'memory_hierarchical-store', 'memory_pattern-search', 'memory_hierarchical-recall', 'memory_kg_ingest', 'memory_kg_search', 'memory_kg_stats', 'memory_kg_consolidate', 'memory_kg_rollback', 'memory_batch', 'memory_health'],
     commands: ['memory store', 'memory retrieve', 'memory search', 'memory list', 'memory delete', 'memory init'],
     agents: ['swarm-memory-manager'],
     skills: ['memory-advanced', 'memory-vector-search', 'memory-patterns', 'memory-learning'],
@@ -119,7 +119,7 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
     commands: [
       'hooks pre-task', 'hooks post-task', 'hooks pre-edit', 'hooks post-edit',
       'hooks session-start', 'hooks session-end', 'hooks route', 'hooks explain',
-      'hooks pretrain', 'hooks build-agents', 'hooks intelligence', 'hooks worker',
+      'hooks pretrain', 'hooks intelligence', 'hooks worker',
       'hooks coverage-gaps', 'hooks coverage-route', 'hooks coverage-suggest',
       'hooks statusline', 'hooks progress',
     ],
@@ -132,7 +132,7 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
     description: 'Queen-led Byzantine fault-tolerant distributed consensus with multiple strategies.',
     tools: ['hive_mind_init', 'hive_mind_status', 'hive_mind_propose', 'hive_mind_vote', 'hive_mind_consensus', 'hive_mind_metrics'],
     commands: ['hive-mind init', 'hive-mind status', 'hive-mind consensus', 'hive-mind sessions', 'hive-mind spawn', 'hive-mind stop'],
-    agents: ['crdt-synchronizer', 'quorum-manager'],
+    agents: ['quorum-manager'],
     skills: ['hive-mind-advanced'],
     whenToUse: 'When multiple agents need to reach agreement on decisions using BFT, Raft, or CRDT.',
   },

@@ -5,7 +5,7 @@
  * This file is the main registration entry point.
  * Commands are extracted to sub-modules (ARCH-1):
  *   - hooks-core-commands.ts    — pre/post edit and command hooks
- *   - hooks-routing-commands.ts — route/explain/pretrain/build-agents/metrics/transfer/list
+ *   - hooks-routing-commands.ts — route/explain/pretrain/metrics/transfer/list
  *   - hooks-workers.ts          — intelligence and worker commands
  *   - hooks-coverage-commands.ts — coverage-aware routing
  *   - hooks-extended-commands.ts — token optimize, model routing, agent teams
@@ -37,7 +37,6 @@ import {
   routeCommand,
   explainCommand,
   pretrainCommand,
-  buildAgentsCommand,
   metricsCommand,
   transferCommand,
   listCommand,
@@ -575,7 +574,6 @@ export const hooksCommand: Command = {
     routeCommand,
     explainCommand,
     pretrainCommand,
-    buildAgentsCommand,
     metricsCommand,
     transferCommand,
     listCommand,
@@ -634,7 +632,6 @@ export const hooksCommand: Command = {
       `${output.highlight('route')}           - Route tasks to optimal agents`,
       `${output.highlight('explain')}         - Explain routing decisions`,
       `${output.highlight('pretrain')}        - Bootstrap intelligence from repository`,
-      `${output.highlight('build-agents')}    - Generate optimized agent configs`,
       `${output.highlight('metrics')}         - View learning metrics dashboard`,
       `${output.highlight('transfer')}        - Transfer patterns from another project`,
       `${output.highlight('list')}            - List all registered hooks`,

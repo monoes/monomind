@@ -24,7 +24,6 @@ import {
   hooksPostTask,
   hooksExplain,
   hooksPretrain,
-  hooksBuildAgents,
   hooksTransfer,
   hooksSessionStart,
   hooksSessionRestore,
@@ -303,38 +302,6 @@ describe('CLI-1 — hooks-routing input validation', () => {
       const r = await tool.handler({ depth: NUL }) as { depth?: string; error?: string };
       // depth is optional — bad input falls back to default rather than pass through.
       expect(r.depth).not.toBe(NUL);
-    });
-  });
-
-  describe('hooks_build-agents', () => {
-    const tool = hooksBuildAgents;
-
-    it('does not pass through a path-traversal format string', async () => {
-      // Even if no error is returned, the traversal string must NOT reach
-      // downstream code (it's capped at 16 chars AND checked against an
-      // allowlist, so it falls back to 'yaml' rather than poisoning writes).
-      const r = await tool.handler({ format: 'yaml/../../../etc/cron.d/x' }) as { error?: string; agents?: Array<{ configFile: string }> };
-      if (r.agents) {
-        // Every configFile must end in .yaml or .json — never the injected path.
-        for (const a of r.agents) {
-          expect(a.configFile).toMatch(/\.(yaml|json)$/);
-          expect(a.configFile).not.toMatch(/cron\.d/);
-        }
-      } else {
-        // If rejected, that's also fine.
-        expect(typeof r.error === 'string').toBe(true);
-      }
-    });
-
-    it('does not pass through a NUL byte in format', async () => {
-      const r = await tool.handler({ format: NUL }) as { error?: string; agents?: Array<{ configFile: string }> };
-      if (r.agents) {
-        for (const a of r.agents) {
-          expect(a.configFile).toMatch(/\.(yaml|json)$/);
-        }
-      } else {
-        expect(typeof r.error === 'string').toBe(true);
-      }
     });
   });
 

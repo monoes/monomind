@@ -108,20 +108,20 @@ vi.mock('../src/mcp-tools/swarm-tools.js', () => ({
 vi.mock('../src/mcp-tools/memory-tools.js', () => ({
   memoryTools: [
     {
-      name: 'memory_store',
-      description: 'Store data in memory',
+      name: 'memory_pattern-store',
+      description: 'Store a reusable pattern in memory',
       category: 'memory',
       inputSchema: {
         type: 'object',
-        required: ['key', 'value'],
+        required: ['pattern'],
         properties: {
-          key: { type: 'string' },
-          value: { type: 'string' },
-          namespace: { type: 'string' }
+          pattern: { type: 'string' },
+          type: { type: 'string' },
+          confidence: { type: 'number' }
         }
       },
       handler: vi.fn(async (input) => ({
-        key: input.key,
+        pattern: input.pattern,
         stored: true,
         timestamp: new Date().toISOString()
       }))
@@ -206,15 +206,15 @@ describe('MCP Client', () => {
       });
     });
 
-    it('should call memory_store tool successfully', async () => {
-      const result = await callMCPTool('memory_store', {
-        key: 'test-key',
-        value: 'test-value',
-        namespace: 'default'
+    it('should call memory_pattern-store tool successfully', async () => {
+      const result = await callMCPTool('memory_pattern-store', {
+        pattern: 'test-pattern',
+        type: 'general',
+        confidence: 0.8
       });
 
       expect(result).toMatchObject({
-        key: 'test-key',
+        pattern: 'test-pattern',
         stored: true
       });
       expect(result.timestamp).toBeDefined();

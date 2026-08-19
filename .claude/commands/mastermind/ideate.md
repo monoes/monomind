@@ -39,7 +39,7 @@ Collect ALL of the following in parallel (skip any that error):
 
 4. **Knowledge graph**: Call `mcp__monomind__monograph_suggest` with the user's prompt (`$ARGUMENTS`). Skip if it errors or returns empty.
 
-5. **Memory search**: Call `mcp__monomind__memory_search` with the user's prompt (`$ARGUMENTS`). Use the top 5 results.
+5. **Memory search**: Call `mcp__monomind__memory_pattern-search` with the user's prompt (`$ARGUMENTS`). Use the top 5 results.
 
 Bundle all gathered information into a single `PROJECT_CONTEXT` string for downstream agents.
 

@@ -34,6 +34,12 @@ import {
   type TrajectoryData,
   type TrajectoryStep,
 } from './hooks-embedding.js';
+import { recordModelOutcome, computeModelStats } from '../monovector/model-outcomes.js';
+
+/** Ledger dir for model-outcome/model-stats — `.monomind/neural/model-outcomes.jsonl`. */
+function getModelOutcomesBaseDir(): string {
+  return join(getProjectCwd(), '.monomind', 'neural');
+}
 
 // Intelligence reset hook
 export const hooksIntelligenceReset: MCPTool = {
@@ -761,7 +767,7 @@ export const hooksIntelligenceStats: MCPTool = {
 export const hooksIntelligenceLearn: MCPTool = {
   name: 'hooks_intelligence_learn',
   description:
-    'Run a consolidation pass over the local keyword-pattern store: time-decay confidence weighting, pruning, and an EWC++-style quadratic penalty derived from squared embedding magnitudes. There are no gradients and no model — no ML training occurs.',
+    'Run a real consolidation pass over the local pattern store via compactPatterns(): dedupes patterns above a cosine-similarity threshold and reports the actual before/after/removed counts. There are no gradients and no model — no ML training occurs.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -770,7 +776,7 @@ export const hooksIntelligenceLearn: MCPTool = {
         items: { type: 'string' },
         description: 'Specific trajectories to learn from',
       },
-      consolidate: { type: 'boolean', description: 'Run EWC++ consolidation' },
+      consolidate: { type: 'boolean', description: 'Run pattern consolidation (compactPatterns)' },
     },
   },
   handler: async (params: Record<string, unknown>) => {
@@ -797,24 +803,13 @@ export const hooksIntelligenceLearn: MCPTool = {
       };
     }
 
-    // Get EWC++ statistics and optionally trigger consolidation
-    let ewcStats = {
-      consolidation: false,
-      fisherUpdated: false,
-      forgettingPrevented: 0,
-      avgPenalty: 0,
-    };
+    // Run the real consolidation pass (dedupes similar patterns by cosine
+    // similarity) and report the actual before/after/removed counts —
+    // the same function and reporting shape used by `hooks intelligence --train`.
+    let consolidation: { before: number; after: number; removed: number } | null = null;
     if (consolidate) {
-      const ewc = await getEWCConsolidator();
-      if (ewc) {
-        const stats = ewc.getConsolidationStats();
-        ewcStats = {
-          consolidation: true,
-          fisherUpdated: stats.consolidationCount > 0,
-          forgettingPrevented: stats.highImportancePatterns,
-          avgPenalty: stats.avgPenalty,
-        };
-      }
+      const { compactPatterns } = await import('../memory/intelligence.js');
+      consolidation = await compactPatterns(0.95);
     }
 
     return {
@@ -832,7 +827,7 @@ export const hooksIntelligenceLearn: MCPTool = {
               ).toFixed(1) + '%'
             : '0%',
       },
-      ewc: consolidate ? ewcStats : null,
+      consolidation,
       confidence: {
         average: sonaStats.avgConfidence,
         implementation: sona ? 'real-sona' : 'not-available',
@@ -923,13 +918,26 @@ export const hooksModelOutcome: MCPTool = {
           : 'failure'
         : (params.outcome as 'success' | 'failure' | 'escalated');
     const outcome = effectiveOutcome;
+    const quality =
+      typeof params.quality === 'number' && Number.isFinite(params.quality)
+        ? Math.max(0, Math.min(1, params.quality as number))
+        : undefined;
 
-    // Native model-router removed in the lean build — outcome is acknowledged but not
-    // fed to a neural learner (keyword routing has no online-learning store).
+    // Native model-router removed in the lean build — there is no neural learner to
+    // feed. What we do have: an append-only ledger of routing decisions and their
+    // measured outcomes, mirroring route-outcomes.ts. hooks_model-stats reads this
+    // back to compute real aggregate statistics.
+    await recordModelOutcome(getModelOutcomesBaseDir(), {
+      ts: Date.now(),
+      task: task || '',
+      model,
+      outcome,
+      ...(quality !== undefined ? { quality } : {}),
+    });
 
     return {
       recorded: true,
-      task: task.slice(0, 50),
+      task: (task || '').slice(0, 50),
       model,
       outcome,
       timestamp: new Date().toISOString(),
@@ -946,10 +954,23 @@ export const hooksModelStats: MCPTool = {
     properties: {},
   },
   handler: async () => {
-    // Native model-router removed in the lean build — no neural routing stats to report.
+    // Native model-router removed in the lean build — but hooks_model-outcome
+    // appends real records to model-outcomes.jsonl, so real aggregate stats can
+    // be computed from that ledger.
+    const stats = await computeModelStats(getModelOutcomesBaseDir());
+    if (stats.totalDecisions === 0) {
+      return {
+        available: false,
+        message: 'No model-outcome records yet — run "hooks model-outcome" to start recording.',
+      };
+    }
     return {
-      available: false,
-      message: 'Model router not available in the lean build (keyword routing has no stats)',
+      available: true,
+      totalDecisions: stats.totalDecisions,
+      modelDistribution: stats.modelDistribution,
+      successRate: stats.successRate,
+      byModel: stats.byModel,
+      avgQuality: stats.avgQuality,
     };
   },
 };

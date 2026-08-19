@@ -13,14 +13,17 @@ import type { RankedResult } from './rrf.js';
 import { ftsSearch } from '../storage/fts-store.js';
 import { normalizeSearchTerm } from './diacritic.js';
 
-export interface HybridQueryOptions {
+export interface BM25QueryOptions {
   limit?: number;
   label?: string;
-  /** @deprecated Embeddings are disabled — this option is ignored; search is BM25-only. */
+  /** @deprecated Embeddings are disabled — this option is ignored; search is BM25-only. Will be removed in the next major version. */
   embedder?: unknown;
 }
 
-export interface HybridResult extends RankedResult {
+/** @deprecated Use {@link BM25QueryOptions} — this alias will be removed in the next major version. */
+export type HybridQueryOptions = BM25QueryOptions;
+
+export interface BM25Result extends RankedResult {
   id: string;
   name: string;
   normLabel: string;
@@ -33,15 +36,18 @@ export interface HybridResult extends RankedResult {
   endLine?: number | null;
 }
 
+/** @deprecated Use {@link BM25Result} — this alias will be removed in the next major version. */
+export type HybridResult = BM25Result;
+
 /**
- * Run a BM25 (FTS5) search. Despite the name, this is BM25-only — the
- * vector branch was removed; the `embedder` option is ignored.
+ * Run a BM25 (FTS5) search. The `embedder` option is ignored — the vector
+ * branch was removed; search is BM25-only.
  */
-export async function hybridQuery(
+export async function bm25Query(
   db: Database.Database,
   query: string,
-  options: HybridQueryOptions = {},
-): Promise<HybridResult[]> {
+  options: BM25QueryOptions = {},
+): Promise<BM25Result[]> {
   const { limit = 20, label } = options;
 
   // Normalize the query for text-based lookups (strip diacritics, lowercase, trim)
@@ -61,5 +67,13 @@ export async function hybridQuery(
     endLine: r.endLine,
   }));
 
-  return bm25Results.slice(0, limit) as HybridResult[];
+  return bm25Results.slice(0, limit) as BM25Result[];
 }
+
+/**
+ * @deprecated Use {@link bm25Query} instead — this is a misleading name
+ * (search here is BM25-only, not a hybrid of multiple retrieval strategies).
+ * `hybridQuery` remains as an alias for backward compatibility and will be
+ * removed in the next major version.
+ */
+export const hybridQuery = bm25Query;

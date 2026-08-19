@@ -14,8 +14,8 @@ import type { Server } from 'http';
 import type { Application } from 'express';
 import { openDb, closeDb } from '../storage/db.js';
 import { querySearch, queryStats } from '../web/api.js';
-import { hybridQuery } from '../search/hybrid-query.js';
-import type { HybridResult } from '../search/hybrid-query.js';
+import { bm25Query } from '../search/hybrid-query.js';
+import type { BM25Result } from '../search/hybrid-query.js';
 import type { ApiNode } from '../web/api.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ export interface EvalServerHandle {
   stop(): void;
 }
 
-export type SearchResult = HybridResult;
+export type SearchResult = BM25Result;
 
 // ── createEvalServer ──────────────────────────────────────────────────────────
 
@@ -83,13 +83,13 @@ export function createEvalServer(repoPath: string, _port?: number): EvalServerHa
       }
     });
 
-    // POST /search — hybrid BM25+vector search returning SearchResult[]
+    // POST /search — BM25 search returning SearchResult[]
     app.post('/search', async (req, res) => {
       try {
         const query: string = (req.body as { query?: string }).query ?? '';
         const limit: number = (req.body as { limit?: number }).limit ?? 20;
-        const results: HybridResult[] = query.trim()
-          ? await hybridQuery(db, query, { limit })
+        const results: BM25Result[] = query.trim()
+          ? await bm25Query(db, query, { limit })
           : [];
         res.json({ results });
       } catch (err) {

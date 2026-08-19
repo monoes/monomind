@@ -19,7 +19,6 @@ import {
   hooksPostTask,
   hooksExplain,
   hooksPretrain,
-  hooksBuildAgents,
   hooksTransfer,
   hooksSessionStart,
   hooksSessionRestore,
@@ -56,7 +55,6 @@ export const hooksTools: MCPTool[] = [
   // New hooks
   hooksExplain,
   hooksPretrain,
-  hooksBuildAgents,
   hooksTransfer,
   hooksSessionStart,
   hooksSessionRestore,

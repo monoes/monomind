@@ -10,11 +10,11 @@ vi.mock('../../src/storage/db.js', () => ({
 }));
 
 vi.mock('../../src/search/hybrid-query.js', () => ({
-  hybridQuery: vi.fn(),
+  bm25Query: vi.fn(),
 }));
 
 import { openDb, closeDb } from '../../src/storage/db.js';
-import { hybridQuery } from '../../src/search/hybrid-query.js';
+import { bm25Query } from '../../src/search/hybrid-query.js';
 import { augmentContext } from '../../src/cli/augment.js';
 import type { HybridResult } from '../../src/search/hybrid-query.js';
 
@@ -42,7 +42,7 @@ const sampleResults: HybridResult[] = [
 beforeEach(() => {
   vi.mocked(openDb).mockReturnValue(mockDb);
   vi.mocked(closeDb).mockImplementation(() => {});
-  vi.mocked(hybridQuery).mockResolvedValue(sampleResults);
+  vi.mocked(bm25Query).mockResolvedValue(sampleResults);
 });
 
 afterEach(() => {
@@ -91,10 +91,10 @@ describe('augmentContext', () => {
     expect(first).toHaveProperty('score');
   });
 
-  it('topK: 0 returns empty context without calling hybridQuery', async () => {
+  it('topK: 0 returns empty context without calling bm25Query', async () => {
     const result = await augmentContext({ query: 'anything', repoPath, topK: 0 });
     expect(result).toBe('');
-    expect(hybridQuery).not.toHaveBeenCalled();
+    expect(bm25Query).not.toHaveBeenCalled();
   });
 
   it('topK: 0 with json format returns valid JSON with empty results', async () => {
@@ -106,22 +106,22 @@ describe('augmentContext', () => {
   it('empty query returns empty string', async () => {
     const result = await augmentContext({ query: '', repoPath });
     expect(result).toBe('');
-    expect(hybridQuery).not.toHaveBeenCalled();
+    expect(bm25Query).not.toHaveBeenCalled();
   });
 
-  it('passes topK as limit to hybridQuery', async () => {
+  it('passes topK as limit to bm25Query', async () => {
     await augmentContext({ query: 'test', repoPath, topK: 5 });
-    expect(hybridQuery).toHaveBeenCalledWith(mockDb, 'test', { limit: 5 });
+    expect(bm25Query).toHaveBeenCalledWith(mockDb, 'test', { limit: 5 });
   });
 
-  it('when hybridQuery returns empty results, returns no-results message', async () => {
-    vi.mocked(hybridQuery).mockResolvedValueOnce([]);
+  it('when bm25Query returns empty results, returns no-results message', async () => {
+    vi.mocked(bm25Query).mockResolvedValueOnce([]);
     const result = await augmentContext({ query: 'unknown_xyz', repoPath, format: 'markdown' });
     expect(result).toContain('No relevant code context found');
   });
 
-  it('opens and closes the DB even when hybridQuery throws', async () => {
-    vi.mocked(hybridQuery).mockRejectedValueOnce(new Error('db error'));
+  it('opens and closes the DB even when bm25Query throws', async () => {
+    vi.mocked(bm25Query).mockRejectedValueOnce(new Error('db error'));
     await expect(augmentContext({ query: 'test', repoPath })).rejects.toThrow('db error');
     expect(closeDb).toHaveBeenCalledWith(mockDb);
   });

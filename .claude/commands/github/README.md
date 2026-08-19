@@ -20,5 +20,5 @@ Commands and guidance for GitHub workflow automation in Monomind. All GitHub ope
 - `gh` CLI — all GitHub operations (issues, PRs, releases, repos, branches)
 - `mcp__monomind__swarm_init` / `agent_spawn` — swarm coordination
 - `mcp__monomind__coordination_orchestrate` — task coordination across agents (`strategy: parallel|sequential|pipeline|broadcast`)
-- `mcp__monomind__memory_store` / `memory_retrieve` — cross-agent state persistence
+- `mcp__monomind__memory_pattern-store` / `memory_retrieve` — cross-agent state persistence
 - `gh` CLI — preferred for all direct GitHub API operations not covered by the above

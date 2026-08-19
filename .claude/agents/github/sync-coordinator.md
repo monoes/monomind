@@ -78,7 +78,7 @@ Bash(`gh api repos/:owner/:repo/contents/packages/@monomind/cli/CLAUDE.md \
   -f sha="$(gh api repos/:owner/:repo/contents/packages/@monomind/cli/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
 
 // Store sync state in memory
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "sync/documentation/status",
   value: { timestamp: Date.now(), status: "synchronized", files: ["CLAUDE.md"] }
@@ -176,7 +176,7 @@ Bash(`gh pr create \
   ]}
 
   // Store comprehensive sync state
-  mcp__monomind__memory_store {
+  mcp__monomind__memory_pattern-store {
     action: "store",
     key: "sync/complete/status",
     value: {
@@ -303,7 +303,7 @@ const syncConflictResolver = async (conflicts) => {
   await mcp__monomind__agent_spawn({ type: "coder", name: "Resolution Developer" });
   await mcp__monomind__agent_spawn({ type: "reviewer", name: "Solution Validator" });
 
-  await mcp__monomind__memory_store({
+  await mcp__monomind__memory_pattern-store({
     action: "store",
     key: "sync/conflicts/current",
     value: {
@@ -332,7 +332,7 @@ mcp__monomind__agent_spawn { type: "coder", name: "Recovery Developer" }
 
 mcp__monomind__coordination_sync { swarmId: "error-recovery-swarm" }
 
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "sync/recovery/state",
   value: {

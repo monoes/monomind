@@ -1,7 +1,7 @@
 /**
  * Hooks Routing MCP Tools
  * MCP tool implementations for pre/post edit/command, route, explain, pretrain,
- * build-agents, transfer, session, list, metrics, pre-task, post-task, intelligence.
+ * transfer, session, list, metrics, pre-task, post-task, intelligence.
  * Extracted from hooks-tools.ts.
  */
 
@@ -43,9 +43,19 @@ import {
   getFileExtension,
   TASK_PATTERNS,
   MEMORY_DIR,
-  MEMORY_FILE,
-  type MemoryStore,
 } from './hooks-embedding.js';
+import { mergeRecordsById } from '../utils/json-file.js';
+
+/** Shape of a record in `.monomind/neural/patterns.json` — mirrors the
+ *  `Pattern`/`StoredPattern` interfaces in src/memory/intelligence.ts. Kept
+ *  loose here (no embedding required) since `hooks transfer` only needs to
+ *  filter/dedupe/report on id, type, and confidence. */
+interface NeuralPattern {
+  id: string;
+  type?: string;
+  confidence?: number;
+  [key: string]: unknown;
+}
 
 // MCP Tool implementations - return raw data for direct CLI use
 export const hooksPreEdit: MCPTool = {
@@ -630,7 +640,6 @@ export const hooksList: MCPTool = {
       { name: 'session-restore', type: 'SessionStart', status: 'active' },
       // Learning hooks
       { name: 'pretrain', type: 'intelligence', status: 'active' },
-      { name: 'build-agents', type: 'intelligence', status: 'active' },
       { name: 'transfer', type: 'intelligence', status: 'active' },
       { name: 'metrics', type: 'analytics', status: 'active' },
       // System hooks
@@ -912,14 +921,22 @@ export const hooksPostTask: MCPTool = {
         console.error('[hooks-post-task] memory bridge feedback failed:', e);
     }
 
-    // Phase 3: Record causal edge (task → outcome)
+    // Phase 3: Record causal edge (task → outcome) as a real, traversable
+    // knowledge-graph edge (via memory_kg_ingest — same path as the
+    // memory_causal-edge MCP tool), not the opaque write-only `causal:` bridge namespace.
     try {
-      const bridge = await import('../memory/memory-bridge.js');
-      await bridge.bridgeRecordCausalEdge({
-        sourceId: taskId,
-        targetId: `outcome-${taskId}`,
-        relation: success ? 'succeeded' : 'failed',
-        strength: quality,
+      const kg = await import('../memory/memory-kg.js');
+      const outcomeId = `outcome-${taskId}`;
+      await kg.kgIngest({
+        nodes: [{ name: taskId }, { name: outcomeId }],
+        edges: [
+          {
+            source: taskId,
+            target: outcomeId,
+            relation: success ? 'succeeded' : 'failed',
+          },
+        ],
+        originRef: 'hooks-post-task',
       });
     } catch (e) {
       // Non-fatal
@@ -1374,124 +1391,6 @@ export const hooksPretrain: MCPTool = {
   },
 };
 
-// Build agents hook - generate optimized agent configs
-export const hooksBuildAgents: MCPTool = {
-  name: 'hooks_build-agents',
-  description: 'Generate optimized agent configurations from pretrain data',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      outputDir: { type: 'string', description: 'Output directory for configs' },
-      focus: {
-        type: 'string',
-        description: 'Focus area (v1-implementation, security, performance, all)',
-      },
-      format: { type: 'string', description: 'Config format (yaml, json)' },
-      persist: { type: 'boolean', description: 'Write configs to disk' },
-    },
-  },
-  handler: async (params: Record<string, unknown>) => {
-    const rawOutputDir = resolve(
-      validateMcpString(params.outputDir, 'outputDir', 4 * 1024) ?? './agents',
-    );
-    const outputDir = rawOutputDir;
-    if (!outputDir.startsWith(getProjectCwd() + sep) && outputDir !== getProjectCwd()) {
-      return { error: 'Invalid outputDir: must be within the project directory.' };
-    }
-    const focus = validateMcpString(params.focus, 'focus', 64) ?? 'all';
-    // Strict allowlist on `format` — without this, `format = "yaml/../../../etc/cron.d/x"`
-    // collapses through `join` and lets writes escape the validated outputDir.
-    const ALLOWED_FORMATS = new Set(['yaml', 'json']);
-    const format = validateMcpString(params.format, 'format', 16) ?? 'yaml';
-    if (!ALLOWED_FORMATS.has(format)) {
-      return { error: 'Invalid format: must be yaml or json' };
-    }
-    const persist = params.persist !== false; // Default to true
-
-    const agents = [
-      {
-        type: 'coder',
-        configFile: join(outputDir, `coder.${format}`),
-        capabilities: ['code-generation', 'refactoring', 'debugging'],
-        optimizations: ['token-reduction', 'context-caching'],
-      },
-      {
-        type: 'architect',
-        configFile: join(outputDir, `architect.${format}`),
-        capabilities: ['system-design', 'api-design', 'documentation'],
-        optimizations: ['context-caching', 'memory-persistence'],
-      },
-      {
-        type: 'tester',
-        configFile: join(outputDir, `tester.${format}`),
-        capabilities: ['unit-testing', 'integration-testing', 'coverage'],
-        optimizations: ['parallel-execution'],
-      },
-      {
-        type: 'security-architect',
-        configFile: join(outputDir, `security-architect.${format}`),
-        capabilities: ['threat-modeling', 'vulnerability-analysis', 'security-review'],
-        optimizations: ['pattern-matching'],
-      },
-      {
-        type: 'reviewer',
-        configFile: join(outputDir, `reviewer.${format}`),
-        capabilities: ['code-review', 'quality-analysis', 'best-practices'],
-        optimizations: ['incremental-analysis'],
-      },
-    ];
-
-    const filteredAgents =
-      focus === 'all'
-        ? agents
-        : focus === 'security'
-          ? agents.filter((a) => a.type.includes('security') || a.type === 'reviewer')
-          : focus === 'performance'
-            ? agents.filter((a) => ['coder', 'tester'].includes(a.type))
-            : agents;
-
-    // Persist configs to disk if requested
-    if (persist) {
-      // Ensure output directory exists
-      if (!existsSync(outputDir)) {
-        mkdirSync(outputDir, { recursive: true });
-      }
-
-      // Write each agent config
-      for (const agent of filteredAgents) {
-        const config = {
-          type: agent.type,
-          capabilities: agent.capabilities,
-          optimizations: agent.optimizations,
-          version: '3.0.0',
-          createdAt: new Date().toISOString(),
-        };
-
-        const content =
-          format === 'json'
-            ? JSON.stringify(config, null, 2)
-            : `# ${agent.type} agent configuration\ntype: ${agent.type}\nversion: "3.0.0"\ncapabilities:\n${agent.capabilities.map((c) => `  - ${c}`).join('\n')}\noptimizations:\n${agent.optimizations.map((o) => `  - ${o}`).join('\n')}\ncreatedAt: "${config.createdAt}"\n`;
-
-        const _cftmp = agent.configFile + '.tmp';
-        writeFileSync(_cftmp, content, 'utf-8');
-        renameSync(_cftmp, agent.configFile);
-      }
-    }
-
-    return {
-      outputDir,
-      focus,
-      persisted: persist,
-      agents: filteredAgents,
-      stats: {
-        configsGenerated: filteredAgents.length,
-        patternsApplied: filteredAgents.length * 3,
-        optimizationsIncluded: filteredAgents.reduce((acc, a) => acc + a.optimizations.length, 0),
-      },
-    };
-  },
-};
-
 // Transfer hook - transfer patterns from another project
 export const hooksTransfer: MCPTool = {
   name: 'hooks_transfer',
@@ -1533,65 +1432,91 @@ export const hooksTransfer: MCPTool = {
       return { error: 'sourcePath does not exist' };
     }
 
-    // Try to load patterns from source project's memory store
-    const sourceMemoryPath = join(resolvedSource, MEMORY_DIR, MEMORY_FILE);
-    let sourceStore: MemoryStore = { entries: {}, version: '3.0.0' };
+    // Load learned patterns from the source project's neural pattern store —
+    // the same `.monomind/neural/patterns.json` file `hooks intelligence
+    // import` writes to and intelligence.ts reads from (src/memory/intelligence.ts
+    // getPatternsPath()).
+    const sourcePatternsPath = join(resolvedSource, '.monomind', 'neural', 'patterns.json');
+    let sourcePatterns: NeuralPattern[] = [];
 
-    const MAX_SOURCE_STORE_BYTES = 50 * 1024 * 1024; // 50 MB — matches other store readers
+    const MAX_SOURCE_PATTERNS_BYTES = 50 * 1024 * 1024; // 50 MB — matches other store readers
     try {
       if (
-        existsSync(sourceMemoryPath) &&
-        statSync(sourceMemoryPath).size <= MAX_SOURCE_STORE_BYTES
+        existsSync(sourcePatternsPath) &&
+        statSync(sourcePatternsPath).size <= MAX_SOURCE_PATTERNS_BYTES
       ) {
-        sourceStore = JSON.parse(readFileSync(sourceMemoryPath, 'utf-8'));
+        const parsed = JSON.parse(readFileSync(sourcePatternsPath, 'utf-8'));
+        if (Array.isArray(parsed)) sourcePatterns = parsed;
       }
     } catch (e) {
-      // Fall back to empty store
+      // Fall back to empty list
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
-        console.error('[hooks-transfer] source memory store read/parse failed:', e);
+        console.error('[hooks-transfer] source patterns.json read/parse failed:', e);
     }
 
-    const sourceEntries = Object.values(sourceStore.entries);
-
-    // Count patterns by type from source
-    const byType: Record<string, number> = {
-      'file-patterns': sourceEntries.filter(
-        (e) => e.key.includes('file') || e.metadata?.type === 'file-pattern',
-      ).length,
-      'task-routing': sourceEntries.filter(
-        (e) => e.key.includes('routing') || e.metadata?.type === 'routing',
-      ).length,
-      'command-risk': sourceEntries.filter(
-        (e) => e.key.includes('command') || e.metadata?.type === 'command-risk',
-      ).length,
-      'agent-success': sourceEntries.filter(
-        (e) => e.key.includes('agent') || e.metadata?.type === 'agent-success',
-      ).length,
-    };
-
-    // If source has no patterns, report honestly instead of substituting demo data
-    if (Object.values(byType).every((v) => v === 0)) {
+    if (sourcePatterns.length === 0) {
       return {
         success: false,
         message: 'No patterns found in source project',
         sourcePath,
-        transferred: 0,
+        transferred: { total: 0, byType: {} },
       };
     }
 
-    if (filter) {
-      Object.keys(byType).forEach((key) => {
-        if (!key.includes(filter)) delete byType[key];
-      });
+    // Qualifying patterns: confidence at/above threshold, and (if given) type
+    // matches the filter.
+    const qualifying = sourcePatterns.filter(
+      (p) =>
+        typeof p.id === 'string' &&
+        p.id.length > 0 &&
+        (typeof p.confidence !== 'number' || p.confidence >= minConfidence) &&
+        (!filter || (typeof p.type === 'string' && p.type.includes(filter))),
+    );
+
+    if (qualifying.length === 0) {
+      return {
+        success: false,
+        message: 'No patterns in source project meet the filter/confidence threshold',
+        sourcePath,
+        transferred: { total: 0, byType: {} },
+      };
     }
 
-    const total = Object.values(byType).reduce((a, b) => a + b, 0);
+    // Merge into this project's pattern store, reusing the same by-id dedupe
+    // logic as `hooks intelligence import` (neural-registry.ts's importCommand).
+    const destDir = join(getProjectCwd(), '.monomind', 'neural');
+    const destPatternsPath = join(destDir, 'patterns.json');
+    let destPatterns: NeuralPattern[] = [];
+    try {
+      if (existsSync(destPatternsPath) && statSync(destPatternsPath).size <= MAX_SOURCE_PATTERNS_BYTES) {
+        const parsed = JSON.parse(readFileSync(destPatternsPath, 'utf-8'));
+        if (Array.isArray(parsed)) destPatterns = parsed;
+      }
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[hooks-transfer] destination patterns.json read/parse failed:', e);
+    }
+
+    const { merged, added } = mergeRecordsById(destPatterns, qualifying);
+
+    if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+    const tmpDest = `${destPatternsPath}.${process.pid}.${Date.now()}.tmp`;
+    writeFileSync(tmpDest, JSON.stringify(merged, null, 2), 'utf-8');
+    renameSync(tmpDest, destPatternsPath);
+
+    // Real counts of what was actually transferred, grouped by each pattern's
+    // own `type` field (falling back to 'unknown' when absent).
+    const byType: Record<string, number> = {};
+    for (const p of added) {
+      const type = typeof p.type === 'string' && p.type.length > 0 ? p.type : 'unknown';
+      byType[type] = (byType[type] || 0) + 1;
+    }
 
     return {
       success: true,
       sourcePath,
       transferred: {
-        total,
+        total: added.length,
         byType,
       },
       dataSource: 'source-project',

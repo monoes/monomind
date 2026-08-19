@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import Parser from 'tree-sitter';
 import type { LanguageConfig } from './language-config.js';
 
 /**
@@ -15,17 +16,48 @@ import type { LanguageConfig } from './language-config.js';
 
 const require = createRequire(import.meta.url);
 
-function getLanguage(): import('tree-sitter').Language {
-  // Try tree-sitter-vue first; fall through to TypeScript grammar if unavailable.
+// MEM-2: tree-sitter-vue can `require()` successfully while still returning an
+// ABI-incompatible Language object (e.g. a mismatched native binding) — the
+// require() call itself never throws in that case, so a bare try/catch around
+// require() alone does not detect the failure. Validate the loaded Language by
+// attempting to bind it to a scratch Parser instance; only a successful bind
+// proves the grammar is actually usable.
+function isUsableLanguage(lang: unknown): lang is import('tree-sitter').Language {
+  if (!lang) return false;
+  try {
+    new Parser().setLanguage(lang as import('tree-sitter').Language);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Exported so callers (loader.ts) can decide whether to feed the raw .vue
+// source or the extracted <script> block to the parser, without duplicating
+// the require()-succeeds-but-ABI-is-broken detection logic below.
+export function isVueGrammarUsable(): boolean {
   try {
     const mod = require('tree-sitter-vue');
     const lang = (mod.default ?? mod) as import('tree-sitter').Language;
-    return lang;
+    return isUsableLanguage(lang);
   } catch {
-    // Fall back to TypeScript grammar for script block parsing.
-    const ts = require('tree-sitter-typescript');
-    return ts.typescript as import('tree-sitter').Language;
+    return false;
   }
+}
+
+function getLanguage(): import('tree-sitter').Language {
+  // Try tree-sitter-vue first; fall through to TypeScript grammar if unavailable
+  // or if it loads an ABI-incompatible Language object.
+  try {
+    const mod = require('tree-sitter-vue');
+    const lang = (mod.default ?? mod) as import('tree-sitter').Language;
+    if (isUsableLanguage(lang)) return lang;
+  } catch {
+    // require() itself failed — fall through to the TypeScript grammar below.
+  }
+  // Fall back to TypeScript grammar for script block parsing.
+  const ts = require('tree-sitter-typescript');
+  return ts.typescript as import('tree-sitter').Language;
 }
 
 export const vueConfig: LanguageConfig = {

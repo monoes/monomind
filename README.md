@@ -313,14 +313,14 @@ Before touching any file, Monomind queries **Monograph** — a SQLite-backed kno
 
 ## 🎣 Hooks & Workers
 
-Monomind wires 29 hook subcommands into Claude Code across edit, task, command, and session lifecycle events — logging patterns, routing agents, and feeding the intelligence system.
+Monomind wires 28 hook subcommands into Claude Code across edit, task, command, and session lifecycle events — logging patterns, routing agents, and feeding the intelligence system.
 
 ```mermaid
 flowchart LR
     CE["Claude Code\nEvent"] --> H["Hook Router"]
     H --> P["pre-edit\npre-task\npre-command"]
     H --> SS["session-start\nsession-end\nnotify"]
-    H --> I["route\nlearn\nbuild-agents"]
+    H --> I["route\nlearn"]
     H --> T["teammate-idle\ntask-completed"]
 
     I --> DB[("patterns.json\nmemory store")]

@@ -16,9 +16,9 @@ Before searching or modifying code touching 3+ files or exploring a new module:
 - Call `mcp__monomind__monograph_impact` before editing to compute the exact blast radius of a symbol or class change.
 
 ### 2. Persistent Memory Loop
-- **Recall**: Use `mcp__monomind__memory_search` to query past learnings, architectural rules, and session history before reinventing solutions.
+- **Recall**: Use `mcp__monomind__memory_pattern-search` to query past learnings, architectural rules, and session history before reinventing solutions.
 - **Feedback**: After using memory search, call `mcp__monomind__memory_feedback` with entry IDs and outcome quality to continuously train search ranking.
-- **Store**: Distill durable insights (entities, relations, lessons) into L2 memory via `mcp__monomind__memory_kg_ingest` or `mcp__monomind__memory_store`.
+- **Store**: Distill durable insights (entities, relations, lessons) into L2 memory via `mcp__monomind__memory_kg_ingest` or `mcp__monomind__memory_pattern-store`.
 
 ### 3. Second Brain (Document Vector Search)
 - Project specs, handbooks, and notes indexed in `.monomind/data` or global brain (`~/.monomind/global-brain`) can be queried using `mcp__monomind__knowledge_search` or `npx monomind doc search -q "<query>"`.

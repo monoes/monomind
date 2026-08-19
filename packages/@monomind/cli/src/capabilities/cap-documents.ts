@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { createRequire } from 'node:module';
+import { unzipSync } from 'fflate';
 import type {
   CapabilityModule,
   DirectoryScan,
@@ -26,52 +27,27 @@ const indexedDocs = new Map<string, { path: string; content: string; metadata: R
 
 // ── ZIP-based XML text extraction (pptx, odt, odp, ods, epub) ──────
 // These formats are all ZIP archives containing XML/HTML with text content.
-// We use Node's built-in zlib via fflate (already in tree) or the AdmZip
-// pattern — but to keep deps minimal, we shell out to `unzip -p` which is
-// available on macOS/Linux, with a pure-JS fallback.
+// Read with fflate (pure JS, no native deps, no shell-out) so this works
+// identically on macOS/Linux/Windows — a prior version shelled out to the
+// `unzip` CLI, which isn't available on Windows by default.
 
-async function extractFromZip(filePath: string, xmlPaths: string[], stripTags: boolean): Promise<string> {
-  // C1 hardening: use execFileSync with arg arrays (no shell) so filenames
-  // and zip-entry names cannot trigger shell expansion. The previous
-  // template-string + JSON.stringify form left $(...), `...`, and ${...}
-  // open to evaluation inside the resulting double-quoted shell argument.
-  const { execFileSync } = await import('node:child_process');
+function readZipEntries(filePath: string): Record<string, Uint8Array> {
+  const buffer = fs.readFileSync(filePath);
+  return unzipSync(new Uint8Array(buffer));
+}
+
+function textFromZipEntries(entries: Record<string, Uint8Array>, xmlPaths: string[], stripTags: boolean): string {
   const parts: string[] = [];
 
   for (const xmlPath of xmlPaths) {
-    try {
-      const raw = execFileSync(
-        'unzip',
-        ['-p', filePath, xmlPath],
-        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] },
-      );
-      parts.push(raw);
-    } catch {
-      // file not in archive — skip
-    }
+    const bytes = entries[xmlPath];
+    if (bytes) parts.push(Buffer.from(bytes).toString('utf-8'));
   }
   if (parts.length === 0) {
-    // Fallback: list all XML/HTML files and extract them
-    try {
-      const listing = execFileSync(
-        'unzip',
-        ['-l', filePath],
-        { maxBuffer: 1024 * 1024, encoding: 'utf-8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] },
-      );
-      const candidates = listing.split('\n')
-        .map(l => l.trim().split(/\s+/).pop() || '')
-        .filter(f => /\.(xml|html|xhtml)$/i.test(f));
-      for (const c of candidates.slice(0, 50)) {
-        try {
-          const raw = execFileSync(
-            'unzip',
-            ['-p', filePath, c],
-            { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] },
-          );
-          parts.push(raw);
-        } catch { /* skip */ }
-      }
-    } catch { /* skip */ }
+    // Fallback: any XML/HTML/XHTML entries (e.g. EPUB chapters, whose names
+    // aren't known ahead of time)
+    const candidates = Object.keys(entries).filter(f => /\.(xml|html|xhtml)$/i.test(f)).slice(0, 50);
+    for (const c of candidates) parts.push(Buffer.from(entries[c]).toString('utf-8'));
   }
 
   const joined = parts.join('\n');
@@ -82,6 +58,10 @@ async function extractFromZip(filePath: string, xmlPaths: string[], stripTags: b
     .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#\d+;/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+async function extractFromZip(filePath: string, xmlPaths: string[], stripTags: boolean): Promise<string> {
+  return textFromZipEntries(readZipEntries(filePath), xmlPaths, stripTags);
 }
 
 // ── RTF text extraction (no dep) ───────────────────────────────────
@@ -200,8 +180,15 @@ export async function extractText(file: FileEntry): Promise<string> {
   // PPTX — ZIP with XML slides
   if (ext === '.pptx') {
     try {
-      const slidePaths = Array.from({ length: 100 }, (_, i) => `ppt/slides/slide${i + 1}.xml`);
-      return await extractFromZip(file.absolutePath, slidePaths, true);
+      const entries = readZipEntries(file.absolutePath);
+      const slidePaths = Object.keys(entries)
+        .filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f))
+        .sort((a, b) => {
+          const na = parseInt(a.match(/slide(\d+)\.xml$/)?.[1] ?? '0', 10);
+          const nb = parseInt(b.match(/slide(\d+)\.xml$/)?.[1] ?? '0', 10);
+          return na - nb;
+        });
+      return textFromZipEntries(entries, slidePaths, true);
     } catch { return ''; }
   }
 
@@ -357,13 +344,27 @@ export const documentsCapability: CapabilityModule = {
       checks.push({ name: 'XLSX/XLS/ODS', status: 'warn', message: 'xlsx not installed', hint: 'pnpm add xlsx' });
     }
 
-    // PPTX/ODT/ODP use unzip (system), RTF/CSV are pure JS — always available
+    // PPTX/ODT/ODP/EPUB use fflate (pure JS, no system dep) — cross-platform
     try {
-      const { execFileSync } = await import('node:child_process');
-      execFileSync('which', ['unzip'], { encoding: 'utf-8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] });
-      checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'pass', message: 'unzip available' });
+      await import('fflate');
+      checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'pass', message: 'fflate available' });
     } catch {
-      checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'warn', message: 'unzip not found', hint: 'install unzip (apt install unzip / brew install unzip)' });
+      checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'warn', message: 'fflate not installed', hint: 'pnpm add fflate' });
+    }
+
+    // Legacy DOC/PPT/Pages shell out to macOS's `textutil` — no cross-platform
+    // equivalent, so this is scoped to macOS only rather than presented as
+    // universally supported.
+    if (process.platform === 'darwin') {
+      try {
+        const { execFileSync } = await import('node:child_process');
+        execFileSync('which', ['textutil'], { encoding: 'utf-8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] });
+        checks.push({ name: 'Legacy DOC/PPT/Pages (macOS)', status: 'pass', message: 'textutil available' });
+      } catch {
+        checks.push({ name: 'Legacy DOC/PPT/Pages (macOS)', status: 'warn', message: 'textutil not found on this Mac', hint: 'textutil ships with macOS — reinstall Command Line Tools if missing' });
+      }
+    } else {
+      checks.push({ name: 'Legacy DOC/PPT/Pages (macOS)', status: 'warn', message: `Not supported on ${process.platform} — legacy .doc/.ppt/.pages extraction relies on macOS's textutil and returns empty text here`, hint: 'convert to .docx/.pptx first, or extract on macOS' });
     }
 
     return checks;

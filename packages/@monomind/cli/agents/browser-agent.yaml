@@ -138,11 +138,11 @@ swarm:
 # Hooks integration
 hooks:
   pre_task:
-    - route         # Get optimal routing
-    - memory_search # Check for similar patterns
+    - route                 # Get optimal routing
+    - memory_pattern-search # Check for similar patterns
   post_task:
-    - memory_store  # Save successful patterns
-    - post_edit     # Train on outcomes
+    - memory_pattern-store  # Save successful patterns
+    - post_edit             # Train on outcomes
 
 # Default configuration
 defaults:

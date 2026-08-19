@@ -163,22 +163,6 @@
       "index": 19
     },
     {
-      "id": "gossip-coordinator",
-      "label": "Gossip Coordinator",
-      "category": "consensus",
-      "icon": "💬",
-      "file": "avatars/gossip-coordinator.svg",
-      "index": 20
-    },
-    {
-      "id": "crdt-synchronizer",
-      "label": "CRDT Synchronizer",
-      "category": "consensus",
-      "icon": "🔗",
-      "file": "avatars/crdt-synchronizer.svg",
-      "index": 21
-    },
-    {
       "id": "quorum-manager",
       "label": "Quorum Manager",
       "category": "consensus",

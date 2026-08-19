@@ -37,7 +37,6 @@ All hooks are invoked as `npx monomind hooks <subcommand>`:
 | `route` | Route task to optimal agent |
 | `explain` | Explain routing decision |
 | `pretrain` | Bootstrap intelligence from repo (4-step pipeline) |
-| `build-agents` | Generate optimized agent configs from pretrain data |
 | `metrics` | View learning metrics dashboard |
 | `model-route` | Route to optimal model (haiku/sonnet/opus) |
 | `model-outcome` | Record model routing result |

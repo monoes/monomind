@@ -39,4 +39,4 @@ shutdown       Gracefully shutdown the hive
 - `mcp__monomind__hive-mind_consensus` / `hive-mind_broadcast` — coordination
 - `mcp__monomind__hive-mind_memory` / `hive-mind_optimize-memory` / `hive-mind_shutdown` — memory and shutdown
 - `mcp__monomind__coordination_orchestrate` — cross-agent task distribution
-- `mcp__monomind__memory_store` / `memory_retrieve` — global persistent memory
+- `mcp__monomind__memory_pattern-store` / `memory_retrieve` — global persistent memory
