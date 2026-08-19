@@ -588,16 +588,20 @@ export class OrgDaemon {
 
     // Validate per-role providers before spawning anything (fail-fast: a
     // missing env var discovered 10 minutes into a run wastes the entire run).
-    const { resolveProviderEnv: validateProvider } = await import('./provider.js');
+    const { resolveProviderEnv: validateProvider, resolveRoleProvider } = await import('./provider.js');
     for (const role of def.roles) {
-      if (role.provider) {
-        try {
+      try {
+        if (role.provider) {
           validateProvider(role.provider);
-        } catch (err) {
-          throw new Error(
-            `org ${name}: role "${role.id}" provider validation failed — ${err instanceof Error ? err.message : err}`,
-          );
+        } else if (role.adapter_config?.provider) {
+          // Named provider (`monomind providers configure`): resolve now so a
+          // missing/misconfigured entry fails the run at start, not mid-flight.
+          resolveRoleProvider(role, this.root);
         }
+      } catch (err) {
+        throw new Error(
+          `org ${name}: role "${role.id}" provider validation failed — ${err instanceof Error ? err.message : err}`,
+        );
       }
     }
 
@@ -821,6 +825,9 @@ export class OrgDaemon {
         // (VercelAgentRunner session files) write under .monomind/orgs/<name>
         // instead of polluting the workspace cwd.
         orgDir: join(this.root, ORG_DIR, name),
+        // Project root for named-provider (`adapter_config.provider`) config
+        // lookup — role cwd may be an isolated workspace with no config file.
+        orgRoot: this.root,
         maxTurns: role.max_turns_per_message ?? def.run_config.max_turns_per_message,
         resumeSessionId: roleCheckpoint?.sessionId,
         lastMessageId: () => runtime.lastMessageId,

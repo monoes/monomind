@@ -17,7 +17,7 @@ import { StateDetector } from './state-detector.js';
  *  "boss appears hung". */
 const SILENT_SESSION_MS = 4 * 60_000;
 const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.context/i;
-import { resolveProviderEnv } from './provider.js';
+import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 
 /** Per-vendor/per-runtime default models. Used when a role doesn't pin
  *  adapter_config.model explicitly. Explicit model always wins. */
@@ -109,6 +109,10 @@ export interface SessionOpts {
    *  MONOMIND_ORG_DIR to runners that persist per-role state (VercelAgentRunner
    *  stores session history under `<orgDir>/sessions/`). */
   orgDir?: string;
+  /** Project root for resolving `adapter_config.provider` named providers
+   *  (config search must start at the project root even when the role's
+   *  workspace cwd is an isolated scratch dir). Defaults to opts.cwd. */
+  orgRoot?: string;
   deliver: DeliverFn;
   askHuman?: (role: string, question: string) => Promise<string>;
   /** Coordinator-only: records the run's outcome (daemon persists it to run history). */
@@ -330,6 +334,15 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
 
   const tools = buildOrgTools(opts);
 
+  // Named-provider resolution (`adapter_config.provider`): explicit role
+  // provider wins, else the named entry from `monomind providers configure`.
+  // The named provider's default model fills in adapter_config.model when the
+  // role didn't pin one.
+  const prov = resolveRoleProvider(role, opts.orgRoot ?? opts.cwd);
+  const model = role.adapter_config?.model
+    ?? prov.defaultModel
+    ?? resolveModel(role, role.runtime, role.provider?.vendor ?? prov.cfg?.vendor);
+
   bus.emit({ type: 'status', from: role.id, msg: 'session starting' });
 
   let sessionId: string | undefined = resume;
@@ -341,10 +354,14 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
       prompt: mailbox.stream(),
       systemPrompt: buildRolePrompt(role, (opts.def ?? { name: org, goal: '' }) as OrgDef,
         opts.def?.roles.map(r => r.id) ?? [role.id], opts.glossary),
-      model: resolveModel(role, role.runtime, role.provider?.vendor),
+      model,
       cwd,
       env: {
-        ...resolveProviderEnv(role.provider),
+        ...resolveProviderEnv(prov.cfg),
+        // Custom-endpoint providers (named-provider path): pin the engine's
+        // model env so background/haiku tasks also route to the endpoint's
+        // model instead of erroring on an Anthropic-only default.
+        ...(prov.cfg?.authToken ? { ANTHROPIC_MODEL: model, ANTHROPIC_SMALL_FAST_MODEL: model } : {}),
         // Suppress all hook advisory output and expensive graph operations for
         // SDK-spawned org agent sessions. These agents don't need routing,
         // intelligence injection, or monograph suggestions — they have their
