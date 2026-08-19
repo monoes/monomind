@@ -105,7 +105,7 @@
     "@monoes/monograph": "workspace:*",
     "fflate": "^0.8.3",
     "mammoth": "^1.12.0",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "@firecrawl/pdf-inspector": "^1.12.0",
     "ws": "^8.21.0",
     "zod": "^4.0.0"
