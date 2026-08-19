@@ -51,7 +51,7 @@ Each recovery improves future prevention:
 **Pattern Storage:**
 ```javascript
 // Store error patterns
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   key: "error-pattern-" + Date.now(),
   value: JSON.stringify(errorData),
   namespace: "error-patterns",

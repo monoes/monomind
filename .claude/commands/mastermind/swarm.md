@@ -110,18 +110,6 @@ npx monomind swarm scale swarm-abc123 --agents 12
 npx monomind swarm scale swarm-abc123 --agents 8 --type coder
 ```
 
-## coordinate — v1 15-Agent Coordination
-
-```bash
-# Full v1 15-agent hierarchical mesh
-npx monomind swarm coordinate
-
-# Subset of agents
-npx monomind swarm coordinate --agents 8
-```
-
-Activates the v1 agent roster: Queen Coordinator, Security Architect, Security Auditor, Test Architect, Core Architect, Memory Specialist, Swarm Specialist, Integration Architect, Performance Engineer, CLI Developer, Hooks Developer, MCP Specialist, Project Coordinator, Documentation Lead, DevOps Engineer.
-
 ## MCP Tools
 
 ```javascript

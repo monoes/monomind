@@ -22,7 +22,7 @@ Open the project in opencode. The monomind MCP server (knowledge graph, memory, 
 
 | Capability | How it shows up in opencode |
 |---|---|
-| **MCP server + tools** (Monograph graph, memory, hive-mind) | `opencode.json` → `mcp.monomind`. 88 tools as the `monomind` server (`monograph_query`, `memory_search`, …). |
+| **MCP server + tools** (Monograph graph, memory, hive-mind) | `opencode.json` → `mcp.monomind`. 88 tools as the `monomind` server (`monograph_query`, `memory_pattern-search`, …). |
 | **Agents** | `.opencode/agent/*.md` — your agent roster (coder, reviewer, planner, …) as opencode subagents (`mode: subagent`). |
 | **Commands** | `.opencode/command/*.md` — the `mastermind-*` workflows as opencode slash commands (flat namespace, e.g. `/mastermind-build`). |
 | **Skills** | `.opencode/skills/*/SKILL.md` — same SKILL.md shape Claude Code uses. |

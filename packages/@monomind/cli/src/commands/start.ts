@@ -9,7 +9,6 @@ import { confirm, select } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { spawn } from 'child_process';
 
 /** Check liveness of a pid via a zero-signal, matching the pattern used elsewhere (e.g. .claude/helpers/control-start.cjs). */
 function isPidAlive(pid: number): boolean {
@@ -113,66 +112,14 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
     return { success: false, exitCode: 1 };
   }
 
-  // Daemon mode, parent side: a Node process cannot truly self-daemonize —
-  // every handle (streams, intervals) would need to be unref'd, which leaves
-  // nothing keeping the event loop alive and the process exits almost
-  // immediately. Instead, spawn a genuine DETACHED CHILD process that
-  // re-invokes this same command with an internal marker flag; the parent's
-  // only job is to confirm the child came up and then exit. The child (see
-  // the `--foreground-worker-internal` branch below) is the one that actually
-  // stays running, with a real ref'd keep-alive.
-  const isDaemonChild = Boolean(ctx.flags['foreground-worker-internal']);
-  if (daemon && !isDaemonChild) {
-    output.writeln();
-    output.writeln(output.bold('Starting Monomind (daemon)'));
-    output.writeln();
-
-    const daemonPidPath = path.join(cwd, '.monomind', 'daemon.pid');
-    if (fs.existsSync(daemonPidPath)) {
-      const stalePid = Number(fs.readFileSync(daemonPidPath, 'utf-8').trim());
-      if (isPidAlive(stalePid)) {
-        output.printError(`Daemon already running (pid ${stalePid}). Run "monomind stop" first.`);
-        return { success: false, exitCode: 1 };
-      }
-      // Stale pid file — the prior daemon is dead, safe to remove.
-      fs.unlinkSync(daemonPidPath);
-    }
-
-    // Reconstruct the child's argv explicitly rather than reusing process.argv —
-    // startAction can be reached via `start`, `start quick`, or `restart`
-    // (which calls startAction directly in-process), so process.argv may not
-    // even contain the `start` subcommand. Building the args from ctx.flags
-    // guarantees the respawned child always dispatches to a valid daemon start.
-    const entry = process.argv[1];
-    const childArgs = ['start', '--daemon', '--foreground-worker-internal'];
-    if (topology) childArgs.push('--topology', topology);
-
-    const child = spawn(process.execPath, [entry, ...childArgs], {
-      detached: true,
-      stdio: 'ignore',
-      cwd,
-    });
-    child.unref();
-
-    // Give the child a moment to actually start before trusting its pid.
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (!child.pid || !isPidAlive(child.pid)) {
-      output.printError('Daemon child process failed to start');
-      return { success: false, exitCode: 1 };
-    }
-
-    fs.mkdirSync(path.dirname(daemonPidPath), { recursive: true });
-    fs.writeFileSync(daemonPidPath, String(child.pid), { mode: 0o600 });
-
-    output.printSuccess(`Monomind daemon started (pid ${child.pid})`);
-    output.printInfo('Use "monomind stop" to stop it.');
-
-    const daemonStartResult = { daemon: true, pid: child.pid, startedAt: new Date().toISOString() };
-    if (ctx.flags.format === 'json') {
-      output.printJson(daemonStartResult);
-    }
-    return { success: true, data: daemonStartResult };
+  // `--daemon` does not launch any real long-running process: there is no
+  // actual work for a daemon to do, so refuse rather than pretend to.
+  if (daemon) {
+    output.printError(
+      'Config initialized (no long-running process — use "monomind org run" for real execution). ' +
+      '"--daemon" does not start anything and has been disabled.'
+    );
+    return { success: false, exitCode: 1 };
   }
 
   // Load configuration
@@ -228,7 +175,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     // Success output
     output.writeln();
-    output.printSuccess('Monomind is running!');
+    output.printSuccess('Config initialized (no long-running process — use "monomind org run" for real execution).');
     output.writeln();
 
     // Status display
@@ -237,7 +184,6 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
         `Swarm ID:  ${swarmResult.swarmId}`,
         `Topology:  ${finalTopology}`,
         `Max Agents: ${maxAgents}`,
-        `Mode:      ${daemon ? 'Daemon' : 'Foreground'}`,
         `Health:    ${healthResult.status}`
       ].join('\n'),
       'System Status'
@@ -252,38 +198,11 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
       `${output.highlight('monomind stop')} - Stop the system`
     ]);
 
-    // Daemon mode: this branch only runs inside the detached child spawned by
-    // the parent-side block above (isDaemonChild === true — the parent never
-    // reaches here, it already returned after confirming the child is alive).
-    // The pid file was already written by the parent with the CHILD's pid, so
-    // just confirm it's in place and start the real, ref'd keep-alive that
-    // actually holds the event loop open.
-    if (daemon && isDaemonChild) {
-      output.writeln();
-      output.printInfo('Running in daemon mode. Use "monomind stop" to stop.');
-
-      const daemonPidPath = path.join(cwd, '.monomind', 'daemon.pid');
-
-      // Keep the process alive with a REAL (ref'd) interval — this is what
-      // actually keeps Node's event loop from exiting, since stdio was
-      // already set to 'ignore' by the parent's spawn() call.
-      const keepAlive = setInterval(() => {
-        // Heartbeat - exit if our pid file has been removed (e.g. by `stop`)
-        if (!fs.existsSync(daemonPidPath)) {
-          clearInterval(keepAlive);
-          process.exit(0);
-        }
-      }, 5000);
-      // Deliberately NOT unref'd — this is the one handle that must keep the
-      // daemon child's event loop alive indefinitely.
-    }
-
     const result = {
       swarmId: swarmResult.swarmId,
       topology: finalTopology,
       maxAgents,
       health: healthResult.status,
-      daemon,
       startedAt: new Date().toISOString()
     };
 
@@ -517,7 +436,7 @@ export const startCommand: Command = {
     {
       name: 'daemon',
       short: 'd',
-      description: 'Run as daemon in background',
+      description: 'Disabled — no long-running process exists to daemonize; refuses with an explanatory message',
       type: 'boolean',
       default: false
     },
@@ -530,8 +449,7 @@ export const startCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monomind start', description: 'Start with configuration defaults' },
-    { command: 'monomind start --daemon', description: 'Start as background daemon' },
+    { command: 'monomind start', description: 'Initialize config with configuration defaults' },
     { command: 'monomind start --topology mesh', description: 'Start with mesh topology' },
     { command: 'monomind start quick', description: 'Quick start with defaults' },
     { command: 'monomind start stop', description: 'Stop the running system' }

@@ -84,13 +84,18 @@ When used via Monomind's MCP server, monograph exposes 19 tools by default (+27 
 
 ## Supported languages & Parsers
 
-Monograph utilizes a dual-tier parsing strategy for extracting code structure and symbols:
+Monograph utilizes a dual-tier parsing strategy for extracting code structure and symbols.
 
-1. **Tree-sitter AST Parsers (25 supported extensions)**:
-   - **Extensions**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.py`, `.go`, `.rs`, `.java`, `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`, `.cs`, `.rb`, `.swift`, `.php`, `.vue`, `.kt`, `.kts`, `.dart`.
+> **This section is the authoritative source for Monograph's language/grammar counts.**
+> Other docs in this repo should link here instead of restating the numbers.
+
+1. **Tree-sitter AST Parsers — 14 grammar modules, 25 supported extensions**:
+   - **Grammar modules** (one `LanguageConfig` + tree-sitter package each, [`src/parsers/`](packages/@monomind/monograph/src/parsers/)): `c`, `cpp`, `csharp`, `dart`, `go`, `java`, `kotlin`, `php`, `python`, `ruby`, `rust`, `swift`, `typescript`, `vue` — 14 total. (`typescript` also covers JavaScript; there is no separate JS grammar.)
+   - **Extensions**: `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.py`, `.go`, `.rs`, `.java`, `.c`, `.h`, `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`, `.cs`, `.rb`, `.swift`, `.php`, `.vue`, `.kt`, `.kts`, `.dart` — 25 total, mapped onto the 14 grammar modules above.
    - **Grammar Loader**: Dynamically loads and caches Tree-sitter grammars per extension via `getParser(ext)` ([`loader.ts:64-83`](packages/@monomind/monograph/src/parsers/loader.ts#L64-L83)). Supports `<script>` block isolation for `.vue` files ([`loader.ts:128-142`](packages/@monomind/monograph/src/parsers/loader.ts#L128-L142)).
-2. **Regex Fallback Parsers (5 languages)**:
-   - Lightweight regex-based symbol extractors for languages when Tree-sitter grammars are uninstalled or unsupported: **Scala**, **Lua**, **Zig**, **PowerShell**, and **Elixir** ([`language-parsers.ts:1-100`](packages/@monomind/monograph/src/parsers/language-parsers.ts#L1-L100)).
+   - **Best-effort grammars**: `getParser()` validates every grammar by binding it to a scratch `Parser` before trusting it — a `require()` that succeeds can still return an ABI-incompatible `Language` object, only caught on use (MEM-2, [`loader.ts:91-108`](packages/@monomind/monograph/src/parsers/loader.ts#L91-L108)). `vue` has an explicit fallback to the TypeScript grammar when its own binding fails this check ([`vue.ts`](packages/@monomind/monograph/src/parsers/vue.ts)). `csharp` (loads a prebuilt native binding directly since `tree-sitter-c-sharp`'s ESM entry can't be `require()`d) and `dart` are currently **failing this validation** in this checkout/environment (`csharp grammar load failed (tree-sitter-c-sharp: Cannot read properties of undefined ...)`; `dart grammar load failed (tree-sitter-dart: Invalid language object)`) and fall through to no symbols (`csharp`, which has no regex fallback) or the regex extractor (`dart`). Whether they work depends on the native binding's ABI compatibility with the installed `tree-sitter` core on a given platform/Node version — treat `csharp` and `dart` as best-effort, not guaranteed-working; the other 12 grammar modules validated successfully as of this writing.
+2. **Regex Fallback Parsers (5 languages, 6 including the `dart` fallback when its tree-sitter grammar fails validation)**:
+   - Lightweight regex-based symbol extractors used when a Tree-sitter grammar is uninstalled, unsupported, or fails MEM-2 validation: **Scala**, **Lua**, **Zig**, **PowerShell**, **Elixir**, and (fallback-only) **Dart** ([`language-parsers.ts:1-122`](packages/@monomind/monograph/src/parsers/language-parsers.ts#L1-L122)).
 
 ## SQLite Database Schema
 

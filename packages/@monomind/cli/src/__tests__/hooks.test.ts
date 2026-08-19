@@ -42,7 +42,6 @@ const EXPECTED_SUBCOMMANDS = [
   'route',
   'explain',
   'pretrain',
-  'build-agents',
   'metrics',
   'transfer',
   'list',
@@ -73,10 +72,10 @@ function makeCtx(args: string[], flags: Record<string, unknown> = {}, cwd?: stri
 }
 
 describe('hooksCommand registration', () => {
-  it('registers exactly the expected 29 subcommands, each with an action handler', () => {
+  it('registers exactly the expected 28 subcommands, each with an action handler', () => {
     const names = (hooksCommand.subcommands ?? []).map((c) => c.name);
     expect(names.sort()).toEqual([...EXPECTED_SUBCOMMANDS].sort());
-    expect(names.length).toBe(29);
+    expect(names.length).toBe(28);
 
     for (const sub of hooksCommand.subcommands ?? []) {
       expect(typeof sub.action, `${sub.name} must have an action`).toBe('function');

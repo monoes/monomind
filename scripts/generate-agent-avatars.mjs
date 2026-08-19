@@ -189,8 +189,6 @@ const AGENTS = [
   // ── Consensus ─────────────────────────────────────────────────────────────
   { id:'byzantine-coord',      label:'Byzantine Coord.',      cat:'consensus',  icon:'⚖️', acc:'none' },
   { id:'raft-manager',         label:'Raft Manager',          cat:'consensus',  icon:'🚣', acc:'none' },
-  { id:'gossip-coordinator',   label:'Gossip Coordinator',    cat:'consensus',  icon:'💬', acc:'none' },
-  { id:'crdt-synchronizer',    label:'CRDT Synchronizer',     cat:'consensus',  icon:'🔗', acc:'none' },
   { id:'quorum-manager',       label:'Quorum Manager',        cat:'consensus',  icon:'🗳️', acc:'none' },
   { id:'consensus-coordinator',label:'Consensus Coord.',      cat:'consensus',  icon:'🤝', acc:'none' },
   // ── Performance ──────────────────────────────────────────────────────────

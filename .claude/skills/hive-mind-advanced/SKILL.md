@@ -317,7 +317,7 @@ Resolve the proposals (vote them through or let them reject) or pass `force: tru
 
 ### "Shared memory full (max 1000 keys)"
 
-Delete unused keys with `hive-mind_memory delete`, or move bulk context to the regular memory store (`mcp__monomind__memory_store`) under a hive namespace.
+Delete unused keys with `hive-mind_memory delete`, or move bulk context to the regular memory store (`mcp__monomind__memory_pattern-store`) under a hive namespace.
 
 ### Tool isn't visible
 

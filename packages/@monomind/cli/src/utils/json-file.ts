@@ -90,3 +90,18 @@ export function writeJsonFileAtomic(
   writeFileSync(tmp, content, 'utf-8');
   renameSync(tmp, filePath);
 }
+
+/**
+ * Merge `incoming` records into `existing` by `id`, keeping existing records
+ * in place and appending only the ones not already present. Shared by
+ * `hooks intelligence import` (IPFS/file pattern import) and `hooks transfer`
+ * (cross-project pattern transfer) so both use one dedupe rule.
+ */
+export function mergeRecordsById<T extends { id: string }>(
+  existing: T[],
+  incoming: T[],
+): { merged: T[]; added: T[] } {
+  const existingIds = new Set(existing.map((r) => r.id));
+  const added = incoming.filter((r) => !existingIds.has(r.id));
+  return { merged: [...existing, ...added], added };
+}

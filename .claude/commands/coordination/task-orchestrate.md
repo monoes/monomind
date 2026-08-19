@@ -9,7 +9,7 @@ Coordinate tasks across a swarm of agents.
 ## Usage
 
 ```bash
-npx monomind swarm coordinate [options]
+npx monomind swarm init [options]
 ```
 
 ## Options
@@ -24,19 +24,19 @@ npx monomind swarm coordinate [options]
 ### Coordinate in parallel (default)
 
 ```bash
-npx monomind swarm coordinate --task "Run all tests" --strategy parallel
+npx monomind swarm init --task "Run all tests" --strategy parallel
 ```
 
 ### Sequential pipeline
 
 ```bash
-npx monomind swarm coordinate --task "Build, test, and deploy" --strategy pipeline
+npx monomind swarm init --task "Build, test, and deploy" --strategy pipeline
 ```
 
 ### Broadcast to all agents
 
 ```bash
-npx monomind swarm coordinate --task "Update shared context" --strategy broadcast
+npx monomind swarm init --task "Update shared context" --strategy broadcast
 ```
 
 ## Task Lifecycle (separate from orchestration)

@@ -188,10 +188,10 @@ npx monomind memory import --input ./backup.json --namespace archive
 
 ```javascript
 // Store
-mcp__monomind__memory_store({ key: "pattern/auth", value: "JWT + refresh", namespace: "patterns" })
+mcp__monomind__memory_pattern-store({ key: "pattern/auth", value: "JWT + refresh", namespace: "patterns" })
 
 // Search
-mcp__monomind__memory_search({ query: "authentication", namespace: "patterns" })
+mcp__monomind__memory_pattern-search({ query: "authentication", namespace: "patterns" })
 
 // Retrieve
 mcp__monomind__memory_retrieve({ key: "pattern/auth", namespace: "patterns" })

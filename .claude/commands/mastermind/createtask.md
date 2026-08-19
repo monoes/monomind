@@ -42,7 +42,7 @@ Parse `$ARGUMENTS`:
 Run ALL in parallel (skip errors):
 1. `mcp__monomind__monograph_suggest` with first 200 chars of `RAW_CONTENT`
 2. `mcp__monomind__monograph_query` for module/component names found in `RAW_CONTENT` (up to 5)
-3. `mcp__monomind__memory_search` with input summary
+3. `mcp__monomind__memory_pattern-search` with input summary
 4. Read `README.md` (first 200 lines)
 5. Read first found: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`
 6. Repo name from `git remote get-url origin` (strip path, strip `.git`) — store as `REPO_NAME`
@@ -282,7 +282,7 @@ For each task, in prerequisite order:
 
 **File mode (default):** The frontmatter in `TASK_FILE` already records `recommended_mode`. No additional storage needed.
 
-**Monotask mode:** Call `mcp__monomind__memory_store` with:
+**Monotask mode:** Call `mcp__monomind__memory_pattern-store` with:
 ```json
 {
   "key": "task-strategy:<REPO_NAME>:<timestamp>",

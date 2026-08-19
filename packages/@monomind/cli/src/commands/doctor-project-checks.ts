@@ -801,3 +801,35 @@ export function fixAppleDoubleSidecars(cwd: string): number {
   }
   return removed;
 }
+
+/** Second Brain document ingestion: whether the "documents" capability is
+ * active for this project. Read directly from capabilities.json rather than
+ * re-running the directory scan — doctor should report on what's actually
+ * activated, not re-detect. */
+function isDocumentsCapabilityActive(cwd: string): boolean {
+  try {
+    const capsPath = join(cwd, '.monomind', 'capabilities.json');
+    if (!existsSync(capsPath)) return false;
+    const parsed = JSON.parse(readFileSync(capsPath, 'utf8')) as { active?: string[] };
+    return Array.isArray(parsed.active) && parsed.active.includes('documents');
+  } catch {
+    return false;
+  }
+}
+
+/** Per-extractor health for Second Brain document ingestion (MEM-8/MEM-9):
+ * one check per format family (PDF, DOCX, XLSX/XLS/ODS, PPTX/ODT/ODP/EPUB,
+ * legacy DOC/PPT/Pages) instead of a single blanket "documents" check, so
+ * `doctor` can report exactly which formats are functional vs broken.
+ * No-op (empty array) when the documents capability isn't active — nothing
+ * to report if this project doesn't ingest documents. */
+export async function checkDocumentExtractors(): Promise<HealthCheck[]> {
+  if (!isDocumentsCapabilityActive(process.cwd())) return [];
+  try {
+    const { documentsCapability } = await import('../capabilities/cap-documents.js');
+    const checks = await documentsCapability.healthChecks?.() ?? [];
+    return checks.map(c => ({ name: c.name, status: c.status, message: c.message, fix: c.hint ?? c.fix }));
+  } catch (err) {
+    return [{ name: 'Document Extractors', status: 'warn', message: `Check failed: ${err instanceof Error ? err.message : String(err)}` }];
+  }
+}

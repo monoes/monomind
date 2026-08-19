@@ -10,6 +10,7 @@ import { formatEvent, listRunDirs, readHistory, readRunEvents, summarizeRun } fr
 import { ORG_TEMPLATES, buildFromTemplate } from '../orgrt/templates.js';
 import { checkOrgStructure } from '../orgrt/migrate.js';
 import { resolveModel } from '../orgrt/session.js';
+import { branchCheckpoint } from '../orgrt/checkpoint-ops.js';
 import { listOrgConfigFiles, validateOrgName } from './org.js';
 
 const log = (text: string): void => { console.log(text); };
@@ -886,7 +887,11 @@ export const resumeFromAction = async (ctx: CommandContext, name: string): Promi
   return { success: true, message: `resumed ${name} - ${resumed.agents.size} role(s) restored` };
 };
 
-/** `org branch <org> <run-id> <branch-name>` — create a branch from checkpoint for what-if experiments */
+/** `org branch <org> <run-id> <branch-name>` — snapshot a run's event log for replay.
+ *  This is NOT an executable what-if scenario: it copies bus.jsonl into a new
+ *  run directory tagged with a `.branch-source` marker so it can be inspected
+ *  or replayed later; it does not fork or re-run agent execution.
+ *  Delegates to the shared, atomic (tmp+rename) implementation in checkpoint-ops.ts. */
 export const branchAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const run = ctx.args[1];
   const branchName = ctx.args[2];
@@ -894,34 +899,13 @@ export const branchAction = async (ctx: CommandContext, name: string): Promise<C
     return { success: false, message: 'usage: org branch <org> <run-id> <branch-name>' };
   }
 
-  const runDir = join(ctx.cwd, ORG_DIR, name, run);
-  if (!existsSync(runDir)) {
-    return { success: false, message: `run ${run} not found for org ${name}` };
+  const result = branchCheckpoint(ctx.cwd, name, run, branchName);
+  if (!result.ok) {
+    return { success: false, message: result.error };
   }
 
-  const branchRun = `branch-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
-  const branchDir = join(ctx.cwd, ORG_DIR, name, branchRun);
-
-  try {
-    mkdirSync(branchDir, { recursive: true });
-    // Copy bus.jsonl to branch
-    const busFile = join(runDir, 'bus.jsonl');
-    if (existsSync(busFile)) {
-      const busContent = readFileSync(busFile, 'utf8');
-      writeFileSync(join(branchDir, 'bus.jsonl'), busContent);
-    }
-    // Create branch marker file
-    writeFileSync(join(branchDir, '.branch-source'), JSON.stringify({
-      from: run,
-      branchedAt: new Date().toISOString(),
-      name: branchName
-    }, null, 2));
-
-    log(output.success(`Created branch "${branchName}" from ${run} as ${branchRun}`));
-    return { success: true, message: `branch ${branchName} created as ${branchRun}` };
-  } catch (err) {
-    return { success: false, message: `failed to create branch: ${err instanceof Error ? err.message : String(err)}` };
-  }
+  log(output.success(`Created branch "${branchName}" from ${run} as ${result.branchRun}`));
+  return { success: true, message: `branch ${branchName} created as ${result.branchRun}` };
 };
 
 /** `org decisions <org> [--run id]` — show Rifft-style decision traces */

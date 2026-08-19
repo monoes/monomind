@@ -41,7 +41,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 |---|---|---|
 | **Guidance** | [`guidance-tools.ts`](packages/@monomind/cli/src/mcp-tools/guidance-tools.ts) | `guidance_capabilities`, `guidance_recommend`, `guidance_discover`, `guidance_workflow`, `guidance_quickref` |
 | **Monograph** | [`mcp-tools/monograph/`](packages/@monomind/cli/src/mcp-tools/monograph/) (`monograph-tools.ts` is now a re-export shim, not the source) | `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact`, `monograph_context`, `monograph_neighbors`, and 40 more — see [Monograph concept doc](../concepts/monograph.md) for the full 19-default/27-advanced-gated breakdown |
-| **Memory** | [`memory-tools.ts`](packages/@monomind/cli/src/mcp-tools/memory-tools.ts) | `memory_search`, `memory_store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
+| **Memory** | [`memory-tools.ts`](packages/@monomind/cli/src/mcp-tools/memory-tools.ts) | `memory_pattern-search`, `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
 | **Second Brain** | [`knowledge-tools.ts`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts) | `knowledge_ingest`, `knowledge_search`, `knowledge_remove` |
 | **Monomind Tool Index** | [`monomind-tools.ts`](packages/@monomind/cli/src/mcp-tools/monomind-tools.ts) | `monomind_tool_search` |
 | **Orgs & Swarms** | [`org-tools.ts`](packages/@monomind/cli/src/mcp-tools/org-tools.ts), [`swarm-tools.ts`](packages/@monomind/cli/src/mcp-tools/swarm-tools.ts) | `task_create`, `task_status`, `system_status`, `swarm_coordinate` |

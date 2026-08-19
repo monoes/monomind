@@ -530,18 +530,6 @@ describe('Swarm Commands', () => {
     });
   });
 
-  describe('swarm coordinate', () => {
-    it('should show V1 coordination structure', async () => {
-      const coordinateCmd = swarmCommand.subcommands?.find(c => c.name === 'coordinate');
-      expect(coordinateCmd).toBeDefined();
-
-      const result = await coordinateCmd!.action!(ctx);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('agents');
-      expect(result.data?.agents).toHaveLength(15);
-    });
-  });
 });
 
 describe('Memory Commands', () => {

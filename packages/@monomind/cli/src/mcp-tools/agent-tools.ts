@@ -240,7 +240,7 @@ export const agentTools: MCPTool[] = [
         response.canSkipLLM = true;
         response.agentBoosterIntent = routingResult.agentBoosterIntent;
         response.tier = routingResult.tier;
-        response.note = `Agent Booster can handle "${routingResult.agentBoosterIntent}" - use agent_booster_edit_file MCP tool`;
+        response.note = `Agent Booster AST routing identified intent "${routingResult.agentBoosterIntent}", but no MCP tool executes it — this agent will run through the normal LLM path.`;
       } else if (routingResult.tier) {
         response.tier = routingResult.tier;
       }

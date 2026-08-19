@@ -2,8 +2,7 @@
  * augmentContext — Graph-RAG context augmentation
  *
  * Given a query string, retrieves the top-K relevant nodes from the
- * monograph knowledge graph using hybrid BM25+vector search (falls back
- * to BM25 when embeddings are unavailable) and returns a formatted
+ * monograph knowledge graph using BM25 search and returns a formatted
  * context block suitable for injection into an AI prompt.
  *
  * Usable from both CLI entry points and the monograph_augment MCP tool.
@@ -11,7 +10,7 @@
 
 import { join } from 'path';
 import { openDb, closeDb } from '../storage/db.js';
-import { hybridQuery, type HybridResult } from '../search/hybrid-query.js';
+import { bm25Query, type BM25Result } from '../search/hybrid-query.js';
 import { globalAugmentCache } from '../cache/augment-cache.js';
 
 export interface AugmentContextOptions {
@@ -29,7 +28,7 @@ export interface AugmentContextResult {
   query: string;
   topK: number;
   format: 'markdown' | 'json';
-  results: HybridResult[];
+  results: BM25Result[];
   context: string;
 }
 
@@ -59,9 +58,9 @@ export async function augmentContext(options: AugmentContextOptions): Promise<st
   const dbPath = join(repoPath, '.monomind', 'monograph.db');
   const db = openDb(dbPath);
 
-  let results: HybridResult[];
+  let results: BM25Result[];
   try {
-    results = await hybridQuery(db, query, { limit: topK });
+    results = await bm25Query(db, query, { limit: topK });
   } finally {
     closeDb(db);
   }

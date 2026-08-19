@@ -1,5 +1,5 @@
 /**
- * HNSW Operations + INT8 Quantization + Flash Attention
+ * HNSW Operations + INT8 Quantization + batched cosine similarity search
  * Extracted from memory-initializer.ts (ARCH-4)
  *
  * @module v1/cli/hnsw-operations
@@ -440,7 +440,14 @@ export function getQuantizationStats(embedding: number[] | Float32Array): {
 }
 
 // ============================================================================
-// FLASH ATTENTION-STYLE BATCH OPERATIONS (V8-Optimized)
+// BATCHED COSINE SIMILARITY OPERATIONS (V8-Optimized)
+//
+// Despite the historical function names below, this is plain batched cosine
+// similarity + softmax-weighted top-k selection — not an implementation of
+// Flash Attention (a specific fused/tiled GPU kernel technique for
+// transformer attention). Naming kept for now to avoid a breaking export
+// rename across memory-initializer.ts/index.ts/performance.ts; the comments
+// here describe what the code actually does.
 // ============================================================================
 
 /**
@@ -563,9 +570,10 @@ export function topKIndices(scores: Float32Array, k: number): number[] {
 }
 
 /**
- * Flash Attention-style search
+ * Batched cosine similarity search with softmax-weighted scoring.
  * Combines batch similarity, softmax, and top-k in one pass.
- * Returns indices and attention weights.
+ * Returns indices and normalized weights (not a Flash Attention kernel —
+ * see the module-level note above).
  */
 export function flashAttentionSearch(
   query: Float32Array | number[],
