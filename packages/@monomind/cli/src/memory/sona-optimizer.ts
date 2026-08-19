@@ -1,5 +1,5 @@
 /**
- * SONA (Self-Optimizing Neural Architecture) Optimizer
+ * SONA Optimizer
  *
  * Processes trajectory outcomes to learn optimal routing patterns.
  * Integrates with keyword router and persistence layer.

@@ -40,26 +40,6 @@ export const intelligenceCommand: Command = {
   ],
   options: [
     {
-      name: 'mode',
-      short: 'm',
-      description: 'Intelligence mode (real-time, batch, edge, research, balanced)',
-      type: 'string',
-      choices: ['real-time', 'batch', 'edge', 'research', 'balanced'],
-      default: 'balanced'
-    },
-    {
-      name: 'enable-sona',
-      description: 'Enable SONA sub-0.05ms learning',
-      type: 'boolean',
-      default: true
-    },
-    {
-      name: 'enable-moe',
-      description: 'Inert — MoE is not implemented. Flag preserved for backwards compatibility; has no effect on the response.',
-      type: 'boolean',
-      default: true
-    },
-    {
       name: 'enable-hnsw',
       description: 'Enable HNSW vector search (dead fallback path; no-op unless SQLite bridge is down)',
       type: 'boolean',
@@ -85,32 +65,20 @@ export const intelligenceCommand: Command = {
       description: 'Reset learning state',
       type: 'boolean',
       default: false
-    },
-    {
-      name: 'embedding-provider',
-      description: 'Embedding provider (transformers, openai, mock)',
-      type: 'string',
-      choices: ['transformers', 'openai', 'mock'],
-      default: 'transformers'
     }
   ],
   examples: [
     { command: 'monomind hooks intelligence --status', description: 'Show intelligence status' },
-    { command: 'monomind hooks intelligence -m real-time', description: 'Enable real-time mode' },
     { command: 'monomind hooks intelligence --train', description: 'Force training cycle' },
     { command: 'monomind hooks intelligence patterns --action list', description: 'List stored patterns' },
     { command: 'monomind hooks intelligence predict -i "implement auth"', description: 'Find similar patterns for a task' },
     { command: 'monomind hooks intelligence train', description: 'Ingest outcome/edit history into the pattern store' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const mode = ctx.flags.mode as string || 'balanced';
     const showStatus = ctx.flags.status as boolean;
     const forceTraining = ctx.flags.train as boolean;
     const reset = ctx.flags.reset as boolean;
-    const enableSona = ctx.flags['enable-sona'] as boolean ?? true;
-    const enableMoe = ctx.flags['enable-moe'] as boolean ?? true;
     const enableHnsw = ctx.flags['enable-hnsw'] as boolean ?? true;
-    const embeddingProvider = ctx.flags['embedding-provider'] as string || 'transformers';
 
     output.writeln();
     output.writeln(output.bold('Intelligence System'));
@@ -185,11 +153,7 @@ export const intelligenceCommand: Command = {
       let mcpResult: Record<string, unknown> | null = null;
       try {
         mcpResult = await callMCPTool<Record<string, unknown>>('hooks_intelligence', {
-          mode,
-          enableSona,
-          enableMoe,
           enableHnsw,
-          embeddingProvider,
           forceTraining,
           showStatus,
         });
@@ -213,17 +177,16 @@ export const intelligenceCommand: Command = {
       const avgAdaptation = localStats.avgAdaptationTime > 0 ? localStats.avgAdaptationTime : Number(mcpSona?.adaptationTimeMs ?? 0);
 
       const result = {
-        mode: String((mcpResult as Record<string, unknown> | null)?.mode ?? mode),
         status: (hasLocalData || mcpResult) ? 'active' as const : 'idle' as const,
         components: {
           sona: {
-            enabled: enableSona,
+            enabled: true,
             status: localStats.sonaEnabled ? 'active' : String(mcpSona?.status ?? 'idle'),
             learningTimeMs: avgAdaptation,
             adaptationTimeMs: avgAdaptation,
             trajectoriesRecorded: trajectories,
             patternsLearned,
-            avgQuality: Number(mcpSona?.avgQuality ?? (patternsLearned > 0 ? 0.75 : 0)),
+            avgQuality: mcpSona?.avgQuality != null ? Number(mcpSona.avgQuality) : null,
           },
           moe: {
             enabled: false,
@@ -241,12 +204,12 @@ export const intelligenceCommand: Command = {
             dimension: Number(mcpHnsw?.dimension ?? 384),
           },
           embeddings: mcpEmb ? {
-            provider: String(mcpEmb.provider ?? embeddingProvider),
+            provider: String(mcpEmb.provider ?? 'transformers'),
             model: String(mcpEmb.model ?? 'default'),
             dimension: Number(mcpEmb.dimension ?? 384),
             cacheHitRate: Number(mcpEmb.cacheHitRate ?? 0),
           } : {
-            provider: embeddingProvider,
+            provider: 'transformers',
             model: 'hash-128',
             dimension: 128,
             cacheHitRate: 0,
@@ -270,7 +233,7 @@ export const intelligenceCommand: Command = {
         const {
           recordTrajectory,
           recordStep,
-          flushPatterns,
+          compactPatterns,
           getIntelligenceStats: getStats,
         } = await import('../memory/intelligence.js');
 
@@ -284,13 +247,22 @@ export const intelligenceCommand: Command = {
           [{ type: 'action' as const, content }],
           'success'
         );
-        flushPatterns();
+
+        // Run the real EWC-style consolidation pass (dedupes similar patterns
+        // by cosine similarity) and flush the result to disk.
+        const consolidation = await compactPatterns(0.95);
 
         const updatedStats = getStats();
-        spinner.succeed(`Training cycle complete — ${updatedStats.patternsLearned} patterns, EWC consolidation applied`);
+        spinner.succeed(
+          `Training cycle complete — ${updatedStats.patternsLearned} patterns, consolidation removed ${consolidation.removed} of ${consolidation.before} patterns`
+        );
         return {
           success: true,
-          data: { patternsLearned: updatedStats.patternsLearned, trajectoriesRecorded: updatedStats.trajectoriesRecorded },
+          data: {
+            patternsLearned: updatedStats.patternsLearned,
+            trajectoriesRecorded: updatedStats.trajectoriesRecorded,
+            consolidation,
+          },
         };
       } else {
         spinner.succeed(hasLocalData ? 'Intelligence system active (local data loaded)' : 'Intelligence system active');
@@ -305,7 +277,6 @@ export const intelligenceCommand: Command = {
       output.writeln();
       output.printBox(
         [
-          `Mode: ${output.highlight(result.mode)}`,
           `Status: ${formatIntelligenceStatus(result.status)}`,
           `Last Training: ${result.lastTrainingMs != null ? `${(result.lastTrainingMs / 1000).toFixed(0)}s ago` : 'Never'}`,
           `Data Dir: ${output.dim(persistence.dataDir)}`
@@ -329,7 +300,7 @@ export const intelligenceCommand: Command = {
             { metric: 'Adaptation Time', value: `${(sona.adaptationTimeMs ?? 0).toFixed(3)}ms` },
             { metric: 'Trajectories', value: sona.trajectoriesRecorded ?? 0 },
             { metric: 'Patterns Learned', value: sona.patternsLearned ?? 0 },
-            { metric: 'Avg Quality', value: `${((sona.avgQuality ?? 0) * 100).toFixed(1)}%` }
+            { metric: 'Avg Quality', value: sona.avgQuality != null ? `${(sona.avgQuality * 100).toFixed(1)}%` : 'N/A' }
           ]
         });
       } else {

@@ -16,18 +16,35 @@
  *   of the assistant text, executes the real OrgToolDef handlers in-process
  *   (gated through canUseTool), and feeds results back as the next prompt.
  *
- * Subprocess protocol — per public docs (docs.x.ai/build/cli/reference), NOT
- * byte-verified against a running binary (unlike the codex/kimi runners,
- * which were checked against an installed CLI). The exact NDJSON event field
- * names for `--format json` were not available at implementation time, so
- * parseGrokEvents() tolerates several plausible shapes (codex-style
- * `item.type === 'agent_message'`, a flat `role: 'assistant'` shape, and a
- * flat `type: 'assistant'`/`'message'` shape) rather than committing to one.
- * Verify against your installed `grok` version and tighten this parser if
- * the real shape differs — a wrong guess here fails closed (no text
- * extracted, not a crash), which is what the "no known shape matched" path
- * is for.
- *   - Invocation: `grok -p "<prompt>" --format json [--model X] [--cwd Y]
+ * Subprocess protocol — per public docs (docs.x.ai/build/cli/reference),
+ * PARTIALLY byte-verified against a live v1.0.5 install (`npm install -g
+ * @xai-official/grok`; see #178). CONFIRMED LIVE: the flag was wrong — this
+ * runner used to pass `--format json`, which grok rejects outright
+ * ("unexpected argument '--format' found" — no such flag exists). Fixed to
+ * `--output-format json`, confirmed correct by getting past argument
+ * parsing straight to an auth error ("Not signed in") with no XAI_API_KEY
+ * available to test further.
+ *
+ * STILL UNVERIFIED (no XAI_API_KEY in the environment this fix was made
+ * in): grok's `--output-format` has FOUR documented values — `plain`,
+ * `json`, `streaming-json` (NDJSON of native ACP session updates), and
+ * `streaming-messages-json` (NDJSON in the Anthropic Messages API wire
+ * format). This runner uses plain `json`, but `parseGrokEvents()` parses
+ * stdout as one-JSON-object-per-line (NDJSON) — worth checking live
+ * whether `json` actually emits NDJSON, or a single (possibly
+ * multi-line-formatted) JSON blob that would break the line-based parser.
+ * If it's the latter, `streaming-messages-json` looks like the better fit
+ * (NDJSON, and a documented wire format this codebase already knows how to
+ * parse elsewhere) — untested, flagging rather than guessing. The exact
+ * NDJSON event field names for whichever format is correct were STILL not
+ * available at fix time, so parseGrokEvents() tolerates several plausible
+ * shapes (codex-style `item.type === 'agent_message'`, a flat `role:
+ * 'assistant'` shape, and a flat `type: 'assistant'`/`'message'` shape)
+ * rather than committing to one. Verify against a real XAI_API_KEY and
+ * tighten this parser if the real shape differs — a wrong guess here fails
+ * closed (no text extracted, not a crash), which is what the "no known
+ * shape matched" path is for.
+ *   - Invocation: `grok -p "<prompt>" --output-format json [--model X] [--cwd Y]
  *                 [--always-approve] [-r <sessionId> | -c]`
  *   - Session continuity: `-r/--resume [<id>]` resumes a specific session,
  *     `-c/--continue` resumes the most recent one. Session id is captured
@@ -71,7 +88,7 @@ function extractSessionId(ev: Record<string, unknown>): string | undefined {
 }
 
 /** Pull assistant-visible text out of a parsed event, tolerating the shape
- *  variants documented (or plausible) for `grok --format json`:
+ *  variants documented (or plausible) for `grok --output-format json`:
  *    - codex-style: { type: 'item.completed', item: { type: 'agent_message', text } }
  *    - flat role shape: { role: 'assistant', content: '...' | [{type:'text',text}] }
  *    - flat type shape: { type: 'assistant' | 'message', text: '...' } */
@@ -246,7 +263,15 @@ export class GrokAgentRunner implements AgentRunner {
     args: AgentRunArgs,
   ): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
-      const cliArgs: string[] = ['-p', prompt, '--format', 'json', '--always-approve'];
+      // --output-format, not --format: confirmed against a live v1.0.5
+      // install (`npm install -g @xai-official/grok`) — `--format` doesn't
+      // exist ("unexpected argument '--format' found") and would have made
+      // every single invocation fail before even reaching auth. Confirmed
+      // the corrected flag is right: with it, the same invocation (no
+      // XAI_API_KEY available to test past this point) gets to a "Not
+      // signed in" auth error instead of a flag-parsing error, proving the
+      // flag itself is now accepted. See #178.
+      const cliArgs: string[] = ['-p', prompt, '--output-format', 'json', '--always-approve'];
       if (args.model) cliArgs.push('--model', args.model);
       cliArgs.push('--cwd', args.cwd);
       if (sessionId) cliArgs.push('--resume', sessionId);

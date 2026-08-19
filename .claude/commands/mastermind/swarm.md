@@ -48,7 +48,7 @@ npx monomind swarm init --topology hierarchical-mesh --max-agents 15 --strategy 
 | `mesh` | Research, analysis — broad coverage |
 | `star` | Parallel testing, parallel maintenance |
 | `ring` | Sequential pipeline processing |
-| `hybrid` | Dynamic topology switching |
+| `hybrid` | Topology label recorded in swarm state; coordination behavior is chosen by the caller — no automatic reconfiguration |
 
 ## Strategies
 

@@ -11,59 +11,67 @@
  * session, so conversational context carries naturally (no --session-dir
  * resume guessing) and there's no per-turn spawn/bootstrap cost.
  *
- * Protocol — JSON objects, one per line (LF-delimited), verified against
- * pi-mono's rpc.md doc source directly (literal JSON examples quoted below,
- * not paraphrased from prose — unlike this file's sibling runners, which
- * work from public docs that don't always show raw wire examples):
+ * Protocol — JSON objects, one per line (LF-delimited). RESOLVED against a
+ * live pi v0.73.1 install (issue #179): pi's docs (docs/rpc.md, bundled with
+ * the package) define `agent_end` — "Emitted when the agent completes.
+ * Contains all messages generated during this run." — as a distinct event
+ * from `message_end`/`turn_end`, and it's exactly the "prompt is fully done"
+ * signal this runner needs. Confirmed live with a prompt that made pi run 3
+ * of its own native tools in sequence (read → edit → bash): the run produced
+ * 4 separate turn_start/turn_end cycles and many message_end events, but
+ * EXACTLY ONE agent_end, firing only after the last turn closed. This
+ * replaces the old get_state-polling heuristic entirely — no more `isStreaming`
+ * ambiguity to worry about.
  *
  *   Client → server (this runner sends), each with an optional "id" for
  *   response correlation:
  *     {"type":"prompt","message":"<text>"}          — new/continuing turn
- *     {"type":"get_state"}                           — poll idle/streaming status
  *     {"type":"abort"}                                — not used by this runner
  *
- *   Server → client:
+ *   Server → client (only agent_end is acted on; everything else — agent_start,
+ *   turn_start/turn_end, message_start/message_update/message_end,
+ *   tool_execution_* — is drained and ignored):
  *     {"type":"response","command":"prompt","success":true}
- *     {"type":"response","command":"get_state","success":true,
- *      "data":{"isStreaming":false, ...}}
- *     {"type":"agent_start"}
- *     {"type":"message_update","usage":{"input":N,"output":N,"totalTokens":N,
- *      "cost":{"total":N}},"assistantMessageEvent":{...}}   — streaming deltas, ignored
- *     {"type":"message_end","message":{"role":"assistant","content":[
- *        {"type":"text","text":"..."},
- *        {"type":"thinking","thinking":"..."},
- *        {"type":"toolCall","id":"call_1","name":"bash","arguments":{...}}
- *      ]}}
+ *     {"type":"agent_end","messages":[
+ *        {"role":"user","content":[{"type":"text","text":"..."}]},
+ *        {"role":"assistant","content":[
+ *           {"type":"thinking","thinking":"..."},
+ *           {"type":"text","text":"..."},
+ *           {"type":"toolCall","id":"call_1","name":"bash","arguments":{...}}
+ *         ],"usage":{"input":N,"output":N,"totalTokens":N,"cost":{"total":N}}},
+ *        {"role":"toolResult","content":[{"type":"text","text":"..."}]},
+ *        ... (repeats per internal turn — one "assistant" entry per turn,
+ *             each with ITS OWN per-turn `usage`, not cumulative)
+ *      ]}
  *
- * KNOWN GAP — turn-completion detection is a best-effort HEURISTIC, not a
- * confirmed protocol contract: pi executes its own native tools (bash, file
- * edits, …) autonomously inside the RPC session, so a single `prompt` can
- * produce MULTIPLE agent_start/message_end cycles before pi is genuinely
- * done responding, and the docs don't show an explicit "fully idle" event
- * distinct from message_end. This runner sends `get_state` after every
- * message_end and treats `data.isStreaming === false` as "done" — a
- * reasonable, protocol-grounded inference (get_state IS documented), but
- * NOT independently verified against a live pi install (none was available
- * here). If pi's real behavior differs, this could end a turn early or hang
- * waiting past STARTUP_GRACE_MS. Validate against a real `pi --mode rpc`
- * session before relying on this in production; fall back to plain
- * `runtime: 'pi'` if it misbehaves.
+ * Usage accounting: `agent_end.messages` includes one `assistant` entry per
+ * internal turn, each carrying that turn's OWN `usage` (confirmed live: a
+ * 4-turn run had usage.output of 65/109/13/22 across the 4 assistant
+ * entries — small, turn-scoped numbers, not a running cumulative total).
+ * This runner sums `usage.input`/`usage.output` across every assistant
+ * entry in `agent_end.messages` to get the correct total for the prompt.
+ * The PREVIOUS implementation (overwriting from `message_update`'s running
+ * total, which only tracks the CURRENT assistant message) silently
+ * undercounted any prompt that triggered more than one internal turn —
+ * confirmed via the same live test above.
  *
  * Org tools (org_send, knowledge_search, ask_human, …) — FENCE PROTOCOL:
  *   Pi's own native tools (bash, file edits) execute autonomously inside pi
  *   itself and never reach this runner — only org tools ride the shared
- *   tool-fence protocol (tool-fence.ts), extracted from message_end's text
- *   content and fed back as a new `prompt` command in the SAME session.
+ *   tool-fence protocol (tool-fence.ts), extracted from the assistant text
+ *   in `agent_end.messages` and fed back as a new `prompt` command in the
+ *   SAME session.
  */
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
 
-/** Distinct from a turn timeout — this is how long we wait for pi to settle
- *  to isStreaming:false after a message_end before giving up on the
- *  heuristic and treating the turn as complete anyway (better to risk
- *  cutting a turn slightly short than to hang forever on a wrong inference). */
+/** Upper bound on how long a single prompt's wait for `agent_end` may run
+ *  before the mid-session silence watchdog (below) considers pi wedged.
+ *  Distinct from a hard per-turn deadline — a long-running prompt that's
+ *  still producing events well within this window is not a hang; only
+ *  total SILENCE past this bound is. */
 const SETTLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const STARTUP_GRACE_MS = 45_000;
 
@@ -138,7 +146,13 @@ export class PiRpcAgentRunner implements AgentRunner {
     const bin = this.piBin || process.env.PI_CLI_BIN || 'pi';
     const sessionDir = join(args.cwd, '.monomind-pi-session');
 
-    const cliArgs = ['--mode', 'rpc', '--approve', '--session-dir', sessionDir];
+    // No --approve: confirmed against a live v0.73.1 install that pi rejects
+    // it outright ("Unknown option: --approve") — no such flag exists.
+    // Confirmed unnecessary too: built-in tools (read/edit/bash) execute
+    // autonomously in --mode rpc with zero confirmation gating (a live
+    // multi-tool prompt — read, edit, bash — ran end-to-end with no prompt
+    // or block). See #179.
+    const cliArgs = ['--mode', 'rpc', '--session-dir', sessionDir];
     if (args.model) cliArgs.push('--model', args.model);
 
     const child = this.spawnFn(bin, cliArgs, {
@@ -227,7 +241,7 @@ export class PiRpcAgentRunner implements AgentRunner {
     // the check entirely for the duration is the correct fix in both cases.
     let toolCallInFlight = false;
     let turnInFlight = false;
-    const MID_SESSION_SILENCE_MS = SETTLE_TIMEOUT_MS; // reuse the same bound the settle-heuristic gives up at
+    const MID_SESSION_SILENCE_MS = SETTLE_TIMEOUT_MS; // reuse the same bound as the ceiling for total event silence
     const silenceWatchdog: ReturnType<typeof setInterval> = setInterval(() => {
       if (closed || toolCallInFlight || !turnInFlight) return;
       if (Date.now() - lastEventAt > MID_SESSION_SILENCE_MS) {
@@ -259,21 +273,12 @@ export class PiRpcAgentRunner implements AgentRunner {
         turnLoop: for (;;) {
           send({ type: 'prompt', message: nextMessage });
 
-          const collectedText: string[] = [];
-          const settleDeadline = Date.now() + SETTLE_TIMEOUT_MS;
-          let sawMessageEnd = false;
+          let agentEndMessages: Array<{ role: string; content?: PiContentBlock[]; usage?: { input?: number; output?: number } }> | undefined;
 
           for (;;) {
             const ev = await nextEvent();
             disarmHang();
             const kind = ev.type as string | undefined;
-
-            // Checked on EVERY event, not only get_state responses — a
-            // stream of message_update/message_end events with pi never
-            // actually answering get_state (e.g. it doesn't recognize the
-            // command, or a response gets lost) would otherwise never hit
-            // the deadline check below and could wait past it indefinitely.
-            if (sawMessageEnd && Date.now() > settleDeadline) break;
 
             if (kind === '__closed__' || kind === '__error__' || kind === '__hang__') {
               if (kind === '__error__') {
@@ -295,54 +300,36 @@ export class PiRpcAgentRunner implements AgentRunner {
               );
             }
 
-            if (kind === 'message_update') {
-              // Overwrite (not accumulate) — the confirmed example in this
-              // file's header shows `usage` as a running total FOR THE
-              // CURRENT RESPONSE, so the latest value read during a turn is
-              // that turn's correct total. UNCONFIRMED: whether it's scoped
-              // to the current prompt or to the whole (session-lifetime) rpc
-              // process. If it turns out to be session-cumulative, every
-              // turn after the first would over-report by including prior
-              // turns' tokens — inflating org budget consumption. Validate
-              // against a live pi install before relying on this for tight
-              // budget enforcement; this is exactly the kind of gap opt-in
-              // 'pi-rpc' (vs. default 'pi') is meant to warn callers about.
-              const usage = ev.usage as { input?: number; output?: number } | undefined;
-              if (usage) {
-                turnInputTokens = usage.input ?? turnInputTokens;
-                turnOutputTokens = usage.output ?? turnOutputTokens;
-              }
-              continue;
+            if (kind === 'agent_end') {
+              // See file header: agent_end is pi's own, confirmed-live,
+              // single unambiguous "this prompt is fully done" signal —
+              // fires exactly once even across multiple internal
+              // turn_start/turn_end cycles from pi's own native tool use.
+              agentEndMessages = ev.messages as typeof agentEndMessages;
+              break;
             }
 
-            if (kind === 'message_end') {
-              sawMessageEnd = true;
-              const message = ev.message as PiRpcMessage | undefined;
-              if (message) {
-                const text2 = extractPiRpcText(message);
-                if (text2) collectedText.push(text2);
-              }
-              // See file header: get_state is the documented, best-effort
-              // signal for "pi is done responding to this prompt", since a
-              // single prompt can trigger multiple internal tool-use cycles.
-              send({ type: 'get_state' });
-              continue;
-            }
-
-            if (kind === 'response' && ev.command === 'get_state') {
-              const data = ev.data as { isStreaming?: boolean } | undefined;
-              if (data?.isStreaming === false) break; // turn settled — fall through to tool-fence handling below
-              if (Date.now() > settleDeadline) break; // heuristic gave up — proceed rather than hang forever
-              continue; // still streaming — keep waiting for more message_end cycles
-            }
-
-            // agent_start, other response acks, tool_execution_* (pi's own
-            // native tools — nothing for this runner to do) — ignored.
+            // agent_start, turn_start/turn_end, message_start/message_update/
+            // message_end, tool_execution_* (pi's own native tools), other
+            // response acks — all drained and ignored; agent_end alone
+            // carries everything this runner needs (final text + usage).
           }
 
-          if (!sawMessageEnd) break turnLoop; // nothing to extract this round — avoid an infinite loop on an empty settle
+          if (!agentEndMessages) break turnLoop; // process closed before agent_end — nothing to extract this round
 
-          const rawText = collectedText.join('\n');
+          const assistantMessages = agentEndMessages.filter((m) => m.role === 'assistant');
+          for (const m of assistantMessages) {
+            // Summed, not overwritten: each assistant entry carries ITS OWN
+            // per-turn usage (confirmed live — see file header), so summing
+            // across every internal turn in this agent_end is the correct
+            // total for the prompt just sent.
+            if (m.usage) {
+              turnInputTokens += m.usage.input ?? 0;
+              turnOutputTokens += m.usage.output ?? 0;
+            }
+          }
+
+          const rawText = assistantMessages.map((m) => extractPiRpcText(m)).filter(Boolean).join('\n');
           const visibleText = rawText.replace(TOOL_CALL_RE, '').trim();
           if (visibleText) yield { type: 'assistant', text: visibleText };
 

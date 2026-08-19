@@ -30,13 +30,13 @@ export const auditCommand: Command = {
     }
 
     output.writeln();
-    output.writeln(output.bold('Security Audit Log'));
+    output.writeln(output.bold('Recent .swarm activity (derived from file mtimes — not an audit log)'));
     output.writeln(output.dim('─'.repeat(60)));
 
     const { existsSync, readFileSync, readdirSync, statSync } = await import('fs');
     const { join } = await import('path');
 
-    const auditEntries: { timestamp: string; event: string; user: string; status: string }[] = [];
+    const auditEntries: { timestamp: string; event: string; source: string }[] = [];
     const swarmDir = join(process.cwd(), '.swarm');
 
     if (existsSync(swarmDir)) {
@@ -51,8 +51,7 @@ export const auditCommand: Command = {
               event: file.includes('session') ? 'SESSION_UPDATE' :
                      file.includes('swarm') ? 'SWARM_ACTIVITY' :
                      file.includes('memory') ? 'MEMORY_WRITE' : 'CONFIG_CHANGE',
-              user: 'system',
-              status: output.success('Success'),
+              source: 'system',
             });
           } catch { /* skip */ }
         }
@@ -60,7 +59,7 @@ export const auditCommand: Command = {
     }
 
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    auditEntries.push({ timestamp: now, event: 'AUDIT_RUN', user: 'cli', status: output.success('Success') });
+    auditEntries.push({ timestamp: now, event: 'AUDIT_RUN', source: 'cli' });
     auditEntries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
     // --filter was previously parsed and discarded, so every invocation
@@ -85,8 +84,7 @@ export const auditCommand: Command = {
         columns: [
           { key: 'timestamp', header: 'Timestamp', width: 22 },
           { key: 'event', header: 'Event', width: 20 },
-          { key: 'user', header: 'User', width: 15 },
-          { key: 'status', header: 'Status', width: 12 },
+          { key: 'source', header: 'Source', width: 15 },
         ],
         data: visibleEntries.slice(0, parseInt(ctx.flags.limit as string || '20', 10)),
       });

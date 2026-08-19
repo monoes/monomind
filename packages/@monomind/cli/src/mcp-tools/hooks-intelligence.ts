@@ -639,12 +639,16 @@ export const hooksIntelligenceStats: MCPTool = {
     const ewc = await getEWCConsolidator();
     // Fallback to memory store for legacy data
     const memoryStats = getIntelligenceStatsFromMemory();
+    // Real measured adaptation latency, tracked from actual wall-clock timings
+    // in LocalSonaCoordinator (memory/intelligence.ts), not a theoretical constant.
+    const { getIntelligenceStats: getLocalIntelligenceStats } = await import('../memory/intelligence.js');
+    const avgLearningTimeMs = getLocalIntelligenceStats().avgAdaptationTime;
 
     // SONA stats from real implementation
     let sonaStats = {
       trajectoriesTotal: memoryStats.trajectories.total,
       trajectoriesSuccessful: memoryStats.trajectories.successful,
-      avgLearningTimeMs: 0,
+      avgLearningTimeMs,
       patternsLearned: memoryStats.patterns.learned,
       patternCategories: memoryStats.patterns.categories,
       successRate: 0,
@@ -656,7 +660,7 @@ export const hooksIntelligenceStats: MCPTool = {
       sonaStats = {
         trajectoriesTotal: realSona.trajectoriesProcessed,
         trajectoriesSuccessful: realSona.successfulRoutings,
-        avgLearningTimeMs: realSona.lastUpdate ? 0.042 : 0, // Theoretical when active
+        avgLearningTimeMs,
         patternsLearned: realSona.totalPatterns,
         patternCategories: { learned: realSona.totalPatterns }, // Simplified
         successRate:
@@ -688,7 +692,6 @@ export const hooksIntelligenceStats: MCPTool = {
 
     // MoE stats from real implementation
     let moeStats = {
-      expertsTotal: 8,
       expertsActive: 0,
       routingDecisions: memoryStats.routing.decisions,
       avgRoutingTimeMs: 0,
@@ -711,7 +714,6 @@ export const hooksIntelligenceStats: MCPTool = {
 
     // LoRA Adapter removed — superseded by SONA instant adaptation
     const loraStats = {
-      rank: 8,
       alpha: 16,
       adaptations: 0,
       avgLoss: 0,
@@ -726,11 +728,6 @@ export const hooksIntelligenceStats: MCPTool = {
       lora: loraStats,
       hnsw: {
         indexSize: memoryStats.memory.indexSize,
-        avgSearchTimeMs: 0.12,
-        cacheHitRate:
-          memoryStats.memory.totalAccessCount > 0
-            ? Math.min(0.95, 0.5 + memoryStats.memory.totalAccessCount / 1000)
-            : 0.78,
         memoryUsageMb: Math.round((memoryStats.memory.memorySizeBytes / 1024 / 1024) * 100) / 100,
       },
       dataSource: sona ? 'real-implementations' : 'memory-fallback',

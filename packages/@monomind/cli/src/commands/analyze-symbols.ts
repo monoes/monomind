@@ -7,7 +7,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import * as fs from 'fs/promises';
 import { resolve } from 'path';
-import { getASTAnalyzer, safeWriteOutputFile, scanSourceFiles, fallbackAnalyze } from './analyze.js';
+import { safeWriteOutputFile, scanSourceFiles, fallbackAnalyze, FILE_SCAN_CAP, reportFileCap } from './analyze.js';
 import { truncatePathAst, formatComplexityValueAst, getTypeMarkerAst } from './analyze-ast.js';
 
 /**
@@ -16,7 +16,7 @@ import { truncatePathAst, formatComplexityValueAst, getTypeMarkerAst } from './a
 export const complexityAstCommand: Command = {
   name: 'complexity',
   aliases: ['cx'],
-  description: 'Analyze code complexity metrics',
+  description: 'Count decision points per file (cyclomatic approx.), regex-based',
   options: [
     {
       name: 'threshold',
@@ -57,10 +57,10 @@ export const complexityAstCommand: Command = {
     spinner.start();
 
     try {
-      const astModule = await getASTAnalyzer();
       const resolvedPath = resolve(targetPath);
       const stat = await fs.stat(resolvedPath);
       const files = stat.isDirectory() ? await scanSourceFiles(resolvedPath) : [resolvedPath];
+      reportFileCap(files.length);
 
       const results: Array<{
         file: string;
@@ -72,17 +72,10 @@ export const complexityAstCommand: Command = {
         flagged: boolean;
       }> = [];
 
-      for (const file of files.slice(0, 100)) {
+      for (const file of files.slice(0, FILE_SCAN_CAP)) {
         try {
           const content = await fs.readFile(file, 'utf-8');
-          let analysis;
-
-          if (astModule) {
-            const analyzer = astModule.createASTAnalyzer();
-            analysis = analyzer.analyze(content, file);
-          } else {
-            analysis = fallbackAnalyze(content, file);
-          }
+          const analysis = fallbackAnalyze(content, file);
 
           const flagged = analysis.complexity.cyclomatic > threshold;
           const rating = analysis.complexity.cyclomatic <= 5 ? 'Simple' :
@@ -145,7 +138,7 @@ export const complexityAstCommand: Command = {
         output.printTable({
           columns: [
             { key: 'file', header: 'File', width: 40, format: (v) => truncatePathAst(v as string) },
-            { key: 'cyclomatic', header: 'Cyclo', width: 8, align: 'right', format: (v) => output.error(String(v)) },
+            { key: 'cyclomatic', header: 'Decisions', width: 8, align: 'right', format: (v) => output.error(String(v)) },
             { key: 'cognitive', header: 'Cogni', width: 8, align: 'right' },
             { key: 'loc', header: 'LOC', width: 8, align: 'right' },
             { key: 'rating', header: 'Rating', width: 15 },
@@ -163,7 +156,7 @@ export const complexityAstCommand: Command = {
       output.printTable({
         columns: [
           { key: 'file', header: 'File', width: 40, format: (v) => truncatePathAst(v as string) },
-          { key: 'cyclomatic', header: 'Cyclo', width: 8, align: 'right', format: (v) => formatComplexityValueAst(v as number) },
+          { key: 'cyclomatic', header: 'Decisions', width: 8, align: 'right', format: (v) => formatComplexityValueAst(v as number) },
           { key: 'cognitive', header: 'Cogni', width: 8, align: 'right' },
           { key: 'loc', header: 'LOC', width: 8, align: 'right' },
         ],
@@ -238,10 +231,10 @@ export const symbolsCommand: Command = {
     spinner.start();
 
     try {
-      const astModule = await getASTAnalyzer();
       const resolvedPath = resolve(targetPath);
       const stat = await fs.stat(resolvedPath);
       const files = stat.isDirectory() ? await scanSourceFiles(resolvedPath) : [resolvedPath];
+      reportFileCap(files.length);
 
       const symbols: Array<{
         name: string;
@@ -251,17 +244,10 @@ export const symbolsCommand: Command = {
         endLine: number;
       }> = [];
 
-      for (const file of files.slice(0, 100)) {
+      for (const file of files.slice(0, FILE_SCAN_CAP)) {
         try {
           const content = await fs.readFile(file, 'utf-8');
-          let analysis;
-
-          if (astModule) {
-            const analyzer = astModule.createASTAnalyzer();
-            analysis = analyzer.analyze(content, file);
-          } else {
-            analysis = fallbackAnalyze(content, file);
-          }
+          const analysis = fallbackAnalyze(content, file);
 
           if (symbolType === 'all' || symbolType === 'function') {
             for (const fn of analysis.functions) {

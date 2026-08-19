@@ -485,6 +485,7 @@ export const allHiveMindTools: MCPTool[] = [
       let pendingTaskCount = 0;
       let activeTaskCount = 0;
       let completedTaskCount = 0;
+      let failedTaskCount = 0;
       try {
         if (existsSync(taskStorePath) && statSync(taskStorePath).size <= MAX_HIVE_STATE_BYTES) {
           const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
@@ -492,6 +493,7 @@ export const allHiveMindTools: MCPTool[] = [
             if (task.status === 'pending') pendingTaskCount++;
             else if (task.status === 'in_progress') activeTaskCount++;
             else if (task.status === 'completed') completedTaskCount++;
+            else if (task.status === 'failed') failedTaskCount++;
           }
         }
       } catch (e) {
@@ -500,6 +502,14 @@ export const allHiveMindTools: MCPTool[] = [
 
       const workerCount = Math.max(1, state.workers.length);
       const realLoad = activeTaskCount / workerCount;
+
+      // Real state-file size on disk (in place of a fabricated "memory usage"
+      // guess — this measures the persisted hive-mind state file, not memory).
+      let hiveStateBytes = 0;
+      try {
+        const hivePath = getHivePath();
+        if (existsSync(hivePath)) hiveStateBytes = statSync(hivePath).size;
+      } catch { /* best-effort */ }
 
       const status = {
         // CLI expected fields
@@ -538,20 +548,31 @@ export const allHiveMindTools: MCPTool[] = [
           };
         }),
         metrics: {
-          totalTasks: pendingTaskCount + activeTaskCount + completedTaskCount,
+          totalTasks: pendingTaskCount + activeTaskCount + completedTaskCount + failedTaskCount,
           completedTasks: completedTaskCount,
           activeTasks: activeTaskCount,
           pendingTasks: pendingTaskCount,
-          failedTasks: 0,
+          failedTasks: failedTaskCount,
           consensusRounds: state.consensus.history.length,
-          memoryUsage: `${Object.keys(state.sharedMemory).length * 2} KB`,
+          // Renamed from "memoryUsage" — this is the persisted state file's
+          // byte size on disk, not a measurement of process memory.
+          stateSize: `${Math.round(hiveStateBytes / 1024)} KB`,
         },
         health: {
-          overall: 'healthy',
+          // Derived from real signals (queen presence, worker count, failed
+          // task count) rather than a hardcoded value. 'unknown' when the
+          // hive hasn't been initialized — there's no honest signal yet.
+          overall: !state.initialized
+            ? 'unknown'
+            : !state.queen || state.workers.length === 0
+              ? 'degraded'
+              : failedTaskCount > 0
+                ? 'degraded'
+                : 'healthy',
           queen: state.queen ? 'healthy' : 'unhealthy',
           workers: state.workers.length > 0 ? 'healthy' : 'degraded',
-          consensus: 'healthy',
-          memory: 'healthy',
+          consensus: state.consensus.pending.length > 0 ? 'pending' : 'healthy',
+          stateSize: hiveStateBytes <= MAX_HIVE_STATE_BYTES ? 'healthy' : 'degraded',
         },
         // Additional fields
         id: state.hiveId ?? `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,

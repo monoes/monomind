@@ -26,9 +26,9 @@ describe('parseQwenEvents', () => {
     expect(r.texts).toEqual(['a\nb']);
   });
 
-  it('extracts usage tokens from a result event', () => {
+  it('extracts usage tokens from a result event (flat, top-level — confirmed live, not nested under message.usage.tokens)', () => {
     const r = parseQwenEvents([
-      JSON.stringify({ type: 'result', subtype: 'success', session_id: 's', message: { usage: { tokens: { input: 12, output: 34 } } } }),
+      JSON.stringify({ type: 'result', subtype: 'success', session_id: 's', usage: { input_tokens: 12, output_tokens: 34 } }),
     ]);
     expect(r.inputTokens).toBe(12);
     expect(r.outputTokens).toBe(34);

@@ -8,7 +8,7 @@ import { output } from '../output.js';
 import * as fs from 'fs/promises';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
-import { getASTAnalyzer, safeWriteOutputFile, scanSourceFiles, fallbackAnalyze } from './analyze.js';
+import { safeWriteOutputFile, scanSourceFiles, fallbackAnalyze, FILE_SCAN_CAP, reportFileCap } from './analyze.js';
 
 /**
  * Imports analysis subcommand
@@ -57,25 +57,18 @@ export const importsCommand: Command = {
     spinner.start();
 
     try {
-      const astModule = await getASTAnalyzer();
       const resolvedPath = resolve(targetPath);
       const stat = await fs.stat(resolvedPath);
       const files = stat.isDirectory() ? await scanSourceFiles(resolvedPath) : [resolvedPath];
+      reportFileCap(files.length);
 
       const importCounts: Map<string, { count: number; files: string[] }> = new Map();
       const fileImports: Map<string, string[]> = new Map();
 
-      for (const file of files.slice(0, 100)) {
+      for (const file of files.slice(0, FILE_SCAN_CAP)) {
         try {
           const content = await fs.readFile(file, 'utf-8');
-          let analysis;
-
-          if (astModule) {
-            const analyzer = astModule.createASTAnalyzer();
-            analysis = analyzer.analyze(content, file);
-          } else {
-            analysis = fallbackAnalyze(content, file);
-          }
+          const analysis = fallbackAnalyze(content, file);
 
           const imports = analysis.imports.filter(imp => {
             if (externalOnly) {
@@ -177,16 +170,21 @@ export const depsCommand: Command = {
   name: 'deps',
   description: 'Analyze project dependencies',
   options: [
-    { name: 'outdated', short: 'o', type: 'boolean', description: 'Show only outdated dependencies' },
+    { name: 'drift', short: 'o', type: 'boolean', description: 'Show dependencies whose installed version differs from the declared range (local check only, not npm registry currency)' },
+    // Hidden alias for backwards compatibility — the old name implied a check
+    // against npm registry currency, but this only ever compared declared vs.
+    // installed versions locally.
+    { name: 'outdated', type: 'boolean', hidden: true, description: 'Alias of --drift' },
     { name: 'security', short: 's', type: 'boolean', description: 'Check for security vulnerabilities' },
     { name: 'format', short: 'f', type: 'string', description: 'Output format: text, json', default: 'text' },
   ],
   examples: [
-    { command: 'monomind analyze deps --outdated', description: 'Show outdated dependencies' },
+    { command: 'monomind analyze deps --drift', description: 'Show local version drift (declared vs. installed)' },
     { command: 'monomind analyze deps --security', description: 'Check for vulnerabilities' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const showOutdated = ctx.flags.outdated as boolean;
+    const usedOutdatedAlias = Boolean(ctx.flags.outdated) && !ctx.flags.drift;
+    const showDrift = (ctx.flags.drift as boolean) || (ctx.flags.outdated as boolean);
     const checkSecurity = ctx.flags.security as boolean;
     const formatJson = (ctx.flags.format as string) === 'json';
 
@@ -211,7 +209,7 @@ export const depsCommand: Command = {
       const peerDeps = Object.entries(pkg.peerDependencies || {}) as [string, string][];
       const total = deps.length + devDeps.length + optDeps.length + peerDeps.length;
 
-      if (formatJson && !showOutdated && !checkSecurity) {
+      if (formatJson && !showDrift && !checkSecurity) {
         const jsonData = { name: pkg.name, version: pkg.version, dependencies: deps.length, devDependencies: devDeps.length, optionalDependencies: optDeps.length, peerDependencies: peerDeps.length, total };
         output.printJson(jsonData);
         return { success: true, data: jsonData };
@@ -222,9 +220,12 @@ export const depsCommand: Command = {
         'Dependency Summary'
       );
 
-      if (showOutdated) {
+      if (showDrift) {
+        if (usedOutdatedAlias) {
+          output.printInfo('note: --outdated checks local version drift, not npm registry currency');
+        }
         output.writeln();
-        output.writeln(output.bold('Outdated Check'));
+        output.writeln(output.bold('Version Drift Check (declared vs. installed)'));
         output.writeln(output.dim('-'.repeat(60)));
         const outdated: Array<{ name: string; declared: string; installed: string; category: string }> = [];
 
