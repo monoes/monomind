@@ -43,10 +43,7 @@ const buildDocsState = new Map();
 
 // Pricing per token (mirrors token-tracker.cjs FALLBACK_PRICING)
 const _SJ_PRICING = {
-  'claude-fable-5': { in: 10e-6, out: 50e-6, cw: 12.5e-6, cr: 1e-6 },
-  'claude-mythos-5': { in: 10e-6, out: 50e-6, cw: 12.5e-6, cr: 1e-6 },
   'claude-opus-5': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
-  'claude-opus-4-8': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
   'claude-opus-4-7': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
   'claude-opus-4-6': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
   'claude-opus-4-5': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },

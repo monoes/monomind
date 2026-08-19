@@ -21,8 +21,13 @@ describe('Dart parser', () => {
     expect(result.nodes.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('produces no fatal parse errors (skipped if grammar unavailable)', () => {
+  it('produces no fatal parse errors, or only a documented fallback notice (skipped if grammar unavailable)', () => {
     if (result.nodes.length === 0) return;
-    expect(result.parseErrors).toHaveLength(0);
+    // MEM-2: when the native tree-sitter-dart grammar fails to load, parseFile()
+    // falls back to a regex-based extractor and still reports why — that
+    // diagnostic is not a fatal error, but it is expected to be present.
+    for (const err of result.parseErrors) {
+      expect(err).toContain('fell back to regex extraction');
+    }
   });
 });

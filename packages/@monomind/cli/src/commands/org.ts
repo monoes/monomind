@@ -11,6 +11,7 @@ import { startOrgServer } from '../orgrt/server.js';
 import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
 import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
+import { MODEL_PRICING } from '../pricing/model-pricing.js';
 
 const log = (text: string): void => { console.log(text); };
 
@@ -183,22 +184,30 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // P0-17: Upfront cost estimate. `org run` and `/mastermind:autodev` spend real
   // provider tokens. Print an estimate before sessions start; honor --budget-usd
   // as a hard stop and --yes to skip the confirmation prompt. Rates are defaults
-  // (per 1M tokens, input+output blended, Aug 2026); override via the model id.
+  // (per 1M tokens, blended estimate, Aug 2026); override via the model id.
   //
   // No provider Usage API is queried (that needs Admin/Org API credentials most
-  // users won't have configured) — rates come from this hardcoded table, or from
-  // a user-editable ~/.monomind/rates.json override when present. Either way this
-  // is static data, not a live query, so a "stale rates" warning is always shown
-  // to make that limitation visible rather than implying live pricing.
-  const MODEL_RATE_PER_1M: Record<string, number> = {
-    'claude-opus-5': 75, 'claude-opus-4': 75,
-    'claude-sonnet-5': 15, 'claude-sonnet-4': 15, 'claude-sonnet-4-5': 15,
-    'gpt-5': 10, 'gpt-4': 10,
+  // users won't have configured) — rates are derived from the canonical
+  // MODEL_PRICING table (src/pricing/model-pricing.ts), using each model's
+  // output-token price as the blended per-1M estimate (output tokens dominate
+  // role-turn cost). Models not yet tracked in that table (third-party/non-
+  // Anthropic providers) fall back to the manually maintained EXTRA table
+  // below. A user-editable ~/.monomind/rates.json override, when present,
+  // takes precedence over both. Either way this is static data, not a live
+  // query, so a "stale rates" warning is always shown to make that
+  // limitation visible rather than implying live pricing.
+  const DERIVED_RATE_PER_1M: Record<string, number> = Object.fromEntries(
+    Object.entries(MODEL_PRICING).map(([model, price]) => [model, price.out * 1_000_000]),
+  );
+  // Models absent from MODEL_PRICING (not yet in the canonical pricing table).
+  const EXTRA_MODEL_RATE_PER_1M: Record<string, number> = {
+    'gpt-4': 10,
     'glm-5.2': 2, 'glm-4': 2,
     'kimi-latest': 3, 'kimi-k2': 3, 'kimi-code/k3': 3, 'kimi-code/k3-256k': 3,
     'gemini-3.1-pro': 8, 'gemini-3.6-flash-high': 1,
     'gpt-5.6-terra': 10, 'gpt-5.5': 10,
   };
+  const MODEL_RATE_PER_1M: Record<string, number> = { ...EXTRA_MODEL_RATE_PER_1M, ...DERIVED_RATE_PER_1M };
   const DEFAULT_RATE_PER_1M = 10;
   const AVG_TOKENS_PER_TURN = 2000;
   const budgetUsd = ctx.flags['budgetUsd'] as number | undefined;
@@ -1448,8 +1457,8 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'branch', description: 'Create a branch from checkpoint for what-if experiments',
-      examples: [{ command: 'monomind org branch growth run-20250130 abc-branch', description: 'Create branch from checkpoint' }],
+      name: 'branch', description: "Snapshot a run's event log for replay",
+      examples: [{ command: 'monomind org branch growth run-20250130 abc-branch', description: "Snapshot a run's checkpoint into a new run for replay" }],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;

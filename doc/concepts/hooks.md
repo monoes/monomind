@@ -158,12 +158,11 @@ monomind hooks session-end   # End session, persist state
 monomind hooks session-restore  # Restore previous session
 ```
 
-### Intelligence & routing (7)
+### Intelligence & routing (6)
 ```bash
 monomind hooks route           # Route a task to optimal agent
 monomind hooks explain         # Explain routing decision
 monomind hooks pretrain        # Run the 4-step learning pipeline
-monomind hooks build-agents    # Build agent roster from patterns
 monomind hooks metrics         # Show hook execution metrics
 monomind hooks transfer        # Transfer patterns (local file copy; for IPFS transfer see `hooks intelligence export --ipfs`)
 monomind hooks list            # List all registered hooks

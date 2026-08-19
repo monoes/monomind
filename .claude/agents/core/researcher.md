@@ -157,7 +157,7 @@ mcp__monomind__memory_usage {
 }
 
 // Check prior research
-mcp__monomind__memory_search {
+mcp__monomind__memory_pattern-search {
   pattern: "swarm/shared/research-*",
   namespace: "coordination",
   limit: 10

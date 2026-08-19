@@ -353,7 +353,7 @@ module.exports = {
         : 'project context general';
 
       var memoryMod = null;
-      try { memoryMod = await import('@monomind/memory'); } catch (e) {}
+      try { memoryMod = await import('@monoes/memory'); } catch (e) {}
 
       if (memoryMod && memoryMod.KnowledgeStore && memoryMod.KnowledgeRetriever) {
         var kStore = new memoryMod.KnowledgeStore(knowledgeDir);

@@ -31,12 +31,12 @@ Execute at the START of every mastermind run (master or standalone domain comman
 **Step A — Tier 3 core principles (all domains):**
 Try `mcp__monomind__memory_hierarchical-recall` with query `"mastermind principles"`, topK 20.
 If it returns `"LanceDB bridge not available"` or any error, fall back to:
-`mcp__monomind__memory_search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
+`mcp__monomind__memory_pattern-search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
 
 **Step B — Tier 2 weekly summary for this domain:**
 Try `mcp__monomind__memory_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
 If it fails, fall back to:
-`mcp__monomind__memory_search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
+`mcp__monomind__memory_pattern-search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
 
 **Step C — Relevant graph nodes:**
 Call `mcp__monomind__monograph_query` with question `[3-5 keywords extracted from current prompt]`, depth 2.
@@ -74,7 +74,7 @@ Try `mcp__monomind__memory_hierarchical-store` with:
 - content: [full unified output schema YAML from this run, as a string]
 - metadata: `{ score, project, run_id, date: ISO8601, domain }`
 
-If LanceDB is unavailable, fall back to `mcp__monomind__memory_store`:
+If LanceDB is unavailable, fall back to `mcp__monomind__memory_pattern-store`:
 - key: `mastermind:<domain>:run:<run_id>`
 - value: [JSON-encoded unified output schema]
 - namespace: `mastermind:<domain>:raw`

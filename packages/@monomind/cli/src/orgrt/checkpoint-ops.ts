@@ -123,15 +123,19 @@ export async function resumeOrg(daemon: OrgDaemon, name: string): Promise<Runnin
   }
 }
 
-/** Create a branch from a checkpoint for "what-if" experiments */
-export function branchCheckpoint(daemon: OrgDaemon, name: string, run: string, branchName: string): { ok: true; branchRun: string } | { ok: false; error: string } {
-  const runDir = join(daemon.root, ORG_DIR, name, run);
+/** Snapshot a run's event log (bus.jsonl) into a new run directory for replay,
+ *  tagged with a `.branch-source` marker recording its origin. This is a
+ *  point-in-time snapshot for replay/inspection — it does not execute the
+ *  branch as a "what-if" scenario. `root` is the org root directory
+ *  (equivalent to `OrgDaemon.root` / the CLI's `ctx.cwd`). */
+export function branchCheckpoint(root: string, name: string, run: string, branchName: string): { ok: true; branchRun: string } | { ok: false; error: string } {
+  const runDir = join(root, ORG_DIR, name, run);
   if (!existsSync(runDir)) {
     return { ok: false, error: `run ${run} not found for org ${name}` };
   }
 
   const branchRun = `branch-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 6)}`;
-  const branchDir = join(daemon.root, ORG_DIR, name, branchRun);
+  const branchDir = join(root, ORG_DIR, name, branchRun);
 
   try {
     mkdirSync(branchDir, { recursive: true });

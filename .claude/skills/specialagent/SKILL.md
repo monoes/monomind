@@ -46,7 +46,7 @@ The verified roster is ~98 agent definitions (97 registered in `packages/@monomi
 | marketing | Competitive Content Strategist · CRO Specialist · Email Marketing Specialist · Launch Strategist · Pricing Strategist |
 | design | Monodesign · Cultural Intelligence Strategist |
 | github | pr-manager · issue-tracker · release-manager · repo-architect · code-review-swarm · multi-repo-swarm · sync-coordinator · workflow-automation · project-board-sync |
-| swarm / consensus | mesh-coordinator · collective-intelligence-coordinator · scout-explorer · swarm-memory-manager · worker-specialist · coordinator · planner · smart-agent · swarm-init · crdt-synchronizer · quorum-manager |
+| swarm / consensus | mesh-coordinator · collective-intelligence-coordinator · scout-explorer · swarm-memory-manager · worker-specialist · coordinator · planner · smart-agent · swarm-init · quorum-manager |
 | optimization | Benchmark Suite · Load Balancing Coordinator · Performance Monitor · Resource Allocator · Topology Optimizer |
 | specialized | MCP Builder · Document Generator · Agents Orchestrator · dashboard-verifier |
 

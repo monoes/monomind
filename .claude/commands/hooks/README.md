@@ -30,7 +30,6 @@ session-restore   Restore a previous session
 route             Route task to optimal agent using learned patterns
 explain           Explain routing decision with transparency
 pretrain          Bootstrap intelligence from repository (4-step pipeline + embeddings)
-build-agents      Generate optimized agent configs from pretrain data
 metrics           View learning metrics dashboard
 transfer          Transfer patterns via IPFS registry or from another project
 list              List all registered hooks

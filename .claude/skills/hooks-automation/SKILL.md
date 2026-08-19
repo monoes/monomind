@@ -606,7 +606,7 @@ mcp__monomind__agent_spawn {
   capabilities: ["api", "database", "testing"]
 }
 
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "swarm/task/api-build/context",
   namespace: "coordination",
@@ -625,7 +625,7 @@ mcp__monomind__memory_store {
 npx monomind hook post-edit --file "api/auth.js"
 
 // Internally calls MCP tools:
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "swarm/edits/api/auth.js",
   namespace: "coordination",
@@ -663,7 +663,7 @@ All hooks follow a standardized memory coordination pattern:
 
 **Phase 1: STATUS** - Hook starts
 ```javascript
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "swarm/hooks/pre-edit/status",
   namespace: "coordination",
@@ -678,7 +678,7 @@ mcp__monomind__memory_store {
 
 **Phase 2: PROGRESS** - Hook processes
 ```javascript
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "swarm/hooks/pre-edit/progress",
   namespace: "coordination",
@@ -692,7 +692,7 @@ mcp__monomind__memory_store {
 
 **Phase 3: COMPLETE** - Hook finishes
 ```javascript
-mcp__monomind__memory_store {
+mcp__monomind__memory_pattern-store {
   action: "store",
   key: "swarm/hooks/pre-edit/complete",
   namespace: "coordination",

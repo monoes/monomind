@@ -6,7 +6,7 @@
 
 Monomind extends AI coding assistants (Claude Code, Antigravity, opencode, Kimi Code) with four local-first capabilities:
 
-1. **Monograph** — a code knowledge graph (10 languages via tree-sitter + SQLite + BM25)
+1. **Monograph** — a code knowledge graph (14 tree-sitter grammars + 5 regex-fallback languages — see `packages/@monomind/monograph/README.md` for the authoritative count — plus SQLite + BM25)
 2. **Memory** — persistent memory across sessions (SQLite + local embeddings + keyword fallback)
 3. **Second Brain** — document RAG (PDF/Office/EPUB ingestion, semantic search, eval-gated)
 4. **Org Runtime** — multi-agent daemon with dashboard, governance, and budgets

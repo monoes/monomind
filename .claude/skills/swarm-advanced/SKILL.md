@@ -142,7 +142,7 @@ mcp__monomind__parallel_execute({
 })
 
 // Store research findings in memory
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   "action": "store",
   "key": "research-findings-" + Date.now(),
   "value": JSON.stringify(findings),
@@ -181,7 +181,7 @@ mcp__monomind__neural_patterns({
 #### Phase 3: Knowledge Management
 ```javascript
 // Search existing knowledge base
-mcp__monomind__memory_search({
+mcp__monomind__memory_pattern-search({
   "pattern": "topic X",
   "namespace": "research",
   "limit": 20
@@ -199,7 +199,7 @@ mcp__monomind__neural_patterns({
 })
 
 // Store connections for future use
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   "action": "store",
   "key": "knowledge-graph-X",
   "value": JSON.stringify(knowledgeGraph),
@@ -285,7 +285,7 @@ devTeam.forEach(member => {
 Task("design system architecture for REST API", "sequential, critical priority", "System Architect")
 
 // Store architecture decisions
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   "action": "store",
   "key": "architecture-decisions",
   "value": JSON.stringify(architectureDoc),
@@ -469,7 +469,7 @@ mcp__monomind__pattern_recognize({
 })
 
 // Store test plan
-mcp__monomind__memory_store({
+mcp__monomind__memory_pattern-store({
   "action": "store",
   "key": "test-plan-" + Date.now(),
   "value": JSON.stringify(testPlan),

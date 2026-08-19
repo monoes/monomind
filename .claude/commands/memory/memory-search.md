@@ -61,7 +61,7 @@ Use `--build-hnsw` when searching large memory stores (1,000+ entries). The pure
 ## MCP Tool
 
 ```javascript
-mcp__monomind__memory_search({
+mcp__monomind__memory_pattern-search({
   query: "authentication patterns",
   namespace: "default",
   limit: 10,

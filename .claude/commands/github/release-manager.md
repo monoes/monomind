@@ -221,7 +221,7 @@ Generated with Claude Code using Monomind swarm coordination`
   ]}
 
   // Store release state
-  mcp__monomind__memory_store {
+  mcp__monomind__memory_pattern-store {
     key: "release/v1.0.72/status",
     value: {
       timestamp: Date.now(),

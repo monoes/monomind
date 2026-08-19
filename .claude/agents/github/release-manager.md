@@ -177,7 +177,7 @@ mcp__github__create_pull_request {
   ]}
 
   // Store release state
-  mcp__monomind__memory_store {
+  mcp__monomind__memory_pattern-store {
     action: "store",
     key: "release/v1.8.0/status",
     value: {

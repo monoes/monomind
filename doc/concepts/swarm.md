@@ -103,9 +103,6 @@ monomind swarm status
 # Scale up/down
 monomind swarm scale --agents 12
 
-# Coordinate a specific task
-monomind swarm coordinate "implement JWT authentication"
-
 # Stop
 monomind swarm stop
 ```
@@ -155,3 +152,8 @@ mcp__monomind__task_create        — create a task
 mcp__monomind__task_assign        — assign a task to an agent
 mcp__monomind__task_status        — task status
 ```
+
+`swarm_init` and `agent_spawn` record state only — they write a swarm/agent record to
+the local store and return it. Neither one spawns a real OS process or starts any
+execution; actual agent work happens through Claude Code's Task tool (or another
+Task-tool-driven agent runner), not through these MCP calls.
