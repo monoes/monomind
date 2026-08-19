@@ -13,7 +13,6 @@ Multi-agent swarm coordination with hierarchical topology, distributed memory, a
 | `status` | Show current swarm status and progress |
 | `stop` | Stop swarm execution |
 | `scale` | Scale swarm agent count up or down |
-| `coordinate` | Launch v1 15-agent hierarchical-mesh coordination |
 
 ## init — Initialize a Swarm
 

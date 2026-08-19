@@ -122,7 +122,7 @@ Defined in `packages/@monomind/hooks/src/types.ts`:
 
 ## Background Workers (<!-- doc-count:workers -->9<!-- /doc-count:workers -->)
 
-There is no separate background daemon. All <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers (`health`, `ddd`, `security`, `cache`, `map`, `audit`, `consolidate`, `progress`) live in `@monoes/hooks` (`WorkerManager`) as entries in the static `WORKER_CONFIGS` map, run in-process, and are initialized at session start (see table). The metrics-producing workers (`map`, `audit`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `ddd` runs unconditionally every session start (`always: true`), the other three only when stale; `doctor` reports worker-metrics freshness.
+There is no separate background daemon. All <!-- doc-count:workers -->9<!-- /doc-count:workers --> workers (`health`, `ddd`, `security`, `cache`, `map`, `audit`, `consolidate`, `progress`, `reflexion`) live in `@monoes/hooks` (`WorkerManager`) as entries in the static `WORKER_CONFIGS` map, run in-process, and are initialized at session start (see table). The metrics-producing workers (`map`, `audit`, `consolidate`, `ddd`) refresh automatically when their output file under `.monomind/metrics/` is missing or older than 6 hours; `ddd` runs unconditionally every session start (`always: true`), the other three only when stale; `doctor` reports worker-metrics freshness.
 
 | Worker | Interval | Priority | Purpose |
 |---|---|---|---|
@@ -134,6 +134,7 @@ There is no separate background daemon. All <!-- doc-count:workers -->9<!-- /doc
 | `ddd` | 10 min | Low | Track DDD domain implementation progress |
 | `consolidate` | 6 hours | Low | RAPTOR memory consolidation → `.monomind/metrics/consolidation.json` |
 | `cache` | 1 hour | Background | Clean temp files, old logs, stale cache |
+| `reflexion` | 1 hour | Normal | Self-learning from failures — reflects on failed tasks, stores lessons for future retrieval (disabled by default) |
 
 ```bash
 monomind hooks worker list        # list all workers and status

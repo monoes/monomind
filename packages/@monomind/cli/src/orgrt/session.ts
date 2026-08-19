@@ -513,13 +513,19 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
         policy.addUsage(tokens);
         // Convert the SDK's cumulative-per-session total_cost_usd into a
         // per-result delta before emitting - downstream sums usage events.
-        // A value below the stored total means the billing session restarted
-        // (fresh session id), in which case the full value is the delta.
+        // costTotals is keyed by session_id, so a genuinely new/restarted
+        // session (fresh sid, no prior entry) correctly gets its full
+        // cumulative value as the delta. A same-sid value that ticks down
+        // (rounding, a provider-side cost correction) is NOT a restart —
+        // treating it as one would re-add the full cumulative cost and,
+        // now that this feeds real USD budget enforcement (ORG-7), could
+        // incorrectly close a well-behaved session's mailbox. Floor at 0
+        // instead of re-adding the cumulative value in that case.
         let costDelta = m.cost_usd;
         if (costTotals && typeof m.cost_usd === 'number' && Number.isFinite(m.cost_usd)) {
           const sid = m.session_id ?? sessionId ?? '';
           const prev = costTotals.get(sid);
-          costDelta = prev === undefined || m.cost_usd < prev ? m.cost_usd : m.cost_usd - prev;
+          costDelta = prev === undefined ? m.cost_usd : Math.max(0, m.cost_usd - prev);
           costTotals.set(sid, m.cost_usd);
         }
         // ORG-7: accumulate real USD cost so policy.overBudgetUsd (role.budget_usd) is enforceable.
