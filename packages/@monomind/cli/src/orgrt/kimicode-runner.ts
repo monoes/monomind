@@ -16,6 +16,23 @@
  *     ARG ORDER MATTERS: the prompt must immediately follow `-p` — flags in
  *     between are consumed as the prompt text.
  *
+ * Streaming / liveness — WHY INCREMENTAL:
+ *   Kimi turns routinely run 10-20+ minutes when the model chains many
+ *   internal tool calls (observed: 45+ steps in one turn). session.ts races
+ *   the FIRST pull from this runner against a 4-minute silent-stream
+ *   watchdog, so buffering stdout until process exit (the original design)
+ *   meant any turn longer than 4 minutes yielded zero messages in time —
+ *   abort, retry, kill, circuit breaker, stalled org. This runner therefore
+ *   parses stdout LINE BY LINE as data arrives: a liveness `tool_use`
+ *   message is yielded the moment the subprocess spawns (deterministically
+ *   winning the first-pull race regardless of model-thinking latency),
+ *   assistant text is yielded as each event lands, and kimi's own
+ *   {"role":"tool",...} progress events are forwarded as `tool_use`
+ *   liveness messages so the StateDetector/idle watchdog see a working
+ *   agent throughout the turn. Tool_call fences are still collected from
+ *   the raw texts and parsed at end of turn (fence parsing needs the
+ *   complete text).
+ *
  * Org tools (org_send, knowledge_search, ask_human, …) — FENCE PROTOCOL:
  *   kimi's tool surface can only be extended via MCP servers or plugins, both
  *   loaded by the CLI itself, not by an external caller per-turn. Instead the
@@ -57,10 +74,6 @@ import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
 interface TurnOutcome {
-  /** Assistant texts with tool_call fences stripped. */
-  texts: string[];
-  /** Raw assistant texts (fences intact) for tool-call parsing. */
-  rawTexts: string[];
   sessionId?: string;
   exitCode: number;
   stderrTail: string;
@@ -115,15 +128,34 @@ export class KimiCodeAgentRunner implements AgentRunner {
         // produces no tool_call fences (or the round cap hits).
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
           const roundStart = Date.now();
-          const outcome = await this.runTurn(bin, nextPrompt, sessionId, args, agentFile);
+          // Filled in by streamTurn as the subprocess runs and when it exits.
+          const outcome: TurnOutcome = { exitCode: 1, stderrTail: '', timedOut: false };
+          // Raw assistant texts (fences intact) for end-of-turn tool-call
+          // parsing — fence parsing needs the complete text, so fences are
+          // collected here while the stripped prose streams out live below.
+          const rawTexts: string[] = [];
+
+          for await (const ev of this.streamTurn(bin, nextPrompt, sessionId, args, agentFile, outcome)) {
+            if (ev.sessionId) sessionId = ev.sessionId;
+            if (ev.kind === 'assistant' && ev.rawText !== undefined) {
+              rawTexts.push(ev.rawText);
+              // Yield assistant prose AS IT ARRIVES (not after process exit):
+              // a kimi turn can run 10-20+ minutes, and session.ts's watchdog
+              // must see messages DURING the turn. Note this means partial
+              // output may already be yielded when a turn later exits
+              // non-zero — preferable to losing it entirely.
+              if (ev.text) yield { type: 'assistant', session_id: sessionId, text: ev.text };
+            } else if (ev.kind === 'tool') {
+              // Liveness for kimi's own tool activity: session.ts never
+              // renders tool_use as chat — it only feeds the StateDetector
+              // ('tool-call' state) and refreshes last-activity.
+              yield { type: 'tool_use', session_id: sessionId, text: ev.toolName };
+            }
+          }
           if (outcome.sessionId) sessionId = outcome.sessionId;
 
           if (outcome.exitCode !== 0) {
             throw turnError(outcome, round, bin);
-          }
-
-          for (const t of outcome.texts) {
-            if (t.trim()) yield { type: 'assistant', session_id: sessionId, text: t };
           }
 
           const usage = this.readUsageDelta(sessionId, args.env, roundStart);
@@ -131,7 +163,7 @@ export class KimiCodeAgentRunner implements AgentRunner {
           turnOutputTokens += usage.output;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
+          const calls = parseToolCalls(rawTexts, (raw, err) => malformed.push(
             `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
           ));
           for (const note of malformed) {
@@ -182,110 +214,136 @@ export class KimiCodeAgentRunner implements AgentRunner {
     }
   }
 
-  /** Run one `kimi -p` invocation and normalize its stream-json output. */
-  private runTurn(
+  /**
+   * Run one `kimi -p` invocation and stream its stream-json output
+   * INCREMENTALLY: each parsed event is yielded as soon as its line arrives
+   * on stdout (see the header's "Streaming / liveness" note for why buffering
+   * until process exit was a bug). End-of-turn facts (exit code, stderr tail,
+   * final session id, timeout flag) are written into `outcome`, which the
+   * caller reads after this generator completes.
+   */
+  private async *streamTurn(
     bin: string,
     promptText: string,
     sessionId: string | undefined,
     args: AgentRunArgs,
     agentFile: string,
-  ): Promise<TurnOutcome> {
-    return new Promise<TurnOutcome>((resolve, reject) => {
-      // ARG ORDER MATTERS: -p consumes the IMMEDIATELY following argument as
-      // the prompt. Putting flags in between (e.g. `-p --session <id> text`)
-      // makes kimi consume the flag as the prompt and fail with
-      // "unknown command". Prompt first, flags after.
-      const cliArgs: string[] = ['-p', promptText, '--output-format', 'stream-json', '--skills-dir', this.emptySkillsDir];
-      if (sessionId) {
-        cliArgs.push('--session', sessionId);
-      } else {
-        // First turn: bind the role's system prompt via --agent-file.
-        // (--agent-file and --session/--continue are mutually exclusive.)
-        cliArgs.push('--agent-file', agentFile);
-      }
-      // Model only on the first turn: the session binds it at creation and
-      // kimi rejects model changes on resume.
-      if (args.model && !sessionId) cliArgs.push('--model', args.model);
+    outcome: TurnOutcome,
+  ): AsyncGenerator<KimiStreamEvent> {
+    // ARG ORDER MATTERS: -p consumes the IMMEDIATELY following argument as
+    // the prompt. Putting flags in between (e.g. `-p --session <id> text`)
+    // makes kimi consume the flag as the prompt and fail with
+    // "unknown command". Prompt first, flags after.
+    const cliArgs: string[] = ['-p', promptText, '--output-format', 'stream-json', '--skills-dir', this.emptySkillsDir];
+    if (sessionId) {
+      cliArgs.push('--session', sessionId);
+    } else {
+      // First turn: bind the role's system prompt via --agent-file.
+      // (--agent-file and --session/--continue are mutually exclusive.)
+      cliArgs.push('--agent-file', agentFile);
+    }
+    // Model only on the first turn: the session binds it at creation and
+    // kimi rejects model changes on resume.
+    if (args.model && !sessionId) cliArgs.push('--model', args.model);
 
-      const child = spawn(bin, cliArgs, {
-        cwd: args.cwd,
-        env: {
-          ...process.env,
-          ...args.env,
-          // --agent-file (the role's system prompt) requires kimi's v2
-          // engine; without this the CLI exits 1 with
-          // "--agent-file is only available with the v2 engine".
-          KIMI_CODE_EXPERIMENTAL_FLAG: process.env.KIMI_CODE_EXPERIMENTAL_FLAG || '1',
-          // Org sessions are single-purpose: each resumed turn re-reads the
-          // whole session history, and keeping prior turns' thinking
-          // ("thinkingKeep: all") inflates every request's cache reads.
-          // Org roles don't need reasoning continuity between turns — the
-          // mailbox + session history carry the state.
-          KIMI_MODEL_THINKING_KEEP: process.env.KIMI_MODEL_THINKING_KEEP || 'off',
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-
-      let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => {
-        stderrTail = (stderrTail + c.toString()).slice(-4000);
-      });
-
-      // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
-      // killed while we're still reading, not after it finishes.
-      let timedOut = false;
-      const KILL_GRACE_MS = 5000;
-      let killTimer: ReturnType<typeof setTimeout> | undefined;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-        // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
-        // escalate to SIGKILL after a short grace period.
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, TURN_TIMEOUT_MS);
-
-      // Attach the exit promise BEFORE consuming stdout: on a spawn failure
-      // (ENOENT, bad binary) the 'error' event fires almost immediately —
-      // if no listener is attached yet it escapes as an unhandled 'error'
-      // event and crashes the process instead of reaching our catch block.
-      const exitPromise = new Promise<number>((res, rej) => {
-        child.on('error', rej);
-        child.on('close', (code) => res(code ?? 1));
-      });
-      // Prevent an unhandled-rejection crash if the stdout loop below throws
-      // before we await exitPromise (the await still sees the rejection).
-      exitPromise.catch(() => {});
-
-      (async () => {
-        let buf = '';
-        const lines: string[] = [];
-        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          buf += chunk.toString();
-          const parts = buf.split('\n');
-          buf = parts.pop() ?? '';
-          for (const line of parts) lines.push(line);
-        }
-        if (buf.trim()) lines.push(buf);
-        return lines;
-      })().then((lines) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ lines, exitCode })))
-        .then(({ lines, exitCode }) => {
-          const parsed = parseStreamJsonLines(lines);
-          // Also scan stderr for session_id — kimi 0.33+ may emit
-          // session.resume_hint on stderr instead of stdout. The stdout parser
-          // already captures session_id from any event that carries it; this
-          // ensures we catch it regardless of which stream kimi emits it on.
-          const stderrSid = extractStderrSessionId(stderrTail);
-          resolve({
-            texts: parsed.texts,
-            rawTexts: parsed.rawTexts,
-            sessionId: parsed.sessionId ?? stderrSid ?? sessionId,
-            exitCode,
-            stderrTail,
-            timedOut,
-          });
-        }, reject);
+    const child = spawn(bin, cliArgs, {
+      cwd: args.cwd,
+      env: {
+        ...process.env,
+        ...args.env,
+        // --agent-file (the role's system prompt) requires kimi's v2
+        // engine; without this the CLI exits 1 with
+        // "--agent-file is only available with the v2 engine".
+        KIMI_CODE_EXPERIMENTAL_FLAG: process.env.KIMI_CODE_EXPERIMENTAL_FLAG || '1',
+        // Org sessions are single-purpose: each resumed turn re-reads the
+        // whole session history, and keeping prior turns' thinking
+        // ("thinkingKeep: all") inflates every request's cache reads.
+        // Org roles don't need reasoning continuity between turns — the
+        // mailbox + session history carry the state.
+        KIMI_MODEL_THINKING_KEEP: process.env.KIMI_MODEL_THINKING_KEEP || 'off',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    let stderrTail = '';
+    child.stderr?.on('data', (c: Buffer) => {
+      stderrTail = (stderrTail + c.toString()).slice(-4000);
+    });
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    const KILL_GRACE_MS = 5000;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
+      // escalate to SIGKILL after a short grace period.
+      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    }, TURN_TIMEOUT_MS);
+
+    // Attach the exit promise BEFORE consuming stdout: on a spawn failure
+    // (ENOENT, bad binary) the 'error' event fires almost immediately —
+    // if no listener is attached yet it escapes as an unhandled 'error'
+    // event and crashes the process instead of reaching our catch block.
+    const exitPromise = new Promise<number>((res, rej) => {
+      child.on('error', rej);
+      child.on('close', (code) => res(code ?? 1));
+    });
+    // Prevent an unhandled-rejection crash if the stdout loop below throws
+    // before we await exitPromise (the await still sees the rejection).
+    exitPromise.catch(() => {});
+
+    let lastSessionId: string | undefined;
+    try {
+      // Immediate liveness yield: session.ts races the FIRST pull against a
+      // 4-minute silent-stream watchdog, and the model's first event can
+      // itself take minutes (long thinking chains). Yielding at spawn wins
+      // that race deterministically instead of depending on kimi's latency.
+      yield { kind: 'tool', toolName: 'turn started', sessionId };
+
+      let buf = '';
+      for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+        buf += chunk.toString();
+        const parts = buf.split('\n');
+        buf = parts.pop() ?? '';
+        for (const line of parts) {
+          const ev = parseStreamJsonLine(line);
+          if (!ev) continue;
+          if (ev.sessionId) lastSessionId = ev.sessionId;
+          yield ev;
+        }
+      }
+      if (buf.trim()) {
+        const ev = parseStreamJsonLine(buf);
+        if (ev) {
+          if (ev.sessionId) lastSessionId = ev.sessionId;
+          yield ev;
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
+      // If the consumer abandons this stream mid-turn (session.ts's
+      // silent-abort calls iterator.return(), the mailbox closes, or an
+      // error is thrown downstream), don't leak the CLI subprocess.
+      if (child.exitCode === null && !child.killed) {
+        try { child.kill('SIGTERM'); } catch { /* already gone */ }
+      }
+    }
+
+    const exitCode = await exitPromise;
+    // Also scan stderr for session_id — kimi 0.33+ may emit
+    // session.resume_hint on stderr instead of stdout. The stdout parser
+    // already captures session_id from any event that carries it; this
+    // ensures we catch it regardless of which stream kimi emits it on.
+    const stderrSid = extractStderrSessionId(stderrTail);
+    outcome.sessionId = lastSessionId ?? stderrSid ?? sessionId;
+    outcome.exitCode = exitCode;
+    outcome.stderrTail = stderrTail;
+    outcome.timedOut = timedOut;
   }
 
   /**
@@ -336,16 +394,87 @@ function findWireFile(sessionsDir: string, sessionId: string): string | null {
 }
 
 /**
- * Parse kimi stream-json lines into normalized texts + session id.
- * Exported for unit tests — this encodes the wire format verified against
- * kimi 0.29.2, and a CLI format change should fail loudly in CI, not silently
- * starve an org at runtime.
+ * One parsed kimi stream-json event, normalized for incremental streaming.
+ *   - 'assistant': rawText is the full assistant text (fences intact) for
+ *     end-of-turn tool-call parsing; text is the fence-stripped prose,
+ *     present only when non-empty.
+ *   - 'tool':      kimi's own tool activity ({"role":"tool",...}) — forwarded
+ *     by run() as a `tool_use` liveness AgentMessage (see header).
+ *   - 'meta':      any other event that only carries a session id.
+ */
+export interface KimiStreamEvent {
+  kind: 'assistant' | 'tool' | 'meta';
+  text?: string;
+  rawText?: string;
+  toolName?: string;
+  sessionId?: string;
+}
+
+/**
+ * Parse ONE kimi stream-json line into a normalized event (null for blank,
+ * non-JSON, or content-free lines). Exported for unit tests — this encodes
+ * the wire format verified against kimi 0.29.2, and a CLI format change
+ * should fail loudly in CI, not silently starve an org at runtime.
  *
  * Real shapes (verified):
  *   {"role":"assistant","content":"..."}                 — reply text
  *   {"role":"assistant","content":[{"type":"text",...}]} — block form
  *   {"role":"meta","type":"session.resume_hint",session_id} — resume hint
- *   {"role":"tool",...}                                  — tool progress (ignored)
+ *   {"role":"tool","content":"Bash(ls ...)"}             — tool progress
+ */
+export function parseStreamJsonLine(line: string): KimiStreamEvent | null {
+  const t = line.trim();
+  if (!t || !t.startsWith('{')) return null;
+  let ev: Record<string, unknown>;
+  try { ev = JSON.parse(t) as Record<string, unknown>; } catch { return null; }
+
+  // Capture the session id from ANY event that carries it — resume needs it
+  // on the next turn.
+  const sid = (ev.session_id ?? ev.sessionId ?? (ev.session as Record<string, unknown> | undefined)?.id) as string | undefined;
+  const sessionId = sid && typeof sid === 'string' ? sid : undefined;
+
+  const role = (ev.role ?? ev.type) as string | undefined;
+  if (role === 'assistant') {
+    const content = ev.content ?? (ev.message as Record<string, unknown> | undefined)?.content;
+    let text = '';
+    if (typeof content === 'string') {
+      text = content;
+    } else if (Array.isArray(content)) {
+      text = content
+        .filter((b: Record<string, unknown>) => b?.type === 'text')
+        .map((b: Record<string, unknown>) => String(b.text ?? ''))
+        .join('\n');
+    } else if (typeof ev.text === 'string') {
+      text = ev.text;
+    }
+    if (text) {
+      const stripped = text.replace(TOOL_CALL_RE, '').trim();
+      return { kind: 'assistant', rawText: text, text: stripped || undefined, sessionId };
+    }
+  } else if (role === 'tool') {
+    return { kind: 'tool', toolName: describeToolEvent(ev), sessionId };
+  }
+  // Meta/unknown events matter only when they carry a session id.
+  return sessionId ? { kind: 'meta', sessionId } : null;
+}
+
+/** Short human-readable label for a {"role":"tool",...} progress event —
+ *  used only as liveness text (never parsed, never shown as chat). */
+function describeToolEvent(ev: Record<string, unknown>): string {
+  const content = ev.content ?? (ev.message as Record<string, unknown> | undefined)?.content;
+  let label: string | undefined;
+  if (typeof content === 'string') label = content;
+  else if (typeof ev.name === 'string') label = ev.name;
+  else if (typeof ev.tool_name === 'string') label = ev.tool_name;
+  else if (typeof ev.tool === 'string') label = ev.tool;
+  else if (content !== undefined) label = JSON.stringify(content);
+  return (label ?? 'tool activity').slice(0, 200);
+}
+
+/**
+ * Parse kimi stream-json lines into normalized texts + session id.
+ * Batch convenience wrapper over parseStreamJsonLine, kept for callers/tests
+ * that parse a completed turn's output; the runner itself streams per line.
  */
 export function parseStreamJsonLines(lines: string[]): { texts: string[]; rawTexts: string[]; sessionId?: string } {
   const texts: string[] = [];
@@ -353,35 +482,12 @@ export function parseStreamJsonLines(lines: string[]): { texts: string[]; rawTex
   let sessionId: string | undefined;
 
   for (const line of lines) {
-    const t = line.trim();
-    if (!t || !t.startsWith('{')) continue;
-    let ev: Record<string, unknown>;
-    try { ev = JSON.parse(t) as Record<string, unknown>; } catch { continue; }
-
-    // Capture the session id from ANY event that carries it — resume needs it
-    // on the next turn.
-    const sid = (ev.session_id ?? ev.sessionId ?? (ev.session as Record<string, unknown> | undefined)?.id) as string | undefined;
-    if (sid && typeof sid === 'string') sessionId = sid;
-
-    const role = (ev.role ?? ev.type) as string | undefined;
-    if (role === 'assistant') {
-      const content = ev.content ?? (ev.message as Record<string, unknown> | undefined)?.content;
-      let text = '';
-      if (typeof content === 'string') {
-        text = content;
-      } else if (Array.isArray(content)) {
-        text = content
-          .filter((b: Record<string, unknown>) => b?.type === 'text')
-          .map((b: Record<string, unknown>) => String(b.text ?? ''))
-          .join('\n');
-      } else if (typeof ev.text === 'string') {
-        text = ev.text;
-      }
-      if (text) {
-        rawTexts.push(text);
-        const stripped = text.replace(TOOL_CALL_RE, '').trim();
-        if (stripped) texts.push(stripped);
-      }
+    const ev = parseStreamJsonLine(line);
+    if (!ev) continue;
+    if (ev.sessionId) sessionId = ev.sessionId;
+    if (ev.kind === 'assistant' && ev.rawText !== undefined) {
+      rawTexts.push(ev.rawText);
+      if (ev.text) texts.push(ev.text);
     }
   }
   return { texts, rawTexts, sessionId };

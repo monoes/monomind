@@ -51,11 +51,17 @@ export interface AgentRunArgs {
 /** Normalized message every runner yields. Carries `session_id` on whatever
  *  message the underlying SDK attaches it to, so session.ts can track it for
  *  resume — matching the previous `if (m.session_id) sessionId = m.session_id`
- *  behaviour that read it off ANY message kind. */
+ *  behaviour that read it off ANY message kind.
+ *
+ *  `tool_use` is a lightweight liveness/progress signal: session.ts never
+ *  renders it as chat or usage — it only feeds the StateDetector (which maps
+ *  it to the 'tool-call' state) and refreshes last-activity. Subprocess
+ *  runners (kimicode) emit it for native tool activity so long turns show
+ *  ongoing progress instead of looking silent. */
 export interface AgentMessage {
-  type: 'assistant' | 'result';
+  type: 'assistant' | 'result' | 'tool_use';
   session_id?: string;
-  text?: string; // assistant
+  text?: string; // assistant (prose) / tool_use (short progress label)
   subtype?: string; // result
   is_error?: boolean; // result
   input_tokens?: number; // result
