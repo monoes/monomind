@@ -52,9 +52,17 @@ export const ProviderSchema = z.object({
   ]).optional(),
   /** env var NAME holding the API key (never the key itself) */
   apiKeyEnv: z.string().optional(),
+  /** Direct API-key value. Populated programmatically from the named-provider
+   *  config (`monomind providers configure`) — org JSON should keep using
+   *  apiKeyEnv so secrets never land in org definition files. */
+  apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
   /** env var NAME holding the auth token for base-url providers */
   authTokenEnv: z.string().optional(),
+  /** Direct auth-token value for base-url providers. Populated programmatically
+   *  from the named-provider config (`monomind providers configure`) — org JSON
+   *  should keep using authTokenEnv so secrets never land in org definition files. */
+  authToken: z.string().optional(),
   /** Opt in to UsageProxyServer token accounting for runtimes whose CLI output
    *  doesn't self-report usage (currently just `runtime: 'crush'`). When true,
    *  `baseUrl` above is treated as the upstream the CLI's own provider config
@@ -129,6 +137,11 @@ export const RoleSchema = z.object({
   adapter_config: z.object({
     model: z.string().default('claude-sonnet-4-5'),
     max_tokens: z.number().optional(),
+    /** Reference by name to a provider configured via
+     *  `monomind providers configure -p <name> -k <key> -e <endpoint>`.
+     *  Resolved at session start into a concrete base-url/api-key provider
+     *  for the role's sessions. An explicit role-level `provider` block wins. */
+    provider: z.string().optional(),
   }).partial().optional(),
   provider: ProviderSchema.optional(),
   policy: RolePolicySchema.optional(),

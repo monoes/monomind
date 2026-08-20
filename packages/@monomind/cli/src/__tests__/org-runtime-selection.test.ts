@@ -15,7 +15,10 @@ import { CodexAgentRunner } from '../orgrt/codex-runner.js';
 import { AntigravityAgentRunner } from '../orgrt/antigravity-runner.js';
 import { OrgDefSchema, RoleSchema, ProviderSchema } from '../orgrt/types.js';
 import { resolveModel } from '../orgrt/session.js';
-import { resolveProviderEnv } from '../orgrt/provider.js';
+import { resolveProviderEnv, resolveRoleProvider, lookupConfiguredProvider } from '../orgrt/provider.js';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 describe('resolveRunner', () => {
   let saved: string | undefined;
@@ -299,5 +302,95 @@ describe('resolveModel (vendor/runtime defaults)', () => {
 
   it('falls back to claude default when nothing set', () => {
     expect(resolveModel({ adapter_config: {} } as any)).toBe('claude-sonnet-4-5');
+  });
+});
+
+describe('named providers (adapter_config.provider)', () => {
+  let fixtureDir: string;
+
+  beforeEach(() => {
+    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mm-prov-'));
+    fs.mkdirSync(path.join(fixtureDir, '.monomind'), { recursive: true });
+    fs.writeFileSync(
+      path.join(fixtureDir, '.monomind', 'config.json'),
+      JSON.stringify({
+        agents: {
+          providers: [
+            { name: 'zhipu', apiKey: 'zk-123', model: 'glm-5.3', baseUrl: 'https://api.z.ai/api/anthropic' },
+            { name: 'keyonly', apiKey: 'sk-456' },
+            { name: 'empty', enabled: true },
+          ],
+        },
+      }),
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  });
+
+  it('RoleSchema preserves adapter_config.provider (no silent strip)', () => {
+    const r = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'zhipu', model: 'glm-5.3' } });
+    expect(r.adapter_config?.provider).toBe('zhipu');
+  });
+
+  it('ProviderSchema accepts direct apiKey/authToken values', () => {
+    expect(() => ProviderSchema.parse({ kind: 'base-url', baseUrl: 'https://x', authToken: 'tok' })).not.toThrow();
+    expect(() => ProviderSchema.parse({ kind: 'api-key', apiKey: 'k' })).not.toThrow();
+  });
+
+  it('lookupConfiguredProvider finds the entry case-insensitively', () => {
+    expect(lookupConfiguredProvider('Zhipu', fixtureDir)?.baseUrl).toBe('https://api.z.ai/api/anthropic');
+    expect(lookupConfiguredProvider('nope', fixtureDir)).toBeUndefined();
+  });
+
+  it('resolveRoleProvider: explicit role.provider wins over the named provider', () => {
+    const role = RoleSchema.parse({
+      id: 'dev', reports_to: 'boss',
+      provider: { kind: 'subscription' },
+      adapter_config: { provider: 'zhipu' },
+    });
+    expect(resolveRoleProvider(role, fixtureDir).cfg).toEqual({ kind: 'subscription' });
+  });
+
+  it('resolveRoleProvider: named provider with baseUrl+apiKey becomes base-url with direct token and default model', () => {
+    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'zhipu' } });
+    const { cfg, defaultModel } = resolveRoleProvider(role, fixtureDir);
+    expect(cfg).toEqual({ kind: 'base-url', baseUrl: 'https://api.z.ai/api/anthropic', authToken: 'zk-123' });
+    expect(defaultModel).toBe('glm-5.3');
+  });
+
+  it('resolveRoleProvider: apiKey-only entry becomes api-key kind', () => {
+    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'keyonly' } });
+    expect(resolveRoleProvider(role, fixtureDir).cfg).toEqual({ kind: 'api-key', apiKey: 'sk-456' });
+  });
+
+  it('resolveRoleProvider: unknown name throws an actionable error', () => {
+    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'ghost' } });
+    expect(() => resolveRoleProvider(role, fixtureDir)).toThrow(/monomind providers configure -p ghost/);
+  });
+
+  it('resolveRoleProvider: entry without key or endpoint throws', () => {
+    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'empty' } });
+    expect(() => resolveRoleProvider(role, fixtureDir)).toThrow(/neither an API key nor an endpoint/);
+  });
+
+  it('resolveProviderEnv: base-url with direct authToken sets BASE_URL/AUTH_TOKEN and strips the API key', () => {
+    const env = resolveProviderEnv(
+      { kind: 'base-url', baseUrl: 'https://api.z.ai/api/anthropic', authToken: 'zk-123' },
+      { ANTHROPIC_API_KEY: 'stale', OTHER: '1' },
+    );
+    expect(env.ANTHROPIC_BASE_URL).toBe('https://api.z.ai/api/anthropic');
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe('zk-123');
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.OTHER).toBe('1');
+  });
+
+  it('resolveProviderEnv: api-key with direct apiKey value wins over the env var', () => {
+    const env = resolveProviderEnv(
+      { kind: 'api-key', apiKey: 'dk-1', apiKeyEnv: 'SOME_VAR' },
+      { SOME_VAR: 'env-key' },
+    );
+    expect(env.ANTHROPIC_API_KEY).toBe('dk-1');
   });
 });
