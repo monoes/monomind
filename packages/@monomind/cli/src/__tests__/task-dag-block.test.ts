@@ -66,6 +66,34 @@ describe('TaskDag — block/unblockExpired/hasActiveBlock', () => {
     expect(dag.hasActiveBlock(Date.now())).toBe(false);
   });
 
+  it('hasActiveBlock is false when one task is blocked far in the future but another is still running', () => {
+    // Regression: a single long-lived block (e.g. a feature deferred for
+    // weeks) must not silence the idle watchdog for the whole org while
+    // unrelated work is genuinely outstanding.
+    const dag = new TaskDag();
+    const deferred = dag.add('deferred feature', 'a');
+    dag.markRunning(deferred.id);
+    dag.block(deferred.id, Date.now() + 14 * 24 * 60 * 60 * 1000, 'deferred for weeks');
+
+    const active = dag.add('unrelated in-progress work', 'b');
+    dag.markRunning(active.id);
+
+    expect(dag.hasActiveBlock(Date.now())).toBe(false);
+  });
+
+  it('hasActiveBlock is true when every non-terminal task is blocked on a future time', () => {
+    const dag = new TaskDag();
+    const t1 = dag.add('x', 'a');
+    dag.markRunning(t1.id);
+    dag.block(t1.id, Date.now() + 60_000);
+
+    const t2 = dag.add('y', 'b');
+    dag.markRunning(t2.id);
+    dag.block(t2.id, Date.now() + 90_000);
+
+    expect(dag.hasActiveBlock(Date.now())).toBe(true);
+  });
+
   it('unblockExpired transitions an expired block back to running and clears blockedUntil/reason', () => {
     const dag = new TaskDag();
     const t = dag.add('x', 'a');
