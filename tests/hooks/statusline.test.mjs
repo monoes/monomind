@@ -180,12 +180,12 @@ describe('getSecurityStatus', () => {
   });
 });
 
-// ── getSwarmStatus ────────────────────────────────────────────────────────────
+// ── getMonoswarmStatus ────────────────────────────────────────────────────────
 
-describe('getSwarmStatus', () => {
-  it('returns activeAgents=0 when no swarm data exists', () => {
-    const { getSwarmStatus } = loadSL();
-    const result = getSwarmStatus();
+describe('getMonoswarmStatus', () => {
+  it('returns activeAgents=0 when no monoswarm data exists', () => {
+    const { getMonoswarmStatus } = loadSL();
+    const result = getMonoswarmStatus();
     expect(result.activeAgents).toBe(0);
     expect(result.coordinationActive).toBe(false);
   });
@@ -195,34 +195,34 @@ describe('getSwarmStatus', () => {
     fs.mkdirSync(regDir, { recursive: true });
     fs.writeFileSync(path.join(regDir, 'agent-1.json'), '{}');
     fs.writeFileSync(path.join(regDir, 'agent-2.json'), '{}');
-    const { getSwarmStatus } = loadSL();
-    const result = getSwarmStatus();
+    const { getMonoswarmStatus } = loadSL();
+    const result = getMonoswarmStatus();
     expect(result.activeAgents).toBe(2);
     expect(result.coordinationActive).toBe(true);
   });
 
-  it('reads from swarm-activity.json when no registration files (recent timestamp)', () => {
+  it('reads from monoswarm-activity.json when no registration files (recent timestamp)', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
-    fs.writeFileSync(path.join(metricsDir, 'swarm-activity.json'), JSON.stringify({
+    fs.writeFileSync(path.join(metricsDir, 'monoswarm-activity.json'), JSON.stringify({
       timestamp: new Date().toISOString(),
-      swarm: { agent_count: 3, coordination_active: true, active: true },
+      monoswarm: { agent_count: 3, coordination_active: true, active: true },
     }));
-    const { getSwarmStatus } = loadSL();
-    const result = getSwarmStatus();
+    const { getMonoswarmStatus } = loadSL();
+    const result = getMonoswarmStatus();
     expect(result.activeAgents).toBe(3);
   });
 
-  it('ignores stale swarm-activity.json (> 5 min old)', () => {
+  it('ignores stale monoswarm-activity.json (> 5 min old)', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     const stale = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    fs.writeFileSync(path.join(metricsDir, 'swarm-activity.json'), JSON.stringify({
+    fs.writeFileSync(path.join(metricsDir, 'monoswarm-activity.json'), JSON.stringify({
       timestamp: stale,
-      swarm: { agent_count: 5, coordination_active: true },
+      monoswarm: { agent_count: 5, coordination_active: true },
     }));
-    const { getSwarmStatus } = loadSL();
-    const result = getSwarmStatus();
+    const { getMonoswarmStatus } = loadSL();
+    const result = getMonoswarmStatus();
     expect(result.activeAgents).toBe(0);
   });
 });
@@ -449,7 +449,7 @@ describe('generateJSON', () => {
     const { generateJSON } = loadSL();
     const result = generateJSON();
     expect(result).toHaveProperty('security');
-    expect(result).toHaveProperty('swarm');
+    expect(result).toHaveProperty('monoswarm');
     expect(result).toHaveProperty('adrs');
     expect(result).toHaveProperty('hooks');
     expect(result).toHaveProperty('lancedb');

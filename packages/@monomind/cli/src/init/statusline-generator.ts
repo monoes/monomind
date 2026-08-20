@@ -408,7 +408,7 @@ function getSecurityStatus() {
 }
 
 // Swarm status (pure file reads, NO ps aux)
-function getSwarmStatus() {
+function getMonoswarmStatus() {
   const staleThresholdMs = 5 * 60 * 1000;
   const agentRegTtlMs = 30 * 60 * 1000; // registration files expire after 30 min
   const now = Date.now();
@@ -507,7 +507,7 @@ function getSystemMetrics() {
 
   // Sub-agents from file metrics (no ps aux)
   let subAgents = 0;
-  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'monoswarm-activity.json'));
   if (activityData?.processes?.estimated_agents) {
     subAgents = activityData.processes.estimated_agents;
   }
@@ -1092,7 +1092,7 @@ function getSIBudget() {
 // ── Single-line statusline (compact) ─────────────────────────────
 function generateStatusline() {
   const git       = getGitInfo();
-  const swarm     = getSwarmStatus();
+  const monoswarm     = getMonoswarmStatus();
   const system    = getSystemMetrics();
   const hooks     = getHooksStatus();
   const knowledge = getKnowledgeStats();
@@ -1100,8 +1100,8 @@ function generateStatusline() {
   const parts     = [];
 
   // Brand + swarm dot
-  const swarmDot = swarm.coordinationActive ? \`\${x.green}●\${x.reset}\` : \`\${x.slate}○\${x.reset}\`;
-  parts.push(\`\${x.bold}\${x.purple}▊ Monomind\${x.reset} \${swarmDot}\`);
+  const monoswarmDot = monoswarm.coordinationActive ? \`\${x.green}●\${x.reset}\` : \`\${x.slate}○\${x.reset}\`;
+  parts.push(\`\${x.bold}\${x.purple}▊ Monomind\${x.reset} \${monoswarmDot}\`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -1155,8 +1155,8 @@ function generateStatusline() {
   }
 
   // Swarm agents (only when active)
-  if (swarm.activeAgents > 0) {
-    parts.push(\`\${x.gold}🐝 \${swarm.activeAgents}/\${swarm.maxAgents}\${x.reset}\`);
+  if (monoswarm.activeAgents > 0) {
+    parts.push(\`\${x.gold}🐝 \${monoswarm.activeAgents}/\${monoswarm.maxAgents}\${x.reset}\`);
   }
 
   // Hooks
@@ -1215,7 +1215,7 @@ function generateDashboard() {
   const modelName   = getModelName();
   const progress    = getv1Progress();
   const security    = getSecurityStatus();
-  const swarm       = getSwarmStatus();
+  const monoswarm       = getMonoswarmStatus();
   const system      = getSystemMetrics();
   const adrs        = getADRStatus();
   const hooks       = getHooksStatus();
@@ -1231,10 +1231,10 @@ function generateDashboard() {
   const lines       = [];
 
   // ── Header: brand + git + model + session ────────────────────
-  const swarmDot = swarm.coordinationActive ? \`\${x.green}● LIVE\${x.reset}\` : \`\${x.slate}○ IDLE\${x.reset}\`;
+  const monoswarmDot = monoswarm.coordinationActive ? \`\${x.green}● LIVE\${x.reset}\` : \`\${x.slate}○ IDLE\${x.reset}\`;
   const projName = getProjectName();
   const cwdName = path.basename(CWD);
-  let hdr = \`\${x.bold}\${x.purple}▊ Monomind \${VERSION}\${x.reset}  \${swarmDot}  \${x.teal}\${x.bold}\${projName}\${x.reset}  \${DIV}  \${x.dim}◎ \${cwdName}\${x.reset}  \${DIV}  \${x.violet}⬡ \${git.name}\${x.reset}\`;
+  let hdr = \`\${x.bold}\${x.purple}▊ Monomind \${VERSION}\${x.reset}  \${monoswarmDot}  \${x.teal}\${x.bold}\${projName}\${x.reset}  \${DIV}  \${x.dim}◎ \${cwdName}\${x.reset}  \${DIV}  \${x.violet}⬡ \${git.name}\${x.reset}\`;
 
   if (git.gitBranch) {
     hdr += \`  \${DIV}  \${x.sky}⎇ \${x.bold}\${git.gitBranch}\${x.reset}\`;
@@ -1380,7 +1380,7 @@ function generateJSON() {
     user:       { name: git.name, gitBranch: git.gitBranch, modelName: getModelName() },
     domains:    getv1Progress(),
     security:   getSecurityStatus(),
-    swarm:      getSwarmStatus(),
+    monoswarm:  getMonoswarmStatus(),
     system:     getSystemMetrics(),
     adrs:       getADRStatus(),
     hooks:      getHooksStatus(),
