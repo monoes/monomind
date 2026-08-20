@@ -106,8 +106,8 @@ export interface CommandsConfig {
   coordination?: boolean;
   /** Include github commands */
   github: boolean;
-  /** Include hive-mind commands */
-  hiveMind?: boolean;
+  /** Include monoswarm commands */
+  monoswarm?: boolean;
   /** Include hooks commands */
   hooks: boolean;
   /** Include mastermind commands */
@@ -126,8 +126,6 @@ export interface CommandsConfig {
   pair?: boolean;
   /** Include stream-chain commands */
   streamChain?: boolean;
-  /** Include swarm commands */
-  swarm?: boolean;
   /** Include training commands */
   training?: boolean;
   /** Include truth commands */
@@ -150,10 +148,8 @@ export interface AgentsConfig {
   consensus: boolean;
   /** Include GitHub agents */
   github: boolean;
-  /** Include hive-mind agents */
-  hiveMind: boolean;
-  /** Include swarm coordinators */
-  swarm: boolean;
+  /** Include monoswarm agents */
+  monoswarm: boolean;
   /** Include optimization agents */
   optimization: boolean;
   /** Include testing agents */
@@ -407,8 +403,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     core: true,
     consensus: true,
     github: true,
-    hiveMind: true,
-    swarm: true,
+    monoswarm: true,
     optimization: true,
     testing: true,
 
@@ -488,8 +483,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     core: true,
     consensus: false,
     github: false,
-    hiveMind: false,
-    swarm: false,
+    monoswarm: false,
     optimization: false,
     testing: false,
 

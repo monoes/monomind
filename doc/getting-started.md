@@ -111,4 +111,4 @@ monomind org run my-team --budget-usd 5     # hard-stop at $5
 - `doc/concepts/monograph.md` — how the code graph works
 - `doc/concepts/memory.md` — memory tiers and search
 - `doc/concepts/org-runtime.md` — multi-agent daemon
-- `doc/concepts/swarm.md` — in-process coordination (not distributed consensus)
+- `doc/concepts/monoswarm.md` — multi-agent coordination, topologies, and voting

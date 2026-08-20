@@ -354,7 +354,7 @@ export class CLI {
 
     this.output.writeln(this.output.bold('EXAMPLES:'));
     this.output.writeln(`  ${this.name} agent spawn -t coder              # Spawn a coder agent`);
-    this.output.writeln(`  ${this.name} swarm init --v1-mode              # Initialize swarm`);
+    this.output.writeln(`  ${this.name} monoswarm init --v1-mode          # Initialize monoswarm`);
     this.output.writeln(`  ${this.name} memory search -q "auth patterns"  # Semantic search`);
     this.output.writeln(`  ${this.name} mcp start                         # Start MCP server`);
     this.output.writeln();
@@ -504,7 +504,7 @@ export class CLI {
 
   /**
    * Initialize optional subsystems at startup (non-blocking, all failures are silent).
-   * Starts the @monoes/hooks WorkerManager, wires SwarmCheckpointer, and builds
+   * Starts the @monoes/hooks WorkerManager, wires MonoswarmCheckpointer, and builds
    * the unified agent registry so that packages/@monomind/* actually contribute
    * to the live runtime.
    */
@@ -518,18 +518,18 @@ export class CLI {
     // loaded the onnxruntime embedding model, and its thread pool crashed the
     // process at exit ("mutex lock failed: Invalid argument" from libc++).
 
-    // GAP-007: SwarmCheckpointer — write checkpoint files so crashed swarms can resume
+    // GAP-007: MonoswarmCheckpointer — write checkpoint files so crashed monoswarms can resume
     try {
-      const { SwarmCheckpointer } = await import('@monoes/memory' as string);
-      const _swarmCheckpointer = new SwarmCheckpointer({
-        dbPath: '.monomind/checkpoints/swarm.jsonl',
-        swarmId: 'default',
+      const { MonoswarmCheckpointer } = await import('@monoes/memory' as string);
+      const _swarmCheckpointer = new MonoswarmCheckpointer({
+        dbPath: '.monomind/checkpoints/monoswarm.jsonl',
+        monoswarmId: 'default',
         sessionId: `session-${Date.now()}`,
       });
       void _swarmCheckpointer;
     } catch (e) {
       // optional — monomind/memory may not be installed
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] SwarmCheckpointer init failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] MonoswarmCheckpointer init failed:', e);
     }
 
     // Task 30: Build unified agent registry — extras (canonical) first, dev copies second.

@@ -162,7 +162,7 @@ describe('memory-admin commands', () => {
       // Other config sections should still be present (defaults), not
       // clobbered by a memory-only write.
       expect(onDisk.agents).toBeDefined();
-      expect(onDisk.swarm).toBeDefined();
+      expect(onDisk.monoswarm).toBeDefined();
     });
 
     it('is idempotent: running twice with the same backend does not duplicate or corrupt the file', async () => {

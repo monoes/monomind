@@ -6,23 +6,20 @@
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions.
 - NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool. ALWAYS use `npx monomind browse`. This rule has no exceptions. If a `browse` command appears to hang or a Chrome process is left running after one, see `doc/concepts/monobrowse.md#5-recovery--if-a-command-hangs-or-chrome-is-left-running` for the recovery path (commands time out on their own after ~30s; Ctrl-C runs best-effort cleanup; `browse close` in a fresh process can kill an orphan via its persisted PID) before reaching for a different tool.
 
-## Automatic Swarm Orchestration
+## Automatic Monoswarm Orchestration
 
-For complex work, Claude Code MUST initialize the swarm via CLI (Bash) AND spawn agents via the Task tool in the SAME message — CLI coordinates, Task tool agents do the actual work.
+For complex work, Claude Code MUST initialize the monoswarm via CLI (Bash) AND spawn agents via the Task tool in the SAME message — CLI coordinates, Task tool agents do the actual work.
 
-This is in-process coordination among Claude Code Task-tool agents in a
-single session, not a distributed system — no networking between machines.
-"Topology" below describes how agents relate and vote, not a network
-architecture. See `doc/concepts/swarm.md` for the full picture, including
-the "Hive-Mind Consensus" section further down, which is exact about what
-`raft`/`byzantine`/`quorum` actually compute (majority/threshold vote
-counting, not real distributed-consensus protocols).
+Coordination state (topology, roster, votes) lives in
+`.monomind/monoswarm/state.json`; agents relate and vote per that state. See
+`doc/concepts/monoswarm.md` for the full picture, including the vote strategy
+table (`majority`/`supermajority`/`unanimous`/`threshold`).
 
-**Swarm spawn-and-wait rules:**
+**Monoswarm spawn-and-wait rules:**
 
 - Spawn ALL agents in ONE message, each with `run_in_background: true` and full instructions
 - After spawning, tell the user what each agent is doing, then STOP — no more tool calls
-- Never poll TaskOutput or check swarm status; don't ask "should I check?" — wait for results
+- Never poll TaskOutput or check monoswarm status; don't ask "should I check?" — wait for results
 - When agent results arrive, review ALL results before proceeding
 
 ### Anti-Drift Config (PREFERRED)
@@ -31,10 +28,10 @@ counting, not real distributed-consensus protocols).
 
 ```bash
 # Small teams (6-8 agents) - use hierarchical for tight control
-npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Large teams (10-15 agents) - use hierarchical-mesh for V1 queen + peer communication
-npx monomind@latest swarm init --topology hierarchical-mesh --max-agents 15 --strategy specialized
+npx monomind@latest monoswarm init --topology hierarchical-mesh --max-agents 15 --strategy specialized
 ```
 
 **Valid Topologies:**
@@ -44,14 +41,14 @@ npx monomind@latest swarm init --topology hierarchical-mesh --max-agents 15 --st
 - `mesh` - Fully connected peer network
 - `ring` - Circular communication pattern
 - `star` - Central coordinator with spokes
-- `hybrid` - Topology label recorded in swarm state; coordination behavior is chosen by the caller — no automatic reconfiguration
+- `hybrid` / `adaptive` - Caller-interpreted labels recorded in monoswarm state — no automatic reconfiguration
 
 **Anti-Drift Guidelines:**
 
 - **hierarchical**: Coordinator catches divergence
 - **max-agents 6-8**: Smaller team = less drift
 - **specialized**: Clear roles, no overlap
-- **consensus**: raft — in-process majority-vote counting (tolerates fewer than half the voters being wrong), not real Raft leader election or log replication
+- **consensus**: `majority` — see `doc/concepts/monoswarm.md` for `supermajority`/`unanimous`/`threshold`
 
 ## Memory Loop (Feedback + Knowledge Graph)
 
@@ -134,7 +131,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 
 ### Task Complexity Detection
 
-**AUTO-INVOKE SWARM when task involves:**
+**AUTO-INVOKE MONOSWARM when task involves:**
 
 - Multiple files (3+)
 - New feature implementation
@@ -144,7 +141,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 - Performance optimization
 - Database schema changes
 
-**SKIP SWARM for:**
+**SKIP MONOSWARM for:**
 
 - Single file edits
 - Simple bug fixes (1-2 lines)
@@ -186,7 +183,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 - **Topology**: hierarchical (prevents drift)
 - **Max Agents**: 8 (smaller = less drift)
 - **Strategy**: specialized (clear roles)
-- **Consensus**: raft
+- **Consensus**: majority
 - **Memory**: hybrid (JSON patterns + SQLite; optional vector search)
 - **Routing**: keyword + route-outcomes
 
@@ -199,7 +196,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 | `init`      | 5           | Project initialization with wizard, presets, skills, hooks               | Working         |
 | `ui`        | 0           | Start the Neural Control Room dashboard (`--no-open`, `--port`; alias `dashboard`) | Working         |
 | `agent`     | 7           | Agent lifecycle (spawn, list, status, stop, metrics, pool, health)       | Working — runs in-process, no MCP server needed |
-| `swarm`     | 6           | Multi-agent swarm coordination and orchestration                         | Working — runs in-process, no MCP server needed |
+| `monoswarm` | 6           | Multi-agent coordination and orchestration                               | Working — runs in-process, no MCP server needed |
 | `memory`    | 12          | Memory store (SQLite/JSON; optional vector search)                        | Working         |
 | `mcp`       | 9           | MCP server management and tool execution                                 | Working         |
 | `task`      | 5           | Task creation, assignment, and lifecycle                                 | Working         |
@@ -211,9 +208,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 
 ### Advanced Commands
 
-`agent` and `swarm` above execute MCP tool handlers directly in-process via the local tool registry (`src/mcp-client.ts`) — they do **not** require a running `mcp start` server. A separate MCP server is only needed when an external MCP *client* (e.g. Claude Code) wants to call these tools over stdio/HTTP.
-
-> **Note:** Hive-mind functionality (BFT/Raft/Quorum consensus) is available exclusively via MCP tools (`hive-mind-tools.ts`), not as a CLI command.
+`agent` and `monoswarm` above execute MCP tool handlers directly in-process via the local tool registry (`src/mcp-client.ts`) — they do **not** require a running `mcp start` server. A separate MCP server is only needed when an external MCP *client* (e.g. Claude Code) wants to call these tools over stdio/HTTP.
 
 | Command       | Subcommands | Description                                                                   | Status           |
 | ------------- | ----------- | ----------------------------------------------------------------------------- | ---------------- |
@@ -235,8 +230,8 @@ npx monomind@latest init --wizard
 # Spawn an agent
 npx monomind@latest agent spawn -t coder --name my-coder
 
-# Initialize swarm
-npx monomind@latest swarm init --v1-mode
+# Initialize monoswarm
+npx monomind@latest monoswarm init --v1-mode
 
 # Search memory (local SQLite + local HF-embeddings; keyword fallback. Not HNSW —
 # the pure-JS HNSW index is a sql.js-fallback path only, via --build-hnsw)
@@ -263,8 +258,8 @@ tree, this package's tree has no `generated/` subdirectory — the one generated
 package's own tree is the number that matters here.
 
 By directory: engineering 23, specialized 15, github 12, testing 9, reengineer-squad 9,
-core 6, optimization 5, marketing 5, hive-mind 4, consensus 2, templates 2, plus one
-file each in architecture, design, goal, specialists, and swarm.
+core 6, optimization 5, marketing 5, monoswarm 5, consensus 2, templates 2, plus one
+file each in architecture, design, goal, and specialists.
 
 The curated roster below is the subset worth routing to by hand. It is **not** the complete
 set — names such as `security-manager`, `production-validator`,
@@ -284,7 +279,7 @@ checked-in definitions in this package, and `src/init/executor.ts` and
 
 `github-modes`, `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`, `repo-architect`
 
-### Swarm / Hive-Mind / Consensus
+### Monoswarm / Consensus
 
 `mesh-coordinator`, `collective-intelligence-coordinator`, `quorum-manager`
 (`queen-coordinator` was absorbed into `core/coordinator` in 2026-07.)
@@ -367,25 +362,6 @@ Features:
 - **Document chunking**: Configurable overlap and size
 - **Normalization**: L2, L1, min-max, z-score
 - **Hyperbolic embeddings**: Poincare ball model for hierarchical data
-
-## Hive-Mind Consensus (Single-Process Vote Counting)
-
-### Topologies
-
-- `hierarchical` - Queen controls workers directly
-- `mesh` - Fully connected peer network
-- `hierarchical-mesh` - Hybrid (recommended)
-- `adaptive` - Topology label recorded in swarm state; coordination behavior is chosen by the caller — no automatic reconfiguration
-
-### Consensus Strategies
-
-These implement vote-counting logic in a single process (not distributed networking):
-
-- `byzantine` / `bft` - BFT vote counting (requires 2f+1 votes, tolerates f < n/3 faulty)
-- `raft` - Majority vote counting (tolerates f < n/2)
-- `quorum` - Configurable preset (majority/supermajority/unanimous)
-
-`gossip` and `crdt` are planned but not implemented — `hive-mind_init` rejects them.
 
 ## Performance Targets
 
@@ -502,8 +478,8 @@ npx monomind@latest doctor --fix
 
 ### CLI Tools Handle Coordination (via Bash):
 
-- **Swarm init**: `npx monomind@latest swarm init --topology <type>`
-- **Swarm status**: `npx monomind@latest swarm status`
+- **Monoswarm init**: `npx monomind@latest monoswarm init --topology <type>`
+- **Monoswarm status**: `npx monomind@latest monoswarm status`
 - **Agent spawn**: `npx monomind@latest agent spawn -t <type> --name <name>`
 - **Memory store**: `npx monomind@latest memory store --key "mykey" --value "myvalue" --namespace patterns`
 - **Memory search**: `npx monomind@latest memory search --query "search terms"`
@@ -527,7 +503,7 @@ It includes:
 - All 32 CLI commands
 - All 29 hook subcommands + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers (@monoes/hooks)
 - Intelligence system details (keyword routing + trajectory/outcome logging)
-- Hive-Mind consensus mechanisms
+- Monoswarm coordination and vote strategies
 - Integration ecosystem (agentic-flow, agentic-jujutsu)
 - Performance targets and status
 

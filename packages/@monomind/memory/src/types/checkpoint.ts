@@ -20,7 +20,7 @@ export interface AgentState {
 /** Full swarm checkpoint containing every agent's state + queues + results. */
 export interface SwarmCheckpoint {
   checkpointId: string;
-  swarmId: string;
+  monoswarmId: string;
   sessionId: string;
   step: number;
   trigger: 'post-task' | 'session-end' | 'manual' | 'interrupt' | 'periodic';
@@ -36,7 +36,7 @@ export interface SwarmCheckpoint {
 /** Lightweight metadata returned by list(). */
 export interface CheckpointMeta {
   checkpointId: string;
-  swarmId: string;
+  monoswarmId: string;
   sessionId: string;
   step: number;
   trigger: string;

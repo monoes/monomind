@@ -17,9 +17,9 @@ const CONFIG_FILENAMES = [
  * Default config values.
  *
  * IMPORTANT: never hand this object (or a shallow `{ ...DEFAULT_CONFIG }`
- * copy) out directly — its nested sections (`agents`, `swarm`, `memory`, ...)
+ * copy) out directly — its nested sections (`agents`, `monoswarm`, `memory`, ...)
  * would be shared-by-reference with every caller, so one caller mutating
- * `config.swarm.maxAgents` would silently corrupt this module-level constant
+ * `config.monoswarm.maxAgents` would silently corrupt this module-level constant
  * for the rest of the process. Always hand out `cloneDefaultConfig()`.
  */
 const DEFAULT_CONFIG: Record<string, unknown> = {
@@ -31,7 +31,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
     timeout: 300000,
     providers: [],
   },
-  swarm: {
+  monoswarm: {
     topology: 'hierarchical',
     maxAgents: 8,
     autoScale: false,
@@ -75,7 +75,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
 /**
  * Deep-clone the default config so every caller gets its own independent
  * object graph. `{ ...DEFAULT_CONFIG }` is only a shallow copy — its nested
- * sub-configs (`agents`, `swarm`, `memory`, ...) would remain the SAME
+ * sub-configs (`agents`, `monoswarm`, `memory`, ...) would remain the SAME
  * object references as the module-level constant, so mutating a nested
  * field on one caller's copy would corrupt the shared default for every
  * subsequent caller in the process.
@@ -192,7 +192,7 @@ export class ConfigFileManager {
    * drop the first writer's API key.
    */
   set(cwd: string, key: string, value: unknown): void {
-    const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
+    const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'monoswarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
     const topSection = String(key).split('.')[0];
     if (!KNOWN_SET_SECTIONS.has(topSection)) {
       throw new Error(`Unknown config section: "${topSection}". Allowed: ${[...KNOWN_SET_SECTIONS].join(', ')}`);
@@ -291,7 +291,7 @@ export class ConfigFileManager {
     // KNOWN_SECTIONS only validates top-level keys, leaving nested
     // {agents:{providers:[{__proto__:{...}}]}} unsanitized.
     const imported = sanitizeConfigObject(importedRaw) as Record<string, unknown>;
-    const KNOWN_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
+    const KNOWN_SECTIONS = new Set(['version', 'agents', 'monoswarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
     for (const key of Object.keys(imported)) {
       if (!KNOWN_SECTIONS.has(key)) {
         throw new Error(`Unknown config section: "${key}"`);

@@ -44,7 +44,7 @@ The `pre-task` hook analyzes the task description and automatically selects and 
 ## Integration with Claude Code
 
 ```javascript
-// Initialize swarm with auto strategy
+// Initialize monoswarm with auto strategy
 mcp__monomind__swarm_init({
   topology: "hierarchical",
   maxAgents: 8,

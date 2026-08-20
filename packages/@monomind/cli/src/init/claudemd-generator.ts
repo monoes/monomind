@@ -131,52 +131,52 @@ function concurrencyRules(): string {
 }
 
 function swarmOrchestration(): string {
-  return `## Swarm Orchestration
+  return `## Monoswarm Orchestration
 
-- MUST initialize the swarm using CLI tools when starting complex tasks
+- MUST initialize the monoswarm using CLI tools when starting complex tasks
 - MUST spawn concurrent agents using Claude Code's Task tool
 - Never use CLI tools alone for execution — Task tool agents do the actual work
 - MUST call CLI tools AND Task tool in ONE message for complex work`;
 }
 
 // Consolidated spawn/anti-drift rule — emitted ONCE in the standard template
-// (previously repeated across Swarm Orchestration, Anti-Drift, and Execution
-// Rules). Kept out of the minimal template entirely.
+// (previously repeated across Monoswarm Orchestration, Anti-Drift, and
+// Execution Rules). Kept out of the minimal template entirely.
 function swarmRules(): string {
-  return `## Swarm Rules
+  return `## Monoswarm Rules
 
-- MUST initialize the swarm for complex tasks: \`npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized\`
+- MUST initialize the monoswarm for complex tasks: \`npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized\`
 - ALWAYS spawn ALL agents in ONE message via the Task tool with \`run_in_background: true\` — CLI tools coordinate, Task agents do the work
-- After spawning, STOP — never poll TaskOutput or check swarm status; trust agents to return
+- After spawning, STOP — never poll TaskOutput or check monoswarm status; trust agents to return
 - When agent results arrive, review ALL results before proceeding
 - Keep shared memory namespace for all agents; run frequent checkpoints via \`post-task\` hooks`;
 }
 
 function antiDriftConfig(): string {
-  return `## Swarm Configuration & Anti-Drift
+  return `## Monoswarm Configuration & Anti-Drift
 
 - ALWAYS use hierarchical topology for coding swarms
 - Keep maxAgents at 6-8 for tight coordination
 - Use specialized strategy for clear role boundaries
-- Use \`raft\` consensus for hive-mind (leader maintains authoritative state)
+- Use \`majority\` consensus for monoswarm
 - Run frequent checkpoints via \`post-task\` hooks
 - Keep shared memory namespace for all agents
 
 \`\`\`bash
-npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 \`\`\``;
 }
 
 function autoStartProtocol(): string {
-  return `## Swarm Protocols & Routing
+  return `## Monoswarm Protocols & Routing
 
-### Auto-Start Swarm Protocol
+### Auto-Start Monoswarm Protocol
 
 When the user requests a complex task, spawn agents in background and WAIT:
 
 \`\`\`javascript
-// STEP 1: Initialize swarm coordination
-Bash("npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized")
+// STEP 1: Initialize monoswarm coordination
+Bash("npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized")
 
 // STEP 2: Spawn ALL agents IN BACKGROUND in a SINGLE message
 Task({prompt: "Research requirements...", subagent_type: "researcher", run_in_background: true})
@@ -198,17 +198,17 @@ Task({prompt: "Review code quality...", subagent_type: "reviewer", run_in_backgr
 
 ### Task Complexity Detection
 
-- AUTO-INVOKE SWARM when task involves: 3+ files, new features, cross-module refactoring, API changes, security, or performance work
-- SKIP SWARM for: single file edits, simple bug fixes (1-2 lines), documentation updates, configuration changes`;
+- AUTO-INVOKE MONOSWARM when task involves: 3+ files, new features, cross-module refactoring, API changes, security, or performance work
+- SKIP MONOSWARM for: single file edits, simple bug fixes (1-2 lines), documentation updates, configuration changes`;
 }
 
 function executionRules(): string {
-  return `## Swarm Execution Rules
+  return `## Monoswarm Execution Rules
 
 - ALWAYS use \`run_in_background: true\` for all agent Task calls
 - ALWAYS put ALL agent Task calls in ONE message for parallel execution
 - After spawning, STOP — do NOT add more tool calls or check status
-- Never poll TaskOutput or check swarm status — trust agents to return
+- Never poll TaskOutput or check monoswarm status — trust agents to return
 - When agent results arrive, review ALL results before proceeding`;
 }
 
@@ -222,23 +222,22 @@ function cliCommandsTable(): string {
 |---------|-------------|-------------|
 | \`init\` | 5 | Project initialization |
 | \`agent\` | 7 | Agent lifecycle management |
-| \`swarm\` | 6 | Multi-agent swarm coordination |
+| \`monoswarm\` | 6 | Multi-agent coordination |
 | \`memory\` | 12 | SQLite memory with ANN search |
 | \`task\` | 5 | Task creation and lifecycle |
 | \`session\` | 6 | Session state management |
 | \`hooks\` | 29 | Self-learning hooks + 8 background workers${unavailNote(avail.hooks)} |
 
-> Note: there is no \`hive-mind\` or \`neural\` CLI command. Hive-mind
-> consensus (byzantine/raft/quorum) is available exclusively via MCP tools
-> (\`hive-mind_*\`), not the CLI. Neural pattern learning was merged into
-> \`hooks intelligence\`.
+> Note: there is no \`neural\` CLI command. Neural pattern learning was merged
+> into \`hooks intelligence\`. See \`doc/concepts/monoswarm.md\` for monoswarm
+> coordination and vote strategies.
 
 ### Quick CLI Examples
 
 \`\`\`bash
 npx monomind@latest init --wizard
 npx monomind@latest agent spawn -t coder --name my-coder
-npx monomind@latest swarm init --v1-mode
+npx monomind@latest monoswarm init --v1-mode
 npx monomind@latest memory search --query "authentication patterns"
 npx monomind@latest doctor --fix
 \`\`\``;
@@ -256,7 +255,7 @@ subset worth routing to by name; it is not the complete set.
 ### Specialized
 \`security-architect\`
 
-### Swarm Coordination
+### Monoswarm Coordination
 \`mesh-coordinator\`
 
 ### GitHub & Repository
@@ -467,7 +466,7 @@ function setupAndBoundary(): string {
   return `## Quick Setup
 
 \`\`\`bash
-# Add MCP server — includes monograph, swarm, memory, hooks, all 66+ tools
+# Add MCP server — includes monograph, monoswarm, memory, hooks, all 66+ tools
 claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Verify everything works
@@ -479,7 +478,7 @@ npx monomind@latest doctor --fix
 ## Claude Code vs CLI Tools
 
 - Claude Code's Task tool handles ALL execution: agents, file ops, code generation, git
-- CLI tools handle coordination via Bash: swarm init, memory, hooks, routing
+- CLI tools handle coordination via Bash: monoswarm init, memory, hooks, routing
 - NEVER use CLI tools as a substitute for Task tool agents
 
 ## Support
@@ -624,11 +623,11 @@ export function generateMinimalClaudeMd(options: InitOptions): string {
 /** Available template names for CLI wizard */
 export const CLAUDE_MD_TEMPLATES: Array<{ name: ClaudeMdTemplate; description: string }> = [
   { name: 'minimal', description: 'Quick start — behavioral rules, CLI reference (~160 lines)' },
-  { name: 'standard', description: 'Recommended — swarm rules, agents, memory commands (~225 lines)' },
+  { name: 'standard', description: 'Recommended — monoswarm rules, agents, memory commands (~225 lines)' },
   { name: 'full', description: 'Everything — hooks, learning protocol, intelligence system (~400 lines)' },
   { name: 'security', description: 'Security-focused — adds security scanning, audit protocols, CVE checks' },
   { name: 'performance', description: 'Performance-focused — adds benchmarking, profiling, optimization protocols' },
-  { name: 'solo', description: 'Solo developer — no swarm, simple agent usage, memory commands (~150 lines)' },
+  { name: 'solo', description: 'Solo developer — no monoswarm, simple agent usage, memory commands (~150 lines)' },
 ];
 
 export default generateClaudeMd;

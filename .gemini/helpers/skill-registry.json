@@ -7,9 +7,9 @@
     "note": "DO NOT hand-edit entries — regeneration overwrites them. To pin keywords for an entry, add a \"curatedKeywords\" array to it; those survive regeneration and take precedence over derived ones.",
     "scope": "Project-local only. User-global plugin skills (~/.claude/plugins) are excluded on purpose — this file is committed, so machine-specific entries would be wrong for other checkouts.",
     "counts": {
-      "commands": 61,
-      "skills": 96,
-      "total": 157
+      "commands": 130,
+      "skills": 84,
+      "total": 214
     }
   },
   "skills": [
@@ -45,6 +45,633 @@
       ],
       "category": "skill",
       "source": ".claude/skills/agent-browser-testing/SKILL.md"
+    },
+    {
+      "skill": "agentic-jujutsu",
+      "invoke": "Skill(\"agentic-jujutsu\")",
+      "kind": "skill",
+      "description": "Self-learning version control for AI agents with ReasoningBank intelligence and multi-agent coordination. Wraps the separate `agentic-jujutsu` npm package.",
+      "nameTerms": [
+        "agentic",
+        "jujutsu"
+      ],
+      "keywords": [
+        "self-learning",
+        "version",
+        "control",
+        "agents",
+        "reasoningbank",
+        "intelligence",
+        "multi-agent",
+        "coordination",
+        "wraps",
+        "separate",
+        "agentic-jujutsu",
+        "npm",
+        "package"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/agentic-jujutsu/SKILL.md"
+    },
+    {
+      "skill": "agents:README",
+      "invoke": "/agents:README",
+      "kind": "command",
+      "description": "Agents Commands",
+      "nameTerms": [
+        "agents",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "agents",
+      "source": ".claude/commands/agents/README.md"
+    },
+    {
+      "skill": "agents:agent-capabilities",
+      "invoke": "/agents:agent-capabilities",
+      "kind": "command",
+      "description": "agent-capabilities",
+      "nameTerms": [
+        "agents",
+        "agent",
+        "capabilities"
+      ],
+      "keywords": [
+        "agent-capabilities"
+      ],
+      "category": "agents",
+      "source": ".claude/commands/agents/agent-capabilities.md"
+    },
+    {
+      "skill": "agents:agent-coordination",
+      "invoke": "/agents:agent-coordination",
+      "kind": "command",
+      "description": "agent-coordination",
+      "nameTerms": [
+        "agents",
+        "agent",
+        "coordination"
+      ],
+      "keywords": [
+        "agent-coordination"
+      ],
+      "category": "agents",
+      "source": ".claude/commands/agents/agent-coordination.md"
+    },
+    {
+      "skill": "agents:agent-spawning",
+      "invoke": "/agents:agent-spawning",
+      "kind": "command",
+      "description": "agent-spawning",
+      "nameTerms": [
+        "agents",
+        "agent",
+        "spawning"
+      ],
+      "keywords": [
+        "agent-spawning"
+      ],
+      "category": "agents",
+      "source": ".claude/commands/agents/agent-spawning.md"
+    },
+    {
+      "skill": "agents:agent-types",
+      "invoke": "/agents:agent-types",
+      "kind": "command",
+      "description": "agent-types",
+      "nameTerms": [
+        "agents",
+        "agent",
+        "types"
+      ],
+      "keywords": [
+        "agent-types"
+      ],
+      "category": "agents",
+      "source": ".claude/commands/agents/agent-types.md"
+    },
+    {
+      "skill": "analysis:README",
+      "invoke": "/analysis:README",
+      "kind": "command",
+      "description": "Analysis Commands",
+      "nameTerms": [
+        "analysis",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "analysis",
+      "source": ".claude/commands/analysis/README.md"
+    },
+    {
+      "skill": "analysis:bottleneck-detect",
+      "invoke": "/analysis:bottleneck-detect",
+      "kind": "command",
+      "description": "bottleneck-detect",
+      "nameTerms": [
+        "analysis",
+        "bottleneck",
+        "detect"
+      ],
+      "keywords": [
+        "bottleneck-detect"
+      ],
+      "category": "analysis",
+      "source": ".claude/commands/analysis/bottleneck-detect.md"
+    },
+    {
+      "skill": "analysis:performance-bottlenecks",
+      "invoke": "/analysis:performance-bottlenecks",
+      "kind": "command",
+      "description": "Performance Bottleneck Analysis",
+      "nameTerms": [
+        "analysis",
+        "performance",
+        "bottlenecks"
+      ],
+      "keywords": [
+        "bottleneck"
+      ],
+      "category": "analysis",
+      "source": ".claude/commands/analysis/performance-bottlenecks.md"
+    },
+    {
+      "skill": "analysis:performance-report",
+      "invoke": "/analysis:performance-report",
+      "kind": "command",
+      "description": "performance-report",
+      "nameTerms": [
+        "analysis",
+        "performance",
+        "report"
+      ],
+      "keywords": [
+        "performance-report"
+      ],
+      "category": "analysis",
+      "source": ".claude/commands/analysis/performance-report.md"
+    },
+    {
+      "skill": "analysis:token-usage",
+      "invoke": "/analysis:token-usage",
+      "kind": "command",
+      "description": "token-usage",
+      "nameTerms": [
+        "analysis",
+        "token",
+        "usage"
+      ],
+      "keywords": [
+        "token-usage"
+      ],
+      "category": "analysis",
+      "source": ".claude/commands/analysis/token-usage.md"
+    },
+    {
+      "skill": "automation:README",
+      "invoke": "/automation:README",
+      "kind": "command",
+      "description": "Automation Commands",
+      "nameTerms": [
+        "automation",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "automation",
+      "source": ".claude/commands/automation/README.md"
+    },
+    {
+      "skill": "automation:auto-agent",
+      "invoke": "/automation:auto-agent",
+      "kind": "command",
+      "description": "auto-agent",
+      "nameTerms": [
+        "automation",
+        "auto",
+        "agent"
+      ],
+      "keywords": [
+        "auto-agent"
+      ],
+      "category": "automation",
+      "source": ".claude/commands/automation/auto-agent.md"
+    },
+    {
+      "skill": "automation:self-healing",
+      "invoke": "/automation:self-healing",
+      "kind": "command",
+      "description": "Self-Healing Workflows",
+      "nameTerms": [
+        "automation",
+        "self",
+        "healing"
+      ],
+      "keywords": [
+        "self-healing",
+        "workflows"
+      ],
+      "category": "automation",
+      "source": ".claude/commands/automation/self-healing.md"
+    },
+    {
+      "skill": "automation:session-memory",
+      "invoke": "/automation:session-memory",
+      "kind": "command",
+      "description": "Cross-Session Memory",
+      "nameTerms": [
+        "automation",
+        "session",
+        "memory"
+      ],
+      "keywords": [
+        "cross-session"
+      ],
+      "category": "automation",
+      "source": ".claude/commands/automation/session-memory.md"
+    },
+    {
+      "skill": "automation:smart-agents",
+      "invoke": "/automation:smart-agents",
+      "kind": "command",
+      "description": "Smart Agent Auto-Spawning",
+      "nameTerms": [
+        "automation",
+        "smart",
+        "agents"
+      ],
+      "keywords": [
+        "agent",
+        "auto-spawning"
+      ],
+      "category": "automation",
+      "source": ".claude/commands/automation/smart-agents.md"
+    },
+    {
+      "skill": "automation:smart-spawn",
+      "invoke": "/automation:smart-spawn",
+      "kind": "command",
+      "description": "smart-spawn",
+      "nameTerms": [
+        "automation",
+        "smart",
+        "spawn"
+      ],
+      "keywords": [
+        "smart-spawn"
+      ],
+      "category": "automation",
+      "source": ".claude/commands/automation/smart-spawn.md"
+    },
+    {
+      "skill": "automation:workflow-select",
+      "invoke": "/automation:workflow-select",
+      "kind": "command",
+      "description": "workflow-select",
+      "nameTerms": [
+        "automation",
+        "workflow",
+        "select"
+      ],
+      "keywords": [
+        "workflow-select"
+      ],
+      "category": "automation",
+      "source": ".claude/commands/automation/workflow-select.md"
+    },
+    {
+      "skill": "coordination:README",
+      "invoke": "/coordination:README",
+      "kind": "command",
+      "description": "Coordination Commands",
+      "nameTerms": [
+        "coordination",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "coordination",
+      "source": ".claude/commands/coordination/README.md"
+    },
+    {
+      "skill": "coordination:agent-spawn",
+      "invoke": "/coordination:agent-spawn",
+      "kind": "command",
+      "description": "agent-spawn",
+      "nameTerms": [
+        "coordination",
+        "agent",
+        "spawn"
+      ],
+      "keywords": [
+        "agent-spawn"
+      ],
+      "category": "coordination",
+      "source": ".claude/commands/coordination/agent-spawn.md"
+    },
+    {
+      "skill": "coordination:monoswarm-init",
+      "invoke": "/coordination:monoswarm-init",
+      "kind": "command",
+      "description": "monoswarm-init",
+      "nameTerms": [
+        "coordination",
+        "monoswarm",
+        "init"
+      ],
+      "keywords": [
+        "monoswarm-init"
+      ],
+      "category": "coordination",
+      "source": ".claude/commands/coordination/monoswarm-init.md"
+    },
+    {
+      "skill": "coordination:task-orchestrate",
+      "invoke": "/coordination:task-orchestrate",
+      "kind": "command",
+      "description": "task-orchestrate",
+      "nameTerms": [
+        "coordination",
+        "task",
+        "orchestrate"
+      ],
+      "keywords": [
+        "task-orchestrate"
+      ],
+      "category": "coordination",
+      "source": ".claude/commands/coordination/task-orchestrate.md"
+    },
+    {
+      "skill": "github:README",
+      "invoke": "/github:README",
+      "kind": "command",
+      "description": "GitHub Commands",
+      "nameTerms": [
+        "github",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "github",
+      "source": ".claude/commands/github/README.md"
+    },
+    {
+      "skill": "github:github-modes",
+      "invoke": "/github:github-modes",
+      "kind": "command",
+      "description": "GitHub Integration Modes",
+      "nameTerms": [
+        "github",
+        "modes"
+      ],
+      "keywords": [
+        "integration"
+      ],
+      "category": "github",
+      "source": ".claude/commands/github/github-modes.md"
+    },
+    {
+      "skill": "github:issue-tracker",
+      "invoke": "/github:issue-tracker",
+      "kind": "command",
+      "description": "GitHub Issue Tracker",
+      "nameTerms": [
+        "github",
+        "issue",
+        "tracker"
+      ],
+      "keywords": [],
+      "category": "github",
+      "source": ".claude/commands/github/issue-tracker.md"
+    },
+    {
+      "skill": "github:pr-manager",
+      "invoke": "/github:pr-manager",
+      "kind": "command",
+      "description": "GitHub PR Manager",
+      "nameTerms": [
+        "github",
+        "pr",
+        "manager"
+      ],
+      "keywords": [],
+      "category": "github",
+      "source": ".claude/commands/github/pr-manager.md"
+    },
+    {
+      "skill": "github:release-manager",
+      "invoke": "/github:release-manager",
+      "kind": "command",
+      "description": "GitHub Release Manager",
+      "nameTerms": [
+        "github",
+        "release",
+        "manager"
+      ],
+      "keywords": [],
+      "category": "github",
+      "source": ".claude/commands/github/release-manager.md"
+    },
+    {
+      "skill": "github:repo-architect",
+      "invoke": "/github:repo-architect",
+      "kind": "command",
+      "description": "GitHub Repository Architect",
+      "nameTerms": [
+        "github",
+        "repo",
+        "architect"
+      ],
+      "keywords": [
+        "repository"
+      ],
+      "category": "github",
+      "source": ".claude/commands/github/repo-architect.md"
+    },
+    {
+      "skill": "github:sync-coordinator",
+      "invoke": "/github:sync-coordinator",
+      "kind": "command",
+      "description": "GitHub Sync Coordinator",
+      "nameTerms": [
+        "github",
+        "sync",
+        "coordinator"
+      ],
+      "keywords": [],
+      "category": "github",
+      "source": ".claude/commands/github/sync-coordinator.md"
+    },
+    {
+      "skill": "hooks-automation",
+      "invoke": "Skill(\"hooks-automation\")",
+      "kind": "skill",
+      "description": "Automated coordination, formatting, and learning from Claude Code operations using intelligent hooks with MCP integration. Includes pre/post task hooks, session management, Git integration, memory coordination, and neural pattern training for enhanced development workflows.",
+      "nameTerms": [
+        "hooks",
+        "automation"
+      ],
+      "keywords": [
+        "automated",
+        "coordination",
+        "formatting",
+        "learning",
+        "claude",
+        "code",
+        "operations",
+        "intelligent",
+        "mcp",
+        "integration",
+        "includes",
+        "pre",
+        "post",
+        "task",
+        "session",
+        "management",
+        "git",
+        "memory",
+        "neural",
+        "pattern",
+        "training",
+        "enhanced",
+        "development",
+        "workflows"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/hooks-automation/SKILL.md"
+    },
+    {
+      "skill": "hooks:README",
+      "invoke": "/hooks:README",
+      "kind": "command",
+      "description": "Hooks Commands",
+      "nameTerms": [
+        "hooks",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/README.md"
+    },
+    {
+      "skill": "hooks:overview",
+      "invoke": "/hooks:overview",
+      "kind": "command",
+      "description": "Hooks System Overview",
+      "nameTerms": [
+        "hooks",
+        "overview"
+      ],
+      "keywords": [
+        "system"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/overview.md"
+    },
+    {
+      "skill": "hooks:post-edit",
+      "invoke": "/hooks:post-edit",
+      "kind": "command",
+      "description": "hooks post-edit",
+      "nameTerms": [
+        "hooks",
+        "post",
+        "edit"
+      ],
+      "keywords": [
+        "post-edit"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/post-edit.md"
+    },
+    {
+      "skill": "hooks:post-task",
+      "invoke": "/hooks:post-task",
+      "kind": "command",
+      "description": "hooks post-task",
+      "nameTerms": [
+        "hooks",
+        "post",
+        "task"
+      ],
+      "keywords": [
+        "post-task"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/post-task.md"
+    },
+    {
+      "skill": "hooks:pre-edit",
+      "invoke": "/hooks:pre-edit",
+      "kind": "command",
+      "description": "hooks pre-edit",
+      "nameTerms": [
+        "hooks",
+        "pre",
+        "edit"
+      ],
+      "keywords": [
+        "pre-edit"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/pre-edit.md"
+    },
+    {
+      "skill": "hooks:pre-task",
+      "invoke": "/hooks:pre-task",
+      "kind": "command",
+      "description": "hooks pre-task",
+      "nameTerms": [
+        "hooks",
+        "pre",
+        "task"
+      ],
+      "keywords": [
+        "pre-task"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/pre-task.md"
+    },
+    {
+      "skill": "hooks:session-end",
+      "invoke": "/hooks:session-end",
+      "kind": "command",
+      "description": "hooks session-end",
+      "nameTerms": [
+        "hooks",
+        "session",
+        "end"
+      ],
+      "keywords": [
+        "session-end"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/session-end.md"
+    },
+    {
+      "skill": "hooks:setup",
+      "invoke": "/hooks:setup",
+      "kind": "command",
+      "description": "Setting Up Monomind Hooks",
+      "nameTerms": [
+        "hooks",
+        "setup"
+      ],
+      "keywords": [
+        "setting",
+        "monomind"
+      ],
+      "category": "hooks",
+      "source": ".claude/commands/hooks/setup.md"
     },
     {
       "skill": "mastermind",
@@ -374,118 +1001,6 @@
       "source": ".claude/skills/mastermind-approval-detail/SKILL.md"
     },
     {
-      "skill": "mastermind-approvev1",
-      "invoke": "Skill(\"mastermind-approvev1\")",
-      "kind": "skill",
-      "description": "LEGACY-ORG-V1 (2026-07): v2 approvals arrive as question events in the dashboard Human Input tab — no skill needed. Mastermind approvev1 — review and action pending approval requests from agents in a running v1 (prompt-orchestrated) org. Agents can request human approval before proceeding with sensitive actions. Reach it only via `/mastermind:approvev1`.",
-      "nameTerms": [
-        "mastermind",
-        "approvev1"
-      ],
-      "keywords": [
-        "legacy-org-v1",
-        "2026-07",
-        "approvals",
-        "arrive",
-        "question",
-        "events",
-        "dashboard",
-        "human",
-        "input",
-        "tab",
-        "skill",
-        "needed",
-        "review",
-        "action",
-        "pending",
-        "approval",
-        "requests",
-        "agents",
-        "prompt-orchestrated",
-        "org",
-        "request",
-        "proceeding",
-        "sensitive",
-        "actions",
-        "reach"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-approvev1/SKILL.md"
-    },
-    {
-      "skill": "mastermind-architect",
-      "invoke": "Skill(\"mastermind-architect\")",
-      "kind": "skill",
-      "description": "Mastermind architect domain — architecture review, file structure deduplication, dependency analysis, coupling detection, design pattern audit, and system design recommendations. Spawns an Architecture Manager coordinating specialist architect agents.",
-      "nameTerms": [
-        "mastermind",
-        "architect"
-      ],
-      "keywords": [
-        "domain",
-        "architecture",
-        "review",
-        "file",
-        "structure",
-        "deduplication",
-        "dependency",
-        "analysis",
-        "coupling",
-        "detection",
-        "design",
-        "pattern",
-        "audit",
-        "system",
-        "recommendations",
-        "spawns",
-        "manager",
-        "coordinating",
-        "specialist",
-        "agents"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-architect/SKILL.md"
-    },
-    {
-      "skill": "mastermind-autodev",
-      "invoke": "Skill(\"mastermind-autodev\")",
-      "kind": "skill",
-      "description": "Mastermind autodev — autonomous research → build → review loop. Researches the project, picks the best improvement idea, builds it, then runs an inline review loop until clean. Repeats N times when given a count. Supports --newfeature N for full feature pipeline (research → build → review → document → deliver).",
-      "nameTerms": [
-        "mastermind",
-        "autodev"
-      ],
-      "keywords": [
-        "autonomous",
-        "research",
-        "build",
-        "review",
-        "loop",
-        "researches",
-        "project",
-        "picks",
-        "best",
-        "improvement",
-        "idea",
-        "builds",
-        "inline",
-        "until",
-        "clean",
-        "repeats",
-        "times",
-        "given",
-        "count",
-        "supports",
-        "--newfeature",
-        "feature",
-        "pipeline",
-        "document",
-        "deliver"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-autodev/SKILL.md"
-    },
-    {
       "skill": "mastermind-backup",
       "invoke": "Skill(\"mastermind-backup\")",
       "kind": "skill",
@@ -595,131 +1110,6 @@
       ],
       "category": "skill",
       "source": ".claude/skills/mastermind-budgets/SKILL.md"
-    },
-    {
-      "skill": "mastermind-build",
-      "invoke": "Skill(\"mastermind-build\")",
-      "kind": "skill",
-      "description": "Mastermind build domain — development automation for features, bugs, refactors, and code review. Spawns a Development Manager agent who creates monotask tasks and coordinates specialized sub-agent swarms.",
-      "nameTerms": [
-        "mastermind",
-        "build"
-      ],
-      "keywords": [
-        "domain",
-        "development",
-        "automation",
-        "features",
-        "bugs",
-        "refactors",
-        "code",
-        "review",
-        "spawns",
-        "manager",
-        "agent",
-        "who",
-        "creates",
-        "monotask",
-        "tasks",
-        "coordinates",
-        "specialized",
-        "sub-agent",
-        "swarms"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-build/SKILL.md"
-    },
-    {
-      "skill": "mastermind-companies",
-      "invoke": "Skill(\"mastermind-companies\")",
-      "kind": "skill",
-      "description": "Mastermind companies — multi-org management. List all orgs with agent/issue stats, switch the active org, rename an org, delete an org (with confirmation), and view per-org summary. Mirrors Companies.tsx.",
-      "nameTerms": [
-        "mastermind",
-        "companies"
-      ],
-      "keywords": [
-        "multi-org",
-        "management",
-        "list",
-        "orgs",
-        "agent",
-        "issue",
-        "stats",
-        "switch",
-        "active",
-        "org",
-        "rename",
-        "delete",
-        "confirmation",
-        "view",
-        "per-org",
-        "summary",
-        "mirrors",
-        "tsx"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-companies/SKILL.md"
-    },
-    {
-      "skill": "mastermind-content",
-      "invoke": "Skill(\"mastermind-content\")",
-      "kind": "skill",
-      "description": "Mastermind content domain — blog posts, threads, docs, newsletters. Spawns a Content Manager who runs a ring pipeline (research→draft→edit→publish) for polished output.",
-      "nameTerms": [
-        "mastermind",
-        "content"
-      ],
-      "keywords": [
-        "domain",
-        "blog",
-        "posts",
-        "threads",
-        "docs",
-        "newsletters",
-        "spawns",
-        "manager",
-        "who",
-        "ring",
-        "pipeline",
-        "research",
-        "draft",
-        "edit",
-        "publish",
-        "polished",
-        "output"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-content/SKILL.md"
-    },
-    {
-      "skill": "mastermind-costs",
-      "invoke": "Skill(\"mastermind-costs\")",
-      "kind": "skill",
-      "description": "Mastermind costs — track token spend and budget burn rate per agent in a running org. Shows current window spend, budget policy, and alerts when approaching limits.",
-      "nameTerms": [
-        "mastermind",
-        "costs"
-      ],
-      "keywords": [
-        "track",
-        "token",
-        "spend",
-        "budget",
-        "burn",
-        "rate",
-        "agent",
-        "org",
-        "shows",
-        "current",
-        "window",
-        "policy",
-        "alerts",
-        "approaching",
-        "limits"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-costs/SKILL.md"
     },
     {
       "skill": "mastermind-createorg",
@@ -1018,60 +1408,6 @@
       "source": ".claude/skills/mastermind-export/SKILL.md"
     },
     {
-      "skill": "mastermind-finance",
-      "invoke": "Skill(\"mastermind-finance\")",
-      "kind": "skill",
-      "description": "Mastermind finance domain — invoicing, budget tracking, financial forecasting. Spawns a Finance Manager coordinating financial tracking and analysis agents.",
-      "nameTerms": [
-        "mastermind",
-        "finance"
-      ],
-      "keywords": [
-        "domain",
-        "invoicing",
-        "budget",
-        "tracking",
-        "financial",
-        "forecasting",
-        "spawns",
-        "manager",
-        "coordinating",
-        "analysis",
-        "agents"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-finance/SKILL.md"
-    },
-    {
-      "skill": "mastermind-finish",
-      "invoke": "Skill(\"mastermind-finish\")",
-      "kind": "skill",
-      "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work — guides completion of development work by presenting structured options for merge, PR, or cleanup",
-      "nameTerms": [
-        "mastermind",
-        "finish"
-      ],
-      "keywords": [
-        "implementation",
-        "complete",
-        "tests",
-        "pass",
-        "decide",
-        "integrate",
-        "work",
-        "guides",
-        "completion",
-        "development",
-        "presenting",
-        "structured",
-        "options",
-        "merge",
-        "cleanup"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-finish/SKILL.md"
-    },
-    {
       "skill": "mastermind-goal-detail",
       "invoke": "Skill(\"mastermind-goal-detail\")",
       "kind": "skill",
@@ -1134,50 +1470,6 @@
       ],
       "category": "skill",
       "source": ".claude/skills/mastermind-goals/SKILL.md"
-    },
-    {
-      "skill": "mastermind-heartbeatv1",
-      "invoke": "Skill(\"mastermind-heartbeatv1\")",
-      "kind": "skill",
-      "description": "LEGACY-ORG-V1 (2026-07): v2: send the role a chat message from the dashboard, or inspect with `monomind org logs <name>` — no skill needed. Mastermind heartbeatv1 — trigger a manual heartbeat for a specific agent in a running v1 (prompt-orchestrated) org. The agent wakes, checks its task queue, executes pending work, and reports back. Reach it only via `/mastermind:heartbeatv1`.",
-      "nameTerms": [
-        "mastermind",
-        "heartbeatv1"
-      ],
-      "keywords": [
-        "legacy-org-v1",
-        "2026-07",
-        "send",
-        "role",
-        "chat",
-        "message",
-        "dashboard",
-        "inspect",
-        "monomind",
-        "org",
-        "logs",
-        "name",
-        "skill",
-        "needed",
-        "trigger",
-        "manual",
-        "heartbeat",
-        "specific",
-        "agent",
-        "prompt-orchestrated",
-        "wakes",
-        "checks",
-        "task",
-        "queue",
-        "executes",
-        "pending",
-        "work",
-        "reports",
-        "back",
-        "reach"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-heartbeatv1/SKILL.md"
     },
     {
       "skill": "mastermind-idea",
@@ -1316,44 +1608,6 @@
       ],
       "category": "skill",
       "source": ".claude/skills/mastermind-instance/SKILL.md"
-    },
-    {
-      "skill": "mastermind-instance-settings",
-      "invoke": "Skill(\"mastermind-instance-settings\")",
-      "kind": "skill",
-      "description": "Mastermind instance-settings — instance-level administration covering general settings (auth, backup retention, keyboard shortcuts, AI feedback), experimental features (liveness auto-recovery), and user→company access grants. Extends mastermind:instance with InstanceGeneralSettings, InstanceExperimentalSettings, and InstanceAccess.",
-      "nameTerms": [
-        "mastermind",
-        "instance",
-        "settings"
-      ],
-      "keywords": [
-        "instance-settings",
-        "instance-level",
-        "administration",
-        "covering",
-        "general",
-        "auth",
-        "backup",
-        "retention",
-        "keyboard",
-        "shortcuts",
-        "feedback",
-        "experimental",
-        "features",
-        "liveness",
-        "auto-recovery",
-        "user",
-        "company",
-        "access",
-        "grants",
-        "extends",
-        "instancegeneralsettings",
-        "instanceexperimentalsettings",
-        "instanceaccess"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-instance-settings/SKILL.md"
     },
     {
       "skill": "mastermind-intake",
@@ -1609,35 +1863,6 @@
       "source": ".claude/skills/mastermind-liveness/SKILL.md"
     },
     {
-      "skill": "mastermind-marketing",
-      "invoke": "Skill(\"mastermind-marketing\")",
-      "kind": "skill",
-      "description": "Mastermind marketing domain — campaigns, copy, SEO, social media strategy. Spawns a Marketing Manager who coordinates content, SEO, social, and analytics agents in parallel.",
-      "nameTerms": [
-        "mastermind",
-        "marketing"
-      ],
-      "keywords": [
-        "domain",
-        "campaigns",
-        "copy",
-        "seo",
-        "social",
-        "media",
-        "strategy",
-        "spawns",
-        "manager",
-        "who",
-        "coordinates",
-        "content",
-        "analytics",
-        "agents",
-        "parallel"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-marketing/SKILL.md"
-    },
-    {
       "skill": "mastermind-memory",
       "invoke": "Skill(\"mastermind-memory\")",
       "kind": "skill",
@@ -1835,72 +2060,6 @@
       ],
       "category": "skill",
       "source": ".claude/skills/mastermind-new-agent/SKILL.md"
-    },
-    {
-      "skill": "mastermind-ops",
-      "invoke": "Skill(\"mastermind-ops\")",
-      "kind": "skill",
-      "description": "Mastermind ops domain — workflow automation, reporting, process optimization. Spawns an Ops Manager coordinating automation and reporting agents in parallel.",
-      "nameTerms": [
-        "mastermind",
-        "ops"
-      ],
-      "keywords": [
-        "domain",
-        "workflow",
-        "automation",
-        "reporting",
-        "process",
-        "optimization",
-        "spawns",
-        "manager",
-        "coordinating",
-        "agents",
-        "parallel"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-ops/SKILL.md"
-    },
-    {
-      "skill": "mastermind-org-chart",
-      "invoke": "Skill(\"mastermind-org-chart\")",
-      "kind": "skill",
-      "description": "Mastermind org-chart — generates a text-based ASCII org chart for an org showing the agent hierarchy, adapter types, heartbeat status, and reports-to relationships. Supports tree view, flat list, and JSON export. Mirrors OrgChart.tsx canvas view as a CLI-friendly format.",
-      "nameTerms": [
-        "mastermind",
-        "org",
-        "chart"
-      ],
-      "keywords": [
-        "org-chart",
-        "generates",
-        "text-based",
-        "ascii",
-        "showing",
-        "agent",
-        "hierarchy",
-        "adapter",
-        "types",
-        "heartbeat",
-        "status",
-        "reports-to",
-        "relationships",
-        "supports",
-        "tree",
-        "view",
-        "flat",
-        "list",
-        "json",
-        "export",
-        "mirrors",
-        "orgchart",
-        "tsx",
-        "canvas",
-        "cli-friendly",
-        "format"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-org-chart/SKILL.md"
     },
     {
       "skill": "mastermind-org-settings",
@@ -2213,113 +2372,6 @@
       "source": ".claude/skills/mastermind-profile/SKILL.md"
     },
     {
-      "skill": "mastermind-project-detail",
-      "invoke": "Skill(\"mastermind-project-detail\")",
-      "kind": "skill",
-      "description": "Mastermind project-detail — deep per-project inspection and management. Tabs mirror Paperclip's ProjectDetail page: overview (metrics/issues), configuration (color/visibility/description), budget policy, workspaces, and linked issues list.",
-      "nameTerms": [
-        "mastermind",
-        "project",
-        "detail"
-      ],
-      "keywords": [
-        "project-detail",
-        "deep",
-        "per-project",
-        "inspection",
-        "management",
-        "tabs",
-        "mirror",
-        "paperclip",
-        "projectdetail",
-        "page",
-        "overview",
-        "metrics",
-        "issues",
-        "configuration",
-        "color",
-        "visibility",
-        "description",
-        "budget",
-        "policy",
-        "workspaces",
-        "linked",
-        "list"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-project-detail/SKILL.md"
-    },
-    {
-      "skill": "mastermind-project-workspace",
-      "invoke": "Skill(\"mastermind-project-workspace\")",
-      "kind": "skill",
-      "description": "Mastermind project-workspace — configure a project-level workspace (not an execution workspace). Manages source type, visibility, repo URL/ref, branch, cwd, setup/cleanup commands, remote provider, remote workspace ref, runtime config JSON, and shared workspace key. Mirrors ProjectWorkspaceDetail.tsx.",
-      "nameTerms": [
-        "mastermind",
-        "project",
-        "workspace"
-      ],
-      "keywords": [
-        "project-workspace",
-        "configure",
-        "project-level",
-        "execution",
-        "manages",
-        "source",
-        "type",
-        "visibility",
-        "repo",
-        "url",
-        "ref",
-        "branch",
-        "cwd",
-        "setup",
-        "cleanup",
-        "commands",
-        "remote",
-        "provider",
-        "runtime",
-        "config",
-        "json",
-        "shared",
-        "key",
-        "mirrors",
-        "projectworkspacedetail",
-        "tsx"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-project-workspace/SKILL.md"
-    },
-    {
-      "skill": "mastermind-projects",
-      "invoke": "Skill(\"mastermind-projects\")",
-      "kind": "skill",
-      "description": "Mastermind projects — create and manage scoped project workspaces within an org. Group tasks under named projects, assign agents to projects, and track project-level status.",
-      "nameTerms": [
-        "mastermind",
-        "projects"
-      ],
-      "keywords": [
-        "create",
-        "manage",
-        "scoped",
-        "project",
-        "workspaces",
-        "within",
-        "org",
-        "group",
-        "tasks",
-        "named",
-        "assign",
-        "agents",
-        "track",
-        "project-level",
-        "status"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-projects/SKILL.md"
-    },
-    {
       "skill": "mastermind-protocol",
       "invoke": "Skill(\"mastermind-protocol\")",
       "kind": "skill",
@@ -2587,78 +2639,6 @@
       "source": ".claude/skills/mastermind-runorg/SKILL.md"
     },
     {
-      "skill": "mastermind-runorgv1",
-      "invoke": "Skill(\"mastermind-runorgv1\")",
-      "kind": "skill",
-      "description": "LEGACY-ORG-V1 (2026-07): superseded by `monomind org run <name>` (SDK Org Runtime v2), delegated to by default via `/mastermind:runorg`. Mastermind runorgv1 — load a saved org definition and start it as a persistent, prompt-orchestrated agent organization. The boss agent coordinates all roles, agents pick up tasks from a shared board, and the org runs until stopped. Reach it only via `/mastermind:runorgv1`.",
-      "nameTerms": [
-        "mastermind",
-        "runorgv1"
-      ],
-      "keywords": [
-        "legacy-org-v1",
-        "2026-07",
-        "superseded",
-        "monomind",
-        "org",
-        "name",
-        "sdk",
-        "runtime",
-        "delegated",
-        "default",
-        "runorg",
-        "load",
-        "saved",
-        "definition",
-        "start",
-        "persistent",
-        "prompt-orchestrated",
-        "agent",
-        "organization",
-        "boss",
-        "coordinates",
-        "roles",
-        "agents",
-        "pick",
-        "tasks",
-        "shared",
-        "board",
-        "until",
-        "stopped",
-        "reach"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-runorgv1/SKILL.md"
-    },
-    {
-      "skill": "mastermind-sales",
-      "invoke": "Skill(\"mastermind-sales\")",
-      "kind": "skill",
-      "description": "Mastermind sales domain — outreach sequences, proposals, pipeline management. Spawns a Sales Manager coordinating outbound strategy and proposal writing agents.",
-      "nameTerms": [
-        "mastermind",
-        "sales"
-      ],
-      "keywords": [
-        "domain",
-        "outreach",
-        "sequences",
-        "proposals",
-        "pipeline",
-        "management",
-        "spawns",
-        "manager",
-        "coordinating",
-        "outbound",
-        "strategy",
-        "proposal",
-        "writing",
-        "agents"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-sales/SKILL.md"
-    },
-    {
       "skill": "mastermind-search",
       "invoke": "Skill(\"mastermind-search\")",
       "kind": "skill",
@@ -2800,34 +2780,6 @@
       "source": ".claude/skills/mastermind-stoporg/SKILL.md"
     },
     {
-      "skill": "mastermind-taskdev",
-      "invoke": "Skill(\"mastermind-taskdev\")",
-      "kind": "skill",
-      "description": "Execute implementation plans with independent tasks using fresh subagents per task, with two-stage review (spec compliance then code quality) after each.",
-      "nameTerms": [
-        "mastermind",
-        "taskdev"
-      ],
-      "keywords": [
-        "execute",
-        "implementation",
-        "plans",
-        "independent",
-        "tasks",
-        "fresh",
-        "subagents",
-        "task",
-        "two-stage",
-        "review",
-        "spec",
-        "compliance",
-        "code",
-        "quality"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-taskdev/SKILL.md"
-    },
-    {
       "skill": "mastermind-tasks",
       "invoke": "Skill(\"mastermind-tasks\")",
       "kind": "skill",
@@ -2854,38 +2806,6 @@
       ],
       "category": "skill",
       "source": ".claude/skills/mastermind-tasks/SKILL.md"
-    },
-    {
-      "skill": "mastermind-tdd",
-      "invoke": "Skill(\"mastermind-tdd\")",
-      "kind": "skill",
-      "description": "Use when writing new code, fixing bugs, or adding any production logic — enforces test-first discipline before touching implementation. Use ESPECIALLY when under time pressure or when a fix seems obvious.",
-      "nameTerms": [
-        "mastermind",
-        "tdd"
-      ],
-      "keywords": [
-        "writing",
-        "code",
-        "fixing",
-        "bugs",
-        "adding",
-        "production",
-        "logic",
-        "enforces",
-        "test-first",
-        "discipline",
-        "touching",
-        "implementation",
-        "especially",
-        "time",
-        "pressure",
-        "fix",
-        "seems",
-        "obvious"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-tdd/SKILL.md"
     },
     {
       "skill": "mastermind-techport",
@@ -2992,71 +2912,6 @@
       ],
       "category": "skill",
       "source": ".claude/skills/mastermind-tree-control/SKILL.md"
-    },
-    {
-      "skill": "mastermind-verify",
-      "invoke": "Skill(\"mastermind-verify\")",
-      "kind": "skill",
-      "description": "Mastermind verification gate — enforces evidence-before-claims before any completion, commit, PR, or agent-delegation step. The Iron Law of verification.",
-      "nameTerms": [
-        "mastermind",
-        "verify"
-      ],
-      "keywords": [
-        "verification",
-        "gate",
-        "enforces",
-        "evidence-before-claims",
-        "completion",
-        "commit",
-        "agent-delegation",
-        "step",
-        "iron",
-        "law"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-verify/SKILL.md"
-    },
-    {
-      "skill": "mastermind-wiki",
-      "invoke": "Skill(\"mastermind-wiki\")",
-      "kind": "skill",
-      "description": "Mastermind wiki — org-scoped knowledge base with ingest, query, maintain, lint, and distill operations. Stores durable synthesis in .monomind/orgs/<org>/wiki/ with page citations, raw sources, and change log. Port of Paperclip's LLM Wiki plugin skills adapted for mastermind orgs.",
-      "nameTerms": [
-        "mastermind",
-        "wiki"
-      ],
-      "keywords": [
-        "org-scoped",
-        "knowledge",
-        "base",
-        "ingest",
-        "query",
-        "maintain",
-        "lint",
-        "distill",
-        "operations",
-        "stores",
-        "durable",
-        "synthesis",
-        "monomind",
-        "orgs",
-        "org",
-        "page",
-        "citations",
-        "raw",
-        "sources",
-        "change",
-        "log",
-        "port",
-        "paperclip",
-        "llm",
-        "plugin",
-        "skills",
-        "adapted"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/mastermind-wiki/SKILL.md"
     },
     {
       "skill": "mastermind-workspace-detail",
@@ -3174,103 +3029,6 @@
       "source": ".claude/commands/mastermind/adr.md"
     },
     {
-      "skill": "mastermind:approvev1",
-      "invoke": "/mastermind:approvev1",
-      "kind": "command",
-      "description": "LEGACY-ORG-V1 — Review and action pending approval requests from agents in a running v1 (prompt-orchestrated) org. Reach it only via /mastermind:approvev1.",
-      "nameTerms": [
-        "mastermind",
-        "approvev1"
-      ],
-      "keywords": [
-        "legacy-org-v1",
-        "review",
-        "action",
-        "pending",
-        "approval",
-        "requests",
-        "agents",
-        "prompt-orchestrated",
-        "org",
-        "reach"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/approvev1.md"
-    },
-    {
-      "skill": "mastermind:architect",
-      "invoke": "/mastermind:architect",
-      "kind": "command",
-      "description": "Mastermind architect domain — architecture review, file structure deduplication, coupling analysis, design pattern audit, DDD mapping, and system design. Default mode: confirm.",
-      "nameTerms": [
-        "mastermind",
-        "architect"
-      ],
-      "keywords": [
-        "domain",
-        "architecture",
-        "review",
-        "file",
-        "structure",
-        "deduplication",
-        "coupling",
-        "analysis",
-        "design",
-        "pattern",
-        "audit",
-        "ddd",
-        "mapping",
-        "system",
-        "default",
-        "mode",
-        "confirm"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/architect.md"
-    },
-    {
-      "skill": "mastermind:autodev",
-      "invoke": "/mastermind:autodev",
-      "kind": "command",
-      "description": "Autonomous research → build → review loop. Researches the project, picks the best improvement, builds it, and reviews until clean. Repeat N times with a leading integer (e.g. `/mastermind:autodev 9`). Use --newfeature N to discover and fully deliver N brand-new features (build → review → document → stage). Supports --tillend.",
-      "nameTerms": [
-        "mastermind",
-        "autodev"
-      ],
-      "keywords": [
-        "autonomous",
-        "research",
-        "build",
-        "review",
-        "loop",
-        "researches",
-        "project",
-        "picks",
-        "best",
-        "improvement",
-        "builds",
-        "reviews",
-        "until",
-        "clean",
-        "repeat",
-        "times",
-        "leading",
-        "integer",
-        "--newfeature",
-        "discover",
-        "fully",
-        "deliver",
-        "brand-new",
-        "features",
-        "document",
-        "stage",
-        "supports",
-        "--tillend"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/autodev.md"
-    },
-    {
       "skill": "mastermind:brain",
       "invoke": "/mastermind:brain",
       "kind": "command",
@@ -3315,41 +3073,6 @@
       ],
       "category": "mastermind",
       "source": ".claude/commands/mastermind/budget.md"
-    },
-    {
-      "skill": "mastermind:build",
-      "invoke": "/mastermind:build",
-      "kind": "command",
-      "description": "Mastermind build domain — ship features, fix bugs, refactor code. Spawns a Development Manager who creates monotask tasks and coordinates specialized dev agents. Default mode: auto.",
-      "nameTerms": [
-        "mastermind",
-        "build"
-      ],
-      "keywords": [
-        "domain",
-        "ship",
-        "features",
-        "fix",
-        "bugs",
-        "refactor",
-        "code",
-        "spawns",
-        "development",
-        "manager",
-        "who",
-        "creates",
-        "monotask",
-        "tasks",
-        "coordinates",
-        "specialized",
-        "dev",
-        "agents",
-        "default",
-        "mode",
-        "auto"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/build.md"
     },
     {
       "skill": "mastermind:code-review",
@@ -3605,31 +3328,6 @@
       "source": ".claude/commands/mastermind/finance.md"
     },
     {
-      "skill": "mastermind:finish",
-      "invoke": "/mastermind:finish",
-      "kind": "command",
-      "description": "Use when implementation is complete and you need to decide how to integrate the work — merge locally, create a PR, keep the branch, or discard",
-      "nameTerms": [
-        "mastermind",
-        "finish"
-      ],
-      "keywords": [
-        "implementation",
-        "complete",
-        "decide",
-        "integrate",
-        "work",
-        "merge",
-        "locally",
-        "create",
-        "keep",
-        "branch",
-        "discard"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/finish.md"
-    },
-    {
       "skill": "mastermind:graph-status",
       "invoke": "/mastermind:graph-status",
       "kind": "command",
@@ -3862,6 +3560,31 @@
       ],
       "category": "mastermind",
       "source": ".claude/commands/mastermind/memory.md"
+    },
+    {
+      "skill": "mastermind:monoswarm",
+      "invoke": "/mastermind:monoswarm",
+      "kind": "command",
+      "description": "Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams",
+      "nameTerms": [
+        "mastermind",
+        "monoswarm"
+      ],
+      "keywords": [
+        "multi-agent",
+        "swarm",
+        "coordination",
+        "init",
+        "start",
+        "status",
+        "stop",
+        "scale",
+        "coordinate",
+        "agent",
+        "teams"
+      ],
+      "category": "mastermind",
+      "source": ".claude/commands/mastermind/monoswarm.md"
     },
     {
       "skill": "mastermind:okf-export",
@@ -4291,39 +4014,6 @@
       "source": ".claude/commands/mastermind/runorg.md"
     },
     {
-      "skill": "mastermind:runorgv1",
-      "invoke": "/mastermind:runorgv1",
-      "kind": "command",
-      "description": "LEGACY-ORG-V1 — Start a saved org as a persistent, prompt-orchestrated agent organization. The boss agent coordinates all roles; agents pick up tasks from a shared board and run until stopped. Reach it only via /mastermind:runorgv1.",
-      "nameTerms": [
-        "mastermind",
-        "runorgv1"
-      ],
-      "keywords": [
-        "legacy-org-v1",
-        "start",
-        "saved",
-        "org",
-        "persistent",
-        "prompt-orchestrated",
-        "agent",
-        "organization",
-        "boss",
-        "coordinates",
-        "roles",
-        "agents",
-        "pick",
-        "tasks",
-        "shared",
-        "board",
-        "until",
-        "stopped",
-        "reach"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/runorgv1.md"
-    },
-    {
       "skill": "mastermind:sales",
       "invoke": "/mastermind:sales",
       "kind": "command",
@@ -4428,79 +4118,6 @@
       "source": ".claude/commands/mastermind/stoporg.md"
     },
     {
-      "skill": "mastermind:swarm",
-      "invoke": "/mastermind:swarm",
-      "kind": "command",
-      "description": "Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams",
-      "nameTerms": [
-        "mastermind",
-        "swarm"
-      ],
-      "keywords": [
-        "multi-agent",
-        "coordination",
-        "init",
-        "start",
-        "status",
-        "stop",
-        "scale",
-        "coordinate",
-        "agent",
-        "teams"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/swarm.md"
-    },
-    {
-      "skill": "mastermind:taskdev",
-      "invoke": "/mastermind:taskdev",
-      "kind": "command",
-      "description": "Execute an implementation plan task-by-task using fresh subagents with two-stage review per task. Default mode: auto.",
-      "nameTerms": [
-        "mastermind",
-        "taskdev"
-      ],
-      "keywords": [
-        "execute",
-        "implementation",
-        "plan",
-        "task-by-task",
-        "fresh",
-        "subagents",
-        "two-stage",
-        "review",
-        "task",
-        "default",
-        "mode",
-        "auto"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/taskdev.md"
-    },
-    {
-      "skill": "mastermind:tdd",
-      "invoke": "/mastermind:tdd",
-      "kind": "command",
-      "description": "Implement a feature or bugfix using Test-Driven Development — Red-Green-Refactor with the Iron Law enforced.",
-      "nameTerms": [
-        "mastermind",
-        "tdd"
-      ],
-      "keywords": [
-        "implement",
-        "feature",
-        "bugfix",
-        "test-driven",
-        "development",
-        "red-green-refactor",
-        "iron",
-        "law",
-        "enforced"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/tdd.md"
-    },
-    {
       "skill": "mastermind:techport",
       "invoke": "/mastermind:techport",
       "kind": "command",
@@ -4533,14 +4150,13 @@
       "skill": "mastermind:topology",
       "invoke": "/mastermind:topology",
       "kind": "command",
-      "description": "Swarm & Hive-Mind architecture picker — presents all topologies, consensus protocols, and strategies, then gives one concrete recommendation for the current task",
+      "description": "Monoswarm architecture picker — presents all topologies, consensus protocols, and strategies, then gives one concrete recommendation for the current task",
       "nameTerms": [
         "mastermind",
         "topology"
       ],
       "keywords": [
-        "swarm",
-        "hive-mind",
+        "monoswarm",
         "architecture",
         "picker",
         "presents",
@@ -4589,29 +4205,6 @@
       "source": ".claude/commands/mastermind/understand.md"
     },
     {
-      "skill": "mastermind:verify",
-      "invoke": "/mastermind:verify",
-      "kind": "command",
-      "description": "Run the verification gate before claiming any work is complete, fixed, or passing — evidence before assertions always.",
-      "nameTerms": [
-        "mastermind",
-        "verify"
-      ],
-      "keywords": [
-        "verification",
-        "gate",
-        "claiming",
-        "work",
-        "complete",
-        "fixed",
-        "passing",
-        "evidence",
-        "assertions"
-      ],
-      "category": "mastermind",
-      "source": ".claude/commands/mastermind/verify.md"
-    },
-    {
       "skill": "mastermind:worktree",
       "invoke": "/mastermind:worktree",
       "kind": "command",
@@ -4636,6 +4229,91 @@
       ],
       "category": "mastermind",
       "source": ".claude/commands/mastermind/worktree.md"
+    },
+    {
+      "skill": "memory:README",
+      "invoke": "/memory:README",
+      "kind": "command",
+      "description": "Memory Commands",
+      "nameTerms": [
+        "memory",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "memory",
+      "source": ".claude/commands/memory/README.md"
+    },
+    {
+      "skill": "memory:memory-search",
+      "invoke": "/memory:memory-search",
+      "kind": "command",
+      "description": "memory search",
+      "nameTerms": [
+        "memory",
+        "search"
+      ],
+      "keywords": [],
+      "category": "memory",
+      "source": ".claude/commands/memory/memory-search.md"
+    },
+    {
+      "skill": "monitoring:README",
+      "invoke": "/monitoring:README",
+      "kind": "command",
+      "description": "Monitoring Commands",
+      "nameTerms": [
+        "monitoring",
+        "readme"
+      ],
+      "keywords": [
+        "commands"
+      ],
+      "category": "monitoring",
+      "source": ".claude/commands/monitoring/README.md"
+    },
+    {
+      "skill": "monitoring:agent-metrics",
+      "invoke": "/monitoring:agent-metrics",
+      "kind": "command",
+      "description": "agent metrics",
+      "nameTerms": [
+        "monitoring",
+        "agent",
+        "metrics"
+      ],
+      "keywords": [],
+      "category": "monitoring",
+      "source": ".claude/commands/monitoring/agent-metrics.md"
+    },
+    {
+      "skill": "monitoring:agents",
+      "invoke": "/monitoring:agents",
+      "kind": "command",
+      "description": "status agents",
+      "nameTerms": [
+        "monitoring",
+        "agents"
+      ],
+      "keywords": [
+        "status"
+      ],
+      "category": "monitoring",
+      "source": ".claude/commands/monitoring/agents.md"
+    },
+    {
+      "skill": "monitoring:status",
+      "invoke": "/monitoring:status",
+      "kind": "command",
+      "description": "status",
+      "nameTerms": [
+        "monitoring",
+        "status"
+      ],
+      "keywords": [],
+      "category": "monitoring",
+      "source": ".claude/commands/monitoring/status.md"
     },
     {
       "skill": "monoagent-image",
@@ -4690,118 +4368,6 @@
       ],
       "category": "command",
       "source": ".claude/commands/monobrowse.md"
-    },
-    {
-      "skill": "monodesign",
-      "invoke": "Skill(\"monodesign\")",
-      "kind": "skill",
-      "description": "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, research users, build a component system, generate design images, or otherwise improve a frontend interface. Covers websites, landing pages, dashboards, product UI, app shells, components, forms, settings, onboarding, and empty states. Handles UX review, visual hierarchy, information architecture, cognitive load, accessibility, performance, responsive behavior, theming, anti-patterns, typography, fonts, spacing, layout, alignment, color, motion, micro-interactions, UX copy, error states, edge cases, i18n, reusable design systems, tokens, brand identity, visual storytelling, UX research, usability testing, image generation prompts, and inclusive representation. Also use for bland designs that need to become bolder or more delightful, loud designs that should become quieter, live browser iteration on UI elements, or ambitious visual effects that should feel technically extraordinary. Not for backend-only or non-UI tasks.",
-      "nameTerms": [
-        "monodesign"
-      ],
-      "keywords": [
-        "user",
-        "design",
-        "redesign",
-        "shape",
-        "critique",
-        "audit",
-        "polish",
-        "clarify",
-        "distill",
-        "harden",
-        "optimize",
-        "adapt",
-        "animate",
-        "colorize",
-        "extract",
-        "research",
-        "users",
-        "build",
-        "component",
-        "system",
-        "generate",
-        "images",
-        "otherwise",
-        "improve",
-        "frontend",
-        "interface",
-        "covers",
-        "websites",
-        "landing",
-        "pages",
-        "dashboards",
-        "product",
-        "app",
-        "shells",
-        "components",
-        "forms",
-        "settings",
-        "onboarding",
-        "empty",
-        "states",
-        "handles",
-        "review",
-        "visual",
-        "hierarchy",
-        "information",
-        "architecture",
-        "cognitive",
-        "load",
-        "accessibility",
-        "performance",
-        "responsive",
-        "behavior",
-        "theming",
-        "anti-patterns",
-        "typography",
-        "fonts",
-        "spacing",
-        "layout",
-        "alignment",
-        "color",
-        "motion",
-        "micro-interactions",
-        "copy",
-        "error",
-        "edge",
-        "cases",
-        "i18n",
-        "reusable",
-        "systems",
-        "tokens",
-        "brand",
-        "identity",
-        "storytelling",
-        "usability",
-        "testing",
-        "image",
-        "generation",
-        "prompts",
-        "inclusive",
-        "representation",
-        "bland",
-        "designs",
-        "become",
-        "bolder",
-        "delightful",
-        "loud",
-        "quieter",
-        "live",
-        "browser",
-        "iteration",
-        "elements",
-        "ambitious",
-        "effects",
-        "feel",
-        "technically",
-        "extraordinary",
-        "backend-only",
-        "non-ui",
-        "tasks"
-      ],
-      "category": "skill",
-      "source": ".claude/skills/monodesign/SKILL.md"
     },
     {
       "skill": "monodoc",
@@ -4864,6 +4430,343 @@
       "source": ".claude/skills/monodoc/SKILL.md"
     },
     {
+      "skill": "monograph:README",
+      "invoke": "/monograph:README",
+      "kind": "command",
+      "description": "Monograph skills index — build, search, and explore the knowledge graph across code, docs, and PDFs using real CLI subcommands and MCP tools",
+      "nameTerms": [
+        "monograph",
+        "readme"
+      ],
+      "keywords": [
+        "skills",
+        "index",
+        "build",
+        "search",
+        "explore",
+        "knowledge",
+        "graph",
+        "code",
+        "docs",
+        "pdfs",
+        "real",
+        "cli",
+        "subcommands",
+        "mcp",
+        "tools"
+      ],
+      "category": "monograph",
+      "source": ".claude/commands/monograph/README.md"
+    },
+    {
+      "skill": "monograph:monograph-build",
+      "invoke": "/monograph:monograph-build",
+      "kind": "command",
+      "description": "Build the knowledge graph from code, docs (md/txt/rst), and PDFs — full index with optional Claude LLM semantic extraction",
+      "nameTerms": [
+        "monograph",
+        "build"
+      ],
+      "keywords": [
+        "knowledge",
+        "graph",
+        "code",
+        "docs",
+        "txt",
+        "rst",
+        "pdfs",
+        "index",
+        "optional",
+        "claude",
+        "llm",
+        "semantic",
+        "extraction"
+      ],
+      "category": "monograph",
+      "source": ".claude/commands/monograph/monograph-build.md"
+    },
+    {
+      "skill": "monograph:monograph-search",
+      "invoke": "/monograph:monograph-search",
+      "kind": "command",
+      "description": "Search the knowledge graph using BM25 keyword search, semantic (embedding) search, or hybrid RRF-merged results — filter by node type (Section, Function, Class, File, Concept)",
+      "nameTerms": [
+        "monograph",
+        "search"
+      ],
+      "keywords": [
+        "knowledge",
+        "graph",
+        "bm25",
+        "keyword",
+        "semantic",
+        "embedding",
+        "hybrid",
+        "rrf-merged",
+        "results",
+        "filter",
+        "node",
+        "type",
+        "section",
+        "function",
+        "class",
+        "file",
+        "concept"
+      ],
+      "category": "monograph",
+      "source": ".claude/commands/monograph/monograph-search.md"
+    },
+    {
+      "skill": "monograph:monograph-stats",
+      "invoke": "/monograph:monograph-stats",
+      "kind": "command",
+      "description": "Show knowledge graph statistics — node counts by type, edge type breakdown, and top concepts by importance score",
+      "nameTerms": [
+        "monograph",
+        "stats"
+      ],
+      "keywords": [
+        "show",
+        "knowledge",
+        "graph",
+        "statistics",
+        "node",
+        "counts",
+        "type",
+        "edge",
+        "breakdown",
+        "top",
+        "concepts",
+        "importance",
+        "score"
+      ],
+      "category": "monograph",
+      "source": ".claude/commands/monograph/monograph-stats.md"
+    },
+    {
+      "skill": "monograph:monograph-watch",
+      "invoke": "/monograph:monograph-watch",
+      "kind": "command",
+      "description": "Watch for file changes and incrementally rebuild the knowledge graph — keeps the graph fresh during active development or documentation writing",
+      "nameTerms": [
+        "monograph",
+        "watch"
+      ],
+      "keywords": [
+        "file",
+        "changes",
+        "incrementally",
+        "rebuild",
+        "knowledge",
+        "graph",
+        "keeps",
+        "fresh",
+        "active",
+        "development",
+        "documentation",
+        "writing"
+      ],
+      "category": "monograph",
+      "source": ".claude/commands/monograph/monograph-watch.md"
+    },
+    {
+      "skill": "monograph:monograph-wiki",
+      "invoke": "/monograph:monograph-wiki",
+      "kind": "command",
+      "description": "Scan all docs and PDFs and build a searchable knowledge graph — optimized for documentation-heavy projects with Claude LLM semantic extraction",
+      "nameTerms": [
+        "monograph",
+        "wiki"
+      ],
+      "keywords": [
+        "scan",
+        "docs",
+        "pdfs",
+        "build",
+        "searchable",
+        "knowledge",
+        "graph",
+        "optimized",
+        "documentation-heavy",
+        "projects",
+        "claude",
+        "llm",
+        "semantic",
+        "extraction"
+      ],
+      "category": "monograph",
+      "source": ".claude/commands/monograph/monograph-wiki.md"
+    },
+    {
+      "skill": "monolean",
+      "invoke": "Skill(\"monolean\")",
+      "kind": "skill",
+      "description": "Forces the laziest solution that actually works, simplest, shortest, most minimal. Channels a senior dev who has seen everything: question whether the task needs to exist at all (YAGNI), reach for the standard library before custom code, native platform features before dependencies, one line before fifty. Supports intensity levels: lite, full (default), ultra. Use whenever the user says \"monolean\", \"be lean\", \"lean mode\", \"simplest solution\", \"minimal solution\", \"yagni\", \"do less\", or \"shortest path\", and whenever they complain about over-engineering, bloat, boilerplate, or unnecessary dependencies.",
+      "nameTerms": [
+        "monolean"
+      ],
+      "keywords": [
+        "forces",
+        "laziest",
+        "solution",
+        "actually",
+        "works",
+        "simplest",
+        "shortest",
+        "minimal",
+        "channels",
+        "senior",
+        "dev",
+        "who",
+        "seen",
+        "everything",
+        "question",
+        "whether",
+        "task",
+        "exist",
+        "yagni",
+        "reach",
+        "standard",
+        "library",
+        "custom",
+        "code",
+        "native",
+        "platform",
+        "features",
+        "dependencies",
+        "line",
+        "fifty",
+        "supports",
+        "intensity",
+        "levels",
+        "lite",
+        "default",
+        "ultra",
+        "whenever",
+        "user",
+        "says",
+        "lean",
+        "mode",
+        "less",
+        "path",
+        "complain",
+        "over-engineering",
+        "bloat",
+        "boilerplate",
+        "unnecessary"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/monolean/SKILL.md"
+    },
+    {
+      "skill": "monolean-audit",
+      "invoke": "Skill(\"monolean-audit\")",
+      "kind": "skill",
+      "description": "Whole-repo audit for over-engineering. Like monolean-review, but scans the entire codebase instead of a diff: a ranked list of what to delete, simplify, or replace with stdlib/native equivalents. Use when the user says \"audit this codebase\", \"audit for over-engineering\", \"what can I delete from this repo\", \"find bloat\", \"monolean-audit\", or \"/monolean-audit\". One-shot report, does not apply fixes.",
+      "nameTerms": [
+        "monolean",
+        "audit"
+      ],
+      "keywords": [
+        "whole-repo",
+        "over-engineering",
+        "like",
+        "monolean-review",
+        "scans",
+        "entire",
+        "codebase",
+        "instead",
+        "diff",
+        "ranked",
+        "list",
+        "what",
+        "delete",
+        "simplify",
+        "replace",
+        "stdlib",
+        "native",
+        "equivalents",
+        "user",
+        "says",
+        "repo",
+        "find",
+        "bloat",
+        "monolean-audit",
+        "one-shot",
+        "report",
+        "apply",
+        "fixes"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/monolean-audit/SKILL.md"
+    },
+    {
+      "skill": "monolean-debt",
+      "invoke": "Skill(\"monolean-debt\")",
+      "kind": "skill",
+      "description": "Harvest every `monolean:` comment in the codebase into a debt ledger, so the deliberate shortcuts and deferrals monolean leaves behind get tracked instead of rotting into \"later means never\". Use when the user says \"monolean debt\", \"/monolean-debt\", \"what did monolean defer\", \"list the shortcuts\", \"monolean ledger\", or \"what did we mark to do later\". One-shot report, changes nothing.",
+      "nameTerms": [
+        "monolean",
+        "debt"
+      ],
+      "keywords": [
+        "harvest",
+        "comment",
+        "codebase",
+        "ledger",
+        "deliberate",
+        "shortcuts",
+        "deferrals",
+        "leaves",
+        "behind",
+        "get",
+        "tracked",
+        "instead",
+        "rotting",
+        "later",
+        "means",
+        "user",
+        "says",
+        "monolean-debt",
+        "what",
+        "defer",
+        "list",
+        "mark",
+        "one-shot",
+        "report",
+        "changes",
+        "nothing"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/monolean-debt/SKILL.md"
+    },
+    {
+      "skill": "monolean-help",
+      "invoke": "Skill(\"monolean-help\")",
+      "kind": "skill",
+      "description": "Quick-reference card for all monolean modes, skills, and commands. One-shot display, not a persistent mode. Trigger: /monolean-help, \"monolean help\", \"what monolean commands\", \"how do I use monolean\".",
+      "nameTerms": [
+        "monolean",
+        "help"
+      ],
+      "keywords": [
+        "quick-reference",
+        "card",
+        "modes",
+        "skills",
+        "commands",
+        "one-shot",
+        "display",
+        "persistent",
+        "mode",
+        "trigger",
+        "monolean-help",
+        "what"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/monolean-help/SKILL.md"
+    },
+    {
       "skill": "monomotion",
       "invoke": "Skill(\"monomotion\")",
       "kind": "skill",
@@ -4896,6 +4799,697 @@
       "source": ".claude/skills/monomotion/SKILL.md"
     },
     {
+      "skill": "monoswarm",
+      "invoke": "Skill(\"monoswarm\")",
+      "kind": "skill",
+      "description": "Coordinate in-process multi-agent work with monomind — topology selection, agent lifecycle, shared memory, and vote-based consensus. Use when scaling beyond a single agent on tasks with clear decomposition, or when a decision needs a recorded vote before work proceeds.",
+      "nameTerms": [
+        "monoswarm"
+      ],
+      "keywords": [
+        "coordinate",
+        "in-process",
+        "multi-agent",
+        "work",
+        "monomind",
+        "topology",
+        "selection",
+        "agent",
+        "lifecycle",
+        "shared",
+        "memory",
+        "vote-based",
+        "consensus",
+        "scaling",
+        "beyond",
+        "single",
+        "tasks",
+        "clear",
+        "decomposition",
+        "decision",
+        "recorded",
+        "vote",
+        "proceeds"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/monoswarm/SKILL.md"
+    },
+    {
+      "skill": "monoswarm:README",
+      "invoke": "/monoswarm:README",
+      "kind": "command",
+      "description": "Monoswarm skill index — lists all available multi-agent coordination and vote-consensus skills for Monomind",
+      "nameTerms": [
+        "monoswarm",
+        "readme"
+      ],
+      "keywords": [
+        "skill",
+        "index",
+        "lists",
+        "available",
+        "multi-agent",
+        "coordination",
+        "vote-consensus",
+        "skills",
+        "monomind"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/README.md"
+    },
+    {
+      "skill": "monoswarm:analysis",
+      "invoke": "/monoswarm:analysis",
+      "kind": "command",
+      "description": "Analysis swarm strategy — distributed codebase, performance, and security analysis through coordinated mesh agents",
+      "nameTerms": [
+        "monoswarm",
+        "analysis",
+        "swarm"
+      ],
+      "keywords": [
+        "strategy",
+        "distributed",
+        "codebase",
+        "performance",
+        "security",
+        "through",
+        "coordinated",
+        "mesh",
+        "agents"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/analysis.md"
+    },
+    {
+      "skill": "monoswarm:consensus",
+      "invoke": "/monoswarm:consensus",
+      "kind": "command",
+      "description": "monoswarm vote",
+      "nameTerms": [
+        "monoswarm",
+        "consensus"
+      ],
+      "keywords": [
+        "vote"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/consensus.md"
+    },
+    {
+      "skill": "monoswarm:development",
+      "invoke": "/monoswarm:development",
+      "kind": "command",
+      "description": "Development swarm strategy — hierarchical team coordination for building features with architect → coder → tester flow",
+      "nameTerms": [
+        "monoswarm",
+        "development",
+        "swarm"
+      ],
+      "keywords": [
+        "strategy",
+        "hierarchical",
+        "team",
+        "coordination",
+        "building",
+        "features",
+        "architect",
+        "coder",
+        "tester",
+        "flow"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/development.md"
+    },
+    {
+      "skill": "monoswarm:examples",
+      "invoke": "/monoswarm:examples",
+      "kind": "command",
+      "description": "Swarm pattern examples — concrete recipes for research, development, analysis, and testing swarms with real MCP tool invocations",
+      "nameTerms": [
+        "monoswarm",
+        "examples",
+        "swarm"
+      ],
+      "keywords": [
+        "pattern",
+        "concrete",
+        "recipes",
+        "research",
+        "development",
+        "analysis",
+        "testing",
+        "swarms",
+        "real",
+        "mcp",
+        "tool",
+        "invocations"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/examples.md"
+    },
+    {
+      "skill": "monoswarm:init",
+      "invoke": "/monoswarm:init",
+      "kind": "command",
+      "description": "monoswarm init",
+      "nameTerms": [
+        "monoswarm",
+        "init"
+      ],
+      "keywords": [],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/init.md"
+    },
+    {
+      "skill": "monoswarm:maintenance",
+      "invoke": "/monoswarm:maintenance",
+      "kind": "command",
+      "description": "Maintenance swarm strategy — sequential coordinated system maintenance for dependency updates, security audits, and documentation",
+      "nameTerms": [
+        "monoswarm",
+        "maintenance",
+        "swarm"
+      ],
+      "keywords": [
+        "strategy",
+        "sequential",
+        "coordinated",
+        "system",
+        "dependency",
+        "updates",
+        "security",
+        "audits",
+        "documentation"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/maintenance.md"
+    },
+    {
+      "skill": "monoswarm:memory",
+      "invoke": "/monoswarm:memory",
+      "kind": "command",
+      "description": "monoswarm memory",
+      "nameTerms": [
+        "monoswarm",
+        "memory"
+      ],
+      "keywords": [],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/memory.md"
+    },
+    {
+      "skill": "monoswarm:monoswarm",
+      "invoke": "/monoswarm:monoswarm",
+      "kind": "command",
+      "description": "Main monoswarm skill — initializes and starts multi-agent swarms for research, development, analysis, testing, optimization, and maintenance tasks, with optional vote-based consensus",
+      "nameTerms": [
+        "monoswarm"
+      ],
+      "keywords": [
+        "main",
+        "skill",
+        "initializes",
+        "starts",
+        "multi-agent",
+        "swarms",
+        "research",
+        "development",
+        "analysis",
+        "testing",
+        "optimization",
+        "maintenance",
+        "tasks",
+        "optional",
+        "vote-based",
+        "consensus"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/monoswarm.md"
+    },
+    {
+      "skill": "monoswarm:optimization",
+      "invoke": "/monoswarm:optimization",
+      "kind": "command",
+      "description": "Optimization swarm strategy — performance profiling, bottleneck detection, and coordinated optimization through specialized mesh agents",
+      "nameTerms": [
+        "monoswarm",
+        "optimization",
+        "swarm"
+      ],
+      "keywords": [
+        "strategy",
+        "performance",
+        "profiling",
+        "bottleneck",
+        "detection",
+        "coordinated",
+        "through",
+        "specialized",
+        "mesh",
+        "agents"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/optimization.md"
+    },
+    {
+      "skill": "monoswarm:research",
+      "invoke": "/monoswarm:research",
+      "kind": "command",
+      "description": "Research swarm strategy — parallel information gathering with mesh topology for deep research, literature review, and knowledge synthesis",
+      "nameTerms": [
+        "monoswarm",
+        "research",
+        "swarm"
+      ],
+      "keywords": [
+        "strategy",
+        "parallel",
+        "information",
+        "gathering",
+        "mesh",
+        "topology",
+        "deep",
+        "literature",
+        "review",
+        "knowledge",
+        "synthesis"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/research.md"
+    },
+    {
+      "skill": "monoswarm:spawn",
+      "invoke": "/monoswarm:spawn",
+      "kind": "command",
+      "description": "monoswarm spawn",
+      "nameTerms": [
+        "monoswarm",
+        "spawn"
+      ],
+      "keywords": [],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/spawn.md"
+    },
+    {
+      "skill": "monoswarm:status",
+      "invoke": "/monoswarm:status",
+      "kind": "command",
+      "description": "monoswarm status",
+      "nameTerms": [
+        "monoswarm",
+        "status"
+      ],
+      "keywords": [],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/status.md"
+    },
+    {
+      "skill": "monoswarm:stop",
+      "invoke": "/monoswarm:stop",
+      "kind": "command",
+      "description": "monoswarm shutdown",
+      "nameTerms": [
+        "monoswarm",
+        "stop"
+      ],
+      "keywords": [
+        "shutdown"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/stop.md"
+    },
+    {
+      "skill": "monoswarm:testing",
+      "invoke": "/monoswarm:testing",
+      "kind": "command",
+      "description": "Testing swarm strategy — distributed parallel test execution with specialized unit, integration, E2E, and performance testing agents",
+      "nameTerms": [
+        "monoswarm",
+        "testing",
+        "swarm"
+      ],
+      "keywords": [
+        "strategy",
+        "distributed",
+        "parallel",
+        "test",
+        "execution",
+        "specialized",
+        "unit",
+        "integration",
+        "e2e",
+        "performance",
+        "agents"
+      ],
+      "category": "monoswarm",
+      "source": ".claude/commands/monoswarm/testing.md"
+    },
+    {
+      "skill": "optimization:auto-topology",
+      "invoke": "/optimization:auto-topology",
+      "kind": "command",
+      "description": "Automatically select the optimal monoswarm topology based on task complexity — use pre-task hook recommendations, monoswarm init flags, and performance optimize CLI",
+      "nameTerms": [
+        "optimization",
+        "auto",
+        "topology"
+      ],
+      "keywords": [
+        "automatically",
+        "select",
+        "optimal",
+        "monoswarm",
+        "based",
+        "task",
+        "complexity",
+        "pre-task",
+        "hook",
+        "recommendations",
+        "init",
+        "flags",
+        "performance",
+        "optimize",
+        "cli"
+      ],
+      "category": "optimization",
+      "source": ".claude/commands/optimization/auto-topology.md"
+    },
+    {
+      "skill": "optimization:performance-optimize",
+      "invoke": "/optimization:performance-optimize",
+      "kind": "command",
+      "description": "Analyze and apply system-level performance optimizations — memory, CPU, and latency using npx monomind performance optimize",
+      "nameTerms": [
+        "optimization",
+        "performance",
+        "optimize"
+      ],
+      "keywords": [
+        "analyze",
+        "apply",
+        "system-level",
+        "optimizations",
+        "memory",
+        "cpu",
+        "latency",
+        "npx",
+        "monomind"
+      ],
+      "category": "optimization",
+      "source": ".claude/commands/optimization/performance-optimize.md"
+    },
+    {
+      "skill": "pair-programming",
+      "invoke": "Skill(\"pair-programming\")",
+      "kind": "skill",
+      "description": "AI-assisted pair programming with multiple modes (driver/navigator/switch), real-time verification, quality monitoring, and comprehensive testing. Supports TDD, debugging, refactoring, and learning sessions. Features automatic role switching, continuous code review, security scanning, and performance optimization with truth-score verification.",
+      "nameTerms": [
+        "pair",
+        "programming"
+      ],
+      "keywords": [
+        "ai-assisted",
+        "multiple",
+        "modes",
+        "driver",
+        "navigator",
+        "switch",
+        "real-time",
+        "verification",
+        "quality",
+        "monitoring",
+        "comprehensive",
+        "testing",
+        "supports",
+        "tdd",
+        "debugging",
+        "refactoring",
+        "learning",
+        "sessions",
+        "features",
+        "automatic",
+        "role",
+        "switching",
+        "continuous",
+        "code",
+        "review",
+        "security",
+        "scanning",
+        "performance",
+        "optimization",
+        "truth-score"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/pair-programming/SKILL.md"
+    },
+    {
+      "skill": "pair:README",
+      "invoke": "/pair:README",
+      "kind": "command",
+      "description": "Pair programming with Claude Code — driver/navigator modes, TDD sessions, review sessions, Task tool agent spawning, and hooks integration",
+      "nameTerms": [
+        "pair",
+        "readme"
+      ],
+      "keywords": [
+        "programming",
+        "claude",
+        "code",
+        "driver",
+        "navigator",
+        "modes",
+        "tdd",
+        "sessions",
+        "review",
+        "task",
+        "tool",
+        "agent",
+        "spawning",
+        "hooks",
+        "integration"
+      ],
+      "category": "pair",
+      "source": ".claude/commands/pair/README.md"
+    },
+    {
+      "skill": "pair:examples",
+      "invoke": "/pair:examples",
+      "kind": "command",
+      "description": "Real-world pair programming scenarios — JWT auth, memory leak debugging, TDD, code review, and refactoring with effective prompt patterns",
+      "nameTerms": [
+        "pair",
+        "examples"
+      ],
+      "keywords": [
+        "real-world",
+        "programming",
+        "scenarios",
+        "jwt",
+        "auth",
+        "memory",
+        "leak",
+        "debugging",
+        "tdd",
+        "code",
+        "review",
+        "refactoring",
+        "effective",
+        "prompt",
+        "patterns"
+      ],
+      "category": "pair",
+      "source": ".claude/commands/pair/examples.md"
+    },
+    {
+      "skill": "pair:modes",
+      "invoke": "/pair:modes",
+      "kind": "command",
+      "description": "Pair programming collaboration modes — driver, navigator, TDD, review, and debug modes with effective prompts for each",
+      "nameTerms": [
+        "pair",
+        "modes"
+      ],
+      "keywords": [
+        "programming",
+        "collaboration",
+        "driver",
+        "navigator",
+        "tdd",
+        "review",
+        "debug",
+        "effective",
+        "prompts"
+      ],
+      "category": "pair",
+      "source": ".claude/commands/pair/modes.md"
+    },
+    {
+      "skill": "pair:session",
+      "invoke": "/pair:session",
+      "kind": "command",
+      "description": "Pair programming session lifecycle — pre-session setup, context setting, mid-session quality checks, breakpoints, end-of-session recording, and multi-session continuity",
+      "nameTerms": [
+        "pair",
+        "session"
+      ],
+      "keywords": [
+        "programming",
+        "lifecycle",
+        "pre-session",
+        "setup",
+        "context",
+        "setting",
+        "mid-session",
+        "quality",
+        "checks",
+        "breakpoints",
+        "end-of-session",
+        "recording",
+        "multi-session",
+        "continuity"
+      ],
+      "category": "pair",
+      "source": ".claude/commands/pair/session.md"
+    },
+    {
+      "skill": "performance-analysis",
+      "invoke": "Skill(\"performance-analysis\")",
+      "kind": "skill",
+      "description": "Comprehensive performance analysis, bottleneck detection, and optimization recommendations for Monomind swarms",
+      "nameTerms": [
+        "performance",
+        "analysis"
+      ],
+      "keywords": [
+        "comprehensive",
+        "bottleneck",
+        "detection",
+        "optimization",
+        "recommendations",
+        "monomind",
+        "swarms"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/performance-analysis/SKILL.md"
+    },
+    {
+      "skill": "skill-builder",
+      "invoke": "Skill(\"skill-builder\")",
+      "kind": "skill",
+      "description": "Create new Claude Code Skills with proper YAML frontmatter, progressive disclosure structure, and complete directory organization. Use when you need to build custom skills for specific workflows, generate skill templates, or understand the Claude Skills specification.",
+      "nameTerms": [
+        "skill",
+        "builder"
+      ],
+      "keywords": [
+        "create",
+        "claude",
+        "code",
+        "skills",
+        "proper",
+        "yaml",
+        "frontmatter",
+        "progressive",
+        "disclosure",
+        "structure",
+        "complete",
+        "directory",
+        "organization",
+        "build",
+        "custom",
+        "specific",
+        "workflows",
+        "generate",
+        "templates",
+        "understand",
+        "specification"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/skill-builder/SKILL.md"
+    },
+    {
+      "skill": "specialagent",
+      "invoke": "Skill(\"specialagent\")",
+      "kind": "skill",
+      "description": "Find the single best specialized agent from the verified ~98-agent roster using two-stage LLM domain→agent selection",
+      "nameTerms": [
+        "specialagent"
+      ],
+      "keywords": [
+        "find",
+        "single",
+        "best",
+        "specialized",
+        "agent",
+        "verified",
+        "98-agent",
+        "roster",
+        "two-stage",
+        "llm",
+        "domain",
+        "selection"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/specialagent/SKILL.md"
+    },
+    {
+      "skill": "stream-chain:pipeline",
+      "invoke": "/stream-chain:pipeline",
+      "kind": "command",
+      "description": "Execute predefined stream-chain pipelines for common development workflows — analysis, refactor, test, optimize. Each step feeds full context into the next.",
+      "nameTerms": [
+        "stream",
+        "chain",
+        "pipeline"
+      ],
+      "keywords": [
+        "execute",
+        "predefined",
+        "stream-chain",
+        "pipelines",
+        "common",
+        "development",
+        "workflows",
+        "analysis",
+        "refactor",
+        "test",
+        "optimize",
+        "step",
+        "feeds",
+        "context",
+        "next"
+      ],
+      "category": "stream-chain",
+      "source": ".claude/commands/stream-chain/pipeline.md"
+    },
+    {
+      "skill": "stream-chain:run",
+      "invoke": "/stream-chain:run",
+      "kind": "command",
+      "description": "Execute custom stream chains where you define the prompt sequence. Each step receives the full output of the previous step as context.",
+      "nameTerms": [
+        "stream",
+        "chain",
+        "run"
+      ],
+      "keywords": [
+        "execute",
+        "custom",
+        "chains",
+        "define",
+        "prompt",
+        "sequence",
+        "step",
+        "receives",
+        "output",
+        "previous",
+        "context"
+      ],
+      "category": "stream-chain",
+      "source": ".claude/commands/stream-chain/run.md"
+    },
+    {
       "skill": "tokens",
       "invoke": "/tokens",
       "kind": "command",
@@ -4922,6 +5516,36 @@
       "source": ".claude/commands/tokens.md"
     },
     {
+      "skill": "truth:start",
+      "invoke": "/truth:start",
+      "kind": "command",
+      "description": "Truth skill — assess system health, agent reliability, and task quality using real MCP metrics tools. Use when you want a holistic picture of how well the system is performing.",
+      "nameTerms": [
+        "truth",
+        "start"
+      ],
+      "keywords": [
+        "skill",
+        "assess",
+        "system",
+        "health",
+        "agent",
+        "reliability",
+        "task",
+        "quality",
+        "real",
+        "mcp",
+        "metrics",
+        "tools",
+        "holistic",
+        "picture",
+        "well",
+        "performing"
+      ],
+      "category": "truth",
+      "source": ".claude/commands/truth/start.md"
+    },
+    {
       "skill": "ts",
       "invoke": "/ts",
       "kind": "command",
@@ -4943,6 +5567,190 @@
       ],
       "category": "command",
       "source": ".claude/commands/ts.md"
+    },
+    {
+      "skill": "verification-quality",
+      "invoke": "Skill(\"verification-quality\")",
+      "kind": "skill",
+      "description": "Comprehensive truth scoring, code quality verification, and automatic rollback system with a 0.95 confidence threshold for ensuring high-quality agent outputs and codebase reliability.",
+      "nameTerms": [
+        "verification",
+        "quality"
+      ],
+      "keywords": [
+        "comprehensive",
+        "truth",
+        "scoring",
+        "code",
+        "automatic",
+        "rollback",
+        "system",
+        "confidence",
+        "threshold",
+        "ensuring",
+        "high-quality",
+        "agent",
+        "outputs",
+        "codebase",
+        "reliability"
+      ],
+      "category": "skill",
+      "source": ".claude/skills/verification-quality/SKILL.md"
+    },
+    {
+      "skill": "workflows:README",
+      "invoke": "/workflows:README",
+      "kind": "command",
+      "description": "Workflow skills index — run, validate, and manage multi-agent workflows using real CLI subcommands and MCP tools",
+      "nameTerms": [
+        "workflows",
+        "readme"
+      ],
+      "keywords": [
+        "workflow",
+        "skills",
+        "index",
+        "validate",
+        "manage",
+        "multi-agent",
+        "real",
+        "cli",
+        "subcommands",
+        "mcp",
+        "tools"
+      ],
+      "category": "workflows",
+      "source": ".claude/commands/workflows/README.md"
+    },
+    {
+      "skill": "workflows:development",
+      "invoke": "/workflows:development",
+      "kind": "command",
+      "description": "Development workflow coordination pattern — hierarchical swarm for structured implementation tasks using real MCP tools and npx monomind workflow run -t development",
+      "nameTerms": [
+        "workflows",
+        "development"
+      ],
+      "keywords": [
+        "workflow",
+        "coordination",
+        "pattern",
+        "hierarchical",
+        "swarm",
+        "structured",
+        "implementation",
+        "tasks",
+        "real",
+        "mcp",
+        "tools",
+        "npx",
+        "monomind"
+      ],
+      "category": "workflows",
+      "source": ".claude/commands/workflows/development.md"
+    },
+    {
+      "skill": "workflows:research",
+      "invoke": "/workflows:research",
+      "kind": "command",
+      "description": "Research workflow coordination pattern — mesh swarm for comprehensive exploration using real MCP tools and npx monomind workflow run -t research",
+      "nameTerms": [
+        "workflows",
+        "research"
+      ],
+      "keywords": [
+        "workflow",
+        "coordination",
+        "pattern",
+        "mesh",
+        "swarm",
+        "comprehensive",
+        "exploration",
+        "real",
+        "mcp",
+        "tools",
+        "npx",
+        "monomind"
+      ],
+      "category": "workflows",
+      "source": ".claude/commands/workflows/research.md"
+    },
+    {
+      "skill": "workflows:workflow-create",
+      "invoke": "/workflows:workflow-create",
+      "kind": "command",
+      "description": "Create and save custom workflow templates using npx monomind workflow template create — save successful workflows for reuse",
+      "nameTerms": [
+        "workflows",
+        "workflow",
+        "create"
+      ],
+      "keywords": [
+        "save",
+        "custom",
+        "templates",
+        "npx",
+        "monomind",
+        "template",
+        "successful",
+        "reuse"
+      ],
+      "category": "workflows",
+      "source": ".claude/commands/workflows/workflow-create.md"
+    },
+    {
+      "skill": "workflows:workflow-execute",
+      "invoke": "/workflows:workflow-execute",
+      "kind": "command",
+      "description": "Run multi-agent workflows using built-in templates (development, research, testing, security-audit, etc.) via real npx monomind workflow run CLI",
+      "nameTerms": [
+        "workflows",
+        "workflow",
+        "execute"
+      ],
+      "keywords": [
+        "multi-agent",
+        "built-in",
+        "templates",
+        "development",
+        "research",
+        "testing",
+        "security-audit",
+        "etc",
+        "real",
+        "npx",
+        "monomind",
+        "cli"
+      ],
+      "category": "workflows",
+      "source": ".claude/commands/workflows/workflow-execute.md"
+    },
+    {
+      "skill": "workflows:workflow-export",
+      "invoke": "/workflows:workflow-export",
+      "kind": "command",
+      "description": "Browse, inspect, and manage workflow templates — list built-in templates, show template details and stages, validate workflow files",
+      "nameTerms": [
+        "workflows",
+        "workflow",
+        "export"
+      ],
+      "keywords": [
+        "browse",
+        "inspect",
+        "manage",
+        "templates",
+        "list",
+        "built-in",
+        "show",
+        "template",
+        "details",
+        "stages",
+        "validate",
+        "files"
+      ],
+      "category": "workflows",
+      "source": ".claude/commands/workflows/workflow-export.md"
     }
   ]
 }
