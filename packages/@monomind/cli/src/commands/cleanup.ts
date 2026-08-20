@@ -22,8 +22,10 @@ const ARTIFACT_DIRS = [
   { path: '.claude', description: 'Claude settings, helpers, agents' },
   { path: '.monomind', description: 'Capabilities and configuration' },
   { path: 'data', description: 'Memory databases' },
-  { path: '.swarm', description: 'Swarm state' },
-  { path: '.hive-mind', description: 'Consensus state' },
+  { path: '.swarm', description: 'Legacy swarm state (pre-monoswarm-rename)' },
+  { path: '.hive-mind', description: 'Legacy hive-mind state (pre-monoswarm-rename)' },
+  { path: '.monomind/swarm', description: 'Legacy swarm state (pre-monoswarm-rename)' },
+  { path: '.monomind/hive-mind', description: 'Legacy hive-mind state (pre-monoswarm-rename)' },
   { path: 'coordination', description: 'Coordination data' },
   { path: 'memory', description: 'Memory storage' },
 ];

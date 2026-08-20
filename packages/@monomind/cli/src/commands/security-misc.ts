@@ -49,7 +49,7 @@ export const auditCommand: Command = {
             auditEntries.push({
               timestamp: ts,
               event: file.includes('session') ? 'SESSION_UPDATE' :
-                     file.includes('swarm') ? 'SWARM_ACTIVITY' :
+                     (file.includes('monoswarm') || file.includes('swarm')) ? 'SWARM_ACTIVITY' :
                      file.includes('memory') ? 'MEMORY_WRITE' : 'CONFIG_CHANGE',
               source: 'system',
             });

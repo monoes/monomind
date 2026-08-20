@@ -12,8 +12,8 @@ import { type MCPTool, getMonomindDataRoot, migrateLegacyStoreFile } from './typ
 import { readJsonStoreOrNull } from '../utils/json-file.js';
 
 // Storage paths — relative to the git-safe data root (see getMonomindDataRoot()).
-// Canonical location matches task-tools.ts/session-tools.ts/hive-mind-tools.ts/
-// swarm-tools.ts so the agent store is a single physical file across all tools.
+// Canonical location matches task-tools.ts/session-tools.ts/monoswarm-tools.ts
+// so the agent store is a single physical file across all tools.
 const AGENT_DIR = 'agents';
 const AGENT_FILE = 'store.json';
 

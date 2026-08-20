@@ -67,7 +67,7 @@
 ### Project Config
 
 - **Topology**: hierarchical-mesh
-- **Max Agents**: 15 (CLI default), capped at 50 (`Math.min(Math.max(x|8, 1), 50)` in `swarm-tools.ts`)
+- **Max Agents**: 15 (CLI default), capped at 50 (`Math.min(Math.max(x|8, 1), 50)` in `monoswarm-tools.ts`)
 - **Memory**: local-sqlite chain `better-sqlite3 → sql.js (WASM)` (via SQLiteBackend/SqlJsBackend). The config value `hybrid` is a backwards-compat alias for this chain.
 - **HNSW**: Dead fallback, not on the default search path. `memory search --build-hnsw` is a no-op unless the SQLite bridge is down.
 - **Neural**: Disabled at runtime (keyword routing only). `hooks intelligence status` MoE/LoRA/HNSW tables report `not-loaded` / zero defaults.
@@ -105,40 +105,38 @@ npm run lint
 - ALWAYS batch ALL file reads/writes/edits in ONE message
 - ALWAYS batch ALL Bash commands in ONE message
 
-## Swarm Orchestration
+## Monoswarm Orchestration
 
-"Swarm" here means: multiple Claude Code Task-tool agents running in this one
-process, coordinated by CLI-tracked state and (for hive-mind) simple
-majority-vote arbitration between them — not a distributed system. There is
-no networking between separate machines. See `doc/concepts/swarm.md` for the
-full picture, including what "consensus" actually computes.
+Monoswarm coordinates multiple Claude Code Task-tool agents: coordination state
+(topology, roster, votes) lives in `.monomind/monoswarm/state.json`, and real
+concurrent work happens through Claude Code's Task tool. See
+`doc/concepts/monoswarm.md` for the full picture.
 
-- MUST initialize the swarm using CLI tools when starting complex tasks
+- MUST initialize the monoswarm using CLI tools when starting complex tasks
 - MUST spawn concurrent agents using Claude Code's Task tool
 - Never use CLI tools alone for execution — Task tool agents do the actual work
 - MUST call CLI tools AND Task tool in ONE message for complex work
 
-## Swarm Configuration & Anti-Drift
+## Monoswarm Configuration & Anti-Drift
 
 - ALWAYS use hierarchical topology for coding swarms
 - Keep maxAgents at 6-8 for tight coordination
 - Use specialized strategy for clear role boundaries
-- Use `raft` consensus for hive-mind — in-process majority-vote counting
-  (tolerates fewer than half the voters being wrong), not real Raft leader
-  election or log replication
+- Use `majority` consensus by default (see `doc/concepts/monoswarm.md` for
+  `supermajority`, `unanimous`, and `threshold`)
 - Run frequent checkpoints via `post-task` hooks
 - Keep shared memory namespace for all agents
 
 ```bash
-npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 ```
 
-## Swarm Execution Rules
+## Monoswarm Execution Rules
 
 - ALWAYS use `run_in_background: true` for all agent Task calls
 - ALWAYS put ALL agent Task calls in ONE message for parallel execution
 - After spawning, STOP — do NOT add more tool calls or check status
-- Never poll TaskOutput or check swarm status — trust agents to return
+- Never poll TaskOutput or check monoswarm status — trust agents to return
 - When agent results arrive, review ALL results before proceeding
 
 ## CLI Commands
@@ -150,7 +148,7 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 | `init` | 5 | Project initialization with wizard, presets, skills, hooks |
 | `ui` | 0 | Start the Neural Control Room dashboard (`--no-open`, `--port`; alias `dashboard`) |
 | `agent` | 7 | Agent lifecycle (spawn, list, status, stop, metrics, pool, health) — runs in-process, no MCP server needed |
-| `swarm` | 6 | Multi-agent swarm coordination and orchestration — runs in-process |
+| `monoswarm` | 6 | Multi-agent coordination and orchestration — runs in-process |
 | `memory` | 12 | Memory store (SQLite/JSON; optional vector search) |
 | `mcp` | 9 | MCP server management and tool execution |
 | `task` | 5 | Task creation, assignment, and lifecycle |
@@ -162,9 +160,7 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 
 ### Advanced Commands
 
-`agent` and `swarm` above execute MCP tool handlers directly in-process via the local tool registry — they do **not** require a running `mcp start` server.
-
-> **Note:** Hive-mind functionality (byzantine/raft/quorum consensus) is available exclusively via MCP tools (`hive-mind_*`), not as a CLI command. Neural pattern learning was merged into `hooks intelligence`.
+`agent` and `monoswarm` above execute MCP tool handlers directly in-process via the local tool registry — they do **not** require a running `mcp start` server. Neural pattern learning was merged into `hooks intelligence`.
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
@@ -195,7 +191,7 @@ npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy
 ```bash
 npx monomind@latest init --wizard
 npx monomind@latest agent spawn -t coder --name my-coder
-npx monomind@latest swarm init --v1-mode
+npx monomind@latest monoswarm init --v1-mode
 npx monomind@latest memory search --query "authentication patterns"
 npx monomind@latest doctor --fix
 ```
@@ -272,7 +268,7 @@ Single-file edits, doc/config changes, quick fixes where you already know the ex
 ## Quick Setup
 
 ```bash
-# Add MCP server — includes monograph, swarm, memory, hooks, all 66+ tools
+# Add MCP server — includes monograph, monoswarm, memory, hooks, all 66+ tools
 claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Verify everything works
@@ -284,7 +280,7 @@ npx monomind@latest doctor --fix
 ## Claude Code vs CLI Tools
 
 - Claude Code's Task tool handles ALL execution: agents, file ops, code generation, git
-- CLI tools handle coordination via Bash: swarm init, memory, hooks, routing
+- CLI tools handle coordination via Bash: monoswarm init, memory, hooks, routing
 - NEVER use CLI tools as a substitute for Task tool agents
 
 ## Support

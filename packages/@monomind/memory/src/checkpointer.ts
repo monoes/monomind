@@ -1,5 +1,5 @@
 /**
- * SwarmCheckpointer — JSON-lines file-based graph checkpointing.
+ * MonoswarmCheckpointer — JSON-lines file-based graph checkpointing.
  *
  * Each checkpoint is appended as a single JSON line to a file,
  * similar to the CostTracker pattern used elsewhere in the project.
@@ -16,7 +16,7 @@ export type { AgentState, SwarmCheckpoint, CheckpointMeta };
 /** Configuration accepted by the checkpointer constructor. */
 export interface CheckpointerConfig {
   dbPath: string;
-  swarmId: string;
+  monoswarmId: string;
   sessionId: string;
 }
 
@@ -26,10 +26,10 @@ export interface CheckpointerConfig {
  * Each line in the file is a self-contained JSON object representing one
  * {@link SwarmCheckpoint}. Newest entries are always appended at the end.
  */
-export class SwarmCheckpointer {
+export class MonoswarmCheckpointer {
   private stepCounter = 0;
   private readonly dbPath: string;
-  private readonly swarmId: string;
+  private readonly monoswarmId: string;
   private readonly sessionId: string;
   // Cache of the newest checkpoint this instance knows about. saveIncremental()
   // used to call latest() -> readAll(), which reads and JSON.parses every
@@ -38,7 +38,7 @@ export class SwarmCheckpointer {
   // checkpoint in memory makes latest() (and therefore saveIncremental) O(1)
   // in the common case. This class is a crash-recovery mechanism ("resume
   // after crash" implies a *new* process reading what a *previous* process
-  // wrote — see index.ts's GAP-007 SwarmCheckpointer wiring), so a second
+  // wrote — see index.ts's GAP-007 MonoswarmCheckpointer wiring), so a second
   // writer touching the same dbPath from another process is an expected
   // scenario, not an edge case — the cache is therefore invalidated via a
   // cheap mtime check (statSync, not a full read+parse) rather than trusted
@@ -48,7 +48,7 @@ export class SwarmCheckpointer {
 
   constructor(config: CheckpointerConfig) {
     this.dbPath = config.dbPath;
-    this.swarmId = config.swarmId;
+    this.monoswarmId = config.monoswarmId;
     this.sessionId = config.sessionId;
     // Continue the step sequence across process restarts: a fresh instance
     // must not restart step numbering from 0 while older, higher-step
@@ -138,7 +138,7 @@ export class SwarmCheckpointer {
 
     const checkpoint: SwarmCheckpoint = {
       checkpointId,
-      swarmId: this.swarmId,
+      monoswarmId: this.monoswarmId,
       sessionId: this.sessionId,
       step: this.stepCounter,
       trigger,
@@ -200,7 +200,7 @@ export class SwarmCheckpointer {
       .slice(0, limit)
       .map((c) => ({
         checkpointId: c.checkpointId,
-        swarmId: c.swarmId,
+        monoswarmId: c.monoswarmId,
         sessionId: c.sessionId,
         step: c.step,
         trigger: c.trigger,

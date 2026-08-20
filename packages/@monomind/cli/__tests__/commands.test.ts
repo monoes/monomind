@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { agentCommand } from '../src/commands/agent.js';
-import { swarmCommand } from '../src/commands/swarm.js';
+import { monoswarmCommand as swarmCommand } from '../src/commands/monoswarm.js';
 import { memoryCommand } from '../src/commands/memory.js';
 import { configCommand } from '../src/commands/config.js';
 import { configManager } from '../src/services/config-file-manager.js';
@@ -111,24 +111,22 @@ vi.mock('../src/mcp-client.js', () => ({
       };
     }
 
-    if (toolName === 'swarm_init') {
+    if (toolName === 'monoswarm_init') {
       return {
-        swarmId: 'swarm-mock-123',
+        monoswarmId: 'monoswarm-mock-123',
         topology: input.topology,
         initializedAt: new Date().toISOString(),
         config: {
           topology: input.topology,
           maxAgents: input.maxAgents || 15,
-          currentAgents: 0,
-          autoScaling: true
         }
       };
     }
 
-    if (toolName === 'swarm_scale') {
+    if (toolName === 'monoswarm_scale') {
       return {
         success: true,
-        swarmId: input.swarmId,
+        monoswarmId: input.swarmId,
         previousCount: 5,
         currentCount: input.targetAgents,
         targetAgents: input.targetAgents,
@@ -404,7 +402,7 @@ describe('Swarm Commands', () => {
       const result = await initCmd!.action!(ctx);
 
       expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('swarmId');
+      expect(result.data).toHaveProperty('monoswarmId');
       expect(result.data).toHaveProperty('topology');
     });
 
@@ -712,7 +710,7 @@ describe('Config Commands', () => {
       const getCmd = configCommand.subcommands?.find(c => c.name === 'get');
       expect(getCmd).toBeDefined();
 
-      ctx.args = ['swarm.topology'];
+      ctx.args = ['monoswarm.topology'];
       const result = await getCmd!.action!(ctx);
 
       expect(result.success).toBe(true);

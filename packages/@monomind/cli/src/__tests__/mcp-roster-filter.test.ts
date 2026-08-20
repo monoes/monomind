@@ -21,7 +21,7 @@ describe('MCP core-roster filter', () => {
     // Non-core capabilities are NOT advertised by default.
     expect(names.has('browser_open')).toBe(false);
     expect(names.has('github_pr_manage')).toBe(false);
-    expect(names.has('swarm_init')).toBe(false);
+    expect(names.has('monoswarm_init')).toBe(false);
 
     // The advertised roster is meaningfully smaller than the full registry.
     expect(tools.length).toBeLessThan(150);
