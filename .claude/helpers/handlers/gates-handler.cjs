@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { appendAuditEvent } = require('../audit-log-writer.cjs');
 
 // ─── monofence-ai integration (additional layer on top of regex gates) ───────
 //
@@ -343,10 +344,26 @@ function checkSecrets(content, patterns) {
  * a diagnostic printed on stdout can be mistaken for hook output (and, worse,
  * read as an *allow*). Keeping every gate message on stderr removes that
  * ambiguity entirely.
+ *
+ * Also persists the decision to the security audit log (audit-log-writer.cjs)
+ * so `monomind security audit` reflects real block decisions instead of
+ * inferring synthetic events from unrelated file mtimes. Logging never blocks
+ * or throws — a failure here must not affect the actual gate decision.
+ *
+ * meta: { source, tool?, cwd?, path? } — source names which gate fired
+ * (destructive-ops / secrets / monofence-command / monofence-write / <gate>).
  */
-function emitBlock(reason) {
+function emitBlock(reason, meta) {
   process.stderr.write(JSON.stringify({ decision: 'block', reason: reason }) + '\n');
   process.exitCode = 2;
+  meta = meta || {};
+  appendAuditEvent({
+    source: meta.source || 'gates',
+    decision: 'block',
+    tool: meta.tool,
+    reason: reason,
+    path: meta.path,
+  }, meta.cwd);
 }
 
 /**
@@ -371,12 +388,13 @@ function emitBlock(reason) {
  *   hints, telemetry) stays fail-open: it has no security value and its
  *   failure must never stop the user from working.
  */
-function failClosed(gateName, err) {
+function failClosed(gateName, err, meta) {
   var msg = (err && err.message) ? err.message : String(err);
   emitBlock(
     '[gates] ' + gateName + ' gate failed to evaluate (' + msg + '). Failing CLOSED: a security ' +
     'gate that cannot run must not silently allow the operation. Fix the gate (or the project ' +
-    'override at .monomind/guidance/active-gates.json) and retry.'
+    'override at .monomind/guidance/active-gates.json) and retry.',
+    Object.assign({ source: gateName }, meta)
   );
 }
 
@@ -396,11 +414,11 @@ async function handlePreBash(hCtx) {
     var config = loadCompiledConfig(hCtx.CWD);
     result = checkDestructive(cmd, config.destructivePatterns);
   } catch (e) {
-    failClosed('destructive-ops', e);
+    failClosed('destructive-ops', e, { tool: hCtx.toolName, cwd: hCtx.CWD });
     return;
   }
   if (result.triggered) {
-    emitBlock('[gates] ' + result.reason);
+    emitBlock('[gates] ' + result.reason, { source: 'destructive-ops', tool: hCtx.toolName, cwd: hCtx.CWD });
     return;
   }
 
@@ -410,7 +428,8 @@ async function handlePreBash(hCtx) {
   var worst = monofenceWorstThreat(mf, cmd);
   if (worst) {
     emitBlock('[monofence] Threat detected in command — ' + worst.type +
-      ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description);
+      ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description,
+      { source: 'monofence-command', tool: hCtx.toolName, cwd: hCtx.CWD });
   }
 }
 
@@ -444,11 +463,12 @@ function extractWriteContent(toolInput) {
  */
 async function handlePreWrite(hCtx) {
   var toolInput = hCtx.toolInput || {};
+  var writePath = toolInput.file_path || toolInput.path;
   var content;
   try {
     content = extractWriteContent(toolInput);
   } catch (e) {
-    failClosed('secrets', e);
+    failClosed('secrets', e, { tool: hCtx.toolName, cwd: hCtx.CWD, path: writePath });
     return;
   }
   if (!content) return;
@@ -461,11 +481,11 @@ async function handlePreWrite(hCtx) {
     var config = loadCompiledConfig(hCtx.CWD);
     result = checkSecrets(content, config.secretPatterns);
   } catch (e) {
-    failClosed('secrets', e);
+    failClosed('secrets', e, { tool: hCtx.toolName, cwd: hCtx.CWD, path: writePath });
     return;
   }
   if (result.triggered) {
-    emitBlock('[gates] ' + result.reason);
+    emitBlock('[gates] ' + result.reason, { source: 'secrets', tool: hCtx.toolName, cwd: hCtx.CWD, path: writePath });
     return;
   }
 
@@ -475,7 +495,8 @@ async function handlePreWrite(hCtx) {
   var worst = monofenceWorstThreat(mf, content);
   if (worst) {
     emitBlock('[monofence] Threat detected in written content — ' + worst.type +
-      ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description);
+      ' (confidence ' + Math.round(worst.confidence * 100) + '%): ' + worst.description,
+      { source: 'monofence-write', tool: hCtx.toolName, cwd: hCtx.CWD, path: writePath });
   }
 }
 
