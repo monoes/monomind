@@ -1157,7 +1157,7 @@ function generateStatusline() {
   const parts     = [];
 
   // Brand + swarm dot
-  const monoswarmDot = swarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
+  const monoswarmDot = monoswarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
   parts.push(`${x.bold}${x.purple}▊ Monomind${x.reset} ${monoswarmDot}`);
 
   // Git branch + changes (compact)
@@ -1285,7 +1285,7 @@ function generateDashboard() {
   const lines       = [];
 
   // ── Header: brand + git + model + session ────────────────────
-  const monoswarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
+  const monoswarmDot = monoswarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
   const projName = getProjectName();
   const cwdName = path.basename(CWD);
   let hdr = `${x.bold}${x.purple}▊Monomind ${VERSION}${x.reset} ${monoswarmDot} ${x.teal}${x.bold}${projName}${x.reset} ${DIV} ${x.dim}◎${cwdName}${x.reset} ${DIV} ${x.violet}⬡${git.name}${x.reset}`;
