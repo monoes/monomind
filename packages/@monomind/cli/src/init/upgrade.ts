@@ -307,20 +307,20 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
       result.preserved.push('.monomind/metrics/v1-progress.json');
     }
 
-    // swarm-activity.json
-    const activityPath = path.join(metricsDir, 'swarm-activity.json');
+    // monoswarm-activity.json
+    const activityPath = path.join(metricsDir, 'monoswarm-activity.json');
     if (!fs.existsSync(activityPath)) {
       const activity = {
         timestamp: new Date().toISOString(),
         processes: { mcp_server: 0, estimated_agents: 0 },
-        swarm: { active: false, agent_count: 0, coordination_active: false },
+        monoswarm: { active: false, agent_count: 0, coordination_active: false },
         integration: { mcp_active: false },
         _initialized: true
       };
       atomicWriteFile(activityPath, JSON.stringify(activity, null, 2));
-      result.created.push('.monomind/metrics/swarm-activity.json');
+      result.created.push('.monomind/metrics/monoswarm-activity.json');
     } else {
-      result.preserved.push('.monomind/metrics/swarm-activity.json');
+      result.preserved.push('.monomind/metrics/monoswarm-activity.json');
     }
 
     // learning.json
