@@ -172,8 +172,8 @@ export async function writeInitialMetrics(
     result.created.files.push('.monomind/metrics/v1-progress.json');
   }
 
-  // Create initial swarm-activity.json
-  const activityPath = path.join(metricsDir, 'swarm-activity.json');
+  // Create initial monoswarm-activity.json
+  const activityPath = path.join(metricsDir, 'monoswarm-activity.json');
   if (!fs.existsSync(activityPath) || options.force) {
     const activity = {
       timestamp: new Date().toISOString(),
@@ -181,7 +181,7 @@ export async function writeInitialMetrics(
         mcp_server: 0,
         estimated_agents: 0
       },
-      swarm: {
+      monoswarm: {
         active: false,
         agent_count: 0,
         coordination_active: false
@@ -192,7 +192,7 @@ export async function writeInitialMetrics(
       _initialized: true
     };
     atomicWriteFile(activityPath, JSON.stringify(activity, null, 2));
-    result.created.files.push('.monomind/metrics/swarm-activity.json');
+    result.created.files.push('.monomind/metrics/monoswarm-activity.json');
   }
 
   // Create initial learning.json

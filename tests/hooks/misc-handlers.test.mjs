@@ -67,24 +67,24 @@ describe('agent-start-handler', () => {
     expect(data.pid).toBe(process.pid);
   });
 
-  it('writes swarm-activity.json with agent count', () => {
+  it('writes monoswarm-activity.json with agent count', () => {
     loadHandler('agent-start-handler.cjs').handle(makeCtx());
-    const actPath = path.join(tmpDir, '.monomind', 'metrics', 'swarm-activity.json');
+    const actPath = path.join(tmpDir, '.monomind', 'metrics', 'monoswarm-activity.json');
     const act = JSON.parse(fs.readFileSync(actPath, 'utf-8'));
-    expect(act.swarm.agent_count).toBe(1);
-    expect(act.swarm.active).toBe(true);
+    expect(act.monoswarm.agent_count).toBe(1);
+    expect(act.monoswarm.active).toBe(true);
   });
 
-  it('preserves lastActive peak from previous swarm-activity.json', () => {
+  it('preserves lastActive peak from previous monoswarm-activity.json', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     fs.writeFileSync(
-      path.join(metricsDir, 'swarm-activity.json'),
-      JSON.stringify({ swarm: { lastActive: 7 } })
+      path.join(metricsDir, 'monoswarm-activity.json'),
+      JSON.stringify({ monoswarm: { lastActive: 7 } })
     );
     loadHandler('agent-start-handler.cjs').handle(makeCtx());
-    const act = JSON.parse(fs.readFileSync(path.join(metricsDir, 'swarm-activity.json'), 'utf-8'));
-    expect(act.swarm.lastActive).toBe(7); // peak preserved over current count of 1
+    const act = JSON.parse(fs.readFileSync(path.join(metricsDir, 'monoswarm-activity.json'), 'utf-8'));
+    expect(act.monoswarm.lastActive).toBe(7); // peak preserved over current count of 1
   });
 
   it('writes last-dispatch.json with agentType from hookInput.subagent_type', () => {
