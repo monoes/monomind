@@ -158,8 +158,8 @@ function collectSwarm(projectDir) {
   // Canonical location first, legacy `<cwd>/.monomind` second so a project
   // written by an older CLI still renders.
   const state = readFirstJSON(
-    path.join(monomindDataRoot(projectDir), 'swarm', 'swarm-state.json'),
-    path.join(projectDir, '.monomind', 'swarm', 'swarm-state.json'),
+    path.join(monomindDataRoot(projectDir), 'monoswarm', 'state.json'),
+    path.join(projectDir, '.monomind', 'monoswarm', 'state.json'),
   ) || {};
   const dotSwarmState = readJSON(path.join(projectDir, '.swarm', 'state.json')) || {};
   const merged = { ...dotSwarmState, ...state };
@@ -448,7 +448,7 @@ function collectKnowledge(projectDir) {
 
 function collectMetrics(projectDir) {
   const base = path.join(projectDir, '.monomind');
-  const swarmActivity = readJSON(path.join(base, 'metrics', 'swarm-activity.json')) || {};
+  const swarmActivity = readJSON(path.join(base, 'metrics', 'monoswarm-activity.json')) || {};
   const tokenSummary = readJSON(path.join(base, 'metrics', 'token-summary.json')) || {};
 
   // Derive routing stats from feedback log (cap at 1000 to avoid reading unbounded file)
@@ -481,8 +481,8 @@ function collectMetrics(projectDir) {
       topAgentCount: topAgent ? topAgent[1] : null,
     },
     swarm: {
-      active: swarmActivity.swarm && swarmActivity.swarm.active,
-      agentCount: swarmActivity.swarm && swarmActivity.swarm.agent_count,
+      active: swarmActivity.monoswarm && swarmActivity.monoswarm.active,
+      agentCount: swarmActivity.monoswarm && swarmActivity.monoswarm.agent_count,
       lastActive: swarmActivity.timestamp || null,
     },
     tokens: {
@@ -777,11 +777,11 @@ export function getWatchPaths(projectDir) {
 
   return [
     // Swarm
-    path.join(m, 'swarm', 'swarm-state.json'),
+    path.join(m, 'monoswarm', 'state.json'),
     path.join(m, 'swarm', 'history.jsonl'),
     path.join(m, 'swarm-config.json'),
     // Metrics
-    path.join(m, 'metrics', 'swarm-activity.json'),
+    path.join(m, 'metrics', 'monoswarm-activity.json'),
     path.join(m, 'metrics', 'token-summary.json'),
     path.join(m, 'metrics', 'token-sessions.json'),
     path.join(m, 'metrics', 'ddd-progress.json'),

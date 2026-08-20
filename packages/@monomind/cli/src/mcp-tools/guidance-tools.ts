@@ -85,21 +85,21 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
     skills: [],
     whenToUse: 'When you need to create or manage individual agents for specific tasks.',
   },
-  'swarm-orchestration': {
-    name: 'Swarm Orchestration',
-    description: 'Multi-agent coordination with topology-aware communication and consensus.',
-    tools: ['swarm_init', 'swarm_status', 'swarm_spawn', 'swarm_terminate', 'swarm_topology', 'swarm_metrics'],
-    commands: ['swarm init', 'swarm status', 'swarm spawn', 'swarm terminate'],
-    agents: ['coordinator', 'mesh-coordinator', 'collective-intelligence-coordinator'],
-    skills: ['swarm-orchestration', 'swarm-advanced', 'monomind-swarm'],
-    whenToUse: 'When a task requires multiple agents working together (3+ files, features, refactoring).',
+  'monoswarm': {
+    name: 'Monoswarm Coordination',
+    description: 'Multi-agent coordination and vote arbitration: topology/roster bookkeeping in a JSON state file, threshold-based voting (majority/supermajority/unanimous/threshold).',
+    tools: ['monoswarm_init', 'monoswarm_status', 'monoswarm_scale', 'monoswarm_health', 'monoswarm_shutdown', 'monoswarm_agent_add', 'monoswarm_vote'],
+    commands: ['monoswarm init', 'monoswarm status', 'monoswarm scale', 'monoswarm stop'],
+    agents: ['coordinator', 'mesh-coordinator', 'collective-intelligence-coordinator', 'quorum-manager'],
+    skills: ['monoswarm'],
+    whenToUse: 'When a task requires multiple agents working together (3+ files, features, refactoring), or agents need to vote on a decision.',
   },
   'memory-knowledge': {
     name: 'Memory & Knowledge',
     description: 'Persistent memory with ANN vector search, SQLite storage, and embeddings.',
     tools: ['memory_pattern-store', 'memory_hierarchical-store', 'memory_pattern-search', 'memory_hierarchical-recall', 'memory_kg_ingest', 'memory_kg_search', 'memory_kg_stats', 'memory_kg_consolidate', 'memory_kg_rollback', 'memory_batch', 'memory_health'],
     commands: ['memory store', 'memory retrieve', 'memory search', 'memory list', 'memory delete', 'memory init'],
-    agents: ['swarm-memory-manager'],
+    agents: ['monoswarm-memory-manager'],
     skills: ['memory-advanced', 'memory-vector-search', 'memory-patterns', 'memory-learning'],
     whenToUse: 'When you need to persist, search, or retrieve knowledge across sessions.',
   },
@@ -126,15 +126,6 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
     agents: [],
     skills: ['hooks-automation'],
     whenToUse: 'When you need pre/post task hooks, background workers, coverage routing, or intelligence.',
-  },
-  'hive-mind': {
-    name: 'Hive Mind Consensus',
-    description: 'Queen-led Byzantine fault-tolerant distributed consensus with multiple strategies.',
-    tools: ['hive_mind_init', 'hive_mind_status', 'hive_mind_propose', 'hive_mind_vote', 'hive_mind_consensus', 'hive_mind_metrics'],
-    commands: ['hive-mind init', 'hive-mind status', 'hive-mind consensus', 'hive-mind sessions', 'hive-mind spawn', 'hive-mind stop'],
-    agents: ['quorum-manager'],
-    skills: ['hive-mind-advanced'],
-    whenToUse: 'When multiple agents need to reach agreement on decisions using BFT, Raft, or CRDT.',
   },
   'security': {
     name: 'Security & Compliance',
@@ -211,15 +202,15 @@ interface TaskRoute {
 
 const TASK_ROUTES: TaskRoute[] = [
   { pattern: /\b(bug|fix|debug|error|issue|crash|broken)\b/i, areas: ['agent-management', 'hooks-automation'], workflow: 'bugfix' },
-  { pattern: /\b(feature|implement|create|build|add)\b/i, areas: ['swarm-orchestration', 'agent-management', 'hooks-automation'], workflow: 'feature' },
-  { pattern: /\b(refactor|restructure|reorganize|clean\s*up|modernize)\b/i, areas: ['swarm-orchestration', 'code-analysis'], workflow: 'refactor' },
+  { pattern: /\b(feature|implement|create|build|add)\b/i, areas: ['monoswarm', 'agent-management', 'hooks-automation'], workflow: 'feature' },
+  { pattern: /\b(refactor|restructure|reorganize|clean\s*up|modernize)\b/i, areas: ['monoswarm', 'code-analysis'], workflow: 'refactor' },
   { pattern: /\b(test|coverage|tdd|spec|assert)\b/i, areas: ['agent-management', 'hooks-automation', 'code-analysis'], workflow: 'testing' },
   { pattern: /\b(security|vulnerab|cve|audit|threat|auth)\b/i, areas: ['security'], workflow: 'security' },
   { pattern: /\b(perf|benchmark|profil|slow|optimi|latency|speed)\b/i, areas: ['performance'], workflow: 'performance' },
   { pattern: /\b(memory|embed|vector|search|hnsw|semantic)\b/i, areas: ['memory-knowledge', 'embeddings-vectors'], workflow: 'memory' },
   { pattern: /\b(pr|pull\s*request|review|merge|branch)\b/i, areas: ['github-integration'], workflow: 'github-pr' },
   { pattern: /\b(release|deploy|publish|version|changelog)\b/i, areas: ['github-integration', 'session-workflow'], workflow: 'release' },
-  { pattern: /\b(swarm|multi.agent|coordin|hive|consensus)\b/i, areas: ['swarm-orchestration', 'hive-mind'], workflow: 'swarm' },
+  { pattern: /\b(swarm|multi.agent|coordin|hive|consensus)\b/i, areas: ['monoswarm'], workflow: 'swarm' },
   { pattern: /\b(learn|train|neural|pattern|sona|lora)\b/i, areas: ['intelligence-learning'], workflow: 'learning' },
   { pattern: /\b(hook|pre.task|post.task|worker)\b/i, areas: ['hooks-automation', 'session-workflow'], workflow: 'automation' },
   { pattern: /\b(config|setup|init|provider|doctor)\b/i, areas: ['config-system'], workflow: 'setup' },
@@ -258,7 +249,7 @@ const WORKFLOW_TEMPLATES: Record<string, { steps: string[]; agents: string[]; to
   },
   memory: {
     steps: ['Initialize memory store', 'Store/retrieve patterns', 'Search with HNSW', 'Compact and optimize'],
-    agents: ['swarm-memory-manager'],
+    agents: ['monoswarm-memory-manager'],
     topology: 'hierarchical',
   },
   'github-pr': {
@@ -359,7 +350,7 @@ const guidanceCapabilities: MCPTool = {
     properties: {
       area: {
         type: 'string',
-        description: 'Filter to a specific area (e.g., "swarm-orchestration", "memory-knowledge"). Omit to list all areas.',
+        description: 'Filter to a specific area (e.g., "monoswarm", "memory-knowledge"). Omit to list all areas.',
       },
       format: {
         type: 'string',
@@ -459,7 +450,7 @@ const guidanceRecommend: MCPTool = {
             message: 'No specific pattern matched. Here are general-purpose capabilities:',
             suggestions: [
               { area: 'agent-management', reason: 'Spawn individual agents for targeted work' },
-              { area: 'swarm-orchestration', reason: 'Use swarms for multi-file or complex tasks' },
+              { area: 'monoswarm', reason: 'Use swarms for multi-file or complex tasks' },
               { area: 'hooks-automation', reason: 'Use hooks for task routing and learning' },
             ],
             tip: 'Use guidance_capabilities for a full list of all capability areas.',
@@ -573,7 +564,7 @@ const guidanceWorkflow: MCPTool = {
             topology: template.topology,
             maxAgents: Math.max(template.agents.length + 1, 4),
             strategy: 'specialized',
-            consensus: 'raft',
+            consensus: 'majority',
           },
         }, null, 2),
       }],
@@ -622,12 +613,11 @@ const guidanceQuickRef: MCPTool = {
         ],
       },
       'swarm-ops': {
-        title: 'Swarm Operations',
+        title: 'Monoswarm Operations',
         commands: [
-          { cmd: 'npx monomind@latest swarm init --topology hierarchical --max-agents 8', desc: 'Initialize anti-drift swarm' },
-          { cmd: 'npx monomind@latest swarm status', desc: 'Check swarm status' },
+          { cmd: 'npx monomind@latest monoswarm init --topology hierarchical --max-agents 8', desc: 'Initialize anti-drift monoswarm' },
+          { cmd: 'npx monomind@latest monoswarm status', desc: 'Check monoswarm status' },
           { cmd: 'npx monomind@latest agent spawn -t coder --name my-coder', desc: 'Spawn a specific agent' },
-          { cmd: 'npx monomind@latest hive-mind init --strategy byzantine', desc: 'Start hive-mind consensus' },
         ],
       },
       'memory-ops': {

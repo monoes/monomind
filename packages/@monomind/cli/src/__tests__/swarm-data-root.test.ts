@@ -1,17 +1,17 @@
 /**
  * Regression coverage: the CLI and the MCP tools must resolve the SAME data root.
  *
- * `swarm status` / `swarm init` / `swarm stop` used to build their state paths as
- * `path.join(process.cwd(), '.monomind/swarm', ...)` and
+ * `monoswarm status` / `monoswarm init` / `monoswarm stop` used to build their state
+ * paths as `path.join(process.cwd(), '.monomind/swarm', ...)` and
  * `path.join(process.cwd(), '.monomind/agents/store.json')`, while every MCP tool
- * (agent-tools.ts, swarm-tools.ts, task-tools.ts, ...) resolves through
+ * (agent-tools.ts, monoswarm-tools.ts, task-tools.ts, ...) resolves through
  * `getMonomindDataRoot()` — which, inside a git repo, is `<repo>/.git/monomind`.
  *
  * The two only coincide when there is no `.git` at all (which is why the existing
- * swarm.test.ts suite, running in a bare tmpdir, never caught this). In a real
- * repository the CLI read an empty/parallel store: `swarm status` reported
- * "0 agents" with agents genuinely on disk, and `swarm init` wrote a second,
- * divergent copy of swarm-state.json that no MCP tool ever read.
+ * monoswarm.test.ts suite, running in a bare tmpdir, never caught this). In a real
+ * repository the CLI read an empty/parallel store: `monoswarm status` reported
+ * "0 agents" with agents genuinely on disk, and `monoswarm init` wrote a second,
+ * divergent copy of state.json that no MCP tool ever read.
  *
  * These tests therefore run in a tmpdir with a real `.git` DIRECTORY so the two
  * roots diverge — the only configuration in which the bug is observable.
@@ -20,18 +20,18 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { swarmCommand } from '../commands/swarm.js';
+import { monoswarmCommand } from '../commands/monoswarm.js';
 import { listCommand, spawnCommand } from '../commands/agent-lifecycle.js';
 import { getMonomindDataRoot } from '../mcp-tools/types.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 function findSub(name: string): Command {
-  const sub = swarmCommand.subcommands?.find((s) => s.name === name);
-  if (!sub) throw new Error(`swarm subcommand not found: ${name}`);
+  const sub = monoswarmCommand.subcommands?.find((s) => s.name === name);
+  if (!sub) throw new Error(`monoswarm subcommand not found: ${name}`);
   return sub;
 }
 
@@ -45,7 +45,7 @@ let writeSpy: ReturnType<typeof vi.spyOn>;
 let savedDataDir: string | undefined;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'swarm-data-root-'));
+  dir = mkdtempSync(join(tmpdir(), 'monoswarm-data-root-'));
   // A real .git DIRECTORY — this is what makes getMonomindDataRoot() resolve to
   // <dir>/.git/monomind instead of <dir>/.monomind.
   mkdirSync(join(dir, '.git'), { recursive: true });
@@ -66,12 +66,12 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe('data-root agreement between the swarm CLI and the MCP tools', () => {
+describe('data-root agreement between the monoswarm CLI and the MCP tools', () => {
   it('resolves the canonical root under .git/monomind (precondition for the rest)', () => {
     expect(getMonomindDataRoot(dir)).toBe(join(dir, '.git', 'monomind'));
   });
 
-  it('swarm status counts agents written by the real agent_spawn MCP path', async () => {
+  it('monoswarm status counts agents written by the real agent_spawn MCP path', async () => {
     await spawnCommand.action!(makeCtx({ flags: { type: 'coder', name: 'x', _: [] } }));
     await spawnCommand.action!(makeCtx({ flags: { type: 'tester', name: 'y', _: [] } }));
 
@@ -87,58 +87,35 @@ describe('data-root agreement between the swarm CLI and the MCP tools', () => {
     expect(data.agents.active).toBe(2);
   });
 
-  it('swarm status reads swarm state written by the swarm_init MCP tool (no second copy)', async () => {
-    const { swarmTools } = await import('../mcp-tools/swarm-tools.js');
-    const initTool = swarmTools.find((t) => t.name === 'swarm_init')!;
-    const init = (await initTool.handler({ topology: 'mesh', maxAgents: 4 })) as { swarmId: string };
+  it('monoswarm status reads state written by the monoswarm_init MCP tool (no second copy)', async () => {
+    const { monoswarmTools } = await import('../mcp-tools/monoswarm-tools.js');
+    const initTool = monoswarmTools.find((t) => t.name === 'monoswarm_init')!;
+    const init = (await initTool.handler({ topology: 'mesh', maxAgents: 4 })) as { monoswarmId: string };
 
     const result = (await findSub('status').action!(makeCtx())) as CommandResult;
     const data = result.data as { id: string; topology: string; hasActiveSwarm: boolean };
     expect(data.hasActiveSwarm).toBe(true);
-    expect(data.id).toBe(init.swarmId);
+    expect(data.id).toBe(init.monoswarmId);
     expect(data.topology).toBe('mesh');
   });
 
-  it('swarm init persists into the canonical root, not a parallel <cwd>/.monomind copy', async () => {
+  it('monoswarm init persists into the canonical root, not a parallel <cwd>/.monomind copy', async () => {
     await findSub('init').action!(makeCtx({ flags: { topology: 'hierarchical', 'max-agents': 8, _: [] } }));
 
-    const canonical = join(getMonomindDataRoot(dir), 'swarm', 'swarm-state.json');
+    const canonical = join(getMonomindDataRoot(dir), 'monoswarm', 'state.json');
     expect(existsSync(canonical)).toBe(true);
-    expect(existsSync(join(dir, '.monomind', 'swarm', 'swarm-state.json'))).toBe(false);
+    expect(existsSync(join(dir, '.monomind', 'monoswarm', 'state.json'))).toBe(false);
 
-    // And the MCP-side reader sees exactly that swarm.
-    const { swarmTools } = await import('../mcp-tools/swarm-tools.js');
-    const statusTool = swarmTools.find((t) => t.name === 'swarm_status')!;
-    const mcpStatus = (await statusTool.handler({})) as { swarmId?: string; status: string; topology?: string };
-    expect(mcpStatus.status).not.toBe('no_swarm');
+    // And the MCP-side reader sees exactly that monoswarm.
+    const { monoswarmTools } = await import('../mcp-tools/monoswarm-tools.js');
+    const statusTool = monoswarmTools.find((t) => t.name === 'monoswarm_status')!;
+    const mcpStatus = (await statusTool.handler({})) as { monoswarmId?: string; status: string; topology?: string };
+    expect(mcpStatus.status).toBe('running');
     expect(mcpStatus.topology).toBe('hierarchical');
 
     // The CLI's own status reads the same record back.
     const cliStatus = (await findSub('status').action!(makeCtx())) as CommandResult;
-    expect((cliStatus.data as { id: string }).id).toBe(mcpStatus.swarmId);
-  });
-
-  it('migrates a pre-existing legacy <cwd>/.monomind swarm state instead of orphaning it', async () => {
-    const legacyDir = join(dir, '.monomind', 'swarm');
-    mkdirSync(legacyDir, { recursive: true });
-    writeFileSync(
-      join(legacyDir, 'swarm-state.json'),
-      JSON.stringify({
-        version: '3.0.0',
-        swarms: {
-          'swarm-legacy': {
-            swarmId: 'swarm-legacy', topology: 'ring', status: 'running',
-            updatedAt: '2030-01-01T00:00:00.000Z',
-          },
-        },
-      }),
-    );
-
-    const result = (await findSub('status').action!(makeCtx())) as CommandResult;
-    const data = result.data as { id: string; topology: string; hasActiveSwarm: boolean };
-    expect(data.hasActiveSwarm).toBe(true);
-    expect(data.id).toBe('swarm-legacy');
-    expect(data.topology).toBe('ring');
+    expect((cliStatus.data as { id: string }).id).toBe(mcpStatus.monoswarmId);
   });
 });
 

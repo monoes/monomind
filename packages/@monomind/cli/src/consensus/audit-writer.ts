@@ -55,8 +55,8 @@ function verifyVote(agentId: string, vote: unknown, decisionId: string, signatur
   return timingSafeEqual(sigBuf, expBuf);
 }
 
-/** Supported consensus protocols. */
-export type ConsensusProtocol = 'byzantine' | 'raft' | 'gossip' | 'crdt' | 'quorum';
+/** Supported vote-threshold strategies (see monoswarm-tools.ts — not distributed consensus protocols). */
+export type ConsensusProtocol = 'majority' | 'supermajority' | 'unanimous' | 'threshold';
 
 /** A single signed vote cast by an agent. */
 export interface VoteRecord {
@@ -269,7 +269,7 @@ export class AuditWriter {
     // log, a permissions error, an I/O failure — is an *unreadable* trail, and
     // must not be reported as an empty one: this file is the tamper-evidence
     // record, so "0 records" and "cannot read" have opposite meanings.
-    // Callers (hive-mind_audit_list / _verify) already surface a throw as
+    // Callers (monoswarm_audit_list / _verify) already surface a throw as
     // `success: false` with the message.
     if (!existsSync(filePath)) return [];
     const MAX_BYTES = 50 * 1024 * 1024;

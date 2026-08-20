@@ -113,7 +113,7 @@ describe('AuditWriter', () => {
     const base = {
       decisionId: 'dec-001',
       swarmId: 'swarm-test',
-      protocol: 'raft',
+      protocol: 'majority',
       topic: 'approve deploy',
       decision: { action: 'deploy' },
       votes: [
@@ -143,7 +143,7 @@ describe('AuditWriter', () => {
 
     expect(record.decisionId).toBe('dec-001');
     expect(record.swarmId).toBe('swarm-test');
-    expect(record.protocol).toBe('raft');
+    expect(record.protocol).toBe('majority');
     expect(record.votes).toHaveLength(3);
     expect(record.quorumAchieved).toBe(true);
     expect(record.quorumProof.satisfied).toBe(true);

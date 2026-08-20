@@ -44,7 +44,7 @@ The CLI registers and exports domain tool modules under `packages/@monomind/cli/
 | **Memory** | [`memory-tools.ts`](packages/@monomind/cli/src/mcp-tools/memory-tools.ts) | `memory_pattern-search`, `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
 | **Second Brain** | [`knowledge-tools.ts`](packages/@monomind/cli/src/mcp-tools/knowledge-tools.ts) | `knowledge_ingest`, `knowledge_search`, `knowledge_remove` |
 | **Monomind Tool Index** | [`monomind-tools.ts`](packages/@monomind/cli/src/mcp-tools/monomind-tools.ts) | `monomind_tool_search` |
-| **Orgs & Swarms** | [`org-tools.ts`](packages/@monomind/cli/src/mcp-tools/org-tools.ts), [`swarm-tools.ts`](packages/@monomind/cli/src/mcp-tools/swarm-tools.ts) | `task_create`, `task_status`, `system_status`, `swarm_coordinate` |
+| **Orgs & Monoswarm** | [`org-tools.ts`](packages/@monomind/cli/src/mcp-tools/org-tools.ts), [`monoswarm-tools.ts`](packages/@monomind/cli/src/mcp-tools/monoswarm-tools.ts) | `task_create`, `task_status`, `system_status`, `monoswarm_init` |
 | **Browser & Terminal** | [`browser-tools.ts`](packages/@monomind/cli/src/mcp-tools/browser-tools.ts), [`terminal-tools.ts`](packages/@monomind/cli/src/mcp-tools/terminal-tools.ts) | `browser_open`, `browser_snapshot`, `browser_click`, `browser_fill`, terminal execution |
 
 ---

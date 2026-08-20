@@ -1,5 +1,5 @@
 {
-  "customInstructions": "Follow the project's CLAUDE.md guidelines. Use concurrent execution for all operations. Prioritize v1 implementation with security-first development, 15-agent swarm coordination, phased performance optimization, and cross-platform helper automation.",
+  "customInstructions": "Follow the project's CLAUDE.md guidelines. Use concurrent execution for all operations. Prioritize v1 implementation with security-first development, 15-agent monoswarm coordination, phased performance optimization, and cross-platform helper automation.",
   "env": {},
   "permissions": {
     "allow": [
@@ -333,7 +333,7 @@
   "monomind": {
     "version": "3.5.2",
     "enabled": true,
-    "swarm": {
+    "monoswarm": {
       "topology": "hierarchical-mesh",
       "maxAgents": 15
     },
