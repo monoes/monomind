@@ -110,13 +110,26 @@ export class TaskDag {
     return unblocked;
   }
 
-  /** True if any task is blocked on a real-world time still in the future —
-   *  the watchdog's signal to skip nudging (same treatment as a pending gate). */
+  /** True if there is genuinely nothing else dispatchable right now — every
+   *  non-terminal task is blocked on a real-world time still in the future.
+   *  This is the watchdog's signal to skip nudging (same treatment as a
+   *  pending gate). Scoped to the whole DAG rather than a single task on
+   *  purpose: if ANY task is pending/ready/running, or blocked with a time
+   *  that's already passed (should have auto-resumed), there is real
+   *  outstanding work and nudging is still meaningful — a single long-lived
+   *  block on one task (e.g. a feature deferred for weeks) must not silence
+   *  the watchdog for the entire org while other roles sit genuinely idle. */
   hasActiveBlock(now: number): boolean {
+    let sawBlocked = false;
     for (const t of this.tasks.values()) {
-      if (t.status === 'blocked' && (t.blockedUntil ?? 0) > now) return true;
+      if (TERMINAL.has(t.status)) continue;
+      if (t.status === 'blocked' && (t.blockedUntil ?? 0) > now) {
+        sawBlocked = true;
+        continue;
+      }
+      return false;
     }
-    return false;
+    return sawBlocked;
   }
 
   split(parentId: string, children: SplitChild[]): OrgTask[] {
