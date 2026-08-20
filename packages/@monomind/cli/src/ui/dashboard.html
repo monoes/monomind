@@ -2610,6 +2610,9 @@ function refreshCurrent() {
   renderView(currentView);
 }
 
+// Project paths may be Windows ('\') or POSIX ('/') — split on either.
+function baseName(p) { return String(p || '').split(/[\\/]/).filter(Boolean).pop() || ''; }
+
 // ── init ───────────────────────────────────────────────────
 async function init() {
   try {
@@ -2619,7 +2622,9 @@ async function init() {
     gitUser = gu;
     document.getElementById('sb-user').textContent = gu.name || gu.email || '—';
     document.getElementById('sb-path').textContent = DIR;
-    document.getElementById('sb-proj').textContent = DIR.split('/').filter(Boolean).pop() || '—';
+    const sbProjEl = document.getElementById('sb-proj');
+    sbProjEl.textContent = baseName(DIR) || '—';
+    sbProjEl.title = DIR;
     _showNavProjectCtx(DIR);
   } catch (_) {}
   // deep-link: ?sess=<id>&proj=<path>
@@ -2650,7 +2655,9 @@ async function init() {
       }
     } catch (_) {}
     DIR = projParam;
-    document.getElementById('sb-proj').textContent = DIR.split('/').filter(Boolean).pop() || '—';
+    const sbProjEl2 = document.getElementById('sb-proj');
+    sbProjEl2.textContent = baseName(DIR) || '—';
+    sbProjEl2.title = DIR;
     document.getElementById('sb-path').textContent = DIR;
     _showNavProjectCtx(DIR);
   }
@@ -2708,11 +2715,13 @@ async function apiFetch(url, timeout = 15000) {
 
 // ── project switching ──────────────────────────────────────
 function _showNavProjectCtx(path) {
-  const projName = (path || '').split('/').filter(Boolean).pop() || '';
+  const projName = baseName(path);
   const ctx = document.getElementById('nav-project-ctx');
   const hint = document.getElementById('nav-no-proj-hint');
   if (projName) {
-    document.getElementById('nav-proj-name').textContent = projName;
+    const nameEl = document.getElementById('nav-proj-name');
+    nameEl.textContent = projName;
+    nameEl.title = path;
     ctx.classList.add('visible');
     hint.style.display = 'none';
   } else {
@@ -2734,7 +2743,9 @@ function switchProject(path) {
   _mgLoaded = false;
   _mgGraph = null;
   window._mgRealTotals = null;
-  document.getElementById('sb-proj').textContent = path.split('/').filter(Boolean).pop() || '—';
+  const sbProjEl3 = document.getElementById('sb-proj');
+  sbProjEl3.textContent = baseName(path) || '—';
+  sbProjEl3.title = path;
   document.getElementById('sb-path').textContent = path;
   _showNavProjectCtx(path);
   viewRendered = {};
@@ -5982,13 +5993,22 @@ function v2RenderOrgChart() {
   const colorOf = (role, idx) => COLORS[_v2OrgIsLeader(role) ? 0 : (idx % (COLORS.length - 1)) + 1];
 
   // ── auto-generate edges ───────────────────────────────
+  // Prefer each role's actual reports_to over a flat leader fan-out — a
+  // multi-level org (specialist -> team lead -> director) should connect to
+  // its real manager, not skip straight to the top boss.
   let comms = Array.isArray(d.communication) ? [...d.communication] : [];
   if (!comms.length && roles.length > 1) {
     const _lr0 = roles.find(_v2OrgIsLeader) || roles[0];
-    comms = roles.filter(r => r.id !== _lr0.id).flatMap(r => [
-      { from: _lr0.id, to: r.id, type: 'command' },
-      { from: r.id, to: _lr0.id, type: 'report' },
-    ]);
+    const _roleIds = new Set(roles.map(r => r.id));
+    comms = roles.filter(r => r.id !== _lr0.id).flatMap(r => {
+      const parentId = (r.reports_to && r.reports_to !== r.id && _roleIds.has(r.reports_to))
+        ? r.reports_to
+        : _lr0.id;
+      return [
+        { from: parentId, to: r.id, type: 'command' },
+        { from: r.id, to: parentId, type: 'report' },
+      ];
+    });
   }
 
   // ── layout positions ──────────────────────────────────
