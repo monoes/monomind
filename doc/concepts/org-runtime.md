@@ -84,6 +84,11 @@ Three concrete implementations are available:
 - **Backend:** Spawns the `kimi` binary as a subprocess.
 - **Activation:** `MONOMIND_RUNTIME=kimicode`
 - **Turn timeout:** 2 hours.
+- **Streaming:** stdout is parsed line-by-line AS IT ARRIVES — a spawn-time
+  `tool_use` liveness message, then assistant text and `{"role":"tool",...}`
+  progress events (forwarded as `tool_use` liveness) are yielded mid-turn.
+  This is what keeps long (10-20+ min) kimi turns alive under the 4-minute
+  silent-session watchdog; the earlier buffer-until-exit design starved it.
 - **Tool delivery:** Fence Protocol (same as opencode runner).
 - **Usage tracking:** Reads `wire.jsonl` from `$KIMI_CODE_HOME/sessions/<wd>/<sessionId>/agents/main/`.
 - **Arg order is critical:** `-p <prompt>` must be first; `--agent-file` only on first turn;
