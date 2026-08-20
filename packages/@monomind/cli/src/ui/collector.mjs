@@ -165,7 +165,7 @@ function collectSwarm(projectDir) {
   const merged = { ...dotSwarmState, ...state };
 
   const terminalStatuses = ['stopped', 'terminated', 'completed', 'error'];
-  const swarmId = merged.swarmId || merged.id;
+  const swarmId = merged.monoswarmId || merged.swarmId || merged.id;
   if (swarmId && terminalStatuses.includes(merged.status) && !_appendedSwarmIds.has(swarmId)) {
     _appendedSwarmIds.add(swarmId);
     const agents = (merged.agents || merged.agentPlan || []).map(a => ({
@@ -202,7 +202,7 @@ function collectSwarm(projectDir) {
 
   return {
     state: merged,
-    activity: readJSON(path.join(base, 'metrics', 'swarm-activity.json')) || {},
+    activity: readJSON(path.join(base, 'metrics', 'monoswarm-activity.json')) || {},
     suggestion: {},
     config: readJSON(path.join(base, 'swarm-config.json')) || {},
   };
