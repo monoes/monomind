@@ -61,7 +61,7 @@ Kimi has **no project-level slash-command directory** — real `/plugin:command`
 MONOMIND_RUNTIME=kimicode monomind org run <name> --task "..."
 ```
 
-> **How it works:** kimi has no embeddable SDK, so the runner drives the `kimi` CLI as a subprocess (`kimi -p … --output-format stream-json`), one invocation per turn, resuming the same session with `--session <id>`. Org tools (`org_send`, `knowledge_search`, …) travel over a **fence protocol**: the tools are rendered into the role's system prompt, the model emits ` ```tool_call ` JSON blocks, the runner executes the real handlers in-process and feeds results back into the same session. Token usage is read from the session's `wire.jsonl` (`usage.record` entries) since kimi's stream-json reports none. The Claude path is the default and is unchanged.
+> **How it works:** kimi has no embeddable SDK, so the runner drives the `kimi` CLI as a subprocess (`kimi -p … --output-format stream-json`), one invocation per turn, resuming the same session with `--session <id>`. Stdout is parsed **incrementally, line by line** — assistant text and tool-progress events stream to the session layer while the turn is still running (a liveness message is yielded at spawn), so multi-minute turns never trip the 4-minute silent-session watchdog. Org tools (`org_send`, `knowledge_search`, …) travel over a **fence protocol**: the tools are rendered into the role's system prompt, the model emits ` ```tool_call ` JSON blocks, the runner executes the real handlers in-process and feeds results back into the same session. Token usage is read from the session's `wire.jsonl` (`usage.record` entries) since kimi's stream-json reports none. The Claude path is the default and is unchanged.
 
 ---
 
