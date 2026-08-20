@@ -30,7 +30,7 @@ interface AgentRecord {
   createdAt: string;
   domain?: string;
   model?: ClaudeModel;  // Model assigned to this agent
-  modelRoutedBy?: 'explicit' | 'router' | 'agent-booster' | 'default';  // How model was determined (ADR-026)
+  modelRoutedBy?: 'explicit' | 'router' | 'default';  // How model was determined (ADR-026)
   lastResult?: Record<string, unknown>;  // Output from last completed task
 }
 
@@ -116,7 +116,7 @@ async function determineAgentModel(
   task?: string
 ): Promise<{
   model: ClaudeModel;
-  routedBy: 'explicit' | 'router' | 'agent-booster' | 'default';
+  routedBy: 'explicit' | 'router' | 'default';
   canSkipLLM?: boolean;
   agentBoosterIntent?: string;
   tier?: 1 | 2 | 3;
