@@ -54,8 +54,7 @@ export function atomicWriteFile(target: string, content: string | Buffer, encodi
  */
 export const SKILLS_MAP: Record<string, string[]> = {
   core: [
-    'swarm-orchestration',
-    'swarm-advanced',
+    'monoswarm',
     'hooks-automation',
     'pair-programming',
     'verification-quality',
@@ -68,7 +67,6 @@ export const SKILLS_MAP: Record<string, string[]> = {
     'monolean-audit',
     'monolean-debt',
     'monolean-help',
-    'hive-mind-advanced',
     // The mastermind command files installed by init invoke
     // Skill("mastermind-<name>") at runtime — one top-level
     // mastermind-<name>/SKILL.md directory per skill. The glob expands in
@@ -102,7 +100,7 @@ export const COMMANDS_MAP: Record<string, string[]> = {
   automation: ['automation'],
   coordination: ['coordination'],
   github: ['github'],
-  hiveMind: ['hive-mind'],
+  monoswarm: ['monoswarm'],
   hooks: ['hooks'],
   mastermind: ['mastermind'],
   memory: ['memory'],
@@ -112,7 +110,6 @@ export const COMMANDS_MAP: Record<string, string[]> = {
   optimization: ['optimization'],
   pair: ['pair'],
   streamChain: ['stream-chain'],
-  swarm: ['swarm'],
   training: ['training'],
   truth: ['truth'],
   verify: ['verify'],
@@ -137,7 +134,6 @@ export const AGENTS_MAP: Record<string, string[]> = {
   gameDevelopment: ['game-development'],
   github: ['github'],
   goal: ['goal'],
-  hiveMind: ['hive-mind'],
   marketing: ['marketing'],
   neural: ['neural'],
   optimization: ['optimization'],
@@ -154,7 +150,7 @@ export const AGENTS_MAP: Record<string, string[]> = {
   specialized: ['specialized'],
   sublinear: ['sublinear'],
   support: ['support'],
-  swarm: ['swarm'],
+  monoswarm: ['monoswarm'],
   templates: ['templates'],
   testing: ['testing'],
 };

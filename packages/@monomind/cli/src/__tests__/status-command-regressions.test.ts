@@ -34,27 +34,26 @@ function seedAgentStore(dir: string, agents: Array<{ agentId: string; agentType:
   writeFileSync(join(agentsDir, 'store.json'), JSON.stringify(store, null, 2), 'utf-8');
 }
 
-function seedSwarmStore(dir: string, swarmId: string, opts: { status: string; topology: string; agentCount: number }) {
-  const swarmDir = join(getMonomindDataRoot(dir), 'swarm');
-  mkdirSync(swarmDir, { recursive: true });
+function seedSwarmStore(dir: string, monoswarmId: string, opts: { status: string; topology: string; agentCount: number }) {
+  const monoswarmDir = join(getMonomindDataRoot(dir), 'monoswarm');
+  mkdirSync(monoswarmDir, { recursive: true });
   const now = new Date().toISOString();
-  const store = {
-    swarms: {
-      [swarmId]: {
-        swarmId,
-        topology: opts.topology,
-        maxAgents: 8,
-        status: opts.status,
-        agents: Array.from({ length: opts.agentCount }, (_, i) => `agent-${i}`),
-        tasks: [],
-        config: {},
-        createdAt: now,
-        updatedAt: now,
-      },
-    },
-    version: '3.0.0',
+  const state = {
+    monoswarmId,
+    initialized: true,
+    topology: opts.topology,
+    maxAgents: 8,
+    status: opts.status,
+    agents: Array.from({ length: opts.agentCount }, (_, i) => `agent-${i}`),
+    tasks: [],
+    config: {},
+    votes: { pending: [], history: [] },
+    sharedMemory: {},
+    notices: [],
+    createdAt: now,
+    updatedAt: now,
   };
-  writeFileSync(join(swarmDir, 'swarm-state.json'), JSON.stringify(store, null, 2), 'utf-8');
+  writeFileSync(join(monoswarmDir, 'state.json'), JSON.stringify(state, null, 2), 'utf-8');
 }
 
 describe('ASL-18: `status agents` crash guard', () => {
@@ -101,7 +100,7 @@ describe('ASL-18: `status agents` crash guard', () => {
   });
 });
 
-describe('ASL-17: swarm panel maps real swarm_status fields', () => {
+describe('ASL-17: swarm panel maps real monoswarm_status fields', () => {
   let dir: string;
 
   beforeEach(() => {
@@ -117,7 +116,7 @@ describe('ASL-17: swarm panel maps real swarm_status fields', () => {
   });
 
   it('reports real agentCount as agents.total instead of a fake zero, and does not hardcode running:true', async () => {
-    seedSwarmStore(dir, 'swarm-abc', { status: 'running', topology: 'mesh', agentCount: 4 });
+    seedSwarmStore(dir, 'monoswarm-abc', { status: 'running', topology: 'mesh', agentCount: 4 });
 
     const result = (await statusCommand.action!(makeCtx(dir, { format: 'json' }))) as CommandResult;
     expect(result.success).toBe(true);
@@ -129,7 +128,7 @@ describe('ASL-17: swarm panel maps real swarm_status fields', () => {
 
     // agentCount (real field) must map to agents.total.
     expect(data.swarm.agents.total).toBe(4);
-    expect(data.swarm.id).toBe('swarm-abc');
+    expect(data.swarm.id).toBe('monoswarm-abc');
     expect(data.swarm.topology).toBe('mesh');
     expect(data.swarm.status).toBe('running');
 

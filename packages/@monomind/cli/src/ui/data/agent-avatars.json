@@ -101,7 +101,7 @@
     {
       "id": "hierarchical-coord",
       "label": "Hierarchical Coord.",
-      "category": "swarm",
+      "category": "monoswarm",
       "icon": "🏛️",
       "file": "avatars/hierarchical-coord.svg",
       "index": 12
@@ -109,7 +109,7 @@
     {
       "id": "mesh-coordinator",
       "label": "Mesh Coordinator",
-      "category": "swarm",
+      "category": "monoswarm",
       "icon": "🕸️",
       "file": "avatars/mesh-coordinator.svg",
       "index": 13
@@ -117,7 +117,7 @@
     {
       "id": "adaptive-coordinator",
       "label": "Adaptive Coordinator",
-      "category": "swarm",
+      "category": "monoswarm",
       "icon": "🔄",
       "file": "avatars/adaptive-coordinator.svg",
       "index": 14
@@ -125,7 +125,7 @@
     {
       "id": "collective-coord",
       "label": "Collective Intel.",
-      "category": "swarm",
+      "category": "monoswarm",
       "icon": "🧠",
       "file": "avatars/collective-coord.svg",
       "index": 15
@@ -133,7 +133,7 @@
     {
       "id": "queen-coordinator",
       "label": "Queen Coordinator",
-      "category": "swarm",
+      "category": "monoswarm",
       "icon": "👑",
       "file": "avatars/queen-coordinator.svg",
       "index": 16
@@ -141,7 +141,7 @@
     {
       "id": "worker-specialist",
       "label": "Worker Specialist",
-      "category": "swarm",
+      "category": "monoswarm",
       "icon": "⚙️",
       "file": "avatars/worker-specialist.svg",
       "index": 17
@@ -235,11 +235,11 @@
       "index": 30
     },
     {
-      "id": "code-review-swarm",
-      "label": "Code Review Swarm",
+      "id": "monoswarm-code-review",
+      "label": "Monoswarm Code Review",
       "category": "github",
       "icon": "👁️",
-      "file": "avatars/code-review-swarm.svg",
+      "file": "avatars/monoswarm-code-review.svg",
       "index": 31
     },
     {
@@ -933,7 +933,7 @@
     {
       "id": "scout-explorer",
       "label": "Scout Explorer",
-      "category": "swarm",
+      "category": "monoswarm",
       "icon": "🧭",
       "file": "avatars/scout-explorer.svg",
       "index": 118

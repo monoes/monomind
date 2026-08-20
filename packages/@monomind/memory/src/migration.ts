@@ -162,7 +162,7 @@ export class MemoryMigrator extends EventEmitter {
         return this.loadFromJSON();
       case 'memory-manager':
         return this.loadFromMemoryManager();
-      case 'swarm-memory':
+      case 'monoswarm-memory':
         return this.loadFromSwarmMemory();
       case 'distributed-memory':
         return this.loadFromDistributedMemory();

@@ -12,7 +12,7 @@
 | `start` | Start the MonoMind orchestration system | 3 — stop, restart, quick |
 | `status` | Show system status (watch mode supported) | 3 — agents, tasks, memory |
 | `agent` | Agent lifecycle (in-process, no separate MCP server needed) | 7 — spawn, list, status, stop, metrics, pool, health |
-| `swarm` | Multi-agent swarm coordination (in-process) | 6 — init, start, status, stop, scale, coordinate |
+| `monoswarm` | Multi-agent coordination — topology, roster, and vote state. See [Monoswarm](../concepts/monoswarm.md). | 6 — init, start, status, stop, scale, coordinate |
 | `memory` | Memory management — local SQLite + local embeddings. See [Memory Command Reference](./memory.md). | 12 — init, store, edit, retrieve, search, list, delete, templates, stats, configure, export, import (export/import: `--format okf` only — any other value is rejected at runtime, `memory-transfer.ts:91`) |
 | `doc` | Second Brain — document ingestion & retrieval | 8 — ingest, search, list, export, remove, reconcile, import, eval |
 | `task` | Task creation and lifecycle | 5 — create, list, status, cancel, assign |

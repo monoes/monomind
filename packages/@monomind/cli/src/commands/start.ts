@@ -124,7 +124,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   // Load configuration
   const config = loadConfig(cwd);
-  const swarmConfig = (config?.swarm as Record<string, unknown>) || {};
+  const swarmConfig = (config?.monoswarm as Record<string, unknown>) || {};
   const VALID_TOPOLOGIES = new Set(['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star']);
   const rawTopology = topology || (swarmConfig.topology as string) || DEFAULT_TOPOLOGY;
   const finalTopology = VALID_TOPOLOGIES.has(rawTopology) ? rawTopology : DEFAULT_TOPOLOGY;
@@ -143,15 +143,13 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
     spinner.setText('Initializing v1 swarm...');
 
     const swarmResult = await callMCPTool<{
-      swarmId: string;
+      monoswarmId: string;
       topology: string;
       initializedAt: string;
       config: Record<string, unknown>;
-    }>('swarm_init', {
+    }>('monoswarm_init', {
       topology: finalTopology,
       maxAgents,
-      autoScaling: swarmConfig.autoScale !== false,
-      v1Mode: true
     });
 
     spinner.succeed(`Swarm initialized (${finalTopology})`);
@@ -163,9 +161,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
     const healthResult = await callMCPTool<{
       status: 'healthy' | 'degraded' | 'unhealthy';
       checks: Array<{ name: string; status: string; message?: string }>;
-    }>('swarm_health', {
-      swarmId: swarmResult.swarmId
-    });
+    }>('monoswarm_health', {});
 
     if (healthResult.status === 'healthy') {
       spinner.succeed('Health checks passed');
@@ -181,7 +177,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // Status display
     output.printBox(
       [
-        `Swarm ID:  ${swarmResult.swarmId}`,
+        `Swarm ID:  ${swarmResult.monoswarmId}`,
         `Topology:  ${finalTopology}`,
         `Max Agents: ${maxAgents}`,
         `Health:    ${healthResult.status}`
@@ -194,12 +190,12 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
     output.printList([
       `${output.highlight('monomind status')} - View system status`,
       `${output.highlight('monomind agent spawn -t coder')} - Spawn an agent`,
-      `${output.highlight('monomind swarm status')} - View swarm details`,
+      `${output.highlight('monomind monoswarm status')} - View swarm details`,
       `${output.highlight('monomind stop')} - Stop the system`
     ]);
 
     const result = {
-      swarmId: swarmResult.swarmId,
+      swarmId: swarmResult.monoswarmId,
       topology: finalTopology,
       maxAgents,
       health: healthResult.status,
@@ -270,10 +266,9 @@ const stopCommand: Command = {
       spinner.setText('Stopping swarm...');
       spinner.start();
       try {
-        await callMCPTool('swarm_shutdown', {
+        await callMCPTool('monoswarm_shutdown', {
           graceful: !force,
-          timeout,
-          saveState: true
+          force
         });
         spinner.succeed('Swarm stopped');
       } catch {

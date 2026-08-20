@@ -27,7 +27,7 @@ import { listMCPTools, callMCPTool, hasTool, getToolMetadata } from '../mcp-clie
 // any tool's `category` field always return zero results from the real
 // registry (previously masked by a fabricated static fallback list).
 const TOOL_CATEGORIES = [
-  { value: 'swarm', label: 'Coordination', hint: 'Swarm and agent coordination tools' },
+  { value: 'monoswarm', label: 'Coordination', hint: 'Monoswarm coordination tools' },
   { value: 'performance', label: 'Monitoring', hint: 'Status and metrics monitoring' },
   { value: 'knowledge', label: 'Memory', hint: 'Memory and neural features' },
   { value: 'github', label: 'GitHub', hint: 'GitHub integration tools' },
@@ -561,7 +561,7 @@ const execCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monomind mcp exec -t swarm_init -p \'{"topology":"mesh"}\'', description: 'Execute tool' }
+    { command: 'monomind mcp exec -t monoswarm_init -p \'{"topology":"mesh"}\'', description: 'Execute tool' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const tool = ctx.flags.tool as string || ctx.args[0];

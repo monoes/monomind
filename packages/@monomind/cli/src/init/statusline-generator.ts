@@ -434,8 +434,8 @@ function getSwarmStatus() {
     } catch (err) { if (process.env.MONOMIND_DEBUG) console.error('[statusline]', err); /* fall through */ }
   }
 
-  // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh
-  const swarmStatePath = path.join(CWD, '.monomind', 'swarm', 'swarm-state.json');
+  // SECONDARY: state.json written by MCP monoswarm_init — trust if fresh
+  const swarmStatePath = path.join(CWD, '.monomind', 'monoswarm', 'state.json');
   const swarmState = readJSON(swarmStatePath);
   if (swarmState) {
     const updatedAt = swarmState.updatedAt || swarmState.startedAt;
@@ -449,16 +449,16 @@ function getSwarmStatus() {
     }
   }
 
-  // TERTIARY: swarm-activity.json refreshed by post-task hook
-  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
-  if (activityData?.swarm) {
-    const updatedAt = activityData.timestamp || activityData.swarm.timestamp;
+  // TERTIARY: monoswarm-activity.json refreshed by post-task hook
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'monoswarm-activity.json'));
+  if (activityData?.monoswarm) {
+    const updatedAt = activityData.timestamp || activityData.monoswarm.timestamp;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
     if (age < staleThresholdMs) {
       return {
-        activeAgents: activityData.swarm.agent_count || 0,
+        activeAgents: activityData.monoswarm.agent_count || 0,
         maxAgents: CONFIG.maxAgents,
-        coordinationActive: activityData.swarm.coordination_active || activityData.swarm.active || false,
+        coordinationActive: activityData.monoswarm.coordination_active || activityData.monoswarm.active || false,
       };
     }
   }
