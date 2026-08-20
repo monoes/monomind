@@ -309,7 +309,7 @@ fi
 
 # ── 13. Neural / Intelligence ─────────────────────────────────
 if should_run "neural"; then
-  section 13 "Neural / Intelligence (SONA + MoE)"
+  section 13 "Neural / Intelligence (SONA)"
   check "neural status" $MONOMIND_CMD neural status
   check "neural patterns" $MONOMIND_CMD neural patterns --list
 fi

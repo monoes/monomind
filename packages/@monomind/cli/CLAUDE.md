@@ -352,7 +352,7 @@ The lean build records what happens and measures whether routing helped — no n
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
 - **HNSW**: pure-JS approximate nearest-neighbor (`src/memory/hnsw-operations.ts`) — a dead fallback, not on the default search path. It is reachable only via `memory search --build-hnsw`, which is a no-op unless the SQLite bridge is down and the sql.js WASM fallback is in use.
 
-**SONA and EWC++ ship in main** (`src/memory/sona-optimizer.ts`, `src/memory/ewc-consolidation.ts`) — see the file headers for their actual scope; MoE, Flash Attention, and LoRA remain unimplemented here.
+**SONA and EWC++ ship in main** (`src/memory/sona-optimizer.ts`, `src/memory/ewc-consolidation.ts`) — see the file headers for their actual scope.
 
 ## Embeddings (MCP tools + @monoes/memory)
 
