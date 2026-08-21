@@ -242,20 +242,18 @@ jobs:
         with:
           version: 10
 
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        shell: bash
-        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: pnpm-${{ runner.os }}-20-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            pnpm-${{ runner.os }}-20-
-            pnpm-${{ runner.os }}-
-
+      # Deliberately NOT cached, unlike the root/packages jobs. actions/cache's
+      # tar+zstd pack/restore does not round-trip pnpm's hardlink-based
+      # content-addressable store cleanly on NTFS: every run that restored a
+      # cache here — including ones keyed to a lockfile hash known-good on
+      # Linux/macOS and even ones this exact job had just saved seconds
+      # earlier — failed installing a CDN-tarball dependency with
+      # `ERR_PNPM_MISSING_TARBALL_INTEGRITY: its lockfile entry has no
+      # "integrity" field`, while every run that got a cache MISS and
+      # downloaded fresh succeeded outright. Busting the cache "fixed" it
+      # each time only until the next save re-poisoned it. A fresh install
+      # costs this job a bit more time; a cache that reliably breaks it costs
+      # everyone more.
       - name: Install dependencies for ${{ matrix.name }}
         shell: bash
         run: pnpm install --no-frozen-lockfile --ignore-scripts --filter "${{ matrix.pkg }}..."

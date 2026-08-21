@@ -1,16 +1,19 @@
 // packages/@monomind/cli/src/__tests__/memory-search-method-sqljs-honesty.test.ts
 //
 // Companion to memory-search-method-honesty.test.ts, which covers the SQLite
-// *bridge*. This file covers the two paths that run when the bridge is
-// unavailable and searchEntries() falls through to raw sql.js:
+// *bridge*. This file covers the path that runs when the bridge is
+// unavailable and searchEntries() falls through to raw sql.js: brute-force
+// cosine + keyword-overlap scan. (A separate mocked "HNSW index path" used
+// to be covered here too, but it queried a `.swarm/memory.db` that nothing
+// wrote to post-rename and was removed — see hnsw-operations.ts's module
+// docstring. The real ANN fast path now lives inside the SQLite bridge's
+// backend, exercised by memory-search-method-honesty.test.ts and
+// ann-search.test.ts in @monoes/memory, not this legacy fallback.)
 //
-//   1. the HNSW index path, and
-//   2. the brute-force cosine + keyword-overlap scan.
-//
-// Both call generateEmbedding(), which silently degrades to
-// generateHashEmbedding() ("hash-fallback") when no ONNX model can be loaded.
-// A cosine over those hashes is a deterministic lexical trick with no semantic
-// content, so neither path may report "semantic"/"hybrid" in that state.
+// generateEmbedding() silently degrades to generateHashEmbedding()
+// ("hash-fallback") when no ONNX model can be loaded. A cosine over those
+// hashes is a deterministic lexical trick with no semantic content, so this
+// path may not report "hybrid" in that state.
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,8 +21,6 @@ import { join } from 'node:path';
 
 /** Flipped per test: does generateEmbedding return a real model vector or the hash fallback? */
 let embedModel: 'onnx' | 'hash-fallback' = 'onnx';
-/** Flipped per test: does the HNSW index serve the query, or fall through to brute force? */
-let hnswServes = true;
 
 const DIM = 8;
 function vec(text: string): number[] {
@@ -53,13 +54,6 @@ vi.mock('../memory/embedding-operations.js', () => ({
   }),
 }));
 
-vi.mock('../memory/hnsw-operations.js', () => ({
-  searchHNSWIndex: async () =>
-    hnswServes
-      ? [{ id: 'h1', key: 'jwt-auth', content: 'JWT refresh token rotation', score: 0.91, namespace: 'ns' }]
-      : null,
-}));
-
 import { searchEntries } from '../memory/memory-read.js';
 
 const FIXTURE_DIR = mkdtempSync(join(tmpdir(), 'mm-sqljs-method-'));
@@ -89,36 +83,17 @@ describe('sql.js fallback paths report the method that actually ran', () => {
 
   beforeEach(() => {
     embedModel = 'onnx';
-    hnswServes = true;
   });
 
-  it('HNSW path reports "semantic" only when a real embedding model produced the query vector', async () => {
+  it('brute-force path reports "hybrid" with a real model', async () => {
     const res = await searchEntries({ query: 'jwt refresh', namespace: 'ns', dbPath: DB_PATH, threshold: 0.1 });
     expect(res.success).toBe(true);
     expect(res.results.length).toBeGreaterThan(0);
-    expect(res.searchMethod).toBe('semantic');
-    expect(res.fallbackReason).toBeUndefined();
-  }, 60_000);
-
-  it('HNSW path does NOT claim "semantic" when the query vector is the hash fallback', async () => {
-    embedModel = 'hash-fallback';
-    const res = await searchEntries({ query: 'jwt refresh', namespace: 'ns', dbPath: DB_PATH, threshold: 0.1 });
-    expect(res.success).toBe(true);
-    expect(res.searchMethod).not.toBe('semantic');
-    expect(res.searchMethod).toBe('hash-vector');
-    expect(res.fallbackReason).toBe('no-embedding-model');
-  }, 60_000);
-
-  it('brute-force path reports "hybrid" with a real model', async () => {
-    hnswServes = false;
-    const res = await searchEntries({ query: 'jwt refresh', namespace: 'ns', dbPath: DB_PATH, threshold: 0.1 });
-    expect(res.success).toBe(true);
     expect(res.searchMethod).toBe('hybrid');
     expect(res.fallbackReason).toBeUndefined();
   }, 60_000);
 
   it('brute-force path does NOT claim "hybrid" cosine when the vectors are hash fallbacks', async () => {
-    hnswServes = false;
     embedModel = 'hash-fallback';
     const res = await searchEntries({ query: 'jwt refresh', namespace: 'ns', dbPath: DB_PATH, threshold: 0.1 });
     expect(res.success).toBe(true);

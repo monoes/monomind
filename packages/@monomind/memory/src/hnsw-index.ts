@@ -187,6 +187,24 @@ class BinaryMaxHeap<T> {
 }
 
 /**
+ * On-disk representation produced by HNSWIndex.serialize() / consumed by
+ * HNSWIndex.deserialize(). `version` guards against loading a shape from a
+ * future/incompatible format.
+ */
+export interface HNSWSerialized {
+  version: 1;
+  config: HNSWConfig;
+  entryPoint: string | null;
+  maxLevel: number;
+  nodes: Array<{
+    id: string;
+    vectorB64: string;
+    level: number;
+    connections: Array<[number, string[]]>;
+  }>;
+}
+
+/**
  * Internal node structure for HNSW graph
  */
 interface HNSWNode {
@@ -472,6 +490,59 @@ export class HNSWIndex extends EventEmitter {
       vectorCount: this.nodes.size,
       buildTime,
     });
+  }
+
+  /**
+   * Serialize the built graph (config, entry point, and every node's vector +
+   * per-level connections) so a caller can persist it to disk and reconstruct
+   * an identical index later without re-inserting every point. Vectors are
+   * base64-encoded Float32 bytes rather than JSON number arrays to keep the
+   * serialized size and parse cost down for large indexes.
+   *
+   * Not supported for quantized indexes (quantizer state isn't captured) —
+   * throws rather than silently producing a graph that would deserialize
+   * with the wrong vector encoding.
+   */
+  serialize(): HNSWSerialized {
+    if (this.quantizer) {
+      throw new Error('HNSWIndex.serialize() does not support quantized indexes');
+    }
+    const nodes: HNSWSerialized['nodes'] = [];
+    for (const node of this.nodes.values()) {
+      const buf = Buffer.from(node.vector.buffer, node.vector.byteOffset, node.vector.byteLength);
+      nodes.push({
+        id: node.id,
+        vectorB64: buf.toString('base64'),
+        level: node.level,
+        connections: Array.from(node.connections.entries()).map(([lvl, set]) => [lvl, Array.from(set)]),
+      });
+    }
+    return {
+      version: 1,
+      config: this.config,
+      entryPoint: this.entryPoint,
+      maxLevel: this.maxLevel,
+      nodes,
+    };
+  }
+
+  /** Reconstruct an index previously produced by serialize(). */
+  static deserialize(data: HNSWSerialized): HNSWIndex {
+    if (data.version !== 1) {
+      throw new Error(`HNSWIndex.deserialize: unsupported version ${data.version}`);
+    }
+    const index = new HNSWIndex(data.config);
+    for (const n of data.nodes) {
+      const buf = Buffer.from(n.vectorB64, 'base64');
+      const vector = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+      const normalizedVector = data.config.metric === 'cosine' ? index.normalizeVector(vector) : null;
+      const connections = new Map<number, Set<string>>();
+      for (const [lvl, ids] of n.connections) connections.set(lvl, new Set(ids));
+      index.nodes.set(n.id, { id: n.id, vector, normalizedVector, connections, level: n.level });
+    }
+    index.entryPoint = data.entryPoint;
+    index.maxLevel = data.maxLevel;
+    return index;
   }
 
   /**
