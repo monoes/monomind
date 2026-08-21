@@ -17,7 +17,11 @@
  */
 
 import { EventEmitter } from 'node:events';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { writeFileAtomicSync } from './atomic-file.js';
 import { cosineSimilarity } from './math-utils.js';
+import { HNSWIndex, type HNSWSerialized } from './hnsw-index.js';
 import type { SqlDriver, SqlParam } from './sql-driver.js';
 import { initializeSchema, hasFTS5Table, type MigrationReport } from './sql-schema.js';
 import {
@@ -65,6 +69,164 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   private stats = { queryCount: 0, totalQueryTime: 0, writeCount: 0, totalWriteTime: 0 };
   /** Debounce counter: the agent_reads purge is expensive, so it is amortised. */
   private _readCount = 0;
+
+  // ===== ANN (HNSW) fast path for search() ==================================
+  // Below MONOMIND_HNSW_THRESHOLD active embedded entries, brute-force cosine
+  // (a few tens of ms per the docstring on search() below) stays cheaper than
+  // building and maintaining a graph. Above it, an index is built once per
+  // (dimensions, entry-count) pair and reused — a changed count is the
+  // invalidation signal, since store/delete are the only ways to change it.
+  private _annIndex: HNSWIndex | null = null;
+  private _annEntries: Map<string, MemoryEntry> = new Map();
+  private _annDimensions = 0;
+  private _annBuiltForCount = -1;
+
+  private static readonly ANN_THRESHOLD = (() => {
+    const raw = process.env.MONOMIND_HNSW_THRESHOLD;
+    const n = raw !== undefined ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 5000;
+  })();
+
+  /** Directory to cache the built ANN graph in, next to the real DB file.
+   *  Returns null (no persistence) for in-memory databases — there is no
+   *  stable location to cache next to, and the process-lifetime in-memory
+   *  cache above already covers repeated searches within one run. */
+  protected getAnnCacheDir(): string | null {
+    return null;
+  }
+
+  private annCachePath(): string | null {
+    const dir = this.getAnnCacheDir();
+    return dir ? join(dir, 'hnsw-index.json') : null;
+  }
+
+  private countEmbeddedActiveEntries(): number {
+    const row = this.driver!.get(
+      `SELECT COUNT(*) as c FROM memory_entries e
+        JOIN memory_embeddings emb ON emb.entry_id = e.id
+       WHERE (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)`,
+      [Date.now()],
+    ) as { c: number } | undefined;
+    return row?.c ?? 0;
+  }
+
+  /**
+   * Returns a ready-to-search ANN index for the given embedding dimensions,
+   * or null when the corpus is below ANN_THRESHOLD (brute force stays the
+   * search path). Tries, in order: the process-lifetime cache, a valid
+   * on-disk cache (skips the DB read + graph build entirely), then a full
+   * rebuild from memory_embeddings (writing a fresh on-disk cache for next
+   * time).
+   */
+  private async getAnnIndex(dimensions: number, force = false): Promise<{ index: HNSWIndex; entries: Map<string, MemoryEntry> } | null> {
+    const count = this.countEmbeddedActiveEntries();
+    if (!force && count < SqlBackend.ANN_THRESHOLD) return null;
+
+    if (!force && this._annIndex && this._annDimensions === dimensions && this._annBuiltForCount === count) {
+      return { index: this._annIndex, entries: this._annEntries };
+    }
+
+    const cachePath = this.annCachePath();
+    if (!force && cachePath && existsSync(cachePath)) {
+      try {
+        const parsed = JSON.parse(readFileSync(cachePath, 'utf8')) as {
+          entryCount: number;
+          dimensions: number;
+          index: HNSWSerialized;
+          entries: Array<[string, MemoryEntry]>;
+        };
+        if (parsed.entryCount === count && parsed.dimensions === dimensions) {
+          const index = HNSWIndex.deserialize(parsed.index);
+          const entries = new Map(parsed.entries);
+          this._annIndex = index;
+          this._annDimensions = dimensions;
+          this._annBuiltForCount = count;
+          this._annEntries = entries;
+          return { index, entries };
+        }
+      } catch {
+        // Corrupt or incompatible cache — fall through to a full rebuild.
+      }
+    }
+
+    const rows = this.driver!.iterate(
+      `SELECT e.*, emb.embedding AS _emb
+         FROM memory_entries e
+         JOIN memory_embeddings emb ON emb.entry_id = e.id
+        WHERE (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)`,
+      [Date.now()],
+    );
+
+    const index = new HNSWIndex({ dimensions, metric: 'cosine' });
+    const entries = new Map<string, MemoryEntry>();
+    const points: Array<{ id: string; vector: Float32Array }> = [];
+    for (const row of rows) {
+      const buf = row._emb as Buffer | Uint8Array | undefined;
+      if (!buf || buf.byteLength % 4 !== 0) continue;
+      const vec = new Float32Array(buf.buffer as ArrayBuffer, buf.byteOffset, buf.byteLength / 4);
+      if (vec.length !== dimensions) continue;
+      const entry = this.rowToEntry(row);
+      points.push({ id: entry.id, vector: vec });
+      entries.set(entry.id, entry);
+    }
+    await index.rebuild(points);
+
+    this._annIndex = index;
+    this._annDimensions = dimensions;
+    this._annBuiltForCount = count;
+    this._annEntries = entries;
+
+    if (cachePath) {
+      try {
+        writeFileAtomicSync(
+          cachePath,
+          JSON.stringify({ entryCount: count, dimensions, index: index.serialize(), entries: Array.from(entries.entries()) }),
+        );
+      } catch {
+        // Best-effort — a failed cache write just means the next cold start rebuilds.
+      }
+    }
+
+    return { index, entries };
+  }
+
+  /**
+   * Diagnostics for `memory search --build-hnsw` / status reporting. Read-only
+   * — does not build the index as a side effect.
+   */
+  getAnnStatus(): {
+    thresholdEntries: number;
+    activeEmbeddedEntries: number;
+    built: boolean;
+    entryCount: number;
+    dimensions: number;
+    cachePath: string | null;
+  } {
+    return {
+      thresholdEntries: SqlBackend.ANN_THRESHOLD,
+      activeEmbeddedEntries: this.countEmbeddedActiveEntries(),
+      built: this._annIndex !== null,
+      entryCount: this._annEntries.size,
+      dimensions: this._annDimensions,
+      cachePath: this.annCachePath(),
+    };
+  }
+
+  /**
+   * Force-build (or reload from a valid on-disk cache) the ANN index
+   * regardless of ANN_THRESHOLD — the real implementation behind
+   * `memory search --build-hnsw`. Below the threshold, search() itself
+   * still uses brute force; this only pre-warms the index and its cache.
+   */
+  async forceBuildAnnIndex(dimensions: number): Promise<{ entryCount: number; dimensions: number; cachePath: string | null }> {
+    this.ensureInitialized();
+    const result = await this.getAnnIndex(dimensions, true);
+    return {
+      entryCount: result?.entries.size ?? 0,
+      dimensions,
+      cachePath: this.annCachePath(),
+    };
+  }
 
   constructor(config: Partial<SqlBackendConfig> = {}) {
     super();
@@ -456,14 +618,35 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Semantic search — brute-force cosine over stored embeddings, namespace- and
-   * TTL-filtered in SQL. At second-brain scale (10^3–10^5 vectors of 384 dims)
-   * this is a few tens of ms; swap in an ANN index if a profiled workload
-   * outgrows it.
+   * Semantic search. Below MONOMIND_HNSW_THRESHOLD active embedded entries
+   * (default 5000), brute-force cosine over stored embeddings — namespace-
+   * and TTL-filtered in SQL — stays cheaper (a few tens of ms at second-brain
+   * scale). Above it, getAnnIndex() builds (or loads a persisted) HNSW graph
+   * and this searches that instead; results are still namespace/threshold
+   * filtered post-search to match the brute-force semantics exactly.
    */
   async search(embedding: Float32Array, options: SearchOptions): Promise<SearchResult[]> {
     this.ensureInitialized();
     const ns = options.filters?.namespace;
+
+    const ann = await this.getAnnIndex(embedding.length).catch(() => null);
+    if (ann) {
+      const overFetch = Math.max(options.k * 4, options.k + 20);
+      const raw = await ann.index.search(embedding, overFetch);
+      const results: SearchResult[] = [];
+      for (const r of raw) {
+        const entry = ann.entries.get(r.id);
+        if (!entry) continue;
+        if (ns && entry.namespace !== ns) continue;
+        const score = 1 - r.distance;
+        if (options.threshold !== undefined && score < options.threshold) continue;
+        results.push({ entry, score, distance: r.distance });
+        if (results.length >= options.k) break;
+      }
+      results.sort((a, b) => b.score - a.score);
+      return results;
+    }
+
     const rows = this.driver!.iterate(
       `SELECT e.*, emb.embedding AS _emb
          FROM memory_entries e
