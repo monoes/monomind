@@ -153,9 +153,9 @@ const benchmarkCommand: Command = {
     // 3. HNSW Search Benchmark
     if (suite === 'all' || suite === 'search') {
       spinner.setText('Benchmarking HNSW search...');
-      const hnswStatus = getHNSWStatus();
+      const hnswStatus = await getHNSWStatus();
 
-      if (hnswStatus.available && hnswStatus.entryCount > 0) {
+      if (hnswStatus && hnswStatus.available && hnswStatus.entryCount > 0) {
         const searchTimes: number[] = [];
         const testQueries = [
           'error handling patterns',
@@ -439,7 +439,7 @@ const metricsCommand: Command = {
     let hnswEntries = 0;
     try {
       const { getHNSWStatus } = await import('../memory/memory-initializer.js');
-      const status = getHNSWStatus();
+      const status = await getHNSWStatus();
       hnswEntries = status?.entryCount || 0;
     } catch { /* HNSW not initialized */ }
 
