@@ -75,6 +75,7 @@ export type { SQLiteBackendConfig } from './sqlite-backend.js';
 export { SqlJsBackend } from './sqljs-backend.js';
 export type { SqlJsBackendConfig } from './sqljs-backend.js';
 export { HNSWIndex } from './hnsw-index.js';
+export type { HNSWSerialized } from './hnsw-index.js';
 export { CacheManager } from './cache-manager.js';
 export { QueryBuilder, query, QueryTemplates } from './query-builder.js';
 export type { SortDirection, SortField } from './query-builder.js';

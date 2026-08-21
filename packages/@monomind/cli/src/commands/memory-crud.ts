@@ -267,7 +267,7 @@ export const searchCommand: Command = {
     },
     {
       name: 'build-hnsw',
-      description: 'Build/rebuild the pure-JS HNSW fallback index. Only used when the SQLite bridge is unavailable (e.g. better-sqlite3 native binary failed to load) — has no effect on the search that follows when the bridge is active, which is the common case',
+      description: 'Force-build the HNSW ANN index against the current memory database, regardless of MONOMIND_HNSW_THRESHOLD, and cache it to disk. search() itself only uses this index automatically once the active embedded-entry count crosses the threshold — below it, brute-force cosine stays the search path. Requires the SQLite bridge to be available.',
       type: 'boolean',
       default: false
     }
@@ -275,7 +275,7 @@ export const searchCommand: Command = {
   examples: [
     { command: 'monomind memory search -q "authentication patterns"', description: 'Semantic search' },
     { command: 'monomind memory search -q "JWT" -t keyword', description: 'Keyword search' },
-    { command: 'monomind memory search -q "test" --build-hnsw', description: 'Build the sql.js-fallback HNSW index (no-op unless the SQLite bridge is down)' }
+    { command: 'monomind memory search -q "test" --build-hnsw', description: 'Pre-build and cache the HNSW ANN index' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string || ctx.args[0];
@@ -290,33 +290,27 @@ export const searchCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    // Build/rebuild the sql.js-fallback HNSW index if requested. This index is only
-    // consulted when the SQLite bridge is unavailable — check that first so the
-    // message reflects what will actually happen in the search below, not what
-    // would happen if this were the only backend.
     if (buildHnsw) {
-      const { isBridgeAvailable } = await import('../memory/memory-bridge.js');
-      const bridgeUp = await isBridgeAvailable().catch(() => false);
-
-      output.printInfo('Building HNSW fallback index...');
+      output.printInfo('Building HNSW ANN index...');
       try {
-        const { getHNSWIndex, getHNSWStatus } = await import('../memory/memory-initializer.js');
+        const { bridgeForceBuildHNSW, bridgeGetHNSWStatus } = await import('../memory/memory-bridge.js');
 
         const startTime = Date.now();
-        const index = await getHNSWIndex({ forceRebuild: true });
+        const built = await bridgeForceBuildHNSW();
         const buildTime = Date.now() - startTime;
 
-        if (index) {
-          const status = getHNSWStatus();
-          output.printSuccess(`HNSW index built (${status.entryCount} vectors, ${buildTime}ms)`);
-          output.writeln(output.dim(`  Dimensions: ${status.dimensions}, Metric: cosine`));
-          if (bridgeUp) {
-            output.writeln(output.dim('  Note: the SQLite bridge is active, so the search below uses its brute-force cosine search, not this index. This index only kicks in if the bridge becomes unavailable.'));
-          } else {
-            output.writeln(output.dim('  SQLite bridge is unavailable — the search below will use this index (O(log n) vs O(n) linear scan).'));
+        if (built) {
+          const status = await bridgeGetHNSWStatus();
+          output.printSuccess(`HNSW index built (${built.entryCount} vectors, ${buildTime}ms)`);
+          output.writeln(output.dim(`  Dimensions: ${built.dimensions}, Metric: cosine`));
+          if (built.cachePath) {
+            output.writeln(output.dim(`  Cached to: ${built.cachePath}`));
+          }
+          if (status && status.activeEmbeddedEntries < status.thresholdEntries) {
+            output.writeln(output.dim(`  Note: ${status.activeEmbeddedEntries} active embedded entries is below the ${status.thresholdEntries}-entry threshold — the search below still uses brute-force cosine (which is faster at this scale). This index is cached but won't be used automatically until the corpus grows past the threshold.`));
           }
         } else {
-          output.printWarning('HNSW index not available');
+          output.printWarning('HNSW index not available — the SQLite bridge could not be reached');
         }
         output.writeln();
       } catch (error) {
