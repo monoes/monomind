@@ -212,7 +212,7 @@ emitted for new projects by `src/init/claudemd-generator.ts` stops at code 9.
 
 | Command       | Subcommands | Description                                                                   | Status           |
 | ------------- | ----------- | ----------------------------------------------------------------------------- | ---------------- |
-| `security`    | 6           | Security scanning (scan, cve, audit, secrets, defend, redteam). `audit --action export/log/clear` and `redteam --target` (live execution) are unimplemented | Partial |
+| `security`    | 6           | Security scanning (scan, cve, audit, secrets, defend, redteam). `audit --action list/log/export/clear` reads/writes a real audit trail; `redteam --target` (live execution) is unimplemented | Partial |
 | `performance` | 4           | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements | Working     |
 | `providers`   | 4           | AI providers (list, configure, remove, test)                                  | Working          |
 | `guidance`    | 1           | Governance gate setup (`guidance setup`)                                      | Working          |

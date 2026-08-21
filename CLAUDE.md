@@ -164,7 +164,7 @@ npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --stra
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| `security` | 6 | Security scanning (scan, cve, audit, secrets, defend, redteam). `audit --action export/log/clear` and `redteam --target` are unimplemented |
+| `security` | 6 | Security scanning (scan, cve, audit, secrets, defend, redteam). `audit --action list/log/export/clear` reads/writes a real audit trail; `redteam --target` (live execution) is unimplemented |
 | `performance` | 4 | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements |
 | `providers` | 4 | AI providers (list, configure, remove, test) |
 | `guidance` | 1 | Governance gate setup (`guidance setup`) |
