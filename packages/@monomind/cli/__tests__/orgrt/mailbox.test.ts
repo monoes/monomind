@@ -185,4 +185,31 @@ describe('closeReason (#205: budget-exhausted boss vs. genuinely unreachable)', 
     mb.deserialize({ queue: [], closed: true, consumedReal: 0 });
     expect(mb.closeReason).toBeUndefined();
   });
+
+  it('first write wins: a second close() call does not overwrite the first reason', () => {
+    // Mirrors session.ts's result-message handler, where a circuit-breaker
+    // trip (close(), no reason) and a budget check (close('token-budget'))
+    // are independent sibling `if`s that can both fire for one message —
+    // without first-write-wins, the terminal circuit-breaker close would
+    // silently get misclassified as a recoverable budget close, and the
+    // resume path would reopen a role meant to require manual intervention.
+    const mb = new Mailbox();
+    mb.close(); // e.g. circuit-breaker trip — genuinely terminal
+    mb.close('token-budget'); // e.g. a sibling budget check firing after
+    expect(mb.closeReason).toBeUndefined();
+  });
+
+  it('first write wins: a recoverable reason is not overwritten by a later plain close()', () => {
+    const mb = new Mailbox();
+    mb.close('usd-budget');
+    mb.close();
+    expect(mb.closeReason).toBe('usd-budget');
+  });
+
+  it('first write wins: two conflicting recoverable reasons keep the first', () => {
+    const mb = new Mailbox();
+    mb.close('token-budget');
+    mb.close('usd-budget');
+    expect(mb.closeReason).toBe('token-budget');
+  });
 });
