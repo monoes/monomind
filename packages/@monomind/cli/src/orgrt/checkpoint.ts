@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { randomBytes, createHash } from 'node:crypto';
 import type { AgentRuntime, RunningOrg } from './daemon.js';
+import { isRecoverableCloseReason } from './mailbox.js';
 
 /** Checkpoint state for a single agent role */
 export interface RoleCheckpoint {
@@ -10,6 +11,10 @@ export interface RoleCheckpoint {
   mailboxQueue: string[];
   /** Whether the mailbox was closed */
   mailboxClosed: boolean;
+  /** Why it was closed, if given a reason (e.g. 'token-budget') — see
+   *  isRecoverableCloseReason in mailbox.ts; resume checks this before
+   *  re-closing the restored mailbox. */
+  mailboxCloseReason?: string;
   /** Token usage counter from policy engine */
   tokensUsed: number;
   /** Cost tracking */
@@ -69,6 +74,7 @@ export function captureCheckpoint(
     roleState[roleId] = {
       mailboxQueue: runtime.mailbox.serialize().queue,
       mailboxClosed: runtime.mailbox.isClosed,
+      mailboxCloseReason: runtime.mailbox.closeReason,
       tokensUsed: runtime.policy.usage,
       costUsd: runtime.metrics.costUsd,
       lastMessageId: runtime.lastMessageId,
@@ -199,9 +205,18 @@ export function mergeCheckpoint(
       restoreMailboxQueue(runtime, roleState.mailboxQueue);
     }
 
-    // Restore mailbox closed state
-    if (roleState.mailboxClosed && !runtime.mailbox.isClosed) {
-      runtime.mailbox.close();
+    // Restore mailbox closed state — EXCEPT for a recoverable close
+    // (budget exhaustion): re-closing it here would mean the idle
+    // watchdog's "raise the budget and resume from checkpoint" remedy
+    // silently does nothing, since nothing in this codebase ever reopens a
+    // closed mailbox otherwise. Leave it open so the resumed session can
+    // actually receive its next message.
+    if (
+      roleState.mailboxClosed &&
+      !runtime.mailbox.isClosed &&
+      !isRecoverableCloseReason(roleState.mailboxCloseReason)
+    ) {
+      runtime.mailbox.close(roleState.mailboxCloseReason);
     }
 
     // Restore policy usage counters
