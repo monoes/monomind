@@ -27,6 +27,7 @@ describe('dagBlockTask', () => {
     const t = dag.add('Analyze soak evidence', 'performance-engineer');
     dag.markRunning(t.id);
     const { daemon, events } = fakeDaemon(dag);
+    const untilIso = new Date(Date.now() + 60_000).toISOString();
 
     const result = JSON.parse(
       dagBlockTask(
@@ -34,7 +35,7 @@ describe('dagBlockTask', () => {
         'myorg',
         'performance-engineer',
         t.id,
-        '2026-08-19T09:00:00Z',
+        untilIso,
         'Waiting on soak test',
       ),
     );
