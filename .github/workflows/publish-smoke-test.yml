@@ -112,6 +112,28 @@ jobs:
           echo "tarball_path=$(pwd)/${TARBALL}" >> "$GITHUB_OUTPUT"
           echo "Packed: ${TARBALL}"
 
+      # `pnpm pack` rewrote monomind's "workspace:*" dep on @monoes/monomindcli
+      # into a plain version range pinned to whatever's in this checkout's
+      # package.json — which is routinely ahead of what's actually on the npm
+      # registry (versions get bumped well before a release is cut). A bare
+      # `npm install <monomind tarball>` then tries to resolve that sibling
+      # from the registry and fails with ETARGET on every PR that hasn't
+      # shipped yet, regardless of whether the code itself is broken. Packing
+      # the CLI tarball too and installing both together in one npm command
+      # lets npm satisfy that dependency from the local tarball instead of
+      # the registry — exactly what a real user gets once both are published,
+      # without requiring monomindcli to have shipped first.
+      - name: pnpm pack (@monoes/monomindcli, monomind's sibling dependency)
+        if: matrix.package.name == 'monomind'
+        id: pack_cli_sibling
+        working-directory: packages/@monomind/cli
+        run: |
+          set -euo pipefail
+          pnpm pack --json > /tmp/pnpm-pack-output-cli-sibling.json
+          TARBALL="$(sed -n '/^{/,$p' /tmp/pnpm-pack-output-cli-sibling.json | node -e "console.log(JSON.parse(require('fs').readFileSync(0,'utf8')).filename)")"
+          echo "tarball_path=$(pwd)/${TARBALL}" >> "$GITHUB_OUTPUT"
+          echo "Packed: ${TARBALL}"
+
       - name: Install tarball into a fresh empty project
         run: |
           set -euo pipefail
@@ -119,7 +141,7 @@ jobs:
           echo "install_dir=${INSTALL_DIR}" >> "$GITHUB_ENV"
           cd "${INSTALL_DIR}"
           npm init -y >/dev/null
-          npm install "${{ steps.pack.outputs.tarball_path }}"
+          npm install "${{ steps.pack.outputs.tarball_path }}" ${{ steps.pack_cli_sibling.outputs.tarball_path }}
 
       - name: Run --version against the installed tarball
         working-directory: ${{ env.install_dir }}
