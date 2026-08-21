@@ -289,6 +289,91 @@ describe('control-start: confirmPort waits on liveness, not a fixed budget (#142
   });
 });
 
+describe('control-start: foreign-server pairing works without lsof (Windows regression)', () => {
+  // Regression: the "adopt a foreign project's dashboard server" pairing step
+  // (dashboard-token copy + known-projects.json self-registration) used to
+  // resolve the foreign server's pid/project-dir by shelling out to `lsof`
+  // (`lsof -ti :<port> -sTCP:LISTEN` then `lsof -a -p <pid> -d cwd -Fn`).
+  // `lsof` doesn't exist on Windows, so on Windows this pairing NEVER
+  // succeeded — control.json stayed stuck at pid:0 forever and
+  // dashboard-token was never refreshed after the shared server restarted,
+  // silently 401ing every subsequent event/hook call from the adopting
+  // project. fetchForeignServerInfo() replaces both lsof calls with a
+  // portable HTTP round trip (GET / for the open mm-token, then an
+  // authenticated GET /api/status for pid+dir) that works on every platform.
+  it('pairs dashboard-token and known-projects.json via HTTP only, using a dead childPid to force the foreign-server path', async () => {
+    const { spawn } = await import('child_process');
+    const port = isolatedPort();
+    const mockAuth = 'fixture-' + 'pairing-test-value';
+    const serverHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-serverhome-'));
+    // Real server homes always have a data/ dir (packaged with the CLI) —
+    // pre-create it so this test doesn't hit an unrelated missing-dir ENOENT.
+    fs.mkdirSync(path.join(serverHomeDir, 'data'), { recursive: true });
+
+    const mockScript = path.join(tmpDir, 'mock-foreign-server.cjs');
+    fs.writeFileSync(mockScript, `
+      const http = require('http');
+      const AUTH_VALUE = ${JSON.stringify(mockAuth)};
+      const server = http.createServer((req, res) => {
+        const url = req.url.split('?')[0];
+        if (url === '/') {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<head>\\n<meta name="mm-token" content="' + AUTH_VALUE + '">\\n</head>');
+          return;
+        }
+        if (url === '/api/status') {
+          if (req.headers['x-monomind-token'] !== AUTH_VALUE) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
+            return;
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ pid: process.pid, dir: ${JSON.stringify(serverHomeDir)} }));
+          return;
+        }
+        res.writeHead(404); res.end('Not found');
+      });
+      server.listen(${port}, 'localhost', () => process.stderr.write('READY'));
+    `);
+    const mock = spawn(process.execPath, [mockScript], { stdio: ['ignore', 'ignore', 'pipe'] });
+    await new Promise((resolve) => mock.stderr.on('data', resolve));
+
+    const boundReportPath = path.join(tmpDir, `.bound-report-${port}.json`);
+    try {
+      // childPid deliberately dead + not npx-fallback (CONFIRM_ATTEMPTS=20,
+      // 500ms/attempt) so runConfirm gives up on "is this our own child"
+      // after ~10s and falls into the sawForeignOnDefault pairing branch.
+      const r = spawnSync(process.execPath, [SCRIPT], {
+        cwd: tmpDir,
+        encoding: 'utf-8',
+        timeout: 35000,
+        env: {
+          ...process.env,
+          CLAUDE_PROJECT_DIR: tmpDir,
+          MONOMIND_HOOK_QUIET: '',
+          MONOMIND_CONTROL_CONFIRM_MODE: '1',
+          MONOMIND_CONTROL_CONFIRM_PID: '999999999',
+          MONOMIND_CONTROL_CONFIRM_PORT: String(port),
+          MONOMIND_CONTROL_CONFIRM_REPORT: boundReportPath,
+          MONOMIND_CONTROL_CONFIRM_NPX: '0',
+        },
+      });
+
+      expect(r.stdout).toContain('paired dashboard token and registered this project with the shared server');
+
+      const dstTok = path.join(tmpDir, '.monomind', 'dashboard-token');
+      expect(fs.readFileSync(dstTok, 'utf-8')).toBe(mockAuth);
+
+      const kpFile = path.join(serverHomeDir, 'data', 'known-projects.json');
+      const known = JSON.parse(fs.readFileSync(kpFile, 'utf-8'));
+      expect(known).toContain(tmpDir);
+    } finally {
+      mock.kill('SIGTERM');
+      fs.rmSync(serverHomeDir, { recursive: true, force: true });
+    }
+  }, 40000);
+});
+
 describe('control-start: confirmation runs detached from the hook-invoked process (#144)', () => {
   // The SessionStart hook that invokes this script has only a 5s timeout
   // (settings.json), far short of what confirmPort/runConfirm can

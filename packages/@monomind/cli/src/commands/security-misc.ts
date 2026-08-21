@@ -389,6 +389,10 @@ export const redteamCommand: Command = {
     }
 
     if (isDryRun) {
+      if (outputFmt === 'json') {
+        output.writeln(JSON.stringify({ prompts: allPrompts, threshold }, null, 2));
+        return { success: true, data: { prompts: allPrompts, dryRun: true } };
+      }
       output.writeln();
       output.writeln(output.bold('Security Red-Team Prompt Library'));
       output.writeln(output.dim('─'.repeat(50)));
@@ -404,9 +408,6 @@ export const redteamCommand: Command = {
       output.writeln(output.dim(`Total: ${allPrompts.length} prompts across ${selectedCategories.length} categories`));
       if (target) {
         output.writeln(output.dim(`To send these live: monomind security redteam --target ${target} --dry-run=false`));
-      }
-      if (outputFmt === 'json') {
-        output.writeln(JSON.stringify({ prompts: allPrompts, threshold }, null, 2));
       }
       return { success: true, data: { prompts: allPrompts, dryRun: true } };
     }

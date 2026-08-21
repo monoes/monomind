@@ -138,6 +138,69 @@ describe('SqlBackend ANN (HNSW) fast path', () => {
     await backend.shutdown();
   });
 
+  it('rebuilds when an existing entry is re-embedded in place (count unchanged)', async () => {
+    process.env.MONOMIND_HNSW_THRESHOLD = '3';
+    vi.resetModules();
+    const { SQLiteBackend } = await import('./sqlite-backend.js');
+    const { HNSWIndex } = await import('./hnsw-index.js');
+
+    const backend = new SQLiteBackend({ databasePath: dbPath, walMode: false });
+    await backend.initialize();
+    await seedEntries(backend, 5);
+    await backend.search(makeEmbedding(0), { k: 1 }); // first build, caches k3's original vector
+
+    // Re-store the SAME id/key with a NEW embedding — total row count is
+    // unchanged, but the vector for k3 has moved. Without the fingerprint
+    // fix, the cached graph would keep serving k3's stale vector forever.
+    const before = await backend.get((await backend.query({ type: 'exact', key: 'k3', limit: 1 }))[0].id);
+    expect(before).not.toBeNull();
+    // +1 isn't safe here: entries stored later in the seed loop already have a
+    // higher updatedAt than k3's own, so bump well past all of them instead.
+    const updated = { ...before!, embedding: makeEmbedding(99), updatedAt: before!.updatedAt + 1_000_000 };
+    await backend.store(updated);
+
+    const rebuildSpy = vi.spyOn(HNSWIndex.prototype, 'rebuild');
+    const results = await backend.search(makeEmbedding(99), { k: 1 });
+    expect(results[0].entry.key).toBe('k3');
+    expect(rebuildSpy).toHaveBeenCalledTimes(1);
+    await backend.shutdown();
+  });
+
+  it('widens the ANN search when a namespace filter would otherwise miss a real match', async () => {
+    process.env.MONOMIND_HNSW_THRESHOLD = '3';
+    vi.resetModules();
+    const { SQLiteBackend } = await import('./sqlite-backend.js');
+    const { createDefaultEntry } = await import('./types.js');
+
+    const dim = 16;
+    const closeVec = (jitter: number) => {
+      const v = new Float32Array(dim).fill(1);
+      v[0] += jitter * 0.001; // tiny per-entry variation, still ~identical direction
+      return v;
+    };
+    const farVec = () => new Float32Array(dim).fill(-1); // diametrically opposite — always ranks last
+
+    const backend = new SQLiteBackend({ databasePath: dbPath, walMode: false });
+    await backend.initialize();
+
+    // 30 entries all clustered near the query vector, in a namespace the
+    // query is NOT asking for — these dominate the default over-fetch window.
+    for (let i = 0; i < 30; i++) {
+      const e = createDefaultEntry({ key: `big${i}`, content: `big ${i}`, namespace: 'big' });
+      e.embedding = closeVec(i);
+      await backend.store(e);
+    }
+    // One entry, far from the query in vector space, in the namespace being searched.
+    const target = createDefaultEntry({ key: 'target', content: 'target', namespace: 'small' });
+    target.embedding = farVec();
+    await backend.store(target);
+
+    const results = await backend.search(closeVec(0), { k: 1, filters: { type: 'semantic', namespace: 'small' } });
+    expect(results).toHaveLength(1);
+    expect(results[0].entry.key).toBe('target');
+    await backend.shutdown();
+  });
+
   it('namespace and threshold filtering still apply on the ANN path', async () => {
     process.env.MONOMIND_HNSW_THRESHOLD = '3';
     vi.resetModules();
