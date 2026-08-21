@@ -91,4 +91,40 @@ describe('parseToolCalls', () => {
     expect(calls).toHaveLength(1);
     expect((calls[0].arguments as { message: string }).message).toBe('use { and }');
   });
+
+  // #202: a fence cut off before its closing ``` (the model hit its
+  // per-response output limit mid-argument) never matches TOOL_CALL_RE at
+  // all, so it used to be silently dropped — no tool executed, no feedback,
+  // the model believing its call succeeded.
+  it('reports a truncated fence (no closing ```) via onMalformed and executes nothing', () => {
+    const text = '```tool_call\n{"name": "org_gate", "arguments": {"name": "publish", "description": "a very long description that got cut off mid';
+    const onMalformed = vi.fn();
+    const calls = parseToolCalls([text], onMalformed);
+    expect(calls).toEqual([]);
+    expect(onMalformed).toHaveBeenCalledTimes(1);
+    const [raw, err] = onMalformed.mock.calls[0] as [string, string];
+    expect(raw).toContain('org_gate');
+    expect(err).toMatch(/truncated/i);
+  });
+
+  it('does not flag a well-formed fence as truncated', () => {
+    const text = fence('{"name": "org_send", "arguments": {"to": "a", "message": "hi"}}');
+    const onMalformed = vi.fn();
+    const calls = parseToolCalls([text], onMalformed);
+    expect(calls).toHaveLength(1);
+    expect(onMalformed).not.toHaveBeenCalled();
+  });
+
+  it('flags a truncated fence following a well-formed one, without re-flagging the well-formed one', () => {
+    const text =
+      fence('{"name": "org_send", "arguments": {"to": "a", "message": "1"}}') +
+      '\n```tool_call\n{"name": "org_gate", "arguments": {"description": "cut off mid';
+    const onMalformed = vi.fn();
+    const calls = parseToolCalls([text], onMalformed);
+    expect(calls.map((c) => c.name)).toEqual(['org_send']);
+    expect(onMalformed).toHaveBeenCalledTimes(1);
+    const [raw, err] = onMalformed.mock.calls[0] as [string, string];
+    expect(raw).toContain('org_gate');
+    expect(err).toMatch(/truncated/i);
+  });
 });

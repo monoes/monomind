@@ -348,9 +348,14 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // previous run before polling.
   clearStopfile(ctx.cwd, name);
   const stopfile = join(ctx.cwd, ORG_DIR, name, 'stop');
+  // #206: a human explicitly running `monomind org stop` is a deliberate,
+  // successful action regardless of how the run itself ended — capture that
+  // BEFORE clearStopfile() below wipes the file, so it isn't lost.
+  let stoppedManually = false;
   await new Promise<void>(resolvePromise => {
     const iv = setInterval(() => {
-      if (existsSync(stopfile) || !daemon.getOrg(name)) { clearInterval(iv); resolvePromise(); }
+      if (existsSync(stopfile)) { stoppedManually = true; clearInterval(iv); resolvePromise(); }
+      else if (!daemon.getOrg(name)) { clearInterval(iv); resolvePromise(); }
     }, 2000);
     process.once('SIGINT', () => { clearInterval(iv); resolvePromise(); });
     process.once('SIGTERM', () => { clearInterval(iv); resolvePromise(); });
@@ -358,8 +363,46 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   clearStopfile(ctx.cwd, name);
   await daemon.stopAll();
   srv?.close();
-  return { success: true, message: `org ${name} stopped` };
+
+  if (stoppedManually) return { success: true, message: `org ${name} stopped` };
+
+  // #206: 'org run' used to exit 0 unconditionally here — a crashed or
+  // watchdog-stopped run was indistinguishable from a completed one to any
+  // script or supervisor (launchd/systemd) driving off the exit code. Re-read
+  // the daemon's final record (same runtime.json pattern isOrgRunning/
+  // statusAction already use below) and only report success for a run that
+  // actually finished its goal via org_complete.
+  let final: RunTerminalState = {};
+  try {
+    final = JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, name, 'runtime.json'), 'utf8'));
+  } catch { /* best-effort — falls through to the non-clean-stop case below */ }
+
+  return runOutcomeResult(name, final);
 };
+
+/** Just the fields determineRunOutcome needs from runtime.json. */
+type RunTerminalState = { status?: string; closedBy?: string; error?: string };
+
+/** Decides `org run`'s exit-code-bearing CommandResult from the run's final
+ *  recorded state. Extracted (matching resolvedIdleNudgeCount's precedent for
+ *  the idle watchdog) so this decision is unit-testable without spinning up a
+ *  real daemon/org. Exit 0 ONLY for a clean, goal-driven end (closedBy:
+ *  'org-complete', set by daemon.ts's org-complete auto-stop path) — every
+ *  other outcome (idle-watchdog stop, boss-restart-exhausted, a process-level
+ *  crash) exits 1 so scripts/supervisors can tell success from failure. */
+export function runOutcomeResult(name: string, final: RunTerminalState): CommandResult {
+  if (final.closedBy === 'org-complete') {
+    return { success: true, message: `org ${name} completed` };
+  }
+  if (final.status === 'crashed') {
+    return { success: false, message: `org ${name} crashed: ${final.error ?? 'unknown error'}`, exitCode: 1 };
+  }
+  return {
+    success: false,
+    message: `org ${name} stopped without completing (not via org_complete) — check 'monomind org status ${name}' or the run history for the reason`,
+    exitCode: 1,
+  };
+}
 
 /** True when runtime.json records a running org whose recorded pid is still alive. */
 const isOrgRunning = (cwd: string, name: string): boolean => {

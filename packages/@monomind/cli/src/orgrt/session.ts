@@ -571,13 +571,16 @@ async function runOneSession(opts: SessionOpts, resume?: string, costTotals?: Ma
           opts.circuitBreaker.state.failures = 0;
         }
         if (policy.overBudget) {
-          bus.emit({ type: 'status', from: role.id, msg: 'token budget exhausted - closing session' });
-          mailbox.close();
+          bus.emit({ type: 'status', from: role.id, reason: 'budget-exhausted', msg: 'token budget exhausted - closing session' });
+          // #205: tag WHY the mailbox closed. A budget-exhausted boss is
+          // recoverable (raise the budget, resume) — the idle watchdog reads
+          // this to stop reporting it as generic "unreachable" (crash-like).
+          mailbox.close('token-budget');
         }
         // ORG-7: parallel USD-budget enforcement, same pattern as the token check above.
         if (policy.overBudgetUsd) {
           bus.emit({ type: 'status', from: role.id, reason: 'budget-exhausted', msg: 'USD budget exhausted - closing session' });
-          mailbox.close();
+          mailbox.close('usd-budget');
         }
       }
     }

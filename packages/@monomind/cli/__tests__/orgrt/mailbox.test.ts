@@ -99,3 +99,90 @@ describe('restart-window message safety (swarm finding #2)', () => {
     expect(next.done).toBe(true);
   });
 });
+
+describe('reclaimInFlight (#203: crash-retry parking the session forever)', () => {
+  it('puts a mid-flight message back at the front of the queue when the generator is abandoned mid-yield', async () => {
+    const mb = new Mailbox();
+    mb.push('crashed-turn');
+    const gen1 = mb.stream('s1');
+    const first = await gen1.next(); // shift()ed and yielded, but the "session" now dies before asking for more
+    expect(first.value.message.content).toBe('crashed-turn');
+    expect(mb.consumedRealCount).toBe(1);
+
+    // This is what daemon.ts's crash-retry catch block does.
+    mb.detach();
+    mb.reclaimInFlight();
+    expect(mb.consumedRealCount).toBe(0); // undone — it was never actually processed
+
+    const gen2 = mb.stream('s2');
+    const redelivered = await gen2.next();
+    expect(redelivered.done).toBe(false);
+    expect(redelivered.value.message.content).toBe('crashed-turn');
+    mb.close();
+  });
+
+  it('is a no-op when the prior turn completed cleanly (generator was resumed for another pull)', async () => {
+    const mb = new Mailbox();
+    mb.push('turn-1');
+    const gen1 = mb.stream('s1');
+    await gen1.next(); // consume turn-1
+    const parked = gen1.next(); // ask for more with an empty queue — proves turn-1 finished; inFlight clears even though this pull itself won't resolve yet
+    await new Promise((r) => setTimeout(r, 5));
+    mb.detach();
+    mb.reclaimInFlight(); // nothing to reclaim — turn-1 was confirmed delivered
+    expect(mb.consumedRealCount).toBe(1); // unchanged — not undone
+    const gen2 = mb.stream('s2');
+    mb.close();
+    const next = await gen2.next();
+    expect(next.done).toBe(true); // turn-1 was already delivered to gen1, not lost, not redelivered
+    void parked; // abandoned along with gen1 — never resolves, matches existing detach() behavior
+  });
+
+  it('is a no-op when nothing was ever pulled', () => {
+    const mb = new Mailbox();
+    mb.push('never-pulled');
+    mb.reclaimInFlight();
+    expect(mb.consumedRealCount).toBe(0);
+  });
+
+  it('does not decrement consumedRealCount for a reclaimed continuation-prefix message', async () => {
+    const mb = new Mailbox();
+    mb.push(`${Mailbox.CONTINUE_PREFIX} continue please`);
+    const gen1 = mb.stream('s1');
+    await gen1.next();
+    expect(mb.consumedRealCount).toBe(0); // continuation pushes never increment it
+    mb.reclaimInFlight();
+    expect(mb.consumedRealCount).toBe(0); // still 0 — nothing to undo
+  });
+});
+
+describe('closeReason (#205: budget-exhausted boss vs. genuinely unreachable)', () => {
+  it('defaults to undefined for a plain close()', () => {
+    const mb = new Mailbox();
+    mb.close();
+    expect(mb.closeReason).toBeUndefined();
+  });
+
+  it('records the reason passed to close()', () => {
+    const mb = new Mailbox();
+    mb.close('token-budget');
+    expect(mb.isClosed).toBe(true);
+    expect(mb.closeReason).toBe('token-budget');
+  });
+
+  it('round-trips through serialize()/deserialize()', () => {
+    const mb = new Mailbox();
+    mb.close('usd-budget');
+    const state = mb.serialize();
+    const restored = new Mailbox();
+    restored.deserialize(state);
+    expect(restored.isClosed).toBe(true);
+    expect(restored.closeReason).toBe('usd-budget');
+  });
+
+  it('deserializes an older checkpoint with no closeReason field as undefined', () => {
+    const mb = new Mailbox();
+    mb.deserialize({ queue: [], closed: true, consumedReal: 0 });
+    expect(mb.closeReason).toBeUndefined();
+  });
+});
