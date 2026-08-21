@@ -152,10 +152,6 @@ vi.mock('../src/transfer/anonymization/index.js', () => ({
   detectPII: vi.fn(() => ({ hasPII: false, entities: [] })),
 }));
 
-vi.mock('../src/transfer/ipfs/client.js', () => ({
-  resolveIPNS: vi.fn(async () => 'QmMock'),
-}));
-
 // Mock module for auto-install
 vi.mock('../src/mcp-tools/auto-install.js', () => ({
   autoInstallPackage: vi.fn(async () => false),
@@ -262,8 +258,8 @@ describe('MCP Tools Deep Test Suite', () => {
         'monoswarm-tools': 13,
         'system-tools': 7,
         'task-tools': 7,
-        // Was 7 — the 6 IPFS pattern-store tools were deleted in 2026-07
-        // along with the subtree they wrapped; only transfer_detect-pii remains.
+        // Was 7 — 6 pattern-store tools were deleted in 2026-07 along with
+        // the subtree they wrapped; only transfer_detect-pii remains.
         'transfer-tools': 1,
       };
 

@@ -1,20 +1,16 @@
 /**
  * Transfer MCP Tools
  *
- * Only the PII scanner remains. The IPFS pattern-marketplace tools that used to
- * live here (`transfer_ipfs-resolve`, `transfer_store-search`, `-info`,
- * `-download`, `-featured`, `-trending`) were deleted along with the ~4,600-line
- * `src/transfer/{store,ipfs,storage,models,serialization}` subtree they wrapped.
- *
- * They were unreachable three ways over: gated out of the default MCP surface,
- * exposed on a CLI path the dispatcher cannot reach (`hooks transfer store …`
- * is four levels deep; the dispatcher handles three), and pointed at a registry
- * whose bootstrap config carried the placeholder `publicKey:
- * 'ed25519:monomind-registry-key'` rather than a real key.
+ * Only the PII scanner remains. A larger set of pattern-sharing tools
+ * that used to live here was deleted along with the ~4,600-line subtree they
+ * wrapped: they were unreachable three ways over — gated out of the default
+ * MCP surface, exposed on a CLI path the dispatcher cannot reach (four levels
+ * deep; the dispatcher handles three), and pointed at a registry whose
+ * bootstrap config carried a placeholder public key rather than a real one.
  *
  * `transfer_detect-pii` is unrelated to all of that — it is a real regex PII
- * scanner over `src/transfer/anonymization/`, which has no store or IPFS
- * dependency, and it stays visible by default.
+ * scanner over `src/transfer/anonymization/`, which has no dependency on the
+ * deleted subtree, and it stays visible by default.
  *
  * @module @monomind/cli/mcp-tools/transfer-tools
  * @version 4.0.0
@@ -72,7 +68,7 @@ export const allTransferTools: MCPTool[] = [
   },
 ];
 
-// Nothing here is gated any more — the speculative IPFS tools this flag used to
+// Nothing here is gated any more — the speculative tools this flag used to
 // hide have been deleted outright. The export shape is kept so callers and the
 // category loader continue to work unchanged.
 export const transferTools: MCPTool[] = allTransferTools;
