@@ -3,7 +3,7 @@
  *
  * Q3: redactPII, anonymizeCFP, scanCFPForPII and the CFPFormat / AnonymizationLevel /
  * AnonymizationRecord types they depended on were deleted along with the
- * speculative IPFS pattern-marketplace that consumed them. Only detectPII
+ * speculative pattern-sharing subtree that consumed them. Only detectPII
  * remains — it backs the `transfer_detect-pii` MCP tool.
  */
 

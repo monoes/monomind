@@ -59,7 +59,7 @@ All hooks are invoked as `npx monomind hooks <subcommand>`:
 | `statusline` | Generate dynamic statusline display |
 | `list` | List all registered hooks |
 | `progress` | Check v1 implementation progress |
-| `transfer` | Transfer patterns via IPFS or from another project |
+| `transfer` | Transfer patterns from another local project |
 
 ## Claude Code Integration
 

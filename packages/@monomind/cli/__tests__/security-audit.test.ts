@@ -6,7 +6,6 @@
  * - Command injection prevention
  * - Secret sanitization
  * - Prototype pollution prevention
- * - IPFS CID validation
  * - MCP input boundaries
  */
 
@@ -304,33 +303,7 @@ describe('MCP Server Input Boundaries', () => {
 });
 
 // ============================================================================
-// 6. IPFS CID Validation
-// ============================================================================
-describe('IPFS CID Validation', () => {
-  it('should validate CIDv0 format (starts with Qm, base58)', () => {
-    const CID_V0_PATTERN = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/;
-
-    expect(CID_V0_PATTERN.test('QmXbfEAaR7D2Ujm4GAkbwcGZQMHqAMpwDoje4583uNP834')).toBe(true);
-    expect(CID_V0_PATTERN.test('QmNr1yYMKi7YBaL8JSztQyuB5ZUaTdRMLxJC1pBpGbjsTc')).toBe(true);
-    // Should reject non-CID strings
-    expect(CID_V0_PATTERN.test('not-a-cid')).toBe(false);
-    expect(CID_V0_PATTERN.test('../../etc/passwd')).toBe(false);
-    expect(CID_V0_PATTERN.test('')).toBe(false);
-  });
-
-  it('should validate CIDv1 format (starts with baf)', () => {
-    // CIDv1 base32 encoding: 'baf' prefix + base32 lower-alpha chars
-    const CID_V1_PATTERN = /^baf[a-z2-7]{50,}$/;
-
-    // Valid CIDv1 (base32-lower): bafkrei prefix (raw leaves) + 52 base32 chars
-    expect(CID_V1_PATTERN.test('bafkreigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')).toBe(true);
-    expect(CID_V1_PATTERN.test('not-a-cid')).toBe(false);
-    expect(CID_V1_PATTERN.test('; rm -rf /')).toBe(false);
-  });
-});
-
-// ============================================================================
-// 7. Prototype Pollution Prevention
+// 6. Prototype Pollution Prevention
 // ============================================================================
 describe('Prototype Pollution Prevention', () => {
   it('should not allow __proto__ to pollute Object prototype via JSON.parse + spread', () => {
@@ -378,12 +351,12 @@ describe('Prototype Pollution Prevention', () => {
 });
 
 // ============================================================================
-// 8. GCS Command Injection Prevention
+// 7. GCS Command Injection Prevention
 // ============================================================================
 describe('GCS Storage Command Injection', () => {
   // The ADR-061 S-1 fix hardened src/transfer/storage/gcs.ts to use
   // execFileSync with array args instead of interpolating into execSync.
-  // That file — and the whole ~4,600-line IPFS pattern-store subtree it
+  // That file — and the whole ~4,600-line pattern-store subtree it
   // belonged to — was deleted in 2026-07: it was unreachable from the CLI
   // (four-level subcommand path the dispatcher cannot resolve), gated out of
   // the MCP surface, and pointed at a registry configured with a placeholder
@@ -392,14 +365,14 @@ describe('GCS Storage Command Injection', () => {
   // This assertion is kept as a tripwire: if the subtree is ever restored,
   // the original injection risk must be re-reviewed rather than silently
   // reinherited.
-  it('no longer applies — the GCS storage module was deleted with the IPFS store', () => {
+  it('no longer applies — the GCS storage module was deleted with the pattern store', () => {
     const gcsPath = path.join(__dirname, '..', 'src', 'transfer', 'storage', 'gcs.ts');
     expect(fs.existsSync(gcsPath)).toBe(false);
   });
 });
 
 // ============================================================================
-// 9. Doctor Command - Safe Command Execution
+// 8. Doctor Command - Safe Command Execution
 // ============================================================================
 describe('Doctor Command Safety', () => {
   it('should use hardcoded commands only (no user input in shell)', () => {

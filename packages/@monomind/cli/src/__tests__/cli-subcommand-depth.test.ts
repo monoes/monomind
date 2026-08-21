@@ -9,7 +9,7 @@
  * happened.
  *
  * That is how `hooks transfer store list` (and `search`/`download`/`publish`/
- * `info`) became unreachable. The whole IPFS pattern-store subtree shipped
+ * `info`) became unreachable. The whole pattern-store subtree shipped
  * un-runnable and nobody noticed, because asking for it printed something that
  * looked like a legitimate response.
  *
