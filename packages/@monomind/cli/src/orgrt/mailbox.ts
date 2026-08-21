@@ -6,6 +6,19 @@ export interface OrgUserMessage {
   session_id: string;
 }
 
+/** close() reasons that mean "paused, not dead" — the underlying condition
+ *  (a budget cap) can be raised by an operator, unlike a crash/terminal
+ *  close. Resume paths (checkpoint.ts's mergeCheckpoint, daemon.ts's
+ *  resume-spawn) check this before re-closing a checkpointed mailbox: a
+ *  mailbox checkpointed with one of these reasons is left open on resume
+ *  instead of being re-closed, or the idle watchdog's "raise the budget and
+ *  resume from checkpoint" remedy would silently do nothing — nothing in
+ *  this codebase ever reopens a closed mailbox otherwise. */
+const BUDGET_CLOSE_REASONS = new Set(['token-budget', 'usd-budget']);
+export function isRecoverableCloseReason(reason: string | undefined): boolean {
+  return reason !== undefined && BUDGET_CLOSE_REASONS.has(reason);
+}
+
 /**
  * Async message queue feeding one persistent SDK session.
  * push() from the daemon (deliveries from other agents / the user);
