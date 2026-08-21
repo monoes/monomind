@@ -120,12 +120,13 @@ describe('security redteam', () => {
     }
   });
 
-  it('dry-run --output json still lists prompts as before', async () => {
+  it('dry-run --output json prints only the JSON, not the decorated listing', async () => {
     const { redteamCommand } = await import('../commands/security-misc.js');
     await redteamCommand.action!({ flags: { scenarios: 'pii', iterations: '1', output: 'json' }, args: [] } as never);
-    const jsonLine = lines.find(l => { try { JSON.parse(l); return true; } catch { return false; } });
-    expect(jsonLine).toBeDefined();
-    const parsed = JSON.parse(jsonLine!);
+    // Exactly one writeln call carrying the JSON payload — no decorated
+    // "Security Red-Team Prompt Library" banner lines mixed in before or after it.
+    expect(lines).toHaveLength(1);
+    const parsed = JSON.parse(lines[0]);
     expect(parsed.prompts).toHaveLength(1);
   });
 });
