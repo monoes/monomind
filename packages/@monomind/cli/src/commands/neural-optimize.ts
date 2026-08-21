@@ -135,23 +135,20 @@ export const optimizeCommand: Command = {
 
 export const exportCommand: Command = {
   name: 'export',
-  description: 'Export stored patterns to IPFS for sharing (Ed25519 signed)',
+  description: 'Export stored patterns to a local file for sharing (Ed25519 signed)',
   options: [
     { name: 'model', short: 'm', type: 'string', description: 'Model ID or category to export' },
     { name: 'output', short: 'o', type: 'string', description: 'Output file path (optional)' },
-    { name: 'ipfs', short: 'i', type: 'boolean', description: 'Pin to IPFS (requires Pinata credentials)' },
     { name: 'sign', short: 's', type: 'boolean', description: 'Sign with Ed25519 key', default: 'true' },
     { name: 'strip-pii', type: 'boolean', description: 'Strip potential PII from export', default: 'true' },
     { name: 'name', short: 'n', type: 'string', description: 'Custom name for exported model' },
   ],
   examples: [
-    { command: 'monomind hooks intelligence export -m security-patterns --ipfs', description: 'Export and pin to IPFS' },
     { command: 'monomind hooks intelligence export -m code-review -o ./export.json', description: 'Export to file' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const modelId = ctx.flags.model as string || 'all';
     const outputFile = ctx.flags.output as string | undefined;
-    const pinToIpfs = ctx.flags.ipfs as boolean;
     const signExport = ctx.flags.sign !== false;
     const stripPii = ctx.flags['strip-pii'] !== false;
     const customName = ctx.flags.name as string;
@@ -203,8 +200,14 @@ export const exportCommand: Command = {
         }
         const patternsRaw = fs.readFileSync(patternsFile, 'utf8');
         const patternsJson = JSON.parse(patternsRaw);
-        if (patternsJson && typeof patternsJson === 'object' && ('__proto__' in patternsJson || 'constructor' in patternsJson)) {
-          spinner.fail('Prototype pollution attempt detected in patterns.json');
+        // patterns.json is always a top-level array (see intelligence.ts's
+        // flushToDisk) — `'constructor' in patternsJson` on an array is
+        // always true (inherited via Array.prototype), so that check flagged
+        // every real patterns.json as a pollution attempt and made export
+        // unusable. Validate shape instead: reject anything that isn't the
+        // array it's supposed to be.
+        if (!Array.isArray(patternsJson)) {
+          spinner.fail('patterns.json is not an array of patterns — refusing to export');
           return { success: false, exitCode: 1 };
         }
         const patterns = patternsJson;
@@ -253,11 +256,7 @@ export const exportCommand: Command = {
       }
 
       const exportPackage = {
-        pinataContent: exportData,
-        pinataMetadata: {
-          name: exportData.name,
-          keyvalues: { type: 'learning-pattern', version: '1.0.0', signed: signExport ? 'true' : 'false' },
-        },
+        ...exportData,
         signature,
         publicKey: publicKey ? `ed25519:${publicKey}` : null,
       };
@@ -268,7 +267,6 @@ export const exportCommand: Command = {
         /sk-ant-[a-zA-Z0-9-]+/,
         /sk-[a-zA-Z0-9]{48}/,
         /AIza[a-zA-Z0-9-_]{35}/,
-        /pinata_[a-zA-Z0-9]{20,}/,
         /-----BEGIN.*KEY-----/,
       ];
 
@@ -289,61 +287,7 @@ export const exportCommand: Command = {
         const { writeJsonFileAtomic } = await import('../utils/json-file.js');
         writeJsonFileAtomic(resolvedOut, exportPackage);
         spinner.succeed(`Exported to: ${outputFile}`);
-      }
-
-      if (pinToIpfs) {
-        spinner.setText('Pinning to IPFS...');
-
-        const pinataKey = process.env.PINATA_API_KEY;
-        const pinataSecret = process.env.PINATA_API_SECRET;
-
-        if (!pinataKey || !pinataSecret) {
-          spinner.fail('PINATA_API_KEY and PINATA_API_SECRET required for IPFS export');
-          output.writeln(output.dim('Set these in your environment or .env file'));
-          return { success: false, exitCode: 1 };
-        }
-
-        const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'pinata_api_key': pinataKey,
-            'pinata_secret_api_key': pinataSecret,
-          },
-          body: JSON.stringify(exportPackage),
-        });
-
-        if (!response.ok) {
-          const error = await response.text();
-          spinner.fail(`IPFS pin failed: ${error}`);
-          return { success: false, exitCode: 1 };
-        }
-
-        const result = await response.json() as { IpfsHash: string; PinSize: number };
-        spinner.succeed('Successfully exported to IPFS');
-
-        output.writeln();
-        output.printTable({
-          columns: [
-            { key: 'property', header: 'Property', width: 20 },
-            { key: 'value', header: 'Value', width: 50 },
-          ],
-          data: [
-            { property: 'CID', value: result.IpfsHash },
-            { property: 'Size', value: `${result.PinSize} bytes` },
-            { property: 'Gateway URL', value: `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}` },
-            { property: 'Patterns', value: String(exportData.patterns.length) },
-            { property: 'Signed', value: signExport ? 'Yes (Ed25519)' : 'No' },
-            { property: 'PII Stripped', value: stripPii ? 'Yes' : 'No' },
-          ],
-        });
-
-        output.writeln();
-        output.writeln(output.success('Share this CID for others to import your trained patterns'));
-        output.writeln(output.dim(`Import command: monomind hooks intelligence import --cid ${result.IpfsHash}`));
-      }
-
-      if (!outputFile && !pinToIpfs) {
+      } else {
         spinner.succeed('Export prepared');
         output.writeln();
         output.writeln(JSON.stringify(exportPackage, null, 2));
