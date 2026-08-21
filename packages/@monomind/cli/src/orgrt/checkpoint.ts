@@ -188,6 +188,13 @@ export function restoreMailboxQueue(runtime: AgentRuntime, queue: string[]): voi
 /**
  * Merge checkpoint state into running org
  * Used for resume operations to restore previous state
+ *
+ * NOT currently called from production code — daemon.ts's spawnRole builds
+ * each role's mailbox inline (its own roleCheckpoint-driven restore logic,
+ * duplicating the mailboxClosed/mailboxCloseReason handling below) rather
+ * than calling this. Exercised today only by tests. If you change the
+ * recoverable-close handling here, change it in daemon.ts's spawnRole too —
+ * see isRecoverableCloseReason's doc comment in mailbox.ts.
  */
 export function mergeCheckpoint(
   org: RunningOrg,
