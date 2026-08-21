@@ -8,10 +8,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { safeParseEmbedding } from './memory-bridge.js';
 import { ensureSchemaColumns } from './memory-migrations.js';
 import { generateEmbedding } from './embedding-operations.js';
-import { addToHNSWIndex, rebuildSearchIndex } from './hnsw-operations.js';
 import { withDbLock } from '../utils/db-mutex.js';
 import { secureDbFilePermissions } from './file-permissions.js';
 
@@ -397,19 +395,6 @@ export async function storeEntry(options: {
     secureDbFilePermissions(dbPath);
     db.close();
 
-    // Add to HNSW index for faster future searches
-    if (embeddingJson) {
-      const embResult = safeParseEmbedding(embeddingJson);
-      if (embResult) {
-        await addToHNSWIndex(id, embResult, {
-          id,
-          key,
-          namespace,
-          content: value
-        });
-      }
-    }
-
     return {
       success: true,
       id,
@@ -446,10 +431,6 @@ export async function deleteEntry(options: {
   if (bridge) {
     const bridgeResult = await bridge.bridgeDeleteEntry(options);
     if (bridgeResult) {
-      // #1122: Bridge path must also invalidate the in-memory HNSW index.
-      if (bridgeResult.deleted) {
-        rebuildSearchIndex();
-      }
       // Count what is actually left rather than asserting zero. This returned a
       // hardcoded 0 on the default bridge path (the sql.js fallback below always
       // computed it), so every successful delete printed "Remaining entries: 0"
@@ -554,9 +535,6 @@ export async function deleteEntry(options: {
     secureDbFilePermissions(dbPath);
 
     db.close();
-
-    // Invalidate the HNSW index so it rebuilds from DB on next search.
-    rebuildSearchIndex();
 
     return {
       success: true,

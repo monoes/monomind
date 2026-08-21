@@ -24,6 +24,7 @@
 import initSqlJs from 'sql.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
 import { SqlBackend } from './sql-backend.js';
 import { SqlJsDriver, type SqlDriver } from './sql-driver.js';
 import { writeFileAtomicSync } from './atomic-file.js';
@@ -141,6 +142,12 @@ export class SqlJsBackend extends SqlBackend {
         };
 
     return new SqlJsDriver(db as never, flush);
+  }
+
+  protected getAnnCacheDir(): string | null {
+    return this.sqlJsConfig.databasePath === ':memory:'
+      ? null
+      : dirname(this.sqlJsConfig.databasePath);
   }
 
   async initialize(): Promise<void> {
