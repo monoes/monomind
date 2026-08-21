@@ -1660,8 +1660,11 @@ export class OrgDaemon {
   }
 
   /** Mark every currently-running org as crashed in runtime.json.
-   *  Called from process-level crash handlers — must be synchronous and best-effort. */
-  persistCrashStateAll(): void {
+   *  Called from process-level crash handlers — must be synchronous and best-effort.
+   *  @param error the uncaught error/rejection reason, if known — without
+   *  this, `runOutcomeResult` (org.ts)'s "crashed: <error>" message always
+   *  read "crashed: unknown error" regardless of what actually happened. */
+  persistCrashStateAll(error?: string): void {
     for (const [name, org] of this.orgs) {
       try {
         const p = join(this.root, ORG_DIR, name, 'runtime.json');
@@ -1673,6 +1676,7 @@ export class OrgDaemon {
           pid: process.pid,
           updated: new Date().toISOString(),
           closedBy: 'crash-handler',
+          ...(error ? { error } : {}),
         });
       } catch {
         /* best effort — filesystem may be unavailable */
