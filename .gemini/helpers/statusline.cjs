@@ -398,7 +398,7 @@ function getSecurityStatus() {
 }
 
 // Swarm status (pure file reads, NO ps aux)
-function getSwarmStatus() {
+function getMonoswarmStatus() {
   const staleThresholdMs = 5 * 60 * 1000;
   const agentRegTtlMs = 30 * 60 * 1000; // registration files expire after 30 min
   const now = Date.now();
@@ -424,14 +424,14 @@ function getSwarmStatus() {
     } catch { /* fall through */ }
   }
 
-  // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh.
+  // SECONDARY: state.json written by MCP monoswarm_init — trust if fresh.
   // The MCP tools resolve their data root via getMonomindDataRoot(), which
   // inside a git repo is `<repo>/.git/monomind` — so reading only
   // `<cwd>/.monomind` showed a stale or missing swarm in every real project.
   // Canonical first, legacy second for projects written by an older CLI.
   const swarmStateCandidates = [
-    path.join(monomindDataRoot(CWD), 'swarm', 'swarm-state.json'),
-    path.join(CWD, '.monomind', 'swarm', 'swarm-state.json'),
+    path.join(monomindDataRoot(CWD), 'monoswarm', 'state.json'),
+    path.join(CWD, '.monomind', 'monoswarm', 'state.json'),
   ];
   let swarmState = null;
   for (const p of swarmStateCandidates) { swarmState = readJSON(p); if (swarmState) break; }
@@ -447,16 +447,16 @@ function getSwarmStatus() {
     }
   }
 
-  // TERTIARY: swarm-activity.json refreshed by post-task hook
-  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
-  if (activityData?.swarm) {
-    const updatedAt = activityData.timestamp || activityData.swarm.timestamp;
+  // TERTIARY: monoswarm-activity.json refreshed by post-task hook
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'monoswarm-activity.json'));
+  if (activityData?.monoswarm) {
+    const updatedAt = activityData.timestamp || activityData.monoswarm.timestamp;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
     if (age < staleThresholdMs) {
       return {
-        activeAgents: activityData.swarm.agent_count || 0,
+        activeAgents: activityData.monoswarm.agent_count || 0,
         maxAgents: CONFIG.maxAgents,
-        coordinationActive: activityData.swarm.coordination_active || activityData.swarm.active || false,
+        coordinationActive: activityData.monoswarm.coordination_active || activityData.monoswarm.active || false,
       };
     }
   }
@@ -505,7 +505,7 @@ function getSystemMetrics() {
 
   // Sub-agents from file metrics (no ps aux)
   let subAgents = 0;
-  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'monoswarm-activity.json'));
   if (activityData?.processes?.estimated_agents) {
     subAgents = activityData.processes.estimated_agents;
   }
@@ -1149,7 +1149,7 @@ function fmtCost(n) {
 // ── Single-line statusline (compact) ─────────────────────────────
 function generateStatusline() {
   const git       = getGitInfo();
-  const swarm     = getSwarmStatus();
+  const monoswarm     = getMonoswarmStatus();
   const system    = getSystemMetrics();
   const hooks     = getHooksStatus();
   const knowledge = getKnowledgeStats();
@@ -1157,8 +1157,8 @@ function generateStatusline() {
   const parts     = [];
 
   // Brand + swarm dot
-  const swarmDot = swarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
-  parts.push(`${x.bold}${x.purple}▊ Monomind${x.reset} ${swarmDot}`);
+  const monoswarmDot = monoswarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
+  parts.push(`${x.bold}${x.purple}▊ Monomind${x.reset} ${monoswarmDot}`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -1208,8 +1208,8 @@ function generateStatusline() {
   }
 
   // Swarm agents (only when active)
-  if (swarm.activeAgents > 0) {
-    parts.push(`${x.gold}🐝 ${swarm.activeAgents}/${swarm.maxAgents}${x.reset}`);
+  if (monoswarm.activeAgents > 0) {
+    parts.push(`${x.gold}🐝 ${monoswarm.activeAgents}/${monoswarm.maxAgents}${x.reset}`);
   }
 
   // Hooks
@@ -1269,7 +1269,7 @@ function generateDashboard() {
   const git         = getGitInfo();
   const progress    = getv1Progress();
   const security    = getSecurityStatus();
-  const swarm       = getSwarmStatus();
+  const monoswarm       = getMonoswarmStatus();
   const system      = getSystemMetrics();
   const adrs        = getADRStatus();
   const hooks       = getHooksStatus();
@@ -1285,10 +1285,10 @@ function generateDashboard() {
   const lines       = [];
 
   // ── Header: brand + git + model + session ────────────────────
-  const swarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
+  const monoswarmDot = monoswarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
   const projName = getProjectName();
   const cwdName = path.basename(CWD);
-  let hdr = `${x.bold}${x.purple}▊Monomind ${VERSION}${x.reset} ${swarmDot} ${x.teal}${x.bold}${projName}${x.reset} ${DIV} ${x.dim}◎${cwdName}${x.reset} ${DIV} ${x.violet}⬡${git.name}${x.reset}`;
+  let hdr = `${x.bold}${x.purple}▊Monomind ${VERSION}${x.reset} ${monoswarmDot} ${x.teal}${x.bold}${projName}${x.reset} ${DIV} ${x.dim}◎${cwdName}${x.reset} ${DIV} ${x.violet}⬡${git.name}${x.reset}`;
 
   if (git.gitBranch) {
     hdr += ` ${DIV} ${x.sky}⎇${x.bold}${git.gitBranch}${x.reset}`;
@@ -1443,7 +1443,7 @@ function generateJSON() {
     user:       { name: git.name, gitBranch: git.gitBranch, modelName: getModelName() },
     domains:    getv1Progress(),
     security:   getSecurityStatus(),
-    swarm:      getSwarmStatus(),
+    monoswarm:  getMonoswarmStatus(),
     system:     getSystemMetrics(),
     adrs:       getADRStatus(),
     hooks:      getHooksStatus(),
@@ -1472,7 +1472,7 @@ function readMode() {
 if (require.main !== module) {
   module.exports = {
     readJSON, safeStat, modelLabel, getVersion,
-    getSecurityStatus, getSwarmStatus, getADRStatus,
+    getSecurityStatus, getMonoswarmStatus, getADRStatus,
     getHooksStatus, getActiveAgent, getLanceDBStats,
     getLearningStats, getTestStats, getIntegrationStatus,
     getActiveOrgs,

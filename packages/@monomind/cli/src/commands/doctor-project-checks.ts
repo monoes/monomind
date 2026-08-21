@@ -454,8 +454,7 @@ const REQUIRED_GITIGNORE_PATTERNS = [
   { pattern: 'data/mastermind-*.json', reason: 'mastermind session data' },
   { pattern: 'data/mastermind-*.jsonl', reason: 'mastermind event logs' },
   { pattern: '**/.claude-flow/', reason: 'claude-flow runtime data with paths' },
-  { pattern: '.hive-mind/', reason: 'hive-mind state with session info' },
-  { pattern: '.swarm/', reason: 'swarm state files' },
+  { pattern: '.monomind/monoswarm/', reason: 'monoswarm state files' },
 ];
 
 /** Strip the parts that don't change what a pattern matches, so `**​/.monomind/`,
@@ -506,8 +505,7 @@ const GITIGNORE_FIX_PATTERNS = [
   '# monomind runtime state',
   '.monomind/',
   '**/.monomind/',
-  '.hive-mind/',
-  '.swarm/',
+  '.monomind/monoswarm/',
   '**/.claude-flow/',
   'data/sessions/',
   'data/mastermind-*.json',

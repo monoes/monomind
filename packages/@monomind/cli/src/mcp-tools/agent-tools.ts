@@ -12,8 +12,8 @@ import { type MCPTool, getMonomindDataRoot, migrateLegacyStoreFile } from './typ
 import { readJsonStoreOrNull } from '../utils/json-file.js';
 
 // Storage paths — relative to the git-safe data root (see getMonomindDataRoot()).
-// Canonical location matches task-tools.ts/session-tools.ts/hive-mind-tools.ts/
-// swarm-tools.ts so the agent store is a single physical file across all tools.
+// Canonical location matches task-tools.ts/session-tools.ts/monoswarm-tools.ts
+// so the agent store is a single physical file across all tools.
 const AGENT_DIR = 'agents';
 const AGENT_FILE = 'store.json';
 
@@ -30,7 +30,7 @@ interface AgentRecord {
   createdAt: string;
   domain?: string;
   model?: ClaudeModel;  // Model assigned to this agent
-  modelRoutedBy?: 'explicit' | 'router' | 'agent-booster' | 'default';  // How model was determined (ADR-026)
+  modelRoutedBy?: 'explicit' | 'router' | 'default';  // How model was determined (ADR-026)
   lastResult?: Record<string, unknown>;  // Output from last completed task
 }
 
@@ -116,7 +116,7 @@ async function determineAgentModel(
   task?: string
 ): Promise<{
   model: ClaudeModel;
-  routedBy: 'explicit' | 'router' | 'agent-booster' | 'default';
+  routedBy: 'explicit' | 'router' | 'default';
   canSkipLLM?: boolean;
   agentBoosterIntent?: string;
   tier?: 1 | 2 | 3;

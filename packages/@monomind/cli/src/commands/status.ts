@@ -90,7 +90,7 @@ async function getSystemStatus(cwd: string): Promise<{
   swarm: {
     id: string | null;
     topology: string;
-    // swarm_status (mcp-tools/swarm-tools.ts) only ever returns a `status`
+    // monoswarm_status (mcp-tools/monoswarm-tools.ts) only ever returns a `status`
     // string and an `agentCount` number for agents — never a health verdict,
     // an uptime, or an active/idle breakdown. Those used to be read anyway
     // and silently resolved to `undefined`/`NaN` in the display.
@@ -127,17 +127,17 @@ async function getSystemStatus(cwd: string): Promise<{
   const daemonRunning = isDaemonRunning(cwd);
 
   try {
-    // Get swarm status. swarm_status genuinely returns: swarmId, status,
-    // topology, maxAgents, agentCount, taskCount, config, createdAt,
+    // Get monoswarm status. monoswarm_status genuinely returns: monoswarmId,
+    // status, topology, maxAgents, agentCount, taskCount, config, createdAt,
     // updatedAt — no `agents.{total,active,idle}` object, no `health`, no
     // `uptime`. Reading those non-existent fields used to resolve to
     // `undefined`/`NaN` in the rendered table instead of throwing.
     const swarmStatus = await callMCPTool<{
-      swarmId?: string;
+      monoswarmId?: string;
       status?: string;
       topology?: string;
       agentCount?: number;
-    }>('swarm_status', { includeMetrics: true });
+    }>('monoswarm_status', { verbose: true });
 
     // Get MCP status
     let mcpStatus = { running: false, port: null as number | null, transport: 'stdio' };
@@ -196,7 +196,7 @@ async function getSystemStatus(cwd: string): Promise<{
       initialized: true,
       running: daemonRunning,
       swarm: {
-        id: swarmStatus.swarmId ?? null,
+        id: swarmStatus.monoswarmId ?? null,
         topology: swarmStatus.topology ?? 'none',
         status: swarmStatus.status ?? 'no_swarm',
         agents: { total: swarmStatus.agentCount ?? 0 }
@@ -269,7 +269,7 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   output.writeln(`${output.bold('Monomind')} ${statusIcon}`);
   output.writeln();
 
-  // Swarm section. swarm_status never returns a health verdict, an uptime,
+  // Swarm section. monoswarm_status never returns a health verdict, an uptime,
   // or an active/idle breakdown — only `status`/`topology`/`agentCount` — so
   // those are the only fields shown here.
   output.writeln(output.bold('Swarm'));

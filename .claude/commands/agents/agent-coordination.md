@@ -11,19 +11,19 @@ Coordination patterns for multi-agent collaboration.
 ### Hierarchical
 Queen-led with worker specialization
 ```bash
-npx monomind swarm init --topology hierarchical
+npx monomind monoswarm init --topology hierarchical
 ```
 
 ### Mesh
 Peer-to-peer collaboration
 ```bash
-npx monomind swarm init --topology mesh
+npx monomind monoswarm init --topology mesh
 ```
 
 ### Adaptive
 Dynamic topology based on workload
 ```bash
-npx monomind swarm init --topology adaptive
+npx monomind monoswarm init --topology adaptive
 ```
 
 ## Best Practices

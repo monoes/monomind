@@ -125,9 +125,9 @@ function renderDashboard(data) {
   }
 
   const swarmEl = document.getElementById('panel-swarm');
-  if (data.swarm_status) {
+  if (data.monoswarm_status) {
     swarmEl.className = '';
-    const s = data.swarm_status;
+    const s = data.monoswarm_status;
     swarmEl.innerHTML = `<div class="kv-list">` + Object.entries(s).map(([k, v]) =>
       `<div class="kv-row"><span>${escapeHtml(k)}</span><b>${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</b></div>`
     ).join('') + `</div>`;

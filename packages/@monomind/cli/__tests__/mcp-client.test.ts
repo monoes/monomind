@@ -77,12 +77,12 @@ vi.mock('../src/mcp-tools/agent-tools.js', () => ({
   ]
 }));
 
-vi.mock('../src/mcp-tools/swarm-tools.js', () => ({
-  swarmTools: [
+vi.mock('../src/mcp-tools/monoswarm-tools.js', () => ({
+  monoswarmTools: [
     {
-      name: 'swarm_init',
-      description: 'Initialize a swarm',
-      category: 'swarm',
+      name: 'monoswarm_init',
+      description: 'Initialize a monoswarm',
+      category: 'monoswarm',
       inputSchema: {
         type: 'object',
         required: ['topology'],
@@ -92,13 +92,12 @@ vi.mock('../src/mcp-tools/swarm-tools.js', () => ({
         }
       },
       handler: vi.fn(async (input) => ({
-        swarmId: 'swarm-test',
+        monoswarmId: 'monoswarm-test',
         topology: input.topology,
         initializedAt: new Date().toISOString(),
         config: {
           topology: input.topology,
           maxAgents: input.maxAgents || 15,
-          currentAgents: 0
         }
       }))
     }
@@ -190,14 +189,14 @@ describe('MCP Client', () => {
       expect(result.terminatedAt).toBeDefined();
     });
 
-    it('should call swarm_init tool successfully', async () => {
-      const result = await callMCPTool('swarm_init', {
+    it('should call monoswarm_init tool successfully', async () => {
+      const result = await callMCPTool('monoswarm_init', {
         topology: 'hierarchical-mesh',
         maxAgents: 15
       });
 
       expect(result).toMatchObject({
-        swarmId: 'swarm-test',
+        monoswarmId: 'monoswarm-test',
         topology: 'hierarchical-mesh'
       });
       expect(result.config).toMatchObject({
@@ -302,12 +301,12 @@ describe('MCP Client', () => {
     });
 
     it('should return complete metadata structure', async () => {
-      const metadata = await getToolMetadata('swarm_init');
+      const metadata = await getToolMetadata('monoswarm_init');
 
       expect(metadata).toMatchObject({
-        name: 'swarm_init',
+        name: 'monoswarm_init',
         description: expect.any(String),
-        category: 'swarm',
+        category: 'monoswarm',
         inputSchema: expect.any(Object)
       });
     });
@@ -356,7 +355,7 @@ describe('MCP Client', () => {
     it('should return true for existing tool', async () => {
       expect(await hasTool('agent_spawn')).toBe(true);
       expect(await hasTool('agent_list')).toBe(true);
-      expect(await hasTool('swarm_init')).toBe(true);
+      expect(await hasTool('monoswarm_init')).toBe(true);
     });
 
     it('should return false for non-existent tool', async () => {
@@ -375,7 +374,7 @@ describe('MCP Client', () => {
       const categories = await getToolCategories();
 
       expect(categories).toContain('agent');
-      expect(categories).toContain('swarm');
+      expect(categories).toContain('monoswarm');
       expect(categories).toContain('memory');
       expect(categories).toContain('config');
     });
@@ -445,7 +444,7 @@ describe('MCP Client', () => {
     });
 
     it('should allow optional fields to be missing', async () => {
-      const result = await validateToolInput('swarm_init', {
+      const result = await validateToolInput('monoswarm_init', {
         topology: 'hierarchical'
         // maxAgents is optional
       });

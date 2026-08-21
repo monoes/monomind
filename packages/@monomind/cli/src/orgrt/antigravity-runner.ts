@@ -11,6 +11,25 @@
  * AI Pro / Google AI Ultra consumer subscriptions flow through this credential
  * cache. No env vars needed.
  *
+ * Streaming / liveness — WHY INCREMENTAL:
+ *   agy turns routinely run many minutes when a role reads large dossiers or
+ *   chains tool steps. session.ts races the FIRST pull from this runner
+ *   against a 4-minute silent-stream watchdog (SILENT_SESSION_MS), so
+ *   buffering stdout until process exit (the original design) meant any turn
+ *   longer than 4 minutes yielded zero messages in time — abort, retry, kill,
+ *   circuit breaker, stalled org (observed live: "SDK stream silent for 240s
+ *   with zero messages" every ~4 minutes on antigravity roles). This runner
+ *   therefore parses stdout LINE BY LINE as data arrives: a liveness
+ *   `tool_use` message is yielded the moment the subprocess spawns
+ *   (deterministically winning the first-pull race regardless of
+ *   model-thinking latency), assistant text is yielded at agent_response DONE
+ *   boundaries, and agy's own tool steps (step_type 'tool' with tool_info)
+ *   are forwarded as `tool_use` liveness messages so the StateDetector/idle
+ *   watchdog see a working agent throughout the turn. Tool_call fences are
+ *   still collected from the raw texts and parsed at end of turn (fence
+ *   parsing needs the complete text — agy's per-token deltas would split a
+ *   fence across many events).
+ *
  * Org tools (org_send, knowledge_search, ask_human, …) — FENCE PROTOCOL:
  *   Same approach as kimi/opencode/codex. Tools are rendered INTO the first
  *   prompt; the model emits ```tool_call fences; this runner parses them out
@@ -40,6 +59,7 @@
 import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import { classifyStderr } from './kimicode-runner.js';
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching kimi/codex runners
 
@@ -86,11 +106,24 @@ interface AgyEvent {
   result?: AgyResultPayload;
 }
 
+/**
+ * One parsed agy stream-json event, normalized for incremental streaming.
+ *   - 'assistant': rawText is the accumulated agent_response text (fences
+ *     intact) for end-of-turn tool-call parsing; text is the fence-stripped
+ *     prose, present only when non-empty.
+ *   - 'tool':      agy's own tool activity (step_type 'tool' with tool_info)
+ *     — forwarded by run() as a `tool_use` liveness AgentMessage (see header).
+ *   - 'meta':      any other event that only carries a conversation id.
+ */
+export interface AgyStreamEvent {
+  kind: 'assistant' | 'tool' | 'meta';
+  text?: string;
+  rawText?: string;
+  toolName?: string;
+  conversationId?: string;
+}
+
 interface TurnOutcome {
-  /** Concatenated agent_response text (fences stripped for the bus). */
-  texts: string[];
-  /** Concatenated agent_response text (fences intact for tool-call parsing). */
-  rawTexts: string[];
   conversationId?: string;
   exitCode: number;
   stderrTail: string;
@@ -125,25 +158,43 @@ export class AntigravityAgentRunner implements AgentRunner {
             ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
             : nextPrompt;
 
-          const outcome = await this.runTurn(bin, promptWithSystem, conversationId, args);
+          // Filled in by streamTurn as the subprocess runs and when it exits.
+          const outcome: TurnOutcome = {
+            exitCode: 1, stderrTail: '', timedOut: false, inputTokens: 0, outputTokens: 0,
+          };
+          // Raw assistant texts (fences intact) for end-of-turn tool-call
+          // parsing — fence parsing needs the complete text, so fences are
+          // collected here while the stripped prose streams out live below.
+          const rawTexts: string[] = [];
+
+          for await (const ev of this.streamTurn(bin, promptWithSystem, conversationId, args, outcome)) {
+            if (ev.conversationId) conversationId = ev.conversationId;
+            if (ev.kind === 'assistant' && ev.rawText !== undefined) {
+              rawTexts.push(ev.rawText);
+              // Yield assistant prose AS IT ARRIVES (per agent_response DONE
+              // boundary, not after process exit): an agy turn can run many
+              // minutes, and session.ts's watchdog must see messages DURING
+              // the turn. Note this means partial output may already be
+              // yielded when a turn later exits non-zero — preferable to
+              // losing it entirely.
+              if (ev.text) yield { type: 'assistant', session_id: conversationId, text: ev.text };
+            } else if (ev.kind === 'tool') {
+              // Liveness for agy's own tool activity: session.ts never
+              // renders tool_use as chat — it only feeds the StateDetector
+              // ('tool-call' state) and refreshes last-activity.
+              yield { type: 'tool_use', session_id: conversationId, text: ev.toolName };
+            }
+          }
           if (outcome.conversationId) conversationId = outcome.conversationId;
 
           if (outcome.exitCode !== 0 || outcome.error) {
-            throw new Error(
-              `AntigravityAgentRunner: agy failed (exit ${outcome.exitCode})` +
-              (outcome.error ? `: ${outcome.error}` : '') +
-              (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
-            );
-          }
-
-          for (const t of outcome.texts) {
-            if (t.trim()) yield { type: 'assistant', session_id: conversationId, text: t };
+            throw turnError(outcome, round, bin);
           }
           turnInputTokens += outcome.inputTokens;
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
+          const calls = parseToolCalls(rawTexts, (raw, err) => malformed.push(
             `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
           ));
           for (const note of malformed) {
@@ -190,123 +241,224 @@ export class AntigravityAgentRunner implements AgentRunner {
     }
   }
 
-  /** Run one `agy` invocation and normalize its stream-json output. */
-  private runTurn(
+  /**
+   * Run one `agy` invocation and stream its stream-json output
+   * INCREMENTALLY: each parsed event is yielded as soon as its line arrives
+   * on stdout (see the header's "Streaming / liveness" note for why buffering
+   * until process exit was a bug). End-of-turn facts (exit code, stderr tail,
+   * conversation id, usage, error, timeout flag) are written into `outcome`,
+   * which the caller reads after this generator completes.
+   */
+  private async *streamTurn(
     bin: string,
     prompt: string,
     conversationId: string | undefined,
     args: AgentRunArgs,
-  ): Promise<TurnOutcome> {
-    return new Promise<TurnOutcome>((resolve, reject) => {
-      // ARG ORDER (from agy headless docs):
-      //   agy -p "<prompt>" --output-format stream-json
-      //       [--model X] [--dangerously-skip-permissions]
-      //       [--continue | --conversation <id>]
-      const cliArgs: string[] = ['-p', prompt, '--output-format', 'stream-json'];
-      if (args.model) cliArgs.push('--model', args.model);
-      cliArgs.push('--dangerously-skip-permissions');
-      if (conversationId) {
-        cliArgs.push('--conversation', conversationId);
+    outcome: TurnOutcome,
+  ): AsyncGenerator<AgyStreamEvent> {
+    // ARG ORDER (from agy headless docs):
+    //   agy -p "<prompt>" --output-format stream-json
+    //       [--model X] [--dangerously-skip-permissions]
+    //       [--continue | --conversation <id>]
+    const cliArgs: string[] = ['-p', prompt, '--output-format', 'stream-json'];
+    if (args.model) cliArgs.push('--model', args.model);
+    cliArgs.push('--dangerously-skip-permissions');
+    if (conversationId) {
+      cliArgs.push('--conversation', conversationId);
+    }
+
+    const child = spawn(bin, cliArgs, {
+      cwd: args.cwd,
+      env: { ...process.env, ...args.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stderrTail = '';
+    child.stderr?.on('data', (c: Buffer) => {
+      stderrTail = (stderrTail + c.toString()).slice(-4000);
+    });
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    const KILL_GRACE_MS = 5000;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
+      // escalate to SIGKILL after a short grace period.
+      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    }, TURN_TIMEOUT_MS);
+
+    // Attach the exit promise BEFORE consuming stdout: on a spawn failure
+    // (ENOENT, bad binary) the 'error' event fires almost immediately —
+    // if no listener is attached yet it escapes as an unhandled 'error'
+    // event and crashes the process instead of reaching our catch block.
+    const exitPromise = new Promise<number>((res, rej) => {
+      child.on('error', rej);
+      child.on('close', (code) => res(code ?? 1));
+    });
+    // Prevent an unhandled-rejection crash if the stdout loop below throws
+    // before we await exitPromise (the await still sees the rejection).
+    exitPromise.catch(() => {});
+
+    let lastConversationId: string | undefined = conversationId;
+    // Per-token text_delta fragments are accumulated per agent_response step
+    // and flushed as ONE assistant event at the step's DONE boundary (or at
+    // end of stream if no DONE arrives). Fence stripping needs the complete
+    // text — per-token deltas would split a ```tool_call fence across events.
+    let pendingText = '';
+    let pendingStepIndex: number | undefined;
+    let sawStreamedText = false;
+    let resultResponse: string | undefined;
+
+    // Flush the accumulated agent_response text as one assistant event.
+    // Defined as a closure returning the event (or null) so both the DONE
+    // boundary and the end-of-stream path share the exact same logic.
+    const flushText = (): AgyStreamEvent | null => {
+      if (!pendingText) return null;
+      const raw = pendingText;
+      pendingText = '';
+      pendingStepIndex = undefined;
+      const stripped = raw.replace(TOOL_CALL_RE, '').trim();
+      return { kind: 'assistant', rawText: raw, text: stripped || undefined, conversationId: lastConversationId };
+    };
+
+    // Normalize one parsed wire event: capture the conversation id from ANY
+    // event that carries it (resume needs it on the next turn), record result
+    // envelope state, and return the AgyStreamEvent to yield (or null).
+    // init and other event kinds matter only for the conversation id.
+    const handleEvent = (ev: AgyEvent): AgyStreamEvent | null => {
+      const cid = ev.conversation_id ?? ev.step_update?.conversation_id ?? ev.result?.conversation_id;
+      if (cid) lastConversationId = cid;
+
+      if (ev.event === 'step_update' && ev.step_update) {
+        const step = ev.step_update;
+        if (step.step_type === 'agent_response') {
+          if (pendingStepIndex !== undefined && step.step_index !== undefined && step.step_index !== pendingStepIndex) {
+            // A new response step started — flush the previous one.
+            const flushed = flushText();
+            if (step.step_index !== undefined) pendingStepIndex = step.step_index;
+            if (typeof step.text_delta === 'string') { sawStreamedText = true; pendingText += step.text_delta; }
+            return flushed;
+          }
+          if (step.step_index !== undefined) pendingStepIndex = step.step_index;
+          if (typeof step.text_delta === 'string') {
+            sawStreamedText = true;
+            // A DONE step can carry the step's FULL text after ACTIVE
+            // deltas streamed the same content per-token — replace
+            // instead of double-appending when the accumulated text is
+            // a prefix of the DONE payload.
+            if (step.state === 'DONE' && pendingText && step.text_delta.startsWith(pendingText)) {
+              pendingText = step.text_delta;
+            } else {
+              pendingText += step.text_delta;
+            }
+          }
+          if (step.state === 'DONE') return flushText();
+        } else if (step.step_type === 'tool' && step.tool_info?.name) {
+          return { kind: 'tool', toolName: step.tool_info.name.slice(0, 200), conversationId: lastConversationId };
+        }
+      } else if (ev.event === 'result' && ev.result) {
+        const result = ev.result;
+        if (result.status && result.status !== 'SUCCESS') {
+          outcome.error = result.error ?? `status: ${result.status}`;
+        }
+        if (result.usage) {
+          outcome.inputTokens = result.usage.input_tokens ?? 0;
+          outcome.outputTokens = result.usage.output_tokens ?? 0;
+        }
+        if (result.response) resultResponse = result.response;
+      }
+      return null;
+    };
+
+    try {
+      // Immediate liveness yield: session.ts races the FIRST pull against a
+      // 4-minute silent-stream watchdog, and the model's first event can
+      // itself take minutes (long thinking chains, large file reads).
+      // Yielding at spawn wins that race deterministically instead of
+      // depending on agy's latency.
+      yield { kind: 'tool', toolName: 'turn started', conversationId };
+
+      let buf = '';
+      for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+        buf += chunk.toString();
+        const parts = buf.split('\n');
+        buf = parts.pop() ?? '';
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('{')) continue;
+          let ev: AgyEvent;
+          try { ev = JSON.parse(trimmed) as AgyEvent; } catch { continue; }
+          const out = handleEvent(ev);
+          if (out) yield out;
+        }
+      }
+      const tail = buf.trim();
+      if (tail && tail.startsWith('{')) {
+        try {
+          const out = handleEvent(JSON.parse(tail) as AgyEvent);
+          if (out) yield out;
+        } catch { /* not JSON, skip */ }
       }
 
-      const child = spawn(bin, cliArgs, {
-        cwd: args.cwd,
-        env: { ...process.env, ...args.env },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
+      // Flush any trailing text whose DONE boundary never arrived.
+      const flushed = flushText();
+      if (flushed) yield flushed;
 
-      let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => {
-        stderrTail = (stderrTail + c.toString()).slice(-4000);
-      });
+      // Fallback for agy versions that only return result.response (no
+      // streaming): surface it as the turn's assistant text.
+      if (!sawStreamedText && resultResponse) {
+        const stripped = resultResponse.replace(TOOL_CALL_RE, '').trim();
+        yield { kind: 'assistant', rawText: resultResponse, text: stripped || undefined, conversationId: lastConversationId };
+      }
+    } finally {
+      clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
+      // If the consumer abandons this stream mid-turn (session.ts's
+      // silent-abort calls iterator.return(), the mailbox closes, or an
+      // error is thrown downstream), don't leak the CLI subprocess.
+      if (child.exitCode === null && !child.killed) {
+        try { child.kill('SIGTERM'); } catch { /* already gone */ }
+      }
+    }
 
-      // Arm the turn timeout BEFORE consuming stdout.
-      let timedOut = false;
-      const KILL_GRACE_MS = 5000;
-      let killTimer: ReturnType<typeof setTimeout> | undefined;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, TURN_TIMEOUT_MS);
-
-      const exitPromise = new Promise<number>((res, rej) => {
-        child.on('error', rej);
-        child.on('close', (code) => res(code ?? 1));
-      });
-      exitPromise.catch(() => {});
-
-      (async () => {
-        const events: AgyEvent[] = [];
-        let buf = '';
-        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          buf += chunk.toString();
-          const parts = buf.split('\n');
-          buf = parts.pop() ?? '';
-          for (const line of parts) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('{')) continue;
-            try { events.push(JSON.parse(trimmed) as AgyEvent); } catch { /* skip */ }
-          }
-        }
-        if (buf.trim()) {
-          try { events.push(JSON.parse(buf.trim()) as AgyEvent); } catch { /* skip */ }
-        }
-        return events;
-      })()
-        .then((events) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ events, exitCode })))
-        .then(({ events, exitCode }) => {
-          const outcome: TurnOutcome = {
-            texts: [], rawTexts: [], conversationId, exitCode, stderrTail, timedOut,
-            inputTokens: 0, outputTokens: 0,
-          };
-          // Accumulate text_delta fragments per turn — agy streams per-token
-          // via step_update events with step_type === 'agent_response'. We
-          // accumulate the full text before stripping fences (unlike codex/kimi
-          // which receive whole items; agy's per-token deltas would split a
-          // ```tool_call fence across many events, making per-delta stripping
-          // unreliable). The bus sees one assistant message per turn with the
-          // complete cleaned text — matching kimi/codex behavior.
-          let rawAccumulated = '';
-          for (const ev of events) {
-            if (ev.event === 'init' && ev.conversation_id) {
-              outcome.conversationId = ev.conversation_id;
-            } else if (ev.event === 'step_update' && ev.step_update) {
-              const step = ev.step_update;
-              if (step.step_type === 'agent_response' && typeof step.text_delta === 'string') {
-                rawAccumulated += step.text_delta;
-              }
-            } else if (ev.event === 'result' && ev.result) {
-              const result = ev.result;
-              if (result.conversation_id) outcome.conversationId = result.conversation_id;
-              if (result.status && result.status !== 'SUCCESS') {
-                outcome.error = result.error ?? `status: ${result.status}`;
-              }
-              if (result.usage) {
-                outcome.inputTokens = result.usage.input_tokens ?? 0;
-                outcome.outputTokens = result.usage.output_tokens ?? 0;
-              }
-            }
-          }
-          // Strip fences from the accumulated text for bus-visible output;
-          // keep the raw version for tool-call parsing.
-          if (rawAccumulated) {
-            outcome.rawTexts.push(rawAccumulated);
-            const stripped = rawAccumulated.replace(TOOL_CALL_RE, '').trim();
-            if (stripped) outcome.texts.push(stripped);
-          } else {
-            // Fallback for agy versions that only return result.response (no streaming)
-            const resultEvent = events.find(e => e.event === 'result')?.result;
-            if (resultEvent?.response) {
-              outcome.rawTexts.push(resultEvent.response);
-              const stripped = resultEvent.response.replace(TOOL_CALL_RE, '').trim();
-              if (stripped) outcome.texts.push(stripped);
-            }
-          }
-
-          resolve(outcome);
-        }, reject);
-    });
+    const exitCode = await exitPromise;
+    outcome.conversationId = lastConversationId;
+    outcome.exitCode = exitCode;
+    outcome.stderrTail = stderrTail;
+    outcome.timedOut = timedOut;
   }
+}
+
+/** Build the actionable error for a failed agy turn. */
+function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
+  if (outcome.timedOut) {
+    return new Error(
+      `AntigravityAgentRunner: agy turn (tool round ${round}) exceeded the ${Math.round(TURN_TIMEOUT_MS / 60000)}min ` +
+      `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+    );
+  }
+  // Fatal provider errors (auth/permission/quota — classified from the result
+  // envelope's error string AND stderr): report what actually happened, and
+  // tag the error so the daemon does NOT restart into the same guaranteed
+  // failure (a restart on quota exhaustion can only hang or fail again).
+  const cls = classifyStderr(`${outcome.error ?? ''}\n${outcome.stderrTail}`);
+  if (cls.fatal) {
+    const err = new Error(
+      `AntigravityAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
+      (outcome.error ? ` error: ${outcome.error}` : '') +
+      (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+    );
+    (err as Error & { fatal?: boolean }).fatal = true;
+    return err;
+  }
+  return new Error(
+    `AntigravityAgentRunner: agy failed (exit ${outcome.exitCode})` +
+    (outcome.error ? `: ${outcome.error}` : '') +
+    (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+  );
 }

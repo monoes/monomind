@@ -34,7 +34,7 @@ export type MemoryTier =
 export type AccessLevel =
   | 'private'     // Only owner can access
   | 'team'        // Team members can access
-  | 'swarm'       // All swarm agents can access
+  | 'monoswarm'   // All monoswarm agents can access
   | 'public'      // Publicly accessible
   | 'system';     // System-level access
 
@@ -527,7 +527,7 @@ export type MigrationSource =
   | 'markdown'
   | 'json'
   | 'memory-manager'
-  | 'swarm-memory'
+  | 'monoswarm-memory'
   | 'distributed-memory';
 
 /**

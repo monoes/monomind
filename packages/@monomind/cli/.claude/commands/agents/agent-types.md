@@ -13,7 +13,7 @@ Complete guide to all 60+ available agent types in Monomind.
 - `planner` - Strategic planning
 - `researcher` - Information gathering
 
-## Swarm Coordination Agents
+## Monoswarm Coordination Agents
 - `hierarchical-coordinator` - Queen-led coordination
 - `mesh-coordinator` - Peer-to-peer networks
 - `adaptive-coordinator` - Dynamic topology

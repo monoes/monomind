@@ -1,11 +1,11 @@
 ---
 name: optimization:auto-topology
-description: Automatically select the optimal swarm topology based on task complexity — use pre-task hook recommendations, swarm init flags, and performance optimize CLI
+description: Automatically select the optimal monoswarm topology based on task complexity — use pre-task hook recommendations, monoswarm init flags, and performance optimize CLI
 ---
 
 # Auto Topology Selection
 
-Automatically select the optimal swarm topology based on task complexity so you don't have to configure it manually.
+Automatically select the optimal monoswarm topology based on task complexity so you don't have to configure it manually.
 
 ## How It Works
 
@@ -19,29 +19,29 @@ npx monomind hooks pre-task -d "Refactor authentication system with JWT, add tes
 
 Output includes agent and topology suggestions.
 
-### 2. Initialize the Swarm With the Recommended Topology
+### 2. Initialize the Monoswarm With the Recommended Topology
 
 ```bash
 # Simple/medium tasks — hierarchical (anti-drift, tight control)
-npx monomind swarm init --topology hierarchical --max-agents 6 --strategy specialized
+npx monomind monoswarm init --topology hierarchical --max-agents 6 --strategy specialized
 
 # Complex multi-domain tasks — hierarchical-mesh (peer communication + queen)
-npx monomind swarm init --topology hierarchical-mesh --max-agents 12 --strategy specialized
+npx monomind monoswarm init --topology hierarchical-mesh --max-agents 12 --strategy specialized
 ```
 
 ### Topology Selection Guide
 
 | Complexity | Agents Needed | Recommended Topology |
 |---|---|---|
-| Simple (single file) | 1–2 | `star` — skip swarm, use Edit tool directly |
+| Simple (single file) | 1–2 | `star` — skip monoswarm, use Edit tool directly |
 | Medium | 3–5 | `hierarchical` |
 | Complex (multi-module) | 6–8 | `hierarchical` |
 | Large (10+ agents) | 10–15 | `hierarchical-mesh` |
 | Sequential pipeline | any | `ring` |
 
-## Optimize Existing Swarm Topology
+## Optimize Existing Monoswarm Topology
 
-If a swarm is already running, optimize its topology via the coordination MCP tool:
+If a monoswarm is already running, optimize its topology via the coordination MCP tool:
 
 ```javascript
 mcp__monomind__coordination_topology({
@@ -80,6 +80,6 @@ npx monomind performance optimize --target all --apply
 
 ## See Also
 
-- `swarm init` — initialize swarm with explicit topology
+- `monoswarm init` — initialize monoswarm with explicit topology
 - `performance optimize` — system-level performance tuning
 - `hooks pre-task` — get routing and topology recommendations

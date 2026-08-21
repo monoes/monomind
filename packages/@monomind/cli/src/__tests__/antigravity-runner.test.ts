@@ -15,6 +15,7 @@
  * silently matched nothing against the real CLI and dropped all output.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { z } from 'zod';
 import { AntigravityAgentRunner } from '../orgrt/antigravity-runner.js';
 import { EventEmitter } from 'node:events';
 import * as cp from 'node:child_process';
@@ -117,9 +118,10 @@ describe('AntigravityAgentRunner', () => {
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    // agy streams per-token but the runner accumulates and emits one clean
-    // message per turn (matching kimi/codex behavior — fence stripping needs
-    // the full text, and per-token deltas would split fences across events).
+    // agy streams per-token; the runner accumulates deltas per agent_response
+    // step and emits one clean message at the step's DONE boundary (fence
+    // stripping needs the full text — per-token deltas would split fences
+    // across events).
     const assistantMsgs = messages.filter(m => m.type === 'assistant');
     expect(assistantMsgs).toHaveLength(1);
     expect(assistantMsgs[0].text).toBe('Hello world');
@@ -163,7 +165,14 @@ describe('AntigravityAgentRunner', () => {
       maxTurns: 5,
     });
 
-    await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow('model not found');
+    const messages: any[] = [];
+    let caught: any;
+    try {
+      for await (const m of gen) messages.push(m);
+    } catch (err) { caught = err; }
+    // Partial liveness may already have been yielded before the error
+    // surfaces at end of turn — the thrown error still carries it.
+    expect(String(caught)).toContain('model not found');
   });
 
   it('uses --conversation flag when conversationId provided', async () => {
@@ -212,7 +221,13 @@ describe('AntigravityAgentRunner', () => {
       maxTurns: 5,
     });
 
-    await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow('requires the Antigravity CLI');
+    // The spawn-time liveness message is yielded first (it wins session.ts's
+    // watchdog race); the spawn error surfaces when the stream is drained.
+    let caught: any;
+    try {
+      for await (const _m of gen) { /* consume */ }
+    } catch (err) { caught = err; }
+    expect(String(caught)).toContain('requires the Antigravity CLI');
   });
 
   it('falls back to result.response when no text_delta streamed', async () => {
@@ -303,5 +318,203 @@ describe('AntigravityAgentRunner', () => {
     const resultMsg = messages.find(m => m.type === 'result');
     expect(resultMsg.input_tokens).toBe(8132);
     expect(resultMsg.output_tokens).toBe(35);
+  });
+});
+
+/**
+ * Incremental-streaming tests. The runner used to buffer ALL stdout until
+ * the agy subprocess exited, so a turn longer than session.ts's 4-minute
+ * silent-stream watchdog (SILENT_SESSION_MS) yielded zero messages in time —
+ * abort, retry, kill, circuit breaker. These tests prove messages are yielded
+ * DURING the turn: the mock stdout iterator sleeps between lines, so
+ * buffered-until-exit delivery is measurably late.
+ */
+describe('AntigravityAgentRunner streaming', () => {
+  let runner: AntigravityAgentRunner;
+
+  beforeEach(() => {
+    runner = new AntigravityAgentRunner('/usr/local/bin/agy');
+    vi.clearAllMocks();
+  });
+
+  /** Mock child whose stdout lines are emitted with per-line delays; 'close'
+   *  fires after the last line. */
+  function makeDelayedMockChild(lines: Array<{ line: string; delayMs?: number }>, exitCode = 0): cp.ChildProcess {
+    const child = new EventEmitter() as any;
+    child.stdout = new EventEmitter();
+    child.stdout[Symbol.asyncIterator] = async function* () {
+      for (const { line, delayMs = 0 } of lines) {
+        if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+        yield Buffer.from(line + '\n');
+      }
+    };
+    child.stderr = new EventEmitter();
+    child.kill = vi.fn();
+    const total = lines.reduce((s, l) => s + (l.delayMs ?? 0), 0);
+    setTimeout(() => child.emit('close', exitCode), total + 50);
+    return child as cp.ChildProcess;
+  }
+
+  function makeRunArgs(overrides?: Record<string, unknown>) {
+    return {
+      tools: [],
+      prompt: (async function* () { yield 'do work'; })(),
+      systemPrompt: 'test role',
+      cwd: '/tmp',
+      env: {},
+      maxTurns: 5,
+      ...overrides,
+    } as any;
+  }
+
+  it('yields a liveness message immediately, then streams messages DURING the turn (not after exit)', async () => {
+    const step = (state: string, extra: Record<string, unknown> = {}) =>
+      JSON.stringify({ event: 'step_update', step_update: { conversation_id: 'c1', step_type: 'agent_response', state, ...extra } });
+    vi.mocked(cp.spawn).mockReturnValue(makeDelayedMockChild([
+      { line: JSON.stringify({ event: 'init', conversation_id: 'c1', init: {} }) },
+      // Model "thinking", then first text…
+      { line: step('ACTIVE', { text_delta: 'working on it' }), delayMs: 200 },
+      // …a tool step…
+      { line: JSON.stringify({ event: 'step_update', step_update: { conversation_id: 'c1', step_type: 'tool', state: 'ACTIVE', tool_info: { name: 'read_file' } } }), delayMs: 200 },
+      // …the DONE boundary flushes the first text…
+      { line: step('DONE'), delayMs: 200 },
+      // …then a LONG tail (e.g. reading a large dossier) before the final text.
+      { line: step('ACTIVE', { text_delta: 'all done' }), delayMs: 500 },
+      { line: step('DONE') },
+      { line: JSON.stringify({ event: 'result', result: { conversation_id: 'c1', status: 'SUCCESS', usage: { input_tokens: 10, output_tokens: 5 } } }) },
+    ]));
+
+    const start = Date.now();
+    const messages: any[] = [];
+    const times: number[] = [];
+    for await (const m of runner.run(makeRunArgs())) {
+      messages.push(m);
+      times.push(Date.now());
+    }
+    const end = Date.now();
+
+    // First message must be the spawn-time liveness yield — this is what
+    // deterministically wins session.ts's first-pull watchdog race.
+    expect(messages[0]).toEqual({ type: 'tool_use', session_id: undefined, text: 'turn started' });
+    expect(times[0] - start).toBeLessThan(300);
+
+    // Tool steps arrive as tool_use liveness messages.
+    const toolMsgs = messages.filter((m) => m.type === 'tool_use');
+    expect(toolMsgs.some((m) => m.text === 'read_file')).toBe(true);
+
+    // Assistant text flushes at DONE boundaries, fence-stripped.
+    const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(texts).toEqual(['working on it', 'all done']);
+
+    // THE regression guard: the first assistant text must arrive well BEFORE
+    // the subprocess exits (the mock sleeps 500ms after the first DONE before
+    // printing the final lines). Under the old buffered design every message
+    // arrived at process exit.
+    const firstAssistantIdx = messages.findIndex((m) => m.type === 'assistant');
+    expect(end - times[firstAssistantIdx]).toBeGreaterThanOrEqual(350);
+
+    // The synthesized result carries the captured conversation id + usage.
+    const result = messages.find((m) => m.type === 'result');
+    expect(result?.subtype).toBe('success');
+    expect(result?.session_id).toBe('c1');
+    expect(result?.input_tokens).toBe(10);
+  }, 15000);
+
+  it('does not double-count text when a DONE step repeats the full step text after ACTIVE deltas', async () => {
+    const step = (state: string, extra: Record<string, unknown> = {}) =>
+      JSON.stringify({ event: 'step_update', step_update: { conversation_id: 'c1', step_type: 'agent_response', state, ...extra } });
+    vi.mocked(cp.spawn).mockReturnValue(makeDelayedMockChild([
+      { line: step('ACTIVE', { text_delta: 'Hello' }) },
+      { line: step('ACTIVE', { text_delta: ' world' }) },
+      // DONE carrying the FULL text (not a delta) must replace, not append.
+      { line: step('DONE', { text_delta: 'Hello world' }) },
+      { line: JSON.stringify({ event: 'result', result: { conversation_id: 'c1', status: 'SUCCESS', usage: {} } }) },
+    ]));
+
+    const messages: any[] = [];
+    for await (const m of runner.run(makeRunArgs())) messages.push(m);
+
+    const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(texts).toEqual(['Hello world']);
+  });
+
+  it('fence protocol: executes tool_call fences and feeds results back into the SAME conversation', async () => {
+    const fenceTurn = makeDelayedMockChild([
+      { line: JSON.stringify({ event: 'init', conversation_id: 'conv-fence-1', init: {} }) },
+      { line: JSON.stringify({ event: 'step_update', step_update: { conversation_id: 'conv-fence-1', step_type: 'agent_response', state: 'DONE', text_delta: 'Sending now.\n```tool_call\n{"name":"org_echo","arguments":{"text":"hi"}}\n```' } }) },
+      { line: JSON.stringify({ event: 'result', result: { conversation_id: 'conv-fence-1', status: 'SUCCESS', usage: { input_tokens: 5, output_tokens: 2 } } }) },
+    ]);
+    const finalTurn = makeDelayedMockChild([
+      { line: JSON.stringify({ event: 'step_update', step_update: { conversation_id: 'conv-fence-1', step_type: 'agent_response', state: 'DONE', text_delta: 'final answer' } }) },
+      { line: JSON.stringify({ event: 'result', result: { conversation_id: 'conv-fence-1', status: 'SUCCESS', usage: { input_tokens: 7, output_tokens: 3 } } }) },
+    ]);
+    vi.mocked(cp.spawn).mockReturnValueOnce(fenceTurn).mockReturnValueOnce(finalTurn);
+
+    const handled: string[] = [];
+    const args = makeRunArgs({
+      tools: [{
+        name: 'org_echo',
+        description: 'echo text back',
+        schema: { text: z.string() },
+        handler: async (a: any) => { handled.push(String(a.text)); return { text: `echo:${a.text}` }; },
+      }],
+    });
+    const messages: any[] = [];
+    for await (const m of runner.run(args)) messages.push(m);
+
+    // The OrgToolDef handler ran in-process with the fence's arguments…
+    expect(handled).toEqual(['hi']);
+    // …and both turns' prose was yielded, fence-stripped.
+    const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(texts).toContain('Sending now.');
+    expect(texts).toContain('final answer');
+    expect(texts.every((t) => !t?.includes('tool_call'))).toBe(true);
+
+    // Two CLI invocations: first WITHOUT --conversation (fresh session),
+    // second WITH --conversation conv-fence-1 and the tool_result prompt.
+    const calls = vi.mocked(cp.spawn).mock.calls;
+    expect(calls).toHaveLength(2);
+    const argv0 = calls[0][1] as string[];
+    expect(argv0).not.toContain('--conversation');
+    const argv1 = calls[1][1] as string[];
+    expect(argv1[argv1.indexOf('--conversation') + 1]).toBe('conv-fence-1');
+    const prompt1 = argv1[argv1.indexOf('-p') + 1];
+    expect(prompt1).toContain('tool_result');
+    expect(prompt1).toContain('echo:hi');
+
+    // One synthesized result per mailbox prompt, usage summed across rounds.
+    const results = messages.filter((m) => m.type === 'result');
+    expect(results).toHaveLength(1);
+    expect(results[0].session_id).toBe('conv-fence-1');
+    expect(results[0].input_tokens).toBe(12);
+  }, 15000);
+
+  it('classifies auth/permission failures as FATAL (non-retryable)', async () => {
+    vi.mocked(cp.spawn).mockReturnValue(makeDelayedMockChild([
+      { line: JSON.stringify({ event: 'result', result: { conversation_id: 'c1', status: 'ERROR', error: 'auth_error: 401 Unauthorized' } }) },
+    ], 1));
+
+    let caught: any;
+    try {
+      for await (const _m of runner.run(makeRunArgs())) { /* consume */ }
+    } catch (err) { caught = err; }
+    expect(caught).toBeDefined();
+    expect(String(caught)).toContain('FATAL');
+    expect(caught.fatal).toBe(true);
+  });
+
+  it('leaves transient failures retryable (no fatal flag)', async () => {
+    const child = makeDelayedMockChild([], 1);
+    // Generic stderr, no auth/quota markers.
+    setTimeout(() => (child.stderr as EventEmitter).emit('data', Buffer.from('connection reset by peer')), 5);
+    vi.mocked(cp.spawn).mockReturnValue(child);
+
+    let caught: any;
+    try {
+      for await (const _m of runner.run(makeRunArgs())) { /* consume */ }
+    } catch (err) { caught = err; }
+    expect(caught).toBeDefined();
+    expect(String(caught)).toContain('agy failed (exit 1)');
+    expect(caught.fatal).toBeUndefined();
   });
 });

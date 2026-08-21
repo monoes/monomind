@@ -1107,7 +1107,7 @@ function Start-SwarmMonitor {
     Write-Host "Starting swarm monitor..." -ForegroundColor Cyan
     $process = Start-Process -FilePath 'node' -ArgumentList @(
         '-e',
-        'setInterval(() => { require("fs").writeFileSync(".monomind/metrics/swarm-activity.json", JSON.stringify({swarm:{active:true,agent_count:0},timestamp:Date.now()})) }, 5000)'
+        'setInterval(() => { require("fs").writeFileSync(".monomind/metrics/monoswarm-activity.json", JSON.stringify({monoswarm:{active:true,agent_count:0},timestamp:Date.now()})) }, 5000)'
     ) -PassThru -WindowStyle Hidden
 
     $process.Id | Out-File $pidFile
