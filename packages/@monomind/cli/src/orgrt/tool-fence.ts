@@ -128,7 +128,9 @@ export function parseToolCalls(
   for (const text of rawTexts) {
     TOOL_CALL_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
+    let lastMatchEnd = 0;
     while ((m = TOOL_CALL_RE.exec(text)) !== null) {
+      lastMatchEnd = TOOL_CALL_RE.lastIndex;
       try {
         // Models sometimes append extra closing braces after the JSON object
         // (observed with kimi k3: `...}}}`); parse only the first balanced
@@ -144,6 +146,22 @@ export function parseToolCalls(
       } catch (err) {
         onMalformed?.(m[1].trim(), err instanceof Error ? err.message : String(err));
       }
+    }
+    // A ```tool_call opener with no closing ``` anywhere after it (the model
+    // hit its per-response output limit mid-argument) never matches
+    // TOOL_CALL_RE at all — the regex requires both fences. Left undetected,
+    // the tool silently never executes and the model believes it did. Flag
+    // any opener that starts at or after the last successful match's end as
+    // truncated, distinctly from a parse failure, so the model can retry
+    // with shorter arguments instead of moving on unaware.
+    const OPENER = '```tool_call';
+    const openerIdx = text.lastIndexOf(OPENER);
+    if (openerIdx !== -1 && openerIdx >= lastMatchEnd) {
+      const body = text.slice(openerIdx + OPENER.length).replace(/^[ \t]*\n/, '');
+      onMalformed?.(
+        body.trim(),
+        'tool_call fence was truncated (no closing ``` found) — re-issue with shorter arguments',
+      );
     }
   }
   return calls;

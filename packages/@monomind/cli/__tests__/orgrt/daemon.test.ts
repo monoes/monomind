@@ -371,7 +371,36 @@ describe('OrgDaemon — completion & idle watchdog', () => {
     expect(running.busEvents().some(e => e.type === 'status' && e.msg === 'org stopped')).toBe(true);
     const rt = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/runtime.json'), 'utf8'));
     expect(rt.status).toBe('stopped');
+    // #206: the ONLY signal `org run` trusts for a clean exit — must be set
+    // by the org-complete auto-stop path all the way through to disk.
+    expect(rt.closedBy).toBe('org-complete');
   }, 10_000);
+
+  it('#206: a stop NOT triggered by org_complete (idle watchdog) leaves closedBy unset in runtime.json', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-idle-noclosedby-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { idle_minutes: 0.005 },
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    await d.startOrg('alpha');
+    const deadline = Date.now() + 8000;
+    while (d.getOrg('alpha') && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    expect(d.getOrg('alpha')).toBeUndefined();
+    // mirrors `org run`: stopAll() must JOIN the detached in-flight idle-stop
+    // so runtime.json has actually landed before we read it (same race the
+    // org-complete test above documents).
+    await d.stopAll();
+    const rt = JSON.parse(readFileSync(join(root, '.monomind/orgs/alpha/runtime.json'), 'utf8'));
+    expect(rt.status).toBe('stopped');
+    expect(rt.closedBy).toBeUndefined();
+  }, 15_000);
 
   it('idle watchdog nudges the boss, then stops the org when the nudge produces no activity (hung agent)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'daemon-idle-'));
@@ -393,6 +422,33 @@ describe('OrgDaemon — completion & idle watchdog', () => {
     const events = running.busEvents();
     expect(events.some(e => e.type === 'audit' && e.reason === 'idle-nudge')).toBe(true);
     expect(events.some(e => e.type === 'audit' && e.reason === 'idle-stop')).toBe(true);
+    expect(d.getOrg('alpha')).toBeUndefined();
+  }, 15_000);
+
+  it('#205: idle watchdog reports a budget-exhausted boss distinctly, not as generic "unreachable"', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-idle-budget-'));
+    mkdirSync(join(root, '.monomind/orgs'), { recursive: true });
+    writeFileSync(join(root, '.monomind/orgs/alpha.json'), JSON.stringify({
+      name: 'alpha', goal: 'g',
+      run_config: { idle_minutes: 0.005 }, // 300ms idle window for the test
+      roles: [
+        { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+        { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' },
+      ],
+    }));
+    const hangingQuery = () => (async function* () { await new Promise(() => {}); })();
+    const d = new OrgDaemon(root, { queryFn: hangingQuery as any, forward: false, stopWaitMs: 200 });
+    const running = await d.startOrg('alpha');
+    // Simulate what session.ts does on token-budget exhaustion, without
+    // needing a real budget-tracking session: close the boss's own mailbox
+    // with the same reason it would pass.
+    running.agents.get('boss')!.mailbox.close('token-budget');
+    const deadline = Date.now() + 8000;
+    while (d.getOrg('alpha') && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
+    const events = running.busEvents();
+    const stopEvent = events.find(e => e.type === 'audit' && e.reason === 'idle-stop');
+    expect(stopEvent?.msg).toMatch(/budget/i);
+    expect(stopEvent?.msg).not.toMatch(/unreachable/i);
     expect(d.getOrg('alpha')).toBeUndefined();
   }, 15_000);
 
