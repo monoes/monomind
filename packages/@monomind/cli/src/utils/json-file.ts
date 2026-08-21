@@ -94,7 +94,7 @@ export function writeJsonFileAtomic(
 /**
  * Merge `incoming` records into `existing` by `id`, keeping existing records
  * in place and appending only the ones not already present. Shared by
- * `hooks intelligence import` (IPFS/file pattern import) and `hooks transfer`
+ * `hooks intelligence import` (file pattern import) and `hooks transfer`
  * (cross-project pattern transfer) so both use one dedupe rule.
  */
 export function mergeRecordsById<T extends { id: string }>(

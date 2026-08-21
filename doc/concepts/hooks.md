@@ -165,7 +165,7 @@ monomind hooks route           # Route a task to optimal agent
 monomind hooks explain         # Explain routing decision
 monomind hooks pretrain        # Run the 4-step learning pipeline
 monomind hooks metrics         # Show hook execution metrics
-monomind hooks transfer        # Transfer patterns (local file copy; for IPFS transfer see `hooks intelligence export --ipfs`)
+monomind hooks transfer        # Transfer patterns (local file copy between project checkouts)
 monomind hooks list            # List all registered hooks
 ```
 

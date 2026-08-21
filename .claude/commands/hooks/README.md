@@ -31,7 +31,7 @@ route             Route task to optimal agent using learned patterns
 explain           Explain routing decision with transparency
 pretrain          Bootstrap intelligence from repository (4-step pipeline + embeddings)
 metrics           View learning metrics dashboard
-transfer          Transfer patterns via IPFS registry or from another project
+transfer          Transfer patterns from another local project
 list              List all registered hooks
 worker            Background worker management (12 workers)
 progress          Check v1 implementation progress

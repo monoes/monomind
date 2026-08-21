@@ -17,24 +17,23 @@ import {
   predictCommand,
 } from './neural-core.js';
 import { optimizeCommand, exportCommand } from './neural-optimize.js';
-import { listCommand as registryListCommand, importCommand } from './neural-registry.js';
+import { importCommand } from './neural-registry.js';
 
 // =============================================================================
 // Intelligence subcommand (JS pattern/trajectory logging + pattern store)
 // Pattern store subcommands (train, status, patterns, predict, optimize,
-// export, list, import) were merged in from the former `neural` command.
+// export, import) were merged in from the former `neural` command.
 // =============================================================================
 
 export const intelligenceCommand: Command = {
   name: 'intelligence',
-  description: 'JS pattern/trajectory logging and pattern store (train, patterns, predict, optimize, export, list, import)',
+  description: 'JS pattern/trajectory logging and pattern store (train, patterns, predict, optimize, export, import)',
   subcommands: [
     trainCommand,
     patternStatusCommand,
     patternsCommand,
     predictCommand,
     optimizeCommand,
-    registryListCommand,
     exportCommand,
     importCommand,
   ],

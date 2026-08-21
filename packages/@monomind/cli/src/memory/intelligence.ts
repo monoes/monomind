@@ -532,10 +532,11 @@ class LocalReasoningBank {
     try {
       const data = readJsonFileSync<unknown[]>(getPatternsPath(), []);
       if (Array.isArray(data)) {
-        // Validate each persisted pattern. The patterns file is part of the
-        // IPFS-distributed pattern transfer flow — without bounds checks, a
-        // malicious bundle can inject `confidence: 1e9` (deterministically wins
-        // every routing decision) or `keywords: [10000 strings]` (DoS on every
+        // Validate each persisted pattern. patterns.json can be replaced or
+        // hand-edited outside the process (a transferred/imported file, or
+        // direct tampering) — without bounds checks, a malicious file can
+        // inject `confidence: 1e9` (deterministically wins every routing
+        // decision) or `keywords: [10000 strings]` (DoS on every
         // findBestPatternMatch call).
         for (const pattern of data) {
           if (!pattern || typeof pattern !== 'object') continue;
@@ -1353,7 +1354,7 @@ function loadSonaRoutingPatterns(): Pattern[] {
 
     // Cap total entries to prevent DoS via an unbounded patterns map.
     // sona-patterns.json is written by the SONA optimizer but could be
-    // replaced by a malicious IPFS bundle — validate every field before use.
+    // replaced or hand-edited outside the process — validate every field before use.
     const MAX_SONA_ENTRIES = 500;
     let entryCount = 0;
 
