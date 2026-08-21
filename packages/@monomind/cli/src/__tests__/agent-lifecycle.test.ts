@@ -41,7 +41,7 @@ beforeEach(() => {
   process.env.MONOMIND_CWD = dir;
   // updateSwarmActivityMetrics() (agent-lifecycle.ts L15-43) uses
   // process.cwd() directly rather than getProjectCwd()/MONOMIND_CWD, so it
-  // must be stubbed separately for the swarm-activity.json side effect to
+  // must be stubbed separately for the monoswarm-activity.json side effect to
   // land in the temp dir instead of the real repo.
   originalCwd = process.cwd;
   process.cwd = () => dir;
@@ -102,11 +102,11 @@ describe('spawnCommand', () => {
 
   it('records swarm activity metrics on spawn (separate side-effect file from the agent store)', async () => {
     (await spawnCommand.action!(makeCtx({ flags: { type: 'coder', name: 'metrics-agent', _: [] } })) as CommandResult);
-    const activityPath = join(dir, '.monomind', 'metrics', 'swarm-activity.json');
+    const activityPath = join(dir, '.monomind', 'metrics', 'monoswarm-activity.json');
     expect(existsSync(activityPath)).toBe(true);
     const activity = JSON.parse(readFileSync(activityPath, 'utf-8'));
-    expect(activity.swarm.agent_count).toBe(1);
-    expect(activity.swarm.active).toBe(true);
+    expect(activity.monoswarm.agent_count).toBe(1);
+    expect(activity.monoswarm.active).toBe(true);
   });
 });
 
@@ -278,10 +278,10 @@ describe('stopCommand', () => {
     const store = readStore();
     expect((store.agents[agentId] as { status: string }).status).toBe('terminated');
 
-    const activityPath = join(dir, '.monomind', 'metrics', 'swarm-activity.json');
+    const activityPath = join(dir, '.monomind', 'metrics', 'monoswarm-activity.json');
     const activity = JSON.parse(readFileSync(activityPath, 'utf-8'));
     // spawn (+1) then stop (-1) nets to 0.
-    expect(activity.swarm.agent_count).toBe(0);
+    expect(activity.monoswarm.agent_count).toBe(0);
   });
 
   it('requires an agent ID and fails with exitCode 1 when missing', async () => {

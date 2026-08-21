@@ -29,7 +29,7 @@ For slash commands and security gates, install the generated plugin once:
 
 | Capability | How it shows up in Kimi Code |
 |---|---|
-| **MCP server + tools** (Monograph graph, memory, hive-mind) | `.kimi-code/mcp.json` → `mcpServers.monomind`. Tools as `mcp__monomind__*` (`monograph_query`, `memory_kg_search`, …). Merged into an existing mcp.json — your other servers are never clobbered, even with `--force`. |
+| **MCP server + tools** (Monograph graph, memory, monoswarm) | `.kimi-code/mcp.json` → `mcpServers.monomind`. Tools as `mcp__monomind__*` (`monograph_query`, `memory_kg_search`, …). Merged into an existing mcp.json — your other servers are never clobbered, even with `--force`. |
 | **Agents** | `.kimi-code/agents/*.md` — your agent roster (coder, reviewer, planner, …) as kimi sub-agents. Names are slugified to kebab-case, which kimi hard-requires. |
 | **Skills** | `.kimi-code/skills/*/SKILL.md` — same SKILL.md shape Claude Code uses. |
 | **Commands** | Two forms: (a) `.kimi-code/skills/<cat>-<name>/` as `type: flow` skills — invocable project-level via `/skill:<cat>-<name>` with zero install; (b) `.kimi-code/plugin/commands/*.md` — real `/monomind:*` slash commands once the plugin is installed. |

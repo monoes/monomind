@@ -69,7 +69,7 @@ export interface MonomindConfig {
   agents: AgentConfig;
 
   // Swarm configuration
-  swarm: SwarmConfig;
+  monoswarm: MonoswarmConfig;
 
   // Memory configuration
   memory: MemoryConfig;
@@ -111,7 +111,7 @@ export interface ProviderConfig {
   enabled: boolean;
 }
 
-export interface SwarmConfig {
+export interface MonoswarmConfig {
   topology: 'hierarchical' | 'mesh' | 'ring' | 'star' | 'hybrid' | 'hierarchical-mesh';
   maxAgents: number;
   autoScale: boolean;

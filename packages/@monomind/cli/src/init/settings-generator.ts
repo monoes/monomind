@@ -108,7 +108,7 @@ export function generateSettings(options: InitOptions): object {
         },
       },
     },
-    swarm: {
+    monoswarm: {
       topology: options.runtime.topology,
       maxAgents: options.runtime.maxAgents,
     },

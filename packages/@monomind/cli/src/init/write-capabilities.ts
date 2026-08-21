@@ -31,12 +31,12 @@ export async function writeCapabilitiesDoc(
 ## 📋 Table of Contents
 
 1. [Overview](#overview)
-2. [Swarm Orchestration](#swarm-orchestration)
+2. [Monoswarm Orchestration](#monoswarm-orchestration)
 3. [Available Agents (60+)](#available-agents)
 4. [CLI Commands](#cli-commands)
 5. [Hooks System (29 Hook Subcommands + 8 Background Workers)](#hooks-system)
 6. [Memory & Intelligence](#memory--intelligence)
-7. [Hive-Mind Consensus](#hive-mind-consensus)
+7. [Monoswarm Vote Strategies](#monoswarm-vote-strategies)
 8. [Performance Targets](#performance-targets)
 9. [Integration Ecosystem](#integration-ecosystem)
 
@@ -46,10 +46,10 @@ export async function writeCapabilitiesDoc(
 
 Monomind is a domain-driven design architecture for multi-agent AI coordination with:
 
-- **15-Agent Swarm Coordination** with hierarchical and mesh topologies
+- **15-Agent Monoswarm Coordination** with hierarchical and mesh topologies
 - **ANN Vector Search** - indexed pattern retrieval via SQLite (better-sqlite3, sql.js WASM fallback)
 - **Keyword Routing** - deterministic task→agent routing with outcome measurement
-- **Byzantine Fault Tolerance** - Queen-led consensus mechanisms
+- **Vote-Threshold Consensus** - majority/supermajority/unanimous/threshold decisions
 - **MCP Server Integration** - Model Context Protocol support
 
 ### Current Configuration
@@ -64,17 +64,17 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 
 ---
 
-## Swarm Orchestration
+## Monoswarm Orchestration
 
 ### Topologies
 | Topology | Description | Best For |
 |----------|-------------|----------|
-| \`hierarchical\` | Queen controls workers directly | Anti-drift, tight control |
-| \`mesh\` | Fully connected peer network | Distributed tasks |
-| \`hierarchical-mesh\` | V1 hybrid (recommended) | 10+ agents |
+| \`hierarchical\` | Coordinator controls workers directly | Anti-drift, tight control |
+| \`mesh\` | Fully connected peer network | Parallel, independent tasks |
+| \`hierarchical-mesh\` | Hybrid (recommended) | 10+ agents |
 | \`ring\` | Circular communication | Sequential workflows |
 | \`star\` | Central coordinator | Simple coordination |
-| \`adaptive\` | Dynamic based on load | Variable workloads |
+| \`adaptive\` / \`hybrid\` | Caller-interpreted label — no automatic reconfiguration | Variable workloads |
 
 ### Strategies
 - \`balanced\` - Even distribution across agents
@@ -83,14 +83,14 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 
 ### Quick Commands
 \`\`\`bash
-# Initialize swarm
-npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+# Initialize monoswarm
+npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Check status
-npx monomind@latest swarm status
+npx monomind@latest monoswarm status
 
 # Monitor activity
-npx monomind@latest swarm monitor
+npx monomind@latest monoswarm monitor
 \`\`\`
 
 ---
@@ -103,11 +103,11 @@ npx monomind@latest swarm monitor
 ### V1 Specialized (1)
 \`security-architect\`
 
-### Swarm Coordination (3)
+### Monoswarm Coordination (3)
 \`mesh-coordinator\`, \`collective-intelligence-coordinator\`, \`swarm-memory-manager\`
 
-### Consensus & Distributed (5)
-\`byzantine-coordinator\`, \`raft-manager\`, \`consensus-builder\`, \`quorum-manager\`, \`security-manager\`
+### Consensus (2)
+\`quorum-manager\`, \`security-manager\`
 
 ### Performance & Optimization (5)
 \`perf-analyzer\`, \`performance-benchmarker\`, \`task-orchestrator\`, \`memory-coordinator\`, \`smart-agent\`
@@ -140,7 +140,7 @@ npx monomind@latest swarm monitor
 |---------|-------------|-------------|
 | \`init\` | 5 | Project initialization |
 | \`agent\` | 7 | Agent lifecycle management |
-| \`swarm\` | 6 | Multi-agent coordination |
+| \`monoswarm\` | 6 | Multi-agent coordination |
 | \`memory\` | 12 | SQLite with ANN vector search |
 | \`mcp\` | 9 | MCP server management |
 | \`task\` | 5 | Task assignment |
@@ -149,8 +149,7 @@ npx monomind@latest swarm monitor
 | \`status\` | 3 | System monitoring |
 | \`hooks\` | 29 | Self-learning hooks + 8 background workers${hooksAvailable ? '' : ' (background workers unavailable in this install)'} |
 
-> Note: there is no \`hive-mind\`, \`workflow\`, \`neural\`, \`embeddings\`, \`claims\`, \`migrate\`, or \`process\` CLI command.
-> Hive-Mind consensus (byzantine/raft/quorum) is available exclusively via MCP tools, not the CLI.
+> Note: there is no \`workflow\`, \`neural\`, \`embeddings\`, \`claims\`, \`migrate\`, or \`process\` CLI command.
 > Neural pattern learning was merged into \`hooks intelligence\`.
 
 ### Advanced Commands
@@ -286,31 +285,22 @@ npx monomind@latest memory init --force
 
 ---
 
-## Hive-Mind Consensus
+## Monoswarm Vote Strategies
 
-> **Experimental, MCP-only.** There is no \`hive-mind\` CLI command — this is
-> single-process vote counting exposed exclusively via MCP tools
-> (\`hive-mind-tools.ts\`), not distributed networking. Reach it through the
-> MCP server (\`npx monomind@latest mcp start\`) once connected to an MCP client.
+Reach monoswarm coordination through MCP tools (\`monoswarm_*\`) or the
+\`npx monomind@latest monoswarm\` CLI command. See \`doc/concepts/monoswarm.md\`
+for the full picture.
 
-### Queen Types
-| Type | Role |
-|------|------|
-| Strategic Queen | Long-term planning |
-| Tactical Queen | Execution coordination |
-| Adaptive Queen | Dynamic optimization |
-
-### Worker Types (8)
+### Agent Types (8)
 \`researcher\`, \`coder\`, \`analyst\`, \`tester\`, \`architect\`, \`reviewer\`, \`optimizer\`, \`documenter\`
 
-### Consensus Mechanisms
-| Mechanism | Fault Tolerance | Status |
-|-----------|-----------------|--------|
-| \`byzantine\` / \`bft\` | f < n/3 faulty | Implemented (vote counting) |
-| \`raft\` | f < n/2 failed | Implemented (vote counting) |
-| \`quorum\` | Configurable | Implemented |
-| \`gossip\` | Eventually consistent | Planned — not implemented, rejected by \`hive_mind_init\` |
-| \`crdt\` | Conflict-free | Planned — not implemented, rejected by \`hive_mind_init\` |
+### Vote Strategies
+| Strategy | Threshold |
+|----------|-----------|
+| \`majority\` | More than 50% of votes |
+| \`supermajority\` | At least 2/3 of votes |
+| \`unanimous\` | 100% of votes |
+| \`threshold\` | Custom \`minVotes\` count |
 
 ---
 
@@ -359,9 +349,9 @@ claude mcp add monomind -- npx -y monomind@latest mcp start
 npx monomind@latest init --wizard
 npx monomind@latest doctor --fix
 
-# Swarm
-npx monomind@latest swarm init --topology hierarchical --max-agents 8
-npx monomind@latest swarm status
+# Monoswarm
+npx monomind@latest monoswarm init --topology hierarchical --max-agents 8
+npx monomind@latest monoswarm status
 
 # Agents
 npx monomind@latest agent spawn -t coder

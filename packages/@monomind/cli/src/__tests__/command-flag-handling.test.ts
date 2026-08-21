@@ -71,6 +71,7 @@ describe('declared-but-ignored flags', () => {
     }));
     spies.push(vi.spyOn(output, 'printInfo').mockImplementation((t) => { lines.push(String(t)); }));
     spies.push(vi.spyOn(output, 'printError').mockImplementation((t) => { lines.push(String(t)); }));
+    spies.push(vi.spyOn(output, 'printSuccess').mockImplementation((t) => { lines.push(String(t)); }));
   });
 
   afterEach(() => { for (const s of spies.splice(0)) s.mockRestore(); });
@@ -122,109 +123,149 @@ describe('declared-but-ignored flags', () => {
   });
 
   /**
-   * `security audit` derives its rows from `.swarm/*.json` in the working
-   * directory, plus one AUDIT_RUN row appended per invocation. A test run in
-   * the repo checkout may therefore see an empty `.swarm` and nothing but
-   * AUDIT_RUN — under which `--filter AUDIT` passes vacuously. Seed a
-   * throwaway cwd containing events that must match AND events that must not,
-   * so the assertion can actually fail.
+   * `security audit` now reads a real JSONL trail (audit-events.jsonl under
+   * the canonical monomind data root for the command's `ctx.cwd`) rather than
+   * inferring synthetic rows from `.swarm/*.json` mtimes. Seed that file
+   * directly via the same writer gates-handler.cjs uses in production, with
+   * events that must match AND events that must not, so filter assertions
+   * can actually fail.
    */
-  const withSeededAuditLog = async (fn: () => Promise<void>) => {
+  const withSeededAuditLog = async (fn: (dir: string) => Promise<void>) => {
     const os = await import('node:os');
     const fs = await import('node:fs');
     const path = await import('node:path');
+    const { appendAuditEvent } = await import('../security/audit-log.js');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-log-'));
-    fs.mkdirSync(path.join(dir, '.swarm'));
-    fs.writeFileSync(path.join(dir, '.swarm', 'swarm-state.json'), '{}');  // -> SWARM_ACTIVITY
-    fs.writeFileSync(path.join(dir, '.swarm', 'session-1.json'), '{}');    // -> SESSION_UPDATE
-    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(dir);
+    appendAuditEvent({ source: 'destructive-ops', decision: 'block', tool: 'Bash', reason: 'rm -rf blocked' }, dir);
+    appendAuditEvent({ source: 'secrets', decision: 'block', tool: 'Write', reason: 'API key detected', path: 'config.ts' }, dir);
     try {
-      await fn();
+      await fn(dir);
     } finally {
-      cwd.mockRestore();
       fs.rmSync(dir, { recursive: true, force: true });
     }
   };
 
-  it('security audit lists every seeded event type when unfiltered', async () => {
+  it('security audit lists every seeded event when unfiltered', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    await withSeededAuditLog(async () => {
-      await auditCommand.action!({ flags: {}, args: [] } as never);
+    await withSeededAuditLog(async (dir) => {
+      await auditCommand.action!({ flags: {}, args: [], cwd: dir } as never);
     });
-    const events = (tables.at(-1) ?? []).map(r => String(r.event)).sort();
-    // Baseline for the filter test below: without --filter all three are present.
-    expect(events).toEqual(['AUDIT_RUN', 'SESSION_UPDATE', 'SWARM_ACTIVITY']);
+    const sources = (tables.at(-1) ?? []).map(r => String(r.source)).sort();
+    // Baseline for the filter test below: without --filter both are present.
+    expect(sources).toEqual(['destructive-ops', 'secrets']);
   });
 
-  it('security audit --filter narrows the log to matching event types', async () => {
+  it('security audit --filter narrows the log to matching events', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    await withSeededAuditLog(async () => {
-      await auditCommand.action!({ flags: { filter: 'SWARM' }, args: [] } as never);
+    await withSeededAuditLog(async (dir) => {
+      await auditCommand.action!({ flags: { filter: 'secrets' }, args: [], cwd: dir } as never);
     });
-    const events = (tables.at(-1) ?? []).map(r => String(r.event));
-    // Regression: --filter was parsed and dropped, so the full log came back.
-    // SESSION_UPDATE and AUDIT_RUN exist in this log (see the test above) and
-    // must be absent here — that is what makes this assertion discriminating.
-    expect(events).toEqual(['SWARM_ACTIVITY']);
+    const sources = (tables.at(-1) ?? []).map(r => String(r.source));
+    expect(sources).toEqual(['secrets']);
   });
 
   it('security audit --filter matches case-insensitively', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    await withSeededAuditLog(async () => {
-      await auditCommand.action!({ flags: { filter: 'session' }, args: [] } as never);
+    await withSeededAuditLog(async (dir) => {
+      await auditCommand.action!({ flags: { filter: 'DESTRUCTIVE' }, args: [], cwd: dir } as never);
     });
-    expect((tables.at(-1) ?? []).map(r => String(r.event))).toEqual(['SESSION_UPDATE']);
+    expect((tables.at(-1) ?? []).map(r => String(r.source))).toEqual(['destructive-ops']);
   });
 
   it('security audit --filter reports when nothing matches', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    await withSeededAuditLog(async () => {
-      await auditCommand.action!({ flags: { filter: 'NOSUCHEVENT' }, args: [] } as never);
+    await withSeededAuditLog(async (dir) => {
+      await auditCommand.action!({ flags: { filter: 'NOSUCHEVENT' }, args: [], cwd: dir } as never);
     });
     expect(lines.some(l => /No audit events match "NOSUCHEVENT"/.test(l))).toBe(true);
-    expect(lines.some(l => /AUDIT_RUN, SESSION_UPDATE, SWARM_ACTIVITY/.test(l))).toBe(true);
     expect(tables).toEqual([]);
   });
 
-  /**
-   * `--action log|export|clear` were advertised in the option description and
-   * the examples but never implemented — the command listed the log whatever
-   * you passed. Unlike `--suite` on `performance benchmark` (where ignoring
-   * the value still produces a valid superset of what was asked for), these
-   * name a *different operation*: `security audit -a export > audit.json`
-   * would write a decorated console table into a file the caller believes is
-   * an export, and `-a clear` would report success having cleared nothing.
-   * So this rejects with exit 1 rather than warning and continuing.
-   */
-  for (const action of ['log', 'export', 'clear']) {
-    it(`security audit --action ${action} is rejected instead of silently listing`, async () => {
-      const { auditCommand } = await import('../commands/security-misc.js');
-      const res = await auditCommand.action!({ flags: { action }, args: [] } as never) as
-        { success: boolean; exitCode?: number; message?: string };
-      // index.ts calls process.exit(result.exitCode || 1) for !success, so this
-      // pair is what makes the shell see a non-zero status.
-      expect(res.success).toBe(false);
-      expect(res.exitCode).toBe(1);
-      expect(res.message).toBe(`Unsupported action: ${action}`);
-      expect(lines.some(l => new RegExp(`--action ${action} is not implemented`).test(l))).toBe(true);
-      // And no log was printed, so nothing can be mistaken for the output of
-      // the requested operation.
-      expect(tables).toEqual([]);
+  it('security audit --action log tails the real event log', async () => {
+    const { auditCommand } = await import('../commands/security-misc.js');
+    await withSeededAuditLog(async (dir) => {
+      await auditCommand.action!({ flags: { action: 'log' }, args: [], cwd: dir } as never);
     });
-  }
+    expect(lines.some(l => /destructive-ops.*block/.test(l))).toBe(true);
+    expect(lines.some(l => /secrets.*block/.test(l))).toBe(true);
+  });
+
+  it('security audit --action export writes the filtered log to the given path', async () => {
+    const { auditCommand } = await import('../commands/security-misc.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    await withSeededAuditLog(async (dir) => {
+      const out = path.join(dir, 'exported.jsonl');
+      const res = await auditCommand.action!({ flags: { action: 'export', output: out }, args: [], cwd: dir } as never) as
+        { success: boolean; data?: { written: number } };
+      expect(res.success).toBe(true);
+      expect(res.data?.written).toBe(2);
+      const exported = fs.readFileSync(out, 'utf8').trim().split('\n');
+      expect(exported).toHaveLength(2);
+      expect(exported.every(l => JSON.parse(l).source)).toBe(true);
+    });
+  });
+
+  it('security audit --action export requires --output', async () => {
+    const { auditCommand } = await import('../commands/security-misc.js');
+    const res = await auditCommand.action!({ flags: { action: 'export' }, args: [] } as never) as
+      { success: boolean; exitCode?: number };
+    expect(res.success).toBe(false);
+    expect(res.exitCode).toBe(1);
+  });
+
+  it('security audit --action clear archives and truncates the log', async () => {
+    const { auditCommand } = await import('../commands/security-misc.js');
+    const fs = await import('node:fs');
+    const { resolveAuditLogPaths, readAuditEvents } = await import('../security/audit-log.js');
+    await withSeededAuditLog(async (dir) => {
+      const { file } = resolveAuditLogPaths(dir);
+      expect(fs.existsSync(file)).toBe(true);
+      const res = await auditCommand.action!({ flags: { action: 'clear' }, args: [], cwd: dir } as never) as
+        { success: boolean; data?: { cleared: number; archived: string } };
+      expect(res.success).toBe(true);
+      expect(res.data?.cleared).toBe(2);
+      expect(res.data?.archived && fs.existsSync(res.data.archived)).toBe(true);
+      // Cleared, not deleted: the live log is gone but events survive in the archive.
+      expect(readAuditEvents(dir)).toEqual([]);
+    });
+  });
+
+  it('security audit --action clear is a no-op when there is nothing to clear', async () => {
+    const { auditCommand } = await import('../commands/security-misc.js');
+    const os = await import('node:os');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-log-empty-'));
+    try {
+      const res = await auditCommand.action!({ flags: { action: 'clear' }, args: [], cwd: dir } as never) as
+        { success: boolean; data?: { cleared: number } };
+      expect(res.success).toBe(true);
+      expect(res.data?.cleared).toBe(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('security audit --action nonsense is rejected', async () => {
+    const { auditCommand } = await import('../commands/security-misc.js');
+    const res = await auditCommand.action!({ flags: { action: 'nonsense' }, args: [] } as never) as
+      { success: boolean; exitCode?: number; message?: string };
+    expect(res.success).toBe(false);
+    expect(res.exitCode).toBe(1);
+    expect(res.message).toBe('Unsupported action: nonsense');
+  });
 
   it('security audit --action list is accepted', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
     const res = await auditCommand.action!({ flags: { action: 'list' }, args: [] } as never);
     expect(res).toMatchObject({ success: true });
-    expect(lines.some(l => /is not implemented/.test(l))).toBe(false);
   });
 
   it('security audit with no --action is accepted', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
     const res = await auditCommand.action!({ flags: {}, args: [] } as never);
     expect(res).toMatchObject({ success: true });
-    expect(lines.some(l => /is not implemented/.test(l))).toBe(false);
   });
 });
 

@@ -281,7 +281,7 @@ export const performanceTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        suite: { type: 'string', enum: ['all', 'memory', 'neural', 'swarm', 'io'], description: 'Benchmark suite' },
+        suite: { type: 'string', enum: ['all', 'memory', 'neural', 'monoswarm', 'io'], description: 'Benchmark suite' },
         iterations: { type: 'number', description: 'Number of iterations' },
         warmup: { type: 'boolean', description: 'Include warmup phase' },
       },
@@ -290,7 +290,7 @@ export const performanceTools: MCPTool[] = [
       const store = loadPerfStore();
       // Validate suite against enum to prevent uncapped string from being stored
       // as a benchmark key on disk.
-      const VALID_SUITES = new Set(['all', 'memory', 'neural', 'swarm', 'io']);
+      const VALID_SUITES = new Set(['all', 'memory', 'neural', 'monoswarm', 'io']);
       const rawSuite = (input.suite as string) || 'all';
       const suite = VALID_SUITES.has(rawSuite) ? rawSuite : 'all';
       // Cap iterations to prevent event-loop blocking DoS.  The `neural`
@@ -324,7 +324,7 @@ export const performanceTools: MCPTool[] = [
             }
           }
         },
-        swarm: () => {
+        monoswarm: () => {
           // Real object creation and manipulation
           const agents = Array.from({ length: 10 }, (_, i) => ({ id: i, status: 'active', tasks: [] as number[] }));
           agents.forEach(a => { for (let i = 0; i < 100; i++) a.tasks.push(i); });

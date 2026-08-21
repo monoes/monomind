@@ -1,6 +1,6 @@
 # Monomind Statusline Reference
 
-The Monomind statusline is a live dashboard embedded in Claude Code's status bar. It surfaces real-time intelligence about your project — git state, active agent, knowledge base, swarm health, architecture compliance, memory usage, and context budget — without you having to run any commands.
+The Monomind statusline is a live dashboard embedded in Claude Code's status bar. It surfaces real-time intelligence about your project — git state, active agent, knowledge base, monoswarm health, architecture compliance, memory usage, and context budget — without you having to run any commands.
 
 It has two modes you can toggle with `/ts`:
 
@@ -17,8 +17,8 @@ It has two modes you can toggle with `/ts`:
 
 | Element              | Meaning                                                          | Source                                                                        |
 | -------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `▊ Monomind`        | Brand mark + swarm status dot                                    | Always present                                                                |
-| `●` green / `○` grey | Swarm **LIVE** (active within 5 min) or **IDLE**                 | `.monomind/swarm/swarm-state.json` mtime                                     |
+| `▊ Monomind`        | Brand mark + monoswarm status dot                                    | Always present                                                                |
+| `●` green / `○` grey | Monoswarm **LIVE** (active within 5 min) or **IDLE**                 | `.monomind/monoswarm/state.json` mtime                                     |
 | `⎇ main`             | Current git branch                                               | `git branch --show-current`                                                   |
 | `+1`                 | Staged files                                                     | `git status --porcelain` index column                                         |
 | `~9921`              | Modified but unstaged files                                      | `git status --porcelain` worktree column                                      |
@@ -63,7 +63,7 @@ Source: `generateDashboard()`, `.claude/helpers/statusline.cjs:1208-1226`.
 | Element              | Meaning                                        | Source                                                                                                                                                                          |
 | --------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `▊Monomind v2.8.3`   | Brand mark and package version                 | Nearest `package.json` → `version` (`getVersion()`)                                                                                                                              |
-| `● LIVE` / `○ IDLE`  | Whether swarm coordination looks active        | `getSwarmStatus()` — first of 3 tiers that finds live state wins: agent-registration files in `.monomind/agents/registrations/` (<30 min old), else `swarm-state.json` (<5 min old), else `swarm-activity.json` (<5 min old) |
+| `● LIVE` / `○ IDLE`  | Whether monoswarm coordination looks active        | `getMonoswarmStatus()` — first of 3 tiers that finds live state wins: agent-registration files in `.monomind/agents/registrations/` (<30 min old), else `state.json` (<5 min old), else `monoswarm-activity.json` (<5 min old) |
 | `monoes/monomind`    | Project identifier                             | `getProjectName()` — `owner/repo` parsed from `git remote get-url origin`; falls back to the working-directory folder name when there's no remote                              |
 | `◎monomind`          | Working directory name                         | `path.basename(CWD)`                                                                                                                                                             |
 | `⬡nokhodian`         | Your git identity                              | `git config user.name` (`getGitInfo()`)                                                                                                                                          |
@@ -172,7 +172,7 @@ Scans `.monomind/orgs/<name>/runs/*.jsonl` — or the equivalent path under the 
 | `.monomind/data/auto-memory-store.json` | `auto-memory-hook.mjs` (session-start import / Stop sync) + intelligence consolidation | MEMORY              |
 | `.monomind/data/ranked-context.json`    | PageRank consolidation at session-end      | MEMORY              |
 | `.monomind/security/audit-status.json`  | `monomind security scan`                  | ARCH                |
-| `.monomind/swarm/swarm-state.json`      | Swarm init / coordinator                   | Header, SWARM       |
+| `.monomind/monoswarm/state.json`        | Monoswarm init / coordinator               | Header, SWARM       |
 | `.agents/shared_instructions.md`         | Hand-edited — size checked at session start | CONTEXT             |
 | `~/.claude/projects/…/*.jsonl`           | Claude Code session writer                 | `--json` output only (not Full/Compact Mode text) |
 | `.claude/settings.json`                  | Project configuration                      | SWARM (hooks, MCP)  |

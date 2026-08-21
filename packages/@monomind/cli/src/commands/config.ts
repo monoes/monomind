@@ -36,8 +36,8 @@ const initCommand: Command = {
       output.writeln();
       const defaults = configManager.getDefaults();
       output.writeln(output.bold('Key defaults:'));
-      output.writeln(`  swarm.topology     = ${(defaults.swarm as Record<string, unknown>).topology}`);
-      output.writeln(`  swarm.maxAgents    = ${(defaults.swarm as Record<string, unknown>).maxAgents}`);
+      output.writeln(`  monoswarm.topology     = ${(defaults.monoswarm as Record<string, unknown>).topology}`);
+      output.writeln(`  monoswarm.maxAgents    = ${(defaults.monoswarm as Record<string, unknown>).maxAgents}`);
       output.writeln(`  memory.backend     = ${(defaults.memory as Record<string, unknown>).backend}`);
       output.writeln(`  mcp.transportType  = ${(defaults.mcp as Record<string, unknown>).transportType}`);
       return { success: true };
@@ -62,7 +62,7 @@ const getCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monomind config get swarm.topology', description: 'Get swarm topology' },
+    { command: 'monomind config get monoswarm.topology', description: 'Get monoswarm topology' },
     { command: 'monomind config get -k memory.backend', description: 'Get memory backend' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -151,7 +151,7 @@ const setCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monomind config set swarm.maxAgents 20', description: 'Set max agents' },
+    { command: 'monomind config set monoswarm.maxAgents 20', description: 'Set max agents' },
     { command: 'monomind config set -k memory.backend -v sqlite', description: 'Set memory backend' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -327,7 +327,7 @@ const resetCommand: Command = {
       name: 'section',
       description: 'Reset specific section only',
       type: 'string',
-      choices: ['agents', 'swarm', 'memory', 'mcp', 'providers', 'all']
+      choices: ['agents', 'monoswarm', 'memory', 'mcp', 'providers', 'all']
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -451,8 +451,8 @@ export const configCommand: Command = {
   options: [],
   examples: [
     { command: 'monomind config init --v1', description: 'Initialize v1 config' },
-    { command: 'monomind config get swarm.topology', description: 'Get config value' },
-    { command: 'monomind config set swarm.maxAgents 20', description: 'Set config value' }
+    { command: 'monomind config get monoswarm.topology', description: 'Get config value' },
+    { command: 'monomind config set monoswarm.maxAgents 20', description: 'Set config value' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();

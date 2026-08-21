@@ -35,13 +35,12 @@ type CategoryLoader = () => Promise<MCPTool[]>;
 
 const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   agent:       async () => (await import('./mcp-tools/agent-tools.js')).agentTools,
-  swarm:       async () => (await import('./mcp-tools/swarm-tools.js')).swarmTools,
+  monoswarm:   async () => (await import('./mcp-tools/monoswarm-tools.js')).monoswarmTools,
   memory:      async () => (await import('./mcp-tools/memory-tools.js')).memoryTools,
   config:      async () => (await import('./mcp-tools/config-tools.js')).configTools,
   hooks:       async () => (await import('./mcp-tools/hooks-tools.js')).hooksTools,
   task:        async () => (await import('./mcp-tools/task-tools.js')).taskTools,
   session:     async () => (await import('./mcp-tools/session-tools.js')).sessionTools,
-  'hive-mind': async () => (await import('./mcp-tools/hive-mind-tools.js')).hiveMindTools,
   analyze:     async () => (await import('./mcp-tools/analyze-tools.js')).analyzeTools,
   embeddings:  async () => (await import('./mcp-tools/embeddings-tools.js')).embeddingsTools,
   claims:      async () => (await import('./mcp-tools/claims-tools.js')).claimsTools,

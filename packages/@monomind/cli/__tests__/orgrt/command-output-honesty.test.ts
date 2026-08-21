@@ -76,7 +76,7 @@ describe('P1-19: Command-output-honesty regression (prevents P0-1 to P0-6 recurr
   });
 
   describe('P0-4: swarm init/start — no theatrical output', () => {
-    const src = readSrc('commands/swarm.ts');
+    const src = readSrc('commands/monoswarm.ts');
 
     it('does NOT claim to create coordination topology', () => {
       expect(src).not.toContain('Creating coordination topology');
@@ -108,19 +108,19 @@ describe('P1-19: Command-output-honesty regression (prevents P0-1 to P0-6 recurr
     });
   });
 
-  describe('P0-6: hive-mind gossip/crdt — no silent substitution', () => {
-    const src = readSrc('mcp-tools/hive-mind-tools.ts');
+  describe('P0-6: monoswarm vote strategies — no leftover unimplemented options', () => {
+    const src = readSrc('mcp-tools/monoswarm-tools.ts');
 
-    it('does NOT silently substitute byzantine for gossip/crdt', () => {
-      // The old code had PLANNED_CONSENSUS + consensusWarning
-      expect(src).not.toContain('PLANNED_CONSENSUS');
-      expect(src).not.toContain('consensusWarning');
+    it('gossip and crdt are gone entirely, not silently substituted for something else', () => {
+      // These were previously declared-but-rejected strategies; the rename
+      // removed them from the vocabulary altogether rather than keeping a
+      // rejection path, so there is nothing left to silently substitute.
+      expect(src).not.toContain('gossip');
+      expect(src).not.toContain('crdt');
     });
 
-    it('hard-errors on gossip/crdt with supported list', () => {
-      expect(src).toContain('REJECTED_CONSENSUS');
-      expect(src).toContain('is not implemented');
-      expect(src).toContain('Supported: byzantine | bft | raft | quorum');
+    it('the vote strategy vocabulary is exactly majority/supermajority/unanimous/threshold', () => {
+      expect(src).toContain("'majority' | 'supermajority' | 'unanimous' | 'threshold'");
     });
   });
 
