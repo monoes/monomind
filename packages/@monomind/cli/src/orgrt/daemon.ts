@@ -7,7 +7,7 @@ import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
 import { OrgBus } from './bus.js';
 import { PolicyEngine } from './policy.js';
-import { Mailbox } from './mailbox.js';
+import { Mailbox, isRecoverableCloseReason } from './mailbox.js';
 import { runAgentSession } from './session.js';
 import { attachForwarder } from './forwarder.js';
 import { BrokerLease, normalizeCredential } from './broker.js';
@@ -809,8 +809,12 @@ export class OrgDaemon {
       if (roleCheckpoint?.mailboxQueue?.length) {
         restoreMailboxQueue({ mailbox } as any, roleCheckpoint.mailboxQueue);
       }
-      if (roleCheckpoint?.mailboxClosed) {
-        mailbox.close();
+      // A recoverable close (budget exhaustion) is left open on resume — see
+      // isRecoverableCloseReason's doc comment. Re-closing it here would
+      // make the idle watchdog's "raise the budget and resume" remedy a
+      // no-op, since nothing in this codebase ever reopens a closed mailbox.
+      if (roleCheckpoint?.mailboxClosed && !isRecoverableCloseReason(roleCheckpoint.mailboxCloseReason)) {
+        mailbox.close(roleCheckpoint.mailboxCloseReason);
       }
       const policy = new PolicyEngine(
         role.id,
