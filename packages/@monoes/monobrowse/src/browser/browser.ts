@@ -79,7 +79,10 @@ async function isChromeIdentity(port: number): Promise<boolean> {
     const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) });
     if (!res.ok) return false;
     const info = (await res.json()) as { Browser?: string };
-    return typeof info.Browser === 'string' && /chrom(e|ium)/i.test(info.Browser);
+    // Edge's Browser field is "Edg/<version>" with no "chrome"/"chromium"
+    // substring, even though it's Chromium-based and CDP-compatible —
+    // accept it alongside Chrome/Chromium rather than rejecting a valid target.
+    return typeof info.Browser === 'string' && /chrom(e|ium)|edg/i.test(info.Browser);
   } catch {
     return false;
   }

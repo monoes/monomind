@@ -870,6 +870,15 @@ function bindServer(server, port) {
 const _slugPathCache = new Map();
 const _MAX_SLUG_CACHE = 200;
 
+// Inverse of resolveSlugToPath: absolute path -> ~/.claude/projects/<slug>
+// dir name. Claude Code's slug replaces every path separator AND the
+// Windows drive-letter colon with '-' (e.g. "C:\Users\x" -> "C--Users-x")
+// — replacing only '/' leaves Windows paths (all-backslash) completely
+// untouched, so every dir= lookup 404s and every project shows 0 sessions.
+function pathToSlug(d) {
+  return String(d).replace(/[\\/:]/g, '-');
+}
+
 function resolveSlugToPath(slug, projDir) {
   if (_slugPathCache.has(slug)) return _slugPathCache.get(slug);
   const resolved = _resolveSlugToPathUncached(slug, projDir);
@@ -921,7 +930,10 @@ function _resolveSlugToPathUncached(slug, projDir) {
           .find((l) => l.includes('"cwd"'));
         if (line) {
           const m = line.match(/"cwd"\s*:\s*"([^"]+)"/);
-          if (m?.[1]) return m[1];
+          // m[1] is the raw JSON-escaped text between the quotes (e.g. a
+          // Windows path's backslashes still escaped as \\) — unescape it
+          // properly instead of returning the escaped literal.
+          if (m?.[1]) { try { return JSON.parse(`"${m[1]}"`); } catch { return m[1]; } }
         }
       } catch {}
     }
@@ -2004,7 +2016,7 @@ export async function startServer({
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const slug = d.replace(/\//g, '-');
+        const slug = pathToSlug(d);
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
 
         let sessionFiles = [];
@@ -2177,7 +2189,7 @@ export async function startServer({
       }
       try {
         const d = path.resolve(dir || process.cwd());
-        const slug = d.replace(/\//g, '-');
+        const slug = pathToSlug(d);
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
@@ -2251,7 +2263,7 @@ export async function startServer({
         const dir = qs.get('dir') || projectDir || process.cwd();
         const limit = Math.min(parseInt(qs.get('limit') || '50', 10), 200);
         const d = path.resolve(dir || process.cwd());
-        const slug = d.replace(/\//g, '-');
+        const slug = pathToSlug(d);
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
@@ -2342,7 +2354,7 @@ export async function startServer({
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const slug = d.replace(/\//g, '-');
+        const slug = pathToSlug(d);
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
@@ -2416,7 +2428,7 @@ export async function startServer({
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const slug = d.replace(/\//g, '-');
+        const slug = pathToSlug(d);
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
         let sessionFiles = [];
         try {
@@ -2569,7 +2581,7 @@ export async function startServer({
             const projDir = path.join(projectsBase, slug);
             const projPath = resolveSlugToPath(slug, projDir);
             const name =
-              projPath.split('/').filter(Boolean).pop() ||
+              path.basename(projPath) ||
               slug.split('-').filter(Boolean).pop() ||
               slug;
             let sessionCount = 0;
@@ -2940,7 +2952,7 @@ export async function startServer({
         const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
         const homeDir = os.homedir();
-        const slug = d.replace(/\//g, '-');
+        const slug = pathToSlug(d);
         const memDir = path.join(homeDir, '.claude', 'projects', slug, 'memory');
 
         let files = [];
@@ -3042,7 +3054,7 @@ export async function startServer({
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
           const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
-          const slug = d.replace(/\//g, '-');
+          const slug = pathToSlug(d);
           const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
           const { filename, content } = JSON.parse(body);
           if (
@@ -3090,7 +3102,7 @@ export async function startServer({
         try {
           const qs = new URL(req.url, 'http://localhost').searchParams;
           const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
-          const slug = d.replace(/\//g, '-');
+          const slug = pathToSlug(d);
           const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
           const { filename } = JSON.parse(body);
           if (
@@ -3161,7 +3173,7 @@ export async function startServer({
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
-        const slug = d.replace(/\//g, '-');
+        const slug = pathToSlug(d);
         const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
 
         let total = 0,
@@ -3467,7 +3479,7 @@ export async function startServer({
               // Try to extract ScheduleWakeup context from session JSONL
               let loopEntry = null;
               try {
-                const escaped = cwd.replace(/\//g, '-');
+                const escaped = pathToSlug(cwd);
                 const sessionFile = path.join(
                   os.homedir(),
                   '.claude',
@@ -3696,7 +3708,7 @@ export async function startServer({
       // match against every filename when sessionId is a very long string.
       const _rawSessId = qs.get('id') || '';
       const sessionId = _rawSessId.slice(0, 256);
-      const slug = d.replace(/\//g, '-');
+      const slug = pathToSlug(d);
       const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
       try {
         const files = fs
@@ -3768,7 +3780,7 @@ export async function startServer({
     if (req.method === 'GET' && url.startsWith('/api/events-stream')) {
       const qs = new URL(req.url, 'http://localhost').searchParams;
       const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
-      const slug = d.replace(/\//g, '-');
+      const slug = pathToSlug(d);
       const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',

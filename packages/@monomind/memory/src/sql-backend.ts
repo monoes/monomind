@@ -74,12 +74,15 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   // Below MONOMIND_HNSW_THRESHOLD active embedded entries, brute-force cosine
   // (a few tens of ms per the docstring on search() below) stays cheaper than
   // building and maintaining a graph. Above it, an index is built once per
-  // (dimensions, entry-count) pair and reused — a changed count is the
-  // invalidation signal, since store/delete are the only ways to change it.
+  // (dimensions, entry-count, max-updated-at) fingerprint and reused — a
+  // change to any of those is the invalidation signal (store/delete change
+  // the count; an in-place re-embed of an existing id changes max-updated-at
+  // without changing the count).
   private _annIndex: HNSWIndex | null = null;
   private _annEntries: Map<string, MemoryEntry> = new Map();
   private _annDimensions = 0;
   private _annBuiltForCount = -1;
+  private _annBuiltForMaxUpdatedAt = -1;
 
   private static readonly ANN_THRESHOLD = (() => {
     const raw = process.env.MONOMIND_HNSW_THRESHOLD;
@@ -100,14 +103,22 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     return dir ? join(dir, 'hnsw-index.json') : null;
   }
 
-  private countEmbeddedActiveEntries(): number {
+  /**
+   * Staleness fingerprint for the ANN cache: row count alone misses an
+   * in-place embedding update (same id, re-embedded content — the count
+   * doesn't change), which would otherwise leave the cached graph serving a
+   * stale vector for that entry indefinitely. `updated_at` is bumped on
+   * every store() call (including updates to an existing id), so pairing
+   * count with MAX(updated_at) catches that case too.
+   */
+  private countEmbeddedActiveEntries(): { count: number; maxUpdatedAt: number } {
     const row = this.driver!.get(
-      `SELECT COUNT(*) as c FROM memory_entries e
+      `SELECT COUNT(*) as c, COALESCE(MAX(e.updated_at), 0) as m FROM memory_entries e
         JOIN memory_embeddings emb ON emb.entry_id = e.id
        WHERE (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)`,
       [Date.now()],
-    ) as { c: number } | undefined;
-    return row?.c ?? 0;
+    ) as { c: number; m: number } | undefined;
+    return { count: row?.c ?? 0, maxUpdatedAt: row?.m ?? 0 };
   }
 
   /**
@@ -119,10 +130,11 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
    * time).
    */
   private async getAnnIndex(dimensions: number, force = false): Promise<{ index: HNSWIndex; entries: Map<string, MemoryEntry> } | null> {
-    const count = this.countEmbeddedActiveEntries();
+    const { count, maxUpdatedAt } = this.countEmbeddedActiveEntries();
     if (!force && count < SqlBackend.ANN_THRESHOLD) return null;
 
-    if (!force && this._annIndex && this._annDimensions === dimensions && this._annBuiltForCount === count) {
+    if (!force && this._annIndex && this._annDimensions === dimensions
+        && this._annBuiltForCount === count && this._annBuiltForMaxUpdatedAt === maxUpdatedAt) {
       return { index: this._annIndex, entries: this._annEntries };
     }
 
@@ -131,16 +143,18 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       try {
         const parsed = JSON.parse(readFileSync(cachePath, 'utf8')) as {
           entryCount: number;
+          maxUpdatedAt: number;
           dimensions: number;
           index: HNSWSerialized;
           entries: Array<[string, MemoryEntry]>;
         };
-        if (parsed.entryCount === count && parsed.dimensions === dimensions) {
+        if (parsed.entryCount === count && parsed.maxUpdatedAt === maxUpdatedAt && parsed.dimensions === dimensions) {
           const index = HNSWIndex.deserialize(parsed.index);
           const entries = new Map(parsed.entries);
           this._annIndex = index;
           this._annDimensions = dimensions;
           this._annBuiltForCount = count;
+          this._annBuiltForMaxUpdatedAt = maxUpdatedAt;
           this._annEntries = entries;
           return { index, entries };
         }
@@ -174,13 +188,14 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     this._annIndex = index;
     this._annDimensions = dimensions;
     this._annBuiltForCount = count;
+    this._annBuiltForMaxUpdatedAt = maxUpdatedAt;
     this._annEntries = entries;
 
     if (cachePath) {
       try {
         writeFileAtomicSync(
           cachePath,
-          JSON.stringify({ entryCount: count, dimensions, index: index.serialize(), entries: Array.from(entries.entries()) }),
+          JSON.stringify({ entryCount: count, maxUpdatedAt, dimensions, index: index.serialize(), entries: Array.from(entries.entries()) }),
         );
       } catch {
         // Best-effort — a failed cache write just means the next cold start rebuilds.
@@ -204,7 +219,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   } {
     return {
       thresholdEntries: SqlBackend.ANN_THRESHOLD,
-      activeEmbeddedEntries: this.countEmbeddedActiveEntries(),
+      activeEmbeddedEntries: this.countEmbeddedActiveEntries().count,
       built: this._annIndex !== null,
       entryCount: this._annEntries.size,
       dimensions: this._annDimensions,
@@ -631,18 +646,35 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
 
     const ann = await this.getAnnIndex(embedding.length).catch(() => null);
     if (ann) {
+      const applyFilters = (raw: Array<{ id: string; distance: number }>): SearchResult[] => {
+        const out: SearchResult[] = [];
+        for (const r of raw) {
+          const entry = ann.entries.get(r.id);
+          if (!entry) continue;
+          if (ns && entry.namespace !== ns) continue;
+          const score = 1 - r.distance;
+          if (options.threshold !== undefined && score < options.threshold) continue;
+          out.push({ entry, score, distance: r.distance });
+          if (out.length >= options.k) break;
+        }
+        return out;
+      };
+
       const overFetch = Math.max(options.k * 4, options.k + 20);
-      const raw = await ann.index.search(embedding, overFetch);
-      const results: SearchResult[] = [];
-      for (const r of raw) {
-        const entry = ann.entries.get(r.id);
-        if (!entry) continue;
-        if (ns && entry.namespace !== ns) continue;
-        const score = 1 - r.distance;
-        if (options.threshold !== undefined && score < options.threshold) continue;
-        results.push({ entry, score, distance: r.distance });
-        if (results.length >= options.k) break;
+      let results = applyFilters(await ann.index.search(embedding, Math.min(overFetch, ann.entries.size)));
+
+      // A fixed over-fetch multiple assumes matches are spread roughly evenly
+      // through the globally-nearest candidates. A namespace filter can
+      // violate that — a namespace's true nearest neighbors may simply not be
+      // among the top `overFetch` globally, understating recall (or
+      // returning nothing) even though matches exist elsewhere in the graph.
+      // There's no way to know how deep those matches rank without searching
+      // further, so the only correct fallback is to widen all the way to the
+      // full index rather than guessing a bigger-but-still-arbitrary number.
+      if (ns && results.length < options.k && ann.entries.size > overFetch) {
+        results = applyFilters(await ann.index.search(embedding, ann.entries.size));
       }
+
       results.sort((a, b) => b.score - a.score);
       return results;
     }

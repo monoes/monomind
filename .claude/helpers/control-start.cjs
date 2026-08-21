@@ -154,6 +154,42 @@ function probePort(p) {
   });
 }
 
+// Resolves a foreign dashboard server's real pid + project directory without
+// shelling out to `lsof` (Unix-only — unavailable on Windows, which left the
+// pairing step below permanently broken there: control.json stuck at pid:0
+// forever, dashboard-token never refreshed after the shared server restarts).
+// GET / is an intentionally-open route that embeds the live auth token in a
+// <meta name="mm-token"> tag for exactly this same-machine, loopback-trusted
+// purpose; re-using it here to authenticate a follow-up GET /api/status call
+// gets both the pid and the project `dir` in one portable HTTP round trip —
+// no OS-specific process inspection needed on any platform.
+function fetchForeignServerInfo(p) {
+  const http = require('http');
+  const getBody = (reqPath, headers) => new Promise((resolve) => {
+    const req = http.get({ hostname: 'localhost', port: p, path: reqPath, timeout: 1500, headers }, (res) => {
+      let body = '';
+      res.on('data', (c) => { if (body.length < 65536) body += c; });
+      res.on('end', () => resolve({ statusCode: res.statusCode, body }));
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+  return (async () => {
+    const home = await getBody('/');
+    if (!home) return null;
+    const m = home.body.match(/name="mm-token" content="([^"]*)"/);
+    const token = m ? m[1] : null;
+    if (!token) return null;
+    const status = await getBody('/api/status', { 'x-monomind-token': token });
+    if (!status) return null;
+    try {
+      const parsed = JSON.parse(status.body);
+      if (typeof parsed.pid !== 'number' || typeof parsed.dir !== 'string') return null;
+      return { pid: parsed.pid, dir: parsed.dir, token };
+    } catch { return null; }
+  })();
+}
+
 const LOCK_FILE = path.join(CWD, '.monomind', 'control.lock');
 
 /**
@@ -252,8 +288,14 @@ async function runConfirm({ childPid, port: defaultPort, boundReportPath, isNpxF
     // and kill our redundant child.
     try { process.kill(childPid, 'SIGTERM'); } catch { /* already gone */ }
     if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] port ${defaultPort} is served by another project's control server — reusing it (killed redundant child)\n`);
-    let foreignPid = await probePort(defaultPort);
+    // Primary: authenticate via the foreign server's own open "/" route (see
+    // fetchForeignServerInfo doc comment) to get its real pid + project dir
+    // in one portable HTTP round trip — works on every platform, no `lsof`.
+    const foreignInfo = await fetchForeignServerInfo(defaultPort);
+    let foreignPid = foreignInfo ? foreignInfo.pid : await probePort(defaultPort);
     if (typeof foreignPid !== 'number' || foreignPid <= 0) {
+      // Last-resort fallback for exotic setups where the HTTP path above
+      // failed (e.g. a pre-token-route legacy server) — Unix-only.
       try {
         const { execFileSync } = require('child_process');
         const lsofOut = execFileSync('lsof', ['-ti', `:${defaultPort}`, '-sTCP:LISTEN'], { encoding: 'utf8', timeout: 3000 }).trim();
@@ -262,34 +304,50 @@ async function runConfirm({ childPid, port: defaultPort, boundReportPath, isNpxF
       } catch { /* ignore */ }
     }
     writeStatus(typeof foreignPid === 'number' ? foreignPid : 0, defaultPort);
-    // Pair with the foreign server: resolve its project dir from its pid,
-    // copy its dashboard-token beside OUR control.json (ingest is
-    // default-deny — without this every event from this project 401s
-    // silently), and self-register in its known-projects so future token
-    // rotations propagate back here on server restart.
+    // Pair with the foreign server: copy its dashboard-token beside OUR
+    // control.json (ingest is default-deny — without this every event from
+    // this project 401s silently), and self-register in its known-projects
+    // so future token rotations propagate back here on server restart.
     try {
-      if (typeof foreignPid === 'number' && foreignPid > 0) {
-        const { execFileSync } = require('child_process');
-        const out = execFileSync('lsof', ['-a', '-p', String(foreignPid), '-d', 'cwd', '-Fn'], { encoding: 'utf8', timeout: 3000 });
-        const nLine = out.split('\n').find((l) => l.startsWith('n'));
-        const serverHome = nLine ? nLine.slice(1) : null;
-        if (serverHome) {
-          const srcTok = path.join(serverHome, '.monomind', 'dashboard-token');
-          const dstTok = path.join(CWD, '.monomind', 'dashboard-token');
-          if (fs.existsSync(srcTok)) {
-            fs.copyFileSync(srcTok, dstTok);
-            fs.chmodSync(dstTok, 0o600);
+      if (foreignInfo) {
+        const dstTok = path.join(CWD, '.monomind', 'dashboard-token');
+        fs.mkdirSync(path.dirname(dstTok), { recursive: true });
+        fs.writeFileSync(dstTok, foreignInfo.token, { mode: 0o600 });
+        const kpFile = path.join(foreignInfo.dir, 'data', 'known-projects.json');
+        try {
+          const kp = fs.existsSync(kpFile) ? JSON.parse(fs.readFileSync(kpFile, 'utf8')) : [];
+          if (Array.isArray(kp) && !kp.includes(CWD)) {
+            kp.push(CWD);
+            fs.writeFileSync(kpFile, JSON.stringify(kp));
           }
-          const kpFile = path.join(serverHome, 'data', 'known-projects.json');
-          try {
-            const kp = fs.existsSync(kpFile) ? JSON.parse(fs.readFileSync(kpFile, 'utf8')) : [];
-            if (Array.isArray(kp) && !kp.includes(CWD)) {
-              kp.push(CWD);
-              fs.writeFileSync(kpFile, JSON.stringify(kp));
+        } catch { /* registry unreadable — token copy alone still unblocks events */ }
+        process.stdout.write('[control] paired dashboard token and registered this project with the shared server\n');
+      } else if (typeof foreignPid === 'number' && foreignPid > 0) {
+        // lsof gave us a pid but not a dir (it only resolves TCP listeners,
+        // not cwd) — fall back to its cwd resolution for the dir we need.
+        try {
+          const { execFileSync } = require('child_process');
+          const out = execFileSync('lsof', ['-a', '-p', String(foreignPid), '-d', 'cwd', '-Fn'], { encoding: 'utf8', timeout: 3000 });
+          const nLine = out.split('\n').find((l) => l.startsWith('n'));
+          const serverHome = nLine ? nLine.slice(1) : null;
+          if (serverHome) {
+            const srcTok = path.join(serverHome, '.monomind', 'dashboard-token');
+            const dstTok = path.join(CWD, '.monomind', 'dashboard-token');
+            if (fs.existsSync(srcTok)) {
+              fs.copyFileSync(srcTok, dstTok);
+              fs.chmodSync(dstTok, 0o600);
             }
-          } catch { /* registry unreadable — token copy alone still unblocks events */ }
-          process.stdout.write('[control] paired dashboard token and registered this project with the shared server\n');
-        }
+            const kpFile = path.join(serverHome, 'data', 'known-projects.json');
+            try {
+              const kp = fs.existsSync(kpFile) ? JSON.parse(fs.readFileSync(kpFile, 'utf8')) : [];
+              if (Array.isArray(kp) && !kp.includes(CWD)) {
+                kp.push(CWD);
+                fs.writeFileSync(kpFile, JSON.stringify(kp));
+              }
+            } catch { /* registry unreadable — token copy alone still unblocks events */ }
+            process.stdout.write('[control] paired dashboard token and registered this project with the shared server\n');
+          }
+        } catch { /* pairing is best-effort; propagation-on-restart is the fallback */ }
       }
     } catch { /* pairing is best-effort; propagation-on-restart is the fallback */ }
     return;
