@@ -28,6 +28,14 @@ export function scheduleBossRestart(daemon: OrgDaemon, name: string): void {
   if (count >= OrgDaemon.MAX_BOSS_RESTARTS) {
     bus?.emit({ type: 'audit', reason: 'boss-restart-exhausted',
       msg: `boss crashed again after ${count} auto-restart(s) — giving up; manual restart required` });
+    // #206: without this the org was left dangling in daemon.orgs forever —
+    // its boss mailbox already closed from the crash, nothing else left to
+    // ever call stopOrg for it (the idle watchdog only fires if
+    // idle_minutes > 0). `org run`'s wait loop polls daemon.getOrg(name);
+    // that never resolving meant the CLI process just hung indefinitely
+    // instead of exiting with a failure signal.
+    daemon.stopOrg(name).catch(err =>
+      console.error(`org ${name}: stop after exhausted boss restarts failed:`, err instanceof Error ? err.message : err));
     return;
   }
   const backoffSchedule = daemon.opts.bossRestartBackoffMs ?? OrgDaemon.BOSS_RESTART_BACKOFF_MS;
