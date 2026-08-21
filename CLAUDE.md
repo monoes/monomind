@@ -69,7 +69,7 @@
 - **Topology**: hierarchical-mesh
 - **Max Agents**: 15 (CLI default), capped at 50 (`Math.min(Math.max(x|8, 1), 50)` in `monoswarm-tools.ts`)
 - **Memory**: local-sqlite chain `better-sqlite3 → sql.js (WASM)` (via SQLiteBackend/SqlJsBackend). The config value `hybrid` is a backwards-compat alias for this chain.
-- **HNSW**: Dead fallback, not on the default search path. `memory search --build-hnsw` is a no-op unless the SQLite bridge is down.
+- **HNSW**: Real, size-gated ANN fast path inside `@monoes/memory`'s `SqlBackend.search()` — used automatically once active embedded entries cross `MONOMIND_HNSW_THRESHOLD` (default 5000; below it, brute-force cosine is cheaper and stays the path). Graph is persisted to disk next to the SQLite file, so a fresh CLI invocation loads it instead of rebuilding when the corpus hasn't changed. `memory search --build-hnsw` force-builds/caches it ahead of time.
 - **Neural**: Disabled at runtime (keyword routing only). `hooks intelligence status` MoE/LoRA/HNSW tables report `not-loaded` / zero defaults.
 
 ## Build & Test

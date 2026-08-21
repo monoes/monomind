@@ -350,7 +350,7 @@ The lean build records what happens and measures whether routing helped — no n
 - **Route-outcome measurement**: correlates recommended routes with actual outcomes; accuracy/adherence surfaced by `doctor`
 - **Trajectory + outcome logging**: `intelligence.ts` records steps/trajectories; `command-outcomes.ts` tracks command results
 - **Pattern persistence**: plain `patterns.json` read by `intelligence.ts`
-- **HNSW**: pure-JS approximate nearest-neighbor (`src/memory/hnsw-operations.ts`) — a dead fallback, not on the default search path. It is reachable only via `memory search --build-hnsw`, which is a no-op unless the SQLite bridge is down and the sql.js WASM fallback is in use.
+- **HNSW**: real, size-gated ANN fast path inside `@monoes/memory`'s `SqlBackend.search()` (`packages/@monomind/memory/src/sql-backend.ts`) — used automatically once active embedded entries cross `MONOMIND_HNSW_THRESHOLD` (default 5000; below it, brute-force cosine is cheaper and stays the path, per the second-brain-scale note on `search()`). The built graph is persisted to disk next to the SQLite file (`HNSWIndex.serialize()`/`.deserialize()` in `hnsw-index.ts`) and validated by entry count, so a fresh CLI invocation loads it instead of paying a full rebuild when the corpus hasn't changed. `memory search --build-hnsw` force-builds and caches it ahead of time (`bridgeForceBuildHNSW()` in `memory-bridge.ts`); `bridgeGetHNSWStatus()` reports real status.
 
 **SONA and EWC++ ship in main** (`src/memory/sona-optimizer.ts`, `src/memory/ewc-consolidation.ts`) — see the file headers for their actual scope.
 

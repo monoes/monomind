@@ -20,6 +20,7 @@
 // including the pure-WASM sql.js path, was unusable in exactly the situation
 // the fallback exists for. Local test suites never caught it because
 // better-sqlite3 is always installed here.
+import { dirname } from 'node:path';
 import { SqlBackend } from './sql-backend.js';
 import { BetterSqliteDriver, type SqlDriver } from './sql-driver.js';
 import type { EmbeddingGenerator } from './types.js';
@@ -121,6 +122,12 @@ export class SQLiteBackend extends SqlBackend {
     }
 
     return new BetterSqliteDriver(db as never);
+  }
+
+  protected getAnnCacheDir(): string | null {
+    return this.sqliteConfig.databasePath === ':memory:'
+      ? null
+      : dirname(this.sqliteConfig.databasePath);
   }
 }
 

@@ -1335,59 +1335,7 @@ export async function bridgeGetBackendStats(
   }
 }
 
-// ===== HNSW (replaced by the SQLite backend's ANN search — stubs kept for API compat) =====
-
-export async function bridgeGetHNSWStatus(dbPath?: string): Promise<{
-  built: boolean;
-  size: number;
-  dimensions: number;
-  error?: string;
-} | null> {
-  const backend = await getBackend(dbPath);
-  if (!backend) return null;
-
-  try {
-    const stats = await backend.getStats();
-    return { built: true, size: stats?.totalEntries ?? 0, dimensions: BRIDGE_EMBEDDING_DIMS };
-  } catch (e) {
-    logBridgeError('bridgeGetHNSWStatus', e);
-    return { built: false, size: 0, dimensions: BRIDGE_EMBEDDING_DIMS };
-  }
-}
-
-export async function bridgeSearchHNSW(options: {
-  query: string;
-  limit?: number;
-  threshold?: number;
-  namespace?: string;
-  dbPath?: string;
-}): Promise<{
-  success: boolean;
-  results: { id: string; key: string; score: number; namespace?: string }[];
-  searchTime: number;
-  indexSize?: number;
-  error?: string;
-} | null> {
-  // Delegate to bridgeSearchEntries which uses the SQLite backend's ANN search
-  const result = await bridgeSearchEntries({
-    query: options.query,
-    namespace: options.namespace,
-    limit: options.limit,
-    threshold: options.threshold,
-    dbPath: options.dbPath,
-  });
-  if (!result) return null;
-  return {
-    success: result.success,
-    results: result.results.map((r) => ({
-      id: r.id,
-      key: r.key,
-      score: r.score,
-      namespace: r.namespace,
-    })),
-    searchTime: result.searchTime,
-  };
-}
+// ===== HNSW (real ANN status/build; search itself runs inside SqlBackend.search()) =====
 
 export async function bridgeAddToHNSW(options: {
   id: string;
@@ -1404,6 +1352,50 @@ export async function bridgeAddToHNSW(options: {
   } catch (e) {
     logBridgeError('bridgeAddToHNSW', e);
     return { success: true };
+  }
+}
+
+/**
+ * Real status for the ANN (HNSW) fast path inside SqlBackend.search() —
+ * whether the corpus is big enough to use it, whether it's currently built,
+ * and where its on-disk cache lives. Read-only; does not build anything.
+ */
+export async function bridgeGetHNSWStatus(dbPath?: string): Promise<{
+  available: boolean;
+  thresholdEntries: number;
+  activeEmbeddedEntries: number;
+  built: boolean;
+  entryCount: number;
+  dimensions: number;
+  cachePath: string | null;
+} | null> {
+  const backend = await getBackend(dbPath);
+  if (!backend || typeof backend.getAnnStatus !== 'function') return null;
+  try {
+    return { available: true, ...backend.getAnnStatus() };
+  } catch (e) {
+    logBridgeError('bridgeGetHNSWStatus', e);
+    return null;
+  }
+}
+
+/**
+ * Force-build (or reload from disk cache) the ANN index regardless of
+ * MONOMIND_HNSW_THRESHOLD — the real implementation behind
+ * `memory search --build-hnsw`.
+ */
+export async function bridgeForceBuildHNSW(dbPath?: string): Promise<{
+  entryCount: number;
+  dimensions: number;
+  cachePath: string | null;
+} | null> {
+  const backend = await getBackend(dbPath);
+  if (!backend || typeof backend.forceBuildAnnIndex !== 'function') return null;
+  try {
+    return await backend.forceBuildAnnIndex(BRIDGE_EMBEDDING_DIMS);
+  } catch (e) {
+    logBridgeError('bridgeForceBuildHNSW', e);
+    return null;
   }
 }
 
