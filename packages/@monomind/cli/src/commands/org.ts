@@ -298,6 +298,25 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
   log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
 
+  // #206 follow-up: without this, an uncaught error in this process left
+  // runtime.json's status stuck at 'running' (finishStop never runs), and
+  // runOutcomeResult's status === 'crashed' branch — the one meant to
+  // surface *why* the run failed — could never actually fire for `org run`,
+  // since nothing here ever wrote 'crashed'. Mirrors serveAction's
+  // crashExit, but deliberately does NOT touch SIGINT/SIGTERM — those are
+  // already handled by the wait loop below as a graceful stop, and
+  // registering a second, competing handler here would race it.
+  process.on('uncaughtException', (err) => {
+    try { console.error('[org run] uncaughtException:', err); } catch { /* stderr gone */ }
+    daemon.persistCrashStateAll(`uncaughtException: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (err) => {
+    try { console.error('[org run] unhandledRejection:', err); } catch { /* stderr gone */ }
+    daemon.persistCrashStateAll(`unhandledRejection: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  });
+
   // P1-12: Print the dashboard URL so CLI users know where to look.
   // The dashboard is normally spawned by a Claude Code SessionStart hook
   // (.claude/helpers/control-start.cjs) — but `org run` doesn't require
@@ -812,7 +831,7 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // shows what happened instead of a silent "pid is gone".
   const crashExit = (label: string, err: unknown): void => {
     try { console.error(`[org serve] ${label}:`, err); } catch { /* stderr gone */ }
-    daemon.persistCrashStateAll();
+    daemon.persistCrashStateAll(`${label}: ${err instanceof Error ? err.message : String(err)}`);
     daemon.clearHeartbeat();
     process.exitCode = 1;
   };
