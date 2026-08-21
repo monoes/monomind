@@ -11,7 +11,6 @@ import * as path from 'path';
 import { safeParseEmbedding } from './memory-bridge.js';
 import { ensureSchemaColumns } from './memory-migrations.js';
 import { generateEmbedding } from './embedding-operations.js';
-import { searchHNSWIndex } from './hnsw-operations.js';
 import { cosineSimilarity as cosineSim } from '../utils/cosine-similarity.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
@@ -104,20 +103,11 @@ export async function searchEntries(options: {
     // semantic content, so the methods below must not claim otherwise.
     const realVectors = queryEmb.model !== 'hash-fallback';
 
-    // Try HNSW search first (faster)
-    const hnswResults = await searchHNSWIndex(queryEmbedding, { k: limit, namespace: effectiveNamespace });
-    if (hnswResults && hnswResults.length > 0) {
-      const filtered = hnswResults.filter(r => r.score >= threshold);
-      return {
-        success: true,
-        results: filtered,
-        searchTime: Date.now() - startTime,
-        searchMethod: realVectors ? 'semantic' : 'hash-vector',
-        ...(realVectors ? {} : { fallbackReason: 'no-embedding-model' })
-      };
-    }
-
-    // Fall back to brute-force SQLite search
+    // Brute-force SQLite search. This is the legacy raw sql.js path, only
+    // reached when the SQLite bridge itself is unavailable (import failure) —
+    // the real ANN fast path lives inside the bridge's backend
+    // (SqlBackend.search(), size-gated by MONOMIND_HNSW_THRESHOLD) and is
+    // already exercised via bridge.bridgeSearchEntries() above.
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 

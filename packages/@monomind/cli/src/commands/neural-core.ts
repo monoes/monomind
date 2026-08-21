@@ -34,7 +34,15 @@ export const statusCommand: Command = {
 
       await initializeIntelligence();
       const stats = getIntelligenceStats();
-      const hnswStatus = getHNSWStatus();
+      const hnswStatus = (await getHNSWStatus()) ?? {
+        available: false,
+        thresholdEntries: 0,
+        activeEmbeddedEntries: 0,
+        built: false,
+        entryCount: 0,
+        dimensions: 0,
+        cachePath: null,
+      };
       const persistence = getPersistenceStatus();
       const modelInfo = await loadEmbeddingModel({ verbose: false });
 

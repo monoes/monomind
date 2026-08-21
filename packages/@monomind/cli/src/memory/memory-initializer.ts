@@ -39,12 +39,6 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
 export { MEMORY_SCHEMA } from './memory-schema.js';
 
 export {
-  getHNSWIndex,
-  addToHNSWIndex,
-  searchHNSWIndex,
-  getHNSWStatus,
-  clearHNSWIndex,
-  rebuildSearchIndex,
   quantizeInt8,
   dequantizeInt8,
   quantizedCosineSim,
@@ -54,6 +48,10 @@ export {
   topKIndices,
   flashAttentionSearch,
 } from './hnsw-operations.js';
+export {
+  bridgeGetHNSWStatus as getHNSWStatus,
+  bridgeForceBuildHNSW as forceBuildHNSWIndex,
+} from './memory-bridge.js';
 
 export {
   ensureSchemaColumns,
@@ -81,7 +79,6 @@ export {
 
 import { MEMORY_SCHEMA } from './memory-schema.js';
 import { ensureSchemaColumns } from './memory-migrations.js';
-import { rebuildSearchIndex } from './hnsw-operations.js';
 import {
   verifyMemoryInit,
   storeEntry,
@@ -482,7 +479,6 @@ export default {
   listEntries,
   getEntry,
   deleteEntry,
-  rebuildSearchIndex,
   MEMORY_SCHEMA,
   getInitialMetadata
 };
