@@ -29,9 +29,9 @@ Mastermind is a command namespace for high-level autonomous operations. Each com
 
 ## `/mastermind` (no namespace)
 
-**Purpose:** Swarm and hive-mind topology picker.
+**Purpose:** Monoswarm topology picker.
 
-Shows all 11 modes (6 swarm topologies + 5 hive-mind modes), asks for task description, gives ONE concrete recommendation with ready-to-use launch commands.
+Shows all monoswarm modes (topologies + vote strategies), asks for task description, gives ONE concrete recommendation with ready-to-use launch commands.
 
 ```
 /mastermind

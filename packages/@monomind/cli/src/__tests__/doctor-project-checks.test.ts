@@ -438,7 +438,7 @@ describe('doctor-project-checks', () => {
         '.monomind/sessions/', '.monomind/data/', '.monomind/metrics/', '.monomind/knowledge/',
         '.monomind/*.json', '.monomind/*.jsonl', '**/.monomind/sessions/', '**/.monomind/*.json',
         'data/sessions/', 'data/mastermind-*.json', 'data/mastermind-*.jsonl', '**/.claude-flow/',
-        '.hive-mind/', '.swarm/',
+        '.monomind/monoswarm/',
       ];
       writeFileSync(join(dir, '.gitignore'), patterns.join('\n') + '\n');
       const result = await checkGitignoreCoverage();
@@ -449,7 +449,7 @@ describe('doctor-project-checks', () => {
       writeFileSync(join(dir, '.gitignore'), '.monomind/sessions/\n');
       const result = await checkGitignoreCoverage();
       expect(result.status).toBe('warn');
-      expect(result.message).toContain('.swarm/');
+      expect(result.message).toContain('.monomind/monoswarm/');
     });
   });
 

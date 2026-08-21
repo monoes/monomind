@@ -1,5 +1,5 @@
 /**
- * Tests for SwarmCheckpointer
+ * Tests for MonoswarmCheckpointer
  *
  * Covers: saveFull/saveIncremental correctness, latest()/list()/load()/diff(),
  * purge(), and that a fresh instance re-opening an existing file resumes
@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SwarmCheckpointer } from './checkpointer.js';
+import { MonoswarmCheckpointer } from './checkpointer.js';
 import type { AgentState } from './types/checkpoint.js';
 
 function makeAgent(agentId: string, overrides: Partial<AgentState> = {}): AgentState {
@@ -28,7 +28,7 @@ function makeAgent(agentId: string, overrides: Partial<AgentState> = {}): AgentS
   };
 }
 
-describe('SwarmCheckpointer', () => {
+describe('MonoswarmCheckpointer', () => {
   let dir: string;
   let dbPath: string;
 
@@ -42,7 +42,7 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('saveFull appends a checkpoint and latest() returns it', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     const id = cp.saveFull([makeAgent('a1')], {}, {}, 'manual');
     const latest = cp.latest();
     expect(latest?.checkpointId).toBe(id);
@@ -51,7 +51,7 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('saveIncremental patches one agent without dropping others', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp.saveFull([makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'idle' })], {}, {}, 'manual');
     cp.saveIncremental('a1', makeAgent('a1', { status: 'completed' }));
 
@@ -64,7 +64,7 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('saveIncremental appends a new agent when the id is not already present', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp.saveFull([makeAgent('a1')], {}, {}, 'manual');
     cp.saveIncremental('a2', makeAgent('a2'));
 
@@ -72,7 +72,7 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('step numbers increment monotonically across saveFull and saveIncremental', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp.saveFull([makeAgent('a1')], {}, {}, 'manual');
     cp.saveIncremental('a1', makeAgent('a1', { status: 'idle' }));
     cp.saveIncremental('a1', makeAgent('a1', { status: 'completed' }));
@@ -82,12 +82,12 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('a fresh instance reopening an existing file resumes from the correct step and latest checkpoint', () => {
-    const cp1 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp1 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp1.saveFull([makeAgent('a1')], {}, {}, 'manual');
     cp1.saveIncremental('a1', makeAgent('a1', { status: 'completed' }));
 
     // Simulates a process restart: new instance, same file on disk.
-    const cp2 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     expect(cp2.latest()?.step).toBe(2);
     expect(cp2.latest()?.agentStates[0]?.status).toBe('completed');
 
@@ -98,16 +98,16 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('a concurrently-open second instance writing to the same file is visible to the first instance (cross-process crash-recovery scenario)', () => {
-    // SwarmCheckpointer exists specifically so a *new* process can resume
+    // MonoswarmCheckpointer exists specifically so a *new* process can resume
     // what a *previous* process wrote — two live instances on the same
     // dbPath is the expected case, not an edge case. The in-memory
     // lastCheckpoint cache must not let cp1 keep serving a stale latest()
     // once cp2 has appended a new checkpoint to the shared file.
-    const cp1 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp1 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp1.saveFull([makeAgent('a1')], {}, {}, 'manual');
     expect(cp1.latest()?.step).toBe(1);
 
-    const cp2 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess2' });
+    const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess2' });
     expect(cp2.latest()?.step).toBe(1);
     cp2.saveFull([makeAgent('a1'), makeAgent('a2')], {}, {}, 'manual');
     expect(cp2.latest()?.step).toBe(2);
@@ -124,10 +124,10 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('saveIncremental patches onto a checkpoint another instance wrote, not a stale cached one', () => {
-    const cp1 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp1 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp1.saveFull([makeAgent('a1', { status: 'active' })], {}, {}, 'manual');
 
-    const cp2 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess2' });
+    const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess2' });
     cp2.saveFull([makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'active' })], {}, {}, 'manual');
 
     // cp1's cache still thinks the latest checkpoint only has a1. Its
@@ -144,13 +144,13 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('latest() returns null when no checkpoints exist yet', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     expect(cp.latest()).toBeNull();
     expect(existsSync(dbPath)).toBe(false);
   });
 
   it('load() finds a checkpoint by id, including non-latest ones', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     const id1 = cp.saveFull([makeAgent('a1')], {}, {}, 'manual');
     cp.saveFull([makeAgent('a1'), makeAgent('a2')], {}, {}, 'manual');
 
@@ -159,7 +159,7 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('diff() reports added/removed/changed agents between two checkpoints', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     const id1 = cp.saveFull([makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'active' })], {}, {}, 'manual');
     const id2 = cp.saveFull([makeAgent('a1', { status: 'completed' }), makeAgent('a3', { status: 'active' })], {}, {}, 'manual');
 
@@ -170,7 +170,7 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('purge() removes only checkpoints older than the cutoff and keeps latest() consistent', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     // Manually construct an old + a recent checkpoint via saveFull, then
     // rewrite the old one's createdAt directly on disk to simulate age
     // (saveFull always stamps "now").
@@ -183,7 +183,7 @@ describe('SwarmCheckpointer', () => {
     raw[0] = JSON.stringify(oldLine);
     writeFileSync(dbPath, raw.join('\n') + '\n', 'utf-8');
 
-    const cp2 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     const removed = cp2.purge(7);
     expect(removed).toBe(1);
     expect(cp2.list(10)).toHaveLength(1);
@@ -192,7 +192,7 @@ describe('SwarmCheckpointer', () => {
   });
 
   it('purge() sets latest() to null when everything is purged', () => {
-    const cp = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp.saveFull([makeAgent('a1')], {}, {}, 'manual');
 
     const raw = readFileSync(dbPath, 'utf-8').trim().split('\n');
@@ -200,7 +200,7 @@ describe('SwarmCheckpointer', () => {
     line.createdAt = new Date(Date.now() - 30 * 86_400_000).toISOString();
     writeFileSync(dbPath, JSON.stringify(line) + '\n', 'utf-8');
 
-    const cp2 = new SwarmCheckpointer({ dbPath, swarmId: 's1', sessionId: 'sess1' });
+    const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp2.purge(7);
     expect(cp2.latest()).toBeNull();
     expect(cp2.list(10)).toHaveLength(0);

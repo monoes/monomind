@@ -89,33 +89,29 @@ Objective → subtasks (clear owner, clear done-criteria, clear handoff target)
 - If a specialist diverges, intervene immediately with a corrected, narrower task.
 - Never let two specialists silently own overlapping work.
 
-## Hive sessions
+## Monoswarm sessions
 
-When coordinating a "hive" — a set of agents tracked on shared state rather than
-delegated ad hoc — the same discipline applies, but know what the hive tooling
-actually is before planning around it.
+When coordinating a monoswarm — a set of agents tracked on shared state rather
+than delegated ad hoc — the same discipline applies. See
+`doc/concepts/monoswarm.md` for the mechanism.
 
 **Real concurrency comes from one place: Claude Code's Task tool.** Dispatch
 independent work in a single message so it runs in parallel.
 
-**Tools.** `hive-mind_status` (current workers and state) and `hive-mind_join`
-are visible by default. `hive-mind_init`, `hive-mind_spawn`,
-`hive-mind_broadcast`, `hive-mind_memory`, `hive-mind_shutdown`, and
-`hive-mind_consensus` are gated behind `MONOMIND_MCP_SPECULATIVE=1`. If one is
-unavailable, say so and proceed without it — never simulate its effect.
-
-`hive-mind_spawn` **writes agent records to a JSON file**; it starts nothing.
-Likewise `swarm_init`/`swarm_scale`/`agent_spawn` record state only. For state
-and knowledge use `memory_batch`, `memory_pattern-store`, `memory_kg_ingest`,
-and `swarm_status`. (`memory_usage` does not exist.)
+**Tools.** `monoswarm_status`, `monoswarm_join`, `monoswarm_leave`,
+`monoswarm_init`, `monoswarm_agent_add`, `monoswarm_scale`, `monoswarm_health`,
+`monoswarm_vote`, `monoswarm_notice`, `monoswarm_memory`, `monoswarm_shutdown`,
+`monoswarm_audit_list`, `monoswarm_audit_verify`. `monoswarm_init` and
+`monoswarm_agent_add` write records to the state file; they start no process.
+For state and knowledge use `memory_batch`, `memory_pattern-store`,
+`memory_kg_ingest`, and `monoswarm_status`. (`memory_usage` does not exist.)
 
 **These do not exist — do not plan around them:** background timers (you run
 when invoked and stop when you return), resource metering (never report
-utilization figures nothing computed), Byzantine fault tolerance,
-swarm-fragmentation recovery, or session succession. If something must outlive
-the session, persist it to memory before returning.
+utilization figures nothing computed), or session succession. If something
+must outlive the session, persist it to memory before returning.
 
-**Routing to hive specialists:**
+**Routing to monoswarm specialists:**
 
 - Synthesising several agents' findings into durable knowledge →
   `collective-intelligence-coordinator`

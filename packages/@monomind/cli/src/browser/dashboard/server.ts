@@ -74,8 +74,8 @@ async function collectDashboardState(root: string) {
     // Canonical root first (getMonomindDataRoot(): `<repo>/.git/monomind` in a
     // git repo), legacy `<root>/.monomind` second. Reading only the legacy path
     // showed stale/absent swarm state in every real project.
-    readJsonSafe(join(getMonomindDataRoot(root), 'swarm', 'swarm-state.json'))
-      .then((v: unknown) => v ?? readJsonSafe(join(root, '.monomind', 'swarm', 'swarm-state.json'))),
+    readJsonSafe(join(getMonomindDataRoot(root), 'monoswarm', 'state.json'))
+      .then((v: unknown) => v ?? readJsonSafe(join(root, '.monomind', 'monoswarm', 'state.json'))),
     readJsonSafe(join(root, '.monomind', 'last-route.json')),
     readJsonSafe(join(root, '.monomind', 'data', 'auto-memory-store.json')),
   ]);
@@ -133,7 +133,7 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
         const worker_metrics = Object.keys(workerMetrics).filter((k) => workerMetrics[k] != null);
         const summary = {
           worker_metrics,
-          swarm_status: swarmState ?? null,
+          monoswarm_status: swarmState ?? null,
           last_route: lastRoute ?? null,
           pattern_count: Array.isArray(autoMemory) ? autoMemory.length : 0,
           memory_health: autoMemory ? 'ok' : 'unknown',

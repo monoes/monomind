@@ -160,7 +160,7 @@ describe('task-handler.handlePostTask agent registration', () => {
     await expect(th.handlePostTask(hCtx)).resolves.not.toThrow();
   });
 
-  it('updates swarm-activity.json with agent count', async () => {
+  it('updates monoswarm-activity.json with agent count', async () => {
     const th = loadTH();
     const regDir = path.join(tmpDir, '.monomind', 'agents', 'registrations');
     fs.mkdirSync(regDir, { recursive: true });
@@ -174,10 +174,10 @@ describe('task-handler.handlePostTask agent registration', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePostTask(hCtx);
 
-    const actPath = path.join(tmpDir, '.monomind', 'metrics', 'swarm-activity.json');
+    const actPath = path.join(tmpDir, '.monomind', 'metrics', 'monoswarm-activity.json');
     expect(fs.existsSync(actPath)).toBe(true);
     const data = JSON.parse(fs.readFileSync(actPath, 'utf-8'));
-    expect(data.swarm).toHaveProperty('agent_count');
+    expect(data.monoswarm).toHaveProperty('agent_count');
   });
 });
 

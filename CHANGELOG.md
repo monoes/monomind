@@ -4,6 +4,57 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.23] — 2026-08-20
+
+### Changed — `swarm` + `hive-mind` renamed to `monoswarm` (clean break, no aliases)
+
+The old names borrowed distributed-systems terms of art (`raft`, `byzantine`/`bft`,
+`quorum`, `consensus`, `broadcast`) for what is actually in-process JSON-file
+bookkeeping and single-process vote counting. That mismatch had accumulated ~40
+separate disclaimer passages across docs, agent/skill/command files, and tool
+descriptions, each re-explaining "this is not real Raft / not distributed."
+Renamed everything to a vocabulary that means what the code does, so the honesty
+notes shrink to one short clause per tool instead of a defensive paragraph
+everywhere. `hive-mind` no longer exists as a separate concept — it is folded
+into `monoswarm`. **This is a breaking change with no backward-compat shim.**
+
+- CLI: `monomind swarm <sub>` → `monomind monoswarm <sub>` (same 5 subcommands:
+  init/start/status/stop/scale).
+- MCP tools: the 16 `swarm_*`/`hive-mind_*` tools become 13 `monoswarm_*` tools
+  (`monoswarm_init/status/scale/health/shutdown/agent_add/join/leave/vote/notice/memory/audit_list/audit_verify`).
+  `hive-mind_spawn` → `monoswarm_agent_add`, `hive-mind_broadcast` → `monoswarm_notice`
+  (both renamed specifically because "spawn" and "broadcast" were the two names
+  needing the heaviest disclaimers, and neither claim is true of the code).
+- Vote strategies: `raft` → `majority`, `bft`/`byzantine` → `supermajority`,
+  `quorum` → `unanimous` (preset) or `threshold` (custom `minVotes`). `gossip`
+  and `crdt` — declared but never implemented — are deleted entirely rather than
+  kept as rejected options.
+- State: the two old files (`.monomind/swarm/swarm-state.json`,
+  `.monomind/hive-mind/state.json`) are merged into a single
+  `.monomind/monoswarm/state.json`. Old files are **not migrated** — they are
+  abandoned in place; `monomind cleanup` now knows the legacy paths so they can
+  be purged.
+- Config: `monomind.config.json`'s `swarm` key → `monoswarm`; `SwarmConfig` type
+  → `MonoswarmConfig`.
+- `.claude/`: `agents/{swarm,hive-mind}/` merged into `agents/monoswarm/` (and 7
+  renamed agent slugs, e.g. `swarm-pr` → `monoswarm-pr`); the three skills
+  `swarm-orchestration`/`swarm-advanced`/`hive-mind-advanced` merged into one
+  `monoswarm` skill; `commands/{swarm,hive-mind}/` merged into `commands/monoswarm/`.
+- Docs: `doc/concepts/swarm.md` → `doc/concepts/monoswarm.md`, rewritten as one
+  positive "how it works" explanation instead of five separate disclaimer
+  passages; the scattered disclaimers in root/package `CLAUDE.md`, agent
+  definitions, and generated CAPABILITIES.md were trimmed to match.
+- Two pre-existing bugs fixed in passing: `claudemd-generator.ts` was emitting
+  `Use raft consensus for hive-mind` into every generated project `CLAUDE.md` —
+  the one place still asserting what every other doc disclaimed; and
+  `guidance-tools.ts` listed 10 tool/command names that had never existed
+  (`swarm_spawn`, `hive_mind_vote`, …).
+
+**Upgrading:** update any script or CI step invoking `monomind swarm ...` to
+`monomind monoswarm ...`, and any MCP client calling `swarm_*`/`hive-mind_*`
+tools directly to the `monoswarm_*` equivalents above. Purge stale local state
+with `monomind cleanup`.
+
 ## [2.9.22] — 2026-08-17
 
 ### Added (PR #167)
