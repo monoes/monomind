@@ -657,7 +657,11 @@ export class OrgDaemon {
       // against a concurrent manual stop.
       if (e.type === 'status' && e.reason === 'org-complete') {
         const t = setTimeout(() => {
-          this.stopOrg(name, { drainMs: COMPLETE_DRAIN_MS }).catch((err) =>
+          // #206: closedBy: 'org-complete' is the ONLY signal `org run`
+          // trusts to mean "the run ended cleanly, exit 0" — every other
+          // stop path (idle watchdog, boss-restart-exhausted, manual stop)
+          // leaves it unset.
+          this.stopOrg(name, { drainMs: COMPLETE_DRAIN_MS, closedBy: 'org-complete' }).catch((err) =>
             console.error(
               `org ${name}: auto-stop after org_complete failed:`,
               err instanceof Error ? err.message : err,
@@ -1010,6 +1014,12 @@ export class OrgDaemon {
             // during the backoff window must queue for the NEXT session, not
             // wake the dead generator to swallow it.
             mailbox.detach();
+            // #203: if the crashed session's mailbox generator was abandoned
+            // mid-yield (message already shift()ed for it, turn never
+            // finished), put that message back on the queue — otherwise the
+            // replacement session's stream() finds an empty queue and parks
+            // forever, since the "delivered" message is gone for good.
+            mailbox.reclaimInFlight();
             const message = err instanceof Error ? err.message : String(err);
             const isTurnLimit = /Reached maximum number of turns|error_max_turns/i.test(message);
             // Bounded like every other recovery: attempt counts every pass
@@ -1304,6 +1314,20 @@ export class OrgDaemon {
               return;
             }
             const bossRt = running.agents.get(bossRole.id);
+            // #205: a budget-exhausted boss closed its own mailbox on
+            // purpose (session.ts) — that's a recoverable pause, not the
+            // same "unreachable" condition as a crash. Name it distinctly so
+            // the operator's remedy (raise the budget, resume) is obvious
+            // instead of reading like the run died.
+            const budgetReason = bossRt?.mailbox.closeReason;
+            if (budgetReason === 'token-budget' || budgetReason === 'usd-budget') {
+              idleStop(
+                `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is over its ` +
+                  `${budgetReason === 'token-budget' ? 'token' : 'USD'} budget — raise the role's ` +
+                  `${budgetReason === 'token-budget' ? 'budget_tokens' : 'budget_usd'} (or run_config's) and resume from checkpoint — stopping run`,
+              );
+              return;
+            }
             if (!bossRt || bossRt.status !== 'running' || bossRt.mailbox.isClosed) {
               idleStop(
                 `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`,
@@ -1396,8 +1420,13 @@ export class OrgDaemon {
 
   /** @param opts.drainMs how long to let in-flight agent sessions finish before
    *  reaping. Defaults to the short abort bound; the planned-completion path
-   *  passes a far longer window (see COMPLETE_DRAIN_MS). */
-  async stopOrg(name: string, opts?: { drainMs?: number }): Promise<void> {
+   *  passes a far longer window (see COMPLETE_DRAIN_MS).
+   *  @param opts.closedBy #206: tags WHY the run ended, persisted into
+   *  runtime.json so `org run` can tell a clean, goal-driven end
+   *  (closedBy: 'org-complete') from every other kind of stop (idle
+   *  watchdog, boss-restart-exhausted, manual `org stop`) and exit non-zero
+   *  for the latter. Only the org_complete auto-stop path passes this. */
+  async stopOrg(name: string, opts?: { drainMs?: number; closedBy?: string }): Promise<void> {
     // Join an in-flight stop instead of no-oping: the self-stop paths
     // (org_complete, idle watchdog) run detached, and a caller like
     // `org run`'s final stopAll() must not resolve — letting the process
@@ -1414,7 +1443,7 @@ export class OrgDaemon {
     // shutdown via `stopping` instead of re-running the whole sequence and
     // double-emitting 'org stopped' (duplicate org:complete/session:complete).
     this.orgs.delete(name);
-    const p = this.finishStop(name, org, opts?.drainMs);
+    const p = this.finishStop(name, org, opts?.drainMs, opts?.closedBy);
     this.stopping.set(name, p);
     try {
       await p;
@@ -1423,7 +1452,7 @@ export class OrgDaemon {
     }
   }
 
-  private async finishStop(name: string, org: RunningOrg, drainMs?: number): Promise<void> {
+  private async finishStop(name: string, org: RunningOrg, drainMs?: number, closedBy?: string): Promise<void> {
     // Snapshot checkpoint BEFORE closing mailboxes / draining sessions — the
     // queue is emptied during the drain, so capturing afterwards loses all
     // unconsumed messages (the whole point of checkpoint-resume).
@@ -1539,7 +1568,7 @@ export class OrgDaemon {
     // Same guard for runtime.json: if a new run started during shutdown, its
     // 'running' record must not be overwritten with this old run's 'stopped'.
     // Pass the org directly since we already removed it from the map.
-    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org, stopCheckpoint);
+    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org, stopCheckpoint, closedBy);
     // Clean up git worktrees — shared (workspace: 'worktree') and per-role.
     try {
       const { execFileSync } = await import('node:child_process');
@@ -1579,13 +1608,19 @@ export class OrgDaemon {
     ]);
   }
 
-  /** @internal */
+  /** @internal
+   *  @param closedBy #206: why the run ended — 'org-complete' for a clean,
+   *  goal-driven end (the only value any caller currently passes); absent for
+   *  every other stop (idle watchdog, boss-restart-exhausted, manual `org
+   *  stop`). Mirrors persistCrashStateAll()'s existing closedBy: 'crash-handler'
+   *  for the process-crash path, which org.ts already reads. */
   persistState(
     name: string,
     status: string,
     run: string,
     org?: RunningOrg,
     checkpointOverride?: OrgCheckpoint | null,
+    closedBy?: string,
   ): void {
     const p = join(this.root, ORG_DIR, name, 'runtime.json');
     const missing = [...(this.abandoned.get(name) ?? [])];
@@ -1616,6 +1651,7 @@ export class OrgDaemon {
       updated: new Date().toISOString(),
       ...(missing.length ? { abandonedRoles: missing } : {}),
       ...(checkpoint ? { checkpoint } : {}),
+      ...(closedBy ? { closedBy } : {}),
     });
   }
 
