@@ -38,16 +38,16 @@ module.exports = {
       // on TeammateIdle/TaskCompleted (task-handler.cjs) — since sessions that
       // never emit those events would otherwise leak registrations forever.
       const activeAfterPurge = purgeStaleRegistrations(regDir);
-      // Refresh swarm-activity.json within the 5-min staleness window.
+      // Refresh monoswarm-activity.json within the 5-min staleness window.
       const activityDir = path.join(CWD, '.monomind', 'metrics');
       fs.mkdirSync(activityDir, { recursive: true });
-      const activityPath = path.join(activityDir, 'swarm-activity.json');
+      const activityPath = path.join(activityDir, 'monoswarm-activity.json');
       const MAX_AGENTS = 1000;
       const active = Math.min(
         activeAfterPurge != null ? activeAfterPurge : cleanEntries(regDir, f => f.endsWith('.json')).length,
         MAX_AGENTS
       );
-      // P2-21: swarm-activity.json is written by both this handler and
+      // P2-21: monoswarm-activity.json is written by both this handler and
       // task-handler.cjs's handlePostTask, concurrently (Claude Code fires
       // hook events for parallel tool calls in one message). The old
       // read-prevLastActive-then-write was a lost-update race — two
@@ -62,12 +62,12 @@ module.exports = {
           const MAX_ACTIVITY = 64 * 1024; // 64 KiB
           var actStat = fs.statSync(activityPath);
           if (actStat.size <= MAX_ACTIVITY) {
-            prevLastActive = (JSON.parse(fs.readFileSync(activityPath, 'utf-8'))?.swarm?.lastActive) || 0;
+            prevLastActive = (JSON.parse(fs.readFileSync(activityPath, 'utf-8'))?.monoswarm?.lastActive) || 0;
           }
         } catch { /* ignore */ }
         atomicWriteFileSync(activityPath, JSON.stringify({
           timestamp: new Date().toISOString(),
-          swarm: {
+          monoswarm: {
             active: active > 0,
             agent_count: active,
             coordination_active: active > 0,

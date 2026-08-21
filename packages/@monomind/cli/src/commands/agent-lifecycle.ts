@@ -15,25 +15,25 @@ import { writeJsonFileAtomic } from '../utils/json-file.js';
 export function updateSwarmActivityMetrics(agentCountDelta: number): void {
   try {
     const metricsDir = path.join(process.cwd(), '.monomind', 'metrics');
-    const activityPath = path.join(metricsDir, 'swarm-activity.json');
+    const activityPath = path.join(metricsDir, 'monoswarm-activity.json');
 
     let data: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
-      swarm: { active: false, agent_count: 0, coordination_active: false },
+      monoswarm: { active: false, agent_count: 0, coordination_active: false },
     };
 
     if (fs.existsSync(activityPath) && fs.statSync(activityPath).size <= 10 * 1024 * 1024) {
       data = JSON.parse(fs.readFileSync(activityPath, 'utf-8'));
     }
 
-    const swarm = (data.swarm as Record<string, unknown>) ?? {};
+    const swarm = (data.monoswarm as Record<string, unknown>) ?? {};
     const currentCount = Math.max(0, (swarm.agent_count as number) || 0);
     const newCount = Math.max(0, currentCount + agentCountDelta);
 
     swarm.agent_count = newCount;
     swarm.active = newCount > 0;
     swarm.coordination_active = newCount > 0;
-    data.swarm = swarm;
+    data.monoswarm = swarm;
     data.timestamp = new Date().toISOString();
 
     writeJsonFileAtomic(activityPath, data);

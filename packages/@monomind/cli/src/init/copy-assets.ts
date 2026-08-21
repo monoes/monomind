@@ -150,7 +150,7 @@ export async function copyCommands(
     if (commandsConfig.automation) commandsToCopy.push(...COMMANDS_MAP.automation);
     if (commandsConfig.coordination) commandsToCopy.push(...(COMMANDS_MAP.coordination || []));
     if (commandsConfig.github) commandsToCopy.push(...COMMANDS_MAP.github);
-    if (commandsConfig.hiveMind) commandsToCopy.push(...(COMMANDS_MAP.hiveMind || []));
+    if (commandsConfig.monoswarm) commandsToCopy.push(...(COMMANDS_MAP.monoswarm || []));
     if (commandsConfig.hooks) commandsToCopy.push(...COMMANDS_MAP.hooks);
     if (commandsConfig.mastermind) commandsToCopy.push(...(COMMANDS_MAP.mastermind || []));
     if (commandsConfig.memory) commandsToCopy.push(...(COMMANDS_MAP.memory || []));
@@ -160,7 +160,6 @@ export async function copyCommands(
     if (commandsConfig.optimization) commandsToCopy.push(...COMMANDS_MAP.optimization);
     if (commandsConfig.pair) commandsToCopy.push(...(COMMANDS_MAP.pair || []));
     if (commandsConfig.streamChain) commandsToCopy.push(...(COMMANDS_MAP.streamChain || []));
-    if (commandsConfig.swarm) commandsToCopy.push(...(COMMANDS_MAP.swarm || []));
     if (commandsConfig.training) commandsToCopy.push(...(COMMANDS_MAP.training || []));
     if (commandsConfig.truth) commandsToCopy.push(...(COMMANDS_MAP.truth || []));
     if (commandsConfig.verify) commandsToCopy.push(...(COMMANDS_MAP.verify || []));
@@ -235,8 +234,7 @@ export async function copyAgents(
     if (agentsConfig.core) agentsToCopy.push(...AGENTS_MAP.core);
     if (agentsConfig.consensus) agentsToCopy.push(...AGENTS_MAP.consensus);
     if (agentsConfig.github) agentsToCopy.push(...AGENTS_MAP.github);
-    if (agentsConfig.hiveMind) agentsToCopy.push(...AGENTS_MAP.hiveMind);
-    if (agentsConfig.swarm) agentsToCopy.push(...AGENTS_MAP.swarm);
+    if (agentsConfig.monoswarm) agentsToCopy.push(...AGENTS_MAP.monoswarm);
     if (agentsConfig.optimization) agentsToCopy.push(...(AGENTS_MAP.optimization || []));
     if (agentsConfig.testing) agentsToCopy.push(...(AGENTS_MAP.testing || []));
   }

@@ -265,9 +265,9 @@ fi
 # ── 8. Swarm Coordination ────────────────────────────────────
 if should_run "swarm"; then
   section 8 "Swarm Coordination"
-  check_warn "swarm status" $MONOMIND_CMD swarm status
-  check_warn "swarm init (hierarchical)" $MONOMIND_CMD swarm init --topology hierarchical --max-agents 4
-  check_warn "swarm init (mesh)" $MONOMIND_CMD swarm init --topology mesh --max-agents 4
+  check_warn "monoswarm status" $MONOMIND_CMD monoswarm status
+  check_warn "monoswarm init (hierarchical)" $MONOMIND_CMD monoswarm init --topology hierarchical --max-agents 4
+  check_warn "monoswarm init (mesh)" $MONOMIND_CMD monoswarm init --topology mesh --max-agents 4
 fi
 
 # ── 9. Task System ────────────────────────────────────────────
@@ -309,7 +309,7 @@ fi
 
 # ── 13. Neural / Intelligence ─────────────────────────────────
 if should_run "neural"; then
-  section 13 "Neural / Intelligence (SONA + MoE)"
+  section 13 "Neural / Intelligence (SONA)"
   check "neural status" $MONOMIND_CMD neural status
   check "neural patterns" $MONOMIND_CMD neural patterns --list
 fi
@@ -376,12 +376,6 @@ fi
 if should_run "status"; then
   section 22 "System Status"
   check_warn "status" $MONOMIND_CMD status
-fi
-
-# ── 23. Hive-Mind ─────────────────────────────────────────────
-if should_run "hive"; then
-  section 23 "Hive-Mind (Byzantine Consensus)"
-  check_warn "hive-mind status" $MONOMIND_CMD hive-mind status
 fi
 
 # ── 24. Process Management ────────────────────────────────────
@@ -464,8 +458,8 @@ if should_run "swarm-e2e"; then
   check "swarm-e2e: store coordination context" $MONOMIND_CMD memory store --key "swarm-e2e-context" --value "Agent swarm coordination test: architect designs, coder implements, tester validates" --namespace swarm-e2e
   check_contains "swarm-e2e: search finds coordination" "swarm-e2e" $MONOMIND_CMD memory search --query "agent coordination" --namespace swarm-e2e
   check "swarm-e2e: agent list available" $MONOMIND_CMD agent list
-  check_warn "swarm-e2e: swarm init" $MONOMIND_CMD swarm init --topology hierarchical --max-agents 4
-  check_warn "swarm-e2e: swarm status" $MONOMIND_CMD swarm status
+  check_warn "swarm-e2e: monoswarm init" $MONOMIND_CMD monoswarm init --topology hierarchical --max-agents 4
+  check_warn "swarm-e2e: monoswarm status" $MONOMIND_CMD monoswarm status
   # Cleanup
   $MONOMIND_CMD memory delete --key "swarm-e2e-context" --namespace swarm-e2e >/dev/null 2>&1 || true
 fi

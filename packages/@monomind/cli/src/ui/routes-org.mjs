@@ -2241,21 +2241,21 @@ if (req.method === 'POST' && url === '/api/knowledge/search') {
   return true;
 }
 
-// GET /api/mastermind/metrics — aggregate system metrics from token-summary and swarm-activity
+// GET /api/mastermind/metrics — aggregate system metrics from token-summary and monoswarm-activity
 if (req.method === 'GET' && url === '/api/mastermind/metrics') {
   try {
     const base = path.join(ctx.projectDir || process.cwd(), '.monomind', 'metrics');
-    let tokens = {}, swarm = {}, events = [];
+    let tokens = {}, monoswarm = {}, events = [];
     try { tokens = JSON.parse(fs.readFileSync(path.join(base, 'token-summary.json'), 'utf8')); } catch(_) {}
-    try { swarm  = JSON.parse(fs.readFileSync(path.join(base, 'swarm-activity.json'), 'utf8')); } catch(_) {}
+    try { monoswarm = JSON.parse(fs.readFileSync(path.join(base, 'monoswarm-activity.json'), 'utf8')); } catch(_) {}
     try {
       const evPath = path.join(ctx.projectDir || process.cwd(), 'data', 'mastermind-events.jsonl');
       const lines = fs.readFileSync(evPath, 'utf8').split('\n').filter(l => l.trim()).slice(-20);
       events = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
     } catch(_) {}
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ tokens, swarm, recentEvents: events }));
-  } catch(_) { res.writeHead(500); res.end('{"tokens":{},"swarm":{},"recentEvents":[]}'); }
+    res.end(JSON.stringify({ tokens, monoswarm, recentEvents: events }));
+  } catch(_) { res.writeHead(500); res.end('{"tokens":{},"monoswarm":{},"recentEvents":[]}'); }
   return true;
 }
 

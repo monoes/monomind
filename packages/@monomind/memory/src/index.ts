@@ -81,7 +81,7 @@ export type { SortDirection, SortField } from './query-builder.js';
 export { MemoryMigrator, createMigrator, migrateMultipleSources } from './migration.js';
 
 // ===== Graph Checkpointing =====
-export { SwarmCheckpointer } from './checkpointer.js';
+export { MonoswarmCheckpointer } from './checkpointer.js';
 export type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
 
 // ===== Document Chunker & Knowledge Base =====

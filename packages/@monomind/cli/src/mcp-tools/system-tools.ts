@@ -409,11 +409,11 @@ export const systemTools: MCPTool[] = [
         });
       }
 
-      // Swarm — cannot verify real connectivity, report unknown
+      // Monoswarm — cannot verify real connectivity, report unknown
       checks.push({
-        name: 'swarm',
+        name: 'monoswarm',
         status: 'unknown',
-        message: 'Swarm connectivity not monitored — check coordination store manually',
+        message: 'Monoswarm connectivity not monitored — check coordination store manually',
       });
 
       // Neural — cannot verify, report unknown
@@ -521,7 +521,7 @@ export const systemTools: MCPTool[] = [
           flashAttention: false,
         },
         limits: {
-          // Real clamp applied in swarm-tools.ts: Math.min(Math.max(x || 8, 1), 50)
+          // Real clamp applied in monoswarm-tools.ts: Math.min(Math.max(x || 8, 1), 50)
           maxAgents: 50,
           maxTasks: 1000,
           maxMemory: `${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB`,

@@ -1,5 +1,5 @@
 /**
- * Tests for SwarmCheckpointer (Task 08 — Graph Checkpointing + Resume).
+ * Tests for MonoswarmCheckpointer (Task 08 — Graph Checkpointing + Resume).
  *
  * Uses vitest globals (describe, it, expect, beforeEach, afterEach, vi).
  * Temp directories via mkdtempSync / rmSync from 'fs'.
@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { SwarmCheckpointer } from '../../packages/@monomind/memory/src/checkpointer.js';
+import { MonoswarmCheckpointer } from '../../packages/@monomind/memory/src/checkpointer.js';
 import type { AgentState } from '../../packages/@monomind/memory/src/types/checkpoint.js';
 
 function makeAgent(overrides: Partial<AgentState> = {}): AgentState {
@@ -26,7 +26,7 @@ function makeAgent(overrides: Partial<AgentState> = {}): AgentState {
   };
 }
 
-describe('SwarmCheckpointer', () => {
+describe('MonoswarmCheckpointer', () => {
   let tmpDir: string;
   let dbPath: string;
 
@@ -40,9 +40,9 @@ describe('SwarmCheckpointer', () => {
   });
 
   function createCheckpointer() {
-    return new SwarmCheckpointer({
+    return new MonoswarmCheckpointer({
       dbPath,
-      swarmId: 'swarm-1',
+      monoswarmId: 'swarm-1',
       sessionId: 'session-1',
     });
   }
@@ -60,7 +60,7 @@ describe('SwarmCheckpointer', () => {
 
     expect(loaded).not.toBeNull();
     expect(loaded!.checkpointId).toBe(id);
-    expect(loaded!.swarmId).toBe('swarm-1');
+    expect(loaded!.monoswarmId).toBe('swarm-1');
     expect(loaded!.sessionId).toBe('session-1');
     expect(loaded!.step).toBe(1);
     expect(loaded!.trigger).toBe('manual');

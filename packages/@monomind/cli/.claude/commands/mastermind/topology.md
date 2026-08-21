@@ -1,6 +1,6 @@
 ---
 name: mastermind-topology
-description: Swarm & Hive-Mind architecture picker — presents all topologies, consensus protocols, and strategies, then gives one concrete recommendation for the current task
+description: Monoswarm architecture picker — presents all topologies, consensus protocols, and strategies, then gives one concrete recommendation for the current task
 ---
 
 IMPORTANT: Do NOT dump all the reference content at once. Follow the two-phase flow below exactly.
