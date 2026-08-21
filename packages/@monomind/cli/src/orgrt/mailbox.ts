@@ -20,11 +20,21 @@ export class Mailbox {
   private queue: string[] = [];
   private wake: (() => void) | null = null;
   private closed = false;
+  /** Why close() was called — e.g. 'token-budget' / 'usd-budget' — distinct
+   *  from a crash/terminal close (undefined). Lets callers like the idle
+   *  watchdog tell a recoverable budget pause from genuine unreachability. */
+  private closeReasonValue?: string;
   /** Bumped when a new stream() starts; stale generators see the mismatch and exit. */
   private generation = 0;
   /** Monotonic count of REAL (non-continuation) messages consumed by stream().
    *  The restart loop snapshots this around a session to tell progress from spin. */
   private consumedReal = 0;
+  /** The most recently shift()ed-but-not-yet-confirmed-processed message: set
+   *  right before stream() yields it, cleared once the generator is resumed
+   *  for the next pull (proof the runner asked for more, i.e. the prior turn
+   *  finished). If a session dies with this still set, the generator was
+   *  abandoned mid-yield — see reclaimInFlight(). */
+  private inFlight: string | null = null;
 
   /** Number of real (non-continuation) messages consumed so far across all sessions. */
   get consumedRealCount(): number { return this.consumedReal; }
@@ -38,12 +48,17 @@ export class Mailbox {
     this.wake?.(); this.wake = null;
   }
 
-  close(): void {
+  close(reason?: string): void {
     this.closed = true;
+    this.closeReasonValue = reason;
     this.wake?.(); this.wake = null;
   }
 
   get isClosed(): boolean { return this.closed; }
+
+  /** Why close() was called, if given a reason — undefined for a plain crash/
+   *  terminal close. See the closeReasonValue field doc for intent. */
+  get closeReason(): string | undefined { return this.closeReasonValue; }
 
   /**
    * Detach the current waker WITHOUT resolving it. Called between sessions
@@ -71,11 +86,16 @@ export class Mailbox {
     const gen = ++this.generation;
     // Drop (never resolve) any stale waker — see detach().
     this.wake = null;
+    // A fresh generator starts with nothing in flight — any prior value
+    // belonged to a now-dead generator and reclaimInFlight() (called from the
+    // crash-retry path, if at all) already had its chance to act on it.
+    this.inFlight = null;
     while (true) {
       while (this.queue.length > 0) {
         if (gen !== this.generation) return; // superseded — leave the queue for the live generator
         const content = this.queue.shift()!;
         if (!content.startsWith(Mailbox.CONTINUE_PREFIX)) this.consumedReal++;
+        this.inFlight = content;
         yield {
           type: 'user',
           message: { role: 'user', content },
@@ -83,6 +103,10 @@ export class Mailbox {
           session_id: sessionId,
         };
         if (gen !== this.generation) return;
+        // Resumed for another pull: the consumer asked for the next message,
+        // which only happens once it's done with this one — proof the prior
+        // turn completed rather than the session dying mid-processing.
+        this.inFlight = null;
       }
       if (this.closed || gen !== this.generation) return;
       await new Promise<void>(r => { this.wake = r; });
@@ -90,22 +114,45 @@ export class Mailbox {
     }
   }
 
+  /** Called by the crash-retry path right after a session dies abnormally. If
+   *  a message was mid-flight — shifted for the crashed generator's yield but
+   *  never confirmed processed, because the generator was abandoned at that
+   *  yield rather than resumed for another pull — put it back at the front of
+   *  the queue so the replacement session (built by the next stream() call)
+   *  gets it first instead of the queue staying empty and the new session
+   *  parking on the mailbox forever. A no-op when nothing was in flight
+   *  (clean session end, or nothing was ever pulled). */
+  reclaimInFlight(): void {
+    if (this.inFlight === null) return;
+    const content = this.inFlight;
+    this.inFlight = null;
+    this.queue.unshift(content);
+    // Undo the increment made when this message was shifted — it was never
+    // actually processed, so the restart loop's progress/spin detection
+    // should not count it as consumed.
+    if (!content.startsWith(Mailbox.CONTINUE_PREFIX)) this.consumedReal--;
+  }
+
   /** Serialize mailbox state for checkpoint/resume - Pattern 3 */
-  serialize(): { queue: string[]; closed: boolean; consumedReal: number } {
+  serialize(): { queue: string[]; closed: boolean; consumedReal: number; closeReason?: string } {
     return {
       queue: [...this.queue], // Copy array - queue is public for checkpoint access
       closed: this.closed,
       consumedReal: this.consumedReal,
+      ...(this.closeReasonValue ? { closeReason: this.closeReasonValue } : {}),
     };
   }
 
   /** Deserialize mailbox state from checkpoint - Pattern 3 */
-  deserialize(state: { queue: string[]; closed: boolean; consumedReal: number }): void {
+  deserialize(state: { queue: string[]; closed: boolean; consumedReal: number; closeReason?: string }): void {
     this.queue = [...state.queue]; // Restore queue content
     this.closed = state.closed;
     this.consumedReal = state.consumedReal;
-    // Reset generation and wake - a new stream() call will set fresh values
+    this.closeReasonValue = state.closeReason; // undefined for checkpoints predating this field
+    // Reset generation, wake, and in-flight tracking - a new stream() call
+    // will set fresh values; nothing from a checkpointed run is "in flight".
     this.generation = 0;
     this.wake = null;
+    this.inFlight = null;
   }
 }
