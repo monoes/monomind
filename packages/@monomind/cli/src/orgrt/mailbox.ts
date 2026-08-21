@@ -8,12 +8,15 @@ export interface OrgUserMessage {
 
 /** close() reasons that mean "paused, not dead" — the underlying condition
  *  (a budget cap) can be raised by an operator, unlike a crash/terminal
- *  close. Resume paths (checkpoint.ts's mergeCheckpoint, daemon.ts's
- *  resume-spawn) check this before re-closing a checkpointed mailbox: a
- *  mailbox checkpointed with one of these reasons is left open on resume
- *  instead of being re-closed, or the idle watchdog's "raise the budget and
- *  resume from checkpoint" remedy would silently do nothing — nothing in
- *  this codebase ever reopens a closed mailbox otherwise. */
+ *  close. Checked before re-closing a checkpointed mailbox on resume: a
+ *  mailbox checkpointed with one of these reasons is left open instead of
+ *  being re-closed, or the idle watchdog's "raise the budget and resume
+ *  from checkpoint" remedy would silently do nothing — nothing in this
+ *  codebase ever reopens a closed mailbox otherwise. The only production
+ *  resume path is daemon.ts's inline spawnRole logic (where `new Mailbox()`
+ *  is constructed for a role with a roleCheckpoint); checkpoint.ts's
+ *  mergeCheckpoint() applies the same check but isn't currently called
+ *  outside tests — keep both in sync if either changes. */
 const BUDGET_CLOSE_REASONS = new Set(['token-budget', 'usd-budget']);
 export function isRecoverableCloseReason(reason: string | undefined): boolean {
   return reason !== undefined && BUDGET_CLOSE_REASONS.has(reason);
@@ -62,6 +65,15 @@ export class Mailbox {
   }
 
   close(reason?: string): void {
+    // First write wins. session.ts's result-message handler can call
+    // close() up to three times for one message (circuit-breaker trip,
+    // token-budget, USD-budget are independent sibling `if`s, not
+    // mutually exclusive) — without this guard the LAST call's reason
+    // silently overwrites the first, so a genuinely terminal
+    // circuit-breaker close could get misclassified as a recoverable
+    // budget close and the resume path would reopen a role that's
+    // supposed to require manual intervention.
+    if (this.closed) return;
     this.closed = true;
     this.closeReasonValue = reason;
     this.wake?.(); this.wake = null;
