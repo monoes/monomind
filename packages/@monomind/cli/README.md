@@ -30,7 +30,7 @@
 
 ## What is Monomind?
 
-Monomind is an **open-source CLI and MCP server** that plugs into Claude Code (and [opencode](https://opencode.ai) / Antigravity) via the standard [Model Context Protocol](https://modelcontextprotocol.io/). It adds capabilities these assistants don't ship with out of the box:
+Monomind is an **open-source CLI and MCP server** that plugs into Claude Code, [OpenCode](https://opencode.ai), Antigravity, Kimi Code, and Codex via the standard [Model Context Protocol](https://modelcontextprotocol.io/). It adds capabilities these assistants don't ship with out of the box:
 
 - **Codebase knowledge graph** — tree-sitter parses your code into a SQLite-backed graph of files, functions, classes, and their relationships. Query imports, callers, and blast radius before making changes.
 - **Persistent memory** — a JSON pattern store with episodic recall that survives across sessions. Agents and orgs share context without re-prompting.
@@ -54,10 +54,10 @@ Nothing extra to do — agy output is part of **default** `monomind init`: `GEMI
 <summary><strong>Using opencode instead?</strong></summary>
 
 ```bash
-monomind init --opencode       # emits opencode.json + .opencode/ alongside Claude/Antigravity output
+monomind init --target opencode # initialize only OpenCode
 ```
 
-`--opencode` is additive — it never touches your `.claude/` or `.gemini/` config. You get the same MCP tools, agent roster, commands, skills, and security gates, plus a `/monomind-status` command (opencode has no custom statusbar, so the statusline is on-demand). See [opencode guide →](doc/concepts/opencode.md).
+`monomind init` initializes all supported coding systems. `--target opencode` initializes only OpenCode; the legacy `--opencode` flag remains an alias. You get the same MCP tools, agent roster, commands, skills, and security gates, plus a `/monomind-status` command. See [OpenCode guide →](doc/concepts/opencode.md).
 
 </details>
 
@@ -65,10 +65,29 @@ monomind init --opencode       # emits opencode.json + .opencode/ alongside Clau
 <summary><strong>Using Kimi Code instead?</strong></summary>
 
 ```bash
-monomind init --kimicode       # emits .kimi-code/ + AGENTS.md alongside Claude/Antigravity output
+monomind init --target kimicode # initialize only Kimi Code
 ```
 
-`--kimicode` is additive — it never touches your `.claude/` or `.gemini/` config. You get the same MCP tools, agent roster, skills, and commands (as project-level flow skills). Install the generated plugin once for `/monomind:*` slash commands and security gates: `/plugins install ./.kimi-code/plugin`. If `~/.kimi-code/` exists, init also wires the monomind status bar into kimi's footer. See [Kimi Code guide →](doc/concepts/kimicode.md).
+`monomind init` includes Kimi Code by default. `--target kimicode` initializes only Kimi Code; the legacy `--kimicode` flag remains an alias. You get the same MCP tools, agent roster, skills, and commands (as project-level flow skills). Install the generated plugin once for `/monomind:*` slash commands and security gates: `/plugins install ./.kimi-code/plugin`. See [Kimi Code guide →](doc/concepts/kimicode.md).
+
+</details>
+
+<details>
+<summary><strong>Using Codex?</strong></summary>
+
+```bash
+codex login
+monomind init --codex
+```
+
+This emits a project-scoped `.codex/config.toml` that registers Monomind's MCP
+server, plus `AGENTS.md` with Codex-specific guidance. Codex must trust the
+project before it loads project-scoped configuration. To run persistent
+Monomind organizations through Codex, set `"runtime": "codex"` in the org
+definition.
+
+Use `monomind init` with no target to initialize every supported coding system.
+Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See [Codex guide →](../../../doc/concepts/codex.md).
 
 </details>
 

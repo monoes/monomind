@@ -4,7 +4,7 @@
 
 ## What is monomind?
 
-Monomind extends AI coding assistants (Claude Code, Antigravity, opencode, Kimi Code) with four local-first capabilities:
+Monomind extends AI coding assistants (Claude Code, Antigravity, OpenCode, Kimi Code, and Codex) with four local-first capabilities:
 
 1. **Monograph** — a code knowledge graph (14 tree-sitter grammars + 5 regex-fallback languages — see `packages/@monomind/monograph/README.md` for the authoritative count — plus SQLite + BM25)
 2. **Memory** — persistent memory across sessions (SQLite + local embeddings + keyword fallback)
@@ -32,7 +32,19 @@ cd your-project
 monomind init
 ```
 
-This writes `.claude/` configs (skills, hooks, agents) and builds the initial code graph. It takes 30–60 seconds and spawns a background process for the graph build.
+This initializes every supported coding system: Claude Code, Antigravity, OpenCode, Kimi Code, and Codex. It writes each platform's native instructions/configuration, shared skills, and MCP wiring, then builds the initial code graph. It takes 30–60 seconds and spawns a background process for the graph build.
+
+To initialize only one system, use `--target`:
+
+```bash
+monomind init --target codex
+monomind init --target opencode
+monomind init --target kimicode
+monomind init --target antigravity
+monomind init --target claude
+```
+
+The legacy `--codex`, `--opencode`, and `--kimicode` flags remain aliases for their corresponding single targets.
 
 **Optional — power-user setup:**
 
@@ -48,7 +60,7 @@ The wizard asks about topology, memory backend, embeddings model, etc. Most user
 claude mcp add monomind -- npx -y monomind@latest mcp start
 ```
 
-This tells Claude Code how to reach monomind's 66+ tools.
+This tells Claude Code how to reach monomind's MCP tools. The generated Codex, OpenCode, Kimi Code, and Antigravity configurations register the same local server using each platform's native format.
 
 ## Step 4: Verify the install
 

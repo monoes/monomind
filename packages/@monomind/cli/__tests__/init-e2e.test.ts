@@ -99,7 +99,25 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.monomind', 'config.yaml'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'GEMINI.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.kimi-code', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
   }, 30000); // real-fs init under full-suite parallel load can exceed the 15s default (#33)
+
+  it('should emit Codex project artifacts when requested', async () => {
+    ctx.flags = { target: 'codex', _: [], 'no-watch': true, 'no-start-all': true };
+    const result = await initCommand.action!(ctx);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
+    expect(fs.readFileSync(path.join(tmpDir, '.codex', 'config.toml'), 'utf8')).toContain('[mcp_servers.monomind]');
+    expect(fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf8')).toContain('Monomind on Codex');
+    expect(fs.existsSync(path.join(tmpDir, '.mcp.json'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, '.kimi-code'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'GEMINI.md'))).toBe(false);
+  }, 30000);
 
   it('should initialize with minimal configuration', async () => {
     ctx.flags = { minimal: true, _: [], 'no-watch': true, 'no-start-all': true };

@@ -1,6 +1,6 @@
 # Antigravity (agy)
 
-> Monomind's first non-Claude target: Google's [Antigravity](https://antigravity.google) CLI (`agy`). Unlike the opencode and Kimi Code targets, agy output is **on by default** — every `monomind init` emits it alongside the Claude config, no flag required. This page covers what you get and how the pieces fit together.
+> Monomind supports Google's [Antigravity](https://antigravity.google) CLI (`agy`) alongside Claude Code, OpenCode, Kimi Code, and Codex. Plain `monomind init` initializes every supported system; `monomind init --target antigravity` initializes only Antigravity.
 
 ---
 
@@ -9,7 +9,8 @@
 ```bash
 npm install -g monomind
 cd your-project
-monomind init                   # emits .claude/ AND .gemini/ + GEMINI.md + AGENTS-shared instructions
+monomind init                   # initializes all supported coding systems
+monomind init --target antigravity # initializes only Antigravity
 ```
 
 Open the project in Antigravity. agy reads `GEMINI.md` (its `CLAUDE.md` equivalent), the rules file, and wires the monomind status bar via `.gemini/settings.json`. The monomind MCP server (knowledge graph, memory, swarm tools) is configured the same way as for Claude Code — agy supports the same `.mcp.json`:
@@ -50,7 +51,7 @@ The provider resolver sets `GEMINI_API_KEY` for that role's session and strips t
 ## How isolation works
 
 - agy reads `.gemini/` and `GEMINI.md`; Claude Code reads `.claude/`; opencode reads `opencode.json` + `.opencode/`; Kimi Code reads `.kimi-code/`. They never touch each other's files.
-- agy output is **not** behind a component flag (it's part of default init) — the opt-in flags are `--opencode` and `--kimicode`. `--skip-claude` skips the Claude tree; the agy tree is still emitted.
+- `monomind init` emits agy output by default. Use `--target antigravity` for Antigravity only; `--target claude` for Claude only. `--skip-claude` remains the legacy runtime-only mode.
 - The statusline wrapper delegates to `.gemini/helpers/statusline.cjs`, falling back to `.claude/helpers/statusline.cjs` — one implementation, two entry points.
 
 The agy target follows the same additive pattern as the other adapters in this family (the agy generator is the oldest; opencode and kimi were modeled on it).

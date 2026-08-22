@@ -24,6 +24,7 @@ import { writeRuntimeConfig, writeInitialMetrics } from './write-runtime-config.
 import { writeGeminiFiles } from './write-antigravity.js';
 import { writeOpencodeFiles } from './write-opencode.js';
 import { writeKimiFiles } from './write-kimicode.js';
+import { writeCodexFiles } from './write-codex.js';
 import { copySkills, copyCommands, copyAgents } from './copy-assets.js';
 
 // Re-export upgrade functions so index.ts barrel still works via './executor.js'
@@ -196,8 +197,10 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       await writeClaudeMd(targetDir, options, result);
     }
 
-    // Generate Antigravity (agy) files: GEMINI.md, rules, statusline.sh, settings.json
-    await writeGeminiFiles(targetDir, options, result);
+    // Generate Antigravity (agy) files when selected.
+    if (options.components.antigravity) {
+      await writeGeminiFiles(targetDir, options, result);
+    }
 
     // Generate opencode artifacts (opt-in via components.opencode, default false).
     // Purely additive: only writes opencode.json + .opencode/ when enabled.
@@ -209,6 +212,11 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Purely additive: only writes .kimi-code/ + AGENTS.md when enabled.
     if (options.components.kimicode) {
       await writeKimiFiles(targetDir, options, result);
+    }
+
+    // Generate Codex project artifacts (opt-in via components.codex).
+    if (options.components.codex) {
+      await writeCodexFiles(targetDir, options, result);
     }
 
     // Generate .agents/shared_instructions.md + seed project memory
