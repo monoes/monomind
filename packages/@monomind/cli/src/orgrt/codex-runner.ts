@@ -75,13 +75,50 @@
  *     protocol.
  *   - stderr is human diagnostics; buffer and surface on non-zero exit only.
  *
- * STILL UNVERIFIED end-to-end (this environment's ~/.codex/auth.json had a
- * dead refresh token — "refresh token was already used... sign in again" —
- * needs a fresh `codex login`, not something driven here): a full
- * successful `task_complete`/`token_count` pair was never actually
- * observed. The struct field names above are taken directly from the Rust
- * source (high confidence, not a guess), but a live confirmation of the
- * exact JSON once auth works would still be worthwhile.
+ * WIRE-FORMAT UPDATE (#178 follow-up, #204) — live-verified 2026-08-22
+ * against an authenticated codex v0.149.0 (`codex login status` →
+ * "Logged in using ChatGPT"), three real `codex exec --json` invocations:
+ *
+ *   1. Plain turn (`"reply with exactly the word: pong"`):
+ *      {"type":"thread.started","thread_id":"01a02a2f-...-...-...-..."}
+ *      {"type":"turn.started"}
+ *      {"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"pong"}}
+ *      {"type":"turn.completed","usage":{"input_tokens":13085,"cached_input_tokens":9984,
+ *       "cache_write_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0}}
+ *   2. Turn with a shell tool call (`"run: echo hello-from-codex-shell"`) — adds:
+ *      {"type":"item.started","item":{"id":"item_1","type":"command_execution",
+ *       "command":"...","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+ *      {"type":"item.completed","item":{"id":"item_1","type":"command_execution",
+ *       "command":"...","aggregated_output":"hello-from-codex-shell\n","exit_code":0,
+ *       "status":"completed"}}
+ *   3. `codex exec resume <threadId> "..."` × 3 in the same thread — confirms
+ *      (a) `resume` still works exactly as documented above, (b)
+ *      `turn.completed.usage.input_tokens` stays roughly flat across resumed
+ *      turns (13097 → 13112) rather than growing cumulatively, consistent
+ *      with per-turn (not cumulative) usage — same inference as legacy
+ *      `token_count.info.last_token_usage` vs `total_token_usage`, though
+ *      this wasn't cross-checked against Rust source (no `codex-rs` checkout
+ *      in this environment) the way the legacy shape originally was.
+ *
+ * NONE of `session_configured` / `task_started` / `agent_message` (top-level)
+ * / `token_count` / `task_complete` — the shape this runner was originally
+ * written against — appeared in ANY of the above. This runner was silently
+ * broken against any codex install emitting the current shape: every switch
+ * branch below missed, so `outcome.rawTexts`/`inputTokens`/`outputTokens`/
+ * `threadId` stayed at their zero-values for every single turn, producing no
+ * assistant text, no token accounting, and no session resumption — while
+ * `exitCode` was still 0, so nothing surfaced as an error either.
+ *
+ * Both shapes are now parsed (see CURRENT vs LEGACY branches in `runTurn`'s
+ * event loop below). The legacy shape is kept because there's no live
+ * evidence it was ever wrong for the v0.147.0 install it was verified
+ * against — only that a newer install (v0.149.0) has since moved to the
+ * item-based shape. Error/failure item types (e.g. a possible
+ * `turn.failed`) were NOT observed live and are not guessed at here — an
+ * error turn was only ever seen as a non-zero exit with a plain-text stderr
+ * message (e.g. `resume`ing an unknown thread id → exit 1, no JSON on
+ * stdout at all), which the existing `outcome.exitCode !== 0` handling
+ * already covers unchanged.
  */
 import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
@@ -102,25 +139,53 @@ interface CodexTokenUsage {
   total_tokens?: number;
 }
 
+/** Current (v0.149.0+) item-based wire format's `item` payload. Only the
+ *  fields this runner acts on are typed — other item types (reasoning,
+ *  patch_apply, mcp_tool_call, …) are ignored, same policy as the legacy
+ *  format's untyped variants. */
+interface CodexItem {
+  id: string;
+  type: string;
+  /** agent_message */
+  text?: string;
+  /** command_execution */
+  command?: string;
+  aggregated_output?: string;
+  exit_code?: number | null;
+  status?: string;
+}
+
 interface CodexEvent {
   type:
+    // LEGACY (v0.147.0-era) shape
     | 'session_configured'
     | 'task_started'
     | 'agent_message'
     | 'token_count'
     | 'task_complete'
-    | 'error';
-  // session_configured
+    | 'error'
+    // CURRENT (v0.149.0+) item-based shape
+    | 'thread.started'
+    | 'turn.started'
+    | 'item.started'
+    | 'item.completed'
+    | 'turn.completed'
+    | (string & {});
+  // LEGACY session_configured / CURRENT thread.started
   session_id?: string;
   thread_id?: string;
-  // agent_message
+  // LEGACY agent_message (top-level)
   message?: string;
-  // token_count
+  // LEGACY token_count
   info?: { last_token_usage?: CodexTokenUsage; total_token_usage?: CodexTokenUsage };
-  // task_complete
+  // LEGACY task_complete
   turn_id?: string;
   last_agent_message?: string;
   error?: { message: string };
+  // CURRENT item.started / item.completed
+  item?: CodexItem;
+  // CURRENT turn.completed
+  usage?: CodexTokenUsage;
 }
 
 interface TurnOutcome {
@@ -301,17 +366,37 @@ export class CodexAgentRunner implements AgentRunner {
             inputTokens: 0, outputTokens: 0,
           };
           for (const ev of events) {
-            if (ev.type === 'session_configured' && (ev.session_id || ev.thread_id)) {
+            if (
+              (ev.type === 'session_configured' || ev.type === 'thread.started')
+              && (ev.session_id || ev.thread_id)
+            ) {
+              // LEGACY: session_configured.session_id/.thread_id
+              // CURRENT: thread.started.thread_id
               outcome.threadId = ev.session_id ?? ev.thread_id;
             } else if (ev.type === 'agent_message' && ev.message) {
+              // LEGACY: top-level agent_message.message
               outcome.rawTexts.push(ev.message);
+            } else if (ev.type === 'item.completed' && ev.item?.type === 'agent_message' && ev.item.text) {
+              // CURRENT: item.completed with item.type === 'agent_message'.
+              // Other item types (command_execution, reasoning, …) are
+              // deliberately not surfaced as assistant text — their output
+              // (e.g. aggregated_output) isn't part of the model's reply.
+              outcome.rawTexts.push(ev.item.text);
             } else if (ev.type === 'token_count' && ev.info?.last_token_usage) {
-              // last_token_usage is per-TURN; total_token_usage is
+              // LEGACY: last_token_usage is per-TURN; total_token_usage is
               // cumulative for the whole session — using the latter here
               // would over-report on every turn after the first.
               outcome.inputTokens = ev.info.last_token_usage.input_tokens ?? 0;
               outcome.outputTokens = ev.info.last_token_usage.output_tokens ?? 0;
+            } else if (ev.type === 'turn.completed' && ev.usage) {
+              // CURRENT: turn.completed.usage — observed to stay roughly
+              // flat across resumed turns rather than accumulate, i.e.
+              // per-turn like legacy's last_token_usage (see file header).
+              outcome.inputTokens = ev.usage.input_tokens ?? 0;
+              outcome.outputTokens = ev.usage.output_tokens ?? 0;
             } else if (ev.type === 'task_complete') {
+              // LEGACY only — CURRENT has no observed equivalent completion
+              // event carrying an error; see file header on error handling.
               if (ev.error) outcome.error = ev.error.message;
               // last_agent_message is a convenience summary already covered
               // by the agent_message events collected above — not pushed
