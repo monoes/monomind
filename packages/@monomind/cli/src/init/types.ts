@@ -428,7 +428,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   mcp: {
     monomind: true,
     graphify: false,
-    antigravity: false,
     autoStart: false,
     port: 3000,
   },
@@ -467,6 +466,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     runtime: true,
     claudeMd: true,
     graphify: false,
+    antigravity: false,
     opencode: false,
     kimicode: false,
     codex: false,
