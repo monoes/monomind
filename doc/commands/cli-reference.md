@@ -8,7 +8,7 @@
 
 | Command | Purpose | Subcommands |
 |---|---|---|
-| `init` | Initialize MonoMind in current directory (`src/commands/init.ts:401`, flags: `406-488`). Skills are written to `.claude/skills/` and then mirrored to `.gemini/skills/` and `.agents/skills/` for multi-runtime AI-platform support (`init/copy-assets.ts:114-121`, also applied on `init upgrade` at `init/upgrade.ts:471`). | 5 — wizard (`init-wizard.ts:18`), check, skills, hooks (`init-subcommands.ts:20`), upgrade (`init-upgrade.ts:19`) |
+| `init` | Initialize all supported coding systems by default: Claude Code, Antigravity, OpenCode, Kimi Code, and Codex. Use `--target <system>` for one system (`claude`, `antigravity`, `opencode`, `kimicode`, or `codex`); `--codex`, `--opencode`, and `--kimicode` remain aliases. Skills are written to `.claude/skills/` and mirrored to `.gemini/skills/` and `.agents/skills/` for multi-runtime support. | 5 — wizard (`init-wizard.ts:18`), check, skills, hooks (`init-subcommands.ts:20`), upgrade (`init-upgrade.ts:19`) |
 | `start` | Start the MonoMind orchestration system | 3 — stop, restart, quick |
 | `status` | Show system status (watch mode supported) | 3 — agents, tasks, memory |
 | `agent` | Agent lifecycle (in-process, no separate MCP server needed) | 7 — spawn, list, status, stop, metrics, pool, health |
