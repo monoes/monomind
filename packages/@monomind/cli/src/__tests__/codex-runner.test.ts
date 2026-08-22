@@ -24,6 +24,7 @@
  *   wrong for that version — only that 0.149.0 has since moved on.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { z } from 'zod';
 import { CodexAgentRunner } from '../orgrt/codex-runner.js';
 import { EventEmitter } from 'node:events';
 import * as cp from 'node:child_process';
@@ -184,7 +185,15 @@ describe('CodexAgentRunner', () => {
       maxTurns: 5,
     });
 
-    await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow('rate limited');
+    // Partial liveness (the spawn-time 'turn started' tool_use) is yielded
+    // before the error surfaces at end of turn — same shape as
+    // AntigravityAgentRunner's equivalent test.
+    const messages: any[] = [];
+    let caught: any;
+    try {
+      for await (const m of gen) messages.push(m);
+    } catch (err) { caught = err; }
+    expect(String(caught)).toContain('rate limited');
   });
 
   it('uses resume positional arg when threadId provided', async () => {
@@ -233,7 +242,13 @@ describe('CodexAgentRunner', () => {
       maxTurns: 5,
     });
 
-    await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow('requires the Codex CLI');
+    // The spawn-time liveness message is yielded first (it wins session.ts's
+    // watchdog race); the spawn error surfaces when the stream is drained.
+    let caught: any;
+    try {
+      for await (const _m of gen) { /* consume */ }
+    } catch (err) { caught = err; }
+    expect(String(caught)).toContain('requires the Codex CLI');
   });
 
   it('strips tool_call fences from bus-visible text (no tools registered → error result → clean second turn)', async () => {
@@ -412,5 +427,184 @@ describe('CodexAgentRunner — CURRENT item-based wire format (live-verified aga
     const spawnArgs = vi.mocked(cp.spawn).mock.calls[0];
     expect(spawnArgs[1]).toContain('resume');
     expect(spawnArgs[1]).toContain('existing-thread');
+  });
+});
+
+/**
+ * Incremental-streaming tests (#204). The runner used to buffer ALL stdout
+ * until the codex subprocess exited, so a turn longer than session.ts's
+ * 4-minute silent-stream watchdog (SILENT_SESSION_MS) yielded zero messages
+ * in time — abort, retry, kill, circuit breaker. These tests prove messages
+ * are yielded DURING the turn: the mock stdout iterator sleeps between
+ * lines, so buffered-until-exit delivery is measurably late. Mirrors the
+ * template in antigravity-runner.test.ts (#204's own referenced example).
+ */
+describe('CodexAgentRunner streaming (#204)', () => {
+  let runner: CodexAgentRunner;
+
+  beforeEach(() => {
+    runner = new CodexAgentRunner('/usr/local/bin/codex');
+    vi.clearAllMocks();
+  });
+
+  /** Mock child whose stdout lines are emitted with per-line delays; 'close'
+   *  fires after the last line. */
+  function makeDelayedMockChild(lines: Array<{ line: string; delayMs?: number }>, exitCode = 0): cp.ChildProcess {
+    const child = new EventEmitter() as any;
+    child.stdout = new EventEmitter();
+    child.stdout[Symbol.asyncIterator] = async function* () {
+      for (const { line, delayMs = 0 } of lines) {
+        if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+        yield Buffer.from(line + '\n');
+      }
+    };
+    child.stderr = new EventEmitter();
+    child.kill = vi.fn();
+    const total = lines.reduce((s, l) => s + (l.delayMs ?? 0), 0);
+    setTimeout(() => child.emit('close', exitCode), total + 50);
+    return child as cp.ChildProcess;
+  }
+
+  function makeRunArgs(overrides?: Record<string, unknown>) {
+    return {
+      tools: [],
+      prompt: (async function* () { yield 'do work'; })(),
+      systemPrompt: 'test role',
+      cwd: '/tmp',
+      env: {},
+      maxTurns: 5,
+      ...overrides,
+    } as any;
+  }
+
+  it('yields a liveness message immediately, then streams messages DURING the turn (not after exit)', async () => {
+    vi.mocked(cp.spawn).mockReturnValue(makeDelayedMockChild([
+      { line: JSON.stringify({ type: 'thread.started', thread_id: 'c1' }) },
+      { line: JSON.stringify({ type: 'turn.started' }) },
+      // Model "thinking", then a shell tool call…
+      { line: JSON.stringify({ type: 'item.started', item: { id: 'i0', type: 'command_execution', command: 'ls -la', aggregated_output: '', exit_code: null, status: 'in_progress' } }), delayMs: 200 },
+      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i0', type: 'command_execution', command: 'ls -la', aggregated_output: 'file1\n', exit_code: 0, status: 'completed' } }), delayMs: 200 },
+      // …the final text arrives…
+      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'all done' } }) },
+      // …then a LONG tail (e.g. codex writing its final summary/cleanup)
+      // before the process actually exits — the regression guard below
+      // proves the assistant text was NOT held back until this point.
+      { line: JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 5 } }), delayMs: 500 },
+    ]));
+
+    const start = Date.now();
+    const messages: any[] = [];
+    const times: number[] = [];
+    for await (const m of runner.run(makeRunArgs())) {
+      messages.push(m);
+      times.push(Date.now());
+    }
+    const end = Date.now();
+
+    // First message must be the spawn-time liveness yield — this is what
+    // deterministically wins session.ts's first-pull watchdog race.
+    expect(messages[0]).toEqual({ type: 'tool_use', session_id: undefined, text: 'turn started' });
+    expect(times[0] - start).toBeLessThan(300);
+
+    // The shell tool call arrives as a tool_use liveness message at its
+    // item.started boundary — not deferred until item.completed.
+    const toolMsgs = messages.filter((m) => m.type === 'tool_use');
+    expect(toolMsgs.some((m) => m.text === 'ls -la')).toBe(true);
+
+    const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(texts).toEqual(['all done']);
+
+    // THE regression guard: the assistant text must arrive well BEFORE the
+    // subprocess exits (the mock sleeps 500ms after the tool call before
+    // printing the final agent_message). Under the old buffered design
+    // every message arrived at process exit.
+    const firstAssistantIdx = messages.findIndex((m) => m.type === 'assistant');
+    expect(end - times[firstAssistantIdx]).toBeGreaterThanOrEqual(150);
+
+    // The synthesized result carries the captured thread id + usage.
+    const result = messages.find((m) => m.type === 'result');
+    expect(result?.subtype).toBe('success');
+    expect(result?.session_id).toBe('c1');
+    expect(result?.input_tokens).toBe(10);
+  }, 15000);
+
+  it('fence protocol: executes tool_call fences and feeds results back into the SAME thread', async () => {
+    const fenceTurn = makeDelayedMockChild([
+      { line: JSON.stringify({ type: 'thread.started', thread_id: 'thread-fence-1' }) },
+      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i0', type: 'agent_message', text: 'Sending now.\n```tool_call\n{"name":"org_echo","arguments":{"text":"hi"}}\n```' } }) },
+      { line: JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 5, output_tokens: 2 } }) },
+    ]);
+    const finalTurn = makeDelayedMockChild([
+      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'final answer' } }) },
+      { line: JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 7, output_tokens: 3 } }) },
+    ]);
+    vi.mocked(cp.spawn).mockReturnValueOnce(fenceTurn).mockReturnValueOnce(finalTurn);
+
+    const handled: string[] = [];
+    const args = makeRunArgs({
+      tools: [{
+        name: 'org_echo',
+        description: 'echo text back',
+        schema: { text: z.string() },
+        handler: async (a: any) => { handled.push(String(a.text)); return { text: `echo:${a.text}` }; },
+      }],
+    });
+    const messages: any[] = [];
+    for await (const m of runner.run(args)) messages.push(m);
+
+    // The OrgToolDef handler ran in-process with the fence's arguments…
+    expect(handled).toEqual(['hi']);
+    // …and both turns' prose was yielded, fence-stripped.
+    const texts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(texts).toContain('Sending now.');
+    expect(texts).toContain('final answer');
+    expect(texts.every((t) => !t?.includes('tool_call'))).toBe(true);
+
+    // Two CLI invocations: first WITHOUT resume (fresh session), second WITH
+    // resume thread-fence-1 and the tool_result prompt.
+    const calls = vi.mocked(cp.spawn).mock.calls;
+    expect(calls).toHaveLength(2);
+    const argv0 = calls[0][1] as string[];
+    expect(argv0).not.toContain('resume');
+    const argv1 = calls[1][1] as string[];
+    expect(argv1[argv1.indexOf('resume') + 1]).toBe('thread-fence-1');
+    const prompt1 = argv1[argv1.length - 1];
+    expect(prompt1).toContain('tool_result');
+    expect(prompt1).toContain('echo:hi');
+
+    // One synthesized result per mailbox prompt, usage summed across rounds.
+    const results = messages.filter((m) => m.type === 'result');
+    expect(results).toHaveLength(1);
+    expect(results[0].session_id).toBe('thread-fence-1');
+    expect(results[0].input_tokens).toBe(12);
+  }, 15000);
+
+  it('classifies auth/permission failures as FATAL (non-retryable)', async () => {
+    vi.mocked(cp.spawn).mockReturnValue(makeDelayedMockChild([
+      { line: JSON.stringify({ type: 'error', message: 'auth_error: 401 Unauthorized' }) },
+    ], 1));
+
+    let caught: any;
+    try {
+      for await (const _m of runner.run(makeRunArgs())) { /* consume */ }
+    } catch (err) { caught = err; }
+    expect(caught).toBeDefined();
+    expect(String(caught)).toContain('FATAL');
+    expect(caught.fatal).toBe(true);
+  });
+
+  it('leaves transient failures retryable (no fatal flag)', async () => {
+    const child = makeDelayedMockChild([], 1);
+    // Generic stderr, no auth/quota markers.
+    setTimeout(() => (child.stderr as EventEmitter).emit('data', Buffer.from('connection reset by peer')), 5);
+    vi.mocked(cp.spawn).mockReturnValue(child);
+
+    let caught: any;
+    try {
+      for await (const _m of runner.run(makeRunArgs())) { /* consume */ }
+    } catch (err) { caught = err; }
+    expect(caught).toBeDefined();
+    expect(String(caught)).toContain('codex exec failed (exit 1)');
+    expect(caught.fatal).toBeUndefined();
   });
 });
