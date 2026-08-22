@@ -56,7 +56,7 @@ export {
   CLAUDE_MD_TEMPLATES,
 } from './claudemd-generator.js';
 
-export { generateCodexConfig, generateCodexAgentsMd } from './codex-generator.js';
+export { generateCodexConfig, generateCodexAgentsMd, generateCodexStatusLineConfig, CODEX_STATUS_LINE_ITEMS } from './codex-generator.js';
 
 // Main executor
 export { executeInit, executeUpgrade, executeUpgradeWithMissing, findMonomindProjects, default } from './executor.js';
