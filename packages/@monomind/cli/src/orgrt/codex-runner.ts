@@ -2,19 +2,37 @@
 /**
  * CodexAgentRunner — AgentRunner impl backed by the Codex CLI (subprocess).
  *
- * Architectural pattern: SAME as KimiCodeAgentRunner — spawn the vendor's CLI
- * binary, parse its JSONL stream, normalize to AgentMessage. No SDK dependency
- * (the @openai/codex-sdk package would add ~100MB; we use the CLI directly
- * like we do for kimi).
+ * Architectural pattern: SAME as KimiCodeAgentRunner/AntigravityAgentRunner —
+ * spawn the vendor's CLI binary, parse its JSONL stream, normalize to
+ * AgentMessage. No SDK dependency (the @openai/codex-sdk package would add
+ * ~100MB; we use the CLI directly like we do for kimi).
  *
  * Auth: inherited from ~/.codex/auth.json (created by `codex login`). The
  * ChatGPT subscription flows through this credential cache. No env vars.
  *
+ * Streaming / liveness — WHY INCREMENTAL (#204):
+ *   This runner originally buffered ALL of stdout until the codex subprocess
+ *   exited, then parsed the whole batch. session.ts races the FIRST pull from
+ *   this runner against a 4-minute silent-stream watchdog (SILENT_SESSION_MS),
+ *   so any turn longer than 4 minutes yielded zero messages in time — abort,
+ *   retry, kill, circuit breaker, stalled org. Same bug class as the
+ *   kimi/antigravity runners had (#204 audit). This runner now parses stdout
+ *   LINE BY LINE as data arrives: a liveness `tool_use` message is yielded
+ *   the moment the subprocess spawns (deterministically winning the
+ *   first-pull race regardless of model-thinking latency), assistant text is
+ *   yielded as each `agent_message` item lands (codex sends whole items, not
+ *   per-token deltas — no accumulation needed, unlike agy), and codex's own
+ *   `command_execution` items are forwarded as `tool_use` liveness messages
+ *   at their `item.started` boundary. Tool_call fences are still collected
+ *   from the raw texts and parsed at end of turn (fence parsing needs the
+ *   complete text).
+ *
  * Org tools (org_send, knowledge_search, ask_human, …) — FENCE PROTOCOL:
- *   Same approach as kimi/opencode. Tools are rendered INTO the first prompt;
- *   the model emits ```tool_call fences; this runner parses them out of the
- *   agent_message text, executes the real OrgToolDef handlers in-process
- *   (gated through canUseTool), and feeds results back as the next prompt.
+ *   Same approach as kimi/opencode/antigravity. Tools are rendered INTO the
+ *   first prompt; the model emits ```tool_call fences; this runner parses
+ *   them out of the agent_message text, executes the real OrgToolDef handlers
+ *   in-process (gated through canUseTool), and feeds results back as the
+ *   next prompt.
  *
  * Subprocess protocol — REWRITTEN against openai/codex's own Rust source
  * (issue #178). This runner previously assumed a "thread.started" /
@@ -41,16 +59,14 @@
  *   - `resume` is a SUBCOMMAND of `exec`, not a positional after other exec
  *     flags in isolation — `codex exec resume <sessionId> ["<prompt>"]`,
  *     with `exec`'s own global flags (--json, --model, --sandbox, etc.)
- *     specified BEFORE the `resume` token. Confirmed live (v0.147.0) that
- *     this exact arg order parses cleanly — it got past all argument
- *     parsing straight to an (unrelated, expired-token) auth error, not a
- *     flag/subcommand error. v0.21.0 has no `resume` subcommand at all
- *     (confirmed live: "resume" was consumed as the PROMPT text itself,
- *     then the actual session id was rejected as an unexpected extra
- *     positional) — so resume silently can't work pre-~v0.12x. This runner
- *     doesn't detect codex's version; if resume fails on an old install,
- *     each turn falls back to a fresh (contextless) session rather than
- *     erroring — a real limitation, not fixed here.
+ *     specified BEFORE the `resume` token. Confirmed live (v0.147.0 AND
+ *     v0.149.0) that this exact arg order parses cleanly. v0.21.0 has no
+ *     `resume` subcommand at all (confirmed live: "resume" was consumed as
+ *     the PROMPT text itself, then the actual session id was rejected as an
+ *     unexpected extra positional) — so resume silently can't work
+ *     pre-~v0.12x. This runner doesn't detect codex's version; if resume
+ *     fails on an old install, each turn falls back to a fresh (contextless)
+ *     session rather than erroring — a real limitation, not fixed here.
  *   - JSONL on stdout, one event per line. Confirmed real EventMsg variants
  *     (source: `EventMsg` enum + each variant's struct, all in
  *     `protocol.rs`):
@@ -71,8 +87,8 @@
  *     only, unlike the discarded thread/item assumption).
  *   - Session ID: captured from `session_configured.session_id` (or
  *     `.thread_id` — both present, same value in observed live output),
- *     NOT from a "thread.started" event, which doesn't exist in this
- *     protocol.
+ *     NOT from a "thread.started" event, which doesn't exist in THIS
+ *     (legacy) protocol variant — see the CURRENT shape below, where it does.
  *   - stderr is human diagnostics; buffer and surface on non-zero exit only.
  *
  * WIRE-FORMAT UPDATE (#178 follow-up, #204) — live-verified 2026-08-22
@@ -104,13 +120,13 @@
  * / `token_count` / `task_complete` — the shape this runner was originally
  * written against — appeared in ANY of the above. This runner was silently
  * broken against any codex install emitting the current shape: every switch
- * branch below missed, so `outcome.rawTexts`/`inputTokens`/`outputTokens`/
- * `threadId` stayed at their zero-values for every single turn, producing no
- * assistant text, no token accounting, and no session resumption — while
- * `exitCode` was still 0, so nothing surfaced as an error either.
+ * branch missed, so assistant text/inputTokens/outputTokens/threadId all
+ * stayed at their zero-values for every single turn, producing no assistant
+ * text, no token accounting, and no session resumption — while `exitCode`
+ * was still 0, so nothing surfaced as an error either.
  *
- * Both shapes are now parsed (see CURRENT vs LEGACY branches in `runTurn`'s
- * event loop below). The legacy shape is kept because there's no live
+ * Both shapes are now parsed (see CURRENT vs LEGACY branches in
+ * `handleEvent` below). The legacy shape is kept because there's no live
  * evidence it was ever wrong for the v0.147.0 install it was verified
  * against — only that a newer install (v0.149.0) has since moved to the
  * item-based shape. Error/failure item types (e.g. a possible
@@ -123,8 +139,9 @@
 import { spawn } from 'node:child_process';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
 import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import { classifyStderr } from './kimicode-runner.js';
 
-const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching kimi runner
+const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching kimi/antigravity runners
 
 /** `EventMsg`'s legacy v1 wire format — see file header for the source
  *  citation (codex-rs/protocol/src/protocol.rs + legacy_events.rs). Only
@@ -188,11 +205,25 @@ interface CodexEvent {
   usage?: CodexTokenUsage;
 }
 
+/**
+ * One parsed codex event, normalized for incremental streaming.
+ *   - 'assistant': rawText is one whole agent_message (fences intact) for
+ *     end-of-turn tool-call parsing; text is the fence-stripped prose,
+ *     present only when non-empty.
+ *   - 'tool':      codex's own tool activity (a command_execution item's
+ *     start, or the spawn-time liveness yield) — forwarded by run() as a
+ *     `tool_use` liveness AgentMessage (see header).
+ *   - 'meta':      any other event that only carries a thread id.
+ */
+export interface CodexStreamEvent {
+  kind: 'assistant' | 'tool' | 'meta';
+  text?: string;
+  rawText?: string;
+  toolName?: string;
+  threadId?: string;
+}
+
 interface TurnOutcome {
-  /** Agent_message texts with tool_call fences stripped (for the bus). */
-  texts: string[];
-  /** Agent_message texts with fences intact (for tool-call parsing). */
-  rawTexts: string[];
   threadId?: string;
   exitCode: number;
   stderrTail: string;
@@ -216,9 +247,9 @@ export class CodexAgentRunner implements AgentRunner {
         let turnInputTokens = 0;
         let turnOutputTokens = 0;
 
-        // Tool-call loop (same shape as KimiCodeAgentRunner): keep driving
-        // the same codex session until a turn produces no tool_call fences
-        // (or the round cap hits).
+        // Tool-call loop (same shape as KimiCodeAgentRunner/AntigravityAgentRunner):
+        // keep driving the same codex session until a turn produces no
+        // tool_call fences (or the round cap hits).
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
           // Prepend system prompt + tool protocol on first turn only (when
           // there's no thread to resume). Subsequent turns in the same
@@ -227,25 +258,43 @@ export class CodexAgentRunner implements AgentRunner {
             ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
             : nextPrompt;
 
-          const outcome = await this.runTurn(bin, promptWithSystem, threadId, args);
+          // Filled in by streamTurn as the subprocess runs and when it exits.
+          const outcome: TurnOutcome = {
+            exitCode: 1, stderrTail: '', timedOut: false, inputTokens: 0, outputTokens: 0,
+          };
+          // Raw assistant texts (fences intact) for end-of-turn tool-call
+          // parsing — fence parsing needs the complete text, so fences are
+          // collected here while the stripped prose streams out live below.
+          const rawTexts: string[] = [];
+
+          for await (const ev of this.streamTurn(bin, promptWithSystem, threadId, args, outcome)) {
+            if (ev.threadId) threadId = ev.threadId;
+            if (ev.kind === 'assistant' && ev.rawText !== undefined) {
+              rawTexts.push(ev.rawText);
+              // Yield assistant prose AS IT ARRIVES (per agent_message item,
+              // not after process exit): a codex turn can run many minutes,
+              // and session.ts's watchdog must see messages DURING the turn.
+              // Note this means partial output may already be yielded when a
+              // turn later exits non-zero — preferable to losing it entirely.
+              if (ev.text) yield { type: 'assistant', session_id: threadId, text: ev.text };
+            } else if (ev.kind === 'tool') {
+              // Liveness for codex's own tool activity (or the spawn-time
+              // yield): session.ts never renders tool_use as chat — it only
+              // feeds the StateDetector ('tool-call' state) and refreshes
+              // last-activity.
+              yield { type: 'tool_use', session_id: threadId, text: ev.toolName };
+            }
+          }
           if (outcome.threadId) threadId = outcome.threadId;
 
           if (outcome.exitCode !== 0 || outcome.error) {
-            throw new Error(
-              `CodexAgentRunner: codex exec failed (exit ${outcome.exitCode})` +
-              (outcome.error ? `: ${outcome.error}` : '') +
-              (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
-            );
-          }
-
-          for (const t of outcome.texts) {
-            if (t.trim()) yield { type: 'assistant', session_id: threadId, text: t };
+            throw turnError(outcome, round, bin);
           }
           turnInputTokens += outcome.inputTokens;
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
+          const calls = parseToolCalls(rawTexts, (raw, err) => malformed.push(
             `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
           ));
           for (const note of malformed) {
@@ -291,127 +340,211 @@ export class CodexAgentRunner implements AgentRunner {
     }
   }
 
-  /** Run one `codex exec` invocation and normalize its JSONL output. */
-  private runTurn(
+  /**
+   * Run one `codex exec` invocation and stream its JSONL output
+   * INCREMENTALLY: each parsed event is yielded as soon as its line arrives
+   * on stdout (see the header's "Streaming / liveness" note for why
+   * buffering until process exit was a bug, #204). End-of-turn facts (exit
+   * code, stderr tail, thread id, usage, error, timeout flag) are written
+   * into `outcome`, which the caller reads after this generator completes.
+   */
+  private async *streamTurn(
     bin: string,
     prompt: string,
     threadId: string | undefined,
     args: AgentRunArgs,
-  ): Promise<TurnOutcome> {
-    return new Promise<TurnOutcome>((resolve, reject) => {
-      // ARG ORDER — see file header for the live-verified citation:
-      //   codex exec --json [--model X] [--cd Y]
-      //              [--skip-git-repo-check] [--sandbox danger-full-access]
-      //              [resume <threadId>] "<prompt>"
-      const cliArgs: string[] = ['exec', '--json'];
-      if (args.model) cliArgs.push('--model', args.model);
-      cliArgs.push('--cd', args.cwd);
-      cliArgs.push('--skip-git-repo-check');
-      cliArgs.push('--sandbox', 'danger-full-access');
-      if (threadId) {
-        cliArgs.push('resume', threadId);
-      }
-      cliArgs.push(prompt);
+    outcome: TurnOutcome,
+  ): AsyncGenerator<CodexStreamEvent> {
+    // ARG ORDER — see file header for the live-verified citation:
+    //   codex exec --json [--model X] [--cd Y]
+    //              [--skip-git-repo-check] [--sandbox danger-full-access]
+    //              [resume <threadId>] "<prompt>"
+    const cliArgs: string[] = ['exec', '--json'];
+    if (args.model) cliArgs.push('--model', args.model);
+    cliArgs.push('--cd', args.cwd);
+    cliArgs.push('--skip-git-repo-check');
+    cliArgs.push('--sandbox', 'danger-full-access');
+    if (threadId) {
+      cliArgs.push('resume', threadId);
+    }
+    cliArgs.push(prompt);
 
-      const child = spawn(bin, cliArgs, {
-        cwd: args.cwd,
-        env: { ...process.env, ...args.env },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-
-      let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => {
-        stderrTail = (stderrTail + c.toString()).slice(-4000);
-      });
-
-      // Arm the turn timeout BEFORE consuming stdout.
-      let timedOut = false;
-      const KILL_GRACE_MS = 5000;
-      let killTimer: ReturnType<typeof setTimeout> | undefined;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
-        killTimer.unref?.();
-      }, TURN_TIMEOUT_MS);
-
-      const exitPromise = new Promise<number>((res, rej) => {
-        child.on('error', rej);
-        child.on('close', (code) => res(code ?? 1));
-      });
-      exitPromise.catch(() => {});
-
-      (async () => {
-        const events: CodexEvent[] = [];
-        let buf = '';
-        for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          buf += chunk.toString();
-          const parts = buf.split('\n');
-          buf = parts.pop() ?? '';
-          for (const line of parts) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('{')) continue;
-            try { events.push(JSON.parse(trimmed) as CodexEvent); } catch { /* skip */ }
-          }
-        }
-        if (buf.trim()) {
-          try { events.push(JSON.parse(buf.trim()) as CodexEvent); } catch { /* skip */ }
-        }
-        return events;
-      })()
-        .then((events) => exitPromise.finally(() => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); }).then((exitCode) => ({ events, exitCode })))
-        .then(({ events, exitCode }) => {
-          const outcome: TurnOutcome = {
-            texts: [], rawTexts: [], threadId, exitCode, stderrTail, timedOut,
-            inputTokens: 0, outputTokens: 0,
-          };
-          for (const ev of events) {
-            if (
-              (ev.type === 'session_configured' || ev.type === 'thread.started')
-              && (ev.session_id || ev.thread_id)
-            ) {
-              // LEGACY: session_configured.session_id/.thread_id
-              // CURRENT: thread.started.thread_id
-              outcome.threadId = ev.session_id ?? ev.thread_id;
-            } else if (ev.type === 'agent_message' && ev.message) {
-              // LEGACY: top-level agent_message.message
-              outcome.rawTexts.push(ev.message);
-            } else if (ev.type === 'item.completed' && ev.item?.type === 'agent_message' && ev.item.text) {
-              // CURRENT: item.completed with item.type === 'agent_message'.
-              // Other item types (command_execution, reasoning, …) are
-              // deliberately not surfaced as assistant text — their output
-              // (e.g. aggregated_output) isn't part of the model's reply.
-              outcome.rawTexts.push(ev.item.text);
-            } else if (ev.type === 'token_count' && ev.info?.last_token_usage) {
-              // LEGACY: last_token_usage is per-TURN; total_token_usage is
-              // cumulative for the whole session — using the latter here
-              // would over-report on every turn after the first.
-              outcome.inputTokens = ev.info.last_token_usage.input_tokens ?? 0;
-              outcome.outputTokens = ev.info.last_token_usage.output_tokens ?? 0;
-            } else if (ev.type === 'turn.completed' && ev.usage) {
-              // CURRENT: turn.completed.usage — observed to stay roughly
-              // flat across resumed turns rather than accumulate, i.e.
-              // per-turn like legacy's last_token_usage (see file header).
-              outcome.inputTokens = ev.usage.input_tokens ?? 0;
-              outcome.outputTokens = ev.usage.output_tokens ?? 0;
-            } else if (ev.type === 'task_complete') {
-              // LEGACY only — CURRENT has no observed equivalent completion
-              // event carrying an error; see file header on error handling.
-              if (ev.error) outcome.error = ev.error.message;
-              // last_agent_message is a convenience summary already covered
-              // by the agent_message events collected above — not pushed
-              // again here to avoid duplicating the same text.
-            } else if (ev.type === 'error' && ev.message) {
-              outcome.error = ev.message;
-            }
-          }
-          // Strip tool_call fences for bus-visible text (shared regex with
-          // kimi/opencode/antigravity — keeps fence-parsing logic in one place).
-          outcome.texts = outcome.rawTexts.map(t =>
-            t.replace(TOOL_CALL_RE, '').trim(),
-          );
-          resolve(outcome);
-        }, reject);
+    const child = spawn(bin, cliArgs, {
+      cwd: args.cwd,
+      env: { ...process.env, ...args.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    let stderrTail = '';
+    child.stderr?.on('data', (c: Buffer) => {
+      stderrTail = (stderrTail + c.toString()).slice(-4000);
+    });
+
+    // Arm the turn timeout BEFORE consuming stdout — a hung CLI must be
+    // killed while we're still reading, not after it finishes.
+    let timedOut = false;
+    const KILL_GRACE_MS = 5000;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
+      // escalate to SIGKILL after a short grace period.
+      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      killTimer.unref?.();
+    }, TURN_TIMEOUT_MS);
+
+    // Attach the exit promise BEFORE consuming stdout: on a spawn failure
+    // (ENOENT, bad binary) the 'error' event fires almost immediately — if
+    // no listener is attached yet it escapes as an unhandled 'error' event
+    // and crashes the process instead of reaching our catch block.
+    const exitPromise = new Promise<number>((res, rej) => {
+      child.on('error', rej);
+      child.on('close', (code) => res(code ?? 1));
+    });
+    // Prevent an unhandled-rejection crash if the stdout loop below throws
+    // before we await exitPromise (the await still sees the rejection).
+    exitPromise.catch(() => {});
+
+    let lastThreadId: string | undefined = threadId;
+
+    // Normalize one parsed wire event: capture the thread id from ANY event
+    // that carries it (resume needs it on the next turn), record
+    // error/usage state, and return the CodexStreamEvent to yield (or null).
+    const handleEvent = (ev: CodexEvent): CodexStreamEvent | null => {
+      if (
+        (ev.type === 'session_configured' || ev.type === 'thread.started')
+        && (ev.session_id || ev.thread_id)
+      ) {
+        // LEGACY: session_configured.session_id/.thread_id
+        // CURRENT: thread.started.thread_id
+        lastThreadId = ev.session_id ?? ev.thread_id;
+        return null;
+      }
+      if (ev.type === 'agent_message' && ev.message) {
+        // LEGACY: top-level agent_message.message — whole message, no delta
+        // accumulation needed.
+        const stripped = ev.message.replace(TOOL_CALL_RE, '').trim();
+        return { kind: 'assistant', rawText: ev.message, text: stripped || undefined, threadId: lastThreadId };
+      }
+      if (ev.type === 'item.completed' && ev.item?.type === 'agent_message' && ev.item.text) {
+        // CURRENT: item.completed with item.type === 'agent_message' — same
+        // whole-message shape as legacy, different envelope.
+        const stripped = ev.item.text.replace(TOOL_CALL_RE, '').trim();
+        return { kind: 'assistant', rawText: ev.item.text, text: stripped || undefined, threadId: lastThreadId };
+      }
+      if (ev.type === 'item.started' && ev.item?.type === 'command_execution') {
+        // CURRENT: liveness for codex's own shell tool calls — mirrors
+        // agy's 'tool' step_type forwarding (header's "Streaming / liveness"
+        // note). Only item.started fires this (not item.completed too) to
+        // avoid a duplicate liveness ping per command.
+        return { kind: 'tool', toolName: (ev.item.command ?? 'shell').slice(0, 200), threadId: lastThreadId };
+      }
+      if (ev.type === 'token_count' && ev.info?.last_token_usage) {
+        // LEGACY: last_token_usage is per-TURN; total_token_usage is
+        // cumulative for the whole session — using the latter here would
+        // over-report on every turn after the first.
+        outcome.inputTokens = ev.info.last_token_usage.input_tokens ?? 0;
+        outcome.outputTokens = ev.info.last_token_usage.output_tokens ?? 0;
+        return null;
+      }
+      if (ev.type === 'turn.completed' && ev.usage) {
+        // CURRENT: turn.completed.usage — observed to stay roughly flat
+        // across resumed turns rather than accumulate, i.e. per-turn like
+        // legacy's last_token_usage (see file header).
+        outcome.inputTokens = ev.usage.input_tokens ?? 0;
+        outcome.outputTokens = ev.usage.output_tokens ?? 0;
+        return null;
+      }
+      if (ev.type === 'task_complete') {
+        // LEGACY only — CURRENT has no observed equivalent completion event
+        // carrying an error; see file header on error handling.
+        if (ev.error) outcome.error = ev.error.message;
+        // last_agent_message is a convenience summary already covered by the
+        // agent_message events collected above — not surfaced again here to
+        // avoid duplicating the same text.
+        return null;
+      }
+      if (ev.type === 'error' && ev.message) {
+        outcome.error = ev.message;
+        return null;
+      }
+      return null;
+    };
+
+    try {
+      // Immediate liveness yield: session.ts races the FIRST pull against a
+      // 4-minute silent-stream watchdog, and codex's first event can itself
+      // take minutes (long thinking chains, large file reads). Yielding at
+      // spawn wins that race deterministically instead of depending on
+      // codex's latency.
+      yield { kind: 'tool', toolName: 'turn started', threadId };
+
+      let buf = '';
+      for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+        buf += chunk.toString();
+        const parts = buf.split('\n');
+        buf = parts.pop() ?? '';
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('{')) continue;
+          let ev: CodexEvent;
+          try { ev = JSON.parse(trimmed) as CodexEvent; } catch { continue; }
+          const out = handleEvent(ev);
+          if (out) yield out;
+        }
+      }
+      const tail = buf.trim();
+      if (tail && tail.startsWith('{')) {
+        try {
+          const out = handleEvent(JSON.parse(tail) as CodexEvent);
+          if (out) yield out;
+        } catch { /* not JSON, skip */ }
+      }
+    } finally {
+      clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
+      // If the consumer abandons this stream mid-turn (session.ts's silent
+      // abort calls iterator.return(), the mailbox closes, or an error is
+      // thrown downstream), don't leak the CLI subprocess.
+      if (child.exitCode === null && !child.killed) {
+        try { child.kill('SIGTERM'); } catch { /* already gone */ }
+      }
+    }
+
+    const exitCode = await exitPromise;
+    outcome.threadId = lastThreadId;
+    outcome.exitCode = exitCode;
+    outcome.stderrTail = stderrTail;
+    outcome.timedOut = timedOut;
   }
+}
+
+/** Build the actionable error for a failed codex turn. */
+function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
+  if (outcome.timedOut) {
+    return new Error(
+      `CodexAgentRunner: codex turn (tool round ${round}) exceeded the ${Math.round(TURN_TIMEOUT_MS / 60000)}min ` +
+      `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+    );
+  }
+  // Fatal provider errors (auth/permission/quota — classified from the error
+  // field AND stderr): report what actually happened, and tag the error so
+  // the daemon does NOT restart into the same guaranteed failure (a restart
+  // on quota exhaustion can only hang or fail again).
+  const cls = classifyStderr(`${outcome.error ?? ''}\n${outcome.stderrTail}`);
+  if (cls.fatal) {
+    const err = new Error(
+      `CodexAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
+      (outcome.error ? ` error: ${outcome.error}` : '') +
+      (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+    );
+    (err as Error & { fatal?: boolean }).fatal = true;
+    return err;
+  }
+  return new Error(
+    `CodexAgentRunner: codex exec failed (exit ${outcome.exitCode})` +
+    (outcome.error ? `: ${outcome.error}` : '') +
+    (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+  );
 }
