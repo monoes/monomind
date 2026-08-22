@@ -4,7 +4,30 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
-## [2.9.23] — 2026-08-20
+## [2.9.23] — 2026-08-22
+
+### Fixed
+
+- `org gate-approve`/`org gate-reject` had no offline-queue fallback (unlike
+  `org approve`/`org deny`/`org answer`) — a rejected or unreachable live
+  daemon call hard-failed instead of resolving `gates.json` directly,
+  permanently blocking the gate for any org run without a reachable
+  live-delivery channel. (#213)
+- `CodexAgentRunner` silently produced zero assistant text and zero token
+  accounting against current codex CLI installs (v0.149.0+): the wire format
+  moved from `session_configured`/`agent_message`/`token_count`/`task_complete`
+  to an item-based `thread.started`/`item.completed`/`turn.completed` shape,
+  and the runner recognized none of it — with `exitCode` still 0, nothing
+  surfaced as an error either. Both wire formats are now parsed. (#178, #204)
+- `CodexAgentRunner` buffered all of codex's stdout until the subprocess
+  exited before parsing anything, so a turn longer than the 4-minute
+  silent-stream watchdog yielded zero messages in time — abort, retry, kill,
+  circuit breaker. Same bug class as the kimi/antigravity runners; rewritten
+  to stream incrementally with a spawn-time liveness message. (#204)
+- A bad merge left `packages/@monomind/cli` failing to compile (`tsc`
+  errors from a stray `antigravity` field on the wrong config object, and a
+  missing required field on another) — the real build (not just
+  `--noEmit`) was broken on `main`. Fixed before this release.
 
 ### Changed — `swarm` + `hive-mind` renamed to `monoswarm` (clean break, no aliases)
 
