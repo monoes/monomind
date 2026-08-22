@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateCodexAgentsMd, generateCodexConfig } from '../init/codex-generator.js';
+import { CODEX_STATUS_LINE_ITEMS, generateCodexAgentsMd, generateCodexConfig } from '../init/codex-generator.js';
 import { DEFAULT_INIT_OPTIONS } from '../init/types.js';
 
 describe('Codex init artifacts', () => {
@@ -11,6 +11,8 @@ describe('Codex init artifacts', () => {
     expect(config).toContain('"monomind@latest"');
     expect(config).toContain('env = {');
     expect(config).toContain('MONOMIND_MAX_AGENTS = "15"');
+    expect(config).toContain('[tui]');
+    expect(config).toContain(`status_line = [${CODEX_STATUS_LINE_ITEMS.map((item) => `"${item}"`).join(', ')}]`);
   });
 
   it('generates Codex instructions with Monomind workflows', () => {
@@ -19,5 +21,6 @@ describe('Codex init artifacts', () => {
     expect(agents).toContain('.codex/config.toml');
     expect(agents).toContain('monomind org run <name>');
     expect(agents).toContain('.agents/shared_instructions.md');
+    expect(agents).toContain('native footer');
   });
 });

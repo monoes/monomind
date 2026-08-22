@@ -2,18 +2,33 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { generateCodexAgentsMd, generateCodexConfig } from './codex-generator.js';
+import { CODEX_STATUS_LINE_ITEMS, generateCodexAgentsMd, generateCodexConfig, generateCodexStatusLineConfig } from './codex-generator.js';
 import { atomicWriteFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
 function mergeCodexConfig(existing: string, generated: string): string {
   const section = generated.match(/^\[mcp_servers\.monomind\][\s\S]*$/m)?.[0] ?? '';
-  if (!section) return existing;
-  const sectionStart = /^\[mcp_servers\.monomind\]\s*$/m;
-  if (!sectionStart.test(existing)) {
-    return `${existing.trimEnd()}\n\n${section.trimEnd()}\n`;
+  const statusLine = generateCodexStatusLineConfig().trimEnd();
+  let mergedExisting = existing;
+  if (!/^\s*status_line\s*=/m.test(existing)) {
+    const tuiHeader = /^\[tui\]\s*$/m;
+    if (tuiHeader.test(existing)) {
+      const lines = existing.split(/\r?\n/);
+      const start = lines.findIndex((line) => /^\[tui\]\s*$/.test(line));
+      let end = start + 1;
+      while (end < lines.length && !/^\[\[?[^\]]+\]\]?\s*$/.test(lines[end])) end++;
+      lines.splice(end, 0, `status_line = [${CODEX_STATUS_LINE_ITEMS.map((item) => JSON.stringify(item)).join(', ')}]`);
+      mergedExisting = lines.join('\n');
+    } else {
+      mergedExisting = `${existing.trimEnd()}\n\n${statusLine}\n`;
+    }
   }
-  const lines = existing.split(/\r?\n/);
+  if (!section) return mergedExisting;
+  const sectionStart = /^\[mcp_servers\.monomind\]\s*$/m;
+  if (!sectionStart.test(mergedExisting)) {
+    return `${mergedExisting.trimEnd()}\n\n${section.trimEnd()}\n`;
+  }
+  const lines = mergedExisting.split(/\r?\n/);
   const start = lines.findIndex((line) => /^\[mcp_servers\.monomind\]\s*$/.test(line));
   let end = start + 1;
   while (end < lines.length) {
