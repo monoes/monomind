@@ -42,6 +42,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const full = ctx.flags.full as boolean;
   const skipClaude = ctx.flags['skip-claude'] as boolean;
   const onlyClaude = ctx.flags['only-claude'] as boolean;
+  const requestedTarget = ctx.flags.target as string | undefined;
   const noInstall = (ctx.flags['no-install'] || ctx.flags.noInstall) as boolean;
   const cwd = ctx.cwd;
 
@@ -76,11 +77,33 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   let options: InitOptions;
 
   if (minimal) {
-    options = { ...MINIMAL_INIT_OPTIONS, targetDir: cwd, force };
+    options = { ...MINIMAL_INIT_OPTIONS, targetDir: cwd, force, components: { ...MINIMAL_INIT_OPTIONS.components } };
   } else if (full) {
-    options = { ...FULL_INIT_OPTIONS, targetDir: cwd, force };
+    options = { ...FULL_INIT_OPTIONS, targetDir: cwd, force, components: { ...FULL_INIT_OPTIONS.components } };
   } else {
-    options = { ...DEFAULT_INIT_OPTIONS, targetDir: cwd, force };
+    options = { ...DEFAULT_INIT_OPTIONS, targetDir: cwd, force, components: { ...DEFAULT_INIT_OPTIONS.components } };
+  }
+
+  const legacyTargets = ['opencode', 'kimicode', 'codex'].filter((name) => ctx.flags[name] === true);
+  const target = requestedTarget || (onlyClaude ? 'claude' : legacyTargets.length === 1 ? legacyTargets[0] : 'all');
+  const validTargets = new Set(['all', 'claude', 'antigravity', 'opencode', 'kimicode', 'codex']);
+  if (!validTargets.has(target)) {
+    return { success: false, exitCode: 1, message: `Unknown init target: ${target}` };
+  }
+
+  const selectedTargets = new Set(target === 'all' ? [...validTargets].filter((name) => name !== 'all') : [target]);
+  options.components.antigravity = selectedTargets.has('antigravity');
+  options.components.opencode = selectedTargets.has('opencode');
+  options.components.kimicode = selectedTargets.has('kimicode');
+  options.components.codex = selectedTargets.has('codex');
+  options.components.mcp = selectedTargets.has('claude') || selectedTargets.has('antigravity');
+  if (!selectedTargets.has('claude')) {
+    options.components.settings = false;
+    options.components.commands = false;
+    options.components.agents = false;
+    options.components.helpers = false;
+    options.components.statusline = false;
+    options.components.claudeMd = false;
   }
 
   if (skipClaude) {
@@ -92,23 +115,10 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     options.components.statusline = false;
     options.components.mcp = false;
     options.components.claudeMd = false;
-  }
-
-  // Opt-in or auto-detect opencode target. Purely additive: emits opencode.json + .opencode/
-  // alongside (never instead of) the Claude/Antigravity output.
-  const hasOpencode = fs.existsSync(path.join(cwd, 'opencode.json')) ||
-                      fs.existsSync(path.join(cwd, '.opencode')) ||
-                      fs.existsSync(path.join(process.env.HOME || '', '.config', 'opencode'));
-  if (ctx.flags.opencode as boolean || (ctx.flags.opencode === undefined && hasOpencode)) {
-    options.components.opencode = true;
-  }
-
-  // Opt-in or auto-detect Kimi Code target. Purely additive: emits .kimi-code/ + AGENTS.md
-  // alongside (never instead of) the Claude/Antigravity output.
-  const hasKimi = fs.existsSync(path.join(cwd, '.kimi-code')) ||
-                  fs.existsSync(path.join(process.env.HOME || '', '.kimi-code'));
-  if (ctx.flags.kimicode as boolean || (ctx.flags.kimicode === undefined && hasKimi)) {
-    options.components.kimicode = true;
+    options.components.antigravity = false;
+    options.components.opencode = false;
+    options.components.kimicode = false;
+    options.components.codex = false;
   }
 
   if (onlyClaude) {
@@ -253,8 +263,12 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
           options.components.agents ? `Agents:      .claude/agents/ (${result.summary.agentsCount} agents)` : '',
           options.components.helpers ? `Helpers:     .claude/helpers/` : '',
           options.components.mcp ? `MCP:         .mcp.json` : '',
+          options.components.antigravity ? `Antigravity: GEMINI.md + .gemini/` : '',
+          options.components.opencode ? `OpenCode:    opencode.json + .opencode/` : '',
+          options.components.kimicode ? `Kimi Code:   .kimi-code/` : '',
+          options.components.codex ? `Codex:       .codex/config.toml + AGENTS.md` : '',
         ].filter(Boolean).join('\n'),
-        'Claude Code Integration'
+        'Coding System Integrations'
       );
       output.writeln();
     }
@@ -618,14 +632,27 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'target',
+      short: 't',
+      description: 'Coding system to initialize (default: all)',
+      type: 'string',
+      choices: ['all', 'claude', 'antigravity', 'opencode', 'kimicode', 'codex'],
+    },
+    {
       name: 'opencode',
-      description: 'Also emit opencode artifacts (opencode.json + .opencode/). Additive — Claude/Antigravity output is unchanged.',
+      description: 'Initialize only OpenCode (alias for --target opencode)',
       type: 'boolean',
       default: false,
     },
     {
       name: 'kimicode',
-      description: 'Also emit Kimi Code artifacts (.kimi-code/ + AGENTS.md). Additive — Claude/Antigravity output is unchanged.',
+      description: 'Initialize only Kimi Code (alias for --target kimicode)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'codex',
+      description: 'Initialize only Codex (alias for --target codex)',
       type: 'boolean',
       default: false,
     },
@@ -670,8 +697,11 @@ export const initCommand: Command = {
     { command: 'monomind init --force', description: 'Reinitialize and overwrite existing config' },
     { command: 'monomind init --only-claude', description: 'Only create Claude Code integration' },
     { command: 'monomind init --skip-claude', description: 'Only create v1 runtime' },
-    { command: 'monomind init --opencode', description: 'Also emit opencode artifacts (opencode.json + .opencode/)' },
-    { command: 'monomind init --kimicode', description: 'Also emit Kimi Code artifacts (.kimi-code/ + AGENTS.md)' },
+    { command: 'monomind init --opencode', description: 'Initialize only OpenCode' },
+    { command: 'monomind init --kimicode', description: 'Initialize only Kimi Code' },
+    { command: 'monomind init --codex', description: 'Initialize only Codex' },
+    { command: 'monomind init --target all', description: 'Initialize every supported coding system' },
+    { command: 'monomind init --target codex', description: 'Initialize only Codex' },
     { command: 'monomind init wizard', description: 'Interactive setup wizard' },
     { command: 'monomind init --no-watch', description: 'Initialize without starting the background graph watcher' },
     { command: 'monomind init --with-embeddings', description: 'Initialize with ONNX embeddings' },

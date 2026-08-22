@@ -337,6 +337,8 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
 
 <span class="comment"># Initialize a project</span>
 <span class="cmd">npx monomind init</span>
+<span class="comment"># Or initialize one coding system only</span>
+<span class="cmd">npx monomind init --target codex</span>
 <span class="cmd">npx monomind doctor --fix</span></div>
   </div>
 </div>
@@ -364,10 +366,14 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
 <span class="comment"># Verify tools are registered</span>
 <span class="cmd">claude mcp list</span></div>
     <div class="section-title reveal">3. Project Initialization</div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;line-height:1.7;"><code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">npx monomind init</code> initializes every supported coding system: Claude Code, Antigravity, OpenCode, Kimi Code, and Codex. To initialize only one, use <code style="font-family:var(--ff-m);font-size:12px;color:var(--accent)">--target &lt;system&gt;</code> with <code>claude</code>, <code>antigravity</code>, <code>opencode</code>, <code>kimicode</code>, or <code>codex</code>. The legacy <code>--codex</code>, <code>--opencode</code>, and <code>--kimicode</code> flags remain aliases.</p>
     <div class="code-block reveal">
 <span class="cmd">cd your-project</span>
 <span class="cmd">npx monomind init</span>
 <span class="comment"># Interactive wizard: topology, memory backend, hooks</span>
+
+<span class="comment"># Single-system example</span>
+<span class="cmd">npx monomind init --target codex</span>
 
 <span class="cmd">npx monomind hooks worker list</span>
 <span class="comment"># Background workers (security, health, learning...) run at session start</span>

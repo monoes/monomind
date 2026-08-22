@@ -1,6 +1,6 @@
 # opencode
 
-> Monomind runs on [opencode](https://opencode.ai) too — not just Claude Code and Antigravity. `monomind init --opencode` emits an `opencode.json` + `.opencode/` tree alongside (never instead of) your Claude/Antigravity config. This page covers what you get, the quickstart, and the current limitations.
+> Monomind runs on [OpenCode](https://opencode.ai) alongside Claude Code, Antigravity, Kimi Code, and Codex. Plain `monomind init` initializes every supported system; `monomind init --target opencode` initializes only OpenCode.
 
 ---
 
@@ -9,12 +9,12 @@
 ```bash
 npm install -g monomind
 cd your-project
-monomind init --opencode        # emits opencode.json + .opencode/ + AGENTS.md
+monomind init --target opencode # emits opencode.json + .opencode/ + AGENTS.md
 ```
 
 Open the project in opencode. The monomind MCP server (knowledge graph, memory, swarm tools) is wired in via `opencode.json`, and `monomind doctor --fix` confirms health.
 
-`--opencode` is **additive**: it only writes opencode artifacts. If you also use Claude Code or Antigravity, their `.claude/` / `.gemini/` output is unchanged. Default `monomind init` (no flag) does not emit opencode at all.
+`--target opencode` is the single-system mode. Plain `monomind init` also emits OpenCode artifacts alongside the other supported coding systems. The legacy `--opencode` flag remains an alias for `--target opencode`.
 
 ---
 
@@ -64,9 +64,9 @@ It executes `node .claude/helpers/statusline.cjs --compact` (with an `npx monomi
 
 ## How isolation works
 
-Every opencode artifact is opt-in and additive:
+OpenCode artifacts are additive and isolated from the other platform configs:
 
-- `monomind init` defaults have `components.opencode = false` — standard init never emits opencode.
+- `monomind init` emits OpenCode by default; use `--target opencode` when only OpenCode should be initialized.
 - opencode reads `opencode.json` and `.opencode/`; Claude Code reads `.claude/`; Antigravity reads `.gemini/`. They never touch each other's files.
 - The hook-shim plugin only **spawns** monomind's existing `.claude/helpers/*.cjs` gate handlers unchanged — it never edits them, so Claude Code's own hook path is unaffected.
 

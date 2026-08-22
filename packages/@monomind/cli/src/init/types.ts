@@ -30,12 +30,17 @@ export interface InitComponents {
   claudeMd: boolean;
   /** Build knowledge graph on init using monograph (TypeScript) */
   graphify: boolean;
+  /** Emit Antigravity (Gemini) artifacts. */
+  antigravity: boolean;
   /** Emit opencode artifacts (opencode.json + .opencode/). Opt-in — default
    *  false so standard `monomind init` (Claude + Antigravity) is unchanged. */
   opencode: boolean;
   /** Emit Kimi Code artifacts (.kimi-code/ + AGENTS.md). Opt-in — default
    *  false so standard `monomind init` is unchanged. */
   kimicode: boolean;
+  /** Emit Codex artifacts (.codex/config.toml + AGENTS.md). Opt-in — default
+   *  false so standard `monomind init` is unchanged. */
+  codex: boolean;
 }
 
 /**
@@ -364,8 +369,10 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     runtime: true,
     claudeMd: true,
     graphify: true,
+    antigravity: true,
     opencode: false,
     kimicode: false,
+    codex: false,
   },
   hooks: {
     preToolUse: true,
@@ -421,6 +428,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   mcp: {
     monomind: true,
     graphify: false,
+    antigravity: false,
     autoStart: false,
     port: 3000,
   },
@@ -461,6 +469,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     graphify: false,
     opencode: false,
     kimicode: false,
+    codex: false,
   },
   hooks: {
     ...DEFAULT_INIT_OPTIONS.hooks,
@@ -524,8 +533,10 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     runtime: true,
     claudeMd: true,
     graphify: true,
+    antigravity: true,
     opencode: false,
     kimicode: false,
+    codex: false,
   },
   skills: {
     core: true,
