@@ -87,7 +87,7 @@ Monomind organizations through Codex, set `"runtime": "codex"` in the org
 definition.
 
 Use `monomind init` with no target to initialize every supported coding system.
-Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See [Codex guide →](../../../doc/concepts/codex.md).
+Use `monomind init --target codex` (or `--codex`) to initialize only Codex. See [Codex guide →](doc/concepts/codex.md).
 
 </details>
 
