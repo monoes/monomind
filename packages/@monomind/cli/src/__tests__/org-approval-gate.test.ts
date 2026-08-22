@@ -27,7 +27,7 @@ import { tmpdir } from 'node:os';
 import { gatedCanUseTool } from '../orgrt/session.js';
 import type { PolicyEngine, Decision } from '../orgrt/policy.js';
 import { checkApproval, setApproval, clearApprovalsForFreshStart } from '../orgrt/approvals.js';
-import { approveAction, denyAction } from '../commands/org-observe.js';
+import { approveAction, denyAction, gateResolveAction } from '../commands/org-observe.js';
 import { ORG_DIR } from '../orgrt/types.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
 import type { CommandContext } from '../types.js';
@@ -358,5 +358,83 @@ describe('org approve / deny — offline field-matching fix', () => {
     const result = await approveAction(ctx(['ghost-org', 'boss', 'Bash']), 'ghost-org');
     expect(result.success).toBe(false);
     expect(existsSync(join(cwd, ORG_DIR, 'ghost-org', 'approvals.json'))).toBe(false);
+  });
+});
+
+// GitHub #213: `org gate-approve`/`org gate-reject` had no offline-queue
+// fallback (unlike org approve/deny/answer) — when the org isn't hosted by a
+// live daemon (no broker registration for this name), the command just
+// hard-failed instead of resolving gates.json directly, permanently blocking
+// the gate for any org run without a reachable live-delivery channel.
+describe('org gate-approve / gate-reject — offline fallback', () => {
+  let cwd: string;
+  let brokerDir: string;
+  let prevBrokerDirEnv: string | undefined;
+
+  function ctx(args: string[]): CommandContext {
+    return { args, flags: { _: [] }, cwd, interactive: false };
+  }
+
+  function seedGate(org: string, gateId: string) {
+    const orgDir = join(cwd, ORG_DIR, org);
+    mkdirSync(orgDir, { recursive: true });
+    writeFileSync(join(orgDir, 'gates.json'), JSON.stringify({
+      gates: [{
+        id: gateId, name: 'ship it', description: 'launch decision', roleId: 'boss',
+        status: 'pending', createdAt: Date.now(),
+      }],
+    }));
+  }
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'org-gate-offline-'));
+    // Isolate from any real ~/.monomind/orgrt-broker/ entries (same pattern as
+    // org-live-delivery-auth.test.ts) — these tests assert the OFFLINE path,
+    // which only runs when lookupOrg() finds nothing for 'myorg'.
+    brokerDir = mkdtempSync(join(tmpdir(), 'org-gate-offline-broker-'));
+    prevBrokerDirEnv = process.env.MONOMIND_ORGRT_BROKER_DIR;
+    process.env.MONOMIND_ORGRT_BROKER_DIR = brokerDir;
+  });
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(brokerDir, { recursive: true, force: true });
+    if (prevBrokerDirEnv === undefined) delete process.env.MONOMIND_ORGRT_BROKER_DIR;
+    else process.env.MONOMIND_ORGRT_BROKER_DIR = prevBrokerDirEnv;
+  });
+
+  it('org gate-approve resolves the gate directly in gates.json when no live daemon hosts the org', async () => {
+    seedGate('myorg', 'gate-1');
+
+    const result = await gateResolveAction(ctx(['myorg', 'gate-1', 'approved via offline path']), 'myorg', true);
+    expect(result.success).toBe(true);
+
+    const onDisk = JSON.parse(readFileSync(join(cwd, ORG_DIR, 'myorg', 'gates.json'), 'utf8'));
+    expect(onDisk.gates[0]).toMatchObject({ status: 'approved', resolution: 'approved via offline path' });
+  });
+
+  it('org gate-reject resolves the gate as rejected offline', async () => {
+    seedGate('myorg', 'gate-2');
+
+    const result = await gateResolveAction(ctx(['myorg', 'gate-2', 'not ready']), 'myorg', false);
+    expect(result.success).toBe(true);
+
+    const onDisk = JSON.parse(readFileSync(join(cwd, ORG_DIR, 'myorg', 'gates.json'), 'utf8'));
+    expect(onDisk.gates[0]).toMatchObject({ status: 'rejected', resolution: 'not ready' });
+  });
+
+  it('reports failure for a gate id with no pending entry', async () => {
+    const result = await gateResolveAction(ctx(['myorg', 'no-such-gate']), 'myorg', true);
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/not found/);
+  });
+
+  it('reports failure for a gate already resolved offline', async () => {
+    seedGate('myorg', 'gate-3');
+    await gateResolveAction(ctx(['myorg', 'gate-3', 'first']), 'myorg', true);
+
+    const result = await gateResolveAction(ctx(['myorg', 'gate-3', 'second']), 'myorg', false);
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/already resolved/);
   });
 });

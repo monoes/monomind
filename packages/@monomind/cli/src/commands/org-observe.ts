@@ -956,6 +956,31 @@ function readGatesFile(cwd: string, org: string): { gates: DecisionGate[] } {
   try { return JSON.parse(readFileSync(join(cwd, ORG_DIR, org, 'gates.json'), 'utf8')); } catch { return { gates: [] }; }
 }
 
+/** Read gates.json for a write path. A MISSING file legitimately means "no gates" → [].
+ *  Any other failure (unreadable, malformed — e.g. a partial daemon write) THROWS:
+ *  gateResolveAction rewrites this file from what this returns, so silently coercing a
+ *  failed read to [] would surface a real I/O error as "gate not found" and a
+ *  subsequent write would replace every recorded gate with just this one. */
+function readGatesFileStrict(cwd: string, org: string): { gates: DecisionGate[] } {
+  const path = join(cwd, ORG_DIR, org, 'gates.json');
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { gates: [] };
+    throw new Error(`cannot read ${path}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  let parsed: { gates?: DecisionGate[] };
+  try {
+    parsed = JSON.parse(raw) as { gates?: DecisionGate[] };
+  } catch (err) {
+    throw new Error(`${path} is not valid JSON (${err instanceof Error ? err.message : String(err)})`);
+  }
+  if (parsed?.gates === undefined || parsed.gates === null) return { gates: [] };
+  if (!Array.isArray(parsed.gates)) throw new Error(`${path}: "gates" is not an array`);
+  return { gates: parsed.gates };
+}
+
 export const gatesAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const data = readGatesFile(ctx.cwd, name);
   const showAll = ctx.flags['all'] === true;
@@ -983,7 +1008,13 @@ export const gateResolveAction = async (ctx: CommandContext, name: string, appro
   const resolution = ctx.args.slice(2).join(' ') || undefined;
   if (!gateId) return { success: false, message: `usage: monomind org gate-${approved ? 'approve' : 'reject'} ${name} <gate-id> [resolution]` };
 
-  const data = readGatesFile(ctx.cwd, name);
+  let data: { gates: DecisionGate[] };
+  try {
+    data = readGatesFileStrict(ctx.cwd, name);
+  } catch (err) {
+    log(output.error(`Cannot read gates for org ${name}: ${err instanceof Error ? err.message : String(err)}`));
+    return { success: false, message: 'gates.json unreadable — gate not resolved' };
+  }
   const gate = data.gates.find(g => g.id === gateId);
   if (!gate) return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
   if (gate.status !== 'pending') return { success: false, message: `gate "${gateId}" already resolved (${gate.status})` };
@@ -1003,13 +1034,40 @@ export const gateResolveAction = async (ctx: CommandContext, name: string, appro
         log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} (live).`));
         return { success: true, message: `gate ${approved ? 'approved' : 'rejected'}` };
       }
-      log(output.error(`Live resolution rejected: ${d.error ?? res.status}`));
-      return { success: false, message: d.error ?? `HTTP ${res.status}` };
+      log(output.warning(`Live resolution rejected (${d.error ?? res.status}) — falling back to offline queue.`));
     } catch (err) {
-      log(output.error(`Hosting daemon unreachable: ${err instanceof Error ? err.message : 'error'}`));
-      return { success: false, message: 'daemon unreachable — gate can only be resolved while the org is running' };
+      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
     }
   }
 
-  return { success: false, message: `org "${name}" is not running — gates can only be resolved on a live org` };
+  // Offline path: no live daemon hosts this org (or the live call failed) —
+  // resolve gates.json directly, same as resolveApproval's offline branch.
+  // Re-read fresh (mirrors answerAction/resolveApproval) in case a live
+  // daemon resolved this gate concurrently while the live call above was
+  // in flight or timing out.
+  const { writeGates } = await import('../orgrt/decisions.js');
+  let fresh: { gates: DecisionGate[] };
+  try {
+    fresh = readGatesFileStrict(ctx.cwd, name);
+  } catch (err) {
+    log(output.error(`Refusing to rewrite gates.json — ${err instanceof Error ? err.message : String(err)}`));
+    log(output.warning(`The gate was NOT resolved. Fix or restore ${join(ctx.cwd, ORG_DIR, name, 'gates.json')}, then retry.`));
+    return { success: false, message: 'gates.json unreadable — gate not resolved' };
+  }
+  const idx = fresh.gates.findIndex(g => g.id === gateId);
+  if (idx === -1) return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
+  if (fresh.gates[idx].status !== 'pending') {
+    return { success: false, message: `gate "${gateId}" already resolved (${fresh.gates[idx].status})` };
+  }
+  fresh.gates[idx] = {
+    ...fresh.gates[idx],
+    status: approved ? 'approved' : 'rejected',
+    resolvedAt: Date.now(),
+    resolvedBy: 'human',
+    resolution,
+  };
+  writeGates(ctx.cwd, name, fresh);
+
+  log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} — ${name} picks it up on its next cycle.`));
+  return { success: true, message: `gate ${approved ? 'approved' : 'rejected'} (queued)` };
 };
