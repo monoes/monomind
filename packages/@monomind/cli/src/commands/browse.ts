@@ -1,7 +1,7 @@
 import browseBase from '@monoes/monobrowse/cli/commands';
-import { browseWorkflowCommand } from './browse-workflow.js';
 import { browseActionCommand } from './browse-action.js';
 import { browsePlatformCommand } from './browse-platform.js';
+import { browseWorkflowCommand } from './browse-workflow.js';
 
 const REPLACED = new Set(['workflow', 'action', 'platform']);
 
@@ -9,7 +9,7 @@ const REPLACED = new Set(['workflow', 'action', 'platform']);
 const browseCommand = {
   ...browseBase,
   subcommands: [
-    ...(browseBase.subcommands ?? []).filter(s => !REPLACED.has(s.name)),
+    ...(browseBase.subcommands ?? []).filter((s) => !REPLACED.has(s.name)),
     browseWorkflowCommand,
     browseActionCommand,
     browsePlatformCommand,

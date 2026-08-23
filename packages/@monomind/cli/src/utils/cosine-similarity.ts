@@ -19,10 +19,7 @@
  * Returns a value in [-1, 1]. Returns 0 when either vector is empty or
  * has zero magnitude.
  */
-export function cosineSimilarity(
-  a: number[] | Float32Array,
-  b: number[] | Float32Array,
-): number {
+export function cosineSimilarity(a: number[] | Float32Array, b: number[] | Float32Array): number {
   if (!a || !b || a.length === 0 || b.length === 0) return 0;
 
   const len = Math.min(a.length, b.length);

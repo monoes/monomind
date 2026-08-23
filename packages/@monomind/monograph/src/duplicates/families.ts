@@ -74,7 +74,7 @@ export function groupRawGroupsIntoFamilies(groups: RawGroupInput[]): CloneFamily
     if (!familyMap.has(key)) {
       familyMap.set(key, { files: new Set(files), groups: [] });
     }
-    familyMap.get(key)!.groups.push(group);
+    familyMap.get(key)?.groups.push(group);
   }
 
   const families: CloneFamily[] = [];

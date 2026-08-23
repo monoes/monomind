@@ -5,10 +5,10 @@
  * Implements ADR-024: Embeddings MCP Tools
  */
 
-import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'fs';
-import { join, resolve } from 'path';
-import type { MCPTool } from './types.js';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { cosineSimilarity } from '../utils/cosine-similarity.js';
+import type { MCPTool } from './types.js';
 
 // Configuration paths
 const CONFIG_DIR = '.monomind';
@@ -23,14 +23,16 @@ const MAX_VECTOR_DIM = 8192;
 
 function validateText(t: unknown, field: string): string {
   if (typeof t !== 'string') throw new Error(`${field}: must be a string`);
-  if (t.length > MAX_TEXT_LENGTH) throw new Error(`${field}: text too long (max ${MAX_TEXT_LENGTH})`);
+  if (t.length > MAX_TEXT_LENGTH)
+    throw new Error(`${field}: text too long (max ${MAX_TEXT_LENGTH})`);
   return t;
 }
 
 function validateVector(v: unknown, field: string): number[] {
   if (!Array.isArray(v)) throw new Error(`${field}: must be a number[]`);
   if (v.length === 0) throw new Error(`${field}: empty vector`);
-  if (v.length > MAX_VECTOR_DIM) throw new Error(`${field}: vector too large (max ${MAX_VECTOR_DIM})`);
+  if (v.length > MAX_VECTOR_DIM)
+    throw new Error(`${field}: vector too large (max ${MAX_VECTOR_DIM})`);
   for (let i = 0; i < v.length; i++) {
     if (typeof v[i] !== 'number' || !Number.isFinite(v[i])) {
       throw new Error(`${field}: contains non-finite value at index ${i}`);
@@ -92,7 +94,8 @@ function loadConfig(): EmbeddingsConfig | null {
     }
   } catch (e) {
     // Return null on error
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[embeddings-tools] config read/parse failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[embeddings-tools] config read/parse failed:', e);
   }
   return null;
 }
@@ -100,13 +103,15 @@ function loadConfig(): EmbeddingsConfig | null {
 function saveConfig(config: EmbeddingsConfig): void {
   ensureConfigDir();
   const dest = getConfigPath();
-  const tmp = dest + '.tmp';
+  const tmp = `${dest}.tmp`;
   writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf-8');
   renameSync(tmp, dest);
 }
 
 // Real ONNX embedding generation via memory-initializer
-let realEmbeddingFn: ((text: string) => Promise<{ embedding: number[]; dimensions: number; model: string }>) | null = null;
+let realEmbeddingFn:
+  | ((text: string) => Promise<{ embedding: number[]; dimensions: number; model: string }>)
+  | null = null;
 
 async function getRealEmbeddingFunction() {
   if (!realEmbeddingFn) {
@@ -148,7 +153,7 @@ async function generateRealEmbedding(text: string, dimension: number): Promise<n
 
   // L2 normalize
   const norm = Math.sqrt(embedding.reduce((sum, x) => sum + x * x, 0));
-  return embedding.map(x => x / norm);
+  return embedding.map((x) => x / norm);
 }
 
 // Convert Euclidean embedding to Poincaré ball
@@ -158,8 +163,8 @@ function toPoincare(euclidean: number[], curvature: number): number[] {
   const norm = Math.sqrt(euclidean.reduce((sum, x) => sum + x * x, 0));
 
   // Exponential map at origin
-  const factor = Math.tanh(sqrtC * norm / 2) / (sqrtC * norm + 1e-15);
-  return euclidean.map(x => x * factor);
+  const factor = Math.tanh((sqrtC * norm) / 2) / (sqrtC * norm + 1e-15);
+  return euclidean.map((x) => x * factor);
 }
 
 // Poincaré distance
@@ -171,7 +176,7 @@ function poincareDistance(a: number[], b: number[], curvature: number): number {
   const normBSq = b.reduce((sum, x) => sum + x * x, 0);
 
   const denom = (1 - normASq) * (1 - normBSq);
-  const delta = 2 * diffSq / (denom + 1e-15);
+  const delta = (2 * diffSq) / (denom + 1e-15);
 
   return (1 / Math.sqrt(c)) * Math.acosh(1 + delta);
 }
@@ -313,8 +318,11 @@ export const allEmbeddingsTools: MCPTool[] = [
       }
 
       let text: string;
-      try { text = validateText(input.text, 'text'); }
-      catch (e) { return { success: false, error: (e as Error).message }; }
+      try {
+        text = validateText(input.text, 'text');
+      } catch (e) {
+        return { success: false, error: (e as Error).message };
+      }
       const useHyperbolic = input.hyperbolic === true && config.hyperbolic.enabled;
 
       // Generate real ONNX embedding
@@ -383,20 +391,22 @@ export const allEmbeddingsTools: MCPTool[] = [
       try {
         text1 = validateText(input.text1, 'text1');
         text2 = validateText(input.text2, 'text2');
-      } catch (e) { return { success: false, error: (e as Error).message }; }
+      } catch (e) {
+        return { success: false, error: (e as Error).message };
+      }
       const metric = (input.metric as string) || 'cosine';
 
       // Generate real ONNX embeddings for both texts
       const [emb1, emb2] = await Promise.all([
         generateRealEmbedding(text1, config.dimension),
-        generateRealEmbedding(text2, config.dimension)
+        generateRealEmbedding(text2, config.dimension),
       ]);
 
       let similarity: number;
       let distance: number;
 
       switch (metric) {
-        case 'poincare':
+        case 'poincare': {
           if (!config.hyperbolic.enabled) {
             return {
               success: false,
@@ -408,6 +418,7 @@ export const allEmbeddingsTools: MCPTool[] = [
           distance = poincareDistance(poinc1, poinc2, config.hyperbolic.curvature);
           similarity = 1 / (1 + distance);
           break;
+        }
 
         case 'euclidean':
           distance = Math.sqrt(emb1.reduce((sum, _, i) => sum + (emb1[i] - emb2[i]) ** 2, 0));
@@ -428,10 +439,16 @@ export const allEmbeddingsTools: MCPTool[] = [
           text1: { length: text1.length, preview: text1.slice(0, 50) },
           text2: { length: text2.length, preview: text2.slice(0, 50) },
         },
-        interpretation: similarity > 0.8 ? 'very similar' :
-                        similarity > 0.6 ? 'similar' :
-                        similarity > 0.4 ? 'somewhat similar' :
-                        similarity > 0.2 ? 'different' : 'very different',
+        interpretation:
+          similarity > 0.8
+            ? 'very similar'
+            : similarity > 0.6
+              ? 'similar'
+              : similarity > 0.4
+                ? 'somewhat similar'
+                : similarity > 0.2
+                  ? 'different'
+                  : 'very different',
       };
     },
   },
@@ -477,19 +494,24 @@ export const allEmbeddingsTools: MCPTool[] = [
       // O(n) over the text length, so an unbounded query is a DoS vector.
       // Cap topK to prevent requesting a huge result set from searchEntries.
       let query: string;
-      try { query = validateText(input.query, 'query'); }
-      catch (e) { return { success: false, error: (e as Error).message }; }
+      try {
+        query = validateText(input.query, 'query');
+      } catch (e) {
+        return { success: false, error: (e as Error).message };
+      }
       const MAX_SEARCH_TOP_K = 100;
       const rawTopK = (input.topK as number) || 5;
-      const topK = Number.isFinite(rawTopK) && rawTopK > 0
-        ? Math.min(Math.floor(rawTopK), MAX_SEARCH_TOP_K) : 5;
+      const topK =
+        Number.isFinite(rawTopK) && rawTopK > 0
+          ? Math.min(Math.floor(rawTopK), MAX_SEARCH_TOP_K)
+          : 5;
       const threshold = (input.threshold as number) || 0.5;
       const namespace = input.namespace as string;
 
       const startTime = performance.now();
 
       // Generate real ONNX embedding for query
-      const queryEmbedding = await generateRealEmbedding(query, config.dimension);
+      const _queryEmbedding = await generateRealEmbedding(query, config.dimension);
 
       // Try to search using real memory search
       try {
@@ -498,7 +520,7 @@ export const allEmbeddingsTools: MCPTool[] = [
           query,
           limit: topK,
           threshold,
-          namespace: namespace || 'default'
+          namespace: namespace || 'default',
         });
 
         const searchTime = (performance.now() - startTime).toFixed(2);
@@ -510,7 +532,7 @@ export const allEmbeddingsTools: MCPTool[] = [
             key: r.key,
             content: r.content?.substring(0, 100),
             similarity: r.score,
-            namespace: r.namespace
+            namespace: r.namespace,
           })),
           metadata: {
             model: config.model,
@@ -519,12 +541,13 @@ export const allEmbeddingsTools: MCPTool[] = [
             namespace: namespace || 'default',
             searchTime: `${searchTime}ms`,
             indexType: config.hyperbolic.enabled ? 'HNSW (hyperbolic)' : 'HNSW (euclidean)',
-            resultCount: searchResult.results.length
+            resultCount: searchResult.results.length,
           },
         };
       } catch (e) {
         // Database not available - return empty but truthful
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[embeddings-tools] search failed:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[embeddings-tools] search failed:', e);
         const searchTime = (performance.now() - startTime).toFixed(2);
         return {
           success: true,
@@ -546,7 +569,8 @@ export const allEmbeddingsTools: MCPTool[] = [
 
   {
     name: 'embeddings_neural',
-    description: 'Report and adjust pattern-store statistics (drift, consolidate, adapt) from intelligence.ts. Reads real counters — but its "init" action only persists a config blob (sona, flashAttention, ewcPlusPlus, memoryPhysics, swarmCoordination…) for which no implementing code exists anywhere; those flags are stored and echoed back, never acted on. There is no neural substrate and no "memory physics".',
+    description:
+      'Report and adjust pattern-store statistics (drift, consolidate, adapt) from intelligence.ts. Reads real counters — but its "init" action only persists a config blob (sona, flashAttention, ewcPlusPlus, memoryPhysics, swarmCoordination…) for which no implementing code exists anywhere; those flags are stored and echoed back, never acted on. There is no neural substrate and no "memory physics".',
     category: 'embeddings',
     inputSchema: {
       type: 'object',
@@ -564,7 +588,8 @@ export const allEmbeddingsTools: MCPTool[] = [
         },
         decayRate: {
           type: 'number',
-          description: 'Decay rate applied to stored pattern confidence (plain exponential decay — the "hippocampal dynamics" framing this once carried described nothing in the code)',
+          description:
+            'Decay rate applied to stored pattern confidence (plain exponential decay — the "hippocampal dynamics" framing this once carried described nothing in the code)',
           default: 0.01,
         },
       },
@@ -614,7 +639,9 @@ export const allEmbeddingsTools: MCPTool[] = [
           // reads module singletons (sonaCoordinator / reasoningBank) that are
           // null until init, so a populated store otherwise reports 0 patterns.
           try {
-            const { getIntelligenceStats, initializeIntelligence } = await import('../memory/intelligence.js');
+            const { getIntelligenceStats, initializeIntelligence } = await import(
+              '../memory/intelligence.js'
+            );
             await initializeIntelligence();
             const stats = getIntelligenceStats();
             return {
@@ -628,9 +655,10 @@ export const allEmbeddingsTools: MCPTool[] = [
                   status: stats.patternsLearned > 0 ? 'tracking' : 'no patterns',
                 },
               },
-              message: stats.patternsLearned > 0
-                ? `Tracking ${stats.patternsLearned} patterns for drift`
-                : 'No patterns stored yet - drift detection inactive',
+              message:
+                stats.patternsLearned > 0
+                  ? `Tracking ${stats.patternsLearned} patterns for drift`
+                  : 'No patterns stored yet - drift detection inactive',
             };
           } catch (e) {
             // Failing to read the store is NOT a drift report of zero.
@@ -638,14 +666,18 @@ export const allEmbeddingsTools: MCPTool[] = [
               success: false,
               action: 'drift',
               error: `Intelligence store unavailable — drift status unknown: ${(e as Error).message}`,
-              status: { semanticDrift: { enabled: false, reason: 'Intelligence module unavailable' } },
+              status: {
+                semanticDrift: { enabled: false, reason: 'Intelligence module unavailable' },
+              },
             };
           }
 
         case 'consolidate':
           // Get real consolidation metrics — same init requirement as 'drift'.
           try {
-            const { getIntelligenceStats, initializeIntelligence } = await import('../memory/intelligence.js');
+            const { getIntelligenceStats, initializeIntelligence } = await import(
+              '../memory/intelligence.js'
+            );
             await initializeIntelligence();
             const stats = getIntelligenceStats();
             return {
@@ -666,14 +698,18 @@ export const allEmbeddingsTools: MCPTool[] = [
               success: false,
               action: 'consolidate',
               error: `Intelligence store unavailable — consolidation status unknown: ${(e as Error).message}`,
-              status: { memoryPhysics: { enabled: false, reason: 'Intelligence module unavailable' } },
+              status: {
+                memoryPhysics: { enabled: false, reason: 'Intelligence module unavailable' },
+              },
             };
           }
 
         case 'adapt':
           // Get real (JS) pattern-adaptation metrics
           try {
-            const { benchmarkAdaptation, initializeIntelligence } = await import('../memory/intelligence.js');
+            const { benchmarkAdaptation, initializeIntelligence } = await import(
+              '../memory/intelligence.js'
+            );
             await initializeIntelligence();
             const benchmark = benchmarkAdaptation(100);
             return {
@@ -703,7 +739,8 @@ export const allEmbeddingsTools: MCPTool[] = [
         default: // status
           // Get real neural system status
           try {
-            const { getIntelligenceStats, benchmarkAdaptation, initializeIntelligence } = await import('../memory/intelligence.js');
+            const { getIntelligenceStats, benchmarkAdaptation, initializeIntelligence } =
+              await import('../memory/intelligence.js');
             await initializeIntelligence();
             const stats = getIntelligenceStats();
             const benchmark = benchmarkAdaptation(50);
@@ -803,8 +840,11 @@ export const allEmbeddingsTools: MCPTool[] = [
           // validateVector caps at MAX_VECTOR_DIM (8192) — prevents O(n) DoS
           // in toPoincare (reduce + map over the full array).
           let embedding: number[];
-          try { embedding = validateVector(input.embedding, 'embedding'); }
-          catch (e) { return { success: false, error: (e as Error).message }; }
+          try {
+            embedding = validateVector(input.embedding, 'embedding');
+          } catch (e) {
+            return { success: false, error: (e as Error).message };
+          }
           const poincare = toPoincare(embedding, curvature);
           return {
             success: true,
@@ -821,7 +861,9 @@ export const allEmbeddingsTools: MCPTool[] = [
           try {
             emb1 = validateVector(input.embedding1, 'embedding1');
             emb2 = validateVector(input.embedding2, 'embedding2');
-          } catch (e) { return { success: false, error: (e as Error).message }; }
+          } catch (e) {
+            return { success: false, error: (e as Error).message };
+          }
           const dist = poincareDistance(emb1, emb2, curvature);
           return {
             success: true,
@@ -837,11 +879,15 @@ export const allEmbeddingsTools: MCPTool[] = [
           try {
             e1 = validateVector(input.embedding1, 'embedding1');
             e2 = validateVector(input.embedding2, 'embedding2');
-          } catch (e) { return { success: false, error: (e as Error).message }; }
+          } catch (e) {
+            return { success: false, error: (e as Error).message };
+          }
           // Simplified midpoint (proper Möbius midpoint is more complex)
           const mid = e1.map((_, i) => (e1[i] + e2[i]) / 2);
           const norm = Math.sqrt(mid.reduce((sum, x) => sum + x * x, 0));
-          const scaledMid = mid.map(x => x * (config.hyperbolic.maxNorm / Math.max(norm, config.hyperbolic.maxNorm)));
+          const scaledMid = mid.map(
+            (x) => x * (config.hyperbolic.maxNorm / Math.max(norm, config.hyperbolic.maxNorm)),
+          );
           return {
             success: true,
             action: 'midpoint',
@@ -923,8 +969,8 @@ export const allEmbeddingsTools: MCPTool[] = [
 // behind MONOMIND_MCP_SPECULATIVE=1. The other 6 tools in this file
 // (embeddings_init/generate/compare/search/hyperbolic/status) do real work
 // and stay visible by default.
-const SPECULATIVE = process.env['MONOMIND_MCP_SPECULATIVE'] === '1';
+const SPECULATIVE = process.env.MONOMIND_MCP_SPECULATIVE === '1';
 
 export const embeddingsTools: MCPTool[] = SPECULATIVE
   ? allEmbeddingsTools
-  : allEmbeddingsTools.filter(t => t.name !== 'embeddings_neural');
+  : allEmbeddingsTools.filter((t) => t.name !== 'embeddings_neural');

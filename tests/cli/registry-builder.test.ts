@@ -5,10 +5,11 @@
  * dropped because parseFrontmatter only understood flat key:value lines and
  * inline bracket arrays.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildRegistry } from '../../packages/@monomind/cli/src/agents/registry-builder.js';
 
 let tmpDir: string;
@@ -115,14 +116,9 @@ describe('backward compatibility', () => {
   it('parses inline bracket-array triggers', () => {
     const registry = writeAndBuild(
       'bracket.md',
-      [
-        '---',
-        'name: Bracket Agent',
-        'triggers: [alpha, beta, gamma]',
-        '---',
-        '',
-        '# Agent',
-      ].join('\n'),
+      ['---', 'name: Bracket Agent', 'triggers: [alpha, beta, gamma]', '---', '', '# Agent'].join(
+        '\n',
+      ),
     );
 
     const agent = registry.agents[0];
@@ -135,31 +131,16 @@ describe('backward compatibility', () => {
   it('parses a single-string trigger value', () => {
     const registry = writeAndBuild(
       'single.md',
-      [
-        '---',
-        'name: Single Agent',
-        'triggers: my-trigger',
-        '---',
-        '',
-        '# Agent',
-      ].join('\n'),
+      ['---', 'name: Single Agent', 'triggers: my-trigger', '---', '', '# Agent'].join('\n'),
     );
 
-    expect(registry.agents[0].triggers).toEqual([
-      { pattern: 'my-trigger', mode: 'glob' },
-    ]);
+    expect(registry.agents[0].triggers).toEqual([{ pattern: 'my-trigger', mode: 'glob' }]);
   });
 
   it('returns empty triggers when triggers key is absent', () => {
     const registry = writeAndBuild(
       'no-triggers.md',
-      [
-        '---',
-        'name: No Triggers Agent',
-        '---',
-        '',
-        '# Agent',
-      ].join('\n'),
+      ['---', 'name: No Triggers Agent', '---', '', '# Agent'].join('\n'),
     );
 
     expect(registry.agents[0].triggers).toEqual([]);

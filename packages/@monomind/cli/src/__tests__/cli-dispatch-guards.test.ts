@@ -20,10 +20,10 @@
  * plus at the CLI level for the user-visible error and exit code.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CommandParser } from '../parser.js';
-import { CLI } from '../index.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAllCommands } from '../commands/index.js';
+import { CLI } from '../index.js';
+import { CommandParser } from '../parser.js';
 import type { Command } from '../types.js';
 
 async function realParser(): Promise<CommandParser> {
@@ -119,7 +119,11 @@ describe('options on subcommands nested 2+ levels deep are visible to the parser
 
   it("a parent's own options still win over globals when the leaf does not redeclare them", () => {
     const parser = new CommandParser({ allowUnknownFlags: true });
-    const leaf: Command = { name: 'run', description: 'leaf', action: async () => ({ success: true }) };
+    const leaf: Command = {
+      name: 'run',
+      description: 'leaf',
+      action: async () => ({ success: true }),
+    };
     const mid: Command = {
       name: 'worker',
       description: 'group',
@@ -161,7 +165,9 @@ describe('CLI surfaces unknown commands', () => {
   });
 
   it('errors and exits non-zero instead of running the following token', async () => {
-    await expect(cli.run(['zzzgarbage', 'status', '--no-update'])).rejects.toThrow('process.exit: 1');
+    await expect(cli.run(['zzzgarbage', 'status', '--no-update'])).rejects.toThrow(
+      'process.exit: 1',
+    );
     const text = out.join('');
     expect(text).toContain('Unknown command: zzzgarbage');
     // The `status` action prints one of these; neither may appear.

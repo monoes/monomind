@@ -10,8 +10,8 @@
  * 6. Tree-sitter availability
  */
 
-import { existsSync, statfsSync } from 'fs';
-import { join } from 'path';
+import { existsSync, statfsSync } from 'node:fs';
+import { join } from 'node:path';
 
 export interface DoctorCheck {
   name: string;

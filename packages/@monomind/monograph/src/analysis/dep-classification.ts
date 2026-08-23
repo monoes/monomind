@@ -2,8 +2,8 @@ import type { MonographDb } from '../storage/db.js';
 
 export interface PackageDepClassification {
   packageName: string;
-  usedAsValue: boolean;       // has any non-type-only import
-  usedAsTypeOnly: boolean;    // has any type-only import
+  usedAsValue: boolean; // has any non-type-only import
+  usedAsTypeOnly: boolean; // has any type-only import
   recommendation: 'keep-as-dep' | 'move-to-devdeps' | 'type-only' | 'unused';
   importCount: number;
   typeOnlyImportCount: number;
@@ -11,8 +11,8 @@ export interface PackageDepClassification {
 
 export interface DepClassificationResult {
   packages: PackageDepClassification[];
-  typeOnlyCount: number;      // packages only used in type positions
-  mixedCount: number;         // packages used in both
+  typeOnlyCount: number; // packages only used in type positions
+  mixedCount: number; // packages used in both
   valueOnlyCount: number;
 }
 
@@ -30,7 +30,7 @@ function isExternalPackage(tgtName: string, tgtFilePath: string): boolean {
   // and doesn't look like a relative import
   if (!tgtFilePath) {
     // Fall back to name heuristic: starts with alpha, no path separators
-    return /^[a-zA-Z@]/.test(tgtName) && !tgtName.includes('/') || /^@[a-zA-Z]/.test(tgtName);
+    return (/^[a-zA-Z@]/.test(tgtName) && !tgtName.includes('/')) || /^@[a-zA-Z]/.test(tgtName);
   }
   return !tgtFilePath.startsWith('/') && !tgtFilePath.startsWith('.');
 }
@@ -46,13 +46,15 @@ function extractPackageName(tgt: string): string {
 }
 
 export function classifyDependencies(db: MonographDb): DepClassificationResult {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT e.relation, e.confidence, n_src.file_path as src, n_tgt.file_path as tgt, n_tgt.name as tgt_name, e.properties
     FROM edges e
     JOIN nodes n_src ON n_src.id = e.source_id
     JOIN nodes n_tgt ON n_tgt.id = e.target_id
     WHERE e.relation = 'IMPORTS'
-  `).all() as EdgeRow[];
+  `)
+    .all() as EdgeRow[];
 
   // Aggregate per external package
   const packageMap = new Map<string, { valueImports: number; typeImports: number }>();
@@ -71,7 +73,7 @@ export function classifyDependencies(db: MonographDb): DepClassificationResult {
     if (row.properties) {
       try {
         const props = JSON.parse(row.properties) as Record<string, unknown>;
-        isTypeOnly = props['isTypeOnly'] === true;
+        isTypeOnly = props.isTypeOnly === true;
       } catch {
         // fall through — infer from confidence
       }
@@ -117,12 +119,17 @@ export function classifyDependencies(db: MonographDb): DepClassificationResult {
   }
 
   // Sort: 'type-only' first, then 'unused', then rest
-  const ORDER: Record<string, number> = { 'type-only': 0, 'unused': 1, 'move-to-devdeps': 2, 'keep-as-dep': 3 };
+  const ORDER: Record<string, number> = {
+    'type-only': 0,
+    unused: 1,
+    'move-to-devdeps': 2,
+    'keep-as-dep': 3,
+  };
   packages.sort((a, b) => (ORDER[a.recommendation] ?? 3) - (ORDER[b.recommendation] ?? 3));
 
-  const typeOnlyCount = packages.filter(p => p.recommendation === 'type-only').length;
-  const mixedCount = packages.filter(p => p.usedAsValue && p.usedAsTypeOnly).length;
-  const valueOnlyCount = packages.filter(p => p.usedAsValue && !p.usedAsTypeOnly).length;
+  const typeOnlyCount = packages.filter((p) => p.recommendation === 'type-only').length;
+  const mixedCount = packages.filter((p) => p.usedAsValue && p.usedAsTypeOnly).length;
+  const valueOnlyCount = packages.filter((p) => p.usedAsValue && !p.usedAsTypeOnly).length;
 
   return {
     packages,
@@ -145,14 +152,18 @@ export function formatDepClassification(result: DepClassificationResult): string
   ];
 
   const groups: Array<[PackageDepClassification['recommendation'], string, string]> = [
-    ['type-only', 'Type-only (move to devDependencies or use @types)', 'Move to devDependencies — not needed at runtime.'],
+    [
+      'type-only',
+      'Type-only (move to devDependencies or use @types)',
+      'Move to devDependencies — not needed at runtime.',
+    ],
     ['unused', 'Unused', 'Remove from dependencies — no imports detected.'],
     ['move-to-devdeps', 'Move to devDependencies', 'Only used in non-production code paths.'],
     ['keep-as-dep', 'Keep as dependency', 'Used as runtime value imports — keep in dependencies.'],
   ];
 
   for (const [rec, heading, advice] of groups) {
-    const pkgs = result.packages.filter(p => p.recommendation === rec);
+    const pkgs = result.packages.filter((p) => p.recommendation === rec);
     if (pkgs.length === 0) continue;
     lines.push(`${heading} (${pkgs.length}):`);
     for (const p of pkgs) {

@@ -128,9 +128,9 @@ function renderDashboard(data) {
   if (data.monoswarm_status) {
     swarmEl.className = '';
     const s = data.monoswarm_status;
-    swarmEl.innerHTML = `<div class="kv-list">` + Object.entries(s).map(([k, v]) =>
+    swarmEl.innerHTML = `<div class="kv-list">${Object.entries(s).map(([k, v]) =>
       `<div class="kv-row"><span>${escapeHtml(k)}</span><b>${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</b></div>`
-    ).join('') + `</div>`;
+    ).join('')}</div>`;
   } else {
     swarmEl.className = 'empty';
     swarmEl.textContent = 'No active swarm. Run: monomind swarm init';
@@ -222,7 +222,7 @@ function render() {
       <div class="step ${s.status}">
         <span class="step-icon">${s.status==='done'?'✓':s.status==='error'?'✗':'○'}</span>
         <span class="step-name">${escapeHtml(s.name)}</span>
-        <span class="step-time">${s.duration ? escapeHtml(s.duration+'ms') : ''}</span>
+        <span class="step-time">${s.duration ? escapeHtml(`${s.duration}ms`) : ''}</span>
       </div>`).join('') + (run.currentStep ? `
       <div class="step current">
         <span class="step-icon">⠸</span>

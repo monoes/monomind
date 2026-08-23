@@ -1,6 +1,12 @@
-import fs from 'fs';
-import path from 'path';
-import type { CapabilityModule, CapabilityName, DirectoryScan, HealthCheck, SearchResult } from './types.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import type {
+  CapabilityModule,
+  CapabilityName,
+  DirectoryScan,
+  HealthCheck,
+  SearchResult,
+} from './types.js';
 
 const ACTIVATION_THRESHOLD = 0.1;
 const CROSS_CUTTING: Set<CapabilityName> = new Set(['graph', 'timeline']);
@@ -28,7 +34,7 @@ export class CapabilityManager {
     }
 
     // Activate cross-cutting if 2+ content caps are active
-    const activeContentCount = [...this.active.keys()].filter(n => CONTENT_CAPS.has(n)).length;
+    const activeContentCount = [...this.active.keys()].filter((n) => CONTENT_CAPS.has(n)).length;
     if (activeContentCount >= 2) {
       for (const name of CROSS_CUTTING) {
         const module = this.registry.get(name);
@@ -49,12 +55,13 @@ export class CapabilityManager {
     const capsPath = path.join(monomindDir, 'capabilities.json');
     try {
       fs.mkdirSync(monomindDir, { recursive: true });
-      const tmpPath = capsPath + '.tmp';
+      const tmpPath = `${capsPath}.tmp`;
       fs.writeFileSync(tmpPath, JSON.stringify({ active: [...this.active.keys()] }, null, 2));
       fs.renameSync(tmpPath, capsPath);
     } catch (e) {
       // best-effort persistence; activation state still holds in-memory
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[capabilities] failed to persist capabilities.json:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[capabilities] failed to persist capabilities.json:', e);
     }
   }
 
@@ -70,7 +77,7 @@ export class CapabilityManager {
     const results: HealthCheck[] = [];
     for (const module of this.active.values()) {
       if (module.healthChecks) {
-        results.push(...await module.healthChecks());
+        results.push(...(await module.healthChecks()));
       }
     }
     return results;
@@ -80,7 +87,7 @@ export class CapabilityManager {
     const allResults: SearchResult[] = [];
     for (const module of this.active.values()) {
       if (module.search) {
-        allResults.push(...await module.search(query, limit));
+        allResults.push(...(await module.search(query, limit)));
       }
     }
     return allResults.sort((a, b) => b.score - a.score).slice(0, limit);

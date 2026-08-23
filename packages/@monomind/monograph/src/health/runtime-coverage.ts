@@ -24,9 +24,7 @@ export interface RuntimeCoverageReportVerdict {
   recommendedAction: RuntimeCoverageAction;
 }
 
-export function classifyRuntimeVerdict(
-  signal: RuntimeSignal | undefined
-): RuntimeCoverageVerdict {
+export function classifyRuntimeVerdict(signal: RuntimeSignal | undefined): RuntimeCoverageVerdict {
   if (signal === undefined) return 'CoverageUnavailable';
   if (signal.requestsPerDay === 0) return 'LowTraffic';
   if (signal.lastSeenDaysAgo !== undefined && signal.lastSeenDaysAgo > 30) return 'LowTraffic';
@@ -36,10 +34,11 @@ export function classifyRuntimeVerdict(
 
 export function classifyRiskBand(
   staticVerdict: string,
-  runtimeVerdict: RuntimeCoverageVerdict
+  runtimeVerdict: RuntimeCoverageVerdict,
 ): RuntimeCoverageRiskBand {
   if (staticVerdict === 'unused') {
-    if (runtimeVerdict === 'LowTraffic' || runtimeVerdict === 'CoverageUnavailable') return 'Critical';
+    if (runtimeVerdict === 'LowTraffic' || runtimeVerdict === 'CoverageUnavailable')
+      return 'Critical';
     if (runtimeVerdict === 'Unknown') return 'High';
     if (runtimeVerdict === 'Active') return 'Medium';
   }
@@ -48,7 +47,7 @@ export function classifyRiskBand(
 
 export function recommendAction(
   riskBand: RuntimeCoverageRiskBand,
-  runtimeVerdict: RuntimeCoverageVerdict
+  runtimeVerdict: RuntimeCoverageVerdict,
 ): RuntimeCoverageAction {
   if (riskBand === 'Critical') {
     if (runtimeVerdict === 'LowTraffic') return 'Delete';
@@ -62,7 +61,7 @@ export function recommendAction(
 export function classifyRuntimeCoverage(
   path: string,
   staticVerdict: 'unused' | 'used' | 'unknown',
-  signal?: RuntimeSignal
+  signal?: RuntimeSignal,
 ): RuntimeCoverageReportVerdict {
   const runtimeVerdict = classifyRuntimeVerdict(signal);
   const riskBand = classifyRiskBand(staticVerdict, runtimeVerdict);

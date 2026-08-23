@@ -34,7 +34,8 @@ export function quantizeInt8(embedding: number[] | Float32Array): {
   const arr = embedding instanceof Float32Array ? embedding : new Float32Array(embedding);
 
   // Find min/max for symmetric quantization
-  let min = Infinity, max = -Infinity;
+  let min = Infinity,
+    max = -Infinity;
   for (let i = 0; i < arr.length; i++) {
     if (arr[i] < min) min = arr[i];
     if (arr[i] > max) max = arr[i];
@@ -67,7 +68,7 @@ export function quantizeInt8(embedding: number[] | Float32Array): {
 export function dequantizeInt8(
   quantized: Int8Array,
   scale: number,
-  zeroPoint: number = 0
+  zeroPoint: number = 0,
 ): Float32Array {
   const result = new Float32Array(quantized.length);
   for (let i = 0; i < quantized.length; i++) {
@@ -81,12 +82,16 @@ export function dequantizeInt8(
  * Faster than dequantizing first
  */
 export function quantizedCosineSim(
-  a: Int8Array, aScale: number,
-  b: Int8Array, bScale: number
+  a: Int8Array,
+  _aScale: number,
+  b: Int8Array,
+  _bScale: number,
 ): number {
   if (a.length !== b.length) return 0;
 
-  let dot = 0, normA = 0, normB = 0;
+  let dot = 0,
+    normA = 0,
+    normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];
@@ -151,7 +156,8 @@ export function batchCosineSim(
   for (let v = 0; v < n; v++) {
     const vec = vectors[v];
     const len = Math.min(query.length, vec.length);
-    let dot = 0, vecNorm = 0;
+    let dot = 0,
+      vecNorm = 0;
 
     for (let i = 0; i < len; i++) {
       dot += query[i] * vec[i];
@@ -205,8 +211,7 @@ export function topKIndices(scores: Float32Array, k: number): number[] {
   const n = scores.length;
   if (k >= n) {
     // Return all indices sorted by score
-    return Array.from({ length: n }, (_, i) => i)
-      .sort((a, b) => scores[b] - scores[a]);
+    return Array.from({ length: n }, (_, i) => i).sort((a, b) => scores[b] - scores[a]);
   }
 
   // Build min-heap of size k
@@ -229,7 +234,8 @@ export function topKIndices(scores: Float32Array, k: number): number[] {
       heap[0] = { idx: i, score: scores[i] };
       let j = 0;
       while (true) {
-        const left = 2 * j + 1, right = 2 * j + 2;
+        const left = 2 * j + 1,
+          right = 2 * j + 2;
         let smallest = j;
         if (left < k && heap[left].score < heap[smallest].score) smallest = left;
         if (right < k && heap[right].score < heap[smallest].score) smallest = right;
@@ -241,7 +247,7 @@ export function topKIndices(scores: Float32Array, k: number): number[] {
   }
 
   // Extract and sort descending
-  return heap.sort((a, b) => b.score - a.score).map(h => h.idx);
+  return heap.sort((a, b) => b.score - a.score).map((h) => h.idx);
 }
 
 /**
@@ -253,12 +259,12 @@ export function topKIndices(scores: Float32Array, k: number): number[] {
 export function flashAttentionSearch(
   query: Float32Array | number[],
   vectors: (Float32Array | number[])[],
-  options: { k?: number; temperature?: number; threshold?: number } = {}
+  options: { k?: number; temperature?: number; threshold?: number } = {},
 ): { indices: number[]; scores: Float32Array; weights: Float32Array } {
   const { k = 10, temperature = 1.0, threshold = 0 } = options;
   const scores = batchCosineSim(query, vectors);
-  const indices = topKIndices(scores, k).filter(i => scores[i] >= threshold);
-  const topScores = new Float32Array(indices.map(i => scores[i]));
+  const indices = topKIndices(scores, k).filter((i) => scores[i] >= threshold);
+  const topScores = new Float32Array(indices.map((i) => scores[i]));
   const weights = softmaxAttention(topScores, temperature);
   return { indices, scores: topScores, weights };
 }

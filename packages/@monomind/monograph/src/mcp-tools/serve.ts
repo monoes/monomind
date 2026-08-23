@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { startServer, isServerRunning, getActiveUrl } from '../web/server.js';
+import { getActiveUrl, isServerRunning, startServer } from '../web/server.js';
 
 export interface ServeOptions {
   port?: number;
@@ -28,12 +28,13 @@ export async function serveMonograph(options: ServeOptions): Promise<ServeResult
 
   if (open) {
     // Use spawn with an argument array to avoid shell injection via URL characters
-    const { spawn } = await import('child_process');
-    const [bin, ...args] = process.platform === 'win32'
-      ? ['cmd', '/c', 'start', '', handle.url]
-      : process.platform === 'darwin'
-        ? ['open', handle.url]
-        : ['xdg-open', handle.url];
+    const { spawn } = await import('node:child_process');
+    const [bin, ...args] =
+      process.platform === 'win32'
+        ? ['cmd', '/c', 'start', '', handle.url]
+        : process.platform === 'darwin'
+          ? ['open', handle.url]
+          : ['xdg-open', handle.url];
     spawn(bin as string, args, { stdio: 'ignore', detached: true }).unref();
   }
 

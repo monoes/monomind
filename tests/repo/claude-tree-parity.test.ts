@@ -77,10 +77,10 @@
  * tests/repo/ alongside the other cross-package guards.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ROOT_TREE = join(REPO_ROOT, '.claude');
@@ -252,8 +252,11 @@ describe('.claude tree parity (root vs npm-shipped CLI copy)', () => {
     // silence an accidental new drift.
     const ROOT_ONLY_ALLOWED = new Set(['monoagent-image', 'monodoc']);
     const PKG_ONLY_ALLOWED = new Set([
-      'github-issue-triage', 'github-repo-recap', 'github-toolkit',
-      'memory-toolkit', 'stop-slop',
+      'github-issue-triage',
+      'github-repo-recap',
+      'github-toolkit',
+      'memory-toolkit',
+      'stop-slop',
     ]);
 
     const onlyRoot = rootSkills.filter((s) => !pkgSkills.includes(s));
@@ -263,7 +266,10 @@ describe('.claude tree parity (root vs npm-shipped CLI copy)', () => {
     const unexpectedOnlyPkg = onlyPkg.filter((s) => !PKG_ONLY_ALLOWED.has(s));
 
     expect(
-      { unexpectedOnlyInRoot: unexpectedOnlyRoot, unexpectedOnlyInShippedPackage: unexpectedOnlyPkg },
+      {
+        unexpectedOnlyInRoot: unexpectedOnlyRoot,
+        unexpectedOnlyInShippedPackage: unexpectedOnlyPkg,
+      },
       'The two .claude/skills/ trees hold a different SET of skill directories ' +
         'beyond the known/allowed exceptions. Either mirror the new skill into ' +
         'the other tree, or add it to ROOT_ONLY_ALLOWED/PKG_ONLY_ALLOWED here ' +

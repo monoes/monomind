@@ -51,13 +51,13 @@ export class Bm25Retriever implements Retriever {
       this.docs.push(toks);
       for (const t of new Set(toks)) this.df.set(t, (this.df.get(t) ?? 0) + 1);
     }
-    this.avgLen = this.docs.length === 0
-      ? 0
-      : this.docs.reduce((a, d) => a + d.length, 0) / this.docs.length;
+    this.avgLen =
+      this.docs.length === 0 ? 0 : this.docs.reduce((a, d) => a + d.length, 0) / this.docs.length;
   }
 
   async search(query: string, limit: number): Promise<RawHit[]> {
-    const k1 = 1.2, b = 0.75;
+    const k1 = 1.2,
+      b = 0.75;
     const N = this.docs.length;
     const q = contentTokens(query);
     const scored: RawHit[] = [];
@@ -90,7 +90,10 @@ export class Bm25Retriever implements Retriever {
 
 function hashSeed(s: string): number {
   let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
   return h >>> 0;
 }
 
@@ -100,16 +103,21 @@ export class RandomRetriever implements Retriever {
 
   private docIds: string[];
 
-  constructor(chunks: EvalChunk[], private seed = 'second-brain-eval') {
-    this.docIds = [...new Set(chunks.map(c => c.docId))].sort();
+  constructor(
+    chunks: EvalChunk[],
+    private seed = 'second-brain-eval',
+  ) {
+    this.docIds = [...new Set(chunks.map((c) => c.docId))].sort();
   }
 
   async search(query: string, limit: number): Promise<RawHit[]> {
-    let state = hashSeed(this.seed + '::' + query);
+    let state = hashSeed(`${this.seed}::${query}`);
     const next = () => {
-      state ^= state << 13; state >>>= 0;
+      state ^= state << 13;
+      state >>>= 0;
       state ^= state >> 17;
-      state ^= state << 5; state >>>= 0;
+      state ^= state << 5;
+      state >>>= 0;
       return state / 0xffffffff;
     };
     const pool = [...this.docIds];
@@ -129,7 +137,9 @@ export class FnRetriever implements Retriever {
     public description: string,
     private fn: (query: string, limit: number) => Promise<RawHit[]>,
   ) {}
-  search(query: string, limit: number): Promise<RawHit[]> { return this.fn(query, limit); }
+  search(query: string, limit: number): Promise<RawHit[]> {
+    return this.fn(query, limit);
+  }
 }
 
 // -- RRF fusion -------------------------------------------------------
@@ -154,17 +164,14 @@ export class RrfRetriever implements Retriever {
     name?: string,
   ) {
     this.name = name ?? `rrf-k${rrfK}`;
-    this.description =
-      `Reciprocal Rank Fusion (k=${rrfK}, equal weight) over [${children.map(c => c.name).join(', ')}]`;
+    this.description = `Reciprocal Rank Fusion (k=${rrfK}, equal weight) over [${children.map((c) => c.name).join(', ')}]`;
   }
 
   async search(query: string, limit: number): Promise<RawHit[]> {
     // Over-fetch from each child: a document at rank 50 in one child and
     // rank 1 in another should still be fusible, so fetch more than `limit`.
     const childLimit = limit * 5;
-    const childResults = await Promise.all(
-      this.children.map(c => c.search(query, childLimit)),
-    );
+    const childResults = await Promise.all(this.children.map((c) => c.search(query, childLimit)));
 
     // Build per-document fusion scores. Track the best chunk per document
     // from whichever child scored it highest (for the chunkIndex field).
@@ -187,7 +194,11 @@ export class RrfRetriever implements Retriever {
             existing.bestChildScore = h.score;
           }
         } else {
-          fusion.set(h.docId, { score: rrfScore, chunkIndex: h.chunkIndex, bestChildScore: h.score });
+          fusion.set(h.docId, {
+            score: rrfScore,
+            chunkIndex: h.chunkIndex,
+            bestChildScore: h.score,
+          });
         }
       }
     }

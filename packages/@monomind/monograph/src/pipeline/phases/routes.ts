@@ -1,10 +1,10 @@
-import { readFileSync, statSync } from 'fs';
-import { extname } from 'path';
-import type { PipelinePhase } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel } from '../../types.js';
-import { insertNodes } from '../../storage/node-store.js';
+import { readFileSync, statSync } from 'node:fs';
+import { extname } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
+import { insertNodes } from '../../storage/node-store.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { makeId, toNormLabel } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { StructureOutput } from './structure.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ const PAGES_RE = /^(?:src\/)?pages\//;
 const APP_ROUTE_RE = /^(?:src\/)?app\/(.*\/)?route\.(ts|tsx|js|jsx)$/;
 
 // Express/Fastify route methods
-const EXPRESS_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'use'] as const;
+const _EXPRESS_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'use'] as const;
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'ANY';
 
 // ── Output types ──────────────────────────────────────────────────────────────
@@ -75,9 +75,7 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
       const isNextAppRoute = APP_ROUTE_RE.test(relPath);
 
       if (isNextPages || isNextAppRoute) {
-        const routePath = isNextPages
-          ? pagesPathToRoute(relPath)
-          : appPathToRoute(relPath);
+        const routePath = isNextPages ? pagesPathToRoute(relPath) : appPathToRoute(relPath);
         const method = 'ANY';
         const routeNodeId = makeId('route', method, routePath, relPath);
         const name = `${method} ${routePath}`;
@@ -95,7 +93,13 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
         };
         routeNodes.push(routeNode);
 
-        const entry: RouteEntry = { method, path: routePath, filePath: relPath, routeNodeId, middlewareChain: [] };
+        const entry: RouteEntry = {
+          method,
+          path: routePath,
+          filePath: relPath,
+          routeNodeId,
+          middlewareChain: [],
+        };
 
         if (ctx.db) {
           const source = safeReadSource(`${ctx.repoPath}/${relPath}`, ctx.options.maxFileSizeBytes);
@@ -144,7 +148,13 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
         };
         routeNodes.push(routeNode);
 
-        const entry: RouteEntry = { method: e.method, path: e.path, filePath: relPath, routeNodeId, middlewareChain: [] };
+        const entry: RouteEntry = {
+          method: e.method,
+          path: e.path,
+          filePath: relPath,
+          routeNodeId,
+          middlewareChain: [],
+        };
 
         if (ctx.db && e.handlerName) {
           const targetId = lookupHandler(e.handlerName, relPath);
@@ -183,7 +193,13 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
         };
         routeNodes.push(routeNode);
 
-        const entry: RouteEntry = { method: e.method, path: e.path, filePath: relPath, routeNodeId, middlewareChain: [] };
+        const entry: RouteEntry = {
+          method: e.method,
+          path: e.path,
+          filePath: relPath,
+          routeNodeId,
+          middlewareChain: [],
+        };
 
         if (ctx.db && e.handlerName) {
           const targetId = lookupHandler(e.handlerName, relPath);
@@ -286,7 +302,11 @@ interface DetectedRoute {
 const EXPRESS_ROUTE_RE =
   /(?:app|router|server)\s*\.\s*(get|post|put|delete|patch|use)\s*\(\s*['"]([^'"]+)['"]\s*(?:,\s*([A-Za-z_$][A-Za-z0-9_$]*))?/gi;
 
-export function extractExpressRoutes(source: string, _filePath: string, _ext: string): DetectedRoute[] {
+export function extractExpressRoutes(
+  source: string,
+  _filePath: string,
+  _ext: string,
+): DetectedRoute[] {
   const results: DetectedRoute[] = [];
   let match: RegExpExecArray | null;
   const re = new RegExp(EXPRESS_ROUTE_RE.source, 'gi');
@@ -306,7 +326,11 @@ const CONTROLLER_RE = /@Controller\(\s*['"]([^'"]*)['"]\s*\)/g;
 const NEST_METHOD_RE =
   /@(Get|Post|Put|Delete|Patch)\s*\(\s*['"]([^'"]*)['"]\s*\)\s*(?:[\w\s,():?<>[\]|&.]+?\s+)?(\w+)\s*\(/gis;
 
-export function extractNestRoutes(source: string, _filePath: string, _ext: string): DetectedRoute[] {
+export function extractNestRoutes(
+  source: string,
+  _filePath: string,
+  _ext: string,
+): DetectedRoute[] {
   // Find controller prefix (use first @Controller decorator found)
   let controllerPrefix = '';
   const ctrlMatch = CONTROLLER_RE.exec(source);

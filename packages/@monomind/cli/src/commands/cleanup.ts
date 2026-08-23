@@ -5,15 +5,25 @@
  * github.com/monoes/monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { existsSync, lstatSync, rmSync, readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync } from 'fs';
-import { join, dirname } from 'path';
 // Static imports: this package is ESM ("type": "module"), so a bare require()
 // here throws "require is not defined" in the built output even though it
 // typechecks and passes tests. Guarded by no-cjs-require-in-esm.test.ts.
 import { execSync } from 'node:child_process';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 /**
  * Artifact directories and files that monomind/monomind may create
@@ -30,22 +40,17 @@ const ARTIFACT_DIRS = [
   { path: 'memory', description: 'Memory storage' },
 ];
 
-const ARTIFACT_FILES = [
-  { path: 'monomind.config.json', description: 'Monomind configuration' },
-];
+const ARTIFACT_FILES = [{ path: 'monomind.config.json', description: 'Monomind configuration' }];
 
 /**
  * Paths to preserve when --keep-config is set
  */
-const KEEP_CONFIG_PATHS = [
-  'monomind.config.json',
-  join('.claude', 'settings.json'),
-];
+const KEEP_CONFIG_PATHS = ['monomind.config.json', join('.claude', 'settings.json')];
 
 /** Scratch pruning (--scratch): taskdev handoff files and loop state. */
 // monolean: manual flag only — upgrade path: invoke from the `cache` background worker so crashed-run scratch is pruned without anyone remembering the flag
-const SCRATCH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;  // taskdev scratch older than this is stale
-const LOOP_STALE_GRACE_MS = 24 * 60 * 60 * 1000;      // a live loop reschedules every <=1h; overdue by a day = abandoned
+const SCRATCH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // taskdev scratch older than this is stale
+const LOOP_STALE_GRACE_MS = 24 * 60 * 60 * 1000; // a live loop reschedules every <=1h; overdue by a day = abandoned
 
 /** A single stale-scratch candidate returned by {@link findStaleScratch}. */
 interface StaleScratchItem {
@@ -71,7 +76,11 @@ const UNKNOWN_DIR_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  *   `--aggressive`, which treats unprovable dirs as junk (safe: every live
  *   project rewrites origin.json on its next memory access).
  */
-export function findOrphanedProjectData(baseDir: string, now: number, aggressive: boolean): StaleScratchItem[] {
+export function findOrphanedProjectData(
+  baseDir: string,
+  now: number,
+  aggressive: boolean,
+): StaleScratchItem[] {
   const out: StaleScratchItem[] = [];
   if (!existsSync(baseDir)) return out;
   for (const name of readdirSync(baseDir)) {
@@ -79,20 +88,34 @@ export function findOrphanedProjectData(baseDir: string, now: number, aggressive
     const dir = join(baseDir, name);
     try {
       if (!lstatSync(dir).isDirectory()) continue;
-    } catch { continue; }
+    } catch {
+      continue;
+    }
     // Staleness must consider the files writes actually touch: appends to
     // lancedb/memory.db and origin.json refreshes do NOT bump the slug dir's
     // own mtime, so an actively-used project would otherwise look 30d stale.
-    const mtimeOf = (p: string): number => { try { return lstatSync(p).mtimeMs; } catch { return 0; } };
-    const mtime = Math.max(mtimeOf(dir), mtimeOf(join(dir, 'origin.json')),
-      mtimeOf(join(dir, 'lancedb', 'memory.db')), mtimeOf(join(dir, 'memory.db')));
+    const mtimeOf = (p: string): number => {
+      try {
+        return lstatSync(p).mtimeMs;
+      } catch {
+        return 0;
+      }
+    };
+    const mtime = Math.max(
+      mtimeOf(dir),
+      mtimeOf(join(dir, 'origin.json')),
+      mtimeOf(join(dir, 'lancedb', 'memory.db')),
+      mtimeOf(join(dir, 'memory.db')),
+    );
     const originFile = join(dir, 'origin.json');
     let originPath: string | null = null;
     let hasOrigin = false;
     try {
       originPath = String(JSON.parse(readFileSync(originFile, 'utf-8')).path ?? '');
       hasOrigin = originPath.length > 0;
-    } catch { /* no/corrupt marker */ }
+    } catch {
+      /* no/corrupt marker */
+    }
     if (hasOrigin && originPath && existsSync(originPath)) {
       // NOTE: the directory is *named* lancedb for historical reasons, but the
       // current SQLite engine keeps its LIVE memory.db inside it. Only genuine
@@ -100,8 +123,17 @@ export function findOrphanedProjectData(baseDir: string, now: number, aggressive
       const lance = join(dir, 'lancedb');
       if (existsSync(lance) && !existsSync(join(lance, 'memory.db'))) {
         let hasLanceData = false;
-        try { hasLanceData = readdirSync(lance).some(f => f.endsWith('.lance') || f === '__manifest'); } catch { /* unreadable — leave it */ }
-        if (hasLanceData) out.push({ path: lance, description: `dead lancedb store (project: ${originPath})`, size: 0 });
+        try {
+          hasLanceData = readdirSync(lance).some((f) => f.endsWith('.lance') || f === '__manifest');
+        } catch {
+          /* unreadable — leave it */
+        }
+        if (hasLanceData)
+          out.push({
+            path: lance,
+            description: `dead lancedb store (project: ${originPath})`,
+            size: 0,
+          });
       }
       continue;
     }
@@ -110,10 +142,20 @@ export function findOrphanedProjectData(baseDir: string, now: number, aggressive
       // unmounted volume / disconnected network share makes the whole subtree
       // vanish temporarily, and that must never count as "project deleted".
       if (existsSync(dirname(originPath))) {
-        out.push({ path: dir, description: `orphaned project data (origin gone: ${originPath})`, size: 0 });
+        out.push({
+          path: dir,
+          description: `orphaned project data (origin gone: ${originPath})`,
+          size: 0,
+        });
       }
     } else if (aggressive || now - mtime > UNKNOWN_DIR_MAX_AGE_MS) {
-      out.push({ path: dir, description: aggressive ? 'unverifiable project data (no origin marker)' : 'unverifiable project data (untouched >30d)', size: 0 });
+      out.push({
+        path: dir,
+        description: aggressive
+          ? 'unverifiable project data (no origin marker)'
+          : 'unverifiable project data (untouched >30d)',
+        size: 0,
+      });
     }
   }
   return out;
@@ -139,21 +181,32 @@ export function findStaleScratch(cwd: string, now: number): StaleScratchItem[] {
       try {
         const st = lstatSync(join(taskdevDir, f));
         if (st.isFile() && now - st.mtimeMs > SCRATCH_MAX_AGE_MS) {
-          out.push({ path: join('.monomind', 'taskdev', f), description: 'stale taskdev scratch', size: st.size });
+          out.push({
+            path: join('.monomind', 'taskdev', f),
+            description: 'stale taskdev scratch',
+            size: st.size,
+          });
         }
-      } catch { /* raced away or unreadable — leave it */ }
+      } catch {
+        /* raced away or unreadable — leave it */
+      }
     }
   }
   const loopsDir = join(cwd, '.monomind', 'loops');
   if (existsSync(loopsDir)) {
     const entries = readdirSync(loopsDir);
-    const jsonStems = new Set(entries.filter(f => f.endsWith('.json')).map(f => f.replace(/\.json$/, '')));
+    const jsonStems = new Set(
+      entries.filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')),
+    );
     for (const f of entries) {
       try {
         const st = lstatSync(join(loopsDir, f));
         if (!st.isFile()) continue;
         if (f.endsWith('.json')) {
-          const parsed = JSON.parse(readFileSync(join(loopsDir, f), 'utf8')) as { nextRunAt?: unknown; status?: unknown };
+          const parsed = JSON.parse(readFileSync(join(loopsDir, f), 'utf8')) as {
+            nextRunAt?: unknown;
+            status?: unknown;
+          };
           const { nextRunAt } = parsed;
           const isStale =
             typeof nextRunAt === 'number' &&
@@ -161,12 +214,22 @@ export function findStaleScratch(cwd: string, now: number): StaleScratchItem[] {
             nextRunAt > 0 &&
             now - nextRunAt > LOOP_STALE_GRACE_MS;
           if (isStale) {
-            out.push({ path: join('.monomind', 'loops', f), description: 'abandoned loop state', size: st.size });
+            out.push({
+              path: join('.monomind', 'loops', f),
+              description: 'abandoned loop state',
+              size: st.size,
+            });
           }
         } else if (f.endsWith('.stop') && !jsonStems.has(f.replace(/\.stop$/, ''))) {
-          out.push({ path: join('.monomind', 'loops', f), description: 'orphaned loop stopfile', size: st.size });
+          out.push({
+            path: join('.monomind', 'loops', f),
+            description: 'orphaned loop stopfile',
+            size: st.size,
+          });
         }
-      } catch { /* unparseable or unreadable — never delete what we cannot classify */ }
+      } catch {
+        /* unparseable or unreadable — never delete what we cannot classify */
+      }
     }
   }
   return out;
@@ -181,7 +244,7 @@ export function findStaleScratch(cwd: string, now: number): StaleScratchItem[] {
 function removeOrReport(
   cwd: string,
   items: { path: string; description: string; size: number; type: 'dir' | 'file' }[],
-  dryRun: boolean
+  dryRun: boolean,
 ): { removed: number; removedSize: number } {
   let removed = 0;
   let removedSize = 0;
@@ -189,15 +252,27 @@ function removeOrReport(
     const sizeStr = formatSize(item.size);
     const typeLabel = item.type === 'dir' ? 'dir ' : 'file';
     if (dryRun) {
-      output.writeln(output.warning(`  [would remove] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
+      output.writeln(
+        output.warning(
+          `  [would remove] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
+        ),
+      );
     } else {
       try {
         rmSync(join(cwd, item.path), { recursive: item.type === 'dir', force: true });
-        output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
+        output.writeln(
+          output.success(
+            `  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
+          ),
+        );
         removed++;
         removedSize += item.size;
       } catch (err) {
-        output.writeln(output.error(`  [failed] ${typeLabel}  ${item.path}  - ${err instanceof Error ? err.message : String(err)}`));
+        output.writeln(
+          output.error(
+            `  [failed] ${typeLabel}  ${item.path}  - ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
       }
     }
   }
@@ -254,7 +329,7 @@ function formatSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, i);
+  const value = bytes / 1024 ** i;
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
@@ -290,20 +365,23 @@ export const cleanupCommand: Command = {
     {
       name: 'scratch',
       short: 's',
-      description: 'Prune only stale mastermind scratch (.monomind/taskdev, abandoned .monomind/loops state)',
+      description:
+        'Prune only stale mastermind scratch (.monomind/taskdev, abandoned .monomind/loops state)',
       type: 'boolean',
       default: false,
     },
     {
       name: 'data',
       short: 'd',
-      description: 'Prune orphaned per-project data in ~/.monomind/projects (gone projects, dead lancedb stores)',
+      description:
+        'Prune orphaned per-project data in ~/.monomind/projects (gone projects, dead lancedb stores)',
       type: 'boolean',
       default: false,
     },
     {
       name: 'aggressive',
-      description: 'With --data: also prune dirs that cannot prove their origin (pre-2.3.1, no origin marker)',
+      description:
+        'With --data: also prune dirs that cannot prove their origin (pre-2.3.1, no origin marker)',
       type: 'boolean',
       default: false,
     },
@@ -334,10 +412,14 @@ export const cleanupCommand: Command = {
     const dryRun = !force;
 
     if (ctx.flags.data === true) {
-      const { homedir } = await import('os');
+      const { homedir } = await import('node:os');
       const baseDir = join(homedir(), '.monomind', 'projects');
       output.writeln();
-      output.writeln(output.bold(dryRun ? 'Monomind Project-Data Cleanup (dry run)' : 'Monomind Project-Data Cleanup'));
+      output.writeln(
+        output.bold(
+          dryRun ? 'Monomind Project-Data Cleanup (dry run)' : 'Monomind Project-Data Cleanup',
+        ),
+      );
       output.writeln();
       const orphans = findOrphanedProjectData(baseDir, Date.now(), ctx.flags.aggressive === true);
       if (orphans.length === 0) {
@@ -348,21 +430,38 @@ export const cleanupCommand: Command = {
       for (const o of orphans) {
         output.writeln(`  ${dryRun ? 'would remove' : 'removing'}: ${o.path}  (${o.description})`);
         if (!dryRun) {
-          try { rmSync(o.path, { recursive: true, force: true }); removed++; } catch { /* skip unremovable */ }
+          try {
+            rmSync(o.path, { recursive: true, force: true });
+            removed++;
+          } catch {
+            /* skip unremovable */
+          }
         }
       }
       output.writeln();
       if (dryRun) {
-        output.writeln(output.dim(`  ${orphans.length} item(s). This was a dry run. Use --force to delete.`));
-        return { success: true, message: `Dry run: ${orphans.length} orphaned item(s) found`, data: { found: orphans, dryRun } };
+        output.writeln(
+          output.dim(`  ${orphans.length} item(s). This was a dry run. Use --force to delete.`),
+        );
+        return {
+          success: true,
+          message: `Dry run: ${orphans.length} orphaned item(s) found`,
+          data: { found: orphans, dryRun },
+        };
       }
-      return { success: true, message: `Removed ${removed} orphaned item(s)`, data: { found: orphans, removedCount: removed, dryRun } };
+      return {
+        success: true,
+        message: `Removed ${removed} orphaned item(s)`,
+        data: { found: orphans, removedCount: removed, dryRun },
+      };
     }
 
     if (ctx.flags.scratch === true) {
       const now = Date.now();
       output.writeln();
-      output.writeln(output.bold(dryRun ? 'Monomind Scratch Cleanup (dry run)' : 'Monomind Scratch Cleanup'));
+      output.writeln(
+        output.bold(dryRun ? 'Monomind Scratch Cleanup (dry run)' : 'Monomind Scratch Cleanup'),
+      );
       output.writeln();
       const stale = findStaleScratch(cwd, now);
       if (stale.length === 0) {
@@ -371,18 +470,28 @@ export const cleanupCommand: Command = {
       }
       const { removed, removedSize } = removeOrReport(
         cwd,
-        stale.map(item => ({ ...item, type: 'file' as const })),
-        dryRun
+        stale.map((item) => ({ ...item, type: 'file' as const })),
+        dryRun,
       );
       output.writeln();
       if (dryRun) {
-        output.writeln(output.dim(`  ${stale.length} stale file(s). This was a dry run. Use --force to delete.`));
+        output.writeln(
+          output.dim(`  ${stale.length} stale file(s). This was a dry run. Use --force to delete.`),
+        );
         output.writeln();
-        return { success: true, message: `Dry run: ${stale.length} stale scratch file(s) found`, data: { found: stale, dryRun } };
+        return {
+          success: true,
+          message: `Dry run: ${stale.length} stale scratch file(s) found`,
+          data: { found: stale, dryRun },
+        };
       }
       output.writeln(`  Removed ${removed} file(s) totaling ${formatSize(removedSize)}`);
       output.writeln();
-      return { success: true, message: `Removed ${removed} stale scratch file(s)`, data: { found: stale, removedCount: removed, removedSize, dryRun } };
+      return {
+        success: true,
+        message: `Removed ${removed} stale scratch file(s)`,
+        data: { found: stale, removedCount: removed, removedSize, dryRun },
+      };
     }
 
     // Kill background processes before removing their state files
@@ -392,11 +501,15 @@ export const cleanupCommand: Command = {
       // process actually looks like ours before signaling it.
       const looksLikeOurProcess = (pid: number): boolean => {
         try {
-          const cmd = execSync(`ps -p ${pid} -o command=`, { timeout: 2000, encoding: 'utf-8' }).trim();
+          const cmd = execSync(`ps -p ${pid} -o command=`, {
+            timeout: 2000,
+            encoding: 'utf-8',
+          }).trim();
           // Covers direct `node ...` spawns as well as the npx fallback in
           // control-start.cjs's findCliPath(), which shows up in `ps` as
           // "npm exec ..." / "npx ..." with no literal "node".
-          const looksLikeNode = cmd.includes('node') || cmd.includes('npx') || cmd.includes('npm exec');
+          const looksLikeNode =
+            cmd.includes('node') || cmd.includes('npx') || cmd.includes('npm exec');
           return looksLikeNode && (cmd.includes('monomind') || cmd.includes(cwd));
         } catch {
           return false;
@@ -406,13 +519,22 @@ export const cleanupCommand: Command = {
       try {
         if (existsSync(controlPath) && statSync(controlPath).size <= 4096) {
           const status = JSON.parse(readFileSync(controlPath, 'utf-8'));
-          if (status?.pid && Number.isInteger(status.pid) && status.pid > 0 && looksLikeOurProcess(status.pid)) {
+          if (
+            status?.pid &&
+            Number.isInteger(status.pid) &&
+            status.pid > 0 &&
+            looksLikeOurProcess(status.pid)
+          ) {
             process.kill(status.pid, 'SIGTERM');
             output.writeln(output.info(`  Stopped dashboard server (pid ${status.pid})`));
           }
-          try { unlinkSync(controlPath); } catch {}
+          try {
+            unlinkSync(controlPath);
+          } catch {}
         }
-      } catch { /* already gone */ }
+      } catch {
+        /* already gone */
+      }
       for (const pidName of ['monograph.watch.pid', 'monograph-watch.pid']) {
         try {
           const pp = join(cwd, '.monomind', pidName);
@@ -422,8 +544,12 @@ export const cleanupCommand: Command = {
             process.kill(pid, 'SIGTERM');
             output.writeln(output.info(`  Stopped monograph watcher (pid ${pid})`));
           }
-          try { unlinkSync(pp); } catch {}
-        } catch { /* already gone */ }
+          try {
+            unlinkSync(pp);
+          } catch {}
+        } catch {
+          /* already gone */
+        }
       }
       // Kill stale MCP server processes
       const mcpPidPaths = [
@@ -438,24 +564,35 @@ export const cleanupCommand: Command = {
             process.kill(pid, 'SIGTERM');
             output.writeln(output.info(`  Stopped MCP server (pid ${pid})`));
           }
-          try { unlinkSync(pp); } catch {}
-        } catch { /* already gone */ }
+          try {
+            unlinkSync(pp);
+          } catch {}
+        } catch {
+          /* already gone */
+        }
       }
       // Reap orphaned claude-agent-sdk processes from crashed orgs
       try {
         const { reapOrphanedSdkProcesses } = await import('../utils/resource-governor.js');
         const reaped = reapOrphanedSdkProcesses(new Set());
-        if (reaped > 0) output.writeln(output.info(`  Reaped ${reaped} orphaned SDK agent process(es)`));
-      } catch { /* resource-governor not available */ }
+        if (reaped > 0)
+          output.writeln(output.info(`  Reaped ${reaped} orphaned SDK agent process(es)`));
+      } catch {
+        /* resource-governor not available */
+      }
     }
 
     output.writeln();
-    output.writeln(output.bold(dryRun
-      ? 'Monomind Cleanup (dry run)'
-      : 'Monomind Cleanup'));
+    output.writeln(output.bold(dryRun ? 'Monomind Cleanup (dry run)' : 'Monomind Cleanup'));
     output.writeln();
 
-    const found: { path: string; description: string; size: number; type: 'dir' | 'file'; skipped?: boolean }[] = [];
+    const found: {
+      path: string;
+      description: string;
+      size: number;
+      type: 'dir' | 'file';
+      skipped?: boolean;
+    }[] = [];
     let totalSize = 0;
 
     // Scan directories
@@ -505,13 +642,19 @@ export const cleanupCommand: Command = {
       const typeLabel = item.type === 'dir' ? 'dir ' : 'file';
 
       if (item.skipped) {
-        output.writeln(output.dim(`  [skip] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
+        output.writeln(
+          output.dim(`  [skip] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`),
+        );
         skippedCount++;
         continue;
       }
 
       if (dryRun) {
-        output.writeln(output.warning(`  [would remove] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
+        output.writeln(
+          output.warning(
+            `  [would remove] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
+          ),
+        );
       } else {
         // Actually delete
         try {
@@ -523,21 +666,38 @@ export const cleanupCommand: Command = {
           // removed as normal.
           const settingsPath = join(cwd, '.claude', 'settings.json');
           const isClaudeDirWithPreservedSettings =
-            item.type === 'dir' && item.path === '.claude' && keepConfig && existsSync(settingsPath);
+            item.type === 'dir' &&
+            item.path === '.claude' &&
+            keepConfig &&
+            existsSync(settingsPath);
 
           if (isClaudeDirWithPreservedSettings) {
             const settingsBackup = readFileSync(settingsPath);
             rmSync(fullPath, { recursive: true, force: true });
             mkdirSync(dirname(settingsPath), { recursive: true });
             writeFileSync(settingsPath, settingsBackup);
-            output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
-            output.writeln(output.dim(`  [kept]    file  .claude/settings.json - preserved (--keep-config)`));
+            output.writeln(
+              output.success(
+                `  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
+              ),
+            );
+            output.writeln(
+              output.dim(`  [kept]    file  .claude/settings.json - preserved (--keep-config)`),
+            );
           } else if (item.type === 'dir') {
             rmSync(fullPath, { recursive: true, force: true });
-            output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
+            output.writeln(
+              output.success(
+                `  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
+              ),
+            );
           } else {
             rmSync(fullPath, { force: true });
-            output.writeln(output.success(`  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`));
+            output.writeln(
+              output.success(
+                `  [removed] ${typeLabel}  ${item.path}  (${sizeStr}) - ${item.description}`,
+              ),
+            );
           }
           removedCount++;
           removedSize += item.size;
@@ -553,7 +713,7 @@ export const cleanupCommand: Command = {
     output.writeln(output.bold('Summary:'));
 
     if (dryRun) {
-      const actionable = found.filter(f => !f.skipped);
+      const actionable = found.filter((f) => !f.skipped);
       output.writeln(`  Found ${actionable.length} artifact(s) totaling ${formatSize(totalSize)}`);
       if (skippedCount > 0) {
         output.writeln(`  ${skippedCount} item(s) would be preserved (--keep-config)`);

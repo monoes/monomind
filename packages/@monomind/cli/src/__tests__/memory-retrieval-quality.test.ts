@@ -7,16 +7,12 @@
 //  2. Semantic tier: runs only when @huggingface/transformers and its local
 //     model actually load — asserts paraphrase recall that keyword search
 //     cannot deliver. Skipped (not faked) when the model is unavailable.
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
-import {
-  bridgeStoreEntry,
-  bridgeSearchEntries,
-  bridgeGetDbPath,
-} from '../memory/memory-bridge.js';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { bridgeGetDbPath, bridgeSearchEntries, bridgeStoreEntry } from '../memory/memory-bridge.js';
 
 // The bridge resolves custom dbPaths through a traversal guard that only
 // allows paths under cwd or the per-project data dir — so the fixture store
@@ -125,7 +121,11 @@ describe('memory retrieval quality (Second Brain golden set)', () => {
   beforeAll(async () => {
     for (const g of GOLDEN) {
       const res = await bridgeStoreEntry({
-        key: g.key, value: g.note, namespace: NS, dbPath: FIXTURE_DIR, upsert: true,
+        key: g.key,
+        value: g.note,
+        namespace: NS,
+        dbPath: FIXTURE_DIR,
+        upsert: true,
       });
       expect(res?.success).toBe(true);
       if (res?.embedding) semanticAvailable = true;
@@ -143,24 +143,50 @@ describe('memory retrieval quality (Second Brain golden set)', () => {
   it('keyword queries hit their note even with hyphen/space token differences', async () => {
     for (const g of GOLDEN) {
       const res = await bridgeSearchEntries({
-        query: g.keywordQuery, namespace: NS, dbPath: FIXTURE_DIR, limit: 3,
+        query: g.keywordQuery,
+        namespace: NS,
+        dbPath: FIXTURE_DIR,
+        limit: 3,
       });
       expect(res?.success).toBe(true);
-      const keys = (res?.results ?? []).map(r => r.key);
+      const keys = (res?.results ?? []).map((r) => r.key);
       expect(keys, `keyword query "${g.keywordQuery}" should surface ${g.key}`).toContain(g.key);
     }
   }, 120_000);
 
   it('regression: "semantic test" style queries match "semantic-test" style keys', async () => {
-    await bridgeStoreEntry({ key: 'semantic-test', value: 'x', namespace: NS, dbPath: FIXTURE_DIR, upsert: true, generateEmbeddingFlag: false });
-    const res = await bridgeSearchEntries({ query: 'semantic test', namespace: NS, dbPath: FIXTURE_DIR, limit: 10 });
-    expect((res?.results ?? []).map(r => r.key)).toContain('semantic-test');
+    await bridgeStoreEntry({
+      key: 'semantic-test',
+      value: 'x',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      upsert: true,
+      generateEmbeddingFlag: false,
+    });
+    const res = await bridgeSearchEntries({
+      query: 'semantic test',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 10,
+    });
+    expect((res?.results ?? []).map((r) => r.key)).toContain('semantic-test');
   }, 60_000);
 
   it('namespace scoping: results never leak across namespaces', async () => {
-    await bridgeStoreEntry({ key: 'other-ns-note', value: 'blueberries acidic soil sulfur', namespace: 'knowledge:other', dbPath: FIXTURE_DIR, upsert: true });
-    const res = await bridgeSearchEntries({ query: 'blueberries soil', namespace: NS, dbPath: FIXTURE_DIR, limit: 10 });
-    expect((res?.results ?? []).every(r => r.namespace === NS)).toBe(true);
+    await bridgeStoreEntry({
+      key: 'other-ns-note',
+      value: 'blueberries acidic soil sulfur',
+      namespace: 'knowledge:other',
+      dbPath: FIXTURE_DIR,
+      upsert: true,
+    });
+    const res = await bridgeSearchEntries({
+      query: 'blueberries soil',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 10,
+    });
+    expect((res?.results ?? []).every((r) => r.namespace === NS)).toBe(true);
   }, 60_000);
 
   it('semantic tier: paraphrase queries recall the right note (requires local model)', async (ctx) => {
@@ -171,45 +197,80 @@ describe('memory retrieval quality (Second Brain golden set)', () => {
     let hits = 0;
     for (const g of GOLDEN) {
       const res = await bridgeSearchEntries({
-        query: g.paraphrase, namespace: NS, dbPath: FIXTURE_DIR, limit: 3, threshold: 0.2,
+        query: g.paraphrase,
+        namespace: NS,
+        dbPath: FIXTURE_DIR,
+        limit: 3,
+        threshold: 0.2,
       });
-      const keys = (res?.results ?? []).map(r => r.key);
+      const keys = (res?.results ?? []).map((r) => r.key);
       if (keys.includes(g.key)) hits++;
-      expect(res?.searchMethod, `paraphrase "${g.paraphrase}" must use the vector path`).toBe('semantic');
+      expect(res?.searchMethod, `paraphrase "${g.paraphrase}" must use the vector path`).toBe(
+        'semantic',
+      );
     }
     // Recall@3 ≥ 80% on paraphrases — the bar that keyword search cannot meet.
     const bar = Math.floor(GOLDEN.length * 0.8);
-    expect(hits, `paraphrase recall@3 was ${hits}/${GOLDEN.length} (bar: ${bar})`).toBeGreaterThanOrEqual(bar);
+    expect(
+      hits,
+      `paraphrase recall@3 was ${hits}/${GOLDEN.length} (bar: ${bar})`,
+    ).toBeGreaterThanOrEqual(bar);
   }, 600_000);
 
   it('multi-chunk documents: a paraphrase targeting a deep section retrieves the right chunk', async (ctx) => {
-    if (!semanticAvailable) { ctx.skip(); return; }
+    if (!semanticAvailable) {
+      ctx.skip();
+      return;
+    }
     const { chunkDocument } = await import('@monoes/memory');
     const doc = [
       '# Company handbook',
       '## Expense policy',
-      'Meals under 50 euro need no receipt. Flights must be booked through the travel portal at least 14 days ahead. '.repeat(30),
+      'Meals under 50 euro need no receipt. Flights must be booked through the travel portal at least 14 days ahead. '.repeat(
+        30,
+      ),
       '## Parental leave',
-      'Primary caregivers receive 16 weeks fully paid; secondary caregivers receive 6 weeks. Leave can be split into two blocks within the first year. '.repeat(30),
+      'Primary caregivers receive 16 weeks fully paid; secondary caregivers receive 6 weeks. Leave can be split into two blocks within the first year. '.repeat(
+        30,
+      ),
       '## Equipment refresh',
-      'Laptops are replaced every 36 months; damaged screens are repaired within one week via the IT desk. '.repeat(30),
+      'Laptops are replaced every 36 months; damaged screens are repaired within one week via the IT desk. '.repeat(
+        30,
+      ),
     ].join('\n\n');
     const chunks = chunkDocument('handbook', doc, 3200, 400);
     expect(chunks.length).toBeGreaterThan(3);
     const NS_DOC = 'knowledge:handbook';
     for (const c of chunks) {
-      const res = await bridgeStoreEntry({ key: c.chunkId, value: c.text, namespace: NS_DOC, dbPath: FIXTURE_DIR, upsert: true });
+      const res = await bridgeStoreEntry({
+        key: c.chunkId,
+        value: c.text,
+        namespace: NS_DOC,
+        dbPath: FIXTURE_DIR,
+        upsert: true,
+      });
       expect(res?.success).toBe(true);
     }
     const cases = [
       { query: 'how much time off do new parents get', mustContain: 'Parental leave' },
       { query: 'when can I get a new work laptop', mustContain: 'Equipment refresh' },
-      { query: 'do I need to keep receipts for small business lunches', mustContain: 'Expense policy' },
+      {
+        query: 'do I need to keep receipts for small business lunches',
+        mustContain: 'Expense policy',
+      },
     ];
     for (const c of cases) {
-      const res = await bridgeSearchEntries({ query: c.query, namespace: NS_DOC, dbPath: FIXTURE_DIR, limit: 2, threshold: 0.15 });
-      const texts = (res?.results ?? []).map(r => r.content).join('\n---\n');
-      expect(texts, `"${c.query}" should surface the ${c.mustContain} section`).toContain(c.mustContain);
+      const res = await bridgeSearchEntries({
+        query: c.query,
+        namespace: NS_DOC,
+        dbPath: FIXTURE_DIR,
+        limit: 2,
+        threshold: 0.15,
+      });
+      const texts = (res?.results ?? []).map((r) => r.content).join('\n---\n');
+      expect(texts, `"${c.query}" should surface the ${c.mustContain} section`).toContain(
+        c.mustContain,
+      );
     }
   }, 600_000);
 });
@@ -218,34 +279,50 @@ describe('global second brain (cross-project store)', () => {
   it('global-scope ingest routes to the global store; merged search finds it with [global] scope and project wins ties', async () => {
     const { mkdirSync, writeFileSync } = await import('node:fs');
     // Env-overridden global brain — never touches the user's real one.
-    const globalDir = join(process.cwd(), '.tmp-global-brain-' + process.pid);
+    const globalDir = join(process.cwd(), `.tmp-global-brain-${process.pid}`);
     process.env.MONOMIND_GLOBAL_BRAIN_DIR = globalDir;
     const projRoot = mkdtempSync(join(process.cwd(), '.tmp-proj-root-'));
     try {
       const { ingestDocument, searchKnowledge } = await import('../knowledge/document-pipeline.js');
       // one doc only in the global brain
       const gDoc = join(projRoot, 'global-note.md');
-      writeFileSync(gDoc, '# Espresso dialing\n\nSour shots need a finer grind; bitter shots need a coarser grind. Aim for 1:2 in 27 seconds.');
+      writeFileSync(
+        gDoc,
+        '# Espresso dialing\n\nSour shots need a finer grind; bitter shots need a coarser grind. Aim for 1:2 in 27 seconds.',
+      );
       const gRes = await ingestDocument(gDoc, 'global');
       expect(gRes.chunksIndexed).toBeGreaterThan(0);
       // an identical-topic doc in the project store
       mkdirSync(join(projRoot, '.monomind'), { recursive: true });
       const pDoc = join(projRoot, 'project-note.md');
-      writeFileSync(pDoc, '# Espresso dialing\n\nSour shots need a finer grind; bitter shots need a coarser grind. Aim for 1:2 in 27 seconds.');
+      writeFileSync(
+        pDoc,
+        '# Espresso dialing\n\nSour shots need a finer grind; bitter shots need a coarser grind. Aim for 1:2 in 27 seconds.',
+      );
       const pRes = await ingestDocument(pDoc, 'shared', projRoot);
       expect(pRes.chunksIndexed).toBeGreaterThan(0);
 
       // merged search sees both; identical content → project must rank first (tie boost)
-      const all = await searchKnowledge('adjusting espresso grind for sour shots', { rootDir: projRoot, limit: 5, minScore: 0.1, store: 'all' });
+      const all = await searchKnowledge('adjusting espresso grind for sour shots', {
+        rootDir: projRoot,
+        limit: 5,
+        minScore: 0.1,
+        store: 'all',
+      });
       expect(all.length).toBeGreaterThanOrEqual(2);
-      const scopes = all.map(e => e.scope);
+      const scopes = all.map((e) => e.scope);
       expect(scopes).toContain('global');
       expect(scopes).toContain('shared');
       expect(all[0].scope).toBe('shared'); // project wins the tie
 
       // global-only search excludes project results
-      const gOnly = await searchKnowledge('espresso grind', { rootDir: projRoot, limit: 5, minScore: 0.1, store: 'global' });
-      expect(gOnly.every(e => e.scope === 'global')).toBe(true);
+      const gOnly = await searchKnowledge('espresso grind', {
+        rootDir: projRoot,
+        limit: 5,
+        minScore: 0.1,
+        store: 'global',
+      });
+      expect(gOnly.every((e) => e.scope === 'global')).toBe(true);
       expect(gOnly.length).toBeGreaterThan(0);
       // provenance: the global hit points at the actual source file
       expect(gOnly[0].filePath).toBe(gDoc);
@@ -256,9 +333,13 @@ describe('global second brain (cross-project store)', () => {
         const { createHash } = await import('node:crypto');
         const { readFileSync } = await import('node:fs');
         const { bridgeDeleteEntry } = await import('../memory/memory-bridge.js');
-        const h = createHash('sha256').update(readFileSync(join(projRoot, 'project-note.md'), 'utf8')).digest('hex');
+        const h = createHash('sha256')
+          .update(readFileSync(join(projRoot, 'project-note.md'), 'utf8'))
+          .digest('hex');
         await bridgeDeleteEntry({ key: `doc:${h}:0`, namespace: 'knowledge:shared' });
-      } catch { /* best effort */ }
+      } catch {
+        /* best effort */
+      }
       delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
       rmSync(globalDir, { recursive: true, force: true });
       rmSync(projRoot, { recursive: true, force: true });
@@ -279,6 +360,8 @@ describe('global second brain (cross-project store)', () => {
       expect(res.text.length).toBeGreaterThan(0);
       expect(res.hits).toBeGreaterThanOrEqual(0);
       if (res.hits === 0) expect(res.text).toMatch(/No matching documents/);
-    } finally { rmSync(root, { recursive: true, force: true }); }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   }, 60_000);
 });

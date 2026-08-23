@@ -4,13 +4,13 @@
  * the globally installed monomind package. No network calls — entirely local.
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { getInstalledVersion } from '../update/checker.js';
 
 export interface SyncCheckResult {
-  localVersion: string | null;   // from .monomind/version (null = not yet stamped)
-  globalVersion: string | null;  // from installed monomind package
+  localVersion: string | null; // from .monomind/version (null = not yet stamped)
+  globalVersion: string | null; // from installed monomind package
   needsSync: boolean;
 }
 
@@ -21,17 +21,16 @@ export function checkLocalSync(projectDir = process.cwd()): SyncCheckResult {
     if (existsSync(versionFile)) {
       localVersion = readFileSync(versionFile, 'utf-8').trim() || null;
     }
-  } catch { /* pre-v1.17 project or missing .monomind */ }
+  } catch {
+    /* pre-v1.17 project or missing .monomind */
+  }
 
   // Try both package names — `monomind` (umbrella) and `@monoes/monomindcli` (scoped CLI)
   const globalVersion =
-    getInstalledVersion('monomind') ??
-    getInstalledVersion('@monoes/monomindcli');
+    getInstalledVersion('monomind') ?? getInstalledVersion('@monoes/monomindcli');
 
   const needsSync =
-    localVersion !== null &&
-    globalVersion !== null &&
-    localVersion !== globalVersion;
+    localVersion !== null && globalVersion !== null && localVersion !== globalVersion;
 
   return { localVersion, globalVersion, needsSync };
 }

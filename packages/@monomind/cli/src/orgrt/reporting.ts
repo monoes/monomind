@@ -34,18 +34,33 @@ export interface RunSummary {
   totalCostUsd: number;
 }
 
-const roleStats = (): RoleStats =>
-  ({ messagesSent: 0, toolsAllowed: 0, toolsDenied: 0, tokens: 0, costUsd: 0, crashed: false });
+const roleStats = (): RoleStats => ({
+  messagesSent: 0,
+  toolsAllowed: 0,
+  toolsDenied: 0,
+  tokens: 0,
+  costUsd: 0,
+  crashed: false,
+});
 
 /** Aggregate one run's bus events into a summary. */
 export function summarizeRun(events: BusEvent[]): RunSummary {
   const s: RunSummary = {
-    org: events[0]?.org ?? '', run: events[0]?.run ?? '',
+    org: events[0]?.org ?? '',
+    run: events[0]?.run ?? '',
     startedAt: events.length ? events[0].ts : null,
     endedAt: events.length ? events[events.length - 1].ts : null,
-    durationMs: null, events: events.length,
-    messages: 0, xorgMessages: 0, assets: [], crashes: [], cutShort: [], outcome: null,
-    roles: {}, totalTokens: 0, totalCostUsd: 0,
+    durationMs: null,
+    events: events.length,
+    messages: 0,
+    xorgMessages: 0,
+    assets: [],
+    crashes: [],
+    cutShort: [],
+    outcome: null,
+    roles: {},
+    totalTokens: 0,
+    totalCostUsd: 0,
   };
   if (s.startedAt !== null && s.endedAt !== null) s.durationMs = s.endedAt - s.startedAt;
   const role = (id: string | undefined): RoleStats => {
@@ -55,9 +70,13 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
   for (const e of events) {
     switch (e.type) {
       case 'message':
-        s.messages++; role(e.from).messagesSent++; break;
+        s.messages++;
+        role(e.from).messagesSent++;
+        break;
       case 'xorg':
-        s.xorgMessages++; role(e.from?.includes(':') ? e.from.split(':')[1] : e.from).messagesSent++; break;
+        s.xorgMessages++;
+        role(e.from?.includes(':') ? e.from.split(':')[1] : e.from).messagesSent++;
+        break;
       case 'tool':
         if (e.decision === 'deny') role(e.from).toolsDenied++;
         else role(e.from).toolsAllowed++;
@@ -69,8 +88,12 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
         const tokens = Number((e.data as { tokens?: number } | undefined)?.tokens ?? 0);
         const cost = Number((e.data as { cost_usd?: number } | undefined)?.cost_usd ?? 0);
         const r = role(e.from);
-        r.tokens += tokens; s.totalTokens += tokens;
-        if (Number.isFinite(cost)) { r.costUsd += cost; s.totalCostUsd += cost; }
+        r.tokens += tokens;
+        s.totalTokens += tokens;
+        if (Number.isFinite(cost)) {
+          r.costUsd += cost;
+          s.totalCostUsd += cost;
+        }
         break;
       }
       case 'audit':
@@ -97,14 +120,25 @@ export function summarizeRun(events: BusEvent[]): RunSummary {
 export function listRunDirs(cwd: string, org: string): string[] {
   const base = join(cwd, ORG_DIR, org);
   if (!existsSync(base)) return [];
-  return readdirSync(base).filter(d => d.startsWith('run-')).sort().reverse();
+  return readdirSync(base)
+    .filter((d) => d.startsWith('run-'))
+    .sort()
+    .reverse();
 }
 
 export function readRunEvents(cwd: string, org: string, run: string): BusEvent[] {
   const f = join(cwd, ORG_DIR, org, run, 'bus.jsonl');
   if (!existsSync(f)) return [];
-  return readFileSync(f, 'utf8').split('\n').filter(Boolean)
-    .map(l => { try { return JSON.parse(l) as BusEvent; } catch { return null; } })
+  return readFileSync(f, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        return JSON.parse(l) as BusEvent;
+      } catch {
+        return null;
+      }
+    })
     .filter((e): e is BusEvent => e !== null);
 }
 
@@ -116,8 +150,16 @@ export function historyFile(cwd: string, org: string): string {
 export function readHistory(cwd: string, org: string): RunSummary[] {
   const f = historyFile(cwd, org);
   if (!existsSync(f)) return [];
-  return readFileSync(f, 'utf8').split('\n').filter(Boolean)
-    .map(l => { try { return JSON.parse(l) as RunSummary; } catch { return null; } })
+  return readFileSync(f, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => {
+      try {
+        return JSON.parse(l) as RunSummary;
+      } catch {
+        return null;
+      }
+    })
     .filter((s): s is RunSummary => s !== null);
 }
 
@@ -129,13 +171,20 @@ export function formatEvent(e: BusEvent): string {
     case 'message':
     case 'xorg':
       return `${t} ${e.type === 'xorg' ? '⇄' : '→'} ${from} → ${e.to}: [${e.subject ?? ''}] ${trim(e.msg)}`;
-    case 'chat': return `${t} 💬 ${from}: ${trim(e.msg)}`;
-    case 'tool': return `${t} 🔧 ${from} ${e.tool} ${e.decision === 'deny' ? `DENIED (${e.reason})` : 'ok'}`;
-    case 'asset': return `${t} 📄 ${from} wrote ${e.path}`;
-    case 'usage': return `${t} 🪙 ${from} +${(e.data as { tokens?: number } | undefined)?.tokens ?? 0} tokens`;
-    case 'audit': return `${t} ⚠️  ${from} ${e.msg ?? e.reason ?? ''}`;
-    case 'question': return `${t} ❓ ${from}: ${trim(e.msg)}`;
-    default: return `${t} ▪ ${from} ${e.type}: ${trim(e.msg ?? '')}`;
+    case 'chat':
+      return `${t} 💬 ${from}: ${trim(e.msg)}`;
+    case 'tool':
+      return `${t} 🔧 ${from} ${e.tool} ${e.decision === 'deny' ? `DENIED (${e.reason})` : 'ok'}`;
+    case 'asset':
+      return `${t} 📄 ${from} wrote ${e.path}`;
+    case 'usage':
+      return `${t} 🪙 ${from} +${(e.data as { tokens?: number } | undefined)?.tokens ?? 0} tokens`;
+    case 'audit':
+      return `${t} ⚠️  ${from} ${e.msg ?? e.reason ?? ''}`;
+    case 'question':
+      return `${t} ❓ ${from}: ${trim(e.msg)}`;
+    default:
+      return `${t} ▪ ${from} ${e.type}: ${trim(e.msg ?? '')}`;
   }
 }
 

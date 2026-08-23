@@ -1,4 +1,4 @@
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
 
 const require = createRequire(import.meta.url);
@@ -15,8 +15,11 @@ export const typescriptConfig: LanguageConfig = {
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set(['enum_declaration']),
   functionNodeTypes: new Set([
-    'function_declaration', 'function', 'arrow_function',
-    'generator_function_declaration', 'generator_function',
+    'function_declaration',
+    'function',
+    'arrow_function',
+    'generator_function_declaration',
+    'generator_function',
   ]),
   methodNodeTypes: new Set(['method_definition', 'method_signature']),
   constructorNodeTypes: new Set(['constructor']),

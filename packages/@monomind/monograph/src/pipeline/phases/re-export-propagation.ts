@@ -1,7 +1,6 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import { makeId, CONFIDENCE_SCORE } from '../../types.js';
-import { insertEdges } from '../../storage/edge-store.js';
 import type Database from 'better-sqlite3';
+import { CONFIDENCE_SCORE, makeId } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 
 export interface ReExportPropagationOutput {
   propagated: number;
@@ -22,9 +21,9 @@ export interface ReExportPropagationOutput {
  */
 export function propagateReExports(db: Database.Database): ReExportPropagationOutput {
   // Collect all RE_EXPORTS edges (barrel file → re-exported file), keyed by File node IDs
-  const reExportEdges = db.prepare(
-    `SELECT source_id, target_id FROM edges WHERE relation = 'RE_EXPORTS'`,
-  ).all() as { source_id: string; target_id: string }[];
+  const reExportEdges = db
+    .prepare(`SELECT source_id, target_id FROM edges WHERE relation = 'RE_EXPORTS'`)
+    .all() as { source_id: string; target_id: string }[];
 
   if (reExportEdges.length === 0) return { propagated: 0 };
 
@@ -32,26 +31,33 @@ export function propagateReExports(db: Database.Database): ReExportPropagationOu
   const barrelExports = new Map<string, Set<string>>();
   for (const e of reExportEdges) {
     if (!barrelExports.has(e.source_id)) barrelExports.set(e.source_id, new Set());
-    barrelExports.get(e.source_id)!.add(e.target_id);
+    barrelExports.get(e.source_id)?.add(e.target_id);
   }
 
   // Determine which File nodes are "reached" — either directly imported (via their File node ID)
   // or their symbols are imported (join through nodes.file_path).
   // We build a set of reached file paths to handle both IMPORTS→symbol and IMPORTS→File cases.
   const reachedFilePaths = new Set<string>(
-    (db.prepare(`
+    (
+      db
+        .prepare(`
       SELECT DISTINCT n.file_path
       FROM edges e
       JOIN nodes n ON n.id = e.target_id
       WHERE e.relation = 'IMPORTS'
         AND n.file_path IS NOT NULL
-    `).all() as { file_path: string }[]).map(r => r.file_path),
+    `)
+        .all() as { file_path: string }[]
+    ).map((r) => r.file_path),
   );
 
   // Also map File node ID → file_path for barrel lookup
   const fileIdToPath = new Map<string, string>(
-    (db.prepare(`SELECT id, file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`).all() as
-      { id: string; file_path: string }[]).map(r => [r.id, r.file_path]),
+    (
+      db
+        .prepare(`SELECT id, file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`)
+        .all() as { id: string; file_path: string }[]
+    ).map((r) => [r.id, r.file_path]),
   );
 
   // Map file_path → File node ID for inserting synthetic IMPORTS edges
@@ -78,19 +84,25 @@ export function propagateReExports(db: Database.Database): ReExportPropagationOu
 
   // nodeId → file_path for all nodes (used to resolve importer file paths)
   const nodeIdToFilePath = new Map<string, string>(
-    (db.prepare(`SELECT id, file_path FROM nodes WHERE file_path IS NOT NULL`)
-      .all() as { id: string; file_path: string }[]).map(r => [r.id, r.file_path]),
+    (
+      db.prepare(`SELECT id, file_path FROM nodes WHERE file_path IS NOT NULL`).all() as {
+        id: string;
+        file_path: string;
+      }[]
+    ).map((r) => [r.id, r.file_path]),
   );
 
   // barrelFilePath → Set<importerNodeId>: who IMPORTS any node from each barrel file
   // Load all IMPORTS edges once and group by target file_path
-  const allImportEdges = db.prepare(`
+  const allImportEdges = db
+    .prepare(`
     SELECT e.source_id, n.file_path AS target_file_path
     FROM edges e
     JOIN nodes n ON n.id = e.target_id
     WHERE e.relation = 'IMPORTS'
       AND n.file_path IS NOT NULL
-  `).all() as { source_id: string; target_file_path: string }[];
+  `)
+    .all() as { source_id: string; target_file_path: string }[];
 
   const barrelImporters = new Map<string, Set<string>>();
   for (const row of allImportEdges) {
@@ -109,7 +121,8 @@ export function propagateReExports(db: Database.Database): ReExportPropagationOu
 
   while (changed) {
     changed = false;
-    const toAdd: Array<{ importerFileId: string; targetFileId: string; targetFilePath: string }> = [];
+    const toAdd: Array<{ importerFileId: string; targetFileId: string; targetFilePath: string }> =
+      [];
 
     for (const [barrelFileId, exportedFileIds] of barrelExports) {
       const barrelFilePath = fileIdToPath.get(barrelFileId);
@@ -154,7 +167,10 @@ export const reExportPropagationPhase: PipelinePhase<ReExportPropagationOutput> 
   async execute(ctx): Promise<ReExportPropagationOutput> {
     if (!ctx.db) return { propagated: 0 };
     const result = propagateReExports(ctx.db);
-    ctx.onProgress?.({ phase: 're-export-propagation', message: `Propagated ${result.propagated} re-export edges` });
+    ctx.onProgress?.({
+      phase: 're-export-propagation',
+      message: `Propagated ${result.propagated} re-export edges`,
+    });
     return result;
   },
 };

@@ -7,11 +7,11 @@
  * issues discovered while installing them via /monoes:install.
  */
 
-import { existsSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { output } from '../output.js';
-import { runCommand } from './doctor-env-checks.js';
 import type { HealthCheck } from './doctor-env-checks.js';
+import { runCommand } from './doctor-env-checks.js';
 
 interface MonoesIssue {
   message: string;
@@ -42,7 +42,8 @@ async function findMonoesIssues(): Promise<MonoesIssue[]> {
       // monoes/tap (same upstream repo, redirected). Verified against INSTALL_RECEIPT.json
       // before relying on this — the receipts point at monoes/tap, not this one.
       issues.push({
-        message: 'both nokhodian/tap and monoes/tap are tapped — formula/cask lookups are ambiguous',
+        message:
+          'both nokhodian/tap and monoes/tap are tapped — formula/cask lookups are ambiguous',
         fixCommand: 'brew untap --force nokhodian/tap',
       });
     } else if (hasOld && !hasNew) {
@@ -62,8 +63,10 @@ async function findMonoesIssues(): Promise<MonoesIssue[]> {
     const cellarRoot = await runCommand('brew --cellar');
     if (cellarRoot && existsSync(`${cellarRoot}/monotask`) && !(await commandExists('monotask'))) {
       issues.push({
-        message: "monotask formula is installed but 'monotask' isn't on PATH (Homebrew installs it as 'monotaskcli' and skips linking when the same-named cask is present)",
-        fixCommand: 'ln -sf "$(brew --cellar)"/monotask/*/bin/monotaskcli "$(brew --prefix)/bin/monotask"',
+        message:
+          "monotask formula is installed but 'monotask' isn't on PATH (Homebrew installs it as 'monotaskcli' and skips linking when the same-named cask is present)",
+        fixCommand:
+          'ln -sf "$(brew --cellar)"/monotask/*/bin/monotaskcli "$(brew --prefix)/bin/monotask"',
       });
     }
   } catch {
@@ -82,8 +85,10 @@ async function findMonoesIssues(): Promise<MonoesIssue[]> {
       }
       if (quarantined) {
         issues.push({
-          message: 'MonoClip.app is quarantined — macOS may silently move it to Trash on first launch',
-          fixCommand: 'find /Applications/MonoClip.app -print0 | xargs -0 xattr -c && codesign --force --deep --sign - /Applications/MonoClip.app',
+          message:
+            'MonoClip.app is quarantined — macOS may silently move it to Trash on first launch',
+          fixCommand:
+            'find /Applications/MonoClip.app -print0 | xargs -0 xattr -c && codesign --force --deep --sign - /Applications/MonoClip.app',
         });
       }
     }
@@ -103,7 +108,7 @@ async function findMonoesIssues(): Promise<MonoesIssue[]> {
         try {
           const releaseJson = await runCommand(
             'curl -fsSL https://api.github.com/repos/monoes/mono-agent/releases/latest',
-            8000
+            8000,
           );
           const latestTag = (JSON.parse(releaseJson).tag_name || '').replace(/^v/, '');
           if (latestTag && latestTag !== current) {
@@ -129,18 +134,26 @@ async function findMonoesIssues(): Promise<MonoesIssue[]> {
 
 export async function checkMonoesTools(): Promise<HealthCheck> {
   if (process.platform !== 'darwin') {
-    return { name: 'monoes Tools', status: 'pass', message: 'Skipped (macOS-only — monotask/mono-agent/mono-clip are macOS tools)' };
+    return {
+      name: 'monoes Tools',
+      status: 'pass',
+      message: 'Skipped (macOS-only — monotask/mono-agent/mono-clip are macOS tools)',
+    };
   }
 
   const issues = await findMonoesIssues();
   if (issues.length === 0) {
-    return { name: 'monoes Tools', status: 'pass', message: 'No known monotask/mono-agent/mono-clip install issues detected' };
+    return {
+      name: 'monoes Tools',
+      status: 'pass',
+      message: 'No known monotask/mono-agent/mono-clip install issues detected',
+    };
   }
   return {
     name: 'monoes Tools',
     status: 'warn',
-    message: issues.map(i => i.message).join('; '),
-    fix: issues.map(i => i.fixCommand).join('  |  '),
+    message: issues.map((i) => i.message).join('; '),
+    fix: issues.map((i) => i.fixCommand).join('  |  '),
   };
 }
 
@@ -160,7 +173,12 @@ export async function fixMonoesTools(): Promise<boolean> {
       // 2min timeout: generous enough for an interactive sudo password prompt
       // (mono-agent's fix uses sudo mv), but still bounded — avoids hanging the
       // whole `doctor --install` run on a stalled brew/curl network call.
-      execSync(issue.fixCommand, { encoding: 'utf8', stdio: 'inherit', shell: '/bin/bash', timeout: 120_000 });
+      execSync(issue.fixCommand, {
+        encoding: 'utf8',
+        stdio: 'inherit',
+        shell: '/bin/bash',
+        timeout: 120_000,
+      });
       output.writeln(output.success(`Fixed: ${issue.message}`));
     } catch (error) {
       allOk = false;

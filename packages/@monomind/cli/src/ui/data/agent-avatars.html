@@ -734,14 +734,14 @@
   </div>
 </div>
 <script>
-function filter(q) {
+function _filter(q) {
   q = q.toLowerCase();
   document.querySelectorAll('.card').forEach(c => {
     c.style.display = (c.dataset.label.includes(q) || c.dataset.cat.includes(q)) ? '' : 'none';
   });
 }
-function copy(id) {
-  navigator.clipboard?.writeText('avatars/' + id + '.svg').catch(()=>{});
+function _copy(id) {
+  navigator.clipboard?.writeText(`avatars/${id}.svg`).catch(()=>{});
   const el = event.currentTarget.querySelector('img');
   el.style.outline = '3px solid #3B7DD8';
   setTimeout(() => el.style.outline = '', 1200);

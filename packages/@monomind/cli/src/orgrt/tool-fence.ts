@@ -24,12 +24,23 @@ export const TOOL_CALL_RE = /```tool_call\s*\n([\s\S]*?)```/g;
  *  respecting string literals. Falls back to `s` unchanged when no balanced
  *  prefix exists (JSON.parse then reports the original error). */
 function firstBalancedJson(s: string): string {
-  let depth = 0, inStr = false, esc = false;
+  let depth = 0,
+    inStr = false,
+    esc = false;
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
-    if (esc) { esc = false; continue; }
-    if (c === '\\' && inStr) { esc = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (c === '\\' && inStr) {
+      esc = true;
+      continue;
+    }
+    if (c === '"') {
+      inStr = !inStr;
+      continue;
+    }
     if (inStr) continue;
     if (c === '{' || c === '[') depth++;
     else if (c === '}' || c === ']') {
@@ -108,9 +119,12 @@ function describeZod(schema: z.ZodType<any>): string {
   else if (schema instanceof z.ZodArray) kind = 'array';
   else if (schema instanceof z.ZodObject) kind = 'object';
   else if (schema instanceof z.ZodEnum) kind = (schema.options as string[]).join('|');
-  else if (schema instanceof z.ZodOptional) return `optional ${describeZod(schema.unwrap() as z.ZodType<any>)}`;
-  else if (schema instanceof z.ZodNullable) return `nullable ${describeZod(schema.unwrap() as z.ZodType<any>)}`;
-  else if (schema instanceof z.ZodDefault) return `optional ${describeZod(schema._def.innerType as z.ZodType<any>)}`;
+  else if (schema instanceof z.ZodOptional)
+    return `optional ${describeZod(schema.unwrap() as z.ZodType<any>)}`;
+  else if (schema instanceof z.ZodNullable)
+    return `nullable ${describeZod(schema.unwrap() as z.ZodType<any>)}`;
+  else if (schema instanceof z.ZodDefault)
+    return `optional ${describeZod(schema._def.innerType as z.ZodType<any>)}`;
   return desc ? `${kind} — ${desc}` : kind;
 }
 
@@ -135,13 +149,17 @@ export function parseToolCalls(
         // Models sometimes append extra closing braces after the JSON object
         // (observed with kimi k3: `...}}}`); parse only the first balanced
         // object instead of rejecting the whole fence.
-        const parsed = JSON.parse(firstBalancedJson(m[1].trim())) as { name?: unknown; arguments?: unknown };
+        const parsed = JSON.parse(firstBalancedJson(m[1].trim())) as {
+          name?: unknown;
+          arguments?: unknown;
+        };
         if (typeof parsed.name !== 'string' || !parsed.name) continue;
         calls.push({
           name: parsed.name,
-          arguments: (parsed.arguments && typeof parsed.arguments === 'object')
-            ? parsed.arguments as Record<string, unknown>
-            : {},
+          arguments:
+            parsed.arguments && typeof parsed.arguments === 'object'
+              ? (parsed.arguments as Record<string, unknown>)
+              : {},
         });
       } catch (err) {
         onMalformed?.(m[1].trim(), err instanceof Error ? err.message : String(err));
@@ -181,10 +199,11 @@ export async function executeToolCall(
   canUseTool?: (toolName: string, input: Record<string, unknown>) => Promise<unknown>,
 ): Promise<string> {
   const tool = tools.find((t) => t.name === call.name);
-  if (!tool) return `ERROR: unknown tool "${call.name}". Available: ${tools.map((t) => t.name).join(', ')}`;
+  if (!tool)
+    return `ERROR: unknown tool "${call.name}". Available: ${tools.map((t) => t.name).join(', ')}`;
   const parsed = z.object(tool.schema).safeParse(call.arguments);
   if (!parsed.success) {
-    return `ERROR: invalid arguments for ${call.name}: ${parsed.error.issues.map((i) => i.path.join('.') + ' ' + i.message).join('; ')}`;
+    return `ERROR: invalid arguments for ${call.name}: ${parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`;
   }
   if (canUseTool) {
     const decision = await canUseTool(call.name, parsed.data as Record<string, unknown>);
@@ -206,7 +225,13 @@ export async function executeToolCall(
 
 /** Format executed results as the next prompt's tool_result fences. */
 export function formatToolResults(calls: ToolCall[], results: string[]): string {
-  return 'Tool results:\n' + results.map((r, i) =>
-    '```tool_result\n' + JSON.stringify({ name: calls[i].name, result: r }) + '\n```'
-  ).join('\n');
+  return (
+    'Tool results:\n' +
+    results
+      .map(
+        (r, i) =>
+          `\`\`\`tool_result\n${JSON.stringify({ name: calls[i].name, result: r })}\n\`\`\``,
+      )
+      .join('\n')
+  );
 }

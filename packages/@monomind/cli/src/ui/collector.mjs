@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,13 +20,15 @@ function readJSONL(filePath, last) {
     const raw = fs.readFileSync(filePath, 'utf8');
     const lines = raw.split('\n').filter(Boolean);
     const slice = last != null ? lines.slice(-last) : lines;
-    return slice.map(line => {
-      try {
-        return JSON.parse(line);
-      } catch {
-        return null;
-      }
-    }).filter(Boolean);
+    return slice
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
   } catch {
     return [];
   }
@@ -41,7 +43,7 @@ function countJSONLLines(filePath) {
   }
 }
 
-function fileExists(filePath) {
+function _fileExists(filePath) {
   try {
     fs.accessSync(filePath);
     return true;
@@ -74,7 +76,7 @@ function collectProject(projectDir) {
   let name = path.basename(projectDir);
   const pkgPath = path.join(projectDir, 'package.json');
   const pkg = readJSON(pkgPath);
-  if (pkg && pkg.name) {
+  if (pkg?.name) {
     name = pkg.name;
   }
   return { dir: projectDir, name };
@@ -94,8 +96,8 @@ function collectSessions(projectDir) {
   const sessionsDir = getClaudeProjectSessionsDir(projectDir);
   const entries = listDir(sessionsDir);
   const list = entries
-    .filter(f => f.endsWith('.json') || f.endsWith('.jsonl'))
-    .map(f => {
+    .filter((f) => f.endsWith('.json') || f.endsWith('.jsonl'))
+    .map((f) => {
       const filePath = path.join(sessionsDir, f);
       const stat = fileStat(filePath);
       const id = path.basename(f, path.extname(f));
@@ -103,7 +105,7 @@ function collectSessions(projectDir) {
         id,
         file: filePath,
         mtime: stat ? stat.mtimeMs : null,
-        size: stat ? stat.size : null
+        size: stat ? stat.size : null,
       };
     })
     .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
@@ -114,8 +116,8 @@ function collectSessions(projectDir) {
     list,
     count: list.length,
     palace: {
-      count: memFiles.length
-    }
+      count: memFiles.length,
+    },
   };
 }
 
@@ -139,7 +141,9 @@ function monomindDataRoot(projectDir) {
       const worktreeDir = path.resolve(projectDir, m[1].trim());
       return path.join(path.dirname(path.dirname(worktreeDir)), 'monomind');
     }
-  } catch { /* not a git repo — fall through */ }
+  } catch {
+    /* not a git repo — fall through */
+  }
   return path.join(projectDir, '.monomind');
 }
 
@@ -157,10 +161,11 @@ const _appendedSwarmIds = new Set();
 function collectSwarm(projectDir) {
   // Canonical location first, legacy `<cwd>/.monomind` second so a project
   // written by an older CLI still renders.
-  const state = readFirstJSON(
-    path.join(monomindDataRoot(projectDir), 'monoswarm', 'state.json'),
-    path.join(projectDir, '.monomind', 'monoswarm', 'state.json'),
-  ) || {};
+  const state =
+    readFirstJSON(
+      path.join(monomindDataRoot(projectDir), 'monoswarm', 'state.json'),
+      path.join(projectDir, '.monomind', 'monoswarm', 'state.json'),
+    ) || {};
   const dotSwarmState = readJSON(path.join(projectDir, '.swarm', 'state.json')) || {};
   const merged = { ...dotSwarmState, ...state };
 
@@ -168,7 +173,7 @@ function collectSwarm(projectDir) {
   const swarmId = merged.monoswarmId || merged.swarmId || merged.id;
   if (swarmId && terminalStatuses.includes(merged.status) && !_appendedSwarmIds.has(swarmId)) {
     _appendedSwarmIds.add(swarmId);
-    const agents = (merged.agents || merged.agentPlan || []).map(a => ({
+    const agents = (merged.agents || merged.agentPlan || []).map((a) => ({
       id: a.id || a.type || a.role,
       type: a.type || a.role || '?',
       role: a.role || 'worker',
@@ -197,7 +202,9 @@ function collectSwarm(projectDir) {
     if (entry.startedAt && entry.endedAt) {
       entry.durationMs = new Date(entry.endedAt).getTime() - new Date(entry.startedAt).getTime();
     }
-    try { appendSwarmHistory(projectDir, entry); } catch {}
+    try {
+      appendSwarmHistory(projectDir, entry);
+    } catch {}
   }
 
   return {
@@ -214,23 +221,25 @@ function appendSwarmHistory(projectDir, entry) {
     fs.mkdirSync(dir, { recursive: true });
   }
   const historyPath = path.join(dir, 'history.jsonl');
-  fs.appendFileSync(historyPath, JSON.stringify(entry) + '\n');
+  fs.appendFileSync(historyPath, `${JSON.stringify(entry)}\n`);
 }
 
 function collectAgents(projectDir) {
   const base = path.join(projectDir, '.monomind');
   const regsDir = path.join(base, 'agents', 'registrations');
-  const regFiles = listDir(regsDir).filter(f => f.endsWith('.json'));
-  const registrations = regFiles.map(f => {
-    return readJSON(path.join(regsDir, f));
-  }).filter(Boolean);
+  const regFiles = listDir(regsDir).filter((f) => f.endsWith('.json'));
+  const registrations = regFiles
+    .map((f) => {
+      return readJSON(path.join(regsDir, f));
+    })
+    .filter(Boolean);
 
   const registry = readJSON(path.join(base, 'registry.json')) || {};
 
   return {
     registrations,
     registry,
-    count: registrations.length
+    count: registrations.length,
   };
 }
 
@@ -238,36 +247,42 @@ function collectAgents(projectDir) {
 // server.mjs imports _tokPrice and _tokCost from here instead of duplicating this table.
 const _TOK_PRICES = {
   // Opus
-  'claude-opus-5':     { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
-  'claude-opus-4-7':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
-  'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
-  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6   },
-  'claude-opus-4-1':   { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
-  'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6   },
+  'claude-opus-5': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-7': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-6': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-5': { in: 5e-6, out: 25e-6, cw: 6.25e-6, cr: 0.5e-6 },
+  'claude-opus-4-1': { in: 15e-6, out: 75e-6, cw: 18.75e-6, cr: 1.5e-6 },
+  'claude-opus-4': { in: 15e-6, out: 75e-6, cw: 18.75e-6, cr: 1.5e-6 },
   // Sonnet
-  'claude-sonnet-5':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
-  'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
-  'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
-  'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
-  'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
-  'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6   },
+  'claude-sonnet-5': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-sonnet-4-6': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-sonnet-4-5': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-sonnet-4': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-3-7-sonnet': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
+  'claude-3-5-sonnet': { in: 3e-6, out: 15e-6, cw: 3.75e-6, cr: 0.3e-6 },
   // Haiku
-  'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,    cw: 1.25e-6,  cr: 0.1e-6   },
-  'claude-haiku-4':    { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
-  'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6  },
+  'claude-haiku-4-5': { in: 1e-6, out: 5e-6, cw: 1.25e-6, cr: 0.1e-6 },
+  'claude-haiku-4': { in: 0.8e-6, out: 4e-6, cw: 1e-6, cr: 0.08e-6 },
+  'claude-3-5-haiku': { in: 0.8e-6, out: 4e-6, cw: 1e-6, cr: 0.08e-6 },
   // OpenAI
-  'gpt-5':             { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6  },
-  'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6  },
-  'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
+  'gpt-5': { in: 2.5e-6, out: 10e-6, cw: 2.5e-6, cr: 1.25e-6 },
+  'gpt-4o': { in: 2.5e-6, out: 10e-6, cw: 2.5e-6, cr: 1.25e-6 },
+  'gpt-4o-mini': { in: 0.15e-6, out: 0.6e-6, cw: 0.15e-6, cr: 0.075e-6 },
   // Google
-  'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
+  'gemini-2.5-pro': { in: 1.25e-6, out: 10e-6, cw: 1.25e-6, cr: 0.315e-6 },
 };
 function _tokPrice(model) {
-  const _ALIAS = { 'haiku': 'claude-haiku-4-5', 'opus': 'claude-opus-4-6', 'sonnet': 'claude-sonnet-4-6' };
+  const _ALIAS = {
+    haiku: 'claude-haiku-4-5',
+    opus: 'claude-opus-4-6',
+    sonnet: 'claude-sonnet-4-6',
+  };
   let k = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
   k = _ALIAS[k] || k;
   if (_TOK_PRICES[k]) return _TOK_PRICES[k];
-  for (const p of Object.keys(_TOK_PRICES)) { if (k.startsWith(p) || k.includes(p)) return _TOK_PRICES[p]; }
+  for (const p of Object.keys(_TOK_PRICES)) {
+    if (k.startsWith(p) || k.includes(p)) return _TOK_PRICES[p];
+  }
   // #124: previously silently returned a hardcoded Sonnet rate here, so an
   // unrecognized model (e.g. a newly-released one not yet in this table)
   // was costed AS Sonnet with no indication anything was estimated —
@@ -283,12 +298,14 @@ function _tokHasPricing(model) {
 function _tokCost(model, usage) {
   const p = _tokPrice(model);
   if (!p) return 0; // unpriced model — see _tokPrice's comment; 0 here, not a guessed price
-  const webSearch = ((usage.server_tool_use || {}).web_search_requests || 0) * 0.01;
-  return (usage.input_tokens || 0) * p.in
-       + (usage.output_tokens || 0) * p.out
-       + (usage.cache_creation_input_tokens || 0) * p.cw
-       + (usage.cache_read_input_tokens || 0) * p.cr
-       + webSearch;
+  const webSearch = (usage.server_tool_use?.web_search_requests || 0) * 0.01;
+  return (
+    (usage.input_tokens || 0) * p.in +
+    (usage.output_tokens || 0) * p.out +
+    (usage.cache_creation_input_tokens || 0) * p.cw +
+    (usage.cache_read_input_tokens || 0) * p.cr +
+    webSearch
+  );
 }
 
 function collectTokens(projectDir, days = 14) {
@@ -297,11 +314,12 @@ function collectTokens(projectDir, days = 14) {
 
   // Scan session JSONLs to build daily chart data and per-session rows
   const sessionsDir = getClaudeProjectSessionsDir(projectDir);
-  const jsonlFiles = listDir(sessionsDir).filter(f => f.endsWith('.jsonl'));
+  const jsonlFiles = listDir(sessionsDir).filter((f) => f.endsWith('.jsonl'));
 
-  const dailyMap = {};   // date-string → { cost, calls, tokensIn, tokensOut }
-  const rows = [];       // per-session summary
-  let totalTokensIn = 0, totalTokensOut = 0;
+  const dailyMap = {}; // date-string → { cost, calls, tokensIn, tokensOut }
+  const rows = []; // per-session summary
+  let totalTokensIn = 0,
+    totalTokensOut = 0;
 
   // Cutoff: look back `days` days
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
@@ -317,27 +335,42 @@ function collectTokens(projectDir, days = 14) {
   for (const fname of jsonlFiles) {
     const fpath = path.join(sessionsDir, fname);
     let stat;
-    try { stat = fs.statSync(fpath); } catch { continue; }
+    try {
+      stat = fs.statSync(fpath);
+    } catch {
+      continue;
+    }
     // Skip very old sessions for performance (mtime heuristic).
     // Use scanCutoff (which may reach back to month start) minus a 7-day buffer.
     if (stat.mtimeMs < scanCutoff - 7 * 24 * 60 * 60 * 1000) continue;
 
     let content;
-    try { content = fs.readFileSync(fpath, 'utf8'); } catch { continue; }
+    try {
+      content = fs.readFileSync(fpath, 'utf8');
+    } catch {
+      continue;
+    }
 
     const lines = content.split('\n');
-    let sessTokensIn = 0, sessTokensOut = 0, sessCost = 0, sessCalls = 0;
+    let sessTokensIn = 0,
+      sessTokensOut = 0,
+      sessCost = 0,
+      sessCalls = 0;
     let sessLastPrompt = '';
 
     for (const line of lines) {
       if (!line.trim()) continue;
       let entry;
-      try { entry = JSON.parse(line); } catch { continue; }
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        continue;
+      }
 
       // Capture last user prompt for session label
       if (entry.type === 'user') {
         const txt = Array.isArray(entry.message?.content)
-          ? (entry.message.content.find(b => b.type === 'text')?.text || '').slice(0, 60)
+          ? (entry.message.content.find((b) => b.type === 'text')?.text || '').slice(0, 60)
           : String(entry.message?.content || '').slice(0, 60);
         if (txt.trim()) sessLastPrompt = txt.trim();
       }
@@ -346,7 +379,10 @@ function collectTokens(projectDir, days = 14) {
         const usage = entry.message.usage;
         const model = entry.message.model || '';
         const cost = _tokCost(model, usage);
-        const tokIn = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+        const tokIn =
+          (usage.input_tokens || 0) +
+          (usage.cache_creation_input_tokens || 0) +
+          (usage.cache_read_input_tokens || 0);
         const tokOut = usage.output_tokens || 0;
         const ts = entry.timestamp || '';
         const day = ts.slice(0, 10); // "YYYY-MM-DD"
@@ -380,14 +416,17 @@ function collectTokens(projectDir, days = 14) {
   }
 
   // Build sorted daily array
-  const daily = Object.keys(dailyMap).sort().slice(-days).map(d => ({
-    date: d,
-    label: d.slice(5), // "MM-DD"
-    cost: dailyMap[d].cost,
-    calls: dailyMap[d].calls,
-    tokensIn: dailyMap[d].tokensIn,
-    tokensOut: dailyMap[d].tokensOut,
-  }));
+  const daily = Object.keys(dailyMap)
+    .sort()
+    .slice(-days)
+    .map((d) => ({
+      date: d,
+      label: d.slice(5), // "MM-DD"
+      cost: dailyMap[d].cost,
+      calls: dailyMap[d].calls,
+      tokensIn: dailyMap[d].tokensIn,
+      tokensOut: dailyMap[d].tokensOut,
+    }));
 
   // Sort rows by cost descending
   rows.sort((a, b) => b.cost - a.cost);
@@ -399,18 +438,22 @@ function collectTokens(projectDir, days = 14) {
   // daily uses UTC date keys (entry.timestamp.slice(0,10)), so match that here.
   const todayKey = new Date().toISOString().slice(0, 10);
   const todayEntry = dailyMap[todayKey];
-  summary.todayCost  = todayEntry ? todayEntry.cost  : 0;
+  summary.todayCost = todayEntry ? todayEntry.cost : 0;
   summary.todayCalls = todayEntry ? todayEntry.calls : 0;
 
   // Overwrite stale monthCost/monthCalls from fresh JSONL dailyMap entries.
   // dailyMap now covers back to the start of the current month (scanCutoff), so
   // summing entries whose key starts with the current "YYYY-MM" prefix gives the
   // true month-to-date spend — no stale token-summary.json cache involved.
-  let monthCostAcc = 0, monthCallsAcc = 0;
+  let monthCostAcc = 0,
+    monthCallsAcc = 0;
   for (const [d, v] of Object.entries(dailyMap)) {
-    if (d.startsWith(monthPrefix)) { monthCostAcc += v.cost; monthCallsAcc += v.calls; }
+    if (d.startsWith(monthPrefix)) {
+      monthCostAcc += v.cost;
+      monthCallsAcc += v.calls;
+    }
   }
-  summary.monthCost  = monthCostAcc;
+  summary.monthCost = monthCostAcc;
   summary.monthCalls = monthCallsAcc;
 
   return { summary, daily, rows };
@@ -422,7 +465,9 @@ function collectHooks(projectDir) {
   const feedback = readJSONL(path.join(base, 'routing-feedback.jsonl'), 10);
 
   const workerDispatchDir = path.join(base, 'worker-dispatch');
-  const workerDispatch = listDir(workerDispatchDir).filter(f => f.startsWith('pending-') && f.endsWith('.json'));
+  const workerDispatch = listDir(workerDispatchDir).filter(
+    (f) => f.startsWith('pending-') && f.endsWith('.json'),
+  );
 
   return { lastRoute, feedback, workerDispatch };
 }
@@ -439,7 +484,16 @@ function collectKnowledge(projectDir) {
     const raw = fs.readFileSync(chunksPath, 'utf8');
     const lines = raw.split('\n').filter(Boolean);
     chunks = lines.length;
-    recent = lines.slice(-5).map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+    recent = lines
+      .slice(-5)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
   } catch {}
   const skills = countJSONLLines(skillsPath);
 
@@ -454,22 +508,33 @@ function collectMetrics(projectDir) {
   // Derive routing stats from feedback log (cap at 1000 to avoid reading unbounded file)
   const feedbackAll = readJSONL(path.join(base, 'routing-feedback.jsonl'), 1000);
   const routingTotal = feedbackAll.length;
-  let routingConfSum = 0, routingConfCount = 0;
+  let routingConfSum = 0,
+    routingConfCount = 0;
   const agentCounts = {};
   for (const fb of feedbackAll) {
-    if (fb.confidence != null) { routingConfSum += fb.confidence; routingConfCount++; }
+    if (fb.confidence != null) {
+      routingConfSum += fb.confidence;
+      routingConfCount++;
+    }
     const a = fb.suggestedAgent || fb.agent;
     if (a) agentCounts[a] = (agentCounts[a] || 0) + 1;
   }
-  const avgConf = routingConfCount > 0 ? Math.round((routingConfSum / routingConfCount) * 100) : null;
+  const avgConf =
+    routingConfCount > 0 ? Math.round((routingConfSum / routingConfCount) * 100) : null;
   const topAgent = Object.entries(agentCounts).sort((a, b) => b[1] - a[1])[0];
 
   // Worker freshness: stat the live worker output files so the frontend can
   // render freshness pills. Shape: workers: [{name, exists, ageMs}]
-  const workerFiles = ['codebase-map', 'security-audit', 'performance', 'consolidation', 'ddd-progress'];
+  const workerFiles = [
+    'codebase-map',
+    'security-audit',
+    'performance',
+    'consolidation',
+    'ddd-progress',
+  ];
   const now = Date.now();
-  const workers = workerFiles.map(name => {
-    const s = fileStat(path.join(base, 'metrics', name + '.json'));
+  const workers = workerFiles.map((name) => {
+    const s = fileStat(path.join(base, 'metrics', `${name}.json`));
     return { name, exists: !!s, ageMs: s ? Math.max(0, now - s.mtimeMs) : null };
   });
 
@@ -481,8 +546,8 @@ function collectMetrics(projectDir) {
       topAgentCount: topAgent ? topAgent[1] : null,
     },
     swarm: {
-      active: swarmActivity.monoswarm && swarmActivity.monoswarm.active,
-      agentCount: swarmActivity.monoswarm && swarmActivity.monoswarm.agent_count,
+      active: swarmActivity.monoswarm?.active,
+      agentCount: swarmActivity.monoswarm?.agent_count,
       lastActive: swarmActivity.timestamp || null,
     },
     tokens: {
@@ -506,29 +571,41 @@ function collectMemoryFiles(projectDir) {
   const slug = path.resolve(projectDir).replace(/\//g, '-');
   const memDir = path.join(homeDir, '.claude', 'projects', slug, 'memory');
   let files = [];
-  try { files = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md'); } catch {}
-  return files.map(fname => {
-    const fp = path.join(memDir, fname);
-    let raw = ''; try { raw = fs.readFileSync(fp, 'utf8').replace(/\r\n/g, '\n'); } catch {}
-    let name = fname.replace('.md', ''), description = '', type = 'project';
-    const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-    if (fm) {
-      for (const line of fm[1].split('\n')) {
-        const m2 = line.match(/^(\w+):\s*(.+)$/);
-        if (m2) {
-          if (m2[1] === 'name') name = m2[2].trim();
-          if (m2[1] === 'description') description = m2[2].trim();
-          if (m2[1] === 'type') type = m2[2].trim();
+  try {
+    files = fs.readdirSync(memDir).filter((f) => f.endsWith('.md') && f !== 'MEMORY.md');
+  } catch {}
+  return files
+    .map((fname) => {
+      const fp = path.join(memDir, fname);
+      let raw = '';
+      try {
+        raw = fs.readFileSync(fp, 'utf8').replace(/\r\n/g, '\n');
+      } catch {}
+      let name = fname.replace('.md', ''),
+        description = '',
+        type = 'project';
+      const fm = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+      if (fm) {
+        for (const line of fm[1].split('\n')) {
+          const m2 = line.match(/^(\w+):\s*(.+)$/);
+          if (m2) {
+            if (m2[1] === 'name') name = m2[2].trim();
+            if (m2[1] === 'description') description = m2[2].trim();
+            if (m2[1] === 'type') type = m2[2].trim();
+          }
         }
       }
-    }
-    let stat = null; try { stat = fs.statSync(fp); } catch {}
-    return { filename: fname, name, description, type, mtime: stat ? stat.mtimeMs : null };
-  }).sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+      let stat = null;
+      try {
+        stat = fs.statSync(fp);
+      } catch {}
+      return { filename: fname, name, description, type, mtime: stat ? stat.mtimeMs : null };
+    })
+    .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
 }
 
 // Probe candidate paths in priority order, return first existing file's stat
-function probeFile(...candidates) {
+function _probeFile(...candidates) {
   for (const p of candidates) {
     const s = fileStat(p);
     if (s && s.size > 0) return { path: p, size: s.size };
@@ -548,7 +625,8 @@ function collectMemory(projectDir) {
   if (Array.isArray(store)) {
     patternCount = store.length;
     for (const e of store) {
-      if (e && typeof e.ts === 'number' && (!patternsUpdated || e.ts > patternsUpdated)) patternsUpdated = e.ts;
+      if (e && typeof e.ts === 'number' && (!patternsUpdated || e.ts > patternsUpdated))
+        patternsUpdated = e.ts;
     }
   }
   if (!patternsUpdated) {
@@ -574,7 +652,7 @@ function collectMemory(projectDir) {
   // Last consolidation run (consolidate worker output)
   let lastConsolidated = null;
   const consolidation = readJSON(path.join(monomindDir, 'metrics', 'consolidation.json'));
-  if (consolidation && consolidation.timestamp) lastConsolidated = consolidation.timestamp;
+  if (consolidation?.timestamp) lastConsolidated = consolidation.timestamp;
 
   const files = collectMemoryFiles(projectDir);
 
@@ -587,8 +665,12 @@ function collectMemory(projectDir) {
     files,
     count: files.length,
     // Legacy keys kept for frontend backward-safety (v1 backends no longer written in v2)
-    dbSize: 0, dbPath: null, hnsw: false,
-    monovectorSize: 0, monovectorExists: false, monovectorPatterns: 0,
+    dbSize: 0,
+    dbPath: null,
+    hnsw: false,
+    monovectorSize: 0,
+    monovectorExists: false,
+    monovectorPatterns: 0,
   };
 }
 
@@ -597,7 +679,7 @@ function collectSystem() {
     nodeVersion: process.version,
     uptime: process.uptime(),
     platform: process.platform,
-    memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
+    memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
   };
 }
 
@@ -605,7 +687,7 @@ function collectSystem() {
 // Global: all projects on this machine (~/.claude/projects/)
 // ---------------------------------------------------------------------------
 
-function slugToPath(slug) {
+function _slugToPath(slug) {
   return resolveSlugPath(slug);
 }
 
@@ -619,8 +701,10 @@ function slugToPath(slug) {
 // greedy DFS through the filesystem trying longest-possible segment (with
 // embedded hyphens) at each level.
 function resolveSlugPath(slug) {
-  const naive = '/' + slug.replace(/^-/, '').replace(/-/g, '/');
-  try { if (fs.existsSync(naive)) return naive; } catch {}
+  const naive = `/${slug.replace(/^-/, '').replace(/-/g, '/')}`;
+  try {
+    if (fs.existsSync(naive)) return naive;
+  } catch {}
 
   // An empty token between two hyphens marks a collapsed '.' — reattach it to
   // the following token instead of dropping it, so hidden directories survive
@@ -630,8 +714,11 @@ function resolveSlugPath(slug) {
   const tokens = [];
   let pendingDot = false;
   for (const part of rawTokens) {
-    if (part === '') { pendingDot = true; continue; }
-    tokens.push(pendingDot ? '.' + part : part);
+    if (part === '') {
+      pendingDot = true;
+      continue;
+    }
+    tokens.push(pendingDot ? `.${part}` : part);
     pendingDot = false;
   }
 
@@ -666,45 +753,61 @@ export function collectAllProjects() {
   const result = [];
 
   let slugs = [];
-  try { slugs = fs.readdirSync(projectsRoot); } catch { return result; }
+  try {
+    slugs = fs.readdirSync(projectsRoot);
+  } catch {
+    return result;
+  }
 
   for (const slug of slugs) {
     const projectClaudeDir = path.join(projectsRoot, slug);
     let stat;
-    try { stat = fs.statSync(projectClaudeDir); } catch { continue; }
+    try {
+      stat = fs.statSync(projectClaudeDir);
+    } catch {
+      continue;
+    }
     if (!stat.isDirectory()) continue;
 
     // Find session files (.jsonl) and subdirs (session folders)
     let entries = [];
-    try { entries = fs.readdirSync(projectClaudeDir); } catch { continue; }
+    try {
+      entries = fs.readdirSync(projectClaudeDir);
+    } catch {
+      continue;
+    }
 
-    const sessionFiles = entries.filter(e => e.endsWith('.jsonl'));
-    const sessions = sessionFiles.map(f => {
-      const fp = path.join(projectClaudeDir, f);
-      let fstat = null;
-      try { fstat = fs.statSync(fp); } catch {}
-      // Peek at first line for model/type info
-      let firstTurn = null;
-      try {
-        const buf = Buffer.alloc(512);
-        const fd = fs.openSync(fp, 'r');
+    const sessionFiles = entries.filter((e) => e.endsWith('.jsonl'));
+    const sessions = sessionFiles
+      .map((f) => {
+        const fp = path.join(projectClaudeDir, f);
+        let fstat = null;
         try {
-          fs.readSync(fd, buf, 0, 512, 0);
-        } finally {
-          fs.closeSync(fd);
-        }
-        const line = buf.toString('utf8').split('\n')[0];
-        firstTurn = JSON.parse(line);
-      } catch {}
-      return {
-        id: path.basename(f, '.jsonl'),
-        file: fp,
-        mtime: fstat ? fstat.mtimeMs : null,
-        size: fstat ? fstat.size : null,
-        lines: null, // skip line count for perf
-        model: firstTurn && firstTurn.model ? firstTurn.model : null,
-      };
-    }).sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+          fstat = fs.statSync(fp);
+        } catch {}
+        // Peek at first line for model/type info
+        let firstTurn = null;
+        try {
+          const buf = Buffer.alloc(512);
+          const fd = fs.openSync(fp, 'r');
+          try {
+            fs.readSync(fd, buf, 0, 512, 0);
+          } finally {
+            fs.closeSync(fd);
+          }
+          const line = buf.toString('utf8').split('\n')[0];
+          firstTurn = JSON.parse(line);
+        } catch {}
+        return {
+          id: path.basename(f, '.jsonl'),
+          file: fp,
+          mtime: fstat ? fstat.mtimeMs : null,
+          size: fstat ? fstat.size : null,
+          lines: null, // skip line count for perf
+          model: firstTurn?.model ? firstTurn.model : null,
+        };
+      })
+      .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
 
     // Resolve the actual filesystem path (handles hyphens in directory names)
     const diskPath = resolveSlugPath(slug);
@@ -720,7 +823,9 @@ export function collectAllProjects() {
     try {
       const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
       if (fs.existsSync(memDir)) {
-        memoryCount = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md').length;
+        memoryCount = fs
+          .readdirSync(memDir)
+          .filter((f) => f.endsWith('.md') && f !== 'MEMORY.md').length;
       }
     } catch {}
 
@@ -768,7 +873,22 @@ export function collectAll(projectDir) {
   };
 }
 
-export { collectProject, collectSessions, collectSwarm, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem, _tokPrice, _tokCost, _tokHasPricing };
+export {
+  _tokCost,
+  _tokHasPricing,
+  _tokPrice,
+  collectAgents,
+  collectHooks,
+  collectKnowledge,
+  collectMemory,
+  collectMemoryFiles,
+  collectMetrics,
+  collectProject,
+  collectSessions,
+  collectSwarm,
+  collectSystem,
+  collectTokens,
+};
 
 export function getWatchPaths(projectDir) {
   const resolvedDir = path.resolve(projectDir);
@@ -804,6 +924,6 @@ export function getWatchPaths(projectDir) {
     path.join(m, 'data', 'auto-memory-store.json'),
     path.join(m, 'episodic', 'episodes.jsonl'),
     // Sessions
-    path.join(c, 'sessions')
+    path.join(c, 'sessions'),
   ];
 }

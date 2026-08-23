@@ -1,4 +1,4 @@
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import Parser from 'tree-sitter';
 import type { LanguageConfig } from './language-config.js';
 
@@ -70,8 +70,11 @@ export const vueConfig: LanguageConfig = {
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set(['enum_declaration']),
   functionNodeTypes: new Set([
-    'function_declaration', 'function', 'arrow_function',
-    'generator_function_declaration', 'generator_function',
+    'function_declaration',
+    'function',
+    'arrow_function',
+    'generator_function_declaration',
+    'generator_function',
   ]),
   methodNodeTypes: new Set(['method_definition', 'method_signature']),
   constructorNodeTypes: new Set(['constructor']),
@@ -99,7 +102,10 @@ export const vueConfig: LanguageConfig = {
  * Extracts the <script> block content from a Vue SFC source string.
  * Returns the inner content (stripping the <script> tags) and whether it is TypeScript.
  */
-export function extractVueScriptContent(source: string): { content: string; isTypeScript: boolean } {
+export function extractVueScriptContent(source: string): {
+  content: string;
+  isTypeScript: boolean;
+} {
   // Match <script lang="ts"> or <script setup lang="ts"> or just <script>
   const tsMatch = source.match(/<script(?:\s+setup)?\s+lang=["']ts["'][^>]*>([\s\S]*?)<\/script>/i);
   if (tsMatch) return { content: tsMatch[1], isTypeScript: true };

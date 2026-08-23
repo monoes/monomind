@@ -10,12 +10,12 @@
  * github.com/monoes/monomind
  */
 
-import type { MCPTool, MCPToolResult } from './types.js';
+import { createRequire } from 'node:module';
 import { autoInstallPackage } from './auto-install.js';
-import { createRequire } from 'module';
+import type { MCPTool, MCPToolResult } from './types.js';
 
 // Create require for resolving module paths
-const require = createRequire(import.meta.url);
+const _require = createRequire(import.meta.url);
 
 // monolean: local shape instead of static import of optional dep monofence-ai
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,7 +65,10 @@ async function getMonoFence(): Promise<MonoFenceInstance> {
   } catch (e) {
     // Package not found or failed to load
     const error = e as Error;
-    if (!error.message?.includes('Cannot find package') && !error.message?.includes('ERR_MODULE_NOT_FOUND')) {
+    if (
+      !error.message?.includes('Cannot find package') &&
+      !error.message?.includes('ERR_MODULE_NOT_FOUND')
+    ) {
       // Different error - might be a real issue
       throw new Error(`MonoFence failed to load: ${error.message}`);
     }
@@ -86,7 +89,9 @@ async function getMonoFence(): Promise<MonoFenceInstance> {
   }
 
   // The in-process ESM module cache cannot be invalidated after install; require a server restart.
-  throw new Error(`MonoFence installed successfully. Restart the MCP server to load it: npx monomind mcp start`);
+  throw new Error(
+    `MonoFence installed successfully. Restart the MCP server to load it: npx monomind mcp start`,
+  );
 }
 
 /**
@@ -94,7 +99,8 @@ async function getMonoFence(): Promise<MonoFenceInstance> {
  */
 const monofenceScanTool: MCPTool = {
   name: 'monofence_scan',
-  description: 'Scan input text for AI manipulation threats (prompt injection, jailbreaks, PII). Returns threat assessment with <10ms latency.',
+  description:
+    'Scan input text for AI manipulation threats (prompt injection, jailbreaks, PII). Returns threat assessment with <10ms latency.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -112,7 +118,14 @@ const monofenceScanTool: MCPTool = {
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
     let input: string;
-    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
+    try {
+      input = capSecurityInput(args.input);
+    } catch (e) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }],
+        isError: true,
+      };
+    }
     const quick = args.quick as boolean;
 
     try {
@@ -121,41 +134,55 @@ const monofenceScanTool: MCPTool = {
       if (quick) {
         const result = defender.quickScan(input);
         return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              safe: !result.threat,
-              threatDetected: result.threat,
-              confidence: result.confidence,
-              mode: 'quick',
-            }, null, 2),
-          }],
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  safe: !result.threat,
+                  threatDetected: result.threat,
+                  confidence: result.confidence,
+                  mode: 'quick',
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       }
 
       const result = await defender.detect(input);
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            safe: result.safe,
-            threats: result.threats.map(t => ({
-              type: t.type,
-              severity: t.severity,
-              confidence: t.confidence,
-              description: t.description,
-            })),
-            piiFound: result.piiFound,
-            detectionTimeMs: result.detectionTimeMs,
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                safe: result.safe,
+                threats: result.threats.map((t) => ({
+                  type: t.type,
+                  severity: t.severity,
+                  confidence: t.confidence,
+                  description: t.description,
+                })),
+                piiFound: result.piiFound,
+                detectionTimeMs: result.detectionTimeMs,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }
@@ -167,7 +194,8 @@ const monofenceScanTool: MCPTool = {
  */
 const monofenceAnalyzeTool: MCPTool = {
   name: 'monofence_analyze',
-  description: 'Deep analysis of input for specific threat types with similar pattern search and mitigation recommendations.',
+  description:
+    'Deep analysis of input for specific threat types with similar pattern search and mitigation recommendations.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -190,7 +218,14 @@ const monofenceAnalyzeTool: MCPTool = {
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
     let input: string;
-    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
+    try {
+      input = capSecurityInput(args.input);
+    } catch (e) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }],
+        isError: true,
+      };
+    }
     const searchSimilar = args.searchSimilar !== false;
     const rawK = (args.k as number) || 5;
     const k = Number.isFinite(rawK) && rawK > 0 ? Math.min(Math.floor(rawK), MAX_SECURITY_K) : 5;
@@ -211,7 +246,9 @@ const monofenceAnalyzeTool: MCPTool = {
 
       // Get mitigations for detected threats
       for (const threat of result.threats) {
-        const mitigation = await defender.getBestMitigation(threat.type as Parameters<typeof defender.getBestMitigation>[0]);
+        const mitigation = await defender.getBestMitigation(
+          threat.type as Parameters<typeof defender.getBestMitigation>[0],
+        );
         if (mitigation) {
           (analysis.mitigations as Array<unknown>).push({
             threatType: threat.type,
@@ -224,7 +261,7 @@ const monofenceAnalyzeTool: MCPTool = {
       // Search similar patterns
       if (searchSimilar) {
         const similar = await defender.searchSimilarThreats(input, { k });
-        analysis.similarPatterns = similar.map(p => ({
+        analysis.similarPatterns = similar.map((p) => ({
           pattern: p.pattern,
           type: p.type,
           effectiveness: p.effectiveness,
@@ -232,17 +269,21 @@ const monofenceAnalyzeTool: MCPTool = {
       }
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(analysis, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(analysis, null, 2),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }
@@ -265,23 +306,31 @@ const monofenceStatsTool: MCPTool = {
       const stats = await defender.getStats();
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            detectionCount: stats.detectionCount,
-            avgDetectionTimeMs: stats.avgDetectionTimeMs,
-            learnedPatterns: stats.learnedPatterns,
-            mitigationStrategies: stats.mitigationStrategies,
-            avgMitigationEffectiveness: stats.avgMitigationEffectiveness,
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                detectionCount: stats.detectionCount,
+                avgDetectionTimeMs: stats.avgDetectionTimeMs,
+                learnedPatterns: stats.learnedPatterns,
+                mitigationStrategies: stats.mitigationStrategies,
+                avgMitigationEffectiveness: stats.avgMitigationEffectiveness,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }
@@ -293,7 +342,8 @@ const monofenceStatsTool: MCPTool = {
  */
 const monofenceLearnTool: MCPTool = {
   name: 'monofence_learn',
-  description: 'Record detection feedback for pattern learning. Improves future detection accuracy.',
+  description:
+    'Record detection feedback for pattern learning. Improves future detection accuracy.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -327,17 +377,31 @@ const monofenceLearnTool: MCPTool = {
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
     let input: string;
-    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
+    try {
+      input = capSecurityInput(args.input);
+    } catch (e) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }],
+        isError: true,
+      };
+    }
     const wasAccurate = args.wasAccurate as boolean;
     const rawVerdict = args.verdict as string | undefined;
-    const verdict = typeof rawVerdict === 'string' && rawVerdict.length > MAX_SECURITY_VERDICT_LEN
-      ? rawVerdict.slice(0, MAX_SECURITY_VERDICT_LEN) : rawVerdict;
+    const verdict =
+      typeof rawVerdict === 'string' && rawVerdict.length > MAX_SECURITY_VERDICT_LEN
+        ? rawVerdict.slice(0, MAX_SECURITY_VERDICT_LEN)
+        : rawVerdict;
     const rawThreatType = args.threatType as string | undefined;
-    const threatType = typeof rawThreatType === 'string' && rawThreatType.length > MAX_SECURITY_THREAT_TYPE_LEN
-      ? rawThreatType.slice(0, MAX_SECURITY_THREAT_TYPE_LEN) : rawThreatType;
+    const threatType =
+      typeof rawThreatType === 'string' && rawThreatType.length > MAX_SECURITY_THREAT_TYPE_LEN
+        ? rawThreatType.slice(0, MAX_SECURITY_THREAT_TYPE_LEN)
+        : rawThreatType;
     const rawMitigationStrategy = args.mitigationStrategy as string | undefined;
-    const mitigationStrategy = typeof rawMitigationStrategy === 'string' && rawMitigationStrategy.length > MAX_SECURITY_MITIGATION_STRATEGY_LEN
-      ? rawMitigationStrategy.slice(0, MAX_SECURITY_MITIGATION_STRATEGY_LEN) : rawMitigationStrategy;
+    const mitigationStrategy =
+      typeof rawMitigationStrategy === 'string' &&
+      rawMitigationStrategy.length > MAX_SECURITY_MITIGATION_STRATEGY_LEN
+        ? rawMitigationStrategy.slice(0, MAX_SECURITY_MITIGATION_STRATEGY_LEN)
+        : rawMitigationStrategy;
     const mitigationSuccess = args.mitigationSuccess as boolean | undefined;
 
     try {
@@ -357,30 +421,38 @@ const monofenceLearnTool: MCPTool = {
         await defender.recordMitigation(
           threatType as Parameters<typeof defender.recordMitigation>[0],
           mitigationStrategy as Parameters<typeof defender.recordMitigation>[1],
-          mitigationSuccess
+          mitigationSuccess,
         );
       }
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            success: true,
-            message: 'Feedback recorded for pattern learning',
-            learnedFrom: {
-              input: input.slice(0, 50) + (input.length > 50 ? '...' : ''),
-              wasAccurate,
-              threatCount: result.threats.length,
-            },
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                success: true,
+                message: 'Feedback recorded for pattern learning',
+                learnedFrom: {
+                  input: input.slice(0, 50) + (input.length > 50 ? '...' : ''),
+                  wasAccurate,
+                  threatCount: result.threats.length,
+                },
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }
@@ -405,7 +477,14 @@ const monofenceIsSafeTool: MCPTool = {
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
     let input: string;
-    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
+    try {
+      input = capSecurityInput(args.input);
+    } catch (e) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }],
+        isError: true,
+      };
+    }
 
     try {
       await getMonoFence(); // triggers auto-install if package is missing
@@ -413,17 +492,21 @@ const monofenceIsSafeTool: MCPTool = {
       const safe = isSafe(input);
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ safe }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ safe }, null, 2),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }
@@ -448,24 +531,35 @@ const monofenceHasPIITool: MCPTool = {
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
     let input: string;
-    try { input = capSecurityInput(args.input); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
+    try {
+      input = capSecurityInput(args.input);
+    } catch (e) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }],
+        isError: true,
+      };
+    }
 
     try {
       const defender = await getMonoFence();
       const hasPII = defender.hasPII(input);
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ hasPII }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ hasPII }, null, 2),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }
@@ -477,7 +571,8 @@ const monofenceHasPIITool: MCPTool = {
  */
 const monofenceScanOutputTool: MCPTool = {
   name: 'monofence_scan_output',
-  description: 'Scan LLM output for PII leakage, prompt echo (trigram Jaccard), and policy violations. Use after receiving a model response.',
+  description:
+    'Scan LLM output for PII leakage, prompt echo (trigram Jaccard), and policy violations. Use after receiving a model response.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -494,28 +589,42 @@ const monofenceScanOutputTool: MCPTool = {
   },
   handler: async (args: Record<string, unknown>): Promise<MCPToolResult> => {
     let output: string;
-    try { output = capSecurityInput(args.output, 'output'); } catch (e) { return { content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }], isError: true }; }
+    try {
+      output = capSecurityInput(args.output, 'output');
+    } catch (e) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: (e as Error).message }) }],
+        isError: true,
+      };
+    }
     const rawPrompt = args.originalPrompt as string | undefined;
-    const originalPrompt = typeof rawPrompt === 'string'
-      ? (rawPrompt.length > MAX_SECURITY_INPUT_LEN ? rawPrompt.slice(0, MAX_SECURITY_INPUT_LEN) : rawPrompt)
-      : undefined;
+    const originalPrompt =
+      typeof rawPrompt === 'string'
+        ? rawPrompt.length > MAX_SECURITY_INPUT_LEN
+          ? rawPrompt.slice(0, MAX_SECURITY_INPUT_LEN)
+          : rawPrompt
+        : undefined;
 
     try {
       const defender = await getMonoFence();
       const result = await defender.scanOutput(output, originalPrompt);
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }
@@ -527,7 +636,8 @@ const monofenceScanOutputTool: MCPTool = {
  */
 const monofenceContextTool: MCPTool = {
   name: 'monofence_context',
-  description: 'Get the multi-turn context escalation state (normal/suspicious/elevated/attack) and cumulative threat score. Pass reset=true to start a fresh session.',
+  description:
+    'Get the multi-turn context escalation state (normal/suspicious/elevated/attack) and cumulative threat score. Pass reset=true to start a fresh session.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -547,26 +657,39 @@ const monofenceContextTool: MCPTool = {
       if (reset) {
         defender.resetContext();
         return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({ message: 'Context reset — escalation state cleared', state: defender.getContextState() }, null, 2),
-          }],
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  message: 'Context reset — escalation state cleared',
+                  state: defender.getContextState(),
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       }
 
       const state = defender.getContextState();
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify(state, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(state, null, 2),
+          },
+        ],
       };
     } catch (error) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ error: String(error) }),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ error: String(error) }),
+          },
+        ],
         isError: true,
       };
     }

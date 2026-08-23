@@ -3,15 +3,15 @@
  * Modern interactive prompts for user input
  */
 
-import * as readline from 'readline';
+import * as readline from 'node:readline';
+import { type OutputFormatter, output } from './output.js';
 import type {
-  SelectPromptOptions,
-  SelectOption,
   ConfirmPromptOptions,
   InputPromptOptions,
-  MultiSelectPromptOptions
+  MultiSelectPromptOptions,
+  SelectOption,
+  SelectPromptOptions,
 } from './types.js';
-import { output, OutputFormatter } from './output.js';
 
 // ============================================
 // Core Prompt Infrastructure
@@ -30,7 +30,7 @@ class PromptManager {
       this.rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
-        terminal: true
+        terminal: true,
       });
 
       // Handle cleanup on exit
@@ -72,7 +72,7 @@ class PromptManager {
     // Find default index
     let selectedIndex = 0;
     if (defaultValue !== undefined) {
-      const idx = choices.findIndex(c => c.value === defaultValue);
+      const idx = choices.findIndex((c) => c.value === defaultValue);
       if (idx !== -1) selectedIndex = idx;
     }
 
@@ -88,9 +88,7 @@ class PromptManager {
         const choice = choices[i];
         const isSelected = i === currentIndex;
         const prefix = isSelected ? this.formatter.info('>') : ' ';
-        const label = isSelected
-          ? this.formatter.highlight(choice.label)
-          : choice.label;
+        const label = isSelected ? this.formatter.highlight(choice.label) : choice.label;
         const hint = choice.hint ? this.formatter.dim(` - ${choice.hint}`) : '';
         const disabled = choice.disabled ? this.formatter.dim(' (disabled)') : '';
 
@@ -102,7 +100,7 @@ class PromptManager {
     displayChoices(selectedIndex);
 
     return new Promise<T>((resolve, reject) => {
-      const rl = this.createInterface();
+      const _rl = this.createInterface();
 
       // Enable raw mode for arrow key detection
       if (process.stdin.isTTY) {
@@ -114,17 +112,20 @@ class PromptManager {
         const keyStr = key.toString();
 
         // Arrow keys
-        if (keyStr === '\x1b[A') { // Up
+        if (keyStr === '\x1b[A') {
+          // Up
           do {
             selectedIndex = (selectedIndex - 1 + choices.length) % choices.length;
           } while (choices[selectedIndex].disabled && selectedIndex !== 0);
           displayChoices(selectedIndex);
-        } else if (keyStr === '\x1b[B') { // Down
+        } else if (keyStr === '\x1b[B') {
+          // Down
           do {
             selectedIndex = (selectedIndex + 1) % choices.length;
           } while (choices[selectedIndex].disabled && selectedIndex !== choices.length - 1);
           displayChoices(selectedIndex);
-        } else if (keyStr === '\r' || keyStr === '\n') { // Enter
+        } else if (keyStr === '\r' || keyStr === '\n') {
+          // Enter
           cleanup();
           const selected = choices[selectedIndex];
           if (!selected.disabled) {
@@ -132,7 +133,8 @@ class PromptManager {
             this.formatter.writeln(this.formatter.success(`Selected: ${selected.label}`));
             resolve(selected.value);
           }
-        } else if (keyStr === '\x03') { // Ctrl+C
+        } else if (keyStr === '\x03') {
+          // Ctrl+C
           cleanup();
           reject(new Error('User cancelled'));
         }
@@ -155,14 +157,9 @@ class PromptManager {
   // ============================================
 
   async confirm(options: ConfirmPromptOptions): Promise<boolean> {
-    const {
-      message,
-      default: defaultValue = false,
-      active = 'Yes',
-      inactive = 'No'
-    } = options;
+    const { message, default: defaultValue = false, active = 'Yes', inactive = 'No' } = options;
 
-    const defaultText = defaultValue ? `${active}/${inactive}` : `${active}/${inactive}`;
+    const _defaultText = defaultValue ? `${active}/${inactive}` : `${active}/${inactive}`;
     const hint = defaultValue ? `[${active}]` : `[${inactive}]`;
 
     const prompt = `${this.formatter.bold('?')} ${message} ${this.formatter.dim(hint)} `;
@@ -192,13 +189,7 @@ class PromptManager {
   // ============================================
 
   async input(options: InputPromptOptions): Promise<string> {
-    const {
-      message,
-      default: defaultValue,
-      placeholder,
-      validate,
-      mask
-    } = options;
+    const { message, default: defaultValue, placeholder, validate, mask } = options;
 
     let prompt = `${this.formatter.bold('?')} ${message}`;
 
@@ -241,7 +232,7 @@ class PromptManager {
 
   private async inputMasked(prompt: string): Promise<string> {
     return new Promise((resolve) => {
-      const rl = this.createInterface();
+      const _rl = this.createInterface();
       let password = '';
 
       // Don't echo characters
@@ -298,12 +289,14 @@ class PromptManager {
       default: defaultValues = [],
       required = false,
       min,
-      max
+      max,
     } = options;
 
     this.formatter.writeln();
     this.formatter.writeln(this.formatter.bold(`? ${message}`));
-    this.formatter.writeln(this.formatter.dim('  (Use arrow keys to navigate, space to select, enter to confirm)'));
+    this.formatter.writeln(
+      this.formatter.dim('  (Use arrow keys to navigate, space to select, enter to confirm)'),
+    );
     this.formatter.writeln();
 
     // Initialize selection state
@@ -328,12 +321,8 @@ class PromptManager {
         const isSelected = selected.has(i);
 
         const cursor = isCurrentRow ? this.formatter.info('>') : ' ';
-        const checkbox = isSelected
-          ? this.formatter.success('[x]')
-          : this.formatter.dim('[ ]');
-        const label = isCurrentRow
-          ? this.formatter.highlight(choice.label)
-          : choice.label;
+        const checkbox = isSelected ? this.formatter.success('[x]') : this.formatter.dim('[ ]');
+        const label = isCurrentRow ? this.formatter.highlight(choice.label) : choice.label;
         const hint = choice.hint ? this.formatter.dim(` - ${choice.hint}`) : '';
         const disabled = choice.disabled ? this.formatter.dim(' (disabled)') : '';
 
@@ -348,7 +337,7 @@ class PromptManager {
     displayChoices();
 
     return new Promise<T[]>((resolve, reject) => {
-      const rl = this.createInterface();
+      const _rl = this.createInterface();
 
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
@@ -358,13 +347,16 @@ class PromptManager {
       const handleKeypress = (key: Buffer) => {
         const keyStr = key.toString();
 
-        if (keyStr === '\x1b[A') { // Up
+        if (keyStr === '\x1b[A') {
+          // Up
           currentIndex = (currentIndex - 1 + choices.length) % choices.length;
           displayChoices();
-        } else if (keyStr === '\x1b[B') { // Down
+        } else if (keyStr === '\x1b[B') {
+          // Down
           currentIndex = (currentIndex + 1) % choices.length;
           displayChoices();
-        } else if (keyStr === ' ') { // Space
+        } else if (keyStr === ' ') {
+          // Space
           if (!choices[currentIndex].disabled) {
             if (selected.has(currentIndex)) {
               selected.delete(currentIndex);
@@ -376,27 +368,32 @@ class PromptManager {
             }
             displayChoices();
           }
-        } else if (keyStr === '\r' || keyStr === '\n') { // Enter
+        } else if (keyStr === '\r' || keyStr === '\n') {
+          // Enter
           // Validate selection
           if (required && selected.size === 0) {
             this.formatter.writeln(this.formatter.error('  At least one option must be selected'));
             return;
           }
           if (min && selected.size < min) {
-            this.formatter.writeln(this.formatter.error(`  At least ${min} options must be selected`));
+            this.formatter.writeln(
+              this.formatter.error(`  At least ${min} options must be selected`),
+            );
             return;
           }
 
           cleanup();
-          const selectedValues = Array.from(selected).map(i => choices[i].value);
-          const selectedLabels = Array.from(selected).map(i => choices[i].label);
+          const selectedValues = Array.from(selected).map((i) => choices[i].value);
+          const selectedLabels = Array.from(selected).map((i) => choices[i].label);
           this.formatter.writeln();
           this.formatter.writeln(this.formatter.success(`Selected: ${selectedLabels.join(', ')}`));
           resolve(selectedValues);
-        } else if (keyStr === '\x03') { // Ctrl+C
+        } else if (keyStr === '\x03') {
+          // Ctrl+C
           cleanup();
           reject(new Error('User cancelled'));
-        } else if (keyStr === 'a') { // Select all
+        } else if (keyStr === 'a') {
+          // Select all
           if (!max || choices.length <= max) {
             for (let i = 0; i < choices.length; i++) {
               if (!choices[i].disabled) {
@@ -405,7 +402,8 @@ class PromptManager {
             }
             displayChoices();
           }
-        } else if (keyStr === 'n') { // Select none
+        } else if (keyStr === 'n') {
+          // Select none
           selected.clear();
           displayChoices();
         }
@@ -456,13 +454,13 @@ class PromptManager {
 
   async number(
     message: string,
-    options: { default?: number; min?: number; max?: number; } = {}
+    options: { default?: number; min?: number; max?: number } = {},
   ): Promise<number> {
     const { default: defaultValue, min, max } = options;
 
     const validate = (value: string): boolean | string => {
       const num = Number(value);
-      if (isNaN(num)) {
+      if (Number.isNaN(num)) {
         return 'Please enter a valid number';
       }
       if (min !== undefined && num < min) {
@@ -477,7 +475,7 @@ class PromptManager {
     const result = await this.input({
       message,
       default: defaultValue?.toString(),
-      validate
+      validate,
     });
 
     return Number(result);
@@ -490,7 +488,7 @@ class PromptManager {
   async autocomplete<T = string>(
     message: string,
     choices: SelectOption<T>[],
-    options: { limit?: number } = {}
+    options: { limit?: number } = {},
   ): Promise<T> {
     const { limit = 10 } = options;
 
@@ -506,9 +504,7 @@ class PromptManager {
       if (q === '') return choices.slice(0, limit);
 
       const normalized = q.toLowerCase();
-      return choices
-        .filter(c => c.label.toLowerCase().includes(normalized))
-        .slice(0, limit);
+      return choices.filter((c) => c.label.toLowerCase().includes(normalized)).slice(0, limit);
     };
 
     const displayChoices = () => {
@@ -537,7 +533,7 @@ class PromptManager {
     displayChoices();
 
     return new Promise<T>((resolve, reject) => {
-      const rl = this.createInterface();
+      const _rl = this.createInterface();
 
       if (process.stdin.isTTY) {
         process.stdin.setRawMode(true);
@@ -547,13 +543,16 @@ class PromptManager {
       const handleKeypress = (key: Buffer) => {
         const keyStr = key.toString();
 
-        if (keyStr === '\x1b[A') { // Up
+        if (keyStr === '\x1b[A') {
+          // Up
           selectedIndex = Math.max(0, selectedIndex - 1);
           displayChoices();
-        } else if (keyStr === '\x1b[B') { // Down
+        } else if (keyStr === '\x1b[B') {
+          // Down
           selectedIndex = Math.min(filteredChoices.length - 1, selectedIndex + 1);
           displayChoices();
-        } else if (keyStr === '\r' || keyStr === '\n') { // Enter
+        } else if (keyStr === '\r' || keyStr === '\n') {
+          // Enter
           if (filteredChoices.length > 0) {
             cleanup();
             const selected = filteredChoices[selectedIndex];
@@ -561,12 +560,14 @@ class PromptManager {
             this.formatter.writeln(this.formatter.success(`Selected: ${selected.label}`));
             resolve(selected.value);
           }
-        } else if (keyStr === '\x7f' || keyStr === '\x08') { // Backspace
+        } else if (keyStr === '\x7f' || keyStr === '\x08') {
+          // Backspace
           query = query.slice(0, -1);
           filteredChoices = filterChoices(query);
           selectedIndex = 0;
           displayChoices();
-        } else if (keyStr === '\x03') { // Ctrl+C
+        } else if (keyStr === '\x03') {
+          // Ctrl+C
           cleanup();
           reject(new Error('User cancelled'));
         } else if (keyStr.charCodeAt(0) >= 32 && keyStr.charCodeAt(0) < 127) {
@@ -597,11 +598,9 @@ export const promptManager = new PromptManager();
 export const select = <T = string>(options: SelectPromptOptions<T>) =>
   promptManager.select(options);
 
-export const confirm = (options: ConfirmPromptOptions) =>
-  promptManager.confirm(options);
+export const confirm = (options: ConfirmPromptOptions) => promptManager.confirm(options);
 
-export const input = (options: InputPromptOptions) =>
-  promptManager.input(options);
+export const input = (options: InputPromptOptions) => promptManager.input(options);
 
 export const multiSelect = <T = string>(options: MultiSelectPromptOptions<T>) =>
   promptManager.multiSelect(options);
@@ -609,11 +608,13 @@ export const multiSelect = <T = string>(options: MultiSelectPromptOptions<T>) =>
 export const text = (message: string, placeholder?: string) =>
   promptManager.text(message, placeholder);
 
-export const number = (message: string, options?: { default?: number; min?: number; max?: number }) =>
-  promptManager.number(message, options);
+export const number = (
+  message: string,
+  options?: { default?: number; min?: number; max?: number },
+) => promptManager.number(message, options);
 
 export const autocomplete = <T = string>(
   message: string,
   choices: SelectOption<T>[],
-  options?: { limit?: number }
+  options?: { limit?: number },
 ) => promptManager.autocomplete(message, choices, options);

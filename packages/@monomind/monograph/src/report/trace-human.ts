@@ -57,20 +57,28 @@ export interface CloneTraceInput {
   cloneGroups: CloneGroupTrace[];
 }
 
-function rel(file: string, root: string): string { return relative(root, file); }
+function rel(file: string, root: string): string {
+  return relative(root, file);
+}
 
 export function printExportTraceHuman(trace: ExportTraceInput, root: string): void {
   const status = trace.isUsed ? 'USED' : 'UNUSED';
   console.error(`\n  ${status} ${trace.exportName} in ${rel(trace.file, root)}`);
-  console.error(`\n  File: ${trace.fileReachable ? 'reachable' : 'unreachable'}${trace.isEntryPoint ? ' (entry point)' : ''}`);
+  console.error(
+    `\n  File: ${trace.fileReachable ? 'reachable' : 'unreachable'}${trace.isEntryPoint ? ' (entry point)' : ''}`,
+  );
   console.error(`  Reason: ${trace.reason}`);
   if (trace.directReferences.length > 0) {
     console.error(`\n  ${trace.directReferences.length} direct reference(s):`);
-    for (const r of trace.directReferences) console.error(`    -> ${rel(r.fromFile, root)} (${r.kind})`);
+    for (const r of trace.directReferences)
+      console.error(`    -> ${rel(r.fromFile, root)} (${r.kind})`);
   }
   if (trace.reExportChains.length > 0) {
     console.error('\n  Re-exported through:');
-    for (const c of trace.reExportChains) console.error(`    -> ${rel(c.barrelFile, root)} as '${c.exportedAs}' (${c.referenceCount} ref(s))`);
+    for (const c of trace.reExportChains)
+      console.error(
+        `    -> ${rel(c.barrelFile, root)} as '${c.exportedAs}' (${c.referenceCount} ref(s))`,
+      );
   }
   console.error('');
 }
@@ -85,7 +93,8 @@ export function printFileTraceHuman(trace: FileTraceInput, root: string): void {
       const used = e.referenceCount > 0 ? `${e.referenceCount} ref(s)` : 'unused';
       const tag = e.isTypeOnly ? ' (type)' : '';
       console.error(`    export ${e.name}${tag} [${used}]`);
-      for (const r of e.referencedBy) console.error(`      -> ${rel(r.fromFile, root)} (${r.kind})`);
+      for (const r of e.referencedBy)
+        console.error(`      -> ${rel(r.fromFile, root)} (${r.kind})`);
     }
   }
   if (trace.importedBy.length > 0) {
@@ -117,9 +126,16 @@ export function printCloneTraceHuman(trace: CloneTraceInput, root: string): void
   console.error(`  ${trace.cloneGroups.length} clone group(s) containing this location`);
   for (let i = 0; i < trace.cloneGroups.length; i++) {
     const g = trace.cloneGroups[i];
-    console.error(`\n  Clone group ${i + 1} (${g.lineCount} lines, ${g.tokenCount} tokens, ${g.instances.length} instance(s))`);
+    console.error(
+      `\n  Clone group ${i + 1} (${g.lineCount} lines, ${g.tokenCount} tokens, ${g.instances.length} instance(s))`,
+    );
     for (const inst of g.instances) {
-      const marker = trace.matchedInstance && trace.matchedInstance.file === inst.file && trace.matchedInstance.startLine === inst.startLine ? '>>' : '->';
+      const marker =
+        trace.matchedInstance &&
+        trace.matchedInstance.file === inst.file &&
+        trace.matchedInstance.startLine === inst.startLine
+          ? '>>'
+          : '->';
       console.error(`    ${marker} ${rel(inst.file, root)}:${inst.startLine}-${inst.endLine}`);
     }
   }

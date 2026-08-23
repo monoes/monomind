@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, lstatSync } from 'fs';
-import { join, extname } from 'path';
+import { lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { extname, join } from 'node:path';
 
 export type FlagKind = 'EnvironmentVariable' | 'SdkCall' | 'ConfigObject';
 export type FlagConfidence = 'High' | 'Medium' | 'Low';
@@ -25,13 +25,20 @@ export interface FlagsConfig {
 export const DEFAULT_FLAGS_CONFIG: FlagsConfig = {
   envPrefixes: ['FEATURE_', 'FF_', 'FLAG_', 'ENABLE_', 'DISABLE_', 'AB_', 'EXP_', 'EXPERIMENT_'],
   sdkPatterns: [
-    'launchdarkly', 'ld-client', '@launchdarkly',
-    'statsig', '@statsig',
-    'unleash', 'unleash-client',
-    'growthbook', '@growthbook',
-    'configcat', 'config-cat',
+    'launchdarkly',
+    'ld-client',
+    '@launchdarkly',
+    'statsig',
+    '@statsig',
+    'unleash',
+    'unleash-client',
+    'growthbook',
+    '@growthbook',
+    'configcat',
+    'config-cat',
     'flagsmith',
-    'split-io', '@splitsoftware',
+    'split-io',
+    '@splitsoftware',
   ],
 };
 
@@ -51,7 +58,8 @@ const SDK_CALL_PATTERNS = [
 ];
 
 const ENV_VAR_RE = /process\.env\.([A-Z][A-Z0-9_]+)/g;
-const CONFIG_OBJECT_RE = /(?:featureFlags?|flags?|features?)\s*[\[.]\s*['"]([A-Za-z][A-Za-z0-9_-]*)['"]|(?:isEnabled|isActive|isOn)\s*\(\s*['"]([A-Za-z][A-Za-z0-9_-]*)['"]/g;
+const CONFIG_OBJECT_RE =
+  /(?:featureFlags?|flags?|features?)\s*[[.]\s*['"]([A-Za-z][A-Za-z0-9_-]*)['"]|(?:isEnabled|isActive|isOn)\s*\(\s*['"]([A-Za-z][A-Za-z0-9_-]*)['"]/g;
 
 function isSourceFile(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase();
@@ -71,11 +79,15 @@ function detectFlagsInLine(
   const envRe = new RegExp(ENV_VAR_RE.source, 'g');
   while ((m = envRe.exec(line)) !== null) {
     const varName = m[1]!;
-    const isFlag = config.envPrefixes.some(p => varName.startsWith(p));
+    const isFlag = config.envPrefixes.some((p) => varName.startsWith(p));
     if (isFlag) {
       found.push({
-        filePath, flagName: varName, kind: 'EnvironmentVariable',
-        confidence: 'High', line: lineNum, col: m.index + 1,
+        filePath,
+        flagName: varName,
+        kind: 'EnvironmentVariable',
+        confidence: 'High',
+        line: lineNum,
+        col: m.index + 1,
       });
     }
   }
@@ -88,8 +100,12 @@ function detectFlagsInLine(
       const argMatch = line.slice(sdkMatch.index).match(/\(\s*['"]([^'"]+)['"]/);
       if (argMatch) {
         found.push({
-          filePath, flagName: argMatch[1]!, kind: 'SdkCall',
-          confidence: 'High', line: lineNum, col: sdkMatch.index + 1,
+          filePath,
+          flagName: argMatch[1]!,
+          kind: 'SdkCall',
+          confidence: 'High',
+          line: lineNum,
+          col: sdkMatch.index + 1,
           sdkName: detectSdkName(line),
         });
       }
@@ -102,8 +118,12 @@ function detectFlagsInLine(
     const flagName = m[1] ?? m[2];
     if (flagName) {
       found.push({
-        filePath, flagName, kind: 'ConfigObject',
-        confidence: 'Medium', line: lineNum, col: m.index + 1,
+        filePath,
+        flagName,
+        kind: 'ConfigObject',
+        confidence: 'Medium',
+        line: lineNum,
+        col: m.index + 1,
       });
     }
   }
@@ -128,10 +148,14 @@ export function analyzeFeatureFlags(
   config: FlagsConfig = DEFAULT_FLAGS_CONFIG,
 ): FeatureFlag[] {
   const flags: FeatureFlag[] = [];
-  walkDir(rootDir, filePath => {
+  walkDir(rootDir, (filePath) => {
     if (!isSourceFile(filePath)) return;
     let content: string;
-    try { content = readFileSync(filePath, 'utf8'); } catch { return; }
+    try {
+      content = readFileSync(filePath, 'utf8');
+    } catch {
+      return;
+    }
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const detected = detectFlagsInLine(lines[i]!, i + 1, filePath, config);
@@ -156,32 +180,39 @@ export function crossReferenceWithDeadCode(
     arr.push({ name: e.name, line: e.line });
   }
 
-  return flags.map(flag => {
+  return flags.map((flag) => {
     if (flag.guardLineStart == null || flag.guardLineEnd == null) return flag;
     const fileDeads = deadByFile.get(flag.filePath);
     if (!fileDeads) return flag;
     const start = flag.guardLineStart ?? 0;
     const end = flag.guardLineEnd ?? Infinity;
-    const guarded = fileDeads
-      .filter(e => e.line >= start && e.line <= end)
-      .map(e => e.name);
+    const guarded = fileDeads.filter((e) => e.line >= start && e.line <= end).map((e) => e.name);
     return guarded.length > 0 ? { ...flag, guardedDeadExports: guarded } : flag;
   });
 }
 
 function walkDir(dir: string, fn: (filePath: string) => void): void {
   let dirents: import('fs').Dirent[];
-  try { dirents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  try {
+    dirents = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
   for (const dirent of dirents) {
     const entry = dirent.name;
-    if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === 'build') continue;
+    if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === 'build')
+      continue;
     // Never follow symlinks — avoids infinite recursion on a symlink pointing to
     // an ancestor directory, and avoids indexing a symlinked external tree as if
     // it were part of the repo. Matches scan.ts's walk().
     if (dirent.isSymbolicLink()) continue;
     const full = join(dir, entry);
     let st;
-    try { st = lstatSync(full); } catch { continue; }
+    try {
+      st = lstatSync(full);
+    } catch {
+      continue;
+    }
     if (st.isDirectory()) walkDir(full, fn);
     else if (st.isFile()) fn(full);
   }

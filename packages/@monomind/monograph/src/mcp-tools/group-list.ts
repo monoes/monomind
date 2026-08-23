@@ -4,8 +4,8 @@
  * Returns metadata for each repo in a group: index timestamp and node count.
  */
 
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { parseGroupConfig } from '../groups/group-config.js';
 
@@ -30,9 +30,11 @@ function getRepoDbPath(repoPath: string): string {
   return join(repoPath, '.monomind', 'monograph.db');
 }
 
-function readRepoStats(
-  repoPath: string,
-): { indexedAt: string | null; nodeCount: number; error?: string } {
+function readRepoStats(repoPath: string): {
+  indexedAt: string | null;
+  nodeCount: number;
+  error?: string;
+} {
   const dbPath = getRepoDbPath(repoPath);
   if (!existsSync(dbPath)) {
     return { indexedAt: null, nodeCount: 0, error: 'index not found' };
@@ -42,9 +44,9 @@ function readRepoStats(
   try {
     db = new Database(dbPath, { readonly: true });
 
-    const metaRow = db
-      .prepare(`SELECT value FROM index_meta WHERE key = 'indexed_at'`)
-      .get() as { value: string } | undefined;
+    const metaRow = db.prepare(`SELECT value FROM index_meta WHERE key = 'indexed_at'`).get() as
+      | { value: string }
+      | undefined;
 
     const countRow = db.prepare(`SELECT COUNT(*) as cnt FROM nodes`).get() as { cnt: number };
 

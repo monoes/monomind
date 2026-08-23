@@ -1,11 +1,11 @@
-import type { MonographDb } from '../storage/db.js';
 import type { CloneFamily } from '../graph/clone-families.js';
+import type { MonographDb } from '../storage/db.js';
 
 export interface MirroredDirPair {
   dirA: string;
   dirB: string;
-  similarity: number;         // 0-1, file name overlap ratio
-  sharedFileNames: string[];  // basenames that appear in both
+  similarity: number; // 0-1, file name overlap ratio
+  sharedFileNames: string[]; // basenames that appear in both
   uniqueToA: number;
   uniqueToB: number;
 }
@@ -24,9 +24,9 @@ export interface MirroredDirsReport {
  */
 export function detectMirroredDirs(db: MonographDb, minSimilarity = 0.7): MirroredDirsReport {
   // Query all File nodes with a file_path
-  const rows = db.prepare(
-    `SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`,
-  ).all() as { file_path: string }[];
+  const rows = db
+    .prepare(`SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`)
+    .all() as { file_path: string }[];
 
   // Build map: dirPath → Set<basename>
   const dirMap = new Map<string, Set<string>>();
@@ -36,7 +36,7 @@ export function detectMirroredDirs(db: MonographDb, minSimilarity = 0.7): Mirror
     const dir = file_path.slice(0, lastSlash);
     const base = file_path.slice(lastSlash + 1);
     if (!dirMap.has(dir)) dirMap.set(dir, new Set());
-    dirMap.get(dir)!.add(base);
+    dirMap.get(dir)?.add(base);
   }
 
   const dirs = [...dirMap.keys()];
@@ -53,11 +53,12 @@ export function detectMirroredDirs(db: MonographDb, minSimilarity = 0.7): Mirror
       // Only compare directories that share a parent OR one is a suffix of the other
       const parentA = dirA.slice(0, Math.max(dirA.lastIndexOf('/'), dirA.lastIndexOf('\\')));
       const parentB = dirB.slice(0, Math.max(dirB.lastIndexOf('/'), dirB.lastIndexOf('\\')));
-      const relatedDirs = parentA === parentB
-        || dirA.endsWith(dirB)
-        || dirB.endsWith(dirA)
-        || dirA.includes(dirB)
-        || dirB.includes(dirA);
+      const relatedDirs =
+        parentA === parentB ||
+        dirA.endsWith(dirB) ||
+        dirB.endsWith(dirA) ||
+        dirA.includes(dirB) ||
+        dirB.includes(dirA);
       if (!relatedDirs) continue;
 
       // Compute Jaccard similarity
@@ -96,15 +97,12 @@ export interface MirroredDirResult {
   remaining: CloneFamily[];
 }
 
-export function detectMirroredFamilies(
-  families: CloneFamily[],
-  root: string,
-): MirroredDirResult {
+export function detectMirroredFamilies(families: CloneFamily[], root: string): MirroredDirResult {
   const normalizedRoot = root.replace(/\\/g, '/').replace(/\/$/, '');
 
   function dirOf(filePath: string): string {
     const normalized = filePath.replace(/\\/g, '/');
-    const rel = normalized.startsWith(normalizedRoot + '/')
+    const rel = normalized.startsWith(`${normalizedRoot}/`)
       ? normalized.slice(normalizedRoot.length + 1)
       : normalized;
     const lastSlash = rel.lastIndexOf('/');
@@ -136,13 +134,17 @@ export function detectMirroredFamilies(
       for (const f of fa.files) {
         const d = dirOf(f);
         if (firstDirA === undefined) firstDirA = d;
-        else if (d !== firstDirA) { singleDirA = false; }
+        else if (d !== firstDirA) {
+          singleDirA = false;
+        }
         namesA.add(baseName(f));
       }
       for (const f of fb.files) {
         const d = dirOf(f);
         if (firstDirB === undefined) firstDirB = d;
-        else if (d !== firstDirB) { singleDirB = false; }
+        else if (d !== firstDirB) {
+          singleDirB = false;
+        }
         namesB.add(baseName(f));
       }
 

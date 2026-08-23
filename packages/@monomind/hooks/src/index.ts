@@ -29,52 +29,51 @@
  * @packageDocumentation
  */
 
-// Types
-export * from './types.js';
+// Executor
+export {
+  defaultExecutor,
+  executeHooks,
+  HookExecutor,
+} from './executor/index.js';
 
 // Registry
 export {
-  HookRegistry,
   defaultRegistry,
+  HookRegistry,
   registerHook,
   unregisterHook,
 } from './registry/index.js';
-
-// Executor
-export {
-  HookExecutor,
-  defaultExecutor,
-  executeHooks,
-} from './executor/index.js';
+// Types
+export * from './types.js';
 
 // Workers - Cross-platform background workers
 export {
-  WorkerManager,
-  WorkerPriority,
   AlertSeverity,
-  WORKER_CONFIGS,
-  DEFAULT_THRESHOLDS,
-  createWorkerManager,
-  workerManager,
+  type AlertThreshold,
+  createAuditWorker,
+  createCacheWorker,
+  createConsolidateWorker,
+  createDDDWorker,
   // Worker factories
   createHealthWorker,
-  createDDDWorker,
-  createSecurityWorker,
-  createCacheWorker,
-  createProgressWorker,
   createMapWorker,
-  createAuditWorker,
-  createConsolidateWorker,
+  createProgressWorker,
+  createSecurityWorker,
+  createWorkerManager,
+  DEFAULT_THRESHOLDS,
+  type HistoricalMetric,
+  type PersistedWorkerState,
+  type StatuslineData,
   WORKER_ALIAS_MAP,
+  WORKER_CONFIGS,
+  type WorkerAlert,
   // Types
   type WorkerConfig,
-  type WorkerResult,
-  type WorkerMetrics,
-  type WorkerManagerStatus,
   type WorkerHandler,
-  type WorkerAlert,
-  type AlertThreshold,
-  type PersistedWorkerState,
-  type HistoricalMetric,
-  type StatuslineData,
+  WorkerManager,
+  type WorkerManagerStatus,
+  type WorkerMetrics,
+  WorkerPriority,
+  type WorkerResult,
+  workerManager,
 } from './workers/index.js';

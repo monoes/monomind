@@ -5,9 +5,9 @@
  * github.com/monoes/monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { configManager } from '../services/config-file-manager.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Configure subcommand
 const configureCommand: Command = {
@@ -21,11 +21,14 @@ const configureCommand: Command = {
   ],
   examples: [
     { command: 'monomind providers configure -p openai -k sk-...', description: 'Set OpenAI key' },
-    { command: 'monomind providers configure -p anthropic -m claude-3.5-sonnet', description: 'Set default model' },
+    {
+      command: 'monomind providers configure -p anthropic -m claude-3.5-sonnet',
+      description: 'Set default model',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const provider = ((ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '').slice(0, 64);
+      const provider = ((ctx.flags.provider as string) || ctx.args?.[0] || '').slice(0, 64);
       const apiKey = (ctx.flags.key as string | undefined)?.slice(0, 256);
       const model = (ctx.flags.model as string | undefined)?.slice(0, 128);
       const endpoint = (ctx.flags.endpoint as string | undefined)?.slice(0, 512);
@@ -54,7 +57,11 @@ const configureCommand: Command = {
 
       // Warn when key is supplied via CLI flag (visible in process table and shell history)
       if (apiKey !== undefined) {
-        output.writeln(output.warning('  Warning: passing API keys via --key exposes them in process listings and shell history. Prefer setting the environment variable instead.'));
+        output.writeln(
+          output.warning(
+            '  Warning: passing API keys via --key exposes them in process listings and shell history. Prefer setting the environment variable instead.',
+          ),
+        );
       }
       if (apiKey !== undefined) entry.apiKey = apiKey;
       if (model !== undefined) entry.model = model;
@@ -99,7 +106,7 @@ const testCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const provider = ((ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '').slice(0, 64);
+      const provider = ((ctx.flags.provider as string) || ctx.args?.[0] || '').slice(0, 64);
       const testAll = ctx.flags.all as boolean;
 
       output.writeln();
@@ -163,18 +170,26 @@ const testCommand: Command = {
               return { pass: false, reason: 'Invalid URL in Ollama config' };
             }
             if (!['http:', 'https:'].includes(parsedBaseUrl.protocol)) {
-              return { pass: false, reason: 'Only http/https URLs are permitted for Ollama endpoint' };
+              return {
+                pass: false,
+                reason: 'Only http/https URLs are permitted for Ollama endpoint',
+              };
             }
             // SSRF defense: block cloud-metadata + RFC1918 private ranges by default.
             // Ollama is conventionally local, so allow loopback by default but
             // refuse metadata IPs and link-local. Set MONOMIND_OLLAMA_ALLOW_REMOTE=1
             // to opt into hitting non-loopback hosts (useful for dev clusters).
             const host = parsedBaseUrl.hostname;
-            const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
-              host === '0.0.0.0' || /^127\./.test(host);
-            const isMetadata = host === '169.254.169.254' || /^169\.254\./.test(host) ||
-              /^fe80:/i.test(host);
-            const isPrivateV4 = /^10\./.test(host) ||
+            const isLoopback =
+              host === 'localhost' ||
+              host === '127.0.0.1' ||
+              host === '::1' ||
+              host === '0.0.0.0' ||
+              /^127\./.test(host);
+            const isMetadata =
+              host === '169.254.169.254' || /^169\.254\./.test(host) || /^fe80:/i.test(host);
+            const isPrivateV4 =
+              /^10\./.test(host) ||
               /^192\.168\./.test(host) ||
               /^172\.(1[6-9]|2\d|3[01])\./.test(host);
             if (isMetadata) {
@@ -182,7 +197,10 @@ const testCommand: Command = {
             }
             const allowRemote = process.env.MONOMIND_OLLAMA_ALLOW_REMOTE === '1';
             if (!isLoopback && (isPrivateV4 || !allowRemote)) {
-              return { pass: false, reason: `Refusing non-loopback Ollama host ${host}. Set MONOMIND_OLLAMA_ALLOW_REMOTE=1 to override.` };
+              return {
+                pass: false,
+                reason: `Refusing non-loopback Ollama host ${host}. Set MONOMIND_OLLAMA_ALLOW_REMOTE=1 to override.`,
+              };
             }
             try {
               const controller = new AbortController();
@@ -203,9 +221,7 @@ const testCommand: Command = {
       if (testAll || !provider) {
         checksToRun = knownChecks;
       } else {
-        const match = knownChecks.find(
-          (c) => c.name.toLowerCase() === provider.toLowerCase(),
-        );
+        const match = knownChecks.find((c) => c.name.toLowerCase() === provider.toLowerCase());
         if (match) {
           checksToRun = [match];
         } else {
@@ -240,7 +256,11 @@ const testCommand: Command = {
 
       output.writeln();
       if (anyPassed) {
-        output.writeln(output.success(`${results.filter((r) => r.pass).length}/${results.length} provider(s) passed.`));
+        output.writeln(
+          output.success(
+            `${results.filter((r) => r.pass).length}/${results.length} provider(s) passed.`,
+          ),
+        );
       } else {
         output.writeln(output.warning('No providers passed connectivity checks.'));
       }
@@ -258,12 +278,8 @@ const testCommand: Command = {
 const listCommand: Command = {
   name: 'list',
   description: 'List configured providers',
-  options: [
-    { name: 'json', short: 'j', type: 'boolean', description: 'Output as JSON' },
-  ],
-  examples: [
-    { command: 'monomind providers list', description: 'List all configured providers' },
-  ],
+  options: [{ name: 'json', short: 'j', type: 'boolean', description: 'Output as JSON' }],
+  examples: [{ command: 'monomind providers list', description: 'List all configured providers' }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
       const cwd = process.cwd();
@@ -285,7 +301,9 @@ const listCommand: Command = {
       output.writeln(output.dim('─'.repeat(40)));
 
       if (providers.length === 0) {
-        output.writeln(output.dim('  No providers configured. Use "providers configure -p <name>" to add one.'));
+        output.writeln(
+          output.dim('  No providers configured. Use "providers configure -p <name>" to add one.'),
+        );
       } else {
         for (const p of providers) {
           const name = String(p.name ?? 'unknown');
@@ -313,11 +331,14 @@ const removeCommand: Command = {
     { name: 'provider', short: 'p', type: 'string', description: 'Provider name', required: true },
   ],
   examples: [
-    { command: 'monomind providers remove -p openai', description: 'Remove OpenAI provider config' },
+    {
+      command: 'monomind providers remove -p openai',
+      description: 'Remove OpenAI provider config',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const provider = ((ctx.flags.provider as string) || (ctx.args && ctx.args[0]) || '').slice(0, 64);
+      const provider = ((ctx.flags.provider as string) || ctx.args?.[0] || '').slice(0, 64);
       if (!provider) {
         output.printError('Provider name is required. Use -p <name> or pass as first argument.');
         return { success: false, exitCode: 1 };
@@ -355,7 +376,10 @@ export const providersCommand: Command = {
   subcommands: [listCommand, configureCommand, removeCommand, testCommand],
   examples: [
     { command: 'monomind providers list', description: 'List configured providers' },
-    { command: 'monomind providers configure -p openai -k sk-...', description: 'Configure OpenAI' },
+    {
+      command: 'monomind providers configure -p openai -k sk-...',
+      description: 'Configure OpenAI',
+    },
     { command: 'monomind providers remove -p openai', description: 'Remove OpenAI config' },
     { command: 'monomind providers test --all', description: 'Test all providers' },
   ],

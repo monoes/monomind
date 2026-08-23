@@ -1,6 +1,6 @@
-import { execFileSync } from 'child_process';
-import { existsSync, readdirSync, readFileSync } from 'fs';
-import { join, relative, resolve } from 'path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { validateGitRef } from './git-ref.js';
 
 export interface WorkspacePackage {
@@ -13,15 +13,16 @@ function findWorkspaceRoots(projectRoot: string): string[] {
   // Detect pnpm/npm/yarn workspaces
   let pkg: Record<string, unknown>;
   try {
-    pkg = JSON.parse(
-      readFileSync(join(projectRoot, 'package.json'), 'utf8'),
-    );
-  } catch { return []; }
+    pkg = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8'));
+  } catch {
+    return [];
+  }
 
-  const workspaceGlobs: string[] =
-    (pkg['workspaces'] as string[] | { packages: string[] } | undefined) instanceof Array
-      ? pkg['workspaces'] as string[]
-      : (pkg['workspaces'] as { packages?: string[] } | undefined)?.packages ?? [];
+  const workspaceGlobs: string[] = Array.isArray(
+    pkg.workspaces as string[] | { packages: string[] } | undefined,
+  )
+    ? (pkg.workspaces as string[])
+    : ((pkg.workspaces as { packages?: string[] } | undefined)?.packages ?? []);
 
   if (workspaceGlobs.length === 0) return [];
 
@@ -35,7 +36,9 @@ function findWorkspaceRoots(projectRoot: string): string[] {
         for (const e of entries) {
           if (e.isDirectory()) roots.push(join(dir, e.name));
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     } else {
       const absPath = join(projectRoot, glob);
       if (existsSync(absPath)) roots.push(absPath);
@@ -59,18 +62,23 @@ export function getChangedWorkspaces(
     const raw = execFileSync(
       'git',
       ['-C', projectRoot, 'diff', '--name-only', `${sinceRef}...HEAD`],
-      { encoding: 'utf8' }
+      { encoding: 'utf8' },
     );
-    changedFiles = new Set(raw.split('\n').map(l => l.trim()).filter(Boolean));
+    changedFiles = new Set(
+      raw
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean),
+    );
   } catch {
     changedFiles = new Set();
   }
 
   const roots = workspaceRoots ?? findWorkspaceRoots(projectRoot);
 
-  return roots.map(root => {
-    const relRoot = relative(projectRoot, root).replace(/\\/g, '/') + '/';
-    const hasChanges = [...changedFiles].some(f => f.startsWith(relRoot));
+  return roots.map((root) => {
+    const relRoot = `${relative(projectRoot, root).replace(/\\/g, '/')}/`;
+    const hasChanges = [...changedFiles].some((f) => f.startsWith(relRoot));
     const pkgName = root.split(/[\\/]/).pop() ?? root;
     return { name: pkgName, root: resolve(root), hasChanges };
   });
@@ -82,6 +90,6 @@ export function resolveChangedWorkspaceRoots(
   workspaceRoots?: string[],
 ): string[] {
   return getChangedWorkspaces(projectRoot, sinceRef, workspaceRoots)
-    .filter(w => w.hasChanges)
-    .map(w => w.root);
+    .filter((w) => w.hasChanges)
+    .map((w) => w.root);
 }

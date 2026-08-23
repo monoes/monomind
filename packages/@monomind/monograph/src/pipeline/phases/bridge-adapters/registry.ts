@@ -1,7 +1,7 @@
+import { electronIpcAdapter } from './electron-ipc.js';
+import { tauriAdapter } from './tauri.js';
 import type { BridgeAdapter } from './types.js';
 import { wailsAdapter } from './wails.js';
-import { tauriAdapter } from './tauri.js';
-import { electronIpcAdapter } from './electron-ipc.js';
 
 // Every adapter here has an unambiguous detect() signal (a generated binding
 // path, or a framework-specific call shape that only appears when its

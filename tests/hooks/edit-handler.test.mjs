@@ -4,12 +4,13 @@
  * Verifies: session.metric, intelligence.recordEdit, security alerts,
  * test/build suggestions, and that no unconditional [OK] footer is printed.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -70,7 +71,11 @@ describe('edit-handler session.metric', () => {
   it('does not throw when session.metric throws', async () => {
     const eh = loadEH();
     const hCtx = makeHCtx({
-      session: { metric: () => { throw new Error('no active session'); } },
+      session: {
+        metric: () => {
+          throw new Error('no active session');
+        },
+      },
     });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await expect(eh.handle(hCtx)).resolves.not.toThrow();
@@ -121,7 +126,7 @@ describe('edit-handler completion message', () => {
     const hCtx = makeHCtx({});
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).not.toContain('[OK] Edit recorded');
   });
 });
@@ -136,7 +141,7 @@ describe('edit-handler security alert', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[SECURITY_EDIT]');
   });
 
@@ -147,7 +152,7 @@ describe('edit-handler security alert', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[SECURITY_EDIT]');
   });
 
@@ -158,7 +163,7 @@ describe('edit-handler security alert', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).not.toContain('[SECURITY_EDIT]');
   });
 
@@ -169,7 +174,7 @@ describe('edit-handler security alert', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[SECURITY_EDIT]');
   });
 });
@@ -184,7 +189,7 @@ describe('edit-handler test/build suggestions', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[AUTO_SUGGEST]');
     expect(output).toContain('npm test');
   });
@@ -196,7 +201,7 @@ describe('edit-handler test/build suggestions', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[AUTO_SUGGEST]');
     expect(output).toContain('npm install');
   });
@@ -208,7 +213,7 @@ describe('edit-handler test/build suggestions', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[AUTO_SUGGEST]');
     expect(output).toContain('npm run build');
   });
@@ -220,7 +225,7 @@ describe('edit-handler test/build suggestions', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).not.toContain('[AUTO_SUGGEST]');
   });
 });
@@ -236,7 +241,7 @@ describe('edit-handler affected tests', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[AFFECTED_TESTS]');
   });
 
@@ -248,7 +253,7 @@ describe('edit-handler affected tests', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await eh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     // Test files should not trigger affected tests output for themselves
     expect(output).not.toContain('[AFFECTED_TESTS]');
   });

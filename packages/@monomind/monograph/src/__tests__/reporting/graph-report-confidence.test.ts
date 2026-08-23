@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { generateGraphReport } from '../../reporting/graph-report.js';
 
 function makeDb(): Database.Database {
@@ -12,8 +12,12 @@ function makeDb(): Database.Database {
       relation TEXT NOT NULL, confidence TEXT DEFAULT 'EXTRACTED', confidence_score REAL DEFAULT 1.0,
       properties TEXT);
   `);
-  db.prepare(`INSERT INTO nodes VALUES ('n1','Function','foo',null,'/a.ts',1,5,null,1,null,null)`).run();
-  db.prepare(`INSERT INTO nodes VALUES ('n2','Function','bar',null,'/b.ts',1,3,null,0,null,null)`).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('n1','Function','foo',null,'/a.ts',1,5,null,1,null,null)`,
+  ).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('n2','Function','bar',null,'/b.ts',1,3,null,0,null,null)`,
+  ).run();
   db.prepare(`INSERT INTO edges VALUES ('e1','n1','n2','CALLS','EXTRACTED',0.9,null)`).run();
   db.prepare(`INSERT INTO edges VALUES ('e2','n2','n1','CALLS','INFERRED',0.5,null)`).run();
   db.prepare(`INSERT INTO edges VALUES ('e3','n1','n2','IMPORTS','AMBIGUOUS',0.3,null)`).run();

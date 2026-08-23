@@ -27,7 +27,7 @@ export const BOT_PATTERNS: RegExp[] = [
 
 export function isBot(email: string, name?: string): boolean {
   const target = name != null ? `${email} ${name}` : email;
-  return BOT_PATTERNS.some(p => p.test(target));
+  return BOT_PATTERNS.some((p) => p.test(target));
 }
 
 export function computeBusFactor(contributors: ContributorRecord[]): number {
@@ -54,7 +54,7 @@ export function computeOwnershipRisk(
 ): OwnershipRisk {
   const now = referenceDate != null ? new Date(referenceDate).getTime() : Date.now();
 
-  const human = contributors.filter(c => !isBot(c.email));
+  const human = contributors.filter((c) => !isBot(c.email));
 
   if (human.length === 0) {
     return {
@@ -84,7 +84,8 @@ export function computeOwnershipRisk(
     (a, b) => new Date(a.lastCommit).getTime() - new Date(b.lastCommit).getTime(),
   );
   const originalTop = byAge[0];
-  const isDrifted = sorted.length > 1 && originalTop !== undefined && originalTop.email !== sorted[0]!.email;
+  const isDrifted =
+    sorted.length > 1 && originalTop !== undefined && originalTop.email !== sorted[0]?.email;
 
   return {
     busFactor,

@@ -34,51 +34,61 @@
 
 // Domain entities
 export type {
-  Threat,
-  ThreatType,
-  ThreatSeverity,
-  ThreatDetectionResult,
-  BehavioralAnalysisResult,
-  PolicyVerificationResult,
-  EvasionResult,
-  ContextState,
-  OutputScanResult,
   AllowlistRule,
+  BehavioralAnalysisResult,
+  ContextState,
   EscalationState,
+  EvasionResult,
+  OutputScanResult,
+  PolicyVerificationResult,
+  Threat,
+  ThreatDetectionResult,
+  ThreatSeverity,
+  ThreatType,
 } from './domain/entities/threat.js';
 
 export { createThreat } from './domain/entities/threat.js';
-
+export { Allowlist, createAllowlist } from './domain/services/allowlist.js';
+export { ContextTracker, createContextTracker } from './domain/services/context-tracker.js';
+// New service exports
+export { createEvasionDetector, EvasionDetector } from './domain/services/evasion-detector.js';
+export { createOutputScanner, OutputScanner } from './domain/services/output-scanner.js';
 // Domain services
-export { ThreatDetectionService, createThreatDetectionService } from './domain/services/threat-detection-service.js';
-
+export {
+  createThreatDetectionService,
+  ThreatDetectionService,
+} from './domain/services/threat-detection-service.js';
 export type {
   LearnedThreatPattern,
-  MitigationStrategy,
   LearningTrajectory,
+  MitigationStrategy,
   VectorStore,
 } from './domain/services/threat-learning-service.js';
-
 export {
-  ThreatLearningService,
   createThreatLearningService,
   InMemoryVectorStore,
+  ThreatLearningService,
 } from './domain/services/threat-learning-service.js';
 
-// New service exports
-export { EvasionDetector, createEvasionDetector } from './domain/services/evasion-detector.js';
-export { ContextTracker, createContextTracker } from './domain/services/context-tracker.js';
-export { OutputScanner, createOutputScanner } from './domain/services/output-scanner.js';
-export { Allowlist, createAllowlist } from './domain/services/allowlist.js';
-
-// Import for internal use
-import { createThreatDetectionService } from './domain/services/threat-detection-service.js';
-import { createThreatLearningService } from './domain/services/threat-learning-service.js';
+import type {
+  AllowlistRule,
+  ContextState,
+  OutputScanResult,
+  Threat,
+  ThreatDetectionResult,
+  ThreatType,
+} from './domain/entities/threat.js';
+import { Allowlist } from './domain/services/allowlist.js';
 import { ContextTracker } from './domain/services/context-tracker.js';
 import { OutputScanner } from './domain/services/output-scanner.js';
-import { Allowlist } from './domain/services/allowlist.js';
-import type { ThreatDetectionResult, ThreatType, Threat, ContextState, OutputScanResult, AllowlistRule } from './domain/entities/threat.js';
-import type { LearnedThreatPattern, MitigationStrategy, VectorStore } from './domain/services/threat-learning-service.js';
+// Import for internal use
+import { createThreatDetectionService } from './domain/services/threat-detection-service.js';
+import type {
+  LearnedThreatPattern,
+  MitigationStrategy,
+  VectorStore,
+} from './domain/services/threat-learning-service.js';
+import { createThreatLearningService } from './domain/services/threat-learning-service.js';
 
 /**
  * Configuration for MonoDefence
@@ -123,7 +133,7 @@ export interface MonoDefence {
    */
   searchSimilarThreats(
     query: string,
-    options?: { k?: number; minSimilarity?: number }
+    options?: { k?: number; minSimilarity?: number },
   ): Promise<LearnedThreatPattern[]>;
 
   /**
@@ -132,7 +142,7 @@ export interface MonoDefence {
   learnFromDetection(
     input: string,
     result: ThreatDetectionResult,
-    feedback?: { wasAccurate: boolean; userVerdict?: string }
+    feedback?: { wasAccurate: boolean; userVerdict?: string },
   ): Promise<void>;
 
   /**
@@ -141,15 +151,13 @@ export interface MonoDefence {
   recordMitigation(
     threatType: ThreatType,
     strategy: 'block' | 'sanitize' | 'warn' | 'log' | 'escalate' | 'transform' | 'redirect',
-    success: boolean
+    success: boolean,
   ): Promise<void>;
 
   /**
    * Get best mitigation strategy based on learned effectiveness
    */
-  getBestMitigation(
-    threatType: ThreatType
-  ): Promise<MitigationStrategy | null>;
+  getBestMitigation(threatType: ThreatType): Promise<MitigationStrategy | null>;
 
   /**
    * Start a learning trajectory session
@@ -216,7 +224,7 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
     async detect(input: string) {
       // Short-circuit only for full-bypass rules (types: []) so that
       // rules with a types array still allow detection to run.
-      if (allowlist.getMatchingRules(input).some(r => r.types.length === 0)) {
+      if (allowlist.getMatchingRules(input).some((r) => r.types.length === 0)) {
         const safeResult: ThreatDetectionResult = {
           safe: true,
           threats: [],
@@ -237,36 +245,47 @@ export function createMonoDefence(config: MonoDefenceConfig = {}): MonoDefence {
       // Apply per-type suppression from allowlist rules with non-empty types arrays.
       // Rules with types: [] already caused full bypass above; here we handle the selective case:
       // for each matching rule whose types is non-empty, remove detected threats of those types.
-      const selectiveRules = allowlist.getMatchingRules(input).filter(r => r.types.length > 0);
+      const selectiveRules = allowlist.getMatchingRules(input).filter((r) => r.types.length > 0);
       if (selectiveRules.length > 0) {
-        const suppressedTypes = new Set(selectiveRules.flatMap(r => r.types));
-        const filtered = result.threats.filter(t => !suppressedTypes.has(t.type));
+        const suppressedTypes = new Set(selectiveRules.flatMap((r) => r.types));
+        const filtered = result.threats.filter((t) => !suppressedTypes.has(t.type));
         if (filtered.length !== result.threats.length) {
-          const newRisk = filtered.length > 0
-            ? Math.max(...filtered.map(t => t.confidence))
-            : 0;
-          result = { ...result, threats: filtered, overallRisk: newRisk, safe: filtered.length === 0 };
+          const newRisk = filtered.length > 0 ? Math.max(...filtered.map((t) => t.confidence)) : 0;
+          result = {
+            ...result,
+            threats: filtered,
+            overallRisk: newRisk,
+            safe: filtered.length === 0,
+          };
         }
       }
 
       // Apply confidence threshold — filter out threats below threshold
       if (config.confidenceThreshold != null) {
-        const filtered = result.threats.filter(t => t.confidence >= config.confidenceThreshold!);
+        const filtered = result.threats.filter((t) => t.confidence >= config.confidenceThreshold!);
         if (filtered.length !== result.threats.length) {
-          const newRisk = filtered.length > 0
-            ? Math.max(...filtered.map(t => t.confidence))
-            : 0;
-          result = { ...result, threats: filtered, overallRisk: newRisk, safe: filtered.length === 0 };
+          const newRisk = filtered.length > 0 ? Math.max(...filtered.map((t) => t.confidence)) : 0;
+          result = {
+            ...result,
+            threats: filtered,
+            overallRisk: newRisk,
+            safe: filtered.length === 0,
+          };
         }
       }
 
       // Strip PII fields when PII detection is disabled
       if (config.enablePIIDetection === false) {
-        const nonPiiThreats = result.threats.filter(t => t.type !== 'pii_exposure');
-        const newRisk = nonPiiThreats.length > 0
-          ? Math.max(...nonPiiThreats.map(t => t.confidence))
-          : 0;
-        result = { ...result, threats: nonPiiThreats, piiFound: false, overallRisk: newRisk, safe: nonPiiThreats.length === 0 };
+        const nonPiiThreats = result.threats.filter((t) => t.type !== 'pii_exposure');
+        const newRisk =
+          nonPiiThreats.length > 0 ? Math.max(...nonPiiThreats.map((t) => t.confidence)) : 0;
+        result = {
+          ...result,
+          threats: nonPiiThreats,
+          piiFound: false,
+          overallRisk: newRisk,
+          safe: nonPiiThreats.length === 0,
+        };
       }
 
       if (config.trackContext !== false) {
@@ -380,7 +399,7 @@ export function getMonoDefence(config?: MonoDefenceConfig): MonoDefence {
   } else if (config) {
     console.warn(
       '[MonoDefence] getMonoDefence() called with config after singleton is already initialized. ' +
-      'Config ignored — use createMonoDefence() for a separate instance, or call resetMonoDefence() first.'
+        'Config ignored — use createMonoDefence() for a separate instance, or call resetMonoDefence() first.',
     );
   }
   return defaultInstance;
@@ -427,9 +446,7 @@ export interface AttentionContext {
  * Calculate security consensus from multiple agent assessments
  * Uses attention-based weighting for Monomind flash attention integration
  */
-export function calculateSecurityConsensus(
-  assessments: AttentionContext[]
-): {
+export function calculateSecurityConsensus(assessments: AttentionContext[]): {
   consensus: 'safe' | 'threat' | 'uncertain';
   confidence: number;
   criticalThreats: Threat[];
@@ -443,7 +460,7 @@ export function calculateSecurityConsensus(
   if (totalWeight === 0) {
     return { consensus: 'uncertain', confidence: 0, criticalThreats: [] };
   }
-  const normalized = assessments.map(a => ({
+  const normalized = assessments.map((a) => ({
     ...a,
     weight: a.weight / totalWeight,
   }));
@@ -460,7 +477,7 @@ export function calculateSecurityConsensus(
   }
 
   // Determine consensus
-  const criticalThreats = allThreats.filter(t => t.severity === 'critical');
+  const criticalThreats = allThreats.filter((t) => t.severity === 'critical');
 
   // Critical threats short-circuit weighted scoring intentionally (fail-secure).
   // A single critical threat — regardless of that agent's weight — means we cannot
@@ -468,7 +485,7 @@ export function calculateSecurityConsensus(
   if (criticalThreats.length > 0) {
     return {
       consensus: 'threat',
-      confidence: Math.max(...criticalThreats.map(t => t.confidence)),
+      confidence: Math.max(...criticalThreats.map((t) => t.confidence)),
       criticalThreats,
     };
   }

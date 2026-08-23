@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { mergeGraphs, mergeGraphIntoDb } from '../../graph/merge.js';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { mergeGraphIntoDb, mergeGraphs } from '../../graph/merge.js';
 import { openDb } from '../../storage/db.js';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-merge-test-'));
@@ -22,7 +22,12 @@ function makeNode(id: string, overrides: Partial<MonographNode> = {}): Monograph
   };
 }
 
-function makeEdge(id: string, src: string, tgt: string, overrides: Partial<MonographEdge> = {}): MonographEdge {
+function makeEdge(
+  id: string,
+  src: string,
+  tgt: string,
+  overrides: Partial<MonographEdge> = {},
+): MonographEdge {
   return {
     id,
     sourceId: src,
@@ -85,13 +90,15 @@ describe('mergeGraphs (in-memory)', () => {
 // ── DB-backed merge ────────────────────────────────────────────────────────────
 
 function insertNode(db: ReturnType<typeof openDb>, id: string, name = id) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`)
-    .run(id, name, name.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`,
+  ).run(id, name, name.toLowerCase());
 }
 
-function insertEdge(db: ReturnType<typeof openDb>, id: string, src: string, tgt: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`)
-    .run(id, src, tgt);
+function _insertEdge(db: ReturnType<typeof openDb>, id: string, src: string, tgt: string) {
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`,
+  ).run(id, src, tgt);
 }
 
 describe('mergeGraphIntoDb', () => {

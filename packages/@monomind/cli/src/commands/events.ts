@@ -7,14 +7,18 @@
 
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 export const eventsCommand: Command = {
   name: 'events',
-  description: 'Stream live org events from the dashboard as JSONL (headless, for piping into other tools)',
+  description:
+    'Stream live org events from the dashboard as JSONL (headless, for piping into other tools)',
   examples: [
-    { command: 'monomind events', description: 'Stream events from the running dashboard to stdout as JSONL' },
+    {
+      command: 'monomind events',
+      description: 'Stream events from the running dashboard to stdout as JSONL',
+    },
     { command: 'monomind events | jq .type', description: 'Pipe events into jq for filtering' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -22,7 +26,9 @@ export const eventsCommand: Command = {
 
     let ctrlUrl = 'http://localhost:4242';
     try {
-      const ctl = JSON.parse(readFileSync(join(cwd, '.monomind', 'control.json'), 'utf8')) as { url?: string };
+      const ctl = JSON.parse(readFileSync(join(cwd, '.monomind', 'control.json'), 'utf8')) as {
+        url?: string;
+      };
       if (ctl.url) ctrlUrl = ctl.url;
     } catch {
       /* default */
@@ -77,14 +83,17 @@ export const eventsCommand: Command = {
           for (const line of frame.split('\n')) {
             if (line.startsWith('data:')) {
               const payload = line.slice(5).trim();
-              if (payload) process.stdout.write(payload + '\n');
+              if (payload) process.stdout.write(`${payload}\n`);
             }
           }
         }
       }
     } catch (err) {
       if (!controller.signal.aborted) {
-        output.printError('Events stream ended unexpectedly', err instanceof Error ? err.message : String(err));
+        output.printError(
+          'Events stream ended unexpectedly',
+          err instanceof Error ? err.message : String(err),
+        );
         return { success: false, exitCode: 1 };
       }
     } finally {

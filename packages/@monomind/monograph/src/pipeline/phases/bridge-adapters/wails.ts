@@ -1,4 +1,3 @@
-import type { PipelineContext } from '../../types.js';
 import type { BridgeAdapter, BridgeEndpoint } from './types.js';
 
 const WAILS_BINDING_RE = /wailsjs\/go\//i;
@@ -19,15 +18,21 @@ export const wailsAdapter: BridgeAdapter = {
 
   findDefinitions(ctx) {
     const rows = ctx.db
-      .prepare(`SELECT id, name, language FROM nodes WHERE label = 'Method' AND language = 'go' AND file_path IS NOT NULL`)
+      .prepare(
+        `SELECT id, name, language FROM nodes WHERE label = 'Method' AND language = 'go' AND file_path IS NOT NULL`,
+      )
       .all() as { id: string; name: string; language: string }[];
     return rows.map((r): BridgeEndpoint => ({ key: r.name, nodeId: r.id, language: r.language }));
   },
 
   findCallSites(ctx) {
     const rows = ctx.db
-      .prepare(`SELECT id, name, language, file_path FROM nodes WHERE label = 'Function' AND file_path LIKE '%wailsjs/go/%'`)
+      .prepare(
+        `SELECT id, name, language, file_path FROM nodes WHERE label = 'Function' AND file_path LIKE '%wailsjs/go/%'`,
+      )
       .all() as { id: string; name: string; language: string; file_path: string }[];
-    return rows.map((r): BridgeEndpoint => ({ key: r.name, nodeId: r.id, language: r.language ?? 'javascript' }));
+    return rows.map(
+      (r): BridgeEndpoint => ({ key: r.name, nodeId: r.id, language: r.language ?? 'javascript' }),
+    );
   },
 };

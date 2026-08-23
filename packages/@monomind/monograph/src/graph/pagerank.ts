@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import type { MonographDb } from '../storage/db.js';
 
 export interface PageRankOptions {
@@ -101,7 +101,7 @@ export function pageRank(db: MonographDb, options: PageRankOptions = {}): Map<st
   const cached = _resultCache.get(cacheKey);
   if (cached && now < cached.expiresAt) return cached.result;
 
-  const nodes = nodeRows.map(r => r.id);
+  const nodes = nodeRows.map((r) => r.id);
   const n = nodes.length;
   const nodeIndex = new Map<string, number>();
   nodes.forEach((id, i) => nodeIndex.set(id, i));

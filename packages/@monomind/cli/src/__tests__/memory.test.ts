@@ -1,14 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { memoryCommand } from '../commands/memory.js';
+import { configureCommand, deleteCommand, statsCommand } from '../commands/memory-admin.js';
+import { retrieveCommand, searchCommand, storeCommand } from '../commands/memory-crud.js';
+import { editCommand, listCommand, templatesCommand } from '../commands/memory-list.js';
+import { exportCommand, importCommand } from '../commands/memory-transfer.js';
 import type { Command, CommandContext } from '../types.js';
 
-import { storeCommand, retrieveCommand, searchCommand } from '../commands/memory-crud.js';
-import { listCommand, editCommand, templatesCommand } from '../commands/memory-list.js';
-import { deleteCommand, statsCommand, configureCommand } from '../commands/memory-admin.js';
-import { exportCommand, importCommand } from '../commands/memory-transfer.js';
-import { memoryCommand } from '../commands/memory.js';
-
 function makeCtx(flags: Record<string, unknown> = {}, args: string[] = []): CommandContext {
-  return { args, flags: { _: [], ...flags } as CommandContext['flags'], cwd: process.cwd(), interactive: false };
+  return {
+    args,
+    flags: { _: [], ...flags } as CommandContext['flags'],
+    cwd: process.cwd(),
+    interactive: false,
+  };
 }
 
 // Mirrors the subcommand-resolution logic in src/index.ts / src/parser.ts:
@@ -36,7 +40,7 @@ describe('memoryCommand registration', () => {
         'stats',
         'store',
         'templates',
-      ].sort()
+      ].sort(),
     );
   });
 
@@ -80,11 +84,13 @@ describe('memoryCommand registration', () => {
 
 describe('memoryCommand dispatch', () => {
   it('routes to the resolved subcommand action and returns its result unmodified', async () => {
-    const spy = vi.spyOn(listCommand, 'action').mockResolvedValue({ success: true, data: ['spied'] });
+    const spy = vi
+      .spyOn(listCommand, 'action')
+      .mockResolvedValue({ success: true, data: ['spied'] });
     try {
       const sub = resolveSubcommand('list')!;
       const ctx = makeCtx({ limit: 5 });
-      const result = await sub.action!(ctx);
+      const result = await sub.action?.(ctx);
       expect(spy).toHaveBeenCalledWith(ctx);
       expect(result).toEqual({ success: true, data: ['spied'] });
     } finally {
@@ -93,11 +99,13 @@ describe('memoryCommand dispatch', () => {
   });
 
   it('routes to searchCommand and returns its result unmodified', async () => {
-    const spy = vi.spyOn(searchCommand, 'action').mockResolvedValue({ success: true, data: [{ key: 'x' }] });
+    const spy = vi
+      .spyOn(searchCommand, 'action')
+      .mockResolvedValue({ success: true, data: [{ key: 'x' }] });
     try {
       const sub = resolveSubcommand('search')!;
       const ctx = makeCtx({ query: 'auth patterns' });
-      const result = await sub.action!(ctx);
+      const result = await sub.action?.(ctx);
       expect(spy).toHaveBeenCalledWith(ctx);
       expect(result).toEqual({ success: true, data: [{ key: 'x' }] });
     } finally {
@@ -107,7 +115,7 @@ describe('memoryCommand dispatch', () => {
 
   it('routes to templatesCommand without crashing on malformed args (unknown type)', async () => {
     const sub = resolveSubcommand('templates')!;
-    const result = await sub.action!(makeCtx({ type: 'not-a-real-type' }));
+    const result = await sub.action?.(makeCtx({ type: 'not-a-real-type' }));
     expect(result?.success).toBe(false);
   });
 
@@ -115,7 +123,7 @@ describe('memoryCommand dispatch', () => {
     const spy = vi.spyOn(retrieveCommand, 'action');
     try {
       const sub = resolveSubcommand('retrieve')!;
-      const result = await sub.action!(makeCtx({}));
+      const result = await sub.action?.(makeCtx({}));
       expect(spy).toHaveBeenCalled();
       expect(result?.success).toBe(false);
       expect(result?.exitCode).toBe(1);
@@ -125,7 +133,7 @@ describe('memoryCommand dispatch', () => {
   });
 
   it('falls through to the top-level help action when no subcommand is given', async () => {
-    const result = await memoryCommand.action!(makeCtx({}));
+    const result = await memoryCommand.action?.(makeCtx({}));
     expect(result?.success).toBe(true);
   });
 

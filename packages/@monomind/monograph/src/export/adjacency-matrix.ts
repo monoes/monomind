@@ -1,5 +1,5 @@
-import type { MonographNode, MonographEdge } from '../types.js';
 import type { MonographDb } from '../storage/db.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 // ── Output types ───────────────────────────────────────────────────────────────
 
@@ -28,15 +28,15 @@ export function buildAdjacencyMatrix(
   nodes: MonographNode[],
   edges: MonographEdge[],
 ): AdjacencyMatrix {
-  const nodeIds = nodes.map(n => n.id);
-  const nodeNames = nodes.map(n => n.name);
+  const nodeIds = nodes.map((n) => n.id);
+  const nodeNames = nodes.map((n) => n.name);
   const indexMap = new Map<string, number>(nodeIds.map((id, i) => [id, i]));
   const n = nodeIds.length;
 
   if (n > 5000) {
     throw new Error(
       `adjacency matrix would be ${n}×${n} (${n * n} cells). ` +
-      'Pass a pre-filtered node list via the nodeIds parameter, or use a different export format.'
+        'Pass a pre-filtered node list via the nodeIds parameter, or use a different export format.',
     );
   }
 
@@ -59,22 +59,20 @@ export function buildAdjacencyMatrix(
  * Build an adjacency matrix directly from a MonographDb.
  * Optionally restrict to a subset of node ids.
  */
-export function buildAdjacencyMatrixFromDb(
-  db: MonographDb,
-  nodeIds?: string[],
-): AdjacencyMatrix {
+export function buildAdjacencyMatrixFromDb(db: MonographDb, nodeIds?: string[]): AdjacencyMatrix {
   let nodeRows: { id: string; name: string }[];
 
   if (nodeIds && nodeIds.length > 0) {
     const ph = nodeIds.map(() => '?').join(',');
-    nodeRows = db
-      .prepare(`SELECT id, name FROM nodes WHERE id IN (${ph})`)
-      .all(...nodeIds) as { id: string; name: string }[];
+    nodeRows = db.prepare(`SELECT id, name FROM nodes WHERE id IN (${ph})`).all(...nodeIds) as {
+      id: string;
+      name: string;
+    }[];
   } else {
     nodeRows = db.prepare('SELECT id, name FROM nodes').all() as { id: string; name: string }[];
   }
 
-  const nodes: MonographNode[] = nodeRows.map(r => ({
+  const nodes: MonographNode[] = nodeRows.map((r) => ({
     id: r.id,
     label: 'Function' as MonographNode['label'], // placeholder; only id/name needed here
     name: r.name,
@@ -82,13 +80,15 @@ export function buildAdjacencyMatrixFromDb(
     isExported: false,
   }));
 
-  const nodeIdSet = new Set(nodeRows.map(r => r.id));
+  const nodeIdSet = new Set(nodeRows.map((r) => r.id));
 
   let edgeRows: { source_id: string; target_id: string }[];
   if (nodeIds && nodeIds.length > 0) {
     const ph = nodeIds.map(() => '?').join(',');
     edgeRows = db
-      .prepare(`SELECT source_id, target_id FROM edges WHERE source_id IN (${ph}) AND target_id IN (${ph})`)
+      .prepare(
+        `SELECT source_id, target_id FROM edges WHERE source_id IN (${ph}) AND target_id IN (${ph})`,
+      )
       .all(...nodeIds, ...nodeIds) as { source_id: string; target_id: string }[];
   } else {
     edgeRows = db.prepare('SELECT source_id, target_id FROM edges').all() as {
@@ -98,7 +98,7 @@ export function buildAdjacencyMatrixFromDb(
   }
 
   const edges: MonographEdge[] = edgeRows
-    .filter(r => nodeIdSet.has(r.source_id) && nodeIdSet.has(r.target_id))
+    .filter((r) => nodeIdSet.has(r.source_id) && nodeIdSet.has(r.target_id))
     .map((r, i) => ({
       id: `e${i}`,
       sourceId: r.source_id,
@@ -120,8 +120,6 @@ export function buildAdjacencyMatrixFromDb(
 export function adjacencyMatrixToCsv(am: AdjacencyMatrix): string {
   const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
   const header = ['', ...am.nodeNames.map(escape)].join(',');
-  const rows = am.matrix.map((row, i) =>
-    [escape(am.nodeNames[i]), ...row.map(String)].join(','),
-  );
+  const rows = am.matrix.map((row, i) => [escape(am.nodeNames[i]), ...row.map(String)].join(','));
   return [header, ...rows].join('\n');
 }

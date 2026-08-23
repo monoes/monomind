@@ -1,28 +1,38 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { detectFrameworks } from '../../../pipeline/phases/framework-detect.js';
 
 describe('detectFrameworks', () => {
   let tmpDir: string;
 
-  beforeEach(() => { tmpDir = mkdtempSync(join(tmpdir(), 'fw-detect-')); });
-  afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }); });
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'fw-detect-'));
+  });
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   it('detects React from package.json dependencies', () => {
-    writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({
-      dependencies: { react: '^18.0.0', 'react-dom': '^18.0.0' },
-    }));
+    writeFileSync(
+      join(tmpDir, 'package.json'),
+      JSON.stringify({
+        dependencies: { react: '^18.0.0', 'react-dom': '^18.0.0' },
+      }),
+    );
     const result = detectFrameworks(tmpDir);
     expect(result.frameworks).toContain('react');
     expect(result.primaryLanguage).toBe('javascript');
   });
 
   it('detects Express from package.json', () => {
-    writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({
-      dependencies: { express: '^4.18.0' },
-    }));
+    writeFileSync(
+      join(tmpDir, 'package.json'),
+      JSON.stringify({
+        dependencies: { express: '^4.18.0' },
+      }),
+    );
     const result = detectFrameworks(tmpDir);
     expect(result.frameworks).toContain('express');
   });
@@ -35,15 +45,20 @@ describe('detectFrameworks', () => {
   });
 
   it('detects Spring from pom.xml', () => {
-    writeFileSync(join(tmpDir, 'pom.xml'),
-      '<project><dependencies><dependency><artifactId>spring-boot-starter-web</artifactId></dependency></dependencies></project>');
+    writeFileSync(
+      join(tmpDir, 'pom.xml'),
+      '<project><dependencies><dependency><artifactId>spring-boot-starter-web</artifactId></dependency></dependencies></project>',
+    );
     const result = detectFrameworks(tmpDir);
     expect(result.frameworks).toContain('spring');
     expect(result.primaryLanguage).toBe('java');
   });
 
   it('detects Vue from package.json', () => {
-    writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({ dependencies: { vue: '^3.0.0' } }));
+    writeFileSync(
+      join(tmpDir, 'package.json'),
+      JSON.stringify({ dependencies: { vue: '^3.0.0' } }),
+    );
     const result = detectFrameworks(tmpDir);
     expect(result.frameworks).toContain('vue');
   });
@@ -55,9 +70,12 @@ describe('detectFrameworks', () => {
   });
 
   it('detects multiple frameworks', () => {
-    writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({
-      dependencies: { react: '^18', express: '^4' },
-    }));
+    writeFileSync(
+      join(tmpDir, 'package.json'),
+      JSON.stringify({
+        dependencies: { react: '^18', express: '^4' },
+      }),
+    );
     const result = detectFrameworks(tmpDir);
     expect(result.frameworks).toContain('react');
     expect(result.frameworks).toContain('express');

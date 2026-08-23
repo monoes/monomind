@@ -14,7 +14,9 @@ export type IgnoreExportsUsedInFileConfig =
 export const IGNORE_EXPORTS_DISABLED: IgnoreExportsUsedInFileConfig = { kind: 'disabled' };
 export const IGNORE_EXPORTS_ENABLED: IgnoreExportsUsedInFileConfig = { kind: 'enabled' };
 
-export function ignoreExportsByKind(byKind: IgnoreExportsUsedInFileByKind): IgnoreExportsUsedInFileConfig {
+export function ignoreExportsByKind(
+  byKind: IgnoreExportsUsedInFileByKind,
+): IgnoreExportsUsedInFileConfig {
   return { kind: 'byKind', byKind };
 }
 
@@ -38,8 +40,8 @@ export function parseIgnoreExportsConfig(raw: unknown): IgnoreExportsUsedInFileC
   if (typeof raw === 'object') {
     const obj = raw as Record<string, unknown>;
     return ignoreExportsByKind({
-      interface: Boolean(obj['interface']),
-      typeAlias: Boolean(obj['typeAlias'] ?? obj['type_alias']),
+      interface: Boolean(obj.interface),
+      typeAlias: Boolean(obj.typeAlias ?? obj.type_alias),
     });
   }
   return IGNORE_EXPORTS_DISABLED;

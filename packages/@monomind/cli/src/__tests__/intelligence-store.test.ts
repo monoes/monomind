@@ -6,10 +6,11 @@
  * running on effectively every prompt. These tests drive the real public API
  * against an isolated data directory.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, existsSync } from 'node:fs';
+
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Most tests here call initializeIntelligence()/recordStep(), which generate
 // real embeddings — the first-use model load alone can exceed the 15s default
@@ -62,24 +63,32 @@ describe('trajectory recording and pattern retrieval', () => {
   it('records a step and surfaces it through getAllPatterns', async () => {
     const intel = await import('../memory/intelligence.js');
     await intel.initializeIntelligence();
-    const ok = await intel.recordStep({ type: 'action', content: 'edit src/auth.ts', timestamp: Date.now() });
+    const ok = await intel.recordStep({
+      type: 'action',
+      content: 'edit src/auth.ts',
+      timestamp: Date.now(),
+    });
     expect(ok).toBe(true);
     const all = await intel.getAllPatterns();
     expect(all.length).toBeGreaterThan(0);
-    expect(all[0]!.content).toContain('auth');
+    expect(all[0]?.content).toContain('auth');
   });
 
   it('filters patterns by their declared type', async () => {
     const intel = await import('../memory/intelligence.js');
     await intel.initializeIntelligence();
     await intel.recordStep({ type: 'action', content: 'run the migration', timestamp: Date.now() });
-    await intel.recordStep({ type: 'thought', content: 'consider rollback safety', timestamp: Date.now() });
+    await intel.recordStep({
+      type: 'thought',
+      content: 'consider rollback safety',
+      timestamp: Date.now(),
+    });
 
     const actions = await intel.getPatternsByType('action');
     const thoughts = await intel.getPatternsByType('thought');
     expect(actions.length).toBeGreaterThan(0);
     expect(thoughts.length).toBeGreaterThan(0);
-    expect(actions.every(p => p.type === 'action')).toBe(true);
+    expect(actions.every((p) => p.type === 'action')).toBe(true);
     // A type nobody recorded must not match anything.
     expect(await intel.getPatternsByType('no-such-type')).toEqual([]);
   });
@@ -87,7 +96,11 @@ describe('trajectory recording and pattern retrieval', () => {
   it('finds a semantically similar pattern for a related query', async () => {
     const intel = await import('../memory/intelligence.js');
     await intel.initializeIntelligence();
-    await intel.recordStep({ type: 'action', content: 'fix the authentication bug in login', timestamp: Date.now() });
+    await intel.recordStep({
+      type: 'action',
+      content: 'fix the authentication bug in login',
+      timestamp: Date.now(),
+    });
     const hits = await intel.findSimilarPatterns('authentication problem');
     expect(Array.isArray(hits)).toBe(true);
   });
@@ -119,7 +132,7 @@ describe('pattern store maintenance', () => {
     const [first] = await intel.getAllPatterns();
     expect(first).toBeDefined();
 
-    expect(await intel.deletePattern(first!.id)).toBe(true);
+    expect(await intel.deletePattern(first?.id)).toBe(true);
     expect(await intel.deletePattern('definitely-not-a-real-id')).toBe(false);
   });
 
@@ -128,8 +141,16 @@ describe('pattern store maintenance', () => {
     await intel.initializeIntelligence();
     // Near-identical content, so a similarity-based compaction has something
     // to collapse; the assertion holds either way.
-    await intel.recordStep({ type: 'action', content: 'update the readme file', timestamp: Date.now() });
-    await intel.recordStep({ type: 'action', content: 'update the readme file', timestamp: Date.now() });
+    await intel.recordStep({
+      type: 'action',
+      content: 'update the readme file',
+      timestamp: Date.now(),
+    });
+    await intel.recordStep({
+      type: 'action',
+      content: 'update the readme file',
+      timestamp: Date.now(),
+    });
 
     const r = await intel.compactPatterns();
     expect(r.after).toBeLessThanOrEqual(r.before);
@@ -160,10 +181,16 @@ describe('memory proficiency tracking', () => {
     const before = intel.getMemoryProficiencyStats().totalDecisions;
 
     await intel.recordMemoryDecision({
-      taskDescription: 'fix the login bug', agent: 'coder', success: true, latencyMs: 12,
+      taskDescription: 'fix the login bug',
+      agent: 'coder',
+      success: true,
+      latencyMs: 12,
     });
     await intel.recordMemoryDecision({
-      taskDescription: 'refactor the router', agent: 'coder', success: false, latencyMs: 30,
+      taskDescription: 'refactor the router',
+      agent: 'coder',
+      success: false,
+      latencyMs: 30,
     });
 
     const stats = intel.getMemoryProficiencyStats();
@@ -195,8 +222,9 @@ describe('clearIntelligence leaves the subsystem re-initializable', () => {
 
     // The operation that used to throw.
     await expect(intel.clearAllPatterns()).resolves.toBeUndefined();
-    await expect(intel.recordStep({ type: 'action', content: 'after clear', timestamp: Date.now() }))
-      .resolves.toBe(true);
+    await expect(
+      intel.recordStep({ type: 'action', content: 'after clear', timestamp: Date.now() }),
+    ).resolves.toBe(true);
     expect((await intel.getAllPatterns()).length).toBeGreaterThan(0);
   });
 });

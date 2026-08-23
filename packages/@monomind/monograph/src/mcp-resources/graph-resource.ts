@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
-import { queryGraphData as queryGraph } from '../web/api.js';
 import type { GraphData } from '../web/api.js';
+import { queryGraphData as queryGraph } from '../web/api.js';
 
 export type { GraphData };
 

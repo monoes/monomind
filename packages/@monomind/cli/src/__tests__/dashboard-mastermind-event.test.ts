@@ -10,7 +10,7 @@
  * check (browsers always set Origin on a cross-origin POST) and strict
  * schema validation before anything is broadcast.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDashboardServer } from '../browser/dashboard/server.js';
 
 describe('POST /api/mastermind/event', () => {
@@ -18,8 +18,13 @@ describe('POST /api/mastermind/event', () => {
   let close: () => void;
 
   const validEvent = {
-    runId: 'run-1', workflowId: 'wf-1', workflowName: 'Build and publish',
-    nodeId: 'node-1', nodeName: 'fetch', eventType: 'step_started', timestamp: 1,
+    runId: 'run-1',
+    workflowId: 'wf-1',
+    workflowName: 'Build and publish',
+    nodeId: 'node-1',
+    nodeName: 'fetch',
+    eventType: 'step_started',
+    timestamp: 1,
   };
 
   beforeAll(async () => {
@@ -39,7 +44,8 @@ describe('POST /api/mastermind/event', () => {
 
   it('accepts a well-formed StepEvent with no Origin header (the legitimate cross-process forwarder case)', async () => {
     const res = await fetch(`${base}/api/mastermind/event`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(validEvent),
     });
     expect(res.status).toBe(200);
@@ -48,7 +54,8 @@ describe('POST /api/mastermind/event', () => {
 
   it('accepts a same-origin POST (Origin host matches Host)', async () => {
     const res = await fetch(`${base}/api/mastermind/event`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: base },
       body: JSON.stringify(validEvent),
     });
     expect(res.status).toBe(200);
@@ -61,23 +68,28 @@ describe('POST /api/mastermind/event', () => {
       body: JSON.stringify(validEvent),
     });
     expect(res.status).toBe(403);
-    const data = await res.json() as { ok: boolean };
+    const data = (await res.json()) as { ok: boolean };
     expect(data.ok).toBe(false);
   });
 
   it('rejects a payload with fields outside the StepEvent schema', async () => {
     const res = await fetch(`${base}/api/mastermind/event`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...validEvent, workflowName: { toString: () => 'not a plain string' } }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...validEvent,
+        workflowName: { toString: () => 'not a plain string' },
+      }),
     });
     expect(res.status).toBe(400);
-    const data = await res.json() as { ok: boolean };
+    const data = (await res.json()) as { ok: boolean };
     expect(data.ok).toBe(false);
   });
 
   it('rejects an unrecognized eventType', async () => {
     const res = await fetch(`${base}/api/mastermind/event`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...validEvent, eventType: 'not_a_real_event_type' }),
     });
     expect(res.status).toBe(400);
@@ -85,7 +97,8 @@ describe('POST /api/mastermind/event', () => {
 
   it('rejects malformed JSON', async () => {
     const res = await fetch(`${base}/api/mastermind/event`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: '{not json',
     });
     expect(res.status).toBe(400);
@@ -94,7 +107,10 @@ describe('POST /api/mastermind/event', () => {
   it('broadcasts only the schema-validated event, not the raw attacker-supplied body', async () => {
     const { default: WebSocket } = await import('ws');
     const ws = new WebSocket(`${base.replace('http', 'ws')}/`);
-    await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
+    await new Promise((resolve, reject) => {
+      ws.once('open', resolve);
+      ws.once('error', reject);
+    });
 
     const received: unknown[] = [];
     ws.on('message', (data: Buffer) => received.push(JSON.parse(data.toString())));
@@ -102,7 +118,8 @@ describe('POST /api/mastermind/event', () => {
     // Extra, non-schema field that a naive verbatim-relay would have broadcast unchanged.
     const withExtra = { ...validEvent, runId: 'run-2', evil: '<img src=x onerror=alert(1)>' };
     const res = await fetch(`${base}/api/mastermind/event`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(withExtra),
     });
     expect(res.status).toBe(200);
@@ -110,8 +127,10 @@ describe('POST /api/mastermind/event', () => {
     await new Promise((r) => setTimeout(r, 50));
     ws.close();
 
-    const relayed = received.find((m): m is Record<string, unknown> =>
-      typeof m === 'object' && m !== null && (m as Record<string, unknown>).runId === 'run-2');
+    const relayed = received.find(
+      (m): m is Record<string, unknown> =>
+        typeof m === 'object' && m !== null && (m as Record<string, unknown>).runId === 'run-2',
+    );
     expect(relayed).toBeDefined();
     expect(relayed).not.toHaveProperty('evil');
   });

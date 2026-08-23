@@ -24,8 +24,8 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { createRequire } from 'node:module';
+import * as path from 'node:path';
 
 export interface ModelPresence {
   model: string;
@@ -35,15 +35,13 @@ export interface ModelPresence {
   searched: string[];
   bytes: number;
   /** How the weights got there — the provisioning story, on the artefact. */
-  provenance: 'node_modules cache (populated by a prior run or an explicit warm step)' | 'not provisioned';
+  provenance:
+    | 'node_modules cache (populated by a prior run or an explicit warm step)'
+    | 'not provisioned';
 }
 
 const MODEL_ID = 'Alibaba-NLP/gte-modernbert-base';
-const WEIGHT_CANDIDATES = [
-  'onnx/model_quantized.onnx',
-  'onnx/model_q8.onnx',
-  'onnx/model.onnx',
-];
+const WEIGHT_CANDIDATES = ['onnx/model_quantized.onnx', 'onnx/model_q8.onnx', 'onnx/model.onnx'];
 
 /**
  * Where the weights could be. Resolution has to be thorough: the first version
@@ -63,7 +61,9 @@ function transformersCacheDirs(searchRoots: string[]): string[] {
       const req = createRequire(path.join(root, 'index.js'));
       const pkg = req.resolve('@huggingface/transformers/package.json');
       dirs.push(path.join(path.dirname(pkg), '.cache'));
-    } catch { /* not resolvable from this root */ }
+    } catch {
+      /* not resolvable from this root */
+    }
     dirs.push(path.join(root, 'node_modules', '@huggingface', 'transformers', '.cache'));
     // pnpm keeps the real package under a mangled directory name; the resolver
     // above usually finds it, but not when the caller runs from a built dist
@@ -72,10 +72,14 @@ function transformersCacheDirs(searchRoots: string[]): string[] {
     try {
       for (const entry of fs.readdirSync(pnpm)) {
         if (entry.startsWith('@huggingface+transformers')) {
-          dirs.push(path.join(pnpm, entry, 'node_modules', '@huggingface', 'transformers', '.cache'));
+          dirs.push(
+            path.join(pnpm, entry, 'node_modules', '@huggingface', 'transformers', '.cache'),
+          );
         }
       }
-    } catch { /* no pnpm store here */ }
+    } catch {
+      /* no pnpm store here */
+    }
   }
   return [...new Set(dirs)];
 }
@@ -90,14 +94,27 @@ export function checkModelPresence(searchRoots: string[] = [process.cwd()]): Mod
         const st = fs.statSync(p);
         if (st.isFile() && st.size > 1_000_000) {
           return {
-            model: MODEL_ID, present: true, resolvedPath: p, searched, bytes: st.size,
+            model: MODEL_ID,
+            present: true,
+            resolvedPath: p,
+            searched,
+            bytes: st.size,
             provenance: 'node_modules cache (populated by a prior run or an explicit warm step)',
           };
         }
-      } catch { /* keep searching */ }
+      } catch {
+        /* keep searching */
+      }
     }
   }
-  return { model: MODEL_ID, present: false, resolvedPath: null, searched, bytes: 0, provenance: 'not provisioned' };
+  return {
+    model: MODEL_ID,
+    present: false,
+    resolvedPath: null,
+    searched,
+    bytes: 0,
+    provenance: 'not provisioned',
+  };
 }
 
 /** Throws unless the weights are already on disk. Never fetches. */
@@ -106,10 +123,10 @@ export function assertModelProvisioned(searchRoots: string[] = [process.cwd()]):
   if (!p.present) {
     throw new Error(
       `[doc eval] EMBEDDING MODEL NOT PROVISIONED: ${MODEL_ID} was not found on disk.\n` +
-      `  The eval will not download it. A harness that silently fetches a model mid-run both\n` +
-      `  violates the zero-network-at-query-time condition and makes the run non-reproducible.\n` +
-      `  Provision it as an explicit, non-query-time step, then re-run.\n` +
-      `  Searched:\n    ${p.searched.join('\n    ')}`,
+        `  The eval will not download it. A harness that silently fetches a model mid-run both\n` +
+        `  violates the zero-network-at-query-time condition and makes the run non-reproducible.\n` +
+        `  Provision it as an explicit, non-query-time step, then re-run.\n` +
+        `  Searched:\n    ${p.searched.join('\n    ')}`,
     );
   }
   return p;
@@ -134,7 +151,8 @@ export async function provisionModel(log: (m: string) => void): Promise<ModelPre
     const t = await import('@huggingface/transformers');
     await (t as any).pipeline('feature-extraction', MODEL_ID, { revision: 'main', dtype: 'q8' });
     const after = checkModelPresence([process.cwd()]);
-    if (!after.present) throw new Error('[doc eval] provisioning ran but the weights are still not on disk.');
+    if (!after.present)
+      throw new Error('[doc eval] provisioning ran but the weights are still not on disk.');
     log(`provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);
   }
   // Also provision the cross-encoder reranker (ettin-32m) if not already present.
@@ -155,14 +173,27 @@ export function checkRerankerPresence(searchRoots: string[] = [process.cwd()]): 
         const st = fs.statSync(p);
         if (st.isFile() && st.size > 500_000) {
           return {
-            model: RERANKER_MODEL_ID, present: true, resolvedPath: p, searched, bytes: st.size,
+            model: RERANKER_MODEL_ID,
+            present: true,
+            resolvedPath: p,
+            searched,
+            bytes: st.size,
             provenance: 'node_modules cache (populated by a prior run or an explicit warm step)',
           };
         }
-      } catch { /* keep searching */ }
+      } catch {
+        /* keep searching */
+      }
     }
   }
-  return { model: RERANKER_MODEL_ID, present: false, resolvedPath: null, searched, bytes: 0, provenance: 'not provisioned' };
+  return {
+    model: RERANKER_MODEL_ID,
+    present: false,
+    resolvedPath: null,
+    searched,
+    bytes: 0,
+    provenance: 'not provisioned',
+  };
 }
 
 /** Provision the cross-encoder reranker model (ettin-32m). Same separation as
@@ -170,7 +201,9 @@ export function checkRerankerPresence(searchRoots: string[] = [process.cwd()]): 
 export async function provisionReranker(log: (m: string) => void): Promise<ModelPresence> {
   const already = checkRerankerPresence([process.cwd()]);
   if (already.present) {
-    log(`reranker already provisioned: ${(already.bytes / 1e6).toFixed(0)}MB at ${already.resolvedPath}`);
+    log(
+      `reranker already provisioned: ${(already.bytes / 1e6).toFixed(0)}MB at ${already.resolvedPath}`,
+    );
     return already;
   }
   log(`fetching ${RERANKER_MODEL_ID} — provisioning the cross-encoder reranker.`);
@@ -181,7 +214,8 @@ export async function provisionReranker(log: (m: string) => void): Promise<Model
   // FP32 model.onnx is ~120MB for 32M params — acceptable for a reranker.
   await (t as any).pipeline('text-classification', RERANKER_MODEL_ID, { revision: 'main' });
   const after = checkRerankerPresence([process.cwd()]);
-  if (!after.present) throw new Error('[doc eval] reranker provisioning ran but the weights are still not on disk.');
+  if (!after.present)
+    throw new Error('[doc eval] reranker provisioning ran but the weights are still not on disk.');
   log(`reranker provisioned: ${(after.bytes / 1e6).toFixed(0)}MB at ${after.resolvedPath}`);
   return after;
 }

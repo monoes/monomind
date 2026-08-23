@@ -1,4 +1,3 @@
-import { createInterface } from 'readline';
 import { closeDb, type MonographDb } from '../storage/db.js';
 
 // Minimal LSP stdio server exposing monograph diagnostics

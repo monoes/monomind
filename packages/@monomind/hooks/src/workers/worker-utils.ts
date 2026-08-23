@@ -3,9 +3,9 @@
  * Extracted from workers/index.ts (ARCH-3b).
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import type { Dirent } from 'fs';
+import type { Dirent } from 'node:fs';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
 // ============================================================================
 // Security Constants
@@ -20,9 +20,15 @@ export const MAX_CONCURRENCY = 5;
 // a name here that nothing registers is a validation pass followed by a miss.
 export const ALLOWED_WORKERS = new Set([
   // Canonical internal names
-  'health', 'security', 'ddd', 'cache', 'progress',
+  'health',
+  'security',
+  'ddd',
+  'cache',
+  'progress',
   // Workers folded in from the deleted CLI worker-daemon
-  'map', 'audit', 'consolidate',
+  'map',
+  'audit',
+  'consolidate',
   // P2-15: Self-learning from failures (Reflexion pattern)
   'reflexion',
 ]);
@@ -97,7 +103,7 @@ export async function safePathAsync(projectRoot: string, ...segments: string[]):
       throw new Error(`Path traversal blocked: ${realResolved}`);
     }
     return realResolved;
-  } catch (error) {
+  } catch (_error) {
     const parent = path.dirname(resolved);
     const realParent = await fs.realpath(parent).catch(() => parent);
     const realRoot = await fs.realpath(projectRoot).catch(() => projectRoot);
@@ -171,7 +177,8 @@ export async function validateProjectRoot(root: string): Promise<string> {
     }
     return resolved;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-utils] invalid project root, falling back to cwd:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[worker-utils] invalid project root, falling back to cwd:', e);
     return process.cwd();
   }
 }
@@ -297,14 +304,16 @@ export async function searchDDDPatterns(srcPath: string): Promise<DDDPatternResu
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
       const contents = await Promise.all(
-        batch.map(file => cachedReadFile(file).catch((e) => {
-          // Unreadable file: record it, do not pretend it was empty.
-          skipped.push(file);
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
-            console.error('[worker-utils] searchDDDPatterns skipped unreadable file:', file, e);
-          }
-          return '';
-        }))
+        batch.map((file) =>
+          cachedReadFile(file).catch((e) => {
+            // Unreadable file: record it, do not pretend it was empty.
+            skipped.push(file);
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
+              console.error('[worker-utils] searchDDDPatterns skipped unreadable file:', file, e);
+            }
+            return '';
+          }),
+        ),
       );
 
       for (const content of contents) {
@@ -322,7 +331,8 @@ export async function searchDDDPatterns(srcPath: string): Promise<DDDPatternResu
     // The walk itself blew up: the whole subtree is unexamined, so say so
     // rather than returning zeroes that read like "no DDD patterns here".
     skipped.push(srcPath);
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-utils] searchDDDPatterns failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[worker-utils] searchDDDPatterns failed:', e);
   }
 
   return { patterns, skipped };
@@ -353,7 +363,7 @@ export interface ScanResult {
 export async function scanDirectoryForPatterns(
   dir: string,
   secretPatterns: RegExp[],
-  vulnPatterns: RegExp[]
+  vulnPatterns: RegExp[],
 ): Promise<ScanResult> {
   let secrets = 0;
   let vulnerabilities = 0;

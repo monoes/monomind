@@ -21,13 +21,13 @@
  * @module v1/memory/sqljs-backend
  */
 
-import initSqlJs from 'sql.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
-import { SqlBackend } from './sql-backend.js';
-import { SqlJsDriver, type SqlDriver } from './sql-driver.js';
+import initSqlJs from 'sql.js';
 import { writeFileAtomicSync } from './atomic-file.js';
+import { SqlBackend } from './sql-backend.js';
+import { type SqlDriver, SqlJsDriver } from './sql-driver.js';
 import type { EmbeddingGenerator } from './types.js';
 
 /**

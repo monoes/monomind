@@ -1,12 +1,13 @@
 // src/__tests__/browse-adapters.test.ts
-import { describe, it, expect, vi } from 'vitest';
-import { getAdapter, adapters } from '@monoes/monobrowse';
+
 import type { PageInterface } from '@monoes/monobrowse';
+import { adapters, getAdapter } from '@monoes/monobrowse';
+import { describe, expect, it, vi } from 'vitest';
 
 function mockPage(isLoggedIn: boolean, username = 'testuser'): PageInterface {
   return {
     evaluate: vi.fn().mockImplementation((expr: string) => {
-      if (expr.includes('querySelector')) return Promise.resolve(isLoggedIn ? true : false);
+      if (expr.includes('querySelector')) return Promise.resolve(!!isLoggedIn);
       return Promise.resolve(username);
     }),
     url: vi.fn().mockResolvedValue('https://example.com'),

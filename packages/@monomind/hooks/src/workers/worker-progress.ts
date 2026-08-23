@@ -3,10 +3,10 @@
  * Extracted from workers/index.ts (ARCH-3b).
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
-import { countLines, countFilesRecursive } from './worker-utils.js';
+import { countFilesRecursive, countLines } from './worker-utils.js';
 
 export function createProgressWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
@@ -19,7 +19,7 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
     try {
       const commandsPath = path.join(cliPath, 'commands');
       const cmdFiles = await fs.readdir(commandsPath);
-      cliCommands = cmdFiles.filter(f => f.endsWith('.ts') && f !== 'index.ts').length;
+      cliCommands = cmdFiles.filter((f) => f.endsWith('.ts') && f !== 'index.ts').length;
     } catch {
       cliCommands = 28;
     }
@@ -29,7 +29,7 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
     try {
       const toolsPath = path.join(cliPath, 'mcp-tools');
       const toolFiles = await fs.readdir(toolsPath);
-      const toolModules = toolFiles.filter(f => f.endsWith('-tools.ts'));
+      const toolModules = toolFiles.filter((f) => f.endsWith('-tools.ts'));
 
       for (const toolFile of toolModules) {
         const content = await fs.readFile(path.join(toolsPath, toolFile), 'utf-8');
@@ -72,8 +72,17 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
 
     // Count DDD layers
     const utilityPackages = new Set([
-      'cli', 'hooks', 'mcp', 'shared', 'testing', 'agents', 'integration',
-      'embeddings', 'deployment', 'performance', 'providers'
+      'cli',
+      'hooks',
+      'mcp',
+      'shared',
+      'testing',
+      'agents',
+      'integration',
+      'embeddings',
+      'deployment',
+      'performance',
+      'providers',
     ]);
     let packagesWithDDD = 0;
     for (const pkg of packageDirs) {
@@ -82,8 +91,8 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
       try {
         const srcPath = path.join(packagesPath, '@monomind', pkg, 'src');
         const srcDirs = await fs.readdir(srcPath, { withFileTypes: true });
-        const hasDomain = srcDirs.some(d => d.isDirectory() && d.name === 'domain');
-        const hasApp = srcDirs.some(d => d.isDirectory() && d.name === 'application');
+        const hasDomain = srcDirs.some((d) => d.isDirectory() && d.name === 'domain');
+        const hasApp = srcDirs.some((d) => d.isDirectory() && d.name === 'application');
         if (hasDomain || hasApp || utilityPackages.has(pkg)) {
           packagesWithDDD++;
         }
@@ -111,11 +120,11 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
     const dddProgress = Math.min(100, (packagesWithDDD / packages) * 100);
 
     const overallProgress = Math.round(
-      (cliProgress * 0.25) +
-      (mcpProgress * 0.25) +
-      (hooksProgress * 0.20) +
-      (pkgProgress * 0.15) +
-      (dddProgress * 0.15)
+      cliProgress * 0.25 +
+        mcpProgress * 0.25 +
+        hooksProgress * 0.2 +
+        pkgProgress * 0.15 +
+        dddProgress * 0.15,
     );
 
     const metrics = {

@@ -4,41 +4,40 @@
  * Business logic lives in hooks-embedding.ts, hooks-routing.ts, and hooks-intelligence.ts.
  */
 
-import { type MCPTool } from './types.js';
-
 import {
-  hooksPreEdit,
-  hooksPostEdit,
-  hooksPreCommand,
-  hooksPostCommand,
-  hooksRoute,
-  hooksRouteSemantic,
-  hooksMetrics,
-  hooksList,
-  hooksPreTask,
-  hooksPostTask,
-  hooksExplain,
-  hooksPretrain,
-  hooksTransfer,
-  hooksSessionStart,
-  hooksSessionRestore,
-  hooksSessionEnd,
-  hooksIntelligence,
-} from './hooks-routing.js';
-
-import {
+  hooksIntelligenceLearn,
   hooksIntelligenceReset,
+  hooksIntelligenceStats,
+  hooksModelOutcome,
+  hooksModelRoute,
+  hooksModelStats,
+  hooksPatternSearch,
+  hooksPatternStore,
+  hooksTrajectoryEnd,
   hooksTrajectoryStart,
   hooksTrajectoryStep,
-  hooksTrajectoryEnd,
-  hooksPatternStore,
-  hooksPatternSearch,
-  hooksIntelligenceStats,
-  hooksIntelligenceLearn,
-  hooksModelRoute,
-  hooksModelOutcome,
-  hooksModelStats,
 } from './hooks-intelligence.js';
+
+import {
+  hooksExplain,
+  hooksIntelligence,
+  hooksList,
+  hooksMetrics,
+  hooksPostCommand,
+  hooksPostEdit,
+  hooksPostTask,
+  hooksPreCommand,
+  hooksPreEdit,
+  hooksPreTask,
+  hooksPretrain,
+  hooksRoute,
+  hooksRouteSemantic,
+  hooksSessionEnd,
+  hooksSessionRestore,
+  hooksSessionStart,
+  hooksTransfer,
+} from './hooks-routing.js';
+import type { MCPTool } from './types.js';
 
 // Export all hooks tools
 export const hooksTools: MCPTool[] = [

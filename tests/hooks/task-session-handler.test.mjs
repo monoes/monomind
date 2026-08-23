@@ -1,12 +1,13 @@
 /**
  * Tests for task-handler.cjs (pre-task + post-task) and session-handler.cjs (session-end)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -21,10 +22,18 @@ function makeHCtx(overrides = {}) {
     router: null,
     intelligence: null,
     getLearningService: async () => null,
-    runWithTimeout: async (fn) => { try { return await fn(); } catch { return null; } },
+    runWithTimeout: async (fn) => {
+      try {
+        return await fn();
+      } catch {
+        return null;
+      }
+    },
     _recordDecisionMarkers: () => {},
     _requireMonograph: () => null,
-    get _hooksModule() { return null; },
+    get _hooksModule() {
+      return null;
+    },
     set _hooksModule(_) {},
     ...overrides,
   };
@@ -48,7 +57,12 @@ async function capture(fn) {
   const origWarn = console.warn;
   console.log = (...a) => lines.push(a.join(' '));
   console.warn = (...a) => lines.push(a.join(' '));
-  try { await fn(); } finally { console.log = origLog; console.warn = origWarn; }
+  try {
+    await fn();
+  } finally {
+    console.log = origLog;
+    console.warn = origWarn;
+  }
   return lines;
 }
 
@@ -96,7 +110,11 @@ describe('task-handler — handlePreTask', () => {
     let metricArg = null;
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      session: { metric: (k) => { metricArg = k; } },
+      session: {
+        metric: (k) => {
+          metricArg = k;
+        },
+      },
     });
     await capture(() => loadTask().handlePreTask(hCtx));
     expect(metricArg).toBe('tasks');
@@ -123,11 +141,15 @@ describe('task-handler — handlePostTask', () => {
   it('generates an ADR file when adr.autoGenerate=true and architect agent', async () => {
     const settingsPath = path.join(tmpDir, '.claude', 'settings.json');
     fs.mkdirSync(path.join(tmpDir, '.claude'), { recursive: true });
-    fs.writeFileSync(settingsPath, JSON.stringify({ monomind: { adr: { autoGenerate: true, directory: '.monomind/adrs' } } }));
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify({ monomind: { adr: { autoGenerate: true, directory: '.monomind/adrs' } } }),
+    );
     const hCtx = makeHCtx({
       CWD: tmpDir,
       hookInput: { agentSlug: 'system-architect' },
-      prompt: 'Design the architecture for the distributed event sourcing system across multiple regions',
+      prompt:
+        'Design the architecture for the distributed event sourcing system across multiple regions',
     });
     await capture(() => loadTask().handlePostTask(hCtx));
     const adrDir = path.join(tmpDir, '.monomind', 'adrs');
@@ -165,7 +187,11 @@ describe('session-handler — handleEnd', () => {
     let endCalled = false;
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      session: { end: () => { endCalled = true; } },
+      session: {
+        end: () => {
+          endCalled = true;
+        },
+      },
     });
     await capture(() => loadSession().handleEnd(hCtx));
     expect(endCalled).toBe(true);
@@ -180,7 +206,7 @@ describe('session-handler — handleEnd', () => {
       },
     });
     const lines = await capture(() => loadSession().handleEnd(hCtx));
-    const consLine = lines.find(l => l.includes('[INTELLIGENCE] Consolidated'));
+    const consLine = lines.find((l) => l.includes('[INTELLIGENCE] Consolidated'));
     expect(consLine).toBeTruthy();
     expect(consLine).toContain('10');
   });
@@ -188,7 +214,7 @@ describe('session-handler — handleEnd', () => {
   it('does not log [INTELLIGENCE] Consolidated when no intelligence', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, intelligence: null });
     const lines = await capture(() => loadSession().handleEnd(hCtx));
-    expect(lines.find(l => l.includes('[INTELLIGENCE] Consolidated'))).toBeUndefined();
+    expect(lines.find((l) => l.includes('[INTELLIGENCE] Consolidated'))).toBeUndefined();
   });
 
   it('appends an entry to routing-feedback.jsonl when last-route.json exists', async () => {
@@ -217,7 +243,12 @@ describe('session-handler — handleEnd', () => {
     let consolidateCalled = false;
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      intelligence: { consolidate: () => { consolidateCalled = true; return { entries: 5, edges: 2, newEntries: 1 }; } },
+      intelligence: {
+        consolidate: () => {
+          consolidateCalled = true;
+          return { entries: 5, edges: 2, newEntries: 1 };
+        },
+      },
     });
     await capture(() => loadSession().handleEnd(hCtx));
     expect(consolidateCalled).toBe(false);

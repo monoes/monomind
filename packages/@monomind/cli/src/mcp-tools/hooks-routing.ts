@@ -5,46 +5,35 @@
  * Extracted from hooks-tools.ts.
  */
 
-import {
-  mkdirSync,
-  writeFileSync,
-  renameSync,
-  existsSync,
-  readFileSync,
-  statSync,
-  readdirSync,
-  rmSync,
-} from 'fs';
-import { dirname, join, resolve, sep } from 'path';
-import { type MCPTool, getProjectCwd } from './types.js';
-import { validateMcpString, validatePositiveInt } from '../utils/input-guards.js';
 import { randomUUID } from 'node:crypto';
-import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
-import { recordCommand, deriveRecentSuccess } from '../monovector/command-outcomes.js';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
+import { deriveRecentSuccess, recordCommand } from '../monovector/command-outcomes.js';
+import { joinLatestUnresolved, joinOutcome, recordRoute } from '../monovector/route-outcomes.js';
+import { validateMcpString } from '../utils/input-guards.js';
+import { mergeRecordsById } from '../utils/json-file.js';
 import {
-  generateSimpleEmbedding,
-  getMergedTaskPatterns,
+  activeTrajectories,
+  assessCommandRisk,
   extractKeywords,
-  loadRoutingOutcomes,
-  saveRoutingOutcomes,
-  loadMemoryStore,
+  getFileExtension,
   getIntelligenceStatsFromMemory,
+  getMemoryPath,
+  getRealSearchFunction,
+  getRealStoreFunction,
+  getRouteOutcomesBaseDir,
+  getRoutingOutcomesPath,
+  getSONAOptimizer,
+  loadMemoryStore,
+  loadRoutingOutcomes,
+  MEMORY_DIR,
+  saveRoutingOutcomes,
   suggestAgentsForFile,
   suggestAgentsForTask,
   suggestAgentsFromIntelligence,
-  assessCommandRisk,
-  activeTrajectories,
-  getMemoryPath,
-  getRouteOutcomesBaseDir,
-  getRoutingOutcomesPath,
-  getRealSearchFunction,
-  getRealStoreFunction,
-  getSONAOptimizer,
-  getFileExtension,
   TASK_PATTERNS,
-  MEMORY_DIR,
 } from './hooks-embedding.js';
-import { mergeRecordsById } from '../utils/json-file.js';
+import { getProjectCwd, type MCPTool } from './types.js';
 
 /** Shape of a record in `.monomind/neural/patterns.json` — mirrors the
  *  `Pattern`/`StoredPattern` interfaces in src/memory/intelligence.ts. Kept
@@ -275,7 +264,7 @@ export const hooksPostCommand: MCPTool = {
         const memDir = join(getProjectCwd(), MEMORY_DIR);
         if (!existsSync(memDir)) mkdirSync(memDir, { recursive: true });
         const _mp = getMemoryPath();
-        const _mptmp = _mp + '.tmp';
+        const _mptmp = `${_mp}.tmp`;
         writeFileSync(_mptmp, JSON.stringify(store, null, 2), 'utf-8');
         renameSync(_mptmp, _mp);
         _storedIn = 'json-store';
@@ -320,7 +309,7 @@ export const hooksRoute: MCPTool = {
     if (!task) {
       return { error: 'task is required (non-empty string, no control chars, max 16KB)' };
     }
-    const context = validateMcpString(params.context, 'context', MAX_ROUTE_CTX_LEN) ?? undefined;
+    const _context = validateMcpString(params.context, 'context', MAX_ROUTE_CTX_LEN) ?? undefined;
     const useSemanticRouter = params.useSemanticRouter !== false;
 
     // Phase 5: Try memory backend SemanticRouter / LearningSystem first
@@ -328,7 +317,7 @@ export const hooksRoute: MCPTool = {
       try {
         const bridge = await import('../memory/memory-bridge.js');
         const memoryRoute = await bridge.bridgeRouteTask({ task });
-        if (memoryRoute && memoryRoute.routes && memoryRoute.routes.length > 0) {
+        if (memoryRoute?.routes && memoryRoute.routes.length > 0) {
           const topRoute = memoryRoute.routes[0];
           const routeConfidence = topRoute.confidence ?? 0;
           if (routeConfidence > 0.5) {
@@ -694,7 +683,7 @@ export const hooksPreTask: MCPTool = {
     if (!description) {
       return { error: 'description is required (non-empty string, no control chars, max 16KB)' };
     }
-    const filePath = validateMcpString(params.filePath, 'filePath', 4 * 1024) ?? undefined;
+    const _filePath = validateMcpString(params.filePath, 'filePath', 4 * 1024) ?? undefined;
     const suggestion = suggestAgentsForTask(description);
 
     // Determine complexity
@@ -774,8 +763,14 @@ export const hooksPreTask: MCPTool = {
       const fn = (hooksPkg as Record<string, unknown> | null)?.getReflectionsForTask;
       if (typeof fn === 'function') {
         const cwd = process.cwd();
-        const reflections = await (fn as (root: string, desc: string, limit?: number) => Promise<Array<{ reflection: string }> >)(cwd, description, 3);
-        reflexionWarnings = reflections.map(r => `⚠ Past failure: ${r.reflection.slice(0, 200)}`);
+        const reflections = await (
+          fn as (
+            root: string,
+            desc: string,
+            limit?: number,
+          ) => Promise<Array<{ reflection: string }>>
+        )(cwd, description, 3);
+        reflexionWarnings = reflections.map((r) => `⚠ Past failure: ${r.reflection.slice(0, 200)}`);
       }
     } catch {
       /* non-critical — reflexion store may not exist yet */
@@ -1417,8 +1412,8 @@ export const hooksTransfer: MCPTool = {
 
     // Validate sourcePath is an existing directory before reading from it
     const resolvedSource = resolve(sourcePath);
-    const { statSync } = await import('fs');
-    const { homedir } = await import('os');
+    const { statSync } = await import('node:fs');
+    const { homedir } = await import('node:os');
     const home = homedir();
     if (resolvedSource !== home && !resolvedSource.startsWith(home + sep)) {
       return { error: 'sourcePath must be within the home directory.' };
@@ -1488,7 +1483,10 @@ export const hooksTransfer: MCPTool = {
     const destPatternsPath = join(destDir, 'patterns.json');
     let destPatterns: NeuralPattern[] = [];
     try {
-      if (existsSync(destPatternsPath) && statSync(destPatternsPath).size <= MAX_SOURCE_PATTERNS_BYTES) {
+      if (
+        existsSync(destPatternsPath) &&
+        statSync(destPatternsPath).size <= MAX_SOURCE_PATTERNS_BYTES
+      ) {
         const parsed = JSON.parse(readFileSync(destPatternsPath, 'utf-8'));
         if (Array.isArray(parsed)) destPatterns = parsed;
       }

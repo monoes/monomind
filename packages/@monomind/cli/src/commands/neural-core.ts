@@ -3,17 +3,15 @@
  * Pattern storage and similarity search (no ML/neural-network training)
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // ─── status subcommand ───────────────────────────────────────────────────────
 
 export const statusCommand: Command = {
   name: 'status',
   description: 'Check pattern storage and similarity search status',
-  options: [
-    { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
-  ],
+  options: [{ name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' }],
   examples: [
     { command: 'monomind hooks intelligence status', description: 'Show pattern-learning status' },
     { command: 'monomind hooks intelligence status -v', description: 'Show detailed metrics' },
@@ -25,11 +23,16 @@ export const statusCommand: Command = {
     output.writeln(output.bold('Pattern Learning Status'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    const spinner = output.createSpinner({ text: 'Checking pattern-learning systems...', spinner: 'dots' });
+    const spinner = output.createSpinner({
+      text: 'Checking pattern-learning systems...',
+      spinner: 'dots',
+    });
     spinner.start();
 
     try {
-      const { getIntelligenceStats, initializeIntelligence, getPersistenceStatus } = await import('../memory/intelligence.js');
+      const { getIntelligenceStats, initializeIntelligence, getPersistenceStatus } = await import(
+        '../memory/intelligence.js'
+      );
       const { getHNSWStatus, loadEmbeddingModel } = await import('../memory/memory-initializer.js');
 
       await initializeIntelligence();
@@ -59,7 +62,9 @@ export const statusCommand: Command = {
           {
             component: 'Pattern Learning',
             status: stats.sonaEnabled ? output.success('Active') : output.warning('Inactive'),
-            details: stats.sonaEnabled ? 'JS pattern-learning layer initialized' : 'Not initialized',
+            details: stats.sonaEnabled
+              ? 'JS pattern-learning layer initialized'
+              : 'Not initialized',
           },
           {
             component: 'ReasoningBank',
@@ -81,7 +86,9 @@ export const statusCommand: Command = {
           {
             component: 'Persistence',
             status: persistence.patternsExist ? output.success('Saved') : output.dim('None'),
-            details: persistence.patternsExist ? output.dim(persistence.dataDir) : 'No persisted patterns',
+            details: persistence.patternsExist
+              ? output.dim(persistence.dataDir)
+              : 'No persisted patterns',
           },
         ],
       });
@@ -100,7 +107,12 @@ export const statusCommand: Command = {
             { metric: 'ReasoningBank Size', value: String(stats.reasoningBankSize) },
             { metric: 'Index Dimensions', value: String(hnswStatus.dimensions) },
             { metric: 'Avg Adaptation Time', value: `${stats.avgAdaptationTime.toFixed(3)}ms` },
-            { metric: 'Last Adaptation', value: stats.lastAdaptation ? new Date(stats.lastAdaptation).toLocaleTimeString() : 'Never' },
+            {
+              metric: 'Last Adaptation',
+              value: stats.lastAdaptation
+                ? new Date(stats.lastAdaptation).toLocaleTimeString()
+                : 'Never',
+            },
           ],
         });
       }
@@ -120,16 +132,34 @@ export const patternsCommand: Command = {
   name: 'patterns',
   description: 'List and search stored patterns',
   options: [
-    { name: 'action', short: 'a', type: 'string', description: 'Action: analyze, learn, predict, list', default: 'list' },
+    {
+      name: 'action',
+      short: 'a',
+      type: 'string',
+      description: 'Action: analyze, learn, predict, list',
+      default: 'list',
+    },
     { name: 'query', short: 'q', type: 'string', description: 'Pattern query for search' },
-    { name: 'limit', short: 'l', type: 'number', description: 'Max patterns to return', default: '10' },
+    {
+      name: 'limit',
+      short: 'l',
+      type: 'number',
+      description: 'Max patterns to return',
+      default: '10',
+    },
   ],
   examples: [
-    { command: 'monomind hooks intelligence patterns --action list', description: 'List all patterns' },
-    { command: 'monomind hooks intelligence patterns -a analyze -q "error handling"', description: 'Analyze patterns' },
+    {
+      command: 'monomind hooks intelligence patterns --action list',
+      description: 'List all patterns',
+    },
+    {
+      command: 'monomind hooks intelligence patterns -a analyze -q "error handling"',
+      description: 'Analyze patterns',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const action = ctx.flags.action as string || 'list';
+    const action = (ctx.flags.action as string) || 'list';
     const query = ctx.flags.query as string;
     const limit = parseInt(ctx.flags.limit as string, 10) || 10;
 
@@ -138,7 +168,13 @@ export const patternsCommand: Command = {
     output.writeln(output.dim('─'.repeat(40)));
 
     try {
-      const { initializeIntelligence, getIntelligenceStats, findSimilarPatterns, getAllPatterns, getPersistenceStatus } = await import('../memory/intelligence.js');
+      const {
+        initializeIntelligence,
+        getIntelligenceStats,
+        findSimilarPatterns,
+        getAllPatterns,
+        getPersistenceStatus,
+      } = await import('../memory/intelligence.js');
 
       await initializeIntelligence();
       const stats = getIntelligenceStats();
@@ -146,18 +182,27 @@ export const patternsCommand: Command = {
 
       if (action === 'list') {
         const allPatterns = await getAllPatterns();
-        const patterns = query ? await findSimilarPatterns(query, { k: limit }) : allPatterns.slice(0, limit);
+        const patterns = query
+          ? await findSimilarPatterns(query, { k: limit })
+          : allPatterns.slice(0, limit);
 
         if (patterns.length === 0) {
-          output.writeln(output.dim('No patterns found. Train some patterns first with: hooks intelligence train'));
+          output.writeln(
+            output.dim(
+              'No patterns found. Train some patterns first with: hooks intelligence train',
+            ),
+          );
           output.writeln();
-          output.printBox([
-            `Total Patterns: ${stats.patternsLearned}`,
-            `Trajectories: ${stats.trajectoriesRecorded}`,
-            `ReasoningBank Size: ${stats.reasoningBankSize}`,
-            `Persistence: ${persistence.patternsExist ? 'Loaded from disk' : 'Not persisted'}`,
-            `Data Dir: ${persistence.dataDir}`,
-          ].join('\n'), 'Pattern Statistics');
+          output.printBox(
+            [
+              `Total Patterns: ${stats.patternsLearned}`,
+              `Trajectories: ${stats.trajectoriesRecorded}`,
+              `ReasoningBank Size: ${stats.reasoningBankSize}`,
+              `Persistence: ${persistence.patternsExist ? 'Loaded from disk' : 'Not persisted'}`,
+              `Data Dir: ${persistence.dataDir}`,
+            ].join('\n'),
+            'Pattern Statistics',
+          );
         } else {
           output.printTable({
             columns: [
@@ -176,13 +221,16 @@ export const patternsCommand: Command = {
         }
 
         output.writeln();
-        output.writeln(output.dim(`Total: ${allPatterns.length} patterns (persisted) | Trajectories: ${stats.trajectoriesRecorded}`));
-        if (persistence.patternsExist) output.writeln(output.success(`✓ Loaded from: ${persistence.patternsFile}`));
-
+        output.writeln(
+          output.dim(
+            `Total: ${allPatterns.length} patterns (persisted) | Trajectories: ${stats.trajectoriesRecorded}`,
+          ),
+        );
+        if (persistence.patternsExist)
+          output.writeln(output.success(`✓ Loaded from: ${persistence.patternsFile}`));
       } else if (action === 'analyze' && !query) {
         output.printError('--query is required when --action analyze is used.');
         return { success: false, exitCode: 1 };
-
       } else if (action === 'analyze' && query) {
         const related = await findSimilarPatterns(query, { k: limit });
         output.writeln(`Analyzing patterns related to: "${query}"`);
@@ -195,7 +243,7 @@ export const patternsCommand: Command = {
               { key: 'confidence', header: 'Confidence', width: 12 },
               { key: 'type', header: 'Type', width: 15 },
             ],
-            data: related.slice(0, 5).map(p => ({
+            data: related.slice(0, 5).map((p) => ({
               content: (p.content || '').substring(0, 38) + (p.content?.length > 38 ? '...' : ''),
               confidence: `${((p.confidence || 0) * 100).toFixed(0)}%`,
               type: p.type || 'general',
@@ -221,12 +269,24 @@ export const trainCommand: Command = {
   name: 'train',
   description: 'Ingest outcome and edit history into the pattern store for routing optimization',
   options: [
-    { name: 'pattern-type', short: 't', type: 'string', description: 'Pattern type label (e.g. general, security, refactor)', default: 'general' },
+    {
+      name: 'pattern-type',
+      short: 't',
+      type: 'string',
+      description: 'Pattern type label (e.g. general, security, refactor)',
+      default: 'general',
+    },
     { name: 'verbose', short: 'v', type: 'boolean', description: 'Show each ingested pattern' },
   ],
   examples: [
-    { command: 'monomind hooks intelligence train', description: 'Ingest outcomes and edits into pattern store' },
-    { command: 'monomind hooks intelligence train -t security -v', description: 'Ingest with type label, verbose' },
+    {
+      command: 'monomind hooks intelligence train',
+      description: 'Ingest outcomes and edits into pattern store',
+    },
+    {
+      command: 'monomind hooks intelligence train -t security -v',
+      description: 'Ingest with type label, verbose',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const patternType = (ctx.flags['pattern-type'] as string) || 'general';
@@ -237,15 +297,19 @@ export const trainCommand: Command = {
     output.writeln(output.dim('Reads outcome/edit history and stores patterns for routing'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    const spinner = output.createSpinner({ text: 'Initializing intelligence layer...', spinner: 'dots' });
+    const spinner = output.createSpinner({
+      text: 'Initializing intelligence layer...',
+      spinner: 'dots',
+    });
     spinner.start();
 
     try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const crypto = await import('crypto');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const crypto = await import('node:crypto');
 
-      const { initializeIntelligence, getReasoningBank, flushPatterns, getIntelligenceStats } = await import('../memory/intelligence.js');
+      const { initializeIntelligence, getReasoningBank, flushPatterns, getIntelligenceStats } =
+        await import('../memory/intelligence.js');
 
       await initializeIntelligence();
       const bank = getReasoningBank();
@@ -266,10 +330,15 @@ export const trainCommand: Command = {
         if (!fs.existsSync(filePath)) return [];
         const stat = fs.statSync(filePath);
         if (stat.size > MAX_FILE_BYTES) {
-          output.writeln(output.warning(`Skipping ${path.basename(filePath)}: too large (${stat.size} bytes)`));
+          output.writeln(
+            output.warning(`Skipping ${path.basename(filePath)}: too large (${stat.size} bytes)`),
+          );
           return [];
         }
-        const lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(l => l.trim());
+        const lines = fs
+          .readFileSync(filePath, 'utf-8')
+          .split('\n')
+          .filter((l) => l.trim());
         const results: Array<Record<string, unknown>> = [];
         for (const line of lines) {
           try {
@@ -287,10 +356,14 @@ export const trainCommand: Command = {
       // --- 1. Ingest intelligence-outcomes.jsonl (successful outcomes) ---
       spinner.setText('Reading intelligence outcomes...');
       const outcomes = readJsonl(outcomesFile);
-      const successOutcomes = outcomes.filter(o => o.success === true || o.verdict === 'success');
+      const successOutcomes = outcomes.filter((o) => o.success === true || o.verdict === 'success');
 
       for (const outcome of successOutcomes) {
-        const content = (outcome.description || outcome.task || outcome.content || outcome.command || '') as string;
+        const content = (outcome.description ||
+          outcome.task ||
+          outcome.content ||
+          outcome.command ||
+          '') as string;
         if (!content || typeof content !== 'string' || content.length > 4096) continue;
 
         const id = `outcome_${crypto.createHash('sha256').update(content).digest('hex').substring(0, 16)}`;
@@ -316,7 +389,11 @@ export const trainCommand: Command = {
         if (!file || typeof file !== 'string') continue;
 
         const content = `${operation}: ${file}`;
-        const id = `edit_${crypto.createHash('sha256').update(content + String(edit.timestamp || '')).digest('hex').substring(0, 16)}`;
+        const id = `edit_${crypto
+          .createHash('sha256')
+          .update(content + String(edit.timestamp || ''))
+          .digest('hex')
+          .substring(0, 16)}`;
         bank.store({
           id,
           type: patternType,
@@ -358,7 +435,10 @@ export const trainCommand: Command = {
         output.writeln(output.dim('  - Edits:    .monomind/data/recent-edits.jsonl'));
       }
 
-      return { success: true, data: { stored, outcomes: successOutcomes.length, edits: edits.length } };
+      return {
+        success: true,
+        data: { stored, outcomes: successOutcomes.length, edits: edits.length },
+      };
     } catch (error) {
       spinner.fail('Training failed');
       output.printError(error instanceof Error ? error.message : String(error));
@@ -373,18 +453,42 @@ export const predictCommand: Command = {
   name: 'predict',
   description: 'Find similar patterns by similarity search',
   options: [
-    { name: 'input', short: 'i', type: 'string', description: 'Input text to predict routing for', required: true },
-    { name: 'k', short: 'k', type: 'number', description: 'Number of top predictions', default: '5' },
-    { name: 'format', short: 'f', type: 'string', description: 'Output format: json, table', default: 'table' },
+    {
+      name: 'input',
+      short: 'i',
+      type: 'string',
+      description: 'Input text to predict routing for',
+      required: true,
+    },
+    {
+      name: 'k',
+      short: 'k',
+      type: 'number',
+      description: 'Number of top predictions',
+      default: '5',
+    },
+    {
+      name: 'format',
+      short: 'f',
+      type: 'string',
+      description: 'Output format: json, table',
+      default: 'table',
+    },
   ],
   examples: [
-    { command: 'monomind hooks intelligence predict -i "implement authentication"', description: 'Predict routing for task' },
-    { command: 'monomind hooks intelligence predict -i "fix bug in login" -k 3', description: 'Get top 3 predictions' },
+    {
+      command: 'monomind hooks intelligence predict -i "implement authentication"',
+      description: 'Predict routing for task',
+    },
+    {
+      command: 'monomind hooks intelligence predict -i "fix bug in login" -k 3',
+      description: 'Get top 3 predictions',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const inputText = ctx.flags.input as string;
-    const k = parseInt(ctx.flags.k as string || '5', 10);
-    const format = ctx.flags.format as string || 'table';
+    const k = parseInt((ctx.flags.k as string) || '5', 10);
+    const format = (ctx.flags.format as string) || 'table';
 
     if (!inputText) {
       output.printError('--input is required');
@@ -399,7 +503,9 @@ export const predictCommand: Command = {
     spinner.start();
 
     try {
-      const { initializeIntelligence, findSimilarPatterns } = await import('../memory/intelligence.js');
+      const { initializeIntelligence, findSimilarPatterns } = await import(
+        '../memory/intelligence.js'
+      );
 
       await initializeIntelligence();
 
@@ -411,7 +517,11 @@ export const predictCommand: Command = {
       output.writeln();
 
       if (matches.length === 0) {
-        output.writeln(output.warning('No similar patterns found. Try training first: monomind hooks intelligence train'));
+        output.writeln(
+          output.warning(
+            'No similar patterns found. Try training first: monomind hooks intelligence train',
+          ),
+        );
         return { success: true, data: { matches: [] } };
       }
 
@@ -428,15 +538,18 @@ export const predictCommand: Command = {
         const topType = sorted[0]?.[0] || 'unknown';
         const confidence = matches[0]?.similarity || 0;
 
-        output.printBox([
-          `Input: ${inputText.substring(0, 60)}${inputText.length > 60 ? '...' : ''}`,
-          ``,
-          `Predicted Type: ${topType}`,
-          `Confidence: ${(confidence * 100).toFixed(1)}%`,
-          `Latency: ${searchTime.toFixed(1)}ms`,
-          ``,
-          `Top ${matches.length} Similar Patterns:`,
-        ].join('\n'), 'Result');
+        output.printBox(
+          [
+            `Input: ${inputText.substring(0, 60)}${inputText.length > 60 ? '...' : ''}`,
+            ``,
+            `Predicted Type: ${topType}`,
+            `Confidence: ${(confidence * 100).toFixed(1)}%`,
+            `Latency: ${searchTime.toFixed(1)}ms`,
+            ``,
+            `Top ${matches.length} Similar Patterns:`,
+          ].join('\n'),
+          'Result',
+        );
 
         output.printTable({
           columns: [

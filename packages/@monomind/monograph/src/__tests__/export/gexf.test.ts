@@ -1,12 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { toGexf } from '../../export/gexf.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 function makeNode(id: string, label = 'Function', name = id): MonographNode {
   return { id, label: label as MonographNode['label'], name, isExported: false };
 }
 
-function makeEdge(id: string, sourceId: string, targetId: string, relation = 'CALLS'): MonographEdge {
+function makeEdge(
+  id: string,
+  sourceId: string,
+  targetId: string,
+  relation = 'CALLS',
+): MonographEdge {
   return { id, sourceId, targetId, relation, confidence: 'EXTRACTED', confidenceScore: 1.0 };
 }
 

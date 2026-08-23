@@ -3,12 +3,12 @@
  * Monoswarm coordination and management commands
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { select, confirm, multiSelect } from '../prompt.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import { output } from '../output.js';
+import { confirm, select } from '../prompt.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { getMonomindDataRoot, getProjectCwd, migrateLegacyStoreFile } from '../utils/paths.js';
 
 // Canonical paths — resolved through getMonomindDataRoot() so the CLI and the MCP
@@ -92,21 +92,21 @@ function getSwarmStatus(swarmId?: string) {
   }
 
   // Get session count
-  let sessionCount = 0;
+  let _sessionCount = 0;
   if (fs.existsSync(sessionDir)) {
     try {
-      sessionCount = fs.readdirSync(sessionDir).filter((f) => f.endsWith('.json')).length;
+      _sessionCount = fs.readdirSync(sessionDir).filter((f) => f.endsWith('.json')).length;
     } catch {
       // Ignore
     }
   }
 
   // Get memory size as rough indicator of activity
-  let memorySize = 0;
+  let _memorySize = 0;
   for (const dbPath of memoryPaths) {
     if (fs.existsSync(dbPath)) {
       try {
-        memorySize = fs.statSync(dbPath).size;
+        _memorySize = fs.statSync(dbPath).size;
         break;
       } catch {
         // Ignore
@@ -169,10 +169,7 @@ function getSwarmStatus(swarmId?: string) {
   const swarmConfig = (swarmState as { config?: Record<string, unknown> })?.config;
 
   return {
-    id:
-      swarmId ||
-      (swarmState as Record<string, string>)?.monoswarmId ||
-      'no-active-swarm',
+    id: swarmId || (swarmState as Record<string, string>)?.monoswarmId || 'no-active-swarm',
     topology: (swarmState as Record<string, string>)?.topology || 'none',
     status,
     // Not tracked in the merged monoswarm state — the state file records
@@ -328,7 +325,11 @@ const initCommand: Command = {
       output.writeln(output.dim(`  Wrote swarm config: ${result.monoswarmId}`));
 
       if (v1Mode) {
-        output.writeln(output.dim('  (v1-mode: topology renamed to hierarchical-mesh; no ANN or keyword routing is performed during init)'));
+        output.writeln(
+          output.dim(
+            '  (v1-mode: topology renamed to hierarchical-mesh; no ANN or keyword routing is performed during init)',
+          ),
+        );
       }
 
       output.writeln();
@@ -500,7 +501,9 @@ const startCommand: Command = {
     // the merged monoswarm state (see getSwarmStatus()'s objective field).
 
     output.writeln();
-    output.printSuccess(`Monoswarm ${resolvedSwarmId} config written (${totalAgents} agent slots reserved). No agents are running — use 'agent spawn' to dispatch Task-tool agents.`);
+    output.printSuccess(
+      `Monoswarm ${resolvedSwarmId} config written (${totalAgents} agent slots reserved). No agents are running — use 'agent spawn' to dispatch Task-tool agents.`,
+    );
     output.writeln(output.dim(`  Monitor: monomind monoswarm status ${resolvedSwarmId}`));
 
     return {
@@ -734,13 +737,7 @@ const scaleCommand: Command = {
 export const monoswarmCommand: Command = {
   name: 'monoswarm',
   description: 'Monoswarm coordination commands',
-  subcommands: [
-    initCommand,
-    startCommand,
-    statusCommand,
-    stopCommand,
-    scaleCommand,
-  ],
+  subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand],
   options: [],
   examples: [
     { command: 'monomind monoswarm init --v1-mode', description: 'Initialize monoswarm' },
@@ -749,7 +746,7 @@ export const monoswarmCommand: Command = {
       description: 'Start development monoswarm',
     },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Monoswarm Coordination Commands'));
     output.writeln();

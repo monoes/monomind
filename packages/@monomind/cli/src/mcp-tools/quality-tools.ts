@@ -10,16 +10,19 @@
  * (salvageable) and detect-secrets (real) remain.
  */
 
-import type { MCPTool, MCPToolResult } from './types.js';
 import { handler as prioritizeGapsHandler } from './quality/coverage-analysis/prioritize-gaps.js';
 import { handler as detectSecretsHandler } from './quality/security-compliance/detect-secrets.js';
+import type { MCPTool, MCPToolResult } from './types.js';
 
 // monolean: minimal context shim — quality handlers call context.get() which
 // is optional; returning undefined is safe for all current handlers.
 const noopContext = { get: <T>(_key: string): T | undefined => undefined };
 
 function wrap(
-  handler: (input: unknown, context: typeof noopContext) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
+  handler: (
+    input: unknown,
+    context: typeof noopContext,
+  ) => Promise<{ content: Array<{ type: 'text'; text: string }> }>,
 ): MCPTool['handler'] {
   return async (input: Record<string, unknown>): Promise<MCPToolResult> => {
     const result = await handler(input, noopContext);
@@ -30,7 +33,8 @@ function wrap(
 export const qualityTools: MCPTool[] = [
   {
     name: 'quality_prioritize_gaps',
-    description: 'Prioritize coverage gaps by risk and impact. Returns ordered list of gaps to address.',
+    description:
+      'Prioritize coverage gaps by risk and impact. Returns ordered list of gaps to address.',
     category: 'quality',
     version: '0.1.0',
     inputSchema: {

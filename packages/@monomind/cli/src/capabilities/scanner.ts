@@ -1,21 +1,116 @@
-import fs from 'fs';
-import path from 'path';
-import type { DirectoryScan, FileEntry, CapabilityScore, Fingerprint } from './types.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import type { CapabilityScore, DirectoryScan, FileEntry, Fingerprint } from './types.js';
 
 export interface ScanOptions {
-  maxDepth?: number;          // default 3
-  ignorePatterns?: string[];  // default: node_modules, .git, .monomind
+  maxDepth?: number; // default 3
+  ignorePatterns?: string[]; // default: node_modules, .git, .monomind
 }
 
-const DEFAULT_IGNORE = new Set(['node_modules', '.git', '.monomind', '.claude', '__pycache__', '.venv', 'dist', 'build']);
+const DEFAULT_IGNORE = new Set([
+  'node_modules',
+  '.git',
+  '.monomind',
+  '.claude',
+  '__pycache__',
+  '.venv',
+  'dist',
+  'build',
+]);
 
-const CODE_SIGNALS = new Set(['.ts', '.tsx', '.js', '.jsx', '.py', '.rs', '.go', '.java', '.c', '.cpp', '.h', '.rb', '.php', '.swift', '.kt', '.scala', '.cs', '.vue', '.svelte']);
-const CODE_MARKERS = new Set(['package.json', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'Makefile', 'CMakeLists.txt', 'pom.xml', 'build.gradle']);
-const DOC_EXTENSIONS = new Set(['.pdf', '.docx', '.doc', '.md', '.txt', '.rtf', '.pages', '.odt', '.ods', '.odp', '.rst', '.tex', '.epub', '.csv', '.tsv', '.xlsx', '.xls', '.pptx', '.ppt']);
-const MEDIA_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.heic', '.heif', '.webp', '.svg', '.raw', '.cr2', '.nef', '.mp4', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.flac', '.aac', '.ogg']);
-const DATA_EXTENSIONS = new Set(['.csv', '.tsv', '.jsonl', '.sqlite', '.db', '.parquet', '.xlsx', '.xls']);
+const CODE_SIGNALS = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.py',
+  '.rs',
+  '.go',
+  '.java',
+  '.c',
+  '.cpp',
+  '.h',
+  '.rb',
+  '.php',
+  '.swift',
+  '.kt',
+  '.scala',
+  '.cs',
+  '.vue',
+  '.svelte',
+]);
+const CODE_MARKERS = new Set([
+  'package.json',
+  'Cargo.toml',
+  'go.mod',
+  'pyproject.toml',
+  'Makefile',
+  'CMakeLists.txt',
+  'pom.xml',
+  'build.gradle',
+]);
+const DOC_EXTENSIONS = new Set([
+  '.pdf',
+  '.docx',
+  '.doc',
+  '.md',
+  '.txt',
+  '.rtf',
+  '.pages',
+  '.odt',
+  '.ods',
+  '.odp',
+  '.rst',
+  '.tex',
+  '.epub',
+  '.csv',
+  '.tsv',
+  '.xlsx',
+  '.xls',
+  '.pptx',
+  '.ppt',
+]);
+const MEDIA_EXTENSIONS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.bmp',
+  '.heic',
+  '.heif',
+  '.webp',
+  '.svg',
+  '.raw',
+  '.cr2',
+  '.nef',
+  '.mp4',
+  '.mov',
+  '.avi',
+  '.mkv',
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.aac',
+  '.ogg',
+]);
+const DATA_EXTENSIONS = new Set([
+  '.csv',
+  '.tsv',
+  '.jsonl',
+  '.sqlite',
+  '.db',
+  '.parquet',
+  '.xlsx',
+  '.xls',
+]);
 
-function walkDir(dir: string, maxDepth: number, currentDepth: number, ignore: Set<string>, root: string): FileEntry[] {
+function walkDir(
+  dir: string,
+  maxDepth: number,
+  currentDepth: number,
+  ignore: Set<string>,
+  root: string,
+): FileEntry[] {
   if (currentDepth > maxDepth) return [];
   const entries: FileEntry[] = [];
 
@@ -60,7 +155,7 @@ function computeScore(
   markers: Set<string> | null,
   root: string,
 ): CapabilityScore {
-  const matchingFiles = files.filter(f => extensions.has(f.extension));
+  const matchingFiles = files.filter((f) => extensions.has(f.extension));
   const signals: string[] = [];
   const seenExts = new Set<string>();
 
@@ -79,10 +174,11 @@ function computeScore(
     }
   }
 
-  const markerBoost = markers ? Math.min(0.2, signals.filter(s => !s.startsWith('.')).length * 0.15) : 0;
-  const confidence = totalFiles > 0
-    ? Math.min(1, (matchingFiles.length / totalFiles) + markerBoost)
+  const markerBoost = markers
+    ? Math.min(0.2, signals.filter((s) => !s.startsWith('.')).length * 0.15)
     : 0;
+  const confidence =
+    totalFiles > 0 ? Math.min(1, matchingFiles.length / totalFiles + markerBoost) : 0;
 
   return { confidence, files: matchingFiles.length, signals };
 }
@@ -96,7 +192,7 @@ export function listFiles(root: string, options?: ScanOptions): FileEntry[] {
 export async function scanDirectory(root: string, options?: ScanOptions): Promise<DirectoryScan> {
   const files = listFiles(root, options);
   const totalFiles = files.length;
-  const classifiableFiles = files.filter(f => f.extension !== '').length;
+  const classifiableFiles = files.filter((f) => f.extension !== '').length;
 
   const filesByExtension: Record<string, number> = {};
   for (const f of files) {
@@ -121,7 +217,7 @@ export async function scanDirectory(root: string, options?: ScanOptions): Promis
       documents: computeScore(files, classifiableFiles, DOC_EXTENSIONS, null, root),
       media: computeScore(files, classifiableFiles, MEDIA_EXTENSIONS, null, root),
       data: computeScore(files, classifiableFiles, DATA_EXTENSIONS, null, root),
-      graph: { confidence: 0, files: 0, signals: [] },   // activated by manager when 2+ caps active
+      graph: { confidence: 0, files: 0, signals: [] }, // activated by manager when 2+ caps active
       timeline: { confidence: 0, files: 0, signals: [] }, // activated by manager when 2+ caps active
     },
     filesByExtension,
@@ -132,7 +228,7 @@ export async function saveFingerprint(scan: DirectoryScan, monomindDir: string):
   const fp: Fingerprint = { version: 1, ...scan };
   const fpPath = path.join(monomindDir, 'fingerprint.json');
   fs.mkdirSync(monomindDir, { recursive: true });
-  const tmpPath = fpPath + '.tmp';
+  const tmpPath = `${fpPath}.tmp`;
   fs.writeFileSync(tmpPath, JSON.stringify(fp, null, 2));
   fs.renameSync(tmpPath, fpPath);
 }

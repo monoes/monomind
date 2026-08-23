@@ -14,14 +14,18 @@
  * Verification: spawn the server on an ephemeral port and read back the
  * address() — must report 127.0.0.1, not :: or 0.0.0.0.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { getDashboardServer } from '../../packages/@monomind/cli/src/browser/dashboard/server.js';
 
 const spawned: Array<{ close: () => void }> = [];
 
 afterEach(() => {
   for (const s of spawned) {
-    try { s.close(); } catch { /* best effort */ }
+    try {
+      s.close();
+    } catch {
+      /* best effort */
+    }
   }
   spawned.length = 0;
 });
@@ -34,9 +38,11 @@ describe('C3 — browse dashboard binds to loopback only', () => {
     spawned.push(server);
     // Allow the socket to settle.
     await new Promise((r) => setTimeout(r, 50));
-    const addr = (server as unknown as { address: () => { address: string; port: number } }).address?.();
+    const addr = (
+      server as unknown as { address: () => { address: string; port: number } }
+    ).address?.();
     expect(addr, 'server.address() was missing — server shape changed').toBeDefined();
-    const host = addr!.address;
+    const host = addr?.address;
     // Accept either IPv4 or IPv6 loopback. Bind to all interfaces reports
     // '::' / '0.0.0.0' / undefined.
     expect(['127.0.0.1', '::1']).toContain(host);

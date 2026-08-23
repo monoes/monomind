@@ -11,19 +11,19 @@
 import { EventEmitter } from 'node:events';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import {
-  MigrationConfig,
-  MigrationProgress,
-  MigrationResult,
-  MigrationError,
-  MigrationSource,
-  MemoryEntry,
-  MemoryType,
-  MemoryEntryInput,
-  EmbeddingGenerator,
-  createDefaultEntry,
-} from './types.js';
 import type { IMemoryBackend } from './types.js';
+import {
+  createDefaultEntry,
+  type EmbeddingGenerator,
+  type MemoryEntry,
+  type MemoryEntryInput,
+  type MemoryType,
+  type MigrationConfig,
+  type MigrationError,
+  type MigrationProgress,
+  type MigrationResult,
+  type MigrationSource,
+} from './types.js';
 
 /**
  * Default migration configuration
@@ -72,7 +72,7 @@ export class MemoryMigrator extends EventEmitter {
   constructor(
     target: IMemoryBackend,
     config: Partial<MigrationConfig>,
-    embeddingGenerator?: EmbeddingGenerator
+    embeddingGenerator?: EmbeddingGenerator,
   ) {
     super();
     this.target = target;
@@ -105,13 +105,11 @@ export class MemoryMigrator extends EventEmitter {
 
         await this.processBatch(batch);
 
-        this.progress.percentage = Math.round(
-          (this.progress.migrated / this.progress.total) * 100
-        );
+        this.progress.percentage = Math.round((this.progress.migrated / this.progress.total) * 100);
         this.progress.estimatedTimeRemaining = this.estimateTimeRemaining(
           startTime,
           this.progress.migrated,
-          this.progress.total
+          this.progress.total,
         );
 
         this.emit('migration:progress', { ...this.progress });
@@ -180,7 +178,10 @@ export class MemoryMigrator extends EventEmitter {
       return this.loadFromJSON();
     }
 
-    let Database: new (path: string, opts?: Record<string, unknown>) => {
+    let Database: new (
+      path: string,
+      opts?: Record<string, unknown>,
+    ) => {
       prepare: (sql: string) => { all: (...params: unknown[]) => unknown[] };
       close: () => void;
     };
@@ -189,7 +190,7 @@ export class MemoryMigrator extends EventEmitter {
       Database = (mod as { default: typeof Database }).default;
     } catch (error) {
       throw new Error(
-        `Cannot read SQLite source "${dbPath}": better-sqlite3 is not available (${(error as Error).message})`
+        `Cannot read SQLite source "${dbPath}": better-sqlite3 is not available (${(error as Error).message})`,
       );
     }
 
@@ -206,21 +207,25 @@ export class MemoryMigrator extends EventEmitter {
         .all() as Array<{ name: string }>;
       if (tables.length === 0) {
         throw new Error(
-          `SQLite source "${dbPath}" has no "memory_entries" table — not a recognized memory backend database`
+          `SQLite source "${dbPath}" has no "memory_entries" table — not a recognized memory backend database`,
         );
       }
 
-      const rows = db.prepare('SELECT * FROM memory_entries').all() as Array<Record<string, unknown>>;
-      return rows.map((row): LegacyEntry => ({
-        id: row.id as string,
-        key: row.key as string,
-        value: row.content,
-        namespace: row.namespace as string | undefined,
-        tags: this.safeJsonParse(row.tags as string, []),
-        metadata: this.safeJsonParse(row.metadata as string, {}),
-        createdAt: row.created_at as number,
-        updatedAt: row.updated_at as number,
-      }));
+      const rows = db.prepare('SELECT * FROM memory_entries').all() as Array<
+        Record<string, unknown>
+      >;
+      return rows.map(
+        (row): LegacyEntry => ({
+          id: row.id as string,
+          key: row.key as string,
+          value: row.content,
+          namespace: row.namespace as string | undefined,
+          tags: this.safeJsonParse(row.tags as string, []),
+          metadata: this.safeJsonParse(row.metadata as string, {}),
+          createdAt: row.created_at as number,
+          updatedAt: row.updated_at as number,
+        }),
+      );
     } finally {
       db.close();
     }
@@ -294,11 +299,7 @@ export class MemoryMigrator extends EventEmitter {
   private async loadFromMemoryManager(): Promise<LegacyEntry[]> {
     // Would integrate with existing MemoryManager instance
     // For now, try to load from common paths
-    const possiblePaths = [
-      './memory/memory-store.json',
-      './.swarm/memory.db',
-      './memory.json',
-    ];
+    const possiblePaths = ['./memory/memory-store.json', './.swarm/memory.db', './memory.json'];
 
     for (const p of possiblePaths) {
       try {
@@ -312,9 +313,7 @@ export class MemoryMigrator extends EventEmitter {
         const stat = await fs.stat(fullPath);
         if (!stat.isFile()) continue;
         return await this.loadFromJSON(fullPath);
-      } catch {
-        continue;
-      }
+      } catch {}
     }
 
     return [];
@@ -350,7 +349,7 @@ export class MemoryMigrator extends EventEmitter {
       }
 
       return entries;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -374,7 +373,7 @@ export class MemoryMigrator extends EventEmitter {
                 legacyEntry.key || 'unknown',
                 validation.reason || 'Validation failed',
                 'VALIDATION_ERROR',
-                false
+                false,
               );
               this.progress.skipped++;
               continue;
@@ -396,7 +395,7 @@ export class MemoryMigrator extends EventEmitter {
             legacyEntry.key || 'unknown',
             (error as Error).message,
             'STORE_ERROR',
-            true
+            true,
           );
           this.progress.failed++;
         } else {
@@ -409,20 +408,17 @@ export class MemoryMigrator extends EventEmitter {
   private async transformEntry(legacy: LegacyEntry): Promise<MemoryEntry> {
     // Map namespace if configured
     let namespace = legacy.namespace || 'default';
-    if (this.config.namespaceMapping && this.config.namespaceMapping[namespace]) {
+    if (this.config.namespaceMapping?.[namespace]) {
       namespace = this.config.namespaceMapping[namespace];
     }
 
     // Determine content
-    const content =
-      typeof legacy.value === 'string'
-        ? legacy.value
-        : JSON.stringify(legacy.value);
+    const content = typeof legacy.value === 'string' ? legacy.value : JSON.stringify(legacy.value);
 
     // Map type if configured
     let type: MemoryType = 'semantic';
     if (legacy.metadata?.type && typeof legacy.metadata.type === 'string') {
-      if (this.config.typeMapping && this.config.typeMapping[legacy.metadata.type]) {
+      if (this.config.typeMapping?.[legacy.metadata.type]) {
         type = this.config.typeMapping[legacy.metadata.type];
       } else if (this.isValidMemoryType(legacy.metadata.type)) {
         type = legacy.metadata.type as MemoryType;
@@ -431,10 +427,10 @@ export class MemoryMigrator extends EventEmitter {
 
     // Parse timestamps
     const createdAt = this.parseTimestamp(
-      legacy.createdAt || legacy.created_at || legacy.timestamp
+      legacy.createdAt || legacy.created_at || legacy.timestamp,
     );
     const updatedAt = this.parseTimestamp(
-      legacy.updatedAt || legacy.updated_at || legacy.timestamp
+      legacy.updatedAt || legacy.updated_at || legacy.timestamp,
     );
 
     const input: MemoryEntryInput = {
@@ -503,12 +499,7 @@ export class MemoryMigrator extends EventEmitter {
     return { valid: true };
   }
 
-  private addError(
-    entryId: string,
-    message: string,
-    code: string,
-    recoverable: boolean
-  ): void {
+  private addError(entryId: string, message: string, code: string, recoverable: boolean): void {
     const error: MigrationError = {
       entryId,
       message,
@@ -528,7 +519,7 @@ export class MemoryMigrator extends EventEmitter {
     }
 
     const parsed = Date.parse(value);
-    return isNaN(parsed) ? Date.now() : parsed;
+    return Number.isNaN(parsed) ? Date.now() : parsed;
   }
 
   private isValidMemoryType(type: string): boolean {
@@ -537,11 +528,7 @@ export class MemoryMigrator extends EventEmitter {
     return ['episodic', 'semantic', 'procedural', 'working', 'cache'].includes(type);
   }
 
-  private estimateTimeRemaining(
-    startTime: number,
-    completed: number,
-    total: number
-  ): number {
+  private estimateTimeRemaining(startTime: number, completed: number, total: number): number {
     if (completed === 0) return 0;
 
     const elapsed = Date.now() - startTime;
@@ -596,7 +583,7 @@ export class MemoryMigrator extends EventEmitter {
           files.push(fullPath);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Directory doesn't exist or isn't readable
     }
 
@@ -606,12 +593,12 @@ export class MemoryMigrator extends EventEmitter {
   private parseMarkdownEntry(
     filePath: string,
     content: string,
-    basePath: string
+    basePath: string,
   ): LegacyEntry | null {
     // Extract frontmatter if present
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
-    let metadata: Record<string, unknown> = {};
+    const metadata: Record<string, unknown> = {};
     let body = content;
 
     if (frontmatterMatch) {
@@ -647,10 +634,7 @@ export class MemoryMigrator extends EventEmitter {
 
     // Derive key from file path
     const relativePath = path.relative(basePath, filePath);
-    const key = relativePath
-      .replace(/\\/g, '/')
-      .replace(/\.md$/, '')
-      .replace(/\//g, ':');
+    const key = relativePath.replace(/\\/g, '/').replace(/\.md$/, '').replace(/\//g, ':');
 
     // Derive namespace from directory structure
     const namespace = path.dirname(relativePath).replace(/\\/g, '/') || 'default';
@@ -674,13 +658,9 @@ export function createMigrator(
   source: MigrationSource,
   sourcePath: string,
   options: Partial<MigrationConfig> = {},
-  embeddingGenerator?: EmbeddingGenerator
+  embeddingGenerator?: EmbeddingGenerator,
 ): MemoryMigrator {
-  return new MemoryMigrator(
-    target,
-    { source, sourcePath, ...options },
-    embeddingGenerator
-  );
+  return new MemoryMigrator(target, { source, sourcePath, ...options }, embeddingGenerator);
 }
 
 /**
@@ -690,18 +670,12 @@ export async function migrateMultipleSources(
   target: IMemoryBackend,
   sources: Array<{ source: MigrationSource; path: string }>,
   options: Partial<MigrationConfig> = {},
-  embeddingGenerator?: EmbeddingGenerator
+  embeddingGenerator?: EmbeddingGenerator,
 ): Promise<MigrationResult[]> {
   const results: MigrationResult[] = [];
 
   for (const { source, path: sourcePath } of sources) {
-    const migrator = createMigrator(
-      target,
-      source,
-      sourcePath,
-      options,
-      embeddingGenerator
-    );
+    const migrator = createMigrator(target, source, sourcePath, options, embeddingGenerator);
     const result = await migrator.migrate();
     results.push(result);
   }

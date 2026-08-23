@@ -71,10 +71,7 @@ export interface ReconciliationResult {
  *
  * Mutates `source`/`target` fields on resolved edges in-place when remapping.
  */
-export function reconcileEdges(
-  edges: RawEdge[],
-  nodeIds: Set<string>,
-): ReconciliationResult {
+export function reconcileEdges(edges: RawEdge[], nodeIds: Set<string>): ReconciliationResult {
   const normToId = buildNormToIdMap(nodeIds);
 
   const resolved: RawEdge[] = [];

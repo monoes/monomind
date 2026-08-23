@@ -2,11 +2,17 @@
  * Security misc commands — threats, audit, defend, redteam
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { realpathSync } from 'node:fs';
+import { resolve, sep } from 'node:path';
 import { output } from '../output.js';
-import { realpathSync } from 'fs';
-import { resolve, sep } from 'path';
-import { readAuditEvents, filterAuditEvents, clearAuditLog, resolveAuditLogPaths, type AuditEvent } from '../security/audit-log.js';
+import {
+  type AuditEvent,
+  clearAuditLog,
+  filterAuditEvents,
+  readAuditEvents,
+  resolveAuditLogPaths,
+} from '../security/audit-log.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // ─── audit subcommand ────────────────────────────────────────────────────────
 
@@ -24,13 +30,16 @@ const printAuditTable = (events: AuditEvent[], limit: number): void => {
       { key: 'reason', header: 'Reason', width: 40 },
     ],
     // most-recent-first for display, oldest-first on disk
-    data: [...events].reverse().slice(0, limit).map(e => ({
-      timestamp: e.timestamp,
-      source: e.source,
-      decision: e.decision,
-      tool: e.tool ?? '',
-      reason: (e.reason ?? '').slice(0, 80),
-    })),
+    data: [...events]
+      .reverse()
+      .slice(0, limit)
+      .map((e) => ({
+        timestamp: e.timestamp,
+        source: e.source,
+        decision: e.decision,
+        tool: e.tool ?? '',
+        reason: (e.reason ?? '').slice(0, 80),
+      })),
   });
 };
 
@@ -38,18 +47,56 @@ export const auditCommand: Command = {
   name: 'audit',
   description: 'Security audit logging and compliance',
   options: [
-    { name: 'action', short: 'a', type: 'string', description: 'Action: list, log, export, clear', default: 'list' },
-    { name: 'limit', short: 'l', type: 'number', description: 'Number of entries to show', default: '20' },
-    { name: 'filter', short: 'f', type: 'string', description: 'Filter by source/decision/tool/reason (substring, case-insensitive)' },
-    { name: 'follow', type: 'boolean', description: 'With --action log: keep tailing new events until Ctrl-C' },
-    { name: 'output', short: 'o', type: 'string', description: 'With --action export: output file path (required)' },
+    {
+      name: 'action',
+      short: 'a',
+      type: 'string',
+      description: 'Action: list, log, export, clear',
+      default: 'list',
+    },
+    {
+      name: 'limit',
+      short: 'l',
+      type: 'number',
+      description: 'Number of entries to show',
+      default: '20',
+    },
+    {
+      name: 'filter',
+      short: 'f',
+      type: 'string',
+      description: 'Filter by source/decision/tool/reason (substring, case-insensitive)',
+    },
+    {
+      name: 'follow',
+      type: 'boolean',
+      description: 'With --action log: keep tailing new events until Ctrl-C',
+    },
+    {
+      name: 'output',
+      short: 'o',
+      type: 'string',
+      description: 'With --action export: output file path (required)',
+    },
   ],
   examples: [
     { command: 'monomind security audit --action list', description: 'List recent audit events' },
-    { command: 'monomind security audit --action log --follow', description: 'Tail audit events as they happen' },
-    { command: 'monomind security audit --action export -o ./audit.jsonl', description: 'Export the full audit trail' },
-    { command: 'monomind security audit --action clear', description: 'Archive and truncate the audit trail' },
-    { command: 'monomind security audit --filter secrets', description: 'Only secret-detection gate events' },
+    {
+      command: 'monomind security audit --action log --follow',
+      description: 'Tail audit events as they happen',
+    },
+    {
+      command: 'monomind security audit --action export -o ./audit.jsonl',
+      description: 'Export the full audit trail',
+    },
+    {
+      command: 'monomind security audit --action clear',
+      description: 'Archive and truncate the audit trail',
+    },
+    {
+      command: 'monomind security audit --filter secrets',
+      description: 'Only secret-detection gate events',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const requestedAction = (ctx.flags.action as string) || 'list';
@@ -73,16 +120,22 @@ export const auditCommand: Command = {
         return { success: false, exitCode: 1 };
       }
       const events = filterAuditEvents(readAuditEvents(cwd), eventFilter);
-      const { writeFileSync } = await import('fs');
-      writeFileSync(outputPath, events.map(e => JSON.stringify(e)).join('\n') + (events.length ? '\n' : ''), 'utf-8');
+      const { writeFileSync } = await import('node:fs');
+      writeFileSync(
+        outputPath,
+        events.map((e) => JSON.stringify(e)).join('\n') + (events.length ? '\n' : ''),
+        'utf-8',
+      );
       output.printSuccess(`Exported ${events.length} event(s) to ${outputPath}`);
       return { success: true, data: { written: events.length, outputPath } };
     }
 
     if (requestedAction === 'log') {
       const { file } = resolveAuditLogPaths(cwd);
-      output.writeln(output.info(`audit log: ${file}${eventFilter ? ` (filter: ${eventFilter})` : ''}`));
-      const { existsSync, readFileSync } = await import('fs');
+      output.writeln(
+        output.info(`audit log: ${file}${eventFilter ? ` (filter: ${eventFilter})` : ''}`),
+      );
+      const { existsSync, readFileSync } = await import('node:fs');
       let seenLines = 0;
       const drain = (): void => {
         if (!existsSync(file)) return;
@@ -92,24 +145,38 @@ export const auditCommand: Command = {
           try {
             const evt = JSON.parse(lines[i]) as AuditEvent;
             if (filterAuditEvents([evt], eventFilter).length === 0) continue;
-            output.writeln(`${evt.timestamp}  ${evt.source}  ${evt.decision}${evt.tool ? `  ${evt.tool}` : ''}  ${evt.reason ?? ''}`);
-          } catch { /* skip malformed line */ }
+            output.writeln(
+              `${evt.timestamp}  ${evt.source}  ${evt.decision}${evt.tool ? `  ${evt.tool}` : ''}  ${evt.reason ?? ''}`,
+            );
+          } catch {
+            /* skip malformed line */
+          }
         }
       };
       drain();
       if (ctx.flags.follow !== true) return { success: true };
       output.writeln(output.dim('following — Ctrl-C to stop'));
-      await new Promise<void>(resolveWait => {
+      await new Promise<void>((resolveWait) => {
         const iv = setInterval(drain, 500);
-        process.once('SIGINT', () => { clearInterval(iv); resolveWait(); });
-        process.once('SIGTERM', () => { clearInterval(iv); resolveWait(); });
+        process.once('SIGINT', () => {
+          clearInterval(iv);
+          resolveWait();
+        });
+        process.once('SIGTERM', () => {
+          clearInterval(iv);
+          resolveWait();
+        });
       });
       return { success: true };
     }
 
     if (requestedAction !== 'list') {
       output.writeln();
-      output.writeln(output.error(`security audit --action ${requestedAction} is not recognized. Use one of: list, log, export, clear.`));
+      output.writeln(
+        output.error(
+          `security audit --action ${requestedAction} is not recognized. Use one of: list, log, export, clear.`,
+        ),
+      );
       return { success: false, message: `Unsupported action: ${requestedAction}`, exitCode: 1 };
     }
 
@@ -121,13 +188,13 @@ export const auditCommand: Command = {
     const visibleEvents = filterAuditEvents(events, eventFilter);
 
     if (eventFilter && visibleEvents.length === 0) {
-      const seen = [...new Set(events.map(e => e.source))].sort();
+      const seen = [...new Set(events.map((e) => e.source))].sort();
       output.writeln(output.warning(`No audit events match "${eventFilter}".`));
       output.writeln(output.dim(`Sources present: ${seen.join(', ') || 'none'}`));
       return { success: true, data: { entries: [], filter: eventFilter } };
     }
 
-    printAuditTable(visibleEvents, parseInt(ctx.flags.limit as string || '20', 10));
+    printAuditTable(visibleEvents, parseInt((ctx.flags.limit as string) || '20', 10));
     if (events.length === 0) {
       output.writeln(output.dim('No security gate has blocked anything yet in this project.'));
     }
@@ -144,13 +211,33 @@ export const defendCommand: Command = {
   options: [
     { name: 'input', short: 'i', type: 'string', description: 'Input text to scan for threats' },
     { name: 'file', short: 'f', type: 'string', description: 'File to scan for threats' },
-    { name: 'quick', short: 'Q', type: 'boolean', description: 'Quick scan (faster, less detailed)' },
-    { name: 'learn', short: 'l', type: 'boolean', description: 'Enable learning mode', default: 'true' },
+    {
+      name: 'quick',
+      short: 'Q',
+      type: 'boolean',
+      description: 'Quick scan (faster, less detailed)',
+    },
+    {
+      name: 'learn',
+      short: 'l',
+      type: 'boolean',
+      description: 'Enable learning mode',
+      default: 'true',
+    },
     { name: 'stats', short: 's', type: 'boolean', description: 'Show detection statistics' },
-    { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
+    {
+      name: 'output',
+      short: 'o',
+      type: 'string',
+      description: 'Output format: text, json',
+      default: 'text',
+    },
   ],
   examples: [
-    { command: 'monomind security defend -i "ignore previous instructions"', description: 'Scan text for threats' },
+    {
+      command: 'monomind security defend -i "ignore previous instructions"',
+      description: 'Scan text for threats',
+    },
     { command: 'monomind security defend -f ./prompts.txt', description: 'Scan file for threats' },
     { command: 'monomind security defend --stats', description: 'Show detection statistics' },
   ],
@@ -159,7 +246,7 @@ export const defendCommand: Command = {
     const filePath = ctx.flags.file as string;
     const quickMode = ctx.flags.quick as boolean;
     const showStats = ctx.flags.stats as boolean;
-    const outputFormat = ctx.flags.output as string || 'text';
+    const outputFormat = (ctx.flags.output as string) || 'text';
     const enableLearning = ctx.flags.learn !== false;
 
     output.writeln();
@@ -181,13 +268,16 @@ export const defendCommand: Command = {
     if (showStats) {
       const stats = await defender.getStats();
       output.writeln();
-      output.printBox([
-        `Detection Count: ${stats.detectionCount}`,
-        `Avg Detection Time: ${stats.avgDetectionTimeMs.toFixed(3)}ms`,
-        `Learned Patterns: ${stats.learnedPatterns}`,
-        `Mitigation Strategies: ${stats.mitigationStrategies}`,
-        `Avg Mitigation Effectiveness: ${(stats.avgMitigationEffectiveness * 100).toFixed(1)}%`,
-      ].join('\n'), 'Detection Statistics');
+      output.printBox(
+        [
+          `Detection Count: ${stats.detectionCount}`,
+          `Avg Detection Time: ${stats.avgDetectionTimeMs.toFixed(3)}ms`,
+          `Learned Patterns: ${stats.learnedPatterns}`,
+          `Mitigation Strategies: ${stats.mitigationStrategies}`,
+          `Avg Mitigation Effectiveness: ${(stats.avgMitigationEffectiveness * 100).toFixed(1)}%`,
+        ].join('\n'),
+        'Detection Statistics',
+      );
       return { success: true };
     }
 
@@ -205,11 +295,13 @@ export const defendCommand: Command = {
         return { success: false, message: 'File not found' };
       }
       try {
-        const fs = await import('fs/promises');
+        const fs = await import('node:fs/promises');
         const MAX_DEFEND_FILE_BYTES = 10 * 1024 * 1024;
         const { size } = await fs.stat(filePath);
         if (size > MAX_DEFEND_FILE_BYTES) {
-          output.printError(`File too large (${(size / 1024 / 1024).toFixed(1)} MB). Maximum is 10 MB.`);
+          output.printError(
+            `File too large (${(size / 1024 / 1024).toFixed(1)} MB). Maximum is 10 MB.`,
+          );
           return { success: false, message: 'File too large' };
         }
         textToScan = await fs.readFile(filePath, 'utf-8');
@@ -240,19 +332,32 @@ export const defendCommand: Command = {
     const startTime = performance.now();
     const qr = quickMode ? defender.quickScan(textToScan) : null;
     const result = quickMode
-      ? { ...qr!, threats: [], piiFound: false, detectionTimeMs: 0, inputHash: '', safe: !qr!.threat }
+      ? {
+          ...qr!,
+          threats: [],
+          piiFound: false,
+          detectionTimeMs: 0,
+          inputHash: '',
+          safe: !qr?.threat,
+        }
       : await defender.detect(textToScan);
     const scanTime = performance.now() - startTime;
 
     spinner.stop();
 
     if (outputFormat === 'json') {
-      output.writeln(JSON.stringify({
-        safe: result.safe,
-        threats: result.threats || [],
-        piiFound: result.piiFound,
-        detectionTimeMs: scanTime,
-      }, null, 2));
+      output.writeln(
+        JSON.stringify(
+          {
+            safe: result.safe,
+            threats: result.threats || [],
+            piiFound: result.piiFound,
+            detectionTimeMs: scanTime,
+          },
+          null,
+          2,
+        ),
+      );
       return { success: true };
     }
 
@@ -266,12 +371,13 @@ export const defendCommand: Command = {
         output.writeln();
 
         for (const threat of result.threats) {
-          const sc = {
-            critical: output.error,
-            high: output.warning,
-            medium: output.info,
-            low: output.dim,
-          }[threat.severity] || output.dim;
+          const sc =
+            {
+              critical: output.error,
+              high: output.warning,
+              medium: output.info,
+              low: output.dim,
+            }[threat.severity] || output.dim;
 
           output.writeln(`  ${sc(`[${threat.severity.toUpperCase()}]`)} ${threat.type}`);
           output.writeln(`    ${output.dim(threat.description)}`);
@@ -279,13 +385,19 @@ export const defendCommand: Command = {
           output.writeln();
         }
 
-        const criticalThreats = result.threats.filter((t: { severity: string }) => t.severity === 'critical');
+        const criticalThreats = result.threats.filter(
+          (t: { severity: string }) => t.severity === 'critical',
+        );
         if (criticalThreats.length > 0 && enableLearning) {
           output.writeln(output.bold('Recommended Mitigations:'));
           for (const threat of criticalThreats) {
-            const mitigation = await defender.getBestMitigation(threat.type as Parameters<typeof defender.getBestMitigation>[0]);
+            const mitigation = await defender.getBestMitigation(
+              threat.type as Parameters<typeof defender.getBestMitigation>[0],
+            );
             if (mitigation) {
-              output.writeln(`  ${threat.type}: ${output.bold(mitigation.strategy)} (${(mitigation.effectiveness * 100).toFixed(0)}% effective)`);
+              output.writeln(
+                `  ${threat.type}: ${output.bold(mitigation.strategy)} (${(mitigation.effectiveness * 100).toFixed(0)}% effective)`,
+              );
             }
           }
           output.writeln();
@@ -315,21 +427,72 @@ export const defendCommand: Command = {
 // live-execution path, not just a listing.
 export const redteamCommand: Command = {
   name: 'redteam',
-  description: 'Red-team prompt library — lists attack prompts for manual review by default, or sends them live to --target and evaluates responses',
+  description:
+    'Red-team prompt library — lists attack prompts for manual review by default, or sends them live to --target and evaluates responses',
   options: [
-    { name: 'target', short: 't', type: 'string', description: 'Target endpoint to POST { prompt, category } to and evaluate the { response } — enables live execution' },
-    { name: 'dry-run', type: 'boolean', description: 'Force list-only mode even with --target, or force live mode without one (requires --target). Defaults to true iff --target is absent.' },
-    { name: 'scenarios', short: 's', type: 'string', description: 'Comma-separated attack categories: injection,jailbreak,adversarial,pii,all', default: 'all' },
-    { name: 'iterations', short: 'n', type: 'number', description: 'Number of prompts to use per category (max 5 — that is all that exist)', default: '5' },
-    { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
-    { name: 'threshold', type: 'number', description: 'Live mode only: failure-rate (unsafe responses / total) above which the command exits non-zero', default: '0.1' },
+    {
+      name: 'target',
+      short: 't',
+      type: 'string',
+      description:
+        'Target endpoint to POST { prompt, category } to and evaluate the { response } — enables live execution',
+    },
+    {
+      name: 'dry-run',
+      type: 'boolean',
+      description:
+        'Force list-only mode even with --target, or force live mode without one (requires --target). Defaults to true iff --target is absent.',
+    },
+    {
+      name: 'scenarios',
+      short: 's',
+      type: 'string',
+      description: 'Comma-separated attack categories: injection,jailbreak,adversarial,pii,all',
+      default: 'all',
+    },
+    {
+      name: 'iterations',
+      short: 'n',
+      type: 'number',
+      description: 'Number of prompts to use per category (max 5 — that is all that exist)',
+      default: '5',
+    },
+    {
+      name: 'output',
+      short: 'o',
+      type: 'string',
+      description: 'Output format: text, json',
+      default: 'text',
+    },
+    {
+      name: 'threshold',
+      type: 'number',
+      description:
+        'Live mode only: failure-rate (unsafe responses / total) above which the command exits non-zero',
+      default: '0.1',
+    },
   ],
   examples: [
-    { command: 'monomind security redteam', description: 'List all red-team prompts for manual review' },
-    { command: 'monomind security redteam --scenarios injection,jailbreak', description: 'List prompts for specific attack categories' },
-    { command: 'monomind security redteam --target http://localhost:4000/redteam', description: 'Live-send every prompt to the target and evaluate responses' },
-    { command: 'monomind security redteam --target http://localhost:4000/redteam --threshold 0.2', description: 'Live run, fail only if over 20% of responses are unsafe' },
-    { command: 'monomind security redteam --output json', description: 'JSON output for scripting' },
+    {
+      command: 'monomind security redteam',
+      description: 'List all red-team prompts for manual review',
+    },
+    {
+      command: 'monomind security redteam --scenarios injection,jailbreak',
+      description: 'List prompts for specific attack categories',
+    },
+    {
+      command: 'monomind security redteam --target http://localhost:4000/redteam',
+      description: 'Live-send every prompt to the target and evaluate responses',
+    },
+    {
+      command: 'monomind security redteam --target http://localhost:4000/redteam --threshold 0.2',
+      description: 'Live run, fail only if over 20% of responses are unsafe',
+    },
+    {
+      command: 'monomind security redteam --output json',
+      description: 'JSON output for scripting',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags.target as string | undefined;
@@ -376,9 +539,13 @@ export const redteamCommand: Command = {
       ],
     };
 
-    const selectedCategories = scenariosRaw === 'all'
-      ? Object.keys(ATTACK_SCENARIOS)
-      : scenariosRaw.split(',').map(s => s.trim()).filter(s => s in ATTACK_SCENARIOS);
+    const selectedCategories =
+      scenariosRaw === 'all'
+        ? Object.keys(ATTACK_SCENARIOS)
+        : scenariosRaw
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s in ATTACK_SCENARIOS);
 
     const allPrompts: { category: string; prompt: string }[] = [];
     for (const cat of selectedCategories) {
@@ -396,18 +563,34 @@ export const redteamCommand: Command = {
       output.writeln();
       output.writeln(output.bold('Security Red-Team Prompt Library'));
       output.writeln(output.dim('─'.repeat(50)));
-      output.writeln(output.dim(`Categories: ${selectedCategories.join(', ')} | Iterations: ${iterations}`));
-      output.writeln(output.warning('Only 5 prompts per category exist — this lists a static library, it does not execute live attacks.'));
+      output.writeln(
+        output.dim(`Categories: ${selectedCategories.join(', ')} | Iterations: ${iterations}`),
+      );
+      output.writeln(
+        output.warning(
+          'Only 5 prompts per category exist — this lists a static library, it does not execute live attacks.',
+        ),
+      );
       output.writeln();
       output.writeln(output.bold('Attack prompts for manual review:'));
       output.writeln();
       for (const { category, prompt } of allPrompts) {
-        output.writeln(`  ${output.warning(`[${category}]`)} ${prompt.slice(0, 120)}${prompt.length > 120 ? '...' : ''}`);
+        output.writeln(
+          `  ${output.warning(`[${category}]`)} ${prompt.slice(0, 120)}${prompt.length > 120 ? '...' : ''}`,
+        );
       }
       output.writeln();
-      output.writeln(output.dim(`Total: ${allPrompts.length} prompts across ${selectedCategories.length} categories`));
+      output.writeln(
+        output.dim(
+          `Total: ${allPrompts.length} prompts across ${selectedCategories.length} categories`,
+        ),
+      );
       if (target) {
-        output.writeln(output.dim(`To send these live: monomind security redteam --target ${target} --dry-run=false`));
+        output.writeln(
+          output.dim(
+            `To send these live: monomind security redteam --target ${target} --dry-run=false`,
+          ),
+        );
       }
       return { success: true, data: { prompts: allPrompts, dryRun: true } };
     }
@@ -428,7 +611,11 @@ export const redteamCommand: Command = {
       output.writeln();
       output.writeln(output.bold('Security Red-Team — LIVE EXECUTION'));
       output.writeln(output.dim('─'.repeat(50)));
-      output.writeln(output.warning(`Sending ${allPrompts.length} real request(s) to ${target} — these are genuine attack payloads (including destructive-command and credential-exfiltration attempts in the "adversarial" category) and whatever ${target} does with them is real.`));
+      output.writeln(
+        output.warning(
+          `Sending ${allPrompts.length} real request(s) to ${target} — these are genuine attack payloads (including destructive-command and credential-exfiltration attempts in the "adversarial" category) and whatever ${target} does with them is real.`,
+        ),
+      );
       output.writeln();
     }
 
@@ -454,7 +641,7 @@ export const redteamCommand: Command = {
           body: JSON.stringify({ prompt, category }),
           signal: AbortSignal.timeout(10_000),
         });
-        const data = await res.json().catch(() => ({})) as { response?: string };
+        const data = (await res.json().catch(() => ({}))) as { response?: string };
         if (res.ok && typeof data.response === 'string') {
           response = data.response;
         } else {
@@ -476,7 +663,9 @@ export const redteamCommand: Command = {
 
       const scan = await defender.scanOutput(response, prompt);
       results.push({
-        category, prompt, response,
+        category,
+        prompt,
+        response,
         safe: scan.safe as boolean,
         leakageFound: scan.leakageFound as boolean,
         echoDetected: scan.echoDetected as boolean,
@@ -484,11 +673,13 @@ export const redteamCommand: Command = {
       });
       if (outputFmt !== 'json') {
         const marker = scan.safe ? output.success('[safe]') : output.error('[UNSAFE]');
-        output.writeln(`  ${output.warning(`[${category}]`)} ${marker} ${prompt.slice(0, 80)}${prompt.length > 80 ? '...' : ''}`);
+        output.writeln(
+          `  ${output.warning(`[${category}]`)} ${marker} ${prompt.slice(0, 80)}${prompt.length > 80 ? '...' : ''}`,
+        );
       }
     }
 
-    const unsafeCount = results.filter(r => !r.safe).length;
+    const unsafeCount = results.filter((r) => !r.safe).length;
     const failureRate = results.length > 0 ? unsafeCount / results.length : 0;
     const passed = failureRate <= threshold;
 
@@ -508,8 +699,16 @@ export const redteamCommand: Command = {
     }
 
     output.writeln();
-    output.writeln(output.dim(`Failure rate: ${(failureRate * 100).toFixed(1)}% (${unsafeCount}/${results.length}) | Threshold: ${(threshold * 100).toFixed(1)}%`));
-    output.writeln(passed ? output.success('PASSED — failure rate within threshold') : output.error('FAILED — failure rate exceeds threshold'));
+    output.writeln(
+      output.dim(
+        `Failure rate: ${(failureRate * 100).toFixed(1)}% (${unsafeCount}/${results.length}) | Threshold: ${(threshold * 100).toFixed(1)}%`,
+      ),
+    );
+    output.writeln(
+      passed
+        ? output.success('PASSED — failure rate within threshold')
+        : output.error('FAILED — failure rate exceeds threshold'),
+    );
 
     return { success: passed, exitCode: passed ? 0 : 1, data: summary };
   },

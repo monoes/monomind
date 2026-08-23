@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  jaccardSimilarity,
-  findSimilarNodes,
   buildNeighborMap,
+  findSimilarNodes,
+  jaccardSimilarity,
 } from '../../analysis/node-similarity.js';
 
 describe('jaccardSimilarity', () => {
@@ -66,7 +66,7 @@ describe('findSimilarNodes', () => {
 
   it('excludes the query node itself', () => {
     const results = findSimilarNodes('a', edges, 10);
-    expect(results.every(r => r.nodeId !== 'a')).toBe(true);
+    expect(results.every((r) => r.nodeId !== 'a')).toBe(true);
   });
 
   it('returns empty array for unknown node', () => {
@@ -76,6 +76,6 @@ describe('findSimilarNodes', () => {
 
   it('returns only nodes with score > 0', () => {
     const results = findSimilarNodes('a', edges, 10);
-    expect(results.every(r => r.score > 0)).toBe(true);
+    expect(results.every((r) => r.score > 0)).toBe(true);
   });
 });

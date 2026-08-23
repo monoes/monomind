@@ -13,7 +13,7 @@
 
 // Re-export the path helpers for backward compatibility with existing callers
 // that import from this module. New code should prefer `utils/paths.js`.
-export { getProjectCwd, getMonomindDataRoot, migrateLegacyStoreFile } from '../utils/paths.js';
+export { getMonomindDataRoot, getProjectCwd, migrateLegacyStoreFile } from '../utils/paths.js';
 
 export interface MCPToolInputSchema {
   type: 'object';
@@ -40,5 +40,8 @@ export interface MCPTool {
   version?: string;
   cacheable?: boolean;
   cacheTTL?: number;
-  handler: (input: Record<string, unknown>, context?: Record<string, unknown>) => Promise<MCPToolResult | unknown>;
+  handler: (
+    input: Record<string, unknown>,
+    context?: Record<string, unknown>,
+  ) => Promise<MCPToolResult | unknown>;
 }

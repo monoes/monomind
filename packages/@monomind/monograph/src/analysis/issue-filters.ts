@@ -2,10 +2,19 @@
 // run any subset of checks in one pass without rerunning the pipeline.
 
 export type IssueFilterKey =
-  | 'unusedFiles' | 'unusedExports' | 'unusedDeps' | 'unusedTypes'
-  | 'privateTypeLeaks' | 'unusedEnumMembers' | 'unusedClassMembers'
-  | 'unresolvedImports' | 'unlistedDeps' | 'duplicateExports'
-  | 'circularDeps' | 'boundaryViolations' | 'staleSuppressions';
+  | 'unusedFiles'
+  | 'unusedExports'
+  | 'unusedDeps'
+  | 'unusedTypes'
+  | 'privateTypeLeaks'
+  | 'unusedEnumMembers'
+  | 'unusedClassMembers'
+  | 'unresolvedImports'
+  | 'unlistedDeps'
+  | 'duplicateExports'
+  | 'circularDeps'
+  | 'boundaryViolations'
+  | 'staleSuppressions';
 
 export interface IssueFilters {
   unusedFiles: boolean;
@@ -24,17 +33,35 @@ export interface IssueFilters {
 }
 
 export const ALL_FILTERS_OFF: IssueFilters = {
-  unusedFiles: false, unusedExports: false, unusedDeps: false, unusedTypes: false,
-  privateTypeLeaks: false, unusedEnumMembers: false, unusedClassMembers: false,
-  unresolvedImports: false, unlistedDeps: false, duplicateExports: false,
-  circularDeps: false, boundaryViolations: false, staleSuppressions: false,
+  unusedFiles: false,
+  unusedExports: false,
+  unusedDeps: false,
+  unusedTypes: false,
+  privateTypeLeaks: false,
+  unusedEnumMembers: false,
+  unusedClassMembers: false,
+  unresolvedImports: false,
+  unlistedDeps: false,
+  duplicateExports: false,
+  circularDeps: false,
+  boundaryViolations: false,
+  staleSuppressions: false,
 };
 
 export const ALL_FILTERS_ON: IssueFilters = {
-  unusedFiles: true, unusedExports: true, unusedDeps: true, unusedTypes: true,
-  privateTypeLeaks: true, unusedEnumMembers: true, unusedClassMembers: true,
-  unresolvedImports: true, unlistedDeps: true, duplicateExports: true,
-  circularDeps: true, boundaryViolations: true, staleSuppressions: true,
+  unusedFiles: true,
+  unusedExports: true,
+  unusedDeps: true,
+  unusedTypes: true,
+  privateTypeLeaks: true,
+  unusedEnumMembers: true,
+  unusedClassMembers: true,
+  unresolvedImports: true,
+  unlistedDeps: true,
+  duplicateExports: true,
+  circularDeps: true,
+  boundaryViolations: true,
+  staleSuppressions: true,
 };
 
 /** Returns true if at least one filter is active. */
@@ -51,6 +78,9 @@ export function activateExplicitOptIns(checks: IssueFilterKey[]): IssueFilters {
 
 /** Parse a comma-separated string of filter keys into an IssueFilters object. */
 export function parseIssueFilters(csv: string): IssueFilters {
-  const keys = csv.split(',').map(s => s.trim()).filter(Boolean) as IssueFilterKey[];
+  const keys = csv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean) as IssueFilterKey[];
   return activateExplicitOptIns(keys);
 }

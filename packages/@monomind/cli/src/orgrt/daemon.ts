@@ -1,76 +1,79 @@
 // packages/@monomind/cli/src/orgrt/daemon.ts
 // monolean: single-process inter-org — upgrade path = daemon-to-daemon HTTP when multi-host is real
-import { readFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
+
 import { execFileSync } from 'node:child_process';
-import { join, isAbsolute } from 'node:path';
-import { writeJsonFileAtomic } from '../utils/json-file.js';
-import { reapOrphanedSdkProcesses } from '../utils/resource-governor.js';
-import { OrgBus } from './bus.js';
-import { PolicyEngine } from './policy.js';
-import { Mailbox, isRecoverableCloseReason } from './mailbox.js';
-import { runAgentSession } from './session.js';
-import { attachForwarder } from './forwarder.js';
-import { BrokerLease, normalizeCredential } from './broker.js';
-import { drainInbox } from './inbox.js';
-import {
-  OrgDefSchema,
-  type OrgDef,
-  type OrgRole,
-  type BusEvent,
-  type DecisionGate,
-  type ProviderConfig,
-  ORG_DIR,
-} from './types.js';
-import { TaskDag } from './task-dag.js';
-import {
-  summarizeRun,
-  readRunEvents,
-  readHistory,
-  historyFile,
-  type RunSummary,
-} from './reporting.js';
-import { getResourceLimits, configureResourceLimits } from '../utils/resource-governor.js';
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 import type { query } from '@anthropic-ai/claude-agent-sdk';
+import { writeJsonFileAtomic } from '../utils/json-file.js';
+import {
+  configureResourceLimits,
+  getResourceLimits,
+  reapOrphanedSdkProcesses,
+} from '../utils/resource-governor.js';
 import type { AgentRunner } from './agent-runner.js';
-import { OpencodeAgentRunner } from './opencode-runner.js';
-import { KimiCodeAgentRunner } from './kimicode-runner.js';
-import { VercelAgentRunner } from './vercel-runner.js';
-import { CodexAgentRunner } from './codex-runner.js';
 import { AntigravityAgentRunner } from './antigravity-runner.js';
-import { GrokAgentRunner } from './grok-runner.js';
-import { QwenAgentRunner } from './qwen-runner.js';
-import { CrushAgentRunner } from './crush-runner.js';
-import { CopilotAgentRunner } from './copilot-runner.js';
-import { PiAgentRunner } from './pi-runner.js';
-import { PiRpcAgentRunner } from './pi-rpc-runner.js';
-import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
+// ── Extracted module imports ────────────────────────────────────────────
+import * as approvalOps from './approvals.js';
+import { BrokerLease, normalizeCredential } from './broker.js';
+import { OrgBus } from './bus.js';
 import {
   captureCheckpoint,
   generateChecksum,
-  validateCheckpoint,
   isCheckpointExpired,
-  restoreMailboxQueue,
   type OrgCheckpoint,
   type RoleCheckpoint,
+  restoreMailboxQueue,
+  validateCheckpoint,
 } from './checkpoint.js';
+import * as checkpointOps from './checkpoint-ops.js';
+import { CodexAgentRunner } from './codex-runner.js';
+import { CopilotAgentRunner } from './copilot-runner.js';
+import * as crossOrg from './cross-org.js';
+import { CrushAgentRunner } from './crush-runner.js';
+import * as decisionOps from './decisions.js';
 import {
+  createFenceForRole,
   loadGlobalFenceConfig,
   mergeFenceConfigs,
-  createFenceForRole,
   type RoleFence,
 } from './fence.js';
-
-// ── Extracted module imports ────────────────────────────────────────────
-import * as approvalOps from './approvals.js';
-import * as questionOps from './questions.js';
-import * as decisionOps from './decisions.js';
-import * as crossOrg from './cross-org.js';
-import * as scheduler from './scheduler-integration.js';
+import { attachForwarder } from './forwarder.js';
+import { GrokAgentRunner } from './grok-runner.js';
+import { drainInbox } from './inbox.js';
+import { KimiCodeAgentRunner } from './kimicode-runner.js';
+import { isRecoverableCloseReason, Mailbox } from './mailbox.js';
+import { OpencodeAgentRunner } from './opencode-runner.js';
 import * as orgMemory from './org-memory.js';
-import * as checkpointOps from './checkpoint-ops.js';
+import { PiRpcAgentRunner } from './pi-rpc-runner.js';
+import { PiAgentRunner } from './pi-runner.js';
+import { PolicyEngine } from './policy.js';
+import * as questionOps from './questions.js';
+import { QwenRpcAgentRunner } from './qwen-rpc-runner.js';
+import { QwenAgentRunner } from './qwen-runner.js';
+import {
+  historyFile,
+  type RunSummary,
+  readHistory,
+  readRunEvents,
+  summarizeRun,
+} from './reporting.js';
+import * as scheduler from './scheduler-integration.js';
+import { runAgentSession } from './session.js';
+import { TaskDag } from './task-dag.js';
+import {
+  type BusEvent,
+  type DecisionGate,
+  ORG_DIR,
+  type OrgDef,
+  OrgDefSchema,
+  type OrgRole,
+  type ProviderConfig,
+} from './types.js';
+import { VercelAgentRunner } from './vercel-runner.js';
 
 /** OpenTelemetry tracing helper - creates spans for major operations */
-class OtelTracer {
+class _OtelTracer {
   private enabled = false;
   private spans = new Map<string, { start: number; metadata: Record<string, unknown> }>();
 
@@ -87,13 +90,13 @@ class OtelTracer {
     if (!this.enabled) return;
     const span = this.spans.get(name);
     if (span) {
-      const duration = Date.now() - span.start;
+      const _duration = Date.now() - span.start;
       // Emit span as a bus event for export
       this.spans.delete(name);
     }
   }
 
-  recordEvent(name: string, attributes: Record<string, unknown>): void {
+  recordEvent(_name: string, _attributes: Record<string, unknown>): void {
     if (!this.enabled) return;
     // Could emit to bus for collection
   }
@@ -112,8 +115,17 @@ const COMPLETE_DRAIN_MS = 5 * 60_000;
  *  unchanged. Callers pass `role.runtime ?? def.runtime` as `orgRuntime`
  *  (see resolveRoleRunner). */
 export type RuntimeKind =
-  | 'claude' | 'kimicode' | 'opencode' | 'vercel' | 'codex' | 'antigravity'
-  | 'grok' | 'qwen' | 'crush' | 'copilot' | 'pi'
+  | 'claude'
+  | 'kimicode'
+  | 'opencode'
+  | 'vercel'
+  | 'codex'
+  | 'antigravity'
+  | 'grok'
+  | 'qwen'
+  | 'crush'
+  | 'copilot'
+  | 'pi'
   /** Opt-in alternate to 'pi': keeps the pi subprocess alive for the whole
    *  mailbox session (--mode rpc) instead of spawning fresh per turn — see
    *  pi-rpc-runner.ts's header for the protocol source (live-verified
@@ -237,7 +249,11 @@ export function roleTokenBudget(role: OrgRole, def: OrgDef): number {
  *  10-minute nudges with one-line acknowledgments and zero tool calls looped
  *  indefinitely making no progress, because every trivial reply reset the cap
  *  that was supposed to catch exactly this. */
-export function resolvedIdleNudgeCount(nudgedAt: number, nudges: number, lastToolActivity: number): number {
+export function resolvedIdleNudgeCount(
+  nudgedAt: number,
+  nudges: number,
+  lastToolActivity: number,
+): number {
   return nudgedAt !== 0 && lastToolActivity >= nudgedAt ? 0 : nudges;
 }
 
@@ -338,7 +354,6 @@ export class OrgDaemon {
   /** @internal */ private forwarders = new Map<string, ReturnType<typeof attachForwarder>>();
   /** @internal */ private watchdogs = new Map<string, ReturnType<typeof setInterval>>();
   /** @internal */ stopping = new Map<string, Promise<void>>();
-  /** @internal */ private otel = new OtelTracer();
   /** @internal */ approvals = new Map<
     string,
     Array<{
@@ -486,7 +501,11 @@ export class OrgDaemon {
     return isAbsolute(ws) ? ws : join(this.root, ws);
   }
 
-  async startOrg(name: string, taskOverride?: string, options?: { resume?: boolean }): Promise<RunningOrg> {
+  async startOrg(
+    name: string,
+    taskOverride?: string,
+    options?: { resume?: boolean },
+  ): Promise<RunningOrg> {
     // A restart-driven start (scheduleBossRestart) keeps its crash counter so the
     // cap holds; any other (explicit) start resets it so a manual re-run gets a
     // fresh budget.
@@ -504,11 +523,15 @@ export class OrgDaemon {
     let checkpoint: OrgCheckpoint | undefined;
     if (options?.resume) {
       const rtPath = join(this.root, ORG_DIR, name, 'runtime.json');
-      if (!existsSync(rtPath)) throw new Error(`cannot resume org "${name}": runtime.json not found`);
+      if (!existsSync(rtPath))
+        throw new Error(`cannot resume org "${name}": runtime.json not found`);
       const rt = JSON.parse(readFileSync(rtPath, 'utf8'));
-      if (!rt?.run || !rt?.checkpoint) throw new Error(`cannot resume org "${name}": no valid checkpoint found`);
-      if (isCheckpointExpired(rt.checkpoint)) throw new Error(`cannot resume org "${name}": checkpoint expired`);
-      if (!validateCheckpoint(rt.checkpoint)) throw new Error(`cannot resume org "${name}": checkpoint validation failed`);
+      if (!rt?.run || !rt?.checkpoint)
+        throw new Error(`cannot resume org "${name}": no valid checkpoint found`);
+      if (isCheckpointExpired(rt.checkpoint))
+        throw new Error(`cannot resume org "${name}": checkpoint expired`);
+      if (!validateCheckpoint(rt.checkpoint))
+        throw new Error(`cannot resume org "${name}": checkpoint validation failed`);
       run = rt.run;
       checkpoint = rt.checkpoint;
       if (rt.abandonedRoles) {
@@ -588,7 +611,9 @@ export class OrgDaemon {
 
     // Validate per-role providers before spawning anything (fail-fast: a
     // missing env var discovered 10 minutes into a run wastes the entire run).
-    const { resolveProviderEnv: validateProvider, resolveRoleProvider } = await import('./provider.js');
+    const { resolveProviderEnv: validateProvider, resolveRoleProvider } = await import(
+      './provider.js'
+    );
     for (const role of def.roles) {
       try {
         if (role.provider) {
@@ -661,11 +686,12 @@ export class OrgDaemon {
           // trusts to mean "the run ended cleanly, exit 0" — every other
           // stop path (idle watchdog, boss-restart-exhausted, manual stop)
           // leaves it unset.
-          this.stopOrg(name, { drainMs: COMPLETE_DRAIN_MS, closedBy: 'org-complete' }).catch((err) =>
-            console.error(
-              `org ${name}: auto-stop after org_complete failed:`,
-              err instanceof Error ? err.message : err,
-            ),
+          this.stopOrg(name, { drainMs: COMPLETE_DRAIN_MS, closedBy: 'org-complete' }).catch(
+            (err) =>
+              console.error(
+                `org ${name}: auto-stop after org_complete failed:`,
+                err instanceof Error ? err.message : err,
+              ),
           );
         }, 1000);
         (t as { unref?: () => void }).unref?.();
@@ -768,7 +794,7 @@ export class OrgDaemon {
     // and ungated — the org has no coordinator at all without it, so gating it
     // behind host memory pressure would make the whole org fail to start over a
     // condition workers are specifically designed to ride out.
-    const limits = getResourceLimits();
+    const _limits = getResourceLimits();
 
     // Extracted so a role that fails its gate check can be spawned later by
     // scheduleDeferredSpawn() once resources free up, without re-running the
@@ -813,12 +839,19 @@ export class OrgDaemon {
       // isRecoverableCloseReason's doc comment. Re-closing it here would
       // make the idle watchdog's "raise the budget and resume" remedy a
       // no-op, since nothing in this codebase ever reopens a closed mailbox.
-      if (roleCheckpoint?.mailboxClosed && !isRecoverableCloseReason(roleCheckpoint.mailboxCloseReason)) {
+      if (
+        roleCheckpoint?.mailboxClosed &&
+        !isRecoverableCloseReason(roleCheckpoint.mailboxCloseReason)
+      ) {
         mailbox.close(roleCheckpoint.mailboxCloseReason);
       }
       const policy = new PolicyEngine(
         role.id,
-        { maxTokens: role.budget_tokens ?? perRoleBudget, maxUsd: role.budget_usd, ...(role.policy ?? {}) },
+        {
+          maxTokens: role.budget_tokens ?? perRoleBudget,
+          maxUsd: role.budget_usd,
+          ...(role.policy ?? {}),
+        },
         bus,
         roleCwd,
       );
@@ -864,7 +897,9 @@ export class OrgDaemon {
         resumeSessionId: roleCheckpoint?.sessionId,
         lastMessageId: () => runtime.lastMessageId,
         onOutput: (line: string) => runtime.scrollback.push(line),
-        onSessionId: (id: string) => { runtime.sessionId = id; },
+        onSessionId: (id: string) => {
+          runtime.sessionId = id;
+        },
         deliver: (from: string, to: string, subject: string, body: string) =>
           this.deliver(name, from, to, subject, body),
         askHuman: (r: string, question: string) => this.askHuman(name, r, question),
@@ -892,7 +927,7 @@ export class OrgDaemon {
         // ORG-9: decision gates are documented as "hard-blocking" — make that
         // true by actually denying tool use while this role has a pending gate,
         // the same way pending approvals already do.
-        hasPendingGate: () => this.listGates(name, 'pending').some(g => g.roleId === role.id),
+        hasPendingGate: () => this.listGates(name, 'pending').some((g) => g.roleId === role.id),
         onComplete:
           role.id === bossRole.id
             ? (r: string, outcome: 'achieved' | 'partial' | 'failed', summary: string) => {
@@ -972,7 +1007,11 @@ export class OrgDaemon {
           const running = this.orgs.get(name);
           return JSON.stringify(running?.taskDag?.all() ?? [], null, 2);
         },
-        splitTask: (r: string, parentId: string, children: { title: string; assignee: string }[]) => {
+        splitTask: (
+          r: string,
+          parentId: string,
+          children: { title: string; assignee: string }[],
+        ) => {
           return this.dagSplitTask(name, r, parentId, children);
         },
         mergeTask: (r: string, sourceId: string, targetId: string) => {
@@ -996,7 +1035,13 @@ export class OrgDaemon {
         // built per role here in spawnRole, so each role gets its own runner.
         runner:
           this.opts.runner ??
-          resolveRoleRunner(role.runtime, def.runtime, role.provider?.kind, undefined, role.provider),
+          resolveRoleRunner(
+            role.runtime,
+            def.runtime,
+            role.provider?.kind,
+            undefined,
+            role.provider,
+          ),
       };
       // Supervised session: transient crashes (provider blips, network) restart
       // with backoff; a crash with the mailbox already closed, or one that
@@ -1007,139 +1052,141 @@ export class OrgDaemon {
       // silently never progresses.
       const BACKOFFS_MS = this.opts.crashBackoffsMs ?? [1000, 5000, 15000];
       if (!mailbox.isClosed && runtime.status !== 'crashed') {
-      runtime.done = (async () => {
-        for (let attempt = 0; ; attempt++) {
-          try {
-            await runAgentSession(sessionOpts);
-            runtime.status = 'ended';
-            return;
-          } catch (err) {
-            // Drop the crashed session's stale waker immediately: a push()
-            // during the backoff window must queue for the NEXT session, not
-            // wake the dead generator to swallow it.
-            mailbox.detach();
-            // #203: if the crashed session's mailbox generator was abandoned
-            // mid-yield (message already shift()ed for it, turn never
-            // finished), put that message back on the queue — otherwise the
-            // replacement session's stream() finds an empty queue and parks
-            // forever, since the "delivered" message is gone for good.
-            mailbox.reclaimInFlight();
-            const message = err instanceof Error ? err.message : String(err);
-            const isTurnLimit = /Reached maximum number of turns|error_max_turns/i.test(message);
-            // Bounded like every other recovery: attempt counts every pass
-            // through this loop, so a role that keeps surfacing max-turns
-            // errors here (session.ts already swallows the normal ones)
-            // falls through to crash handling instead of looping forever.
-            if (isTurnLimit && !mailbox.isClosed && attempt < BACKOFFS_MS.length) {
-              sessionOpts.resumeSessionId = undefined;
-              mailbox.push(`${Mailbox.CONTINUE_PREFIX} You reached the turn limit on your task. Continue your in-progress work from where you left off; if finished, end your turn.`);
-              bus.emit({
-                type: 'status',
-                from: role.id,
-                reason: 'turn-limit-recover',
-                msg: `agent "${role.id}" hit turn limit error — continuing with fresh session`,
-              });
-              continue;
-            }
-            // Exit 143 = SIGTERM. If the mailbox is already closed, we
-            // sent the signal ourselves during stop — not a crash.
-            const killedByStop = mailbox.isClosed && /exit(?:ed)? with code 143/.test(message);
-            const crash = (): void => {
-              if (killedByStop) {
-                runtime.status = 'ended';
+        runtime.done = (async () => {
+          for (let attempt = 0; ; attempt++) {
+            try {
+              await runAgentSession(sessionOpts);
+              runtime.status = 'ended';
+              return;
+            } catch (err) {
+              // Drop the crashed session's stale waker immediately: a push()
+              // during the backoff window must queue for the NEXT session, not
+              // wake the dead generator to swallow it.
+              mailbox.detach();
+              // #203: if the crashed session's mailbox generator was abandoned
+              // mid-yield (message already shift()ed for it, turn never
+              // finished), put that message back on the queue — otherwise the
+              // replacement session's stream() finds an empty queue and parks
+              // forever, since the "delivered" message is gone for good.
+              mailbox.reclaimInFlight();
+              const message = err instanceof Error ? err.message : String(err);
+              const isTurnLimit = /Reached maximum number of turns|error_max_turns/i.test(message);
+              // Bounded like every other recovery: attempt counts every pass
+              // through this loop, so a role that keeps surfacing max-turns
+              // errors here (session.ts already swallows the normal ones)
+              // falls through to crash handling instead of looping forever.
+              if (isTurnLimit && !mailbox.isClosed && attempt < BACKOFFS_MS.length) {
+                sessionOpts.resumeSessionId = undefined;
+                mailbox.push(
+                  `${Mailbox.CONTINUE_PREFIX} You reached the turn limit on your task. Continue your in-progress work from where you left off; if finished, end your turn.`,
+                );
                 bus.emit({
                   type: 'status',
                   from: role.id,
-                  msg: `agent "${role.id}" terminated by stop (was still working when drain window expired)`,
-                  reason: 'terminated-by-stop',
+                  reason: 'turn-limit-recover',
+                  msg: `agent "${role.id}" hit turn limit error — continuing with fresh session`,
                 });
+                continue;
+              }
+              // Exit 143 = SIGTERM. If the mailbox is already closed, we
+              // sent the signal ourselves during stop — not a crash.
+              const killedByStop = mailbox.isClosed && /exit(?:ed)? with code 143/.test(message);
+              const crash = (): void => {
+                if (killedByStop) {
+                  runtime.status = 'ended';
+                  bus.emit({
+                    type: 'status',
+                    from: role.id,
+                    msg: `agent "${role.id}" terminated by stop (was still working when drain window expired)`,
+                    reason: 'terminated-by-stop',
+                  });
+                  return;
+                }
+                runtime.status = 'crashed';
+                runtime.error = message;
+                // Close the mailbox so deliver()/receiveRemote() report a real
+                // error instead of pushing into a queue no session will read
+                // (and returning a false "delivered" receipt to the sender).
+                mailbox.close();
+                const isContextLimit = OrgDaemon.CONTEXT_LIMIT_RE.test(message);
+                bus.emit({
+                  type: 'audit',
+                  from: role.id,
+                  msg: `agent "${role.id}" crashed: ${message}`,
+                  reason: isContextLimit ? 'agent-context-limit' : 'agent-session-crash',
+                  data: {
+                    agentId: role.id,
+                    error: message,
+                    restarts: attempt,
+                    contextLimit: isContextLimit,
+                  },
+                });
+                if (role.id !== bossRole.id) {
+                  // #2/#3: a worker is gone for the rest of this run. Without this
+                  // notice the coordinator keeps messaging a corpse (observed: four
+                  // unanswered org_send calls to a developer that had crashed on a
+                  // context-window limit). Tell the boss to reassign — and if the
+                  // crash was a context overflow, tell it to chunk smaller, since
+                  // re-dispatching the same task verbatim fails the same way.
+                  const bossRt = running.agents.get(bossRole.id);
+                  if (bossRt && !bossRt.mailbox.isClosed) {
+                    const guidance = isContextLimit
+                      ? ' This was a context-window overflow — re-dispatching the same task verbatim will fail identically. Break the work into smaller pieces (one file or section at a time) and do not paste large file contents in a single message.'
+                      : '';
+                    bossRt.mailbox.push(
+                      `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`,
+                    );
+                    bus.emit({
+                      type: 'audit',
+                      from: bossRole.id,
+                      reason: 'worker-crashed',
+                      msg: `worker "${role.id}" crashed (contextLimit=${isContextLimit}); coordinator notified to reassign`,
+                    });
+                  }
+                } else {
+                  // #4: the coordinator itself died. Don't go silent and wait for a
+                  // human — attempt a bounded whole-org restart with fresh sessions
+                  // (which also sheds whatever bloated context caused the crash).
+                  this.scheduleBossRestart(name);
+                }
+              };
+              // Fatal errors (provider auth/quota/billing — tagged with
+              // err.fatal by the runner) can NEVER be fixed by a restart: the
+              // same call fails identically or hangs. Skip the backoff loop
+              // and go straight to terminal crash handling instead of burning
+              // the retry budget and wall-clock on a guaranteed failure.
+              const fatal = (err as { fatal?: boolean } | null)?.fatal === true;
+              if (fatal) {
+                bus.emit({
+                  type: 'status',
+                  from: role.id,
+                  reason: 'agent-fatal',
+                  msg: `agent "${role.id}" hit a fatal (non-retryable) error — not restarting`,
+                });
+                crash();
                 return;
               }
-              runtime.status = 'crashed';
-              runtime.error = message;
-              // Close the mailbox so deliver()/receiveRemote() report a real
-              // error instead of pushing into a queue no session will read
-              // (and returning a false "delivered" receipt to the sender).
-              mailbox.close();
-              const isContextLimit = OrgDaemon.CONTEXT_LIMIT_RE.test(message);
-              bus.emit({
-                type: 'audit',
-                from: role.id,
-                msg: `agent "${role.id}" crashed: ${message}`,
-                reason: isContextLimit ? 'agent-context-limit' : 'agent-session-crash',
-                data: {
-                  agentId: role.id,
-                  error: message,
-                  restarts: attempt,
-                  contextLimit: isContextLimit,
-                },
-              });
-              if (role.id !== bossRole.id) {
-                // #2/#3: a worker is gone for the rest of this run. Without this
-                // notice the coordinator keeps messaging a corpse (observed: four
-                // unanswered org_send calls to a developer that had crashed on a
-                // context-window limit). Tell the boss to reassign — and if the
-                // crash was a context overflow, tell it to chunk smaller, since
-                // re-dispatching the same task verbatim fails the same way.
-                const bossRt = running.agents.get(bossRole.id);
-                if (bossRt && !bossRt.mailbox.isClosed) {
-                  const guidance = isContextLimit
-                    ? ' This was a context-window overflow — re-dispatching the same task verbatim will fail identically. Break the work into smaller pieces (one file or section at a time) and do not paste large file contents in a single message.'
-                    : '';
-                  bossRt.mailbox.push(
-                    `[system] Worker "${role.id}" crashed and will not recover this run (${message}). It can no longer receive messages — stop messaging it. Reassign its outstanding work to another agent or take it on yourself.${guidance}`,
-                  );
-                  bus.emit({
-                    type: 'audit',
-                    from: bossRole.id,
-                    reason: 'worker-crashed',
-                    msg: `worker "${role.id}" crashed (contextLimit=${isContextLimit}); coordinator notified to reassign`,
-                  });
-                }
-              } else {
-                // #4: the coordinator itself died. Don't go silent and wait for a
-                // human — attempt a bounded whole-org restart with fresh sessions
-                // (which also sheds whatever bloated context caused the crash).
-                this.scheduleBossRestart(name);
+              if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) {
+                crash();
+                return;
               }
-            };
-            // Fatal errors (provider auth/quota/billing — tagged with
-            // err.fatal by the runner) can NEVER be fixed by a restart: the
-            // same call fails identically or hangs. Skip the backoff loop
-            // and go straight to terminal crash handling instead of burning
-            // the retry budget and wall-clock on a guaranteed failure.
-            const fatal = (err as { fatal?: boolean } | null)?.fatal === true;
-            if (fatal) {
               bus.emit({
                 type: 'status',
                 from: role.id,
-                reason: 'agent-fatal',
-                msg: `agent "${role.id}" hit a fatal (non-retryable) error — not restarting`,
+                reason: 'agent-restart',
+                msg: `agent "${role.id}" crashed (${message}) — restarting in ${BACKOFFS_MS[attempt]}ms (attempt ${attempt + 1}/${BACKOFFS_MS.length})`,
               });
-              crash();
-              return;
+              await new Promise<void>((r) => {
+                const t = setTimeout(r, BACKOFFS_MS[attempt]);
+                (t as { unref?: () => void }).unref?.();
+              });
+              if (mailbox.isClosed) {
+                crash();
+                return;
+              } // org stopped during backoff — never recovered
             }
-            if (mailbox.isClosed || attempt >= BACKOFFS_MS.length) {
-              crash();
-              return;
-            }
-            bus.emit({
-              type: 'status',
-              from: role.id,
-              reason: 'agent-restart',
-              msg: `agent "${role.id}" crashed (${message}) — restarting in ${BACKOFFS_MS[attempt]}ms (attempt ${attempt + 1}/${BACKOFFS_MS.length})`,
-            });
-            await new Promise<void>((r) => {
-              const t = setTimeout(r, BACKOFFS_MS[attempt]);
-              (t as { unref?: () => void }).unref?.();
-            });
-            if (mailbox.isClosed) {
-              crash();
-              return;
-            } // org stopped during backoff — never recovered
           }
-        }
-      })();
+        })();
       }
       running.agents.set(role.id, runtime);
     };
@@ -1207,7 +1254,7 @@ export class OrgDaemon {
           timeout: 10_000,
         }).trim();
         const count = parseInt(behind, 10);
-        if (!isNaN(count) && count > staleThreshold) {
+        if (!Number.isNaN(count) && count > staleThreshold) {
           bus.emit({
             type: 'audit',
             reason: 'stale-base',
@@ -1247,8 +1294,8 @@ export class OrgDaemon {
           `\nBuild on that work — do not redo what is already done.`
         : '';
       running.agents
-        .get(boss.id)!
-        .mailbox.push(
+        .get(boss.id)
+        ?.mailbox.push(
           `Org "${name}" started (run ${run}).\nGoal: ${taskOverride ?? def.goal}\n` +
             `Coordinate your team via org_send. Only when the FULL goal above is achieved (or clearly can't be) — not merely "this batch of dispatched tasks finished" — record it with org_complete, then end your turn. ` +
             `If a batch finishes but the goal has more scope left, dispatch the next batch instead of ending the run.${prevBrief}`,
@@ -1298,7 +1345,9 @@ export class OrgDaemon {
               agent.mailbox.push(`[task:${task.id}] Block expired — resuming: ${task.title}`);
             }
             bus.emit({
-              type: 'status', from: 'dag', reason: 'task-unblocked',
+              type: 'status',
+              from: 'dag',
+              reason: 'task-unblocked',
               msg: `task ${task.id} block expired — resumed and re-dispatched to ${task.assignee}`,
               data: { taskId: task.id, assignee: task.assignee },
             });
@@ -1332,7 +1381,7 @@ export class OrgDaemon {
               );
               return;
             }
-            if (!bossRt || bossRt.status !== 'running' || bossRt.mailbox.isClosed) {
+            if (bossRt?.status !== 'running' || bossRt.mailbox.isClosed) {
               idleStop(
                 `org idle for ${Math.round(idleFor / 60_000)}m and boss "${bossRole.id}" is unreachable — stopping run`,
               );
@@ -1456,7 +1505,12 @@ export class OrgDaemon {
     }
   }
 
-  private async finishStop(name: string, org: RunningOrg, drainMs?: number, closedBy?: string): Promise<void> {
+  private async finishStop(
+    name: string,
+    org: RunningOrg,
+    drainMs?: number,
+    closedBy?: string,
+  ): Promise<void> {
     // Snapshot checkpoint BEFORE closing mailboxes / draining sessions — the
     // queue is emptied during the drain, so capturing afterwards loses all
     // unconsumed messages (the whole point of checkpoint-resume).
@@ -1505,9 +1559,7 @@ export class OrgDaemon {
       const stillActive = [...org.agents.entries()]
         .filter(([, a]) => a.status === 'running')
         .map(([roleId]) => roleId);
-      const rosterSuffix = stillActive.length
-        ? ` — still active: ${stillActive.join(', ')}`
-        : '';
+      const rosterSuffix = stillActive.length ? ` — still active: ${stillActive.join(', ')}` : '';
       org.bus.emit({
         type: 'audit',
         msg: `org stop timed out after ${stopWaitMs}ms waiting for agent sessions to finish — proceeding anyway${rosterSuffix}`,
@@ -1538,7 +1590,7 @@ export class OrgDaemon {
       if (events.length) {
         const summary = summarizeRun(events);
         const { appendFileSync } = await import('node:fs');
-        appendFileSync(historyFile(this.root, name), JSON.stringify(summary) + '\n', 'utf8');
+        appendFileSync(historyFile(this.root, name), `${JSON.stringify(summary)}\n`, 'utf8');
         // Cross-run memory: make this run's outcome recallable by meaning
         await this.storeRunMemory(name, org.def, org.run, summary);
       }
@@ -1572,7 +1624,8 @@ export class OrgDaemon {
     // Same guard for runtime.json: if a new run started during shutdown, its
     // 'running' record must not be overwritten with this old run's 'stopped'.
     // Pass the org directly since we already removed it from the map.
-    if (!this.orgs.has(name)) this.persistState(name, 'stopped', org.run, org, stopCheckpoint, closedBy);
+    if (!this.orgs.has(name))
+      this.persistState(name, 'stopped', org.run, org, stopCheckpoint, closedBy);
     // Clean up git worktrees — shared (workspace: 'worktree') and per-role.
     try {
       const { execFileSync } = await import('node:child_process');
@@ -1641,7 +1694,10 @@ export class OrgDaemon {
       checkpoint = {
         ...state,
         status: validStatus as 'running' | 'stopped' | 'crashed',
-        checksum: generateChecksum({ ...state, status: validStatus as 'running' | 'stopped' | 'crashed' }),
+        checksum: generateChecksum({
+          ...state,
+          status: validStatus as 'running' | 'stopped' | 'crashed',
+        }),
       };
     }
     // C4: writeJsonFileAtomic (tmp + rename) — a direct writeFileSync here
@@ -1773,7 +1829,12 @@ export class OrgDaemon {
   private dagCompleteTask(org: string, role: string, taskId: string, result?: string): string {
     return decisionOps.dagCompleteTask(this, org, role, taskId, result);
   }
-  private dagSplitTask(org: string, role: string, parentId: string, children: { title: string; assignee: string }[]): string {
+  private dagSplitTask(
+    org: string,
+    role: string,
+    parentId: string,
+    children: { title: string; assignee: string }[],
+  ): string {
     return decisionOps.dagSplitTask(this, org, role, parentId, children);
   }
   private dagMergeTask(org: string, role: string, sourceId: string, targetId: string): string {
@@ -1782,7 +1843,13 @@ export class OrgDaemon {
   private dagCancelTask(org: string, role: string, taskId: string, reason?: string): string {
     return decisionOps.dagCancelTask(this, org, role, taskId, reason);
   }
-  private dagBlockTask(org: string, role: string, taskId: string, untilIso: string, reason?: string): string {
+  private dagBlockTask(
+    org: string,
+    role: string,
+    taskId: string,
+    untilIso: string,
+    reason?: string,
+  ): string {
     return decisionOps.dagBlockTask(this, org, role, taskId, untilIso, reason);
   }
   private dagPlanGraph(org: string, role: string, specs: decisionOps.PlanTaskSpec[]): string {

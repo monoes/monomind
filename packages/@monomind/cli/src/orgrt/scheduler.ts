@@ -33,17 +33,24 @@ export class OrgScheduler {
   add(name: string, intervalMs: number, runNow = false, sinceLastRunMs?: number): void {
     this.remove(name);
     const fire = async (): Promise<void> => {
-      if (this.running.has(name)) { this.pending.add(name); return; } // catch up when it ends
+      if (this.running.has(name)) {
+        this.pending.add(name);
+        return;
+      } // catch up when it ends
       this.running.add(name);
-      try { await this.runFn(name, intervalMs); }
-      catch (err) { console.error(`[org-scheduler] ${name}: scheduled run failed:`, err); }
-      finally {
+      try {
+        await this.runFn(name, intervalMs);
+      } catch (err) {
+        console.error(`[org-scheduler] ${name}: scheduled run failed:`, err);
+      } finally {
         this.running.delete(name);
         // Only chase a missed tick if this org is still scheduled — remove()/stop()
         // during a run must not resurrect it. Deferred through the event loop so
         // back-to-back catch-ups unwind the stack instead of recursing.
         if (this.pending.delete(name) && this.timers.has(name)) {
-          const t = setTimeout(() => { void fire(); }, 0);
+          const t = setTimeout(() => {
+            void fire();
+          }, 0);
           (t as { unref?: () => void }).unref?.();
         }
       }
@@ -53,7 +60,8 @@ export class OrgScheduler {
     // 2h schedule then waited a further 2h instead of the 1h36m it was owed,
     // so every restart silently stole up to a full interval. Resume the
     // remainder, then settle into the steady cadence.
-    const remaining = sinceLastRunMs != null ? Math.max(0, intervalMs - sinceLastRunMs) : intervalMs;
+    const remaining =
+      sinceLastRunMs != null ? Math.max(0, intervalMs - sinceLastRunMs) : intervalMs;
     if (!runNow && remaining < intervalMs) {
       // Deliberately NOT unref'd, matching the setInterval it stands in for.
       // `org serve --cross-process false` starts no HTTP server, so during the
@@ -79,5 +87,7 @@ export class OrgScheduler {
     this.pending.delete(name); // an unscheduled org has no tick to catch up on
   }
 
-  stop(): void { for (const name of [...this.timers.keys()]) this.remove(name); }
+  stop(): void {
+    for (const name of [...this.timers.keys()]) this.remove(name);
+  }
 }

@@ -3,12 +3,13 @@
  * All functions use module-level CWD. Invalidate require cache before each test
  * and inject CLAUDE_PROJECT_DIR so reads/writes land in tmpDir.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -46,13 +47,17 @@ describe('telemetry._recordRecentEdit', () => {
   it('creates .monomind/metrics/recent-edits.json', () => {
     const t = loadTelemetry(tmpDir);
     t._recordRecentEdit('/src/foo.ts');
-    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'))).toBe(
+      true,
+    );
   });
 
   it('adds file to edits array', () => {
     const t = loadTelemetry(tmpDir);
     t._recordRecentEdit('/src/bar.ts');
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'), 'utf-8'),
+    );
     expect(data.edits[0].file).toBe('/src/bar.ts');
     expect(data.edits[0].editedAt).toBeDefined();
   });
@@ -62,16 +67,20 @@ describe('telemetry._recordRecentEdit', () => {
     t._recordRecentEdit('/src/a.ts');
     t._recordRecentEdit('/src/b.ts');
     t._recordRecentEdit('/src/a.ts'); // re-record a
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'), 'utf-8'));
-    const files = data.edits.map(e => e.file);
-    expect(files.filter(f => f === '/src/a.ts').length).toBe(1);
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'), 'utf-8'),
+    );
+    const files = data.edits.map((e) => e.file);
+    expect(files.filter((f) => f === '/src/a.ts').length).toBe(1);
     expect(files[0]).toBe('/src/a.ts'); // most recent at front
   });
 
   it('caps edits array at 10 entries', () => {
     const t = loadTelemetry(tmpDir);
     for (let i = 0; i < 15; i++) t._recordRecentEdit(`/src/file${i}.ts`);
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'recent-edits.json'), 'utf-8'),
+    );
     expect(data.edits.length).toBeLessThanOrEqual(10);
   });
 });
@@ -97,7 +106,10 @@ describe('telemetry._getRecentEdits', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     const staleEdit = { file: '/old/file.ts', editedAt: Date.now() - 3 * 60 * 60 * 1000 };
-    fs.writeFileSync(path.join(metricsDir, 'recent-edits.json'), JSON.stringify({ edits: [staleEdit] }));
+    fs.writeFileSync(
+      path.join(metricsDir, 'recent-edits.json'),
+      JSON.stringify({ edits: [staleEdit] }),
+    );
     const result = t._getRecentEdits();
     expect(result.length).toBe(0);
   });
@@ -116,7 +128,9 @@ describe('telemetry._recordToolCall', () => {
     const t = loadTelemetry(tmpDir);
     t._recordToolCall('Read:foo');
     t._recordToolCall('Read:foo');
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'tool-calls.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'tool-calls.json'), 'utf-8'),
+    );
     expect(data.calls['Read:foo']).toBe(2);
   });
 
@@ -132,7 +146,9 @@ describe('telemetry._recordToolCall', () => {
     t._recordToolCall('Read:a');
     t._recordToolCall('Write:b');
     t._recordToolCall('Read:a');
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'tool-calls.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'tool-calls.json'), 'utf-8'),
+    );
     expect(data.calls['Read:a']).toBe(2);
     expect(data.calls['Write:b']).toBe(1);
   });
@@ -162,7 +178,10 @@ describe('telemetry._getBudgetStatus', () => {
     const t = loadTelemetry(tmpDir);
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
-    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 5.0, monthCost: 50.0 }));
+    fs.writeFileSync(
+      path.join(metricsDir, 'token-summary.json'),
+      JSON.stringify({ todayCost: 5.0, monthCost: 50.0 }),
+    );
     const result = t._getBudgetStatus();
     expect(result).not.toBeNull();
     expect(result).toHaveProperty('todayCost', 5.0);
@@ -180,8 +199,14 @@ describe('telemetry._getBudgetStatus', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, '.monomind', 'budget.json'), JSON.stringify({ dailyLimit: 10, monthlyLimit: 300 }));
-    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 9, monthCost: 30 }));
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'budget.json'),
+      JSON.stringify({ dailyLimit: 10, monthlyLimit: 300 }),
+    );
+    fs.writeFileSync(
+      path.join(metricsDir, 'token-summary.json'),
+      JSON.stringify({ todayCost: 9, monthCost: 30 }),
+    );
     const result = t._getBudgetStatus();
     expect(result.alert).toBe(true);
     expect(result.dailyPct).toBeGreaterThanOrEqual(80);
@@ -191,8 +216,14 @@ describe('telemetry._getBudgetStatus', () => {
     const t = loadTelemetry(tmpDir);
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, '.monomind', 'budget.json'), JSON.stringify({ dailyLimit: 10, monthlyLimit: 300 }));
-    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 11, monthCost: 30 }));
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'budget.json'),
+      JSON.stringify({ dailyLimit: 10, monthlyLimit: 300 }),
+    );
+    fs.writeFileSync(
+      path.join(metricsDir, 'token-summary.json'),
+      JSON.stringify({ todayCost: 11, monthCost: 30 }),
+    );
     const result = t._getBudgetStatus();
     expect(result.breached).toBe(true);
   });
@@ -202,9 +233,14 @@ describe('telemetry._getBudgetStatus', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     // 8 days into month, $80 total → $10/day avg > 5
-    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 12, monthCost: 80 }));
+    fs.writeFileSync(
+      path.join(metricsDir, 'token-summary.json'),
+      JSON.stringify({ todayCost: 12, monthCost: 80 }),
+    );
     global.Date = class extends _origDate {
-      getUTCDate() { return 8; }
+      getUTCDate() {
+        return 8;
+      }
     };
     const result = t._getBudgetStatus();
     expect(result.autoTuned).toBe(true);
@@ -216,11 +252,19 @@ describe('telemetry._getBudgetStatus', () => {
     const t = loadTelemetry(tmpDir);
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, '.monomind', 'budget.json'), JSON.stringify({ dailyLimit: 100, monthlyLimit: 3000 }));
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'budget.json'),
+      JSON.stringify({ dailyLimit: 100, monthlyLimit: 3000 }),
+    );
     // rollingDaily = 30/15 = $2/day; todayCost = $7 > 2×2=4 and > $5
-    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 7, monthCost: 30 }));
+    fs.writeFileSync(
+      path.join(metricsDir, 'token-summary.json'),
+      JSON.stringify({ todayCost: 7, monthCost: 30 }),
+    );
     global.Date = class extends _origDate {
-      getUTCDate() { return 15; }
+      getUTCDate() {
+        return 15;
+      }
     };
     const result = t._getBudgetStatus();
     expect(result.spike).toBe(true);
@@ -232,9 +276,14 @@ describe('telemetry._getBudgetStatus', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     // 3 days into month, $6 total → $2/day avg < 5 → no auto-tune
-    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 2, monthCost: 6 }));
+    fs.writeFileSync(
+      path.join(metricsDir, 'token-summary.json'),
+      JSON.stringify({ todayCost: 2, monthCost: 6 }),
+    );
     global.Date = class extends _origDate {
-      getUTCDate() { return 3; }
+      getUTCDate() {
+        return 3;
+      }
     };
     const result = t._getBudgetStatus();
     expect(result.autoTuned).toBe(false);
@@ -249,14 +298,18 @@ describe('telemetry._recordHookLatency', () => {
   it('creates .monomind/metrics/hook-latency.json', () => {
     const t = loadTelemetry(tmpDir);
     t._recordHookLatency('pre-task', 25);
-    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'))).toBe(
+      true,
+    );
   });
 
   it('accumulates count, total, max, mean per handler', () => {
     const t = loadTelemetry(tmpDir);
     t._recordHookLatency('post-task', 10);
     t._recordHookLatency('post-task', 30);
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'), 'utf-8'),
+    );
     expect(data['post-task'].count).toBe(2);
     expect(data['post-task'].total).toBe(40);
     expect(data['post-task'].max).toBe(30);
@@ -267,7 +320,9 @@ describe('telemetry._recordHookLatency', () => {
     const t = loadTelemetry(tmpDir);
     t._recordHookLatency('post-task', 30);
     t._recordHookLatency('post-task', 10);
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'), 'utf-8'),
+    );
     expect(data['post-task'].max).toBe(30);
   });
 
@@ -275,7 +330,9 @@ describe('telemetry._recordHookLatency', () => {
     const t = loadTelemetry(tmpDir);
     t._recordHookLatency('pre-edit', 5);
     t._recordHookLatency('post-edit', 15);
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'), 'utf-8'),
+    );
     expect(data['pre-edit']).toBeDefined();
     expect(data['post-edit']).toBeDefined();
   });

@@ -1,4 +1,3 @@
-import type Database from 'better-sqlite3';
 import type { McpResourceDefinition } from './repos-resource.js';
 
 /**
@@ -10,17 +9,15 @@ export const namedClusterResource: McpResourceDefinition = {
   name: 'named-cluster',
   mimeType: 'application/json',
   handler(db, params) {
-    const name = params?.['name'];
+    const name = params?.name;
     if (!name) return null;
     try {
-      const row = db
-        .prepare('SELECT id, label FROM communities WHERE label = ?')
-        .get(name) as { id: number; label: string } | undefined;
+      const row = db.prepare('SELECT id, label FROM communities WHERE label = ?').get(name) as
+        | { id: number; label: string }
+        | undefined;
       if (!row) return null;
       const members = db
-        .prepare(
-          'SELECT id, name, label, file_path FROM nodes WHERE community_id = ?',
-        )
+        .prepare('SELECT id, name, label, file_path FROM nodes WHERE community_id = ?')
         .all(row.id) as Array<{
         id: string;
         name: string;

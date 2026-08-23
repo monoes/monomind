@@ -14,7 +14,7 @@ export interface AnalysisCountsSnapshot {
 }
 
 export function buildAnalysisCountsSnapshot(
-  fileScores: Array<{ filePath: string } & FileScoreOutput>
+  fileScores: Array<{ filePath: string } & FileScoreOutput>,
 ): AnalysisCountsSnapshot {
   const counts = new Map<string, FileScoreOutput>();
   for (const { filePath, ...rest } of fileScores) {
@@ -25,7 +25,7 @@ export function buildAnalysisCountsSnapshot(
 
 export function countsFor(
   snapshot: AnalysisCountsSnapshot,
-  roots: string[]
+  roots: string[],
 ): AnalysisCountsSnapshot {
   const filtered = new Map<string, FileScoreOutput>();
   for (const [key, value] of snapshot.counts) {
@@ -37,7 +37,7 @@ export function countsFor(
 }
 
 export function serializeSnapshot(
-  snapshot: AnalysisCountsSnapshot
+  snapshot: AnalysisCountsSnapshot,
 ): Record<string, FileScoreOutput> {
   const result: Record<string, FileScoreOutput> = {};
   for (const [key, value] of snapshot.counts) {
@@ -46,9 +46,7 @@ export function serializeSnapshot(
   return result;
 }
 
-export function deserializeSnapshot(
-  data: Record<string, FileScoreOutput>
-): AnalysisCountsSnapshot {
+export function deserializeSnapshot(data: Record<string, FileScoreOutput>): AnalysisCountsSnapshot {
   const counts = new Map<string, FileScoreOutput>();
   for (const [key, value] of Object.entries(data)) {
     counts.set(key, value);

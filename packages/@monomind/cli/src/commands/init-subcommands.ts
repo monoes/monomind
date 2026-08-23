@@ -2,16 +2,16 @@
  * Init subcommands: check, skills, hooks
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
-  executeInit,
   DEFAULT_INIT_OPTIONS,
-  MINIMAL_INIT_OPTIONS,
+  executeInit,
   type InitOptions,
+  MINIMAL_INIT_OPTIONS,
 } from '../init/index.js';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 function isInitialized(cwd: string): { claude: boolean; monomind: boolean } {
   const claudePath = path.join(cwd, '.claude', 'settings.json');
@@ -34,7 +34,9 @@ export const checkCommand: Command = {
       monomind: initialized.monomind,
       paths: {
         claudeSettings: initialized.claude ? path.join(ctx.cwd, '.claude', 'settings.json') : null,
-        monomindConfig: initialized.monomind ? path.join(ctx.cwd, '.monomind', 'config.yaml') : null,
+        monomindConfig: initialized.monomind
+          ? path.join(ctx.cwd, '.monomind', 'config.yaml')
+          : null,
       },
     };
 
@@ -123,7 +125,12 @@ export const hooksCommand: Command = {
   description: 'Initialize only hooks configuration',
   options: [
     { name: 'all', description: 'Enable all hooks', type: 'boolean', default: true },
-    { name: 'minimal', description: 'Enable only essential hooks', type: 'boolean', default: false },
+    {
+      name: 'minimal',
+      description: 'Enable only essential hooks',
+      type: 'boolean',
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const minimal = ctx.flags.minimal as boolean;

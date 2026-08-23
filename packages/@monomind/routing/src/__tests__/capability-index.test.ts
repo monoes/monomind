@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { buildCapabilityIndex, buildCandidateHints } from '../capability-index.js';
+import { describe, expect, it } from 'vitest';
+import { buildCandidateHints, buildCapabilityIndex } from '../capability-index.js';
 import type { Route } from '../types.js';
 
 function makeRoute(overrides: Partial<Route> & { name: string; agentSlug: string }): Route {
@@ -13,13 +13,17 @@ function makeRoute(overrides: Partial<Route> & { name: string; agentSlug: string
 
 describe('buildCapabilityIndex', () => {
   it('uses description when available', () => {
-    const routes = [makeRoute({ name: 'coder', agentSlug: 'coder', description: 'General code implementation' })];
+    const routes = [
+      makeRoute({ name: 'coder', agentSlug: 'coder', description: 'General code implementation' }),
+    ];
     const index = buildCapabilityIndex(routes);
     expect(index).toBe('coder: General code implementation');
   });
 
   it('falls back to first utterance when no description', () => {
-    const routes = [makeRoute({ name: 'coder', agentSlug: 'coder', utterances: ['write some code'] })];
+    const routes = [
+      makeRoute({ name: 'coder', agentSlug: 'coder', utterances: ['write some code'] }),
+    ];
     const index = buildCapabilityIndex(routes);
     expect(index).toBe('coder: write some code');
   });
@@ -42,7 +46,7 @@ describe('buildCapabilityIndex', () => {
   it('truncates to MAX_INDEX_CHARS (8000) for very long descriptions', () => {
     const longDesc = 'x'.repeat(1000);
     const routes = Array.from({ length: 20 }, (_, i) =>
-      makeRoute({ name: `agent-${i}`, agentSlug: `agent-${i}`, description: longDesc })
+      makeRoute({ name: `agent-${i}`, agentSlug: `agent-${i}`, description: longDesc }),
     );
     const index = buildCapabilityIndex(routes);
     expect(index.length).toBeLessThanOrEqual(8000);
@@ -51,7 +55,7 @@ describe('buildCapabilityIndex', () => {
   it('truncates individual descriptions to 80 chars when total exceeds limit', () => {
     const longDesc = 'a'.repeat(500);
     const routes = Array.from({ length: 20 }, (_, i) =>
-      makeRoute({ name: `agent-${i}`, agentSlug: `agent-${i}`, description: longDesc })
+      makeRoute({ name: `agent-${i}`, agentSlug: `agent-${i}`, description: longDesc }),
     );
     const index = buildCapabilityIndex(routes);
     // Each line should have at most 80-char description after truncation
@@ -71,7 +75,7 @@ describe('buildCandidateHints', () => {
     { agentSlug: 'coder', score: 0.85 },
     { agentSlug: 'tester', score: 0.72 },
     { agentSlug: 'reviewer', score: 0.65 },
-    { agentSlug: 'planner', score: 0.40 },
+    { agentSlug: 'planner', score: 0.4 },
   ];
 
   it('returns top 3 by default', () => {

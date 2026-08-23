@@ -21,11 +21,19 @@ export interface UnusedExportLocation {
   exportName: string;
   filePath: string;
   uri: string;
-  line: number;         // 1-based
+  line: number; // 1-based
   col: number;
 }
 
-export type ExportKeywordVariant = 'export' | 'export default' | 'export const' | 'export function' | 'export class' | 'export type' | 'export interface' | 'export enum';
+export type ExportKeywordVariant =
+  | 'export'
+  | 'export default'
+  | 'export const'
+  | 'export function'
+  | 'export class'
+  | 'export type'
+  | 'export interface'
+  | 'export enum';
 
 function detectExportVariant(sourceLine: string): { prefix: string; start: number } | null {
   const variants = [
@@ -51,19 +59,19 @@ function detectExportVariant(sourceLine: string): { prefix: string; start: numbe
 
 export function buildRemoveExportActions(
   unusedExports: UnusedExportLocation[],
-  cursorLine: number,   // 0-based LSP
+  cursorLine: number, // 0-based LSP
   fileLines: string[],
   maxActionsPerFile = 10,
 ): CodeAction[] {
   const actions: CodeAction[] = [];
-  const inRange = unusedExports.filter(e => e.line - 1 === cursorLine);
+  const inRange = unusedExports.filter((e) => e.line - 1 === cursorLine);
   for (const ue of inRange.slice(0, maxActionsPerFile)) {
     const sourceLine = fileLines[ue.line - 1] ?? '';
     const variant = detectExportVariant(sourceLine);
     if (!variant) continue;
     const removeRange: LspRange = {
       start: { line: ue.line - 1, character: variant.start },
-      end:   { line: ue.line - 1, character: variant.start + variant.prefix.length },
+      end: { line: ue.line - 1, character: variant.start + variant.prefix.length },
     };
     actions.push({
       title: `Remove 'export' from '${ue.exportName}'`,
@@ -81,19 +89,19 @@ export function buildRemoveExportActions(
 
 export function buildSuppressActions(
   unusedExports: UnusedExportLocation[],
-  cursorLine: number,   // 0-based LSP
+  cursorLine: number, // 0-based LSP
   fileLines: string[],
 ): CodeAction[] {
   const actions: CodeAction[] = [];
-  const inRange = unusedExports.filter(e => e.line - 1 === cursorLine);
+  const inRange = unusedExports.filter((e) => e.line - 1 === cursorLine);
   for (const ue of inRange) {
-    const targetLine = ue.line - 1;  // 0-based
+    const targetLine = ue.line - 1; // 0-based
     const sourceLine = fileLines[targetLine] ?? '';
     const indent = sourceLine.length - sourceLine.trimStart().length;
-    const suppressComment = ' '.repeat(indent) + '// monograph-ignore\n';
+    const suppressComment = `${' '.repeat(indent)}// monograph-ignore\n`;
     const insertRange: LspRange = {
       start: { line: targetLine, character: 0 },
-      end:   { line: targetLine, character: 0 },
+      end: { line: targetLine, character: 0 },
     };
     actions.push({
       title: `Suppress monograph warning for '${ue.exportName}'`,
@@ -118,10 +126,12 @@ export interface DeleteFileAction {
 }
 
 export function buildDeleteFileActions(filePath: string): DeleteFileAction[] {
-  return [{
-    kind: 'deleteFile',
-    title: `Delete unused file: ${filePath.split('/').pop() ?? filePath}`,
-    filePath,
-    isPreferred: false,
-  }];
+  return [
+    {
+      kind: 'deleteFile',
+      title: `Delete unused file: ${filePath.split('/').pop() ?? filePath}`,
+      filePath,
+      isPreferred: false,
+    },
+  ];
 }

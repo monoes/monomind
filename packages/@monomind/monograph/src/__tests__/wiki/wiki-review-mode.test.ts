@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { generateWiki, type WikiGeneratorOptions } from '../../wiki/wiki-generator.js';
 
 describe('wiki review mode', () => {

@@ -64,8 +64,15 @@
  */
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
 
 /** Upper bound on how long a single prompt's wait for `agent_end` may run
  *  before the mid-session silence watchdog (below) considers pi wedged.
@@ -75,8 +82,17 @@ import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, 
 const SETTLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const STARTUP_GRACE_MS = 45_000;
 
-interface PiContentBlock { type: string; text?: string; thinking?: string; id?: string; name?: string; arguments?: Record<string, unknown>; }
-interface PiRpcMessage { content?: PiContentBlock[]; }
+interface PiContentBlock {
+  type: string;
+  text?: string;
+  thinking?: string;
+  id?: string;
+  name?: string;
+  arguments?: Record<string, unknown>;
+}
+interface PiRpcMessage {
+  content?: PiContentBlock[];
+}
 
 /** Pure, transport-independent JSONL line decoder — feed it raw string
  *  chunks, get back every complete parsed object found so far (silently
@@ -93,7 +109,11 @@ export class JsonlDecoder {
     for (const line of parts) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      try { out.push(JSON.parse(trimmed)); } catch { /* skip malformed line */ }
+      try {
+        out.push(JSON.parse(trimmed));
+      } catch {
+        /* skip malformed line */
+      }
     }
     return out;
   }
@@ -102,7 +122,7 @@ export class JsonlDecoder {
 /** Encode a client→server RPC command as one LF-terminated JSON line.
  *  Exported for unit testing the exact wire format. */
 export function encodePiRpcCommand(cmd: { type: string; message?: string; id?: string }): string {
-  return JSON.stringify(cmd) + '\n';
+  return `${JSON.stringify(cmd)}\n`;
 }
 
 /** Extract assistant-visible text and org tool_call fences from a
@@ -134,13 +154,24 @@ export interface PiRpcProcess {
   kill(signal?: string): void;
 }
 
-export type SpawnPiRpc = (bin: string, args: string[], opts: { cwd: string; env: Record<string, string | undefined> }) => PiRpcProcess;
+export type SpawnPiRpc = (
+  bin: string,
+  args: string[],
+  opts: { cwd: string; env: Record<string, string | undefined> },
+) => PiRpcProcess;
 
 const defaultSpawnPiRpc: SpawnPiRpc = (bin, args, opts) =>
-  spawn(bin, args, { cwd: opts.cwd, env: opts.env, stdio: ['pipe', 'pipe', 'pipe'] }) as unknown as PiRpcProcess;
+  spawn(bin, args, {
+    cwd: opts.cwd,
+    env: opts.env,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  }) as unknown as PiRpcProcess;
 
 export class PiRpcAgentRunner implements AgentRunner {
-  constructor(private piBin?: string, private spawnFn: SpawnPiRpc = defaultSpawnPiRpc) {}
+  constructor(
+    private piBin?: string,
+    private spawnFn: SpawnPiRpc = defaultSpawnPiRpc,
+  ) {}
 
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     const bin = this.piBin || process.env.PI_CLI_BIN || 'pi';
@@ -161,7 +192,9 @@ export class PiRpcAgentRunner implements AgentRunner {
     });
 
     let stderrTail = '';
-    child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
+    child.stderr?.on('data', (c: Buffer) => {
+      stderrTail = (stderrTail + c.toString()).slice(-4000);
+    });
 
     const decoder = new JsonlDecoder();
     const eventQueue: Record<string, unknown>[] = [];
@@ -180,14 +213,25 @@ export class PiRpcAgentRunner implements AgentRunner {
         else eventQueue.push(ev);
       }
     };
-    child.stdout?.on('data', (c: Buffer) => { lastEventAt = Date.now(); pushEvents(decoder.feed(c.toString())); });
+    child.stdout?.on('data', (c: Buffer) => {
+      lastEventAt = Date.now();
+      pushEvents(decoder.feed(c.toString()));
+    });
     // Distinct from `closed` (which WE set to stop routing new commands, e.g.
     // as soon as a hang is suspected) — this is only true once the OS
     // confirms the process actually exited. The finally block below uses it
     // to decide whether a pending SIGKILL escalation is still needed.
     let processExited = false;
-    child.on('close', (code) => { closed = true; processExited = true; closeCode = code; pushEvents([{ type: '__closed__', code }]); });
-    child.on('error', (err) => { closed = true; pushEvents([{ type: '__error__', error: err }]); });
+    child.on('close', (code) => {
+      closed = true;
+      processExited = true;
+      closeCode = code;
+      pushEvents([{ type: '__closed__', code }]);
+    });
+    child.on('error', (err) => {
+      closed = true;
+      pushEvents([{ type: '__error__', error: err }]);
+    });
 
     const nextEvent = (): Promise<Record<string, unknown>> => {
       const queued = eventQueue.shift();
@@ -206,8 +250,18 @@ export class PiRpcAgentRunner implements AgentRunner {
     const KILL_GRACE_MS = 5000;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
     const killChild = (): void => {
-      try { child.kill('SIGTERM'); } catch { /* already gone */ }
-      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* already gone */
+      }
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
       killTimer.unref?.();
     };
 
@@ -216,10 +270,22 @@ export class PiRpcAgentRunner implements AgentRunner {
     // per turn since the process is long-lived here.
     let sawAnyEvent = false;
     let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-      if (!sawAnyEvent) { closed = true; killChild(); pushEvents([{ type: '__hang__' }]); }
+      if (!sawAnyEvent) {
+        closed = true;
+        killChild();
+        pushEvents([{ type: '__hang__' }]);
+      }
     }, STARTUP_GRACE_MS);
 
-    const disarmHang = () => { if (!sawAnyEvent) { sawAnyEvent = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } } };
+    const disarmHang = () => {
+      if (!sawAnyEvent) {
+        sawAnyEvent = true;
+        if (hangTimer) {
+          clearTimeout(hangTimer);
+          hangTimer = undefined;
+        }
+      }
+    };
 
     // Rolling watchdog — catches a hang AFTER the startup check has already
     // passed (e.g. pi wedges mid-session on turn 5), which the one-shot
@@ -256,7 +322,9 @@ export class PiRpcAgentRunner implements AgentRunner {
       let first = true;
       for await (const p of args.prompt) {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
-        let nextMessage = first ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}` : text;
+        let nextMessage = first
+          ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`
+          : text;
         first = false;
 
         let turnInputTokens = 0;
@@ -270,96 +338,111 @@ export class PiRpcAgentRunner implements AgentRunner {
         // the session.
         turnInFlight = true;
         try {
-        turnLoop: for (;;) {
-          send({ type: 'prompt', message: nextMessage });
-
-          let agentEndMessages: Array<{ role: string; content?: PiContentBlock[]; usage?: { input?: number; output?: number } }> | undefined;
-
           for (;;) {
-            const ev = await nextEvent();
-            disarmHang();
-            const kind = ev.type as string | undefined;
+            send({ type: 'prompt', message: nextMessage });
 
-            if (kind === '__closed__' || kind === '__error__' || kind === '__hang__') {
-              if (kind === '__error__') {
-                // Rethrow the ORIGINAL spawn error (not a fresh generic one)
-                // so the outer catch's `err.code === 'ENOENT'` check below
-                // can actually match it — a wrapped/re-created Error loses
-                // the .code property, which silently broke the "missing pi
-                // binary" install-instructions message.
-                throw ev.error as Error;
+            let agentEndMessages:
+              | Array<{
+                  role: string;
+                  content?: PiContentBlock[];
+                  usage?: { input?: number; output?: number };
+                }>
+              | undefined;
+
+            for (;;) {
+              const ev = await nextEvent();
+              disarmHang();
+              const kind = ev.type as string | undefined;
+
+              if (kind === '__closed__' || kind === '__error__' || kind === '__hang__') {
+                if (kind === '__error__') {
+                  // Rethrow the ORIGINAL spawn error (not a fresh generic one)
+                  // so the outer catch's `err.code === 'ENOENT'` check below
+                  // can actually match it — a wrapped/re-created Error loses
+                  // the .code property, which silently broke the "missing pi
+                  // binary" install-instructions message.
+                  throw ev.error as Error;
+                }
+                const hangSuspected = kind === '__hang__';
+                throw new Error(
+                  hangSuspected
+                    ? `PiRpcAgentRunner: pi produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
+                        'This usually means it is stuck on a prompt headless mode has no way to answer. Run `pi` ' +
+                        `once manually in a real terminal in this project to check, then retry.${stderrTail ? `\nstderr: ${stderrTail.slice(-500)}` : ''}`
+                    : `PiRpcAgentRunner: pi rpc process ended unexpectedly (${kind})` +
+                        (stderrTail ? `\nstderr: ${stderrTail.slice(-500)}` : ''),
+                );
               }
-              const hangSuspected = kind === '__hang__';
-              throw new Error(
-                hangSuspected
-                  ? `PiRpcAgentRunner: pi produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
-                    'This usually means it is stuck on a prompt headless mode has no way to answer. Run `pi` ' +
-                    `once manually in a real terminal in this project to check, then retry.${stderrTail ? `\nstderr: ${stderrTail.slice(-500)}` : ''}`
-                  : `PiRpcAgentRunner: pi rpc process ended unexpectedly (${kind})` +
-                    (stderrTail ? `\nstderr: ${stderrTail.slice(-500)}` : ''),
-              );
+
+              if (kind === 'agent_end') {
+                // See file header: agent_end is pi's own, confirmed-live,
+                // single unambiguous "this prompt is fully done" signal —
+                // fires exactly once even across multiple internal
+                // turn_start/turn_end cycles from pi's own native tool use.
+                agentEndMessages = ev.messages as typeof agentEndMessages;
+                break;
+              }
+
+              // agent_start, turn_start/turn_end, message_start/message_update/
+              // message_end, tool_execution_* (pi's own native tools), other
+              // response acks — all drained and ignored; agent_end alone
+              // carries everything this runner needs (final text + usage).
             }
 
-            if (kind === 'agent_end') {
-              // See file header: agent_end is pi's own, confirmed-live,
-              // single unambiguous "this prompt is fully done" signal —
-              // fires exactly once even across multiple internal
-              // turn_start/turn_end cycles from pi's own native tool use.
-              agentEndMessages = ev.messages as typeof agentEndMessages;
+            if (!agentEndMessages) break; // process closed before agent_end — nothing to extract this round
+
+            const assistantMessages = agentEndMessages.filter((m) => m.role === 'assistant');
+            for (const m of assistantMessages) {
+              // Summed, not overwritten: each assistant entry carries ITS OWN
+              // per-turn usage (confirmed live — see file header), so summing
+              // across every internal turn in this agent_end is the correct
+              // total for the prompt just sent.
+              if (m.usage) {
+                turnInputTokens += m.usage.input ?? 0;
+                turnOutputTokens += m.usage.output ?? 0;
+              }
+            }
+
+            const rawText = assistantMessages
+              .map((m) => extractPiRpcText(m))
+              .filter(Boolean)
+              .join('\n');
+            const visibleText = rawText.replace(TOOL_CALL_RE, '').trim();
+            if (visibleText) yield { type: 'assistant', text: visibleText };
+
+            const malformed: string[] = [];
+            const calls = parseToolCalls([rawText], (raw, err) =>
+              malformed.push(
+                `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+              ),
+            );
+            for (const note of malformed) yield { type: 'assistant', text: note };
+            if (calls.length === 0) break;
+
+            round += 1;
+            if (round > MAX_TOOL_ROUNDS) {
+              yield {
+                type: 'assistant',
+                text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
+              };
               break;
             }
 
-            // agent_start, turn_start/turn_end, message_start/message_update/
-            // message_end, tool_execution_* (pi's own native tools), other
-            // response acks — all drained and ignored; agent_end alone
-            // carries everything this runner needs (final text + usage).
-          }
-
-          if (!agentEndMessages) break turnLoop; // process closed before agent_end — nothing to extract this round
-
-          const assistantMessages = agentEndMessages.filter((m) => m.role === 'assistant');
-          for (const m of assistantMessages) {
-            // Summed, not overwritten: each assistant entry carries ITS OWN
-            // per-turn usage (confirmed live — see file header), so summing
-            // across every internal turn in this agent_end is the correct
-            // total for the prompt just sent.
-            if (m.usage) {
-              turnInputTokens += m.usage.input ?? 0;
-              turnOutputTokens += m.usage.output ?? 0;
+            // Pause the silence watchdog for the duration — see its
+            // declaration above for why a call like ask_human blocking on a
+            // human isn't "pi is wedged". Always un-paused in `finally` so an
+            // exception out of executeToolCall can't leave it stuck off.
+            toolCallInFlight = true;
+            const results: string[] = [];
+            try {
+              for (const call of calls)
+                results.push(await executeToolCall(args.tools, call, args.canUseTool));
+            } finally {
+              toolCallInFlight = false;
+              lastEventAt = Date.now(); // the post-tool-call silence window starts fresh, not already partway elapsed
             }
+            nextMessage = formatToolResults(calls, results);
           }
-
-          const rawText = assistantMessages.map((m) => extractPiRpcText(m)).filter(Boolean).join('\n');
-          const visibleText = rawText.replace(TOOL_CALL_RE, '').trim();
-          if (visibleText) yield { type: 'assistant', text: visibleText };
-
-          const malformed: string[] = [];
-          const calls = parseToolCalls([rawText], (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
-          for (const note of malformed) yield { type: 'assistant', text: note };
-          if (calls.length === 0) break turnLoop;
-
-          round += 1;
-          if (round > MAX_TOOL_ROUNDS) {
-            yield { type: 'assistant', text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)` };
-            break turnLoop;
-          }
-
-          // Pause the silence watchdog for the duration — see its
-          // declaration above for why a call like ask_human blocking on a
-          // human isn't "pi is wedged". Always un-paused in `finally` so an
-          // exception out of executeToolCall can't leave it stuck off.
-          toolCallInFlight = true;
-          const results: string[] = [];
-          try {
-            for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
-          } finally {
-            toolCallInFlight = false;
-            lastEventAt = Date.now(); // the post-tool-call silence window starts fresh, not already partway elapsed
-          }
-          nextMessage = formatToolResults(calls, results);
-        }
         } finally {
           turnInFlight = false;
         }
@@ -375,8 +458,8 @@ export class PiRpcAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'PiRpcAgentRunner requires the Pi coding agent CLI (pi) on PATH. ' +
-          'Install it: npm install -g @mariozechner/pi-coding-agent, then configure a ' +
-          'provider. Or unset the runtime to use Claude.',
+            'Install it: npm install -g @mariozechner/pi-coding-agent, then configure a ' +
+            'provider. Or unset the runtime to use Claude.',
         );
       }
       throw err;

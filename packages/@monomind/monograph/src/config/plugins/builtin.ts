@@ -1,5 +1,5 @@
-import { type BuiltinPlugin, type PluginRegistry } from './types.js';
 import { createPluginRegistry } from './registry.js';
+import type { BuiltinPlugin, PluginRegistry } from './types.js';
 
 export const BUILTIN_PLUGINS: BuiltinPlugin[] = [
   {
@@ -157,7 +157,13 @@ export const BUILTIN_PLUGINS: BuiltinPlugin[] = [
       'webpack.config.cjs',
       'webpack.config.babel.js',
     ],
-    toolingPackages: ['webpack', 'webpack-cli', 'webpack-dev-server', 'webpack-merge', 'webpack-plugin-'],
+    toolingPackages: [
+      'webpack',
+      'webpack-cli',
+      'webpack-dev-server',
+      'webpack-merge',
+      'webpack-plugin-',
+    ],
   },
   {
     name: 'rollup',
@@ -292,21 +298,13 @@ export const BUILTIN_PLUGINS: BuiltinPlugin[] = [
   },
   {
     name: '@storybook/core',
-    configPatterns: [
-      '.storybook/**',
-      'storybook.config.js',
-      'storybook.config.ts',
-    ],
+    configPatterns: ['.storybook/**', 'storybook.config.js', 'storybook.config.ts'],
     toolingPackages: ['@storybook/', 'storybook'],
     entryPatterns: ['**/*.stories.{js,ts,jsx,tsx,mdx}'],
   },
   {
     name: 'typescript',
-    configPatterns: [
-      'tsconfig.json',
-      'tsconfig.*.json',
-      'tsconfig.*.jsonc',
-    ],
+    configPatterns: ['tsconfig.json', 'tsconfig.*.json', 'tsconfig.*.jsonc'],
     toolingPackages: ['typescript', 'ts-node', 'ts-jest', 'tsx'],
   },
   {
@@ -329,11 +327,7 @@ export const BUILTIN_PLUGINS: BuiltinPlugin[] = [
   },
   {
     name: 'netlify',
-    configPatterns: [
-      'netlify.toml',
-      '_redirects',
-      '_headers',
-    ],
+    configPatterns: ['netlify.toml', '_redirects', '_headers'],
     toolingPackages: ['netlify-cli', 'netlify-lambda'],
   },
 ];

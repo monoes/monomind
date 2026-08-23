@@ -1,43 +1,59 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 const MAX_NODES = 2000;
 
 // 20-color dark-friendly community palette (vivid, readable on #0d0d1a)
 const COMMUNITY_COLORS = [
-  '#7B61FF','#00E5C8','#ef4444','#f59e0b','#22c55e',
-  '#ec4899','#06b6d4','#f97316','#84cc16','#6366f1',
-  '#14b8a6','#e11d48','#0ea5e9','#d97706','#10b981',
-  '#9333ea','#db2777','#0891b2','#65a30d','#a78bfa',
+  '#7B61FF',
+  '#00E5C8',
+  '#ef4444',
+  '#f59e0b',
+  '#22c55e',
+  '#ec4899',
+  '#06b6d4',
+  '#f97316',
+  '#84cc16',
+  '#6366f1',
+  '#14b8a6',
+  '#e11d48',
+  '#0ea5e9',
+  '#d97706',
+  '#10b981',
+  '#9333ea',
+  '#db2777',
+  '#0891b2',
+  '#65a30d',
+  '#a78bfa',
 ];
 
 const RELATION_COLORS: Record<string, string> = {
-  IMPORTS:        '#3b82f6',
-  CALLS:          '#8b5cf6',
-  EXTENDS:        '#ef4444',
-  IMPLEMENTS:     '#f97316',
-  DEFINES:        '#22c55e',
-  CONTAINS:       '#64748b',
-  CO_OCCURS:      '#f59e0b',
-  DESCRIBES:      '#14b8a6',
-  CAUSES:         '#ec4899',
-  PART_OF:        '#06b6d4',
-  RELATED_TO:     '#475569',
-  USES:           '#84cc16',
+  IMPORTS: '#3b82f6',
+  CALLS: '#8b5cf6',
+  EXTENDS: '#ef4444',
+  IMPLEMENTS: '#f97316',
+  DEFINES: '#22c55e',
+  CONTAINS: '#64748b',
+  CO_OCCURS: '#f59e0b',
+  DESCRIBES: '#14b8a6',
+  CAUSES: '#ec4899',
+  PART_OF: '#06b6d4',
+  RELATED_TO: '#475569',
+  USES: '#84cc16',
   CONTRASTS_WITH: '#e11d48',
-  REF:            '#475569',
+  REF: '#475569',
 };
 
 // Node shape by type
 const TYPE_SHAPES: Record<string, string> = {
-  File:      'dot',
-  Function:  'diamond',
-  Class:     'square',
+  File: 'dot',
+  Function: 'diamond',
+  Class: 'square',
   Interface: 'triangle',
-  Method:    'diamond',
-  Variable:  'dot',
-  Module:    'hexagon',
-  Section:   'dot',
-  Concept:   'star',
+  Method: 'diamond',
+  Variable: 'dot',
+  Module: 'hexagon',
+  Section: 'dot',
+  Concept: 'star',
 };
 
 export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
@@ -49,28 +65,34 @@ export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
   }
   const sorted = [...nodes].sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0));
   const slicedNodes = sorted.slice(0, MAX_NODES);
-  const nodeIds = new Set(slicedNodes.map(n => n.id));
+  const nodeIds = new Set(slicedNodes.map((n) => n.id));
 
   // When community_id is null (not yet computed), assign a stable color by type
   const TYPE_PALETTE: Record<string, string> = {
-    File: '#7B61FF', Function: '#00E5C8', Class: '#f59e0b', Interface: '#06b6d4',
-    Method: '#00E5C8', Variable: '#64748b', Module: '#ec4899', Section: '#22c55e',
+    File: '#7B61FF',
+    Function: '#00E5C8',
+    Class: '#f59e0b',
+    Interface: '#06b6d4',
+    Method: '#00E5C8',
+    Variable: '#64748b',
+    Module: '#ec4899',
+    Section: '#22c55e',
     Concept: '#84cc16',
   };
 
-  const visNodes = slicedNodes.map(n => {
+  const visNodes = slicedNodes.map((n) => {
     const deg = degree.get(n.id) ?? 0;
     const hasCommunity = n.communityId !== null && n.communityId !== undefined;
     const color = hasCommunity
       ? COMMUNITY_COLORS[(n.communityId ?? 0) % COMMUNITY_COLORS.length]
       : (TYPE_PALETTE[n.label] ?? '#64748b');
-    const importance = (n.properties as Record<string, unknown> | undefined)?.importance as number | undefined;
+    const importance = (n.properties as Record<string, unknown> | undefined)?.importance as
+      | number
+      | undefined;
     // Log-scaled size so high-degree nodes stand out but don't dominate
-    const size = importance
-      ? 8 + importance * 5
-      : Math.max(6, 6 + Math.log2(deg + 1) * 4);
+    const size = importance ? 8 + importance * 5 : Math.max(6, 6 + Math.log2(deg + 1) * 4);
     const shape = TYPE_SHAPES[n.label] ?? 'dot';
-    const shortLabel = n.name.length > 20 ? n.name.slice(0, 18) + '…' : n.name;
+    const shortLabel = n.name.length > 20 ? `${n.name.slice(0, 18)}…` : n.name;
     return {
       id: n.id,
       label: shortLabel,
@@ -81,7 +103,7 @@ export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
         background: color,
         border: color,
         highlight: { background: '#ffffff', border: color },
-        hover:      { background: lighten(color), border: '#ffffff' },
+        hover: { background: lighten(color), border: '#ffffff' },
       },
       size,
       shape,
@@ -92,7 +114,10 @@ export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
         strokeWidth: 2,
         strokeColor: '#0d0d1a',
       },
-      shadow: deg > 4 ? { enabled: true, color: color + '66', size: Math.min(deg, 20), x: 0, y: 0 } : { enabled: false },
+      shadow:
+        deg > 4
+          ? { enabled: true, color: `${color}66`, size: Math.min(deg, 20), x: 0, y: 0 }
+          : { enabled: false },
       _nodeType: n.label,
       _deg: deg,
       _filePath: n.filePath,
@@ -100,17 +125,17 @@ export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
   });
 
   const visEdges = edges
-    .filter(e => nodeIds.has(e.sourceId) && nodeIds.has(e.targetId))
+    .filter((e) => nodeIds.has(e.sourceId) && nodeIds.has(e.targetId))
     .map((e, i) => {
       const weight = (e as { weight?: number }).weight ?? 1;
-      const color = RELATION_COLORS[e.relation] ?? RELATION_COLORS['REF'];
+      const color = RELATION_COLORS[e.relation] ?? RELATION_COLORS.REF;
       return {
         id: `e${i}`,
         from: e.sourceId,
         to: e.targetId,
         title: e.relation + (weight > 1 ? ` (×${weight})` : ''),
         _label: e.relation,
-        color: { color: color + 'aa', highlight: color, hover: color, opacity: 0.6 },
+        color: { color: `${color}aa`, highlight: color, hover: color, opacity: 0.6 },
         width: Math.min(1 + Math.log2(weight), 5),
         arrows: { to: { enabled: true, scaleFactor: 0.4, type: 'arrow' } },
         font: { size: 9, color: '#94a3b8', face: 'Azeret Mono, monospace', align: 'middle' },
@@ -119,8 +144,8 @@ export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
       };
     });
 
-  const nodeTypes = [...new Set(slicedNodes.map(n => n.label))].sort();
-  const relationTypes = [...new Set(visEdges.map(e => e._label))].sort();
+  const nodeTypes = [...new Set(slicedNodes.map((n) => n.label))].sort();
+  const relationTypes = [...new Set(visEdges.map((e) => e._label))].sort();
 
   return `<!DOCTYPE html>
 <html>
@@ -129,7 +154,7 @@ export function toHtml(nodes: MonographNode[], edges: MonographEdge[]): string {
 <title>Monograph — Knowledge Graph</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&family=Syne:wght@600;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"><\/script>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -219,8 +244,8 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);overflow
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
-<\/style>
-<\/head>
+</style>
+</head>
 <body>
 
 <div id="topbar">
@@ -245,26 +270,32 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);overflow
 <div id="panel">
   <div>
     <div class="ps-title">Node Types</div>
-    ${nodeTypes.map(t => {
-      const sample = slicedNodes.find(n => n.label === t);
-      const color = sample ? COMMUNITY_COLORS[(sample.communityId ?? 0) % COMMUNITY_COLORS.length] : '#64748b';
-      return `<div class="filter-row" onclick="toggleType('${t}')">
+    ${nodeTypes
+      .map((t) => {
+        const sample = slicedNodes.find((n) => n.label === t);
+        const color = sample
+          ? COMMUNITY_COLORS[(sample.communityId ?? 0) % COMMUNITY_COLORS.length]
+          : '#64748b';
+        return `<div class="filter-row" onclick="toggleType('${t}')">
         <input type="checkbox" id="type_${t}" checked>
         <div class="color-dot" style="background:${color}"></div>
         <label for="type_${t}">${t}</label>
       </div>`;
-    }).join('')}
+      })
+      .join('')}
   </div>
   <div>
     <div class="ps-title">Relations</div>
-    ${relationTypes.map(r => {
-      const color = RELATION_COLORS[r] ?? '#475569';
-      return `<div class="filter-row" onclick="toggleRelation('${r}')">
+    ${relationTypes
+      .map((r) => {
+        const color = RELATION_COLORS[r] ?? '#475569';
+        return `<div class="filter-row" onclick="toggleRelation('${r}')">
         <input type="checkbox" id="rel_${r}" checked>
         <div class="color-dot" style="background:${color};border-radius:0"></div>
         <label for="rel_${r}" style="font-size:9px">${r}</label>
       </div>`;
-    }).join('')}
+      })
+      .join('')}
   </div>
   <div>
     <div class="ps-title">Physics</div>
@@ -517,9 +548,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'F' && !e.ctrlKey) network.fit({ animation: true });
   if (e.key === 'p') togglePhysics();
 });
-<\/script>
-<\/body>
-<\/html>`;
+</script>
+</body>
+</html>`;
 }
 
 function lighten(hex: string): string {
@@ -527,11 +558,15 @@ function lighten(hex: string): string {
   const r = Math.min(255, ((n >> 16) & 0xff) + 40);
   const g = Math.min(255, ((n >> 8) & 0xff) + 40);
   const b = Math.min(255, (n & 0xff) + 40);
-  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function buildTooltip(n: MonographNode, deg: number): string {
@@ -542,7 +577,11 @@ function buildTooltip(n: MonographNode, deg: number): string {
     `<br><span style="color:#64748b">${esc(n.label)}</span>`,
     n.filePath ? `<br><span style="color:#00E5C8;font-size:10px">${esc(n.filePath)}</span>` : '',
     `<br><span style="color:#94a3b8">degree: ${deg}</span>`,
-    props?.importance ? `<br><span style="color:#f59e0b">${'★'.repeat(props.importance as number)}${'☆'.repeat(5 - (props.importance as number))}</span>` : '',
+    props?.importance
+      ? `<br><span style="color:#f59e0b">${'★'.repeat(props.importance as number)}${'☆'.repeat(5 - (props.importance as number))}</span>`
+      : '',
     `</div>`,
-  ].filter(Boolean).join('');
+  ]
+    .filter(Boolean)
+    .join('');
 }

@@ -5,10 +5,10 @@
  * Falls back to local state management when CLI tools are unavailable.
  */
 
-import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { getProjectCwd, type MCPTool } from './types.js';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -31,8 +31,14 @@ interface RepoInfo {
 
 interface GitHubStore {
   repos: Record<string, RepoInfo>;
-  prs: Record<string, { id: string; number: number; title: string; status: string; branch: string; createdAt: string }>;
-  issues: Record<string, { id: string; title: string; status: string; labels: string[]; createdAt: string }>;
+  prs: Record<
+    string,
+    { id: string; number: number; title: string; status: string; branch: string; createdAt: string }
+  >;
+  issues: Record<
+    string,
+    { id: string; title: string; status: string; labels: string[]; createdAt: string }
+  >;
   version: string;
 }
 
@@ -58,14 +64,15 @@ function loadGitHubStore(): GitHubStore {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse store.json, using empty store:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[github-tools] failed to parse store.json, using empty store:', e);
   }
   return { repos: {}, prs: {}, issues: {}, version: '3.0.0' };
 }
 
 function saveGitHubStore(store: GitHubStore): void {
   ensureGitHubDir();
-  const tmpPath = getGitHubPath() + '.tmp';
+  const tmpPath = `${getGitHubPath()}.tmp`;
   writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
   renameSync(tmpPath, getGitHubPath());
 }
@@ -73,7 +80,12 @@ function saveGitHubStore(store: GitHubStore): void {
 /** Run a trusted static shell command (no user input), return stdout or null on failure */
 function run(cmd: string, cwd?: string): string | null {
   try {
-    return execFileSync(cmd.split(' ')[0], cmd.split(' ').slice(1), { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return execFileSync(cmd.split(' ')[0], cmd.split(' ').slice(1), {
+      encoding: 'utf-8',
+      timeout: 15000,
+      cwd: cwd || getProjectCwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
   } catch {
     return null;
   }
@@ -82,7 +94,12 @@ function run(cmd: string, cwd?: string): string | null {
 /** Run a command with user-provided args as separate array elements (no shell injection) */
 function runSafe(cmd: string, args: string[], cwd?: string): string | null {
   try {
-    return execFileSync(cmd, args, { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return execFileSync(cmd, args, {
+      encoding: 'utf-8',
+      timeout: 15000,
+      cwd: cwd || getProjectCwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
   } catch {
     return null;
   }
@@ -94,7 +111,12 @@ type GhResult = { ok: true; stdout: string } | { ok: false; error: string };
 /** Run a `gh` command and preserve the real failure reason instead of collapsing to null. */
 function runSafeResult(cmd: string, args: string[], cwd?: string): GhResult {
   try {
-    const stdout = execFileSync(cmd, args, { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    const stdout = execFileSync(cmd, args, {
+      encoding: 'utf-8',
+      timeout: 15000,
+      cwd: cwd || getProjectCwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
     return { ok: true, stdout };
   } catch (err) {
     const e = err as { stderr?: string | Buffer; message?: string };
@@ -154,7 +176,10 @@ export const githubTools: MCPTool[] = [
       let repo = (input.repo as string) || '';
       if (remoteUrl && (!owner || !repo)) {
         const m = remoteUrl.match(/[:/]([^/]+)\/([^/.]+?)(?:\.git)?$/);
-        if (m) { owner = owner || m[1]; repo = repo || m[2]; }
+        if (m) {
+          owner = owner || m[1];
+          repo = repo || m[2];
+        }
       }
       const repoKey = `${owner || 'local'}/${repo || 'repo'}`;
 
@@ -176,7 +201,9 @@ export const githubTools: MCPTool[] = [
 
         // Try gh CLI for issue/PR counts
         if (hasGhCli()) {
-          const issueCount = run(`gh issue list --state open --limit 1000 --json number --jq 'length'`);
+          const issueCount = run(
+            `gh issue list --state open --limit 1000 --json number --jq 'length'`,
+          );
           const prCount = run(`gh pr list --state open --limit 1000 --json number --jq 'length'`);
           if (issueCount !== null) repoInfo.metrics!.openIssues = parseInt(issueCount, 10) || 0;
           if (prCount !== null) repoInfo.metrics!.openPRs = parseInt(prCount, 10) || 0;
@@ -211,7 +238,11 @@ export const githubTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['list', 'create', 'review', 'merge', 'close'], description: 'Action to perform' },
+        action: {
+          type: 'string',
+          enum: ['list', 'create', 'review', 'merge', 'close'],
+          description: 'Action to perform',
+        },
         owner: { type: 'string', description: 'Repository owner' },
         repo: { type: 'string', description: 'Repository name' },
         prNumber: { type: 'number', description: 'PR number' },
@@ -228,16 +259,33 @@ export const githubTools: MCPTool[] = [
 
       if (action === 'list') {
         if (gh) {
-          const raw = run('gh pr list --state all --limit 20 --json number,title,state,headRefName,createdAt');
+          const raw = run(
+            'gh pr list --state all --limit 20 --json number,title,state,headRefName,createdAt',
+          );
           if (raw) {
             try {
               const prs = JSON.parse(raw);
-              return { success: true, _real: true, source: 'gh-cli', pullRequests: prs, total: prs.length };
-            } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh pr list output:', e); }
+              return {
+                success: true,
+                _real: true,
+                source: 'gh-cli',
+                pullRequests: prs,
+                total: prs.length,
+              };
+            } catch (e) {
+              if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+                console.error('[github-tools] failed to parse gh pr list output:', e);
+            }
           }
         }
         const prs = Object.values(store.prs);
-        return { success: true, source: 'local-store', pullRequests: prs, total: prs.length, open: prs.filter(pr => pr.status === 'open').length };
+        return {
+          success: true,
+          source: 'local-store',
+          pullRequests: prs,
+          total: prs.length,
+          open: prs.filter((pr) => pr.status === 'open').length,
+        };
       }
 
       if (action === 'create') {
@@ -248,15 +296,35 @@ export const githubTools: MCPTool[] = [
         const MAX_PR_BRANCH_LEN = 256;
         const MAX_PR_BODY_LEN = 64 * 1024; // 64 KB — typical PR body limit
         const rawPrTitle = (input.title as string) || 'New PR';
-        const title = rawPrTitle.length > MAX_PR_TITLE_LEN ? rawPrTitle.slice(0, MAX_PR_TITLE_LEN) : rawPrTitle;
-        const rawHeadBranch = (input.branch as string) || run('git rev-parse --abbrev-ref HEAD') || 'feature';
-        const headBranch = rawHeadBranch.length > MAX_PR_BRANCH_LEN ? rawHeadBranch.slice(0, MAX_PR_BRANCH_LEN) : rawHeadBranch;
+        const title =
+          rawPrTitle.length > MAX_PR_TITLE_LEN ? rawPrTitle.slice(0, MAX_PR_TITLE_LEN) : rawPrTitle;
+        const rawHeadBranch =
+          (input.branch as string) || run('git rev-parse --abbrev-ref HEAD') || 'feature';
+        const headBranch =
+          rawHeadBranch.length > MAX_PR_BRANCH_LEN
+            ? rawHeadBranch.slice(0, MAX_PR_BRANCH_LEN)
+            : rawHeadBranch;
         const rawBaseBranch = (input.baseBranch as string) || 'main';
-        const baseBranch = rawBaseBranch.length > MAX_PR_BRANCH_LEN ? rawBaseBranch.slice(0, MAX_PR_BRANCH_LEN) : rawBaseBranch;
+        const baseBranch =
+          rawBaseBranch.length > MAX_PR_BRANCH_LEN
+            ? rawBaseBranch.slice(0, MAX_PR_BRANCH_LEN)
+            : rawBaseBranch;
         const rawPrBody = (input.body as string) || '';
-        const body = rawPrBody.length > MAX_PR_BODY_LEN ? rawPrBody.slice(0, MAX_PR_BODY_LEN) : rawPrBody;
+        const body =
+          rawPrBody.length > MAX_PR_BODY_LEN ? rawPrBody.slice(0, MAX_PR_BODY_LEN) : rawPrBody;
         if (gh) {
-          const result = runSafe('gh', ['pr', 'create', '--title', title, '--base', baseBranch, '--head', headBranch, '--body', body]);
+          const result = runSafe('gh', [
+            'pr',
+            'create',
+            '--title',
+            title,
+            '--base',
+            baseBranch,
+            '--head',
+            headBranch,
+            '--body',
+            body,
+          ]);
           if (result) {
             return { success: true, _real: true, action: 'created', url: result };
           }
@@ -265,9 +333,17 @@ export const githubTools: MCPTool[] = [
         const prId = `pr-${Date.now()}`;
         // Locally-assigned PR number, independent of the timestamp-based key —
         // monotonic within this store so lookups by number are unambiguous.
-        const existingNumbers = Object.values(store.prs).map(p => p.number || 0);
+        const existingNumbers = Object.values(store.prs).map((p) => p.number || 0);
         const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
-        const pr = { id: prId, number: nextNumber, title, status: 'open', branch: headBranch, baseBranch, createdAt: new Date().toISOString() };
+        const pr = {
+          id: prId,
+          number: nextNumber,
+          title,
+          status: 'open',
+          branch: headBranch,
+          baseBranch,
+          createdAt: new Date().toISOString(),
+        };
         store.prs[prId] = pr;
         saveGitHubStore(store);
         return { success: true, source: 'local-store', action: 'created', pullRequest: pr };
@@ -275,51 +351,105 @@ export const githubTools: MCPTool[] = [
 
       if (action === 'review') {
         const prNumber = safeGitHubNumber(input.prNumber);
-        if (!prNumber) return { success: false, error: 'prNumber is required and must be a positive integer for review.' };
+        if (!prNumber)
+          return {
+            success: false,
+            error: 'prNumber is required and must be a positive integer for review.',
+          };
         if (gh) {
-          const raw = runSafe('gh', ['pr', 'view', String(prNumber), '--json', 'number,title,state,body,additions,deletions,changedFiles,reviews,mergeable,statusCheckRollup']);
+          const raw = runSafe('gh', [
+            'pr',
+            'view',
+            String(prNumber),
+            '--json',
+            'number,title,state,body,additions,deletions,changedFiles,reviews,mergeable,statusCheckRollup',
+          ]);
           if (raw) {
             try {
               return { success: true, _real: true, action: 'review', pullRequest: JSON.parse(raw) };
-            } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh pr view output:', e); }
+            } catch (e) {
+              if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+                console.error('[github-tools] failed to parse gh pr view output:', e);
+            }
           }
         }
-        return { success: false, error: 'gh CLI not available or PR not found. Install gh: https://cli.github.com' };
+        return {
+          success: false,
+          error: 'gh CLI not available or PR not found. Install gh: https://cli.github.com',
+        };
       }
 
       if (action === 'merge') {
         const prNumber = safeGitHubNumber(input.prNumber);
-        if (!prNumber) return { success: false, error: 'prNumber is required and must be a positive integer for merge.' };
+        if (!prNumber)
+          return {
+            success: false,
+            error: 'prNumber is required and must be a positive integer for merge.',
+          };
         if (gh) {
           // gh CLI is actually installed — trust its real exit status. A genuine
           // failure (branch protection, conflicts, auth) must be reported as a
           // failure, not silently swallowed into the local-store simulation.
           const result = runSafeResult('gh', ['pr', 'merge', String(prNumber), '--merge']);
           if (result.ok) {
-            return { success: true, _real: true, action: 'merged', prNumber, mergedAt: new Date().toISOString() };
+            return {
+              success: true,
+              _real: true,
+              action: 'merged',
+              prNumber,
+              mergedAt: new Date().toISOString(),
+            };
           }
           return { success: false, error: result.error };
         }
         // Fallback: local store (only reached when gh CLI is not installed at all)
-        const prKey = Object.keys(store.prs).find(k => store.prs[k].number === prNumber);
-        if (prKey && store.prs[prKey]) { store.prs[prKey].status = 'merged'; saveGitHubStore(store); }
-        return { success: true, source: 'local-store', action: 'merged', prNumber, mergedAt: new Date().toISOString() };
+        const prKey = Object.keys(store.prs).find((k) => store.prs[k].number === prNumber);
+        if (prKey && store.prs[prKey]) {
+          store.prs[prKey].status = 'merged';
+          saveGitHubStore(store);
+        }
+        return {
+          success: true,
+          source: 'local-store',
+          action: 'merged',
+          prNumber,
+          mergedAt: new Date().toISOString(),
+        };
       }
 
       if (action === 'close') {
         const prNumber = safeGitHubNumber(input.prNumber);
-        if (!prNumber) return { success: false, error: 'prNumber is required and must be a positive integer for close.' };
+        if (!prNumber)
+          return {
+            success: false,
+            error: 'prNumber is required and must be a positive integer for close.',
+          };
         if (gh) {
           const result = runSafeResult('gh', ['pr', 'close', String(prNumber)]);
           if (result.ok) {
-            return { success: true, _real: true, action: 'closed', prNumber, closedAt: new Date().toISOString() };
+            return {
+              success: true,
+              _real: true,
+              action: 'closed',
+              prNumber,
+              closedAt: new Date().toISOString(),
+            };
           }
           return { success: false, error: result.error };
         }
         // Fallback: local store (only reached when gh CLI is not installed at all)
-        const prKey = Object.keys(store.prs).find(k => store.prs[k].number === prNumber);
-        if (prKey && store.prs[prKey]) { store.prs[prKey].status = 'closed'; saveGitHubStore(store); }
-        return { success: true, source: 'local-store', action: 'closed', prNumber, closedAt: new Date().toISOString() };
+        const prKey = Object.keys(store.prs).find((k) => store.prs[k].number === prNumber);
+        if (prKey && store.prs[prKey]) {
+          store.prs[prKey].status = 'closed';
+          saveGitHubStore(store);
+        }
+        return {
+          success: true,
+          source: 'local-store',
+          action: 'closed',
+          prNumber,
+          closedAt: new Date().toISOString(),
+        };
       }
 
       return { success: false, error: 'Unknown action' };
@@ -332,7 +462,11 @@ export const githubTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['list', 'create', 'update', 'close', 'assign'], description: 'Action to perform' },
+        action: {
+          type: 'string',
+          enum: ['list', 'create', 'update', 'close', 'assign'],
+          description: 'Action to perform',
+        },
         owner: { type: 'string', description: 'Repository owner' },
         repo: { type: 'string', description: 'Repository name' },
         issueNumber: { type: 'number', description: 'Issue number' },
@@ -349,16 +483,27 @@ export const githubTools: MCPTool[] = [
 
       if (action === 'list') {
         if (gh) {
-          const raw = run('gh issue list --state all --limit 20 --json number,title,state,labels,createdAt');
+          const raw = run(
+            'gh issue list --state all --limit 20 --json number,title,state,labels,createdAt',
+          );
           if (raw) {
             try {
               const issues = JSON.parse(raw);
               return { success: true, _real: true, source: 'gh-cli', issues, total: issues.length };
-            } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh issue list output:', e); }
+            } catch (e) {
+              if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+                console.error('[github-tools] failed to parse gh issue list output:', e);
+            }
           }
         }
         const issues = Object.values(store.issues);
-        return { success: true, source: 'local-store', issues, total: issues.length, open: issues.filter(i => i.status === 'open').length };
+        return {
+          success: true,
+          source: 'local-store',
+          issues,
+          total: issues.length,
+          open: issues.filter((i) => i.status === 'open').length,
+        };
       }
 
       if (action === 'create') {
@@ -369,14 +514,24 @@ export const githubTools: MCPTool[] = [
         const MAX_ISSUE_LABELS = 20;
         const MAX_ISSUE_LABEL_LEN = 128;
         const rawIssueTitle = (input.title as string) || 'New Issue';
-        const title = rawIssueTitle.length > MAX_ISSUE_TITLE_LEN ? rawIssueTitle.slice(0, MAX_ISSUE_TITLE_LEN) : rawIssueTitle;
+        const title =
+          rawIssueTitle.length > MAX_ISSUE_TITLE_LEN
+            ? rawIssueTitle.slice(0, MAX_ISSUE_TITLE_LEN)
+            : rawIssueTitle;
         const rawIssueBody = (input.body as string) || '';
-        const body = rawIssueBody.length > MAX_ISSUE_BODY_LEN ? rawIssueBody.slice(0, MAX_ISSUE_BODY_LEN) : rawIssueBody;
+        const body =
+          rawIssueBody.length > MAX_ISSUE_BODY_LEN
+            ? rawIssueBody.slice(0, MAX_ISSUE_BODY_LEN)
+            : rawIssueBody;
         const rawLabels = (input.labels as string[]) || [];
         const labels = Array.isArray(rawLabels)
-          ? rawLabels.slice(0, MAX_ISSUE_LABELS).map(l =>
-              typeof l === 'string' && l.length > MAX_ISSUE_LABEL_LEN ? l.slice(0, MAX_ISSUE_LABEL_LEN) : l
-            )
+          ? rawLabels
+              .slice(0, MAX_ISSUE_LABELS)
+              .map((l) =>
+                typeof l === 'string' && l.length > MAX_ISSUE_LABEL_LEN
+                  ? l.slice(0, MAX_ISSUE_LABEL_LEN)
+                  : l,
+              )
           : [];
         if (gh) {
           const issueArgs = ['issue', 'create', '--title', title, '--body', body];
@@ -387,7 +542,13 @@ export const githubTools: MCPTool[] = [
           }
         }
         const issueId = `issue-${Date.now()}`;
-        const issue = { id: issueId, title, status: 'open', labels, createdAt: new Date().toISOString() };
+        const issue = {
+          id: issueId,
+          title,
+          status: 'open',
+          labels,
+          createdAt: new Date().toISOString(),
+        };
         store.issues[issueId] = issue;
         saveGitHubStore(store);
         return { success: true, source: 'local-store', action: 'created', issue };
@@ -401,15 +562,19 @@ export const githubTools: MCPTool[] = [
           const MAX_UPDATE_TITLE_LEN = 256;
           if (input.title) {
             const t = input.title as string;
-            editArgs.push('--title', t.length > MAX_UPDATE_TITLE_LEN ? t.slice(0, MAX_UPDATE_TITLE_LEN) : t);
+            editArgs.push(
+              '--title',
+              t.length > MAX_UPDATE_TITLE_LEN ? t.slice(0, MAX_UPDATE_TITLE_LEN) : t,
+            );
           }
           if (input.labels) editArgs.push('--add-label', (input.labels as string[]).join(','));
           if (editArgs.length > 3) {
             const result = runSafe('gh', editArgs);
-            if (result !== null) return { success: true, _real: true, action: 'updated', issueNumber };
+            if (result !== null)
+              return { success: true, _real: true, action: 'updated', issueNumber };
           }
         }
-        const issueKey = Object.keys(store.issues).find(k => k.includes(String(issueNumber)));
+        const issueKey = Object.keys(store.issues).find((k) => k.includes(String(issueNumber)));
         if (issueKey && store.issues[issueKey]) {
           if (input.title) {
             const t = input.title as string;
@@ -423,14 +588,34 @@ export const githubTools: MCPTool[] = [
 
       if (action === 'close') {
         const issueNumber = safeGitHubNumber(input.issueNumber);
-        if (!issueNumber) return { success: false, error: 'issueNumber is required and must be a positive integer for close.' };
+        if (!issueNumber)
+          return {
+            success: false,
+            error: 'issueNumber is required and must be a positive integer for close.',
+          };
         if (gh) {
           const result = runSafe('gh', ['issue', 'close', String(issueNumber)]);
-          if (result !== null) return { success: true, _real: true, action: 'closed', issueNumber, closedAt: new Date().toISOString() };
+          if (result !== null)
+            return {
+              success: true,
+              _real: true,
+              action: 'closed',
+              issueNumber,
+              closedAt: new Date().toISOString(),
+            };
         }
-        const issueKey = Object.keys(store.issues).find(k => k.includes(String(issueNumber)));
-        if (issueKey && store.issues[issueKey]) { store.issues[issueKey].status = 'closed'; saveGitHubStore(store); }
-        return { success: true, source: 'local-store', action: 'closed', issueNumber, closedAt: new Date().toISOString() };
+        const issueKey = Object.keys(store.issues).find((k) => k.includes(String(issueNumber)));
+        if (issueKey && store.issues[issueKey]) {
+          store.issues[issueKey].status = 'closed';
+          saveGitHubStore(store);
+        }
+        return {
+          success: true,
+          source: 'local-store',
+          action: 'closed',
+          issueNumber,
+          closedAt: new Date().toISOString(),
+        };
       }
 
       return { success: false, error: 'Unknown action' };
@@ -443,7 +628,11 @@ export const githubTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['list', 'trigger', 'status', 'cancel'], description: 'Action to perform' },
+        action: {
+          type: 'string',
+          enum: ['list', 'trigger', 'status', 'cancel'],
+          description: 'Action to perform',
+        },
         owner: { type: 'string', description: 'Repository owner' },
         repo: { type: 'string', description: 'Repository name' },
         workflowId: { type: 'string', description: 'Workflow ID or name' },
@@ -459,32 +648,58 @@ export const githubTools: MCPTool[] = [
       }
 
       if (action === 'list') {
-        const raw = run('gh run list --limit 10 --json databaseId,displayTitle,status,conclusion,headBranch,createdAt');
+        const raw = run(
+          'gh run list --limit 10 --json databaseId,displayTitle,status,conclusion,headBranch,createdAt',
+        );
         if (raw) {
           try {
             return { success: true, _real: true, runs: JSON.parse(raw) };
-          } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh run list output:', e); }
+          } catch (e) {
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+              console.error('[github-tools] failed to parse gh run list output:', e);
+          }
         }
         const workflows = run('gh workflow list --json id,name,state');
         if (workflows) {
           try {
             return { success: true, _real: true, workflows: JSON.parse(workflows) };
-          } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh workflow list output:', e); }
+          } catch (e) {
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+              console.error('[github-tools] failed to parse gh workflow list output:', e);
+          }
         }
       }
 
       if (action === 'status') {
         const workflowId = input.workflowId as string;
         if (workflowId) {
-          const raw = runSafe('gh', ['run', 'view', workflowId, '--json', 'databaseId,displayTitle,status,conclusion,jobs']);
+          const raw = runSafe('gh', [
+            'run',
+            'view',
+            workflowId,
+            '--json',
+            'databaseId,displayTitle,status,conclusion,jobs',
+          ]);
           if (raw) {
-            try { return { success: true, _real: true, run: JSON.parse(raw) }; } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh run view output:', e); }
+            try {
+              return { success: true, _real: true, run: JSON.parse(raw) };
+            } catch (e) {
+              if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+                console.error('[github-tools] failed to parse gh run view output:', e);
+            }
           }
         }
         // List recent runs as fallback
-        const recent = run('gh run list --limit 5 --json databaseId,displayTitle,status,conclusion');
+        const recent = run(
+          'gh run list --limit 5 --json databaseId,displayTitle,status,conclusion',
+        );
         if (recent) {
-          try { return { success: true, _real: true, recentRuns: JSON.parse(recent) }; } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh run list (recent) output:', e); }
+          try {
+            return { success: true, _real: true, recentRuns: JSON.parse(recent) };
+          } catch (e) {
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+              console.error('[github-tools] failed to parse gh run list (recent) output:', e);
+          }
         }
       }
 
@@ -493,7 +708,8 @@ export const githubTools: MCPTool[] = [
         const ref = (input.ref as string) || 'main';
         if (workflowId) {
           const result = runSafe('gh', ['workflow', 'run', workflowId, '--ref', ref]);
-          if (result !== null) return { success: true, _real: true, action: 'triggered', workflowId, ref };
+          if (result !== null)
+            return { success: true, _real: true, action: 'triggered', workflowId, ref };
         }
         return { success: false, error: 'workflowId is required to trigger a workflow.' };
       }
@@ -502,7 +718,8 @@ export const githubTools: MCPTool[] = [
         const workflowId = input.workflowId as string;
         if (workflowId) {
           const result = runSafe('gh', ['run', 'cancel', workflowId]);
-          if (result !== null) return { success: true, _real: true, action: 'cancelled', runId: workflowId };
+          if (result !== null)
+            return { success: true, _real: true, action: 'cancelled', runId: workflowId };
         }
         return { success: false, error: 'workflowId (run ID) is required to cancel.' };
       }
@@ -519,7 +736,11 @@ export const githubTools: MCPTool[] = [
       properties: {
         owner: { type: 'string', description: 'Repository owner' },
         repo: { type: 'string', description: 'Repository name' },
-        metric: { type: 'string', enum: ['all', 'commits', 'contributors', 'traffic', 'releases'], description: 'Metric type' },
+        metric: {
+          type: 'string',
+          enum: ['all', 'commits', 'contributors', 'traffic', 'releases'],
+          description: 'Metric type',
+        },
         timeRange: { type: 'string', description: 'Time range (e.g., "7d", "30d", "90d")' },
       },
     },
@@ -551,24 +772,39 @@ export const githubTools: MCPTool[] = [
           const lines = allContrib.split('\n').filter(Boolean);
           result.contributors = {
             total: lines.length,
-            top: lines.slice(0, 10).map(l => {
-              const m = l.trim().match(/^(\d+)\t(.+)$/);
-              return m ? { commits: parseInt(m[1], 10), name: m[2].trim() } : null;
-            }).filter(Boolean),
+            top: lines
+              .slice(0, 10)
+              .map((l) => {
+                const m = l.trim().match(/^(\d+)\t(.+)$/);
+                return m ? { commits: parseInt(m[1], 10), name: m[2].trim() } : null;
+              })
+              .filter(Boolean),
           };
         }
       }
 
       if (wantAll || metric === 'releases') {
         if (hasGhCli()) {
-          const raw = run('gh release list --limit 10 --json tagName,name,publishedAt,isPrerelease');
+          const raw = run(
+            'gh release list --limit 10 --json tagName,name,publishedAt,isPrerelease',
+          );
           if (raw) {
-            try { result.releases = JSON.parse(raw); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[github-tools] failed to parse gh release list output:', e); }
+            try {
+              result.releases = JSON.parse(raw);
+            } catch (e) {
+              if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+                console.error('[github-tools] failed to parse gh release list output:', e);
+            }
           }
         }
         if (!result.releases) {
           const tags = run('git tag --sort=-creatordate | head -10', cwd);
-          result.releases = tags ? tags.split('\n').filter(Boolean).map(t => ({ tagName: t })) : [];
+          result.releases = tags
+            ? tags
+                .split('\n')
+                .filter(Boolean)
+                .map((t) => ({ tagName: t }))
+            : [];
         }
       }
 

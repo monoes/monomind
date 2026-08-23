@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { monographQueryTool } from '../../mcp-tools/query.js';
 
-function makeDb(): Database.Database {
+function _makeDb(): Database.Database {
   const db = new Database(':memory:');
   db.exec(`
     CREATE TABLE nodes (id TEXT PRIMARY KEY, label TEXT NOT NULL, name TEXT NOT NULL,
@@ -12,8 +12,12 @@ function makeDb(): Database.Database {
       relation TEXT NOT NULL, confidence TEXT DEFAULT 'EXTRACTED', confidence_score REAL DEFAULT 1.0,
       properties TEXT);
   `);
-  db.prepare(`INSERT INTO nodes VALUES ('n1','Process','PaymentFlow',null,'/pay.ts',1,20,1,1,null,null)`).run();
-  db.prepare(`INSERT INTO nodes VALUES ('n2','Function','processPayment',null,'/pay.ts',5,15,1,1,null,null)`).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('n1','Process','PaymentFlow',null,'/pay.ts',1,20,1,1,null,null)`,
+  ).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('n2','Function','processPayment',null,'/pay.ts',5,15,1,1,null,null)`,
+  ).run();
   return db;
 }
 

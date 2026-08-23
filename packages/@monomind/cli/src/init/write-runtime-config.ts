@@ -2,10 +2,10 @@
  * Runtime configuration writers: .monomind/config.yaml, initial metrics files.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type { InitOptions, InitResult } from './types.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { atomicWriteFile, MAX_EXEC_FILE_BYTES } from './shared.js';
+import type { InitOptions, InitResult } from './types.js';
 import { writeCapabilitiesDoc } from './write-capabilities.js';
 
 /**
@@ -14,7 +14,7 @@ import { writeCapabilitiesDoc } from './write-capabilities.js';
 export async function writeRuntimeConfig(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const configPath = path.join(targetDir, '.monomind', 'config.yaml');
 
@@ -91,13 +91,16 @@ daemon.pid
   // A blanket ignore prevents config, metrics, and knowledge graph from being committed.
   // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead.
   const projectGitignorePath = path.join(targetDir, '.gitignore');
-  if (fs.existsSync(projectGitignorePath) && fs.statSync(projectGitignorePath).size <= MAX_EXEC_FILE_BYTES) {
+  if (
+    fs.existsSync(projectGitignorePath) &&
+    fs.statSync(projectGitignorePath).size <= MAX_EXEC_FILE_BYTES
+  ) {
     const existing = fs.readFileSync(projectGitignorePath, 'utf-8');
     const blanketPattern = /^(\*\*\/)?\.monomind\/?\s*$/gm;
     if (blanketPattern.test(existing)) {
       const fixed = existing
         .split('\n')
-        .filter(line => !/^(\*\*\/)?\.monomind\/?\s*$/.test(line))
+        .filter((line) => !/^(\*\*\/)?\.monomind\/?\s*$/.test(line))
         .join('\n');
       const specificExcludes = [
         '# monomind runtime — exclude sensitive and machine-specific data',
@@ -110,7 +113,7 @@ daemon.pid
         '.monomind/*.db-wal',
         '.monomind/*.db-shm',
       ].join('\n');
-      atomicWriteFile(projectGitignorePath, fixed.trimEnd() + '\n' + specificExcludes + '\n');
+      atomicWriteFile(projectGitignorePath, `${fixed.trimEnd()}\n${specificExcludes}\n`);
       result.updated.push('.gitignore (replaced blanket .monomind/ ignore with specific excludes)');
     }
   }
@@ -126,7 +129,7 @@ daemon.pid
 export async function writeInitialMetrics(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const metricsDir = path.join(targetDir, '.monomind', 'metrics');
   const learningDir = path.join(targetDir, '.monomind', 'learning');
@@ -148,25 +151,25 @@ export async function writeInitialMetrics(
       domains: {
         completed: 0,
         total: 5,
-        status: 'INITIALIZING'
+        status: 'INITIALIZING',
       },
       ddd: {
         progress: 0,
         modules: 0,
         totalFiles: 0,
-        totalLines: 0
+        totalLines: 0,
       },
       swarm: {
         activeAgents: 0,
         maxAgents: options.runtime.maxAgents,
-        topology: options.runtime.topology
+        topology: options.runtime.topology,
       },
       learning: {
         status: 'READY',
         patternsLearned: 0,
-        sessionsCompleted: 0
+        sessionsCompleted: 0,
       },
-      _note: 'Metrics will update as you use Monomind (workers refresh at session start).'
+      _note: 'Metrics will update as you use Monomind (workers refresh at session start).',
     };
     atomicWriteFile(progressPath, JSON.stringify(progress, null, 2));
     result.created.files.push('.monomind/metrics/v1-progress.json');
@@ -179,17 +182,17 @@ export async function writeInitialMetrics(
       timestamp: new Date().toISOString(),
       processes: {
         mcp_server: 0,
-        estimated_agents: 0
+        estimated_agents: 0,
       },
       monoswarm: {
         active: false,
         agent_count: 0,
-        coordination_active: false
+        coordination_active: false,
       },
       integration: {
-        mcp_active: false
+        mcp_active: false,
       },
-      _initialized: true
+      _initialized: true,
     };
     atomicWriteFile(activityPath, JSON.stringify(activity, null, 2));
     result.created.files.push('.monomind/metrics/monoswarm-activity.json');
@@ -202,18 +205,18 @@ export async function writeInitialMetrics(
       initialized: new Date().toISOString(),
       routing: {
         accuracy: 0,
-        decisions: 0
+        decisions: 0,
       },
       patterns: {
         shortTerm: 0,
         longTerm: 0,
-        quality: 0
+        quality: 0,
       },
       sessions: {
         total: 0,
-        current: null
+        current: null,
       },
-      _note: 'Intelligence grows as you use Monomind'
+      _note: 'Intelligence grows as you use Monomind',
     };
     atomicWriteFile(learningPath, JSON.stringify(learning, null, 2));
     result.created.files.push('.monomind/metrics/learning.json');
@@ -228,7 +231,7 @@ export async function writeInitialMetrics(
       cvesFixed: 0,
       totalCves: 3,
       lastScan: null,
-      _note: 'Run: npx monomind@latest security scan'
+      _note: 'Run: npx monomind@latest security scan',
     };
     atomicWriteFile(auditPath, JSON.stringify(audit, null, 2));
     result.created.files.push('.monomind/security/audit-status.json');

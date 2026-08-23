@@ -13,8 +13,8 @@
  * Re-exported from `mcp-tools/types.ts` for backward compatibility —
  * existing imports keep working; new code should import from here.
  */
-import { statSync, readFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 /**
  * Returns the effective project working directory.
@@ -87,7 +87,11 @@ export function getMonomindDataRoot(cwd?: string): string {
  *   (e.g. `join('agents', 'store.json')`).
  * @param cwd Optional project cwd override (defaults to getProjectCwd()).
  */
-export function migrateLegacyStoreFile(canonicalPath: string, legacySubpath: string, cwd?: string): void {
+export function migrateLegacyStoreFile(
+  canonicalPath: string,
+  legacySubpath: string,
+  cwd?: string,
+): void {
   try {
     if (existsSync(canonicalPath)) return;
     const legacyPath = join(cwd || getProjectCwd(), '.monomind', legacySubpath);

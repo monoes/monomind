@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 export function toCanvas(nodes: MonographNode[], edges: MonographEdge[]): string {
   const canvasNodes = nodes.map((n, i) => ({
@@ -12,7 +12,7 @@ export function toCanvas(nodes: MonographNode[], edges: MonographEdge[]): string
     color: labelColor(n.label),
   }));
 
-  const canvasEdges = edges.map(e => ({
+  const canvasEdges = edges.map((e) => ({
     id: e.id,
     fromNode: e.sourceId,
     toNode: e.targetId,

@@ -1,10 +1,10 @@
-import { Route } from '../types.js';
+import type { Route } from '../types.js';
 
 export const designRoutes: Route[] = [
   {
     name: 'ui-designer',
     agentSlug: 'design-ui-designer',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'UI design, component design, design systems',
     utterances: [
@@ -23,7 +23,7 @@ export const designRoutes: Route[] = [
   {
     name: 'ux-architect',
     agentSlug: 'design-ux-architect',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'UX architecture, information architecture, user flows',
     utterances: [
@@ -42,7 +42,7 @@ export const designRoutes: Route[] = [
   {
     name: 'ux-researcher',
     agentSlug: 'design-ux-researcher',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'UX research, user testing, usability analysis',
     utterances: [
@@ -78,7 +78,7 @@ export const designRoutes: Route[] = [
   {
     name: 'visual-storyteller',
     agentSlug: 'design-visual-storyteller',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Visual storytelling, presentation design, data visualization',
     utterances: [

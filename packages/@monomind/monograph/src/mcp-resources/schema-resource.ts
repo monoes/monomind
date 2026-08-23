@@ -23,15 +23,11 @@ export interface SchemaResourceData {
  */
 export function getSchemaResource(db: Database.Database): SchemaResourceData {
   const labelRows = db
-    .prepare(
-      `SELECT label, COUNT(*) AS count FROM nodes GROUP BY label ORDER BY count DESC`,
-    )
+    .prepare(`SELECT label, COUNT(*) AS count FROM nodes GROUP BY label ORDER BY count DESC`)
     .all() as Array<{ label: string; count: number }>;
 
   const relationRows = db
-    .prepare(
-      `SELECT relation, COUNT(*) AS count FROM edges GROUP BY relation ORDER BY count DESC`,
-    )
+    .prepare(`SELECT relation, COUNT(*) AS count FROM edges GROUP BY relation ORDER BY count DESC`)
     .all() as Array<{ relation: string; count: number }>;
 
   const totalNodes = labelRows.reduce((sum, r) => sum + r.count, 0);

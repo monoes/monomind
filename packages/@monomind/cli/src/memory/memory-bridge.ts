@@ -10,10 +10,10 @@
  * @module v1/cli/memory-bridge
  */
 
-import * as path from 'path';
-import * as crypto from 'crypto';
-import * as os from 'os';
-import * as fs from 'fs';
+import * as crypto from 'node:crypto';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 // ===== Embedding validation =====
 
@@ -67,7 +67,7 @@ const BRIDGE_RESULT_CONTENT_CAP = 500;
 
 function capResultContent(content: string): string {
   return content.length > BRIDGE_RESULT_CONTENT_CAP
-    ? content.slice(0, BRIDGE_RESULT_CONTENT_CAP) + '…'
+    ? `${content.slice(0, BRIDGE_RESULT_CONTENT_CAP)}…`
     : content;
 }
 
@@ -376,7 +376,7 @@ async function rerankResults(
   try {
     const scored = await Promise.all(
       results.map(async (r) => {
-        const rerankerScore = await _reranker!(query, r.content || '');
+        const rerankerScore = await _reranker?.(query, r.content || '');
         return {
           ...r,
           score: rerankerScore,
@@ -779,9 +779,10 @@ export async function bridgeSearchEntries(options: {
     if (knowledgeFilterActive) {
       try {
         const dp = await import('../knowledge/document-pipeline.js');
-        const rootDir = options.dbPath === GLOBAL_BRAIN
-          ? getGlobalBrainDir()
-          : (options.rootDir ?? getProjectRoot());
+        const rootDir =
+          options.dbPath === GLOBAL_BRAIN
+            ? getGlobalBrainDir()
+            : (options.rootDir ?? getProjectRoot());
         _knowledgeLive = dp.liveContentHashes(rootDir);
         _knowledgeHasMeta = dp.hasKnowledgeMetadata(rootDir);
         _isSupersededKey = dp.isSupersededKey;
@@ -1062,7 +1063,7 @@ export async function bridgeSearchEntries(options: {
     // the same removal guarantee.
     if (_knowledgeLive && _isSupersededKey && results.length > 0) {
       results = results.filter(
-        (r: any) => !_isSupersededKey!(String(r.key ?? ''), _knowledgeLive!, _knowledgeHasMeta),
+        (r: any) => !_isSupersededKey?.(String(r.key ?? ''), _knowledgeLive!, _knowledgeHasMeta),
       );
       // Trim back to the originally requested limit after overfetch — but
       // never let this blind size-based cut drop a _keywordOnly extra (see
@@ -1313,9 +1314,7 @@ export async function bridgeLoadEmbeddingModel(dbPath?: string): Promise<{
   }
 }
 
-export async function bridgeGetBackendStats(
-  dbPath?: string,
-): Promise<{
+export async function bridgeGetBackendStats(dbPath?: string): Promise<{
   totalEntries: number;
   entriesByNamespace: Record<string, number>;
   memoryUsage: number;

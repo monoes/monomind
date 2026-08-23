@@ -3,12 +3,18 @@
  * Complexity analysis and symbol extraction from code files
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import * as fs from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { output } from '../output.js';
-import * as fs from 'fs/promises';
-import { resolve } from 'path';
-import { safeWriteOutputFile, scanSourceFiles, fallbackAnalyze, FILE_SCAN_CAP, reportFileCap } from './analyze.js';
-import { truncatePathAst, formatComplexityValueAst, getTypeMarkerAst } from './analyze-ast.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import {
+  FILE_SCAN_CAP,
+  fallbackAnalyze,
+  reportFileCap,
+  safeWriteOutputFile,
+  scanSourceFiles,
+} from './analyze.js';
+import { formatComplexityValueAst, getTypeMarkerAst, truncatePathAst } from './analyze-ast.js';
 
 /**
  * Complexity analysis subcommand
@@ -42,7 +48,10 @@ export const complexityAstCommand: Command = {
   ],
   examples: [
     { command: 'monomind analyze complexity src/', description: 'Analyze complexity' },
-    { command: 'monomind analyze complexity src/ --threshold 15', description: 'Flag high complexity' },
+    {
+      command: 'monomind analyze complexity src/ --threshold 15',
+      description: 'Flag high complexity',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = ctx.args[0] || ctx.cwd;
@@ -78,9 +87,14 @@ export const complexityAstCommand: Command = {
           const analysis = fallbackAnalyze(content, file);
 
           const flagged = analysis.complexity.cyclomatic > threshold;
-          const rating = analysis.complexity.cyclomatic <= 5 ? 'Simple' :
-            analysis.complexity.cyclomatic <= 10 ? 'Moderate' :
-            analysis.complexity.cyclomatic <= 20 ? 'Complex' : 'Very Complex';
+          const rating =
+            analysis.complexity.cyclomatic <= 5
+              ? 'Simple'
+              : analysis.complexity.cyclomatic <= 10
+                ? 'Moderate'
+                : analysis.complexity.cyclomatic <= 20
+                  ? 'Complex'
+                  : 'Very Complex';
 
           results.push({
             file: file,
@@ -101,13 +115,15 @@ export const complexityAstCommand: Command = {
       // Sort by complexity descending
       results.sort((a, b) => b.cyclomatic - a.cyclomatic);
 
-      const flaggedCount = results.filter(r => r.flagged).length;
-      const avgComplexity = results.length > 0
-        ? results.reduce((sum, r) => sum + r.cyclomatic, 0) / results.length
-        : 0;
+      const flaggedCount = results.filter((r) => r.flagged).length;
+      const avgComplexity =
+        results.length > 0 ? results.reduce((sum, r) => sum + r.cyclomatic, 0) / results.length : 0;
 
       if (formatType === 'json') {
-        const jsonOutput = { files: results, summary: { total: results.length, flagged: flaggedCount, avgComplexity, threshold } };
+        const jsonOutput = {
+          files: results,
+          summary: { total: results.length, flagged: flaggedCount, avgComplexity, threshold },
+        };
         if (outputFile) {
           await safeWriteOutputFile(outputFile, JSON.stringify(jsonOutput, null, 2));
           output.printSuccess(`Results written to ${outputFile}`);
@@ -125,7 +141,7 @@ export const complexityAstCommand: Command = {
           `Flagged files: ${flaggedCount > 0 ? output.error(String(flaggedCount)) : output.success('0')}`,
           `Average complexity: ${formatComplexityValueAst(Math.round(avgComplexity))}`,
         ].join('\n'),
-        'Complexity Analysis'
+        'Complexity Analysis',
       );
 
       // Show flagged files first
@@ -134,11 +150,17 @@ export const complexityAstCommand: Command = {
         output.writeln(output.bold(output.warning(`High Complexity Files (>${threshold})`)));
         output.writeln(output.dim('-'.repeat(60)));
 
-        const flaggedFiles = results.filter(r => r.flagged).slice(0, 10);
+        const flaggedFiles = results.filter((r) => r.flagged).slice(0, 10);
         output.printTable({
           columns: [
             { key: 'file', header: 'File', width: 40, format: (v) => truncatePathAst(v as string) },
-            { key: 'cyclomatic', header: 'Decisions', width: 8, align: 'right', format: (v) => output.error(String(v)) },
+            {
+              key: 'cyclomatic',
+              header: 'Decisions',
+              width: 8,
+              align: 'right',
+              format: (v) => output.error(String(v)),
+            },
             { key: 'cognitive', header: 'Cogni', width: 8, align: 'right' },
             { key: 'loc', header: 'LOC', width: 8, align: 'right' },
             { key: 'rating', header: 'Rating', width: 15 },
@@ -156,7 +178,13 @@ export const complexityAstCommand: Command = {
       output.printTable({
         columns: [
           { key: 'file', header: 'File', width: 40, format: (v) => truncatePathAst(v as string) },
-          { key: 'cyclomatic', header: 'Decisions', width: 8, align: 'right', format: (v) => formatComplexityValueAst(v as number) },
+          {
+            key: 'cyclomatic',
+            header: 'Decisions',
+            width: 8,
+            align: 'right',
+            format: (v) => formatComplexityValueAst(v as number),
+          },
           { key: 'cognitive', header: 'Cogni', width: 8, align: 'right' },
           { key: 'loc', header: 'LOC', width: 8, align: 'right' },
         ],
@@ -168,7 +196,17 @@ export const complexityAstCommand: Command = {
       }
 
       if (outputFile) {
-        await safeWriteOutputFile(outputFile, JSON.stringify({ files: results, summary: { total: results.length, flagged: flaggedCount, avgComplexity, threshold } }, null, 2));
+        await safeWriteOutputFile(
+          outputFile,
+          JSON.stringify(
+            {
+              files: results,
+              summary: { total: results.length, flagged: flaggedCount, avgComplexity, threshold },
+            },
+            null,
+            2,
+          ),
+        );
         output.printSuccess(`Results written to ${outputFile}`);
       }
 
@@ -293,8 +331,8 @@ export const symbolsCommand: Command = {
       }
 
       // Summary
-      const functionCount = symbols.filter(s => s.type === 'function').length;
-      const classCount = symbols.filter(s => s.type === 'class').length;
+      const functionCount = symbols.filter((s) => s.type === 'function').length;
+      const classCount = symbols.filter((s) => s.type === 'class').length;
 
       output.printBox(
         [
@@ -303,7 +341,7 @@ export const symbolsCommand: Command = {
           `Classes: ${classCount}`,
           `Files: ${files.length}`,
         ].join('\n'),
-        'Symbol Extraction'
+        'Symbol Extraction',
       );
 
       output.writeln();
@@ -315,7 +353,12 @@ export const symbolsCommand: Command = {
         columns: [
           { key: 'type', header: 'Type', width: 10, format: (v) => getTypeMarkerAst(v as string) },
           { key: 'name', header: 'Name', width: 30 },
-          { key: 'file', header: 'File', width: 35, format: (v) => truncatePathAst(v as string, 33) },
+          {
+            key: 'file',
+            header: 'File',
+            width: 35,
+            format: (v) => truncatePathAst(v as string, 33),
+          },
           { key: 'startLine', header: 'Line', width: 8, align: 'right' },
         ],
         data: displaySymbols,

@@ -1,16 +1,36 @@
-import { readFileSync } from 'fs';
-import { join, extname } from 'path';
-import type { PipelinePhase, PipelineContext } from '../types.js';
+import { readFileSync } from 'node:fs';
+import { extname, join } from 'node:path';
 import type { MonographNode } from '../../types.js';
 import { makeId } from '../../types.js';
-import type { ParseOutput } from './parse.js';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 import type { CallSite } from './call-site-extractors.js';
-import { TS_JS_EXTS, CJS_MJS_EXTS, isSupportedExt, extractCallSites, extractConstructorAssignments } from './call-site-extractors.js';
-import { buildWorkspacePackageMap, resolveModuleSpecifier, extractImportNames, buildAllImportMapsFromSource, REEXPORT_RE } from './module-resolution.js';
+import {
+  CJS_MJS_EXTS,
+  extractCallSites,
+  extractConstructorAssignments,
+  isSupportedExt,
+  TS_JS_EXTS,
+} from './call-site-extractors.js';
+import {
+  buildAllImportMapsFromSource,
+  buildWorkspacePackageMap,
+  extractImportNames,
+  REEXPORT_RE,
+  resolveModuleSpecifier,
+} from './module-resolution.js';
+import type { ParseOutput } from './parse.js';
 
+export {
+  extractGoCallSites,
+  extractJavaCallSites,
+  extractRustCallSites,
+} from './call-site-extractors.js';
 // Re-export for external consumers
-export { clearWorkspacePackageMapCache, buildWorkspacePackageMap, resolveModuleSpecifier } from './module-resolution.js';
-export { extractGoCallSites, extractJavaCallSites, extractRustCallSites } from './call-site-extractors.js';
+export {
+  buildWorkspacePackageMap,
+  clearWorkspacePackageMapCache,
+  resolveModuleSpecifier,
+} from './module-resolution.js';
 
 // ── Output ────────────────────────────────────────────────────────────────────
 
@@ -35,7 +55,9 @@ function buildFunctionIndex(ctx: PipelineContext): {
   if (!ctx.db) return { byFilePath, nameCounts };
 
   const rows = ctx.db
-    .prepare(`SELECT id, name, file_path FROM nodes WHERE label IN ('Function', 'Method', 'Constructor', 'Class') AND file_path IS NOT NULL`)
+    .prepare(
+      `SELECT id, name, file_path FROM nodes WHERE label IN ('Function', 'Method', 'Constructor', 'Class') AND file_path IS NOT NULL`,
+    )
     .all() as { id: string; name: string; file_path: string }[];
 
   for (const row of rows) {
@@ -80,13 +102,16 @@ function buildEnclosingIndex(ctx: PipelineContext): Map<string, EnclosingSymbol[
     .prepare(
       `SELECT id, file_path, start_line, end_line FROM nodes
         WHERE label IN ('Function', 'Method', 'Constructor')
-          AND file_path IS NOT NULL AND start_line IS NOT NULL AND end_line IS NOT NULL`
+          AND file_path IS NOT NULL AND start_line IS NOT NULL AND end_line IS NOT NULL`,
     )
     .all() as { id: string; file_path: string; start_line: number; end_line: number }[];
 
   for (const row of rows) {
     let list = byFile.get(row.file_path);
-    if (!list) { list = []; byFile.set(row.file_path, list); }
+    if (!list) {
+      list = [];
+      byFile.set(row.file_path, list);
+    }
     list.push({ id: row.id, startLine: row.start_line, endLine: row.end_line });
   }
 
@@ -94,7 +119,7 @@ function buildEnclosingIndex(ctx: PipelineContext): Map<string, EnclosingSymbol[
   // scope — a call inside a closure belongs to the closure, not the function
   // that happens to wrap it.
   for (const list of byFile.values()) {
-    list.sort((a, b) => (a.endLine - a.startLine) - (b.endLine - b.startLine));
+    list.sort((a, b) => a.endLine - a.startLine - (b.endLine - b.startLine));
   }
 
   return byFile;
@@ -110,10 +135,12 @@ function buildLineOffsets(source: string): number[] {
 }
 
 function lineAtOffset(lineOffsets: number[], offset: number): number {
-  let lo = 0, hi = lineOffsets.length - 1;
+  let lo = 0,
+    hi = lineOffsets.length - 1;
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1;
-    if (lineOffsets[mid]! <= offset) lo = mid; else hi = mid - 1;
+    if (lineOffsets[mid]! <= offset) lo = mid;
+    else hi = mid - 1;
   }
   return lo + 1;
 }
@@ -142,9 +169,9 @@ function pickBestId(ids: string[], site: CallSite): string | null {
   if (ids.length === 1) return ids[0];
   if (ids.length === 0) return null;
   const suffix = site.form === 'method' ? '_method' : '_function';
-  const match = ids.find(id => id.endsWith(suffix));
+  const match = ids.find((id) => id.endsWith(suffix));
   if (!match && site.calleeRaw.startsWith('new ')) {
-    const classMatch = ids.find(id => id.endsWith('_class'));
+    const classMatch = ids.find((id) => id.endsWith('_class'));
     if (classMatch) return classMatch;
   }
   return match ?? ids[0];
@@ -177,9 +204,9 @@ function resolveTarget(
         if (sameFileIds && sameFileIds.length > 0) {
           return { targetId: pickBestId(sameFileIds, site)! };
         }
-        const matches = importedFiles.filter(fp => fnIndex.get(fp)?.has(methodName));
+        const matches = importedFiles.filter((fp) => fnIndex.get(fp)?.has(methodName));
         if (matches.length === 1) {
-          const ids = fnIndex.get(matches[0])!.get(methodName)!;
+          const ids = fnIndex.get(matches[0])?.get(methodName)!;
           return { targetId: pickBestId(ids, site)! };
         }
         return null;
@@ -218,13 +245,13 @@ interface PreparedEdgeStmts {
 function prepareEdgeStmts(db: import('better-sqlite3').Database): PreparedEdgeStmts {
   return {
     selectExisting: db.prepare(
-      `SELECT id, confidence_score FROM edges WHERE source_id = ? AND target_id = ? AND relation = 'CALLS'`
+      `SELECT id, confidence_score FROM edges WHERE source_id = ? AND target_id = ? AND relation = 'CALLS'`,
     ),
     updateScore: db.prepare(
-      `UPDATE edges SET confidence_score = ?, confidence = 'EXTRACTED' WHERE id = ?`
+      `UPDATE edges SET confidence_score = ?, confidence = 'EXTRACTED' WHERE id = ?`,
     ),
     insertNew: db.prepare(
-      `INSERT OR IGNORE INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', ?)`
+      `INSERT OR IGNORE INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', ?)`,
     ),
   };
 }
@@ -238,7 +265,9 @@ function emitEdge(
 ): 'inserted' | 'upgraded' | 'skipped' {
   if (sourceId === targetId) return 'skipped';
 
-  const existing = stmts.selectExisting.get(sourceId, targetId) as { id: string; confidence_score: number } | undefined;
+  const existing = stmts.selectExisting.get(sourceId, targetId) as
+    | { id: string; confidence_score: number }
+    | undefined;
 
   if (existing) {
     const newScore = Math.max(existing.confidence_score, RESOLVED_CONFIDENCE_SCORE);
@@ -271,7 +300,14 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
   deps: ['parse', 'cross-file'],
   async execute(ctx, deps) {
     if (ctx.allFilesCached) {
-      return { resolvedEdges: 0, skippedDynamic: 0, ambiguous: 0, reexportEdges: 0, orphanImportsRemoved: 0, importsReconstructed: 0 };
+      return {
+        resolvedEdges: 0,
+        skippedDynamic: 0,
+        ambiguous: 0,
+        reexportEdges: 0,
+        orphanImportsRemoved: 0,
+        importsReconstructed: 0,
+      };
     }
     const { symbolNodes, fileContents } = deps.get('parse') as ParseOutput;
 
@@ -327,7 +363,10 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
         const lineOffsets = buildLineOffsets(source);
         const enclosing = enclosingIndex.get(filePath);
         const importMap = getImportMap(allImportMaps, fileNode.id);
-        const ctorMap = (TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)) ? extractConstructorAssignments(source) : undefined;
+        const ctorMap =
+          TS_JS_EXTS.has(ext) || CJS_MJS_EXTS.has(ext)
+            ? extractConstructorAssignments(source)
+            : undefined;
         const importedFiles = [...new Set(importMap.values())];
 
         for (const site of callSites) {
@@ -336,7 +375,14 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
             continue;
           }
 
-          const resolved = resolveTarget(site, filePath, importMap, fnIndex, ctorMap, importedFiles);
+          const resolved = resolveTarget(
+            site,
+            filePath,
+            importMap,
+            fnIndex,
+            ctorMap,
+            importedFiles,
+          );
           if (!resolved) continue;
 
           if (site.methodName && (nameCounts.get(site.methodName) ?? 0) > 1) {
@@ -371,25 +417,40 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
           if (!TS_JS_EXTS.has(ext) && !CJS_MJS_EXTS.has(ext)) continue;
 
           let source: string | undefined = fileContents.get(filePath);
-          if (!source) { try { source = readFileSync(join(ctx.repoPath, filePath), 'utf-8'); } catch { continue; } }
+          if (!source) {
+            try {
+              source = readFileSync(join(ctx.repoPath, filePath), 'utf-8');
+            } catch {
+              continue;
+            }
+          }
 
           REEXPORT_RE.lastIndex = 0;
           let m: RegExpExecArray | null;
           while ((m = REEXPORT_RE.exec(source)) !== null) {
             const specifier = m[2];
             const names = extractImportNames(m[1]);
-            const resolvedFile = resolveModuleSpecifier(filePath, specifier, ctx.repoPath, reexportKnownFiles, reexportWorkspaceMap);
+            const resolvedFile = resolveModuleSpecifier(
+              filePath,
+              specifier,
+              ctx.repoPath,
+              reexportKnownFiles,
+              reexportWorkspaceMap,
+            );
             if (!resolvedFile) continue;
 
             for (const name of names) {
               const ids = fnIndex.get(resolvedFile)?.get(name);
               if (!ids || ids.length === 0) continue;
-              const targetId = ids.length === 1 ? ids[0] : (ids.find(id => id.endsWith('_function')) ?? ids[0]);
+              const targetId =
+                ids.length === 1 ? ids[0] : (ids.find((id) => id.endsWith('_function')) ?? ids[0]);
               const edgeId = makeId(fileNode.id, targetId, 'reexport_ref');
               try {
                 insertRef.run(edgeId, fileNode.id, targetId);
                 reexportEdges++;
-              } catch { /* duplicate */ }
+              } catch {
+                /* duplicate */
+              }
             }
           }
         }
@@ -430,13 +491,22 @@ export const scopeResolutionPhase: PipelinePhase<ScopeResolutionOutput> = {
             try {
               insertImport.run(edgeId, fileNodeId, targetFileId);
               importsReconstructed++;
-            } catch { /* duplicate */ }
+            } catch {
+              /* duplicate */
+            }
           }
         }
       });
       insertAll();
     }
 
-    return { resolvedEdges, skippedDynamic, ambiguous, reexportEdges, orphanImportsRemoved, importsReconstructed };
+    return {
+      resolvedEdges,
+      skippedDynamic,
+      ambiguous,
+      reexportEdges,
+      orphanImportsRemoved,
+      importsReconstructed,
+    };
   },
 };

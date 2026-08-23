@@ -10,37 +10,58 @@
  *    FAILS instead of being hardcoded to pass.
  *  - the report is labeled "structural dry-run".
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { runTestLoop } from '../orgrt/test-loop.js';
 
 describe('org test-loop --scenario: real (not hardcoded) check evaluation', () => {
   let tmp = '';
-  afterEach(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+  afterEach(() => {
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  });
 
   function writeScenario(script: unknown[]) {
     const scenariosDir = join(tmp, '.monomind', 'scenarios');
     mkdirSync(scenariosDir, { recursive: true });
-    writeFileSync(join(scenariosDir, 'demo.json'), JSON.stringify({
-      name: 'demo',
-      orgs: [{
-        name: 'alpha',
-        goal: 'test',
-        roles: [
-          { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
-          { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', policy: { denyTools: ['Bash'] } },
+    writeFileSync(
+      join(scenariosDir, 'demo.json'),
+      JSON.stringify({
+        name: 'demo',
+        orgs: [
+          {
+            name: 'alpha',
+            goal: 'test',
+            roles: [
+              { id: 'boss', title: 'Boss', type: 'boss', reports_to: null },
+              {
+                id: 'coder',
+                title: 'Coder',
+                type: 'specialist',
+                reports_to: 'boss',
+                policy: { denyTools: ['Bash'] },
+              },
+            ],
+          },
         ],
-      }],
-      script,
-    }));
+        script,
+      }),
+    );
   }
 
   it('a denyTools rule really denies the tool call (real policy path, not a stub)', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'test-loop-scenario-'));
     writeScenario([
-      { step: 1, from: 'coder', action: 'tool', tool: 'Bash', input: { command: 'echo hi' }, expect: 'deny' },
+      {
+        step: 1,
+        from: 'coder',
+        action: 'tool',
+        tool: 'Bash',
+        input: { command: 'echo hi' },
+        expect: 'deny',
+      },
     ]);
 
     const report = await runTestLoop(tmp, 1, 'demo.json');
@@ -51,7 +72,13 @@ describe('org test-loop --scenario: real (not hardcoded) check evaluation', () =
   it('a tool call NOT covered by denyTools is really allowed', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'test-loop-scenario-'));
     writeScenario([
-      { step: 1, from: 'coder', action: 'tool', tool: 'Read', input: { file_path: 'out/report.md' } },
+      {
+        step: 1,
+        from: 'coder',
+        action: 'tool',
+        tool: 'Read',
+        input: { file_path: 'out/report.md' },
+      },
     ]);
 
     const report = await runTestLoop(tmp, 1, 'demo.json');
@@ -61,7 +88,14 @@ describe('org test-loop --scenario: real (not hardcoded) check evaluation', () =
   it('a deliberately-failing expectation now correctly reports failure, not a hardcoded pass', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'test-loop-scenario-'));
     writeScenario([
-      { step: 1, from: 'coder', action: 'tool', tool: 'Bash', input: { command: 'echo hi' }, expect: 'deny' },
+      {
+        step: 1,
+        from: 'coder',
+        action: 'tool',
+        tool: 'Bash',
+        input: { command: 'echo hi' },
+        expect: 'deny',
+      },
       // Deliberately wrong: Bash was DENIED above, so no 'tool' event with
       // decision=allow for tool=Bash was ever emitted. A hardcoded-true
       // implementation would report this as passed; the real one must not.
@@ -76,7 +110,14 @@ describe('org test-loop --scenario: real (not hardcoded) check evaluation', () =
   it('a correct expectation against a really-emitted event passes', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'test-loop-scenario-'));
     writeScenario([
-      { step: 1, from: 'coder', action: 'tool', tool: 'Bash', input: { command: 'echo hi' }, expect: 'deny' },
+      {
+        step: 1,
+        from: 'coder',
+        action: 'tool',
+        tool: 'Bash',
+        input: { command: 'echo hi' },
+        expect: 'deny',
+      },
       { step: 2, from: 'coder', action: 'expect', expect: 'tool:tool=Bash,decision=deny' },
     ]);
 

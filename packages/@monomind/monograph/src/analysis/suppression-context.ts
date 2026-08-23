@@ -1,10 +1,24 @@
 export type IssueKind =
-  | 'unused-file' | 'unused-export' | 'unused-type' | 'private-type-leak'
-  | 'unused-dependency' | 'unused-dev-dependency' | 'unused-enum-member'
-  | 'unused-class-member' | 'unresolved-import' | 'unlisted-dependency'
-  | 'duplicate-export' | 'code-duplication' | 'circular-dependency'
-  | 'type-only-dependency' | 'test-only-dependency' | 'boundary-violation'
-  | 'coverage-gaps' | 'feature-flag' | 'complexity' | 'stale-suppression';
+  | 'unused-file'
+  | 'unused-export'
+  | 'unused-type'
+  | 'private-type-leak'
+  | 'unused-dependency'
+  | 'unused-dev-dependency'
+  | 'unused-enum-member'
+  | 'unused-class-member'
+  | 'unresolved-import'
+  | 'unlisted-dependency'
+  | 'duplicate-export'
+  | 'code-duplication'
+  | 'circular-dependency'
+  | 'type-only-dependency'
+  | 'test-only-dependency'
+  | 'boundary-violation'
+  | 'coverage-gaps'
+  | 'feature-flag'
+  | 'complexity'
+  | 'stale-suppression';
 
 export interface Suppression {
   line: number;
@@ -21,9 +35,16 @@ export interface StaleSuppression {
 }
 
 const NON_CORE_KINDS: Set<IssueKind> = new Set([
-  'complexity', 'coverage-gaps', 'feature-flag', 'code-duplication',
-  'unused-dependency', 'unused-dev-dependency', 'unlisted-dependency',
-  'type-only-dependency', 'test-only-dependency', 'stale-suppression',
+  'complexity',
+  'coverage-gaps',
+  'feature-flag',
+  'code-duplication',
+  'unused-dependency',
+  'unused-dev-dependency',
+  'unlisted-dependency',
+  'type-only-dependency',
+  'test-only-dependency',
+  'stale-suppression',
 ]);
 
 interface FileSuppressionRecord {
@@ -38,7 +59,10 @@ export class SuppressionContext {
     this.byFile = new Map();
     for (const m of modules) {
       if (m.suppressions.length > 0) {
-        this.byFile.set(m.filePath, { suppressions: m.suppressions, used: new Array(m.suppressions.length).fill(false) });
+        this.byFile.set(m.filePath, {
+          suppressions: m.suppressions,
+          used: new Array(m.suppressions.length).fill(false),
+        });
       }
     }
   }
@@ -48,8 +72,14 @@ export class SuppressionContext {
     if (!rec) return false;
     for (let i = 0; i < rec.suppressions.length; i++) {
       const s = rec.suppressions[i];
-      const matched = s.line === 0 ? (s.kind === null || s.kind === kind) : (s.line === line && (s.kind === null || s.kind === kind));
-      if (matched) { rec.used[i] = true; return true; }
+      const matched =
+        s.line === 0
+          ? s.kind === null || s.kind === kind
+          : s.line === line && (s.kind === null || s.kind === kind);
+      if (matched) {
+        rec.used[i] = true;
+        return true;
+      }
     }
     return false;
   }
@@ -59,12 +89,17 @@ export class SuppressionContext {
     if (!rec) return false;
     for (let i = 0; i < rec.suppressions.length; i++) {
       const s = rec.suppressions[i];
-      if (s.line === 0 && (s.kind === null || s.kind === kind)) { rec.used[i] = true; return true; }
+      if (s.line === 0 && (s.kind === null || s.kind === kind)) {
+        rec.used[i] = true;
+        return true;
+      }
     }
     return false;
   }
 
-  get(filePath: string): Suppression[] | undefined { return this.byFile.get(filePath)?.suppressions; }
+  get(filePath: string): Suppression[] | undefined {
+    return this.byFile.get(filePath)?.suppressions;
+  }
 
   usedCount(): number {
     let n = 0;
@@ -79,7 +114,13 @@ export class SuppressionContext {
         if (rec.used[i]) continue;
         const s = rec.suppressions[i];
         if (s.kind !== null && NON_CORE_KINDS.has(s.kind)) continue;
-        stale.push({ path: filePath, line: s.commentLine, col: 0, isFileLevel: s.line === 0, issueKind: s.kind });
+        stale.push({
+          path: filePath,
+          line: s.commentLine,
+          col: 0,
+          isFileLevel: s.line === 0,
+          issueKind: s.kind,
+        });
       }
     }
     return stale;
@@ -87,9 +128,13 @@ export class SuppressionContext {
 }
 
 export function isSuppressed(suppressions: Suppression[], line: number, kind: IssueKind): boolean {
-  return suppressions.some(s => s.line === 0 ? (s.kind === null || s.kind === kind) : (s.line === line && (s.kind === null || s.kind === kind)));
+  return suppressions.some((s) =>
+    s.line === 0
+      ? s.kind === null || s.kind === kind
+      : s.line === line && (s.kind === null || s.kind === kind),
+  );
 }
 
 export function isFileSuppressed(suppressions: Suppression[], kind: IssueKind): boolean {
-  return suppressions.some(s => s.line === 0 && (s.kind === null || s.kind === kind));
+  return suppressions.some((s) => s.line === 0 && (s.kind === null || s.kind === kind));
 }

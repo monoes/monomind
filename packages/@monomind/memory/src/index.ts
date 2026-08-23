@@ -10,99 +10,89 @@
 
 // ===== Core Types =====
 export type {
-  // Memory Entry Types
-  MemoryType,
   AccessLevel,
+  BackendStats,
+  // Cache Types
+  CacheConfig,
+  CachedEntry,
+  CacheStats,
+  ComponentHealth,
   ConsistencyLevel,
   DistanceMetric,
-  MemoryEntry,
-  MemoryEntryInput,
-  MemoryEntryUpdate,
-
-  // Query Types
-  QueryType,
-  MemoryQuery,
-  SearchResult,
-  SearchOptions,
-
+  // Utility Types
+  EmbeddingGenerator,
+  HealthCheckResult,
   // HNSW Types
   HNSWConfig,
   HNSWStats,
-  QuantizationConfig,
-
   // Backend Types
   IMemoryBackend,
-  BackendStats,
-  HealthCheckResult,
-  ComponentHealth,
-
-  // Cache Types
-  CacheConfig,
-  CacheStats,
-  CachedEntry,
-
-  // Migration Types
-  MigrationSource,
-  MigrationConfig,
-  MigrationProgress,
-  MigrationResult,
-  MigrationError,
-
-  // Event Types
-  MemoryEventType,
+  LearningPattern,
+  MemoryEntry,
+  MemoryEntryInput,
+  MemoryEntryUpdate,
   MemoryEvent,
   MemoryEventHandler,
-
+  // Event Types
+  MemoryEventType,
+  MemoryQuery,
+  // Memory Entry Types
+  MemoryType,
+  MigrationConfig,
+  MigrationError,
+  MigrationProgress,
+  MigrationResult,
+  // Migration Types
+  MigrationSource,
+  QuantizationConfig,
+  // Query Types
+  QueryType,
+  SearchOptions,
+  SearchResult,
   // SONA Types
   SONAMode,
-  LearningPattern,
-
-  // Utility Types
-  EmbeddingGenerator,
 } from './types.js';
 
 // Utility Functions and Constants
 export {
-  generateMemoryId,
   createDefaultEntry,
+  generateMemoryId,
   PERFORMANCE_TARGETS,
 } from './types.js';
 
 // ===== Core Components =====
 import { SQLiteBackend } from './sqlite-backend.js';
-export { SQLiteBackend };
-export type { SQLiteBackendConfig } from './sqlite-backend.js';
-export { SqlJsBackend } from './sqljs-backend.js';
-export type { SqlJsBackendConfig } from './sqljs-backend.js';
-export { HNSWIndex } from './hnsw-index.js';
-export type { HNSWSerialized } from './hnsw-index.js';
-export { CacheManager } from './cache-manager.js';
-export { QueryBuilder, query, QueryTemplates } from './query-builder.js';
-export type { SortDirection, SortField } from './query-builder.js';
-export { MemoryMigrator, createMigrator, migrateMultipleSources } from './migration.js';
 
+export { CacheManager } from './cache-manager.js';
 // ===== Graph Checkpointing =====
 export { MonoswarmCheckpointer } from './checkpointer.js';
-export type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
-
-// ===== Document Chunker & Knowledge Base =====
-export { chunkDocument, KnowledgeStore, KnowledgeRetriever } from './knowledge/index.js';
+export type { HNSWSerialized } from './hnsw-index.js';
+export { HNSWIndex } from './hnsw-index.js';
 export type {
-  TextChunk,
-  MetadataRecord,
   ChunkRecord,
   KnowledgeExcerpt,
+  MetadataRecord,
   RetrievalResult,
   SearchFn,
+  TextChunk,
 } from './knowledge/index.js';
-
+// ===== Document Chunker & Knowledge Base =====
+export { chunkDocument, KnowledgeRetriever, KnowledgeStore } from './knowledge/index.js';
+export { createMigrator, MemoryMigrator, migrateMultipleSources } from './migration.js';
+export type {
+  DiffResult,
+  PromptExperiment,
+  PromptVersion,
+} from './prompt-version-store.js';
 // ===== Prompt Version Management =====
 export { PromptVersionStore } from './prompt-version-store.js';
-export type {
-  PromptVersion,
-  PromptExperiment,
-  DiffResult,
-} from './prompt-version-store.js';
+export type { SortDirection, SortField } from './query-builder.js';
+export { QueryBuilder, QueryTemplates, query } from './query-builder.js';
+export type { SQLiteBackendConfig } from './sqlite-backend.js';
+export type { SqlJsBackendConfig } from './sqljs-backend.js';
+export { SqlJsBackend } from './sqljs-backend.js';
+export type { AgentState, CheckpointMeta, SwarmCheckpoint } from './types/checkpoint.js';
+export { SQLiteBackend };
 
 // Default export
 export default SQLiteBackend;

@@ -66,7 +66,9 @@ export interface RuntimeCoverageReport {
   generatedAt: string;
 }
 
-export function buildRuntimeCoverageSummary(findings: RuntimeCoverageFinding[]): RuntimeCoverageSummary {
+export function buildRuntimeCoverageSummary(
+  findings: RuntimeCoverageFinding[],
+): RuntimeCoverageSummary {
   const counts = { hotPath: 0, warm: 0, cold: 0, unknown: 0 };
   let totalPct = 0;
   let pctCount = 0;
@@ -92,7 +94,9 @@ export function buildRuntimeCoverageSummary(findings: RuntimeCoverageFinding[]):
   };
 }
 
-export function createRuntimeCoverageReport(findings: RuntimeCoverageFinding[]): RuntimeCoverageReport {
+export function createRuntimeCoverageReport(
+  findings: RuntimeCoverageFinding[],
+): RuntimeCoverageReport {
   return {
     findings,
     summary: buildRuntimeCoverageSummary(findings),

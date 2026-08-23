@@ -159,24 +159,24 @@ export function attachForwarder(bus: OrgBus, controlJsonPath = '.monomind/contro
   const unsubscribe = bus.subscribe((e: BusEvent) => {
     chain = chain
       .then(async () => {
-      const url = baseUrl();
-      if (!url) {
-        if (!warnedNoDashboard) {
-          warnedNoDashboard = true;
-          console.warn(
-            `[orgrt] No live dashboard (missing/dead ${controlJsonPath}) — org events will not appear on the Neural Control Room. Starting one; or run "monomind ui" manually.`,
-          );
+        const url = baseUrl();
+        if (!url) {
+          if (!warnedNoDashboard) {
+            warnedNoDashboard = true;
+            console.warn(
+              `[orgrt] No live dashboard (missing/dead ${controlJsonPath}) — org events will not appear on the Neural Control Room. Starting one; or run "monomind ui" manually.`,
+            );
+          }
+          // First no-dashboard event waits for the (single-flight) heal so the
+          // org:start/session:start companions aren't lost if a server comes up;
+          // later events skip straight through once healAttempted is set.
+          await healDashboard();
+          const healedUrl = baseUrl();
+          if (!healedUrl) return;
+          for (const payload of companionEvents(e)) await post(healedUrl, payload);
+          await post(healedUrl, translate(e));
+          return;
         }
-        // First no-dashboard event waits for the (single-flight) heal so the
-        // org:start/session:start companions aren't lost if a server comes up;
-        // later events skip straight through once healAttempted is set.
-        await healDashboard();
-        const healedUrl = baseUrl();
-        if (!healedUrl) return;
-        for (const payload of companionEvents(e)) await post(healedUrl, payload);
-        await post(healedUrl, translate(e));
-        return;
-      }
         for (const payload of companionEvents(e)) await post(url, payload);
         await post(url, translate(e));
       })
@@ -223,7 +223,7 @@ export function companionEvents(e: BusEvent): Record<string, unknown>[] {
   const kind = classifyStatus(msg);
   if (kind === 'started') {
     const goal = (e.data as { goal?: string } | undefined)?.goal;
-    return [{ ...base, type: 'session:start', prompt: goal && goal.length ? goal : e.org }];
+    return [{ ...base, type: 'session:start', prompt: goal?.length ? goal : e.org }];
   }
   if (kind === 'stopped') {
     return [{ ...base, type: 'session:complete', status: 'complete', domains: ['ops'] }];

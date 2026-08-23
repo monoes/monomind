@@ -17,199 +17,195 @@
 
 // Core types
 export type {
-  JsonRpcVersion,
-  RequestId,
-  MCPMessage,
-  MCPRequest,
-  MCPResponse,
-  MCPNotification,
-  MCPError,
-  TransportType,
-  AuthMethod,
-  AuthConfig,
-  LoadBalancerConfig,
-  ConnectionPoolConfig,
-  MCPServerConfig,
-  SessionState,
-  MCPSession,
-  MCPClientInfo,
-  MCPCapabilities,
-  MCPProtocolVersion,
-  MCPInitializeParams,
-  MCPInitializeResult,
-  JSONSchema,
-  ToolContext,
-  ToolHandler,
-  MCPTool,
-  ToolCallResult,
-  ToolRegistrationOptions,
-  RequestHandler,
-  NotificationHandler,
-  TransportHealthStatus,
-  ITransport,
-  ConnectionState,
-  PooledConnection,
-  ConnectionPoolStats,
-  IConnectionPool,
-  ToolCallMetrics,
-  MCPServerMetrics,
-  SessionMetrics,
-  MCPEventType,
-  MCPEvent,
-  EventHandler,
-  LogLevel,
-  ILogger,
-  // MCP 2025-11-25 types
-  MCPResource,
-  ResourceContent,
-  ResourceTemplate,
-  ResourceListResult,
-  ResourceReadResult,
-  PromptArgument,
-  MCPPrompt,
-  PromptRole,
-  ContentAnnotations,
-  TextContent,
-  ImageContent,
   AudioContent,
-  EmbeddedResource,
-  PromptContent,
-  PromptMessage,
-  PromptListResult,
-  PromptGetResult,
-  TaskState,
-  MCPTask,
-  TaskProgress,
-  TaskResult,
-  PaginatedRequest,
-  PaginatedResult,
-  ProgressNotification,
+  AuthConfig,
+  AuthMethod,
   CancellationParams,
-  SamplingMessage,
-  ModelPreferences,
+  CompletionArgument,
+  CompletionReference,
+  CompletionResult,
+  ConnectionPoolConfig,
+  ConnectionPoolStats,
+  ConnectionState,
+  ContentAnnotations,
   CreateMessageRequest,
   CreateMessageResult,
+  EmbeddedResource,
+  EventHandler,
+  IConnectionPool,
+  ILogger,
+  ImageContent,
+  ITransport,
+  JSONSchema,
+  JsonRpcVersion,
+  LoadBalancerConfig,
+  LoggingMessage,
+  LogLevel,
+  MCPCapabilities,
+  MCPClientInfo,
+  MCPError,
+  MCPEvent,
+  MCPEventType,
+  MCPInitializeParams,
+  MCPInitializeResult,
+  MCPLogLevel,
+  MCPMessage,
+  MCPNotification,
+  MCPPrompt,
+  MCPProtocolVersion,
+  MCPRequest,
+  // MCP 2025-11-25 types
+  MCPResource,
+  MCPResponse,
+  MCPServerConfig,
+  MCPServerMetrics,
+  MCPSession,
+  MCPTask,
+  MCPTool,
+  ModelPreferences,
+  NotificationHandler,
+  PaginatedRequest,
+  PaginatedResult,
+  PooledConnection,
+  ProgressNotification,
+  PromptArgument,
+  PromptContent,
+  PromptGetResult,
+  PromptListResult,
+  PromptMessage,
+  PromptRole,
+  RequestHandler,
+  RequestId,
+  ResourceContent,
+  ResourceListResult,
+  ResourceReadResult,
+  ResourceTemplate,
   Root,
   RootsListResult,
-  MCPLogLevel,
-  LoggingMessage,
-  CompletionReference,
-  CompletionArgument,
-  CompletionResult,
+  SamplingMessage,
+  SessionMetrics,
+  SessionState,
+  TaskProgress,
+  TaskResult,
+  TaskState,
+  TextContent,
+  ToolCallMetrics,
+  ToolCallResult,
+  ToolContext,
+  ToolHandler,
+  ToolRegistrationOptions,
+  TransportHealthStatus,
+  TransportType,
 } from './types.js';
 
 // Error handling
 export { ErrorCodes, MCPServerError } from './types.js';
 
 // Server
-import { MCPServer, createMCPServer } from './server.js';
-export { MCPServer, createMCPServer };
-export type { IMCPServer } from './server.js';
+import { createMCPServer, MCPServer } from './server.js';
 
+export type { IMCPServer } from './server.js';
 // Tool Registry
-export { ToolRegistry, createToolRegistry, defineTool } from './tool-registry.js';
+export { createToolRegistry, defineTool, ToolRegistry } from './tool-registry.js';
+export { createMCPServer, MCPServer };
 
 // Session Manager
-import { SessionManager, createSessionManager } from './session-manager.js';
-export { SessionManager, createSessionManager };
-export type { SessionConfig } from './session-manager.js';
+import { createSessionManager, SessionManager } from './session-manager.js';
 
-// Connection Pool
-export { ConnectionPool, createConnectionPool } from './connection-pool.js';
-
-// Resource Registry (MCP 2025-11-25)
-export {
-  ResourceRegistry,
-  createResourceRegistry,
-  createTextResource,
-  createFileResource,
-} from './resource-registry.js';
-export type { ResourceHandler, SubscriptionCallback, ResourceRegistryOptions } from './resource-registry.js';
-
-// Prompt Registry (MCP 2025-11-25)
-export {
-  PromptRegistry,
-  createPromptRegistry,
-  definePrompt,
-  textMessage,
-  resourceMessage,
-  interpolate,
-} from './prompt-registry.js';
-export type { PromptHandler, PromptDefinition, PromptRegistryOptions } from './prompt-registry.js';
-
-// Task Manager (MCP 2025-11-25)
-export { TaskManager, createTaskManager } from './task-manager.js';
-export type { TaskExecutor, TaskManagerOptions } from './task-manager.js';
-
-// Schema Validator
-export {
-  validateSchema,
-  formatValidationErrors,
-  createValidator,
-} from './schema-validator.js';
-export type { ValidationError, ValidationResult } from './schema-validator.js';
-
-// Rate Limiter
-export {
-  RateLimiter,
-  createRateLimiter,
-  rateLimitMiddleware,
-} from './rate-limiter.js';
-export type { RateLimitConfig, RateLimitResult } from './rate-limiter.js';
-
-// Sampling (Server-initiated LLM)
-export {
-  SamplingManager,
-  createSamplingManager,
-  createMockProvider,
-  createAnthropicProvider,
-} from './sampling.js';
-export type { LLMProvider, SamplingConfig, SamplingContext } from './sampling.js';
-
-// OAuth 2.1 (outbound client)
-export {
-  OAuthManager,
-  createOAuthManager,
-  InMemoryTokenStorage,
-  createGitHubOAuthConfig,
-  createGoogleOAuthConfig,
-} from './oauth.js';
-export type {
-  OAuthConfig,
-  OAuthTokens,
-  TokenStorage,
-  AuthorizationRequest,
-} from './oauth.js';
-
+export type { AuthInfo, AuthValidationResult } from './auth.js';
 // Inbound auth middleware
 export {
   authMiddleware,
-  validateCredential,
   timingSafeCompare,
+  validateCredential,
 } from './auth.js';
-export type { AuthInfo, AuthValidationResult } from './auth.js';
 
-// Transport layer
-export {
-  createTransport,
-  createInProcessTransport,
-  TransportManager,
-  createTransportManager,
-  DEFAULT_TRANSPORT_CONFIGS,
-  StdioTransport,
-  HttpTransport,
-  WebSocketTransport,
-} from './transport/index.js';
-
+// Connection Pool
+export { ConnectionPool, createConnectionPool } from './connection-pool.js';
 export type {
-  TransportConfig,
-  StdioTransportConfig,
+  AuthorizationRequest,
+  OAuthConfig,
+  OAuthTokens,
+  TokenStorage,
+} from './oauth.js';
+// OAuth 2.1 (outbound client)
+export {
+  createGitHubOAuthConfig,
+  createGoogleOAuthConfig,
+  createOAuthManager,
+  InMemoryTokenStorage,
+  OAuthManager,
+} from './oauth.js';
+export type { PromptDefinition, PromptHandler, PromptRegistryOptions } from './prompt-registry.js';
+// Prompt Registry (MCP 2025-11-25)
+export {
+  createPromptRegistry,
+  definePrompt,
+  interpolate,
+  PromptRegistry,
+  resourceMessage,
+  textMessage,
+} from './prompt-registry.js';
+export type { RateLimitConfig, RateLimitResult } from './rate-limiter.js';
+// Rate Limiter
+export {
+  createRateLimiter,
+  RateLimiter,
+  rateLimitMiddleware,
+} from './rate-limiter.js';
+export type {
+  ResourceHandler,
+  ResourceRegistryOptions,
+  SubscriptionCallback,
+} from './resource-registry.js';
+// Resource Registry (MCP 2025-11-25)
+export {
+  createFileResource,
+  createResourceRegistry,
+  createTextResource,
+  ResourceRegistry,
+} from './resource-registry.js';
+export type { LLMProvider, SamplingConfig, SamplingContext } from './sampling.js';
+// Sampling (Server-initiated LLM)
+export {
+  createAnthropicProvider,
+  createMockProvider,
+  createSamplingManager,
+  SamplingManager,
+} from './sampling.js';
+export type { ValidationError, ValidationResult } from './schema-validator.js';
+// Schema Validator
+export {
+  createValidator,
+  formatValidationErrors,
+  validateSchema,
+} from './schema-validator.js';
+export type { SessionConfig } from './session-manager.js';
+export type { TaskExecutor, TaskManagerOptions } from './task-manager.js';
+// Task Manager (MCP 2025-11-25)
+export { createTaskManager, TaskManager } from './task-manager.js';
+export type {
   HttpTransportConfig,
+  StdioTransportConfig,
+  TransportConfig,
   WebSocketTransportConfig,
 } from './transport/index.js';
 
+// Transport layer
+export {
+  createInProcessTransport,
+  createTransport,
+  createTransportManager,
+  DEFAULT_TRANSPORT_CONFIGS,
+  HttpTransport,
+  StdioTransport,
+  TransportManager,
+  WebSocketTransport,
+} from './transport/index.js';
+export { createSessionManager, SessionManager };
+
 // Import types for quickStart
-import type { MCPServerConfig, ILogger } from './types.js';
+import type { ILogger, MCPServerConfig } from './types.js';
 
 /**
  * Quick start function to create and configure an MCP server
@@ -235,25 +231,27 @@ import type { MCPServerConfig, ILogger } from './types.js';
  */
 export async function quickStart(
   config: Partial<MCPServerConfig>,
-  logger?: ILogger
+  logger?: ILogger,
 ): Promise<MCPServer> {
   // With stdio transport, stdout is the JSON-RPC protocol channel — the
   // default logger must write everything to stderr or it corrupts the wire
   // (issue #94).
   const isStdio = (config.transport ?? 'stdio') === 'stdio';
-  const defaultLogger: ILogger = logger || (isStdio
-    ? {
-        debug: (msg, data) => console.error(`[DEBUG] ${msg}`, data || ''),
-        info: (msg, data) => console.error(`[INFO] ${msg}`, data || ''),
-        warn: (msg, data) => console.error(`[WARN] ${msg}`, data || ''),
-        error: (msg, data) => console.error(`[ERROR] ${msg}`, data || ''),
-      }
-    : {
-        debug: (msg, data) => console.debug(`[DEBUG] ${msg}`, data || ''),
-        info: (msg, data) => console.info(`[INFO] ${msg}`, data || ''),
-        warn: (msg, data) => console.warn(`[WARN] ${msg}`, data || ''),
-        error: (msg, data) => console.error(`[ERROR] ${msg}`, data || ''),
-      });
+  const defaultLogger: ILogger =
+    logger ||
+    (isStdio
+      ? {
+          debug: (msg, data) => console.error(`[DEBUG] ${msg}`, data || ''),
+          info: (msg, data) => console.error(`[INFO] ${msg}`, data || ''),
+          warn: (msg, data) => console.error(`[WARN] ${msg}`, data || ''),
+          error: (msg, data) => console.error(`[ERROR] ${msg}`, data || ''),
+        }
+      : {
+          debug: (msg, data) => console.debug(`[DEBUG] ${msg}`, data || ''),
+          info: (msg, data) => console.info(`[INFO] ${msg}`, data || ''),
+          warn: (msg, data) => console.warn(`[WARN] ${msg}`, data || ''),
+          error: (msg, data) => console.error(`[ERROR] ${msg}`, data || ''),
+        });
 
   const server = createMCPServer(config, defaultLogger);
 

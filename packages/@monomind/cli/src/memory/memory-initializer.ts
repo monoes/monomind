@@ -9,18 +9,18 @@
  * @module v1/cli/memory-initializer
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { withDbLock } from '../utils/db-mutex.js';
 import { secureDbFilePermissions } from './file-permissions.js';
+import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
 
 // Lazy import of SQLite-backed memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
-async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
+async function _getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
   if (_bridge === null) return null;
   if (_bridge) return _bridge;
   try {
@@ -36,63 +36,53 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
 // Re-exports from extracted modules (ARCH-4)
 // ============================================================================
 
-export { MEMORY_SCHEMA } from './memory-schema.js';
-
 export {
-  quantizeInt8,
-  dequantizeInt8,
-  quantizedCosineSim,
-  getQuantizationStats,
-  batchCosineSim,
-  softmaxAttention,
-  topKIndices,
-  flashAttentionSearch,
-} from './hnsw-operations.js';
-export {
-  bridgeGetHNSWStatus as getHNSWStatus,
-  bridgeForceBuildHNSW as forceBuildHNSWIndex,
-} from './memory-bridge.js';
-
-export {
-  ensureSchemaColumns,
-} from './memory-migrations.js';
-
-export {
-  loadEmbeddingModel,
-  generateEmbedding,
   generateBatchEmbeddings,
+  generateEmbedding,
   generateHashEmbedding,
+  loadEmbeddingModel,
 } from './embedding-operations.js';
 
 export {
-  verifyMemoryInit,
-  storeEntry,
-  searchEntries,
-  listEntries,
-  getEntry,
+  batchCosineSim,
+  dequantizeInt8,
+  flashAttentionSearch,
+  getQuantizationStats,
+  quantizedCosineSim,
+  quantizeInt8,
+  softmaxAttention,
+  topKIndices,
+} from './hnsw-operations.js';
+export {
+  bridgeForceBuildHNSW as forceBuildHNSWIndex,
+  bridgeGetHNSWStatus as getHNSWStatus,
+} from './memory-bridge.js';
+export {
   deleteEntry,
+  getEntry,
+  listEntries,
+  searchEntries,
+  storeEntry,
+  verifyMemoryInit,
 } from './memory-crud.js';
+export { ensureSchemaColumns } from './memory-migrations.js';
+export { MEMORY_SCHEMA } from './memory-schema.js';
 
 // ============================================================================
 // Local imports for use in this file
 // ============================================================================
 
-import { MEMORY_SCHEMA } from './memory-schema.js';
-import { ensureSchemaColumns } from './memory-migrations.js';
+import { generateEmbedding, loadEmbeddingModel } from './embedding-operations.js';
 import {
-  verifyMemoryInit,
-  storeEntry,
-  searchEntries,
-  listEntries,
-  getEntry,
   deleteEntry,
+  getEntry,
+  listEntries,
+  searchEntries,
+  storeEntry,
+  verifyMemoryInit,
 } from './memory-crud.js';
-import {
-  loadEmbeddingModel,
-  generateEmbedding,
-  generateBatchEmbeddings,
-  generateHashEmbedding,
-} from './embedding-operations.js';
+import { ensureSchemaColumns } from './memory-migrations.js';
+import { MEMORY_SCHEMA } from './memory-schema.js';
 
 // ============================================================================
 // METADATA AND INITIALIZATION
@@ -148,7 +138,6 @@ export interface MemoryInitResult {
   error?: string;
 }
 
-
 /**
  * Initialize the memory database properly using sql.js
  */
@@ -158,12 +147,7 @@ export async function initializeMemoryDatabase(options: {
   force?: boolean;
   verbose?: boolean;
 }): Promise<MemoryInitResult> {
-  const {
-    backend = 'hybrid',
-    dbPath: customPath,
-    force = false,
-    verbose = false,
-  } = options;
+  const { backend = 'hybrid', dbPath: customPath, force = false, verbose = false } = options;
 
   const swarmDir = path.join(process.cwd(), '.swarm');
   const dbPath = customPath || path.join(swarmDir, 'memory.db');
@@ -189,9 +173,9 @@ export async function initializeMemoryDatabase(options: {
           patternLearning: false,
           temporalDecay: false,
           hnswIndexing: false,
-          migrationTracking: false
+          migrationTracking: false,
         },
-        error: 'Database already exists. Use --force to reinitialize.'
+        error: 'Database already exists. Use --force to reinitialize.',
       };
     }
 
@@ -211,7 +195,7 @@ export async function initializeMemoryDatabase(options: {
 
       db = new SQL.Database();
       usedSqlJs = true;
-    } catch (e) {
+    } catch (_e) {
       // sql.js not available, fall back to writing schema file
       if (verbose) {
         console.log('sql.js not available, writing schema file for later initialization');
@@ -229,7 +213,7 @@ export async function initializeMemoryDatabase(options: {
       // the SQLite file if the process crashes mid-write. tmp+rename is atomic on POSIX.
       const data = db.export();
       const buffer = Buffer.from(data);
-      const dbTmp = dbPath + '.tmp';
+      const dbTmp = `${dbPath}.tmp`;
       fs.writeFileSync(dbTmp, buffer);
       fs.renameSync(dbTmp, dbPath);
       secureDbFilePermissions(dbPath);
@@ -239,8 +223,8 @@ export async function initializeMemoryDatabase(options: {
 
       // Also create schema file for reference (atomic)
       const schemaPath = path.join(dbDir, 'schema.sql');
-      const schemaTmp = schemaPath + '.tmp';
-      fs.writeFileSync(schemaTmp, MEMORY_SCHEMA + '\n' + getInitialMetadata(backend));
+      const schemaTmp = `${schemaPath}.tmp`;
+      fs.writeFileSync(schemaTmp, `${MEMORY_SCHEMA}\n${getInitialMetadata(backend)}`);
       fs.renameSync(schemaTmp, schemaPath);
 
       return {
@@ -257,7 +241,7 @@ export async function initializeMemoryDatabase(options: {
           'migration_state',
           'sessions',
           'vector_indexes',
-          'metadata'
+          'metadata',
         ],
         indexesCreated: [
           'idx_memory_namespace',
@@ -272,14 +256,14 @@ export async function initializeMemoryDatabase(options: {
           'idx_patterns_status',
           'idx_patterns_last_matched',
           'idx_pattern_history_pattern',
-          'idx_steps_trajectory'
+          'idx_steps_trajectory',
         ],
         features: {
           vectorEmbeddings: true,
           patternLearning: true,
           temporalDecay: true,
           hnswIndexing: true,
-          migrationTracking: true
+          migrationTracking: true,
         },
       };
     } else {
@@ -291,7 +275,9 @@ export async function initializeMemoryDatabase(options: {
       // with a clear error so the caller can either install sql.js, switch
       // to the native backend, or skip memory entirely.
       if (verbose) {
-        console.error('[memory-initializer] sql.js is not installed and the native @monoes/memory backend is unavailable; refusing to write a fake SQLite header. Install sql.js (npm install sql.js) or @monoes/memory to enable memory.');
+        console.error(
+          '[memory-initializer] sql.js is not installed and the native @monoes/memory backend is unavailable; refusing to write a fake SQLite header. Install sql.js (npm install sql.js) or @monoes/memory to enable memory.',
+        );
       }
       return {
         success: false,
@@ -305,9 +291,10 @@ export async function initializeMemoryDatabase(options: {
           patternLearning: false,
           temporalDecay: false,
           hnswIndexing: false,
-          migrationTracking: false
+          migrationTracking: false,
         },
-        error: 'sql.js is not installed and the native @monoes/memory backend is unavailable. Install one of them to enable persistent memory; refusing to write a placeholder SQLite file.'
+        error:
+          'sql.js is not installed and the native @monoes/memory backend is unavailable. Install one of them to enable persistent memory; refusing to write a placeholder SQLite file.',
       };
     }
   } catch (error) {
@@ -323,9 +310,9 @@ export async function initializeMemoryDatabase(options: {
         patternLearning: false,
         temporalDecay: false,
         hnswIndexing: false,
-        migrationTracking: false
+        migrationTracking: false,
       },
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -367,17 +354,17 @@ export async function checkMemoryInitialization(dbPath?: string): Promise<{
 
     // Check for metadata table
     const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
-    const tableNames = tables[0]?.values?.map(v => v[0] as string) || [];
+    const tableNames = tables[0]?.values?.map((v) => v[0] as string) || [];
 
     // Get version
     let version = 'unknown';
     let backend = 'unknown';
     try {
       const versionResult = db.exec("SELECT value FROM metadata WHERE key='schema_version'");
-      version = versionResult[0]?.values[0]?.[0] as string || 'unknown';
+      version = (versionResult[0]?.values[0]?.[0] as string) || 'unknown';
 
       const backendResult = db.exec("SELECT value FROM metadata WHERE key='backend'");
-      backend = backendResult[0]?.values[0]?.[0] as string || 'unknown';
+      backend = (backendResult[0]?.values[0]?.[0] as string) || 'unknown';
     } catch {
       // Metadata table might not exist
     }
@@ -391,9 +378,9 @@ export async function checkMemoryInitialization(dbPath?: string): Promise<{
       features: {
         vectorEmbeddings: tableNames.includes('vector_indexes'),
         patternLearning: tableNames.includes('patterns'),
-        temporalDecay: tableNames.includes('pattern_history')
+        temporalDecay: tableNames.includes('pattern_history'),
       },
-      tables: tableNames
+      tables: tableNames,
     };
   } catch {
     // Could not read database
@@ -415,23 +402,27 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 
   try {
     return await withDbLock(path_, async () => {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    const decayStat = fs.statSync(path_);
-    if (decayStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, patternsDecayed: 0, error: `Database file too large: ${decayStat.size} bytes` };
-    }
+      const decayStat = fs.statSync(path_);
+      if (decayStat.size > MAX_DB_FILE_BYTES) {
+        return {
+          success: false,
+          patternsDecayed: 0,
+          error: `Database file too large: ${decayStat.size} bytes`,
+        };
+      }
 
-    const fileBuffer = fs.readFileSync(path_);
-    const db = new SQL.Database(fileBuffer);
+      const fileBuffer = fs.readFileSync(path_);
+      const db = new SQL.Database(fileBuffer);
 
-    const now = Date.now();
-    // #87: the decay formula is linear (`confidence * (1 - rate * days)`), which
-    // goes negative after ~20 days at the default rate 0.05 — downstream code
-    // rejects confidence outside [0,1], so stale patterns silently vanished.
-    // Clamp at 0.0 so confidence decays to zero instead of wrapping negative.
-    const decayQuery = `
+      const now = Date.now();
+      // #87: the decay formula is linear (`confidence * (1 - rate * days)`), which
+      // goes negative after ~20 days at the default rate 0.05 — downstream code
+      // rejects confidence outside [0,1], so stale patterns silently vanished.
+      // Clamp at 0.0 so confidence decays to zero instead of wrapping negative.
+      const decayQuery = `
       UPDATE patterns
       SET
         confidence = MAX(0.0, confidence * (1.0 - decay_rate * ((? - COALESCE(last_matched_at, created_at)) / 86400000.0))),
@@ -441,27 +432,27 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
         AND (? - COALESCE(last_matched_at, created_at)) > 86400000
     `;
 
-    db.run(decayQuery, [now, now, now]);
+      db.run(decayQuery, [now, now, now]);
 
-    const changes = db.getRowsModified();
+      const changes = db.getRowsModified();
 
-    const data = db.export();
-    const dbTmpDecay = path_ + '.tmp';
-    fs.writeFileSync(dbTmpDecay, Buffer.from(data));
-    fs.renameSync(dbTmpDecay, path_);
-    secureDbFilePermissions(path_);
-    db.close();
+      const data = db.export();
+      const dbTmpDecay = `${path_}.tmp`;
+      fs.writeFileSync(dbTmpDecay, Buffer.from(data));
+      fs.renameSync(dbTmpDecay, path_);
+      secureDbFilePermissions(path_);
+      db.close();
 
-    return {
-      success: true,
-      patternsDecayed: changes
-    };
+      return {
+        success: true,
+        patternsDecayed: changes,
+      };
     });
   } catch (error) {
     return {
       success: false,
       patternsDecayed: 0,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -480,5 +471,5 @@ export default {
   getEntry,
   deleteEntry,
   MEMORY_SCHEMA,
-  getInitialMetadata
+  getInitialMetadata,
 };

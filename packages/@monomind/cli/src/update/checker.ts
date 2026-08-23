@@ -3,23 +3,27 @@
  * Queries npm registry and compares versions
  */
 
-import { createRequire } from 'module';
-import { execFileSync } from 'child_process';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { npmCommand } from '../utils/npm-command.js';
+
 // Inline semver shim — avoids external dependency
 const semver = {
-  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+  valid: (v: string | null | undefined): string | null =>
+    /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
   eq: (a: string, b: string): boolean => a === b,
   major: (v: string): number => parseInt((v || '0').split('.')[0], 10),
   minor: (v: string): number => parseInt((v || '0').split('.')[1] || '0', 10),
-  patch: (v: string): number => parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
+  patch: (v: string): number =>
+    parseInt(((v || '0').split('.')[2] || '0').replace(/[^0-9].*/, ''), 10),
   gt: (a: string, b: string): boolean => {
-    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
-    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map((n) => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map((n) => parseInt(n, 10) || 0);
     return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
   },
 };
-import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
+
+import { getCachedVersions, recordCheck, reserveCheck } from './rate-limiter.js';
 
 const require = createRequire(import.meta.url);
 
@@ -56,7 +60,7 @@ const DEFAULT_CONFIG: UpdateConfig = {
   priority: {
     'monofence-ai': 'critical',
     '@monoes/monomindcli': 'high',
-    'monomind': 'high',
+    monomind: 'high',
     '@monoes/monograph': 'normal',
     '@monoes/memory': 'normal',
     '@monoes/monodesign': 'low',
@@ -102,13 +106,10 @@ const MAX_REGISTRY_RESPONSE_BYTES = 5 * 1024 * 1024; // 5 MB
 async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | null> {
   if (!isValidNpmName(packageName)) return null;
   try {
-    const response = await fetch(
-      `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
-      {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(5000),
-      }
-    );
+    const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
 
     if (!response.ok) {
       return null;
@@ -143,7 +144,10 @@ async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | n
     }
     const buf = new Uint8Array(totalBytes);
     let offset = 0;
-    for (const chunk of chunks) { buf.set(chunk, offset); offset += chunk.byteLength; }
+    for (const chunk of chunks) {
+      buf.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
     const text = new TextDecoder('utf-8').decode(buf);
     return JSON.parse(text) as NpmPackageInfo;
   } catch {
@@ -151,10 +155,7 @@ async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | n
   }
 }
 
-function getUpdateType(
-  current: string,
-  latest: string
-): 'major' | 'minor' | 'patch' | 'none' {
+function getUpdateType(current: string, latest: string): 'major' | 'minor' | 'patch' | 'none' {
   if (!semver.valid(current) || !semver.valid(latest)) {
     return 'none';
   }
@@ -178,7 +179,7 @@ function getUpdateType(
 function shouldAutoUpdate(
   updateType: 'major' | 'minor' | 'patch' | 'none',
   priority: 'critical' | 'high' | 'normal' | 'low',
-  config: UpdateConfig
+  config: UpdateConfig,
 ): boolean {
   if (updateType === 'none') return false;
 
@@ -203,7 +204,9 @@ export function getInstalledVersion(packageName: string): string | null {
       const resolved = require.resolve(`${packageName}/package.json`);
       const pkg = require(resolved);
       if (pkg.version) return pkg.version;
-    } catch { /* not on default paths */ }
+    } catch {
+      /* not on default paths */
+    }
 
     // Attempt 2: resolve from cwd (monorepo / workspace installs)
     const cwdPaths = [
@@ -216,17 +219,22 @@ export function getInstalledVersion(packageName: string): string | null {
         const resolved = require.resolve(modulePath, { paths: [process.cwd()] });
         const pkg = require(resolved);
         if (pkg.version) return pkg.version;
-      } catch { continue; }
+      } catch {}
     }
 
     // Attempt 3: npm global prefix (covers `npm i -g monomind`)
     try {
-      const prefix = execFileSync(npmCommand(), ['prefix', '-g'], { encoding: 'utf8', timeout: 3000 }).trim();
+      const prefix = execFileSync(npmCommand(), ['prefix', '-g'], {
+        encoding: 'utf8',
+        timeout: 3000,
+      }).trim();
       const globalPkg = require(
-        require.resolve(`${packageName}/package.json`, { paths: [`${prefix}/lib/node_modules`] })
+        require.resolve(`${packageName}/package.json`, { paths: [`${prefix}/lib/node_modules`] }),
       );
       if (globalPkg.version) return globalPkg.version;
-    } catch { /* no global install or npm unavailable */ }
+    } catch {
+      /* no global install or npm unavailable */
+    }
 
     return null;
   } catch {
@@ -235,7 +243,7 @@ export function getInstalledVersion(packageName: string): string | null {
 }
 
 export async function checkForUpdates(
-  config: UpdateConfig = DEFAULT_CONFIG
+  config: UpdateConfig = DEFAULT_CONFIG,
 ): Promise<{ results: UpdateCheckResult[]; skipped: boolean; reason?: string }> {
   // Check rate limit and atomically reserve this check slot
   const rateCheck = reserveCheck(config.checkIntervalHours);
@@ -256,9 +264,7 @@ export async function checkForUpdates(
   const versionCache: Record<string, string> = {};
 
   // Check each package
-  const packagesToCheck = MONOMIND_PACKAGES.filter(
-    (pkg) => !config.exclude.includes(pkg)
-  );
+  const packagesToCheck = MONOMIND_PACKAGES.filter((pkg) => !config.exclude.includes(pkg));
 
   // Sort by priority (critical first)
   const priorityOrder = { critical: 0, high: 1, normal: 2, low: 3 };
@@ -299,7 +305,7 @@ export async function checkForUpdates(
         priority,
         shouldAutoUpdate: shouldAutoUpdate(updateType, priority, config),
       });
-    })
+    }),
   );
 
   // Record this check
@@ -313,7 +319,7 @@ export async function checkForUpdates(
 
 export async function checkSinglePackage(
   packageName: string,
-  config: UpdateConfig = DEFAULT_CONFIG
+  config: UpdateConfig = DEFAULT_CONFIG,
 ): Promise<UpdateCheckResult | null> {
   if (!isValidNpmName(packageName)) return null;
   const currentVersion = getInstalledVersion(packageName);

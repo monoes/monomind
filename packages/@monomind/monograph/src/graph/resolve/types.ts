@@ -75,7 +75,16 @@ export interface ResolveContext {
   extraConditions: string[];
 }
 
-export const OUTPUT_DIRS = ['dist', 'build', 'out', 'esm', 'cjs', '.next', '.nuxt', '.svelte-kit'] as const;
+export const OUTPUT_DIRS = [
+  'dist',
+  'build',
+  'out',
+  'esm',
+  'cjs',
+  '.next',
+  '.nuxt',
+  '.svelte-kit',
+] as const;
 
 export const SOURCE_EXTS = ['ts', 'tsx', 'mts', 'cts', 'js', 'jsx', 'mjs', 'cjs'] as const;
 
@@ -84,9 +93,7 @@ export const RN_PLATFORM_PREFIXES = ['.web', '.ios', '.android', '.native'] as c
 export function getOrBuildCanonicalMap(fallback: CanonicalFallback): Map<string, FileId> {
   if (!fallback.map) {
     fallback.map = new Map(
-      fallback.files
-        .filter(f => f.canonicalPath)
-        .map(f => [f.canonicalPath!, f.fileId])
+      fallback.files.filter((f) => f.canonicalPath).map((f) => [f.canonicalPath!, f.fileId]),
     );
   }
   return fallback.map;

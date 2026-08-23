@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * ua-enrich.mjs — Option C
  *
@@ -28,26 +29,26 @@
  *   UA_PLUGIN_DIR  Override path to understand-anything-plugin directory
  */
 
-import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync } from 'fs';
-import { resolve, join, dirname, basename, relative, isAbsolute } from 'path';
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import { execSync, spawnSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const CWD   = process.cwd();
+const CWD = process.cwd();
 
 // ── Parse CLI args ───────────────────────────────────────────────────────────
 function arg(name) {
-  const i = process.argv.indexOf('--' + name);
+  const i = process.argv.indexOf(`--${name}`);
   return i !== -1 ? process.argv[i + 1] : null;
 }
-const hasFlag = (f) => process.argv.includes('--' + f);
+const hasFlag = (f) => process.argv.includes(`--${f}`);
 
-const projectDir  = resolve(arg('dir') || CWD);
+const projectDir = resolve(arg('dir') || CWD);
 const changedFile = arg('file') ? resolve(arg('file')) : null;
-const dbPath      = resolve(arg('db') || join(projectDir, '.monomind', 'monograph.db'));
-const fullScan    = hasFlag('full');
+const dbPath = resolve(arg('db') || join(projectDir, '.monomind', 'monograph.db'));
+const fullScan = hasFlag('full');
 
 // ── Locate Understand-Anything plugin ───────────────────────────────────────
 function findUAPlugin() {
@@ -57,7 +58,13 @@ function findUAPlugin() {
   // Common sibling locations relative to the monomind root
   const candidates = [
     join(__dir, '..', '..', 'knowledgegraph', 'Understand-Anything', 'understand-anything-plugin'),
-    join(dirname(__dir), '..', 'knowledgegraph', 'Understand-Anything', 'understand-anything-plugin'),
+    join(
+      dirname(__dir),
+      '..',
+      'knowledgegraph',
+      'Understand-Anything',
+      'understand-anything-plugin',
+    ),
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
@@ -86,9 +93,13 @@ function requireMonograph() {
     join(CWD, 'node_modules/@monoes/monograph'),
   ];
   for (const c of candidates) {
-    try { if (existsSync(c)) return require(c); } catch {}
+    try {
+      if (existsSync(c)) return require(c);
+    } catch {}
   }
-  try { return require('@monoes/monograph'); } catch {}
+  try {
+    return require('@monoes/monograph');
+  } catch {}
   throw new Error('Cannot find @monoes/monograph');
 }
 
@@ -132,13 +143,16 @@ async function main() {
       const importScript = join(__dir, 'ua-import.mjs');
       if (existsSync(importScript)) {
         const result = spawnSync(process.execPath, [importScript, existingGraph, dbPath], {
-          stdio: 'inherit', cwd: CWD,
+          stdio: 'inherit',
+          cwd: CWD,
         });
         process.exit(result.status ?? 0);
       }
       console.log('[UA-ENRICH] ua-import.mjs not found — continuing with direct enrichment');
     } else {
-      console.log(`[UA-ENRICH] graph.json is ${ageHours.toFixed(0)}h old — will re-enrich from DB only`);
+      console.log(
+        `[UA-ENRICH] graph.json is ${ageHours.toFixed(0)}h old — will re-enrich from DB only`,
+      );
     }
   }
 
@@ -157,28 +171,35 @@ async function main() {
       });
       if (result.stdout) {
         let extracted;
-        try { extracted = JSON.parse(result.stdout); } catch { extracted = null; }
-        if (extracted && extracted.functions) {
+        try {
+          extracted = JSON.parse(result.stdout);
+        } catch {
+          extracted = null;
+        }
+        if (extracted?.functions) {
           // Write extracted structural data back into the node's properties
-          const normPath = changedFile.startsWith(projectDir)
+          const _normPath = changedFile.startsWith(projectDir)
             ? changedFile.slice(projectDir.length + 1)
             : changedFile;
-          const row = db.prepare("SELECT id, properties FROM nodes WHERE file_path LIKE ? LIMIT 1")
-            .get('%' + basename(changedFile));
+          const row = db
+            .prepare('SELECT id, properties FROM nodes WHERE file_path LIKE ? LIMIT 1')
+            .get(`%${basename(changedFile)}`);
           if (row) {
             const existing = row.properties ? JSON.parse(row.properties) : {};
             const merged = {
               ...existing,
               ua_extracted: {
-                functions:  extracted.functions?.length ?? 0,
-                classes:    extracted.classes?.length ?? 0,
-                imports:    extracted.imports?.length ?? 0,
-                exports:    extracted.exports?.length ?? 0,
-                updatedAt:  new Date().toISOString(),
+                functions: extracted.functions?.length ?? 0,
+                classes: extracted.classes?.length ?? 0,
+                imports: extracted.imports?.length ?? 0,
+                exports: extracted.exports?.length ?? 0,
+                updatedAt: new Date().toISOString(),
               },
             };
-            db.prepare("UPDATE nodes SET properties = ? WHERE id = ?")
-              .run(JSON.stringify(merged), row.id);
+            db.prepare('UPDATE nodes SET properties = ? WHERE id = ?').run(
+              JSON.stringify(merged),
+              row.id,
+            );
             console.log(`[UA-ENRICH] Updated structural data for ${row.id}`);
           }
         }
@@ -188,15 +209,17 @@ async function main() {
     }
   } else if (!extractScript) {
     console.log('[UA-ENRICH] UA extract script not found — skipping deterministic extraction');
-    console.log('[UA-ENRICH] Set UA_PLUGIN_DIR env var or place Understand-Anything beside monomind');
+    console.log(
+      '[UA-ENRICH] Set UA_PLUGIN_DIR env var or place Understand-Anything beside monomind',
+    );
   }
 
   // ── Phase 3: Propagate existing UA summaries to FTS ───────────────────────
   // If nodes have ua_type/summary in properties but FTS is stale, rebuild it.
   try {
-    const enrichedCount = db.prepare(
-      `SELECT COUNT(*) AS c FROM nodes WHERE properties LIKE '%ua_type%'`
-    ).get().c;
+    const enrichedCount = db
+      .prepare(`SELECT COUNT(*) AS c FROM nodes WHERE properties LIKE '%ua_type%'`)
+      .get().c;
     if (enrichedCount > 0) {
       console.log(`[UA-ENRICH] ${enrichedCount} UA-enriched nodes in DB`);
       db.prepare(`INSERT INTO nodes_fts(nodes_fts) VALUES('rebuild')`).run();
@@ -204,19 +227,31 @@ async function main() {
     } else {
       console.log('[UA-ENRICH] No UA enrichment data yet — run ua-import.mjs after /understand');
     }
-  } catch { /* FTS may not exist */ }
+  } catch {
+    /* FTS may not exist */
+  }
 
   // ── Phase 4: Write enrichment status to .monomind/ ────────────────────────
   try {
     const statusPath = join(projectDir, '.monomind', 'ua-enrich-status.json');
-    const relFile = changedFile && isAbsolute(changedFile) ? relative(projectDir, changedFile) : (changedFile || null);
-    writeFileSync(statusPath, JSON.stringify({
-      lastRun: new Date().toISOString(),
-      mode: changedFile ? 'incremental' : 'full',
-      file: relFile,
-      pluginFound: !!pluginDir,
-      graphFound: !!existingGraph,
-    }, null, 2));
+    const relFile =
+      changedFile && isAbsolute(changedFile)
+        ? relative(projectDir, changedFile)
+        : changedFile || null;
+    writeFileSync(
+      statusPath,
+      JSON.stringify(
+        {
+          lastRun: new Date().toISOString(),
+          mode: changedFile ? 'incremental' : 'full',
+          file: relFile,
+          pluginFound: !!pluginDir,
+          graphFound: !!existingGraph,
+        },
+        null,
+        2,
+      ),
+    );
   } catch {}
 
   mg.closeDb(db);

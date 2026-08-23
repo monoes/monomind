@@ -8,17 +8,16 @@
  * is safe. These tests pin that contract, so a future switch to throwing is a
  * deliberate change with visibly failing tests rather than a silent one.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const MCP_WARN = /^\[mcp\] tool /;
 
 function mcpWarnings(spy: { mock: { calls: unknown[][] } }): string[] {
-  return spy.mock.calls
-    .map(args => String(args[0]))
-    .filter(msg => MCP_WARN.test(msg));
+  return spy.mock.calls.map((args) => String(args[0])).filter((msg) => MCP_WARN.test(msg));
 }
 
 describe('MCP inputSchema type checking (warn-only)', () => {
@@ -77,7 +76,7 @@ describe('MCP inputSchema type checking (warn-only)', () => {
     expect(mcpWarnings(errSpy)).toEqual([]);
   });
 
-  it('is silent for an explicit undefined or null (that is `required`\'s job)', async () => {
+  it("is silent for an explicit undefined or null (that is `required`'s job)", async () => {
     const { callMCPTool } = await import('../mcp-client.js');
     await callMCPTool('agent_list', { status: undefined, domain: null });
     expect(mcpWarnings(errSpy)).toEqual([]);

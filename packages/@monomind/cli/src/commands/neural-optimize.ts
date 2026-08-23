@@ -2,8 +2,8 @@
  * Neural optimize and export commands
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { redact } from '../utils/redaction.js';
 
 // ─── optimize subcommand ─────────────────────────────────────────────────────
@@ -12,28 +12,44 @@ export const optimizeCommand: Command = {
   name: 'optimize',
   description: 'Optimize pattern storage (memory compression, usage analysis)',
   options: [
-    { name: 'method', type: 'string', description: 'Method: analyze, compact, quantize (alias for compact — no real quantization exists for JSON-backed storage)', default: 'compact' },
+    {
+      name: 'method',
+      type: 'string',
+      description:
+        'Method: analyze, compact, quantize (alias for compact — no real quantization exists for JSON-backed storage)',
+      default: 'compact',
+    },
     { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
   ],
   examples: [
-    { command: 'monomind hooks intelligence optimize --method compact', description: 'Remove near-duplicate patterns' },
-    { command: 'monomind hooks intelligence optimize --method analyze -v', description: 'Analyze memory usage' },
+    {
+      command: 'monomind hooks intelligence optimize --method compact',
+      description: 'Remove near-duplicate patterns',
+    },
+    {
+      command: 'monomind hooks intelligence optimize --method analyze -v',
+      description: 'Analyze memory usage',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const method = ctx.flags.method as string || 'compact';
+    const method = (ctx.flags.method as string) || 'compact';
     const verbose = ctx.flags.verbose === true;
 
     output.writeln();
     output.writeln(output.bold('Pattern Optimization (Real)'));
     output.writeln(output.dim('─'.repeat(50)));
 
-    const spinner = output.createSpinner({ text: `Running ${method} optimization...`, spinner: 'dots' });
+    const spinner = output.createSpinner({
+      text: `Running ${method} optimization...`,
+      spinner: 'dots',
+    });
     spinner.start();
 
     try {
-      const { initializeIntelligence, getIntelligenceStats, getAllPatterns, compactPatterns } = await import('../memory/intelligence.js');
-      const fs = await import('fs');
-      const path = await import('path');
+      const { initializeIntelligence, getIntelligenceStats, getAllPatterns, compactPatterns } =
+        await import('../memory/intelligence.js');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
 
       await initializeIntelligence();
       const patterns = await getAllPatterns();
@@ -44,14 +60,20 @@ export const optimizeCommand: Command = {
       try {
         const patternFile = path.join(patternDir, 'patterns.json');
         if (fs.existsSync(patternFile)) beforeSize = fs.statSync(patternFile).size;
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       if (method === 'quantize') {
         // There is no real Int8 quantization path for the JSON-backed pattern
         // store: values round-trip through JSON as floats regardless of how
         // they're rounded in memory, so no bytes are actually saved on disk.
         // 'quantize' is an alias for 'compact', the closest real optimization.
-        output.writeln(output.dim('  No quantization exists for JSON-backed pattern storage — running compact instead.'));
+        output.writeln(
+          output.dim(
+            '  No quantization exists for JSON-backed pattern storage — running compact instead.',
+          ),
+        );
         spinner.setText('Compacting pattern storage...');
         const compacted = await compactPatterns(0.95);
         spinner.succeed(`Compacted ${compacted.removed} patterns`);
@@ -68,13 +90,15 @@ export const optimizeCommand: Command = {
             { metric: 'Similarity Threshold', value: '95%' },
           ],
         });
-
       } else if (method === 'analyze') {
         spinner.succeed('Analysis complete');
         output.writeln();
         output.writeln(output.bold('Pattern Memory Analysis'));
 
-        const embeddingBytes = patterns.reduce((sum: number, p: { embedding?: number[] }) => sum + (p.embedding?.length || 0) * 4, 0);
+        const embeddingBytes = patterns.reduce(
+          (sum: number, p: { embedding?: number[] }) => sum + (p.embedding?.length || 0) * 4,
+          0,
+        );
         const metadataEstimate = patterns.length * 100;
 
         output.printTable({
@@ -84,10 +108,26 @@ export const optimizeCommand: Command = {
             { key: 'count', header: 'Count', width: 12 },
           ],
           data: [
-            { component: 'Pattern Embeddings (F32)', size: `${(embeddingBytes / 1024).toFixed(1)} KB`, count: String(patterns.length) },
-            { component: 'Pattern Metadata', size: `${(metadataEstimate / 1024).toFixed(1)} KB`, count: '-' },
-            { component: 'Total In-Memory', size: `${((embeddingBytes + metadataEstimate) / 1024).toFixed(1)} KB`, count: '-' },
-            { component: 'Storage (patterns.json)', size: `${(beforeSize / 1024).toFixed(1)} KB`, count: '-' },
+            {
+              component: 'Pattern Embeddings (F32)',
+              size: `${(embeddingBytes / 1024).toFixed(1)} KB`,
+              count: String(patterns.length),
+            },
+            {
+              component: 'Pattern Metadata',
+              size: `${(metadataEstimate / 1024).toFixed(1)} KB`,
+              count: '-',
+            },
+            {
+              component: 'Total In-Memory',
+              size: `${((embeddingBytes + metadataEstimate) / 1024).toFixed(1)} KB`,
+              count: '-',
+            },
+            {
+              component: 'Storage (patterns.json)',
+              size: `${(beforeSize / 1024).toFixed(1)} KB`,
+              count: '-',
+            },
             { component: 'Trajectories', size: '-', count: String(stats.trajectoriesRecorded) },
           ],
         });
@@ -97,12 +137,14 @@ export const optimizeCommand: Command = {
           output.writeln(output.bold('Optimization Recommendations'));
           const recommendations: string[] = [];
           if (patterns.length > 1000) recommendations.push('- Consider pruning low-usage patterns');
-          if (embeddingBytes > 1024 * 1024) recommendations.push('- Run --method compact to remove near-duplicate patterns');
-          if (stats.trajectoriesRecorded > 100) recommendations.push('- Trajectory consolidation available');
-          if (recommendations.length === 0) recommendations.push('- Patterns are already well optimized');
-          recommendations.forEach(r => output.writeln(r));
+          if (embeddingBytes > 1024 * 1024)
+            recommendations.push('- Run --method compact to remove near-duplicate patterns');
+          if (stats.trajectoriesRecorded > 100)
+            recommendations.push('- Trajectory consolidation available');
+          if (recommendations.length === 0)
+            recommendations.push('- Patterns are already well optimized');
+          recommendations.forEach((r) => output.writeln(r));
         }
-
       } else if (method === 'compact') {
         spinner.setText('Compacting pattern storage...');
         const compacted = await compactPatterns(0.95);
@@ -139,15 +181,29 @@ export const exportCommand: Command = {
   options: [
     { name: 'model', short: 'm', type: 'string', description: 'Model ID or category to export' },
     { name: 'output', short: 'o', type: 'string', description: 'Output file path (optional)' },
-    { name: 'sign', short: 's', type: 'boolean', description: 'Sign with Ed25519 key', default: 'true' },
-    { name: 'strip-pii', type: 'boolean', description: 'Strip potential PII from export', default: 'true' },
+    {
+      name: 'sign',
+      short: 's',
+      type: 'boolean',
+      description: 'Sign with Ed25519 key',
+      default: 'true',
+    },
+    {
+      name: 'strip-pii',
+      type: 'boolean',
+      description: 'Strip potential PII from export',
+      default: 'true',
+    },
     { name: 'name', short: 'n', type: 'string', description: 'Custom name for exported model' },
   ],
   examples: [
-    { command: 'monomind hooks intelligence export -m code-review -o ./export.json', description: 'Export to file' },
+    {
+      command: 'monomind hooks intelligence export -m code-review -o ./export.json',
+      description: 'Export to file',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const modelId = ctx.flags.model as string || 'all';
+    const modelId = (ctx.flags.model as string) || 'all';
     const outputFile = ctx.flags.output as string | undefined;
     const signExport = ctx.flags.sign !== false;
     const stripPii = ctx.flags['strip-pii'] !== false;
@@ -161,9 +217,9 @@ export const exportCommand: Command = {
     spinner.start();
 
     try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const crypto = await import('crypto');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const crypto = await import('node:crypto');
 
       spinner.setText('Collecting stored patterns...');
       const { getIntelligenceStats, flushPatterns } = await import('../memory/intelligence.js');
@@ -178,7 +234,13 @@ export const exportCommand: Command = {
         name: customName || `monomind-model-${Date.now()}`,
         exportedAt: new Date().toISOString(),
         modelId,
-        patterns: [] as Array<{ id: string; trigger: string; action: string; confidence: number; usageCount: number }>,
+        patterns: [] as Array<{
+          id: string;
+          trigger: string;
+          action: string;
+          confidence: number;
+          usageCount: number;
+        }>,
         metadata: {
           sourceVersion: '3.0.0-alpha',
           piiStripped: stripPii,
@@ -233,8 +295,12 @@ export const exportCommand: Command = {
         }
       }
 
-      exportData.metadata.accuracy = (stats as { retrievalPrecision?: number }).retrievalPrecision ?? 0;
-      exportData.metadata.totalUsage = exportData.patterns.reduce((sum, p) => sum + p.usageCount, 0);
+      exportData.metadata.accuracy =
+        (stats as { retrievalPrecision?: number }).retrievalPrecision ?? 0;
+      exportData.metadata.totalUsage = exportData.patterns.reduce(
+        (sum, p) => sum + p.usageCount,
+        0,
+      );
 
       spinner.setText('Generating secure signature...');
 
@@ -243,12 +309,19 @@ export const exportCommand: Command = {
 
       if (signExport) {
         const { webcrypto } = crypto;
-        const keyPair = await webcrypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ) as any;
+        const keyPair = (await webcrypto.subtle.generateKey(
+          { name: 'Ed25519' },
+          true,
+          ['sign', 'verify'],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        )) as any;
 
         const exportBytes = new TextEncoder().encode(JSON.stringify(exportData));
-        const signatureBytes = await webcrypto.subtle.sign('Ed25519', keyPair.privateKey, exportBytes);
+        const signatureBytes = await webcrypto.subtle.sign(
+          'Ed25519',
+          keyPair.privateKey,
+          exportBytes,
+        );
         signature = Buffer.from(signatureBytes).toString('hex');
 
         const publicKeyBytes = await webcrypto.subtle.exportKey('raw', keyPair.publicKey);

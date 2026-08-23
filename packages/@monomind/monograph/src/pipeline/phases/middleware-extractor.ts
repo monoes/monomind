@@ -97,7 +97,7 @@ function extractNestedWrappers(snippet: string, handlerName: string): string[] {
     const m = re.exec(snippet);
     if (!m) break;
     wrappers.unshift(m[1]); // outermost first
-    inner = escapeRe(m[1]) + `\\s*\\(\\s*${inner}\\s*\\)`;
+    inner = `${escapeRe(m[1])}\\s*\\(\\s*${inner}\\s*\\)`;
   }
 
   return wrappers;

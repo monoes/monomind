@@ -50,9 +50,9 @@ export async function publishToGist(
     response = await fetch(url, {
       method,
       headers: {
-        'Authorization': `Bearer ${config.token}`,
+        Authorization: `Bearer ${config.token}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github+json',
+        Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
       },
       body: JSON.stringify(body),

@@ -5,12 +5,13 @@
  * Internal functions (calculateCost, classifyTurn, etc.) are exercised
  * indirectly via parseAllSessions with crafted JSONL fixtures.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -70,24 +71,24 @@ describe('getDateRange', () => {
 describe('fmt$', () => {
   it('formats >= 100 with 2 decimal places', () => {
     const tt = loadTT();
-    expect(tt['fmt$'](150)).toBe('$150.00');
-    expect(tt['fmt$'](1000)).toBe('$1000.00');
+    expect(tt.fmt$(150)).toBe('$150.00');
+    expect(tt.fmt$(1000)).toBe('$1000.00');
   });
 
   it('formats 1-100 with 3 decimal places', () => {
     const tt = loadTT();
-    expect(tt['fmt$'](1.5)).toBe('$1.500');
-    expect(tt['fmt$'](99)).toBe('$99.000');
+    expect(tt.fmt$(1.5)).toBe('$1.500');
+    expect(tt.fmt$(99)).toBe('$99.000');
   });
 
   it('formats 0.01-1 with 4 decimal places', () => {
     const tt = loadTT();
-    expect(tt['fmt$'](0.05)).toBe('$0.0500');
+    expect(tt.fmt$(0.05)).toBe('$0.0500');
   });
 
   it('formats < 0.01 with 5 decimal places', () => {
     const tt = loadTT();
-    expect(tt['fmt$'](0.001)).toBe('$0.00100');
+    expect(tt.fmt$(0.001)).toBe('$0.00100');
   });
 });
 
@@ -96,20 +97,20 @@ describe('fmt$', () => {
 describe('fmtK', () => {
   it('formats millions as XM', () => {
     const tt = loadTT();
-    expect(tt['fmtK'](2500000)).toBe('2.5M');
-    expect(tt['fmtK'](1000000)).toBe('1.0M');
+    expect(tt.fmtK(2500000)).toBe('2.5M');
+    expect(tt.fmtK(1000000)).toBe('1.0M');
   });
 
   it('formats thousands as XK', () => {
     const tt = loadTT();
-    expect(tt['fmtK'](3500)).toBe('3.5K');
-    expect(tt['fmtK'](1000)).toBe('1.0K');
+    expect(tt.fmtK(3500)).toBe('3.5K');
+    expect(tt.fmtK(1000)).toBe('1.0K');
   });
 
   it('formats numbers < 1000 as plain string', () => {
     const tt = loadTT();
-    expect(tt['fmtK'](42)).toBe('42');
-    expect(tt['fmtK'](999)).toBe('999');
+    expect(tt.fmtK(42)).toBe('42');
+    expect(tt.fmtK(999)).toBe('999');
   });
 });
 
@@ -133,7 +134,10 @@ describe('parseAllSessions', () => {
   function makeProjectSession(projectSlug, sessionName, lines) {
     const projDir = path.join(tmpDir, 'projects', projectSlug);
     fs.mkdirSync(projDir, { recursive: true });
-    fs.writeFileSync(path.join(projDir, sessionName + '.jsonl'), lines.map(l => JSON.stringify(l)).join('\n'));
+    fs.writeFileSync(
+      path.join(projDir, `${sessionName}.jsonl`),
+      lines.map((l) => JSON.stringify(l)).join('\n'),
+    );
   }
 
   it('returns [] when no projects directory exists', () => {
@@ -154,12 +158,19 @@ describe('parseAllSessions', () => {
     makeProjectSession('-my-project', 'sess-001', [
       { type: 'user', timestamp: ts, message: { role: 'user', content: 'implement the feature' } },
       {
-        type: 'assistant', timestamp: ts,
+        type: 'assistant',
+        timestamp: ts,
         message: {
-          id: 'msg-abc', role: 'assistant',
+          id: 'msg-abc',
+          role: 'assistant',
           model: 'claude-sonnet-4-6',
           content: [{ type: 'tool_use', name: 'Read' }],
-          usage: { input_tokens: 1000, output_tokens: 500, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          usage: {
+            input_tokens: 1000,
+            output_tokens: 500,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+          },
         },
       },
     ]);
@@ -172,12 +183,19 @@ describe('parseAllSessions', () => {
   it('deduplicates by msgId — same message counted once', () => {
     const ts = new Date().toISOString();
     const assistantEntry = {
-      type: 'assistant', timestamp: ts,
+      type: 'assistant',
+      timestamp: ts,
       message: {
-        id: 'dup-msg-id', role: 'assistant',
+        id: 'dup-msg-id',
+        role: 'assistant',
         model: 'claude-sonnet-4-6',
         content: [],
-        usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
       },
     };
     // Write same message twice in same JSONL
@@ -195,12 +213,19 @@ describe('parseAllSessions', () => {
     makeProjectSession('-old-project', 'sess-old', [
       { type: 'user', timestamp: oldTs, message: { role: 'user', content: 'old task' } },
       {
-        type: 'assistant', timestamp: oldTs,
+        type: 'assistant',
+        timestamp: oldTs,
         message: {
-          id: 'old-msg', role: 'assistant',
+          id: 'old-msg',
+          role: 'assistant',
           model: 'claude-sonnet-4-6',
           content: [],
-          usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          usage: {
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+          },
         },
       },
     ]);
@@ -216,12 +241,19 @@ describe('parseAllSessions', () => {
     makeProjectSession('-classify-project', 'sess-cls', [
       { type: 'user', timestamp: ts, message: { role: 'user', content: 'add a new field' } },
       {
-        type: 'assistant', timestamp: ts,
+        type: 'assistant',
+        timestamp: ts,
         message: {
-          id: 'cls-msg', role: 'assistant',
+          id: 'cls-msg',
+          role: 'assistant',
           model: 'claude-sonnet-4-6',
           content: [{ type: 'tool_use', name: 'Edit' }],
-          usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          usage: {
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+          },
         },
       },
     ]);
@@ -238,13 +270,16 @@ describe('parseAllSessions', () => {
     makeProjectSession('-cache-project', 'sess-cache', [
       { type: 'user', timestamp: ts, message: { role: 'user', content: 'explore the codebase' } },
       {
-        type: 'assistant', timestamp: ts,
+        type: 'assistant',
+        timestamp: ts,
         message: {
-          id: 'cache-msg', role: 'assistant',
+          id: 'cache-msg',
+          role: 'assistant',
           model: 'claude-sonnet-4-6',
           content: [],
           usage: {
-            input_tokens: 0, output_tokens: 0,
+            input_tokens: 0,
+            output_tokens: 0,
             cache_creation_input_tokens: 10000,
             cache_read_input_tokens: 5000,
           },
@@ -273,7 +308,7 @@ describe('quickSummary', () => {
   });
 
   it('returns null when projects dir does not exist', () => {
-    process.env.CLAUDE_CONFIG_DIR = '/nonexistent-dir-' + Date.now();
+    process.env.CLAUDE_CONFIG_DIR = `/nonexistent-dir-${Date.now()}`;
     const tt = loadTT();
     expect(tt.quickSummary()).toBeNull();
   });
@@ -294,7 +329,7 @@ describe('quickSummaryData', () => {
   });
 
   it('returns null when projects dir does not exist', () => {
-    process.env.CLAUDE_CONFIG_DIR = '/nonexistent-dir-' + Date.now();
+    process.env.CLAUDE_CONFIG_DIR = `/nonexistent-dir-${Date.now()}`;
     const tt = loadTT();
     expect(tt.quickSummaryData()).toBeNull();
   });

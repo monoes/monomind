@@ -8,10 +8,10 @@
  * consistent with what's actually on disk).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MonoswarmCheckpointer } from './checkpointer.js';
 import type { AgentState } from './types/checkpoint.js';
 
@@ -52,7 +52,12 @@ describe('MonoswarmCheckpointer', () => {
 
   it('saveIncremental patches one agent without dropping others', () => {
     const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
-    cp.saveFull([makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'idle' })], {}, {}, 'manual');
+    cp.saveFull(
+      [makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'idle' })],
+      {},
+      {},
+      'manual',
+    );
     cp.saveIncremental('a1', makeAgent('a1', { status: 'completed' }));
 
     const latest = cp.latest();
@@ -68,7 +73,12 @@ describe('MonoswarmCheckpointer', () => {
     cp.saveFull([makeAgent('a1')], {}, {}, 'manual');
     cp.saveIncremental('a2', makeAgent('a2'));
 
-    expect(cp.latest()?.agentStates.map((a) => a.agentId).sort()).toEqual(['a1', 'a2']);
+    expect(
+      cp
+        .latest()
+        ?.agentStates.map((a) => a.agentId)
+        .sort(),
+    ).toEqual(['a1', 'a2']);
   });
 
   it('step numbers increment monotonically across saveFull and saveIncremental', () => {
@@ -128,7 +138,12 @@ describe('MonoswarmCheckpointer', () => {
     cp1.saveFull([makeAgent('a1', { status: 'active' })], {}, {}, 'manual');
 
     const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess2' });
-    cp2.saveFull([makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'active' })], {}, {}, 'manual');
+    cp2.saveFull(
+      [makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'active' })],
+      {},
+      {},
+      'manual',
+    );
 
     // cp1's cache still thinks the latest checkpoint only has a1. Its
     // incremental save must pick up cp2's write (including a2) rather than
@@ -160,8 +175,18 @@ describe('MonoswarmCheckpointer', () => {
 
   it('diff() reports added/removed/changed agents between two checkpoints', () => {
     const cp = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
-    const id1 = cp.saveFull([makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'active' })], {}, {}, 'manual');
-    const id2 = cp.saveFull([makeAgent('a1', { status: 'completed' }), makeAgent('a3', { status: 'active' })], {}, {}, 'manual');
+    const id1 = cp.saveFull(
+      [makeAgent('a1', { status: 'active' }), makeAgent('a2', { status: 'active' })],
+      {},
+      {},
+      'manual',
+    );
+    const id2 = cp.saveFull(
+      [makeAgent('a1', { status: 'completed' }), makeAgent('a3', { status: 'active' })],
+      {},
+      {},
+      'manual',
+    );
 
     const d = cp.diff(id1, id2);
     expect(d.addedAgents).toEqual(['a3']);
@@ -181,7 +206,7 @@ describe('MonoswarmCheckpointer', () => {
     const oldLine = JSON.parse(raw[0]);
     oldLine.createdAt = new Date(Date.now() - 30 * 86_400_000).toISOString();
     raw[0] = JSON.stringify(oldLine);
-    writeFileSync(dbPath, raw.join('\n') + '\n', 'utf-8');
+    writeFileSync(dbPath, `${raw.join('\n')}\n`, 'utf-8');
 
     const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     const removed = cp2.purge(7);
@@ -198,7 +223,7 @@ describe('MonoswarmCheckpointer', () => {
     const raw = readFileSync(dbPath, 'utf-8').trim().split('\n');
     const line = JSON.parse(raw[0]);
     line.createdAt = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    writeFileSync(dbPath, JSON.stringify(line) + '\n', 'utf-8');
+    writeFileSync(dbPath, `${JSON.stringify(line)}\n`, 'utf-8');
 
     const cp2 = new MonoswarmCheckpointer({ dbPath, monoswarmId: 's1', sessionId: 'sess1' });
     cp2.purge(7);

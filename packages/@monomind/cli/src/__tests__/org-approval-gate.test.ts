@@ -20,23 +20,26 @@
  * real SDK session — `gatedCanUseTool` is exported from session.ts specifically
  * so this is testable in isolation.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { gatedCanUseTool } from '../orgrt/session.js';
-import type { PolicyEngine, Decision } from '../orgrt/policy.js';
-import { checkApproval, setApproval, clearApprovalsForFreshStart } from '../orgrt/approvals.js';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { approveAction, denyAction, gateResolveAction } from '../commands/org-observe.js';
-import { ORG_DIR } from '../orgrt/types.js';
+import { checkApproval, clearApprovalsForFreshStart, setApproval } from '../orgrt/approvals.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
+import type { Decision, PolicyEngine } from '../orgrt/policy.js';
+import { gatedCanUseTool } from '../orgrt/session.js';
+import { ORG_DIR } from '../orgrt/types.js';
 import type { CommandContext } from '../types.js';
 
 /** Minimal fake policy — just enough to drive the `decision.behavior` branch
  *  gatedCanUseTool switches on, without pulling in real PolicyEngine config. */
 function fakePolicy(behavior: 'allow' | 'deny'): PolicyEngine {
   const decide = async (): Promise<Decision> =>
-    behavior === 'allow' ? { behavior: 'allow', updatedInput: {} } : { behavior: 'deny', message: 'denied by policy' };
+    behavior === 'allow'
+      ? { behavior: 'allow', updatedInput: {} }
+      : { behavior: 'deny', message: 'denied by policy' };
   return { decide } as unknown as PolicyEngine;
 }
 
@@ -49,7 +52,10 @@ describe('gatedCanUseTool — approval gate composition', () => {
 
   it('never consults beforeTool when policy already denies', async () => {
     let called = false;
-    const beforeTool = async () => { called = true; return true; };
+    const beforeTool = async () => {
+      called = true;
+      return true;
+    };
     const canUseTool = gatedCanUseTool(fakePolicy('deny'), beforeTool, 'boss');
     const decision = await canUseTool('Bash', {});
     expect(decision.behavior).toBe('deny');
@@ -59,7 +65,10 @@ describe('gatedCanUseTool — approval gate composition', () => {
 
   it('passes the REAL tool name to beforeTool — the actual regression', async () => {
     const seen: string[] = [];
-    const beforeTool = async (_role: string, toolName: string) => { seen.push(toolName); return true; };
+    const beforeTool = async (_role: string, toolName: string) => {
+      seen.push(toolName);
+      return true;
+    };
     const canUseTool = gatedCanUseTool(fakePolicy('allow'), beforeTool, 'boss');
     await canUseTool('WebFetch', { url: 'https://example.com' });
     await canUseTool('org_complete', { outcome: 'achieved', summary: 'done' });
@@ -144,7 +153,10 @@ describe('checkApproval / setApproval — end-to-end state machine', () => {
 
   it('setApproval on a nonexistent pending entry reports an error instead of silently succeeding', async () => {
     const result = await setApproval(daemon, 'myorg', 'nobody', 'Bash', true);
-    expect(result).toEqual({ ok: false, error: 'No pending approval found for nobody action Bash' });
+    expect(result).toEqual({
+      ok: false,
+      error: 'No pending approval found for nobody action Bash',
+    });
   });
 });
 
@@ -178,7 +190,11 @@ describe('checkApproval — org_complete arrives namespaced as mcp__org__org_com
     // Stored under the clean name, so a human can resolve it with
     // `monomind org approve myorg eng-director org_complete`, not the
     // internal MCP-namespaced form.
-    expect(pending?.[0]).toMatchObject({ roleId: 'eng-director', action: 'org_complete', approved: null });
+    expect(pending?.[0]).toMatchObject({
+      roleId: 'eng-director',
+      action: 'org_complete',
+      approved: null,
+    });
   });
 
   it('setApproval(true) for the normalized name resolves the mcp__org__-prefixed pending request', async () => {
@@ -198,11 +214,28 @@ describe('checkApproval — org_complete arrives namespaced as mcp__org__org_com
 
   it('role.policy.autoApproveTools also matches against the normalized name', async () => {
     const orgs = new Map([
-      ['myorg', { def: { roles: [{ id: 'eng-director', policy: { autoApproveTools: ['org_complete'] } }] }, bus: { emit: () => {} } }],
+      [
+        'myorg',
+        {
+          def: { roles: [{ id: 'eng-director', policy: { autoApproveTools: ['org_complete'] } }] },
+          bus: { emit: () => {} },
+        },
+      ],
     ]);
-    const trustedDaemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs } as unknown as OrgDaemon;
+    const trustedDaemon = {
+      root: cwd,
+      approvals: new Map(),
+      approvalLocks: new Map(),
+      recordDecision: () => {},
+      orgs,
+    } as unknown as OrgDaemon;
 
-    const result = await checkApproval(trustedDaemon, 'myorg', 'eng-director', 'mcp__org__org_complete');
+    const result = await checkApproval(
+      trustedDaemon,
+      'myorg',
+      'eng-director',
+      'mcp__org__org_complete',
+    );
     expect(result).toBe(true);
     expect(trustedDaemon.approvals.get('myorg')).toBeUndefined(); // never queued at all
   });
@@ -223,7 +256,13 @@ describe('checkApproval — role.policy.autoApproveTools bypasses the human-appr
     const orgs = new Map([
       ['myorg', { def: { roles: [{ id: 'boss', policy }] }, bus: { emit: () => {} } }],
     ]);
-    return { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs } as unknown as OrgDaemon;
+    return {
+      root: cwd,
+      approvals: new Map(),
+      approvalLocks: new Map(),
+      recordDecision: () => {},
+      orgs,
+    } as unknown as OrgDaemon;
   }
 
   it('skips the pending queue for a sensitive action named in autoApproveTools', async () => {
@@ -266,7 +305,15 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
   });
 
   it('wipes the in-memory Map entry for the org', () => {
-    const daemon = { root: cwd, approvals: new Map([['myorg', [{ roleId: 'boss', action: 'Bash', question: 'q', ts: 1, approved: null }]]]), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = {
+      root: cwd,
+      approvals: new Map([
+        ['myorg', [{ roleId: 'boss', action: 'Bash', question: 'q', ts: 1, approved: null }]],
+      ]),
+      approvalLocks: new Map(),
+      recordDecision: () => {},
+      orgs: new Map(),
+    } as unknown as OrgDaemon;
     clearApprovalsForFreshStart(daemon, 'myorg');
     expect(daemon.approvals.get('myorg')).toBeUndefined();
   });
@@ -275,10 +322,27 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
     const orgDir = join(cwd, ORG_DIR, 'myorg');
     mkdirSync(orgDir, { recursive: true });
     const approvalsPath = join(orgDir, 'approvals.json');
-    writeFileSync(approvalsPath, JSON.stringify({
-      approvals: [{ roleId: 'ghost-role', action: 'Bash', question: 'Approve Bash tool call?', ts: 1, approved: null }],
-    }));
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
+    writeFileSync(
+      approvalsPath,
+      JSON.stringify({
+        approvals: [
+          {
+            roleId: 'ghost-role',
+            action: 'Bash',
+            question: 'Approve Bash tool call?',
+            ts: 1,
+            approved: null,
+          },
+        ],
+      }),
+    );
+    const daemon = {
+      root: cwd,
+      approvals: new Map(),
+      approvalLocks: new Map(),
+      recordDecision: () => {},
+      orgs: new Map(),
+    } as unknown as OrgDaemon;
 
     clearApprovalsForFreshStart(daemon, 'myorg');
 
@@ -287,7 +351,13 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
   });
 
   it('is a no-op when no approvals.json exists yet — does not create one', () => {
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = {
+      root: cwd,
+      approvals: new Map(),
+      approvalLocks: new Map(),
+      recordDecision: () => {},
+      orgs: new Map(),
+    } as unknown as OrgDaemon;
     clearApprovalsForFreshStart(daemon, 'myorg');
     expect(existsSync(join(cwd, ORG_DIR, 'myorg', 'approvals.json'))).toBe(false);
   });
@@ -295,10 +365,27 @@ describe('clearApprovalsForFreshStart — stale approvals from a previous run ne
   it('a role that legitimately needs the same action approved in the new run gets a fresh, resolvable pending entry', async () => {
     const orgDir = join(cwd, ORG_DIR, 'myorg');
     mkdirSync(orgDir, { recursive: true });
-    writeFileSync(join(orgDir, 'approvals.json'), JSON.stringify({
-      approvals: [{ roleId: 'boss', action: 'Bash', question: 'Approve Bash tool call?', ts: 1, approved: null }],
-    }));
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
+    writeFileSync(
+      join(orgDir, 'approvals.json'),
+      JSON.stringify({
+        approvals: [
+          {
+            roleId: 'boss',
+            action: 'Bash',
+            question: 'Approve Bash tool call?',
+            ts: 1,
+            approved: null,
+          },
+        ],
+      }),
+    );
+    const daemon = {
+      root: cwd,
+      approvals: new Map(),
+      approvalLocks: new Map(),
+      recordDecision: () => {},
+      orgs: new Map(),
+    } as unknown as OrgDaemon;
     clearApprovalsForFreshStart(daemon, 'myorg');
 
     // Simulates the new run's boss calling Bash again — must queue a fresh
@@ -322,7 +409,13 @@ describe('org approve / deny — offline field-matching fix', () => {
   beforeEach(async () => {
     cwd = mkdtempSync(join(tmpdir(), 'org-approve-cli-'));
     // Seed a pending approval the same shape checkApproval writes: roleId/action/question/ts/approved.
-    const daemon = { root: cwd, approvals: new Map(), approvalLocks: new Map(), recordDecision: () => {}, orgs: new Map() } as unknown as OrgDaemon;
+    const daemon = {
+      root: cwd,
+      approvals: new Map(),
+      approvalLocks: new Map(),
+      recordDecision: () => {},
+      orgs: new Map(),
+    } as unknown as OrgDaemon;
     await checkApproval(daemon, 'myorg', 'boss', 'Bash');
   });
 
@@ -378,12 +471,21 @@ describe('org gate-approve / gate-reject — offline fallback', () => {
   function seedGate(org: string, gateId: string) {
     const orgDir = join(cwd, ORG_DIR, org);
     mkdirSync(orgDir, { recursive: true });
-    writeFileSync(join(orgDir, 'gates.json'), JSON.stringify({
-      gates: [{
-        id: gateId, name: 'ship it', description: 'launch decision', roleId: 'boss',
-        status: 'pending', createdAt: Date.now(),
-      }],
-    }));
+    writeFileSync(
+      join(orgDir, 'gates.json'),
+      JSON.stringify({
+        gates: [
+          {
+            id: gateId,
+            name: 'ship it',
+            description: 'launch decision',
+            roleId: 'boss',
+            status: 'pending',
+            createdAt: Date.now(),
+          },
+        ],
+      }),
+    );
   }
 
   beforeEach(() => {
@@ -406,11 +508,18 @@ describe('org gate-approve / gate-reject — offline fallback', () => {
   it('org gate-approve resolves the gate directly in gates.json when no live daemon hosts the org', async () => {
     seedGate('myorg', 'gate-1');
 
-    const result = await gateResolveAction(ctx(['myorg', 'gate-1', 'approved via offline path']), 'myorg', true);
+    const result = await gateResolveAction(
+      ctx(['myorg', 'gate-1', 'approved via offline path']),
+      'myorg',
+      true,
+    );
     expect(result.success).toBe(true);
 
     const onDisk = JSON.parse(readFileSync(join(cwd, ORG_DIR, 'myorg', 'gates.json'), 'utf8'));
-    expect(onDisk.gates[0]).toMatchObject({ status: 'approved', resolution: 'approved via offline path' });
+    expect(onDisk.gates[0]).toMatchObject({
+      status: 'approved',
+      resolution: 'approved via offline path',
+    });
   });
 
   it('org gate-reject resolves the gate as rejected offline', async () => {

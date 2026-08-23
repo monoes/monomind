@@ -37,7 +37,8 @@ function createResult(data: unknown, isError = false): MCPToolResult {
 export const allTransferTools: MCPTool[] = [
   {
     name: 'transfer_detect-pii',
-    description: 'Scan content for personally identifiable information with regex patterns and report what was found, without redacting it. Runs locally; no network or registry involved.',
+    description:
+      'Scan content for personally identifiable information with regex patterns and report what was found, without redacting it. Runs locally; no network or registry involved.',
     category: 'transfer',
     version: '1.0.0',
     inputSchema: {
@@ -57,8 +58,10 @@ export const allTransferTools: MCPTool[] = [
         // Cap to 1 MB to prevent ReDoS-style DoS from oversized content.
         const MAX_PII_CONTENT_LEN = 1024 * 1024; // 1 MB
         const rawContent = (input as { content: string }).content;
-        const content = typeof rawContent === 'string' && rawContent.length > MAX_PII_CONTENT_LEN
-          ? rawContent.slice(0, MAX_PII_CONTENT_LEN) : rawContent;
+        const content =
+          typeof rawContent === 'string' && rawContent.length > MAX_PII_CONTENT_LEN
+            ? rawContent.slice(0, MAX_PII_CONTENT_LEN)
+            : rawContent;
         const result = detectPII(content);
         return createResult(result);
       } catch (error) {

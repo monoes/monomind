@@ -13,10 +13,11 @@
  * markers. This test runs it in --check mode so CI (not just
  * prepublishOnly) fails the moment a marked doc value goes stale.
  */
-import { describe, it, expect } from 'vitest';
+
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 

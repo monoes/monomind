@@ -5,17 +5,17 @@
  * @module v1/cli/knowledge/document-pipeline
  */
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import * as fs from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { DOC_EXTENSIONS, extractText } from '../capabilities/cap-documents.js';
+import type { FileEntry } from '../capabilities/types.js';
 // Static import is safe and deliberate: memory-bridge imports only node builtins
 // at module scope (everything heavy is lazy), and the project-root rule must not
 // be duplicated — two copies of "which directory is this project" is exactly the
 // bug this default exists to fix.
 import { getProjectRoot } from '../memory/memory-bridge.js';
-import type { FileEntry } from '../capabilities/types.js';
 
 interface TextChunk {
   chunkId: string;
@@ -50,10 +50,12 @@ function fenceTogglesInline(text: string): number[] {
   return toggles;
 }
 function inFenceInline(toggles: number[], pos: number): boolean {
-  let lo = 0, hi = toggles.length;
+  let lo = 0,
+    hi = toggles.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if (toggles[mid] <= pos) lo = mid + 1; else hi = mid;
+    if (toggles[mid] <= pos) lo = mid + 1;
+    else hi = mid;
   }
   return (lo & 1) === 1;
 }
@@ -62,13 +64,18 @@ function lastHeadingBefore(text: string, pos: number, toggles: number[]): string
   while (i !== -1) {
     const eol = text.indexOf('\n', i + 1);
     const line = text.slice(i + 1, eol === -1 ? undefined : eol);
-    if (HEADING_LINE_RE.test(line) && !inFenceInline(toggles, i + 1)) return line.replace(/^#+ /, '').trim();
+    if (HEADING_LINE_RE.test(line) && !inFenceInline(toggles, i + 1))
+      return line.replace(/^#+ /, '').trim();
     i = i > 0 ? text.lastIndexOf('\n#', i - 1) : -1; // fromIndex -1 clamps to 0 — would loop on a match at 0
   }
   const firstEol = text.indexOf('\n');
   const firstLine = firstEol === -1 ? text : text.slice(0, firstEol);
-  return HEADING_LINE_RE.test(firstLine) && !inFenceInline(toggles, 0) && firstEol !== -1 && firstEol < pos
-    ? firstLine.replace(/^#+ /, '').trim() : null;
+  return HEADING_LINE_RE.test(firstLine) &&
+    !inFenceInline(toggles, 0) &&
+    firstEol !== -1 &&
+    firstEol < pos
+    ? firstLine.replace(/^#+ /, '').trim()
+    : null;
 }
 function chunkDocumentInline(docId: string, text: string): TextChunk[] {
   if (text.includes('\r\n')) text = text.replace(/\r\n/g, '\n');
@@ -88,7 +95,12 @@ function chunkDocumentInline(docId: string, text: string): TextChunk[] {
       while (h !== -1) {
         const eol = window.indexOf('\n', h + 1);
         const line = window.slice(h + 1, eol === -1 ? undefined : eol);
-        if (HEADING_LINE_RE.test(line) && windowStart + h > startChar && !inFenceInline(toggles, windowStart + h + 1)) break;
+        if (
+          HEADING_LINE_RE.test(line) &&
+          windowStart + h > startChar &&
+          !inFenceInline(toggles, windowStart + h + 1)
+        )
+          break;
         h = h > 0 ? window.lastIndexOf('\n#', h - 1) : -1;
       }
       if (h !== -1 && windowStart + h > startChar) {
@@ -105,11 +117,21 @@ function chunkDocumentInline(docId: string, text: string): TextChunk[] {
     }
     let chunkText = text.slice(startChar, endChar);
     const heading = lastHeadingBefore(text, startChar + 1, toggles);
-    if (heading && !HEADING_LINE_RE.test(chunkText.trimStart())) chunkText = `§ ${heading}\n${chunkText}`;
-    chunks.push({ chunkId: `${docId}:${chunkIndex}`, docId, text: chunkText, startChar, endChar, chunkIndex });
+    if (heading && !HEADING_LINE_RE.test(chunkText.trimStart()))
+      chunkText = `§ ${heading}\n${chunkText}`;
+    chunks.push({
+      chunkId: `${docId}:${chunkIndex}`,
+      docId,
+      text: chunkText,
+      startChar,
+      endChar,
+      chunkIndex,
+    });
     chunkIndex++;
     if (endChar >= text.length) break;
-    startChar += brokeAtHeading ? Math.max(1, endChar - startChar) : Math.max(1, endChar - startChar - DEFAULT_OVERLAP);
+    startChar += brokeAtHeading
+      ? Math.max(1, endChar - startChar)
+      : Math.max(1, endChar - startChar - DEFAULT_OVERLAP);
   }
   return chunks;
 }
@@ -154,11 +176,20 @@ function extractDocSummary(text: string): string {
   let inFence = false;
   const parts: string[] = [];
   for (const line of lines) {
-    if (FENCE_LINE_RE.test(line)) { inFence = !inFence; continue; }
+    if (FENCE_LINE_RE.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
     if (inFence) continue;
-    if (HEADING_LINE_RE.test(line)) { if (parts.length > 0) break; continue; }
+    if (HEADING_LINE_RE.test(line)) {
+      if (parts.length > 0) break;
+      continue;
+    }
     const t = line.trim();
-    if (!t || /^[|=-]/.test(t)) { if (parts.length > 0) break; continue; }
+    if (!t || /^[|=-]/.test(t)) {
+      if (parts.length > 0) break;
+      continue;
+    }
     parts.push(t.startsWith('>') ? t.replace(/^>\s*/, '') : t);
   }
   const joined = parts.join(' ');
@@ -171,13 +202,18 @@ function extractDocSummary(text: string): string {
 }
 
 function buildHeadingHierarchy(
-  text: string, toggles: number[],
+  text: string,
+  toggles: number[],
 ): Array<{ level: number; text: string; offset: number }> {
   const out: Array<{ level: number; text: string; offset: number }> = [];
   const eol0 = text.indexOf('\n');
   const line0 = eol0 === -1 ? text : text.slice(0, eol0);
   if (HEADING_LINE_RE.test(line0) && !inFenceInline(toggles, 0)) {
-    out.push({ level: (line0.match(/^(#{1,6}) /)!)[1].length, text: line0.replace(/^#+ /, '').trim(), offset: 0 });
+    out.push({
+      level: line0.match(/^(#{1,6}) /)?.[1].length,
+      text: line0.replace(/^#+ /, '').trim(),
+      offset: 0,
+    });
   }
   let i = text.indexOf('\n#', 0);
   while (i !== -1) {
@@ -185,7 +221,11 @@ function buildHeadingHierarchy(
     const e = text.indexOf('\n', ls);
     const line = text.slice(ls, e === -1 ? undefined : e);
     if (HEADING_LINE_RE.test(line) && !inFenceInline(toggles, ls)) {
-      out.push({ level: (line.match(/^(#{1,6}) /)!)[1].length, text: line.replace(/^#+ /, '').trim(), offset: ls });
+      out.push({
+        level: line.match(/^(#{1,6}) /)?.[1].length,
+        text: line.replace(/^#+ /, '').trim(),
+        offset: ls,
+      });
     }
     i = text.indexOf('\n#', ls);
   }
@@ -193,7 +233,8 @@ function buildHeadingHierarchy(
 }
 
 function headingPathAt(
-  hierarchy: Array<{ level: number; text: string; offset: number }>, pos: number,
+  hierarchy: Array<{ level: number; text: string; offset: number }>,
+  pos: number,
 ): string[] {
   const stack: Array<{ level: number; text: string }> = [];
   for (const h of hierarchy) {
@@ -201,7 +242,7 @@ function headingPathAt(
     while (stack.length > 0 && stack[stack.length - 1].level >= h.level) stack.pop();
     stack.push(h);
   }
-  return stack.map(s => s.text);
+  return stack.map((s) => s.text);
 }
 
 /**
@@ -220,7 +261,7 @@ function enrichChunks(chunks: TextChunk[], fullText: string, filePath: string): 
   const title = extractDocTitle(fullText, filePath);
   const summary = extractDocSummary(fullText);
 
-  return chunks.map(c => {
+  return chunks.map((c) => {
     let text = c.text;
 
     // First chunk starting with its own heading — the heading IS the context
@@ -243,11 +284,11 @@ function enrichChunks(chunks: TextChunk[], fullText: string, filePath: string): 
 
     // Summary for non-first chunks — they are far from the doc intro
     if (c.chunkIndex > 0 && summary) {
-      const snip = summary.length > 120 ? summary.slice(0, 117) + '...' : summary;
+      const snip = summary.length > 120 ? `${summary.slice(0, 117)}...` : summary;
       parts.push(snip);
     }
 
-    return { ...c, text: parts.join('\n') + '\n' + text };
+    return { ...c, text: `${parts.join('\n')}\n${text}` };
   });
 }
 
@@ -300,12 +341,25 @@ const METADATA_FILE = 'doc-metadata.jsonl';
 // (GLOBAL_BRAIN / GLOBAL_BRAIN_DIR); duplicated here because the bridge is
 // imported lazily and these are needed synchronously.
 const GLOBAL_BRAIN_SENTINEL = '@global';
-const globalBrainRoot = (): string => process.env.MONOMIND_GLOBAL_BRAIN_DIR || path.join(os.homedir(), '.monomind', 'global-brain');
+const globalBrainRoot = (): string =>
+  process.env.MONOMIND_GLOBAL_BRAIN_DIR || path.join(os.homedir(), '.monomind', 'global-brain');
 /** scope 'global' routes to the personal cross-project store. */
 const isGlobalScope = (scope: string): boolean => scope === 'global';
-const effectiveRoot = (scope: string, rootDir: string): string => isGlobalScope(scope) ? globalBrainRoot() : rootDir;
-const storeDbPath = (scope: string): string | undefined => isGlobalScope(scope) ? GLOBAL_BRAIN_SENTINEL : undefined;
-const IGNORE_DIRS = new Set(['node_modules', '.git', 'dist', '.monomind', '.claude', '.next', '__pycache__', '.venv', 'vendor']);
+const effectiveRoot = (scope: string, rootDir: string): string =>
+  isGlobalScope(scope) ? globalBrainRoot() : rootDir;
+const storeDbPath = (scope: string): string | undefined =>
+  isGlobalScope(scope) ? GLOBAL_BRAIN_SENTINEL : undefined;
+const IGNORE_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  '.monomind',
+  '.claude',
+  '.next',
+  '__pycache__',
+  '.venv',
+  'vendor',
+]);
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -337,25 +391,33 @@ function readMetadata(rootDir: string): DocumentMeta[] {
     try {
       const m = JSON.parse(l) as DocumentMeta;
       latest.set(`${m.filePath} ${m.scope}`, m);
-    } catch { /* torn line */ }
+    } catch {
+      /* torn line */
+    }
   }
   // chunkCount -1 records are removal tombstones (see removeMetadataEntry)
-  const live = [...latest.values()].filter(m => m.chunkCount >= 0);
+  const live = [...latest.values()].filter((m) => m.chunkCount >= 0);
   // Occasional compaction: append-only + tombstones grow without bound; when
   // the log gets big, rewrite it deduped (atomic rename — a concurrent append
   // in the tiny window loses only its own record and self-heals on re-ingest).
   try {
     if (fs.statSync(file).size > 1024 * 1024) {
       const tmp = `${file}.${process.pid}.compact`;
-      fs.writeFileSync(tmp, live.map(r => JSON.stringify(r)).join('\n') + (live.length ? '\n' : ''), 'utf-8');
+      fs.writeFileSync(
+        tmp,
+        live.map((r) => JSON.stringify(r)).join('\n') + (live.length ? '\n' : ''),
+        'utf-8',
+      );
       fs.renameSync(tmp, file);
     }
-  } catch { /* compaction is best-effort */ }
+  } catch {
+    /* compaction is best-effort */
+  }
   return live;
 }
 
 function appendMetadata(rootDir: string, meta: DocumentMeta): void {
-  fs.appendFileSync(metadataPath(rootDir), JSON.stringify(meta) + '\n', 'utf-8');
+  fs.appendFileSync(metadataPath(rootDir), `${JSON.stringify(meta)}\n`, 'utf-8');
 }
 
 function removeMetadataEntry(rootDir: string, filePath: string, scope: string): void {
@@ -364,8 +426,12 @@ function removeMetadataEntry(rootDir: string, filePath: string, scope: string): 
   // Tombstone by APPEND (chunkCount -1) instead of read-filter-rewrite — the
   // rewrite raced concurrent appends and silently dropped them.
   appendMetadata(rootDir, {
-    filePath, scope, contentHash: '', chunkCount: -1,
-    indexedAt: new Date().toISOString(), size: 0,
+    filePath,
+    scope,
+    contentHash: '',
+    chunkCount: -1,
+    indexedAt: new Date().toISOString(),
+    size: 0,
   });
 }
 
@@ -423,11 +489,23 @@ export async function ingestDocument(
   // them shadowing a real document of the same name and competing with it for
   // top-k slots. That is a direct Recall@5/MRR@10 loss, not wasted storage.
   if (isResourceFork(resolved)) {
-    return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: 'AppleDouble resource fork' };
+    return {
+      filePath: resolved,
+      chunksIndexed: 0,
+      scope,
+      skipped: true,
+      error: 'AppleDouble resource fork',
+    };
   }
 
   if (!DOC_EXTENSIONS.has(ext)) {
-    return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: `unsupported extension: ${ext}` };
+    return {
+      filePath: resolved,
+      chunksIndexed: 0,
+      scope,
+      skipped: true,
+      error: `unsupported extension: ${ext}`,
+    };
   }
 
   if (!fs.existsSync(resolved)) {
@@ -436,12 +514,18 @@ export async function ingestDocument(
 
   const stat = fs.statSync(resolved);
   if (stat.size > MAX_FILE_SIZE) {
-    return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: 'file too large (>50MB)' };
+    return {
+      filePath: resolved,
+      chunksIndexed: 0,
+      scope,
+      skipped: true,
+      error: 'file too large (>50MB)',
+    };
   }
 
   rootDir = effectiveRoot(scope, rootDir);
   const meta = _metadataCache ?? readMetadata(rootDir);
-  const existing = meta.find(m => m.filePath === resolved && m.scope === scope);
+  const existing = meta.find((m) => m.filePath === resolved && m.scope === scope);
   let fullContent: string;
 
   try {
@@ -452,7 +536,13 @@ export async function ingestDocument(
   }
 
   if (!fullContent || fullContent.trim().length === 0) {
-    return { filePath: resolved, chunksIndexed: 0, scope, skipped: true, error: 'no text extracted' };
+    return {
+      filePath: resolved,
+      chunksIndexed: 0,
+      scope,
+      skipped: true,
+      error: 'no text extracted',
+    };
   }
 
   const hash = contentHash(fullContent);
@@ -489,7 +579,11 @@ export async function ingestDocument(
         });
         if (storeResult?.success) indexed++;
       } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[ingestDocument] failed to store chunk ${chunk.chunkIndex} of ${resolved}:`, e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error(
+            `[ingestDocument] failed to store chunk ${chunk.chunkIndex} of ${resolved}:`,
+            e,
+          );
       }
     }
   }
@@ -512,8 +606,15 @@ export async function ingestDocument(
 
   const storeFailed = chunks.length > 0 && indexed === 0;
   return {
-    filePath: resolved, chunksIndexed: indexed, scope, skipped: false,
-    ...(storeFailed ? { error: bridge ? 'all chunk stores failed' : 'memory bridge unavailable — nothing indexed' } : {}),
+    filePath: resolved,
+    chunksIndexed: indexed,
+    scope,
+    skipped: false,
+    ...(storeFailed
+      ? {
+          error: bridge ? 'all chunk stores failed' : 'memory bridge unavailable — nothing indexed',
+        }
+      : {}),
   };
 }
 
@@ -531,7 +632,9 @@ export async function ingestDirectory(
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch { return; }
+    } catch {
+      return;
+    }
 
     for (const entry of entries) {
       // Skip dotfiles/dot-dirs (incl. exFAT `._*` junk) — except `.monodesign`,
@@ -628,8 +731,12 @@ export function hasKnowledgeMetadata(rootDir: string): boolean {
  * two-argument callers keep their exact behaviour; pass `hasKnowledgeMetadata`
  * to also filter correctly once the last document has been removed.
  */
-export function isSupersededKey(key: string, live: Set<string>, metadataPresent = live.size > 0): boolean {
-  if (!key || !key.startsWith('doc:')) return false;
+export function isSupersededKey(
+  key: string,
+  live: Set<string>,
+  metadataPresent = live.size > 0,
+): boolean {
+  if (!key?.startsWith('doc:')) return false;
   if (!metadataPresent) return false;
   return !live.has(key.split(':')[1] ?? '');
 }
@@ -648,7 +755,10 @@ export function supersededOverfetchLimit(limit: number, live: Set<string>): numb
 export async function searchKnowledge(
   query: string,
   opts?: {
-    scope?: string; limit?: number; minScore?: number; rootDir?: string;
+    scope?: string;
+    limit?: number;
+    minScore?: number;
+    rootDir?: string;
     /** which store(s): project-only, global-only, or both (default). */
     store?: 'project' | 'global' | 'all';
     /** Return chunks from superseded document versions too, flagged
@@ -666,62 +776,90 @@ export async function searchKnowledge(
   const minScore = opts?.minScore ?? 0.3;
   const store = opts?.store ?? 'all';
 
-  const targets: Array<{ ns: string; dbPath?: string; root: string; label: string; boost: number }> = [];
+  const targets: Array<{
+    ns: string;
+    dbPath?: string;
+    root: string;
+    label: string;
+    boost: number;
+  }> = [];
   if (store !== 'global') {
-    targets.push({ ns: namespace(scope), root: opts?.rootDir ?? getProjectRoot(), label: scope, boost: PROJECT_SCOPE_BOOST });
+    targets.push({
+      ns: namespace(scope),
+      root: opts?.rootDir ?? getProjectRoot(),
+      label: scope,
+      boost: PROJECT_SCOPE_BOOST,
+    });
   }
   if (store !== 'project') {
-    targets.push({ ns: namespace('global'), dbPath: GLOBAL_BRAIN_SENTINEL, root: globalBrainRoot(), label: 'global', boost: 0 });
+    targets.push({
+      ns: namespace('global'),
+      dbPath: GLOBAL_BRAIN_SENTINEL,
+      root: globalBrainRoot(),
+      label: 'global',
+      boost: 0,
+    });
   }
 
   const includeSuperseded = opts?.includeSuperseded === true;
 
-  const perTarget = await Promise.all(targets.map(async t => {
-    const meta = readMetadata(t.root);
-    const hasMeta = hasKnowledgeMetadata(t.root);
-    const live = new Set<string>();
-    for (const m of meta) if (m.contentHash) live.add(m.contentHash);
-    // Old versions dominate a long-lived store, so a 1:1 fetch would come back
-    // nearly empty once they are filtered out. Over-fetch, then trim.
-    const fetchLimit = includeSuperseded ? limit : supersededOverfetchLimit(limit, live);
-    const result = await bridge.bridgeSearchEntries({
-      query, namespace: t.ns, limit: fetchLimit, threshold: minScore, dbPath: t.dbPath,
-      skipRerank: opts?.skipRerank,
-      includeSuperseded,
-      rootDir: t.root,
-    }).catch(() => null);
-    if (!result?.success || !result.results.length) return [];
-    const hashToFile = new Map<string, string>();
-    for (const m of meta) hashToFile.set(m.contentHash, m.filePath);
-    const kept = includeSuperseded
-      ? result.results
-      : result.results.filter((r: any) => !isSupersededKey(String(r.key ?? ''), live, hasMeta));
-    return kept.slice(0, limit).map((r: any) => {
-      const parts = r.key.startsWith('doc:') ? r.key.split(':') : [];
-      const hash = parts[1] ?? '';
-      const idx = parseInt(parts[2] ?? '0', 10);
-      // The src: tag stored at ingest is the chunk's OWN provenance — the
-      // hash→file map can misattribute when two documents share identical
-      // content, and goes empty when a re-ingested file's hash changed.
-      const srcTag = (r.tags ?? []).find((tag: string) => tag.startsWith('src:'));
-      const superseded = includeSuperseded && isSupersededKey(String(r.key ?? ''), live, hasMeta);
-      return {
-        id: r.id,
-        filePath: srcTag ? srcTag.slice(4) : hashToFile.get(hash) ?? '',
-        // Serve the head of the chunk only — chunks are heading-anchored, so the
-        // head carries the most relevant text, and full chunks (up to ~3.2K
-        // chars) bloat every search response.
-        text: typeof r.content === 'string' && r.content.length > SEARCH_EXCERPT_TEXT_CAP
-          ? r.content.slice(0, SEARCH_EXCERPT_TEXT_CAP) : r.content,
-        similarity: r.score + t.boost,
-        chunkIndex: isNaN(idx) ? 0 : idx,
-        scope: t.label,
-        ...(superseded ? { superseded: true } : {}),
-      };
-    });
-  }));
+  const perTarget = await Promise.all(
+    targets.map(async (t) => {
+      const meta = readMetadata(t.root);
+      const hasMeta = hasKnowledgeMetadata(t.root);
+      const live = new Set<string>();
+      for (const m of meta) if (m.contentHash) live.add(m.contentHash);
+      // Old versions dominate a long-lived store, so a 1:1 fetch would come back
+      // nearly empty once they are filtered out. Over-fetch, then trim.
+      const fetchLimit = includeSuperseded ? limit : supersededOverfetchLimit(limit, live);
+      const result = await bridge
+        .bridgeSearchEntries({
+          query,
+          namespace: t.ns,
+          limit: fetchLimit,
+          threshold: minScore,
+          dbPath: t.dbPath,
+          skipRerank: opts?.skipRerank,
+          includeSuperseded,
+          rootDir: t.root,
+        })
+        .catch(() => null);
+      if (!result?.success || !result.results.length) return [];
+      const hashToFile = new Map<string, string>();
+      for (const m of meta) hashToFile.set(m.contentHash, m.filePath);
+      const kept = includeSuperseded
+        ? result.results
+        : result.results.filter((r: any) => !isSupersededKey(String(r.key ?? ''), live, hasMeta));
+      return kept.slice(0, limit).map((r: any) => {
+        const parts = r.key.startsWith('doc:') ? r.key.split(':') : [];
+        const hash = parts[1] ?? '';
+        const idx = parseInt(parts[2] ?? '0', 10);
+        // The src: tag stored at ingest is the chunk's OWN provenance — the
+        // hash→file map can misattribute when two documents share identical
+        // content, and goes empty when a re-ingested file's hash changed.
+        const srcTag = (r.tags ?? []).find((tag: string) => tag.startsWith('src:'));
+        const superseded = includeSuperseded && isSupersededKey(String(r.key ?? ''), live, hasMeta);
+        return {
+          id: r.id,
+          filePath: srcTag ? srcTag.slice(4) : (hashToFile.get(hash) ?? ''),
+          // Serve the head of the chunk only — chunks are heading-anchored, so the
+          // head carries the most relevant text, and full chunks (up to ~3.2K
+          // chars) bloat every search response.
+          text:
+            typeof r.content === 'string' && r.content.length > SEARCH_EXCERPT_TEXT_CAP
+              ? r.content.slice(0, SEARCH_EXCERPT_TEXT_CAP)
+              : r.content,
+          similarity: r.score + t.boost,
+          chunkIndex: Number.isNaN(idx) ? 0 : idx,
+          scope: t.label,
+          ...(superseded ? { superseded: true } : {}),
+        };
+      });
+    }),
+  );
 
-  return perTarget.flat()
+  return perTarget
+    .flat()
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit);
 }
@@ -730,7 +868,7 @@ export async function searchKnowledge(
 
 export function listDocuments(rootDir = getProjectRoot(), scope?: string): DocumentMeta[] {
   const all = readMetadata(rootDir);
-  return scope ? all.filter(m => m.scope === scope) : all;
+  return scope ? all.filter((m) => m.scope === scope) : all;
 }
 
 export async function removeDocument(
@@ -815,18 +953,18 @@ export async function reconcileIndex(
   if (!rootDir || !fs.existsSync(rootDir)) {
     throw new Error(
       `reconcileIndex: project root does not exist: ${rootDir} — refusing to reconcile ` +
-      `(an unmounted volume makes every indexed file look deleted)`,
+        `(an unmounted volume makes every indexed file look deleted)`,
     );
   }
   if (!hasKnowledgeMetadata(rootDir)) {
     throw new Error(
       `reconcileIndex: no knowledge metadata log under ${rootDir} — refusing to reconcile ` +
-      `("no metadata" must not read as "everything is stale")`,
+        `("no metadata" must not read as "everything is stale")`,
     );
   }
 
-  const records = readMetadata(rootDir).filter(m => !opts?.scope || m.scope === opts.scope);
-  const missing = records.filter(m => !fs.existsSync(m.filePath));
+  const records = readMetadata(rootDir).filter((m) => !opts?.scope || m.scope === opts.scope);
+  const missing = records.filter((m) => !fs.existsSync(m.filePath));
 
   if (!apply || missing.length === 0) {
     return { missing, scanned: records.length, applied: apply, removed: 0 };
@@ -838,7 +976,7 @@ export async function reconcileIndex(
   fs.mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const archivePath = path.join(dir, `reconcile-${stamp}.jsonl`);
-  fs.writeFileSync(archivePath, missing.map(m => JSON.stringify(m)).join('\n') + '\n', 'utf-8');
+  fs.writeFileSync(archivePath, `${missing.map((m) => JSON.stringify(m)).join('\n')}\n`, 'utf-8');
 
   let removed = 0;
   for (const m of missing) {
@@ -870,7 +1008,9 @@ export async function exportToOKF(
         const entry = toFileEntry(doc.filePath);
         content = await extractText(entry);
       }
-    } catch { continue; }
+    } catch {
+      continue;
+    }
 
     if (!content) continue;
 
@@ -880,12 +1020,13 @@ export async function exportToOKF(
     const slug = title.replace(/[^a-zA-Z0-9._-]+/g, '-').toLowerCase();
     const outFile = path.join(outputDir, `${slug}.md`);
 
-    const yamlEscape = (s: string) => /[:"'\[\]{}#&*!|>%@`]/.test(s) ? `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : s;
+    const yamlEscape = (s: string) =>
+      /[:"'[\]{}#&*!|>%@`]/.test(s) ? `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : s;
     const frontmatter = [
       '---',
       `type: Document`,
       `title: ${yamlEscape(title)}`,
-      `description: ${yamlEscape('Extracted from ' + path.basename(doc.filePath))}`,
+      `description: ${yamlEscape(`Extracted from ${path.basename(doc.filePath)}`)}`,
       `resource: ${yamlEscape(relativePath)}`,
       `tags: ["document", ${yamlEscape(ext.slice(1))}]`,
       `timestamp: ${yamlEscape(doc.indexedAt)}`,
@@ -896,7 +1037,9 @@ export async function exportToOKF(
     ].join('\n');
 
     fs.writeFileSync(outFile, frontmatter + content, 'utf-8');
-    indexEntries.push(`* [${title}](${slug}.md) - ${path.basename(doc.filePath)} (${doc.chunkCount} chunks)`);
+    indexEntries.push(
+      `* [${title}](${slug}.md) - ${path.basename(doc.filePath)} (${doc.chunkCount} chunks)`,
+    );
     exported++;
   }
 
@@ -922,19 +1065,28 @@ export async function importFromOKF(
   rootDir = getProjectRoot(),
 ): Promise<BatchIngestResult> {
   const resolved = path.resolve(bundleDir);
-  const files = fs.readdirSync(resolved)
-    .filter(f => f.endsWith('.md') && f !== 'index.md' && f !== 'log.md')
-    .map(f => path.join(resolved, f));
+  const files = fs
+    .readdirSync(resolved)
+    .filter((f) => f.endsWith('.md') && f !== 'index.md' && f !== 'log.md')
+    .map((f) => path.join(resolved, f));
 
   const result: BatchIngestResult = {
-    filesProcessed: 0, filesSkipped: 0, totalChunks: 0, errors: [], results: [],
+    filesProcessed: 0,
+    filesSkipped: 0,
+    totalChunks: 0,
+    errors: [],
+    results: [],
   };
 
   for (const file of files) {
     const r = await ingestDocument(file, scope, rootDir);
     result.results.push(r);
-    if (r.skipped) { result.filesSkipped++; }
-    else { result.filesProcessed++; result.totalChunks += r.chunksIndexed; }
+    if (r.skipped) {
+      result.filesSkipped++;
+    } else {
+      result.filesProcessed++;
+      result.totalChunks += r.chunksIndexed;
+    }
     if (r.error && !r.skipped) result.errors.push(`${r.filePath}: ${r.error}`);
   }
 

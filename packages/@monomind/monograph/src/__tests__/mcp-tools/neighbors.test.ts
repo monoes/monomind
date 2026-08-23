@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { getMonographNeighbors } from '../../mcp-tools/neighbors.js';
 
 function makeDb(): Database.Database {
@@ -22,7 +22,7 @@ describe('getMonographNeighbors', () => {
     const result = getMonographNeighbors(db, { name: 'UserService' });
     expect(result.node).not.toBeNull();
     expect(result.neighbors.length).toBe(2);
-    const rels = result.neighbors.map(n => n.relation);
+    const rels = result.neighbors.map((n) => n.relation);
     expect(rels).toContain('HAS_METHOD');
     expect(rels).toContain('CALLS');
   });
@@ -30,7 +30,7 @@ describe('getMonographNeighbors', () => {
   it('can filter by relation type', () => {
     const db = makeDb();
     const result = getMonographNeighbors(db, { name: 'UserService', relationFilter: 'CALLS' });
-    expect(result.neighbors.every(n => n.relation === 'CALLS')).toBe(true);
+    expect(result.neighbors.every((n) => n.relation === 'CALLS')).toBe(true);
   });
 
   it('returns null node for unknown symbol', () => {
@@ -43,6 +43,6 @@ describe('getMonographNeighbors', () => {
   it('includes inbound neighbors', () => {
     const db = makeDb();
     const result = getMonographNeighbors(db, { name: 'getUser', includeInbound: true });
-    expect(result.neighbors.some(n => n.direction === 'inbound')).toBe(true);
+    expect(result.neighbors.some((n) => n.direction === 'inbound')).toBe(true);
   });
 });

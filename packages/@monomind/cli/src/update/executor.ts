@@ -3,17 +3,18 @@
  * Includes rollback capability
  */
 
-import { execFile } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { UpdateCheckResult } from './checker.js';
-import { validateUpdate, ValidationResult } from './validator.js';
+import { execFile } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { npmCommand } from '../utils/npm-command.js';
+import type { UpdateCheckResult } from './checker.js';
+import { type ValidationResult, validateUpdate } from './validator.js';
 
 // Inline semver shim — avoids external dependency (semver is not in package.json)
 const semver = {
-  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+  valid: (v: string | null | undefined): string | null =>
+    /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
 };
 
 /**
@@ -37,7 +38,7 @@ const MAX_HISTORY_FILE_BYTES = 1 * 1024 * 1024; // 1 MB
 
 function execFileAsync(cmd: string, args: string[]): Promise<void> {
   return new Promise<void>((resolve, reject) =>
-    execFile(cmd, args, { timeout: 120_000 }, (err) => (err ? reject(err) : resolve()))
+    execFile(cmd, args, { timeout: 120_000 }, (err) => (err ? reject(err) : resolve())),
   );
 }
 
@@ -93,7 +94,8 @@ export function loadHistory(): UpdateHistoryEntry[] {
     }
   } catch (e) {
     // Corrupted file
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[update-executor] loadHistory failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[update-executor] loadHistory failed:', e);
   }
   return [];
 }
@@ -102,7 +104,7 @@ function saveHistory(history: UpdateHistoryEntry[]): void {
   ensureDir();
   // Keep only last N entries
   const trimmed = history.slice(-MAX_HISTORY_ENTRIES);
-  const tmp = HISTORY_FILE + '.tmp';
+  const tmp = `${HISTORY_FILE}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(trimmed, null, 2));
   fs.renameSync(tmp, HISTORY_FILE);
 }
@@ -116,14 +118,14 @@ function recordUpdate(entry: UpdateHistoryEntry): void {
 export async function executeUpdate(
   update: UpdateCheckResult,
   installedPackages: Record<string, string>,
-  dryRun = false
+  dryRun = false,
 ): Promise<UpdateExecutionResult> {
   // Validate first
   const validation = validateUpdate(
     update.package,
     update.currentVersion,
     update.latestVersion,
-    installedPackages
+    installedPackages,
   );
 
   if (!validation.valid) {
@@ -159,7 +161,13 @@ export async function executeUpdate(
     }
     // Install globally — -g is critical: without it npm installs into the
     // user's cwd, silently modifying their project package.json (#83).
-    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact', '--ignore-scripts']);
+    await execFileAsync(npmCommand(), [
+      'install',
+      '-g',
+      `${pkg}@${version}`,
+      '--save-exact',
+      '--ignore-scripts',
+    ]);
 
     // Record successful update
     recordUpdate({
@@ -204,7 +212,7 @@ export async function executeUpdate(
 export async function executeMultipleUpdates(
   updates: UpdateCheckResult[],
   installedPackages: Record<string, string>,
-  dryRun = false
+  dryRun = false,
 ): Promise<UpdateExecutionResult[]> {
   const results: UpdateExecutionResult[] = [];
 
@@ -228,7 +236,7 @@ export async function executeMultipleUpdates(
 }
 
 export async function rollbackUpdate(
-  packageName?: string
+  packageName?: string,
 ): Promise<{ success: boolean; message: string }> {
   const history = loadHistory();
 
@@ -245,9 +253,7 @@ export async function rollbackUpdate(
   if (!lastUpdate) {
     return {
       success: false,
-      message: packageName
-        ? `No rollback available for ${packageName}`
-        : 'No rollback available',
+      message: packageName ? `No rollback available for ${packageName}` : 'No rollback available',
     };
   }
 
@@ -259,7 +265,13 @@ export async function rollbackUpdate(
       throw new Error(`Invalid version: ${version}`);
     }
     // Install globally — prevents modifying the user's project (#83).
-    await execFileAsync(npmCommand(), ['install', '-g', `${pkg}@${version}`, '--save-exact', '--ignore-scripts']);
+    await execFileAsync(npmCommand(), [
+      'install',
+      '-g',
+      `${pkg}@${version}`,
+      '--save-exact',
+      '--ignore-scripts',
+    ]);
 
     // Record the rollback
     recordUpdate({

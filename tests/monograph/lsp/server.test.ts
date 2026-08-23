@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { buildDiagnosticsFromDb } from '../../../packages/@monomind/monograph/src/lsp/server.ts';
 
 function makeDb(): Database.Database {
@@ -29,8 +29,9 @@ describe('buildDiagnosticsFromDb', () => {
 
   it('produces warnings for unreachable files', () => {
     const db = makeDb();
-    db.prepare(`INSERT INTO nodes VALUES ('f1','File','utils.ts','file','src/utils.ts',1,100,null,0,null,?)`)
-      .run(JSON.stringify({ reachabilityRole: 'unreachable' }));
+    db.prepare(
+      `INSERT INTO nodes VALUES ('f1','File','utils.ts','file','src/utils.ts',1,100,null,0,null,?)`,
+    ).run(JSON.stringify({ reachabilityRole: 'unreachable' }));
 
     const result = buildDiagnosticsFromDb(db as any, '/repo');
     const diags = [...result.values()].flat();
@@ -43,21 +44,28 @@ describe('buildDiagnosticsFromDb', () => {
 
   it('produces diagnostics for structurally similar files', () => {
     const db = makeDb();
-    db.prepare(`INSERT INTO nodes VALUES ('n1','File','a.ts','file','src/a.ts',1,50,null,0,null,null)`).run();
-    db.prepare(`INSERT INTO nodes VALUES ('n2','File','b.ts','file','src/b.ts',1,50,null,0,null,null)`).run();
-    db.prepare(`INSERT INTO edges VALUES ('e1','n1','n2','STRUCTURALLY_SIMILAR','INFERRED',0.85,null,null)`).run();
+    db.prepare(
+      `INSERT INTO nodes VALUES ('n1','File','a.ts','file','src/a.ts',1,50,null,0,null,null)`,
+    ).run();
+    db.prepare(
+      `INSERT INTO nodes VALUES ('n2','File','b.ts','file','src/b.ts',1,50,null,0,null,null)`,
+    ).run();
+    db.prepare(
+      `INSERT INTO edges VALUES ('e1','n1','n2','STRUCTURALLY_SIMILAR','INFERRED',0.85,null,null)`,
+    ).run();
 
     const result = buildDiagnosticsFromDb(db as any, '/repo');
     const diags = [...result.values()].flat();
-    expect(diags.some(d => d.code === 'structurally-similar')).toBe(true);
-    expect(diags.some(d => d.message.includes('85%'))).toBe(true);
+    expect(diags.some((d) => d.code === 'structurally-similar')).toBe(true);
+    expect(diags.some((d) => d.message.includes('85%'))).toBe(true);
     db.close();
   });
 
   it('generates file:// URIs correctly', () => {
     const db = makeDb();
-    db.prepare(`INSERT INTO nodes VALUES ('f1','File','x.ts','file','src/x.ts',1,10,null,0,null,?)`)
-      .run(JSON.stringify({ reachabilityRole: 'unreachable' }));
+    db.prepare(
+      `INSERT INTO nodes VALUES ('f1','File','x.ts','file','src/x.ts',1,10,null,0,null,?)`,
+    ).run(JSON.stringify({ reachabilityRole: 'unreachable' }));
 
     const result = buildDiagnosticsFromDb(db as any, '/my/repo');
     const uris = [...result.keys()];

@@ -11,10 +11,10 @@
  * at a user's terminal.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { monographTools } from '../mcp-tools/monograph-tools.js';
 
 const deadCodeTool = monographTools.find((t) => t.name === 'monograph_dead_code')!;
@@ -43,7 +43,7 @@ describe('monograph_dead_code', () => {
     // openDb creates and migrates the schema on open.
     const db = openDb(join(repo, '.monomind', 'monograph.db'));
     db.prepare(
-      "INSERT INTO nodes (id, name, label, file_path, start_line) VALUES (?, ?, ?, ?, ?)",
+      'INSERT INTO nodes (id, name, label, file_path, start_line) VALUES (?, ?, ?, ?, ?)',
     ).run('n1', 'orphanThing', 'File', 'src/orphan.ts', 1);
     db.close();
 

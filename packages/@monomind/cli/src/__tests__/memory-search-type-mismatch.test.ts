@@ -7,7 +7,7 @@
  * the requested `--type`, a warning is printed (and reflected in --format
  * json) rather than the mismatch being swallowed.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CommandContext } from '../types.js';
 
 function makeCtx(flags: Record<string, unknown>): CommandContext {
@@ -37,12 +37,20 @@ describe('memory search --type vs actual searchMethod', () => {
 
     const { searchCommand } = await import('../commands/memory-crud.js');
     const written: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => { written.push(String(chunk)); return true; });
-    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: any) => { written.push(String(chunk)); return true; });
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
+      written.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: any) => {
+      written.push(String(chunk));
+      return true;
+    });
 
-    await searchCommand.action!(makeCtx({ type: 'keyword' }));
+    await searchCommand.action?.(makeCtx({ type: 'keyword' }));
 
-    expect(written.join('')).toContain('Requested --type keyword but the backend used method "semantic" instead.');
+    expect(written.join('')).toContain(
+      'Requested --type keyword but the backend used method "semantic" instead.',
+    );
   });
 
   it('does not warn when the requested type matches the actual method', async () => {
@@ -57,10 +65,16 @@ describe('memory search --type vs actual searchMethod', () => {
 
     const { searchCommand } = await import('../commands/memory-crud.js');
     const written: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => { written.push(String(chunk)); return true; });
-    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: any) => { written.push(String(chunk)); return true; });
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
+      written.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: any) => {
+      written.push(String(chunk));
+      return true;
+    });
 
-    await searchCommand.action!(makeCtx({ type: 'semantic' }));
+    await searchCommand.action?.(makeCtx({ type: 'semantic' }));
 
     expect(written.join('')).not.toContain('Requested --type');
   });
@@ -78,10 +92,16 @@ describe('memory search --type vs actual searchMethod', () => {
 
     const { searchCommand } = await import('../commands/memory-crud.js');
     const written: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => { written.push(String(chunk)); return true; });
-    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: any) => { written.push(String(chunk)); return true; });
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
+      written.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: any) => {
+      written.push(String(chunk));
+      return true;
+    });
 
-    await searchCommand.action!(makeCtx({ type: 'keyword' }));
+    await searchCommand.action?.(makeCtx({ type: 'keyword' }));
 
     expect(written.join('')).not.toContain('Requested --type');
   });
@@ -98,9 +118,12 @@ describe('memory search --type vs actual searchMethod', () => {
 
     const { searchCommand } = await import('../commands/memory-crud.js');
     const written: string[] = [];
-    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => { written.push(String(chunk)); return true; });
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
+      written.push(String(chunk));
+      return true;
+    });
 
-    await searchCommand.action!(makeCtx({ type: 'semantic', format: 'json' }));
+    await searchCommand.action?.(makeCtx({ type: 'semantic', format: 'json' }));
 
     const printed = written.join('');
     expect(printed).toContain('"requestedTypeHonored": false');

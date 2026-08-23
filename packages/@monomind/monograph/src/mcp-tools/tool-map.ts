@@ -14,10 +14,7 @@ export interface ToolEntry {
 
 // ── Implementation ─────────────────────────────────────────────────────────────
 
-export function getToolMap(
-  db: Database.Database,
-  options?: { tool?: string },
-): ToolEntry[] {
+export function getToolMap(db: Database.Database, options?: { tool?: string }): ToolEntry[] {
   const toolFilter = options?.tool ?? null;
 
   const rows = db
@@ -47,7 +44,7 @@ export function getToolMap(
     if (row.properties) {
       try {
         const props = JSON.parse(row.properties) as Record<string, unknown>;
-        description = typeof props['description'] === 'string' ? props['description'] : null;
+        description = typeof props.description === 'string' ? props.description : null;
       } catch {
         // ignore malformed JSON
       }

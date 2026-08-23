@@ -1,12 +1,22 @@
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
-import type { PipelinePhase, PipelineContext } from '../types.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 
 export type SupportedFramework =
-  | 'react' | 'vue' | 'angular' | 'svelte'
-  | 'express' | 'fastify' | 'nestjs' | 'koa'
-  | 'django' | 'flask' | 'fastapi'
-  | 'spring' | 'rails' | 'laravel';
+  | 'react'
+  | 'vue'
+  | 'angular'
+  | 'svelte'
+  | 'express'
+  | 'fastify'
+  | 'nestjs'
+  | 'koa'
+  | 'django'
+  | 'flask'
+  | 'fastapi'
+  | 'spring'
+  | 'rails'
+  | 'laravel';
 
 export type PrimaryLanguage = 'javascript' | 'python' | 'java' | 'ruby' | 'php' | null;
 
@@ -17,20 +27,25 @@ export interface FrameworkDetectOutput {
 }
 
 const NPM_FRAMEWORK_MAP: Record<string, SupportedFramework> = {
-  'react': 'react', 'react-dom': 'react',
-  'vue': 'vue', '@vue/core': 'vue',
+  react: 'react',
+  'react-dom': 'react',
+  vue: 'vue',
+  '@vue/core': 'vue',
   '@angular/core': 'angular',
-  'svelte': 'svelte',
-  'express': 'express',
-  'fastify': 'fastify',
+  svelte: 'svelte',
+  express: 'express',
+  fastify: 'fastify',
   '@nestjs/core': 'nestjs',
-  'koa': 'koa',
+  koa: 'koa',
 };
 
 const PYTHON_FRAMEWORK_MAP: Record<string, SupportedFramework> = {
-  'Django': 'django', 'django': 'django',
-  'Flask': 'flask', 'flask': 'flask',
-  'fastapi': 'fastapi', 'FastAPI': 'fastapi',
+  Django: 'django',
+  django: 'django',
+  Flask: 'flask',
+  flask: 'flask',
+  fastapi: 'fastapi',
+  FastAPI: 'fastapi',
 };
 
 export function detectFrameworks(repoPath: string): FrameworkDetectOutput {
@@ -49,7 +64,9 @@ export function detectFrameworks(repoPath: string): FrameworkDetectOutput {
           primaryLanguage = 'javascript';
         }
       }
-    } catch { /* malformed JSON */ }
+    } catch {
+      /* malformed JSON */
+    }
   }
 
   const reqPath = join(repoPath, 'requirements.txt');
@@ -92,7 +109,9 @@ export function detectFrameworks(repoPath: string): FrameworkDetectOutput {
         detected.set('laravel', Math.max(detected.get('laravel') ?? 0, 0.9));
         primaryLanguage = 'php';
       }
-    } catch { /* malformed JSON */ }
+    } catch {
+      /* malformed JSON */
+    }
   }
 
   const frameworks = [...detected.keys()];

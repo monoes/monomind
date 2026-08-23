@@ -1,8 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, utimesSync, cpSync, existsSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // checkApiKeys() shells out to a real `claude --version`. On the machine this
 // suite actually runs on, a `claude` binary genuinely is on PATH, which would
@@ -38,23 +46,23 @@ vi.mock('os', async (importOriginal) => {
 });
 
 import {
-  checkConfigFile,
-  checkMemoryDatabase,
+  checkAgentRegistry,
   checkApiKeys,
+  checkConfigFile,
+  checkGitignoreCoverage,
+  checkGuidanceGates,
+  checkHelpersFresh,
   checkMcpServers,
+  checkMemoryDatabase,
+  checkMemoryProficiency,
+  checkMetricsFreshness,
+  checkMonoesIntegration,
+  checkMonoesMemory,
   checkMonograph,
   checkMonographFreshness,
-  checkMonoesMemory,
-  checkHelpersFresh,
-  fixStaleHelpers,
-  checkGitignoreCoverage,
-  checkAgentRegistry,
-  checkGuidanceGates,
-  checkMetricsFreshness,
-  checkSecurityAuditFindings,
-  checkMemoryProficiency,
-  checkMonoesIntegration,
   checkSecondBrainModel,
+  checkSecurityAuditFindings,
+  fixStaleHelpers,
 } from '../commands/doctor-project-checks.js';
 
 // Env var names built from parts at runtime, not as literal `X_API_KEY`
@@ -67,8 +75,12 @@ const OPENAI_KEY_NAME = ['OPENAI', 'API', 'KEY'].join('_');
 const FAKE_KEY_VALUE = 'placeholder-not-a-real-credential';
 
 const KEY_ENV_VARS = [
-  ANTHROPIC_KEY_NAME, CLAUDE_KEY_NAME, OPENAI_KEY_NAME,
-  'CLAUDE_CODE', 'CLAUDE_PROJECT_DIR', 'MCP_SESSION_ID',
+  ANTHROPIC_KEY_NAME,
+  CLAUDE_KEY_NAME,
+  OPENAI_KEY_NAME,
+  'CLAUDE_CODE',
+  'CLAUDE_PROJECT_DIR',
+  'MCP_SESSION_ID',
 ];
 
 // Captured once, before any test mutates cwd, so the helper-staleness tests
@@ -92,7 +104,10 @@ describe('doctor-project-checks', () => {
     execState.claudeAvailable = false;
 
     savedEnv = {};
-    for (const k of KEY_ENV_VARS) { savedEnv[k] = process.env[k]; delete process.env[k]; }
+    for (const k of KEY_ENV_VARS) {
+      savedEnv[k] = process.env[k];
+      delete process.env[k];
+    }
   });
 
   afterEach(() => {
@@ -112,7 +127,11 @@ describe('doctor-project-checks', () => {
       mkdirSync(join(dir, '.monomind'), { recursive: true });
       writeFileSync(join(dir, '.monomind', 'config.json'), JSON.stringify({ a: 1 }));
       const result = await checkConfigFile();
-      expect(result).toEqual({ name: 'Config File', status: 'pass', message: 'Found: .monomind/config.json' });
+      expect(result).toEqual({
+        name: 'Config File',
+        status: 'pass',
+        message: 'Found: .monomind/config.json',
+      });
     });
 
     it('warns with a fix suggestion when no config file exists', async () => {
@@ -134,7 +153,11 @@ describe('doctor-project-checks', () => {
     it('accepts a YAML config when no JSON config exists', async () => {
       writeFileSync(join(dir, 'monomind.config.yaml'), 'key: value\n');
       const result = await checkConfigFile();
-      expect(result).toEqual({ name: 'Config File', status: 'pass', message: 'Found: monomind.config.yaml' });
+      expect(result).toEqual({
+        name: 'Config File',
+        status: 'pass',
+        message: 'Found: monomind.config.yaml',
+      });
     });
   });
 
@@ -153,7 +176,9 @@ describe('doctor-project-checks', () => {
     it('warns with a fix suggestion when no db file exists anywhere', async () => {
       const result = await checkMemoryDatabase();
       expect(result).toEqual({
-        name: 'Memory Database', status: 'warn', message: 'Not initialized',
+        name: 'Memory Database',
+        status: 'warn',
+        message: 'Not initialized',
         fix: 'monomind memory configure --backend hybrid',
       });
     });
@@ -212,7 +237,9 @@ describe('doctor-project-checks', () => {
       execState.claudeAvailable = false;
       const result = await checkApiKeys();
       expect(result.status).toBe('warn');
-      expect(result.message).toBe('Claude Code CLI not found — monomind works best on top of Claude Code');
+      expect(result.message).toBe(
+        'Claude Code CLI not found — monomind works best on top of Claude Code',
+      );
       expect(result.fix).toBe('npm install -g @anthropic-ai/claude-code  # then: claude login');
     });
   });
@@ -222,16 +249,22 @@ describe('doctor-project-checks', () => {
   // ---------------------------------------------------------------------
   describe('checkMcpServers', () => {
     it('passes when monomind is registered in .mcp.json', async () => {
-      writeFileSync(join(dir, '.mcp.json'), JSON.stringify({
-        mcpServers: { monomind: { command: 'npx' }, other: { command: 'x' } },
-      }));
+      writeFileSync(
+        join(dir, '.mcp.json'),
+        JSON.stringify({
+          mcpServers: { monomind: { command: 'npx' }, other: { command: 'x' } },
+        }),
+      );
       const result = await checkMcpServers();
       expect(result.status).toBe('pass');
       expect(result.message).toBe('2 servers (monomind configured)');
     });
 
     it('warns with the correct claude mcp add fix string when monomind is missing', async () => {
-      writeFileSync(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: { other: { command: 'x' } } }));
+      writeFileSync(
+        join(dir, '.mcp.json'),
+        JSON.stringify({ mcpServers: { other: { command: 'x' } } }),
+      );
       const result = await checkMcpServers();
       expect(result.status).toBe('warn');
       expect(result.message).toBe('1 servers (monomind not found)');
@@ -247,7 +280,10 @@ describe('doctor-project-checks', () => {
 
     it('recognizes monomind_alpha as a valid registered server name', async () => {
       mkdirSync(join(dir, '.claude'), { recursive: true });
-      writeFileSync(join(dir, '.claude', 'settings.json'), JSON.stringify({ mcpServers: { monomind_alpha: {} } }));
+      writeFileSync(
+        join(dir, '.claude', 'settings.json'),
+        JSON.stringify({ mcpServers: { monomind_alpha: {} } }),
+      );
       const result = await checkMcpServers();
       expect(result.status).toBe('pass');
     });
@@ -290,7 +326,13 @@ describe('doctor-project-checks', () => {
       execSync(`git ${cmd}`, {
         cwd: dir,
         encoding: 'utf8',
-        env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@test.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@test.com' },
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: 'Test',
+          GIT_AUTHOR_EMAIL: 'test@test.com',
+          GIT_COMMITTER_NAME: 'Test',
+          GIT_COMMITTER_EMAIL: 'test@test.com',
+        },
       });
     }
 
@@ -377,13 +419,20 @@ describe('doctor-project-checks', () => {
       if (!existsSync(realHelpersDir)) return; // nothing to compare against in this checkout
       copyRealHelpersInto(dir);
       const result = await checkHelpersFresh();
-      expect(result).toEqual({ name: 'Helper Files', status: 'pass', message: 'Project helpers match bundled version' });
+      expect(result).toEqual({
+        name: 'Helper Files',
+        status: 'pass',
+        message: 'Project helpers match bundled version',
+      });
     });
 
     it('flags a modified tracked helper as stale, naming it in the message', async () => {
       if (!existsSync(join(realHelpersDir, 'hook-handler.cjs'))) return;
       copyRealHelpersInto(dir);
-      writeFileSync(join(dir, '.claude', 'helpers', 'hook-handler.cjs'), '// locally modified, does not match bundled\n');
+      writeFileSync(
+        join(dir, '.claude', 'helpers', 'hook-handler.cjs'),
+        '// locally modified, does not match bundled\n',
+      );
 
       const result = await checkHelpersFresh();
       expect(result.status).toBe('warn');
@@ -435,14 +484,27 @@ describe('doctor-project-checks', () => {
 
     it('passes when every required pattern is present', async () => {
       const patterns = [
-        '.monomind/sessions/', '.monomind/data/', '.monomind/metrics/', '.monomind/knowledge/',
-        '.monomind/*.json', '.monomind/*.jsonl', '**/.monomind/sessions/', '**/.monomind/*.json',
-        'data/sessions/', 'data/mastermind-*.json', 'data/mastermind-*.jsonl', '**/.claude-flow/',
+        '.monomind/sessions/',
+        '.monomind/data/',
+        '.monomind/metrics/',
+        '.monomind/knowledge/',
+        '.monomind/*.json',
+        '.monomind/*.jsonl',
+        '**/.monomind/sessions/',
+        '**/.monomind/*.json',
+        'data/sessions/',
+        'data/mastermind-*.json',
+        'data/mastermind-*.jsonl',
+        '**/.claude-flow/',
         '.monomind/monoswarm/',
       ];
-      writeFileSync(join(dir, '.gitignore'), patterns.join('\n') + '\n');
+      writeFileSync(join(dir, '.gitignore'), `${patterns.join('\n')}\n`);
       const result = await checkGitignoreCoverage();
-      expect(result).toEqual({ name: 'Gitignore Coverage', status: 'pass', message: 'All monomind runtime paths are gitignored' });
+      expect(result).toEqual({
+        name: 'Gitignore Coverage',
+        status: 'pass',
+        message: 'All monomind runtime paths are gitignored',
+      });
     });
 
     it('warns and lists missing patterns when only some are present', async () => {
@@ -474,14 +536,20 @@ describe('doctor-project-checks', () => {
     it('passes when both gates are registered in settings.json', async () => {
       mkdirSync(join(dir, '.claude', 'helpers', 'handlers'), { recursive: true });
       writeFileSync(join(dir, '.claude', 'helpers', 'handlers', 'gates-handler.cjs'), '// stub\n');
-      writeFileSync(join(dir, '.claude', 'settings.json'), JSON.stringify({
-        hooks: {
-          PreToolUse: [
-            { matcher: 'Write|Edit|MultiEdit|NotebookEdit', hooks: [{ command: 'node pre-write.js' }] },
-            { matcher: 'Bash', hooks: [{ command: 'node pre-bash.js' }] },
-          ],
-        },
-      }));
+      writeFileSync(
+        join(dir, '.claude', 'settings.json'),
+        JSON.stringify({
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: 'Write|Edit|MultiEdit|NotebookEdit',
+                hooks: [{ command: 'node pre-write.js' }],
+              },
+              { matcher: 'Bash', hooks: [{ command: 'node pre-bash.js' }] },
+            ],
+          },
+        }),
+      );
       const result = await checkGuidanceGates();
       expect(result.status).toBe('pass');
     });
@@ -500,14 +568,17 @@ describe('doctor-project-checks', () => {
 
     it('passes when a well-formed agent definition is present', async () => {
       mkdirSync(join(dir, '.claude', 'agents'), { recursive: true });
-      writeFileSync(join(dir, '.claude', 'agents', 'coder.md'), [
-        '---',
-        'name: Coder',
-        'slug: coder',
-        'description: Implementation specialist',
-        '---',
-        '# Coder',
-      ].join('\n'));
+      writeFileSync(
+        join(dir, '.claude', 'agents', 'coder.md'),
+        [
+          '---',
+          'name: Coder',
+          'slug: coder',
+          'description: Implementation specialist',
+          '---',
+          '# Coder',
+        ].join('\n'),
+      );
       const result = await checkAgentRegistry();
       expect(result.status).toBe('pass');
       expect(result.message).toContain('all metadata complete');
@@ -558,18 +629,28 @@ describe('doctor-project-checks', () => {
 
     it('passes with no open findings when risk is low', async () => {
       mkdirSync(join(dir, '.monomind', 'metrics'), { recursive: true });
-      writeFileSync(join(dir, '.monomind', 'metrics', 'security-audit.json'), JSON.stringify({ riskLevel: 'low', recommendations: [] }));
+      writeFileSync(
+        join(dir, '.monomind', 'metrics', 'security-audit.json'),
+        JSON.stringify({ riskLevel: 'low', recommendations: [] }),
+      );
       const result = await checkSecurityAuditFindings();
-      expect(result).toEqual({ name: 'Security Audit', status: 'pass', message: 'risk=low, no open findings' });
+      expect(result).toEqual({
+        name: 'Security Audit',
+        status: 'pass',
+        message: 'risk=low, no open findings',
+      });
     });
 
     it('fails when risk is high with priority scan targets', async () => {
       mkdirSync(join(dir, '.monomind', 'metrics'), { recursive: true });
-      writeFileSync(join(dir, '.monomind', 'metrics', 'security-audit.json'), JSON.stringify({
-        riskLevel: 'high',
-        recommendations: ['rotate secret'],
-        priorityScanTargets: [{ file: 'src/a.ts' }, { file: 'src/b.ts' }],
-      }));
+      writeFileSync(
+        join(dir, '.monomind', 'metrics', 'security-audit.json'),
+        JSON.stringify({
+          riskLevel: 'high',
+          recommendations: ['rotate secret'],
+          priorityScanTargets: [{ file: 'src/a.ts' }, { file: 'src/b.ts' }],
+        }),
+      );
       const result = await checkSecurityAuditFindings();
       expect(result.status).toBe('fail');
       expect(result.message).toContain('risk=high');
@@ -578,9 +659,13 @@ describe('doctor-project-checks', () => {
 
     it('warns when there are recommendations but risk is not high/critical', async () => {
       mkdirSync(join(dir, '.monomind', 'metrics'), { recursive: true });
-      writeFileSync(join(dir, '.monomind', 'metrics', 'security-audit.json'), JSON.stringify({
-        riskLevel: 'medium', recommendations: ['tighten CORS'],
-      }));
+      writeFileSync(
+        join(dir, '.monomind', 'metrics', 'security-audit.json'),
+        JSON.stringify({
+          riskLevel: 'medium',
+          recommendations: ['tighten CORS'],
+        }),
+      );
       const result = await checkSecurityAuditFindings();
       expect(result.status).toBe('warn');
       expect(result.message).toBe('risk=medium, 1 recommendation(s)');
@@ -618,7 +703,10 @@ describe('doctor-project-checks', () => {
         { sessionId: 's1', suggestedAgent: 'coder', intelligenceFeedback: true },
         { sessionId: 's1', suggestedAgent: 'coder', intelligenceFeedback: false },
       ];
-      writeFileSync(join(dir, '.monomind', 'routing-feedback.jsonl'), records.map(r => JSON.stringify(r)).join('\n') + '\n');
+      writeFileSync(
+        join(dir, '.monomind', 'routing-feedback.jsonl'),
+        `${records.map((r) => JSON.stringify(r)).join('\n')}\n`,
+      );
       const result = await checkMonoesIntegration();
       expect(result.name).toBe('Routing Learning');
       if (result.message.startsWith('routing feedback (fallback)')) {
@@ -652,10 +740,19 @@ describe('doctor-project-checks', () => {
     const writeDocMeta = (root: string, records: Array<Record<string, unknown>>): void => {
       const kdir = join(root, '.monomind', 'knowledge');
       mkdirSync(kdir, { recursive: true });
-      writeFileSync(join(kdir, 'doc-metadata.jsonl'), records.map(r => JSON.stringify(r)).join('\n') + '\n');
+      writeFileSync(
+        join(kdir, 'doc-metadata.jsonl'),
+        `${records.map((r) => JSON.stringify(r)).join('\n')}\n`,
+      );
     };
-    const doc = (filePath: string, chunkCount = 3): Record<string, unknown> =>
-      ({ filePath, contentHash: `h-${filePath}`, chunkCount, indexedAt: '2026-07-28T00:00:00Z', scope: 'shared', size: 10 });
+    const doc = (filePath: string, chunkCount = 3): Record<string, unknown> => ({
+      filePath,
+      contentHash: `h-${filePath}`,
+      chunkCount,
+      indexedAt: '2026-07-28T00:00:00Z',
+      scope: 'shared',
+      size: 10,
+    });
 
     it('reports nothing to check when no knowledge exists anywhere', async () => {
       const result = await checkSecondBrainModel();
@@ -678,7 +775,10 @@ describe('doctor-project-checks', () => {
 
     it('still checks the model for a chunks.jsonl-only (monograph god-node) project', async () => {
       mkdirSync(join(dir, '.monomind', 'knowledge'), { recursive: true });
-      writeFileSync(join(dir, '.monomind', 'knowledge', 'chunks.jsonl'), '{"id":"monograph-god-nodes"}\n');
+      writeFileSync(
+        join(dir, '.monomind', 'knowledge', 'chunks.jsonl'),
+        '{"id":"monograph-god-nodes"}\n',
+      );
       const result = await checkSecondBrainModel();
       expect(result.message).not.toBe(NOTHING);
       if (result.status === 'pass') expect(result.message).toContain('monograph god-nodes');

@@ -6,10 +6,10 @@
  * runner uses a different wrapping pattern (inline in tool.execute) that is
  * harder to unit-test without mocking dynamic imports.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { executeToolCall, type ToolCall } from '../orgrt/tool-fence.js';
 import type { OrgToolDef } from '../orgrt/agent-runner.js';
+import { executeToolCall } from '../orgrt/tool-fence.js';
 
 const echoTool: OrgToolDef = {
   name: 'echo',
@@ -110,7 +110,9 @@ describe('executeToolCall — canUseTool integration', () => {
       name: 'fail',
       description: 'Always fails',
       schema: {},
-      handler: async () => { throw new Error('handler exploded'); },
+      handler: async () => {
+        throw new Error('handler exploded');
+      },
     };
     const result = await executeToolCall(
       [failingTool],

@@ -15,8 +15,8 @@
  *   `vulnerabilities` via `vulnPatterns`.
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 import { scanDirectoryForPatterns } from './worker-utils.js';
 
@@ -48,10 +48,7 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
       /dangerouslySetInnerHTML/gi,
     ];
 
-    const dirsToScan = [
-      path.join(projectRoot, 'packages'),
-      path.join(projectRoot, 'src'),
-    ];
+    const dirsToScan = [path.join(projectRoot, 'packages'), path.join(projectRoot, 'src')];
 
     for (const dir of dirsToScan) {
       try {
@@ -79,25 +76,38 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
 
     const totalIssues = findings.secrets + findings.vulnerabilities;
     const incomplete = skippedPaths.length > 0;
-    const status = totalIssues > 10 ? 'critical' :
-                   totalIssues > 0 ? 'warning' :
-                   incomplete ? 'incomplete' : 'clean';
+    const status =
+      totalIssues > 10
+        ? 'critical'
+        : totalIssues > 0
+          ? 'warning'
+          : incomplete
+            ? 'incomplete'
+            : 'clean';
 
     try {
       const outputPath = path.join(projectRoot, '.monomind', 'security', 'scan-results.json');
       await fs.mkdir(path.dirname(outputPath), { recursive: true });
-      await fs.writeFile(outputPath, JSON.stringify({
-        timestamp: new Date().toISOString(),
-        status,
-        findings,
-        totalIssues,
-        filesScanned,
-        incomplete,
-        skippedCount: skippedPaths.length,
-        skippedPaths: skippedPaths.slice(0, 50),
-      }, null, 2));
+      await fs.writeFile(
+        outputPath,
+        JSON.stringify(
+          {
+            timestamp: new Date().toISOString(),
+            status,
+            findings,
+            totalIssues,
+            filesScanned,
+            incomplete,
+            skippedCount: skippedPaths.length,
+            skippedPaths: skippedPaths.slice(0, 50),
+          },
+          null,
+          2,
+        ),
+      );
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-security] failed to write scan-results.json:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[worker-security] failed to write scan-results.json:', e);
     }
 
     return {

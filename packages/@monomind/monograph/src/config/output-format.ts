@@ -1,9 +1,22 @@
-export type FallowOutputFormat = 'human' | 'json' | 'sarif' | 'compact' | 'markdown' | 'code-climate' | 'badge';
+export type FallowOutputFormat =
+  | 'human'
+  | 'json'
+  | 'sarif'
+  | 'compact'
+  | 'markdown'
+  | 'code-climate'
+  | 'badge';
 
 export const DEFAULT_OUTPUT_FORMAT: FallowOutputFormat = 'human';
 
 const VALID_FORMATS = new Set<string>([
-  'human', 'json', 'sarif', 'compact', 'markdown', 'code-climate', 'badge',
+  'human',
+  'json',
+  'sarif',
+  'compact',
+  'markdown',
+  'code-climate',
+  'badge',
 ]);
 
 const FORMAT_ALIASES: Record<string, FallowOutputFormat> = {

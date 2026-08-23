@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 function esc(s: string): string {
   return s
@@ -19,20 +19,22 @@ function esc(s: string): string {
  */
 export function toGexf(nodes: MonographNode[], edges: MonographEdge[]): string {
   const nodeXml = nodes
-    .map(n =>
-      `    <node id="${esc(n.id)}" label="${esc(n.name)}">` +
-      `<attvalues>` +
-      `<attvalue for="0" value="${esc(n.label)}"/>` +
-      `<attvalue for="1" value="${n.isExported ? 'true' : 'false'}"/>` +
-      (n.filePath ? `<attvalue for="2" value="${esc(n.filePath)}"/>` : '') +
-      `</attvalues>` +
-      `</node>`
+    .map(
+      (n) =>
+        `    <node id="${esc(n.id)}" label="${esc(n.name)}">` +
+        `<attvalues>` +
+        `<attvalue for="0" value="${esc(n.label)}"/>` +
+        `<attvalue for="1" value="${n.isExported ? 'true' : 'false'}"/>` +
+        (n.filePath ? `<attvalue for="2" value="${esc(n.filePath)}"/>` : '') +
+        `</attvalues>` +
+        `</node>`,
     )
     .join('\n');
 
   const edgeXml = edges
-    .map(e =>
-      `    <edge id="${esc(e.id)}" source="${esc(e.sourceId)}" target="${esc(e.targetId)}" label="${esc(e.relation)}" weight="${e.confidenceScore}"/>`
+    .map(
+      (e) =>
+        `    <edge id="${esc(e.id)}" source="${esc(e.sourceId)}" target="${esc(e.targetId)}" label="${esc(e.relation)}" weight="${e.confidenceScore}"/>`,
     )
     .join('\n');
 

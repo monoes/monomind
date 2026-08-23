@@ -5,11 +5,11 @@
  * Includes model routing integration for intelligent model selection.
  */
 
-import { existsSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { type MCPTool, getMonomindDataRoot, migrateLegacyStoreFile } from './types.js';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { readJsonStoreOrNull } from '../utils/json-file.js';
+import { getMonomindDataRoot, type MCPTool, migrateLegacyStoreFile } from './types.js';
 
 // Storage paths — relative to the git-safe data root (see getMonomindDataRoot()).
 // Canonical location matches task-tools.ts/session-tools.ts/monoswarm-tools.ts
@@ -29,9 +29,9 @@ interface AgentRecord {
   config: Record<string, unknown>;
   createdAt: string;
   domain?: string;
-  model?: ClaudeModel;  // Model assigned to this agent
-  modelRoutedBy?: 'explicit' | 'router' | 'default';  // How model was determined (ADR-026)
-  lastResult?: Record<string, unknown>;  // Output from last completed task
+  model?: ClaudeModel; // Model assigned to this agent
+  modelRoutedBy?: 'explicit' | 'router' | 'default'; // How model was determined (ADR-026)
+  lastResult?: Record<string, unknown>; // Output from last completed task
 }
 
 interface AgentStore {
@@ -87,20 +87,20 @@ function saveAgentStore(store: AgentStore): void {
 // Default model mappings for agent types (can be overridden)
 const AGENT_TYPE_MODEL_DEFAULTS: Record<string, ClaudeModel> = {
   // Complex agents → opus
-  'architect': 'opus',
+  architect: 'opus',
   'security-architect': 'opus',
   'system-architect': 'opus',
   'core-architect': 'opus',
   // Medium complexity → sonnet
-  'coder': 'sonnet',
-  'reviewer': 'sonnet',
-  'researcher': 'sonnet',
-  'tester': 'sonnet',
-  'analyst': 'sonnet',
+  coder: 'sonnet',
+  reviewer: 'sonnet',
+  researcher: 'sonnet',
+  tester: 'sonnet',
+  analyst: 'sonnet',
   // Simple/fast agents → haiku
-  'formatter': 'haiku',
-  'linter': 'haiku',
-  'documenter': 'haiku',
+  formatter: 'haiku',
+  linter: 'haiku',
+  documenter: 'haiku',
 };
 
 /**
@@ -113,7 +113,7 @@ const AGENT_TYPE_MODEL_DEFAULTS: Record<string, ClaudeModel> = {
 async function determineAgentModel(
   agentType: string,
   config: Record<string, unknown>,
-  task?: string
+  _task?: string,
 ): Promise<{
   model: ClaudeModel;
   routedBy: 'explicit' | 'router' | 'default';
@@ -141,7 +141,8 @@ async function determineAgentModel(
 export const agentTools: MCPTool[] = [
   {
     name: 'agent_spawn',
-    description: 'Register a new agent record (type, model, status) in the persistent agent store — a DB entry, not a running agent.',
+    description:
+      'Register a new agent record (type, model, status) in the persistent agent store — a DB entry, not a running agent.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -153,7 +154,7 @@ export const agentTools: MCPTool[] = [
         model: {
           type: 'string',
           enum: ['haiku', 'sonnet', 'opus', 'inherit'],
-          description: 'Claude model to use (haiku=fast/cheap, sonnet=balanced, opus=most capable)'
+          description: 'Claude model to use (haiku=fast/cheap, sonnet=balanced, opus=most capable)',
         },
         task: { type: 'string', description: 'Task description for intelligent model routing' },
       },
@@ -162,7 +163,11 @@ export const agentTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadAgentStoreOrNull();
       if (!store) {
-        return { success: false, error: 'Agent store is unreadable/corrupt — refusing to spawn to avoid overwriting real agent data. Retry, or check the store file if this persists.' };
+        return {
+          success: false,
+          error:
+            'Agent store is unreadable/corrupt — refusing to spawn to avoid overwriting real agent data. Retry, or check the store file if this persists.',
+        };
       }
       // Cap agentId: used as the JSON object key in store.agents[agentId].
       // An oversized key inflates the on-disk store for every spawned agent.
@@ -170,12 +175,17 @@ export const agentTools: MCPTool[] = [
       const MAX_AGENT_ID_LEN = 256;
       const MAX_AGENT_TYPE_LEN = 128;
       const MAX_AGENT_DOMAIN_LEN = 256;
-      const rawAgentId = (input.agentId as string) || `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
-      const agentId = typeof rawAgentId === 'string' && rawAgentId.length > MAX_AGENT_ID_LEN
-        ? rawAgentId.slice(0, MAX_AGENT_ID_LEN) : rawAgentId;
+      const rawAgentId =
+        (input.agentId as string) || `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
+      const agentId =
+        typeof rawAgentId === 'string' && rawAgentId.length > MAX_AGENT_ID_LEN
+          ? rawAgentId.slice(0, MAX_AGENT_ID_LEN)
+          : rawAgentId;
       const rawAgentType = input.agentType as string;
-      const agentType = typeof rawAgentType === 'string' && rawAgentType.length > MAX_AGENT_TYPE_LEN
-        ? rawAgentType.slice(0, MAX_AGENT_TYPE_LEN) : rawAgentType;
+      const agentType =
+        typeof rawAgentType === 'string' && rawAgentType.length > MAX_AGENT_TYPE_LEN
+          ? rawAgentType.slice(0, MAX_AGENT_TYPE_LEN)
+          : rawAgentType;
 
       if (['__proto__', 'constructor', 'prototype'].includes(agentId)) {
         return { success: false, agentId, error: 'Forbidden agent ID' };
@@ -198,15 +208,13 @@ export const agentTools: MCPTool[] = [
       // Get task from either top-level or config (CLI passes it in config.task)
       const task = (input.task as string) || (config.task as string) || undefined;
       const rawDomain = input.domain as string;
-      const domain = typeof rawDomain === 'string' && rawDomain.length > MAX_AGENT_DOMAIN_LEN
-        ? rawDomain.slice(0, MAX_AGENT_DOMAIN_LEN) : rawDomain;
+      const domain =
+        typeof rawDomain === 'string' && rawDomain.length > MAX_AGENT_DOMAIN_LEN
+          ? rawDomain.slice(0, MAX_AGENT_DOMAIN_LEN)
+          : rawDomain;
 
       // Determine model using ADR-026 3-tier routing logic
-      const routingResult = await determineAgentModel(
-        agentType,
-        config,
-        task
-      );
+      const routingResult = await determineAgentModel(agentType, config, task);
 
       const agent: AgentRecord = {
         agentId,
@@ -262,12 +270,21 @@ export const agentTools: MCPTool[] = [
     },
     handler: async (input) => {
       const agentId = input.agentId as string;
-      if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+      if (
+        !agentId ||
+        typeof agentId !== 'string' ||
+        ['__proto__', 'constructor', 'prototype'].includes(agentId)
+      ) {
         return { success: false, agentId, error: 'Invalid agent ID' };
       }
       const store = loadAgentStoreOrNull();
       if (!store) {
-        return { success: false, agentId, error: 'Agent store is unreadable/corrupt — refusing to terminate to avoid overwriting real agent data.' };
+        return {
+          success: false,
+          agentId,
+          error:
+            'Agent store is unreadable/corrupt — refusing to terminate to avoid overwriting real agent data.',
+        };
       }
 
       if (Object.hasOwn(store.agents, agentId)) {
@@ -302,7 +319,11 @@ export const agentTools: MCPTool[] = [
     },
     handler: async (input) => {
       const agentId = input.agentId as string;
-      if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+      if (
+        !agentId ||
+        typeof agentId !== 'string' ||
+        ['__proto__', 'constructor', 'prototype'].includes(agentId)
+      ) {
         return { agentId, error: 'Invalid agent ID' };
       }
       const store = loadAgentStore();
@@ -335,7 +356,10 @@ export const agentTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        status: { type: 'string', description: 'Filter by status (pass "all" or omit to include every status)' },
+        status: {
+          type: 'string',
+          description: 'Filter by status (pass "all" or omit to include every status)',
+        },
         domain: { type: 'string', description: 'Filter by domain' },
         agentType: { type: 'string', description: 'Filter by agent type' },
         includeTerminated: { type: 'boolean', description: 'Include terminated agents' },
@@ -350,25 +374,25 @@ export const agentTools: MCPTool[] = [
       // status value to match against, which no agent ever has, so `--all`
       // silently returned zero agents instead of every agent.
       if (input.status && input.status !== 'all') {
-        agents = agents.filter(a => a.status === input.status);
+        agents = agents.filter((a) => a.status === input.status);
       } else if (input.status !== 'all' && !input.includeTerminated) {
-        agents = agents.filter(a => a.status !== 'terminated');
+        agents = agents.filter((a) => a.status !== 'terminated');
       }
 
       // Filter by domain
       if (input.domain) {
-        agents = agents.filter(a => a.domain === input.domain);
+        agents = agents.filter((a) => a.domain === input.domain);
       }
 
       // Filter by agent type — the CLI's `--type` flag has sent this since
       // it was added, but this handler never read it, so `--type` was a
       // silent no-op that returned every agent regardless of the filter.
       if (input.agentType) {
-        agents = agents.filter(a => a.agentType === input.agentType);
+        agents = agents.filter((a) => a.agentType === input.agentType);
       }
 
       return {
-        agents: agents.map(a => ({
+        agents: agents.map((a) => ({
           agentId: a.agentId,
           agentType: a.agentType,
           status: a.status,
@@ -394,7 +418,11 @@ export const agentTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['status', 'scale', 'drain'], description: 'Pool action (default: status)' },
+        action: {
+          type: 'string',
+          enum: ['status', 'scale', 'drain'],
+          description: 'Pool action (default: status)',
+        },
         targetSize: { type: 'number', description: 'Target pool size (for scale action)' },
         agentType: { type: 'string', description: 'Agent type filter' },
       },
@@ -404,15 +432,19 @@ export const agentTools: MCPTool[] = [
       // required params became enforced, that false contract broke the CLI.
     },
     handler: async (input) => {
-      const action = (input.action as string) || 'status';  // Default to status
+      const action = (input.action as string) || 'status'; // Default to status
       const store = loadAgentStoreOrNull();
       if (!store) {
         // 'scale'/'drain' would otherwise build on an empty store and save it,
         // wiping every real agent; 'status' reporting all-zeros on a corrupt
         // store would also be misleading, so all three branches bail here.
-        return { action, error: 'Agent store is unreadable/corrupt — refusing to proceed to avoid overwriting real agent data.' };
+        return {
+          action,
+          error:
+            'Agent store is unreadable/corrupt — refusing to proceed to avoid overwriting real agent data.',
+        };
       }
-      const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
+      const agents = Object.values(store.agents).filter((a) => a.status !== 'terminated');
 
       if (action === 'status') {
         const byType: Record<string, number> = {};
@@ -421,8 +453,8 @@ export const agentTools: MCPTool[] = [
           byType[agent.agentType] = (byType[agent.agentType] || 0) + 1;
           byStatus[agent.status] = (byStatus[agent.status] || 0) + 1;
         }
-        const idleAgents = agents.filter(a => a.status === 'idle').length;
-        const busyAgents = agents.filter(a => a.status === 'busy').length;
+        const _idleAgents = agents.filter((a) => a.status === 'idle').length;
+        const busyAgents = agents.filter((a) => a.status === 'busy').length;
         const utilization = agents.length > 0 ? busyAgents / agents.length : 0;
         return {
           action,
@@ -430,7 +462,7 @@ export const agentTools: MCPTool[] = [
           poolId: 'agent-pool-default',
           currentSize: agents.length,
           utilization,
-          agents: agents.map(a => ({
+          agents: agents.map((a) => ({
             id: a.agentId,
             type: a.agentType,
             status: a.status,
@@ -441,14 +473,15 @@ export const agentTools: MCPTool[] = [
           totalAgents: agents.length,
           byType,
           byStatus,
-          avgHealth: agents.length > 0 ? agents.reduce((sum, a) => sum + a.health, 0) / agents.length : 0,
+          avgHealth:
+            agents.length > 0 ? agents.reduce((sum, a) => sum + a.health, 0) / agents.length : 0,
         };
       }
 
       if (action === 'scale') {
         const targetSize = Math.min(Math.max((input.targetSize as number) || 5, 1), 50);
         const agentType = (input.agentType as string) || 'worker';
-        const currentSize = agents.filter(a => a.agentType === agentType).length;
+        const currentSize = agents.filter((a) => a.agentType === agentType).length;
         const delta = targetSize - currentSize;
         const added: string[] = [];
         const removed: string[] = [];
@@ -468,7 +501,9 @@ export const agentTools: MCPTool[] = [
             added.push(agentId);
           }
         } else if (delta < 0) {
-          const toRemove = agents.filter(a => a.agentType === agentType && a.status === 'idle').slice(0, -delta);
+          const toRemove = agents
+            .filter((a) => a.agentType === agentType && a.status === 'idle')
+            .slice(0, -delta);
           for (const agent of toRemove) {
             store.agents[agent.agentId].status = 'terminated';
             removed.push(agent.agentId);
@@ -493,7 +528,7 @@ export const agentTools: MCPTool[] = [
         // filtered by agentType, agents.length (all non-terminated agents,
         // any type) minus drained (only that type's count) mixed two
         // different populations and produced a meaningless total.
-        const scoped = agentType ? agents.filter(a => a.agentType === agentType) : agents;
+        const scoped = agentType ? agents.filter((a) => a.agentType === agentType) : agents;
         let drained = 0;
         for (const agent of scoped) {
           if (agent.status === 'idle') {
@@ -526,18 +561,18 @@ export const agentTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadAgentStore();
-      const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
+      const agents = Object.values(store.agents).filter((a) => a.status !== 'terminated');
       const threshold = (input.threshold as number) || 0.5;
 
       if (input.agentId !== undefined) {
         const agentId = input.agentId as string;
-        if (typeof agentId !== 'string' ||
-            ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+        if (
+          typeof agentId !== 'string' ||
+          ['__proto__', 'constructor', 'prototype'].includes(agentId)
+        ) {
           return { agentId, error: 'Invalid agent ID' };
         }
-        const agent = Object.hasOwn(store.agents, agentId)
-          ? store.agents[agentId]
-          : undefined;
+        const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
         if (agent) {
           return {
             agentId: agent.agentId,
@@ -551,21 +586,27 @@ export const agentTools: MCPTool[] = [
         return { agentId, error: 'Agent not found' };
       }
 
-      const healthyAgents = agents.filter(a => a.health >= threshold);
-      const degradedAgents = agents.filter(a => a.health >= 0.3 && a.health < threshold);
-      const unhealthyAgents = agents.filter(a => a.health < 0.3);
-      const avgHealth = agents.length > 0 ? agents.reduce((sum, a) => sum + a.health, 0) / agents.length : 1;
+      const healthyAgents = agents.filter((a) => a.health >= threshold);
+      const degradedAgents = agents.filter((a) => a.health >= 0.3 && a.health < threshold);
+      const unhealthyAgents = agents.filter((a) => a.health < 0.3);
+      const avgHealth =
+        agents.length > 0 ? agents.reduce((sum, a) => sum + a.health, 0) / agents.length : 1;
 
       return {
         // CLI expected fields
-        agents: agents.map(a => {
+        agents: agents.map((a) => {
           const uptime = Date.now() - new Date(a.createdAt).getTime();
           return {
             id: a.agentId,
             type: a.agentType,
-            health: a.health >= threshold ? 'healthy' : (a.health >= 0.3 ? 'degraded' : 'unhealthy'),
+            health: a.health >= threshold ? 'healthy' : a.health >= 0.3 ? 'degraded' : 'unhealthy',
             uptime,
-            tasks: { active: a.taskCount > 0 ? 1 : 0, queued: 0, completed: a.taskCount, failed: 0 },
+            tasks: {
+              active: a.taskCount > 0 ? 1 : 0,
+              queued: 0,
+              completed: a.taskCount,
+              failed: 0,
+            },
             _note: 'Per-agent OS metrics not available — use system_metrics for real CPU/memory',
           };
         }),
@@ -585,7 +626,7 @@ export const agentTools: MCPTool[] = [
         unhealthyCount: unhealthyAgents.length,
         threshold,
         avgHealth,
-        unhealthyAgents: unhealthyAgents.map(a => ({
+        unhealthyAgents: unhealthyAgents.map((a) => ({
           agentId: a.agentId,
           health: a.health,
           status: a.status,
@@ -610,12 +651,21 @@ export const agentTools: MCPTool[] = [
     },
     handler: async (input) => {
       const agentId = input.agentId as string;
-      if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+      if (
+        !agentId ||
+        typeof agentId !== 'string' ||
+        ['__proto__', 'constructor', 'prototype'].includes(agentId)
+      ) {
         return { success: false, agentId, error: 'Invalid agent ID' };
       }
       const store = loadAgentStoreOrNull();
       if (!store) {
-        return { success: false, agentId, error: 'Agent store is unreadable/corrupt — refusing to update to avoid overwriting real agent data.' };
+        return {
+          success: false,
+          agentId,
+          error:
+            'Agent store is unreadable/corrupt — refusing to update to avoid overwriting real agent data.',
+        };
       }
       const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
 

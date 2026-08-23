@@ -4,13 +4,12 @@
  * Extracted from hooks.ts to reduce file size.
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
-// Re-export commands from sub-modules so hooks.ts import stays unchanged
-export { coverageRouteCommand } from './hooks-coverage-routing.js';
-export { coverageSuggestCommand } from './hooks-coverage-routing.js';
 export { coverageGapsCommand } from './hooks-coverage-gaps.js';
+// Re-export commands from sub-modules so hooks.ts import stays unchanged
+export { coverageRouteCommand, coverageSuggestCommand } from './hooks-coverage-routing.js';
 
 // Statusline subcommand - generates dynamic status display
 export const statuslineCommand: Command = {
@@ -21,30 +20,30 @@ export const statuslineCommand: Command = {
       name: 'json',
       description: 'Output as JSON',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'compact',
       description: 'Compact single-line output',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'no-color',
       description: 'Disable ANSI colors',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind hooks statusline', description: 'Display full statusline' },
     { command: 'monomind hooks statusline --json', description: 'JSON output for hooks' },
-    { command: 'monomind hooks statusline --compact', description: 'Single-line status' }
+    { command: 'monomind hooks statusline --compact', description: 'Single-line status' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const { execSync } = await import('child_process');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { execSync } = await import('node:child_process');
 
     function getLearningStats() {
       const memoryPaths = [
@@ -66,16 +65,22 @@ export const statuslineCommand: Command = {
             sessions = Math.max(1, Math.floor(patterns / 10));
             trajectories = Math.floor(patterns / 5);
             break;
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       }
 
       const sessionsPath = path.join(process.cwd(), '.claude', 'sessions');
       if (fs.existsSync(sessionsPath)) {
         try {
-          const sessionFiles = fs.readdirSync(sessionsPath).filter((f: string) => f.endsWith('.json'));
+          const sessionFiles = fs
+            .readdirSync(sessionsPath)
+            .filter((f: string) => f.endsWith('.json'));
           sessions = Math.max(sessions, sessionFiles.length);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       return { patterns, sessions, trajectories };
@@ -93,7 +98,13 @@ export const statuslineCommand: Command = {
       const totalDomains = 5;
       const dddProgress = Math.min(100, Math.floor((domainsCompleted / totalDomains) * 100));
 
-      return { domainsCompleted, totalDomains, dddProgress, patternsLearned: learning.patterns, sessionsCompleted: learning.sessions };
+      return {
+        domainsCompleted,
+        totalDomains,
+        dddProgress,
+        patternsLearned: learning.patterns,
+        sessionsCompleted: learning.sessions,
+      };
     }
 
     function getSecurityStatus() {
@@ -105,7 +116,9 @@ export const statuslineCommand: Command = {
         try {
           const scans = fs.readdirSync(scanResultsPath).filter((f: string) => f.endsWith('.json'));
           cvesFixed = Math.min(totalCves, scans.length);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       const auditPath = path.join(process.cwd(), '.swarm', 'security');
@@ -113,7 +126,9 @@ export const statuslineCommand: Command = {
         try {
           const audits = fs.readdirSync(auditPath).filter((f: string) => f.includes('audit'));
           cvesFixed = Math.min(totalCves, Math.max(cvesFixed, audits.length));
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       const status = cvesFixed >= totalCves ? 'CLEAN' : cvesFixed > 0 ? 'IN_PROGRESS' : 'PENDING';
@@ -131,22 +146,26 @@ export const statuslineCommand: Command = {
           ? 'tasklist /FI "IMAGENAME eq node.exe" 2>NUL | findstr /I /C:"node" >NUL && echo 1 || echo 0'
           : 'ps aux 2>/dev/null | grep -c "mcp.*start" || echo "0"';
         const ps = execSync(psCmd, { encoding: 'utf-8' });
-        const raw = parseInt(ps.trim());
+        const raw = parseInt(ps.trim(), 10);
         activeAgents = Math.max(0, isWindows ? raw : raw - 1);
         coordinationActive = activeAgents > 0;
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       return { activeAgents, maxAgents, coordinationActive };
     }
 
     function getSystemMetrics() {
       let memoryMB = 0;
-      let subAgents = 0;
+      const subAgents = 0;
       const learning = getLearningStats();
 
       try {
         memoryMB = Math.floor(process.memoryUsage().heapUsed / 1024 / 1024);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       let intelligencePct = 0;
 
@@ -165,12 +184,15 @@ export const statuslineCommand: Command = {
                 break;
               }
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       }
 
       if (intelligencePct === 0) {
-        intelligencePct = learning.patterns > 0 ? Math.min(100, Math.floor(learning.patterns / 10)) : 0;
+        intelligencePct =
+          learning.patterns > 0 ? Math.min(100, Math.floor(learning.patterns / 10)) : 0;
       }
 
       if (intelligencePct === 0) {
@@ -182,9 +204,13 @@ export const statuslineCommand: Command = {
         if (fs.existsSync(path.join(process.cwd(), '.swarm'))) maturityScore += 10;
         const testDirs = ['tests', '__tests__', 'test', 'v1/__tests__'];
         for (const dir of testDirs) {
-          if (fs.existsSync(path.join(process.cwd(), dir))) { maturityScore += 10; break; }
+          if (fs.existsSync(path.join(process.cwd(), dir))) {
+            maturityScore += 10;
+            break;
+          }
         }
-        if (fs.existsSync(path.join(process.cwd(), '.claude', 'settings.json'))) maturityScore += 10;
+        if (fs.existsSync(path.join(process.cwd(), '.claude', 'settings.json')))
+          maturityScore += 10;
         intelligencePct = Math.min(100, maturityScore);
       }
 
@@ -199,12 +225,18 @@ export const statuslineCommand: Command = {
       const isWindows = process.platform === 'win32';
 
       try {
-        const nameCmd = isWindows ? 'git config user.name 2>NUL || echo user' : 'git config user.name 2>/dev/null || echo "user"';
-        const branchCmd = isWindows ? 'git branch --show-current 2>NUL || echo.' : 'git branch --show-current 2>/dev/null || echo ""';
+        const nameCmd = isWindows
+          ? 'git config user.name 2>NUL || echo user'
+          : 'git config user.name 2>/dev/null || echo "user"';
+        const branchCmd = isWindows
+          ? 'git branch --show-current 2>NUL || echo.'
+          : 'git branch --show-current 2>/dev/null || echo ""';
         name = execSync(nameCmd, { encoding: 'utf-8' }).trim();
         gitBranch = execSync(branchCmd, { encoding: 'utf-8' }).trim();
         if (gitBranch === '.') gitBranch = '';
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       return { name, gitBranch, modelName };
     }
@@ -221,7 +253,7 @@ export const statuslineCommand: Command = {
       security,
       swarm,
       system,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     if (ctx.flags.json || ctx.flags.format === 'json') {
@@ -236,22 +268,48 @@ export const statuslineCommand: Command = {
     }
 
     const noColor = ctx.flags['no-color'] || ctx.flags.noColor;
-    const c = noColor ? {
-      reset: '', bold: '', dim: '', red: '', green: '', yellow: '', blue: '',
-      purple: '', cyan: '', brightRed: '', brightGreen: '', brightYellow: '',
-      brightBlue: '', brightPurple: '', brightCyan: '', brightWhite: ''
-    } : {
-      reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m', red: '\x1b[0;31m',
-      green: '\x1b[0;32m', yellow: '\x1b[0;33m', blue: '\x1b[0;34m',
-      purple: '\x1b[0;35m', cyan: '\x1b[0;36m', brightRed: '\x1b[1;31m',
-      brightGreen: '\x1b[1;32m', brightYellow: '\x1b[1;33m', brightBlue: '\x1b[1;34m',
-      brightPurple: '\x1b[1;35m', brightCyan: '\x1b[1;36m', brightWhite: '\x1b[1;37m'
-    };
+    const c = noColor
+      ? {
+          reset: '',
+          bold: '',
+          dim: '',
+          red: '',
+          green: '',
+          yellow: '',
+          blue: '',
+          purple: '',
+          cyan: '',
+          brightRed: '',
+          brightGreen: '',
+          brightYellow: '',
+          brightBlue: '',
+          brightPurple: '',
+          brightCyan: '',
+          brightWhite: '',
+        }
+      : {
+          reset: '\x1b[0m',
+          bold: '\x1b[1m',
+          dim: '\x1b[2m',
+          red: '\x1b[0;31m',
+          green: '\x1b[0;32m',
+          yellow: '\x1b[0;33m',
+          blue: '\x1b[0;34m',
+          purple: '\x1b[0;35m',
+          cyan: '\x1b[0;36m',
+          brightRed: '\x1b[1;31m',
+          brightGreen: '\x1b[1;32m',
+          brightYellow: '\x1b[1;33m',
+          brightBlue: '\x1b[1;34m',
+          brightPurple: '\x1b[1;35m',
+          brightCyan: '\x1b[1;36m',
+          brightWhite: '\x1b[1;37m',
+        };
 
     const progressBar = (current: number, total: number) => {
       const filled = Math.round((current / total) * 5);
       const empty = 5 - filled;
-      return '[' + '●'.repeat(filled) + '○'.repeat(empty) + ']';
+      return `[${'●'.repeat(filled)}${'○'.repeat(empty)}]`;
     };
 
     let header = `${c.bold}${c.brightPurple}▊ Monomind ${c.reset}`;
@@ -270,10 +328,14 @@ export const statuslineCommand: Command = {
         if (fs.statSync(settingsPath).size <= 524_288) {
           const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
           if (settings.hooks) {
-            hooksStats.enabled = Object.values(settings.hooks).filter((h: unknown) => h && typeof h === 'object').length;
+            hooksStats.enabled = Object.values(settings.hooks).filter(
+              (h: unknown) => h && typeof h === 'object',
+            ).length;
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const memoryStats = { vectorCount: 0, dbSizeKB: 0, hasHnsw: false };
@@ -284,8 +346,8 @@ export const statuslineCommand: Command = {
       path.join(process.cwd(), '.claude', 'memory.db'),
       path.join(process.cwd(), 'data', 'memory.db'),
       path.join(process.cwd(), 'memory.db'),
-      path.join(process.cwd(), ".swarm", "lancedb"),
-      path.join(process.cwd(), ".monomind", "memory", "lancedb"),
+      path.join(process.cwd(), '.swarm', 'lancedb'),
+      path.join(process.cwd(), '.monomind', 'memory', 'lancedb'),
     ];
     for (const dbPath of dbPaths) {
       if (fs.existsSync(dbPath)) {
@@ -295,15 +357,17 @@ export const statuslineCommand: Command = {
           memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2); // estimated from file size
           memoryStats.hasHnsw = memoryStats.vectorCount > 100;
           break;
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
     if (memoryStats.vectorCount === 0) {
       const lancedbDirs = [
-        path.join(process.cwd(), ".monomind", "lancedb"),
-        path.join(process.cwd(), ".swarm", "lancedb"),
-        path.join(process.cwd(), "data", "lancedb"),
+        path.join(process.cwd(), '.monomind', 'lancedb'),
+        path.join(process.cwd(), '.swarm', 'lancedb'),
+        path.join(process.cwd(), 'data', 'lancedb'),
       ];
       for (const dir of lancedbDirs) {
         if (fs.existsSync(dir)) {
@@ -318,7 +382,9 @@ export const statuslineCommand: Command = {
             memoryStats.vectorCount = Math.floor(memoryStats.dbSizeKB / 2); // estimated from file size
             memoryStats.hasHnsw = memoryStats.vectorCount > 100;
             if (memoryStats.vectorCount > 0) break;
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       }
     }
@@ -333,12 +399,17 @@ export const statuslineCommand: Command = {
         memoryStats.hasHnsw = true;
         try {
           const hnswFiles = fs.readdirSync(hnswPath);
-          const indexFile = hnswFiles.find(f => f.endsWith('.index'));
+          const indexFile = hnswFiles.find((f) => f.endsWith('.index'));
           if (indexFile) {
             const indexStat = fs.statSync(path.join(hnswPath, indexFile));
-            memoryStats.vectorCount = Math.max(memoryStats.vectorCount, Math.floor(indexStat.size / 512));
+            memoryStats.vectorCount = Math.max(
+              memoryStats.vectorCount,
+              Math.floor(indexStat.size / 512),
+            );
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         break;
       }
     }
@@ -354,7 +425,9 @@ export const statuslineCommand: Command = {
             memoryStats.vectorCount = Object.keys(data.vectors).length;
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const testStats = { testFiles: 0, testCases: 0 };
@@ -363,9 +436,13 @@ export const statuslineCommand: Command = {
       if (fs.existsSync(fullPath)) {
         try {
           const files = fs.readdirSync(fullPath, { recursive: true }) as string[];
-          testStats.testFiles = files.filter((f: string) => /\.(test|spec)\.(ts|js|tsx|jsx)$/.test(f)).length;
+          testStats.testFiles = files.filter((f: string) =>
+            /\.(test|spec)\.(ts|js|tsx|jsx)$/.test(f),
+          ).length;
           testStats.testCases = testStats.testFiles * 28; // rough estimate (~28 cases/file avg), not counted
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -378,37 +455,59 @@ export const statuslineCommand: Command = {
           mcpStats.total = Object.keys(mcp.mcpServers).length;
           mcpStats.enabled = mcpStats.total;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
-    const domainsColor = progress.domainsCompleted >= 3 ? c.brightGreen : progress.domainsCompleted > 0 ? c.yellow : c.red;
+    const domainsColor =
+      progress.domainsCompleted >= 3
+        ? c.brightGreen
+        : progress.domainsCompleted > 0
+          ? c.yellow
+          : c.red;
     let perfIndicator = `${c.dim}⚡ HNSW: idle${c.reset}`;
     if (memoryStats.hasHnsw && memoryStats.vectorCount > 0) {
       perfIndicator = `${c.brightGreen}⚡ HNSW ${memoryStats.vectorCount.toLocaleString()} vec${c.reset}`;
     } else if (progress.patternsLearned > 0) {
-      const patternsK = progress.patternsLearned >= 1000 ? `${(progress.patternsLearned / 1000).toFixed(1)}k` : String(progress.patternsLearned);
+      const patternsK =
+        progress.patternsLearned >= 1000
+          ? `${(progress.patternsLearned / 1000).toFixed(1)}k`
+          : String(progress.patternsLearned);
       perfIndicator = `${c.brightYellow}📚 ~${patternsK} patterns (est.)${c.reset}`;
     }
 
-    const line1 = `${c.brightCyan}🏗️  DDD Domains${c.reset}    ${progressBar(progress.domainsCompleted, progress.totalDomains)}  ` +
+    const line1 =
+      `${c.brightCyan}🏗️  DDD Domains${c.reset}    ${progressBar(progress.domainsCompleted, progress.totalDomains)}  ` +
       `${domainsColor}${progress.domainsCompleted}${c.reset}/${c.brightWhite}${progress.totalDomains}${c.reset}    ` +
       perfIndicator;
 
-    const swarmIndicator = swarm.coordinationActive ? `${c.brightGreen}◉${c.reset}` : `${c.dim}○${c.reset}`;
+    const swarmIndicator = swarm.coordinationActive
+      ? `${c.brightGreen}◉${c.reset}`
+      : `${c.dim}○${c.reset}`;
     const agentsColor = swarm.activeAgents > 0 ? c.brightGreen : c.red;
-    const securityIcon = security.status === 'CLEAN' ? '🟢' : security.status === 'IN_PROGRESS' ? '🟡' : '🔴';
-    const securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'IN_PROGRESS' ? c.brightYellow : c.brightRed;
+    const securityIcon =
+      security.status === 'CLEAN' ? '🟢' : security.status === 'IN_PROGRESS' ? '🟡' : '🔴';
+    const securityColor =
+      security.status === 'CLEAN'
+        ? c.brightGreen
+        : security.status === 'IN_PROGRESS'
+          ? c.brightYellow
+          : c.brightRed;
     const hooksColor = hooksStats.enabled > 0 ? c.brightGreen : c.dim;
 
-    const line2 = `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
+    const line2 =
+      `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
       `${c.brightPurple}👥 ${system.subAgents}${c.reset}    ` +
       `${c.brightBlue}🪝 ${hooksColor}${hooksStats.enabled}${c.reset}/${c.brightWhite}${hooksStats.total}${c.reset}    ` +
       `${securityIcon} ${securityColor}CVE ${security.cvesFixed}${c.reset}/${c.brightWhite}${security.totalCves}${c.reset}    ` +
       `${c.brightCyan}💾 ${system.memoryMB}MB${c.reset}    ` +
       `${c.brightPurple}🧠 ${String(system.intelligencePct).padStart(3)}%${c.reset}`;
 
-    const dddColor = progress.dddProgress >= 50 ? c.brightGreen : progress.dddProgress > 0 ? c.yellow : c.red;
-    const line3 = `${c.brightPurple}🔧 Architecture${c.reset}    ` +
+    const dddColor =
+      progress.dddProgress >= 50 ? c.brightGreen : progress.dddProgress > 0 ? c.yellow : c.red;
+    const line3 =
+      `${c.brightPurple}🔧 Architecture${c.reset}    ` +
       `${c.cyan}ADRs${c.reset} ${c.dim}●0/0${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}DDD${c.reset} ${dddColor}●${String(progress.dddProgress).padStart(3)}%${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Security${c.reset} ${securityColor}●${security.status}${c.reset}`;
@@ -416,10 +515,14 @@ export const statuslineCommand: Command = {
     const vectorColor = memoryStats.vectorCount > 0 ? c.brightGreen : c.dim;
     const testColor = testStats.testFiles > 0 ? c.brightGreen : c.dim;
     const mcpColor = mcpStats.enabled > 0 ? c.brightGreen : c.dim;
-    const sizeDisplay = memoryStats.dbSizeKB >= 1024 ? `${(memoryStats.dbSizeKB / 1024).toFixed(1)}MB` : `${memoryStats.dbSizeKB}KB`;
+    const sizeDisplay =
+      memoryStats.dbSizeKB >= 1024
+        ? `${(memoryStats.dbSizeKB / 1024).toFixed(1)}MB`
+        : `${memoryStats.dbSizeKB}KB`;
     const hnswIndicator = memoryStats.hasHnsw ? `${c.brightGreen}⚡${c.reset}` : '';
 
-    const line4 = `${c.brightCyan}📊 SQLite${c.reset}    ` +
+    const line4 =
+      `${c.brightCyan}📊 SQLite${c.reset}    ` +
       `${c.cyan}Vectors${c.reset} ${vectorColor}●~${memoryStats.vectorCount}${hnswIndicator}${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Size${c.reset} ${c.brightWhite}${sizeDisplay}${c.reset}  ${c.dim}│${c.reset}  ` +
       `${c.cyan}Tests${c.reset} ${testColor}●${testStats.testFiles}${c.reset} ${c.dim}(~${testStats.testCases} est.)${c.reset}  ${c.dim}│${c.reset}  ` +
@@ -433,5 +536,5 @@ export const statuslineCommand: Command = {
     output.writeln(line4);
 
     return { success: true, data: statusData };
-  }
+  },
 };

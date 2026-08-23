@@ -5,24 +5,38 @@
  * monotask, and mono-clip (Rust) from their own panic/recover handlers.
  */
 
-import { readFileSync, existsSync } from 'fs';
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { existsSync, readFileSync } from 'node:fs';
 import { output } from '../output.js';
 import { reportCrash } from '../services/crash-reporter.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 export const reportCrashCommand: Command = {
   name: 'report-crash',
-  description: 'File a GitHub issue for a crash (used internally by monoes tools\' panic/exception handlers)',
+  description:
+    "File a GitHub issue for a crash (used internally by monoes tools' panic/exception handlers)",
   hidden: true,
   options: [
-    { name: 'repo', description: 'GitHub repo, e.g. monoes/mono-agent', type: 'string', required: true },
+    {
+      name: 'repo',
+      description: 'GitHub repo, e.g. monoes/mono-agent',
+      type: 'string',
+      required: true,
+    },
     { name: 'title', description: 'Issue title', type: 'string', required: true },
     { name: 'body', description: 'Issue body text', type: 'string' },
     { name: 'body-file', description: 'Path to a file containing the issue body', type: 'string' },
-    { name: 'signature', description: 'Stable dedup key for this crash type (derived from title if omitted)', type: 'string' },
+    {
+      name: 'signature',
+      description: 'Stable dedup key for this crash type (derived from title if omitted)',
+      type: 'string',
+    },
   ],
   examples: [
-    { command: 'monomind report-crash --repo monoes/mono-agent --title "panic: nil pointer in workflow.Run" --body-file /tmp/crash.txt', description: 'File a crash from a Go panic handler' },
+    {
+      command:
+        'monomind report-crash --repo monoes/mono-agent --title "panic: nil pointer in workflow.Run" --body-file /tmp/crash.txt',
+      description: 'File a crash from a Go panic handler',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const repo = ctx.flags.repo as string;

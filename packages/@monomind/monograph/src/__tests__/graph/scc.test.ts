@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { findStronglyConnectedComponents } from '../../graph/cycles.js';
 import { openDb } from '../../storage/db.js';
-import Database from 'better-sqlite3';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-scc-test-'));
@@ -12,13 +12,15 @@ function makeTempDb() {
 }
 
 function insertNode(db: Database.Database, id: string) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`)
-    .run(id, id, id.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`,
+  ).run(id, id, id.toLowerCase());
 }
 
 function insertEdge(db: Database.Database, src: string, tgt: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}`, src, tgt);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`,
+  ).run(`${src}_${tgt}`, src, tgt);
 }
 
 describe('findStronglyConnectedComponents', () => {
@@ -38,7 +40,7 @@ describe('findStronglyConnectedComponents', () => {
     const result = findStronglyConnectedComponents(db);
     // In a DAG, every node is its own SCC
     expect(result.length).toBe(3);
-    expect(result.every(comp => comp.length === 1)).toBe(true);
+    expect(result.every((comp) => comp.length === 1)).toBe(true);
     db.close();
   });
 
@@ -49,9 +51,9 @@ describe('findStronglyConnectedComponents', () => {
     insertEdge(db, 'a', 'b');
     insertEdge(db, 'b', 'a');
     const result = findStronglyConnectedComponents(db);
-    const cycleScc = result.find(comp => comp.length === 2);
+    const cycleScc = result.find((comp) => comp.length === 2);
     expect(cycleScc).toBeDefined();
-    expect(cycleScc!.sort()).toEqual(['a', 'b']);
+    expect(cycleScc?.sort()).toEqual(['a', 'b']);
     db.close();
   });
 
@@ -72,7 +74,7 @@ describe('findStronglyConnectedComponents', () => {
 
   it('returns each node in exactly one SCC', () => {
     const db = makeTempDb();
-    ['a', 'b', 'c'].forEach(n => insertNode(db, n));
+    ['a', 'b', 'c'].forEach((n) => insertNode(db, n));
     insertEdge(db, 'a', 'b');
     insertEdge(db, 'b', 'c');
     insertEdge(db, 'c', 'a');

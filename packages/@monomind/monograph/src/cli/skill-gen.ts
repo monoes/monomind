@@ -6,9 +6,9 @@
  * large codebases by providing curated summaries per architectural boundary.
  */
 
-import fs from 'fs/promises';
-import path from 'path';
-import { openDb, closeDb } from '../storage/db.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { closeDb, openDb } from '../storage/db.js';
 
 // ============================================================================
 // TYPES
@@ -95,7 +95,8 @@ export async function generateSkillFiles(
 function queryCommunities(db: ReturnType<typeof openDb>): CommunityRow[] {
   // Try label-based community detection first (community_id column on nodes)
   try {
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(`
       SELECT community_id, label AS label, COUNT(*) AS member_count
       FROM nodes
       WHERE community_id IS NOT NULL
@@ -104,7 +105,8 @@ function queryCommunities(db: ReturnType<typeof openDb>): CommunityRow[] {
       HAVING member_count >= 2
       ORDER BY member_count DESC
       LIMIT 20
-    `).all() as Array<{ community_id: number; label: string; member_count: number }>;
+    `)
+      .all() as Array<{ community_id: number; label: string; member_count: number }>;
 
     if (rows.length > 0) {
       // Derive a community label from the most common folder in file paths,
@@ -120,32 +122,33 @@ function queryCommunities(db: ReturnType<typeof openDb>): CommunityRow[] {
 
   // Fallback: try querying explicit Community nodes
   try {
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(`
       SELECT id AS community_id, name AS label
       FROM nodes
       WHERE label = 'Community'
       ORDER BY name
       LIMIT 20
-    `).all() as Array<{ community_id: number; label: string }>;
+    `)
+      .all() as Array<{ community_id: number; label: string }>;
     return rows;
   } catch {
     return [];
   }
 }
 
-function deriveCommunityLabel(
-  db: ReturnType<typeof openDb>,
-  communityId: number,
-): string {
+function deriveCommunityLabel(db: ReturnType<typeof openDb>, communityId: number): string {
   // Use the most common folder name from member file paths as the label
   try {
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(`
       SELECT file_path
       FROM nodes
       WHERE community_id = ?
         AND file_path IS NOT NULL
         AND label NOT IN ('File', 'Folder', 'Community', 'Concept')
-    `).all(communityId) as Array<{ file_path: string }>;
+    `)
+      .all(communityId) as Array<{ file_path: string }>;
 
     const folderCounts = new Map<string, number>();
     for (const row of rows) {
@@ -153,7 +156,9 @@ function deriveCommunityLabel(
       if (parts.length >= 2) {
         const folder = parts[parts.length - 2];
         const lower = folder.toLowerCase();
-        if (!['src', 'lib', 'core', 'utils', 'common', 'shared', 'helpers', 'dist'].includes(lower)) {
+        if (
+          !['src', 'lib', 'core', 'utils', 'common', 'shared', 'helpers', 'dist'].includes(lower)
+        ) {
           folderCounts.set(folder, (folderCounts.get(folder) ?? 0) + 1);
         }
       }
@@ -177,12 +182,10 @@ function deriveCommunityLabel(
   return '';
 }
 
-function queryMembers(
-  db: ReturnType<typeof openDb>,
-  communityId: number,
-): MemberRow[] {
+function queryMembers(db: ReturnType<typeof openDb>, communityId: number): MemberRow[] {
   try {
-    return db.prepare(`
+    return db
+      .prepare(`
       SELECT id, label, name, file_path, start_line, is_exported
       FROM nodes
       WHERE community_id = ?
@@ -192,18 +195,17 @@ function queryMembers(
         label,
         name
       LIMIT 50
-    `).all(communityId) as MemberRow[];
+    `)
+      .all(communityId) as MemberRow[];
   } catch {
     return [];
   }
 }
 
-function queryCrossConnections(
-  db: ReturnType<typeof openDb>,
-  communityId: number,
-): EdgeRow[] {
+function queryCrossConnections(db: ReturnType<typeof openDb>, communityId: number): EdgeRow[] {
   try {
-    return db.prepare(`
+    return db
+      .prepare(`
       SELECT n2.community_id AS target_community, n2.name AS target_name, COUNT(*) AS count
       FROM edges e
       JOIN nodes n1 ON n1.id = e.source_id
@@ -214,7 +216,8 @@ function queryCrossConnections(
       GROUP BY n2.community_id
       ORDER BY count DESC
       LIMIT 8
-    `).all(communityId, communityId) as EdgeRow[];
+    `)
+      .all(communityId, communityId) as EdgeRow[];
   } catch {
     return [];
   }
@@ -272,9 +275,7 @@ function renderSkillMarkdown(
     lines.push('| Symbol | Type | File | Line |');
     lines.push('|--------|------|------|------|');
     for (const m of members.slice(0, 20)) {
-      const filePath = m.file_path
-        ? toRelativePath(m.file_path, repoPath)
-        : '';
+      const filePath = m.file_path ? toRelativePath(m.file_path, repoPath) : '';
       lines.push(`| \`${m.name}\` | ${m.label} | \`${filePath}\` | ${m.start_line ?? ''} |`);
     }
     lines.push('');
@@ -287,9 +288,7 @@ function renderSkillMarkdown(
     lines.push('| Community | Call Count |');
     lines.push('|-----------|-----------|');
     for (const c of crossConnections) {
-      const target = c.target_community != null
-        ? `Community ${c.target_community}`
-        : 'External';
+      const target = c.target_community != null ? `Community ${c.target_community}` : 'External';
       lines.push(`| ${target} | ${c.count} calls |`);
     }
     lines.push('');
@@ -311,10 +310,7 @@ function renderSkillMarkdown(
 // UTILITY HELPERS
 // ============================================================================
 
-function buildFileMap(
-  members: MemberRow[],
-  repoPath: string,
-): Map<string, string[]> {
+function buildFileMap(members: MemberRow[], repoPath: string): Map<string, string[]> {
   const map = new Map<string, string[]>();
   for (const m of members) {
     if (!m.file_path) continue;
@@ -339,9 +335,11 @@ function toRelativePath(filePath: string, repoPath: string): string {
 }
 
 function toKebabName(label: string): string {
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 50) || 'skill';
+  return (
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 50) || 'skill'
+  );
 }

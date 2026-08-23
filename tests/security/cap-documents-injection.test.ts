@@ -15,10 +15,11 @@
  * probe file is created. If the implementation is shell-less, the probe
  * never exists.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { extractText } from '../../packages/@monomind/cli/src/capabilities/cap-documents.js';
 
 describe('C1 — cap-documents command injection', () => {

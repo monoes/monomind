@@ -5,7 +5,7 @@ import type { MonographDiagnostic } from './diagnostics.js';
 
 export interface UnusedSymbolLocation {
   uri: string;
-  line: number;         // 1-based
+  line: number; // 1-based
   col: number;
   name: string;
   symbolKind: 'export' | 'type' | 'member' | 'file';
@@ -18,7 +18,7 @@ export function buildUnusedSymbolDiagnostics(
   for (const sym of symbols) {
     const range: LspRange = {
       start: { line: sym.line - 1, character: sym.col - 1 },
-      end:   { line: sym.line - 1, character: sym.col - 1 + sym.name.length },
+      end: { line: sym.line - 1, character: sym.col - 1 + sym.name.length },
     };
     const messages: Record<UnusedSymbolLocation['symbolKind'], string> = {
       export: `'${sym.name}' is exported but has no external consumers`,
@@ -28,11 +28,11 @@ export function buildUnusedSymbolDiagnostics(
     };
     const diag: MonographDiagnostic = {
       range,
-      severity: 2,   // Warning
+      severity: 2, // Warning
       code: `monograph/unused-${sym.symbolKind}`,
       source: 'monograph',
       message: messages[sym.symbolKind],
-      tags: [1],     // Unnecessary
+      tags: [1], // Unnecessary
     };
     const arr = map.get(sym.uri) ?? [];
     arr.push(diag);
@@ -45,8 +45,8 @@ export function buildUnusedSymbolDiagnostics(
 
 export interface CircularDepLocation {
   uri: string;
-  importLine: number;   // 1-based, the import that closes the cycle
-  cycle: string[];      // module names in cycle
+  importLine: number; // 1-based, the import that closes the cycle
+  cycle: string[]; // module names in cycle
 }
 
 export interface BoundaryViolationLocation {
@@ -65,11 +65,11 @@ export function buildCircularDepDiagnostics(
     const line0 = cycle.importLine - 1;
     const range: LspRange = {
       start: { line: line0, character: 0 },
-      end:   { line: line0, character: 65535 },
+      end: { line: line0, character: 65535 },
     };
     const diag: MonographDiagnostic = {
       range,
-      severity: 2,   // Warning
+      severity: 2, // Warning
       code: 'monograph/circular-dep',
       source: 'monograph',
       message: `Circular dependency: ${cycle.cycle.join(' → ')}`,
@@ -89,11 +89,11 @@ export function buildBoundaryViolationDiagnostics(
     const line0 = v.line - 1;
     const range: LspRange = {
       start: { line: line0, character: 0 },
-      end:   { line: line0, character: 65535 },
+      end: { line: line0, character: 65535 },
     };
     const diag: MonographDiagnostic = {
       range,
-      severity: 1,   // Error
+      severity: 1, // Error
       code: 'monograph/boundary-violation',
       source: 'monograph',
       message: `Boundary violation: zone '${v.fromZone}' cannot import from zone '${v.toZone}' (${v.importedPath})`,
@@ -109,7 +109,7 @@ export function buildBoundaryViolationDiagnostics(
 
 export interface ComplexityIssueLocation {
   uri: string;
-  line: number;         // 1-based
+  line: number; // 1-based
   functionName: string;
   cyclomaticComplexity: number;
   cognitiveComplexity?: number;
@@ -125,12 +125,12 @@ export function buildComplexityDiagnostics(
     const line0 = issue.line - 1;
     const range: LspRange = {
       start: { line: line0, character: 0 },
-      end:   { line: line0, character: issue.functionName.length },
+      end: { line: line0, character: issue.functionName.length },
     };
     const lspSeverity: Record<ComplexityIssueLocation['severity'], 1 | 2 | 3> = {
-      moderate: 3,   // Information
-      high: 2,       // Warning
-      critical: 1,   // Error
+      moderate: 3, // Information
+      high: 2, // Warning
+      critical: 1, // Error
     };
     const parts = [`CC=${issue.cyclomaticComplexity}`];
     if (issue.cognitiveComplexity != null) parts.push(`cognitive=${issue.cognitiveComplexity}`);

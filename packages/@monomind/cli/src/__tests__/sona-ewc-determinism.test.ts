@@ -16,12 +16,12 @@
  * tests pin what it actually computes, not what the name implies.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SONAOptimizer } from '../memory/sona-optimizer.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EWCConsolidator } from '../memory/ewc-consolidation.js';
+import { SONAOptimizer } from '../memory/sona-optimizer.js';
 
 let dir: string;
 
@@ -115,8 +115,9 @@ describe('SONAOptimizer', () => {
     await fresh.initialize();
     fresh.importPatterns(exported);
 
-    expect(fresh.getRoutingSuggestion('fix the failing auth test')?.agent)
-      .toBe(opt.getRoutingSuggestion('fix the failing auth test')?.agent);
+    expect(fresh.getRoutingSuggestion('fix the failing auth test')?.agent).toBe(
+      opt.getRoutingSuggestion('fix the failing auth test')?.agent,
+    );
   });
 
   it('starts clean when the persistence file is corrupt instead of throwing', async () => {
@@ -206,7 +207,10 @@ describe('EWCConsolidator', () => {
   });
 
   it('initializes without throwing when the storage directory does not exist', async () => {
-    const ewc = new EWCConsolidator({ dimensions: 4, storageDir: join(dir, 'nested', 'deep') } as never);
+    const ewc = new EWCConsolidator({
+      dimensions: 4,
+      storageDir: join(dir, 'nested', 'deep'),
+    } as never);
     await expect(ewc.initialize()).resolves.not.toThrow();
   });
 });

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eventsCommand } from '../commands/events.js';
 import type { CommandContext } from '../types.js';
 
@@ -51,7 +51,7 @@ describe('monomind events — headless JSONL tail of /api/mastermind-stream', ()
       return true;
     });
 
-    const result = await eventsCommand.action!(ctx());
+    const result = await eventsCommand.action?.(ctx());
 
     writeSpy.mockRestore();
 
@@ -65,14 +65,14 @@ describe('monomind events — headless JSONL tail of /api/mastermind-stream', ()
 
   it('sends the dashboard-token as x-monomind-token', async () => {
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    await eventsCommand.action!(ctx());
+    await eventsCommand.action?.(ctx());
     vi.restoreAllMocks();
     expect(receivedAuthHeader).toBe('test-token-xyz');
   });
 
   it('fails cleanly with a clear error when the dashboard is unreachable', async () => {
     await server.close();
-    const result = await eventsCommand.action!(ctx());
+    const result = await eventsCommand.action?.(ctx());
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });

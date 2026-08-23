@@ -4,9 +4,9 @@
  * Persists at ~/.monograph/registry.json and tracks all repos indexed by monograph.
  */
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from 'fs';
-import { join, basename, dirname } from 'path';
-import { homedir } from 'os';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, dirname, join } from 'node:path';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ export function loadRegistry(): RepoRegistry {
 export function saveRegistry(registry: RepoRegistry): void {
   const registryPath = getRegistryPath();
   mkdirSync(dirname(registryPath), { recursive: true });
-  const tmpPath = registryPath + '.tmp';
+  const tmpPath = `${registryPath}.tmp`;
   writeFileSync(tmpPath, JSON.stringify(registry, null, 2), 'utf8');
   // Rename is atomic on POSIX systems
   renameSync(tmpPath, registryPath);

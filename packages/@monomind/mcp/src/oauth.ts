@@ -19,8 +19,8 @@
  * implemented anywhere in this package.
  */
 
-import { EventEmitter } from 'events';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import type { ILogger } from './types.js';
 
 /**
@@ -121,7 +121,7 @@ export class OAuthManager extends EventEmitter {
 
   constructor(
     private readonly logger: ILogger,
-    config: OAuthConfig
+    config: OAuthConfig,
   ) {
     super();
     this.config = {
@@ -138,7 +138,7 @@ export class OAuthManager extends EventEmitter {
    * Generate authorization URL for OAuth flow
    */
   createAuthorizationRequest(): AuthorizationRequest {
-    const state = this.config.stateGenerator!();
+    const state = this.config.stateGenerator?.();
     let codeVerifier: string | undefined;
     let codeChallenge: string | undefined;
 
@@ -400,7 +400,6 @@ export function createOAuthManager(logger: ILogger, config: OAuthConfig): OAuthM
   return new OAuthManager(logger, config);
 }
 
-
 /**
  * Create GitHub OAuth provider config
  */
@@ -408,7 +407,7 @@ export function createGitHubOAuthConfig(
   clientId: string,
   clientSecret: string,
   redirectUri: string,
-  scopes: string[] = ['read:user']
+  scopes: string[] = ['read:user'],
 ): OAuthConfig {
   return {
     clientId,
@@ -428,7 +427,7 @@ export function createGoogleOAuthConfig(
   clientId: string,
   clientSecret: string,
   redirectUri: string,
-  scopes: string[] = ['openid', 'profile', 'email']
+  scopes: string[] = ['openid', 'profile', 'email'],
 ): OAuthConfig {
   return {
     clientId,

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 export interface Tolerance {
   type: 'absolute' | 'percentage';
@@ -17,17 +17,26 @@ export function toleranceExceeded(tol: Tolerance, baseline: number, current: num
   const delta = current - baseline;
   if (delta <= 0) return false;
   if (tol.type === 'absolute') return delta > tol.value;
-  return delta / Math.max(1, baseline) * 100 > tol.value;
+  return (delta / Math.max(1, baseline)) * 100 > tol.value;
 }
 
 export function saveBaselineToConfig(configPath: string, counts: Record<string, number>): void {
   let content: string;
-  try { content = readFileSync(configPath, 'utf8'); }
-  catch { content = '{}'; }
+  try {
+    content = readFileSync(configPath, 'utf8');
+  } catch {
+    content = '{}';
+  }
   let parsed: Record<string, unknown>;
-  try { parsed = JSON.parse(stripJsonComments(content)); }
-  catch { parsed = {}; }
-  parsed['regression'] = { ...((parsed['regression'] as Record<string, unknown>) ?? {}), baseline: counts };
+  try {
+    parsed = JSON.parse(stripJsonComments(content));
+  } catch {
+    parsed = {};
+  }
+  parsed.regression = {
+    ...((parsed.regression as Record<string, unknown>) ?? {}),
+    baseline: counts,
+  };
   writeFileSync(configPath, JSON.stringify(parsed, null, 2));
 }
 

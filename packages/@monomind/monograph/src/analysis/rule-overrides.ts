@@ -16,7 +16,7 @@ export function matchesGlob(filePath: string, pattern: string): boolean {
   // Replace remaining * with [^/]* to match within a segment only
   regexStr = regexStr.replace(/\*/g, '[^/]*');
   // Anchor at end
-  regexStr = regexStr + '$';
+  regexStr = `${regexStr}$`;
 
   const regex = new RegExp(regexStr);
   return regex.test(filePath);
@@ -65,17 +65,19 @@ export function hasErrorSeverityIssues(
   rules: RuleWithSeverity[],
   resultCounts: Record<string, number>,
 ): boolean {
-  return rules
-    .filter(r => r.severity === 'error')
-    .some(r => (resultCounts[r.name] ?? 0) > 0);
+  return rules.filter((r) => r.severity === 'error').some((r) => (resultCounts[r.name] ?? 0) > 0);
 }
 
 /** Bulk-upgrade all 'warn' severity rules to 'error' for strict CI gates. */
 export function promoteWarnsToErrors(rules: RuleWithSeverity[]): RuleWithSeverity[] {
-  return rules.map(r => r.severity === 'warn' ? { ...r, severity: 'error' as IssueSeverity } : r);
+  return rules.map((r) =>
+    r.severity === 'warn' ? { ...r, severity: 'error' as IssueSeverity } : r,
+  );
 }
 
 /** Downgrade all 'error' severity rules to 'warn'. */
 export function demoteErrorsToWarns(rules: RuleWithSeverity[]): RuleWithSeverity[] {
-  return rules.map(r => r.severity === 'error' ? { ...r, severity: 'warn' as IssueSeverity } : r);
+  return rules.map((r) =>
+    r.severity === 'error' ? { ...r, severity: 'warn' as IssueSeverity } : r,
+  );
 }

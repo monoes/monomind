@@ -32,9 +32,13 @@ export interface CrossRefDuplicationReport {
   cloneGroups: Array<{ instances: CloneInstanceRef[] }>;
 }
 
-export function crossReference(duplication: CrossRefDuplicationReport, deadCode: CrossRefDeadCodeSummary): CrossReferenceResult {
+export function crossReference(
+  duplication: CrossRefDuplicationReport,
+  deadCode: CrossRefDeadCodeSummary,
+): CrossReferenceResult {
   const findings: CombinedFinding[] = [];
-  let clonesInUnusedFiles = 0, clonesWithUnusedExports = 0;
+  let clonesInUnusedFiles = 0,
+    clonesWithUnusedExports = 0;
 
   // Preindex unusedExports and unusedTypes by file path to avoid O(N) Array.find
   // per clone instance. Each lookup becomes an O(1) Map get + a short in-range scan
@@ -56,23 +60,39 @@ export function crossReference(duplication: CrossRefDuplicationReport, deadCode:
   for (let gi = 0; gi < duplication.cloneGroups.length; gi++) {
     for (const inst of duplication.cloneGroups[gi].instances) {
       if (deadCode.unusedFiles.has(inst.file)) {
-        findings.push({ cloneInstance: inst, deadCodeKind: { type: 'unused-file' }, groupIndex: gi });
+        findings.push({
+          cloneInstance: inst,
+          deadCodeKind: { type: 'unused-file' },
+          groupIndex: gi,
+        });
         clonesInUnusedFiles++;
         continue;
       }
 
       const exportsForFile = exportsByPath.get(inst.file);
-      const overlap = exportsForFile?.find(e => e.line >= inst.startLine && e.line <= inst.endLine);
+      const overlap = exportsForFile?.find(
+        (e) => e.line >= inst.startLine && e.line <= inst.endLine,
+      );
       if (overlap) {
-        findings.push({ cloneInstance: inst, deadCodeKind: { type: 'unused-export', exportName: overlap.exportName }, groupIndex: gi });
+        findings.push({
+          cloneInstance: inst,
+          deadCodeKind: { type: 'unused-export', exportName: overlap.exportName },
+          groupIndex: gi,
+        });
         clonesWithUnusedExports++;
         continue;
       }
 
       const typesForFile = typesByPath.get(inst.file);
-      const typeOverlap = typesForFile?.find(t => t.line >= inst.startLine && t.line <= inst.endLine);
+      const typeOverlap = typesForFile?.find(
+        (t) => t.line >= inst.startLine && t.line <= inst.endLine,
+      );
       if (typeOverlap) {
-        findings.push({ cloneInstance: inst, deadCodeKind: { type: 'unused-type', typeName: typeOverlap.typeName }, groupIndex: gi });
+        findings.push({
+          cloneInstance: inst,
+          deadCodeKind: { type: 'unused-type', typeName: typeOverlap.typeName },
+          groupIndex: gi,
+        });
         clonesWithUnusedExports++;
       }
     }
@@ -81,5 +101,5 @@ export function crossReference(duplication: CrossRefDuplicationReport, deadCode:
 }
 
 export function affectedGroupIndices(result: CrossReferenceResult): Set<number> {
-  return new Set(result.combinedFindings.map(f => f.groupIndex));
+  return new Set(result.combinedFindings.map((f) => f.groupIndex));
 }

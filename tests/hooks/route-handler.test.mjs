@@ -3,12 +3,13 @@
  * Builds a minimal mock hCtx and calls handler.handle(hCtx) directly.
  * Captures console.log output via vi.spyOn to assert panel output.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -67,7 +68,8 @@ function makeHCtx(overrides = {}) {
     _requireMonograph: () => null,
     _getRecentEdits: () => [],
     _hooksModule: null,
-    fs, path,
+    fs,
+    path,
     ...overrides,
   };
 }
@@ -163,13 +165,14 @@ describe('route-handler routing path', () => {
 
   it('outputs routing panel for high-confidence long prompt', async () => {
     const rh = loadRH();
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const _logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const hCtx = makeHCtx({
-      prompt: 'implement a comprehensive distributed authentication system with oauth2 and jwt tokens',
+      prompt:
+        'implement a comprehensive distributed authentication system with oauth2 and jwt tokens',
       router: {
         routeTask: vi.fn().mockResolvedValue({
           agent: 'backend-dev',
-          confidence: 0.90,
+          confidence: 0.9,
           reason: 'backend',
         }),
       },
@@ -193,7 +196,7 @@ describe('route-handler routing path', () => {
       },
     });
     await rh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).not.toContain('Primary Recommendation');
   });
 
@@ -218,7 +221,7 @@ describe('route-handler routing path', () => {
       },
     });
     await rh.handle(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[INTELLIGENCE]');
   });
 
@@ -241,7 +244,7 @@ describe('route-handler routing path', () => {
       path.join(routingDist, 'keyword-pre-filter.js'),
       `export const DEFAULT_KEYWORD_ROUTES = [
         { pattern: /\\bsolidity\\b/i, agentSlug: 'engineering-solidity-smart-contract-engineer', routeName: 'solidity', description: 'Solidity / smart contract' },
-      ];\n`
+      ];\n`,
     );
     const hCtx = makeHCtx({
       prompt: 'write a solidity smart contract for token vesting',
@@ -249,7 +252,7 @@ describe('route-handler routing path', () => {
         routeTask: vi.fn().mockResolvedValue({
           agent: 'Coder',
           agentSlug: 'coder',
-          confidence: 0.80,
+          confidence: 0.8,
           reason: 'Default routing — keyword match: coder',
           skillMatches: [],
         }),
@@ -292,7 +295,9 @@ describe('route-handler routing path', () => {
           agent: 'extras',
           confidence: 0.75,
           reason: 'specialist match',
-          extrasMatches: [{ name: 'SEO Specialist', slug: 'seo-specialist', category: 'marketing' }],
+          extrasMatches: [
+            { name: 'SEO Specialist', slug: 'seo-specialist', category: 'marketing' },
+          ],
         }),
       },
     });
@@ -308,11 +313,14 @@ describe('route-handler routing path', () => {
     // Write last-dispatch.json as if agent-start-handler just dispatched "coder"
     const monomindDir = path.join(tmpDir, '.monomind');
     fs.mkdirSync(monomindDir, { recursive: true });
-    fs.writeFileSync(path.join(monomindDir, 'last-dispatch.json'), JSON.stringify({
-      agentType: 'coder',
-      description: 'test task',
-      dispatchedAt: new Date().toISOString(),
-    }));
+    fs.writeFileSync(
+      path.join(monomindDir, 'last-dispatch.json'),
+      JSON.stringify({
+        agentType: 'coder',
+        description: 'test task',
+        dispatchedAt: new Date().toISOString(),
+      }),
+    );
     const logSpy = vi.spyOn(console, 'log');
     const hCtx = makeHCtx({
       prompt: 'fix a bug in the auth module',
@@ -327,7 +335,9 @@ describe('route-handler routing path', () => {
       },
     });
     await rh.handle(hCtx);
-    const dedupMsg = logSpy.mock.calls.find(c => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'));
+    const dedupMsg = logSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'),
+    );
     expect(dedupMsg).toBeTruthy();
     expect(dedupMsg[0]).toContain('coder');
   });
@@ -336,11 +346,14 @@ describe('route-handler routing path', () => {
     const rh = loadRH();
     const monomindDir = path.join(tmpDir, '.monomind');
     fs.mkdirSync(monomindDir, { recursive: true });
-    fs.writeFileSync(path.join(monomindDir, 'last-dispatch.json'), JSON.stringify({
-      agentType: 'researcher',
-      description: 'research task',
-      dispatchedAt: new Date().toISOString(),
-    }));
+    fs.writeFileSync(
+      path.join(monomindDir, 'last-dispatch.json'),
+      JSON.stringify({
+        agentType: 'researcher',
+        description: 'research task',
+        dispatchedAt: new Date().toISOString(),
+      }),
+    );
     const logSpy = vi.spyOn(console, 'log');
     const hCtx = makeHCtx({
       prompt: 'fix a bug in the auth module',
@@ -355,7 +368,9 @@ describe('route-handler routing path', () => {
       },
     });
     await rh.handle(hCtx);
-    const dedupMsg = logSpy.mock.calls.find(c => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'));
+    const dedupMsg = logSpy.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('[DISPATCH_DEDUP]'),
+    );
     expect(dedupMsg).toBeFalsy();
   });
 });
@@ -374,7 +389,13 @@ describe('route-handler second-brain gate', () => {
   /** The injection block sits after routing; give the handler a router so it
    *  reaches that far, same as the routing-path tests above. */
   const router = () => ({
-    routeTask: vi.fn().mockResolvedValue({ agent: 'coder', agentSlug: 'coder', confidence: 0.8, reason: 'default', skillMatches: [] }),
+    routeTask: vi.fn().mockResolvedValue({
+      agent: 'coder',
+      agentSlug: 'coder',
+      confidence: 0.8,
+      reason: 'default',
+      skillMatches: [],
+    }),
   });
 
   /** The default harness returns null here; the real dispatcher always supplies
@@ -389,28 +410,49 @@ describe('route-handler second-brain gate', () => {
    *  instead of reaching whatever dashboard is running on this machine. */
   const deadServer = (cwd) => {
     fs.mkdirSync(path.join(cwd, '.monomind'), { recursive: true });
-    fs.writeFileSync(path.join(cwd, '.monomind', 'control.json'), JSON.stringify({ url: 'http://127.0.0.1:1' }));
+    fs.writeFileSync(
+      path.join(cwd, '.monomind', 'control.json'),
+      JSON.stringify({ url: 'http://127.0.0.1:1' }),
+    );
   };
 
   const writeKnowledge = (root, file) => {
     const kdir = path.join(root, '.monomind', 'knowledge');
     fs.mkdirSync(kdir, { recursive: true });
-    fs.writeFileSync(path.join(kdir, file), file === 'chunks.jsonl'
-      ? JSON.stringify({ id: 'c1', text: 'authentication rotation policy is 90 days', namespace: 'knowledge:shared' }) + '\n'
-      : JSON.stringify({ filePath: path.join(root, 'a.md'), contentHash: 'h', chunkCount: 1, indexedAt: '2026-07-28T00:00:00Z', scope: 'shared', size: 8 }) + '\n');
+    fs.writeFileSync(
+      path.join(kdir, file),
+      file === 'chunks.jsonl'
+        ? `${JSON.stringify({
+            id: 'c1',
+            text: 'authentication rotation policy is 90 days',
+            namespace: 'knowledge:shared',
+          })}\n`
+        : `${JSON.stringify({
+            filePath: path.join(root, 'a.md'),
+            contentHash: 'h',
+            chunkCount: 1,
+            indexedAt: '2026-07-28T00:00:00Z',
+            scope: 'shared',
+            size: 8,
+          })}\n`,
+    );
   };
 
   it('runs for a doc-ingested project that has no chunks.jsonl', async () => {
     deadServer(tmpDir);
     writeKnowledge(tmpDir, 'doc-metadata.jsonl');
-    await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    await loadRH().handle(
+      makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }),
+    );
     expect(fs.existsSync(telemetry(tmpDir))).toBe(true);
   });
 
   it('still runs for a monograph-only project (chunks.jsonl)', async () => {
     deadServer(tmpDir);
     writeKnowledge(tmpDir, 'chunks.jsonl');
-    await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    await loadRH().handle(
+      makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }),
+    );
     expect(fs.existsSync(telemetry(tmpDir))).toBe(true);
   });
 
@@ -419,13 +461,17 @@ describe('route-handler second-brain gate', () => {
     const sub = path.join(tmpDir, 'packages', 'cli');
     fs.mkdirSync(sub, { recursive: true });
     deadServer(sub);
-    await loadRH().handle(makeHCtx({ prompt: PROMPT, CWD: sub, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    await loadRH().handle(
+      makeHCtx({ prompt: PROMPT, CWD: sub, router: router(), _buildKnowledgeSearchFn: searchFn() }),
+    );
     expect(fs.existsSync(telemetry(sub))).toBe(true);
   });
 
   it('stays inert when no knowledge exists anywhere', async () => {
     deadServer(tmpDir);
-    await loadRH().handle(makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }));
+    await loadRH().handle(
+      makeHCtx({ prompt: PROMPT, router: router(), _buildKnowledgeSearchFn: searchFn() }),
+    );
     expect(fs.existsSync(telemetry(tmpDir))).toBe(false);
   });
 });

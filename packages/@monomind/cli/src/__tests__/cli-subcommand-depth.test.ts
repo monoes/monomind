@@ -22,9 +22,9 @@
  * disabling commands.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import type { Command } from '../types.js';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { loadAllCommands } from '../commands/index.js';
+import type { Command } from '../types.js';
 
 let commands: Command[];
 beforeAll(async () => {
@@ -75,7 +75,12 @@ describe('subcommand dispatch depth', () => {
       action: async () => ({ success: true }),
     };
     const mid: Command = { name: 'store', description: 'group', options: [], subcommands: [leaf] };
-    const sub: Command = { name: 'transfer', description: 'group', options: [], subcommands: [mid] };
+    const sub: Command = {
+      name: 'transfer',
+      description: 'group',
+      options: [],
+      subcommands: [mid],
+    };
     const root: Command = { name: 'hooks', description: 'group', options: [], subcommands: [sub] };
 
     const { target, rest } = resolve(root, ['transfer', 'store', 'list']);
@@ -84,7 +89,12 @@ describe('subcommand dispatch depth', () => {
   });
 
   it('resolves five segments, so the fix is not another fixed limit', () => {
-    const leaf: Command = { name: 'e', description: 'leaf', options: [], action: async () => ({ success: true }) };
+    const leaf: Command = {
+      name: 'e',
+      description: 'leaf',
+      options: [],
+      action: async () => ({ success: true }),
+    };
     const d: Command = { name: 'd', description: '', options: [], subcommands: [leaf] };
     const c: Command = { name: 'c', description: '', options: [], subcommands: [d] };
     const b: Command = { name: 'b', description: '', options: [], subcommands: [c] };
@@ -94,7 +104,12 @@ describe('subcommand dispatch depth', () => {
   });
 
   it('stops descending at the first non-subcommand and keeps the rest as args', () => {
-    const leaf: Command = { name: 'run', description: '', options: [], action: async () => ({ success: true }) };
+    const leaf: Command = {
+      name: 'run',
+      description: '',
+      options: [],
+      action: async () => ({ success: true }),
+    };
     const mid: Command = { name: 'worker', description: '', options: [], subcommands: [leaf] };
     const root: Command = { name: 'hooks', description: '', options: [], subcommands: [mid] };
 
@@ -104,8 +119,20 @@ describe('subcommand dispatch depth', () => {
   });
 
   it('descends through aliases at depth', () => {
-    const leaf: Command = { name: 'list', aliases: ['ls'], description: '', options: [], action: async () => ({ success: true }) };
-    const mid: Command = { name: 'store', aliases: ['st'], description: '', options: [], subcommands: [leaf] };
+    const leaf: Command = {
+      name: 'list',
+      aliases: ['ls'],
+      description: '',
+      options: [],
+      action: async () => ({ success: true }),
+    };
+    const mid: Command = {
+      name: 'store',
+      aliases: ['st'],
+      description: '',
+      options: [],
+      subcommands: [leaf],
+    };
     const root: Command = { name: 'hooks', description: '', options: [], subcommands: [mid] };
 
     expect(resolve(root, ['st', 'ls']).target.name).toBe('list');

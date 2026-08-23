@@ -10,17 +10,18 @@
  *    policy.overBudgetUsd closes the mailbox and emits a 'budget-exhausted'
  *    event, the same pattern the token-budget-exhausted path already uses.
  */
-import { describe, it, expect } from 'vitest';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RoleSchema } from '../orgrt/types.js';
-import { PolicyEngine } from '../orgrt/policy.js';
+import { describe, expect, it } from 'vitest';
+import type { AgentMessage, AgentRunner } from '../orgrt/agent-runner.js';
 import { OrgBus } from '../orgrt/bus.js';
 import { Mailbox } from '../orgrt/mailbox.js';
+import { PolicyEngine } from '../orgrt/policy.js';
 import { runAgentSession, type SessionOpts } from '../orgrt/session.js';
-import type { AgentRunner, AgentMessage } from '../orgrt/agent-runner.js';
 import type { OrgRole } from '../orgrt/types.js';
+import { RoleSchema } from '../orgrt/types.js';
 
 describe('RoleSchema.budget_usd', () => {
   it('accepts a positive budget_usd override', () => {
@@ -71,22 +72,38 @@ describe('ORG-7: a live session closes its mailbox and emits budget-exhausted wh
     try {
       const bus = new OrgBus('alpha', 'run-1', join(tmp, 'run'));
       const emitted: unknown[] = [];
-      bus.subscribe(e => emitted.push(e));
+      bus.subscribe((e) => emitted.push(e));
 
       const mailbox = new Mailbox();
       const policy = new PolicyEngine('coder', { maxUsd: 1 } as any, bus, tmp);
-      const role = { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' } as unknown as OrgRole;
+      const role = {
+        id: 'coder',
+        title: 'Coder',
+        type: 'specialist',
+        reports_to: 'boss',
+      } as unknown as OrgRole;
 
       // Fake runner: yields one 'result' message whose cost exceeds the $1 budget_usd,
       // then ends the stream — exercises the exact enforcement path in session.ts.
       const fakeRunner: AgentRunner = {
         async *run(): AsyncIterable<AgentMessage> {
-          yield { type: 'result', subtype: 'success', input_tokens: 10, output_tokens: 10, cost_usd: 1.5 };
+          yield {
+            type: 'result',
+            subtype: 'success',
+            input_tokens: 10,
+            output_tokens: 10,
+            cost_usd: 1.5,
+          };
         },
       };
 
       const opts: SessionOpts = {
-        org: 'alpha', role, bus, policy, mailbox, cwd: tmp,
+        org: 'alpha',
+        role,
+        bus,
+        policy,
+        mailbox,
+        cwd: tmp,
         deliver: async () => 'ok',
         runner: fakeRunner,
         maxTurns: 5,
@@ -95,7 +112,9 @@ describe('ORG-7: a live session closes its mailbox and emits budget-exhausted wh
       await runAgentSession(opts);
 
       expect(mailbox.isClosed).toBe(true);
-      const budgetEvent = emitted.find((e: any) => e.type === 'status' && e.reason === 'budget-exhausted');
+      const budgetEvent = emitted.find(
+        (e: any) => e.type === 'status' && e.reason === 'budget-exhausted',
+      );
       expect(budgetEvent).toBeTruthy();
       expect((budgetEvent as any).msg).toMatch(/USD budget exhausted/);
     } finally {
@@ -109,18 +128,34 @@ describe('ORG-7: a live session closes its mailbox and emits budget-exhausted wh
       const bus = new OrgBus('alpha', 'run-1', join(tmp, 'run'));
       const mailbox = new Mailbox();
       const policy = new PolicyEngine('coder', { maxUsd: 10 } as any, bus, tmp);
-      const role = { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss' } as unknown as OrgRole;
+      const role = {
+        id: 'coder',
+        title: 'Coder',
+        type: 'specialist',
+        reports_to: 'boss',
+      } as unknown as OrgRole;
 
       let calls = 0;
       const fakeRunner: AgentRunner = {
         async *run(): AsyncIterable<AgentMessage> {
           calls++;
-          yield { type: 'result', subtype: 'success', input_tokens: 1, output_tokens: 1, cost_usd: 0.5 };
+          yield {
+            type: 'result',
+            subtype: 'success',
+            input_tokens: 1,
+            output_tokens: 1,
+            cost_usd: 0.5,
+          };
         },
       };
 
       const opts: SessionOpts = {
-        org: 'alpha', role, bus, policy, mailbox, cwd: tmp,
+        org: 'alpha',
+        role,
+        bus,
+        policy,
+        mailbox,
+        cwd: tmp,
         deliver: async () => 'ok',
         runner: fakeRunner,
         maxTurns: 5,
@@ -130,7 +165,7 @@ describe('ORG-7: a live session closes its mailbox and emits budget-exhausted wh
       // the mailbox stream — close it manually after one pass so runAgentSession's
       // outer loop terminates instead of restarting forever.
       const originalRun = fakeRunner.run.bind(fakeRunner);
-      fakeRunner.run = function (...args) {
+      fakeRunner.run = (...args) => {
         mailbox.close();
         return originalRun(...args);
       };

@@ -1,10 +1,10 @@
-import { readFileSync, statSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import {
-  extractHandlerReturnKeys,
-  extractAccessedKeys,
   compareShapes,
+  extractAccessedKeys,
+  extractHandlerReturnKeys,
   type RouteShape,
 } from '../analysis/shape-extractor.js';
 
@@ -108,7 +108,7 @@ export function getShapeCheck(
     )
     .get(routeId) as { id: string; name: string; file_path: string | null } | undefined;
 
-  if (!handlerRow || !handlerRow.file_path) {
+  if (!handlerRow?.file_path) {
     return {
       route: {
         path: routePath,

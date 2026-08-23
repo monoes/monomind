@@ -9,9 +9,9 @@
  * @module @monomind/cli/utils/input-guards
  */
 
-import { resolve, isAbsolute, relative, dirname, basename } from 'node:path';
-import { cwd } from 'node:process';
 import { realpathSync } from 'node:fs';
+import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
+import { cwd } from 'node:process';
 import { redactPaths } from './redaction.js';
 
 export interface ValidationResult {
@@ -35,10 +35,7 @@ function stripControlChars(s: string): string {
   return s.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
 }
 
-function validateString(
-  value: unknown,
-  opts: ValidateInputOpts,
-): ValidationResult {
+function validateString(value: unknown, opts: ValidateInputOpts): ValidationResult {
   if (typeof value !== 'string') {
     if (opts.required !== false && value == null) {
       return { valid: false, error: 'Value is required' };
@@ -64,8 +61,8 @@ function validateNumber(value: unknown, opts: ValidateInputOpts): ValidationResu
     typeof value === 'number'
       ? value
       : typeof value === 'string' && value.trim() !== ''
-      ? Number(value)
-      : NaN;
+        ? Number(value)
+        : NaN;
 
   if (!Number.isFinite(parsed)) {
     if (opts.required === false && value == null) {
@@ -179,10 +176,7 @@ function validateOrgName(value: unknown, _opts: ValidateInputOpts): ValidationRe
  * if (!result.valid) throw new Error(result.error);
  * const safeName = result.sanitized!;
  */
-export function validateInput(
-  value: unknown,
-  opts: ValidateInputOpts,
-): ValidationResult {
+export function validateInput(value: unknown, opts: ValidateInputOpts): ValidationResult {
   switch (opts.type) {
     case 'string':
       return validateString(value, opts);
@@ -230,11 +224,7 @@ const MCP_CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
  * Lighter-weight than `validateInput({ type: 'string' })` — designed
  * for the fast-path guard pattern used in MCP tool handlers.
  */
-export function validateMcpString(
-  value: unknown,
-  _name: string,
-  maxLen = 100_000,
-): string | null {
+export function validateMcpString(value: unknown, _name: string, maxLen = 100_000): string | null {
   if (typeof value !== 'string' || value.length === 0) return null;
   if (value.length > maxLen) return null;
   if (MCP_CONTROL_CHAR_RE.test(value)) return null;
@@ -245,11 +235,7 @@ export function validateMcpString(
  * Validate a positive integer for MCP tool parameters.
  * Returns the clamped value or the default.
  */
-export function validatePositiveInt(
-  value: unknown,
-  defaultVal: number,
-  max: number,
-): number {
+export function validatePositiveInt(value: unknown, defaultVal: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return defaultVal;
   const n = Math.floor(value);
   return n > 0 ? Math.min(n, max) : defaultVal;
@@ -259,10 +245,7 @@ export function validatePositiveInt(
  * Validate a score (0–1 range) for MCP tool parameters.
  * Returns the clamped value or the default.
  */
-export function validateScore(
-  value: unknown,
-  defaultVal: number,
-): number {
+export function validateScore(value: unknown, defaultVal: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return defaultVal;
   return Math.max(0, Math.min(1, value));
 }
@@ -272,7 +255,7 @@ export function validateScore(
  * metacharacters. Returns the sanitized ref, 'HEAD' for empty/missing
  * input, or null for invalid input.
  */
-const REF_SAFE_RE = /^[a-zA-Z0-9_./:@^~\-\.{}\[\]]+$/;
+const REF_SAFE_RE = /^[a-zA-Z0-9_./:@^~\-.{}[\]]+$/;
 export function validateRef(value: unknown, maxLen = 256): string | null {
   if (typeof value !== 'string' || value.length === 0) return 'HEAD';
   if (value.length > maxLen) return null;
@@ -294,10 +277,22 @@ export interface ExternalContentResult {
  * system-level instructions or inject prompt directives.
  */
 const INJECTION_PATTERNS: Array<{ re: RegExp; label: string }> = [
-  { re: /ignore\s+(all\s+)?previous\s+instructions/i, label: 'instruction override ("ignore previous instructions")' },
-  { re: /ignore\s+(all\s+)?prior\s+instructions/i, label: 'instruction override ("ignore prior instructions")' },
-  { re: /disregard\s+(all\s+)?(previous|prior|above)\s+instructions/i, label: 'instruction override ("disregard instructions")' },
-  { re: /forget\s+(all\s+)?(previous|prior|above)\s+(instructions|context)/i, label: 'instruction override ("forget instructions")' },
+  {
+    re: /ignore\s+(all\s+)?previous\s+instructions/i,
+    label: 'instruction override ("ignore previous instructions")',
+  },
+  {
+    re: /ignore\s+(all\s+)?prior\s+instructions/i,
+    label: 'instruction override ("ignore prior instructions")',
+  },
+  {
+    re: /disregard\s+(all\s+)?(previous|prior|above)\s+instructions/i,
+    label: 'instruction override ("disregard instructions")',
+  },
+  {
+    re: /forget\s+(all\s+)?(previous|prior|above)\s+(instructions|context)/i,
+    label: 'instruction override ("forget instructions")',
+  },
   { re: /you\s+are\s+now\b/i, label: 'identity hijack ("you are now")' },
   { re: /act\s+as\s+(if\s+you\s+are|a|an)\b/i, label: 'identity hijack ("act as")' },
   { re: /pretend\s+(you\s+are|to\s+be)\b/i, label: 'identity hijack ("pretend to be")' },
@@ -307,7 +302,10 @@ const INJECTION_PATTERNS: Array<{ re: RegExp; label: string }> = [
   { re: /^IMPORTANT\s*:/im, label: 'directive injection ("IMPORTANT:")' },
   { re: /^INSTRUCTION\s*:/im, label: 'directive injection ("INSTRUCTION:")' },
   { re: /^OVERRIDE\s*:/im, label: 'directive injection ("OVERRIDE:")' },
-  { re: /\bdo\s+not\s+follow\s+(any\s+)?(previous|prior|earlier)\b/i, label: 'instruction override ("do not follow previous")' },
+  {
+    re: /\bdo\s+not\s+follow\s+(any\s+)?(previous|prior|earlier)\b/i,
+    label: 'instruction override ("do not follow previous")',
+  },
   { re: /\bnew\s+instructions?\s*:/i, label: 'directive injection ("new instructions:")' },
 ];
 
@@ -326,7 +324,8 @@ const ENCODING_PATTERNS: Array<{ re: RegExp; label: string }> = [
 
 /** Threshold ratio of uppercase + directive-like words to total words. */
 const DIRECTIVE_DENSITY_THRESHOLD = 0.4;
-const DIRECTIVE_WORDS = /\b(MUST|SHALL|ALWAYS|NEVER|IMPORTANT|OVERRIDE|IMMEDIATELY|MANDATORY|REQUIRED|CRITICAL)\b/g;
+const DIRECTIVE_WORDS =
+  /\b(MUST|SHALL|ALWAYS|NEVER|IMPORTANT|OVERRIDE|IMMEDIATELY|MANDATORY|REQUIRED|CRITICAL)\b/g;
 
 /**
  * Heuristically check whether `content` contains prompt-injection
@@ -352,7 +351,7 @@ const DIRECTIVE_WORDS = /\b(MUST|SHALL|ALWAYS|NEVER|IMPORTANT|OVERRIDE|IMMEDIATE
  */
 export async function validateExternalContent(
   content: string,
-  source?: string,
+  _source?: string,
 ): Promise<ExternalContentResult> {
   if (typeof content !== 'string') {
     return { safe: false, reason: 'Content must be a string' };

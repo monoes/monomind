@@ -3,9 +3,9 @@
  * formatRelativeTime, listCommand, editCommand, templatesCommand
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { input } from '../prompt.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Helper function to format relative time
 export function formatRelativeTime(isoDate: string): string {
@@ -68,7 +68,7 @@ export const listCommand: Command = {
       const entries = listResult.entries.map((e) => ({
         key: e.key,
         namespace: e.namespace,
-        size: e.size + ' B',
+        size: `${e.size} B`,
         vector: e.hasEmbedding ? '✓' : '-',
         accessCount: e.accessCount,
         updated: formatRelativeTime(e.updatedAt),
@@ -155,8 +155,8 @@ export const editCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const source = (ctx.flags.source as string) || 'sqlite';
     let value = (ctx.flags.value as string) || ctx.args[0];
-    const fs = await import('fs');
-    const path = await import('path');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
 
     if (source === 'sqlite' || source === 'lancedb') {
       const key = ctx.flags.key as string;
@@ -204,7 +204,7 @@ export const editCommand: Command = {
       output.printError('Entry ID is required for palace/knowledge edit. Use --id');
       return { success: false, exitCode: 1 };
     }
-    if (!/^[a-zA-Z0-9_\-]{1,128}$/.test(id)) {
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) {
       output.printError('ID must be 1-128 chars: alphanumeric, underscore, or hyphen only');
       return { success: false, exitCode: 1 };
     }
@@ -264,8 +264,8 @@ export const editCommand: Command = {
 
     entries[idx] = { ...entries[idx], content: value, ts: new Date().toISOString() };
     try {
-      const tmpPath = filePath + '.tmp';
-      fs.writeFileSync(tmpPath, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+      const tmpPath = `${filePath}.tmp`;
+      fs.writeFileSync(tmpPath, `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`);
       fs.renameSync(tmpPath, filePath);
       output.printSuccess(`Updated ${source} entry "${id}"`);
       return { success: true, data: entries[idx] };

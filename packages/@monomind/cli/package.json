@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "2.9.23",
+  "version": "2.9.24",
   "type": "module",
   "description": "CLI engine for Monomind — an open-source MCP server that extends Claude Code with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. Apache 2.0 licensed, fully local.",
   "main": "dist/src/index.js",
@@ -111,10 +111,10 @@
     "zod": "^4.0.0"
   },
   "optionalDependencies": {
-    "@ai-sdk/alibaba": "^4.0.0",
+    "@ai-sdk/alibaba": "^2.0.34",
     "@ai-sdk/anthropic": "^4.0.36",
     "@ai-sdk/cohere": "^4.0.25",
-    "@ai-sdk/deepseek": "^4.0.0",
+    "@ai-sdk/deepseek": "^3.0.31",
     "@ai-sdk/fireworks": "^3.0.30",
     "@ai-sdk/google": "^4.0.39",
     "@ai-sdk/groq": "^4.0.26",

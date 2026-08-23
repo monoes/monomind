@@ -9,11 +9,11 @@
  * - os module for system information
  */
 
-import { type MCPTool, getProjectCwd, getMonomindDataRoot } from './types.js';
-import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getMonomindDataRoot, getProjectCwd, type MCPTool } from './types.js';
 
 // Read version dynamically from package.json
 function getPackageVersion(): string {
@@ -92,7 +92,7 @@ function loadMetrics(): SystemMetrics {
 function saveMetrics(metrics: SystemMetrics): void {
   ensureSystemDir();
   metrics.lastCheck = new Date().toISOString();
-  const tmpPath = getMetricsPath() + '.tmp';
+  const tmpPath = `${getMetricsPath()}.tmp`;
   writeFileSync(tmpPath, JSON.stringify(metrics, null, 2), 'utf-8');
   renameSync(tmpPath, getMetricsPath());
 }
@@ -126,7 +126,8 @@ export const systemTools: MCPTool[] = [
         components: {
           swarm: {
             status: 'unknown',
-            _note: 'Swarm status not measured — no live health probe wired up here; use system_health for real checks',
+            _note:
+              'Swarm status not measured — no live health probe wired up here; use system_health for real checks',
           },
           memory: {
             status: 'unknown',
@@ -427,8 +428,8 @@ export const systemTools: MCPTool[] = [
         // Disk check — real free space check via os module
         {
           const t0 = performance.now();
-          const freeMem = os.freemem();
-          const totalMem = os.totalmem();
+          const _freeMem = os.freemem();
+          const _totalMem = os.totalmem();
           const elapsed = performance.now() - t0;
           // Use memory as a proxy; real disk check would need statvfs
           checks.push({

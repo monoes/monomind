@@ -1,4 +1,4 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 import type { ParseOutput } from './parse.js';
 import { extractVariables, variableToNode } from './variables.js';
 
@@ -24,8 +24,13 @@ export const variablesPhase: PipelinePhase<VariablesOutput> = {
       for (const v of vars) {
         const node = variableToNode(v);
         stmt.run(
-          node.id, node.label, node.name, node.normLabel ?? node.name.toLowerCase(),
-          node.filePath ?? null, node.startLine ?? null, node.endLine ?? null,
+          node.id,
+          node.label,
+          node.name,
+          node.normLabel ?? node.name.toLowerCase(),
+          node.filePath ?? null,
+          node.startLine ?? null,
+          node.endLine ?? null,
           node.isExported ? 1 : 0,
         );
         variableCount++;

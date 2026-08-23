@@ -1,7 +1,7 @@
-import { join, resolve, sep } from 'path';
+import { join, resolve, sep } from 'node:path';
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
-import { getDbPath, _isValidDb, text } from './shared.js';
+import { _isValidDb, getDbPath, text } from './shared.js';
 
 // ── Active watcher registry ──────────────────────────────────────────────────
 const _activeWatchers = new Map<string, any>();
@@ -10,14 +10,19 @@ const _activeWatchers = new Map<string, any>();
 
 export const monographBuildTool: MCPTool = {
   name: 'monograph_build',
-  description: 'Build (or rebuild) the Monograph knowledge graph for a path. Parses all code via tree-sitter and indexes into SQLite.',
+  description:
+    'Build (or rebuild) the Monograph knowledge graph for a path. Parses all code via tree-sitter and indexes into SQLite.',
   inputSchema: {
     type: 'object',
     properties: {
       path: { type: 'string', description: 'Absolute path to the repo (defaults to project cwd)' },
       codeOnly: { type: 'boolean', description: 'Only index code files (skip docs, config)' },
       force: { type: 'boolean', description: 'Force full rebuild even if index is fresh' },
-      incremental: { type: 'boolean', description: 'Skip rebuild when index already matches HEAD (default false). Use when you want a no-op if the graph is fresh.' },
+      incremental: {
+        type: 'boolean',
+        description:
+          'Skip rebuild when index already matches HEAD (default false). Use when you want a no-op if the graph is fresh.',
+      },
     },
   },
   handler: async (input) => {
@@ -28,10 +33,14 @@ export const monographBuildTool: MCPTool = {
       codeOnly: (input.codeOnly as boolean | undefined) ?? false,
       force: (input.force as boolean | undefined) ?? false,
       incremental: (input.incremental as boolean | undefined) ?? false,
-      onProgress: (p) => { progressLog += `[${p.phase}] ${p.message ?? ''}\n`; },
+      onProgress: (p) => {
+        progressLog += `[${p.phase}] ${p.message ?? ''}\n`;
+      },
     });
     const skipped = progressLog.includes('skipping rebuild');
-    const summary = skipped ? `Index was already fresh — no rebuild needed for ${repoPath}` : `Monograph build complete for ${repoPath}`;
+    const summary = skipped
+      ? `Index was already fresh — no rebuild needed for ${repoPath}`
+      : `Monograph build complete for ${repoPath}`;
     return text(`${summary}\n${progressLog}`);
   },
 };
@@ -55,9 +64,12 @@ export const monographWatchTool: MCPTool = {
     }
     const watcher = new MonographWatcher(repoPath);
     watcher.on('monograph:updated', (_paths: string[]) => {
-      import('@monoes/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch((e) => {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[monograph_watch] background rebuild failed:', e);
-      });
+      import('@monoes/monograph')
+        .then(({ buildAsync }) => buildAsync(repoPath))
+        .catch((e) => {
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+            console.error('[monograph_watch] background rebuild failed:', e);
+        });
     });
     await watcher.start();
     _activeWatchers.set(repoPath, watcher);
@@ -73,7 +85,10 @@ export const monographWatchStopTool: MCPTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      path: { type: 'string', description: 'Repo path whose watcher to stop (defaults to project cwd)' },
+      path: {
+        type: 'string',
+        description: 'Repo path whose watcher to stop (defaults to project cwd)',
+      },
     },
   },
   handler: async (input) => {
@@ -92,7 +107,8 @@ export const monographWatchStopTool: MCPTool = {
 
 export const monographDetectChangesTool: MCPTool = {
   name: 'monograph_detect_changes',
-  description: 'Git diff → affected symbols: identifies which indexed symbols live in files changed since the base branch.',
+  description:
+    'Git diff → affected symbols: identifies which indexed symbols live in files changed since the base branch.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -105,10 +121,14 @@ export const monographDetectChangesTool: MCPTool = {
     const { detectMonographChanges } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const result = detectMonographChanges(db, {
-        baseBranch: input.baseBranch as string | undefined,
-        includeTests: input.includeTests as boolean | undefined,
-      }, getProjectCwd());
+      const result = detectMonographChanges(
+        db,
+        {
+          baseBranch: input.baseBranch as string | undefined,
+          includeTests: input.includeTests as boolean | undefined,
+        },
+        getProjectCwd(),
+      );
 
       // Format as structured text for direct LLM navigation instead of raw JSON
       const r = result as any;
@@ -136,7 +156,9 @@ export const monographDetectChangesTool: MCPTool = {
         if (affected.length > 30) lines.push(`  … ${affected.length - 30} more`);
       }
       return text(lines.join('\n').trim());
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -144,7 +166,8 @@ export const monographDetectChangesTool: MCPTool = {
 
 export const monographInjectContextTool: MCPTool = {
   name: 'monograph_inject_context',
-  description: 'Inject monograph capabilities description into AGENTS.md or CLAUDE.md for AI agent discovery.',
+  description:
+    'Inject monograph capabilities description into AGENTS.md or CLAUDE.md for AI agent discovery.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -174,7 +197,10 @@ export const monographSkillGenTool: MCPTool = {
   inputSchema: {
     type: 'object',
     properties: {
-      outputDir: { type: 'string', description: 'Output directory for skill files (default: .monomind/skills/)' },
+      outputDir: {
+        type: 'string',
+        description: 'Output directory for skill files (default: .monomind/skills/)',
+      },
     },
   },
   handler: async (input) => {
@@ -191,9 +217,10 @@ export const monographSkillGenTool: MCPTool = {
       repoPath,
       input.outputDir ? resolve(input.outputDir as string) : undefined,
     );
-    const dir = result.filesWritten.length > 0
-      ? result.filesWritten[0].replace(/\/[^/]+$/, '/')
-      : join(repoPath, '.monomind', 'skills') + '/';
+    const dir =
+      result.filesWritten.length > 0
+        ? result.filesWritten[0].replace(/\/[^/]+$/, '/')
+        : `${join(repoPath, '.monomind', 'skills')}/`;
     return text(`Generated ${result.communityCount} skill files in ${dir}`);
   },
 };
@@ -202,7 +229,8 @@ export const monographSkillGenTool: MCPTool = {
 
 export const monographInstallSkillsTool: MCPTool = {
   name: 'monograph_install_skills',
-  description: 'Install monograph skill files for a specific IDE/platform (claude, cursor, vscode, zed).',
+  description:
+    'Install monograph skill files for a specific IDE/platform (claude, cursor, vscode, zed).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -251,13 +279,15 @@ export const monographInstallSkillsTool: MCPTool = {
     let communities: Array<{ name: string; symbols: string[] }>;
     try {
       // Query distinct community IDs with exported symbols
-      const communityIds = db.prepare(`
+      const communityIds = db
+        .prepare(`
         SELECT DISTINCT community_id
         FROM nodes
         WHERE community_id IS NOT NULL
           AND label NOT IN ('File', 'Folder', 'Community', 'Concept')
         ORDER BY community_id
-      `).all() as Array<{ community_id: number }>;
+      `)
+        .all() as Array<{ community_id: number }>;
 
       if (communityIds.length === 0) {
         closeDb(db);
@@ -266,12 +296,14 @@ export const monographInstallSkillsTool: MCPTool = {
 
       communities = communityIds.map(({ community_id }) => {
         // Derive a readable name from folder paths
-        const pathRows = db.prepare(`
+        const pathRows = db
+          .prepare(`
           SELECT file_path FROM nodes
           WHERE community_id = ? AND file_path IS NOT NULL
             AND label NOT IN ('File', 'Folder', 'Community', 'Concept')
           LIMIT 20
-        `).all(community_id) as Array<{ file_path: string }>;
+        `)
+          .all(community_id) as Array<{ file_path: string }>;
 
         let name = `community-${community_id}`;
         const folderCounts = new Map<string, number>();
@@ -279,26 +311,35 @@ export const monographInstallSkillsTool: MCPTool = {
           const parts = row.file_path.replace(/\\/g, '/').split('/').filter(Boolean);
           if (parts.length >= 2) {
             const folder = parts[parts.length - 2].toLowerCase();
-            if (!['src', 'lib', 'core', 'utils', 'common', 'shared', 'helpers', 'dist'].includes(folder)) {
+            if (
+              !['src', 'lib', 'core', 'utils', 'common', 'shared', 'helpers', 'dist'].includes(
+                folder,
+              )
+            ) {
               folderCounts.set(folder, (folderCounts.get(folder) ?? 0) + 1);
             }
           }
         }
         let bestCount = 0;
         for (const [folder, count] of folderCounts) {
-          if (count > bestCount) { bestCount = count; name = folder; }
+          if (count > bestCount) {
+            bestCount = count;
+            name = folder;
+          }
         }
 
         // Collect exported symbol names
-        const symbolRows = db.prepare(`
+        const symbolRows = db
+          .prepare(`
           SELECT name FROM nodes
           WHERE community_id = ? AND is_exported = 1
             AND label NOT IN ('File', 'Folder', 'Community', 'Concept')
           ORDER BY name
           LIMIT 50
-        `).all(community_id) as Array<{ name: string }>;
+        `)
+          .all(community_id) as Array<{ name: string }>;
 
-        return { name, symbols: symbolRows.map(r => r.name) };
+        return { name, symbols: symbolRows.map((r) => r.name) };
       });
     } catch (err: unknown) {
       closeDb(db);
@@ -310,6 +351,8 @@ export const monographInstallSkillsTool: MCPTool = {
     const result = await installSkillsForPlatform(repoPath, communities, {
       platform: platform as 'claude' | 'cursor' | 'vscode' | 'zed',
     });
-    return text(`Installed ${result.filesWritten.length} skill files for ${result.platform} in ${result.outputDir}`);
+    return text(
+      `Installed ${result.filesWritten.length} skill files for ${result.platform} in ${result.outputDir}`,
+    );
   },
 };

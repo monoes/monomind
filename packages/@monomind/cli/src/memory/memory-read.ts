@@ -6,12 +6,12 @@
  * @module v1/cli/memory-read
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { cosineSimilarity as cosineSim } from '../utils/cosine-similarity.js';
+import { generateEmbedding } from './embedding-operations.js';
 import { safeParseEmbedding } from './memory-bridge.js';
 import { ensureSchemaColumns } from './memory-migrations.js';
-import { generateEmbedding } from './embedding-operations.js';
-import { cosineSimilarity as cosineSim } from '../utils/cosine-similarity.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
@@ -57,7 +57,13 @@ export async function searchEntries(options: {
    *  generateEmbedding()'s deterministic hash fallback: a vector search was
    *  performed, but over hashes with no semantic content, so neither may be
    *  reported as 'semantic'/'hybrid'. */
-  searchMethod?: 'semantic' | 'keyword' | 'keyword-fallback' | 'hybrid' | 'hash-vector' | 'hash-hybrid';
+  searchMethod?:
+    | 'semantic'
+    | 'keyword'
+    | 'keyword-fallback'
+    | 'hybrid'
+    | 'hash-vector'
+    | 'hash-hybrid';
   fallbackReason?: string;
   error?: string;
 }> {
@@ -69,13 +75,7 @@ export async function searchEntries(options: {
   }
 
   // Fallback: raw sql.js
-  const {
-    query,
-    namespace,
-    limit = 10,
-    threshold = 0.3,
-    dbPath: customPath
-  } = options;
+  const { query, namespace, limit = 10, threshold = 0.3, dbPath: customPath } = options;
   const effectiveNamespace = namespace || 'all';
 
   const swarmDir = path.resolve(process.cwd(), '.swarm');
@@ -91,7 +91,12 @@ export async function searchEntries(options: {
 
     const searchStat = fs.statSync(dbPath);
     if (searchStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, results: [], searchTime: 0, error: `Database file too large: ${searchStat.size} bytes` };
+      return {
+        success: false,
+        results: [],
+        searchTime: 0,
+        error: `Database file too large: ${searchStat.size} bytes`,
+      };
     }
 
     const queryEmb = await generateEmbedding(query);
@@ -113,7 +118,12 @@ export async function searchEntries(options: {
 
     const searchFbStat = fs.statSync(dbPath);
     if (searchFbStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, results: [], searchTime: Date.now() - startTime, error: `Database file too large: ${searchFbStat.size} bytes` };
+      return {
+        success: false,
+        results: [],
+        searchTime: Date.now() - startTime,
+        error: `Database file too large: ${searchFbStat.size} bytes`,
+      };
     }
 
     const fileBuffer = fs.readFileSync(dbPath);
@@ -122,7 +132,7 @@ export async function searchEntries(options: {
     const searchStmt = db.prepare(
       effectiveNamespace !== 'all'
         ? `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' AND namespace = ? LIMIT 1000`
-        : `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' LIMIT 1000`
+        : `SELECT id, key, namespace, content, embedding FROM memory_entries WHERE status = 'active' LIMIT 1000`,
     );
     if (effectiveNamespace !== 'all') {
       searchStmt.bind([effectiveNamespace]);
@@ -134,11 +144,23 @@ export async function searchEntries(options: {
     searchStmt.free();
     const entries = searchRows.length > 0 ? [{ values: searchRows }] : [];
 
-    const results: { id: string; key: string; content: string; score: number; namespace: string }[] = [];
+    const results: {
+      id: string;
+      key: string;
+      content: string;
+      score: number;
+      namespace: string;
+    }[] = [];
 
     if (entries[0]?.values) {
       for (const row of entries[0].values) {
-        const [id, key, ns, content, embeddingJson] = row as [string, string, string, string, string | null];
+        const [id, key, ns, content, embeddingJson] = row as [
+          string,
+          string,
+          string,
+          string,
+          string | null,
+        ];
 
         let score = 0;
 
@@ -152,10 +174,10 @@ export async function searchEntries(options: {
         if (score < threshold) {
           const lowerContent = (content || '').toLowerCase();
           const lowerQuery = query.toLowerCase();
-          const words = lowerQuery.split(/\s+/).filter(w => w.length > 0);
+          const words = lowerQuery.split(/\s+/).filter((w) => w.length > 0);
           if (words.length > 0) {
-            const matchCount = words.filter(w => lowerContent.includes(w)).length;
-            const keywordScore = matchCount / words.length * 0.5;
+            const matchCount = words.filter((w) => lowerContent.includes(w)).length;
+            const keywordScore = (matchCount / words.length) * 0.5;
             score = Math.max(score, keywordScore);
           }
         }
@@ -166,7 +188,7 @@ export async function searchEntries(options: {
             key: key || id.substring(0, 15),
             content: (content || '').substring(0, 60) + ((content || '').length > 60 ? '...' : ''),
             score,
-            namespace: ns || 'default'
+            namespace: ns || 'default',
           });
         }
       }
@@ -183,14 +205,14 @@ export async function searchEntries(options: {
       // Per-row: cosine when the entry had a vector, keyword overlap otherwise.
       // With hash-fallback vectors the cosine half is not semantic either.
       searchMethod: realVectors ? 'hybrid' : 'hash-hybrid',
-      ...(realVectors ? {} : { fallbackReason: 'no-embedding-model' })
+      ...(realVectors ? {} : { fallbackReason: 'no-embedding-model' }),
     };
   } catch (error) {
     return {
       success: false,
       results: [],
       searchTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -222,25 +244,37 @@ export async function listEntries(options: {
   const bridge = await getBridge();
   if (bridge) {
     const bridgeResult = await bridge.bridgeListEntries(options);
-    if (bridgeResult) return {
-      success: bridgeResult.success,
-      total: bridgeResult.total,
-      error: bridgeResult.error,
-      entries: bridgeResult.entries.map((e: { id: string; key: string; namespace: string; content?: string; accessCount: number; createdAt: string; updatedAt: string; hasEmbedding: boolean }) => ({
-        id: e.id, key: e.key, namespace: e.namespace,
-        size: typeof e.content === 'string' ? e.content.length : 0,
-        accessCount: e.accessCount, createdAt: e.createdAt, updatedAt: e.updatedAt, hasEmbedding: e.hasEmbedding,
-      })),
-    };
+    if (bridgeResult)
+      return {
+        success: bridgeResult.success,
+        total: bridgeResult.total,
+        error: bridgeResult.error,
+        entries: bridgeResult.entries.map(
+          (e: {
+            id: string;
+            key: string;
+            namespace: string;
+            content?: string;
+            accessCount: number;
+            createdAt: string;
+            updatedAt: string;
+            hasEmbedding: boolean;
+          }) => ({
+            id: e.id,
+            key: e.key,
+            namespace: e.namespace,
+            size: typeof e.content === 'string' ? e.content.length : 0,
+            accessCount: e.accessCount,
+            createdAt: e.createdAt,
+            updatedAt: e.updatedAt,
+            hasEmbedding: e.hasEmbedding,
+          }),
+        ),
+      };
   }
 
   // Fallback: raw sql.js
-  const {
-    namespace,
-    limit = 20,
-    offset = 0,
-    dbPath: customPath
-  } = options;
+  const { namespace, limit = 20, offset = 0, dbPath: customPath } = options;
 
   const swarmDir = path.join(process.cwd(), '.swarm');
   const dbPath = customPath || path.join(swarmDir, 'memory.db');
@@ -257,14 +291,21 @@ export async function listEntries(options: {
 
     const listStat = fs.statSync(dbPath);
     if (listStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, entries: [], total: 0, error: `Database file too large: ${listStat.size} bytes` };
+      return {
+        success: false,
+        entries: [],
+        total: 0,
+        error: `Database file too large: ${listStat.size} bytes`,
+      };
     }
 
     const fileBuffer = fs.readFileSync(dbPath);
     const db = new SQL.Database(fileBuffer);
 
     const countStmt = namespace
-      ? db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active' AND namespace = ?`)
+      ? db.prepare(
+          `SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active' AND namespace = ?`,
+        )
       : db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE status = 'active'`);
     if (namespace) {
       countStmt.bind([namespace]);
@@ -275,16 +316,21 @@ export async function listEntries(options: {
     }
     countStmt.free();
     const countResult = countRows.length > 0 ? [{ values: countRows }] : [];
-    const total = countResult[0]?.values?.[0]?.[0] as number || 0;
+    const total = (countResult[0]?.values?.[0]?.[0] as number) || 0;
 
     const MAX_LIST_LIMIT = 10_000;
     const rawLimit = parseInt(String(limit), 10);
-    const safeLimit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_LIST_LIMIT) : 100;
+    const safeLimit =
+      Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_LIST_LIMIT) : 100;
     const rawOffset = parseInt(String(offset), 10);
     const safeOffset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
     const listStmt = namespace
-      ? db.prepare(`SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE status = 'active' AND namespace = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`)
-      : db.prepare(`SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE status = 'active' ORDER BY updated_at DESC LIMIT ? OFFSET ?`);
+      ? db.prepare(
+          `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE status = 'active' AND namespace = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?`,
+        )
+      : db.prepare(
+          `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at FROM memory_entries WHERE status = 'active' ORDER BY updated_at DESC LIMIT ? OFFSET ?`,
+        );
     if (namespace) {
       listStmt.bind([namespace, safeLimit, safeOffset]);
     } else {
@@ -310,7 +356,14 @@ export async function listEntries(options: {
     if (result[0]?.values) {
       for (const row of result[0].values) {
         const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt] = row as [
-          string, string, string, string, string | null, number, string, string
+          string,
+          string,
+          string,
+          string,
+          string | null,
+          number,
+          string,
+          string,
         ];
         entries.push({
           id: String(id).substring(0, 20),
@@ -320,7 +373,7 @@ export async function listEntries(options: {
           accessCount: accessCount || 0,
           createdAt: createdAt || new Date().toISOString(),
           updatedAt: updatedAt || new Date().toISOString(),
-          hasEmbedding: !!embedding && embedding.length > 10
+          hasEmbedding: !!embedding && embedding.length > 10,
         });
       }
     }
@@ -333,7 +386,7 @@ export async function listEntries(options: {
       success: false,
       entries: [],
       total: 0,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -371,11 +424,7 @@ export async function getEntry(options: {
   }
 
   // Fallback: raw sql.js
-  const {
-    key,
-    namespace = 'default',
-    dbPath: customPath
-  } = options;
+  const { key, namespace = 'default', dbPath: customPath } = options;
 
   const swarmDir = path.join(process.cwd(), '.swarm');
   const dbPath = customPath || path.join(swarmDir, 'memory.db');
@@ -392,7 +441,11 @@ export async function getEntry(options: {
 
     const getStat = fs.statSync(dbPath);
     if (getStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, found: false, error: `Database file too large: ${getStat.size} bytes` };
+      return {
+        success: false,
+        found: false,
+        error: `Database file too large: ${getStat.size} bytes`,
+      };
     }
 
     const fileBuffer = fs.readFileSync(dbPath);
@@ -419,9 +472,18 @@ export async function getEntry(options: {
       return { success: true, found: false };
     }
 
-    const [id, entryKey, ns, content, embedding, accessCount, createdAt, updatedAt, tagsJson] = result[0].values[0] as [
-      string, string, string, string, string | null, number, string, string, string | null
-    ];
+    const [id, entryKey, ns, content, embedding, accessCount, createdAt, updatedAt, tagsJson] =
+      result[0].values[0] as [
+        string,
+        string,
+        string,
+        string,
+        string | null,
+        number,
+        string,
+        string,
+        string | null,
+      ];
 
     db.close();
 
@@ -446,14 +508,14 @@ export async function getEntry(options: {
         createdAt: createdAt || new Date().toISOString(),
         updatedAt: updatedAt || new Date().toISOString(),
         hasEmbedding: !!embedding && embedding.length > 10,
-        tags
-      }
+        tags,
+      },
     };
   } catch (error) {
     return {
       success: false,
       found: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }

@@ -26,16 +26,37 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { buildCorpus, readDoc, resolveRepoRoot, type Corpus, type CorpusDoc } from './corpus.js';
-import { GOLDEN_SET, pairsForSplit, SPLIT_SCHEME, type GoldenPair, type Split } from './golden-set.js';
+import { buildCorpus, type Corpus, type CorpusDoc, readDoc, resolveRepoRoot } from './corpus.js';
 import {
-  aggregate, assessTriviality, buildIdf, dedupeByDoc, idfOverlap, scoreQuery, terciles,
-  type QueryOutcome, type Scoreboard,
+  GOLDEN_SET,
+  type GoldenPair,
+  pairsForSplit,
+  SPLIT_SCHEME,
+  type Split,
+} from './golden-set.js';
+import {
+  aggregate,
+  assessTriviality,
+  buildIdf,
+  dedupeByDoc,
+  idfOverlap,
+  type QueryOutcome,
+  type Scoreboard,
+  scoreQuery,
+  terciles,
 } from './metrics.js';
-import { Bm25Retriever, FnRetriever, RandomRetriever, RrfRetriever, type EvalChunk, type RawHit, type Retriever } from './retrievers.js';
-import { installNetworkGuard, type NetworkAttempt } from './network-guard.js';
-import { scoreSignals, type SignalResult } from './signals.js';
 import { assertModelProvisioned, type ModelPresence } from './model-presence.js';
+import { installNetworkGuard, type NetworkAttempt } from './network-guard.js';
+import {
+  Bm25Retriever,
+  type EvalChunk,
+  FnRetriever,
+  RandomRetriever,
+  type RawHit,
+  type Retriever,
+  RrfRetriever,
+} from './retrievers.js';
+import { type SignalResult, scoreSignals } from './signals.js';
 
 /** Which kind of store produced a row. Rows with different profiles are NOT comparable. */
 export type StoreProfile = 'fresh' | 'polluted-live' | 'eval-fixture';
@@ -128,7 +149,13 @@ export interface EvalReport {
      */
     provisioningIntact: number;
     includesGlobalBrain: boolean;
-    hardware: { platform: string; arch: string; cpus: number; cpuModel: string; nodeVersion: string };
+    hardware: {
+      platform: string;
+      arch: string;
+      cpus: number;
+      cpuModel: string;
+      nodeVersion: string;
+    };
   };
   networkFree: {
     verdict: 'proven-blocked' | 'partial' | 'violated';
@@ -147,7 +174,12 @@ export interface EvalReport {
      */
     telemetryCarveOut: string;
   };
-  droppedPairs: Array<{ id: string; reason: string; maxContiguousRun: number; overlapRatio: number }>;
+  droppedPairs: Array<{
+    id: string;
+    reason: string;
+    maxContiguousRun: number;
+    overlapRatio: number;
+  }>;
   overlap: { p25: number; p50: number; p75: number; tercileCutLow: number; tercileCutHigh: number };
   results: Record<string, RetrieverResult>;
   /**
@@ -162,7 +194,10 @@ export interface EvalReport {
   /** The headline row for the scoreboard-history table. */
   headline: {
     retriever: string;
-    recallAt1: number; recallAt5: number; recallAt10: number; mrrAt10: number;
+    recallAt1: number;
+    recallAt5: number;
+    recallAt10: number;
+    mrrAt10: number;
     lowOverlapRecallAt5: number;
     bm25FloorRecallAt5: number;
     randomFloorRecallAt5: number;
@@ -175,9 +210,17 @@ function detectDbDriver(): string {
   try {
     const req = createRequire(import.meta.url);
     req.resolve('better-sqlite3');
-    try { req('better-sqlite3'); return 'better-sqlite3'; } catch { return 'sql.js (better-sqlite3 present but failed to load)'; }
-  } catch { return 'sql.js (WASM fallback)'; }
+    try {
+      req('better-sqlite3');
+      return 'better-sqlite3';
+    } catch {
+      return 'sql.js (better-sqlite3 present but failed to load)';
+    }
+  } catch {
+    return 'sql.js (WASM fallback)';
+  }
 }
+
 import { createRequire } from 'node:module';
 
 async function buildChunks(docs: CorpusDoc[]): Promise<EvalChunk[]> {
@@ -185,16 +228,25 @@ async function buildChunks(docs: CorpusDoc[]): Promise<EvalChunk[]> {
   try {
     const mem: any = await import('@monoes/memory');
     if (typeof mem.chunkDocument === 'function') chunker = mem.chunkDocument;
-  } catch { /* fall through to whole-document chunks */ }
+  } catch {
+    /* fall through to whole-document chunks */
+  }
 
   const out: EvalChunk[] = [];
   for (const d of docs) {
     const text = readDoc(d);
-    if (!chunker) { out.push({ docId: d.id, chunkIndex: 0, text }); continue; }
+    if (!chunker) {
+      out.push({ docId: d.id, chunkIndex: 0, text });
+      continue;
+    }
     const chunks = await chunker(d.id, text);
     const list = Array.isArray(chunks) ? chunks : [];
-    if (list.length === 0) { out.push({ docId: d.id, chunkIndex: 0, text }); continue; }
-    for (const c of list) out.push({ docId: d.id, chunkIndex: c.chunkIndex ?? 0, text: c.text ?? '' });
+    if (list.length === 0) {
+      out.push({ docId: d.id, chunkIndex: 0, text });
+      continue;
+    }
+    for (const c of list)
+      out.push({ docId: d.id, chunkIndex: c.chunkIndex ?? 0, text: c.text ?? '' });
   }
   return out;
 }
@@ -229,7 +281,7 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
   if (corpus.appleDoubleCount > 0) {
     throw new Error(
       `[doc eval] ${corpus.appleDoubleCount} AppleDouble "._" resource-fork files are in the eval corpus. ` +
-      `These are binary junk that reads as markdown and pads the document count without being real. Corpus rejected.`,
+        `These are binary junk that reads as markdown and pads the document count without being real. Corpus rejected.`,
     );
   }
 
@@ -241,15 +293,17 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
   if (ratio > MAX_K_CORPUS_RATIO) {
     throw new Error(
       `[doc eval] VACUOUS EVAL REFUSED: k=${k} against a ${corpus.contentUnits}-document corpus ` +
-      `is ${(ratio * 100).toFixed(1)}% of the corpus (limit ${(MAX_K_CORPUS_RATIO * 100).toFixed(0)}%). ` +
-      `At this ratio recall approaches 1.0 by construction and measures nothing. ` +
-      `Grow the corpus or lower k.`,
+        `is ${(ratio * 100).toFixed(1)}% of the corpus (limit ${(MAX_K_CORPUS_RATIO * 100).toFixed(0)}%). ` +
+        `At this ratio recall approaches 1.0 by construction and measures nothing. ` +
+        `Grow the corpus or lower k.`,
     );
   }
-  progress(`corpus: ${corpus.docs.length} files -> ${corpus.contentUnits} distinct documents ` +
-    `(${corpus.duplicateGroups} byte-identical groups collapsed, hash ${corpus.corpusHash})`);
+  progress(
+    `corpus: ${corpus.docs.length} files -> ${corpus.contentUnits} distinct documents ` +
+      `(${corpus.duplicateGroups} byte-identical groups collapsed, hash ${corpus.corpusHash})`,
+  );
 
-  const byId = new Map(corpus.docs.map(d => [d.id, d]));
+  const byId = new Map(corpus.docs.map((d) => [d.id, d]));
   /** Map any document path onto its content-unit representative. */
   const canon = (id: string): string => corpus.canonicalOf.get(id) ?? id;
 
@@ -259,33 +313,49 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
   const docTextCache = new Map<string, string>();
   const textOf = (id: string): string => {
     let t = docTextCache.get(id);
-    if (t === undefined) { t = readDoc(byId.get(id)!); docTextCache.set(id, t); }
+    if (t === undefined) {
+      t = readDoc(byId.get(id)!);
+      docTextCache.set(id, t);
+    }
     return t;
   };
 
   const candidatePairs = pairsForSplit(split);
   for (const pair of candidatePairs) {
-    const unknown = pair.relevant.filter(r => !byId.has(r));
+    const unknown = pair.relevant.filter((r) => !byId.has(r));
     if (unknown.length > 0) {
       // Never a silent skip: a golden set pointing at documents the corpus does
       // not contain is a broken set, and a broken set produces a fake number.
-      throw new Error(`[doc eval] golden pair "${pair.id}" references documents not in the corpus: ${unknown.join(', ')}`);
+      throw new Error(
+        `[doc eval] golden pair "${pair.id}" references documents not in the corpus: ${unknown.join(', ')}`,
+      );
     }
     let worst = { trivial: false, reason: '', maxContiguousRun: 0, overlapRatio: 0 };
     for (const r of pair.relevant) {
       const t = assessTriviality(pair.query, textOf(r));
       if (t.maxContiguousRun > worst.maxContiguousRun) {
-        worst = { trivial: t.trivial, reason: t.reason ?? '', maxContiguousRun: t.maxContiguousRun, overlapRatio: t.overlapRatio };
+        worst = {
+          trivial: t.trivial,
+          reason: t.reason ?? '',
+          maxContiguousRun: t.maxContiguousRun,
+          overlapRatio: t.overlapRatio,
+        };
       }
     }
     if (worst.trivial) {
-      dropped.push({ id: pair.id, reason: worst.reason, maxContiguousRun: worst.maxContiguousRun, overlapRatio: worst.overlapRatio });
+      dropped.push({
+        id: pair.id,
+        reason: worst.reason,
+        maxContiguousRun: worst.maxContiguousRun,
+        overlapRatio: worst.overlapRatio,
+      });
     } else {
       scored.push(pair);
     }
   }
   progress(`golden set: ${scored.length} scored, ${dropped.length} dropped as trivially solvable`);
-  if (scored.length === 0) throw new Error('[doc eval] no golden pairs survived the triviality filter');
+  if (scored.length === 0)
+    throw new Error('[doc eval] no golden pairs survived the triviality filter');
 
   // ── 3. Isolated eval store (live documents only) ─────────────────
   const storeRoot = opts.storeRoot ?? path.join(repoRoot, '.monomind', 'eval');
@@ -298,10 +368,13 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
   try {
     const pipeline = await import('../document-pipeline.js');
     const stampPath = path.join(storeDir, 'eval-stamp.json');
-    const fresh = !opts.rebuild && fs.existsSync(stampPath)
-      && JSON.parse(fs.readFileSync(stampPath, 'utf8')).corpusHash === corpus.corpusHash;
+    const fresh =
+      !opts.rebuild &&
+      fs.existsSync(stampPath) &&
+      JSON.parse(fs.readFileSync(stampPath, 'utf8')).corpusHash === corpus.corpusHash;
 
-    if (opts.rebuild && fs.existsSync(storeDir)) fs.rmSync(storeDir, { recursive: true, force: true });
+    if (opts.rebuild && fs.existsSync(storeDir))
+      fs.rmSync(storeDir, { recursive: true, force: true });
     fs.mkdirSync(storeDir, { recursive: true });
 
     if (!fresh) {
@@ -314,7 +387,18 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
         if (++n % 50 === 0) progress(`ingested ${n}/${corpus.docs.length}`);
       }
       ingestMs = Date.now() - ti;
-      fs.writeFileSync(stampPath, JSON.stringify({ corpusHash: corpus.corpusHash, docs: corpus.docs.length, builtAt: new Date().toISOString() }, null, 2));
+      fs.writeFileSync(
+        stampPath,
+        JSON.stringify(
+          {
+            corpusHash: corpus.corpusHash,
+            docs: corpus.docs.length,
+            builtAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
+      );
       progress(`ingest complete in ${(ingestMs / 1000).toFixed(1)}s`);
     } else {
       progress('reusing existing eval store (corpus hash unchanged)');
@@ -325,24 +409,29 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
     let evalStoreRows = -1;
     try {
       const bridge = await import('../../memory/memory-bridge.js');
-      const listed = await bridge.bridgeListEntries({ namespace: 'knowledge:global', limit: 1_000_000, dbPath: '@global' });
+      const listed = await bridge.bridgeListEntries({
+        namespace: 'knowledge:global',
+        limit: 1_000_000,
+        dbPath: '@global',
+      });
       if (listed?.success && Array.isArray(listed.entries)) evalStoreRows = listed.entries.length;
-    } catch { /* diagnostic only */ }
-
+    } catch {
+      /* diagnostic only */
+    }
 
     // ── 4. Chunk mirror for the weak baselines ─────────────────────
     // Canonical documents only. The store keys chunks by CONTENT hash, so
     // byte-identical files collapse there too — mirroring that here keeps the
     // `evalStoreRows === corpusChunks` cross-check meaningful instead of
     // permanently red, and stops duplicates skewing BM25 document frequencies.
-    const canonicalDocs = corpus.docs.filter(d => corpus.canonicalOf.get(d.id) === d.id);
+    const canonicalDocs = corpus.docs.filter((d) => corpus.canonicalOf.get(d.id) === d.id);
     const chunks = await buildChunks(canonicalDocs);
     progress(`chunk mirror: ${chunks.length} chunks`);
 
     // ── 5. IDF overlap characterisation ────────────────────────────
-    const idf = buildIdf(corpus.docs.map(d => textOf(d.id)));
+    const idf = buildIdf(corpus.docs.map((d) => textOf(d.id)));
     const overlapOf = (p: GoldenPair): number =>
-      Math.max(...p.relevant.map(r => idfOverlap(idf, p.query, textOf(r))));
+      Math.max(...p.relevant.map((r) => idfOverlap(idf, p.query, textOf(r))));
 
     // ── 6. Retrievers ──────────────────────────────────────────────
     const denseRetriever = new FnRetriever(
@@ -350,10 +439,14 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
       'The current shipping stack: searchKnowledge over the local vector store',
       async (query, limit): Promise<RawHit[]> => {
         const hits = await pipeline.searchKnowledge(query, {
-          limit, minScore: 0.0, store: 'global', rootDir: storeDir, includeSuperseded: false,
-          skipRerank: true,  // isolate dense-only baseline from the reranker
+          limit,
+          minScore: 0.0,
+          store: 'global',
+          rootDir: storeDir,
+          includeSuperseded: false,
+          skipRerank: true, // isolate dense-only baseline from the reranker
         });
-        return hits.map(h => ({
+        return hits.map((h) => ({
           docId: path.relative(repoRoot, h.filePath),
           chunkIndex: h.chunkIndex,
           score: h.similarity,
@@ -361,11 +454,7 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
       },
     );
     const bm25Retriever = new Bm25Retriever(chunks);
-    const retrievers: Retriever[] = [
-      denseRetriever,
-      bm25Retriever,
-      new RandomRetriever(chunks),
-    ];
+    const retrievers: Retriever[] = [denseRetriever, bm25Retriever, new RandomRetriever(chunks)];
     // RRF fusion sweep: equal-weight, k ∈ {10, 20, 40, 60, 100}.
     // Null hypothesis row — expected to fail the low-overlap gate.
     const RRF_K_SWEEP = [10, 20, 40, 60, 100] as const;
@@ -398,9 +487,13 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
           // searchKnowledge flows through bridgeSearchEntries which auto-reranks
           // when the reranker is loaded. Over-retrieval happens inside.
           const hits = await pipeline.searchKnowledge(query, {
-            limit, minScore: 0.0, store: 'global', rootDir: storeDir, includeSuperseded: false,
+            limit,
+            minScore: 0.0,
+            store: 'global',
+            rootDir: storeDir,
+            includeSuperseded: false,
           });
-          return hits.map(h => ({
+          return hits.map((h) => ({
             docId: path.relative(repoRoot, h.filePath),
             chunkIndex: h.chunkIndex,
             score: h.similarity,
@@ -411,7 +504,9 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
     }
 
     // ── 7. Query phase, network blocked ────────────────────────────
-    progress(`model provisioned: ${(modelPresence.bytes / 1e6).toFixed(0)}MB at ${modelPresence.resolvedPath}`);
+    progress(
+      `model provisioned: ${(modelPresence.bytes / 1e6).toFixed(0)}MB at ${modelPresence.resolvedPath}`,
+    );
     const guard = installNetworkGuard();
 
     // The search-path probe runs INSIDE the guarded window. It used to run
@@ -425,10 +520,16 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
       try {
         const bridge = await import('../../memory/memory-bridge.js');
         const probe = await bridge.bridgeSearchEntries({
-          query: 'how are hooks dispatched', namespace: 'knowledge:global', limit: 3, threshold: 0.05, dbPath: '@global',
+          query: 'how are hooks dispatched',
+          namespace: 'knowledge:global',
+          limit: 3,
+          threshold: 0.05,
+          dbPath: '@global',
         });
         searchMethodProbe = String(probe?.searchMethod ?? 'unknown');
-      } catch { /* probe is diagnostic; a blocked fetch here is recorded by the guard */ }
+      } catch {
+        /* probe is diagnostic; a blocked fetch here is recorded by the guard */
+      }
 
       for (const r of retrievers) {
         const outcomes: QueryOutcome[] = [];
@@ -441,12 +542,21 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
           const latencyMs = Date.now() - tq;
           // Collapse to content units BEFORE ranking is cut off, so a
           // byte-identical twin never consumes a top-k slot twice.
-          const ranked = dedupeByDoc(raw.map(h => ({ ...h, docId: canon(h.docId) })), k);
+          const ranked = dedupeByDoc(
+            raw.map((h) => ({ ...h, docId: canon(h.docId) })),
+            k,
+          );
           if (ranked.length < k) shortReturns++;
-          outcomes.push(scoreQuery({
-            queryId: pair.id, query: pair.query, relevant: pair.relevant.map(canon),
-            ranked, latencyMs, overlap: overlapOf(pair),
-          }));
+          outcomes.push(
+            scoreQuery({
+              queryId: pair.id,
+              query: pair.query,
+              relevant: pair.relevant.map(canon),
+              ranked,
+              latencyMs,
+              overlap: overlapOf(pair),
+            }),
+          );
         }
         const agg = aggregate(outcomes);
         const terc = terciles(outcomes);
@@ -468,12 +578,13 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
     const evalMs = Date.now() - te;
 
     const allOverlaps = scored.map(overlapOf).sort((a, b) => a - b);
-    const q = (p: number) => allOverlaps[Math.min(allOverlaps.length - 1, Math.floor(p * allOverlaps.length))] ?? 0;
+    const q = (p: number) =>
+      allOverlaps[Math.min(allOverlaps.length - 1, Math.floor(p * allOverlaps.length))] ?? 0;
 
     const denseName = denseRetriever.name;
     const dense = results[denseName];
     const bm25 = results['bm25-only'];
-    const rand = results['random'];
+    const rand = results.random;
 
     report = {
       schemaVersion: 1,
@@ -512,17 +623,27 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
         searchMethodProbe,
         modelPresence,
         provisioningIntact:
-          (modelPresence.present && guard.attempts.length === 0 && guard.unpatched.length === 0) ? 1 : 0,
+          modelPresence.present && guard.attempts.length === 0 && guard.unpatched.length === 0
+            ? 1
+            : 0,
         includesGlobalBrain: false,
         hardware: {
-          platform: process.platform, arch: process.arch,
-          cpus: os.cpus().length, cpuModel: os.cpus()[0]?.model ?? 'unknown',
+          platform: process.platform,
+          arch: process.arch,
+          cpus: os.cpus().length,
+          cpuModel: os.cpus()[0]?.model ?? 'unknown',
           nodeVersion: process.version,
         },
       },
       networkFree: {
-        verdict: guard.attempts.length > 0 ? 'violated' : guard.unpatched.length > 0 ? 'partial' : 'proven-blocked',
-        method: 'fetch/http/https/net/tls/dns replaced with throwing stubs for the whole query phase; every attempt recorded with its stack. Does not cover sockets opened inside a native addon — see lsof corroboration in the baseline report.',
+        verdict:
+          guard.attempts.length > 0
+            ? 'violated'
+            : guard.unpatched.length > 0
+              ? 'partial'
+              : 'proven-blocked',
+        method:
+          'fetch/http/https/net/tls/dns replaced with throwing stubs for the whole query phase; every attempt recorded with its stack. Does not cover sockets opened inside a native addon — see lsof corroboration in the baseline report.',
         attempts: guard.attempts,
         unpatched: guard.unpatched,
         telemetryCarveOut:
@@ -531,10 +652,13 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
           'the duration of this run (MONOMIND_CRASH_REPORTING=off), so a zero here describes ' +
           'retrieval rather than the absence of a crash. Both remain user-disableable in normal use.',
       },
-      droppedPairs: sealed ? dropped.map(d => ({ ...d, id: '<sealed>' })) : dropped,
+      droppedPairs: sealed ? dropped.map((d) => ({ ...d, id: '<sealed>' })) : dropped,
       overlap: {
-        p25: q(0.25), p50: q(0.5), p75: q(0.75),
-        tercileCutLow: dense.terciles.cutLow, tercileCutHigh: dense.terciles.cutHigh,
+        p25: q(0.25),
+        p50: q(0.5),
+        p75: q(0.75),
+        tercileCutLow: dense.terciles.cutLow,
+        tercileCutHigh: dense.terciles.cutHigh,
       },
       results,
       headline: {
@@ -565,10 +689,11 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
     };
 
     // Re-score every prior item's pre-registered signal against THIS row.
-    report.regressionSuite = scoreSignals(
-      report, 'fresh', dense.scoreboard.hitRateAt5Ci95,
-      { corpusHash: corpus.corpusHash, goldenSetVersion: report.method.goldenSetVersion, splitScheme: SPLIT_SCHEME },
-    );
+    report.regressionSuite = scoreSignals(report, 'fresh', dense.scoreboard.hitRateAt5Ci95, {
+      corpusHash: corpus.corpusHash,
+      goldenSetVersion: report.method.goldenSetVersion,
+      splitScheme: SPLIT_SCHEME,
+    });
 
     // Exposure ledger. A sealed set run forty times with tuning in between is
     // no longer sealed; the count is the only way anyone finds out.
@@ -579,15 +704,18 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
         ? fs.readFileSync(ledger, 'utf8').split('\n').filter(Boolean).length
         : 0;
       report.method.testExposureCount = prior + 1;
-      fs.appendFileSync(ledger, JSON.stringify({
-        at: report.generatedAt,
-        exposure: prior + 1,
-        corpusHash: corpus.corpusHash,
-        goldenSetVersion: report.method.goldenSetVersion,
-        topK: k,
-        recallAt5: report.headline.recallAt5,
-        mrrAt10: report.headline.mrrAt10,
-      }) + '\n');
+      fs.appendFileSync(
+        ledger,
+        `${JSON.stringify({
+          at: report.generatedAt,
+          exposure: prior + 1,
+          corpusHash: corpus.corpusHash,
+          goldenSetVersion: report.method.goldenSetVersion,
+          topK: k,
+          recallAt5: report.headline.recallAt5,
+          mrrAt10: report.headline.mrrAt10,
+        })}\n`,
+      );
     }
   } finally {
     if (prevGlobal === undefined) delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
@@ -602,8 +730,12 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
 
 // ── Human-readable rendering ────────────────────────────────────────
 
-function pct(x: number): string { return (x * 100).toFixed(1) + '%'; }
-function f3(x: number): string { return x.toFixed(3); }
+function pct(x: number): string {
+  return `${(x * 100).toFixed(1)}%`;
+}
+function f3(x: number): string {
+  return x.toFixed(3);
+}
 
 export function renderReport(r: EvalReport): string {
   const L: string[] = [];
@@ -611,98 +743,159 @@ export function renderReport(r: EvalReport): string {
   L.push('');
   L.push('Second Brain retrieval scoreboard');
   L.push('='.repeat(72));
-  L.push(`corpus        ${m.corpusDocs} distinct documents from ${m.corpusFiles} files / ${m.corpusChunks} chunks  (hash ${m.corpusHash})`);
-  L.push(`              ${m.duplicateGroupsCollapsed} byte-identical groups collapsed to one unit each; AppleDouble "._" files: ${m.appleDoubleCount} (asserted zero)`);
-  L.push(`eval store    ${m.evalStoreRows < 0 ? 'unknown' : m.evalStoreRows + ' rows'}${m.evalStoreRows >= 0 && m.evalStoreRows !== m.corpusChunks ? '  <- MISMATCH vs chunk count, superseded rows may have leaked in' : ''}`);
-  L.push(`split         ${m.split.toUpperCase()}${m.split === 'test' ? '  (SEALED — aggregates only, no per-query output)' : m.split === 'dev' ? '  (tunable; cannot satisfy the stop condition)' : '  (diagnostic; cannot satisfy the stop condition)'}`);
-  if (m.testExposureCount !== null) L.push(`exposure      TEST has now been run ${m.testExposureCount} time(s)`);
-  L.push(`golden set    ${m.pairsScored} scored of ${m.pairsAuthored} in this split (${m.pairsAuthoredTotal} authored overall; ${m.pairsDroppedTrivial} dropped as trivially solvable)`);
+  L.push(
+    `corpus        ${m.corpusDocs} distinct documents from ${m.corpusFiles} files / ${m.corpusChunks} chunks  (hash ${m.corpusHash})`,
+  );
+  L.push(
+    `              ${m.duplicateGroupsCollapsed} byte-identical groups collapsed to one unit each; AppleDouble "._" files: ${m.appleDoubleCount} (asserted zero)`,
+  );
+  L.push(
+    `eval store    ${m.evalStoreRows < 0 ? 'unknown' : `${m.evalStoreRows} rows`}${m.evalStoreRows >= 0 && m.evalStoreRows !== m.corpusChunks ? '  <- MISMATCH vs chunk count, superseded rows may have leaked in' : ''}`,
+  );
+  L.push(
+    `split         ${m.split.toUpperCase()}${m.split === 'test' ? '  (SEALED — aggregates only, no per-query output)' : m.split === 'dev' ? '  (tunable; cannot satisfy the stop condition)' : '  (diagnostic; cannot satisfy the stop condition)'}`,
+  );
+  if (m.testExposureCount !== null)
+    L.push(`exposure      TEST has now been run ${m.testExposureCount} time(s)`);
+  L.push(
+    `golden set    ${m.pairsScored} scored of ${m.pairsAuthored} in this split (${m.pairsAuthoredTotal} authored overall; ${m.pairsDroppedTrivial} dropped as trivially solvable)`,
+  );
   L.push(`top_k         ${m.topK}  =  ${(m.kCorpusRatio * 100).toFixed(2)}% of corpus`);
   L.push(`embeddings    ${m.embeddingModel}`);
   L.push(`db driver     ${m.dbDriver}   search path probe: ${m.searchMethodProbe}`);
-  L.push(`model weights ${m.modelPresence.present ? 'PRESENT before any query' : 'ABSENT'} ` +
-    `(${(m.modelPresence.bytes / 1e6).toFixed(0)}MB, ${m.modelPresence.provenance})`);
+  L.push(
+    `model weights ${m.modelPresence.present ? 'PRESENT before any query' : 'ABSENT'} ` +
+      `(${(m.modelPresence.bytes / 1e6).toFixed(0)}MB, ${m.modelPresence.provenance})`,
+  );
   L.push(`relevance     pinned to LIVE documents only (store rebuilt, no superseded versions)`);
-  L.push(`hardware      ${m.hardware.cpuModel} x${m.hardware.cpus}, ${m.hardware.platform}/${m.hardware.arch}, node ${m.hardware.nodeVersion}`);
+  L.push(
+    `hardware      ${m.hardware.cpuModel} x${m.hardware.cpus}, ${m.hardware.platform}/${m.hardware.arch}, node ${m.hardware.nodeVersion}`,
+  );
   L.push(`store profile ${m.storeProfile}  (rows with a different profile are NOT comparable)`);
   L.push(`caveat        ${m.representativeness}`);
   L.push(`carve-out     ${r.networkFree.telemetryCarveOut}`);
-  L.push(`network       ${r.networkFree.verdict.toUpperCase()} (${r.networkFree.attempts.length} attempts blocked during query phase` +
-    (r.networkFree.unpatched.length ? `; UNPATCHED: ${r.networkFree.unpatched.join(', ')}` : '') + ')');
+  L.push(
+    `network       ${r.networkFree.verdict.toUpperCase()} (${r.networkFree.attempts.length} attempts blocked during query phase` +
+      (r.networkFree.unpatched.length ? `; UNPATCHED: ${r.networkFree.unpatched.join(', ')}` : '') +
+      ')',
+  );
   L.push('');
 
   const rows = Object.values(r.results);
-  const w = Math.max(...rows.map(x => x.name.length), 10);
-  const head = ['retriever'.padEnd(w), 'R@1'.padStart(7), 'R@5'.padStart(7), 'R@10'.padStart(7), 'MRR@10'.padStart(7), 'p50ms'.padStart(7), 'p95ms'.padStart(7), 'short'.padStart(7)];
+  const w = Math.max(...rows.map((x) => x.name.length), 10);
+  const head = [
+    'retriever'.padEnd(w),
+    'R@1'.padStart(7),
+    'R@5'.padStart(7),
+    'R@10'.padStart(7),
+    'MRR@10'.padStart(7),
+    'p50ms'.padStart(7),
+    'p95ms'.padStart(7),
+    'short'.padStart(7),
+  ];
   L.push(head.join(' '));
   L.push('-'.repeat(head.join(' ').length));
   for (const row of rows) {
     const s = row.scoreboard;
-    L.push([
-      row.name.padEnd(w),
-      f3(s.recallAt1).padStart(7), f3(s.recallAt5).padStart(7), f3(s.recallAt10).padStart(7),
-      f3(s.mrrAt10).padStart(7),
-      String(s.latencyMsP50).padStart(7), String(s.latencyMsP95).padStart(7),
-      pct(row.shortReturnRate).padStart(7),
-    ].join(' '));
+    L.push(
+      [
+        row.name.padEnd(w),
+        f3(s.recallAt1).padStart(7),
+        f3(s.recallAt5).padStart(7),
+        f3(s.recallAt10).padStart(7),
+        f3(s.mrrAt10).padStart(7),
+        String(s.latencyMsP50).padStart(7),
+        String(s.latencyMsP95).padStart(7),
+        pct(row.shortReturnRate).padStart(7),
+      ].join(' '),
+    );
   }
   L.push('');
   L.push('Recall@5 by IDF-weighted query/document overlap tercile');
-  L.push(`  (tercile cuts: low < ${f3(r.overlap.tercileCutLow)} <= mid < ${f3(r.overlap.tercileCutHigh)} <= high)`);
-  L.push(['retriever'.padEnd(w), 'low'.padStart(7), 'mid'.padStart(7), 'high'.padStart(7)].join(' '));
+  L.push(
+    `  (tercile cuts: low < ${f3(r.overlap.tercileCutLow)} <= mid < ${f3(r.overlap.tercileCutHigh)} <= high)`,
+  );
+  L.push(
+    ['retriever'.padEnd(w), 'low'.padStart(7), 'mid'.padStart(7), 'high'.padStart(7)].join(' '),
+  );
   L.push('-'.repeat(w + 24));
   for (const row of rows) {
-    L.push([
-      row.name.padEnd(w),
-      f3(row.terciles.low.recallAt5).padStart(7),
-      f3(row.terciles.mid.recallAt5).padStart(7),
-      f3(row.terciles.high.recallAt5).padStart(7),
-    ].join(' '));
+    L.push(
+      [
+        row.name.padEnd(w),
+        f3(row.terciles.low.recallAt5).padStart(7),
+        f3(row.terciles.mid.recallAt5).padStart(7),
+        f3(row.terciles.high.recallAt5).padStart(7),
+      ].join(' '),
+    );
   }
   L.push('');
   L.push('Reading this scoreboard');
-  L.push(`  gap over BM25-only      ${f3(r.headline.gapOverBm25)}  <- the real signal. A small gap means the`);
+  L.push(
+    `  gap over BM25-only      ${f3(r.headline.gapOverBm25)}  <- the real signal. A small gap means the`,
+  );
   L.push('                                 golden set is too easy, not that the stack is good.');
-  L.push(`  random floor Recall@5   ${f3(r.headline.randomFloorRecallAt5)}  <- anything but ~0 means a vacuous eval.`);
-  L.push(`  low-overlap Recall@5    ${f3(r.headline.lowOverlapRecallAt5)}  <- the closest proxy to real-world queries.`);
+  L.push(
+    `  random floor Recall@5   ${f3(r.headline.randomFloorRecallAt5)}  <- anything but ~0 means a vacuous eval.`,
+  );
+  L.push(
+    `  low-overlap Recall@5    ${f3(r.headline.lowOverlapRecallAt5)}  <- the closest proxy to real-world queries.`,
+  );
   const ci = rows[0]?.scoreboard.hitRateAt5Ci95 ?? 0;
-  L.push(`  95% CI half-width       ${f3(ci)}  <- a delta smaller than this is noise, not improvement.`);
+  L.push(
+    `  95% CI half-width       ${f3(ci)}  <- a delta smaller than this is noise, not improvement.`,
+  );
   L.push('');
   if (r.regressionSuite.length > 0) {
-    L.push('Regression suite — every prior item\'s pre-registered signal, re-scored on this row');
+    L.push("Regression suite — every prior item's pre-registered signal, re-scored on this row");
     for (const sig of r.regressionSuite) {
       const cur = sig.currentValue === null ? '   n/a' : f3(sig.currentValue);
       const ref = sig.shipValue ?? sig.baselineValue;
       L.push(`  [${sig.verdict.padEnd(9)}] item ${sig.item.padEnd(3)} ${sig.id}`);
-      L.push(`               now ${cur}` + (ref !== null && ref !== undefined ? `  vs ${f3(ref)} at ship/baseline` : '') +
-        (sig.nullVerdict ? `  null-verdict: ${sig.nullVerdict}` : ''));
+      L.push(
+        `               now ${cur}` +
+          (ref !== null && ref !== undefined ? `  vs ${f3(ref)} at ship/baseline` : '') +
+          (sig.nullVerdict ? `  null-verdict: ${sig.nullVerdict}` : ''),
+      );
       L.push(`               ${sig.note}`);
     }
-    const decayed = r.regressionSuite.filter(x => x.verdict === 'DECAYED');
+    const decayed = r.regressionSuite.filter((x) => x.verdict === 'DECAYED');
     if (decayed.length > 0) {
       L.push(`  !! ${decayed.length} PRE-REGISTERED SIGNAL(S) HAVE DECAYED — a win recorded on an`);
-      L.push('     earlier row no longer holds. This is the only evidence that justifies a revert.');
+      L.push(
+        '     earlier row no longer holds. This is the only evidence that justifies a revert.',
+      );
     }
     L.push('');
   }
   L.push('Corpus composition (distinct documents by top-level directory)');
-  L.push('  ' + Object.entries(r.corpusComposition.byTopLevel)
-    .sort((a, b) => b[1] - a[1]).slice(0, 8)
-    .map(([k, v]) => `${k} ${v}`).join('   '));
+  L.push(
+    '  ' +
+      Object.entries(r.corpusComposition.byTopLevel)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([k, v]) => `${k} ${v}`)
+        .join('   '),
+  );
   L.push('');
   L.push(`Stop condition: Recall@5 >= 0.900 and MRR@10 >= 0.800 on >= 500 documents.`);
   const s = r.results[r.headline.retriever].scoreboard;
   const met = s.recallAt5 >= 0.9 && s.mrrAt10 >= 0.8 && m.corpusDocs >= 500;
   if (!m.stopConditionEvaluable) {
-    L.push(`  currently: Recall@5 ${f3(s.recallAt5)}, MRR@10 ${f3(s.mrrAt10)}, corpus ${m.corpusDocs}`);
-    L.push(`  NOT EVALUABLE on the ${m.split} split — the stop condition may only be checked on TEST.`);
+    L.push(
+      `  currently: Recall@5 ${f3(s.recallAt5)}, MRR@10 ${f3(s.mrrAt10)}, corpus ${m.corpusDocs}`,
+    );
+    L.push(
+      `  NOT EVALUABLE on the ${m.split} split — the stop condition may only be checked on TEST.`,
+    );
   } else {
-    L.push(`  currently: Recall@5 ${f3(s.recallAt5)}, MRR@10 ${f3(s.mrrAt10)}, corpus ${m.corpusDocs} -> ${met ? 'MET' : 'NOT MET'}`);
+    L.push(
+      `  currently: Recall@5 ${f3(s.recallAt5)}, MRR@10 ${f3(s.mrrAt10)}, corpus ${m.corpusDocs} -> ${met ? 'MET' : 'NOT MET'}`,
+    );
   }
   L.push('');
   return L.join('\n');
 }
-
 
 // -- Authoring-time candidate screening ------------------------------
 //
@@ -746,53 +939,78 @@ export async function screenCandidates(
 ): Promise<ScreenReport> {
   const repoRoot = resolveRepoRoot(repoRootIn);
   const corpus = buildCorpus(repoRoot);
-  const byId = new Map(corpus.docs.map(d => [d.id, d]));
+  const byId = new Map(corpus.docs.map((d) => [d.id, d]));
   const cache = new Map<string, string>();
   const textOf = (id: string): string => {
     let t = cache.get(id);
-    if (t === undefined) { t = readDoc(byId.get(id)!); cache.set(id, t); }
+    if (t === undefined) {
+      t = readDoc(byId.get(id)!);
+      cache.set(id, t);
+    }
     return t;
   };
-  const idf = buildIdf(corpus.docs.map(d => textOf(d.id)));
+  const idf = buildIdf(corpus.docs.map((d) => textOf(d.id)));
 
   const seen = new Set<string>();
   const out: ScreenedCandidate[] = [];
   for (const c of candidates) {
-    const missing = c.relevant.filter(r => !byId.has(r));
+    const missing = c.relevant.filter((r) => !byId.has(r));
     if (missing.length > 0) {
-      out.push({ ...c, idfOverlap: 0, maxContiguousRun: 0, band: 'low', accepted: false,
-        reason: `target not in corpus: ${missing.join(', ')}` });
+      out.push({
+        ...c,
+        idfOverlap: 0,
+        maxContiguousRun: 0,
+        band: 'low',
+        accepted: false,
+        reason: `target not in corpus: ${missing.join(', ')}`,
+      });
       continue;
     }
     if (seen.has(c.id)) {
-      out.push({ ...c, idfOverlap: 0, maxContiguousRun: 0, band: 'low', accepted: false, reason: 'duplicate id' });
+      out.push({
+        ...c,
+        idfOverlap: 0,
+        maxContiguousRun: 0,
+        band: 'low',
+        accepted: false,
+        reason: 'duplicate id',
+      });
       continue;
     }
     seen.add(c.id);
 
-    const overlap = Math.max(...c.relevant.map(r => idfOverlap(idf, c.query, textOf(r))));
-    const run = Math.max(...c.relevant.map(r => assessTriviality(c.query, textOf(r)).maxContiguousRun));
-    const trivial = c.relevant.some(r => assessTriviality(c.query, textOf(r)).trivial);
+    const overlap = Math.max(...c.relevant.map((r) => idfOverlap(idf, c.query, textOf(r))));
+    const run = Math.max(
+      ...c.relevant.map((r) => assessTriviality(c.query, textOf(r)).maxContiguousRun),
+    );
+    const trivial = c.relevant.some((r) => assessTriviality(c.query, textOf(r)).trivial);
     const band: 'low' | 'mid' | 'high' =
       overlap < bandCuts.low ? 'low' : overlap < bandCuts.high ? 'mid' : 'high';
 
     out.push({
-      ...c, idfOverlap: overlap, maxContiguousRun: run, band,
+      ...c,
+      idfOverlap: overlap,
+      maxContiguousRun: run,
+      band,
       accepted: !trivial,
-      ...(trivial ? { reason: `trivially solvable: ${run}-token verbatim run from the query appears in the target` } : {}),
+      ...(trivial
+        ? {
+            reason: `trivially solvable: ${run}-token verbatim run from the query appears in the target`,
+          }
+        : {}),
     });
   }
 
-  const acc = out.filter(c => c.accepted);
+  const acc = out.filter((c) => c.accepted);
   return {
     corpusHash: corpus.corpusHash,
     total: out.length,
     accepted: acc.length,
     rejected: out.length - acc.length,
     bands: {
-      low: acc.filter(c => c.band === 'low').length,
-      mid: acc.filter(c => c.band === 'mid').length,
-      high: acc.filter(c => c.band === 'high').length,
+      low: acc.filter((c) => c.band === 'low').length,
+      mid: acc.filter((c) => c.band === 'mid').length,
+      high: acc.filter((c) => c.band === 'high').length,
     },
     candidates: out,
   };

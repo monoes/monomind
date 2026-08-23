@@ -32,10 +32,10 @@ export function resolveAllProductionModes(
   configured: ProductionModeConfig,
 ): ProductionModeConfig {
   return {
-    deadCode:    resolveProductionMode(overrides.deadCode,    configured.deadCode),
-    health:      resolveProductionMode(overrides.health,      configured.health),
+    deadCode: resolveProductionMode(overrides.deadCode, configured.deadCode),
+    health: resolveProductionMode(overrides.health, configured.health),
     duplication: resolveProductionMode(overrides.duplication, configured.duplication),
-    complexity:  resolveProductionMode(overrides.complexity,  configured.complexity),
+    complexity: resolveProductionMode(overrides.complexity, configured.complexity),
   };
 }
 
@@ -59,5 +59,7 @@ export function buildBaselineAuditMeta(
 
 /** Human-readable production mode label for CLI output. */
 export function productionModeLabel(mode: boolean): string {
-  return mode ? 'production (conservative, entry-point-aware)' : 'development (all-exports visible)';
+  return mode
+    ? 'production (conservative, entry-point-aware)'
+    : 'development (all-exports visible)';
 }

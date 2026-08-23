@@ -8,7 +8,7 @@
  * 4. Contradiction detection — does the output say "I cannot" then proceed to do it?
  */
 
-import { OutputScanResult } from '../entities/threat.js';
+import type { OutputScanResult } from '../entities/threat.js';
 
 export interface ScanOptions {
   output: string;

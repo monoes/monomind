@@ -5,9 +5,9 @@
  * finds cross-repo HTTP contracts, and persists the registry to disk.
  */
 
-import { join } from 'path';
-import { existsSync } from 'fs';
-import { syncGroup, type GroupSyncResult } from '../groups/group-sync.js';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { type GroupSyncResult, syncGroup } from '../groups/group-sync.js';
 
 export type { GroupSyncResult };
 

@@ -31,12 +31,14 @@ interface ExportedRow {
 const GENERIC_NAMES = new Set(['default', 'index', 'module']);
 
 export function detectDuplicateExports(db: MonographDb): DuplicateExportsResult {
-  const rows = db.prepare(
-    `SELECT id, name, file_path, start_line, label
+  const rows = db
+    .prepare(
+      `SELECT id, name, file_path, start_line, label
      FROM nodes
      WHERE is_exported = 1
-       AND label IN ('Function','Class','Method','Interface','Const','TypeAlias','Enum','Variable')`
-  ).all() as ExportedRow[];
+       AND label IN ('Function','Class','Method','Interface','Const','TypeAlias','Enum','Variable')`,
+    )
+    .all() as ExportedRow[];
 
   // Group by normalized name
   const groups = new Map<string, DuplicateExportLocation[]>();
@@ -50,7 +52,12 @@ export function detectDuplicateExports(db: MonographDb): DuplicateExportsResult 
       list = [];
       groups.set(normalized, list);
     }
-    list.push({ nodeId: row.id, filePath: row.file_path, startLine: row.start_line ?? null, label: row.label });
+    list.push({
+      nodeId: row.id,
+      filePath: row.file_path,
+      startLine: row.start_line ?? null,
+      label: row.label,
+    });
   }
 
   // Filter to duplicates only (count > 1)
@@ -105,6 +112,8 @@ export function formatDuplicateExports(result: DuplicateExportsResult): string {
   }
 
   lines.push('');
-  lines.push('Fix: consolidate duplicate exports into a single canonical location or rename to avoid conflicts.');
+  lines.push(
+    'Fix: consolidate duplicate exports into a single canonical location or rename to avoid conflicts.',
+  );
   return lines.join('\n').trimEnd();
 }

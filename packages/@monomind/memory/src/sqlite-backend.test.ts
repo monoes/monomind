@@ -9,7 +9,7 @@
  * garbage. See AUDIT-BACKLOG.md P1-4.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SQLiteBackend } from './sqlite-backend.js';
 import { createDefaultEntry } from './types.js';
 
@@ -42,10 +42,10 @@ describe('SQLiteBackend embedding round-trip', () => {
     const fetched = await backend.get(entry.id);
 
     expect(fetched).not.toBeNull();
-    expect(fetched!.embedding).toBeDefined();
-    expect(fetched!.embedding!.length).toBe(embedding.length);
+    expect(fetched?.embedding).toBeDefined();
+    expect(fetched?.embedding?.length).toBe(embedding.length);
     for (let i = 0; i < embedding.length; i++) {
-      expect(fetched!.embedding![i]).toBeCloseTo(embedding[i], 6);
+      expect(fetched?.embedding?.[i]).toBeCloseTo(embedding[i], 6);
     }
   });
 
@@ -65,10 +65,10 @@ describe('SQLiteBackend embedding round-trip', () => {
 
     for (let i = 0; i < entries.length; i++) {
       const fetched = await backend.get(entries[i].id);
-      expect(fetched!.embedding).toBeDefined();
+      expect(fetched?.embedding).toBeDefined();
       const expected = entries[i].embedding as Float32Array;
       for (let j = 0; j < expected.length; j++) {
-        expect(fetched!.embedding![j]).toBeCloseTo(expected[j], 6);
+        expect(fetched?.embedding?.[j]).toBeCloseTo(expected[j], 6);
       }
     }
   });
@@ -86,10 +86,10 @@ describe('SQLiteBackend embedding round-trip', () => {
     await backend.store(updated as any);
 
     const fetched = await backend.get(entry.id);
-    expect(fetched!.content).toBe('v2');
-    expect(fetched!.embedding).toBeDefined();
+    expect(fetched?.content).toBe('v2');
+    expect(fetched?.embedding).toBeDefined();
     for (let i = 0; i < embedding.length; i++) {
-      expect(fetched!.embedding![i]).toBeCloseTo(embedding[i], 6);
+      expect(fetched?.embedding?.[i]).toBeCloseTo(embedding[i], 6);
     }
   });
 });

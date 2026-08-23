@@ -32,11 +32,11 @@
  * below and both must be impossible by construction, not by caller discipline.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SQLiteBackend } from './sqlite-backend.js';
 import { SqlJsBackend } from './sqljs-backend.js';
-import { createDefaultEntry } from './types.js';
 import type { IMemoryBackend } from './types.js';
+import { createDefaultEntry } from './types.js';
 
 interface BackendCase {
   name: string;
@@ -85,11 +85,7 @@ for (const backendCase of BACKENDS) {
       await backend.shutdown();
     });
 
-    async function store(
-      key: string,
-      namespace = 'knowledge:shared',
-      embedding?: Float32Array,
-    ) {
+    async function store(key: string, namespace = 'knowledge:shared', embedding?: Float32Array) {
       const entry = createDefaultEntry({ key, content: `content for ${key}`, namespace });
       if (embedding) (entry as { embedding?: Float32Array }).embedding = embedding;
       await backend.store(entry);
@@ -127,7 +123,7 @@ for (const backendCase of BACKENDS) {
       });
 
       it.skip('removes every chunk of the superseded version and nothing else', async () => {
-        const deleted = await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:oldhash:');
+        const deleted = await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:oldhash:');
         expect(deleted).toBe(3);
         expect(await keysIn('knowledge:shared')).toEqual([
           'doc:newhash:0',
@@ -139,25 +135,25 @@ for (const backendCase of BACKENDS) {
 
       it.skip('matches only at the START of the key, never as a substring', async () => {
         // 'oldhash:' appears inside 'pattern:oldhash:0' but not at position 0.
-        await backend.deleteByKeyPrefix!('knowledge:shared', 'oldhash:');
+        await backend.deleteByKeyPrefix?.('knowledge:shared', 'oldhash:');
         expect(await keysIn('knowledge:shared')).toContain('pattern:oldhash:0');
       });
 
       it.skip('reports the number of rows actually deleted', async () => {
-        expect(await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:newhash:')).toBe(2);
-        expect(await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:newhash:')).toBe(0);
+        expect(await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:newhash:')).toBe(2);
+        expect(await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:newhash:')).toBe(0);
       });
 
       it.skip('is idempotent — deleting an already-deleted prefix is a no-op, not an error', async () => {
-        await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:oldhash:');
-        await expect(
-          backend.deleteByKeyPrefix!('knowledge:shared', 'doc:oldhash:'),
-        ).resolves.toBe(0);
+        await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:oldhash:');
+        await expect(backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:oldhash:')).resolves.toBe(
+          0,
+        );
       });
 
       it.skip('a prefix matching nothing leaves the store untouched', async () => {
         const before = await keysIn('knowledge:shared');
-        expect(await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:nosuchhash:')).toBe(0);
+        expect(await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:nosuchhash:')).toBe(0);
         expect(await keysIn('knowledge:shared')).toEqual(before);
       });
     });
@@ -169,7 +165,7 @@ for (const backendCase of BACKENDS) {
       await store('doc:samehash:0', 'knowledge:global');
       await store('doc:samehash:1', 'knowledge:global');
 
-      const deleted = await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:samehash:');
+      const deleted = await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:samehash:');
 
       expect(deleted).toBe(1);
       expect(await keysIn('knowledge:shared')).toEqual([]);
@@ -186,15 +182,21 @@ for (const backendCase of BACKENDS) {
       await store('doc:newhash:0', 'knowledge:shared', vec(3));
 
       // Sanity: all three are scored before the delete.
-      const before = await backend.search(vec(1), { k: 10, filters: { namespace: 'knowledge:shared' } as never });
+      const before = await backend.search(vec(1), {
+        k: 10,
+        filters: { namespace: 'knowledge:shared' } as never,
+      });
       expect(before).toHaveLength(3);
 
-      await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:oldhash:');
+      await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:oldhash:');
 
       // The whole point of item 4: dead vectors stop being cosine-scored.
       // An orphaned memory_embeddings row would keep costing us on every query
       // even though its entry is gone.
-      const after = await backend.search(vec(1), { k: 10, filters: { namespace: 'knowledge:shared' } as never });
+      const after = await backend.search(vec(1), {
+        k: 10,
+        filters: { namespace: 'knowledge:shared' } as never,
+      });
       expect(after.map((r) => r.entry.key)).toEqual(['doc:newhash:0']);
     });
 
@@ -208,12 +210,12 @@ for (const backendCase of BACKENDS) {
       });
 
       it.skip('rejects an empty prefix instead of deleting the namespace', async () => {
-        await expect(backend.deleteByKeyPrefix!('knowledge:shared', '')).rejects.toThrow();
+        await expect(backend.deleteByKeyPrefix?.('knowledge:shared', '')).rejects.toThrow();
         expect(await keysIn('knowledge:shared')).toHaveLength(3);
       });
 
       it.skip('rejects a whitespace-only prefix', async () => {
-        await expect(backend.deleteByKeyPrefix!('knowledge:shared', '   ')).rejects.toThrow();
+        await expect(backend.deleteByKeyPrefix?.('knowledge:shared', '   ')).rejects.toThrow();
         expect(await keysIn('knowledge:shared')).toHaveLength(3);
       });
 
@@ -221,21 +223,21 @@ for (const backendCase of BACKENDS) {
         // If the implementation interpolates into LIKE without escaping, this
         // deletes every doc chunk in the namespace. It must instead match the
         // literal key prefix "doc:%" — which nothing has — and delete nothing.
-        const deleted = await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:%');
+        const deleted = await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:%');
         expect(deleted).toBe(0);
         expect(await keysIn('knowledge:shared')).toEqual(['doc:aaa:0', 'doc:bbb:0', 'note:ccc:0']);
       });
 
       it.skip('treats `_` as a literal character, not a single-char wildcard', async () => {
         // Unescaped, "doc_aaa:" LIKE-matches "doc:aaa:" and deletes it.
-        const deleted = await backend.deleteByKeyPrefix!('knowledge:shared', 'doc_aaa:');
+        const deleted = await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc_aaa:');
         expect(deleted).toBe(0);
         expect(await keysIn('knowledge:shared')).toContain('doc:aaa:0');
       });
 
       it.skip('does not treat a backslash in the prefix as an escape character', async () => {
         await store('doc:a\\b:0');
-        const deleted = await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:a\\b:');
+        const deleted = await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:a\\b:');
         expect(deleted).toBe(1);
       });
     });
@@ -248,7 +250,7 @@ for (const backendCase of BACKENDS) {
       for (let i = 0; i < 250; i++) await store(`doc:bulkhash:${i}`);
       await store('doc:livehash:0');
 
-      expect(await backend.deleteByKeyPrefix!('knowledge:shared', 'doc:bulkhash:')).toBe(250);
+      expect(await backend.deleteByKeyPrefix?.('knowledge:shared', 'doc:bulkhash:')).toBe(250);
       expect(await keysIn('knowledge:shared')).toEqual(['doc:livehash:0']);
     });
   });

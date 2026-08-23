@@ -1,12 +1,12 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'http';
-import { readFile, readdir, writeFile, rename, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
-import { homedir } from 'os';
-import { fileURLToPath } from 'url';
-import { WebSocketServer, type WebSocket } from 'ws';
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { type WebSocket, WebSocketServer } from 'ws';
 import { z } from 'zod';
-import type { StepEvent, RunRecord } from '../workflow/types.js';
 import { getMonomindDataRoot } from '../../mcp-tools/types.js';
+import type { RunRecord, StepEvent } from '../workflow/types.js';
 
 // Matches StepEvent (workflow/types.ts) exactly. Anything that doesn't fit this
 // shape is rejected rather than relayed — the endpoint used to broadcast whatever
@@ -18,7 +18,14 @@ const StepEventSchema = z.object({
   workflowName: z.string().max(500),
   nodeId: z.string().max(256),
   nodeName: z.string().max(256),
-  eventType: z.enum(['run_started', 'step_started', 'step_completed', 'step_failed', 'run_completed', 'run_stopped']),
+  eventType: z.enum([
+    'run_started',
+    'step_started',
+    'step_completed',
+    'step_failed',
+    'run_completed',
+    'run_stopped',
+  ]),
   itemIndex: z.number().optional(),
   itemTotal: z.number().optional(),
   durationMs: z.number().optional(),
@@ -37,7 +44,7 @@ const MAX_PERSISTED_RUNS = 50;
 async function persistRuns(runs: RunRecord[]): Promise<void> {
   try {
     await mkdir(dirname(RUNS_FILE), { recursive: true });
-    const tmp = RUNS_FILE + '.tmp';
+    const tmp = `${RUNS_FILE}.tmp`;
     await writeFile(tmp, JSON.stringify(runs.slice(0, MAX_PERSISTED_RUNS), null, 2), 'utf8');
     await rename(tmp, RUNS_FILE);
   } catch {
@@ -58,10 +65,12 @@ async function readMetricsDir(root: string): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   try {
     const files = await readdir(metricsDir);
-    await Promise.all(files.map(async (f) => {
-      if (!f.endsWith('.json') || f.startsWith('.')) return;
-      out[f.replace(/\.json$/, '')] = await readJsonSafe(join(metricsDir, f));
-    }));
+    await Promise.all(
+      files.map(async (f) => {
+        if (!f.endsWith('.json') || f.startsWith('.')) return;
+        out[f.replace(/\.json$/, '')] = await readJsonSafe(join(metricsDir, f));
+      }),
+    );
   } catch {
     // metrics dir may not exist yet — workers write it at session start (or: hooks worker run <name>)
   }
@@ -74,8 +83,9 @@ async function collectDashboardState(root: string) {
     // Canonical root first (getMonomindDataRoot(): `<repo>/.git/monomind` in a
     // git repo), legacy `<root>/.monomind` second. Reading only the legacy path
     // showed stale/absent swarm state in every real project.
-    readJsonSafe(join(getMonomindDataRoot(root), 'monoswarm', 'state.json'))
-      .then((v: unknown) => v ?? readJsonSafe(join(root, '.monomind', 'monoswarm', 'state.json'))),
+    readJsonSafe(join(getMonomindDataRoot(root), 'monoswarm', 'state.json')).then(
+      (v: unknown) => v ?? readJsonSafe(join(root, '.monomind', 'monoswarm', 'state.json')),
+    ),
     readJsonSafe(join(root, '.monomind', 'last-route.json')),
     readJsonSafe(join(root, '.monomind', 'data', 'auto-memory-store.json')),
   ]);
@@ -129,7 +139,9 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
     }
     if (req.method === 'GET' && req.url === '/api/dashboard') {
       try {
-        const { workerMetrics, swarmState, lastRoute, autoMemory } = await collectDashboardState(process.cwd());
+        const { workerMetrics, swarmState, lastRoute, autoMemory } = await collectDashboardState(
+          process.cwd(),
+        );
         const worker_metrics = Object.keys(workerMetrics).filter((k) => workerMetrics[k] != null);
         const summary = {
           worker_metrics,
@@ -157,7 +169,11 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
       if (typeof origin === 'string') {
         const host = req.headers.host;
         let originHost: string | null = null;
-        try { originHost = new URL(origin).host; } catch { /* malformed Origin — treated as mismatch below */ }
+        try {
+          originHost = new URL(origin).host;
+        } catch {
+          /* malformed Origin — treated as mismatch below */
+        }
         if (!host || originHost !== host) {
           res.writeHead(403, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: false, error: 'cross-origin request rejected' }));
@@ -175,9 +191,15 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
             if (client.readyState === client.OPEN) client.send(validated);
           }
         } catch (e) {
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[dashboard] /api/mastermind/event rejected invalid payload, not broadcast:', e);
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+            console.error(
+              '[dashboard] /api/mastermind/event rejected invalid payload, not broadcast:',
+              e,
+            );
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'payload does not match the expected event shape' }));
+          res.end(
+            JSON.stringify({ ok: false, error: 'payload does not match the expected event shape' }),
+          );
           return;
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -241,8 +263,12 @@ export function getDashboardServer(port = DEFAULT_PORT): DashboardServer {
       if (event.error) run.error = event.error;
     }
     // Persist on run lifecycle transitions (start/complete/stop/fail)
-    if (event.eventType === 'run_started' || event.eventType === 'run_completed' ||
-        event.eventType === 'run_stopped' || event.eventType === 'step_failed') {
+    if (
+      event.eventType === 'run_started' ||
+      event.eventType === 'run_completed' ||
+      event.eventType === 'run_stopped' ||
+      event.eventType === 'step_failed'
+    ) {
       void persistRuns(recentRuns);
     }
   }

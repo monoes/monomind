@@ -6,17 +6,17 @@ export const VITAL_SIGNS_SCHEMA_VERSION = 7;
 export type CoverageModel = 'none' | 'static' | 'cloud' | 'partial';
 
 export interface SizeBinProfile {
-  smallPct: number;    // < 50 LOC
-  mediumPct: number;   // 50–150 LOC
-  largePct: number;    // 151–300 LOC
-  xlargePct: number;   // > 300 LOC
+  smallPct: number; // < 50 LOC
+  mediumPct: number; // 50–150 LOC
+  largePct: number; // 151–300 LOC
+  xlargePct: number; // > 300 LOC
 }
 
 export interface InterfacingProfile {
-  lowParamPct: number;    // 0–2 params
+  lowParamPct: number; // 0–2 params
   mediumParamPct: number; // 3–4 params
-  highParamPct: number;   // 5–7 params
-  xlParamPct: number;     // 8+ params
+  highParamPct: number; // 5–7 params
+  xlParamPct: number; // 8+ params
 }
 
 export interface VitalSignsCounts {
@@ -65,7 +65,9 @@ export interface VitalSigns {
   gitBranch?: string;
 }
 
-export function createVitalSigns(partial: Partial<VitalSigns> & Pick<VitalSigns, 'projectPath'>): VitalSigns {
+export function createVitalSigns(
+  partial: Partial<VitalSigns> & Pick<VitalSigns, 'projectPath'>,
+): VitalSigns {
   const now = new Date().toISOString();
   return {
     schemaVersion: VITAL_SIGNS_SCHEMA_VERSION,
@@ -73,8 +75,13 @@ export function createVitalSigns(partial: Partial<VitalSigns> & Pick<VitalSigns,
     healthScore: 0,
     healthGrade: 'F',
     counts: {
-      unusedExports: 0, deadFiles: 0, circularDeps: 0, boundaryViolations: 0,
-      cloneGroups: 0, duplicatedLinesPct: 0, highComplexityFunctions: 0,
+      unusedExports: 0,
+      deadFiles: 0,
+      circularDeps: 0,
+      boundaryViolations: 0,
+      cloneGroups: 0,
+      duplicatedLinesPct: 0,
+      highComplexityFunctions: 0,
     },
     sizeRisk: { smallPct: 0, mediumPct: 0, largePct: 0, xlargePct: 0 },
     interfacingRisk: { lowParamPct: 0, mediumParamPct: 0, highParamPct: 0, xlParamPct: 0 },

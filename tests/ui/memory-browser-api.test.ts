@@ -4,11 +4,12 @@
  * Tests the four /api/memory/* HTTP endpoints by mocking the knowledge bridge
  * and making HTTP requests against a real server instance.
  */
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
-import http from 'node:http';
+
 import fs from 'node:fs';
-import path from 'node:path';
+import type http from 'node:http';
 import os from 'node:os';
+import path from 'node:path';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TEST_DIR = path.join(os.tmpdir(), `mem-api-test-${process.pid}-${Date.now()}`);
 
@@ -29,7 +30,10 @@ let dashAuth: string;
 const AUTH_HEADER = ['x-monomind', 'token'].join('-');
 const AUTH_FILE = ['dashboard', 'token'].join('-');
 
-async function fetchJson(urlPath: string, init?: RequestInit): Promise<{ status: number; body: any }> {
+async function fetchJson(
+  urlPath: string,
+  init?: RequestInit,
+): Promise<{ status: number; body: any }> {
   const res = await fetch(`${baseUrl}${urlPath}`, {
     ...init,
     headers: { ...init?.headers, [AUTH_HEADER]: dashAuth },
@@ -58,7 +62,7 @@ beforeAll(async () => {
     dashAuth = fs.readFileSync(credFilePort, 'utf8').trim();
   } else {
     // Fallback: extract from the open root HTML page
-    const html = await fetch(`${baseUrl}/`).then(r => r.text());
+    const html = await fetch(`${baseUrl}/`).then((r) => r.text());
     const match = html.match(/name="mm-[^"]*"\s+content="([^"]+)"/);
     if (match) {
       dashAuth = match[1];
@@ -140,7 +144,12 @@ describe('GET /api/memory/search', () => {
   });
 
   it('clamps limit to 100', async () => {
-    mockBridge.bridgeSearchEntries.mockResolvedValueOnce({ success: true, results: [], searchTime: 0, searchMethod: 'fts' });
+    mockBridge.bridgeSearchEntries.mockResolvedValueOnce({
+      success: true,
+      results: [],
+      searchTime: 0,
+      searchMethod: 'fts',
+    });
     await fetchJson('/api/memory/search?q=test&limit=999');
     expect(mockBridge.bridgeSearchEntries).toHaveBeenCalledWith(
       expect.objectContaining({ limit: 100 }),
@@ -160,7 +169,11 @@ describe('POST /api/memory/entry', () => {
   });
 
   it('stores an entry via the bridge', async () => {
-    mockBridge.bridgeStoreEntry.mockResolvedValueOnce({ success: true, id: 'new-id', duplicate: false });
+    mockBridge.bridgeStoreEntry.mockResolvedValueOnce({
+      success: true,
+      id: 'new-id',
+      duplicate: false,
+    });
     const { status, body } = await fetchJson('/api/memory/entry', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,7 @@
-import { readFileSync, existsSync } from 'fs';
+import { existsSync, readFileSync } from 'node:fs';
+
 export type { MigrationWarning } from './knip.js';
+
 import type { MigrationWarning } from './knip.js';
 
 export interface JscpdMigrationResult {
@@ -31,7 +33,7 @@ export function migrateFromJscpd(jscpdConfigPath: string): JscpdMigrationResult 
     return { monographConfig, warnings, inputFile: jscpdConfigPath };
   }
 
-  const knownFields = new Set([
+  const _knownFields = new Set([
     'threshold',
     'minTokens',
     'ignore',
@@ -43,13 +45,13 @@ export function migrateFromJscpd(jscpdConfigPath: string): JscpdMigrationResult 
   for (const [key, value] of Object.entries(jscpdConfig)) {
     switch (key) {
       case 'threshold':
-        monographConfig['cloneThreshold'] = value;
+        monographConfig.cloneThreshold = value;
         break;
       case 'minTokens':
-        monographConfig['cloneMinTokens'] = value;
+        monographConfig.cloneMinTokens = value;
         break;
       case 'ignore':
-        monographConfig['exclude'] = value;
+        monographConfig.exclude = value;
         break;
       case 'reporters':
         warnings.push({
@@ -59,10 +61,10 @@ export function migrateFromJscpd(jscpdConfigPath: string): JscpdMigrationResult 
         });
         break;
       case 'languages':
-        monographConfig['languages'] = value;
+        monographConfig.languages = value;
         break;
       case 'gitignore':
-        monographConfig['respectGitignore'] = value;
+        monographConfig.respectGitignore = value;
         break;
       default:
         warnings.push({

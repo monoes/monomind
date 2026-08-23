@@ -1,22 +1,6 @@
-/**
- * Hooks Embedding Utilities
- * Shared utility functions for hooks: embedding generation, memory access,
- * routing outcome persistence, agent suggestion, and risk assessment.
- * Extracted from hooks-tools.ts.
- */
-
-/**
- * Hooks MCP Tools
- * Provides intelligent hooks functionality via MCP protocol
- */
-
-import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
-import { dirname, join, resolve, sep } from 'path';
-import { type MCPTool, getProjectCwd } from './types.js';
-
-import { randomUUID } from 'node:crypto';
-import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
-import { recordCommand, deriveRecentSuccess } from '../monovector/command-outcomes.js';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { getProjectCwd } from './types.js';
 
 // Base dir for per-route outcome records — sits alongside routing-outcomes.json
 export function getRouteOutcomesBaseDir(): string {
@@ -24,17 +8,19 @@ export function getRouteOutcomesBaseDir(): string {
 }
 
 // Real vector search functions - lazy loaded to avoid circular imports
-let searchEntriesFn: ((options: {
-  query: string;
-  namespace?: string;
-  limit?: number;
-  threshold?: number;
-}) => Promise<{
-  success: boolean;
-  results: { id: string; key: string; content: string; score: number; namespace: string }[];
-  searchTime: number;
-  error?: string;
-}>) | null = null;
+let searchEntriesFn:
+  | ((options: {
+      query: string;
+      namespace?: string;
+      limit?: number;
+      threshold?: number;
+    }) => Promise<{
+      success: boolean;
+      results: { id: string; key: string; content: string; score: number; namespace: string }[];
+      searchTime: number;
+      error?: string;
+    }>)
+  | null = null;
 
 export async function getRealSearchFunction() {
   if (!searchEntriesFn) {
@@ -49,19 +35,21 @@ export async function getRealSearchFunction() {
 }
 
 // Real store function - lazy loaded
-let storeEntryFn: ((options: {
-  key: string;
-  value: string;
-  namespace?: string;
-  generateEmbeddingFlag?: boolean;
-  tags?: string[];
-  ttl?: number;
-}) => Promise<{
-  success: boolean;
-  id: string;
-  embedding?: { dimensions: number; model: string };
-  error?: string;
-}>) | null = null;
+let storeEntryFn:
+  | ((options: {
+      key: string;
+      value: string;
+      namespace?: string;
+      generateEmbeddingFlag?: boolean;
+      tags?: string[];
+      ttl?: number;
+    }) => Promise<{
+      success: boolean;
+      id: string;
+      embedding?: { dimensions: number; model: string };
+      error?: string;
+    }>)
+  | null = null;
 
 export async function getRealStoreFunction() {
   if (!storeEntryFn) {
@@ -80,7 +68,9 @@ export async function getRealStoreFunction() {
 // =============================================================================
 
 // SONA Optimizer - lazy loaded
-let sonaOptimizer: Awaited<ReturnType<typeof import('../memory/sona-optimizer.js').getSONAOptimizer>> | null = null;
+let sonaOptimizer: Awaited<
+  ReturnType<typeof import('../memory/sona-optimizer.js').getSONAOptimizer>
+> | null = null;
 export async function getSONAOptimizer() {
   if (!sonaOptimizer) {
     try {
@@ -94,7 +84,9 @@ export async function getSONAOptimizer() {
 }
 
 // EWC++ Consolidator - lazy loaded
-let ewcConsolidator: Awaited<ReturnType<typeof import('../memory/ewc-consolidation.js').getEWCConsolidator>> | null = null;
+let ewcConsolidator: Awaited<
+  ReturnType<typeof import('../memory/ewc-consolidation.js').getEWCConsolidator>
+> | null = null;
 export async function getEWCConsolidator() {
   if (!ewcConsolidator) {
     try {
@@ -107,13 +99,12 @@ export async function getEWCConsolidator() {
   return ewcConsolidator;
 }
 
-
 export function generateSimpleEmbedding(text: string, dimension: number = 384): Float32Array {
   // Simple deterministic embedding based on character codes
   // This is for routing purposes where we need consistent, fast embeddings
   const embedding = new Float32Array(dimension);
   const normalized = text.toLowerCase().replace(/[^a-z0-9\s]/g, '');
-  const words = normalized.split(/\s+/).filter(w => w.length > 0);
+  const words = normalized.split(/\s+/).filter((w) => w.length > 0);
 
   // Combine word-level and character-level features
   for (let i = 0; i < dimension; i++) {
@@ -160,14 +151,104 @@ export function getRoutingOutcomesPath(): string {
 }
 
 export const ROUTING_STOPWORDS = new Set([
-  'the','a','an','is','are','was','were','be','been','being','have','has','had',
-  'do','does','did','will','would','could','should','may','might','shall','can',
-  'to','of','in','for','on','with','at','by','from','as','into','through','during',
-  'before','after','above','below','between','under','again','further','then','once',
-  'it','its','this','that','these','those','i','me','my','we','our','you','your',
-  'he','she','they','them','and','but','or','nor','not','no','so','if','when','than',
-  'very','just','also','only','both','each','all','any','few','more','most','other',
-  'some','such','same','new','now','here','there','where','how','what','which','who',
+  'the',
+  'a',
+  'an',
+  'is',
+  'are',
+  'was',
+  'were',
+  'be',
+  'been',
+  'being',
+  'have',
+  'has',
+  'had',
+  'do',
+  'does',
+  'did',
+  'will',
+  'would',
+  'could',
+  'should',
+  'may',
+  'might',
+  'shall',
+  'can',
+  'to',
+  'of',
+  'in',
+  'for',
+  'on',
+  'with',
+  'at',
+  'by',
+  'from',
+  'as',
+  'into',
+  'through',
+  'during',
+  'before',
+  'after',
+  'above',
+  'below',
+  'between',
+  'under',
+  'again',
+  'further',
+  'then',
+  'once',
+  'it',
+  'its',
+  'this',
+  'that',
+  'these',
+  'those',
+  'i',
+  'me',
+  'my',
+  'we',
+  'our',
+  'you',
+  'your',
+  'he',
+  'she',
+  'they',
+  'them',
+  'and',
+  'but',
+  'or',
+  'nor',
+  'not',
+  'no',
+  'so',
+  'if',
+  'when',
+  'than',
+  'very',
+  'just',
+  'also',
+  'only',
+  'both',
+  'each',
+  'all',
+  'any',
+  'few',
+  'more',
+  'most',
+  'other',
+  'some',
+  'such',
+  'same',
+  'new',
+  'now',
+  'here',
+  'there',
+  'where',
+  'how',
+  'what',
+  'which',
+  'who',
 ]);
 
 interface RoutingOutcome {
@@ -181,10 +262,11 @@ interface RoutingOutcome {
 
 export function extractKeywords(text: string): string[] {
   if (!text) return [];
-  return text.toLowerCase()
+  return text
+    .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 2 && !ROUTING_STOPWORDS.has(w));
+    .filter((w) => w.length > 2 && !ROUTING_STOPWORDS.has(w));
 }
 
 export function loadRoutingOutcomes(): RoutingOutcome[] {
@@ -195,7 +277,8 @@ export function loadRoutingOutcomes(): RoutingOutcome[] {
     }
   } catch (e) {
     /* corrupt file, start fresh */
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-embedding] routing-outcomes.json read/parse failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[hooks-embedding] routing-outcomes.json read/parse failed:', e);
   }
   return [];
 }
@@ -206,12 +289,13 @@ export function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     // Cap at 500 entries to bound file size
     const capped = outcomes.slice(-500);
-    const tmp = getRoutingOutcomesPath() + '.tmp';
+    const tmp = `${getRoutingOutcomesPath()}.tmp`;
     writeFileSync(tmp, JSON.stringify({ outcomes: capped }, null, 2));
     renameSync(tmp, getRoutingOutcomesPath());
   } catch (e) {
     /* non-critical */
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-embedding] routing-outcomes.json write failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[hooks-embedding] routing-outcomes.json write failed:', e);
   }
 }
 
@@ -257,7 +341,16 @@ export function getMergedTaskPatterns(): Record<string, { keywords: string[]; ag
 
 export const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[] }> = {
   'security-task': {
-    keywords: ['authentication', 'security', 'auth', 'password', 'encryption', 'vulnerability', 'cve', 'audit'],
+    keywords: [
+      'authentication',
+      'security',
+      'auth',
+      'password',
+      'encryption',
+      'vulnerability',
+      'cve',
+      'audit',
+    ],
     agents: ['security-architect', 'security-auditor', 'reviewer'],
   },
   'testing-task': {
@@ -269,7 +362,15 @@ export const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[
     agents: ['architect', 'coder', 'tester'],
   },
   'performance-task': {
-    keywords: ['performance', 'optimize', 'speed', 'memory', 'benchmark', 'profiling', 'bottleneck'],
+    keywords: [
+      'performance',
+      'optimize',
+      'speed',
+      'memory',
+      'benchmark',
+      'profiling',
+      'bottleneck',
+    ],
     agents: ['performance-engineer', 'coder', 'tester'],
   },
   'refactor-task': {
@@ -305,7 +406,6 @@ export const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[
     agents: ['memory-specialist', 'architect', 'coder'],
   },
 };
-
 
 // Trajectory storage for SONA learning
 export interface TrajectoryStep {
@@ -363,7 +463,8 @@ export function loadMemoryStore(): MemoryStore {
     }
   } catch (e) {
     // Return empty store on error
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-embedding] memory store.json read/parse failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[hooks-embedding] memory store.json read/parse failed:', e);
   }
   return { entries: {}, version: '3.0.0' };
 }
@@ -381,39 +482,39 @@ export function getIntelligenceStatsFromMemory(): {
   const entries = Object.values(store.entries);
 
   // Count trajectories (keys starting with "trajectory-" or containing trajectory data)
-  const trajectoryEntries = entries.filter(e =>
-    e.key.includes('trajectory') ||
-    (e.metadata?.type === 'trajectory')
+  const trajectoryEntries = entries.filter(
+    (e) => e.key.includes('trajectory') || e.metadata?.type === 'trajectory',
   );
-  const successfulTrajectories = trajectoryEntries.filter(e =>
-    e.metadata?.success === true ||
-    (typeof e.value === 'object' && e.value !== null && (e.value as Record<string, unknown>).success === true)
+  const successfulTrajectories = trajectoryEntries.filter(
+    (e) =>
+      e.metadata?.success === true ||
+      (typeof e.value === 'object' &&
+        e.value !== null &&
+        (e.value as Record<string, unknown>).success === true),
   );
 
   // Count patterns
-  const patternEntries = entries.filter(e =>
-    e.key.includes('pattern') ||
-    e.metadata?.type === 'pattern' ||
-    e.key.startsWith('learned-')
+  const patternEntries = entries.filter(
+    (e) =>
+      e.key.includes('pattern') || e.metadata?.type === 'pattern' || e.key.startsWith('learned-'),
   );
 
   // Categorize patterns
   const categories: Record<string, number> = {};
-  patternEntries.forEach(e => {
+  patternEntries.forEach((e) => {
     const category = (e.metadata?.category as string) || 'general';
     categories[category] = (categories[category] || 0) + 1;
   });
 
   // Count routing decisions
-  const routingEntries = entries.filter(e =>
-    e.key.includes('routing') ||
-    e.metadata?.type === 'routing-decision'
+  const routingEntries = entries.filter(
+    (e) => e.key.includes('routing') || e.metadata?.type === 'routing-decision',
   );
 
   // Calculate average confidence from routing decisions
   let totalConfidence = 0;
   let confidenceCount = 0;
-  routingEntries.forEach(e => {
+  routingEntries.forEach((e) => {
     const confidence = e.metadata?.confidence as number;
     if (typeof confidence === 'number') {
       totalConfidence += confidence;
@@ -475,22 +576,22 @@ export const AGENT_PATTERNS: Record<string, string[]> = {
 
 // Keyword patterns for fallback routing (when semantic routing doesn't match)
 export const KEYWORD_PATTERNS: Record<string, { agents: string[]; confidence: number }> = {
-  'authentication': { agents: ['security-architect', 'coder', 'tester'], confidence: 0.9 },
-  'auth': { agents: ['security-architect', 'coder', 'tester'], confidence: 0.85 },
-  'api': { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
-  'test': { agents: ['tester', 'reviewer'], confidence: 0.95 },
-  'refactor': { agents: ['architect', 'coder', 'reviewer'], confidence: 0.9 },
-  'performance': { agents: ['performance-engineer', 'coder', 'tester'], confidence: 0.88 },
-  'security': { agents: ['security-architect', 'security-auditor', 'reviewer'], confidence: 0.92 },
-  'database': { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
-  'frontend': { agents: ['coder', 'designer', 'tester'], confidence: 0.82 },
-  'backend': { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
-  'bug': { agents: ['coder', 'tester', 'reviewer'], confidence: 0.88 },
-  'fix': { agents: ['coder', 'tester', 'reviewer'], confidence: 0.85 },
-  'feature': { agents: ['architect', 'coder', 'tester'], confidence: 0.8 },
-  'swarm': { agents: ['swarm-specialist', 'coordinator', 'architect'], confidence: 0.9 },
-  'memory': { agents: ['memory-specialist', 'architect', 'coder'], confidence: 0.88 },
-  'deploy': { agents: ['devops', 'coder', 'tester'], confidence: 0.85 },
+  authentication: { agents: ['security-architect', 'coder', 'tester'], confidence: 0.9 },
+  auth: { agents: ['security-architect', 'coder', 'tester'], confidence: 0.85 },
+  api: { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
+  test: { agents: ['tester', 'reviewer'], confidence: 0.95 },
+  refactor: { agents: ['architect', 'coder', 'reviewer'], confidence: 0.9 },
+  performance: { agents: ['performance-engineer', 'coder', 'tester'], confidence: 0.88 },
+  security: { agents: ['security-architect', 'security-auditor', 'reviewer'], confidence: 0.92 },
+  database: { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
+  frontend: { agents: ['coder', 'designer', 'tester'], confidence: 0.82 },
+  backend: { agents: ['architect', 'coder', 'tester'], confidence: 0.85 },
+  bug: { agents: ['coder', 'tester', 'reviewer'], confidence: 0.88 },
+  fix: { agents: ['coder', 'tester', 'reviewer'], confidence: 0.85 },
+  feature: { agents: ['architect', 'coder', 'tester'], confidence: 0.8 },
+  swarm: { agents: ['swarm-specialist', 'coordinator', 'architect'], confidence: 0.9 },
+  memory: { agents: ['memory-specialist', 'architect', 'coder'], confidence: 0.88 },
+  deploy: { agents: ['devops', 'coder', 'tester'], confidence: 0.85 },
   'ci/cd': { agents: ['devops', 'coder'], confidence: 0.9 },
 };
 
@@ -529,7 +630,7 @@ export function suggestAgentsForTask(task: string): { agents: string[]; confiden
 
     for (const outcome of outcomes) {
       if (!outcome.success || !outcome.agent || !outcome.keywords?.length) continue;
-      const overlap = taskKeywords.filter(kw => outcome.keywords.includes(kw)).length;
+      const overlap = taskKeywords.filter((kw) => outcome.keywords.includes(kw)).length;
       if (overlap > bestOverlap) {
         bestOverlap = overlap;
         bestAgent = outcome.agent;
@@ -563,14 +664,31 @@ export function suggestAgentsForTask(task: string): { agents: string[]; confiden
 // LoRA inference happens on the routing hot path anymore.
 
 export const VALID_AGENT_TYPES = new Set([
-  'coder', 'reviewer', 'tester', 'planner', 'researcher',
-  'architect', 'security-architect', 'security-auditor',
-  'performance-engineer', 'backend-dev', 'mobile-dev',
-  'ml-developer', 'cicd-engineer', 'api-docs', 'system-architect',
-  'code-analyzer', 'devops', 'debugger', 'documenter', 'optimizer',
+  'coder',
+  'reviewer',
+  'tester',
+  'planner',
+  'researcher',
+  'architect',
+  'security-architect',
+  'security-auditor',
+  'performance-engineer',
+  'backend-dev',
+  'mobile-dev',
+  'ml-developer',
+  'cicd-engineer',
+  'api-docs',
+  'system-architect',
+  'code-analyzer',
+  'devops',
+  'debugger',
+  'documenter',
+  'optimizer',
 ]);
 
-export async function suggestAgentsFromIntelligence(task: string): Promise<{ agents: string[]; confidence: number } | null> {
+export async function suggestAgentsFromIntelligence(
+  task: string,
+): Promise<{ agents: string[]; confidence: number } | null> {
   try {
     const intel = await import('../memory/intelligence.js');
     await intel.initializeIntelligence();
@@ -598,7 +716,11 @@ export async function suggestAgentsFromIntelligence(task: string): Promise<{ age
   }
 }
 
-export function assessCommandRisk(command: string): { risk: string; level: number; warnings: string[] } {
+export function assessCommandRisk(command: string): {
+  risk: string;
+  level: number;
+  warnings: string[];
+} {
   const warnings: string[] = [];
   let level = 0;
 

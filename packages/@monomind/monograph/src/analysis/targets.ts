@@ -15,12 +15,12 @@ export type TargetConfidence = 'High' | 'Medium' | 'Low';
 export interface RefactoringTarget {
   nodeId: string;
   filePath: string;
-  priorityScore: number;     // 0-100
-  efficiency: number;        // priorityScore / effortWeight
+  priorityScore: number; // 0-100
+  efficiency: number; // priorityScore / effortWeight
   category: RecommendationCategory;
   effort: EffortEstimate;
   confidence: TargetConfidence;
-  evidence: string[];        // human-readable reasons: 'fan-in: 47', 'unreachable', etc.
+  evidence: string[]; // human-readable reasons: 'fan-in: 47', 'unreachable', etc.
 }
 
 export interface RefactoringTargetsResult {
@@ -39,7 +39,8 @@ interface FileNodeRow {
 
 export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsResult {
   // Query all File nodes with degree counts and properties
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT
       n.id,
       n.file_path,
@@ -50,19 +51,20 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
     LEFT JOIN (SELECT target_id, COUNT(*) AS cnt FROM edges GROUP BY target_id) d_in ON d_in.target_id = n.id
     LEFT JOIN (SELECT source_id, COUNT(*) AS cnt FROM edges GROUP BY source_id) d_out ON d_out.source_id = n.id
     WHERE n.label = 'File' AND n.file_path IS NOT NULL
-  `).all() as FileNodeRow[];
+  `)
+    .all() as FileNodeRow[];
 
   if (rows.length === 0) {
     return { targets: [], totalAnalyzed: 0 };
   }
 
   // Compute fan-ins for percentile calculation
-  const fanIns = rows.map(r => r.in_degree).sort((a, b) => a - b);
+  const fanIns = rows.map((r) => r.in_degree).sort((a, b) => a - b);
   const p95Index = Math.floor(fanIns.length * 0.95);
   const p95FanIn = fanIns[p95Index] ?? fanIns[fanIns.length - 1] ?? 1;
 
-  const maxInDegree  = rows.reduce((m, r) => r.in_degree  > m ? r.in_degree  : m, 1);
-  const maxOutDegree = rows.reduce((m, r) => r.out_degree > m ? r.out_degree : m, 1);
+  const maxInDegree = rows.reduce((m, r) => (r.in_degree > m ? r.in_degree : m), 1);
+  const maxOutDegree = rows.reduce((m, r) => (r.out_degree > m ? r.out_degree : m), 1);
 
   const targets: RefactoringTarget[] = [];
 
@@ -79,12 +81,9 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
     const fan_out_norm = row.out_degree / maxOutDegree;
 
     // Priority formula
-    const priorityScore = Math.min(100,
-      density * 30 +
-      hotspot_boost * 25 +
-      dead_code * 20 +
-      fan_in_norm * 15 +
-      fan_out_norm * 10
+    const priorityScore = Math.min(
+      100,
+      density * 30 + hotspot_boost * 25 + dead_code * 20 + fan_in_norm * 15 + fan_out_norm * 10,
     );
 
     // Evidence strings
@@ -117,7 +116,8 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
     if (fan_in_norm > 0.7) factorCount++;
     if (fan_out_norm > 0.8) factorCount++;
 
-    const confidence: TargetConfidence = factorCount > 2 ? 'High' : factorCount === 2 ? 'Medium' : 'Low';
+    const confidence: TargetConfidence =
+      factorCount > 2 ? 'High' : factorCount === 2 ? 'Medium' : 'Low';
 
     // Effort
     let effort: EffortEstimate;
@@ -148,9 +148,7 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
   }
 
   // Sort by efficiency descending, return top 50
-  const sorted = targets
-    .sort((a, b) => b.efficiency - a.efficiency)
-    .slice(0, 50);
+  const sorted = targets.sort((a, b) => b.efficiency - a.efficiency).slice(0, 50);
 
   return {
     targets: sorted,
@@ -161,7 +159,7 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
 // ── Round 8: priority scoring + evidence types ─────────────────────────────
 
 export interface ContributingFactor {
-  metric: string;          // e.g. 'fanIn', 'cyclomaticComplexity'
+  metric: string; // e.g. 'fanIn', 'cyclomaticComplexity'
   value: number;
   threshold: number;
   detail: string;
@@ -176,7 +174,7 @@ export interface EvidenceFunction {
 export interface TargetEvidence {
   unusedExportsCount: number;
   complexFunctions: EvidenceFunction[];
-  cyclePath: string[];       // for circular-dep evidence
+  cyclePath: string[]; // for circular-dep evidence
   contributingFactors: ContributingFactor[];
 }
 
@@ -204,24 +202,28 @@ export function normalizeMetric(value: number, threshold: number): number {
 
 /** Compute a 0-100 composite priority score for a refactoring target. */
 export function computeTargetPriority(factors: {
-  densityScore: number;     // 0-1 already normalized
-  hotspotScore: number;     // 0-1
-  deadCodeScore: number;    // 0-1
+  densityScore: number; // 0-1 already normalized
+  hotspotScore: number; // 0-1
+  deadCodeScore: number; // 0-1
   fanInRaw: number;
   fanOutRaw: number;
   fanInThreshold: number;
   fanOutThreshold: number;
 }): number {
-  const { densityWeight, hotspotWeight, deadCodeWeight, fanInWeight, fanOutWeight } = PRIORITY_RULE_WEIGHTS;
-  const fanIn  = normalizeMetric(factors.fanInRaw,  factors.fanInThreshold);
+  const { densityWeight, hotspotWeight, deadCodeWeight, fanInWeight, fanOutWeight } =
+    PRIORITY_RULE_WEIGHTS;
+  const fanIn = normalizeMetric(factors.fanInRaw, factors.fanInThreshold);
   const fanOut = normalizeMetric(factors.fanOutRaw, factors.fanOutThreshold);
-  return Math.min(100, Math.round(
-    factors.densityScore * densityWeight +
-    factors.hotspotScore * hotspotWeight +
-    factors.deadCodeScore * deadCodeWeight +
-    fanIn  * fanInWeight +
-    fanOut * fanOutWeight,
-  ));
+  return Math.min(
+    100,
+    Math.round(
+      factors.densityScore * densityWeight +
+        factors.hotspotScore * hotspotWeight +
+        factors.deadCodeScore * deadCodeWeight +
+        fanIn * fanInWeight +
+        fanOut * fanOutWeight,
+    ),
+  );
 }
 
 /** Apply named priority rules in priority order, returning the first match's score or null. */

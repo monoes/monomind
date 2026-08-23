@@ -5,14 +5,14 @@
  * per-repo rate limiting, normal report flow, and concurrent access safety.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync, utimesSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Isolated temp directory so tests never touch the real ~/.monomind
 const TEST_HOME = join(
   process.env.TMPDIR || '/tmp',
-  `crash-reporter-test-${process.pid}-${Date.now()}`
+  `crash-reporter-test-${process.pid}-${Date.now()}`,
 );
 const STATE_DIR = join(TEST_HOME, '.monomind');
 const LEDGER_PATH = join(STATE_DIR, 'crash-reports.json');
@@ -144,16 +144,19 @@ describe('crash-reporter concurrency primitives', () => {
       const { reportCrash, computeSignature, redact } = await load();
       const sig = computeSignature(baseInput.repo, redact(baseInput.title).slice(0, 250));
 
-      writeFileSync(LEDGER_PATH, JSON.stringify({
-        bySignature: {
-          [sig]: {
-            url: 'https://github.com/monoes/monomind/issues/42',
-            repo: baseInput.repo,
-            reportedAt: Date.now() - 60_000, // 1 min ago
+      writeFileSync(
+        LEDGER_PATH,
+        JSON.stringify({
+          bySignature: {
+            [sig]: {
+              url: 'https://github.com/monoes/monomind/issues/42',
+              repo: baseInput.repo,
+              reportedAt: Date.now() - 60_000, // 1 min ago
+            },
           },
-        },
-        filedAtByRepo: {},
-      }));
+          filedAtByRepo: {},
+        }),
+      );
 
       const result = await reportCrash(baseInput);
 
@@ -166,16 +169,19 @@ describe('crash-reporter concurrency primitives', () => {
       const sig = computeSignature(baseInput.repo, redact(baseInput.title).slice(0, 250));
 
       const THIRTY_ONE_DAYS_MS = 31 * 24 * 60 * 60 * 1000;
-      writeFileSync(LEDGER_PATH, JSON.stringify({
-        bySignature: {
-          [sig]: {
-            url: 'https://github.com/monoes/monomind/issues/42',
-            repo: baseInput.repo,
-            reportedAt: Date.now() - THIRTY_ONE_DAYS_MS,
+      writeFileSync(
+        LEDGER_PATH,
+        JSON.stringify({
+          bySignature: {
+            [sig]: {
+              url: 'https://github.com/monoes/monomind/issues/42',
+              repo: baseInput.repo,
+              reportedAt: Date.now() - THIRTY_ONE_DAYS_MS,
+            },
           },
-        },
-        filedAtByRepo: {},
-      }));
+          filedAtByRepo: {},
+        }),
+      );
 
       const result = await reportCrash(baseInput);
 
@@ -190,16 +196,19 @@ describe('crash-reporter concurrency primitives', () => {
       const variant1 = 'Index 42 out of bounds at 0x1a2b';
       const sig = computeSignature(baseInput.repo, redact(variant1).slice(0, 250));
 
-      writeFileSync(LEDGER_PATH, JSON.stringify({
-        bySignature: {
-          [sig]: {
-            url: 'https://github.com/monoes/monomind/issues/99',
-            repo: baseInput.repo,
-            reportedAt: Date.now() - 5000,
+      writeFileSync(
+        LEDGER_PATH,
+        JSON.stringify({
+          bySignature: {
+            [sig]: {
+              url: 'https://github.com/monoes/monomind/issues/99',
+              repo: baseInput.repo,
+              reportedAt: Date.now() - 5000,
+            },
           },
-        },
-        filedAtByRepo: {},
-      }));
+          filedAtByRepo: {},
+        }),
+      );
 
       // Report with DIFFERENT numbers but identical structure
       const result = await reportCrash({
@@ -219,12 +228,15 @@ describe('crash-reporter concurrency primitives', () => {
       const { reportCrash } = await load();
 
       const now = Date.now();
-      writeFileSync(LEDGER_PATH, JSON.stringify({
-        bySignature: {},
-        filedAtByRepo: {
-          [baseInput.repo]: Array.from({ length: 5 }, (_, i) => now - (i + 1) * 10_000),
-        },
-      }));
+      writeFileSync(
+        LEDGER_PATH,
+        JSON.stringify({
+          bySignature: {},
+          filedAtByRepo: {
+            [baseInput.repo]: Array.from({ length: 5 }, (_, i) => now - (i + 1) * 10_000),
+          },
+        }),
+      );
 
       const result = await reportCrash({
         ...baseInput,
@@ -242,12 +254,15 @@ describe('crash-reporter concurrency primitives', () => {
 
       const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
       const now = Date.now();
-      writeFileSync(LEDGER_PATH, JSON.stringify({
-        bySignature: {},
-        filedAtByRepo: {
-          [baseInput.repo]: Array.from({ length: 5 }, (_, i) => now - TWO_HOURS_MS - i * 10_000),
-        },
-      }));
+      writeFileSync(
+        LEDGER_PATH,
+        JSON.stringify({
+          bySignature: {},
+          filedAtByRepo: {
+            [baseInput.repo]: Array.from({ length: 5 }, (_, i) => now - TWO_HOURS_MS - i * 10_000),
+          },
+        }),
+      );
 
       const result = await reportCrash(baseInput);
 
@@ -259,12 +274,15 @@ describe('crash-reporter concurrency primitives', () => {
       const { reportCrash } = await load();
 
       const now = Date.now();
-      writeFileSync(LEDGER_PATH, JSON.stringify({
-        bySignature: {},
-        filedAtByRepo: {
-          'monoes/other-repo': Array.from({ length: 5 }, (_, i) => now - (i + 1) * 10_000),
-        },
-      }));
+      writeFileSync(
+        LEDGER_PATH,
+        JSON.stringify({
+          bySignature: {},
+          filedAtByRepo: {
+            'monoes/other-repo': Array.from({ length: 5 }, (_, i) => now - (i + 1) * 10_000),
+          },
+        }),
+      );
 
       const result = await reportCrash(baseInput);
 
@@ -305,8 +323,8 @@ describe('crash-reporter concurrency primitives', () => {
       const { reportCrash } = await load();
 
       const creds = buildFakeCredentials();
-      const sensitiveTitle = 'Crash with credential ' + creds.anthropicStyle;
-      const sensitiveBody = 'context ' + creds.ghStyle;
+      const sensitiveTitle = `Crash with credential ${creds.anthropicStyle}`;
+      const sensitiveBody = `context ${creds.ghStyle}`;
 
       const result = await reportCrash({
         repo: 'monoes/monomind',

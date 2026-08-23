@@ -48,7 +48,7 @@ export interface CommandExample {
   description: string;
 }
 
-export type CommandAction = (ctx: CommandContext) => Promise<CommandResult | void>;
+export type CommandAction = (ctx: CommandContext) => Promise<CommandResult | undefined>;
 
 export interface CommandResult {
   success: boolean;

@@ -3,22 +3,21 @@
  * Provides diff analysis and classification via MCP protocol
  */
 
-import type { MCPTool } from './types.js';
 import {
   analyzeDiff,
   assessFileRisk,
   assessOverallRisk,
   classifyDiff,
-  suggestReviewers,
-  getGitDiffNumstat,
   type DiffFile,
-  type RiskLevel,
+  getGitDiffNumstat,
+  suggestReviewers,
 } from '../monovector/diff-classifier.js';
 import { sanitizeError, validateRef } from '../utils/input-guards.js';
+import type { MCPTool } from './types.js';
 
 // ===== MCP-specific constants =====
 
-const MAX_PATH_LEN = 4096;    // OS path limit
+const MAX_PATH_LEN = 4096; // OS path limit
 const MAX_LIMIT = 100;
 const VALID_FILE_STATUS = new Set(['added', 'modified', 'deleted', 'renamed']);
 
@@ -58,7 +57,11 @@ export const analyzeDiffTool: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const ref = validateRef(params.ref);
-    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
+    if (ref === null)
+      return {
+        error: true,
+        message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)',
+      };
     const includeFileRisks = params.includeFileRisks === true;
     const includeReviewers = params.includeReviewers !== false;
     const useMonoVector = params.useMonoVector !== false;
@@ -119,7 +122,11 @@ export const diffRiskTool: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const ref = validateRef(params.ref);
-    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
+    if (ref === null)
+      return {
+        error: true,
+        message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)',
+      };
 
     try {
       const files = getGitDiffNumstat(ref);
@@ -162,7 +169,11 @@ export const diffClassifyTool: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const ref = validateRef(params.ref);
-    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
+    if (ref === null)
+      return {
+        error: true,
+        message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)',
+      };
 
     try {
       const files = getGitDiffNumstat(ref);
@@ -209,11 +220,16 @@ export const diffReviewersTool: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const ref = validateRef(params.ref);
-    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
+    if (ref === null)
+      return {
+        error: true,
+        message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)',
+      };
     const rawLimit = params.limit;
-    const limit = (typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0)
-      ? Math.min(Math.floor(rawLimit), MAX_LIMIT)
-      : 5;
+    const limit =
+      typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0
+        ? Math.min(Math.floor(rawLimit), MAX_LIMIT)
+        : 5;
 
     try {
       const files = getGitDiffNumstat(ref);
@@ -284,15 +300,20 @@ export const fileRiskTool: MCPTool = {
         return { error: true, message: 'path must not contain control characters' };
       }
       const rawStatus = params.status;
-      const status: DiffFile['status'] = (typeof rawStatus === 'string' && VALID_FILE_STATUS.has(rawStatus))
-        ? rawStatus as DiffFile['status']
-        : 'modified';
+      const status: DiffFile['status'] =
+        typeof rawStatus === 'string' && VALID_FILE_STATUS.has(rawStatus)
+          ? (rawStatus as DiffFile['status'])
+          : 'modified';
       const rawAdd = params.additions;
-      const additions = (typeof rawAdd === 'number' && Number.isFinite(rawAdd) && rawAdd >= 0)
-        ? Math.min(Math.floor(rawAdd), 1_000_000) : 0;
+      const additions =
+        typeof rawAdd === 'number' && Number.isFinite(rawAdd) && rawAdd >= 0
+          ? Math.min(Math.floor(rawAdd), 1_000_000)
+          : 0;
       const rawDel = params.deletions;
-      const deletions = (typeof rawDel === 'number' && Number.isFinite(rawDel) && rawDel >= 0)
-        ? Math.min(Math.floor(rawDel), 1_000_000) : 0;
+      const deletions =
+        typeof rawDel === 'number' && Number.isFinite(rawDel) && rawDel >= 0
+          ? Math.min(Math.floor(rawDel), 1_000_000)
+          : 0;
 
       const file: DiffFile = {
         path: rawPath,
@@ -342,18 +363,22 @@ export const diffStatsTool: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const ref = validateRef(params.ref);
-    if (ref === null) return { error: true, message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)' };
+    if (ref === null)
+      return {
+        error: true,
+        message: 'Invalid ref: must be a safe git ref (max 256 chars, alphanumeric/._/:@^~-)',
+      };
 
     try {
       const files = getGitDiffNumstat(ref);
 
       const totalAdditions = files.reduce((sum, f) => sum + f.additions, 0);
       const totalDeletions = files.reduce((sum, f) => sum + f.deletions, 0);
-      const addedFiles = files.filter(f => f.status === 'added').length;
-      const modifiedFiles = files.filter(f => f.status === 'modified').length;
-      const deletedFiles = files.filter(f => f.status === 'deleted').length;
-      const renamedFiles = files.filter(f => f.status === 'renamed').length;
-      const binaryFiles = files.filter(f => f.binary).length;
+      const addedFiles = files.filter((f) => f.status === 'added').length;
+      const modifiedFiles = files.filter((f) => f.status === 'modified').length;
+      const deletedFiles = files.filter((f) => f.status === 'deleted').length;
+      const renamedFiles = files.filter((f) => f.status === 'renamed').length;
+      const binaryFiles = files.filter((f) => f.binary).length;
 
       return {
         ref,

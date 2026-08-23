@@ -7,14 +7,14 @@
  * and validateCheckpoint were faith claims. This test exercises the
  * actual state transfer.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  captureCheckpoint,
-  validateCheckpoint,
-  isCheckpointExpired,
   CHECKPOINT_TTL_MS,
   CHECKPOINT_VERSION,
+  captureCheckpoint,
+  isCheckpointExpired,
   type OrgCheckpoint,
+  validateCheckpoint,
 } from '../../packages/@monomind/cli/src/orgrt/checkpoint.js';
 
 // Minimal RunningOrg stub — captureCheckpoint only touches the fields it
@@ -34,7 +34,10 @@ function makeFakeOrg(overrides: Record<string, unknown> = {}) {
     def: { name: 'demo' },
     run: 'run-001',
     agents,
-    pendingRoles: new Map([['writer', {}], ['reviewer', {}]]),
+    pendingRoles: new Map([
+      ['writer', {}],
+      ['reviewer', {}],
+    ]),
     bus: { emit: () => {} },
     ...overrides,
   } as any;

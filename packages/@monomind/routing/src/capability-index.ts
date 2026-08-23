@@ -1,4 +1,4 @@
-import { Route } from './types.js';
+import type { Route } from './types.js';
 
 const MAX_INDEX_CHARS = 8000;
 
@@ -16,7 +16,7 @@ export function buildCapabilityIndex(routes: Route[]): string {
 
   let index = lines.join('\n');
   if (index.length > MAX_INDEX_CHARS) {
-    const trimmedLines = routes.map(r => {
+    const trimmedLines = routes.map((r) => {
       const desc = (r.description ?? r.utterances[0] ?? r.name).slice(0, 80);
       return `${r.agentSlug}: ${desc}`;
     });
@@ -30,10 +30,10 @@ export function buildCapabilityIndex(routes: Route[]): string {
  */
 export function buildCandidateHints(
   scores: Array<{ agentSlug: string; score: number }>,
-  topN = 3
+  topN = 3,
 ): string {
   return scores
     .slice(0, topN)
-    .map(s => `- ${s.agentSlug} (similarity: ${s.score.toFixed(3)})`)
+    .map((s) => `- ${s.agentSlug} (similarity: ${s.score.toFixed(3)})`)
     .join('\n');
 }

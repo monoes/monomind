@@ -1,9 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync, utimesSync } from 'fs';
-import { join, dirname } from 'path';
-import { tmpdir } from 'os';
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require_ = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -24,24 +32,28 @@ function writeTranscript(dir: string, name: string, n: number, mtime: Date) {
   const file = join(dir, name);
   // A turn only forms after a user entry — groupAndClassify takes the turn's
   // timestamp from it, and _computeQuickTotals drops turns with no timestamp.
-  const lines: string[] = [JSON.stringify({
-    type: 'user',
-    timestamp: mtime.toISOString(),
-    message: { role: 'user', content: 'hello' },
-  })];
-  for (let i = 0; i < n; i++) {
-    lines.push(JSON.stringify({
-      type: 'assistant',
+  const lines: string[] = [
+    JSON.stringify({
+      type: 'user',
       timestamp: mtime.toISOString(),
-      message: {
-        id: `msg_${name}_${i}`,
-        model: 'claude-sonnet-4-5',
-        usage: { input_tokens: 100, output_tokens: 50 },
-        content: [{ type: 'text', text: 'hi' }],
-      },
-    }));
+      message: { role: 'user', content: 'hello' },
+    }),
+  ];
+  for (let i = 0; i < n; i++) {
+    lines.push(
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: mtime.toISOString(),
+        message: {
+          id: `msg_${name}_${i}`,
+          model: 'claude-sonnet-4-5',
+          usage: { input_tokens: 100, output_tokens: 50 },
+          content: [{ type: 'text', text: 'hi' }],
+        },
+      }),
+    );
   }
-  writeFileSync(file, lines.join('\n') + '\n');
+  writeFileSync(file, `${lines.join('\n')}\n`);
   const secs = mtime.getTime() / 1000;
   utimesSync(file, secs, secs);
   return file;

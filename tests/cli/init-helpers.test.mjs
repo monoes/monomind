@@ -6,12 +6,13 @@
  * unconditionally requires('./utils/telemetry.cjs') at startup, so missing
  * subdirectories cause a CJS loader crash on every Claude Code hook event.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -22,7 +23,8 @@ const CLI_PKG = path.join(REPO_ROOT, 'packages', '@monomind', 'cli');
 const SOURCE_HELPERS = path.join(CLI_PKG, '.claude', 'helpers');
 
 // Skip tests if the source helpers directory doesn't exist (e.g. in CI without full checkout)
-const SOURCE_EXISTS = fs.existsSync(SOURCE_HELPERS) &&
+const SOURCE_EXISTS =
+  fs.existsSync(SOURCE_HELPERS) &&
   fs.existsSync(path.join(SOURCE_HELPERS, 'utils', 'telemetry.cjs'));
 
 let tmpDir;
@@ -57,7 +59,7 @@ describe('source helpers directory (published package)', () => {
   it('contains handlers/ subdirectory with at least one handler', () => {
     const handlersDir = path.join(SOURCE_HELPERS, 'handlers');
     expect(fs.existsSync(handlersDir)).toBe(true);
-    const handlers = fs.readdirSync(handlersDir).filter(f => f.endsWith('.cjs'));
+    const handlers = fs.readdirSync(handlersDir).filter((f) => f.endsWith('.cjs'));
     expect(handlers.length).toBeGreaterThan(0);
   });
 });
@@ -109,8 +111,9 @@ describe.skipIf(!SOURCE_EXISTS)('after init: helpers directory structure', () =>
   });
 
   it('installs at least one handler file in handlers/', () => {
-    const handlers = fs.readdirSync(path.join(destHelpers, 'handlers'))
-      .filter(f => f.endsWith('.cjs'));
+    const handlers = fs
+      .readdirSync(path.join(destHelpers, 'handlers'))
+      .filter((f) => f.endsWith('.cjs'));
     expect(handlers.length).toBeGreaterThan(0);
   });
 

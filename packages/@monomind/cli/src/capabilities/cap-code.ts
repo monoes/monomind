@@ -1,4 +1,10 @@
-import type { CapabilityModule, DirectoryScan, FileEntry, IndexResult, HealthCheck } from './types.js';
+import type {
+  CapabilityModule,
+  DirectoryScan,
+  FileEntry,
+  HealthCheck,
+  IndexResult,
+} from './types.js';
 
 export const codeCapability: CapabilityModule = {
   name: 'code',

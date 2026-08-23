@@ -1,4 +1,4 @@
-import type { ChurnResult, FileChurn } from '../analysis/churn.js';
+import type { ChurnResult } from '../analysis/churn.js';
 
 export interface HotspotEntry {
   path: string;

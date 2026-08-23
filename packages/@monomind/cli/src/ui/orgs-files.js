@@ -13,13 +13,16 @@ let filesGroups = [];
 function collectOrgArtifacts() {
   const bySessions = chatSessions.filter(orgSessionMatch);
   const byPath = new Map(); // path -> [{ art, ts, from }]
-  bySessions.forEach(s => (s.events || []).forEach(ev => {
-    if (ev.type !== 'org:artifact') return;
-    const art = ev.artifact || (ev.path ? { path: ev.path, label: ev.label, mimeType: ev.mimeType } : null);
-    if (!art || !art.path) return;
-    if (!byPath.has(art.path)) byPath.set(art.path, []);
-    byPath.get(art.path).push({ art, ts: ev.ts || 0, from: ev.from || '' });
-  }));
+  bySessions.forEach((s) =>
+    (s.events || []).forEach((ev) => {
+      if (ev.type !== 'org:artifact') return;
+      const art =
+        ev.artifact || (ev.path ? { path: ev.path, label: ev.label, mimeType: ev.mimeType } : null);
+      if (!art?.path) return;
+      if (!byPath.has(art.path)) byPath.set(art.path, []);
+      byPath.get(art.path).push({ art, ts: ev.ts || 0, from: ev.from || '' });
+    }),
+  );
   const groups = [];
   byPath.forEach((versions, path) => {
     versions.sort((a, b) => a.ts - b.ts);
@@ -33,12 +36,23 @@ function mkFileCard(group) {
   const { art, ts, from } = group.latest;
   const el = document.createElement('div');
   el.className = 'file-card';
-  const isText = (art.mimeType || '').startsWith('text/') || (art.mimeType || '') === 'application/json';
+  const isText =
+    (art.mimeType || '').startsWith('text/') || (art.mimeType || '') === 'application/json';
   const labelRaw = art.label || (art.path || 'file').split('/').pop();
-  const timeStr = ts ? new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-  const meta = [from, art.path ? art.path.split('/').slice(-3).join('/') : null, timeStr].filter(Boolean).join(' · ');
-  const vBadge = group.versions.length > 1 ? `<span class="fc-vbadge">${group.versions.length}v</span>` : '';
-  const diffable = group.versions.filter(v => typeof v.art.content === 'string').length >= 2;
+  const timeStr = ts
+    ? new Date(ts).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
+  const meta = [from, art.path ? art.path.split('/').slice(-3).join('/') : null, timeStr]
+    .filter(Boolean)
+    .join(' · ');
+  const vBadge =
+    group.versions.length > 1 ? `<span class="fc-vbadge">${group.versions.length}v</span>` : '';
+  const diffable = group.versions.filter((v) => typeof v.art.content === 'string').length >= 2;
   el.innerHTML = `
     <div class="fc-icon">📄</div>
     <div class="fc-body">
@@ -46,16 +60,18 @@ function mkFileCard(group) {
       <div class="fc-meta">${esc(meta)}</div>
     </div>
     ${diffable ? `<button class="fc-diff" onclick="openDiffPanel(${JSON.stringify(art.path)})">Diff</button>` : ''}
-    ${isText && art.path
-      ? `<button class="fc-view" onclick="viewArtifact(${JSON.stringify(art.path)},${JSON.stringify(labelRaw)})">View</button>`
-      : `<span class="fc-binary">Binary</span>`}
+    ${
+      isText && art.path
+        ? `<button class="fc-view" onclick="viewArtifact(${JSON.stringify(art.path)},${JSON.stringify(labelRaw)})">View</button>`
+        : `<span class="fc-binary">Binary</span>`
+    }
   `;
   return el;
 }
 
 function paintFilesGrid() {
   const grid = document.getElementById('files-grid');
-  const empty = document.getElementById('files-empty');
+  const _empty = document.getElementById('files-empty');
   if (!grid) return;
   filesGroups = collectOrgArtifacts();
   renderFilesGridFromGroups();
@@ -69,19 +85,23 @@ function renderFilesGridFromGroups() {
   const empty = document.getElementById('files-empty');
   if (!grid) return;
   grid.innerHTML = '';
-  if (!filesGroups.length) { if (empty) empty.style.display = 'block'; return; }
+  if (!filesGroups.length) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
   if (empty) empty.style.display = 'none';
-  filesGroups.forEach(group => grid.appendChild(mkFileCard(group)));
+  filesGroups.forEach((group) => grid.appendChild(mkFileCard(group)));
 }
 
 /** Incrementally folds a single new org:artifact event into `filesGroups` —
  *  O(groups) to re-sort by latest-touched, not O(all sessions' all events)
  *  like collectOrgArtifacts(). Mirrors collectOrgArtifacts()'s grouping rules. */
-function applyArtifactEvent(ev) {
-  const art = ev.artifact || (ev.path ? { path: ev.path, label: ev.label, mimeType: ev.mimeType } : null);
-  if (!art || !art.path) return;
+function _applyArtifactEvent(ev) {
+  const art =
+    ev.artifact || (ev.path ? { path: ev.path, label: ev.label, mimeType: ev.mimeType } : null);
+  if (!art?.path) return;
   const entry = { art, ts: ev.ts || 0, from: ev.from || '' };
-  let group = filesGroups.find(g => g.path === art.path);
+  let group = filesGroups.find((g) => g.path === art.path);
   if (!group) {
     group = { path: art.path, versions: [], latest: entry };
     filesGroups.push(group);
@@ -93,16 +113,18 @@ function applyArtifactEvent(ev) {
   renderFilesGridFromGroups();
 }
 
-function renderFilesTab() {
+function _renderFilesTab() {
   paintFilesGrid(); // paint immediately with whatever's cached
-  loadChatSessions().then(() => { if (currentTab === 'files') paintFilesGrid(); });
+  loadChatSessions().then(() => {
+    if (currentTab === 'files') paintFilesGrid();
+  });
 }
 
 // ── Diff view: compare two captured versions of the same file ──
-window.openDiffPanel = function(path) {
-  const group = filesGroups.find(g => g.path === path);
+window.openDiffPanel = (path) => {
+  const group = filesGroups.find((g) => g.path === path);
   if (!group) return;
-  const versions = group.versions.filter(v => typeof v.art.content === 'string');
+  const versions = group.versions.filter((v) => typeof v.art.content === 'string');
   if (versions.length < 2) return;
   const label = group.latest.art.label || path.split('/').pop();
   renderDiffPanel(label, versions);
@@ -113,10 +135,12 @@ function renderDiffPanel(label, versions) {
   if (!panel) {
     panel = document.createElement('div');
     panel.id = 'artifact-panel';
-    panel.style.cssText = 'position:fixed;top:0;right:0;width:640px;height:100vh;background:#0a0a14;border-left:1px solid #333;z-index:1000;display:flex;flex-direction:column;overflow:hidden';
+    panel.style.cssText =
+      'position:fixed;top:0;right:0;width:640px;height:100vh;background:#0a0a14;border-left:1px solid #333;z-index:1000;display:flex;flex-direction:column;overflow:hidden';
     document.body.appendChild(panel);
   }
-  const optLabel = v => `${new Date(v.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · ${esc(v.from || '?')}`;
+  const optLabel = (v) =>
+    `${new Date(v.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · ${esc(v.from || '?')}`;
   const opts = versions.map((v, i) => `<option value="${i}">${optLabel(v)}</option>`).join('');
   panel.innerHTML = `
     <div style="padding:12px 14px;border-bottom:1px solid #1a1a2a;display:flex;align-items:center;gap:10px">
@@ -135,7 +159,11 @@ function renderDiffPanel(label, versions) {
   const toSel = document.getElementById('diff-to');
   fromSel.value = String(versions.length - 2);
   toSel.value = String(versions.length - 1);
-  const recompute = () => renderDiffBody(versions[Number(fromSel.value)].art.content, versions[Number(toSel.value)].art.content);
+  const recompute = () =>
+    renderDiffBody(
+      versions[Number(fromSel.value)].art.content,
+      versions[Number(toSel.value)].art.content,
+    );
   fromSel.onchange = recompute;
   toSel.onchange = recompute;
   recompute();
@@ -145,20 +173,28 @@ function renderDiffBody(oldText, newText) {
   const body = document.getElementById('diff-body');
   if (!body) return;
   if (oldText === newText) {
-    body.innerHTML = '<div style="padding:14px;color:#666">No differences between these two versions.</div>';
+    body.innerHTML =
+      '<div style="padding:14px;color:#666">No differences between these two versions.</div>';
     return;
   }
   const rows = diffLines(oldText, newText);
   if (!rows) {
-    body.innerHTML = '<div style="padding:14px;color:#666">File too large to diff line-by-line.</div>';
+    body.innerHTML =
+      '<div style="padding:14px;color:#666">File too large to diff line-by-line.</div>';
     return;
   }
-  body.innerHTML = rows.map(r => {
-    const style = r.type === 'add' ? 'background:#0d2818;color:#7ee787'
-      : r.type === 'del' ? 'background:#2d0d10;color:#ffa198' : 'color:#8b949e';
-    const prefix = r.type === 'add' ? '+' : r.type === 'del' ? '-' : ' ';
-    return `<div style="${style};padding:1px 12px;white-space:pre-wrap;word-break:break-word">${esc(prefix + ' ' + r.text)}</div>`;
-  }).join('');
+  body.innerHTML = rows
+    .map((r) => {
+      const style =
+        r.type === 'add'
+          ? 'background:#0d2818;color:#7ee787'
+          : r.type === 'del'
+            ? 'background:#2d0d10;color:#ffa198'
+            : 'color:#8b949e';
+      const prefix = r.type === 'add' ? '+' : r.type === 'del' ? '-' : ' ';
+      return `<div style="${style};padding:1px 12px;white-space:pre-wrap;word-break:break-word">${esc(`${prefix} ${r.text}`)}</div>`;
+    })
+    .join('');
 }
 
 /** Line-level LCS diff. Returns null (caller shows a fallback message) rather
@@ -168,8 +204,10 @@ function renderDiffBody(oldText, newText) {
  *  n=1, m=4000000 — one huge file diffed against a near-empty one) passes the
  *  product check but still allocates a 4M-row DP table, one row per line of A. */
 function diffLines(a, b) {
-  const A = a.split('\n'), B = b.split('\n');
-  const n = A.length, m = B.length;
+  const A = a.split('\n'),
+    B = b.split('\n');
+  const n = A.length,
+    m = B.length;
   const DIFF_MAX_LINES = 20000;
   if (n > DIFF_MAX_LINES || m > DIFF_MAX_LINES || n * m > 4000000) return null;
   const dp = new Array(n + 1);
@@ -180,13 +218,28 @@ function diffLines(a, b) {
     }
   }
   const out = [];
-  let i = 0, j = 0;
+  let i = 0,
+    j = 0;
   while (i < n && j < m) {
-    if (A[i] === B[j]) { out.push({ type: 'ctx', text: A[i] }); i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ type: 'del', text: A[i] }); i++; }
-    else { out.push({ type: 'add', text: B[j] }); j++; }
+    if (A[i] === B[j]) {
+      out.push({ type: 'ctx', text: A[i] });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      out.push({ type: 'del', text: A[i] });
+      i++;
+    } else {
+      out.push({ type: 'add', text: B[j] });
+      j++;
+    }
   }
-  while (i < n) { out.push({ type: 'del', text: A[i] }); i++; }
-  while (j < m) { out.push({ type: 'add', text: B[j] }); j++; }
+  while (i < n) {
+    out.push({ type: 'del', text: A[i] });
+    i++;
+  }
+  while (j < m) {
+    out.push({ type: 'add', text: B[j] });
+    j++;
+  }
   return out;
 }

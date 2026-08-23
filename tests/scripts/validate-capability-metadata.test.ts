@@ -4,7 +4,7 @@
  * @module tests/scripts/validate-capability-metadata.test
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { validateCapability } from '../../scripts/validate-capability-metadata';
 
 describe('validateCapability', () => {
@@ -14,11 +14,7 @@ describe('validateCapability', () => {
     role: 'security-engineer',
     goal: 'Identify and remediate security vulnerabilities in code and infrastructure',
     version: '1.0.0',
-    expertise: [
-      'application security',
-      'OWASP Top 10',
-      'CVE analysis and remediation',
-    ],
+    expertise: ['application security', 'OWASP Top 10', 'CVE analysis and remediation'],
     task_types: ['security-audit'],
     output_type: 'SecurityAuditReport',
   };
@@ -35,7 +31,7 @@ describe('validateCapability', () => {
       expect(errors).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ field: 'role', message: expect.stringContaining('Missing') }),
-        ])
+        ]),
       );
     });
 
@@ -44,8 +40,11 @@ describe('validateCapability', () => {
       const errors = validateCapability(FILE, cap);
       expect(errors).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ field: 'role', message: expect.stringContaining('kebab-case') }),
-        ])
+          expect.objectContaining({
+            field: 'role',
+            message: expect.stringContaining('kebab-case'),
+          }),
+        ]),
       );
     });
   });
@@ -57,7 +56,7 @@ describe('validateCapability', () => {
       expect(errors).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ field: 'goal', message: expect.stringContaining('Missing') }),
-        ])
+        ]),
       );
     });
 
@@ -70,7 +69,7 @@ describe('validateCapability', () => {
             field: 'goal',
             message: expect.stringContaining('at least 20 chars'),
           }),
-        ])
+        ]),
       );
     });
 
@@ -83,7 +82,7 @@ describe('validateCapability', () => {
             field: 'goal',
             message: expect.stringContaining('at most 200 chars'),
           }),
-        ])
+        ]),
       );
     });
   });
@@ -94,8 +93,11 @@ describe('validateCapability', () => {
       const errors = validateCapability(FILE, cap);
       expect(errors).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ field: 'version', message: expect.stringContaining('Missing') }),
-        ])
+          expect.objectContaining({
+            field: 'version',
+            message: expect.stringContaining('Missing'),
+          }),
+        ]),
       );
     });
 
@@ -108,7 +110,7 @@ describe('validateCapability', () => {
             field: 'version',
             message: expect.stringContaining('not valid semver'),
           }),
-        ])
+        ]),
       );
     });
 
@@ -129,7 +131,7 @@ describe('validateCapability', () => {
             field: 'expertise',
             message: expect.stringContaining('Missing'),
           }),
-        ])
+        ]),
       );
     });
 
@@ -142,7 +144,7 @@ describe('validateCapability', () => {
             field: 'expertise',
             message: expect.stringContaining('at least 3 entries'),
           }),
-        ])
+        ]),
       );
     });
 
@@ -164,7 +166,7 @@ describe('validateCapability', () => {
             field: 'task_types',
             message: expect.stringContaining('Missing'),
           }),
-        ])
+        ]),
       );
     });
 
@@ -177,7 +179,7 @@ describe('validateCapability', () => {
             field: 'task_types',
             message: expect.stringContaining('at least 1 entry'),
           }),
-        ])
+        ]),
       );
     });
   });
@@ -192,7 +194,7 @@ describe('validateCapability', () => {
             field: 'output_type',
             message: expect.stringContaining('Missing'),
           }),
-        ])
+        ]),
       );
     });
 
@@ -205,7 +207,7 @@ describe('validateCapability', () => {
             field: 'output_type',
             message: expect.stringContaining('not PascalCase'),
           }),
-        ])
+        ]),
       );
     });
   });

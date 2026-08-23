@@ -17,7 +17,7 @@ export const PrioritizeGapsInputSchema = z.object({
         file: z.string(),
         startLine: z.number(),
         endLine: z.number(),
-      })
+      }),
     )
     .optional()
     .describe('Pre-analyzed gaps (or will analyze from targetPath)'),
@@ -31,7 +31,7 @@ export const PrioritizeGapsInputSchema = z.object({
         'business-critical',
         'dependency-count',
         'test-difficulty',
-      ])
+      ]),
     )
     .default(['complexity', 'change-frequency', 'defect-history'])
     .describe('Prioritization factors'),
@@ -138,7 +138,7 @@ const DEFAULT_WEIGHTS = {
  */
 export async function handler(
   input: PrioritizeGapsInput,
-  context: ToolContext
+  context: ToolContext,
 ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
   const startTime = Date.now();
 
@@ -147,7 +147,9 @@ export async function handler(
     const validatedInput = PrioritizeGapsInputSchema.parse(input);
 
     // Get bridge for defect history lookup
-    const bridge = context.get<{ searchSimilarPatterns: (q: string, k: number) => Promise<unknown[]> }>('aqe.bridge');
+    const bridge = context.get<{
+      searchSimilarPatterns: (q: string, k: number) => Promise<unknown[]>;
+    }>('aqe.bridge');
 
     // Get or generate gaps
     let gaps = validatedInput.gaps;
@@ -166,7 +168,7 @@ export async function handler(
       gaps,
       validatedInput.factors,
       weights,
-      bridge
+      bridge,
     );
 
     // Sort by priority score
@@ -224,7 +226,7 @@ export async function handler(
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -252,7 +254,7 @@ async function calculatePriorities(
   gaps: InputGap[],
   factors: string[],
   weights: Record<string, number>,
-  bridge?: { searchSimilarPatterns: (q: string, k: number) => Promise<unknown[]> }
+  bridge?: { searchSimilarPatterns: (q: string, k: number) => Promise<unknown[]> },
 ): Promise<PrioritizedGap[]> {
   const prioritizedGaps: PrioritizedGap[] = [];
 
@@ -381,7 +383,7 @@ function calculateChangeFrequency(gap: InputGap): number {
 
 async function calculateDefectHistory(
   gap: InputGap,
-  bridge?: { searchSimilarPatterns: (q: string, k: number) => Promise<unknown[]> }
+  bridge?: { searchSimilarPatterns: (q: string, k: number) => Promise<unknown[]> },
 ): Promise<number> {
   if (bridge) {
     try {
@@ -467,13 +469,15 @@ function groupGaps(gaps: PrioritizedGap[], groupBy: string): GapGroup[] {
     if (!groups.has(key)) {
       groups.set(key, []);
     }
-    groups.get(key)!.push(gap);
+    groups.get(key)?.push(gap);
   }
 
   return Array.from(groups.entries()).map(([name, gapList]) => ({
     name,
     count: gapList.length,
-    avgPriorityScore: Math.round((gapList.reduce((sum, g) => sum + g.priorityScore, 0) / gapList.length) * 100) / 100,
+    avgPriorityScore:
+      Math.round((gapList.reduce((sum, g) => sum + g.priorityScore, 0) / gapList.length) * 100) /
+      100,
     gaps: gapList,
   }));
 }
@@ -513,14 +517,19 @@ function calculateStatistics(gaps: PrioritizedGap[]): PrioritizationStatistics {
     mediumCount: counts.medium,
     lowCount: counts.low,
     avgPriorityScore: Math.round(avgScore * 100) / 100,
-    avgEffort: efforts.high > efforts.medium && efforts.high > efforts.low ? 'high' : efforts.medium > efforts.low ? 'medium' : 'low',
+    avgEffort:
+      efforts.high > efforts.medium && efforts.high > efforts.low
+        ? 'high'
+        : efforts.medium > efforts.low
+          ? 'medium'
+          : 'low',
     estimatedTestingEffort: `${Math.round(hours)} hours`,
   };
 }
 
 function generateRecommendations(
   gaps: PrioritizedGap[],
-  stats: PrioritizationStatistics
+  _stats: PrioritizationStatistics,
 ): Recommendation[] {
   const recommendations: Recommendation[] = [];
 

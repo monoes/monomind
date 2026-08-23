@@ -74,7 +74,10 @@ function parseNodePattern(
   nodeStr: string,
 ): { alias: string; label?: string; props?: Record<string, string> } | null {
   // Remove surrounding parens
-  const inner = nodeStr.trim().replace(/^\(|\)$/g, '').trim();
+  const inner = nodeStr
+    .trim()
+    .replace(/^\(|\)$/g, '')
+    .trim();
   if (!inner) return null;
 
   // alias:Label {props} or alias:Label or alias {props} or alias
@@ -100,9 +103,7 @@ function parseNodePattern(
  * Parse RETURN clause fields like "a.name, b.filePath"
  * Returns array of { alias, field } or null if any field is invalid.
  */
-function parseReturnFields(
-  returnStr: string,
-): Array<{ alias: string; field: string }> | null {
+function parseReturnFields(returnStr: string): Array<{ alias: string; field: string }> | null {
   const fields: Array<{ alias: string; field: string }> = [];
   const parts = returnStr.split(',').map((s) => s.trim());
 
@@ -223,7 +224,8 @@ export function parseCypherQuery(query: string): { parsed: CypherQuery | null; e
 
   if (nodeOnlyMatch) {
     const nodeA = parseNodePattern(nodeOnlyMatch[1]);
-    if (!nodeA) return { parsed: null, error: `Parse error: invalid node pattern: ${nodeOnlyMatch[1]}` };
+    if (!nodeA)
+      return { parsed: null, error: `Parse error: invalid node pattern: ${nodeOnlyMatch[1]}` };
 
     return {
       parsed: {

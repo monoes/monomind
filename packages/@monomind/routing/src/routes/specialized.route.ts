@@ -1,4 +1,4 @@
-import { Route } from '../types.js';
+import type { Route } from '../types.js';
 
 export const specializedRoutes: Route[] = [
   {
@@ -57,7 +57,7 @@ export const specializedRoutes: Route[] = [
   {
     name: 'agents-orchestrator',
     agentSlug: 'agents-orchestrator',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Multi-agent orchestration, swarm coordination, agent workflows',
     utterances: [
@@ -91,7 +91,7 @@ export const specializedRoutes: Route[] = [
   {
     name: 'document-generator',
     agentSlug: 'specialized-document-generator',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Technical documentation, API docs, architecture docs generation',
     utterances: [

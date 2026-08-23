@@ -3,12 +3,13 @@
  * Spawn-based (script uses process.cwd() at module level for MEMORY_FILE path).
  * All operations tested via CLI args with cwd=tmpDir so reads/writes land there.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawnSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/memory.cjs');
@@ -158,7 +159,11 @@ describe('memory.cjs keys', () => {
     run(['set', 'foo', 'bar'], { cwd: tmpDir });
     run(['set', 'baz', 'qux'], { cwd: tmpDir });
     const r = run(['keys'], { cwd: tmpDir });
-    const lines = r.stdout.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = r.stdout
+      .trim()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
     expect(lines).toContain('foo');
     expect(lines).toContain('baz');
   });
@@ -166,7 +171,11 @@ describe('memory.cjs keys', () => {
   it('keys filters out _prefixed internal keys like _updated', () => {
     run(['set', 'mykey', 'val'], { cwd: tmpDir });
     const r = run(['keys'], { cwd: tmpDir });
-    const lines = r.stdout.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = r.stdout
+      .trim()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
     expect(lines).not.toContain('_updated');
     expect(lines).toContain('mykey');
   });

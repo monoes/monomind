@@ -11,8 +11,8 @@
  * `claude` CLI is unavailable it throws, which the routing layer already
  * catches and degrades to the best semantic match.
  */
-import { spawn, execSync } from 'child_process';
-import { tmpdir } from 'os';
+import { execSync, spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
 
 /** Default model for routing fallback — Haiku is fast and cheap for slug classification. */
 const DEFAULT_ROUTING_MODEL = 'haiku';
@@ -40,7 +40,12 @@ let claudeAvailable: boolean | null = null;
 export function isClaudeCodeAvailable(): boolean {
   if (claudeAvailable !== null) return claudeAvailable;
   try {
-    execSync('claude --version', { encoding: 'utf-8', stdio: 'pipe', timeout: 5000, windowsHide: true });
+    execSync('claude --version', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 5000,
+      windowsHide: true,
+    });
     claudeAvailable = true;
   } catch {
     claudeAvailable = false;
@@ -106,7 +111,15 @@ export function createClaudeLLMCaller(
       //  `--` terminates option parsing so a prompt can't smuggle flags.
       const child = spawn(
         'claude',
-        ['--print', '--model', model, '--strict-mcp-config', '--no-session-persistence', '--', prompt],
+        [
+          '--print',
+          '--model',
+          model,
+          '--strict-mcp-config',
+          '--no-session-persistence',
+          '--',
+          prompt,
+        ],
         {
           cwd,
           env,
@@ -125,8 +138,18 @@ export function createClaudeLLMCaller(
         settled = true;
         // SIGTERM first, then SIGKILL if `claude` ignores it — otherwise a
         // hung child is orphaned and keeps consuming resources.
-        try { child.kill('SIGTERM'); } catch { /* may already be dead */ }
-        const killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* dead */ } }, 2_000);
+        try {
+          child.kill('SIGTERM');
+        } catch {
+          /* may already be dead */
+        }
+        const killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* dead */
+          }
+        }, 2_000);
         killTimer.unref?.();
         reject(new Error(`claude routing fallback timed out after ${timeoutMs}ms`));
       }, timeoutMs);

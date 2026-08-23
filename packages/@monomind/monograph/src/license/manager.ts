@@ -36,14 +36,22 @@ export interface LicenseJwtPayload {
 }
 
 export class LicenseError extends Error {
-  constructor(message: string, public readonly code: string) {
+  constructor(
+    message: string,
+    public readonly code: string,
+  ) {
     super(message);
     this.name = 'LicenseError';
   }
 }
 
 const WARNING_WINDOW_DAYS = 14;
-const FREE_FEATURES: LicenseFeatures = { cloudCoverage: false, mcp: false, customRules: false, ssoSaml: false };
+const FREE_FEATURES: LicenseFeatures = {
+  cloudCoverage: false,
+  mcp: false,
+  customRules: false,
+  ssoSaml: false,
+};
 
 /** Parse a JWT payload without signature verification (use verifyLicenseJwt for full check). */
 export function parseLicenseJwt(jwt: string): LicenseJwtPayload {
@@ -91,19 +99,22 @@ export async function activateTrial(opts: ActivateOptions): Promise<string> {
     body: JSON.stringify({ email: opts.email }),
   });
   if (!res.ok) throw new LicenseError(`Activation failed: HTTP ${res.status}`, 'ACTIVATION_FAILED');
-  const data = await res.json() as { jwt: string };
+  const data = (await res.json()) as { jwt: string };
   return data.jwt;
 }
 
 /** Refresh an existing license JWT. */
-export async function refreshLicense(jwt: string, opts: Pick<ActivateOptions, 'apiBase'>): Promise<string> {
+export async function refreshLicense(
+  jwt: string,
+  opts: Pick<ActivateOptions, 'apiBase'>,
+): Promise<string> {
   const base = opts.apiBase ?? 'https://api.fallow.cloud/v1';
   const res = await fetch(`${base}/license/refresh`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
   });
   if (!res.ok) throw new LicenseError(`Refresh failed: HTTP ${res.status}`, 'REFRESH_FAILED');
-  const data = await res.json() as { jwt: string };
+  const data = (await res.json()) as { jwt: string };
   return data.jwt;
 }
 

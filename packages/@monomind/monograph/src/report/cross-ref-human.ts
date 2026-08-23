@@ -19,7 +19,9 @@ export interface CrossRefHumanResult {
   clonesWithUnusedExports: number;
 }
 
-function rel(p: string, root: string): string { return relative(root, p); }
+function rel(p: string, root: string): string {
+  return relative(root, p);
+}
 
 function deadCodeReason(kind: CrossRefDeadCodeKind): string {
   if (kind.type === 'unused-file') return 'entire file is unused';
@@ -29,11 +31,7 @@ function deadCodeReason(kind: CrossRefDeadCodeKind): string {
 
 export function buildCrossReferenceLines(result: CrossRefHumanResult, root: string): string[] {
   if (result.findings.length === 0) return [];
-  const lines: string[] = [
-    '',
-    '● Duplicated + Unused (safe to delete)',
-    '',
-  ];
+  const lines: string[] = ['', '● Duplicated + Unused (safe to delete)', ''];
   for (const f of result.findings) {
     const location = `${rel(f.cloneFile, root)}:${f.startLine}-${f.endLine}`;
     lines.push(`  ${location} (${deadCodeReason(f.deadCodeKind)})`);
@@ -42,9 +40,19 @@ export function buildCrossReferenceLines(result: CrossRefHumanResult, root: stri
   return lines;
 }
 
-export function printCrossReferenceFindings(result: CrossRefHumanResult, root: string, quiet = false): void {
+export function printCrossReferenceFindings(
+  result: CrossRefHumanResult,
+  root: string,
+  quiet = false,
+): void {
   if (result.findings.length === 0 || quiet) return;
   for (const line of buildCrossReferenceLines(result, root)) console.log(line);
-  const { findings: { length: total }, clonesInUnusedFiles: files, clonesWithUnusedExports: exports_ } = result;
-  console.error(`  ${total} combined finding(s): ${files} in unused file(s), ${exports_} overlapping unused export(s)`);
+  const {
+    findings: { length: total },
+    clonesInUnusedFiles: files,
+    clonesWithUnusedExports: exports_,
+  } = result;
+  console.error(
+    `  ${total} combined finding(s): ${files} in unused file(s), ${exports_} overlapping unused export(s)`,
+  );
 }

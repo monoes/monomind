@@ -11,7 +11,13 @@ const MAX_VOTES = 1000;
 
 export function weightedTally(
   votes: Array<{ agentId: string; vote: boolean; confidence: number }>,
-): { approved: number; rejected: number; weightedApproval: number; weightedRejection: number; quorum: boolean } {
+): {
+  approved: number;
+  rejected: number;
+  weightedApproval: number;
+  weightedRejection: number;
+  quorum: boolean;
+} {
   // Cap votes array to prevent OOM from an oversized input.
   const safeVotes = votes.length > MAX_VOTES ? votes.slice(0, MAX_VOTES) : votes;
   let weightedApproval = 0;
@@ -29,8 +35,8 @@ export function weightedTally(
   }
 
   return {
-    approved: safeVotes.filter(v => v.vote).length,
-    rejected: safeVotes.filter(v => !v.vote).length,
+    approved: safeVotes.filter((v) => v.vote).length,
+    rejected: safeVotes.filter((v) => !v.vote).length,
     weightedApproval,
     weightedRejection,
     quorum: totalWeight > 0 && weightedApproval / totalWeight > 0.5,

@@ -1,5 +1,5 @@
-import type { MonographEdge, EdgeRelation, EdgeConfidence } from '../types.js';
 import type { MonographDb } from '../storage/db.js';
+import type { EdgeConfidence, EdgeRelation, MonographEdge } from '../types.js';
 
 // ── Filter options ─────────────────────────────────────────────────────────────
 
@@ -20,10 +20,7 @@ export interface EdgeFilterOptions {
  * Query edges from a MonographDb with optional relation / confidence filters.
  * All filters are combined with AND.
  */
-export function filterEdges(
-  db: MonographDb,
-  options: EdgeFilterOptions = {},
-): MonographEdge[] {
+export function filterEdges(db: MonographDb, options: EdgeFilterOptions = {}): MonographEdge[] {
   const conditions: string[] = [];
   const params: unknown[] = [];
 
@@ -64,7 +61,7 @@ export function filterEdges(
     evidence: string | null;
   }[];
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id,
     sourceId: r.source_id,
     targetId: r.target_id,
@@ -86,14 +83,14 @@ export function filterEdgesInMemory(
   options: EdgeFilterOptions = {},
 ): MonographEdge[] {
   // Convert arrays to Sets once before the loop for O(1) membership checks
-  const relationSet = options.relations && options.relations.length > 0
-    ? new Set(options.relations) : null;
-  const confidenceSet = options.confidences && options.confidences.length > 0
-    ? new Set(options.confidences) : null;
+  const relationSet =
+    options.relations && options.relations.length > 0 ? new Set(options.relations) : null;
+  const confidenceSet =
+    options.confidences && options.confidences.length > 0 ? new Set(options.confidences) : null;
   const minScore = options.minConfidenceScore;
   const maxScore = options.maxConfidenceScore;
 
-  return edges.filter(e => {
+  return edges.filter((e) => {
     if (relationSet && !relationSet.has(e.relation)) return false;
     if (confidenceSet && !confidenceSet.has(e.confidence)) return false;
     if (minScore !== undefined && e.confidenceScore < minScore) return false;

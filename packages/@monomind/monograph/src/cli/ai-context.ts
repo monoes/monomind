@@ -11,8 +11,8 @@
  * follow reliably.
  */
 
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ async function upsertContextBlock(filePath: string): Promise<'updated' | 'skippe
 
   // Fast idempotency check — if sentinel is absent the block is not there yet
   if (!existing.includes(SENTINEL)) {
-    const updated = existing.trimEnd() + '\n\n' + AI_CONTEXT_BLOCK + '\n';
+    const updated = `${existing.trimEnd()}\n\n${AI_CONTEXT_BLOCK}\n`;
     await fs.writeFile(filePath, updated, 'utf-8');
     return 'updated';
   }
@@ -117,7 +117,7 @@ async function upsertContextBlock(filePath: string): Promise<'updated' | 'skippe
     // Only write if something actually changed
     if (replaced === existing) return 'skipped';
 
-    await fs.writeFile(filePath, replaced.trimEnd() + '\n', 'utf-8');
+    await fs.writeFile(filePath, `${replaced.trimEnd()}\n`, 'utf-8');
     return 'updated';
   }
 

@@ -43,7 +43,7 @@
   </div>
   <div id="detail">
     <span id="detail-close" title="Close">&#x2715;</span>
-    <h3 id="detail-name"></h3>
+    <h3 id="detail-name">Detail</h3>
     <div id="detail-content"></div>
   </div>
 
@@ -130,7 +130,7 @@
 
       const meta = [
         node.label,
-        node.filePath ? `${node.filePath}${node.startLine ? ':' + node.startLine : ''}` : '',
+        node.filePath ? `${node.filePath}${node.startLine ? `:${node.startLine}` : ''}` : '',
       ].filter(Boolean).join(' — ');
 
       let html = `<div class="detail-meta">${escapeHtml(meta)}</div>`;
@@ -180,7 +180,7 @@
       resultsDiv.innerHTML = items.map(item => `
         <div class="result-item" onclick="showNodeDetail('${escapeHtml(item.id)}')">
           <div>${escapeHtml(item.name)}</div>
-          <div class="result-label">${escapeHtml(item.label)} ${item.filePath ? '· ' + escapeHtml(item.filePath) : ''}</div>
+          <div class="result-label">${escapeHtml(item.label)} ${item.filePath ? `· ${escapeHtml(item.filePath)}` : ''}</div>
         </div>
       `).join('');
     }, 300);
@@ -197,7 +197,7 @@
     // ── Init ───────────────────────────────────────────────────────────────────
 
     loadGraph().catch(err => {
-      document.getElementById('loading').textContent = 'Failed to load graph: ' + err.message;
+      document.getElementById('loading').textContent = `Failed to load graph: ${err.message}`;
     });
   </script>
 </body>

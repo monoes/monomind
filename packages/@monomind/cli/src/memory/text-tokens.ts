@@ -3,7 +3,7 @@
  * (`bm25-index.ts`) and the eval harness (`knowledge/eval/metrics.ts`) import.
  *
  * Lives here rather than in `knowledge/eval/` because `eval/` reads as dev-only
- * tooling and a future `!dist/**/eval/**` exclusion in `package.json` would
+ * tooling and a future `!dist/**/ eval; /**` exclusion in `package.json` would
  * silently break every installed user's memory search. A module under `memory/`
  * is unambiguously production code.
  *
@@ -13,13 +13,83 @@
  */
 
 export const STOPWORDS = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'if', 'of', 'to', 'in', 'on', 'at', 'by',
-  'for', 'with', 'from', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'do',
-  'does', 'did', 'doing', 'have', 'has', 'had', 'i', 'we', 'you', 'it', 'its',
-  'that', 'this', 'these', 'those', 'what', 'which', 'who', 'how', 'when', 'where',
-  'why', 'can', 'could', 'should', 'would', 'will', 'my', 'our', 'me', 'us', 'as',
-  'so', 'than', 'then', 'there', 'here', 'not', 'no', 'all', 'any', 'some', 'get',
-  'got', 'about', 'into', 'over', 'out', 'up', 'down', 'again', 'am', 'they',
+  'a',
+  'an',
+  'the',
+  'and',
+  'or',
+  'but',
+  'if',
+  'of',
+  'to',
+  'in',
+  'on',
+  'at',
+  'by',
+  'for',
+  'with',
+  'from',
+  'is',
+  'are',
+  'was',
+  'were',
+  'be',
+  'been',
+  'being',
+  'do',
+  'does',
+  'did',
+  'doing',
+  'have',
+  'has',
+  'had',
+  'i',
+  'we',
+  'you',
+  'it',
+  'its',
+  'that',
+  'this',
+  'these',
+  'those',
+  'what',
+  'which',
+  'who',
+  'how',
+  'when',
+  'where',
+  'why',
+  'can',
+  'could',
+  'should',
+  'would',
+  'will',
+  'my',
+  'our',
+  'me',
+  'us',
+  'as',
+  'so',
+  'than',
+  'then',
+  'there',
+  'here',
+  'not',
+  'no',
+  'all',
+  'any',
+  'some',
+  'get',
+  'got',
+  'about',
+  'into',
+  'over',
+  'out',
+  'up',
+  'down',
+  'again',
+  'am',
+  'they',
 ]);
 
 /**
@@ -34,5 +104,5 @@ export function contentTokens(text: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .split(' ')
-    .filter(t => t.length > 1 && !STOPWORDS.has(t));
+    .filter((t) => t.length > 1 && !STOPWORDS.has(t));
 }

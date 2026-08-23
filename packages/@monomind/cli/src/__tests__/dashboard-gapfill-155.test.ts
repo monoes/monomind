@@ -14,23 +14,23 @@
  * an exported unit — tested here via a real temp .monomind/orgs/ tree and
  * source-pattern assertions, matching this file's existing convention.
  */
-import { describe, it, expect } from 'vitest';
-import { readFileSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER_SRC = readFileSync(join(__dirname, '../ui/server.mjs'), 'utf-8');
 
-describe('dashboard gap-fill reads runtime.json\'s authoritative status (#155 follow-up)', () => {
+describe("dashboard gap-fill reads runtime.json's authoritative status (#155 follow-up)", () => {
   it('no longer scans run_events/bus.jsonl for a terminal signal that may never have been recorded', () => {
     expect(SERVER_SRC).not.toMatch(/SELECT type FROM run_events/);
     expect(SERVER_SRC).not.toMatch(/'bus\.jsonl'/);
   });
 
-  it('checks runtime.json\'s status field directly, matching what `monomind org status` reads', () => {
+  it("checks runtime.json's status field directly, matching what `monomind org status` reads", () => {
     expect(SERVER_SRC).toMatch(/_gfRt\.status === 'running'/);
   });
 
@@ -57,10 +57,16 @@ describe('dashboard gap-fill reads runtime.json\'s authoritative status (#155 fo
         if (!runId) continue;
         let active = rt.status === 'running';
         if (active && typeof rt.pid === 'number') {
-          try { process.kill(rt.pid, 0); } catch { active = false; }
+          try {
+            process.kill(rt.pid, 0);
+          } catch {
+            active = false;
+          }
         }
         if (active) activeOrgRuns.set(org, runId);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     return activeOrgRuns;
   }
@@ -71,9 +77,12 @@ describe('dashboard gap-fill reads runtime.json\'s authoritative status (#155 fo
     writeFileSync(join(dir, 'runtime.json'), JSON.stringify(data));
   }
 
-  it('reports a stopped org (per #155\'s original repro: 585+ real events, zero in run_events) as not active', () => {
+  it("reports a stopped org (per #155's original repro: 585+ real events, zero in run_events) as not active", () => {
     const orgsDir = mkdtempSync(join(tmpdir(), 'gf155-'));
-    writeRuntime(orgsDir, 'monoterminal-dev', { status: 'stopped', run: 'run-20260815055321-dfsg' });
+    writeRuntime(orgsDir, 'monoterminal-dev', {
+      status: 'stopped',
+      run: 'run-20260815055321-dfsg',
+    });
     const active = readActiveOrgRuns(orgsDir);
     expect(active.has('monoterminal-dev')).toBe(false);
   });

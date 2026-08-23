@@ -11,8 +11,8 @@
  * Run with: `monomind hooks worker run reflexion`
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 
 /**
@@ -65,30 +65,46 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
     const ts = new Date();
 
     // Read route outcomes
-    let outcomes: RouteOutcome[] = [];
+    const outcomes: RouteOutcome[] = [];
     try {
       const content = await fs.readFile(outcomesPath, 'utf-8');
       for (const line of content.trim().split('\n')) {
         if (!line) continue;
         try {
           outcomes.push(JSON.parse(line) as RouteOutcome);
-        } catch { /* skip malformed lines */ }
+        } catch {
+          /* skip malformed lines */
+        }
       }
     } catch {
       return {
-        worker: 'reflexion', success: true, duration: Date.now() - startTime, timestamp: ts,
-        data: { outcomesProcessed: 0, reflectionsGenerated: 0, reason: 'No route-outcomes.jsonl found' },
+        worker: 'reflexion',
+        success: true,
+        duration: Date.now() - startTime,
+        timestamp: ts,
+        data: {
+          outcomesProcessed: 0,
+          reflectionsGenerated: 0,
+          reason: 'No route-outcomes.jsonl found',
+        },
       };
     }
 
     // Filter for failures. Real records report failure via `measuredSuccess
     // === false` and the task text lives in `task` (not `success` /
     // `taskDescription`, which don't exist on the real record shape).
-    const failures = outcomes.filter(o => o.measuredSuccess === false && o.task);
+    const failures = outcomes.filter((o) => o.measuredSuccess === false && o.task);
     if (failures.length === 0) {
       return {
-        worker: 'reflexion', success: true, duration: Date.now() - startTime, timestamp: ts,
-        data: { outcomesProcessed: outcomes.length, reflectionsGenerated: 0, reason: 'No failures to reflect on' },
+        worker: 'reflexion',
+        success: true,
+        duration: Date.now() - startTime,
+        timestamp: ts,
+        data: {
+          outcomesProcessed: outcomes.length,
+          reflectionsGenerated: 0,
+          reason: 'No failures to reflect on',
+        },
       };
     }
 
@@ -97,11 +113,13 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
     try {
       const content = await fs.readFile(storePath, 'utf-8');
       existing = JSON.parse(content) as Reflection[];
-    } catch { /* first run */ }
+    } catch {
+      /* first run */
+    }
     // There's no `error` field in the real schema to dedup on, so dedup
     // uses the source outcome record's identity (routeId + task + ts) instead.
     const dedupKey = (o: RouteOutcome) => `${o.routeId ?? ''}::${o.task ?? ''}::${o.ts ?? ''}`;
-    const existingKeys = new Set(existing.map(r => r.sourceKey));
+    const existingKeys = new Set(existing.map((r) => r.sourceKey));
 
     // Generate reflections for new failures
     const newReflections: Reflection[] = [];
@@ -112,12 +130,30 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
       const keywords = (failure.task || '')
         .toLowerCase()
         .split(/[\s,;:.()/[\]{}'"-]+/)
-        .filter(w => w.length > 3 && !['the', 'this', 'that', 'with', 'from', 'have', 'been', 'will', 'into', 'your'].includes(w))
+        .filter(
+          (w) =>
+            w.length > 3 &&
+            ![
+              'the',
+              'this',
+              'that',
+              'with',
+              'from',
+              'have',
+              'been',
+              'will',
+              'into',
+              'your',
+            ].includes(w),
+        )
         .slice(0, 8);
 
       // Real route-outcomes.jsonl records use a numeric epoch-ms `ts`, not a
       // timestamp string — convert explicitly rather than treating it as one.
-      const timestamp = typeof failure.ts === 'number' ? new Date(failure.ts).toISOString() : new Date().toISOString();
+      const timestamp =
+        typeof failure.ts === 'number'
+          ? new Date(failure.ts).toISOString()
+          : new Date().toISOString();
 
       newReflections.push({
         id: `reflection-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -134,8 +170,16 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
 
     if (newReflections.length === 0) {
       return {
-        worker: 'reflexion', success: true, duration: Date.now() - startTime, timestamp: ts,
-        data: { outcomesProcessed: outcomes.length, reflectionsGenerated: 0, totalReflections: existing.length, reason: 'All failures already reflected' },
+        worker: 'reflexion',
+        success: true,
+        duration: Date.now() - startTime,
+        timestamp: ts,
+        data: {
+          outcomesProcessed: outcomes.length,
+          reflectionsGenerated: 0,
+          totalReflections: existing.length,
+          reason: 'All failures already reflected',
+        },
       };
     }
 
@@ -145,7 +189,10 @@ export function createReflexionWorker(projectRoot: string): WorkerHandler {
     await fs.writeFile(storePath, JSON.stringify(merged, null, 2), 'utf-8');
 
     return {
-      worker: 'reflexion', success: true, duration: Date.now() - startTime, timestamp: ts,
+      worker: 'reflexion',
+      success: true,
+      duration: Date.now() - startTime,
+      timestamp: ts,
       data: {
         outcomesProcessed: outcomes.length,
         failuresFound: failures.length,
@@ -169,10 +216,12 @@ function generateReflection(failure: RouteOutcome): string {
   // "undefined".
   const error = failure.error || '(no error message)';
 
-  return `When "${task}" was routed to ${agent}, it failed with: ${error}. ` +
+  return (
+    `When "${task}" was routed to ${agent}, it failed with: ${error}. ` +
     `Next time this task type is attempted, consider: (1) a different agent type, ` +
     `(2) breaking the task into smaller steps, (3) checking prerequisites before starting. ` +
-    `This reflection was generated automatically by the Reflexion worker (P2-15).`;
+    `This reflection was generated automatically by the Reflexion worker (P2-15).`
+  );
 }
 
 /**
@@ -180,7 +229,11 @@ function generateReflection(failure: RouteOutcome): string {
  * Used by the pre-task hook to inject past failures as context.
  * Keyword-based matching — no embeddings needed for v1.
  */
-export async function getReflectionsForTask(projectRoot: string, taskDescription: string, limit = 3): Promise<Reflection[]> {
+export async function getReflectionsForTask(
+  projectRoot: string,
+  taskDescription: string,
+  limit = 3,
+): Promise<Reflection[]> {
   const storePath = path.join(projectRoot, REFLEXION_STORE);
   let reflections: Reflection[] = [];
   try {
@@ -191,20 +244,21 @@ export async function getReflectionsForTask(projectRoot: string, taskDescription
   }
 
   const taskWords = new Set(
-    taskDescription.toLowerCase()
+    taskDescription
+      .toLowerCase()
       .split(/[\s,;:.()/[\]{}'"-]+/)
-      .filter(w => w.length > 3)
+      .filter((w) => w.length > 3),
   );
 
   // Score each reflection by keyword overlap
-  const scored = reflections.map(r => ({
+  const scored = reflections.map((r) => ({
     reflection: r,
-    score: r.keywords.filter(k => taskWords.has(k)).length,
+    score: r.keywords.filter((k) => taskWords.has(k)).length,
   }));
 
   return scored
-    .filter(s => s.score > 0)
+    .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(s => s.reflection);
+    .map((s) => s.reflection);
 }

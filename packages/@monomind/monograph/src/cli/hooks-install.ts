@@ -1,13 +1,13 @@
+import { execSync } from 'node:child_process';
 import {
-  existsSync,
-  writeFileSync,
   chmodSync,
+  existsSync,
   readdirSync,
   readFileSync,
   unlinkSync,
-} from 'fs';
-import { join } from 'path';
-import { execSync } from 'child_process';
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
 
 export const HOOK_MARKER_START = '# monograph-hook-start';
 export const HOOK_MARKER_END = '# monograph-hook-end';
@@ -27,8 +27,8 @@ fi`;
 function buildHookBlock(hookName: string): string {
   const verb =
     hookName === 'post-merge' || hookName === 'post-checkout'
-      ? 'rebuild knowledge graph after ' + hookName.replace('post-', '')
-      : 'rebuild knowledge graph on ' + hookName.replace('pre-', '');
+      ? `rebuild knowledge graph after ${hookName.replace('post-', '')}`
+      : `rebuild knowledge graph on ${hookName.replace('pre-', '')}`;
 
   return [
     HOOK_MARKER_START,
@@ -88,11 +88,9 @@ export function installGitHooks(repoPath: string, hooks: string[]): void {
 
     // If there was no prior content (beyond whitespace/shebang), start fresh with a shebang
     const hasMeaningfulContent = stripped.replace(/^#!.*$/m, '').trim().length > 0;
-    const preamble = hasMeaningfulContent
-      ? stripped.trimEnd() + '\n\n'
-      : '#!/bin/sh\n\n';
+    const preamble = hasMeaningfulContent ? `${stripped.trimEnd()}\n\n` : '#!/bin/sh\n\n';
 
-    writeFileSync(hookPath, preamble + block + '\n', 'utf8');
+    writeFileSync(hookPath, `${preamble + block}\n`, 'utf8');
     chmodSync(hookPath, 0o755);
   }
 }
@@ -135,7 +133,7 @@ export function uninstallGitHooks(repoPath: string, hooks: string[]): void {
         writeFileSync(hookPath, stripped, 'utf8');
       }
     } else {
-      writeFileSync(hookPath, stripped.trimEnd() + '\n', 'utf8');
+      writeFileSync(hookPath, `${stripped.trimEnd()}\n`, 'utf8');
     }
   }
 }
@@ -151,7 +149,9 @@ export function listInstalledHooks(repoPath: string): string[] {
     try {
       const content = readFileSync(join(hooksDir, f), 'utf8');
       if (content.includes(HOOK_MARKER_START)) installed.push(f);
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
   return installed;
 }
@@ -175,7 +175,9 @@ export function getHookStatus(repoPath: string): HookStatus {
   let installed: string[] = [];
   try {
     installed = listInstalledHooks(repoPath);
-  } catch { /* .git dir missing or unreadable */ }
+  } catch {
+    /* .git dir missing or unreadable */
+  }
 
   // Build per-hook status for all known hooks + any installed ones
   const knownHooks = ['pre-commit', 'post-merge', 'post-checkout', 'pre-push'];

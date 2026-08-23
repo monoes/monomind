@@ -1,4 +1,4 @@
-export type EntryPointCategory = "all" | "runtime" | "test";
+export type EntryPointCategory = 'all' | 'runtime' | 'test';
 
 export type EntryPointSource =
   | 'package-json-main'
@@ -15,15 +15,24 @@ export interface CategorizedEntryPoints {
   test: string[];
 }
 
-export const OUTPUT_DIRS: string[] = ["dist", "build", "out", "esm", "cjs", ".next", ".nuxt", ".output"];
+export const OUTPUT_DIRS: string[] = [
+  'dist',
+  'build',
+  'out',
+  'esm',
+  'cjs',
+  '.next',
+  '.nuxt',
+  '.output',
+];
 
 export function isTestEntryPoint(filePath: string): boolean {
   return (
-    filePath.includes("/__tests__/") ||
-    filePath.includes(".test.") ||
-    filePath.includes(".spec.") ||
-    filePath.includes("/test/") ||
-    filePath.includes("/tests/")
+    filePath.includes('/__tests__/') ||
+    filePath.includes('.test.') ||
+    filePath.includes('.spec.') ||
+    filePath.includes('/test/') ||
+    filePath.includes('/tests/')
   );
 }
 

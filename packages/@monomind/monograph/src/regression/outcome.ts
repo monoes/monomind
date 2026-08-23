@@ -49,7 +49,7 @@ export function printRegressionOutcome(outcome: RegressionOutcome): string {
     case 'exceeded':
       return [
         `✗ Regression check EXCEEDED (delta=${outcome.delta}, tolerance=${outcome.tolerance})`,
-        ...outcome.exceeded.map(d => `  ${d.key}: ${d.baseline} → ${d.current} (+${d.delta})`),
+        ...outcome.exceeded.map((d) => `  ${d.key}: ${d.baseline} → ${d.current} (+${d.delta})`),
       ].join('\n');
     case 'skipped':
       return `⚠ Regression check skipped: ${outcome.reason}`;

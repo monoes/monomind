@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 export const SNAPSHOT_SCHEMA_VERSION = 7;
 
@@ -30,7 +30,7 @@ export interface VitalSignsSnapshot {
 
 export function buildSnapshot(
   vitalSigns: VitalSigns,
-  healthScore: HealthScore
+  healthScore: HealthScore,
 ): VitalSignsSnapshot {
   return {
     schemaVersion: SNAPSHOT_SCHEMA_VERSION,

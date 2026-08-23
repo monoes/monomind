@@ -2,17 +2,17 @@
  * Init wizard subcommand — interactive setup
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { confirm, select, multiSelect, input } from '../prompt.js';
 import {
-  executeInit,
   DEFAULT_INIT_OPTIONS,
-  MINIMAL_INIT_OPTIONS,
+  executeInit,
   FULL_INIT_OPTIONS,
   type InitOptions,
+  MINIMAL_INIT_OPTIONS,
 } from '../init/index.js';
 import { ingestDirectory } from '../knowledge/document-pipeline.js';
+import { output } from '../output.js';
+import { confirm, input, multiSelect, select } from '../prompt.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 export const wizardCommand: Command = {
   name: 'wizard',
@@ -46,15 +46,60 @@ export const wizardCommand: Command = {
         const components = await multiSelect({
           message: 'Select components to initialize:',
           options: [
-            { value: 'claudeMd', label: 'CLAUDE.md', hint: 'Swarm guidance and project configuration', selected: true },
-            { value: 'settings', label: 'settings.json', hint: 'Claude Code hooks configuration', selected: true },
-            { value: 'skills', label: 'Skills', hint: 'Skills in .claude/skills/, .gemini/skills/, .agents/skills/', selected: true },
-            { value: 'commands', label: 'Commands', hint: 'Claude Code commands in .claude/commands/', selected: true },
-            { value: 'agents', label: 'Agents', hint: 'Agent definitions in .claude/agents/', selected: true },
-            { value: 'helpers', label: 'Helpers', hint: 'Utility scripts in .claude/helpers/', selected: true },
-            { value: 'statusline', label: 'Statusline', hint: 'Shell statusline integration', selected: false },
-            { value: 'mcp', label: 'MCP', hint: '.mcp.json for MCP server configuration', selected: true },
-            { value: 'runtime', label: 'Runtime', hint: '.monomind/ directory for v1 runtime', selected: true },
+            {
+              value: 'claudeMd',
+              label: 'CLAUDE.md',
+              hint: 'Swarm guidance and project configuration',
+              selected: true,
+            },
+            {
+              value: 'settings',
+              label: 'settings.json',
+              hint: 'Claude Code hooks configuration',
+              selected: true,
+            },
+            {
+              value: 'skills',
+              label: 'Skills',
+              hint: 'Skills in .claude/skills/, .gemini/skills/, .agents/skills/',
+              selected: true,
+            },
+            {
+              value: 'commands',
+              label: 'Commands',
+              hint: 'Claude Code commands in .claude/commands/',
+              selected: true,
+            },
+            {
+              value: 'agents',
+              label: 'Agents',
+              hint: 'Agent definitions in .claude/agents/',
+              selected: true,
+            },
+            {
+              value: 'helpers',
+              label: 'Helpers',
+              hint: 'Utility scripts in .claude/helpers/',
+              selected: true,
+            },
+            {
+              value: 'statusline',
+              label: 'Statusline',
+              hint: 'Shell statusline integration',
+              selected: false,
+            },
+            {
+              value: 'mcp',
+              label: 'MCP',
+              hint: '.mcp.json for MCP server configuration',
+              selected: true,
+            },
+            {
+              value: 'runtime',
+              label: 'Runtime',
+              hint: '.monomind/ directory for v1 runtime',
+              selected: true,
+            },
           ],
         });
 
@@ -73,8 +118,18 @@ export const wizardCommand: Command = {
             message: 'Select skill sets:',
             options: [
               { value: 'core', label: 'Core', hint: 'Swarm, memory skills', selected: true },
-              { value: 'memory', label: 'Memory (SQLite)', hint: 'Vector database skills', selected: true },
-              { value: 'github', label: 'GitHub', hint: 'GitHub integration skills', selected: true },
+              {
+                value: 'memory',
+                label: 'Memory (SQLite)',
+                hint: 'Vector database skills',
+                selected: true,
+              },
+              {
+                value: 'github',
+                label: 'GitHub',
+                hint: 'GitHub integration skills',
+                selected: true,
+              },
             ],
           });
 
@@ -87,13 +142,43 @@ export const wizardCommand: Command = {
           const hooks = await multiSelect({
             message: 'Select hooks to enable:',
             options: [
-              { value: 'preToolUse', label: 'PreToolUse', hint: 'Before tool execution', selected: true },
-              { value: 'postToolUse', label: 'PostToolUse', hint: 'After tool execution', selected: true },
-              { value: 'userPromptSubmit', label: 'UserPromptSubmit', hint: 'Task routing', selected: true },
-              { value: 'sessionStart', label: 'SessionStart', hint: 'Session initialization', selected: true },
+              {
+                value: 'preToolUse',
+                label: 'PreToolUse',
+                hint: 'Before tool execution',
+                selected: true,
+              },
+              {
+                value: 'postToolUse',
+                label: 'PostToolUse',
+                hint: 'After tool execution',
+                selected: true,
+              },
+              {
+                value: 'userPromptSubmit',
+                label: 'UserPromptSubmit',
+                hint: 'Task routing',
+                selected: true,
+              },
+              {
+                value: 'sessionStart',
+                label: 'SessionStart',
+                hint: 'Session initialization',
+                selected: true,
+              },
               { value: 'stop', label: 'Stop', hint: 'Task completion evaluation', selected: true },
-              { value: 'notification', label: 'Notification', hint: 'Swarm notifications', selected: true },
-              { value: 'permissionRequest', label: 'PermissionRequest', hint: 'Auto-allow monomind tools', selected: true },
+              {
+                value: 'notification',
+                label: 'Notification',
+                hint: 'Swarm notifications',
+                selected: true,
+              },
+              {
+                value: 'permissionRequest',
+                label: 'PermissionRequest',
+                hint: 'Auto-allow monomind tools',
+                selected: true,
+              },
             ],
           });
 
@@ -109,7 +194,11 @@ export const wizardCommand: Command = {
       const topology = await select({
         message: 'Select swarm topology:',
         options: [
-          { value: 'hierarchical-mesh', label: 'Hierarchical Mesh', hint: 'Best for complex projects (recommended)' },
+          {
+            value: 'hierarchical-mesh',
+            label: 'Hierarchical Mesh',
+            hint: 'Best for complex projects (recommended)',
+          },
           { value: 'mesh', label: 'Mesh', hint: 'Peer-to-peer coordination' },
           { value: 'hierarchical', label: 'Hierarchical', hint: 'Tree-based coordination' },
           { value: 'adaptive', label: 'Adaptive', hint: 'Dynamic topology switching' },
@@ -121,17 +210,21 @@ export const wizardCommand: Command = {
         message: 'Maximum concurrent agents:',
         default: String(options.runtime.maxAgents),
         validate: (v) => {
-          const n = parseInt(v);
-          return (!isNaN(n) && n > 0 && n <= 50) || 'Enter a number between 1 and 50';
+          const n = parseInt(v, 10);
+          return (!Number.isNaN(n) && n > 0 && n <= 50) || 'Enter a number between 1 and 50';
         },
       });
-      options.runtime.maxAgents = parseInt(maxAgents);
+      options.runtime.maxAgents = parseInt(maxAgents, 10);
 
       const memoryBackend = await select({
         message: 'Select memory backend:',
         options: [
           { value: 'hybrid', label: 'Hybrid', hint: 'SQLite with vector search (recommended)' },
-          { value: 'lancedb', label: 'LanceDB (legacy alias)', hint: 'Historical name — now backed by SQLite' },
+          {
+            value: 'lancedb',
+            label: 'LanceDB (legacy alias)',
+            hint: 'Historical name — now backed by SQLite',
+          },
           { value: 'sqlite', label: 'SQLite', hint: 'Standard SQL storage' },
           { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' },
         ],
@@ -166,8 +259,16 @@ export const wizardCommand: Command = {
         embeddingModel = await select({
           message: 'Select embedding model:',
           options: [
-            { value: 'Xenova/all-MiniLM-L6-v2', label: 'MiniLM L6 (384d)', hint: 'Fast, good quality (recommended)' },
-            { value: 'Xenova/all-mpnet-base-v2', label: 'MPNet Base (768d)', hint: 'Higher quality, more memory' },
+            {
+              value: 'Xenova/all-MiniLM-L6-v2',
+              label: 'MiniLM L6 (384d)',
+              hint: 'Fast, good quality (recommended)',
+            },
+            {
+              value: 'Xenova/all-mpnet-base-v2',
+              label: 'MPNet Base (768d)',
+              hint: 'Higher quality, more memory',
+            },
           ],
         });
       }
@@ -195,17 +296,33 @@ export const wizardCommand: Command = {
 
         const ALLOWED_MODELS = /^[\w\-./]+$/;
         if (!ALLOWED_MODELS.test(embeddingModel)) {
-          output.writeln(output.error('Invalid model identifier. Only alphanumeric characters, hyphens, dots, and slashes are allowed.'));
+          output.writeln(
+            output.error(
+              'Invalid model identifier. Only alphanumeric characters, hyphens, dots, and slashes are allowed.',
+            ),
+          );
           return { success: false, exitCode: 1 };
         }
 
-        const { execFileSync } = await import('child_process');
+        const { execFileSync } = await import('node:child_process');
         try {
-          execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['monomind@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
-            stdio: 'pipe',
-            cwd: ctx.cwd,
-            timeout: 30000
-          });
+          execFileSync(
+            process.platform === 'win32' ? 'npx.cmd' : 'npx',
+            [
+              'monomind@latest',
+              'embeddings',
+              'init',
+              '--model',
+              embeddingModel,
+              '--no-download',
+              '--force',
+            ],
+            {
+              stdio: 'pipe',
+              cwd: ctx.cwd,
+              timeout: 30000,
+            },
+          );
           output.writeln(output.success('  ✓ Embeddings configured'));
           embeddingsInitialized = true;
         } catch {
@@ -221,16 +338,18 @@ export const wizardCommand: Command = {
       let gatesEnabled = false;
       if (enableGates) {
         try {
-          const { execFileSync } = await import('child_process');
+          const { execFileSync } = await import('node:child_process');
           execFileSync(
             process.platform === 'win32' ? 'npx.cmd' : 'npx',
             ['monomind@latest', 'guidance', 'setup', '--project-dir', ctx.cwd],
-            { stdio: 'pipe', cwd: ctx.cwd, timeout: 10000 }
+            { stdio: 'pipe', cwd: ctx.cwd, timeout: 10000 },
           );
           gatesEnabled = true;
           output.writeln(output.success('  ✓ Enforcement gates wired'));
         } catch {
-          output.writeln(output.dim('  Gates setup skipped (run `monomind guidance setup` manually)'));
+          output.writeln(
+            output.dim('  Gates setup skipped (run `monomind guidance setup` manually)'),
+          );
         }
       }
 
@@ -248,22 +367,28 @@ export const wizardCommand: Command = {
         try {
           const batchResult = await ingestDirectory(ctx.cwd, 'shared', {
             rootDir: ctx.cwd,
-            onProgress: (file, done, total) => {
+            onProgress: (_file, done, total) => {
               docSpinner.setText(`Ingesting documents... (${done}/${total})`);
             },
           });
           docsIngested = batchResult.filesProcessed;
           docsChunks = batchResult.totalChunks;
           if (docsIngested > 0) {
-            docSpinner.succeed(`${docsIngested} document${docsIngested === 1 ? '' : 's'} ingested (${docsChunks} chunks)`);
+            docSpinner.succeed(
+              `${docsIngested} document${docsIngested === 1 ? '' : 's'} ingested (${docsChunks} chunks)`,
+            );
           } else {
             docSpinner.succeed('No supported documents found');
           }
           if (batchResult.errors.length > 0) {
-            output.writeln(output.dim(`  ${batchResult.errors.length} file(s) skipped due to errors`));
+            output.writeln(
+              output.dim(`  ${batchResult.errors.length} file(s) skipped due to errors`),
+            );
           }
         } catch (e) {
-          docSpinner.fail(`Document ingestion failed: ${e instanceof Error ? e.message : String(e)}`);
+          docSpinner.fail(
+            `Document ingestion failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
         }
       }
 
@@ -279,15 +404,31 @@ export const wizardCommand: Command = {
           { setting: 'Topology', value: options.runtime.topology },
           { setting: 'Max Agents', value: String(options.runtime.maxAgents) },
           { setting: 'Memory Backend', value: options.runtime.memoryBackend },
-          { setting: 'Neural Learning', value: options.runtime.enableNeural ? 'Enabled' : 'Disabled' },
-          { setting: 'Self-Learning', value: options.runtime.enableLearningBridge ? 'Graph + Scopes' : 'Disabled' },
-          { setting: 'Embeddings', value: enableEmbeddings ? `${embeddingModel} (hyperbolic)` : 'Disabled' },
+          {
+            setting: 'Neural Learning',
+            value: options.runtime.enableNeural ? 'Enabled' : 'Disabled',
+          },
+          {
+            setting: 'Self-Learning',
+            value: options.runtime.enableLearningBridge ? 'Graph + Scopes' : 'Disabled',
+          },
+          {
+            setting: 'Embeddings',
+            value: enableEmbeddings ? `${embeddingModel} (hyperbolic)` : 'Disabled',
+          },
           { setting: 'Skills', value: `${result.summary.skillsCount} installed` },
           { setting: 'Commands', value: `${result.summary.commandsCount} installed` },
           { setting: 'Agents', value: `${result.summary.agentsCount} installed` },
           { setting: 'Hooks', value: `${result.summary.hooksEnabled} enabled` },
           { setting: 'Enforcement Gates', value: gatesEnabled ? 'Enabled' : 'Disabled' },
-          { setting: 'Documents', value: ingestDocs ? (docsIngested > 0 ? `${docsIngested} ingested (${docsChunks} chunks)` : 'No documents found') : 'Skipped' },
+          {
+            setting: 'Documents',
+            value: ingestDocs
+              ? docsIngested > 0
+                ? `${docsIngested} ingested (${docsChunks} chunks)`
+                : 'No documents found'
+              : 'Skipped',
+          },
         ],
       });
 

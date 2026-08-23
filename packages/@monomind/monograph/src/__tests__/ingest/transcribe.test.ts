@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { isUrl, buildWhisperPrompt, VIDEO_EXTENSIONS } from '../../ingest/transcribe.js';
+import { describe, expect, it } from 'vitest';
+import { buildWhisperPrompt, isUrl, VIDEO_EXTENSIONS } from '../../ingest/transcribe.js';
 
 describe('isUrl', () => {
   it('returns true for http:// URLs', () => {

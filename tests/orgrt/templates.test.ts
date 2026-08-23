@@ -2,7 +2,7 @@
  * Graph engineering playbook improvement #7 — org templates.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   buildFromTemplate,
   ORG_TEMPLATES,
@@ -16,9 +16,9 @@ describe('kg-extraction template — multi-agent KG pipeline', () => {
   it('builds a valid OrgDef with four roles', () => {
     const def = buildFromTemplate('kg-extraction', 'my-kg');
     expect(def).not.toBeNull();
-    expect(def!.name).toBe('my-kg');
-    expect(def!.roles).toHaveLength(4);
-    expect(def!.goal).toContain('knowledge graph');
+    expect(def?.name).toBe('my-kg');
+    expect(def?.roles).toHaveLength(4);
+    expect(def?.goal).toContain('knowledge graph');
   });
 
   it('has exactly one boss (kg-lead) and three specialists reporting to it', () => {
@@ -35,7 +35,7 @@ describe('kg-extraction template — multi-agent KG pipeline', () => {
 
   it('honors a user-supplied goal', () => {
     const def = buildFromTemplate('kg-extraction', 'my-kg', 'Custom extraction goal');
-    expect(def!.goal).toBe('Custom extraction goal');
+    expect(def?.goal).toBe('Custom extraction goal');
   });
 });
 
@@ -47,16 +47,16 @@ describe('advisor-orchestrator template — cost-efficient planner + workers', (
   it('builds a valid OrgDef with one advisor and two workers', () => {
     const def = buildFromTemplate('advisor-orchestrator', 'my-advisor');
     expect(def).not.toBeNull();
-    expect(def!.roles).toHaveLength(3);
-    const advisor = def!.roles.find((r) => r.id === 'advisor');
+    expect(def?.roles).toHaveLength(3);
+    const advisor = def?.roles.find((r) => r.id === 'advisor');
     expect(advisor?.type).toBe('boss');
     expect(advisor?.reports_to).toBeNull();
   });
 
   it('the advisor runs on the default model; workers run on the fast model', () => {
     const def = buildFromTemplate('advisor-orchestrator', 'my-advisor')!;
-    const advisor = def!.roles.find((r) => r.id === 'advisor')!;
-    const worker = def!.roles.find((r) => r.id === 'worker-1')!;
+    const advisor = def?.roles.find((r) => r.id === 'advisor')!;
+    const worker = def?.roles.find((r) => r.id === 'worker-1')!;
     expect(advisor.adapter_config?.model).toBeUndefined();
     expect(worker.adapter_config?.model).toBeTruthy();
     expect(worker.adapter_config?.model).not.toBe(
@@ -70,7 +70,7 @@ describe('All templates — schema validity', () => {
     for (const name of Object.keys(ORG_TEMPLATES)) {
       const def = buildFromTemplate(name, `test-${name}`);
       expect(def, `template "${name}" should build`).not.toBeNull();
-      expect(def!.roles.length, `template "${name}" needs at least one role`).toBeGreaterThan(0);
+      expect(def?.roles.length, `template "${name}" needs at least one role`).toBeGreaterThan(0);
     }
   });
 });

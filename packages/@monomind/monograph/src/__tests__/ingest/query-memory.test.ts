@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { saveQueryResult } from '../../ingest/query-memory.js';
-import { mkdtempSync, readFileSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
 
 function makeTempDir() {
   return mkdtempSync(join(tmpdir(), 'monograph-qmem-test-'));
@@ -12,7 +12,11 @@ describe('saveQueryResult', () => {
   const dirs: string[] = [];
   afterEach(() => {
     for (const d of dirs) {
-      try { rmSync(d, { recursive: true }); } catch { /* ignore */ }
+      try {
+        rmSync(d, { recursive: true });
+      } catch {
+        /* ignore */
+      }
     }
     dirs.length = 0;
   });
@@ -21,14 +25,18 @@ describe('saveQueryResult', () => {
     const memDir = join(makeTempDir(), 'sub', 'memory');
     dirs.push(memDir.split('/').slice(0, -2).join('/'));
     saveQueryResult({ question: 'What is X?', answer: 'X is Y.', memoryDir: memDir });
-    const { existsSync } = require('fs');
+    const { existsSync } = require('node:fs');
     expect(existsSync(memDir)).toBe(true);
   });
 
   it('writes a Markdown file with YAML front-matter', () => {
     const memDir = makeTempDir();
     dirs.push(memDir);
-    const result = saveQueryResult({ question: 'What is X?', answer: 'X is Y.', memoryDir: memDir });
+    const result = saveQueryResult({
+      question: 'What is X?',
+      answer: 'X is Y.',
+      memoryDir: memDir,
+    });
     const content = readFileSync(result.filePath, 'utf-8');
     expect(content).toContain('---');
     expect(content).toContain('type: "query"');
@@ -87,7 +95,7 @@ describe('saveQueryResult', () => {
     });
     const content = readFileSync(result.filePath, 'utf-8');
     // front-matter line has at most 10 quoted node names
-    const fmLine = content.split('\n').find(l => l.startsWith('source_nodes:'))!;
+    const fmLine = content.split('\n').find((l) => l.startsWith('source_nodes:'))!;
     const matches = fmLine.match(/"node\d+"/g) ?? [];
     expect(matches.length).toBeLessThanOrEqual(10);
   });
@@ -95,7 +103,12 @@ describe('saveQueryResult', () => {
   it('uses custom queryType in front-matter', () => {
     const memDir = makeTempDir();
     dirs.push(memDir);
-    const result = saveQueryResult({ question: 'Q', answer: 'A', memoryDir: memDir, queryType: 'impact' });
+    const result = saveQueryResult({
+      question: 'Q',
+      answer: 'A',
+      memoryDir: memDir,
+      queryType: 'impact',
+    });
     const content = readFileSync(result.filePath, 'utf-8');
     expect(content).toContain('type: "impact"');
   });

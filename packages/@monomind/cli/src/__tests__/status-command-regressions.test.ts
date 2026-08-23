@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CommandContext, CommandResult } from '../types.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { statusCommand } from '../commands/status.js';
-import { getMonomindDataRoot } from '../mcp-tools/types.js';
 import { systemTools } from '../mcp-tools/system-tools.js';
+import { getMonomindDataRoot } from '../mcp-tools/types.js';
+import type { CommandContext, CommandResult } from '../types.js';
 
 function makeCtx(cwd: string, flags: Record<string, unknown> = {}): CommandContext {
   return {
@@ -16,25 +16,37 @@ function makeCtx(cwd: string, flags: Record<string, unknown> = {}): CommandConte
   };
 }
 
-function seedAgentStore(dir: string, agents: Array<{ agentId: string; agentType: string; status: string }>) {
+function seedAgentStore(
+  dir: string,
+  agents: Array<{ agentId: string; agentType: string; status: string }>,
+) {
   const agentsDir = join(getMonomindDataRoot(dir), 'agents');
   mkdirSync(agentsDir, { recursive: true });
   const store = {
-    agents: Object.fromEntries(agents.map((a) => [a.agentId, {
-      agentId: a.agentId,
-      agentType: a.agentType,
-      status: a.status,
-      health: 0.9,
-      taskCount: 3,
-      config: {},
-      createdAt: new Date().toISOString(),
-    }])),
+    agents: Object.fromEntries(
+      agents.map((a) => [
+        a.agentId,
+        {
+          agentId: a.agentId,
+          agentType: a.agentType,
+          status: a.status,
+          health: 0.9,
+          taskCount: 3,
+          config: {},
+          createdAt: new Date().toISOString(),
+        },
+      ]),
+    ),
     version: '3.0.0',
   };
   writeFileSync(join(agentsDir, 'store.json'), JSON.stringify(store, null, 2), 'utf-8');
 }
 
-function seedSwarmStore(dir: string, monoswarmId: string, opts: { status: string; topology: string; agentCount: number }) {
+function seedSwarmStore(
+  dir: string,
+  monoswarmId: string,
+  opts: { status: string; topology: string; agentCount: number },
+) {
   const monoswarmDir = join(getMonomindDataRoot(dir), 'monoswarm');
   mkdirSync(monoswarmDir, { recursive: true });
   const now = new Date().toISOString();
@@ -72,16 +84,20 @@ describe('ASL-18: `status agents` crash guard', () => {
   it('does not throw when a real agent exists in the store, and renders it', async () => {
     seedAgentStore(dir, [{ agentId: 'agent-1', agentType: 'coder', status: 'idle' }]);
 
-    const agentsCommand = statusCommand.subcommands!.find((c) => c.name === 'agents')!;
+    const agentsCommand = statusCommand.subcommands?.find((c) => c.name === 'agents')!;
 
     // Before the fix, agentsCommand.action mapped `a.metrics.successRate` —
     // a field the real agent_list handler never returns — which threw
     // "Cannot read properties of undefined (reading 'successRate')" for
     // every agent in the store. This must complete without throwing.
-    const result = (await agentsCommand.action!(makeCtx(dir, { format: 'json' }))) as CommandResult;
+    const result = (await agentsCommand.action?.(
+      makeCtx(dir, { format: 'json' }),
+    )) as CommandResult;
 
     expect(result.success).toBe(true);
-    const data = result.data as { agents: Array<{ agentId: string; agentType: string; taskCount: number }> };
+    const data = result.data as {
+      agents: Array<{ agentId: string; agentType: string; taskCount: number }>;
+    };
     expect(data.agents).toHaveLength(1);
     expect(data.agents[0].agentId).toBe('agent-1');
     expect(data.agents[0].agentType).toBe('coder');
@@ -94,9 +110,9 @@ describe('ASL-18: `status agents` crash guard', () => {
       { agentId: 'agent-2', agentType: 'researcher', status: 'busy' },
     ]);
 
-    const agentsCommand = statusCommand.subcommands!.find((c) => c.name === 'agents')!;
+    const agentsCommand = statusCommand.subcommands?.find((c) => c.name === 'agents')!;
 
-    await expect(agentsCommand.action!(makeCtx(dir))).resolves.toMatchObject({ success: true });
+    await expect(agentsCommand.action?.(makeCtx(dir))).resolves.toMatchObject({ success: true });
   });
 });
 
@@ -118,7 +134,9 @@ describe('ASL-17: swarm panel maps real monoswarm_status fields', () => {
   it('reports real agentCount as agents.total instead of a fake zero, and does not hardcode running:true', async () => {
     seedSwarmStore(dir, 'monoswarm-abc', { status: 'running', topology: 'mesh', agentCount: 4 });
 
-    const result = (await statusCommand.action!(makeCtx(dir, { format: 'json' }))) as CommandResult;
+    const result = (await statusCommand.action?.(
+      makeCtx(dir, { format: 'json' }),
+    )) as CommandResult;
     expect(result.success).toBe(true);
 
     const data = result.data as {
@@ -139,7 +157,9 @@ describe('ASL-17: swarm panel maps real monoswarm_status fields', () => {
 
   it('does not throw and reports agents.total: 0 when no swarm has been initialized', async () => {
     // No swarm-state.json seeded at all.
-    const result = (await statusCommand.action!(makeCtx(dir, { format: 'json' }))) as CommandResult;
+    const result = (await statusCommand.action?.(
+      makeCtx(dir, { format: 'json' }),
+    )) as CommandResult;
     expect(result.success).toBe(true);
 
     const data = result.data as { swarm: { id: string | null; agents: { total: number } } };

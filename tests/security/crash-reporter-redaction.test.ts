@@ -16,12 +16,13 @@
  * After fix: redact() strips paths to basename-only, scrubs IPs, emails,
  * and hostnames. The README claim becomes true.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { redact } from '../../packages/@monomind/cli/src/services/crash-reporter.js';
 
 describe('C6 — crash reporter redaction strength', () => {
   it('strips project-relative paths in stack frames to basename', () => {
-    const input = "TypeError: cannot read 'x' of undefined\n" +
+    const input =
+      "TypeError: cannot read 'x' of undefined\n" +
       '    at handler (~/projects/acme-merger/src/deal_eval.ts:42:17)\n' +
       '    at Object.<anonymous> (~/projects/acme-merger/src/index.ts:10:1)';
     const out = redact(input);
@@ -69,7 +70,8 @@ describe('C6 — crash reporter redaction strength', () => {
   });
 
   it('strips email addresses', () => {
-    const input = "ValidationError: invalid customer email moritze@example-corp.com at field billing";
+    const input =
+      'ValidationError: invalid customer email moritze@example-corp.com at field billing';
     const out = redact(input);
     expect(out).not.toContain('moritze@example-corp.com');
     expect(out).not.toContain('example-corp.com');
@@ -82,7 +84,7 @@ describe('C6 — crash reporter redaction strength', () => {
   });
 
   it('redacts PII embedded in err.message (SSN, phone)', () => {
-    const input = "ValidationError: SSN 123-45-6789 is invalid for customer +1-555-867-5309";
+    const input = 'ValidationError: SSN 123-45-6789 is invalid for customer +1-555-867-5309';
     const out = redact(input);
     expect(out).not.toContain('123-45-6789');
     expect(out).not.toContain('555-867-5309');

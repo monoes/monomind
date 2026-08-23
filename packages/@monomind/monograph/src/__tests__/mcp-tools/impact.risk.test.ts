@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { computeRiskLevel, type RiskLevel } from '../../mcp-tools/impact.js';
+import { describe, expect, it } from 'vitest';
+import { computeRiskLevel } from '../../mcp-tools/impact.js';
 
 describe('computeRiskLevel', () => {
   it('returns CRITICAL for score > 0.75', () => {

@@ -13,12 +13,14 @@
  * (0 = identical, up to 2 = opposite; distance = 1 - cosine similarity),
  * not a similarity score — see `cosineDistanceNormalized()`.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { HNSWIndex } from './hnsw-index.js';
 
 /** Reference cosine similarity, used to build a brute-force ground truth. */
 function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-  let dot = 0, normA = 0, normB = 0;
+  let dot = 0,
+    normA = 0,
+    normB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
     normA += a[i] * a[i];
@@ -32,7 +34,7 @@ function cosineSimilarity(a: Float32Array, b: Float32Array): number {
 function bruteForceSearch(
   vectors: Record<string, Float32Array>,
   query: Float32Array,
-  k: number
+  k: number,
 ): Array<{ id: string; score: number }> {
   return Object.entries(vectors)
     .map(([id, vec]) => ({ id, score: cosineSimilarity(query, vec) }))
@@ -169,7 +171,7 @@ describe('HNSWIndex', () => {
     await index.addPoint('a', new Float32Array([1, 0, 0, 0]));
 
     await expect(index.addPoint('b', new Float32Array([1, 0, 0]))).rejects.toThrow(
-      /dimension mismatch/i
+      /dimension mismatch/i,
     );
     await expect(index.search(new Float32Array([1, 0]), 1)).rejects.toThrow(/dimension mismatch/i);
   });

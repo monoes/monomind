@@ -28,14 +28,34 @@ interface RouteRule {
 // Order matters only for tie display; scoring is additive per surface.
 const ROUTE_RULES: RouteRule[] = [
   // Rules: "how should I", conventions, policies, dos and don'ts.
-  { surface: 'rules', pattern: /\b(rules?|conventions?|policy|policies|guidelines?|best practices?|should (i|we|you)|always|never|allowed|forbidden)\b/i, weight: 2 },
+  {
+    surface: 'rules',
+    pattern:
+      /\b(rules?|conventions?|policy|policies|guidelines?|best practices?|should (i|we|you)|always|never|allowed|forbidden)\b/i,
+    weight: 2,
+  },
   // KG: relationships, structure, "how does X relate to / depend on Y", who/what connects.
-  { surface: 'kg', pattern: /\b(relat(e|es|ed|ionship)|depend(s|ency|encies)?|connect(s|ed|ion)?|link(s|ed)?|between|structure|architecture|who (owns|maintains|uses)|what (uses|calls|imports))\b/i, weight: 2 },
+  {
+    surface: 'kg',
+    pattern:
+      /\b(relat(e|es|ed|ionship)|depend(s|ency|encies)?|connect(s|ed|ion)?|link(s|ed)?|between|structure|architecture|who (owns|maintains|uses)|what (uses|calls|imports))\b/i,
+    weight: 2,
+  },
   { surface: 'kg', pattern: /\b(entity|entities|graph|triplet)\b/i, weight: 1.5 },
   // Memory: past runs/decisions/outcomes/history.
-  { surface: 'memory', pattern: /\b(last (run|time)|previous(ly)?|history|past|earlier|before|decision|decided|outcome|learned|remember)\b/i, weight: 2 },
+  {
+    surface: 'memory',
+    pattern:
+      /\b(last (run|time)|previous(ly)?|history|past|earlier|before|decision|decided|outcome|learned|remember)\b/i,
+    weight: 2,
+  },
   // Chunks: docs/specs/definitions/how-to content.
-  { surface: 'chunks', pattern: /\b(doc(s|ument|umentation)?|spec|readme|guide|manual|note(s)?|wrote|written|what is|how (do|to)|explain|describe|definition)\b/i, weight: 1.5 },
+  {
+    surface: 'chunks',
+    pattern:
+      /\b(doc(s|ument|umentation)?|spec|readme|guide|manual|note(s)?|wrote|written|what is|how (do|to)|explain|describe|definition)\b/i,
+    weight: 1.5,
+  },
 ];
 
 /** Negated mentions must not vote: "not about the architecture" (cognee uses
@@ -62,10 +82,16 @@ function persistOverride(key: string): void {
     const file = path.join(process.cwd(), ...OVERRIDES_FILE);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     let disk: Record<string, number> = {};
-    try { disk = JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, number>; } catch { /* fresh file */ }
+    try {
+      disk = JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, number>;
+    } catch {
+      /* fresh file */
+    }
     disk[key] = (typeof disk[key] === 'number' ? disk[key] : 0) + 1;
     fs.writeFileSync(file, JSON.stringify(disk, null, 2));
-  } catch { /* telemetry must never block or throw */ }
+  } catch {
+    /* telemetry must never block or throw */
+  }
 }
 
 export function routeQuery(query: string): RouteDecision {
@@ -73,21 +99,20 @@ export function routeQuery(query: string): RouteDecision {
   const scores: Record<RetrievalSurface, number> = { chunks: 0.5, kg: 0, rules: 0, memory: 0 }; // chunks = weak prior
 
   for (const rule of ROUTE_RULES) {
-    for (const m of q.matchAll(new RegExp(rule.pattern.source, rule.pattern.flags + 'g'))) {
+    for (const m of q.matchAll(new RegExp(rule.pattern.source, `${rule.pattern.flags}g`))) {
       const before = q.slice(Math.max(0, (m.index ?? 0) - 26), m.index ?? 0);
       if (NEGATION_RE.test(before)) continue;
       scores[rule.surface] += rule.weight;
     }
   }
 
-  const ranked = (Object.entries(scores) as [RetrievalSurface, number][])
-    .sort((a, b) => b[1] - a[1]);
+  const ranked = (Object.entries(scores) as [RetrievalSurface, number][]).sort(
+    (a, b) => b[1] - a[1],
+  );
   const [winner, runnerUp] = ranked;
   const confident = winner[1] >= 2 * Math.max(runnerUp[1], 0.25);
 
-  const surfaces = confident
-    ? [winner[0]]
-    : ranked.filter(([, s]) => s > 0).map(([k]) => k);
+  const surfaces = confident ? [winner[0]] : ranked.filter(([, s]) => s > 0).map(([k]) => k);
   return { surfaces: surfaces.length ? surfaces : ['chunks'], confident, scores };
 }
 
@@ -103,7 +128,9 @@ export function recordRouteOverride(from: RetrievalSurface, to: RetrievalSurface
 export function getRouteOverrides(merged = false): Record<string, number> {
   if (!merged) return { ...overrideCounts };
   try {
-    const disk = JSON.parse(fs.readFileSync(path.join(process.cwd(), ...OVERRIDES_FILE), 'utf-8')) as Record<string, number>;
+    const disk = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), ...OVERRIDES_FILE), 'utf-8'),
+    ) as Record<string, number>;
     return { ...disk }; // disk already includes this process's persisted increments
   } catch {
     return { ...overrideCounts };
@@ -122,7 +149,10 @@ export interface FusableResult {
 
 /** Fuse ranked lists via RRF × importance factor (cognee hybrid/ranking.py).
  *  Input lists must each be ranked best-first; raw scores are ignored. */
-export function rrfFuse<T extends FusableResult>(lists: T[][], topK: number): (T & { rrf: number })[] {
+export function rrfFuse<T extends FusableResult>(
+  lists: T[][],
+  topK: number,
+): (T & { rrf: number })[] {
   const rrfK = Math.max(30, Math.min(60, 20 + 2 * topK));
   const byId = new Map<string, { item: T; rrf: number }>();
   for (const list of lists) {

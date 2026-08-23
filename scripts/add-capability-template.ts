@@ -92,12 +92,7 @@ function inferExpertise(description: string): string[] {
   }
 
   // Ensure minimum 3 entries
-  const defaults = [
-    'domain analysis',
-    'problem solving',
-    'best practices',
-    'collaboration',
-  ];
+  const defaults = ['domain analysis', 'problem solving', 'best practices', 'collaboration'];
   while (expertise.length < 3) {
     const next = defaults.shift();
     if (next && !expertise.includes(next)) {
@@ -154,14 +149,12 @@ function inferOutputType(name: string): string {
   return 'CodeImplementation';
 }
 
-export function generateCapabilityTemplate(
-  name: string,
-  description: string
-): string {
+export function generateCapabilityTemplate(name: string, description: string): string {
   const role = toKebabCase(name);
-  const goal = description.length >= 20
-    ? description.slice(0, 200)
-    : `Perform ${name.toLowerCase()} tasks effectively and reliably`;
+  const goal =
+    description.length >= 20
+      ? description.slice(0, 200)
+      : `Perform ${name.toLowerCase()} tasks effectively and reliably`;
   const expertise = inferExpertise(description);
   const taskTypes = inferTaskTypes(name, description);
   const outputType = inferOutputType(name);
@@ -212,10 +205,7 @@ function main(): void {
     process.exit(1);
   }
 
-  const template = generateCapabilityTemplate(
-    frontmatter.name,
-    frontmatter.description
-  );
+  const template = generateCapabilityTemplate(frontmatter.name, frontmatter.description);
 
   console.log(`\n# Generated capability template for: ${frontmatter.name}`);
   console.log(`# Add this block inside the YAML frontmatter before the closing ---\n`);
@@ -224,9 +214,10 @@ function main(): void {
 }
 
 // Run when executed directly
-const isDirectRun = process.argv[1] &&
+const isDirectRun =
+  process.argv[1] &&
   (process.argv[1].endsWith('add-capability-template.ts') ||
-   process.argv[1].endsWith('add-capability-template.js'));
+    process.argv[1].endsWith('add-capability-template.js'));
 
 if (isDirectRun) {
   main();

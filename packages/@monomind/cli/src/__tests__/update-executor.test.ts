@@ -10,7 +10,7 @@
  * or touches ~/.monomind/update-history.json.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The production code calls execFile(cmd, args, { timeout }, cb) — the
 // callback is the LAST argument, not the third. A mock that assumes
@@ -23,8 +23,7 @@ const execFileMock = vi.fn((...args: unknown[]) => {
 });
 
 vi.mock('child_process', () => ({
-  execFile: (...args: unknown[]) =>
-    (execFileMock as (...a: unknown[]) => void)(...args),
+  execFile: (...args: unknown[]) => (execFileMock as (...a: unknown[]) => void)(...args),
   execFileSync: vi.fn(() => '/usr/local\n'),
 }));
 
@@ -44,9 +43,9 @@ vi.mock('fs', () => ({
   }),
 }));
 
-import { npmCommand } from '../utils/npm-command.js';
-import { executeUpdate, rollbackUpdate } from '../update/executor.js';
 import type { UpdateCheckResult } from '../update/checker.js';
+import { executeUpdate, rollbackUpdate } from '../update/executor.js';
+import { npmCommand } from '../utils/npm-command.js';
 
 function makeUpdate(overrides: Partial<UpdateCheckResult> = {}): UpdateCheckResult {
   return {

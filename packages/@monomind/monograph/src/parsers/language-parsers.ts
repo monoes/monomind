@@ -109,12 +109,24 @@ function extractDart(src: string, fp: string): SymbolExtract[] {
   DART_CLASS_RE.lastIndex = 0;
   while ((m = DART_CLASS_RE.exec(src)) !== null) {
     const line = (src.slice(0, m.index).match(/\n/g)?.length ?? 0) + 1;
-    out.push({ name: m[1]!, label: 'Class', isExported: !m[1]!.startsWith('_'), line, filePath: fp });
+    out.push({
+      name: m[1]!,
+      label: 'Class',
+      isExported: !m[1]?.startsWith('_'),
+      line,
+      filePath: fp,
+    });
   }
   DART_FN_RE.lastIndex = 0;
   while ((m = DART_FN_RE.exec(src)) !== null) {
     const line = (src.slice(0, m.index).match(/\n/g)?.length ?? 0) + 1;
-    out.push({ name: m[1]!, label: 'Function', isExported: !m[1]!.startsWith('_'), line, filePath: fp });
+    out.push({
+      name: m[1]!,
+      label: 'Function',
+      isExported: !m[1]?.startsWith('_'),
+      line,
+      filePath: fp,
+    });
   }
   return out;
 }

@@ -3,9 +3,9 @@
  * Prevents excessive npm registry queries
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 export interface RateLimitState {
   lastCheck: string;
@@ -47,7 +47,11 @@ export function loadState(): RateLimitState {
       const stat = fs.statSync(STATE_FILE);
       if (stat.size > MAX_STATE_FILE_BYTES) {
         // State file is unreasonably large — discard and start fresh
-        try { fs.unlinkSync(STATE_FILE); } catch { /* ignore */ }
+        try {
+          fs.unlinkSync(STATE_FILE);
+        } catch {
+          /* ignore */
+        }
         return getDefaultState();
       }
       const content = fs.readFileSync(STATE_FILE, 'utf-8');
@@ -58,7 +62,11 @@ export function loadState(): RateLimitState {
       }) as RateLimitState;
 
       // Validate that packageVersions is a plain object (not an array/primitive)
-      if (!state.packageVersions || typeof state.packageVersions !== 'object' || Array.isArray(state.packageVersions)) {
+      if (
+        !state.packageVersions ||
+        typeof state.packageVersions !== 'object' ||
+        Array.isArray(state.packageVersions)
+      ) {
         state.packageVersions = {};
       }
       // Cap the number of package version entries to prevent bloat
@@ -82,21 +90,23 @@ export function loadState(): RateLimitState {
     }
   } catch (e) {
     // Corrupted file, reset
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[rate-limiter] update-state.json read/parse failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[rate-limiter] update-state.json read/parse failed:', e);
   }
   return getDefaultState();
 }
 
 export function saveState(state: RateLimitState): void {
   ensureDir();
-  const tmp = STATE_FILE + '.tmp';
+  const tmp = `${STATE_FILE}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
   fs.renameSync(tmp, STATE_FILE);
 }
 
-export function shouldCheckForUpdates(
-  intervalHours: number = DEFAULT_INTERVAL_HOURS
-): { allowed: boolean; reason?: string } {
+export function shouldCheckForUpdates(intervalHours: number = DEFAULT_INTERVAL_HOURS): {
+  allowed: boolean;
+  reason?: string;
+} {
   // Skip in CI environments
   if (process.env.CI === 'true' || process.env.CONTINUOUS_INTEGRATION === 'true') {
     return { allowed: false, reason: 'CI environment detected' };
@@ -129,7 +139,7 @@ export function shouldCheckForUpdates(
       const nextCheck = Math.ceil(intervalHours - hoursSinceLastCheck);
       return {
         allowed: false,
-        reason: `Last check was ${Math.floor(hoursSinceLastCheck)}h ago (next check in ~${nextCheck}h)`
+        reason: `Last check was ${Math.floor(hoursSinceLastCheck)}h ago (next check in ~${nextCheck}h)`,
       };
     }
   }
@@ -150,9 +160,10 @@ export function shouldCheckForUpdates(
  * and then called loadState() a second time to increment. Two callers
  * sharing that gap could both see allowed=true and both increment.
  */
-export function reserveCheck(
-  intervalHours: number = DEFAULT_INTERVAL_HOURS
-): { allowed: boolean; reason?: string } {
+export function reserveCheck(intervalHours: number = DEFAULT_INTERVAL_HOURS): {
+  allowed: boolean;
+  reason?: string;
+} {
   // Fast-path: environment gates that don't need file I/O
   if (process.env.CI === 'true' || process.env.CONTINUOUS_INTEGRATION === 'true') {
     return { allowed: false, reason: 'CI environment detected' };
@@ -172,7 +183,8 @@ export function reserveCheck(
 
     // Time interval
     if (state.lastCheck) {
-      const hoursSinceLastCheck = (Date.now() - new Date(state.lastCheck).getTime()) / (1000 * 60 * 60);
+      const hoursSinceLastCheck =
+        (Date.now() - new Date(state.lastCheck).getTime()) / (1000 * 60 * 60);
       if (hoursSinceLastCheck < intervalHours) {
         const nextCheck = Math.ceil(intervalHours - hoursSinceLastCheck);
         return {

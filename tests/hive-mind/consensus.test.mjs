@@ -3,13 +3,12 @@
  *   - tally.ts: confidence-weighted vote tally
  *   - audit-writer.ts: JSONL audit log, tamper detection, path traversal guard
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
-import { weightedTally } from '../../packages/@monomind/cli/src/consensus/tally.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AuditWriter } from '../../packages/@monomind/cli/src/consensus/audit-writer.js';
+import { weightedTally } from '../../packages/@monomind/cli/src/consensus/tally.js';
 
 // Use a helper so the literal 'sessionSecret' key + test value are never on
 // the same line (avoids secret-detection false positives).
@@ -39,16 +38,12 @@ describe('weightedTally', () => {
   });
 
   it('clamps confidence to [0,1] — negative becomes 0', () => {
-    const result = weightedTally([
-      { agentId: 'a1', vote: true, confidence: -5 },
-    ]);
+    const result = weightedTally([{ agentId: 'a1', vote: true, confidence: -5 }]);
     expect(result.weightedApproval).toBe(0);
   });
 
   it('clamps confidence to [0,1] — above 1 becomes 1', () => {
-    const result = weightedTally([
-      { agentId: 'a1', vote: true, confidence: 99 },
-    ]);
+    const result = weightedTally([{ agentId: 'a1', vote: true, confidence: 99 }]);
     expect(result.weightedApproval).toBe(1);
   });
 
@@ -201,7 +196,7 @@ describe('AuditWriter', () => {
     const record = JSON.parse(content.trim());
     // Flip first vote's signature
     record.votes[0].signature = 'a'.repeat(64);
-    fs.writeFileSync(auditPath, JSON.stringify(record) + '\n', 'utf-8');
+    fs.writeFileSync(auditPath, `${JSON.stringify(record)}\n`, 'utf-8');
 
     const result = writer.verifyDecision('dec-001', sessVal);
     expect(result.valid).toBe(false);
@@ -218,7 +213,7 @@ describe('AuditWriter', () => {
     const content = fs.readFileSync(auditPath, 'utf-8');
     const record = JSON.parse(content.trim());
     record.topic = 'tampered topic';
-    fs.writeFileSync(auditPath, JSON.stringify(record) + '\n', 'utf-8');
+    fs.writeFileSync(auditPath, `${JSON.stringify(record)}\n`, 'utf-8');
 
     const result = writer.verifyDecision('dec-001', sessVal);
     expect(result.valid).toBe(false);
@@ -258,15 +253,17 @@ describe('AuditWriter', () => {
 
     const filtered = writer.listDecisions('swarm-a');
     expect(filtered).toHaveLength(2);
-    expect(filtered.every(r => r.swarmId === 'swarm-a')).toBe(true);
+    expect(filtered.every((r) => r.swarmId === 'swarm-a')).toBe(true);
   });
 
   it('handles null duration when dates are invalid', () => {
     const writer = new AuditWriter(dataDir);
-    const record = writer.record(makeInput({
-      startedAt: 'not-a-date',
-      completedAt: 'also-not-a-date',
-    }));
+    const record = writer.record(
+      makeInput({
+        startedAt: 'not-a-date',
+        completedAt: 'also-not-a-date',
+      }),
+    );
     expect(record.durationMs).toBeNull();
   });
 });

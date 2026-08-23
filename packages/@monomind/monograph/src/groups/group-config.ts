@@ -10,7 +10,7 @@
  *     frontend: /path/to/frontend
  */
 
-import { readFileSync, existsSync } from 'fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 export interface GroupRepo {
   name: string;
@@ -85,8 +85,8 @@ export function parseGroupConfig(configPath: string): GroupConfig {
   const content = readFileSync(configPath, 'utf8');
   const raw = parseSimpleYaml(content);
 
-  const name = (raw['name'] as string | undefined) ?? 'unnamed-group';
-  const reposRaw = raw['repos'];
+  const name = (raw.name as string | undefined) ?? 'unnamed-group';
+  const reposRaw = raw.repos;
 
   const repos: GroupRepo[] = [];
 
@@ -97,7 +97,9 @@ export function parseGroupConfig(configPath: string): GroupConfig {
         continue;
       }
       if (!existsSync(repoPath)) {
-        console.warn(`[group-config] Skipping repo "${repoName}": path does not exist: ${repoPath}`);
+        console.warn(
+          `[group-config] Skipping repo "${repoName}": path does not exist: ${repoPath}`,
+        );
         continue;
       }
       repos.push({ name: repoName, path: repoPath });

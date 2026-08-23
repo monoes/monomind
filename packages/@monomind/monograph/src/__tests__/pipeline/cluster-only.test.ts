@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { runClusterOnly } from '../../pipeline/cluster-only.js';
 
 function makeDb(): Database.Database {
@@ -20,9 +20,11 @@ describe('runClusterOnly', () => {
   it('assigns community_id to nodes based on graph structure', async () => {
     const db = makeDb();
     await runClusterOnly(db);
-    const updated = db.prepare('SELECT community_id FROM nodes').all() as { community_id: number | null }[];
+    const updated = db.prepare('SELECT community_id FROM nodes').all() as {
+      community_id: number | null;
+    }[];
     // At least some nodes should have community_id set
-    expect(updated.some(n => n.community_id !== null)).toBe(true);
+    expect(updated.some((n) => n.community_id !== null)).toBe(true);
   });
 
   it('returns community count', async () => {

@@ -4,16 +4,33 @@
  * Scans agent definition .md files, parses YAML frontmatter,
  * and produces a unified AgentRegistry JSON.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
-import { join, basename, relative, extname, isAbsolute } from 'path';
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, extname, isAbsolute, join, relative } from 'node:path';
+
 type TriggerPattern = { pattern: string; mode: 'glob' | 'regex' | 'exact' };
 type AgentRegistryEntry = {
-  slug: string; name: string; version: string; category: string; description: string;
-  capabilities: string[]; taskTypes: string[]; tools: string[];
-  triggers: TriggerPattern[]; deprecated: boolean; deprecatedBy?: string;
-  dependencies: string[]; filePath: string; registeredAt: string; lastUpdated: string;
+  slug: string;
+  name: string;
+  version: string;
+  category: string;
+  description: string;
+  capabilities: string[];
+  taskTypes: string[];
+  tools: string[];
+  triggers: TriggerPattern[];
+  deprecated: boolean;
+  deprecatedBy?: string;
+  dependencies: string[];
+  filePath: string;
+  registeredAt: string;
+  lastUpdated: string;
 };
-type AgentRegistry = { version: string; generatedAt: string; totalAgents: number; agents: AgentRegistryEntry[] };
+type AgentRegistry = {
+  version: string;
+  generatedAt: string;
+  totalAgents: number;
+  agents: AgentRegistryEntry[];
+};
 
 /** Parsed YAML frontmatter value: scalar, string array, or array of nested objects. */
 type FrontmatterValue = string | boolean | string[] | Record<string, string>[];
@@ -96,10 +113,7 @@ function parseNestedYamlList(
         current = {};
         const k = itemContent.slice(0, colonSpaceIdx).trim();
         let v = itemContent.slice(colonSpaceIdx + 2).trim();
-        if (
-          (v.startsWith('"') && v.endsWith('"')) ||
-          (v.startsWith("'") && v.endsWith("'"))
-        ) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
           v = v.slice(1, -1);
         }
         current[k] = v;
@@ -107,10 +121,7 @@ function parseNestedYamlList(
       } else {
         // Simple string item: `- value`
         let v = itemContent.trim();
-        if (
-          (v.startsWith('"') && v.endsWith('"')) ||
-          (v.startsWith("'") && v.endsWith("'"))
-        ) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
           v = v.slice(1, -1);
         }
         simpleItems.push(v);
@@ -122,10 +133,7 @@ function parseNestedYamlList(
       if (colonSpaceIdx !== -1) {
         const k = trimmed.slice(0, colonSpaceIdx).trim();
         let v = trimmed.slice(colonSpaceIdx + 2).trim();
-        if (
-          (v.startsWith('"') && v.endsWith('"')) ||
-          (v.startsWith("'") && v.endsWith("'"))
-        ) {
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
           v = v.slice(1, -1);
         }
         current[k] = v;
@@ -267,7 +275,9 @@ export function computeAgentRoots(cwd: string): string[] {
   if (extraPaths.length === 0) {
     try {
       if (statSync(siblingExtraPath).isDirectory()) extraPaths.push(siblingExtraPath);
-    } catch { /* sibling path doesn't exist */ }
+    } catch {
+      /* sibling path doesn't exist */
+    }
   }
   return [...extraPaths, devAgentsRoot];
 }
@@ -306,8 +316,7 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
         continue;
       }
       const fm = parseFrontmatter(content);
-      const slug =
-        (typeof fm.slug === 'string' ? fm.slug : undefined) || slugFromFilename(file);
+      const slug = (typeof fm.slug === 'string' ? fm.slug : undefined) || slugFromFilename(file);
       // Skip duplicates — first root wins
       if (seen.has(slug)) continue;
       seen.set(slug, {
@@ -323,8 +332,7 @@ export function buildUnifiedRegistry(roots: string[], outputPath?: string): Agen
         tools: toStringArray(fm.tools),
         triggers: parseTriggers(fm.triggers),
         deprecated: fm.deprecated === true,
-        deprecatedBy:
-          typeof fm.deprecatedBy === 'string' ? fm.deprecatedBy : undefined,
+        deprecatedBy: typeof fm.deprecatedBy === 'string' ? fm.deprecatedBy : undefined,
         dependencies: toStringArray(fm.dependencies),
         filePath: isAbsolute(file) ? relative(process.cwd(), file) : file,
         registeredAt: now,

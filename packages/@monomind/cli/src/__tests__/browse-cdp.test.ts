@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Fake WebSocket — mimics the Node.js EventEmitter-style API that 'ws' uses
@@ -52,7 +52,7 @@ function FakeWebSocket(this: any, _url: string) {
   }
   // Also expose sent and emit directly on `this`
   Object.defineProperty(this, 'sent', {
-    get: () => fakeWsInstance!.sent,
+    get: () => fakeWsInstance?.sent,
     configurable: true,
   });
 }
@@ -93,7 +93,7 @@ describe('CdpClient', () => {
   it('connects and resolves when the WebSocket opens', async () => {
     const client = new CdpClient();
     const p = client.connect('ws://localhost:9222/devtools/page/abc');
-    fakeWsInstance!.emit('open');
+    fakeWsInstance?.emit('open');
     await expect(p).resolves.toBeUndefined();
     expect(client.isConnected()).toBe(true);
   });
@@ -102,7 +102,7 @@ describe('CdpClient', () => {
     const client = new CdpClient();
     const p = client.connect('ws://localhost:9222/devtools/page/abc');
     const err = new Error('ECONNREFUSED');
-    fakeWsInstance!.emit('error', err);
+    fakeWsInstance?.emit('error', err);
     await expect(p).rejects.toThrow('ECONNREFUSED');
   });
 

@@ -9,7 +9,7 @@
  * precedent for the idle watchdog — a pure decision pulled out of a command
  * handler so it's testable without a real daemon/org).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { runOutcomeResult } from '../commands/org.js';
 
 describe('runOutcomeResult', () => {

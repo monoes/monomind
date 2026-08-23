@@ -1,6 +1,5 @@
-import { statSync, readFileSync } from 'fs';
-import { join, extname } from 'path';
-import type { PipelineContext } from '../../types.js';
+import { readFileSync, statSync } from 'node:fs';
+import { extname, join } from 'node:path';
 import type { BridgeAdapter, BridgeEndpoint } from './types.js';
 
 const JS_TS_EXT = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs']);
@@ -65,7 +64,8 @@ export const electronIpcAdapter: BridgeAdapter = {
         .get(relPath) as { id: string } | undefined;
       if (!fileRow) continue;
 
-      for (const channel of channels) endpoints.push({ key: channel, nodeId: fileRow.id, language: 'javascript' });
+      for (const channel of channels)
+        endpoints.push({ key: channel, nodeId: fileRow.id, language: 'javascript' });
     }
     return endpoints;
   },
@@ -84,7 +84,8 @@ export const electronIpcAdapter: BridgeAdapter = {
         .get(relPath) as { id: string } | undefined;
       if (!fileRow) continue;
 
-      for (const channel of channels) endpoints.push({ key: channel, nodeId: fileRow.id, language: 'javascript' });
+      for (const channel of channels)
+        endpoints.push({ key: channel, nodeId: fileRow.id, language: 'javascript' });
     }
     return endpoints;
   },

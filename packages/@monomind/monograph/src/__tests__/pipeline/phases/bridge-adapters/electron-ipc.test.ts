@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'fs';
-import { join, dirname } from 'path';
-import { tmpdir } from 'os';
-import Database from 'better-sqlite3';
-import { openDb, closeDb } from '../../../../storage/db.js';
-import { insertNodes } from '../../../../storage/node-store.js';
-import type { MonographNode } from '../../../../types.js';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { electronIpcAdapter } from '../../../../pipeline/phases/bridge-adapters/electron-ipc.js';
 import type { PipelineContext } from '../../../../pipeline/types.js';
 import { DEFAULT_OPTIONS } from '../../../../pipeline/types.js';
-import { electronIpcAdapter } from '../../../../pipeline/phases/bridge-adapters/electron-ipc.js';
+import { closeDb, openDb } from '../../../../storage/db.js';
+import { insertNodes } from '../../../../storage/node-store.js';
+import type { MonographNode } from '../../../../types.js';
 
 function makeCtx(repoPath: string, db: Database.Database): PipelineContext {
   return {
@@ -28,7 +28,11 @@ function writeFile(root: string, relPath: string, content: string): void {
 
 function fileNode(id: string, filePath: string): MonographNode {
   return {
-    id, label: 'File', name: filePath.split('/').pop()!, normLabel: '', filePath,
+    id,
+    label: 'File',
+    name: filePath.split('/').pop()!,
+    normLabel: '',
+    filePath,
     isExported: false,
   };
 }
@@ -79,9 +83,11 @@ describe('electronIpcAdapter', () => {
     insertNodes(db, [fileNode('main_file', 'main.js'), fileNode('renderer_file', 'renderer.js')]);
     const ctx = makeCtx(tmpDir, db);
 
-    expect(electronIpcAdapter.findDefinitions(ctx, ['main.js']))
-      .toEqual([{ key: 'log', nodeId: 'main_file', language: 'javascript' }]);
-    expect(electronIpcAdapter.findCallSites(ctx, ['renderer.js']))
-      .toEqual([{ key: 'log', nodeId: 'renderer_file', language: 'javascript' }]);
+    expect(electronIpcAdapter.findDefinitions(ctx, ['main.js'])).toEqual([
+      { key: 'log', nodeId: 'main_file', language: 'javascript' },
+    ]);
+    expect(electronIpcAdapter.findCallSites(ctx, ['renderer.js'])).toEqual([
+      { key: 'log', nodeId: 'renderer_file', language: 'javascript' },
+    ]);
   });
 });

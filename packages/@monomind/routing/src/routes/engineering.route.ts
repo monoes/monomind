@@ -1,10 +1,10 @@
-import { Route } from '../types.js';
+import type { Route } from '../types.js';
 
 export const engineeringRoutes: Route[] = [
   {
     name: 'backend-architect',
     agentSlug: 'engineering-backend-architect',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Backend system architecture, API design, microservices',
     utterances: [
@@ -23,7 +23,7 @@ export const engineeringRoutes: Route[] = [
   {
     name: 'software-architect',
     agentSlug: 'engineering-software-architect',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'High-level software architecture, system design',
     utterances: [
@@ -42,7 +42,7 @@ export const engineeringRoutes: Route[] = [
   {
     name: 'frontend-developer',
     agentSlug: 'engineering-frontend-developer',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Frontend development, React, UI components',
     utterances: [

@@ -17,7 +17,7 @@ export interface SetupHooksResult {
 }
 
 export const AGENTS_BLOCK_START = '<!-- monograph-gate-start -->';
-export const AGENTS_BLOCK_END   = '<!-- monograph-gate-end -->';
+export const AGENTS_BLOCK_END = '<!-- monograph-gate-end -->';
 export const MONOGRAPH_GATE_SCRIPT = 'npx monograph check --since $(git merge-base HEAD main)';
 
 /** Build the AGENTS.md block content. */
@@ -46,7 +46,7 @@ export function mergeAgentsMdBlock(existing: string, block: string): string {
   if (startIdx !== -1 && endIdx !== -1) {
     return existing.slice(0, startIdx) + block + existing.slice(endIdx + AGENTS_BLOCK_END.length);
   }
-  return existing ? existing + '\n\n' + block : block;
+  return existing ? `${existing}\n\n${block}` : block;
 }
 
 /** Remove the managed block from AGENTS.md. */
@@ -54,7 +54,11 @@ export function removeAgentsMdBlock(content: string): string {
   const startIdx = content.indexOf(AGENTS_BLOCK_START);
   const endIdx = content.indexOf(AGENTS_BLOCK_END);
   if (startIdx === -1 || endIdx === -1) return content;
-  return content.slice(0, startIdx).trimEnd() + '\n' + content.slice(endIdx + AGENTS_BLOCK_END.length).trimStart();
+  return (
+    content.slice(0, startIdx).trimEnd() +
+    '\n' +
+    content.slice(endIdx + AGENTS_BLOCK_END.length).trimStart()
+  );
 }
 
 /** Build a Claude Code settings.json PreToolUse hook entry. */
@@ -77,10 +81,15 @@ export function mergeClaudeCodeSettings(
   entry: Record<string, unknown>,
 ): Record<string, unknown> {
   const result = { $schema: '', ...existing, ...entry };
-  if (!result.$schema) { (result as Record<string, unknown>).$schema = undefined; }
+  if (!result.$schema) {
+    (result as Record<string, unknown>).$schema = undefined;
+  }
   return result;
 }
 
 export const DEFAULT_SETUP_RESULT: SetupHooksResult = {
-  target: 'auto', installed: false, modifiedFiles: [], message: 'No agent detected',
+  target: 'auto',
+  installed: false,
+  modifiedFiles: [],
+  message: 'No agent detected',
 };

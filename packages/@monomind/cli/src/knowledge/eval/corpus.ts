@@ -12,10 +12,10 @@
  * @module v1/cli/knowledge/eval/corpus
  */
 
+import { execFileSync } from 'node:child_process';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 
 export interface CorpusDoc {
   /** Repo-relative POSIX path — the stable document id used in the golden set. */
@@ -63,7 +63,7 @@ const EXCLUDE_PATTERNS = [
   /(^|\/)dist\//,
   /(^|\/)\.monomind\//,
   /(^|\/)coverage\//,
-  APPLEDOUBLE_RE,         // exFAT resource-fork turds
+  APPLEDOUBLE_RE, // exFAT resource-fork turds
 ];
 
 /** Files too small to contain a retrievable answer. */
@@ -74,7 +74,9 @@ const MIN_BYTES = 400;
  *  would be incomparable for a reason nobody would think to check. */
 export function resolveRepoRoot(start: string): string {
   try {
-    return execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+    return execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+    }).trim();
   } catch {
     return path.resolve(start);
   }
@@ -82,7 +84,8 @@ export function resolveRepoRoot(start: string): string {
 
 export function listTrackedFiles(repoRoot: string): string[] {
   const out = execFileSync('git', ['-C', repoRoot, 'ls-files', '-z'], {
-    encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
   });
   return out.split('\0').filter(Boolean);
 }
@@ -101,17 +104,28 @@ export function buildCorpus(startDir: string): Corpus {
   // could never fire — a silent filter wearing an assert's name. A guard with
   // no reachable firing condition is an assumption, not a guard.
   const appleDoubleCount = tracked.filter(
-    rel => APPLEDOUBLE_RE.test(rel) && CORPUS_EXTENSIONS.has(path.extname(rel).toLowerCase()),
+    (rel) => APPLEDOUBLE_RE.test(rel) && CORPUS_EXTENSIONS.has(path.extname(rel).toLowerCase()),
   ).length;
 
   for (const rel of tracked) {
     if (!CORPUS_EXTENSIONS.has(path.extname(rel).toLowerCase())) continue;
-    if (EXCLUDE_PATTERNS.some(re => re.test(rel))) { excluded.push({ id: rel, reason: 'excluded path' }); continue; }
+    if (EXCLUDE_PATTERNS.some((re) => re.test(rel))) {
+      excluded.push({ id: rel, reason: 'excluded path' });
+      continue;
+    }
     const abs = path.join(repoRoot, rel);
     let stat: fs.Stats;
-    try { stat = fs.statSync(abs); } catch { excluded.push({ id: rel, reason: 'unreadable' }); continue; }
+    try {
+      stat = fs.statSync(abs);
+    } catch {
+      excluded.push({ id: rel, reason: 'unreadable' });
+      continue;
+    }
     if (!stat.isFile()) continue;
-    if (stat.size < MIN_BYTES) { excluded.push({ id: rel, reason: 'under ' + MIN_BYTES + ' bytes' }); continue; }
+    if (stat.size < MIN_BYTES) {
+      excluded.push({ id: rel, reason: `under ${MIN_BYTES} bytes` });
+      continue;
+    }
     const content = fs.readFileSync(abs);
     docs.push({
       id: rel,
@@ -127,7 +141,8 @@ export function buildCorpus(startDir: string): Corpus {
   const byHash = new Map<string, string[]>();
   for (const d of docs) {
     const arr = byHash.get(d.sha256);
-    if (arr) arr.push(d.id); else byHash.set(d.sha256, [d.id]);
+    if (arr) arr.push(d.id);
+    else byHash.set(d.sha256, [d.id]);
   }
   const canonicalOf = new Map<string, string>();
   let duplicateGroups = 0;
@@ -141,8 +156,14 @@ export function buildCorpus(startDir: string): Corpus {
   for (const d of docs) h.update(d.id).update('\0').update(d.sha256).update('\n');
 
   return {
-    docs, corpusHash: h.digest('hex').slice(0, 16), repoRoot, excluded,
-    canonicalOf, contentUnits: byHash.size, duplicateGroups, appleDoubleCount,
+    docs,
+    corpusHash: h.digest('hex').slice(0, 16),
+    repoRoot,
+    excluded,
+    canonicalOf,
+    contentUnits: byHash.size,
+    duplicateGroups,
+    appleDoubleCount,
   };
 }
 

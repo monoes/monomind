@@ -3,10 +3,10 @@
  * Session management for Monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { output } from '../output.js';
 import { confirm, input, select } from '../prompt.js';
-import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Format date for display
 function formatDate(dateStr: string): string {
@@ -26,7 +26,7 @@ function formatDate(dateStr: string): string {
   }
 
   // Otherwise show date
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 }
 
 // Format session status
@@ -54,30 +54,31 @@ const listCommand: Command = {
       short: 'a',
       description: 'Show only active sessions',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'all',
       description: 'Include archived sessions',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'limit',
       short: 'l',
       description: 'Maximum sessions to show',
       type: 'number',
-      default: 20
-    }
+      default: 20,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const activeOnly = ctx.flags.active as boolean;
     const includeArchived = ctx.flags.all as boolean;
     const rawLimit = ctx.flags.limit as number;
     // Cap limit to prevent unbounded MCP calls
-    const limit = typeof rawLimit === 'number' && Number.isFinite(rawLimit)
-      ? Math.max(1, Math.min(Math.floor(rawLimit), 200))
-      : 20;
+    const limit =
+      typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+        ? Math.max(1, Math.min(Math.floor(rawLimit), 200))
+        : 20;
 
     try {
       const result = await callMCPTool<{
@@ -95,7 +96,7 @@ const listCommand: Command = {
         total: number;
       }>('session_list', {
         status: activeOnly ? 'active' : includeArchived ? 'all' : 'active,saved',
-        limit
+        limit,
       });
 
       if (ctx.flags.format === 'json') {
@@ -120,16 +121,16 @@ const listCommand: Command = {
           { key: 'status', header: 'Status', width: 10 },
           { key: 'agents', header: 'Agents', width: 8, align: 'right' },
           { key: 'tasks', header: 'Tasks', width: 8, align: 'right' },
-          { key: 'updated', header: 'Last Updated', width: 18 }
+          { key: 'updated', header: 'Last Updated', width: 18 },
         ],
-        data: result.sessions.map(s => ({
+        data: result.sessions.map((s) => ({
           id: s.id,
           name: s.name || '-',
           status: formatStatus(s.status),
           agents: s.agentCount,
           tasks: s.taskCount,
-          updated: formatDate(s.updatedAt)
-        }))
+          updated: formatDate(s.updatedAt),
+        })),
       });
 
       output.writeln();
@@ -144,7 +145,7 @@ const listCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Save subcommand
@@ -157,32 +158,32 @@ const saveCommand: Command = {
       name: 'name',
       short: 'n',
       description: 'Session name',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'description',
       short: 'd',
       description: 'Session description',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'include-memory',
       description: 'Include memory state in session',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'include-agents',
       description: 'Include agent state in session',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'include-tasks',
       description: 'Include task state in session',
       type: 'boolean',
-      default: true
-    }
+      default: true,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let sessionName = ctx.flags.name as string;
@@ -193,14 +194,14 @@ const saveCommand: Command = {
       sessionName = await input({
         message: 'Session name:',
         default: `session-${Date.now().toString(36)}`,
-        validate: (v) => v.length > 0 || 'Name is required'
+        validate: (v) => v.length > 0 || 'Name is required',
       });
     }
 
     if (!description && ctx.interactive) {
       description = await input({
         message: 'Session description (optional):',
-        default: ''
+        default: '',
       });
     }
 
@@ -237,7 +238,7 @@ const saveCommand: Command = {
         description,
         includeMemory: ctx.flags['include-memory'] !== false,
         includeAgents: ctx.flags['include-agents'] !== false,
-        includeTasks: ctx.flags['include-tasks'] !== false
+        includeTasks: ctx.flags['include-tasks'] !== false,
       });
 
       spinner.succeed('Session saved');
@@ -246,7 +247,7 @@ const saveCommand: Command = {
       output.printTable({
         columns: [
           { key: 'property', header: 'Property', width: 18 },
-          { key: 'value', header: 'Value', width: 35 }
+          { key: 'value', header: 'Value', width: 35 },
         ],
         data: [
           { property: 'Session ID', value: result.sessionId },
@@ -256,8 +257,8 @@ const saveCommand: Command = {
           { property: 'Agents', value: result.stats.agentCount },
           { property: 'Tasks', value: result.stats.taskCount },
           { property: 'Memory Entries', value: result.stats.memoryEntries },
-          { property: 'Total Size', value: formatSize(result.stats.totalSize) }
-        ]
+          { property: 'Total Size', value: formatSize(result.stats.totalSize) },
+        ],
       });
 
       output.writeln();
@@ -278,7 +279,7 @@ const saveCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Restore subcommand
@@ -292,26 +293,26 @@ const restoreCommand: Command = {
       short: 'f',
       description: 'Overwrite current state without confirmation',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'memory-only',
       description: 'Only restore memory state',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'agents-only',
       description: 'Only restore agent state',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'tasks-only',
       description: 'Only restore task state',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let sessionId = ctx.args[0];
@@ -331,11 +332,11 @@ const restoreCommand: Command = {
 
         sessionId = await select({
           message: 'Select session to restore:',
-          options: sessions.sessions.map(s => ({
+          options: sessions.sessions.map((s) => ({
             value: s.id,
             label: s.name || s.id,
-            hint: formatDate(s.updatedAt)
-          }))
+            hint: formatDate(s.updatedAt),
+          })),
         });
       } catch (error) {
         if (error instanceof Error && error.message === 'User cancelled') {
@@ -355,7 +356,7 @@ const restoreCommand: Command = {
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
         message: 'This will overwrite current state. Continue?',
-        default: false
+        default: false,
       });
 
       if (!confirmed) {
@@ -390,7 +391,7 @@ const restoreCommand: Command = {
         sessionId,
         restoreMemory,
         restoreAgents,
-        restoreTasks
+        restoreTasks,
       });
 
       spinner.succeed('Session restored');
@@ -400,25 +401,25 @@ const restoreCommand: Command = {
         columns: [
           { key: 'component', header: 'Component', width: 20 },
           { key: 'status', header: 'Status', width: 15 },
-          { key: 'count', header: 'Items', width: 10, align: 'right' }
+          { key: 'count', header: 'Items', width: 10, align: 'right' },
         ],
         data: [
           {
             component: 'Memory',
             status: result.restored.memory ? output.success('Restored') : output.dim('Skipped'),
-            count: result.stats.memoryEntriesRestored
+            count: result.stats.memoryEntriesRestored,
           },
           {
             component: 'Agents',
             status: result.restored.agents ? output.success('Restored') : output.dim('Skipped'),
-            count: result.stats.agentsRestored
+            count: result.stats.agentsRestored,
           },
           {
             component: 'Tasks',
             status: result.restored.tasks ? output.success('Restored') : output.dim('Skipped'),
-            count: result.stats.tasksRestored
-          }
-        ]
+            count: result.stats.tasksRestored,
+          },
+        ],
       });
 
       output.writeln();
@@ -438,7 +439,7 @@ const restoreCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Delete subcommand
@@ -452,8 +453,8 @@ const deleteCommand: Command = {
       short: 'f',
       description: 'Delete without confirmation',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const sessionId = ctx.args[0];
@@ -467,7 +468,7 @@ const deleteCommand: Command = {
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
         message: `Delete session ${sessionId}? This cannot be undone.`,
-        default: false
+        default: false,
       });
 
       if (!confirmed) {
@@ -499,7 +500,7 @@ const deleteCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Current subcommand
@@ -533,7 +534,7 @@ const currentCommand: Command = {
       output.printTable({
         columns: [
           { key: 'property', header: 'Property', width: 18 },
-          { key: 'value', header: 'Value', width: 35 }
+          { key: 'value', header: 'Value', width: 35 },
         ],
         data: [
           { property: 'Session ID', value: result.sessionId },
@@ -543,8 +544,8 @@ const currentCommand: Command = {
           { property: 'Duration', value: formatDuration(result.stats.duration) },
           { property: 'Agents', value: result.stats.agentCount },
           { property: 'Tasks', value: result.stats.taskCount },
-          { property: 'Memory Entries', value: result.stats.memoryEntries }
-        ]
+          { property: 'Memory Entries', value: result.stats.memoryEntries },
+        ],
       });
 
       return { success: true, data: result };
@@ -557,16 +558,14 @@ const currentCommand: Command = {
       output.printError(`Unexpected error: ${String(error)}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Replay subcommand (session replay and inspection, merged from `replay` command)
 const replayShowCommand: Command = {
   name: 'show',
   description: 'Show replay for a session',
-  options: [
-    { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
-  ],
+  options: [{ name: 'json', type: 'boolean', description: 'Output as JSON', default: false }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Cap session ID to prevent DoS via oversized string and unbounded output reflection.
     const sessionId = (ctx.args[0] || '').slice(0, 128);
@@ -584,7 +583,7 @@ const replayShowCommand: Command = {
         return { success: true, message: 'No replay data' };
       }
 
-      if (ctx.flags['json'] as boolean) {
+      if (ctx.flags.json as boolean) {
         output.writeln(JSON.stringify(data, null, 2));
         return { success: true, data };
       }
@@ -592,9 +591,10 @@ const replayShowCommand: Command = {
       // Human-readable summary derived from the session replay data
       const started = new Date(data.startedAt);
       const ended = data.endedAt ? new Date(data.endedAt) : null;
-      const duration = ended && !isNaN(started.getTime()) && !isNaN(ended.getTime())
-        ? formatDuration(ended.getTime() - started.getTime())
-        : 'in progress';
+      const duration =
+        ended && !Number.isNaN(started.getTime()) && !Number.isNaN(ended.getTime())
+          ? formatDuration(ended.getTime() - started.getTime())
+          : 'in progress';
 
       output.writeln();
       output.writeln(output.bold(`Replay: ${data.id}`));
@@ -602,23 +602,30 @@ const replayShowCommand: Command = {
       output.printTable({
         columns: [
           { key: 'property', header: 'Property', width: 18 },
-          { key: 'value', header: 'Value', width: 45 }
+          { key: 'value', header: 'Value', width: 45 },
         ],
         data: [
-          { property: 'Started', value: isNaN(started.getTime()) ? data.startedAt : started.toLocaleString() },
+          {
+            property: 'Started',
+            value: Number.isNaN(started.getTime()) ? data.startedAt : started.toLocaleString(),
+          },
           { property: 'Ended', value: ended ? ended.toLocaleString() : '-' },
           { property: 'Duration', value: duration },
           { property: 'Tasks', value: data.taskCount != null ? String(data.taskCount) : '-' },
-          { property: 'Tokens', value: data.tokenUsage?.total != null ? String(data.tokenUsage.total) : '-' },
-          { property: 'File', value: data.filePath }
-        ]
+          {
+            property: 'Tokens',
+            value: data.tokenUsage?.total != null ? String(data.tokenUsage.total) : '-',
+          },
+          { property: 'File', value: data.filePath },
+        ],
       });
 
       // Key steps: surface recorded metrics from the raw session data if present
       const metrics = data.raw?.metrics;
       if (metrics && typeof metrics === 'object') {
-        const entries = Object.entries(metrics as Record<string, unknown>)
-          .filter(([, v]) => typeof v === 'number' || typeof v === 'string');
+        const entries = Object.entries(metrics as Record<string, unknown>).filter(
+          ([, v]) => typeof v === 'number' || typeof v === 'string',
+        );
         if (entries.length > 0) {
           output.writeln();
           output.writeln(output.bold('Metrics'));
@@ -645,14 +652,15 @@ const replayListCommand: Command = {
     try {
       const { ReplayReader } = await import('../observability/replay-reader.js');
       const reader = new ReplayReader();
-      const rawLimit = ctx.flags['limit'] as number;
+      const rawLimit = ctx.flags.limit as number;
       // Cap limit to prevent DoS
-      const limit = typeof rawLimit === 'number' && Number.isFinite(rawLimit)
-        ? Math.max(1, Math.min(Math.floor(rawLimit), 500))
-        : 20;
+      const limit =
+        typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+          ? Math.max(1, Math.min(Math.floor(rawLimit), 500))
+          : 20;
       const data = await reader.list(limit);
 
-      if (ctx.flags['json'] as boolean) {
+      if (ctx.flags.json as boolean) {
         output.writeln(JSON.stringify(data, null, 2));
         return { success: true, data };
       }
@@ -670,14 +678,14 @@ const replayListCommand: Command = {
           { key: 'id', header: 'ID', width: 26 },
           { key: 'started', header: 'Started', width: 20 },
           { key: 'ended', header: 'Ended', width: 20 },
-          { key: 'tasks', header: 'Tasks', width: 8, align: 'right' }
+          { key: 'tasks', header: 'Tasks', width: 8, align: 'right' },
         ],
-        data: data.map(s => ({
+        data: data.map((s) => ({
           id: s.id,
           started: formatDate(s.startedAt),
           ended: s.endedAt ? formatDate(s.endedAt) : '-',
-          tasks: s.taskCount != null ? String(s.taskCount) : '-'
-        }))
+          tasks: s.taskCount != null ? String(s.taskCount) : '-',
+        })),
       });
       output.writeln();
       output.printInfo('Show details with: monomind session replay show <sessionId>');
@@ -701,7 +709,7 @@ const replayCommand: Command = {
     output.writeln('Usage: monomind session replay <show|list> [options]');
     output.printList([
       `${output.highlight('show <sessionId>')} - Show replay for a session`,
-      `${output.highlight('list')}             - List available session replays`
+      `${output.highlight('list')}             - List available session replays`,
     ]);
     return { success: true };
   },
@@ -713,7 +721,7 @@ function formatSize(bytes: number): string {
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
 function formatDuration(ms: number): string {
@@ -739,7 +747,7 @@ export const sessionCommand: Command = {
     restoreCommand,
     deleteCommand,
     currentCommand,
-    replayCommand
+    replayCommand,
   ],
   options: [],
   examples: [
@@ -749,9 +757,12 @@ export const sessionCommand: Command = {
     { command: 'monomind session delete session-123', description: 'Delete a session' },
     { command: 'monomind session current', description: 'Show current session' },
     { command: 'monomind session replay list', description: 'List available session replays' },
-    { command: 'monomind session replay show session-123', description: 'Show replay for a session' }
+    {
+      command: 'monomind session replay show session-123',
+      description: 'Show replay for a session',
+    },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     // Show help if no subcommand
     output.writeln();
     output.writeln(output.bold('Session Management Commands'));
@@ -765,13 +776,13 @@ export const sessionCommand: Command = {
       `${output.highlight('restore')} - Restore a saved session`,
       `${output.highlight('delete')}  - Delete a saved session`,
       `${output.highlight('current')} - Show current active session`,
-      `${output.highlight('replay')}  - Session replay and inspection (show, list)`
+      `${output.highlight('replay')}  - Session replay and inspection (show, list)`,
     ]);
     output.writeln();
     output.writeln('Run "monomind session <subcommand> --help" for subcommand help');
 
     return { success: true };
-  }
+  },
 };
 
 export default sessionCommand;
