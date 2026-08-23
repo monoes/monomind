@@ -4,6 +4,23 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+### Security
+
+- Replaced the abandoned `ollama-ai-provider` (v1) dependency with the
+  actively maintained `ollama-ai-provider-v2`, removing a transitive
+  dependency on `@ai-sdk/provider-utils@2.2.8`, which is within the
+  vulnerable range of
+  [GHSA-866g-f22w-33x8](https://github.com/advisories/GHSA-866g-f22w-33x8)
+  (CVE-2026-8769, uncontrolled resource consumption in
+  `createJsonResponseHandler`/`createJsonErrorResponseHandler`, low
+  severity). The old package's dependency range (`^2.0.0`) could not be
+  bumped past the vulnerable line without a major version the upstream
+  package never released. The replacement targets `@ai-sdk/provider-utils@^5.0.5`
+  — the same major generation every other provider in this repo already
+  uses — so it also consolidates a duplicate old dependency subtree rather
+  than adding one. Drop-in: same exported factory (`createOllama`) and
+  callable-provider shape; no call-site changes needed.
+
 ## [2.9.23] — 2026-08-22
 
 ### Fixed

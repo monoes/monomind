@@ -132,7 +132,17 @@ export const VERCEL_PROVIDERS: Record<string, VercelProviderDef> = {
   },
   ollama: {
     vendor: 'ollama',
-    package: 'ollama-ai-provider',
+    // ollama-ai-provider (v1, abandoned) pinned @ai-sdk/provider-utils@^2.0.0,
+    // which is entirely within the vulnerable range of GHSA-866g-f22w-33x8
+    // (uncontrolled resource consumption in createJsonResponseHandler) with
+    // no fix possible short of a major bump. ollama-ai-provider-v2 is the
+    // actively maintained fork targeting @ai-sdk/provider-utils@^5.0.5 — the
+    // same provider-utils major version every other provider here already
+    // uses (@ai-sdk/openai et al. all sit on @ai-sdk/provider@4.x), so this
+    // also removes a duplicate old dependency subtree rather than adding one.
+    // Same exported factory name (createOllama) and callable-provider shape
+    // (provider(modelId) => LanguageModelV4) — drop-in, no call-site changes.
+    package: 'ollama-ai-provider-v2',
     factory: 'createOllama',
     defaultModel: 'llama3.3',
     envVar: '',
