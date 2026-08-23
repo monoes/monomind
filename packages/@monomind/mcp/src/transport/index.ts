@@ -4,34 +4,28 @@
  * Central factory for creating transport instances
  */
 
-import type {
-  ITransport,
-  TransportType,
-  TransportHealthStatus,
-  ILogger,
-} from '../types.js';
-import { StdioTransport, StdioTransportConfig, createStdioTransport } from './stdio.js';
-import { HttpTransport, HttpTransportConfig, createHttpTransport } from './http.js';
-import { WebSocketTransport, WebSocketTransportConfig, createWebSocketTransport } from './websocket.js';
+import type { ILogger, ITransport, TransportHealthStatus, TransportType } from '../types.js';
+import { createHttpTransport, type HttpTransportConfig } from './http.js';
+import { createStdioTransport, type StdioTransportConfig } from './stdio.js';
+import { createWebSocketTransport, type WebSocketTransportConfig } from './websocket.js';
 
-export { StdioTransport } from './stdio.js';
+export type { HttpTransportConfig } from './http.js';
 export { HttpTransport } from './http.js';
+export type { StdioTransportConfig } from './stdio.js';
+export { StdioTransport } from './stdio.js';
+export type { WebSocketTransportConfig } from './websocket.js';
 export { WebSocketTransport } from './websocket.js';
 
-export type { StdioTransportConfig } from './stdio.js';
-export type { HttpTransportConfig } from './http.js';
-export type { WebSocketTransportConfig } from './websocket.js';
-
 export type TransportConfig =
-  | { type: 'stdio' } & StdioTransportConfig
-  | { type: 'http' } & HttpTransportConfig
-  | { type: 'websocket' } & WebSocketTransportConfig
+  | ({ type: 'stdio' } & StdioTransportConfig)
+  | ({ type: 'http' } & HttpTransportConfig)
+  | ({ type: 'websocket' } & WebSocketTransportConfig)
   | { type: 'in-process' };
 
 export function createTransport(
   type: TransportType,
   logger: ILogger,
-  config?: Partial<TransportConfig>
+  config?: Partial<TransportConfig>,
 ): ITransport {
   switch (type) {
     case 'stdio':
@@ -142,17 +136,15 @@ export class TransportManager {
 
     this.logger.info('Starting all transports', { count: this.transports.size });
 
-    const startPromises = Array.from(this.transports.entries()).map(
-      async ([name, transport]) => {
-        try {
-          await transport.start();
-          this.logger.info('Transport started', { name, type: transport.type });
-        } catch (error) {
-          this.logger.error('Failed to start transport', { name, error });
-          throw error;
-        }
+    const startPromises = Array.from(this.transports.entries()).map(async ([name, transport]) => {
+      try {
+        await transport.start();
+        this.logger.info('Transport started', { name, type: transport.type });
+      } catch (error) {
+        this.logger.error('Failed to start transport', { name, error });
+        throw error;
       }
-    );
+    });
 
     await Promise.all(startPromises);
     this.running = true;
@@ -166,16 +158,14 @@ export class TransportManager {
 
     this.logger.info('Stopping all transports');
 
-    const stopPromises = Array.from(this.transports.entries()).map(
-      async ([name, transport]) => {
-        try {
-          await transport.stop();
-          this.logger.info('Transport stopped', { name });
-        } catch (error) {
-          this.logger.error('Error stopping transport', { name, error });
-        }
+    const stopPromises = Array.from(this.transports.entries()).map(async ([name, transport]) => {
+      try {
+        await transport.stop();
+        this.logger.info('Transport stopped', { name });
+      } catch (error) {
+        this.logger.error('Error stopping transport', { name, error });
       }
-    );
+    });
 
     await Promise.all(stopPromises);
     this.running = false;

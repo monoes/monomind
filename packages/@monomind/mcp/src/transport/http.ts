@@ -4,26 +4,25 @@
  * HTTP/REST transport with WebSocket support
  */
 
-import { EventEmitter } from 'events';
-import { validateCredential, type AuthValidationResult } from '../auth.js';
-import express, { Express, Request, Response, NextFunction } from 'express';
-import { createServer, Server } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import { EventEmitter } from 'node:events';
+import { createServer, type Server } from 'node:http';
+import type { Socket } from 'node:net';
 import cors from 'cors';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
-import type { Socket } from 'net';
+import { WebSocket, WebSocketServer } from 'ws';
+import { type AuthValidationResult, validateCredential } from '../auth.js';
 import type {
-  ITransport,
-  TransportType,
-  MCPRequest,
-  MCPResponse,
-  MCPNotification,
-  RequestHandler,
-  NotificationHandler,
-  ConnectionCloseHandler,
-  TransportHealthStatus,
-  ILogger,
   AuthConfig,
+  ConnectionCloseHandler,
+  ILogger,
+  ITransport,
+  MCPNotification,
+  MCPRequest,
+  NotificationHandler,
+  RequestHandler,
+  TransportHealthStatus,
+  TransportType,
 } from '../types.js';
 
 export interface HttpTransportConfig {
@@ -66,7 +65,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
   constructor(
     private readonly logger: ILogger,
-    private readonly config: HttpTransportConfig
+    private readonly config: HttpTransportConfig,
   ) {
     super();
     this.app = express();
@@ -101,10 +100,10 @@ export class HttpTransport extends EventEmitter implements ITransport {
     this.setupWebSocketHandlers();
 
     await new Promise<void>((resolve, reject) => {
-      this.server!.listen(this.config.port, bindHost, () => {
+      this.server?.listen(this.config.port, bindHost, () => {
         resolve();
       });
-      this.server!.on('error', reject);
+      this.server?.on('error', reject);
     });
 
     this.running = true;
@@ -145,7 +144,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
         `SECURITY WARNING: HTTP transport is binding to non-loopback host "${configuredHost}" ` +
           'with NO authentication configured. MONOMIND_MCP_ALLOW_REMOTE=1 opt-in detected — ' +
           'every request will be processed unauthenticated. This exposes every registered tool ' +
-          'to anyone who can reach this host/port.'
+          'to anyone who can reach this host/port.',
       );
       return configuredHost;
     }
@@ -153,7 +152,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
     this.logger.warn(
       `SECURITY: refusing to bind HTTP transport to non-loopback host "${configuredHost}" with ` +
         'no "auth" configured. Falling back to 127.0.0.1. Set MONOMIND_MCP_ALLOW_REMOTE=1 to ' +
-        'override (unsafe) or configure "auth" with tokens.'
+        'override (unsafe) or configure "auth" with tokens.',
     );
     return '127.0.0.1';
   }
@@ -208,7 +207,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
     if (this.server) {
       await new Promise<void>((resolve) => {
-        this.server!.close(() => resolve());
+        this.server?.close(() => resolve());
       });
       this.server = undefined;
     }
@@ -294,9 +293,11 @@ export class HttpTransport extends EventEmitter implements ITransport {
   }
 
   private setupMiddleware(): void {
-    this.app.use(helmet({
-      contentSecurityPolicy: false,
-    }));
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: false,
+      }),
+    );
 
     if (this.config.corsEnabled !== false) {
       const allowedOrigins = this.config.corsOrigins;
@@ -305,36 +306,40 @@ export class HttpTransport extends EventEmitter implements ITransport {
         this.logger.warn('CORS: No origins configured, restricting to same-origin only');
       }
 
-      this.app.use(cors({
-        origin: (origin, callback) => {
-          if (!origin) {
-            callback(null, true);
-            return;
-          }
-
-          if (allowedOrigins && allowedOrigins.length > 0) {
-            if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      this.app.use(
+        cors({
+          origin: (origin, callback) => {
+            if (!origin) {
               callback(null, true);
-            } else {
-              callback(new Error(`CORS: Origin '${origin}' not allowed`));
+              return;
             }
-          } else {
-            callback(new Error('CORS: Cross-origin requests not allowed'));
-          }
-        },
-        credentials: true,
-        maxAge: 86400,
-        methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
-      }));
+
+            if (allowedOrigins && allowedOrigins.length > 0) {
+              if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+                callback(null, true);
+              } else {
+                callback(new Error(`CORS: Origin '${origin}' not allowed`));
+              }
+            } else {
+              callback(new Error('CORS: Cross-origin requests not allowed'));
+            }
+          },
+          credentials: true,
+          maxAge: 86400,
+          methods: ['GET', 'POST', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+        }),
+      );
     }
 
-    this.app.use(express.json({
-      limit: this.config.maxRequestSize || '10mb',
-    }));
+    this.app.use(
+      express.json({
+        limit: this.config.maxRequestSize || '10mb',
+      }),
+    );
 
     if (this.config.requestTimeout) {
-      this.app.use((req, res, next) => {
+      this.app.use((_req, res, next) => {
         res.setTimeout(this.config.requestTimeout!, () => {
           res.status(408).json({
             jsonrpc: '2.0',
@@ -362,7 +367,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
   }
 
   private setupRoutes(): void {
-    this.app.get('/health', (req, res) => {
+    this.app.get('/health', (_req, res) => {
       res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -378,7 +383,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
       await this.handleHttpRequest(req, res);
     });
 
-    this.app.get('/info', (req, res) => {
+    this.app.get('/info', (_req, res) => {
       res.json({
         name: 'Monomind MCP Server V1',
         version: '3.0.0',
@@ -397,7 +402,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
       });
     });
 
-    this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    this.app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
       this.logger.error('Express error', { error: err });
       this.errors++;
       res.status(500).json({
@@ -432,13 +437,16 @@ export class HttpTransport extends EventEmitter implements ITransport {
         // present but doesn't already carry it, same as the query-fallback case
         // right below already does.
         const authHeaderWithScheme = authHeader
-          ? (/^Bearer\s+/i.test(authHeader) ? authHeader : `Bearer ${authHeader}`)
+          ? /^Bearer\s+/i.test(authHeader)
+            ? authHeader
+            : `Bearer ${authHeader}`
           : undefined;
         // synthesize a Bearer header from the query fallback so this goes
         // through the SAME validateCredential() the HTTP path uses — the
         // previous inline loop only ever checked `auth.tokens`, so an
         // `api-key`-configured server silently rejected every WS client.
-        const effectiveAuthHeader = authHeaderWithScheme ?? (fromQuery ? `Bearer ${fromQuery}` : undefined);
+        const effectiveAuthHeader =
+          authHeaderWithScheme ?? (fromQuery ? `Bearer ${fromQuery}` : undefined);
 
         const authResult = validateCredential(this.config.auth, effectiveAuthHeader, apiKeyHeader);
         if (!authResult.valid) {
@@ -514,7 +522,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
       this.logger.warn(
         'SECURITY WARNING: MCP HTTP transport has no auth policy configured; ' +
           'this request is being processed without checking any credentials. ' +
-          'Set an auth policy with tokens to require authentication.'
+          'Set an auth policy with tokens to require authentication.',
       );
     }
 
@@ -534,7 +542,8 @@ export class HttpTransport extends EventEmitter implements ITransport {
           id: null,
           error: {
             code: -32600,
-            message: 'Invalid request: expected a JSON object body with Content-Type: application/json',
+            message:
+              'Invalid request: expected a JSON object body with Content-Type: application/json',
           },
         });
         return;
@@ -619,11 +628,13 @@ export class HttpTransport extends EventEmitter implements ITransport {
       const message = JSON.parse(data);
 
       if (message.jsonrpc !== '2.0') {
-        ws.send(JSON.stringify({
-          jsonrpc: '2.0',
-          id: message.id || null,
-          error: { code: -32600, message: 'Invalid JSON-RPC version' },
-        }));
+        ws.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: message.id || null,
+            error: { code: -32600, message: 'Invalid JSON-RPC version' },
+          }),
+        );
         return;
       }
 
@@ -633,11 +644,13 @@ export class HttpTransport extends EventEmitter implements ITransport {
         }
       } else {
         if (!this.requestHandler) {
-          ws.send(JSON.stringify({
-            jsonrpc: '2.0',
-            id: message.id,
-            error: { code: -32603, message: 'No request handler' },
-          }));
+          ws.send(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id: message.id,
+              error: { code: -32603, message: 'No request handler' },
+            }),
+          );
           return;
         }
 
@@ -651,17 +664,21 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
       try {
         const parsed = JSON.parse(data);
-        ws.send(JSON.stringify({
-          jsonrpc: '2.0',
-          id: parsed.id || null,
-          error: { code: -32700, message: 'Parse error' },
-        }));
+        ws.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: parsed.id || null,
+            error: { code: -32700, message: 'Parse error' },
+          }),
+        );
       } catch {
-        ws.send(JSON.stringify({
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32700, message: 'Parse error' },
-        }));
+        ws.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: null,
+            error: { code: -32700, message: 'Parse error' },
+          }),
+        );
       }
     }
   }
@@ -675,9 +692,6 @@ export class HttpTransport extends EventEmitter implements ITransport {
   }
 }
 
-export function createHttpTransport(
-  logger: ILogger,
-  config: HttpTransportConfig
-): HttpTransport {
+export function createHttpTransport(logger: ILogger, config: HttpTransportConfig): HttpTransport {
   return new HttpTransport(logger, config);
 }

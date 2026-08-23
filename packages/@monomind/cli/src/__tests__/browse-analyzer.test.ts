@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { EventEmitter } from 'node:events';
 import type { AnalyzerPage } from '@monoes/monobrowse';
-import { EventEmitter } from 'events';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock child_process.spawn so tests don't invoke the real claude CLI
 vi.mock('child_process', async (importOriginal) => {
@@ -9,7 +9,7 @@ vi.mock('child_process', async (importOriginal) => {
 });
 
 async function makeSpawnMock(stdout: string, exitCode = 0) {
-  const { spawn } = vi.mocked(await import('child_process'));
+  const { spawn } = vi.mocked(await import('node:child_process'));
   spawn.mockImplementationOnce(() => {
     const proc = new EventEmitter() as any;
     proc.stdout = new EventEmitter();

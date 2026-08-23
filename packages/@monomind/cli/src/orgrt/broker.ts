@@ -2,11 +2,16 @@
 // monolean: file-based local broker for cross-process org discovery (different
 // `monomind org` processes / project directories, same machine). Upgrade path:
 // a real network registry when cross-machine discovery is needed.
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-export interface BrokerEntry { url: string; pid: number; updatedAt: number; credential?: string; }
+export interface BrokerEntry {
+  url: string;
+  pid: number;
+  updatedAt: number;
+  credential?: string;
+}
 
 // DNS label limits: 1-63 chars, must start alphanumerically (RFC 1034 + RFC 1123)
 // Requires at least 2 chars total (backward compatibility with original regex)
@@ -34,10 +39,20 @@ function entryPath(name: string, dir: string): string {
 /** Publish that this process hosts org `name`, reachable via `url`. Call again periodically (heartbeat) — see BrokerLease.
  *  Writes via tmp+rename (same-directory rename is atomic on POSIX/NTFS) so a concurrent lookupOrg() never observes a
  *  partially-written entry — this file is rewritten every heartbeat (default 20s) while other processes may read it. */
-export function registerOrg(name: string, url: string, dir = defaultRegistryDir(), credential?: string): void {
+export function registerOrg(
+  name: string,
+  url: string,
+  dir = defaultRegistryDir(),
+  credential?: string,
+): void {
   mkdirSync(dir, { recursive: true });
   const normalizedCred = normalizeCredential(credential);
-  const entry: BrokerEntry = { url, pid: process.pid, updatedAt: Date.now(), ...(normalizedCred ? { credential: normalizedCred } : {}) };
+  const entry: BrokerEntry = {
+    url,
+    pid: process.pid,
+    updatedAt: Date.now(),
+    ...(normalizedCred ? { credential: normalizedCred } : {}),
+  };
   const dest = entryPath(name, dir);
   const tmp = `${dest}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(entry));
@@ -46,11 +61,19 @@ export function registerOrg(name: string, url: string, dir = defaultRegistryDir(
 
 /** Remove this process's registration for `name` (best effort). */
 export function unregisterOrg(name: string, dir = defaultRegistryDir()): void {
-  try { unlinkSync(entryPath(name, dir)); } catch { /* already gone */ }
+  try {
+    unlinkSync(entryPath(name, dir));
+  } catch {
+    /* already gone */
+  }
 }
 
 /** Find which process (if any) currently hosts org `name`. Null if never registered or the registration is stale (owner crashed without cleanup). */
-export function lookupOrg(name: string, dir = defaultRegistryDir(), staleMs = DEFAULT_STALE_MS): BrokerEntry | null {
+export function lookupOrg(
+  name: string,
+  dir = defaultRegistryDir(),
+  staleMs = DEFAULT_STALE_MS,
+): BrokerEntry | null {
   try {
     const entry = JSON.parse(readFileSync(entryPath(name, dir), 'utf8')) as BrokerEntry;
     if (Date.now() - entry.updatedAt >= staleMs) return null;
@@ -74,7 +97,10 @@ export class BrokerLease {
 
   start(): void {
     registerOrg(this.name, this.url, this.dir, this.credential);
-    this.timer = setInterval(() => registerOrg(this.name, this.url, this.dir, this.credential), this.intervalMs);
+    this.timer = setInterval(
+      () => registerOrg(this.name, this.url, this.dir, this.credential),
+      this.intervalMs,
+    );
     this.timer.unref?.();
   }
 

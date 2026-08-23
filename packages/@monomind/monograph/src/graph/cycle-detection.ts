@@ -101,8 +101,8 @@ function enumerateElementaryCycles(
   succRanges: Map<number, [number, number]>,
   maxCycles: number,
   idToPath: Map<number, string>,
-  skipTypeOnly: boolean,
-  typeOnlyEdges: Set<string>,
+  _skipTypeOnly: boolean,
+  _typeOnlyEdges: Set<string>,
 ): number[][] {
   const sccSet = new Set(sccNodes);
   const cycles: number[][] = [];
@@ -289,11 +289,12 @@ export function findCycles(
     return pa < pb ? -1 : pa > pb ? 1 : 0;
   });
 
-  return result.map(cycle => ({
+  return result.map((cycle) => ({
     // slice() instead of spread to avoid iterator overhead
-    files: cycle.slice()
+    files: cycle
+      .slice()
       .sort((a, b) => (idToPath.get(a) ?? '').localeCompare(idToPath.get(b) ?? ''))
-      .map(id => idToPath.get(id) ?? String(id)),
+      .map((id) => idToPath.get(id) ?? String(id)),
     length: cycle.length,
   }));
 }

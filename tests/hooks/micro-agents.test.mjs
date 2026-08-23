@@ -2,18 +2,19 @@
  * Tests for .claude/helpers/utils/micro-agents.cjs
  * Depends on ./monograph.cjs → ./telemetry.cjs; invalidate all three caches.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-const TELE_PATH  = path.resolve(__dirname, '../../.claude/helpers/utils/telemetry.cjs');
-const MONO_PATH  = path.resolve(__dirname, '../../.claude/helpers/utils/monograph.cjs');
+const TELE_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/telemetry.cjs');
+const MONO_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/monograph.cjs');
 const MICRO_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/micro-agents.cjs');
 
 function loadMicroAgents(cwd) {
@@ -70,7 +71,10 @@ describe('micro-agents._triggerExtractYamlValue', () => {
 describe('micro-agents._triggerFinalize', () => {
   it('returns object with pattern, mode, priority, agentSlug', () => {
     const ma = loadMicroAgents(tmpDir);
-    const result = ma._triggerFinalize({ pattern: 'auth.*', mode: 'inject', priority: 5 }, 'my-agent');
+    const result = ma._triggerFinalize(
+      { pattern: 'auth.*', mode: 'inject', priority: 5 },
+      'my-agent',
+    );
     expect(result.pattern).toBe('auth.*');
     expect(result.mode).toBe('inject');
     expect(result.priority).toBe(5);
@@ -117,7 +121,8 @@ describe('micro-agents._triggerExtractFromFrontmatter', () => {
 
   it('extracts multiple trigger patterns', () => {
     const ma = loadMicroAgents(tmpDir);
-    const content = '---\ntriggers:\n  - pattern: auth\n    mode: inject\n  - pattern: security\n    mode: takeover\n    priority: 10\n---';
+    const content =
+      '---\ntriggers:\n  - pattern: auth\n    mode: inject\n  - pattern: security\n    mode: takeover\n    priority: 10\n---';
     const result = ma._triggerExtractFromFrontmatter(content, 'agent');
     expect(result.length).toBe(2);
     expect(result[1].priority).toBe(10);
@@ -125,7 +130,8 @@ describe('micro-agents._triggerExtractFromFrontmatter', () => {
 
   it('extracts takeover mode correctly', () => {
     const ma = loadMicroAgents(tmpDir);
-    const content = '---\ntriggers:\n  - pattern: "\\\\bsecurity\\\\b"\n    mode: takeover\n    priority: 100\n---';
+    const content =
+      '---\ntriggers:\n  - pattern: "\\\\bsecurity\\\\b"\n    mode: takeover\n    priority: 100\n---';
     const result = ma._triggerExtractFromFrontmatter(content, 'security');
     expect(result.length).toBe(1);
     expect(result[0].mode).toBe('takeover');
@@ -150,7 +156,7 @@ describe('micro-agents._triggerCollectMdFiles', () => {
     fs.writeFileSync(path.join(agentDir, 'config.json'), '{}'); // non-md, should not appear
     const result = ma._triggerCollectMdFiles(agentDir);
     expect(result.length).toBe(2);
-    result.forEach(f => expect(f).toMatch(/\.md$/));
+    result.forEach((f) => expect(f).toMatch(/\.md$/));
   });
 
   it('recursively finds .md files in subdirectories', () => {
@@ -185,7 +191,8 @@ describe('micro-agents._triggerBuildIndex', () => {
     const ma = loadMicroAgents(tmpDir);
     const agentDir = path.join(tmpDir, '.claude', 'agents');
     fs.mkdirSync(agentDir, { recursive: true });
-    const content = '---\ntriggers:\n  - pattern: "fix.*bug"\n    mode: inject\n    priority: 5\n---\n# My Agent';
+    const content =
+      '---\ntriggers:\n  - pattern: "fix.*bug"\n    mode: inject\n    priority: 5\n---\n# My Agent';
     fs.writeFileSync(path.join(agentDir, 'my-agent.md'), content);
     const result = ma._triggerBuildIndex(agentDir);
     expect(result.length).toBeGreaterThan(0);
@@ -214,10 +221,15 @@ describe('micro-agents.scanMicroAgentTriggers', () => {
     const ma = loadMicroAgents(tmpDir);
     const indexPath = path.join(tmpDir, '.monomind', 'trigger-index.json');
     fs.mkdirSync(path.dirname(indexPath), { recursive: true });
-    fs.writeFileSync(indexPath, JSON.stringify({
-      builtAt: new Date().toISOString(),
-      patterns: [{ pattern: 'security', mode: 'inject', priority: 5, agentSlug: 'security-agent' }],
-    }));
+    fs.writeFileSync(
+      indexPath,
+      JSON.stringify({
+        builtAt: new Date().toISOString(),
+        patterns: [
+          { pattern: 'security', mode: 'inject', priority: 5, agentSlug: 'security-agent' },
+        ],
+      }),
+    );
     const result = ma.scanMicroAgentTriggers('fix a security issue');
     expect(result.matches.length).toBe(1);
     expect(result.matches[0].agentSlug).toBe('security-agent');
@@ -228,10 +240,20 @@ describe('micro-agents.scanMicroAgentTriggers', () => {
     const ma = loadMicroAgents(tmpDir);
     const indexPath = path.join(tmpDir, '.monomind', 'trigger-index.json');
     fs.mkdirSync(path.dirname(indexPath), { recursive: true });
-    fs.writeFileSync(indexPath, JSON.stringify({
-      builtAt: new Date().toISOString(),
-      patterns: [{ pattern: '\\btakeover\\b', mode: 'takeover', priority: 100, agentSlug: 'takeover-agent' }],
-    }));
+    fs.writeFileSync(
+      indexPath,
+      JSON.stringify({
+        builtAt: new Date().toISOString(),
+        patterns: [
+          {
+            pattern: '\\btakeover\\b',
+            mode: 'takeover',
+            priority: 100,
+            agentSlug: 'takeover-agent',
+          },
+        ],
+      }),
+    );
     const result = ma.scanMicroAgentTriggers('please takeover this task');
     expect(result.takeoverAgent).toBe('takeover-agent');
   });
@@ -240,16 +262,19 @@ describe('micro-agents.scanMicroAgentTriggers', () => {
     const ma = loadMicroAgents(tmpDir);
     const indexPath = path.join(tmpDir, '.monomind', 'trigger-index.json');
     fs.mkdirSync(path.dirname(indexPath), { recursive: true });
-    fs.writeFileSync(indexPath, JSON.stringify({
-      builtAt: new Date().toISOString(),
-      patterns: [
-        { pattern: 'auth', mode: 'inject', priority: 5, agentSlug: 'auth-agent' },
-        { pattern: 'authentication', mode: 'inject', priority: 3, agentSlug: 'auth-agent' },
-      ],
-    }));
+    fs.writeFileSync(
+      indexPath,
+      JSON.stringify({
+        builtAt: new Date().toISOString(),
+        patterns: [
+          { pattern: 'auth', mode: 'inject', priority: 5, agentSlug: 'auth-agent' },
+          { pattern: 'authentication', mode: 'inject', priority: 3, agentSlug: 'auth-agent' },
+        ],
+      }),
+    );
     const result = ma.scanMicroAgentTriggers('authentication auth token');
-    const slugs = result.matches.map(m => m.agentSlug);
-    expect(slugs.filter(s => s === 'auth-agent').length).toBe(1);
+    const slugs = result.matches.map((m) => m.agentSlug);
+    expect(slugs.filter((s) => s === 'auth-agent').length).toBe(1);
   });
 
   it('ignores stale index and rebuilds from agents dir when index is > 1 hour old', () => {
@@ -258,32 +283,43 @@ describe('micro-agents.scanMicroAgentTriggers', () => {
     fs.mkdirSync(path.dirname(indexPath), { recursive: true });
     // Stale index has a "security" pattern
     const staleTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    fs.writeFileSync(indexPath, JSON.stringify({
-      builtAt: staleTime,
-      patterns: [{ pattern: 'stale-pattern', mode: 'inject', priority: 1, agentSlug: 'stale-agent' }],
-    }));
+    fs.writeFileSync(
+      indexPath,
+      JSON.stringify({
+        builtAt: staleTime,
+        patterns: [
+          { pattern: 'stale-pattern', mode: 'inject', priority: 1, agentSlug: 'stale-agent' },
+        ],
+      }),
+    );
     // Agents dir has a fresh agent with a different pattern
     const agentDir = path.join(tmpDir, '.claude', 'agents');
     fs.mkdirSync(agentDir, { recursive: true });
-    fs.writeFileSync(path.join(agentDir, 'fresh-agent.md'),
-      '---\ntriggers:\n  - pattern: "fresh-pattern"\n    mode: inject\n---\n# Fresh Agent');
+    fs.writeFileSync(
+      path.join(agentDir, 'fresh-agent.md'),
+      '---\ntriggers:\n  - pattern: "fresh-pattern"\n    mode: inject\n---\n# Fresh Agent',
+    );
     const result = ma.scanMicroAgentTriggers('fresh-pattern trigger');
     // Must match fresh-agent, not stale-agent
-    expect(result.matches.some(m => m.agentSlug === 'fresh-agent')).toBe(true);
-    expect(result.matches.some(m => m.agentSlug === 'stale-agent')).toBe(false);
+    expect(result.matches.some((m) => m.agentSlug === 'fresh-agent')).toBe(true);
+    expect(result.matches.some((m) => m.agentSlug === 'stale-agent')).toBe(false);
   });
 
   it('sorts matches so higher-priority agents appear first', () => {
     const agentDir = path.join(tmpDir, '.claude', 'agents');
     fs.mkdirSync(agentDir, { recursive: true });
-    fs.writeFileSync(path.join(agentDir, 'low-prio.md'),
-      '---\ntriggers:\n  - pattern: "common-keyword"\n    mode: inject\n    priority: 1\n---\n# Low Priority Agent');
-    fs.writeFileSync(path.join(agentDir, 'high-prio.md'),
-      '---\ntriggers:\n  - pattern: "common-keyword"\n    mode: inject\n    priority: 10\n---\n# High Priority Agent');
+    fs.writeFileSync(
+      path.join(agentDir, 'low-prio.md'),
+      '---\ntriggers:\n  - pattern: "common-keyword"\n    mode: inject\n    priority: 1\n---\n# Low Priority Agent',
+    );
+    fs.writeFileSync(
+      path.join(agentDir, 'high-prio.md'),
+      '---\ntriggers:\n  - pattern: "common-keyword"\n    mode: inject\n    priority: 10\n---\n# High Priority Agent',
+    );
     const ma = loadMicroAgents(tmpDir);
     const result = ma.scanMicroAgentTriggers('common-keyword task');
     expect(result.matches.length).toBeGreaterThanOrEqual(2);
-    const priorities = result.matches.map(m => m.priority || 0);
+    const priorities = result.matches.map((m) => m.priority || 0);
     for (let i = 0; i < priorities.length - 1; i++) {
       expect(priorities[i]).toBeGreaterThanOrEqual(priorities[i + 1]);
     }
@@ -310,8 +346,13 @@ describe('micro-agents._buildKnowledgeSearchFn', () => {
     const ma = loadMicroAgents(tmpDir);
     const knowledgeDir = path.join(tmpDir, 'knowledge');
     fs.mkdirSync(knowledgeDir, { recursive: true });
-    const chunk = JSON.stringify({ chunkId: 'c1', namespace: 'knowledge:shared', text: 'authentication token jwt security verification', metadata: {} });
-    fs.writeFileSync(path.join(knowledgeDir, 'chunks.jsonl'), chunk + '\n');
+    const chunk = JSON.stringify({
+      chunkId: 'c1',
+      namespace: 'knowledge:shared',
+      text: 'authentication token jwt security verification',
+      metadata: {},
+    });
+    fs.writeFileSync(path.join(knowledgeDir, 'chunks.jsonl'), `${chunk}\n`);
     const searchFn = ma._buildKnowledgeSearchFn(knowledgeDir);
     const result = await searchFn('authentication token', {});
     expect(result.length).toBeGreaterThan(0);
@@ -324,9 +365,19 @@ describe('micro-agents._buildKnowledgeSearchFn', () => {
     const ma = loadMicroAgents(tmpDir);
     const knowledgeDir = path.join(tmpDir, 'knowledge');
     fs.mkdirSync(knowledgeDir, { recursive: true });
-    const c1 = JSON.stringify({ chunkId: 'c1', namespace: 'knowledge:shared', text: 'authentication pattern', metadata: {} });
-    const c2 = JSON.stringify({ chunkId: 'c2', namespace: 'other:ns', text: 'authentication pattern', metadata: {} });
-    fs.writeFileSync(path.join(knowledgeDir, 'chunks.jsonl'), c1 + '\n' + c2 + '\n');
+    const c1 = JSON.stringify({
+      chunkId: 'c1',
+      namespace: 'knowledge:shared',
+      text: 'authentication pattern',
+      metadata: {},
+    });
+    const c2 = JSON.stringify({
+      chunkId: 'c2',
+      namespace: 'other:ns',
+      text: 'authentication pattern',
+      metadata: {},
+    });
+    fs.writeFileSync(path.join(knowledgeDir, 'chunks.jsonl'), `${c1}\n${c2}\n`);
     const searchFn = ma._buildKnowledgeSearchFn(knowledgeDir);
     const result = await searchFn('authentication', { namespace: 'knowledge:shared' });
     // Only the knowledge:shared chunk should match
@@ -339,7 +390,10 @@ describe('micro-agents._buildKnowledgeSearchFn', () => {
     const ma = loadMicroAgents(tmpDir);
     const knowledgeDir = path.join(tmpDir, 'knowledge');
     fs.mkdirSync(knowledgeDir, { recursive: true });
-    fs.writeFileSync(path.join(knowledgeDir, 'chunks.jsonl'), JSON.stringify({ chunkId: 'c1', text: 'the and or but', metadata: {} }) + '\n');
+    fs.writeFileSync(
+      path.join(knowledgeDir, 'chunks.jsonl'),
+      `${JSON.stringify({ chunkId: 'c1', text: 'the and or but', metadata: {} })}\n`,
+    );
     const searchFn = ma._buildKnowledgeSearchFn(knowledgeDir);
     const result = await searchFn('the and or', {}); // all stopwords
     expect(result).toEqual([]);

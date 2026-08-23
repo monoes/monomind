@@ -13,8 +13,8 @@
  * branch-agnostic, worktree-shared root every other monomind data file uses.
  */
 
-import { existsSync, mkdirSync, readFileSync, appendFileSync, renameSync, statSync } from 'fs';
-import { join } from 'path';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { getMonomindDataRoot } from '../utils/paths.js';
 
 export interface AuditEvent {
@@ -44,7 +44,9 @@ export function appendAuditEvent(event: Omit<AuditEvent, 'timestamp'>, cwd?: str
     if (st.size > MAX_AUDIT_LOG_BYTES) {
       renameSync(file, `${file}.${Date.now()}.bak`);
     }
-  } catch { /* file doesn't exist yet */ }
+  } catch {
+    /* file doesn't exist yet */
+  }
   const entry: AuditEvent = { timestamp: new Date().toISOString(), ...event };
   appendFileSync(file, `${JSON.stringify(entry)}\n`);
 }
@@ -64,7 +66,9 @@ export function readAuditEvents(cwd?: string): AuditEvent[] {
   for (const line of bounded) {
     try {
       events.push(JSON.parse(line) as AuditEvent);
-    } catch { /* skip malformed line */ }
+    } catch {
+      /* skip malformed line */
+    }
   }
   return events;
 }
@@ -72,11 +76,12 @@ export function readAuditEvents(cwd?: string): AuditEvent[] {
 export function filterAuditEvents(events: AuditEvent[], filter?: string): AuditEvent[] {
   if (!filter) return events;
   const needle = filter.toLowerCase();
-  return events.filter(e =>
-    e.source.toLowerCase().includes(needle) ||
-    e.decision.toLowerCase().includes(needle) ||
-    (e.tool ?? '').toLowerCase().includes(needle) ||
-    (e.reason ?? '').toLowerCase().includes(needle)
+  return events.filter(
+    (e) =>
+      e.source.toLowerCase().includes(needle) ||
+      e.decision.toLowerCase().includes(needle) ||
+      (e.tool ?? '').toLowerCase().includes(needle) ||
+      (e.reason ?? '').toLowerCase().includes(needle),
   );
 }
 

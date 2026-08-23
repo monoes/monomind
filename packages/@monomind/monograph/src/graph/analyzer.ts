@@ -1,6 +1,6 @@
-import { bidirectional } from 'graphology-shortest-path';
-import betweennessCentrality from 'graphology-metrics/centrality/betweenness.js';
 import type Graph from 'graphology';
+import betweennessCentrality from 'graphology-metrics/centrality/betweenness.js';
+import { bidirectional } from 'graphology-shortest-path';
 import type { MonographDb } from '../storage/db.js';
 import { loadGraphFromDb } from './loader.js';
 

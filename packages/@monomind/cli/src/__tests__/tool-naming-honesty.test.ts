@@ -25,10 +25,10 @@
  * real mechanism, which is the behaviour we want anyway.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { agentTools } from '../mcp-tools/agent-tools.js';
 import { allEmbeddingsTools } from '../mcp-tools/embeddings-tools.js';
 import { monoswarmTools } from '../mcp-tools/monoswarm-tools.js';
-import { agentTools } from '../mcp-tools/agent-tools.js';
 import type { MCPTool } from '../mcp-tools/types.js';
 
 /**
@@ -69,21 +69,40 @@ const LOADED_NAME_TERMS = [
  * whose name hits LOADED_NAME_TERMS.
  */
 const GROUNDING = [
-  'json', 'state file', 'persistent state', 'bookkeeping', 'record',
-  'no process', 'not a running', 'starts no', 'nothing is started',
-  'single-process', 'not distributed', 'vote', 'threshold',
-  'no ml', 'not ml', 'no model', 'pattern store', 'similarity',
-  'does not', 'no implementing code', 'not message delivery', 'noticeboard',
-  'counter', 'metadata', 'local file',
+  'json',
+  'state file',
+  'persistent state',
+  'bookkeeping',
+  'record',
+  'no process',
+  'not a running',
+  'starts no',
+  'nothing is started',
+  'single-process',
+  'not distributed',
+  'vote',
+  'threshold',
+  'no ml',
+  'not ml',
+  'no model',
+  'pattern store',
+  'similarity',
+  'does not',
+  'no implementing code',
+  'not message delivery',
+  'noticeboard',
+  'counter',
+  'metadata',
+  'local file',
   // Added with the L12 widening — each names a concrete mechanism.
-  'onnx',            // a real named runtime, unlike the removed 'embed'
-  'label',           // "tier-labeled namespaces", "tiers are labels"
+  'onnx', // a real named runtime, unlike the removed 'embed'
+  'label', // "tier-labeled namespaces", "tiers are labels"
   'heuristic',
   'no training',
   'file extension',
   'keyword',
   'time-decay',
-  'not a declared dependency',  // states why a capability is absent, concretely
+  'not a declared dependency', // states why a capability is absent, concretely
 ];
 
 /**
@@ -112,11 +131,7 @@ function loadedTermsInName(name: string): string[] {
  * explicit floor: even if registry discovery below were to break or silently
  * return nothing, these are always audited.
  */
-const HISTORIC_FAMILIES: MCPTool[] = [
-  ...monoswarmTools,
-  ...allEmbeddingsTools,
-  ...agentTools,
-];
+const HISTORIC_FAMILIES: MCPTool[] = [...monoswarmTools, ...allEmbeddingsTools, ...agentTools];
 
 /**
  * Every registered tool, gated families included.
@@ -169,7 +184,9 @@ describe('tool-naming honesty', () => {
       if (terms.length === 0) continue;
       const description = tool.description ?? '';
       if (!isGrounded(description)) {
-        offenders.push(`${tool.name} (matched: ${terms.join(', ')}) — "${description.slice(0, 70)}…"`);
+        offenders.push(
+          `${tool.name} (matched: ${terms.join(', ')}) — "${description.slice(0, 70)}…"`,
+        );
       }
     }
 
@@ -187,7 +204,12 @@ describe('tool-naming honesty', () => {
   // --- self-tests: the guard must actually fire ---------------------------
 
   const fake = (name: string, description: string): MCPTool =>
-    ({ name, description, inputSchema: { type: 'object' }, handler: async () => ({}) }) as unknown as MCPTool;
+    ({
+      name,
+      description,
+      inputSchema: { type: 'object' },
+      handler: async () => ({}),
+    }) as unknown as MCPTool;
 
   it('flags an ungrounded loaded-term tool', () => {
     const t = fake('hive-mind_broadcast', 'Broadcast message to all workers');

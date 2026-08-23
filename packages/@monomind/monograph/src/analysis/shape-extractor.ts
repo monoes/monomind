@@ -67,7 +67,7 @@ function splitTopLevel(body: string): string[] {
 function segmentToKey(segment: string): string | null {
   const trimmed = segment.trim();
   if (trimmed.startsWith('...')) return null; // spread
-  if (trimmed.startsWith('[')) return null;   // computed key
+  if (trimmed.startsWith('[')) return null; // computed key
   const colonIdx = trimmed.indexOf(':');
   if (colonIdx > 0) {
     const key = trimmed.slice(0, colonIdx).trim();
@@ -145,10 +145,7 @@ export function extractAccessedKeys(
 
     // Destructuring: const { key1, key2 } = varName
     // or `const { key1: alias, key2 } = varName`
-    const destructRe = new RegExp(
-      `\\{([^}]*)\\}\\s*=\\s*${escaped}\\b`,
-      'g',
-    );
+    const destructRe = new RegExp(`\\{([^}]*)\\}\\s*=\\s*${escaped}\\b`, 'g');
     while ((m = destructRe.exec(source)) !== null) {
       const inner = m[1];
       for (const part of inner.split(',')) {
@@ -172,10 +169,7 @@ export function extractAccessedKeys(
  * - MISMATCH: one or more accessed keys are missing from returned keys
  * - UNKNOWN: either set is empty
  */
-export function compareShapes(
-  returnedKeys: string[],
-  accessedKeys: string[],
-): RouteShape {
+export function compareShapes(returnedKeys: string[], accessedKeys: string[]): RouteShape {
   if (returnedKeys.length === 0 || accessedKeys.length === 0) {
     return {
       returnedKeys,

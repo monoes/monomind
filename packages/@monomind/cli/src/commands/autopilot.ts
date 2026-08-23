@@ -5,22 +5,22 @@
  * ADR-072: Autopilot Integration
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import {
-  loadState,
-  saveState,
-  appendLog,
-  loadLog,
-  discoverTasks,
-  getProgress,
-  calculateReward,
-  validateNumber,
-  validateTaskSources,
-  LOG_FILE,
-} from '../autopilot-state.js';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  appendLog,
+  calculateReward,
+  discoverTasks,
+  getProgress,
+  LOG_FILE,
+  loadLog,
+  loadState,
+  saveState,
+  validateNumber,
+  validateTaskSources,
+} from '../autopilot-state.js';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // ── Check Handler (for Stop hook) ─────────────────────────────
 
@@ -335,7 +335,8 @@ const logCommand: Command = {
 
 const predictCommand: Command = {
   name: 'predict',
-  description: 'Suggest the next action — a heuristic over locally discovered tasks, not ML prediction',
+  description:
+    'Suggest the next action — a heuristic over locally discovered tasks, not ML prediction',
   options: [{ name: 'json', type: 'boolean', description: 'Output as JSON' }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const state = loadState();
@@ -383,7 +384,8 @@ const checkCommand: Command = {
 
 export const autopilotCommand: Command = {
   name: 'autopilot',
-  description: 'Persistent swarm completion — keeps agents working until ALL tasks are done. (Deprecated: prefer `monomind org run` for autonomous loops — see doc 06 P1-7.)',
+  description:
+    'Persistent swarm completion — keeps agents working until ALL tasks are done. (Deprecated: prefer `monomind org run` for autonomous loops — see doc 06 P1-7.)',
   aliases: ['ap'],
   subcommands: [
     statusCommand,
@@ -406,9 +408,15 @@ export const autopilotCommand: Command = {
   ],
   action: async (): Promise<CommandResult> => {
     // P1-7: Deprecation notice. `org run` is the sole recommended autonomous loop.
-    output.writeln(output.warning('⚠ Deprecation notice: autopilot is superseded by `monomind org run`.'));
-    output.writeln(output.dim('  The org runtime provides the same autonomous-completion capability with'));
-    output.writeln(output.dim('  governance, budgets, and dashboard support. Autopilot will be collapsed into'));
+    output.writeln(
+      output.warning('⚠ Deprecation notice: autopilot is superseded by `monomind org run`.'),
+    );
+    output.writeln(
+      output.dim('  The org runtime provides the same autonomous-completion capability with'),
+    );
+    output.writeln(
+      output.dim('  governance, budgets, and dashboard support. Autopilot will be collapsed into'),
+    );
     output.writeln(output.dim('  org run in a future release (doc 06 P3-1).'));
     output.writeln();
     output.writeln(output.bold('Autopilot — Persistent Swarm Completion'));

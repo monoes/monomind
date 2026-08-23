@@ -12,7 +12,10 @@ const ORGS = [
   { name: 'monomind-growth', dir: path.join(ROOT, '.monomind/orgs/monomind-growth/workspace') },
   { name: 'growth-execution', dir: path.join(ROOT, '.monomind/orgs/growth-execution/workspace') },
 ];
-const OUT_DIR = path.join(ROOT, '.monomind/orgs/monomind-growth/workspace/reports/content-calendar');
+const OUT_DIR = path.join(
+  ROOT,
+  '.monomind/orgs/monomind-growth/workspace/reports/content-calendar',
+);
 
 // Record format in articles.md (one per pillar article):
 //
@@ -36,14 +39,37 @@ function parseArticles(text, org) {
       const heroMatch = line.match(/^HeroImage:\s*(.+?)\s*$/i);
       const suppMatch = line.match(/^SupportingImages:\s*(.+?)\s*$/i);
       const diagMatch = line.match(/^Diagrams:\s*(.+?)\s*$/i);
-      if (heroMatch) { heroImage = heroMatch[1]; continue; }
-      if (suppMatch) { supportingImages = suppMatch[1].split(',').map((s) => s.trim()).filter(Boolean); continue; }
-      if (diagMatch) { diagrams = diagMatch[1].split(',').map((s) => s.trim()).filter(Boolean); continue; }
+      if (heroMatch) {
+        heroImage = heroMatch[1];
+        continue;
+      }
+      if (suppMatch) {
+        supportingImages = suppMatch[1]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        continue;
+      }
+      if (diagMatch) {
+        diagrams = diagMatch[1]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        continue;
+      }
       bodyLines.push(line);
     }
     const body = bodyLines.join('\n').trim();
     if (!body) continue;
-    articles.push({ org, slug: slug.trim(), title: title.trim(), heroImage, supportingImages, diagrams, body });
+    articles.push({
+      org,
+      slug: slug.trim(),
+      title: title.trim(),
+      heroImage,
+      supportingImages,
+      diagrams,
+      body,
+    });
   }
   return articles;
 }
@@ -68,8 +94,14 @@ function parsePosts(text, org) {
     for (const line of lines.slice(1)) {
       const imgMatch = line.match(/^Image:\s*(.+?)\s*$/i);
       const articleMatch = line.match(/^Article:\s*(.+?)\s*$/i);
-      if (imgMatch) { image = imgMatch[1]; continue; }
-      if (articleMatch) { article = articleMatch[1]; continue; }
+      if (imgMatch) {
+        image = imgMatch[1];
+        continue;
+      }
+      if (articleMatch) {
+        article = articleMatch[1];
+        continue;
+      }
       bodyLines.push(line);
     }
     const text = bodyLines.join('\n').trim();
@@ -80,7 +112,10 @@ function parsePosts(text, org) {
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
 }
 
 function mdToHtml(md, copiedSet) {
@@ -90,7 +125,11 @@ function mdToHtml(md, copiedSet) {
   const withPlaceholders = md.replace(/!\[(.*?)\]\((?:\.\/)?(.*?)\)/g, (_, alt, src) => {
     const idx = figures.length;
     const visible = copiedSet.has(src);
-    figures.push(visible ? `<figure class="inline-diagram"><img src="./${escapeHtml(src)}" alt="${escapeHtml(alt)}"><figcaption>${escapeHtml(alt)}</figcaption></figure>` : '');
+    figures.push(
+      visible
+        ? `<figure class="inline-diagram"><img src="./${escapeHtml(src)}" alt="${escapeHtml(alt)}"><figcaption>${escapeHtml(alt)}</figcaption></figure>`
+        : '',
+    );
     return placeholder(idx);
   });
   let html = escapeHtml(withPlaceholders)
@@ -100,7 +139,9 @@ function mdToHtml(md, copiedSet) {
     .replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code}</code></pre>`)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n\n/g, '</p><p>');
-  figures.forEach((fig, i) => { html = html.replace(placeholder(i), fig); });
+  figures.forEach((fig, i) => {
+    html = html.replace(placeholder(i), fig);
+  });
   return html;
 }
 
@@ -111,21 +152,28 @@ function render() {
   let posts = [];
   for (const org of ORGS) {
     const articlesFile = path.join(org.dir, 'articles.md');
-    if (fs.existsSync(articlesFile)) articles.push(...parseArticles(fs.readFileSync(articlesFile, 'utf8'), org.name));
+    if (fs.existsSync(articlesFile))
+      articles.push(...parseArticles(fs.readFileSync(articlesFile, 'utf8'), org.name));
     const postsFile = path.join(org.dir, 'posts.md');
-    if (fs.existsSync(postsFile)) posts.push(...parsePosts(fs.readFileSync(postsFile, 'utf8'), org.name));
+    if (fs.existsSync(postsFile))
+      posts.push(...parsePosts(fs.readFileSync(postsFile, 'utf8'), org.name));
   }
 
   // dedupe articles by slug (growth-execution mirrors monomind-growth)
-  { const bySlug = new Map(); for (const a of articles) if (!bySlug.has(a.slug)) bySlug.set(a.slug, a); articles = [...bySlug.values()]; }
+  {
+    const bySlug = new Map();
+    for (const a of articles) if (!bySlug.has(a.slug)) bySlug.set(a.slug, a);
+    articles = [...bySlug.values()];
+  }
 
   // dedupe identical posts mirrored across both orgs
   const merged = new Map();
   for (const p of posts) {
     const key = `${p.channel}|${p.date}|${p.text}`;
     const existing = merged.get(key);
-    if (existing) { if (!existing.orgs.includes(p.org)) existing.orgs.push(p.org); }
-    else merged.set(key, { ...p, orgs: [p.org] });
+    if (existing) {
+      if (!existing.orgs.includes(p.org)) existing.orgs.push(p.org);
+    } else merged.set(key, { ...p, orgs: [p.org] });
   }
   posts = [...merged.values()].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -140,7 +188,11 @@ function render() {
   for (const name of allImageNames) {
     for (const org of ORGS) {
       const src = path.join(org.dir, 'assets', name);
-      if (fs.existsSync(src)) { fs.copyFileSync(src, path.join(OUT_DIR, name)); copied.add(name); break; }
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, path.join(OUT_DIR, name));
+        copied.add(name);
+        break;
+      }
     }
   }
 
@@ -148,7 +200,9 @@ function render() {
   const md = [];
   md.push('# Monomind Growth — Content Calendar (auto-generated)');
   md.push('');
-  md.push("Regenerated by `scripts/growth-content-calendar.mjs` from workspace/articles.md (pillar articles) + workspace/posts.md (channel posts derived from them). Newest publish date first.");
+  md.push(
+    'Regenerated by `scripts/growth-content-calendar.mjs` from workspace/articles.md (pillar articles) + workspace/posts.md (channel posts derived from them). Newest publish date first.',
+  );
   md.push('');
   md.push(`## Pillar Articles (${articles.length}/6)`);
   for (const a of articles) {
@@ -159,21 +213,37 @@ function render() {
   md.push('\n---\n\n## Channel Calendar');
   let lastDate = null;
   for (const p of posts) {
-    if (p.date !== lastDate) { md.push(`\n## ${p.date}`); lastDate = p.date; }
+    if (p.date !== lastDate) {
+      md.push(`\n## ${p.date}`);
+      lastDate = p.date;
+    }
     const src = articleBySlug.get(p.article);
     md.push(`\n### ${p.channel}${src ? ` — based on _"${src.title}"_` : ''}\n`);
     md.push(p.text);
     if (p.image) md.push(`\n![${p.channel} image](./${p.image})`);
   }
-  if (!articles.length && !posts.length) md.push('\n_Nothing finalized yet — articles.md and posts.md are empty for both orgs._');
-  fs.writeFileSync(path.join(OUT_DIR, 'content-calendar.md'), md.join('\n') + '\n');
+  if (!articles.length && !posts.length)
+    md.push('\n_Nothing finalized yet — articles.md and posts.md are empty for both orgs._');
+  fs.writeFileSync(path.join(OUT_DIR, 'content-calendar.md'), `${md.join('\n')}\n`);
 
   // --- HTML (monoes design system: espresso/ivory/gold) ---
   const groups = [];
-  { let cur = null; for (const p of posts) { if (p.date !== cur?.date) { cur = { date: p.date, items: [] }; groups.push(cur); } cur.items.push(p); } }
+  {
+    let cur = null;
+    for (const p of posts) {
+      if (p.date !== cur?.date) {
+        cur = { date: p.date, items: [] };
+        groups.push(cur);
+      }
+      cur.items.push(p);
+    }
+  }
 
   function postCard(p) {
-    const img = p.image && copied.has(p.image) ? `<img class="thumb" src="./${escapeHtml(p.image)}" alt="">` : '';
+    const img =
+      p.image && copied.has(p.image)
+        ? `<img class="thumb" src="./${escapeHtml(p.image)}" alt="">`
+        : '';
     const src = articleBySlug.get(p.article);
     return `<div class="card">
       <div class="channel">${escapeHtml(p.channel)}${src ? ` <span class="based-on">based on "${escapeHtml(src.title)}"</span>` : ''}</div>
@@ -183,8 +253,14 @@ function render() {
   }
 
   function articleCard(a) {
-    const img = a.heroImage && copied.has(a.heroImage) ? `<img class="hero" src="./${escapeHtml(a.heroImage)}" alt="">` : '';
-    const supp = a.supportingImages.filter((n) => copied.has(n)).map((n) => `<img class="supporting" src="./${escapeHtml(n)}" alt="">`).join('');
+    const img =
+      a.heroImage && copied.has(a.heroImage)
+        ? `<img class="hero" src="./${escapeHtml(a.heroImage)}" alt="">`
+        : '';
+    const supp = a.supportingImages
+      .filter((n) => copied.has(n))
+      .map((n) => `<img class="supporting" src="./${escapeHtml(n)}" alt="">`)
+      .join('');
     const missingDiagrams = a.diagrams.filter((n) => !copied.has(n));
     return `<div class="article">
       <div class="article-slug">${escapeHtml(a.slug)}</div>
@@ -253,8 +329,11 @@ ${!articles.length && !posts.length ? '<div class="empty">Nothing finalized yet 
 
   const totalDiagrams = articles.reduce((n, a) => n + a.diagrams.length, 0);
   const underDiagrammed = articles.filter((a) => a.diagrams.length < 2).map((a) => a.slug);
-  console.log(`Wrote ${articles.length} article(s), ${posts.length} post(s), ${copied.size} image(s) (incl. ${totalDiagrams} diagram(s)) -> ${path.relative(ROOT, OUT_DIR)}`);
-  if (underDiagrammed.length) console.log(`Note: fewer than 2 diagrams on: ${underDiagrammed.join(', ')}`);
+  console.log(
+    `Wrote ${articles.length} article(s), ${posts.length} post(s), ${copied.size} image(s) (incl. ${totalDiagrams} diagram(s)) -> ${path.relative(ROOT, OUT_DIR)}`,
+  );
+  if (underDiagrammed.length)
+    console.log(`Note: fewer than 2 diagrams on: ${underDiagrammed.join(', ')}`);
 }
 
 render();

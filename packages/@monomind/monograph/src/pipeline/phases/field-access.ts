@@ -11,7 +11,11 @@ function escapeRegexChars(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function extractFieldAccesses(source: string, varName: string, filePath: string): FieldAccess[] {
+export function extractFieldAccesses(
+  source: string,
+  varName: string,
+  _filePath: string,
+): FieldAccess[] {
   const results: FieldAccess[] = [];
   const lines = source.split('\n');
   const escapedName = escapeRegexChars(varName);

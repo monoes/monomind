@@ -3,12 +3,18 @@
  * Import dependency analysis and project dependency checking
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { execSync } from 'node:child_process';
+import * as fs from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { output } from '../output.js';
-import * as fs from 'fs/promises';
-import { resolve } from 'path';
-import { execSync } from 'child_process';
-import { safeWriteOutputFile, scanSourceFiles, fallbackAnalyze, FILE_SCAN_CAP, reportFileCap } from './analyze.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import {
+  FILE_SCAN_CAP,
+  fallbackAnalyze,
+  reportFileCap,
+  safeWriteOutputFile,
+  scanSourceFiles,
+} from './analyze.js';
 
 /**
  * Imports analysis subcommand
@@ -70,7 +76,7 @@ export const importsCommand: Command = {
           const content = await fs.readFile(file, 'utf-8');
           const analysis = fallbackAnalyze(content, file);
 
-          const imports = analysis.imports.filter(imp => {
+          const imports = analysis.imports.filter((imp) => {
             if (externalOnly) {
               return !imp.startsWith('.') && !imp.startsWith('/');
             }
@@ -93,8 +99,9 @@ export const importsCommand: Command = {
       spinner.stop();
 
       // Sort by count
-      const sortedImports = Array.from(importCounts.entries())
-        .sort((a, b) => b[1].count - a[1].count);
+      const sortedImports = Array.from(importCounts.entries()).sort(
+        (a, b) => b[1].count - a[1].count,
+      );
 
       if (formatType === 'json') {
         const jsonOutput = {
@@ -111,8 +118,12 @@ export const importsCommand: Command = {
       }
 
       // Summary
-      const externalImports = sortedImports.filter(([imp]) => !imp.startsWith('.') && !imp.startsWith('/'));
-      const localImports = sortedImports.filter(([imp]) => imp.startsWith('.') || imp.startsWith('/'));
+      const externalImports = sortedImports.filter(
+        ([imp]) => !imp.startsWith('.') && !imp.startsWith('/'),
+      );
+      const localImports = sortedImports.filter(
+        ([imp]) => imp.startsWith('.') || imp.startsWith('/'),
+      );
 
       output.printBox(
         [
@@ -121,7 +132,7 @@ export const importsCommand: Command = {
           `Local (relative): ${localImports.length}`,
           `Files scanned: ${files.length}`,
         ].join('\n'),
-        'Import Analysis'
+        'Import Analysis',
       );
 
       // Most used imports
@@ -139,7 +150,10 @@ export const importsCommand: Command = {
         data: topImports.map(([imp, data]) => ({
           count: data.count,
           import: imp,
-          type: imp.startsWith('.') || imp.startsWith('/') ? output.dim('local') : output.highlight('npm'),
+          type:
+            imp.startsWith('.') || imp.startsWith('/')
+              ? output.dim('local')
+              : output.highlight('npm'),
         })),
       });
 
@@ -148,10 +162,17 @@ export const importsCommand: Command = {
       }
 
       if (outputFile) {
-        await safeWriteOutputFile(outputFile, JSON.stringify({
-          imports: Object.fromEntries(sortedImports),
-          fileImports: Object.fromEntries(fileImports),
-        }, null, 2));
+        await safeWriteOutputFile(
+          outputFile,
+          JSON.stringify(
+            {
+              imports: Object.fromEntries(sortedImports),
+              fileImports: Object.fromEntries(fileImports),
+            },
+            null,
+            2,
+          ),
+        );
         output.printSuccess(`Results written to ${outputFile}`);
       }
 
@@ -170,16 +191,36 @@ export const depsCommand: Command = {
   name: 'deps',
   description: 'Analyze project dependencies',
   options: [
-    { name: 'drift', short: 'o', type: 'boolean', description: 'Show dependencies whose installed version differs from the declared range (local check only, not npm registry currency)' },
+    {
+      name: 'drift',
+      short: 'o',
+      type: 'boolean',
+      description:
+        'Show dependencies whose installed version differs from the declared range (local check only, not npm registry currency)',
+    },
     // Hidden alias for backwards compatibility — the old name implied a check
     // against npm registry currency, but this only ever compared declared vs.
     // installed versions locally.
     { name: 'outdated', type: 'boolean', hidden: true, description: 'Alias of --drift' },
-    { name: 'security', short: 's', type: 'boolean', description: 'Check for security vulnerabilities' },
-    { name: 'format', short: 'f', type: 'string', description: 'Output format: text, json', default: 'text' },
+    {
+      name: 'security',
+      short: 's',
+      type: 'boolean',
+      description: 'Check for security vulnerabilities',
+    },
+    {
+      name: 'format',
+      short: 'f',
+      type: 'string',
+      description: 'Output format: text, json',
+      default: 'text',
+    },
   ],
   examples: [
-    { command: 'monomind analyze deps --drift', description: 'Show local version drift (declared vs. installed)' },
+    {
+      command: 'monomind analyze deps --drift',
+      description: 'Show local version drift (declared vs. installed)',
+    },
     { command: 'monomind analyze deps --security', description: 'Check for vulnerabilities' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -210,24 +251,46 @@ export const depsCommand: Command = {
       const total = deps.length + devDeps.length + optDeps.length + peerDeps.length;
 
       if (formatJson && !showDrift && !checkSecurity) {
-        const jsonData = { name: pkg.name, version: pkg.version, dependencies: deps.length, devDependencies: devDeps.length, optionalDependencies: optDeps.length, peerDependencies: peerDeps.length, total };
+        const jsonData = {
+          name: pkg.name,
+          version: pkg.version,
+          dependencies: deps.length,
+          devDependencies: devDeps.length,
+          optionalDependencies: optDeps.length,
+          peerDependencies: peerDeps.length,
+          total,
+        };
         output.printJson(jsonData);
         return { success: true, data: jsonData };
       }
 
       output.printBox(
-        [`Package: ${pkg.name || 'unknown'} @ ${pkg.version || '0.0.0'}`, `Dependencies: ${deps.length}`, `Dev Dependencies: ${devDeps.length}`, `Optional: ${optDeps.length}`, `Peer: ${peerDeps.length}`, `Total: ${total}`].join('\n'),
-        'Dependency Summary'
+        [
+          `Package: ${pkg.name || 'unknown'} @ ${pkg.version || '0.0.0'}`,
+          `Dependencies: ${deps.length}`,
+          `Dev Dependencies: ${devDeps.length}`,
+          `Optional: ${optDeps.length}`,
+          `Peer: ${peerDeps.length}`,
+          `Total: ${total}`,
+        ].join('\n'),
+        'Dependency Summary',
       );
 
       if (showDrift) {
         if (usedOutdatedAlias) {
-          output.printInfo('note: --outdated checks local version drift, not npm registry currency');
+          output.printInfo(
+            'note: --outdated checks local version drift, not npm registry currency',
+          );
         }
         output.writeln();
         output.writeln(output.bold('Version Drift Check (declared vs. installed)'));
         output.writeln(output.dim('-'.repeat(60)));
-        const outdated: Array<{ name: string; declared: string; installed: string; category: string }> = [];
+        const outdated: Array<{
+          name: string;
+          declared: string;
+          installed: string;
+          category: string;
+        }> = [];
 
         const checkDeps = async (entries: [string, string][], category: string) => {
           for (const [name, declared] of entries) {
@@ -241,7 +304,12 @@ export const depsCommand: Command = {
                 outdated.push({ name, declared: declared as string, installed, category });
               }
             } catch {
-              outdated.push({ name, declared: declared as string, installed: 'not installed', category });
+              outdated.push({
+                name,
+                declared: declared as string,
+                installed: 'not installed',
+                category,
+              });
             }
           }
         };
@@ -273,7 +341,10 @@ export const depsCommand: Command = {
         output.writeln(output.dim('-'.repeat(60)));
 
         try {
-          const auditRaw = execSync('npm audit --json 2>/dev/null', { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+          const auditRaw = execSync('npm audit --json 2>/dev/null', {
+            encoding: 'utf-8',
+            maxBuffer: 10 * 1024 * 1024,
+          });
           const audit = JSON.parse(auditRaw);
           const vulns = audit.metadata?.vulnerabilities || audit.vulnerabilities || {};
           const info = vulns.info || 0;
@@ -301,11 +372,15 @@ export const depsCommand: Command = {
               ],
             });
             if (critical > 0 || high > 0) {
-              output.printWarning(`${critical + high} high/critical vulnerabilities found. Run 'npm audit' for details.`);
+              output.printWarning(
+                `${critical + high} high/critical vulnerabilities found. Run 'npm audit' for details.`,
+              );
             }
           }
         } catch {
-          output.printWarning('npm audit failed. Ensure npm is available and node_modules is installed.');
+          output.printWarning(
+            'npm audit failed. Ensure npm is available and node_modules is installed.',
+          );
         }
       }
 

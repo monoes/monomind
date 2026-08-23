@@ -32,7 +32,7 @@ export interface HealthTrend {
 export function trendDirection(
   current: number,
   previous: number,
-  isHigherBetter = false
+  isHigherBetter = false,
 ): TrendDirection {
   const delta = current - previous;
   if (Math.abs(delta) <= STABLE_BAND) {
@@ -47,7 +47,7 @@ export function trendDirection(
 export function makeTrendMetric(
   current: number,
   previous: number,
-  isHigherBetter = false
+  isHigherBetter = false,
 ): TrendMetric {
   return {
     current,
@@ -60,7 +60,7 @@ export function makeTrendMetric(
 export function computeTrend(
   current: VitalSigns,
   currentScore: HealthScore,
-  previous: VitalSignsSnapshot
+  previous: VitalSignsSnapshot,
 ): HealthTrend {
   const prev = previous.vitalSigns;
   const prevScore = previous.healthScore;
@@ -72,7 +72,7 @@ export function computeTrend(
     complexityCriticalPct: makeTrendMetric(
       current.complexityCriticalPct,
       prev.complexityCriticalPct,
-      false
+      false,
     ),
     hotspotDensity: makeTrendMetric(current.hotspotDensity, prev.hotspotDensity, false),
     busFactor: makeTrendMetric(current.busFactor, prev.busFactor, true),
@@ -80,7 +80,7 @@ export function computeTrend(
     maintainabilityIndex: makeTrendMetric(
       current.maintainabilityIndex,
       prev.maintainabilityIndex,
-      true
+      true,
     ),
   };
 }

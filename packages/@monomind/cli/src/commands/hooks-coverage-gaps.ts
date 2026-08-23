@@ -2,12 +2,12 @@
  * Coverage gaps hook commands
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { callMCPTool } from '../mcp-client.js';
 import { output } from '../output.js';
-import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import {
-  readCoverageFromDisk,
   classifyCoverageGap,
+  readCoverageFromDisk,
   suggestAgentsForFile,
 } from './hooks-coverage-utils.js';
 
@@ -19,30 +19,30 @@ export const coverageGapsCommand: Command = {
       name: 'threshold',
       description: 'Coverage threshold percentage (default: 80)',
       type: 'number',
-      default: 80
+      default: 80,
     },
     {
       name: 'group-by-agent',
       description: 'Group gaps by suggested agent (default: true)',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'critical-only',
       description: 'Show only critical gaps',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind hooks coverage-gaps', description: 'List all coverage gaps' },
     { command: 'monomind hooks coverage-gaps --critical-only', description: 'Only critical gaps' },
-    { command: 'monomind hooks coverage-gaps --threshold 90', description: 'Stricter threshold' }
+    { command: 'monomind hooks coverage-gaps --threshold 90', description: 'Stricter threshold' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const threshold = ctx.flags.threshold as number || 80;
+    const threshold = (ctx.flags.threshold as number) || 80;
     const groupByAgent = ctx.flags['group-by-agent'] !== false;
-    const criticalOnly = ctx.flags['critical-only'] as boolean || false;
+    const criticalOnly = (ctx.flags['critical-only'] as boolean) || false;
 
     const spinner = output.createSpinner({ text: 'Analyzing project coverage gaps...' });
     spinner.start();
@@ -53,8 +53,8 @@ export const coverageGapsCommand: Command = {
       spinner.succeed(`Coverage data loaded from ${diskCoverage.source}`);
 
       const allGaps = diskCoverage.entries
-        .filter(e => e.lines < threshold)
-        .map(e => {
+        .filter((e) => e.lines < threshold)
+        .map((e) => {
           const { gapType, priority } = classifyCoverageGap(e.lines, threshold);
           return {
             filePath: e.filePath,
@@ -67,9 +67,7 @@ export const coverageGapsCommand: Command = {
           };
         });
 
-      const gaps = criticalOnly
-        ? allGaps.filter(g => g.gapType === 'critical')
-        : allGaps;
+      const gaps = criticalOnly ? allGaps.filter((g) => g.gapType === 'critical') : allGaps;
 
       const agentAssignments: Record<string, string[]> = {};
       if (groupByAgent) {
@@ -107,9 +105,9 @@ export const coverageGapsCommand: Command = {
           `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
           `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
           `Below ${threshold}%: ${result.summary.filesBelowThreshold} files`,
-          `Source: ${output.highlight(diskCoverage.source)}`
+          `Source: ${output.highlight(diskCoverage.source)}`,
         ].join('\n'),
-        'Coverage Gap Analysis'
+        'Coverage Gap Analysis',
       );
 
       if (gaps.length > 0) {
@@ -117,21 +115,42 @@ export const coverageGapsCommand: Command = {
         output.writeln(output.bold(`Coverage Gaps (${gaps.length} files)`));
         output.printTable({
           columns: [
-            { key: 'filePath', header: 'File', width: 35, format: (v: unknown) => {
-              const s = String(v);
-              return s.length > 32 ? '...' + s.slice(-32) : s;
-            }},
-            { key: 'coveragePercent', header: 'Coverage', width: 10, align: 'right', format: (v: unknown) => `${Number(v).toFixed(1)}%` },
-            { key: 'gapType', header: 'Type', width: 10, format: (v: unknown) => {
-              const t = String(v);
-              if (t === 'critical') return output.error(t);
-              if (t === 'high') return output.warning(t);
-              return t;
-            }},
+            {
+              key: 'filePath',
+              header: 'File',
+              width: 35,
+              format: (v: unknown) => {
+                const s = String(v);
+                return s.length > 32 ? `...${s.slice(-32)}` : s;
+              },
+            },
+            {
+              key: 'coveragePercent',
+              header: 'Coverage',
+              width: 10,
+              align: 'right',
+              format: (v: unknown) => `${Number(v).toFixed(1)}%`,
+            },
+            {
+              key: 'gapType',
+              header: 'Type',
+              width: 10,
+              format: (v: unknown) => {
+                const t = String(v);
+                if (t === 'critical') return output.error(t);
+                if (t === 'high') return output.warning(t);
+                return t;
+              },
+            },
             { key: 'priority', header: 'Priority', width: 8, align: 'right' },
-            { key: 'suggestedAgents', header: 'Agent', width: 12, format: (v: unknown) => Array.isArray(v) ? v[0] || '' : String(v) }
+            {
+              key: 'suggestedAgents',
+              header: 'Agent',
+              width: 12,
+              format: (v: unknown) => (Array.isArray(v) ? v[0] || '' : String(v)),
+            },
           ],
-          data: gaps.slice(0, 20)
+          data: gaps.slice(0, 20),
         });
       } else {
         output.writeln();
@@ -144,7 +163,7 @@ export const coverageGapsCommand: Command = {
         for (const [agent, files] of Object.entries(agentAssignments)) {
           output.writeln();
           output.writeln(`  ${output.highlight(agent)} (${files.length} files)`);
-          files.slice(0, 3).forEach(f => {
+          files.slice(0, 3).forEach((f) => {
             output.writeln(`    - ${output.dim(f)}`);
           });
           if (files.length > 3) {
@@ -159,17 +178,29 @@ export const coverageGapsCommand: Command = {
     try {
       const result = await callMCPTool<{
         success: boolean;
-        gaps: Array<{ filePath: string; coveragePercent: number; gapType: string; complexity: number; priority: number; suggestedAgents: string[]; reason: string }>;
-        summary: { totalFiles: number; overallLineCoverage: number; overallBranchCoverage: number; filesBelowThreshold: number; coverageThreshold: number };
+        gaps: Array<{
+          filePath: string;
+          coveragePercent: number;
+          gapType: string;
+          complexity: number;
+          priority: number;
+          suggestedAgents: string[];
+          reason: string;
+        }>;
+        summary: {
+          totalFiles: number;
+          overallLineCoverage: number;
+          overallBranchCoverage: number;
+          filesBelowThreshold: number;
+          coverageThreshold: number;
+        };
         agentAssignments: Record<string, string[]>;
         monovectorAvailable: boolean;
       }>('coverage_gaps', { threshold, groupByAgent });
 
       spinner.stop();
 
-      const gaps = criticalOnly
-        ? result.gaps.filter(g => g.gapType === 'critical')
-        : result.gaps;
+      const gaps = criticalOnly ? result.gaps.filter((g) => g.gapType === 'critical') : result.gaps;
 
       if (ctx.flags.format === 'json') {
         output.printJson({ ...result, gaps });
@@ -183,9 +214,9 @@ export const coverageGapsCommand: Command = {
           `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
           `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
           `Below ${result.summary.coverageThreshold}%: ${result.summary.filesBelowThreshold} files`,
-          `Keyword routing: ${result.monovectorAvailable ? output.success('Available') : output.dim('Unavailable')}`
+          `Keyword routing: ${result.monovectorAvailable ? output.success('Available') : output.dim('Unavailable')}`,
         ].join('\n'),
-        'Coverage Gap Analysis'
+        'Coverage Gap Analysis',
       );
 
       if (gaps.length > 0) {
@@ -193,21 +224,42 @@ export const coverageGapsCommand: Command = {
         output.writeln(output.bold(`Coverage Gaps (${gaps.length} files)`));
         output.printTable({
           columns: [
-            { key: 'filePath', header: 'File', width: 35, format: (v: unknown) => {
-              const s = String(v);
-              return s.length > 32 ? '...' + s.slice(-32) : s;
-            }},
-            { key: 'coveragePercent', header: 'Coverage', width: 10, align: 'right', format: (v: unknown) => `${Number(v).toFixed(1)}%` },
-            { key: 'gapType', header: 'Type', width: 10, format: (v: unknown) => {
-              const t = String(v);
-              if (t === 'critical') return output.error(t);
-              if (t === 'high') return output.warning(t);
-              return t;
-            }},
+            {
+              key: 'filePath',
+              header: 'File',
+              width: 35,
+              format: (v: unknown) => {
+                const s = String(v);
+                return s.length > 32 ? `...${s.slice(-32)}` : s;
+              },
+            },
+            {
+              key: 'coveragePercent',
+              header: 'Coverage',
+              width: 10,
+              align: 'right',
+              format: (v: unknown) => `${Number(v).toFixed(1)}%`,
+            },
+            {
+              key: 'gapType',
+              header: 'Type',
+              width: 10,
+              format: (v: unknown) => {
+                const t = String(v);
+                if (t === 'critical') return output.error(t);
+                if (t === 'high') return output.warning(t);
+                return t;
+              },
+            },
             { key: 'priority', header: 'Priority', width: 8, align: 'right' },
-            { key: 'suggestedAgents', header: 'Agent', width: 12, format: (v: unknown) => Array.isArray(v) ? v[0] || '' : String(v) }
+            {
+              key: 'suggestedAgents',
+              header: 'Agent',
+              width: 12,
+              format: (v: unknown) => (Array.isArray(v) ? v[0] || '' : String(v)),
+            },
           ],
-          data: gaps.slice(0, 20)
+          data: gaps.slice(0, 20),
         });
       } else {
         output.writeln();
@@ -220,7 +272,7 @@ export const coverageGapsCommand: Command = {
         for (const [agent, files] of Object.entries(result.agentAssignments)) {
           output.writeln();
           output.writeln(`  ${output.highlight(agent)} (${files.length} files)`);
-          files.slice(0, 3).forEach(f => {
+          files.slice(0, 3).forEach((f) => {
             output.writeln(`    - ${output.dim(f)}`);
           });
           if (files.length > 3) {
@@ -242,9 +294,12 @@ export const coverageGapsCommand: Command = {
         'c8:       npx c8 npm test',
       ]);
       output.writeln();
-      output.writeln(output.dim('Expected files: coverage/coverage-summary.json, coverage/lcov.info, or .nyc_output/out.json'));
+      output.writeln(
+        output.dim(
+          'Expected files: coverage/coverage-summary.json, coverage/lcov.info, or .nyc_output/out.json',
+        ),
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
-

@@ -8,9 +8,9 @@
  * transitive dependencies into the heap at import time.
  */
 
-import type { MCPTool } from './mcp-tools/types.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { MCPTool } from './mcp-tools/types.js';
 
 /**
  * MCP Tool Registry
@@ -34,34 +34,34 @@ function registerTools(tools: MCPTool[], options: { override?: boolean } = {}): 
 type CategoryLoader = () => Promise<MCPTool[]>;
 
 const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
-  agent:       async () => (await import('./mcp-tools/agent-tools.js')).agentTools,
-  monoswarm:   async () => (await import('./mcp-tools/monoswarm-tools.js')).monoswarmTools,
-  memory:      async () => (await import('./mcp-tools/memory-tools.js')).memoryTools,
-  config:      async () => (await import('./mcp-tools/config-tools.js')).configTools,
-  hooks:       async () => (await import('./mcp-tools/hooks-tools.js')).hooksTools,
-  task:        async () => (await import('./mcp-tools/task-tools.js')).taskTools,
-  session:     async () => (await import('./mcp-tools/session-tools.js')).sessionTools,
-  analyze:     async () => (await import('./mcp-tools/analyze-tools.js')).analyzeTools,
-  embeddings:  async () => (await import('./mcp-tools/embeddings-tools.js')).embeddingsTools,
-  claims:      async () => (await import('./mcp-tools/claims-tools.js')).claimsTools,
-  monofence:   async () => (await import('./mcp-tools/security-tools.js')).securityTools,
-  transfer:    async () => (await import('./mcp-tools/transfer-tools.js')).transferTools,
-  system:      async () => (await import('./mcp-tools/system-tools.js')).systemTools,
-  terminal:    async () => (await import('./mcp-tools/terminal-tools.js')).terminalTools,
+  agent: async () => (await import('./mcp-tools/agent-tools.js')).agentTools,
+  monoswarm: async () => (await import('./mcp-tools/monoswarm-tools.js')).monoswarmTools,
+  memory: async () => (await import('./mcp-tools/memory-tools.js')).memoryTools,
+  config: async () => (await import('./mcp-tools/config-tools.js')).configTools,
+  hooks: async () => (await import('./mcp-tools/hooks-tools.js')).hooksTools,
+  task: async () => (await import('./mcp-tools/task-tools.js')).taskTools,
+  session: async () => (await import('./mcp-tools/session-tools.js')).sessionTools,
+  analyze: async () => (await import('./mcp-tools/analyze-tools.js')).analyzeTools,
+  embeddings: async () => (await import('./mcp-tools/embeddings-tools.js')).embeddingsTools,
+  claims: async () => (await import('./mcp-tools/claims-tools.js')).claimsTools,
+  monofence: async () => (await import('./mcp-tools/security-tools.js')).securityTools,
+  transfer: async () => (await import('./mcp-tools/transfer-tools.js')).transferTools,
+  system: async () => (await import('./mcp-tools/system-tools.js')).systemTools,
+  terminal: async () => (await import('./mcp-tools/terminal-tools.js')).terminalTools,
   performance: async () => (await import('./mcp-tools/performance-tools.js')).performanceTools,
-  github:      async () => (await import('./mcp-tools/github-tools.js')).githubTools,
-  browser:     async () => (await import('./mcp-tools/browser-tools.js')).browserTools,
-  guidance:    async () => (await import('./mcp-tools/guidance-tools.js')).guidanceTools,
-  autopilot:   async () => (await import('./mcp-tools/autopilot-tools.js')).autopilotTools,
-  monograph:   async () => (await import('./mcp-tools/monograph-tools.js')).monographTools,
-  graphify:    async () => (await import('./mcp-tools/graphify-tools.js')).graphifyTools,
-  coverage:    async () => (await import('./monovector/coverage-tools.js')).coverageRouterTools,
-  quality:     async () => (await import('./mcp-tools/quality-tools.js')).qualityTools,
-  knowledge:   async () => (await import('./mcp-tools/knowledge-tools.js')).knowledgeTools,
-  monomind:    async () => (await import('./mcp-tools/monomind-tools.js')).monomindTools,
-  monodesign:  async () => (await import('./mcp-tools/monodesign-tools.js')).monodesignTools,
+  github: async () => (await import('./mcp-tools/github-tools.js')).githubTools,
+  browser: async () => (await import('./mcp-tools/browser-tools.js')).browserTools,
+  guidance: async () => (await import('./mcp-tools/guidance-tools.js')).guidanceTools,
+  autopilot: async () => (await import('./mcp-tools/autopilot-tools.js')).autopilotTools,
+  monograph: async () => (await import('./mcp-tools/monograph-tools.js')).monographTools,
+  graphify: async () => (await import('./mcp-tools/graphify-tools.js')).graphifyTools,
+  coverage: async () => (await import('./monovector/coverage-tools.js')).coverageRouterTools,
+  quality: async () => (await import('./mcp-tools/quality-tools.js')).qualityTools,
+  knowledge: async () => (await import('./mcp-tools/knowledge-tools.js')).knowledgeTools,
+  monomind: async () => (await import('./mcp-tools/monomind-tools.js')).monomindTools,
+  monodesign: async () => (await import('./mcp-tools/monodesign-tools.js')).monodesignTools,
   // system-tools.ts also exports tools with mcp_ and config_ prefixes
-  mcp:         async () => (await import('./mcp-tools/system-tools.js')).systemTools,
+  mcp: async () => (await import('./mcp-tools/system-tools.js')).systemTools,
 };
 
 const loadedCategories = new Set<string>();
@@ -83,9 +83,7 @@ let _allLoaded = false;
 async function ensureAllLoaded(): Promise<void> {
   if (_allLoaded) return;
   _allLoaded = true;
-  await Promise.all(
-    Object.keys(CATEGORY_LOADERS).map(cat => ensureCategory(cat))
-  );
+  await Promise.all(Object.keys(CATEGORY_LOADERS).map((cat) => ensureCategory(cat)));
 }
 
 /**
@@ -121,31 +119,64 @@ export function isToolDisabled(toolName: string, cwd?: string): boolean {
 const FULL_ROSTER = process.env.MONOMIND_MCP_FULL === '1';
 
 const CORE_TOOL_CATEGORIES = new Set([
-  'memory', 'monograph', 'hooks', 'task', 'session', 'knowledge',
-  'system', 'mcp', 'guidance', 'config', 'agent', 'monomind', 'monodesign',
+  'memory',
+  'monograph',
+  'hooks',
+  'task',
+  'session',
+  'knowledge',
+  'system',
+  'mcp',
+  'guidance',
+  'config',
+  'agent',
+  'monomind',
+  'monodesign',
 ]);
 
 // Only this subset of hooks is advertised; the rest of hooks (intelligence,
 // model-routing, trajectory, worker tools) is discovery-only.
 const CORE_HOOKS_ALLOWLIST = new Set([
-  'hooks_route', 'hooks_pre-edit', 'hooks_post-edit', 'hooks_pre-command',
-  'hooks_post-command', 'hooks_pre-task', 'hooks_post-task', 'hooks_explain',
+  'hooks_route',
+  'hooks_pre-edit',
+  'hooks_post-edit',
+  'hooks_pre-command',
+  'hooks_post-command',
+  'hooks_pre-task',
+  'hooks_post-task',
+  'hooks_explain',
 ]);
 
 // Rarely-used tools inside otherwise-core categories: not advertised via
 // tools/list, but still callable and discoverable via monomind_tool_search.
 const CORE_HIDDEN_TOOLS = new Set([
   // monograph: build/index maintenance, impact-map, and route-map variants
-  'monograph_dead_code', 'monograph_route_map', 'monograph_augment',
-  'monograph_staleness', 'monograph_detect_changes', 'monograph_get_node',
-  'monograph_god_nodes', 'monograph_watch', 'monograph_watch_stop',
-  'monograph_doctor', 'monograph_health', 'monograph_stats',
+  'monograph_dead_code',
+  'monograph_route_map',
+  'monograph_augment',
+  'monograph_staleness',
+  'monograph_detect_changes',
+  'monograph_get_node',
+  'monograph_god_nodes',
+  'monograph_watch',
+  'monograph_watch_stop',
+  'monograph_doctor',
+  'monograph_health',
+  'monograph_stats',
   'monograph_api_impact',
   // memory: routing, admin, batch, hierarchical, and KG maintenance variants
-  'memory_route', 'memory_semantic-route', 'memory_causal-edge',
-  'memory_batch', 'memory_context-synthesize', 'memory_controllers', 'memory_health',
-  'memory_consolidate', 'memory_kg_consolidate', 'memory_hierarchical-store',
-  'memory_hierarchical-recall', 'memory_pattern-search',
+  'memory_route',
+  'memory_semantic-route',
+  'memory_causal-edge',
+  'memory_batch',
+  'memory_context-synthesize',
+  'memory_controllers',
+  'memory_health',
+  'memory_consolidate',
+  'memory_kg_consolidate',
+  'memory_hierarchical-store',
+  'memory_hierarchical-recall',
+  'memory_pattern-search',
   // NOTE: memory_kg_stats and memory_kg_rollback stay ADVERTISED — the
   // Memory Loop documented in CLAUDE.md (ingest → search → rollback on bad
   // ingest, glossary via kg_stats) references them; hiding them broke that
@@ -164,7 +195,7 @@ let _coreLoaded = false;
 async function ensureCoreLoaded(): Promise<void> {
   if (_coreLoaded) return;
   _coreLoaded = true;
-  await Promise.all([...CORE_TOOL_CATEGORIES].map(cat => ensureCategory(cat)));
+  await Promise.all([...CORE_TOOL_CATEGORIES].map((cat) => ensureCategory(cat)));
 }
 
 /**
@@ -174,7 +205,7 @@ export class MCPClientError extends Error {
   constructor(
     message: string,
     public toolName: string,
-    public cause?: Error
+    public cause?: Error,
   ) {
     super(message);
     this.name = 'MCPClientError';
@@ -195,11 +226,16 @@ function jsonTypeOf(value: unknown): string | undefined {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'array';
   switch (typeof value) {
-    case 'string': return 'string';
-    case 'boolean': return 'boolean';
-    case 'number': return Number.isInteger(value) ? 'integer' : 'number';
-    case 'object': return 'object';
-    default: return undefined;
+    case 'string':
+      return 'string';
+    case 'boolean':
+      return 'boolean';
+    case 'number':
+      return Number.isInteger(value) ? 'integer' : 'number';
+    case 'object':
+      return 'object';
+    default:
+      return undefined;
   }
 }
 
@@ -228,7 +264,7 @@ function matchesDeclaredType(declared: string, actual: string): boolean {
 function warnOnTypeMismatch(
   toolName: string,
   schema: MCPTool['inputSchema'] | undefined,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
 ): void {
   const properties = schema?.properties;
   if (!properties || typeof properties !== 'object') return;
@@ -241,23 +277,24 @@ function warnOnTypeMismatch(
 
     const declared = (prop as { type?: unknown }).type;
     // Union types (`type: ['string','number']`) pass if any branch matches.
-    const declaredList = typeof declared === 'string'
-      ? [declared]
-      : Array.isArray(declared) && declared.every(t => typeof t === 'string')
-        ? (declared as string[])
-        : undefined;
+    const declaredList =
+      typeof declared === 'string'
+        ? [declared]
+        : Array.isArray(declared) && declared.every((t) => typeof t === 'string')
+          ? (declared as string[])
+          : undefined;
     if (!declaredList || declaredList.length === 0) continue;
 
     const actual = jsonTypeOf(value);
     if (!actual) continue;
-    if (declaredList.some(d => matchesDeclaredType(d, actual))) continue;
+    if (declaredList.some((d) => matchesDeclaredType(d, actual))) continue;
 
     // Report `integer` as `number` — the distinction is an artefact of how we
     // classify JS numbers, not something the caller passed.
     const reported = actual === 'integer' ? 'number' : actual;
     console.error(
       `[mcp] tool '${toolName}' param '${key}': schema declares ` +
-      `${declaredList.join('|')}, got ${reported}`
+        `${declaredList.join('|')}, got ${reported}`,
     );
   }
 }
@@ -268,7 +305,7 @@ function warnOnTypeMismatch(
 export async function callMCPTool<T = unknown>(
   toolName: string,
   input: Record<string, unknown> = {},
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
 ): Promise<T> {
   // Lazy-load the tool's category if not yet loaded
   const cat = categoryFromToolName(toolName);
@@ -277,16 +314,13 @@ export async function callMCPTool<T = unknown>(
   const tool = TOOL_REGISTRY.get(toolName);
 
   if (!tool) {
-    throw new MCPClientError(
-      `MCP tool not found: ${toolName}`,
-      toolName
-    );
+    throw new MCPClientError(`MCP tool not found: ${toolName}`, toolName);
   }
 
   if (isToolDisabled(toolName)) {
     throw new MCPClientError(
       `MCP tool '${toolName}' is disabled. Re-enable with: mcp toggle --enable ${toolName}`,
-      toolName
+      toolName,
     );
   }
 
@@ -303,13 +337,11 @@ export async function callMCPTool<T = unknown>(
   // alone, since some tools legitimately accept them.
   const required = tool.inputSchema?.required;
   if (Array.isArray(required) && required.length > 0) {
-    const missing = required.filter(
-      key => input[key] === undefined || input[key] === null
-    );
+    const missing = required.filter((key) => input[key] === undefined || input[key] === null);
     if (missing.length > 0) {
       throw new MCPClientError(
         `MCP tool '${toolName}' missing required parameter${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`,
-        toolName
+        toolName,
       );
     }
   }
@@ -323,7 +355,7 @@ export async function callMCPTool<T = unknown>(
     throw new MCPClientError(
       `Failed to execute MCP tool '${toolName}': ${error instanceof Error ? error.message : String(error)}`,
       toolName,
-      error instanceof Error ? error : undefined
+      error instanceof Error ? error : undefined,
     );
   }
 }
@@ -331,7 +363,9 @@ export async function callMCPTool<T = unknown>(
 /**
  * Get tool metadata by name
  */
-export async function getToolMetadata(toolName: string): Promise<Omit<MCPTool, 'handler'> | undefined> {
+export async function getToolMetadata(
+  toolName: string,
+): Promise<Omit<MCPTool, 'handler'> | undefined> {
   const cat = categoryFromToolName(toolName);
   await ensureCategory(cat);
   const tool = TOOL_REGISTRY.get(toolName);
@@ -351,7 +385,9 @@ export async function getToolMetadata(toolName: string): Promise<Omit<MCPTool, '
 /**
  * List all available MCP tools (loads all categories on first call)
  */
-export async function listMCPTools(category?: string): Promise<Array<Omit<MCPTool, 'handler'> & { enabled: boolean }>> {
+export async function listMCPTools(
+  category?: string,
+): Promise<Array<Omit<MCPTool, 'handler'> & { enabled: boolean }>> {
   if (FULL_ROSTER) {
     await ensureAllLoaded();
   } else {
@@ -364,11 +400,9 @@ export async function listMCPTools(category?: string): Promise<Array<Omit<MCPToo
   // stay callable via callMCPTool/hasTool and discoverable via monomind_tool_search.
   const advertised = FULL_ROSTER ? tools : tools.filter(isCoreAdvertised);
 
-  const filtered = category
-    ? advertised.filter(t => t.category === category)
-    : advertised;
+  const filtered = category ? advertised.filter((t) => t.category === category) : advertised;
 
-  return filtered.map(tool => ({
+  return filtered.map((tool) => ({
     name: tool.name,
     description: tool.description,
     inputSchema: tool.inputSchema,
@@ -388,7 +422,7 @@ export async function listMCPTools(category?: string): Promise<Array<Omit<MCPToo
 export async function getAllMCPTools(): Promise<MCPTool[]> {
   await ensureAllLoaded();
   const disabled = loadDisabledTools();
-  return Array.from(TOOL_REGISTRY.values()).filter(t => !disabled.has(t.name));
+  return Array.from(TOOL_REGISTRY.values()).filter((t) => !disabled.has(t.name));
 }
 
 /**
@@ -410,10 +444,10 @@ export async function searchNonCoreTools(
   const qTokens = q.split(/[\s_-]+/).filter(Boolean);
 
   const candidates = Array.from(TOOL_REGISTRY.values())
-    .filter(t => !disabled.has(t.name) && !isCoreAdvertised(t))
-    .filter(t => (category ? categoryFromToolName(t.name) === category : true));
+    .filter((t) => !disabled.has(t.name) && !isCoreAdvertised(t))
+    .filter((t) => (category ? categoryFromToolName(t.name) === category : true));
 
-  const scored = candidates.map(t => {
+  const scored = candidates.map((t) => {
     const name = t.name.toLowerCase();
     const desc = (t.description || '').toLowerCase();
     let score = 0;
@@ -427,10 +461,10 @@ export async function searchNonCoreTools(
   });
 
   return scored
-    .filter(s => s.score > 0 || !q)
+    .filter((s) => s.score > 0 || !q)
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.max(1, limit))
-    .map(s => ({
+    .map((s) => ({
       name: s.t.name,
       description: s.t.description,
       inputSchema: s.t.inputSchema,
@@ -453,7 +487,7 @@ export async function hasTool(toolName: string): Promise<boolean> {
 export async function getToolCategories(): Promise<string[]> {
   await ensureAllLoaded();
   const categories = new Set<string>();
-  TOOL_REGISTRY.forEach(tool => {
+  TOOL_REGISTRY.forEach((tool) => {
     if (tool.category) categories.add(tool.category);
   });
   return Array.from(categories).sort();
@@ -464,7 +498,7 @@ export async function getToolCategories(): Promise<string[]> {
  */
 export async function validateToolInput(
   toolName: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
 ): Promise<{ valid: boolean; errors?: string[] }> {
   const cat = categoryFromToolName(toolName);
   await ensureCategory(cat);

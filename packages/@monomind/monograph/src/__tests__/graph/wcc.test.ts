@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { weaklyConnectedComponents } from '../../graph/wcc.js';
 import { openDb } from '../../storage/db.js';
-import Database from 'better-sqlite3';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-wcc-test-'));
@@ -12,13 +12,15 @@ function makeTempDb() {
 }
 
 function insertNode(db: Database.Database, id: string) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`)
-    .run(id, id, id.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`,
+  ).run(id, id, id.toLowerCase());
 }
 
 function insertEdge(db: Database.Database, src: string, tgt: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}`, src, tgt);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`,
+  ).run(`${src}_${tgt}`, src, tgt);
 }
 
 describe('weaklyConnectedComponents', () => {

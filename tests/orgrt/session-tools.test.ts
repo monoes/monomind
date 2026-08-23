@@ -8,15 +8,15 @@
  * live LLM session.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { TaskDag } from '../../packages/@monomind/cli/src/orgrt/task-dag.js';
-import { OrgBus } from '../../packages/@monomind/cli/src/orgrt/bus.js';
-import { buildOrgTools } from '../../packages/@monomind/cli/src/orgrt/session.js';
-import { PolicyEngine } from '../../packages/@monomind/cli/src/orgrt/policy.js';
-import { Mailbox } from '../../packages/@monomind/cli/src/orgrt/mailbox.js';
 import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { tmpdir } from 'os';
+import { describe, expect, it } from 'vitest';
+import { OrgBus } from '../../packages/@monomind/cli/src/orgrt/bus.js';
+import { Mailbox } from '../../packages/@monomind/cli/src/orgrt/mailbox.js';
+import { PolicyEngine } from '../../packages/@monomind/cli/src/orgrt/policy.js';
+import { buildOrgTools } from '../../packages/@monomind/cli/src/orgrt/session.js';
+import { TaskDag } from '../../packages/@monomind/cli/src/orgrt/task-dag.js';
 import type { OrgRole } from '../../packages/@monomind/cli/src/orgrt/types.js';
 
 function makeToolSurface(opts: {
@@ -53,12 +53,14 @@ function makeToolSurface(opts: {
     completeTask: (_r: string, taskId: string, result?: string) => {
       dag.markRunning(taskId);
       const promoted = dag.complete(taskId, result);
-      return JSON.stringify({ done: taskId, promoted: promoted.map(t => t.id) });
+      return JSON.stringify({ done: taskId, promoted: promoted.map((t) => t.id) });
     },
     listTasks: () => JSON.stringify(dag.all()),
     splitTask: (_r: string, parentId: string, children: { title: string; assignee: string }[]) => {
       try {
-        return JSON.stringify(dag.split(parentId, children).map(t => ({ id: t.id, title: t.title })));
+        return JSON.stringify(
+          dag.split(parentId, children).map((t) => ({ id: t.id, title: t.title })),
+        );
       } catch (err) {
         return JSON.stringify({ error: (err as Error).message });
       }
@@ -69,13 +71,16 @@ function makeToolSurface(opts: {
     },
     cancelTask: (_r: string, taskId: string, reason?: string) => {
       const promoted = dag.cancel(taskId, reason);
-      return JSON.stringify({ cancelled: taskId, promoted: promoted.map(t => t.id) });
+      return JSON.stringify({ cancelled: taskId, promoted: promoted.map((t) => t.id) });
     },
-    planGraph: (_r: string, specs: { name: string; title: string; assignee: string; after?: string[] }[]) => {
+    planGraph: (
+      _r: string,
+      specs: { name: string; title: string; assignee: string; after?: string[] }[],
+    ) => {
       const nameToId = new Map<string, string>();
       const created: { name: string; id: string }[] = [];
       for (const s of specs) {
-        const depIds = (s.after ?? []).map(a => nameToId.get(a) ?? a);
+        const depIds = (s.after ?? []).map((a) => nameToId.get(a) ?? a);
         const t = dag.add(s.title, s.assignee, depIds);
         nameToId.set(s.name, t.id);
         created.push({ name: s.name, id: t.id });
@@ -88,8 +93,11 @@ function makeToolSurface(opts: {
   return { tools, dag, bus, dir };
 }
 
-function getTool(tools: { name: string; handler: (args: unknown) => Promise<{ text: string }> }[], name: string) {
-  const t = tools.find(t => t.name === name);
+function getTool(
+  tools: { name: string; handler: (args: unknown) => Promise<{ text: string }> }[],
+  name: string,
+) {
+  const t = tools.find((t) => t.name === name);
   if (!t) throw new Error(`tool "${name}" not registered`);
   return t;
 }
@@ -100,19 +108,28 @@ describe('session tool integration — org_task_split (#6)', () => {
     const parent = dag.add('parent task', 'coder');
     const tool = getTool(tools as never, 'org_task_split');
 
-    const result = await tool.handler({ parentId: parent.id, children: [{ title: 'child-a', assignee: 'tester' }, { title: 'child-b', assignee: 'coder' }] });
+    const result = await tool.handler({
+      parentId: parent.id,
+      children: [
+        { title: 'child-a', assignee: 'tester' },
+        { title: 'child-b', assignee: 'coder' },
+      ],
+    });
     const parsed = JSON.parse(result.text);
 
     expect(parsed).toHaveLength(2);
     expect(parsed[0].title).toBe('child-a');
     expect(parsed[1].title).toBe('child-b');
-    expect(dag.get(parent.id)!.status).toBe('split');
+    expect(dag.get(parent.id)?.status).toBe('split');
   });
 
   it('returns a JSON error string (not a throw) for an unknown parent', async () => {
     const { tools } = makeToolSurface({});
     const tool = getTool(tools as never, 'org_task_split');
-    const result = await tool.handler({ parentId: 'ghost', children: [{ title: 'x', assignee: 'coder' }] });
+    const result = await tool.handler({
+      parentId: 'ghost',
+      children: [{ title: 'x', assignee: 'coder' }],
+    });
     expect(JSON.parse(result.text).error).toBeTruthy();
   });
 });
@@ -129,7 +146,7 @@ describe('session tool integration — org_task_merge (#6)', () => {
 
     expect(parsed.merged).toBe(a.id);
     expect(parsed.into).toBe(b.id);
-    expect(dag.get(a.id)!.status).toBe('merged');
+    expect(dag.get(a.id)?.status).toBe('merged');
   });
 });
 
@@ -145,8 +162,8 @@ describe('session tool integration — org_task_cancel (#6)', () => {
 
     expect(parsed.cancelled).toBe(a.id);
     expect(parsed.promoted).toEqual(expect.arrayContaining([b.id]));
-    expect(dag.get(a.id)!.status).toBe('cancelled');
-    expect(dag.get(b.id)!.status).toBe('ready');
+    expect(dag.get(a.id)?.status).toBe('cancelled');
+    expect(dag.get(b.id)?.status).toBe('ready');
   });
 });
 
@@ -170,7 +187,7 @@ describe('session tool integration — org_plan_graph (#5)', () => {
     const build = parsed.tasks.find((t: { name: string }) => t.name === 'build');
     expect(setup.id).toMatch(/^task-\d+$/);
     // Deps wired correctly
-    expect(dag.get(build.id)!.deps).toContain(setup.id);
+    expect(dag.get(build.id)?.deps).toContain(setup.id);
   });
 
   it('parallel branches share a parent dep', async () => {
@@ -189,15 +206,15 @@ describe('session tool integration — org_plan_graph (#5)', () => {
     const left = parsed.tasks.find((t: { name: string }) => t.name === 'left');
     const right = parsed.tasks.find((t: { name: string }) => t.name === 'right');
 
-    expect(dag.get(left.id)!.deps).toContain(root.id);
-    expect(dag.get(right.id)!.deps).toContain(root.id);
+    expect(dag.get(left.id)?.deps).toContain(root.id);
+    expect(dag.get(right.id)?.deps).toContain(root.id);
   });
 });
 
 describe('session tool integration — all 4 playbook tools are registered', () => {
   it('buildOrgTools includes org_task_split, org_task_merge, org_task_cancel, org_plan_graph when callbacks are set', () => {
     const { tools } = makeToolSurface({});
-    const names = tools.map(t => t.name);
+    const names = tools.map((t) => t.name);
     expect(names).toContain('org_task_split');
     expect(names).toContain('org_task_merge');
     expect(names).toContain('org_task_cancel');
@@ -207,13 +224,24 @@ describe('session tool integration — all 4 playbook tools are registered', () 
   it('buildOrgTools omits the 4 playbook tools when their callbacks are absent', () => {
     const dir = mkdtempSync(join(tmpdir(), 'mono-session-noop-'));
     const bus = new OrgBus('test-org', 'run-1', dir);
-    const role: OrgRole = { id: 'boss', title: 'Boss', type: 'boss', reports_to: null, responsibilities: [] } as OrgRole;
+    const role: OrgRole = {
+      id: 'boss',
+      title: 'Boss',
+      type: 'boss',
+      reports_to: null,
+      responsibilities: [],
+    } as OrgRole;
     const tools = buildOrgTools({
-      org: 'test-org', role, bus, policy: new PolicyEngine({}), mailbox: new Mailbox('boss'),
-      cwd: '.', deliver: async () => 'ok',
+      org: 'test-org',
+      role,
+      bus,
+      policy: new PolicyEngine({}),
+      mailbox: new Mailbox('boss'),
+      cwd: '.',
+      deliver: async () => 'ok',
       // No task callbacks set
     });
-    const names = tools.map(t => t.name);
+    const names = tools.map((t) => t.name);
     expect(names).not.toContain('org_task_split');
     expect(names).not.toContain('org_plan_graph');
     // The basic 3 (create/done/list) should also be absent

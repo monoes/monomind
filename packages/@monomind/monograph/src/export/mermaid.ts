@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 const MAX_NODES = 200;
 
@@ -30,7 +30,7 @@ function safeId(id: string): string {
  */
 export function toMermaid(nodes: MonographNode[], edges: MonographEdge[]): string {
   const capped = nodes.slice(0, MAX_NODES);
-  const cappedIds = new Set(capped.map(n => n.id));
+  const cappedIds = new Set(capped.map((n) => n.id));
 
   const lines: string[] = ['graph TD'];
 
@@ -43,9 +43,7 @@ export function toMermaid(nodes: MonographNode[], edges: MonographEdge[]): strin
     communities.set(key, group);
   }
 
-  const hasCommunities = communities.has(undefined)
-    ? communities.size > 1
-    : communities.size > 0;
+  const hasCommunities = communities.has(undefined) ? communities.size > 1 : communities.size > 0;
 
   if (hasCommunities && !communities.has(undefined)) {
     // All nodes have communityId — use subgraphs

@@ -3,12 +3,13 @@
  * Spawn-based: has module-level side effects (mkdirSync, spawn, process.exit).
  * Uses CLAUDE_PROJECT_DIR to control where graph/ dir and lock file are created.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawnSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/graphify-freshen.cjs');

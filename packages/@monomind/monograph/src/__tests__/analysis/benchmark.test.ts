@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
-import { runBenchmark, estimateTokens } from '../../analysis/benchmark.js';
+import { describe, expect, it } from 'vitest';
+import { estimateTokens, runBenchmark } from '../../analysis/benchmark.js';
 
 function makeDb(nodeCount: number): Database.Database {
   const db = new Database(':memory:');
@@ -10,10 +10,25 @@ function makeDb(nodeCount: number): Database.Database {
   `);
   const insert = db.prepare('INSERT INTO nodes VALUES (?,?,?,?,?,?,?)');
   for (let i = 0; i < nodeCount; i++) {
-    insert.run(`n${i}`, `symbol_${i}`, 'Function', `/app/file${i % 10}.ts`, i * 5 + 1, i * 5 + 4, i % 3);
+    insert.run(
+      `n${i}`,
+      `symbol_${i}`,
+      'Function',
+      `/app/file${i % 10}.ts`,
+      i * 5 + 1,
+      i * 5 + 4,
+      i % 3,
+    );
   }
   for (let i = 1; i < Math.min(nodeCount, 20); i++) {
-    db.prepare('INSERT INTO edges VALUES (?,?,?,?,?,?)').run(`e${i}`, `n${i - 1}`, `n${i}`, 'CALLS', 'EXTRACTED', 0.9);
+    db.prepare('INSERT INTO edges VALUES (?,?,?,?,?,?)').run(
+      `e${i}`,
+      `n${i - 1}`,
+      `n${i}`,
+      'CALLS',
+      'EXTRACTED',
+      0.9,
+    );
   }
   return db;
 }

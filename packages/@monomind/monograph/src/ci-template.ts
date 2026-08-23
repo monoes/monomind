@@ -2,14 +2,14 @@ export type CiProvider = 'github' | 'gitlab';
 
 export interface CiTemplateOptions {
   provider: CiProvider;
-  monographVersion?: string;   // default 'latest'
-  failOnNewDebt?: boolean;     // default true
-  healthThreshold?: string;    // e.g. 'B' — fail if below this grade
+  monographVersion?: string; // default 'latest'
+  failOnNewDebt?: boolean; // default true
+  healthThreshold?: string; // e.g. 'B' — fail if below this grade
 }
 
 export interface CiTemplate {
-  filename: string;         // e.g. '.github/workflows/monograph.yml'
-  content: string;          // the YAML/config content
+  filename: string; // e.g. '.github/workflows/monograph.yml'
+  content: string; // the YAML/config content
   description: string;
 }
 
@@ -61,7 +61,8 @@ jobs:
     return {
       filename: '.github/workflows/monograph.yml',
       content,
-      description: 'GitHub Actions workflow that builds the Monograph graph, checks the health grade gate, and uploads the report as an artifact.',
+      description:
+        'GitHub Actions workflow that builds the Monograph graph, checks the health grade gate, and uploads the report as an artifact.',
     };
   }
 
@@ -79,6 +80,7 @@ jobs:
   return {
     filename: '.gitlab-ci.yml',
     content,
-    description: 'GitLab CI job that builds the Monograph graph and publishes a Code Quality report via the codeclimate artifact.',
+    description:
+      'GitLab CI job that builds the Monograph graph and publishes a Code Quality report via the codeclimate artifact.',
   };
 }

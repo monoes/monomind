@@ -9,7 +9,7 @@ export interface MonographError {
 export function emitError(message: string, exitCode: number, output: OutputFormat): MonographError {
   const err: MonographError = { code: `E${exitCode}`, message };
   if (output === 'json') {
-    process.stderr.write(JSON.stringify({ error: err }) + '\n');
+    process.stderr.write(`${JSON.stringify({ error: err })}\n`);
   } else {
     process.stderr.write(`Error: ${message}\n`);
   }
@@ -18,7 +18,7 @@ export function emitError(message: string, exitCode: number, output: OutputForma
 
 export function formatError(err: MonographError, output: OutputFormat): string {
   if (output === 'json') return JSON.stringify({ error: err });
-  return `Error [${err.code}]: ${err.message}${err.details ? '\n' + err.details : ''}`;
+  return `Error [${err.code}]: ${err.message}${err.details ? `\n${err.details}` : ''}`;
 }
 
 export class MonographAnalysisError extends Error {

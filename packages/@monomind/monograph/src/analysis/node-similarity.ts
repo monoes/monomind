@@ -20,15 +20,13 @@ export interface SimilarNode {
  * Callers that invoke findSimilarNodes for multiple nodes on the same edge set
  * should build once and pass the map directly to findSimilarNodesFromMap.
  */
-export function buildNeighborMap(
-  edges: SimilarityEdge[],
-): Map<string, Set<string>> {
+export function buildNeighborMap(edges: SimilarityEdge[]): Map<string, Set<string>> {
   const neighbors = new Map<string, Set<string>>();
   for (const { sourceId, targetId } of edges) {
     if (!neighbors.has(sourceId)) neighbors.set(sourceId, new Set());
     if (!neighbors.has(targetId)) neighbors.set(targetId, new Set());
-    neighbors.get(sourceId)!.add(targetId);
-    neighbors.get(targetId)!.add(sourceId);
+    neighbors.get(sourceId)?.add(targetId);
+    neighbors.get(targetId)?.add(sourceId);
   }
   return neighbors;
 }

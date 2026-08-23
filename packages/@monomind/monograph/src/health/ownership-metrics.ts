@@ -45,7 +45,7 @@ export function filterSuggestedReviewers(
   maxStaleDays = 90,
 ): ContributorEntry[] {
   return contributors
-    .filter(c => c.identifier !== topContributor.identifier && c.staleDays <= maxStaleDays)
+    .filter((c) => c.identifier !== topContributor.identifier && c.staleDays <= maxStaleDays)
     .slice(0, 3);
 }
 

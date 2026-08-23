@@ -2,15 +2,15 @@
  * Antigravity (agy) / Gemini integration file writers.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type { InitOptions, InitResult } from './types.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   generateGeminiMd,
   generateGeminiRulesMd,
   generateStatuslineSh,
 } from './geminimd-generator.js';
 import { atomicWriteFile, MAX_EXEC_FILE_BYTES } from './shared.js';
+import type { InitOptions, InitResult } from './types.js';
 
 /**
  * Write Antigravity (agy) integration files:
@@ -22,7 +22,7 @@ import { atomicWriteFile, MAX_EXEC_FILE_BYTES } from './shared.js';
 export async function writeGeminiFiles(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   // GEMINI.md
   const geminiMdPath = path.join(targetDir, 'GEMINI.md');
@@ -50,7 +50,11 @@ export async function writeGeminiFiles(
   const statuslineShPath = path.join(geminiHelpersDir, 'statusline.sh');
   if (!fs.existsSync(statuslineShPath) || options.force) {
     atomicWriteFile(statuslineShPath, generateStatuslineSh());
-    try { fs.chmodSync(statuslineShPath, 0o755); } catch { /* ignore on Windows */ }
+    try {
+      fs.chmodSync(statuslineShPath, 0o755);
+    } catch {
+      /* ignore on Windows */
+    }
     result.created.files.push('.gemini/helpers/statusline.sh');
   } else {
     result.skipped.push('.gemini/helpers/statusline.sh');
@@ -61,7 +65,10 @@ export async function writeGeminiFiles(
   const geminiSettingsPath = path.join(targetDir, '.gemini', 'settings.json');
   try {
     let existing: Record<string, unknown> = {};
-    if (fs.existsSync(geminiSettingsPath) && fs.statSync(geminiSettingsPath).size <= MAX_EXEC_FILE_BYTES) {
+    if (
+      fs.existsSync(geminiSettingsPath) &&
+      fs.statSync(geminiSettingsPath).size <= MAX_EXEC_FILE_BYTES
+    ) {
       existing = JSON.parse(fs.readFileSync(geminiSettingsPath, 'utf-8'));
     }
     if (!existing.statusLine) {
@@ -72,7 +79,9 @@ export async function writeGeminiFiles(
       result.skipped.push('.gemini/settings.json (statusLine already configured)');
     }
   } catch (e) {
-    result.errors.push(`writeGeminiFiles: failed to write .gemini/settings.json: ${e instanceof Error ? e.message : String(e)}`);
+    result.errors.push(
+      `writeGeminiFiles: failed to write .gemini/settings.json: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
 
   // Also update the global ~/.gemini/antigravity-cli/settings.json (best-effort)
@@ -86,25 +95,36 @@ export async function writeGeminiFiles(
       // actually runs agy. Creating the directory for non-agy users would be
       // init mutating state outside the project for no benefit.
       if (fs.existsSync(globalAgyDir)) {
-      // Write/overwrite the global statusline wrapper
-      if (!fs.existsSync(globalStatuslineSh) || options.force) {
-        atomicWriteFile(globalStatuslineSh, generateStatuslineSh());
-        try { fs.chmodSync(globalStatuslineSh, 0o755); } catch { /* ignore */ }
-        result.created.files.push('~/.gemini/antigravity-cli/statusline.sh');
-      }
-      // Inject statusLine into global agy settings without clobbering existing keys
-      let globalSettings: Record<string, unknown> = {};
-      if (fs.existsSync(globalAgySettings) && fs.statSync(globalAgySettings).size <= MAX_EXEC_FILE_BYTES) {
-        try { globalSettings = JSON.parse(fs.readFileSync(globalAgySettings, 'utf-8')); } catch { /* reset */ }
-      }
-      if (!globalSettings.statusLine) {
-        globalSettings.statusLine = {
-          type: 'command',
-          command: `${globalAgyDir}/statusline.sh`,
-        };
-        atomicWriteFile(globalAgySettings, JSON.stringify(globalSettings, null, 2));
-        result.created.files.push('~/.gemini/antigravity-cli/settings.json (statusLine wired)');
-      }
+        // Write/overwrite the global statusline wrapper
+        if (!fs.existsSync(globalStatuslineSh) || options.force) {
+          atomicWriteFile(globalStatuslineSh, generateStatuslineSh());
+          try {
+            fs.chmodSync(globalStatuslineSh, 0o755);
+          } catch {
+            /* ignore */
+          }
+          result.created.files.push('~/.gemini/antigravity-cli/statusline.sh');
+        }
+        // Inject statusLine into global agy settings without clobbering existing keys
+        let globalSettings: Record<string, unknown> = {};
+        if (
+          fs.existsSync(globalAgySettings) &&
+          fs.statSync(globalAgySettings).size <= MAX_EXEC_FILE_BYTES
+        ) {
+          try {
+            globalSettings = JSON.parse(fs.readFileSync(globalAgySettings, 'utf-8'));
+          } catch {
+            /* reset */
+          }
+        }
+        if (!globalSettings.statusLine) {
+          globalSettings.statusLine = {
+            type: 'command',
+            command: `${globalAgyDir}/statusline.sh`,
+          };
+          atomicWriteFile(globalAgySettings, JSON.stringify(globalSettings, null, 2));
+          result.created.files.push('~/.gemini/antigravity-cli/settings.json (statusLine wired)');
+        }
       }
     } catch (e) {
       // Non-critical — global agy settings is best-effort

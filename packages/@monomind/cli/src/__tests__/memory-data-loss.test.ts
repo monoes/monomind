@@ -15,17 +15,18 @@
  * Follows memory-crud.test.ts: mock @monoes/memory so all operations take
  * the real sql.js fallback path against a tempdir .swarm/memory.db.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+
+import { mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@monoes/memory', () => {
   throw new Error('mocked: LanceDB backend unavailable in test environment');
 });
 
 import { storeEntry } from '../memory/memory-crud.js';
-import { initializeMemoryDatabase, applyTemporalDecay } from '../memory/memory-initializer.js';
+import { applyTemporalDecay, initializeMemoryDatabase } from '../memory/memory-initializer.js';
 
 /** Open the on-disk sql.js DB, run fn, persist atomically. */
 async function withDb<T>(dbPath: string, fn: (db: any) => T): Promise<T> {
@@ -35,7 +36,7 @@ async function withDb<T>(dbPath: string, fn: (db: any) => T): Promise<T> {
   try {
     const result = fn(db);
     const data = db.export();
-    const tmp = dbPath + '.tmp';
+    const tmp = `${dbPath}.tmp`;
     writeFileSync(tmp, Buffer.from(data));
     renameSync(tmp, dbPath);
     return result;
@@ -44,7 +45,11 @@ async function withDb<T>(dbPath: string, fn: (db: any) => T): Promise<T> {
   }
 }
 
-async function readRow(dbPath: string, sql: string, params: unknown[] = []): Promise<Record<string, unknown> | null> {
+async function readRow(
+  dbPath: string,
+  sql: string,
+  params: unknown[] = [],
+): Promise<Record<string, unknown> | null> {
   return withDb(dbPath, (db) => {
     const stmt = db.prepare(sql);
     stmt.bind(params);
@@ -79,7 +84,13 @@ describe('memory data-loss fixes (#87, #88)', () => {
   });
 
   it('#88 upsert preserves learned stats (access_count, confidence, metadata, ...) and updates content in place', async () => {
-    const first = await storeEntry({ key: 'k', namespace: 'ns', value: 'v1', upsert: true, generateEmbeddingFlag: false });
+    const first = await storeEntry({
+      key: 'k',
+      namespace: 'ns',
+      value: 'v1',
+      upsert: true,
+      generateEmbeddingFlag: false,
+    });
     expect(first.success).toBe(true);
 
     // Simulate learned stats accumulated on the row.
@@ -98,33 +109,54 @@ describe('memory data-loss fixes (#87, #88)', () => {
       );
     });
 
-    const second = await storeEntry({ key: 'k', namespace: 'ns', value: 'v2', upsert: true, generateEmbeddingFlag: false });
+    const second = await storeEntry({
+      key: 'k',
+      namespace: 'ns',
+      value: 'v2',
+      upsert: true,
+      generateEmbeddingFlag: false,
+    });
     expect(second.success).toBe(true);
     expect(second.id).toBe(first.id); // same row, updated in place
 
-    const row = await readRow(dbPath, "SELECT * FROM memory_entries WHERE key = 'k' AND namespace = 'ns'");
+    const row = await readRow(
+      dbPath,
+      "SELECT * FROM memory_entries WHERE key = 'k' AND namespace = 'ns'",
+    );
     expect(row).not.toBeNull();
-    expect(row!.content).toBe('v2');
-    expect(row!.access_count).toBe(7);
-    expect(row!.confidence).toBe(0.9);
-    expect(row!.importance_score).toBe(0.8);
-    expect(row!.last_accessed_at).toBe(123456);
-    expect(row!.owner_id).toBe('owner-1');
-    expect(row!.agent_id).toBe('agent-1');
-    expect(row!.session_id).toBe('session-1');
-    expect(row!.metadata).toBe('{"learned":true}');
+    expect(row?.content).toBe('v2');
+    expect(row?.access_count).toBe(7);
+    expect(row?.confidence).toBe(0.9);
+    expect(row?.importance_score).toBe(0.8);
+    expect(row?.last_accessed_at).toBe(123456);
+    expect(row?.owner_id).toBe('owner-1');
+    expect(row?.agent_id).toBe('agent-1');
+    expect(row?.session_id).toBe('session-1');
+    expect(row?.metadata).toBe('{"learned":true}');
 
     // Still exactly one row — upsert must not duplicate.
-    const count = await readRow(dbPath, "SELECT COUNT(*) AS n FROM memory_entries WHERE key = 'k' AND namespace = 'ns' AND status = 'active'");
-    expect(count!.n).toBe(1);
+    const count = await readRow(
+      dbPath,
+      "SELECT COUNT(*) AS n FROM memory_entries WHERE key = 'k' AND namespace = 'ns' AND status = 'active'",
+    );
+    expect(count?.n).toBe(1);
   });
 
   it('#88 upsert with no existing row inserts a fresh entry', async () => {
-    const result = await storeEntry({ key: 'fresh', namespace: 'ns', value: 'hello', upsert: true, generateEmbeddingFlag: false });
+    const result = await storeEntry({
+      key: 'fresh',
+      namespace: 'ns',
+      value: 'hello',
+      upsert: true,
+      generateEmbeddingFlag: false,
+    });
     expect(result.success).toBe(true);
-    const row = await readRow(dbPath, "SELECT * FROM memory_entries WHERE key = 'fresh' AND namespace = 'ns'");
-    expect(row!.content).toBe('hello');
-    expect(row!.status).toBe('active');
+    const row = await readRow(
+      dbPath,
+      "SELECT * FROM memory_entries WHERE key = 'fresh' AND namespace = 'ns'",
+    );
+    expect(row?.content).toBe('hello');
+    expect(row?.status).toBe('active');
   });
 
   it('#87 temporal decay clamps confidence at 0 instead of going negative', async () => {
@@ -144,6 +176,6 @@ describe('memory data-loss fixes (#87, #88)', () => {
     expect(result.patternsDecayed).toBe(1);
 
     const row = await readRow(dbPath, "SELECT confidence FROM patterns WHERE id = 'p1'");
-    expect(row!.confidence).toBe(0); // clamped, not -0.25
+    expect(row?.confidence).toBe(0); // clamped, not -0.25
   });
 });

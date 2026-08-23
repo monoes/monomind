@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { stripDiacritics, normalizeSearchTerm } from '../../search/diacritic.js';
+import { describe, expect, it } from 'vitest';
+import { normalizeSearchTerm, stripDiacritics } from '../../search/diacritic.js';
 
 describe('stripDiacritics', () => {
   it('removes accents from French', () => {

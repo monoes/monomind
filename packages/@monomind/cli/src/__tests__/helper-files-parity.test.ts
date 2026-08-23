@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 import { FORCE_SYNC_HELPERS } from '../init/helpers-generator.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,7 +36,16 @@ describe('session-restore-handler.cjs helper list stays in sync with HELPER_FILE
 
   it('npm-published package copy matches FORCE_SYNC_HELPERS', () => {
     const helpers = extractHelpersToCheck(
-      join(REPO_ROOT, 'packages', '@monomind', 'cli', '.claude', 'helpers', 'handlers', 'session-restore-handler.cjs'),
+      join(
+        REPO_ROOT,
+        'packages',
+        '@monomind',
+        'cli',
+        '.claude',
+        'helpers',
+        'handlers',
+        'session-restore-handler.cjs',
+      ),
     );
     expect(helpers.slice().sort()).toEqual(FORCE_SYNC_HELPERS.slice().sort());
   });
@@ -46,7 +55,16 @@ describe('session-restore-handler.cjs helper list stays in sync with HELPER_FILE
       join(REPO_ROOT, '.claude', 'helpers', 'handlers', 'session-restore-handler.cjs'),
     );
     const published = extractHelpersToCheck(
-      join(REPO_ROOT, 'packages', '@monomind', 'cli', '.claude', 'helpers', 'handlers', 'session-restore-handler.cjs'),
+      join(
+        REPO_ROOT,
+        'packages',
+        '@monomind',
+        'cli',
+        '.claude',
+        'helpers',
+        'handlers',
+        'session-restore-handler.cjs',
+      ),
     );
     expect(published.slice().sort()).toEqual(root.slice().sort());
   });

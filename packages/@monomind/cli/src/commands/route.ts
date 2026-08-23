@@ -3,13 +3,13 @@
  * Task-to-agent routing via keyword matching with outcome tracking.
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
 import {
   createKeywordRouter,
   type KeywordRouter,
   type RouteDecision,
 } from '../monovector/index.js';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // ============================================================================
 // Agent Type Definitions
@@ -27,14 +27,62 @@ interface AgentType {
  * Available agent types for routing
  */
 const AGENT_TYPES: AgentType[] = [
-  { id: 'coder', name: 'Coder', description: 'Implements features and writes code', capabilities: ['coding', 'implementation', 'refactoring'], priority: 1 },
-  { id: 'tester', name: 'Tester', description: 'Creates tests and validates functionality', capabilities: ['testing', 'validation', 'quality'], priority: 2 },
-  { id: 'reviewer', name: 'Reviewer', description: 'Reviews code quality and security', capabilities: ['review', 'security', 'best-practices'], priority: 3 },
-  { id: 'architect', name: 'Architect', description: 'Designs system architecture', capabilities: ['design', 'architecture', 'planning'], priority: 4 },
-  { id: 'researcher', name: 'Researcher', description: 'Researches requirements and patterns', capabilities: ['research', 'analysis', 'documentation'], priority: 5 },
-  { id: 'optimizer', name: 'Optimizer', description: 'Optimizes performance and efficiency', capabilities: ['optimization', 'performance', 'profiling'], priority: 6 },
-  { id: 'debugger', name: 'Debugger', description: 'Debugs issues and fixes bugs', capabilities: ['debugging', 'troubleshooting', 'fixing'], priority: 7 },
-  { id: 'documenter', name: 'Documenter', description: 'Creates and updates documentation', capabilities: ['documentation', 'writing', 'explaining'], priority: 8 },
+  {
+    id: 'coder',
+    name: 'Coder',
+    description: 'Implements features and writes code',
+    capabilities: ['coding', 'implementation', 'refactoring'],
+    priority: 1,
+  },
+  {
+    id: 'tester',
+    name: 'Tester',
+    description: 'Creates tests and validates functionality',
+    capabilities: ['testing', 'validation', 'quality'],
+    priority: 2,
+  },
+  {
+    id: 'reviewer',
+    name: 'Reviewer',
+    description: 'Reviews code quality and security',
+    capabilities: ['review', 'security', 'best-practices'],
+    priority: 3,
+  },
+  {
+    id: 'architect',
+    name: 'Architect',
+    description: 'Designs system architecture',
+    capabilities: ['design', 'architecture', 'planning'],
+    priority: 4,
+  },
+  {
+    id: 'researcher',
+    name: 'Researcher',
+    description: 'Researches requirements and patterns',
+    capabilities: ['research', 'analysis', 'documentation'],
+    priority: 5,
+  },
+  {
+    id: 'optimizer',
+    name: 'Optimizer',
+    description: 'Optimizes performance and efficiency',
+    capabilities: ['optimization', 'performance', 'profiling'],
+    priority: 6,
+  },
+  {
+    id: 'debugger',
+    name: 'Debugger',
+    description: 'Debugs issues and fixes bugs',
+    capabilities: ['debugging', 'troubleshooting', 'fixing'],
+    priority: 7,
+  },
+  {
+    id: 'documenter',
+    name: 'Documenter',
+    description: 'Creates and updates documentation',
+    capabilities: ['documentation', 'writing', 'explaining'],
+    priority: 8,
+  },
 ];
 
 // ============================================================================
@@ -62,7 +110,7 @@ async function getRouter(): Promise<KeywordRouter> {
  * Get agent type by route name
  */
 function getAgentType(route: string): AgentType | undefined {
-  return AGENT_TYPES.find(a => a.id === route);
+  return AGENT_TYPES.find((a) => a.id === route);
 }
 
 // ============================================================================
@@ -95,9 +143,18 @@ const routeTaskCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind route task "implement authentication"', description: 'Route task to best agent' },
-    { command: 'monomind route task "write unit tests"', description: 'Route test task to tester agent' },
-    { command: 'monomind route task "review code" --agent reviewer', description: 'Force specific agent' },
+    {
+      command: 'monomind route task "implement authentication"',
+      description: 'Route task to best agent',
+    },
+    {
+      command: 'monomind route task "write unit tests"',
+      description: 'Route test task to tester agent',
+    },
+    {
+      command: 'monomind route task "review code" --agent reviewer',
+      description: 'Force specific agent',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rawTask = ctx.args[0];
@@ -121,14 +178,15 @@ const routeTaskCommand: Command = {
     try {
       if (forceAgent) {
         // Use specified agent directly
-        const agent = getAgentType(forceAgent) ||
-          AGENT_TYPES.find(a => a.name.toLowerCase() === forceAgent.toLowerCase());
+        const agent =
+          getAgentType(forceAgent) ||
+          AGENT_TYPES.find((a) => a.name.toLowerCase() === forceAgent.toLowerCase());
 
         if (!agent) {
           spinner.fail(`Agent "${forceAgent}" not found`);
           output.writeln();
           output.writeln('Available agents:');
-          output.printList(AGENT_TYPES.map(a => `${output.highlight(a.id)} - ${a.description}`));
+          output.printList(AGENT_TYPES.map((a) => `${output.highlight(a.id)} - ${a.description}`));
           return { success: false, exitCode: 1 };
         }
 
@@ -144,12 +202,15 @@ const routeTaskCommand: Command = {
           });
         } else {
           output.writeln();
-          output.printBox([
-            `Task: ${taskDescription}`,
-            `Agent: ${output.highlight(agent.name)} (${agent.id})`,
-            `Confidence: ${output.success('100%')} (forced)`,
-            `Description: ${agent.description}`,
-          ].join('\n'), 'Routing Result');
+          output.printBox(
+            [
+              `Task: ${taskDescription}`,
+              `Agent: ${output.highlight(agent.name)} (${agent.id})`,
+              `Confidence: ${output.success('100%')} (forced)`,
+              `Description: ${agent.description}`,
+            ].join('\n'),
+            'Routing Result',
+          );
         }
 
         return { success: true, data: { agentId: agent.id, agentName: agent.name } };
@@ -168,7 +229,7 @@ const routeTaskCommand: Command = {
           agentId: result.route,
           agentName: agent.name,
           confidence: result.confidence,
-          alternatives: (result.alternatives || []).map(a => ({
+          alternatives: (result.alternatives || []).map((a) => ({
             agentId: a.route,
             agentName: getAgentType(a.route)?.name || a.route,
             score: a.score,
@@ -179,24 +240,28 @@ const routeTaskCommand: Command = {
 
         const confidence = result.confidence ?? 0;
         // Use bound methods to preserve `this` context when calling output methods
-        const confidenceColor = confidence >= 0.7
-          ? (text: string) => output.success(text)
-          : confidence >= 0.4
-            ? (text: string) => output.warning(text)
-            : (text: string) => output.error(text);
+        const confidenceColor =
+          confidence >= 0.7
+            ? (text: string) => output.success(text)
+            : confidence >= 0.4
+              ? (text: string) => output.warning(text)
+              : (text: string) => output.error(text);
 
         const capabilities = agent.capabilities || [];
         const alternatives = result.alternatives || [];
 
-        output.printBox([
-          `Task: ${taskDescription}`,
-          ``,
-          `Agent: ${output.highlight(agent.name)} (${result.route})`,
-          `Confidence: ${confidenceColor(`${(confidence * 100).toFixed(1)}%`)}`,
-          ``,
-          `Description: ${agent.description}`,
-          `Capabilities: ${capabilities.join(', ')}`,
-        ].join('\n'), 'Keyword Routing');
+        output.printBox(
+          [
+            `Task: ${taskDescription}`,
+            ``,
+            `Agent: ${output.highlight(agent.name)} (${result.route})`,
+            `Confidence: ${confidenceColor(`${(confidence * 100).toFixed(1)}%`)}`,
+            ``,
+            `Description: ${agent.description}`,
+            `Capabilities: ${capabilities.join(', ')}`,
+          ].join('\n'),
+          'Keyword Routing',
+        );
 
         if (alternatives.length > 0) {
           output.writeln();
@@ -206,7 +271,7 @@ const routeTaskCommand: Command = {
               { key: 'agent', header: 'Agent', width: 20 },
               { key: 'score', header: 'Score', width: 12, align: 'right' },
             ],
-            data: alternatives.map(a => ({
+            data: alternatives.map((a) => ({
               agent: getAgentType(a.route)?.name || a.route,
               score: (a.score ?? 0).toFixed(3),
             })),
@@ -263,7 +328,7 @@ const listAgentsCommand: Command = {
             { key: 'priority', header: 'Priority', width: 10, align: 'right' },
             { key: 'description', header: 'Description', width: 45 },
           ],
-          data: AGENT_TYPES.map(a => ({
+          data: AGENT_TYPES.map((a) => ({
             id: output.highlight(a.id),
             name: a.name,
             priority: String(a.priority),
@@ -299,9 +364,7 @@ const statsCommand: Command = {
       default: false,
     },
   ],
-  examples: [
-    { command: 'monomind route stats', description: 'Show routing statistics' },
-  ],
+  examples: [{ command: 'monomind route stats', description: 'Show routing statistics' }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const jsonOutput = ctx.flags.json as boolean;
 
@@ -316,7 +379,7 @@ const statsCommand: Command = {
         output.writeln(output.bold('Route Outcome Statistics'));
         output.writeln();
 
-        const fmt = (v: number | null) => v === null ? 'n/a' : `${(v * 100).toFixed(1)}%`;
+        const fmt = (v: number | null) => (v === null ? 'n/a' : `${(v * 100).toFixed(1)}%`);
 
         output.printTable({
           columns: [
@@ -327,11 +390,16 @@ const statsCommand: Command = {
             { metric: 'Outcomes Recorded', value: String(stats.outcomeCount) },
             { metric: 'Accuracy', value: fmt(stats.accuracy) },
             { metric: 'Adherence', value: fmt(stats.adherence) },
-            { metric: 'Trend (recent-prior)', value: stats.trend === null ? 'n/a' : `${stats.trend > 0 ? '+' : ''}${(stats.trend * 100).toFixed(1)}%` },
+            {
+              metric: 'Trend (recent-prior)',
+              value:
+                stats.trend === null
+                  ? 'n/a'
+                  : `${stats.trend > 0 ? '+' : ''}${(stats.trend * 100).toFixed(1)}%`,
+            },
             { metric: 'Backend', value: 'keyword-routing (JS)' },
           ],
         });
-
       }
 
       return { success: true, data: { stats } };
@@ -379,8 +447,14 @@ const feedbackCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind route feedback -t "implement auth" -a coder -r 0.9', description: 'Positive feedback' },
-    { command: 'monomind route feedback -t "write tests" -a tester -r -0.5', description: 'Negative feedback' },
+    {
+      command: 'monomind route feedback -t "implement auth" -a coder -r 0.9',
+      description: 'Positive feedback',
+    },
+    {
+      command: 'monomind route feedback -t "write tests" -a tester -r -0.5',
+      description: 'Negative feedback',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rawFeedbackTask = ctx.flags.task as string;
@@ -408,7 +482,7 @@ const feedbackCommand: Command = {
     if (!agent) {
       output.printError(`Unknown agent: ${agentId}`);
       output.writeln('Available agents:');
-      output.printList(AGENT_TYPES.map(a => a.id));
+      output.printList(AGENT_TYPES.map((a) => a.id));
       return { success: false, exitCode: 1 };
     }
 
@@ -419,12 +493,17 @@ const feedbackCommand: Command = {
 
       output.printSuccess(`Feedback recorded for agent "${agent.name}"`);
       output.writeln();
-      output.printBox([
-        `Task: ${taskDescription}`,
-        `Agent: ${agent.name} (${agentId})`,
-        `Reward: ${clampedReward >= 0 ? output.success(clampedReward.toFixed(2)) : output.error(clampedReward.toFixed(2))}`,
-        `Outcome: ${clampedReward > 0 ? 'success' : 'failure'} (persisted to route-outcomes.jsonl)`,
-      ].filter(Boolean).join('\n'), 'Feedback Recorded');
+      output.printBox(
+        [
+          `Task: ${taskDescription}`,
+          `Agent: ${agent.name} (${agentId})`,
+          `Reward: ${clampedReward >= 0 ? output.success(clampedReward.toFixed(2)) : output.error(clampedReward.toFixed(2))}`,
+          `Outcome: ${clampedReward > 0 ? 'success' : 'failure'} (persisted to route-outcomes.jsonl)`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        'Feedback Recorded',
+      );
 
       return { success: true };
     } catch (error) {
@@ -541,7 +620,10 @@ const importCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind route import -f outcomes.json', description: 'Import route outcomes from file' },
+    {
+      command: 'monomind route import -f outcomes.json',
+      description: 'Import route outcomes from file',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const filePath = ctx.flags.file as string;
@@ -637,7 +719,10 @@ const coverageRouteCommand: Command = {
     { command: 'monomind route coverage', description: 'Analyze coverage and suggest routing' },
     { command: 'monomind route coverage --suggest', description: 'Get improvement suggestions' },
     { command: 'monomind route coverage --gaps', description: 'List coverage gaps by agent' },
-    { command: 'monomind route coverage -p src/auth -t 90', description: 'Analyze specific path with threshold' },
+    {
+      command: 'monomind route coverage -p src/auth -t 90',
+      description: 'Analyze specific path with threshold',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const path = (ctx.flags.path as string) || '';
@@ -651,7 +736,9 @@ const coverageRouteCommand: Command = {
 
     try {
       // Lazy load coverage router
-      const { coverageRoute, coverageSuggest, coverageGaps } = await import('../monovector/coverage-router.js');
+      const { coverageRoute, coverageSuggest, coverageGaps } = await import(
+        '../monovector/coverage-router.js'
+      );
 
       if (gapsMode) {
         // List coverage gaps with agent assignments
@@ -690,8 +777,8 @@ const coverageRouteCommand: Command = {
               { key: 'gap', header: 'Gap', width: 10, align: 'right' },
               { key: 'agent', header: 'Agent', width: 15 },
             ],
-            data: result.gaps.slice(0, 10).map(g => ({
-              file: g.file.length > 48 ? '...' + g.file.slice(-45) : g.file,
+            data: result.gaps.slice(0, 10).map((g) => ({
+              file: g.file.length > 48 ? `...${g.file.slice(-45)}` : g.file,
               coverage: `${g.currentCoverage.toFixed(1)}%`,
               gap: `${g.gap.toFixed(1)}%`,
               agent: g.suggestedAgent,
@@ -719,7 +806,9 @@ const coverageRouteCommand: Command = {
             output.printSuccess('All files meet coverage threshold!');
           } else {
             output.writeln(`Total Gap: ${output.warning(`${result.totalGap.toFixed(1)}%`)}`);
-            output.writeln(`Estimated Effort: ${output.dim(`${result.estimatedEffort.toFixed(1)} hours`)}`);
+            output.writeln(
+              `Estimated Effort: ${output.dim(`${result.estimatedEffort.toFixed(1)} hours`)}`,
+            );
             output.writeln();
 
             output.printTable({
@@ -729,8 +818,8 @@ const coverageRouteCommand: Command = {
                 { key: 'target', header: 'Target', width: 10, align: 'right' },
                 { key: 'priority', header: 'Priority', width: 10, align: 'right' },
               ],
-              data: result.suggestions.slice(0, 15).map(s => ({
-                file: s.file.length > 43 ? '...' + s.file.slice(-40) : s.file,
+              data: result.suggestions.slice(0, 15).map((s) => ({
+                file: s.file.length > 43 ? `...${s.file.slice(-40)}` : s.file,
                 current: `${s.currentCoverage.toFixed(1)}%`,
                 target: `${s.targetCoverage.toFixed(1)}%`,
                 priority: String(s.priority),
@@ -763,27 +852,32 @@ const coverageRouteCommand: Command = {
         const actionColors: Record<string, (s: string) => string> = {
           'add-tests': (s: string) => output.error(s),
           'review-coverage': (s: string) => output.warning(s),
-          'prioritize': (s: string) => output.error(s),
-          'skip': (s: string) => output.success(s),
+          prioritize: (s: string) => output.error(s),
+          skip: (s: string) => output.success(s),
         };
         const colorFn = actionColors[routeResult.action] || ((s: string) => s);
 
-        output.printBox([
-          `Action: ${colorFn(routeResult.action.toUpperCase())}`,
-          `Priority: ${routeResult.priority}/10`,
-          `Impact Score: ${routeResult.impactScore}%`,
-          `Estimated Effort: ${routeResult.estimatedEffort} hours`,
-          ``,
-          `Test Types: ${routeResult.testTypes.join(', ')}`,
-          `Target Files: ${routeResult.targetFiles.length}`,
-        ].join('\n'), 'Coverage Analysis');
+        output.printBox(
+          [
+            `Action: ${colorFn(routeResult.action.toUpperCase())}`,
+            `Priority: ${routeResult.priority}/10`,
+            `Impact Score: ${routeResult.impactScore}%`,
+            `Estimated Effort: ${routeResult.estimatedEffort} hours`,
+            ``,
+            `Test Types: ${routeResult.testTypes.join(', ')}`,
+            `Target Files: ${routeResult.targetFiles.length}`,
+          ].join('\n'),
+          'Coverage Analysis',
+        );
 
         if (routeResult.targetFiles.length > 0) {
           output.writeln();
           output.writeln(output.bold('Target Files:'));
-          output.printList(routeResult.targetFiles.slice(0, 5).map(f =>
-            f.length > 60 ? '...' + f.slice(-57) : f
-          ));
+          output.printList(
+            routeResult.targetFiles
+              .slice(0, 5)
+              .map((f) => (f.length > 60 ? `...${f.slice(-57)}` : f)),
+          );
           if (routeResult.targetFiles.length > 5) {
             output.writeln(output.dim(`  ... and ${routeResult.targetFiles.length - 5} more`));
           }
@@ -798,8 +892,8 @@ const coverageRouteCommand: Command = {
               { key: 'current', header: 'Current', width: 10, align: 'right' },
               { key: 'gap', header: 'Gap', width: 10, align: 'right' },
             ],
-            data: routeResult.gaps.slice(0, 5).map(g => ({
-              file: g.file.length > 38 ? '...' + g.file.slice(-35) : g.file,
+            data: routeResult.gaps.slice(0, 5).map((g) => ({
+              file: g.file.length > 38 ? `...${g.file.slice(-35)}` : g.file,
               current: `${g.currentCoverage.toFixed(1)}%`,
               gap: `${g.gap.toFixed(1)}%`,
             })),
@@ -848,8 +942,14 @@ const semanticRouteCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind route semantic -t "audit the API for injection risks"', description: 'Semantic routing' },
-    { command: 'monomind route semantic -t "write unit tests" --debug', description: 'Show all route scores' },
+    {
+      command: 'monomind route semantic -t "audit the API for injection risks"',
+      description: 'Semantic routing',
+    },
+    {
+      command: 'monomind route semantic -t "write unit tests" --debug',
+      description: 'Show all route scores',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rawSemanticTask = ctx.flags.task as string;
@@ -883,18 +983,22 @@ const semanticRouteCommand: Command = {
       } else {
         output.writeln();
         const confidencePct = (result.confidence * 100).toFixed(1);
-        const methodColor = result.method === 'semantic'
-          ? (s: string) => output.success(s)
-          : (s: string) => output.warning(s);
+        const methodColor =
+          result.method === 'semantic'
+            ? (s: string) => output.success(s)
+            : (s: string) => output.warning(s);
 
-        output.printBox([
-          `Task: ${taskDescription}`,
-          ``,
-          `Agent: ${output.highlight(result.agentSlug)}`,
-          `Route: ${result.routeName}`,
-          `Confidence: ${methodColor(`${confidencePct}%`)}`,
-          `Method: ${methodColor(result.method)}`,
-        ].join('\n'), 'Semantic Routing Result');
+        output.printBox(
+          [
+            `Task: ${taskDescription}`,
+            ``,
+            `Agent: ${output.highlight(result.agentSlug)}`,
+            `Route: ${result.routeName}`,
+            `Confidence: ${methodColor(`${confidencePct}%`)}`,
+            `Method: ${methodColor(result.method)}`,
+          ].join('\n'),
+          'Semantic Routing Result',
+        );
 
         if (debug && result.allScores && result.allScores.length > 0) {
           output.writeln();
@@ -906,7 +1010,7 @@ const semanticRouteCommand: Command = {
               { key: 'agent', header: 'Agent Slug', width: 35 },
               { key: 'score', header: 'Score', width: 10, align: 'right' },
             ],
-            data: top10.map(s => ({
+            data: top10.map((s) => ({
               route: s.routeName,
               agent: s.agentSlug,
               score: s.score.toFixed(4),

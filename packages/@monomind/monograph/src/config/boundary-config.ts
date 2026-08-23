@@ -48,10 +48,24 @@ export function expandPreset(preset: BoundaryPreset, sourceRoot: string): Bounda
   switch (preset) {
     case 'layered': {
       const zones = [
-        { name: 'presentation', patterns: ['ui', 'pages', 'views', 'components'].map(d => `${sourceRoot}/${d}/**`) },
-        { name: 'application', patterns: ['application', 'usecases', 'services'].map(d => `${sourceRoot}/${d}/**`) },
-        { name: 'domain', patterns: ['domain', 'entities', 'models'].map(d => `${sourceRoot}/${d}/**`) },
-        { name: 'infrastructure', patterns: ['infrastructure', 'adapters', 'repositories', 'db', 'api'].map(d => `${sourceRoot}/${d}/**`) },
+        {
+          name: 'presentation',
+          patterns: ['ui', 'pages', 'views', 'components'].map((d) => `${sourceRoot}/${d}/**`),
+        },
+        {
+          name: 'application',
+          patterns: ['application', 'usecases', 'services'].map((d) => `${sourceRoot}/${d}/**`),
+        },
+        {
+          name: 'domain',
+          patterns: ['domain', 'entities', 'models'].map((d) => `${sourceRoot}/${d}/**`),
+        },
+        {
+          name: 'infrastructure',
+          patterns: ['infrastructure', 'adapters', 'repositories', 'db', 'api'].map(
+            (d) => `${sourceRoot}/${d}/**`,
+          ),
+        },
       ];
       const rules = [
         makeRule('presentation', ['application']),
@@ -63,9 +77,15 @@ export function expandPreset(preset: BoundaryPreset, sourceRoot: string): Bounda
     }
     case 'hexagonal': {
       const zones = [
-        { name: 'adapters', patterns: ['adapters', 'ports', 'infrastructure'].map(d => `${sourceRoot}/${d}/**`) },
-        { name: 'application', patterns: ['application', 'usecases'].map(d => `${sourceRoot}/${d}/**`) },
-        { name: 'domain', patterns: ['domain', 'core'].map(d => `${sourceRoot}/${d}/**`) },
+        {
+          name: 'adapters',
+          patterns: ['adapters', 'ports', 'infrastructure'].map((d) => `${sourceRoot}/${d}/**`),
+        },
+        {
+          name: 'application',
+          patterns: ['application', 'usecases'].map((d) => `${sourceRoot}/${d}/**`),
+        },
+        { name: 'domain', patterns: ['domain', 'core'].map((d) => `${sourceRoot}/${d}/**`) },
       ];
       const rules = [
         makeRule('adapters', ['application', 'domain']),
@@ -76,7 +96,7 @@ export function expandPreset(preset: BoundaryPreset, sourceRoot: string): Bounda
     }
     case 'feature-sliced': {
       const layers = ['app', 'processes', 'pages', 'widgets', 'features', 'entities', 'shared'];
-      const zones = layers.map(name => makeZone(name, sourceRoot));
+      const zones = layers.map((name) => makeZone(name, sourceRoot));
       const rules = layers.map((name, i) => makeRule(name, layers.slice(i + 1)));
       return { zones, rules };
     }
@@ -93,11 +113,29 @@ export function expandPreset(preset: BoundaryPreset, sourceRoot: string): Bounda
         makeZone('config', sourceRoot),
         {
           name: 'shared',
-          patterns: ['utils', 'helpers', 'shared', 'common', 'constants', 'models', 'interfaces'].map(d => `${sourceRoot}/${d}/**`),
+          patterns: [
+            'utils',
+            'helpers',
+            'shared',
+            'common',
+            'constants',
+            'models',
+            'interfaces',
+          ].map((d) => `${sourceRoot}/${d}/**`),
         },
       ];
       const rules = [
-        makeRule('features', ['components', 'hooks', 'pages', 'routes', 'api', 'lib', 'types', 'config', 'shared']),
+        makeRule('features', [
+          'components',
+          'hooks',
+          'pages',
+          'routes',
+          'api',
+          'lib',
+          'types',
+          'config',
+          'shared',
+        ]),
         makeRule('components', ['hooks', 'lib', 'types', 'config', 'shared']),
       ];
       return { zones, rules };
@@ -131,19 +169,21 @@ export function resolveBoundaryConfig(
     ruleMap.set(r.from, r);
   }
 
-  const resolvedZones: ResolvedZone[] = Array.from(zoneMap.values()).map(z => ({
+  const resolvedZones: ResolvedZone[] = Array.from(zoneMap.values()).map((z) => ({
     name: z.name,
     patterns: z.patterns,
     root: z.root ?? sourceRoot,
   }));
 
-  const zoneByName = new Map<string, ResolvedZone>(resolvedZones.map(z => [z.name, z]));
+  const zoneByName = new Map<string, ResolvedZone>(resolvedZones.map((z) => [z.name, z]));
 
   const resolvedRules: ResolvedBoundaryRule[] = [];
   for (const rule of ruleMap.values()) {
     const fromZone = zoneByName.get(rule.from);
     if (!fromZone) continue;
-    const allowZones = rule.allow.map(name => zoneByName.get(name)).filter((z): z is ResolvedZone => z !== undefined);
+    const allowZones = rule.allow
+      .map((name) => zoneByName.get(name))
+      .filter((z): z is ResolvedZone => z !== undefined);
     resolvedRules.push({ from: fromZone, allow: allowZones });
   }
 
@@ -176,8 +216,8 @@ export function isImportAllowed(
   if (!fromZoneName || !toZoneName) return true;
   if (fromZoneName === toZoneName) return true;
 
-  const rule = resolved.rules.find(r => r.from.name === fromZoneName);
+  const rule = resolved.rules.find((r) => r.from.name === fromZoneName);
   if (!rule) return true;
 
-  return rule.allow.some(z => z.name === toZoneName);
+  return rule.allow.some((z) => z.name === toZoneName);
 }

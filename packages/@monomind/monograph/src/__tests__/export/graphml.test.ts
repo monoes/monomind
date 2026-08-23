@@ -1,20 +1,31 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { toGraphml } from '../../export/graphml.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 const nodeWithCommunity: MonographNode = {
-  id: 'n1', label: 'Function', name: 'doStuff',
-  normLabel: 'function', filePath: '/a.ts',
-  isExported: true, communityId: 42,
+  id: 'n1',
+  label: 'Function',
+  name: 'doStuff',
+  normLabel: 'function',
+  filePath: '/a.ts',
+  isExported: true,
+  communityId: 42,
 };
 const nodeWithoutCommunity: MonographNode = {
-  id: 'n2', label: 'Class', name: 'Foo',
-  normLabel: 'class', filePath: '/b.ts',
+  id: 'n2',
+  label: 'Class',
+  name: 'Foo',
+  normLabel: 'class',
+  filePath: '/b.ts',
   isExported: false,
 };
 const edge: MonographEdge = {
-  id: 'e1', sourceId: 'n1', targetId: 'n2',
-  relation: 'CALLS', confidence: 'EXTRACTED', confidenceScore: 1.0,
+  id: 'e1',
+  sourceId: 'n1',
+  targetId: 'n2',
+  relation: 'CALLS',
+  confidence: 'EXTRACTED',
+  confidenceScore: 1.0,
 };
 
 describe('toGraphml', () => {
@@ -47,8 +58,11 @@ describe('toGraphml', () => {
 
   it('escapes XML special characters in names', () => {
     const n: MonographNode = {
-      id: 'n3', label: 'Function', name: 'foo<bar>&baz',
-      normLabel: 'function', isExported: false,
+      id: 'n3',
+      label: 'Function',
+      name: 'foo<bar>&baz',
+      normLabel: 'function',
+      isExported: false,
     };
     const out = toGraphml([n], []);
     expect(out).toContain('foo&lt;bar&gt;&amp;baz');

@@ -22,7 +22,7 @@
  *   copy-into <destDir> <src...> copy each src INTO destDir, keeping basenames
  *   copy-dir <src> <dest>        recursive directory copy
  */
-import { rmSync, mkdirSync, cpSync, existsSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -70,6 +70,6 @@ switch (cmd) {
   default:
     fail(
       `unknown subcommand ${cmd ? `"${cmd}"` : '(none given)'} — ` +
-      'expected clean, copy-into, or copy-dir',
+        'expected clean, copy-into, or copy-dir',
     );
 }

@@ -55,32 +55,47 @@ export interface HealthPipelineTimings {
 }
 
 export const ZERO_HEALTH_PIPELINE_TIMINGS: HealthPipelineTimings = {
-  configMs: 0, discoverMs: 0, parseMs: 0, complexityMs: 0,
-  fileScoresMs: 0, gitChurnMs: 0, gitChurnCacheHit: false,
-  hotspotsMs: 0, duplicationMs: 0, targetsMs: 0, totalMs: 0,
+  configMs: 0,
+  discoverMs: 0,
+  parseMs: 0,
+  complexityMs: 0,
+  fileScoresMs: 0,
+  gitChurnMs: 0,
+  gitChurnCacheHit: false,
+  hotspotsMs: 0,
+  duplicationMs: 0,
+  targetsMs: 0,
+  totalMs: 0,
 };
 
 export function formatHealthPipelineTimings(t: HealthPipelineTimings): string {
   const rows: [string, string][] = [
-    ['Config',      `${t.configMs}ms`],
-    ['Discover',    `${t.discoverMs}ms`],
-    ['Parse',       `${t.parseMs}ms`],
-    ['Complexity',  `${t.complexityMs}ms`],
+    ['Config', `${t.configMs}ms`],
+    ['Discover', `${t.discoverMs}ms`],
+    ['Parse', `${t.parseMs}ms`],
+    ['Complexity', `${t.complexityMs}ms`],
     ['File scores', `${t.fileScoresMs}ms`],
-    ['Git churn',   `${t.gitChurnMs}ms${t.gitChurnCacheHit ? ' (cached)' : ''}`],
-    ['Hotspots',    `${t.hotspotsMs}ms`],
+    ['Git churn', `${t.gitChurnMs}ms${t.gitChurnCacheHit ? ' (cached)' : ''}`],
+    ['Hotspots', `${t.hotspotsMs}ms`],
     ['Duplication', `${t.duplicationMs}ms`],
-    ['Targets',     `${t.targetsMs}ms`],
-    ['Total',       `${t.totalMs}ms`],
+    ['Targets', `${t.targetsMs}ms`],
+    ['Total', `${t.totalMs}ms`],
   ];
-  const labelW = Math.max(...rows.map(r => r[0].length));
+  const labelW = Math.max(...rows.map((r) => r[0].length));
   return rows.map(([l, v]) => `${l.padEnd(labelW)}  ${v}`).join('\n');
 }
 
 export function sumHealthPipelineTimings(phases: Partial<HealthPipelineTimings>): number {
   const phaseKeys: Array<keyof HealthPipelineTimings> = [
-    'configMs', 'discoverMs', 'parseMs', 'complexityMs',
-    'fileScoresMs', 'gitChurnMs', 'hotspotsMs', 'duplicationMs', 'targetsMs',
+    'configMs',
+    'discoverMs',
+    'parseMs',
+    'complexityMs',
+    'fileScoresMs',
+    'gitChurnMs',
+    'hotspotsMs',
+    'duplicationMs',
+    'targetsMs',
   ];
   return phaseKeys.reduce((s, k) => s + ((phases[k] as number | undefined) ?? 0), 0);
 }

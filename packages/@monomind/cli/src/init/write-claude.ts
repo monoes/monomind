@@ -2,22 +2,20 @@
  * Claude Code file writers: settings.json, .mcp.json, helpers, statusline, CLAUDE.md.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type { InitOptions, InitResult } from './types.js';
-import { generateSettingsJson } from './settings-generator.js';
-import { generateMCPJson } from './mcp-generator.js';
-import { generateStatuslineScript } from './statusline-generator.js';
-import {
-  INIT_FALLBACK_HELPERS,
-} from './helpers-generator.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { generateClaudeMd } from './claudemd-generator.js';
+import { INIT_FALLBACK_HELPERS } from './helpers-generator.js';
+import { generateMCPJson } from './mcp-generator.js';
+import { generateSettingsJson } from './settings-generator.js';
 import {
   atomicWriteFile,
-  findSourceHelpersDir,
   findSourceClaudeDir,
+  findSourceHelpersDir,
   MAX_EXEC_FILE_BYTES,
 } from './shared.js';
+import { generateStatuslineScript } from './statusline-generator.js';
+import type { InitOptions, InitResult } from './types.js';
 
 /**
  * Write settings.json
@@ -25,12 +23,16 @@ import {
 export async function writeSettings(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const settingsPath = path.join(targetDir, '.claude', 'settings.json');
   const generated = JSON.parse(generateSettingsJson(options));
 
-  if (fs.existsSync(settingsPath) && !options.force && fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES) {
+  if (
+    fs.existsSync(settingsPath) &&
+    !options.force &&
+    fs.statSync(settingsPath).size <= MAX_EXEC_FILE_BYTES
+  ) {
     // Merge hooks/env/permissions into existing settings instead of skipping
     try {
       const existing = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
@@ -52,7 +54,7 @@ export async function writeSettings(
       if (generated.permissions?.allow) {
         const existingAllow = existing.permissions?.allow || [];
         const newRules = generated.permissions.allow.filter(
-          (r: string) => !existingAllow.includes(r)
+          (r: string) => !existingAllow.includes(r),
         );
         if (newRules.length > 0) {
           existing.permissions = existing.permissions || {};
@@ -69,7 +71,11 @@ export async function writeSettings(
       }
     } catch (e) {
       // Existing file is corrupt — overwrite
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeSettings] existing settings.json unparseable, overwriting with generated defaults:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error(
+          '[writeSettings] existing settings.json unparseable, overwriting with generated defaults:',
+          e,
+        );
       atomicWriteFile(settingsPath, JSON.stringify(generated, null, 2));
       result.created.files.push('.claude/settings.json');
     }
@@ -86,7 +92,7 @@ export async function writeSettings(
 export async function writeMCPConfig(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const mcpPath = path.join(targetDir, '.mcp.json');
 
@@ -106,7 +112,7 @@ export async function writeMCPConfig(
 export async function writeHelpers(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const helpersDir = path.join(targetDir, '.claude', 'helpers');
 
@@ -186,7 +192,7 @@ export async function writeHelpers(
 export async function writeStatusline(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const claudeDir = path.join(targetDir, '.claude');
   const helpersDir = path.join(targetDir, '.claude', 'helpers');
@@ -237,7 +243,7 @@ export async function writeStatusline(
 export async function writeClaudeMd(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const claudeMdPath = path.join(targetDir, 'CLAUDE.md');
 
@@ -245,7 +251,8 @@ export async function writeClaudeMd(
     result.skipped.push('CLAUDE.md');
   } else {
     // Determine template: explicit option > infer from components > 'standard'
-    const inferredTemplate = (!options.components.commands && !options.components.agents) ? 'minimal' : undefined;
+    const inferredTemplate =
+      !options.components.commands && !options.components.agents ? 'minimal' : undefined;
     const content = generateClaudeMd(options, inferredTemplate);
 
     atomicWriteFile(claudeMdPath, content);
@@ -271,7 +278,10 @@ export async function writeClaudeMd(
       if (!fs.existsSync(globalClaudeDir)) {
         fs.mkdirSync(globalClaudeDir, { recursive: true });
       }
-      if (fs.existsSync(globalClaudeMd) && fs.statSync(globalClaudeMd).size <= MAX_EXEC_FILE_BYTES) {
+      if (
+        fs.existsSync(globalClaudeMd) &&
+        fs.statSync(globalClaudeMd).size <= MAX_EXEC_FILE_BYTES
+      ) {
         const existing = fs.readFileSync(globalClaudeMd, 'utf-8');
         if (!existing.includes('Monomind Integration')) {
           fs.appendFileSync(globalClaudeMd, monomindBlock);
@@ -280,7 +290,7 @@ export async function writeClaudeMd(
           // Upgrade existing block to include monograph instructions
           const updated = existing.replace(
             /# Monomind Integration[^\n]*\n(?:(?!^#).+\n)*/m,
-            monomindBlock.trimStart() + '\n',
+            `${monomindBlock.trimStart()}\n`,
           );
           atomicWriteFile(globalClaudeMd, updated);
           result.created.files.push('~/.claude/CLAUDE.md (upgraded monomind block)');
@@ -291,7 +301,8 @@ export async function writeClaudeMd(
       }
     } catch (e) {
       // Non-critical — global CLAUDE.md is best-effort
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeClaudeMd] failed to write/append ~/.claude/CLAUDE.md:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[writeClaudeMd] failed to write/append ~/.claude/CLAUDE.md:', e);
     }
 
     // Also inject the token-display hook into ~/.claude/settings.json
@@ -301,35 +312,50 @@ export async function writeClaudeMd(
         fs.mkdirSync(globalClaudeDir, { recursive: true });
       }
       let globalSettings: Record<string, unknown> = {};
-      if (fs.existsSync(globalSettingsPath) && fs.statSync(globalSettingsPath).size <= MAX_EXEC_FILE_BYTES) {
+      if (
+        fs.existsSync(globalSettingsPath) &&
+        fs.statSync(globalSettingsPath).size <= MAX_EXEC_FILE_BYTES
+      ) {
         try {
           globalSettings = JSON.parse(fs.readFileSync(globalSettingsPath, 'utf-8'));
         } catch (e) {
           // malformed JSON — start fresh
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeClaudeMd] ~/.claude/settings.json unparseable, starting fresh:', e);
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+            console.error(
+              '[writeClaudeMd] ~/.claude/settings.json unparseable, starting fresh:',
+              e,
+            );
         }
       }
 
       // Inject SessionStart token hook if not already present
       const hooks = (globalSettings.hooks as Record<string, unknown[]> | undefined) ?? {};
-      const sessionStartHooks = (hooks['SessionStart'] as Array<{ hooks: Array<{ type?: string; command?: string; timeout?: number }> }> | undefined) ?? [];
+      const sessionStartHooks =
+        (hooks.SessionStart as
+          | Array<{ hooks: Array<{ type?: string; command?: string; timeout?: number }> }>
+          | undefined) ?? [];
       const tokenHookCommand = 'npx --yes monomind@latest tokens today';
-      const alreadyPresent = sessionStartHooks.some(entry =>
-        Array.isArray(entry.hooks) && entry.hooks.some(h => h.command === tokenHookCommand)
+      const alreadyPresent = sessionStartHooks.some(
+        (entry) =>
+          Array.isArray(entry.hooks) && entry.hooks.some((h) => h.command === tokenHookCommand),
       );
 
       if (!alreadyPresent) {
         sessionStartHooks.push({
           hooks: [{ type: 'command', command: tokenHookCommand, timeout: 10000 }],
         });
-        hooks['SessionStart'] = sessionStartHooks;
+        hooks.SessionStart = sessionStartHooks;
         globalSettings.hooks = hooks;
         atomicWriteFile(globalSettingsPath, JSON.stringify(globalSettings, null, 2));
         result.created.files.push('~/.claude/settings.json (added token hook)');
       }
     } catch (e) {
       // Non-critical — global settings hook is best-effort
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[writeClaudeMd] failed to inject token hook into ~/.claude/settings.json:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error(
+          '[writeClaudeMd] failed to inject token hook into ~/.claude/settings.json:',
+          e,
+        );
     }
   }
 }

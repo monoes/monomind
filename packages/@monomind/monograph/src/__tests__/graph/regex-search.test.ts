@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import {
-  regexSearchNodes,
   regexSearchEdges,
-  regexSearchNodesInMemory,
   regexSearchEdgesInMemory,
+  regexSearchNodes,
+  regexSearchNodesInMemory,
 } from '../../graph/regex-search.js';
 import { openDb } from '../../storage/db.js';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-regex-search-test-'));
@@ -25,7 +25,14 @@ function insertNode(
   db.prepare(
     `INSERT INTO nodes (id, label, name, norm_label, file_path, language, is_exported)
      VALUES (?, ?, ?, ?, ?, ?, 0)`,
-  ).run(id, opts.label ?? 'Function', name, name.toLowerCase(), opts.filePath ?? null, opts.language ?? null);
+  ).run(
+    id,
+    opts.label ?? 'Function',
+    name,
+    name.toLowerCase(),
+    opts.filePath ?? null,
+    opts.language ?? null,
+  );
 }
 
 function insertEdge(
@@ -99,7 +106,9 @@ describe('regexSearchNodes (DB)', () => {
 describe('regexSearchEdges (DB)', () => {
   it('matches edges by relation', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS');
     insertEdge(db, 'e2', 'b', 'c', 'IMPORTS');
     const results = regexSearchEdges(db, /^CALLS$/);
@@ -111,7 +120,8 @@ describe('regexSearchEdges (DB)', () => {
 
   it('matches edges by reason', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS', 'direct function call');
     insertEdge(db, 'e2', 'a', 'b', 'CALLS', null);
     const results = regexSearchEdges(db, /direct/, ['reason']);
@@ -125,15 +135,29 @@ describe('regexSearchEdges (DB)', () => {
 
 describe('regexSearchNodesInMemory', () => {
   const nodes: MonographNode[] = [
-    { id: 'n1', label: 'Function', name: 'loginUser', normLabel: 'loginuser', filePath: '/auth/login.ts', isExported: true },
-    { id: 'n2', label: 'Class', name: 'UserService', normLabel: 'userservice', filePath: '/services/user.ts', isExported: true },
+    {
+      id: 'n1',
+      label: 'Function',
+      name: 'loginUser',
+      normLabel: 'loginuser',
+      filePath: '/auth/login.ts',
+      isExported: true,
+    },
+    {
+      id: 'n2',
+      label: 'Class',
+      name: 'UserService',
+      normLabel: 'userservice',
+      filePath: '/services/user.ts',
+      isExported: true,
+    },
     { id: 'n3', label: 'Function', name: 'hash', normLabel: 'hash', isExported: false },
   ];
 
   it('matches by name', () => {
     const results = regexSearchNodesInMemory(nodes, /User/);
-    expect(results.map(r => r.node.id)).toContain('n2');
-    expect(results.map(r => r.node.id)).toContain('n1');
+    expect(results.map((r) => r.node.id)).toContain('n2');
+    expect(results.map((r) => r.node.id)).toContain('n1');
   });
 
   it('matches by filePath', () => {
@@ -148,8 +172,23 @@ describe('regexSearchNodesInMemory', () => {
 
 describe('regexSearchEdgesInMemory', () => {
   const edges: MonographEdge[] = [
-    { id: 'e1', sourceId: 'a', targetId: 'b', relation: 'CALLS', confidence: 'EXTRACTED', confidenceScore: 1, reason: 'function call' },
-    { id: 'e2', sourceId: 'b', targetId: 'c', relation: 'IMPORTS', confidence: 'INFERRED', confidenceScore: 0.5 },
+    {
+      id: 'e1',
+      sourceId: 'a',
+      targetId: 'b',
+      relation: 'CALLS',
+      confidence: 'EXTRACTED',
+      confidenceScore: 1,
+      reason: 'function call',
+    },
+    {
+      id: 'e2',
+      sourceId: 'b',
+      targetId: 'c',
+      relation: 'IMPORTS',
+      confidence: 'INFERRED',
+      confidenceScore: 0.5,
+    },
   ];
 
   it('matches by relation', () => {

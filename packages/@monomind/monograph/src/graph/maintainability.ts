@@ -4,16 +4,16 @@ export interface MaintainabilityResult {
   nodeId: string;
   name: string;
   filePath: string | null;
-  mi: number;          // Maintainability Index 0-100
+  mi: number; // Maintainability Index 0-100
   grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  halsteadVolume: number;   // proxy: node degree × log2(max(degree, 2))
+  halsteadVolume: number; // proxy: node degree × log2(max(degree, 2))
   linesOfCode: number;
 }
 
 export interface MaintainabilityReport {
   results: MaintainabilityResult[];
   averageMi: number;
-  lowMiCount: number;   // MI < 65
+  lowMiCount: number; // MI < 65
   criticalCount: number; // MI < 25
 }
 
@@ -27,13 +27,15 @@ function gradeFromMi(mi: number): 'A' | 'B' | 'C' | 'D' | 'F' {
 
 export function computeMaintainabilityIndex(db: MonographDb): MaintainabilityReport {
   // Fetch all Function and Method Symbol nodes
-  const nodes = db.prepare(`
+  const nodes = db
+    .prepare(`
     SELECT id, name, file_path, start_line, end_line, properties
     FROM nodes
     WHERE label IN ('Function', 'Method', 'Symbol')
       AND start_line IS NOT NULL
       AND end_line IS NOT NULL
-  `).all() as {
+  `)
+    .all() as {
     id: string;
     name: string;
     file_path: string | null;
@@ -49,13 +51,15 @@ export function computeMaintainabilityIndex(db: MonographDb): MaintainabilityRep
   // ── Batch degree lookup: one query replaces 2×N individual queries ────────
   // Combine in-degree and out-degree via UNION ALL + GROUP BY in a single pass.
   const degreeMap = new Map<string, number>();
-  for (const { node_id, deg } of db.prepare(`
+  for (const { node_id, deg } of db
+    .prepare(`
     SELECT node_id, SUM(cnt) as deg FROM (
       SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
       UNION ALL
       SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
     ) GROUP BY node_id
-  `).all() as { node_id: string; deg: number }[]) {
+  `)
+    .all() as { node_id: string; deg: number }[]) {
     degreeMap.set(node_id, deg);
   }
 
@@ -68,7 +72,8 @@ export function computeMaintainabilityIndex(db: MonographDb): MaintainabilityRep
     const hvProxy = degree * Math.log2(Math.max(degree, 2));
 
     // Maintainability Index formula
-    const rawMi = 171 - 5.2 * Math.log(hvProxy + 1) - 0.23 * (loc / 10) - 16.2 * Math.log(Math.max(1, loc));
+    const rawMi =
+      171 - 5.2 * Math.log(hvProxy + 1) - 0.23 * (loc / 10) - 16.2 * Math.log(Math.max(1, loc));
     const mi = Math.max(0, Math.min(100, rawMi));
     const grade = gradeFromMi(mi);
 
@@ -97,15 +102,14 @@ export function computeMaintainabilityIndex(db: MonographDb): MaintainabilityRep
   // Sort by MI ascending (worst first)
   results.sort((a, b) => a.mi - b.mi);
 
-  const averageMi = results.length > 0
-    ? results.reduce((sum, r) => sum + r.mi, 0) / results.length
-    : 100;
+  const averageMi =
+    results.length > 0 ? results.reduce((sum, r) => sum + r.mi, 0) / results.length : 100;
 
   return {
     results,
     averageMi: Math.round(averageMi * 100) / 100,
-    lowMiCount: results.filter(r => r.mi < 65).length,
-    criticalCount: results.filter(r => r.mi < 25).length,
+    lowMiCount: results.filter((r) => r.mi < 65).length,
+    criticalCount: results.filter((r) => r.mi < 25).length,
   };
 }
 
@@ -142,7 +146,7 @@ export function formatMaintainability(report: MaintainabilityReport, topN = 10):
     lines.push('');
   }
 
-  const critical = results.filter(r => r.mi < 25);
+  const critical = results.filter((r) => r.mi < 25);
   if (critical.length > 0) {
     lines.push(`critical_nodes(mi<25): ${critical.length}`);
     for (const r of critical.slice(0, 5)) {

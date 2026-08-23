@@ -7,7 +7,7 @@ export function buildSuffixArray(text: number[], _maxRank: number): number[] {
   let rank = new Int32Array(n);
   for (let i = 0; i < n; i++) rank[i] = text[i] - minVal;
 
-  let sa = new Int32Array(n);
+  const sa = new Int32Array(n);
   for (let i = 0; i < n; i++) sa[i] = i;
 
   let tmp = new Int32Array(n);

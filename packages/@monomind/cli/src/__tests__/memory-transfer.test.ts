@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // See memory-list.test.ts for rationale: neutralize the LanceDB bridge (the
@@ -22,12 +22,16 @@ vi.mock('../memory/memory-bridge.js', async (importOriginal) => {
 
 import { exportCommand, importCommand } from '../commands/memory-transfer.js';
 
-function makeCtx(flags: Record<string, unknown> = {}, args: string[] = [], cwd: string = process.cwd()): CommandContext {
+function makeCtx(
+  flags: Record<string, unknown> = {},
+  args: string[] = [],
+  cwd: string = process.cwd(),
+): CommandContext {
   return { args, flags: { _: [], ...flags } as CommandContext['flags'], cwd, interactive: false };
 }
 
 async function run(cmd: Command, ctx: CommandContext): Promise<CommandResult> {
-  return (await cmd.action!(ctx)) as CommandResult;
+  return (await cmd.action?.(ctx)) as CommandResult;
 }
 
 describe('memory-transfer commands', () => {
@@ -64,7 +68,10 @@ describe('memory-transfer commands', () => {
     });
 
     it('rejects formats other than the only implemented one (okf)', async () => {
-      const result = await run(exportCommand, makeCtx({ output: join(dir, 'out'), format: 'json' }));
+      const result = await run(
+        exportCommand,
+        makeCtx({ output: join(dir, 'out'), format: 'json' }),
+      );
       expect(result.success).toBe(false);
     });
 
@@ -93,7 +100,10 @@ describe('memory-transfer commands', () => {
       await seed('b', 'value-b', 'ns-b');
 
       const outDir = join(dir, 'ns-export');
-      const result = await run(exportCommand, makeCtx({ output: outDir, format: 'okf', namespace: 'ns-a' }));
+      const result = await run(
+        exportCommand,
+        makeCtx({ output: outDir, format: 'okf', namespace: 'ns-a' }),
+      );
       expect(result.success).toBe(true);
       expect((result.data as { written: number }).written).toBe(1);
       expect(existsSync(join(outDir, 'ns-a', 'a.md'))).toBe(true);
@@ -124,7 +134,9 @@ describe('memory-transfer commands', () => {
       // Import into a completely separate project directory / fresh .swarm db.
       const dir2 = mkdtempSync(join(tmpdir(), 'memory-transfer-import-'));
       process.cwd = () => dir2;
-      const { initializeMemoryDatabase, listEntries, getEntry } = await import('../memory/memory-initializer.js');
+      const { initializeMemoryDatabase, listEntries, getEntry } = await import(
+        '../memory/memory-initializer.js'
+      );
       const init2 = await initializeMemoryDatabase({ backend: 'hybrid' });
       expect(init2.success).toBe(true);
 
@@ -152,11 +164,16 @@ describe('memory-transfer commands', () => {
 
       const dir2 = mkdtempSync(join(tmpdir(), 'memory-transfer-nsimport-'));
       process.cwd = () => dir2;
-      const { initializeMemoryDatabase, listEntries } = await import('../memory/memory-initializer.js');
+      const { initializeMemoryDatabase, listEntries } = await import(
+        '../memory/memory-initializer.js'
+      );
       await initializeMemoryDatabase({ backend: 'hybrid' });
 
       try {
-        const importResult = await run(importCommand, makeCtx({ input: outDir, namespace: 'override-ns' }));
+        const importResult = await run(
+          importCommand,
+          makeCtx({ input: outDir, namespace: 'override-ns' }),
+        );
         expect(importResult.success).toBe(true);
 
         const listed = await listEntries({ namespace: 'override-ns', limit: 10 });

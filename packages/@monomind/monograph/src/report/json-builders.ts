@@ -36,12 +36,14 @@ export function buildGroupedHealthJson(
   groups: GroupedHealthResult[],
   opts: HealthActionOptions = DEFAULT_HEALTH_ACTION_OPTIONS,
 ): string {
-  const payload = groups.map(g => ({
+  const payload = groups.map((g) => ({
     owner: g.owner,
     fileCount: g.fileCount,
     averageScore: g.averageScore,
     ...(opts.includePerFileFindings ? { findings: g.findings } : {}),
-    ...(opts.includeRecommendedActions ? { recommendedAction: g.averageScore < 50 ? 'refactor' : 'monitor' } : {}),
+    ...(opts.includeRecommendedActions
+      ? { recommendedAction: g.averageScore < 50 ? 'refactor' : 'monitor' }
+      : {}),
   }));
   return JSON.stringify(payload, null, 2);
 }
@@ -54,7 +56,7 @@ export function buildBaselineDeltasJson(
   current: Record<string, number>,
   baseline: Record<string, number>,
 ): string {
-  const deltas: BaselineDelta[] = Object.keys({ ...current, ...baseline }).map(metric => {
+  const deltas: BaselineDelta[] = Object.keys({ ...current, ...baseline }).map((metric) => {
     const b = baseline[metric] ?? 0;
     const c = current[metric] ?? 0;
     const delta = c - b;
@@ -66,5 +68,16 @@ export function buildBaselineDeltasJson(
       deltaSign: delta > 0 ? '+' : delta < 0 ? '-' : '=',
     };
   });
-  return JSON.stringify({ deltas, summary: { improved: deltas.filter(d => d.delta < 0).length, regressed: deltas.filter(d => d.delta > 0).length, unchanged: deltas.filter(d => d.delta === 0).length } }, null, 2);
+  return JSON.stringify(
+    {
+      deltas,
+      summary: {
+        improved: deltas.filter((d) => d.delta < 0).length,
+        regressed: deltas.filter((d) => d.delta > 0).length,
+        unchanged: deltas.filter((d) => d.delta === 0).length,
+      },
+    },
+    null,
+    2,
+  );
 }

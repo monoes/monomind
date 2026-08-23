@@ -10,19 +10,19 @@
  * in terminal-tools.test.ts and task-tools-agent-store.test.ts.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CommandContext } from '../types.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hooksCommand } from '../commands/hooks.js';
 import {
-  preEditCommand,
+  postCommandCommand,
   postEditCommand,
   preCommandCommand,
-  postCommandCommand,
+  preEditCommand,
 } from '../commands/hooks-core-commands.js';
-import { routeCommand, metricsCommand } from '../commands/hooks-routing-commands.js';
+import { metricsCommand, routeCommand } from '../commands/hooks-routing-commands.js';
+import type { CommandContext } from '../types.js';
 
 // The full set of subcommand names actually wired into hooksCommand.subcommands
 // (source of truth is the registration array in hooks.ts, cross-checked
@@ -62,7 +62,11 @@ const EXPECTED_SUBCOMMANDS = [
   'post-bash',
 ];
 
-function makeCtx(args: string[], flags: Record<string, unknown> = {}, cwd?: string): CommandContext {
+function makeCtx(
+  args: string[],
+  flags: Record<string, unknown> = {},
+  cwd?: string,
+): CommandContext {
   return {
     args,
     flags: { _: [], ...flags },
@@ -88,26 +92,26 @@ describe('hooksCommand registration', () => {
   });
 
   it('top-level "hooks" action prints usage and succeeds without dispatching MCP tools', async () => {
-    const result = await hooksCommand.action!(makeCtx([]));
+    const result = await hooksCommand.action?.(makeCtx([]));
     expect(result?.success).toBe(true);
   });
 });
 
 describe('hooksCommand alias wiring (v2 backward compatibility)', () => {
   it('pre-bash is wired to the exact same handler as pre-command', () => {
-    const preBash = hooksCommand.subcommands!.find((c) => c.name === 'pre-bash')!;
+    const preBash = hooksCommand.subcommands?.find((c) => c.name === 'pre-bash')!;
     expect(preBash.action).toBe(preCommandCommand.action);
   });
 
   it('post-bash is wired to the exact same handler as post-command', () => {
-    const postBash = hooksCommand.subcommands!.find((c) => c.name === 'post-bash')!;
+    const postBash = hooksCommand.subcommands?.find((c) => c.name === 'post-bash')!;
     expect(postBash.action).toBe(postCommandCommand.action);
   });
 
   it('route-task delegates to routeCommand and forwards its result', async () => {
-    const routeTask = hooksCommand.subcommands!.find((c) => c.name === 'route-task')!;
+    const routeTask = hooksCommand.subcommands?.find((c) => c.name === 'route-task')!;
     const ctx = makeCtx([], { task: 'Fix a small typo', format: 'json' });
-    const result = await routeTask.action!(ctx);
+    const result = await routeTask.action?.(ctx);
     expect(result?.success).toBe(true);
     // Same shape as calling routeCommand directly. Note: the real
     // hooks_route MCP tool response nests the top pick under
@@ -120,21 +124,27 @@ describe('hooksCommand alias wiring (v2 backward compatibility)', () => {
     expect(typeof data?.primaryAgent?.type).toBe('string');
   });
 
-  it('session-start delegates to session-restore\'s handler (same underlying MCP call)', async () => {
+  it("session-start delegates to session-restore's handler (same underlying MCP call)", async () => {
     // Regression test: both used to fail identically because
     // sessionRestoreCommand calls the MCP tool 'hooks_session-restore',
     // which was never registered in TOOL_REGISTRY (only
     // 'hooks_session-start' / 'hooks_session-end' existed). Fixed by adding
     // a real hooksSessionRestore tool to hooks-routing.ts / hooks-tools.ts.
-    const sessionStart = hooksCommand.subcommands!.find((c) => c.name === 'session-start')!;
-    const sessionRestore = hooksCommand.subcommands!.find((c) => c.name === 'session-restore')!;
+    const sessionStart = hooksCommand.subcommands?.find((c) => c.name === 'session-start')!;
+    const sessionRestore = hooksCommand.subcommands?.find((c) => c.name === 'session-restore')!;
     const [startResult, restoreResult] = await Promise.all([
-      sessionStart.action!(makeCtx([])),
-      sessionRestore.action!(makeCtx([])),
+      sessionStart.action?.(makeCtx([])),
+      sessionRestore.action?.(makeCtx([])),
     ]);
     expect(startResult?.success).toBe(true);
     expect(restoreResult?.success).toBe(true);
-    const restoreData = restoreResult?.data as { restoredState?: { tasksRestored: number; agentsRestored: number; memoryBridgeInitialized: boolean } };
+    const restoreData = restoreResult?.data as {
+      restoredState?: {
+        tasksRestored: number;
+        agentsRestored: number;
+        memoryBridgeInitialized: boolean;
+      };
+    };
     expect(restoreData?.restoredState).toBeDefined();
     expect(typeof restoreData?.restoredState?.agentsRestored).toBe('number');
     // Pins the value, not just its type — a regression that hardcodes
@@ -150,7 +160,7 @@ describe('hooksCommand alias wiring (v2 backward compatibility)', () => {
 describe('hooks pre-command dispatch (real risk-assessment logic)', () => {
   it('flags a recursive rm as high/critical risk and recommends not proceeding', async () => {
     const ctx = makeCtx([], { command: 'rm -rf /tmp/some-target', format: 'json' });
-    const result = await preCommandCommand.action!(ctx);
+    const result = await preCommandCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     const data = result?.data as {
       riskLevel: string;
@@ -164,7 +174,7 @@ describe('hooks pre-command dispatch (real risk-assessment logic)', () => {
 
   it('treats an ordinary git command as low risk and safe to proceed', async () => {
     const ctx = makeCtx([], { command: 'git status', format: 'json' });
-    const result = await preCommandCommand.action!(ctx);
+    const result = await preCommandCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     const data = result?.data as { riskLevel: string; shouldProceed: boolean };
     expect(data.riskLevel).toBe('low');
@@ -173,7 +183,7 @@ describe('hooks pre-command dispatch (real risk-assessment logic)', () => {
 
   it('fails cleanly when no command is provided', async () => {
     const ctx = makeCtx([], { format: 'json' });
-    const result = await preCommandCommand.action!(ctx);
+    const result = await preCommandCommand.action?.(ctx);
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });
@@ -193,8 +203,12 @@ describe('hooks post-command dispatch (real outcome recording)', () => {
   });
 
   it('derives success from a zero exit code and records the outcome', async () => {
-    const ctx = makeCtx([], { command: 'npm test', 'exit-code': 0, success: true, format: 'json' }, dir);
-    const result = await postCommandCommand.action!(ctx);
+    const ctx = makeCtx(
+      [],
+      { command: 'npm test', 'exit-code': 0, success: true, format: 'json' },
+      dir,
+    );
+    const result = await postCommandCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     const data = result?.data as { success: boolean; recorded: boolean; command: string };
     expect(data.success).toBe(true);
@@ -202,8 +216,12 @@ describe('hooks post-command dispatch (real outcome recording)', () => {
   });
 
   it('derives failure from a non-zero exit code', async () => {
-    const ctx = makeCtx([], { command: 'npm run build', 'exit-code': 1, success: false, format: 'json' }, dir);
-    const result = await postCommandCommand.action!(ctx);
+    const ctx = makeCtx(
+      [],
+      { command: 'npm run build', 'exit-code': 1, success: false, format: 'json' },
+      dir,
+    );
+    const result = await postCommandCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     const data = result?.data as { success: boolean };
     expect(data.success).toBe(false);
@@ -211,7 +229,7 @@ describe('hooks post-command dispatch (real outcome recording)', () => {
 
   it('fails cleanly when no command is provided', async () => {
     const ctx = makeCtx([], { format: 'json' }, dir);
-    const result = await postCommandCommand.action!(ctx);
+    const result = await postCommandCommand.action?.(ctx);
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });
@@ -231,9 +249,9 @@ describe('hooks pre-task / post-task dispatch (real task-suggestion logic)', () 
   });
 
   it('pre-task classifies a short, simple description as low complexity and suggests agents', async () => {
-    const preTaskCommand = hooksCommand.subcommands!.find((c) => c.name === 'pre-task')!;
+    const preTaskCommand = hooksCommand.subcommands?.find((c) => c.name === 'pre-task')!;
     const ctx = makeCtx(['Fix a small typo'], { format: 'json' }, dir);
-    const result = await preTaskCommand.action!(ctx);
+    const result = await preTaskCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     const data = result?.data as {
       complexity: string;
@@ -246,11 +264,12 @@ describe('hooks pre-task / post-task dispatch (real task-suggestion logic)', () 
   });
 
   it('pre-task classifies a long/complex/architecture description as high complexity', async () => {
-    const preTaskCommand = hooksCommand.subcommands!.find((c) => c.name === 'pre-task')!;
-    const description = 'Design a complex new architecture for the payments subsystem '
-      + 'spanning multiple services and requiring careful migration planning across teams';
+    const preTaskCommand = hooksCommand.subcommands?.find((c) => c.name === 'pre-task')!;
+    const description =
+      'Design a complex new architecture for the payments subsystem ' +
+      'spanning multiple services and requiring careful migration planning across teams';
     const ctx = makeCtx([description], { format: 'json' }, dir);
-    const result = await preTaskCommand.action!(ctx);
+    const result = await preTaskCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     const data = result?.data as { complexity: string; risks: string[] };
     expect(data.complexity).toBe('high');
@@ -258,16 +277,16 @@ describe('hooks pre-task / post-task dispatch (real task-suggestion logic)', () 
   });
 
   it('pre-task fails cleanly with no description', async () => {
-    const preTaskCommand = hooksCommand.subcommands!.find((c) => c.name === 'pre-task')!;
-    const result = await preTaskCommand.action!(makeCtx([], { format: 'json' }, dir));
+    const preTaskCommand = hooksCommand.subcommands?.find((c) => c.name === 'pre-task')!;
+    const result = await preTaskCommand.action?.(makeCtx([], { format: 'json' }, dir));
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });
 
   it('post-task records success by default and echoes the task id', async () => {
-    const postTaskCommand = hooksCommand.subcommands!.find((c) => c.name === 'post-task')!;
+    const postTaskCommand = hooksCommand.subcommands?.find((c) => c.name === 'post-task')!;
     const ctx = makeCtx(['task-abc'], { format: 'json' }, dir);
-    const result = await postTaskCommand.action!(ctx);
+    const result = await postTaskCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     const data = result?.data as { taskId: string; success: boolean };
     expect(data.taskId).toBe('task-abc');
@@ -275,8 +294,8 @@ describe('hooks pre-task / post-task dispatch (real task-suggestion logic)', () 
   });
 
   it('post-task fails cleanly with no task id', async () => {
-    const postTaskCommand = hooksCommand.subcommands!.find((c) => c.name === 'post-task')!;
-    const result = await postTaskCommand.action!(makeCtx([], { format: 'json' }, dir));
+    const postTaskCommand = hooksCommand.subcommands?.find((c) => c.name === 'post-task')!;
+    const result = await postTaskCommand.action?.(makeCtx([], { format: 'json' }, dir));
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });
@@ -297,7 +316,7 @@ describe('hooks route dispatch (real keyword routing)', () => {
 
   it('routes a task and returns a primary agent with a confidence score', async () => {
     const ctx = makeCtx([], { task: 'Fix authentication bug', format: 'json' }, dir);
-    const result = await routeCommand.action!(ctx);
+    const result = await routeCommand.action?.(ctx);
     expect(result?.success).toBe(true);
     // The real hooks_route response nests the pick under primaryAgent.type
     // plus alternativeAgents — routeCommand's TypeScript annotation claims a
@@ -314,7 +333,7 @@ describe('hooks route dispatch (real keyword routing)', () => {
   });
 
   it('fails cleanly when no task is provided', async () => {
-    const result = await routeCommand.action!(makeCtx([], { format: 'json' }, dir));
+    const result = await routeCommand.action?.(makeCtx([], { format: 'json' }, dir));
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });
@@ -339,14 +358,14 @@ describe('hooks pre-edit / post-edit smoke dispatch', () => {
 
   it('pre-edit does not throw and returns a CommandResult', async () => {
     const ctx = makeCtx([], { file: 'src/example.ts', format: 'json' }, dir);
-    const result = await preEditCommand.action!(ctx);
+    const result = await preEditCommand.action?.(ctx);
     expect(result).toBeDefined();
     expect(typeof result?.success).toBe('boolean');
   });
 
   it('post-edit does not throw and returns a CommandResult', async () => {
     const ctx = makeCtx([], { file: 'src/example.ts', success: true, format: 'json' }, dir);
-    const result = await postEditCommand.action!(ctx);
+    const result = await postEditCommand.action?.(ctx);
     expect(result).toBeDefined();
     expect(typeof result?.success).toBe('boolean');
   });
@@ -367,7 +386,7 @@ describe('hooks metrics dispatch (real hooks_metrics handler)', () => {
 
   it('does not throw with an empty memory store', async () => {
     const ctx = makeCtx([], { format: 'json' }, dir);
-    const result = await metricsCommand.action!(ctx);
+    const result = await metricsCommand.action?.(ctx);
     expect(result?.success).toBe(true);
   });
 
@@ -385,7 +404,13 @@ describe('hooks metrics dispatch (real hooks_metrics handler)', () => {
         join(memoryDir, 'store.json'),
         JSON.stringify({
           entries: {
-            e1: { key: 'pattern-1', value: 'x', storedAt: new Date().toISOString(), accessCount: 0, lastAccessed: new Date().toISOString() },
+            e1: {
+              key: 'pattern-1',
+              value: 'x',
+              storedAt: new Date().toISOString(),
+              accessCount: 0,
+              lastAccessed: new Date().toISOString(),
+            },
           },
           version: '3.0.0',
         }),
@@ -393,7 +418,7 @@ describe('hooks metrics dispatch (real hooks_metrics handler)', () => {
       );
 
       const ctx = makeCtx([], { format: 'json' }, dir);
-      const result = await metricsCommand.action!(ctx);
+      const result = await metricsCommand.action?.(ctx);
       expect(result?.success).toBe(true);
       const data = result?.data as { patterns: { total: number } };
       expect(data.patterns.total).toBe(1);
@@ -401,7 +426,7 @@ describe('hooks metrics dispatch (real hooks_metrics handler)', () => {
       // Also drive the non-JSON display path (the one that used to crash) —
       // if this throws, the test fails.
       const displayCtx = makeCtx([], {}, dir);
-      const displayResult = await metricsCommand.action!(displayCtx);
+      const displayResult = await metricsCommand.action?.(displayCtx);
       expect(displayResult?.success).toBe(true);
     },
   );
@@ -415,7 +440,7 @@ describe('hooks metrics dispatch (real hooks_metrics handler)', () => {
       const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       try {
         const ctx = makeCtx([], {}, dir);
-        const result = await metricsCommand.action!(ctx);
+        const result = await metricsCommand.action?.(ctx);
         expect(result?.success).toBe(true);
         const data = result?.data as { _note?: string };
         expect(data._note).toBeDefined();

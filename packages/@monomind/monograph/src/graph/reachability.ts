@@ -1,4 +1,4 @@
-import { ModuleNode, ModuleNodeFlags, setFlag } from './node-types.js';
+import { type ModuleNode, ModuleNodeFlags, setFlag } from './node-types.js';
 
 export interface ReachabilityOptions {
   runtimeEntries?: Set<number>;
@@ -61,9 +61,7 @@ export function markReachable(
     : bfsReachable(nodes, edges, [...(runtimeEntries ?? [])]);
 
   const testVisited =
-    !testEntries || testEntries.size === 0
-      ? null
-      : bfsReachable(nodes, edges, [...testEntries]);
+    !testEntries || testEntries.size === 0 ? null : bfsReachable(nodes, edges, [...testEntries]);
 
   for (const [id, node] of nodes) {
     if (visited.has(id)) {
@@ -88,11 +86,8 @@ export function collectReachable(nodes: Map<number, ModuleNode>): Set<number> {
   return result;
 }
 
-export function collectUnreachable(
-  nodes: Map<number, ModuleNode>,
-  allFileIds: number[],
-): number[] {
-  return allFileIds.filter(id => {
+export function collectUnreachable(nodes: Map<number, ModuleNode>, allFileIds: number[]): number[] {
+  return allFileIds.filter((id) => {
     const node = nodes.get(id);
     return !node || (node.flags & ModuleNodeFlags.REACHABLE) === 0;
   });

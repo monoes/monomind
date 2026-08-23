@@ -10,15 +10,19 @@
  * the error path for an unknown worker name.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CommandContext } from '../types.js';
-import { workerCommand } from '../commands/hooks-workers.js';
 import { WORKER_CONFIGS, WorkerPriority } from '@monoes/hooks';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { workerCommand } from '../commands/hooks-workers.js';
+import type { CommandContext } from '../types.js';
 
-function makeCtx(args: string[], flags: Record<string, unknown> = {}, cwd?: string): CommandContext {
+function makeCtx(
+  args: string[],
+  flags: Record<string, unknown> = {},
+  cwd?: string,
+): CommandContext {
   return {
     args,
     flags: { _: [], ...flags },
@@ -27,8 +31,8 @@ function makeCtx(args: string[], flags: Record<string, unknown> = {}, cwd?: stri
   };
 }
 
-const workerListCommand = workerCommand.subcommands!.find((c) => c.name === 'list')!;
-const workerRunCommand = workerCommand.subcommands!.find((c) => c.name === 'run')!;
+const workerListCommand = workerCommand.subcommands?.find((c) => c.name === 'list')!;
+const workerRunCommand = workerCommand.subcommands?.find((c) => c.name === 'run')!;
 
 describe('hooks worker (parent command)', () => {
   it('registers exactly the list and run subcommands', () => {
@@ -37,14 +41,14 @@ describe('hooks worker (parent command)', () => {
   });
 
   it('top-level action prints usage and succeeds', async () => {
-    const result = await workerCommand.action!(makeCtx([]));
+    const result = await workerCommand.action?.(makeCtx([]));
     expect(result?.success).toBe(true);
   });
 });
 
 describe('hooks worker list', () => {
   it('lists all registered @monoes/hooks workers with priority and enabled state', async () => {
-    const result = await workerListCommand.action!(makeCtx([]));
+    const result = await workerListCommand.action?.(makeCtx([]));
     expect(result?.success).toBe(true);
 
     const data = result?.data as {
@@ -94,7 +98,7 @@ describe('hooks worker run', () => {
   });
 
   it('runs the "health" worker end-to-end against a real temp project dir', async () => {
-    const result = await workerRunCommand.action!(makeCtx(['health'], { format: 'json' }));
+    const result = await workerRunCommand.action?.(makeCtx(['health'], { format: 'json' }));
 
     expect(result?.success).toBe(true);
     expect(result?.exitCode).toBeUndefined();
@@ -118,7 +122,7 @@ describe('hooks worker run', () => {
   });
 
   it('runs the "ddd" worker end-to-end (empty temp dir still succeeds, reports no progress)', async () => {
-    const result = await workerRunCommand.action!(makeCtx(['ddd'], { format: 'json' }));
+    const result = await workerRunCommand.action?.(makeCtx(['ddd'], { format: 'json' }));
 
     expect(result?.success).toBe(true);
     const data = result?.data as { worker: string; success: boolean; data?: { progress?: number } };
@@ -130,8 +134,10 @@ describe('hooks worker run', () => {
   });
 
   it('accepts the worker name via positional arg or --name flag identically', async () => {
-    const viaArg = await workerRunCommand.action!(makeCtx(['health'], { format: 'json' }));
-    const viaFlag = await workerRunCommand.action!(makeCtx([], { name: 'health', format: 'json' }));
+    const viaArg = await workerRunCommand.action?.(makeCtx(['health'], { format: 'json' }));
+    const viaFlag = await workerRunCommand.action?.(
+      makeCtx([], { name: 'health', format: 'json' }),
+    );
 
     const argData = viaArg?.data as { worker: string; success: boolean };
     const flagData = viaFlag?.data as { worker: string; success: boolean };
@@ -142,13 +148,13 @@ describe('hooks worker run', () => {
   });
 
   it('fails cleanly, without crashing, when no worker name is given', async () => {
-    const result = await workerRunCommand.action!(makeCtx([]));
+    const result = await workerRunCommand.action?.(makeCtx([]));
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });
 
   it('fails cleanly, without crashing, for an unknown worker name', async () => {
-    const result = await workerRunCommand.action!(makeCtx(['nonexistent-worker-name']));
+    const result = await workerRunCommand.action?.(makeCtx(['nonexistent-worker-name']));
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });

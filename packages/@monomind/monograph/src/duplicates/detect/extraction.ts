@@ -19,7 +19,8 @@ export function extractCloneGroups(
   const n = sa.length;
   if (n < 2) return [];
 
-  const focusPrefix = focusFileIds !== undefined ? buildFocusPrefix(sa, fileOf, focusFileIds) : null;
+  const focusPrefix =
+    focusFileIds !== undefined ? buildFocusPrefix(sa, fileOf, focusFileIds) : null;
 
   const stack: Array<{ lcpVal: number; start: number }> = [];
   const groups: RawGroup[] = [];
@@ -42,7 +43,14 @@ export function extractCloneGroups(
           continue;
         }
 
-        const group = buildRawGroup(sa, fileOf, fileOffsets, intervalBegin, intervalEnd, top.lcpVal);
+        const group = buildRawGroup(
+          sa,
+          fileOf,
+          fileOffsets,
+          intervalBegin,
+          intervalEnd,
+          top.lcpVal,
+        );
         if (group !== null) groups.push(group);
       }
     }
@@ -90,7 +98,7 @@ function buildRawGroup(
 
   if (instances.length < 2) return null;
 
-  instances.sort((a, b) => a.fileId !== b.fileId ? a.fileId - b.fileId : a.offset - b.offset);
+  instances.sort((a, b) => (a.fileId !== b.fileId ? a.fileId - b.fileId : a.offset - b.offset));
 
   const deduped: RawInstance[] = [];
   for (const inst of instances) {

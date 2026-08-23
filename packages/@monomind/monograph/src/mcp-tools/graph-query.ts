@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
-import type { MonographNode } from '../types.js';
 import { rowToNode } from '../storage/node-store.js';
+import type { MonographNode } from '../types.js';
 
 export interface GraphQueryInput {
   query: string;
@@ -72,8 +72,8 @@ export function queryGraph(db: Database.Database, input: GraphQueryInput): Graph
       // 'both': union of outgoing and incoming, deduplicated by id
       const outRows = outEdgeStmt.all(id) as Record<string, unknown>[];
       const inRows = inEdgeStmt.all(id) as Record<string, unknown>[];
-      const seen = new Set(outRows.map((r) => r['id'] as string));
-      return [...outRows, ...inRows.filter((r) => !seen.has(r['id'] as string))];
+      const seen = new Set(outRows.map((r) => r.id as string));
+      return [...outRows, ...inRows.filter((r) => !seen.has(r.id as string))];
     };
 
     if (mode === 'bfs') {

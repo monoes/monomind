@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'fs';
+import { readFileSync, statSync } from 'node:fs';
 import type Database from 'better-sqlite3';
 import { extractMiddlewareChain } from '../pipeline/phases/middleware-extractor.js';
 
@@ -33,13 +33,13 @@ export function getMonographRouteMap(
 
   if (input.prefix) {
     // Route name format: "METHOD /path" — prefix applies to path portion after first space
-    conditions.push("name LIKE ?");
+    conditions.push('name LIKE ?');
     params.push(`% ${input.prefix}%`);
   }
 
   if (input.method) {
     const methodUpper = input.method.toUpperCase();
-    conditions.push("(name LIKE ? OR name LIKE ?)");
+    conditions.push('(name LIKE ? OR name LIKE ?)');
     params.push(`${methodUpper} %`, 'ANY %');
   }
 

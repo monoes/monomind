@@ -3,8 +3,8 @@
  * Configuration options for initializing Claude Code integration
  */
 
-import os from 'os';
-import path from 'path';
+import os from 'node:os';
+import path from 'node:path';
 
 /**
  * Components that can be initialized

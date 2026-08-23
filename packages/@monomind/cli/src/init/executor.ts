@@ -3,33 +3,38 @@
  * Main execution logic for V1 initialization
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
-import { createRequire } from 'module';
-import { dirname } from 'path';
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as path from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-import type { InitOptions, InitResult } from './types.js';
-import { detectPlatform } from './types.js';
-import { writeSharedInstructions } from './shared-instructions-generator.js';
-
+import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
 // Split modules
 import { DIRECTORIES, MAX_EXEC_FILE_BYTES } from './shared.js';
-import { writeSettings, writeMCPConfig, writeHelpers, writeStatusline, writeClaudeMd } from './write-claude.js';
-import { writeRuntimeConfig, writeInitialMetrics } from './write-runtime-config.js';
+import { writeSharedInstructions } from './shared-instructions-generator.js';
+import type { InitOptions, InitResult } from './types.js';
+import { detectPlatform } from './types.js';
 import { writeGeminiFiles } from './write-antigravity.js';
-import { writeOpencodeFiles } from './write-opencode.js';
-import { writeKimiFiles } from './write-kimicode.js';
+import {
+  writeClaudeMd,
+  writeHelpers,
+  writeMCPConfig,
+  writeSettings,
+  writeStatusline,
+} from './write-claude.js';
 import { writeCodexFiles } from './write-codex.js';
-import { copySkills, copyCommands, copyAgents } from './copy-assets.js';
+import { writeKimiFiles } from './write-kimicode.js';
+import { writeOpencodeFiles } from './write-opencode.js';
+import { writeInitialMetrics, writeRuntimeConfig } from './write-runtime-config.js';
 
+export type { UpgradeResult } from './upgrade.js';
 // Re-export upgrade functions so index.ts barrel still works via './executor.js'
 export { executeUpgrade, executeUpgradeWithMissing } from './upgrade.js';
-export type { UpgradeResult } from './upgrade.js';
 
 /**
  * Execute initialization
@@ -65,7 +70,17 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Scan directory and save fingerprint (non-fatal if failed)
     let capMgr: any = null;
     try {
-      const { scanDirectory, saveFingerprint, CapabilityManager, codeCapability, documentsCapability, mediaCapability, timelineCapability, graphCapability, dataCapability } = await import('../capabilities/index.js');
+      const {
+        scanDirectory,
+        saveFingerprint,
+        CapabilityManager,
+        codeCapability,
+        documentsCapability,
+        mediaCapability,
+        timelineCapability,
+        graphCapability,
+        dataCapability,
+      } = await import('../capabilities/index.js');
       const scan = await scanDirectory(targetDir);
       const monomindDir = path.join(targetDir, '.monomind');
       await saveFingerprint(scan, monomindDir);
@@ -92,14 +107,18 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       // that would otherwise cause zero-hits on every prompt.
       const activeNames = capMgr.getActive().map((c: any) => c.name);
       try {
-        const { ingestDirectory, ingestDocument } = await import('../knowledge/document-pipeline.js');
+        const { ingestDirectory, ingestDocument } = await import(
+          '../knowledge/document-pipeline.js'
+        );
         const fs = await import('node:fs');
 
         if (activeNames.includes('documents')) {
           console.log('\nIndexing documents for Second Brain...');
           const docResult = await ingestDirectory(targetDir, 'shared', { rootDir: targetDir });
           if (docResult.filesProcessed > 0) {
-            console.log(`  ✓ ${docResult.totalChunks} chunks from ${docResult.filesProcessed} documents`);
+            console.log(
+              `  ✓ ${docResult.totalChunks} chunks from ${docResult.filesProcessed} documents`,
+            );
           } else {
             console.log('  ✓ Knowledge base initialized (no new documents to index)');
           }
@@ -140,11 +159,15 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
         }
         result.created.files.push('.monomind/knowledge/');
       } catch (docErr) {
-        result.skipped.push(`knowledge indexing: ${docErr instanceof Error ? docErr.message : String(docErr)}`);
+        result.skipped.push(
+          `knowledge indexing: ${docErr instanceof Error ? docErr.message : String(docErr)}`,
+        );
       }
     } catch (scanError) {
       // Scanner/fingerprint/activation failed — non-fatal, continue without capabilities
-      result.skipped.push(`directory scan: ${scanError instanceof Error ? scanError.message : String(scanError)}`);
+      result.skipped.push(
+        `directory scan: ${scanError instanceof Error ? scanError.message : String(scanError)}`,
+      );
     }
 
     // Generate and write settings.json
@@ -214,7 +237,13 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       await writeKimiFiles(targetDir, options, result);
     }
 
-    // Generate Codex project artifacts (opt-in via components.codex).
+    // Codex native hooks reuse the shared gate runtime. Install that runtime
+    // even for Codex-only initialization, where Claude components are disabled.
+    if (options.components.codex && !options.components.helpers) {
+      await writeHelpers(targetDir, options, result);
+    }
+
+    // Generate Codex project artifacts (selected via the Codex target).
     if (options.components.codex) {
       await writeCodexFiles(targetDir, options, result);
     }
@@ -237,7 +266,6 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 
     // Register this project in ~/.monomind-projects.json so upgrade --all finds it
     _registerMonomindProject(targetDir);
-
   } catch (error) {
     result.success = false;
     result.errors.push(error instanceof Error ? error.message : String(error));
@@ -252,7 +280,11 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
  * Uses the same build.lock file as graphify-freshen.cjs — if a session-start
  * hook build is already running, we skip to avoid SQLITE_BUSY.
  */
-async function initKnowledgeGraph(targetDir: string, result: InitResult, allowInstall: boolean): Promise<void> {
+async function initKnowledgeGraph(
+  targetDir: string,
+  result: InitResult,
+  allowInstall: boolean,
+): Promise<void> {
   const outputDir = path.join(targetDir, '.monomind', 'graph');
   fs.mkdirSync(outputDir, { recursive: true });
 
@@ -263,11 +295,15 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult, allowIn
   try {
     const stat = fs.statSync(lockPath);
     if (now - stat.mtimeMs < 5 * 60 * 1000) {
-      result.skipped.push('knowledge graph build: already in progress (session-start hook running)');
+      result.skipped.push(
+        'knowledge graph build: already in progress (session-start hook running)',
+      );
       return;
     }
     fs.unlinkSync(lockPath);
-  } catch { /* no lock — proceed */ }
+  } catch {
+    /* no lock — proceed */
+  }
 
   // Resolve @monoes/monograph from the CLI package's own node_modules first
   // (correct for npm/npx installs), then fall back to user project node_modules.
@@ -276,32 +312,58 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult, allowIn
     const cliRequire = createRequire(import.meta.url);
     entryPoint = cliRequire.resolve('@monoes/monograph/dist/src/index.js');
   } catch {
-    const fallback = path.join(targetDir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
+    const fallback = path.join(
+      targetDir,
+      'node_modules',
+      '@monoes',
+      'monograph',
+      'dist',
+      'src',
+      'index.js',
+    );
     if (fs.existsSync(fallback)) entryPoint = fallback;
   }
   if (!entryPoint) {
     // P1-13: --no-install (options.installClaudeCode === false) must actually
     // gate this install, not just say it does — skip entirely when disallowed.
     if (!allowInstall) {
-      result.skipped.push('knowledge graph: @monoes/monograph not found (auto-install skipped, --no-install)');
+      result.skipped.push(
+        'knowledge graph: @monoes/monograph not found (auto-install skipped, --no-install)',
+      );
       return;
     }
     // Auto-install @monoes/monograph and retry before giving up.
     // Disclose the install before running it (consistent with the
     // claude-code global install disclosure pattern from #131/#132).
     try {
-      const { execSync } = await import('child_process');
+      const { execSync } = await import('node:child_process');
       const { output } = await import('../output.js');
-      output.printInfo('Installing @monoes/monograph (knowledge graph dependency) — pass --no-install to skip');
-      execSync('npm install @monoes/monograph', { cwd: targetDir, stdio: 'ignore', timeout: 60000 });
+      output.printInfo(
+        'Installing @monoes/monograph (knowledge graph dependency) — pass --no-install to skip',
+      );
+      execSync('npm install @monoes/monograph', {
+        cwd: targetDir,
+        stdio: 'ignore',
+        timeout: 60000,
+      });
       try {
         const cliRequire2 = createRequire(import.meta.url);
         entryPoint = cliRequire2.resolve('@monoes/monograph/dist/src/index.js');
       } catch {
-        const fallback2 = path.join(targetDir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
+        const fallback2 = path.join(
+          targetDir,
+          'node_modules',
+          '@monoes',
+          'monograph',
+          'dist',
+          'src',
+          'index.js',
+        );
         if (fs.existsSync(fallback2)) entryPoint = fallback2;
       }
-    } catch { /* install failed, fall through */ }
+    } catch {
+      /* install failed, fall through */
+    }
     if (!entryPoint) {
       result.skipped.push('knowledge graph: @monoes/monograph not found (auto-install failed)');
       return;
@@ -310,12 +372,20 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult, allowIn
   }
 
   // Acquire lock before spawning so graphify-freshen.cjs sees it and skips
-  try { fs.writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */ }
+  try {
+    fs.writeFileSync(lockPath, String(process.pid));
+  } catch {
+    /* non-fatal */
+  }
 
-  const { spawn } = await import('child_process');
+  const { spawn } = await import('node:child_process');
   const logPath = path.join(outputDir, 'build.log');
   let logFd: number | 'ignore' = 'ignore';
-  try { logFd = fs.openSync(logPath, 'a'); } catch { /* non-fatal */ }
+  try {
+    logFd = fs.openSync(logPath, 'a');
+  } catch {
+    /* non-fatal */
+  }
 
   const script = `
 import { buildAsync } from ${JSON.stringify(pathToFileURL(entryPoint).href)};
@@ -331,7 +401,11 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
   child.unref();
   // Close the parent's copy of the fd — the child has its own inherited copy
   if (typeof logFd === 'number') {
-    try { fs.closeSync(logFd); } catch { /* non-fatal */ }
+    try {
+      fs.closeSync(logFd);
+    } catch {
+      /* non-fatal */
+    }
   }
 
   result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
@@ -359,7 +433,9 @@ async function runDoctorFix(targetDir: string, result: InitResult, install = tru
       const claudeCheck = await checkClaudeCode();
       if (claudeCheck.status !== 'pass') {
         const { output } = await import('../output.js');
-        output.printInfo('Installing Claude Code CLI globally (npm install -g @anthropic-ai/claude-code) — pass --no-install to skip');
+        output.printInfo(
+          'Installing Claude Code CLI globally (npm install -g @anthropic-ai/claude-code) — pass --no-install to skip',
+        );
       }
     }
     const res = await doctorCommand.action({
@@ -373,7 +449,11 @@ async function runDoctorFix(targetDir: string, result: InitResult, install = tru
     if (res && (res as { success?: boolean }).success === false) {
       result.skipped.push('doctor: reported issues (run: monomind doctor for details)');
     } else {
-      result.created.files.push(install ? 'doctor --install (health check + auto-fix)' : 'doctor --fix (health check, no network install)');
+      result.created.files.push(
+        install
+          ? 'doctor --install (health check + auto-fix)'
+          : 'doctor --fix (health check, no network install)',
+      );
     }
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
@@ -387,12 +467,9 @@ async function runDoctorFix(targetDir: string, result: InitResult, install = tru
 async function createDirectories(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
-  const dirs = [
-    ...DIRECTORIES.claude,
-    ...(options.components.runtime ? DIRECTORIES.runtime : []),
-  ];
+  const dirs = [...DIRECTORIES.claude, ...(options.components.runtime ? DIRECTORIES.runtime : [])];
 
   for (const dir of dirs) {
     const fullPath = path.join(targetDir, dir);
@@ -432,8 +509,16 @@ function _registerMonomindProject(dir: string): void {
     const os = esmReq('os') as typeof import('os');
     const registryPath = path.join(os.homedir(), '.monomind-projects.json');
     let reg: { projects: string[] } = { projects: [] };
-    try { if (fs.existsSync(registryPath) && fs.statSync(registryPath).size <= MAX_EXEC_FILE_BYTES) { reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8')); } } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[_registerMonomindProject] ~/.monomind-projects.json unparseable, resetting:', e);
+    try {
+      if (fs.existsSync(registryPath) && fs.statSync(registryPath).size <= MAX_EXEC_FILE_BYTES) {
+        reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
+      }
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error(
+          '[_registerMonomindProject] ~/.monomind-projects.json unparseable, resetting:',
+          e,
+        );
     }
     if (!Array.isArray(reg.projects)) reg.projects = [];
     const abs = path.resolve(dir);
@@ -441,7 +526,9 @@ function _registerMonomindProject(dir: string): void {
       reg.projects.push(abs);
       fs.writeFileSync(registryPath, JSON.stringify(reg, null, 2), 'utf-8');
     }
-  } catch { /* non-fatal */ }
+  } catch {
+    /* non-fatal */
+  }
 }
 
 /**
@@ -461,7 +548,7 @@ export function findMonomindProjects(maxDepth = 3): string[] {
     path.join(home, 'dev'),
     path.join(home, 'repos'),
     path.join(home, 'src'),
-  ].filter(r => fs.existsSync(r));
+  ].filter((r) => fs.existsSync(r));
 
   // Also check known-projects registry if it exists
   const registryPath = path.join(home, '.monomind-projects.json');
@@ -481,10 +568,16 @@ export function findMonomindProjects(maxDepth = 3): string[] {
   function walk(dir: string, depth: number): void {
     if (depth > maxDepth) return;
     const marker = path.join(dir, '.claude', 'helpers', 'hook-handler.cjs');
-    if (fs.existsSync(marker)) { found.add(dir); return; }
+    if (fs.existsSync(marker)) {
+      found.add(dir);
+      return;
+    }
     let entries: fs.Dirent[];
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
-    catch { return; }
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
     for (const e of entries) {
       if (!e.isDirectory()) continue;
       if (e.name.startsWith('.') || e.name === 'node_modules') continue;
@@ -492,7 +585,9 @@ export function findMonomindProjects(maxDepth = 3): string[] {
     }
   }
 
-  for (const root of searchRoots) { walk(root, 0); }
+  for (const root of searchRoots) {
+    walk(root, 0);
+  }
   return [...found];
 }
 

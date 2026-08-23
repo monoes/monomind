@@ -9,55 +9,50 @@
  * - Update history logging
  */
 
+export type { UpdateCheckResult, UpdateConfig } from './checker.js';
 export {
   checkForUpdates,
   checkSinglePackage,
-  getInstalledVersion,
   DEFAULT_CONFIG,
+  getInstalledVersion,
 } from './checker.js';
-
-export type { UpdateCheckResult, UpdateConfig } from './checker.js';
-
+export type { UpdateExecutionResult, UpdateHistoryEntry } from './executor.js';
 export {
-  shouldCheckForUpdates,
-  recordCheck,
-  getCachedVersions,
-  clearCache,
-  loadState,
-} from './rate-limiter.js';
-
-export type { RateLimitState } from './rate-limiter.js';
-
-export { validateUpdate, validateBulkUpdate } from './validator.js';
-
-export type { ValidationResult } from './validator.js';
-
-export {
-  executeUpdate,
-  executeMultipleUpdates,
-  rollbackUpdate,
-  getUpdateHistory,
   clearHistory,
+  executeMultipleUpdates,
+  executeUpdate,
+  getUpdateHistory,
   loadHistory,
+  rollbackUpdate,
 } from './executor.js';
+export type { RateLimitState } from './rate-limiter.js';
+export {
+  clearCache,
+  getCachedVersions,
+  loadState,
+  recordCheck,
+  shouldCheckForUpdates,
+} from './rate-limiter.js';
+export type { ValidationResult } from './validator.js';
+export { validateBulkUpdate, validateUpdate } from './validator.js';
 
-export type { UpdateHistoryEntry, UpdateExecutionResult } from './executor.js';
-
+import type { UpdateCheckResult } from './checker.js';
 // Re-export a convenience function for startup
 import { checkForUpdates, DEFAULT_CONFIG } from './checker.js';
-import type { UpdateCheckResult } from './checker.js';
 import { getCachedVersions } from './rate-limiter.js';
+
 // Inline semver shim — avoids external dependency (semver is not listed in package.json)
 const semver = {
-  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+  valid: (v: string | null | undefined): string | null =>
+    /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
   gt: (a: string, b: string): boolean => {
-    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
-    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map((n) => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map((n) => parseInt(n, 10) || 0);
     return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
   },
   lte: (a: string, b: string): boolean => {
-    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
-    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map((n) => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map((n) => parseInt(n, 10) || 0);
     if (aMaj !== bMaj) return aMaj < bMaj;
     if (aMin !== bMin) return aMin < bMin;
     return aPat <= bPat;
@@ -89,7 +84,7 @@ export function getUpdateTagline(currentVersion: string): string {
  * Run auto-update check on startup
  * This is the main entry point for the auto-update system
  */
-export async function runStartupUpdateCheck(options: {
+export async function runStartupUpdateCheck(_options: {
   verbose?: boolean;
   autoUpdate?: boolean;
   onInstalling?: (packages: string[]) => void;

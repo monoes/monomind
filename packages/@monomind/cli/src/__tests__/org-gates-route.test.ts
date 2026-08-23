@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { handleOrgRoutes } from '../ui/routes-org.mjs';
 
 function makeRes() {
@@ -38,15 +38,37 @@ describe('GET /api/org/:name/gates', () => {
       join(orgDir, 'gates.json'),
       JSON.stringify({
         gates: [
-          { id: 'g1', name: 'ship v1', description: 'go/no-go', roleId: 'boss', status: 'approved', createdAt: 1000, resolvedBy: 'human', resolvedAt: 2000, resolution: 'ship it' },
-          { id: 'g2', name: 'ship v2', description: 'go/no-go', roleId: 'boss', status: 'pending', createdAt: 3000 },
+          {
+            id: 'g1',
+            name: 'ship v1',
+            description: 'go/no-go',
+            roleId: 'boss',
+            status: 'approved',
+            createdAt: 1000,
+            resolvedBy: 'human',
+            resolvedAt: 2000,
+            resolution: 'ship it',
+          },
+          {
+            id: 'g2',
+            name: 'ship v2',
+            description: 'go/no-go',
+            roleId: 'boss',
+            status: 'pending',
+            createdAt: 3000,
+          },
         ],
       }),
     );
 
-    const req = { method: 'GET', url: `/api/org/myorg/gates?dir=${encodeURIComponent(cwd)}` } as any;
+    const req = {
+      method: 'GET',
+      url: `/api/org/myorg/gates?dir=${encodeURIComponent(cwd)}`,
+    } as any;
     const res = makeRes();
-    const handled = await handleOrgRoutes(req, res, '/api/org/myorg/gates', null, { projectDir: cwd });
+    const handled = await handleOrgRoutes(req, res, '/api/org/myorg/gates', null, {
+      projectDir: cwd,
+    });
 
     expect(handled).toBe(true);
     expect(res.statusCode).toBe(200);
@@ -58,7 +80,10 @@ describe('GET /api/org/:name/gates', () => {
   });
 
   it('returns an empty list when gates.json does not exist', async () => {
-    const req = { method: 'GET', url: `/api/org/myorg/gates?dir=${encodeURIComponent(cwd)}` } as any;
+    const req = {
+      method: 'GET',
+      url: `/api/org/myorg/gates?dir=${encodeURIComponent(cwd)}`,
+    } as any;
     const res = makeRes();
     await handleOrgRoutes(req, res, '/api/org/myorg/gates', null, { projectDir: cwd });
 
@@ -72,7 +97,9 @@ describe('GET /api/org/:name/gates', () => {
     // The route regex only matches valid org-name characters, so a path-traversal
     // attempt in the URL simply doesn't match this route at all (handled === false)
     // rather than reaching the 400 branch — routing dispatch already rejects it.
-    const handled = await handleOrgRoutes(req, res, '/api/org/../../etc/gates', null, { projectDir: cwd });
+    const handled = await handleOrgRoutes(req, res, '/api/org/../../etc/gates', null, {
+      projectDir: cwd,
+    });
     expect(handled).toBe(false);
   });
 });

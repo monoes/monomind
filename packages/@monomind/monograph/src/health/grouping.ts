@@ -1,5 +1,4 @@
-import type { VitalSigns, HealthScore } from './vital-signs-snapshot.js';
-import type { SubsetFilter } from '../analysis/workspace-filter.js';
+import type { HealthScore, VitalSigns } from './vital-signs-snapshot.js';
 
 export type HealthGrouping = 'package' | 'owner' | 'directory' | 'section';
 
@@ -58,7 +57,7 @@ function averageVitalSigns(signs: VitalSigns[]): VitalSigns {
       busFactor: 0,
       unusedDepsPct: 0,
       maintainabilityIndex: 0,
-    }
+    },
   );
   return {
     deadCodePct: sum.deadCodePct / count,
@@ -77,7 +76,7 @@ function averageVitalSigns(signs: VitalSigns[]): VitalSigns {
 function resolveKey(
   filePath: string,
   grouping: HealthGrouping,
-  codeownersMap?: Map<string, string>
+  codeownersMap?: Map<string, string>,
 ): string {
   switch (grouping) {
     case 'directory': {
@@ -99,12 +98,9 @@ function resolveKey(
 export function groupHealthResults(
   fileVitals: Array<{ filePath: string; vitalSigns: VitalSigns; healthScore: HealthScore }>,
   grouping: HealthGrouping,
-  codeownersMap?: Map<string, string>
+  codeownersMap?: Map<string, string>,
 ): HealthGroup[] {
-  const buckets = new Map<
-    string,
-    { vitalSigns: VitalSigns[]; scores: number[] }
-  >();
+  const buckets = new Map<string, { vitalSigns: VitalSigns[]; scores: number[] }>();
 
   for (const entry of fileVitals) {
     const key = resolveKey(entry.filePath, grouping, codeownersMap);

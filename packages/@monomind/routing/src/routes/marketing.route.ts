@@ -1,4 +1,4 @@
-import { Route } from '../types.js';
+import type { Route } from '../types.js';
 
 export const marketingRoutes: Route[] = [
   {
@@ -23,7 +23,7 @@ export const marketingRoutes: Route[] = [
   {
     name: 'content-creator',
     agentSlug: 'marketing-content-creator',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Content creation, copywriting, blog posts',
     utterances: [

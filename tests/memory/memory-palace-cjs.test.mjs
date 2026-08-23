@@ -6,11 +6,12 @@
  * All functions that touch the filesystem accept a `cwd` parameter, so we
  * use a temp directory for full isolation — no real .monomind/ data is touched.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const mp = require('../../.claude/helpers/memory-palace.cjs');
@@ -43,8 +44,8 @@ describe('bm25', () => {
       { id: 'irrelevant', text: 'cooking recipes pasta ingredients' },
     ];
     const result = mp.bm25('authentication security login', docs);
-    const relevant = result.find(r => r.id === 'relevant');
-    const irrelevant = result.find(r => r.id === 'irrelevant');
+    const relevant = result.find((r) => r.id === 'relevant');
+    const irrelevant = result.find((r) => r.id === 'irrelevant');
     expect(relevant.score).toBeGreaterThan(irrelevant.score);
   });
 
@@ -85,16 +86,16 @@ describe('buildClosets', () => {
   it('extracts markdown section headers', () => {
     const content = '# Authentication Module\n## Security Layer\nDetails here.';
     const result = mp.buildClosets(content, 'd1');
-    const headers = result.filter(r => r.type === 'header');
+    const headers = result.filter((r) => r.type === 'header');
     expect(headers.length).toBeGreaterThan(0);
-    const terms = headers.map(h => h.term);
+    const terms = headers.map((h) => h.term);
     expect(terms).toContain('Authentication Module');
   });
 
   it('extracts action phrases', () => {
     const content = 'We implemented AuthService and created UserRepository for the project.';
     const result = mp.buildClosets(content, 'd2');
-    const actions = result.filter(r => r.type === 'action');
+    const actions = result.filter((r) => r.type === 'action');
     expect(actions.length).toBeGreaterThan(0);
   });
 
@@ -127,7 +128,8 @@ describe('storeVerbatim', () => {
   });
 
   it('stores drawer with correct wing and room metadata', () => {
-    const content = 'Authentication system implementation with JWT tokens and session management. '.repeat(5);
+    const content =
+      'Authentication system implementation with JWT tokens and session management. '.repeat(5);
     mp.storeVerbatim(tmpDir, content, { wing: 'auth', room: 'jwt' });
     const drawersPath = path.join(tmpDir, '.monomind', 'palace', 'drawers.jsonl');
     const lines = fs.readFileSync(drawersPath, 'utf8').trim().split('\n').filter(Boolean);
@@ -141,7 +143,8 @@ describe('storeVerbatim', () => {
   });
 
   it('also creates closets.jsonl', () => {
-    const content = '# Auth Module\nWe implemented UserService and created AuthController for login.';
+    const content =
+      '# Auth Module\nWe implemented UserService and created AuthController for login.';
     mp.storeVerbatim(tmpDir, content, { wing: 'test', room: 'closets' });
     const closetsPath = path.join(tmpDir, '.monomind', 'palace', 'closets.jsonl');
     expect(fs.existsSync(closetsPath)).toBe(true);
@@ -163,8 +166,10 @@ describe('storeVerbatim', () => {
 describe('search', () => {
   beforeEach(() => {
     // Pre-populate palace with some content
-    const authContent = 'Authentication system with JWT tokens and session management for secure login. '.repeat(5);
-    const dbContent = 'Database connection pooling and query optimization for PostgreSQL performance. '.repeat(5);
+    const authContent =
+      'Authentication system with JWT tokens and session management for secure login. '.repeat(5);
+    const dbContent =
+      'Database connection pooling and query optimization for PostgreSQL performance. '.repeat(5);
     mp.storeVerbatim(tmpDir, authContent, { wing: 'backend', room: 'auth' });
     mp.storeVerbatim(tmpDir, dbContent, { wing: 'backend', room: 'db' });
   });
@@ -198,7 +203,9 @@ describe('search', () => {
 
   it('filters by wing when wing option is provided', () => {
     // Store content in a different wing
-    const uiContent = 'React component rendering and CSS styling for the user interface. '.repeat(5);
+    const uiContent = 'React component rendering and CSS styling for the user interface. '.repeat(
+      5,
+    );
     mp.storeVerbatim(tmpDir, uiContent, { wing: 'frontend', room: 'ui' });
 
     const results = mp.search(tmpDir, 'component ui', { wing: 'frontend' });
@@ -217,7 +224,8 @@ describe('search', () => {
 // ── recall ────────────────────────────────────────────────────────────────────
 describe('recall', () => {
   beforeEach(() => {
-    const content = 'Recall test content for the authentication and session management system. '.repeat(5);
+    const content =
+      'Recall test content for the authentication and session management system. '.repeat(5);
     mp.storeVerbatim(tmpDir, content, { wing: 'recall-wing', room: 'room-a' });
   });
 
@@ -242,7 +250,9 @@ describe('recall', () => {
   it('respects limit option', () => {
     // Store multiple chunks to have more drawers
     for (let i = 0; i < 3; i++) {
-      const content = `Content chunk ${i} for recall limit testing in the memory system. `.repeat(8);
+      const content = `Content chunk ${i} for recall limit testing in the memory system. `.repeat(
+        8,
+      );
       mp.storeVerbatim(tmpDir, content, { wing: 'recall-wing', room: `room-${i}` });
     }
     const results = mp.recall(tmpDir, { wing: 'recall-wing', limit: 2 });
@@ -322,7 +332,9 @@ describe('wakeUp', () => {
   });
 
   it('includes L1 essential story content from stored drawers', () => {
-    const content = 'Authentication and session management implementation with JWT tokens. '.repeat(8);
+    const content = 'Authentication and session management implementation with JWT tokens. '.repeat(
+      8,
+    );
     mp.storeVerbatim(tmpDir, content, { wing: 'backend', room: 'auth' });
 
     const result = mp.wakeUp(tmpDir);

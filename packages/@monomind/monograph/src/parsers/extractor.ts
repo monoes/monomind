@@ -1,7 +1,7 @@
 import type Parser from 'tree-sitter';
+import type { MonographEdge, MonographNode } from '../types.js';
+import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
-import type { MonographNode, MonographEdge } from '../types.js';
-import { makeId, toNormLabel, CONFIDENCE_SCORE } from '../types.js';
 import type { ParseResult } from './loader.js';
 
 export function extractSymbols(
@@ -57,9 +57,19 @@ export function extractSymbols(
       const isActuallyMethod = isBothFunctionAndMethod
         ? config.classNodeTypes.has(node.parent?.parent?.type ?? '')
         : isMethod;
-      const rawLabel = isClass ? 'Class' : isStruct ? 'Struct' : isEnum ? 'Enum' :
-                    isInterface ? 'Interface' : isActuallyMethod ? 'Method' :
-                    isConstructor ? 'Constructor' : 'Function';
+      const rawLabel = isClass
+        ? 'Class'
+        : isStruct
+          ? 'Struct'
+          : isEnum
+            ? 'Enum'
+            : isInterface
+              ? 'Interface'
+              : isActuallyMethod
+                ? 'Method'
+                : isConstructor
+                  ? 'Constructor'
+                  : 'Function';
       const label = config.labelRefiner ? config.labelRefiner(node, rawLabel) : rawLabel;
       const id = nodeId(name, repoPath, label.toLowerCase());
       const isExported = config.exportDetector
@@ -67,20 +77,25 @@ export function extractSymbols(
         : isNodeExported(node, source);
 
       nodes.push({
-        id, label, name,
+        id,
+        label,
+        name,
         normLabel: toNormLabel(name),
         filePath: repoPath,
         startLine: node.startPosition.row + 1,
         endLine: node.endPosition.row + 1,
-        isExported, language,
+        isExported,
+        language,
       });
 
       const containerId = parentId ?? fileNodeId;
       edges.push({
         id: makeId(containerId, id, 'contains'),
-        sourceId: containerId, targetId: id,
+        sourceId: containerId,
+        targetId: id,
         relation: 'CONTAINS',
-        confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+        confidence: 'EXTRACTED',
+        confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
       });
 
       handleInheritance(node, id, edges, repoPath, config, source);
@@ -101,7 +116,14 @@ export function extractSymbols(
   // Re-export detection: export { ... } from '...' or export * from '...'
   // These create RE_EXPORTS edges from this file to the re-exported module.
   // Only applicable for TypeScript/JavaScript files.
-  if (ext === '.ts' || ext === '.tsx' || ext === '.js' || ext === '.jsx' || ext === '.mjs' || ext === '.cjs') {
+  if (
+    ext === '.ts' ||
+    ext === '.tsx' ||
+    ext === '.js' ||
+    ext === '.jsx' ||
+    ext === '.mjs' ||
+    ext === '.cjs'
+  ) {
     const reExportPattern = /export\s+(?:\*|\{[^}]*\})\s+from\s+['"]([^'"]+)['"]/g;
     let reMatch: RegExpExecArray | null;
     while ((reMatch = reExportPattern.exec(source)) !== null) {
@@ -125,8 +147,7 @@ export function extractSymbols(
 function isNodeExported(node: Parser.SyntaxNode, _source: string): boolean {
   const parent = node.parent;
   if (!parent) return false;
-  return parent.type === 'export_statement' ||
-    parent.type === 'export_default_declaration';
+  return parent.type === 'export_statement' || parent.type === 'export_default_declaration';
 }
 
 function handleImport(
@@ -135,15 +156,17 @@ function handleImport(
   source: string,
   config: LanguageConfig,
   edges: MonographEdge[],
-  repoPath: string,
+  _repoPath: string,
 ): void {
   const targetPath = config.importExtractor ? config.importExtractor(source, node) : null;
   const targetId = makeId('import', targetPath ?? node.text.slice(0, 60));
   edges.push({
     id: makeId(fileNodeId, targetId, 'imports'),
-    sourceId: fileNodeId, targetId,
+    sourceId: fileNodeId,
+    targetId,
     relation: 'IMPORTS',
-    confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+    confidence: 'EXTRACTED',
+    confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
   });
 }
 
@@ -161,18 +184,22 @@ function handleInheritance(
       const targetId = makeId('import', child.text.replace(/extends?\s+/, '').trim());
       edges.push({
         id: makeId(nodeId, targetId, 'extends'),
-        sourceId: nodeId, targetId,
+        sourceId: nodeId,
+        targetId,
         relation: 'EXTENDS',
-        confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+        confidence: 'EXTRACTED',
+        confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
       });
     }
     if (child.type === 'implements_clause') {
       const targetId = makeId('import', child.text.replace(/implements\s+/, '').trim());
       edges.push({
         id: makeId(nodeId, targetId, 'implements'),
-        sourceId: nodeId, targetId,
+        sourceId: nodeId,
+        targetId,
         relation: 'IMPLEMENTS',
-        confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+        confidence: 'EXTRACTED',
+        confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
       });
     }
     // class_heritage is the direct child; implements_clause is nested inside it
@@ -183,18 +210,22 @@ function handleInheritance(
           const targetId = makeId('import', grandChild.text.replace(/extends?\s+/, '').trim());
           edges.push({
             id: makeId(nodeId, targetId, 'extends'),
-            sourceId: nodeId, targetId,
+            sourceId: nodeId,
+            targetId,
             relation: 'EXTENDS',
-            confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+            confidence: 'EXTRACTED',
+            confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
           });
         }
         if (grandChild.type === 'implements_clause') {
           const targetId = makeId('import', grandChild.text.replace(/implements\s+/, '').trim());
           edges.push({
             id: makeId(nodeId, targetId, 'implements'),
-            sourceId: nodeId, targetId,
+            sourceId: nodeId,
+            targetId,
             relation: 'IMPLEMENTS',
-            confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+            confidence: 'EXTRACTED',
+            confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
           });
         }
       }

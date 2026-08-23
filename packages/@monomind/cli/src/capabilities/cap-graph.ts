@@ -1,5 +1,11 @@
-import path from 'path';
-import type { CapabilityModule, DirectoryScan, FileEntry, IndexResult, SearchResult } from './types.js';
+import path from 'node:path';
+import type {
+  CapabilityModule,
+  DirectoryScan,
+  FileEntry,
+  IndexResult,
+  SearchResult,
+} from './types.js';
 
 interface GraphNode {
   path: string;
@@ -20,7 +26,7 @@ function buildRelationships(): void {
   for (const [filePath, node] of nodes) {
     const dir = node.directory;
     if (!byDir.has(dir)) byDir.set(dir, []);
-    byDir.get(dir)!.push(filePath);
+    byDir.get(dir)?.push(filePath);
   }
   for (const siblings of byDir.values()) {
     // For large directories, only link first MAX_NEIGHBORS items to each other
@@ -28,14 +34,16 @@ function buildRelationships(): void {
     for (const a of capped) {
       for (const b of capped) {
         if (a !== b) {
-          nodes.get(a)!.neighbors.add(b);
+          nodes.get(a)?.neighbors.add(b);
         }
       }
     }
   }
 
   // Relationship 2: same date (within 1 day) = temporal neighbors
-  const sorted = [...nodes.entries()].sort((a, b) => a[1].modified.getTime() - b[1].modified.getTime());
+  const sorted = [...nodes.entries()].sort(
+    (a, b) => a[1].modified.getTime() - b[1].modified.getTime(),
+  );
   for (let i = 0; i < sorted.length; i++) {
     if (sorted[i][1].neighbors.size >= MAX_NEIGHBORS) continue;
     for (let j = i + 1; j < sorted.length; j++) {
@@ -86,9 +94,10 @@ export const graphCapability: CapabilityModule = {
         results.push({
           path: filePath,
           score: 1.0,
-          snippet: neighborList.length > 0
-            ? `Related: ${neighborList.join(', ')}`
-            : `Standalone file in ${node.directory}`,
+          snippet:
+            neighborList.length > 0
+              ? `Related: ${neighborList.join(', ')}`
+              : `Standalone file in ${node.directory}`,
           type: 'graph',
           metadata: { neighbors: [...node.neighbors], directory: node.directory },
         });

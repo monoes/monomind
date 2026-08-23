@@ -36,10 +36,21 @@ export interface RegressionBaseline {
 }
 
 export const ZERO_CHECK_COUNTS: CheckCounts = {
-  unusedExports: 0, unusedTypes: 0, unusedEnums: 0, unusedClasses: 0,
-  unusedFunctions: 0, unusedVariables: 0, deadFiles: 0, namespaceOnlyExports: 0,
-  internalExports: 0, duplicateExports: 0, reExportOnlyFiles: 0,
-  missingEntryPoint: 0, privateLeak: 0, circularDeps: 0, boundaryViolations: 0,
+  unusedExports: 0,
+  unusedTypes: 0,
+  unusedEnums: 0,
+  unusedClasses: 0,
+  unusedFunctions: 0,
+  unusedVariables: 0,
+  deadFiles: 0,
+  namespaceOnlyExports: 0,
+  internalExports: 0,
+  duplicateExports: 0,
+  reExportOnlyFiles: 0,
+  missingEntryPoint: 0,
+  privateLeak: 0,
+  circularDeps: 0,
+  boundaryViolations: 0,
 };
 
 export function createRegressionBaseline(
@@ -66,19 +77,16 @@ export interface CountDelta {
 }
 
 /** Compute deltas between two CheckCounts. Returns only changed categories. */
-export function checkCountsDeltas(
-  baseline: CheckCounts,
-  current: CheckCounts,
-): CountDelta[] {
+export function checkCountsDeltas(baseline: CheckCounts, current: CheckCounts): CountDelta[] {
   const keys = Object.keys(baseline) as CheckCountsKey[];
   return keys
-    .map(key => ({
+    .map((key) => ({
       key,
       baseline: baseline[key],
       current: current[key],
       delta: current[key] - baseline[key],
     }))
-    .filter(d => d.delta !== 0);
+    .filter((d) => d.delta !== 0);
 }
 
 /** Sum all count fields into a single total. */

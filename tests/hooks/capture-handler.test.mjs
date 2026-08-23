@@ -9,13 +9,14 @@
  * own success/failure record under the project's default multi-agent
  * swarm topology).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import { execFileSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import { execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -38,7 +39,7 @@ afterEach(() => {
 
 function writeTranscript(lines) {
   const p = path.join(tmpDir, 'transcript.jsonl');
-  fs.writeFileSync(p, lines.map(l => JSON.stringify(l)).join('\n') + '\n', 'utf-8');
+  fs.writeFileSync(p, `${lines.map((l) => JSON.stringify(l)).join('\n')}\n`, 'utf-8');
   return p;
 }
 
@@ -69,7 +70,12 @@ describe('parseJSONLForData lastToolError', () => {
     const { parseJSONLForData } = loadCH();
     const p = writeTranscript([
       { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: true, content: 'fatal: lock exists' }] } },
+      {
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', is_error: true, content: 'fatal: lock exists' }],
+        },
+      },
     ]);
     expect(parseJSONLForData(p).lastToolError).toBe(true);
   });
@@ -77,9 +83,19 @@ describe('parseJSONLForData lastToolError', () => {
   it('is false when the last tool_result succeeded, even if an earlier one errored', () => {
     const { parseJSONLForData } = loadCH();
     const p = writeTranscript([
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: true, content: 'first attempt failed' }] } },
+      {
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', is_error: true, content: 'first attempt failed' }],
+        },
+      },
       { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: false, content: 'ok' }] } },
+      {
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', is_error: false, content: 'ok' }],
+        },
+      },
     ]);
     expect(parseJSONLForData(p).lastToolError).toBe(false);
   });
@@ -112,7 +128,12 @@ describe('handleSubagentStop cross-subagent scoping', () => {
   function runHook(eventType, hookInput) {
     return execFileSync('node', [CH_PATH, eventType], {
       input: JSON.stringify(hookInput),
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, HOME: fakeHome, USERPROFILE: fakeHome },
+      env: {
+        ...process.env,
+        CLAUDE_PROJECT_DIR: projectDir,
+        HOME: fakeHome,
+        USERPROFILE: fakeHome,
+      },
       encoding: 'utf-8',
     });
   }
@@ -120,29 +141,63 @@ describe('handleSubagentStop cross-subagent scoping', () => {
   function readOutcomes() {
     const p = path.join(projectDir, '.monomind', 'data', 'intelligence-outcomes.jsonl');
     if (!fs.existsSync(p)) return [];
-    return fs.readFileSync(p, 'utf-8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+    return fs
+      .readFileSync(p, 'utf-8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
   }
 
-  it('does not let a concurrent sibling subagent\'s failure contaminate this subagent\'s success record', () => {
+  it("does not let a concurrent sibling subagent's failure contaminate this subagent's success record", () => {
     const transcriptA = path.join(claudeDir, 'agent-A.jsonl');
     const transcriptB = path.join(claudeDir, 'agent-B.jsonl');
 
     // A starts — snapshot taken before either transcript file exists.
-    runHook('subagent-start', { transcript_path: transcriptA, agentType: 'coder', agentDesc: 'task A' });
+    runHook('subagent-start', {
+      transcript_path: transcriptA,
+      agentType: 'coder',
+      agentDesc: 'task A',
+    });
 
     // Sibling B's transcript appears (created after A's snapshot) — B FAILS.
-    fs.writeFileSync(transcriptB, [
-      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: true, content: 'B failed' }] } },
-      { message: { role: 'assistant', content: [{ type: 'text', text: 'B is done.' }] } },
-    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    fs.writeFileSync(
+      transcriptB,
+      `${[
+        { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+        {
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', is_error: true, content: 'B failed' }],
+          },
+        },
+        { message: { role: 'assistant', content: [{ type: 'text', text: 'B is done.' }] } },
+      ]
+        .map((l) => JSON.stringify(l))
+        .join('\n')}\n`,
+    );
 
     // A's own transcript appears too — A SUCCEEDS.
-    fs.writeFileSync(transcriptA, [
-      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: false, content: 'A succeeded' }] } },
-      { message: { role: 'assistant', content: [{ type: 'text', text: 'A finished successfully.' }] } },
-    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    fs.writeFileSync(
+      transcriptA,
+      `${[
+        { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+        {
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', is_error: false, content: 'A succeeded' }],
+          },
+        },
+        {
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'A finished successfully.' }],
+          },
+        },
+      ]
+        .map((l) => JSON.stringify(l))
+        .join('\n')}\n`,
+    );
 
     // A stops. Both files are "new" relative to A's start-snapshot — this must
     // only attribute A's own transcript, not sibling B's, to A's record.
@@ -158,11 +213,21 @@ describe('handleSubagentStop cross-subagent scoping', () => {
     // case should still work via the fallback path.
     runHook('subagent-start', {});
     const transcript = path.join(claudeDir, 'solo-agent.jsonl');
-    fs.writeFileSync(transcript, [
-      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: false, content: 'ok' }] } },
-      { message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } },
-    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    fs.writeFileSync(
+      transcript,
+      `${[
+        { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+        {
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', is_error: false, content: 'ok' }],
+          },
+        },
+        { message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } },
+      ]
+        .map((l) => JSON.stringify(l))
+        .join('\n')}\n`,
+    );
     runHook('subagent-stop', {});
 
     const outcomes = readOutcomes();
@@ -181,7 +246,10 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
     claudeDir = path.join(fakeHome, '.claude', 'projects', encoded);
     fs.mkdirSync(claudeDir, { recursive: true });
     fs.mkdirSync(path.join(projectDir, '.monomind'), { recursive: true });
-    fs.writeFileSync(path.join(projectDir, '.monomind', 'last-route.json'), JSON.stringify({ agent: 'coder', confidence: 0.85, prompt: 'test' }));
+    fs.writeFileSync(
+      path.join(projectDir, '.monomind', 'last-route.json'),
+      JSON.stringify({ agent: 'coder', confidence: 0.85, prompt: 'test' }),
+    );
   });
 
   afterEach(() => {
@@ -192,7 +260,12 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
   function runHook(eventType, hookInput) {
     return execFileSync('node', [CH_PATH, eventType], {
       input: JSON.stringify(hookInput),
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir, HOME: fakeHome, USERPROFILE: fakeHome },
+      env: {
+        ...process.env,
+        CLAUDE_PROJECT_DIR: projectDir,
+        HOME: fakeHome,
+        USERPROFILE: fakeHome,
+      },
       encoding: 'utf-8',
     });
   }
@@ -200,17 +273,34 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
   function readFeedback() {
     const p = path.join(projectDir, '.monomind', 'routing-feedback.jsonl');
     if (!fs.existsSync(p)) return [];
-    return fs.readFileSync(p, 'utf-8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+    return fs
+      .readFileSync(p, 'utf-8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
   }
 
   function stopOneSubagent(name, isError) {
     const transcript = path.join(claudeDir, `${name}.jsonl`);
     runHook('subagent-start', { transcript_path: transcript, agentType: 'coder', agentDesc: name });
-    fs.writeFileSync(transcript, [
-      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: isError, content: isError ? 'failed' : 'ok' }] } },
-      { message: { role: 'assistant', content: [{ type: 'text', text: `${name} done.` }] } },
-    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    fs.writeFileSync(
+      transcript,
+      `${[
+        { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+        {
+          message: {
+            role: 'user',
+            content: [
+              { type: 'tool_result', is_error: isError, content: isError ? 'failed' : 'ok' },
+            ],
+          },
+        },
+        { message: { role: 'assistant', content: [{ type: 'text', text: `${name} done.` }] } },
+      ]
+        .map((l) => JSON.stringify(l))
+        .join('\n')}\n`,
+    );
     runHook('subagent-stop', { transcript_path: transcript });
   }
 
@@ -227,18 +317,28 @@ describe('handleSubagentStop routing-feedback (per-subagent, session-boundary-in
 
     const entries = readFeedback();
     expect(entries).toHaveLength(3);
-    expect(entries.map(e => e.intelligenceFeedback)).toEqual([true, false, true]);
-    expect(entries.every(e => e.suggestedAgent === 'coder')).toBe(true);
+    expect(entries.map((e) => e.intelligenceFeedback)).toEqual([true, false, true]);
+    expect(entries.every((e) => e.suggestedAgent === 'coder')).toBe(true);
   }, 30000);
 
   it('skips writing when the agent slug is a non-agent placeholder', () => {
     const transcript = path.join(claudeDir, 'unknown-agent.jsonl');
     runHook('subagent-start', { transcript_path: transcript }); // no agentType -> 'unknown'
-    fs.writeFileSync(transcript, [
-      { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
-      { message: { role: 'user', content: [{ type: 'tool_result', is_error: false, content: 'ok' }] } },
-      { message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } },
-    ].map(l => JSON.stringify(l)).join('\n') + '\n');
+    fs.writeFileSync(
+      transcript,
+      `${[
+        { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Bash' }] } },
+        {
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', is_error: false, content: 'ok' }],
+          },
+        },
+        { message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } },
+      ]
+        .map((l) => JSON.stringify(l))
+        .join('\n')}\n`,
+    );
     runHook('subagent-stop', { transcript_path: transcript });
 
     expect(readFeedback()).toHaveLength(0);

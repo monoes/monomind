@@ -42,7 +42,7 @@ export function traceImportChain(
   function getNeighbors(nodeId: string): string[] {
     let neighbors = adjCache.get(nodeId);
     if (neighbors === undefined) {
-      neighbors = (edgeStmt.all(nodeId) as { target_id: string }[]).map(r => r.target_id);
+      neighbors = (edgeStmt.all(nodeId) as { target_id: string }[]).map((r) => r.target_id);
       adjCache.set(nodeId, neighbors);
     }
     return neighbors;
@@ -109,9 +109,7 @@ export function formatImportChain(
   const allIds = [...new Set(paths.flat())];
   const placeholders = allIds.map(() => '?').join(',');
   const nodeRows = db
-    .prepare(
-      `SELECT id, name, file_path, start_line FROM nodes WHERE id IN (${placeholders})`,
-    )
+    .prepare(`SELECT id, name, file_path, start_line FROM nodes WHERE id IN (${placeholders})`)
     .all(...allIds) as {
     id: string;
     name: string;

@@ -1,4 +1,4 @@
-import { Route } from '../types.js';
+import type { Route } from '../types.js';
 
 export const testingRoutes: Route[] = [
   {
@@ -61,7 +61,7 @@ export const testingRoutes: Route[] = [
   {
     name: 'reality-checker',
     agentSlug: 'testing-reality-checker',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Production validation, smoke tests, health checks',
     utterances: [

@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import type { MCPTool } from '../types.js';
 import { getDbPath, text } from './shared.js';
 
@@ -6,14 +6,18 @@ import { getDbPath, text } from './shared.js';
 
 export const monographAgentHistoryTool: MCPTool = {
   name: 'monograph_agent_history',
-  description: 'Query past agent interactions by org, type, session, or time range. Returns rows ordered by timestamp descending.',
+  description:
+    'Query past agent interactions by org, type, session, or time range. Returns rows ordered by timestamp descending.',
   inputSchema: {
     type: 'object',
     properties: {
       org_name: { type: 'string', description: 'Filter by org name' },
       agent_type: { type: 'string', description: 'Filter by agent type' },
       session_id: { type: 'string', description: 'Filter by session id' },
-      since: { type: 'number', description: 'Unix timestamp (ms) — only interactions after this time' },
+      since: {
+        type: 'number',
+        description: 'Unix timestamp (ms) — only interactions after this time',
+      },
       limit: { type: 'number', description: 'Max rows to return (default 50)' },
     },
   },
@@ -43,9 +47,8 @@ export const monographAgentHistoryTool: MCPTool = {
 
       const MAX_LIMIT = 1_000;
       const rawLimit = (input.limit as number | undefined) ?? 50;
-      const limit = Number.isFinite(rawLimit) && rawLimit > 0
-        ? Math.min(Math.floor(rawLimit), MAX_LIMIT)
-        : 50;
+      const limit =
+        Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), MAX_LIMIT) : 50;
       params.limit = limit;
 
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -53,7 +56,9 @@ export const monographAgentHistoryTool: MCPTool = {
       const rows = db.prepare(sql).all(params);
       if (rows.length === 0) return text('No agent interactions found.');
       return text(JSON.stringify(rows, null, 2));
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -61,7 +66,8 @@ export const monographAgentHistoryTool: MCPTool = {
 
 export const monographAgentPatternsTool: MCPTool = {
   name: 'monograph_agent_patterns',
-  description: 'Aggregate agent interaction patterns: success rates, costs, and token usage grouped by agent type, org, or session.',
+  description:
+    'Aggregate agent interaction patterns: success rates, costs, and token usage grouped by agent type, org, or session.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -69,8 +75,14 @@ export const monographAgentPatternsTool: MCPTool = {
         type: 'string',
         description: "Column to group by: 'agent_type' | 'org_name' | 'session_id'",
       },
-      since: { type: 'number', description: 'Unix timestamp (ms) — only interactions after this time' },
-      min_count: { type: 'number', description: 'Minimum interaction count to include in results (default 2)' },
+      since: {
+        type: 'number',
+        description: 'Unix timestamp (ms) — only interactions after this time',
+      },
+      min_count: {
+        type: 'number',
+        description: 'Minimum interaction count to include in results (default 2)',
+      },
     },
     required: ['group_by'],
   },
@@ -90,9 +102,10 @@ export const monographAgentPatternsTool: MCPTool = {
         conditions.push('timestamp >= @since');
         params.since = input.since;
       }
-      const minCount = typeof input.min_count === 'number' && input.min_count > 0
-        ? Math.floor(input.min_count)
-        : 2;
+      const minCount =
+        typeof input.min_count === 'number' && input.min_count > 0
+          ? Math.floor(input.min_count)
+          : 2;
       params.min_count = minCount;
 
       const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -114,7 +127,9 @@ export const monographAgentPatternsTool: MCPTool = {
       const rows = db.prepare(sql).all(params);
       if (rows.length === 0) return text('No agent interaction patterns found.');
       return text(JSON.stringify(rows, null, 2));
-    } finally { closeDb(db); }
+    } finally {
+      closeDb(db);
+    }
   },
 };
 
@@ -129,8 +144,14 @@ export const monographAgentRecordTool: MCPTool = {
       session_id: { type: 'string', description: 'Session id' },
       agent_type: { type: 'string', description: 'Agent type' },
       org_name: { type: 'string', description: 'Org name' },
-      parent_agent: { type: 'string', description: 'Parent agent name/type, if spawned by another agent' },
-      prompt_summary: { type: 'string', description: 'Short summary of the prompt given to the agent' },
+      parent_agent: {
+        type: 'string',
+        description: 'Parent agent name/type, if spawned by another agent',
+      },
+      prompt_summary: {
+        type: 'string',
+        description: 'Short summary of the prompt given to the agent',
+      },
       result_summary: { type: 'string', description: 'Short summary of the agent result' },
       tokens_in: { type: 'number', description: 'Input tokens consumed (default 0)' },
       tokens_out: { type: 'number', description: 'Output tokens produced (default 0)' },
@@ -171,7 +192,11 @@ export const monographAgentRecordTool: MCPTool = {
         duration_ms: (input.duration_ms as number | undefined) ?? 0,
         timestamp,
       });
-      return text(`Recorded agent interaction ${id} for ${input.agent_type as string} at ${timestamp}`);
-    } finally { closeDb(db); }
+      return text(
+        `Recorded agent interaction ${id} for ${input.agent_type as string} at ${timestamp}`,
+      );
+    } finally {
+      closeDb(db);
+    }
   },
 };

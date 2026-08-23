@@ -1,7 +1,22 @@
-import fs from 'fs';
-import type { CapabilityModule, DirectoryScan, FileEntry, IndexResult, SearchResult } from './types.js';
+import fs from 'node:fs';
+import type {
+  CapabilityModule,
+  DirectoryScan,
+  FileEntry,
+  IndexResult,
+  SearchResult,
+} from './types.js';
 
-const DATA_EXTENSIONS = new Set(['.csv', '.tsv', '.json', '.jsonl', '.sqlite', '.parquet', '.xlsx', '.xls']);
+const DATA_EXTENSIONS = new Set([
+  '.csv',
+  '.tsv',
+  '.json',
+  '.jsonl',
+  '.sqlite',
+  '.parquet',
+  '.xlsx',
+  '.xls',
+]);
 const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — skip oversized files
 
 interface DataEntry {
@@ -38,7 +53,10 @@ function splitCSVLine(line: string, delimiter: string): string[] {
   return fields;
 }
 
-function parseCSV(content: string, delimiter = ','): { columns: string[]; rows: string[][]; totalRows: number } {
+function parseCSV(
+  content: string,
+  delimiter = ',',
+): { columns: string[]; rows: string[][]; totalRows: number } {
   const lines = content.trim().split('\n');
   if (lines.length === 0) return { columns: [], rows: [], totalRows: 0 };
 
@@ -49,13 +67,19 @@ function parseCSV(content: string, delimiter = ','): { columns: string[]; rows: 
   return { columns, rows, totalRows: lines.length - 1 };
 }
 
-function parseJSON(content: string): { columns: string[]; rowCount: number; sampleValues: Record<string, string[]> } {
+function parseJSON(content: string): {
+  columns: string[];
+  rowCount: number;
+  sampleValues: Record<string, string[]>;
+} {
   try {
     const parsed = JSON.parse(content);
     const arr = Array.isArray(parsed) ? parsed : [parsed];
     if (arr.length === 0) return { columns: [], rowCount: 0, sampleValues: Object.create(null) };
 
-    const columns = Object.keys(arr[0]).filter(k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
+    const columns = Object.keys(arr[0]).filter(
+      (k) => k !== '__proto__' && k !== 'constructor' && k !== 'prototype',
+    );
     const sampleValues: Record<string, string[]> = Object.create(null);
     for (const col of columns) {
       sampleValues[col] = arr.slice(0, 3).map((row) => String(row[col] ?? ''));
@@ -66,8 +90,15 @@ function parseJSON(content: string): { columns: string[]; rowCount: number; samp
   }
 }
 
-function parseJSONL(content: string): { columns: string[]; rowCount: number; sampleValues: Record<string, string[]> } {
-  const lines = content.trim().split('\n').filter(l => l.trim());
+function parseJSONL(content: string): {
+  columns: string[];
+  rowCount: number;
+  sampleValues: Record<string, string[]>;
+} {
+  const lines = content
+    .trim()
+    .split('\n')
+    .filter((l) => l.trim());
   if (lines.length === 0) return { columns: [], rowCount: 0, sampleValues: Object.create(null) };
 
   const rows: Record<string, unknown>[] = [];
@@ -81,10 +112,12 @@ function parseJSONL(content: string): { columns: string[]; rowCount: number; sam
   }
   if (rows.length === 0) return { columns: [], rowCount: 0, sampleValues: Object.create(null) };
 
-  const columns = Object.keys(rows[0]).filter(k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype');
+  const columns = Object.keys(rows[0]).filter(
+    (k) => k !== '__proto__' && k !== 'constructor' && k !== 'prototype',
+  );
   const sampleValues: Record<string, string[]> = Object.create(null);
   for (const col of columns) {
-    sampleValues[col] = rows.slice(0, 3).map(row => String(row[col] ?? ''));
+    sampleValues[col] = rows.slice(0, 3).map((row) => String(row[col] ?? ''));
   }
   return { columns, rowCount: rows.length, sampleValues };
 }
@@ -152,7 +185,13 @@ export const dataCapability: CapabilityModule = {
             ? `${file.path}: ${rowCount} rows, columns: ${columns.join(', ')}`
             : `${file.path}: structured data file`;
 
-        indexedData.set(file.path, { path: file.path, columns, rowCount, sampleValues, description });
+        indexedData.set(file.path, {
+          path: file.path,
+          columns,
+          rowCount,
+          sampleValues,
+          description,
+        });
         indexed++;
       } catch (err) {
         errors.push(`${file.path}: ${err instanceof Error ? err.message : String(err)}`);
@@ -169,7 +208,9 @@ export const dataCapability: CapabilityModule = {
     for (const [dataPath, entry] of indexedData) {
       const descLower = entry.description.toLowerCase();
       const colMatch = entry.columns.some((c) => c.toLowerCase().includes(queryLower));
-      const valMatch = Object.values(entry.sampleValues).flat().some((v) => v.toLowerCase().includes(queryLower));
+      const valMatch = Object.values(entry.sampleValues)
+        .flat()
+        .some((v) => v.toLowerCase().includes(queryLower));
 
       if (descLower.includes(queryLower) || colMatch || valMatch) {
         results.push({

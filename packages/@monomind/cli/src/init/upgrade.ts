@@ -2,27 +2,23 @@
  * Upgrade logic: executeUpgrade, executeUpgradeWithMissing, mergeSettingsForUpgrade.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-
-import type { InitOptions } from './types.js';
-import { DEFAULT_INIT_OPTIONS } from './types.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { FORCE_SYNC_GENERATORS, FORCE_SYNC_HELPERS } from './helpers-generator.js';
 import { generateSettings } from './settings-generator.js';
-import { generateStatuslineScript } from './statusline-generator.js';
 import {
-  FORCE_SYNC_HELPERS,
-  FORCE_SYNC_GENERATORS,
-} from './helpers-generator.js';
-import {
+  AGENTS_MAP,
   atomicWriteFile,
+  COMMANDS_MAP,
   copyDirRecursive,
   findSourceDir,
   findSourceHelpersDir,
-  SKILLS_MAP,
-  COMMANDS_MAP,
-  AGENTS_MAP,
   MAX_EXEC_FILE_BYTES,
+  SKILLS_MAP,
 } from './shared.js';
+import { generateStatuslineScript } from './statusline-generator.js';
+import type { InitOptions } from './types.js';
+import { DEFAULT_INIT_OPTIONS } from './types.js';
 
 /**
  * Upgrade result interface
@@ -67,17 +63,21 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
 
   // Cross-platform auto-memory hook commands that resolve paths via git root.
   // Uses node -e with git rev-parse so hooks work regardless of CWD (#1259, #1284).
-  const gitRootResolver = "var c=require('child_process'),p=require('path'),u=require('url'),r;"
-    + "try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}"
-    + 'catch(e){r=process.cwd()}';
+  const gitRootResolver =
+    "var c=require('child_process'),p=require('path'),u=require('url'),r;" +
+    "try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}" +
+    'catch(e){r=process.cwd()}';
   const autoMemoryScript = '.claude/helpers/auto-memory-hook.mjs';
   const autoMemoryImportCmd = `node -e "${gitRootResolver}var f=p.join(r,'${autoMemoryScript}');import(u.pathToFileURL(f).href)" import`;
   const autoMemorySyncCmd = `node -e "${gitRootResolver}var f=p.join(r,'${autoMemoryScript}');import(u.pathToFileURL(f).href)" sync`;
 
   // Add auto-memory import to SessionStart (if not already present)
-  const sessionStartHooks = existingHooks.SessionStart as Array<{ hooks?: Array<{ command?: string }> }> | undefined;
-  const hasAutoMemoryImport = sessionStartHooks?.some(group =>
-    group.hooks?.some(h => h.command?.includes('auto-memory-hook')));
+  const sessionStartHooks = existingHooks.SessionStart as
+    | Array<{ hooks?: Array<{ command?: string }> }>
+    | undefined;
+  const hasAutoMemoryImport = sessionStartHooks?.some((group) =>
+    group.hooks?.some((h) => h.command?.includes('auto-memory-hook')),
+  );
   if (!hasAutoMemoryImport) {
     const startHooks = merged.hooks as Record<string, unknown[]>;
     if (!startHooks.SessionStart) {
@@ -94,9 +94,12 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   }
 
   // Add auto-memory sync to SessionEnd (if not already present)
-  const sessionEndHooks = existingHooks.SessionEnd as Array<{ hooks?: Array<{ command?: string }> }> | undefined;
-  const hasAutoMemorySync = sessionEndHooks?.some(group =>
-    group.hooks?.some(h => h.command?.includes('auto-memory-hook')));
+  const sessionEndHooks = existingHooks.SessionEnd as
+    | Array<{ hooks?: Array<{ command?: string }> }>
+    | undefined;
+  const hasAutoMemorySync = sessionEndHooks?.some((group) =>
+    group.hooks?.some((h) => h.command?.includes('auto-memory-hook')),
+  );
   if (!hasAutoMemorySync) {
     const endHooks = merged.hooks as Record<string, unknown[]>;
     if (!endHooks.SessionEnd) {
@@ -126,7 +129,9 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
   if (existingStatusLine) {
     merged.statusLine = {
       type: 'command',
-      command: existingStatusLine.command || `node -e "var c=require('child_process'),p=require('path'),r;try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}catch(e){r=process.cwd()}var s=p.join(r,'.claude/helpers/statusline.cjs');process.argv.splice(1,0,s);require(s)"`,
+      command:
+        existingStatusLine.command ||
+        `node -e "var c=require('child_process'),p=require('path'),r;try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}catch(e){r=process.cwd()}var s=p.join(r,'.claude/helpers/statusline.cjs');process.argv.splice(1,0,s);require(s)"`,
       // Remove invalid fields: refreshMs, enabled (not supported by Claude Code)
     };
   }
@@ -171,7 +176,10 @@ function mergeSettingsForUpgrade(existing: Record<string, unknown>): Record<stri
  * @param targetDir - Target directory
  * @param upgradeSettings - If true, merge new settings into existing settings.json
  */
-export async function executeUpgrade(targetDir: string, upgradeSettings = false): Promise<UpgradeResult> {
+export async function executeUpgrade(
+  targetDir: string,
+  upgradeSettings = false,
+): Promise<UpgradeResult> {
   const result: UpgradeResult = {
     success: true,
     updated: [],
@@ -218,15 +226,19 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
             result.created.push(`.claude/helpers/${helperName}`);
           }
           // Atomic copy-via-rename so a partial write can't leave a broken hook
-          const tmp = targetPath + '.tmp';
+          const tmp = `${targetPath}.tmp`;
           fs.copyFileSync(sourcePath, tmp);
-          try { fs.chmodSync(tmp, 0o755); } catch {}
+          try {
+            fs.chmodSync(tmp, 0o755);
+          } catch {}
           fs.renameSync(tmp, targetPath);
         } else if (!fs.existsSync(targetPath) && criticalGenerators[helperName]) {
           const content = criticalGenerators[helperName]();
           const tmp = `${targetPath}.${process.pid}.tmp`;
           fs.writeFileSync(tmp, content, 'utf-8');
-          try { fs.chmodSync(tmp, 0o755); } catch {}
+          try {
+            fs.chmodSync(tmp, 0o755);
+          } catch {}
           fs.renameSync(tmp, targetPath);
           result.created.push(`.claude/helpers/${helperName}`);
         }
@@ -259,14 +271,19 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         // the same .tmp filename.
         const tmp = `${targetPath}.${process.pid}.tmp`;
         fs.writeFileSync(tmp, content, 'utf-8');
-        try { fs.chmodSync(tmp, 0o755); } catch {}
+        try {
+          fs.chmodSync(tmp, 0o755);
+        } catch {}
         fs.renameSync(tmp, targetPath);
       }
     }
 
     // 1. Statusline fallback — only generate if source copy above didn't cover it
     const statuslinePath = path.join(targetDir, '.claude', 'helpers', 'statusline.cjs');
-    if (!sourceHelpersForUpgrade || !fs.existsSync(path.join(sourceHelpersForUpgrade, 'statusline.cjs'))) {
+    if (
+      !sourceHelpersForUpgrade ||
+      !fs.existsSync(path.join(sourceHelpersForUpgrade, 'statusline.cjs'))
+    ) {
       const upgradeOptions: InitOptions = {
         ...DEFAULT_INIT_OPTIONS,
         targetDir,
@@ -299,7 +316,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         ddd: { progress: 0, modules: 0, totalFiles: 0, totalLines: 0 },
         swarm: { activeAgents: 0, maxAgents: 15, topology: 'hierarchical-mesh' },
         learning: { status: 'READY', patternsLearned: 0, sessionsCompleted: 0 },
-        _note: 'Metrics will update as you use Monomind'
+        _note: 'Metrics will update as you use Monomind',
       };
       atomicWriteFile(progressPath, JSON.stringify(progress, null, 2));
       result.created.push('.monomind/metrics/v1-progress.json');
@@ -315,7 +332,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         processes: { mcp_server: 0, estimated_agents: 0 },
         monoswarm: { active: false, agent_count: 0, coordination_active: false },
         integration: { mcp_active: false },
-        _initialized: true
+        _initialized: true,
       };
       atomicWriteFile(activityPath, JSON.stringify(activity, null, 2));
       result.created.push('.monomind/metrics/monoswarm-activity.json');
@@ -331,7 +348,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         routing: { accuracy: 0, decisions: 0 },
         patterns: { shortTerm: 0, longTerm: 0, quality: 0 },
         sessions: { total: 0, current: null },
-        _note: 'Intelligence grows as you use Monomind'
+        _note: 'Intelligence grows as you use Monomind',
       };
       atomicWriteFile(learningPath, JSON.stringify(learning, null, 2));
       result.created.push('.monomind/metrics/learning.json');
@@ -348,7 +365,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         cvesFixed: 0,
         totalCves: 3,
         lastScan: null,
-        _note: 'Run: npx monomind@latest security scan'
+        _note: 'Run: npx monomind@latest security scan',
       };
       atomicWriteFile(auditPath, JSON.stringify(audit, null, 2));
       result.created.push('.monomind/security/audit-status.json');
@@ -375,7 +392,9 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
             'monomind.memory (learningBridge, memoryGraph, agentScopes)',
           ];
         } catch (settingsError) {
-          result.errors.push(`Settings merge failed: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`);
+          result.errors.push(
+            `Settings merge failed: ${settingsError instanceof Error ? settingsError.message : String(settingsError)}`,
+          );
         }
       } else {
         // Create new settings.json with defaults
@@ -385,7 +404,6 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         result.settingsUpdated = ['Created new settings.json with Agent Teams'];
       }
     }
-
   } catch (error) {
     result.success = false;
     result.errors.push(error instanceof Error ? error.message : String(error));
@@ -400,7 +418,10 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
  * @param targetDir - Target directory
  * @param upgradeSettings - If true, merge new settings into existing settings.json
  */
-export async function executeUpgradeWithMissing(targetDir: string, upgradeSettings = false): Promise<UpgradeResult> {
+export async function executeUpgradeWithMissing(
+  targetDir: string,
+  upgradeSettings = false,
+): Promise<UpgradeResult> {
   // First do the normal upgrade (pass through upgradeSettings)
   const result = await executeUpgrade(targetDir, upgradeSettings);
 
@@ -452,7 +473,9 @@ export async function executeUpgradeWithMissing(targetDir: string, upgradeSettin
         const targetExists = fs.existsSync(targetPath);
 
         if (debugMode) {
-          console.log(`[DEBUG] Skill '${skillName}': source=${sourceExists}, target=${targetExists}`);
+          console.log(
+            `[DEBUG] Skill '${skillName}': source=${sourceExists}, target=${targetExists}`,
+          );
         }
 
         if (sourceExists && !targetExists) {
@@ -513,9 +536,10 @@ export async function executeUpgradeWithMissing(targetDir: string, upgradeSettin
         }
       }
     }
-
   } catch (error) {
-    result.errors.push(`Add missing failed: ${error instanceof Error ? error.message : String(error)}`);
+    result.errors.push(
+      `Add missing failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   return result;

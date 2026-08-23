@@ -5,11 +5,11 @@
  * Extracted from workers/index.ts (ARCH-3) to keep index.ts as a thin re-export hub.
  */
 
-import { EventEmitter } from 'events';
-import * as os from 'os';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { writeFileSync, renameSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { renameSync, writeFileSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 /**
  * Atomic write — write to a tmp path then rename. A crash mid-write leaves
@@ -283,7 +283,8 @@ export const WORKER_CONFIGS: Record<string, WorkerConfig> = {
   },
   reflexion: {
     name: 'reflexion',
-    description: 'Self-learning from failures (P2-15) — reflects on failed tasks, stores lessons for future retrieval',
+    description:
+      'Self-learning from failures (P2-15) — reflects on failed tasks, stores lessons for future retrieval',
     interval: 3_600_000,
     enabled: false,
     priority: WorkerPriority.Normal,

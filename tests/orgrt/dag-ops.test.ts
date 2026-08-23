@@ -2,19 +2,19 @@
  * Graph engineering playbook improvement #6 — daemon-level DAG operations.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { TaskDag } from '../../packages/@monomind/cli/src/orgrt/task-dag.js';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { OrgBus } from '../../packages/@monomind/cli/src/orgrt/bus.js';
 import {
-  dagSplitTask,
-  dagMergeTask,
   dagCancelTask,
-  dispatchReadyTasks,
+  dagMergeTask,
   dagPlanGraph,
+  dagSplitTask,
+  dispatchReadyTasks,
 } from '../../packages/@monomind/cli/src/orgrt/decisions.js';
-import { mkdtempSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { TaskDag } from '../../packages/@monomind/cli/src/orgrt/task-dag.js';
 
 interface MockAgent {
   mailbox: { push: (m: string) => void; isClosed: boolean };
@@ -52,7 +52,7 @@ describe('dagSplitTask — daemon wiring', () => {
     const parsed = JSON.parse(result);
     expect(parsed.split).toBe(parent.id);
     expect(parsed.children).toHaveLength(1);
-    expect(dag.get(parent.id)!.status).toBe('split');
+    expect(dag.get(parent.id)?.status).toBe('split');
     await bus.flush();
     const history = OrgBus.readHistory(dir);
     expect(history.some((e) => e.reason === 'task-split')).toBe(true);
@@ -81,7 +81,7 @@ describe('dagMergeTask — daemon wiring', () => {
     const parsed = JSON.parse(result);
     expect(parsed.merged).toBe(a.id);
     expect(parsed.into).toBe(b.id);
-    expect(dag.get(a.id)!.status).toBe('merged');
+    expect(dag.get(a.id)?.status).toBe('merged');
     await bus.flush();
     const history = OrgBus.readHistory(dir);
     expect(history.some((e) => e.reason === 'task-merged')).toBe(true);
@@ -99,7 +99,7 @@ describe('dagCancelTask — daemon wiring', () => {
     const result = dagCancelTask(daemon, 'test-org', 'boss', t.id, 'moot');
     const parsed = JSON.parse(result);
     expect(parsed.cancelled).toBe(t.id);
-    expect(dag.get(t.id)!.status).toBe('cancelled');
+    expect(dag.get(t.id)?.status).toBe('cancelled');
     await bus.flush();
     const history = OrgBus.readHistory(dir);
     expect(history.some((e) => e.reason === 'task-cancelled')).toBe(true);
@@ -124,7 +124,7 @@ describe('dagCancelTask — daemon wiring', () => {
 describe('dispatchReadyTasks — wires to agent mailboxes', () => {
   it("pushes a [task] message to the assignee's mailbox when one is ready", () => {
     const dag = new TaskDag();
-    const t = dag.add('task for tester', 'tester');
+    const _t = dag.add('task for tester', 'tester');
     const dir = mkdtempSync(join(tmpdir(), 'mono-bus-dispatch-'));
     const bus = new OrgBus('test-org', 'run-1', dir);
     const push = vi.fn();
@@ -156,8 +156,8 @@ describe('dagPlanGraph — work graph generator (#5)', () => {
     expect(['ready', 'running']).toContain(research.status);
     const implement = parsed.tasks.find((t: { name: string }) => t.name === 'implement');
     const test = parsed.tasks.find((t: { name: string }) => t.name === 'test');
-    expect(dag.get(implement.id)!.deps).toContain(research.id);
-    expect(dag.get(test.id)!.deps).toContain(implement.id);
+    expect(dag.get(implement.id)?.deps).toContain(research.id);
+    expect(dag.get(test.id)?.deps).toContain(implement.id);
   });
 
   it('handles parallel branches that depend on the same parent', () => {
@@ -178,10 +178,10 @@ describe('dagPlanGraph — work graph generator (#5)', () => {
     const backend = parsed.tasks.find((t: { name: string }) => t.name === 'backend');
     const frontend = parsed.tasks.find((t: { name: string }) => t.name === 'frontend');
     const integrate = parsed.tasks.find((t: { name: string }) => t.name === 'integrate');
-    expect(['ready', 'running']).toContain(dag.get(setup.id)!.status);
-    expect(dag.get(backend.id)!.status).toBe('pending');
-    expect(dag.get(frontend.id)!.status).toBe('pending');
-    expect(dag.get(integrate.id)!.deps).toEqual(expect.arrayContaining([backend.id, frontend.id]));
+    expect(['ready', 'running']).toContain(dag.get(setup.id)?.status);
+    expect(dag.get(backend.id)?.status).toBe('pending');
+    expect(dag.get(frontend.id)?.status).toBe('pending');
+    expect(dag.get(integrate.id)?.deps).toEqual(expect.arrayContaining([backend.id, frontend.id]));
   });
 
   it('returns an error for unresolved cross-references', () => {

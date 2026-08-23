@@ -1,8 +1,8 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { ParseOutput } from './parse.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 import type { CrossFileOutput } from './cross-file.js';
+import type { ParseOutput } from './parse.js';
 import { synthesizeWildcardImports } from './wildcard-synthesis.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
 
 export interface WildcardSynthesisOutput {
   synthesizedCount: number;
@@ -11,7 +11,10 @@ export interface WildcardSynthesisOutput {
 export const wildcardSynthesisPhase: PipelinePhase<WildcardSynthesisOutput> = {
   name: 'wildcard-synthesis',
   deps: ['parse', 'cross-file'],
-  async execute(ctx: PipelineContext, deps: Map<string, unknown>): Promise<WildcardSynthesisOutput> {
+  async execute(
+    ctx: PipelineContext,
+    deps: Map<string, unknown>,
+  ): Promise<WildcardSynthesisOutput> {
     if (ctx.allFilesCached) return { synthesizedCount: 0 };
     const { symbolNodes: allNodes, allEdges, fileContents } = deps.get('parse') as ParseOutput;
     const { resolvedEdges } = deps.get('cross-file') as CrossFileOutput;
@@ -37,10 +40,22 @@ export const wildcardSynthesisPhase: PipelinePhase<WildcardSynthesisOutput> = {
       // valid row to attach a source_id to, and fabricating one violates the
       // edges table's FOREIGN KEY constraint on source_id (issue #40).
       if (!fileNodeId) continue;
-      const { synthesizedEdges } = synthesizeWildcardImports(fileNodeId, source, allKnownNodes, allKnownEdges);
+      const { synthesizedEdges } = synthesizeWildcardImports(
+        fileNodeId,
+        source,
+        allKnownNodes,
+        allKnownEdges,
+      );
 
       for (const edge of synthesizedEdges) {
-        stmt.run(edge.id, edge.sourceId, edge.targetId, edge.relation, edge.confidence, edge.confidenceScore);
+        stmt.run(
+          edge.id,
+          edge.sourceId,
+          edge.targetId,
+          edge.relation,
+          edge.confidence,
+          edge.confidenceScore,
+        );
         synthesizedCount++;
       }
     }

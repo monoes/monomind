@@ -13,10 +13,11 @@
  * Runs against a throwaway store: chdir into a temp dir plus
  * MONOMIND_GLOBAL_BRAIN_DIR, so the user's real Second Brain is never touched.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { MCPTool, MCPToolResult } from '../mcp-tools/types.js';
 
 const ORIGINAL_CWD = process.cwd();
@@ -37,24 +38,34 @@ afterAll(() => {
   if (ORIGINAL_GLOBAL === undefined) delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
   else process.env.MONOMIND_GLOBAL_BRAIN_DIR = ORIGINAL_GLOBAL;
   if (ORIGINAL_MM_CWD !== undefined) process.env.MONOMIND_CWD = ORIGINAL_MM_CWD;
-  try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch { /* best effort */ }
+  try {
+    fs.rmSync(ROOT, { recursive: true, force: true });
+  } catch {
+    /* best effort */
+  }
 });
 
 const tool = async (name: string): Promise<MCPTool> => {
   const { knowledgeTools } = await import('../mcp-tools/knowledge-tools.js');
-  const t = knowledgeTools.find(x => x.name === name);
+  const t = knowledgeTools.find((x) => x.name === name);
   if (!t) throw new Error(`${name} is not registered in knowledgeTools`);
   return t;
 };
 
-const call = async (name: string, input: Record<string, unknown>): Promise<Record<string, unknown>> => {
-  const result = await (await tool(name)).handler(input) as MCPToolResult;
+const call = async (
+  name: string,
+  input: Record<string, unknown>,
+): Promise<Record<string, unknown>> => {
+  const result = (await (await tool(name)).handler(input)) as MCPToolResult;
   return JSON.parse(String(result.content[0].text));
 };
 
 describe('knowledge_search store selection', () => {
   it('advertises the store parameter', async () => {
-    const props = (await tool('knowledge_search')).inputSchema.properties as Record<string, { description?: string }>;
+    const props = (await tool('knowledge_search')).inputSchema.properties as Record<
+      string,
+      { description?: string }
+    >;
     expect(props.store).toBeDefined();
     expect(String(props.store.description)).toMatch(/global/);
   });
@@ -82,8 +93,11 @@ describe('knowledge_remove', () => {
 
   it('is registered alongside ingest and search', async () => {
     const { knowledgeTools } = await import('../mcp-tools/knowledge-tools.js');
-    expect(knowledgeTools.map(t => t.name).sort())
-      .toEqual(['knowledge_ingest', 'knowledge_remove', 'knowledge_search']);
+    expect(knowledgeTools.map((t) => t.name).sort()).toEqual([
+      'knowledge_ingest',
+      'knowledge_remove',
+      'knowledge_search',
+    ]);
   });
 
   it('errors on a path that is not indexed, rather than reporting success', async () => {
@@ -98,12 +112,12 @@ describe('knowledge_remove', () => {
 
     const ingested = await call('knowledge_ingest', { path: doc() });
     expect(ingested.success).toBe(true);
-    expect(listDocuments(ROOT, 'shared').map(d => d.filePath)).toContain(doc());
+    expect(listDocuments(ROOT, 'shared').map((d) => d.filePath)).toContain(doc());
 
     const removed = await call('knowledge_remove', { path: doc() });
     expect(removed.success).toBe(true);
     expect(removed.store).toBe('project');
-    expect(listDocuments(ROOT, 'shared').map(d => d.filePath)).not.toContain(doc());
+    expect(listDocuments(ROOT, 'shared').map((d) => d.filePath)).not.toContain(doc());
   });
 
   it('reports the scope it searched when the path is indexed under a different one', async () => {

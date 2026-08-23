@@ -3,12 +3,13 @@
  * Spawn-based (module calls main() at top level).
  * Tests are skipped when sql.js is not installed (the module's hard dependency).
  */
-import { describe, it, expect } from 'vitest';
-import { spawnSync } from 'child_process';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
+
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);

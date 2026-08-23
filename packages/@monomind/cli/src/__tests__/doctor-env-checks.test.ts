@@ -1,23 +1,23 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { execSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  MAX_DOCTOR_PKG_BYTES,
-  MAX_DOCTOR_CONFIG_BYTES,
-  MAX_DOCTOR_GITIGNORE_BYTES,
-  MAX_DOCTOR_PID_BYTES,
-  MAX_DOCTOR_HELPER_BYTES,
-  runCommand,
-  checkNodeVersion,
-  checkNpmVersion,
+  checkBuildTools,
+  checkClaudeCode,
+  checkDiskSpace,
   checkGit,
   checkGitRepo,
-  checkDiskSpace,
-  checkBuildTools,
+  checkNodeVersion,
+  checkNpmVersion,
   checkVersionFreshness,
-  checkClaudeCode,
+  MAX_DOCTOR_CONFIG_BYTES,
+  MAX_DOCTOR_GITIGNORE_BYTES,
+  MAX_DOCTOR_HELPER_BYTES,
+  MAX_DOCTOR_PID_BYTES,
+  MAX_DOCTOR_PKG_BYTES,
+  runCommand,
 } from '../commands/doctor-env-checks.js';
 
 // These checks shell out and/or inspect the real filesystem — per this

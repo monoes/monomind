@@ -5,11 +5,10 @@
  * Temp directories via mkdtempSync / rmSync from 'fs'.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-
-import { mkdtempSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MonoswarmCheckpointer } from '../../packages/@monomind/memory/src/checkpointer.js';
 import type { AgentState } from '../../packages/@monomind/memory/src/types/checkpoint.js';
 
@@ -59,16 +58,16 @@ describe('MonoswarmCheckpointer', () => {
     const loaded = cp.load(id);
 
     expect(loaded).not.toBeNull();
-    expect(loaded!.checkpointId).toBe(id);
-    expect(loaded!.monoswarmId).toBe('swarm-1');
-    expect(loaded!.sessionId).toBe('session-1');
-    expect(loaded!.step).toBe(1);
-    expect(loaded!.trigger).toBe('manual');
-    expect(loaded!.agentStates).toEqual(agents);
-    expect(loaded!.messageQueues).toEqual(queues);
-    expect(loaded!.taskResults).toEqual(results);
-    expect(loaded!.stateHash).toBeTruthy();
-    expect(loaded!.createdAt).toBeTruthy();
+    expect(loaded?.checkpointId).toBe(id);
+    expect(loaded?.monoswarmId).toBe('swarm-1');
+    expect(loaded?.sessionId).toBe('session-1');
+    expect(loaded?.step).toBe(1);
+    expect(loaded?.trigger).toBe('manual');
+    expect(loaded?.agentStates).toEqual(agents);
+    expect(loaded?.messageQueues).toEqual(queues);
+    expect(loaded?.taskResults).toEqual(results);
+    expect(loaded?.stateHash).toBeTruthy();
+    expect(loaded?.createdAt).toBeTruthy();
   });
 
   it('saveIncremental() patches agent status', () => {
@@ -81,9 +80,9 @@ describe('MonoswarmCheckpointer', () => {
 
     const latest = cp.latest();
     expect(latest).not.toBeNull();
-    expect(latest!.agentStates).toHaveLength(1);
-    expect(latest!.agentStates[0].status).toBe('completed');
-    expect(latest!.parentCheckpointId).toBeTruthy();
+    expect(latest?.agentStates).toHaveLength(1);
+    expect(latest?.agentStates[0].status).toBe('completed');
+    expect(latest?.parentCheckpointId).toBeTruthy();
   });
 
   it('latest() returns highest step number', () => {
@@ -94,8 +93,8 @@ describe('MonoswarmCheckpointer', () => {
 
     const latest = cp.latest();
     expect(latest).not.toBeNull();
-    expect(latest!.step).toBe(3);
-    expect(latest!.trigger).toBe('session-end');
+    expect(latest?.step).toBe(3);
+    expect(latest?.trigger).toBe('session-end');
   });
 
   it('list() returns ordered results newest-first', () => {

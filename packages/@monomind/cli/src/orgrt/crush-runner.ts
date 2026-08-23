@@ -55,8 +55,15 @@
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
 import { spawn } from 'node:child_process';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
 import { UsageProxyServer } from './usage-proxy.js';
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
@@ -114,7 +121,10 @@ export class CrushAgentRunner implements AgentRunner {
 
     let proxy: UsageProxyServer | undefined;
     if (this.usageProxyOpts) {
-      proxy = new UsageProxyServer({ upstreamBaseUrl: this.usageProxyOpts.upstreamBaseUrl, apiStyle: 'openai' });
+      proxy = new UsageProxyServer({
+        upstreamBaseUrl: this.usageProxyOpts.upstreamBaseUrl,
+        apiStyle: 'openai',
+      });
       await proxy.start();
     }
 
@@ -126,7 +136,9 @@ export class CrushAgentRunner implements AgentRunner {
     try {
       for await (const p of args.prompt) {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
-        let nextPrompt = sessionStarted ? text : `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`;
+        let nextPrompt = sessionStarted
+          ? text
+          : `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`;
 
         // Reset ONCE per mailbox prompt, not per tool-call round — totals()
         // is read after the LAST round below, so resetting inside the round
@@ -140,25 +152,29 @@ export class CrushAgentRunner implements AgentRunner {
           if (outcome.hangSuspected) {
             throw new Error(
               `CrushAgentRunner: crush produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
-              'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
-              'that headless mode has no way to answer. Run `crush` once manually in a real terminal in ' +
-              `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+                'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
+                'that headless mode has no way to answer. Run `crush` once manually in a real terminal in ' +
+                `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
             );
           }
           if (outcome.exitCode !== 0) {
             throw new Error(
               `CrushAgentRunner: crush run failed (exit ${outcome.exitCode})` +
-              (outcome.timedOut ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` : '') +
-              (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+                (outcome.timedOut
+                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
+                  : '') +
+                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
             );
           }
 
           if (outcome.text) yield { type: 'assistant', text: outcome.text };
 
           const malformed: string[] = [];
-          const calls = parseToolCalls([outcome.rawText], (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
+          const calls = parseToolCalls([outcome.rawText], (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
           for (const note of malformed) yield { type: 'assistant', text: note };
           if (calls.length === 0) {
             const totals = proxy?.totals();
@@ -172,9 +188,17 @@ export class CrushAgentRunner implements AgentRunner {
           }
 
           if (round === MAX_TOOL_ROUNDS) {
-            yield { type: 'assistant', text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)` };
+            yield {
+              type: 'assistant',
+              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
+            };
             const totals = proxy?.totals();
-            yield { type: 'result', subtype: 'success', input_tokens: totals?.inputTokens ?? 0, output_tokens: totals?.outputTokens ?? 0 };
+            yield {
+              type: 'result',
+              subtype: 'success',
+              input_tokens: totals?.inputTokens ?? 0,
+              output_tokens: totals?.outputTokens ?? 0,
+            };
             break;
           }
 
@@ -182,7 +206,8 @@ export class CrushAgentRunner implements AgentRunner {
           // runTurn call above) — the retry continues the same crush
           // session via --continue instead of re-sending the system prompt.
           const results: string[] = [];
-          for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          for (const call of calls)
+            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           nextPrompt = formatToolResults(calls, results);
         }
       }
@@ -190,8 +215,8 @@ export class CrushAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'CrushAgentRunner requires the Crush CLI (crush) on PATH. ' +
-          'Install it per https://github.com/charmbracelet/crush, then configure a provider. ' +
-          'Or unset the runtime to use Claude.',
+            'Install it per https://github.com/charmbracelet/crush, then configure a provider. ' +
+            'Or unset the runtime to use Claude.',
         );
       }
       throw err;
@@ -232,7 +257,9 @@ export class CrushAgentRunner implements AgentRunner {
       const child = spawn(bin, cliArgs, { cwd: args.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
 
       let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
+      child.stderr?.on('data', (c: Buffer) => {
+        stderrTail = (stderrTail + c.toString()).slice(-4000);
+      });
 
       let sawOutput = false;
       let timedOut = false;
@@ -242,7 +269,13 @@ export class CrushAgentRunner implements AgentRunner {
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
 
@@ -250,7 +283,13 @@ export class CrushAgentRunner implements AgentRunner {
       let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         hangSuspected = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, STARTUP_GRACE_MS);
 
@@ -263,7 +302,13 @@ export class CrushAgentRunner implements AgentRunner {
       const readStdout = (async () => {
         let stdout = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
+          if (!sawOutput) {
+            sawOutput = true;
+            if (hangTimer) {
+              clearTimeout(hangTimer);
+              hangTimer = undefined;
+            }
+          }
           stdout += chunk.toString();
         }
         return stdout;
@@ -275,18 +320,32 @@ export class CrushAgentRunner implements AgentRunner {
       // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
       // process's actual lifetime.
       Promise.all([readStdout, exitPromise])
-        .then(([stdout, exitCode]) => {
-          const parsed = parseCrushOutput(stdout);
-          resolve({ text: parsed.text, rawText: parsed.rawText, exitCode, stderrTail, timedOut, hangSuspected });
-        }, (err) => {
-          // A stdout stream error (the reject path) means the process is
-          // still ALIVE and unmanaged — none of the timeout/hang timers
-          // would have fired to kill it. Without this, that error would
-          // orphan the child. child.kill() on an already-dead process is a
-          // documented no-op, so this is safe on every path.
-          try { child.kill('SIGTERM'); } catch { /* already gone */ }
-          reject(err);
-        })
+        .then(
+          ([stdout, exitCode]) => {
+            const parsed = parseCrushOutput(stdout);
+            resolve({
+              text: parsed.text,
+              rawText: parsed.rawText,
+              exitCode,
+              stderrTail,
+              timedOut,
+              hangSuspected,
+            });
+          },
+          (err) => {
+            // A stdout stream error (the reject path) means the process is
+            // still ALIVE and unmanaged — none of the timeout/hang timers
+            // would have fired to kill it. Without this, that error would
+            // orphan the child. child.kill() on an already-dead process is a
+            // documented no-op, so this is safe on every path.
+            try {
+              child.kill('SIGTERM');
+            } catch {
+              /* already gone */
+            }
+            reject(err);
+          },
+        )
         .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);

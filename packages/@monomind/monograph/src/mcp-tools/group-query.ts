@@ -4,9 +4,9 @@
  * Parses a group.yaml then runs a merged BM25 cross-repo search.
  */
 
-import { join } from 'path';
+import { join } from 'node:path';
 import { parseGroupConfig } from '../groups/group-config.js';
-import { groupQuery, type GroupResult } from '../groups/group-search.js';
+import { type GroupResult, groupQuery } from '../groups/group-search.js';
 
 /**
  * Run a group-wide query.

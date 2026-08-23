@@ -1,4 +1,4 @@
-import type { PlatformAdapter, PageInterface } from './index.js';
+import type { PageInterface, PlatformAdapter } from './index.js';
 
 export const instagramAdapter: PlatformAdapter = {
   platform: 'instagram',
@@ -11,14 +11,14 @@ export const instagramAdapter: PlatformAdapter = {
     const url = await page.url();
     if (url.includes('/accounts/login') || url.includes('/accounts/emailsignup')) return false;
     const hasAvatar = await page.evaluate<boolean>(
-      `!!document.querySelector('img[alt*="profile picture"], [aria-label="Home"]')`
+      `!!document.querySelector('img[alt*="profile picture"], [aria-label="Home"]')`,
     );
     return hasAvatar;
   },
 
   async extractUsername(page: PageInterface): Promise<string> {
     return page.evaluate<string>(
-      `(document.querySelector('a[href^="/"][href$="/"] span')?.textContent ?? 'unknown').trim()`
+      `(document.querySelector('a[href^="/"][href$="/"] span')?.textContent ?? 'unknown').trim()`,
     );
   },
 };

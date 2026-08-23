@@ -55,8 +55,16 @@
  * Org tools — FENCE PROTOCOL: same approach as the other subprocess runners.
  */
 import { spawn } from 'node:child_process';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
+
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 /** Distinct from TURN_TIMEOUT_MS: catches a hung first-run interactive prompt
  *  fast instead of waiting out the full turn timeout. Any output at all
@@ -79,7 +87,10 @@ function coerceText(v: unknown): string | undefined {
   if (typeof v === 'string') return v;
   if (Array.isArray(v)) {
     return v
-      .filter((b): b is { type: string; text: string } => !!b && typeof b === 'object' && (b as Record<string, unknown>).type === 'text')
+      .filter(
+        (b): b is { type: string; text: string } =>
+          !!b && typeof b === 'object' && (b as Record<string, unknown>).type === 'text',
+      )
       .map((b) => b.text)
       .join('\n');
   }
@@ -92,13 +103,18 @@ export function parseCopilotEvents(lines: string[]): { texts: string[]; rawTexts
   const rawTexts: string[] = [];
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || !trimmed.startsWith('{')) continue;
+    if (!trimmed?.startsWith('{')) continue;
     let ev: CopilotEvent;
-    try { ev = JSON.parse(trimmed); } catch { continue; }
+    try {
+      ev = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
 
     const kind = ev.type ?? ev.kind;
     if (kind === 'assistant.message' || kind === 'assistant') {
-      const text = coerceText(ev.content) ?? ev.text ?? coerceText(ev.message?.content) ?? ev.message?.text;
+      const text =
+        coerceText(ev.content) ?? ev.text ?? coerceText(ev.message?.content) ?? ev.message?.text;
       if (text) rawTexts.push(text);
       continue;
     }
@@ -139,17 +155,19 @@ export class CopilotAgentRunner implements AgentRunner {
           if (outcome.hangSuspected) {
             throw new Error(
               `CopilotAgentRunner: copilot produced no output within ${STARTUP_GRACE_MS / 1000}s and was ` +
-              'killed. This is a documented copilot CLI issue: its directory-trust/path-access prompts can ' +
-              'hang indefinitely in headless invocations with no way to answer them. Run `copilot` once ' +
-              'manually in a real terminal in this project to accept any prompts (and confirm --add-dir ' +
-              `covers every path it needs), then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+                'killed. This is a documented copilot CLI issue: its directory-trust/path-access prompts can ' +
+                'hang indefinitely in headless invocations with no way to answer them. Run `copilot` once ' +
+                'manually in a real terminal in this project to accept any prompts (and confirm --add-dir ' +
+                `covers every path it needs), then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
             );
           }
           if (outcome.exitCode !== 0) {
             throw new Error(
               `CopilotAgentRunner: copilot failed (exit ${outcome.exitCode})` +
-              (outcome.timedOut ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` : '') +
-              (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+                (outcome.timedOut
+                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
+                  : '') +
+                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
             );
           }
 
@@ -158,9 +176,11 @@ export class CopilotAgentRunner implements AgentRunner {
           }
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
+          const calls = parseToolCalls(outcome.rawTexts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
           for (const note of malformed) yield { type: 'assistant', text: note };
           if (calls.length === 0) {
             yield { type: 'result', subtype: 'success', input_tokens: 0, output_tokens: 0 };
@@ -168,13 +188,17 @@ export class CopilotAgentRunner implements AgentRunner {
           }
 
           if (round === MAX_TOOL_ROUNDS) {
-            yield { type: 'assistant', text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)` };
+            yield {
+              type: 'assistant',
+              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
+            };
             yield { type: 'result', subtype: 'success', input_tokens: 0, output_tokens: 0 };
             break;
           }
 
           const results: string[] = [];
-          for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          for (const call of calls)
+            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           nextPrompt = `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${formatToolResults(calls, results)}`;
         }
       }
@@ -182,8 +206,8 @@ export class CopilotAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'CopilotAgentRunner requires the GitHub Copilot CLI (copilot) on PATH. ' +
-          'Install it: npm install -g @github/copilot, then run `copilot` once to ' +
-          'authenticate. Or unset the runtime to use Claude.',
+            'Install it: npm install -g @github/copilot, then run `copilot` once to ' +
+            'authenticate. Or unset the runtime to use Claude.',
         );
       }
       throw err;
@@ -192,7 +216,15 @@ export class CopilotAgentRunner implements AgentRunner {
 
   private runTurn(bin: string, prompt: string, args: AgentRunArgs): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
-      const cliArgs: string[] = ['-p', prompt, '--output-format', 'json', '-s', '--allow-all-tools', '--no-ask-user'];
+      const cliArgs: string[] = [
+        '-p',
+        prompt,
+        '--output-format',
+        'json',
+        '-s',
+        '--allow-all-tools',
+        '--no-ask-user',
+      ];
       if (args.model) cliArgs.push(`--model=${args.model}`);
       cliArgs.push('--add-dir', args.cwd);
 
@@ -203,7 +235,9 @@ export class CopilotAgentRunner implements AgentRunner {
       });
 
       let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
+      child.stderr?.on('data', (c: Buffer) => {
+        stderrTail = (stderrTail + c.toString()).slice(-4000);
+      });
 
       let sawOutput = false;
       let timedOut = false;
@@ -213,7 +247,13 @@ export class CopilotAgentRunner implements AgentRunner {
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
 
@@ -221,7 +261,13 @@ export class CopilotAgentRunner implements AgentRunner {
       let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         hangSuspected = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, STARTUP_GRACE_MS);
 
@@ -235,7 +281,13 @@ export class CopilotAgentRunner implements AgentRunner {
         const lines: string[] = [];
         let buf = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
+          if (!sawOutput) {
+            sawOutput = true;
+            if (hangTimer) {
+              clearTimeout(hangTimer);
+              hangTimer = undefined;
+            }
+          }
           buf += chunk.toString();
           const parts = buf.split('\n');
           buf = parts.pop() ?? '';
@@ -251,18 +303,32 @@ export class CopilotAgentRunner implements AgentRunner {
       // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
       // process's actual lifetime.
       Promise.all([readLines, exitPromise])
-        .then(([lines, exitCode]) => {
-          const parsed = parseCopilotEvents(lines);
-          resolve({ texts: parsed.texts, rawTexts: parsed.rawTexts, exitCode, stderrTail, timedOut, hangSuspected });
-        }, (err) => {
-          // A stdout stream error (the reject path) means the process is
-          // still ALIVE and unmanaged — none of the timeout/hang timers
-          // would have fired to kill it. Without this, that error would
-          // orphan the child. child.kill() on an already-dead process is a
-          // documented no-op, so this is safe on every path.
-          try { child.kill('SIGTERM'); } catch { /* already gone */ }
-          reject(err);
-        })
+        .then(
+          ([lines, exitCode]) => {
+            const parsed = parseCopilotEvents(lines);
+            resolve({
+              texts: parsed.texts,
+              rawTexts: parsed.rawTexts,
+              exitCode,
+              stderrTail,
+              timedOut,
+              hangSuspected,
+            });
+          },
+          (err) => {
+            // A stdout stream error (the reject path) means the process is
+            // still ALIVE and unmanaged — none of the timeout/hang timers
+            // would have fired to kill it. Without this, that error would
+            // orphan the child. child.kill() on an already-dead process is a
+            // documented no-op, so this is safe on every path.
+            try {
+              child.kill('SIGTERM');
+            } catch {
+              /* already gone */
+            }
+            reject(err);
+          },
+        )
         .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);

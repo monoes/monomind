@@ -1,6 +1,5 @@
-import { spawnSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
 import type Database from 'better-sqlite3';
-import type { MonographNode } from '../types.js';
 
 // ── Output type ────────────────────────────────────────────────────────────────
 
@@ -13,7 +12,7 @@ export interface MonographDetectChangesResult {
 
 // ── Implementation ─────────────────────────────────────────────────────────────
 
-const MAX_FILES = 200;    // cap on changed-file count to prevent unbounded IN clauses
+const MAX_FILES = 200; // cap on changed-file count to prevent unbounded IN clauses
 const MAX_STDOUT = 1_048_576; // 1 MiB stdout cap for git output
 
 export function detectMonographChanges(
@@ -24,7 +23,12 @@ export function detectMonographChanges(
   const rawBranch = input.baseBranch ?? 'main';
   // Reject branch names that could be shell-injected or path-traversed
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._\-/]*$/.test(rawBranch)) {
-    return { changedFiles: [], affectedSymbols: [], affectedProcesses: [], error: `Invalid branch name: ${rawBranch}` };
+    return {
+      changedFiles: [],
+      affectedSymbols: [],
+      affectedProcesses: [],
+      error: `Invalid branch name: ${rawBranch}`,
+    };
   }
   const baseBranch = rawBranch;
   const includeTests = input.includeTests ?? true;
@@ -44,8 +48,8 @@ export function detectMonographChanges(
 
     changedFiles = output
       .split('\n')
-      .map(f => f.trim())
-      .filter(f => f.length > 0)
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0)
       .slice(0, MAX_FILES); // cap to prevent unbounded IN clauses
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -54,7 +58,7 @@ export function detectMonographChanges(
 
   // Filter out test files if requested
   if (!includeTests) {
-    changedFiles = changedFiles.filter(f => !(/\.(test|spec)\./.test(f)));
+    changedFiles = changedFiles.filter((f) => !/\.(test|spec)\./.test(f));
   }
 
   if (changedFiles.length === 0) {
@@ -73,13 +77,15 @@ export function detectMonographChanges(
       const batch = changedFiles.slice(i, i + BATCH);
       const placeholders = batch.map(() => '?').join(',');
       const rows = db
-        .prepare(`SELECT id, name, file_path, label FROM nodes WHERE file_path IN (${placeholders})`)
+        .prepare(
+          `SELECT id, name, file_path, label FROM nodes WHERE file_path IN (${placeholders})`,
+        )
         .all(...batch) as Array<{ id: string; name: string; file_path: string; label: string }>;
       allRows.push(...rows);
     }
 
-    affectedSymbols = allRows.map(r => ({ name: r.name, filePath: r.file_path, label: r.label }));
-    affectedSymbolIds = allRows.map(r => r.id);
+    affectedSymbols = allRows.map((r) => ({ name: r.name, filePath: r.file_path, label: r.label }));
+    affectedSymbolIds = allRows.map((r) => r.id);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { changedFiles, affectedSymbols: [], affectedProcesses: [], error: message };

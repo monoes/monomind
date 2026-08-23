@@ -1,4 +1,3 @@
-import type Database from 'better-sqlite3';
 import type { McpResourceDefinition } from './repos-resource.js';
 
 /**
@@ -10,7 +9,7 @@ export const namedProcessResource: McpResourceDefinition = {
   name: 'named-process',
   mimeType: 'application/json',
   handler(db, params) {
-    const name = params?.['name'];
+    const name = params?.name;
     if (!name) return null;
     try {
       const row = db

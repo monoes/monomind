@@ -12,7 +12,7 @@
 import type { InitOptions } from './types.js';
 
 /** Generate GEMINI.md — the Antigravity equivalent of CLAUDE.md */
-export function generateGeminiMd(options: InitOptions): string {
+export function generateGeminiMd(_options: InitOptions): string {
   const version = '2.8.0';
   return `# Monomind for Antigravity (agy) — v${version}
 
@@ -103,7 +103,7 @@ export function generateStatuslineSh(): string {
 #   ANTIGRAVITY_PROJECT_DIR  — absolute path to the open project root
 #   CLAUDE_PROJECT_DIR       — legacy alias (also accepted)
 
-PROJECT_DIR="\${ANTIGRAVITY_PROJECT_DIR:-\${CLAUDE_PROJECT_DIR:-\$(pwd)}}"
+PROJECT_DIR="\${ANTIGRAVITY_PROJECT_DIR:-\${CLAUDE_PROJECT_DIR:-$(pwd)}}"
 
 STATUSLINE_CJS="\${PROJECT_DIR}/.gemini/helpers/statusline.cjs"
 if [ -f "\${STATUSLINE_CJS}" ]; then
@@ -119,10 +119,14 @@ fi
  *  inline (it merges into existing settings instead of writing a fresh
  *  file). Kept exported for consumers that want the standalone JSON. */
 export function generateAgySettingsJson(_options: InitOptions): string {
-  return JSON.stringify({
-    statusLine: {
-      type: 'command',
-      command: '.gemini/helpers/statusline.sh',
+  return JSON.stringify(
+    {
+      statusLine: {
+        type: 'command',
+        command: '.gemini/helpers/statusline.sh',
+      },
     },
-  }, null, 2);
+    null,
+    2,
+  );
 }

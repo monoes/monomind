@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { loadBaseline, extractFindingsFromDb, type BaselineData } from './baseline.js';
+import { type BaselineData, extractFindingsFromDb, loadBaseline } from './baseline.js';
 
 // ── Tolerance ─────────────────────────────────────────────────────────────────
 
@@ -25,13 +25,13 @@ export class Tolerance {
     if (trimmed.endsWith('%')) {
       const raw = trimmed.slice(0, -1);
       const value = parseFloat(raw);
-      if (isNaN(value) || value < 0) {
+      if (Number.isNaN(value) || value < 0) {
         throw new Error(`Invalid percentage tolerance: "${spec}"`);
       }
       return new Tolerance(true, value);
     }
     const value = parseFloat(trimmed);
-    if (isNaN(value) || value < 0) {
+    if (Number.isNaN(value) || value < 0) {
       throw new Error(`Invalid absolute tolerance: "${spec}"`);
     }
     return new Tolerance(false, value);
@@ -94,7 +94,10 @@ const METRIC_NAME_SET = new Set(METRIC_NAMES);
 const toleranceCache = new Map<string, Tolerance>();
 function parseTolerance(spec: string): Tolerance {
   let t = toleranceCache.get(spec);
-  if (!t) { t = Tolerance.parse(spec); toleranceCache.set(spec, t); }
+  if (!t) {
+    t = Tolerance.parse(spec);
+    toleranceCache.set(spec, t);
+  }
   return t;
 }
 
@@ -118,7 +121,7 @@ export function checkRegression(
 
   // Compute current counts from DB using shared METRIC_NAMES init
   const currentFindings = extractFindingsFromDb(db, '');
-  const currentCounts: Record<string, number> = Object.fromEntries(METRIC_NAMES.map(m => [m, 0]));
+  const currentCounts: Record<string, number> = Object.fromEntries(METRIC_NAMES.map((m) => [m, 0]));
   for (const f of currentFindings) {
     const metricName = FINDING_TYPE_TO_METRIC[f.type];
     if (metricName && METRIC_NAME_SET.has(metricName)) {
@@ -127,7 +130,9 @@ export function checkRegression(
   }
 
   // Compute baseline counts using shared METRIC_NAMES init
-  const baselineCounts: Record<string, number> = Object.fromEntries(METRIC_NAMES.map(m => [m, 0]));
+  const baselineCounts: Record<string, number> = Object.fromEntries(
+    METRIC_NAMES.map((m) => [m, 0]),
+  );
   if (baseline) {
     for (const f of baseline.findings) {
       const metricName = FINDING_TYPE_TO_METRIC[f.type];
@@ -162,10 +167,14 @@ export function checkRegression(
     });
   }
 
-  const violations = checkedMetrics.filter(m => m.violated);
+  const violations = checkedMetrics.filter((m) => m.violated);
   const passed = violations.length === 0;
 
-  const baselineName = baselinePath.split('/').pop()?.replace(/\.json$/, '') ?? baselinePath;
+  const baselineName =
+    baselinePath
+      .split('/')
+      .pop()
+      ?.replace(/\.json$/, '') ?? baselinePath;
   const summary = passed
     ? `Regression check PASSED — no violations against baseline "${baselineName}" (tolerance: ${toleranceSpec})`
     : `Regression check FAILED — ${violations.length} violation(s) against baseline "${baselineName}" (tolerance: ${toleranceSpec})`;
@@ -184,14 +193,18 @@ export function formatRegressionOutcome(outcome: RegressionOutcome): string {
   for (const m of outcome.checkedMetrics) {
     const sign = m.delta > 0 ? `+${m.delta}` : String(m.delta);
     const status = m.violated ? 'VIOLATED' : 'ok';
-    lines.push(`  ${m.metric}: baseline=${m.baseline} current=${m.current} delta=${sign} tolerance=${m.tolerance} [${status}]`);
+    lines.push(
+      `  ${m.metric}: baseline=${m.baseline} current=${m.current} delta=${sign} tolerance=${m.tolerance} [${status}]`,
+    );
   }
 
   if (outcome.violations.length > 0) {
     lines.push('\nViolations requiring attention:');
     for (const v of outcome.violations) {
       const sign = v.delta > 0 ? `+${v.delta}` : String(v.delta);
-      lines.push(`  ${v.metric} exceeded tolerance ${v.tolerance} (delta ${sign}): investigate new ${v.metric.replace(/Count$/, '')} introductions`);
+      lines.push(
+        `  ${v.metric} exceeded tolerance ${v.tolerance} (delta ${sign}): investigate new ${v.metric.replace(/Count$/, '')} introductions`,
+      );
     }
   }
 

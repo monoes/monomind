@@ -23,7 +23,7 @@
  * agent_message items at once. This matches each vendor's native behavior.
  */
 import { z } from 'zod';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
 import { loadVercelProvider, VERCEL_PROVIDERS } from './vercel-providers.js';
 import { VercelSessionStore } from './vercel-session-store.js';
 
@@ -47,9 +47,7 @@ export class VercelAgentRunner implements AgentRunner {
 
     // Resolve API key from the named env var (inherited via process.env)
     const envVarName = args.providerConfig?.apiKeyEnv ?? def.envVar;
-    const apiKey = envVarName
-      ? (args.env[envVarName] ?? process.env[envVarName])
-      : undefined;
+    const apiKey = envVarName ? (args.env[envVarName] ?? process.env[envVarName]) : undefined;
     const baseUrl = args.providerConfig?.baseUrl ?? def.defaultBaseUrl;
 
     // Dynamic import — fails with clear error if package missing
@@ -58,7 +56,7 @@ export class VercelAgentRunner implements AgentRunner {
     if (!modelId) {
       throw new Error(
         `VercelAgentRunner: no model specified for vendor "${vendor}". ` +
-        `Set adapter_config.model in the role definition.`,
+          `Set adapter_config.model in the role definition.`,
       );
     }
     const model = modelFactory(modelId);
@@ -74,16 +72,14 @@ export class VercelAgentRunner implements AgentRunner {
       tool = ai.tool;
       isStepCount = ai.isStepCount;
     } catch {
-      throw new Error(
-        'VercelAgentRunner requires the "ai" package. Install it: npm install ai',
-      );
+      throw new Error('VercelAgentRunner requires the "ai" package. Install it: npm install ai');
     }
 
     // Session store for resume — org dir is set by session.ts via env
     const orgDir = args.env.MONOMIND_ORG_DIR ?? args.cwd;
     const roleId = args.env.MONOMIND_ROLE_ID ?? 'default';
     const store = new VercelSessionStore(orgDir, roleId, args.resume);
-    let messages = await store.load();
+    const messages = await store.load();
 
     // Build tools with policy gating — CRITICAL: every execute() must call
     // canUseTool before running the handler, otherwise denyTools / file scope
@@ -119,15 +115,16 @@ export class VercelAgentRunner implements AgentRunner {
     // each one, run a full streamText turn, and accumulate history.
     try {
       for await (const userMsg of args.prompt) {
-        const userText = typeof userMsg === 'string'
-          ? userMsg
-          : (userMsg?.message?.content ?? String(userMsg ?? ''));
+        const userText =
+          typeof userMsg === 'string'
+            ? userMsg
+            : (userMsg?.message?.content ?? String(userMsg ?? ''));
         messages.push({ role: 'user', content: userText });
 
         const result = streamText({
           model,
           system: args.systemPrompt,
-          messages: messages.map(m => ({ role: m.role, content: m.content })),
+          messages: messages.map((m) => ({ role: m.role, content: m.content })),
           tools: buildTools(),
           stopWhen: isStepCount(args.maxTurns),
         });
@@ -171,7 +168,7 @@ export class VercelAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND') {
         throw new Error(
           `VercelAgentRunner requires the "${def.package}" package and "ai". ` +
-          `Install them: npm install ai ${def.package}`,
+            `Install them: npm install ai ${def.package}`,
         );
       }
       throw err;

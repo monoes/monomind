@@ -3,17 +3,21 @@
  * deleteCommand, statsCommand, configureCommand
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { select, confirm } from '../prompt.js';
+import { confirm, select } from '../prompt.js';
 import { configManager } from '../services/config-file-manager.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Memory backends (needed for configureCommand)
 const BACKENDS = [
-  { value: 'lancedb', label: 'LanceDB (legacy alias)', hint: 'Historical name — now backed by SQLite' },
+  {
+    value: 'lancedb',
+    label: 'LanceDB (legacy alias)',
+    hint: 'Historical name — now backed by SQLite',
+  },
   { value: 'sqlite', label: 'SQLite', hint: 'Lightweight local storage' },
   { value: 'hybrid', label: 'Hybrid', hint: 'SQLite with vector search (recommended)' },
-  { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' }
+  { value: 'memory', label: 'In-Memory', hint: 'Fast but non-persistent' },
 ];
 
 // Delete command
@@ -26,14 +30,14 @@ export const deleteCommand: Command = {
       name: 'key',
       short: 'k',
       description: 'Storage key',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'namespace',
       short: 'n',
       description: 'Memory namespace',
       type: 'string',
-      default: 'default'
+      default: 'default',
     },
     {
       name: 'source',
@@ -41,26 +45,35 @@ export const deleteCommand: Command = {
       description: 'Source to delete from: lancedb, palace, knowledge',
       type: 'string',
       default: 'lancedb',
-      choices: ['lancedb', 'palace', 'knowledge']
+      choices: ['lancedb', 'palace', 'knowledge'],
     },
     {
       name: 'id',
       description: 'Entry ID (palace/knowledge)',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'force',
       short: 'f',
       description: 'Skip confirmation',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind memory delete -k "mykey"', description: 'Delete memory entry' },
-    { command: 'monomind memory delete -k "lesson" -n "lessons"', description: 'Delete from specific namespace' },
-    { command: 'monomind memory delete --source palace --id "abc123"', description: 'Delete Memory Palace drawer' },
-    { command: 'monomind memory delete --source knowledge --id "chunk-42" -f', description: 'Delete knowledge chunk (no confirm)' }
+    {
+      command: 'monomind memory delete -k "lesson" -n "lessons"',
+      description: 'Delete from specific namespace',
+    },
+    {
+      command: 'monomind memory delete --source palace --id "abc123"',
+      description: 'Delete Memory Palace drawer',
+    },
+    {
+      command: 'monomind memory delete --source knowledge --id "chunk-42" -f',
+      description: 'Delete knowledge chunk (no confirm)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const source = (ctx.flags.source as string) || 'lancedb';
@@ -76,7 +89,7 @@ export const deleteCommand: Command = {
       if (!force && ctx.interactive) {
         const confirmed = await confirm({
           message: `Delete memory entry "${key}" from namespace "${namespace}"?`,
-          default: false
+          default: false,
         });
         if (!confirmed) {
           output.printInfo('Operation cancelled');
@@ -98,7 +111,9 @@ export const deleteCommand: Command = {
         }
         return { success: result.deleted, data: result };
       } catch (error) {
-        output.printError(`Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        output.printError(
+          `Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
         return { success: false, exitCode: 1 };
       }
     }
@@ -109,15 +124,16 @@ export const deleteCommand: Command = {
       output.printError('Entry ID is required for palace/knowledge delete. Use --id');
       return { success: false, exitCode: 1 };
     }
-    if (!/^[a-zA-Z0-9_\-]{1,128}$/.test(id)) {
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) {
       output.printError('ID must be 1-128 chars: alphanumeric, underscore, or hyphen only');
       return { success: false, exitCode: 1 };
     }
-    const fs = await import('fs');
-    const path = await import('path');
-    const filePath = source === 'palace'
-      ? path.join(process.cwd(), '.monomind', 'palace', 'drawers.jsonl')
-      : path.join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const filePath =
+      source === 'palace'
+        ? path.join(process.cwd(), '.monomind', 'palace', 'drawers.jsonl')
+        : path.join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl');
 
     if (!fs.existsSync(filePath)) {
       output.printError(`File not found: ${filePath}`);
@@ -142,11 +158,13 @@ export const deleteCommand: Command = {
         }
       }
     } catch (err) {
-      output.printError(`Failed to read ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      output.printError(
+        `Failed to read ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
       return { success: false, exitCode: 1 };
     }
 
-    const idx = entries.findIndex(e => e.id === id);
+    const idx = entries.findIndex((e) => e.id === id);
     if (idx === -1) {
       output.printWarning(`Entry not found with id "${id}"`);
       return { success: false, exitCode: 1 };
@@ -155,7 +173,7 @@ export const deleteCommand: Command = {
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
         message: `Delete ${source} entry "${id}"?`,
-        default: false
+        default: false,
       });
       if (!confirmed) {
         output.printInfo('Operation cancelled');
@@ -165,17 +183,22 @@ export const deleteCommand: Command = {
 
     entries.splice(idx, 1);
     try {
-      const tmpPath = filePath + '.tmp';
-      fs.writeFileSync(tmpPath, entries.map(e => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''));
+      const tmpPath = `${filePath}.tmp`;
+      fs.writeFileSync(
+        tmpPath,
+        entries.map((e) => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''),
+      );
       fs.renameSync(tmpPath, filePath);
       output.printSuccess(`Deleted ${source} entry "${id}"`);
       output.printInfo(`Remaining entries: ${entries.length}`);
       return { success: true, data: { id, deleted: true, remainingEntries: entries.length } };
     } catch (err) {
-      output.printError(`Failed to write ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      output.printError(
+        `Failed to write ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Stats command
@@ -185,12 +208,17 @@ export const statsCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Compute stats directly from the memory bridge (there is no memory_stats MCP tool)
     try {
-      const { bridgeListEntries, bridgeGetBackendStats, bridgeGetDbPath } = await import('../memory/memory-bridge.js');
+      const { bridgeListEntries, bridgeGetBackendStats, bridgeGetDbPath } = await import(
+        '../memory/memory-bridge.js'
+      );
       const listed = await bridgeListEntries({ limit: 10000 });
-      if (!listed || !listed.success) throw new Error('memory backend unavailable');
+      if (!listed?.success) throw new Error('memory backend unavailable');
       const entries = listed.entries;
       const totalBytes = entries.reduce((s: number, e: any) => s + (e.content || '').length, 0);
-      const times = entries.map((e: any) => e.updatedAt || e.createdAt).filter(Boolean).sort();
+      const times = entries
+        .map((e: any) => e.updatedAt || e.createdAt)
+        .filter(Boolean)
+        .sort();
 
       // Real configured backend (falls back to the config default when unset).
       const memoryConfig = configManager.get(ctx.cwd, 'memory') as { backend?: string } | undefined;
@@ -204,8 +232,12 @@ export const statsCommand: Command = {
 
       const statsResult = {
         totalEntries: entries.length,
-        totalSize: totalBytes >= 1048576 ? `${(totalBytes / 1048576).toFixed(1)} MB`
-          : totalBytes >= 1024 ? `${(totalBytes / 1024).toFixed(1)} KB` : `${totalBytes} B`,
+        totalSize:
+          totalBytes >= 1048576
+            ? `${(totalBytes / 1048576).toFixed(1)} MB`
+            : totalBytes >= 1024
+              ? `${(totalBytes / 1024).toFixed(1)} KB`
+              : `${totalBytes} B`,
         version: 'sqlite',
         backend: `SQLite (configured: ${configuredBackend})`,
         location: realLocation,
@@ -218,15 +250,15 @@ export const statsCommand: Command = {
         entries: {
           total: statsResult.totalEntries,
           vectors: backendStats?.totalEntries ?? statsResult.totalEntries,
-          text: statsResult.totalEntries
+          text: statsResult.totalEntries,
         },
         storage: {
           total: statsResult.totalSize,
-          location: statsResult.location
+          location: statsResult.location,
         },
         version: statsResult.version,
         oldestEntry: statsResult.oldestEntry,
-        newestEntry: statsResult.newestEntry
+        newestEntry: statsResult.newestEntry,
       };
 
       if (ctx.flags.format === 'json') {
@@ -242,15 +274,15 @@ export const statsCommand: Command = {
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 20 },
-          { key: 'value', header: 'Value', width: 30, align: 'right' }
+          { key: 'value', header: 'Value', width: 30, align: 'right' },
         ],
         data: [
           { metric: 'Backend', value: stats.backend },
           { metric: 'Version', value: stats.version },
           { metric: 'Total Entries', value: stats.entries.total.toLocaleString() },
           { metric: 'Total Storage', value: stats.storage.total },
-          { metric: 'Location', value: stats.storage.location }
-        ]
+          { metric: 'Location', value: stats.storage.location },
+        ],
       });
 
       output.writeln();
@@ -258,20 +290,22 @@ export const statsCommand: Command = {
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 20 },
-          { key: 'value', header: 'Value', width: 30, align: 'right' }
+          { key: 'value', header: 'Value', width: 30, align: 'right' },
         ],
         data: [
           { metric: 'Oldest Entry', value: stats.oldestEntry || 'N/A' },
-          { metric: 'Newest Entry', value: stats.newestEntry || 'N/A' }
-        ]
+          { metric: 'Newest Entry', value: stats.newestEntry || 'N/A' },
+        ],
       });
 
       return { success: true, data: stats };
     } catch (error) {
-      output.printError(`Failed to get stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      output.printError(
+        `Failed to get stats: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Configure command
@@ -285,30 +319,30 @@ export const configureCommand: Command = {
       short: 'b',
       description: 'Memory backend',
       type: 'string',
-      choices: BACKENDS.map(b => b.value)
+      choices: BACKENDS.map((b) => b.value),
     },
     {
       name: 'path',
       description: 'Storage path',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'cache-size',
       description: 'Cache size in MB',
-      type: 'number'
+      type: 'number',
     },
     {
       name: 'hnsw-m',
       description: 'HNSW M parameter',
       type: 'number',
-      default: 16
+      default: 16,
     },
     {
       name: 'hnsw-ef',
       description: 'HNSW ef parameter',
       type: 'number',
-      default: 200
-    }
+      default: 200,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let backend = ctx.flags.backend as string;
@@ -317,7 +351,7 @@ export const configureCommand: Command = {
       backend = await select({
         message: 'Select memory backend:',
         options: BACKENDS,
-        default: 'hybrid'
+        default: 'hybrid',
       });
     }
 
@@ -327,8 +361,8 @@ export const configureCommand: Command = {
       cacheSize: ctx.flags['cache-size'] || 256,
       hnsw: {
         m: ctx.flags['hnsw-m'] || 16,
-        ef: ctx.flags['hnsw-ef'] || 200
-      }
+        ef: ctx.flags['hnsw-ef'] || 200,
+      },
     };
 
     output.writeln();
@@ -338,15 +372,15 @@ export const configureCommand: Command = {
     output.printTable({
       columns: [
         { key: 'setting', header: 'Setting', width: 20 },
-        { key: 'value', header: 'Value', width: 25 }
+        { key: 'value', header: 'Value', width: 25 },
       ],
       data: [
         { setting: 'Backend', value: config.backend },
         { setting: 'Storage Path', value: config.path },
         { setting: 'Cache Size', value: `${config.cacheSize} MB` },
         { setting: 'HNSW M', value: config.hnsw.m },
-        { setting: 'HNSW ef', value: config.hnsw.ef }
-      ]
+        { setting: 'HNSW ef', value: config.hnsw.ef },
+      ],
     });
 
     output.writeln();
@@ -359,6 +393,5 @@ export const configureCommand: Command = {
     output.printSuccess('Memory configuration updated');
 
     return { success: true, data: config };
-  }
+  },
 };
-

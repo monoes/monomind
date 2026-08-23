@@ -8,10 +8,10 @@
  * Usable from both CLI entry points and the monograph_augment MCP tool.
  */
 
-import { join } from 'path';
-import { openDb, closeDb } from '../storage/db.js';
-import { bm25Query, type BM25Result } from '../search/hybrid-query.js';
+import { join } from 'node:path';
 import { globalAugmentCache } from '../cache/augment-cache.js';
+import { type BM25Result, bm25Query } from '../search/hybrid-query.js';
+import { closeDb, openDb } from '../storage/db.js';
 
 export interface AugmentContextOptions {
   /** The search query or task description */
@@ -40,15 +40,11 @@ export async function augmentContext(options: AugmentContextOptions): Promise<st
   const { query, repoPath, topK = 10, format = 'markdown' } = options;
 
   if (!query || query.trim().length === 0) {
-    return format === 'json'
-      ? JSON.stringify({ query, results: [], context: '' }, null, 2)
-      : '';
+    return format === 'json' ? JSON.stringify({ query, results: [], context: '' }, null, 2) : '';
   }
 
   if (topK === 0) {
-    return format === 'json'
-      ? JSON.stringify({ query, results: [], context: '' }, null, 2)
-      : '';
+    return format === 'json' ? JSON.stringify({ query, results: [], context: '' }, null, 2) : '';
   }
 
   const cacheKey = globalAugmentCache.makeKey(query, repoPath, topK, format);

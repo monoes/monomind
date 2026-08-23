@@ -1,29 +1,47 @@
-import fs from 'fs';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { unzipSync } from 'fflate';
 import type {
   CapabilityModule,
   DirectoryScan,
   FileEntry,
+  HealthCheck,
   IndexResult,
   SearchResult,
-  HealthCheck,
 } from './types.js';
 
 export const DOC_EXTENSIONS = new Set([
   // Plain text
-  '.md', '.txt', '.rst', '.tex', '.csv', '.tsv',
+  '.md',
+  '.txt',
+  '.rst',
+  '.tex',
+  '.csv',
+  '.tsv',
   // Microsoft Office
-  '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+  '.docx',
+  '.doc',
+  '.xlsx',
+  '.xls',
+  '.pptx',
+  '.ppt',
   // OpenDocument (LibreOffice / Google Docs export)
-  '.odt', '.ods', '.odp',
+  '.odt',
+  '.ods',
+  '.odp',
   // Other
-  '.pdf', '.rtf', '.epub', '.pages',
+  '.pdf',
+  '.rtf',
+  '.epub',
+  '.pages',
 ]);
 const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024;
 
 // In-memory index for T0 (metadata) and T1 (content) — replaced by memory DB in production
-const indexedDocs = new Map<string, { path: string; content: string; metadata: Record<string, unknown> }>();
+const indexedDocs = new Map<
+  string,
+  { path: string; content: string; metadata: Record<string, unknown> }
+>();
 
 // ── ZIP-based XML text extraction (pptx, odt, odp, ods, epub) ──────
 // These formats are all ZIP archives containing XML/HTML with text content.
@@ -36,7 +54,11 @@ function readZipEntries(filePath: string): Record<string, Uint8Array> {
   return unzipSync(new Uint8Array(buffer));
 }
 
-function textFromZipEntries(entries: Record<string, Uint8Array>, xmlPaths: string[], stripTags: boolean): string {
+function textFromZipEntries(
+  entries: Record<string, Uint8Array>,
+  xmlPaths: string[],
+  stripTags: boolean,
+): string {
   const parts: string[] = [];
 
   for (const xmlPath of xmlPaths) {
@@ -46,7 +68,9 @@ function textFromZipEntries(entries: Record<string, Uint8Array>, xmlPaths: strin
   if (parts.length === 0) {
     // Fallback: any XML/HTML/XHTML entries (e.g. EPUB chapters, whose names
     // aren't known ahead of time)
-    const candidates = Object.keys(entries).filter(f => /\.(xml|html|xhtml)$/i.test(f)).slice(0, 50);
+    const candidates = Object.keys(entries)
+      .filter((f) => /\.(xml|html|xhtml)$/i.test(f))
+      .slice(0, 50);
     for (const c of candidates) parts.push(Buffer.from(entries[c]).toString('utf-8'));
   }
 
@@ -54,13 +78,21 @@ function textFromZipEntries(entries: Record<string, Uint8Array>, xmlPaths: strin
   if (!stripTags) return joined;
   return joined
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#\d+;/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#\d+;/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-async function extractFromZip(filePath: string, xmlPaths: string[], stripTags: boolean): Promise<string> {
+async function extractFromZip(
+  filePath: string,
+  xmlPaths: string[],
+  stripTags: boolean,
+): Promise<string> {
   return textFromZipEntries(readZipEntries(filePath), xmlPaths, stripTags);
 }
 
@@ -80,30 +112,47 @@ function extractRtfText(content: string): string {
       if (i + 2 < content.length && content[i + 1] === '\\' && content[i + 2] === '*') {
         skipDepth = depth;
       }
-      i++; continue;
+      i++;
+      continue;
     }
     if (ch === '}') {
       if (depth === skipDepth) skipDepth = 0;
       depth = Math.max(0, depth - 1);
-      i++; continue;
+      i++;
+      continue;
     }
-    if (skipDepth > 0) { i++; continue; }
+    if (skipDepth > 0) {
+      i++;
+      continue;
+    }
     if (ch === '\\') {
       i++;
       if (i >= content.length) break;
       const next = content[i];
-      if (next === '\n' || next === '\r') { result += '\n'; i++; continue; }
+      if (next === '\n' || next === '\r') {
+        result += '\n';
+        i++;
+        continue;
+      }
       // Escaped literal chars
-      if (next === '{' || next === '}' || next === '\\') { result += next; i++; continue; }
+      if (next === '{' || next === '}' || next === '\\') {
+        result += next;
+        i++;
+        continue;
+      }
       // Hex escape \'xx
       if (next === "'" && i + 2 < content.length) {
         const code = parseInt(content.substring(i + 1, i + 3), 16);
-        if (!isNaN(code)) result += String.fromCharCode(code);
-        i += 3; continue;
+        if (!Number.isNaN(code)) result += String.fromCharCode(code);
+        i += 3;
+        continue;
       }
       // Control word: letter sequence + optional signed integer + optional trailing space
       let word = '';
-      while (i < content.length && /[a-zA-Z]/.test(content[i])) { word += content[i]; i++; }
+      while (i < content.length && /[a-zA-Z]/.test(content[i])) {
+        word += content[i];
+        i++;
+      }
       while (i < content.length && /[-\d]/.test(content[i])) i++;
       if (i < content.length && content[i] === ' ') i++;
       if (word === 'par' || word === 'line') result += '\n';
@@ -113,7 +162,10 @@ function extractRtfText(content: string): string {
     result += ch;
     i++;
   }
-  return result.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return result
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export async function extractText(file: FileEntry): Promise<string> {
@@ -122,8 +174,14 @@ export async function extractText(file: FileEntry): Promise<string> {
   const ext = file.extension;
 
   // Plain text formats
-  if (ext === '.md' || ext === '.txt' || ext === '.rst' || ext === '.tex'
-      || ext === '.csv' || ext === '.tsv') {
+  if (
+    ext === '.md' ||
+    ext === '.txt' ||
+    ext === '.rst' ||
+    ext === '.tex' ||
+    ext === '.csv' ||
+    ext === '.tsv'
+  ) {
     return fs.readFileSync(file.absolutePath, 'utf-8');
   }
 
@@ -132,7 +190,9 @@ export async function extractText(file: FileEntry): Promise<string> {
     try {
       const content = fs.readFileSync(file.absolutePath, 'utf-8');
       return extractRtfText(content);
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   }
 
   // PDF — native Rust extraction via @firecrawl/pdf-inspector
@@ -182,21 +242,25 @@ export async function extractText(file: FileEntry): Promise<string> {
     try {
       const entries = readZipEntries(file.absolutePath);
       const slidePaths = Object.keys(entries)
-        .filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f))
+        .filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))
         .sort((a, b) => {
           const na = parseInt(a.match(/slide(\d+)\.xml$/)?.[1] ?? '0', 10);
           const nb = parseInt(b.match(/slide(\d+)\.xml$/)?.[1] ?? '0', 10);
           return na - nb;
         });
       return textFromZipEntries(entries, slidePaths, true);
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   }
 
   // OpenDocument Text (.odt)
   if (ext === '.odt') {
     try {
       return await extractFromZip(file.absolutePath, ['content.xml'], true);
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   }
 
   // OpenDocument Spreadsheet (.ods)
@@ -215,7 +279,11 @@ export async function extractText(file: FileEntry): Promise<string> {
       return parts.join('\n\n');
     } catch {
       // Fallback to XML extraction
-      try { return await extractFromZip(file.absolutePath, ['content.xml'], true); } catch { return ''; }
+      try {
+        return await extractFromZip(file.absolutePath, ['content.xml'], true);
+      } catch {
+        return '';
+      }
     }
   }
 
@@ -223,14 +291,18 @@ export async function extractText(file: FileEntry): Promise<string> {
   if (ext === '.odp') {
     try {
       return await extractFromZip(file.absolutePath, ['content.xml'], true);
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   }
 
   // EPUB — ZIP with XHTML chapters
   if (ext === '.epub') {
     try {
       return await extractFromZip(file.absolutePath, [], true);
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   }
 
   // .doc / .ppt — legacy binary formats, best-effort via textutil (macOS) or antiword
@@ -239,11 +311,12 @@ export async function extractText(file: FileEntry): Promise<string> {
       const { execFileSync } = await import('node:child_process');
       // C1 hardening: arg-array form (no shell) so filenames containing
       // $(...), `...`, $VAR etc. cannot be evaluated by the shell.
-      const text = execFileSync(
-        'textutil',
-        ['-convert', 'txt', '-stdout', file.absolutePath],
-        { maxBuffer: MAX_INDEX_FILE_SIZE, encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] },
-      );
+      const text = execFileSync('textutil', ['-convert', 'txt', '-stdout', file.absolutePath], {
+        maxBuffer: MAX_INDEX_FILE_SIZE,
+        encoding: 'utf-8',
+        timeout: 15000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
       return text.trim();
     } catch {
       return '';
@@ -326,14 +399,24 @@ export const documentsCapability: CapabilityModule = {
       await import('@firecrawl/pdf-inspector');
       checks.push({ name: 'PDF', status: 'pass', message: '@firecrawl/pdf-inspector available' });
     } catch {
-      checks.push({ name: 'PDF', status: 'warn', message: '@firecrawl/pdf-inspector not installed', hint: 'pnpm add @firecrawl/pdf-inspector' });
+      checks.push({
+        name: 'PDF',
+        status: 'warn',
+        message: '@firecrawl/pdf-inspector not installed',
+        hint: 'pnpm add @firecrawl/pdf-inspector',
+      });
     }
 
     try {
       await import('mammoth');
       checks.push({ name: 'DOCX', status: 'pass', message: 'mammoth available' });
     } catch {
-      checks.push({ name: 'DOCX', status: 'warn', message: 'mammoth not installed', hint: 'pnpm add mammoth' });
+      checks.push({
+        name: 'DOCX',
+        status: 'warn',
+        message: 'mammoth not installed',
+        hint: 'pnpm add mammoth',
+      });
     }
 
     try {
@@ -341,7 +424,12 @@ export const documentsCapability: CapabilityModule = {
       req.resolve('xlsx');
       checks.push({ name: 'XLSX/XLS/ODS', status: 'pass', message: 'xlsx available' });
     } catch {
-      checks.push({ name: 'XLSX/XLS/ODS', status: 'warn', message: 'xlsx not installed', hint: 'pnpm add xlsx' });
+      checks.push({
+        name: 'XLSX/XLS/ODS',
+        status: 'warn',
+        message: 'xlsx not installed',
+        hint: 'pnpm add xlsx',
+      });
     }
 
     // PPTX/ODT/ODP/EPUB use fflate (pure JS, no system dep) — cross-platform
@@ -349,7 +437,12 @@ export const documentsCapability: CapabilityModule = {
       await import('fflate');
       checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'pass', message: 'fflate available' });
     } catch {
-      checks.push({ name: 'PPTX/ODT/ODP/EPUB', status: 'warn', message: 'fflate not installed', hint: 'pnpm add fflate' });
+      checks.push({
+        name: 'PPTX/ODT/ODP/EPUB',
+        status: 'warn',
+        message: 'fflate not installed',
+        hint: 'pnpm add fflate',
+      });
     }
 
     // Legacy DOC/PPT/Pages shell out to macOS's `textutil` — no cross-platform
@@ -358,13 +451,31 @@ export const documentsCapability: CapabilityModule = {
     if (process.platform === 'darwin') {
       try {
         const { execFileSync } = await import('node:child_process');
-        execFileSync('which', ['textutil'], { encoding: 'utf-8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] });
-        checks.push({ name: 'Legacy DOC/PPT/Pages (macOS)', status: 'pass', message: 'textutil available' });
+        execFileSync('which', ['textutil'], {
+          encoding: 'utf-8',
+          timeout: 2000,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        checks.push({
+          name: 'Legacy DOC/PPT/Pages (macOS)',
+          status: 'pass',
+          message: 'textutil available',
+        });
       } catch {
-        checks.push({ name: 'Legacy DOC/PPT/Pages (macOS)', status: 'warn', message: 'textutil not found on this Mac', hint: 'textutil ships with macOS — reinstall Command Line Tools if missing' });
+        checks.push({
+          name: 'Legacy DOC/PPT/Pages (macOS)',
+          status: 'warn',
+          message: 'textutil not found on this Mac',
+          hint: 'textutil ships with macOS — reinstall Command Line Tools if missing',
+        });
       }
     } else {
-      checks.push({ name: 'Legacy DOC/PPT/Pages (macOS)', status: 'warn', message: `Not supported on ${process.platform} — legacy .doc/.ppt/.pages extraction relies on macOS's textutil and returns empty text here`, hint: 'convert to .docx/.pptx first, or extract on macOS' });
+      checks.push({
+        name: 'Legacy DOC/PPT/Pages (macOS)',
+        status: 'warn',
+        message: `Not supported on ${process.platform} — legacy .doc/.ppt/.pages extraction relies on macOS's textutil and returns empty text here`,
+        hint: 'convert to .docx/.pptx first, or extract on macOS',
+      });
     }
 
     return checks;

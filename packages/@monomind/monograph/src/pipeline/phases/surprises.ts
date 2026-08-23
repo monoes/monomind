@@ -1,16 +1,16 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { SurprisingConnection } from '../../types.js';
-import type { ParseOutput } from './parse.js';
-import type { CrossFileOutput } from './cross-file.js';
-import type { CommunitiesOutput } from './communities.js';
 import { classifyFile } from '../../analysis/file-classifier.js';
+import type { SurprisingConnection } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
+import type { CommunitiesOutput } from './communities.js';
+import type { CrossFileOutput } from './cross-file.js';
+import type { ParseOutput } from './parse.js';
 
 const WEIGHTS = {
-  confidence: 0.30,
-  crossType: 0.20,
+  confidence: 0.3,
+  crossType: 0.2,
   crossRepo: 0.15,
   crossCommunity: 0.25,
-  peripheral: 0.10,
+  peripheral: 0.1,
 };
 
 export interface SurprisesOutput {
@@ -26,15 +26,15 @@ export const surprisesPhase: PipelinePhase<SurprisesOutput> = {
     const { memberships } = deps.get('communities') as CommunitiesOutput;
 
     const edges = [...allEdges, ...resolvedEdges];
-    const labelIndex = new Map(symbolNodes.map(n => [n.id, n.label]));
+    const labelIndex = new Map(symbolNodes.map((n) => [n.id, n.label]));
     const inDeg = new Map<string, number>();
     for (const e of edges) inDeg.set(e.targetId, (inDeg.get(e.targetId) ?? 0) + 1);
     const maxDeg = [...inDeg.values()].reduce((a, b) => Math.max(a, b), 1);
     const peripheralThreshold = maxDeg * 0.1;
 
     const surprises: SurprisingConnection[] = edges
-      .filter(e => e.confidence !== 'EXTRACTED')
-      .map(e => {
+      .filter((e) => e.confidence !== 'EXTRACTED')
+      .map((e) => {
         const reasons: string[] = [];
         let score = 0;
 
@@ -57,13 +57,17 @@ export const surprisesPhase: PipelinePhase<SurprisesOutput> = {
         }
 
         // Cross-filetype bonus: CODE↔DOCUMENT/PAPER edges get extra weight
-        const srcFilePath = symbolNodes.find(n => n.id === e.sourceId)?.filePath;
-        const tgtFilePath = symbolNodes.find(n => n.id === e.targetId)?.filePath;
+        const srcFilePath = symbolNodes.find((n) => n.id === e.sourceId)?.filePath;
+        const tgtFilePath = symbolNodes.find((n) => n.id === e.targetId)?.filePath;
         if (srcFilePath && tgtFilePath) {
           const srcFileType = classifyFile(srcFilePath);
           const tgtFileType = classifyFile(tgtFilePath);
-          if (srcFileType !== tgtFileType && srcFileType !== 'UNKNOWN' && tgtFileType !== 'UNKNOWN') {
-            score += WEIGHTS.crossRepo;  // reuse unused crossRepo weight (0.15)
+          if (
+            srcFileType !== tgtFileType &&
+            srcFileType !== 'UNKNOWN' &&
+            tgtFileType !== 'UNKNOWN'
+          ) {
+            score += WEIGHTS.crossRepo; // reuse unused crossRepo weight (0.15)
             reasons.push(`cross-filetype (${srcFileType}→${tgtFileType})`);
           }
         }

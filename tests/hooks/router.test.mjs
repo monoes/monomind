@@ -4,12 +4,13 @@
  *         matchExtras (category opt-in/default-exclude), scoreEntry,
  *         buildCategoryList, getAgentsInCategory, loadFeedbackWeights.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -33,7 +34,9 @@ afterEach(() => {
   } else {
     delete process.env.CLAUDE_PROJECT_DIR;
   }
-  try { fs.rmSync(_tmpDir, { recursive: true, force: true }); } catch (e) {}
+  try {
+    fs.rmSync(_tmpDir, { recursive: true, force: true });
+  } catch (_e) {}
 });
 
 function loadRouter() {
@@ -234,37 +237,39 @@ describe('matchExtras', () => {
     const r = loadRouter();
     const results = r.matchExtras('marketing campaign');
     expect(results.length).toBeGreaterThan(0);
-    expect(results.some(e => e.category === 'marketing')).toBe(true);
+    expect(results.some((e) => e.category === 'marketing')).toBe(true);
   });
 
   it('excludes "marketing" category by default for unrelated tasks', () => {
     const r = loadRouter();
     // "caching" has no marketing opt-in keywords
     const results = r.matchExtras('caching strategy');
-    expect(results.every(e => e.category !== 'marketing')).toBe(true);
+    expect(results.every((e) => e.category !== 'marketing')).toBe(true);
   });
 
   it('includes "academic" category when prompt has academic keywords', () => {
     const r = loadRouter();
     const results = r.matchExtras('anthropological study of cultural rituals and kinship');
-    expect(results.some(e => e.category === 'academic')).toBe(true);
+    expect(results.some((e) => e.category === 'academic')).toBe(true);
   });
 
   it('excludes "academic" category for generic "community" mention', () => {
     const r = loadRouter();
     const results = r.matchExtras('community module documentation');
-    expect(results.every(e => e.category !== 'academic')).toBe(true);
+    expect(results.every((e) => e.category !== 'academic')).toBe(true);
   });
 
   it('includes "game-development" when prompt has unity/godot keywords', () => {
     const r = loadRouter();
     const results = r.matchExtras('unity shader graph implementation');
-    expect(results.some(e => e.category === 'game-development')).toBe(true);
+    expect(results.some((e) => e.category === 'game-development')).toBe(true);
   });
 
   it('limits results to topN (default 8)', () => {
     const r = loadRouter();
-    const results = r.matchExtras('marketing sales advertising campaign social media seo brand content');
+    const results = r.matchExtras(
+      'marketing sales advertising campaign social media seo brand content',
+    );
     expect(results.length).toBeLessThanOrEqual(8);
   });
 
@@ -329,11 +334,13 @@ describe('loadFeedbackWeights (via routeTask confidence)', () => {
 
   it('confidence stays in [0, 1] range even with feedback weights applied', () => {
     const r = loadRouter();
-    ['implement', 'test', 'review', 'research', 'design', 'api', 'frontend', 'deploy'].forEach(kw => {
-      const result = r.routeTask(kw + ' something');
-      expect(result.confidence).toBeGreaterThanOrEqual(0);
-      expect(result.confidence).toBeLessThanOrEqual(1.0);
-    });
+    ['implement', 'test', 'review', 'research', 'design', 'api', 'frontend', 'deploy'].forEach(
+      (kw) => {
+        const result = r.routeTask(`${kw} something`);
+        expect(result.confidence).toBeGreaterThanOrEqual(0);
+        expect(result.confidence).toBeLessThanOrEqual(1.0);
+      },
+    );
   });
 });
 

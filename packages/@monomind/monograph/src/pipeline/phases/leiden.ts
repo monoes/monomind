@@ -1,5 +1,5 @@
-import louvain from 'graphology-communities-louvain';
 import type Graph from 'graphology';
+import louvain from 'graphology-communities-louvain';
 
 /**
  * Leiden-like community detection with post-processing refinement.

@@ -16,45 +16,45 @@
  * Memory entry type classification
  */
 export type MemoryType =
-  | 'episodic'    // Time-based experiences and events
-  | 'semantic'    // Facts, concepts, and knowledge
-  | 'working'     // Short-term operational memory
-  | 'cache';      // Temporary cached data
+  | 'episodic' // Time-based experiences and events
+  | 'semantic' // Facts, concepts, and knowledge
+  | 'working' // Short-term operational memory
+  | 'cache'; // Temporary cached data
 
 /** Which memory tier this entry belongs to */
 export type MemoryTier =
-  | 'short-term'   // In-memory buffer, current run only
-  | 'long-term'    // Persistent HNSW, cross-run
-  | 'entity'       // Named-entity KV facts
-  | 'contextual';  // Compressed session summaries
+  | 'short-term' // In-memory buffer, current run only
+  | 'long-term' // Persistent HNSW, cross-run
+  | 'entity' // Named-entity KV facts
+  | 'contextual'; // Compressed session summaries
 
 /**
  * Access level for memory entries
  */
 export type AccessLevel =
-  | 'private'     // Only owner can access
-  | 'team'        // Team members can access
-  | 'monoswarm'   // All monoswarm agents can access
-  | 'public'      // Publicly accessible
-  | 'system';     // System-level access
+  | 'private' // Only owner can access
+  | 'team' // Team members can access
+  | 'monoswarm' // All monoswarm agents can access
+  | 'public' // Publicly accessible
+  | 'system'; // System-level access
 
 /**
  * Consistency level for distributed memory operations
  */
 export type ConsistencyLevel =
-  | 'strong'      // Strong consistency (all nodes agree)
-  | 'eventual'    // Eventual consistency (propagates over time)
-  | 'session'     // Session-scoped consistency
-  | 'weak';       // Weak consistency (best effort)
+  | 'strong' // Strong consistency (all nodes agree)
+  | 'eventual' // Eventual consistency (propagates over time)
+  | 'session' // Session-scoped consistency
+  | 'weak'; // Weak consistency (best effort)
 
 /**
  * Distance metrics for vector similarity search
  */
 export type DistanceMetric =
-  | 'cosine'      // Cosine similarity (default)
-  | 'euclidean'   // Euclidean distance (L2)
-  | 'dot'         // Dot product
-  | 'manhattan';  // Manhattan distance (L1)
+  | 'cosine' // Cosine similarity (default)
+  | 'euclidean' // Euclidean distance (L2)
+  | 'dot' // Dot product
+  | 'manhattan'; // Manhattan distance (L1)
 
 // ===== Memory Entry =====
 
@@ -157,11 +157,11 @@ export interface MemoryEntryUpdate {
  * Query type for memory retrieval
  */
 export type QueryType =
-  | 'semantic'    // Vector similarity search
-  | 'exact'       // Exact key match
-  | 'prefix'      // Key prefix match
-  | 'tag'         // Tag-based search
-  | 'hybrid';     // Combined semantic + filters
+  | 'semantic' // Vector similarity search
+  | 'exact' // Exact key match
+  | 'prefix' // Key prefix match
+  | 'tag' // Tag-based search
+  | 'hybrid'; // Combined semantic + filters
 
 /**
  * Memory query specification
@@ -665,11 +665,11 @@ export type MemoryEventHandler = (event: MemoryEvent) => void | Promise<void>;
  * SONA learning mode for adaptive memory
  */
 export type SONAMode =
-  | 'real-time'   // <0.05ms adaptation
-  | 'balanced'    // Balance between speed and accuracy
-  | 'research'    // Maximum accuracy, slower
-  | 'edge'        // Optimized for edge devices
-  | 'batch';      // Batch processing mode
+  | 'real-time' // <0.05ms adaptation
+  | 'balanced' // Balance between speed and accuracy
+  | 'research' // Maximum accuracy, slower
+  | 'edge' // Optimized for edge devices
+  | 'batch'; // Batch processing mode
 
 /**
  * Learning pattern from SONA integration
@@ -761,15 +761,13 @@ export const PERFORMANCE_TARGETS = {
   MAX_SEARCH_IMPROVEMENT: 12500, // 12,500x
 } as const;
 
-
-
 // ===== Multi-Tier Memory Config (Task 09) =====
 
 export interface TierManagerConfig {
-  shortTermCapacity: number;       // default: 500
-  entityStorePath: string;         // e.g. './data/memory/entities.jsonl'
-  contextualNamespace: string;     // default: 'contextual-summaries'
-  autoFlushOnSessionEnd: boolean;  // default: true
+  shortTermCapacity: number; // default: 500
+  entityStorePath: string; // e.g. './data/memory/entities.jsonl'
+  contextualNamespace: string; // default: 'contextual-summaries'
+  autoFlushOnSessionEnd: boolean; // default: true
 }
 
 // ===== Episodic Memory (Task 11) =====
@@ -779,15 +777,15 @@ export interface Episode {
   sessionId: string;
   runIds: string[];
   summary: string;
-  startedAt: number;   // epoch ms
-  endedAt: number;     // epoch ms
+  startedAt: number; // epoch ms
+  endedAt: number; // epoch ms
   agentSlugs: string[];
   taskTypes: string[];
   tokenEstimate: number;
 }
 
 export interface EpisodicStoreConfig {
-  filePath: string;           // JSON-lines file path
-  maxRunsPerEpisode: number;  // close episode after this many runs (default: 20)
-  summarizer?: (content: string) => Promise<string>;  // optional injected summarizer
+  filePath: string; // JSON-lines file path
+  maxRunsPerEpisode: number; // close episode after this many runs (default: 20)
+  summarizer?: (content: string) => Promise<string>; // optional injected summarizer
 }

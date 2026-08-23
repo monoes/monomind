@@ -4,8 +4,13 @@
 export type FindingSeverity = 'moderate' | 'high' | 'critical';
 
 export type ExceededThreshold =
-  | 'cyclomatic' | 'cognitive' | 'both'
-  | 'crap' | 'cyclomaticCrap' | 'cognitiveCrap' | 'all';
+  | 'cyclomatic'
+  | 'cognitive'
+  | 'both'
+  | 'crap'
+  | 'cyclomaticCrap'
+  | 'cognitiveCrap'
+  | 'all';
 
 export type CoverageModel = 'staticBinary' | 'staticEstimated' | 'istanbul';
 
@@ -103,7 +108,7 @@ export function summarizeFindings(findings: HealthFinding[]): HealthSummary {
     highCount: counts.high,
     criticalCount: counts.critical,
     averageCrapScore: findings.length > 0 ? totalCrap / findings.length : 0,
-    istanbulCoverageAvailable: findings.some(f => f.coverageTier !== 'none'),
+    istanbulCoverageAvailable: findings.some((f) => f.coverageTier !== 'none'),
     coverageModel: 'staticBinary',
     thresholdCyclomaticHigh: DEFAULT_CYCLOMATIC_HIGH,
     thresholdCyclomaticCritical: DEFAULT_CYCLOMATIC_CRITICAL,

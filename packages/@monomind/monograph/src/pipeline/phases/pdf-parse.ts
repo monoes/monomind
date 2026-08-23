@@ -1,14 +1,22 @@
-import { readFileSync, statSync, readdirSync } from 'fs';
-import { extname, basename, join, relative } from 'path';
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel, CONFIDENCE_SCORE } from '../../types.js';
-import { insertNodes } from '../../storage/node-store.js';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { basename, extname, join, relative } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
+import { insertNodes } from '../../storage/node-store.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../../types.js';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 
 const IGNORE_DIRS = new Set([
-  'node_modules', '.git', 'dist', 'build', '__pycache__',
-  '.cache', 'coverage', '.monomind', 'vendor', 'target',
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '__pycache__',
+  '.cache',
+  'coverage',
+  '.monomind',
+  'vendor',
+  'target',
   '.worktrees',
 ]);
 
@@ -17,18 +25,29 @@ export interface PdfParseOutput {
   pdfFiles: number;
 }
 
-function walkPdfs(dir: string, repoPath: string, ignore: string[]): string[] {
+function walkPdfs(dir: string, _repoPath: string, ignore: string[]): string[] {
   const extraIgnore = new Set(ignore);
   const results: string[] = [];
   function walk(d: string) {
     let entries: string[];
-    try { entries = readdirSync(d); } catch { return; }
+    try {
+      entries = readdirSync(d);
+    } catch {
+      return;
+    }
     for (const entry of entries) {
       if (IGNORE_DIRS.has(entry) || extraIgnore.has(entry)) continue;
       const full = join(d, entry);
       let st;
-      try { st = statSync(full); } catch { continue; }
-      if (st.isDirectory()) { walk(full); continue; }
+      try {
+        st = statSync(full);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        walk(full);
+        continue;
+      }
       if (extname(entry).toLowerCase() === '.pdf') results.push(full);
     }
   }
@@ -47,7 +66,9 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
     let extractMarkdown: ((buf: Buffer) => string) | null = null;
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mod = await (new Function('return import("@firecrawl/pdf-inspector")')() as Promise<any>);
+      const mod = await (new Function(
+        'return import("@firecrawl/pdf-inspector")',
+      )() as Promise<any>);
       const processPdf = mod.processPdf;
       extractMarkdown = (buf: Buffer) => {
         const result = processPdf(buf);
@@ -72,7 +93,9 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
         const buf = readFileSync(absPath);
         if (buf.length > ctx.options.maxFileSizeBytes * 10) continue;
         text = extractMarkdown(buf);
-      } catch { continue; }
+      } catch {
+        continue;
+      }
 
       if (!text || text.trim().length === 0) continue;
 
@@ -92,9 +115,13 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
         const sectionId = makeId('section', fileId, String(i));
 
         const node: MonographNode = {
-          id: sectionId, label: 'Section',
-          name: title, normLabel: toNormLabel(title),
-          filePath: rel, startLine: startChar, endLine: startChar + content.length,
+          id: sectionId,
+          label: 'Section',
+          name: title,
+          normLabel: toNormLabel(title),
+          filePath: rel,
+          startLine: startChar,
+          endLine: startChar + content.length,
           isExported: false,
           properties: { level: 1, content: content.slice(0, 2000), source: 'pdf', chunk: i },
         };
@@ -102,8 +129,11 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
 
         allEdges.push({
           id: makeId(fileId, sectionId, 'defines'),
-          sourceId: fileId, targetId: sectionId,
-          relation: 'DEFINES', confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+          sourceId: fileId,
+          targetId: sectionId,
+          relation: 'DEFINES',
+          confidence: 'EXTRACTED',
+          confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
         });
       }
     }
@@ -114,11 +144,14 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
       for (const edge of allEdges) {
         if (!seenFileIds.has(edge.sourceId)) {
           seenFileIds.add(edge.sourceId);
-          const relPath = sectionNodes.find(n => n.id === edge.targetId)?.filePath ?? '';
+          const relPath = sectionNodes.find((n) => n.id === edge.targetId)?.filePath ?? '';
           fileNodes.push({
-            id: edge.sourceId, label: 'File',
-            name: basename(relPath), normLabel: toNormLabel(basename(relPath)),
-            filePath: relPath, isExported: false,
+            id: edge.sourceId,
+            label: 'File',
+            name: basename(relPath),
+            normLabel: toNormLabel(basename(relPath)),
+            filePath: relPath,
+            isExported: false,
           });
         }
       }
@@ -126,7 +159,10 @@ export const pdfParsePhase: PipelinePhase<PdfParseOutput> = {
       insertEdges(ctx.db, allEdges);
     }
 
-    ctx.onProgress?.({ phase: 'pdf-parse', message: `Parsed ${pdfPaths.length} PDF files → ${sectionNodes.length} chunks` });
+    ctx.onProgress?.({
+      phase: 'pdf-parse',
+      message: `Parsed ${pdfPaths.length} PDF files → ${sectionNodes.length} chunks`,
+    });
     return { sectionNodes, pdfFiles: pdfPaths.length };
   },
 };

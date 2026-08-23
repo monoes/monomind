@@ -10,10 +10,14 @@
  */
 
 import type { MCPTool, MCPToolResult } from '../mcp-tools/types.js';
-import { coverageRoute, coverageGaps, coverageSuggest } from './coverage-router.js';
+import { coverageGaps, coverageRoute, coverageSuggest } from './coverage-router.js';
 
 function text(value: unknown): MCPToolResult {
-  return { content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }] };
+  return {
+    content: [
+      { type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) },
+    ],
+  };
 }
 
 function errorResult(message: string): MCPToolResult {
@@ -35,23 +39,29 @@ export const coverageRouterTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Optional path prefix to scope the analysis (e.g. "src/auth").' },
+        path: {
+          type: 'string',
+          description: 'Optional path prefix to scope the analysis (e.g. "src/auth").',
+        },
         threshold: { type: 'number', description: 'Coverage threshold percentage (default 80).' },
       },
     },
     handler: async (input) => {
       try {
         const rawPath = typeof input.path === 'string' ? input.path.slice(0, 512) : '';
-        const result = await coverageRoute(
-          rawPath,
-          { threshold: (input.threshold as number) ?? 80 }
-        );
+        const result = await coverageRoute(rawPath, {
+          threshold: (input.threshold as number) ?? 80,
+        });
         if (!result.found) {
-          return text('No coverage report found. Run your test suite with coverage enabled (e.g. `vitest run --coverage`), then retry.');
+          return text(
+            'No coverage report found. Run your test suite with coverage enabled (e.g. `vitest run --coverage`), then retry.',
+          );
         }
         return text(result);
       } catch (err) {
-        return errorResult(`coverage_route failed: ${err instanceof Error ? err.message : String(err)}`);
+        return errorResult(
+          `coverage_route failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     },
   },
@@ -82,7 +92,9 @@ export const coverageRouterTools: MCPTool[] = [
         if (!result.found) return text(result.summary);
         return text(result);
       } catch (err) {
-        return errorResult(`coverage_gaps failed: ${err instanceof Error ? err.message : String(err)}`);
+        return errorResult(
+          `coverage_gaps failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     },
   },
@@ -98,7 +110,10 @@ export const coverageRouterTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Path prefix to suggest improvements for (default ".").' },
+        path: {
+          type: 'string',
+          description: 'Path prefix to suggest improvements for (default ".").',
+        },
         threshold: { type: 'number', description: 'Coverage threshold percentage (default 80).' },
         limit: { type: 'number', description: 'Max suggestions to return (default 20).' },
       },
@@ -106,17 +121,22 @@ export const coverageRouterTools: MCPTool[] = [
     handler: async (input) => {
       try {
         const rawPath = typeof input.path === 'string' ? input.path.slice(0, 512) : '.';
-        const rawLimit = typeof input.limit === 'number' ? Math.min(Math.max(1, input.limit), 200) : 20;
-        const result = await coverageSuggest(
-          rawPath,
-          { threshold: (input.threshold as number) ?? 80, limit: rawLimit }
-        );
+        const rawLimit =
+          typeof input.limit === 'number' ? Math.min(Math.max(1, input.limit), 200) : 20;
+        const result = await coverageSuggest(rawPath, {
+          threshold: (input.threshold as number) ?? 80,
+          limit: rawLimit,
+        });
         if (!result.found) {
-          return text('No coverage report found. Run your test suite with coverage enabled, then retry.');
+          return text(
+            'No coverage report found. Run your test suite with coverage enabled, then retry.',
+          );
         }
         return text(result);
       } catch (err) {
-        return errorResult(`coverage_suggest failed: ${err instanceof Error ? err.message : String(err)}`);
+        return errorResult(
+          `coverage_suggest failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     },
   },

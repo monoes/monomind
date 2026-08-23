@@ -47,7 +47,9 @@ export function resolveNpmExtends(
         if (existsSync(path)) {
           try {
             return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
-          } catch { return null; }
+          } catch {
+            return null;
+          }
         }
       }
     }
@@ -67,8 +69,16 @@ export function mergeConfigs(
     if (key === 'extends') continue;
     if (Array.isArray(val) && Array.isArray(result[key])) {
       result[key] = [...(result[key] as unknown[]), ...val];
-    } else if (typeof val === 'object' && val !== null && typeof result[key] === 'object' && result[key] !== null) {
-      result[key] = mergeConfigs(result[key] as Record<string, unknown>, val as Record<string, unknown>);
+    } else if (
+      typeof val === 'object' &&
+      val !== null &&
+      typeof result[key] === 'object' &&
+      result[key] !== null
+    ) {
+      result[key] = mergeConfigs(
+        result[key] as Record<string, unknown>,
+        val as Record<string, unknown>,
+      );
     } else {
       result[key] = val;
     }
@@ -83,11 +93,11 @@ export async function resolveConfigExtends(
   depth = 0,
 ): Promise<Record<string, unknown>> {
   if (depth > 10) return config;
-  const extendsVal = config['extends'];
+  const extendsVal = config.extends;
   if (!extendsVal) return config;
-  const sources = Array.isArray(extendsVal) ? extendsVal as string[] : [extendsVal as string];
+  const sources = Array.isArray(extendsVal) ? (extendsVal as string[]) : [extendsVal as string];
   let resolved = { ...config };
-  delete resolved['extends'];
+  delete resolved.extends;
   for (const src of sources) {
     const parsed = parseExtendsValue(src);
     let base: Record<string, unknown> | null = null;

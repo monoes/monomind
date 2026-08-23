@@ -19,9 +19,10 @@
  * Deliberately generic — not tied to crush/copilot specifically. Any future
  * subprocess runner whose CLI doesn't self-report usage can reuse this.
  */
+
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { createServer as createHttpServer, request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 
 export interface UsageTotals {
@@ -51,24 +52,34 @@ export interface UsageProxyOptions {
  *  chunk's presence/absence clobbering an earlier chunk's value — a body
  *  shape returning always-present-defaulted-to-0 fields made that merge
  *  impossible to do correctly upstream. */
-function extractUsageFromBody(body: unknown, apiStyle: UsageApiStyle): Partial<UsageTotals> | undefined {
+function extractUsageFromBody(
+  body: unknown,
+  apiStyle: UsageApiStyle,
+): Partial<UsageTotals> | undefined {
   if (!body || typeof body !== 'object') return undefined;
   const record = body as Record<string, unknown>;
   const topUsage = record.usage;
-  const nestedMessageUsage = apiStyle === 'anthropic' && record.message && typeof record.message === 'object'
-    ? (record.message as Record<string, unknown>).usage
-    : undefined;
+  const nestedMessageUsage =
+    apiStyle === 'anthropic' && record.message && typeof record.message === 'object'
+      ? (record.message as Record<string, unknown>).usage
+      : undefined;
 
   if (apiStyle === 'anthropic') {
-    const topU = (topUsage && typeof topUsage === 'object') ? topUsage as Record<string, unknown> : undefined;
-    const nestedU = (nestedMessageUsage && typeof nestedMessageUsage === 'object') ? nestedMessageUsage as Record<string, unknown> : undefined;
+    const topU =
+      topUsage && typeof topUsage === 'object' ? (topUsage as Record<string, unknown>) : undefined;
+    const nestedU =
+      nestedMessageUsage && typeof nestedMessageUsage === 'object'
+        ? (nestedMessageUsage as Record<string, unknown>)
+        : undefined;
     if (!topU && !nestedU) return undefined;
     const input = nestedU?.input_tokens ?? topU?.input_tokens;
     const output = topU?.output_tokens ?? nestedU?.output_tokens;
     const result: Partial<UsageTotals> = {};
     if (typeof input === 'number') result.inputTokens = input;
     if (typeof output === 'number') result.outputTokens = output;
-    return (result.inputTokens !== undefined || result.outputTokens !== undefined) ? result : undefined;
+    return result.inputTokens !== undefined || result.outputTokens !== undefined
+      ? result
+      : undefined;
   }
 
   // openai style
@@ -77,7 +88,7 @@ function extractUsageFromBody(body: unknown, apiStyle: UsageApiStyle): Partial<U
   const result: Partial<UsageTotals> = {};
   if (typeof u.prompt_tokens === 'number') result.inputTokens = u.prompt_tokens;
   if (typeof u.completion_tokens === 'number') result.outputTokens = u.completion_tokens;
-  return (result.inputTokens !== undefined || result.outputTokens !== undefined) ? result : undefined;
+  return result.inputTokens !== undefined || result.outputTokens !== undefined ? result : undefined;
 }
 
 /** Merge a newly-seen partial usage reading into an accumulator, per field —
@@ -93,7 +104,10 @@ function mergeUsage(acc: Partial<UsageTotals>, next: Partial<UsageTotals>): void
  *  "last chunk wins" as a whole object — see mergeUsage). Handles both a
  *  single JSON document and `data: {...}\n\n` SSE framing. Exported for unit
  *  testing without spinning up a real server. */
-export function parseUsageFromResponseBody(body: string, apiStyle: UsageApiStyle): UsageTotals | undefined {
+export function parseUsageFromResponseBody(
+  body: string,
+  apiStyle: UsageApiStyle,
+): UsageTotals | undefined {
   const trimmed = body.trim();
   if (!trimmed) return undefined;
   const merged: Partial<UsageTotals> = {};
@@ -113,7 +127,7 @@ export function parseUsageFromResponseBody(body: string, apiStyle: UsageApiStyle
     } catch {
       return undefined;
     }
-    return (merged.inputTokens !== undefined || merged.outputTokens !== undefined)
+    return merged.inputTokens !== undefined || merged.outputTokens !== undefined
       ? { inputTokens: merged.inputTokens ?? 0, outputTokens: merged.outputTokens ?? 0 }
       : undefined;
   }
@@ -131,7 +145,7 @@ export function parseUsageFromResponseBody(body: string, apiStyle: UsageApiStyle
       // ignore malformed SSE chunk — best-effort side-channel
     }
   }
-  return (merged.inputTokens !== undefined || merged.outputTokens !== undefined)
+  return merged.inputTokens !== undefined || merged.outputTokens !== undefined
     ? { inputTokens: merged.inputTokens ?? 0, outputTokens: merged.outputTokens ?? 0 }
     : undefined;
 }
@@ -150,8 +164,8 @@ export class UsageProxyServer {
     if (this.server) return;
     this.server = createHttpServer((req, res) => this.handle(req, res));
     await new Promise<void>((resolve, reject) => {
-      this.server!.once('error', reject);
-      this.server!.listen(0, '127.0.0.1', () => resolve());
+      this.server?.once('error', reject);
+      this.server?.listen(0, '127.0.0.1', () => resolve());
     });
     const addr = this.server.address();
     this.boundPort = typeof addr === 'object' && addr ? addr.port : 0;
@@ -171,13 +185,13 @@ export class UsageProxyServer {
 
   async stop(): Promise<void> {
     if (!this.server) return;
-    await new Promise<void>((resolve) => this.server!.close(() => resolve()));
+    await new Promise<void>((resolve) => this.server?.close(() => resolve()));
     this.server = undefined;
   }
 
   private handle(clientReq: IncomingMessage, clientRes: ServerResponse): void {
     const isHttps = this.upstream.protocol === 'https:';
-    const upstreamPath = (clientReq.url ?? '/');
+    const upstreamPath = clientReq.url ?? '/';
     // Force identity encoding: parseUsageFromResponseBody reads the response
     // body as raw utf8 text. If the CLI's HTTP client sends its own
     // Accept-Encoding and the upstream honors it with a compressed (gzip)
@@ -217,7 +231,13 @@ export class UsageProxyServer {
             // usage extraction is a side-channel — never let it break the proxied response
           }
         });
-        upstreamRes.on('error', () => { try { clientRes.end(); } catch { /* already closed */ } });
+        upstreamRes.on('error', () => {
+          try {
+            clientRes.end();
+          } catch {
+            /* already closed */
+          }
+        });
       },
     );
 
@@ -225,7 +245,9 @@ export class UsageProxyServer {
       try {
         if (!clientRes.headersSent) clientRes.writeHead(502);
         clientRes.end();
-      } catch { /* client already gone */ }
+      } catch {
+        /* client already gone */
+      }
     });
 
     clientReq.pipe(upstreamReq);

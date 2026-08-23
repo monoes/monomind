@@ -10,8 +10,8 @@
  * Runs from root prepublishOnly. Exits non-zero with the exact fix on drift.
  */
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => JSON.parse(readFileSync(join(repoRoot, p), 'utf8'));
@@ -39,11 +39,13 @@ if (!pin) {
 } else if (!pin.startsWith('workspace:')) {
   problems.push(
     `the pin must use the workspace protocol, not a literal version (found "${pin}"). ` +
-    'A literal pin makes pnpm fetch the CLI from npm instead of linking the local package.',
+      'A literal pin makes pnpm fetch the CLI from npm instead of linking the local package.',
   );
 }
 if (root.version !== cli.version) {
-  problems.push(`version mismatch: monomind is ${root.version}, @monoes/monomindcli is ${cli.version}`);
+  problems.push(
+    `version mismatch: monomind is ${root.version}, @monoes/monomindcli is ${cli.version}`,
+  );
 }
 
 // THE FOOTGUN THIS EXISTS TO STOP.
@@ -67,7 +69,7 @@ const viaPnpm = agent.includes('pnpm');
 if (publishing && !viaPnpm && process.env.MONOMIND_ALLOW_NPM_PUBLISH !== '1') {
   problems.push(
     `this package must be published with \`pnpm publish\`, not npm (user agent: ${agent || 'unknown'}). ` +
-    'npm copies "workspace:*" into the tarball verbatim and the published package becomes uninstallable.',
+      'npm copies "workspace:*" into the tarball verbatim and the published package becomes uninstallable.',
   );
 }
 

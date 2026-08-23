@@ -14,7 +14,7 @@
  * Consolidated here so a new secret pattern or a Windows-path fix reaches
  * every caller instead of two of three.
  */
-import { homedir } from 'os';
+import { homedir } from 'node:os';
 
 // Step order matters within `redact()` — see the inline comments below for
 // why (mirrors crash-reporter.ts's original pipeline exactly).
@@ -60,7 +60,7 @@ function stripIPv4(text: string): string {
 function stripEmail(text: string): string {
   return text.replace(
     /\b[A-Za-z0-9._%+-]{1,64}@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.){1,10}[A-Za-z]{2,24}\b/g,
-    '<email>'
+    '<email>',
   );
 }
 
@@ -83,7 +83,7 @@ const SECRET_PATTERNS: RegExp[] = [
   /npm_[a-zA-Z0-9]{36}/g,
   /AKIA[0-9A-Z]{16}/g,
   /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, // JWT
-  /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g,        // user:pass@host connection strings
+  /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^:\s]+:[^@\s]+@[^\s'"]+/g, // user:pass@host connection strings
 ];
 
 function stripSecretPatterns(text: string): string {
@@ -99,18 +99,19 @@ function stripSecretPatterns(text: string): string {
 function collapseAbsolutePaths(text: string): string {
   return text.replace(
     /(?:~\/|(?<![:/>\w])\/(?!\/)|[A-Z]:\\)(?:[^\s'"]*[/\\])([\w.-]+(?::\d+(?::\d+)?)?)/g,
-    '<path>/$1'
+    '<path>/$1',
   );
 }
 
-const KNOWN_CODE_EXTS = /\.(?:js|ts|jsx|tsx|json|md|yaml|yml|html|css|mjs|cjs|toml|xml|txt|log|sql|sh|py|go|rs|rb|java|c|cpp|h|hpp|swift|kt|lock|map)$/i;
+const KNOWN_CODE_EXTS =
+  /\.(?:js|ts|jsx|tsx|json|md|yaml|yml|html|css|mjs|cjs|toml|xml|txt|log|sql|sh|py|go|rs|rb|java|c|cpp|h|hpp|swift|kt|lock|map)$/i;
 
 function stripHostnames(text: string): string {
   let out = text;
   // Contextual: hostnames that follow :// or @ (requires at least one dot).
   out = out.replace(
     /(\/\/|@)([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+)/g,
-    '$1<host>'
+    '$1<host>',
   );
   // Standalone: 3+ dot-separated segments with a TLD-like tail (2-6 alpha
   // chars). Excludes version numbers (v2.9.0, 1.2.3), filenames whose last
@@ -128,17 +129,14 @@ function stripHostnames(text: string): string {
   // any input, so there is nothing to backtrack over. The "last segment
   // must be a short alpha TLD" check moves into the callback instead of the
   // regex, since the regex itself no longer distinguishes middle vs final.
-  out = out.replace(
-    /\b[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9-]*){2,}\b/g,
-    (match) => {
-      if (/^v?\d+(\.\d+)+$/.test(match)) return match;       // version
-      if (KNOWN_CODE_EXTS.test(match)) return match;          // filename
-      if (/^\d+(\.\d+)+$/.test(match)) return match;          // decimal
-      const lastSegment = match.slice(match.lastIndexOf('.') + 1);
-      if (!/^[a-zA-Z]{2,6}$/.test(lastSegment)) return match; // not a TLD-shaped tail
-      return '<host>';
-    }
-  );
+  out = out.replace(/\b[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9-]*){2,}\b/g, (match) => {
+    if (/^v?\d+(\.\d+)+$/.test(match)) return match; // version
+    if (KNOWN_CODE_EXTS.test(match)) return match; // filename
+    if (/^\d+(\.\d+)+$/.test(match)) return match; // decimal
+    const lastSegment = match.slice(match.lastIndexOf('.') + 1);
+    if (!/^[a-zA-Z]{2,6}$/.test(lastSegment)) return match; // not a TLD-shaped tail
+    return '<host>';
+  });
   return out;
 }
 
@@ -151,7 +149,10 @@ function stripIPv6(text: string): string {
   // Compressed :: with leading hex groups: fe80::1, 2001:db8::1.
   // Uses \b (not lookbehind) so hex digits before :: don't block the match.
   // std::vector is safe: 's' is not [0-9a-fA-F].
-  out = out.replace(/\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?\b/g, '<ipv6>');
+  out = out.replace(
+    /\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?\b/g,
+    '<ipv6>',
+  );
   // Compressed :: without leading hex: ::1, ::ffff:10.0.0.1
   out = out.replace(/(?<![:\w])::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?![:\w])/g, '<ipv6>');
   return out;

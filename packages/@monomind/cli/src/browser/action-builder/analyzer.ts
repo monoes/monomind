@@ -1,7 +1,7 @@
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import type { ActionDef } from './types.js';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createClaudeLLMCaller } from '../../routing/llm-caller.js';
+import type { ActionDef } from './types.js';
 
 const SYSTEM_PROMPT = `You are a browser automation expert. Given a DOM snippet and a task description, generate a JSON action definition that automates the task.
 
@@ -48,15 +48,19 @@ export async function analyzeAndBuild(options: {
 
   // Navigate to the URL and wait for load
   await client.send('Page.navigate', { url }, sessionId);
-  await new Promise(r => setTimeout(r, 2500)); // allow page to settle
+  await new Promise((r) => setTimeout(r, 2500)); // allow page to settle
 
   // Capture DOM snapshot — accessibility tree + visible text
-  const domResult = await client.send(
-    'DOM.getDocument', { depth: 3, pierce: true }, sessionId
-  ) as { root: { nodeId: number } };
-  const outerHtml = await client.send(
-    'DOM.getOuterHTML', { nodeId: domResult.root.nodeId }, sessionId
-  ) as { outerHTML: string };
+  const domResult = (await client.send(
+    'DOM.getDocument',
+    { depth: 3, pierce: true },
+    sessionId,
+  )) as { root: { nodeId: number } };
+  const outerHtml = (await client.send(
+    'DOM.getOuterHTML',
+    { nodeId: domResult.root.nodeId },
+    sessionId,
+  )) as { outerHTML: string };
 
   // Strip scripts/styles, keep interactive elements
   const cleanDom = (outerHtml as { outerHTML: string }).outerHTML
@@ -67,7 +71,10 @@ export async function analyzeAndBuild(options: {
 
   // Call Claude via the CLI (reuses Claude Code's auth — no API key needed)
   const caller = createClaudeLLMCaller({ model: 'sonnet' });
-  if (!caller) throw new Error('Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code');
+  if (!caller)
+    throw new Error(
+      'Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code',
+    );
 
   const responseText = await caller(`${SYSTEM_PROMPT}\n\n${buildPrompt(task, cleanDom)}`);
 
@@ -75,7 +82,7 @@ export async function analyzeAndBuild(options: {
 
   // Write to output directory
   await mkdir(outputDir, { recursive: true });
-  const filename = action.id.replace(/[^a-z0-9_-]/gi, '_') + '.json';
+  const filename = `${action.id.replace(/[^a-z0-9_-]/gi, '_')}.json`;
   const outPath = join(outputDir, filename);
   await writeFile(outPath, JSON.stringify(action, null, 2));
 

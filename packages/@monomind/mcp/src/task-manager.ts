@@ -5,19 +5,12 @@
  * Supports: task tracking, progress reporting, cancellation
  */
 
-import { EventEmitter } from 'events';
-import type {
-  MCPTask,
-  TaskState,
-  TaskProgress,
-  TaskResult,
-  MCPError,
-  ILogger,
-} from './types.js';
+import { EventEmitter } from 'node:events';
+import type { ILogger, MCPTask, TaskProgress, TaskResult, TaskState } from './types.js';
 
 export type TaskExecutor<T = unknown> = (
   reportProgress: (progress: TaskProgress) => void,
-  signal: AbortSignal
+  signal: AbortSignal,
 ) => Promise<T>;
 
 export interface TaskManagerOptions {
@@ -43,7 +36,7 @@ export class TaskManager extends EventEmitter {
 
   constructor(
     private readonly logger: ILogger,
-    options: TaskManagerOptions = {}
+    options: TaskManagerOptions = {},
   ) {
     super();
     this.options = {
@@ -90,7 +83,7 @@ export class TaskManager extends EventEmitter {
    */
   private async startTask(taskId: string): Promise<void> {
     const task = this.tasks.get(taskId);
-    if (!task || task.state !== 'pending') {
+    if (task?.state !== 'pending') {
       return;
     }
 
@@ -119,7 +112,7 @@ export class TaskManager extends EventEmitter {
     };
 
     try {
-      const result = await task.executor!(reportProgress, task.abortController.signal);
+      const result = await task.executor?.(reportProgress, task.abortController.signal);
 
       clearTimeout(timeoutId);
 
@@ -264,7 +257,11 @@ export class TaskManager extends EventEmitter {
           reject(new Error(`Task not found: ${taskId}`));
           return true;
         }
-        if (result.state === 'completed' || result.state === 'failed' || result.state === 'cancelled') {
+        if (
+          result.state === 'completed' ||
+          result.state === 'failed' ||
+          result.state === 'cancelled'
+        ) {
           resolve(result);
           return true;
         }
@@ -419,9 +416,6 @@ export class TaskManager extends EventEmitter {
   }
 }
 
-export function createTaskManager(
-  logger: ILogger,
-  options?: TaskManagerOptions
-): TaskManager {
+export function createTaskManager(logger: ILogger, options?: TaskManagerOptions): TaskManager {
   return new TaskManager(logger, options);
 }

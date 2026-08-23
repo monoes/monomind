@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
-import type { MonographNode } from '../types.js';
 import { getNodesByIds, rowToNode } from '../storage/node-store.js';
+import type { MonographNode } from '../types.js';
 
 // ── Risk level ─────────────────────────────────────────────────────────────────
 

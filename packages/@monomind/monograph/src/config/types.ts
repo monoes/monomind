@@ -94,7 +94,8 @@ export interface MonographConfig {
   plugins?: string[];
 }
 
-export interface ResolvedMonographConfig extends Required<Pick<MonographConfig, 'root' | 'entry' | 'production' | 'detection'>> {
+export interface ResolvedMonographConfig
+  extends Required<Pick<MonographConfig, 'root' | 'entry' | 'production' | 'detection'>> {
   project: string | undefined;
   ignore: IgnoreExportRule[];
   overrides: ConfigOverride[];
@@ -137,7 +138,9 @@ export interface ExtendedMonographConfig extends MonographConfig {
   codeowners?: string;
   ignoreDependencies?: string[];
   ignoreExportsUsedInFile?: boolean | { interface?: boolean; typeAlias?: boolean };
-  usedClassMembers?: Array<string | { extends?: string[]; implements?: string[]; members: string[] }>;
+  usedClassMembers?: Array<
+    string | { extends?: string[]; implements?: string[]; members: string[] }
+  >;
   duplicates?: {
     enabled?: boolean;
     mode?: 'strict' | 'mild' | 'weak' | 'semantic';

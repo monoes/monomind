@@ -1,7 +1,7 @@
 // packages/@monomind/cli/src/orgrt/checkpoint.ts
 // Semantic checkpoint state management for org runtime - Pattern 3 implementation
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { randomBytes, createHash } from 'node:crypto';
+
+import { createHash } from 'node:crypto';
 import type { AgentRuntime, RunningOrg } from './daemon.js';
 import { isRecoverableCloseReason } from './mailbox.js';
 
@@ -120,7 +120,9 @@ export function captureCheckpoint(
 export function validateCheckpoint(checkpoint: OrgCheckpoint): boolean {
   if (checkpoint.version !== CHECKPOINT_VERSION) {
     if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
-      console.error(`[checkpoint] version mismatch: file has ${checkpoint.version ?? 'none'}, current is ${CHECKPOINT_VERSION}`);
+      console.error(
+        `[checkpoint] version mismatch: file has ${checkpoint.version ?? 'none'}, current is ${CHECKPOINT_VERSION}`,
+      );
     }
     return false;
   }
@@ -133,10 +135,13 @@ export function validateCheckpoint(checkpoint: OrgCheckpoint): boolean {
  * Check if checkpoint has expired based on TTL
  * Returns true if checkpoint is stale and should not be used
  */
-export function isCheckpointExpired(checkpoint: OrgCheckpoint, ttlMs: number = CHECKPOINT_TTL_MS): boolean {
+export function isCheckpointExpired(
+  checkpoint: OrgCheckpoint,
+  ttlMs: number = CHECKPOINT_TTL_MS,
+): boolean {
   const updated = new Date(checkpoint.updated).getTime();
   const now = Date.now();
-  return (now - updated) > ttlMs;
+  return now - updated > ttlMs;
 }
 
 /**

@@ -2,11 +2,11 @@
  * Graph engineering playbook improvements #2, #3, #4 — type/schema tests.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  OrgHandoffSchema,
-  FailureRoutingSchema,
   type BusEvent,
+  FailureRoutingSchema,
+  OrgHandoffSchema,
 } from '../../packages/@monomind/cli/src/orgrt/types.js';
 
 describe('OrgHandoff — structured handoff protocol (#2)', () => {
@@ -86,8 +86,8 @@ describe('FailureRouting — per-node failure routing config (#3)', () => {
     const f = FailureRoutingSchema.parse({
       retry: { maxAttempts: 3, backoffMs: [1000, 5000, 15000] },
     });
-    expect(f.retry!.maxAttempts).toBe(3);
-    expect(f.retry!.backoffMs).toEqual([1000, 5000, 15000]);
+    expect(f.retry?.maxAttempts).toBe(3);
+    expect(f.retry?.backoffMs).toEqual([1000, 5000, 15000]);
   });
 
   it('accepts a fallback assignee and escalate flag', () => {

@@ -6,19 +6,24 @@
  * session.ts falls back to the default ClaudeAgentRunner (keeping Claude orgs
  * byte-for-byte unchanged), or auto-resolves from provider.kind.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { resolveRunner, resolveRoleRunner } from '../orgrt/daemon.js';
+
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { AntigravityAgentRunner } from '../orgrt/antigravity-runner.js';
+import { CodexAgentRunner } from '../orgrt/codex-runner.js';
+import { resolveRoleRunner, resolveRunner } from '../orgrt/daemon.js';
 import { KimiCodeAgentRunner } from '../orgrt/kimicode-runner.js';
 import { OpencodeAgentRunner } from '../orgrt/opencode-runner.js';
-import { VercelAgentRunner } from '../orgrt/vercel-runner.js';
-import { CodexAgentRunner } from '../orgrt/codex-runner.js';
-import { AntigravityAgentRunner } from '../orgrt/antigravity-runner.js';
-import { OrgDefSchema, RoleSchema, ProviderSchema } from '../orgrt/types.js';
+import {
+  lookupConfiguredProvider,
+  resolveProviderEnv,
+  resolveRoleProvider,
+} from '../orgrt/provider.js';
 import { resolveModel } from '../orgrt/session.js';
-import { resolveProviderEnv, resolveRoleProvider, lookupConfiguredProvider } from '../orgrt/provider.js';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import { OrgDefSchema, ProviderSchema, RoleSchema } from '../orgrt/types.js';
+import { VercelAgentRunner } from '../orgrt/vercel-runner.js';
 
 describe('resolveRunner', () => {
   let saved: string | undefined;
@@ -202,8 +207,12 @@ describe('resolveRunner (Vercel + Codex + Antigravity)', () => {
 
 describe('resolveRoleRunner (auto-resolution from provider kind)', () => {
   it('role provider kind beats org provider kind', () => {
-    expect(resolveRoleRunner(undefined, undefined, 'codex', 'vercel-api-key')).toBeInstanceOf(CodexAgentRunner);
-    expect(resolveRoleRunner(undefined, undefined, 'vercel-api-key', 'codex')).toBeInstanceOf(VercelAgentRunner);
+    expect(resolveRoleRunner(undefined, undefined, 'codex', 'vercel-api-key')).toBeInstanceOf(
+      CodexAgentRunner,
+    );
+    expect(resolveRoleRunner(undefined, undefined, 'vercel-api-key', 'codex')).toBeInstanceOf(
+      VercelAgentRunner,
+    );
   });
 
   it('explicit role runtime beats provider kind auto-resolution', () => {
@@ -268,21 +277,29 @@ describe('OrgDefSchema (new runtime values)', () => {
   });
 
   it('RoleSchema accepts runtime: vercel', () => {
-    expect(RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'vercel' }).runtime).toBe('vercel');
+    expect(RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'vercel' }).runtime).toBe(
+      'vercel',
+    );
   });
 
   it('RoleSchema accepts runtime: codex', () => {
-    expect(RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'codex' }).runtime).toBe('codex');
+    expect(RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'codex' }).runtime).toBe(
+      'codex',
+    );
   });
 
   it('RoleSchema accepts runtime: antigravity', () => {
-    expect(RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'antigravity' }).runtime).toBe('antigravity');
+    expect(
+      RoleSchema.parse({ id: 'dev', reports_to: 'boss', runtime: 'antigravity' }).runtime,
+    ).toBe('antigravity');
   });
 });
 
 describe('resolveModel (vendor/runtime defaults)', () => {
   it('explicit model always wins', () => {
-    expect(resolveModel({ adapter_config: { model: 'custom-x' } } as any, 'vercel', 'glm')).toBe('custom-x');
+    expect(resolveModel({ adapter_config: { model: 'custom-x' } } as any, 'vercel', 'glm')).toBe(
+      'custom-x',
+    );
   });
 
   it('falls back to vendor default', () => {
@@ -296,7 +313,9 @@ describe('resolveModel (vendor/runtime defaults)', () => {
     expect(resolveModel({ adapter_config: {} } as any, 'kimicode')).toBe('kimi-code/k3');
     expect(resolveModel({ adapter_config: {} } as any, 'opencode')).toBe('glm-5.2');
     expect(resolveModel({ adapter_config: {} } as any, 'codex')).toBe('gpt-5.6-terra');
-    expect(resolveModel({ adapter_config: {} } as any, 'antigravity')).toBe('gemini-3.6-flash-high');
+    expect(resolveModel({ adapter_config: {} } as any, 'antigravity')).toBe(
+      'gemini-3.6-flash-high',
+    );
     expect(resolveModel({ adapter_config: {} } as any, 'vercel')).toBe('gpt-5.5');
   });
 
@@ -316,7 +335,12 @@ describe('named providers (adapter_config.provider)', () => {
       JSON.stringify({
         agents: {
           providers: [
-            { name: 'zhipu', apiKey: 'zk-123', model: 'glm-5.3', baseUrl: 'https://api.z.ai/api/anthropic' },
+            {
+              name: 'zhipu',
+              apiKey: 'zk-123',
+              model: 'glm-5.3',
+              baseUrl: 'https://api.z.ai/api/anthropic',
+            },
             { name: 'keyonly', apiKey: 'sk-456' },
             { name: 'empty', enabled: true },
           ],
@@ -330,23 +354,32 @@ describe('named providers (adapter_config.provider)', () => {
   });
 
   it('RoleSchema preserves adapter_config.provider (no silent strip)', () => {
-    const r = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'zhipu', model: 'glm-5.3' } });
+    const r = RoleSchema.parse({
+      id: 'dev',
+      reports_to: 'boss',
+      adapter_config: { provider: 'zhipu', model: 'glm-5.3' },
+    });
     expect(r.adapter_config?.provider).toBe('zhipu');
   });
 
   it('ProviderSchema accepts direct apiKey/authToken values', () => {
-    expect(() => ProviderSchema.parse({ kind: 'base-url', baseUrl: 'https://x', authToken: 'tok' })).not.toThrow();
+    expect(() =>
+      ProviderSchema.parse({ kind: 'base-url', baseUrl: 'https://x', authToken: 'tok' }),
+    ).not.toThrow();
     expect(() => ProviderSchema.parse({ kind: 'api-key', apiKey: 'k' })).not.toThrow();
   });
 
   it('lookupConfiguredProvider finds the entry case-insensitively', () => {
-    expect(lookupConfiguredProvider('Zhipu', fixtureDir)?.baseUrl).toBe('https://api.z.ai/api/anthropic');
+    expect(lookupConfiguredProvider('Zhipu', fixtureDir)?.baseUrl).toBe(
+      'https://api.z.ai/api/anthropic',
+    );
     expect(lookupConfiguredProvider('nope', fixtureDir)).toBeUndefined();
   });
 
   it('resolveRoleProvider: explicit role.provider wins over the named provider', () => {
     const role = RoleSchema.parse({
-      id: 'dev', reports_to: 'boss',
+      id: 'dev',
+      reports_to: 'boss',
       provider: { kind: 'subscription' },
       adapter_config: { provider: 'zhipu' },
     });
@@ -354,25 +387,52 @@ describe('named providers (adapter_config.provider)', () => {
   });
 
   it('resolveRoleProvider: named provider with baseUrl+apiKey becomes base-url with direct token and default model', () => {
-    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'zhipu' } });
+    const role = RoleSchema.parse({
+      id: 'dev',
+      reports_to: 'boss',
+      adapter_config: { provider: 'zhipu' },
+    });
     const { cfg, defaultModel } = resolveRoleProvider(role, fixtureDir);
-    expect(cfg).toEqual({ kind: 'base-url', baseUrl: 'https://api.z.ai/api/anthropic', authToken: 'zk-123' });
+    expect(cfg).toEqual({
+      kind: 'base-url',
+      baseUrl: 'https://api.z.ai/api/anthropic',
+      authToken: 'zk-123',
+    });
     expect(defaultModel).toBe('glm-5.3');
   });
 
   it('resolveRoleProvider: apiKey-only entry becomes api-key kind', () => {
-    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'keyonly' } });
-    expect(resolveRoleProvider(role, fixtureDir).cfg).toEqual({ kind: 'api-key', apiKey: 'sk-456' });
+    const role = RoleSchema.parse({
+      id: 'dev',
+      reports_to: 'boss',
+      adapter_config: { provider: 'keyonly' },
+    });
+    expect(resolveRoleProvider(role, fixtureDir).cfg).toEqual({
+      kind: 'api-key',
+      apiKey: 'sk-456',
+    });
   });
 
   it('resolveRoleProvider: unknown name throws an actionable error', () => {
-    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'ghost' } });
-    expect(() => resolveRoleProvider(role, fixtureDir)).toThrow(/monomind providers configure -p ghost/);
+    const role = RoleSchema.parse({
+      id: 'dev',
+      reports_to: 'boss',
+      adapter_config: { provider: 'ghost' },
+    });
+    expect(() => resolveRoleProvider(role, fixtureDir)).toThrow(
+      /monomind providers configure -p ghost/,
+    );
   });
 
   it('resolveRoleProvider: entry without key or endpoint throws', () => {
-    const role = RoleSchema.parse({ id: 'dev', reports_to: 'boss', adapter_config: { provider: 'empty' } });
-    expect(() => resolveRoleProvider(role, fixtureDir)).toThrow(/neither an API key nor an endpoint/);
+    const role = RoleSchema.parse({
+      id: 'dev',
+      reports_to: 'boss',
+      adapter_config: { provider: 'empty' },
+    });
+    expect(() => resolveRoleProvider(role, fixtureDir)).toThrow(
+      /neither an API key nor an endpoint/,
+    );
   });
 
   it('resolveProviderEnv: base-url with direct authToken sets BASE_URL/AUTH_TOKEN and strips the API key', () => {

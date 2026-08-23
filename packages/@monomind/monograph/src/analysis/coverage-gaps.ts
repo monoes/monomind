@@ -3,9 +3,9 @@ import type { MonographDb } from '../storage/db.js';
 export interface UntestedFile {
   nodeId: string;
   filePath: string;
-  reachabilityRole: string;   // 'runtime'
-  inDegree: number;           // from runtime files
-  reason: string;             // e.g. 'No test imports this file'
+  reachabilityRole: string; // 'runtime'
+  inDegree: number; // from runtime files
+  reason: string; // e.g. 'No test imports this file'
 }
 
 export interface UntestedExport {
@@ -13,13 +13,13 @@ export interface UntestedExport {
   name: string;
   filePath: string | null;
   startLine: number | null;
-  exportType: string;   // label
+  exportType: string; // label
 }
 
 export interface CoverageGapsResult {
   untestedFiles: UntestedFile[];
   untestedExports: UntestedExport[];
-  fileCoveragePct: number;     // (runtime files reachable by tests) / (total runtime files) * 100
+  fileCoveragePct: number; // (runtime files reachable by tests) / (total runtime files) * 100
   exportCoveragePct: number;
   summary: string;
 }
@@ -42,34 +42,35 @@ interface ExportRow {
   label: string;
 }
 
-interface InDegreeRow {
-  target_id: string;
-  cnt: number;
-}
-
 export function computeCoverageGaps(db: MonographDb): CoverageGapsResult {
   // Runtime-reachable files
-  const runtimeFiles = db.prepare(
-    `SELECT id, file_path FROM nodes
+  const runtimeFiles = db
+    .prepare(
+      `SELECT id, file_path FROM nodes
      WHERE label = 'File'
-       AND json_extract(properties, '$.reachabilityRole') = 'runtime'`
-  ).all() as FileRow[];
+       AND json_extract(properties, '$.reachabilityRole') = 'runtime'`,
+    )
+    .all() as FileRow[];
 
   // Test entry points
-  const testFiles = db.prepare(
-    `SELECT id, file_path FROM nodes
+  const testFiles = db
+    .prepare(
+      `SELECT id, file_path FROM nodes
      WHERE label = 'File'
-       AND json_extract(properties, '$.reachabilityRole') = 'test'`
-  ).all() as FileRow[];
+       AND json_extract(properties, '$.reachabilityRole') = 'test'`,
+    )
+    .all() as FileRow[];
 
   // All IMPORTS edges between files for BFS
-  const allImportEdges = db.prepare(
-    `SELECT e.source_id, e.target_id
+  const allImportEdges = db
+    .prepare(
+      `SELECT e.source_id, e.target_id
      FROM edges e
      WHERE e.relation IN ('IMPORTS', 'RE_EXPORTS')
        AND e.source_id IN (SELECT id FROM nodes WHERE label = 'File')
-       AND e.target_id IN (SELECT id FROM nodes WHERE label = 'File')`
-  ).all() as ImportEdgeRow[];
+       AND e.target_id IN (SELECT id FROM nodes WHERE label = 'File')`,
+    )
+    .all() as ImportEdgeRow[];
 
   // Build forward adjacency for BFS
   const forwardAdj = new Map<string, string[]>();
@@ -106,7 +107,7 @@ export function computeCoverageGaps(db: MonographDb): CoverageGapsResult {
 
   // Compute in-degree from runtime files only (not test files) so fan-in reflects
   // real dependency weight, not test coverage depth.
-  const runtimeFileIdSet = new Set(runtimeFiles.map(rf => rf.id));
+  const runtimeFileIdSet = new Set(runtimeFiles.map((rf) => rf.id));
   const inDegreeMap = new Map<string, number>();
   for (const edge of allImportEdges) {
     if (!runtimeFileIdSet.has(edge.source_id)) continue;
@@ -129,15 +130,17 @@ export function computeCoverageGaps(db: MonographDb): CoverageGapsResult {
   }
 
   // All exported symbols
-  const allExportedRows = db.prepare(
-    `SELECT n.id, n.name, n.file_path, n.start_line, n.label
+  const allExportedRows = db
+    .prepare(
+      `SELECT n.id, n.name, n.file_path, n.start_line, n.label
      FROM nodes n
      WHERE n.is_exported = 1
-       AND n.label IN ('Function','Class','Method','Interface','Const','TypeAlias','Enum','Variable')`
-  ).all() as ExportRow[];
+       AND n.label IN ('Function','Class','Method','Interface','Const','TypeAlias','Enum','Variable')`,
+    )
+    .all() as ExportRow[];
 
   // Runtime file IDs set for quick lookup
-  const runtimeFileIds = new Set(runtimeFiles.map(rf => rf.id));
+  const _runtimeFileIds = new Set(runtimeFiles.map((rf) => rf.id));
 
   // Map file_path -> file node id for runtime files
   const runtimeFilePathToId = new Map<string, string>();
@@ -177,15 +180,13 @@ export function computeCoverageGaps(db: MonographDb): CoverageGapsResult {
   }
 
   const totalRuntimeFiles = runtimeFiles.length;
-  const testedRuntimeFiles = runtimeFiles.filter(rf => testReachable.has(rf.id)).length;
+  const testedRuntimeFiles = runtimeFiles.filter((rf) => testReachable.has(rf.id)).length;
 
-  const fileCoveragePct = totalRuntimeFiles > 0
-    ? (testedRuntimeFiles / totalRuntimeFiles) * 100
-    : 100;
+  const fileCoveragePct =
+    totalRuntimeFiles > 0 ? (testedRuntimeFiles / totalRuntimeFiles) * 100 : 100;
 
-  const exportCoveragePct = totalRuntimeExports > 0
-    ? (testedRuntimeExports / totalRuntimeExports) * 100
-    : 100;
+  const exportCoveragePct =
+    totalRuntimeExports > 0 ? (testedRuntimeExports / totalRuntimeExports) * 100 : 100;
 
   const summary = [
     `${testedRuntimeFiles}/${totalRuntimeFiles} runtime files reachable by tests`,
@@ -213,7 +214,9 @@ export function formatCoverageGaps(result: CoverageGapsResult, topN = 20): strin
     // Sort untested files by inDegree descending — highest-impact first
     const sorted = [...result.untestedFiles].sort((a, b) => b.inDegree - a.inDegree);
     const shown = sorted.slice(0, topN);
-    lines.push(`Top untested files by import-count (${shown.length}/${result.untestedFiles.length} shown):`);
+    lines.push(
+      `Top untested files by import-count (${shown.length}/${result.untestedFiles.length} shown):`,
+    );
     for (const f of shown) {
       lines.push(`  ${f.filePath}  in-degree:${f.inDegree}`);
     }
@@ -226,7 +229,10 @@ export function formatCoverageGaps(result: CoverageGapsResult, topN = 20): strin
     for (const exp of result.untestedExports) {
       const key = exp.filePath ?? '(unknown)';
       let group = byFile.get(key);
-      if (!group) { group = []; byFile.set(key, group); }
+      if (!group) {
+        group = [];
+        byFile.set(key, group);
+      }
       group.push(exp);
     }
 
@@ -241,6 +247,8 @@ export function formatCoverageGaps(result: CoverageGapsResult, topN = 20): strin
     lines.push('');
   }
 
-  lines.push('Fix: add tests importing the untested files, or mark files as non-runtime if they are build artifacts.');
+  lines.push(
+    'Fix: add tests importing the untested files, or mark files as non-runtime if they are build artifacts.',
+  );
   return lines.join('\n').trimEnd();
 }

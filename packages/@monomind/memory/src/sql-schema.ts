@@ -113,9 +113,7 @@ export function enforceNamespaceKeyUnique(driver: SqlDriver): void {
   } catch {
     // Very old SQLite builds lack window functions. Keep the plain index rather
     // than failing initialization — duplicate accumulation is the lesser evil.
-    driver.exec(
-      'CREATE INDEX IF NOT EXISTS idx_namespace_key ON memory_entries(namespace, key)',
-    );
+    driver.exec('CREATE INDEX IF NOT EXISTS idx_namespace_key ON memory_entries(namespace, key)');
   }
 }
 
@@ -168,15 +166,17 @@ export function migrateLegacyInlineEmbeddings(driver: SqlDriver): MigrationRepor
 
     for (const row of rows) {
       const id = String(row.id);
-      const existing = driver.get('SELECT entry_id FROM memory_embeddings WHERE entry_id = ?', [id]);
+      const existing = driver.get('SELECT entry_id FROM memory_embeddings WHERE entry_id = ?', [
+        id,
+      ]);
       if (existing) {
         report.skipped++;
         continue;
       }
-      driver.run(
-        'INSERT OR IGNORE INTO memory_embeddings (entry_id, embedding) VALUES (?, ?)',
-        [id, row.embedding as Uint8Array],
-      );
+      driver.run('INSERT OR IGNORE INTO memory_embeddings (entry_id, embedding) VALUES (?, ?)', [
+        id,
+        row.embedding as Uint8Array,
+      ]);
       report.migrated++;
     }
   });
@@ -263,7 +263,11 @@ export function createFTS5Index(driver: SqlDriver): boolean {
   } catch {
     // Trigger or populate failed — drop the half-built FTS table so the next
     // init attempt gets a clean retry rather than a corrupt partial index.
-    try { driver.exec('DROP TABLE IF EXISTS memory_entries_fts'); } catch { /* ignore */ }
+    try {
+      driver.exec('DROP TABLE IF EXISTS memory_entries_fts');
+    } catch {
+      /* ignore */
+    }
     return false;
   }
 }

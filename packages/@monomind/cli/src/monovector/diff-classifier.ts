@@ -2,7 +2,7 @@
  * Diff Classifier for Change Analysis
  */
 
-import { execFileSync, execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as monograph from '@monoes/monograph';
 
@@ -78,8 +78,17 @@ const CLASSIFICATION_PATTERNS: Record<string, RegExp[]> = {
 };
 
 const IMPACT_KEYWORDS: Record<string, number> = {
-  security: 3, auth: 3, payment: 3, database: 2, api: 2, core: 2,
-  util: 1, helper: 1, test: 0, mock: 0, fixture: 0,
+  security: 3,
+  auth: 3,
+  payment: 3,
+  database: 2,
+  api: 2,
+  core: 2,
+  util: 1,
+  helper: 1,
+  test: 0,
+  mock: 0,
+  fixture: 0,
 };
 
 export class DiffClassifier {
@@ -103,8 +112,14 @@ export class DiffClassifier {
       if (!pathMatch) continue;
       const path = pathMatch[2];
       const hunks = this.parseHunks(block);
-      const additions = hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type === 'add').length, 0);
-      const deletions = hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type === 'remove').length, 0);
+      const additions = hunks.reduce(
+        (sum, h) => sum + h.changes.filter((c) => c.type === 'add').length,
+        0,
+      );
+      const deletions = hunks.reduce(
+        (sum, h) => sum + h.changes.filter((c) => c.type === 'remove').length,
+        0,
+      );
       const classification = this.classifyFile(path, hunks);
       files.push({ path, hunks, additions, deletions, classification });
     }
@@ -117,7 +132,10 @@ export class DiffClassifier {
       totalAdditions: files.reduce((sum, f) => sum + f.additions, 0),
       totalDeletions: files.reduce((sum, f) => sum + f.deletions, 0),
       filesChanged: files.length,
-      avgConfidence: files.length > 0 ? files.reduce((sum, f) => sum + f.classification.confidence, 0) / files.length : 0,
+      avgConfidence:
+        files.length > 0
+          ? files.reduce((sum, f) => sum + f.classification.confidence, 0) / files.length
+          : 0,
     };
     return { files, overall, stats, timestamp: Date.now() };
   }
@@ -136,11 +154,15 @@ export class DiffClassifier {
     return { cacheSize: this.classificationCache.size };
   }
 
-  clearCache(): void { this.classificationCache.clear(); }
+  clearCache(): void {
+    this.classificationCache.clear();
+  }
 
   private parseHunks(block: string): DiffHunk[] {
     const hunks: DiffHunk[] = [];
-    const hunkMatches = block.matchAll(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@([^\n]*)\n([\s\S]*?)(?=@@|$)/g);
+    const hunkMatches = block.matchAll(
+      /@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@([^\n]*)\n([\s\S]*?)(?=@@|$)/g,
+    );
     for (const match of hunkMatches) {
       const oldStart = parseInt(match[1], 10);
       const oldLines = parseInt(match[2] || '1', 10);
@@ -158,9 +180,15 @@ export class DiffClassifier {
     const lines = content.split('\n');
     let lineNumber = startLine;
     for (const line of lines) {
-      if (line.startsWith('+')) { changes.push({ type: 'add', lineNumber, content: line.substring(1) }); lineNumber++; }
-      else if (line.startsWith('-')) { changes.push({ type: 'remove', lineNumber: -1, content: line.substring(1) }); }
-      else if (line.startsWith(' ') || line === '') { changes.push({ type: 'context', lineNumber, content: line.substring(1) || '' }); lineNumber++; }
+      if (line.startsWith('+')) {
+        changes.push({ type: 'add', lineNumber, content: line.substring(1) });
+        lineNumber++;
+      } else if (line.startsWith('-')) {
+        changes.push({ type: 'remove', lineNumber: -1, content: line.substring(1) });
+      } else if (line.startsWith(' ') || line === '') {
+        changes.push({ type: 'context', lineNumber, content: line.substring(1) || '' });
+        lineNumber++;
+      }
     }
     return changes;
   }
@@ -176,7 +204,15 @@ export class DiffClassifier {
     const suggestedReviewers = this.suggestReviewers(path, primary, impactLevel);
     const testingStrategy = this.determineTestingStrategy(path, primary, impactLevel);
     const riskFactors = this.identifyRiskFactors(path, hunks, impactLevel);
-    const classification: DiffClassification = { primary, secondary, confidence, impactLevel, suggestedReviewers, testingStrategy, riskFactors };
+    const classification: DiffClassification = {
+      primary,
+      secondary,
+      confidence,
+      impactLevel,
+      suggestedReviewers,
+      testingStrategy,
+      riskFactors,
+    };
     if (this.classificationCache.size >= DiffClassifier.MAX_CLASSIFICATION_CACHE) {
       const oldest = this.classificationCache.keys().next().value;
       if (oldest !== undefined) this.classificationCache.delete(oldest);
@@ -186,40 +222,78 @@ export class DiffClassifier {
   }
 
   private getCacheKey(path: string, hunks: DiffHunk[]): string {
-    const hunkSummary = hunks.map(h => h.oldStart + ':' + h.newStart).join(',');
-    return path + ':' + hunkSummary;
+    const hunkSummary = hunks.map((h) => `${h.oldStart}:${h.newStart}`).join(',');
+    return `${path}:${hunkSummary}`;
   }
 
-  private determinePrimaryClassification(path: string, hunks: DiffHunk[]): DiffClassification['primary'] {
+  private determinePrimaryClassification(
+    path: string,
+    hunks: DiffHunk[],
+  ): DiffClassification['primary'] {
     for (const [type, patterns] of Object.entries(CLASSIFICATION_PATTERNS)) {
-      for (const pattern of patterns) { if (pattern.test(path)) return type as DiffClassification['primary']; }
+      for (const pattern of patterns) {
+        if (pattern.test(path)) return type as DiffClassification['primary'];
+      }
     }
-    const allContent = hunks.flatMap(h => h.changes.map(c => c.content)).join('\n').toLowerCase();
-    if (/function|class|interface|type\s+\w+/.test(allContent) && hunks.some(h => h.changes.filter(c => c.type === 'add').length > 10)) return 'feature';
+    const allContent = hunks
+      .flatMap((h) => h.changes.map((c) => c.content))
+      .join('\n')
+      .toLowerCase();
+    if (
+      /function|class|interface|type\s+\w+/.test(allContent) &&
+      hunks.some((h) => h.changes.filter((c) => c.type === 'add').length > 10)
+    )
+      return 'feature';
     if (/fix|bug|issue|error|exception/.test(allContent)) return 'bugfix';
     if (this.config.detectRefactoring && this.isRefactoring(hunks)) return 'refactor';
     return 'unknown';
   }
 
   private isRefactoring(hunks: DiffHunk[]): boolean {
-    let totalAdds = 0, totalRemoves = 0;
-    for (const hunk of hunks) { for (const change of hunk.changes) { if (change.type === 'add') totalAdds++; else if (change.type === 'remove') totalRemoves++; } }
+    let totalAdds = 0,
+      totalRemoves = 0;
+    for (const hunk of hunks) {
+      for (const change of hunk.changes) {
+        if (change.type === 'add') totalAdds++;
+        else if (change.type === 'remove') totalRemoves++;
+      }
+    }
     const ratio = totalAdds > 0 ? totalRemoves / totalAdds : 0;
     return ratio > 0.7 && ratio < 1.4 && totalAdds > 5;
   }
 
-  private determineSecondaryClassifications(path: string, hunks: DiffHunk[], primary: DiffClassification['primary']): string[] {
+  private determineSecondaryClassifications(
+    path: string,
+    _hunks: DiffHunk[],
+    primary: DiffClassification['primary'],
+  ): string[] {
     const secondary: string[] = [];
     for (const [type, patterns] of Object.entries(CLASSIFICATION_PATTERNS)) {
       if (type === primary) continue;
-      for (const pattern of patterns) { if (pattern.test(path)) { secondary.push(type); break; } }
+      for (const pattern of patterns) {
+        if (pattern.test(path)) {
+          secondary.push(type);
+          break;
+        }
+      }
     }
     return secondary.slice(0, 3);
   }
 
-  private calculateConfidence(path: string, hunks: DiffHunk[], primary: DiffClassification['primary']): number {
+  private calculateConfidence(
+    path: string,
+    hunks: DiffHunk[],
+    primary: DiffClassification['primary'],
+  ): number {
     let confidence = 0.5;
-    for (const patterns of Object.values(CLASSIFICATION_PATTERNS)) { for (const pattern of patterns) { if (pattern.test(path)) { confidence += 0.2; break; } } }
+    for (const patterns of Object.values(CLASSIFICATION_PATTERNS)) {
+      for (const pattern of patterns) {
+        if (pattern.test(path)) {
+          confidence += 0.2;
+          break;
+        }
+      }
+    }
     const totalChanges = hunks.reduce((sum, h) => sum + h.changes.length, 0);
     if (totalChanges > 10) confidence += 0.1;
     if (totalChanges > 50) confidence += 0.1;
@@ -230,8 +304,13 @@ export class DiffClassifier {
   private determineImpactLevel(path: string, hunks: DiffHunk[]): DiffClassification['impactLevel'] {
     let score = 0;
     const lowerPath = path.toLowerCase();
-    for (const [keyword, weight] of Object.entries(IMPACT_KEYWORDS)) { if (lowerPath.includes(keyword)) score = Math.max(score, weight); }
-    const totalChanges = hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type !== 'context').length, 0);
+    for (const [keyword, weight] of Object.entries(IMPACT_KEYWORDS)) {
+      if (lowerPath.includes(keyword)) score = Math.max(score, weight);
+    }
+    const totalChanges = hunks.reduce(
+      (sum, h) => sum + h.changes.filter((c) => c.type !== 'context').length,
+      0,
+    );
     if (totalChanges > 100) score = Math.max(score, 2);
     if (totalChanges > 300) score = Math.max(score, 3);
     if (score >= 3) return 'critical';
@@ -240,9 +319,22 @@ export class DiffClassifier {
     return 'low';
   }
 
-  private suggestReviewers(path: string, primary: DiffClassification['primary'], impact: DiffClassification['impactLevel']): string[] {
+  private suggestReviewers(
+    path: string,
+    primary: DiffClassification['primary'],
+    impact: DiffClassification['impactLevel'],
+  ): string[] {
     const reviewers: string[] = [];
-    const typeReviewers: Record<string, string[]> = { feature: ['tech-lead', 'product-owner'], bugfix: ['qa-engineer', 'developer'], refactor: ['senior-developer', 'architect'], docs: ['tech-writer', 'developer'], test: ['qa-engineer', 'developer'], config: ['devops', 'tech-lead'], style: ['developer'], unknown: ['developer'] };
+    const typeReviewers: Record<string, string[]> = {
+      feature: ['tech-lead', 'product-owner'],
+      bugfix: ['qa-engineer', 'developer'],
+      refactor: ['senior-developer', 'architect'],
+      docs: ['tech-writer', 'developer'],
+      test: ['qa-engineer', 'developer'],
+      config: ['devops', 'tech-lead'],
+      style: ['developer'],
+      unknown: ['developer'],
+    };
     reviewers.push(...(typeReviewers[primary] || typeReviewers.unknown));
     if (impact === 'critical' || impact === 'high') reviewers.push('security-reviewer');
     if (/security|auth/.test(path)) reviewers.push('security-team');
@@ -250,17 +342,28 @@ export class DiffClassifier {
     return [...new Set(reviewers)].slice(0, 4);
   }
 
-  private determineTestingStrategy(path: string, primary: DiffClassification['primary'], impact: DiffClassification['impactLevel']): string[] {
+  private determineTestingStrategy(
+    path: string,
+    primary: DiffClassification['primary'],
+    impact: DiffClassification['impactLevel'],
+  ): string[] {
     const strategies: string[] = [];
     if (primary !== 'test') strategies.push('unit-tests');
     if (primary === 'feature') strategies.push('integration-tests');
-    if (impact === 'high' || impact === 'critical') { strategies.push('regression-tests'); strategies.push('e2e-tests'); }
+    if (impact === 'high' || impact === 'critical') {
+      strategies.push('regression-tests');
+      strategies.push('e2e-tests');
+    }
     if (/api|endpoint|route|handler/.test(path)) strategies.push('api-contract-tests');
     if (/security|auth|crypto/.test(path)) strategies.push('security-audit');
     return strategies.slice(0, 5);
   }
 
-  private identifyRiskFactors(path: string, hunks: DiffHunk[], impact: DiffClassification['impactLevel']): string[] {
+  private identifyRiskFactors(
+    path: string,
+    hunks: DiffHunk[],
+    impact: DiffClassification['impactLevel'],
+  ): string[] {
     const risks: string[] = [];
     const totalChanges = hunks.reduce((sum, h) => sum + h.changes.length, 0);
     if (totalChanges > 200) risks.push('Large change set - increased review time needed');
@@ -269,30 +372,74 @@ export class DiffClassifier {
     if (/security|auth/.test(path)) risks.push('Security-sensitive code');
     if (/database|migration/.test(path)) risks.push('Database changes - ensure backup strategy');
     if (/config|env/.test(path)) risks.push('Configuration changes - verify all environments');
-    const allContent = hunks.flatMap(h => h.changes.map(c => c.content)).join('\n');
+    const allContent = hunks.flatMap((h) => h.changes.map((c) => c.content)).join('\n');
     if (/TODO|FIXME|HACK/.test(allContent)) risks.push('Contains TODO/FIXME comments');
     if (/password|secret|key|token/i.test(allContent)) risks.push('Potential secrets in code');
     return risks.slice(0, 5);
   }
 
   private computeOverallClassification(files: FileDiff[]): DiffClassification {
-    if (files.length === 0) return { primary: 'unknown', secondary: [], confidence: 0, impactLevel: 'low', suggestedReviewers: [], testingStrategy: [], riskFactors: [] };
+    if (files.length === 0)
+      return {
+        primary: 'unknown',
+        secondary: [],
+        confidence: 0,
+        impactLevel: 'low',
+        suggestedReviewers: [],
+        testingStrategy: [],
+        riskFactors: [],
+      };
     const primaryCounts: Record<string, number> = {};
-    for (const file of files) { const p = file.classification.primary; primaryCounts[p] = (primaryCounts[p] || 0) + 1; }
+    for (const file of files) {
+      const p = file.classification.primary;
+      primaryCounts[p] = (primaryCounts[p] || 0) + 1;
+    }
     let primary: DiffClassification['primary'] = 'unknown';
     let maxCount = 0;
-    for (const [type, count] of Object.entries(primaryCounts)) { if (count > maxCount) { maxCount = count; primary = type as DiffClassification['primary']; } }
+    for (const [type, count] of Object.entries(primaryCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        primary = type as DiffClassification['primary'];
+      }
+    }
     const secondaryCounts: Record<string, number> = {};
-    for (const file of files) { for (const s of file.classification.secondary) { secondaryCounts[s] = (secondaryCounts[s] || 0) + 1; } }
-    const secondary = Object.entries(secondaryCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([type]) => type);
-    const confidence = files.reduce((sum, f) => sum + f.classification.confidence, 0) / files.length;
+    for (const file of files) {
+      for (const s of file.classification.secondary) {
+        secondaryCounts[s] = (secondaryCounts[s] || 0) + 1;
+      }
+    }
+    const secondary = Object.entries(secondaryCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([type]) => type);
+    const confidence =
+      files.reduce((sum, f) => sum + f.classification.confidence, 0) / files.length;
     const impactOrder: DiffClassification['impactLevel'][] = ['low', 'medium', 'high', 'critical'];
     let impactLevel: DiffClassification['impactLevel'] = 'low';
-    for (const file of files) { if (impactOrder.indexOf(file.classification.impactLevel) > impactOrder.indexOf(impactLevel)) impactLevel = file.classification.impactLevel; }
-    const reviewers = [...new Set(files.flatMap(f => f.classification.suggestedReviewers))].slice(0, 5);
-    const testingStrategy = [...new Set(files.flatMap(f => f.classification.testingStrategy))].slice(0, 5);
-    const riskFactors = [...new Set(files.flatMap(f => f.classification.riskFactors))].slice(0, 5);
-    return { primary, secondary, confidence, impactLevel, suggestedReviewers: reviewers, testingStrategy, riskFactors };
+    for (const file of files) {
+      if (impactOrder.indexOf(file.classification.impactLevel) > impactOrder.indexOf(impactLevel))
+        impactLevel = file.classification.impactLevel;
+    }
+    const reviewers = [...new Set(files.flatMap((f) => f.classification.suggestedReviewers))].slice(
+      0,
+      5,
+    );
+    const testingStrategy = [
+      ...new Set(files.flatMap((f) => f.classification.testingStrategy)),
+    ].slice(0, 5);
+    const riskFactors = [...new Set(files.flatMap((f) => f.classification.riskFactors))].slice(
+      0,
+      5,
+    );
+    return {
+      primary,
+      secondary,
+      confidence,
+      impactLevel,
+      suggestedReviewers: reviewers,
+      testingStrategy,
+      riskFactors,
+    };
   }
 }
 
@@ -373,7 +520,8 @@ function validateGitRef(ref: string): void {
   try {
     monograph.validateGitRef(ref);
   } catch (err) {
-    if (monograph.InvalidGitRefError && err instanceof monograph.InvalidGitRefError) throw new Error(err.message);
+    if (monograph.InvalidGitRefError && err instanceof monograph.InvalidGitRefError)
+      throw new Error(err.message);
     throw err;
   }
 }
@@ -400,15 +548,19 @@ export function getGitDiffNumstat(ref: string = 'HEAD'): DiffFile[] {
     // stdio must be fully piped: execFileSync otherwise forwards git's stderr
     // straight to the parent's terminal AND leaves err.stderr null, so the
     // thrown error below would carry no explanation of what git objected to.
-    const numstatOutput = execFileSync('git', [
-      'diff', '--numstat', '--diff-filter=ACDMRTUXB', ref
-    ], { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+    const numstatOutput = execFileSync(
+      'git',
+      ['diff', '--numstat', '--diff-filter=ACDMRTUXB', ref],
+      { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] },
+    );
 
-    const statusOutput = execFileSync('git', [
-      'diff', '--name-status', ref
-    ], { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+    const statusOutput = execFileSync('git', ['diff', '--name-status', ref], {
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
 
-    const output = numstatOutput + '---STATUS---' + statusOutput;
+    const output = `${numstatOutput}---STATUS---${statusOutput}`;
 
     const [numstatPart, statusPart] = output.split('---STATUS---');
 
@@ -438,10 +590,17 @@ export function getGitDiffNumstat(ref: string = 'HEAD'): DiffFile[] {
         const statusChar = statusMap.get(path) || 'M';
         let status: DiffFile['status'] = 'modified';
         switch (statusChar) {
-          case 'A': status = 'added'; break;
-          case 'D': status = 'deleted'; break;
-          case 'R': status = 'renamed'; break;
-          default: status = 'modified';
+          case 'A':
+            status = 'added';
+            break;
+          case 'D':
+            status = 'deleted';
+            break;
+          case 'R':
+            status = 'renamed';
+            break;
+          default:
+            status = 'modified';
         }
 
         files.push({ path, status, additions, deletions, hunks: 1, binary });
@@ -495,15 +654,17 @@ export async function getGitDiffNumstatAsync(ref: string = 'HEAD'): Promise<Diff
 
   try {
     // SECURITY: Use execFile with args array instead of shell string
-    const { stdout: numstatOutput } = await execFileAsync('git', [
-      'diff', '--numstat', '--diff-filter=ACDMRTUXB', ref
-    ], { maxBuffer: 10 * 1024 * 1024 });
+    const { stdout: numstatOutput } = await execFileAsync(
+      'git',
+      ['diff', '--numstat', '--diff-filter=ACDMRTUXB', ref],
+      { maxBuffer: 10 * 1024 * 1024 },
+    );
 
-    const { stdout: statusOutput } = await execFileAsync('git', [
-      'diff', '--name-status', ref
-    ], { maxBuffer: 10 * 1024 * 1024 });
+    const { stdout: statusOutput } = await execFileAsync('git', ['diff', '--name-status', ref], {
+      maxBuffer: 10 * 1024 * 1024,
+    });
 
-    const stdout = numstatOutput + '---STATUS---' + statusOutput;
+    const stdout = `${numstatOutput}---STATUS---${statusOutput}`;
 
     const [numstatPart, statusPart] = stdout.split('---STATUS---');
 
@@ -531,10 +692,17 @@ export async function getGitDiffNumstatAsync(ref: string = 'HEAD'): Promise<Diff
         const statusChar = statusMap.get(path) || 'M';
         let status: DiffFile['status'] = 'modified';
         switch (statusChar) {
-          case 'A': status = 'added'; break;
-          case 'D': status = 'deleted'; break;
-          case 'R': status = 'renamed'; break;
-          default: status = 'modified';
+          case 'A':
+            status = 'added';
+            break;
+          case 'D':
+            status = 'deleted';
+            break;
+          case 'R':
+            status = 'renamed';
+            break;
+          default:
+            status = 'modified';
         }
 
         files.push({ path, status, additions, deletions, hunks: 1, binary });
@@ -619,7 +787,7 @@ export function assessFileRisk(file: DiffFile): FileRisk {
 /**
  * Assess overall risk from files and file risks
  */
-export function assessOverallRisk(files: DiffFile[], fileRisks: FileRisk[]): OverallRisk {
+export function assessOverallRisk(_files: DiffFile[], fileRisks: FileRisk[]): OverallRisk {
   const breakdown = { low: 0, medium: 0, high: 0, critical: 0 };
   let totalScore = 0;
 
@@ -631,7 +799,7 @@ export function assessOverallRisk(files: DiffFile[], fileRisks: FileRisk[]): Ove
   const avgScore = fileRisks.length > 0 ? totalScore / fileRisks.length : 0;
 
   // Weight more heavily towards high/critical files
-  const weightedScore = avgScore + (breakdown.critical * 15) + (breakdown.high * 10);
+  const weightedScore = avgScore + breakdown.critical * 15 + breakdown.high * 10;
 
   let overall: RiskLevel = 'low';
   if (weightedScore >= 60 || breakdown.critical > 0) overall = 'critical';
@@ -656,15 +824,15 @@ function getClassifier(): DiffClassifier {
  */
 export function classifyDiff(files: DiffFile[]): DiffClassification {
   const classifier = getClassifier();
-  const fileDiffs: FileDiff[] = files.map(f => ({
+  const fileDiffs: FileDiff[] = files.map((f) => ({
     path: f.path,
     hunks: [],
     additions: f.additions,
     deletions: f.deletions,
-    classification: classifier['classifyFile'](f.path, []),
+    classification: classifier.classifyFile(f.path, []),
   }));
 
-  return classifier['computeOverallClassification'](fileDiffs);
+  return classifier.computeOverallClassification(fileDiffs);
 }
 
 /**
@@ -686,7 +854,7 @@ export function suggestReviewers(files: DiffFile[], fileRisks: FileRisk[]): stri
   }
 
   // Add based on risk
-  const hasHighRisk = fileRisks.some(fr => fr.risk === 'high' || fr.risk === 'critical');
+  const hasHighRisk = fileRisks.some((fr) => fr.risk === 'high' || fr.risk === 'critical');
   if (hasHighRisk) {
     reviewers.add('tech-lead');
     reviewers.add('senior-developer');
@@ -729,9 +897,10 @@ export async function analyzeDiff(options: {
   const files = await getGitDiffNumstatAsync(ref);
 
   // Parallel file risk assessment for large diffs
-  const fileRisks = files.length > 20
-    ? await Promise.all(files.map(f => Promise.resolve(assessFileRisk(f))))
-    : files.map(assessFileRisk);
+  const fileRisks =
+    files.length > 20
+      ? await Promise.all(files.map((f) => Promise.resolve(assessFileRisk(f))))
+      : files.map(assessFileRisk);
 
   const risk = assessOverallRisk(files, fileRisks);
   const classification = classifyDiff(files);

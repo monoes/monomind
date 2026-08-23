@@ -7,7 +7,7 @@
  * remains — it backs the `transfer_detect-pii` MCP tool.
  */
 
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 /** Result shape returned by detectPII. */
 export interface PIIDetectionResult {
@@ -39,7 +39,7 @@ const PII_PATTERNS = {
 /**
  * Hash a string for consistent pseudonymization
  */
-function hash(input: string): string {
+function _hash(input: string): string {
   return crypto.createHash('sha256').update(input).digest('hex');
 }
 

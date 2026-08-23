@@ -1,26 +1,39 @@
 // packages/@monomind/cli/src/commands/org.ts
-import { readFileSync, writeFileSync, existsSync, unlinkSync, rmSync, readdirSync, mkdirSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
-import { homedir } from 'node:os';
+
 import { createHash } from 'node:crypto';
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { OrgDaemon } from '../orgrt/daemon.js';
-import { resolveModel } from '../orgrt/session.js';
-import { startOrgServer } from '../orgrt/server.js';
-import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
 import { migrateOrgFile } from '../orgrt/migrate.js';
 import { readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
+import { startOrgServer } from '../orgrt/server.js';
+import { resolveModel } from '../orgrt/session.js';
+import { ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
+import { output } from '../output.js';
 import { MODEL_PRICING } from '../pricing/model-pricing.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
-const log = (text: string): void => { console.log(text); };
+const log = (text: string): void => {
+  console.log(text);
+};
 
 /** Org names are used to build filesystem paths under .monomind/orgs — reject
  * anything that isn't a plain identifier to prevent path traversal (e.g.
  * `monomind org stop '../../../../tmp/x'`). */
 const ORG_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/i;
 
-export function validateOrgName(name: string | undefined): { ok: true; name: string } | { ok: false; result: CommandResult } {
+export function validateOrgName(
+  name: string | undefined,
+): { ok: true; name: string } | { ok: false; result: CommandResult } {
   if (!name) return { ok: false, result: { success: false, message: 'org name required' } };
   if (!ORG_NAME_RE.test(name)) {
     log(output.error(`Invalid org name: ${name}`));
@@ -35,19 +48,40 @@ export function validateOrgName(name: string | undefined): { ok: true; name: str
  * exclude them when discovering real org configs) and deleteAction (which
  * must remove all of them when deleting an org). */
 const ORG_ARTIFACT_SUFFIXES = [
-  '-state', '-goals', '-threads', '-activity', '-approvals', '-members', '-secrets', '-budgets',
-  '-routines', '-issues', '-projects', '-workspaces', '-worktrees', '-environments',
-  '-plugins', '-adapters', '-join-requests', '-bootstrap', '-project-workspaces',
-  '-approval-comments', '-skills',
+  '-state',
+  '-goals',
+  '-threads',
+  '-activity',
+  '-approvals',
+  '-members',
+  '-secrets',
+  '-budgets',
+  '-routines',
+  '-issues',
+  '-projects',
+  '-workspaces',
+  '-worktrees',
+  '-environments',
+  '-plugins',
+  '-adapters',
+  '-join-requests',
+  '-bootstrap',
+  '-project-workspaces',
+  '-approval-comments',
+  '-skills',
 ];
 export function listOrgConfigFiles(orgsDir: string): string[] {
   // endsWith, not includes: substring matching hid legitimate orgs whose NAME
   // merely contains an artifact suffix anywhere (e.g. "state-machine.json",
   // "issues-triage.json") — and anything hidden here is also invisible to
   // run/list/serve while `org delete <sibling>` would still remove its files.
-  return readdirSync(orgsDir)
-    .filter(f => f.endsWith('.json') && !f.startsWith('._') && !f.endsWith('.v1.json')
-      && !ORG_ARTIFACT_SUFFIXES.some(suf => f.endsWith(`${suf}.json`)));
+  return readdirSync(orgsDir).filter(
+    (f) =>
+      f.endsWith('.json') &&
+      !f.startsWith('._') &&
+      !f.endsWith('.v1.json') &&
+      !ORG_ARTIFACT_SUFFIXES.some((suf) => f.endsWith(`${suf}.json`)),
+  );
 }
 
 /** Remove a lingering stopfile so a fresh `org run` doesn't self-terminate. */
@@ -71,7 +105,10 @@ const clearPausefile = (cwd: string, name: string): void => {
  *  post a runfile nobody will ever read. */
 function liveServeDaemonPid(cwd: string): number | null {
   try {
-    const hb = JSON.parse(readFileSync(join(cwd, '.monomind', 'serve-heartbeat.json'), 'utf8')) as { pid?: number; updatedAt?: string };
+    const hb = JSON.parse(readFileSync(join(cwd, '.monomind', 'serve-heartbeat.json'), 'utf8')) as {
+      pid?: number;
+      updatedAt?: string;
+    };
     if (typeof hb.pid !== 'number' || hb.pid === process.pid) return null;
     // Freshness as well as liveness. The daemon beats every 30s, so a stamp
     // older than a few beats means it is gone or wedged — and a pid alone can
@@ -81,11 +118,14 @@ function liveServeDaemonPid(cwd: string): number | null {
     if (!Number.isFinite(age) || age > 3 * 60_000) return null;
     process.kill(hb.pid, 0); // throws if the process is gone
     return hb.pid;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
-  if (!ctx.args[0]) return { success: false, message: 'org name required: monomind org run <name> [--task "..."]' };
+  if (!ctx.args[0])
+    return { success: false, message: 'org name required: monomind org run <name> [--task "..."]' };
   const validated = validateOrgName(ctx.args[0]);
   if (!validated.ok) return validated.result;
   const name = validated.name;
@@ -94,21 +134,30 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // plain `as string` cast would let that array flow straight into the org's
   // goal and get stringified as "a,b" with no warning. Checked before any
   // side effects (starting the xdeliver listener) run.
-  const taskFlag = ctx.flags['task'];
-  if (Array.isArray(taskFlag)) return { success: false, message: '--task was passed more than once — pass it exactly once' };
+  const taskFlag = ctx.flags.task;
+  if (Array.isArray(taskFlag))
+    return { success: false, message: '--task was passed more than once — pass it exactly once' };
   // Fail before any side effects (inbox server) when the org doesn't exist.
   const orgsDir = join(ctx.cwd, ORG_DIR);
   if (!existsSync(join(orgsDir, `${name}.json`))) {
-    const known = existsSync(orgsDir) ? listOrgConfigFiles(orgsDir).map(f => f.replace(/\.json$/, '')) : [];
-    log(output.error(`Org not found: ${name}${known.length ? ` — available: ${known.join(', ')}` : ' — create one with /mastermind:createorg'}`));
+    const known = existsSync(orgsDir)
+      ? listOrgConfigFiles(orgsDir).map((f) => f.replace(/\.json$/, ''))
+      : [];
+    log(
+      output.error(
+        `Org not found: ${name}${known.length ? ` — available: ${known.join(', ')}` : ' — create one with /mastermind:createorg'}`,
+      ),
+    );
     return { success: false, message: 'org not found' };
   }
-  if (ctx.flags['dryRun'] === true) {
+  if (ctx.flags.dryRun === true) {
     // Validate + preview each role's actual briefing without spawning sessions.
     try {
-      const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')));
+      const def = OrgDefSchema.parse(
+        JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')),
+      );
       const { buildRolePrompt } = await import('../orgrt/session.js');
-      const roster = def.roles.map(r => r.id);
+      const roster = def.roles.map((r) => r.id);
       const perRole = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
       // Same KG entity glossary the live daemon injects — the preview must
       // match what sessions actually receive.
@@ -116,12 +165,29 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
         try {
           const kg = await import('../memory/memory-kg.js');
           return await kg.kgGlossary({ dbPath: join(process.cwd(), '.monomind', 'org-memory') });
-        } catch { return []; }
+        } catch {
+          return [];
+        }
       })();
-      log(output.info(`DRY RUN — org ${name}: ${def.roles.length} roles, ${perRole} tokens each, goal: ${taskFlag ?? def.goal}`));
+      log(
+        output.info(
+          `DRY RUN — org ${name}: ${def.roles.length} roles, ${perRole} tokens each, goal: ${taskFlag ?? def.goal}`,
+        ),
+      );
       for (const role of def.roles) {
-        log(output.info(`\n─── ${role.id} (${role.title || role.type})${role.adapter_config?.model ? ` [${role.adapter_config.model}]` : ''} ───`));
-        log(buildRolePrompt(role, { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal }, roster, glossary));
+        log(
+          output.info(
+            `\n─── ${role.id} (${role.title || role.type})${role.adapter_config?.model ? ` [${role.adapter_config.model}]` : ''} ───`,
+          ),
+        );
+        log(
+          buildRolePrompt(
+            role,
+            { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal },
+            roster,
+            glossary,
+          ),
+        );
       }
       return { success: true, message: 'dry run complete — no sessions started' };
     } catch (err) {
@@ -151,35 +217,73 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
     if (existsSync(runfile)) {
       rmSync(runfile, { force: true });
-      log(output.error(`org ${name}: serve daemon (pid ${serveOwner}) did not pick up the run within 15s — it is dead or wedged.`));
-      log(output.info(`Remove the stale heartbeat (.monomind/serve-heartbeat.json) and retry, or start a fresh daemon with: monomind org serve`));
+      log(
+        output.error(
+          `org ${name}: serve daemon (pid ${serveOwner}) did not pick up the run within 15s — it is dead or wedged.`,
+        ),
+      );
+      log(
+        output.info(
+          `Remove the stale heartbeat (.monomind/serve-heartbeat.json) and retry, or start a fresh daemon with: monomind org serve`,
+        ),
+      );
       return { success: false, message: 'serve daemon did not acknowledge the run request' };
     }
-    log(output.info(`org ${name}: start requested from the serve daemon (pid ${serveOwner}) — acknowledged`));
+    log(
+      output.info(
+        `org ${name}: start requested from the serve daemon (pid ${serveOwner}) — acknowledged`,
+      ),
+    );
     log(output.dim(`  watch it with: monomind org logs ${name} --follow`));
     return { success: true, message: 'start requested' };
   }
 
-  const crossProcess = ctx.flags['crossProcess'] !== false;
+  const crossProcess = ctx.flags.crossProcess !== false;
 
   // P1-1: v1 deprecation warning. Detect v1-shaped configs and warn.
   // Gate on MONOMIND_V1_LEGACY=off to refuse v1 orgs entirely (patch-versioning-
   // compliant mechanism — no minor bump needed).
-  const V1_ORG_KEYS = ['topology', 'consensus', 'strategy', 'board_id', 'todo_col_id', 'doing_col_id', 'done_col_id', 'loop'];
+  const V1_ORG_KEYS = [
+    'topology',
+    'consensus',
+    'strategy',
+    'board_id',
+    'todo_col_id',
+    'doing_col_id',
+    'done_col_id',
+    'loop',
+  ];
   try {
-    const rawCfg = JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')) as Record<string, unknown>;
-    const isV1 = V1_ORG_KEYS.some(k => k in rawCfg);
+    const rawCfg = JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    const isV1 = V1_ORG_KEYS.some((k) => k in rawCfg);
     if (isV1) {
       const v1Legacy = process.env.MONOMIND_V1_LEGACY;
       if (v1Legacy === 'off') {
         log(output.error(`Org "${name}" uses the v1 config format, but MONOMIND_V1_LEGACY=off.`));
-        log(output.info(`Run "monomind org migrate ${name}" to upgrade to v2, or unset MONOMIND_V1_LEGACY to proceed anyway.`));
+        log(
+          output.info(
+            `Run "monomind org migrate ${name}" to upgrade to v2, or unset MONOMIND_V1_LEGACY to proceed anyway.`,
+          ),
+        );
         return { success: false, message: 'v1 org blocked by MONOMIND_V1_LEGACY=off' };
       }
-      log(output.warning(`Org "${name}" uses the v1 config format (deprecated). It will be auto-migrated in-memory.`));
-      log(output.dim(`  To silence: run "monomind org migrate ${name}". To block v1 orgs: set MONOMIND_V1_LEGACY=off.`));
+      log(
+        output.warning(
+          `Org "${name}" uses the v1 config format (deprecated). It will be auto-migrated in-memory.`,
+        ),
+      );
+      log(
+        output.dim(
+          `  To silence: run "monomind org migrate ${name}". To block v1 orgs: set MONOMIND_V1_LEGACY=off.`,
+        ),
+      );
     }
-  } catch { /* config parse errors surface below in cost estimate or daemon.startOrg */ }
+  } catch {
+    /* config parse errors surface below in cost estimate or daemon.startOrg */
+  }
 
   // P0-17: Upfront cost estimate. `org run` and `/mastermind:autodev` spend real
   // provider tokens. Print an estimate before sessions start; honor --budget-usd
@@ -202,21 +306,30 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // Models absent from MODEL_PRICING (not yet in the canonical pricing table).
   const EXTRA_MODEL_RATE_PER_1M: Record<string, number> = {
     'gpt-4': 10,
-    'glm-5.2': 2, 'glm-4': 2,
-    'kimi-latest': 3, 'kimi-k2': 3, 'kimi-code/k3': 3, 'kimi-code/k3-256k': 3,
-    'gemini-3.1-pro': 8, 'gemini-3.6-flash-high': 1,
-    'gpt-5.6-terra': 10, 'gpt-5.5': 10,
+    'glm-5.2': 2,
+    'glm-4': 2,
+    'kimi-latest': 3,
+    'kimi-k2': 3,
+    'kimi-code/k3': 3,
+    'kimi-code/k3-256k': 3,
+    'gemini-3.1-pro': 8,
+    'gemini-3.6-flash-high': 1,
+    'gpt-5.6-terra': 10,
+    'gpt-5.5': 10,
   };
-  const MODEL_RATE_PER_1M: Record<string, number> = { ...EXTRA_MODEL_RATE_PER_1M, ...DERIVED_RATE_PER_1M };
+  const MODEL_RATE_PER_1M: Record<string, number> = {
+    ...EXTRA_MODEL_RATE_PER_1M,
+    ...DERIVED_RATE_PER_1M,
+  };
   const DEFAULT_RATE_PER_1M = 10;
   const AVG_TOKENS_PER_TURN = 2000;
-  const budgetUsd = ctx.flags['budgetUsd'] as number | undefined;
-  const skipConfirm = ctx.flags['yes'] === true;
+  const budgetUsd = ctx.flags.budgetUsd as number | undefined;
+  const skipConfirm = ctx.flags.yes === true;
 
   // User-editable rate overrides: ~/.monomind/rates.json, e.g.
   //   { "claude-opus-5": 90, "my-custom-model": 5 }
   const ratesPath = join(homedir(), '.monomind', 'rates.json');
-  let userRates: Record<string, number> = {};
+  const userRates: Record<string, number> = {};
   let ratesFileUsed = false;
   try {
     const parsed = JSON.parse(readFileSync(ratesPath, 'utf8'));
@@ -226,7 +339,9 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       }
       ratesFileUsed = Object.keys(userRates).length > 0;
     }
-  } catch { /* no rates.json (or invalid) — hardcoded defaults only */ }
+  } catch {
+    /* no rates.json (or invalid) — hardcoded defaults only */
+  }
 
   try {
     const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')));
@@ -235,34 +350,51 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // the schema default is effectively unlimited (DEFAULT_MAX_TURNS_PER_MESSAGE),
     // which would balloon the upfront figure into meaninglessness.
     const ESTIMATE_TURNS_CAP = 30;
-    let totalTokens = 0;
+    let _totalTokens = 0;
     const perRoleRows = def.roles.map((r) => {
       // Mirror the actual runtime's model resolution (session.ts resolveModel)
       // instead of a hardcoded 'claude-sonnet-5' fallback — otherwise every
       // role without an explicit adapter_config.model (kimicode, antigravity,
       // vercel roles relying on their runtime default) is mislabeled here.
-      const model = String(r.adapter_config?.model ?? resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor));
+      const model = String(
+        r.adapter_config?.model ?? resolveModel(r, r.runtime ?? def.runtime, r.provider?.vendor),
+      );
       const rate = userRates[model] ?? MODEL_RATE_PER_1M[model] ?? DEFAULT_RATE_PER_1M;
       const roleTurns = Math.min(r.max_turns_per_message ?? defaultMaxTurns, ESTIMATE_TURNS_CAP);
       const tokens = roleTurns * AVG_TOKENS_PER_TURN;
-      totalTokens += tokens;
+      _totalTokens += tokens;
       return { id: r.id, model, tokens, cost: (tokens * rate) / 1_000_000 };
     });
     const estimate = perRoleRows.reduce((s, r) => s + r.cost, 0);
     log(output.bold('\nCost estimate'));
-    log(output.dim(`  (roles × max_turns × ~${AVG_TOKENS_PER_TURN} tokens/turn × model rate; estimated at ≤${ESTIMATE_TURNS_CAP} turns/message — the runtime default is effectively unlimited; ${ratesFileUsed ? `rates.json overrides + ` : ''}static defaults, will vary with real usage)`));
-    log(output.warning(`  ⚠ stale rates: no live provider pricing lookup — ${ratesFileUsed ? `using ~/.monomind/rates.json + ` : ''}hardcoded table (edit ~/.monomind/rates.json to override)`));
+    log(
+      output.dim(
+        `  (roles × max_turns × ~${AVG_TOKENS_PER_TURN} tokens/turn × model rate; estimated at ≤${ESTIMATE_TURNS_CAP} turns/message — the runtime default is effectively unlimited; ${ratesFileUsed ? `rates.json overrides + ` : ''}static defaults, will vary with real usage)`,
+      ),
+    );
+    log(
+      output.warning(
+        `  ⚠ stale rates: no live provider pricing lookup — ${ratesFileUsed ? `using ~/.monomind/rates.json + ` : ''}hardcoded table (edit ~/.monomind/rates.json to override)`,
+      ),
+    );
     for (const r of perRoleRows) {
       log(`    ${r.id.padEnd(20)} ${r.model.padEnd(22)} ~$${r.cost.toFixed(2)}`);
     }
     log(`  ${output.bold('Total estimate:'.padEnd(28))} ~$${estimate.toFixed(2)}`);
     if (budgetUsd != null && estimate > budgetUsd) {
-      log(output.error(`Estimate $${estimate.toFixed(2)} exceeds --budget-usd $${budgetUsd}. Aborting before any tokens are spent.`));
+      log(
+        output.error(
+          `Estimate $${estimate.toFixed(2)} exceeds --budget-usd $${budgetUsd}. Aborting before any tokens are spent.`,
+        ),
+      );
       return { success: false, message: 'cost estimate exceeded --budget-usd' };
     }
     if (!skipConfirm && process.stdin.isTTY) {
       const { confirm } = await import('../prompt.js');
-      const ok = await confirm({ message: `Start ${def.roles.length}-role org? This will spend real provider tokens.`, default: true });
+      const ok = await confirm({
+        message: `Start ${def.roles.length}-role org? This will spend real provider tokens.`,
+        default: true,
+      });
       if (!ok) {
         log(output.dim('Aborted — no tokens spent.'));
         return { success: false, message: 'user declined cost-estimate prompt' };
@@ -272,11 +404,13 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // If the config can't be parsed here, daemon.startOrg below will surface a
     // proper error. Don't double-report — just skip the estimate.
     if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
-      log(output.dim(`(cost estimate skipped: ${err instanceof Error ? err.message : String(err)})`));
+      log(
+        output.dim(`(cost estimate skipped: ${err instanceof Error ? err.message : String(err)})`),
+      );
     }
   }
 
-  const resumeFlag = ctx.flags['resume'] === true;
+  const resumeFlag = ctx.flags.resume === true;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
@@ -289,14 +423,22 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   } catch (err) {
     // Don't leave the inbox server holding the event loop open on a failed start.
     srv?.close();
-    await daemon.stopAll().catch(() => { /* nothing started */ });
+    await daemon.stopAll().catch(() => {
+      /* nothing started */
+    });
     const detail = err instanceof Error ? err.message : String(err);
-    const hint = err instanceof Error && err.name === 'ZodError'
-      ? ` — run "monomind org validate ${name}" for details` : '';
+    const hint =
+      err instanceof Error && err.name === 'ZodError'
+        ? ` — run "monomind org validate ${name}" for details`
+        : '';
     log(output.error(`Could not start org ${name}: ${detail}${hint}`));
     return { success: false, message: 'org start failed' };
   }
-  log(output.info(`org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`));
+  log(
+    output.info(
+      `org ${name} running (${running.def.roles.length} agents, run ${running.run}) — Ctrl-C or "monomind org stop ${name}" to stop`,
+    ),
+  );
 
   // #206 follow-up: without this, an uncaught error in this process left
   // runtime.json's status stuck at 'running' (finishStop never runs), and
@@ -307,13 +449,25 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // already handled by the wait loop below as a graceful stop, and
   // registering a second, competing handler here would race it.
   process.on('uncaughtException', (err) => {
-    try { console.error('[org run] uncaughtException:', err); } catch { /* stderr gone */ }
-    daemon.persistCrashStateAll(`uncaughtException: ${err instanceof Error ? err.message : String(err)}`);
+    try {
+      console.error('[org run] uncaughtException:', err);
+    } catch {
+      /* stderr gone */
+    }
+    daemon.persistCrashStateAll(
+      `uncaughtException: ${err instanceof Error ? err.message : String(err)}`,
+    );
     process.exit(1);
   });
   process.on('unhandledRejection', (err) => {
-    try { console.error('[org run] unhandledRejection:', err); } catch { /* stderr gone */ }
-    daemon.persistCrashStateAll(`unhandledRejection: ${err instanceof Error ? err.message : String(err)}`);
+    try {
+      console.error('[org run] unhandledRejection:', err);
+    } catch {
+      /* stderr gone */
+    }
+    daemon.persistCrashStateAll(
+      `unhandledRejection: ${err instanceof Error ? err.message : String(err)}`,
+    );
     process.exit(1);
   });
 
@@ -341,23 +495,36 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
         timeout: 5000,
         stdio: 'ignore',
       });
-    } catch { /* best-effort — fall through to whatever control.json already has */ }
+    } catch {
+      /* best-effort — fall through to whatever control.json already has */
+    }
   }
   if (existsSync(controlPath)) {
     try {
       const ctl = JSON.parse(readFileSync(controlPath, 'utf8')) as { port?: number; url?: string };
-      const dashUrl = ctl.url || (ctl.port ? `http://localhost:${ctl.port}` : 'http://localhost:4242');
+      const dashUrl =
+        ctl.url || (ctl.port ? `http://localhost:${ctl.port}` : 'http://localhost:4242');
       log(output.dim(`  Dashboard: ${dashUrl}`));
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   } else if (existsSync(controlStartPath)) {
     // control-start.cjs ran above (spawnSync'd synchronously with a 5s cap)
     // but control.json still doesn't exist — its own confirm-mode child is
     // still working in the background (npx cold-resolve etc., #142/#144)
     // rather than having failed outright. Point at the default port; the
     // confirm process will correct control.json once it lands.
-    log(output.dim('  Dashboard: http://localhost:4242 (starting — check back in a few seconds if unreachable)'));
+    log(
+      output.dim(
+        '  Dashboard: http://localhost:4242 (starting — check back in a few seconds if unreachable)',
+      ),
+    );
   } else {
-    log(output.dim('  Dashboard: run `monomind init` to set up .claude/helpers/, then re-run to launch it automatically'));
+    log(
+      output.dim(
+        '  Dashboard: run `monomind init` to set up .claude/helpers/, then re-run to launch it automatically',
+      ),
+    );
   }
 
   // stopfile poll lets `org stop` work from another terminal; the daemon can
@@ -371,13 +538,25 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // successful action regardless of how the run itself ended — capture that
   // BEFORE clearStopfile() below wipes the file, so it isn't lost.
   let stoppedManually = false;
-  await new Promise<void>(resolvePromise => {
+  await new Promise<void>((resolvePromise) => {
     const iv = setInterval(() => {
-      if (existsSync(stopfile)) { stoppedManually = true; clearInterval(iv); resolvePromise(); }
-      else if (!daemon.getOrg(name)) { clearInterval(iv); resolvePromise(); }
+      if (existsSync(stopfile)) {
+        stoppedManually = true;
+        clearInterval(iv);
+        resolvePromise();
+      } else if (!daemon.getOrg(name)) {
+        clearInterval(iv);
+        resolvePromise();
+      }
     }, 2000);
-    process.once('SIGINT', () => { clearInterval(iv); resolvePromise(); });
-    process.once('SIGTERM', () => { clearInterval(iv); resolvePromise(); });
+    process.once('SIGINT', () => {
+      clearInterval(iv);
+      resolvePromise();
+    });
+    process.once('SIGTERM', () => {
+      clearInterval(iv);
+      resolvePromise();
+    });
   });
   clearStopfile(ctx.cwd, name);
   await daemon.stopAll();
@@ -394,7 +573,9 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
   let final: RunTerminalState = {};
   try {
     final = JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, name, 'runtime.json'), 'utf8'));
-  } catch { /* best-effort — falls through to the non-clean-stop case below */ }
+  } catch {
+    /* best-effort — falls through to the non-clean-stop case below */
+  }
 
   return runOutcomeResult(name, final);
 };
@@ -414,7 +595,11 @@ export function runOutcomeResult(name: string, final: RunTerminalState): Command
     return { success: true, message: `org ${name} completed` };
   }
   if (final.status === 'crashed') {
-    return { success: false, message: `org ${name} crashed: ${final.error ?? 'unknown error'}`, exitCode: 1 };
+    return {
+      success: false,
+      message: `org ${name} crashed: ${final.error ?? 'unknown error'}`,
+      exitCode: 1,
+    };
   }
   return {
     success: false,
@@ -426,8 +611,10 @@ export function runOutcomeResult(name: string, final: RunTerminalState): Command
 /** True when runtime.json records a running org whose recorded pid is still alive. */
 const isOrgRunning = (cwd: string, name: string): boolean => {
   try {
-    const rt = JSON.parse(readFileSync(join(cwd, ORG_DIR, name, 'runtime.json'), 'utf8')) as
-      { status?: string; pid?: number };
+    const rt = JSON.parse(readFileSync(join(cwd, ORG_DIR, name, 'runtime.json'), 'utf8')) as {
+      status?: string;
+      pid?: number;
+    };
     if (rt.status !== 'running' || !rt.pid) return false;
     process.kill(rt.pid, 0); // throws if the pid is gone (crashed daemon left a stale file)
     return true;
@@ -448,23 +635,43 @@ const stopAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // this fix, `org serve`). Writing it for an org that nothing is running was a silent
   // no-op that still reported "daemon exits within 2s" — say what's actually true.
   let rt: { status?: string; run?: string; pid?: number } | undefined;
-  try { rt = JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, name, 'runtime.json'), 'utf8')); } catch { /* never run */ }
+  try {
+    rt = JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, name, 'runtime.json'), 'utf8'));
+  } catch {
+    /* never run */
+  }
   if (rt?.status !== 'running') {
-    log(output.warning(`Org "${name}" is not running (runtime state: ${rt?.status ?? 'never run'}) — nothing to stop.`));
+    log(
+      output.warning(
+        `Org "${name}" is not running (runtime state: ${rt?.status ?? 'never run'}) — nothing to stop.`,
+      ),
+    );
     return { success: false, message: 'org not running' };
   }
   if (rt.pid) {
     let alive = true;
-    try { process.kill(rt.pid, 0); } catch { alive = false; }
+    try {
+      process.kill(rt.pid, 0);
+    } catch {
+      alive = false;
+    }
     if (!alive) {
-      log(output.warning(`Org "${name}" is not running — runtime.json says running but pid ${rt.pid} is gone (crashed daemon).`));
+      log(
+        output.warning(
+          `Org "${name}" is not running — runtime.json says running but pid ${rt.pid} is gone (crashed daemon).`,
+        ),
+      );
       log(output.info(`Clear the stale record with: monomind org mark-complete ${name}`));
       return { success: false, message: 'org crashed — use mark-complete' };
     }
   }
   mkdirSync(join(ctx.cwd, ORG_DIR, name), { recursive: true });
   writeFileSync(join(ctx.cwd, ORG_DIR, name, 'stop'), new Date().toISOString());
-  log(output.info(`Stop requested for "${name}" (pid ${rt.pid}) — the daemon picks it up within ~2s.`));
+  log(
+    output.info(
+      `Stop requested for "${name}" (pid ${rt.pid}) — the daemon picks it up within ~2s.`,
+    ),
+  );
   return { success: true, message: `stop requested for ${name} (daemon exits within 2s)` };
 };
 
@@ -482,7 +689,11 @@ const pauseAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
   mkdirSync(join(ctx.cwd, ORG_DIR, name), { recursive: true });
   writeFileSync(join(ctx.cwd, ORG_DIR, name, 'pause'), new Date().toISOString());
-  log(output.info(`Org "${name}" paused — current turns will finish, no new cycles will start. Resume with: monomind org resume ${name}`));
+  log(
+    output.info(
+      `Org "${name}" paused — current turns will finish, no new cycles will start. Resume with: monomind org resume ${name}`,
+    ),
+  );
   return { success: true, message: `org ${name} paused` };
 };
 
@@ -523,36 +734,61 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
   }
   const orgDir = join(ctx.cwd, ORG_DIR);
-  const targets = name ? [name] : (existsSync(orgDir)
-    ? listOrgConfigFiles(orgDir).map(f => f.replace(/\.json$/, ''))
-    : []);
+  const targets = name
+    ? [name]
+    : existsSync(orgDir)
+      ? listOrgConfigFiles(orgDir).map((f) => f.replace(/\.json$/, ''))
+      : [];
   for (const t of targets) {
     const rt = join(orgDir, t, 'runtime.json');
-    let state: { status: string; run?: string; pid?: number; abandonedRoles?: string[] } = { status: 'never run' };
+    let state: { status: string; run?: string; pid?: number; abandonedRoles?: string[] } = {
+      status: 'never run',
+    };
     if (existsSync(rt)) {
       try {
         state = JSON.parse(readFileSync(rt, 'utf8'));
       } catch (err) {
-        log(output.warning(`${t}: could not read runtime.json (${err instanceof Error ? err.message : 'corrupt/truncated file'})`));
+        log(
+          output.warning(
+            `${t}: could not read runtime.json (${err instanceof Error ? err.message : 'corrupt/truncated file'})`,
+          ),
+        );
         continue;
       }
     }
     // A "running" record whose pid is gone means the daemon died without its
     // stopOrg cleanup — surface that instead of reporting it as still running.
     if ((state.status === 'running' || state.status === 'crashed') && state.pid) {
-      const pidGone = state.status === 'crashed' || (() => {
-        try { process.kill(state.pid!, 0); return false; }
-        catch { return true; }
-      })();
+      const pidGone =
+        state.status === 'crashed' ||
+        (() => {
+          try {
+            process.kill(state.pid!, 0);
+            return false;
+          } catch {
+            return true;
+          }
+        })();
       if (pidGone) {
         let heartbeatHint = '';
         try {
-          const hb = JSON.parse(readFileSync(join(ctx.cwd, '.monomind', 'serve-heartbeat.json'), 'utf8'));
+          const hb = JSON.parse(
+            readFileSync(join(ctx.cwd, '.monomind', 'serve-heartbeat.json'), 'utf8'),
+          );
           heartbeatHint = ` (last heartbeat: ${hb.updatedAt})`;
-        } catch { /* no heartbeat file — daemon predates this change or was already cleaned up */ }
+        } catch {
+          /* no heartbeat file — daemon predates this change or was already cleaned up */
+        }
         const closedBy = (state as { closedBy?: string }).closedBy;
-        const label = closedBy === 'crash-handler' ? 'crashed (caught by crash handler)' : `crashed (runtime.json says ${state.status} but pid ${state.pid} is gone)`;
-        log(output.warning(`${t}: ${label}${heartbeatHint}${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`));
+        const label =
+          closedBy === 'crash-handler'
+            ? 'crashed (caught by crash handler)'
+            : `crashed (runtime.json says ${state.status} but pid ${state.pid} is gone)`;
+        log(
+          output.warning(
+            `${t}: ${label}${heartbeatHint}${state.run ? ` — run ${state.run}` : ''} — close it out with "monomind org mark-complete ${t}"`,
+          ),
+        );
         continue;
       }
     }
@@ -562,7 +798,11 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // A role that never spawned is a silent capability hole — an org with no
     // tester still reports a clean "running". Say it on the status line.
     if (state.abandonedRoles?.length) {
-      log(output.warning(`${line} — DEGRADED: ${state.abandonedRoles.length} role(s) never spawned: ${state.abandonedRoles.join(', ')}`));
+      log(
+        output.warning(
+          `${line} — DEGRADED: ${state.abandonedRoles.length} role(s) never spawned: ${state.abandonedRoles.join(', ')}`,
+        ),
+      );
     } else {
       log(output.info(line));
     }
@@ -577,22 +817,31 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
         const lastTs = events[events.length - 1].ts;
         const quietMs = Date.now() - lastTs;
         const quietStr = fmtDuration(quietMs);
-        const toolCalls = Object.values(summary.roles).reduce((a, r) => a + r.toolsAllowed + r.toolsDenied, 0);
-        const rolesUp = Object.keys(summary.roles).filter(r => r !== '(system)').length;
+        const toolCalls = Object.values(summary.roles).reduce(
+          (a, r) => a + r.toolsAllowed + r.toolsDenied,
+          0,
+        );
+        const rolesUp = Object.keys(summary.roles).filter((r) => r !== '(system)').length;
 
-        log(`  elapsed: ${elapsedStr} | events: ${summary.events} | messages: ${summary.messages} | tools: ${toolCalls}`);
-        log(`  roles active: ${rolesUp} | tokens: ${fmtNum(summary.totalTokens)} | cost: $${summary.totalCostUsd.toFixed(2)}`);
+        log(
+          `  elapsed: ${elapsedStr} | events: ${summary.events} | messages: ${summary.messages} | tools: ${toolCalls}`,
+        );
+        log(
+          `  roles active: ${rolesUp} | tokens: ${fmtNum(summary.totalTokens)} | cost: $${summary.totalCostUsd.toFixed(2)}`,
+        );
         log(`  quiet since: ${new Date(lastTs).toISOString().slice(11, 19)} (${quietStr} ago)`);
         if (summary.crashes.length) log(output.warning(`  crashes: ${summary.crashes.join(', ')}`));
       }
 
       // Previous cycle comparison from history
       const history = readHistory(ctx.cwd, t);
-      const prev = history.filter(h => h.run !== state.run).at(-1);
+      const prev = history.filter((h) => h.run !== state.run).at(-1);
       if (prev) {
         const dur = prev.durationMs !== null ? fmtDuration(prev.durationMs) : '?';
         const outcome = prev.outcome?.status ?? (prev.crashes.length ? 'crashed' : 'completed');
-        log(`  prev cycle: ${dur}, ${outcome}, ${prev.events} events, ${fmtNum(prev.totalTokens)} tokens`);
+        log(
+          `  prev cycle: ${dur}, ${outcome}, ${prev.events} events, ${fmtNum(prev.totalTokens)} tokens`,
+        );
       }
     }
   }
@@ -645,17 +894,29 @@ export const pollReloadfiles = async (cwd: string, daemon: OrgDaemon): Promise<s
   for (const name of daemon.listRunning()) {
     const reloadFile = join(cwd, ORG_DIR, name, 'reload');
     if (!existsSync(reloadFile)) continue;
-    try { unlinkSync(reloadFile); } catch { /* already gone */ }
+    try {
+      unlinkSync(reloadFile);
+    } catch {
+      /* already gone */
+    }
     try {
       const result = daemon.reloadOrgDef(name);
       const parts: string[] = [];
       if (result.changed.length) parts.push(`${result.changed.length} fields updated`);
-      if (result.newRoles.length) parts.push(`${result.newRoles.length} new roles: ${result.newRoles.join(', ')}`);
-      if (result.removedRoles.length) parts.push(`${result.removedRoles.length} roles removed: ${result.removedRoles.join(', ')}`);
+      if (result.newRoles.length)
+        parts.push(`${result.newRoles.length} new roles: ${result.newRoles.join(', ')}`);
+      if (result.removedRoles.length)
+        parts.push(
+          `${result.removedRoles.length} roles removed: ${result.removedRoles.join(', ')}`,
+        );
       log(output.info(`org ${name}: reloaded — ${parts.join('; ') || 'no changes'}`));
       reloaded.push(name);
     } catch (err) {
-      log(output.warning(`org ${name}: reload failed — ${err instanceof Error ? err.message : 'unknown'}`));
+      log(
+        output.warning(
+          `org ${name}: reload failed — ${err instanceof Error ? err.message : 'unknown'}`,
+        ),
+      );
     }
   }
   return reloaded;
@@ -690,8 +951,14 @@ export const pollRunfiles = async (cwd: string, daemon: OrgDaemon): Promise<stri
     try {
       const body = JSON.parse(readFileSync(runfile, 'utf8')) as { task?: string | null };
       if (typeof body.task === 'string' && body.task.trim()) task = body.task;
-    } catch { /* bare/empty runfile — start with the org's own goal */ }
-    try { unlinkSync(runfile); } catch { /* already gone */ }
+    } catch {
+      /* bare/empty runfile — start with the org's own goal */
+    }
+    try {
+      unlinkSync(runfile);
+    } catch {
+      /* already gone */
+    }
     if (daemon.listRunning().includes(name)) continue; // already running — request satisfied
     log(output.info(`org ${name}: run requested — starting now${task ? ' (with task)' : ''}`));
     try {
@@ -721,7 +988,9 @@ export const pollRunfiles = async (cwd: string, daemon: OrgDaemon): Promise<stri
  */
 const supervisorAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const cwd = resolve(ctx.cwd || process.cwd());
-  const requested = String(ctx.flags.format ?? '').trim().toLowerCase();
+  const requested = String(ctx.flags.format ?? '')
+    .trim()
+    .toLowerCase();
   const format = requested || (process.platform === 'darwin' ? 'launchd' : 'systemd');
   if (format !== 'launchd' && format !== 'systemd') {
     log(output.error(`Unknown --format "${requested}" — expected launchd or systemd.`));
@@ -745,8 +1014,9 @@ const supervisorAction = async (ctx: CommandContext): Promise<CommandResult> => 
   const label = `com.monomind.org-serve.${slug}`;
   const logPath = join(cwd, '.monomind', 'org-serve.log');
 
-  const unit = format === 'launchd'
-    ? `<?xml version="1.0" encoding="UTF-8"?>
+  const unit =
+    format === 'launchd'
+      ? `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -767,7 +1037,7 @@ const supervisorAction = async (ctx: CommandContext): Promise<CommandResult> => 
 </dict>
 </plist>
 `
-    : `[Unit]
+      : `[Unit]
 Description=monomind org serve (${cwd})
 After=network.target
 
@@ -785,41 +1055,49 @@ StandardError=append:${logPath}
 WantedBy=default.target
 `;
 
-  const target = format === 'launchd'
-    ? `~/Library/LaunchAgents/${label}.plist`
-    : `~/.config/systemd/user/monomind-org-serve-${slug}.service`;
+  const target =
+    format === 'launchd'
+      ? `~/Library/LaunchAgents/${label}.plist`
+      : `~/.config/systemd/user/monomind-org-serve-${slug}.service`;
 
   if (ctx.flags.install === true) {
     const home = process.env.HOME || process.env.USERPROFILE || '';
     if (!home) {
-      log(output.error('Cannot resolve a home directory to install into — write the unit manually.'));
+      log(
+        output.error('Cannot resolve a home directory to install into — write the unit manually.'),
+      );
       return { success: false, message: 'no home directory' };
     }
-    const dest = format === 'launchd'
-      ? join(home, 'Library', 'LaunchAgents', `${label}.plist`)
-      : join(home, '.config', 'systemd', 'user', `monomind-org-serve-${slug}.service`);
+    const dest =
+      format === 'launchd'
+        ? join(home, 'Library', 'LaunchAgents', `${label}.plist`)
+        : join(home, '.config', 'systemd', 'user', `monomind-org-serve-${slug}.service`);
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, unit);
     log(output.success(`Wrote ${dest}`));
-    log(output.info(
-      format === 'launchd'
-        ? `Load it with: launchctl load -w ${dest}`
-        : `Load it with: systemctl --user daemon-reload && systemctl --user enable --now monomind-org-serve-${slug}`,
-    ));
+    log(
+      output.info(
+        format === 'launchd'
+          ? `Load it with: launchctl load -w ${dest}`
+          : `Load it with: systemctl --user daemon-reload && systemctl --user enable --now monomind-org-serve-${slug}`,
+      ),
+    );
     return { success: true, message: `supervisor unit written to ${dest}` };
   }
 
   log(unit);
   log(output.info(`Write this to ${target}, or re-run with --install to do it for you.`));
-  log(output.info(
-    'Why a supervisor: the daemon logs every death it can observe, but an OOM kill is SIGKILL — ' +
-    'uncatchable by design, so nothing in-process can restart after one.',
-  ));
+  log(
+    output.info(
+      'Why a supervisor: the daemon logs every death it can observe, but an OOM kill is SIGKILL — ' +
+        'uncatchable by design, so nothing in-process can restart after one.',
+    ),
+  );
   return { success: true, message: `${format} unit emitted` };
 };
 
 const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
-  const crossProcess = ctx.flags['crossProcess'] !== false;
+  const crossProcess = ctx.flags.crossProcess !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
   if (crossProcess) {
@@ -830,13 +1108,23 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // Crash handlers: log the reason and persist crashed state so `org status`
   // shows what happened instead of a silent "pid is gone".
   const crashExit = (label: string, err: unknown): void => {
-    try { console.error(`[org serve] ${label}:`, err); } catch { /* stderr gone */ }
+    try {
+      console.error(`[org serve] ${label}:`, err);
+    } catch {
+      /* stderr gone */
+    }
     daemon.persistCrashStateAll(`${label}: ${err instanceof Error ? err.message : String(err)}`);
     daemon.clearHeartbeat();
     process.exitCode = 1;
   };
-  process.on('uncaughtException', (err) => { crashExit('uncaughtException', err); process.exit(1); });
-  process.on('unhandledRejection', (err) => { crashExit('unhandledRejection', err); process.exit(1); });
+  process.on('uncaughtException', (err) => {
+    crashExit('uncaughtException', err);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (err) => {
+    crashExit('unhandledRejection', err);
+    process.exit(1);
+  });
 
   // Termination diagnostics (#45). The two handlers above only cover errors
   // raised *inside* the daemon. A report of the daemon vanishing after hours
@@ -857,12 +1145,21 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const announceExit = (reason: string): void => {
     if (shuttingDown) return;
     shuttingDown = true;
-    try { console.error(`[org serve] shutting down: ${reason}`); } catch { /* stderr gone */ }
+    try {
+      console.error(`[org serve] shutting down: ${reason}`);
+    } catch {
+      /* stderr gone */
+    }
   };
   for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
     process.on(sig, () => {
       announceExit(`received ${sig}`);
-      try { daemon.persistCrashStateAll(); daemon.clearHeartbeat(); } catch { /* best effort */ }
+      try {
+        daemon.persistCrashStateAll();
+        daemon.clearHeartbeat();
+      } catch {
+        /* best effort */
+      }
       // A daemon holds ref'd timers, so it will not drain on its own; an
       // explicit exit is required here and is the intended signal semantics.
       process.exit(sig === 'SIGTERM' || sig === 'SIGINT' ? 0 : 1);
@@ -877,7 +1174,9 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // Heartbeat: write every 30s so `org status` can tell "alive but busy" from
   // "daemon gone" without relying on pid liveness alone.
   daemon.writeHeartbeat();
-  const heartbeatInterval = setInterval(() => { daemon.writeHeartbeat(); }, 30_000);
+  const heartbeatInterval = setInterval(() => {
+    daemon.writeHeartbeat();
+  }, 30_000);
   heartbeatInterval.unref?.();
 
   log(output.info('org daemon serving — Ctrl-C to stop'));
@@ -896,15 +1195,23 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
           const { runPrechecks } = await import('../orgrt/prechecks.js');
           const { ok, results } = await runPrechecks(checks, ctx.cwd);
           if (!ok) {
-            const failed = results.find(r => !r.passed);
-            log(output.warning(`org ${name}: precheck "${failed?.name}" failed — skipping scheduled run`));
+            const failed = results.find((r) => !r.passed);
+            log(
+              output.warning(
+                `org ${name}: precheck "${failed?.name}" failed — skipping scheduled run`,
+              ),
+            );
             if (failed?.output) log(output.warning(`  ${failed.output.slice(0, 200)}`));
             return;
           }
         }
       }
     } catch (err) {
-      log(output.warning(`org ${name}: precheck evaluation error — ${err instanceof Error ? err.message : 'unknown'}`));
+      log(
+        output.warning(
+          `org ${name}: precheck evaluation error — ${err instanceof Error ? err.message : 'unknown'}`,
+        ),
+      );
     }
     // Only ever stop a run THIS tick started. The runfile poll can start an org
     // out-of-band, and the scheduler has no visibility into that — so a tick
@@ -921,9 +1228,10 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
       // (idempotent — it resolves `done` and flushes).
       const org = daemon.getOrg(name);
       const allDone = org
-        ? Promise.allSettled([...org.agents.values()].map(a => a.done))
+        ? Promise.allSettled([...org.agents.values()].map((a) => a.done))
         : Promise.resolve([]);
-      const maxRun = (org?.def as { run_config?: { max_run?: string | number } } | undefined)?.run_config?.max_run;
+      const maxRun = (org?.def as { run_config?: { max_run?: string | number } } | undefined)
+        ?.run_config?.max_run;
       // Default to the full interval. The old `min(interval, 10min)` clamp
       // silently guillotined every org that didn't set max_run: real cycles
       // here run 75-93 minutes, so a 2h-scheduled org was being force-stopped
@@ -935,10 +1243,13 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
       // Set run_config.max_run to bound it tighter — or looser.
       const maxMs = parseSchedule(maxRun) ?? intervalMs;
       let timer: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([allDone, new Promise<void>(r => {
-        timer = setTimeout(r, maxMs);
-        timer.unref?.();
-      })]);
+      await Promise.race([
+        allDone,
+        new Promise<void>((r) => {
+          timer = setTimeout(r, maxMs);
+          timer.unref?.();
+        }),
+      ]);
       if (timer) clearTimeout(timer);
     } catch (err) {
       console.error(`org ${name}: scheduled run failed:`, err);
@@ -947,7 +1258,9 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
       // bound threw that work away; a minute is enough to finish an edit or a
       // test run and flush, and still well inside any sane interval.
       if (startedHere) {
-        await daemon.stopOrg(name, { drainMs: 60_000 }).catch(err => console.error(`org ${name}: stop failed:`, err));
+        await daemon
+          .stopOrg(name, { drainMs: 60_000 })
+          .catch((err) => console.error(`org ${name}: stop failed:`, err));
       }
     }
   });
@@ -960,7 +1273,12 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
         if (ms) {
           // register by filename stem — that's what startOrg loads
           const stem = f.replace(/\.json$/, '');
-          if (def.name && def.name !== stem) log(output.warning(`org file ${f}: def.name "${def.name}" differs from filename — scheduling as "${stem}"`));
+          if (def.name && def.name !== stem)
+            log(
+              output.warning(
+                `org file ${f}: def.name "${def.name}" differs from filename — scheduling as "${stem}"`,
+              ),
+            );
           // Due = never run, or last run ended longer ago than the interval.
           // Without this, starting the daemon meant waiting a full period
           // before anything happened at all; gating on due-ness means a
@@ -970,22 +1288,39 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
           const due = (since ?? Infinity) >= ms;
           sched.add(stem, ms, due, since);
           const waitMin = due ? 0 : Math.round((ms - (since ?? 0)) / 60_000);
-          log(output.info(`scheduled org ${stem} every ${Math.round(ms / 60_000)}m${due ? ' — due now, starting first run' : ` — next run in ~${waitMin}m`}`));
+          log(
+            output.info(
+              `scheduled org ${stem} every ${Math.round(ms / 60_000)}m${due ? ' — due now, starting first run' : ` — next run in ~${waitMin}m`}`,
+            ),
+          );
         }
       } catch (err) {
-        log(output.warning(`org file ${f}: could not parse — skipping (${err instanceof Error ? err.message : 'invalid JSON'})`));
+        log(
+          output.warning(
+            `org file ${f}: could not parse — skipping (${err instanceof Error ? err.message : 'invalid JSON'})`,
+          ),
+        );
       }
     }
   }
 
-  const stopPoll = setInterval(() => { void pollStopfiles(ctx.cwd, daemon); }, 2000);
+  const stopPoll = setInterval(() => {
+    void pollStopfiles(ctx.cwd, daemon);
+  }, 2000);
   stopPoll.unref?.();
-  const runPoll = setInterval(() => { void pollRunfiles(ctx.cwd, daemon); }, 2000);
+  const runPoll = setInterval(() => {
+    void pollRunfiles(ctx.cwd, daemon);
+  }, 2000);
   runPoll.unref?.();
-  const reloadPoll = setInterval(() => { void pollReloadfiles(ctx.cwd, daemon); }, 2000);
+  const reloadPoll = setInterval(() => {
+    void pollReloadfiles(ctx.cwd, daemon);
+  }, 2000);
   reloadPoll.unref?.();
 
-  await new Promise<void>(r => { process.once('SIGINT', () => r()); process.once('SIGTERM', () => r()); });
+  await new Promise<void>((r) => {
+    process.once('SIGINT', () => r());
+    process.once('SIGTERM', () => r());
+  });
   clearInterval(stopPoll);
   clearInterval(runPoll);
   clearInterval(reloadPoll);
@@ -1000,10 +1335,15 @@ const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
 const testLoopAction = async (ctx: CommandContext): Promise<CommandResult> => {
   // non-literal specifier: test-loop.ts lands in a later task; keeps tsc clean until then
   const testLoopModule = '../orgrt/test-loop.js';
-  const { runTestLoop } = await import(testLoopModule) as
-    { runTestLoop: (cwd: string, times: number, scenarioFile?: string) => Promise<{ summary: string; failed: number }> };
-  const n = Number(ctx.flags['times'] ?? ctx.flags['n'] ?? 5);
-  const scenario = typeof ctx.flags['scenario'] === 'string' ? ctx.flags['scenario'] : undefined;
+  const { runTestLoop } = (await import(testLoopModule)) as {
+    runTestLoop: (
+      cwd: string,
+      times: number,
+      scenarioFile?: string,
+    ) => Promise<{ summary: string; failed: number }>;
+  };
+  const n = Number(ctx.flags.times ?? ctx.flags.n ?? 5);
+  const scenario = typeof ctx.flags.scenario === 'string' ? ctx.flags.scenario : undefined;
   const report = await runTestLoop(ctx.cwd, n, scenario);
   log(output.info(report.summary));
   return { success: report.failed === 0, message: report.summary };
@@ -1027,22 +1367,36 @@ const listAction = async (ctx: CommandContext): Promise<CommandResult> => {
     const stem = f.replace(/\.json$/, '');
     let detail = '';
     try {
-      const def = JSON.parse(readFileSync(join(orgsDir, f), 'utf8')) as
-        { goal?: string; schedule?: string | number | null; roles?: unknown[] };
+      const def = JSON.parse(readFileSync(join(orgsDir, f), 'utf8')) as {
+        goal?: string;
+        schedule?: string | number | null;
+        roles?: unknown[];
+      };
       const roles = Array.isArray(def.roles) ? def.roles.length : 0;
       const sched = def.schedule ? `every ${def.schedule}` : 'manual';
       let status = 'never run';
       try {
-        const rt = JSON.parse(readFileSync(join(orgsDir, stem, 'runtime.json'), 'utf8')) as { status?: string; pid?: number };
+        const rt = JSON.parse(readFileSync(join(orgsDir, stem, 'runtime.json'), 'utf8')) as {
+          status?: string;
+          pid?: number;
+        };
         status = rt.status ?? status;
         // Same liveness rule as `org status`: a 'running' record with a dead
         // pid is a crashed daemon, not a running org — list must not disagree.
         if (status === 'running' && rt.pid) {
-          try { process.kill(rt.pid, 0); } catch { status = 'crashed'; }
+          try {
+            process.kill(rt.pid, 0);
+          } catch {
+            status = 'crashed';
+          }
         }
-      } catch { /* no runtime state yet */ }
-      const goal = typeof def.goal === 'string' && def.goal
-        ? ` — ${def.goal.length > 60 ? `${def.goal.slice(0, 57)}...` : def.goal}` : '';
+      } catch {
+        /* no runtime state yet */
+      }
+      const goal =
+        typeof def.goal === 'string' && def.goal
+          ? ` — ${def.goal.length > 60 ? `${def.goal.slice(0, 57)}...` : def.goal}`
+          : '';
       detail = `  (${roles} role${roles === 1 ? '' : 's'}, ${sched}, ${status})${goal}`;
     } catch {
       detail = '  (unreadable config — run `monomind org validate`)';
@@ -1062,7 +1416,7 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.error(`Invalid org name: ${orgName}`));
     return { success: false, message: 'invalid org name' };
   }
-  const confirmed = ctx.flags['yes'] === true || ctx.args.includes('--yes') || ctx.args.includes('-y');
+  const confirmed = ctx.flags.yes === true || ctx.args.includes('--yes') || ctx.args.includes('-y');
   if (!confirmed) {
     log(output.warning(`This will permanently delete org "${orgName}" and all its data.`));
     log(output.warning('Pass --yes to confirm.'));
@@ -1075,22 +1429,49 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.error(`Org not found: ${orgName}`));
     return { success: false, message: 'org not found' };
   }
-  if (isOrgRunning(cwd, orgName) && ctx.flags['force'] !== true) {
-    log(output.error(`Org "${orgName}" is currently running — stop it first (monomind org stop ${orgName}) or pass --force.`));
+  if (isOrgRunning(cwd, orgName) && ctx.flags.force !== true) {
+    log(
+      output.error(
+        `Org "${orgName}" is currently running — stop it first (monomind org stop ${orgName}) or pass --force.`,
+      ),
+    );
     return { success: false, message: 'org is running' };
   }
   let removed = 0;
   for (const suf of ['', ...ORG_ARTIFACT_SUFFIXES]) {
     for (const ext of ['.json', '.jsonl']) {
       const f = join(orgsDir, `${orgName}${suf}${ext}`);
-      try { if (existsSync(f)) { unlinkSync(f); removed++; } } catch { /* ignore */ }
+      try {
+        if (existsSync(f)) {
+          unlinkSync(f);
+          removed++;
+        }
+      } catch {
+        /* ignore */
+      }
     }
   }
-  try { unlinkSync(join(orgsDir, '.stops', `${orgName}.stop`)); } catch { /* ignore */ }
+  try {
+    unlinkSync(join(orgsDir, '.stops', `${orgName}.stop`));
+  } catch {
+    /* ignore */
+  }
   const orgSubDir = join(orgsDir, orgName);
-  try { if (existsSync(orgSubDir)) rmSync(orgSubDir, { recursive: true, force: true }); } catch { /* ignore */ }
-  try { unlinkSync(join(cwd, '.monomind', 'loops', `${orgName}.md`)); } catch { /* ignore */ }
-  try { unlinkSync(join(orgsDir, `${orgName}-run.md`)); } catch { /* ignore */ }
+  try {
+    if (existsSync(orgSubDir)) rmSync(orgSubDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+  try {
+    unlinkSync(join(cwd, '.monomind', 'loops', `${orgName}.md`));
+  } catch {
+    /* ignore */
+  }
+  try {
+    unlinkSync(join(orgsDir, `${orgName}-run.md`));
+  } catch {
+    /* ignore */
+  }
   log(output.success(`Org "${orgName}" deleted (${removed} file(s) removed).`));
   return { success: true };
 };
@@ -1100,26 +1481,54 @@ const deleteAction = async (ctx: CommandContext): Promise<CommandResult> => {
  *  left `org status` reporting the same "crashed" line it had just told the user to
  *  fix with this exact command. Refuses when the recorded pid is still alive: a live
  *  daemon would just rewrite the file, and `org stop` is the right command there. */
-const clearStaleRuntime = (cwd: string, name: string):
-  { cleared: true; run?: string } | { cleared: false; reason: 'absent' | 'not-running' | 'alive' | 'unreadable'; detail?: string } => {
+const clearStaleRuntime = (
+  cwd: string,
+  name: string,
+):
+  | { cleared: true; run?: string }
+  | {
+      cleared: false;
+      reason: 'absent' | 'not-running' | 'alive' | 'unreadable';
+      detail?: string;
+    } => {
   const rtPath = join(cwd, ORG_DIR, name, 'runtime.json');
   if (!existsSync(rtPath)) return { cleared: false, reason: 'absent' };
   let rt: { status?: string; run?: string; pid?: number };
   try {
     rt = JSON.parse(readFileSync(rtPath, 'utf8'));
   } catch (err) {
-    return { cleared: false, reason: 'unreadable', detail: err instanceof Error ? err.message : String(err) };
+    return {
+      cleared: false,
+      reason: 'unreadable',
+      detail: err instanceof Error ? err.message : String(err),
+    };
   }
-  if (rt.status !== 'running' && rt.status !== 'crashed') return { cleared: false, reason: 'not-running' };
+  if (rt.status !== 'running' && rt.status !== 'crashed')
+    return { cleared: false, reason: 'not-running' };
   if (rt.status === 'running' && rt.pid) {
-    try { process.kill(rt.pid, 0); return { cleared: false, reason: 'alive', detail: String(rt.pid) }; }
-    catch { /* pid is gone — this is exactly the stale case mark-complete exists for */ }
+    try {
+      process.kill(rt.pid, 0);
+      return { cleared: false, reason: 'alive', detail: String(rt.pid) };
+    } catch {
+      /* pid is gone — this is exactly the stale case mark-complete exists for */
+    }
   }
   // Same shape stopOrg's persistState() writes, so every reader (org status,
   // isOrgRunning, the mastermind-org* skills' jq checks) sees a stopped org.
-  writeFileSync(rtPath, JSON.stringify(
-    { status: 'stopped', run: rt.run, pid: rt.pid, updated: new Date().toISOString(), closedBy: 'mark-complete' },
-    null, 2));
+  writeFileSync(
+    rtPath,
+    JSON.stringify(
+      {
+        status: 'stopped',
+        run: rt.run,
+        pid: rt.pid,
+        updated: new Date().toISOString(),
+        closedBy: 'mark-complete',
+      },
+      null,
+      2,
+    ),
+  );
   return { cleared: true, run: rt.run };
 };
 
@@ -1136,8 +1545,14 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
   // 0 — a typo looked like a successful cleanup.
   const orgsDir = join(cwd, ORG_DIR);
   if (!existsSync(join(orgsDir, `${orgName}.json`))) {
-    const known = existsSync(orgsDir) ? listOrgConfigFiles(orgsDir).map(f => f.replace(/\.json$/, '')) : [];
-    log(output.error(`Org not found: ${orgName}${known.length ? ` — available: ${known.join(', ')}` : ''}`));
+    const known = existsSync(orgsDir)
+      ? listOrgConfigFiles(orgsDir).map((f) => f.replace(/\.json$/, ''))
+      : [];
+    log(
+      output.error(
+        `Org not found: ${orgName}${known.length ? ` — available: ${known.join(', ')}` : ''}`,
+      ),
+    );
     return { success: false, message: 'org not found' };
   }
 
@@ -1145,12 +1560,31 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
   //    independently of the dashboard so the recommended remedy works with no server.
   const local = clearStaleRuntime(cwd, orgName);
   if (!local.cleared && local.reason === 'alive') {
-    log(output.error(`Org "${orgName}" is still running (pid ${local.detail}) — stop it with "monomind org stop ${orgName}" instead.`));
+    log(
+      output.error(
+        `Org "${orgName}" is still running (pid ${local.detail}) — stop it with "monomind org stop ${orgName}" instead.`,
+      ),
+    );
     return { success: false, message: 'org is running' };
   }
-  if (local.cleared) log(output.success(`Cleared stale runtime state for "${orgName}"${local.run ? ` (run ${local.run})` : ''}.`));
-  else if (local.reason === 'unreadable') log(output.warning(`runtime.json for "${orgName}" is unreadable (${local.detail}) — left untouched.`));
-  else log(output.info(`No stale runtime state for "${orgName}" (runtime.json ${local.reason === 'absent' ? 'absent' : 'already not running'}).`));
+  if (local.cleared)
+    log(
+      output.success(
+        `Cleared stale runtime state for "${orgName}"${local.run ? ` (run ${local.run})` : ''}.`,
+      ),
+    );
+  else if (local.reason === 'unreadable')
+    log(
+      output.warning(
+        `runtime.json for "${orgName}" is unreadable (${local.detail}) — left untouched.`,
+      ),
+    );
+  else
+    log(
+      output.info(
+        `No stale runtime state for "${orgName}" (runtime.json ${local.reason === 'absent' ? 'absent' : 'already not running'}).`,
+      ),
+    );
 
   // 2) Dashboard run:complete event — best effort. A missing/unauthorized dashboard
   //    must not make the command fail after the local state was already cleared.
@@ -1158,11 +1592,17 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
   try {
     const ctl = JSON.parse(readFileSync(join(cwd, '.monomind', 'control.json'), 'utf8'));
     if (ctl.url) ctrlUrl = ctl.url;
-  } catch { /* default */ }
+  } catch {
+    /* default */
+  }
   try {
     // All dashboard /api routes are auth-gated — attach the local session token.
     let auth = '';
-    try { auth = readFileSync(join(cwd, '.monomind', 'dashboard-token'), 'utf8').trim(); } catch { /* server may be pre-auth */ }
+    try {
+      auth = readFileSync(join(cwd, '.monomind', 'dashboard-token'), 'utf8').trim();
+    } catch {
+      /* server may be pre-auth */
+    }
     // Bounded. Updating the dashboard is best-effort — the local state has
     // already been cleared by this point — but the fetch had no timeout, so a
     // dashboard that holds the port without answering (a wedged build from an
@@ -1175,13 +1615,25 @@ const markCompleteAction = async (ctx: CommandContext): Promise<CommandResult> =
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      log(output.warning(`Dashboard not updated (${res.status}: ${(body as { error?: string }).error || 'unknown error'}) — ${local.cleared ? 'local state was cleared' : 'there was no local state to clear'}.`));
+      log(
+        output.warning(
+          `Dashboard not updated (${res.status}: ${(body as { error?: string }).error || 'unknown error'}) — ${local.cleared ? 'local state was cleared' : 'there was no local state to clear'}.`,
+        ),
+      );
     } else {
       const runId = (body as { runId?: string }).runId;
-      log(output.success(`Dashboard run marked complete for "${orgName}"${runId ? ` (run ${runId})` : ''}.`));
+      log(
+        output.success(
+          `Dashboard run marked complete for "${orgName}"${runId ? ` (run ${runId})` : ''}.`,
+        ),
+      );
     }
   } catch (err) {
-    log(output.warning(`Dashboard unreachable at ${ctrlUrl} (${err instanceof Error ? err.message : 'error'}) — ${local.cleared ? 'local state was cleared' : 'there was no local state to clear'}.`));
+    log(
+      output.warning(
+        `Dashboard unreachable at ${ctrlUrl} (${err instanceof Error ? err.message : 'error'}) — ${local.cleared ? 'local state was cleared' : 'there was no local state to clear'}.`,
+      ),
+    );
   }
   return local.cleared
     ? { success: true, message: `run marked complete for ${orgName}` }
@@ -1214,7 +1666,9 @@ const migrateAction = async (ctx: CommandContext): Promise<CommandResult> => {
     log(output.info(`  run it with: monomind org run ${name}`));
     return { success: true, message: `migrated ${name}` };
   } catch (err) {
-    log(output.error(`Cannot migrate ${name}: ${err instanceof Error ? err.message : String(err)}`));
+    log(
+      output.error(`Cannot migrate ${name}: ${err instanceof Error ? err.message : String(err)}`),
+    );
     return { success: false, message: 'migration produced an invalid config' };
   }
 };
@@ -1224,27 +1678,73 @@ export const orgCommand: Command = {
   description: 'SDK-based org runtime — run agent organizations as a controlled daemon',
   subcommands: [
     {
-      name: 'run', description: 'Start an org (foreground daemon)',
+      name: 'run',
+      description: 'Start an org (foreground daemon)',
       options: [
         { name: 'task', description: 'Override the org goal for this run', type: 'string' },
-        { name: 'resume', description: 'Resume an org run from its persisted checkpoint instead of starting fresh', type: 'boolean' },
-        { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
-        { name: 'dry-run', description: 'Validate and print each role\'s briefing without starting any agent sessions', type: 'boolean' },
-        { name: 'budget-usd', description: 'Hard-stop the run if the upfront cost estimate exceeds this USD value (e.g. --budget-usd 5)', type: 'number' },
-        { name: 'yes', short: 'y', description: 'Skip the interactive cost-estimate confirmation prompt', type: 'boolean' },
+        {
+          name: 'resume',
+          description: 'Resume an org run from its persisted checkpoint instead of starting fresh',
+          type: 'boolean',
+        },
+        {
+          name: 'cross-process',
+          description:
+            'Discover and message orgs hosted by other monomind processes on this machine (default true)',
+          type: 'boolean',
+          default: true,
+        },
+        {
+          name: 'dry-run',
+          description:
+            "Validate and print each role's briefing without starting any agent sessions",
+          type: 'boolean',
+        },
+        {
+          name: 'budget-usd',
+          description:
+            'Hard-stop the run if the upfront cost estimate exceeds this USD value (e.g. --budget-usd 5)',
+          type: 'number',
+        },
+        {
+          name: 'yes',
+          short: 'y',
+          description: 'Skip the interactive cost-estimate confirmation prompt',
+          type: 'boolean',
+        },
       ],
-      examples: [{ command: 'monomind org run growth --task "weekly report"', description: 'Run the growth org once with a task' }],
+      examples: [
+        {
+          command: 'monomind org run growth --task "weekly report"',
+          description: 'Run the growth org once with a task',
+        },
+      ],
       action: runAction,
     },
     { name: 'stop', description: 'Request a running org daemon to stop', action: stopAction },
-    { name: 'pause', description: 'Pause an org — current turns finish, no new cycles start', action: pauseAction },
+    {
+      name: 'pause',
+      description: 'Pause an org — current turns finish, no new cycles start',
+      action: pauseAction,
+    },
     { name: 'resume', description: 'Resume a paused org', action: resumeAction },
-    { name: 'reload', description: 'Hot-reload an org definition without stopping sessions', action: reloadAction },
+    {
+      name: 'reload',
+      description: 'Hot-reload an org definition without stopping sessions',
+      action: reloadAction,
+    },
     { name: 'status', description: 'Show runtime state of orgs', action: statusAction },
     {
-      name: 'serve', description: 'Start the daemon server only (hosts scheduled orgs)',
+      name: 'serve',
+      description: 'Start the daemon server only (hosts scheduled orgs)',
       options: [
-        { name: 'cross-process', description: 'Discover and message orgs hosted by other monomind processes on this machine (default true)', type: 'boolean', default: true },
+        {
+          name: 'cross-process',
+          description:
+            'Discover and message orgs hosted by other monomind processes on this machine (default true)',
+          type: 'boolean',
+          default: true,
+        },
       ],
       action: serveAction,
     },
@@ -1253,32 +1753,58 @@ export const orgCommand: Command = {
       description: 'Print (or --install) a launchd/systemd unit that keeps `org serve` running',
       options: [
         { name: 'format', description: 'launchd or systemd (default: platform)', type: 'string' },
-        { name: 'install', description: 'Write the unit into the per-user location', type: 'boolean' },
+        {
+          name: 'install',
+          description: 'Write the unit into the per-user location',
+          type: 'boolean',
+        },
       ],
       action: supervisorAction,
     },
     {
-      name: 'test-loop', description: 'Run the org e2e verification loop N times',
+      name: 'test-loop',
+      description: 'Run the org e2e verification loop N times',
       options: [
         { name: 'times', short: 'n', description: 'Iterations', type: 'number', default: 5 },
-        { name: 'scenario', description: 'Run a declarative scenario file (.monomind/scenarios/<file>) instead of the built-in fixture — structural dry-run only', type: 'string' },
+        {
+          name: 'scenario',
+          description:
+            'Run a declarative scenario file (.monomind/scenarios/<file>) instead of the built-in fixture — structural dry-run only',
+          type: 'string',
+        },
       ],
       action: testLoopAction,
     },
     {
-      name: 'logs', description: 'Show (or follow) the formatted event log of an org run',
+      name: 'logs',
+      description: 'Show (or follow) the formatted event log of an org run',
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
         { name: 'role', description: 'Only events from/to this role', type: 'string' },
-        { name: 'filter-tool', description: 'Filter events by tool name (e.g., Write, Edit)', type: 'string' },
+        {
+          name: 'filter-tool',
+          description: 'Filter events by tool name (e.g., Write, Edit)',
+          type: 'string',
+        },
         { name: 'filter-role', description: 'Filter events by role ID', type: 'string' },
-        { name: 'tools-only', description: 'Show only tool events (exclude messages/status/audit)', type: 'boolean' },
-        { name: 'audit-filter', description: 'Filter audit events by decision (allow|deny)', type: 'string' },
+        {
+          name: 'tools-only',
+          description: 'Show only tool events (exclude messages/status/audit)',
+          type: 'boolean',
+        },
+        {
+          name: 'audit-filter',
+          description: 'Filter audit events by decision (allow|deny)',
+          type: 'string',
+        },
         { name: 'follow', short: 'f', description: 'Keep tailing until Ctrl-C', type: 'boolean' },
       ],
       examples: [
         { command: 'monomind org logs growth --follow', description: 'Live-tail the latest run' },
-        { command: 'monomind org logs growth --tools-only', description: 'Show only tool call events' },
+        {
+          command: 'monomind org logs growth --tools-only',
+          description: 'Show only tool call events',
+        },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
@@ -1288,16 +1814,39 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'watch', description: 'Live-tail one role\'s assistant chat text (any runtime) — a filtered, friendlier `logs --follow`',
+      name: 'watch',
+      description:
+        "Live-tail one role's assistant chat text (any runtime) — a filtered, friendlier `logs --follow`",
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
-        { name: 'follow', description: 'Set --follow=false to print current output once and exit instead of live-tailing', type: 'boolean', default: true },
-        { name: 'verbose', description: 'Also interleave status events (restart/crash/state-change) into the transcript', type: 'boolean' },
-        { name: 'stats', description: 'Print a running token/cost line as usage events arrive', type: 'boolean' },
+        {
+          name: 'follow',
+          description:
+            'Set --follow=false to print current output once and exit instead of live-tailing',
+          type: 'boolean',
+          default: true,
+        },
+        {
+          name: 'verbose',
+          description:
+            'Also interleave status events (restart/crash/state-change) into the transcript',
+          type: 'boolean',
+        },
+        {
+          name: 'stats',
+          description: 'Print a running token/cost line as usage events arrive',
+          type: 'boolean',
+        },
       ],
       examples: [
-        { command: 'monomind org watch growth researcher', description: 'Watch the researcher role\'s live output' },
-        { command: 'monomind org watch growth researcher --verbose --stats', description: 'Also show restarts/crashes and a running token/cost total' },
+        {
+          command: 'monomind org watch growth researcher',
+          description: "Watch the researcher role's live output",
+        },
+        {
+          command: 'monomind org watch growth researcher --verbose --stats',
+          description: 'Also show restarts/crashes and a running token/cost total',
+        },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
@@ -1307,16 +1856,23 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'report', description: 'Summarize an org run: outcome, per-role activity, tokens, assets, crashes',
+      name: 'report',
+      description: 'Summarize an org run: outcome, per-role activity, tokens, assets, crashes',
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
         { name: 'all', description: 'List all recorded runs from history', type: 'boolean' },
         { name: 'by-role', description: 'Show per-role cost breakdown', type: 'boolean' },
         { name: 'audit', description: 'Show tool audit trail', type: 'boolean' },
-        { name: 'tool', description: 'Filter tool audit by tool name (with --audit)', type: 'string' },
+        {
+          name: 'tool',
+          description: 'Filter tool audit by tool name (with --audit)',
+          type: 'string',
+        },
         { name: 'format', description: 'Output format (mermaid for flowchart)', type: 'string' },
       ],
-      examples: [{ command: 'monomind org report growth', description: 'Report on the latest run' }],
+      examples: [
+        { command: 'monomind org report growth', description: 'Report on the latest run' },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1325,11 +1881,19 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'memory', description: 'Inspect an org\'s cross-run memory and knowledge graph (stats | search <query> | rules | rollback <run-ref>)',
+      name: 'memory',
+      description:
+        "Inspect an org's cross-run memory and knowledge graph (stats | search <query> | rules | rollback <run-ref>)",
       examples: [
         { command: 'monomind org memory growth stats', description: 'KG size and namespaces' },
-        { command: 'monomind org memory growth search "launch checklist"', description: 'Search org memory + KG' },
-        { command: 'monomind org memory growth rollback run:m4x2', description: 'Delete everything one run wrote to the KG' },
+        {
+          command: 'monomind org memory growth search "launch checklist"',
+          description: 'Search org memory + KG',
+        },
+        {
+          command: 'monomind org memory growth rollback run:m4x2',
+          description: 'Delete everything one run wrote to the KG',
+        },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
@@ -1342,24 +1906,44 @@ export const orgCommand: Command = {
         try {
           if (sub === 'stats') {
             const [stats, glossary, backend] = await Promise.all([
-              kg.kgStats({ dbPath }), kg.kgGlossary({ dbPath, limit: 15 }), bridge.bridgeGetBackendStats(dbPath),
+              kg.kgStats({ dbPath }),
+              kg.kgGlossary({ dbPath, limit: 15 }),
+              bridge.bridgeGetBackendStats(dbPath),
             ]);
-            log(output.info(`Knowledge graph: ${stats.nodes} entities, ${stats.edges} relations, ${stats.rules} rules`));
+            log(
+              output.info(
+                `Knowledge graph: ${stats.nodes} entities, ${stats.edges} relations, ${stats.rules} rules`,
+              ),
+            );
             if (glossary.length) log(output.info(`Top entities: ${glossary.join(', ')}`));
             const byNs = backend?.entriesByNamespace ?? {};
-            for (const [ns, count] of Object.entries(byNs)) log(output.info(`  ${ns}: ${count} entries`));
-            return { success: true, message: 'org memory stats', data: { ...stats, namespaces: byNs } };
+            for (const [ns, count] of Object.entries(byNs))
+              log(output.info(`  ${ns}: ${count} entries`));
+            return {
+              success: true,
+              message: 'org memory stats',
+              data: { ...stats, namespaces: byNs },
+            };
           }
           if (sub === 'search') {
             const q = ctx.args.slice(2).join(' ');
             if (!q) return { success: false, message: 'usage: org memory <org> search <query>' };
             const [mem, graph] = await Promise.all([
-              bridge.bridgeSearchEntries({ query: q, namespace: `org:${v.name}`, limit: 5, dbPath }),
+              bridge.bridgeSearchEntries({
+                query: q,
+                namespace: `org:${v.name}`,
+                limit: 5,
+                dbPath,
+              }),
               kg.kgSearch({ query: q, dbPath, limit: 8 }),
             ]);
-            for (const r of mem?.results ?? []) log(output.info(`[${r.score.toFixed(2)}] ${r.key}: ${r.content.slice(0, 160)}`));
+            for (const r of mem?.results ?? [])
+              log(output.info(`[${r.score.toFixed(2)}] ${r.key}: ${r.content.slice(0, 160)}`));
             if (graph.context) log(output.info(`\nKnowledge graph:\n${graph.context}`));
-            return { success: true, message: `${(mem?.results ?? []).length} memories, ${graph.triplets.length} triplets` };
+            return {
+              success: true,
+              message: `${(mem?.results ?? []).length} memories, ${graph.triplets.length} triplets`,
+            };
           }
           if (sub === 'rules') {
             const rules = await kg.kgListRules({ dbPath, limit: 50 });
@@ -1368,25 +1952,40 @@ export const orgCommand: Command = {
           }
           if (sub === 'rollback') {
             const ref = ctx.args[2];
-            if (!ref) return { success: false, message: 'usage: org memory <org> rollback <origin-ref> (e.g. run:m4x2)' };
+            if (!ref)
+              return {
+                success: false,
+                message: 'usage: org memory <org> rollback <origin-ref> (e.g. run:m4x2)',
+              };
             const res = await kg.kgRollback({ originRef: ref, dbPath });
-            log(output.info(`Rolled back ${ref}: ${res.deleted} deleted, ${res.retained} retained (shared with other origins)`));
+            log(
+              output.info(
+                `Rolled back ${ref}: ${res.deleted} deleted, ${res.retained} retained (shared with other origins)`,
+              ),
+            );
             return { success: res.success, message: `rollback ${ref}`, data: res };
           }
-          return { success: false, message: `unknown subcommand "${sub}" — use stats | search | rules | rollback` };
+          return {
+            success: false,
+            message: `unknown subcommand "${sub}" — use stats | search | rules | rollback`,
+          };
         } finally {
-          await bridge.shutdownBridge().catch(() => { /* best effort */ });
+          await bridge.shutdownBridge().catch(() => {
+            /* best effort */
+          });
         }
       },
     },
     {
-      name: 'costs', description: 'Show per-role cost tracking from runtime.json',
-      options: [
-        { name: 'run', description: 'Run ID (defaults to latest)', type: 'string' },
-      ],
+      name: 'costs',
+      description: 'Show per-role cost tracking from runtime.json',
+      options: [{ name: 'run', description: 'Run ID (defaults to latest)', type: 'string' }],
       examples: [
         { command: 'monomind org costs growth', description: 'Show cost breakdown for latest run' },
-        { command: 'monomind org costs growth --run run-20240130-123456', description: 'Show cost breakdown for specific run' },
+        {
+          command: 'monomind org costs growth --run run-20240130-123456',
+          description: 'Show cost breakdown for specific run',
+        },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
@@ -1396,15 +1995,31 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'inbox', description: 'Deliver an inbound cross-org message (live to a running org, queued to inbox.jsonl otherwise) — remote.ts shells out to this over SSH',
+      name: 'inbox',
+      description:
+        'Deliver an inbound cross-org message (live to a running org, queued to inbox.jsonl otherwise) — remote.ts shells out to this over SSH',
       options: [
-        { name: 'json', description: 'JSON payload: {"from":"orgA:role","subject":"...","body":"..."}', type: 'string' },
-        { name: 'to', description: 'Target role (default: the org\'s coordinator)', type: 'string' },
-        { name: 'from', description: 'Sender, qualified "org:role" (alternative to --json)', type: 'string' },
+        {
+          name: 'json',
+          description: 'JSON payload: {"from":"orgA:role","subject":"...","body":"..."}',
+          type: 'string',
+        },
+        { name: 'to', description: "Target role (default: the org's coordinator)", type: 'string' },
+        {
+          name: 'from',
+          description: 'Sender, qualified "org:role" (alternative to --json)',
+          type: 'string',
+        },
         { name: 'subject', description: 'Subject (alternative to --json)', type: 'string' },
         { name: 'body', description: 'Body (alternative to --json)', type: 'string' },
       ],
-      examples: [{ command: 'monomind org inbox growth --json \'{"from":"sales:boss","subject":"leads","body":"..."}\'', description: 'Deliver a message to the growth org' }],
+      examples: [
+        {
+          command:
+            'monomind org inbox growth --json \'{"from":"sales:boss","subject":"leads","body":"..."}\'',
+          description: 'Deliver a message to the growth org',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1413,9 +2028,15 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'flow', description: 'Export org flow as Mermaid diagram',
+      name: 'flow',
+      description: 'Export org flow as Mermaid diagram',
       options: [{ name: 'run', description: 'Run ID (defaults to latest)', type: 'string' }],
-      examples: [{ command: 'monomind org flow growth --run run-20250130120000', description: 'Export Mermaid flowchart' }],
+      examples: [
+        {
+          command: 'monomind org flow growth --run run-20250130120000',
+          description: 'Export Mermaid flowchart',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1424,9 +2045,12 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'questions', description: 'List pending ask_human questions from an org\'s agents',
+      name: 'questions',
+      description: "List pending ask_human questions from an org's agents",
       options: [{ name: 'all', description: 'Include answered questions', type: 'boolean' }],
-      examples: [{ command: 'monomind org questions growth', description: 'Show unanswered questions' }],
+      examples: [
+        { command: 'monomind org questions growth', description: 'Show unanswered questions' },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1435,8 +2059,15 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'answer', description: 'Answer a pending ask_human question (live if the org is running, queued otherwise)',
-      examples: [{ command: 'monomind org answer growth q-123-ab "yes, ship it"', description: 'Answer question q-123-ab' }],
+      name: 'answer',
+      description:
+        'Answer a pending ask_human question (live if the org is running, queued otherwise)',
+      examples: [
+        {
+          command: 'monomind org answer growth q-123-ab "yes, ship it"',
+          description: 'Answer question q-123-ab',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1445,8 +2076,14 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'approve', description: 'Approve a pending tool/action approval',
-      examples: [{ command: 'monomind org approve growth coder "Bash"', description: 'Approve Bash tool for coder role' }],
+      name: 'approve',
+      description: 'Approve a pending tool/action approval',
+      examples: [
+        {
+          command: 'monomind org approve growth coder "Bash"',
+          description: 'Approve Bash tool for coder role',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1455,8 +2092,14 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'deny', description: 'Deny a pending tool/action approval',
-      examples: [{ command: 'monomind org deny growth coder "Bash"', description: 'Deny Bash tool for coder role' }],
+      name: 'deny',
+      description: 'Deny a pending tool/action approval',
+      examples: [
+        {
+          command: 'monomind org deny growth coder "Bash"',
+          description: 'Deny Bash tool for coder role',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1465,7 +2108,8 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'gates', description: 'List decision gates from an org\'s agents',
+      name: 'gates',
+      description: "List decision gates from an org's agents",
       options: [{ name: 'all', description: 'Include resolved gates', type: 'boolean' }],
       examples: [
         { command: 'monomind org gates growth', description: 'Show pending gates' },
@@ -1479,8 +2123,14 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'gate-approve', description: 'Approve a pending decision gate',
-      examples: [{ command: 'monomind org gate-approve growth gate-123-ab "ship it"', description: 'Approve gate with resolution' }],
+      name: 'gate-approve',
+      description: 'Approve a pending decision gate',
+      examples: [
+        {
+          command: 'monomind org gate-approve growth gate-123-ab "ship it"',
+          description: 'Approve gate with resolution',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1489,8 +2139,14 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'gate-reject', description: 'Reject a pending decision gate',
-      examples: [{ command: 'monomind org gate-reject growth gate-123-ab "not ready"', description: 'Reject gate with reason' }],
+      name: 'gate-reject',
+      description: 'Reject a pending decision gate',
+      examples: [
+        {
+          command: 'monomind org gate-reject growth gate-123-ab "not ready"',
+          description: 'Reject gate with reason',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1499,8 +2155,15 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'replay', description: 'Time-travel debugging: replay a run\'s bus events (does not resume live execution — use "org run --resume" for that)',
-      examples: [{ command: 'monomind org replay growth run-20250130120000-abc', description: 'Replay a checkpoint\'s events for inspection' }],
+      name: 'replay',
+      description:
+        'Time-travel debugging: replay a run\'s bus events (does not resume live execution — use "org run --resume" for that)',
+      examples: [
+        {
+          command: 'monomind org replay growth run-20250130120000-abc',
+          description: "Replay a checkpoint's events for inspection",
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1509,8 +2172,15 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'resume-from', description: 'Resume live execution from the org\'s persisted checkpoint (restores mailbox/policy/session state; subject to TTL and checksum validation)',
-      examples: [{ command: 'monomind org resume-from growth', description: 'Resume growth from its last checkpoint' }],
+      name: 'resume-from',
+      description:
+        "Resume live execution from the org's persisted checkpoint (restores mailbox/policy/session state; subject to TTL and checksum validation)",
+      examples: [
+        {
+          command: 'monomind org resume-from growth',
+          description: 'Resume growth from its last checkpoint',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1519,8 +2189,14 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'branch', description: "Snapshot a run's event log for replay",
-      examples: [{ command: 'monomind org branch growth run-20250130 abc-branch', description: "Snapshot a run's checkpoint into a new run for replay" }],
+      name: 'branch',
+      description: "Snapshot a run's event log for replay",
+      examples: [
+        {
+          command: 'monomind org branch growth run-20250130 abc-branch',
+          description: "Snapshot a run's checkpoint into a new run for replay",
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1529,8 +2205,14 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'decisions', description: 'Show Rifft-style decision traces',
-      examples: [{ command: 'monomind org decisions growth --run run-20250130', description: 'Show decision traces' }],
+      name: 'decisions',
+      description: 'Show Rifft-style decision traces',
+      examples: [
+        {
+          command: 'monomind org decisions growth --run run-20250130',
+          description: 'Show decision traces',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1539,15 +2221,35 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'create', description: 'Scaffold an org config from a starter template',
+      name: 'create',
+      description: 'Scaffold an org config from a starter template',
       options: [
-        { name: 'template', description: 'content-team | dev-team | research-pod | kg-extraction | advisor-orchestrator', type: 'string' },
-        { name: 'goal', description: 'Org goal (defaults to the template\'s placeholder)', type: 'string' },
+        {
+          name: 'template',
+          description:
+            'content-team | dev-team | research-pod | kg-extraction | advisor-orchestrator',
+          type: 'string',
+        },
+        {
+          name: 'goal',
+          description: "Org goal (defaults to the template's placeholder)",
+          type: 'string',
+        },
         { name: 'schedule', description: 'Daemon schedule, e.g. 30m or 2h', type: 'string' },
         { name: 'force', description: 'Overwrite an existing org config', type: 'boolean' },
-        { name: 'yes', short: 'y', description: 'Skip the per-role model confirmation prompt (TTY only)', type: 'boolean' },
+        {
+          name: 'yes',
+          short: 'y',
+          description: 'Skip the per-role model confirmation prompt (TTY only)',
+          type: 'boolean',
+        },
       ],
-      examples: [{ command: 'monomind org create blog --template content-team --goal "3 posts/week"', description: 'Create a content org' }],
+      examples: [
+        {
+          command: 'monomind org create blog --template content-team --goal "3 posts/week"',
+          description: 'Create a content org',
+        },
+      ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const v = validateOrgName(ctx.args[0]);
         if (!v.ok) return v.result;
@@ -1556,10 +2258,14 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'validate', description: 'Validate org config(s) against the runtime schema and structural invariants',
+      name: 'validate',
+      description: 'Validate org config(s) against the runtime schema and structural invariants',
       examples: [
         { command: 'monomind org validate growth', description: 'Validate one org config' },
-        { command: 'monomind org validate', description: 'Validate every org config in the project' },
+        {
+          command: 'monomind org validate',
+          description: 'Validate every org config in the project',
+        },
       ],
       action: async (ctx: CommandContext): Promise<CommandResult> => {
         const { validateAction } = await import('./org-observe.js');
@@ -1567,27 +2273,45 @@ export const orgCommand: Command = {
       },
     },
     {
-      name: 'migrate', description: 'Convert a v1 org config (topology/board/loop) to the v2 daemon shape',
-      examples: [{ command: 'monomind org migrate growth', description: 'Migrate one org; original saved as growth.v1.json' }],
+      name: 'migrate',
+      description: 'Convert a v1 org config (topology/board/loop) to the v2 daemon shape',
+      examples: [
+        {
+          command: 'monomind org migrate growth',
+          description: 'Migrate one org; original saved as growth.v1.json',
+        },
+      ],
       action: migrateAction,
     },
     { name: 'list', description: 'List all orgs in the current project', action: listAction },
     {
-      name: 'delete', description: 'Delete an org and all its data',
+      name: 'delete',
+      description: 'Delete an org and all its data',
       options: [
         { name: 'yes', short: 'y', description: 'Skip confirmation', type: 'boolean' },
-        { name: 'force', description: 'Delete even if the org appears to be running', type: 'boolean' },
+        {
+          name: 'force',
+          description: 'Delete even if the org appears to be running',
+          type: 'boolean',
+        },
       ],
       action: deleteAction,
     },
-    { name: 'mark-complete', description: 'Manually close a stale/crashed run', action: markCompleteAction },
+    {
+      name: 'mark-complete',
+      description: 'Manually close a stale/crashed run',
+      action: markCompleteAction,
+    },
   ],
-  examples: [{ command: 'monomind org run my-org', description: 'Run an org under full daemon control' }],
+  examples: [
+    { command: 'monomind org run my-org', description: 'Run an org under full daemon control' },
+  ],
   action: async (): Promise<CommandResult> => {
     // index.ts's dispatcher never prints result.message on a failed action —
     // it only exits with result.exitCode — so this must log itself or bare
     // `monomind org` exits silently with code 1 and zero output.
-    const message = 'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|inbox|questions|answer|approve|deny|replay|resume-from|branch|decisions|create|validate|migrate|list|delete|mark-complete>';
+    const message =
+      'usage: monomind org <run|stop|status|serve|test-loop|logs|report|costs|inbox|questions|answer|approve|deny|replay|resume-from|branch|decisions|create|validate|migrate|list|delete|mark-complete>';
     log(output.error(message));
     return { success: false, message };
   },

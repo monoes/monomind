@@ -4,14 +4,12 @@
  * MCP 2025-11-25 compliant sampling for server-initiated LLM calls
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import type {
-  SamplingMessage,
-  ModelPreferences,
   CreateMessageRequest,
   CreateMessageResult,
-  PromptContent,
   ILogger,
+  ModelPreferences,
 } from './types.js';
 
 /**
@@ -69,7 +67,7 @@ export class SamplingManager extends EventEmitter {
 
   constructor(
     private readonly logger: ILogger,
-    config: Partial<SamplingConfig> = {}
+    config: Partial<SamplingConfig> = {},
   ) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -103,7 +101,7 @@ export class SamplingManager extends EventEmitter {
    */
   async createMessage(
     request: CreateMessageRequest,
-    context?: SamplingContext
+    context?: SamplingContext,
   ): Promise<CreateMessageResult> {
     const startTime = Date.now();
     this.requestCount++;
@@ -135,7 +133,7 @@ export class SamplingManager extends EventEmitter {
       // Call provider with timeout
       const result = await this.callWithTimeout(
         provider.createMessage(fullRequest),
-        this.config.timeout
+        this.config.timeout,
       );
 
       const duration = Date.now() - startTime;
@@ -283,7 +281,7 @@ export class SamplingManager extends EventEmitter {
 
 export function createSamplingManager(
   logger: ILogger,
-  config?: Partial<SamplingConfig>
+  config?: Partial<SamplingConfig>,
 ): SamplingManager {
   return new SamplingManager(logger, config);
 }
@@ -344,7 +342,7 @@ export function createAnthropicProvider(apiKey: string): LLMProvider {
         throw new Error(`Anthropic API error: ${response.status}`);
       }
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
 
       return {
         role: 'assistant',

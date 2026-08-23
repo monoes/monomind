@@ -1,23 +1,34 @@
 // Regression: `org answer` must never overwrite questions.json from an empty
 // list produced by a FAILED re-read (data loss). See answerAction's offline path.
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { answerAction } from '../commands/org-observe.js';
 import type { CommandContext } from '../types.js';
 
 const ORG = 'testorg';
 
 const question = (id: string, answer: string | null = null) => ({
-  questionId: id, role: 'coder', question: `q ${id}`, ts: 1, answer, answeredAt: null,
+  questionId: id,
+  role: 'coder',
+  question: `q ${id}`,
+  ts: 1,
+  answer,
+  answeredAt: null,
 });
 
 let cwd: string;
 let brokerDir: string;
 let qPath: string;
 
-const ctx = (args: string[]): CommandContext => ({ args, flags: { _: [] }, cwd, interactive: false });
+const ctx = (args: string[]): CommandContext => ({
+  args,
+  flags: { _: [] },
+  cwd,
+  interactive: false,
+});
 
 const writeQuestions = (qs: unknown[]): void => {
   writeFileSync(qPath, JSON.stringify({ questions: qs }, null, 2));
@@ -44,12 +55,16 @@ describe('org answer — questions.json integrity', () => {
   it('merges the answer and preserves sibling questions', async () => {
     const res = await answerAction(ctx([ORG, 'q2', 'the', 'answer']), ORG);
     expect(res.success).toBe(true);
-    const after = JSON.parse(readFileSync(qPath, 'utf8')) as { questions: Array<{ questionId: string; answer: string | null }> };
-    expect(after.questions.map(q => q.questionId)).toEqual(['q1', 'q2', 'q3']);
-    expect(after.questions.find(q => q.questionId === 'q2')?.answer).toBe('the answer');
-    expect(after.questions.find(q => q.questionId === 'q1')?.answer).toBeNull();
+    const after = JSON.parse(readFileSync(qPath, 'utf8')) as {
+      questions: Array<{ questionId: string; answer: string | null }>;
+    };
+    expect(after.questions.map((q) => q.questionId)).toEqual(['q1', 'q2', 'q3']);
+    expect(after.questions.find((q) => q.questionId === 'q2')?.answer).toBe('the answer');
+    expect(after.questions.find((q) => q.questionId === 'q1')?.answer).toBeNull();
     // message queued for the offline org
-    expect(readFileSync(join(cwd, '.monomind/orgs', ORG, 'inbox.jsonl'), 'utf8')).toContain('answer:q2');
+    expect(readFileSync(join(cwd, '.monomind/orgs', ORG, 'inbox.jsonl'), 'utf8')).toContain(
+      'answer:q2',
+    );
   });
 
   it('aborts without truncating questions.json when the pre-write re-read fails', async () => {

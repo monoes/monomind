@@ -4,9 +4,9 @@
  * Tool definitions for configuration management with file persistence.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type MCPTool, getProjectCwd } from './types.js';
+import { getProjectCwd, type MCPTool } from './types.js';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -55,7 +55,12 @@ function loadConfigStore(): ConfigStore {
     const path = getConfigPath();
     if (existsSync(path)) {
       if (statSync(path).size > MAX_CONFIG_STORE_BYTES) {
-        return { values: { ...DEFAULT_CONFIG }, scopes: {}, version: '3.0.0', updatedAt: new Date().toISOString() };
+        return {
+          values: { ...DEFAULT_CONFIG },
+          scopes: {},
+          version: '3.0.0',
+          updatedAt: new Date().toISOString(),
+        };
       }
       const data = readFileSync(path, 'utf-8');
       const parsed = JSON.parse(data) as ConfigStore;
@@ -63,11 +68,13 @@ function loadConfigStore(): ConfigStore {
         values: filterDangerousKeys(parsed.values ?? {}),
         scopes: filterDangerousKeys(parsed.scopes ?? {}) as Record<string, Record<string, unknown>>,
         version: typeof parsed.version === 'string' ? parsed.version : '3.0.0',
-        updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
+        updatedAt:
+          typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
       };
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[config-tools] failed to load config store, using defaults:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[config-tools] failed to load config store, using defaults:', e);
   }
   return {
     values: { ...DEFAULT_CONFIG },
@@ -86,7 +93,7 @@ function saveConfigStore(store: ConfigStore): void {
   renameSync(tmpPath, dest);
 }
 
-function getNestedValue(obj: Record<string, unknown>, key: string): unknown {
+function _getNestedValue(obj: Record<string, unknown>, key: string): unknown {
   const parts = key.split('.');
   let current: unknown = obj;
   for (const part of parts) {
@@ -116,7 +123,7 @@ function filterDangerousKeys(obj: Record<string, unknown>, depth = 0): Record<st
   return filtered;
 }
 
-function setNestedValue(obj: Record<string, unknown>, key: string, value: unknown): void {
+function _setNestedValue(obj: Record<string, unknown>, key: string, value: unknown): void {
   const MAX_NESTING_DEPTH = 10;
   const parts = key.split('.');
   if (parts.length > MAX_NESTING_DEPTH) {
@@ -158,11 +165,15 @@ export const configTools: MCPTool[] = [
       const MAX_CONFIG_KEY_LEN = 512;
       const MAX_CONFIG_SCOPE_LEN = 128;
       const rawKey = input.key as string;
-      const key = typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
-        ? rawKey.slice(0, MAX_CONFIG_KEY_LEN) : rawKey;
+      const key =
+        typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
+          ? rawKey.slice(0, MAX_CONFIG_KEY_LEN)
+          : rawKey;
       const rawScope = (input.scope as string) || 'default';
-      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
-        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const scope =
+        typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+          ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN)
+          : rawScope;
 
       if (DANGEROUS_KEYS.has(scope)) {
         return { key, value: undefined, scope, exists: false, source: 'none' };
@@ -191,7 +202,8 @@ export const configTools: MCPTool[] = [
         value,
         scope,
         exists: value !== undefined,
-        source: value !== undefined ? (store.values[key] !== undefined ? 'stored' : 'default') : 'none',
+        source:
+          value !== undefined ? (store.values[key] !== undefined ? 'stored' : 'default') : 'none',
       };
     },
   },
@@ -216,12 +228,16 @@ export const configTools: MCPTool[] = [
       const MAX_CONFIG_KEY_LEN = 512;
       const MAX_CONFIG_SCOPE_LEN = 128;
       const rawKey = input.key as string;
-      const key = typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
-        ? rawKey.slice(0, MAX_CONFIG_KEY_LEN) : rawKey;
+      const key =
+        typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
+          ? rawKey.slice(0, MAX_CONFIG_KEY_LEN)
+          : rawKey;
       const value = input.value;
       const rawScope = (input.scope as string) || 'default';
-      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
-        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const scope =
+        typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+          ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN)
+          : rawScope;
 
       for (const seg of key.split('.')) {
         if (DANGEROUS_KEYS.has(seg)) {
@@ -272,11 +288,15 @@ export const configTools: MCPTool[] = [
       const MAX_CONFIG_SCOPE_LEN = 128;
       const MAX_PREFIX_LEN = 256;
       const rawScope = (input.scope as string) || 'default';
-      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
-        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const scope =
+        typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+          ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN)
+          : rawScope;
       const rawPrefix = input.prefix as string;
-      const prefix = typeof rawPrefix === 'string' && rawPrefix.length > MAX_PREFIX_LEN
-        ? rawPrefix.slice(0, MAX_PREFIX_LEN) : rawPrefix;
+      const prefix =
+        typeof rawPrefix === 'string' && rawPrefix.length > MAX_PREFIX_LEN
+          ? rawPrefix.slice(0, MAX_PREFIX_LEN)
+          : rawPrefix;
       const includeDefaults = input.includeDefaults !== false;
 
       if (DANGEROUS_KEYS.has(scope)) {
@@ -336,11 +356,15 @@ export const configTools: MCPTool[] = [
       const MAX_CONFIG_KEY_LEN = 512;
       const MAX_CONFIG_SCOPE_LEN = 128;
       const rawScope = (input.scope as string) || 'default';
-      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
-        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const scope =
+        typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+          ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN)
+          : rawScope;
       const rawKey = input.key as string;
-      const key = typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
-        ? rawKey.slice(0, MAX_CONFIG_KEY_LEN) : rawKey;
+      const key =
+        typeof rawKey === 'string' && rawKey.length > MAX_CONFIG_KEY_LEN
+          ? rawKey.slice(0, MAX_CONFIG_KEY_LEN)
+          : rawKey;
 
       if (DANGEROUS_KEYS.has(scope)) {
         return { success: false, error: `Forbidden scope: "${scope}"` };
@@ -404,12 +428,20 @@ export const configTools: MCPTool[] = [
       // Cap scope to prevent DoS and prototype pollution.
       const MAX_CONFIG_SCOPE_LEN = 128;
       const rawScope = (input.scope as string) || 'default';
-      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
-        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const scope =
+        typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+          ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN)
+          : rawScope;
       const includeDefaults = input.includeDefaults !== false;
 
       if (DANGEROUS_KEYS.has(scope)) {
-        return { config: {}, scope, version: store.version, exportedAt: new Date().toISOString(), count: 0 };
+        return {
+          config: {},
+          scope,
+          version: store.version,
+          exportedAt: new Date().toISOString(),
+          count: 0,
+        };
       }
 
       let exportData: Record<string, unknown> = {};
@@ -452,8 +484,10 @@ export const configTools: MCPTool[] = [
       // Cap scope to prevent DoS and prototype pollution.
       const MAX_CONFIG_SCOPE_LEN = 128;
       const rawScope = (input.scope as string) || 'default';
-      const scope = typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
-        ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN) : rawScope;
+      const scope =
+        typeof rawScope === 'string' && rawScope.length > MAX_CONFIG_SCOPE_LEN
+          ? rawScope.slice(0, MAX_CONFIG_SCOPE_LEN)
+          : rawScope;
       const merge = input.merge !== false;
 
       if (DANGEROUS_KEYS.has(scope)) {

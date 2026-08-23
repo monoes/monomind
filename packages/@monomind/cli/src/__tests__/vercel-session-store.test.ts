@@ -6,10 +6,11 @@
  * of the Vercel runner's critical-fix-#1 (session resume) that we can test
  * directly without mocking the `ai` package.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { mkdtempSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { VercelSessionStore } from '../orgrt/vercel-session-store.js';
 
 describe('VercelSessionStore', () => {
@@ -56,7 +57,10 @@ describe('VercelSessionStore', () => {
     // 5 system + 250 user/assistant pairs → 505 messages total
     const messages = [
       ...Array.from({ length: 5 }, (_, i) => ({ role: 'system' as const, content: `sys-${i}` })),
-      ...Array.from({ length: 250 }, (_, i) => ({ role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant', content: `msg-${i}` })),
+      ...Array.from({ length: 250 }, (_, i) => ({
+        role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: `msg-${i}`,
+      })),
     ];
     await store.save(messages);
 
@@ -66,14 +70,14 @@ describe('VercelSessionStore', () => {
     // Expect: 5 system messages preserved + last (200-1)=199 non-system = 204 total.
     // The trim budget for non-system is MAX_MESSAGES - 1 (room reserved for one system).
     // All 5 system messages are kept verbatim; only non-system is capped.
-    const systemCount = loaded.filter(m => m.role === 'system').length;
-    const nonSystemCount = loaded.filter(m => m.role !== 'system').length;
+    const systemCount = loaded.filter((m) => m.role === 'system').length;
+    const nonSystemCount = loaded.filter((m) => m.role !== 'system').length;
     expect(systemCount).toBe(5);
     expect(nonSystemCount).toBeLessThanOrEqual(199);
     expect(loaded.length).toBeLessThanOrEqual(messages.length);
 
     // The LAST non-system message should be preserved (most recent turn).
-    const lastNonSystem = loaded.filter(m => m.role !== 'system').pop();
+    const lastNonSystem = loaded.filter((m) => m.role !== 'system').pop();
     expect(lastNonSystem?.content).toBe('msg-249');
   });
 

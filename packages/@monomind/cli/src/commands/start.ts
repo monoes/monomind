@@ -3,12 +3,12 @@
  * System startup for Monomind orchestration
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { confirm, select } from '../prompt.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import { output } from '../output.js';
+import { confirm } from '../prompt.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 /** Check liveness of a pid via a zero-signal, matching the pattern used elsewhere (e.g. .claude/helpers/control-start.cjs). */
 function isPidAlive(pid: number): boolean {
@@ -36,7 +36,7 @@ function parseSimpleYaml(content: string): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const lines = content.split('\n');
   const stack: Array<{ indent: number; obj: Record<string, unknown>; key?: string }> = [
-    { indent: -1, obj: result }
+    { indent: -1, obj: result },
   ];
 
   for (const line of lines) {
@@ -59,7 +59,7 @@ function parseSimpleYaml(content: string): Record<string, unknown> {
       value = false;
     } else if (value === 'null') {
       value = null;
-    } else if (!isNaN(Number(value as string)) && value !== '') {
+    } else if (!Number.isNaN(Number(value as string)) && value !== '') {
       value = Number(value);
     } else if (typeof value === 'string' && value.startsWith('"') && value.endsWith('"')) {
       value = value.slice(1, -1);
@@ -94,7 +94,11 @@ function loadConfig(cwd: string): Record<string, unknown> | null {
     return parseSimpleYaml(content);
   } catch (e) {
     // Caller falls back to hardcoded defaults (topology/maxAgents) as if no config existed
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[loadConfig] failed to read/parse .monomind/config.yaml, falling back to defaults:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error(
+        '[loadConfig] failed to read/parse .monomind/config.yaml, falling back to defaults:',
+        e,
+      );
     return null;
   }
 }
@@ -117,7 +121,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
   if (daemon) {
     output.printError(
       'Config initialized (no long-running process — use "monomind org run" for real execution). ' +
-      '"--daemon" does not start anything and has been disabled.'
+        '"--daemon" does not start anything and has been disabled.',
     );
     return { success: false, exitCode: 1 };
   }
@@ -129,7 +133,9 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const rawTopology = topology || (swarmConfig.topology as string) || DEFAULT_TOPOLOGY;
   const finalTopology = VALID_TOPOLOGIES.has(rawTopology) ? rawTopology : DEFAULT_TOPOLOGY;
   const rawMaxAgents = Number((swarmConfig.maxAgents as number) || DEFAULT_MAX_AGENTS);
-  const maxAgents = Number.isFinite(rawMaxAgents) ? Math.max(1, Math.min(rawMaxAgents, 100)) : DEFAULT_MAX_AGENTS;
+  const maxAgents = Number.isFinite(rawMaxAgents)
+    ? Math.max(1, Math.min(rawMaxAgents, 100))
+    : DEFAULT_MAX_AGENTS;
 
   output.writeln();
   output.writeln(output.bold('Starting Monomind'));
@@ -171,7 +177,9 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     // Success output
     output.writeln();
-    output.printSuccess('Config initialized (no long-running process — use "monomind org run" for real execution).');
+    output.printSuccess(
+      'Config initialized (no long-running process — use "monomind org run" for real execution).',
+    );
     output.writeln();
 
     // Status display
@@ -180,9 +188,9 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
         `Swarm ID:  ${swarmResult.monoswarmId}`,
         `Topology:  ${finalTopology}`,
         `Max Agents: ${maxAgents}`,
-        `Health:    ${healthResult.status}`
+        `Health:    ${healthResult.status}`,
       ].join('\n'),
-      'System Status'
+      'System Status',
     );
 
     output.writeln();
@@ -191,7 +199,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
       `${output.highlight('monomind status')} - View system status`,
       `${output.highlight('monomind agent spawn -t coder')} - Spawn an agent`,
       `${output.highlight('monomind monoswarm status')} - View swarm details`,
-      `${output.highlight('monomind stop')} - Stop the system`
+      `${output.highlight('monomind stop')} - Stop the system`,
     ]);
 
     const result = {
@@ -199,7 +207,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
       topology: finalTopology,
       maxAgents,
       health: healthResult.status,
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
     };
 
     if (ctx.flags.format === 'json') {
@@ -228,14 +236,14 @@ const stopCommand: Command = {
       short: 'f',
       description: 'Force stop without graceful shutdown',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'timeout',
       description: 'Shutdown timeout in seconds',
       type: 'number',
-      default: 30
-    }
+      default: 30,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const force = ctx.flags.force as boolean;
@@ -249,7 +257,7 @@ const stopCommand: Command = {
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
         message: 'Are you sure you want to stop MonoMind?',
-        default: false
+        default: false,
       });
 
       if (!confirmed) {
@@ -268,7 +276,7 @@ const stopCommand: Command = {
       try {
         await callMCPTool('monoswarm_shutdown', {
           graceful: !force,
-          force
+          force,
         });
         spinner.succeed('Swarm stopped');
       } catch {
@@ -306,7 +314,11 @@ const stopCommand: Command = {
             await new Promise((resolve) => setTimeout(resolve, 200));
           }
           if (isPidAlive(daemonPid) && force) {
-            try { process.kill(daemonPid, 'SIGKILL'); } catch { /* already gone */ }
+            try {
+              process.kill(daemonPid, 'SIGKILL');
+            } catch {
+              /* already gone */
+            }
             await new Promise((resolve) => setTimeout(resolve, 300));
           }
 
@@ -335,20 +347,27 @@ const stopCommand: Command = {
         return {
           success: false,
           exitCode: 1,
-          data: { stopped: false, force, pid: daemonPid }
+          data: { stopped: false, force, pid: daemonPid },
         };
       }
 
       return {
         success: true,
-        data: { stopped: daemonWasRunning ? daemonStopped : null, force, pid: daemonPid, stoppedAt: new Date().toISOString() }
+        data: {
+          stopped: daemonWasRunning ? daemonStopped : null,
+          force,
+          pid: daemonPid,
+          stoppedAt: new Date().toISOString(),
+        },
       };
     } catch (error) {
       spinner.fail('Stop failed');
-      output.printError(`Failed to stop: ${error instanceof Error ? error.message : String(error)}`);
+      output.printError(
+        `Failed to stop: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Restart subcommand
@@ -361,8 +380,8 @@ const restartCommand: Command = {
       short: 'f',
       description: 'Force restart',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -371,14 +390,14 @@ const restartCommand: Command = {
 
     // Stop first
     const stopCtx = { ...ctx, flags: { ...ctx.flags } };
-    const stopResult = await stopCommand.action!(stopCtx);
+    const stopResult = await stopCommand.action?.(stopCtx);
 
     if (stopResult && !stopResult.success) {
       output.printWarning('Stop failed, attempting to start anyway...');
     }
 
     // Wait briefly
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Start again
     const startResult = await startAction(ctx);
@@ -387,10 +406,10 @@ const restartCommand: Command = {
       success: startResult.success,
       data: {
         restarted: startResult.success,
-        restartedAt: new Date().toISOString()
-      }
+        restartedAt: new Date().toISOString(),
+      },
     };
-  }
+  },
 };
 
 // Quick start subcommand
@@ -408,18 +427,18 @@ const quickCommand: Command = {
       const { initCommand } = await import('./init.js');
       const initCtx = {
         ...ctx,
-        flags: { ...ctx.flags, minimal: true }
+        flags: { ...ctx.flags, minimal: true },
       };
-      await initCommand.action!(initCtx);
+      await initCommand.action?.(initCtx);
       output.writeln();
     }
 
     // Start with defaults
     return startAction({
       ...ctx,
-      flags: { ...ctx.flags, topology: 'mesh' }
+      flags: { ...ctx.flags, topology: 'mesh' },
     });
-  }
+  },
 };
 
 // Main start command
@@ -431,25 +450,26 @@ export const startCommand: Command = {
     {
       name: 'daemon',
       short: 'd',
-      description: 'Disabled — no long-running process exists to daemonize; refuses with an explanatory message',
+      description:
+        'Disabled — no long-running process exists to daemonize; refuses with an explanatory message',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'topology',
       short: 't',
       description: 'Swarm topology (hierarchical-mesh, mesh, hierarchical, ring, star)',
       type: 'string',
-      choices: ['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star']
-    }
+      choices: ['hierarchical-mesh', 'mesh', 'hierarchical', 'ring', 'star'],
+    },
   ],
   examples: [
     { command: 'monomind start', description: 'Initialize config with configuration defaults' },
     { command: 'monomind start --topology mesh', description: 'Start with mesh topology' },
     { command: 'monomind start quick', description: 'Quick start with defaults' },
-    { command: 'monomind start stop', description: 'Stop the running system' }
+    { command: 'monomind start stop', description: 'Stop the running system' },
   ],
-  action: startAction
+  action: startAction,
 };
 
 export default startCommand;

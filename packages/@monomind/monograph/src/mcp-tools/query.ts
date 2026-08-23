@@ -1,7 +1,7 @@
-import { join } from 'path';
-import { openDb, closeDb } from '../storage/db.js';
-import { hybridSearch } from '../storage/fts-store.js';
+import { join } from 'node:path';
 import type { MonographDb } from '../storage/db.js';
+import { closeDb, openDb } from '../storage/db.js';
+import { hybridSearch } from '../storage/fts-store.js';
 
 export interface QueryResult {
   id: string;

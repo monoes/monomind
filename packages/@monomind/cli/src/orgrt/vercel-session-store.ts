@@ -13,9 +13,10 @@
  * session.ts carries `resumeSessionId` across maxTurns restarts and
  * checkpoint-ops.ts persists it to `runtime.json`.
  */
+
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
 
 /** Cap to prevent unbounded growth; oldest non-system messages dropped. */
 const MAX_MESSAGES = 200;
@@ -46,12 +47,13 @@ export class VercelSessionStore {
   }
 
   async save(messages: VercelMessage[]): Promise<void> {
-    const trimmed = messages.length > MAX_MESSAGES
-      ? [
-          ...messages.filter(m => m.role === 'system'),
-          ...messages.filter(m => m.role !== 'system').slice(-(MAX_MESSAGES - 1)),
-        ]
-      : messages;
+    const trimmed =
+      messages.length > MAX_MESSAGES
+        ? [
+            ...messages.filter((m) => m.role === 'system'),
+            ...messages.filter((m) => m.role !== 'system').slice(-(MAX_MESSAGES - 1)),
+          ]
+        : messages;
     await fs.promises.writeFile(this.filePath, JSON.stringify(trimmed, null, 2));
   }
 }

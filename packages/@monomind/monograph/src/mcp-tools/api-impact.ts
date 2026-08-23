@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
-import type { MonographNode } from '../types.js';
 import { rowToNode } from '../storage/node-store.js';
+import type { MonographNode } from '../types.js';
 
 // ── Output types ───────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ export function getMonographApiImpact(
   const MAX_DEPTH = 5;
 
   // 1. Find the Route node matching routePath
-  const likePattern = '%' + input.routePath + '%';
+  const likePattern = `%${input.routePath}%`;
   let routeRows = db
     .prepare("SELECT * FROM nodes WHERE label = 'Route' AND name LIKE ?")
     .all(likePattern) as Record<string, unknown>[];
@@ -61,7 +61,7 @@ export function getMonographApiImpact(
     const methodUpper = input.method.toUpperCase();
     const filtered = routeRows.filter((row) => {
       const name = row.name as string;
-      return name.startsWith(methodUpper + ' ');
+      return name.startsWith(`${methodUpper} `);
     });
     // Only apply filter if it returns results; otherwise keep all matches
     if (filtered.length > 0) {

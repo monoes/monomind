@@ -1,32 +1,94 @@
-import { extname } from 'path';
+import { extname } from 'node:path';
 
-export type FileType = 'CODE' | 'DOCUMENT' | 'PAPER' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DATA' | 'UNKNOWN';
+export type FileType =
+  | 'CODE'
+  | 'DOCUMENT'
+  | 'PAPER'
+  | 'IMAGE'
+  | 'VIDEO'
+  | 'AUDIO'
+  | 'DATA'
+  | 'UNKNOWN';
 
 const CODE_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.py', '.pyw', '.java', '.kt', '.kts', '.go',
-  '.rs', '.rb', '.php', '.swift', '.cs', '.cpp',
-  '.c', '.h', '.hpp', '.cc', '.m', '.r', '.scala',
-  '.lua', '.sh', '.bash', '.zsh', '.ps1', '.psm1',
-  '.sql', '.graphql', '.gql', '.proto', '.yaml', '.yml',
-  '.toml', '.json', '.xml', '.html', '.css', '.scss',
-  '.sass', '.less', '.vue', '.svelte', '.astro',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.pyw',
+  '.java',
+  '.kt',
+  '.kts',
+  '.go',
+  '.rs',
+  '.rb',
+  '.php',
+  '.swift',
+  '.cs',
+  '.cpp',
+  '.c',
+  '.h',
+  '.hpp',
+  '.cc',
+  '.m',
+  '.r',
+  '.scala',
+  '.lua',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.ps1',
+  '.psm1',
+  '.sql',
+  '.graphql',
+  '.gql',
+  '.proto',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.json',
+  '.xml',
+  '.html',
+  '.css',
+  '.scss',
+  '.sass',
+  '.less',
+  '.vue',
+  '.svelte',
+  '.astro',
 ]);
 
 const DOCUMENT_EXTENSIONS = new Set([
-  '.md', '.mdx', '.rst', '.txt', '.pdf', '.docx',
-  '.doc', '.odt', '.rtf', '.tex', '.adoc',
+  '.md',
+  '.mdx',
+  '.rst',
+  '.txt',
+  '.pdf',
+  '.docx',
+  '.doc',
+  '.odt',
+  '.rtf',
+  '.tex',
+  '.adoc',
 ]);
 
 const IMAGE_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp',
-  '.ico', '.bmp', '.tiff', '.tif',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.svg',
+  '.webp',
+  '.ico',
+  '.bmp',
+  '.tiff',
+  '.tif',
 ]);
 
-const VIDEO_EXTENSIONS = new Set([
-  '.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv',
-  '.wmv', '.m4v',
-]);
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.wmv', '.m4v']);
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma']);
 
@@ -45,7 +107,7 @@ const PAPER_FILENAME_SIGNALS = [
 ];
 
 export function classifyFile(pathOrUrl: string): FileType {
-  if (PAPER_URL_PATTERNS.some(p => p.test(pathOrUrl))) return 'PAPER';
+  if (PAPER_URL_PATTERNS.some((p) => p.test(pathOrUrl))) return 'PAPER';
 
   const ext = extname(pathOrUrl).toLowerCase();
 
@@ -54,7 +116,7 @@ export function classifyFile(pathOrUrl: string): FileType {
   if (AUDIO_EXTENSIONS.has(ext)) return 'AUDIO';
 
   if (DOCUMENT_EXTENSIONS.has(ext)) {
-    if (ext === '.pdf' && PAPER_FILENAME_SIGNALS.some(p => p.test(pathOrUrl))) return 'PAPER';
+    if (ext === '.pdf' && PAPER_FILENAME_SIGNALS.some((p) => p.test(pathOrUrl))) return 'PAPER';
     return 'DOCUMENT';
   }
 
@@ -81,7 +143,7 @@ const PAPER_CONTENT_SIGNALS: RegExp[] = [
 const PAPER_CONTENT_THRESHOLD = 1;
 
 export function classifyContent(text: string): FileType {
-  const matches = PAPER_CONTENT_SIGNALS.filter(p => p.test(text)).length;
+  const matches = PAPER_CONTENT_SIGNALS.filter((p) => p.test(text)).length;
   if (matches >= PAPER_CONTENT_THRESHOLD) return 'PAPER';
   return 'DOCUMENT';
 }

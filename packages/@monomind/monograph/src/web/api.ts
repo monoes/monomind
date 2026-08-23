@@ -1,8 +1,8 @@
-import type { Application } from 'express';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type Database from 'better-sqlite3';
-import { readFileSync } from 'fs';
-import { resolve, sep, dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import type { Application } from 'express';
 import { ftsSearch } from '../storage/fts-store.js';
 import { globalJobRegistry } from './async-jobs.js';
 
@@ -11,7 +11,9 @@ const PKG_VERSION = (() => {
   try {
     const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf8'));
     return pkg.version ?? '0.0.0';
-  } catch { return '0.0.0'; }
+  } catch {
+    return '0.0.0';
+  }
 })();
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -59,13 +61,13 @@ export interface StatsData {
 
 export function rowToApiNode(row: Record<string, unknown>): ApiNode {
   return {
-    id: row['id'] as string,
-    name: row['name'] as string,
-    label: row['label'] as string,
-    filePath: (row['file_path'] as string | null) ?? null,
-    startLine: (row['start_line'] as number | null) ?? null,
-    endLine: (row['end_line'] as number | null) ?? null,
-    communityId: (row['community_id'] as number | null) ?? null,
+    id: row.id as string,
+    name: row.name as string,
+    label: row.label as string,
+    filePath: (row.file_path as string | null) ?? null,
+    startLine: (row.start_line as number | null) ?? null,
+    endLine: (row.end_line as number | null) ?? null,
+    communityId: (row.community_id as number | null) ?? null,
   };
 }
 
@@ -99,7 +101,9 @@ export function queryGraphData(db: Database.Database): GraphData {
     db.exec('CREATE TEMP TABLE IF NOT EXISTS _vis_nodes (id TEXT PRIMARY KEY)');
     db.exec('DELETE FROM _vis_nodes');
     const insertVis = db.prepare('INSERT OR IGNORE INTO _vis_nodes (id) VALUES (?)');
-    const insertAll = db.transaction((ids: string[]) => { for (const id of ids) insertVis.run(id); });
+    const insertAll = db.transaction((ids: string[]) => {
+      for (const id of ids) insertVis.run(id);
+    });
     insertAll([...nodeIds]);
 
     const edgeRows = db
@@ -111,10 +115,10 @@ export function queryGraphData(db: Database.Database): GraphData {
 
     for (const r of edgeRows) {
       edges.push({
-        sourceId: r['source_id'] as string,
-        targetId: r['target_id'] as string,
-        relation: r['relation'] as string,
-        confidenceScore: r['confidence_score'] as number,
+        sourceId: r.source_id as string,
+        targetId: r.target_id as string,
+        relation: r.relation as string,
+        confidenceScore: r.confidence_score as number,
       });
     }
   }
@@ -128,12 +132,21 @@ export function queryGraphData(db: Database.Database): GraphData {
     }
   }
 
-  return { nodes, edges, communities, totalNodeCount, totalEdgeCount, truncated: totalNodeCount > nodes.length };
+  return {
+    nodes,
+    edges,
+    communities,
+    totalNodeCount,
+    totalEdgeCount,
+    truncated: totalNodeCount > nodes.length,
+  };
 }
 
 export function queryNode(db: Database.Database, id: string): NodeDetail {
   const nodeRow = db
-    .prepare('SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE id = ?')
+    .prepare(
+      'SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE id = ?',
+    )
     .get(id) as Record<string, unknown> | undefined;
 
   if (!nodeRow) return { node: null, callers: [], callees: [] };
@@ -180,11 +193,13 @@ export function queryStats(db: Database.Database): StatsData {
   const nodeCount = (db.prepare('SELECT COUNT(*) as c FROM nodes').get() as { c: number }).c;
   const edgeCount = (db.prepare('SELECT COUNT(*) as c FROM edges').get() as { c: number }).c;
   const communityCount = (
-    db.prepare('SELECT COUNT(DISTINCT community_id) as c FROM nodes WHERE community_id IS NOT NULL').get() as { c: number }
+    db
+      .prepare('SELECT COUNT(DISTINCT community_id) as c FROM nodes WHERE community_id IS NOT NULL')
+      .get() as { c: number }
   ).c;
-  const metaRow = db
-    .prepare("SELECT value FROM index_meta WHERE key = 'indexed_at'")
-    .get() as { value: string } | undefined;
+  const metaRow = db.prepare("SELECT value FROM index_meta WHERE key = 'indexed_at'").get() as
+    | { value: string }
+    | undefined;
 
   return {
     nodeCount,
@@ -202,18 +217,22 @@ export interface GrepResult {
   startLine: number | null;
 }
 
-export function queryGrep(db: Database.Database, pattern: string, caseSensitive: boolean): GrepResult[] {
+export function queryGrep(
+  db: Database.Database,
+  pattern: string,
+  caseSensitive: boolean,
+): GrepResult[] {
   const sql = caseSensitive
     ? `SELECT id, name, label, file_path, start_line FROM nodes WHERE name GLOB ? LIMIT 100`
     : `SELECT id, name, label, file_path, start_line FROM nodes WHERE name LIKE ? LIMIT 100`;
   const param = caseSensitive ? `*${pattern}*` : `%${pattern}%`;
   const rows = db.prepare(sql).all(param) as Record<string, unknown>[];
-  return rows.map(r => ({
-    id: r['id'] as string,
-    name: r['name'] as string,
-    label: r['label'] as string,
-    filePath: (r['file_path'] as string | null) ?? null,
-    startLine: (r['start_line'] as number | null) ?? null,
+  return rows.map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    label: r.label as string,
+    filePath: (r.file_path as string | null) ?? null,
+    startLine: (r.start_line as number | null) ?? null,
   }));
 }
 
@@ -228,7 +247,11 @@ export interface FileContent {
   lines: FileLine[];
 }
 
-export function readFileContent(filePath: string, startLine?: number, endLine?: number): FileContent {
+export function readFileContent(
+  filePath: string,
+  startLine?: number,
+  endLine?: number,
+): FileContent {
   const raw = readFileSync(filePath, 'utf8');
   const allLines = raw.split('\n');
   // Remove trailing empty line from split
@@ -261,27 +284,35 @@ export interface ClusterDetail {
 
 export function queryClusters(db: Database.Database): ClusterSummary[] {
   try {
-    const rows = db.prepare(
-      `SELECT c.id, c.label, COUNT(n.id) as memberCount
+    const rows = db
+      .prepare(
+        `SELECT c.id, c.label, COUNT(n.id) as memberCount
        FROM communities c LEFT JOIN nodes n ON n.community_id = c.id
        GROUP BY c.id ORDER BY memberCount DESC`,
-    ).all() as { id: number; label: string | null; memberCount: number }[];
+      )
+      .all() as { id: number; label: string | null; memberCount: number }[];
     return rows;
   } catch {
-    const rows = db.prepare(
-      `SELECT community_id as id, COUNT(*) as memberCount FROM nodes WHERE community_id IS NOT NULL GROUP BY community_id ORDER BY memberCount DESC`,
-    ).all() as { id: number; memberCount: number }[];
-    return rows.map(r => ({ id: r.id, label: null, memberCount: r.memberCount }));
+    const rows = db
+      .prepare(
+        `SELECT community_id as id, COUNT(*) as memberCount FROM nodes WHERE community_id IS NOT NULL GROUP BY community_id ORDER BY memberCount DESC`,
+      )
+      .all() as { id: number; memberCount: number }[];
+    return rows.map((r) => ({ id: r.id, label: null, memberCount: r.memberCount }));
   }
 }
 
 export function queryCluster(db: Database.Database, name: string): ClusterDetail | null {
   try {
-    const comm = db.prepare('SELECT id, label FROM communities WHERE label = ? LIMIT 1').get(name) as { id: number; label: string } | undefined;
+    const comm = db
+      .prepare('SELECT id, label FROM communities WHERE label = ? LIMIT 1')
+      .get(name) as { id: number; label: string } | undefined;
     if (!comm) return null;
-    const members = db.prepare(
-      'SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE community_id = ? LIMIT 200',
-    ).all(comm.id) as Record<string, unknown>[];
+    const members = db
+      .prepare(
+        'SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE community_id = ? LIMIT 200',
+      )
+      .all(comm.id) as Record<string, unknown>[];
     return { id: comm.id, label: comm.label, members: members.map(rowToApiNode) };
   } catch (err) {
     const msg = String(err);
@@ -299,16 +330,18 @@ export interface ProcessSummary {
 }
 
 export function queryProcessesList(db: Database.Database): ProcessSummary[] {
-  const rows = db.prepare(
-    `SELECT id, name, file_path FROM nodes WHERE label = 'Process' LIMIT 200`,
-  ).all() as { id: string; name: string; file_path: string | null }[];
-  return rows.map(r => ({ id: r.id, name: r.name, filePath: r.file_path }));
+  const rows = db
+    .prepare(`SELECT id, name, file_path FROM nodes WHERE label = 'Process' LIMIT 200`)
+    .all() as { id: string; name: string; file_path: string | null }[];
+  return rows.map((r) => ({ id: r.id, name: r.name, filePath: r.file_path }));
 }
 
 export function queryProcess(db: Database.Database, name: string): Record<string, unknown> | null {
-  const row = db.prepare(
-    `SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE label = 'Process' AND name = ? LIMIT 1`,
-  ).get(name) as Record<string, unknown> | undefined;
+  const row = db
+    .prepare(
+      `SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE label = 'Process' AND name = ? LIMIT 1`,
+    )
+    .get(name) as Record<string, unknown> | undefined;
   return row ?? null;
 }
 
@@ -336,18 +369,22 @@ export async function streamGraph(
   db: Database.Database,
   onRecord: (record: unknown) => void,
 ): Promise<void> {
-  const nodeRows = db.prepare('SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes').all() as Record<string, unknown>[];
+  const nodeRows = db
+    .prepare('SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes')
+    .all() as Record<string, unknown>[];
   for (const row of nodeRows) {
     onRecord({ type: 'node', ...rowToApiNode(row) });
   }
-  const edgeRows = db.prepare('SELECT source_id, target_id, relation, confidence_score FROM edges').all() as Record<string, unknown>[];
+  const edgeRows = db
+    .prepare('SELECT source_id, target_id, relation, confidence_score FROM edges')
+    .all() as Record<string, unknown>[];
   for (const row of edgeRows) {
     onRecord({
       type: 'edge',
-      sourceId: row['source_id'],
-      targetId: row['target_id'],
-      relation: row['relation'],
-      confidenceScore: row['confidence_score'],
+      sourceId: row.source_id,
+      targetId: row.target_id,
+      relation: row.relation,
+      confidenceScore: row.confidence_score,
     });
   }
 }
@@ -357,42 +394,47 @@ export async function streamGraph(
 export function setupApiRoutes(app: Application, db: Database.Database): void {
   app.get('/api/graph', (req, res) => {
     try {
-      if (req.query['stream'] === 'true') {
+      if (req.query.stream === 'true') {
         res.setHeader('Content-Type', 'application/x-ndjson');
         streamGraph(db, (record) => {
-          res.write(JSON.stringify(record) + '\n');
-        }).then(() => res.end()).catch(() => res.end());
+          res.write(`${JSON.stringify(record)}\n`);
+        })
+          .then(() => res.end())
+          .catch(() => res.end());
         return;
       }
       res.json(queryGraphData(db));
     } catch (err) {
-      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
+      console.error('[api error]', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   app.get('/api/nodes/:id', (req, res) => {
     try {
-      const detail = queryNode(db, req.params['id'] ?? '');
+      const detail = queryNode(db, req.params.id ?? '');
       if (!detail.node) {
         res.status(404).json({ error: 'Node not found' });
         return;
       }
       res.json(detail);
     } catch (err) {
-      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
+      console.error('[api error]', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   app.get('/api/search', (req, res) => {
     try {
-      const q = (req.query['q'] as string | undefined) ?? '';
+      const q = (req.query.q as string | undefined) ?? '';
       if (!q.trim()) {
         res.json([]);
         return;
       }
       res.json(querySearch(db, q));
     } catch (err) {
-      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
+      console.error('[api error]', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -400,35 +442,42 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
     try {
       res.json(queryStats(db));
     } catch (err) {
-      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
+      console.error('[api error]', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   app.get('/api/file', (req, res) => {
     try {
-      const filePath = (req.query['path'] as string | undefined) ?? '';
+      const filePath = (req.query.path as string | undefined) ?? '';
       if (!filePath) {
         res.status(400).json({ error: 'path query param required' });
         return;
       }
       // Only serve files that are indexed in the graph DB to prevent arbitrary file read.
       const resolvedPath = resolve(filePath);
-      const tracked = db.prepare('SELECT 1 FROM nodes WHERE file_path = ? LIMIT 1').get(resolvedPath);
+      const tracked = db
+        .prepare('SELECT 1 FROM nodes WHERE file_path = ? LIMIT 1')
+        .get(resolvedPath);
       if (!tracked) {
         // Also accept the path as stored (may be relative or use different separators)
-        const trackedRelative = db.prepare('SELECT 1 FROM nodes WHERE file_path = ? LIMIT 1').get(filePath);
+        const trackedRelative = db
+          .prepare('SELECT 1 FROM nodes WHERE file_path = ? LIMIT 1')
+          .get(filePath);
         if (!trackedRelative) {
           res.status(403).json({ error: 'File not indexed in graph' });
           return;
         }
       }
-      const startLine = req.query['start'] ? parseInt(req.query['start'] as string, 10) : undefined;
-      const endLine = req.query['end'] ? parseInt(req.query['end'] as string, 10) : undefined;
-      if (startLine !== undefined && isNaN(startLine)) {
-        res.status(400).json({ error: 'start must be a positive integer' }); return;
+      const startLine = req.query.start ? parseInt(req.query.start as string, 10) : undefined;
+      const endLine = req.query.end ? parseInt(req.query.end as string, 10) : undefined;
+      if (startLine !== undefined && Number.isNaN(startLine)) {
+        res.status(400).json({ error: 'start must be a positive integer' });
+        return;
       }
-      if (endLine !== undefined && isNaN(endLine)) {
-        res.status(400).json({ error: 'end must be a positive integer' }); return;
+      if (endLine !== undefined && Number.isNaN(endLine)) {
+        res.status(400).json({ error: 'end must be a positive integer' });
+        return;
       }
       res.json(readFileContent(resolvedPath, startLine, endLine));
     } catch (err) {
@@ -439,7 +488,11 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
 
   // Async analyze job API
   app.post('/api/analyze', (req, res) => {
-    const { repoPath, codeOnly, force } = req.body as { repoPath?: string; codeOnly?: boolean; force?: boolean };
+    const { repoPath, codeOnly, force } = req.body as {
+      repoPath?: string;
+      codeOnly?: boolean;
+      force?: boolean;
+    };
     if (!repoPath) {
       res.status(400).json({ error: 'repoPath is required' });
       return;
@@ -447,27 +500,34 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
     const job = globalJobRegistry.create('analyze', { repoPath });
     globalJobRegistry.update(job.id, { status: 'running' });
 
-    import('../pipeline/orchestrator.js').then(({ buildAsync }) => {
-      buildAsync(repoPath, {
-        codeOnly,
-        force,
-        onProgress: (p) => {
-          globalJobRegistry.emitProgress(job.id, { phase: p.phase ?? '', message: p.message });
-        },
-      }).then(() => {
-        globalJobRegistry.update(job.id, { status: 'done', result: { message: 'Build complete' } });
-      }).catch((err) => {
+    import('../pipeline/orchestrator.js')
+      .then(({ buildAsync }) => {
+        buildAsync(repoPath, {
+          codeOnly,
+          force,
+          onProgress: (p) => {
+            globalJobRegistry.emitProgress(job.id, { phase: p.phase ?? '', message: p.message });
+          },
+        })
+          .then(() => {
+            globalJobRegistry.update(job.id, {
+              status: 'done',
+              result: { message: 'Build complete' },
+            });
+          })
+          .catch((err) => {
+            globalJobRegistry.update(job.id, { status: 'failed', result: { error: String(err) } });
+          });
+      })
+      .catch((err) => {
         globalJobRegistry.update(job.id, { status: 'failed', result: { error: String(err) } });
       });
-    }).catch((err) => {
-      globalJobRegistry.update(job.id, { status: 'failed', result: { error: String(err) } });
-    });
 
     res.status(202).json({ jobId: job.id });
   });
 
   app.get('/api/jobs/:id', (req, res) => {
-    const job = globalJobRegistry.get(req.params['id'] ?? '');
+    const job = globalJobRegistry.get(req.params.id ?? '');
     if (!job) {
       res.status(404).json({ error: 'Job not found' });
       return;
@@ -476,7 +536,7 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
   });
 
   app.delete('/api/jobs/:id', (req, res) => {
-    const ok = globalJobRegistry.cancel(req.params['id'] ?? '');
+    const ok = globalJobRegistry.cancel(req.params.id ?? '');
     if (!ok) {
       res.status(404).json({ error: 'Job not found' });
       return;
@@ -486,17 +546,18 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
 
   app.get('/api/grep', (req, res) => {
     try {
-      const pattern = (req.query['q'] as string | undefined) ?? '';
-      const caseSensitive = req.query['case'] === 'true';
+      const pattern = (req.query.q as string | undefined) ?? '';
+      const caseSensitive = req.query.case === 'true';
       res.json(queryGrep(db, pattern, caseSensitive));
     } catch (err) {
-      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
+      console.error('[api error]', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   // SSE progress stream for a job
   app.get('/api/jobs/:id/progress', (req, res) => {
-    const jobId = req.params['id'] ?? '';
+    const jobId = req.params.id ?? '';
     const job = globalJobRegistry.get(jobId);
     if (!job) {
       res.status(404).json({ error: 'Job not found' });
@@ -517,7 +578,11 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
     let lastSent = globalJobRegistry.getProgress(jobId).length;
     const interval = setInterval(() => {
       const current = globalJobRegistry.get(jobId);
-      if (!current) { clearInterval(interval); res.end(); return; }
+      if (!current) {
+        clearInterval(interval);
+        res.end();
+        return;
+      }
 
       const all = globalJobRegistry.getProgress(jobId);
       for (let i = lastSent; i < all.length; i++) {
@@ -525,7 +590,11 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       }
       lastSent = all.length;
 
-      if (current.status === 'done' || current.status === 'failed' || current.status === 'cancelled') {
+      if (
+        current.status === 'done' ||
+        current.status === 'failed' ||
+        current.status === 'cancelled'
+      ) {
         res.write(`data: ${JSON.stringify({ phase: 'complete', status: current.status })}\n\n`);
         clearInterval(interval);
         res.end();
@@ -536,31 +605,55 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
   });
 
   app.get('/api/clusters', (_req, res) => {
-    try { res.json(queryClusters(db)); } catch (err) { res.status(500).json({ error: String(err) }); }
+    try {
+      res.json(queryClusters(db));
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   app.get('/api/cluster', (req, res) => {
     try {
-      const name = (req.query['name'] as string | undefined) ?? '';
-      if (!name) { res.status(400).json({ error: 'name required' }); return; }
+      const name = (req.query.name as string | undefined) ?? '';
+      if (!name) {
+        res.status(400).json({ error: 'name required' });
+        return;
+      }
       const result = queryCluster(db, name);
-      if (!result) { res.status(404).json({ error: 'Cluster not found' }); return; }
+      if (!result) {
+        res.status(404).json({ error: 'Cluster not found' });
+        return;
+      }
       res.json(result);
-    } catch (err) { res.status(500).json({ error: String(err) }); }
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   app.get('/api/processes', (_req, res) => {
-    try { res.json(queryProcessesList(db)); } catch (err) { res.status(500).json({ error: String(err) }); }
+    try {
+      res.json(queryProcessesList(db));
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   app.get('/api/process', (req, res) => {
     try {
-      const name = (req.query['name'] as string | undefined) ?? '';
-      if (!name) { res.status(400).json({ error: 'name required' }); return; }
+      const name = (req.query.name as string | undefined) ?? '';
+      if (!name) {
+        res.status(400).json({ error: 'name required' });
+        return;
+      }
       const result = queryProcess(db, name);
-      if (!result) { res.status(404).json({ error: 'Process not found' }); return; }
+      if (!result) {
+        res.status(404).json({ error: 'Process not found' });
+        return;
+      }
       res.json(result);
-    } catch (err) { res.status(500).json({ error: String(err) }); }
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   app.get('/api/info', (_req, res) => {

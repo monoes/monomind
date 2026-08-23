@@ -7,9 +7,15 @@ const RED = '\x1b[31m';
 const YELLOW = '\x1b[33m';
 const CYAN = '\x1b[36m';
 
-function col(c: string, t: string): string { return `${c}${t}${RESET}`; }
-function dim(t: string): string { return col(DIM, t); }
-function bold(t: string): string { return col(BOLD, t); }
+function col(c: string, t: string): string {
+  return `${c}${t}${RESET}`;
+}
+function dim(t: string): string {
+  return col(DIM, t);
+}
+function bold(t: string): string {
+  return col(BOLD, t);
+}
 
 const DOCS_DUPLICATION = 'https://docs.fallow.tools/explanations/duplication';
 const MAX_CLONE_GROUPS = 10;
@@ -49,15 +55,12 @@ function splitDirFilename(path: string): [string, string] {
   return [path.slice(0, idx + 1), path.slice(idx + 1)];
 }
 
-export function formatCloneGroup(group: CloneGroup, idx: number): string[] {
+export function formatCloneGroup(group: CloneGroup, _idx: number): string[] {
   const lines: string[] = [];
   const lc = group.duplicatedLines;
   const lcStr = thousands(lc).padStart(5);
-  const lcColored = lc > 1000
-    ? col(RED, col(BOLD, lcStr))
-    : lc > 100
-      ? col(YELLOW, lcStr)
-      : dim(lcStr);
+  const lcColored =
+    lc > 1000 ? col(RED, col(BOLD, lcStr)) : lc > 100 ? col(YELLOW, lcStr) : dim(lcStr);
 
   const plural = group.instances.length === 1 ? 'instance' : 'instances';
   lines.push(`  ${lcColored} lines  ${group.instances.length} ${plural}`);
@@ -83,7 +86,9 @@ export function buildDuplicationHumanLines(
   const totalGroups = sorted.length;
   const shown = sorted.slice(0, maxGroups);
 
-  lines.push(`${col(CYAN, '●')} ${col(CYAN, col(BOLD, `Duplicates (${totalGroups} clone group${totalGroups === 1 ? '' : 's'})`))}`);
+  lines.push(
+    `${col(CYAN, '●')} ${col(CYAN, col(BOLD, `Duplicates (${totalGroups} clone group${totalGroups === 1 ? '' : 's'})`))}`,
+  );
   lines.push('');
 
   for (let i = 0; i < shown.length; i++) {
@@ -94,12 +99,16 @@ export function buildDuplicationHumanLines(
     lines.push(`  ${dim(`... and ${totalGroups - maxGroups} more clone groups`)}`);
   }
 
-  lines.push(`  ${dim(`Identical code blocks detected via suffix-array analysis — ${DOCS_DUPLICATION}#clone-groups`)}`);
+  lines.push(
+    `  ${dim(`Identical code blocks detected via suffix-array analysis — ${DOCS_DUPLICATION}#clone-groups`)}`,
+  );
   lines.push('');
 
   if (stats.duplicatedLines > 0) {
     const pct = stats.duplicationPct.toFixed(1);
-    lines.push(`  ${dim(`Duplicated: ${thousands(stats.duplicatedLines)} lines (${pct}%), ${stats.cloneGroups} clone group${stats.cloneGroups === 1 ? '' : 's'}`)}`);
+    lines.push(
+      `  ${dim(`Duplicated: ${thousands(stats.duplicatedLines)} lines (${pct}%), ${stats.cloneGroups} clone group${stats.cloneGroups === 1 ? '' : 's'}`)}`,
+    );
     lines.push('');
   }
 
@@ -112,19 +121,23 @@ export function buildDuplicationHumanLines(
 
 export function buildDuplicationFamilyLines(
   families: CloneFamily[],
-  opts: HumanDupesOptions = {},
+  _opts: HumanDupesOptions = {},
 ): string[] {
-  const multi = families.filter(f => f.groups.length > 1);
+  const multi = families.filter((f) => f.groups.length > 1);
   if (multi.length === 0) return [];
   const lines: string[] = [];
 
-  lines.push(`${col(YELLOW, '●')} ${col(YELLOW, col(BOLD, `Clone families (${multi.length} with multiple groups)`))}`);
+  lines.push(
+    `${col(YELLOW, '●')} ${col(YELLOW, col(BOLD, `Clone families (${multi.length} with multiple groups)`))}`,
+  );
   lines.push('');
 
   const shown = multi.slice(0, MAX_FLAT);
   for (const family of shown) {
     const fileList = family.files.join(', ');
-    lines.push(`  ${bold(String(family.groups.length))} groups, ${bold(thousands(family.totalDuplicatedLines))} lines across ${fileList}`);
+    lines.push(
+      `  ${bold(String(family.groups.length))} groups, ${bold(thousands(family.totalDuplicatedLines))} lines across ${fileList}`,
+    );
     for (const s of family.suggestions) {
       lines.push(`    ${col(YELLOW, '→')} ${dim(s.description)}`);
     }
@@ -136,7 +149,9 @@ export function buildDuplicationFamilyLines(
     lines.push('');
   }
 
-  lines.push(`  ${dim(`Groups of related clones across the same files — ${DOCS_DUPLICATION}#clone-families`)}`);
+  lines.push(
+    `  ${dim(`Groups of related clones across the same files — ${DOCS_DUPLICATION}#clone-families`)}`,
+  );
   lines.push('');
   return lines;
 }

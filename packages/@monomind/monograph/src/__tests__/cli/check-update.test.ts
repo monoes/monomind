@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { checkUpdate } from '../../cli/check-update.js';
 
 function makeDb(indexedAt: string | null = null): Database.Database {

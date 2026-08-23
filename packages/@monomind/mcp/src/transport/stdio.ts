@@ -4,18 +4,18 @@
  * Standard I/O transport for MCP communication
  */
 
-import { EventEmitter } from 'events';
-import * as readline from 'readline';
+import { EventEmitter } from 'node:events';
+import * as readline from 'node:readline';
 import type {
+  ILogger,
   ITransport,
-  TransportType,
+  MCPNotification,
   MCPRequest,
   MCPResponse,
-  MCPNotification,
-  RequestHandler,
   NotificationHandler,
+  RequestHandler,
   TransportHealthStatus,
-  ILogger,
+  TransportType,
 } from '../types.js';
 
 export interface StdioTransportConfig {
@@ -42,7 +42,7 @@ export class StdioTransport extends EventEmitter implements ITransport {
 
   constructor(
     private readonly logger: ILogger,
-    config: StdioTransportConfig = {}
+    config: StdioTransportConfig = {},
   ) {
     super();
     this.inputStream = config.inputStream || process.stdin;
@@ -178,7 +178,7 @@ export class StdioTransport extends EventEmitter implements ITransport {
       await this.sendError(
         request.id,
         -32603,
-        error instanceof Error ? error.message : 'Internal error'
+        error instanceof Error ? error.message : 'Internal error',
       );
     }
   }
@@ -202,7 +202,11 @@ export class StdioTransport extends EventEmitter implements ITransport {
     this.messagesSent++;
   }
 
-  private async sendError(id: string | number | null, code: number, message: string): Promise<void> {
+  private async sendError(
+    id: string | number | null,
+    code: number,
+    message: string,
+  ): Promise<void> {
     const response: MCPResponse = {
       jsonrpc: '2.0',
       id,
@@ -220,7 +224,7 @@ export class StdioTransport extends EventEmitter implements ITransport {
 
   private write(data: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.outputStream.write(data + '\n', (error) => {
+      this.outputStream.write(`${data}\n`, (error) => {
         if (error) {
           this.errors++;
           reject(error);
@@ -246,7 +250,7 @@ export class StdioTransport extends EventEmitter implements ITransport {
 
 export function createStdioTransport(
   logger: ILogger,
-  config: StdioTransportConfig = {}
+  config: StdioTransportConfig = {},
 ): StdioTransport {
   return new StdioTransport(logger, config);
 }

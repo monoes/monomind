@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { checkGitignoreCoverage, fixGitignoreCoverage } from '../commands/doctor-project-checks.js';
 
 let dir: string;
@@ -78,7 +78,10 @@ describe('doctor --fix appends to an existing .gitignore', () => {
 
 describe('directory ignores count as covering their contents', () => {
   it('a blanket .monomind/ satisfies every .monomind/* requirement', async () => {
-    writeFileSync(gitignore(), '.monomind/\n.hive-mind/\n.swarm/\n**/.claude-flow/\ndata/sessions/\ndata/mastermind-*.json\ndata/mastermind-*.jsonl\n');
+    writeFileSync(
+      gitignore(),
+      '.monomind/\n.hive-mind/\n.swarm/\n**/.claude-flow/\ndata/sessions/\ndata/mastermind-*.json\ndata/mastermind-*.jsonl\n',
+    );
     const result = await checkGitignoreCoverage();
     expect(result.status).toBe('pass');
   });

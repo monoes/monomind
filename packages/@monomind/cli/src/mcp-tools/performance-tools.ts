@@ -12,16 +12,25 @@
  * Note: Some optimization suggestions are illustrative
  */
 
-import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, statSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import * as os from 'node:os';
+import { join } from 'node:path';
+import { getProjectCwd, type MCPTool } from './types.js';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
 const PERF_DIR = 'performance';
 const METRICS_FILE = 'metrics.json';
-const BENCHMARKS_FILE = 'benchmarks.json';
+const _BENCHMARKS_FILE = 'benchmarks.json';
 
 interface PerfMetrics {
   timestamp: string;
@@ -84,13 +93,18 @@ function loadPerfStore(): PerfStore {
     if (existsSync(path) && statSync(path).size <= MAX_PERF_STORE_BYTES) {
       const store = JSON.parse(readFileSync(path, 'utf-8')) as PerfStore;
       if (store.version !== PERF_STORE_VERSION) {
-        store.metrics = (store.metrics || []).map((m) => ({ ...m, latency: null, throughput: null }));
+        store.metrics = (store.metrics || []).map((m) => ({
+          ...m,
+          latency: null,
+          throughput: null,
+        }));
         store.version = PERF_STORE_VERSION;
       }
       return store;
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[performance-tools] failed to load perf store, using empty store:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[performance-tools] failed to load perf store, using empty store:', e);
   }
   return { metrics: [], benchmarks: {}, version: PERF_STORE_VERSION };
 }
@@ -112,8 +126,16 @@ export const performanceTools: MCPTool[] = [
       type: 'object',
       properties: {
         timeRange: { type: 'string', description: 'Time range (1h, 24h, 7d)' },
-        format: { type: 'string', enum: ['json', 'summary', 'detailed'], description: 'Report format' },
-        components: { type: 'array', items: { type: 'string' }, description: 'Components to include' },
+        format: {
+          type: 'string',
+          enum: ['json', 'summary', 'detailed'],
+          description: 'Report format',
+        },
+        components: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Components to include',
+        },
       },
     },
     handler: async (input) => {
@@ -122,7 +144,7 @@ export const performanceTools: MCPTool[] = [
 
       // Get REAL system metrics via Node.js APIs
       const memUsage = process.memoryUsage();
-      const cpuUsage = process.cpuUsage();
+      const _cpuUsage = process.cpuUsage();
       const loadAvg = os.loadavg();
       const cpus = os.cpus();
       const totalMem = os.totalmem();
@@ -158,23 +180,44 @@ export const performanceTools: MCPTool[] = [
         return {
           status: 'healthy',
           cpu: { value: `${currentMetrics.cpu.usage.toFixed(1)}%`, _real: true },
-          memory: { value: `${currentMetrics.memory.used}MB / ${currentMetrics.memory.total}MB`, _real: true },
+          memory: {
+            value: `${currentMetrics.memory.used}MB / ${currentMetrics.memory.total}MB`,
+            _real: true,
+          },
           heap: { value: `${currentMetrics.memory.heap}MB`, _real: true },
-          latency: { value: null, _real: false, _note: 'No latency telemetry recorded yet — no instrumentation wired up here.' },
-          throughput: { value: null, _real: false, _note: 'No throughput telemetry recorded yet — no instrumentation wired up here.' },
-          errorRate: { value: `${(currentMetrics.errors.rate * 100).toFixed(2)}%`, _real: false, _note: 'No error tracking wired up — always 0.' },
+          latency: {
+            value: null,
+            _real: false,
+            _note: 'No latency telemetry recorded yet — no instrumentation wired up here.',
+          },
+          throughput: {
+            value: null,
+            _real: false,
+            _note: 'No throughput telemetry recorded yet — no instrumentation wired up here.',
+          },
+          errorRate: {
+            value: `${(currentMetrics.errors.rate * 100).toFixed(2)}%`,
+            _real: false,
+            _note: 'No error tracking wired up — always 0.',
+          },
           timestamp: currentMetrics.timestamp,
         };
       }
 
       // Calculate trends from history
       const history = store.metrics.slice(-10);
-      const cpuTrend = history.length >= 2
-        ? (history[history.length - 1].cpu.usage > history[0].cpu.usage ? 'increasing' : 'stable')
-        : 'stable';
-      const memTrend = history.length >= 2
-        ? (history[history.length - 1].memory.used > history[0].memory.used ? 'increasing' : 'stable')
-        : 'stable';
+      const cpuTrend =
+        history.length >= 2
+          ? history[history.length - 1].cpu.usage > history[0].cpu.usage
+            ? 'increasing'
+            : 'stable'
+          : 'stable';
+      const memTrend =
+        history.length >= 2
+          ? history[history.length - 1].memory.used > history[0].memory.used
+            ? 'increasing'
+            : 'stable'
+          : 'stable';
 
       return {
         current: currentMetrics,
@@ -190,15 +233,24 @@ export const performanceTools: MCPTool[] = [
         trends: {
           cpu: cpuTrend,
           memory: memTrend,
-          latency: { value: 'unknown', _note: 'No latency telemetry recorded — trend cannot be computed.' },
+          latency: {
+            value: 'unknown',
+            _note: 'No latency telemetry recorded — trend cannot be computed.',
+          },
         },
         // Rule-based thresholds on real cpu/memory readings — not an ML model.
         _recommendationEngine: 'rule-based (static thresholds on real cpu/memory readings)',
-        recommendations: currentMetrics.memory.used / currentMetrics.memory.total > 0.8
-          ? [{ priority: 'high', message: 'Memory usage above 80% - consider cleanup' }]
-          : currentMetrics.cpu.usage > 70
-            ? [{ priority: 'medium', message: 'CPU load elevated - check for resource-intensive processes' }]
-            : [{ priority: 'low', message: 'System running normally' }],
+        recommendations:
+          currentMetrics.memory.used / currentMetrics.memory.total > 0.8
+            ? [{ priority: 'high', message: 'Memory usage above 80% - consider cleanup' }]
+            : currentMetrics.cpu.usage > 70
+              ? [
+                  {
+                    priority: 'medium',
+                    message: 'CPU load elevated - check for resource-intensive processes',
+                  },
+                ]
+              : [{ priority: 'low', message: 'System running normally' }],
       };
     },
   },
@@ -235,41 +287,101 @@ export const performanceTools: MCPTool[] = [
         writeFileSync(probeFile, payload);
         readFileSync(probeFile);
         diskLatencyMs = Math.round((performance.now() - t0) * 100) / 100;
-        try { unlinkSync(probeFile); } catch { /* best-effort */ }
-      } catch { /* disk probe failed, leave -1 */ }
+        try {
+          unlinkSync(probeFile);
+        } catch {
+          /* best-effort */
+        }
+      } catch {
+        /* disk probe failed, leave -1 */
+      }
 
       // Check stored benchmark history for slow operations
       const store = loadPerfStore();
       const slowBenchmarks = Object.values(store.benchmarks)
         .filter((b: Benchmark) => b.results.opsPerSecond < 100)
-        .map((b: Benchmark) => ({ name: b.name, opsPerSec: b.results.opsPerSecond, date: b.createdAt }));
+        .map((b: Benchmark) => ({
+          name: b.name,
+          opsPerSec: b.results.opsPerSecond,
+          date: b.createdAt,
+        }));
 
       type Severity = 'critical' | 'high' | 'medium' | 'low';
       const classify = (value: number, thresholds: [number, number, number]): Severity =>
-        value > thresholds[0] ? 'critical' : value > thresholds[1] ? 'high' : value > thresholds[2] ? 'medium' : 'low';
+        value > thresholds[0]
+          ? 'critical'
+          : value > thresholds[1]
+            ? 'high'
+            : value > thresholds[2]
+              ? 'medium'
+              : 'low';
 
-      const bottlenecks: Array<{ component: string; severity: Severity; value: number; threshold: number; message: string; latencyMs?: number }> = [];
+      const bottlenecks: Array<{
+        component: string;
+        severity: Severity;
+        value: number;
+        threshold: number;
+        message: string;
+        latencyMs?: number;
+      }> = [];
 
       const cpuSev = classify(cpuPercent, [90, 75, 50]);
-      bottlenecks.push({ component: 'cpu', severity: cpuSev, value: Math.round(cpuPercent * 10) / 10, threshold: cpuSev === 'critical' ? 90 : cpuSev === 'high' ? 75 : 50, message: `CPU load at ${(Math.round(cpuPercent * 10) / 10)}%` });
+      bottlenecks.push({
+        component: 'cpu',
+        severity: cpuSev,
+        value: Math.round(cpuPercent * 10) / 10,
+        threshold: cpuSev === 'critical' ? 90 : cpuSev === 'high' ? 75 : 50,
+        message: `CPU load at ${Math.round(cpuPercent * 10) / 10}%`,
+      });
 
       const memSev = classify(memPercent, [90, 75, 50]);
-      bottlenecks.push({ component: 'memory', severity: memSev, value: Math.round(memPercent * 10) / 10, threshold: memSev === 'critical' ? 90 : memSev === 'high' ? 75 : 50, message: `Memory at ${(Math.round(memPercent * 10) / 10)}%` });
+      bottlenecks.push({
+        component: 'memory',
+        severity: memSev,
+        value: Math.round(memPercent * 10) / 10,
+        threshold: memSev === 'critical' ? 90 : memSev === 'high' ? 75 : 50,
+        message: `Memory at ${Math.round(memPercent * 10) / 10}%`,
+      });
 
       if (diskLatencyMs >= 0) {
-        const diskSev: Severity = diskLatencyMs > 50 ? 'critical' : diskLatencyMs > 20 ? 'high' : diskLatencyMs > 5 ? 'medium' : 'low';
-        bottlenecks.push({ component: 'disk-io', severity: diskSev, value: diskLatencyMs, threshold: diskSev === 'critical' ? 50 : diskSev === 'high' ? 20 : 5, message: `Disk I/O latency ${diskLatencyMs}ms`, latencyMs: diskLatencyMs });
+        const diskSev: Severity =
+          diskLatencyMs > 50
+            ? 'critical'
+            : diskLatencyMs > 20
+              ? 'high'
+              : diskLatencyMs > 5
+                ? 'medium'
+                : 'low';
+        bottlenecks.push({
+          component: 'disk-io',
+          severity: diskSev,
+          value: diskLatencyMs,
+          threshold: diskSev === 'critical' ? 50 : diskSev === 'high' ? 20 : 5,
+          message: `Disk I/O latency ${diskLatencyMs}ms`,
+          latencyMs: diskLatencyMs,
+        });
       }
 
       if (slowBenchmarks.length > 0) {
-        bottlenecks.push({ component: 'slow-operations', severity: 'medium', value: slowBenchmarks.length, threshold: 0, message: `${slowBenchmarks.length} slow benchmark(s) recorded` });
+        bottlenecks.push({
+          component: 'slow-operations',
+          severity: 'medium',
+          value: slowBenchmarks.length,
+          threshold: 0,
+          message: `${slowBenchmarks.length} slow benchmark(s) recorded`,
+        });
       }
 
       return {
         success: true,
         _real: true,
         bottlenecks,
-        system: { cpuPercent: Math.round(cpuPercent * 10) / 10, memoryPercent: Math.round(memPercent * 10) / 10, heapMB, diskLatencyMs },
+        system: {
+          cpuPercent: Math.round(cpuPercent * 10) / 10,
+          memoryPercent: Math.round(memPercent * 10) / 10,
+          heapMB,
+          diskLatencyMs,
+        },
         slowBenchmarks: slowBenchmarks.slice(0, 5),
       };
     },
@@ -281,7 +393,11 @@ export const performanceTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        suite: { type: 'string', enum: ['all', 'memory', 'neural', 'monoswarm', 'io'], description: 'Benchmark suite' },
+        suite: {
+          type: 'string',
+          enum: ['all', 'memory', 'neural', 'monoswarm', 'io'],
+          description: 'Benchmark suite',
+        },
         iterations: { type: 'number', description: 'Number of iterations' },
         warmup: { type: 'boolean', description: 'Include warmup phase' },
       },
@@ -299,9 +415,10 @@ export const performanceTools: MCPTool[] = [
       // could pass iterations=9_999_999 and block the process for minutes.
       const MAX_BENCHMARK_ITERATIONS = 10_000;
       const rawIterations = typeof input.iterations === 'number' ? input.iterations : 100;
-      const iterations = Number.isFinite(rawIterations) && rawIterations > 0
-        ? Math.min(Math.floor(rawIterations), MAX_BENCHMARK_ITERATIONS)
-        : 100;
+      const iterations =
+        Number.isFinite(rawIterations) && rawIterations > 0
+          ? Math.min(Math.floor(rawIterations), MAX_BENCHMARK_ITERATIONS)
+          : 100;
       const warmup = input.warmup !== false;
 
       // REAL benchmark functions
@@ -314,31 +431,49 @@ export const performanceTools: MCPTool[] = [
         neural: () => {
           // Real computation benchmark (matrix-like operations)
           const size = 64;
-          const a = Array.from({ length: size }, () => Array.from({ length: size }, () => Math.random()));
-          const b = Array.from({ length: size }, () => Array.from({ length: size }, () => Math.random()));
+          const a = Array.from({ length: size }, () =>
+            Array.from({ length: size }, () => Math.random()),
+          );
+          const b = Array.from({ length: size }, () =>
+            Array.from({ length: size }, () => Math.random()),
+          );
           // Simple matrix multiplication
           for (let i = 0; i < size; i++) {
             for (let j = 0; j < size; j++) {
-              let sum = 0;
-              for (let k = 0; k < size; k++) sum += a[i][k] * b[k][j];
+              let _sum = 0;
+              for (let k = 0; k < size; k++) _sum += a[i][k] * b[k][j];
             }
           }
         },
         monoswarm: () => {
           // Real object creation and manipulation
-          const agents = Array.from({ length: 10 }, (_, i) => ({ id: i, status: 'active', tasks: [] as number[] }));
-          agents.forEach(a => { for (let i = 0; i < 100; i++) a.tasks.push(i); });
+          const agents = Array.from({ length: 10 }, (_, i) => ({
+            id: i,
+            status: 'active',
+            tasks: [] as number[],
+          }));
+          agents.forEach((a) => {
+            for (let i = 0; i < 100; i++) a.tasks.push(i);
+          });
           agents.sort((a, b) => a.tasks.length - b.tasks.length);
         },
         io: () => {
           // Real JSON serialization benchmark
-          const data = { agents: Array.from({ length: 50 }, (_, i) => ({ id: i, name: `agent-${i}` })) };
+          const data = {
+            agents: Array.from({ length: 50 }, (_, i) => ({ id: i, name: `agent-${i}` })),
+          };
           const json = JSON.stringify(data);
           JSON.parse(json);
         },
       };
 
-      const results: Array<{ name: string; opsPerSec: number; avgLatency: string; memoryUsage: string; _real: boolean }> = [];
+      const results: Array<{
+        name: string;
+        opsPerSec: number;
+        avgLatency: string;
+        memoryUsage: string;
+        _real: boolean;
+      }> = [];
       const suitesToRun = suite === 'all' ? Object.keys(benchmarkFunctions) : [suite];
 
       // Warmup phase
@@ -384,10 +519,13 @@ export const performanceTools: MCPTool[] = [
 
           // Evict oldest entries if over limit
           const MAX_BENCHMARKS = 200;
-          const benchEntries = Object.entries(store.benchmarks)
-            .sort(([, a], [, b]) => (a.createdAt < b.createdAt ? -1 : 1));
+          const benchEntries = Object.entries(store.benchmarks).sort(([, a], [, b]) =>
+            a.createdAt < b.createdAt ? -1 : 1,
+          );
           if (benchEntries.length > MAX_BENCHMARKS) {
-            store.benchmarks = Object.fromEntries(benchEntries.slice(-MAX_BENCHMARKS)) as typeof store.benchmarks;
+            store.benchmarks = Object.fromEntries(
+              benchEntries.slice(-MAX_BENCHMARKS),
+            ) as typeof store.benchmarks;
           }
 
           results.push({
@@ -406,15 +544,19 @@ export const performanceTools: MCPTool[] = [
       const runStart = new Date().toISOString();
       const allBenchmarks = Object.values(store.benchmarks);
       const previousBenchmarks = allBenchmarks
-        .filter(b => suitesToRun.includes(b.name) && b.createdAt < runStart)
+        .filter((b) => suitesToRun.includes(b.name) && b.createdAt < runStart)
         .slice(-suitesToRun.length);
 
-      const comparison = previousBenchmarks.length > 0
-        ? {
-            vsPrevious: `${results.reduce((sum, r) => sum + r.opsPerSec, 0) > previousBenchmarks.reduce((sum, b) => sum + b.results.opsPerSecond, 0) ? '+' : ''}${Math.round(((results.reduce((sum, r) => sum + r.opsPerSec, 0) / previousBenchmarks.reduce((sum, b) => sum + b.results.opsPerSecond, 0)) - 1) * 100)}% vs previous`,
-            totalBenchmarks: allBenchmarks.length,
-          }
-        : { note: 'First benchmark run - no comparison available', totalBenchmarks: allBenchmarks.length };
+      const comparison =
+        previousBenchmarks.length > 0
+          ? {
+              vsPrevious: `${results.reduce((sum, r) => sum + r.opsPerSec, 0) > previousBenchmarks.reduce((sum, b) => sum + b.results.opsPerSecond, 0) ? '+' : ''}${Math.round((results.reduce((sum, r) => sum + r.opsPerSec, 0) / previousBenchmarks.reduce((sum, b) => sum + b.results.opsPerSecond, 0) - 1) * 100)}% vs previous`,
+              totalBenchmarks: allBenchmarks.length,
+            }
+          : {
+              note: 'First benchmark run - no comparison available',
+              totalBenchmarks: allBenchmarks.length,
+            };
 
       return {
         _real: true,
@@ -473,17 +615,47 @@ export const performanceTools: MCPTool[] = [
         for (const t of targets) {
           if (performance.now() >= deadline) break;
           if (t === 'memory') {
-            runOp('json-serialize', () => { const d = Array.from({ length: 200 }, (_, i) => ({ id: i, v: Math.random() })); JSON.stringify(d); });
-            runOp('json-parse', () => { JSON.parse(JSON.stringify({ a: 1, b: [2, 3], c: { d: 4 } })); });
-            runOp('array-sort', () => { const a = Array.from({ length: 500 }, () => Math.random()); a.sort(); });
+            runOp('json-serialize', () => {
+              const d = Array.from({ length: 200 }, (_, i) => ({ id: i, v: Math.random() }));
+              JSON.stringify(d);
+            });
+            runOp('json-parse', () => {
+              JSON.parse(JSON.stringify({ a: 1, b: [2, 3], c: { d: 4 } }));
+            });
+            runOp('array-sort', () => {
+              const a = Array.from({ length: 500 }, () => Math.random());
+              a.sort();
+            });
           } else if (t === 'io') {
             if (ioOps >= MAX_IO_OPS) continue;
-            runOp('file-write', () => { ensurePerfDir(); writeFileSync(join(getPerfDir(), '.profile-probe'), 'x'.repeat(1024)); });
-            runOp('file-read', () => { try { readFileSync(join(getPerfDir(), '.profile-probe')); } catch { /* ok */ } });
+            runOp('file-write', () => {
+              ensurePerfDir();
+              writeFileSync(join(getPerfDir(), '.profile-probe'), 'x'.repeat(1024));
+            });
+            runOp('file-read', () => {
+              try {
+                readFileSync(join(getPerfDir(), '.profile-probe'));
+              } catch {
+                /* ok */
+              }
+            });
             ioOps += 2;
           } else if (t === 'cpu') {
-            runOp('matrix-mult', () => { const s = 32; const a = Array.from({ length: s }, () => Array.from({ length: s }, () => Math.random())); for (let i = 0; i < s; i++) for (let j = 0; j < s; j++) { let sum = 0; for (let k = 0; k < s; k++) sum += a[i][k] * a[k][j]; } });
-            runOp('hash-compute', () => { let h = 0; for (let i = 0; i < 10000; i++) h = ((h << 5) - h + i) | 0; });
+            runOp('matrix-mult', () => {
+              const s = 32;
+              const a = Array.from({ length: s }, () =>
+                Array.from({ length: s }, () => Math.random()),
+              );
+              for (let i = 0; i < s; i++)
+                for (let j = 0; j < s; j++) {
+                  let _sum = 0;
+                  for (let k = 0; k < s; k++) _sum += a[i][k] * a[k][j];
+                }
+            });
+            runOp('hash-compute', () => {
+              let h = 0;
+              for (let i = 0; i < 10000; i++) h = ((h << 5) - h + i) | 0;
+            });
           }
         }
       }
@@ -504,7 +676,11 @@ export const performanceTools: MCPTool[] = [
         .sort((a, b) => b.percentOfTotal - a.percentOfTotal);
 
       // Cleanup probe file
-      try { unlinkSync(join(getPerfDir(), '.profile-probe')); } catch { /* ok */ }
+      try {
+        unlinkSync(join(getPerfDir(), '.profile-probe'));
+      } catch {
+        /* ok */
+      }
 
       return {
         success: true,
@@ -514,11 +690,14 @@ export const performanceTools: MCPTool[] = [
         cpu: {
           userMs: Math.round(cpuAfter.user / 1000),
           systemMs: Math.round(cpuAfter.system / 1000),
-          percentUtilization: Math.round(((cpuAfter.user + cpuAfter.system) / 1000 / actualDuration) * 10000) / 100,
+          percentUtilization:
+            Math.round(((cpuAfter.user + cpuAfter.system) / 1000 / actualDuration) * 10000) / 100,
         },
         memory: {
-          heapDeltaMB: Math.round((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024 * 100) / 100,
-          externalDeltaMB: Math.round((memAfter.external - memBefore.external) / 1024 / 1024 * 100) / 100,
+          heapDeltaMB:
+            Math.round(((memAfter.heapUsed - memBefore.heapUsed) / 1024 / 1024) * 100) / 100,
+          externalDeltaMB:
+            Math.round(((memAfter.external - memBefore.external) / 1024 / 1024) * 100) / 100,
         },
         hotspots,
       };
@@ -526,12 +705,17 @@ export const performanceTools: MCPTool[] = [
   },
   {
     name: 'performance_optimize',
-    description: 'Rule-based recommendation engine over real system metrics; only GC collection and probe-file cleanup are actually applied automatically — everything else is a suggestion',
+    description:
+      'Rule-based recommendation engine over real system metrics; only GC collection and probe-file cleanup are actually applied automatically — everything else is a suggestion',
     category: 'performance',
     inputSchema: {
       type: 'object',
       properties: {
-        target: { type: 'string', enum: ['memory', 'latency', 'throughput', 'all'], description: 'Optimization target' },
+        target: {
+          type: 'string',
+          enum: ['memory', 'latency', 'throughput', 'all'],
+          description: 'Optimization target',
+        },
         aggressive: { type: 'boolean', description: 'Apply aggressive optimizations' },
       },
     },
@@ -548,7 +732,7 @@ export const performanceTools: MCPTool[] = [
       const cpusBefore = os.cpus();
       const cpuPercentBefore = Math.min((loadBefore[0] / cpusBefore.length) * 100, 100);
       const memBefore = process.memoryUsage();
-      const memMBBefore = Math.round(memBefore.heapUsed / 1024 / 1024 * 100) / 100;
+      const memMBBefore = Math.round((memBefore.heapUsed / 1024 / 1024) * 100) / 100;
 
       let diskLatencyBefore = -1;
       try {
@@ -558,10 +742,21 @@ export const performanceTools: MCPTool[] = [
         writeFileSync(probe, Buffer.alloc(4096, 0x42));
         readFileSync(probe);
         diskLatencyBefore = Math.round((performance.now() - t0) * 100) / 100;
-        try { unlinkSync(probe); } catch { /* ok */ }
-      } catch { /* ok */ }
+        try {
+          unlinkSync(probe);
+        } catch {
+          /* ok */
+        }
+      } catch {
+        /* ok */
+      }
 
-      const optimizations: Array<{ action: string; applied: boolean; effect?: string; recommendation?: string }> = [];
+      const optimizations: Array<{
+        action: string;
+        applied: boolean;
+        effect?: string;
+        recommendation?: string;
+      }> = [];
       const targets = target === 'all' ? ['memory', 'latency', 'throughput'] : [target];
 
       for (const t of targets) {
@@ -570,31 +765,63 @@ export const performanceTools: MCPTool[] = [
             const heapBefore = process.memoryUsage().heapUsed;
             global.gc();
             const heapAfter = process.memoryUsage().heapUsed;
-            const freedMB = Math.round((heapBefore - heapAfter) / 1024 / 1024 * 100) / 100;
-            optimizations.push({ action: 'gc-collect', applied: true, effect: `Freed ${freedMB}MB heap` });
+            const freedMB = Math.round(((heapBefore - heapAfter) / 1024 / 1024) * 100) / 100;
+            optimizations.push({
+              action: 'gc-collect',
+              applied: true,
+              effect: `Freed ${freedMB}MB heap`,
+            });
           } else if (aggressive) {
-            optimizations.push({ action: 'gc-collect', applied: false, recommendation: 'Run with --expose-gc to enable forced garbage collection' });
+            optimizations.push({
+              action: 'gc-collect',
+              applied: false,
+              recommendation: 'Run with --expose-gc to enable forced garbage collection',
+            });
           }
           const memPercent = ((os.totalmem() - os.freemem()) / os.totalmem()) * 100;
           if (memPercent > 75) {
-            optimizations.push({ action: 'recommend-memory-cleanup', applied: false, recommendation: `Memory at ${Math.round(memPercent)}% - consider reducing in-memory caches or agent count` });
+            optimizations.push({
+              action: 'recommend-memory-cleanup',
+              applied: false,
+              recommendation: `Memory at ${Math.round(memPercent)}% - consider reducing in-memory caches or agent count`,
+            });
           }
-          optimizations.push({ action: 'recommend-hnsw-rebuild', applied: false, recommendation: 'Rebuild HNSW index to reclaim fragmented memory' });
+          optimizations.push({
+            action: 'recommend-hnsw-rebuild',
+            applied: false,
+            recommendation: 'Rebuild HNSW index to reclaim fragmented memory',
+          });
         }
 
         if (t === 'latency') {
           if (diskLatencyBefore > 20) {
-            optimizations.push({ action: 'recommend-ssd', applied: false, recommendation: `Disk I/O latency ${diskLatencyBefore}ms is high - ensure storage is SSD-backed` });
+            optimizations.push({
+              action: 'recommend-ssd',
+              applied: false,
+              recommendation: `Disk I/O latency ${diskLatencyBefore}ms is high - ensure storage is SSD-backed`,
+            });
           }
-          optimizations.push({ action: 'recommend-batch-io', applied: false, recommendation: 'Batch file operations to reduce syscall overhead' });
+          optimizations.push({
+            action: 'recommend-batch-io',
+            applied: false,
+            recommendation: 'Batch file operations to reduce syscall overhead',
+          });
         }
 
         if (t === 'throughput') {
           const coreCount = cpusBefore.length;
           const batchSize = Math.max(2, Math.floor(coreCount / 2));
-          optimizations.push({ action: 'recommend-batch-size', applied: false, recommendation: `Use batch size ${batchSize} for ${coreCount} CPU cores` });
+          optimizations.push({
+            action: 'recommend-batch-size',
+            applied: false,
+            recommendation: `Use batch size ${batchSize} for ${coreCount} CPU cores`,
+          });
           if (cpuPercentBefore > 70) {
-            optimizations.push({ action: 'recommend-throttle', applied: false, recommendation: `CPU at ${Math.round(cpuPercentBefore)}% - throttle concurrent agents to avoid contention` });
+            optimizations.push({
+              action: 'recommend-throttle',
+              applied: false,
+              recommendation: `CPU at ${Math.round(cpuPercentBefore)}% - throttle concurrent agents to avoid contention`,
+            });
           }
         }
       }
@@ -604,9 +831,22 @@ export const performanceTools: MCPTool[] = [
         try {
           const dir = getPerfDir();
           const probes = readdirSync(dir).filter((f: string) => f.startsWith('.'));
-          probes.forEach((f: string) => { try { unlinkSync(join(dir, f)); } catch { /* ok */ } });
-          if (probes.length > 0) optimizations.push({ action: 'clear-probe-files', applied: true, effect: `Removed ${probes.length} probe file(s)` });
-        } catch { /* ok */ }
+          probes.forEach((f: string) => {
+            try {
+              unlinkSync(join(dir, f));
+            } catch {
+              /* ok */
+            }
+          });
+          if (probes.length > 0)
+            optimizations.push({
+              action: 'clear-probe-files',
+              applied: true,
+              effect: `Removed ${probes.length} probe file(s)`,
+            });
+        } catch {
+          /* ok */
+        }
       }
 
       // Snapshot AFTER
@@ -616,14 +856,19 @@ export const performanceTools: MCPTool[] = [
       return {
         success: true,
         _real: true,
-        _recommendationEngine: 'rule-based (static thresholds on real cpu/memory/disk readings) — not ML-based',
+        _recommendationEngine:
+          'rule-based (static thresholds on real cpu/memory/disk readings) — not ML-based',
         target,
         aggressive,
-        before: { cpuPercent: Math.round(cpuPercentBefore * 10) / 10, memoryMB: memMBBefore, diskLatencyMs: diskLatencyBefore },
+        before: {
+          cpuPercent: Math.round(cpuPercentBefore * 10) / 10,
+          memoryMB: memMBBefore,
+          diskLatencyMs: diskLatencyBefore,
+        },
         optimizations,
         after: {
           cpuPercent: Math.round(Math.min((loadAfter[0] / cpusBefore.length) * 100, 100) * 10) / 10,
-          memoryMB: Math.round(memAfter.heapUsed / 1024 / 1024 * 100) / 100,
+          memoryMB: Math.round((memAfter.heapUsed / 1024 / 1024) * 100) / 100,
           diskLatencyMs: diskLatencyBefore, // same measurement window
         },
       };
@@ -636,8 +881,16 @@ export const performanceTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        metric: { type: 'string', enum: ['cpu', 'memory', 'latency', 'throughput', 'all'], description: 'Metric type' },
-        aggregation: { type: 'string', enum: ['avg', 'min', 'max', 'p50', 'p95', 'p99'], description: 'Aggregation method' },
+        metric: {
+          type: 'string',
+          enum: ['cpu', 'memory', 'latency', 'throughput', 'all'],
+          description: 'Metric type',
+        },
+        aggregation: {
+          type: 'string',
+          enum: ['avg', 'min', 'max', 'p50', 'p95', 'p99'],
+          description: 'Aggregation method',
+        },
         timeRange: { type: 'string', description: 'Time range' },
       },
     },
@@ -668,11 +921,20 @@ export const performanceTools: MCPTool[] = [
 
       // Calculate statistics from stored history
       const history = store.metrics.slice(-100);
-      const cpuHistory = history.map(m => m.cpu.usage);
-      const memHistory = history.map(m => m.memory.used);
+      const cpuHistory = history.map((m) => m.cpu.usage);
+      const memHistory = history.map((m) => m.memory.used);
 
       const calcStats = (arr: number[], current: number) => {
-        if (arr.length === 0) return { current, avg: current, min: current, max: current, p50: current, p95: current, p99: current };
+        if (arr.length === 0)
+          return {
+            current,
+            avg: current,
+            min: current,
+            max: current,
+            p50: current,
+            p95: current,
+            p99: current,
+          };
         const sorted = [...arr].sort((a, b) => a - b);
         return {
           current,
@@ -707,11 +969,13 @@ export const performanceTools: MCPTool[] = [
           _real: true,
         },
         latency: {
-          _note: 'No latency telemetry collected. Wire up real instrumentation to populate this section.',
+          _note:
+            'No latency telemetry collected. Wire up real instrumentation to populate this section.',
           available: false,
         },
         throughput: {
-          _note: 'No throughput telemetry collected. Wire up real instrumentation to populate this section.',
+          _note:
+            'No throughput telemetry collected. Wire up real instrumentation to populate this section.',
           available: false,
         },
       };

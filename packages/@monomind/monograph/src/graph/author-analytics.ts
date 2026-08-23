@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from 'child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import type { MonographDb } from '../storage/db.js';
 
 export type ChurnTrend = 'accelerating' | 'stable' | 'declining';
@@ -6,24 +6,24 @@ export type ChurnTrend = 'accelerating' | 'stable' | 'declining';
 export interface AuthorStats {
   author: string;
   commitCount: number;
-  filesOwned: number;       // files where this author has majority of commits
-  recentCommits: number;    // commits in last 30 days
+  filesOwned: number; // files where this author has majority of commits
+  recentCommits: number; // commits in last 30 days
   churnTrend: ChurnTrend;
   isBot: boolean;
 }
 
 export interface AuthorAnalyticsReport {
   authors: AuthorStats[];
-  topOwners: AuthorStats[];   // top 5 by filesOwned
+  topOwners: AuthorStats[]; // top 5 by filesOwned
   botAuthors: string[];
-  unownedFiles: number;       // files with no majority owner
+  unownedFiles: number; // files with no majority owner
 }
 
 const BOT_PATTERNS = ['[bot]', 'noreply', 'github-actions', 'dependabot', 'renovate'];
 
 function isBot(email: string): boolean {
   const lower = email.toLowerCase();
-  return BOT_PATTERNS.some(p => lower.includes(p));
+  return BOT_PATTERNS.some((p) => lower.includes(p));
 }
 
 const EMPTY_REPORT: AuthorAnalyticsReport = {
@@ -63,7 +63,7 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
     const email = trimmed.slice(0, pipeIdx).trim();
     const tsStr = trimmed.slice(pipeIdx + 1).trim();
     const ts = parseInt(tsStr, 10);
-    if (!email || isNaN(ts)) continue;
+    if (!email || Number.isNaN(ts)) continue;
 
     commitCount.set(email, (commitCount.get(email) ?? 0) + 1);
     if (ts > thirtyDaysAgo) {
@@ -77,7 +77,8 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
 
   // ── File ownership ─────────────────────────────────────────────────────────
   // Get File nodes with degree > 2 — use JOIN+GROUP BY instead of correlated subquery
-  const fileRows = db.prepare(`
+  const fileRows = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path
     FROM nodes n
     JOIN (
@@ -93,7 +94,8 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
     WHERE n.label = 'File'
       AND n.file_path IS NOT NULL
     LIMIT 200
-  `).all() as { id: string; name: string; file_path: string }[];
+  `)
+    .all() as { id: string; name: string; file_path: string }[];
 
   // Map: file path → winning author email (majority owner) or null
   const fileOwner = new Map<string, string | null>();
@@ -101,7 +103,10 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
 
   for (const file of fileRows) {
     const filePath = file.file_path;
-    if (!filePath) { fileOwner.set(file.id, null); continue; }
+    if (!filePath) {
+      fileOwner.set(file.id, null);
+      continue;
+    }
 
     let fileLog: string;
     try {
@@ -177,7 +182,7 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
   // Sort by filesOwned desc, then commitCount desc
   authors.sort((a, b) => b.filesOwned - a.filesOwned || b.commitCount - a.commitCount);
 
-  const topOwners = authors.filter(a => !a.isBot).slice(0, 5);
+  const topOwners = authors.filter((a) => !a.isBot).slice(0, 5);
 
   return { authors, topOwners, botAuthors, unownedFiles };
 }
@@ -196,20 +201,30 @@ export function formatAuthorAnalytics(report: AuthorAnalyticsReport): string {
   if (report.topOwners.length > 0) {
     lines.push('Top file owners (non-bot):');
     for (const a of report.topOwners) {
-      const trend = a.churnTrend === 'accelerating' ? ' [↑ accelerating]'
-        : a.churnTrend === 'declining' ? ' [↓ declining]' : '';
-      lines.push(`  ${a.author}  files:${a.filesOwned}  commits:${a.commitCount}  recent30d:${a.recentCommits}${trend}`);
+      const trend =
+        a.churnTrend === 'accelerating'
+          ? ' [↑ accelerating]'
+          : a.churnTrend === 'declining'
+            ? ' [↓ declining]'
+            : '';
+      lines.push(
+        `  ${a.author}  files:${a.filesOwned}  commits:${a.commitCount}  recent30d:${a.recentCommits}${trend}`,
+      );
     }
     lines.push('');
   }
 
   if (report.botAuthors.length > 0) {
-    lines.push(`Bot/automation authors (${report.botAuthors.length}): ${report.botAuthors.join(', ')}`);
+    lines.push(
+      `Bot/automation authors (${report.botAuthors.length}): ${report.botAuthors.join(', ')}`,
+    );
     lines.push('');
   }
 
   if (report.unownedFiles > 0) {
-    lines.push(`Unowned files: ${report.unownedFiles} file(s) have no majority author (> 50% commits).`);
+    lines.push(
+      `Unowned files: ${report.unownedFiles} file(s) have no majority author (> 50% commits).`,
+    );
     lines.push('Consider adding CODEOWNERS entries for these files.');
   }
 

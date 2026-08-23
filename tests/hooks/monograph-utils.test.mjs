@@ -4,12 +4,13 @@
  * DB-requiring functions are exercised at the safe-default level only.
  * Invalidate both monograph + telemetry caches before each test.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -20,7 +21,9 @@ const require = createRequire(import.meta.url);
 // is actually installed — must use dynamic import() instead. Top-level await
 // is fine here since this is an .mjs test file evaluated by Vitest.
 let _mgLib = null;
-try { _mgLib = await import('@monoes/monograph'); } catch (_) {}
+try {
+  _mgLib = await import('@monoes/monograph');
+} catch (_) {}
 const DB_SKIP = !_mgLib;
 
 const TELE_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/telemetry.cjs');
@@ -112,14 +115,18 @@ describe('monograph._recordGraphTelemetry', () => {
     const mg = loadMonograph(tmpDir);
     mg._recordGraphTelemetry('grep_call');
     mg._recordGraphTelemetry('grep_call');
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'),
+    );
     expect(data.grep_call).toBe(2);
   });
 
   it('accumulates tokens_saved for monograph_call events', () => {
     const mg = loadMonograph(tmpDir);
     mg._recordGraphTelemetry('monograph_call');
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'),
+    );
     expect(data.tokens_saved).toBeGreaterThan(0);
     expect(data.dollars_saved).toBeGreaterThan(0);
   });
@@ -127,7 +134,9 @@ describe('monograph._recordGraphTelemetry', () => {
   it('accumulates tokens_wasted for grep_call events', () => {
     const mg = loadMonograph(tmpDir);
     mg._recordGraphTelemetry('grep_call');
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'),
+    );
     expect(data.tokens_wasted).toBeGreaterThan(0);
   });
 
@@ -135,7 +144,9 @@ describe('monograph._recordGraphTelemetry', () => {
     const mg = loadMonograph(tmpDir);
     mg._recordGraphTelemetry('monograph_call');
     mg._recordGraphTelemetry('glob_call');
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8'),
+    );
     expect(data.monograph_call).toBe(1);
     expect(data.glob_call).toBe(1);
   });
@@ -147,14 +158,18 @@ describe('monograph._maybeRebuildMonograph', () => {
   it('creates .monomind/metrics/graph-rebuild.json', () => {
     const mg = loadMonograph(tmpDir);
     mg._maybeRebuildMonograph();
-    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-rebuild.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-rebuild.json'))).toBe(
+      true,
+    );
   });
 
   it('increments writesSinceRebuild each call', () => {
     const mg = loadMonograph(tmpDir);
     mg._maybeRebuildMonograph();
     mg._maybeRebuildMonograph();
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-rebuild.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-rebuild.json'), 'utf-8'),
+    );
     expect(data.writesSinceRebuild).toBe(2);
   });
 
@@ -163,7 +178,14 @@ describe('monograph._maybeRebuildMonograph', () => {
     // Pre-seed the file at count 19 so next call hits threshold
     const rebuildFile = path.join(tmpDir, '.monomind', 'metrics', 'graph-rebuild.json');
     fs.mkdirSync(path.dirname(rebuildFile), { recursive: true });
-    fs.writeFileSync(rebuildFile, JSON.stringify({ writesSinceRebuild: 19, lastWriteAt: Date.now() - 6 * 60 * 1000, lastRebuildAt: 0 }));
+    fs.writeFileSync(
+      rebuildFile,
+      JSON.stringify({
+        writesSinceRebuild: 19,
+        lastWriteAt: Date.now() - 6 * 60 * 1000,
+        lastRebuildAt: 0,
+      }),
+    );
     mg._maybeRebuildMonograph();
     const data = JSON.parse(fs.readFileSync(rebuildFile, 'utf-8'));
     expect(data.writesSinceRebuild).toBe(0);
@@ -173,7 +195,9 @@ describe('monograph._maybeRebuildMonograph', () => {
   it('does not reset before threshold (< 20 writes)', () => {
     const mg = loadMonograph(tmpDir);
     for (let i = 0; i < 5; i++) mg._maybeRebuildMonograph();
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-rebuild.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'graph-rebuild.json'), 'utf-8'),
+    );
     expect(data.writesSinceRebuild).toBe(5);
   });
 });
@@ -245,7 +269,9 @@ function makeFixtureDb(dir) {
     const scopeDir = path.join(dir, 'node_modules', '@monoes');
     fs.mkdirSync(scopeDir, { recursive: true });
     const link = path.join(scopeDir, 'monograph');
-    try { fs.symlinkSync(MONOGRAPH_PKG_DIR, link, 'dir'); } catch (_) {}
+    try {
+      fs.symlinkSync(MONOGRAPH_PKG_DIR, link, 'dir');
+    } catch (_) {}
   }
   const dbPath = path.join(dbDir, 'monograph.db');
   const db = _mgLib.openDb(dbPath);
@@ -255,9 +281,26 @@ function makeFixtureDb(dir) {
 describe.skipIf(DB_SKIP)('monograph.getMonographSuggestions — with DB', () => {
   it('returns matching nodes for a multi-keyword query', () => {
     const { db } = makeFixtureDb(tmpDir);
-    _mgLib.insertNode(db, { id: 'src_authsvc', label: 'File', name: 'AuthService', filePath: 'src/auth/service.ts' });
-    _mgLib.insertNode(db, { id: 'src_utils', label: 'File', name: 'utils', filePath: 'src/utils.ts' });
-    _mgLib.insertEdge(db, { id: 'e1', sourceId: 'src_authsvc', targetId: 'src_utils', relation: 'IMPORTS', confidence: 1.0, confidenceScore: 1.0 });
+    _mgLib.insertNode(db, {
+      id: 'src_authsvc',
+      label: 'File',
+      name: 'AuthService',
+      filePath: 'src/auth/service.ts',
+    });
+    _mgLib.insertNode(db, {
+      id: 'src_utils',
+      label: 'File',
+      name: 'utils',
+      filePath: 'src/utils.ts',
+    });
+    _mgLib.insertEdge(db, {
+      id: 'e1',
+      sourceId: 'src_authsvc',
+      targetId: 'src_utils',
+      relation: 'IMPORTS',
+      confidence: 1.0,
+      confidenceScore: 1.0,
+    });
     const mg = loadMonograph(tmpDir);
     const results = mg.getMonographSuggestions('authentication service module', 5);
     expect(Array.isArray(results)).toBe(true);
@@ -276,9 +319,26 @@ describe.skipIf(DB_SKIP)('monograph.getMonographSuggestions — with DB', () => 
 describe.skipIf(DB_SKIP)('monograph.getMonographNeighbors — with DB', () => {
   it('returns imports and importedBy for a known file node', () => {
     const { db } = makeFixtureDb(tmpDir);
-    _mgLib.insertNode(db, { id: 'node_a', label: 'File', name: 'auth.ts', filePath: 'src/auth.ts' });
-    _mgLib.insertNode(db, { id: 'node_b', label: 'File', name: 'utils.ts', filePath: 'src/utils.ts' });
-    _mgLib.insertEdge(db, { id: 'e1', sourceId: 'node_a', targetId: 'node_b', relation: 'IMPORTS', confidence: 1.0, confidenceScore: 1.0 });
+    _mgLib.insertNode(db, {
+      id: 'node_a',
+      label: 'File',
+      name: 'auth.ts',
+      filePath: 'src/auth.ts',
+    });
+    _mgLib.insertNode(db, {
+      id: 'node_b',
+      label: 'File',
+      name: 'utils.ts',
+      filePath: 'src/utils.ts',
+    });
+    _mgLib.insertEdge(db, {
+      id: 'e1',
+      sourceId: 'node_a',
+      targetId: 'node_b',
+      relation: 'IMPORTS',
+      confidence: 1.0,
+      confidenceScore: 1.0,
+    });
     const mg = loadMonograph(tmpDir);
     const result = mg.getMonographNeighbors('src/auth.ts');
     expect(result).not.toBeNull();
@@ -296,9 +356,26 @@ describe.skipIf(DB_SKIP)('monograph.getMonographNeighbors — with DB', () => {
 describe.skipIf(DB_SKIP)('monograph._findAffectedTests — with DB', () => {
   it('returns test files that import the given source file', () => {
     const { db } = makeFixtureDb(tmpDir);
-    _mgLib.insertNode(db, { id: 'src_auth', label: 'File', name: 'auth.ts', filePath: 'src/auth.ts' });
-    _mgLib.insertNode(db, { id: 'test_auth', label: 'File', name: 'auth.test.ts', filePath: 'tests/auth.test.ts' });
-    _mgLib.insertEdge(db, { id: 'e1', sourceId: 'test_auth', targetId: 'src_auth', relation: 'IMPORTS', confidence: 1.0, confidenceScore: 1.0 });
+    _mgLib.insertNode(db, {
+      id: 'src_auth',
+      label: 'File',
+      name: 'auth.ts',
+      filePath: 'src/auth.ts',
+    });
+    _mgLib.insertNode(db, {
+      id: 'test_auth',
+      label: 'File',
+      name: 'auth.test.ts',
+      filePath: 'tests/auth.test.ts',
+    });
+    _mgLib.insertEdge(db, {
+      id: 'e1',
+      sourceId: 'test_auth',
+      targetId: 'src_auth',
+      relation: 'IMPORTS',
+      confidence: 1.0,
+      confidenceScore: 1.0,
+    });
     const mg = loadMonograph(tmpDir);
     const results = mg._findAffectedTests('src/auth.ts');
     expect(Array.isArray(results)).toBe(true);
@@ -308,7 +385,12 @@ describe.skipIf(DB_SKIP)('monograph._findAffectedTests — with DB', () => {
 
   it('returns [] when no test files depend on the given file', () => {
     const { db } = makeFixtureDb(tmpDir);
-    _mgLib.insertNode(db, { id: 'src_auth', label: 'File', name: 'auth.ts', filePath: 'src/auth.ts' });
+    _mgLib.insertNode(db, {
+      id: 'src_auth',
+      label: 'File',
+      name: 'auth.ts',
+      filePath: 'src/auth.ts',
+    });
     const mg = loadMonograph(tmpDir);
     expect(mg._findAffectedTests('src/auth.ts')).toEqual([]);
   });
@@ -318,14 +400,26 @@ describe.skipIf(DB_SKIP)('monograph.injectGodNodesContext — with DB', () => {
   it('writes a monograph-god-nodes chunk to knowledge/chunks.jsonl', () => {
     const { db } = makeFixtureDb(tmpDir);
     _mgLib.insertNode(db, { id: 'src_a', label: 'File', name: 'core.ts', filePath: 'src/core.ts' });
-    _mgLib.insertNode(db, { id: 'src_b', label: 'File', name: 'helper.ts', filePath: 'src/helper.ts' });
-    _mgLib.insertEdge(db, { id: 'e1', sourceId: 'src_b', targetId: 'src_a', relation: 'IMPORTS', confidence: 1.0, confidenceScore: 1.0 });
+    _mgLib.insertNode(db, {
+      id: 'src_b',
+      label: 'File',
+      name: 'helper.ts',
+      filePath: 'src/helper.ts',
+    });
+    _mgLib.insertEdge(db, {
+      id: 'e1',
+      sourceId: 'src_b',
+      targetId: 'src_a',
+      relation: 'IMPORTS',
+      confidence: 1.0,
+      confidenceScore: 1.0,
+    });
     const mg = loadMonograph(tmpDir);
     mg.injectGodNodesContext(tmpDir);
     const chunksFile = path.join(tmpDir, '.monomind', 'knowledge', 'chunks.jsonl');
     expect(fs.existsSync(chunksFile)).toBe(true);
     const lines = fs.readFileSync(chunksFile, 'utf-8').trim().split('\n').filter(Boolean);
-    const godChunk = lines.map(l => JSON.parse(l)).find(c => c.id === 'monograph-god-nodes');
+    const godChunk = lines.map((l) => JSON.parse(l)).find((c) => c.id === 'monograph-god-nodes');
     expect(godChunk).toBeDefined();
     expect(godChunk.text).toContain('core.ts');
   });

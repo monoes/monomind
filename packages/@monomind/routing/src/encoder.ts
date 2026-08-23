@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 
 export interface Encoder {
   encode(text: string): Promise<number[]>;
@@ -36,13 +36,13 @@ export class LocalEncoder implements Encoder {
       const bigram = `${words[i]} ${words[i + 1]}`;
       const hash = createHash('md5').update(bigram).digest();
       for (let j = 0; j < Math.min(hash.length, this.DIM); j++) {
-        vector[(j + this.DIM / 2) % this.DIM] += (hash[j] - 128) / 128 * 0.5;
+        vector[(j + this.DIM / 2) % this.DIM] += ((hash[j] - 128) / 128) * 0.5;
       }
     }
 
     // L2 normalize
     const norm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0)) || 1;
-    const normalized = vector.map(v => v / norm);
+    const normalized = vector.map((v) => v / norm);
     if (this.cache.size >= LocalEncoder.MAX_CACHE) {
       const oldest = this.cache.keys().next().value!;
       this.cache.delete(oldest);
@@ -52,7 +52,7 @@ export class LocalEncoder implements Encoder {
   }
 
   async encodeAll(texts: string[]): Promise<number[][]> {
-    return Promise.all(texts.map(t => this.encode(t)));
+    return Promise.all(texts.map((t) => this.encode(t)));
   }
 }
 

@@ -3,12 +3,13 @@
  * Uses process.env.CLAUDE_PROJECT_DIR + delete require.cache to inject a
  * controlled CWD into the module before each test group.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -57,7 +58,9 @@ describe('getVersion', () => {
   it('checks both the Windows and macOS/Linux npm global package layouts in the prefix fallback', () => {
     const src = fs.readFileSync(SL_PATH, 'utf-8');
     expect(src).toMatch(/path\.join\(prefix,\s*'node_modules',\s*'monomind',\s*'package\.json'\)/);
-    expect(src).toMatch(/path\.join\(prefix,\s*'lib',\s*'node_modules',\s*'monomind',\s*'package\.json'\)/);
+    expect(src).toMatch(
+      /path\.join\(prefix,\s*'lib',\s*'node_modules',\s*'monomind',\s*'package\.json'\)/,
+    );
   });
 });
 
@@ -141,7 +144,7 @@ describe('getSecurityStatus', () => {
     fs.mkdirSync(path.join(tmpDir, '.monomind', 'security'), { recursive: true });
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'security', 'audit-status.json'),
-      JSON.stringify({ status: 'CLEAN', cvesFixed: 3, totalCves: 5 })
+      JSON.stringify({ status: 'CLEAN', cvesFixed: 3, totalCves: 5 }),
     );
     const { getSecurityStatus } = loadSL();
     const result = getSecurityStatus();
@@ -152,7 +155,12 @@ describe('getSecurityStatus', () => {
     fs.mkdirSync(path.join(tmpDir, '.monomind', 'security'), { recursive: true });
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'security', 'audit-status.json'),
-      JSON.stringify({ lastAudit: new Date().toISOString(), status: 'CLEAN', cvesFixed: 2, totalCves: 3 })
+      JSON.stringify({
+        lastAudit: new Date().toISOString(),
+        status: 'CLEAN',
+        cvesFixed: 2,
+        totalCves: 3,
+      }),
     );
     const { getSecurityStatus } = loadSL();
     const result = getSecurityStatus();
@@ -165,7 +173,7 @@ describe('getSecurityStatus', () => {
     const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'security', 'audit-status.json'),
-      JSON.stringify({ lastAudit: oldDate, status: 'CLEAN', cvesFixed: 1, totalCves: 1 })
+      JSON.stringify({ lastAudit: oldDate, status: 'CLEAN', cvesFixed: 1, totalCves: 1 }),
     );
     const { getSecurityStatus } = loadSL();
     expect(getSecurityStatus().status).toBe('STALE');
@@ -204,10 +212,13 @@ describe('getMonoswarmStatus', () => {
   it('reads from monoswarm-activity.json when no registration files (recent timestamp)', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
-    fs.writeFileSync(path.join(metricsDir, 'monoswarm-activity.json'), JSON.stringify({
-      timestamp: new Date().toISOString(),
-      monoswarm: { agent_count: 3, coordination_active: true, active: true },
-    }));
+    fs.writeFileSync(
+      path.join(metricsDir, 'monoswarm-activity.json'),
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        monoswarm: { agent_count: 3, coordination_active: true, active: true },
+      }),
+    );
     const { getMonoswarmStatus } = loadSL();
     const result = getMonoswarmStatus();
     expect(result.activeAgents).toBe(3);
@@ -217,10 +228,13 @@ describe('getMonoswarmStatus', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     const stale = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    fs.writeFileSync(path.join(metricsDir, 'monoswarm-activity.json'), JSON.stringify({
-      timestamp: stale,
-      monoswarm: { agent_count: 5, coordination_active: true },
-    }));
+    fs.writeFileSync(
+      path.join(metricsDir, 'monoswarm-activity.json'),
+      JSON.stringify({
+        timestamp: stale,
+        monoswarm: { agent_count: 5, coordination_active: true },
+      }),
+    );
     const { getMonoswarmStatus } = loadSL();
     const result = getMonoswarmStatus();
     expect(result.activeAgents).toBe(0);
@@ -261,10 +275,18 @@ describe('getHooksStatus', () => {
       path.join(tmpDir, '.claude', 'settings.json'),
       JSON.stringify({
         hooks: {
-          PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'echo' }, { type: 'command', command: 'echo 2' }] }],
+          PreToolUse: [
+            {
+              matcher: '*',
+              hooks: [
+                { type: 'command', command: 'echo' },
+                { type: 'command', command: 'echo 2' },
+              ],
+            },
+          ],
           PostToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'echo 3' }] }],
         },
-      })
+      }),
     );
     const { getHooksStatus } = loadSL();
     const result = getHooksStatus();
@@ -282,7 +304,10 @@ describe('getActiveAgent', () => {
   });
 
   it('returns null when last-route.json has no agent field', () => {
-    fs.writeFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), JSON.stringify({ updatedAt: new Date().toISOString() }));
+    fs.writeFileSync(
+      path.join(tmpDir, '.monomind', 'last-route.json'),
+      JSON.stringify({ updatedAt: new Date().toISOString() }),
+    );
     const { getActiveAgent } = loadSL();
     expect(getActiveAgent()).toBeNull();
   });
@@ -291,7 +316,7 @@ describe('getActiveAgent', () => {
     const stale = new Date(Date.now() - 31 * 60 * 1000).toISOString();
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'last-route.json'),
-      JSON.stringify({ agent: 'coder', confidence: 0.8, updatedAt: stale })
+      JSON.stringify({ agent: 'coder', confidence: 0.8, updatedAt: stale }),
     );
     const { getActiveAgent } = loadSL();
     expect(getActiveAgent()).toBeNull();
@@ -300,7 +325,11 @@ describe('getActiveAgent', () => {
   it('returns agent info from recent last-route.json', () => {
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'last-route.json'),
-      JSON.stringify({ agent: 'backend-dev', confidence: 0.85, updatedAt: new Date().toISOString() })
+      JSON.stringify({
+        agent: 'backend-dev',
+        confidence: 0.85,
+        updatedAt: new Date().toISOString(),
+      }),
     );
     const { getActiveAgent } = loadSL();
     const result = getActiveAgent();
@@ -312,7 +341,7 @@ describe('getActiveAgent', () => {
   it('formats agent slug into display name', () => {
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'last-route.json'),
-      JSON.stringify({ agent: 'backend-dev', updatedAt: new Date().toISOString() })
+      JSON.stringify({ agent: 'backend-dev', updatedAt: new Date().toISOString() }),
     );
     const { getActiveAgent } = loadSL();
     const result = getActiveAgent();
@@ -335,7 +364,7 @@ describe('getLanceDBStats', () => {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(
       path.join(dataDir, 'auto-memory-store.json'),
-      JSON.stringify([{ key: 'a' }, { key: 'b' }, { key: 'c' }])
+      JSON.stringify([{ key: 'a' }, { key: 'b' }, { key: 'c' }]),
     );
     const { getLanceDBStats } = loadSL();
     const result = getLanceDBStats();
@@ -346,9 +375,12 @@ describe('getLanceDBStats', () => {
     const dataDir = path.join(tmpDir, '.monomind', 'data');
     fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(path.join(dataDir, 'auto-memory-store.json'), JSON.stringify([{ key: 'a' }]));
-    fs.writeFileSync(path.join(dataDir, 'ranked-context.json'), JSON.stringify({
-      entries: [{ k: 1 }, { k: 2 }, { k: 3 }, { k: 4 }, { k: 5 }],
-    }));
+    fs.writeFileSync(
+      path.join(dataDir, 'ranked-context.json'),
+      JSON.stringify({
+        entries: [{ k: 1 }, { k: 2 }, { k: 3 }, { k: 4 }, { k: 5 }],
+      }),
+    );
     const { getLanceDBStats } = loadSL();
     const result = getLanceDBStats();
     expect(result.vectorCount).toBe(5);
@@ -416,7 +448,7 @@ describe('getIntegrationStatus', () => {
   it('counts mcpServers from settings.json', () => {
     fs.writeFileSync(
       path.join(tmpDir, '.claude', 'settings.json'),
-      JSON.stringify({ mcpServers: { monomind: {}, monograph: {} } })
+      JSON.stringify({ mcpServers: { monomind: {}, monograph: {} } }),
     );
     const { getIntegrationStatus } = loadSL();
     const result = getIntegrationStatus();

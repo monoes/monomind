@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import {
+  adjacencyMatrixToCsv,
   buildAdjacencyMatrix,
   buildAdjacencyMatrixFromDb,
-  adjacencyMatrixToCsv,
 } from '../../export/adjacency-matrix.js';
 import { openDb } from '../../storage/db.js';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-adjmatrix-test-'));
@@ -16,13 +16,15 @@ function makeTempDb() {
 }
 
 function insertNode(db: ReturnType<typeof openDb>, id: string) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`)
-    .run(id, id, id.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`,
+  ).run(id, id, id.toLowerCase());
 }
 
 function insertEdge(db: ReturnType<typeof openDb>, src: string, tgt: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}`, src, tgt);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`,
+  ).run(`${src}_${tgt}`, src, tgt);
 }
 
 function makeNode(id: string): MonographNode {
@@ -30,7 +32,14 @@ function makeNode(id: string): MonographNode {
 }
 
 function makeEdge(src: string, tgt: string): MonographEdge {
-  return { id: `${src}_${tgt}`, sourceId: src, targetId: tgt, relation: 'CALLS', confidence: 'EXTRACTED', confidenceScore: 1.0 };
+  return {
+    id: `${src}_${tgt}`,
+    sourceId: src,
+    targetId: tgt,
+    relation: 'CALLS',
+    confidence: 'EXTRACTED',
+    confidenceScore: 1.0,
+  };
 }
 
 describe('buildAdjacencyMatrix', () => {
@@ -72,7 +81,9 @@ describe('buildAdjacencyMatrix', () => {
 describe('buildAdjacencyMatrixFromDb', () => {
   it('builds matrix from all nodes in db', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'a', 'b');
     insertEdge(db, 'b', 'c');
     const result = buildAdjacencyMatrixFromDb(db);
@@ -86,7 +97,9 @@ describe('buildAdjacencyMatrixFromDb', () => {
 
   it('restricts to given nodeIds subset', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'a', 'b');
     const result = buildAdjacencyMatrixFromDb(db, ['a', 'b']);
     expect(result.nodeIds).toHaveLength(2);
@@ -103,12 +116,18 @@ describe('adjacencyMatrixToCsv', () => {
     expect(lines[0]).toContain('"a"');
     expect(lines[0]).toContain('"b"');
     // Row for 'a': first cell is "a", second is 1
-    const aRow = lines.find(l => l.startsWith('"a"'))!;
+    const aRow = lines.find((l) => l.startsWith('"a"'))!;
     expect(aRow).toContain('1');
   });
 
   it('escapes double quotes in node names', () => {
-    const node: MonographNode = { id: 'x', label: 'Function', name: 'say "hello"', normLabel: 'say hello', isExported: false };
+    const node: MonographNode = {
+      id: 'x',
+      label: 'Function',
+      name: 'say "hello"',
+      normLabel: 'say hello',
+      isExported: false,
+    };
     const am = buildAdjacencyMatrix([node], []);
     const csv = adjacencyMatrixToCsv(am);
     expect(csv).toContain('""hello""');

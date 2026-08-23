@@ -23,11 +23,12 @@
  *   for older installs, and there's no live-verified evidence it was ever
  *   wrong for that version — only that 0.149.0 has since moved on.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import * as cp from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { CodexAgentRunner } from '../orgrt/codex-runner.js';
-import { EventEmitter } from 'node:events';
-import * as cp from 'node:child_process';
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -39,7 +40,7 @@ function makeMockChild(stdoutLines: string[], exitCode = 0): cp.ChildProcess {
   child.stdout = new EventEmitter();
   child.stdout[Symbol.asyncIterator] = async function* () {
     for (const line of stdoutLines) {
-      yield Buffer.from(line + '\n');
+      yield Buffer.from(`${line}\n`);
     }
   };
   child.stderr = new EventEmitter();
@@ -52,7 +53,16 @@ function makeMockChild(stdoutLines: string[], exitCode = 0): cp.ChildProcess {
  *  the runner reads THIS field, not total_token_usage, which is cumulative). */
 const TOKEN_COUNT = {
   type: 'token_count',
-  info: { last_token_usage: { input_tokens: 10, output_tokens: 5, cached_input_tokens: 0, cache_write_input_tokens: 0, reasoning_output_tokens: 0, total_tokens: 15 } },
+  info: {
+    last_token_usage: {
+      input_tokens: 10,
+      output_tokens: 5,
+      cached_input_tokens: 0,
+      cache_write_input_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 15,
+    },
+  },
 };
 
 describe('CodexAgentRunner', () => {
@@ -73,7 +83,9 @@ describe('CodexAgentRunner', () => {
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: 'You are a test agent',
       model: 'gpt-5.6-terra',
       cwd: '/tmp',
@@ -81,7 +93,9 @@ describe('CodexAgentRunner', () => {
       maxTurns: 5,
     });
 
-    for await (const _m of gen) { /* consume */ }
+    for await (const _m of gen) {
+      /* consume */
+    }
 
     const spawnArgs = vi.mocked(cp.spawn).mock.calls[0];
     expect(spawnArgs[0]).toBe('/usr/bin/codex');
@@ -96,14 +110,22 @@ describe('CodexAgentRunner', () => {
   });
 
   it('captures session id from session_configured event', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'session_configured', session_id: 'test-thread-123', thread_id: 'test-thread-123' }),
-      JSON.stringify(TOKEN_COUNT),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({
+          type: 'session_configured',
+          session_id: 'test-thread-123',
+          thread_id: 'test-thread-123',
+        }),
+        JSON.stringify(TOKEN_COUNT),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -113,20 +135,24 @@ describe('CodexAgentRunner', () => {
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    const resultMsg = messages.find(m => m.type === 'result');
+    const resultMsg = messages.find((m) => m.type === 'result');
     expect(resultMsg.session_id).toBe('test-thread-123');
   });
 
   it('extracts text from agent_message events', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
-      JSON.stringify({ type: 'agent_message', message: 'Hello world!' }),
-      JSON.stringify(TOKEN_COUNT),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+        JSON.stringify({ type: 'agent_message', message: 'Hello world!' }),
+        JSON.stringify(TOKEN_COUNT),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -136,26 +162,44 @@ describe('CodexAgentRunner', () => {
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    const assistantMsg = messages.find(m => m.type === 'assistant');
+    const assistantMsg = messages.find((m) => m.type === 'assistant');
     expect(assistantMsg).toBeDefined();
     expect(assistantMsg.text).toBe('Hello world!');
   });
 
   it('extracts per-turn usage from token_count.info.last_token_usage (not the cumulative total_token_usage)', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
-      JSON.stringify({
-        type: 'token_count',
-        info: {
-          last_token_usage: { input_tokens: 24763, output_tokens: 122, cached_input_tokens: 24448, cache_write_input_tokens: 0, reasoning_output_tokens: 0, total_tokens: 24885 },
-          total_token_usage: { input_tokens: 999999, output_tokens: 999999, cached_input_tokens: 0, cache_write_input_tokens: 0, reasoning_output_tokens: 0, total_tokens: 1999998 },
-        },
-      }),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+        JSON.stringify({
+          type: 'token_count',
+          info: {
+            last_token_usage: {
+              input_tokens: 24763,
+              output_tokens: 122,
+              cached_input_tokens: 24448,
+              cache_write_input_tokens: 0,
+              reasoning_output_tokens: 0,
+              total_tokens: 24885,
+            },
+            total_token_usage: {
+              input_tokens: 999999,
+              output_tokens: 999999,
+              cached_input_tokens: 0,
+              cache_write_input_tokens: 0,
+              reasoning_output_tokens: 0,
+              total_tokens: 1999998,
+            },
+          },
+        }),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -165,20 +209,29 @@ describe('CodexAgentRunner', () => {
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    const resultMsg = messages.find(m => m.type === 'result');
+    const resultMsg = messages.find((m) => m.type === 'result');
     expect(resultMsg.input_tokens).toBe(24763);
     expect(resultMsg.output_tokens).toBe(122);
   });
 
   it('surfaces error from task_complete.error', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
-      JSON.stringify({ type: 'task_complete', turn_id: 'turn1', last_agent_message: null, error: { message: 'rate limited' } }),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+        JSON.stringify({
+          type: 'task_complete',
+          turn_id: 'turn1',
+          last_agent_message: null,
+          error: { message: 'rate limited' },
+        }),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -192,19 +245,29 @@ describe('CodexAgentRunner', () => {
     let caught: any;
     try {
       for await (const m of gen) messages.push(m);
-    } catch (err) { caught = err; }
+    } catch (err) {
+      caught = err;
+    }
     expect(String(caught)).toContain('rate limited');
   });
 
   it('uses resume positional arg when threadId provided', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'session_configured', session_id: 'existing-thread', thread_id: 'existing-thread' }),
-      JSON.stringify(TOKEN_COUNT),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({
+          type: 'session_configured',
+          session_id: 'existing-thread',
+          thread_id: 'existing-thread',
+        }),
+        JSON.stringify(TOKEN_COUNT),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'follow up'; })(),
+      prompt: (async function* () {
+        yield 'follow up';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -212,7 +275,9 @@ describe('CodexAgentRunner', () => {
       resume: 'existing-thread',
     });
 
-    for await (const _m of gen) { /* consume */ }
+    for await (const _m of gen) {
+      /* consume */
+    }
 
     const spawnArgs = vi.mocked(cp.spawn).mock.calls[0];
     expect(spawnArgs[1]).toContain('resume');
@@ -225,7 +290,9 @@ describe('CodexAgentRunner', () => {
       err.code = 'ENOENT';
       const child = new EventEmitter() as any;
       child.stdout = new EventEmitter();
-      child.stdout[Symbol.asyncIterator] = async function* () { /* empty */ };
+      child.stdout[Symbol.asyncIterator] = async function* () {
+        /* empty */
+      };
       child.stderr = new EventEmitter();
       child.kill = vi.fn();
       setTimeout(() => child.emit('error', err), 1);
@@ -235,7 +302,9 @@ describe('CodexAgentRunner', () => {
     const runner = new CodexAgentRunner('codex');
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -246,8 +315,12 @@ describe('CodexAgentRunner', () => {
     // watchdog race); the spawn error surfaces when the stream is drained.
     let caught: any;
     try {
-      for await (const _m of gen) { /* consume */ }
-    } catch (err) { caught = err; }
+      for await (const _m of gen) {
+        /* consume */
+      }
+    } catch (err) {
+      caught = err;
+    }
     expect(String(caught)).toContain('requires the Codex CLI');
   });
 
@@ -257,20 +330,30 @@ describe('CodexAgentRunner', () => {
     // feeds that error back as the next prompt. Second turn: clean response
     // with no tool calls → loop ends.
     vi.mocked(cp.spawn)
-      .mockReturnValueOnce(makeMockChild([
-        JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
-        JSON.stringify({ type: 'agent_message', message: 'Sending...\n\n```tool_call\n{"name": "org_send", "arguments": {"to": "boss"}}\n```' }),
-        JSON.stringify(TOKEN_COUNT),
-      ]))
-      .mockReturnValueOnce(makeMockChild([
-        JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
-        JSON.stringify({ type: 'agent_message', message: 'Done.' }),
-        JSON.stringify(TOKEN_COUNT),
-      ]));
+      .mockReturnValueOnce(
+        makeMockChild([
+          JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+          JSON.stringify({
+            type: 'agent_message',
+            message:
+              'Sending...\n\n```tool_call\n{"name": "org_send", "arguments": {"to": "boss"}}\n```',
+          }),
+          JSON.stringify(TOKEN_COUNT),
+        ]),
+      )
+      .mockReturnValueOnce(
+        makeMockChild([
+          JSON.stringify({ type: 'session_configured', session_id: 't1', thread_id: 't1' }),
+          JSON.stringify({ type: 'agent_message', message: 'Done.' }),
+          JSON.stringify(TOKEN_COUNT),
+        ]),
+      );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -281,12 +364,12 @@ describe('CodexAgentRunner', () => {
     for await (const m of gen) messages.push(m);
 
     // First assistant message should have fences stripped
-    const firstAssistant = messages.find(m => m.type === 'assistant' && m.text === 'Sending...');
+    const firstAssistant = messages.find((m) => m.type === 'assistant' && m.text === 'Sending...');
     expect(firstAssistant).toBeDefined();
     expect(firstAssistant.text).not.toContain('tool_call');
 
     // Second turn's assistant message
-    const doneMsg = messages.find(m => m.type === 'assistant' && m.text === 'Done.');
+    const doneMsg = messages.find((m) => m.type === 'assistant' && m.text === 'Done.');
     expect(doneMsg).toBeDefined();
   }, 15000);
 });
@@ -300,16 +383,35 @@ describe('CodexAgentRunner — CURRENT item-based wire format (live-verified aga
   });
 
   it('captures thread id from a real thread.started event', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: '01a02a2f-43cf-7382-91db-8817db3ba376' }),
-      JSON.stringify({ type: 'turn.started' }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'item_0', type: 'agent_message', text: 'pong' } }),
-      JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 13085, cached_input_tokens: 9984, cache_write_input_tokens: 0, output_tokens: 5, reasoning_output_tokens: 0 } }),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({
+          type: 'thread.started',
+          thread_id: '01a02a2f-43cf-7382-91db-8817db3ba376',
+        }),
+        JSON.stringify({ type: 'turn.started' }),
+        JSON.stringify({
+          type: 'item.completed',
+          item: { id: 'item_0', type: 'agent_message', text: 'pong' },
+        }),
+        JSON.stringify({
+          type: 'turn.completed',
+          usage: {
+            input_tokens: 13085,
+            cached_input_tokens: 9984,
+            cache_write_input_tokens: 0,
+            output_tokens: 5,
+            reasoning_output_tokens: 0,
+          },
+        }),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'reply with exactly the word: pong'; })(),
+      prompt: (async function* () {
+        yield 'reply with exactly the word: pong';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -319,21 +421,31 @@ describe('CodexAgentRunner — CURRENT item-based wire format (live-verified aga
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    const resultMsg = messages.find(m => m.type === 'result');
+    const resultMsg = messages.find((m) => m.type === 'result');
     expect(resultMsg.session_id).toBe('01a02a2f-43cf-7382-91db-8817db3ba376');
   });
 
   it('extracts text from an item.completed agent_message item', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-      JSON.stringify({ type: 'turn.started' }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'item_0', type: 'agent_message', text: 'pong' } }),
-      JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 13085, output_tokens: 5 } }),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
+        JSON.stringify({ type: 'turn.started' }),
+        JSON.stringify({
+          type: 'item.completed',
+          item: { id: 'item_0', type: 'agent_message', text: 'pong' },
+        }),
+        JSON.stringify({
+          type: 'turn.completed',
+          usage: { input_tokens: 13085, output_tokens: 5 },
+        }),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -343,26 +455,63 @@ describe('CodexAgentRunner — CURRENT item-based wire format (live-verified aga
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    const assistantMsg = messages.find(m => m.type === 'assistant');
+    const assistantMsg = messages.find((m) => m.type === 'assistant');
     expect(assistantMsg).toBeDefined();
     expect(assistantMsg.text).toBe('pong');
   });
 
   it('ignores item.started/item.completed command_execution items but still surfaces the agent_message items around them', async () => {
     // Real captured sequence from `codex exec --json ... "run: echo hello-from-codex-shell"`.
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-      JSON.stringify({ type: 'turn.started' }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'item_0', type: 'agent_message', text: 'I’ll run that shell command now.' } }),
-      JSON.stringify({ type: 'item.started', item: { id: 'item_1', type: 'command_execution', command: "/bin/zsh -lc 'echo hello-from-codex-shell'", aggregated_output: '', exit_code: null, status: 'in_progress' } }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'item_1', type: 'command_execution', command: "/bin/zsh -lc 'echo hello-from-codex-shell'", aggregated_output: 'hello-from-codex-shell\n', exit_code: 0, status: 'completed' } }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'item_2', type: 'agent_message', text: '```text\nhello-from-codex-shell\n```' } }),
-      JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 26343, output_tokens: 154, reasoning_output_tokens: 14 } }),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
+        JSON.stringify({ type: 'turn.started' }),
+        JSON.stringify({
+          type: 'item.completed',
+          item: { id: 'item_0', type: 'agent_message', text: 'I’ll run that shell command now.' },
+        }),
+        JSON.stringify({
+          type: 'item.started',
+          item: {
+            id: 'item_1',
+            type: 'command_execution',
+            command: "/bin/zsh -lc 'echo hello-from-codex-shell'",
+            aggregated_output: '',
+            exit_code: null,
+            status: 'in_progress',
+          },
+        }),
+        JSON.stringify({
+          type: 'item.completed',
+          item: {
+            id: 'item_1',
+            type: 'command_execution',
+            command: "/bin/zsh -lc 'echo hello-from-codex-shell'",
+            aggregated_output: 'hello-from-codex-shell\n',
+            exit_code: 0,
+            status: 'completed',
+          },
+        }),
+        JSON.stringify({
+          type: 'item.completed',
+          item: {
+            id: 'item_2',
+            type: 'agent_message',
+            text: '```text\nhello-from-codex-shell\n```',
+          },
+        }),
+        JSON.stringify({
+          type: 'turn.completed',
+          usage: { input_tokens: 26343, output_tokens: 154, reasoning_output_tokens: 14 },
+        }),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'run: echo hello-from-codex-shell'; })(),
+      prompt: (async function* () {
+        yield 'run: echo hello-from-codex-shell';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -375,21 +524,40 @@ describe('CodexAgentRunner — CURRENT item-based wire format (live-verified aga
     // Exactly the two agent_message items, in order — the command_execution
     // item.started/item.completed pair in between must not synthesize a
     // third assistant message from its own command/aggregated_output fields.
-    const assistantTexts = messages.filter(m => m.type === 'assistant').map(m => m.text);
-    expect(assistantTexts).toEqual(['I’ll run that shell command now.', '```text\nhello-from-codex-shell\n```']);
+    const assistantTexts = messages.filter((m) => m.type === 'assistant').map((m) => m.text);
+    expect(assistantTexts).toEqual([
+      'I’ll run that shell command now.',
+      '```text\nhello-from-codex-shell\n```',
+    ]);
   });
 
   it('extracts per-turn usage from turn.completed.usage', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
-      JSON.stringify({ type: 'turn.started' }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'item_0', type: 'agent_message', text: 'hi' } }),
-      JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 13112, cached_input_tokens: 12032, cache_write_input_tokens: 0, output_tokens: 5, reasoning_output_tokens: 0 } }),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ type: 'thread.started', thread_id: 't1' }),
+        JSON.stringify({ type: 'turn.started' }),
+        JSON.stringify({
+          type: 'item.completed',
+          item: { id: 'item_0', type: 'agent_message', text: 'hi' },
+        }),
+        JSON.stringify({
+          type: 'turn.completed',
+          usage: {
+            input_tokens: 13112,
+            cached_input_tokens: 12032,
+            cache_write_input_tokens: 0,
+            output_tokens: 5,
+            reasoning_output_tokens: 0,
+          },
+        }),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'hello'; })(),
+      prompt: (async function* () {
+        yield 'hello';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -399,22 +567,29 @@ describe('CodexAgentRunner — CURRENT item-based wire format (live-verified aga
     const messages: any[] = [];
     for await (const m of gen) messages.push(m);
 
-    const resultMsg = messages.find(m => m.type === 'result');
+    const resultMsg = messages.find((m) => m.type === 'result');
     expect(resultMsg.input_tokens).toBe(13112);
     expect(resultMsg.output_tokens).toBe(5);
   });
 
   it('uses resume positional arg when threadId provided, unchanged by the wire-format fix', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeMockChild([
-      JSON.stringify({ type: 'thread.started', thread_id: 'existing-thread' }),
-      JSON.stringify({ type: 'turn.started' }),
-      JSON.stringify({ type: 'item.completed', item: { id: 'item_0', type: 'agent_message', text: 'ok' } }),
-      JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }),
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeMockChild([
+        JSON.stringify({ type: 'thread.started', thread_id: 'existing-thread' }),
+        JSON.stringify({ type: 'turn.started' }),
+        JSON.stringify({
+          type: 'item.completed',
+          item: { id: 'item_0', type: 'agent_message', text: 'ok' },
+        }),
+        JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }),
+      ]),
+    );
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'follow up'; })(),
+      prompt: (async function* () {
+        yield 'follow up';
+      })(),
       systemPrompt: '',
       cwd: '/tmp',
       env: {},
@@ -422,7 +597,9 @@ describe('CodexAgentRunner — CURRENT item-based wire format (live-verified aga
       resume: 'existing-thread',
     });
 
-    for await (const _m of gen) { /* consume */ }
+    for await (const _m of gen) {
+      /* consume */
+    }
 
     const spawnArgs = vi.mocked(cp.spawn).mock.calls[0];
     expect(spawnArgs[1]).toContain('resume');
@@ -449,13 +626,16 @@ describe('CodexAgentRunner streaming (#204)', () => {
 
   /** Mock child whose stdout lines are emitted with per-line delays; 'close'
    *  fires after the last line. */
-  function makeDelayedMockChild(lines: Array<{ line: string; delayMs?: number }>, exitCode = 0): cp.ChildProcess {
+  function makeDelayedMockChild(
+    lines: Array<{ line: string; delayMs?: number }>,
+    exitCode = 0,
+  ): cp.ChildProcess {
     const child = new EventEmitter() as any;
     child.stdout = new EventEmitter();
     child.stdout[Symbol.asyncIterator] = async function* () {
       for (const { line, delayMs = 0 } of lines) {
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
-        yield Buffer.from(line + '\n');
+        yield Buffer.from(`${line}\n`);
       }
     };
     child.stderr = new EventEmitter();
@@ -468,7 +648,9 @@ describe('CodexAgentRunner streaming (#204)', () => {
   function makeRunArgs(overrides?: Record<string, unknown>) {
     return {
       tools: [],
-      prompt: (async function* () { yield 'do work'; })(),
+      prompt: (async function* () {
+        yield 'do work';
+      })(),
       systemPrompt: 'test role',
       cwd: '/tmp',
       env: {},
@@ -478,19 +660,58 @@ describe('CodexAgentRunner streaming (#204)', () => {
   }
 
   it('yields a liveness message immediately, then streams messages DURING the turn (not after exit)', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeDelayedMockChild([
-      { line: JSON.stringify({ type: 'thread.started', thread_id: 'c1' }) },
-      { line: JSON.stringify({ type: 'turn.started' }) },
-      // Model "thinking", then a shell tool call…
-      { line: JSON.stringify({ type: 'item.started', item: { id: 'i0', type: 'command_execution', command: 'ls -la', aggregated_output: '', exit_code: null, status: 'in_progress' } }), delayMs: 200 },
-      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i0', type: 'command_execution', command: 'ls -la', aggregated_output: 'file1\n', exit_code: 0, status: 'completed' } }), delayMs: 200 },
-      // …the final text arrives…
-      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'all done' } }) },
-      // …then a LONG tail (e.g. codex writing its final summary/cleanup)
-      // before the process actually exits — the regression guard below
-      // proves the assistant text was NOT held back until this point.
-      { line: JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 5 } }), delayMs: 500 },
-    ]));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeDelayedMockChild([
+        { line: JSON.stringify({ type: 'thread.started', thread_id: 'c1' }) },
+        { line: JSON.stringify({ type: 'turn.started' }) },
+        // Model "thinking", then a shell tool call…
+        {
+          line: JSON.stringify({
+            type: 'item.started',
+            item: {
+              id: 'i0',
+              type: 'command_execution',
+              command: 'ls -la',
+              aggregated_output: '',
+              exit_code: null,
+              status: 'in_progress',
+            },
+          }),
+          delayMs: 200,
+        },
+        {
+          line: JSON.stringify({
+            type: 'item.completed',
+            item: {
+              id: 'i0',
+              type: 'command_execution',
+              command: 'ls -la',
+              aggregated_output: 'file1\n',
+              exit_code: 0,
+              status: 'completed',
+            },
+          }),
+          delayMs: 200,
+        },
+        // …the final text arrives…
+        {
+          line: JSON.stringify({
+            type: 'item.completed',
+            item: { id: 'i1', type: 'agent_message', text: 'all done' },
+          }),
+        },
+        // …then a LONG tail (e.g. codex writing its final summary/cleanup)
+        // before the process actually exits — the regression guard below
+        // proves the assistant text was NOT held back until this point.
+        {
+          line: JSON.stringify({
+            type: 'turn.completed',
+            usage: { input_tokens: 10, output_tokens: 5 },
+          }),
+          delayMs: 500,
+        },
+      ]),
+    );
 
     const start = Date.now();
     const messages: any[] = [];
@@ -531,23 +752,52 @@ describe('CodexAgentRunner streaming (#204)', () => {
   it('fence protocol: executes tool_call fences and feeds results back into the SAME thread', async () => {
     const fenceTurn = makeDelayedMockChild([
       { line: JSON.stringify({ type: 'thread.started', thread_id: 'thread-fence-1' }) },
-      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i0', type: 'agent_message', text: 'Sending now.\n```tool_call\n{"name":"org_echo","arguments":{"text":"hi"}}\n```' } }) },
-      { line: JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 5, output_tokens: 2 } }) },
+      {
+        line: JSON.stringify({
+          type: 'item.completed',
+          item: {
+            id: 'i0',
+            type: 'agent_message',
+            text: 'Sending now.\n```tool_call\n{"name":"org_echo","arguments":{"text":"hi"}}\n```',
+          },
+        }),
+      },
+      {
+        line: JSON.stringify({
+          type: 'turn.completed',
+          usage: { input_tokens: 5, output_tokens: 2 },
+        }),
+      },
     ]);
     const finalTurn = makeDelayedMockChild([
-      { line: JSON.stringify({ type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'final answer' } }) },
-      { line: JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 7, output_tokens: 3 } }) },
+      {
+        line: JSON.stringify({
+          type: 'item.completed',
+          item: { id: 'i1', type: 'agent_message', text: 'final answer' },
+        }),
+      },
+      {
+        line: JSON.stringify({
+          type: 'turn.completed',
+          usage: { input_tokens: 7, output_tokens: 3 },
+        }),
+      },
     ]);
     vi.mocked(cp.spawn).mockReturnValueOnce(fenceTurn).mockReturnValueOnce(finalTurn);
 
     const handled: string[] = [];
     const args = makeRunArgs({
-      tools: [{
-        name: 'org_echo',
-        description: 'echo text back',
-        schema: { text: z.string() },
-        handler: async (a: any) => { handled.push(String(a.text)); return { text: `echo:${a.text}` }; },
-      }],
+      tools: [
+        {
+          name: 'org_echo',
+          description: 'echo text back',
+          schema: { text: z.string() },
+          handler: async (a: any) => {
+            handled.push(String(a.text));
+            return { text: `echo:${a.text}` };
+          },
+        },
+      ],
     });
     const messages: any[] = [];
     for await (const m of runner.run(args)) messages.push(m);
@@ -580,14 +830,21 @@ describe('CodexAgentRunner streaming (#204)', () => {
   }, 15000);
 
   it('classifies auth/permission failures as FATAL (non-retryable)', async () => {
-    vi.mocked(cp.spawn).mockReturnValue(makeDelayedMockChild([
-      { line: JSON.stringify({ type: 'error', message: 'auth_error: 401 Unauthorized' }) },
-    ], 1));
+    vi.mocked(cp.spawn).mockReturnValue(
+      makeDelayedMockChild(
+        [{ line: JSON.stringify({ type: 'error', message: 'auth_error: 401 Unauthorized' }) }],
+        1,
+      ),
+    );
 
     let caught: any;
     try {
-      for await (const _m of runner.run(makeRunArgs())) { /* consume */ }
-    } catch (err) { caught = err; }
+      for await (const _m of runner.run(makeRunArgs())) {
+        /* consume */
+      }
+    } catch (err) {
+      caught = err;
+    }
     expect(caught).toBeDefined();
     expect(String(caught)).toContain('FATAL');
     expect(caught.fatal).toBe(true);
@@ -596,13 +853,20 @@ describe('CodexAgentRunner streaming (#204)', () => {
   it('leaves transient failures retryable (no fatal flag)', async () => {
     const child = makeDelayedMockChild([], 1);
     // Generic stderr, no auth/quota markers.
-    setTimeout(() => (child.stderr as EventEmitter).emit('data', Buffer.from('connection reset by peer')), 5);
+    setTimeout(
+      () => (child.stderr as EventEmitter).emit('data', Buffer.from('connection reset by peer')),
+      5,
+    );
     vi.mocked(cp.spawn).mockReturnValue(child);
 
     let caught: any;
     try {
-      for await (const _m of runner.run(makeRunArgs())) { /* consume */ }
-    } catch (err) { caught = err; }
+      for await (const _m of runner.run(makeRunArgs())) {
+        /* consume */
+      }
+    } catch (err) {
+      caught = err;
+    }
     expect(caught).toBeDefined();
     expect(String(caught)).toContain('codex exec failed (exit 1)');
     expect(caught.fatal).toBeUndefined();

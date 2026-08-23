@@ -36,12 +36,12 @@ export function effectiveSeverity(kind: IssueKindKey, rules: RulesConfig): Issue
 
 export function applyRules(issues: AnalysisIssue[], rules: RulesConfig): AnalysisIssue[] {
   return issues
-    .filter(issue => effectiveSeverity(issue.kind, rules) !== 'off')
-    .map(issue => ({ ...issue, severity: effectiveSeverity(issue.kind, rules) }));
+    .filter((issue) => effectiveSeverity(issue.kind, rules) !== 'off')
+    .map((issue) => ({ ...issue, severity: effectiveSeverity(issue.kind, rules) }));
 }
 
 export function hasErrorSeverityIssues(issues: AnalysisIssue[], rules: RulesConfig): boolean {
-  return issues.some(issue => effectiveSeverity(issue.kind, rules) === 'error');
+  return issues.some((issue) => effectiveSeverity(issue.kind, rules) === 'error');
 }
 
 export const DEFAULT_RULES_CONFIG: RulesConfig = {

@@ -1,7 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { agentCommand } from '../commands/agent.js';
-import { spawnCommand, listCommand, statusCommand, stopCommand } from '../commands/agent-lifecycle.js';
-import { metricsCommand, poolCommand, healthCommand } from '../commands/agent-ops.js';
+import {
+  listCommand,
+  spawnCommand,
+  statusCommand,
+  stopCommand,
+} from '../commands/agent-lifecycle.js';
+import { healthCommand, metricsCommand, poolCommand } from '../commands/agent-ops.js';
 import type { CommandContext } from '../types.js';
 
 function makeCtx(overrides: Partial<CommandContext> = {}): CommandContext {
@@ -50,7 +55,7 @@ describe('agentCommand registration', () => {
   it('default action prints the subcommand menu and succeeds without touching the filesystem', async () => {
     const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     try {
-      const result = await agentCommand.action!(makeCtx());
+      const result = await agentCommand.action?.(makeCtx());
       expect(result).toEqual({ success: true });
 
       const printed = writeSpy.mock.calls.map((c) => String(c[0])).join('');

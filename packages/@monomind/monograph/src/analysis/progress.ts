@@ -1,4 +1,4 @@
-const TICK_CHARS = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏',' '];
+const TICK_CHARS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏', ' '];
 
 export interface Spinner {
   stop(finalMessage?: string): void;

@@ -1,5 +1,5 @@
-import type { MonographNode, MonographEdge } from '../types.js';
 import type { MonographDb } from '../storage/db.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 // ── Node regex search ──────────────────────────────────────────────────────────
 
@@ -27,11 +27,13 @@ export function regexSearchNodes(
 
   // Scan all rows and apply regex filter in JS, then cap at limit.
   // LIMIT in SQL would silently miss matches beyond the first N rows.
-  const rows = db.prepare(
-    `SELECT id, label, name, norm_label, file_path, start_line, end_line,
+  const rows = db
+    .prepare(
+      `SELECT id, label, name, norm_label, file_path, start_line, end_line,
             community_id, is_exported, language, properties
      FROM nodes`,
-  ).all() as {
+    )
+    .all() as {
     id: string;
     label: string;
     name: string;
@@ -50,10 +52,13 @@ export function regexSearchNodes(
   for (const r of rows) {
     for (const field of fields) {
       const value =
-        field === 'name' ? r.name :
-        field === 'filePath' ? (r.file_path ?? '') :
-        field === 'language' ? (r.language ?? '') :
-        r.label;
+        field === 'name'
+          ? r.name
+          : field === 'filePath'
+            ? (r.file_path ?? '')
+            : field === 'language'
+              ? (r.language ?? '')
+              : r.label;
 
       if (value && re.test(value)) {
         const node: MonographNode = {
@@ -67,7 +72,9 @@ export function regexSearchNodes(
           communityId: r.community_id ?? undefined,
           isExported: r.is_exported === 1,
           language: r.language ?? undefined,
-          properties: r.properties ? (JSON.parse(r.properties) as Record<string, unknown>) : undefined,
+          properties: r.properties
+            ? (JSON.parse(r.properties) as Record<string, unknown>)
+            : undefined,
         };
         results.push({ node, field });
         break;
@@ -103,10 +110,12 @@ export function regexSearchEdges(
 ): RegexEdgeMatch[] {
   const re = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
 
-  const rows = db.prepare(
-    `SELECT id, source_id, target_id, relation, confidence, confidence_score, reason
+  const rows = db
+    .prepare(
+      `SELECT id, source_id, target_id, relation, confidence, confidence_score, reason
      FROM edges`,
-  ).all() as {
+    )
+    .all() as {
     id: string;
     source_id: string;
     target_id: string;
@@ -131,9 +140,11 @@ export function regexSearchEdges(
 
     for (const field of fields) {
       const value =
-        field === 'relation' ? r.relation :
-        field === 'confidence' ? r.confidence :
-        (r.reason ?? '');
+        field === 'relation'
+          ? r.relation
+          : field === 'confidence'
+            ? r.confidence
+            : (r.reason ?? '');
 
       if (value && re.test(value)) {
         results.push({ edge, field });
@@ -159,10 +170,13 @@ export function regexSearchNodesInMemory(
   for (const node of nodes) {
     for (const field of fields) {
       const value =
-        field === 'name' ? node.name :
-        field === 'filePath' ? (node.filePath ?? '') :
-        field === 'language' ? (node.language ?? '') :
-        node.label;
+        field === 'name'
+          ? node.name
+          : field === 'filePath'
+            ? (node.filePath ?? '')
+            : field === 'language'
+              ? (node.language ?? '')
+              : node.label;
 
       if (value && re.test(value)) {
         results.push({ node, field });
@@ -185,9 +199,11 @@ export function regexSearchEdgesInMemory(
   for (const edge of edges) {
     for (const field of fields) {
       const value =
-        field === 'relation' ? edge.relation :
-        field === 'confidence' ? edge.confidence :
-        (edge.reason ?? '');
+        field === 'relation'
+          ? edge.relation
+          : field === 'confidence'
+            ? edge.confidence
+            : (edge.reason ?? '');
 
       if (value && re.test(value)) {
         results.push({ edge, field });
@@ -225,7 +241,7 @@ export function formatRegexEdgeMatches(matches: RegexEdgeMatch[], pattern: strin
   for (const m of matches) {
     lines.push(
       `  [${m.field}] ${m.edge.sourceId} -[${m.edge.relation}]-> ${m.edge.targetId}` +
-      (m.edge.reason ? `  // ${m.edge.reason}` : ''),
+        (m.edge.reason ? `  // ${m.edge.reason}` : ''),
     );
   }
   return lines.join('\n');

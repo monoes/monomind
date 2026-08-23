@@ -3,8 +3,8 @@
  * Extracted from workers/index.ts (ARCH-3b).
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 import { searchDDDPatterns } from './worker-utils.js';
 
@@ -43,14 +43,18 @@ async function discoverWorkspacePackages(packagesPath: string): Promise<string[]
         try {
           await fs.access(pkgJsonPath);
           found.push(path.join(entry.name, scoped.name));
-        } catch { /* not a package directory */ }
+        } catch {
+          /* not a package directory */
+        }
       }
     } else {
       const pkgJsonPath = path.join(entryPath, 'package.json');
       try {
         await fs.access(pkgJsonPath);
         found.push(entry.name);
-      } catch { /* not a package directory */ }
+      } catch {
+        /* not a package directory */
+      }
     }
   }
 
@@ -78,7 +82,9 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
         await fs.access(path.join(projectRoot, 'src'));
         modules = [path.basename(projectRoot) || 'project'];
         basePath = projectRoot;
-      } catch { /* no packages/ and no src/ — nothing to score */ }
+      } catch {
+        /* no packages/ and no src/ — nothing to score */
+      }
     }
 
     const moduleResults = await Promise.all(
@@ -100,15 +106,19 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
           const { patterns, skipped } = await searchDDDPatterns(srcPath);
           Object.assign(modMetrics, patterns);
 
-          const modScore = patterns.entities * 2 + patterns.valueObjects +
-                          patterns.aggregates * 3 + patterns.repositories * 2 +
-                          patterns.services + patterns.domainEvents * 2;
+          const modScore =
+            patterns.entities * 2 +
+            patterns.valueObjects +
+            patterns.aggregates * 3 +
+            patterns.repositories * 2 +
+            patterns.services +
+            patterns.domainEvents * 2;
 
           return { mod, modMetrics, modScore, exists: true, skipped };
         } catch {
           return { mod, modMetrics, modScore: 0, exists: false, skipped: [] as string[] };
         }
-      })
+      }),
     );
 
     const skippedPaths: string[] = [];
@@ -131,18 +141,26 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
     try {
       const outputPath = path.join(projectRoot, '.monomind', 'metrics', 'ddd-progress.json');
       await fs.mkdir(path.dirname(outputPath), { recursive: true });
-      await fs.writeFile(outputPath, JSON.stringify({
-        timestamp: new Date().toISOString(),
-        progress: progressPct,
-        score: totalScore,
-        maxScore,
-        modules: dddMetrics,
-        incomplete,
-        skippedCount: skippedPaths.length,
-        skippedPaths: skippedPaths.slice(0, 50),
-      }, null, 2));
+      await fs.writeFile(
+        outputPath,
+        JSON.stringify(
+          {
+            timestamp: new Date().toISOString(),
+            progress: progressPct,
+            score: totalScore,
+            maxScore,
+            modules: dddMetrics,
+            incomplete,
+            skippedCount: skippedPaths.length,
+            skippedPaths: skippedPaths.slice(0, 50),
+          },
+          null,
+          2,
+        ),
+      );
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-ddd] failed to write ddd-progress.json:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[worker-ddd] failed to write ddd-progress.json:', e);
     }
 
     return {

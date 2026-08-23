@@ -1,4 +1,4 @@
-import { type BuiltinPlugin, type PluginRegistry } from './types.js';
+import type { BuiltinPlugin, PluginRegistry } from './types.js';
 
 export function matchGlob(pattern: string, filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
@@ -26,9 +26,7 @@ export function matchGlob(pattern: string, filePath: string): boolean {
 }
 
 function isInstalled(pluginName: string, installedPackages: string[]): boolean {
-  return installedPackages.some(
-    (pkg) => pkg === pluginName || pkg.startsWith(pluginName + '/'),
-  );
+  return installedPackages.some((pkg) => pkg === pluginName || pkg.startsWith(`${pluginName}/`));
 }
 
 export function createPluginRegistry(plugins: BuiltinPlugin[]): PluginRegistry {
@@ -39,7 +37,10 @@ export function createPluginRegistry(plugins: BuiltinPlugin[]): PluginRegistry {
       for (const plugin of plugins) {
         if (!isInstalled(plugin.name, installedPackages)) continue;
         for (const pat of plugin.configPatterns) {
-          if (!seen.has(pat)) { seen.add(pat); result.push(pat); }
+          if (!seen.has(pat)) {
+            seen.add(pat);
+            result.push(pat);
+          }
         }
       }
       return result;
@@ -51,7 +52,10 @@ export function createPluginRegistry(plugins: BuiltinPlugin[]): PluginRegistry {
       for (const plugin of plugins) {
         if (!isInstalled(plugin.name, installedPackages)) continue;
         for (const pkg of plugin.toolingPackages ?? []) {
-          if (!seen.has(pkg)) { seen.add(pkg); result.push(pkg); }
+          if (!seen.has(pkg)) {
+            seen.add(pkg);
+            result.push(pkg);
+          }
         }
       }
       return result;
@@ -63,7 +67,10 @@ export function createPluginRegistry(plugins: BuiltinPlugin[]): PluginRegistry {
       for (const plugin of plugins) {
         if (!isInstalled(plugin.name, installedPackages)) continue;
         for (const pat of plugin.entryPatterns ?? []) {
-          if (!seen.has(pat)) { seen.add(pat); result.push(pat); }
+          if (!seen.has(pat)) {
+            seen.add(pat);
+            result.push(pat);
+          }
         }
       }
       return result;

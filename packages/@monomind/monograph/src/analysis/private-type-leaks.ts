@@ -30,7 +30,8 @@ interface LeakRow {
 }
 
 export function detectPrivateTypeLeaks(db: MonographDb): PrivateTypeLeaksResult {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT e.source_id, e.target_id,
            n1.name as src_name, n1.file_path as src_path, n1.start_line as src_line,
            n2.name as tgt_name, n2.file_path as tgt_path, n2.start_line as tgt_line
@@ -44,7 +45,8 @@ export function detectPrivateTypeLeaks(db: MonographDb): PrivateTypeLeaksResult 
       AND n1.community_id IS NOT NULL
       AND n2.community_id IS NOT NULL
     LIMIT 200
-  `).all() as LeakRow[];
+  `)
+    .all() as LeakRow[];
 
   // Deduplicate by (source_id, target_id) pair
   const seen = new Set<string>();
@@ -94,16 +96,18 @@ export function formatPrivateTypeLeaks(result: PrivateTypeLeaksResult): string {
   for (const leak of result.leaks) {
     const key = leak.exportFilePath ?? '(unknown)';
     let group = byFile.get(key);
-    if (!group) { group = []; byFile.set(key, group); }
+    if (!group) {
+      group = [];
+      byFile.set(key, group);
+    }
     group.push(leak);
   }
 
   for (const [filePath, fileLeaks] of byFile) {
     lines.push(`File: ${filePath}`);
     for (const leak of fileLeaks) {
-      const exportRef = leak.exportStartLine != null
-        ? `${filePath}:${leak.exportStartLine}`
-        : filePath;
+      const exportRef =
+        leak.exportStartLine != null ? `${filePath}:${leak.exportStartLine}` : filePath;
       const leakRef = leak.leakedTypeFilePath
         ? leak.leakedTypeStartLine != null
           ? `${leak.leakedTypeFilePath}:${leak.leakedTypeStartLine}`
@@ -114,6 +118,8 @@ export function formatPrivateTypeLeaks(result: PrivateTypeLeaksResult): string {
     lines.push('');
   }
 
-  lines.push(`Fix: make leaked types public, move them to a shared module, or restructure community boundaries.`);
+  lines.push(
+    `Fix: make leaked types public, move them to a shared module, or restructure community boundaries.`,
+  );
   return lines.join('\n').trimEnd();
 }

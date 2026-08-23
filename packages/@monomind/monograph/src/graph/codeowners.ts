@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'fs';
-import { join, relative } from 'path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import type Database from 'better-sqlite3';
 
 export interface CodeownersEntry {
@@ -88,7 +88,7 @@ export function parseCodeowners(repoRoot: string): CodeownersEntry[] {
 
     const parts = line.split(/\s+/);
     const pattern = parts[0];
-    const owners = parts.slice(1).filter(o => o.startsWith('@') || o.includes('@'));
+    const owners = parts.slice(1).filter((o) => o.startsWith('@') || o.includes('@'));
 
     if (pattern) {
       entries.push({ pattern, owners });
@@ -110,7 +110,7 @@ export interface CompiledEntry {
  * globToRegex() runs exactly once per pattern instead of once per file lookup.
  */
 export function compileEntries(entries: CodeownersEntry[]): CompiledEntry[] {
-  return entries.map(e => ({ owners: e.owners, re: globToRegex(e.pattern) }));
+  return entries.map((e) => ({ owners: e.owners, re: globToRegex(e.pattern) }));
 }
 
 // Resolve owner for a single file path using precompiled regexes.
@@ -151,7 +151,9 @@ export function annotateOwnership(
   const compiled = compileEntries(entries);
 
   const fileNodes = db
-    .prepare(`SELECT id, file_path, properties FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`)
+    .prepare(
+      `SELECT id, file_path, properties FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`,
+    )
     .all() as { id: string; file_path: string; properties: string | null }[];
 
   let annotated = 0;

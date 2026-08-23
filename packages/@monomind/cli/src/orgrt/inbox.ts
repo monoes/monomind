@@ -1,21 +1,28 @@
 // packages/@monomind/cli/src/orgrt/inbox.ts
 // Persistent message queue for offline orgs. Messages that can't be delivered
 // (target org not running) are spooled here and drained when the org starts.
-import { appendFileSync, readFileSync, renameSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { ORG_DIR } from './types.js';
 
 export interface QueuedMessage {
-  fromQualified: string;  // "orgA:role"
+  fromQualified: string; // "orgA:role"
   toRole: string;
   subject: string;
   body: string;
   ts: number;
   /** Structured handoff context (rich metadata for role transitions) */
   context?: {
-    summary?: string;        // Brief one-line status
-    nextAction?: string;      // What the receiver should do next
-    filesChanged?: string[];  // Files touched in this work
+    summary?: string; // Brief one-line status
+    nextAction?: string; // What the receiver should do next
+    filesChanged?: string[]; // Files touched in this work
     relatedIssues?: string[]; // Related issue numbers
     metadata?: Record<string, unknown>; // Additional custom fields
   };
@@ -29,11 +36,15 @@ export function queueMessage(root: string, orgName: string, msg: QueuedMessage):
   try {
     const dir = join(root, ORG_DIR, orgName);
     mkdirSync(dir, { recursive: true });
-    appendFileSync(inboxPath(root, orgName), JSON.stringify(msg) + '\n');
+    appendFileSync(inboxPath(root, orgName), `${JSON.stringify(msg)}\n`);
     return true;
   } catch (err) {
     // Log error but don't throw — caller needs to know delivery failed
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[inbox] queueMessage failed for org "${orgName}":`, err instanceof Error ? err.message : err);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error(
+        `[inbox] queueMessage failed for org "${orgName}":`,
+        err instanceof Error ? err.message : err,
+      );
     return false;
   }
 }
@@ -42,7 +53,11 @@ function parseLines(raw: string): QueuedMessage[] {
   const msgs: QueuedMessage[] = [];
   for (const line of raw.trim().split('\n')) {
     if (!line) continue;
-    try { msgs.push(JSON.parse(line)); } catch { /* skip corrupt lines */ }
+    try {
+      msgs.push(JSON.parse(line));
+    } catch {
+      /* skip corrupt lines */
+    }
   }
   return msgs;
 }
@@ -60,7 +75,8 @@ export function drainInbox(root: string, orgName: string): QueuedMessage[] {
       msgs.push(...parseLines(readFileSync(draining, 'utf8')));
       unlinkSync(draining);
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox recovery of .draining failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[inbox] drainInbox recovery of .draining failed:', e);
       return msgs; // don't rename over a file we couldn't consume
     }
   }
@@ -69,13 +85,19 @@ export function drainInbox(root: string, orgName: string): QueuedMessage[] {
   // Rename-then-read: if the process crashes after rename but before we finish
   // reading, the .draining file survives (and is recovered above on the next
   // drain). A plain read-then-truncate would lose messages on a mid-drain crash.
-  try { renameSync(path, draining); } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox rename failed:', e);
+  try {
+    renameSync(path, draining);
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[inbox] drainInbox rename failed:', e);
     return msgs;
   }
   let raw = '';
-  try { raw = readFileSync(draining, 'utf8'); } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox read failed:', e);
+  try {
+    raw = readFileSync(draining, 'utf8');
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[inbox] drainInbox read failed:', e);
     return msgs;
   }
   msgs.push(...parseLines(raw));
@@ -84,8 +106,11 @@ export function drainInbox(root: string, orgName: string): QueuedMessage[] {
   // fresh `path` (queueMessage mkdir+appends), and renaming the emptied snapshot back
   // would clobber it — destroying messages whose sender already got a "queued" receipt.
   // Those messages now simply stay in `path` and are picked up by the next drain.
-  try { unlinkSync(draining); } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[inbox] drainInbox unlink failed:', e);
+  try {
+    unlinkSync(draining);
+  } catch (e) {
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[inbox] drainInbox unlink failed:', e);
   }
   return msgs;
 }

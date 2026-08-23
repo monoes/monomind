@@ -17,12 +17,12 @@
  * @version 3.0.0
  */
 
-import { EventEmitter } from 'events';
-import { spawn, ChildProcess, execSync } from 'child_process';
-import * as http from 'http';
-import { randomUUID } from 'crypto';
-import * as path from 'path';
-import * as fs from 'fs';
+import { type ChildProcess, execSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
+import * as http from 'node:http';
+import * as path from 'node:path';
 
 /**
  * Recursively strip prototype-pollution keys from a JSON-RPC message before
@@ -44,9 +44,10 @@ function sanitizeJsonRpcMessage(value: unknown, depth = 0): unknown {
   }
   return value;
 }
-import * as os from 'os';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+
+import * as os from 'node:os';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { trackRequest } from './mcp-tools/request-tracker.js';
 
 // ESM-compatible __dirname
@@ -219,7 +220,7 @@ export class MCPServerManager extends EventEmitter {
 
       if (this.server) {
         await new Promise<void>((resolve) => {
-          this.server!.close(() => resolve());
+          this.server?.close(() => resolve());
         });
         this.server = undefined;
       }
@@ -365,7 +366,7 @@ export class MCPServerManager extends EventEmitter {
   private async startStdioServer(): Promise<void> {
     this._stdioServerStarted = true;
     // Import the tool registry
-    const { listMCPTools, callMCPTool, hasTool } = await import('./mcp-client.js');
+    await import('./mcp-client.js');
 
     const VERSION = '3.0.0';
     const sessionId = `mcp-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -462,7 +463,7 @@ export class MCPServerManager extends EventEmitter {
       }
 
       // Process complete JSON messages
-      let lines = buffer.split('\n');
+      const lines = buffer.split('\n');
       buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
       for (const line of lines) {
@@ -579,7 +580,7 @@ export class MCPServerManager extends EventEmitter {
             },
           };
 
-        case 'tools/list':
+        case 'tools/list': {
           const tools = await listMCPTools();
           return {
             jsonrpc: '2.0',
@@ -592,6 +593,7 @@ export class MCPServerManager extends EventEmitter {
               })),
             },
           };
+        }
 
         case 'tools/call': {
           // Strict boundary validation. Without this, `params.name` could be
@@ -714,7 +716,7 @@ export class MCPServerManager extends EventEmitter {
         case 'resources/read': {
           const uri = (params.uri as string) ?? '';
           try {
-            const { join } = await import('path');
+            const { join } = await import('node:path');
             const { openDb, closeDb } = await import('@monoes/monograph');
             const {
               getProcessesResource,
@@ -722,7 +724,7 @@ export class MCPServerManager extends EventEmitter {
               getSchemaResource,
               getGraphResource,
             } = await import('@monoes/monograph');
-            const projectCwd = process.env['MONOMIND_CWD'] || process.cwd();
+            const projectCwd = process.env.MONOMIND_CWD || process.cwd();
             const dbPath = join(projectCwd, '.monomind', 'monograph.db');
             const resDb = openDb(dbPath);
             let data: unknown;
@@ -905,28 +907,6 @@ export class MCPServerManager extends EventEmitter {
   }
 
   /**
-   * Wait for server to be ready
-   */
-  private async waitForReady(timeout = 10000): Promise<void> {
-    // For stdio transport, we're ready immediately (in-process)
-    if (this.options.transport === 'stdio') {
-      return;
-    }
-
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeout) {
-      const health = await this.checkHealth();
-      if (health.healthy) {
-        return;
-      }
-      await this.sleep(100);
-    }
-
-    throw new Error('Server failed to start within timeout');
-  }
-
-  /**
    * Wait for process to exit
    */
   private async waitForExit(timeout: number): Promise<void> {
@@ -937,7 +917,7 @@ export class MCPServerManager extends EventEmitter {
         resolve();
       }, timeout);
 
-      this.process!.once('exit', () => {
+      this.process?.once('exit', () => {
         clearTimeout(timer);
         resolve();
       });
@@ -998,7 +978,7 @@ export class MCPServerManager extends EventEmitter {
     try {
       const content = await fs.promises.readFile(this.options.pidFile, 'utf8');
       const pid = parseInt(content.trim(), 10);
-      return isNaN(pid) ? null : pid;
+      return Number.isNaN(pid) ? null : pid;
     } catch {
       return null;
     }
@@ -1100,13 +1080,6 @@ export class MCPServerManager extends EventEmitter {
       req.end();
     });
   }
-
-  /**
-   * Sleep utility
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
 
 /**
@@ -1120,7 +1093,7 @@ export function createMCPServerManager(options?: MCPServerOptions): MCPServerMan
  * Singleton server manager instance
  */
 let serverManager: MCPServerManager | null = null;
-let currentTransport: string | undefined = undefined;
+let currentTransport: string | undefined;
 
 /**
  * Get or create server manager singleton

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createAugmentCache, type AugmentCache } from '../../cache/augment-cache.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { type AugmentCache, createAugmentCache } from '../../cache/augment-cache.js';
 
 describe('AugmentCache', () => {
   let cache: AugmentCache;
@@ -29,7 +29,7 @@ describe('AugmentCache', () => {
   it('expires entries after TTL', async () => {
     const shortCache = createAugmentCache({ maxSize: 10, ttlMs: 10 });
     shortCache.set('k1', 'v1');
-    await new Promise(r => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 20));
     expect(shortCache.get('k1')).toBeUndefined();
   });
 

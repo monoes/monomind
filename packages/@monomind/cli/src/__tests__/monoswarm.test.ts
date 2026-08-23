@@ -36,69 +36,74 @@
  * after that tool call returns.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CommandContext } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Mocks (same shape as __tests__/commands.test.ts)
 // ---------------------------------------------------------------------------
 
-const { monoswarmInitImpl, monoswarmShutdownImpl, monoswarmScaleImpl, MockMCPClientError } = vi.hoisted(() => {
-  const monoswarmInitImpl = vi.fn(async (input: Record<string, unknown>) => ({
-    monoswarmId: 'monoswarm-mock-123',
-    topology: input.topology,
-    strategy: 'specialized',
-    maxAgents: input.maxAgents || 15,
-    voteStrategy: 'majority',
-    initializedAt: new Date().toISOString(),
-    config: {
+const { monoswarmInitImpl, monoswarmShutdownImpl, monoswarmScaleImpl, MockMCPClientError } =
+  vi.hoisted(() => {
+    const monoswarmInitImpl = vi.fn(async (input: Record<string, unknown>) => ({
+      monoswarmId: 'monoswarm-mock-123',
       topology: input.topology,
+      strategy: 'specialized',
       maxAgents: input.maxAgents || 15,
-    },
-  }));
+      voteStrategy: 'majority',
+      initializedAt: new Date().toISOString(),
+      config: {
+        topology: input.topology,
+        maxAgents: input.maxAgents || 15,
+      },
+    }));
 
-  const monoswarmShutdownImpl = vi.fn(async (_input?: Record<string, unknown>) => ({
-    success: true,
-    monoswarmId: 'monoswarm-mock-123',
-    terminated: true,
-  }));
+    const monoswarmShutdownImpl = vi.fn(async (_input?: Record<string, unknown>) => ({
+      success: true,
+      monoswarmId: 'monoswarm-mock-123',
+      terminated: true,
+    }));
 
-  const monoswarmScaleImpl = vi.fn(async (input: Record<string, unknown>): Promise<{
-    success: boolean;
-    error?: string;
-    monoswarmId?: unknown;
-    previousCount: number;
-    currentCount: unknown;
-    spawned: string[];
-    terminated: string[];
-  }> => ({
-    success: true,
-    monoswarmId: 'monoswarm-mock-123',
-    previousCount: 5,
-    currentCount: input.targetAgents,
-    spawned: Array.from(
-      { length: Math.max(0, (input.targetAgents as number) - 5) },
-      (_, i) => `agent-mock-${i}`,
-    ),
-    terminated: [],
-  }));
+    const monoswarmScaleImpl = vi.fn(
+      async (
+        input: Record<string, unknown>,
+      ): Promise<{
+        success: boolean;
+        error?: string;
+        monoswarmId?: unknown;
+        previousCount: number;
+        currentCount: unknown;
+        spawned: string[];
+        terminated: string[];
+      }> => ({
+        success: true,
+        monoswarmId: 'monoswarm-mock-123',
+        previousCount: 5,
+        currentCount: input.targetAgents,
+        spawned: Array.from(
+          { length: Math.max(0, (input.targetAgents as number) - 5) },
+          (_, i) => `agent-mock-${i}`,
+        ),
+        terminated: [],
+      }),
+    );
 
-  class MockMCPClientError extends Error {
-    toolName: string;
-    cause?: Error;
-    constructor(message: string, toolName: string, cause?: Error) {
-      super(message);
-      this.name = 'MCPClientError';
-      this.toolName = toolName;
-      this.cause = cause;
+    class MockMCPClientError extends Error {
+      toolName: string;
+      cause?: Error;
+      constructor(message: string, toolName: string, cause?: Error) {
+        super(message);
+        this.name = 'MCPClientError';
+        this.toolName = toolName;
+        this.cause = cause;
+      }
     }
-  }
 
-  return { monoswarmInitImpl, monoswarmShutdownImpl, monoswarmScaleImpl, MockMCPClientError };
-});
+    return { monoswarmInitImpl, monoswarmShutdownImpl, monoswarmScaleImpl, MockMCPClientError };
+  });
 
 vi.mock('../mcp-client.js', () => ({
   callMCPTool: vi.fn(async (toolName: string, input: Record<string, unknown>) => {
@@ -243,7 +248,7 @@ describe('monoswarm start agent plan generation (getAgentPlan)', () => {
       const startCmd = findSub('start');
       const ctx = makeCtx({ flags: { objective: `Do the ${strategy} thing`, strategy, _: [] } });
 
-      const result = await startCmd.action!(ctx);
+      const result = await startCmd.action?.(ctx);
 
       expect(result?.success).toBe(true);
       expect(result?.data).toMatchObject({ agents: expectedTotal, strategy });
@@ -257,9 +262,11 @@ describe('monoswarm start agent plan generation (getAgentPlan)', () => {
 
   it('falls back to the "development" plan for an unrecognized strategy', async () => {
     const startCmd = findSub('start');
-    const ctx = makeCtx({ flags: { objective: 'Do something odd', strategy: 'not-a-real-strategy', _: [] } });
+    const ctx = makeCtx({
+      flags: { objective: 'Do something odd', strategy: 'not-a-real-strategy', _: [] },
+    });
 
-    const result = await startCmd.action!(ctx);
+    const result = await startCmd.action?.(ctx);
 
     expect(result?.success).toBe(true);
     // development plan totals 8 agents (1+1+3+2+1)
@@ -273,9 +280,11 @@ describe('monoswarm start agent plan generation (getAgentPlan)', () => {
     // mapping and a superset containing exactly those four roles (plus
     // architect/reviewer) — confirm they're all present.
     const startCmd = findSub('start');
-    const ctx = makeCtx({ flags: { objective: 'Fix the auth bug', strategy: 'specialized', _: [] } });
+    const ctx = makeCtx({
+      flags: { objective: 'Fix the auth bug', strategy: 'specialized', _: [] },
+    });
 
-    const result = await startCmd.action!(ctx);
+    const result = await startCmd.action?.(ctx);
 
     const planRows = lastPrintTableData();
     const types = planRows.map((r) => r.type);
@@ -310,7 +319,7 @@ describe('monoswarm init', () => {
     const initCmd = findSub('init');
     const ctx = makeCtx({ flags: { topology: 'mesh', 'max-agents': 6, _: [] } });
 
-    const result = await initCmd.action!(ctx);
+    const result = await initCmd.action?.(ctx);
 
     expect(monoswarmInitImpl).toHaveBeenCalledWith(
       expect.objectContaining({ topology: 'mesh', maxAgents: 6 }),
@@ -328,7 +337,7 @@ describe('monoswarm init', () => {
     const initCmd = findSub('init');
     const ctx = makeCtx({ flags: { topology: 'star', v1Mode: true, _: [] } });
 
-    await initCmd.action!(ctx);
+    await initCmd.action?.(ctx);
 
     expect(monoswarmInitImpl).toHaveBeenCalledWith(
       expect.objectContaining({ topology: 'hierarchical-mesh' }),
@@ -339,7 +348,7 @@ describe('monoswarm init', () => {
     monoswarmInitImpl.mockRejectedValueOnce(new MockMCPClientError('boom', 'monoswarm_init'));
 
     const initCmd = findSub('init');
-    const result = await initCmd.action!(makeCtx({ flags: { _: [] } }));
+    const result = await initCmd.action?.(makeCtx({ flags: { _: [] } }));
 
     expect(result).toEqual({ success: false, exitCode: 1 });
   });
@@ -367,10 +376,14 @@ describe('monoswarm status reads real on-disk state', () => {
 
   it('reports no active monoswarm when no state file exists', async () => {
     const statusCmd = findSub('status');
-    const result = await statusCmd.action!(makeCtx());
+    const result = await statusCmd.action?.(makeCtx());
 
     expect(result?.success).toBe(true);
-    expect(result?.data).toMatchObject({ hasActiveSwarm: false, id: 'no-active-swarm', topology: 'none' });
+    expect(result?.data).toMatchObject({
+      hasActiveSwarm: false,
+      id: 'no-active-swarm',
+      topology: 'none',
+    });
   });
 
   it('reports the on-disk monoswarm state with agent counts from the agent store', async () => {
@@ -402,7 +415,7 @@ describe('monoswarm status reads real on-disk state', () => {
     );
 
     const statusCmd = findSub('status');
-    const result = await statusCmd.action!(makeCtx());
+    const result = await statusCmd.action?.(makeCtx());
 
     expect(result?.success).toBe(true);
     expect(result?.data).toMatchObject({
@@ -434,7 +447,7 @@ describe('monoswarm status reads real on-disk state', () => {
     });
 
     const statusCmd = findSub('status');
-    const result = await statusCmd.action!(makeCtx({ args: ['some-other-id'] }));
+    const result = await statusCmd.action?.(makeCtx({ args: ['some-other-id'] }));
 
     expect(result?.data).toMatchObject({ id: 'some-other-id', topology: 'star' });
   });
@@ -462,7 +475,9 @@ describe('monoswarm stop', () => {
 
   it('calls monoswarm_shutdown with the given id/force and reports success', async () => {
     const stopCmd = findSub('stop');
-    const result = await stopCmd.action!(makeCtx({ args: ['monoswarm-123'], flags: { force: true, _: [] } }));
+    const result = await stopCmd.action?.(
+      makeCtx({ args: ['monoswarm-123'], flags: { force: true, _: [] } }),
+    );
 
     expect(monoswarmShutdownImpl).toHaveBeenCalledWith(
       expect.objectContaining({ swarmId: 'monoswarm-123', force: true }),
@@ -475,7 +490,9 @@ describe('monoswarm stop', () => {
     monoswarmShutdownImpl.mockRejectedValueOnce(new Error('mcp unreachable'));
 
     const stopCmd = findSub('stop');
-    const result = await stopCmd.action!(makeCtx({ args: ['monoswarm-123'], flags: { force: true, _: [] } }));
+    const result = await stopCmd.action?.(
+      makeCtx({ args: ['monoswarm-123'], flags: { force: true, _: [] } }),
+    );
 
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
@@ -504,7 +521,9 @@ describe('monoswarm scale', () => {
 
   it('reports spawned/terminated agent deltas from a successful scale call', async () => {
     const scaleCmd = findSub('scale');
-    const result = await scaleCmd.action!(makeCtx({ args: ['monoswarm-123'], flags: { agents: 8, _: [] } }));
+    const result = await scaleCmd.action?.(
+      makeCtx({ args: ['monoswarm-123'], flags: { agents: 8, _: [] } }),
+    );
 
     expect(result?.success).toBe(true);
     expect(result?.data).toMatchObject({ previousCount: 5, currentCount: 8 });
@@ -522,17 +541,23 @@ describe('monoswarm scale', () => {
     });
 
     const scaleCmd = findSub('scale');
-    const result = await scaleCmd.action!(makeCtx({ args: ['monoswarm-123'], flags: { agents: 8, _: [] } }));
+    const result = await scaleCmd.action?.(
+      makeCtx({ args: ['monoswarm-123'], flags: { agents: 8, _: [] } }),
+    );
 
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
   });
 
   it('surfaces a thrown error from monoswarm_scale as a failed CommandResult rather than crashing', async () => {
-    monoswarmScaleImpl.mockRejectedValueOnce(new MockMCPClientError('scale failed', 'monoswarm_scale'));
+    monoswarmScaleImpl.mockRejectedValueOnce(
+      new MockMCPClientError('scale failed', 'monoswarm_scale'),
+    );
 
     const scaleCmd = findSub('scale');
-    const result = await scaleCmd.action!(makeCtx({ args: ['monoswarm-123'], flags: { agents: 8, _: [] } }));
+    const result = await scaleCmd.action?.(
+      makeCtx({ args: ['monoswarm-123'], flags: { agents: 8, _: [] } }),
+    );
 
     expect(result?.success).toBe(false);
     expect(result?.exitCode).toBe(1);
@@ -540,7 +565,9 @@ describe('monoswarm scale', () => {
 
   it('treats a target of 0 as valid (scale-to-zero), not a missing-arg error', async () => {
     const scaleCmd = findSub('scale');
-    const result = await scaleCmd.action!(makeCtx({ args: ['monoswarm-123'], flags: { agents: 0, _: [] } }));
+    const result = await scaleCmd.action?.(
+      makeCtx({ args: ['monoswarm-123'], flags: { agents: 0, _: [] } }),
+    );
 
     // Should proceed to call the MCP tool rather than bailing out on
     // "Target agent count required" (0 is falsy but a legitimate value).

@@ -5,8 +5,8 @@
  * multiple repos in a group — these are potential contract bridges.
  */
 
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import type { GroupConfig } from './group-config.js';
 
@@ -59,9 +59,7 @@ function fetchTypeNodes(dbPath: string, repoName: string): TypeRow[] {
  * @param groupConfig - Parsed group configuration
  * @returns List of ContractBridge entries
  */
-export async function detectContractBridges(
-  groupConfig: GroupConfig,
-): Promise<ContractBridge[]> {
+export async function detectContractBridges(groupConfig: GroupConfig): Promise<ContractBridge[]> {
   // Map from type name -> { repos: Set<string>, labels: Set<string> }
   const typeMap = new Map<string, { repos: Set<string>; labels: Set<string> }>();
 

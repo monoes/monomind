@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { ingestUrl, classifyUrlType } from '../../ingest/url-ingest.js';
+import { describe, expect, it, vi } from 'vitest';
+import { classifyUrlType, ingestUrl } from '../../ingest/url-ingest.js';
 
 describe('classifyUrlType', () => {
   it('detects arxiv', () => {
@@ -20,7 +20,8 @@ describe('ingestUrl', () => {
   it('returns IngestResult with id, type, and url', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => '<html><title>Test Page</title><body>Hello world content here</body></html>',
+      text: async () =>
+        '<html><title>Test Page</title><body>Hello world content here</body></html>',
       headers: { get: (_h: string) => 'text/html' },
     });
     const result = await ingestUrl('https://example.com/page', { fetch: mockFetch as any });
@@ -39,10 +40,12 @@ describe('ingestUrl', () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => bigBody,
-      headers: { get: (h: string) => h === 'content-length' ? String(bigBody.length) : 'text/html' },
+      headers: {
+        get: (h: string) => (h === 'content-length' ? String(bigBody.length) : 'text/html'),
+      },
     });
     await expect(
-      ingestUrl('https://example.com/big', { fetch: mockFetch as any, maxBytes: 10 * 1024 * 1024 })
+      ingestUrl('https://example.com/big', { fetch: mockFetch as any, maxBytes: 10 * 1024 * 1024 }),
     ).rejects.toThrow(/too large/i);
   });
 });

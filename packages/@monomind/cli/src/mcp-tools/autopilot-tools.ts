@@ -8,13 +8,18 @@
  * @module @monomind/cli/mcp-tools/autopilot
  */
 
-import type { MCPTool } from './types.js';
 import {
-  loadState, saveState, appendLog, loadLog, discoverTasks,
+  appendLog,
+  discoverTasks,
   isTerminal,
-  validateNumber, validateTaskSources,
+  loadLog,
+  loadState,
+  saveState,
   VALID_TASK_SOURCES,
+  validateNumber,
+  validateTaskSources,
 } from '../autopilot-state.js';
+import type { MCPTool } from './types.js';
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
@@ -24,13 +29,14 @@ function ok(data: unknown) {
 
 const autopilotStatus: MCPTool = {
   name: 'autopilot_status',
-  description: 'Get autopilot state including enabled status, iteration count, task progress, and learning metrics.',
+  description:
+    'Get autopilot state including enabled status, iteration count, task progress, and learning metrics.',
   category: 'autopilot',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
     const state = loadState();
     const tasks = discoverTasks(state.taskSources);
-    const completed = tasks.filter(t => isTerminal(t.status)).length;
+    const completed = tasks.filter((t) => isTerminal(t.status)).length;
     return ok({
       enabled: state.enabled,
       sessionId: state.sessionId,
@@ -38,7 +44,11 @@ const autopilotStatus: MCPTool = {
       maxIterations: state.maxIterations,
       timeoutMinutes: state.timeoutMinutes,
       elapsedMs: state.enabled ? Date.now() - state.startTime : 0,
-      tasks: { completed, total: tasks.length, percent: tasks.length === 0 ? 100 : Math.round((completed / tasks.length) * 100) },
+      tasks: {
+        completed,
+        total: tasks.length,
+        percent: tasks.length === 0 ? 100 : Math.round((completed / tasks.length) * 100),
+      },
       taskSources: state.taskSources,
     });
   },
@@ -46,7 +56,8 @@ const autopilotStatus: MCPTool = {
 
 const autopilotEnable: MCPTool = {
   name: 'autopilot_enable',
-  description: 'Enable autopilot persistent completion. Agents will be re-engaged when tasks remain incomplete.',
+  description:
+    'Enable autopilot persistent completion. Agents will be re-engaged when tasks remain incomplete.',
   category: 'autopilot',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
@@ -56,7 +67,11 @@ const autopilotEnable: MCPTool = {
     state.iterations = 0;
     saveState(state);
     appendLog({ ts: Date.now(), event: 'enabled', sessionId: state.sessionId });
-    return ok({ enabled: true, maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes });
+    return ok({
+      enabled: true,
+      maxIterations: state.maxIterations,
+      timeoutMinutes: state.timeoutMinutes,
+    });
   },
 };
 
@@ -76,14 +91,19 @@ const autopilotDisable: MCPTool = {
 
 const autopilotConfig: MCPTool = {
   name: 'autopilot_config',
-  description: 'Configure autopilot limits: max iterations (1-1000), timeout in minutes (1-1440), and task sources.',
+  description:
+    'Configure autopilot limits: max iterations (1-1000), timeout in minutes (1-1440), and task sources.',
   category: 'autopilot',
   inputSchema: {
     type: 'object',
     properties: {
       maxIterations: { type: 'number', description: 'Max re-engagement iterations (1-1000)' },
       timeoutMinutes: { type: 'number', description: 'Timeout in minutes (1-1440)' },
-      taskSources: { type: 'array', items: { type: 'string' }, description: `Task sources: ${[...VALID_TASK_SOURCES].join(', ')}` },
+      taskSources: {
+        type: 'array',
+        items: { type: 'string' },
+        description: `Task sources: ${[...VALID_TASK_SOURCES].join(', ')}`,
+      },
     },
   },
   handler: async (params: Record<string, unknown>) => {
@@ -98,7 +118,11 @@ const autopilotConfig: MCPTool = {
       state.taskSources = validateTaskSources(params.taskSources);
     }
     saveState(state);
-    return ok({ maxIterations: state.maxIterations, timeoutMinutes: state.timeoutMinutes, taskSources: state.taskSources });
+    return ok({
+      maxIterations: state.maxIterations,
+      timeoutMinutes: state.timeoutMinutes,
+      taskSources: state.taskSources,
+    });
   },
 };
 
@@ -121,7 +145,8 @@ const autopilotReset: MCPTool = {
 
 const autopilotLog: MCPTool = {
   name: 'autopilot_log',
-  description: 'Retrieve the autopilot event log. Shows enable/disable events, re-engagements, completions.',
+  description:
+    'Retrieve the autopilot event log. Shows enable/disable events, re-engagements, completions.',
   category: 'autopilot',
   inputSchema: {
     type: 'object',
@@ -138,7 +163,8 @@ const autopilotLog: MCPTool = {
 
 const autopilotProgress: MCPTool = {
   name: 'autopilot_progress',
-  description: 'Detailed task progress broken down by source (team-tasks, swarm-tasks, file-checklist).',
+  description:
+    'Detailed task progress broken down by source (team-tasks, swarm-tasks, file-checklist).',
   category: 'autopilot',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
@@ -155,9 +181,13 @@ const autopilotProgress: MCPTool = {
       bySource[t.source].tasks.push(t);
     }
 
-    const completed = tasks.filter(t => isTerminal(t.status)).length;
+    const completed = tasks.filter((t) => isTerminal(t.status)).length;
     return ok({
-      overall: { completed, total: tasks.length, percent: tasks.length === 0 ? 100 : Math.round((completed / tasks.length) * 100) },
+      overall: {
+        completed,
+        total: tasks.length,
+        percent: tasks.length === 0 ? 100 : Math.round((completed / tasks.length) * 100),
+      },
       bySource,
     });
   },
@@ -165,13 +195,14 @@ const autopilotProgress: MCPTool = {
 
 const autopilotPredict: MCPTool = {
   name: 'autopilot_predict',
-  description: 'Suggest the next action by returning the first incomplete discovered task with a fixed 0.5 confidence — a heuristic over local task files, not ML prediction.',
+  description:
+    'Suggest the next action by returning the first incomplete discovered task with a fixed 0.5 confidence — a heuristic over local task files, not ML prediction.',
   category: 'autopilot',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
     const state = loadState();
     const tasks = discoverTasks(state.taskSources);
-    const incomplete = tasks.filter(t => !isTerminal(t.status));
+    const incomplete = tasks.filter((t) => !isTerminal(t.status));
     if (incomplete.length === 0) {
       return ok({ action: 'none', confidence: 1.0, reason: 'All tasks complete' });
     }

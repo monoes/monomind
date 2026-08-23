@@ -1,9 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildClassificationPrompt } from '../prompts/classify.js';
 
 describe('buildClassificationPrompt', () => {
   it('includes the task description', () => {
-    const prompt = buildClassificationPrompt('fix the login bug', 'coder: code', '- coder (similarity: 0.8)');
+    const prompt = buildClassificationPrompt(
+      'fix the login bug',
+      'coder: code',
+      '- coder (similarity: 0.8)',
+    );
     expect(prompt).toContain('fix the login bug');
   });
 

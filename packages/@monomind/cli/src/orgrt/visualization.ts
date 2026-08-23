@@ -104,12 +104,12 @@ export function generateMermaidSequence(events: BusEvent[]): string {
       case 'xorg':
         lines.push(`  ${from}->>${to}: [xorg] ${e.subject ?? 'message'}`);
         break;
-      case 'tool':
-        const toolLabel = e.decision === 'deny'
-          ? `🔧 ${e.tool} DENIED: ${e.reason ?? ''}`
-          : `🔧 ${e.tool}`;
+      case 'tool': {
+        const toolLabel =
+          e.decision === 'deny' ? `🔧 ${e.tool} DENIED: ${e.reason ?? ''}` : `🔧 ${e.tool}`;
         lines.push(`  ${from}->>${to}: ${toolLabel}`);
         break;
+      }
       case 'question':
         lines.push(`  ${from}->>${to}: ❓ Question: ${e.msg ?? ''}`);
         break;

@@ -43,10 +43,7 @@ export function listEntryPoints(config: { entryPoints?: string[] }): string[] {
   return config.entryPoints ?? [];
 }
 
-export function formatListHuman(
-  items: Array<Record<string, unknown>>,
-  columns: string[]
-): string {
+export function formatListHuman(items: Array<Record<string, unknown>>, columns: string[]): string {
   if (items.length === 0) return '';
 
   // Calculate column widths from header and values
@@ -64,10 +61,12 @@ export function formatListHuman(
   const header = columns.map((col, i) => pad(col, widths[i]!)).join('  ');
   const separator = widths.map((w) => '-'.repeat(w)).join('  ');
   const rows = items.map((item) =>
-    columns.map((col, i) => {
-      const val = item[col] !== undefined && item[col] !== null ? String(item[col]) : '';
-      return pad(val, widths[i]!);
-    }).join('  ')
+    columns
+      .map((col, i) => {
+        const val = item[col] !== undefined && item[col] !== null ? String(item[col]) : '';
+        return pad(val, widths[i]!);
+      })
+      .join('  '),
   );
 
   return [header, separator, ...rows].join('\n');

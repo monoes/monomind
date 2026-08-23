@@ -32,11 +32,8 @@ export function groupFilesByOwner(
   return result;
 }
 
-export function computeGroupScore(
-  files: string[],
-  scoreMap: Map<string, number>,
-): number {
-  const known = files.filter(f => scoreMap.has(f));
+export function computeGroupScore(files: string[], scoreMap: Map<string, number>): number {
+  const known = files.filter((f) => scoreMap.has(f));
   if (known.length === 0) return 100;
   const sum = known.reduce((acc, f) => acc + scoreMap.get(f)!, 0);
   return sum / known.length;
@@ -56,7 +53,10 @@ export function buildHealthGrouping(
   scoreMap: Map<string, number>,
   lineCountMap: Map<string, number>,
 ): HealthGrouping {
-  const grouped = groupFilesByOwner(files.map(f => ({ filePath: f })), resolveOwner);
+  const grouped = groupFilesByOwner(
+    files.map((f) => ({ filePath: f })),
+    resolveOwner,
+  );
 
   const groups: HealthGroup[] = [];
   for (const [owner, ownerFiles] of grouped.entries()) {

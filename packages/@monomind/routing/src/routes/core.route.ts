@@ -1,4 +1,4 @@
-import { Route } from '../types.js';
+import type { Route } from '../types.js';
 
 export const coreRoutes: Route[] = [
   {

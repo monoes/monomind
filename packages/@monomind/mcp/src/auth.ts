@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'node:crypto';
 import type { AuthConfig } from './types.js';
 
 export interface AuthInfo {
@@ -35,7 +35,10 @@ function matchCredential(
   method: 'token' | 'api-key',
 ): AuthValidationResult {
   if (!configured || configured.length === 0) {
-    return { valid: false, error: `No ${method === 'token' ? 'tokens' : 'API keys'} configured for authentication` };
+    return {
+      valid: false,
+      error: `No ${method === 'token' ? 'tokens' : 'API keys'} configured for authentication`,
+    };
   }
 
   for (let i = 0; i < configured.length; i++) {
@@ -71,13 +74,19 @@ export function validateCredential(
     const bearerMatch = authorizationHeader?.match(/^Bearer\s+(.+)$/i);
     const credential = bearerMatch?.[1] ?? apiKeyHeader;
     if (!credential) {
-      return { valid: false, error: 'API key required (Authorization: Bearer <key> or X-API-Key header)' };
+      return {
+        valid: false,
+        error: 'API key required (Authorization: Bearer <key> or X-API-Key header)',
+      };
     }
     return matchCredential(credential, authConfig.apiKeys, 'api-key');
   }
 
   if (authConfig.method === 'oauth') {
-    return { valid: false, error: 'OAuth inbound validation not implemented — use token or api-key method' };
+    return {
+      valid: false,
+      error: 'OAuth inbound validation not implemented — use token or api-key method',
+    };
   }
 
   return { valid: false, error: `Unsupported auth method: ${authConfig.method}` };

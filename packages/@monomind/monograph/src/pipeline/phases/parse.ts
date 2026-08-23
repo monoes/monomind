@@ -1,13 +1,13 @@
-import { readFileSync, statSync } from 'fs';
-import { extname, join } from 'path';
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import { readFileSync, statSync } from 'node:fs';
+import { extname, join } from 'node:path';
+import { ExtractionCache } from '../../cache/extraction-cache.js';
 import { parseFile } from '../../parsers/loader.js';
-import { insertNodes, deleteNodesForFile } from '../../storage/node-store.js';
-import { insertEdges, deleteEdgesForFile } from '../../storage/edge-store.js';
+import { deleteEdgesForFile, insertEdges } from '../../storage/edge-store.js';
+import { deleteNodesForFile, insertNodes } from '../../storage/node-store.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { StructureOutput } from './structure.js';
 import { extractVariables, variableToNode } from './variables.js';
-import { ExtractionCache } from '../../cache/extraction-cache.js';
 
 export interface ParseOutput {
   symbolNodes: MonographNode[];
@@ -47,7 +47,10 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     for (const fileNode of fileNodes) {
       const absPath = fileNode.filePath ? `${ctx.repoPath}/${fileNode.filePath}` : '';
       const ext = extname(absPath).toLowerCase();
-      if (ext === '.md' || ext === '.markdown') { processed++; continue; }
+      if (ext === '.md' || ext === '.markdown') {
+        processed++;
+        continue;
+      }
 
       // Fast path: mtime+size check avoids reading file content entirely.
       // Skipped entirely under --force so a force rebuild is a genuine from-scratch
@@ -95,7 +98,7 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
 
         if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
           const varInfos = extractVariables(source, fileNode.filePath ?? '');
-          fileSymbols.push(...varInfos.map(v => variableToNode(v)));
+          fileSymbols.push(...varInfos.map((v) => variableToNode(v)));
 
           const arrowFns = extractArrowFunctions(source, fileNode.filePath ?? '');
           for (const fn of arrowFns) {
@@ -114,7 +117,9 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
         try {
           const fileHash = cache.hashContent(source);
           cache.setDeferred(absPath, fileHash, fileSymbols, fileEdges);
-        } catch { /* non-fatal */ }
+        } catch {
+          /* non-fatal */
+        }
         const nodeStart = symbolNodes.length;
         const edgeStart = allEdges.length;
         symbolNodes.push(...fileSymbols);
@@ -130,7 +135,11 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       processed++;
 
       if (processed % 50 === 0) {
-        ctx.onProgress?.({ phase: 'parse', filesProcessed: processed, totalFiles: fileNodes.length });
+        ctx.onProgress?.({
+          phase: 'parse',
+          filesProcessed: processed,
+          totalFiles: fileNodes.length,
+        });
       }
     }
 
@@ -142,15 +151,13 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       // from the previous build (node IDs are deterministic from file_path + symbol).
       // On first build (no cache hits), freshNodes === symbolNodes, so the fresh
       // subset is never materialized — symbolNodes/allEdges are used directly.
-      const freshNodes = cacheHits > 0
-        ? freshNodeRanges.flatMap(([s, e]) => symbolNodes.slice(s, e))
-        : symbolNodes;
-      const freshEdges = cacheHits > 0
-        ? freshEdgeRanges.flatMap(([s, e]) => allEdges.slice(s, e))
-        : allEdges;
+      const freshNodes =
+        cacheHits > 0 ? freshNodeRanges.flatMap(([s, e]) => symbolNodes.slice(s, e)) : symbolNodes;
+      const freshEdges =
+        cacheHits > 0 ? freshEdgeRanges.flatMap(([s, e]) => allEdges.slice(s, e)) : allEdges;
       const nodesToInsert = freshNodes;
-      const knownIds = new Set(symbolNodes.map(n => n.id));
-      const edgesToInsert = freshEdges.filter(e => knownIds.has(e.targetId));
+      const knownIds = new Set(symbolNodes.map((n) => n.id));
+      const edgesToInsert = freshEdges.filter((e) => knownIds.has(e.targetId));
 
       // For every cache-miss file, purge its OLD node/edge set BEFORE inserting the
       // fresh parse results, inside the same transaction — otherwise a renamed or
@@ -174,11 +181,21 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
 
     if (cacheHits > 0) {
       const freshNodeCount = freshNodeRanges.reduce((sum, [s, e]) => sum + (e - s), 0);
-      ctx.onProgress?.({ phase: 'parse', filesProcessed: processed, totalFiles: fileNodes.length,
-        message: `cache: ${cacheHits} hits, ${cacheMisses} misses (${freshNodeCount} nodes inserted)` } as any);
+      ctx.onProgress?.({
+        phase: 'parse',
+        filesProcessed: processed,
+        totalFiles: fileNodes.length,
+        message: `cache: ${cacheHits} hits, ${cacheMisses} misses (${freshNodeCount} nodes inserted)`,
+      } as any);
     }
 
-    return { symbolNodes, allEdges, parseErrors, fileContents, cacheStats: { hits: cacheHits, misses: cacheMisses } };
+    return {
+      symbolNodes,
+      allEdges,
+      parseErrors,
+      fileContents,
+      cacheStats: { hits: cacheHits, misses: cacheMisses },
+    };
   },
 };
 
@@ -187,7 +204,7 @@ export function extractCsharpNamespaces(
   filePath: string,
 ): Array<{ name: string; label: 'Namespace'; filePath: string; line: number }> {
   const results: Array<{ name: string; label: 'Namespace'; filePath: string; line: number }> = [];
-  const re = /^[ \t]*namespace\s+([\w.]+)\s*[\{;]/gm;
+  const re = /^[ \t]*namespace\s+([\w.]+)\s*[{;]/gm;
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) {
     const charsBefore = source.slice(0, m.index);
@@ -212,7 +229,7 @@ export function extractArrowFunctions(
     const lineNum = (charsBefore.match(/\n/g)?.length ?? 0) + 1;
     results.push({
       name: m[3]!,
-      isExported: !!(m[2]?.trim()),
+      isExported: !!m[2]?.trim(),
       line: lineNum,
       filePath,
     });

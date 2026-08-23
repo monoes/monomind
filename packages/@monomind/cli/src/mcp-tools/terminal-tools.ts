@@ -3,14 +3,15 @@
  *
  * Terminal session management with real command execution.
  */
-import type { MCPTool } from './types.js';
-import { getProjectCwd } from './types.js';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { homedir } from 'node:os';
+
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { readJsonStoreOrNull, writeJsonFileAtomic } from '../utils/json-file.js';
+import type { MCPTool } from './types.js';
+import { getProjectCwd } from './types.js';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -64,7 +65,8 @@ interface ExecError {
 // default. Callers that genuinely need a specific secret can pass it via
 // terminal_create's `env` option, which flows through untouched (session.env
 // is layered on *after* the filtered process.env below).
-const SECRET_ENV_NAME_PATTERN = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|_AUTH$|^AUTH_|PRIVATE_KEY|ACCESS_KEY)/i;
+const SECRET_ENV_NAME_PATTERN =
+  /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|_AUTH$|^AUTH_|PRIVATE_KEY|ACCESS_KEY)/i;
 
 /** Returns a copy of `env` with secret-shaped variable names removed. */
 export function filterSecretEnvVars(env: NodeJS.ProcessEnv): Record<string, string> {
@@ -106,7 +108,12 @@ function isExecuteEnabled(): boolean {
 }
 
 function loadTerminalStoreOrNull(): TerminalStore | null {
-  return readJsonStoreOrNull<TerminalStore>(getTerminalPath(), { sessions: {}, version: '3.0.0' }, 'loadTerminalStore', 10 * 1024 * 1024);
+  return readJsonStoreOrNull<TerminalStore>(
+    getTerminalPath(),
+    { sessions: {}, version: '3.0.0' },
+    'loadTerminalStore',
+    10 * 1024 * 1024,
+  );
 }
 
 function loadTerminalStore(): TerminalStore {
@@ -133,7 +140,11 @@ export const terminalTools: MCPTool[] = [
     handler: async (input: Record<string, unknown>) => {
       const store = loadTerminalStoreOrNull();
       if (!store) {
-        return { success: false, error: 'Terminal store is unreadable/corrupt — refusing to create a session to avoid overwriting real session data.' };
+        return {
+          success: false,
+          error:
+            'Terminal store is unreadable/corrupt — refusing to create a session to avoid overwriting real session data.',
+        };
       }
       const MAX_SESSIONS = 1000;
       if (Object.keys(store.sessions).length >= MAX_SESSIONS) {
@@ -163,8 +174,14 @@ export const terminalTools: MCPTool[] = [
         const projectCwd = getProjectCwd();
         const home = homedir();
         // Allow paths under project cwd or user home directory only.
-        const isUnderProject = candidate === projectCwd || candidate.startsWith(projectCwd + '/') || candidate.startsWith(projectCwd + '\\');
-        const isUnderHome = candidate === home || candidate.startsWith(home + '/') || candidate.startsWith(home + '\\');
+        const isUnderProject =
+          candidate === projectCwd ||
+          candidate.startsWith(`${projectCwd}/`) ||
+          candidate.startsWith(`${projectCwd}\\`);
+        const isUnderHome =
+          candidate === home ||
+          candidate.startsWith(`${home}/`) ||
+          candidate.startsWith(`${home}\\`);
         if ((isUnderProject || isUnderHome) && existsSync(candidate)) {
           try {
             if (statSync(candidate).isDirectory()) {
@@ -178,9 +195,12 @@ export const terminalTools: MCPTool[] = [
       const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
       // Cap session name: stored in terminal JSON store on disk.
       const MAX_TERMINAL_NAME_LEN = 256;
-      const rawTerminalName = (input.name as string) || `Terminal ${Object.keys(store.sessions).length + 1}`;
-      const terminalName = typeof rawTerminalName === 'string' && rawTerminalName.length > MAX_TERMINAL_NAME_LEN
-        ? rawTerminalName.slice(0, MAX_TERMINAL_NAME_LEN) : rawTerminalName;
+      const rawTerminalName =
+        (input.name as string) || `Terminal ${Object.keys(store.sessions).length + 1}`;
+      const terminalName =
+        typeof rawTerminalName === 'string' && rawTerminalName.length > MAX_TERMINAL_NAME_LEN
+          ? rawTerminalName.slice(0, MAX_TERMINAL_NAME_LEN)
+          : rawTerminalName;
       const session: TerminalSession = {
         id,
         name: terminalName,
@@ -223,12 +243,17 @@ export const terminalTools: MCPTool[] = [
       if (!isExecuteEnabled()) {
         return {
           success: false,
-          error: 'terminal_execute is disabled by default. Set MONOMIND_ENABLE_TERMINAL=1 or write .monomind/enable-terminal.json with {"enabled": true} to opt in. The metacharacter denylist cannot prevent exfiltration via direct binaries (curl, aws, scp).',
+          error:
+            'terminal_execute is disabled by default. Set MONOMIND_ENABLE_TERMINAL=1 or write .monomind/enable-terminal.json with {"enabled": true} to opt in. The metacharacter denylist cannot prevent exfiltration via direct binaries (curl, aws, scp).',
         };
       }
       const store = loadTerminalStoreOrNull();
       if (!store) {
-        return { success: false, error: 'Terminal store is unreadable/corrupt — refusing to execute to avoid overwriting real session data.' };
+        return {
+          success: false,
+          error:
+            'Terminal store is unreadable/corrupt — refusing to execute to avoid overwriting real session data.',
+        };
       }
       const sessionId = input.sessionId as string | undefined;
       // Cap command: the metacharacter regex check at line 220 is O(n), and the
@@ -236,14 +261,18 @@ export const terminalTools: MCPTool[] = [
       // A realistic shell command is well under 64 KB; cap there.
       const MAX_TERMINAL_COMMAND_LEN = 64 * 1024;
       const rawCommand = input.command as string;
-      const command = typeof rawCommand === 'string' && rawCommand.length > MAX_TERMINAL_COMMAND_LEN
-        ? rawCommand.slice(0, MAX_TERMINAL_COMMAND_LEN) : rawCommand;
+      const command =
+        typeof rawCommand === 'string' && rawCommand.length > MAX_TERMINAL_COMMAND_LEN
+          ? rawCommand.slice(0, MAX_TERMINAL_COMMAND_LEN)
+          : rawCommand;
       const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       // Reject inherited keys (incl. toString/hasOwnProperty/etc.) so a tampered
       // store.json can't redirect bracket access into Object.prototype.
       if (
         sessionId &&
-        (typeof sessionId !== 'string' || FORBIDDEN_KEYS.has(sessionId) || !Object.hasOwn(store.sessions, sessionId))
+        (typeof sessionId !== 'string' ||
+          FORBIDDEN_KEYS.has(sessionId) ||
+          !Object.hasOwn(store.sessions, sessionId))
       ) {
         return { success: false, error: 'Invalid sessionId' };
       }
@@ -297,7 +326,8 @@ export const terminalTools: MCPTool[] = [
         exitCode = 0;
       } catch (err) {
         const e = err as ExecError;
-        output = (e.stdout?.toString() || '') + (e.stderr ? `\n[stderr] ${e.stderr.toString()}` : '');
+        output =
+          (e.stdout?.toString() || '') + (e.stderr ? `\n[stderr] ${e.stderr.toString()}` : '');
         exitCode = e.status ?? 1;
       }
       const duration = Date.now() - startTime;
@@ -307,7 +337,7 @@ export const terminalTools: MCPTool[] = [
       const MAX_HISTORY = 200;
       const truncatedOutput =
         output.length > MAX_OUTPUT_BYTES
-          ? output.slice(0, MAX_OUTPUT_BYTES) + '\n[... truncated ...]'
+          ? `${output.slice(0, MAX_OUTPUT_BYTES)}\n[... truncated ...]`
           : output;
       session.history.push({ command, output: truncatedOutput, timestamp, exitCode });
       if (session.history.length > MAX_HISTORY) {
@@ -380,14 +410,20 @@ export const terminalTools: MCPTool[] = [
     handler: async (input: Record<string, unknown>) => {
       const store = loadTerminalStoreOrNull();
       if (!store) {
-        return { success: false, error: 'Terminal store is unreadable/corrupt — refusing to close a session to avoid overwriting real session data.' };
+        return {
+          success: false,
+          error:
+            'Terminal store is unreadable/corrupt — refusing to close a session to avoid overwriting real session data.',
+        };
       }
       const sessionId = input.sessionId as string | undefined;
       const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       if (!sessionId || FORBIDDEN_KEYS.has(sessionId)) {
         return { success: false, error: 'Invalid sessionId' };
       }
-      const session = Object.hasOwn(store.sessions, sessionId) ? store.sessions[sessionId] : undefined;
+      const session = Object.hasOwn(store.sessions, sessionId)
+        ? store.sessions[sessionId]
+        : undefined;
       if (!session) {
         return { success: false, error: 'Session not found' };
       }
@@ -419,7 +455,11 @@ export const terminalTools: MCPTool[] = [
       const offset = (input.offset as number) || 0;
       const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       if (sessionId) {
-        if (typeof sessionId !== 'string' || FORBIDDEN_KEYS.has(sessionId) || !Object.hasOwn(store.sessions, sessionId)) {
+        if (
+          typeof sessionId !== 'string' ||
+          FORBIDDEN_KEYS.has(sessionId) ||
+          !Object.hasOwn(store.sessions, sessionId)
+        ) {
           return { success: false, error: 'Invalid sessionId' };
         }
         const session = store.sessions[sessionId];

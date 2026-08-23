@@ -51,10 +51,10 @@
  * are genuinely CJS, so the rule does not apply to them uniformly.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -121,7 +121,11 @@ export function findBareRequireCalls(source: string): number[] {
     const c = source[i];
     const next = source[i + 1];
 
-    if (c === '\n') { line++; i++; continue; }
+    if (c === '\n') {
+      line++;
+      i++;
+      continue;
+    }
 
     if (c === '/' && next === '/') {
       while (i < source.length && source[i] !== '\n') i++;
@@ -141,17 +145,34 @@ export function findBareRequireCalls(source: string): number[] {
       const quote = c;
       i++;
       while (i < source.length) {
-        if (source[i] === '\\') { i += 2; continue; }
-        if (source[i] === '\n') { line++; i++; continue; }
-        if (source[i] === quote) { i++; break; }
+        if (source[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (source[i] === '\n') {
+          line++;
+          i++;
+          continue;
+        }
+        if (source[i] === quote) {
+          i++;
+          break;
+        }
         i++;
       }
       continue;
     }
 
-    if (c === '`') { inTemplate = !inTemplate; i++; continue; }
+    if (c === '`') {
+      inTemplate = !inTemplate;
+      i++;
+      continue;
+    }
     if (inTemplate) {
-      if (c === '\\') { i += 2; continue; }
+      if (c === '\\') {
+        i += 2;
+        continue;
+      }
       if (c === '$' && next === '{') {
         templateStack.push(braceDepth);
         inTemplate = false;
@@ -162,7 +183,11 @@ export function findBareRequireCalls(source: string): number[] {
       i++;
       continue;
     }
-    if (c === '{') { braceDepth++; i++; continue; }
+    if (c === '{') {
+      braceDepth++;
+      i++;
+      continue;
+    }
     if (c === '}') {
       braceDepth--;
       if (templateStack.length > 0 && braceDepth === templateStack[templateStack.length - 1]) {
@@ -202,7 +227,9 @@ function bindsCreateRequire(source: string): boolean {
 describe('ESM hygiene (monorepo-wide)', () => {
   it('every listed package exists — the list cannot silently rot', () => {
     const missing = PACKAGES.filter((p) => !existsSync(join(REPO_ROOT, p, 'package.json')));
-    expect(missing, `PACKAGES lists paths that no longer exist:\n${missing.join('\n')}`).toEqual([]);
+    expect(missing, `PACKAGES lists paths that no longer exist:\n${missing.join('\n')}`).toEqual(
+      [],
+    );
   });
 
   it('every listed package is ESM, so the rule genuinely applies', () => {
@@ -298,7 +325,9 @@ describe('ESM hygiene (monorepo-wide)', () => {
   });
 
   it('does not flag property-access .require(', () => {
-    expect(findBareRequireCalls('export const m = (import.meta as any).require("fs");')).toEqual([]);
+    expect(findBareRequireCalls('export const m = (import.meta as any).require("fs");')).toEqual(
+      [],
+    );
   });
 
   it('does not flag createRequire itself', () => {

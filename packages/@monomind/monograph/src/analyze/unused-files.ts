@@ -1,4 +1,4 @@
-import { isDeclarationFile, isConfigFile, isHtmlFile } from "./predicates/file.js";
+import { isConfigFile, isDeclarationFile, isHtmlFile } from './predicates/file.js';
 
 export interface UnusedFileResult {
   filePath: string;
@@ -14,7 +14,7 @@ export interface FindUnusedFilesOptions {
 export function findUnusedFiles(
   allFiles: string[],
   reachableFiles: Set<string>,
-  opts: FindUnusedFilesOptions = {}
+  opts: FindUnusedFilesOptions = {},
 ): UnusedFileResult[] {
   const { skipDeclarations = true, skipConfig = true, skipHtml = true } = opts;
 
@@ -28,14 +28,14 @@ export function findUnusedFiles(
     })
     .map((filePath) => ({
       filePath,
-      reason: "not reachable from any entry point",
+      reason: 'not reachable from any entry point',
     }));
 }
 
 export function hasReachableImporter(
   filePath: string,
   importers: Map<string, Set<string>>,
-  reachable: Set<string>
+  reachable: Set<string>,
 ): boolean {
   const fileImporters = importers.get(filePath);
   if (!fileImporters) return false;

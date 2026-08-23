@@ -3,14 +3,14 @@
  * Explicitly fetch the semantic-routing embedding model (opt-in pre-seed).
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import {
+  downloadEmbeddingModel,
   EMBEDDING_MODEL_ID,
   EMBEDDING_MODEL_SIZE_LABEL,
-  downloadEmbeddingModel,
   isEmbeddingModelCached,
 } from '../routing/model-download.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 const downloadEmbeddingsAction = async (_ctx: CommandContext): Promise<CommandResult> => {
   if (isEmbeddingModelCached()) {

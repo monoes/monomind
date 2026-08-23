@@ -12,10 +12,10 @@
  * clustersCreated, memoryCleaned, duplicatesRemoved, mode }
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
-import { pathToFileURL } from 'url';
-import { createRequire } from 'module';
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 
 /**
@@ -34,7 +34,9 @@ function findCliRootFrom(startDir: string): string | null {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
         if (pkg.name === '@monoes/monomindcli') return dir;
-      } catch { /* keep walking */ }
+      } catch {
+        /* keep walking */
+      }
     }
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -66,19 +68,43 @@ function findCliRootFrom(startDir: string): string | null {
  * consolidation reports zeros, honestly.
  */
 async function loadMemoryBridge(projectRoot: string): Promise<{
-  bridgeSearchEntries: (o: Record<string, unknown>) => Promise<{ results?: Array<{ key: string }> } | null>;
+  bridgeSearchEntries: (
+    o: Record<string, unknown>,
+  ) => Promise<{ results?: Array<{ key: string }> } | null>;
   bridgeStoreEntry: (o: Record<string, unknown>) => Promise<unknown>;
 } | null> {
   const candidates: string[] = [
-    path.join(projectRoot, 'packages', '@monomind', 'cli', 'dist', 'src', 'memory', 'memory-bridge.js'),
-    path.join(projectRoot, 'node_modules', '@monoes', 'monomindcli', 'dist', 'src', 'memory', 'memory-bridge.js'),
+    path.join(
+      projectRoot,
+      'packages',
+      '@monomind',
+      'cli',
+      'dist',
+      'src',
+      'memory',
+      'memory-bridge.js',
+    ),
+    path.join(
+      projectRoot,
+      'node_modules',
+      '@monoes',
+      'monomindcli',
+      'dist',
+      'src',
+      'memory',
+      'memory-bridge.js',
+    ),
   ];
 
   try {
     const require = createRequire(import.meta.url);
     const cliPkgPath = require.resolve('@monoes/monomindcli/package.json');
-    candidates.push(path.join(path.dirname(cliPkgPath), 'dist', 'src', 'memory', 'memory-bridge.js'));
-  } catch { /* @monoes/monomindcli not resolvable from here — try next strategy */ }
+    candidates.push(
+      path.join(path.dirname(cliPkgPath), 'dist', 'src', 'memory', 'memory-bridge.js'),
+    );
+  } catch {
+    /* @monoes/monomindcli not resolvable from here — try next strategy */
+  }
 
   if (process.argv[1]) {
     const cliRoot = findCliRootFrom(path.dirname(process.argv[1]));
@@ -91,10 +117,15 @@ async function loadMemoryBridge(projectRoot: string): Promise<{
     if (!fs.existsSync(candidate)) continue;
     try {
       const mod = await import(pathToFileURL(candidate).href);
-      if (typeof mod.bridgeSearchEntries === 'function' && typeof mod.bridgeStoreEntry === 'function') {
+      if (
+        typeof mod.bridgeSearchEntries === 'function' &&
+        typeof mod.bridgeStoreEntry === 'function'
+      ) {
         return mod;
       }
-    } catch { /* try next */ }
+    } catch {
+      /* try next */
+    }
   }
   return null;
 }
@@ -102,18 +133,31 @@ async function loadMemoryBridge(projectRoot: string): Promise<{
 /** Resolve the CLI knowledge-graph module (kgConsolidateCandidates/kgIngest)
  *  — sibling of memory-bridge.js, same resolution strategy. */
 async function loadMemoryKg(projectRoot: string): Promise<{
-  kgConsolidateCandidates: (o?: Record<string, unknown>) => Promise<Array<{ name: string; type: string; description: string; neighborhood: string[] }>>;
+  kgConsolidateCandidates: (
+    o?: Record<string, unknown>,
+  ) => Promise<Array<{ name: string; type: string; description: string; neighborhood: string[] }>>;
   kgIngest: (o: Record<string, unknown>) => Promise<{ success: boolean }>;
 } | null> {
   const candidates: string[] = [
     path.join(projectRoot, 'packages', '@monomind', 'cli', 'dist', 'src', 'memory', 'memory-kg.js'),
-    path.join(projectRoot, 'node_modules', '@monoes', 'monomindcli', 'dist', 'src', 'memory', 'memory-kg.js'),
+    path.join(
+      projectRoot,
+      'node_modules',
+      '@monoes',
+      'monomindcli',
+      'dist',
+      'src',
+      'memory',
+      'memory-kg.js',
+    ),
   ];
   try {
     const require = createRequire(import.meta.url);
     const cliPkgPath = require.resolve('@monoes/monomindcli/package.json');
     candidates.push(path.join(path.dirname(cliPkgPath), 'dist', 'src', 'memory', 'memory-kg.js'));
-  } catch { /* not resolvable from here */ }
+  } catch {
+    /* not resolvable from here */
+  }
   if (process.argv[1]) {
     const cliRoot = findCliRootFrom(path.dirname(process.argv[1]));
     if (cliRoot) candidates.push(path.join(cliRoot, 'dist', 'src', 'memory', 'memory-kg.js'));
@@ -122,8 +166,11 @@ async function loadMemoryKg(projectRoot: string): Promise<{
     if (!fs.existsSync(candidate)) continue;
     try {
       const mod = await import(pathToFileURL(candidate).href);
-      if (typeof mod.kgConsolidateCandidates === 'function' && typeof mod.kgIngest === 'function') return mod;
-    } catch { /* try next */ }
+      if (typeof mod.kgConsolidateCandidates === 'function' && typeof mod.kgIngest === 'function')
+        return mod;
+    } catch {
+      /* try next */
+    }
   }
   return null;
 }
@@ -139,13 +186,18 @@ const KG_MAX_DESC = 2000; // mirrors memory-kg.ts MAX_DESC_LEN
 function foldNeighborhood(description: string, neighborhood: string[]): string | null {
   const base = String(description || '').trim();
   const fresh = neighborhood
-    .map(f => String(f || '').replace(/\s+/g, ' ').trim())
-    .filter(f => f.length > 3 && !base.toLowerCase().includes(f.toLowerCase().slice(0, 60)));
+    .map((f) =>
+      String(f || '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
+    .filter((f) => f.length > 3 && !base.toLowerCase().includes(f.toLowerCase().slice(0, 60)));
   if (!fresh.length) return null;
   // Extend an existing trailing Facts block instead of stacking headers.
-  const digest = (/Facts: [^]*$/.test(base)
-    ? `${base}; ${fresh.join('; ')}`
-    : `${base ? base + ' ' : ''}Facts: ${fresh.join('; ')}`
+  const digest = (
+    /Facts: [^]*$/.test(base)
+      ? `${base}; ${fresh.join('; ')}`
+      : `${base ? `${base} ` : ''}Facts: ${fresh.join('; ')}`
   ).slice(0, KG_MAX_DESC);
   return digest.length > base.length ? digest : null; // merge keeps longer — don't resubmit no-ops
 }
@@ -165,7 +217,7 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
 
     const writeMetrics = (data: Record<string, unknown>) => {
       // Atomic write: tmp + rename, so readers never see a partial file.
-      const tmp = consolidateFile + '.tmp';
+      const tmp = `${consolidateFile}.tmp`;
       fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
       fs.renameSync(tmp, consolidateFile);
     };
@@ -179,7 +231,7 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
     // is only ever touched by the final tmp+rename write below, so a killed
     // run leaves whatever real data existed from the previous successful run
     // untouched.
-    const inProgressFile = consolidateFile + '.inprogress';
+    const inProgressFile = `${consolidateFile}.inprogress`;
     const baseline = {
       timestamp: new Date().toISOString(),
       patternsConsolidated: 0,
@@ -189,7 +241,11 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
       mode: 'raptor',
       status: 'in-progress',
     };
-    try { fs.writeFileSync(inProgressFile, JSON.stringify(baseline, null, 2)); } catch { /* non-critical */ }
+    try {
+      fs.writeFileSync(inProgressFile, JSON.stringify(baseline, null, 2));
+    } catch {
+      /* non-critical */
+    }
 
     try {
       const bridge = await loadMemoryBridge(projectRoot);
@@ -210,8 +266,9 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
             if (cluster.length < 2) continue;
 
             // Build cluster summary (lightweight abstraction without LLM)
-            const keys = cluster.map(r => r.key).join(', ');
-            const summary = `RAPTOR cluster [${Math.floor(i / CLUSTER_SIZE)}]: ` +
+            const keys = cluster.map((r) => r.key).join(', ');
+            const summary =
+              `RAPTOR cluster [${Math.floor(i / CLUSTER_SIZE)}]: ` +
               `${cluster.length} patterns consolidated. Topics: ${keys.slice(0, 120)}`;
 
             await bridge.bridgeStoreEntry({
@@ -229,7 +286,8 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
     } catch (e) {
       // non-critical — bridge may be unavailable, but a mid-run failure here
       // silently under-reports patternsConsolidated/clustersCreated.
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-consolidate] RAPTOR clustering failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[worker-consolidate] RAPTOR clustering failed:', e);
     }
 
     // KG entity-description consolidation (cognee port, mechanical half).
@@ -241,18 +299,23 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
         const cands = await kg.kgConsolidateCandidates({ minEdges: 3, limit: 10 });
         kgCandidates = cands.length;
         const nodes = cands
-          .map(c => {
+          .map((c) => {
             const folded = foldNeighborhood(c.description, c.neighborhood);
             return folded ? { name: c.name, type: c.type, description: folded } : null;
           })
           .filter((n): n is { name: string; type: string; description: string } => !!n);
         if (nodes.length) {
-          const r = await kg.kgIngest({ nodes, edges: [], originRef: `consolidate-worker:${new Date().toISOString().slice(0, 10)}` });
+          const r = await kg.kgIngest({
+            nodes,
+            edges: [],
+            originRef: `consolidate-worker:${new Date().toISOString().slice(0, 10)}`,
+          });
           if (r?.success) kgDescriptionsExtended = nodes.length;
         }
       }
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[worker-consolidate] KG consolidation failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[worker-consolidate] KG consolidation failed:', e);
     }
 
     const result = {
@@ -267,7 +330,11 @@ export function createConsolidateWorker(projectRoot: string): WorkerHandler {
     };
 
     writeMetrics(result);
-    try { fs.unlinkSync(inProgressFile); } catch { /* already gone or never written */ }
+    try {
+      fs.unlinkSync(inProgressFile);
+    } catch {
+      /* already gone or never written */
+    }
 
     return {
       worker: 'consolidate',

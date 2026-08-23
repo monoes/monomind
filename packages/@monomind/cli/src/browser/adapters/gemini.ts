@@ -1,4 +1,4 @@
-import type { PlatformAdapter, PageInterface } from './index.js';
+import type { PageInterface, PlatformAdapter } from './index.js';
 
 export const geminiAdapter: PlatformAdapter = {
   platform: 'gemini',
@@ -11,13 +11,13 @@ export const geminiAdapter: PlatformAdapter = {
     const url = await page.url();
     if (url.includes('accounts.google.com')) return false;
     return page.evaluate<boolean>(
-      `!!document.querySelector('bard-sidenav, [data-test-id="bard-sidenav"]')`
+      `!!document.querySelector('bard-sidenav, [data-test-id="bard-sidenav"]')`,
     );
   },
 
   async extractUsername(page: PageInterface): Promise<string> {
     return page.evaluate<string>(
-      `(document.querySelector('[data-email]')?.getAttribute('data-email') ?? 'unknown')`
+      `(document.querySelector('[data-email]')?.getAttribute('data-email') ?? 'unknown')`,
     );
   },
 };

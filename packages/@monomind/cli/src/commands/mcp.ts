@@ -6,20 +6,11 @@
  * @version 3.0.0
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { callMCPTool, hasTool, listMCPTools } from '../mcp-client.js';
+import { getMCPServerStatus, getServerManager, type MCPServerOptions } from '../mcp-server.js';
 import { output } from '../output.js';
-import { select, confirm } from '../prompt.js';
-import {
-  MCPServerManager,
-  createMCPServerManager,
-  getServerManager,
-  startMCPServer,
-  stopMCPServer,
-  getMCPServerStatus,
-  type MCPServerOptions,
-  type MCPServerStatus,
-} from '../mcp-server.js';
-import { listMCPTools, callMCPTool, hasTool, getToolMetadata } from '../mcp-client.js';
+import { confirm } from '../prompt.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // MCP tools categories — `value` must match the literal `category` field set
 // on registered MCPTool entries (see mcp-tools/*.ts), not the lazy-load
@@ -31,7 +22,7 @@ const TOOL_CATEGORIES = [
   { value: 'performance', label: 'Monitoring', hint: 'Status and metrics monitoring' },
   { value: 'knowledge', label: 'Memory', hint: 'Memory and neural features' },
   { value: 'github', label: 'GitHub', hint: 'GitHub integration tools' },
-  { value: 'system', label: 'System', hint: 'System and benchmark tools' }
+  { value: 'system', label: 'System', hint: 'System and benchmark tools' },
 ];
 
 /**
@@ -61,14 +52,14 @@ const startCommand: Command = {
       short: 'p',
       description: 'Server port',
       type: 'number',
-      default: 3000
+      default: 3000,
     },
     {
       name: 'host',
       short: 'h',
       description: 'Server host',
       type: 'string',
-      default: 'localhost'
+      default: 'localhost',
     },
     {
       name: 'transport',
@@ -76,41 +67,43 @@ const startCommand: Command = {
       description: 'Transport type (stdio, http, websocket)',
       type: 'string',
       default: 'stdio',
-      choices: ['stdio', 'http', 'websocket']
+      choices: ['stdio', 'http', 'websocket'],
     },
     {
       name: 'tools',
       description: 'Tools to enable (comma-separated or "all")',
       type: 'string',
-      default: 'all'
+      default: 'all',
     },
     {
       name: 'daemon',
       short: 'd',
       description: 'Run as background daemon',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'force',
       short: 'f',
       description: 'Force restart (kill existing server first)',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind mcp start', description: 'Start with defaults (stdio)' },
     { command: 'monomind mcp start -p 8080 -t http', description: 'Start HTTP server' },
     { command: 'monomind mcp start -d', description: 'Start as daemon' },
-    { command: 'monomind mcp start -f', description: 'Force restart (kill existing)' }
+    { command: 'monomind mcp start -f', description: 'Force restart (kill existing)' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rawPort = (ctx.flags.port as number) ?? 3000;
-    const port = Number.isFinite(rawPort) && rawPort >= 1 && rawPort <= 65535 ? Math.floor(rawPort) : 3000;
+    const port =
+      Number.isFinite(rawPort) && rawPort >= 1 && rawPort <= 65535 ? Math.floor(rawPort) : 3000;
     const rawHost = (ctx.flags.host as string) ?? 'localhost';
     // Cap host length and reject control chars to prevent injection
-    const host = typeof rawHost === 'string' ? rawHost.slice(0, 253).replace(/[\x00-\x1f]/g, '') : 'localhost';
+    const host =
+      typeof rawHost === 'string' ? rawHost.slice(0, 253).replace(/[\x00-\x1f]/g, '') : 'localhost';
     const transport = (ctx.flags.transport as 'stdio' | 'http' | 'websocket') ?? 'stdio';
     const rawTools = (ctx.flags.tools as string) || 'all';
     // Cap tools string to prevent DoS via oversized comma-separated lists
@@ -139,7 +132,9 @@ const startCommand: Command = {
 
         if (health.healthy) {
           output.printWarning(`MCP Server already running (PID: ${existingStatus.pid})`);
-          output.writeln(output.dim('Use "monomind mcp stop" to stop the server first, or use --force'));
+          output.writeln(
+            output.dim('Use "monomind mcp stop" to stop the server first, or use --force'),
+          );
           return { success: false, exitCode: 1 };
         }
       }
@@ -200,7 +195,7 @@ const startCommand: Command = {
         // rather than a hardcoded figure — this varies with MONOMIND_MCP_FULL
         // and any disabled-tools config.
         const registeredTools = await listMCPTools();
-        const enabledCount = registeredTools.filter(t => t.enabled).length;
+        const enabledCount = registeredTools.filter((t) => t.enabled).length;
         toolsValue = `${enabledCount} enabled`;
       } else {
         toolsValue = `${tools.split(',').length} enabled`;
@@ -210,7 +205,7 @@ const startCommand: Command = {
       output.printTable({
         columns: [
           { key: 'property', header: 'Property', width: 15 },
-          { key: 'value', header: 'Value', width: 30 }
+          { key: 'value', header: 'Value', width: 30 },
         ],
         data: [
           { property: 'Server PID', value: status.pid || process.pid },
@@ -218,8 +213,8 @@ const startCommand: Command = {
           { property: 'Host', value: host },
           { property: 'Port', value: port },
           { property: 'Tools', value: toolsValue },
-          { property: 'Status', value: output.success('Running') }
-        ]
+          { property: 'Status', value: output.success('Running') },
+        ],
       });
 
       output.writeln();
@@ -241,7 +236,7 @@ const startCommand: Command = {
       output.printError(`Failed to start MCP server: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Stop MCP server
@@ -254,8 +249,8 @@ const stopCommand: Command = {
       short: 'f',
       description: 'Force stop without graceful shutdown',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const force = ctx.flags.force as boolean;
@@ -270,7 +265,7 @@ const stopCommand: Command = {
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
         message: `Stop MCP server (PID: ${status.pid})?`,
-        default: false
+        default: false,
       });
 
       if (!confirmed) {
@@ -299,7 +294,7 @@ const stopCommand: Command = {
       output.printError(`Failed to stop MCP server: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // MCP status
@@ -340,11 +335,9 @@ const statusCommand: Command = {
         output.printTable({
           columns: [
             { key: 'metric', header: 'Metric', width: 20 },
-            { key: 'value', header: 'Value', width: 20, align: 'right' }
+            { key: 'value', header: 'Value', width: 20, align: 'right' },
           ],
-          data: [
-            { metric: 'Status', value: output.error('Stopped') }
-          ]
+          data: [{ metric: 'Status', value: output.error('Stopped') }],
         });
 
         output.writeln();
@@ -377,14 +370,14 @@ const statusCommand: Command = {
           metric: 'Health',
           value: status.health.healthy
             ? output.success('Healthy')
-            : output.error(status.health.error || 'Unhealthy')
+            : output.error(status.health.error || 'Unhealthy'),
         });
 
         if (status.health.metrics) {
           for (const [key, value] of Object.entries(status.health.metrics)) {
             displayData.push({
               metric: `  ${key}`,
-              value: String(value)
+              value: String(value),
             });
           }
         }
@@ -393,9 +386,9 @@ const statusCommand: Command = {
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 20 },
-          { key: 'value', header: 'Value', width: 25, align: 'right' }
+          { key: 'value', header: 'Value', width: 25, align: 'right' },
         ],
-        data: displayData
+        data: displayData,
       });
 
       return { success: true, data: status };
@@ -403,7 +396,7 @@ const statusCommand: Command = {
       output.printError(`Failed to get status: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // List tools
@@ -416,14 +409,14 @@ const toolsCommand: Command = {
       short: 'c',
       description: 'Filter by category',
       type: 'string',
-      choices: TOOL_CATEGORIES.map(c => c.value)
+      choices: TOOL_CATEGORIES.map((c) => c.value),
     },
     {
       name: 'enabled',
       description: 'Show only enabled tools',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const category = ctx.flags.category as string;
@@ -433,11 +426,11 @@ const toolsCommand: Command = {
     const registeredTools = await listMCPTools(category);
 
     const tools: Array<{ name: string; category: string; description: string; enabled: boolean }> =
-      registeredTools.map(tool => ({
+      registeredTools.map((tool) => ({
         name: tool.name,
         category: tool.category || 'uncategorized',
         description: tool.description,
-        enabled: tool.enabled
+        enabled: tool.enabled,
       }));
 
     if (ctx.flags.format === 'json') {
@@ -455,11 +448,14 @@ const toolsCommand: Command = {
     }
 
     // Group by category
-    const grouped = tools.reduce((acc, tool) => {
-      if (!acc[tool.category]) acc[tool.category] = [];
-      acc[tool.category].push(tool);
-      return acc;
-    }, {} as Record<string, typeof tools>);
+    const grouped = tools.reduce(
+      (acc, tool) => {
+        if (!acc[tool.category]) acc[tool.category] = [];
+        acc[tool.category].push(tool);
+        return acc;
+      },
+      {} as Record<string, typeof tools>,
+    );
 
     for (const [cat, catTools] of Object.entries(grouped)) {
       output.writeln(output.highlight(cat.charAt(0).toUpperCase() + cat.slice(1)));
@@ -468,10 +464,16 @@ const toolsCommand: Command = {
         columns: [
           { key: 'name', header: 'Tool', width: 25 },
           { key: 'description', header: 'Description', width: 35 },
-          { key: 'enabled', header: 'Status', width: 10, format: (v: unknown) => (v as boolean) ? output.success('Enabled') : output.dim('Disabled') }
+          {
+            key: 'enabled',
+            header: 'Status',
+            width: 10,
+            format: (v: unknown) =>
+              (v as boolean) ? output.success('Enabled') : output.dim('Disabled'),
+          },
         ],
         data: catTools,
-        border: false
+        border: false,
       });
 
       output.writeln();
@@ -480,7 +482,7 @@ const toolsCommand: Command = {
     output.printInfo(`Total: ${tools.length} tools`);
 
     return { success: true, data: tools };
-  }
+  },
 };
 
 // Enable/disable tools
@@ -492,14 +494,14 @@ const toggleCommand: Command = {
       name: 'enable',
       short: 'e',
       description: 'Enable tools',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'disable',
       short: 'd',
       description: 'Disable tools',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const fs = await import('node:fs');
@@ -507,7 +509,12 @@ const toggleCommand: Command = {
     const stateFile = path.join(ctx.cwd, '.monomind', 'mcp-disabled-tools.json');
 
     let disabled: string[] = [];
-    try { disabled = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[mcp] failed to load mcp-disabled-tools.json, treating as fresh:', e); }
+    try {
+      disabled = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[mcp] failed to load mcp-disabled-tools.json, treating as fresh:', e);
+    }
 
     const enableArg = ctx.flags.enable as string | undefined;
     const disableArg = ctx.flags.disable as string | undefined;
@@ -518,7 +525,7 @@ const toggleCommand: Command = {
     }
 
     if (disableArg) {
-      const tools = disableArg.split(',').map(t => t.trim());
+      const tools = disableArg.split(',').map((t) => t.trim());
       for (const t of tools) {
         if (!disabled.includes(t)) disabled.push(t);
       }
@@ -526,19 +533,23 @@ const toggleCommand: Command = {
     }
 
     if (enableArg) {
-      const tools = enableArg.split(',').map(t => t.trim());
-      disabled = disabled.filter(t => !tools.includes(t));
+      const tools = enableArg.split(',').map((t) => t.trim());
+      disabled = disabled.filter((t) => !tools.includes(t));
       output.printSuccess(`Enabled: ${tools.join(', ')}`);
     }
 
     fs.mkdirSync(path.dirname(stateFile), { recursive: true });
-    fs.writeFileSync(stateFile, JSON.stringify(disabled, null, 2) + '\n');
+    fs.writeFileSync(stateFile, `${JSON.stringify(disabled, null, 2)}\n`);
     output.writeln(output.dim(`State saved to ${stateFile}. ${disabled.length} tool(s) disabled.`));
     output.writeln(output.dim('Disabled tools are rejected immediately by direct CLI invocation.'));
-    output.writeln(output.dim('An external MCP server (mcp start) must be restarted to stop exposing disabled tools to MCP clients.'));
+    output.writeln(
+      output.dim(
+        'An external MCP server (mcp start) must be restarted to stop exposing disabled tools to MCP clients.',
+      ),
+    );
 
     return { success: true };
-  }
+  },
 };
 
 // Execute tool
@@ -551,20 +562,23 @@ const execCommand: Command = {
       short: 't',
       description: 'Tool name',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'params',
       short: 'p',
       description: 'Tool parameters (JSON)',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   examples: [
-    { command: 'monomind mcp exec -t monoswarm_init -p \'{"topology":"mesh"}\'', description: 'Execute tool' }
+    {
+      command: 'monomind mcp exec -t monoswarm_init -p \'{"topology":"mesh"}\'',
+      description: 'Execute tool',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const tool = ctx.flags.tool as string || ctx.args[0];
+    const tool = (ctx.flags.tool as string) || ctx.args[0];
     const paramsStr = ctx.flags.params as string;
 
     if (!tool) {
@@ -576,7 +590,7 @@ const execCommand: Command = {
     if (paramsStr) {
       try {
         params = JSON.parse(paramsStr);
-      } catch (e) {
+      } catch (_e) {
         output.printError('Invalid JSON parameters');
         return { success: false, exitCode: 1 };
       }
@@ -590,7 +604,7 @@ const execCommand: Command = {
 
     try {
       // Execute through local MCP tool registry
-      if (!await hasTool(tool)) {
+      if (!(await hasTool(tool))) {
         output.printError(`Tool not found: ${tool}`);
         return { success: false, exitCode: 1 };
       }
@@ -618,7 +632,7 @@ const execCommand: Command = {
       output.printError(`Tool execution failed: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Health check command
@@ -665,7 +679,7 @@ const healthCommand: Command = {
       output.printError(`Health check failed: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Logs command
@@ -678,21 +692,21 @@ export const logsCommand: Command = {
       short: 'n',
       description: 'Number of lines',
       type: 'number',
-      default: 20
+      default: 20,
     },
     {
       name: 'follow',
       short: 'f',
       description: 'Follow log output',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'level',
       description: 'Filter by log level',
       type: 'string',
-      choices: ['debug', 'info', 'warn', 'error']
-    }
+      choices: ['debug', 'info', 'warn', 'error'],
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const lines = (ctx.flags.lines as number) || 50;
@@ -700,8 +714,8 @@ export const logsCommand: Command = {
     const levelFilter = (ctx.flags.level as string | undefined)?.toLowerCase();
 
     // Try to find and read the actual log file
-    const { existsSync, readFileSync, statSync, watch, createReadStream } = await import('fs');
-    const { join } = await import('path');
+    const { existsSync, readFileSync, statSync, watch, createReadStream } = await import('node:fs');
+    const { join } = await import('node:path');
 
     const MAX_MCP_LOG_BYTES = 10 * 1024 * 1024; // 10 MB
     const logPaths = [
@@ -710,7 +724,7 @@ export const logsCommand: Command = {
       join(ctx.cwd, '.monomind', 'mcp.log'),
     ];
 
-    const logFile = logPaths.find(p => existsSync(p) && statSync(p).size <= MAX_MCP_LOG_BYTES);
+    const logFile = logPaths.find((p) => existsSync(p) && statSync(p).size <= MAX_MCP_LOG_BYTES);
 
     output.writeln();
     output.writeln(output.bold('MCP Server Logs'));
@@ -718,7 +732,9 @@ export const logsCommand: Command = {
 
     if (!logFile) {
       output.writeln(output.dim('No log files found. Start the MCP server to generate logs.'));
-      output.writeln(output.dim(`Checked: ${logPaths.map(p => p.replace(ctx.cwd, '.')).join(', ')}`));
+      output.writeln(
+        output.dim(`Checked: ${logPaths.map((p) => p.replace(ctx.cwd, '.')).join(', ')}`),
+      );
       if (follow) {
         output.printError('--follow requires an existing log file to watch — none was found.');
         return { success: false };
@@ -737,14 +753,22 @@ export const logsCommand: Command = {
     const tail = logLines.slice(-lines);
 
     if (tail.length === 0) {
-      output.writeln(output.dim(levelFilter ? `Log file has no lines matching level "${levelFilter}".` : 'Log file is empty.'));
+      output.writeln(
+        output.dim(
+          levelFilter
+            ? `Log file has no lines matching level "${levelFilter}".`
+            : 'Log file is empty.',
+        ),
+      );
     } else {
-      output.writeln(output.dim(
-        `Showing last ${tail.length} lines from ${logFile.replace(ctx.cwd, '.')}` +
-        (levelFilter ? ` (level=${levelFilter})` : ''),
-      ));
+      output.writeln(
+        output.dim(
+          `Showing last ${tail.length} lines from ${logFile.replace(ctx.cwd, '.')}` +
+            (levelFilter ? ` (level=${levelFilter})` : ''),
+        ),
+      );
       output.writeln();
-      tail.forEach(line => output.writeln(line));
+      tail.forEach((line) => output.writeln(line));
     }
 
     if (!follow) {
@@ -780,9 +804,15 @@ export const logsCommand: Command = {
           reading = false;
           return;
         }
-        const stream = createReadStream(logFile, { start: position, end: size - 1, encoding: 'utf8' });
+        const stream = createReadStream(logFile, {
+          start: position,
+          end: size - 1,
+          encoding: 'utf8',
+        });
         let chunkData = '';
-        stream.on('data', (chunk) => { chunkData += chunk; });
+        stream.on('data', (chunk) => {
+          chunkData += chunk;
+        });
         stream.on('end', () => {
           position = size;
           const combined = pendingPartialLine + chunkData;
@@ -793,7 +823,9 @@ export const logsCommand: Command = {
           }
           reading = false;
         });
-        stream.on('error', () => { reading = false; });
+        stream.on('error', () => {
+          reading = false;
+        });
       };
 
       const watcher = watch(logFile, { persistent: true }, (eventType) => {
@@ -806,7 +838,7 @@ export const logsCommand: Command = {
       };
       process.once('SIGINT', stop);
     });
-  }
+  },
 };
 
 // Restart command
@@ -819,11 +851,11 @@ const restartCommand: Command = {
       short: 'f',
       description: 'Force restart without graceful shutdown',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const force = ctx.flags.force as boolean;
+    const _force = ctx.flags.force as boolean;
 
     output.printInfo('Restarting MCP Server...');
 
@@ -839,7 +871,7 @@ const restartCommand: Command = {
       output.printError(`Failed to restart: ${(error as Error).message}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Verify subcommand — bridges the new-user "did the install actually work?" gap (P0-16).
@@ -848,7 +880,8 @@ const restartCommand: Command = {
 // confirms the MCP server can be reached from a stdio client.
 const verifyCommand: Command = {
   name: 'verify',
-  description: 'Verify the MCP server is reachable and its tools respond. Run this after `claude mcp add monomind ...` to confirm the install worked.',
+  description:
+    'Verify the MCP server is reachable and its tools respond. Run this after `claude mcp add monomind ...` to confirm the install worked.',
   options: [],
   examples: [
     { command: 'monomind mcp verify', description: 'Confirm MCP server wiring and tool registry' },
@@ -865,7 +898,11 @@ const verifyCommand: Command = {
     try {
       const tools = await listMCPTools();
       toolCount = tools.length;
-      checks.push({ label: 'Tool registry', ok: toolCount > 0, detail: `${toolCount} tools registered` });
+      checks.push({
+        label: 'Tool registry',
+        ok: toolCount > 0,
+        detail: `${toolCount} tools registered`,
+      });
     } catch (e) {
       checks.push({ label: 'Tool registry', ok: false, detail: `error: ${(e as Error).message}` });
     }
@@ -874,9 +911,17 @@ const verifyCommand: Command = {
     const sampleTool = 'system_info';
     try {
       const has = await hasTool(sampleTool);
-      checks.push({ label: `Sample tool (${sampleTool})`, ok: has, detail: has ? 'resolves' : 'missing' });
+      checks.push({
+        label: `Sample tool (${sampleTool})`,
+        ok: has,
+        detail: has ? 'resolves' : 'missing',
+      });
     } catch (e) {
-      checks.push({ label: `Sample tool (${sampleTool})`, ok: false, detail: `error: ${(e as Error).message}` });
+      checks.push({
+        label: `Sample tool (${sampleTool})`,
+        ok: false,
+        detail: `error: ${(e as Error).message}`,
+      });
     }
 
     // 3. claude mcp list includes monomind (best-effort; skip if claude CLI missing)
@@ -884,18 +929,29 @@ const verifyCommand: Command = {
       const { spawnSync } = await import('node:child_process');
       const result = spawnSync('claude', ['mcp', 'list'], { encoding: 'utf8', timeout: 5000 });
       if (result.error || result.status !== 0) {
-        checks.push({ label: 'claude mcp registration', ok: false, detail: 'claude CLI unavailable or returned non-zero — run `claude mcp add monomind -- npx -y monomind@latest mcp start` to register' });
+        checks.push({
+          label: 'claude mcp registration',
+          ok: false,
+          detail:
+            'claude CLI unavailable or returned non-zero — run `claude mcp add monomind -- npx -y monomind@latest mcp start` to register',
+        });
       } else {
         const listed = (result.stdout || '').toLowerCase();
         const registered = listed.includes('monomind');
         checks.push({
           label: 'claude mcp registration',
           ok: registered,
-          detail: registered ? 'monomind appears in `claude mcp list`' : 'monomind NOT in `claude mcp list` — run `claude mcp add monomind -- npx -y monomind@latest mcp start`',
+          detail: registered
+            ? 'monomind appears in `claude mcp list`'
+            : 'monomind NOT in `claude mcp list` — run `claude mcp add monomind -- npx -y monomind@latest mcp start`',
         });
       }
     } catch {
-      checks.push({ label: 'claude mcp registration', ok: false, detail: 'claude CLI not found — install Claude Code or register manually' });
+      checks.push({
+        label: 'claude mcp registration',
+        ok: false,
+        detail: 'claude CLI not found — install Claude Code or register manually',
+      });
     }
 
     // Render
@@ -908,13 +964,17 @@ const verifyCommand: Command = {
 
     output.writeln();
     if (allOk) {
-      output.printSuccess(`MCP install verified — ${toolCount} tools available. In Claude Code, type /mastermind:help to see slash commands.`);
+      output.printSuccess(
+        `MCP install verified — ${toolCount} tools available. In Claude Code, type /mastermind:help to see slash commands.`,
+      );
     } else {
-      output.printError('One or more checks failed. Fix the issues above and re-run `monomind mcp verify`.');
+      output.printError(
+        'One or more checks failed. Fix the issues above and re-run `monomind mcp verify`.',
+      );
     }
 
     return { success: allOk, exitCode: allOk ? 0 : 1 };
-  }
+  },
 };
 
 // Main MCP command
@@ -936,13 +996,19 @@ export const mcpCommand: Command = {
   options: [],
   examples: [
     { command: 'monomind mcp start', description: 'Start MCP server' },
-    { command: 'monomind mcp start -t http -p 8080', description: 'Start HTTP server on port 8080' },
+    {
+      command: 'monomind mcp start -t http -p 8080',
+      description: 'Start HTTP server on port 8080',
+    },
     { command: 'monomind mcp status', description: 'Show server status' },
     { command: 'monomind mcp tools', description: 'List tools' },
-    { command: 'monomind mcp verify', description: 'Verify the MCP server is reachable and tools respond' },
-    { command: 'monomind mcp stop', description: 'Stop the server' }
+    {
+      command: 'monomind mcp verify',
+      description: 'Verify the MCP server is reachable and tools respond',
+    },
+    { command: 'monomind mcp stop', description: 'Stop the server' },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('MCP Server Management'));
     output.writeln();
@@ -959,11 +1025,11 @@ export const mcpCommand: Command = {
       `${output.highlight('toggle')}   - Enable/disable tools`,
       `${output.highlight('exec')}     - Execute a tool`,
       `${output.highlight('logs')}     - Show server logs`,
-      `${output.highlight('verify')}   - Verify the MCP server is reachable and tools respond`
+      `${output.highlight('verify')}   - Verify the MCP server is reachable and tools respond`,
     ]);
 
     return { success: true };
-  }
+  },
 };
 
 export default mcpCommand;

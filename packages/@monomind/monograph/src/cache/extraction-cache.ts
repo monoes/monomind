@@ -1,7 +1,16 @@
-import { createHash } from 'crypto';
-import { readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync, existsSync, statSync } from 'fs';
-import { join } from 'path';
-import type { MonographNode, MonographEdge } from '../types.js';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 /**
  * Bump this whenever the parser/extractor output format changes in a way that
@@ -51,7 +60,11 @@ export class ExtractionCache {
       writeFileSync(tmp, data);
       renameSync(tmp, p);
     } catch {
-      try { unlinkSync(tmp); } catch { /* ignore */ }
+      try {
+        unlinkSync(tmp);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -78,7 +91,9 @@ export class ExtractionCache {
           unlinkSync(p);
           removed++;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     return removed;
   }
@@ -101,9 +116,15 @@ export class ExtractionCache {
       // Hash matches — update entry with current mtime+size for next run
       entry.mtimeMs = st.mtimeMs;
       entry.size = st.size;
-      try { this.writeAtomic(p, JSON.stringify(entry)); } catch { /* non-fatal */ }
+      try {
+        this.writeAtomic(p, JSON.stringify(entry));
+      } catch {
+        /* non-fatal */
+      }
       return entry;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   get(filePath: string, fileHash: string): CacheEntry | null {
@@ -113,28 +134,65 @@ export class ExtractionCache {
       const entry: CacheEntry = JSON.parse(readFileSync(p, 'utf-8'));
       if (entry.cacheVersion !== EXTRACTION_CACHE_VERSION) return null;
       return entry.fileHash === fileHash ? entry : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   set(filePath: string, fileHash: string, nodes: MonographNode[], edges: MonographEdge[]): void {
     let mtimeMs: number | undefined;
     let size: number | undefined;
-    try { const st = statSync(filePath); mtimeMs = st.mtimeMs; size = st.size; } catch { /* ignore */ }
-    const entry: CacheEntry = { fileHash, mtimeMs, size, nodes, edges, cacheVersion: EXTRACTION_CACHE_VERSION };
+    try {
+      const st = statSync(filePath);
+      mtimeMs = st.mtimeMs;
+      size = st.size;
+    } catch {
+      /* ignore */
+    }
+    const entry: CacheEntry = {
+      fileHash,
+      mtimeMs,
+      size,
+      nodes,
+      edges,
+      cacheVersion: EXTRACTION_CACHE_VERSION,
+    };
     this.writeAtomic(this.entryPath(filePath), JSON.stringify(entry));
   }
 
-  setDeferred(filePath: string, fileHash: string, nodes: MonographNode[], edges: MonographEdge[]): void {
+  setDeferred(
+    filePath: string,
+    fileHash: string,
+    nodes: MonographNode[],
+    edges: MonographEdge[],
+  ): void {
     let mtimeMs: number | undefined;
     let size: number | undefined;
-    try { const st = statSync(filePath); mtimeMs = st.mtimeMs; size = st.size; } catch { /* ignore */ }
-    const entry: CacheEntry = { fileHash, mtimeMs, size, nodes, edges, cacheVersion: EXTRACTION_CACHE_VERSION };
+    try {
+      const st = statSync(filePath);
+      mtimeMs = st.mtimeMs;
+      size = st.size;
+    } catch {
+      /* ignore */
+    }
+    const entry: CacheEntry = {
+      fileHash,
+      mtimeMs,
+      size,
+      nodes,
+      edges,
+      cacheVersion: EXTRACTION_CACHE_VERSION,
+    };
     this.pending.push({ path: this.entryPath(filePath), data: JSON.stringify(entry) });
   }
 
   flush(): void {
     for (const { path, data } of this.pending) {
-      try { this.writeAtomic(path, data); } catch { /* non-fatal */ }
+      try {
+        this.writeAtomic(path, data);
+      } catch {
+        /* non-fatal */
+      }
     }
     this.pending = [];
   }

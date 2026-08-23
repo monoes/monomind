@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // See memory-crud.test.ts for why the LanceDB bridge is mocked away rather
@@ -11,8 +11,7 @@ vi.mock('@monoes/memory', () => {
   throw new Error('mocked: LanceDB backend unavailable in test environment');
 });
 
-import { deleteCommand, statsCommand, configureCommand } from '../commands/memory-admin.js';
-import { storeCommand } from '../commands/memory-crud.js';
+import { configureCommand, deleteCommand, statsCommand } from '../commands/memory-admin.js';
 import { initializeMemoryDatabase } from '../memory/memory-initializer.js';
 import { configManager } from '../services/config-file-manager.js';
 
@@ -30,7 +29,7 @@ function ctx(overrides: Partial<CommandContext> = {}): CommandContext {
  * exercised in this suite always returns a CommandResult, so this narrows
  * that away instead of littering every call site with a non-null assertion. */
 async function run(command: Command, context: CommandContext): Promise<CommandResult> {
-  const result = await command.action!(context);
+  const result = await command.action?.(context);
   if (!result) throw new Error(`${command.name}: action returned void`);
   return result;
 }
@@ -65,7 +64,8 @@ describe('memory-admin commands', () => {
 
   describe('delete — source=palace/knowledge (real JSONL file on disk)', () => {
     it('rejects an id with disallowed characters before touching the filesystem', async () => {
-      const result = await run(deleteCommand, 
+      const result = await run(
+        deleteCommand,
         ctx({ flags: { _: [], source: 'palace', id: '../../etc/passwd', force: true } }),
       );
       expect(result.success).toBe(false);
@@ -73,7 +73,8 @@ describe('memory-admin commands', () => {
     });
 
     it('errors clearly (not a crash) when the target file does not exist', async () => {
-      const result = await run(deleteCommand, 
+      const result = await run(
+        deleteCommand,
         ctx({ flags: { _: [], source: 'palace', id: 'abc123', force: true } }),
       );
       expect(result.success).toBe(false);
@@ -89,9 +90,10 @@ describe('memory-admin commands', () => {
         { id: 'remove-me', note: 'second' },
         { id: 'keep-2', note: 'third' },
       ];
-      writeFileSync(filePath, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+      writeFileSync(filePath, `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`);
 
-      const result = await run(deleteCommand, 
+      const result = await run(
+        deleteCommand,
         ctx({ flags: { _: [], source: 'palace', id: 'remove-me', force: true } }),
       );
       expect(result.success).toBe(true);
@@ -111,7 +113,8 @@ describe('memory-admin commands', () => {
       const filePath = join(knowledgeDir, 'chunks.jsonl');
       writeFileSync(filePath, '{ this is not valid json\n{"id":"chunk-1"}\n');
 
-      const result = await run(deleteCommand, 
+      const result = await run(
+        deleteCommand,
         ctx({ flags: { _: [], source: 'knowledge', id: 'chunk-1', force: true } }),
       );
       expect(result.success).toBe(false);
@@ -124,9 +127,10 @@ describe('memory-admin commands', () => {
       const knowledgeDir = join(dir, '.monomind', 'knowledge');
       mkdirSync(knowledgeDir, { recursive: true });
       const filePath = join(knowledgeDir, 'chunks.jsonl');
-      writeFileSync(filePath, JSON.stringify({ id: 'chunk-1' }) + '\n');
+      writeFileSync(filePath, `${JSON.stringify({ id: 'chunk-1' })}\n`);
 
-      const result = await run(deleteCommand, 
+      const result = await run(
+        deleteCommand,
         ctx({ flags: { _: [], source: 'knowledge', id: 'does-not-exist', force: true } }),
       );
       expect(result.success).toBe(false);
@@ -149,8 +153,12 @@ describe('memory-admin commands', () => {
 
   describe('configure', () => {
     it('creates a config file on first run with the requested backend', async () => {
-      const result = await run(configureCommand, 
-        ctx({ cwd: dir, flags: { _: [], backend: 'hybrid', 'cache-size': 128, 'hnsw-m': 16, 'hnsw-ef': 200 } }),
+      const result = await run(
+        configureCommand,
+        ctx({
+          cwd: dir,
+          flags: { _: [], backend: 'hybrid', 'cache-size': 128, 'hnsw-m': 16, 'hnsw-ef': 200 },
+        }),
       );
       expect(result.success).toBe(true);
 
@@ -166,12 +174,14 @@ describe('memory-admin commands', () => {
     });
 
     it('is idempotent: running twice with the same backend does not duplicate or corrupt the file', async () => {
-      await run(configureCommand, 
+      await run(
+        configureCommand,
         ctx({ cwd: dir, flags: { _: [], backend: 'sqlite', 'cache-size': 64 } }),
       );
       const firstRun = JSON.parse(readFileSync(join(dir, 'monomind.config.json'), 'utf-8'));
 
-      await run(configureCommand, 
+      await run(
+        configureCommand,
         ctx({ cwd: dir, flags: { _: [], backend: 'sqlite', 'cache-size': 64 } }),
       );
       const secondRun = JSON.parse(readFileSync(join(dir, 'monomind.config.json'), 'utf-8'));
@@ -181,12 +191,8 @@ describe('memory-admin commands', () => {
     });
 
     it('running with a new backend overwrites the memory section cleanly without duplicating keys', async () => {
-      await run(configureCommand, 
-        ctx({ cwd: dir, flags: { _: [], backend: 'lancedb' } }),
-      );
-      await run(configureCommand, 
-        ctx({ cwd: dir, flags: { _: [], backend: 'memory' } }),
-      );
+      await run(configureCommand, ctx({ cwd: dir, flags: { _: [], backend: 'lancedb' } }));
+      await run(configureCommand, ctx({ cwd: dir, flags: { _: [], backend: 'memory' } }));
       const onDisk = JSON.parse(readFileSync(join(dir, 'monomind.config.json'), 'utf-8'));
       expect(onDisk.memory.backend).toBe('memory');
       // Exactly one `memory` key, not an array/duplicate structure.
@@ -210,7 +216,8 @@ describe('memory-admin commands', () => {
         const corrupt = `{ "providers": { "openai": { "${credentialField}": "placeholder-real-value" } }, this is truncated`;
         writeFileSync(configPath, corrupt);
 
-        const result = await run(configureCommand,
+        const result = await run(
+          configureCommand,
           ctx({ cwd: dir, flags: { _: [], backend: 'hybrid' } }),
         );
         expect(result.success).toBe(false);

@@ -4,7 +4,7 @@
  * Token bucket rate limiting for DoS protection
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import type { ILogger } from './types.js';
 
 export interface RateLimitConfig {
@@ -45,7 +45,7 @@ export class RateLimiter extends EventEmitter {
 
   constructor(
     private readonly logger: ILogger,
-    config: Partial<RateLimitConfig> = {}
+    config: Partial<RateLimitConfig> = {},
   ) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config } as Required<RateLimitConfig>;
@@ -63,7 +63,11 @@ export class RateLimiter extends EventEmitter {
    * Check if request is allowed (global limit)
    */
   checkGlobal(): RateLimitResult {
-    return this.checkBucket(this.globalBucket, this.config.requestsPerSecond, this.config.burstSize);
+    return this.checkBucket(
+      this.globalBucket,
+      this.config.requestsPerSecond,
+      this.config.burstSize,
+    );
   }
 
   /**
@@ -82,7 +86,7 @@ export class RateLimiter extends EventEmitter {
     return this.checkBucket(
       bucket,
       this.config.perSessionLimit / 10, // Refill rate (10 seconds to full)
-      this.config.perSessionLimit
+      this.config.perSessionLimit,
     );
   }
 
@@ -162,18 +166,14 @@ export class RateLimiter extends EventEmitter {
   /**
    * Check bucket and refill tokens
    */
-  private checkBucket(
-    bucket: TokenBucket,
-    refillRate: number,
-    maxTokens: number
-  ): RateLimitResult {
+  private checkBucket(bucket: TokenBucket, refillRate: number, maxTokens: number): RateLimitResult {
     this.refillBucket(bucket, refillRate, maxTokens);
 
     if (bucket.tokens >= 1) {
       return {
         allowed: true,
         remaining: Math.floor(bucket.tokens) - 1,
-        resetIn: Math.ceil((maxTokens - bucket.tokens) / refillRate * 1000),
+        resetIn: Math.ceil(((maxTokens - bucket.tokens) / refillRate) * 1000),
       };
     }
 
@@ -228,10 +228,7 @@ export class RateLimiter extends EventEmitter {
   }
 }
 
-export function createRateLimiter(
-  logger: ILogger,
-  config?: Partial<RateLimitConfig>
-): RateLimiter {
+export function createRateLimiter(logger: ILogger, config?: Partial<RateLimitConfig>): RateLimiter {
   return new RateLimiter(logger, config);
 }
 
@@ -244,7 +241,10 @@ export function rateLimitMiddleware(rateLimiter: RateLimiter) {
     const result = rateLimiter.check(sessionId);
 
     res.setHeader('X-RateLimit-Remaining', result.remaining);
-    res.setHeader('X-RateLimit-Reset', Math.ceil(Date.now() / 1000) + Math.ceil(result.resetIn / 1000));
+    res.setHeader(
+      'X-RateLimit-Reset',
+      Math.ceil(Date.now() / 1000) + Math.ceil(result.resetIn / 1000),
+    );
 
     if (!result.allowed) {
       res.setHeader('Retry-After', result.retryAfter);

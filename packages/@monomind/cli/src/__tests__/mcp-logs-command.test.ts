@@ -5,17 +5,18 @@
  * filters, and that `--follow` fails loudly instead of silently doing
  * nothing when there is no log file to watch.
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { logsCommand } from '../commands/mcp.js';
 import type { CommandContext, CommandResult } from '../types.js';
 
 let tmp: string;
 
 async function runLogs(ctx: CommandContext): Promise<CommandResult> {
-  const result = await logsCommand.action!(ctx);
+  const result = await logsCommand.action?.(ctx);
   return result ?? { success: false };
 }
 
@@ -39,7 +40,12 @@ describe('mcp logs --level', () => {
     mkdirSync(join(tmp, '.monomind', 'logs'), { recursive: true });
     writeFileSync(
       join(tmp, '.monomind', 'logs', 'mcp-server.log'),
-      ['[INFO] server started', '[ERROR] boom', '[INFO] handled request', '[ERROR] boom again'].join('\n') + '\n',
+      `${[
+        '[INFO] server started',
+        '[ERROR] boom',
+        '[INFO] handled request',
+        '[ERROR] boom again',
+      ].join('\n')}\n`,
     );
 
     const written: string[] = [];

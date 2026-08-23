@@ -11,16 +11,15 @@
  * github.com/monoes/monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import * as fs from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
+import * as path from 'node:path';
 import { output } from '../output.js';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { writeFile } from 'fs/promises';
-
-import { diffCommand, codeCommand } from './analyze-diff.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { astCommand } from './analyze-ast.js';
+import { codeCommand, diffCommand } from './analyze-diff.js';
+import { depsCommand, importsCommand } from './analyze-imports.js';
 import { complexityAstCommand, symbolsCommand } from './analyze-symbols.js';
-import { importsCommand, depsCommand } from './analyze-imports.js';
 
 /**
  * Maximum number of files scanned per invocation, for the directory-mode
@@ -128,7 +127,8 @@ export function fallbackAnalyze(code: string, filePath: string) {
   const exports: string[] = [];
 
   // Extract functions
-  const funcPattern = /(?:export\s+)?(?:async\s+)?function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*=>|^\s*(?:async\s+)?(\w+)\s*\([^)]*\)\s*(?::\s*\w+)?\s*\{/gm;
+  const funcPattern =
+    /(?:export\s+)?(?:async\s+)?function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*=>|^\s*(?:async\s+)?(\w+)\s*\([^)]*\)\s*(?::\s*\w+)?\s*\{/gm;
   let match;
   while ((match = funcPattern.exec(code)) !== null) {
     const name = match[1] || match[2] || match[3];
@@ -158,7 +158,8 @@ export function fallbackAnalyze(code: string, filePath: string) {
   }
 
   // Extract exports
-  const exportPattern = /export\s+(?:default\s+)?(?:const|let|var|function|class|interface|type|enum)\s+(\w+)/gm;
+  const exportPattern =
+    /export\s+(?:default\s+)?(?:const|let|var|function|class|interface|type|enum)\s+(\w+)/gm;
   while ((match = exportPattern.exec(code)) !== null) {
     exports.push(match[1]);
   }
@@ -168,8 +169,8 @@ export function fallbackAnalyze(code: string, filePath: string) {
   // as literal substrings instead — under `\b` they could never match at all.
   // `else`/`case` are excluded: true cyclomatic complexity doesn't count them
   // (they don't add a branch beyond the `if`/`switch` they belong to).
-  const nonEmptyLines = lines.filter(l => l.trim().length > 0).length;
-  const commentLines = lines.filter(l => /^\s*(\/\/|\/\*|\*|#)/.test(l)).length;
+  const nonEmptyLines = lines.filter((l) => l.trim().length > 0).length;
+  const commentLines = lines.filter((l) => /^\s*(\/\/|\/\*|\*|#)/.test(l)).length;
   const keywordDecisionPoints = (code.match(/\b(if|for|while|catch)\b/g) || []).length;
   const operatorDecisionPoints = (code.match(/&&|\|\||\?/g) || []).length;
   const decisionPoints = keywordDecisionPoints + operatorDecisionPoints;
@@ -187,9 +188,14 @@ export function fallbackAnalyze(code: string, filePath: string) {
 
   // Detect language
   const ext = path.extname(filePath).toLowerCase();
-  const language = ext === '.ts' || ext === '.tsx' ? 'typescript' :
-    ext === '.js' || ext === '.jsx' || ext === '.mjs' || ext === '.cjs' ? 'javascript' :
-    ext === '.py' ? 'python' : 'unknown';
+  const language =
+    ext === '.ts' || ext === '.tsx'
+      ? 'typescript'
+      : ext === '.js' || ext === '.jsx' || ext === '.mjs' || ext === '.cjs'
+        ? 'javascript'
+        : ext === '.py'
+          ? 'python'
+          : 'unknown';
 
   return {
     filePath,
@@ -238,12 +244,24 @@ export const analyzeCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind analyze ast src/', description: 'Heuristic (regex-based) analysis of code' },
-    { command: 'monomind analyze complexity src/ --threshold 15', description: 'Find high-complexity files' },
-    { command: 'monomind analyze symbols src/ --type function', description: 'Extract all functions' },
+    {
+      command: 'monomind analyze ast src/',
+      description: 'Heuristic (regex-based) analysis of code',
+    },
+    {
+      command: 'monomind analyze complexity src/ --threshold 15',
+      description: 'Find high-complexity files',
+    },
+    {
+      command: 'monomind analyze symbols src/ --type function',
+      description: 'Extract all functions',
+    },
     { command: 'monomind analyze imports src/ --external', description: 'List npm dependencies' },
     { command: 'monomind analyze diff --risk', description: 'Analyze diff with risk assessment' },
-    { command: 'monomind analyze deps --security', description: 'Check dependency vulnerabilities' },
+    {
+      command: 'monomind analyze deps --security',
+      description: 'Check dependency vulnerabilities',
+    },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     // If no subcommand, show help
@@ -254,29 +272,53 @@ export const analyzeCommand: Command = {
 
     output.writeln(output.bold('Available subcommands:'));
     output.writeln();
-    output.writeln(`  ${output.highlight('diff')}         Analyze git diff for change risk and classification`);
-    output.writeln(`  ${output.highlight('code')}         Static code analysis and quality assessment`);
+    output.writeln(
+      `  ${output.highlight('diff')}         Analyze git diff for change risk and classification`,
+    );
+    output.writeln(
+      `  ${output.highlight('code')}         Static code analysis and quality assessment`,
+    );
     output.writeln(`  ${output.highlight('deps')}         Analyze project dependencies`);
-    output.writeln(`  ${output.highlight('ast')}          Heuristic (regex-based) analysis with symbol extraction and complexity`);
-    output.writeln(`  ${output.highlight('complexity')}   Analyze cyclomatic and cognitive complexity`);
+    output.writeln(
+      `  ${output.highlight('ast')}          Heuristic (regex-based) analysis with symbol extraction and complexity`,
+    );
+    output.writeln(
+      `  ${output.highlight('complexity')}   Analyze cyclomatic and cognitive complexity`,
+    );
     output.writeln(`  ${output.highlight('symbols')}      Extract functions, classes, and types`);
     output.writeln(`  ${output.highlight('imports')}      Analyze import dependencies`);
     output.writeln();
 
     output.writeln(output.bold('Heuristic Analysis Examples:'));
     output.writeln();
-    output.writeln(`  ${output.dim('monomind analyze ast src/')}                  # Heuristic (regex-based) analysis`);
-    output.writeln(`  ${output.dim('monomind analyze ast src/index.ts -c')}       # Include complexity`);
-    output.writeln(`  ${output.dim('monomind analyze complexity src/ -t 15')}     # Flag high complexity`);
-    output.writeln(`  ${output.dim('monomind analyze symbols src/ --type fn')}    # Extract functions`);
-    output.writeln(`  ${output.dim('monomind analyze imports src/ --external')}   # Only npm imports`);
+    output.writeln(
+      `  ${output.dim('monomind analyze ast src/')}                  # Heuristic (regex-based) analysis`,
+    );
+    output.writeln(
+      `  ${output.dim('monomind analyze ast src/index.ts -c')}       # Include complexity`,
+    );
+    output.writeln(
+      `  ${output.dim('monomind analyze complexity src/ -t 15')}     # Flag high complexity`,
+    );
+    output.writeln(
+      `  ${output.dim('monomind analyze symbols src/ --type fn')}    # Extract functions`,
+    );
+    output.writeln(
+      `  ${output.dim('monomind analyze imports src/ --external')}   # Only npm imports`,
+    );
     output.writeln();
 
     output.writeln(output.bold('Diff Analysis Examples:'));
     output.writeln();
-    output.writeln(`  ${output.dim('monomind analyze diff --risk')}              # Risk assessment`);
-    output.writeln(`  ${output.dim('monomind analyze diff HEAD~1 --classify')}   # Classify changes`);
-    output.writeln(`  ${output.dim('monomind analyze diff main..feature')}       # Compare branches`);
+    output.writeln(
+      `  ${output.dim('monomind analyze diff --risk')}              # Risk assessment`,
+    );
+    output.writeln(
+      `  ${output.dim('monomind analyze diff HEAD~1 --classify')}   # Classify changes`,
+    );
+    output.writeln(
+      `  ${output.dim('monomind analyze diff main..feature')}       # Compare branches`,
+    );
     output.writeln();
 
     return { success: true };

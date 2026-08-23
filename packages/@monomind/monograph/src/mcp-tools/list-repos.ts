@@ -1,5 +1,5 @@
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { listRepos } from '../registry/repo-registry.js';
 
 export interface ListReposResult {

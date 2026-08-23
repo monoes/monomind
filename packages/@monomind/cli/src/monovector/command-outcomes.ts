@@ -29,25 +29,39 @@ function storePath(baseDir: string): string {
 const MAX_COMMAND_RECORDS = 500;
 
 /** Append a command outcome. Non-fatal on error. */
-export async function recordCommand(baseDir: string, cmd: { command: string; exitCode: number; ts: number }): Promise<void> {
+export async function recordCommand(
+  baseDir: string,
+  cmd: { command: string; exitCode: number; ts: number },
+): Promise<void> {
   try {
     await fs.mkdir(baseDir, { recursive: true });
     const path = storePath(baseDir);
     // Cap command length to prevent individual records from bloating the file.
-    const safeCommand = cmd.command.length > MAX_COMMAND_LEN ? cmd.command.slice(0, MAX_COMMAND_LEN) : cmd.command;
-    const rec: CommandOutcome = { ts: cmd.ts, command: safeCommand, exitCode: cmd.exitCode, success: cmd.exitCode === 0 };
-    await fs.appendFile(path, JSON.stringify(rec) + '\n', 'utf8');
+    const safeCommand =
+      cmd.command.length > MAX_COMMAND_LEN ? cmd.command.slice(0, MAX_COMMAND_LEN) : cmd.command;
+    const rec: CommandOutcome = {
+      ts: cmd.ts,
+      command: safeCommand,
+      exitCode: cmd.exitCode,
+      success: cmd.exitCode === 0,
+    };
+    await fs.appendFile(path, `${JSON.stringify(rec)}\n`, 'utf8');
     // Opportunistic trim: rewrite only when the file exceeds the cap.
     // Avoids an extra stat() on every call by catching the overcount lazily.
     // Guard with size check first to prevent OOM on unexpectedly large files.
-    try { if (statSync(path).size > MAX_FILE_BYTES) return; } catch { return; }
+    try {
+      if (statSync(path).size > MAX_FILE_BYTES) return;
+    } catch {
+      return;
+    }
     const content = await fs.readFile(path, 'utf8').catch(() => '');
     const lines = content.trim().split('\n').filter(Boolean);
     if (lines.length > MAX_COMMAND_RECORDS) {
-      await fs.writeFile(path, lines.slice(-MAX_COMMAND_RECORDS).join('\n') + '\n', 'utf8');
+      await fs.writeFile(path, `${lines.slice(-MAX_COMMAND_RECORDS).join('\n')}\n`, 'utf8');
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[recordCommand] failed to record command outcome:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[recordCommand] failed to record command outcome:', e);
   }
 }
 
@@ -72,10 +86,17 @@ export async function recordCommand(baseDir: string, cmd: { command: string; exi
  * new task records no commands of its own. The time window bounds the latter; per-task
  * scoping would require threading a taskId into post-command.
  */
-export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): Promise<boolean | null> {
+export async function deriveRecentSuccess(
+  baseDir: string,
+  windowMs = 300_000,
+): Promise<boolean | null> {
   try {
     const p = storePath(baseDir);
-    try { if (statSync(p).size > MAX_FILE_BYTES) return null; } catch { /* file absent */ }
+    try {
+      if (statSync(p).size > MAX_FILE_BYTES) return null;
+    } catch {
+      /* file absent */
+    }
     const content = await fs.readFile(p, 'utf8').catch(() => '');
     if (!content) return null;
     const now = Date.now();
@@ -84,7 +105,9 @@ export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): 
       try {
         const rec = JSON.parse(line) as CommandOutcome;
         if (now - rec.ts <= windowMs) recent.push(rec);
-      } catch { /* skip malformed */ }
+      } catch {
+        /* skip malformed */
+      }
     }
     if (recent.length === 0) return null;
     // Final-state: the last command in the window decides the outcome.
@@ -95,15 +118,32 @@ export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): 
 }
 
 /** Read recent command outcomes (for diagnostics). */
-export async function readCommandOutcomes(baseDir: string, windowMs = 300_000): Promise<CommandOutcome[]> {
+export async function readCommandOutcomes(
+  baseDir: string,
+  windowMs = 300_000,
+): Promise<CommandOutcome[]> {
   try {
     const p = storePath(baseDir);
-    try { if (statSync(p).size > MAX_FILE_BYTES) return []; } catch { /* file absent */ }
+    try {
+      if (statSync(p).size > MAX_FILE_BYTES) return [];
+    } catch {
+      /* file absent */
+    }
     const content = await fs.readFile(p, 'utf8').catch(() => '');
     if (!content) return [];
     const now = Date.now();
-    return content.trim().split('\n').map(l => {
-      try { return JSON.parse(l) as CommandOutcome; } catch { return null; }
-    }).filter((r): r is CommandOutcome => r !== null && now - r.ts <= windowMs);
-  } catch { return []; }
+    return content
+      .trim()
+      .split('\n')
+      .map((l) => {
+        try {
+          return JSON.parse(l) as CommandOutcome;
+        } catch {
+          return null;
+        }
+      })
+      .filter((r): r is CommandOutcome => r !== null && now - r.ts <= windowMs);
+  } catch {
+    return [];
+  }
 }

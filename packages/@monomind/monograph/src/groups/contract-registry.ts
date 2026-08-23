@@ -6,8 +6,8 @@
  * persists/loads the registry in a SQLite database.
  */
 
-import { mkdirSync, existsSync } from 'fs';
-import { dirname } from 'path';
+import { existsSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
 
 // ── Public types ──────────────────────────────────────────────────────────────

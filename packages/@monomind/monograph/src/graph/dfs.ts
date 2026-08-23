@@ -53,10 +53,15 @@ export function dfsCollect(
 ): DfsResult {
   const visited: DfsNode[] = [];
   let maxReachedDepth = 0;
-  dfsTraversal(startId, adjacency, (node) => {
-    visited.push(node);
-    if (node.depth > maxReachedDepth) maxReachedDepth = node.depth;
-  }, options);
+  dfsTraversal(
+    startId,
+    adjacency,
+    (node) => {
+      visited.push(node);
+      if (node.depth > maxReachedDepth) maxReachedDepth = node.depth;
+    },
+    options,
+  );
   return { visited, maxDepth: maxReachedDepth, nodeCount: visited.length };
 }
 
@@ -100,7 +105,10 @@ export function formatDfsResult(result: DfsResult, startId: string): string {
   const byDepth = new Map<number, string[]>();
   for (const node of result.visited) {
     let bucket = byDepth.get(node.depth);
-    if (!bucket) { bucket = []; byDepth.set(node.depth, bucket); }
+    if (!bucket) {
+      bucket = [];
+      byDepth.set(node.depth, bucket);
+    }
     bucket.push(node.id);
   }
 

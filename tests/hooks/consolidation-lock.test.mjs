@@ -11,12 +11,13 @@
  * the logic inline and wrote a lock into process.cwd(), leaving stale
  * locks that made real session-ends skip consolidation).
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -123,7 +124,7 @@ describe('session-handler coordination with the lock', () => {
     try {
       await sh.handleEnd(makeHCtx({ consolidate }));
       expect(consolidate).not.toHaveBeenCalled();
-      const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+      const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
       expect(output).toContain('daemon holds lock');
     } finally {
       releaseLock(lockPath);

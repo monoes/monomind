@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 export interface DotOptions {
   graphName?: string;
@@ -27,12 +27,12 @@ export function toDot(
 ): string {
   const graphName = safeDotId(options.graphName ?? 'monograph');
 
-  const nodeLines = nodes.map(n => {
+  const nodeLines = nodes.map((n) => {
     const label = escapeDotString(`${n.name}\n[${n.label}]`);
     return `  "${escapeDotString(n.id)}" [label="${label}"];`;
   });
 
-  const edgeLines = edges.map(e => {
+  const edgeLines = edges.map((e) => {
     const src = escapeDotString(e.sourceId);
     const tgt = escapeDotString(e.targetId);
     const rel = escapeDotString(e.relation);
@@ -40,7 +40,7 @@ export function toDot(
   });
 
   const lines = [
-    `digraph ${graphName} {`,  // graphName is already quoted/validated by safeDotId
+    `digraph ${graphName} {`, // graphName is already quoted/validated by safeDotId
     '  rankdir=LR;',
     '  node [shape=box, fontsize=10];',
     ...nodeLines,

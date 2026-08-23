@@ -1,11 +1,11 @@
-import fs from 'fs';
+import fs from 'node:fs';
 import type {
   CapabilityModule,
   DirectoryScan,
   FileEntry,
+  HealthCheck,
   IndexResult,
   SearchResult,
-  HealthCheck,
 } from './types.js';
 
 const IMAGE_EXTENSIONS = new Set([
@@ -97,8 +97,7 @@ export const mediaCapability: CapabilityModule = {
       try {
         const type = mediaType(file.extension);
         // Video/audio: never readFileSync (multi-GB files) — metadata comes from fs.stat only
-        const exif =
-          type === 'image' && file.extension !== '.svg' ? await extractExif(file) : {};
+        const exif = type === 'image' && file.extension !== '.svg' ? await extractExif(file) : {};
 
         // Build searchable description from metadata + filename
         const descParts = [file.path.replace(/[_-]/g, ' ')];

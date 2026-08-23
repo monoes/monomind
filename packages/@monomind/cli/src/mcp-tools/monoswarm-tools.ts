@@ -13,11 +13,11 @@
  * phase purges them) rather than imported here.
  */
 
-import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type MCPTool, getProjectCwd, getMonomindDataRoot } from './types.js';
 import { agentTools, loadAgentStore, loadAgentStoreOrNull } from './agent-tools.js';
+import { getMonomindDataRoot, getProjectCwd, type MCPTool } from './types.js';
 
 // ---------------------------------------------------------------------------
 // State persistence — single file under the git-safe data root.
@@ -38,7 +38,7 @@ interface VoteProposal {
   votes: Record<string, boolean>;
   status: 'pending' | 'approved' | 'rejected';
   strategy: VoteStrategy;
-  minVotes?: number;          // threshold strategy: explicit required vote count
+  minVotes?: number; // threshold strategy: explicit required vote count
   duplicateVoters?: string[]; // voters caught casting conflicting votes on this proposal
   /**
    * Anti-groupthink delay: minimum number of voting rounds that must show
@@ -138,7 +138,11 @@ function loadMonoswarmState(): MonoswarmState {
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[monoswarm-tools] failed to parse state.json — resetting to default state:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error(
+        '[monoswarm-tools] failed to parse state.json — resetting to default state:',
+        e,
+      );
   }
   return defaultState();
 }
@@ -171,7 +175,9 @@ function getOrCreateAuditKey(): string {
       const existing = readFileSync(path, 'utf-8').trim();
       if (existing) return existing;
     }
-  } catch { /* fall through to regeneration */ }
+  } catch {
+    /* fall through to regeneration */
+  }
 
   try {
     ensureMonoswarmDir();
@@ -200,7 +206,13 @@ function saveAgentStore(store: { agents: Record<string, unknown> }): void {
 const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const VALID_TOPOLOGIES = new Set([
-  'hierarchical', 'mesh', 'hierarchical-mesh', 'ring', 'star', 'hybrid', 'adaptive',
+  'hierarchical',
+  'mesh',
+  'hierarchical-mesh',
+  'ring',
+  'star',
+  'hybrid',
+  'adaptive',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -221,7 +233,6 @@ function calculateRequiredVotes(
       return totalVoters;
     case 'threshold':
       return Math.min(Math.max(1, minVotes ?? Math.floor(totalVoters / 2) + 1), totalVoters);
-    case 'majority':
     default:
       return Math.floor(totalVoters / 2) + 1;
   }
@@ -255,8 +266,8 @@ function tryResolveProposal(
   proposal: VoteProposal,
   totalVoters: number,
 ): 'approved' | 'rejected' | null {
-  const votesFor = Object.values(proposal.votes).filter(v => v).length;
-  const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
+  const votesFor = Object.values(proposal.votes).filter((v) => v).length;
+  const votesAgainst = Object.values(proposal.votes).filter((v) => !v).length;
   const required = calculateRequiredVotes(proposal.strategy, totalVoters, proposal.minVotes);
 
   if (votesFor >= required) return 'approved';
@@ -282,16 +293,31 @@ function tryResolveProposal(
 export const monoswarmTools: MCPTool[] = [
   {
     name: 'monoswarm_init',
-    description: 'Record a coordination topology, agent roster, and vote strategy in a JSON state file. Starts no process — agents are dispatched separately via Claude Code\'s Task tool.',
+    description:
+      "Record a coordination topology, agent roster, and vote strategy in a JSON state file. Starts no process — agents are dispatched separately via Claude Code's Task tool.",
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
-        topology: { type: 'string', description: 'Topology label (hierarchical, mesh, hierarchical-mesh, ring, star, hybrid, adaptive)' },
+        topology: {
+          type: 'string',
+          description:
+            'Topology label (hierarchical, mesh, hierarchical-mesh, ring, star, hybrid, adaptive)',
+        },
         maxAgents: { type: 'number', description: 'Maximum number of agents (1-50)' },
-        strategy: { type: 'string', description: 'Agent role strategy (specialized, balanced, adaptive)' },
-        coordinatorId: { type: 'string', description: 'Initial coordinator agent ID (formerly "queen")' },
-        voteStrategy: { type: 'string', enum: ['majority', 'supermajority', 'unanimous', 'threshold'], description: 'Default vote strategy for monoswarm_vote. Default: majority.' },
+        strategy: {
+          type: 'string',
+          description: 'Agent role strategy (specialized, balanced, adaptive)',
+        },
+        coordinatorId: {
+          type: 'string',
+          description: 'Initial coordinator agent ID (formerly "queen")',
+        },
+        voteStrategy: {
+          type: 'string',
+          enum: ['majority', 'supermajority', 'unanimous', 'threshold'],
+          description: 'Default vote strategy for monoswarm_vote. Default: majority.',
+        },
       },
     },
     handler: async (input) => {
@@ -299,8 +325,10 @@ export const monoswarmTools: MCPTool[] = [
       const maxAgents = Math.min(Math.max((input.maxAgents as number) || 8, 1), 50);
       const MAX_FIELD_LEN = 256;
       const rawStrategy = (input.strategy as string) || 'specialized';
-      const strategy = typeof rawStrategy === 'string' && rawStrategy.length > MAX_FIELD_LEN
-        ? rawStrategy.slice(0, MAX_FIELD_LEN) : rawStrategy;
+      const strategy =
+        typeof rawStrategy === 'string' && rawStrategy.length > MAX_FIELD_LEN
+          ? rawStrategy.slice(0, MAX_FIELD_LEN)
+          : rawStrategy;
 
       if (!VALID_TOPOLOGIES.has(topology)) {
         return {
@@ -309,15 +337,24 @@ export const monoswarmTools: MCPTool[] = [
         };
       }
 
-      const VALID_VOTE_STRATEGIES: VoteStrategy[] = ['majority', 'supermajority', 'unanimous', 'threshold'];
+      const VALID_VOTE_STRATEGIES: VoteStrategy[] = [
+        'majority',
+        'supermajority',
+        'unanimous',
+        'threshold',
+      ];
       const rawVoteStrategy = (input.voteStrategy as string) || 'majority';
-      const voteStrategy: VoteStrategy = (VALID_VOTE_STRATEGIES as string[]).includes(rawVoteStrategy)
-        ? rawVoteStrategy as VoteStrategy
+      const voteStrategy: VoteStrategy = (VALID_VOTE_STRATEGIES as string[]).includes(
+        rawVoteStrategy,
+      )
+        ? (rawVoteStrategy as VoteStrategy)
         : 'majority';
 
       const rawCoordinatorId = (input.coordinatorId as string) || undefined;
-      const coordinatorId = typeof rawCoordinatorId === 'string' && rawCoordinatorId.length > MAX_FIELD_LEN
-        ? rawCoordinatorId.slice(0, MAX_FIELD_LEN) : rawCoordinatorId;
+      const coordinatorId =
+        typeof rawCoordinatorId === 'string' && rawCoordinatorId.length > MAX_FIELD_LEN
+          ? rawCoordinatorId.slice(0, MAX_FIELD_LEN)
+          : rawCoordinatorId;
 
       const monoswarmId = `monoswarm-${Date.now()}-${randomBytes(6).toString('hex')}`;
       const now = new Date().toISOString();
@@ -329,7 +366,9 @@ export const monoswarmTools: MCPTool[] = [
         maxAgents,
         status: 'running',
         agents: [],
-        coordinator: coordinatorId ? { agentId: coordinatorId, electedAt: now, term: 1 } : undefined,
+        coordinator: coordinatorId
+          ? { agentId: coordinatorId, electedAt: now, term: 1 }
+          : undefined,
         tasks: [],
         config: { topology, maxAgents, strategy },
         voteStrategy,
@@ -358,12 +397,16 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_status',
-    description: 'Read the merged coordination + vote state from the JSON state file — agent roster, topology, pending/resolved votes, shared memory key count.',
+    description:
+      'Read the merged coordination + vote state from the JSON state file — agent roster, topology, pending/resolved votes, shared memory key count.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
-        verbose: { type: 'boolean', description: 'Include worker details, vote history, and shared memory contents' },
+        verbose: {
+          type: 'boolean',
+          description: 'Include worker details, vote history, and shared memory contents',
+        },
       },
     },
     handler: async (input) => {
@@ -383,7 +426,9 @@ export const monoswarmTools: MCPTool[] = [
       try {
         const path = getMonoswarmStatePath();
         if (existsSync(path)) stateBytes = statSync(path).size;
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
 
       const summary = {
         monoswarmId: state.monoswarmId,
@@ -393,12 +438,14 @@ export const monoswarmTools: MCPTool[] = [
         agentCount: state.agents.length,
         taskCount: state.tasks.length,
         voteStrategy: state.voteStrategy ?? 'majority',
-        coordinator: state.coordinator ? {
-          agentId: state.coordinator.agentId,
-          electedAt: state.coordinator.electedAt,
-          term: state.coordinator.term,
-        } : undefined,
-        agents: state.agents.map(id => {
+        coordinator: state.coordinator
+          ? {
+              agentId: state.coordinator.agentId,
+              electedAt: state.coordinator.electedAt,
+              term: state.coordinator.term,
+            }
+          : undefined,
+        agents: state.agents.map((id) => {
           const agent = agentStore.agents[id];
           return {
             id,
@@ -431,13 +478,17 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_scale',
-    description: 'Adjust the number of agent records in the roster to a target count by writing/removing bookkeeping entries in the state file. No process is started or stopped.',
+    description:
+      'Adjust the number of agent records in the roster to a target count by writing/removing bookkeeping entries in the state file. No process is started or stopped.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
         targetAgents: { type: 'number', description: 'Target number of agents' },
-        agentType: { type: 'string', description: 'Agent type for newly spawned agent records (default: worker)' },
+        agentType: {
+          type: 'string',
+          description: 'Agent type for newly spawned agent records (default: worker)',
+        },
       },
       required: ['targetAgents'],
     },
@@ -457,15 +508,18 @@ export const monoswarmTools: MCPTool[] = [
       const currentCount = state.agents.length;
       const delta = targetAgents - currentCount;
 
-      const spawnTool = agentTools.find(t => t.name === 'agent_spawn')!;
-      const terminateTool = agentTools.find(t => t.name === 'agent_terminate')!;
+      const spawnTool = agentTools.find((t) => t.name === 'agent_spawn')!;
+      const terminateTool = agentTools.find((t) => t.name === 'agent_terminate')!;
 
       const spawned: string[] = [];
       const terminated: string[] = [];
 
       if (delta > 0) {
         for (let i = 0; i < delta; i++) {
-          const result = await spawnTool.handler({ agentType }) as { success: boolean; agentId?: string };
+          const result = (await spawnTool.handler({ agentType })) as {
+            success: boolean;
+            agentId?: string;
+          };
           if (result.success && result.agentId) {
             state.agents.push(result.agentId);
             spawned.push(result.agentId);
@@ -474,12 +528,12 @@ export const monoswarmTools: MCPTool[] = [
       } else if (delta < 0) {
         const toRemove = state.agents.slice(0, -delta);
         for (const agentId of toRemove) {
-          const result = await terminateTool.handler({ agentId }) as { success: boolean };
+          const result = (await terminateTool.handler({ agentId })) as { success: boolean };
           if (result.success) {
             terminated.push(agentId);
           }
         }
-        state.agents = state.agents.filter(id => !terminated.includes(id));
+        state.agents = state.agents.filter((id) => !terminated.includes(id));
       }
 
       state.maxAgents = Math.max(state.maxAgents, state.agents.length);
@@ -503,7 +557,8 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_health',
-    description: 'Inspect the state file and agent roster and report a derived healthy/degraded status — no live process is polled.',
+    description:
+      'Inspect the state file and agent roster and report a derived healthy/degraded status — no live process is polled.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
@@ -527,7 +582,11 @@ export const monoswarmTools: MCPTool[] = [
       const stateFileExists = existsSync(getMonoswarmStatePath());
 
       const checks = [
-        { name: 'monoswarm_exists', status: 'ok', message: `Monoswarm ${state.monoswarmId} recorded` },
+        {
+          name: 'monoswarm_exists',
+          status: 'ok',
+          message: `Monoswarm ${state.monoswarmId} recorded`,
+        },
         {
           name: 'coordinator',
           status: isRunning ? 'ok' : 'warn',
@@ -565,12 +624,17 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_shutdown',
-    description: 'Mark the state file terminated and remove roster agents from the agent store. No process is stopped because none was started.',
+    description:
+      'Mark the state file terminated and remove roster agents from the agent store. No process is stopped because none was started.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
-        graceful: { type: 'boolean', description: 'Refuse to shut down while votes are pending unless force is set (default: true)' },
+        graceful: {
+          type: 'boolean',
+          description:
+            'Refuse to shut down while votes are pending unless force is set (default: true)',
+        },
         force: { type: 'boolean', description: 'Force immediate shutdown even with pending votes' },
       },
     },
@@ -581,7 +645,11 @@ export const monoswarmTools: MCPTool[] = [
         return { success: false, error: 'Monoswarm not initialized or already shut down' };
       }
       if (state.status === 'terminated') {
-        return { success: false, monoswarmId: state.monoswarmId, error: 'Monoswarm already terminated' };
+        return {
+          success: false,
+          monoswarmId: state.monoswarmId,
+          error: 'Monoswarm already terminated',
+        };
       }
 
       const graceful = input.graceful !== false;
@@ -603,7 +671,13 @@ export const monoswarmTools: MCPTool[] = [
       // that back would wipe every real agent, not just this roster.
       const agentStore = loadAgentStoreOrNull();
       if (!agentStore) {
-        return { success: false, error: 'Agent store is unreadable/corrupt — refusing to shut down to avoid overwriting real agent data.', pendingVotes, agentCount: state.agents.length };
+        return {
+          success: false,
+          error:
+            'Agent store is unreadable/corrupt — refusing to shut down to avoid overwriting real agent data.',
+          pendingVotes,
+          agentCount: state.agents.length,
+        };
       }
       for (const agentId of state.agents) {
         if (agentStore.agents[agentId]) delete agentStore.agents[agentId];
@@ -637,14 +711,28 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_agent_add',
-    description: 'Add an agent record (id, role) to the roster in the state file, and write a matching record into the agent store. Starts nothing.',
+    description:
+      'Add an agent record (id, role) to the roster in the state file, and write a matching record into the agent store. Starts nothing.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
-        count: { type: 'number', description: 'Number of agent records to add (default: 1)', default: 1 },
-        role: { type: 'string', enum: ['worker', 'specialist', 'scout'], description: 'Agent role', default: 'worker' },
-        agentType: { type: 'string', description: 'Agent type for added agents', default: 'worker' },
+        count: {
+          type: 'number',
+          description: 'Number of agent records to add (default: 1)',
+          default: 1,
+        },
+        role: {
+          type: 'string',
+          enum: ['worker', 'specialist', 'scout'],
+          description: 'Agent role',
+          default: 'worker',
+        },
+        agentType: {
+          type: 'string',
+          description: 'Agent type for added agents',
+          default: 'worker',
+        },
         prefix: { type: 'string', description: 'Prefix for agent IDs', default: 'monoswarm-agent' },
       },
     },
@@ -659,18 +747,28 @@ export const monoswarmTools: MCPTool[] = [
       const MAX_ROLE_LEN = 256;
       const MAX_PREFIX_LEN = 128;
       const rawRole = (input.role as string) || 'worker';
-      const role = typeof rawRole === 'string' && rawRole.length > MAX_ROLE_LEN
-        ? rawRole.slice(0, MAX_ROLE_LEN) : rawRole;
+      const role =
+        typeof rawRole === 'string' && rawRole.length > MAX_ROLE_LEN
+          ? rawRole.slice(0, MAX_ROLE_LEN)
+          : rawRole;
       const rawAgentType = (input.agentType as string) || 'worker';
-      const agentType = typeof rawAgentType === 'string' && rawAgentType.length > MAX_ROLE_LEN
-        ? rawAgentType.slice(0, MAX_ROLE_LEN) : rawAgentType;
+      const agentType =
+        typeof rawAgentType === 'string' && rawAgentType.length > MAX_ROLE_LEN
+          ? rawAgentType.slice(0, MAX_ROLE_LEN)
+          : rawAgentType;
       const rawPrefix = (input.prefix as string) || 'monoswarm-agent';
-      const prefix = typeof rawPrefix === 'string' && rawPrefix.length > MAX_PREFIX_LEN
-        ? rawPrefix.slice(0, MAX_PREFIX_LEN) : rawPrefix;
+      const prefix =
+        typeof rawPrefix === 'string' && rawPrefix.length > MAX_PREFIX_LEN
+          ? rawPrefix.slice(0, MAX_PREFIX_LEN)
+          : rawPrefix;
 
       const agentStore = loadAgentStoreOrNull();
       if (!agentStore) {
-        return { success: false, error: 'Agent store is unreadable/corrupt — refusing to add agents to avoid overwriting real agent data.' };
+        return {
+          success: false,
+          error:
+            'Agent store is unreadable/corrupt — refusing to add agents to avoid overwriting real agent data.',
+        };
       }
 
       const added: Array<{ agentId: string; role: string; joinedAt: string }> = [];
@@ -693,7 +791,10 @@ export const monoswarmTools: MCPTool[] = [
         const MAX_AGENTS = 100;
         if (!state.agents.includes(agentId)) {
           if (state.agents.length >= MAX_AGENTS) {
-            return { success: false, error: `Monoswarm has reached max agent capacity (${MAX_AGENTS})` };
+            return {
+              success: false,
+              error: `Monoswarm has reached max agent capacity (${MAX_AGENTS})`,
+            };
           }
           state.agents.push(agentId);
         }
@@ -715,13 +816,18 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_join',
-    description: 'Append an agent id to the roster array in the state file. No membership handshake occurs — this is a list append.',
+    description:
+      'Append an agent id to the roster array in the state file. No membership handshake occurs — this is a list append.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
         agentId: { type: 'string', description: 'Agent ID to add to the roster' },
-        role: { type: 'string', enum: ['worker', 'specialist', 'scout'], description: 'Agent role' },
+        role: {
+          type: 'string',
+          enum: ['worker', 'specialist', 'scout'],
+          description: 'Agent role',
+        },
       },
       required: ['agentId'],
     },
@@ -729,8 +835,13 @@ export const monoswarmTools: MCPTool[] = [
       const state = loadMonoswarmState();
       const agentId = input.agentId as string;
 
-      if (typeof agentId !== 'string' || agentId.length === 0 || agentId.length > 128 ||
-          RESERVED_KEYS.has(agentId) || !/^[a-zA-Z0-9_-]+$/.test(agentId)) {
+      if (
+        typeof agentId !== 'string' ||
+        agentId.length === 0 ||
+        agentId.length > 128 ||
+        RESERVED_KEYS.has(agentId) ||
+        !/^[a-zA-Z0-9_-]+$/.test(agentId)
+      ) {
         return { success: false, error: 'Invalid agentId' };
       }
 
@@ -741,7 +852,10 @@ export const monoswarmTools: MCPTool[] = [
       const MAX_AGENTS = 100;
       if (!state.agents.includes(agentId)) {
         if (state.agents.length >= MAX_AGENTS) {
-          return { success: false, error: `Monoswarm has reached max agent capacity (${MAX_AGENTS})` };
+          return {
+            success: false,
+            error: `Monoswarm has reached max agent capacity (${MAX_AGENTS})`,
+          };
         }
         state.agents.push(agentId);
         saveMonoswarmState(state);
@@ -771,8 +885,13 @@ export const monoswarmTools: MCPTool[] = [
       const state = loadMonoswarmState();
       const agentId = input.agentId as string;
 
-      if (typeof agentId !== 'string' || agentId.length === 0 || agentId.length > 128 ||
-          RESERVED_KEYS.has(agentId) || !/^[a-zA-Z0-9_-]+$/.test(agentId)) {
+      if (
+        typeof agentId !== 'string' ||
+        agentId.length === 0 ||
+        agentId.length > 128 ||
+        RESERVED_KEYS.has(agentId) ||
+        !/^[a-zA-Z0-9_-]+$/.test(agentId)
+      ) {
         return { success: false, error: 'Invalid agentId' };
       }
 
@@ -793,20 +912,37 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_vote',
-    description: 'Create or vote on a proposal; passes when the vote count meets the chosen strategy\'s threshold (majority / supermajority / unanimous / a custom threshold) — single in-process tally, not a distributed consensus protocol.',
+    description:
+      "Create or vote on a proposal; passes when the vote count meets the chosen strategy's threshold (majority / supermajority / unanimous / a custom threshold) — single in-process tally, not a distributed consensus protocol.",
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['propose', 'vote', 'status', 'list'], description: 'Vote action' },
+        action: {
+          type: 'string',
+          enum: ['propose', 'vote', 'status', 'list'],
+          description: 'Vote action',
+        },
         proposalId: { type: 'string', description: 'Proposal ID (for vote/status)' },
         type: { type: 'string', description: 'Proposal type (for propose)' },
         value: { description: 'Proposal value (for propose)' },
         vote: { type: 'boolean', description: 'Vote (true=for, false=against)' },
         voterId: { type: 'string', description: 'Voter agent ID' },
-        strategy: { type: 'string', enum: ['majority', 'supermajority', 'unanimous', 'threshold'], description: 'Vote strategy (default: the strategy chosen at monoswarm_init, else majority)' },
-        minVotes: { type: 'number', description: 'Explicit vote count required (for threshold strategy)' },
-        minDivergenceRounds: { type: 'number', description: 'Anti-groupthink delay: minimum rounds with divergent votes required before resolution. Default: 0 (disabled).' },
+        strategy: {
+          type: 'string',
+          enum: ['majority', 'supermajority', 'unanimous', 'threshold'],
+          description:
+            'Vote strategy (default: the strategy chosen at monoswarm_init, else majority)',
+        },
+        minVotes: {
+          type: 'number',
+          description: 'Explicit vote count required (for threshold strategy)',
+        },
+        minDivergenceRounds: {
+          type: 'number',
+          description:
+            'Anti-groupthink delay: minimum rounds with divergent votes required before resolution. Default: 0 (disabled).',
+        },
       },
       required: ['action'],
     },
@@ -814,7 +950,12 @@ export const monoswarmTools: MCPTool[] = [
       const state = loadMonoswarmState();
       const action = input.action as string;
       const rawStrategy = (input.strategy as string) || state.voteStrategy || 'majority';
-      const VALID_STRATEGIES: VoteStrategy[] = ['majority', 'supermajority', 'unanimous', 'threshold'];
+      const VALID_STRATEGIES: VoteStrategy[] = [
+        'majority',
+        'supermajority',
+        'unanimous',
+        'threshold',
+      ];
       if (!(VALID_STRATEGIES as string[]).includes(rawStrategy)) {
         return {
           action,
@@ -831,22 +972,29 @@ export const monoswarmTools: MCPTool[] = [
 
         const required = calculateRequiredVotes(strategy, totalVoters, minVotes);
 
-        const minDivergenceRounds = typeof input.minDivergenceRounds === 'number'
-          ? Math.max(0, input.minDivergenceRounds as number)
-          : 0;
+        const minDivergenceRounds =
+          typeof input.minDivergenceRounds === 'number'
+            ? Math.max(0, input.minDivergenceRounds as number)
+            : 0;
 
         const MAX_TYPE_LEN = 128;
         const MAX_VOTER_ID_LEN = 256;
         const MAX_VALUE_BYTES = 64 * 1024;
         const rawType = (input.type as string) || 'general';
-        const proposalType = typeof rawType === 'string' && rawType.length > MAX_TYPE_LEN
-          ? rawType.slice(0, MAX_TYPE_LEN) : rawType;
+        const proposalType =
+          typeof rawType === 'string' && rawType.length > MAX_TYPE_LEN
+            ? rawType.slice(0, MAX_TYPE_LEN)
+            : rawType;
         const rawVoterId = (input.voterId as string) || 'system';
-        const proposedBy = typeof rawVoterId === 'string' && rawVoterId.length > MAX_VOTER_ID_LEN
-          ? rawVoterId.slice(0, MAX_VOTER_ID_LEN) : rawVoterId;
+        const proposedBy =
+          typeof rawVoterId === 'string' && rawVoterId.length > MAX_VOTER_ID_LEN
+            ? rawVoterId.slice(0, MAX_VOTER_ID_LEN)
+            : rawVoterId;
         const rawValue = input.value;
-        const cappedValue = typeof rawValue === 'string' && rawValue.length > MAX_VALUE_BYTES
-          ? rawValue.slice(0, MAX_VALUE_BYTES) : rawValue;
+        const cappedValue =
+          typeof rawValue === 'string' && rawValue.length > MAX_VALUE_BYTES
+            ? rawValue.slice(0, MAX_VALUE_BYTES)
+            : rawValue;
 
         const proposal: VoteProposal = {
           proposalId,
@@ -880,7 +1028,7 @@ export const monoswarmTools: MCPTool[] = [
       }
 
       if (action === 'vote') {
-        const proposal = state.votes.pending.find(p => p.proposalId === input.proposalId);
+        const proposal = state.votes.pending.find((p) => p.proposalId === input.proposalId);
         if (!proposal) {
           return { action, error: 'Proposal not found or already resolved' };
         }
@@ -950,20 +1098,21 @@ export const monoswarmTools: MCPTool[] = [
 
         proposal.votes[voterId] = voteValue;
 
-        const votesFor = Object.values(proposal.votes).filter(v => v).length;
-        const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
+        const votesFor = Object.values(proposal.votes).filter((v) => v).length;
+        const votesAgainst = Object.values(proposal.votes).filter((v) => !v).length;
 
         const allVotes = Object.values(proposal.votes);
-        const isUnanimous = allVotes.every(v => v) || allVotes.every(v => !v);
+        const isUnanimous = allVotes.every((v) => v) || allVotes.every((v) => !v);
         if (!isUnanimous && allVotes.length >= 2) {
           proposal.divergenceRoundsSeen = (proposal.divergenceRoundsSeen ?? 0) + 1;
         }
 
         const totalVotesCast = Object.keys(proposal.votes).length;
         const electorateExhausted = totalVoters > 0 && totalVotesCast >= totalVoters;
-        const divergenceGateOpen = !proposal.minDivergenceRounds
-          || (proposal.divergenceRoundsSeen ?? 0) >= proposal.minDivergenceRounds
-          || electorateExhausted;
+        const divergenceGateOpen =
+          !proposal.minDivergenceRounds ||
+          (proposal.divergenceRoundsSeen ?? 0) >= proposal.minDivergenceRounds ||
+          electorateExhausted;
 
         const resolution = divergenceGateOpen ? tryResolveProposal(proposal, totalVoters) : null;
         let resolved = false;
@@ -978,12 +1127,16 @@ export const monoswarmTools: MCPTool[] = [
             votes: { for: votesFor, against: votesAgainst },
             decidedAt: new Date().toISOString(),
             strategy: proposalStrategy,
-            duplicateVotersDetected: proposal.duplicateVoters?.length ? proposal.duplicateVoters : undefined,
+            duplicateVotersDetected: proposal.duplicateVoters?.length
+              ? proposal.duplicateVoters
+              : undefined,
           });
           if (state.votes.history.length > 1000) {
             state.votes.history = state.votes.history.slice(-1000);
           }
-          state.votes.pending = state.votes.pending.filter(p => p.proposalId !== proposal.proposalId);
+          state.votes.pending = state.votes.pending.filter(
+            (p) => p.proposalId !== proposal.proposalId,
+          );
         }
 
         saveMonoswarmState(state);
@@ -1004,7 +1157,9 @@ export const monoswarmTools: MCPTool[] = [
               namespace: 'monoswarm-votes',
               tags: [proposal.type, proposalStrategy, proposal.status],
             });
-          } catch { /* SQLite memory backend not available — JSON store is primary */ }
+          } catch {
+            /* SQLite memory backend not available — JSON store is primary */
+          }
 
           const hk = getOrCreateAuditKey();
           try {
@@ -1021,7 +1176,11 @@ export const monoswarmTools: MCPTool[] = [
             writer.record({
               decisionId: proposal.proposalId,
               swarmId: state.monoswarmId,
-              protocol: proposalStrategy as 'majority' | 'supermajority' | 'unanimous' | 'threshold',
+              protocol: proposalStrategy as
+                | 'majority'
+                | 'supermajority'
+                | 'unanimous'
+                | 'threshold',
               topic: proposal.type,
               decision: resolution,
               votes: voteEntries,
@@ -1034,7 +1193,9 @@ export const monoswarmTools: MCPTool[] = [
             });
           } catch (e) {
             if (process.env.MONOMIND_LOG_LEVEL === 'debug') {
-              process.stderr.write(`[monoswarm-vote] Audit write failed: ${(e as Error).message}\n`);
+              process.stderr.write(
+                `[monoswarm-vote] Audit write failed: ${(e as Error).message}\n`,
+              );
             }
           }
         }
@@ -1063,17 +1224,17 @@ export const monoswarmTools: MCPTool[] = [
       }
 
       if (action === 'status') {
-        const proposal = state.votes.pending.find(p => p.proposalId === input.proposalId);
+        const proposal = state.votes.pending.find((p) => p.proposalId === input.proposalId);
         if (!proposal) {
-          const historical = state.votes.history.find(h => h.proposalId === input.proposalId);
+          const historical = state.votes.history.find((h) => h.proposalId === input.proposalId);
           if (historical) {
             return { action, ...historical, historical: true, resolved: true };
           }
           return { action, error: 'Proposal not found' };
         }
 
-        const votesFor = Object.values(proposal.votes).filter(v => v).length;
-        const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
+        const votesFor = Object.values(proposal.votes).filter((v) => v).length;
+        const votesAgainst = Object.values(proposal.votes).filter((v) => !v).length;
         const proposalStrategy = proposal.strategy || 'majority';
         const required = calculateRequiredVotes(proposalStrategy, totalVoters, proposal.minVotes);
 
@@ -1097,7 +1258,7 @@ export const monoswarmTools: MCPTool[] = [
       if (action === 'list') {
         return {
           action,
-          pending: state.votes.pending.map(p => ({
+          pending: state.votes.pending.map((p) => ({
             proposalId: p.proposalId,
             type: p.type,
             strategy: p.strategy || 'majority',
@@ -1115,13 +1276,18 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_notice',
-    description: 'Append a message to a shared array in the state file — a noticeboard, not message delivery; nothing subscribes to it.',
+    description:
+      'Append a message to a shared array in the state file — a noticeboard, not message delivery; nothing subscribes to it.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
         message: { type: 'string', description: 'Notice text' },
-        priority: { type: 'string', enum: ['low', 'normal', 'high', 'critical'], description: 'Notice priority' },
+        priority: {
+          type: 'string',
+          enum: ['low', 'normal', 'high', 'critical'],
+          description: 'Notice priority',
+        },
         fromId: { type: 'string', description: 'Sender agent ID' },
       },
       required: ['message'],
@@ -1137,18 +1303,30 @@ export const monoswarmTools: MCPTool[] = [
       const MAX_FROM_ID_LEN = 256;
       const MAX_PRIORITY_LEN = 16;
       const rawMessage = input.message as string;
-      const message = typeof rawMessage === 'string' && rawMessage.length > MAX_MSG_LEN
-        ? rawMessage.slice(0, MAX_MSG_LEN) : rawMessage;
+      const message =
+        typeof rawMessage === 'string' && rawMessage.length > MAX_MSG_LEN
+          ? rawMessage.slice(0, MAX_MSG_LEN)
+          : rawMessage;
       const rawFromId = (input.fromId as string) || 'system';
-      const fromId = typeof rawFromId === 'string' && rawFromId.length > MAX_FROM_ID_LEN
-        ? rawFromId.slice(0, MAX_FROM_ID_LEN) : rawFromId;
+      const fromId =
+        typeof rawFromId === 'string' && rawFromId.length > MAX_FROM_ID_LEN
+          ? rawFromId.slice(0, MAX_FROM_ID_LEN)
+          : rawFromId;
       const rawPriority = (input.priority as string) || 'normal';
-      const priority = typeof rawPriority === 'string' && rawPriority.length > MAX_PRIORITY_LEN
-        ? rawPriority.slice(0, MAX_PRIORITY_LEN) : rawPriority;
+      const priority =
+        typeof rawPriority === 'string' && rawPriority.length > MAX_PRIORITY_LEN
+          ? rawPriority.slice(0, MAX_PRIORITY_LEN)
+          : rawPriority;
 
       const noticeId = `notice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-      state.notices.push({ noticeId, message, priority, fromId, timestamp: new Date().toISOString() });
+      state.notices.push({
+        noticeId,
+        message,
+        priority,
+        fromId,
+        timestamp: new Date().toISOString(),
+      });
       state.notices = state.notices.slice(-100); // Keep only the last 100 notices
 
       saveMonoswarmState(state);
@@ -1164,12 +1342,17 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_memory',
-    description: 'Plain key/value bookkeeping in the state file — not a distributed or replicated store.',
+    description:
+      'Plain key/value bookkeeping in the state file — not a distributed or replicated store.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['get', 'set', 'delete', 'list'], description: 'Memory action' },
+        action: {
+          type: 'string',
+          enum: ['get', 'set', 'delete', 'list'],
+          description: 'Memory action',
+        },
         key: { type: 'string', description: 'Memory key' },
         value: { description: 'Value to store (for set)' },
       },
@@ -1203,8 +1386,10 @@ export const monoswarmTools: MCPTool[] = [
           return { action, error: 'Invalid key' };
         }
         const rawValue = input.value;
-        const cappedValue = typeof rawValue === 'string' && rawValue.length > MAX_VALUE_BYTES
-          ? rawValue.slice(0, MAX_VALUE_BYTES) : rawValue;
+        const cappedValue =
+          typeof rawValue === 'string' && rawValue.length > MAX_VALUE_BYTES
+            ? rawValue.slice(0, MAX_VALUE_BYTES)
+            : rawValue;
         const keyCount = Object.keys(state.sharedMemory).length;
         if (!Object.hasOwn(state.sharedMemory, key) && keyCount >= MAX_KEYS) {
           return { action, error: `Shared memory full (max ${MAX_KEYS} keys)` };
@@ -1219,7 +1404,9 @@ export const monoswarmTools: MCPTool[] = [
             value: JSON.stringify(input.value),
             namespace: 'monoswarm-memory',
           });
-        } catch { /* SQLite memory backend not available */ }
+        } catch {
+          /* SQLite memory backend not available */
+        }
 
         return { action, key, success: true, updatedAt: new Date().toISOString() };
       }
@@ -1248,7 +1435,8 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_audit_list',
-    description: 'List tamper-evident vote audit records (HMAC-signed JSONL trail) — local file, not a distributed ledger.',
+    description:
+      'List tamper-evident vote audit records (HMAC-signed JSONL trail) — local file, not a distributed ledger.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',
@@ -1268,7 +1456,7 @@ export const monoswarmTools: MCPTool[] = [
         return {
           success: true,
           count: records.length,
-          records: records.map(r => ({
+          records: records.map((r) => ({
             decisionId: r.decisionId,
             swarmId: r.swarmId,
             protocol: r.protocol,
@@ -1289,7 +1477,8 @@ export const monoswarmTools: MCPTool[] = [
   },
   {
     name: 'monoswarm_audit_verify',
-    description: 'Verify tamper-evidence of a vote decision (checks HMAC signatures on all votes and the record itself) — a local file check, not a distributed ledger.',
+    description:
+      'Verify tamper-evidence of a vote decision (checks HMAC signatures on all votes and the record itself) — a local file check, not a distributed ledger.',
     category: 'monoswarm',
     inputSchema: {
       type: 'object',

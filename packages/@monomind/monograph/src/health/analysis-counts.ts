@@ -36,7 +36,7 @@ export interface AnalysisResultsInput {
 /** Compute aggregate counts from analysis results (all fields optional). */
 export function computeAnalysisCounts(results: AnalysisResultsInput): AnalysisCounts {
   return {
-    totalExports: (results.unusedExports?.length ?? 0),
+    totalExports: results.unusedExports?.length ?? 0,
     deadFiles: results.deadFiles?.length ?? 0,
     deadExports: results.unusedExports?.length ?? 0,
     unusedDeps: results.unusedDependencies?.length ?? 0,

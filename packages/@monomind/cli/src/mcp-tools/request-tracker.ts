@@ -43,7 +43,10 @@ export function trackRequest(toolName: string, success: boolean): void {
   ) {
     return; // Drop invalid tool names silently
   }
-  if (Object.keys(counts.byTool).length < MAX_TRACKED_TOOLS || Object.hasOwn(counts.byTool, toolName)) {
+  if (
+    Object.keys(counts.byTool).length < MAX_TRACKED_TOOLS ||
+    Object.hasOwn(counts.byTool, toolName)
+  ) {
     counts.byTool[toolName] = (counts.byTool[toolName] || 0) + 1;
   }
 }

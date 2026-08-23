@@ -20,9 +20,11 @@ export function detectConfigFormat(filePath: string): ConfigFormat {
 }
 
 function isRepoRoot(dir: string): boolean {
-  return existsSync(resolve(dir, '.git'))
-    || existsSync(resolve(dir, '.hg'))
-    || existsSync(resolve(dir, '.svn'));
+  return (
+    existsSync(resolve(dir, '.git')) ||
+    existsSync(resolve(dir, '.hg')) ||
+    existsSync(resolve(dir, '.svn'))
+  );
 }
 
 export function findConfigFile(startDir: string): string | undefined {
@@ -86,7 +88,7 @@ export function parseConfigFile(filePath: string): Record<string, unknown> {
   if (format === 'toml') {
     throw new Error(
       `TOML config files are not supported without a TOML parser dependency. ` +
-      `Convert ${filePath} to JSON format instead.`
+        `Convert ${filePath} to JSON format instead.`,
     );
   }
 
@@ -94,7 +96,9 @@ export function parseConfigFile(filePath: string): Record<string, unknown> {
   return JSON.parse(stripped) as Record<string, unknown>;
 }
 
-export function loadConfigFromDir(dir: string): { config: Record<string, unknown>; configPath: string } | undefined {
+export function loadConfigFromDir(
+  dir: string,
+): { config: Record<string, unknown>; configPath: string } | undefined {
   const configPath = findConfigFile(dir);
   if (!configPath) return undefined;
   const config = parseConfigFile(configPath);

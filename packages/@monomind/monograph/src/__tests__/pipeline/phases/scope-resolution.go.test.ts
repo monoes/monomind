@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { extractGoCallSites } from '../../../pipeline/phases/scope-resolution.js';
 
 describe('extractGoCallSites', () => {
@@ -9,8 +9,8 @@ func run(s *Server) {
   db.Query("SELECT 1")
 }`;
     const sites = extractGoCallSites(source, '/app/main.go', 'fn1');
-    expect(sites.some(s => s.calleeRaw === 's.Listen')).toBe(true);
-    expect(sites.some(s => s.calleeRaw === 'db.Query')).toBe(true);
+    expect(sites.some((s) => s.calleeRaw === 's.Listen')).toBe(true);
+    expect(sites.some((s) => s.calleeRaw === 'db.Query')).toBe(true);
   });
 
   it('extracts direct function calls', () => {
@@ -20,13 +20,13 @@ func init() {
   fmt.Println("started")
 }`;
     const sites = extractGoCallSites(source, '/app/main.go', 'fn1');
-    expect(sites.some(s => s.calleeRaw === 'setupRoutes')).toBe(true);
+    expect(sites.some((s) => s.calleeRaw === 'setupRoutes')).toBe(true);
   });
 
   it('skips Go keywords', () => {
     const source = `for i := range items { if ok { return } }`;
     const sites = extractGoCallSites(source, '/app/main.go', 'fn1');
-    const names = sites.map(s => s.calleeRaw);
+    const names = sites.map((s) => s.calleeRaw);
     expect(names).not.toContain('for');
     expect(names).not.toContain('if');
     expect(names).not.toContain('return');

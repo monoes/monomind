@@ -5,15 +5,15 @@
  * Supports: list, read, subscribe, templates, pagination
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import type {
+  ContentAnnotations,
+  ILogger,
   MCPResource,
   ResourceContent,
-  ResourceTemplate,
   ResourceListResult,
   ResourceReadResult,
-  ILogger,
-  ContentAnnotations,
+  ResourceTemplate,
 } from './types.js';
 
 export type ResourceHandler = (uri: string) => Promise<ResourceContent[]>;
@@ -52,7 +52,7 @@ export class ResourceRegistry extends EventEmitter {
 
   constructor(
     private readonly logger: ILogger,
-    options: ResourceRegistryOptions = {}
+    options: ResourceRegistryOptions = {},
   ) {
     super();
     this.options = {
@@ -372,7 +372,7 @@ export class ResourceRegistry extends EventEmitter {
       // Replace escaped placeholder braces with the pattern
       const pattern = escaped.replace(/\\\{[^}]+\\\}/g, '[^/]+');
       try {
-        const regex = new RegExp('^' + pattern + '$');
+        const regex = new RegExp(`^${pattern}$`);
         return regex.test(uri);
       } catch {
         // Invalid regex pattern - return false safely
@@ -384,14 +384,11 @@ export class ResourceRegistry extends EventEmitter {
       const escaped = this.escapeRegex(t);
       const pattern = escaped.replace(/\\\{[^}]+\\\}/g, '[^/]+');
       try {
-        const regex = new RegExp('^' + pattern + '$');
+        const regex = new RegExp(`^${pattern}$`);
         if (regex.test(uri)) {
           return true;
         }
-      } catch {
-        // Skip invalid patterns
-        continue;
-      }
+      } catch {}
     }
     return false;
   }
@@ -424,7 +421,7 @@ export class ResourceRegistry extends EventEmitter {
 
 export function createResourceRegistry(
   logger: ILogger,
-  options?: ResourceRegistryOptions
+  options?: ResourceRegistryOptions,
 ): ResourceRegistry {
   return new ResourceRegistry(logger, options);
 }
@@ -440,7 +437,7 @@ export function createTextResource(
     description?: string;
     mimeType?: string;
     annotations?: ContentAnnotations;
-  }
+  },
 ): { resource: MCPResource; handler: ResourceHandler } {
   const resource: MCPResource = {
     uri,
@@ -473,7 +470,7 @@ export function createFileResource(
     description?: string;
     mimeType?: string;
     allowedBasePaths?: string[]; // Security: restrict to these base paths
-  }
+  },
 ): { resource: MCPResource; handler: ResourceHandler } {
   const resource: MCPResource = {
     uri,
@@ -483,8 +480,8 @@ export function createFileResource(
   };
 
   const handler: ResourceHandler = async () => {
-    const fs = await import('fs/promises');
-    const path = await import('path');
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
 
     // SECURITY: Normalize and validate the path
     const normalizedPath = path.normalize(filePath);

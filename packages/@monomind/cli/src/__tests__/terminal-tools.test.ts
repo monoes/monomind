@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { filterSecretEnvVars, terminalTools } from '../mcp-tools/terminal-tools.js';
 
 // Env var names built from parts rather than written as literal
@@ -83,7 +83,7 @@ describe('terminal_execute does not leak secret-shaped env vars to the spawned c
     else process.env.MONOMIND_ENABLE_TERMINAL = hadEnableEnv;
   });
 
-  it('excludes a secret-shaped host env var from the executed command\'s environment, keeps an ordinary one', async () => {
+  it("excludes a secret-shaped host env var from the executed command's environment, keeps an ordinary one", async () => {
     process.env[secretVarName] = 'placeholder-should-not-leak';
     process.env[ordinaryVarName] = 'placeholder-should-be-visible';
 
@@ -92,7 +92,7 @@ describe('terminal_execute does not leak secret-shaped env vars to the spawned c
 
     // `env` reads its own process environment directly — no shell expansion
     // (`$VAR`) needed, which the tool's metacharacter denylist blocks anyway.
-    const result = (await execute!.handler({ command: 'env' }, {} as never)) as {
+    const result = (await execute?.handler({ command: 'env' }, {} as never)) as {
       success: boolean;
       output: string;
     };
@@ -147,7 +147,10 @@ describe('terminal write handlers do not wipe a corrupt terminal store', () => {
   it('terminal_execute refuses to run against a corrupt store, leaving it untouched', async () => {
     const { path, content } = corruptTerminalStore();
     const execute = terminalTools.find((t) => t.name === 'terminal_execute')!;
-    const result = (await execute.handler({ command: 'env' }, {} as never)) as { success: boolean; error?: string };
+    const result = (await execute.handler({ command: 'env' }, {} as never)) as {
+      success: boolean;
+      error?: string;
+    };
     expect(result.success).toBe(false);
     expect(readFileSync(path, 'utf-8')).toBe(content);
   });
@@ -155,7 +158,10 @@ describe('terminal write handlers do not wipe a corrupt terminal store', () => {
   it('terminal_close refuses to close a session in a corrupt store, leaving it untouched', async () => {
     const { path, content } = corruptTerminalStore();
     const close = terminalTools.find((t) => t.name === 'terminal_close')!;
-    const result = (await close.handler({ sessionId: 'anything' }, {} as never)) as { success: boolean; error?: string };
+    const result = (await close.handler({ sessionId: 'anything' }, {} as never)) as {
+      success: boolean;
+      error?: string;
+    };
     expect(result.success).toBe(false);
     expect(readFileSync(path, 'utf-8')).toBe(content);
   });
@@ -179,7 +185,10 @@ describe('terminal write handlers do not wipe a corrupt terminal store', () => {
 
   it('terminal_create writes normally when the store is absent or valid', async () => {
     const create = terminalTools.find((t) => t.name === 'terminal_create')!;
-    const result = (await create.handler({}, {} as never)) as { success: boolean; sessionId?: string };
+    const result = (await create.handler({}, {} as never)) as {
+      success: boolean;
+      sessionId?: string;
+    };
     expect(result.success).toBe(true);
     expect(result.sessionId).toBeDefined();
 

@@ -11,12 +11,17 @@ export interface CheckUpdateResult {
   reason: string;
 }
 
-export function checkUpdate(db: Database.Database, options: CheckUpdateOptions = {}): CheckUpdateResult {
+export function checkUpdate(
+  db: Database.Database,
+  options: CheckUpdateOptions = {},
+): CheckUpdateResult {
   const maxAgeMs = options.maxAgeMs ?? 24 * 60 * 60 * 1000; // 24h default
 
   let indexedAt: string | null = null;
   try {
-    const row = db.prepare("SELECT value FROM index_meta WHERE key = 'indexed_at'").get() as { value: string } | undefined;
+    const row = db.prepare("SELECT value FROM index_meta WHERE key = 'indexed_at'").get() as
+      | { value: string }
+      | undefined;
     indexedAt = row?.value ?? null;
   } catch {
     // table may not exist

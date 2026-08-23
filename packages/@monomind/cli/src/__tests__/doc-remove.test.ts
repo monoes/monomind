@@ -15,10 +15,11 @@
  * Runs against a throwaway store: chdir into a temp dir plus
  * MONOMIND_GLOBAL_BRAIN_DIR, so the user's real Second Brain is never touched.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { docCommand } from '../commands/doc.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 
@@ -40,20 +41,32 @@ afterAll(() => {
   if (ORIGINAL_GLOBAL === undefined) delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
   else process.env.MONOMIND_GLOBAL_BRAIN_DIR = ORIGINAL_GLOBAL;
   if (ORIGINAL_MM_CWD !== undefined) process.env.MONOMIND_CWD = ORIGINAL_MM_CWD;
-  try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch { /* best effort */ }
+  try {
+    fs.rmSync(ROOT, { recursive: true, force: true });
+  } catch {
+    /* best effort */
+  }
 });
 
 const sub = (name: string): Command => {
-  const cmd = docCommand.subcommands?.find(c => c.name === name);
+  const cmd = docCommand.subcommands?.find((c) => c.name === name);
   if (!cmd) throw new Error(`doc ${name} subcommand is not registered`);
   return cmd;
 };
 
-const ctx = (args: string[], flags: Record<string, unknown> = {}): CommandContext =>
-  ({ args, flags: { _: args, ...flags } as CommandContext['flags'], cwd: ROOT, interactive: false });
+const ctx = (args: string[], flags: Record<string, unknown> = {}): CommandContext => ({
+  args,
+  flags: { _: args, ...flags } as CommandContext['flags'],
+  cwd: ROOT,
+  interactive: false,
+});
 
-const run = async (name: string, args: string[], flags: Record<string, unknown> = {}): Promise<CommandResult> => {
-  const result = await sub(name).action!(ctx(args, flags));
+const run = async (
+  name: string,
+  args: string[],
+  flags: Record<string, unknown> = {},
+): Promise<CommandResult> => {
+  const result = await sub(name).action?.(ctx(args, flags));
   if (!result) throw new Error(`doc ${name} returned no CommandResult`);
   return result;
 };
@@ -94,7 +107,7 @@ describe('superseded filtering distinguishes "no metadata" from "all removed"', 
 
 describe('doc remove', () => {
   it('is registered as a doc subcommand', () => {
-    expect(docCommand.subcommands?.map(c => c.name)).toContain('remove');
+    expect(docCommand.subcommands?.map((c) => c.name)).toContain('remove');
   });
 
   it('fails without a document path', async () => {
@@ -117,11 +130,15 @@ describe('doc remove', () => {
     fs.writeFileSync(drop, 'Obsolete sprocket rotation guidance, superseded.\n');
     await run('ingest', [keep]);
     await run('ingest', [drop]);
-    expect(listDocuments(ROOT, 'shared').map(d => d.filePath).sort()).toEqual([drop, keep]);
+    expect(
+      listDocuments(ROOT, 'shared')
+        .map((d) => d.filePath)
+        .sort(),
+    ).toEqual([drop, keep]);
 
     const result = await run('remove', [drop]);
     expect(result.success).toBe(true);
-    expect(listDocuments(ROOT, 'shared').map(d => d.filePath)).toEqual([keep]);
+    expect(listDocuments(ROOT, 'shared').map((d) => d.filePath)).toEqual([keep]);
   });
 
   // The regression: with `keep.md` also gone the live set is empty, which used

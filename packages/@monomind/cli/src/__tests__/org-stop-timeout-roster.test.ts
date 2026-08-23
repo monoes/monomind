@@ -69,9 +69,9 @@ describe('finishStop reports which roles were still active at the drain timeout 
 
     const timeoutEvent = events.find((e) => e.reason === 'stop-timeout');
     expect(timeoutEvent).toBeDefined();
-    expect(timeoutEvent!.msg).toContain('busy-worker');
-    expect(timeoutEvent!.msg).not.toContain('done-worker');
-    expect((timeoutEvent!.data as { stillActive?: string[] } | undefined)?.stillActive).toEqual([
+    expect(timeoutEvent?.msg).toContain('busy-worker');
+    expect(timeoutEvent?.msg).not.toContain('done-worker');
+    expect((timeoutEvent?.data as { stillActive?: string[] } | undefined)?.stillActive).toEqual([
       'busy-worker',
     ]);
   });
@@ -101,7 +101,7 @@ describe('finishStop reports which roles were still active at the drain timeout 
 
     const timeoutEvent = events.find((e) => e.reason === 'stop-timeout');
     expect(timeoutEvent).toBeDefined();
-    expect(timeoutEvent!.msg).not.toContain('still active');
-    expect((timeoutEvent!.data as { stillActive?: string[] } | undefined)?.stillActive).toEqual([]);
+    expect(timeoutEvent?.msg).not.toContain('still active');
+    expect((timeoutEvent?.data as { stillActive?: string[] } | undefined)?.stillActive).toEqual([]);
   });
 });

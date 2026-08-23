@@ -3,9 +3,9 @@
  * Creates .claude/settings.json with V1-optimized hook configurations
  */
 
-import type { InitOptions, HooksConfig, PlatformInfo } from './types.js';
-import { detectPlatform } from './types.js';
 import { MODEL_DEFAULTS } from '../pricing/model-pricing.js';
+import type { HooksConfig, InitOptions } from './types.js';
+import { detectPlatform } from './types.js';
 
 /**
  * Generate the complete settings.json content
@@ -38,10 +38,7 @@ export function generateSettings(options: InitOptions): object {
       'Bash(node .claude/helpers/*)',
       'mcp__monomind__*',
     ],
-    deny: [
-      'Read(./.env)',
-      'Read(./.env.*)',
-    ],
+    deny: ['Read(./.env)', 'Read(./.env.*)'],
   };
 
   // Add monomind attribution for git commits and PRs
@@ -90,9 +87,9 @@ export function generateSettings(options: InitOptions): object {
       taskListEnabled: true,
       mailboxEnabled: true,
       coordination: {
-        autoAssignOnIdle: true,       // Auto-assign pending tasks when teammate is idle
+        autoAssignOnIdle: true, // Auto-assign pending tasks when teammate is idle
         trainPatternsOnComplete: true, // Train neural patterns when tasks complete
-        notifyLeadOnComplete: true,   // Notify team lead when tasks complete
+        notifyLeadOnComplete: true, // Notify team lead when tasks complete
         sharedMemoryNamespace: 'agent-teams', // Memory namespace for team coordination
       },
       hooks: {

@@ -104,8 +104,8 @@ export class SQLiteBackend extends SqlBackend {
       // ERR_MODULE_NOT_FOUND from deep inside the driver.
       throw new Error(
         'SQLiteBackend requires the optional dependency better-sqlite3, which is not installed ' +
-        `(${(error as Error).message}). Use SqlJsBackend, or select the 'sql.js' provider, ` +
-        'for environments where the native module cannot be built.',
+          `(${(error as Error).message}). Use SqlJsBackend, or select the 'sql.js' provider, ` +
+          'for environments where the native module cannot be built.',
       );
     }
 
@@ -113,7 +113,8 @@ export class SQLiteBackend extends SqlBackend {
       verbose: this.sqliteConfig.verbose ? console.log : undefined,
     });
 
-    if (this.sqliteConfig.busyTimeoutMs > 0) db.pragma(`busy_timeout = ${this.sqliteConfig.busyTimeoutMs}`);
+    if (this.sqliteConfig.busyTimeoutMs > 0)
+      db.pragma(`busy_timeout = ${this.sqliteConfig.busyTimeoutMs}`);
     if (this.sqliteConfig.walMode) db.pragma('journal_mode = WAL');
     if (this.sqliteConfig.optimize) {
       db.pragma('synchronous = NORMAL');

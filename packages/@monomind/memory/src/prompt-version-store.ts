@@ -236,7 +236,9 @@ export class PromptVersionStore {
   }
 
   private readExperiments(): PromptExperiment[] {
-    return readJsonl<ReturnType<typeof experimentToRecord>>(this.experimentsPath).map(recordToExperiment);
+    return readJsonl<ReturnType<typeof experimentToRecord>>(this.experimentsPath).map(
+      recordToExperiment,
+    );
   }
 
   private writeExperiments(experiments: PromptExperiment[]): void {

@@ -1,17 +1,17 @@
+import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { randomUUID } from 'crypto';
 
 export interface Suppression {
   id: string;
   filePath: string;
-  line: number;     // 0 = file-wide
+  line: number; // 0 = file-wide
   rule: string;
   addedAt: string;
   lastSeenAt?: string;
 }
 
 export interface StaleSuppression extends Suppression {
-  reason: string;  // 'issue_resolved' | 'file_deleted'
+  reason: string; // 'issue_resolved' | 'file_deleted'
 }
 
 // Add a suppression
@@ -60,7 +60,7 @@ export function listSuppressions(
     last_seen_at: string | null;
   }[];
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id,
     filePath: r.file_path,
     line: r.line,
@@ -83,19 +83,23 @@ export function isSuppressed(
   line: number,
   rule: string,
 ): Suppression | null {
-  const row = db.prepare(`
+  const row = db
+    .prepare(`
     SELECT id, file_path, line, rule, added_at, last_seen_at
     FROM suppressions
     WHERE file_path = ? AND rule = ? AND (line = 0 OR line = ?)
     LIMIT 1
-  `).get(filePath, rule, line) as {
-    id: string;
-    file_path: string;
-    line: number;
-    rule: string;
-    added_at: string;
-    last_seen_at: string | null;
-  } | undefined;
+  `)
+    .get(filePath, rule, line) as
+    | {
+        id: string;
+        file_path: string;
+        line: number;
+        rule: string;
+        added_at: string;
+        last_seen_at: string | null;
+      }
+    | undefined;
 
   if (!row) return null;
 
@@ -122,14 +126,15 @@ export function findStaleSuppressions(
 
   // Build a set of all file paths in the graph
   const graphFiles = new Set<string>(
-    (db.prepare(`SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL`).all() as { file_path: string }[])
-      .map(r => r.file_path),
+    (
+      db.prepare(`SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL`).all() as {
+        file_path: string;
+      }[]
+    ).map((r) => r.file_path),
   );
 
   // Build a set of active finding keys: "filePath::rule"
-  const activeFindingKeys = new Set<string>(
-    activeFindings.map(f => `${f.filePath}::${f.rule}`),
-  );
+  const activeFindingKeys = new Set<string>(activeFindings.map((f) => `${f.filePath}::${f.rule}`));
 
   const stale: StaleSuppression[] = [];
 

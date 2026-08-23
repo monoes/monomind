@@ -8,9 +8,10 @@
  * therefore still null, patternsLearned was 0, and a populated store reported
  * "No patterns stored yet - drift detection inactive".
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const initSpy = vi.fn(async () => ({ success: true }));
 let initialized = false;

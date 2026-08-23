@@ -3,15 +3,12 @@
  * Shared JSON config file persistence with atomic writes and Zod validation
  */
 
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 /** Config file search paths in priority order */
-const CONFIG_FILENAMES = [
-  'monomind.config.json',
-  '.monomind/config.json',
-];
+const CONFIG_FILENAMES = ['monomind.config.json', '.monomind/config.json'];
 
 /**
  * Default config values.
@@ -113,7 +110,10 @@ export class ConfigFileManager {
     if (envPath) {
       const resolved = path.resolve(envPath);
       const projectRoot = path.resolve(cwd);
-      if ((resolved.startsWith(projectRoot + path.sep) || resolved === projectRoot) && fs.existsSync(resolved)) {
+      if (
+        (resolved.startsWith(projectRoot + path.sep) || resolved === projectRoot) &&
+        fs.existsSync(resolved)
+      ) {
         return resolved;
       }
     }
@@ -136,13 +136,17 @@ export class ConfigFileManager {
     try {
       content = fs.readFileSync(resolved, 'utf-8');
     } catch (err) {
-      throw new Error(`Failed to read config file ${resolved}: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(
+        `Failed to read config file ${resolved}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
     let parsed: unknown;
     try {
       parsed = JSON.parse(content);
     } catch (err) {
-      throw new Error(`Failed to parse config file ${resolved}: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(
+        `Failed to parse config file ${resolved}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
     this.configPath = resolved;
     this.config = sanitizeConfigObject(parsed) as Record<string, unknown>;
@@ -192,13 +196,26 @@ export class ConfigFileManager {
    * drop the first writer's API key.
    */
   set(cwd: string, key: string, value: unknown): void {
-    const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'monoswarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
+    const KNOWN_SET_SECTIONS = new Set([
+      'version',
+      'agents',
+      'monoswarm',
+      'memory',
+      'mcp',
+      'cli',
+      'hooks',
+      'neural',
+      'providers',
+    ]);
     const topSection = String(key).split('.')[0];
     if (!KNOWN_SET_SECTIONS.has(topSection)) {
-      throw new Error(`Unknown config section: "${topSection}". Allowed: ${[...KNOWN_SET_SECTIONS].join(', ')}`);
+      throw new Error(
+        `Unknown config section: "${topSection}". Allowed: ${[...KNOWN_SET_SECTIONS].join(', ')}`,
+      );
     }
     const sanitisedValue = sanitizeConfigObject(value);
-    const targetPath = this.configPath ?? this.findConfig(cwd) ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
+    const targetPath =
+      this.configPath ?? this.findConfig(cwd) ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
 
     // Re-read from disk inside the write window so we operate on the latest
     // bytes, not on a possibly-stale this.config cache. This still isn't
@@ -216,8 +233,11 @@ export class ConfigFileManager {
         // provider API keys (see this method's doc comment above); silently
         // "recovering" a momentarily-corrupt file by overwriting it with
         // defaults-plus-the-new-key discards every real credential in it.
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[config-file-manager] failed to parse existing config file:', e);
-        throw new Error(`Config file exists but is unreadable/corrupt: ${targetPath}. Refusing to overwrite it — fix or remove the file manually, then retry.`);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[config-file-manager] failed to parse existing config file:', e);
+        throw new Error(
+          `Config file exists but is unreadable/corrupt: ${targetPath}. Refusing to overwrite it — fix or remove the file manually, then retry.`,
+        );
       }
     }
     setNestedValue(onDisk, key, sanitisedValue);
@@ -232,7 +252,10 @@ export class ConfigFileManager {
     if (fs.existsSync(targetPath) && !force) {
       throw new Error(`Config file already exists: ${targetPath}. Use --force to overwrite.`);
     }
-    const config = { ...cloneDefaultConfig(), ...(overrides ? sanitizeConfigObject(overrides) as Record<string, unknown> : {}) };
+    const config = {
+      ...cloneDefaultConfig(),
+      ...(overrides ? (sanitizeConfigObject(overrides) as Record<string, unknown>) : {}),
+    };
     this.writeAtomic(targetPath, config);
     this.config = config;
     this.configPath = targetPath;
@@ -272,7 +295,9 @@ export class ConfigFileManager {
     const isUnderProject = resolved === projectRoot || resolved.startsWith(projectRoot + path.sep);
     const isUnderHome = resolved === home || resolved.startsWith(home + path.sep);
     if (!isUnderProject && !isUnderHome) {
-      throw new Error(`Import path must be within the project directory or home directory: ${resolved}`);
+      throw new Error(
+        `Import path must be within the project directory or home directory: ${resolved}`,
+      );
     }
     if (!fs.existsSync(resolved)) {
       throw new Error(`Import file not found: ${resolved}`);
@@ -291,7 +316,17 @@ export class ConfigFileManager {
     // KNOWN_SECTIONS only validates top-level keys, leaving nested
     // {agents:{providers:[{__proto__:{...}}]}} unsanitized.
     const imported = sanitizeConfigObject(importedRaw) as Record<string, unknown>;
-    const KNOWN_SECTIONS = new Set(['version', 'agents', 'monoswarm', 'memory', 'mcp', 'cli', 'hooks', 'neural', 'providers']);
+    const KNOWN_SECTIONS = new Set([
+      'version',
+      'agents',
+      'monoswarm',
+      'memory',
+      'mcp',
+      'cli',
+      'hooks',
+      'neural',
+      'providers',
+    ]);
     for (const key of Object.keys(imported)) {
       if (!KNOWN_SECTIONS.has(key)) {
         throw new Error(`Unknown config section: "${key}"`);
@@ -325,9 +360,13 @@ export class ConfigFileManager {
       fs.mkdirSync(dir, { recursive: true });
     }
     const tmpPath = `${filePath}.${process.pid}.tmp`;
-    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
+    fs.writeFileSync(tmpPath, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
     fs.renameSync(tmpPath, filePath);
-    try { fs.chmodSync(filePath, 0o600); } catch { /* best effort */ }
+    try {
+      fs.chmodSync(filePath, 0o600);
+    } catch {
+      /* best effort */
+    }
   }
 }
 
@@ -342,7 +381,7 @@ const FORBIDDEN_KEY_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']
  */
 function sanitizeConfigObject(value: unknown, depth = 0): unknown {
   if (depth > 32) return null;
-  if (Array.isArray(value)) return value.map(v => sanitizeConfigObject(v, depth + 1));
+  if (Array.isArray(value)) return value.map((v) => sanitizeConfigObject(v, depth + 1));
   if (value !== null && typeof value === 'object') {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
@@ -398,7 +437,9 @@ export function parseConfigValue(value: string): unknown {
   try {
     const parsed = JSON.parse(value);
     if (typeof parsed === 'object') return parsed;
-  } catch { /* not JSON, use as string */ }
+  } catch {
+    /* not JSON, use as string */
+  }
   return value;
 }
 

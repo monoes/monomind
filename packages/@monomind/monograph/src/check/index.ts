@@ -1,11 +1,11 @@
-import type { RulesConfig, AnalysisIssue } from './rules.js';
-import { applyRules, hasErrorSeverityIssues, DEFAULT_RULES_CONFIG } from './rules.js';
-import type { OutputFormat, TraceOptions } from './output.js';
 import { filterToWorkspaces, resolveWorkspaceScope } from './filtering.js';
+import type { OutputFormat, TraceOptions } from './output.js';
+import type { AnalysisIssue, RulesConfig } from './rules.js';
+import { applyRules, DEFAULT_RULES_CONFIG, hasErrorSeverityIssues } from './rules.js';
 
-export * from './rules.js';
 export * from './filtering.js';
 export * from './output.js';
+export * from './rules.js';
 
 export interface IssueFilters {
   unusedFiles: boolean;
@@ -74,7 +74,7 @@ export function runCheckFilter(
   let filtered = applyRules(issues, rules);
 
   const activeFilters = opts.filters;
-  filtered = filtered.filter(issue => {
+  filtered = filtered.filter((issue) => {
     const key = issue.kind as keyof IssueFilters;
     return activeFilters[key] !== false;
   });

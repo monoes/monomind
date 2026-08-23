@@ -16,47 +16,46 @@
 // ============================================================================
 
 import type {
-  WorkerConfig,
-  WorkerMetrics,
-  WorkerManagerStatus,
-  WorkerAlert,
   AlertThreshold,
-  PersistedWorkerState,
   HistoricalMetric,
+  PersistedWorkerState,
   StatuslineData,
+  WorkerAlert,
+  WorkerConfig,
+  WorkerHandler,
+  WorkerManagerStatus,
+  WorkerMetrics,
+  WorkerResult,
 } from './worker-manager.js';
-
 import {
-  WorkerPriority,
   AlertSeverity,
   DEFAULT_THRESHOLDS,
-  WORKER_CONFIGS,
   WORKER_ALIAS_MAP,
+  WORKER_CONFIGS,
   WorkerManager,
+  WorkerPriority,
 } from './worker-manager.js';
 
-import type { WorkerResult, WorkerHandler } from './worker-manager.js';
-
 export type {
-  WorkerConfig,
-  WorkerResult,
-  WorkerMetrics,
-  WorkerManagerStatus,
-  WorkerHandler,
-  WorkerAlert,
   AlertThreshold,
-  PersistedWorkerState,
   HistoricalMetric,
+  PersistedWorkerState,
   StatuslineData,
+  WorkerAlert,
+  WorkerConfig,
+  WorkerHandler,
+  WorkerManagerStatus,
+  WorkerMetrics,
+  WorkerResult,
 };
 
 export {
-  WorkerPriority,
   AlertSeverity,
   DEFAULT_THRESHOLDS,
-  WORKER_CONFIGS,
   WORKER_ALIAS_MAP,
+  WORKER_CONFIGS,
   WorkerManager,
+  WorkerPriority,
 };
 
 // ============================================================================
@@ -69,30 +68,29 @@ export { isValidWorkerName } from './worker-utils.js';
 // Re-export worker factory functions
 // ============================================================================
 
-export { createHealthWorker } from './worker-health.js';
-export { createDDDWorker } from './worker-ddd.js';
-export { createSecurityWorker } from './worker-security.js';
-export { createCacheWorker } from './worker-cache.js';
-export { createProgressWorker } from './worker-progress.js';
-export { createMapWorker } from './worker-map.js';
 export { createAuditWorker } from './worker-audit.js';
+export { createCacheWorker } from './worker-cache.js';
 export { createConsolidateWorker } from './worker-consolidate.js';
-export { createReflexionWorker } from './worker-reflexion.js';
-export { getReflectionsForTask } from './worker-reflexion.js';
+export { createDDDWorker } from './worker-ddd.js';
+export { createHealthWorker } from './worker-health.js';
+export { createMapWorker } from './worker-map.js';
+export { createProgressWorker } from './worker-progress.js';
+export { createReflexionWorker, getReflectionsForTask } from './worker-reflexion.js';
+export { createSecurityWorker } from './worker-security.js';
 
 // ============================================================================
 // Factory
 // ============================================================================
 
-import { createHealthWorker } from './worker-health.js';
-import { createDDDWorker } from './worker-ddd.js';
-import { createSecurityWorker } from './worker-security.js';
-import { createCacheWorker } from './worker-cache.js';
-import { createProgressWorker } from './worker-progress.js';
-import { createMapWorker } from './worker-map.js';
 import { createAuditWorker } from './worker-audit.js';
+import { createCacheWorker } from './worker-cache.js';
 import { createConsolidateWorker } from './worker-consolidate.js';
+import { createDDDWorker } from './worker-ddd.js';
+import { createHealthWorker } from './worker-health.js';
+import { createMapWorker } from './worker-map.js';
+import { createProgressWorker } from './worker-progress.js';
 import { createReflexionWorker } from './worker-reflexion.js';
+import { createSecurityWorker } from './worker-security.js';
 
 export function createWorkerManager(projectRoot?: string): WorkerManager {
   const root = projectRoot || process.cwd();

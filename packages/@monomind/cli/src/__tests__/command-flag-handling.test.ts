@@ -7,7 +7,7 @@
  * browser tools need a real Chrome — but the argument-handling and
  * no-session paths are where the defects were, and those run fine in-process.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('performance benchmark suite flag', () => {
   let lines: string[];
@@ -16,7 +16,9 @@ describe('performance benchmark suite flag', () => {
   beforeEach(async () => {
     lines = [];
     const { output } = await import('../output.js');
-    const spy = vi.spyOn(output, 'writeln').mockImplementation((t = '') => { lines.push(String(t)); });
+    const spy = vi.spyOn(output, 'writeln').mockImplementation((t = '') => {
+      lines.push(String(t));
+    });
     restore = () => spy.mockRestore();
   });
 
@@ -24,31 +26,34 @@ describe('performance benchmark suite flag', () => {
 
   const runBenchmark = async (flags: Record<string, unknown>) => {
     const { performanceCommand } = await import('../commands/performance.js');
-    const bench = performanceCommand.subcommands?.find(s => s.name === 'benchmark');
+    const bench = performanceCommand.subcommands?.find((s) => s.name === 'benchmark');
     expect(bench?.action).toBeDefined();
     // Keep it to a single iteration: this test is about flag handling, not
     // benchmark output.
-    return bench!.action!({ flags: { iterations: '1', warmup: '0', ...flags }, args: [] } as never);
+    return bench?.action?.({
+      flags: { iterations: '1', warmup: '0', ...flags },
+      args: [],
+    } as never);
   };
 
   it('warns when the requested suite is not a real suite', async () => {
     await runBenchmark({ suite: 'quick' });
-    const warned = lines.some(l => /Unknown benchmark suite "quick"/.test(l));
+    const warned = lines.some((l) => /Unknown benchmark suite "quick"/.test(l));
     // Regression: `--suite quick` silently ran the full "all" suite and
     // reported "Running all benchmarks", discarding the user's choice with no
     // indication it had been ignored.
     expect(warned).toBe(true);
-    expect(lines.some(l => /Valid suites: all, wasm, neural, memory, search/.test(l))).toBe(true);
+    expect(lines.some((l) => /Valid suites: all, wasm, neural, memory, search/.test(l))).toBe(true);
   }, 120_000);
 
   it('does not warn for a valid suite', async () => {
     await runBenchmark({ suite: 'search' });
-    expect(lines.some(l => /Unknown benchmark suite/.test(l))).toBe(false);
+    expect(lines.some((l) => /Unknown benchmark suite/.test(l))).toBe(false);
   }, 120_000);
 
   it('does not warn when no suite is given', async () => {
     await runBenchmark({});
-    expect(lines.some(l => /Unknown benchmark suite/.test(l))).toBe(false);
+    expect(lines.some((l) => /Unknown benchmark suite/.test(l))).toBe(false);
   }, 120_000);
 });
 
@@ -65,22 +70,42 @@ describe('declared-but-ignored flags', () => {
     lines = [];
     tables = [];
     const { output } = await import('../output.js');
-    spies.push(vi.spyOn(output, 'writeln').mockImplementation((t = '') => { lines.push(String(t)); }));
-    spies.push(vi.spyOn(output, 'printTable').mockImplementation((opts) => {
-      tables.push((opts.data as Record<string, unknown>[] | undefined) ?? []);
-    }));
-    spies.push(vi.spyOn(output, 'printInfo').mockImplementation((t) => { lines.push(String(t)); }));
-    spies.push(vi.spyOn(output, 'printError').mockImplementation((t) => { lines.push(String(t)); }));
-    spies.push(vi.spyOn(output, 'printSuccess').mockImplementation((t) => { lines.push(String(t)); }));
+    spies.push(
+      vi.spyOn(output, 'writeln').mockImplementation((t = '') => {
+        lines.push(String(t));
+      }),
+    );
+    spies.push(
+      vi.spyOn(output, 'printTable').mockImplementation((opts) => {
+        tables.push((opts.data as Record<string, unknown>[] | undefined) ?? []);
+      }),
+    );
+    spies.push(
+      vi.spyOn(output, 'printInfo').mockImplementation((t) => {
+        lines.push(String(t));
+      }),
+    );
+    spies.push(
+      vi.spyOn(output, 'printError').mockImplementation((t) => {
+        lines.push(String(t));
+      }),
+    );
+    spies.push(
+      vi.spyOn(output, 'printSuccess').mockImplementation((t) => {
+        lines.push(String(t));
+      }),
+    );
   });
 
-  afterEach(() => { for (const s of spies.splice(0)) s.mockRestore(); });
+  afterEach(() => {
+    for (const s of spies.splice(0)) s.mockRestore();
+  });
 
   const runBottleneck = async (flags: Record<string, unknown>) => {
     const { performanceCommand } = await import('../commands/performance.js');
-    const cmd = performanceCommand.subcommands?.find(s => s.name === 'bottleneck');
+    const cmd = performanceCommand.subcommands?.find((s) => s.name === 'bottleneck');
     expect(cmd?.action).toBeDefined();
-    return cmd!.action!({ flags, args: [] } as never);
+    return cmd?.action?.({ flags, args: [] } as never);
   };
 
   it('performance bottleneck --component restricts the report to that component', async () => {
@@ -89,37 +114,37 @@ describe('declared-but-ignored flags', () => {
     expect(rows.length).toBeGreaterThan(0);
     // Regression: --component was parsed and dropped, so every component's
     // findings came back no matter what was requested.
-    expect(rows.every(r => r.component === 'Network')).toBe(true);
+    expect(rows.every((r) => r.component === 'Network')).toBe(true);
   });
 
   it('performance bottleneck --component rejects an unknown component', async () => {
     const res = await runBottleneck({ component: 'nonsense' });
     expect(res).toMatchObject({ success: false });
-    expect(lines.some(l => /Analyzed components:/.test(l))).toBe(true);
+    expect(lines.some((l) => /Analyzed components:/.test(l))).toBe(true);
   });
 
   it('performance bottleneck --depth says so when the depth is not implemented', async () => {
     await runBottleneck({ depth: 'full' });
-    expect(lines.some(l => /--depth full is not implemented/.test(l))).toBe(true);
+    expect(lines.some((l) => /--depth full is not implemented/.test(l))).toBe(true);
   });
 
   it('performance bottleneck stays quiet at the default depth', async () => {
     await runBottleneck({});
-    expect(lines.some(l => /is not implemented/.test(l))).toBe(false);
+    expect(lines.some((l) => /is not implemented/.test(l))).toBe(false);
   });
 
   it('hooks notify --channel says so when the channel is not implemented', async () => {
     const { notifyCommand } = await import('../commands/hooks-extended-commands.js');
-    await notifyCommand.action!({ flags: { message: 'hi', channel: 'slack' }, args: [] } as never);
+    await notifyCommand.action?.({ flags: { message: 'hi', channel: 'slack' }, args: [] } as never);
     // Regression: `--channel slack` printed to the console with no hint that
     // nothing had been sent to Slack.
-    expect(lines.some(l => /Channel "slack" is not implemented/.test(l))).toBe(true);
+    expect(lines.some((l) => /Channel "slack" is not implemented/.test(l))).toBe(true);
   });
 
   it('hooks notify stays quiet on the default console channel', async () => {
     const { notifyCommand } = await import('../commands/hooks-extended-commands.js');
-    await notifyCommand.action!({ flags: { message: 'hi' }, args: [] } as never);
-    expect(lines.some(l => /is not implemented/.test(l))).toBe(false);
+    await notifyCommand.action?.({ flags: { message: 'hi' }, args: [] } as never);
+    expect(lines.some((l) => /is not implemented/.test(l))).toBe(false);
   });
 
   /**
@@ -136,8 +161,20 @@ describe('declared-but-ignored flags', () => {
     const path = await import('node:path');
     const { appendAuditEvent } = await import('../security/audit-log.js');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-log-'));
-    appendAuditEvent({ source: 'destructive-ops', decision: 'block', tool: 'Bash', reason: 'rm -rf blocked' }, dir);
-    appendAuditEvent({ source: 'secrets', decision: 'block', tool: 'Write', reason: 'API key detected', path: 'config.ts' }, dir);
+    appendAuditEvent(
+      { source: 'destructive-ops', decision: 'block', tool: 'Bash', reason: 'rm -rf blocked' },
+      dir,
+    );
+    appendAuditEvent(
+      {
+        source: 'secrets',
+        decision: 'block',
+        tool: 'Write',
+        reason: 'API key detected',
+        path: 'config.ts',
+      },
+      dir,
+    );
     try {
       await fn(dir);
     } finally {
@@ -148,9 +185,9 @@ describe('declared-but-ignored flags', () => {
   it('security audit lists every seeded event when unfiltered', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
     await withSeededAuditLog(async (dir) => {
-      await auditCommand.action!({ flags: {}, args: [], cwd: dir } as never);
+      await auditCommand.action?.({ flags: {}, args: [], cwd: dir } as never);
     });
-    const sources = (tables.at(-1) ?? []).map(r => String(r.source)).sort();
+    const sources = (tables.at(-1) ?? []).map((r) => String(r.source)).sort();
     // Baseline for the filter test below: without --filter both are present.
     expect(sources).toEqual(['destructive-ops', 'secrets']);
   });
@@ -158,36 +195,44 @@ describe('declared-but-ignored flags', () => {
   it('security audit --filter narrows the log to matching events', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
     await withSeededAuditLog(async (dir) => {
-      await auditCommand.action!({ flags: { filter: 'secrets' }, args: [], cwd: dir } as never);
+      await auditCommand.action?.({ flags: { filter: 'secrets' }, args: [], cwd: dir } as never);
     });
-    const sources = (tables.at(-1) ?? []).map(r => String(r.source));
+    const sources = (tables.at(-1) ?? []).map((r) => String(r.source));
     expect(sources).toEqual(['secrets']);
   });
 
   it('security audit --filter matches case-insensitively', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
     await withSeededAuditLog(async (dir) => {
-      await auditCommand.action!({ flags: { filter: 'DESTRUCTIVE' }, args: [], cwd: dir } as never);
+      await auditCommand.action?.({
+        flags: { filter: 'DESTRUCTIVE' },
+        args: [],
+        cwd: dir,
+      } as never);
     });
-    expect((tables.at(-1) ?? []).map(r => String(r.source))).toEqual(['destructive-ops']);
+    expect((tables.at(-1) ?? []).map((r) => String(r.source))).toEqual(['destructive-ops']);
   });
 
   it('security audit --filter reports when nothing matches', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
     await withSeededAuditLog(async (dir) => {
-      await auditCommand.action!({ flags: { filter: 'NOSUCHEVENT' }, args: [], cwd: dir } as never);
+      await auditCommand.action?.({
+        flags: { filter: 'NOSUCHEVENT' },
+        args: [],
+        cwd: dir,
+      } as never);
     });
-    expect(lines.some(l => /No audit events match "NOSUCHEVENT"/.test(l))).toBe(true);
+    expect(lines.some((l) => /No audit events match "NOSUCHEVENT"/.test(l))).toBe(true);
     expect(tables).toEqual([]);
   });
 
   it('security audit --action log tails the real event log', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
     await withSeededAuditLog(async (dir) => {
-      await auditCommand.action!({ flags: { action: 'log' }, args: [], cwd: dir } as never);
+      await auditCommand.action?.({ flags: { action: 'log' }, args: [], cwd: dir } as never);
     });
-    expect(lines.some(l => /destructive-ops.*block/.test(l))).toBe(true);
-    expect(lines.some(l => /secrets.*block/.test(l))).toBe(true);
+    expect(lines.some((l) => /destructive-ops.*block/.test(l))).toBe(true);
+    expect(lines.some((l) => /secrets.*block/.test(l))).toBe(true);
   });
 
   it('security audit --action export writes the filtered log to the given path', async () => {
@@ -196,20 +241,25 @@ describe('declared-but-ignored flags', () => {
     const path = await import('node:path');
     await withSeededAuditLog(async (dir) => {
       const out = path.join(dir, 'exported.jsonl');
-      const res = await auditCommand.action!({ flags: { action: 'export', output: out }, args: [], cwd: dir } as never) as
-        { success: boolean; data?: { written: number } };
+      const res = (await auditCommand.action?.({
+        flags: { action: 'export', output: out },
+        args: [],
+        cwd: dir,
+      } as never)) as { success: boolean; data?: { written: number } };
       expect(res.success).toBe(true);
       expect(res.data?.written).toBe(2);
       const exported = fs.readFileSync(out, 'utf8').trim().split('\n');
       expect(exported).toHaveLength(2);
-      expect(exported.every(l => JSON.parse(l).source)).toBe(true);
+      expect(exported.every((l) => JSON.parse(l).source)).toBe(true);
     });
   });
 
   it('security audit --action export requires --output', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    const res = await auditCommand.action!({ flags: { action: 'export' }, args: [] } as never) as
-      { success: boolean; exitCode?: number };
+    const res = (await auditCommand.action?.({
+      flags: { action: 'export' },
+      args: [],
+    } as never)) as { success: boolean; exitCode?: number };
     expect(res.success).toBe(false);
     expect(res.exitCode).toBe(1);
   });
@@ -221,8 +271,11 @@ describe('declared-but-ignored flags', () => {
     await withSeededAuditLog(async (dir) => {
       const { file } = resolveAuditLogPaths(dir);
       expect(fs.existsSync(file)).toBe(true);
-      const res = await auditCommand.action!({ flags: { action: 'clear' }, args: [], cwd: dir } as never) as
-        { success: boolean; data?: { cleared: number; archived: string } };
+      const res = (await auditCommand.action?.({
+        flags: { action: 'clear' },
+        args: [],
+        cwd: dir,
+      } as never)) as { success: boolean; data?: { cleared: number; archived: string } };
       expect(res.success).toBe(true);
       expect(res.data?.cleared).toBe(2);
       expect(res.data?.archived && fs.existsSync(res.data.archived)).toBe(true);
@@ -238,8 +291,11 @@ describe('declared-but-ignored flags', () => {
     const path = await import('node:path');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-log-empty-'));
     try {
-      const res = await auditCommand.action!({ flags: { action: 'clear' }, args: [], cwd: dir } as never) as
-        { success: boolean; data?: { cleared: number } };
+      const res = (await auditCommand.action?.({
+        flags: { action: 'clear' },
+        args: [],
+        cwd: dir,
+      } as never)) as { success: boolean; data?: { cleared: number } };
       expect(res.success).toBe(true);
       expect(res.data?.cleared).toBe(0);
     } finally {
@@ -249,8 +305,10 @@ describe('declared-but-ignored flags', () => {
 
   it('security audit --action nonsense is rejected', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    const res = await auditCommand.action!({ flags: { action: 'nonsense' }, args: [] } as never) as
-      { success: boolean; exitCode?: number; message?: string };
+    const res = (await auditCommand.action?.({
+      flags: { action: 'nonsense' },
+      args: [],
+    } as never)) as { success: boolean; exitCode?: number; message?: string };
     expect(res.success).toBe(false);
     expect(res.exitCode).toBe(1);
     expect(res.message).toBe('Unsupported action: nonsense');
@@ -258,13 +316,13 @@ describe('declared-but-ignored flags', () => {
 
   it('security audit --action list is accepted', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    const res = await auditCommand.action!({ flags: { action: 'list' }, args: [] } as never);
+    const res = await auditCommand.action?.({ flags: { action: 'list' }, args: [] } as never);
     expect(res).toMatchObject({ success: true });
   });
 
   it('security audit with no --action is accepted', async () => {
     const { auditCommand } = await import('../commands/security-misc.js');
-    const res = await auditCommand.action!({ flags: {}, args: [] } as never);
+    const res = await auditCommand.action?.({ flags: {}, args: [] } as never);
     expect(res).toMatchObject({ success: true });
   });
 });
@@ -277,10 +335,16 @@ describe('browse workflow run --items', () => {
 
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'wf-items-'));
     const itemsPath = path.join(dir, 'items.json');
-    await fs.writeFile(itemsPath, JSON.stringify([{ data: { a: 1 } }, { data: { a: 2 } }, { a: 3 }]));
+    await fs.writeFile(
+      itemsPath,
+      JSON.stringify([{ data: { a: 1 } }, { data: { a: 2 } }, { a: 3 }]),
+    );
 
     const runWorkflow = vi.fn(async (_wf: unknown, _opts: unknown) => ({
-      status: 'completed', itemsProcessed: 3, startedAt: 0, completedAt: 1,
+      status: 'completed',
+      itemsProcessed: 3,
+      startedAt: 0,
+      completedAt: 1,
     }));
 
     vi.doMock('../browser/workflow/store.js', () => ({
@@ -294,10 +358,10 @@ describe('browse workflow run --items', () => {
     try {
       vi.resetModules();
       const { browseWorkflowCommand } = await import('../commands/browse-workflow.js');
-      const run = browseWorkflowCommand.subcommands?.find(s => s.name === 'run');
+      const run = browseWorkflowCommand.subcommands?.find((s) => s.name === 'run');
       expect(run?.action).toBeDefined();
 
-      await run!.action!({
+      await run?.action?.({
         flags: { 'no-dashboard': true, items: itemsPath },
         args: ['wf.json'],
         cwd: dir,
@@ -319,10 +383,14 @@ describe('browse workflow run --items', () => {
 });
 
 describe('agent health --watch', () => {
-  afterEach(() => { vi.doUnmock('../mcp-client.js'); vi.resetModules(); });
+  afterEach(() => {
+    vi.doUnmock('../mcp-client.js');
+    vi.resetModules();
+  });
 
   const EMPTY_HEALTH = {
-    agents: [], overall: { healthy: 0, degraded: 0, unhealthy: 0, avgCpu: 0, avgMemory: 0 },
+    agents: [],
+    overall: { healthy: 0, degraded: 0, unhealthy: 0, avgCpu: 0, avgMemory: 0 },
   };
 
   it('keeps refreshing until interrupted instead of rendering once and exiting', async () => {
@@ -341,13 +409,13 @@ describe('agent health --watch', () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     try {
-      const pending = healthCommand.action!({ flags: { watch: true }, args: [] } as never);
+      const pending = healthCommand.action?.({ flags: { watch: true }, args: [] } as never);
 
       // Regression: --watch was never read, so the action resolved immediately
       // after a single render. A watch loop must still be running here.
       const settled = await Promise.race([
         pending.then(() => 'resolved'),
-        new Promise(r => setTimeout(() => r('still-watching'), 150)),
+        new Promise((r) => setTimeout(() => r('still-watching'), 150)),
       ]);
       expect(settled).toBe('still-watching');
 
@@ -372,7 +440,11 @@ describe('agent health --watch', () => {
       vi.spyOn(output, 'printBox').mockImplementation(() => {}),
     ];
     try {
-      await expect(healthCommand.action!({ flags: {}, args: [] } as never)).resolves.toMatchObject({ success: true });
+      await expect(healthCommand.action?.({ flags: {}, args: [] } as never)).resolves.toMatchObject(
+        {
+          success: true,
+        },
+      );
       expect(callMCPTool).toHaveBeenCalledTimes(1);
     } finally {
       for (const s of quiet) s.mockRestore();
@@ -408,24 +480,29 @@ describe('browser tools without an open session', () => {
     const failures: string[] = [];
 
     for (const name of NEEDS_SESSION) {
-      const tool = browserTools.find(t => t.name === name);
+      const tool = browserTools.find((t) => t.name === name);
       if (!tool) continue;
       const args: Record<string, unknown> = {};
       for (const key of tool.inputSchema.required ?? []) args[key] = 'x';
       try {
         await tool.handler(args, undefined);
       } catch (e) {
-        failures.push(`${name}: ${(e as Error).constructor.name}: ${(e as Error).message.slice(0, 80)}`);
+        failures.push(
+          `${name}: ${(e as Error).constructor.name}: ${(e as Error).message.slice(0, 80)}`,
+        );
       }
     }
 
-    expect(failures, `these threw instead of returning an error result:\n${failures.join('\n')}`).toEqual([]);
+    expect(
+      failures,
+      `these threw instead of returning an error result:\n${failures.join('\n')}`,
+    ).toEqual([]);
   }, 60_000);
 
   it('browser_session-list reports no sessions rather than failing', async () => {
     const { browserTools } = await import('../mcp-tools/browser-tools.js');
-    const tool = browserTools.find(t => t.name === 'browser_session-list');
+    const tool = browserTools.find((t) => t.name === 'browser_session-list');
     expect(tool).toBeDefined();
-    await expect(tool!.handler({}, undefined)).resolves.toBeDefined();
+    await expect(tool?.handler({}, undefined)).resolves.toBeDefined();
   });
 });

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { taskTools } from '../mcp-tools/task-tools.js';
 
 // Regression test for a real data-loss bug found during a catch{}-block audit:
@@ -26,7 +26,9 @@ describe('task_assign does not wipe a corrupt/oversized agent store on read fail
 
   function taskCreate() {
     const create = taskTools.find((t) => t.name === 'task_create')!;
-    return create.handler({ type: 'feature', description: 'test task' }, {} as never) as Promise<{ taskId: string }>;
+    return create.handler({ type: 'feature', description: 'test task' }, {} as never) as Promise<{
+      taskId: string;
+    }>;
   }
 
   function taskAssign(taskId: string, agentIds: string[]) {

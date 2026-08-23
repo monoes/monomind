@@ -6,8 +6,11 @@
 //   - Bulk update cap enforcement
 //   - Compatibility matrix / breaking change detection (functional, not security)
 
-import { describe, it, expect } from 'vitest';
-import { validateUpdate, validateBulkUpdate } from '../../packages/@monomind/cli/src/update/validator.js';
+import { describe, expect, it } from 'vitest';
+import {
+  validateBulkUpdate,
+  validateUpdate,
+} from '../../packages/@monomind/cli/src/update/validator.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -123,7 +126,7 @@ describe('validateUpdate — version format validation', () => {
   });
 
   it('rejects oversized version string (>64 chars)', () => {
-    const long = '1.0.' + '0'.repeat(62);
+    const long = `1.0.${'0'.repeat(62)}`;
     expect(v('monomind', '1.0.0', long).valid).toBe(false);
   });
 
@@ -159,9 +162,7 @@ describe('validateUpdate — compatibility checks', () => {
       '@monoes/monomindcli': '1.5.0',
     });
     expect(r.valid).toBe(false);
-    expect(
-      r.incompatibilities.some((i) => i.includes('@monoes/monomindcli'))
-    ).toBe(true);
+    expect(r.incompatibilities.some((i) => i.includes('@monoes/monomindcli'))).toBe(true);
   });
 
   it('passes when installed deps satisfy requirements', () => {
@@ -199,15 +200,15 @@ describe('validateBulkUpdate', () => {
   });
 
   it('rejects non-array input', () => {
-    const r = validateBulkUpdate('not-an-array' as unknown as Array<{ package: string; from: string; to: string }>, {});
+    const r = validateBulkUpdate(
+      'not-an-array' as unknown as Array<{ package: string; from: string; to: string }>,
+      {},
+    );
     expect(r.valid).toBe(false);
   });
 
   it('propagates single-update validation failures', () => {
-    const r = validateBulkUpdate(
-      [{ package: '; rm -rf /', from: '1.0.0', to: '1.0.1' }],
-      {}
-    );
+    const r = validateBulkUpdate([{ package: '; rm -rf /', from: '1.0.0', to: '1.0.1' }], {});
     expect(r.valid).toBe(false);
   });
 });

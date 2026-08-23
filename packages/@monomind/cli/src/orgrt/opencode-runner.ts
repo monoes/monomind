@@ -36,8 +36,15 @@
  *     clear actionable error instead of crashing at import time.
  */
 
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
 
 /** How long a single prompt() call may block before we give up (2 hours —
  *  org turns with tool loops are long). Also drives the undici dispatcher's
@@ -59,7 +66,7 @@ export class OpencodeAgentRunner implements AgentRunner {
     } catch {
       throw new Error(
         'OpencodeAgentRunner requires @opencode-ai/sdk. Install it (npm i @opencode-ai/sdk) ' +
-        'and ensure opencode is available, or unset MONOMIND_RUNTIME to use the Claude runner.'
+          'and ensure opencode is available, or unset MONOMIND_RUNTIME to use the Claude runner.',
       );
     }
 
@@ -70,11 +77,15 @@ export class OpencodeAgentRunner implements AgentRunner {
     try {
       const undiciMod = 'undici';
       const undici: any = await import(/* @vite-ignore */ undiciMod);
-      undici.setGlobalDispatcher(new undici.Agent({
-        headersTimeout: TURN_TIMEOUT_MS,
-        bodyTimeout: 0,
-      }));
-    } catch { /* library default applies */ }
+      undici.setGlobalDispatcher(
+        new undici.Agent({
+          headersTimeout: TURN_TIMEOUT_MS,
+          bodyTimeout: 0,
+        }),
+      );
+    } catch {
+      /* library default applies */
+    }
 
     // Connect: either attach to a running server (opencodeUrl / OPENCODE_URL)
     // or spawn an ephemeral one. Spawning per role keeps org roles isolated
@@ -86,7 +97,9 @@ export class OpencodeAgentRunner implements AgentRunner {
       client = sdk.createOpencodeClient({ baseUrl: attachUrl, directory: args.cwd });
     } else {
       if (typeof sdk.createOpencode !== 'function') {
-        throw new Error('OpencodeAgentRunner: @opencode-ai/sdk has no createOpencode — check the SDK version.');
+        throw new Error(
+          'OpencodeAgentRunner: @opencode-ai/sdk has no createOpencode — check the SDK version.',
+        );
       }
       // The SDK's default server-start timeout is 5s — too tight for a cold
       // machine (first spawn of the opencode binary can take longer, and a
@@ -105,15 +118,18 @@ export class OpencodeAgentRunner implements AgentRunner {
       const created = await client.session.create({ body: { title: 'monomind-org-role' } });
       const sessionId: string = created?.data?.id ?? created?.id;
       if (!sessionId) {
-        throw new Error('OpencodeAgentRunner: session.create returned no id — check the opencode server is healthy.');
+        throw new Error(
+          'OpencodeAgentRunner: session.create returned no id — check the opencode server is healthy.',
+        );
       }
 
       // Model: AgentRunArgs.model is "provider/model" (e.g.
       // "anthropic/claude-sonnet-4"); the SDK wants the two halves separate.
       const modelParts = typeof args.model === 'string' ? args.model.split('/') : [];
-      const model = modelParts.length >= 2
-        ? { providerID: modelParts[0], modelID: modelParts.slice(1).join('/') }
-        : undefined;
+      const model =
+        modelParts.length >= 2
+          ? { providerID: modelParts[0], modelID: modelParts.slice(1).join('/') }
+          : undefined;
 
       for await (const p of args.prompt) {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
@@ -144,8 +160,13 @@ export class OpencodeAgentRunner implements AgentRunner {
             .filter((pt) => pt?.type === 'text' && typeof pt.text === 'string')
             .map((pt) => String(pt.text));
 
-          const tokens = (info.tokens ?? {}) as { input?: number; output?: number; cache?: { read?: number; write?: number } };
-          turnInputTokens += (tokens.input ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0);
+          const tokens = (info.tokens ?? {}) as {
+            input?: number;
+            output?: number;
+            cache?: { read?: number; write?: number };
+          };
+          turnInputTokens +=
+            (tokens.input ?? 0) + (tokens.cache?.read ?? 0) + (tokens.cache?.write ?? 0);
           turnOutputTokens += tokens.output ?? 0;
           turnCost += typeof info.cost === 'number' ? info.cost : 0;
 
@@ -155,9 +176,11 @@ export class OpencodeAgentRunner implements AgentRunner {
           }
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(texts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
+          const calls = parseToolCalls(texts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
           for (const note of malformed) {
             yield { type: 'assistant', session_id: sessionId, text: note };
           }
@@ -193,7 +216,11 @@ export class OpencodeAgentRunner implements AgentRunner {
     } finally {
       // Termination path: close the ephemeral server we spawned. (Attached
       // servers are the user's — never close those.)
-      try { server?.close(); } catch { /* best-effort */ }
+      try {
+        server?.close();
+      } catch {
+        /* best-effort */
+      }
     }
   }
 }
@@ -201,7 +228,24 @@ export class OpencodeAgentRunner implements AgentRunner {
 /** Race a promise against a wall-clock timeout. */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`OpencodeAgentRunner: ${label} exceeded the ${Math.round(ms / 60000)}min turn timeout`)), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+    const t = setTimeout(
+      () =>
+        reject(
+          new Error(
+            `OpencodeAgentRunner: ${label} exceeded the ${Math.round(ms / 60000)}min turn timeout`,
+          ),
+        ),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
   });
 }

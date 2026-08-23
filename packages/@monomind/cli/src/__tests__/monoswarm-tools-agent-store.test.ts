@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { monoswarmTools } from '../mcp-tools/monoswarm-tools.js';
 import { getMonomindDataRoot } from '../mcp-tools/types.js';
 
@@ -42,7 +42,10 @@ describe('monoswarm_agent_add / monoswarm_shutdown do not wipe a corrupt agent s
     const { path, content } = corruptAgentStore();
     const add = monoswarmTools.find((t) => t.name === 'monoswarm_agent_add')!;
 
-    const result = (await add.handler({ count: 1 }, {} as never)) as { success: boolean; error?: string };
+    const result = (await add.handler({ count: 1 }, {} as never)) as {
+      success: boolean;
+      error?: string;
+    };
 
     expect(result.success).toBe(false);
     expect(readFileSync(path, 'utf-8')).toBe(content);
@@ -55,7 +58,10 @@ describe('monoswarm_agent_add / monoswarm_shutdown do not wipe a corrupt agent s
     const { path, content } = corruptAgentStore();
     const shutdown = monoswarmTools.find((t) => t.name === 'monoswarm_shutdown')!;
 
-    const result = (await shutdown.handler({ force: true }, {} as never)) as { success: boolean; error?: string };
+    const result = (await shutdown.handler({ force: true }, {} as never)) as {
+      success: boolean;
+      error?: string;
+    };
 
     expect(result.success).toBe(false);
     expect(readFileSync(path, 'utf-8')).toBe(content);

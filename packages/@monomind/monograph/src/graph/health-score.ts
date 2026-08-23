@@ -1,16 +1,16 @@
 import type Database from 'better-sqlite3';
 
 export interface HealthScorePenalties {
-  unreachableFilePct: number;   // % of file nodes unreachable
-  godNodePct: number;           // % of nodes that are god nodes (degree > p95)
-  circularEdgePct: number;      // % of edges that form cycles
-  hotspotPct: number;           // % of files with churnScore > 0.5
-  isolatedNodePct: number;      // % of nodes with degree 0
+  unreachableFilePct: number; // % of file nodes unreachable
+  godNodePct: number; // % of nodes that are god nodes (degree > p95)
+  circularEdgePct: number; // % of edges that form cycles
+  hotspotPct: number; // % of files with churnScore > 0.5
+  isolatedNodePct: number; // % of nodes with degree 0
   crossCommunityEdgePct: number; // % of edges crossing community boundaries
 }
 
 export interface HealthScoreResult {
-  score: number;       // 0-100
+  score: number; // 0-100
   grade: 'A' | 'B' | 'C' | 'D' | 'F';
   penalties: HealthScorePenalties;
   summary: string;
@@ -26,15 +26,17 @@ export function letterGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
 
 export function computeHealthScore(db: Database.Database): HealthScoreResult {
   // ── Total file nodes ──────────────────────────────────────────────────────
-  const totalFilesRow = db.prepare(
-    "SELECT COUNT(*) as c FROM nodes WHERE label = 'File'"
-  ).get() as { c: number };
+  const totalFilesRow = db
+    .prepare("SELECT COUNT(*) as c FROM nodes WHERE label = 'File'")
+    .get() as { c: number };
   const totalFiles = totalFilesRow.c;
 
   // ── Unreachable file nodes ────────────────────────────────────────────────
-  const unreachableRow = db.prepare(
-    "SELECT COUNT(*) as c FROM nodes WHERE label = 'File' AND json_extract(properties, '$.unreachable') = 1"
-  ).get() as { c: number };
+  const unreachableRow = db
+    .prepare(
+      "SELECT COUNT(*) as c FROM nodes WHERE label = 'File' AND json_extract(properties, '$.unreachable') = 1",
+    )
+    .get() as { c: number };
   const unreachableFiles = unreachableRow.c;
 
   // ── Total nodes ───────────────────────────────────────────────────────────
@@ -43,64 +45,71 @@ export function computeHealthScore(db: Database.Database): HealthScoreResult {
 
   // ── p95 degree (god nodes) ────────────────────────────────────────────────
   // Compute per-node total degree (in + out) entirely in SQL
-  const degreeRows = db.prepare(`
+  const degreeRows = db
+    .prepare(`
     SELECT node_id, SUM(cnt) AS degree FROM (
       SELECT source_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY source_id
       UNION ALL
       SELECT target_id AS node_id, COUNT(*) AS cnt FROM edges GROUP BY target_id
     ) GROUP BY node_id ORDER BY degree ASC
-  `).all() as { node_id: string; degree: number }[];
+  `)
+    .all() as { node_id: string; degree: number }[];
 
   const p95Index = Math.floor(degreeRows.length * 0.95);
   const p95Degree = degreeRows[p95Index]?.degree ?? 0;
 
-  const godNodeCount = p95Degree > 0
-    ? degreeRows.filter(r => r.degree > p95Degree).length
-    : 0;
+  const godNodeCount = p95Degree > 0 ? degreeRows.filter((r) => r.degree > p95Degree).length : 0;
 
   // ── Circular edges (bidirectional import pairs) ───────────────────────────
   const totalEdgesRow = db.prepare('SELECT COUNT(*) as c FROM edges').get() as { c: number };
   const totalEdges = totalEdgesRow.c;
 
-  const circularRow = db.prepare(`
+  const circularRow = db
+    .prepare(`
     SELECT COUNT(*) as c FROM edges e1
     JOIN edges e2 ON e1.source_id = e2.target_id AND e1.target_id = e2.source_id
     WHERE e1.relation = 'IMPORTS' AND e2.relation = 'IMPORTS'
       AND e1.source_id < e1.target_id
-  `).get() as { c: number };
+  `)
+    .get() as { c: number };
   // Each circular pair is counted once; each pair has 2 edges contributing
   const circularEdges = circularRow.c * 2;
 
   // ── Hotspot files (churnScore > 0.5 in properties) ───────────────────────
   // Push the numeric filter into SQLite via json_extract() — avoids O(N) JS JSON.parse loop
-  const hotspotRow = db.prepare(`
+  const hotspotRow = db
+    .prepare(`
     SELECT COUNT(*) as c FROM nodes
     WHERE label = 'File'
       AND CAST(json_extract(properties, '$.churnScore') AS REAL) > 0.5
-  `).get() as { c: number };
+  `)
+    .get() as { c: number };
   const hotspotCount = hotspotRow.c;
 
   // ── Isolated nodes (degree = 0) ───────────────────────────────────────────
-  const isolatedRow = db.prepare(`
+  const isolatedRow = db
+    .prepare(`
     SELECT COUNT(*) as c FROM nodes n
     WHERE NOT EXISTS (SELECT 1 FROM edges e WHERE e.source_id = n.id OR e.target_id = n.id)
-  `).get() as { c: number };
+  `)
+    .get() as { c: number };
   const isolatedNodes = isolatedRow.c;
 
   // ── Cross-community edges ─────────────────────────────────────────────────
-  const crossCommRow = db.prepare(`
+  const crossCommRow = db
+    .prepare(`
     SELECT COUNT(*) as c FROM edges e
     JOIN nodes n1 ON n1.id = e.source_id
     JOIN nodes n2 ON n2.id = e.target_id
     WHERE n1.community_id IS NOT NULL
       AND n2.community_id IS NOT NULL
       AND n1.community_id != n2.community_id
-  `).get() as { c: number };
+  `)
+    .get() as { c: number };
   const crossCommunityEdges = crossCommRow.c;
 
   // ── Compute percentages ───────────────────────────────────────────────────
-  const pct = (count: number, total: number): number =>
-    total > 0 ? (count / total) * 100 : 0;
+  const pct = (count: number, total: number): number => (total > 0 ? (count / total) * 100 : 0);
 
   const penalties: HealthScorePenalties = {
     unreachableFilePct: pct(unreachableFiles, totalFiles),
@@ -114,11 +123,11 @@ export function computeHealthScore(db: Database.Database): HealthScoreResult {
   // ── Score formula ─────────────────────────────────────────────────────────
   let score = 100;
   score -= Math.min(penalties.unreachableFilePct * 0.25, 25);
-  score -= Math.min(penalties.godNodePct * 0.20, 20);
-  score -= Math.min(penalties.circularEdgePct * 0.20, 20);
+  score -= Math.min(penalties.godNodePct * 0.2, 20);
+  score -= Math.min(penalties.circularEdgePct * 0.2, 20);
   score -= Math.min(penalties.hotspotPct * 0.15, 15);
-  score -= Math.min(penalties.isolatedNodePct * 0.10, 10);
-  score -= Math.min(penalties.crossCommunityEdgePct * 0.10, 10);
+  score -= Math.min(penalties.isolatedNodePct * 0.1, 10);
+  score -= Math.min(penalties.crossCommunityEdgePct * 0.1, 10);
   score = Math.max(0, Math.round(score * 10) / 10);
 
   const grade = letterGrade(score);
@@ -128,11 +137,11 @@ export function computeHealthScore(db: Database.Database): HealthScoreResult {
     `Grade: ${grade} (score: ${score}/100)`,
     `Penalties:`,
     `  unreachable files: ${fmt(penalties.unreachableFilePct, Math.min(penalties.unreachableFilePct * 0.25, 25))}`,
-    `  god nodes: ${fmt(penalties.godNodePct, Math.min(penalties.godNodePct * 0.20, 20))}`,
-    `  circular edges: ${fmt(penalties.circularEdgePct, Math.min(penalties.circularEdgePct * 0.20, 20))}`,
+    `  god nodes: ${fmt(penalties.godNodePct, Math.min(penalties.godNodePct * 0.2, 20))}`,
+    `  circular edges: ${fmt(penalties.circularEdgePct, Math.min(penalties.circularEdgePct * 0.2, 20))}`,
     `  hotspot files: ${fmt(penalties.hotspotPct, Math.min(penalties.hotspotPct * 0.15, 15))}`,
-    `  isolated nodes: ${fmt(penalties.isolatedNodePct, Math.min(penalties.isolatedNodePct * 0.10, 10))}`,
-    `  cross-community edges: ${fmt(penalties.crossCommunityEdgePct, Math.min(penalties.crossCommunityEdgePct * 0.10, 10))}`,
+    `  isolated nodes: ${fmt(penalties.isolatedNodePct, Math.min(penalties.isolatedNodePct * 0.1, 10))}`,
+    `  cross-community edges: ${fmt(penalties.crossCommunityEdgePct, Math.min(penalties.crossCommunityEdgePct * 0.1, 10))}`,
   ].join('\n');
 
   return { score, grade, penalties, summary };
@@ -166,9 +175,14 @@ export function formatHealthScore(result: HealthScoreResult): string {
   // Actionable guidance for grades below B
   if (grade === 'F' || grade === 'D') {
     lines.push('action_required: yes');
-    if (penalties.circularEdgePct > 5) lines.push('  - break circular import cycles (monograph_context for file dependencies)');
-    if (penalties.godNodePct > 5) lines.push('  - split god nodes (monograph_god_nodes for candidates)');
-    if (penalties.unreachableFilePct > 10) lines.push('  - investigate unreachable files (monograph_detect_changes to surface dead paths)');
+    if (penalties.circularEdgePct > 5)
+      lines.push('  - break circular import cycles (monograph_context for file dependencies)');
+    if (penalties.godNodePct > 5)
+      lines.push('  - split god nodes (monograph_god_nodes for candidates)');
+    if (penalties.unreachableFilePct > 10)
+      lines.push(
+        '  - investigate unreachable files (monograph_detect_changes to surface dead paths)',
+      );
   } else if (grade === 'C') {
     lines.push('action_suggested: yes');
     if (penalties.hotspotPct > 10) lines.push('  - reduce churn on hotspot files');

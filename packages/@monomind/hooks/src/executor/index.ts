@@ -5,15 +5,15 @@
  * error recovery, and result aggregation.
  */
 
+import { defaultRegistry, type HookRegistry } from '../registry/index.js';
 import type {
-  HookEvent,
   HookContext,
-  HookResult,
+  HookEntry,
+  HookEvent,
   HookExecutionOptions,
   HookExecutionResult,
-  HookEntry,
+  HookResult,
 } from '../types.js';
-import { HookRegistry, defaultRegistry } from '../registry/index.js';
 
 /**
  * Default execution options
@@ -63,7 +63,9 @@ export class HookExecutor {
       // because this package's prepublishOnly runs the build, `npm publish`
       // aborted — which is why the security-worker fix sat unpublished while
       // dist/ looked correct locally.
-      registerSecurityHooks(this.registry as unknown as Parameters<typeof registerSecurityHooks>[0]);
+      registerSecurityHooks(
+        this.registry as unknown as Parameters<typeof registerSecurityHooks>[0],
+      );
     } catch (error) {
       // monofence-ai not installed, hooks subpath unavailable, or
       // registration failed — security hooks are inactive. Log so this is
@@ -71,7 +73,7 @@ export class HookExecutor {
       console.warn(
         '[HookExecutor] Failed to register monofence-ai security hooks; ' +
           'proceeding without them:',
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
     }
   }
@@ -89,7 +91,7 @@ export class HookExecutor {
   async execute<T = unknown>(
     event: HookEvent,
     context: Partial<HookContext<T>>,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     // P3-20: ensure monofence security hooks are registered before any hook
     // dispatch, closing the race window where execute() could run in the
@@ -134,11 +136,7 @@ export class HookExecutor {
       let result: HookResult;
 
       try {
-        result = await this.executeWithTimeout(
-          hook,
-          fullContext,
-          opts.timeout
-        );
+        result = await this.executeWithTimeout(hook, fullContext, opts.timeout);
       } catch (error) {
         result = {
           success: false,
@@ -240,7 +238,7 @@ export class HookExecutor {
   private async executeWithTimeout(
     hook: HookEntry,
     context: HookContext,
-    timeout: number
+    timeout: number,
   ): Promise<HookResult> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -265,7 +263,7 @@ export class HookExecutor {
   async preToolUse(
     toolName: string,
     parameters: Record<string, unknown>,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -273,7 +271,7 @@ export class HookExecutor {
       {
         tool: { name: toolName, parameters },
       },
-      options
+      options,
     );
   }
 
@@ -284,7 +282,7 @@ export class HookExecutor {
     toolName: string,
     parameters: Record<string, unknown>,
     duration: number,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -293,7 +291,7 @@ export class HookExecutor {
         tool: { name: toolName, parameters },
         duration,
       },
-      options
+      options,
     );
   }
 
@@ -303,7 +301,7 @@ export class HookExecutor {
   async preEdit(
     filePath: string,
     operation: 'create' | 'modify' | 'delete',
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -311,7 +309,7 @@ export class HookExecutor {
       {
         file: { path: filePath, operation },
       },
-      options
+      options,
     );
   }
 
@@ -322,7 +320,7 @@ export class HookExecutor {
     filePath: string,
     operation: 'create' | 'modify' | 'delete',
     duration: number,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -331,7 +329,7 @@ export class HookExecutor {
         file: { path: filePath, operation },
         duration,
       },
-      options
+      options,
     );
   }
 
@@ -341,7 +339,7 @@ export class HookExecutor {
   async preCommand(
     command: string,
     workingDirectory?: string,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -349,7 +347,7 @@ export class HookExecutor {
       {
         command: { raw: command, workingDirectory },
       },
-      options
+      options,
     );
   }
 
@@ -361,7 +359,7 @@ export class HookExecutor {
     exitCode: number,
     output?: string,
     error?: string,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -369,7 +367,7 @@ export class HookExecutor {
       {
         command: { raw: command, exitCode, output, error },
       },
-      options
+      options,
     );
   }
 
@@ -378,7 +376,7 @@ export class HookExecutor {
    */
   async sessionStart(
     sessionId: string,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -386,7 +384,7 @@ export class HookExecutor {
       {
         session: { id: sessionId, startedAt: new Date() },
       },
-      options
+      options,
     );
   }
 
@@ -395,7 +393,7 @@ export class HookExecutor {
    */
   async sessionEnd(
     sessionId: string,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -403,7 +401,7 @@ export class HookExecutor {
       {
         session: { id: sessionId, startedAt: new Date() },
       },
-      options
+      options,
     );
   }
 
@@ -413,7 +411,7 @@ export class HookExecutor {
   async agentSpawn(
     agentId: string,
     agentType: string,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -421,7 +419,7 @@ export class HookExecutor {
       {
         agent: { id: agentId, type: agentType },
       },
-      options
+      options,
     );
   }
 
@@ -432,7 +430,7 @@ export class HookExecutor {
     agentId: string,
     agentType: string,
     status: string,
-    options?: HookExecutionOptions
+    options?: HookExecutionOptions,
   ): Promise<HookExecutionResult> {
     const { HookEvent } = await import('../types.js');
     return this.execute(
@@ -440,7 +438,7 @@ export class HookExecutor {
       {
         agent: { id: agentId, type: agentType, status },
       },
-      options
+      options,
     );
   }
 }
@@ -456,7 +454,7 @@ export const defaultExecutor = new HookExecutor();
 export async function executeHooks<T = unknown>(
   event: HookEvent,
   context: Partial<HookContext<T>>,
-  options?: HookExecutionOptions
+  options?: HookExecutionOptions,
 ): Promise<HookExecutionResult> {
   return defaultExecutor.execute(event, context, options);
 }

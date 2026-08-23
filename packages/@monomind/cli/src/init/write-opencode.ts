@@ -2,16 +2,20 @@
  * Opencode artifact writers.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type { InitOptions, InitResult } from './types.js';
-import { generateOpencodeJson, generateAgentsMd, generateHooksPlugin, generateStatusCommand, convertAgentMd, convertCommandMd, convertSkillMd, opencodeCommandFilename } from './opencode-generator.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
-  atomicWriteFile,
-  walkMdFiles,
-  isLikelyUserFile,
-  extractFmName,
-} from './shared.js';
+  convertAgentMd,
+  convertCommandMd,
+  convertSkillMd,
+  generateAgentsMd,
+  generateHooksPlugin,
+  generateOpencodeJson,
+  generateStatusCommand,
+  opencodeCommandFilename,
+} from './opencode-generator.js';
+import { atomicWriteFile, extractFmName, isLikelyUserFile, walkMdFiles } from './shared.js';
+import type { InitOptions, InitResult } from './types.js';
 
 /**
  * Write opencode artifacts. ADDITIVE — only invoked when
@@ -24,7 +28,7 @@ import {
 export async function writeOpencodeFiles(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   // opencode.json — write only if absent (or --force). Never clobber a user's
   // hand-written config; mirror writeGeminiFiles' skip-if-exists policy.
@@ -74,7 +78,9 @@ export async function writeOpencodeFiles(
   // dir (not the package source) means only the user's selected subset is
   // converted, and we never re-implement the MAP filtering logic.
   const claudeDir = path.join(targetDir, '.claude');
-  let agentCount = 0, commandCount = 0, skillCount = 0;
+  let agentCount = 0,
+    commandCount = 0,
+    skillCount = 0;
   const seenAgents = new Set<string>();
 
   // Agents → .opencode/agent/<name>.md (flattened, deduped by name)
@@ -109,7 +115,10 @@ export async function writeOpencodeFiles(
       const src = fs.readFileSync(abs, 'utf-8');
       const converted = convertCommandMd(src, category, fileBase);
       fs.mkdirSync(destCommands, { recursive: true });
-      atomicWriteFile(path.join(destCommands, opencodeCommandFilename(category, fileBase)), converted);
+      atomicWriteFile(
+        path.join(destCommands, opencodeCommandFilename(category, fileBase)),
+        converted,
+      );
       commandCount++;
     }
   }

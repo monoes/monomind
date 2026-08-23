@@ -5,7 +5,7 @@ const BASE_CONDITIONS = ['import', 'require', 'default'];
 const RN_CONDITIONS = ['react-native', 'browser', 'module'];
 
 export function hasReactNativePlugin(activePlugins: string[]): boolean {
-  return activePlugins.some(p => REACT_NATIVE_PLUGINS.some(rn => p.includes(rn)));
+  return activePlugins.some((p) => REACT_NATIVE_PLUGINS.some((rn) => p.includes(rn)));
 }
 
 export function buildExtensions(activePlugins: string[]): string[] {

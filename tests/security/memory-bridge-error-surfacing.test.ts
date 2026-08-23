@@ -11,8 +11,9 @@
  * After fix: each catch logs the real error (DEBUG/MONOMIND_DEBUG-gated)
  * before returning null. Behavior contract unchanged; observability added.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import { readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as bridge from '../../packages/@monomind/cli/src/memory/memory-bridge.js';
 
 const ORIGINAL_DEBUG = process.env.DEBUG;
@@ -78,7 +79,7 @@ describe('R1 — memory-bridge surfaces errors instead of swallowing', () => {
     // tested nothing. The real contract: the function never throws AND
     // never returns { success: true, deleted: true } for a corrupt store.
     const result = await bridge.bridgeDeleteEntry({
-      key: 'r1-probe-' + Date.now(),
+      key: `r1-probe-${Date.now()}`,
       namespace: 'r1-test',
       dbPath: '/this/path/does/not/exist/and/parent/missing.db',
     });
@@ -88,12 +89,12 @@ describe('R1 — memory-bridge surfaces errors instead of swallowing', () => {
     }
     // If console.error was called (DEBUG is set), every logged message
     // from the bridge must use the greppable label format.
-    const bridgeCalls = errSpy.mock.calls.filter(c =>
-      String(c[0] || '').includes('[bridge:') || String(c[0] || '').includes('[memory-bridge]')
+    const bridgeCalls = errSpy.mock.calls.filter(
+      (c) =>
+        String(c[0] || '').includes('[bridge:') || String(c[0] || '').includes('[memory-bridge]'),
     );
     for (const call of bridgeCalls) {
       expect(String(call[0])).toMatch(/\[(?:bridge:|memory-bridge)/);
     }
   });
 });
-

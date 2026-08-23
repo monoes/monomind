@@ -14,24 +14,30 @@
  * Uses vitest globals. Temp directories via mkdtempSync / rmSync.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-
-import { MemoryMigrator } from '../../packages/@monomind/memory/src/migration.js';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { KnowledgeStore } from '../../packages/@monomind/memory/src/knowledge/knowledge-store.js';
+import { MemoryMigrator } from '../../packages/@monomind/memory/src/migration.js';
 import { PromptVersionStore } from '../../packages/@monomind/memory/src/prompt-version-store.js';
 import type {
+  BackendStats,
+  HealthCheckResult,
   IMemoryBackend,
   MemoryEntry,
   MemoryEntryUpdate,
   MemoryQuery,
   SearchOptions,
   SearchResult,
-  BackendStats,
-  HealthCheckResult,
 } from '../../packages/@monomind/memory/src/types.js';
 
 /** Minimal in-memory IMemoryBackend — records stores, counts shutdowns. */
@@ -40,8 +46,12 @@ class FakeBackend implements IMemoryBackend {
   shutdownCalls = 0;
 
   async initialize(): Promise<void> {}
-  async shutdown(): Promise<void> { this.shutdownCalls++; }
-  async store(entry: MemoryEntry): Promise<void> { this.stored.push(entry); }
+  async shutdown(): Promise<void> {
+    this.shutdownCalls++;
+  }
+  async store(entry: MemoryEntry): Promise<void> {
+    this.stored.push(entry);
+  }
   async get(id: string): Promise<MemoryEntry | null> {
     return this.stored.find((e) => e.id === id) ?? null;
   }
@@ -59,16 +69,24 @@ class FakeBackend implements IMemoryBackend {
     this.stored = this.stored.filter((e) => e.id !== id);
     return this.stored.length < before;
   }
-  async query(_query: MemoryQuery): Promise<MemoryEntry[]> { return this.stored; }
-  async search(_embedding: Float32Array, _options: SearchOptions): Promise<SearchResult[]> { return []; }
-  async bulkInsert(entries: MemoryEntry[]): Promise<void> { this.stored.push(...entries); }
+  async query(_query: MemoryQuery): Promise<MemoryEntry[]> {
+    return this.stored;
+  }
+  async search(_embedding: Float32Array, _options: SearchOptions): Promise<SearchResult[]> {
+    return [];
+  }
+  async bulkInsert(entries: MemoryEntry[]): Promise<void> {
+    this.stored.push(...entries);
+  }
   async bulkDelete(ids: string[]): Promise<number> {
     const before = this.stored.length;
     this.stored = this.stored.filter((e) => !ids.includes(e.id));
     return before - this.stored.length;
   }
   async count(namespace?: string): Promise<number> {
-    return namespace ? this.stored.filter((e) => e.namespace === namespace).length : this.stored.length;
+    return namespace
+      ? this.stored.filter((e) => e.namespace === namespace).length
+      : this.stored.length;
   }
   async listNamespaces(): Promise<string[]> {
     return [...new Set(this.stored.map((e) => e.namespace))];
@@ -186,12 +204,16 @@ describe('#90 atomic JSONL rewrites', () => {
     expect(existsSync(metadataPath)).toBe(true);
 
     // Every line must still parse — a truncated rewrite would throw here.
-    const metadata = readFileSync(metadataPath, 'utf-8').split('\n').filter(Boolean)
+    const metadata = readFileSync(metadataPath, 'utf-8')
+      .split('\n')
+      .filter(Boolean)
       .map((line) => JSON.parse(line));
     expect(metadata).toHaveLength(1);
     expect(metadata[0].filePath).toBe(docB);
 
-    const chunks = readFileSync(chunksPath, 'utf-8').split('\n').filter(Boolean)
+    const chunks = readFileSync(chunksPath, 'utf-8')
+      .split('\n')
+      .filter(Boolean)
       .map((line) => JSON.parse(line));
     expect(chunks.length).toBeGreaterThan(0);
     for (const chunk of chunks) {
@@ -227,12 +249,16 @@ describe('#90 atomic JSONL rewrites', () => {
     store.updateQualityScore('coder', 'v1', 0.9);
     store.concludeExperiment('coder', 'v1');
 
-    const versions = readFileSync(join(dir, 'versions.jsonl'), 'utf-8').split('\n').filter(Boolean)
+    const versions = readFileSync(join(dir, 'versions.jsonl'), 'utf-8')
+      .split('\n')
+      .filter(Boolean)
       .map((line) => JSON.parse(line));
     expect(versions).toHaveLength(1);
     expect(versions[0].qualityScore).toBe(0.9);
 
-    const experiments = readFileSync(join(dir, 'experiments.jsonl'), 'utf-8').split('\n').filter(Boolean)
+    const experiments = readFileSync(join(dir, 'experiments.jsonl'), 'utf-8')
+      .split('\n')
+      .filter(Boolean)
       .map((line) => JSON.parse(line));
     expect(experiments).toHaveLength(1);
     expect(experiments[0].winnerId).toBe('v1');

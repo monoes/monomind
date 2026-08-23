@@ -11,7 +11,7 @@
  * @module v1/cli/intelligence
  */
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { cosineSimilarity as sharedCosineSimilarity } from '../utils/cosine-similarity.js';
@@ -215,7 +215,7 @@ const DEFAULT_SONA_CONFIG: SonaConfig = {
   maxTrajectorySize: 100,
   patternThreshold: 0.7,
   maxSignals: 10000,
-  maxPatterns: 5000
+  maxPatterns: 5000,
 };
 
 // ============================================================================
@@ -266,7 +266,11 @@ class LocalSonaCoordinator {
   /**
    * Record complete trajectory
    */
-  recordTrajectory(trajectory: { steps: TrajectoryStep[]; verdict: string; timestamp: number }): void {
+  recordTrajectory(trajectory: {
+    steps: TrajectoryStep[];
+    verdict: string;
+    timestamp: number;
+  }): void {
     this.trajectories.push(trajectory);
     if (this.trajectories.length > this.config.maxTrajectorySize) {
       this.trajectories.shift();
@@ -318,12 +322,12 @@ class LocalSonaCoordinator {
    */
   async endTrajectory(
     verdict: 'success' | 'failure' | 'partial',
-    bank: LocalReasoningBank
+    bank: LocalReasoningBank,
   ): Promise<{ reward: number; patternsUpdated: number }> {
     const rewardMap: Record<string, number> = {
       success: 1.0,
       partial: 0.5,
-      failure: -0.5
+      failure: -0.5,
     };
     const reward = rewardMap[verdict] ?? 0;
 
@@ -331,13 +335,13 @@ class LocalSonaCoordinator {
     const completedTrajectory = {
       steps: [...this.currentTrajectorySteps],
       verdict,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     this.recordTrajectory(completedTrajectory);
 
     // Update pattern confidences based on reward
     let patternsUpdated = 0;
-    const allPatterns = bank.getAll();
+    const _allPatterns = bank.getAll();
 
     for (const step of this.currentTrajectorySteps) {
       if (!step.embedding || step.embedding.length === 0) continue;
@@ -345,7 +349,7 @@ class LocalSonaCoordinator {
       // Find patterns similar to this trajectory step
       const similar = bank.findSimilar(step.embedding, {
         k: 3,
-        threshold: 0.3
+        threshold: 0.3,
       });
 
       for (const match of similar) {
@@ -384,9 +388,9 @@ class LocalSonaCoordinator {
     let totalEwcPenalty = 0;
 
     // Get recent successful trajectories
-    const recentSuccessful = this.trajectories.filter(
-      t => t.verdict === 'success' || t.verdict === 'partial'
-    ).slice(-10); // last 10 successful
+    const recentSuccessful = this.trajectories
+      .filter((t) => t.verdict === 'success' || t.verdict === 'partial')
+      .slice(-10); // last 10 successful
 
     if (recentSuccessful.length === 0) {
       return { patternsDistilled: 0, ewcPenalty: 0 };
@@ -397,7 +401,7 @@ class LocalSonaCoordinator {
     try {
       const ewcModule = await import('./ewc-consolidation.js');
       ewcConsolidator = await ewcModule.getEWCConsolidator({
-        lambda: this.config.ewcLambda
+        lambda: this.config.ewcLambda,
       });
     } catch {
       // EWC not available, proceed without consolidation protection
@@ -405,11 +409,16 @@ class LocalSonaCoordinator {
 
     const rewardMap: Record<string, number> = {
       success: 1.0,
-      partial: 0.5
+      partial: 0.5,
     };
 
     // Collect confidence changes for EWC Fisher update
-    const confidenceChanges: { id: string; oldConf: number; newConf: number; embedding: number[] }[] = [];
+    const confidenceChanges: {
+      id: string;
+      oldConf: number;
+      newConf: number;
+      embedding: number[];
+    }[] = [];
 
     for (const trajectory of recentSuccessful) {
       const reward = rewardMap[trajectory.verdict] ?? 0;
@@ -419,7 +428,7 @@ class LocalSonaCoordinator {
 
         const similar = bank.findSimilar(step.embedding, {
           k: 3,
-          threshold: 0.4
+          threshold: 0.4,
         });
 
         for (const match of similar) {
@@ -434,7 +443,10 @@ class LocalSonaCoordinator {
           // Check EWC penalty before applying update
           if (ewcConsolidator) {
             const oldWeights = [oldConfidence];
-            const proposedConfidence = Math.min(1.0, oldConfidence + this.config.confidenceLearningRate * reward);
+            const proposedConfidence = Math.min(
+              1.0,
+              oldConfidence + this.config.confidenceLearningRate * reward,
+            );
             const newWeights = [proposedConfidence];
             const penalty = ewcConsolidator.getPenalty(oldWeights, newWeights);
             totalEwcPenalty += penalty;
@@ -448,9 +460,10 @@ class LocalSonaCoordinator {
             }
           } else {
             // No consolidation guard available: apply the full confidence update
-            pattern.confidence = Math.max(0.0, Math.min(1.0,
-              oldConfidence + this.config.confidenceLearningRate * reward
-            ));
+            pattern.confidence = Math.max(
+              0.0,
+              Math.min(1.0, oldConfidence + this.config.confidenceLearningRate * reward),
+            );
           }
 
           pattern.lastUsedAt = Date.now();
@@ -460,7 +473,7 @@ class LocalSonaCoordinator {
             id: pattern.id,
             oldConf: oldConfidence,
             newConf: pattern.confidence,
-            embedding: pattern.embedding
+            embedding: pattern.embedding,
           });
         }
       }
@@ -470,9 +483,7 @@ class LocalSonaCoordinator {
     if (ewcConsolidator && confidenceChanges.length > 0) {
       for (const change of confidenceChanges) {
         // Use confidence delta as gradient proxy
-        const gradient = change.embedding.map(
-          e => e * Math.abs(change.newConf - change.oldConf)
-        );
+        const gradient = change.embedding.map((e) => e * Math.abs(change.newConf - change.oldConf));
         ewcConsolidator.recordGradient(change.id, gradient, true);
       }
     }
@@ -497,7 +508,7 @@ class LocalSonaCoordinator {
     return {
       signalCount: this.signalCount,
       trajectoryCount: this.trajectories.length,
-      avgAdaptationMs: this.getAvgAdaptationTime()
+      avgAdaptationMs: this.getAvgAdaptationTime(),
     };
   }
 }
@@ -544,7 +555,10 @@ class LocalReasoningBank {
           const id = rec.id;
           if (typeof id !== 'string' || id.length === 0 || id.length > 256) continue;
           const conf = rec.confidence;
-          if (conf !== undefined && (typeof conf !== 'number' || !Number.isFinite(conf) || conf < 0 || conf > 1)) {
+          if (
+            conf !== undefined &&
+            (typeof conf !== 'number' || !Number.isFinite(conf) || conf < 0 || conf > 1)
+          ) {
             continue;
           }
           const keywords = rec.keywords;
@@ -557,9 +571,11 @@ class LocalReasoningBank {
           // and hardens against malformed/malicious persisted entries (e.g. a
           // missing embedding array previously reached cosineSim() as `undefined`).
           const rawEmbedding = rec.embedding;
-          const embedding = Array.isArray(rawEmbedding) && rawEmbedding.every(v => typeof v === 'number' && Number.isFinite(v))
-            ? (rawEmbedding as number[])
-            : [];
+          const embedding =
+            Array.isArray(rawEmbedding) &&
+            rawEmbedding.every((v) => typeof v === 'number' && Number.isFinite(v))
+              ? (rawEmbedding as number[])
+              : [];
           const rawUsage = rec.usageCount;
           const rawCreated = rec.createdAt;
           const rawLastUsed = rec.lastUsedAt;
@@ -570,9 +586,18 @@ class LocalReasoningBank {
             content: typeof rec.content === 'string' ? rec.content : '',
             confidence: typeof conf === 'number' ? conf : 0.5,
             usageCount: typeof rawUsage === 'number' && Number.isFinite(rawUsage) ? rawUsage : 0,
-            createdAt: typeof rawCreated === 'number' && Number.isFinite(rawCreated) ? rawCreated : Date.now(),
-            lastUsedAt: typeof rawLastUsed === 'number' && Number.isFinite(rawLastUsed) ? rawLastUsed : Date.now(),
-            metadata: (rec.metadata && typeof rec.metadata === 'object') ? rec.metadata as Record<string, unknown> : undefined,
+            createdAt:
+              typeof rawCreated === 'number' && Number.isFinite(rawCreated)
+                ? rawCreated
+                : Date.now(),
+            lastUsedAt:
+              typeof rawLastUsed === 'number' && Number.isFinite(rawLastUsed)
+                ? rawLastUsed
+                : Date.now(),
+            metadata:
+              rec.metadata && typeof rec.metadata === 'object'
+                ? (rec.metadata as Record<string, unknown>)
+                : undefined,
           };
           this.patterns.set(id, stored);
           this.patternList.push(stored);
@@ -584,7 +609,8 @@ class LocalReasoningBank {
       // models.json bridge is needed.
     } catch (e) {
       // Ignore load errors, start fresh
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to load patterns.json, starting fresh:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[intelligence] failed to load patterns.json, starting fresh:', e);
     }
   }
 
@@ -651,13 +677,16 @@ class LocalReasoningBank {
   /**
    * Store a pattern - O(1)
    */
-  store(pattern: Omit<StoredPattern, 'usageCount' | 'createdAt' | 'lastUsedAt'> & Partial<StoredPattern>): void {
+  store(
+    pattern: Omit<StoredPattern, 'usageCount' | 'createdAt' | 'lastUsedAt'> &
+      Partial<StoredPattern>,
+  ): void {
     const now = Date.now();
     const stored: StoredPattern = {
       ...pattern,
       usageCount: pattern.usageCount ?? 0,
       createdAt: pattern.createdAt ?? now,
-      lastUsedAt: pattern.lastUsedAt ?? now
+      lastUsedAt: pattern.lastUsedAt ?? now,
     };
 
     // Update or insert
@@ -700,14 +729,12 @@ class LocalReasoningBank {
    */
   findSimilar(
     queryEmbedding: number[],
-    options: { k?: number; threshold?: number; type?: string }
+    options: { k?: number; threshold?: number; type?: string },
   ): StoredPattern[] {
     const { k = 5, threshold = 0.5, type } = options;
 
     // Filter by type if specified
-    const candidates = type
-      ? this.patternList.filter(p => p.type === type)
-      : this.patternList;
+    const candidates = type ? this.patternList.filter((p) => p.type === type) : this.patternList;
 
     // Compute similarities without mutating patterns
     const scored: { pattern: StoredPattern; score: number }[] = [];
@@ -720,7 +747,7 @@ class LocalReasoningBank {
 
     // Sort descending and slice, returning snapshot copies with confidence=score
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, k).map(s => ({ ...s.pattern, confidence: s.score }));
+    return scored.slice(0, k).map((s) => ({ ...s.pattern, confidence: s.score }));
   }
 
   /**
@@ -750,7 +777,7 @@ class LocalReasoningBank {
   stats(): { size: number; patternCount: number } {
     return {
       size: this.patterns.size,
-      patternCount: this.patternList.length
+      patternCount: this.patternList.length,
     };
   }
 
@@ -772,7 +799,7 @@ class LocalReasoningBank {
    * Get patterns by type
    */
   getByType(type: string): StoredPattern[] {
-    return this.patternList.filter(p => p.type === type);
+    return this.patternList.filter((p) => p.type === type);
   }
 
   /**
@@ -783,7 +810,7 @@ class LocalReasoningBank {
     if (!pattern) return false;
 
     this.patterns.delete(id);
-    const idx = this.patternList.findIndex(p => p.id === id);
+    const idx = this.patternList.findIndex((p) => p.id === id);
     if (idx >= 0) {
       this.patternList.splice(idx, 1);
     }
@@ -809,10 +836,15 @@ class LocalReasoningBank {
 let sonaCoordinator: LocalSonaCoordinator | null = null;
 let reasoningBank: LocalReasoningBank | null = null;
 let intelligenceInitialized = false;
-let initPromise: Promise<{ success: boolean; sonaEnabled: boolean; reasoningBankEnabled: boolean; error?: string }> | null = null;
+let initPromise: Promise<{
+  success: boolean;
+  sonaEnabled: boolean;
+  reasoningBankEnabled: boolean;
+  error?: string;
+}> | null = null;
 let globalStats = {
   trajectoriesRecorded: 0,
-  lastAdaptation: null as number | null
+  lastAdaptation: null as number | null,
 };
 
 // ============================================================================
@@ -834,7 +866,8 @@ function loadPersistedStats(): void {
     }
   } catch (e) {
     // Ignore load errors, start fresh
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to load stats.json, starting fresh:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] failed to load stats.json, starting fresh:', e);
   }
 }
 
@@ -848,7 +881,8 @@ function savePersistedStats(): void {
     writeFileSync(path, JSON.stringify(globalStats, null, 2), 'utf-8');
   } catch (e) {
     // Ignore save errors
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to save stats.json:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] failed to save stats.json:', e);
   }
 }
 
@@ -870,7 +904,7 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     // Merge config with defaults
     const finalConfig: SonaConfig = {
       ...DEFAULT_SONA_CONFIG,
-      ...config
+      ...config,
     };
 
     // Initialize local SONA (optimized for <0.05ms)
@@ -879,7 +913,7 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     // Initialize local ReasoningBank with persistence enabled
     reasoningBank = new LocalReasoningBank({
       maxSize: finalConfig.maxPatterns,
-      persistence: true
+      persistence: true,
     });
 
     // Load persisted stats if available
@@ -890,9 +924,18 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     const neuralPatternsPath = join(getDataDir(), 'patterns.json');
     if (existsSync(neuralPatternsPath) && statSync(neuralPatternsPath).size <= 50 * 1024 * 1024) {
       try {
-        const { generateEmbedding: genEmb } = await import('./memory-initializer.js').catch(() => ({ generateEmbedding: null }));
+        const { generateEmbedding: genEmb } = await import('./memory-initializer.js').catch(() => ({
+          generateEmbedding: null,
+        }));
         const raw = readFileSync(neuralPatternsPath, 'utf-8');
-        const entries = JSON.parse(raw) as Array<{ id?: string; type?: string; content?: string; confidence?: number; usageCount?: number; embedding?: number[] }>;
+        const entries = JSON.parse(raw) as Array<{
+          id?: string;
+          type?: string;
+          content?: string;
+          confidence?: number;
+          usageCount?: number;
+          embedding?: number[];
+        }>;
         if (Array.isArray(entries)) {
           for (const p of entries.slice(0, 200)) {
             try {
@@ -900,16 +943,19 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
               if (!p.content || typeof p.content !== 'string' || p.content.length > 4096) continue;
               const conf = p.confidence ?? 0.5;
               if (!Number.isFinite(conf) || conf < 0 || conf > 1) continue;
-              const embedding = (p.embedding && Array.isArray(p.embedding) && p.embedding.length > 0)
-                ? p.embedding
-                : (genEmb ? (await genEmb(p.content))?.embedding ?? [] : []);
+              const embedding =
+                p.embedding && Array.isArray(p.embedding) && p.embedding.length > 0
+                  ? p.embedding
+                  : genEmb
+                    ? ((await genEmb(p.content))?.embedding ?? [])
+                    : [];
               if (embedding.some((v: number) => !Number.isFinite(v))) continue;
               // Only store if not already present, or if we now have an embedding
               // where the existing entry has none — avoids inflating usageCount on
               // every cold-start re-seed.
-              const existing = reasoningBank!.get(p.id);
+              const existing = reasoningBank?.get(p.id);
               if (!existing || (existing.embedding.length === 0 && embedding.length > 0)) {
-                reasoningBank!.store({
+                reasoningBank?.store({
                   id: p.id,
                   type: p.type ?? 'general',
                   content: p.content,
@@ -918,12 +964,15 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
                   usageCount: p.usageCount ?? 0,
                 });
               }
-            } catch { /* skip invalid entries */ }
+            } catch {
+              /* skip invalid entries */
+            }
           }
         }
       } catch (e) {
         /* neural patterns file unreadable — skip */
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to seed patterns.json into ReasoningBank:', e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[intelligence] failed to seed patterns.json into ReasoningBank:', e);
       }
     }
 
@@ -932,8 +981,11 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     // similarity search alongside neural patterns.
     const sonaRouting = loadSonaRoutingPatterns();
     if (sonaRouting.length > 0) {
-      const { generateEmbedding } = await import('./memory-initializer.js').catch(() => ({ generateEmbedding: null }));
-      for (const p of sonaRouting.slice(0, 100)) { // cap seeding to 100 entries
+      const { generateEmbedding } = await import('./memory-initializer.js').catch(() => ({
+        generateEmbedding: null,
+      }));
+      for (const p of sonaRouting.slice(0, 100)) {
+        // cap seeding to 100 entries
         try {
           // M2: validate before seeding — malformed sona-patterns.json must not corrupt bank
           if (!p.id || typeof p.id !== 'string' || p.id.length > 512) continue;
@@ -946,7 +998,7 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
           // Reject NaN/Infinity in embedding
           if (embedding.some((v: number) => !Number.isFinite(v))) continue;
 
-          reasoningBank!.store({
+          reasoningBank?.store({
             id: p.id,
             type: p.type,
             content: p.content,
@@ -954,7 +1006,9 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
             embedding,
             usageCount: p.usageCount,
           });
-        } catch { /* skip unembeddable entries */ }
+        } catch {
+          /* skip unembeddable entries */
+        }
       }
     }
 
@@ -963,14 +1017,14 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     return {
       success: true,
       sonaEnabled: true,
-      reasoningBankEnabled: true
+      reasoningBankEnabled: true,
     };
   } catch (error) {
     return {
       success: false,
       sonaEnabled: false,
       reasoningBankEnabled: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -1026,17 +1080,17 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
     }
 
     // Record in SONA - <0.05ms
-    sonaCoordinator!.recordSignal({
+    sonaCoordinator?.recordSignal({
       type: step.type,
       content: step.content,
       embedding,
       metadata: step.metadata,
-      timestamp: step.timestamp || Date.now()
+      timestamp: step.timestamp || Date.now(),
     });
 
     // Add to current trajectory for outcome tracking
     const stepWithEmbedding = { ...step, embedding };
-    sonaCoordinator!.addTrajectoryStep(stepWithEmbedding);
+    sonaCoordinator?.addTrajectoryStep(stepWithEmbedding);
 
     // Store in ReasoningBank for retrieval
     if (reasoningBank) {
@@ -1046,7 +1100,7 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
         embedding,
         content: step.content,
         confidence: 1.0,
-        metadata: step.metadata
+        metadata: step.metadata,
       });
     }
 
@@ -1054,10 +1108,10 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
     if (step.type === 'result' && reasoningBank) {
       // Determine verdict from metadata or default to 'partial'
       const verdict = (step.metadata?.verdict as 'success' | 'failure' | 'partial') || 'partial';
-      await sonaCoordinator!.endTrajectory(verdict, reasoningBank);
+      await sonaCoordinator?.endTrajectory(verdict, reasoningBank);
 
       // Distill learning from recent successful trajectories
-      await sonaCoordinator!.distillLearning(reasoningBank);
+      await sonaCoordinator?.distillLearning(reasoningBank);
 
       globalStats.lastAdaptation = Date.now();
     }
@@ -1065,7 +1119,8 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
     globalStats.trajectoriesRecorded++;
     return true;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] recordStep failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] recordStep failed:', e);
     return false;
   }
 }
@@ -1075,7 +1130,7 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
  */
 export async function recordTrajectory(
   steps: TrajectoryStep[],
-  verdict: 'success' | 'failure' | 'partial'
+  verdict: 'success' | 'failure' | 'partial',
 ): Promise<boolean> {
   if (!sonaCoordinator) {
     const init = await initializeIntelligence();
@@ -1083,20 +1138,20 @@ export async function recordTrajectory(
   }
 
   try {
-    sonaCoordinator!.recordTrajectory({
+    sonaCoordinator?.recordTrajectory({
       steps,
       verdict,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // Update pattern confidences based on verdict
     if (reasoningBank) {
       // Load steps into the coordinator for endTrajectory processing
       for (const step of steps) {
-        sonaCoordinator!.addTrajectoryStep(step);
+        sonaCoordinator?.addTrajectoryStep(step);
       }
-      await sonaCoordinator!.endTrajectory(verdict, reasoningBank);
-      await sonaCoordinator!.distillLearning(reasoningBank);
+      await sonaCoordinator?.endTrajectory(verdict, reasoningBank);
+      await sonaCoordinator?.distillLearning(reasoningBank);
     }
 
     globalStats.trajectoriesRecorded++;
@@ -1105,7 +1160,8 @@ export async function recordTrajectory(
 
     return true;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] recordTrajectory failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] recordTrajectory failed:', e);
     return false;
   }
 }
@@ -1119,7 +1175,7 @@ export interface PatternMatch extends Pattern {
 
 export async function findSimilarPatterns(
   query: string,
-  options?: { k?: number; threshold?: number; type?: string }
+  options?: { k?: number; threshold?: number; type?: string },
 ): Promise<PatternMatch[]> {
   // Cap query length to prevent OOM via embedding generation on unbounded input
   if (typeof query === 'string' && query.length > 2000) {
@@ -1153,15 +1209,15 @@ export async function findSimilarPatterns(
     const isHashFallback = queryEmbedding.length === 128;
     const defaultThreshold = isHashFallback ? 0.1 : 0.5;
 
-    const results = reasoningBank!.findSimilar(queryEmbedding, {
+    const results = reasoningBank?.findSimilar(queryEmbedding, {
       k: options?.k ?? 5,
       threshold: options?.threshold ?? defaultThreshold,
-      type: options?.type
+      type: options?.type,
     });
 
     // Record usage for each matched pattern (findSimilar is now a pure read)
     for (const r of results) {
-      reasoningBank!.recordUsage(r.id);
+      reasoningBank?.recordUsage(r.id);
     }
 
     return results.map((r) => ({
@@ -1173,10 +1229,11 @@ export async function findSimilarPatterns(
       usageCount: r.usageCount,
       createdAt: r.createdAt,
       lastUsedAt: r.lastUsedAt,
-      similarity: (r as unknown as { similarity?: number }).similarity ?? r.confidence ?? 0.5
+      similarity: (r as unknown as { similarity?: number }).similarity ?? r.confidence ?? 0.5,
     }));
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] findSimilarPatterns failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] findSimilarPatterns failed:', e);
     return [];
   }
 }
@@ -1194,7 +1251,7 @@ export function getIntelligenceStats(): IntelligenceStats {
     patternsLearned: bankStats?.patternCount ?? 0,
     trajectoriesRecorded: globalStats.trajectoriesRecorded,
     lastAdaptation: globalStats.lastAdaptation,
-    avgAdaptationTime: sonaStats?.avgAdaptationMs ?? 0
+    avgAdaptationTime: sonaStats?.avgAdaptationMs ?? 0,
   };
 }
 
@@ -1220,7 +1277,7 @@ export function getReasoningBank(): LocalReasoningBank | null {
  * @returns Update statistics or null if not initialized
  */
 export async function endTrajectoryWithVerdict(
-  verdict: 'success' | 'failure' | 'partial'
+  verdict: 'success' | 'failure' | 'partial',
 ): Promise<{ reward: number; patternsUpdated: number } | null> {
   if (!sonaCoordinator || !reasoningBank) {
     const init = await initializeIntelligence();
@@ -1228,12 +1285,13 @@ export async function endTrajectoryWithVerdict(
   }
 
   try {
-    const result = await sonaCoordinator!.endTrajectory(verdict, reasoningBank!);
+    const result = await sonaCoordinator?.endTrajectory(verdict, reasoningBank!);
     globalStats.lastAdaptation = Date.now();
     savePersistedStats();
     return result;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] endTrajectoryWithVerdict failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] endTrajectoryWithVerdict failed:', e);
     return null;
   }
 }
@@ -1254,12 +1312,13 @@ export async function distillLearning(): Promise<{
   }
 
   try {
-    const result = await sonaCoordinator!.distillLearning(reasoningBank!);
+    const result = await sonaCoordinator?.distillLearning(reasoningBank!);
     globalStats.lastAdaptation = Date.now();
     savePersistedStats();
     return result;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] distillLearning failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] distillLearning failed:', e);
     return null;
   }
 }
@@ -1281,7 +1340,7 @@ export function clearIntelligence(): void {
   initPromise = null;
   globalStats = {
     trajectoriesRecorded: 0,
-    lastAdaptation: null
+    lastAdaptation: null,
   };
 }
 
@@ -1311,7 +1370,7 @@ export function benchmarkAdaptation(iterations: number = 1000): {
       type: 'test',
       content: `benchmark_${i}`,
       embedding: testEmbedding,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     times.push(performance.now() - start);
   }
@@ -1326,7 +1385,7 @@ export function benchmarkAdaptation(iterations: number = 1000): {
     avgMs,
     minMs,
     maxMs,
-    targetMet: avgMs < 0.05
+    targetMet: avgMs < 0.05,
   };
 }
 
@@ -1346,8 +1405,25 @@ function loadSonaRoutingPatterns(): Pattern[] {
     if (statSync(sonaPath).size > 10 * 1024 * 1024) return [];
 
     const raw = JSON.parse(readFileSync(sonaPath, 'utf-8'));
-    const persisted = raw as { patterns?: Record<string, { keywords?: string[]; agent?: string; confidence?: number; successCount?: number; failureCount?: number; createdAt?: number }> };
-    if (!persisted.patterns || typeof persisted.patterns !== 'object' || Array.isArray(persisted.patterns)) return [];
+    const persisted = raw as {
+      patterns?: Record<
+        string,
+        {
+          keywords?: string[];
+          agent?: string;
+          confidence?: number;
+          successCount?: number;
+          failureCount?: number;
+          createdAt?: number;
+        }
+      >;
+    };
+    if (
+      !persisted.patterns ||
+      typeof persisted.patterns !== 'object' ||
+      Array.isArray(persisted.patterns)
+    )
+      return [];
 
     const now = Date.now();
     const results: Pattern[] = [];
@@ -1371,8 +1447,11 @@ function loadSonaRoutingPatterns(): Pattern[] {
       let keywords: string[];
       if (rawKw === undefined) {
         keywords = [key];
-      } else if (Array.isArray(rawKw) && rawKw.length <= 64
-                 && rawKw.every(k => typeof k === 'string' && k.length > 0 && k.length <= 128)) {
+      } else if (
+        Array.isArray(rawKw) &&
+        rawKw.length <= 64 &&
+        rawKw.every((k) => typeof k === 'string' && k.length > 0 && k.length <= 128)
+      ) {
         keywords = rawKw as string[];
       } else {
         continue; // malformed keywords — skip entry
@@ -1380,12 +1459,22 @@ function loadSonaRoutingPatterns(): Pattern[] {
 
       // Validate agent string.
       const agent = p.agent;
-      if (agent !== undefined && (typeof agent !== 'string' || agent.length === 0 || agent.length > 128)) continue;
+      if (
+        agent !== undefined &&
+        (typeof agent !== 'string' || agent.length === 0 || agent.length > 128)
+      )
+        continue;
 
       // Validate confidence is a finite number in [0, 1].
       const rawConf = p.confidence;
       const confidence = rawConf !== undefined ? rawConf : 0.5;
-      if (typeof confidence !== 'number' || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) continue;
+      if (
+        typeof confidence !== 'number' ||
+        !Number.isFinite(confidence) ||
+        confidence < 0 ||
+        confidence > 1
+      )
+        continue;
 
       // Validate usage counts are safe integers.
       const sc = p.successCount ?? 0;
@@ -1395,9 +1484,14 @@ function loadSonaRoutingPatterns(): Pattern[] {
 
       // Validate createdAt is a reasonable epoch ms value.
       const rawTs = p.createdAt;
-      const createdAt = (rawTs !== undefined && typeof rawTs === 'number' && Number.isFinite(rawTs) && rawTs >= 0 && rawTs <= 9.9e12)
-        ? rawTs
-        : now;
+      const createdAt =
+        rawTs !== undefined &&
+        typeof rawTs === 'number' &&
+        Number.isFinite(rawTs) &&
+        rawTs >= 0 &&
+        rawTs <= 9.9e12
+          ? rawTs
+          : now;
 
       results.push({
         id: `sona:${key}`,
@@ -1413,7 +1507,8 @@ function loadSonaRoutingPatterns(): Pattern[] {
 
     return results;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[intelligence] failed to load .swarm/sona-patterns.json:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[intelligence] failed to load .swarm/sona-patterns.json:', e);
     return [];
   }
 }
@@ -1428,7 +1523,7 @@ export async function getAllPatterns(): Promise<Pattern[]> {
     if (!init.success) return [];
   }
 
-  const bankPatterns = reasoningBank!.getAll().map(p => ({
+  const bankPatterns = reasoningBank?.getAll().map((p) => ({
     id: p.id,
     type: p.type,
     embedding: p.embedding,
@@ -1436,13 +1531,13 @@ export async function getAllPatterns(): Promise<Pattern[]> {
     confidence: p.confidence,
     usageCount: p.usageCount,
     createdAt: p.createdAt,
-    lastUsedAt: p.lastUsedAt
+    lastUsedAt: p.lastUsedAt,
   }));
 
   // Merge in SONA routing patterns so `neural patterns list` shows what
   // the hooks SONA optimizer has learned, not just ReasoningBank entries.
-  const bankIds = new Set(bankPatterns.map(p => p.id));
-  const sonaPatterns = loadSonaRoutingPatterns().filter(p => !bankIds.has(p.id));
+  const bankIds = new Set(bankPatterns.map((p) => p.id));
+  const sonaPatterns = loadSonaRoutingPatterns().filter((p) => !bankIds.has(p.id));
 
   return [...bankPatterns, ...sonaPatterns];
 }
@@ -1456,7 +1551,7 @@ export async function getPatternsByType(type: string): Promise<Pattern[]> {
     if (!init.success) return [];
   }
 
-  return reasoningBank!.getByType(type).map(p => ({
+  return reasoningBank?.getByType(type).map((p) => ({
     id: p.id,
     type: p.type,
     embedding: p.embedding,
@@ -1464,7 +1559,7 @@ export async function getPatternsByType(type: string): Promise<Pattern[]> {
     confidence: p.confidence,
     usageCount: p.usageCount,
     createdAt: p.createdAt,
-    lastUsedAt: p.lastUsedAt
+    lastUsedAt: p.lastUsedAt,
   }));
 }
 
@@ -1495,7 +1590,7 @@ export async function compactPatterns(threshold: number = 0.95): Promise<{
     }
   }
 
-  const patterns = reasoningBank!.getAll();
+  const patterns = reasoningBank?.getAll();
   const before = patterns.length;
 
   // Find duplicates using cosine similarity
@@ -1537,7 +1632,7 @@ export async function compactPatterns(threshold: number = 0.95): Promise<{
 
   // Remove duplicates
   for (const id of toRemove) {
-    reasoningBank!.delete(id);
+    reasoningBank?.delete(id);
   }
 
   // Flush to disk
@@ -1559,7 +1654,7 @@ export async function deletePattern(id: string): Promise<boolean> {
     if (!init.success) return false;
   }
 
-  return reasoningBank!.delete(id);
+  return reasoningBank?.delete(id);
 }
 
 /**
@@ -1571,7 +1666,7 @@ export async function clearAllPatterns(): Promise<void> {
     if (!init.success) return;
   }
 
-  reasoningBank!.clear();
+  reasoningBank?.clear();
 }
 
 // ===== AutoMem: Memory Proficiency Tracking =====
@@ -1613,23 +1708,29 @@ export async function recordMemoryDecision(input: MemoryDecisionInput): Promise<
       const bridge = await import('./memory-bridge.js');
       const result = await bridge.bridgeGenerateEmbedding(input.taskDescription);
       if (result) embedding = result.embedding;
-    } catch { /* bridge unavailable */ }
+    } catch {
+      /* bridge unavailable */
+    }
     if (!embedding) {
       const { generateEmbedding } = await import('./memory-initializer.js');
       embedding = (await generateEmbedding(input.taskDescription)).embedding;
     }
 
     // Check for similar existing pattern to avoid redundant storage
-    const existing = reasoningBank!.findSimilar(embedding, { k: 1, threshold: 0.85, type: 'memory-proficiency' });
+    const existing = reasoningBank?.findSimilar(embedding, {
+      k: 1,
+      threshold: 0.85,
+      type: 'memory-proficiency',
+    });
     if (existing.length > 0) {
-      reasoningBank!.recordUsage(existing[0].id);
+      reasoningBank?.recordUsage(existing[0].id);
       memoryProficiencyStats.patternHits++;
       return;
     }
 
     memoryProficiencyStats.patternMisses++;
 
-    reasoningBank!.store({
+    reasoningBank?.store({
       id: `mprof_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       type: 'memory-proficiency',
       embedding,
@@ -1640,7 +1741,9 @@ export async function recordMemoryDecision(input: MemoryDecisionInput): Promise<
         latencyMs: input.latencyMs,
       },
     });
-  } catch { /* non-fatal */ }
+  } catch {
+    /* non-fatal */
+  }
 }
 
 /**
@@ -1652,7 +1755,8 @@ export function getMemoryProficiencyStats(): {
   proficiencyPatterns: number;
   patternHitRate: number;
 } {
-  const { totalDecisions, successfulDecisions, patternHits, patternMisses } = memoryProficiencyStats;
+  const { totalDecisions, successfulDecisions, patternHits, patternMisses } =
+    memoryProficiencyStats;
   const proficiencyPatterns = reasoningBank?.getByType('memory-proficiency').length ?? 0;
   const totalLookups = patternHits + patternMisses;
 
@@ -1692,6 +1796,6 @@ export function getPersistenceStatus(): {
     patternsFile,
     statsFile,
     patternsExist: existsSync(patternsFile),
-    statsExist: existsSync(statsFile)
+    statsExist: existsSync(statsFile),
   };
 }

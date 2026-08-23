@@ -38,8 +38,12 @@ export function createInitState(opts: { maxAttempts?: number } = {}): InitState 
   let count = 0;
 
   return {
-    canTry() { return status === 'pending' && count < max; },
-    markReady() { status = 'ready'; },
+    canTry() {
+      return status === 'pending' && count < max;
+    },
+    markReady() {
+      status = 'ready';
+    },
     markFailed() {
       count++;
       if (count >= max) status = 'failed';
@@ -48,8 +52,14 @@ export function createInitState(opts: { maxAttempts?: number } = {}): InitState 
       count = max;
       status = 'failed';
     },
-    isReady() { return status === 'ready'; },
-    isFailed() { return status === 'failed'; },
-    attempts() { return count; },
+    isReady() {
+      return status === 'ready';
+    },
+    isFailed() {
+      return status === 'failed';
+    },
+    attempts() {
+      return count;
+    },
   };
 }

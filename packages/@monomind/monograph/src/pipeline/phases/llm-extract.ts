@@ -1,9 +1,8 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel, CONFIDENCE_SCORE } from '../../types.js';
-import { insertNodes } from '../../storage/node-store.js';
 import { insertEdges } from '../../storage/edge-store.js';
-import type { EdgeRelation } from '../../types.js';
+import { insertNodes } from '../../storage/node-store.js';
+import type { EdgeRelation, MonographEdge, MonographNode } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../../types.js';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 
 export interface LlmExtractOutput {
   triplesExtracted: number;
@@ -11,7 +10,12 @@ export interface LlmExtractOutput {
 }
 
 const ALLOWED_RELATIONS = new Set<string>([
-  'DESCRIBES', 'CAUSES', 'CONTRASTS_WITH', 'PART_OF', 'RELATED_TO', 'USES',
+  'DESCRIBES',
+  'CAUSES',
+  'CONTRASTS_WITH',
+  'PART_OF',
+  'RELATED_TO',
+  'USES',
 ]);
 
 const SYSTEM_PROMPT = `You extract knowledge graph relationships from technical documentation chunks.
@@ -43,7 +47,7 @@ async function callClaude(content: string): Promise<Triple[] | null> {
     const prompt = `${SYSTEM_PROMPT}\n\n${content.slice(0, 1500)}`;
     const text = await claudeCliCall(prompt, 30_000);
     const parsed = JSON.parse(text.match(/\[[\s\S]*\]/)?.[0] ?? '[]');
-    return Array.isArray(parsed) ? parsed as Triple[] : null;
+    return Array.isArray(parsed) ? (parsed as Triple[]) : null;
   } catch {
     return null;
   }
@@ -73,8 +77,8 @@ export const llmExtractPhase: PipelinePhase<LlmExtractOutput> = {
       // where users least expect it.
       console.warn(
         '[monograph] --llm skipped: the `claude` CLI was not found on PATH.\n' +
-        '  Semantic extraction runs through `claude --print` and needs no ANTHROPIC_API_KEY.\n' +
-        '  Install it with: npm install -g @anthropic-ai/claude-code',
+          '  Semantic extraction runs through `claude --print` and needs no ANTHROPIC_API_KEY.\n' +
+          '  Install it with: npm install -g @anthropic-ai/claude-code',
       );
       return { triplesExtracted: 0, sectionsProcessed: 0 };
     }
@@ -100,8 +104,9 @@ export const llmExtractPhase: PipelinePhase<LlmExtractOutput> = {
 
     // Fetch existing concept IDs to avoid duplicate node creation
     const existingConcepts = new Set<string>(
-      (ctx.db.prepare(`SELECT id FROM nodes WHERE label = 'Concept'`).all() as { id: string }[])
-        .map(r => r.id),
+      (
+        ctx.db.prepare(`SELECT id FROM nodes WHERE label = 'Concept'`).all() as { id: string }[]
+      ).map((r) => r.id),
     );
 
     for (const section of sections) {
@@ -109,9 +114,7 @@ export const llmExtractPhase: PipelinePhase<LlmExtractOutput> = {
       const content = props.content as string | undefined;
       if (!content) continue;
 
-      const triples = await callClaude(
-        `Section: "${section.name}"\n\n${content}`,
-      );
+      const triples = await callClaude(`Section: "${section.name}"\n\n${content}`);
       if (!triples || triples.length === 0) continue;
 
       sectionsProcessed++;
@@ -124,18 +127,31 @@ export const llmExtractPhase: PipelinePhase<LlmExtractOutput> = {
         if (!ALLOWED_RELATIONS.has(rel)) continue;
 
         // Normalize concept names (lowercase, collapse spaces)
-        const n1 = node_1.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-        const n2 = node_2.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        const n1 = node_1
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '');
+        const n2 = node_2
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '');
         if (!n1 || !n2 || n1 === n2) continue;
 
         const c1Id = makeId('concept', n1);
         const c2Id = makeId('concept', n2);
 
-        for (const [cId, cName] of [[c1Id, n1], [c2Id, n2]] as [string, string][]) {
+        for (const [cId, cName] of [
+          [c1Id, n1],
+          [c2Id, n2],
+        ] as [string, string][]) {
           if (!conceptNodes.has(cId) && !existingConcepts.has(cId)) {
             conceptNodes.set(cId, {
-              id: cId, label: 'Concept',
-              name: cName.replace(/_/g, ' '), normLabel: toNormLabel(cName),
+              id: cId,
+              label: 'Concept',
+              name: cName.replace(/_/g, ' '),
+              normLabel: toNormLabel(cName),
               isExported: false,
               properties: { source: 'llm', edgeLabel: edge },
             });
@@ -147,8 +163,12 @@ export const llmExtractPhase: PipelinePhase<LlmExtractOutput> = {
         if (!seenEdges.has(e1Id)) {
           seenEdges.add(e1Id);
           allEdges.push({
-            id: e1Id, sourceId: section.id, targetId: c1Id,
-            relation: 'DESCRIBES', confidence: 'INFERRED', confidenceScore: CONFIDENCE_SCORE.INFERRED,
+            id: e1Id,
+            sourceId: section.id,
+            targetId: c1Id,
+            relation: 'DESCRIBES',
+            confidence: 'INFERRED',
+            confidenceScore: CONFIDENCE_SCORE.INFERRED,
           });
         }
 
@@ -157,8 +177,12 @@ export const llmExtractPhase: PipelinePhase<LlmExtractOutput> = {
         if (!seenEdges.has(e2Id)) {
           seenEdges.add(e2Id);
           allEdges.push({
-            id: e2Id, sourceId: c1Id, targetId: c2Id,
-            relation: rel as EdgeRelation, confidence: 'INFERRED', confidenceScore: CONFIDENCE_SCORE.INFERRED,
+            id: e2Id,
+            sourceId: c1Id,
+            targetId: c2Id,
+            relation: rel as EdgeRelation,
+            confidence: 'INFERRED',
+            confidenceScore: CONFIDENCE_SCORE.INFERRED,
             weight: 1,
           });
         }

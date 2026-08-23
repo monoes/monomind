@@ -20,7 +20,7 @@
  * client actually sends that credential on each of the three fixed paths.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -61,9 +61,9 @@ describe('org approve/deny/answer/gate — live delivery sends the auth credenti
 
     server = http.createServer((req, res) => {
       receivedHeaders.push({ ...req.headers, url: req.url });
-      let body = '';
+      let _body = '';
       req.on('data', (c) => {
-        body += c;
+        _body += c;
       });
       req.on('end', () => {
         res.writeHead(200, { 'Content-Type': 'application/json' });

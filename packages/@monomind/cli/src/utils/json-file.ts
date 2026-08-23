@@ -19,18 +19,14 @@
  * rename to prevent partial writes on crash.
  */
 
-import { readFileSync, writeFileSync, renameSync, existsSync, statSync, mkdirSync } from 'fs';
-import { dirname, join } from 'path';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 /**
  * Read and parse a JSON file. Returns `fallback` if file doesn't exist,
  * exceeds maxBytes, or fails to parse.
  */
-export function readJsonFileSync<T>(
-  filePath: string,
-  fallback: T,
-  maxBytes = 50 * 1024 * 1024,
-): T {
+export function readJsonFileSync<T>(filePath: string, fallback: T, maxBytes = 50 * 1024 * 1024): T {
   try {
     if (!existsSync(filePath)) return fallback;
     const stat = statSync(filePath);
@@ -62,10 +58,11 @@ export function readJsonStoreOrNull<T>(
     if (!existsSync(filePath)) return emptyDefault;
     if (statSync(filePath).size > maxBytes) return null;
     const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as T;
-    if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return null;
+    if (parsed && typeof parsed === 'object' && Object.hasOwn(parsed, '__proto__')) return null;
     return parsed;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[${label}] store unreadable/corrupt — refusing to proceed:`, e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error(`[${label}] store unreadable/corrupt — refusing to proceed:`, e);
     return null;
   }
 }
@@ -76,11 +73,7 @@ export function readJsonStoreOrNull<T>(
  * Writes to a temporary file first (PID + timestamp suffix to avoid
  * collisions), then renames into place. Ensures the directory exists.
  */
-export function writeJsonFileAtomic(
-  filePath: string,
-  data: unknown,
-  pretty = true,
-): void {
+export function writeJsonFileAtomic(filePath: string, data: unknown, pretty = true): void {
   const dir = dirname(filePath);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

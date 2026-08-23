@@ -26,9 +26,7 @@ export interface ProcessesResourceData {
  */
 export function getProcessesResource(db: Database.Database): ProcessesResourceData {
   const processRows = db
-    .prepare(
-      `SELECT id, name, file_path FROM nodes WHERE label = 'Process' ORDER BY name`,
-    )
+    .prepare(`SELECT id, name, file_path FROM nodes WHERE label = 'Process' ORDER BY name`)
     .all() as Array<{ id: string; name: string; file_path: string | null }>;
 
   const stepQuery = db.prepare(

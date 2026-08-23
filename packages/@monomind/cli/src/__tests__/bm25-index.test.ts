@@ -8,16 +8,16 @@
  *      a different scorer.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { contentTokens } from '../knowledge/eval/metrics.js';
 import {
+  BM25_B,
+  BM25_K1,
   Bm25Index,
   bm25Tokens,
-  BM25_K1,
-  BM25_B,
   LIVE_CHUNK_WARN_THRESHOLD,
   SCALING_REVIEW_CHUNKS,
 } from '../memory/bm25-index.js';
-import { contentTokens } from '../knowledge/eval/metrics.js';
 
 const never = () => false;
 
@@ -58,21 +58,18 @@ describe('the live-only filter is enforced by the index, not the caller', () => 
       chunk('doc:dead:0', 'alpha beta gamma'),
       chunk('doc:dead:1', 'alpha beta gamma'),
     ];
-    const idx = Bm25Index.build(chunks, key => key.startsWith('doc:dead:'));
+    const idx = Bm25Index.build(chunks, (key) => key.startsWith('doc:dead:'));
 
     expect(idx.size).toBe(1);
     expect(idx.stats.indexed).toBe(1);
     expect(idx.stats.supersededSkipped).toBe(2);
-    expect(idx.search('alpha', 10).map(h => h.key)).toEqual(['doc:live:0']);
+    expect(idx.search('alpha', 10).map((h) => h.key)).toEqual(['doc:live:0']);
   });
 
   it('superseded chunks cannot be retrieved even on an exact term match', () => {
     const idx = Bm25Index.build(
-      [
-        chunk('doc:dead:0', 'quokka quokka quokka'),
-        chunk('doc:live:0', 'unrelated content here'),
-      ],
-      key => key.startsWith('doc:dead:'),
+      [chunk('doc:dead:0', 'quokka quokka quokka'), chunk('doc:live:0', 'unrelated content here')],
+      (key) => key.startsWith('doc:dead:'),
     );
     expect(idx.search('quokka', 10)).toEqual([]);
   });
@@ -205,7 +202,7 @@ describe('lexicalSupport — the query-adaptive fusion signal (UNVALIDATED)', ()
     // dead chunks would otherwise inflate BM25's apparent competence.
     const idx = Bm25Index.build(
       [chunk('doc:dead:0', 'quokka'), chunk('doc:live:0', 'fusion')],
-      key => key.startsWith('doc:dead:'),
+      (key) => key.startsWith('doc:dead:'),
     );
     expect(idx.lexicalSupport('quokka')).toBe(0);
     expect(idx.lexicalSupport('fusion')).toBeCloseTo(1, 5);

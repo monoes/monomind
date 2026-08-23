@@ -1,4 +1,4 @@
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
 
 const require = createRequire(import.meta.url);
@@ -20,7 +20,10 @@ export const javaConfig: LanguageConfig = {
   decoratorNodeTypes: new Set(['annotation']),
   nameField: 'name',
   importExtractor: (_source, node) => {
-    const path = node.text.replace(/^import\s+(static\s+)?/, '').replace(/;$/, '').trim();
+    const path = node.text
+      .replace(/^import\s+(static\s+)?/, '')
+      .replace(/;$/, '')
+      .trim();
     return path || null;
   },
   exportDetector: (_node, _source) => true,

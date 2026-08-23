@@ -1,7 +1,7 @@
-import { bfsFromNode } from 'graphology-traversal/bfs.js';
 import type Graph from 'graphology';
-import { loadGraphFromDb } from './loader.js';
+import { bfsFromNode } from 'graphology-traversal/bfs.js';
 import type { MonographDb } from '../storage/db.js';
+import { loadGraphFromDb } from './loader.js';
 
 // ---------------------------------------------------------------------------
 // Module-level graph cache — avoids reloading the full graph on every call
@@ -58,11 +58,11 @@ export function clusteringCoefficient(db: MonographDb): number {
 
   // Build undirected adjacency sets
   const neighbors = new Map<string, Set<string>>();
-  graph.forEachNode(node => neighbors.set(node, new Set()));
+  graph.forEachNode((node) => neighbors.set(node, new Set()));
   graph.forEachEdge((_, _attr, src, tgt) => {
     if (src !== tgt) {
-      neighbors.get(src)!.add(tgt);
-      neighbors.get(tgt)!.add(src);
+      neighbors.get(src)?.add(tgt);
+      neighbors.get(tgt)?.add(src);
     }
   });
 
@@ -71,7 +71,7 @@ export function clusteringCoefficient(db: MonographDb): number {
 
   // Cap per-node neighbor scan to avoid O(k²) explosion on hub nodes
   const MAX_K = 200;
-  for (const [node, nbrs] of neighbors) {
+  for (const [_node, nbrs] of neighbors) {
     const k = nbrs.size;
     if (k < 2) continue;
 

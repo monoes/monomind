@@ -23,8 +23,9 @@
  * port in the gap, surfacing as `EADDRINUSE`). Letting `startOrgServer` bind
  * `:0` itself is atomic and removes the race entirely.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+
 import http from 'node:http';
+import { afterEach, describe, expect, it } from 'vitest';
 import { startOrgServer } from '../../packages/@monomind/cli/src/orgrt/server.js';
 
 interface Spawned {
@@ -123,50 +124,46 @@ describe('SEC-2 — org server timing-safe auth', () => {
     expect(r.status).toBe(401);
   });
 
-  it(
-    'credential comparison runs in roughly constant time across mismatched bytes',
-    async () => {
-      // Statistical sanity check — NOT a rigorous constant-time proof (JS GC /
-      // event-loop jitter makes that impossible). We measure two populations:
-      // (A) credentials that share NO bytes with the secret,
-      // (B) credentials that share ALL bytes except the last.
-      // Pre-fix, B was measurably slower than A. Post-fix, with
-      // timingSafeEqual, the two distributions overlap.
-      const secret = 'a'.repeat(32);
-      const srv = await startOrgServer(stubDaemon(), 0, secret);
-      spawned.push(srv);
+  it('credential comparison runs in roughly constant time across mismatched bytes', async () => {
+    // Statistical sanity check — NOT a rigorous constant-time proof (JS GC /
+    // event-loop jitter makes that impossible). We measure two populations:
+    // (A) credentials that share NO bytes with the secret,
+    // (B) credentials that share ALL bytes except the last.
+    // Pre-fix, B was measurably slower than A. Post-fix, with
+    // timingSafeEqual, the two distributions overlap.
+    const secret = 'a'.repeat(32);
+    const srv = await startOrgServer(stubDaemon(), 0, secret);
+    spawned.push(srv);
 
-      // Trimmed from 200 to 60 (120 paired samples total) — plenty to catch a
-      // ~1.5x+ regression while keeping the ~420-request version's CI-timeout
-      // risk off the table.
-      const N = 60;
-      const noMatch: number[] = [];
-      const lastByteDiff: number[] = [];
-      // Warm up to avoid first-call JIT skewing.
-      for (let i = 0; i < 20; i++) await req(srv.port, { 'x-monomind-cred': 'x'.repeat(32) });
+    // Trimmed from 200 to 60 (120 paired samples total) — plenty to catch a
+    // ~1.5x+ regression while keeping the ~420-request version's CI-timeout
+    // risk off the table.
+    const N = 60;
+    const noMatch: number[] = [];
+    const lastByteDiff: number[] = [];
+    // Warm up to avoid first-call JIT skewing.
+    for (let i = 0; i < 20; i++) await req(srv.port, { 'x-monomind-cred': 'x'.repeat(32) });
 
-      for (let i = 0; i < N; i++) {
-        const tA = performance.now();
-        await req(srv.port, { 'x-monomind-cred': 'x'.repeat(32) });
-        noMatch.push(performance.now() - tA);
+    for (let i = 0; i < N; i++) {
+      const tA = performance.now();
+      await req(srv.port, { 'x-monomind-cred': 'x'.repeat(32) });
+      noMatch.push(performance.now() - tA);
 
-        const guess = 'a'.repeat(31) + 'b';
-        const tB = performance.now();
-        await req(srv.port, { 'x-monomind-cred': guess });
-        lastByteDiff.push(performance.now() - tB);
-      }
+      const guess = `${'a'.repeat(31)}b`;
+      const tB = performance.now();
+      await req(srv.port, { 'x-monomind-cred': guess });
+      lastByteDiff.push(performance.now() - tB);
+    }
 
-      const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
-      const mA = mean(noMatch);
-      const mB = mean(lastByteDiff);
-      // Pre-fix, mB/mA could exceed 1.5+ (string !== short-circuit). Post-fix,
-      // both paths go through the same Buffer+timingSafeEqual so the ratio is
-      // close to 1. Allow a wide band (3x) to absorb GC/network jitter — the
-      // goal is to detect the OLD behaviour, not to prove nanosecond equality.
-      expect(Number.isFinite(mA)).toBe(true);
-      expect(Number.isFinite(mB)).toBe(true);
-      expect(mB / mA).toBeLessThan(3);
-    },
-    60_000,
-  );
+    const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+    const mA = mean(noMatch);
+    const mB = mean(lastByteDiff);
+    // Pre-fix, mB/mA could exceed 1.5+ (string !== short-circuit). Post-fix,
+    // both paths go through the same Buffer+timingSafeEqual so the ratio is
+    // close to 1. Allow a wide band (3x) to absorb GC/network jitter — the
+    // goal is to detect the OLD behaviour, not to prove nanosecond equality.
+    expect(Number.isFinite(mA)).toBe(true);
+    expect(Number.isFinite(mB)).toBe(true);
+    expect(mB / mA).toBeLessThan(3);
+  }, 60_000);
 });

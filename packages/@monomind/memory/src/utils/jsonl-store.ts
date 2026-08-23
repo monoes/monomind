@@ -17,7 +17,7 @@ import { writeFileAtomicSync } from '../atomic-file.js';
 
 /** Append one record as a JSONL line. */
 export function appendJsonl<T>(file: string, record: T): void {
-  fs.appendFileSync(file, JSON.stringify(record) + '\n', 'utf-8');
+  fs.appendFileSync(file, `${JSON.stringify(record)}\n`, 'utf-8');
 }
 
 /**
@@ -50,6 +50,6 @@ export function readJsonl<T>(file: string): T[] {
  * diverged between the two prior hand-copied implementations.
  */
 export function rewriteJsonl<T>(file: string, records: T[]): void {
-  const data = records.length ? records.map((r) => JSON.stringify(r)).join('\n') + '\n' : '';
+  const data = records.length ? `${records.map((r) => JSON.stringify(r)).join('\n')}\n` : '';
   writeFileAtomicSync(file, data, 'utf-8');
 }

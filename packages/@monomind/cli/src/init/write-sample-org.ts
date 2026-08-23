@@ -35,6 +35,6 @@ export function writeSampleOrg(targetDir: string): boolean {
   if (!org) return false;
 
   fs.mkdirSync(orgsDir, { recursive: true });
-  fs.writeFileSync(samplePath, JSON.stringify(org, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(samplePath, `${JSON.stringify(org, null, 2)}\n`, 'utf-8');
   return true;
 }

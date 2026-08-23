@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { searchNodesByProperty, searchNodesInMemory } from '../../graph/node-search.js';
 import { openDb } from '../../storage/db.js';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 import type { MonographNode } from '../../types.js';
 
 function makeTempDb() {
@@ -128,9 +128,36 @@ describe('searchNodesByProperty (DB-backed)', () => {
 
 describe('searchNodesInMemory', () => {
   const nodes: MonographNode[] = [
-    { id: 'f1', label: 'Function', name: 'login', normLabel: 'login', filePath: '/auth/login.ts', language: 'typescript', isExported: true, communityId: 1 },
-    { id: 'f2', label: 'Class', name: 'User', normLabel: 'user', filePath: '/models/user.py', language: 'python', isExported: false, communityId: 2 },
-    { id: 'f3', label: 'Function', name: 'hash', normLabel: 'hash', filePath: '/utils/crypto.ts', language: 'typescript', isExported: true, communityId: 1 },
+    {
+      id: 'f1',
+      label: 'Function',
+      name: 'login',
+      normLabel: 'login',
+      filePath: '/auth/login.ts',
+      language: 'typescript',
+      isExported: true,
+      communityId: 1,
+    },
+    {
+      id: 'f2',
+      label: 'Class',
+      name: 'User',
+      normLabel: 'user',
+      filePath: '/models/user.py',
+      language: 'python',
+      isExported: false,
+      communityId: 2,
+    },
+    {
+      id: 'f3',
+      label: 'Function',
+      name: 'hash',
+      normLabel: 'hash',
+      filePath: '/utils/crypto.ts',
+      language: 'typescript',
+      isExported: true,
+      communityId: 1,
+    },
   ];
 
   it('returns all with no options', () => {

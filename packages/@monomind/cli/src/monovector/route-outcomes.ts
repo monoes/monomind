@@ -17,9 +17,9 @@ export interface RouteOutcomeRecord {
   ts: number;
   task: string;
   recommendedAgent: string;
-  routingMethod: string;      // 'keyword' | 'neural-augmented' | 'native-hnsw' | etc.
+  routingMethod: string; // 'keyword' | 'neural-augmented' | 'native-hnsw' | etc.
   confidence: number;
-  learningMode: 'native' | 'js';  // whether native @monoes was active
+  learningMode: 'native' | 'js'; // whether native @monoes was active
   // Joined at post-task:
   agentActuallyUsed?: string;
   measuredSuccess?: boolean;
@@ -56,7 +56,7 @@ export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Pro
       recommendedAgent: rec.recommendedAgent.slice(0, MAX_FIELD_LEN),
       routingMethod: rec.routingMethod.slice(0, 64),
     };
-    await fs.appendFile(path, JSON.stringify(safeRec) + '\n', 'utf8');
+    await fs.appendFile(path, `${JSON.stringify(safeRec)}\n`, 'utf8');
     // Opportunistic trim: only read the file when it is large enough to
     // plausibly contain more than MAX_ROUTE_RECORDS lines.  The stat() call
     // is cheap (metadata-only); skipping the full read on the common path
@@ -66,7 +66,7 @@ export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Pro
       const content = await fs.readFile(path, 'utf8').catch(() => '');
       const lines = content.trim().split('\n').filter(Boolean);
       if (lines.length > MAX_ROUTE_RECORDS) {
-        await fs.writeFile(path, lines.slice(-MAX_ROUTE_RECORDS).join('\n') + '\n', 'utf8');
+        await fs.writeFile(path, `${lines.slice(-MAX_ROUTE_RECORDS).join('\n')}\n`, 'utf8');
       }
     }
   } catch {
@@ -78,11 +78,15 @@ export async function recordRoute(baseDir: string, rec: RouteOutcomeRecord): Pro
 export async function joinOutcome(
   baseDir: string,
   routeId: string,
-  outcome: { agentActuallyUsed?: string; measuredSuccess?: boolean; quality?: number }
+  outcome: { agentActuallyUsed?: string; measuredSuccess?: boolean; quality?: number },
 ): Promise<void> {
   try {
     const path = storePath(baseDir);
-    try { if (statSync(path).size > MAX_FILE_BYTES) return; } catch { /* file absent */ }
+    try {
+      if (statSync(path).size > MAX_FILE_BYTES) return;
+    } catch {
+      /* file absent */
+    }
     const content = await fs.readFile(path, 'utf8').catch(() => '');
     if (!content) return;
     const lines = content.trim().split('\n');
@@ -94,9 +98,11 @@ export async function joinOutcome(
           lines[i] = JSON.stringify({ ...rec, ...outcome });
           break;
         }
-      } catch { /* skip malformed line */ }
+      } catch {
+        /* skip malformed line */
+      }
     }
-    await fs.writeFile(path, lines.join('\n') + '\n', 'utf8');
+    await fs.writeFile(path, `${lines.join('\n')}\n`, 'utf8');
   } catch {
     // Non-fatal
   }
@@ -110,11 +116,15 @@ export async function joinOutcome(
 export async function joinLatestUnresolved(
   baseDir: string,
   outcome: { agentActuallyUsed?: string; measuredSuccess?: boolean; quality?: number },
-  maxAgeMs = 600_000  // only correlate within 10 minutes to avoid stale joins
+  maxAgeMs = 600_000, // only correlate within 10 minutes to avoid stale joins
 ): Promise<string | null> {
   try {
     const path = storePath(baseDir);
-    try { if (statSync(path).size > MAX_FILE_BYTES) return null; } catch { /* file absent */ }
+    try {
+      if (statSync(path).size > MAX_FILE_BYTES) return null;
+    } catch {
+      /* file absent */
+    }
     const content = await fs.readFile(path, 'utf8').catch(() => '');
     if (!content) return null;
     const lines = content.trim().split('\n');
@@ -127,9 +137,11 @@ export async function joinLatestUnresolved(
         // Skip stale records beyond the correlation window
         if (now - rec.ts > maxAgeMs) return null;
         lines[i] = JSON.stringify({ ...rec, ...outcome });
-        await fs.writeFile(path, lines.join('\n') + '\n', 'utf8');
+        await fs.writeFile(path, `${lines.join('\n')}\n`, 'utf8');
         return rec.routeId;
-      } catch { /* skip malformed */ }
+      } catch {
+        /* skip malformed */
+      }
     }
     return null;
   } catch {
@@ -141,21 +153,33 @@ export async function joinLatestUnresolved(
 export async function readOutcomes(baseDir: string): Promise<RouteOutcomeRecord[]> {
   try {
     const p = storePath(baseDir);
-    try { if (statSync(p).size > MAX_FILE_BYTES) return []; } catch { /* file absent */ }
+    try {
+      if (statSync(p).size > MAX_FILE_BYTES) return [];
+    } catch {
+      /* file absent */
+    }
     const content = await fs.readFile(p, 'utf8').catch(() => '');
     if (!content) return [];
-    return content.trim().split('\n').map(l => {
-      try { return JSON.parse(l) as RouteOutcomeRecord; } catch { return null; }
-    }).filter((r): r is RouteOutcomeRecord => r !== null);
+    return content
+      .trim()
+      .split('\n')
+      .map((l) => {
+        try {
+          return JSON.parse(l) as RouteOutcomeRecord;
+        } catch {
+          return null;
+        }
+      })
+      .filter((r): r is RouteOutcomeRecord => r !== null);
   } catch {
     return [];
   }
 }
 
 export interface RoutingAccuracy {
-  window: number;            // how many recent records considered
-  totalWithOutcome: number;  // records that have measuredSuccess joined
-  accuracy: number | null;   // successes / totalWithOutcome, null if no data
+  window: number; // how many recent records considered
+  totalWithOutcome: number; // records that have measuredSuccess joined
+  accuracy: number | null; // successes / totalWithOutcome, null if no data
   byMode: { native: number | null; js: number | null }; // accuracy split by learningMode
   recentVsPrior: number | null; // delta: recent-half accuracy minus prior-half (trend)
 }
@@ -166,18 +190,27 @@ export interface RoutingAccuracy {
  * (agentActuallyUsed is recorded per row but not required to match the recommendation;
  * the success label already reflects whether the chosen routing worked out.)
  */
-export async function computeRoutingAccuracy(baseDir: string, window = 100): Promise<RoutingAccuracy> {
+export async function computeRoutingAccuracy(
+  baseDir: string,
+  window = 100,
+): Promise<RoutingAccuracy> {
   const all = await readOutcomes(baseDir);
   // Only records with a measured outcome count
-  const withOutcome = all.filter(r => typeof r.measuredSuccess === 'boolean').slice(-window);
+  const withOutcome = all.filter((r) => typeof r.measuredSuccess === 'boolean').slice(-window);
   const n = withOutcome.length;
   if (n === 0) {
-    return { window, totalWithOutcome: 0, accuracy: null, byMode: { native: null, js: null }, recentVsPrior: null };
+    return {
+      window,
+      totalWithOutcome: 0,
+      accuracy: null,
+      byMode: { native: null, js: null },
+      recentVsPrior: null,
+    };
   }
   const succ = (recs: typeof withOutcome) =>
-    recs.length ? recs.filter(r => r.measuredSuccess).length / recs.length : null;
-  const native = withOutcome.filter(r => r.learningMode === 'native');
-  const js = withOutcome.filter(r => r.learningMode === 'js');
+    recs.length ? recs.filter((r) => r.measuredSuccess).length / recs.length : null;
+  const native = withOutcome.filter((r) => r.learningMode === 'native');
+  const js = withOutcome.filter((r) => r.learningMode === 'js');
   const mid = Math.floor(n / 2);
   const prior = succ(withOutcome.slice(0, mid));
   const recent = succ(withOutcome.slice(mid));
@@ -186,15 +219,18 @@ export async function computeRoutingAccuracy(baseDir: string, window = 100): Pro
     totalWithOutcome: n,
     accuracy: succ(withOutcome),
     byMode: { native: succ(native), js: succ(js) },
-    recentVsPrior: (recent !== null && prior !== null) ? recent - prior : null,
+    recentVsPrior: recent !== null && prior !== null ? recent - prior : null,
   };
 }
 
 /** Fraction of joined routes where the agent actually used matched the recommendation. */
-export async function computeAdherence(baseDir: string, window = 100): Promise<{ adherence: number | null; sample: number }> {
+export async function computeAdherence(
+  baseDir: string,
+  window = 100,
+): Promise<{ adherence: number | null; sample: number }> {
   const all = await readOutcomes(baseDir);
-  const joined = all.filter(r => r.agentActuallyUsed && r.recommendedAgent).slice(-window);
+  const joined = all.filter((r) => r.agentActuallyUsed && r.recommendedAgent).slice(-window);
   if (joined.length === 0) return { adherence: null, sample: 0 };
-  const matches = joined.filter(r => r.agentActuallyUsed === r.recommendedAgent).length;
+  const matches = joined.filter((r) => r.agentActuallyUsed === r.recommendedAgent).length;
   return { adherence: matches / joined.length, sample: joined.length };
 }

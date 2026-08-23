@@ -5,18 +5,71 @@ export { preferSymbolHits } from './shared.js';
 
 // ── Tool imports ────────────────────────────────────────────────────────────
 
-import { monographBuildTool, monographWatchTool, monographWatchStopTool, monographDetectChangesTool, monographInjectContextTool, monographSkillGenTool, monographInstallSkillsTool } from './build-tools.js';
-import { monographQueryTool, monographSuggestTool, monographContextTool, monographNeighborsTool, monographGetNodeTool, monographGodNodesTool, monographAugmentTool, monographCypherTool, monographShortestPathTool } from './query-tools.js';
-import { monographImpactTool, monographApiImpactTool, monographDeadCodeTool, monographRouteMapTool, monographShapeCheckTool, monographRenameTool, monographToolMapTool } from './impact-tools.js';
-import { monographCommunityTool, monographSurprisesTool, monographGroupListTool, monographGroupQueryTool, monographGroupSyncTool, monographGroupContractsTool, monographGroupStatusTool, monographListReposTool } from './group-tools.js';
-import { monographVisualizeTool, monographExportTool, monographSnapshotTool, monographDiffTool, monographReportTool, monographWikiTool, monographWikiBuildTool, monographServeTool } from './visualize-tools.js';
-import { monographStatsTool, monographHealthTool, monographStalenessTool, monographDoctorTool } from './health-tools.js';
-import { monographAgentHistoryTool, monographAgentPatternsTool, monographAgentRecordTool } from './agent-history-tools.js';
+import {
+  monographAgentHistoryTool,
+  monographAgentPatternsTool,
+  monographAgentRecordTool,
+} from './agent-history-tools.js';
+import {
+  monographBuildTool,
+  monographDetectChangesTool,
+  monographInjectContextTool,
+  monographInstallSkillsTool,
+  monographSkillGenTool,
+  monographWatchStopTool,
+  monographWatchTool,
+} from './build-tools.js';
+import {
+  monographCommunityTool,
+  monographGroupContractsTool,
+  monographGroupListTool,
+  monographGroupQueryTool,
+  monographGroupStatusTool,
+  monographGroupSyncTool,
+  monographListReposTool,
+  monographSurprisesTool,
+} from './group-tools.js';
+import {
+  monographDoctorTool,
+  monographHealthTool,
+  monographStalenessTool,
+  monographStatsTool,
+} from './health-tools.js';
+import {
+  monographApiImpactTool,
+  monographDeadCodeTool,
+  monographImpactTool,
+  monographRenameTool,
+  monographRouteMapTool,
+  monographShapeCheckTool,
+  monographToolMapTool,
+} from './impact-tools.js';
+import {
+  monographAugmentTool,
+  monographContextTool,
+  monographCypherTool,
+  monographGetNodeTool,
+  monographGodNodesTool,
+  monographNeighborsTool,
+  monographQueryTool,
+  monographShortestPathTool,
+  monographSuggestTool,
+} from './query-tools.js';
+import {
+  monographDiffTool,
+  monographExportTool,
+  monographReportTool,
+  monographServeTool,
+  monographSnapshotTool,
+  monographVisualizeTool,
+  monographWikiBuildTool,
+  monographWikiTool,
+} from './visualize-tools.js';
 
 // ── Tool arrays ─────────────────────────────────────────────────────────────
 
 // Advanced tools are only exposed over MCP when MONOGRAPH_MCP_ADVANCED=1.
-const ADVANCED = process.env['MONOGRAPH_MCP_ADVANCED'] === '1';
+const ADVANCED = process.env.MONOGRAPH_MCP_ADVANCED === '1';
 
 /** Default-exposed core tools (19). */
 const coreMonographTools: MCPTool[] = [

@@ -32,8 +32,16 @@
  *     would otherwise hang a non-interactive run).
  */
 import { spawn } from 'node:child_process';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
+
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 /** Distinct from TURN_TIMEOUT_MS: catches a hung first-run interactive prompt
  *  (trust/telemetry gate) fast instead of waiting out the full turn timeout.
@@ -76,7 +84,12 @@ interface TurnOutcome {
 /** Pure stream-json parser — exported for unit testing against fixture lines
  *  built from Qwen Code's documented event schema (qwen-runner.test.ts). */
 export function parseQwenEvents(lines: string[]): {
-  texts: string[]; rawTexts: string[]; sessionId?: string; inputTokens: number; outputTokens: number; error?: string;
+  texts: string[];
+  rawTexts: string[];
+  sessionId?: string;
+  inputTokens: number;
+  outputTokens: number;
+  error?: string;
 } {
   const rawTexts: string[] = [];
   let sessionId: string | undefined;
@@ -86,9 +99,13 @@ export function parseQwenEvents(lines: string[]): {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || !trimmed.startsWith('{')) continue;
+    if (!trimmed?.startsWith('{')) continue;
     let ev: QwenEvent;
-    try { ev = JSON.parse(trimmed); } catch { continue; }
+    try {
+      ev = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
 
     if (ev.session_id) sessionId = ev.session_id;
 
@@ -106,7 +123,8 @@ export function parseQwenEvents(lines: string[]): {
         outputTokens = ev.usage.output_tokens ?? 0;
       }
       if (ev.subtype === 'error') {
-        error = typeof ev.error === 'string' ? ev.error : ev.error?.message ?? 'qwen result: error';
+        error =
+          typeof ev.error === 'string' ? ev.error : (ev.error?.message ?? 'qwen result: error');
       }
     }
   }
@@ -146,17 +164,19 @@ export class QwenAgentRunner implements AgentRunner {
           if (outcome.hangSuspected) {
             throw new Error(
               `QwenAgentRunner: qwen produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
-              'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
-              'that headless mode has no way to answer. Run `qwen` once manually in a real terminal in ' +
-              `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+                'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
+                'that headless mode has no way to answer. Run `qwen` once manually in a real terminal in ' +
+                `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
             );
           }
           if (outcome.exitCode !== 0 || outcome.error) {
             throw new Error(
               `QwenAgentRunner: qwen failed (exit ${outcome.exitCode})` +
-              (outcome.timedOut ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` : '') +
-              (outcome.error ? `: ${outcome.error}` : '') +
-              (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+                (outcome.timedOut
+                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
+                  : '') +
+                (outcome.error ? `: ${outcome.error}` : '') +
+                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
             );
           }
 
@@ -167,22 +187,27 @@ export class QwenAgentRunner implements AgentRunner {
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
-          for (const note of malformed) yield { type: 'assistant', session_id: sessionId, text: note };
+          const calls = parseToolCalls(outcome.rawTexts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
+          for (const note of malformed)
+            yield { type: 'assistant', session_id: sessionId, text: note };
           if (calls.length === 0) break;
 
           if (round === MAX_TOOL_ROUNDS) {
             yield {
-              type: 'assistant', session_id: sessionId,
+              type: 'assistant',
+              session_id: sessionId,
               text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
             };
             break;
           }
 
           const results: string[] = [];
-          for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          for (const call of calls)
+            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           nextPrompt = formatToolResults(calls, results);
         }
 
@@ -198,8 +223,8 @@ export class QwenAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'QwenAgentRunner requires the Qwen Code CLI (qwen) on PATH. ' +
-          'Install it: npm install -g @qwen-code/qwen-code, then run `qwen` once ' +
-          'to authenticate. Or unset the runtime to use Claude.',
+            'Install it: npm install -g @qwen-code/qwen-code, then run `qwen` once ' +
+            'to authenticate. Or unset the runtime to use Claude.',
         );
       }
       throw err;
@@ -224,7 +249,9 @@ export class QwenAgentRunner implements AgentRunner {
       });
 
       let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
+      child.stderr?.on('data', (c: Buffer) => {
+        stderrTail = (stderrTail + c.toString()).slice(-4000);
+      });
 
       let sawOutput = false;
       let timedOut = false;
@@ -234,7 +261,13 @@ export class QwenAgentRunner implements AgentRunner {
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
 
@@ -242,7 +275,13 @@ export class QwenAgentRunner implements AgentRunner {
       let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         hangSuspected = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, STARTUP_GRACE_MS);
 
@@ -256,7 +295,13 @@ export class QwenAgentRunner implements AgentRunner {
         const lines: string[] = [];
         let buf = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
+          if (!sawOutput) {
+            sawOutput = true;
+            if (hangTimer) {
+              clearTimeout(hangTimer);
+              hangTimer = undefined;
+            }
+          }
           buf += chunk.toString();
           const parts = buf.split('\n');
           buf = parts.pop() ?? '';
@@ -272,29 +317,36 @@ export class QwenAgentRunner implements AgentRunner {
       // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
       // process's actual lifetime.
       Promise.all([readLines, exitPromise])
-        .then(([lines, exitCode]) => {
-          const parsed = parseQwenEvents(lines);
-          resolve({
-            texts: parsed.texts,
-            rawTexts: parsed.rawTexts,
-            sessionId: parsed.sessionId ?? sessionId,
-            exitCode,
-            stderrTail,
-            timedOut,
-            hangSuspected,
-            inputTokens: parsed.inputTokens,
-            outputTokens: parsed.outputTokens,
-            error: parsed.error,
-          });
-        }, (err) => {
-          // A stdout stream error (the reject path) means the process is
-          // still ALIVE and unmanaged — none of the timeout/hang timers
-          // would have fired to kill it. Without this, that error would
-          // orphan the child. child.kill() on an already-dead process is a
-          // documented no-op, so this is safe on every path.
-          try { child.kill('SIGTERM'); } catch { /* already gone */ }
-          reject(err);
-        })
+        .then(
+          ([lines, exitCode]) => {
+            const parsed = parseQwenEvents(lines);
+            resolve({
+              texts: parsed.texts,
+              rawTexts: parsed.rawTexts,
+              sessionId: parsed.sessionId ?? sessionId,
+              exitCode,
+              stderrTail,
+              timedOut,
+              hangSuspected,
+              inputTokens: parsed.inputTokens,
+              outputTokens: parsed.outputTokens,
+              error: parsed.error,
+            });
+          },
+          (err) => {
+            // A stdout stream error (the reject path) means the process is
+            // still ALIVE and unmanaged — none of the timeout/hang timers
+            // would have fired to kill it. Without this, that error would
+            // orphan the child. child.kill() on an already-dead process is a
+            // documented no-op, so this is safe on every path.
+            try {
+              child.kill('SIGTERM');
+            } catch {
+              /* already gone */
+            }
+            reject(err);
+          },
+        )
         .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);
