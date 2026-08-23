@@ -5,9 +5,9 @@
  * using pattern matching and entropy analysis.
  */
 
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { extname, join, relative } from 'node:path';
 import { z } from 'zod';
-import { readFileSync, statSync, existsSync, readdirSync } from 'node:fs';
-import { join, extname, relative } from 'node:path';
 import { validateInput } from '../../../utils/input-guards.js';
 
 // Input schema for detect-secrets tool
@@ -27,7 +27,7 @@ export const DetectSecretsInputSchema = z.object({
         'gcp-key',
         'azure-key',
         'generic',
-      ])
+      ]),
     )
     .default(['api-key', 'password', 'private-key', 'token', 'aws-key', 'aws-secret'])
     .describe('Types of secrets to detect'),
@@ -36,7 +36,12 @@ export const DetectSecretsInputSchema = z.object({
     .default(['*.test.ts', '*.spec.ts', 'node_modules', '.git'])
     .describe('File patterns to exclude'),
   includeEntropy: z.boolean().default(true).describe('Use entropy analysis for detection'),
-  entropyThreshold: z.number().min(0).max(8).default(4.5).describe('Entropy threshold (higher = stricter)'),
+  entropyThreshold: z
+    .number()
+    .min(0)
+    .max(8)
+    .default(4.5)
+    .describe('Entropy threshold (higher = stricter)'),
   verifySecrets: z.boolean().default(false).describe('Attempt to verify if secrets are active'),
   scanHistory: z.boolean().default(false).describe('Scan git history for secrets'),
 });
@@ -115,9 +120,12 @@ export interface ToolContext {
 }
 
 // Secret patterns
-const SECRET_PATTERNS: Record<string, { pattern: RegExp; severity: 'critical' | 'high' | 'medium' | 'low'; description: string }> = {
+const SECRET_PATTERNS: Record<
+  string,
+  { pattern: RegExp; severity: 'critical' | 'high' | 'medium' | 'low'; description: string }
+> = {
   'api-key': {
-    pattern: /(?:api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9_\-]{16,}['"]/gi,
+    pattern: /(?:api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9_-]{16,}['"]/gi,
     severity: 'high',
     description: 'API key detected',
   },
@@ -157,12 +165,12 @@ const SECRET_PATTERNS: Record<string, { pattern: RegExp; severity: 'critical' | 
     description: 'GCP service account key detected',
   },
   'azure-key': {
-    pattern: /(?:azure|microsoft)[_-]?(?:key|secret|token)\s*[:=]\s*['"][a-zA-Z0-9_\-]{32,}['"]/gi,
+    pattern: /(?:azure|microsoft)[_-]?(?:key|secret|token)\s*[:=]\s*['"][a-zA-Z0-9_-]{32,}['"]/gi,
     severity: 'critical',
     description: 'Azure credential detected',
   },
   generic: {
-    pattern: /(?:secret|credential|key)\s*[:=]\s*['"][a-zA-Z0-9_\-]{12,}['"]/gi,
+    pattern: /(?:secret|credential|key)\s*[:=]\s*['"][a-zA-Z0-9_-]{12,}['"]/gi,
     severity: 'medium',
     description: 'Potential secret detected',
   },
@@ -173,7 +181,7 @@ const SECRET_PATTERNS: Record<string, { pattern: RegExp; severity: 'critical' | 
  */
 export async function handler(
   input: DetectSecretsInput,
-  context: ToolContext
+  _context: ToolContext,
 ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
   const startTime = Date.now();
 
@@ -201,7 +209,7 @@ export async function handler(
                 },
               },
               null,
-              2
+              2,
             ),
           },
         ],
@@ -214,7 +222,7 @@ export async function handler(
       validatedInput.secretTypes,
       validatedInput.excludePatterns,
       validatedInput.includeEntropy,
-      validatedInput.entropyThreshold
+      validatedInput.entropyThreshold,
     );
 
     // Calculate summary
@@ -268,7 +276,7 @@ export async function handler(
               },
             },
             null,
-            2
+            2,
           ),
         },
       ],
@@ -277,9 +285,24 @@ export async function handler(
 }
 
 const SCANNABLE_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.json', '.yaml', '.yml', '.env', '.toml', '.ini',
-  '.sh', '.bash', '.zsh', '.py', '.rb', '.go',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.env',
+  '.toml',
+  '.ini',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.py',
+  '.rb',
+  '.go',
 ]);
 
 function collectFiles(targetPath: string, excludePatterns: string[]): string[] {
@@ -300,7 +323,8 @@ function collectFiles(targetPath: string, excludePatterns: string[]): string[] {
     for (const entry of entries) {
       const fullPath = join(dir, entry);
       const relPath = relative(targetPath, fullPath);
-      if (excludePatterns.some((p) => relPath.includes(p.replace('*.', '')) || entry === p)) continue;
+      if (excludePatterns.some((p) => relPath.includes(p.replace('*.', '')) || entry === p))
+        continue;
       let entryStat: ReturnType<typeof statSync>;
       try {
         entryStat = statSync(fullPath);
@@ -342,15 +366,20 @@ async function scanForSecrets(
   secretTypes: string[],
   excludePatterns: string[],
   includeEntropy: boolean,
-  entropyThreshold: number
-): Promise<{ findings: SecretFinding[]; scanStats: { filesScanned: number; linesScanned: number } }> {
+  entropyThreshold: number,
+): Promise<{
+  findings: SecretFinding[];
+  scanStats: { filesScanned: number; linesScanned: number };
+}> {
   const findings: SecretFinding[] = [];
   const files = collectFiles(targetPath, excludePatterns);
   let totalLines = 0;
   let findingIndex = 0;
 
-  const activePatterns = secretTypes
-    .map((t) => ({ type: t, ...(SECRET_PATTERNS[t] ?? SECRET_PATTERNS.generic) }));
+  const activePatterns = secretTypes.map((t) => ({
+    type: t,
+    ...(SECRET_PATTERNS[t] ?? SECRET_PATTERNS.generic),
+  }));
 
   for (const filePath of files) {
     let content: string;
@@ -437,7 +466,6 @@ function getRemediation(type: string): string {
   return remediations[type] || 'Remove secret from code and use secure storage';
 }
 
-
 function calculateSummary(findings: SecretFinding[]): DetectionSummary {
   const counts = { critical: 0, high: 0, medium: 0, low: 0 };
 
@@ -449,7 +477,10 @@ function calculateSummary(findings: SecretFinding[]): DetectionSummary {
   const verifiedCount = findings.filter((f) => f.verified).length;
 
   // Calculate risk score
-  const riskScore = Math.max(0, 100 - (counts.critical * 25 + counts.high * 15 + counts.medium * 5 + counts.low * 2));
+  const riskScore = Math.max(
+    0,
+    100 - (counts.critical * 25 + counts.high * 15 + counts.medium * 5 + counts.low * 2),
+  );
 
   return {
     totalFindings: findings.length,
@@ -470,7 +501,7 @@ function groupByType(findings: SecretFinding[]): TypeSummary[] {
     if (!groups.has(finding.type)) {
       groups.set(finding.type, []);
     }
-    groups.get(finding.type)!.push(finding);
+    groups.get(finding.type)?.push(finding);
   }
 
   return Array.from(groups.entries()).map(([type, typeFindings]) => ({
@@ -483,7 +514,7 @@ function groupByType(findings: SecretFinding[]): TypeSummary[] {
 
 function generateRecommendations(
   findings: SecretFinding[],
-  byType: TypeSummary[]
+  _byType: TypeSummary[],
 ): SecretRecommendation[] {
   const recommendations: SecretRecommendation[] = [];
   let priority = 1;
@@ -534,7 +565,7 @@ function generateRecommendations(
       affectedSecrets: [],
       effort: 'low',
       automatable: true,
-    }
+    },
   );
 
   return recommendations;

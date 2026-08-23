@@ -26,13 +26,15 @@ export interface PackageResolver {
   resolve(filePath: string): string;
 }
 
-export function createPackageResolver(packages: Array<{ root: string; name: string }>): PackageResolver {
+export function createPackageResolver(
+  packages: Array<{ root: string; name: string }>,
+): PackageResolver {
   const sorted = [...packages].sort((a, b) => b.root.length - a.root.length);
   return {
     packages,
     resolve(filePath: string): string {
       const normalized = filePath.replace(/\\/g, '/');
-      const match = sorted.find(p => normalized.startsWith(p.root.replace(/\\/g, '/')));
+      const match = sorted.find((p) => normalized.startsWith(p.root.replace(/\\/g, '/')));
       return match?.name ?? '(root)';
     },
   };
@@ -51,7 +53,7 @@ export function groupItemsByFile<T extends { filePath: string }>(
   for (const item of items) {
     const label = resolve(item.filePath);
     if (!map.has(label)) map.set(label, []);
-    map.get(label)!.push(item);
+    map.get(label)?.push(item);
   }
   return [...map.entries()]
     .map(([label, its]) => ({ label, items: its }))
@@ -73,10 +75,14 @@ export function largestOwner(
 }
 
 export function attributeCloneGroup(
-  group: { id: number; duplicatedLines: number; instances: Array<{ filePath: string; startLine: number; endLine: number }> },
+  group: {
+    id: number;
+    duplicatedLines: number;
+    instances: Array<{ filePath: string; startLine: number; endLine: number }>;
+  },
   resolveOwner: (filePath: string) => string,
 ): AttributedCloneGroup {
-  const attributed = group.instances.map(i => ({
+  const attributed = group.instances.map((i) => ({
     ...i,
     owner: resolveOwner(i.filePath),
   }));
@@ -105,10 +111,10 @@ export function groupResultsByOwner<T extends { filePath?: string; path?: string
 ): Map<string, T[]> {
   const map = new Map<string, T[]>();
   for (const item of items) {
-    const fp = item.filePath ?? (item as Record<string, unknown>)['path'] as string ?? '';
+    const fp = item.filePath ?? ((item as Record<string, unknown>).path as string) ?? '';
     const key = resolver(fp);
     if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(item);
+    map.get(key)?.push(item);
   }
   return map;
 }
@@ -120,7 +126,9 @@ export function partitionByOwner<T extends { filePath?: string; path?: string }>
   const grouped = groupResultsByOwner(items, resolver);
   const groups: ResultGroup<T>[] = [];
   for (const [key, results] of grouped) {
-    const filePaths = new Set(results.map(r => r.filePath ?? (r as Record<string, unknown>)['path'] as string ?? ''));
+    const filePaths = new Set(
+      results.map((r) => r.filePath ?? ((r as Record<string, unknown>).path as string) ?? ''),
+    );
     groups.push({ key, results, fileCount: filePaths.size });
   }
   return groups.sort((a, b) => b.results.length - a.results.length);

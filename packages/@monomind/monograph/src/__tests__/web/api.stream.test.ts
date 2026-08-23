@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { streamGraph } from '../../web/api.js';
 
 function makeDb(): Database.Database {
@@ -18,7 +18,9 @@ describe('streamGraph', () => {
   it('calls onRecord for each node and edge', async () => {
     const db = makeDb();
     const records: unknown[] = [];
-    await streamGraph(db, (record) => { records.push(record); });
+    await streamGraph(db, (record) => {
+      records.push(record);
+    });
     expect(records.length).toBeGreaterThanOrEqual(3); // 2 nodes + 1 edge
     expect(records.some((r: any) => r.type === 'node')).toBe(true);
     expect(records.some((r: any) => r.type === 'edge')).toBe(true);
@@ -27,7 +29,9 @@ describe('streamGraph', () => {
   it('each record has a type field', async () => {
     const db = makeDb();
     const records: unknown[] = [];
-    await streamGraph(db, (record) => { records.push(record); });
+    await streamGraph(db, (record) => {
+      records.push(record);
+    });
     for (const r of records) {
       expect(['node', 'edge']).toContain((r as any).type);
     }

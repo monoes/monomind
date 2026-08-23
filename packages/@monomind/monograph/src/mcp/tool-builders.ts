@@ -2,10 +2,18 @@
 // for all monograph CLI tools.
 
 import type {
-  ExtendedAnalyzeParams, ExtendedHealthParams, AuditParams, ExtendedFindDupesParams,
-  TraceExportParams, TraceFileParams, TraceDependencyParams,
-  TraceCloneParams, ProjectInfoParams, FeatureFlagsParams,
-  ListBoundariesParams, CheckRuntimeCoverageParams,
+  AuditParams,
+  CheckRuntimeCoverageParams,
+  ExtendedAnalyzeParams,
+  ExtendedFindDupesParams,
+  ExtendedHealthParams,
+  FeatureFlagsParams,
+  ListBoundariesParams,
+  ProjectInfoParams,
+  TraceCloneParams,
+  TraceDependencyParams,
+  TraceExportParams,
+  TraceFileParams,
 } from './params.js';
 
 // Alias for backward-compat internal use
@@ -16,7 +24,7 @@ type FindDupesParams = ExtendedFindDupesParams;
 function flag(key: string, val: unknown): string[] {
   if (val === undefined || val === null || val === false) return [];
   if (val === true) return [`--${key}`];
-  if (Array.isArray(val)) return val.flatMap(v => [`--${key}`, String(v)]);
+  if (Array.isArray(val)) return val.flatMap((v) => [`--${key}`, String(v)]);
   return [`--${key}`, String(val)];
 }
 
@@ -66,7 +74,9 @@ export function buildHealthArgs(p: HealthParams): string[] {
 }
 
 export function buildAuditArgs(p: AuditParams): string[] {
-  return ['audit', p.root, ...flag('gate', p.gate), ...flag('reporter', p.reporter)].filter(Boolean);
+  return ['audit', p.root, ...flag('gate', p.gate), ...flag('reporter', p.reporter)].filter(
+    Boolean,
+  );
 }
 
 export function buildFindDupesArgs(p: FindDupesParams): string[] {
@@ -108,7 +118,12 @@ export function buildListBoundariesArgs(p: ListBoundariesParams): string[] {
 }
 
 export function buildCheckRuntimeCoverageArgs(p: CheckRuntimeCoverageParams): string[] {
-  return ['check-runtime-coverage', p.root, ...flag('reporter', p.reporter), ...flag('min-confidence', p.minConfidence)].filter(Boolean);
+  return [
+    'check-runtime-coverage',
+    p.root,
+    ...flag('reporter', p.reporter),
+    ...flag('min-confidence', p.minConfidence),
+  ].filter(Boolean);
 }
 
 export function buildCheckChangedArgs(p: CheckChangedParams): string[] {
@@ -133,12 +148,9 @@ export function buildFixPreviewArgs(p: FixParams): string[] {
 }
 
 export function buildFixApplyArgs(p: FixParams): string[] {
-  return [
-    'fix',
-    p.root,
-    ...flag('unused', p.filterUnused),
-    ...flag('deps', p.filterDeps),
-  ].filter(Boolean);
+  return ['fix', p.root, ...flag('unused', p.filterUnused), ...flag('deps', p.filterDeps)].filter(
+    Boolean,
+  );
 }
 
 export function buildExplainArgs(p: ExplainParams): string[] {
@@ -173,22 +185,21 @@ export interface GetCleanupCandidatesParams {
 
 export function buildGetHotPathsArgs(p: GetHotPathsParams): string[] {
   return [
-    'get-hot-paths', p.root,
+    'get-hot-paths',
+    p.root,
     ...flag('min-requests-per-day', p.minRequestsPerDay),
     ...flag('limit', p.limit),
   ].filter(Boolean);
 }
 
 export function buildGetBlastRadiusArgs(p: GetBlastRadiusParams): string[] {
-  return [
-    'get-blast-radius', p.root, p.filePath,
-    ...flag('limit', p.limit),
-  ].filter(Boolean);
+  return ['get-blast-radius', p.root, p.filePath, ...flag('limit', p.limit)].filter(Boolean);
 }
 
 export function buildGetImportanceArgs(p: GetImportanceParams): string[] {
   return [
-    'get-importance', p.root,
+    'get-importance',
+    p.root,
     ...flag('limit', p.limit),
     ...flag('min-score', p.minScore),
   ].filter(Boolean);
@@ -196,7 +207,8 @@ export function buildGetImportanceArgs(p: GetImportanceParams): string[] {
 
 export function buildGetCleanupCandidatesArgs(p: GetCleanupCandidatesParams): string[] {
   return [
-    'get-cleanup-candidates', p.root,
+    'get-cleanup-candidates',
+    p.root,
     ...flag('max-coverage-pct', p.maxCoveragePct),
     ...flag('limit', p.limit),
   ].filter(Boolean);

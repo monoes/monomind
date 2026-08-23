@@ -16,14 +16,12 @@
  * is no module to import. These tests extract the shipped source and evaluate
  * it, which keeps the assertions against the real code rather than a copy.
  */
-import { describe, it, expect } from 'vitest';
+
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
-const DASHBOARD = join(
-  process.cwd(),
-  'packages/@monomind/cli/src/ui/dashboard.html',
-);
+const DASHBOARD = join(process.cwd(), 'packages/@monomind/cli/src/ui/dashboard.html');
 
 function loadHelpers(): {
   fmtCost: (v: unknown, incomplete?: boolean, digits?: number) => string;

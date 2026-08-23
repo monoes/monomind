@@ -5,7 +5,7 @@
  * this utility attempts to install it automatically on first use.
  */
 
-import { spawnSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
 import { npmCommand } from '../utils/npm-command.js';
 
 // Track which packages we've attempted to install this session
@@ -37,13 +37,14 @@ export interface AutoInstallOptions {
  */
 export async function autoInstallPackage(
   packageName: string,
-  options: AutoInstallOptions = {}
+  options: AutoInstallOptions = {},
 ): Promise<boolean> {
   const { timeout = 60000, save = false, silent = false } = options;
 
   // Validate package name to prevent command injection (CVE fix)
   // Valid npm package names: @scope/name or name, alphanumeric with - . _ ~
-  const validPackageName = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9-._~]+)?$/i;
+  const validPackageName =
+    /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9-._~]+)?$/i;
   if (!validPackageName.test(packageName)) {
     if (!silent) {
       console.error(`[monomind] Invalid package name: ${packageName}`);
@@ -95,20 +96,22 @@ export async function autoInstallPackage(
  */
 export async function tryImportOrInstall<T = unknown>(
   packageName: string,
-  options: AutoInstallOptions = {}
+  options: AutoInstallOptions = {},
 ): Promise<T | null> {
   try {
     // First try to import
-    return await import(packageName) as T;
+    return (await import(packageName)) as T;
   } catch {
     // Package not found, try to install
     const installed = await autoInstallPackage(packageName, options);
     if (installed) {
       try {
-        return await import(packageName) as T;
+        return (await import(packageName)) as T;
       } catch {
         // ESM module cache cannot be busted programmatically; a server restart is required
-        console.error(`[monomind] ${packageName} installed but failed to load. Restart MCP server.`);
+        console.error(
+          `[monomind] ${packageName} installed but failed to load. Restart MCP server.`,
+        );
         return null;
       }
     }

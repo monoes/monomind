@@ -1,10 +1,10 @@
 import type {
   FallowAnalysisResults,
-  FallowUnusedFile,
-  FallowUnusedExport,
-  FallowUnusedDependency,
-  FallowUnusedMember,
   FallowUnresolvedImport,
+  FallowUnusedDependency,
+  FallowUnusedExport,
+  FallowUnusedFile,
+  FallowUnusedMember,
 } from '../results/fallow-results.js';
 import { makeEmptyFallowResults, totalFallowIssues } from '../results/fallow-results.js';
 
@@ -26,7 +26,13 @@ export interface BaselineDeltas {
   overall: CategoryDelta;
 }
 
-function makeDelta(category: string, baselineItems: unknown[], currentItems: unknown[], added: number, resolved: number): CategoryDelta {
+function makeDelta(
+  category: string,
+  baselineItems: unknown[],
+  currentItems: unknown[],
+  added: number,
+  resolved: number,
+): CategoryDelta {
   return {
     category,
     before: baselineItems.length,
@@ -68,8 +74,8 @@ function computeDelta<T>(
 ): CategoryDelta {
   const baselineKeys = setOf(baselineItems, key);
   const currentKeys = setOf(currentItems, key);
-  const added = currentItems.filter(i => !baselineKeys.has(key(i))).length;
-  const resolved = baselineItems.filter(i => !currentKeys.has(key(i))).length;
+  const added = currentItems.filter((i) => !baselineKeys.has(key(i))).length;
+  const resolved = baselineItems.filter((i) => !currentKeys.has(key(i))).length;
   return makeDelta(category, baselineItems, currentItems, added, resolved);
 }
 
@@ -86,11 +92,31 @@ export function computeBaselineDeltas(
   const baselineMembers = [...baseline.unusedEnumMembers, ...baseline.unusedClassMembers];
   const currentMembers = [...current.unusedEnumMembers, ...current.unusedClassMembers];
 
-  const unusedFiles = computeDelta('Unused files', baseline.unusedFiles, current.unusedFiles, unusedFileKey);
-  const unusedExports = computeDelta('Unused exports', baselineExports, currentExports, unusedExportKey);
+  const unusedFiles = computeDelta(
+    'Unused files',
+    baseline.unusedFiles,
+    current.unusedFiles,
+    unusedFileKey,
+  );
+  const unusedExports = computeDelta(
+    'Unused exports',
+    baselineExports,
+    currentExports,
+    unusedExportKey,
+  );
   const unusedDeps = computeDelta('Unused deps', baselineDeps, currentDeps, unusedDepKey);
-  const unusedMembers = computeDelta('Unused members', baselineMembers, currentMembers, unusedMemberKey);
-  const unresolvedImports = computeDelta('Unresolved imports', baseline.unresolvedImports, current.unresolvedImports, unresolvedImportKey);
+  const unusedMembers = computeDelta(
+    'Unused members',
+    baselineMembers,
+    currentMembers,
+    unusedMemberKey,
+  );
+  const unresolvedImports = computeDelta(
+    'Unresolved imports',
+    baseline.unresolvedImports,
+    current.unresolvedImports,
+    unresolvedImportKey,
+  );
 
   const baselineCloneCount = baseline.duplicateExports.length;
   const currentCloneCount = current.duplicateExports.length;
@@ -108,11 +134,31 @@ export function computeBaselineDeltas(
     category: 'Overall',
     before: beforeTotal,
     after: afterTotal,
-    added: unusedFiles.added + unusedExports.added + unusedDeps.added + unusedMembers.added + unresolvedImports.added + cloneGroups.added,
-    resolved: unusedFiles.resolved + unusedExports.resolved + unusedDeps.resolved + unusedMembers.resolved + unresolvedImports.resolved + cloneGroups.resolved,
+    added:
+      unusedFiles.added +
+      unusedExports.added +
+      unusedDeps.added +
+      unusedMembers.added +
+      unresolvedImports.added +
+      cloneGroups.added,
+    resolved:
+      unusedFiles.resolved +
+      unusedExports.resolved +
+      unusedDeps.resolved +
+      unusedMembers.resolved +
+      unresolvedImports.resolved +
+      cloneGroups.resolved,
   };
 
-  return { unusedFiles, unusedExports, unusedDeps, unusedMembers, unresolvedImports, cloneGroups, overall };
+  return {
+    unusedFiles,
+    unusedExports,
+    unusedDeps,
+    unusedMembers,
+    unresolvedImports,
+    cloneGroups,
+    overall,
+  };
 }
 
 export function filterNewIssues(
@@ -120,9 +166,18 @@ export function filterNewIssues(
   current: FallowAnalysisResults,
 ): FallowAnalysisResults {
   const baselineFileKeys = setOf(baseline.unusedFiles, unusedFileKey);
-  const baselineExportKeys = setOf([...baseline.unusedExports, ...baseline.unusedTypes], unusedExportKey);
-  const baselineDepKeys = setOf([...baseline.unusedDependencies, ...baseline.unusedDevDependencies], unusedDepKey);
-  const baselineMemberKeys = setOf([...baseline.unusedEnumMembers, ...baseline.unusedClassMembers], unusedMemberKey);
+  const baselineExportKeys = setOf(
+    [...baseline.unusedExports, ...baseline.unusedTypes],
+    unusedExportKey,
+  );
+  const baselineDepKeys = setOf(
+    [...baseline.unusedDependencies, ...baseline.unusedDevDependencies],
+    unusedDepKey,
+  );
+  const baselineMemberKeys = setOf(
+    [...baseline.unusedEnumMembers, ...baseline.unusedClassMembers],
+    unusedMemberKey,
+  );
   const baselineImportKeys = setOf(baseline.unresolvedImports, unresolvedImportKey);
 
   function circularKey(c: FallowAnalysisResults['circularDependencies'][number]): string {
@@ -172,23 +227,53 @@ export function filterNewIssues(
 
   const result = makeEmptyFallowResults();
 
-  result.unusedFiles = current.unusedFiles.filter(i => !baselineFileKeys.has(unusedFileKey(i)));
-  result.unusedExports = current.unusedExports.filter(i => !baselineExportKeys.has(unusedExportKey(i)));
-  result.unusedTypes = current.unusedTypes.filter(i => !baselineExportKeys.has(unusedExportKey(i)));
-  result.unusedDependencies = current.unusedDependencies.filter(i => !baselineDepKeys.has(unusedDepKey(i)));
-  result.unusedDevDependencies = current.unusedDevDependencies.filter(i => !baselineDepKeys.has(unusedDepKey(i)));
-  result.unusedEnumMembers = current.unusedEnumMembers.filter(i => !baselineMemberKeys.has(unusedMemberKey(i)));
-  result.unusedClassMembers = current.unusedClassMembers.filter(i => !baselineMemberKeys.has(unusedMemberKey(i)));
-  result.unresolvedImports = current.unresolvedImports.filter(i => !baselineImportKeys.has(unresolvedImportKey(i)));
-  result.circularDependencies = current.circularDependencies.filter(i => !baselineCircularKeys.has(circularKey(i)));
-  result.boundaryViolations = current.boundaryViolations.filter(i => !baselineBoundaryKeys.has(boundaryKey(i)));
-  result.staleSuppressions = current.staleSuppressions.filter(i => !baselineSuppressionKeys.has(suppressionKey(i)));
-  result.featureFlags = current.featureFlags.filter(i => !baselineFlagKeys.has(flagKey(i)));
-  result.privateTypeLeaks = current.privateTypeLeaks.filter(i => !baselinePrivateLeakKeys.has(privateLeakKey(i)));
-  result.unlistedDependencies = current.unlistedDependencies.filter(i => !baselineUnlistedKeys.has(unlistedDepKey(i)));
-  result.duplicateExports = current.duplicateExports.filter(i => !baselineDuplicateKeys.has(duplicateExportKey(i)));
-  result.typeOnlyDependencies = current.typeOnlyDependencies.filter(i => !baselineTypeOnlyKeys.has(typeOnlyDepKey(i)));
-  result.testOnlyDependencies = current.testOnlyDependencies.filter(i => !baselineTestOnlyKeys.has(testOnlyDepKey(i)));
+  result.unusedFiles = current.unusedFiles.filter((i) => !baselineFileKeys.has(unusedFileKey(i)));
+  result.unusedExports = current.unusedExports.filter(
+    (i) => !baselineExportKeys.has(unusedExportKey(i)),
+  );
+  result.unusedTypes = current.unusedTypes.filter(
+    (i) => !baselineExportKeys.has(unusedExportKey(i)),
+  );
+  result.unusedDependencies = current.unusedDependencies.filter(
+    (i) => !baselineDepKeys.has(unusedDepKey(i)),
+  );
+  result.unusedDevDependencies = current.unusedDevDependencies.filter(
+    (i) => !baselineDepKeys.has(unusedDepKey(i)),
+  );
+  result.unusedEnumMembers = current.unusedEnumMembers.filter(
+    (i) => !baselineMemberKeys.has(unusedMemberKey(i)),
+  );
+  result.unusedClassMembers = current.unusedClassMembers.filter(
+    (i) => !baselineMemberKeys.has(unusedMemberKey(i)),
+  );
+  result.unresolvedImports = current.unresolvedImports.filter(
+    (i) => !baselineImportKeys.has(unresolvedImportKey(i)),
+  );
+  result.circularDependencies = current.circularDependencies.filter(
+    (i) => !baselineCircularKeys.has(circularKey(i)),
+  );
+  result.boundaryViolations = current.boundaryViolations.filter(
+    (i) => !baselineBoundaryKeys.has(boundaryKey(i)),
+  );
+  result.staleSuppressions = current.staleSuppressions.filter(
+    (i) => !baselineSuppressionKeys.has(suppressionKey(i)),
+  );
+  result.featureFlags = current.featureFlags.filter((i) => !baselineFlagKeys.has(flagKey(i)));
+  result.privateTypeLeaks = current.privateTypeLeaks.filter(
+    (i) => !baselinePrivateLeakKeys.has(privateLeakKey(i)),
+  );
+  result.unlistedDependencies = current.unlistedDependencies.filter(
+    (i) => !baselineUnlistedKeys.has(unlistedDepKey(i)),
+  );
+  result.duplicateExports = current.duplicateExports.filter(
+    (i) => !baselineDuplicateKeys.has(duplicateExportKey(i)),
+  );
+  result.typeOnlyDependencies = current.typeOnlyDependencies.filter(
+    (i) => !baselineTypeOnlyKeys.has(typeOnlyDepKey(i)),
+  );
+  result.testOnlyDependencies = current.testOnlyDependencies.filter(
+    (i) => !baselineTestOnlyKeys.has(testOnlyDepKey(i)),
+  );
 
   return result;
 }

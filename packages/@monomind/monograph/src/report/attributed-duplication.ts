@@ -37,10 +37,7 @@ export function resolveOwnerFromDirectory(filePath: string, root: string): strin
   return parts.length > 1 ? parts[0] : '(root)';
 }
 
-export function largestOwner(
-  instances: AttributedInstance[],
-  fallback: string,
-): string {
+export function largestOwner(instances: AttributedInstance[], fallback: string): string {
   const counts = new Map<string, number>();
   for (const inst of instances) {
     counts.set(inst.owner, (counts.get(inst.owner) ?? 0) + 1);
@@ -60,7 +57,7 @@ export function attributeCloneGroup(
   group: CloneGroup,
   resolveOwner: OwnerResolver,
 ): AttributedCloneGroup {
-  const instances: AttributedInstance[] = group.instances.map(inst => ({
+  const instances: AttributedInstance[] = group.instances.map((inst) => ({
     ...inst,
     owner: resolveOwner(inst.filePath),
   }));
@@ -75,7 +72,7 @@ export function buildDuplicationGrouping(
   resolveOwner: OwnerResolver,
   modeLabel: string,
 ): DuplicationGrouping {
-  const attributed = groups.map(g => attributeCloneGroup(g, resolveOwner));
+  const attributed = groups.map((g) => attributeCloneGroup(g, resolveOwner));
 
   const byOwner = new Map<string, AttributedCloneGroup[]>();
   for (const g of attributed) {

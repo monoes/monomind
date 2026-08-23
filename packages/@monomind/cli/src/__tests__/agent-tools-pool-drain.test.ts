@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { agentTools } from '../mcp-tools/agent-tools.js';
 import { getMonomindDataRoot } from '../mcp-tools/types.js';
 
@@ -12,19 +12,27 @@ import { getMonomindDataRoot } from '../mcp-tools/types.js';
 // meaningless number whenever a type filter was supplied. Fixed by scoping
 // both the drain loop and the remaining count to the same (optionally
 // type-filtered) population.
-function seedAgentStore(dir: string, agents: Array<{ agentId: string; agentType: string; status: string }>) {
+function seedAgentStore(
+  dir: string,
+  agents: Array<{ agentId: string; agentType: string; status: string }>,
+) {
   const agentsDir = join(getMonomindDataRoot(dir), 'agents');
   mkdirSync(agentsDir, { recursive: true });
   const store = {
-    agents: Object.fromEntries(agents.map((a) => [a.agentId, {
-      agentId: a.agentId,
-      agentType: a.agentType,
-      status: a.status,
-      health: 1.0,
-      taskCount: 0,
-      config: {},
-      createdAt: new Date().toISOString(),
-    }])),
+    agents: Object.fromEntries(
+      agents.map((a) => [
+        a.agentId,
+        {
+          agentId: a.agentId,
+          agentType: a.agentType,
+          status: a.status,
+          health: 1.0,
+          taskCount: 0,
+          config: {},
+          createdAt: new Date().toISOString(),
+        },
+      ]),
+    ),
     version: '3.0.0',
   };
   writeFileSync(join(agentsDir, 'store.json'), JSON.stringify(store, null, 2), 'utf-8');

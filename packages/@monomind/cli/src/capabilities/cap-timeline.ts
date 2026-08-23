@@ -1,4 +1,10 @@
-import type { CapabilityModule, DirectoryScan, FileEntry, IndexResult, SearchResult } from './types.js';
+import type {
+  CapabilityModule,
+  DirectoryScan,
+  FileEntry,
+  IndexResult,
+  SearchResult,
+} from './types.js';
 
 interface TimelineEntry {
   path: string;
@@ -7,10 +13,36 @@ interface TimelineEntry {
 
 const timelineIndex = new Map<string, TimelineEntry>();
 
-const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-const MONTH_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-const MONTH_NAME_REGEXPS = MONTH_NAMES.map(m => new RegExp(`\\b${m}\\b`));
-const MONTH_SHORT_REGEXPS = MONTH_SHORT.map(m => new RegExp(`\\b${m}\\b`));
+const MONTH_NAMES = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+];
+const MONTH_SHORT = [
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
+];
+const MONTH_NAME_REGEXPS = MONTH_NAMES.map((m) => new RegExp(`\\b${m}\\b`));
+const MONTH_SHORT_REGEXPS = MONTH_SHORT.map((m) => new RegExp(`\\b${m}\\b`));
 
 function extractDatesFromFilename(filename: string): Date[] {
   const dates: Date[] = [];
@@ -19,7 +51,7 @@ function extractDatesFromFilename(filename: string): Date[] {
   const isoMatch = filename.match(/(\d{4})-(\d{2})(?:-(\d{2}))?/);
   if (isoMatch) {
     const d = new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3] ?? '01'}`);
-    if (!isNaN(d.getTime())) dates.push(d);
+    if (!Number.isNaN(d.getTime())) dates.push(d);
   }
 
   // Match month names (word-boundary — avoid 'mar' matching 'marketplace', 'may' matching 'payment', etc.)
@@ -28,7 +60,7 @@ function extractDatesFromFilename(filename: string): Date[] {
     if (MONTH_NAME_REGEXPS[i].test(lower) || MONTH_SHORT_REGEXPS[i].test(lower)) {
       const yearMatch = filename.match(/(\d{4})/);
       if (yearMatch) {
-        const year = parseInt(yearMatch[1]);
+        const year = parseInt(yearMatch[1], 10);
         if (year >= 1900 && year <= 2100) {
           dates.push(new Date(year, i, 1));
         }
@@ -88,7 +120,7 @@ export const timelineCapability: CapabilityModule = {
     }
 
     const yearMatch = query.match(/(\d{4})/);
-    if (yearMatch) targetYear = parseInt(yearMatch[1]);
+    if (yearMatch) targetYear = parseInt(yearMatch[1], 10);
 
     if (targetMonth === -1 && targetYear === -1) return [];
 

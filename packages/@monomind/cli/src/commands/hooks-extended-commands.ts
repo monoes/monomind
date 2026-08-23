@@ -4,26 +4,38 @@
  * Extracted from hooks.ts to reduce file size.
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Model Router command - intelligent model selection (haiku/sonnet/opus)
 export const modelRouteCommand: Command = {
   name: 'model-route',
   description: 'Route task to optimal Claude model (haiku/sonnet/opus) based on complexity',
   options: [
-    { name: 'task', short: 't', type: 'string', description: 'Task description to route', required: true },
+    {
+      name: 'task',
+      short: 't',
+      type: 'string',
+      description: 'Task description to route',
+      required: true,
+    },
     { name: 'context', short: 'c', type: 'string', description: 'Additional context' },
     { name: 'prefer-cost', type: 'boolean', description: 'Prefer lower cost models' },
     { name: 'prefer-quality', type: 'boolean', description: 'Prefer higher quality models' },
   ],
   examples: [
-    { command: 'monomind hooks model-route -t "fix typo"', description: 'Route simple task (likely haiku)' },
-    { command: 'monomind hooks model-route -t "architect auth system"', description: 'Route complex task (likely opus)' },
+    {
+      command: 'monomind hooks model-route -t "fix typo"',
+      description: 'Route simple task (likely haiku)',
+    },
+    {
+      command: 'monomind hooks model-route -t "architect auth system"',
+      description: 'Route complex task (likely opus)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const task = ctx.args[0] || ctx.flags.task as string;
+    const task = ctx.args[0] || (ctx.flags.task as string);
     if (!task) {
       output.printError('Task description required. Use --task or -t flag.');
       return { success: false, exitCode: 1 };
@@ -64,13 +76,15 @@ export const modelRouteCommand: Command = {
 
       // Calculate cost savings compared to opus
       const costMultipliers: Record<string, number> = { haiku: 0.04, sonnet: 0.2, opus: 1.0 };
-      const costSavings = model !== 'opus'
-        ? `${((1 - costMultipliers[model]) * 100).toFixed(0)}% vs opus`
-        : undefined;
+      const costSavings =
+        model !== 'opus'
+          ? `${((1 - costMultipliers[model]) * 100).toFixed(0)}% vs opus`
+          : undefined;
 
       // Determine complexity level
       const complexityScore = typeof result.complexity === 'number' ? result.complexity : 0.5;
-      const complexityLevel = complexityScore > 0.7 ? 'high' : complexityScore > 0.4 ? 'medium' : 'low';
+      const complexityLevel =
+        complexityScore > 0.7 ? 'high' : complexityScore > 0.4 ? 'medium' : 'low';
 
       output.printBox(
         [
@@ -78,8 +92,10 @@ export const modelRouteCommand: Command = {
           `Confidence: ${(result.confidence * 100).toFixed(1)}%`,
           `Complexity: ${complexityLevel} (${(complexityScore * 100).toFixed(0)}%)`,
           costSavings ? `Cost Savings: ${costSavings}` : '',
-        ].filter(Boolean).join('\n'),
-        'Model Routing Result'
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        'Model Routing Result',
       );
 
       output.writeln();
@@ -100,7 +116,7 @@ export const modelRouteCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Model Outcome command - record routing outcomes for learning
@@ -108,14 +124,38 @@ export const modelOutcomeCommand: Command = {
   name: 'model-outcome',
   description: 'Record model routing outcome for learning',
   options: [
-    { name: 'task', short: 't', type: 'string', description: 'Task that was executed', required: true },
-    { name: 'model', short: 'm', type: 'string', description: 'Model that was used (haiku/sonnet/opus)', required: true },
-    { name: 'outcome', short: 'o', type: 'string', description: 'Outcome (success/failure/escalated)', required: true },
+    {
+      name: 'task',
+      short: 't',
+      type: 'string',
+      description: 'Task that was executed',
+      required: true,
+    },
+    {
+      name: 'model',
+      short: 'm',
+      type: 'string',
+      description: 'Model that was used (haiku/sonnet/opus)',
+      required: true,
+    },
+    {
+      name: 'outcome',
+      short: 'o',
+      type: 'string',
+      description: 'Outcome (success/failure/escalated)',
+      required: true,
+    },
     { name: 'quality', short: 'q', type: 'number', description: 'Quality score 0-1' },
   ],
   examples: [
-    { command: 'monomind hooks model-outcome -t "fix typo" -m haiku -o success', description: 'Record successful haiku task' },
-    { command: 'monomind hooks model-outcome -t "auth system" -m sonnet -o escalated', description: 'Record escalation to opus' },
+    {
+      command: 'monomind hooks model-outcome -t "fix typo" -m haiku -o success',
+      description: 'Record successful haiku task',
+    },
+    {
+      command: 'monomind hooks model-outcome -t "auth system" -m sonnet -o escalated',
+      description: 'Record escalation to opus',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = ctx.flags.task as string;
@@ -128,12 +168,15 @@ export const modelOutcomeCommand: Command = {
     }
 
     try {
-      const result = await callMCPTool<{ recorded: boolean; learningUpdate: string }>('hooks_model-outcome', {
-        task,
-        model,
-        outcome,
-        quality: ctx.flags.quality,
-      });
+      const result = await callMCPTool<{ recorded: boolean; learningUpdate: string }>(
+        'hooks_model-outcome',
+        {
+          task,
+          model,
+          outcome,
+          quality: ctx.flags.quality,
+        },
+      );
 
       output.printSuccess(`Outcome recorded for ${model}: ${outcome}`);
       if (result.learningUpdate) {
@@ -145,7 +188,7 @@ export const modelOutcomeCommand: Command = {
       output.printError(`Failed to record outcome: ${String(error)}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Model Stats command - view routing statistics
@@ -189,7 +232,7 @@ export const modelStatsCommand: Command = {
       const costMultipliers: Record<string, number> = { haiku: 0.04, sonnet: 0.2, opus: 1.0 };
 
       let totalCost = 0;
-      let maxCost = totalTasks; // If all were opus
+      const maxCost = totalTasks; // If all were opus
       for (const [model, count] of Object.entries(dist)) {
         if (model !== 'inherit') {
           totalCost += count * (costMultipliers[model] || 1);
@@ -206,7 +249,7 @@ export const modelStatsCommand: Command = {
           `Cost Savings: ${costSavings}% vs all-opus`,
           `Circuit Breaker Trips: ${result.circuitBreakerTrips || 0}`,
         ].join('\n'),
-        'Model Routing Statistics'
+        'Model Routing Statistics',
       );
 
       if (dist && Object.keys(dist).length > 0) {
@@ -235,7 +278,7 @@ export const modelStatsCommand: Command = {
       output.printError(`Failed to get stats: ${String(error)}`);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Notify subcommand
@@ -243,16 +286,37 @@ export const notifyCommand: Command = {
   name: 'notify',
   description: 'Send a notification message (logged to session)',
   options: [
-    { name: 'message', short: 'm', type: 'string', description: 'Notification message', required: true },
-    { name: 'level', short: 'l', type: 'string', description: 'Level: info, warn, error', default: 'info' },
-    { name: 'channel', short: 'c', type: 'string', description: 'Notification channel (only "console" is implemented)', default: 'console' },
+    {
+      name: 'message',
+      short: 'm',
+      type: 'string',
+      description: 'Notification message',
+      required: true,
+    },
+    {
+      name: 'level',
+      short: 'l',
+      type: 'string',
+      description: 'Level: info, warn, error',
+      default: 'info',
+    },
+    {
+      name: 'channel',
+      short: 'c',
+      type: 'string',
+      description: 'Notification channel (only "console" is implemented)',
+      default: 'console',
+    },
   ],
   examples: [
     { command: 'monomind hooks notify -m "Build complete"', description: 'Send info notification' },
-    { command: 'monomind hooks notify -m "Test failed" -l error', description: 'Send error notification' },
+    {
+      command: 'monomind hooks notify -m "Test failed" -l error',
+      description: 'Send error notification',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const message = ctx.args[0] || ctx.flags.message as string;
+    const message = ctx.args[0] || (ctx.flags.message as string);
     const level = (ctx.flags.level as string) || 'info';
 
     if (!message) {
@@ -268,8 +332,8 @@ export const notifyCommand: Command = {
       output.writeln(
         output.warning(
           `Channel "${channel}" is not implemented — delivering to console. ` +
-          `Only "console" is supported today.`
-        )
+            `Only "console" is supported today.`,
+        ),
       );
     }
 
@@ -286,9 +350,15 @@ export const notifyCommand: Command = {
     // Store notification in memory if available
     try {
       const { storeEntry } = await import('../memory/memory-initializer.js');
-      await storeEntry({ key: `notify-${Date.now()}`, value: `[${level}] ${message}`, namespace: 'notifications' });
-    } catch { /* memory not available */ }
+      await storeEntry({
+        key: `notify-${Date.now()}`,
+        value: `[${level}] ${message}`,
+        namespace: 'notifications',
+      });
+    } catch {
+      /* memory not available */
+    }
 
     return { success: true, data: { timestamp, level, message, channel: 'console' } };
-  }
+  },
 };

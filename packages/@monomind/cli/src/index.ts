@@ -5,15 +5,21 @@
  * github.com/monoes/monomind
  */
 
-import { readFileSync, statSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import type { Command, CommandContext, CommandResult, MonomindConfig, CLIError } from './types.js';
-import { CommandParser, commandParser } from './parser.js';
-import { OutputFormatter, output } from './output.js';
-import { getCommand, getCommandAsync, getCommandNames, hasCommand, getCommandsByCategory } from './commands/index.js';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  getCommand,
+  getCommandAsync,
+  getCommandNames,
+  getCommandsByCategory,
+  hasCommand,
+} from './commands/index.js';
+import { type OutputFormatter, output } from './output.js';
+import { type CommandParser, commandParser } from './parser.js';
 import { suggestCommand } from './suggest.js';
-import { runStartupUpdateCheck, getUpdateTagline } from './update/index.js';
+import type { CLIError, Command, CommandContext, MonomindConfig } from './types.js';
+import { getUpdateTagline, runStartupUpdateCheck } from './update/index.js';
 
 // Read version from package.json at runtime
 function getPackageVersion(): string {
@@ -27,7 +33,8 @@ function getPackageVersion(): string {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
     return pkg.version || '3.0.0';
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] getPackageVersion failed, using fallback:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[index] getPackageVersion failed, using fallback:', e);
     return '3.0.0';
   }
 }
@@ -73,8 +80,12 @@ export class CLI {
       // real Command object, not just its name) while never importing the
       // other 31 commands. `--version` and friends need no command at all,
       // so they skip this without importing anything.
-      const firstPositional = args.find(a => !a.startsWith('-'));
-      if (firstPositional && hasCommand(firstPositional) && !this.parser.getCommand(firstPositional)) {
+      const firstPositional = args.find((a) => !a.startsWith('-'));
+      if (
+        firstPositional &&
+        hasCommand(firstPositional) &&
+        !this.parser.getCommand(firstPositional)
+      ) {
         const cmd = await getCommandAsync(firstPositional);
         if (cmd) this.parser.registerCommand(cmd);
       }
@@ -104,7 +115,9 @@ export class CLI {
       if (this.output.isVerbose()) {
         this.output.printDebug(`Command: ${commandPath.join(' ') || '(none)'}`);
         this.output.printDebug(`Positional: [${positional.join(', ')}]`);
-        this.output.printDebug(`Flags: ${JSON.stringify(Object.fromEntries(Object.entries(flags).filter(([k]) => k !== '_')))}`);
+        this.output.printDebug(
+          `Flags: ${JSON.stringify(Object.fromEntries(Object.entries(flags).filter(([k]) => k !== '_')))}`,
+        );
         this.output.printDebug(`CWD: ${process.cwd()}`);
       }
 
@@ -116,7 +129,9 @@ export class CLI {
       // command's boolean options, so an unrelated command declaring its
       // own `update` boolean flag could hijack `--no-update`'s meaning).
       if (flags.update !== false && commandPath[0] !== 'update') {
-        this.checkForUpdatesOnStartup().catch(() => {/* silent */});
+        this.checkForUpdatesOnStartup().catch(() => {
+          /* silent */
+        });
       }
 
       // Handle lazy-loaded commands that weren't recognized by the parser
@@ -178,7 +193,9 @@ export class CLI {
       // so running this here means `monomind --help` (or any invocation in a
       // directory that's never been a monomind project) no longer creates
       // .monomind/registry.json as a side effect of just asking for help.
-      this.initSubsystems().catch(() => {/* silent */});
+      this.initSubsystems().catch(() => {
+        /* silent */
+      });
 
       // Handle subcommand (supports nested subcommands)
       let targetCommand = command;
@@ -196,7 +213,7 @@ export class CLI {
       // noticing. This mirrors the loop showHelp() already used (see below),
       // so `--help` and dispatch now agree on the target at any depth.
       const findChild = (parent: Command, segment: string): Command | undefined =>
-        parent.subcommands?.find(sc => sc.name === segment || sc.aliases?.includes(segment));
+        parent.subcommands?.find((sc) => sc.name === segment || sc.aliases?.includes(segment));
 
       if (commandPath.length > 1 && command.subcommands) {
         // Parser already lifted the subcommand names out of positional, so
@@ -234,7 +251,7 @@ export class CLI {
         flags,
         config: await this.loadConfig(flags.config as string),
         cwd: process.cwd(),
-        interactive: this.interactive && !flags.quiet
+        interactive: this.interactive && !flags.quiet,
       };
 
       // Execute command
@@ -266,7 +283,7 @@ export class CLI {
     } catch (error) {
       // Don't re-handle if this is a process.exit error (from mocked tests)
       const errorMessage = (error as Error).message;
-      if (errorMessage && errorMessage.startsWith('process.exit:')) {
+      if (errorMessage?.startsWith('process.exit:')) {
         throw error; // Re-throw so tests can capture the exit code
       }
       this.handleError(error as Error);
@@ -281,7 +298,9 @@ export class CLI {
 
     this.output.writeln();
     const tagline = getUpdateTagline(this.version);
-    this.output.writeln(this.output.bold(`${this.name} v${this.version}`) + this.output.dim(tagline));
+    this.output.writeln(
+      this.output.bold(`${this.name} v${this.version}`) + this.output.dim(tagline),
+    );
     this.output.writeln(this.output.dim(this.description));
     this.output.writeln();
 
@@ -348,7 +367,7 @@ export class CLI {
       'Keyword routing + route-outcome measurement',
       'Unified SwarmCoordinator engine',
       'Event-sourced state management',
-      'Domain-Driven Design architecture'
+      'Domain-Driven Design architecture',
     ]);
     this.output.writeln();
 
@@ -391,7 +410,9 @@ export class CLI {
     let target: Command = command;
     const resolvedNames = [command.name];
     for (const segment of path.slice(1)) {
-      const next = target.subcommands?.find(sc => sc.name === segment || sc.aliases?.includes(segment));
+      const next = target.subcommands?.find(
+        (sc) => sc.name === segment || sc.aliases?.includes(segment),
+      );
       if (!next) break;
       target = next;
       resolvedNames.push(next.name);
@@ -421,7 +442,8 @@ export class CLI {
         if (opt.hidden) continue;
         const flags = opt.short ? `-${opt.short}, --${opt.name}` : `    --${opt.name}`;
         const required = opt.required ? this.output.error(' (required)') : '';
-        const defaultVal = opt.default !== undefined ? this.output.dim(` [default: ${opt.default}]`) : '';
+        const defaultVal =
+          opt.default !== undefined ? this.output.dim(` [default: ${opt.default}]`) : '';
         this.output.writeln(`  ${flags.padEnd(25)} ${opt.description}${required}${defaultVal}`);
       }
       this.output.writeln();
@@ -459,10 +481,12 @@ export class CLI {
       if (!result.checked) return;
 
       // Notify-only: never auto-install (GitHub issue #83).
-      const available = result.updatesAvailable.filter(u => u.updateType !== 'none');
+      const available = result.updatesAvailable.filter((u) => u.updateType !== 'none');
       if (available.length > 0) {
         this.output.writeln(
-          this.output.dim(`  ↑ ${available.map(u => `${u.package} v${u.latestVersion}`).join(', ')} available  →  run: npm install -g ${this.name}@latest`)
+          this.output.dim(
+            `  ↑ ${available.map((u) => `${u.package} v${u.latestVersion}`).join(', ')} available  →  run: npm install -g ${this.name}@latest`,
+          ),
         );
       }
     } catch {
@@ -494,9 +518,7 @@ export class CLI {
     } catch (error) {
       // Config loading is optional - don't fail if it doesn't exist
       if (process.env.DEBUG) {
-        this.output.writeln(
-          this.output.dim(`Config loading failed: ${(error as Error).message}`)
-        );
+        this.output.writeln(this.output.dim(`Config loading failed: ${(error as Error).message}`));
       }
       return undefined;
     }
@@ -529,7 +551,8 @@ export class CLI {
       void _swarmCheckpointer;
     } catch (e) {
       // optional — monomind/memory may not be installed
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] MonoswarmCheckpointer init failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[index] MonoswarmCheckpointer init failed:', e);
     }
 
     // Task 30: Build unified agent registry — extras (canonical) first, dev copies second.
@@ -537,9 +560,11 @@ export class CLI {
     // Extra paths are read from MONOMIND_EXTRA_AGENT_PATHS env var (colon-separated)
     // or fall back to the known local path when available.
     try {
-      const { buildUnifiedRegistry, computeAgentRoots } = await import('./agents/registry-builder.js');
-      const { mkdirSync } = await import('fs');
-      const { join } = await import('path');
+      const { buildUnifiedRegistry, computeAgentRoots } = await import(
+        './agents/registry-builder.js'
+      );
+      const { mkdirSync } = await import('node:fs');
+      const { join } = await import('node:path');
 
       const roots = computeAgentRoots(process.cwd());
       const outDir = join(process.cwd(), '.monomind');
@@ -547,7 +572,8 @@ export class CLI {
       buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
     } catch (e) {
       // optional — registry build failures must never block startup
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[index] agent registry build failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[index] agent registry build failed:', e);
     }
 
     // Task 04: CapabilityMetadata validation moved to `monomind doctor -c registry`
@@ -599,80 +625,73 @@ export class CLI {
 // Module Exports
 // =============================================================================
 
-// Types
-export * from './types.js';
-
-// Parser
-export { CommandParser, commandParser } from './parser.js';
-
-// Output
-export { OutputFormatter, output, Progress, Spinner, type VerbosityLevel } from './output.js';
-
-// Prompt
-export * from './prompt.js';
-
 // Commands (internal use)
 export * from './commands/index.js';
-
 // MCP Server management
 export {
-  MCPServerManager,
   createMCPServerManager,
-  getServerManager,
-  startMCPServer,
-  stopMCPServer,
   getMCPServerStatus,
+  getServerManager,
+  MCPServerManager,
   type MCPServerOptions,
   type MCPServerStatus,
+  startMCPServer,
+  stopMCPServer,
 } from './mcp-server.js';
-
-// Memory & Intelligence (V1 Performance Features)
 export {
-  initializeMemoryDatabase,
-  generateEmbedding,
-  generateBatchEmbeddings,
-  storeEntry,
-  searchEntries,
-  getHNSWStatus,
-  forceBuildHNSWIndex,
-  quantizeInt8,
-  dequantizeInt8,
-  quantizedCosineSim,
-  getQuantizationStats,
-  // Batched cosine similarity operations
-  batchCosineSim,
-  softmaxAttention,
-  topKIndices,
-  flashAttentionSearch,
-  type MemoryInitResult,
-} from './memory/memory-initializer.js';
-
-export {
-  initializeIntelligence,
-  recordStep,
-  recordTrajectory,
-  findSimilarPatterns,
-  getIntelligenceStats,
-  getSonaCoordinator,
-  getReasoningBank,
-  clearIntelligence,
   benchmarkAdaptation,
+  clearAllPatterns,
+  clearIntelligence,
+  deletePattern,
+  distillLearning,
   // RL loop API
   endTrajectoryWithVerdict,
-  distillLearning,
+  findSimilarPatterns,
+  flushPatterns,
   // Pattern persistence API
   getAllPatterns,
-  getPatternsByType,
-  flushPatterns,
-  deletePattern,
-  clearAllPatterns,
+  getIntelligenceStats,
   getNeuralDataDir,
+  getPatternsByType,
   getPersistenceStatus,
+  getReasoningBank,
+  getSonaCoordinator,
+  type IntelligenceStats,
+  initializeIntelligence,
+  type Pattern,
+  recordStep,
+  recordTrajectory,
   type SonaConfig,
   type TrajectoryStep,
-  type Pattern,
-  type IntelligenceStats,
 } from './memory/intelligence.js';
+// Memory & Intelligence (V1 Performance Features)
+export {
+  // Batched cosine similarity operations
+  batchCosineSim,
+  dequantizeInt8,
+  flashAttentionSearch,
+  forceBuildHNSWIndex,
+  generateBatchEmbeddings,
+  generateEmbedding,
+  getHNSWStatus,
+  getQuantizationStats,
+  initializeMemoryDatabase,
+  type MemoryInitResult,
+  quantizedCosineSim,
+  quantizeInt8,
+  searchEntries,
+  softmaxAttention,
+  storeEntry,
+  topKIndices,
+} from './memory/memory-initializer.js';
+// Output
+export { OutputFormatter, output, Progress, Spinner, type VerbosityLevel } from './output.js';
+// Parser
+export { CommandParser, commandParser } from './parser.js';
+// Prompt
+export * from './prompt.js';
+// Types
+export * from './types.js';
 
 // Default export
 export default CLI;

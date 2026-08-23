@@ -2,9 +2,9 @@
  * Agent operational commands — metrics, pool, health
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { formatStatus } from './agent-lifecycle.js';
 
 // ─── metrics subcommand ──────────────────────────────────────────────────────
@@ -50,10 +50,14 @@ export const metricsCommand: Command = {
       const { bridgeGetBackendStats } = await import('../memory/memory-bridge.js');
       const backendStats = await bridgeGetBackendStats();
       vectorCount = backendStats?.totalEntries ?? 0;
-    } catch { /* backend unavailable */ }
+    } catch {
+      /* backend unavailable */
+    }
 
     const byType = Object.entries(typeCounts).map(([type, data]) => ({
-      type, count: data.count, tasks: data.tasks,
+      type,
+      count: data.count,
+      tasks: data.tasks,
       successRate: 'N/A', // not tracked in the current agent store schema
     }));
 
@@ -61,14 +65,24 @@ export const metricsCommand: Command = {
 
     const metrics = {
       summary: {
-        totalAgents, activeAgents, tasksCompleted, avgSuccessRate, vectorCount,
+        totalAgents,
+        activeAgents,
+        tasksCompleted,
+        avgSuccessRate,
+        vectorCount,
         note: totalAgents === 0 ? 'No agents spawned yet. Use: agent spawn -t coder' : undefined,
       },
       byType,
-      performance: { memoryEntries: `${vectorCount} entries`, searchBackend: vectorCount > 0 ? 'SQLite' : 'none' },
+      performance: {
+        memoryEntries: `${vectorCount} entries`,
+        searchBackend: vectorCount > 0 ? 'SQLite' : 'none',
+      },
     };
 
-    if (ctx.flags.format === 'json') { output.printJson(metrics); return { success: true, data: metrics }; }
+    if (ctx.flags.format === 'json') {
+      output.printJson(metrics);
+      return { success: true, data: metrics };
+    }
 
     output.writeln();
     output.writeln(output.bold('Agent Metrics'));
@@ -100,7 +114,10 @@ export const metricsCommand: Command = {
       data: metrics.byType,
     });
 
-    if (metrics.summary.note) { output.writeln(); output.writeln(output.dim(metrics.summary.note)); }
+    if (metrics.summary.note) {
+      output.writeln();
+      output.writeln(output.dim(metrics.summary.note));
+    }
 
     output.writeln();
     output.writeln(output.bold('Memory'));
@@ -119,7 +136,12 @@ export const poolCommand: Command = {
   name: 'pool',
   description: 'Show agent pool status, or scale it to a target size',
   options: [
-    { name: 'size', short: 's', description: 'Scale the pool to this many agents (omit to just show status)', type: 'number' },
+    {
+      name: 'size',
+      short: 's',
+      description: 'Scale the pool to this many agents (omit to just show status)',
+      type: 'number',
+    },
   ],
   examples: [
     { command: 'monomind agent pool', description: 'Show current pool status' },
@@ -131,39 +153,57 @@ export const poolCommand: Command = {
 
       if (size !== undefined) {
         const result = await callMCPTool<{
-          agentType: string; previousSize: number; targetSize: number; newSize: number;
-          added: string[]; removed: string[];
+          agentType: string;
+          previousSize: number;
+          targetSize: number;
+          newSize: number;
+          added: string[];
+          removed: string[];
         }>('agent_pool', { action: 'scale', targetSize: size });
 
-        if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
+        if (ctx.flags.format === 'json') {
+          output.printJson(result);
+          return { success: true, data: result };
+        }
 
         output.writeln();
-        output.printBox([
-          `Agent Type: ${result.agentType}`,
-          `Previous Size: ${result.previousSize}`,
-          `Target Size: ${result.targetSize}`,
-          `New Size: ${result.newSize}`,
-          ...(result.added.length > 0 ? [`Added: ${result.added.join(', ')}`] : []),
-          ...(result.removed.length > 0 ? [`Removed: ${result.removed.join(', ')}`] : []),
-        ].join('\n'), 'Agent Pool Scale');
+        output.printBox(
+          [
+            `Agent Type: ${result.agentType}`,
+            `Previous Size: ${result.previousSize}`,
+            `Target Size: ${result.targetSize}`,
+            `New Size: ${result.newSize}`,
+            ...(result.added.length > 0 ? [`Added: ${result.added.join(', ')}`] : []),
+            ...(result.removed.length > 0 ? [`Removed: ${result.removed.join(', ')}`] : []),
+          ].join('\n'),
+          'Agent Pool Scale',
+        );
 
         return { success: true, data: result };
       }
 
       const result = await callMCPTool<{
-        poolId: string; currentSize: number; utilization: number;
+        poolId: string;
+        currentSize: number;
+        utilization: number;
         agents: Array<{ id: string; type: string; status: string }>;
       }>('agent_pool', {});
 
-      if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
+      if (ctx.flags.format === 'json') {
+        output.printJson(result);
+        return { success: true, data: result };
+      }
 
       output.writeln();
       const utilization = result.utilization ?? 0;
-      output.printBox([
-        `Pool ID: ${result.poolId ?? 'default'}`,
-        `Current Size: ${result.currentSize ?? 0}`,
-        `Utilization: ${(utilization * 100).toFixed(1)}%`,
-      ].join('\n'), 'Agent Pool');
+      output.printBox(
+        [
+          `Pool ID: ${result.poolId ?? 'default'}`,
+          `Current Size: ${result.currentSize ?? 0}`,
+          `Utilization: ${(utilization * 100).toFixed(1)}%`,
+        ].join('\n'),
+        'Agent Pool',
+      );
 
       const agents = result.agents ?? [];
       if (agents.length > 0) {
@@ -181,7 +221,11 @@ export const poolCommand: Command = {
 
       return { success: true, data: result };
     } catch (error) {
-      output.printError(error instanceof MCPClientError ? `Pool error: ${error.message}` : `Unexpected error: ${String(error)}`);
+      output.printError(
+        error instanceof MCPClientError
+          ? `Pool error: ${error.message}`
+          : `Unexpected error: ${String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
   },
@@ -191,10 +235,14 @@ export const poolCommand: Command = {
 
 function formatHealthStatus(health: unknown): string {
   switch (String(health)) {
-    case 'healthy': return output.success(String(health));
-    case 'degraded': return output.warning(String(health));
-    case 'unhealthy': return output.error(String(health));
-    default: return String(health);
+    case 'healthy':
+      return output.success(String(health));
+    case 'degraded':
+      return output.warning(String(health));
+    case 'unhealthy':
+      return output.error(String(health));
+    default:
+      return String(health);
   }
 }
 
@@ -203,12 +251,27 @@ export const healthCommand: Command = {
   description: 'Show agent health and metrics',
   options: [
     { name: 'id', short: 'i', description: 'Agent ID (all if not specified)', type: 'string' },
-    { name: 'detailed', short: 'd', description: 'Show detailed health metrics', type: 'boolean', default: false },
-    { name: 'watch', short: 'w', description: 'Watch mode (refresh every 5s)', type: 'boolean', default: false },
+    {
+      name: 'detailed',
+      short: 'd',
+      description: 'Show detailed health metrics',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'watch',
+      short: 'w',
+      description: 'Watch mode (refresh every 5s)',
+      type: 'boolean',
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind agent health', description: 'Show all agents health' },
-    { command: 'monomind agent health -i agent-001 -d', description: 'Detailed health for specific agent' },
+    {
+      command: 'monomind agent health -i agent-001 -d',
+      description: 'Detailed health for specific agent',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // --watch was declared (and documented as "refresh every 5s") but never
@@ -226,12 +289,18 @@ const WATCH_INTERVAL_MS = 5000;
 async function watchAgentHealth(ctx: CommandContext): Promise<CommandResult> {
   const refresh = async () => {
     process.stdout.write('\x1b[2J\x1b[H');
-    output.writeln(output.dim(`Last updated: ${new Date().toLocaleTimeString()} — refreshing every 5s. Press Ctrl+C to exit.`));
+    output.writeln(
+      output.dim(
+        `Last updated: ${new Date().toLocaleTimeString()} — refreshing every 5s. Press Ctrl+C to exit.`,
+      ),
+    );
     await renderAgentHealth(ctx);
   };
 
   await refresh();
-  const intervalId = setInterval(() => { void refresh(); }, WATCH_INTERVAL_MS);
+  const intervalId = setInterval(() => {
+    void refresh();
+  }, WATCH_INTERVAL_MS);
 
   // `once` so repeated invocations don't accumulate SIGINT handlers.
   return new Promise<CommandResult>((resolve) => {
@@ -246,14 +315,18 @@ async function watchAgentHealth(ctx: CommandContext): Promise<CommandResult> {
 
 async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
   {
-    const agentId = ctx.args[0] || ctx.flags.id as string;
+    const agentId = ctx.args[0] || (ctx.flags.id as string);
     const detailed = ctx.flags.detailed as boolean;
 
     try {
       const result = await callMCPTool<{
         agents: Array<{
-          id: string; type: string; health: 'healthy' | 'degraded' | 'unhealthy'; uptime: number;
-          memory: { used: number; limit: number }; cpu: number;
+          id: string;
+          type: string;
+          health: 'healthy' | 'degraded' | 'unhealthy';
+          uptime: number;
+          memory: { used: number; limit: number };
+          cpu: number;
           tasks: { active: number; queued: number; completed: number; failed: number };
           latency: { avg: number; p99: number };
           errors: { count: number; lastError?: string };
@@ -261,16 +334,31 @@ async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
         // Real tool fields are `cpu`/`memory` (both `null` today — per-agent
         // OS metrics aren't tracked; see agent_health's `_note`), not
         // `avgCpu`/`avgMemory`.
-        overall: { healthy: number; degraded: number; unhealthy: number; cpu: number | null; memory: number | null };
+        overall: {
+          healthy: number;
+          degraded: number;
+          unhealthy: number;
+          cpu: number | null;
+          memory: number | null;
+        };
       }>('agent_health', { agentId, detailed });
 
-      if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
+      if (ctx.flags.format === 'json') {
+        output.printJson(result);
+        return { success: true, data: result };
+      }
 
       output.writeln();
       output.writeln(output.bold('Agent Health'));
       output.writeln();
 
-      const overall = result.overall ?? { healthy: 0, degraded: 0, unhealthy: 0, cpu: null, memory: null };
+      const overall = result.overall ?? {
+        healthy: 0,
+        degraded: 0,
+        unhealthy: 0,
+        cpu: null,
+        memory: null,
+      };
       const overallParts = [
         `Healthy: ${output.success(String(overall.healthy ?? 0))}`,
         `Degraded: ${output.warning(String(overall.degraded ?? 0))}`,
@@ -279,7 +367,8 @@ async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
       // CPU/memory aren't tracked per agent yet — omit rather than show a
       // fake 0.0%.
       if (overall.cpu != null) overallParts.push(`Avg CPU: ${overall.cpu.toFixed(1)}%`);
-      if (overall.memory != null) overallParts.push(`Avg Memory: ${(overall.memory * 100).toFixed(1)}%`);
+      if (overall.memory != null)
+        overallParts.push(`Avg Memory: ${(overall.memory * 100).toFixed(1)}%`);
       output.printBox(overallParts.join('  |  '), 'Overall Status');
 
       const healthAgents = result.agents ?? [];
@@ -292,10 +381,16 @@ async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
           // CPU/Memory columns removed — agent_health doesn't return
           // per-agent OS metrics (see its `_note` field); showing them
           // rendered a fake 0.0% for every agent.
-          { key: 'tasks', header: 'Tasks', width: 12, align: 'right', format: (v: unknown) => {
-            const t = v as { active: number; completed: number } | undefined;
-            return t ? `${t.active ?? 0}/${t.completed ?? 0}` : '0/0';
-          }},
+          {
+            key: 'tasks',
+            header: 'Tasks',
+            width: 12,
+            align: 'right',
+            format: (v: unknown) => {
+              const t = v as { active: number; completed: number } | undefined;
+              return t ? `${t.active ?? 0}/${t.completed ?? 0}` : '0/0';
+            },
+          },
         ],
         data: healthAgents,
       });
@@ -321,9 +416,12 @@ async function renderAgentHealth(ctx: CommandContext): Promise<CommandResult> {
 
       return { success: true, data: result };
     } catch (error) {
-      output.printError(error instanceof MCPClientError ? `Health check error: ${error.message}` : `Unexpected error: ${String(error)}`);
+      output.printError(
+        error instanceof MCPClientError
+          ? `Health check error: ${error.message}`
+          : `Unexpected error: ${String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
   }
 }
-

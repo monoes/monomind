@@ -6,10 +6,11 @@
  * `monomind <...>` command points at a subcommand that is actually
  * registered in the CLI's command tree, so this cannot silently rot again.
  */
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 import { getCommandAsync } from '../commands/index.js';
 import type { Command } from '../types.js';
 
@@ -19,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 function extractSolutionStrings(): string[] {
   const src = readFileSync(join(__dirname, '..', 'commands', 'performance.ts'), 'utf8');
   const matches = [...src.matchAll(/solution:\s*'((?:[^'\\]|\\.)*)'/g)];
-  return matches.map(m => m[1]);
+  return matches.map((m) => m[1]);
 }
 
 /** Resolve a dotted `monomind foo bar baz` path against the real command tree. */
@@ -49,7 +50,7 @@ describe('performance bottleneck recommendation strings', () => {
 
   it('every "Run: monomind <...>" recommendation points at a real, registered subcommand', async () => {
     const solutions = extractSolutionStrings();
-    const runRecommendations = solutions.filter(s => s.startsWith('Run: monomind '));
+    const runRecommendations = solutions.filter((s) => s.startsWith('Run: monomind '));
 
     // Guard against the extractor itself silently finding nothing (e.g. if the
     // solution strings get reworded to template literals) — that would make
@@ -62,10 +63,13 @@ describe('performance bottleneck recommendation strings', () => {
       // (anything starting with `-`), since flag values that follow (e.g.
       // `--method quantize`) are not command-path segments.
       const allWords = withoutPrefix.split(/\s+/);
-      const flagIndex = allWords.findIndex(w => w.startsWith('-'));
+      const flagIndex = allWords.findIndex((w) => w.startsWith('-'));
       const words = flagIndex === -1 ? allWords : allWords.slice(0, flagIndex);
       const exists = await resolveCommandPath(words);
-      expect(exists, `"monomind ${words.join(' ')}" (from "${rec}") is not a registered command`).toBe(true);
+      expect(
+        exists,
+        `"monomind ${words.join(' ')}" (from "${rec}") is not a registered command`,
+      ).toBe(true);
     }
   });
 });

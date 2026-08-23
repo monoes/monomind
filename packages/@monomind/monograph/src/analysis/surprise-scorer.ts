@@ -2,18 +2,18 @@
 
 export interface ScoredNode {
   id: string;
-  degree: number;           // total in+out edges
-  avgDegree: number;        // average degree across the graph
-  crossCommunityEdges: number;  // edges crossing community boundaries
-  totalEdges: number;       // total edges (for ratio)
-  stalenessScore: number;   // 0=fresh, 1=stale
+  degree: number; // total in+out edges
+  avgDegree: number; // average degree across the graph
+  crossCommunityEdges: number; // edges crossing community boundaries
+  totalEdges: number; // total edges (for ratio)
+  stalenessScore: number; // 0=fresh, 1=stale
   communityId?: string;
 }
 
 export interface SurpriseOptions {
-  degreeWeight?: number;        // default 0.4
+  degreeWeight?: number; // default 0.4
   crossCommunityWeight?: number; // default 0.4
-  stalenessWeight?: number;     // default 0.2
+  stalenessWeight?: number; // default 0.2
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,23 +40,19 @@ export function computeSurpriseScore(node: ScoredNode, opts: SurpriseOptions = {
   const stalenessWeight = opts.stalenessWeight ?? 0.2;
 
   // Factor 1: degree anomaly — nodes with unusually high or low connectivity
-  const degreeAnomaly = clamp(
-    Math.abs(node.degree - node.avgDegree) / (node.avgDegree + 1),
-    0,
-    1,
-  );
+  const degreeAnomaly = clamp(Math.abs(node.degree - node.avgDegree) / (node.avgDegree + 1), 0, 1);
 
   // Factor 2: cross-community ratio — edges that bridge different communities
-  const crossCommunityRatio = node.totalEdges > 0
-    ? node.crossCommunityEdges / node.totalEdges
-    : 0;
+  const crossCommunityRatio = node.totalEdges > 0 ? node.crossCommunityEdges / node.totalEdges : 0;
 
   // Factor 3: staleness — stale nodes are surprising because they may be outdated
   const staleness = clamp(node.stalenessScore, 0, 1);
 
-  return degreeWeight * degreeAnomaly
-    + crossCommunityWeight * crossCommunityRatio
-    + stalenessWeight * staleness;
+  return (
+    degreeWeight * degreeAnomaly +
+    crossCommunityWeight * crossCommunityRatio +
+    stalenessWeight * staleness
+  );
 }
 
 // ── Batch helper ──────────────────────────────────────────────────────────────
@@ -69,6 +65,6 @@ export function scoreNodes(
   opts?: SurpriseOptions,
 ): Array<ScoredNode & { surpriseScore: number }> {
   return nodes
-    .map(node => ({ ...node, surpriseScore: computeSurpriseScore(node, opts) }))
+    .map((node) => ({ ...node, surpriseScore: computeSurpriseScore(node, opts) }))
     .sort((a, b) => b.surpriseScore - a.surpriseScore);
 }

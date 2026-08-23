@@ -1,7 +1,7 @@
-import * as path from 'node:path';
 import * as fs from 'node:fs';
-import type { ResolveContext, ResolveResult, FileId } from './types.js';
+import * as path from 'node:path';
 import { extractPackageNameFromNodeModulesPath } from './path-info.js';
+import type { ResolveContext, ResolveResult } from './types.js';
 
 const STYLE_EXTS = new Set(['.css', '.scss', '.sass', '.less', '.styl']);
 const JS_TS_EXTS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs']);
@@ -29,14 +29,18 @@ export function pathAliasPatternMatches(pattern: string, specifier: string): boo
   return specifier === pattern;
 }
 
-export function matchesNearestTsconfigPathAlias(root: string, fromFile: string, specifier: string): boolean {
+export function matchesNearestTsconfigPathAlias(
+  root: string,
+  fromFile: string,
+  specifier: string,
+): boolean {
   const tsconfigPath = nearestTsconfigPath(root, fromFile);
   if (!tsconfigPath) return false;
   try {
     const raw = fs.readFileSync(tsconfigPath, 'utf8');
     const json = JSON.parse(stripJsonComments(raw));
     const paths: Record<string, string[]> = json?.compilerOptions?.paths ?? {};
-    return Object.keys(paths).some(p => pathAliasPatternMatches(p, specifier));
+    return Object.keys(paths).some((p) => pathAliasPatternMatches(p, specifier));
   } catch {
     return false;
   }
@@ -82,7 +86,11 @@ export function resolveSpecifier(
   return { kind: 'NpmPackage', name: pkg };
 }
 
-function resolveRelative(ctx: ResolveContext, fromFile: string, specifier: string): ResolveResult | null {
+function resolveRelative(
+  ctx: ResolveContext,
+  fromFile: string,
+  specifier: string,
+): ResolveResult | null {
   const fromDir = path.dirname(fromFile);
   const base = path.resolve(fromDir, specifier);
 
@@ -96,18 +104,22 @@ function resolveRelative(ctx: ResolveContext, fromFile: string, specifier: strin
   }
 
   for (const ext of exts) {
-    const id = ctx.pathToId.get(path.join(base, 'index' + ext));
+    const id = ctx.pathToId.get(path.join(base, `index${ext}`));
     if (id !== undefined) return { kind: 'InternalModule', fileId: id };
   }
 
   return null;
 }
 
-function tryScssPartialFallback(ctx: ResolveContext, fromFile: string, specifier: string): ResolveResult | null {
+function tryScssPartialFallback(
+  ctx: ResolveContext,
+  fromFile: string,
+  specifier: string,
+): ResolveResult | null {
   const fromDir = path.dirname(fromFile);
   const base = path.resolve(fromDir, specifier);
   const dir = path.dirname(base);
-  const name = '_' + path.basename(base);
+  const name = `_${path.basename(base)}`;
   for (const ext of ['.scss', '.sass', '.css']) {
     const id = ctx.pathToId.get(path.join(dir, name + ext));
     if (id !== undefined) return { kind: 'InternalModule', fileId: id };

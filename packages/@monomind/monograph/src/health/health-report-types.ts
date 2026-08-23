@@ -119,7 +119,10 @@ export interface HealthReport {
   root: string;
 }
 
-export function makeHealthScore(score: number, penalties: Partial<HealthScorePenalties> = {}): HealthScore {
+export function makeHealthScore(
+  score: number,
+  penalties: Partial<HealthScorePenalties> = {},
+): HealthScore {
   return {
     score: Math.max(0, Math.min(100, score)),
     grade: letterGrade(score),
@@ -144,7 +147,16 @@ export function computeVitalSigns(partial: Partial<VitalSigns>): VitalSigns {
     maintainabilityAvg: partial.maintainabilityAvg ?? 100,
     unusedDepCount: partial.unusedDepCount ?? 0,
     circularDepCount: partial.circularDepCount ?? 0,
-    counts: partial.counts ?? { unusedFiles: 0, unusedExports: 0, unusedTypes: 0, privateTypeLeaks: 0, unusedDependencies: 0, unresolvedImports: 0, circularDependencies: 0, boundaryViolations: 0 },
+    counts: partial.counts ?? {
+      unusedFiles: 0,
+      unusedExports: 0,
+      unusedTypes: 0,
+      privateTypeLeaks: 0,
+      unusedDependencies: 0,
+      unresolvedImports: 0,
+      circularDependencies: 0,
+      boundaryViolations: 0,
+    },
     unitSizeProfile: partial.unitSizeProfile ?? { tiny: 0, small: 0, medium: 0, large: 0, huge: 0 },
     couplingHighPct: partial.couplingHighPct ?? 0,
   };

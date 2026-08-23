@@ -1,26 +1,43 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import { detectWorkspacePackages, resolveWorkspaceImport, type WorkspacePackage } from '../../../pipeline/phases/import-resolver.js';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  detectWorkspacePackages,
+  resolveWorkspaceImport,
+  type WorkspacePackage,
+} from '../../../pipeline/phases/import-resolver.js';
 
 describe('detectWorkspacePackages', () => {
   let tmpDir: string;
 
-  beforeEach(() => { tmpDir = mkdtempSync(join(tmpdir(), 'monorepo-test-')); });
-  afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }); });
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'monorepo-test-'));
+  });
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   it('detects npm workspace packages', () => {
-    writeFileSync(join(tmpDir, 'package.json'), JSON.stringify({
-      workspaces: ['packages/*'],
-    }));
+    writeFileSync(
+      join(tmpDir, 'package.json'),
+      JSON.stringify({
+        workspaces: ['packages/*'],
+      }),
+    );
     mkdirSync(join(tmpDir, 'packages', 'core'), { recursive: true });
     mkdirSync(join(tmpDir, 'packages', 'utils'), { recursive: true });
-    writeFileSync(join(tmpDir, 'packages', 'core', 'package.json'), JSON.stringify({ name: '@myapp/core' }));
-    writeFileSync(join(tmpDir, 'packages', 'utils', 'package.json'), JSON.stringify({ name: '@myapp/utils' }));
+    writeFileSync(
+      join(tmpDir, 'packages', 'core', 'package.json'),
+      JSON.stringify({ name: '@myapp/core' }),
+    );
+    writeFileSync(
+      join(tmpDir, 'packages', 'utils', 'package.json'),
+      JSON.stringify({ name: '@myapp/utils' }),
+    );
 
     const packages = detectWorkspacePackages(tmpDir);
-    const names = packages.map(p => p.name);
+    const names = packages.map((p) => p.name);
     expect(names).toContain('@myapp/core');
     expect(names).toContain('@myapp/utils');
   });
@@ -42,9 +59,7 @@ describe('resolveWorkspaceImport', () => {
   });
 
   it('returns null for a non-workspace import', () => {
-    const packages: WorkspacePackage[] = [
-      { name: '@myapp/core', path: '/repo/packages/core' },
-    ];
+    const packages: WorkspacePackage[] = [{ name: '@myapp/core', path: '/repo/packages/core' }];
     const result = resolveWorkspaceImport('lodash', packages);
     expect(result).toBeNull();
   });
@@ -55,9 +70,7 @@ describe('resolveWorkspaceImport', () => {
   });
 
   it('handles scoped packages with subpath (@scope/pkg/subpath)', () => {
-    const packages: WorkspacePackage[] = [
-      { name: '@myapp/core', path: '/repo/packages/core' },
-    ];
+    const packages: WorkspacePackage[] = [{ name: '@myapp/core', path: '/repo/packages/core' }];
     const result = resolveWorkspaceImport('@myapp/core/utils', packages);
     expect(result).toBe('/repo/packages/core');
   });

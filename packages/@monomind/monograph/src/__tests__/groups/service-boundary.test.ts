@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { detectServiceBoundaries, assignService } from '../../groups/service-boundary.js';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { assignService, detectServiceBoundaries } from '../../groups/service-boundary.js';
 
 let tmpRoot: string;
 
@@ -37,9 +37,9 @@ describe('detectServiceBoundaries', () => {
   it('detects directories with service markers', () => {
     const boundaries = detectServiceBoundaries(tmpRoot);
     expect(boundaries.length).toBeGreaterThanOrEqual(2);
-    const paths = boundaries.map(b => b.servicePath);
-    expect(paths.some(p => p.includes('service-a'))).toBe(true);
-    expect(paths.some(p => p.includes('service-b') || p.includes('service-c'))).toBe(true);
+    const paths = boundaries.map((b) => b.servicePath);
+    expect(paths.some((p) => p.includes('service-a'))).toBe(true);
+    expect(paths.some((p) => p.includes('service-b') || p.includes('service-c'))).toBe(true);
     db?.close?.();
   });
 

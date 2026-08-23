@@ -1,20 +1,20 @@
 import type { LspRange } from './code-lens.js';
 
 export interface MonographHover {
-  contents: string;   // Markdown
+  contents: string; // Markdown
   range?: LspRange;
 }
 
 export interface UnusedExportInfo {
   exportName: string;
-  line: number;       // 1-based
+  line: number; // 1-based
   col: number;
   referenceCount: number;
   suppressionHint?: string;
 }
 
 export interface DuplicationInfo {
-  line: number;       // 1-based
+  line: number; // 1-based
   col: number;
   groupSize: number;
   instanceCount: number;
@@ -24,8 +24,8 @@ export interface DuplicationInfo {
 export function buildHover(
   unusedExports: UnusedExportInfo[],
   duplication: DuplicationInfo[],
-  position: { line: number; character: number },  // 0-based LSP
-  filePath: string,
+  position: { line: number; character: number }, // 0-based LSP
+  _filePath: string,
 ): MonographHover | null {
   const lspLine = position.line;
 

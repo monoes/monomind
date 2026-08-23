@@ -11,8 +11,8 @@
  * @module @monomind/cli/monovector/coverage-router
  */
 
-import { existsSync, readFileSync, statSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { getProjectCwd } from '../mcp-tools/types.js';
 
 // ============================================================================
@@ -164,7 +164,14 @@ function pct(covered: number | undefined, total: number | undefined, fallback = 
 
 function parseSummaryJson(data: Record<string, unknown>, source: string): CoverageData {
   const entries: CoverageEntry[] = [];
-  let tl = 0, cl = 0, tb = 0, cb = 0, tf = 0, cf = 0, ts = 0, cs = 0;
+  let tl = 0,
+    cl = 0,
+    tb = 0,
+    cb = 0,
+    tf = 0,
+    cf = 0,
+    ts = 0,
+    cs = 0;
 
   for (const [filePath, metrics] of Object.entries(data)) {
     if (filePath === 'total') continue;
@@ -179,13 +186,17 @@ function parseSummaryJson(data: Record<string, unknown>, source: string): Covera
       statements: m.statements?.pct ?? pct(m.statements?.covered, m.statements?.total),
     });
 
-    tl += m.lines?.total ?? 0; cl += m.lines?.covered ?? 0;
-    tb += m.branches?.total ?? 0; cb += m.branches?.covered ?? 0;
-    tf += m.functions?.total ?? 0; cf += m.functions?.covered ?? 0;
-    ts += m.statements?.total ?? 0; cs += m.statements?.covered ?? 0;
+    tl += m.lines?.total ?? 0;
+    cl += m.lines?.covered ?? 0;
+    tb += m.branches?.total ?? 0;
+    cb += m.branches?.covered ?? 0;
+    tf += m.functions?.total ?? 0;
+    cf += m.functions?.covered ?? 0;
+    ts += m.statements?.total ?? 0;
+    cs += m.statements?.covered ?? 0;
   }
 
-  const total = data['total'] as Record<string, { pct?: number }> | undefined;
+  const total = data.total as Record<string, { pct?: number }> | undefined;
   entries.sort((a, b) => a.lines - b.lines);
 
   return {
@@ -205,8 +216,18 @@ function parseSummaryJson(data: Record<string, unknown>, source: string): Covera
 function parseLcov(raw: string, source: string): CoverageData {
   const entries: CoverageEntry[] = [];
   let file = '';
-  let lf = 0, lh = 0, brf = 0, brh = 0, fnf = 0, fnh = 0;
-  let tl = 0, cl = 0, tb = 0, cb = 0, tf = 0, cf = 0;
+  let lf = 0,
+    lh = 0,
+    brf = 0,
+    brh = 0,
+    fnf = 0,
+    fnh = 0;
+  let tl = 0,
+    cl = 0,
+    tb = 0,
+    cb = 0,
+    tf = 0,
+    cf = 0;
 
   const flush = () => {
     if (!file) return;
@@ -217,14 +238,22 @@ function parseLcov(raw: string, source: string): CoverageData {
       functions: pct(fnh, fnf),
       statements: pct(lh, lf, 0),
     });
-    tl += lf; cl += lh; tb += brf; cb += brh; tf += fnf; cf += fnh;
-    file = ''; lf = lh = brf = brh = fnf = fnh = 0;
+    tl += lf;
+    cl += lh;
+    tb += brf;
+    cb += brh;
+    tf += fnf;
+    cf += fnh;
+    file = '';
+    lf = lh = brf = brh = fnf = fnh = 0;
   };
 
   for (const line of raw.split('\n')) {
     const t = line.trim();
-    if (t.startsWith('SF:')) { flush(); file = t.slice(3); }
-    else if (t.startsWith('LF:')) lf = Number(t.slice(3)) || 0;
+    if (t.startsWith('SF:')) {
+      flush();
+      file = t.slice(3);
+    } else if (t.startsWith('LF:')) lf = Number(t.slice(3)) || 0;
     else if (t.startsWith('LH:')) lh = Number(t.slice(3)) || 0;
     else if (t.startsWith('BRF:')) brf = Number(t.slice(4)) || 0;
     else if (t.startsWith('BRH:')) brh = Number(t.slice(4)) || 0;
@@ -256,7 +285,8 @@ function parseLcov(raw: string, source: string): CoverageData {
 /** Assign a coverage gap to the most appropriate agent based on file path. */
 export function assignAgent(filePath: string): string {
   const p = filePath.toLowerCase();
-  if (/(security|auth|crypto|password|token|permission|sanitiz)/.test(p)) return 'security-architect';
+  if (/(security|auth|crypto|password|token|permission|sanitiz)/.test(p))
+    return 'security-architect';
   if (/(api|route|controller|endpoint|handler|server|http)/.test(p)) return 'backend-dev';
   if (/(\.tsx|\.jsx|component|ui\/|view|page|render)/.test(p)) return 'frontend-developer';
   if (/(db|database|migration|schema|model|repository|query)/.test(p)) return 'backend-dev';
@@ -278,9 +308,14 @@ function suggestTestTypes(entry: CoverageEntry): string[] {
 function suggestTests(entry: CoverageEntry, target: number): string[] {
   const out: string[] = [];
   const base = entry.filePath.replace(/\.[tj]sx?$/, '');
-  if (entry.functions < target) out.push(`Add unit tests covering untested functions in ${entry.filePath}`);
-  if (entry.branches < target) out.push(`Add tests for uncovered branches/conditionals (currently ${entry.branches.toFixed(0)}%)`);
-  if (entry.lines < 50) out.push(`Add an integration test exercising the main path of ${entry.filePath}`);
+  if (entry.functions < target)
+    out.push(`Add unit tests covering untested functions in ${entry.filePath}`);
+  if (entry.branches < target)
+    out.push(
+      `Add tests for uncovered branches/conditionals (currently ${entry.branches.toFixed(0)}%)`,
+    );
+  if (entry.lines < 50)
+    out.push(`Add an integration test exercising the main path of ${entry.filePath}`);
   out.push(`Create ${base}.test.ts with edge-case and error-path coverage`);
   return out.slice(0, 4);
 }
@@ -294,7 +329,7 @@ function estimateEffort(gap: number): number {
 function filterByPath<T extends { filePath: string }>(entries: T[], path: string): T[] {
   if (!path || path === '.' || path === './') return entries;
   const norm = path.replace(/^\.\//, '');
-  return entries.filter(e => e.filePath.includes(norm));
+  return entries.filter((e) => e.filePath.includes(norm));
 }
 
 // ============================================================================
@@ -303,18 +338,24 @@ function filterByPath<T extends { filePath: string }>(entries: T[], path: string
 
 /** List coverage gaps below threshold, grouped by assigned agent. */
 export async function coverageGaps(
-  opts: CoverageOptions & { groupByAgent?: boolean; path?: string } = {}
+  opts: CoverageOptions & { groupByAgent?: boolean; path?: string } = {},
 ): Promise<CoverageGapsResult> {
   const threshold = opts.threshold ?? 80;
   const data = readCoverage();
   if (!data.found) {
-    return { found: false, totalGaps: 0, summary: 'No coverage report found. Run your test suite with coverage enabled.', byAgent: {}, gaps: [] };
+    return {
+      found: false,
+      totalGaps: 0,
+      summary: 'No coverage report found. Run your test suite with coverage enabled.',
+      byAgent: {},
+      gaps: [],
+    };
   }
 
   const entries = filterByPath(data.entries, opts.path ?? '');
   const gaps: CoverageGap[] = entries
-    .filter(e => e.lines < threshold)
-    .map(e => ({
+    .filter((e) => e.lines < threshold)
+    .map((e) => ({
       file: e.filePath,
       currentCoverage: e.lines,
       gap: threshold - e.lines,
@@ -328,9 +369,10 @@ export async function coverageGaps(
   return {
     found: true,
     totalGaps: gaps.length,
-    summary: gaps.length === 0
-      ? `All ${entries.length} files meet the ${threshold}% threshold.`
-      : `${gaps.length} of ${entries.length} files below ${threshold}% (overall ${data.summary.overallLineCoverage.toFixed(1)}%).`,
+    summary:
+      gaps.length === 0
+        ? `All ${entries.length} files meet the ${threshold}% threshold.`
+        : `${gaps.length} of ${entries.length} files below ${threshold}% (overall ${data.summary.overallLineCoverage.toFixed(1)}%).`,
     byAgent,
     gaps,
   };
@@ -339,7 +381,7 @@ export async function coverageGaps(
 /** Suggest concrete coverage improvements for a path. */
 export async function coverageSuggest(
   path = '.',
-  opts: CoverageOptions & { limit?: number } = {}
+  opts: CoverageOptions & { limit?: number } = {},
 ): Promise<CoverageSuggestResult> {
   const threshold = opts.threshold ?? 80;
   const limit = opts.limit ?? 20;
@@ -348,9 +390,9 @@ export async function coverageSuggest(
     return { found: false, path, totalGap: 0, estimatedEffort: 0, suggestions: [] };
   }
 
-  const entries = filterByPath(data.entries, path).filter(e => e.lines < threshold);
+  const entries = filterByPath(data.entries, path).filter((e) => e.lines < threshold);
   const suggestions: CoverageSuggestion[] = entries
-    .map(e => {
+    .map((e) => {
       const gap = threshold - e.lines;
       // priority 1–10 from gap size (a 40%+ gap → 10).
       const priority = Math.min(10, Math.max(1, Math.round(gap / 4)));
@@ -374,20 +416,29 @@ export async function coverageSuggest(
 /** Produce a coverage-aware routing decision. */
 export async function coverageRoute(
   path = '',
-  opts: CoverageOptions = {}
+  opts: CoverageOptions = {},
 ): Promise<CoverageRouteResult> {
   const threshold = opts.threshold ?? 80;
   const data = readCoverage();
   if (!data.found) {
-    return { found: false, action: 'skip', priority: 0, impactScore: 0, estimatedEffort: 0, testTypes: [], targetFiles: [], gaps: [] };
+    return {
+      found: false,
+      action: 'skip',
+      priority: 0,
+      impactScore: 0,
+      estimatedEffort: 0,
+      testTypes: [],
+      targetFiles: [],
+      gaps: [],
+    };
   }
 
   const entries = filterByPath(data.entries, path);
-  const below = entries.filter(e => e.lines < threshold);
+  const below = entries.filter((e) => e.lines < threshold);
   const overall = data.summary.overallLineCoverage;
 
   const gaps = below
-    .map(e => ({ file: e.filePath, currentCoverage: e.lines, gap: threshold - e.lines }))
+    .map((e) => ({ file: e.filePath, currentCoverage: e.lines, gap: threshold - e.lines }))
     .sort((a, b) => b.gap - a.gap);
 
   let action: CoverageAction;
@@ -399,13 +450,16 @@ export async function coverageRoute(
   // priority 1–10: severity of the worst gap + breadth.
   const worstGap = gaps[0]?.gap ?? 0;
   const breadth = entries.length ? below.length / entries.length : 0;
-  const priority = action === 'skip' ? 0 : Math.min(10, Math.max(1, Math.round((worstGap / 5) + breadth * 4)));
+  const priority =
+    action === 'skip' ? 0 : Math.min(10, Math.max(1, Math.round(worstGap / 5 + breadth * 4)));
 
   // impactScore 0–100: how far overall coverage sits below threshold — i.e. the
   // headroom (in coverage points) that closing these gaps would reclaim.
   const impactScore = Math.round(Math.min(100, Math.max(0, threshold - overall)));
 
-  const estimatedEffort = Number(below.reduce((s, e) => s + estimateEffort(threshold - e.lines), 0).toFixed(1));
+  const estimatedEffort = Number(
+    below.reduce((s, e) => s + estimateEffort(threshold - e.lines), 0).toFixed(1),
+  );
 
   // aggregate test types across the worst files
   const testTypes = Array.from(new Set(below.slice(0, 10).flatMap(suggestTestTypes)));
@@ -417,7 +471,7 @@ export async function coverageRoute(
     impactScore,
     estimatedEffort,
     testTypes: testTypes.length ? testTypes : ['unit'],
-    targetFiles: gaps.map(g => g.file),
+    targetFiles: gaps.map((g) => g.file),
     gaps,
   };
 }

@@ -53,7 +53,9 @@ export class Mailbox {
   private inFlight: string | null = null;
 
   /** Number of real (non-continuation) messages consumed so far across all sessions. */
-  get consumedRealCount(): number { return this.consumedReal; }
+  get consumedRealCount(): number {
+    return this.consumedReal;
+  }
 
   push(text: string): void {
     if (this.closed) return;
@@ -61,7 +63,8 @@ export class Mailbox {
       this.queue.shift();
     }
     this.queue.push(text);
-    this.wake?.(); this.wake = null;
+    this.wake?.();
+    this.wake = null;
   }
 
   close(reason?: string): void {
@@ -76,14 +79,19 @@ export class Mailbox {
     if (this.closed) return;
     this.closed = true;
     this.closeReasonValue = reason;
-    this.wake?.(); this.wake = null;
+    this.wake?.();
+    this.wake = null;
   }
 
-  get isClosed(): boolean { return this.closed; }
+  get isClosed(): boolean {
+    return this.closed;
+  }
 
   /** Why close() was called, if given a reason — undefined for a plain crash/
    *  terminal close. See the closeReasonValue field doc for intent. */
-  get closeReason(): string | undefined { return this.closeReasonValue; }
+  get closeReason(): string | undefined {
+    return this.closeReasonValue;
+  }
 
   /**
    * Detach the current waker WITHOUT resolving it. Called between sessions
@@ -96,7 +104,9 @@ export class Mailbox {
    * parked stale generator is never resumed and becomes garbage with its
    * session.
    */
-  detach(): void { this.wake = null; }
+  detach(): void {
+    this.wake = null;
+  }
 
   /**
    * One live generator at a time: each stream() call bumps `generation`, and
@@ -134,7 +144,9 @@ export class Mailbox {
         this.inFlight = null;
       }
       if (this.closed || gen !== this.generation) return;
-      await new Promise<void>(r => { this.wake = r; });
+      await new Promise<void>((r) => {
+        this.wake = r;
+      });
       if (gen !== this.generation) return;
     }
   }
@@ -169,7 +181,12 @@ export class Mailbox {
   }
 
   /** Deserialize mailbox state from checkpoint - Pattern 3 */
-  deserialize(state: { queue: string[]; closed: boolean; consumedReal: number; closeReason?: string }): void {
+  deserialize(state: {
+    queue: string[];
+    closed: boolean;
+    consumedReal: number;
+    closeReason?: string;
+  }): void {
     this.queue = [...state.queue]; // Restore queue content
     this.closed = state.closed;
     this.consumedReal = state.consumedReal;

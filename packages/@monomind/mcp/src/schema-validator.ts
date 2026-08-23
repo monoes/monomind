@@ -25,7 +25,7 @@ export interface ValidationResult {
 export function validateSchema(
   data: unknown,
   schema: JSONSchema,
-  path: string = ''
+  path: string = '',
 ): ValidationResult {
   const errors: ValidationError[] = [];
 

@@ -137,16 +137,16 @@ export class Bm25Index {
    * note. Pass the predicate from `knowledge/document-pipeline.ts` so the
    * definition of "live" stays in one place.
    */
-  static build(
-    chunks: Bm25Chunk[],
-    isSuperseded: (key: string) => boolean,
-  ): Bm25Index {
+  static build(chunks: Bm25Chunk[], isSuperseded: (key: string) => boolean): Bm25Index {
     const started = Date.now();
 
     const live: Bm25Chunk[] = [];
     let skipped = 0;
     for (const c of chunks) {
-      if (isSuperseded(c.key)) { skipped++; continue; }
+      if (isSuperseded(c.key)) {
+        skipped++;
+        continue;
+      }
       live.push(c);
     }
 
@@ -180,8 +180,8 @@ export class Bm25Index {
       // fatter, invisibly.
       console.warn(
         `[bm25-index] indexed ${live.length} chunks (>${LIVE_CHUNK_WARN_THRESHOLD}) with only ` +
-        `${skipped} filtered as superseded — check that the superseded filter is still applying. ` +
-        `Measured cost: 673 live chunks = 113ms/15MB; 12,522 unfiltered = 1,729ms/314MB.`,
+          `${skipped} filtered as superseded — check that the superseded filter is still applying. ` +
+          `Measured cost: 673 live chunks = 113ms/15MB; 12,522 unfiltered = 1,729ms/314MB.`,
       );
     }
 

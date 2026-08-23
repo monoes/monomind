@@ -19,7 +19,7 @@ export function weaklyConnectedComponents(db: MonographDb): string[][] {
 
   if (nodeRows.length === 0) return [];
 
-  const nodes = nodeRows.map(r => r.id);
+  const nodes = nodeRows.map((r) => r.id);
   const { parent, rank } = buildUnionFind(nodes);
 
   for (const { source_id: src, target_id: tgt } of edgeRows) {
@@ -55,17 +55,23 @@ export interface WccStats {
 export function wccStats(db: MonographDb): WccStats {
   const components = weaklyConnectedComponents(db);
   if (components.length === 0) {
-    return { componentCount: 0, largestSize: 0, smallestSize: 0, meanSize: 0, isolatedNodeCount: 0 };
+    return {
+      componentCount: 0,
+      largestSize: 0,
+      smallestSize: 0,
+      meanSize: 0,
+      isolatedNodeCount: 0,
+    };
   }
 
-  const sizes = components.map(c => c.length);
+  const sizes = components.map((c) => c.length);
   const total = sizes.reduce((a, b) => a + b, 0);
   return {
     componentCount: sizes.length,
     largestSize: sizes[0], // already sorted descending
     smallestSize: sizes[sizes.length - 1],
     meanSize: Math.round((total / sizes.length) * 100) / 100,
-    isolatedNodeCount: sizes.filter(s => s === 1).length,
+    isolatedNodeCount: sizes.filter((s) => s === 1).length,
   };
 }
 
@@ -89,8 +95,8 @@ export function formatWcc(db: MonographDb, components: string[][], topN = 5): st
     return 'Weakly connected components: no nodes found.';
   }
 
-  const isolatedCount = components.filter(c => c.length === 1).length;
-  const nonTrivial = components.filter(c => c.length > 1);
+  const isolatedCount = components.filter((c) => c.length === 1).length;
+  const nonTrivial = components.filter((c) => c.length > 1);
   const display = nonTrivial.slice(0, topN);
 
   // Batch-resolve all node IDs in the displayed components
@@ -104,12 +110,15 @@ export function formatWcc(db: MonographDb, components: string[][], topN = 5): st
     const rows = db
       .prepare(`SELECT id, name, file_path FROM nodes WHERE id IN (${ph})`)
       .all(...chunk) as { id: string; name: string; file_path: string | null }[];
-    for (const row of rows) nodeInfo.set(row.id, { name: row.name ?? row.id, filePath: row.file_path });
+    for (const row of rows)
+      nodeInfo.set(row.id, { name: row.name ?? row.id, filePath: row.file_path });
   }
 
   const lines: string[] = [
     `Weakly connected components: ${components.length} total` +
-      (isolatedCount > 0 ? ` (${isolatedCount} isolated node${isolatedCount === 1 ? '' : 's'})` : ''),
+      (isolatedCount > 0
+        ? ` (${isolatedCount} isolated node${isolatedCount === 1 ? '' : 's'})`
+        : ''),
     '',
   ];
 
@@ -127,7 +136,9 @@ export function formatWcc(db: MonographDb, components: string[][], topN = 5): st
 
   if (nonTrivial.length > topN) {
     lines.push('');
-    lines.push(`... (${nonTrivial.length - topN} more non-trivial component${nonTrivial.length - topN === 1 ? '' : 's'} omitted)`);
+    lines.push(
+      `... (${nonTrivial.length - topN} more non-trivial component${nonTrivial.length - topN === 1 ? '' : 's'} omitted)`,
+    );
   }
 
   return lines.join('\n');
@@ -137,7 +148,10 @@ export function formatWcc(db: MonographDb, components: string[][], topN = 5): st
 // Internal union-find helpers
 // ---------------------------------------------------------------------------
 
-function buildUnionFind(nodes: string[]): { parent: Map<string, string>; rank: Map<string, number> } {
+function buildUnionFind(nodes: string[]): {
+  parent: Map<string, string>;
+  rank: Map<string, number>;
+} {
   const parent = new Map<string, string>();
   const rank = new Map<string, number>();
   for (const n of nodes) {
@@ -160,7 +174,12 @@ function ufFind(parent: Map<string, string>, x: string): string {
   return root;
 }
 
-function ufUnion(parent: Map<string, string>, rank: Map<string, number>, a: string, b: string): void {
+function ufUnion(
+  parent: Map<string, string>,
+  rank: Map<string, number>,
+  a: string,
+  b: string,
+): void {
   const ra = ufFind(parent, a);
   const rb = ufFind(parent, b);
   if (ra === rb) return;
@@ -181,7 +200,7 @@ function groupByRoot(nodes: string[], parent: Map<string, string>): string[][] {
   for (const n of nodes) {
     const root = ufFind(parent, n);
     if (!components.has(root)) components.set(root, []);
-    components.get(root)!.push(n);
+    components.get(root)?.push(n);
   }
   return [...components.values()].sort((a, b) => b.length - a.length);
 }

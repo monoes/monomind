@@ -1,5 +1,5 @@
 // packages/@monomind/cli/src/orgrt/remote.ts
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ORG_DIR } from './types.js';
 

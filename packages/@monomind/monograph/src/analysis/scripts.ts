@@ -22,7 +22,10 @@ const PACKAGE_MANAGER_PREFIXES = ['npx', 'pnpm', 'yarn', 'bunx', 'nx', 'turbo'];
 const SHELL_OPERATORS = /&&|\|\||;|\|/;
 
 export function splitShellOperators(script: string): string[] {
-  return script.split(SHELL_OPERATORS).map(s => s.trim()).filter(Boolean);
+  return script
+    .split(SHELL_OPERATORS)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export function skipInitialWrappers(parts: string[]): string[] {
@@ -61,10 +64,7 @@ export function filterProductionScripts(scripts: Record<string, string>): Record
   return result;
 }
 
-export function analyzeScripts(
-  scripts: Record<string, string>,
-  _root?: string,
-): ScriptAnalysis {
+export function analyzeScripts(scripts: Record<string, string>, _root?: string): ScriptAnalysis {
   const production = filterProductionScripts(scripts);
   const commands: ScriptCommand[] = [];
   const entryPatterns: string[] = [];
@@ -79,9 +79,9 @@ export function analyzeScripts(
 
 export function buildBinToPackageMap(packageJson: Record<string, unknown>): Map<string, string> {
   const map = new Map<string, string>();
-  const name = packageJson['name'] as string | undefined;
+  const name = packageJson.name as string | undefined;
   if (!name) return map;
-  const bin = packageJson['bin'];
+  const bin = packageJson.bin;
   if (typeof bin === 'string') {
     map.set(name, name);
   } else if (typeof bin === 'object' && bin !== null) {

@@ -1,41 +1,44 @@
-import { resolve, join, extname } from 'path';
-import { execSync } from 'child_process';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { extname, join, resolve } from 'node:path';
 import Graph from 'graphology';
-import { openDb, closeDb } from '../storage/db.js';
-import { PipelineRunner } from './runner.js';
-import { scanPhase } from './phases/scan.js';
-import { structurePhase } from './phases/structure.js';
-import { parsePhase } from './phases/parse.js';
-import { markdownPhase } from './phases/markdown.js';
-import { routesPhase } from './phases/routes.js';
-import { toolsPhase } from './phases/tools.js';
-import { ormPhase } from './phases/orm.js';
-import { crossFilePhase } from './phases/cross-file.js';
-import { scopeResolutionPhase, clearWorkspacePackageMapCache } from './phases/scope-resolution.js';
-import { mroPhase } from './phases/mro.js';
-import { communitiesPhase } from './phases/communities.js';
-import { processesPhase } from './phases/processes.js';
-import { godNodesPhase } from './phases/god-nodes.js';
-import { surprisesPhase } from './phases/surprises.js';
-import { suggestPhase } from './phases/suggest.js';
-import { variablesPhase } from './phases/variables-phase.js';
-import { wildcardSynthesisPhase } from './phases/wildcard-phase.js';
-import { frameworkDetectPhase } from './phases/framework-detect.js';
-import { importResolverPhase } from './phases/import-resolver.js';
-import { bridgeResolverPhase } from './phases/bridge-resolver.js';
-import type { PipelineOptions, PipelineContext } from './types.js';
-import { DEFAULT_OPTIONS } from './types.js';
-import type { MonographNode, MonographEdge, PipelineProgress, SuggestedQuestion } from '../types.js';
-import { generateGraphReport } from '../reporting/graph-report.js';
 import { analyzeChurn } from '../analysis/churn.js';
 import { ExtractionCache } from '../cache/extraction-cache.js';
-import { insertNodes, deleteNodesForFile } from '../storage/node-store.js';
-import { insertEdges, deleteEdgesForFile } from '../storage/edge-store.js';
-import { parseFile } from '../parsers/loader.js';
-import { isSupportedExtension } from '../parsers/loader.js';
+import { isSupportedExtension, parseFile } from '../parsers/loader.js';
+import { generateGraphReport } from '../reporting/graph-report.js';
+import { closeDb, openDb } from '../storage/db.js';
+import { deleteEdgesForFile, insertEdges } from '../storage/edge-store.js';
+import { deleteNodesForFile, insertNodes } from '../storage/node-store.js';
+import type {
+  MonographEdge,
+  MonographNode,
+  PipelineProgress,
+  SuggestedQuestion,
+} from '../types.js';
+import { bridgeResolverPhase } from './phases/bridge-resolver.js';
+import { communitiesPhase } from './phases/communities.js';
+import { crossFilePhase } from './phases/cross-file.js';
+import { frameworkDetectPhase } from './phases/framework-detect.js';
+import { godNodesPhase } from './phases/god-nodes.js';
+import { importResolverPhase } from './phases/import-resolver.js';
+import { markdownPhase } from './phases/markdown.js';
+import { mroPhase } from './phases/mro.js';
+import { ormPhase } from './phases/orm.js';
+import { extractArrowFunctions, extractCsharpNamespaces, parsePhase } from './phases/parse.js';
+import { processesPhase } from './phases/processes.js';
+import { routesPhase } from './phases/routes.js';
+import { scanPhase } from './phases/scan.js';
+import { clearWorkspacePackageMapCache, scopeResolutionPhase } from './phases/scope-resolution.js';
+import { structurePhase } from './phases/structure.js';
+import { suggestPhase } from './phases/suggest.js';
+import { surprisesPhase } from './phases/surprises.js';
+import { toolsPhase } from './phases/tools.js';
 import { extractVariables, variableToNode } from './phases/variables.js';
-import { extractArrowFunctions, extractCsharpNamespaces } from './phases/parse.js';
+import { variablesPhase } from './phases/variables-phase.js';
+import { wildcardSynthesisPhase } from './phases/wildcard-phase.js';
+import { PipelineRunner } from './runner.js';
+import type { PipelineContext, PipelineOptions } from './types.js';
+import { DEFAULT_OPTIONS } from './types.js';
 
 function getCurrentCommitHash(repoPath: string): string | null {
   try {
@@ -57,27 +60,47 @@ export interface BuildOptions extends Partial<PipelineOptions> {
 // ad-hoc lock file that the others don't know about — concurrent builds then fail
 // with "database is locked". Serialize here, the one place all builders pass through.
 async function acquireBuildLock(dbPath: string): Promise<(() => void) | null> {
-  const { writeFileSync, readFileSync, statSync, unlinkSync, mkdirSync } = await import('fs');
-  const { dirname } = await import('path');
-  const lockPath = dbPath + '.build-lock';
+  const { writeFileSync, readFileSync, statSync, unlinkSync, mkdirSync } = await import('node:fs');
+  const { dirname } = await import('node:path');
+  const lockPath = `${dbPath}.build-lock`;
   mkdirSync(dirname(lockPath), { recursive: true });
   const tryAcquire = (): boolean => {
-    try { writeFileSync(lockPath, String(process.pid), { flag: 'wx' }); return true; }
-    catch { return false; }
+    try {
+      writeFileSync(lockPath, String(process.pid), { flag: 'wx' });
+      return true;
+    } catch {
+      return false;
+    }
   };
   if (!tryAcquire()) {
     // Reclaim if the holder is dead or the lock is older than 30 minutes
     let stale = false;
     try {
       const pid = parseInt(readFileSync(lockPath, 'utf8'), 10);
-      try { process.kill(pid, 0); } catch { stale = true; }
+      try {
+        process.kill(pid, 0);
+      } catch {
+        stale = true;
+      }
       if (!stale && Date.now() - statSync(lockPath).mtimeMs > 30 * 60 * 1000) stale = true;
-    } catch { stale = true; }
+    } catch {
+      stale = true;
+    }
     if (!stale) return null;
-    try { unlinkSync(lockPath); } catch { /* raced with another reclaimer */ }
+    try {
+      unlinkSync(lockPath);
+    } catch {
+      /* raced with another reclaimer */
+    }
     if (!tryAcquire()) return null;
   }
-  return () => { try { unlinkSync(lockPath); } catch { /* already gone */ } };
+  return () => {
+    try {
+      unlinkSync(lockPath);
+    } catch {
+      /* already gone */
+    }
+  };
 }
 
 export async function buildAsync(repoPath: string, options: BuildOptions = {}): Promise<void> {
@@ -103,11 +126,10 @@ async function buildAsyncLocked(
   fullOptions: PipelineOptions,
   options: BuildOptions,
 ): Promise<void> {
-
   // Incremental guard: if the caller requested skip-when-fresh and force is
   // not set, check staleness before opening the DB for a full write cycle.
   if (options.incremental && !options.force) {
-    const { existsSync: _existsSync } = await import('fs');
+    const { existsSync: _existsSync } = await import('node:fs');
     if (_existsSync(dbPath)) {
       const { checkStaleness } = await import('../staleness/git-staleness.js');
       const tmpDb = openDb(dbPath);
@@ -132,9 +154,14 @@ async function buildAsyncLocked(
       const parseCache = new ExtractionCache(resolve(join(repoPath, '.monomind', 'parse-cache')));
       const removed = parseCache.prune();
       if (removed > 0) {
-        options.onProgress?.({ phase: 'prune', message: `Parse cache: pruned ${removed} stale entries` });
+        options.onProgress?.({
+          phase: 'prune',
+          message: `Parse cache: pruned ${removed} stale entries`,
+        });
       }
-    } catch { /* non-fatal — cache pruning must never block a build */ }
+    } catch {
+      /* non-fatal — cache pruning must never block a build */
+    }
   }
 
   const db = openDb(dbPath);
@@ -154,17 +181,33 @@ async function buildAsyncLocked(
     const graph = new Graph({ multi: true, type: 'directed' });
     const ctx: PipelineContext = {
       repoPath: resolve(repoPath),
-      db, graph,
+      db,
+      graph,
       onProgress: options.onProgress ?? (() => {}),
       options: fullOptions,
     };
 
     const runner = new PipelineRunner([
-      scanPhase, frameworkDetectPhase, structurePhase, parsePhase, variablesPhase,
-      markdownPhase, routesPhase, toolsPhase, ormPhase,
-      crossFilePhase, wildcardSynthesisPhase, importResolverPhase, scopeResolutionPhase,
+      scanPhase,
+      frameworkDetectPhase,
+      structurePhase,
+      parsePhase,
+      variablesPhase,
+      markdownPhase,
+      routesPhase,
+      toolsPhase,
+      ormPhase,
+      crossFilePhase,
+      wildcardSynthesisPhase,
+      importResolverPhase,
+      scopeResolutionPhase,
       bridgeResolverPhase,
-      mroPhase, communitiesPhase, processesPhase, godNodesPhase, surprisesPhase, suggestPhase,
+      mroPhase,
+      communitiesPhase,
+      processesPhase,
+      godNodesPhase,
+      surprisesPhase,
+      suggestPhase,
     ]);
 
     const outputs = await runner.run(ctx);
@@ -195,7 +238,9 @@ async function buildAsyncLocked(
     if (scanOut) {
       const liveFiles = new Set(scanOut.filePaths.map((f) => resolve(f)));
       const staleFiles = (
-        db.prepare('SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL').all() as { file_path: string }[]
+        db.prepare('SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL').all() as {
+          file_path: string;
+        }[]
       )
         .map((r) => r.file_path)
         .filter((f) => !liveFiles.has(resolve(ctx.repoPath, f)));
@@ -222,11 +267,17 @@ async function buildAsyncLocked(
         // Only consider files that exist as graph nodes for normalization —
         // build artifacts and config files inflate the denominator otherwise
         const graphFiles = new Set(
-          (db.prepare("SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL").all() as { file_path: string }[])
-            .map(r => r.file_path),
+          (
+            db
+              .prepare("SELECT file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL")
+              .all() as { file_path: string }[]
+          ).map((r) => r.file_path),
         );
-        const graphChurn = churnResult.files.filter(f => graphFiles.has(f.path));
-        const maxWeighted = graphChurn.reduce((m, f) => f.weightedCommits > m ? f.weightedCommits : m, 0);
+        const graphChurn = churnResult.files.filter((f) => graphFiles.has(f.path));
+        const maxWeighted = graphChurn.reduce(
+          (m, f) => (f.weightedCommits > m ? f.weightedCommits : m),
+          0,
+        );
         if (maxWeighted > 0) {
           const updateProps = db.prepare(`
             UPDATE nodes SET properties = json_set(COALESCE(properties, '{}'), '$.churnScore', ?)
@@ -254,7 +305,9 @@ async function buildAsyncLocked(
         process.stderr.write(`[monograph] ${msg}\n`);
       }
     }
-    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
+    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(
+      new Date().toISOString(),
+    );
     db.exec('COMMIT');
 
     // Skip expensive report regeneration when all files were cached (nothing changed) —
@@ -276,7 +329,11 @@ async function buildAsyncLocked(
     // Best-effort: if the connection is already broken (e.g. the failure was
     // itself a corrupt-database error), rolling back can throw too — the
     // original error is what matters and must not be masked by this one.
-    try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
     throw err;
   } finally {
     closeDb(db);
@@ -302,7 +359,10 @@ export async function buildIncrementalAsync(
 
   const releaseLock = await acquireBuildLock(dbPath);
   if (!releaseLock) {
-    options.onProgress?.({ phase: 'skip', message: 'Another build is in progress — skipping incremental' });
+    options.onProgress?.({
+      phase: 'skip',
+      message: 'Another build is in progress — skipping incremental',
+    });
     return;
   }
   try {
@@ -348,7 +408,9 @@ async function buildIncrementalLocked(
         const stat = statSync(absPath);
         if (stat.size > maxSize) continue;
         source = readFileSync(absPath, 'utf-8');
-      } catch { continue; }
+      } catch {
+        continue;
+      }
 
       const result = await parseFile(absPath, source, relPath);
       const nodes: MonographNode[] = [...result.nodes];
@@ -358,20 +420,28 @@ async function buildIncrementalLocked(
         for (const ns of extractCsharpNamespaces(source, relPath)) {
           nodes.push({
             id: `${ns.filePath}::namespace::${ns.name}`,
-            name: ns.name, label: 'Namespace', normLabel: 'namespace',
-            filePath: ns.filePath, line: ns.line, isExported: true,
+            name: ns.name,
+            label: 'Namespace',
+            normLabel: 'namespace',
+            filePath: ns.filePath,
+            line: ns.line,
+            isExported: true,
           } as MonographNode);
         }
       }
 
       if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
         const varInfos = extractVariables(source, relPath);
-        nodes.push(...varInfos.map(v => variableToNode(v)));
+        nodes.push(...varInfos.map((v) => variableToNode(v)));
         for (const fn of extractArrowFunctions(source, relPath)) {
           nodes.push({
             id: `${fn.filePath}::fn::${fn.name}`,
-            name: fn.name, label: 'Function', normLabel: 'function',
-            filePath: fn.filePath, line: fn.line, isExported: fn.isExported,
+            name: fn.name,
+            label: 'Function',
+            normLabel: 'function',
+            filePath: fn.filePath,
+            line: fn.line,
+            isExported: fn.isExported,
           } as MonographNode);
         }
       }
@@ -385,7 +455,9 @@ async function buildIncrementalLocked(
     if (hash) {
       db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
     }
-    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(new Date().toISOString());
+    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(
+      new Date().toISOString(),
+    );
     db.exec('COMMIT');
 
     options.onProgress?.({
@@ -393,7 +465,11 @@ async function buildIncrementalLocked(
       message: `Incremental: ${parsed} re-parsed, ${deleted} removed`,
     });
   } catch (err) {
-    try { db.exec('ROLLBACK'); } catch { /* ignore */ }
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
     throw err;
   } finally {
     closeDb(db);

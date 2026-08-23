@@ -1059,14 +1059,14 @@ html, body {
 // orgs.html and dashboard.html are served as separate pages. EventSource
 // can't carry custom headers, so SSE call sites must use
 // window.mmEventSource(url) instead of `new EventSource(url)` directly.
-(function () {
+(() => {
   const AUTH_HEADER_NAME = 'x-monomind-' + 'token';
   const AUTH_QUERY_PARAM = 'to' + 'ken';
   const _mmAuthTag = document.querySelector('meta[name="mm-token"]');
   const _mmAuthValue = _mmAuthTag ? _mmAuthTag.content : '';
   const _origFetch = window.fetch.bind(window);
-  window.fetch = function (input, init) {
-    const method = (init && init.method ? init.method : 'GET').toUpperCase();
+  window.fetch = (input, init) => {
+    const method = (init?.method ? init.method : 'GET').toUpperCase();
     if (_mmAuthValue && method !== 'HEAD') {
       init = init ? { ...init } : {};
       init.headers = new Headers(init.headers || {});
@@ -1074,20 +1074,20 @@ html, body {
     }
     return _origFetch(input, init);
   };
-  window.mmEventSource = function (url, opts) {
+  window.mmEventSource = (url, opts) => {
     if (_mmAuthValue) {
       const qp = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
       qp.set(AUTH_QUERY_PARAM, _mmAuthValue);
-      url = url.split('?')[0] + '?' + qp.toString();
+      url = `${url.split('?')[0]}?${qp.toString()}`;
     }
     return new EventSource(url, opts);
   };
 })();
 
 // ── State ─────────────────────────────────────────────────────────
-let allOrgs = [];
-let selectedOrg = null;
-let orgDetailData = null;
+const allOrgs = [];
+const selectedOrg = null;
+const orgDetailData = null;
 let currentTab = 'chart';
 // Phase 3: Chat render mode (Summary / Detailed / Raw)
 let chatRenderMode = localStorage.getItem('chatRenderMode') || 'summary';
@@ -1095,22 +1095,22 @@ let chatRenderMode = localStorage.getItem('chatRenderMode') || 'summary';
 // Phase 3: Chat render mode — Summary / Detailed / Raw
 const CHAT_SUMMARY_TYPES = new Set(['session:start','session:complete','domain:dispatch','domain:complete','agent:spawn','agent:complete','agent:edit','org:comms','loop:start','loop:complete','org:artifact','agent:message','intercom','user:message']);
 const CHAT_DETAILED_TYPES = new Set([...CHAT_SUMMARY_TYPES,'agent:bash','agent:bash:result','agent:browse','agent:read','agent:read:batch']);
-function setChatMode(mode) {
+function _setChatMode(mode) {
   chatRenderMode = mode;
   localStorage.setItem('chatRenderMode', mode);
   ['summary','detailed','raw'].forEach(m => {
-    const btn = document.getElementById('mode-' + m);
-    if (btn) btn.className = 'chat-mode-btn' + (m === mode ? ' active' : '');
+    const btn = document.getElementById(`mode-${m}`);
+    if (btn) btn.className = `chat-mode-btn${m === mode ? ' active' : ''}`;
   });
   // Re-render chat feed with new mode
   const currentSessId = document.getElementById('chat-sess-select')?.value;
   if (currentSessId) selectChatSession(currentSessId);
 }
 // Apply saved mode on load
-(function() {
+(() => {
   ['summary','detailed','raw'].forEach(m => {
-    const btn = document.getElementById('mode-' + m);
-    if (btn) btn.className = 'chat-mode-btn' + (m === chatRenderMode ? ' active' : '');
+    const btn = document.getElementById(`mode-${m}`);
+    if (btn) btn.className = `chat-mode-btn${m === chatRenderMode ? ' active' : ''}`;
   });
 })();
 
@@ -1123,13 +1123,13 @@ function esc(s) {
 function fmtDate(ts) {
   if (!ts) return '—';
   const d = new Date(typeof ts === 'number' ? ts : Date.parse(ts));
-  if (isNaN(d)) return ts;
+  if (Number.isNaN(d)) return ts;
   return d.toLocaleDateString('en', {month:'short', day:'numeric', year:'numeric'});
 }
 function fmtTime(ts) {
   if (!ts) return '';
   const d = new Date(typeof ts === 'number' ? ts : Date.parse(ts));
-  if (isNaN(d)) return '';
+  if (Number.isNaN(d)) return '';
   return d.toLocaleTimeString('en', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
 }
 function fmtEventType(t) {
@@ -1153,7 +1153,7 @@ const ROLE_COLORS = [
 function roleColor(i) { return ROLE_COLORS[i % ROLE_COLORS.length]; }
 
 // ── Tab switching ─────────────────────────────────────────────────
-window.switchTab = function(tab) {
+window.switchTab = (tab) => {
   currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.textContent.toLowerCase().includes(tab) ||
@@ -1164,7 +1164,7 @@ window.switchTab = function(tab) {
       (tab === 'chat' && b.textContent === 'CHAT'));
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  const pane = document.getElementById('tab-' + tab);
+  const pane = document.getElementById(`tab-${tab}`);
   if (pane) pane.classList.add('active');
   const mainBody = document.getElementById('main-body');
   if (mainBody) mainBody.classList.toggle('chat-active', tab === 'chat');
@@ -1197,7 +1197,7 @@ function renderSidebar() {
   if (running > 0) {
     dot.classList.add('on');
     statusText.textContent = 'LIVE';
-    runCount.textContent = running + ' RUNNING';
+    runCount.textContent = `${running} RUNNING`;
   } else {
     dot.classList.remove('on');
     statusText.textContent = allOrgs.length ? 'IDLE' : 'EMPTY';
@@ -1286,8 +1286,8 @@ async function selectOrg(name) {
     const raw = await mainR.json();
     // API returns {config, state, goals, routines, approvals, running, tasks} — flatten config to top level
     orgDetailData = raw.config ? { ...raw.config, ...raw, running: raw.running } : raw;
-    orgDetailData._activity = actR && actR.ok ? await actR.json() : [];
-    orgDetailData._health = healthR && healthR.ok ? await healthR.json() : null;
+    orgDetailData._activity = actR?.ok ? await actR.json() : [];
+    orgDetailData._health = healthR?.ok ? await healthR.json() : null;
   } catch (e) {
     orgDetailData = { ...listOrg, roles: listOrg.roles || [], communication: [] };
     orgDetailData._activity = [];
@@ -1302,7 +1302,7 @@ async function selectOrg(name) {
       const runsR = await fetch(`/api/orgs/${encodeURIComponent(name)}/runs/current?dir=${encodeURIComponent(listOrg.projectDir)}`);
       if (runsR.ok) {
         const runsData = await runsR.json();
-        if (runsData.events && runsData.events.length) {
+        if (runsData.events?.length) {
           orgEventLog[name] = runsData.events.map(ev => ({ ...ev, _ts: ev.ts || Date.now() }));
         }
       }
@@ -1320,7 +1320,7 @@ async function loadAuditCoverage(listOrg) {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   try {
     const dir = listOrg.projectDir || window._orgDir;
-    const url = '/api/org-coverage' + (dir ? `?dir=${encodeURIComponent(dir)}` : '');
+    const url = `/api/org-coverage${dir ? `?dir=${encodeURIComponent(dir)}` : ''}`;
     const r = await fetch(url);
     if (!r.ok) return; // 404 = no coverage.json — keep card hidden
     const cov = await r.json();
@@ -1377,7 +1377,7 @@ function updateHeader(listOrg, data) {
     badgeState = 'idle'; badgeText = 'IDLE';
   }
   badge.textContent = badgeText;
-  badge.className = 'oi-badge ' + badgeState;
+  badge.className = `oi-badge ${badgeState}`;
 
   const rolesArr = data ? (data.roles || []) : [];
   const rolesCount = Array.isArray(rolesArr) ? rolesArr.length : (listOrg.roles || 0);
@@ -1414,7 +1414,7 @@ function renderChart() {
     .filter(r => r.reports_to && r.reports_to !== r.id)
     .map(r => ({ from: r.id, to: r.reports_to, type: 'report' }));
   const comms = reportEdges.concat(Array.isArray(d.communication) ? d.communication : []);
-  const running = !!(allOrgs.find(o => o.name === selectedOrg) || {}).running;
+  const running = !!allOrgs.find(o => o.name === selectedOrg)?.running;
 
   // Meta bar
   document.getElementById('meta-goal').textContent = d.goal || '—';
@@ -1542,7 +1542,7 @@ function renderChart() {
     titleText.setAttribute('class', 'oc-node-text');
     titleText.setAttribute('y', '-4');
     const title = role.title || role.id;
-    const shortTitle = title.length > 10 ? title.slice(0, 9) + '…' : title;
+    const shortTitle = title.length > 10 ? `${title.slice(0, 9)}…` : title;
     titleText.textContent = shortTitle;
     titleText.style.fill = color;
     g.appendChild(titleText);
@@ -1552,7 +1552,7 @@ function renderChart() {
       const subText = document.createElementNS(NS, 'text');
       subText.setAttribute('class', 'oc-node-sub');
       subText.setAttribute('y', '10');
-      const agent = role.agent_type.length > 12 ? role.agent_type.slice(0, 11) + '…' : role.agent_type;
+      const agent = role.agent_type.length > 12 ? `${role.agent_type.slice(0, 11)}…` : role.agent_type;
       subText.textContent = agent;
       g.appendChild(subText);
     }
@@ -1767,7 +1767,7 @@ function renderHealth() {
     </div>` : ''}
   `;
 
-  if (health?.errors && health.errors.length) {
+  if (health?.errors?.length) {
     detail.innerHTML = `
       <div style="margin-top:16px">
         <div style="font-size:8px;letter-spacing:2px;color:var(--dim);margin-bottom:8px">RECENT ERRORS</div>
@@ -1808,7 +1808,7 @@ async function loadRunHistory() {
         ${runs.slice(0, 10).map(h => `
           <div style="font-size:9px;padding:5px 0;border-bottom:1px solid oklch(50% 0 0 / 0.1);display:flex;gap:10px;align-items:baseline">
             <span style="color:var(--dim);white-space:nowrap">${esc(h.run || '?')}</span>
-            <span style="color:var(--muted);white-space:nowrap">${Number.isFinite(Number(h.durationMs)) && h.durationMs != null ? Math.round(Number(h.durationMs) / 1000) + 's' : '—'} · ${Number(h.totalTokens) || 0} tok</span>
+            <span style="color:var(--muted);white-space:nowrap">${Number.isFinite(Number(h.durationMs)) && h.durationMs != null ? `${Math.round(Number(h.durationMs) / 1000)}s` : '—'} · ${Number(h.totalTokens) || 0} tok</span>
             ${h.outcome
               ? `<span style="color:${outcomeColor(h.outcome.status)}">${esc(h.outcome.status.toUpperCase())}</span>
                  <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.outcome.summary || '')}</span>`
@@ -1861,7 +1861,7 @@ function orgSessionMatch(s) {
   if (!selectedOrg) return true;
   const orgLc = selectedOrg.toLowerCase();
   const prompt = (s.prompt || '').toLowerCase();
-  if (prompt.includes('running org: ' + orgLc) || prompt.includes('org: ' + orgLc)) return true;
+  if (prompt.includes(`running org: ${orgLc}`) || prompt.includes(`org: ${orgLc}`)) return true;
   // Only genuine org-run events (org:comms, org:artifact, org:start, ...) count.
   // agent:bash / agent:edit / etc. also carry an `org` field (ambient "which
   // org was active while this Claude Code session ran" tagging) — matching on
@@ -1906,7 +1906,7 @@ function populateChatSelect() {
   }
 }
 
-window.selectChatSession = function(id) {
+window.selectChatSession = (id) => {
   chatCurrentId = id;
   chatCurrentAgent = 'all';
   const feed = document.getElementById('chat-feed-wrap');
@@ -1957,7 +1957,7 @@ function populateChatAgentBar(events) {
   bar.innerHTML = '<span id="chat-agent-label">AGENT</span>';
   ['all', ...agents].forEach(name => {
     const pill = document.createElement('button');
-    pill.className = 'chat-agent-pill' + (chatCurrentAgent === name ? ' active' : '');
+    pill.className = `chat-agent-pill${chatCurrentAgent === name ? ' active' : ''}`;
     pill.textContent = name === 'all' ? 'ALL' : name;
     pill.dataset.agent = name;
     pill.onclick = () => selectChatAgent(name);
@@ -1965,7 +1965,7 @@ function populateChatAgentBar(events) {
   });
 }
 
-window.selectChatAgent = function(name) {
+window.selectChatAgent = (name) => {
   chatCurrentAgent = name;
   document.querySelectorAll('#chat-agent-bar .chat-agent-pill').forEach(p => {
     p.classList.toggle('active', p.dataset.agent === name);
@@ -2001,7 +2001,7 @@ function appendChatEvent(ev, animate) {
   let el = null;
 
   if (ev.type === 'session:start') {
-    el = mkSys(`🔵 Session started${ev.prompt ? ': ' + esc(ev.prompt.slice(0,80)) : ''}`, ts);
+    el = mkSys(`🔵 Session started${ev.prompt ? `: ${esc(ev.prompt.slice(0,80))}` : ''}`, ts);
   } else if (ev.type === 'session:complete') {
     el = mkSys(`🏁 Session complete — ${esc((ev.domains||[]).join(', ') || 'done')}`, ts);
   } else if (ev.type === 'domain:dispatch') {
@@ -2036,7 +2036,7 @@ function appendChatEvent(ev, animate) {
     if (_art) el = mkArtifact(_art, ts);
     else el = mkSys(`📄 artifact: ${esc(ev.label||ev.path||'file')}`, ts);
   } else {
-    el = mkSys(`<span style="opacity:0.4">${esc(ev.type)}${ev.domain?' ['+esc(ev.domain)+']':''}</span>`, ts);
+    el = mkSys(`<span style="opacity:0.4">${esc(ev.type)}${ev.domain?` [${esc(ev.domain)}]`:''}</span>`, ts);
   }
   if (!el) return;
   if (animate) el.classList.add('new');
@@ -2108,7 +2108,7 @@ async function sendChatMessage() {
   input.focus();
 }
 
-function chatComposeKey(e) {
+function _chatComposeKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     sendChatMessage();
@@ -2116,7 +2116,7 @@ function chatComposeKey(e) {
   // Auto-resize
   const ta = e.target;
   ta.style.height = 'auto';
-  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
 }
 
 async function viewArtifact(filePath, label) {
@@ -2132,7 +2132,7 @@ async function viewArtifact(filePath, label) {
   } catch(_) { console.warn('[orgs] Failed to load artifact', _); }
 }
 
-function showArtifactPanel(label, content, mimeType) {
+function showArtifactPanel(label, content, _mimeType) {
   let panel = document.getElementById('artifact-panel');
   if (!panel) {
     panel = document.createElement('div');
@@ -2234,7 +2234,7 @@ function handleMmEvent(ev) {
 }
 
 // ── Stop org action ────────────────────────────────────────────────
-window.stopCurrentOrg = async function() {
+window.stopCurrentOrg = async () => {
   if (!selectedOrg) return;
   try {
     await fetch(`/api/orgs/${encodeURIComponent(selectedOrg)}/stop`, { method: 'POST' });
@@ -2289,7 +2289,7 @@ function updateLiveStrip() {
   const dot = document.getElementById('ls-dot');
   const label = document.getElementById('ls-label');
   if (!dot || !label) return;
-  dot.className = 'ls-dot' + (running ? ' running' : '');
+  dot.className = `ls-dot${running ? ' running' : ''}`;
   label.textContent = running ? 'RUNNING' : 'IDLE';
 
   // Uptime
@@ -2309,7 +2309,7 @@ function updateLiveStrip() {
   if (lastEl && events.length) {
     const last = events[events.length - 1];
     const ago = Math.round((Date.now() - (last._ts || Date.now())) / 1000);
-    lastEl.textContent = ago < 5 ? 'just now' : ago < 60 ? ago + 's ago' : Math.floor(ago/60) + 'm ago';
+    lastEl.textContent = ago < 5 ? 'just now' : ago < 60 ? `${ago}s ago` : `${Math.floor(ago/60)}m ago`;
   } else if (lastEl) {
     lastEl.textContent = '—';
   }
@@ -2319,7 +2319,7 @@ function updateLiveStrip() {
   const epmEl = document.getElementById('ls-epm');
   if (epmEl) {
     const recent = events.filter(ev => ev._ts && now - ev._ts < 5 * 60 * 1000).length;
-    epmEl.textContent = recent + ' / 5m';
+    epmEl.textContent = `${recent} / 5m`;
   }
 
   // 12-bar sparkline (25s buckets)
@@ -2348,7 +2348,7 @@ function appendLiveFeedRow(ev, isNew) {
   const type = (ev.type || '').replace('org:', '');
   const msg = ev.message || ev.msg || ev.task?.slice(0,60) || (ev.result||'').slice(0,60) || ev.agentType || ev.agent || ev.role || ev.status || '';
   const row = document.createElement('div');
-  row.className = 'clf-row' + (isNew ? ' new' : '');
+  row.className = `clf-row${isNew ? ' new' : ''}`;
   row.title = msg;
   row.innerHTML = `<span class="clf-time">${time}</span><span class="clf-type">${type}</span><span class="clf-msg">${msg}</span>`;
   rows.appendChild(row);
@@ -2365,10 +2365,10 @@ function initLiveStrip() {
   events.forEach(ev => appendLiveFeedRow(ev, false));
   // Detect running state from list data
   const listOrg = allOrgs.find(o => o.name === selectedOrg);
-  if (listOrg && listOrg.running && !orgRunStartMs) {
+  if (listOrg?.running && !orgRunStartMs) {
     const acts = orgDetailData._activity || [];
     const startEv = acts.slice().reverse().find(e => e.type === 'org:start' || e.type === 'org:create');
-    if (startEv && startEv.ts) orgRunStartMs = startEv.ts;
+    if (startEv?.ts) orgRunStartMs = startEv.ts;
     else if (listOrg.running_since) orgRunStartMs = listOrg.running_since;
     else orgRunStartMs = Date.now(); // fallback
   } else if (listOrg && !listOrg.running) {
@@ -2400,7 +2400,7 @@ async function loadOrgs() {
 // ── Copy org modal ────────────────────────────────────────────────
 let copyTargetOrg = null;
 
-window.openCopyModal = function(name) {
+window.openCopyModal = (name) => {
   copyTargetOrg = name;
   document.getElementById('copy-modal-org').textContent = name.toUpperCase();
   document.getElementById('copy-dest-input').value = '';
@@ -2426,18 +2426,18 @@ window.openCopyModal = function(name) {
   setTimeout(() => document.getElementById('copy-dest-input').focus(), 60);
 };
 
-window.selectCopyProject = function(path, el) {
+window.selectCopyProject = (path, el) => {
   document.querySelectorAll('.copy-proj-row').forEach(r => r.classList.remove('selected'));
   el.classList.add('selected');
   document.getElementById('copy-dest-input').value = path;
 };
 
-window.closeCopyModal = function() {
+window.closeCopyModal = () => {
   document.getElementById('copy-modal-overlay').classList.remove('open');
   copyTargetOrg = null;
 };
 
-window.executeCopy = async function() {
+window.executeCopy = async () => {
   if (!copyTargetOrg) return;
   const destination = document.getElementById('copy-dest-input').value.trim();
   const status = document.getElementById('copy-modal-status');
@@ -2458,23 +2458,23 @@ window.executeCopy = async function() {
     });
     const data = await r.json();
     if (r.ok && data.ok) {
-      status.textContent = 'COPIED — ' + (data.destFile || destination);
+      status.textContent = `COPIED — ${data.destFile || destination}`;
       status.className = 'ok';
       setTimeout(closeCopyModal, 2000);
     } else {
-      status.textContent = 'ERROR: ' + (data.error || r.statusText);
+      status.textContent = `ERROR: ${data.error || r.statusText}`;
       status.className = 'err';
       btn.disabled = false;
     }
   } catch(e) {
-    status.textContent = 'ERROR: ' + e.message;
+    status.textContent = `ERROR: ${e.message}`;
     status.className = 'err';
     btn.disabled = false;
   }
 };
 
 // ── Export org ────────────────────────────────────────────────────
-window.exportOrg = async function(name) {
+window.exportOrg = async (name) => {
   try {
     const r = await fetch(`/api/orgs/${encodeURIComponent(name)}`);
     if (!r.ok) throw new Error(r.statusText);
@@ -2492,7 +2492,7 @@ window.exportOrg = async function(name) {
 // ── Import org ────────────────────────────────────────────────────
 let importTargetOrg = null;
 
-window.triggerImportOrg = function(name) {
+window.triggerImportOrg = (name) => {
   importTargetOrg = name;
   let inp = document.getElementById('oi-import-file-input');
   if (!inp) {

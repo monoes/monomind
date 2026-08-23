@@ -1,5 +1,4 @@
-import type Database from 'better-sqlite3';
-import { listWikiPages, getWikiPage } from '../wiki/wiki-store.js';
+import { getWikiPage, listWikiPages } from '../wiki/wiki-store.js';
 import type { McpResourceDefinition } from './repos-resource.js';
 
 export const wikiResource: McpResourceDefinition = {
@@ -16,7 +15,7 @@ export const wikiPageResource: McpResourceDefinition = {
   name: 'wiki-page',
   mimeType: 'application/json',
   handler(db, params) {
-    const communityId = params?.['communityId'];
+    const communityId = params?.communityId;
     if (!communityId) return null;
     return getWikiPage(db as any, communityId);
   },

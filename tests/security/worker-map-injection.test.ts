@@ -16,12 +16,13 @@
  * to the git call (which fails harmlessly inside the worker's try/catch
  * because the temp dir is not a real git repo).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { openDb, closeDb } from '../../packages/@monomind/monograph/src/index.js';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMapWorker } from '../../packages/@monomind/hooks/src/workers/worker-map.js';
+import { closeDb, openDb } from '../../packages/@monomind/monograph/src/index.js';
 
 const PROBE = `/tmp/mono-sec1-pwned-${process.pid}-${Date.now()}`;
 
@@ -69,7 +70,7 @@ describe('SEC-1 — worker-map git-staleness command injection', () => {
   });
 
   it('does NOT shell-evaluate backtick expansions in last_commit_hash', async () => {
-    seedMeta('`touch ' + PROBE + '`');
+    seedMeta(`\`touch ${PROBE}\``);
     const worker = createMapWorker(projectRoot);
     const result = await worker();
     expect(result.success).toBe(true);
@@ -79,7 +80,7 @@ describe('SEC-1 — worker-map git-staleness command injection', () => {
   it('does NOT shell-evaluate ${...} expansions in last_commit_hash', async () => {
     // Standalone ${...} doesn't RCE on its own, but combined with a $() inside
     // it's a common obfuscation. The hash regex rejects it outright.
-    seedMeta('${IFS}$(touch ' + PROBE + ')');
+    seedMeta(`\${IFS}$(touch ${PROBE})`);
     const worker = createMapWorker(projectRoot);
     await worker();
     expect(fs.existsSync(PROBE)).toBe(false);
@@ -88,7 +89,7 @@ describe('SEC-1 — worker-map git-staleness command injection', () => {
   it('rejects a hash containing shell metacharacters but no expansion (defense in depth)', async () => {
     // Semicolons/pipes would be dangerous in a shell context. The regex must
     // reject anything outside [0-9a-f].
-    seedMeta('deadbeef; touch ' + PROBE);
+    seedMeta(`deadbeef; touch ${PROBE}`);
     const worker = createMapWorker(projectRoot);
     await worker();
     expect(fs.existsSync(PROBE)).toBe(false);

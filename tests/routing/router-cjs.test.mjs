@@ -2,12 +2,13 @@
  * Tests for .claude/helpers/router.cjs
  * Covers: routeTask(), loadFeedbackWeights(), AGENT_CAPABILITIES
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -33,12 +34,20 @@ afterEach(() => {
   } else {
     delete process.env.CLAUDE_PROJECT_DIR;
   }
-  try { fs.rmSync(_tmpDir, { recursive: true, force: true }); } catch (e) {}
+  try {
+    fs.rmSync(_tmpDir, { recursive: true, force: true });
+  } catch (_e) {}
 });
 
 const KNOWN_AGENTS = new Set([
-  'coder', 'tester', 'reviewer', 'researcher', 'architect',
-  'backend-dev', 'frontend-dev', 'devops',
+  'coder',
+  'tester',
+  'reviewer',
+  'researcher',
+  'architect',
+  'backend-dev',
+  'frontend-dev',
+  'devops',
 ]);
 
 describe('routeTask', () => {
@@ -201,21 +210,23 @@ describe('feedback weight system (structural tests)', () => {
     fs.mkdirSync(feedbackDir, { recursive: true });
     const entries = [];
     for (let i = 0; i < 10; i++) {
-      entries.push(JSON.stringify({
-        timestamp: new Date().toISOString(),
-        suggestedAgent: 'Coder',
-        confidence: 0.8,
-        intelligenceFeedback: true,
-      }));
+      entries.push(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          suggestedAgent: 'Coder',
+          confidence: 0.8,
+          intelligenceFeedback: true,
+        }),
+      );
     }
-    fs.writeFileSync(path.join(feedbackDir, 'routing-feedback.jsonl'), entries.join('\n') + '\n');
+    fs.writeFileSync(path.join(feedbackDir, 'routing-feedback.jsonl'), `${entries.join('\n')}\n`);
     // Reload router to reset cache
     const routerPath = path.resolve(__dirname, '../../.claude/helpers/router.cjs');
     delete require.cache[routerPath];
     const r = require(routerPath);
     const result = r.routeTask('implement a new feature');
     // Coder base confidence is 0.80; with 100% success rate it should be boosted
-    expect(result.confidence).toBeGreaterThan(0.80);
+    expect(result.confidence).toBeGreaterThan(0.8);
     expect(result.confidence).toBeLessThanOrEqual(1.0);
   });
 
@@ -224,20 +235,22 @@ describe('feedback weight system (structural tests)', () => {
     fs.mkdirSync(feedbackDir, { recursive: true });
     const entries = [];
     for (let i = 0; i < 10; i++) {
-      entries.push(JSON.stringify({
-        timestamp: new Date().toISOString(),
-        suggestedAgent: 'Coder',
-        confidence: 0.8,
-        intelligenceFeedback: i < 2, // only 2/10 success = 20%
-      }));
+      entries.push(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          suggestedAgent: 'Coder',
+          confidence: 0.8,
+          intelligenceFeedback: i < 2, // only 2/10 success = 20%
+        }),
+      );
     }
-    fs.writeFileSync(path.join(feedbackDir, 'routing-feedback.jsonl'), entries.join('\n') + '\n');
+    fs.writeFileSync(path.join(feedbackDir, 'routing-feedback.jsonl'), `${entries.join('\n')}\n`);
     const routerPath = path.resolve(__dirname, '../../.claude/helpers/router.cjs');
     delete require.cache[routerPath];
     const r = require(routerPath);
     const result = r.routeTask('implement a new feature');
     // Coder base confidence is 0.80; with 20% success rate it should be dampened
-    expect(result.confidence).toBeLessThan(0.80);
+    expect(result.confidence).toBeLessThan(0.8);
     expect(result.confidence).toBeGreaterThanOrEqual(0);
   });
 });

@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 export interface MigrationWarning {
   field: string;
@@ -7,7 +7,7 @@ export interface MigrationWarning {
 }
 
 export interface KnipMigrationResult {
-  monographConfig: Record<string, unknown>;   // .monographrc.json content
+  monographConfig: Record<string, unknown>; // .monographrc.json content
   warnings: MigrationWarning[];
   inputFile: string;
 }
@@ -36,7 +36,8 @@ export function migrateFromKnip(knipConfigPath: string): KnipMigrationResult {
   } catch {
     warnings.push({
       field: '<file>',
-      message: 'Failed to parse config as JSON; only plain JSON configs are supported (not TypeScript/JS configs)',
+      message:
+        'Failed to parse config as JSON; only plain JSON configs are supported (not TypeScript/JS configs)',
       knipValue: raw.slice(0, 100),
     });
     return { monographConfig, warnings, inputFile: knipConfigPath };
@@ -49,7 +50,9 @@ export function migrateFromKnip(knipConfigPath: string): KnipMigrationResult {
         // Map rule names; warn on unknown rules
         if (knipValue && typeof knipValue === 'object' && !Array.isArray(knipValue)) {
           const mappedRules: Record<string, unknown> = {};
-          for (const [ruleName, ruleValue] of Object.entries(knipValue as Record<string, unknown>)) {
+          for (const [ruleName, ruleValue] of Object.entries(
+            knipValue as Record<string, unknown>,
+          )) {
             mappedRules[ruleName] = ruleValue;
           }
           monographConfig[monographKey] = mappedRules;
@@ -86,11 +89,17 @@ export function stripJsoncComments(input: string): string {
     let i = 0;
     while (i < line.length) {
       if (inBlock) {
-        if (line[i] === '*' && line[i + 1] === '/') { inBlock = false; i += 2; } else { i++; }
+        if (line[i] === '*' && line[i + 1] === '/') {
+          inBlock = false;
+          i += 2;
+        } else {
+          i++;
+        }
       } else if (line[i] === '/' && line[i + 1] === '/') {
         break;
       } else if (line[i] === '/' && line[i + 1] === '*') {
-        inBlock = true; i += 2;
+        inBlock = true;
+        i += 2;
       } else {
         result += line[i++];
       }
@@ -108,7 +117,7 @@ export function generateTomlFromMigration(config: Record<string, unknown>): stri
   const lines: string[] = [];
   for (const [key, val] of Object.entries(config)) {
     if (Array.isArray(val)) {
-      const items = val.map(v => typeof v === 'string' ? `"${v}"` : String(v)).join(', ');
+      const items = val.map((v) => (typeof v === 'string' ? `"${v}"` : String(v))).join(', ');
       lines.push(`${key} = [${items}]`);
     } else if (typeof val === 'boolean' || typeof val === 'number') {
       lines.push(`${key} = ${val}`);

@@ -1,26 +1,26 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 export function toGraphml(nodes: MonographNode[], edges: MonographEdge[]): string {
   const nodeXml = nodes
     .map(
-      n =>
+      (n) =>
         `  <node id="${esc(n.id)}">` +
         `<data key="label">${esc(n.label)}</data>` +
         `<data key="name">${esc(n.name)}</data>` +
         `<data key="file">${esc(n.filePath ?? '')}</data>` +
         `<data key="exported">${n.isExported ? 'true' : 'false'}</data>` +
         (n.communityId !== undefined ? `<data key="community">${n.communityId}</data>` : '') +
-        `</node>`
+        `</node>`,
     )
     .join('\n');
 
   const edgeXml = edges
     .map(
-      e =>
+      (e) =>
         `  <edge id="${esc(e.id)}" source="${esc(e.sourceId)}" target="${esc(e.targetId)}">` +
         `<data key="relation">${esc(e.relation)}</data>` +
         `<data key="confidence">${esc(e.confidence)}</data>` +
-        `</edge>`
+        `</edge>`,
     )
     .join('\n');
 

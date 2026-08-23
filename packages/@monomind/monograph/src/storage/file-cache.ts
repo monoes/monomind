@@ -1,11 +1,11 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import type { MonographDb } from './db.js';
 
 export interface FileCacheEntry {
   filePath: string;
-  contentHash: string;   // SHA-256 hex of file content (using node:crypto — xxh3 proxy)
-  lastParsed: number;    // unix timestamp ms
-  nodeCount: number;     // how many nodes were created from this file
+  contentHash: string; // SHA-256 hex of file content (using node:crypto — xxh3 proxy)
+  lastParsed: number; // unix timestamp ms
+  nodeCount: number; // how many nodes were created from this file
   edgeCount: number;
 }
 
@@ -14,9 +14,9 @@ export function hashFileContent(content: string): string {
 }
 
 export function isFileCached(db: MonographDb, filePath: string, contentHash: string): boolean {
-  const row = db.prepare(
-    'SELECT content_hash FROM file_cache WHERE file_path = ?'
-  ).get(filePath) as { content_hash: string } | undefined;
+  const row = db.prepare('SELECT content_hash FROM file_cache WHERE file_path = ?').get(filePath) as
+    | { content_hash: string }
+    | undefined;
   return row?.content_hash === contentHash;
 }
 
@@ -51,24 +51,30 @@ export function getFileCacheStats(db: MonographDb): {
   stalePaths: string[];
 } {
   // Single query: count cached entries and distinct indexed file paths in one pass.
-  const counts = db.prepare(`
+  const counts = db
+    .prepare(`
     SELECT
       (SELECT COUNT(*) FROM file_cache) AS total_cached,
       (SELECT COUNT(DISTINCT file_path) FROM nodes WHERE file_path IS NOT NULL) AS total_indexed
-  `).get() as { total_cached: number; total_indexed: number };
+  `)
+    .get() as { total_cached: number; total_indexed: number };
 
   const totalCached = counts.total_cached;
   const hitRate = counts.total_indexed > 0 ? totalCached / counts.total_indexed : 0;
 
   // Find stale paths via SQL LEFT JOIN — avoids loading all rows into JS memory.
-  const stalePaths = (db.prepare(`
+  const stalePaths = (
+    db
+      .prepare(`
     SELECT fc.file_path
     FROM file_cache fc
     LEFT JOIN (
       SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL
     ) n ON fc.file_path = n.file_path
     WHERE n.file_path IS NULL
-  `).all() as { file_path: string }[]).map(r => r.file_path);
+  `)
+      .all() as { file_path: string }[]
+  ).map((r) => r.file_path);
 
   return { totalCached, hitRate, stalePaths };
 }

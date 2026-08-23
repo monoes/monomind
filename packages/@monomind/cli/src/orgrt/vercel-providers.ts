@@ -176,7 +176,7 @@ export async function loadVercelProvider(
   } catch {
     throw new Error(
       `VercelAgentRunner: vendor "${def.vendor}" requires the "${def.package}" package. ` +
-      `Install it: npm install ${def.package}`,
+        `Install it: npm install ${def.package}`,
     );
   }
   const factory = mod[def.factory];

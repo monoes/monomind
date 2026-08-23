@@ -16,8 +16,8 @@
  * opencode executes through exactly the same code path it always did.
  */
 
-import { z } from 'zod';
-import { query, tool, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
+import type { z } from 'zod';
 
 /** A platform-agnostic org tool definition. `schema` is a zod object because
  *  both the Claude SDK's `tool()` and opencode's `tool()` consume zod. */
@@ -86,10 +86,12 @@ export class ClaudeAgentRunner implements AgentRunner {
   async *run(args: AgentRunArgs): AsyncIterable<AgentMessage> {
     // Wrap each OrgToolDef handler ({ text }) into the Claude SDK's
     // { content: [{ type: 'text', text }] } return shape.
-    const sdkTools = args.tools.map((t) => tool(t.name, t.description, t.schema, async (input: Record<string, unknown>) => {
-      const r = await t.handler(input);
-      return { content: [{ type: 'text' as const, text: r.text }] };
-    }));
+    const sdkTools = args.tools.map((t) =>
+      tool(t.name, t.description, t.schema, async (input: Record<string, unknown>) => {
+        const r = await t.handler(input);
+        return { content: [{ type: 'text' as const, text: r.text }] };
+      }),
+    );
     const orgServer = createSdkMcpServer({ name: 'org', version: '1.0.0', tools: sdkTools });
 
     const stream = this.queryFn({

@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
-import { toNormLabel, MonographError } from '../types.js';
+import { MonographError, toNormLabel } from '../types.js';
 import { safeJsonParse } from './utils.js';
 
 export function insertNode(db: Database.Database, node: MonographNode): void {

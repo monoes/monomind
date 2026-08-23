@@ -8,13 +8,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import {
-  CacheConfig,
-  CacheStats,
-  CachedEntry,
-  MemoryEntry,
-  MemoryEvent,
-} from './types.js';
+import type { CacheConfig, CachedEntry, CacheStats, MemoryEntry } from './types.js';
 
 /**
  * Doubly-linked list node for LRU implementation
@@ -133,10 +127,7 @@ export class CacheManager<T = MemoryEntry> extends EventEmitter {
 
     // Evict entries if needed for memory pressure
     if (this.config.maxMemory) {
-      while (
-        this.currentMemory + entryMemory > this.config.maxMemory &&
-        this.cache.size > 0
-      ) {
+      while (this.currentMemory + entryMemory > this.config.maxMemory && this.cache.size > 0) {
         this.evictLRU();
       }
     }
@@ -250,7 +241,7 @@ export class CacheManager<T = MemoryEntry> extends EventEmitter {
   async prefetch(
     keys: string[],
     loader: (keys: string[]) => Promise<Map<string, T>>,
-    ttl?: number
+    ttl?: number,
   ): Promise<void> {
     const missing = keys.filter((key) => !this.has(key));
 
@@ -270,11 +261,7 @@ export class CacheManager<T = MemoryEntry> extends EventEmitter {
   /**
    * Get or set pattern - get from cache or load and cache
    */
-  async getOrSet(
-    key: string,
-    loader: () => Promise<T>,
-    ttl?: number
-  ): Promise<T> {
+  async getOrSet(key: string, loader: () => Promise<T>, ttl?: number): Promise<T> {
     const cached = this.get(key);
     if (cached !== null) {
       return cached;

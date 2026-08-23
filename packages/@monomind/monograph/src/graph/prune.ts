@@ -15,11 +15,13 @@ export interface PruneResult {
 export function pruneDanglingEdges(db: MonographDb): number {
   // Single-statement DELETE avoids fetching all dangling IDs then re-binding them
   // as SQL variables (which would fail when edge count exceeds SQLITE_MAX_VARIABLE_NUMBER).
-  const result = db.prepare(`
+  const result = db
+    .prepare(`
     DELETE FROM edges
     WHERE NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = source_id)
        OR NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = target_id)
-  `).run();
+  `)
+    .run();
 
   return result.changes;
 }
@@ -32,11 +34,13 @@ export function pruneDanglingEdges(db: MonographDb): number {
  * @returns Number of orphan nodes removed
  */
 export function pruneOrphanNodes(db: MonographDb): number {
-  const result = db.prepare(`
+  const result = db
+    .prepare(`
     DELETE FROM nodes
     WHERE label != 'File'
       AND NOT EXISTS (SELECT 1 FROM edges WHERE source_id = nodes.id OR target_id = nodes.id)
-  `).run();
+  `)
+    .run();
   return result.changes;
 }
 
@@ -49,9 +53,9 @@ export function pruneOrphanNodes(db: MonographDb): number {
  * @returns Number of stale File nodes removed (call pruneDanglingEdges after to clean edges)
  */
 export function pruneStaleFileNodes(db: MonographDb, existingPaths: Set<string>): number {
-  const staleRows = db.prepare(
-    `SELECT id, file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`,
-  ).all() as { id: string; file_path: string }[];
+  const staleRows = db
+    .prepare(`SELECT id, file_path FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`)
+    .all() as { id: string; file_path: string }[];
 
   let removed = 0;
   const deleteStmt = db.prepare(`DELETE FROM nodes WHERE id = ?`);
@@ -84,7 +88,8 @@ export function pruneAll(db: MonographDb, existingPaths?: Set<string>): PruneRes
  * Format a PruneResult as structured text for LLM consumption.
  */
 export function formatPruneResult(result: PruneResult): string {
-  const total = result.danglingEdgesRemoved + result.orphanNodesRemoved + result.staleFileNodesRemoved;
+  const total =
+    result.danglingEdgesRemoved + result.orphanNodesRemoved + result.staleFileNodesRemoved;
   if (total === 0) return 'Prune pass: nothing to remove — graph is clean.';
   return [
     `Prune pass removed ${total} artifact(s):`,

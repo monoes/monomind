@@ -1,10 +1,10 @@
-import { basename, extname } from 'path';
-import type { PipelinePhase } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel } from '../../types.js';
-import { insertNodes } from '../../storage/node-store.js';
-import { insertEdges } from '../../storage/edge-store.js';
+import { basename, extname } from 'node:path';
 import type Database from 'better-sqlite3';
+import { insertEdges } from '../../storage/edge-store.js';
+import { insertNodes } from '../../storage/node-store.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { makeId, toNormLabel } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 
 // ── Output types ──────────────────────────────────────────────────────────────
 
@@ -72,12 +72,12 @@ function scoreEntryPoints(db: Database.Database): ScoredNode[] {
        WHERE label IN ('Function', 'Method', 'Class')`,
     )
     .all() as Array<{
-      id: string;
-      name: string;
-      file_path: string | null;
-      is_exported: number;
-      language: string | null;
-    }>;
+    id: string;
+    name: string;
+    file_path: string | null;
+    is_exported: number;
+    language: string | null;
+  }>;
 
   // Preload all three edge-count signals in a single pass instead of 3 per-row queries.
   // LEFT JOIN with FILTER avoids N*3 prepared-stmt round-trips.
@@ -93,15 +93,20 @@ function scoreEntryPoints(db: Database.Database): ScoredNode[] {
        WHERE n.label IN ('Function','Method','Class')
        GROUP BY n.id`,
     )
-    .all() as Array<{ id: string; incoming_calls: number; route_count: number; tool_count: number }>;
+    .all() as Array<{
+    id: string;
+    incoming_calls: number;
+    route_count: number;
+    tool_count: number;
+  }>;
 
-  const callsMap    = new Map<string, number>();
-  const routeSet    = new Set<string>();
-  const toolSet     = new Set<string>();
+  const callsMap = new Map<string, number>();
+  const routeSet = new Set<string>();
+  const toolSet = new Set<string>();
   for (const r of edgeCounts) {
     callsMap.set(r.id, r.incoming_calls);
     if (r.route_count > 0) routeSet.add(r.id);
-    if (r.tool_count  > 0) toolSet.add(r.id);
+    if (r.tool_count > 0) toolSet.add(r.id);
   }
 
   const scored: ScoredNode[] = [];

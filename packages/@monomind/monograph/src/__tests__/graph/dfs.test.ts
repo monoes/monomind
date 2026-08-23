@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { dfsTraversal } from '../../graph/dfs.js';
 
 function makeGraph(): Map<string, string[]> {
@@ -14,13 +14,22 @@ function makeGraph(): Map<string, string[]> {
 describe('dfsTraversal', () => {
   it('visits all reachable nodes', () => {
     const visited: string[] = [];
-    dfsTraversal('a', makeGraph(), (node) => { visited.push(node.id); });
+    dfsTraversal('a', makeGraph(), (node) => {
+      visited.push(node.id);
+    });
     expect(visited.sort()).toEqual(['a', 'b', 'c', 'd', 'e'].sort());
   });
 
   it('respects depth limit', () => {
     const visited: string[] = [];
-    dfsTraversal('a', makeGraph(), (node) => { visited.push(node.id); }, { maxDepth: 1 });
+    dfsTraversal(
+      'a',
+      makeGraph(),
+      (node) => {
+        visited.push(node.id);
+      },
+      { maxDepth: 1 },
+    );
     expect(visited).toContain('a');
     expect(visited).toContain('b');
     expect(visited).toContain('c');
@@ -30,10 +39,12 @@ describe('dfsTraversal', () => {
 
   it('provides depth info in visitor', () => {
     const depths: Record<string, number> = {};
-    dfsTraversal('a', makeGraph(), (node) => { depths[node.id] = node.depth; });
-    expect(depths['a']).toBe(0);
-    expect(depths['b']).toBe(1);
-    expect(depths['d']).toBe(2);
+    dfsTraversal('a', makeGraph(), (node) => {
+      depths[node.id] = node.depth;
+    });
+    expect(depths.a).toBe(0);
+    expect(depths.b).toBe(1);
+    expect(depths.d).toBe(2);
   });
 
   it('does not revisit nodes (cycle safety)', () => {
@@ -42,20 +53,26 @@ describe('dfsTraversal', () => {
     cyclic.set('b', ['c']);
     cyclic.set('c', ['a']); // cycle
     const visited: string[] = [];
-    dfsTraversal('a', cyclic, (node) => { visited.push(node.id); });
+    dfsTraversal('a', cyclic, (node) => {
+      visited.push(node.id);
+    });
     expect(visited.length).toBe(3);
     expect(new Set(visited).size).toBe(3);
   });
 
   it('returns empty when start node not in graph', () => {
     const visited: string[] = [];
-    dfsTraversal('z', makeGraph(), (node) => { visited.push(node.id); });
+    dfsTraversal('z', makeGraph(), (node) => {
+      visited.push(node.id);
+    });
     expect(visited).toEqual([]);
   });
 
   it('returns nodes in DFS pre-order', () => {
     const visited: string[] = [];
-    dfsTraversal('a', makeGraph(), (node) => { visited.push(node.id); });
+    dfsTraversal('a', makeGraph(), (node) => {
+      visited.push(node.id);
+    });
     expect(visited.indexOf('a')).toBeLessThan(visited.indexOf('b'));
     expect(visited.indexOf('b')).toBeLessThan(visited.indexOf('d'));
   });

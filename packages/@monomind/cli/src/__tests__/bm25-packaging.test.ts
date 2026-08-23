@@ -4,17 +4,17 @@
  * `memory/bm25-index.ts` imports `contentTokens` from `memory/text-tokens.ts`,
  * the neutral module that also backs the eval harness's tokenisation. Because
  * it lives under `memory/` — unambiguously production code — a future
- * `!dist/**/eval/**` exclusion cannot break it. This test asserts the module
+ * `!dist/**/ eval; /**` exclusion cannot break it. This test asserts the module
  * remains in the published tarball and is not caught by any negation pattern.
  *
  * Verified at the time of writing with `npm pack --dry-run --json`: 1,608 files
  * in the tarball, `text-tokens.js` among them under `dist/src/memory/`.
  */
 
-import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(HERE, '..', '..');
@@ -32,8 +32,8 @@ describe('the shared tokeniser ships to users', () => {
   });
 
   it('no negation pattern excludes the tokeniser module', () => {
-    const negations = (pkg.files ?? []).filter(f => f.startsWith('!'));
-    const offending = negations.filter(neg => {
+    const negations = (pkg.files ?? []).filter((f) => f.startsWith('!'));
+    const offending = negations.filter((neg) => {
       const pattern = neg.slice(1);
       // Flag any exclusion mentioning the memory directory or the text-tokens
       // module by name.
@@ -67,10 +67,7 @@ describe('the shared tokeniser ships to users', () => {
 
   it('bm25-index imports from memory/text-tokens, not from eval/', () => {
     // The whole point: production must not depend on an eval/ path.
-    const bm25Src = fs.readFileSync(
-      path.join(PKG_ROOT, 'src', 'memory', 'bm25-index.ts'),
-      'utf-8',
-    );
+    const bm25Src = fs.readFileSync(path.join(PKG_ROOT, 'src', 'memory', 'bm25-index.ts'), 'utf-8');
     expect(bm25Src).toContain("from './text-tokens.js'");
     expect(bm25Src).not.toContain('eval/metrics');
   });

@@ -26,7 +26,7 @@ export function topologicalLevelSort(db: MonographDb): TopoSortResult {
   const nodeRows = db.prepare('SELECT id FROM nodes').all() as { id: string }[];
   if (nodeRows.length === 0) return { levels: [], cycleCount: 0 };
 
-  const nodes = nodeRows.map(r => r.id);
+  const nodes = nodeRows.map((r) => r.id);
 
   // Compute in-degree (on the reverse graph) via SQL aggregation.
   // In the original graph each edge src→tgt means "src imports tgt".
@@ -58,7 +58,7 @@ export function topologicalLevelSort(db: MonographDb): TopoSortResult {
 
   for (const { source_id: src, target_id: tgt } of edgeRows) {
     if (!reverseAdj.has(tgt) || !reverseAdj.has(src)) continue;
-    reverseAdj.get(tgt)!.push(src);
+    reverseAdj.get(tgt)?.push(src);
   }
 
   // Kahn's BFS on the reverse graph
@@ -87,7 +87,7 @@ export function topologicalLevelSort(db: MonographDb): TopoSortResult {
   }
 
   // Remaining unvisited nodes are in cycles
-  const cycleNodes = nodes.filter(n => !visited.has(n));
+  const cycleNodes = nodes.filter((n) => !visited.has(n));
   let cycleCount = 0;
   if (cycleNodes.length > 0) {
     cycleCount = cycleNodes.length;
@@ -138,15 +138,15 @@ export function formatTopoSort(
   }
 
   const isCycleLevelIdx =
-    result.cycleCount > 0 && result.levels.length > 0
-      ? result.levels.length - 1
-      : -1;
+    result.cycleCount > 0 && result.levels.length > 0 ? result.levels.length - 1 : -1;
 
   const displayLevels = maxLevels !== undefined ? result.levels.slice(0, maxLevels) : result.levels;
 
   const lines: string[] = [
     `Topological sort: ${result.levels.length - (result.cycleCount > 0 ? 1 : 0)} level${result.levels.length === 1 ? '' : 's'}` +
-      (result.cycleCount > 0 ? `, ${result.cycleCount} node${result.cycleCount === 1 ? '' : 's'} in cycles` : ''),
+      (result.cycleCount > 0
+        ? `, ${result.cycleCount} node${result.cycleCount === 1 ? '' : 's'} in cycles`
+        : ''),
     '',
   ];
 
@@ -164,7 +164,9 @@ export function formatTopoSort(
   }
 
   if (maxLevels !== undefined && result.levels.length > maxLevels) {
-    lines.push(`... (${result.levels.length - maxLevels} more level${result.levels.length - maxLevels === 1 ? '' : 's'} omitted)`);
+    lines.push(
+      `... (${result.levels.length - maxLevels} more level${result.levels.length - maxLevels === 1 ? '' : 's'} omitted)`,
+    );
   }
 
   return lines.join('\n').trimEnd();

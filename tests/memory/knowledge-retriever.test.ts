@@ -4,17 +4,17 @@
  * Covers document-chunker, knowledge-store, and knowledge-retriever.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import * as fs from 'node:fs';
 
 import * as os from 'node:os';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { chunkDocument } from '../../packages/@monomind/memory/src/knowledge/document-chunker.js';
-import { KnowledgeStore } from '../../packages/@monomind/memory/src/knowledge/knowledge-store.js';
 import {
   KnowledgeRetriever,
   type SearchFn,
 } from '../../packages/@monomind/memory/src/knowledge/knowledge-retriever.js';
+import { KnowledgeStore } from '../../packages/@monomind/memory/src/knowledge/knowledge-store.js';
 
 function makeTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'kb-test-'));
@@ -59,7 +59,7 @@ describe('chunkDocument', () => {
     // Build a document where a paragraph break falls in the last 20% of chunk
     const para1 = 'X'.repeat(2800);
     const para2 = 'Y'.repeat(3000);
-    const text = para1 + '\n\n' + para2;
+    const text = `${para1}\n\n${para2}`;
 
     const chunks = chunkDocument('doc-para', text, 3200, 400);
     // First chunk should end right after the paragraph break (2802)
@@ -154,11 +154,21 @@ describe('KnowledgeRetriever', () => {
     const searchFn = makeSearchFn({
       'knowledge:shared': [
         duplicateChunk,
-        { key: 'shared:1', value: 'shared text', score: 0.7, metadata: { filePath: 'a.txt', chunkIndex: 1 } },
+        {
+          key: 'shared:1',
+          value: 'shared text',
+          score: 0.7,
+          metadata: { filePath: 'a.txt', chunkIndex: 1 },
+        },
       ],
       'knowledge:agent-x': [
         { ...duplicateChunk, score: 0.9 }, // higher score duplicate
-        { key: 'private:1', value: 'private text', score: 0.6, metadata: { filePath: 'b.txt', chunkIndex: 0 } },
+        {
+          key: 'private:1',
+          value: 'private text',
+          score: 0.6,
+          metadata: { filePath: 'b.txt', chunkIndex: 0 },
+        },
       ],
     });
 
@@ -192,7 +202,12 @@ describe('KnowledgeRetriever', () => {
 
     const searchFn = makeSearchFn({
       'knowledge:shared': [
-        { key: 'c:0', value: 'chunk text', score: 0.85, metadata: { filePath: 'readme.md', chunkIndex: 0 } },
+        {
+          key: 'c:0',
+          value: 'chunk text',
+          score: 0.85,
+          metadata: { filePath: 'readme.md', chunkIndex: 0 },
+        },
       ],
       'knowledge:my-agent': [],
     });

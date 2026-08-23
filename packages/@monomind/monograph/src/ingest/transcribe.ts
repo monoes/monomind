@@ -18,20 +18,28 @@
  * MONOGRAPH_WHISPER_PROMPT  - Override initial prompt for Whisper
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { createHash } from 'crypto';
-import { mkdirSync, existsSync, writeFileSync } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
-import path from 'path';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 export const VIDEO_EXTENSIONS = new Set([
-  '.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v',
-  '.mp3', '.wav', '.m4a', '.ogg',
+  '.mp4',
+  '.mov',
+  '.webm',
+  '.mkv',
+  '.avi',
+  '.m4v',
+  '.mp3',
+  '.wav',
+  '.m4a',
+  '.ogg',
 ]);
 
 const URL_PREFIXES = ['http://', 'https://', 'www.'];
@@ -42,11 +50,11 @@ const DEFAULT_TRANSCRIPTS_DIR = 'monograph-out/transcripts';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 export function isUrl(input: string): boolean {
-  return URL_PREFIXES.some(p => input.startsWith(p));
+  return URL_PREFIXES.some((p) => input.startsWith(p));
 }
 
 function getModel(): string {
-  return process.env['MONOGRAPH_WHISPER_MODEL'] ?? DEFAULT_MODEL;
+  return process.env.MONOGRAPH_WHISPER_MODEL ?? DEFAULT_MODEL;
 }
 
 async function whisperCliAvailable(): Promise<string | null> {
@@ -80,10 +88,8 @@ async function ytdlpAvailable(): Promise<boolean> {
  * @throws {Error} if yt-dlp is not installed.
  */
 export async function downloadAudio(url: string, outputDir: string): Promise<string> {
-  if (!await ytdlpAvailable()) {
-    throw new Error(
-      'Video URL download requires yt-dlp. Install it with: pip install yt-dlp',
-    );
+  if (!(await ytdlpAvailable())) {
+    throw new Error('Video URL download requires yt-dlp. Install it with: pip install yt-dlp');
   }
 
   mkdirSync(outputDir, { recursive: true });
@@ -101,8 +107,10 @@ export async function downloadAudio(url: string, outputDir: string): Promise<str
 
   const outTemplate = path.join(outputDir, `yt_${urlHash}.%(ext)s`);
   await execFileAsync('yt-dlp', [
-    '--format', 'bestaudio[ext=m4a]/bestaudio/best',
-    '--output', outTemplate,
+    '--format',
+    'bestaudio[ext=m4a]/bestaudio/best',
+    '--output',
+    outTemplate,
     '--quiet',
     '--no-warnings',
     '--no-playlist',
@@ -125,7 +133,7 @@ export async function downloadAudio(url: string, outputDir: string): Promise<str
  * Mirrors graphify's `build_whisper_prompt`.
  */
 export function buildWhisperPrompt(godNodeLabels: string[]): string {
-  const override = process.env['MONOGRAPH_WHISPER_PROMPT'];
+  const override = process.env.MONOGRAPH_WHISPER_PROMPT;
   if (override) return override;
 
   if (godNodeLabels.length === 0) return FALLBACK_PROMPT;
@@ -185,7 +193,7 @@ export async function transcribe(
   // Return cached transcript if it exists
   if (!options.force && existsSync(transcriptPath)) {
     const content = await readFile(transcriptPath, 'utf-8');
-    const lines = content.split('\n').filter(l => l.trim().length > 0);
+    const lines = content.split('\n').filter((l) => l.trim().length > 0);
     return { transcriptPath, lineCount: lines.length, fromCache: true };
   }
 
@@ -194,7 +202,7 @@ export async function transcribe(
   if (!whisperCmd) {
     throw new Error(
       'Video transcription requires faster-whisper or whisper CLI. ' +
-      'Install with: pip install faster-whisper  or  pip install openai-whisper',
+        'Install with: pip install faster-whisper  or  pip install openai-whisper',
     );
   }
 
@@ -217,10 +225,8 @@ export async function transcribe(
     }
   }
 
-  const content = existsSync(transcriptPath)
-    ? await readFile(transcriptPath, 'utf-8')
-    : '';
-  const lines = content.split('\n').filter(l => l.trim().length > 0);
+  const content = existsSync(transcriptPath) ? await readFile(transcriptPath, 'utf-8') : '';
+  const lines = content.split('\n').filter((l) => l.trim().length > 0);
 
   return { transcriptPath, lineCount: lines.length, fromCache: false };
 }

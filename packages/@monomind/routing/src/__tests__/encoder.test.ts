@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { LocalEncoder, HNSWEncoder } from '../encoder.js';
+import { describe, expect, it, vi } from 'vitest';
+import { HNSWEncoder, LocalEncoder } from '../encoder.js';
 
 describe('LocalEncoder', () => {
   const encoder = new LocalEncoder();

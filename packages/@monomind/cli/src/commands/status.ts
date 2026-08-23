@@ -3,12 +3,12 @@
  * System status display for Monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Status refresh interval (ms)
 const DEFAULT_WATCH_INTERVAL = 2000;
@@ -19,7 +19,9 @@ let lastCpuTime = Date.now();
 
 // Get real process CPU usage percentage
 function getProcessCpuUsage(): number {
-  const cpuUsage = process.cpuUsage(lastCpuUsage ? { user: lastCpuUsage.user, system: lastCpuUsage.system } : undefined);
+  const cpuUsage = process.cpuUsage(
+    lastCpuUsage ? { user: lastCpuUsage.user, system: lastCpuUsage.system } : undefined,
+  );
   const now = Date.now();
   const elapsed = now - lastCpuTime;
 
@@ -80,7 +82,7 @@ function formatBytes(bytes: number): string {
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
 // Get system status data
@@ -179,9 +181,13 @@ async function getSystemStatus(cwd: string): Promise<{
           const { statSync } = await import('node:fs');
           const { join } = await import('node:path');
           memoryStatus.size = statSync(join(bridgeGetDbPath(), 'memory.db')).size;
-        } catch { /* size is a nicety; entries and backend are the load-bearing parts */ }
+        } catch {
+          /* size is a nicety; entries and backend are the load-bearing parts */
+        }
       }
-    } catch { /* leaves backend 'unknown' — an honest "could not read" */ }
+    } catch {
+      /* leaves backend 'unknown' — an honest "could not read" */
+    }
 
     // Get task status
     const taskStatus = await callMCPTool<{
@@ -199,7 +205,7 @@ async function getSystemStatus(cwd: string): Promise<{
         id: swarmStatus.monoswarmId ?? null,
         topology: swarmStatus.topology ?? 'none',
         status: swarmStatus.status ?? 'no_swarm',
-        agents: { total: swarmStatus.agentCount ?? 0 }
+        agents: { total: swarmStatus.agentCount ?? 0 },
       },
       mcp: mcpStatus,
       memory: {
@@ -208,15 +214,15 @@ async function getSystemStatus(cwd: string): Promise<{
         backend: memoryStatus.backend,
         performance: {
           searchTime: memoryStatus.performance.avgSearchTime,
-          cacheHitRate: memoryStatus.performance.cacheHitRate
-        }
+          cacheHitRate: memoryStatus.performance.cacheHitRate,
+        },
       },
       tasks: taskStatus,
       performance: {
         cpuUsage: getProcessCpuUsage(),
         memoryUsage: getProcessMemoryUsage(),
-        searchSpeed: 'not measured'
-      }
+        searchSpeed: 'not measured',
+      },
     };
   } catch (error) {
     // Reaching here does NOT prove the system is stopped — it means reading its
@@ -227,10 +233,12 @@ async function getSystemStatus(cwd: string): Promise<{
     if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
       console.error('[status] could not read system state:', error);
     } else {
-      output.writeln(output.warning(
-        `Could not read full system state (${error instanceof Error ? error.message : String(error)}) — ` +
-        'the figures below are defaults, not measurements. Re-run with DEBUG=1 for detail.'
-      ));
+      output.writeln(
+        output.warning(
+          `Could not read full system state (${error instanceof Error ? error.message : String(error)}) — ` +
+            'the figures below are defaults, not measurements. Re-run with DEBUG=1 for detail.',
+        ),
+      );
     }
     return {
       initialized: true,
@@ -239,21 +247,21 @@ async function getSystemStatus(cwd: string): Promise<{
         id: null,
         topology: 'none',
         status: 'no_swarm',
-        agents: { total: 0 }
+        agents: { total: 0 },
       },
       mcp: { running: false, port: null, transport: 'stdio' },
       memory: {
         entries: 0,
         size: '0 B',
         backend: 'none',
-        performance: { searchTime: 0, cacheHitRate: 0 }
+        performance: { searchTime: 0, cacheHitRate: 0 },
       },
       tasks: { total: 0, pending: 0, running: 0, completed: 0, failed: 0 },
       performance: {
         cpuUsage: 0,
         memoryUsage: 0,
-        searchSpeed: 'N/A'
-      }
+        searchSpeed: 'N/A',
+      },
     };
   }
 }
@@ -263,9 +271,7 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   output.writeln();
 
   // Header with overall status
-  const statusIcon = status.running
-    ? output.success('[RUNNING]')
-    : output.warning('[STOPPED]');
+  const statusIcon = status.running ? output.success('[RUNNING]') : output.warning('[STOPPED]');
   output.writeln(`${output.bold('Monomind')} ${statusIcon}`);
   output.writeln();
 
@@ -277,13 +283,13 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
     output.printTable({
       columns: [
         { key: 'property', header: 'Property', width: 15 },
-        { key: 'value', header: 'Value', width: 30 }
+        { key: 'value', header: 'Value', width: 30 },
       ],
       data: [
         { property: 'ID', value: status.swarm.id },
         { property: 'Topology', value: status.swarm.topology },
-        { property: 'Status', value: status.swarm.status }
-      ]
+        { property: 'Status', value: status.swarm.status },
+      ],
     });
   } else {
     output.printInfo('  No active swarm');
@@ -295,11 +301,9 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   output.printTable({
     columns: [
       { key: 'status', header: 'Status', width: 12 },
-      { key: 'count', header: 'Count', width: 10, align: 'right' }
+      { key: 'count', header: 'Count', width: 10, align: 'right' },
     ],
-    data: [
-      { status: output.bold('Total'), count: status.swarm.agents.total }
-    ]
+    data: [{ status: output.bold('Total'), count: status.swarm.agents.total }],
   });
   output.writeln();
 
@@ -308,15 +312,15 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   output.printTable({
     columns: [
       { key: 'status', header: 'Status', width: 12 },
-      { key: 'count', header: 'Count', width: 10, align: 'right' }
+      { key: 'count', header: 'Count', width: 10, align: 'right' },
     ],
     data: [
       { status: 'Pending', count: status.tasks.pending },
       { status: 'Running', count: status.tasks.running },
       { status: 'Completed', count: status.tasks.completed },
       { status: 'Failed', count: status.tasks.failed },
-      { status: output.bold('Total'), count: status.tasks.total }
-    ]
+      { status: output.bold('Total'), count: status.tasks.total },
+    ],
   });
   output.writeln();
 
@@ -325,15 +329,18 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   output.printTable({
     columns: [
       { key: 'property', header: 'Property', width: 18 },
-      { key: 'value', header: 'Value', width: 20, align: 'right' }
+      { key: 'value', header: 'Value', width: 20, align: 'right' },
     ],
     data: [
       { property: 'Backend', value: status.memory.backend },
       { property: 'Entries', value: status.memory.entries },
       { property: 'Size', value: status.memory.size },
       { property: 'Search Time', value: `${status.memory.performance.searchTime.toFixed(2)}ms` },
-      { property: 'Cache Hit Rate', value: `${(status.memory.performance.cacheHitRate * 100).toFixed(1)}%` }
-    ]
+      {
+        property: 'Cache Hit Rate',
+        value: `${(status.memory.performance.cacheHitRate * 100).toFixed(1)}%`,
+      },
+    ],
   });
   output.writeln();
 
@@ -356,7 +363,7 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
     output.printList([
       `Vector Search: ${output.success(status.performance.searchSpeed)}`,
       `CPU Usage: ${status.performance.cpuUsage.toFixed(1)}%`,
-      `Memory Usage: ${status.performance.memoryUsage.toFixed(1)}%`
+      `Memory Usage: ${status.performance.memoryUsage.toFixed(1)}%`,
     ]);
   }
 
@@ -365,17 +372,21 @@ async function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>
   try {
     const { checkResources } = await import('../utils/resource-governor.js');
     const res = checkResources();
-    const memColor = res.freeMemPct < 15 ? output.error : res.freeMemPct < 30 ? output.warning : output.success;
+    const memColor =
+      res.freeMemPct < 15 ? output.error : res.freeMemPct < 30 ? output.warning : output.success;
     output.printTable({
       columns: [
         { key: 'property', header: 'Property', width: 18 },
-        { key: 'value', header: 'Value', width: 25, align: 'right' }
+        { key: 'value', header: 'Value', width: 25, align: 'right' },
       ],
       data: [
         { property: 'Available RAM', value: memColor(`${res.freeMemMB}MB (${res.freeMemPct}%)`) },
         { property: 'SDK Processes', value: `${res.sdkProcesses} / ${res.maxSdkProcesses} max` },
-        { property: 'Status', value: res.ok ? output.success('OK') : output.warning(res.reason ?? 'pressure') },
-      ]
+        {
+          property: 'Status',
+          value: res.ok ? output.success('OK') : output.warning(res.reason ?? 'pressure'),
+        },
+      ],
     });
   } catch {
     output.printInfo('  Resource governor not available');
@@ -401,7 +412,9 @@ function formatHealth(health: string): string {
 const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const watch = ctx.flags.watch as boolean;
   const rawInterval = (ctx.flags.interval as number) || DEFAULT_WATCH_INTERVAL / 1000;
-  const interval = Number.isFinite(rawInterval) ? Math.max(1, Math.min(rawInterval, 3600)) : DEFAULT_WATCH_INTERVAL / 1000;
+  const interval = Number.isFinite(rawInterval)
+    ? Math.max(1, Math.min(rawInterval, 3600))
+    : DEFAULT_WATCH_INTERVAL / 1000;
   const healthCheck = ctx.flags['health-check'] as boolean;
   const cwd = ctx.cwd;
 
@@ -439,7 +452,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
 // Perform health checks
 async function performHealthCheck(
-  status: Awaited<ReturnType<typeof getSystemStatus>>
+  status: Awaited<ReturnType<typeof getSystemStatus>>,
 ): Promise<CommandResult> {
   output.writeln();
   output.writeln(output.bold('Health Check'));
@@ -451,23 +464,27 @@ async function performHealthCheck(
   checks.push({
     name: 'System Running',
     status: status.running ? 'pass' : 'fail',
-    message: status.running ? 'System is running' : 'System is not running'
+    message: status.running ? 'System is running' : 'System is not running',
   });
 
   // Check swarm health
   if (status.running) {
     checks.push({
       name: 'Swarm Status',
-      status: status.swarm.status === 'running' ? 'pass' :
-              status.swarm.status === 'no_swarm' ? 'fail' : 'warn',
-      message: `Swarm status: ${status.swarm.status}`
+      status:
+        status.swarm.status === 'running'
+          ? 'pass'
+          : status.swarm.status === 'no_swarm'
+            ? 'fail'
+            : 'warn',
+      message: `Swarm status: ${status.swarm.status}`,
     });
 
     // Check agent count
     checks.push({
       name: 'Agents Available',
       status: status.swarm.agents.total > 0 ? 'pass' : 'fail',
-      message: `${status.swarm.agents.total} agent(s)`
+      message: `${status.swarm.agents.total} agent(s)`,
     });
 
     // Check MCP
@@ -475,52 +492,57 @@ async function performHealthCheck(
       name: 'MCP Server',
       status: status.mcp.running ? 'pass' : 'warn',
       message: status.mcp.running
-        ? (status.mcp.transport === 'stdio' ? 'Running (stdio mode)' : `Running on port ${status.mcp.port}`)
-        : 'Not running'
+        ? status.mcp.transport === 'stdio'
+          ? 'Running (stdio mode)'
+          : `Running on port ${status.mcp.port}`
+        : 'Not running',
     });
 
     // Check memory backend
     checks.push({
       name: 'Memory Backend',
       status: status.memory.backend !== 'none' ? 'pass' : 'fail',
-      message: `Using ${status.memory.backend} backend`
+      message: `Using ${status.memory.backend} backend`,
     });
 
     // Check for failed tasks
-    const failRate = status.tasks.total > 0
-      ? status.tasks.failed / status.tasks.total
-      : 0;
+    const failRate = status.tasks.total > 0 ? status.tasks.failed / status.tasks.total : 0;
     checks.push({
       name: 'Task Success Rate',
       status: failRate < 0.05 ? 'pass' : failRate < 0.2 ? 'warn' : 'fail',
-      message: `${((1 - failRate) * 100).toFixed(1)}% success rate`
+      message: `${((1 - failRate) * 100).toFixed(1)}% success rate`,
     });
   }
 
   // Display results
   for (const check of checks) {
-    const icon = check.status === 'pass' ? output.success('[PASS]') :
-                 check.status === 'warn' ? output.warning('[WARN]') :
-                 output.error('[FAIL]');
+    const icon =
+      check.status === 'pass'
+        ? output.success('[PASS]')
+        : check.status === 'warn'
+          ? output.warning('[WARN]')
+          : output.error('[FAIL]');
     output.writeln(`${icon} ${check.name}: ${check.message}`);
   }
 
   output.writeln();
 
-  const passed = checks.filter(c => c.status === 'pass').length;
-  const warned = checks.filter(c => c.status === 'warn').length;
-  const failed = checks.filter(c => c.status === 'fail').length;
+  const passed = checks.filter((c) => c.status === 'pass').length;
+  const warned = checks.filter((c) => c.status === 'warn').length;
+  const failed = checks.filter((c) => c.status === 'fail').length;
 
   if (failed === 0) {
     output.printSuccess(`All checks passed (${passed} passed, ${warned} warnings)`);
   } else {
-    output.printError(`Health check failed (${passed} passed, ${warned} warnings, ${failed} failed)`);
+    output.printError(
+      `Health check failed (${passed} passed, ${warned} warnings, ${failed} failed)`,
+    );
   }
 
   return {
     success: failed === 0,
     exitCode: failed > 0 ? 1 : 0,
-    data: { checks, summary: { passed, warned, failed } }
+    data: { checks, summary: { passed, warned, failed } },
   };
 }
 
@@ -605,16 +627,16 @@ const agentsCommand: Command = {
           { key: 'status', header: 'Status', width: 10 },
           { key: 'tasks', header: 'Tasks', width: 8 },
           { key: 'created', header: 'Created', width: 22 },
-          { key: 'health', header: 'Health', width: 8 }
+          { key: 'health', header: 'Health', width: 8 },
         ],
-        data: result.agents.map(a => ({
+        data: result.agents.map((a) => ({
           id: a.agentId ?? 'N/A',
           type: a.agentType ?? 'N/A',
           status: a.status ? formatHealth(a.status) : 'N/A',
           tasks: a.taskCount ?? 'N/A',
           created: a.createdAt ?? 'N/A',
-          health: typeof a.health === 'number' ? a.health.toFixed(2) : 'N/A'
-        }))
+          health: typeof a.health === 'number' ? a.health.toFixed(2) : 'N/A',
+        })),
       });
 
       return { success: true, data: result };
@@ -626,7 +648,7 @@ const agentsCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Tasks subcommand
@@ -668,16 +690,16 @@ const tasksCommand: Command = {
           { key: 'status', header: 'Status', width: 12 },
           { key: 'priority', header: 'Priority', width: 10 },
           { key: 'agent', header: 'Agent', width: 15 },
-          { key: 'progress', header: 'Progress', width: 10 }
+          { key: 'progress', header: 'Progress', width: 10 },
         ],
-        data: result.tasks.map(t => ({
+        data: result.tasks.map((t) => ({
           id: t.id,
           type: t.type,
           status: formatHealth(t.status),
           priority: t.priority,
           agent: t.agent || '-',
-          progress: `${t.progress}%`
-        }))
+          progress: `${t.progress}%`,
+        })),
       });
 
       return { success: true, data: result };
@@ -689,7 +711,7 @@ const tasksCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Memory subcommand
@@ -722,21 +744,23 @@ const memoryCommand: Command = {
       output.printTable({
         columns: [
           { key: 'property', header: 'Property', width: 20 },
-          { key: 'value', header: 'Value', width: 25 }
+          { key: 'value', header: 'Value', width: 25 },
         ],
         data: [
           { property: 'Backend', value: result.backend },
           { property: 'Total Entries', value: result.entries.toLocaleString() },
           { property: 'Storage Size', value: formatBytes(result.size) },
-        ]
+        ],
       });
 
       return { success: true, data: result };
     } catch (error) {
-      output.printError(`Failed to get memory status: ${error instanceof Error ? error.message : String(error)}`);
+      output.printError(
+        `Failed to get memory status: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Main status command
@@ -750,21 +774,21 @@ export const statusCommand: Command = {
       short: 'w',
       description: 'Watch mode - continuously update status',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'interval',
       short: 'i',
       description: 'Watch mode update interval in seconds',
       type: 'number',
-      default: 2
+      default: 2,
     },
     {
       name: 'health-check',
       description: 'Perform health checks and exit',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind status', description: 'Show current system status' },
@@ -774,9 +798,9 @@ export const statusCommand: Command = {
     { command: 'monomind status --json', description: 'Output status as JSON' },
     { command: 'monomind status agents', description: 'Show detailed agent status' },
     { command: 'monomind status tasks', description: 'Show detailed task status' },
-    { command: 'monomind status memory', description: 'Show detailed memory status' }
+    { command: 'monomind status memory', description: 'Show detailed memory status' },
   ],
-  action: statusAction
+  action: statusAction,
 };
 
 export default statusCommand;

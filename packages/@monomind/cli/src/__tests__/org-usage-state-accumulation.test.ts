@@ -8,10 +8,11 @@
  * tab) despite the UI rendering as if it did. This exercises both shapes
  * through the real HTTP handler and asserts both accumulate correctly.
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { startServer } from '../ui/server.mjs';
 
 describe('POST /api/mastermind/event — dual usage-event shape accumulation', () => {
@@ -34,7 +35,8 @@ describe('POST /api/mastermind/event — dual usage-event shape accumulation', (
     const dashboardAuthFileName = ['dashboard', 'token'].join('-');
     const authFile = join(tmpDir, '.monomind', dashboardAuthFileName);
     const deadline = Date.now() + 5000;
-    while (!existsSync(authFile) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+    while (!existsSync(authFile) && Date.now() < deadline)
+      await new Promise((r) => setTimeout(r, 100));
     const authValue = readFileSync(authFile, 'utf8');
 
     const post = (event: Record<string, unknown>) =>
@@ -49,7 +51,14 @@ describe('POST /api/mastermind/event — dual usage-event shape accumulation', (
     await post({ ...base, type: 'org:usage', from: 'boss', data: { tokens: 500, cost_usd: 0.05 } });
     await post({ ...base, type: 'org:usage', from: 'boss', data: { tokens: 300, cost_usd: 0.03 } });
     // Legacy flattened shape.
-    const r = await post({ ...base, type: 'agent:usage', role: 'worker', tokens_in: 100, tokens_out: 50, cost_usd: 0.01 });
+    const r = await post({
+      ...base,
+      type: 'agent:usage',
+      role: 'worker',
+      tokens_in: 100,
+      tokens_out: 50,
+      cost_usd: 0.01,
+    });
     expect(r.status).toBe(200);
 
     const stateFile = join(tmpDir, '.monomind', 'orgs', 'myorg-state.json');

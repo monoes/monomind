@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { execFileSync, execFile } from 'child_process';
-import { readFileSync, mkdtempSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { tmpdir } from 'os';
-import { fileURLToPath } from 'url';
-import { promisify } from 'util';
+import { execFile, execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 
@@ -25,7 +25,9 @@ function handlerBody(src: string, event: string): string {
 /** Offset of the fault classifier — the anchor for every source assertion. */
 function classifierStart(src: string): number {
   const i = src.indexOf('const handleExpectedFault');
-  expect(i, 'handleExpectedFault not found — was the fault classifier removed?').toBeGreaterThan(-1);
+  expect(i, 'handleExpectedFault not found — was the fault classifier removed?').toBeGreaterThan(
+    -1,
+  );
   return i;
 }
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -47,7 +49,10 @@ describe('broken pipe is normal termination, not a crash (#41)', () => {
     // a fault. Using sh so the pipe semantics are the real thing.
     const out = execFileSync(
       'sh',
-      ['-c', `node ${JSON.stringify(CLI_BIN)} hooks worker list 2>&1 >/dev/null | head -1; exit \${PIPESTATUS:-0}`],
+      [
+        '-c',
+        `node ${JSON.stringify(CLI_BIN)} hooks worker list 2>&1 >/dev/null | head -1; exit \${PIPESTATUS:-0}`,
+      ],
       { encoding: 'utf-8' },
     );
     expect(out).not.toMatch(/EPIPE/);

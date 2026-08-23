@@ -1,15 +1,23 @@
+import { existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs';
+import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
-import { mkdirSync, existsSync, renameSync, unlinkSync } from 'fs';
-import { dirname } from 'path';
-import {
-  CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES,
-  CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS,
-  CREATE_EMBEDDINGS, CREATE_WIKI_PAGES,
-  CREATE_AGENT_INTERACTIONS, CREATE_AGENT_INTERACTIONS_IDX,
-  CREATE_AGENT_INTERACTIONS_ORG_IDX, CREATE_AGENT_INTERACTIONS_TYPE_IDX,
-  CREATE_AGENT_INTERACTIONS_TS_IDX,
-} from './schema.js';
 import { MonographError } from '../types.js';
+import {
+  CREATE_AGENT_INTERACTIONS,
+  CREATE_AGENT_INTERACTIONS_IDX,
+  CREATE_AGENT_INTERACTIONS_ORG_IDX,
+  CREATE_AGENT_INTERACTIONS_TS_IDX,
+  CREATE_AGENT_INTERACTIONS_TYPE_IDX,
+  CREATE_COMMUNITIES,
+  CREATE_EDGES,
+  CREATE_EMBEDDINGS,
+  CREATE_INDEX_META,
+  CREATE_INDEXES,
+  CREATE_NODES,
+  CREATE_NODES_FTS,
+  CREATE_WIKI_PAGES,
+  FTS_SYNC_TRIGGERS,
+} from './schema.js';
 
 export type MonographDb = Database.Database;
 
@@ -28,7 +36,9 @@ export interface OpenDbOptions {
 
 export function openDb(dbPath: string, options: OpenDbOptions = {}): MonographDb {
   if (options.fileMustExist && !existsSync(dbPath)) {
-    throw new MonographError(`Monograph database does not exist at ${dbPath}. Run monograph build first.`);
+    throw new MonographError(
+      `Monograph database does not exist at ${dbPath}. Run monograph build first.`,
+    );
   }
   try {
     mkdirSync(dirname(dbPath), { recursive: true });
@@ -72,19 +82,25 @@ function applyMigrations(db: MonographDb): void {
 
   // Schema version table — tracks incremental column additions.
   db.exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)`);
-  const row = db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number | null };
+  const row = db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as {
+    v: number | null;
+  };
   const current = row?.v ?? 0;
 
   if (current < 1) {
     // v1: added `reason TEXT` to edges
-    try { db.exec('ALTER TABLE edges ADD COLUMN reason TEXT'); } catch { /* already present */ }
+    try {
+      db.exec('ALTER TABLE edges ADD COLUMN reason TEXT');
+    } catch {
+      /* already present */
+    }
     db.prepare('INSERT OR REPLACE INTO schema_version VALUES (1)').run();
   }
 }
 
 /** Write to a .tmp file then rename for atomic replacement. */
 export function atomicRebuild(dbPath: string, buildFn: (db: MonographDb) => void): void {
-  const tmpPath = dbPath + '.tmp';
+  const tmpPath = `${dbPath}.tmp`;
   const db = openDb(tmpPath);
   try {
     buildFn(db);
@@ -97,13 +113,21 @@ export function atomicRebuild(dbPath: string, buildFn: (db: MonographDb) => void
     for (const suffix of ['-wal', '-shm']) {
       const sidecar = dbPath + suffix;
       if (existsSync(sidecar)) {
-        try { unlinkSync(sidecar); } catch { /* best-effort cleanup */ }
+        try {
+          unlinkSync(sidecar);
+        } catch {
+          /* best-effort cleanup */
+        }
       }
     }
   } catch (err) {
     db.close();
     if (existsSync(tmpPath)) {
-      try { unlinkSync(tmpPath); } catch { /* ignore */ }
+      try {
+        unlinkSync(tmpPath);
+      } catch {
+        /* ignore */
+      }
     }
     throw err;
   }

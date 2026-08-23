@@ -8,10 +8,14 @@ export function loadGraphFromEdges(edges: MonographEdge[]): Graph {
     if (!graph.hasNode(edge.targetId)) graph.addNode(edge.targetId);
     try {
       graph.addEdge(edge.sourceId, edge.targetId, {
-        id: edge.id, relation: edge.relation,
-        confidence: edge.confidence, confidenceScore: edge.confidenceScore,
+        id: edge.id,
+        relation: edge.relation,
+        confidence: edge.confidence,
+        confidenceScore: edge.confidenceScore,
       });
-    } catch { /* duplicate edge */ }
+    } catch {
+      /* duplicate edge */
+    }
   }
   return graph;
 }
@@ -19,11 +23,15 @@ export function loadGraphFromEdges(edges: MonographEdge[]): Graph {
 export function loadGraphFromDb(db: import('../storage/db.js').MonographDb): Graph {
   const nodes = db.prepare('SELECT id FROM nodes').all() as { id: string }[];
   // Explicitly select only the columns used here — avoids fetching reason/evidence blobs
-  const edges = db.prepare(
-    'SELECT id, source_id, target_id, relation, confidence, confidence_score FROM edges'
-  ).all() as {
-    id: string; source_id: string; target_id: string; relation: string;
-    confidence: string; confidence_score: number;
+  const edges = db
+    .prepare('SELECT id, source_id, target_id, relation, confidence, confidence_score FROM edges')
+    .all() as {
+    id: string;
+    source_id: string;
+    target_id: string;
+    relation: string;
+    confidence: string;
+    confidence_score: number;
   }[];
 
   const graph = new Graph({ multi: true, type: 'directed' });
@@ -35,10 +43,14 @@ export function loadGraphFromDb(db: import('../storage/db.js').MonographDb): Gra
     graph.mergeNode(e.target_id);
     try {
       graph.addEdge(e.source_id, e.target_id, {
-        id: e.id, relation: e.relation,
-        confidence: e.confidence, confidenceScore: e.confidence_score,
+        id: e.id,
+        relation: e.relation,
+        confidence: e.confidence,
+        confidenceScore: e.confidence_score,
       });
-    } catch { /* skip duplicate edges */ }
+    } catch {
+      /* skip duplicate edges */
+    }
   }
   return graph;
 }

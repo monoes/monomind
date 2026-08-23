@@ -1,10 +1,11 @@
 // packages/@monomind/cli/src/orgrt/approvals.ts
 // Extracted from daemon.ts — approval checking and setting for org tool calls.
-import { join } from 'node:path';
+
 import { existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
-import { ORG_DIR } from './types.js';
 import type { OrgDaemon } from './daemon.js';
+import { ORG_DIR } from './types.js';
 
 /** Custom org-runtime tools (org_complete, org_send, org_task, ...) are
  *  registered as an SDK MCP server named 'org' (createSdkMcpServer({ name:
@@ -48,18 +49,23 @@ export function clearApprovalsForFreshStart(daemon: OrgDaemon, org: string): voi
  *
  *  R5: serialized per-org via withApprovalLock() — concurrent checkApproval and
  *  setApproval calls previously raced on this.approvals + approvals.json. */
-export function checkApproval(daemon: OrgDaemon, org: string, role: string, rawAction: string): Promise<boolean | null> {
+export function checkApproval(
+  daemon: OrgDaemon,
+  org: string,
+  role: string,
+  rawAction: string,
+): Promise<boolean | null> {
   const action = normalizeToolAction(rawAction);
   return withApprovalLock(daemon, org, async () => {
     const pending = daemon.approvals.get(org) ?? [];
-    const existing = pending.find(a => a.roleId === role && a.action === action);
+    const existing = pending.find((a) => a.roleId === role && a.action === action);
 
     // If already approved/denied, return that decision
     if (existing && existing.approved !== null) return existing.approved;
 
     // A role's policy.autoApproveTools can name specific sensitive actions it's
     // pre-trusted for, skipping the human-approval pause entirely for those.
-    const roleDef = daemon.orgs.get(org)?.def.roles.find(r => r.id === role);
+    const roleDef = daemon.orgs.get(org)?.def.roles.find((r) => r.id === role);
     if (roleDef?.policy?.autoApproveTools?.includes(action)) return true;
 
     // Require human approval for sensitive actions
@@ -67,7 +73,13 @@ export function checkApproval(daemon: OrgDaemon, org: string, role: string, rawA
     if (sensitiveActions.includes(action)) {
       // Queue for approval
       if (!existing) {
-        pending.push({ roleId: role, action, question: `Approve ${action} tool call?`, ts: Date.now(), approved: null });
+        pending.push({
+          roleId: role,
+          action,
+          question: `Approve ${action} tool call?`,
+          ts: Date.now(),
+          approved: null,
+        });
         daemon.approvals.set(org, pending);
       }
       // Persist to approvals.json (C4: atomic write)
@@ -77,7 +89,11 @@ export function checkApproval(daemon: OrgDaemon, org: string, role: string, rawA
 
       // Emit a question event for the dashboard
       const running = daemon.orgs.get(org);
-      running?.bus.emit({ type: 'question', from: role, data: { question: `Approval required for ${action}`, action } });
+      running?.bus.emit({
+        type: 'question',
+        from: role,
+        data: { question: `Approval required for ${action}`, action },
+      });
       return null; // Pending human approval
     }
 
@@ -87,12 +103,19 @@ export function checkApproval(daemon: OrgDaemon, org: string, role: string, rawA
 
 /** Approve or deny a pending action (called by dashboard or CLI).
  *  R5: serialized per-org via withApprovalLock(). */
-export async function setApproval(daemon: OrgDaemon, org: string, role: string, action: string, approved: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function setApproval(
+  daemon: OrgDaemon,
+  org: string,
+  role: string,
+  action: string,
+  approved: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   return withApprovalLock(daemon, org, async () => {
     const pending = daemon.approvals.get(org) ?? [];
-    const item = pending.find(a => a.roleId === role && a.action === action);
+    const item = pending.find((a) => a.roleId === role && a.action === action);
 
-    if (!item) return { ok: false, error: `No pending approval found for ${role} action ${action}` };
+    if (!item)
+      return { ok: false, error: `No pending approval found for ${role} action ${action}` };
 
     item.approved = approved;
     item.ts = Date.now();
@@ -108,7 +131,11 @@ export async function setApproval(daemon: OrgDaemon, org: string, role: string, 
       agent.mailbox.push(`[approval] ${action}: ${approved ? 'APPROVED' : 'DENIED'}`);
     }
 
-    running?.bus.emit({ type: 'status', from: role, msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}` });
+    running?.bus.emit({
+      type: 'status',
+      from: role,
+      msg: `Approval ${approved ? 'granted' : 'denied'} for ${action}`,
+    });
 
     // ORG-1: an approval resolving (approve or reject) is a natural decision
     // point — record it so `org decisions` shows real traces.
@@ -130,6 +157,11 @@ export async function setApproval(daemon: OrgDaemon, org: string, role: string, 
 function withApprovalLock<T>(daemon: OrgDaemon, org: string, fn: () => Promise<T>): Promise<T> {
   const prev = daemon.approvalLocks.get(org) ?? Promise.resolve();
   const next = prev.then(fn, fn);
-  daemon.approvalLocks.set(org, next.catch(() => { /* slot stays usable for the next caller */ }));
+  daemon.approvalLocks.set(
+    org,
+    next.catch(() => {
+      /* slot stays usable for the next caller */
+    }),
+  );
   return next;
 }

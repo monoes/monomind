@@ -2,10 +2,10 @@
  * CAPABILITIES.md writer — comprehensive overview of all Monomind features.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { _isOptionalPackageResolvable, atomicWriteFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
-import { atomicWriteFile, _isOptionalPackageResolvable } from './shared.js';
 
 /**
  * Write CAPABILITIES.md - comprehensive overview of all Monomind features
@@ -13,7 +13,7 @@ import { atomicWriteFile, _isOptionalPackageResolvable } from './shared.js';
 export async function writeCapabilitiesDoc(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const capabilitiesPath = path.join(targetDir, '.monomind', 'CAPABILITIES.md');
 

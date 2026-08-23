@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge, EdgeConfidence, NodeLabel } from '../types.js';
+import type { EdgeConfidence, MonographEdge, MonographNode, NodeLabel } from '../types.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -6,12 +6,39 @@ export interface ValidationResult {
 }
 
 const VALID_LABELS = new Set<NodeLabel>([
-  'File', 'Folder', 'Function', 'Class', 'Method', 'Interface',
-  'Variable', 'Struct', 'Enum', 'Macro', 'Typedef', 'Union',
-  'Namespace', 'Trait', 'Impl', 'TypeAlias', 'Const', 'Static',
-  'Property', 'Record', 'Delegate', 'Annotation', 'Constructor',
-  'Template', 'Module', 'Process', 'Route', 'Community', 'Concept',
-  'Document', 'Tool', 'Entity', 'Field',
+  'File',
+  'Folder',
+  'Function',
+  'Class',
+  'Method',
+  'Interface',
+  'Variable',
+  'Struct',
+  'Enum',
+  'Macro',
+  'Typedef',
+  'Union',
+  'Namespace',
+  'Trait',
+  'Impl',
+  'TypeAlias',
+  'Const',
+  'Static',
+  'Property',
+  'Record',
+  'Delegate',
+  'Annotation',
+  'Constructor',
+  'Template',
+  'Module',
+  'Process',
+  'Route',
+  'Community',
+  'Concept',
+  'Document',
+  'Tool',
+  'Entity',
+  'Field',
 ]);
 
 const VALID_CONFIDENCES = new Set<EdgeConfidence>(['EXTRACTED', 'INFERRED', 'AMBIGUOUS']);
@@ -21,7 +48,7 @@ export function validateExtraction(
   edges: MonographEdge[],
 ): ValidationResult {
   const errors: string[] = [];
-  const nodeIds = new Set(nodes.map(n => n.id));
+  const nodeIds = new Set(nodes.map((n) => n.id));
 
   for (const n of nodes) {
     if (!n.id) errors.push(`Node missing id: ${JSON.stringify(n.name)}`);

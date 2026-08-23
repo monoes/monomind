@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
-import { reposResource } from '../../mcp-resources/repos-resource.js';
+import { describe, expect, it } from 'vitest';
 import { namedClusterResource } from '../../mcp-resources/named-cluster-resource.js';
 import { namedProcessResource } from '../../mcp-resources/named-process-resource.js';
+import { reposResource } from '../../mcp-resources/repos-resource.js';
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');

@@ -4,7 +4,7 @@
  * Handles cross-platform compatibility (Windows requires cmd /c wrapper)
  */
 
-import type { InitOptions, MCPConfig } from './types.js';
+import type { InitOptions } from './types.js';
 
 /**
  * Check if running on Windows
@@ -21,7 +21,7 @@ function isWindows(): boolean {
 function createMCPServerEntry(
   npxArgs: string[],
   env: Record<string, string>,
-  additionalProps: Record<string, unknown> = {}
+  additionalProps: Record<string, unknown> = {},
 ): object {
   if (isWindows()) {
     return {
@@ -54,7 +54,7 @@ export function generateMCPConfig(options: InitOptions): object {
 
   // Monomind MCP server (core)
   if (config.monomind) {
-    mcpServers['monomind'] = createMCPServerEntry(
+    mcpServers.monomind = createMCPServerEntry(
       ['monomind@latest', 'mcp', 'start'],
       {
         ...npmEnv,
@@ -63,7 +63,7 @@ export function generateMCPConfig(options: InitOptions): object {
         MONOMIND_TOPOLOGY: options.runtime.topology,
         MONOMIND_MAX_AGENTS: String(options.runtime.maxAgents),
         MONOMIND_MEMORY_BACKEND: options.runtime.memoryBackend,
-      }
+      },
       // No `autoStart` here: Claude Code's .mcp.json schema for stdio servers
       // is only command/args/env — `autoStart` isn't a field it reads, and
       // nothing in monomind reads it back from this file either (it's a
@@ -73,8 +73,6 @@ export function generateMCPConfig(options: InitOptions): object {
       // ignores unknown fields, since "likely ignores" isn't "verified inert".
     );
   }
-
-
 
   // Monograph knowledge graph — built into monomind MCP server since v1.8.0.
   // Available as mcp__monomind__monograph_build, monograph_query, monograph_suggest, monograph_health.
@@ -104,7 +102,7 @@ export function generateMCPCommands(options: InitOptions): string[] {
     }
   } else {
     if (config.monomind) {
-      commands.push("claude mcp add monomind -- npx -y monomind@latest mcp start");
+      commands.push('claude mcp add monomind -- npx -y monomind@latest mcp start');
     }
   }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createJobRegistry } from '../../web/async-jobs.js';
 
 describe('JobRegistry SSE progress', () => {

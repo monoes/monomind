@@ -52,8 +52,15 @@
  *   - stderr is human diagnostics; buffered and surfaced on non-zero exit.
  */
 import { spawn } from 'node:child_process';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching the other subprocess runners
 /** Distinct from TURN_TIMEOUT_MS: catches a hung first-run interactive prompt
@@ -94,7 +101,11 @@ function extractSessionId(ev: Record<string, unknown>): string | undefined {
  *    - flat type shape: { type: 'assistant' | 'message', text: '...' } */
 function extractText(ev: Record<string, unknown>): string | undefined {
   const item = ev.item as Record<string, unknown> | undefined;
-  if (item && (item.type === 'agent_message' || item.type === 'message') && typeof item.text === 'string') {
+  if (
+    item &&
+    (item.type === 'agent_message' || item.type === 'message') &&
+    typeof item.text === 'string'
+  ) {
     return item.text;
   }
   if (ev.role === 'assistant') {
@@ -102,7 +113,10 @@ function extractText(ev: Record<string, unknown>): string | undefined {
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) {
       return content
-        .filter((b): b is { type: string; text: string } => !!b && typeof b === 'object' && (b as Record<string, unknown>).type === 'text')
+        .filter(
+          (b): b is { type: string; text: string } =>
+            !!b && typeof b === 'object' && (b as Record<string, unknown>).type === 'text',
+        )
         .map((b) => b.text)
         .join('\n');
     }
@@ -122,7 +136,10 @@ function extractUsage(ev: Record<string, unknown>): { input: number; output: num
   const input = usage.input_tokens ?? usage.prompt_tokens;
   const output = usage.output_tokens ?? usage.completion_tokens;
   if (typeof input === 'number' || typeof output === 'number') {
-    return { input: typeof input === 'number' ? input : 0, output: typeof output === 'number' ? output : 0 };
+    return {
+      input: typeof input === 'number' ? input : 0,
+      output: typeof output === 'number' ? output : 0,
+    };
   }
   return undefined;
 }
@@ -130,7 +147,12 @@ function extractUsage(ev: Record<string, unknown>): { input: number; output: num
 /** Pure NDJSON parser — exported so it can be unit tested against fixture
  *  lines without spawning the real CLI (see grok-runner.test.ts). */
 export function parseGrokEvents(lines: string[]): {
-  texts: string[]; rawTexts: string[]; sessionId?: string; inputTokens: number; outputTokens: number; error?: string;
+  texts: string[];
+  rawTexts: string[];
+  sessionId?: string;
+  inputTokens: number;
+  outputTokens: number;
+  error?: string;
 } {
   const rawTexts: string[] = [];
   let sessionId: string | undefined;
@@ -140,9 +162,13 @@ export function parseGrokEvents(lines: string[]): {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || !trimmed.startsWith('{')) continue;
+    if (!trimmed?.startsWith('{')) continue;
     let ev: Record<string, unknown>;
-    try { ev = JSON.parse(trimmed); } catch { continue; }
+    try {
+      ev = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
 
     const sid = extractSessionId(ev);
     if (sid) sessionId = sid;
@@ -151,7 +177,10 @@ export function parseGrokEvents(lines: string[]): {
     if (text) rawTexts.push(text);
 
     const usage = extractUsage(ev);
-    if (usage) { inputTokens = usage.input; outputTokens = usage.output; }
+    if (usage) {
+      inputTokens = usage.input;
+      outputTokens = usage.output;
+    }
 
     if (ev.type === 'error' || ev.type === 'turn.failed') {
       const errMsg = (ev.error as Record<string, unknown> | undefined)?.message ?? ev.message;
@@ -196,17 +225,19 @@ export class GrokAgentRunner implements AgentRunner {
           if (outcome.hangSuspected) {
             throw new Error(
               `GrokAgentRunner: grok produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
-              'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
-              'that headless mode has no way to answer. Run `grok` once manually in a real terminal in ' +
-              `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+                'This usually means it is stuck on a first-run interactive prompt (trust/telemetry gate) ' +
+                'that headless mode has no way to answer. Run `grok` once manually in a real terminal in ' +
+                `this project to accept any prompts, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
             );
           }
           if (outcome.exitCode !== 0 || outcome.error) {
             throw new Error(
               `GrokAgentRunner: grok failed (exit ${outcome.exitCode})` +
-              (outcome.timedOut ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` : '') +
-              (outcome.error ? `: ${outcome.error}` : '') +
-              (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+                (outcome.timedOut
+                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
+                  : '') +
+                (outcome.error ? `: ${outcome.error}` : '') +
+                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
             );
           }
 
@@ -217,22 +248,27 @@ export class GrokAgentRunner implements AgentRunner {
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
-          for (const note of malformed) yield { type: 'assistant', session_id: sessionId, text: note };
+          const calls = parseToolCalls(outcome.rawTexts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
+          for (const note of malformed)
+            yield { type: 'assistant', session_id: sessionId, text: note };
           if (calls.length === 0) break;
 
           if (round === MAX_TOOL_ROUNDS) {
             yield {
-              type: 'assistant', session_id: sessionId,
+              type: 'assistant',
+              session_id: sessionId,
               text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
             };
             break;
           }
 
           const results: string[] = [];
-          for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          for (const call of calls)
+            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           nextPrompt = formatToolResults(calls, results);
         }
 
@@ -248,8 +284,8 @@ export class GrokAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'GrokAgentRunner requires the Grok Build CLI (grok) on PATH. ' +
-          'Install it per https://docs.x.ai/build/cli, then log in. ' +
-          'Or unset the runtime to use Claude.',
+            'Install it per https://docs.x.ai/build/cli, then log in. ' +
+            'Or unset the runtime to use Claude.',
         );
       }
       throw err;
@@ -283,7 +319,9 @@ export class GrokAgentRunner implements AgentRunner {
       });
 
       let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
+      child.stderr?.on('data', (c: Buffer) => {
+        stderrTail = (stderrTail + c.toString()).slice(-4000);
+      });
 
       let sawOutput = false;
       let timedOut = false;
@@ -293,7 +331,13 @@ export class GrokAgentRunner implements AgentRunner {
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
 
@@ -301,7 +345,13 @@ export class GrokAgentRunner implements AgentRunner {
       let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         hangSuspected = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, STARTUP_GRACE_MS);
 
@@ -315,7 +365,13 @@ export class GrokAgentRunner implements AgentRunner {
         const lines: string[] = [];
         let buf = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
+          if (!sawOutput) {
+            sawOutput = true;
+            if (hangTimer) {
+              clearTimeout(hangTimer);
+              hangTimer = undefined;
+            }
+          }
           buf += chunk.toString();
           const parts = buf.split('\n');
           buf = parts.pop() ?? '';
@@ -331,29 +387,36 @@ export class GrokAgentRunner implements AgentRunner {
       // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
       // process's actual lifetime.
       Promise.all([readLines, exitPromise])
-        .then(([lines, exitCode]) => {
-          const parsed = parseGrokEvents(lines);
-          resolve({
-            texts: parsed.texts,
-            rawTexts: parsed.rawTexts,
-            sessionId: parsed.sessionId ?? sessionId,
-            exitCode,
-            stderrTail,
-            timedOut,
-            hangSuspected,
-            inputTokens: parsed.inputTokens,
-            outputTokens: parsed.outputTokens,
-            error: parsed.error,
-          });
-        }, (err) => {
-          // A stdout stream error (the reject path) means the process is
-          // still ALIVE and unmanaged — none of the timeout/hang timers
-          // would have fired to kill it. Without this, that error would
-          // orphan the child. child.kill() on an already-dead process is a
-          // documented no-op, so this is safe on every path.
-          try { child.kill('SIGTERM'); } catch { /* already gone */ }
-          reject(err);
-        })
+        .then(
+          ([lines, exitCode]) => {
+            const parsed = parseGrokEvents(lines);
+            resolve({
+              texts: parsed.texts,
+              rawTexts: parsed.rawTexts,
+              sessionId: parsed.sessionId ?? sessionId,
+              exitCode,
+              stderrTail,
+              timedOut,
+              hangSuspected,
+              inputTokens: parsed.inputTokens,
+              outputTokens: parsed.outputTokens,
+              error: parsed.error,
+            });
+          },
+          (err) => {
+            // A stdout stream error (the reject path) means the process is
+            // still ALIVE and unmanaged — none of the timeout/hang timers
+            // would have fired to kill it. Without this, that error would
+            // orphan the child. child.kill() on an already-dead process is a
+            // documented no-op, so this is safe on every path.
+            try {
+              child.kill('SIGTERM');
+            } catch {
+              /* already gone */
+            }
+            reject(err);
+          },
+        )
         .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);

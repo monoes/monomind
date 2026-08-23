@@ -43,5 +43,5 @@ export const KNOWN_SDK_PATTERNS: SdkPattern[] = [
 ];
 
 export function detectSdkFromPackageJson(deps: Record<string, string>): SdkPattern[] {
-  return KNOWN_SDK_PATTERNS.filter(sdk => deps[sdk.packageName] !== undefined);
+  return KNOWN_SDK_PATTERNS.filter((sdk) => deps[sdk.packageName] !== undefined);
 }

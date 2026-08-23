@@ -39,7 +39,13 @@ export function readCoverageFromDisk(): CoverageData {
     found: false,
     source: 'none',
     entries: [],
-    summary: { totalFiles: 0, overallLineCoverage: 0, overallBranchCoverage: 0, overallFunctionCoverage: 0, overallStatementCoverage: 0 },
+    summary: {
+      totalFiles: 0,
+      overallLineCoverage: 0,
+      overallBranchCoverage: 0,
+      overallFunctionCoverage: 0,
+      overallStatementCoverage: 0,
+    },
   };
 
   // 1. Try coverage-summary.json (Jest/Istanbul)
@@ -90,22 +96,42 @@ export function readCoverageFromDisk(): CoverageData {
 
 function parseCoverageSummaryJson(data: Record<string, unknown>, source: string): CoverageData {
   const entries: CoverageFileEntry[] = [];
-  let totalLines = 0, coveredLines = 0;
-  let totalBranches = 0, coveredBranches = 0;
-  let totalFunctions = 0, coveredFunctions = 0;
-  let totalStatements = 0, coveredStatements = 0;
+  let totalLines = 0,
+    coveredLines = 0;
+  let totalBranches = 0,
+    coveredBranches = 0;
+  let totalFunctions = 0,
+    coveredFunctions = 0;
+  let totalStatements = 0,
+    coveredStatements = 0;
 
   for (const [filePath, metrics] of Object.entries(data)) {
     if (filePath === 'total') continue;
     const m = metrics as Record<string, { total?: number; covered?: number; pct?: number }>;
     if (!m || typeof m !== 'object') continue;
 
-    const linePct = m.lines?.pct ?? (m.lines?.covered != null ? ((m.lines?.covered ?? 0) / Math.max(m.lines?.total ?? 1, 1)) * 100 : 0);
-    const branchPct = m.branches?.pct ?? (m.branches?.total ? ((m.branches?.covered ?? 0) / m.branches.total) * 100 : 100);
-    const funcPct = m.functions?.pct ?? (m.functions?.total ? ((m.functions?.covered ?? 0) / m.functions.total) * 100 : 100);
-    const stmtPct = m.statements?.pct ?? (m.statements?.total ? ((m.statements?.covered ?? 0) / m.statements.total) * 100 : 100);
+    const linePct =
+      m.lines?.pct ??
+      (m.lines?.covered != null
+        ? ((m.lines?.covered ?? 0) / Math.max(m.lines?.total ?? 1, 1)) * 100
+        : 0);
+    const branchPct =
+      m.branches?.pct ??
+      (m.branches?.total ? ((m.branches?.covered ?? 0) / m.branches.total) * 100 : 100);
+    const funcPct =
+      m.functions?.pct ??
+      (m.functions?.total ? ((m.functions?.covered ?? 0) / m.functions.total) * 100 : 100);
+    const stmtPct =
+      m.statements?.pct ??
+      (m.statements?.total ? ((m.statements?.covered ?? 0) / m.statements.total) * 100 : 100);
 
-    entries.push({ filePath, lines: linePct, branches: branchPct, functions: funcPct, statements: stmtPct });
+    entries.push({
+      filePath,
+      lines: linePct,
+      branches: branchPct,
+      functions: funcPct,
+      statements: stmtPct,
+    });
 
     totalLines += m.lines?.total ?? 0;
     coveredLines += m.lines?.covered ?? 0;
@@ -118,11 +144,15 @@ function parseCoverageSummaryJson(data: Record<string, unknown>, source: string)
   }
 
   // Also read the total key if present
-  const total = data['total'] as Record<string, { pct?: number }> | undefined;
+  const total = data.total as Record<string, { pct?: number }> | undefined;
   const overallLine = total?.lines?.pct ?? (totalLines > 0 ? (coveredLines / totalLines) * 100 : 0);
-  const overallBranch = total?.branches?.pct ?? (totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 0);
-  const overallFunction = total?.functions?.pct ?? (totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0);
-  const overallStatement = total?.statements?.pct ?? (totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0);
+  const overallBranch =
+    total?.branches?.pct ?? (totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 0);
+  const overallFunction =
+    total?.functions?.pct ?? (totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0);
+  const overallStatement =
+    total?.statements?.pct ??
+    (totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0);
 
   // Sort by lowest line coverage
   entries.sort((a, b) => a.lines - b.lines);
@@ -144,13 +174,20 @@ function parseCoverageSummaryJson(data: Record<string, unknown>, source: string)
 function parseLcovInfo(raw: string, source: string): CoverageData {
   const entries: CoverageFileEntry[] = [];
   let currentFile = '';
-  let linesHit = 0, linesFound = 0;
-  let branchesHit = 0, branchesFound = 0;
-  let functionsHit = 0, functionsFound = 0;
-  let totalLines = 0, coveredLines = 0;
-  let totalBranches = 0, coveredBranches = 0;
-  let totalFunctions = 0, coveredFunctions = 0;
-  let totalStatements = 0, coveredStatements = 0;
+  let linesHit = 0,
+    linesFound = 0;
+  let branchesHit = 0,
+    branchesFound = 0;
+  let functionsHit = 0,
+    functionsFound = 0;
+  let totalLines = 0,
+    coveredLines = 0;
+  let totalBranches = 0,
+    coveredBranches = 0;
+  let totalFunctions = 0,
+    coveredFunctions = 0;
+  let totalStatements = 0,
+    coveredStatements = 0;
 
   const flushRecord = () => {
     if (currentFile) {
@@ -176,9 +213,12 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
     const trimmed = line.trim();
     if (trimmed.startsWith('SF:')) {
       currentFile = trimmed.slice(3);
-      linesHit = 0; linesFound = 0;
-      branchesHit = 0; branchesFound = 0;
-      functionsHit = 0; functionsFound = 0;
+      linesHit = 0;
+      linesFound = 0;
+      branchesHit = 0;
+      branchesFound = 0;
+      functionsHit = 0;
+      functionsFound = 0;
     } else if (trimmed.startsWith('LH:')) {
       linesHit = parseInt(trimmed.slice(3), 10) || 0;
     } else if (trimmed.startsWith('LF:')) {
@@ -209,7 +249,8 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
       overallLineCoverage: totalLines > 0 ? (coveredLines / totalLines) * 100 : 0,
       overallBranchCoverage: totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 100,
       overallFunctionCoverage: totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0,
-      overallStatementCoverage: totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0,
+      overallStatementCoverage:
+        totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0,
     },
   };
 }
@@ -217,7 +258,10 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
 /**
  * Classify a coverage gap by priority type based on coverage percentage and threshold
  */
-export function classifyCoverageGap(coveragePct: number, threshold: number): { gapType: string; priority: number } {
+export function classifyCoverageGap(
+  coveragePct: number,
+  threshold: number,
+): { gapType: string; priority: number } {
   if (coveragePct < threshold * 0.25) return { gapType: 'critical', priority: 10 };
   if (coveragePct < threshold * 0.5) return { gapType: 'high', priority: 7 };
   if (coveragePct < threshold * 0.75) return { gapType: 'medium', priority: 5 };
@@ -232,7 +276,9 @@ export function suggestAgentsForFile(filePath: string): string[] {
   const lower = filePath.toLowerCase();
   if (lower.includes('test') || lower.includes('spec')) return ['tester'];
   if (lower.includes('security') || lower.includes('auth')) return ['security-auditor', 'tester'];
-  if (lower.includes('api') || lower.includes('route') || lower.includes('controller')) return ['coder', 'tester'];
-  if (lower.includes('model') || lower.includes('schema') || lower.includes('entity')) return ['coder', 'tester'];
+  if (lower.includes('api') || lower.includes('route') || lower.includes('controller'))
+    return ['coder', 'tester'];
+  if (lower.includes('model') || lower.includes('schema') || lower.includes('entity'))
+    return ['coder', 'tester'];
   return ['tester', 'coder'];
 }

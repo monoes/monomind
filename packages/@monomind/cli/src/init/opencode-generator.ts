@@ -88,7 +88,7 @@ export function generateOpencodeConfig(options: InitOptions): Record<string, unk
  * Generate opencode.json as a formatted string.
  */
 export function generateOpencodeJson(options: InitOptions): string {
-  return JSON.stringify(generateOpencodeConfig(options), null, 2) + '\n';
+  return `${JSON.stringify(generateOpencodeConfig(options), null, 2)}\n`;
 }
 
 // ─── Tier 2: frontmatter converters (.claude/* → .opencode/*) ──────────────
@@ -99,7 +99,7 @@ export function generateOpencodeJson(options: InitOptions): string {
 // ensure the handful of keys opencode actually reads are present and correct.
 
 interface SplitMd {
-  fm: string;   // raw frontmatter body (between the --- fences), no fences
+  fm: string; // raw frontmatter body (between the --- fences), no fences
   body: string; // markdown body after the closing fence
   hasFm: boolean;
 }
@@ -112,36 +112,39 @@ function splitFrontmatter(src: string): SplitMd {
 
 /** Insert a top-level scalar `key: value` into a frontmatter block if absent. */
 function ensureFmKey(fm: string, key: string, value: string): string {
-  const re = new RegExp('^' + key + '\\s*:', 'm');
+  const re = new RegExp(`^${key}\\s*:`, 'm');
   if (re.test(fm)) return fm;
-  const line = key + ': ' + value;
+  const line = `${key}: ${value}`;
   if (!fm.trim()) return line;
   // Append after the description line if present (keeps readable order),
   // otherwise at the top.
   const descIdx = fm.search(/^description\s*:/m);
   if (descIdx >= 0) {
     const eol = fm.indexOf('\n', descIdx);
-    return eol < 0 ? fm + '\n' + line : fm.slice(0, eol + 1) + line + '\n' + fm.slice(eol + 1);
+    return eol < 0 ? `${fm}\n${line}` : `${fm.slice(0, eol + 1) + line}\n${fm.slice(eol + 1)}`;
   }
-  return line + '\n' + fm;
+  return `${line}\n${fm}`;
 }
 
 /** Set (replace-or-insert) a top-level scalar `key: value`. */
 function setFmKey(fm: string, key: string, value: string): string {
-  const re = new RegExp('^' + key + '\\s*:.*$', 'm');
-  if (re.test(fm)) return fm.replace(re, key + ': ' + value);
+  const re = new RegExp(`^${key}\\s*:.*$`, 'm');
+  if (re.test(fm)) return fm.replace(re, `${key}: ${value}`);
   return ensureFmKey(fm, key, value);
 }
 
 /** Slugify a name into a safe lowercase-hyphen identifier (opencode convention).
  *  Also guarantees a filesystem-safe filename (no path separators). */
 function slugifyName(name: string): string {
-  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const s = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return s || 'agent';
 }
 
 function getFmScalar(fm: string, key: string): string | null {
-  const m = fm.match(new RegExp('^' + key + '\\s*:\\s*(.+?)\\s*$', 'm'));
+  const m = fm.match(new RegExp(`^${key}\\s*:\\s*(.+?)\\s*$`, 'm'));
   return m ? m[1].replace(/^["']|["']$/g, '') : null;
 }
 
@@ -161,13 +164,20 @@ export function convertAgentMd(src: string, fallbackName: string): string {
   let out = fm;
   out = setFmKey(out, 'name', name);
   if (!getFmScalar(out, 'description')) {
-    out = ensureFmKey(out, 'description', name + ' agent (monomind)');
+    out = ensureFmKey(out, 'description', `${name} agent (monomind)`);
   }
   out = ensureFmKey(out, 'mode', 'subagent');
   if (hasFm || fm) {
-    return '---\n' + out + '\n---\n' + body;
+    return `---\n${out}\n---\n${body}`;
   }
-  return '---\nname: ' + name + '\ndescription: ' + name + ' agent (monomind)\nmode: subagent\n---\n' + body;
+  return (
+    '---\nname: ' +
+    name +
+    '\ndescription: ' +
+    name +
+    ' agent (monomind)\nmode: subagent\n---\n' +
+    body
+  );
 }
 
 /**
@@ -186,16 +196,16 @@ export function convertCommandMd(src: string, category: string, fallbackName: st
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   if (!getFmScalar(out, 'description')) {
-    out = ensureFmKey(out, 'description', category + ' ' + fallbackName + ' command (monomind)');
+    out = ensureFmKey(out, 'description', `${category} ${fallbackName} command (monomind)`);
   }
   const { body } = splitFrontmatter(src);
-  return '---\n' + out + '\n---\n\n' + body.trimStart();
+  return `---\n${out}\n---\n\n${body.trimStart()}`;
 }
 
 /** Namespace-prefixed command filename: "mastermind-build.md". */
 export function opencodeCommandFilename(category: string, file: string): string {
   const base = file.replace(/\.md$/i, '');
-  return category + '-' + base + '.md';
+  return `${category}-${base}.md`;
 }
 
 /**
@@ -208,12 +218,19 @@ export function convertSkillMd(src: string, fallbackName: string): string {
   let out = fm;
   out = ensureFmKey(out, 'name', fallbackName);
   if (!getFmScalar(out, 'description')) {
-    out = ensureFmKey(out, 'description', fallbackName + ' skill (monomind)');
+    out = ensureFmKey(out, 'description', `${fallbackName} skill (monomind)`);
   }
   if (hasFm || fm) {
-    return '---\n' + out + '\n---\n' + body;
+    return `---\n${out}\n---\n${body}`;
   }
-  return '---\nname: ' + fallbackName + '\ndescription: ' + fallbackName + ' skill (monomind)\n---\n' + body;
+  return (
+    '---\nname: ' +
+    fallbackName +
+    '\ndescription: ' +
+    fallbackName +
+    ' skill (monomind)\n---\n' +
+    body
+  );
 }
 
 /**
@@ -244,7 +261,7 @@ export function generateStatusCommand(): string {
     'Format as a compact table or tight bullet list. Report the numbers only — do not editorialize or add recommendations. If the command errors, say so and show the error.',
     '',
   ];
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 /**
@@ -285,7 +302,7 @@ export function generateAgentsMd(): string {
     '```',
     '',
   ];
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 /**

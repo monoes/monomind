@@ -17,12 +17,13 @@
  * *however* it died, and it points at this exact interpreter and entry point
  * rather than trusting PATH to resolve the same version later.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, realpathSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'cli.js');
 
@@ -86,7 +87,7 @@ describe('org supervisor emits a usable unit', () => {
     const { out } = runSupervisor(cwd, home, ['--format', 'systemd', '--install']);
 
     const dir = join(home, '.config', 'systemd', 'user');
-    const units = readdirSync(dir).filter(f => /^monomind-org-serve-.+\.service$/.test(f));
+    const units = readdirSync(dir).filter((f) => /^monomind-org-serve-.+\.service$/.test(f));
     expect(units, out).toHaveLength(1);
     expect(readFileSync(join(dir, units[0]), 'utf-8')).toContain('Restart=always');
     // The command must say how to activate it — a written-but-unloaded unit
@@ -104,11 +105,11 @@ describe('org supervisor emits a usable unit', () => {
       runSupervisor(other, home, ['--format', 'systemd', '--install']);
 
       const dir = join(home, '.config', 'systemd', 'user');
-      const units = readdirSync(dir).filter(f => f.endsWith('.service'));
+      const units = readdirSync(dir).filter((f) => f.endsWith('.service'));
       expect(units, 'the second install overwrote the first').toHaveLength(2);
 
       const dirs = units
-        .map(u => /WorkingDirectory=(.*)/.exec(readFileSync(join(dir, u), 'utf-8'))?.[1])
+        .map((u) => /WorkingDirectory=(.*)/.exec(readFileSync(join(dir, u), 'utf-8'))?.[1])
         .sort();
       expect(dirs).toEqual([cwd, other].sort());
     } finally {

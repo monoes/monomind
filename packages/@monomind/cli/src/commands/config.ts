@@ -3,11 +3,11 @@
  * Configuration management
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import * as path from 'node:path';
 import { output } from '../output.js';
-import { select, input, confirm } from '../prompt.js';
+import { confirm } from '../prompt.js';
 import { configManager, parseConfigValue } from '../services/config-file-manager.js';
-import * as path from 'path';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Init configuration
 const initCommand: Command = {
@@ -19,14 +19,14 @@ const initCommand: Command = {
       short: 'f',
       description: 'Overwrite existing configuration',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'v1',
       description: 'Initialize v1 configuration',
       type: 'boolean',
-      default: true
-    }
+      default: true,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -36,17 +36,25 @@ const initCommand: Command = {
       output.writeln();
       const defaults = configManager.getDefaults();
       output.writeln(output.bold('Key defaults:'));
-      output.writeln(`  monoswarm.topology     = ${(defaults.monoswarm as Record<string, unknown>).topology}`);
-      output.writeln(`  monoswarm.maxAgents    = ${(defaults.monoswarm as Record<string, unknown>).maxAgents}`);
-      output.writeln(`  memory.backend     = ${(defaults.memory as Record<string, unknown>).backend}`);
-      output.writeln(`  mcp.transportType  = ${(defaults.mcp as Record<string, unknown>).transportType}`);
+      output.writeln(
+        `  monoswarm.topology     = ${(defaults.monoswarm as Record<string, unknown>).topology}`,
+      );
+      output.writeln(
+        `  monoswarm.maxAgents    = ${(defaults.monoswarm as Record<string, unknown>).maxAgents}`,
+      );
+      output.writeln(
+        `  memory.backend     = ${(defaults.memory as Record<string, unknown>).backend}`,
+      );
+      output.writeln(
+        `  mcp.transportType  = ${(defaults.mcp as Record<string, unknown>).transportType}`,
+      );
       return { success: true };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       output.printError(message);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Get configuration
@@ -58,15 +66,15 @@ const getCommand: Command = {
       name: 'key',
       short: 'k',
       description: 'Configuration key (dot notation)',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   examples: [
     { command: 'monomind config get monoswarm.topology', description: 'Get monoswarm topology' },
-    { command: 'monomind config get -k memory.backend', description: 'Get memory backend' }
+    { command: 'monomind config get -k memory.backend', description: 'Get memory backend' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const key = (ctx.flags.key as string || ctx.args[0] || '').slice(0, 256);
+    const key = ((ctx.flags.key as string) || ctx.args[0] || '').slice(0, 256);
 
     if (!key) {
       // Show all config from actual config file (fall back to defaults)
@@ -96,9 +104,9 @@ const getCommand: Command = {
       output.printTable({
         columns: [
           { key: 'key', header: 'Key', width: 25 },
-          { key: 'value', header: 'Value', width: 30 }
+          { key: 'value', header: 'Value', width: 30 },
         ],
-        data: Object.entries(flatEntries).map(([k, v]) => ({ key: k, value: String(v) }))
+        data: Object.entries(flatEntries).map(([k, v]) => ({ key: k, value: String(v) })),
       });
 
       return { success: true, data: flatEntries };
@@ -127,7 +135,7 @@ const getCommand: Command = {
     }
 
     return { success: true, data: { key, value } };
-  }
+  },
 };
 
 // Set configuration
@@ -140,23 +148,26 @@ const setCommand: Command = {
       short: 'k',
       description: 'Configuration key',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'value',
       short: 'v',
       description: 'Configuration value',
       type: 'string',
-      required: true
-    }
+      required: true,
+    },
   ],
   examples: [
     { command: 'monomind config set monoswarm.maxAgents 20', description: 'Set max agents' },
-    { command: 'monomind config set -k memory.backend -v sqlite', description: 'Set memory backend' }
+    {
+      command: 'monomind config set -k memory.backend -v sqlite',
+      description: 'Set memory backend',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const key = (ctx.flags.key as string || ctx.args[0] || '').slice(0, 256);
-    const value = (ctx.flags.value as string ?? ctx.args[1] ?? '');
+    const key = ((ctx.flags.key as string) || ctx.args[0] || '').slice(0, 256);
+    const value = (ctx.flags.value as string) ?? ctx.args[1] ?? '';
 
     if (!key || value === undefined) {
       output.printError('Both key and value are required');
@@ -181,7 +192,7 @@ const setCommand: Command = {
       output.printError(message);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // List providers
@@ -193,31 +204,49 @@ const providersCommand: Command = {
       name: 'add',
       short: 'a',
       description: 'Add provider',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'remove',
       short: 'r',
       description: 'Remove provider',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'enable',
       description: 'Enable provider',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'disable',
       description: 'Disable provider',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const defaultProviders = [
-      { name: 'anthropic', model: 'claude-3-5-sonnet-20241022', priority: 1, enabled: true, status: 'Active' },
-      { name: 'openrouter', model: 'claude-3.5-sonnet', priority: 2, enabled: false, status: 'Disabled' },
+      {
+        name: 'anthropic',
+        model: 'claude-3-5-sonnet-20241022',
+        priority: 1,
+        enabled: true,
+        status: 'Active',
+      },
+      {
+        name: 'openrouter',
+        model: 'claude-3.5-sonnet',
+        priority: 2,
+        enabled: false,
+        status: 'Disabled',
+      },
       { name: 'ollama', model: 'llama3.2', priority: 3, enabled: false, status: 'Disabled' },
-      { name: 'gemini', model: 'gemini-2.0-flash', priority: 4, enabled: false, status: 'Disabled' }
+      {
+        name: 'gemini',
+        model: 'gemini-2.0-flash',
+        priority: 4,
+        enabled: false,
+        status: 'Disabled',
+      },
     ];
 
     // Handle mutation flags
@@ -228,7 +257,8 @@ const providersCommand: Command = {
 
     if (addProvider || removeProvider || enableProvider || disableProvider) {
       // Read current providers from config
-      let currentProviders = (configManager.get(ctx.cwd, 'providers') as Array<Record<string, unknown>>) || [];
+      let currentProviders =
+        (configManager.get(ctx.cwd, 'providers') as Array<Record<string, unknown>>) || [];
       if (!Array.isArray(currentProviders)) currentProviders = [];
 
       if (addProvider) {
@@ -237,7 +267,11 @@ const providersCommand: Command = {
           output.printError(`Provider '${addProvider}' already exists`);
           return { success: false, exitCode: 1 };
         }
-        currentProviders.push({ name: addProvider, enabled: true, priority: currentProviders.length + 1 });
+        currentProviders.push({
+          name: addProvider,
+          enabled: true,
+          priority: currentProviders.length + 1,
+        });
         output.writeln(output.success(`Added provider: ${addProvider}`));
       }
       if (removeProvider) {
@@ -251,13 +285,23 @@ const providersCommand: Command = {
       }
       if (enableProvider) {
         const p = currentProviders.find((p) => p.name === enableProvider);
-        if (p) { p.enabled = true; output.writeln(output.success(`Enabled provider: ${enableProvider}`)); }
-        else { output.printError(`Provider '${enableProvider}' not found`); return { success: false, exitCode: 1 }; }
+        if (p) {
+          p.enabled = true;
+          output.writeln(output.success(`Enabled provider: ${enableProvider}`));
+        } else {
+          output.printError(`Provider '${enableProvider}' not found`);
+          return { success: false, exitCode: 1 };
+        }
       }
       if (disableProvider) {
         const p = currentProviders.find((p) => p.name === disableProvider);
-        if (p) { p.enabled = false; output.writeln(output.success(`Disabled provider: ${disableProvider}`)); }
-        else { output.printError(`Provider '${disableProvider}' not found`); return { success: false, exitCode: 1 }; }
+        if (p) {
+          p.enabled = false;
+          output.writeln(output.success(`Disabled provider: ${disableProvider}`));
+        } else {
+          output.printError(`Provider '${disableProvider}' not found`);
+          return { success: false, exitCode: 1 };
+        }
       }
 
       try {
@@ -271,16 +315,19 @@ const providersCommand: Command = {
     }
 
     // Read providers from config, fall back to defaults
-    const configuredProviders = configManager.get(ctx.cwd, 'providers') as Array<Record<string, unknown>> | undefined;
-    const providers = (Array.isArray(configuredProviders) && configuredProviders.length > 0)
-      ? configuredProviders.map((p, i) => ({
-          name: String(p.name || ''),
-          model: String(p.model || ''),
-          priority: Number(p.priority || i + 1),
-          enabled: p.enabled !== false,
-          status: p.enabled !== false ? 'Active' : 'Disabled',
-        }))
-      : defaultProviders;
+    const configuredProviders = configManager.get(ctx.cwd, 'providers') as
+      | Array<Record<string, unknown>>
+      | undefined;
+    const providers =
+      Array.isArray(configuredProviders) && configuredProviders.length > 0
+        ? configuredProviders.map((p, i) => ({
+            name: String(p.name || ''),
+            model: String(p.model || ''),
+            priority: Number(p.priority || i + 1),
+            enabled: p.enabled !== false,
+            status: p.enabled !== false ? 'Active' : 'Disabled',
+          }))
+        : defaultProviders;
 
     if (ctx.flags.format === 'json') {
       output.printJson(providers);
@@ -296,19 +343,24 @@ const providersCommand: Command = {
         { key: 'name', header: 'Provider', width: 12 },
         { key: 'model', header: 'Model', width: 25 },
         { key: 'priority', header: 'Priority', width: 10, align: 'right' },
-        { key: 'status', header: 'Status', width: 10, format: (v) => {
-          if (v === 'Active') return output.success(String(v));
-          return output.dim(String(v));
-        }}
+        {
+          key: 'status',
+          header: 'Status',
+          width: 10,
+          format: (v) => {
+            if (v === 'Active') return output.success(String(v));
+            return output.dim(String(v));
+          },
+        },
       ],
-      data: providers
+      data: providers,
     });
 
     output.writeln();
     output.writeln(output.dim('Use --add, --remove, --enable, --disable to manage providers'));
 
     return { success: true, data: providers };
-  }
+  },
 };
 
 // Reset configuration
@@ -321,19 +373,22 @@ const resetCommand: Command = {
       short: 'f',
       description: 'Skip confirmation',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'section',
       description: 'Reset specific section only',
       type: 'string',
-      choices: ['agents', 'monoswarm', 'memory', 'mcp', 'providers', 'all']
-    }
+      choices: ['agents', 'monoswarm', 'memory', 'mcp', 'providers', 'all'],
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
       if (!ctx.flags.force && ctx.interactive) {
-        const confirmed = await confirm({ message: 'This will reset all configuration to defaults. Continue?', default: false });
+        const confirmed = await confirm({
+          message: 'This will reset all configuration to defaults. Continue?',
+          default: false,
+        });
         if (!confirmed) return { success: true, message: 'Reset cancelled' };
       }
 
@@ -359,7 +414,7 @@ const resetCommand: Command = {
       output.printError(message);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Export configuration
@@ -371,7 +426,7 @@ const exportCommand: Command = {
       name: 'output',
       short: 'o',
       description: 'Output file path',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'format',
@@ -379,8 +434,8 @@ const exportCommand: Command = {
       description: 'Export format (json, yaml)',
       type: 'string',
       default: 'json',
-      choices: ['json', 'yaml']
-    }
+      choices: ['json', 'yaml'],
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -391,7 +446,8 @@ const exportCommand: Command = {
         output.printWarning('YAML export is not supported. Exporting as JSON.');
       }
 
-      const exportPath = (ctx.flags.output as string) || ctx.args[0] || 'monomind.config.export.json';
+      const exportPath =
+        (ctx.flags.output as string) || ctx.args[0] || 'monomind.config.export.json';
       configManager.exportTo(ctx.cwd, exportPath);
       const resolved = path.resolve(ctx.cwd, exportPath);
       output.writeln(`Configuration exported to: ${resolved}`);
@@ -401,7 +457,7 @@ const exportCommand: Command = {
       output.printError(message);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Import configuration
@@ -414,17 +470,17 @@ const importCommand: Command = {
       short: 'f',
       description: 'Configuration file path',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'merge',
       description: 'Merge with existing configuration',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const file = ctx.flags.file as string || ctx.args[0];
+    const file = (ctx.flags.file as string) || ctx.args[0];
 
     if (!file) {
       output.printError('File path is required');
@@ -440,21 +496,29 @@ const importCommand: Command = {
       output.printError(message);
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Main config command
 export const configCommand: Command = {
   name: 'config',
   description: 'Configuration management',
-  subcommands: [initCommand, getCommand, setCommand, providersCommand, resetCommand, exportCommand, importCommand],
+  subcommands: [
+    initCommand,
+    getCommand,
+    setCommand,
+    providersCommand,
+    resetCommand,
+    exportCommand,
+    importCommand,
+  ],
   options: [],
   examples: [
     { command: 'monomind config init --v1', description: 'Initialize v1 config' },
     { command: 'monomind config get monoswarm.topology', description: 'Get config value' },
-    { command: 'monomind config set monoswarm.maxAgents 20', description: 'Set config value' }
+    { command: 'monomind config set monoswarm.maxAgents 20', description: 'Set config value' },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Configuration Management'));
     output.writeln();
@@ -468,11 +532,11 @@ export const configCommand: Command = {
       `${output.highlight('providers')}  - Manage AI providers`,
       `${output.highlight('reset')}      - Reset to defaults`,
       `${output.highlight('export')}     - Export configuration`,
-      `${output.highlight('import')}     - Import configuration`
+      `${output.highlight('import')}     - Import configuration`,
     ]);
 
     return { success: true };
-  }
+  },
 };
 
 export default configCommand;

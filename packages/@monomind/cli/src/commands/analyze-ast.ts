@@ -3,18 +3,24 @@
  * Heuristic (regex-based) code analysis — there is no AST/tree-sitter parser here
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import * as fs from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { output } from '../output.js';
-import * as fs from 'fs/promises';
-import { resolve } from 'path';
-import { safeWriteOutputFile, scanSourceFiles, fallbackAnalyze, FILE_SCAN_CAP, reportFileCap } from './analyze.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import {
+  FILE_SCAN_CAP,
+  fallbackAnalyze,
+  reportFileCap,
+  safeWriteOutputFile,
+  scanSourceFiles,
+} from './analyze.js';
 
 /**
  * Helper: Truncate file path for display
  */
 export function truncatePathAst(filePath: string, maxLen: number = 45): string {
   if (filePath.length <= maxLen) return filePath;
-  return '...' + filePath.slice(-(maxLen - 3));
+  return `...${filePath.slice(-(maxLen - 3))}`;
 }
 
 /**
@@ -31,12 +37,18 @@ export function formatComplexityValueAst(value: number): string {
  */
 export function getTypeMarkerAst(type: string): string {
   switch (type) {
-    case 'function': return output.success('fn');
-    case 'class': return output.info('class');
-    case 'variable': return output.dim('var');
-    case 'type': return output.highlight('type');
-    case 'interface': return output.highlight('iface');
-    default: return output.dim(type.slice(0, 5));
+    case 'function':
+      return output.success('fn');
+    case 'class':
+      return output.info('class');
+    case 'variable':
+      return output.dim('var');
+    case 'type':
+      return output.highlight('type');
+    case 'interface':
+      return output.highlight('iface');
+    default:
+      return output.dim(type.slice(0, 5));
   }
 }
 
@@ -95,7 +107,10 @@ export const astCommand: Command = {
   ],
   examples: [
     { command: 'monomind analyze ast src/', description: 'Analyze all files in src/' },
-    { command: 'monomind analyze ast src/index.ts --complexity', description: 'Analyze with complexity' },
+    {
+      command: 'monomind analyze ast src/index.ts --complexity',
+      description: 'Analyze with complexity',
+    },
     { command: 'monomind analyze ast . --format json', description: 'JSON output' },
     { command: 'monomind analyze ast src/ --symbols', description: 'Extract symbols' },
   ],
@@ -122,7 +137,7 @@ export const astCommand: Command = {
       const stat = await fs.stat(resolvedPath);
       const isDirectory = stat.isDirectory();
 
-      let results: Array<{
+      const results: Array<{
         filePath: string;
         language: string;
         functions: Array<{ name: string; startLine: number; endLine: number }>;
@@ -167,7 +182,8 @@ export const astCommand: Command = {
         functions: results.reduce((sum, r) => sum + r.functions.length, 0),
         classes: results.reduce((sum, r) => sum + r.classes.length, 0),
         imports: results.reduce((sum, r) => sum + r.imports.length, 0),
-        avgComplexity: results.reduce((sum, r) => sum + r.complexity.cyclomatic, 0) / results.length,
+        avgComplexity:
+          results.reduce((sum, r) => sum + r.complexity.cyclomatic, 0) / results.length,
         totalLoc: results.reduce((sum, r) => sum + r.complexity.loc, 0),
       };
 
@@ -192,7 +208,7 @@ export const astCommand: Command = {
           `Total LOC: ${totals.totalLoc}`,
           `Avg Complexity: ${formatComplexityValueAst(Math.round(totals.avgComplexity))}`,
         ].join('\n'),
-        'AST Analysis Summary'
+        'AST Analysis Summary',
       );
 
       // Complexity view
@@ -202,7 +218,7 @@ export const astCommand: Command = {
         output.writeln(output.dim('-'.repeat(60)));
 
         const complexityData = results
-          .map(r => ({
+          .map((r) => ({
             file: truncatePathAst(r.filePath),
             cyclomatic: r.complexity.cyclomatic,
             cognitive: r.complexity.cognitive,
@@ -215,7 +231,13 @@ export const astCommand: Command = {
         output.printTable({
           columns: [
             { key: 'file', header: 'File', width: 40 },
-            { key: 'cyclomatic', header: 'Decisions', width: 8, align: 'right', format: (v) => formatComplexityValueAst(v as number) },
+            {
+              key: 'cyclomatic',
+              header: 'Decisions',
+              width: 8,
+              align: 'right',
+              format: (v) => formatComplexityValueAst(v as number),
+            },
             { key: 'cognitive', header: 'Cogni', width: 8, align: 'right' },
             { key: 'loc', header: 'LOC', width: 8, align: 'right' },
             { key: 'rating', header: 'Rating', width: 15 },
@@ -238,10 +260,20 @@ export const astCommand: Command = {
 
         for (const r of results) {
           for (const fn of r.functions) {
-            allSymbols.push({ name: fn.name, type: 'function', file: truncatePathAst(r.filePath, 30), line: fn.startLine });
+            allSymbols.push({
+              name: fn.name,
+              type: 'function',
+              file: truncatePathAst(r.filePath, 30),
+              line: fn.startLine,
+            });
           }
           for (const cls of r.classes) {
-            allSymbols.push({ name: cls.name, type: 'class', file: truncatePathAst(r.filePath, 30), line: cls.startLine });
+            allSymbols.push({
+              name: cls.name,
+              type: 'class',
+              file: truncatePathAst(r.filePath, 30),
+              line: cls.startLine,
+            });
           }
         }
 

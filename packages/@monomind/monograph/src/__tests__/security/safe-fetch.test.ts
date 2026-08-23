@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { safeFetch, validateUrl, isPrivateUrl } from '../../security/safe-fetch.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isPrivateUrl, safeFetch, validateUrl } from '../../security/safe-fetch.js';
 
 describe('isPrivateUrl', () => {
   it('returns true for localhost', () => {
@@ -72,16 +72,17 @@ describe('safeFetch — streaming size enforcement', () => {
       },
     };
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      body: mockBody,
-      text: () => Promise.resolve('A'.repeat(100)),
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        body: mockBody,
+        text: () => Promise.resolve('A'.repeat(100)),
+      }),
+    );
 
     // maxBytes = 60 — stream sends 100 bytes total, should abort at 60
-    await expect(
-      safeFetch('https://example.com/', { maxBytes: 60 })
-    ).rejects.toThrow(/exceeds/);
+    await expect(safeFetch('https://example.com/', { maxBytes: 60 })).rejects.toThrow(/exceeds/);
   });
 
   it('succeeds when response body is within maxBytes', async () => {
@@ -104,21 +105,27 @@ describe('safeFetch — streaming size enforcement', () => {
       },
     };
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      body: mockBody,
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        body: mockBody,
+      }),
+    );
 
     const result = await safeFetch('https://example.com/', { maxBytes: 1024 });
     expect(result).toBe('hello world');
   });
 
   it('throws when response is not ok', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      body: null,
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        body: null,
+      }),
+    );
 
     await expect(safeFetch('https://example.com/')).rejects.toThrow(/HTTP 404/);
   });

@@ -137,9 +137,16 @@
  * already covers unchanged.
  */
 import { spawn } from 'node:child_process';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching kimi/antigravity runners
 
@@ -173,8 +180,7 @@ interface CodexItem {
 }
 
 interface CodexEvent {
-  type:
-    // LEGACY (v0.147.0-era) shape
+  type: // LEGACY (v0.147.0-era) shape
     | 'session_configured'
     | 'task_started'
     | 'agent_message'
@@ -254,13 +260,18 @@ export class CodexAgentRunner implements AgentRunner {
           // Prepend system prompt + tool protocol on first turn only (when
           // there's no thread to resume). Subsequent turns in the same
           // session carry context via the thread_id.
-          const promptWithSystem = (round === 0 && !threadId)
-            ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
-            : nextPrompt;
+          const promptWithSystem =
+            round === 0 && !threadId
+              ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
+              : nextPrompt;
 
           // Filled in by streamTurn as the subprocess runs and when it exits.
           const outcome: TurnOutcome = {
-            exitCode: 1, stderrTail: '', timedOut: false, inputTokens: 0, outputTokens: 0,
+            exitCode: 1,
+            stderrTail: '',
+            timedOut: false,
+            inputTokens: 0,
+            outputTokens: 0,
           };
           // Raw assistant texts (fences intact) for end-of-turn tool-call
           // parsing — fence parsing needs the complete text, so fences are
@@ -294,9 +305,11 @@ export class CodexAgentRunner implements AgentRunner {
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(rawTexts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
+          const calls = parseToolCalls(rawTexts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
           for (const note of malformed) {
             yield { type: 'assistant', session_id: threadId, text: note };
           }
@@ -304,7 +317,8 @@ export class CodexAgentRunner implements AgentRunner {
 
           if (round === MAX_TOOL_ROUNDS) {
             yield {
-              type: 'assistant', session_id: threadId,
+              type: 'assistant',
+              session_id: threadId,
               text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
             };
             break;
@@ -332,8 +346,8 @@ export class CodexAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'CodexAgentRunner requires the Codex CLI (codex) on PATH. ' +
-          'Install it: npm install -g @openai/codex, then run `codex login` ' +
-          'to authenticate with ChatGPT. Or unset the runtime to use Claude.',
+            'Install it: npm install -g @openai/codex, then run `codex login` ' +
+            'to authenticate with ChatGPT. Or unset the runtime to use Claude.',
         );
       }
       throw err;
@@ -390,7 +404,13 @@ export class CodexAgentRunner implements AgentRunner {
       child.kill('SIGTERM');
       // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
       // escalate to SIGKILL after a short grace period.
-      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
       killTimer.unref?.();
     }, TURN_TIMEOUT_MS);
 
@@ -413,8 +433,8 @@ export class CodexAgentRunner implements AgentRunner {
     // error/usage state, and return the CodexStreamEvent to yield (or null).
     const handleEvent = (ev: CodexEvent): CodexStreamEvent | null => {
       if (
-        (ev.type === 'session_configured' || ev.type === 'thread.started')
-        && (ev.session_id || ev.thread_id)
+        (ev.type === 'session_configured' || ev.type === 'thread.started') &&
+        (ev.session_id || ev.thread_id)
       ) {
         // LEGACY: session_configured.session_id/.thread_id
         // CURRENT: thread.started.thread_id
@@ -425,20 +445,34 @@ export class CodexAgentRunner implements AgentRunner {
         // LEGACY: top-level agent_message.message — whole message, no delta
         // accumulation needed.
         const stripped = ev.message.replace(TOOL_CALL_RE, '').trim();
-        return { kind: 'assistant', rawText: ev.message, text: stripped || undefined, threadId: lastThreadId };
+        return {
+          kind: 'assistant',
+          rawText: ev.message,
+          text: stripped || undefined,
+          threadId: lastThreadId,
+        };
       }
       if (ev.type === 'item.completed' && ev.item?.type === 'agent_message' && ev.item.text) {
         // CURRENT: item.completed with item.type === 'agent_message' — same
         // whole-message shape as legacy, different envelope.
         const stripped = ev.item.text.replace(TOOL_CALL_RE, '').trim();
-        return { kind: 'assistant', rawText: ev.item.text, text: stripped || undefined, threadId: lastThreadId };
+        return {
+          kind: 'assistant',
+          rawText: ev.item.text,
+          text: stripped || undefined,
+          threadId: lastThreadId,
+        };
       }
       if (ev.type === 'item.started' && ev.item?.type === 'command_execution') {
         // CURRENT: liveness for codex's own shell tool calls — mirrors
         // agy's 'tool' step_type forwarding (header's "Streaming / liveness"
         // note). Only item.started fires this (not item.completed too) to
         // avoid a duplicate liveness ping per command.
-        return { kind: 'tool', toolName: (ev.item.command ?? 'shell').slice(0, 200), threadId: lastThreadId };
+        return {
+          kind: 'tool',
+          toolName: (ev.item.command ?? 'shell').slice(0, 200),
+          threadId: lastThreadId,
+        };
       }
       if (ev.type === 'token_count' && ev.info?.last_token_usage) {
         // LEGACY: last_token_usage is per-TURN; total_token_usage is
@@ -487,19 +521,25 @@ export class CodexAgentRunner implements AgentRunner {
         buf = parts.pop() ?? '';
         for (const line of parts) {
           const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('{')) continue;
+          if (!trimmed?.startsWith('{')) continue;
           let ev: CodexEvent;
-          try { ev = JSON.parse(trimmed) as CodexEvent; } catch { continue; }
+          try {
+            ev = JSON.parse(trimmed) as CodexEvent;
+          } catch {
+            continue;
+          }
           const out = handleEvent(ev);
           if (out) yield out;
         }
       }
       const tail = buf.trim();
-      if (tail && tail.startsWith('{')) {
+      if (tail?.startsWith('{')) {
         try {
           const out = handleEvent(JSON.parse(tail) as CodexEvent);
           if (out) yield out;
-        } catch { /* not JSON, skip */ }
+        } catch {
+          /* not JSON, skip */
+        }
       }
     } finally {
       clearTimeout(timer);
@@ -508,7 +548,11 @@ export class CodexAgentRunner implements AgentRunner {
       // abort calls iterator.return(), the mailbox closes, or an error is
       // thrown downstream), don't leak the CLI subprocess.
       if (child.exitCode === null && !child.killed) {
-        try { child.kill('SIGTERM'); } catch { /* already gone */ }
+        try {
+          child.kill('SIGTERM');
+        } catch {
+          /* already gone */
+        }
       }
     }
 
@@ -521,11 +565,11 @@ export class CodexAgentRunner implements AgentRunner {
 }
 
 /** Build the actionable error for a failed codex turn. */
-function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
+function turnError(outcome: TurnOutcome, round: number, _bin: string): Error {
   if (outcome.timedOut) {
     return new Error(
       `CodexAgentRunner: codex turn (tool round ${round}) exceeded the ${Math.round(TURN_TIMEOUT_MS / 60000)}min ` +
-      `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+        `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
     );
   }
   // Fatal provider errors (auth/permission/quota — classified from the error
@@ -536,15 +580,15 @@ function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
   if (cls.fatal) {
     const err = new Error(
       `CodexAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
-      (outcome.error ? ` error: ${outcome.error}` : '') +
-      (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+        (outcome.error ? ` error: ${outcome.error}` : '') +
+        (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
     );
     (err as Error & { fatal?: boolean }).fatal = true;
     return err;
   }
   return new Error(
     `CodexAgentRunner: codex exec failed (exit ${outcome.exitCode})` +
-    (outcome.error ? `: ${outcome.error}` : '') +
-    (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+      (outcome.error ? `: ${outcome.error}` : '') +
+      (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
   );
 }

@@ -1,10 +1,10 @@
-import { Route } from '../types.js';
+import type { Route } from '../types.js';
 
 export const productRoutes: Route[] = [
   {
     name: 'product-manager',
     agentSlug: 'product-manager',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Product management, requirements, roadmap planning',
     utterances: [
@@ -40,7 +40,7 @@ export const productRoutes: Route[] = [
   {
     name: 'project-shepherd',
     agentSlug: 'project-management-project-shepherd',
-    threshold: 0.70,
+    threshold: 0.7,
     fallbackToLLM: true,
     description: 'Project management, delivery tracking, risk management',
     utterances: [

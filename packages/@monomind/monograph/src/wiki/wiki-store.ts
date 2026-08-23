@@ -23,8 +23,11 @@ export function upsertWikiPage(db: MonographDb, communityId: string, content: st
  * Get a single wiki page by community ID.
  */
 export function getWikiPage(db: MonographDb, communityId: string): WikiPage | null {
-  const row = db.prepare('SELECT community_id, content, generated_at FROM wiki_pages WHERE community_id = ?')
-    .get(String(communityId)) as { community_id: string; content: string; generated_at: string } | undefined;
+  const row = db
+    .prepare('SELECT community_id, content, generated_at FROM wiki_pages WHERE community_id = ?')
+    .get(String(communityId)) as
+    | { community_id: string; content: string; generated_at: string }
+    | undefined;
 
   if (!row) return null;
   return {
@@ -38,10 +41,11 @@ export function getWikiPage(db: MonographDb, communityId: string): WikiPage | nu
  * List all wiki pages.
  */
 export function listWikiPages(db: MonographDb): WikiPage[] {
-  const rows = db.prepare('SELECT community_id, content, generated_at FROM wiki_pages ORDER BY community_id')
+  const rows = db
+    .prepare('SELECT community_id, content, generated_at FROM wiki_pages ORDER BY community_id')
     .all() as { community_id: string; content: string; generated_at: string }[];
 
-  return rows.map(row => ({
+  return rows.map((row) => ({
     communityId: row.community_id,
     content: row.content,
     generatedAt: row.generated_at,

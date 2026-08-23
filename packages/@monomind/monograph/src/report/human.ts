@@ -62,8 +62,15 @@ export function buildHealthHumanLines(findings: HumanHealthFinding[], root = '')
   const MAX = 30;
   for (const f of findings.slice(0, MAX)) {
     const rel = f.filePath.replace(root, '').replace(/^\//, '');
-    const sev = f.severity === 'critical' ? col(RED, f.severity) : f.severity === 'high' ? col(YELLOW, f.severity) : col(MAGENTA, f.severity);
-    lines.push(`  ${col(RED, '●')} ${DIM}${rel}:${f.startLine}${RESET} ${col(CYAN, f.functionName)} [cyc=${f.cyclomatic} cog=${f.cognitive} crap=${f.crapScore.toFixed(0)}] ${sev}`);
+    const sev =
+      f.severity === 'critical'
+        ? col(RED, f.severity)
+        : f.severity === 'high'
+          ? col(YELLOW, f.severity)
+          : col(MAGENTA, f.severity);
+    lines.push(
+      `  ${col(RED, '●')} ${DIM}${rel}:${f.startLine}${RESET} ${col(CYAN, f.functionName)} [cyc=${f.cyclomatic} cog=${f.cognitive} crap=${f.crapScore.toFixed(0)}] ${sev}`,
+    );
   }
   if (findings.length > MAX) lines.push(col(DIM, `  ... and ${findings.length - MAX} more`));
   return lines;
@@ -73,18 +80,27 @@ export function buildDuplicationHumanLines(groups: HumanDuplicationGroup[], root
   if (groups.length === 0) return [col(GREEN, '✓ No code duplication detected.')];
   const lines: string[] = [col(BOLD, `Found ${groups.length} clone group(s):`)];
   for (const g of groups.slice(0, 20)) {
-    lines.push(`  ${col(YELLOW, '●')} Group ${g.groupId} — ${col(BOLD, String(g.duplicatedLines))} duplicated lines`);
+    lines.push(
+      `  ${col(YELLOW, '●')} Group ${g.groupId} — ${col(BOLD, String(g.duplicatedLines))} duplicated lines`,
+    );
     for (const inst of g.instances.slice(0, 3)) {
       const rel = inst.filePath.replace(root, '').replace(/^\//, '');
       lines.push(`    ${DIM}${rel}:${inst.startLine}–${inst.endLine}${RESET}`);
     }
-    if (g.instances.length > 3) lines.push(col(DIM, `    ... and ${g.instances.length - 3} more instances`));
+    if (g.instances.length > 3)
+      lines.push(col(DIM, `    ... and ${g.instances.length - 3} more instances`));
   }
   return lines;
 }
 
-export function buildExportTraceHumanLines(trace: { exportName: string; filePath: string; consumers: HumanTraceEntry[] }): string[] {
-  const lines: string[] = [col(BOLD, `Export trace: ${col(CYAN, trace.exportName)} in ${DIM}${trace.filePath}${RESET}`)];
+export function buildExportTraceHumanLines(trace: {
+  exportName: string;
+  filePath: string;
+  consumers: HumanTraceEntry[];
+}): string[] {
+  const lines: string[] = [
+    col(BOLD, `Export trace: ${col(CYAN, trace.exportName)} in ${DIM}${trace.filePath}${RESET}`),
+  ];
   if (trace.consumers.length === 0) {
     lines.push(col(YELLOW, '  (no consumers — may be dead code)'));
   } else {
@@ -95,7 +111,10 @@ export function buildExportTraceHumanLines(trace: { exportName: string; filePath
   return lines;
 }
 
-export function buildFileTraceHumanLines(trace: { filePath: string; importedBy: HumanTraceEntry[] }): string[] {
+export function buildFileTraceHumanLines(trace: {
+  filePath: string;
+  importedBy: HumanTraceEntry[];
+}): string[] {
   const lines: string[] = [col(BOLD, `File trace: ${DIM}${trace.filePath}${RESET}`)];
   if (trace.importedBy.length === 0) {
     lines.push(col(YELLOW, '  (no importers — may be unused)'));
@@ -107,7 +126,10 @@ export function buildFileTraceHumanLines(trace: { filePath: string; importedBy: 
   return lines;
 }
 
-export function buildDependencyTraceHumanLines(trace: { packageName: string; usedIn: HumanTraceEntry[] }): string[] {
+export function buildDependencyTraceHumanLines(trace: {
+  packageName: string;
+  usedIn: HumanTraceEntry[];
+}): string[] {
   const lines: string[] = [col(BOLD, `Dependency trace: ${col(CYAN, trace.packageName)}`)];
   if (trace.usedIn.length === 0) {
     lines.push(col(YELLOW, '  (not imported anywhere — likely unused)'));

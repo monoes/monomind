@@ -12,10 +12,10 @@
  *   4. multiple fences in one text all parse, in order.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseToolCalls } from '../orgrt/tool-fence.js';
 
-const fence = (body: string) => '```tool_call\n' + body + '\n```';
+const fence = (body: string) => `\`\`\`tool_call\n${body}\n\`\`\``;
 
 describe('parseToolCalls', () => {
   it('parses a well-formed fence', () => {
@@ -27,7 +27,9 @@ describe('parseToolCalls', () => {
 
   it('tolerates trailing junk after the JSON object (extra closing brace)', () => {
     // Exact shape observed from kimi k3 in the daily-roast live run.
-    const text = fence('{"name": "org_send", "arguments": {"to": "editor-in-chief", "message": "a joke}"}}');
+    const text = fence(
+      '{"name": "org_send", "arguments": {"to": "editor-in-chief", "message": "a joke}"}}',
+    );
     const onMalformed = vi.fn();
     const calls = parseToolCalls([text], onMalformed);
     expect(calls).toHaveLength(1);
@@ -97,7 +99,8 @@ describe('parseToolCalls', () => {
   // all, so it used to be silently dropped — no tool executed, no feedback,
   // the model believing its call succeeded.
   it('reports a truncated fence (no closing ```) via onMalformed and executes nothing', () => {
-    const text = '```tool_call\n{"name": "org_gate", "arguments": {"name": "publish", "description": "a very long description that got cut off mid';
+    const text =
+      '```tool_call\n{"name": "org_gate", "arguments": {"name": "publish", "description": "a very long description that got cut off mid';
     const onMalformed = vi.fn();
     const calls = parseToolCalls([text], onMalformed);
     expect(calls).toEqual([]);

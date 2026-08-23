@@ -3,21 +3,14 @@
  * Auto-update system for @monomind packages (ADR-025)
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import { checkForUpdates, DEFAULT_CONFIG, getInstalledVersion } from '../update/checker.js';
 import {
-  checkForUpdates,
-  checkSinglePackage,
-  getInstalledVersion,
-  DEFAULT_CONFIG,
-} from '../update/checker.js';
-import type { UpdateCheckResult } from '../update/checker.js';
-import {
-  executeUpdate,
-  executeMultipleUpdates,
-  rollbackUpdate,
-  getUpdateHistory,
   clearHistory,
+  executeMultipleUpdates,
+  getUpdateHistory,
+  rollbackUpdate,
 } from '../update/executor.js';
 import { clearCache } from '../update/rate-limiter.js';
 
@@ -113,7 +106,7 @@ const checkCommand: Command = {
 
       if (autoUpdates.length > 0) {
         output.printInfo(
-          `${autoUpdates.length} update(s) will be applied automatically on next startup`
+          `${autoUpdates.length} update(s) will be applied automatically on next startup`,
         );
       }
 
@@ -150,7 +143,7 @@ const allCommand: Command = {
         autoUpdate: {
           patch: true,
           minor: true,
-          major: flags['include-major'] as boolean || false,
+          major: (flags['include-major'] as boolean) || false,
         },
       };
 
@@ -175,19 +168,23 @@ const allCommand: Command = {
       const updateResults = await executeMultipleUpdates(
         results,
         installedPackages,
-        flags['dry-run'] as boolean
+        flags['dry-run'] as boolean,
       );
 
       const successful = updateResults.filter((r) => r.success);
       const failed = updateResults.filter((r) => !r.success);
 
       output.writeln();
-      output.writeln(output.highlight(flags['dry-run'] ? '═══ Dry Run - Would Update ═══' : '═══ Update Results ═══'));
+      output.writeln(
+        output.highlight(
+          flags['dry-run'] ? '═══ Dry Run - Would Update ═══' : '═══ Update Results ═══',
+        ),
+      );
       output.writeln();
 
       if (successful.length > 0) {
         output.printSuccess(
-          `${successful.length} package(s) ${flags['dry-run'] ? 'would be ' : ''}updated:`
+          `${successful.length} package(s) ${flags['dry-run'] ? 'would be ' : ''}updated:`,
         );
         for (const r of successful) {
           output.writeln(`  ${output.success('✓')} ${r.package}@${r.version}`);
@@ -199,9 +196,10 @@ const allCommand: Command = {
         output.printError(`${failed.length} package(s) failed:`);
         for (const r of failed) {
           // Sanitize error: strip filesystem paths and cap length before display
-          const safeErr = typeof r.error === 'string'
-            ? r.error.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)
-            : 'update failed';
+          const safeErr =
+            typeof r.error === 'string'
+              ? r.error.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)
+              : 'update failed';
           output.writeln(`  ${output.error('✗')} ${r.package}: ${safeErr}`);
         }
       }
@@ -231,7 +229,7 @@ const historyCommand: Command = {
       return { success: true };
     }
 
-    const rawLimit = parseInt(flags.limit as string || '20', 10);
+    const rawLimit = parseInt((flags.limit as string) || '20', 10);
     // Cap to prevent unbounded history reads
     const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 1000)) : 20;
     const history = getUpdateHistory(limit);
@@ -284,12 +282,11 @@ const rollbackCommand: Command = {
     // (npm spec), but a malicious value could otherwise flow into rollbackUpdate
     // which may reflect it in error messages or use it to key lookup tables.
     const rawPackageName = flags.package as string | undefined;
-    const packageName = typeof rawPackageName === 'string'
-      ? rawPackageName.slice(0, 200)
-      : undefined;
+    const packageName =
+      typeof rawPackageName === 'string' ? rawPackageName.slice(0, 200) : undefined;
 
     output.printInfo(
-      packageName ? `Rolling back ${packageName}...` : 'Rolling back last update...'
+      packageName ? `Rolling back ${packageName}...` : 'Rolling back last update...',
     );
 
     const result = await rollbackUpdate(packageName);

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { PipelineRunner } from '../../pipeline/runner.js';
-import type { PipelinePhase, PipelineContext } from '../../pipeline/types.js';
+import type { PipelineContext, PipelinePhase } from '../../pipeline/types.js';
 
 function makeCtx(): PipelineContext {
   return { repoPath: '/tmp', options: { ignore: [], codeOnly: false } } as any;
@@ -11,13 +11,17 @@ describe('PipelineRunner parallel execution', () => {
     const startTimes: Record<string, number> = {};
     const endTimes: Record<string, number> = {};
 
-    function makeDelayPhase(name: string, deps: string[], delayMs: number): PipelinePhase<{ name: string }> {
+    function makeDelayPhase(
+      name: string,
+      deps: string[],
+      delayMs: number,
+    ): PipelinePhase<{ name: string }> {
       return {
         name,
         deps,
         async execute() {
           startTimes[name] = Date.now();
-          await new Promise(r => setTimeout(r, delayMs));
+          await new Promise((r) => setTimeout(r, delayMs));
           endTimes[name] = Date.now();
           return { name };
         },
@@ -45,22 +49,58 @@ describe('PipelineRunner parallel execution', () => {
     let cStartTime = 0;
 
     const phases: PipelinePhase<unknown>[] = [
-      { name: 'a', deps: [], async execute() { await new Promise(r => setTimeout(r, 30)); endTimes['a'] = Date.now(); return {}; } },
-      { name: 'b', deps: [], async execute() { await new Promise(r => setTimeout(r, 30)); endTimes['b'] = Date.now(); return {}; } },
-      { name: 'c', deps: ['a', 'b'], async execute() { cStartTime = Date.now(); return {}; } },
+      {
+        name: 'a',
+        deps: [],
+        async execute() {
+          await new Promise((r) => setTimeout(r, 30));
+          endTimes.a = Date.now();
+          return {};
+        },
+      },
+      {
+        name: 'b',
+        deps: [],
+        async execute() {
+          await new Promise((r) => setTimeout(r, 30));
+          endTimes.b = Date.now();
+          return {};
+        },
+      },
+      {
+        name: 'c',
+        deps: ['a', 'b'],
+        async execute() {
+          cStartTime = Date.now();
+          return {};
+        },
+      },
     ];
 
     const runner = new PipelineRunner(phases);
     await runner.run(makeCtx());
 
-    expect(cStartTime).toBeGreaterThanOrEqual(endTimes['a']!);
-    expect(cStartTime).toBeGreaterThanOrEqual(endTimes['b']!);
+    expect(cStartTime).toBeGreaterThanOrEqual(endTimes.a!);
+    expect(cStartTime).toBeGreaterThanOrEqual(endTimes.b!);
   });
 
   it('outputs map contains all phase results', async () => {
     const phases: PipelinePhase<unknown>[] = [
-      { name: 'x', deps: [], async execute() { return { val: 1 }; } },
-      { name: 'y', deps: ['x'], async execute(_ctx, deps) { const x = deps.get('x') as any; return { val: x.val + 1 }; } },
+      {
+        name: 'x',
+        deps: [],
+        async execute() {
+          return { val: 1 };
+        },
+      },
+      {
+        name: 'y',
+        deps: ['x'],
+        async execute(_ctx, deps) {
+          const x = deps.get('x') as any;
+          return { val: x.val + 1 };
+        },
+      },
     ];
     const runner = new PipelineRunner(phases);
     const outputs = await runner.run(makeCtx());
@@ -70,8 +110,20 @@ describe('PipelineRunner parallel execution', () => {
 
   it('throws on cycle detection', () => {
     const phases: PipelinePhase<unknown>[] = [
-      { name: 'a', deps: ['b'], async execute() { return {}; } },
-      { name: 'b', deps: ['a'], async execute() { return {}; } },
+      {
+        name: 'a',
+        deps: ['b'],
+        async execute() {
+          return {};
+        },
+      },
+      {
+        name: 'b',
+        deps: ['a'],
+        async execute() {
+          return {};
+        },
+      },
     ];
     expect(() => new PipelineRunner(phases)).toThrow();
   });

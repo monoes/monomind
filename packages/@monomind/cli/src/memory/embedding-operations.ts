@@ -6,7 +6,7 @@
  * @module v1/cli/embedding-operations
  */
 
-import { BRIDGE_EMBEDDING_MODEL, BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
+import { BRIDGE_EMBEDDING_DIMS, BRIDGE_EMBEDDING_MODEL } from './memory-bridge.js';
 
 // ADR-053: Lazy import of memory bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
@@ -39,13 +39,16 @@ let embeddingModelState: EmbeddingModel | null = null;
 // P2-6: BGE-M3 opt-in model registry. When the user passes --embedder=bge-m3,
 // load this model via transformers.js instead of the default. Lazy-fetched from
 // HuggingFace CDN on first use (~600MB-2GB depending on variant); cached forever.
-const EMBEDDER_REGISTRY: Record<string, { model: string; dimensions: number; description: string }> = {
+const EMBEDDER_REGISTRY: Record<
+  string,
+  { model: string; dimensions: number; description: string }
+> = {
   'bge-m3': {
     model: 'Xenova/bge-m3',
     dimensions: 1024,
     description: 'BAAI/bge-m3 — 1024d, 8192-token context, 100+ languages, dense+sparse+ColBERT',
   },
-  'minilm': {
+  minilm: {
     model: 'Xenova/all-MiniLM-L6-v2',
     dimensions: 384,
     description: 'all-MiniLM-L6-v2 — 384d, lightweight default',
@@ -58,7 +61,9 @@ let _embedderOverride: string | null = null;
 /** P2-6: Set the embedder model override (e.g. 'bge-m3'). Call before loadEmbeddingModel. */
 export function setEmbedderOverride(name: string | null): void {
   if (name && !EMBEDDER_REGISTRY[name]) {
-    throw new Error(`Unknown embedder: ${name}. Available: ${Object.keys(EMBEDDER_REGISTRY).join(', ')}`);
+    throw new Error(
+      `Unknown embedder: ${name}. Available: ${Object.keys(EMBEDDER_REGISTRY).join(', ')}`,
+    );
   }
   _embedderOverride = name;
   // Force reload on next use
@@ -93,7 +98,7 @@ export async function loadEmbeddingModel(options?: {
       success: true,
       dimensions: embeddingModelState.dimensions,
       modelName: 'cached',
-      loadTime: 0
+      loadTime: 0,
     };
   }
 
@@ -104,12 +109,12 @@ export async function loadEmbeddingModel(options?: {
     const bridge = await getBridge();
     if (bridge) {
       const bridgeResult = await bridge.bridgeLoadEmbeddingModel();
-      if (bridgeResult && bridgeResult.success) {
+      if (bridgeResult?.success) {
         embeddingModelState = {
           loaded: true,
           model: null,
           tokenizer: null,
-          dimensions: bridgeResult.dimensions
+          dimensions: bridgeResult.dimensions,
         };
         return bridgeResult;
       }
@@ -127,7 +132,9 @@ export async function loadEmbeddingModel(options?: {
           if (verbose) {
             console.log(`Loading ${_embedderOverride} (${config.model}, ${config.dimensions}d)...`);
             console.log(`  ${config.description}`);
-            console.log(`  First use will download the model from HuggingFace (~600MB+). Subsequent uses are cached.`);
+            console.log(
+              `  First use will download the model from HuggingFace (~600MB+). Subsequent uses are cached.`,
+            );
           }
           const { pipeline } = transformers;
           // Note: local_files_only is NOT set here — the model needs to be fetched
@@ -137,19 +144,21 @@ export async function loadEmbeddingModel(options?: {
             loaded: true,
             model: embedder,
             tokenizer: null,
-            dimensions: config.dimensions
+            dimensions: config.dimensions,
           };
           return {
             success: true,
             dimensions: config.dimensions,
             modelName: config.model,
-            loadTime: Date.now() - startTime
+            loadTime: Date.now() - startTime,
           };
         }
       } catch (err) {
         // Model download/init failed — fall through to default chain
         if (verbose) {
-          console.log(`Failed to load ${_embedderOverride}: ${err instanceof Error ? err.message : String(err)}`);
+          console.log(
+            `Failed to load ${_embedderOverride}: ${err instanceof Error ? err.message : String(err)}`,
+          );
           console.log('Falling back to default embedder chain...');
         }
       }
@@ -176,24 +185,28 @@ export async function loadEmbeddingModel(options?: {
       // "Cannot read properties of null (reading 'model')".
       try {
         const { pipeline } = transformers;
-        const embedder = await pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, { local_files_only: true });
+        const embedder = await pipeline('feature-extraction', BRIDGE_EMBEDDING_MODEL, {
+          local_files_only: true,
+        });
 
         embeddingModelState = {
           loaded: true,
           model: embedder,
           tokenizer: null,
-          dimensions: BRIDGE_EMBEDDING_DIMS
+          dimensions: BRIDGE_EMBEDDING_DIMS,
         };
 
         return {
           success: true,
           dimensions: BRIDGE_EMBEDDING_DIMS,
           modelName: BRIDGE_EMBEDDING_MODEL,
-          loadTime: Date.now() - startTime
+          loadTime: Date.now() - startTime,
         };
       } catch (err) {
         if (verbose) {
-          console.log(`ONNX model not available locally (${err instanceof Error ? err.message : String(err)}) — falling back.`);
+          console.log(
+            `ONNX model not available locally (${err instanceof Error ? err.message : String(err)}) — falling back.`,
+          );
         }
       }
     }
@@ -203,21 +216,21 @@ export async function loadEmbeddingModel(options?: {
       loaded: true,
       model: null, // Will use simple hash-based fallback
       tokenizer: null,
-      dimensions: 128 // Smaller fallback dimensions
+      dimensions: 128, // Smaller fallback dimensions
     };
 
     return {
       success: true,
       dimensions: 128,
       modelName: 'hash-fallback',
-      loadTime: Date.now() - startTime
+      loadTime: Date.now() - startTime,
     };
   } catch (error) {
     return {
       success: false,
       dimensions: 0,
       modelName: 'none',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -262,12 +275,14 @@ export async function generateEmbedding(text: string): Promise<{
       // Handle both @xenova/transformers (output.data) and monovector (plain array) formats
       const embedding = output?.data
         ? Array.from(output.data as Float32Array)
-        : Array.isArray(output) ? output : null;
+        : Array.isArray(output)
+          ? output
+          : null;
       if (embedding) {
         return {
           embedding,
           dimensions: embedding.length,
-          model: 'onnx'
+          model: 'onnx',
         };
       }
     } catch {
@@ -281,7 +296,7 @@ export async function generateEmbedding(text: string): Promise<{
   return {
     embedding,
     dimensions,
-    model: 'hash-fallback'
+    model: 'hash-fallback',
   };
 }
 
@@ -299,7 +314,7 @@ export async function generateBatchEmbeddings(
   options?: {
     concurrency?: number; // Max concurrent embeddings (default: all)
     onProgress?: (completed: number, total: number) => void;
-  }
+  },
 ): Promise<{
   results: Array<{ text: string; embedding: number[]; dimensions: number; model: string }>;
   totalTime: number;
@@ -321,19 +336,20 @@ export async function generateBatchEmbeddings(
         const result = await generateEmbedding(text);
         onProgress?.(i + 1, texts.length);
         return { text, ...result };
-      })
+      }),
     );
 
     const totalTime = Date.now() - startTime;
     return {
       results: embeddings,
       totalTime,
-      avgTime: totalTime / texts.length
+      avgTime: totalTime / texts.length,
     };
   }
 
   // Limited concurrency using chunking
-  const results: Array<{ text: string; embedding: number[]; dimensions: number; model: string }> = [];
+  const results: Array<{ text: string; embedding: number[]; dimensions: number; model: string }> =
+    [];
   let completed = 0;
 
   for (let i = 0; i < texts.length; i += concurrency) {
@@ -344,7 +360,7 @@ export async function generateBatchEmbeddings(
         completed++;
         onProgress?.(completed, texts.length);
         return { text, ...result };
-      })
+      }),
     );
     results.push(...chunkResults);
   }
@@ -353,7 +369,7 @@ export async function generateBatchEmbeddings(
   return {
     results,
     totalTime,
-    avgTime: totalTime / texts.length
+    avgTime: totalTime / texts.length,
   };
 }
 
@@ -378,5 +394,5 @@ export function generateHashEmbedding(text: string, dimensions: number): number[
 
   // Normalize to unit vector
   const magnitude = Math.sqrt(embedding.reduce((sum, v) => sum + v * v, 0)) || 1;
-  return embedding.map(v => v / magnitude);
+  return embedding.map((v) => v / magnitude);
 }

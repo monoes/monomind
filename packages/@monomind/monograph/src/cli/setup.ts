@@ -6,8 +6,8 @@
  * present the file is left unchanged.
  */
 
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 export type SetupTool = 'claude' | 'cursor' | 'agents-md';
 
@@ -35,11 +35,7 @@ const MCP_SERVER_ENTRY = {
   env: {},
 };
 
-const MCP_CONFIG_BLOCK = JSON.stringify(
-  { mcpServers: { monograph: MCP_SERVER_ENTRY } },
-  null,
-  2,
-);
+const MCP_CONFIG_BLOCK = JSON.stringify({ mcpServers: { monograph: MCP_SERVER_ENTRY } }, null, 2);
 
 // Sentinel used to detect whether the block is already present in markdown.
 const MONOGRAPH_SENTINEL = '@monoes/monograph';
@@ -75,7 +71,7 @@ async function upsertMarkdownFile(filePath: string): Promise<'configured' | 'ski
     return 'skipped';
   }
 
-  const updated = existing.trimEnd() + '\n' + MARKDOWN_BLOCK.trimStart();
+  const updated = `${existing.trimEnd()}\n${MARKDOWN_BLOCK.trimStart()}`;
   await fs.writeFile(filePath, updated, 'utf-8');
   return 'configured';
 }
@@ -86,9 +82,7 @@ async function upsertMarkdownFile(filePath: string): Promise<'configured' | 'ski
  *
  * Handles corrupt / unreadable files gracefully (leaves them untouched).
  */
-async function upsertJsonMcpFile(
-  filePath: string,
-): Promise<'configured' | 'skipped' | 'error'> {
+async function upsertJsonMcpFile(filePath: string): Promise<'configured' | 'skipped' | 'error'> {
   const raw = await readFileSafe(filePath);
 
   let config: Record<string, unknown> = {};
@@ -111,7 +105,7 @@ async function upsertJsonMcpFile(
   config.mcpServers = { ...servers, monograph: MCP_SERVER_ENTRY };
 
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+  await fs.writeFile(filePath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
   return 'configured';
 }
 
@@ -140,7 +134,9 @@ async function setupCursor(repoPath: string, result: SetupResult): Promise<void>
     } else if (outcome === 'skipped') {
       result.skipped.push('.cursor/mcp.json');
     } else {
-      result.errors.push('.cursor/mcp.json: file is corrupt — skipping to preserve existing content');
+      result.errors.push(
+        '.cursor/mcp.json: file is corrupt — skipping to preserve existing content',
+      );
     }
   } catch (err: unknown) {
     result.errors.push(`.cursor/mcp.json: ${(err as Error).message}`);

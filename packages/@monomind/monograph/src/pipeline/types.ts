@@ -1,6 +1,6 @@
+import type Graph from 'graphology';
 import type { MonographDb } from '../storage/db.js';
 import type { PipelineProgress } from '../types.js';
-import type Graph from 'graphology';
 
 export interface PipelineContext {
   repoPath: string;

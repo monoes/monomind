@@ -35,11 +35,11 @@ export function discoverWorkspaces(root: string): WorkspaceInfo[] {
   if (!pkg) return [];
 
   const patterns: string[] = [];
-  if (Array.isArray(pkg['workspaces'])) {
-    patterns.push(...(pkg['workspaces'] as string[]));
-  } else if (typeof pkg['workspaces'] === 'object' && pkg['workspaces'] !== null) {
-    const ws = pkg['workspaces'] as Record<string, unknown>;
-    if (Array.isArray(ws['packages'])) patterns.push(...(ws['packages'] as string[]));
+  if (Array.isArray(pkg.workspaces)) {
+    patterns.push(...(pkg.workspaces as string[]));
+  } else if (typeof pkg.workspaces === 'object' && pkg.workspaces !== null) {
+    const ws = pkg.workspaces as Record<string, unknown>;
+    if (Array.isArray(ws.packages)) patterns.push(...(ws.packages as string[]));
   }
 
   const results: WorkspaceInfo[] = [];
@@ -55,12 +55,14 @@ export function discoverWorkspaces(root: string): WorkspaceInfo[] {
         const wsPkg = readJson(wsPkgPath);
         if (!wsPkg) continue;
         results.push({
-          name: (wsPkg['name'] as string | undefined) ?? entry.name,
+          name: (wsPkg.name as string | undefined) ?? entry.name,
           rootPath: resolve(dir, entry.name),
           packageJson: wsPkg,
         });
       }
-    } catch { /* skip unreadable dirs */ }
+    } catch {
+      /* skip unreadable dirs */
+    }
   }
   return results;
 }
@@ -70,7 +72,7 @@ export function findUndeclaredWorkspaces(
   declared: WorkspaceInfo[],
   ignores: string[] = [],
 ): WorkspaceDiagnostic[] {
-  const declaredPaths = new Set(declared.map(w => resolve(w.rootPath)));
+  const declaredPaths = new Set(declared.map((w) => resolve(w.rootPath)));
   const diagnostics: WorkspaceDiagnostic[] = [];
   const packagesDir = join(root, 'packages');
 
@@ -92,7 +94,9 @@ export function findUndeclaredWorkspaces(
         });
       }
     }
-  } catch { /* skip */ }
+  } catch {
+    /* skip */
+  }
 
   return diagnostics;
 }
@@ -100,8 +104,8 @@ export function findUndeclaredWorkspaces(
 export function parseTsconfigRootDir(tsconfigPath: string): string | null {
   const json = readJson(tsconfigPath);
   if (!json) return null;
-  const co = (json['compilerOptions'] as Record<string, unknown> | undefined);
-  const rootDir = co?.['rootDir'];
+  const co = json.compilerOptions as Record<string, unknown> | undefined;
+  const rootDir = co?.rootDir;
   return typeof rootDir === 'string' ? rootDir : null;
 }
 
@@ -117,7 +121,7 @@ export function findUndeclaredWorkspacesEnhanced(
   ignores: string[] = [],
 ): EnhancedWorkspaceDiagnostic[] {
   const basic = findUndeclaredWorkspaces(root, declared, ignores);
-  return basic.map(d => ({
+  return basic.map((d) => ({
     ...d,
     suggestion: `Add "${d.path.replace(root, '').replace(/^\//, '')}" to the workspaces array in package.json`,
   }));
@@ -129,8 +133,12 @@ export function validateWorkspaceDeclarations(
 ): WorkspaceDiagnostic[] {
   const diagnostics: WorkspaceDiagnostic[] = [];
   for (const ws of declared) {
-    if (!ws.packageJson['name']) {
-      diagnostics.push({ kind: 'missingPackageJson', message: `Workspace at "${ws.rootPath.replace(root, '')}" has no name field`, path: ws.rootPath });
+    if (!ws.packageJson.name) {
+      diagnostics.push({
+        kind: 'missingPackageJson',
+        message: `Workspace at "${ws.rootPath.replace(root, '')}" has no name field`,
+        path: ws.rootPath,
+      });
     }
   }
   return diagnostics;

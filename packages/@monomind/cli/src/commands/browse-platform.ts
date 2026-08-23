@@ -1,15 +1,13 @@
 import type { CdpClient } from '@monoes/monobrowse';
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 const SUPPORTED_PLATFORMS = ['linkedin', 'instagram', 'x', 'gemini'];
 
 const connectSubcommand: Command = {
   name: 'connect',
   description: 'Open browser, log in to a platform, save session',
-  options: [
-    { name: 'port', type: 'number', description: 'CDP port', default: 9222 },
-  ],
+  options: [{ name: 'port', type: 'number', description: 'CDP port', default: 9222 }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const platform = ctx.args[0];
     if (!platform || !SUPPORTED_PLATFORMS.includes(platform)) {
@@ -22,7 +20,7 @@ const connectSubcommand: Command = {
     const browser = await import('@monoes/monobrowse');
 
     const adapter = getAdapter(platform);
-    const port = ctx.flags.port as number ?? 9222;
+    const port = (ctx.flags.port as number) ?? 9222;
 
     output.printInfo(`Opening browser → navigating to ${adapter.loginURL()}`);
     output.printInfo('Please log in. Detection is automatic — checking every 2s...');
@@ -33,14 +31,22 @@ const connectSubcommand: Command = {
     await cdpClient.send('Page.navigate', { url: adapter.loginURL() }, sessionId);
 
     const page = {
-      client: cdpClient, sessionId,
+      client: cdpClient,
+      sessionId,
       async evaluate<T>(fn: string): Promise<T> {
-        const result = await cdpClient.send('Runtime.evaluate', { expression: fn, returnByValue: true }, sessionId) as { result: { value: T } };
+        const result = (await cdpClient.send(
+          'Runtime.evaluate',
+          { expression: fn, returnByValue: true },
+          sessionId,
+        )) as { result: { value: T } };
         return result.result.value;
       },
       async url(): Promise<string> {
-        const result = await cdpClient.send('Runtime.evaluate',
-          { expression: 'window.location.href', returnByValue: true }, sessionId) as { result: { value: string } };
+        const result = (await cdpClient.send(
+          'Runtime.evaluate',
+          { expression: 'window.location.href', returnByValue: true },
+          sessionId,
+        )) as { result: { value: string } };
         return result.result.value;
       },
     };
@@ -48,7 +54,7 @@ const connectSubcommand: Command = {
     // Poll for login
     let loggedIn = false;
     for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
       loggedIn = await adapter.isLoggedIn(page).catch(() => false);
       if (loggedIn) break;
       process.stdout.write('.');
@@ -62,7 +68,9 @@ const connectSubcommand: Command = {
     }
 
     const username = await adapter.extractUsername(page).catch(() => 'unknown');
-    const cookieResult = await cdpClient.send('Network.getAllCookies', {}, sessionId) as { cookies: Array<{ name: string; value: string; domain?: string }> };
+    const cookieResult = (await cdpClient.send('Network.getAllCookies', {}, sessionId)) as {
+      cookies: Array<{ name: string; value: string; domain?: string }>;
+    };
     const cookies = JSON.stringify(cookieResult.cookies);
     const sessionId_ = `${platform}:${username}`;
 
@@ -88,8 +96,12 @@ const listSubcommand: Command = {
       columns: [
         { key: 'platform', header: 'Platform', width: 12 },
         { key: 'username', header: 'Username', width: 25 },
-        { key: 'lastUsedAt', header: 'Last Used', width: 20,
-          format: (v) => new Date(v as number).toLocaleString() },
+        {
+          key: 'lastUsedAt',
+          header: 'Last Used',
+          width: 20,
+          format: (v) => new Date(v as number).toLocaleString(),
+        },
         { key: 'id', header: 'Session ID', width: 30 },
       ],
       data: sessions,

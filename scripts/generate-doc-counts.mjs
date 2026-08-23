@@ -25,9 +25,9 @@
  * must count source `.md` files directly to get a value that's the same on
  * every machine and in CI.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(REPO_ROOT, p), 'utf8');
@@ -188,7 +188,7 @@ function main() {
 
   if (checkOnly) {
     if (stale.length) {
-      console.error('Stale doc-count marker(s) in:\n' + stale.map((p) => `  - ${p}`).join('\n'));
+      console.error(`Stale doc-count marker(s) in:\n${stale.map((p) => `  - ${p}`).join('\n')}`);
       console.error('\nRun: node scripts/generate-doc-counts.mjs');
       process.exit(1);
     }

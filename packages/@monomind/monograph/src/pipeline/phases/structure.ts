@@ -1,7 +1,7 @@
-import { relative, dirname, basename } from 'path';
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel, CONFIDENCE_SCORE } from '../../types.js';
+import { basename, dirname, relative } from 'node:path';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { ScanOutput } from './scan.js';
 
 export interface StructureOutput {
@@ -24,9 +24,12 @@ export const structurePhase: PipelinePhase<StructureOutput> = {
       const rel = relative(ctx.repoPath, absPath);
       const fileId = makeId(rel.replace(/\//g, '_'), 'file');
       fileNodes.push({
-        id: fileId, label: 'File',
-        name: basename(rel), normLabel: toNormLabel(basename(rel)),
-        filePath: rel, isExported: false,
+        id: fileId,
+        label: 'File',
+        name: basename(rel),
+        normLabel: toNormLabel(basename(rel)),
+        filePath: rel,
+        isExported: false,
       });
 
       const parts = dirname(rel).split('/');
@@ -39,15 +42,21 @@ export const structurePhase: PipelinePhase<StructureOutput> = {
         if (!seenFolders.has(folderId)) {
           seenFolders.add(folderId);
           folderNodes.push({
-            id: folderId, label: 'Folder',
-            name: part, normLabel: toNormLabel(part),
-            filePath: current, isExported: false,
+            id: folderId,
+            label: 'Folder',
+            name: part,
+            normLabel: toNormLabel(part),
+            filePath: current,
+            isExported: false,
           });
           if (parentFolderId) {
             containsEdges.push({
               id: makeId(parentFolderId, folderId, 'contains'),
-              sourceId: parentFolderId, targetId: folderId,
-              relation: 'CONTAINS', confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+              sourceId: parentFolderId,
+              targetId: folderId,
+              relation: 'CONTAINS',
+              confidence: 'EXTRACTED',
+              confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
             });
           }
         }
@@ -57,8 +66,11 @@ export const structurePhase: PipelinePhase<StructureOutput> = {
       if (parentFolderId) {
         containsEdges.push({
           id: makeId(parentFolderId, fileId, 'contains'),
-          sourceId: parentFolderId, targetId: fileId,
-          relation: 'CONTAINS', confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+          sourceId: parentFolderId,
+          targetId: fileId,
+          relation: 'CONTAINS',
+          confidence: 'EXTRACTED',
+          confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
         });
       }
     }

@@ -1,4 +1,4 @@
-import { basename as pathBasename } from 'path';
+import { basename as pathBasename } from 'node:path';
 
 const SENSITIVE_PATTERNS: RegExp[] = [
   /^\.env(\.|$)/i,
@@ -20,5 +20,5 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 
 export function isSensitiveFile(filePath: string): boolean {
   const base = pathBasename(filePath);
-  return SENSITIVE_PATTERNS.some(p => p.test(base) || p.test(filePath));
+  return SENSITIVE_PATTERNS.some((p) => p.test(base) || p.test(filePath));
 }

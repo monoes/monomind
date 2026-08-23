@@ -15,8 +15,9 @@
  * Host check fails too). Send `Origin: http://localhost:<port>` → ACAO
  * reflected. Send a non-loopback Host → 403 regardless of cred.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+
 import http from 'node:http';
+import { afterEach, describe, expect, it } from 'vitest';
 import { startOrgServer } from '../../packages/@monomind/cli/src/orgrt/server.js';
 
 interface Spawned {
@@ -76,7 +77,7 @@ function getEvents(
   port: number,
   headers: Record<string, string>,
 ): Promise<{ status: number; headers: http.IncomingHttpHeaders }> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     const r = http.request(
       { port, host: '127.0.0.1', path: '/api/events', method: 'GET', headers },
       (res) => {

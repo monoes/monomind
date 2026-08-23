@@ -1,15 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { toCsv } from '../../export/csv.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 const node: MonographNode = {
-  id: 'n1', label: 'Function', name: 'doStuff',
-  normLabel: 'function', filePath: '/a.ts',
-  startLine: 1, endLine: 5, isExported: true,
+  id: 'n1',
+  label: 'Function',
+  name: 'doStuff',
+  normLabel: 'function',
+  filePath: '/a.ts',
+  startLine: 1,
+  endLine: 5,
+  isExported: true,
 };
 const edge: MonographEdge = {
-  id: 'e1', sourceId: 'n1', targetId: 'n2',
-  relation: 'CALLS', confidence: 'EXTRACTED', confidenceScore: 0.9,
+  id: 'e1',
+  sourceId: 'n1',
+  targetId: 'n2',
+  relation: 'CALLS',
+  confidence: 'EXTRACTED',
+  confidenceScore: 0.9,
 };
 
 describe('toCsv', () => {

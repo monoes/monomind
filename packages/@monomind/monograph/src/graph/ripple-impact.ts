@@ -31,7 +31,7 @@ export function buildOutgoingMap(edges: RippleEdge[]): Map<string, string[]> {
   const outgoing = new Map<string, string[]>();
   for (const { sourceId, targetId } of edges) {
     if (!outgoing.has(sourceId)) outgoing.set(sourceId, []);
-    outgoing.get(sourceId)!.push(targetId);
+    outgoing.get(sourceId)?.push(targetId);
   }
   return outgoing;
 }
@@ -75,7 +75,7 @@ export function rippleImpactFromMap(
     }
     if (nextFrontier.length === 0) break;
     byDepth[depth] = nextFrontier;
-    totalScore += nextFrontier.length * Math.pow(decayFactor, depth);
+    totalScore += nextFrontier.length * decayFactor ** depth;
     frontier = nextFrontier;
   }
 
@@ -110,7 +110,9 @@ export function formatRippleImpact(
   result: RippleResult,
   nodeLabels?: Map<string, string>,
 ): string {
-  const depths = Object.keys(result.byDepth).map(Number).sort((a, b) => a - b);
+  const depths = Object.keys(result.byDepth)
+    .map(Number)
+    .sort((a, b) => a - b);
   if (depths.length === 0) {
     return `No ripple impact found for: ${startNodeId} (isolated or leaf node)`;
   }

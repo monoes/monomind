@@ -5,13 +5,13 @@
  * github.com/monoes/monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { output } from '../output.js';
-import { spawn } from 'child_process';
-import { createRequire } from 'module';
-import { dirname, join } from 'path';
-import { existsSync } from 'fs';
-import { fileURLToPath } from 'url';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { paletteSubcommand } from './design-palette.js';
 
 // ─── Result Types ────────────────────────────────────────────────────────────
@@ -51,7 +51,17 @@ export function resolveMonodesignCli(): string | null {
   const here = dirname(fileURLToPath(import.meta.url));
   for (const toCliRoot of ['../..', '../../..']) {
     // <cli root>/../../@monoes/monodesign = packages/@monoes/monodesign
-    const candidate = join(here, toCliRoot, '..', '..', '@monoes', 'monodesign', 'cli', 'bin', 'cli.js');
+    const candidate = join(
+      here,
+      toCliRoot,
+      '..',
+      '..',
+      '@monoes',
+      'monodesign',
+      'cli',
+      'bin',
+      'cli.js',
+    );
     if (existsSync(candidate)) return candidate;
   }
 
@@ -81,7 +91,9 @@ function printEngineMissing(): void {
   output.writeln(output.warning('The bundled monodesign detection engine could not be found.'));
   output.writeln();
   output.writeln('The detector ships with @monoes/monodesign. Reinstall monomind to restore it:');
-  output.writeln(output.dim('  npm install -g monomind   # or: pnpm install (in a monomind checkout)'));
+  output.writeln(
+    output.dim('  npm install -g monomind   # or: pnpm install (in a monomind checkout)'),
+  );
   output.writeln();
 }
 
@@ -110,7 +122,7 @@ const detectSubcommand: Command = {
     { command: 'monomind design detect --json', description: 'Machine-readable JSON output' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const target = ctx.flags.target as string || ctx.args[0] || '.';
+    const target = (ctx.flags.target as string) || ctx.args[0] || '.';
     const jsonOutput = ctx.flags.json as boolean;
 
     output.writeln();
@@ -165,12 +177,21 @@ const fixSubcommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind design fix', description: 'Auto-fix anti-patterns in the current directory' },
-    { command: 'monomind design fix -t ./src --dry-run', description: 'Preview fixes without writing' },
-    { command: 'monomind design fix --rule tight-leading,tiny-text', description: 'Fix only specific rules' },
+    {
+      command: 'monomind design fix',
+      description: 'Auto-fix anti-patterns in the current directory',
+    },
+    {
+      command: 'monomind design fix -t ./src --dry-run',
+      description: 'Preview fixes without writing',
+    },
+    {
+      command: 'monomind design fix --rule tight-leading,tiny-text',
+      description: 'Fix only specific rules',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const target = ctx.flags.target as string || ctx.args[0] || '.';
+    const target = (ctx.flags.target as string) || ctx.args[0] || '.';
     const dryRun = ctx.flags['dry-run'] as boolean;
     const jsonOutput = ctx.flags.json as boolean;
     const rule = ctx.flags.rule as string | undefined;
@@ -206,9 +227,18 @@ const ignoresSubcommand: Command = {
   description: 'Manage monodesign detector ignore rules, files, and values',
   examples: [
     { command: 'monomind design ignores list', description: 'Show current ignore configuration' },
-    { command: 'monomind design ignores add-rule <rule-id>', description: 'Ignore a detector rule project-wide' },
-    { command: 'monomind design ignores add-file <path>', description: 'Exclude a file from detection' },
-    { command: 'monomind design ignores remove-rule <rule-id>', description: 'Re-enable an ignored rule' },
+    {
+      command: 'monomind design ignores add-rule <rule-id>',
+      description: 'Ignore a detector rule project-wide',
+    },
+    {
+      command: 'monomind design ignores add-file <path>',
+      description: 'Exclude a file from detection',
+    },
+    {
+      command: 'monomind design ignores remove-rule <rule-id>',
+      description: 'Re-enable an ignored rule',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const cliPath = resolveMonodesignCli();
@@ -226,7 +256,8 @@ const ignoresSubcommand: Command = {
 
 export const designCommand: Command = {
   name: 'design',
-  description: 'Design tooling: anti-pattern detection, OKLCH palette seeding, and design quality checks',
+  description:
+    'Design tooling: anti-pattern detection, OKLCH palette seeding, and design quality checks',
   subcommands: [detectSubcommand, fixSubcommand, ignoresSubcommand, paletteSubcommand],
   examples: [
     { command: 'monomind design detect', description: 'Detect design anti-patterns' },
@@ -234,12 +265,17 @@ export const designCommand: Command = {
     { command: 'monomind design fix -t ./src --dry-run', description: 'Preview safe auto-fixes' },
     { command: 'monomind design ignores list', description: 'Manage detector ignore rules' },
     { command: 'monomind design palette', description: 'Pick an OKLCH brand seed color' },
-    { command: 'monomind design palette --from "my-product"', description: 'Deterministic seed from product name' },
+    {
+      command: 'monomind design palette --from "my-product"',
+      description: 'Deterministic seed from product name',
+    },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Monomind Design Tools'));
-    output.writeln(output.dim('Anti-pattern detection, OKLCH palette seeding, and design quality checks'));
+    output.writeln(
+      output.dim('Anti-pattern detection, OKLCH palette seeding, and design quality checks'),
+    );
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([

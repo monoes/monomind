@@ -1,13 +1,13 @@
-import { execSync, spawnSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
 import type { MonographDb } from './storage/db.js';
 
 export type AuditVerdict = 'Pass' | 'Warn' | 'Fail';
 export type AuditGate = 'new-only' | 'all';
 
 export interface AuditAttribution {
-  domain: string;            // 'dead-code' | 'complexity' | 'duplication' | 'cycles'
-  newCount: number;          // findings introduced by changed files
-  inheritedCount: number;    // pre-existing findings in changed files
+  domain: string; // 'dead-code' | 'complexity' | 'duplication' | 'cycles'
+  newCount: number; // findings introduced by changed files
+  inheritedCount: number; // pre-existing findings in changed files
 }
 
 export interface AuditSummary {
@@ -36,22 +36,24 @@ interface EdgeRow {
 export function runAudit(
   db: MonographDb,
   repoPath: string,
-  options?: { changedSince?: string; gate?: AuditGate }
+  options?: { changedSince?: string; gate?: AuditGate },
 ): AuditSummary {
   const gate: AuditGate = options?.gate ?? 'new-only';
 
   // ── Step 1: Determine changed file set ──────────────────────────────────────
-  let changedFilePaths: Set<string> = new Set();
+  const changedFilePaths: Set<string> = new Set();
   let useAllFiles = false;
 
   if (options?.changedSince) {
     try {
       // Use spawnSync with argument array to prevent shell injection via changedSince
-      const result = spawnSync(
-        'git', ['diff', '--name-only', options.changedSince, 'HEAD'],
-        { cwd: repoPath, maxBuffer: 5 * 1024 * 1024, encoding: 'utf-8' },
-      );
-      if (result.status !== 0 || result.error) throw result.error ?? new Error(`git exited ${result.status}`);
+      const result = spawnSync('git', ['diff', '--name-only', options.changedSince, 'HEAD'], {
+        cwd: repoPath,
+        maxBuffer: 5 * 1024 * 1024,
+        encoding: 'utf-8',
+      });
+      if (result.status !== 0 || result.error)
+        throw result.error ?? new Error(`git exited ${result.status}`);
       const output = result.stdout;
       for (const line of output.split('\n')) {
         const trimmed = line.trim();
@@ -65,11 +67,13 @@ export function runAudit(
   }
 
   // ── Step 2: Get all File nodes from DB ──────────────────────────────────────
-  const fileNodes = db.prepare(`
+  const fileNodes = db
+    .prepare(`
     SELECT id, file_path, properties
     FROM nodes
     WHERE label = 'File' AND file_path IS NOT NULL
-  `).all() as NodeRow[];
+  `)
+    .all() as NodeRow[];
 
   if (useAllFiles) {
     for (const n of fileNodes) {
@@ -85,7 +89,7 @@ export function runAudit(
     filePathToId.set(n.file_path, n.id);
     // Match by full path or relative suffix
     for (const cp of changedFilePaths) {
-      if (n.file_path === cp || n.file_path.endsWith('/' + cp) || n.file_path.endsWith('\\' + cp)) {
+      if (n.file_path === cp || n.file_path.endsWith(`/${cp}`) || n.file_path.endsWith(`\\${cp}`)) {
         changedNodeIds.add(n.id);
         break;
       }
@@ -99,8 +103,12 @@ export function runAudit(
   for (const n of fileNodes) {
     if (!changedNodeIds.has(n.id)) continue;
     let props: Record<string, unknown> = {};
-    try { props = n.properties ? JSON.parse(n.properties) : {}; } catch { /* skip malformed */ }
-    if (props['reachabilityRole'] === 'unreachable') deadCodeIssues++;
+    try {
+      props = n.properties ? JSON.parse(n.properties) : {};
+    } catch {
+      /* skip malformed */
+    }
+    if (props.reachabilityRole === 'unreachable') deadCodeIssues++;
   }
 
   // ── Step 4: Complexity findings (Symbol nodes in changed files with CC > 10) ─
@@ -109,19 +117,25 @@ export function runAudit(
 
   if (changedNodeIds.size > 0) {
     // Get Symbol/Function/Method nodes belonging to changed files
-    const symbolRows = db.prepare(`
+    const symbolRows = db
+      .prepare(`
       SELECT n.id, n.file_path, n.properties
       FROM nodes n
       WHERE n.label IN ('Function', 'Method', 'Symbol')
         AND n.file_path IS NOT NULL
-    `).all() as NodeRow[];
+    `)
+      .all() as NodeRow[];
 
     for (const sym of symbolRows) {
       if (!sym.file_path) continue;
       // Check if this symbol belongs to a changed file
       let inChangedFile = false;
       for (const cp of changedFilePaths) {
-        if (sym.file_path === cp || sym.file_path.endsWith('/' + cp) || sym.file_path.endsWith('\\' + cp)) {
+        if (
+          sym.file_path === cp ||
+          sym.file_path.endsWith(`/${cp}`) ||
+          sym.file_path.endsWith(`\\${cp}`)
+        ) {
           inChangedFile = true;
           break;
         }
@@ -129,8 +143,13 @@ export function runAudit(
       if (!inChangedFile) continue;
 
       let props: Record<string, unknown> = {};
-      try { props = sym.properties ? JSON.parse(sym.properties) : {}; } catch { continue; }
-      const cc: number = typeof props.cyclomaticComplexity === 'number' ? props.cyclomaticComplexity : 0;
+      try {
+        props = sym.properties ? JSON.parse(sym.properties) : {};
+      } catch {
+        continue;
+      }
+      const cc: number =
+        typeof props.cyclomaticComplexity === 'number' ? props.cyclomaticComplexity : 0;
       if (cc > 10) complexityFindings++;
       if (cc > maxCyclomatic) maxCyclomatic = cc;
     }
@@ -139,11 +158,13 @@ export function runAudit(
   // ── Step 5: Clone groups (STRUCTURALLY_SIMILAR edges between changed files) ──
   let duplicationCloneGroups = 0;
   if (changedNodeIds.size > 0) {
-    const cloneEdges = db.prepare(`
+    const cloneEdges = db
+      .prepare(`
       SELECT source_id, target_id
       FROM edges
       WHERE relation = 'STRUCTURALLY_SIMILAR'
-    `).all() as EdgeRow[];
+    `)
+      .all() as EdgeRow[];
 
     for (const edge of cloneEdges) {
       if (changedNodeIds.has(edge.source_id) && changedNodeIds.has(edge.target_id)) {
@@ -156,17 +177,19 @@ export function runAudit(
   let cycleCount = 0;
   if (changedNodeIds.size > 0) {
     // Build adjacency for changed files
-    const importEdges = db.prepare(`
+    const importEdges = db
+      .prepare(`
       SELECT source_id, target_id
       FROM edges
       WHERE relation = 'IMPORTS'
-    `).all() as EdgeRow[];
+    `)
+      .all() as EdgeRow[];
 
     // For a simplified cycle check: count changed files where there's a mutual import
     const importMap = new Map<string, Set<string>>();
     for (const edge of importEdges) {
       if (!importMap.has(edge.source_id)) importMap.set(edge.source_id, new Set());
-      importMap.get(edge.source_id)!.add(edge.target_id);
+      importMap.get(edge.source_id)?.add(edge.target_id);
     }
 
     const counted = new Set<string>();

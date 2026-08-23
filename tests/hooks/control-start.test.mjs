@@ -3,12 +3,13 @@
  * Spawn-based: script calls process.exit(0) in main().
  * Uses CLAUDE_PROJECT_DIR env to control where control.json is read/written.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawnSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/control-start.cjs');
@@ -22,19 +23,29 @@ function run({ cwd, env } = {}) {
     // probe, lock, control.json write, log lines) WITHOUT spawning a real
     // detached server — real spawns from this suite leaked ~900 orphan server
     // processes on isolated ports and exhausted the machine's process table.
-    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd || os.tmpdir(), MONOMIND_CONTROL_NO_SPAWN: '1', MONOMIND_HOOK_QUIET: '', ...env },
+    env: {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: cwd || os.tmpdir(),
+      MONOMIND_CONTROL_NO_SPAWN: '1',
+      MONOMIND_HOOK_QUIET: '',
+      ...env,
+    },
   });
 }
 
 function writeControlJson(dir, pid, port = 4242) {
   const statusFile = path.join(dir, '.monomind', 'control.json');
   fs.mkdirSync(path.dirname(statusFile), { recursive: true });
-  fs.writeFileSync(statusFile, JSON.stringify({
-    pid,
-    port,
-    url: `http://localhost:${port}`,
-    startedAt: new Date().toISOString(),
-  }), 'utf-8');
+  fs.writeFileSync(
+    statusFile,
+    JSON.stringify({
+      pid,
+      port,
+      url: `http://localhost:${port}`,
+      startedAt: new Date().toISOString(),
+    }),
+    'utf-8',
+  );
 }
 
 function readControlJson(dir) {
@@ -68,7 +79,9 @@ afterEach(() => {
   try {
     const data = readControlJson(tmpDir);
     if (data.pid && data.pid !== process.pid) process.kill(data.pid, 'SIGTERM');
-  } catch { /* no control.json, or pid already gone — fine */ }
+  } catch {
+    /* no control.json, or pid already gone — fine */
+  }
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -106,7 +119,7 @@ describe('control-start: stale-token pairing self-heals instead of being trusted
   // healthy one — the "already running" check trusted it and exited 0
   // without ever actually being able to talk to it.
   it('treats a 401 from the recorded port as stale and attempts a restart, not "already running"', async () => {
-    const { spawn } = await import('child_process');
+    const { spawn } = await import('node:child_process');
     const port = isolatedPort();
     // run() below uses spawnSync, which blocks this test process's entire
     // event loop until control-start.cjs exits — an in-process
@@ -115,14 +128,17 @@ describe('control-start: stale-token pairing self-heals instead of being trusted
     // has to live in its own separate process so its event loop keeps
     // running independently of this one being blocked.
     const mockScript = path.join(tmpDir, 'mock401.cjs');
-    fs.writeFileSync(mockScript, `
+    fs.writeFileSync(
+      mockScript,
+      `
       const http = require('http');
       const server = http.createServer((req, res) => {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
       });
       server.listen(${port}, 'localhost', () => process.stderr.write('READY'));
-    `);
+    `,
+    );
     const mock = spawn(process.execPath, [mockScript], { stdio: ['ignore', 'ignore', 'pipe'] });
     await new Promise((resolve) => mock.stderr.on('data', resolve));
     // control-start.cjs's own staleAuth restart path SIGTERMs the recorded
@@ -151,17 +167,20 @@ describe('control-start: stale-token pairing self-heals instead of being trusted
   // into control.json and printed "adopted running server (pid unknown)" —
   // silently leaving the mismatch in place instead of moving past it.
   it('does not adopt a 401-rejecting server as if it were healthy', async () => {
-    const { spawn } = await import('child_process');
+    const { spawn } = await import('node:child_process');
     const port = isolatedPort();
     const mockScript = path.join(tmpDir, 'mock401-adopt.cjs');
-    fs.writeFileSync(mockScript, `
+    fs.writeFileSync(
+      mockScript,
+      `
       const http = require('http');
       const server = http.createServer((req, res) => {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized: missing or invalid auth token' }));
       });
       server.listen(${port}, 'localhost', () => process.stderr.write('READY'));
-    `);
+    `,
+    );
     const mock = spawn(process.execPath, [mockScript], { stdio: ['ignore', 'ignore', 'pipe'] });
     await new Promise((resolve) => mock.stderr.on('data', resolve));
     try {
@@ -302,7 +321,7 @@ describe('control-start: foreign-server pairing works without lsof (Windows regr
   // portable HTTP round trip (GET / for the open mm-token, then an
   // authenticated GET /api/status for pid+dir) that works on every platform.
   it('pairs dashboard-token and known-projects.json via HTTP only, using a dead childPid to force the foreign-server path', async () => {
-    const { spawn } = await import('child_process');
+    const { spawn } = await import('node:child_process');
     const port = isolatedPort();
     const mockAuth = 'fixture-' + 'pairing-test-value';
     const serverHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cs-serverhome-'));
@@ -311,7 +330,9 @@ describe('control-start: foreign-server pairing works without lsof (Windows regr
     fs.mkdirSync(path.join(serverHomeDir, 'data'), { recursive: true });
 
     const mockScript = path.join(tmpDir, 'mock-foreign-server.cjs');
-    fs.writeFileSync(mockScript, `
+    fs.writeFileSync(
+      mockScript,
+      `
       const http = require('http');
       const AUTH_VALUE = ${JSON.stringify(mockAuth)};
       const server = http.createServer((req, res) => {
@@ -334,7 +355,8 @@ describe('control-start: foreign-server pairing works without lsof (Windows regr
         res.writeHead(404); res.end('Not found');
       });
       server.listen(${port}, 'localhost', () => process.stderr.write('READY'));
-    `);
+    `,
+    );
     const mock = spawn(process.execPath, [mockScript], { stdio: ['ignore', 'ignore', 'pipe'] });
     await new Promise((resolve) => mock.stderr.on('data', resolve));
 
@@ -359,7 +381,9 @@ describe('control-start: foreign-server pairing works without lsof (Windows regr
         },
       });
 
-      expect(r.stdout).toContain('paired dashboard token and registered this project with the shared server');
+      expect(r.stdout).toContain(
+        'paired dashboard token and registered this project with the shared server',
+      );
 
       const dstTok = path.join(tmpDir, '.monomind', 'dashboard-token');
       expect(fs.readFileSync(dstTok, 'utf-8')).toBe(mockAuth);

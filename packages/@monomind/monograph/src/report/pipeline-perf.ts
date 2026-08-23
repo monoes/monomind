@@ -20,10 +20,22 @@ export interface PipelineTimings {
 }
 
 export const ZERO_PIPELINE_TIMINGS: PipelineTimings = {
-  discoverFilesMs: 0, fileCount: 0, workspacesMs: 0, workspaceCount: 0,
-  pluginsMs: 0, scriptAnalysisMs: 0, parseExtractMs: 0, moduleCount: 0,
-  cacheHits: 0, cacheMisses: 0, cacheUpdateMs: 0, entryPointsMs: 0,
-  entryPointCount: 0, resolveImportsMs: 0, buildGraphMs: 0, analyzeMs: 0,
+  discoverFilesMs: 0,
+  fileCount: 0,
+  workspacesMs: 0,
+  workspaceCount: 0,
+  pluginsMs: 0,
+  scriptAnalysisMs: 0,
+  parseExtractMs: 0,
+  moduleCount: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  cacheUpdateMs: 0,
+  entryPointsMs: 0,
+  entryPointCount: 0,
+  resolveImportsMs: 0,
+  buildGraphMs: 0,
+  analyzeMs: 0,
   totalMs: 0,
 };
 

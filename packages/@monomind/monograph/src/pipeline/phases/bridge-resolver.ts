@@ -1,10 +1,10 @@
-import type { PipelinePhase } from '../types.js';
-import type { MonographEdge } from '../../types.js';
-import { makeId, CONFIDENCE_SCORE } from '../../types.js';
 import { insertEdges } from '../../storage/edge-store.js';
-import type { ScanOutput } from './scan.js';
+import type { MonographEdge } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import { BUILTIN_BRIDGE_ADAPTERS } from './bridge-adapters/registry.js';
 import type { BridgeEndpoint } from './bridge-adapters/types.js';
+import type { ScanOutput } from './scan.js';
 
 export interface BridgeResolverOutput {
   edgesCreated: number;
@@ -52,7 +52,7 @@ export const bridgeResolverPhase: PipelinePhase<BridgeResolverOutput> = {
 
       for (const callSite of callSites) {
         const matches = definitionsByKey.get(callSite.key);
-        if (!matches || matches.length !== 1) continue; // 0 or ambiguous — drop, don't guess
+        if (matches?.length !== 1) continue; // 0 or ambiguous — drop, don't guess
         const target = matches[0]!;
         if (target.nodeId === callSite.nodeId) continue; // same node on both sides — nothing to link
 
@@ -66,7 +66,13 @@ export const bridgeResolverPhase: PipelinePhase<BridgeResolverOutput> = {
           confidence: 'INFERRED',
           confidenceScore: CONFIDENCE_SCORE.INFERRED,
           reason: `${adapter.name} bridge (${languagePair}): "${callSite.key}"`,
-          evidence: [{ kind: 'bridge', weight: CONFIDENCE_SCORE.INFERRED, note: `${adapter.name}: ${languagePair}` }],
+          evidence: [
+            {
+              kind: 'bridge',
+              weight: CONFIDENCE_SCORE.INFERRED,
+              note: `${adapter.name}: ${languagePair}`,
+            },
+          ],
         });
       }
     }

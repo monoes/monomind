@@ -1,8 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import {
-  dependencyHealth,
-  type DependencyHealthInput,
-} from '../../analysis/dependency-health.js';
+import { describe, expect, it } from 'vitest';
+import { type DependencyHealthInput, dependencyHealth } from '../../analysis/dependency-health.js';
 
 describe('dependencyHealth', () => {
   it('returns score 1 for a perfectly healthy small graph', () => {
@@ -31,10 +28,7 @@ describe('dependencyHealth', () => {
     };
     const withCycle: DependencyHealthInput = {
       ...baseline,
-      edges: [
-        ...baseline.edges,
-        { sourceId: 'c', targetId: 'a' },
-      ],
+      edges: [...baseline.edges, { sourceId: 'c', targetId: 'a' }],
       cycleCount: 1,
     };
     expect(dependencyHealth(withCycle).score).toBeLessThan(dependencyHealth(baseline).score);
@@ -54,7 +48,7 @@ describe('dependencyHealth', () => {
   it('penalizes high fan-in concentration (god nodes)', () => {
     // One node targeted by all others → god node
     const nodes = ['a', 'b', 'c', 'd', 'e', 'hub'];
-    const edges = nodes.slice(0, 5).map(n => ({ sourceId: n, targetId: 'hub' }));
+    const edges = nodes.slice(0, 5).map((n) => ({ sourceId: n, targetId: 'hub' }));
     const input: DependencyHealthInput = {
       nodes,
       edges,
@@ -69,7 +63,10 @@ describe('dependencyHealth', () => {
   it('returns score in [0, 1] range', () => {
     const input: DependencyHealthInput = {
       nodes: ['a', 'b'],
-      edges: [{ sourceId: 'a', targetId: 'b' }, { sourceId: 'b', targetId: 'a' }],
+      edges: [
+        { sourceId: 'a', targetId: 'b' },
+        { sourceId: 'b', targetId: 'a' },
+      ],
       cycleCount: 1,
       deadNodeCount: 1,
     };

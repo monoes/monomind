@@ -1,8 +1,8 @@
 export type DepCategory =
-  | "dependencies"
-  | "devDependencies"
-  | "optionalDependencies"
-  | "peerDependencies";
+  | 'dependencies'
+  | 'devDependencies'
+  | 'optionalDependencies'
+  | 'peerDependencies';
 
 export interface UnusedDepResult {
   name: string;
@@ -24,15 +24,15 @@ export interface DepCategoryConfig {
 export function findUnusedDependencies(
   usedPackages: Set<string>,
   declaredDeps: Record<DepCategory, string[]>,
-  config: DepCategoryConfig = {}
+  config: DepCategoryConfig = {},
 ): UnusedDepResult[] {
   const results: UnusedDepResult[] = [];
 
   const categories: Array<{ key: DepCategory; skip?: boolean }> = [
-    { key: "dependencies" },
-    { key: "devDependencies", skip: config.skipDev },
-    { key: "optionalDependencies", skip: config.skipOptional },
-    { key: "peerDependencies", skip: config.skipPeer },
+    { key: 'dependencies' },
+    { key: 'devDependencies', skip: config.skipDev },
+    { key: 'optionalDependencies', skip: config.skipOptional },
+    { key: 'peerDependencies', skip: config.skipPeer },
   ];
 
   for (const { key, skip } of categories) {
@@ -54,7 +54,7 @@ export function findUnusedDependencies(
 
 export function findUnresolvedImports(
   importSpecifiers: Array<{ specifier: string; filePath: string }>,
-  resolvedPackages: Set<string>
+  resolvedPackages: Set<string>,
 ): UnresolvedImportResult[] {
   return importSpecifiers.filter(({ specifier }) => !resolvedPackages.has(specifier));
 }
@@ -62,9 +62,7 @@ export function findUnresolvedImports(
 export function findTypeOnlyDependencies(
   usedInProduction: Set<string>,
   usedInTypes: Set<string>,
-  deps: string[]
+  deps: string[],
 ): string[] {
-  return deps.filter(
-    (dep) => !usedInProduction.has(dep) && usedInTypes.has(dep)
-  );
+  return deps.filter((dep) => !usedInProduction.has(dep) && usedInTypes.has(dep));
 }

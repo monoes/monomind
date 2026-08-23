@@ -3,18 +3,18 @@
  * Node, npm, git, disk, TypeScript, Claude CLI, version freshness
  */
 
-import { existsSync, readFileSync, statSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { execSync, exec } from 'child_process';
-import { promisify } from 'util';
+import { exec, execSync } from 'node:child_process';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { output } from '../output.js';
 
-export const MAX_DOCTOR_PKG_BYTES     = 1024 * 1024;       // 1 MB
-export const MAX_DOCTOR_CONFIG_BYTES  = 10 * 1024 * 1024;  // 10 MB
-export const MAX_DOCTOR_GITIGNORE_BYTES = 512 * 1024;      // 512 KB
-export const MAX_DOCTOR_PID_BYTES     = 64;                 // 64 bytes
-export const MAX_DOCTOR_HELPER_BYTES  = 2 * 1024 * 1024;   // 2 MB
+export const MAX_DOCTOR_PKG_BYTES = 1024 * 1024; // 1 MB
+export const MAX_DOCTOR_CONFIG_BYTES = 10 * 1024 * 1024; // 10 MB
+export const MAX_DOCTOR_GITIGNORE_BYTES = 512 * 1024; // 512 KB
+export const MAX_DOCTOR_PID_BYTES = 64; // 64 bytes
+export const MAX_DOCTOR_HELPER_BYTES = 2 * 1024 * 1024; // 2 MB
 
 const execAsync = promisify(exec);
 
@@ -41,11 +41,25 @@ export async function checkNodeVersion(): Promise<HealthCheck> {
   const version = process.version;
   const major = parseInt(version.slice(1).split('.')[0], 10);
   if (major >= requiredMajor) {
-    return { name: 'Node.js Version', status: 'pass', message: `${version} (>= ${requiredMajor} required)` };
+    return {
+      name: 'Node.js Version',
+      status: 'pass',
+      message: `${version} (>= ${requiredMajor} required)`,
+    };
   } else if (major >= 18) {
-    return { name: 'Node.js Version', status: 'warn', message: `${version} (>= ${requiredMajor} recommended)`, fix: 'nvm install 20 && nvm use 20' };
+    return {
+      name: 'Node.js Version',
+      status: 'warn',
+      message: `${version} (>= ${requiredMajor} recommended)`,
+      fix: 'nvm install 20 && nvm use 20',
+    };
   }
-  return { name: 'Node.js Version', status: 'fail', message: `${version} (>= ${requiredMajor} required)`, fix: 'nvm install 20 && nvm use 20' };
+  return {
+    name: 'Node.js Version',
+    status: 'fail',
+    message: `${version} (>= ${requiredMajor} required)`,
+    fix: 'nvm install 20 && nvm use 20',
+  };
 }
 
 export async function checkNpmVersion(): Promise<HealthCheck> {
@@ -53,7 +67,12 @@ export async function checkNpmVersion(): Promise<HealthCheck> {
     const version = await runCommand('npm --version');
     const major = parseInt(version.split('.')[0], 10);
     if (major >= 9) return { name: 'npm Version', status: 'pass', message: `v${version}` };
-    return { name: 'npm Version', status: 'warn', message: `v${version} (>= 9 recommended)`, fix: 'npm install -g npm@latest' };
+    return {
+      name: 'npm Version',
+      status: 'warn',
+      message: `v${version} (>= 9 recommended)`,
+      fix: 'npm install -g npm@latest',
+    };
   } catch (err) {
     // Don't collapse every failure mode (timeout, non-zero exit, spawn error,
     // genuine absence) into the same "npm not found" message — it's actively
@@ -61,13 +80,28 @@ export async function checkNpmVersion(): Promise<HealthCheck> {
     // next occurrence to diagnose from (#131).
     const e = err as NodeJS.ErrnoException & { killed?: boolean; signal?: string | null };
     if (e?.killed || e?.signal) {
-      return { name: 'npm Version', status: 'fail', message: 'npm --version timed out', fix: 'Re-run `monomind doctor` — if this persists, check for a slow/misconfigured npm config or proxy' };
+      return {
+        name: 'npm Version',
+        status: 'fail',
+        message: 'npm --version timed out',
+        fix: 'Re-run `monomind doctor` — if this persists, check for a slow/misconfigured npm config or proxy',
+      };
     }
     if (e?.code === 'ENOENT') {
-      return { name: 'npm Version', status: 'fail', message: 'npm not found', fix: 'Install Node.js from https://nodejs.org' };
+      return {
+        name: 'npm Version',
+        status: 'fail',
+        message: 'npm not found',
+        fix: 'Install Node.js from https://nodejs.org',
+      };
     }
     const detail = e instanceof Error ? e.message : String(e);
-    return { name: 'npm Version', status: 'fail', message: `npm check failed (${detail})`, fix: 'Run `npm --version` manually to see the underlying error' };
+    return {
+      name: 'npm Version',
+      status: 'fail',
+      message: `npm check failed (${detail})`,
+      fix: 'Run `npm --version` manually to see the underlying error',
+    };
   }
 }
 
@@ -76,7 +110,12 @@ export async function checkGit(): Promise<HealthCheck> {
     const version = await runCommand('git --version');
     return { name: 'Git', status: 'pass', message: version.replace('git version ', 'v') };
   } catch {
-    return { name: 'Git', status: 'warn', message: 'Not installed', fix: 'Install git from https://git-scm.com' };
+    return {
+      name: 'Git',
+      status: 'warn',
+      message: 'Not installed',
+      fix: 'Install git from https://git-scm.com',
+    };
   }
 }
 
@@ -85,20 +124,42 @@ export async function checkGitRepo(): Promise<HealthCheck> {
     await runCommand('git rev-parse --git-dir');
     return { name: 'Git Repository', status: 'pass', message: 'In a git repository' };
   } catch {
-    return { name: 'Git Repository', status: 'warn', message: 'Not a git repository', fix: 'git init' };
+    return {
+      name: 'Git Repository',
+      status: 'warn',
+      message: 'Not a git repository',
+      fix: 'git init',
+    };
   }
 }
 
 export async function checkDiskSpace(): Promise<HealthCheck> {
   try {
-    if (process.platform === 'win32') return { name: 'Disk Space', status: 'pass', message: 'Check skipped on Windows' };
+    if (process.platform === 'win32')
+      return { name: 'Disk Space', status: 'pass', message: 'Check skipped on Windows' };
     const output_str = await runCommand('df -Ph . | tail -1');
     const parts = output_str.split(/\s+/);
     const available = parts[3];
     const usePercent = parseInt(parts[4]?.replace('%', '') || '0', 10);
-    if (isNaN(usePercent)) return { name: 'Disk Space', status: 'warn', message: `${available || 'unknown'} available (unable to parse usage)` };
-    if (usePercent > 90) return { name: 'Disk Space', status: 'fail', message: `${available} available (${usePercent}% used)`, fix: 'Free up disk space' };
-    if (usePercent > 80) return { name: 'Disk Space', status: 'warn', message: `${available} available (${usePercent}% used)` };
+    if (Number.isNaN(usePercent))
+      return {
+        name: 'Disk Space',
+        status: 'warn',
+        message: `${available || 'unknown'} available (unable to parse usage)`,
+      };
+    if (usePercent > 90)
+      return {
+        name: 'Disk Space',
+        status: 'fail',
+        message: `${available} available (${usePercent}% used)`,
+        fix: 'Free up disk space',
+      };
+    if (usePercent > 80)
+      return {
+        name: 'Disk Space',
+        status: 'warn',
+        message: `${available} available (${usePercent}% used)`,
+      };
     return { name: 'Disk Space', status: 'pass', message: `${available} available` };
   } catch {
     return { name: 'Disk Space', status: 'warn', message: 'Unable to check' };
@@ -109,16 +170,30 @@ export async function checkBuildTools(): Promise<HealthCheck> {
   // Only meaningful for Node/TS projects — a Go, Python, or Rust repo has no
   // reason to install TypeScript, and warning about it there is just noise.
   if (!existsSync(join(process.cwd(), 'package.json'))) {
-    return { name: 'TypeScript', status: 'pass', message: 'N/A — no package.json (not a Node.js project)' };
+    return {
+      name: 'TypeScript',
+      status: 'pass',
+      message: 'N/A — no package.json (not a Node.js project)',
+    };
   }
   try {
     const tscVersion = await runCommand('npx tsc --version', 10000);
     if (!tscVersion || tscVersion.includes('not found')) {
-      return { name: 'TypeScript', status: 'warn', message: 'Not installed locally', fix: 'npm install -D typescript' };
+      return {
+        name: 'TypeScript',
+        status: 'warn',
+        message: 'Not installed locally',
+        fix: 'npm install -D typescript',
+      };
     }
     return { name: 'TypeScript', status: 'pass', message: tscVersion.replace('Version ', 'v') };
   } catch {
-    return { name: 'TypeScript', status: 'warn', message: 'Not installed locally', fix: 'npm install -D typescript' };
+    return {
+      name: 'TypeScript',
+      status: 'warn',
+      message: 'Not installed locally',
+      fix: 'npm install -D typescript',
+    };
   }
 }
 
@@ -133,28 +208,42 @@ export async function checkVersionFreshness(): Promise<HealthCheck> {
         try {
           if (existsSync(candidate) && statSync(candidate).size <= MAX_DOCTOR_PKG_BYTES) {
             const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
-            if (pkg.version && typeof pkg.name === 'string' &&
-                (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === '@monoes/monomindcli')) {
+            if (
+              pkg.version &&
+              typeof pkg.name === 'string' &&
+              (pkg.name === '@monomind/cli' ||
+                pkg.name === 'monomind' ||
+                pkg.name === '@monoes/monomindcli')
+            ) {
               currentVersion = pkg.version;
               break;
             }
           }
-        } catch { /* keep walking */ }
+        } catch {
+          /* keep walking */
+        }
         const parent = dirname(dir);
         if (parent === dir) break;
         dir = parent;
       }
-    } catch { currentVersion = '0.0.0'; }
+    } catch {
+      currentVersion = '0.0.0';
+    }
 
-    const isNpx = process.argv[1]?.includes('_npx') ||
-                  process.env.npm_execpath?.includes('npx') ||
-                  process.cwd().includes('_npx');
+    const isNpx =
+      process.argv[1]?.includes('_npx') ||
+      process.env.npm_execpath?.includes('npx') ||
+      process.cwd().includes('_npx');
 
     let latestVersion = currentVersion;
     try {
       latestVersion = (await runCommand('npm view monomind version', 5000)).trim();
     } catch {
-      return { name: 'Version Freshness', status: 'warn', message: `v${currentVersion} (cannot check registry)` };
+      return {
+        name: 'Version Freshness',
+        status: 'warn',
+        message: `v${currentVersion} (cannot check registry)`,
+      };
     }
 
     const parseVer = (v: string) => {
@@ -164,21 +253,36 @@ export async function checkVersionFreshness(): Promise<HealthCheck> {
     };
     const cur = parseVer(currentVersion);
     const lat = parseVer(latestVersion);
-    const outdated = lat.major > cur.major || (lat.major === cur.major && lat.minor > cur.minor) ||
+    const outdated =
+      lat.major > cur.major ||
+      (lat.major === cur.major && lat.minor > cur.minor) ||
       (lat.major === cur.major && lat.minor === cur.minor && lat.patch > cur.patch) ||
-      (lat.major === cur.major && lat.minor === cur.minor && lat.patch === cur.patch && lat.pre > cur.pre);
+      (lat.major === cur.major &&
+        lat.minor === cur.minor &&
+        lat.patch === cur.patch &&
+        lat.pre > cur.pre);
 
     if (outdated) {
       return {
         name: 'Version Freshness',
         status: 'warn',
         message: `v${currentVersion} (latest: v${latestVersion})${isNpx ? ' [npx cache stale]' : ''}`,
-        fix: isNpx ? 'rm -rf ~/.npm/_npx/* && npx -y monomind@latest doctor' : 'npm update -g monomind',
+        fix: isNpx
+          ? 'rm -rf ~/.npm/_npx/* && npx -y monomind@latest doctor'
+          : 'npm update -g monomind',
       };
     }
-    return { name: 'Version Freshness', status: 'pass', message: `v${currentVersion} (up to date)` };
+    return {
+      name: 'Version Freshness',
+      status: 'pass',
+      message: `v${currentVersion} (up to date)`,
+    };
   } catch {
-    return { name: 'Version Freshness', status: 'warn', message: 'Unable to check version freshness' };
+    return {
+      name: 'Version Freshness',
+      status: 'warn',
+      message: 'Unable to check version freshness',
+    };
   }
 }
 
@@ -188,7 +292,12 @@ export async function checkClaudeCode(): Promise<HealthCheck> {
     const m = version.match(/v?(\d+\.\d+\.\d+)/);
     return { name: 'Claude Code CLI', status: 'pass', message: m ? `v${m[1]}` : version };
   } catch {
-    return { name: 'Claude Code CLI', status: 'warn', message: 'Not installed', fix: 'npm install -g @anthropic-ai/claude-code' };
+    return {
+      name: 'Claude Code CLI',
+      status: 'warn',
+      message: 'Not installed',
+      fix: 'npm install -g @anthropic-ai/claude-code',
+    };
   }
 }
 

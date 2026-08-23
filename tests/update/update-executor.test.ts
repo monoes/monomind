@@ -11,7 +11,7 @@
 // The executor passes --ignore-scripts and a timeout to execFileAsync.
 // Tests below verify these security hardening measures.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — vi.hoisted() runs BEFORE vi.mock hoisting, so refs are valid
@@ -44,13 +44,12 @@ vi.mock('fs', () => ({
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
 
+import type { UpdateCheckResult } from '../../packages/@monomind/cli/src/update/checker.js';
 import {
   executeUpdate,
   loadHistory,
   rollbackUpdate,
-  clearHistory,
 } from '../../packages/@monomind/cli/src/update/executor.js';
-import type { UpdateCheckResult } from '../../packages/@monomind/cli/src/update/checker.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,15 +70,15 @@ function makeUpdate(overrides: Partial<UpdateCheckResult> = {}): UpdateCheckResu
 /** Make execFile resolve successfully. */
 function execFileResolves() {
   execFileMock.mockImplementation(
-    (_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => cb(null)
+    (_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) => cb(null),
   );
 }
 
 /** Make execFile reject with an error. */
-function execFileRejects(msg = 'npm failed') {
+function _execFileRejects(msg = 'npm failed') {
   execFileMock.mockImplementation(
     (_cmd: string, _args: string[], _opts: unknown, cb: (err: Error | null) => void) =>
-      cb(new Error(msg))
+      cb(new Error(msg)),
   );
 }
 
@@ -126,19 +125,13 @@ describe('executeUpdate — security boundaries', () => {
   // ---- validates package name before exec ----
 
   it('rejects a package name with shell metacharacters before calling npm', async () => {
-    const result = await executeUpdate(
-      makeUpdate({ package: 'pkg;rm -rf /' }),
-      {}
-    );
+    const result = await executeUpdate(makeUpdate({ package: 'pkg;rm -rf /' }), {});
     expect(result.success).toBe(false);
     expect(execFileMock).not.toHaveBeenCalled();
   });
 
   it('rejects a package name with backticks', async () => {
-    const result = await executeUpdate(
-      makeUpdate({ package: '`whoami`' }),
-      {}
-    );
+    const result = await executeUpdate(makeUpdate({ package: '`whoami`' }), {});
     expect(result.success).toBe(false);
     expect(execFileMock).not.toHaveBeenCalled();
   });
@@ -146,10 +139,7 @@ describe('executeUpdate — security boundaries', () => {
   // ---- validates version before exec ----
 
   it('rejects a version string containing path traversal', async () => {
-    const result = await executeUpdate(
-      makeUpdate({ latestVersion: '../../etc/passwd' }),
-      {}
-    );
+    const result = await executeUpdate(makeUpdate({ latestVersion: '../../etc/passwd' }), {});
     expect(result.success).toBe(false);
     expect(execFileMock).not.toHaveBeenCalled();
   });
@@ -157,7 +147,7 @@ describe('executeUpdate — security boundaries', () => {
   it('rejects a version string that is a URL', async () => {
     const result = await executeUpdate(
       makeUpdate({ latestVersion: 'https://evil.com/malware.tgz' }),
-      {}
+      {},
     );
     expect(result.success).toBe(false);
     expect(execFileMock).not.toHaveBeenCalled();
@@ -210,7 +200,7 @@ describe('loadHistory — tamper resistance', () => {
           success: true,
           rollbackAvailable: true,
         },
-      ])
+      ]),
     );
     const history = loadHistory();
     expect(history).toHaveLength(0);
@@ -229,7 +219,7 @@ describe('loadHistory — tamper resistance', () => {
           success: true,
           rollbackAvailable: true,
         },
-      ])
+      ]),
     );
     const history = loadHistory();
     expect(history).toHaveLength(0);
@@ -248,7 +238,7 @@ describe('loadHistory — tamper resistance', () => {
           success: true,
           rollbackAvailable: true,
         },
-      ])
+      ]),
     );
     const history = loadHistory();
     expect(history).toHaveLength(1);
@@ -304,7 +294,7 @@ describe('rollbackUpdate — security', () => {
           success: true,
           rollbackAvailable: true,
         },
-      ])
+      ]),
     );
     execFileResolves();
 
@@ -342,7 +332,9 @@ describe('rate limiter — cooldown and daily cap', () => {
 
   it('blocks checks in CI environments', async () => {
     process.env.CI = 'true';
-    const { reserveCheck } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
+    const { reserveCheck } = await import(
+      '../../packages/@monomind/cli/src/update/rate-limiter.js'
+    );
     const result = reserveCheck();
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('CI');
@@ -350,7 +342,9 @@ describe('rate limiter — cooldown and daily cap', () => {
 
   it('blocks checks when auto-update is disabled via env', async () => {
     process.env.MONOMIND_AUTO_UPDATE = 'false';
-    const { reserveCheck } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
+    const { reserveCheck } = await import(
+      '../../packages/@monomind/cli/src/update/rate-limiter.js'
+    );
     const result = reserveCheck();
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('disabled');
@@ -365,9 +359,11 @@ describe('rate limiter — cooldown and daily cap', () => {
         checksToday: 10,
         date: new Date().toISOString().split('T')[0],
         packageVersions: {},
-      })
+      }),
     );
-    const { reserveCheck } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
+    const { reserveCheck } = await import(
+      '../../packages/@monomind/cli/src/update/rate-limiter.js'
+    );
     const result = reserveCheck();
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('Daily check limit');
@@ -383,9 +379,11 @@ describe('rate limiter — cooldown and daily cap', () => {
         checksToday: 1,
         date: new Date().toISOString().split('T')[0],
         packageVersions: {},
-      })
+      }),
     );
-    const { reserveCheck } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
+    const { reserveCheck } = await import(
+      '../../packages/@monomind/cli/src/update/rate-limiter.js'
+    );
     const result = reserveCheck(24); // 24-hour interval
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('Last check was');
@@ -401,9 +399,11 @@ describe('rate limiter — cooldown and daily cap', () => {
         checksToday: 1,
         date: new Date().toISOString().split('T')[0],
         packageVersions: {},
-      })
+      }),
     );
-    const { reserveCheck } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
+    const { reserveCheck } = await import(
+      '../../packages/@monomind/cli/src/update/rate-limiter.js'
+    );
     const result = reserveCheck(24);
     expect(result.allowed).toBe(true);
   });
@@ -428,7 +428,7 @@ describe('rate limiter — cooldown and daily cap', () => {
         date: new Date().toISOString().split('T')[0],
         packageVersions: {},
         __proto__: { polluted: true },
-      })
+      }),
     );
     const { loadState } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
     const state = loadState();
@@ -449,7 +449,7 @@ describe('rate limiter — cooldown and daily cap', () => {
         checksToday: 0,
         date: new Date().toISOString().split('T')[0],
         packageVersions: versions,
-      })
+      }),
     );
     const { loadState } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
     const state = loadState();
@@ -465,14 +465,14 @@ describe('rate limiter — cooldown and daily cap', () => {
         checksToday: 0,
         date: new Date().toISOString().split('T')[0],
         packageVersions: {},
-      })
+      }),
     );
     const { recordCheck } = await import('../../packages/@monomind/cli/src/update/rate-limiter.js');
     recordCheck({
-      '__proto__': '1.0.0',
-      'constructor': '1.0.0',
-      'prototype': '1.0.0',
-      'monomind': '2.8.5',
+      __proto__: '1.0.0',
+      constructor: '1.0.0',
+      prototype: '1.0.0',
+      monomind: '2.8.5',
     });
     // The saveState call should have been made; check the written JSON
     expect(fsMock.writeFileSync).toHaveBeenCalled();

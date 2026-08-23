@@ -16,19 +16,20 @@ export interface GitHooksInstallResult {
 }
 
 const MANAGED_BLOCK_START = '# monograph-gate-start';
-const MANAGED_BLOCK_END   = '# monograph-gate-end';
+const MANAGED_BLOCK_END = '# monograph-gate-end';
 
 /** Detect which hooks manager is active in the project. */
 export function detectHooksManager(rootFiles: string[]): GitHooksManager {
-  if (rootFiles.some(f => f.includes('.husky/'))) return 'husky';
-  if (rootFiles.some(f => f.includes('lefthook.yml') || f.includes('lefthook.yaml'))) return 'lefthook';
-  if (rootFiles.some(f => f.includes('.git/hooks/'))) return 'raw';
+  if (rootFiles.some((f) => f.includes('.husky/'))) return 'husky';
+  if (rootFiles.some((f) => f.includes('lefthook.yml') || f.includes('lefthook.yaml')))
+    return 'lefthook';
+  if (rootFiles.some((f) => f.includes('.git/hooks/'))) return 'raw';
   return 'none';
 }
 
 /** Validate a branch name against shell injection. */
 export function validateBranchName(branch: string): boolean {
-  return /^[a-zA-Z0-9/_.\-]+$/.test(branch) && !branch.includes('..') && branch.length < 256;
+  return /^[a-zA-Z0-9/_.-]+$/.test(branch) && !branch.includes('..') && branch.length < 256;
 }
 
 /** Generate the pre-commit hook script content. */
@@ -55,7 +56,7 @@ export function mergeHookContent(existing: string, script: string): string {
   if (startIdx !== -1 && endIdx !== -1) {
     return existing.slice(0, startIdx) + script + existing.slice(endIdx + MANAGED_BLOCK_END.length);
   }
-  return existing ? existing + '\n' + script : script;
+  return existing ? `${existing}\n${script}` : script;
 }
 
 /** Remove the managed block from hook content. */
@@ -67,5 +68,8 @@ export function removeHookBlock(content: string): string {
 }
 
 export const GIT_HOOK_INSTALL_RESULT_NONE: GitHooksInstallResult = {
-  manager: 'none', installed: false, hookPath: '', message: 'No hooks manager detected',
+  manager: 'none',
+  installed: false,
+  hookPath: '',
+  message: 'No hooks manager detected',
 };

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { extractNamedBindings } from '../../parsers/named-bindings.js';
 
 describe('extractNamedBindings', () => {
@@ -13,7 +13,7 @@ export class UserController {
   create() {}
 }`;
     const bindings = extractNamedBindings(source, '/app/user.controller.ts', 'typescript');
-    const names = bindings.map(b => b.decoratorName);
+    const names = bindings.map((b) => b.decoratorName);
     expect(names).toContain('Controller');
     expect(names).toContain('Get');
     expect(names).toContain('Post');
@@ -29,7 +29,7 @@ def list_users():
 def profile():
     pass`;
     const bindings = extractNamedBindings(source, '/app/views.py', 'python');
-    const names = bindings.map(b => b.decoratorName);
+    const names = bindings.map((b) => b.decoratorName);
     expect(names).toContain('app.route');
     expect(names).toContain('login_required');
   });
@@ -43,7 +43,7 @@ public class UserApi {
   public List<User> list() { return null; }
 }`;
     const bindings = extractNamedBindings(source, '/src/UserApi.java', 'java');
-    const names = bindings.map(b => b.decoratorName);
+    const names = bindings.map((b) => b.decoratorName);
     expect(names).toContain('RestController');
     expect(names).toContain('RequestMapping');
     expect(names).toContain('GetMapping');
@@ -58,16 +58,16 @@ public class UserApi {
   it('includes line number in result', () => {
     const source = '\n\n@Injectable()\nexport class Service {}';
     const bindings = extractNamedBindings(source, '/app/svc.ts', 'typescript');
-    const inj = bindings.find(b => b.decoratorName === 'Injectable');
+    const inj = bindings.find((b) => b.decoratorName === 'Injectable');
     expect(inj).toBeDefined();
-    expect(inj!.line).toBe(3);
+    expect(inj?.line).toBe(3);
   });
 
   it('extracts decorator arguments', () => {
     const source = `@Module({ imports: [AuthModule] })\nexport class AppModule {}`;
     const bindings = extractNamedBindings(source, '/app.module.ts', 'typescript');
-    const mod = bindings.find(b => b.decoratorName === 'Module');
+    const mod = bindings.find((b) => b.decoratorName === 'Module');
     expect(mod).toBeDefined();
-    expect(mod!.hasArguments).toBe(true);
+    expect(mod?.hasArguments).toBe(true);
   });
 });

@@ -1,6 +1,12 @@
 export type ProgressPhase =
-  | 'discovery' | 'parse' | 'churn' | 'complexity'
-  | 'duplication' | 'scoring' | 'render' | 'complete';
+  | 'discovery'
+  | 'parse'
+  | 'churn'
+  | 'complexity'
+  | 'duplication'
+  | 'scoring'
+  | 'render'
+  | 'complete';
 
 export interface ProgressEvent {
   phase: ProgressPhase;
@@ -32,7 +38,11 @@ export class ProgressReporter {
       ...opts,
     };
     for (const cb of this.callbacks) {
-      try { cb(event); } catch { /* don't let progress errors crash the pipeline */ }
+      try {
+        cb(event);
+      } catch {
+        /* don't let progress errors crash the pipeline */
+      }
     }
   }
 
@@ -48,9 +58,10 @@ export class ProgressReporter {
 export function consoleProgressReporter(enabled: boolean): ProgressCallback {
   return (event) => {
     if (!enabled) return;
-    const pct = event.totalFiles && event.filesProcessed
-      ? ` (${Math.round(event.filesProcessed / event.totalFiles * 100)}%)`
-      : '';
+    const pct =
+      event.totalFiles && event.filesProcessed
+        ? ` (${Math.round((event.filesProcessed / event.totalFiles) * 100)}%)`
+        : '';
     const msg = event.message ?? `phase: ${event.phase}`;
     process.stderr.write(`\r  ${msg}${pct}   `);
     if (event.phase === 'complete') process.stderr.write('\n');

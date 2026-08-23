@@ -4,12 +4,13 @@
  *
  * Uses CLAUDE_PROJECT_DIR injection to isolate from production data.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -25,7 +26,9 @@ function loadIntl() {
   return require(INTL_PATH);
 }
 
-function getDataDir() { return path.join(tmpDir, '.monomind', 'data'); }
+function getDataDir() {
+  return path.join(tmpDir, '.monomind', 'data');
+}
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intl-routing-test-'));

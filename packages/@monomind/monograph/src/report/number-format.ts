@@ -37,9 +37,11 @@ export interface GroupedByFile {
   items: Array<{ name: string; line?: number; extra?: string }>;
 }
 
-export function buildGroupedByFile<T extends { filePath: string; exportName?: string; memberName?: string; line?: number }>(
+export function buildGroupedByFile<
+  T extends { filePath: string; exportName?: string; memberName?: string; line?: number },
+>(
   items: T[],
-  root: string,
+  _root: string,
   maxFiles: number = MAX_GROUPED_FILES,
   maxPerFile: number = MAX_FLAT_ITEMS,
 ): GroupedByFile[] {
@@ -50,13 +52,11 @@ export function buildGroupedByFile<T extends { filePath: string; exportName?: st
     else byFile.set(item.filePath, [item]);
   }
 
-  const sorted = [...byFile.entries()]
-    .sort((a, b) => b[1].length - a[1].length)
-    .slice(0, maxFiles);
+  const sorted = [...byFile.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, maxFiles);
 
   return sorted.map(([filePath, fileItems]) => ({
     filePath,
-    items: fileItems.slice(0, maxPerFile).map(i => ({
+    items: fileItems.slice(0, maxPerFile).map((i) => ({
       name: i.exportName ?? i.memberName ?? filePath,
       line: i.line,
     })),
@@ -64,7 +64,7 @@ export function buildGroupedByFile<T extends { filePath: string; exportName?: st
 }
 
 export function pluralize(count: number, singular: string, plural?: string): string {
-  return count === 1 ? singular : (plural ?? singular + 's');
+  return count === 1 ? singular : (plural ?? `${singular}s`);
 }
 
 export function summarizeTruncation(shown: number, total: number, noun: string): string | null {
@@ -73,9 +73,7 @@ export function summarizeTruncation(shown: number, total: number, noun: string):
 }
 
 export function formatCircularCycle(cycle: string[], root: string): string {
-  return cycle
-    .map(f => path.relative(root, f).replace(/\\/g, '/'))
-    .join(' → ');
+  return cycle.map((f) => path.relative(root, f).replace(/\\/g, '/')).join(' → ');
 }
 
 export function formatDuration(ms: number): string {

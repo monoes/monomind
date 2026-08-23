@@ -1,16 +1,16 @@
 export type CapabilityName = 'code' | 'documents' | 'media' | 'data' | 'graph' | 'timeline';
 
 export interface FileEntry {
-  path: string;        // relative to scan root
+  path: string; // relative to scan root
   absolutePath: string;
-  extension: string;   // lowercase, with dot: ".pdf"
-  size: number;        // bytes
+  extension: string; // lowercase, with dot: ".pdf"
+  size: number; // bytes
   modified: Date;
   created: Date;
 }
 
 export interface CapabilityScore {
-  confidence: number;  // 0-1
+  confidence: number; // 0-1
   files: number;
   signals: string[];
 }
@@ -19,7 +19,7 @@ export interface DirectoryScan {
   root: string;
   totalFiles: number;
   git: boolean;
-  scannedAt: string;   // ISO 8601
+  scannedAt: string; // ISO 8601
   capabilities: Record<CapabilityName, CapabilityScore>;
   filesByExtension: Record<string, number>;
 }

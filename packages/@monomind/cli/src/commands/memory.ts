@@ -9,63 +9,72 @@
  *   memory-transfer.ts — compress, export, import
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-
-import { storeCommand, retrieveCommand, searchCommand } from './memory-crud.js';
-import { listCommand, editCommand, templatesCommand } from './memory-list.js';
-import { deleteCommand, statsCommand, configureCommand } from './memory-admin.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import { configureCommand, deleteCommand, statsCommand } from './memory-admin.js';
+import { retrieveCommand, searchCommand, storeCommand } from './memory-crud.js';
+import { editCommand, listCommand, templatesCommand } from './memory-list.js';
 import { exportCommand, importCommand } from './memory-transfer.js';
 
 // Init subcommand - initialize memory database using sql.js
 const initMemoryCommand: Command = {
   name: 'init',
-  description: 'Initialize memory database with sql.js (WASM SQLite) - includes vector embeddings, pattern learning, temporal decay',
+  description:
+    'Initialize memory database with sql.js (WASM SQLite) - includes vector embeddings, pattern learning, temporal decay',
   options: [
     {
       name: 'backend',
       short: 'b',
       description: 'Backend type: hybrid (default), sqlite, or lancedb',
       type: 'string',
-      default: 'hybrid'
+      default: 'hybrid',
     },
     {
       name: 'path',
       short: 'p',
       description: 'Database path',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'force',
       short: 'f',
       description: 'Overwrite existing database',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'verbose',
       description: 'Show detailed initialization output',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'verify',
       description: 'Run verification tests after initialization',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'load-embeddings',
       description: 'Pre-load ONNX embedding model (lazy by default)',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind memory init', description: 'Initialize hybrid backend with all features' },
-    { command: 'monomind memory init -b lancedb', description: 'Initialize memory backend (legacy "lancedb" alias, now SQLite-backed)' },
-    { command: 'monomind memory init -p ./data/memory.db --force', description: 'Reinitialize at custom path' },
-    { command: 'monomind memory init --verbose --verify', description: 'Initialize with full verification' }
+    {
+      command: 'monomind memory init -b lancedb',
+      description: 'Initialize memory backend (legacy "lancedb" alias, now SQLite-backed)',
+    },
+    {
+      command: 'monomind memory init -p ./data/memory.db --force',
+      description: 'Reinitialize at custom path',
+    },
+    {
+      command: 'monomind memory init --verbose --verify',
+      description: 'Initialize with full verification',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const backend = (ctx.flags.backend as string) || 'hybrid';
@@ -84,13 +93,15 @@ const initMemoryCommand: Command = {
 
     try {
       // Import the memory initializer
-      const { initializeMemoryDatabase, loadEmbeddingModel, verifyMemoryInit } = await import('../memory/memory-initializer.js');
+      const { initializeMemoryDatabase, loadEmbeddingModel, verifyMemoryInit } = await import(
+        '../memory/memory-initializer.js'
+      );
 
       const result = await initializeMemoryDatabase({
         backend,
         dbPath: customPath,
         force,
-        verbose
+        verbose,
       });
 
       if (!result.success) {
@@ -103,15 +114,22 @@ const initMemoryCommand: Command = {
 
       // Lazy load or pre-load embedding model
       if (loadEmbeddings) {
-        const embeddingSpinner = output.createSpinner({ text: 'Loading embedding model...', spinner: 'dots' });
+        const embeddingSpinner = output.createSpinner({
+          text: 'Loading embedding model...',
+          spinner: 'dots',
+        });
         embeddingSpinner.start();
 
         const embeddingResult = await loadEmbeddingModel({ verbose });
 
         if (embeddingResult.success) {
-          embeddingSpinner.succeed(`Embedding model loaded: ${embeddingResult.modelName} (${embeddingResult.dimensions}-dim, ${embeddingResult.loadTime}ms)`);
+          embeddingSpinner.succeed(
+            `Embedding model loaded: ${embeddingResult.modelName} (${embeddingResult.dimensions}-dim, ${embeddingResult.loadTime}ms)`,
+          );
         } else {
-          embeddingSpinner.stop(output.warning(`Embedding model: ${embeddingResult.error || 'Using fallback'}`));
+          embeddingSpinner.stop(
+            output.warning(`Embedding model: ${embeddingResult.error || 'Using fallback'}`),
+          );
         }
       }
 
@@ -128,7 +146,7 @@ const initMemoryCommand: Command = {
         `  Pattern Learning:  ${result.features.patternLearning ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`,
         `  Temporal Decay:    ${result.features.temporalDecay ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`,
         `  HNSW Indexing:     ${result.features.hnswIndexing ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`,
-        `  Migration Tracking: ${result.features.migrationTracking ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`
+        `  Migration Tracking: ${result.features.migrationTracking ? output.success('✓ Enabled') : output.dim('✗ Disabled')}`,
       ];
 
       if (verbose) {
@@ -144,7 +162,7 @@ const initMemoryCommand: Command = {
           `  Confidence scoring:  0.0 - 1.0`,
           `  Temporal decay:      Half-life 30 days`,
           `  Pattern versioning:  Enabled`,
-          `  Types: task-routing, error-recovery, optimization, coordination, prediction`
+          `  Types: task-routing, error-recovery, optimization, coordination, prediction`,
         );
       }
 
@@ -182,7 +200,7 @@ const initMemoryCommand: Command = {
         output.printTable({
           columns: [
             { key: 'table', header: 'Table', width: 22 },
-            { key: 'purpose', header: 'Purpose', width: 38 }
+            { key: 'purpose', header: 'Purpose', width: 38 },
           ],
           data: [
             { table: 'memory_entries', purpose: 'Core memory storage with embeddings' },
@@ -193,13 +211,13 @@ const initMemoryCommand: Command = {
             { table: 'migration_state', purpose: 'Migration progress tracking' },
             { table: 'sessions', purpose: 'Context persistence' },
             { table: 'vector_indexes', purpose: 'HNSW index configuration' },
-            { table: 'metadata', purpose: 'System metadata' }
-          ]
+            { table: 'metadata', purpose: 'System metadata' },
+          ],
         });
         output.writeln();
 
         output.writeln(output.bold('Indexes Created:'));
-        output.printList(result.indexesCreated.slice(0, 8).map(idx => output.dim(idx)));
+        output.printList(result.indexesCreated.slice(0, 8).map((idx) => output.dim(idx)));
         if (result.indexesCreated.length > 8) {
           output.writeln(output.dim(`  ... and ${result.indexesCreated.length - 8} more`));
         }
@@ -208,15 +226,22 @@ const initMemoryCommand: Command = {
 
       // Run verification if enabled
       if (verify) {
-        const verifySpinner = output.createSpinner({ text: 'Verifying initialization...', spinner: 'dots' });
+        const verifySpinner = output.createSpinner({
+          text: 'Verifying initialization...',
+          spinner: 'dots',
+        });
         verifySpinner.start();
 
         const verification = await verifyMemoryInit(result.dbPath, { verbose });
 
         if (verification.success) {
-          verifySpinner.succeed(`Verification passed (${verification.summary.passed}/${verification.summary.total} tests)`);
+          verifySpinner.succeed(
+            `Verification passed (${verification.summary.passed}/${verification.summary.total} tests)`,
+          );
         } else {
-          verifySpinner.fail(`Verification failed (${verification.summary.failed}/${verification.summary.total} tests failed)`);
+          verifySpinner.fail(
+            `Verification failed (${verification.summary.failed}/${verification.summary.total} tests failed)`,
+          );
         }
 
         if (verbose || !verification.success) {
@@ -227,14 +252,14 @@ const initMemoryCommand: Command = {
               { key: 'status', header: '', width: 3 },
               { key: 'name', header: 'Test', width: 22 },
               { key: 'details', header: 'Details', width: 30 },
-              { key: 'duration', header: 'Time', width: 8, align: 'right' }
+              { key: 'duration', header: 'Time', width: 8, align: 'right' },
             ],
-            data: verification.tests.map(t => ({
+            data: verification.tests.map((t) => ({
               status: t.passed ? output.success('✓') : output.error('✗'),
               name: t.name,
               details: t.details || '',
-              duration: t.duration ? `${t.duration}ms` : '-'
-            }))
+              duration: t.duration ? `${t.duration}ms` : '-',
+            })),
           });
         }
 
@@ -246,12 +271,12 @@ const initMemoryCommand: Command = {
       output.printList([
         `Store data: ${output.highlight('monomind memory store -k "key" --value "data"')}`,
         `Search: ${output.highlight('monomind memory search -q "query"')}`,
-        `View stats: ${output.highlight('monomind memory stats')}`
+        `View stats: ${output.highlight('monomind memory stats')}`,
       ]);
 
       // Also sync to .claude directory
-      const fs = await import('fs');
-      const path = await import('path');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
       const claudeDir = path.join(process.cwd(), '.claude');
       const claudeDbPath = path.join(claudeDir, 'memory.db');
 
@@ -275,28 +300,43 @@ const initMemoryCommand: Command = {
 
       return {
         success: true,
-        data: result
+        data: result,
       };
     } catch (error) {
       spinner.fail('Initialization failed');
-      output.printError(`Failed to initialize memory: ${error instanceof Error ? error.message : String(error)}`);
+      output.printError(
+        `Failed to initialize memory: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Main memory command
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, editCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, templatesCommand, statsCommand, configureCommand, exportCommand, importCommand],
+  subcommands: [
+    initMemoryCommand,
+    storeCommand,
+    editCommand,
+    retrieveCommand,
+    searchCommand,
+    listCommand,
+    deleteCommand,
+    templatesCommand,
+    statsCommand,
+    configureCommand,
+    exportCommand,
+    importCommand,
+  ],
   options: [],
   examples: [
     { command: 'monomind memory store -k "key" -v "value"', description: 'Store data' },
     { command: 'monomind memory search -q "auth patterns"', description: 'Search memory' },
-    { command: 'monomind memory stats', description: 'Show statistics' }
+    { command: 'monomind memory stats', description: 'Show statistics' },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Memory Management Commands'));
     output.writeln();
@@ -315,11 +355,11 @@ export const memoryCommand: Command = {
       `${output.highlight('stats')}       - Show statistics`,
       `${output.highlight('configure')}   - Configure backend`,
       `${output.highlight('export')}      - Export memory to file`,
-      `${output.highlight('import')}      - Import from file`
+      `${output.highlight('import')}      - Import from file`,
     ]);
 
     return { success: true };
-  }
+  },
 };
 
 export default memoryCommand;

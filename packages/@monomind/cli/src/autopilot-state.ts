@@ -8,10 +8,10 @@
  * Security: Addresses prototype pollution, NaN bypass, input validation
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { writeJsonFileAtomic } from './utils/json-file.js';
 
 // ── Constants ─────────────────────────────────────────────────
@@ -190,7 +190,7 @@ export function appendLog(entry: AutopilotLogEntry): void {
   // entries (last writer wins) and could truncate the log to a single entry
   // if a peer crashed mid-write and the next caller's safeJsonParse threw.
   try {
-    fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', { flag: 'a' });
+    fs.appendFileSync(filePath, `${JSON.stringify(entry)}\n`, { flag: 'a' });
   } catch {
     // Best-effort logging; do not throw from a non-critical observability path.
   }
@@ -239,7 +239,7 @@ function compactLog(filePath: string): void {
   }
   const trimmed = entries.length > MAX_LOG_ENTRIES ? entries.slice(-MAX_LOG_ENTRIES) : entries;
   const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, trimmed.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  fs.writeFileSync(tmp, `${trimmed.map((e) => JSON.stringify(e)).join('\n')}\n`);
   fs.renameSync(tmp, filePath);
 }
 
@@ -398,4 +398,3 @@ export function calculateReward(iterations: number, durationMs: number): number 
   const timeFactor = (1 - Math.min(durationMs / 3600000, 1)) * 0.4;
   return Math.round((iterFactor + timeFactor) * 100) / 100;
 }
-

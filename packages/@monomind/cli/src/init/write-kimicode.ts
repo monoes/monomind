@@ -2,16 +2,24 @@
  * Kimi Code artifact writers.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type { InitOptions, InitResult } from './types.js';
-import { generateKimiMcpJson, mergeKimiMcpJson, generateKimiAgentsMd, generateKimiGateScript, generateKimiPluginManifest, generateKimiStatuslineSh, mergeKimiTuiTomlStatusline, convertKimiAgentMd, convertKimiSkillMd, convertKimiCommandToFlowSkill, convertKimiPluginCommandMd, kimiCommandFilename } from './kimi-generator.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
-  atomicWriteFile,
-  walkMdFiles,
-  isLikelyUserFile,
-  extractFmName,
-} from './shared.js';
+  convertKimiAgentMd,
+  convertKimiCommandToFlowSkill,
+  convertKimiPluginCommandMd,
+  convertKimiSkillMd,
+  generateKimiAgentsMd,
+  generateKimiGateScript,
+  generateKimiMcpJson,
+  generateKimiPluginManifest,
+  generateKimiStatuslineSh,
+  kimiCommandFilename,
+  mergeKimiMcpJson,
+  mergeKimiTuiTomlStatusline,
+} from './kimi-generator.js';
+import { atomicWriteFile, extractFmName, isLikelyUserFile, walkMdFiles } from './shared.js';
+import type { InitOptions, InitResult } from './types.js';
 
 /**
  * Write Kimi Code artifacts. ADDITIVE — only invoked when
@@ -29,7 +37,7 @@ import {
 export async function writeKimiFiles(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const kimiDir = path.join(targetDir, '.kimi-code');
 
@@ -73,7 +81,9 @@ export async function writeKimiFiles(
   // reading from the target .claude/ dir means only the user's selected subset
   // is converted.
   const claudeDir = path.join(targetDir, '.claude');
-  let agentCount = 0, commandCount = 0, skillCount = 0;
+  let agentCount = 0,
+    commandCount = 0,
+    skillCount = 0;
   const seenAgents = new Set<string>();
 
   // Agents → .kimi-code/agents/<name>.md (flattened, deduped by name)
@@ -144,7 +154,9 @@ export async function writeKimiFiles(
       const flowSkill = convertKimiCommandToFlowSkill(src, category, fileBase);
       const flowName = extractFmName(flowSkill) || `${category}-${fileBase}`;
       if (writtenSkillDirs.has(flowName)) {
-        result.skipped.push(`.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`);
+        result.skipped.push(
+          `.kimi-code/skills/${flowName}/ (command flow-skill conflicts with a real skill — plugin command kept)`,
+        );
       } else {
         const flowDir = path.join(kimiDir, 'skills', flowName);
         fs.mkdirSync(flowDir, { recursive: true });
@@ -156,7 +168,10 @@ export async function writeKimiFiles(
       // (b) plugin command
       const pluginCmd = convertKimiPluginCommandMd(src, category, fileBase);
       fs.mkdirSync(destPluginCommands, { recursive: true });
-      atomicWriteFile(path.join(destPluginCommands, kimiCommandFilename(category, fileBase)), pluginCmd);
+      atomicWriteFile(
+        path.join(destPluginCommands, kimiCommandFilename(category, fileBase)),
+        pluginCmd,
+      );
       commandCount++;
     }
   }
@@ -184,7 +199,8 @@ export async function writeKimiFiles(
 
   if (agentCount) result.created.files.push(`.kimi-code/agents/ (${agentCount} agents)`);
   if (skillCount) result.created.files.push(`.kimi-code/skills/ (${skillCount} skills)`);
-  if (commandCount) result.created.files.push(`.kimi-code/plugin/commands/ (${commandCount} commands)`);
+  if (commandCount)
+    result.created.files.push(`.kimi-code/plugin/commands/ (${commandCount} commands)`);
 
   // Statusline — the footer under kimi's chatbox. Lives in the USER's
   // ~/.kimi-code/ (kimi has no project-level statusline config), gated on
@@ -199,7 +215,11 @@ export async function writeKimiFiles(
         const statuslineShPath = path.join(kimiHome, 'statusline.sh');
         if (!fs.existsSync(statuslineShPath) || options.force) {
           atomicWriteFile(statuslineShPath, generateKimiStatuslineSh());
-          try { fs.chmodSync(statuslineShPath, 0o755); } catch { /* ignore on Windows */ }
+          try {
+            fs.chmodSync(statuslineShPath, 0o755);
+          } catch {
+            /* ignore on Windows */
+          }
           result.created.files.push('~/.kimi-code/statusline.sh');
         } else {
           result.skipped.push('~/.kimi-code/statusline.sh');
@@ -207,7 +227,9 @@ export async function writeKimiFiles(
 
         const tuiTomlPath = path.join(kimiHome, 'tui.toml');
         const relCommand = '~/.kimi-code/statusline.sh';
-        const existingToml = fs.existsSync(tuiTomlPath) ? fs.readFileSync(tuiTomlPath, 'utf-8') : '';
+        const existingToml = fs.existsSync(tuiTomlPath)
+          ? fs.readFileSync(tuiTomlPath, 'utf-8')
+          : '';
         const mergedToml = mergeKimiTuiTomlStatusline(existingToml, relCommand);
         if (mergedToml !== existingToml) {
           atomicWriteFile(tuiTomlPath, mergedToml);

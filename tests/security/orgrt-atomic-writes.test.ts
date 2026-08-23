@@ -16,8 +16,9 @@
  * assertion is the right tool here — simulating a real mid-write crash
  * from JS is unreliable (would need a child process and SIGKILL timing).
  */
-import { describe, it, expect } from 'vitest';
+
 import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
 
 const DAEMON_SRC = readFileSync(
   new URL('../../packages/@monomind/cli/src/orgrt/daemon.ts', import.meta.url),
@@ -29,9 +30,9 @@ describe('C4 — atomic state writes in orgrt/daemon.ts', () => {
   // `.tmp` suffix. Pre-fix, all of these were direct overwrites of state
   // files. Post-fix, they go through writeJsonFileAtomic() (which writes
   // to `${path}.${pid}.${ts}.tmp` then renames).
-  const directWriteCalls = [...DAEMON_SRC.matchAll(
-    /writeFileSync\(\s*(p|approvalsPath|[a-zA-Z_]+Path|join\([^)]+\))/g,
-  )];
+  const _directWriteCalls = [
+    ...DAEMON_SRC.matchAll(/writeFileSync\(\s*(p|approvalsPath|[a-zA-Z_]+Path|join\([^)]+\))/g),
+  ];
 
   it('source file is loaded', () => {
     expect(DAEMON_SRC.length).toBeGreaterThan(50_000);
@@ -52,7 +53,8 @@ describe('C4 — atomic state writes in orgrt/daemon.ts', () => {
   });
 
   it('no direct writeFileSync to branch bus.jsonl', () => {
-    const branchWriteMatches = DAEMON_SRC.match(/writeFileSync\(join\(branchDir,\s*'bus\.jsonl'\)/g) ?? [];
+    const branchWriteMatches =
+      DAEMON_SRC.match(/writeFileSync\(join\(branchDir,\s*'bus\.jsonl'\)/g) ?? [];
     expect(branchWriteMatches.length).toBe(0);
   });
 

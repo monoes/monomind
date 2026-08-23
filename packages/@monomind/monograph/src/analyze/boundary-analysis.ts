@@ -12,13 +12,12 @@ export interface BoundaryAnalysisResult {
 
 function isReachableOrEntry(mod: ModuleNode): boolean {
   return (
-    (mod.flags & ModuleNodeFlags.REACHABLE) !== 0 ||
-    (mod.flags & ModuleNodeFlags.ENTRY_POINT) !== 0
+    (mod.flags & ModuleNodeFlags.REACHABLE) !== 0 || (mod.flags & ModuleNodeFlags.ENTRY_POINT) !== 0
   );
 }
 
 function hasRules(config: ResolvedBoundaryConfig, zoneName: string): boolean {
-  return config.rules.some(r => r.from.name === zoneName);
+  return config.rules.some((r) => r.from.name === zoneName);
 }
 
 interface CrossFileEdge {

@@ -47,7 +47,7 @@ export function workspaceForFile(state: ProjectState, fileId: number): Workspace
   let bestLen = 0;
   for (const ws of state.workspaces) {
     const wsPath = ws.root.replace(/\\/g, '/');
-    if (normalized.startsWith(wsPath + '/') || normalized === wsPath) {
+    if (normalized.startsWith(`${wsPath}/`) || normalized === wsPath) {
       if (wsPath.length > bestLen) {
         bestLen = wsPath.length;
         bestMatch = ws;
@@ -59,9 +59,9 @@ export function workspaceForFile(state: ProjectState, fileId: number): Workspace
 
 export function filesInWorkspace(state: ProjectState, workspace: WorkspaceEntry): ProjectFile[] {
   const wsPath = workspace.root.replace(/\\/g, '/');
-  return state.files.filter(f => {
+  return state.files.filter((f) => {
     const fp = f.path.replace(/\\/g, '/');
-    return fp.startsWith(wsPath + '/') || fp === wsPath;
+    return fp.startsWith(`${wsPath}/`) || fp === wsPath;
   });
 }
 
@@ -82,7 +82,7 @@ export class PackageResolver {
     const normalized = filePath.replace(/\\/g, '/');
     for (const entry of this.entries) {
       const rootNorm = entry.root.replace(/\\/g, '/');
-      if (normalized.startsWith(rootNorm + '/') || normalized === rootNorm) {
+      if (normalized.startsWith(`${rootNorm}/`) || normalized === rootNorm) {
         return entry.name;
       }
     }
@@ -90,6 +90,6 @@ export class PackageResolver {
   }
 
   resolveRoot(packageName: string): string | undefined {
-    return this.entries.find(e => e.name === packageName)?.root;
+    return this.entries.find((e) => e.name === packageName)?.root;
   }
 }

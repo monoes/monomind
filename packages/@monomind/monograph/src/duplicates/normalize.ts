@@ -30,7 +30,10 @@ export function normalizeAndHash(tokens: SourceToken[], mode: DetectionMode): Ha
   return normalizeAndHashResolved(tokens, resolveNormalization(mode));
 }
 
-export function normalizeAndHashResolved(tokens: SourceToken[], norm: ResolvedNormalization): HashedToken[] {
+export function normalizeAndHashResolved(
+  tokens: SourceToken[],
+  norm: ResolvedNormalization,
+): HashedToken[] {
   return tokens.map((tok, i) => ({
     hash: hashTokenResolved(tok.kind, norm),
     originalIndex: i,

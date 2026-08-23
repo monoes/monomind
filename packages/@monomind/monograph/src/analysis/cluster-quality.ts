@@ -16,8 +16,8 @@ function buildAdjacency(edges: Edge[]): Map<string, Set<string>> {
   for (const { sourceId, targetId } of edges) {
     if (!adj.has(sourceId)) adj.set(sourceId, new Set());
     if (!adj.has(targetId)) adj.set(targetId, new Set());
-    adj.get(sourceId)!.add(targetId);
-    adj.get(targetId)!.add(sourceId);
+    adj.get(sourceId)?.add(targetId);
+    adj.get(targetId)?.add(sourceId);
   }
   return adj;
 }
@@ -41,25 +41,23 @@ function nodeSilhouette(
 ): number {
   const neighbors = adj.get(nodeId) ?? new Set<string>();
 
-  const sameMembers = (communityMembers.get(community) ?? []).filter(n => n !== nodeId);
+  const sameMembers = (communityMembers.get(community) ?? []).filter((n) => n !== nodeId);
   if (sameMembers.length === 0) return 0; // singleton community
 
   // a(i): mean distance to same community (1 = not neighbor, 0 = neighbor)
   const a =
-    sameMembers.reduce((sum, nid) => sum + (neighbors.has(nid) ? 0 : 1), 0) /
-    sameMembers.length;
+    sameMembers.reduce((sum, nid) => sum + (neighbors.has(nid) ? 0 : 1), 0) / sameMembers.length;
 
   // b(i): minimum mean distance to any other community
   let b = Infinity;
   for (const [cid, members] of communityMembers) {
     if (cid === community || members.length === 0) continue;
     const meanDist =
-      members.reduce((sum, nid) => sum + (neighbors.has(nid) ? 0 : 1), 0) /
-      members.length;
+      members.reduce((sum, nid) => sum + (neighbors.has(nid) ? 0 : 1), 0) / members.length;
     if (meanDist < b) b = meanDist;
   }
 
-  if (!isFinite(b)) return 0; // only one community exists
+  if (!Number.isFinite(b)) return 0; // only one community exists
   const denom = Math.max(a, b);
   if (denom === 0) return 0;
   return (b - a) / denom;
@@ -72,10 +70,7 @@ function nodeSilhouette(
  * Precomputes the communityMembers map once (O(N)) before the per-node loop,
  * reducing overall complexity from O(N²) to O(N + K*N) where K = community count.
  */
-export function silhouetteScore(
-  memberships: Map<string, number>,
-  edges: Edge[],
-): number {
+export function silhouetteScore(memberships: Map<string, number>, edges: Edge[]): number {
   if (memberships.size === 0) return 0;
   const adj = buildAdjacency(edges);
 
@@ -105,10 +100,7 @@ export function silhouetteScore(
  * O(E + N) instead of O(N²).
  * Returns a value in (-0.5, 1].
  */
-export function modularityScore(
-  memberships: Map<string, number>,
-  edges: Edge[],
-): number {
+export function modularityScore(memberships: Map<string, number>, edges: Edge[]): number {
   if (edges.length === 0 || memberships.size === 0) return 0;
 
   const adj = buildAdjacency(edges);

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RouteLayer } from '../route-layer.js';
 import type { Route, RouteLayerConfig } from '../types.js';
 
@@ -173,8 +173,8 @@ describe('RouteLayer', () => {
       const result = await layer.route('implement the login function');
       // All 3 built-in routes + the added one must participate in scoring
       expect(result.allScores).toBeDefined();
-      expect(result.allScores!.length).toBe(4);
-      const routeNames = result.allScores!.map((s) => s.routeName).sort();
+      expect(result.allScores?.length).toBe(4);
+      const routeNames = result.allScores?.map((s) => s.routeName).sort();
       expect(routeNames).toEqual(['coder', 'custom', 'reviewer', 'tester']);
     });
 
@@ -281,7 +281,7 @@ describe('RouteLayer', () => {
       await layer.initialize();
       const result = await layer.route('implement the login');
       expect(result.allScores).toBeDefined();
-      expect(result.allScores!.length).toBe(3);
+      expect(result.allScores?.length).toBe(3);
       for (const s of result.allScores!) {
         expect(s).toHaveProperty('routeName');
         expect(s).toHaveProperty('agentSlug');

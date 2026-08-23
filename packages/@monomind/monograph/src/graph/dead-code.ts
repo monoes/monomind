@@ -20,7 +20,7 @@ import type { MonographDb } from '../storage/db.js';
  * detector only tracks statically-resolved edges.
  */
 export function detectDeadCode(db: MonographDb): string[] {
-  return detectDeadCodeNodes(db).map(n => n.id);
+  return detectDeadCodeNodes(db).map((n) => n.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ export function detectDeadCodeNodes(db: MonographDb): DeadCodeNode[] {
     label: string;
   }[];
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id,
     name: r.name,
     filePath: r.file_path,

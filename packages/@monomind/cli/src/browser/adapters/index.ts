@@ -24,7 +24,8 @@ export function registerAdapter(adapter: PlatformAdapter): void {
 
 export function getAdapter(platform: string): PlatformAdapter {
   const adapter = registry.get(platform);
-  if (!adapter) throw new Error(`Unknown platform: ${platform}. Available: ${[...registry.keys()].join(', ')}`);
+  if (!adapter)
+    throw new Error(`Unknown platform: ${platform}. Available: ${[...registry.keys()].join(', ')}`);
   return adapter;
 }
 
@@ -32,11 +33,11 @@ export function listAdapters(): PlatformAdapter[] {
   return [...registry.values()];
 }
 
+import { geminiAdapter } from './gemini.js';
+import { instagramAdapter } from './instagram.js';
 // Auto-register all adapters
 import { linkedinAdapter } from './linkedin.js';
-import { instagramAdapter } from './instagram.js';
 import { xAdapter } from './x.js';
-import { geminiAdapter } from './gemini.js';
 
 registerAdapter(linkedinAdapter);
 registerAdapter(instagramAdapter);

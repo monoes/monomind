@@ -1,6 +1,13 @@
-import { execSync } from 'child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
-import { join, relative } from 'path';
+import { execSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
 
 export type ChurnTrend = 'accelerating' | 'stable' | 'cooling';
 
@@ -43,20 +50,20 @@ export function parseSince(s: string): SinceDuration {
 
   // ISO date string
   const parsed = Date.parse(s);
-  if (!isNaN(parsed)) {
+  if (!Number.isNaN(parsed)) {
     const days = Math.ceil((Date.now() - parsed) / 86400000);
     return { raw: s, days };
   }
 
   // Fallback: try to parse as plain number of days
   const num = parseInt(s, 10);
-  if (!isNaN(num)) return { raw: s, days: num };
+  if (!Number.isNaN(num)) return { raw: s, days: num };
 
   return { raw: s, days: 30 };
 }
 
 export function computeRecencyWeight(ageDays: number): number {
-  return Math.exp(-Math.LN2 * ageDays / 90);
+  return Math.exp((-Math.LN2 * ageDays) / 90);
 }
 
 export function classifyChurnTrend(
@@ -100,7 +107,7 @@ function pruneChurnCache(cacheDir: string, maxAgeDays = 3): void {
     const m = entry.match(/^churn-.+-(\d{4}-\d{2}-\d{2})\.json$/);
     if (!m) continue;
     const bucketMs = Date.parse(m[1]);
-    if (isNaN(bucketMs)) continue;
+    if (Number.isNaN(bucketMs)) continue;
     if ((now - bucketMs) / 86400000 > maxAgeDays) {
       try {
         unlinkSync(join(cacheDir, entry));
@@ -115,8 +122,7 @@ export async function analyzeChurn(
   root: string,
   since: SinceDuration | string,
 ): Promise<ChurnResult> {
-  const sinceDuration: SinceDuration =
-    typeof since === 'string' ? parseSince(since) : since;
+  const sinceDuration: SinceDuration = typeof since === 'string' ? parseSince(since) : since;
 
   // Cache lookup — keyed by HEAD SHA + window size + a coarse day bucket, so
   // entries naturally invalidate as time passes even at the same HEAD (the
@@ -147,10 +153,10 @@ export async function analyzeChurn(
   // Get all commits with file paths
   let logOutput = '';
   try {
-    logOutput = execSync(
-      `git log --after="${sinceDateStr}" --name-only --format="%ae|%ai"`,
-      { cwd: root, maxBuffer: 50 * 1024 * 1024 },
-    ).toString();
+    logOutput = execSync(`git log --after="${sinceDateStr}" --name-only --format="%ae|%ai"`, {
+      cwd: root,
+      maxBuffer: 50 * 1024 * 1024,
+    }).toString();
   } catch {
     return { files: [], authorPool: [], since: sinceDuration };
   }
@@ -181,7 +187,7 @@ export async function analyzeChurn(
       if (!fileCommits.has(filePath)) {
         fileCommits.set(filePath, []);
       }
-      fileCommits.get(filePath)!.push({ email: currentEmail, dateStr: currentDateStr });
+      fileCommits.get(filePath)?.push({ email: currentEmail, dateStr: currentDateStr });
     }
   }
 
@@ -252,7 +258,10 @@ export async function analyzeChurn(
   if (treeHash) {
     try {
       mkdirSync(cacheDir, { recursive: true });
-      const cacheFile = join(cacheDir, `churn-${treeHash}-${sinceDuration.days}-${dateBucket}.json`);
+      const cacheFile = join(
+        cacheDir,
+        `churn-${treeHash}-${sinceDuration.days}-${dateBucket}.json`,
+      );
       writeFileSync(cacheFile, JSON.stringify(result), 'utf8');
     } catch {
       // cache write failure is non-fatal

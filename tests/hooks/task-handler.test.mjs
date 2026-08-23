@@ -4,12 +4,13 @@
  * Verifies: model tier recommendation, ADR generation, and the [OK] completion
  * messages.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -55,7 +56,7 @@ describe('task-handler.handlePreTask', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePreTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).not.toContain('[AUTO_RETRY_ENABLED]');
   });
 
@@ -64,7 +65,7 @@ describe('task-handler.handlePreTask', () => {
     const hCtx = makeHCtx({ prompt: 'do something', router: null });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePreTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).not.toContain('[OK] Task started');
   });
 
@@ -78,7 +79,7 @@ describe('task-handler.handlePreTask', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePreTask(hCtx);
     expect(mockRoute).not.toHaveBeenCalled();
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).not.toContain('Task routed');
   });
 });
@@ -91,7 +92,7 @@ describe('task-handler.handlePostTask completion', () => {
     const hCtx = makeHCtx({ prompt: 'done' });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePostTask(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('[OK] Task completed');
   });
 });
@@ -115,7 +116,7 @@ describe('task-handler.handlePostTask agent registration', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePostTask(hCtx);
 
-    const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+    const remaining = fs.readdirSync(regDir).filter((f) => f.endsWith('.json'));
     expect(remaining.length).toBe(1); // one removed (oldest, no type match found)
   });
 
@@ -125,14 +126,22 @@ describe('task-handler.handlePostTask agent registration', () => {
     fs.mkdirSync(regDir, { recursive: true });
     // Oldest registration is a 'researcher' — should survive since the
     // completing agent is a 'coder' and a type-matching registration exists.
-    fs.writeFileSync(path.join(regDir, 'agent-001.json'), JSON.stringify({ agentType: 'researcher' }), 'utf-8');
-    fs.writeFileSync(path.join(regDir, 'agent-002.json'), JSON.stringify({ agentType: 'coder' }), 'utf-8');
+    fs.writeFileSync(
+      path.join(regDir, 'agent-001.json'),
+      JSON.stringify({ agentType: 'researcher' }),
+      'utf-8',
+    );
+    fs.writeFileSync(
+      path.join(regDir, 'agent-002.json'),
+      JSON.stringify({ agentType: 'coder' }),
+      'utf-8',
+    );
 
     const hCtx = makeHCtx({ prompt: 'task done', hookInput: { agentSlug: 'coder' } });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePostTask(hCtx);
 
-    const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+    const remaining = fs.readdirSync(regDir).filter((f) => f.endsWith('.json'));
     expect(remaining).toEqual(['agent-001.json']); // the matching 'coder' registration was removed, not the oldest
   });
 
@@ -140,8 +149,16 @@ describe('task-handler.handlePostTask agent registration', () => {
     const th = loadTH();
     const regDir = path.join(tmpDir, '.monomind', 'agents', 'registrations');
     fs.mkdirSync(regDir, { recursive: true });
-    fs.writeFileSync(path.join(regDir, 'agent-001.json'), JSON.stringify({ agentType: 'researcher' }), 'utf-8');
-    fs.writeFileSync(path.join(regDir, 'agent-002.json'), JSON.stringify({ agentType: 'coder' }), 'utf-8');
+    fs.writeFileSync(
+      path.join(regDir, 'agent-001.json'),
+      JSON.stringify({ agentType: 'researcher' }),
+      'utf-8',
+    );
+    fs.writeFileSync(
+      path.join(regDir, 'agent-002.json'),
+      JSON.stringify({ agentType: 'coder' }),
+      'utf-8',
+    );
 
     // hookInput has no subagent_type/agentSlug/etc — this simulates the lead's
     // own TaskCompleted/TeammateIdle event, which never registered an agent.
@@ -149,7 +166,7 @@ describe('task-handler.handlePostTask agent registration', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await th.handlePostTask(hCtx);
 
-    const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+    const remaining = fs.readdirSync(regDir).filter((f) => f.endsWith('.json'));
     expect(remaining.length).toBe(2); // untouched — no correlating identity on this event
   });
 

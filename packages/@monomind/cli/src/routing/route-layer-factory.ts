@@ -17,11 +17,11 @@
 // `./embedder` or `@huggingface/transformers` here (directly or transitively) —
 // loading onnxruntime in-process deterministically SIGSEGVs. The model lives
 // ONLY in embed-worker.ts, reached via the spawn below.
-import { spawn } from 'child_process';
-import { existsSync } from 'fs';
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const WORKER_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -103,7 +103,11 @@ function runWorker(task: string): Promise<RouteResult> {
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      try { child.kill('SIGKILL'); } catch { /* already dead */ }
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        /* already dead */
+      }
       reject(new Error('embed worker timed out'));
     }, WORKER_TIMEOUT_MS);
     timer.unref?.();
@@ -139,14 +143,26 @@ function runWorker(task: string): Promise<RouteResult> {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        try { child.kill('SIGKILL'); } catch { /* already dead */ }
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already dead */
+        }
         reject(new Error('embed worker produced excessive output'));
         return;
       }
       tryResolveFromMarker();
     });
-    child.stderr?.on('data', (d: Buffer) => { if (stderr.length < MAX_WORKER_OUTPUT) stderr += d.toString(); });
-    child.on('error', (e: Error) => { if (!settled) { settled = true; clearTimeout(timer); reject(e); } });
+    child.stderr?.on('data', (d: Buffer) => {
+      if (stderr.length < MAX_WORKER_OUTPUT) stderr += d.toString();
+    });
+    child.on('error', (e: Error) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
     child.on('close', (code: number | null) => {
       if (settled) return;
       settled = true;
@@ -164,9 +180,15 @@ function runWorker(task: string): Promise<RouteResult> {
         .split('\n')
         .reverse()
         .find((l) => l.startsWith(RESULT_MARKER));
-      if (!markedLine) { reject(new Error('worker produced no result marker')); return; }
-      try { resolve(JSON.parse(markedLine.slice(RESULT_MARKER.length))); }
-      catch { reject(new Error('worker produced invalid JSON')); }
+      if (!markedLine) {
+        reject(new Error('worker produced no result marker'));
+        return;
+      }
+      try {
+        resolve(JSON.parse(markedLine.slice(RESULT_MARKER.length)));
+      } catch {
+        reject(new Error('worker produced invalid JSON'));
+      }
     });
   });
 }
@@ -178,8 +200,9 @@ export interface ConfiguredRouteLayer {
 export async function createConfiguredRouteLayer(
   opts: { debug?: boolean } = {},
 ): Promise<ConfiguredRouteLayer> {
-  const { RouteLayer, KeywordPreFilter, LLMFallbackRouter, ALL_ROUTES } =
-    await import('@monoes/routing' as string);
+  const { RouteLayer, KeywordPreFilter, LLMFallbackRouter, ALL_ROUTES } = await import(
+    '@monoes/routing' as string
+  );
   const { createClaudeLLMCaller } = await import('./llm-caller.js');
 
   const llmCaller = createClaudeLLMCaller({ model: 'haiku' });
@@ -215,9 +238,10 @@ export async function createConfiguredRouteLayer(
         // 3. Below threshold → Claude fallback in the parent, reusing scores.
         if (llmCaller && Array.isArray(semantic.allScores) && semantic.allScores.length) {
           // Cap allScores to prevent downstream OOM if the worker sends an oversized array.
-          const scores = semantic.allScores.length > MAX_ALL_SCORES
-            ? semantic.allScores.slice(0, MAX_ALL_SCORES)
-            : semantic.allScores;
+          const scores =
+            semantic.allScores.length > MAX_ALL_SCORES
+              ? semantic.allScores.slice(0, MAX_ALL_SCORES)
+              : semantic.allScores;
           const fallback = new LLMFallbackRouter({ llmCaller, model: 'haiku' });
           return fallback.classify(taskDescription, ALL_ROUTES, scores);
         }

@@ -36,7 +36,10 @@ export function createHealthReport(
   partials: Omit<HealthReport, 'summary'> = {},
 ): HealthReport {
   const report: HealthReport = { summary };
-  for (const [key, value] of Object.entries(partials) as [keyof Omit<HealthReport, 'summary'>, unknown][]) {
+  for (const [key, value] of Object.entries(partials) as [
+    keyof Omit<HealthReport, 'summary'>,
+    unknown,
+  ][]) {
     if (value !== undefined && value !== null) {
       (report as unknown as Record<string, unknown>)[key] = value;
     }
@@ -52,10 +55,15 @@ export function createHealthReportSummary(
 ): HealthReportSummary {
   // Use canonical thresholds from health-report-types.ts (A≥90, B≥75, C≥60, D≥40)
   const grade: HealthReportSummary['healthGrade'] =
-    healthScore >= 90 ? 'A' :
-    healthScore >= 75 ? 'B' :
-    healthScore >= 60 ? 'C' :
-    healthScore >= 40 ? 'D' : 'F';
+    healthScore >= 90
+      ? 'A'
+      : healthScore >= 75
+        ? 'B'
+        : healthScore >= 60
+          ? 'C'
+          : healthScore >= 40
+            ? 'D'
+            : 'F';
   return {
     healthScore,
     healthGrade: grade,

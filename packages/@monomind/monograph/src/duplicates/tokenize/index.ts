@@ -1,6 +1,6 @@
+import * as path from 'node:path';
 import type { FileTokens, SourceToken } from '../token-types.js';
 import { emptyTokens } from '../token-types.js';
-import * as path from 'node:path';
 
 const STYLE_EXTS = new Set(['.css', '.scss', '.sass', '.less', '.styl']);
 const SFC_EXTS = new Set(['.vue', '.svelte']);
@@ -40,7 +40,11 @@ export function tokenizeSfc(source: string, stripTypes: boolean, skipImports: bo
   return tokenizeJsTs('component.ts', scriptSource, stripTypes, skipImports);
 }
 
-export function tokenizeAstro(source: string, stripTypes: boolean, skipImports: boolean): FileTokens {
+export function tokenizeAstro(
+  source: string,
+  stripTypes: boolean,
+  skipImports: boolean,
+): FileTokens {
   const frontmatterEnd = source.indexOf('---', 3);
   if (!source.startsWith('---') || frontmatterEnd === -1) return emptyTokens(source);
   const frontmatter = source.slice(3, frontmatterEnd);
@@ -49,7 +53,7 @@ export function tokenizeAstro(source: string, stripTypes: boolean, skipImports: 
 
 export function tokenizeMdx(source: string, stripTypes: boolean, skipImports: boolean): FileTokens {
   const lines = source.split('\n');
-  const codeLines = lines.filter(l => l.match(/^(import|export)\s/));
+  const codeLines = lines.filter((l) => l.match(/^(import|export)\s/));
   return tokenizeJsTs('mdx.ts', codeLines.join('\n'), stripTypes, skipImports);
 }
 
@@ -61,16 +65,63 @@ export function tokenizeJsTs(
 ): FileTokens {
   const lineCount = (source.match(/\n/g)?.length ?? 0) + 1;
   const tokens: SourceToken[] = [];
-  const tokenRe = /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([a-zA-Z_$][a-zA-Z0-9_$]*)|([^\s\w"'`])/g;
+  const tokenRe =
+    /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([a-zA-Z_$][a-zA-Z0-9_$]*)|([^\s\w"'`])/g;
   const KEYWORDS = new Set([
-    'var','let','const','function','return','if','else','for','while','do',
-    'switch','case','break','continue','default','throw','try','catch','finally',
-    'new','delete','typeof','instanceof','in','of','void','this','super',
-    'class','extends','import','export','from','as','async','await','yield',
-    'static','get','set','type','interface','enum','implements','abstract',
-    'declare','readonly','keyof','satisfies','true','false','null',
+    'var',
+    'let',
+    'const',
+    'function',
+    'return',
+    'if',
+    'else',
+    'for',
+    'while',
+    'do',
+    'switch',
+    'case',
+    'break',
+    'continue',
+    'default',
+    'throw',
+    'try',
+    'catch',
+    'finally',
+    'new',
+    'delete',
+    'typeof',
+    'instanceof',
+    'in',
+    'of',
+    'void',
+    'this',
+    'super',
+    'class',
+    'extends',
+    'import',
+    'export',
+    'from',
+    'as',
+    'async',
+    'await',
+    'yield',
+    'static',
+    'get',
+    'set',
+    'type',
+    'interface',
+    'enum',
+    'implements',
+    'abstract',
+    'declare',
+    'readonly',
+    'keyof',
+    'satisfies',
+    'true',
+    'false',
+    'null',
   ]);
-  const IMPORT_KWS = new Set(['import','export','from','require']);
+  const IMPORT_KWS = new Set(['import', 'export', 'from', 'require']);
 
   let inImport = false;
   let match: RegExpExecArray | null;
@@ -90,14 +141,20 @@ export function tokenizeJsTs(
       } else if (word === 'null') {
         tokens.push({ kind: { kind: 'NullLiteral' }, span });
       } else if (KEYWORDS.has(word)) {
-        tokens.push({ kind: { kind: 'Keyword', kwType: word.charAt(0).toUpperCase() + word.slice(1) as any }, span });
+        tokens.push({
+          kind: { kind: 'Keyword', kwType: (word.charAt(0).toUpperCase() + word.slice(1)) as any },
+          span,
+        });
       } else {
         tokens.push({ kind: { kind: 'Identifier', name: word }, span });
       }
     } else if (match[1]) {
       tokens.push({ kind: { kind: 'NumericLiteral' }, span });
     } else if (raw.startsWith('"') || raw.startsWith("'") || raw.startsWith('`')) {
-      tokens.push({ kind: { kind: raw.startsWith('`') ? 'TemplateLiteral' : 'StringLiteral' }, span });
+      tokens.push({
+        kind: { kind: raw.startsWith('`') ? 'TemplateLiteral' : 'StringLiteral' },
+        span,
+      });
     }
   }
   return { tokens, source, lineCount };

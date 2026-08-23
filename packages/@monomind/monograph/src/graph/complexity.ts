@@ -6,11 +6,11 @@ export interface FunctionComplexity {
   filePath: string | null;
   startLine: number | null;
   endLine: number | null;
-  cyclomaticComplexity: number;   // decision points + 1
-  cognitiveComplexity: number;    // cognitive weight (nesting multiplier)
+  cyclomaticComplexity: number; // decision points + 1
+  cognitiveComplexity: number; // cognitive weight (nesting multiplier)
   linesOfCode: number;
   paramCount: number;
-  crapScore: number;              // CC² × (1 - coverage)³ + CC (coverage defaults to 0 when unknown)
+  crapScore: number; // CC² × (1 - coverage)³ + CC (coverage defaults to 0 when unknown)
 }
 
 export interface ComplexityReport {
@@ -18,8 +18,8 @@ export interface ComplexityReport {
   p50cc: number;
   p90cc: number;
   p95cc: number;
-  highComplexityCount: number;   // CC > 10
-  criticalCount: number;          // CC > 20
+  highComplexityCount: number; // CC > 10
+  criticalCount: number; // CC > 20
 }
 
 /**
@@ -29,7 +29,7 @@ export interface ComplexityReport {
  */
 export function computeCrapScore(cc: number, coverage: number): number {
   const cov = Math.max(0, Math.min(1, coverage));
-  return cc * cc * Math.pow(1 - cov, 3) + cc;
+  return cc * cc * (1 - cov) ** 3 + cc;
 }
 
 function percentile(arr: number[], p: number): number {
@@ -52,11 +52,13 @@ function percentile(arr: number[], p: number): number {
  */
 export function computeComplexity(db: MonographDb): ComplexityReport {
   // Fetch all function/method nodes in one query
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT id, name, file_path, start_line, end_line, properties
     FROM nodes
     WHERE label IN ('Function', 'Method')
-  `).all() as Array<{
+  `)
+    .all() as Array<{
     id: string;
     name: string;
     file_path: string | null;
@@ -66,21 +68,32 @@ export function computeComplexity(db: MonographDb): ComplexityReport {
   }>;
 
   if (rows.length === 0) {
-    return { functions: [], p50cc: 0, p90cc: 0, p95cc: 0, highComplexityCount: 0, criticalCount: 0 };
+    return {
+      functions: [],
+      p50cc: 0,
+      p90cc: 0,
+      p95cc: 0,
+      highComplexityCount: 0,
+      criticalCount: 0,
+    };
   }
 
   // ── Batch edge counts: 2 GROUP BY queries replace 2×N individual queries ─
   const callsMap = new Map<string, number>();
-  for (const { source_id, c } of db.prepare(`
+  for (const { source_id, c } of db
+    .prepare(`
     SELECT source_id, COUNT(*) as c FROM edges WHERE relation = 'CALLS' GROUP BY source_id
-  `).all() as { source_id: string; c: number }[]) {
+  `)
+    .all() as { source_id: string; c: number }[]) {
     callsMap.set(source_id, c);
   }
 
   const accessesMap = new Map<string, number>();
-  for (const { source_id, c } of db.prepare(`
+  for (const { source_id, c } of db
+    .prepare(`
     SELECT source_id, COUNT(*) as c FROM edges WHERE relation = 'ACCESSES' GROUP BY source_id
-  `).all() as { source_id: string; c: number }[]) {
+  `)
+    .all() as { source_id: string; c: number }[]) {
     accessesMap.set(source_id, c);
   }
 
@@ -89,20 +102,18 @@ export function computeComplexity(db: MonographDb): ComplexityReport {
   const propUpdates: Array<{ id: string; props: string }> = [];
 
   for (const row of rows) {
-    const props = row.properties ? JSON.parse(row.properties) as Record<string, unknown> : {};
+    const props = row.properties ? (JSON.parse(row.properties) as Record<string, unknown>) : {};
 
     const callsCount = callsMap.get(row.id) ?? 0;
     const accessesCount = accessesMap.get(row.id) ?? 0;
 
     const cyclomaticComplexity = Math.round(callsCount * 0.5 + accessesCount * 0.2 + 1);
 
-    const lineSpan = (row.start_line != null && row.end_line != null)
-      ? row.end_line - row.start_line
-      : 0;
+    const lineSpan =
+      row.start_line != null && row.end_line != null ? row.end_line - row.start_line : 0;
     const cognitiveComplexity = Math.min(Math.round(lineSpan / 10), 20);
-    const linesOfCode = (row.start_line != null && row.end_line != null)
-      ? row.end_line - row.start_line + 1
-      : 1;
+    const linesOfCode =
+      row.start_line != null && row.end_line != null ? row.end_line - row.start_line + 1 : 1;
 
     const paramCount = typeof props.paramCount === 'number' ? props.paramCount : 0;
     const crapScore = computeCrapScore(cyclomaticComplexity, 0);
@@ -134,15 +145,15 @@ export function computeComplexity(db: MonographDb): ComplexityReport {
   })(propUpdates);
 
   // ── Compute percentiles ───────────────────────────────────────────────────
-  const ccValues = functions.map(f => f.cyclomaticComplexity).sort((a, b) => a - b);
+  const ccValues = functions.map((f) => f.cyclomaticComplexity).sort((a, b) => a - b);
 
   return {
     functions,
     p50cc: percentile(ccValues, 50),
     p90cc: percentile(ccValues, 90),
     p95cc: percentile(ccValues, 95),
-    highComplexityCount: functions.filter(f => f.cyclomaticComplexity > 10).length,
-    criticalCount: functions.filter(f => f.cyclomaticComplexity > 20).length,
+    highComplexityCount: functions.filter((f) => f.cyclomaticComplexity > 10).length,
+    criticalCount: functions.filter((f) => f.cyclomaticComplexity > 20).length,
   };
 }
 
@@ -168,24 +179,22 @@ export function formatComplexity(report: ComplexityReport, topN = 10): string {
   ];
 
   // Sort by crapScore descending (worst first)
-  const worst = [...functions]
-    .sort((a, b) => b.crapScore - a.crapScore)
-    .slice(0, topN);
+  const worst = [...functions].sort((a, b) => b.crapScore - a.crapScore).slice(0, topN);
 
   if (worst.length > 0) {
     lines.push(`top_${topN}_worst_crap:`);
     for (const fn of worst) {
-      const loc = fn.filePath
-        ? `${fn.filePath}:${fn.startLine ?? 1}`
-        : `<unknown>:1`;
+      const loc = fn.filePath ? `${fn.filePath}:${fn.startLine ?? 1}` : `<unknown>:1`;
       lines.push(`  - ${fn.name}`);
       lines.push(`    file: ${loc}`);
-      lines.push(`    cc: ${fn.cyclomaticComplexity}  crap: ${fn.crapScore.toFixed(1)}  loc: ${fn.linesOfCode}`);
+      lines.push(
+        `    cc: ${fn.cyclomaticComplexity}  crap: ${fn.crapScore.toFixed(1)}  loc: ${fn.linesOfCode}`,
+      );
     }
     lines.push('');
   }
 
-  const critical = functions.filter(f => f.cyclomaticComplexity > 20);
+  const critical = functions.filter((f) => f.cyclomaticComplexity > 20);
   if (critical.length > 0) {
     lines.push(`critical_functions(cc>20): ${critical.length}`);
     for (const fn of critical.slice(0, 5)) {

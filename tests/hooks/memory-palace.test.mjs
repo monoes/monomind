@@ -13,12 +13,13 @@
  *   kgQuery(cwd, entity, asOf)                    → triple[] (subject=entity, valid at asOf)
  *   kgTimeline(cwd, entity)                        → triple[] (all history, sorted by valid_from)
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -61,7 +62,10 @@ describe('memory-palace.wakeUp', () => {
 
   it('returns L1 content after storeVerbatim', () => {
     const mp = loadMP();
-    const longContent = 'session work implementing authentication with jwt token and oauth validation flow for the user login system and profile management. '.repeat(3);
+    const longContent =
+      'session work implementing authentication with jwt token and oauth validation flow for the user login system and profile management. '.repeat(
+        3,
+      );
     mp.storeVerbatim(tmpDir, longContent, { wing: 'tasks', room: 'session1' });
     const result = mp.wakeUp(tmpDir);
     expect(result).toContain('[MEMORY_PALACE_L1]');
@@ -73,7 +77,9 @@ describe('memory-palace.wakeUp', () => {
 describe('memory-palace.storeVerbatim', () => {
   it('does not throw for content >= 20 chars', () => {
     const mp = loadMP();
-    expect(() => mp.storeVerbatim(tmpDir, 'hello world this is a test', { wing: 'test', room: 'unit' })).not.toThrow();
+    expect(() =>
+      mp.storeVerbatim(tmpDir, 'hello world this is a test', { wing: 'test', room: 'unit' }),
+    ).not.toThrow();
   });
 
   it('does nothing for content shorter than 20 chars', () => {
@@ -85,14 +91,20 @@ describe('memory-palace.storeVerbatim', () => {
 
   it('creates drawers.jsonl after storing', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'testing the memory palace store function with valid content', { wing: 'test', room: 'room1' });
+    mp.storeVerbatim(tmpDir, 'testing the memory palace store function with valid content', {
+      wing: 'test',
+      room: 'room1',
+    });
     const drawersPath = path.join(tmpDir, '.monomind', 'palace', 'drawers.jsonl');
     expect(fs.existsSync(drawersPath)).toBe(true);
   });
 
   it('appends a valid JSON line per chunk to drawers.jsonl', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'test content for the memory palace valid storage', { wing: 'tasks', room: 'session1' });
+    mp.storeVerbatim(tmpDir, 'test content for the memory palace valid storage', {
+      wing: 'tasks',
+      room: 'session1',
+    });
     const drawersPath = path.join(tmpDir, '.monomind', 'palace', 'drawers.jsonl');
     const lines = fs.readFileSync(drawersPath, 'utf-8').split('\n').filter(Boolean);
     expect(lines.length).toBeGreaterThan(0);
@@ -105,7 +117,10 @@ describe('memory-palace.storeVerbatim', () => {
 
   it('splits long text into multiple chunks', () => {
     const mp = loadMP();
-    const longText = 'memory palace word testing content valid storage chunk split overlap implementation. '.repeat(20);
+    const longText =
+      'memory palace word testing content valid storage chunk split overlap implementation. '.repeat(
+        20,
+      );
     mp.storeVerbatim(tmpDir, longText, { wing: 'tasks', room: 'big' });
     const drawersPath = path.join(tmpDir, '.monomind', 'palace', 'drawers.jsonl');
     const lines = fs.readFileSync(drawersPath, 'utf-8').split('\n').filter(Boolean);
@@ -132,7 +147,7 @@ describe('memory-palace.buildClosets', () => {
     const mp = loadMP();
     const content = '# Authentication System\n## JWT Tokens\nSome content here.\n### OAuth Flow\n';
     const result = mp.buildClosets(content, 'drawer-auth');
-    const headers = result.filter(c => c.type === 'header');
+    const headers = result.filter((c) => c.type === 'header');
     expect(headers.length).toBeGreaterThan(0);
     expect(headers[0].term).toBe('Authentication System');
   });
@@ -141,7 +156,7 @@ describe('memory-palace.buildClosets', () => {
     const mp = loadMP();
     const content = 'We implemented AuthModule and deployed ApiServer last week.';
     const result = mp.buildClosets(content, 'drawer-2');
-    const actions = result.filter(c => c.type === 'action');
+    const actions = result.filter((c) => c.type === 'action');
     expect(actions.length).toBeGreaterThan(0);
   });
 
@@ -170,7 +185,11 @@ describe('memory-palace.search', () => {
 
   it('returns matching results after storeVerbatim', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'authentication oauth jwt token security login credentials verification', { wing: 'dev', room: 'auth' });
+    mp.storeVerbatim(
+      tmpDir,
+      'authentication oauth jwt token security login credentials verification',
+      { wing: 'dev', room: 'auth' },
+    );
     const results = mp.search(tmpDir, 'authentication', { limit: 5 });
     expect(Array.isArray(results)).toBe(true);
     expect(results.length).toBeGreaterThan(0);
@@ -178,7 +197,10 @@ describe('memory-palace.search', () => {
 
   it('results have content property', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'memory palace search function test content implementation', { wing: 'dev', room: 'test' });
+    mp.storeVerbatim(tmpDir, 'memory palace search function test content implementation', {
+      wing: 'dev',
+      room: 'test',
+    });
     const results = mp.search(tmpDir, 'memory palace', { limit: 5 });
     if (results.length > 0) {
       expect(results[0]).toHaveProperty('content');
@@ -187,9 +209,12 @@ describe('memory-palace.search', () => {
 
   it('returns results with lower score for non-matching query (search does not filter by score)', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'authentication oauth jwt verification credentials', { wing: 'dev', room: 'auth' });
+    mp.storeVerbatim(tmpDir, 'authentication oauth jwt verification credentials', {
+      wing: 'dev',
+      room: 'auth',
+    });
     // BM25 search returns top-N even with score=0 — it does not filter by relevance threshold
-    const matching = mp.search(tmpDir, 'authentication', { limit: 5 });
+    const _matching = mp.search(tmpDir, 'authentication', { limit: 5 });
     const nonMatching = mp.search(tmpDir, 'zzzzunrelated9999xyz', { limit: 5 });
     // Both may return results; matching results should have positive BM25 relevance
     expect(Array.isArray(nonMatching)).toBe(true);
@@ -197,7 +222,8 @@ describe('memory-palace.search', () => {
 
   it('limits results by opts.limit', () => {
     const mp = loadMP();
-    const longText = 'authentication token session user login credentials verification access control security ';
+    const longText =
+      'authentication token session user login credentials verification access control security ';
     // Store many chunks by using very long content
     mp.storeVerbatim(tmpDir, (longText + 'x '.repeat(50)).repeat(5), { wing: 'dev', room: 'auth' });
     const results = mp.search(tmpDir, 'authentication', { limit: 2 });
@@ -206,10 +232,16 @@ describe('memory-palace.search', () => {
 
   it('filters by wing when opts.wing is set', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'authentication module backend service user login flow', { wing: 'backend', room: 'auth' });
-    mp.storeVerbatim(tmpDir, 'authentication frontend form validation user login', { wing: 'frontend', room: 'auth' });
+    mp.storeVerbatim(tmpDir, 'authentication module backend service user login flow', {
+      wing: 'backend',
+      room: 'auth',
+    });
+    mp.storeVerbatim(tmpDir, 'authentication frontend form validation user login', {
+      wing: 'frontend',
+      room: 'auth',
+    });
     const results = mp.search(tmpDir, 'authentication', { limit: 5, wing: 'backend' });
-    results.forEach(r => expect(r.wing).toBe('backend'));
+    results.forEach((r) => expect(r.wing).toBe('backend'));
   });
 });
 
@@ -225,7 +257,10 @@ describe('memory-palace.recall', () => {
 
   it('returns matching chunks for stored wing/room', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'content in tasks session-one wing and room memory storage', { wing: 'tasks', room: 'session-one' });
+    mp.storeVerbatim(tmpDir, 'content in tasks session-one wing and room memory storage', {
+      wing: 'tasks',
+      room: 'session-one',
+    });
     const result = mp.recall(tmpDir, { wing: 'tasks', room: 'session-one' });
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
@@ -233,7 +268,10 @@ describe('memory-palace.recall', () => {
 
   it('returns all drawers when no filter', () => {
     const mp = loadMP();
-    mp.storeVerbatim(tmpDir, 'content for recall test with wing and room and no filter', { wing: 'any', room: 'any' });
+    mp.storeVerbatim(tmpDir, 'content for recall test with wing and room and no filter', {
+      wing: 'any',
+      room: 'any',
+    });
     const result = mp.recall(tmpDir, {});
     expect(result.length).toBeGreaterThan(0);
   });
@@ -348,7 +386,9 @@ describe('memory-palace knowledge graph', () => {
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBe(2);
     // Chronological order
-    expect(new Date(result[0].valid_from).getTime()).toBeLessThanOrEqual(new Date(result[1].valid_from).getTime());
+    expect(new Date(result[0].valid_from).getTime()).toBeLessThanOrEqual(
+      new Date(result[1].valid_from).getTime(),
+    );
   });
 
   it('kgTimeline returns [] when entity has no triples', () => {

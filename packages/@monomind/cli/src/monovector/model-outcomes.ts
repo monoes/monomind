@@ -45,13 +45,13 @@ export async function recordModelOutcome(baseDir: string, rec: ModelOutcomeRecor
       model: rec.model.slice(0, 32),
       outcome: rec.outcome.slice(0, 32),
     };
-    await fs.appendFile(path, JSON.stringify(safeRec) + '\n', 'utf8');
+    await fs.appendFile(path, `${JSON.stringify(safeRec)}\n`, 'utf8');
     const fileStat = await fs.stat(path).catch(() => null);
     if (fileStat && fileStat.size > MAX_MODEL_RECORDS * APPROX_BYTES_PER_RECORD) {
       const content = await fs.readFile(path, 'utf8').catch(() => '');
       const lines = content.trim().split('\n').filter(Boolean);
       if (lines.length > MAX_MODEL_RECORDS) {
-        await fs.writeFile(path, lines.slice(-MAX_MODEL_RECORDS).join('\n') + '\n', 'utf8');
+        await fs.writeFile(path, `${lines.slice(-MAX_MODEL_RECORDS).join('\n')}\n`, 'utf8');
       }
     }
   } catch {

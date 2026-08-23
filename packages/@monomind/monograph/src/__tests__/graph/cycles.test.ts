@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { findCycles } from '../../graph/cycles.js';
 import { openDb } from '../../storage/db.js';
-import Database from 'better-sqlite3';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-cycles-test-'));
@@ -12,13 +12,15 @@ function makeTempDb() {
 }
 
 function insertNode(db: Database.Database, id: string) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`)
-    .run(id, id, id.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`,
+  ).run(id, id, id.toLowerCase());
 }
 
 function insertEdge(db: Database.Database, src: string, tgt: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}`, src, tgt);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`,
+  ).run(`${src}_${tgt}`, src, tgt);
 }
 
 describe('findCycles', () => {
@@ -91,7 +93,7 @@ describe('findCycles', () => {
   it('does not detect cycles in a tree', () => {
     const db = makeTempDb();
     // a tree: a->b, a->c, b->d, b->e
-    ['a', 'b', 'c', 'd', 'e'].forEach(id => insertNode(db, id));
+    ['a', 'b', 'c', 'd', 'e'].forEach((id) => insertNode(db, id));
     insertEdge(db, 'a', 'b');
     insertEdge(db, 'a', 'c');
     insertEdge(db, 'b', 'd');
@@ -105,7 +107,9 @@ describe('findCycles', () => {
     insertNode(db, 'loop');
     // bypass FK by doing the insertion with FK off
     db.pragma('foreign_keys = OFF');
-    db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES ('self', 'loop', 'loop', 'CALLS', 'EXTRACTED', 1.0)`).run();
+    db.prepare(
+      `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES ('self', 'loop', 'loop', 'CALLS', 'EXTRACTED', 1.0)`,
+    ).run();
     db.pragma('foreign_keys = ON');
     const cycles = findCycles(db);
     expect(cycles.length).toBeGreaterThan(0);

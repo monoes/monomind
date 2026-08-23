@@ -4,15 +4,13 @@
  * @module @monomind/memory/knowledge
  */
 
-export { chunkDocument } from './document-chunker.js';
 export type { TextChunk } from './document-chunker.js';
-
-export { KnowledgeStore } from './knowledge-store.js';
-export type { MetadataRecord, ChunkRecord } from './knowledge-store.js';
-
-export { KnowledgeRetriever } from './knowledge-retriever.js';
+export { chunkDocument } from './document-chunker.js';
 export type {
   KnowledgeExcerpt,
   RetrievalResult,
   SearchFn,
 } from './knowledge-retriever.js';
+export { KnowledgeRetriever } from './knowledge-retriever.js';
+export type { ChunkRecord, MetadataRecord } from './knowledge-store.js';
+export { KnowledgeStore } from './knowledge-store.js';

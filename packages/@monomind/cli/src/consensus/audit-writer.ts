@@ -3,9 +3,10 @@
  *
  * Append-only JSONL storage for consensus audit records and individual votes.
  */
-import { appendFileSync, readFileSync, existsSync, mkdirSync, statSync } from 'fs';
-import { createHmac, timingSafeEqual } from 'crypto';
-import { dirname, join, resolve, relative } from 'path';
+
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { parseJsonl } from '../utils/parse-jsonl.js';
 
 // ─── HMAC tamper-detection helpers (private) ─────────────────────────────────
@@ -21,18 +22,22 @@ const MAX_INPUT_LEN = 1024;
 
 /** Derive a signing key from a swarmId and session secret using HMAC-SHA256. */
 function deriveSigningKey(swarmId: string, sessionSecret: string): Buffer {
-  return createHmac('sha256', sessionSecret.slice(0, MAX_INPUT_LEN)).update(swarmId.slice(0, MAX_INPUT_LEN)).digest();
+  return createHmac('sha256', sessionSecret.slice(0, MAX_INPUT_LEN))
+    .update(swarmId.slice(0, MAX_INPUT_LEN))
+    .digest();
 }
 
 function canonicalize(val: unknown, depth = 0): string {
   // Guard against deeply-nested objects that would overflow the call stack.
   if (depth > MAX_CANONICALIZE_DEPTH) return '"[MaxDepth]"';
   if (val === null || typeof val !== 'object') return JSON.stringify(val);
-  if (Array.isArray(val)) return '[' + val.map(item => canonicalize(item, depth + 1)).join(',') + ']';
-  const sorted = Object.keys(val as object).sort().map(
-    k => JSON.stringify(k) + ':' + canonicalize((val as Record<string, unknown>)[k], depth + 1)
-  );
-  return '{' + sorted.join(',') + '}';
+  if (Array.isArray(val)) return `[${val.map((item) => canonicalize(item, depth + 1)).join(',')}]`;
+  const sorted = Object.keys(val as object)
+    .sort()
+    .map(
+      (k) => `${JSON.stringify(k)}:${canonicalize((val as Record<string, unknown>)[k], depth + 1)}`,
+    );
+  return `{${sorted.join(',')}}`;
 }
 
 /** Sign a vote entry, producing a hex-encoded HMAC-SHA256 signature. */
@@ -40,12 +45,22 @@ function signVote(agentId: string, vote: unknown, decisionId: string, key: Buffe
   // Cap string fields to prevent OOM when hashing attacker-supplied inputs.
   const safeAgentId = agentId.slice(0, MAX_INPUT_LEN);
   const safeDecisionId = decisionId.slice(0, MAX_INPUT_LEN);
-  const payload = JSON.stringify({ agentId: safeAgentId, vote: canonicalize(vote), decisionId: safeDecisionId });
+  const payload = JSON.stringify({
+    agentId: safeAgentId,
+    vote: canonicalize(vote),
+    decisionId: safeDecisionId,
+  });
   return createHmac('sha256', key).update(payload).digest('hex');
 }
 
 /** Verify a vote entry signature using constant-time comparison. */
-function verifyVote(agentId: string, vote: unknown, decisionId: string, signature: string, key: Buffer): boolean {
+function verifyVote(
+  agentId: string,
+  vote: unknown,
+  decisionId: string,
+  signature: string,
+  key: Buffer,
+): boolean {
   // Guard: odd-length or non-hex signature string causes Buffer.from to throw.
   if (!/^[0-9a-fA-F]{64}$/.test(signature)) return false;
   const expected = signVote(agentId, vote, decisionId, key);
@@ -175,7 +190,7 @@ export class AuditWriter {
     // Compute duration (guard against invalid date strings)
     const startMs = new Date(input.startedAt).getTime();
     const endMs = new Date(input.completedAt).getTime();
-    const durationMs = isNaN(startMs) || isNaN(endMs) ? null : endMs - startMs;
+    const durationMs = Number.isNaN(startMs) || Number.isNaN(endMs) ? null : endMs - startMs;
 
     const recordWithoutSig: ConsensusAuditRecord = {
       decisionId,
@@ -261,7 +276,7 @@ export class AuditWriter {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    appendFileSync(filePath, JSON.stringify(data) + '\n', 'utf-8');
+    appendFileSync(filePath, `${JSON.stringify(data)}\n`, 'utf-8');
   }
 
   private readLines(filePath: string): ConsensusAuditRecord[] {

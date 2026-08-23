@@ -1,5 +1,5 @@
-import { createServer } from 'http';
-import type { Server } from 'http';
+import type { Server } from 'node:http';
+import { createServer } from 'node:http';
 import type Database from 'better-sqlite3';
 import { setupApiRoutes } from './api.js';
 import { getReactUiHtml } from './react-ui.js';
@@ -38,7 +38,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
 
   // DNS rebinding protection: reject requests with a Host header that isn't localhost
   app.use((req, res, next) => {
-    const host = (req.headers['host'] ?? '').split(':')[0].toLowerCase();
+    const host = (req.headers.host ?? '').split(':')[0].toLowerCase();
     if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1' && host !== '') {
       res.status(403).json({ error: 'Forbidden' });
       return;
@@ -73,13 +73,14 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
 
       resolve({
         url,
-        stop: () => new Promise<void>((res) => {
-          server.close(() => res());
-          if (activeServer === server) {
-            activeServer = null;
-            activeUrl = null;
-          }
-        }),
+        stop: () =>
+          new Promise<void>((res) => {
+            server.close(() => res());
+            if (activeServer === server) {
+              activeServer = null;
+              activeUrl = null;
+            }
+          }),
       });
     });
   });

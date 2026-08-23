@@ -1,12 +1,12 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import type { PipelinePhase } from '../types.js';
-import type { MonographEdge } from '../../types.js';
-import { makeId, CONFIDENCE_SCORE } from '../../types.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
+import type { MonographEdge } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { ParseOutput } from './parse.js';
+import { buildWorkspacePackageMap, resolveModuleSpecifier } from './scope-resolution.js';
 import type { StructureOutput } from './structure.js';
-import { resolveModuleSpecifier, buildWorkspacePackageMap } from './scope-resolution.js';
 
 export interface CrossFileOutput {
   resolvedEdges: MonographEdge[];

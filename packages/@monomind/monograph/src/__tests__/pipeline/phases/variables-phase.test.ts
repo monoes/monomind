@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { variablesPhase } from '../../../pipeline/phases/variables-phase.js';
 import type { PipelineContext } from '../../../pipeline/types.js';
 
@@ -55,9 +55,7 @@ describe('variablesPhase', () => {
       allEdges: [],
       symbolNodes: [],
       parseErrors: [],
-      fileContents: new Map([
-        ['/tmp/b.ts', 'export const X = 1;\nexport const Y = 2;'],
-      ]),
+      fileContents: new Map([['/tmp/b.ts', 'export const X = 1;\nexport const Y = 2;']]),
     };
     const deps = new Map([['parse', parseOutput]]);
     const result = await variablesPhase.execute(makeCtx(db), deps);

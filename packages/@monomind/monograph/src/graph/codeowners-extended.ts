@@ -86,7 +86,10 @@ export function aggregateOwnership(
     } else {
       const primary = owners[0];
       let bucket = byOwner.get(primary);
-      if (!bucket) { bucket = []; byOwner.set(primary, bucket); }
+      if (!bucket) {
+        bucket = [];
+        byOwner.set(primary, bucket);
+      }
       bucket.push(path);
     }
   }

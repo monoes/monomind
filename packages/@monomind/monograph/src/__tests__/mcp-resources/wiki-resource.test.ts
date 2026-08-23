@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
-import { wikiResource, wikiPageResource } from '../../mcp-resources/wiki-resource.js';
+import { describe, expect, it } from 'vitest';
+import { wikiPageResource, wikiResource } from '../../mcp-resources/wiki-resource.js';
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');

@@ -30,14 +30,7 @@ describe('dagBlockTask', () => {
     const untilIso = new Date(Date.now() + 60_000).toISOString();
 
     const result = JSON.parse(
-      dagBlockTask(
-        daemon,
-        'myorg',
-        'performance-engineer',
-        t.id,
-        untilIso,
-        'Waiting on soak test',
-      ),
+      dagBlockTask(daemon, 'myorg', 'performance-engineer', t.id, untilIso, 'Waiting on soak test'),
     );
 
     expect(result.blocked).toBe(t.id);

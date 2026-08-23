@@ -3,8 +3,8 @@
  * Extracted from workers/index.ts (ARCH-3b).
  */
 
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 import { safePathAsync } from './worker-utils.js';
 
@@ -15,10 +15,7 @@ export function createCacheWorker(projectRoot: string): WorkerHandler {
     let cleaned = 0;
     let freedBytes = 0;
 
-    const safeCleanDirs = [
-      '.monomind/cache',
-      '.monomind/temp',
-    ];
+    const safeCleanDirs = ['.monomind/cache', '.monomind/temp'];
 
     const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
     const now = Date.now();

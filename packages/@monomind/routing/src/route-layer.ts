@@ -1,8 +1,8 @@
-import { Route, RouteResult, RouteLayerConfig } from './types.js';
-import { cosineSimilarity, computeCentroid } from './cosine.js';
-import { LocalEncoder, HNSWEncoder, Encoder } from './encoder.js';
-import { LLMFallbackRouter } from './llm-fallback.js';
+import { computeCentroid, cosineSimilarity } from './cosine.js';
+import { type Encoder, HNSWEncoder, LocalEncoder } from './encoder.js';
 import { KeywordPreFilter } from './keyword-pre-filter.js';
+import { LLMFallbackRouter } from './llm-fallback.js';
+import type { Route, RouteLayerConfig, RouteResult } from './types.js';
 
 interface RouteCentroid {
   route: Route;

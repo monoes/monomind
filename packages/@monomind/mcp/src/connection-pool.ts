@@ -4,14 +4,14 @@
  * High-performance connection pooling
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import type {
-  PooledConnection,
-  ConnectionPoolStats,
   ConnectionPoolConfig,
+  ConnectionPoolStats,
   ConnectionState,
   IConnectionPool,
   ILogger,
+  PooledConnection,
   TransportType,
 } from './types.js';
 
@@ -33,7 +33,7 @@ class ManagedConnection implements PooledConnection {
     public readonly id: string,
     public readonly transport: TransportType,
     public readonly createdAt: Date = new Date(),
-    public metadata?: Record<string, unknown>
+    public metadata?: Record<string, unknown>,
   ) {
     this.lastUsedAt = this.createdAt;
   }
@@ -85,7 +85,7 @@ export class ConnectionPool extends EventEmitter implements IConnectionPool {
   constructor(
     config: Partial<ConnectionPoolConfig> = {},
     private readonly logger: ILogger,
-    private readonly transportType: TransportType = 'in-process'
+    private readonly transportType: TransportType = 'in-process',
   ) {
     super();
     this.config = { ...DEFAULT_POOL_CONFIG, ...config };
@@ -239,9 +239,8 @@ export class ConnectionPool extends EventEmitter implements IConnectionPool {
       totalReleased: this.stats.totalReleased,
       totalCreated: this.stats.totalCreated,
       totalDestroyed: this.stats.totalDestroyed,
-      avgAcquireTime: this.stats.acquireCount > 0
-        ? this.stats.acquireTimeTotal / this.stats.acquireCount
-        : 0,
+      avgAcquireTime:
+        this.stats.acquireCount > 0 ? this.stats.acquireTimeTotal / this.stats.acquireCount : 0,
     };
   }
 
@@ -338,7 +337,7 @@ export class ConnectionPool extends EventEmitter implements IConnectionPool {
 export function createConnectionPool(
   config: Partial<ConnectionPoolConfig> = {},
   logger: ILogger,
-  transportType: TransportType = 'in-process'
+  transportType: TransportType = 'in-process',
 ): ConnectionPool {
   return new ConnectionPool(config, logger, transportType);
 }

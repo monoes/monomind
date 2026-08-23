@@ -5,4 +5,4 @@
  * This file re-exports the public API for existing importers.
  */
 
-export { monographTools, allMonographTools, preferSymbolHits } from './monograph/index.js';
+export { allMonographTools, monographTools, preferSymbolHits } from './monograph/index.js';

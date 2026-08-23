@@ -1,10 +1,10 @@
-import { readFileSync, statSync } from 'fs';
-import { extname } from 'path';
-import type { PipelinePhase } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel } from '../../types.js';
-import { insertNodes } from '../../storage/node-store.js';
+import { readFileSync, statSync } from 'node:fs';
+import { extname } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
+import { insertNodes } from '../../storage/node-store.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { makeId, toNormLabel } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { StructureOutput } from './structure.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -31,10 +31,12 @@ export interface ToolsOutput {
 const SERVER_TOOL_RE = /server\.tool\(\s*['"]([^'"]+)['"]/g;
 
 /** export const FOO_TOOL = { name: 'foo', description: '...' } */
-const EXPORTED_TOOL_CONST_RE = /export\s+const\s+\w+[Tt][Oo][Oo][Ll]\w*\s*=\s*\{[^}]*name:\s*['"]([^'"]+)['"]/g;
+const EXPORTED_TOOL_CONST_RE =
+  /export\s+const\s+\w+[Tt][Oo][Oo][Ll]\w*\s*=\s*\{[^}]*name:\s*['"]([^'"]+)['"]/g;
 
 /** Array variable name pattern: TOOLS, tools, MY_TOOLS, toolsList, etc. (case-insensitive on 'tools') */
-const TOOLS_ARRAY_VAR_RE = /(?:export\s+)?(?:const|let|var)\s+(\w*[Tt][Oo][Oo][Ll][Ss]?\w*)\s*(?::\s*\w+\[\])?\s*=\s*\[/g;
+const TOOLS_ARRAY_VAR_RE =
+  /(?:export\s+)?(?:const|let|var)\s+(\w*[Tt][Oo][Oo][Ll][Ss]?\w*)\s*(?::\s*\w+\[\])?\s*=\s*\[/g;
 
 // ── Phase ─────────────────────────────────────────────────────────────────────
 
@@ -120,7 +122,7 @@ export const toolsPhase: PipelinePhase<ToolsOutput> = {
             .all(relPath) as { id: string; name: string }[];
 
           // Find nodes whose name contains the tool name (case-insensitive, stripped)
-          const matches = rows.filter(row => {
+          const matches = rows.filter((row) => {
             const n = row.name.toLowerCase().replace(/[_-]/g, '');
             return n.includes(lowerTool) || (n.length > 0 && lowerTool.includes(n));
           });
@@ -128,7 +130,7 @@ export const toolsPhase: PipelinePhase<ToolsOutput> = {
           if (matches.length >= 1) {
             // Pick best match: exact name > name contains tool > tool contains name
             const scored = matches
-              .map(row => {
+              .map((row) => {
                 const n = row.name.toLowerCase().replace(/[_-]/g, '');
                 const score = n === lowerTool ? 3 : n.includes(lowerTool) ? 2 : 1;
                 return { row, score };

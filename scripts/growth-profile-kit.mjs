@@ -9,81 +9,109 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const OUT_DIR = path.join(ROOT, '.monomind/orgs/monomind-growth/workspace/reports/channel-profiles');
+const OUT_DIR = path.join(
+  ROOT,
+  '.monomind/orgs/monomind-growth/workspace/reports/channel-profiles',
+);
 const AVATAR = 'avatar-monoes.png';
 
 const CHANNELS = [
   {
-    name: 'X/Twitter', banner: 'banner-x-twitter.png',
-    specs: 'Profile photo 400x400 (displayed circular) · Header 1500x500 · Name ≤50 chars · Bio ≤160 chars',
-    displayName: 'monomind', handle: '@monomind_ai (suggested, verify availability)',
-    bio: "Claude Code gives you an agent. monomind gives you a company. Open-source persistent agent orgs — real hierarchy, budgets, human approval. npx monomind@latest init",
+    name: 'X/Twitter',
+    banner: 'banner-x-twitter.png',
+    specs:
+      'Profile photo 400x400 (displayed circular) · Header 1500x500 · Name ≤50 chars · Bio ≤160 chars',
+    displayName: 'monomind',
+    handle: '@monomind_ai (suggested, verify availability)',
+    bio: 'Claude Code gives you an agent. monomind gives you a company. Open-source persistent agent orgs — real hierarchy, budgets, human approval. npx monomind@latest init',
   },
   {
-    name: 'LinkedIn (Company Page)', banner: 'banner-linkedin.png',
+    name: 'LinkedIn (Company Page)',
+    banner: 'banner-linkedin.png',
     specs: 'Logo 300x300 · Cover 1128x191 · Tagline ≤120 chars · About ≤2000 chars',
     displayName: 'monomind',
     bio: 'Persistent, governed multi-agent orgs for Claude Code — open source, local-first.',
-    about: "monomind is an open-source orchestration layer on top of Claude Code. Instead of spinning up agents for one task and discarding everything they learned when the run ends, monomind treats a set of agents as a persistent \"org\": defined roles and reporting lines, local-first memory (SQLite + local embeddings, no cloud vector DB), per-agent budgets with burn-rate tracking, and human-approval gates before anything destructive ships. Plus a real code knowledge graph (tree-sitter + SQLite) for blast-radius analysis and dead-code detection.\n\nClaude Code gives you an agent. monomind gives you a company.",
+    about:
+      'monomind is an open-source orchestration layer on top of Claude Code. Instead of spinning up agents for one task and discarding everything they learned when the run ends, monomind treats a set of agents as a persistent "org": defined roles and reporting lines, local-first memory (SQLite + local embeddings, no cloud vector DB), per-agent budgets with burn-rate tracking, and human-approval gates before anything destructive ships. Plus a real code knowledge graph (tree-sitter + SQLite) for blast-radius analysis and dead-code detection.\n\nClaude Code gives you an agent. monomind gives you a company.',
   },
   {
-    name: 'Reddit', banner: 'banner-reddit.png',
+    name: 'Reddit',
+    banner: 'banner-reddit.png',
     specs: 'Avatar 256x256 · Profile banner 1920x384 · About ≤200 chars',
-    displayName: 'monomind', handle: 'u/monomind-dev (suggested, verify availability)',
-    bio: "Open-source orchestration layer on top of Claude Code — persistent agent orgs with real hierarchy, local-first memory, and human-approval gates. Not a one-shot script.",
-  },
-  {
-    name: 'Discord (Server)', banner: 'banner-discord.png',
-    specs: 'Server icon 512x512 · Server banner/splash 1920x1080 (Boost Level 2+) · Discovery description ≤120 chars',
     displayName: 'monomind',
-    bio: "Open-source persistent multi-agent orgs for Claude Code. Local-first memory, real hierarchy, human-in-the-loop.",
+    handle: 'u/monomind-dev (suggested, verify availability)',
+    bio: 'Open-source orchestration layer on top of Claude Code — persistent agent orgs with real hierarchy, local-first memory, and human-approval gates. Not a one-shot script.',
   },
   {
-    name: 'Bluesky', banner: 'banner-bluesky.png',
+    name: 'Discord (Server)',
+    banner: 'banner-discord.png',
+    specs:
+      'Server icon 512x512 · Server banner/splash 1920x1080 (Boost Level 2+) · Discovery description ≤120 chars',
+    displayName: 'monomind',
+    bio: 'Open-source persistent multi-agent orgs for Claude Code. Local-first memory, real hierarchy, human-in-the-loop.',
+  },
+  {
+    name: 'Bluesky',
+    banner: 'banner-bluesky.png',
     specs: 'Avatar 1000x1000 recommended · Banner 3000x1000 · Bio ≤256 chars',
-    displayName: 'monomind', handle: '@monomind.bsky.social (suggested)',
-    bio: "Claude Code gives you an agent. monomind gives you a company. Open-source, local-first, persistent multi-agent orgs — real hierarchy, budgets, human-approval gates. No cloud vector DB, nothing leaves your machine.",
-  },
-  {
-    name: 'Mastodon', banner: 'banner-mastodon.png',
-    specs: 'Avatar 400x400 · Header 1500x500 · Bio ≤500 chars',
-    displayName: 'monomind', handle: '@monomind@fosstodon.org (suggested)',
-    bio: "Open-source orchestration layer on top of Claude Code. Persistent multi-agent orgs — defined roles, hierarchy, and reporting lines that survive across sessions. Local-first memory (SQLite + local embeddings, no cloud vector DB), per-agent budgets with burn-rate tracking, human-approval gates before anything destructive. A real code knowledge graph (tree-sitter + SQLite) for blast-radius analysis. Claude Code gives you an agent. monomind gives you a company.",
-  },
-  {
-    name: 'YouTube', banner: 'banner-youtube.png',
-    specs: 'Icon 800x800 · Banner 2560x1440 (safe area 1546x423) · Description no hard cap, ~1000 chars shown by default',
     displayName: 'monomind',
-    bio: "monomind is an open-source orchestration layer on top of Claude Code that turns a set of coding agents into a persistent \"org\" instead of a one-shot script — defined roles and hierarchy, local-first memory, per-agent budgets, and human-approval gates before anything destructive ships. This channel covers demos, architecture walkthroughs, and monthly recaps of what shipped.\n\nClaude Code gives you an agent. monomind gives you a company.",
+    handle: '@monomind.bsky.social (suggested)',
+    bio: 'Claude Code gives you an agent. monomind gives you a company. Open-source, local-first, persistent multi-agent orgs — real hierarchy, budgets, human-approval gates. No cloud vector DB, nothing leaves your machine.',
   },
   {
-    name: 'TikTok', banner: null,
+    name: 'Mastodon',
+    banner: 'banner-mastodon.png',
+    specs: 'Avatar 400x400 · Header 1500x500 · Bio ≤500 chars',
+    displayName: 'monomind',
+    handle: '@monomind@fosstodon.org (suggested)',
+    bio: 'Open-source orchestration layer on top of Claude Code. Persistent multi-agent orgs — defined roles, hierarchy, and reporting lines that survive across sessions. Local-first memory (SQLite + local embeddings, no cloud vector DB), per-agent budgets with burn-rate tracking, human-approval gates before anything destructive. A real code knowledge graph (tree-sitter + SQLite) for blast-radius analysis. Claude Code gives you an agent. monomind gives you a company.',
+  },
+  {
+    name: 'YouTube',
+    banner: 'banner-youtube.png',
+    specs:
+      'Icon 800x800 · Banner 2560x1440 (safe area 1546x423) · Description no hard cap, ~1000 chars shown by default',
+    displayName: 'monomind',
+    bio: 'monomind is an open-source orchestration layer on top of Claude Code that turns a set of coding agents into a persistent "org" instead of a one-shot script — defined roles and hierarchy, local-first memory, per-agent budgets, and human-approval gates before anything destructive ships. This channel covers demos, architecture walkthroughs, and monthly recaps of what shipped.\n\nClaude Code gives you an agent. monomind gives you a company.',
+  },
+  {
+    name: 'TikTok',
+    banner: null,
     specs: 'Profile photo min 200x200 (no banner) · Bio ≤80 chars',
-    displayName: 'monomind', handle: '@monomind_ai (suggested)',
-    bio: "I gave Claude Code a whole company 🤖 open-source, local-first agent orgs",
+    displayName: 'monomind',
+    handle: '@monomind_ai (suggested)',
+    bio: 'I gave Claude Code a whole company 🤖 open-source, local-first agent orgs',
   },
   {
-    name: 'GitHub (Org)', banner: null,
-    specs: 'Org avatar 460x460+ · Bio/description ≤160 chars (social preview card 1280x640 reuses existing github-social-preview.svg)',
-    displayName: 'monomind', handle: 'github.com/monoes (existing)',
-    bio: "Open-source orchestration layer on top of Claude Code — persistent multi-agent orgs, local-first memory, real knowledge graph for code.",
+    name: 'GitHub (Org)',
+    banner: null,
+    specs:
+      'Org avatar 460x460+ · Bio/description ≤160 chars (social preview card 1280x640 reuses existing github-social-preview.svg)',
+    displayName: 'monomind',
+    handle: 'github.com/monoes (existing)',
+    bio: 'Open-source orchestration layer on top of Claude Code — persistent multi-agent orgs, local-first memory, real knowledge graph for code.',
   },
   {
-    name: 'Dev.to', banner: 'banner-devto.png',
+    name: 'Dev.to',
+    banner: 'banner-devto.png',
     specs: 'Profile pic square · Optional cover image 1000x420 · Bio ≤200 chars',
     displayName: 'monomind',
-    bio: "Building monomind — an open-source orchestration layer on top of Claude Code. Persistent agent orgs, local-first memory, real code knowledge graph. Posting deep-dives and comparisons.",
+    bio: 'Building monomind — an open-source orchestration layer on top of Claude Code. Persistent agent orgs, local-first memory, real code knowledge graph. Posting deep-dives and comparisons.',
   },
   {
-    name: 'Newsletter', banner: 'banner-newsletter.png',
+    name: 'Newsletter',
+    banner: 'banner-newsletter.png',
     specs: 'Masthead logo square · Header/cover ~1200x600 · Short tagline for signup page',
     displayName: 'monomind',
-    bio: "An open-source AI company, not just an AI agent. Updates on org runtime, local-first memory, and the knowledge graph — from the people building it.",
+    bio: 'An open-source AI company, not just an AI agent. Updates on org runtime, local-first memory, and the knowledge graph — from the people building it.',
   },
 ];
 
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
 }
 
 function render() {
@@ -150,7 +178,9 @@ ${CHANNELS.map(channelCard).join('\n')}
 </body></html>`;
   fs.mkdirSync(OUT_DIR, { recursive: true });
   fs.writeFileSync(path.join(OUT_DIR, 'channel-profiles.html'), html);
-  console.log(`Wrote channel-profiles.html for ${CHANNELS.length} channels (avatar ${avatarExists ? 'found' : 'MISSING'}) -> ${path.relative(ROOT, OUT_DIR)}`);
+  console.log(
+    `Wrote channel-profiles.html for ${CHANNELS.length} channels (avatar ${avatarExists ? 'found' : 'MISSING'}) -> ${path.relative(ROOT, OUT_DIR)}`,
+  );
 }
 
 render();

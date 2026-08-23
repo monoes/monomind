@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { topologicalLevelSort } from '../../graph/topo-sort.js';
 import { openDb } from '../../storage/db.js';
-import Database from 'better-sqlite3';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-topo-test-'));
@@ -12,13 +12,15 @@ function makeTempDb() {
 }
 
 function insertNode(db: Database.Database, id: string) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'File', ?, ?, 0)`)
-    .run(id, id, id.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'File', ?, ?, 0)`,
+  ).run(id, id, id.toLowerCase());
 }
 
 function insertEdge(db: Database.Database, src: string, tgt: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'IMPORTS', 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}`, src, tgt);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'IMPORTS', 'EXTRACTED', 1.0)`,
+  ).run(`${src}_${tgt}`, src, tgt);
 }
 
 describe('topologicalLevelSort', () => {
@@ -56,8 +58,8 @@ describe('topologicalLevelSort', () => {
     expect(allNodes).toContain('b');
     expect(allNodes).toContain('c');
     // leaf (c) must appear before root (a)
-    const levelC = result.levels.findIndex(l => l.includes('c'));
-    const levelA = result.levels.findIndex(l => l.includes('a'));
+    const levelC = result.levels.findIndex((l) => l.includes('c'));
+    const levelA = result.levels.findIndex((l) => l.includes('a'));
     expect(levelC).toBeLessThan(levelA);
     db.close();
   });
@@ -92,7 +94,7 @@ describe('topologicalLevelSort', () => {
 
   it('handles diamond dependency: a->b, a->c, b->d, c->d', () => {
     const db = makeTempDb();
-    ['a', 'b', 'c', 'd'].forEach(n => insertNode(db, n));
+    ['a', 'b', 'c', 'd'].forEach((n) => insertNode(db, n));
     insertEdge(db, 'a', 'b');
     insertEdge(db, 'a', 'c');
     insertEdge(db, 'b', 'd');
@@ -102,8 +104,8 @@ describe('topologicalLevelSort', () => {
     const allNodes = result.levels.flat();
     expect(allNodes.sort()).toEqual(['a', 'b', 'c', 'd'].sort());
     // d must appear in earlier level than a
-    const levelD = result.levels.findIndex(l => l.includes('d'));
-    const levelA = result.levels.findIndex(l => l.includes('a'));
+    const levelD = result.levels.findIndex((l) => l.includes('d'));
+    const levelA = result.levels.findIndex((l) => l.includes('a'));
     expect(levelD).toBeLessThan(levelA);
     db.close();
   });

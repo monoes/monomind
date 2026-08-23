@@ -19,12 +19,12 @@
  * about the store layer is mocked.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { monoswarmCommand } from '../commands/monoswarm.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listCommand, spawnCommand } from '../commands/agent-lifecycle.js';
+import { monoswarmCommand } from '../commands/monoswarm.js';
 import { getMonomindDataRoot } from '../mcp-tools/types.js';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -72,8 +72,8 @@ describe('data-root agreement between the monoswarm CLI and the MCP tools', () =
   });
 
   it('monoswarm status counts agents written by the real agent_spawn MCP path', async () => {
-    await spawnCommand.action!(makeCtx({ flags: { type: 'coder', name: 'x', _: [] } }));
-    await spawnCommand.action!(makeCtx({ flags: { type: 'tester', name: 'y', _: [] } }));
+    await spawnCommand.action?.(makeCtx({ flags: { type: 'coder', name: 'x', _: [] } }));
+    await spawnCommand.action?.(makeCtx({ flags: { type: 'tester', name: 'y', _: [] } }));
 
     // Sanity: the agents really are on disk, under the canonical root.
     const storePath = join(getMonomindDataRoot(dir), 'agents', 'store.json');
@@ -81,7 +81,7 @@ describe('data-root agreement between the monoswarm CLI and the MCP tools', () =
     const onDisk = JSON.parse(readFileSync(storePath, 'utf-8'));
     expect(Object.keys(onDisk.agents)).toHaveLength(2);
 
-    const result = (await findSub('status').action!(makeCtx())) as CommandResult;
+    const result = (await findSub('status').action?.(makeCtx())) as CommandResult;
     const data = result.data as { agents: { total: number; active: number } };
     expect(data.agents.total).toBe(2);
     expect(data.agents.active).toBe(2);
@@ -90,9 +90,11 @@ describe('data-root agreement between the monoswarm CLI and the MCP tools', () =
   it('monoswarm status reads state written by the monoswarm_init MCP tool (no second copy)', async () => {
     const { monoswarmTools } = await import('../mcp-tools/monoswarm-tools.js');
     const initTool = monoswarmTools.find((t) => t.name === 'monoswarm_init')!;
-    const init = (await initTool.handler({ topology: 'mesh', maxAgents: 4 })) as { monoswarmId: string };
+    const init = (await initTool.handler({ topology: 'mesh', maxAgents: 4 })) as {
+      monoswarmId: string;
+    };
 
-    const result = (await findSub('status').action!(makeCtx())) as CommandResult;
+    const result = (await findSub('status').action?.(makeCtx())) as CommandResult;
     const data = result.data as { id: string; topology: string; hasActiveSwarm: boolean };
     expect(data.hasActiveSwarm).toBe(true);
     expect(data.id).toBe(init.monoswarmId);
@@ -100,7 +102,9 @@ describe('data-root agreement between the monoswarm CLI and the MCP tools', () =
   });
 
   it('monoswarm init persists into the canonical root, not a parallel <cwd>/.monomind copy', async () => {
-    await findSub('init').action!(makeCtx({ flags: { topology: 'hierarchical', 'max-agents': 8, _: [] } }));
+    await findSub('init').action?.(
+      makeCtx({ flags: { topology: 'hierarchical', 'max-agents': 8, _: [] } }),
+    );
 
     const canonical = join(getMonomindDataRoot(dir), 'monoswarm', 'state.json');
     expect(existsSync(canonical)).toBe(true);
@@ -109,29 +113,34 @@ describe('data-root agreement between the monoswarm CLI and the MCP tools', () =
     // And the MCP-side reader sees exactly that monoswarm.
     const { monoswarmTools } = await import('../mcp-tools/monoswarm-tools.js');
     const statusTool = monoswarmTools.find((t) => t.name === 'monoswarm_status')!;
-    const mcpStatus = (await statusTool.handler({})) as { monoswarmId?: string; status: string; topology?: string };
+    const mcpStatus = (await statusTool.handler({})) as {
+      monoswarmId?: string;
+      status: string;
+      topology?: string;
+    };
     expect(mcpStatus.status).toBe('running');
     expect(mcpStatus.topology).toBe('hierarchical');
 
     // The CLI's own status reads the same record back.
-    const cliStatus = (await findSub('status').action!(makeCtx())) as CommandResult;
+    const cliStatus = (await findSub('status').action?.(makeCtx())) as CommandResult;
     expect((cliStatus.data as { id: string }).id).toBe(mcpStatus.monoswarmId);
   });
 });
 
 describe('agent list ID column', () => {
   it('renders the agentId returned by agent_list instead of a blank cell', async () => {
-    const spawned = (await spawnCommand.action!(
+    const spawned = (await spawnCommand.action?.(
       makeCtx({ flags: { type: 'coder', name: 'x', _: [] } }),
     )) as CommandResult;
-    const spawnedId = (spawned.data as { agentId?: string; id?: string }).agentId
-      ?? (spawned.data as { id?: string }).id;
+    const spawnedId =
+      (spawned.data as { agentId?: string; id?: string }).agentId ??
+      (spawned.data as { id?: string }).id;
     expect(typeof spawnedId).toBe('string');
     expect(spawnedId).toBeTruthy();
 
     const tableSpy = vi.spyOn(output, 'printTable').mockImplementation(() => undefined);
     try {
-      const result = (await listCommand.action!(makeCtx())) as CommandResult;
+      const result = (await listCommand.action?.(makeCtx())) as CommandResult;
       expect(result.success).toBe(true);
       expect(tableSpy).toHaveBeenCalled();
       const rows = tableSpy.mock.calls[0][0].data as Array<Record<string, unknown>>;

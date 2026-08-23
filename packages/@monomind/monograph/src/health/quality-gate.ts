@@ -1,5 +1,5 @@
 export interface QualityGateConfig {
-  minScore?: number;          // 0–100: fail if health score < minScore
+  minScore?: number; // 0–100: fail if health score < minScore
   failOnRegression?: boolean;
 }
 

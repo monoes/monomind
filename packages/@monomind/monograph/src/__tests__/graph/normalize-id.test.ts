@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { normalizeId, buildNormToIdMap, reconcileEdges } from '../../graph/normalize-id.js';
+import { describe, expect, it } from 'vitest';
+import { buildNormToIdMap, normalizeId, reconcileEdges } from '../../graph/normalize-id.js';
 
 describe('normalizeId', () => {
   it('lowercases the result', () => {
@@ -94,7 +94,9 @@ describe('reconcileEdges', () => {
   });
 
   it('preserves extra properties on edges', () => {
-    const edges = [{ source: 'auth_login', target: 'UserService', relation: 'CALLS', confidence: 0.9 }];
+    const edges = [
+      { source: 'auth_login', target: 'UserService', relation: 'CALLS', confidence: 0.9 },
+    ];
     const result = reconcileEdges(edges, nodeIds);
     expect(result.resolved[0].relation).toBe('CALLS');
     expect(result.resolved[0].confidence).toBe(0.9);

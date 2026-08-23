@@ -3,10 +3,7 @@ export interface AccessedMembers {
   hasNamespaceAccess: boolean;
 }
 
-export function isUnusedImportBinding(
-  importedName: string,
-  accessedMembers: Set<string>,
-): boolean {
+export function isUnusedImportBinding(importedName: string, accessedMembers: Set<string>): boolean {
   return !accessedMembers.has(importedName);
 }
 
@@ -80,7 +77,7 @@ export function filterUnusedExports(
  * Format narrowing reports as structured text for LLM dead-import diagnostics.
  */
 export function formatNarrowingReport(reports: NarrowingReport[]): string {
-  const withUnused = reports.filter(r => r.unusedExports.length > 0);
+  const withUnused = reports.filter((r) => r.unusedExports.length > 0);
   if (withUnused.length === 0) return 'No unused exports found.';
 
   const lines: string[] = [`Unused exports in ${withUnused.length} file(s):`, ''];

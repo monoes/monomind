@@ -3,12 +3,13 @@
  * Uses process.env.CLAUDE_PROJECT_DIR injection before each fresh require()
  * so module-level DATA_DIR / SESSION_DIR resolve to the isolated tmpDir.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -23,10 +24,18 @@ function loadIntl() {
   return require(INTL_PATH);
 }
 
-function dataDir(dir) { return path.join(dir, '.monomind', 'data'); }
-function storePath(dir) { return path.join(dataDir(dir), 'auto-memory-store.json'); }
-function rankedPath(dir) { return path.join(dataDir(dir), 'ranked-context.json'); }
-function pendingPath(dir) { return path.join(dataDir(dir), 'pending-insights.jsonl'); }
+function dataDir(dir) {
+  return path.join(dir, '.monomind', 'data');
+}
+function storePath(dir) {
+  return path.join(dataDir(dir), 'auto-memory-store.json');
+}
+function rankedPath(dir) {
+  return path.join(dataDir(dir), 'ranked-context.json');
+}
+function pendingPath(dir) {
+  return path.join(dataDir(dir), 'pending-insights.jsonl');
+}
 
 function seedStore(dir, entries) {
   fs.mkdirSync(dataDir(dir), { recursive: true });
@@ -62,8 +71,20 @@ describe('intelligence.init', () => {
 
   it('nodes count reflects seeded store entries', () => {
     seedStore(tmpDir, [
-      { id: 'e1', content: 'first entry about auth', summary: 'auth', category: 'default', confidence: 0.8 },
-      { id: 'e2', content: 'second entry about testing', summary: 'test', category: 'default', confidence: 0.7 },
+      {
+        id: 'e1',
+        content: 'first entry about auth',
+        summary: 'auth',
+        category: 'default',
+        confidence: 0.8,
+      },
+      {
+        id: 'e2',
+        content: 'second entry about testing',
+        summary: 'test',
+        category: 'default',
+        confidence: 0.7,
+      },
     ]);
     const intl = loadIntl();
     const result = intl.init();
@@ -104,7 +125,13 @@ describe('intelligence.getContext', () => {
 
   it('returns [INTELLIGENCE] context string when matching entries exist', () => {
     seedStore(tmpDir, [
-      { id: 'e1', content: 'implement feature authentication oauth jwt', summary: 'auth', category: 'default', confidence: 0.8 },
+      {
+        id: 'e1',
+        content: 'implement feature authentication oauth jwt',
+        summary: 'auth',
+        category: 'default',
+        confidence: 0.8,
+      },
     ]);
     const intl = loadIntl();
     intl.init();
@@ -114,7 +141,13 @@ describe('intelligence.getContext', () => {
 
   it('returns null when prompt has no word overlap with entries', () => {
     seedStore(tmpDir, [
-      { id: 'e1', content: 'authentication oauth jwt token', summary: 'auth', category: 'default', confidence: 0.8 },
+      {
+        id: 'e1',
+        content: 'authentication oauth jwt token',
+        summary: 'auth',
+        category: 'default',
+        confidence: 0.8,
+      },
     ]);
     const intl = loadIntl();
     intl.init();
@@ -132,7 +165,7 @@ describe('intelligence.recordEdit', () => {
 
   it('handles ring buffer past 50 entries without throwing', () => {
     const intl = loadIntl();
-    for (let i = 0; i < 60; i++) intl.recordEdit('/file' + i + '.ts');
+    for (let i = 0; i < 60; i++) intl.recordEdit(`/file${i}.ts`);
   });
 });
 

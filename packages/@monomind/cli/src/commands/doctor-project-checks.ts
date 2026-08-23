@@ -3,19 +3,29 @@
  * Config, memory, API keys, MCP, monograph, helpers, routing, gates, gitignore, worker metrics
  */
 
-import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, copyFileSync, writeFileSync, appendFileSync, rmSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
-import { homedir } from 'os';
+import { execSync } from 'node:child_process';
+import {
+  appendFileSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
-  MAX_DOCTOR_PKG_BYTES,
   MAX_DOCTOR_CONFIG_BYTES,
   MAX_DOCTOR_GITIGNORE_BYTES,
   MAX_DOCTOR_HELPER_BYTES,
+  MAX_DOCTOR_PKG_BYTES,
 } from './doctor-env-checks.js';
-import { DOCTOR_TRACKED_HELPERS } from '../init/helpers-generator.js';
 
 export type { HealthCheck };
 
@@ -27,15 +37,26 @@ export async function checkConfigFile(): Promise<HealthCheck> {
         JSON.parse(readFileSync(configPath, 'utf8'));
         return { name: 'Config File', status: 'pass', message: `Found: ${configPath}` };
       } catch {
-        return { name: 'Config File', status: 'fail', message: `Invalid JSON: ${configPath}`, fix: 'Fix JSON syntax in config file' };
+        return {
+          name: 'Config File',
+          status: 'fail',
+          message: `Invalid JSON: ${configPath}`,
+          fix: 'Fix JSON syntax in config file',
+        };
       }
     }
   }
   const yamlPaths = ['.monomind/config.yaml', '.monomind/config.yml', 'monomind.config.yaml'];
   for (const configPath of yamlPaths) {
-    if (existsSync(configPath)) return { name: 'Config File', status: 'pass', message: `Found: ${configPath}` };
+    if (existsSync(configPath))
+      return { name: 'Config File', status: 'pass', message: `Found: ${configPath}` };
   }
-  return { name: 'Config File', status: 'warn', message: 'No config file (using defaults)', fix: 'monomind config init' };
+  return {
+    name: 'Config File',
+    status: 'warn',
+    message: 'No config file (using defaults)',
+    fix: 'monomind config init',
+  };
 }
 
 export async function checkMemoryDatabase(): Promise<HealthCheck> {
@@ -50,7 +71,12 @@ export async function checkMemoryDatabase(): Promise<HealthCheck> {
       }
     }
   }
-  return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'monomind memory configure --backend hybrid' };
+  return {
+    name: 'Memory Database',
+    status: 'warn',
+    message: 'Not initialized',
+    fix: 'monomind memory configure --backend hybrid',
+  };
 }
 
 /** Memory knowledge graph (cognee port): entities/relations/rules distilled
@@ -64,15 +90,31 @@ export async function checkMemoryKnowledgeGraph(): Promise<HealthCheck> {
     const project = await kg.kgStats();
     const orgDb = join(process.cwd(), '.monomind', 'org-memory');
     const org = existsSync(orgDb) ? await kg.kgStats({ dbPath: orgDb }) : null;
-    await bridge.shutdownBridge().catch(() => { /* best effort */ });
+    await bridge.shutdownBridge().catch(() => {
+      /* best effort */
+    });
     const total = project.nodes + (org?.nodes ?? 0);
-    const fmt = (s: { nodes: number; edges: number; rules: number }): string => `${s.nodes}n/${s.edges}e/${s.rules}r`;
+    const fmt = (s: { nodes: number; edges: number; rules: number }): string =>
+      `${s.nodes}n/${s.edges}e/${s.rules}r`;
     if (total === 0) {
-      return { name, status: 'warn', message: 'Empty — sessions/org runs have not distilled knowledge yet', fix: 'org runs call org_learn automatically; sessions use memory_kg_ingest' };
+      return {
+        name,
+        status: 'warn',
+        message: 'Empty — sessions/org runs have not distilled knowledge yet',
+        fix: 'org runs call org_learn automatically; sessions use memory_kg_ingest',
+      };
     }
-    return { name, status: 'pass', message: `project ${fmt(project)}${org ? ` · org ${fmt(org)}` : ''}` };
+    return {
+      name,
+      status: 'pass',
+      message: `project ${fmt(project)}${org ? ` · org ${fmt(org)}` : ''}`,
+    };
   } catch (err) {
-    return { name, status: 'warn', message: `Check failed: ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      name,
+      status: 'warn',
+      message: `Check failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }
 
@@ -84,7 +126,9 @@ async function countBrainDocs(root: string): Promise<number> {
   try {
     const { listDocuments } = await import('../knowledge/document-pipeline.js');
     return listDocuments(root).length;
-  } catch { return 0; }
+  } catch {
+    return 0;
+  }
 }
 
 /** Second Brain: when there is any indexed knowledge — ingested docs in this
@@ -99,7 +143,8 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
   // chunks.jsonl holds the monograph god-node chunk — knowledge with no doc
   // ingest. Unlike the document store it is written per-CWD by the session
   // hook, not at the project root, so check both rather than assuming.
-  const chunksIn = (root: string): boolean => existsSync(join(root, '.monomind', 'knowledge', 'chunks.jsonl'));
+  const chunksIn = (root: string): boolean =>
+    existsSync(join(root, '.monomind', 'knowledge', 'chunks.jsonl'));
   const hasChunks = chunksIn(getProjectRoot()) || chunksIn(process.cwd());
   if (!projectDocs && !globalDocs && !hasChunks) {
     return { name, status: 'pass', message: 'No knowledge indexed (nothing to check)' };
@@ -108,7 +153,9 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
     projectDocs ? `${projectDocs} project doc${projectDocs === 1 ? '' : 's'}` : null,
     globalDocs ? `${globalDocs} global doc${globalDocs === 1 ? '' : 's'}` : null,
     !projectDocs && !globalDocs ? 'monograph god-nodes' : null,
-  ].filter(Boolean).join(' · ');
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   let entryPath: string | null = null;
   try {
@@ -118,13 +165,21 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
     // import.meta.resolve is missing on Node 20.0–20.5; fall back to CJS resolve.
     const viaEsm = import.meta.resolve?.('@huggingface/transformers');
     if (viaEsm) entryPath = fileURLToPath(await viaEsm);
-  } catch { /* try CJS below */ }
+  } catch {
+    /* try CJS below */
+  }
   if (!entryPath) {
     try {
       const { createRequire } = await import('node:module');
       entryPath = createRequire(import.meta.url).resolve('@huggingface/transformers');
     } catch {
-      return { name, status: 'warn', message: '@huggingface/transformers not installed — semantic search degraded to keyword matching', fix: 'reinstall monomind (the model dependency is optional and may have failed to build)' };
+      return {
+        name,
+        status: 'warn',
+        message:
+          '@huggingface/transformers not installed — semantic search degraded to keyword matching',
+        fix: 'reinstall monomind (the model dependency is optional and may have failed to build)',
+      };
     }
   }
   // Walk up from the entry file to the package root (the dir named 'transformers').
@@ -132,29 +187,62 @@ export async function checkSecondBrainModel(): Promise<HealthCheck> {
   while (pkgDir !== dirname(pkgDir) && !pkgDir.endsWith('transformers')) pkgDir = dirname(pkgDir);
   const modelCache = join(pkgDir, '.cache', 'Xenova');
   if (pkgDir.endsWith('transformers') && existsSync(modelCache)) {
-    return { name, status: 'pass', message: `Local embedding model cached — semantic search active (${indexed})` };
+    return {
+      name,
+      status: 'pass',
+      message: `Local embedding model cached — semantic search active (${indexed})`,
+    };
   }
-  return { name, status: 'warn', message: 'Embedding model not downloaded yet — searches use keyword matching until it is', fix: 'run once while online: monomind doc search -q "warmup" (downloads ~90MB locally, one time)' };
+  return {
+    name,
+    status: 'warn',
+    message: 'Embedding model not downloaded yet — searches use keyword matching until it is',
+    fix: 'run once while online: monomind doc search -q "warmup" (downloads ~90MB locally, one time)',
+  };
 }
 
 export async function checkApiKeys(): Promise<HealthCheck> {
   const keys = ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY', 'OPENAI_API_KEY'];
-  const found = keys.filter(k => process.env[k]);
-  const inClaudeCode = !!(process.env.CLAUDE_CODE || process.env.CLAUDE_PROJECT_DIR || process.env.MCP_SESSION_ID);
+  const found = keys.filter((k) => process.env[k]);
+  const inClaudeCode = !!(
+    process.env.CLAUDE_CODE ||
+    process.env.CLAUDE_PROJECT_DIR ||
+    process.env.MCP_SESSION_ID
+  );
   let claudeCliAvailable = false;
   try {
-    execSync('claude --version', { encoding: 'utf-8', stdio: 'pipe', timeout: 5000, windowsHide: true });
+    execSync('claude --version', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 5000,
+      windowsHide: true,
+    });
     claudeCliAvailable = true;
-  } catch { /* not on PATH */ }
+  } catch {
+    /* not on PATH */
+  }
 
   if (found.includes('ANTHROPIC_API_KEY') || found.includes('CLAUDE_API_KEY')) {
     return { name: 'API Keys', status: 'pass', message: `Found: ${found.join(', ')}` };
   } else if (inClaudeCode) {
-    return { name: 'API Keys', status: 'pass', message: 'Claude Code manages auth (no direct API key needed)' };
+    return {
+      name: 'API Keys',
+      status: 'pass',
+      message: 'Claude Code manages auth (no direct API key needed)',
+    };
   } else if (claudeCliAvailable) {
-    return { name: 'API Keys', status: 'pass', message: 'Using Claude Code CLI auth (no direct API key needed)' };
+    return {
+      name: 'API Keys',
+      status: 'pass',
+      message: 'Using Claude Code CLI auth (no direct API key needed)',
+    };
   } else if (found.length > 0) {
-    return { name: 'API Keys', status: 'warn', message: `Found: ${found.join(', ')} (no Claude key)`, fix: 'export ANTHROPIC_API_KEY=your_key' };
+    return {
+      name: 'API Keys',
+      status: 'warn',
+      message: `Found: ${found.join(', ')} (no Claude key)`,
+      fix: 'export ANTHROPIC_API_KEY=your_key',
+    };
   }
   return {
     name: 'API Keys',
@@ -180,12 +268,29 @@ export async function checkMcpServers(): Promise<HealthCheck> {
         const servers = content.mcpServers || content.servers || {};
         const count = Object.keys(servers).length;
         const hasMonomind = 'monomind' in servers || 'monomind_alpha' in servers;
-        if (hasMonomind) return { name: 'MCP Servers', status: 'pass', message: `${count} servers (monomind configured)` };
-        return { name: 'MCP Servers', status: 'warn', message: `${count} servers (monomind not found)`, fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start' };
-      } catch { /* try next */ }
+        if (hasMonomind)
+          return {
+            name: 'MCP Servers',
+            status: 'pass',
+            message: `${count} servers (monomind configured)`,
+          };
+        return {
+          name: 'MCP Servers',
+          status: 'warn',
+          message: `${count} servers (monomind not found)`,
+          fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start',
+        };
+      } catch {
+        /* try next */
+      }
     }
   }
-  return { name: 'MCP Servers', status: 'warn', message: 'No MCP config found', fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start' };
+  return {
+    name: 'MCP Servers',
+    status: 'warn',
+    message: 'No MCP config found',
+    fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start',
+  };
 }
 
 export async function checkMonograph(): Promise<HealthCheck> {
@@ -193,29 +298,49 @@ export async function checkMonograph(): Promise<HealthCheck> {
     const __filename = fileURLToPath(import.meta.url);
     const _base = dirname(__filename);
     let _globalRoot = '';
-    try { _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim(); } catch { /* no npm */ }
+    try {
+      _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim();
+    } catch {
+      /* no npm */
+    }
     const candidates = [
       join(_base, '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
       join(_base, '..', '..', '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
       join(_base, '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
       join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
-      ...(_globalRoot ? [
-        join(_globalRoot, '@monomind', 'monograph', 'package.json'),
-        join(_globalRoot, '@monoes', 'monograph', 'package.json'),
-      ] : []),
+      ...(_globalRoot
+        ? [
+            join(_globalRoot, '@monomind', 'monograph', 'package.json'),
+            join(_globalRoot, '@monoes', 'monograph', 'package.json'),
+          ]
+        : []),
     ];
-    const found = candidates.find(p => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
+    const found = candidates.find((p) => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
     if (found) {
       try {
         const pkg = JSON.parse(readFileSync(found, 'utf-8'));
-        return { name: 'Monograph', status: 'pass', message: `v${pkg.version || '?'} available (knowledge graph engine)` };
+        return {
+          name: 'Monograph',
+          status: 'pass',
+          message: `v${pkg.version || '?'} available (knowledge graph engine)`,
+        };
       } catch {
         return { name: 'Monograph', status: 'pass', message: 'available (knowledge graph engine)' };
       }
     }
-    return { name: 'Monograph', status: 'warn', message: 'Package not found (knowledge graph disabled)', fix: 'npm install -g monomind@latest' };
+    return {
+      name: 'Monograph',
+      status: 'warn',
+      message: 'Package not found (knowledge graph disabled)',
+      fix: 'npm install -g monomind@latest',
+    };
   } catch {
-    return { name: 'Monograph', status: 'warn', message: 'Package check failed', fix: 'npm install -g monomind@latest' };
+    return {
+      name: 'Monograph',
+      status: 'warn',
+      message: 'Package check failed',
+      fix: 'npm install -g monomind@latest',
+    };
   }
 }
 
@@ -227,26 +352,72 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
     const statsPath = join(cwd, '.monomind', 'graph', 'stats.json');
     const hasDb = existsSync(dbPath);
     if (!hasDb && !existsSync(statsPath)) {
-      return { name: 'Graph freshness', status: 'warn', message: 'No monograph graph built yet', fix: 'mcp__monomind__monograph_build codeOnly:true' };
+      return {
+        name: 'Graph freshness',
+        status: 'warn',
+        message: 'No monograph graph built yet',
+        fix: 'mcp__monomind__monograph_build codeOnly:true',
+      };
     }
     let buildMs = 0;
-    if (hasDb) { try { buildMs = Math.max(buildMs, statSync(dbPath).mtimeMs); } catch { /* ignore */ } }
-    try { buildMs = Math.max(buildMs, statSync(lockPath).mtimeMs); } catch { /* ignore */ }
-    try { buildMs = Math.max(buildMs, statSync(statsPath).mtimeMs); } catch { /* ignore */ }
-    if (buildMs === 0) return { name: 'Graph freshness', status: 'warn', message: 'Graph exists but build time unknown' };
+    if (hasDb) {
+      try {
+        buildMs = Math.max(buildMs, statSync(dbPath).mtimeMs);
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      buildMs = Math.max(buildMs, statSync(lockPath).mtimeMs);
+    } catch {
+      /* ignore */
+    }
+    try {
+      buildMs = Math.max(buildMs, statSync(statsPath).mtimeMs);
+    } catch {
+      /* ignore */
+    }
+    if (buildMs === 0)
+      return {
+        name: 'Graph freshness',
+        status: 'warn',
+        message: 'Graph exists but build time unknown',
+      };
 
     const buildIso = new Date(buildMs).toISOString();
     let commitsBehind = 0;
     try {
-      const out = execSync(`git rev-list --count --since='${buildIso}' HEAD 2>/dev/null`, { encoding: 'utf8', timeout: 2000, cwd }).trim();
+      const out = execSync(`git rev-list --count --since='${buildIso}' HEAD 2>/dev/null`, {
+        encoding: 'utf8',
+        timeout: 2000,
+        cwd,
+      }).trim();
       commitsBehind = parseInt(out, 10) || 0;
-    } catch { /* git unavailable */ }
+    } catch {
+      /* git unavailable */
+    }
 
     const ageMinutes = Math.floor((Date.now() - buildMs) / 60000);
     const ageStr = ageMinutes < 60 ? `${ageMinutes}m ago` : `${Math.floor(ageMinutes / 60)}h ago`;
-    if (commitsBehind === 0) return { name: 'Graph freshness', status: 'pass', message: `FRESH — built ${ageStr}, 0 commits behind` };
-    if (commitsBehind <= 5) return { name: 'Graph freshness', status: 'warn', message: `${commitsBehind} commit(s) behind — built ${ageStr}`, fix: 'mcp__monomind__monograph_build codeOnly:true' };
-    return { name: 'Graph freshness', status: 'fail', message: `STALE — ${commitsBehind} commits behind (built ${ageStr})`, fix: 'mcp__monomind__monograph_build codeOnly:true' };
+    if (commitsBehind === 0)
+      return {
+        name: 'Graph freshness',
+        status: 'pass',
+        message: `FRESH — built ${ageStr}, 0 commits behind`,
+      };
+    if (commitsBehind <= 5)
+      return {
+        name: 'Graph freshness',
+        status: 'warn',
+        message: `${commitsBehind} commit(s) behind — built ${ageStr}`,
+        fix: 'mcp__monomind__monograph_build codeOnly:true',
+      };
+    return {
+      name: 'Graph freshness',
+      status: 'fail',
+      message: `STALE — ${commitsBehind} commits behind (built ${ageStr})`,
+      fix: 'mcp__monomind__monograph_build codeOnly:true',
+    };
   } catch {
     return { name: 'Graph freshness', status: 'warn', message: 'Could not check graph freshness' };
   }
@@ -257,22 +428,39 @@ export async function checkMonoesMemory(): Promise<HealthCheck> {
     const __filename = fileURLToPath(import.meta.url);
     const _base = dirname(__filename);
     let _globalRoot = '';
-    try { _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim(); } catch { /* no npm */ }
+    try {
+      _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim();
+    } catch {
+      /* no npm */
+    }
     const candidates = [
       join(_base, '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
       join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
       ...(_globalRoot ? [join(_globalRoot, '@monoes', 'memory', 'package.json')] : []),
     ];
-    const found = candidates.find(p => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
+    const found = candidates.find((p) => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
     if (found) {
       try {
         const pkg = JSON.parse(readFileSync(found, 'utf-8'));
-        return { name: 'Vector Memory', status: 'pass', message: `@monoes/memory v${pkg.version || '?'} (HNSW search enabled)` };
+        return {
+          name: 'Vector Memory',
+          status: 'pass',
+          message: `@monoes/memory v${pkg.version || '?'} (HNSW search enabled)`,
+        };
       } catch {
-        return { name: 'Vector Memory', status: 'pass', message: '@monoes/memory available (HNSW search enabled)' };
+        return {
+          name: 'Vector Memory',
+          status: 'pass',
+          message: '@monoes/memory available (HNSW search enabled)',
+        };
       }
     }
-    return { name: 'Vector Memory', status: 'warn', message: '@monoes/memory not installed (vector search disabled)', fix: 'npm install @monoes/memory' };
+    return {
+      name: 'Vector Memory',
+      status: 'warn',
+      message: '@monoes/memory not installed (vector search disabled)',
+      fix: 'npm install @monoes/memory',
+    };
   } catch {
     return { name: 'Vector Memory', status: 'warn', message: 'Vector memory check failed' };
   }
@@ -287,17 +475,25 @@ function _resolveBundledHelper(relativePath: string): string | null {
       if (existsSync(candidate) && statSync(candidate).size <= MAX_DOCTOR_PKG_BYTES) {
         try {
           const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
-          if (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === '@monoes/monomindcli') {
+          if (
+            pkg.name === '@monomind/cli' ||
+            pkg.name === 'monomind' ||
+            pkg.name === '@monoes/monomindcli'
+          ) {
             const helperPath = join(dir, relativePath);
             return existsSync(helperPath) ? helperPath : null;
           }
-        } catch { /* keep walking */ }
+        } catch {
+          /* keep walking */
+        }
       }
       const parent = dirname(dir);
       if (parent === dir) return null;
       dir = parent;
     }
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // Top-level critical helpers, plus every file bundled under handlers/ and utils/
@@ -316,7 +512,9 @@ function _allTrackedHelperNames(): string[] {
         if (statSync(join(bundledSubDir, f)).isDirectory()) continue;
         names.push(join(sub, f));
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
   return names;
 }
@@ -331,15 +529,23 @@ async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string
     // verify freshness either way, and silently excluding it from both `stale`
     // and `missing` would let checkHelpersFresh() report "pass" without ever
     // having actually compared this file.
-    if (!bundled || statSync(bundled).size > MAX_DOCTOR_HELPER_BYTES) { missing.push(name); continue; }
+    if (!bundled || statSync(bundled).size > MAX_DOCTOR_HELPER_BYTES) {
+      missing.push(name);
+      continue;
+    }
     const local = join(process.cwd(), '.claude', 'helpers', name);
-    if (!existsSync(local)) { stale.push(name); continue; } // bundled has it, project doesn't — needs creating
+    if (!existsSync(local)) {
+      stale.push(name);
+      continue;
+    } // bundled has it, project doesn't — needs creating
     if (statSync(local).size > MAX_DOCTOR_HELPER_BYTES) continue;
     try {
       const hashLocal = crypto.createHash('sha256').update(readFileSync(local)).digest('hex');
       const hashBundled = crypto.createHash('sha256').update(readFileSync(bundled)).digest('hex');
       if (hashLocal !== hashBundled) stale.push(name);
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
   return { stale, missing };
 }
@@ -356,7 +562,8 @@ export async function fixStaleHelpers(): Promise<boolean> {
         copyFileSync(bundled, local);
         fixed++;
       } catch (e) {
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[fixStaleHelpers] failed to copy ${name}:`, e);
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error(`[fixStaleHelpers] failed to copy ${name}:`, e);
       }
     }
   }
@@ -367,14 +574,32 @@ export async function checkHelpersFresh(): Promise<HealthCheck> {
   try {
     const { stale, missing } = await _detectStaleHelpers();
     if (stale.length === 0 && missing.length === 0) {
-      return { name: 'Helper Files', status: 'pass', message: 'Project helpers match bundled version' };
+      return {
+        name: 'Helper Files',
+        status: 'pass',
+        message: 'Project helpers match bundled version',
+      };
     }
     if (stale.length > 0) {
-      return { name: 'Helper Files', status: 'warn', message: `${stale.length} stale helper(s): ${stale.join(', ')}`, fix: 'monomind init upgrade' };
+      return {
+        name: 'Helper Files',
+        status: 'warn',
+        message: `${stale.length} stale helper(s): ${stale.join(', ')}`,
+        fix: 'monomind init upgrade',
+      };
     }
-    return { name: 'Helper Files', status: 'warn', message: `Could not locate bundled copies of: ${missing.join(', ')}`, fix: 'Reinstall monomind or run `monomind init upgrade`' };
+    return {
+      name: 'Helper Files',
+      status: 'warn',
+      message: `Could not locate bundled copies of: ${missing.join(', ')}`,
+      fix: 'Reinstall monomind or run `monomind init upgrade`',
+    };
   } catch (e) {
-    return { name: 'Helper Files', status: 'warn', message: `check failed: ${e instanceof Error ? e.message : 'unknown'}` };
+    return {
+      name: 'Helper Files',
+      status: 'warn',
+      message: `check failed: ${e instanceof Error ? e.message : 'unknown'}`,
+    };
   }
 }
 
@@ -384,16 +609,22 @@ function fmtPct(v: number | null): string {
 
 async function routingAccuracyLine(): Promise<string> {
   try {
-    const { computeRoutingAccuracy, computeAdherence } = await import('../monovector/route-outcomes.js');
+    const { computeRoutingAccuracy, computeAdherence } = await import(
+      '../monovector/route-outcomes.js'
+    );
     const baseDir = join(process.cwd(), '.monomind');
     const acc = await computeRoutingAccuracy(baseDir, 100);
     const adh = await computeAdherence(baseDir);
     const adhStr = ` | adherence ${fmtPct(adh.adherence)} (n=${adh.sample})`;
     if (acc.accuracy === null) return `routing accuracy (last 100): no outcome data yet${adhStr}`;
-    const trend = acc.recentVsPrior === null ? '' : ` trend ${acc.recentVsPrior >= 0 ? '+' : ''}${Math.round(acc.recentVsPrior * 100)}%`;
+    const trend =
+      acc.recentVsPrior === null
+        ? ''
+        : ` trend ${acc.recentVsPrior >= 0 ? '+' : ''}${Math.round(acc.recentVsPrior * 100)}%`;
     return `routing accuracy (last ${acc.window}): ${fmtPct(acc.accuracy)} [native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}${adhStr}`;
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[routingAccuracyLine] compute failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[routingAccuracyLine] compute failed:', e);
     return 'routing accuracy (last 100): no outcome data yet';
   }
 }
@@ -403,27 +634,50 @@ function routingFeedbackFallback(): { message: string; degenerate: boolean } | n
   try {
     const p = join(process.cwd(), '.monomind', 'routing-feedback.jsonl');
     if (!existsSync(p) || statSync(p).size > 512 * 1024) return null;
-    const records = readFileSync(p, 'utf-8').trim().split('\n').filter(Boolean).map(l => {
-      try { return JSON.parse(l) as Record<string, unknown>; } catch { return null; }
-    }).filter((r): r is Record<string, unknown> => r !== null);
+    const records = readFileSync(p, 'utf-8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          return JSON.parse(l) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter((r): r is Record<string, unknown> => r !== null);
     if (records.length === 0) return null;
-    const sessions = new Set(records.map(r => r.sessionId).filter(Boolean));
+    const sessions = new Set(records.map((r) => r.sessionId).filter(Boolean));
     const byAgent = new Map<string, number>();
     for (const r of records) {
       const a = typeof r.suggestedAgent === 'string' ? r.suggestedAgent : 'unknown';
       byAgent.set(a, (byAgent.get(a) ?? 0) + 1);
     }
-    const top = [...byAgent.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a, n]) => `${a}=${n}`).join(', ');
-    const flags = records.map(r => r.intelligenceFeedback).filter((v): v is boolean => typeof v === 'boolean');
+    const top = [...byAgent.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([a, n]) => `${a}=${n}`)
+      .join(', ');
+    const flags = records
+      .map((r) => r.intelligenceFeedback)
+      .filter((v): v is boolean => typeof v === 'boolean');
     const trueCount = flags.filter(Boolean).length;
     const base = `routing feedback (fallback): ${records.length} decisions across ${sessions.size} sessions; top agents: ${top}`;
     if (flags.length > 0 && trueCount === flags.length) {
-      return { message: `${base}; success flag is degenerate (100% true — sessionSuccess heuristic never records failure)`, degenerate: true };
+      return {
+        message: `${base}; success flag is degenerate (100% true — sessionSuccess heuristic never records failure)`,
+        degenerate: true,
+      };
     }
-    if (flags.length === 0) return { message: `${base}; no evidence-based success flags yet`, degenerate: true };
-    return { message: `${base}; success rate ${Math.round((trueCount / flags.length) * 100)}% (n=${flags.length})`, degenerate: false };
+    if (flags.length === 0)
+      return { message: `${base}; no evidence-based success flags yet`, degenerate: true };
+    return {
+      message: `${base}; success rate ${Math.round((trueCount / flags.length) * 100)}% (n=${flags.length})`,
+      degenerate: false,
+    };
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[routingFeedbackFallback] parse failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[routingFeedbackFallback] parse failed:', e);
     return null;
   }
 }
@@ -433,11 +687,20 @@ export async function checkMonoesIntegration(): Promise<HealthCheck> {
     const line = await routingAccuracyLine();
     if (line.startsWith('routing accuracy (last 100): no outcome data yet')) {
       const fb = routingFeedbackFallback();
-      if (fb) return { name: 'Routing Learning', status: fb.degenerate ? 'warn' : 'pass', message: fb.message };
+      if (fb)
+        return {
+          name: 'Routing Learning',
+          status: fb.degenerate ? 'warn' : 'pass',
+          message: fb.message,
+        };
     }
     return { name: 'Routing Learning', status: 'pass', message: line };
   } catch (err) {
-    return { name: 'Routing Learning', status: 'warn', message: `Could not compute routing accuracy: ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      name: 'Routing Learning',
+      status: 'warn',
+      message: `Could not compute routing accuracy: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }
 
@@ -461,7 +724,10 @@ const REQUIRED_GITIGNORE_PATTERNS = [
  *  `.monomind/` and `.monomind` all compare equal. A gitignore pattern with no
  *  leading slash already matches at every depth, so `**​/` is redundant. */
 function normalizeGitignorePattern(p: string): string {
-  return p.replace(/^\/+/, '').replace(/^\*\*\//, '').replace(/\/+$/, '');
+  return p
+    .replace(/^\/+/, '')
+    .replace(/^\*\*\//, '')
+    .replace(/\/+$/, '');
 }
 
 /** True when ignoring `line` already protects everything `required` covers.
@@ -486,16 +752,36 @@ export async function checkGitignoreCoverage(): Promise<HealthCheck> {
     // writes a literal backslash-n (sh/bash echo does not interpret escapes
     // without -e) — one junk line matching nothing. `--fix` now writes the file
     // directly, so point at that rather than at a command to copy-paste.
-    return { name: 'Gitignore Coverage', status: 'warn', message: 'No .gitignore found — all monomind runtime paths are unprotected', fix: 'monomind doctor --fix   (creates .gitignore covering .monomind/ and secrets)' };
+    return {
+      name: 'Gitignore Coverage',
+      status: 'warn',
+      message: 'No .gitignore found — all monomind runtime paths are unprotected',
+      fix: 'monomind doctor --fix   (creates .gitignore covering .monomind/ and secrets)',
+    };
   }
   if (statSync(gitignorePath).size > MAX_DOCTOR_GITIGNORE_BYTES) {
     return { name: 'Gitignore Coverage', status: 'warn', message: '.gitignore too large to parse' };
   }
-  const lines = readFileSync(gitignorePath, 'utf-8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-  const missing = REQUIRED_GITIGNORE_PATTERNS.filter(({ pattern }) => !lines.some(l => gitignoreLineCovers(l, pattern)));
-  if (missing.length === 0) return { name: 'Gitignore Coverage', status: 'pass', message: 'All monomind runtime paths are gitignored' };
-  const missingList = missing.map(m => m.pattern).join(', ');
-  return { name: 'Gitignore Coverage', status: 'warn', message: `${missing.length} runtime path(s) not in .gitignore: ${missingList}`, fix: 'monomind doctor --fix   (appends the missing entries)' };
+  const lines = readFileSync(gitignorePath, 'utf-8')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+  const missing = REQUIRED_GITIGNORE_PATTERNS.filter(
+    ({ pattern }) => !lines.some((l) => gitignoreLineCovers(l, pattern)),
+  );
+  if (missing.length === 0)
+    return {
+      name: 'Gitignore Coverage',
+      status: 'pass',
+      message: 'All monomind runtime paths are gitignored',
+    };
+  const missingList = missing.map((m) => m.pattern).join(', ');
+  return {
+    name: 'Gitignore Coverage',
+    status: 'warn',
+    message: `${missing.length} runtime path(s) not in .gitignore: ${missingList}`,
+    fix: 'monomind doctor --fix   (appends the missing entries)',
+  };
 }
 
 /** Patterns written by `doctor --fix` when there is no .gitignore at all.
@@ -529,18 +815,25 @@ export async function fixGitignoreCoverage(): Promise<boolean> {
   const gitignorePath = join(process.cwd(), '.gitignore');
   try {
     if (!existsSync(gitignorePath)) {
-      writeFileSync(gitignorePath, GITIGNORE_FIX_PATTERNS.join('\n') + '\n', 'utf-8');
+      writeFileSync(gitignorePath, `${GITIGNORE_FIX_PATTERNS.join('\n')}\n`, 'utf-8');
       return true;
     }
     if (statSync(gitignorePath).size > MAX_DOCTOR_GITIGNORE_BYTES) return false;
     const existing = readFileSync(gitignorePath, 'utf-8');
-    const lines = existing.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    const missing = REQUIRED_GITIGNORE_PATTERNS
-      .map(m => m.pattern)
-      .filter(pattern => !lines.some(l => gitignoreLineCovers(l, pattern)));
+    const lines = existing
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+    const missing = REQUIRED_GITIGNORE_PATTERNS.map((m) => m.pattern).filter(
+      (pattern) => !lines.some((l) => gitignoreLineCovers(l, pattern)),
+    );
     if (missing.length === 0) return false;
     const prefix = existing.endsWith('\n') || existing === '' ? '' : '\n';
-    appendFileSync(gitignorePath, `${prefix}\n# monomind runtime state\n${missing.join('\n')}\n`, 'utf-8');
+    appendFileSync(
+      gitignorePath,
+      `${prefix}\n# monomind runtime state\n${missing.join('\n')}\n`,
+      'utf-8',
+    );
     return true;
   } catch {
     return false;
@@ -549,7 +842,9 @@ export async function fixGitignoreCoverage(): Promise<boolean> {
 
 export async function checkAgentRegistry(): Promise<HealthCheck> {
   try {
-    const { buildUnifiedRegistry, computeAgentRoots } = await import('../agents/registry-builder.js');
+    const { buildUnifiedRegistry, computeAgentRoots } = await import(
+      '../agents/registry-builder.js'
+    );
     const cwd = process.cwd();
     const roots = computeAgentRoots(cwd);
     const outDir = join(cwd, '.monomind');
@@ -560,9 +855,16 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
     const registry = buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
     const entries = registry.agents;
     if (entries.length === 0) {
-      return { name: 'Agent Registry', status: 'warn', message: 'No agents found under .claude/agents', fix: 'monomind init  (installs agent definitions)' };
+      return {
+        name: 'Agent Registry',
+        status: 'warn',
+        message: 'No agents found under .claude/agents',
+        fix: 'monomind init  (installs agent definitions)',
+      };
     }
-    let missingSlug = 0, missingName = 0, missingDescription = 0;
+    let missingSlug = 0,
+      missingName = 0,
+      missingDescription = 0;
     for (const agent of entries) {
       if (!agent.slug) missingSlug++;
       if (!agent.name) missingName++;
@@ -570,13 +872,19 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
     }
     const total = missingSlug + missingName + missingDescription;
     if (total === 0) {
-      return { name: 'Agent Registry', status: 'pass', message: `${entries.length} agent(s), all metadata complete` };
+      return {
+        name: 'Agent Registry',
+        status: 'pass',
+        message: `${entries.length} agent(s), all metadata complete`,
+      };
     }
     const parts = [
       missingSlug > 0 ? `${missingSlug} missing slug` : null,
       missingName > 0 ? `${missingName} missing name` : null,
       missingDescription > 0 ? `${missingDescription} missing description` : null,
-    ].filter(Boolean).join(', ');
+    ]
+      .filter(Boolean)
+      .join(', ');
     return {
       name: 'Agent Registry',
       status: 'warn',
@@ -584,25 +892,50 @@ export async function checkAgentRegistry(): Promise<HealthCheck> {
       fix: 'Add the missing field(s) to frontmatter in .claude/agents/*.md',
     };
   } catch {
-    return { name: 'Agent Registry', status: 'warn', message: 'Could not build/parse agent registry' };
+    return {
+      name: 'Agent Registry',
+      status: 'warn',
+      message: 'Could not build/parse agent registry',
+    };
   }
 }
 
 export async function checkGuidanceGates(): Promise<HealthCheck> {
   const settingsPath = join(process.cwd(), '.claude', 'settings.json');
-  const gatesHandlerPath = join(process.cwd(), '.claude', 'helpers', 'handlers', 'gates-handler.cjs');
+  const gatesHandlerPath = join(
+    process.cwd(),
+    '.claude',
+    'helpers',
+    'handlers',
+    'gates-handler.cjs',
+  );
   if (!existsSync(gatesHandlerPath)) {
-    return { name: 'Guidance Gates', status: 'warn', message: 'gates-handler.cjs not found — enforcement gates not installed', fix: 'monomind init  (then monomind guidance setup)' };
+    return {
+      name: 'Guidance Gates',
+      status: 'warn',
+      message: 'gates-handler.cjs not found — enforcement gates not installed',
+      fix: 'monomind init  (then monomind guidance setup)',
+    };
   }
   if (!existsSync(settingsPath)) {
-    return { name: 'Guidance Gates', status: 'warn', message: 'gates-handler.cjs present but .claude/settings.json missing', fix: 'monomind guidance setup' };
+    return {
+      name: 'Guidance Gates',
+      status: 'warn',
+      message: 'gates-handler.cjs present but .claude/settings.json missing',
+      fix: 'monomind guidance setup',
+    };
   }
   try {
     if (statSync(settingsPath).size > MAX_DOCTOR_CONFIG_BYTES) {
-      return { name: 'Guidance Gates', status: 'warn', message: 'settings.json too large to parse' };
+      return {
+        name: 'Guidance Gates',
+        status: 'warn',
+        message: 'settings.json too large to parse',
+      };
     }
     const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-    const preToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }> = settings?.hooks?.PreToolUse ?? [];
+    const preToolUse: Array<{ matcher?: string; hooks: Array<{ command: string }> }> =
+      settings?.hooks?.PreToolUse ?? [];
     // Match on capability, not on an exact matcher string. The matcher is a
     // regex alternation that legitimately changes as tools are added — it
     // gained `|NotebookEdit` when that tool turned out to bypass the secret
@@ -610,14 +943,46 @@ export async function checkGuidanceGates(): Promise<HealthCheck> {
     // INACTIVE the moment it did, telling users their secrets gate was off
     // while it was demonstrably blocking secrets, and sending them to
     // `guidance setup`, which would then add a duplicate entry.
-    const hasPreWrite = preToolUse.some(e => /\bWrite\b/.test(e.matcher ?? '') && e.hooks.some(h => h.command?.includes('pre-write')));
-    const hasPreBash = preToolUse.some(e => e.matcher === 'Bash' && e.hooks.some(h => h.command?.includes('pre-bash')));
-    if (!hasPreWrite && !hasPreBash) return { name: 'Guidance Gates', status: 'warn', message: 'gates-handler.cjs present but no gates registered', fix: 'monomind guidance setup' };
-    if (!hasPreWrite) return { name: 'Guidance Gates', status: 'warn', message: 'pre-write hook not registered — secrets gate inactive', fix: 'monomind guidance setup' };
-    if (!hasPreBash) return { name: 'Guidance Gates', status: 'warn', message: 'pre-bash hook not registered — destructive-ops gate inactive', fix: 'monomind guidance setup' };
-    return { name: 'Guidance Gates', status: 'pass', message: 'destructive-ops (pre-bash) + secrets (pre-write) gates active' };
+    const hasPreWrite = preToolUse.some(
+      (e) =>
+        /\bWrite\b/.test(e.matcher ?? '') && e.hooks.some((h) => h.command?.includes('pre-write')),
+    );
+    const hasPreBash = preToolUse.some(
+      (e) => e.matcher === 'Bash' && e.hooks.some((h) => h.command?.includes('pre-bash')),
+    );
+    if (!hasPreWrite && !hasPreBash)
+      return {
+        name: 'Guidance Gates',
+        status: 'warn',
+        message: 'gates-handler.cjs present but no gates registered',
+        fix: 'monomind guidance setup',
+      };
+    if (!hasPreWrite)
+      return {
+        name: 'Guidance Gates',
+        status: 'warn',
+        message: 'pre-write hook not registered — secrets gate inactive',
+        fix: 'monomind guidance setup',
+      };
+    if (!hasPreBash)
+      return {
+        name: 'Guidance Gates',
+        status: 'warn',
+        message: 'pre-bash hook not registered — destructive-ops gate inactive',
+        fix: 'monomind guidance setup',
+      };
+    return {
+      name: 'Guidance Gates',
+      status: 'pass',
+      message: 'destructive-ops (pre-bash) + secrets (pre-write) gates active',
+    };
   } catch {
-    return { name: 'Guidance Gates', status: 'warn', message: 'Could not parse .claude/settings.json', fix: 'monomind guidance setup --force' };
+    return {
+      name: 'Guidance Gates',
+      status: 'warn',
+      message: 'Could not parse .claude/settings.json',
+      fix: 'monomind guidance setup --force',
+    };
   }
 }
 
@@ -632,7 +997,8 @@ function readMetricsJSON(name: string): unknown | null {
     if (!existsSync(p) || statSync(p).size > MAX_DOCTOR_METRICS_BYTES) return null;
     return JSON.parse(readFileSync(p, 'utf-8'));
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`[readMetricsJSON] failed to read ${name}:`, e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error(`[readMetricsJSON] failed to read ${name}:`, e);
     return null;
   }
 }
@@ -646,11 +1012,19 @@ function readMetricsJSON(name: string): unknown | null {
 export async function checkMetricsFreshness(): Promise<HealthCheck> {
   const metricsDir = join(process.cwd(), '.monomind', 'metrics');
   const knownOutputs = [
-    'codebase-map.json', 'security-audit.json', 'performance.json',
-    'consolidation.json', 'ddd-progress.json',
+    'codebase-map.json',
+    'security-audit.json',
+    'performance.json',
+    'consolidation.json',
+    'ddd-progress.json',
   ];
   if (!existsSync(metricsDir)) {
-    return { name: 'Worker Metrics', status: 'warn', message: 'No .monomind/metrics — workers have not run yet (they run at session start)', fix: 'monomind hooks worker run map' };
+    return {
+      name: 'Worker Metrics',
+      status: 'warn',
+      message: 'No .monomind/metrics — workers have not run yet (they run at session start)',
+      fix: 'monomind hooks worker run map',
+    };
   }
   const now = Date.now();
   const fresh: string[] = [];
@@ -662,13 +1036,24 @@ export async function checkMetricsFreshness(): Promise<HealthCheck> {
       const ageMs = now - statSync(p).mtimeMs;
       if (ageMs <= METRICS_FRESHNESS_MS) fresh.push(name);
       else stale.push(name);
-    } catch { /* skip unreadable */ }
+    } catch {
+      /* skip unreadable */
+    }
   }
   if (fresh.length === 0 && stale.length === 0) {
-    return { name: 'Worker Metrics', status: 'warn', message: 'No worker output files found yet (they run at session start)', fix: 'monomind hooks worker run map' };
+    return {
+      name: 'Worker Metrics',
+      status: 'warn',
+      message: 'No worker output files found yet (they run at session start)',
+      fix: 'monomind hooks worker run map',
+    };
   }
   if (stale.length === 0) {
-    return { name: 'Worker Metrics', status: 'pass', message: `${fresh.length} metrics file(s) fresh (<12h)` };
+    return {
+      name: 'Worker Metrics',
+      status: 'pass',
+      message: `${fresh.length} metrics file(s) fresh (<12h)`,
+    };
   }
   return {
     name: 'Worker Metrics',
@@ -690,13 +1075,20 @@ export async function checkSecurityAuditFindings(): Promise<HealthCheck> {
   } | null;
 
   if (!audit) {
-    return { name: 'Security Audit', status: 'warn', message: 'No security-audit.json yet', fix: 'monomind hooks worker run audit' };
+    return {
+      name: 'Security Audit',
+      status: 'warn',
+      message: 'No security-audit.json yet',
+      fix: 'monomind hooks worker run audit',
+    };
   }
 
   const riskLevel = (audit.riskLevel || 'low').toLowerCase();
   const recommendations = audit.recommendations || [];
   const priorityTargets = audit.priorityScanTargets || [];
-  const criticalCount = recommendations.length + (riskLevel === 'high' || riskLevel === 'critical' ? priorityTargets.length : 0);
+  const criticalCount =
+    recommendations.length +
+    (riskLevel === 'high' || riskLevel === 'critical' ? priorityTargets.length : 0);
 
   if (riskLevel === 'critical' || riskLevel === 'high') {
     return {
@@ -707,7 +1099,11 @@ export async function checkSecurityAuditFindings(): Promise<HealthCheck> {
     };
   }
   if (recommendations.length > 0) {
-    return { name: 'Security Audit', status: 'warn', message: `risk=${riskLevel}, ${recommendations.length} recommendation(s)` };
+    return {
+      name: 'Security Audit',
+      status: 'warn',
+      message: `risk=${riskLevel}, ${recommendations.length} recommendation(s)`,
+    };
   }
   return { name: 'Security Audit', status: 'pass', message: `risk=${riskLevel}, no open findings` };
 }
@@ -738,7 +1134,11 @@ export async function checkMemoryProficiency(): Promise<HealthCheck> {
     }
     return { name: 'Memory Proficiency', status: 'pass', message: msg };
   } catch {
-    return { name: 'Memory Proficiency', status: 'warn', message: 'Could not load intelligence module' };
+    return {
+      name: 'Memory Proficiency',
+      status: 'warn',
+      message: 'Could not load intelligence module',
+    };
   }
 }
 
@@ -760,7 +1160,10 @@ export async function checkAppleDoubleSidecars(): Promise<HealthCheck> {
   const name = 'AppleDouble Sidecars';
   const found = findAppleDoubleSidecars(process.cwd());
   if (found.length === 0) return { name, status: 'pass', message: 'None under .claude/' };
-  const shown = found.slice(0, 3).map(p => p.replace(process.cwd() + '/', '')).join(', ');
+  const shown = found
+    .slice(0, 3)
+    .map((p) => p.replace(`${process.cwd()}/`, ''))
+    .join(', ');
   return {
     name,
     status: 'warn',
@@ -778,11 +1181,19 @@ export function findAppleDoubleSidecars(cwd: string): string[] {
   const walk = (dir: string, depth = 0): void => {
     if (depth > 8) return;
     let entries: string[];
-    try { entries = readdirSync(dir); } catch { return; }
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
     for (const e of entries) {
       const full = join(dir, e);
       let isDir: boolean;
-      try { isDir = statSync(full).isDirectory(); } catch { continue; }
+      try {
+        isDir = statSync(full).isDirectory();
+      } catch {
+        continue;
+      }
       if (isDir) walk(full, depth + 1);
       else if (e.startsWith('._')) out.push(full);
     }
@@ -795,7 +1206,12 @@ export function findAppleDoubleSidecars(cwd: string): string[] {
 export function fixAppleDoubleSidecars(cwd: string): number {
   let removed = 0;
   for (const f of findAppleDoubleSidecars(cwd)) {
-    try { rmSync(f, { force: true }); removed++; } catch { /* best effort */ }
+    try {
+      rmSync(f, { force: true });
+      removed++;
+    } catch {
+      /* best effort */
+    }
   }
   return removed;
 }
@@ -825,9 +1241,20 @@ export async function checkDocumentExtractors(): Promise<HealthCheck[]> {
   if (!isDocumentsCapabilityActive(process.cwd())) return [];
   try {
     const { documentsCapability } = await import('../capabilities/cap-documents.js');
-    const checks = await documentsCapability.healthChecks?.() ?? [];
-    return checks.map(c => ({ name: c.name, status: c.status, message: c.message, fix: c.hint ?? c.fix }));
+    const checks = (await documentsCapability.healthChecks?.()) ?? [];
+    return checks.map((c) => ({
+      name: c.name,
+      status: c.status,
+      message: c.message,
+      fix: c.hint ?? c.fix,
+    }));
   } catch (err) {
-    return [{ name: 'Document Extractors', status: 'warn', message: `Check failed: ${err instanceof Error ? err.message : String(err)}` }];
+    return [
+      {
+        name: 'Document Extractors',
+        status: 'warn',
+        message: `Check failed: ${err instanceof Error ? err.message : String(err)}`,
+      },
+    ];
   }
 }

@@ -8,8 +8,8 @@
  * recommendations, note, priorityScanTargets?, unexpectedCoupling? }
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 
 /**
@@ -32,7 +32,12 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
       fs.mkdirSync(metricsDir, { recursive: true });
     }
 
-    type Finding = { id: string; severity: 'high' | 'medium' | 'low'; message: string; source: string };
+    type Finding = {
+      id: string;
+      severity: 'high' | 'medium' | 'low';
+      message: string;
+      source: string;
+    };
     const findings: Finding[] = [];
     const recommendations: string[] = [];
 
@@ -53,7 +58,8 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
         findings.push({
           id: 'env-file-no-gitignore',
           severity: 'high',
-          message: '.env.local exists and there is no .gitignore to protect it from being committed',
+          message:
+            '.env.local exists and there is no .gitignore to protect it from being committed',
           source: 'checks.envFilesProtected',
         });
         recommendations.push('Add a .gitignore that excludes .env.local before committing');
@@ -71,7 +77,8 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
       findings.push({
         id: 'no-gitignore',
         severity: 'medium',
-        message: 'No .gitignore file found — build artifacts, secrets, or local config may be committed accidentally',
+        message:
+          'No .gitignore file found — build artifacts, secrets, or local config may be committed accidentally',
         source: 'checks.gitIgnoreExists',
       });
       recommendations.push('Add a .gitignore file');
@@ -102,7 +109,8 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
         try {
           // Top 5 high-centrality (god-node) files — largest security blast radius
           type GodFileRow = { file_path: string; degree: number };
-          const godFileRows = db.prepare(`
+          const godFileRows = db
+            .prepare(`
             SELECT n.file_path,
                    COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree
             FROM nodes n
@@ -117,11 +125,21 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
             GROUP BY n.file_path
             ORDER BY degree DESC
             LIMIT 5
-          `).all() as GodFileRow[];
+          `)
+            .all() as GodFileRow[];
 
           // Top 5 surprising cross-community edges — potential hidden coupling / attack surface
-          type SurpriseRow = { src_name: string; tgt_name: string; relation: string; confidence_score: number; src_file: string | null; tgt_file: string | null };
-          const surpriseRows = (db.prepare(`
+          type SurpriseRow = {
+            src_name: string;
+            tgt_name: string;
+            relation: string;
+            confidence_score: number;
+            src_file: string | null;
+            tgt_file: string | null;
+          };
+          const surpriseRows = (
+            db
+              .prepare(`
             SELECT n1.name as src_name, n2.name as tgt_name, e.relation, e.confidence_score,
                    n1.file_path as src_file, n2.file_path as tgt_file
             FROM edges e
@@ -133,19 +151,21 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
               AND n1.community_id != n2.community_id
             ORDER BY e.confidence_score ASC
             LIMIT 15
-          `).all() as SurpriseRow[])
-            .filter(r => !isBarrelReExport(r))
+          `)
+              .all() as SurpriseRow[]
+          )
+            .filter((r) => !isBarrelReExport(r))
             .slice(0, 5);
 
           if (godFileRows.length > 0) {
-            audit['priorityScanTargets'] = godFileRows.map(r => ({
-              file: r.file_path.replace(projectRoot + '/', '').replace(projectRoot + '\\', ''),
+            audit.priorityScanTargets = godFileRows.map((r) => ({
+              file: r.file_path.replace(`${projectRoot}/`, '').replace(`${projectRoot}\\`, ''),
               degree: r.degree,
               reason: 'high-centrality: vulnerability here affects the most consumers',
             }));
           }
           if (surpriseRows.length > 0) {
-            audit['unexpectedCoupling'] = surpriseRows.map(r => ({
+            audit.unexpectedCoupling = surpriseRows.map((r) => ({
               edge: `${r.src_name} --${r.relation}--> ${r.tgt_name}`,
               srcFile: r.src_file ?? '(unknown)',
               tgtFile: r.tgt_file ?? '(unknown)',
@@ -168,21 +188,23 @@ export function createAuditWorker(projectRoot: string): WorkerHandler {
           closeDb(db);
         }
       }
-    } catch { /* monograph unavailable — skip graph enrichment */ }
+    } catch {
+      /* monograph unavailable — skip graph enrichment */
+    }
 
     // Compute a real riskLevel from what was actually found, rather than a
     // hardcoded constant: any high-severity finding escalates the whole
     // audit, medium if none but some medium findings exist, else low.
-    const riskLevel: 'high' | 'medium' | 'low' = findings.some(f => f.severity === 'high')
+    const riskLevel: 'high' | 'medium' | 'low' = findings.some((f) => f.severity === 'high')
       ? 'high'
-      : findings.some(f => f.severity === 'medium')
+      : findings.some((f) => f.severity === 'medium')
         ? 'medium'
         : 'low';
-    audit['riskLevel'] = riskLevel;
-    audit['findings'] = findings;
+    audit.riskLevel = riskLevel;
+    audit.findings = findings;
 
     // Atomic write: tmp + rename, so readers never see a partial file.
-    const tmp = auditFile + '.tmp';
+    const tmp = `${auditFile}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(audit, null, 2));
     fs.renameSync(tmp, auditFile);
 

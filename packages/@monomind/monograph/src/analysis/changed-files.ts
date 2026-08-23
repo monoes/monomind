@@ -1,9 +1,12 @@
-import { execFileSync } from 'child_process';
-import * as path from 'path';
-import { validateGitRef as sharedValidateGitRef, InvalidGitRefError } from './git-ref.js';
+import { execFileSync } from 'node:child_process';
+import * as path from 'node:path';
+import { InvalidGitRefError, validateGitRef as sharedValidateGitRef } from './git-ref.js';
 
 export class ChangedFilesError extends Error {
-  constructor(message: string, public readonly kind: 'invalid_ref' | 'git_failed' | 'parse_error') {
+  constructor(
+    message: string,
+    public readonly kind: 'invalid_ref' | 'git_failed' | 'parse_error',
+  ) {
     super(message);
     this.name = 'ChangedFilesError';
   }
@@ -64,4 +67,3 @@ export function filterResultsByChangedFiles<T extends { filePath?: string | null
 ): T[] {
   return results.filter((item) => item.filePath != null && changedPaths.has(item.filePath));
 }
-

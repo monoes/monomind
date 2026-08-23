@@ -45,7 +45,7 @@ const DISCRIMINANT_MAP: Record<FallowIssueKind, number> = {
   'boundary-violation': 16,
   'coverage-gaps': 17,
   'feature-flag': 18,
-  'complexity': 19,
+  complexity: 19,
   'stale-suppression': 20,
 };
 

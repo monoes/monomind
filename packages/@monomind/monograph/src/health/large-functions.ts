@@ -8,10 +8,7 @@ export interface LargeFunctionEntry {
   startLine: number;
 }
 
-export function shouldReportLargeFunctions(
-  veryHighCount: number,
-  totalFunctions: number
-): boolean {
+export function shouldReportLargeFunctions(veryHighCount: number, totalFunctions: number): boolean {
   if (totalFunctions <= 0) {
     return false;
   }
@@ -20,7 +17,7 @@ export function shouldReportLargeFunctions(
 
 export function detectLargeFunctions(
   functions: Array<{ path: string; name: string; loc: number; startLine: number }>,
-  threshold = LARGE_FUNCTION_LOC_THRESHOLD
+  threshold = LARGE_FUNCTION_LOC_THRESHOLD,
 ): LargeFunctionEntry[] {
   return functions
     .filter((f) => f.loc >= threshold)

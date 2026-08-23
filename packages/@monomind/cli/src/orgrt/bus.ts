@@ -1,6 +1,7 @@
 // packages/@monomind/cli/src/orgrt/bus.ts
-import { appendFile, mkdir } from 'node:fs/promises';
+
 import { existsSync, readFileSync } from 'node:fs';
+import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { BusEvent } from './types.js';
 
@@ -17,7 +18,11 @@ export class OrgBus {
   private dirReady = false;
   readonly file: string;
 
-  constructor(readonly org: string, readonly run: string, readonly dir: string) {
+  constructor(
+    readonly org: string,
+    readonly run: string,
+    readonly dir: string,
+  ) {
     this.file = join(dir, 'bus.jsonl');
   }
 
@@ -35,33 +40,47 @@ export class OrgBus {
       ...partial,
     };
     // serialize writes; never block emitters
-    this.pending = this.pending.then(async () => {
-      if (!this.dirReady) { await mkdir(this.dir, { recursive: true }); this.dirReady = true; }
-      await appendFile(this.file, JSON.stringify(e) + '\n', 'utf8');
-    }).catch((err) => {
-      // R7: surface durable-log failures instead of swallowing under DEBUG.
-      // Without this, summarizeRun() reads back a partial bus.jsonl and
-      // produces wrong run summaries while the dashboard looks healthy
-      // (in-memory listeners still got the event). Emit a follow-up audit
-      // event so the loss is visible in the next-history read.
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[org-bus] event write failed:', err);
+    this.pending = this.pending
+      .then(async () => {
+        if (!this.dirReady) {
+          await mkdir(this.dir, { recursive: true });
+          this.dirReady = true;
+        }
+        await appendFile(this.file, `${JSON.stringify(e)}\n`, 'utf8');
+      })
+      .catch((err) => {
+        // R7: surface durable-log failures instead of swallowing under DEBUG.
+        // Without this, summarizeRun() reads back a partial bus.jsonl and
+        // produces wrong run summaries while the dashboard looks healthy
+        // (in-memory listeners still got the event). Emit a follow-up audit
+        // event so the loss is visible in the next-history read.
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+          console.error('[org-bus] event write failed:', err);
+        try {
+          const audit: BusEvent = {
+            id: `${this.run}-${Date.now()}-${this.seq++}-audit`,
+            ts: Date.now(),
+            org: this.org,
+            run: this.run,
+            type: 'audit',
+            from: 'system',
+            msg: `bus append failed: ${err instanceof Error ? err.message : String(err)}. Event id ${e.id} not persisted.`,
+          };
+          // best-effort second write — if the FS is genuinely down this also
+          // fails silently, but on transient SQLITE_BUSY-style hiccups the
+          // audit line lands and the lost event is at least attributable.
+          void appendFile(this.file, `${JSON.stringify(audit)}\n`, 'utf8').catch(() => {});
+        } catch {
+          /* nothing more we can do */
+        }
+      });
+    for (const fn of this.listeners) {
       try {
-        const audit: BusEvent = {
-          id: `${this.run}-${Date.now()}-${this.seq++}-audit`,
-          ts: Date.now(),
-          org: this.org,
-          run: this.run,
-          type: 'audit',
-          from: 'system',
-          msg: `bus append failed: ${err instanceof Error ? err.message : String(err)}. Event id ${e.id} not persisted.`,
-        };
-        // best-effort second write — if the FS is genuinely down this also
-        // fails silently, but on transient SQLITE_BUSY-style hiccups the
-        // audit line lands and the lost event is at least attributable.
-        void appendFile(this.file, JSON.stringify(audit) + '\n', 'utf8').catch(() => {});
-      } catch { /* nothing more we can do */ }
-    });
-    for (const fn of this.listeners) { try { fn(e); } catch { /* listener errors never break the bus */ } }
+        fn(e);
+      } catch {
+        /* listener errors never break the bus */
+      }
+    }
     return e;
   }
 
@@ -70,13 +89,24 @@ export class OrgBus {
    *  off of that (e.g. the forwarder's HTTP POSTs). A caller that needs an async subscriber's
    *  work to have settled too must await that subscriber's own completion signal separately
    *  (see daemon.ts stopOrg(), which awaits forwarder.settle() alongside bus.flush()). */
-  flush(): Promise<void> { return this.pending; }
+  flush(): Promise<void> {
+    return this.pending;
+  }
 
   static readHistory(dir: string): BusEvent[] {
     const f = join(dir, 'bus.jsonl');
     if (!existsSync(f)) return [];
-    return readFileSync(f, 'utf8').trim().split('\n').filter(Boolean)
-      .map(l => { try { return JSON.parse(l) as BusEvent; } catch { return null; } })
+    return readFileSync(f, 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          return JSON.parse(l) as BusEvent;
+        } catch {
+          return null;
+        }
+      })
       .filter((e): e is BusEvent => e !== null);
   }
 }

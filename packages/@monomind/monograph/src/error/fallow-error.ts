@@ -49,12 +49,18 @@ export class FallowError extends Error {
 
   static formatMessage(kind: FallowErrorKind): string {
     switch (kind.kind) {
-      case 'FileReadError': return `Failed to read file: ${kind.path}${kind.cause ? ` (${kind.cause})` : ''}`;
-      case 'ParseError': return `Parse error${kind.path ? ` in ${kind.path}` : ''}: ${kind.message}`;
-      case 'ResolveError': return `Cannot resolve '${kind.specifier}'${kind.fromFile ? ` from ${kind.fromFile}` : ''}`;
-      case 'ConfigError': return `Configuration error${kind.field ? ` (${kind.field})` : ''}: ${kind.message}`;
-      case 'GitError': return `Git error running '${kind.command}': ${kind.message}`;
-      case 'IoError': return `I/O error: ${kind.message}`;
+      case 'FileReadError':
+        return `Failed to read file: ${kind.path}${kind.cause ? ` (${kind.cause})` : ''}`;
+      case 'ParseError':
+        return `Parse error${kind.path ? ` in ${kind.path}` : ''}: ${kind.message}`;
+      case 'ResolveError':
+        return `Cannot resolve '${kind.specifier}'${kind.fromFile ? ` from ${kind.fromFile}` : ''}`;
+      case 'ConfigError':
+        return `Configuration error${kind.field ? ` (${kind.field})` : ''}: ${kind.message}`;
+      case 'GitError':
+        return `Git error running '${kind.command}': ${kind.message}`;
+      case 'IoError':
+        return `I/O error: ${kind.message}`;
     }
   }
 

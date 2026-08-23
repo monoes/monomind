@@ -1,5 +1,5 @@
-import { createServer } from 'http';
-import type { Server, IncomingMessage, ServerResponse } from 'http';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,7 +77,9 @@ export function createMcpHttpServer(config?: McpHttpConfig): McpHttpServer {
   const requestedHost = config?.host ?? '127.0.0.1';
   // Restrict to loopback to prevent accidental external exposure
   if (!ALLOWED_HOSTS.has(requestedHost)) {
-    throw new Error(`createMcpHttpServer: host must be 127.0.0.1, ::1, or localhost — got "${requestedHost}"`);
+    throw new Error(
+      `createMcpHttpServer: host must be 127.0.0.1, ::1, or localhost — got "${requestedHost}"`,
+    );
   }
   const host = requestedHost;
   const pathPrefix = config?.path ?? '/mcp';
@@ -138,9 +140,7 @@ export function createMcpHttpServer(config?: McpHttpConfig): McpHttpServer {
           tool
             .handler(args)
             .then((result) => sendJson(res, 200, result, corsOrigin))
-            .catch((err: unknown) =>
-              sendJson(res, 500, { error: String(err) }, corsOrigin),
-            );
+            .catch((err: unknown) => sendJson(res, 500, { error: String(err) }, corsOrigin));
         })
         .catch((err: unknown) => sendJson(res, 500, { error: String(err) }, corsOrigin));
       return;
@@ -149,10 +149,10 @@ export function createMcpHttpServer(config?: McpHttpConfig): McpHttpServer {
     // GET {pathPrefix}/stream
     if (method === 'GET' && pathname === `${pathPrefix}/stream`) {
       const params = parseQueryParams(url);
-      const name = params['name'] ?? '';
+      const name = params.name ?? '';
       let args: Record<string, unknown> = {};
       try {
-        args = params['args'] ? (JSON.parse(params['args']) as Record<string, unknown>) : {};
+        args = params.args ? (JSON.parse(params.args) as Record<string, unknown>) : {};
       } catch {
         // ignore parse errors, use empty args
       }
@@ -203,7 +203,7 @@ export function createMcpHttpServer(config?: McpHttpConfig): McpHttpServer {
         httpServer = createServer(handleRequest);
         httpServer.on('error', reject);
         httpServer.listen(port, host, () => {
-          const addr = httpServer!.address();
+          const addr = httpServer?.address();
           if (typeof addr === 'object' && addr) {
             actualPort = addr.port;
           }

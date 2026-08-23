@@ -9,15 +9,13 @@
  * regression comes back: they assert the fallback stderr line is NEVER written
  * and that the result carries a real embedding score.
  */
-import { describe, it, expect } from 'vitest';
-import { existsSync } from 'fs';
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import {
-  resolveWorkerArgv,
-  createConfiguredRouteLayer,
-} from '../routing/route-layer-factory.js';
+
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { createConfiguredRouteLayer, resolveWorkerArgv } from '../routing/route-layer-factory.js';
 
 const SOURCE_WORKER = fileURLToPath(new URL('../routing/embed-worker.ts', import.meta.url));
 
@@ -74,80 +72,76 @@ describe('embed worker resolution', () => {
 });
 
 describe('semantic routing from source', () => {
-  it(
-    'routes through the REAL embedding worker, not the keyword/hash fallback',
-    async (ctx) => {
-      // This test needs the arctic-embed weights (~88MB), which are cached in
-      // node_modules and absent on a fresh checkout. Without this guard the
-      // test fails on a cold CI machine with the *exact* stderr signature it
-      // exists to detect — "semantic worker unavailable" — so a missing model
-      // would be indistinguishable from the regression. Skip loudly instead;
-      // matches memory-retrieval-quality.test.ts, which guards the same way.
-      if (!(await embeddingModelAvailable())) {
-        ctx.skip(); // model not available in this environment — do not fake a pass
-        return;
-      }
+  it('routes through the REAL embedding worker, not the keyword/hash fallback', async (ctx) => {
+    // This test needs the arctic-embed weights (~88MB), which are cached in
+    // node_modules and absent on a fresh checkout. Without this guard the
+    // test fails on a cold CI machine with the *exact* stderr signature it
+    // exists to detect — "semantic worker unavailable" — so a missing model
+    // would be indistinguishable from the regression. Skip loudly instead;
+    // matches memory-retrieval-quality.test.ts, which guards the same way.
+    if (!(await embeddingModelAvailable())) {
+      ctx.skip(); // model not available in this environment — do not fake a pass
+      return;
+    }
 
-      // The worker inherits this env. onnxruntime otherwise spins one compute
-      // thread per core, which starves the rest of the suite (other test files
-      // spawn servers with short startup deadlines) while the model runs.
-      // Scoped to the worker rather than mutated globally: assigning to
-      // process.env here would leak into every other test sharing this vitest
-      // worker process.
-      process.env.OMP_NUM_THREADS ??= '1';
-      process.env.ORT_NUM_THREADS ??= '1';
+    // The worker inherits this env. onnxruntime otherwise spins one compute
+    // thread per core, which starves the rest of the suite (other test files
+    // spawn servers with short startup deadlines) while the model runs.
+    // Scoped to the worker rather than mutated globally: assigning to
+    // process.env here would leak into every other test sharing this vitest
+    // worker process.
+    process.env.OMP_NUM_THREADS ??= '1';
+    process.env.ORT_NUM_THREADS ??= '1';
 
-      const stderrLines: string[] = [];
-      const original = process.stderr.write.bind(process.stderr);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (process.stderr as any).write = (chunk: any, ...rest: any[]) => {
-        stderrLines.push(String(chunk));
-        return original(chunk, ...rest);
-      };
+    const stderrLines: string[] = [];
+    const original = process.stderr.write.bind(process.stderr);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (process.stderr as any).write = (chunk: any, ...rest: any[]) => {
+      stderrLines.push(String(chunk));
+      return original(chunk, ...rest);
+    };
 
-      let result: Record<string, unknown>;
-      try {
-        const layer = await createConfiguredRouteLayer({ debug: true });
-        // Deliberately phrased so the keyword pre-filter cannot match it —
-        // no agent name, no routing keyword, just a described symptom.
-        result = await layer.route(
-          'the login page throws a null pointer when the session cookie is missing',
-        );
-      } finally {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (process.stderr as any).write = original;
-      }
-
-      // 1. The degradation notice must never have been printed.
-      const degraded = stderrLines.filter((l) => l.includes('semantic worker unavailable'));
-      expect(degraded).toEqual([]);
-
-      // 2. The result must come from the embedding path.
-      expect(result.method).toBe('semantic');
-
-      // 3. Sanity only — NOT proof of the embedding path. The hash fallback
-      //    was measured at 0.872 on this same phrase, so a high confidence
-      //    does not discriminate between the two encoders. The assertions that
-      //    actually fail when the fallback is active are #1 (the stderr line)
-      //    and #5 (a semantically correct match, which the hash encoder gets
-      //    wrong). Kept because a confidence outside this range would mean
-      //    something else broke.
-      expect(typeof result.confidence).toBe('number');
-      expect(result.confidence as number).toBeGreaterThan(0.8);
-
-      // 4. Per-route scores present and distinct. Also non-discriminating on
-      //    its own — the hash encoder yields distinct floats too.
-      const scores = result.allScores as Array<{ routeName: string; score: number }>;
-      expect(Array.isArray(scores)).toBe(true);
-      expect(scores.length).toBeGreaterThan(10);
-      const uniqueScores = new Set(scores.map((s) => s.score));
-      expect(uniqueScores.size).toBeGreaterThan(10);
-
-      // 5. Semantically correct top match for a security/auth symptom.
-      expect(['security-engineer', 'security-auditor', 'security-architect']).toContain(
-        result.routeName,
+    let result: Record<string, unknown>;
+    try {
+      const layer = await createConfiguredRouteLayer({ debug: true });
+      // Deliberately phrased so the keyword pre-filter cannot match it —
+      // no agent name, no routing keyword, just a described symptom.
+      result = await layer.route(
+        'the login page throws a null pointer when the session cookie is missing',
       );
-    },
-    240_000,
-  );
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (process.stderr as any).write = original;
+    }
+
+    // 1. The degradation notice must never have been printed.
+    const degraded = stderrLines.filter((l) => l.includes('semantic worker unavailable'));
+    expect(degraded).toEqual([]);
+
+    // 2. The result must come from the embedding path.
+    expect(result.method).toBe('semantic');
+
+    // 3. Sanity only — NOT proof of the embedding path. The hash fallback
+    //    was measured at 0.872 on this same phrase, so a high confidence
+    //    does not discriminate between the two encoders. The assertions that
+    //    actually fail when the fallback is active are #1 (the stderr line)
+    //    and #5 (a semantically correct match, which the hash encoder gets
+    //    wrong). Kept because a confidence outside this range would mean
+    //    something else broke.
+    expect(typeof result.confidence).toBe('number');
+    expect(result.confidence as number).toBeGreaterThan(0.8);
+
+    // 4. Per-route scores present and distinct. Also non-discriminating on
+    //    its own — the hash encoder yields distinct floats too.
+    const scores = result.allScores as Array<{ routeName: string; score: number }>;
+    expect(Array.isArray(scores)).toBe(true);
+    expect(scores.length).toBeGreaterThan(10);
+    const uniqueScores = new Set(scores.map((s) => s.score));
+    expect(uniqueScores.size).toBeGreaterThan(10);
+
+    // 5. Semantically correct top match for a security/auth symptom.
+    expect(['security-engineer', 'security-auditor', 'security-architect']).toContain(
+      result.routeName,
+    );
+  }, 240_000);
 });

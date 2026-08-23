@@ -1,6 +1,6 @@
-import { createHash } from 'crypto';
-import { validateUrl } from '../security/safe-fetch.js';
+import { createHash } from 'node:crypto';
 import { classifyFile } from '../analysis/file-classifier.js';
+import { validateUrl } from '../security/safe-fetch.js';
 
 export type UrlType = 'paper' | 'github' | 'video' | 'webpage' | 'pdf' | 'image';
 

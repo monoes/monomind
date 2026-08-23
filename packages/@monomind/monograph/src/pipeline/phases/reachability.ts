@@ -38,9 +38,11 @@ export function classifyReachability(
     /vite\.config/,
   ];
 
-  const allFileNodes = db.prepare(
-    `SELECT id, file_path, properties FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`,
-  ).all() as { id: string; file_path: string; properties: string | null }[];
+  const allFileNodes = db
+    .prepare(
+      `SELECT id, file_path, properties FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`,
+    )
+    .all() as { id: string; file_path: string; properties: string | null }[];
 
   const roleMap = new Map<string, ReachabilityRole>();
   const testEntryIds = new Set<string>();
@@ -49,22 +51,24 @@ export function classifyReachability(
   // Initial classification by path pattern
   for (const node of allFileNodes) {
     const fp = node.file_path;
-    if (TEST_PATTERNS.some(p => p.test(fp))) {
+    if (TEST_PATTERNS.some((p) => p.test(fp))) {
       testEntryIds.add(node.id);
       roleMap.set(node.id, 'test');
-    } else if (SUPPORT_PATTERNS.some(p => p.test(fp))) {
+    } else if (SUPPORT_PATTERNS.some((p) => p.test(fp))) {
       roleMap.set(node.id, 'support');
     }
   }
 
   // Files with no incoming IMPORTS edges are potential runtime roots
-  const noIncoming = db.prepare(`
+  const noIncoming = db
+    .prepare(`
     SELECT n.id FROM nodes n
     WHERE n.label = 'File'
     AND NOT EXISTS (
       SELECT 1 FROM edges e WHERE e.target_id = n.id AND e.relation = 'IMPORTS'
     )
-  `).all() as { id: string }[];
+  `)
+    .all() as { id: string }[];
 
   for (const { id } of noIncoming) {
     if (!roleMap.has(id)) {
@@ -75,9 +79,9 @@ export function classifyReachability(
 
   // ── Preload forward adjacency map for BFS (one query vs N per BFS node) ────────
   const forwardEdges = new Map<string, string[]>();
-  const fwdRows = db.prepare(
-    `SELECT source_id, target_id FROM edges WHERE relation IN ('IMPORTS', 'RE_EXPORTS')`,
-  ).all() as { source_id: string; target_id: string }[];
+  const fwdRows = db
+    .prepare(`SELECT source_id, target_id FROM edges WHERE relation IN ('IMPORTS', 'RE_EXPORTS')`)
+    .all() as { source_id: string; target_id: string }[];
   for (const row of fwdRows) {
     let targets = forwardEdges.get(row.source_id);
     if (!targets) {
@@ -102,7 +106,11 @@ export function classifyReachability(
           // Set role only if not already set to a higher-priority role
           // Priority: runtime > test > support > unreachable
           const existing = roleMap.get(target_id);
-          if (!existing || existing === 'unreachable' || (role === 'runtime' && existing === 'test')) {
+          if (
+            !existing ||
+            existing === 'unreachable' ||
+            (role === 'runtime' && existing === 'test')
+          ) {
             roleMap.set(target_id, role);
           }
           queue.push(target_id);
@@ -118,13 +126,18 @@ export function classifyReachability(
   // ── Persist roles and count — batch UPDATE in transaction ────────────────────
   const updateStmt = db.prepare(`UPDATE nodes SET properties = ? WHERE id = ?`);
   const persistAll = db.transaction(() => {
-    let runtime = 0, test = 0, support = 0, unreachable = 0;
+    let runtime = 0,
+      test = 0,
+      support = 0,
+      unreachable = 0;
     for (const node of allFileNodes) {
       const role = roleMap.get(node.id) ?? 'unreachable';
       let props: Record<string, unknown> = {};
       try {
         if (node.properties) props = JSON.parse(node.properties);
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
       props.reachabilityRole = role;
       updateStmt.run(JSON.stringify(props), node.id);
       if (role === 'runtime') runtime++;
@@ -145,12 +158,14 @@ export function getNodesByReachabilityRole(
   role: ReachabilityRole,
   limit = 100,
 ): Array<{ id: string; name: string; filePath: string | null }> {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT id, name, file_path
     FROM nodes
     WHERE label = 'File'
     AND json_extract(properties, '$.reachabilityRole') = ?
     LIMIT ?
-  `).all(role, limit) as { id: string; name: string; file_path: string | null }[];
-  return rows.map(r => ({ id: r.id, name: r.name, filePath: r.file_path }));
+  `)
+    .all(role, limit) as { id: string; name: string; file_path: string | null }[];
+  return rows.map((r) => ({ id: r.id, name: r.name, filePath: r.file_path }));
 }

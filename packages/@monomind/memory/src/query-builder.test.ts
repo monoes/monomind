@@ -5,8 +5,8 @@
  * fluent sort methods, default behavior.
  */
 
-import { describe, it, expect } from 'vitest';
-import { QueryBuilder, query, QueryTemplates } from './query-builder.js';
+import { describe, expect, it } from 'vitest';
+import { QueryBuilder, QueryTemplates, query } from './query-builder.js';
 
 describe('QueryBuilder', () => {
   describe('sortField / sortDirection emitted by build()', () => {

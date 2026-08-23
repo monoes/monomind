@@ -4,11 +4,11 @@
  * Tool definitions for task management with file persistence.
  */
 
+import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
-import { type MCPTool, getMonomindDataRoot } from './types.js';
 import { readJsonStoreOrNull, writeJsonFileAtomic } from '../utils/json-file.js';
+import { getMonomindDataRoot, type MCPTool } from './types.js';
 
 // Storage paths — relative to the git-safe data root
 const TASK_DIR = 'tasks';
@@ -50,7 +50,11 @@ function ensureTaskDir(): void {
 }
 
 export function loadTaskStoreOrNull(): TaskStore | null {
-  return readJsonStoreOrNull<TaskStore>(getTaskPath(), { tasks: {}, version: '3.0.0' }, 'loadTaskStore');
+  return readJsonStoreOrNull<TaskStore>(
+    getTaskPath(),
+    { tasks: {}, version: '3.0.0' },
+    'loadTaskStore',
+  );
 }
 
 export function loadTaskStore(): TaskStore {
@@ -82,7 +86,11 @@ export const taskTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadTaskStoreOrNull();
-      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
+      if (!store)
+        return {
+          success: false,
+          error: 'Task store is corrupt or unreadable — refusing to overwrite',
+        };
       const taskId = `task-${Date.now()}-${randomBytes(4).toString('hex')}`;
 
       // Cap all string fields: they are persisted verbatim to the task JSON store.
@@ -93,22 +101,34 @@ export const taskTools: MCPTool[] = [
       const MAX_TASK_TAG_LEN = 128;
       const MAX_TASK_TAGS = 50;
       const rawTaskType = input.type as string;
-      const taskType = typeof rawTaskType === 'string' && rawTaskType.length > MAX_TASK_TYPE_LEN
-        ? rawTaskType.slice(0, MAX_TASK_TYPE_LEN) : rawTaskType;
+      const taskType =
+        typeof rawTaskType === 'string' && rawTaskType.length > MAX_TASK_TYPE_LEN
+          ? rawTaskType.slice(0, MAX_TASK_TYPE_LEN)
+          : rawTaskType;
       const rawTaskDesc = input.description as string;
-      const taskDesc = typeof rawTaskDesc === 'string' && rawTaskDesc.length > MAX_TASK_DESC_LEN
-        ? rawTaskDesc.slice(0, MAX_TASK_DESC_LEN) : rawTaskDesc;
+      const taskDesc =
+        typeof rawTaskDesc === 'string' && rawTaskDesc.length > MAX_TASK_DESC_LEN
+          ? rawTaskDesc.slice(0, MAX_TASK_DESC_LEN)
+          : rawTaskDesc;
       const rawAssignTo = (input.assignTo as string[]) || [];
       const assignedTo = Array.isArray(rawAssignTo)
-        ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a =>
-            typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a
-          )
+        ? rawAssignTo
+            .slice(0, MAX_TASK_ASSIGNEES)
+            .map((a) =>
+              typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN
+                ? a.slice(0, MAX_TASK_ASSIGNEE_LEN)
+                : a,
+            )
         : [];
       const rawTags = (input.tags as string[]) || [];
       const tags = Array.isArray(rawTags)
-        ? rawTags.slice(0, MAX_TASK_TAGS).map(t =>
-            typeof t === 'string' && t.length > MAX_TASK_TAG_LEN ? t.slice(0, MAX_TASK_TAG_LEN) : t
-          )
+        ? rawTags
+            .slice(0, MAX_TASK_TAGS)
+            .map((t) =>
+              typeof t === 'string' && t.length > MAX_TASK_TAG_LEN
+                ? t.slice(0, MAX_TASK_TAG_LEN)
+                : t,
+            )
         : [];
 
       const task: TaskRecord = {
@@ -154,7 +174,8 @@ export const taskTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadTaskStore();
       const taskId = input.taskId as string;
-      if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, status: 'not_found', error: 'Task not found' };
+      if (FORBIDDEN_TASK_IDS.has(taskId))
+        return { taskId, status: 'not_found', error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
@@ -206,17 +227,20 @@ export const taskTools: MCPTool[] = [
       // while tasks existed on disk.
       if (input.status && input.status !== 'all') {
         // Support comma-separated status values
-        const statuses = (input.status as string).split(',').map(s => s.trim()).filter(s => s !== 'all');
-        if (statuses.length > 0) tasks = tasks.filter(t => statuses.includes(t.status));
+        const statuses = (input.status as string)
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s !== 'all');
+        if (statuses.length > 0) tasks = tasks.filter((t) => statuses.includes(t.status));
       }
       if (input.type) {
-        tasks = tasks.filter(t => t.type === input.type);
+        tasks = tasks.filter((t) => t.type === input.type);
       }
       if (input.assignedTo) {
-        tasks = tasks.filter(t => t.assignedTo.includes(input.assignedTo as string));
+        tasks = tasks.filter((t) => t.assignedTo.includes(input.assignedTo as string));
       }
       if (input.priority) {
-        tasks = tasks.filter(t => t.priority === input.priority);
+        tasks = tasks.filter((t) => t.priority === input.priority);
       }
 
       // Sort by creation date (newest first)
@@ -226,13 +250,14 @@ export const taskTools: MCPTool[] = [
       // in one response, which could cause OOM on large deployments.
       const MAX_TASK_LIMIT = 1_000;
       const rawLimit = typeof input.limit === 'number' ? input.limit : 50;
-      const limit = Number.isFinite(rawLimit) && rawLimit > 0
-        ? Math.min(Math.floor(rawLimit), MAX_TASK_LIMIT)
-        : 50;
+      const limit =
+        Number.isFinite(rawLimit) && rawLimit > 0
+          ? Math.min(Math.floor(rawLimit), MAX_TASK_LIMIT)
+          : 50;
       tasks = tasks.slice(0, limit);
 
       return {
-        tasks: tasks.map(t => ({
+        tasks: tasks.map((t) => ({
           taskId: t.taskId,
           type: t.type,
           description: t.description,
@@ -266,9 +291,14 @@ export const taskTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadTaskStoreOrNull();
-      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
+      if (!store)
+        return {
+          success: false,
+          error: 'Task store is corrupt or unreadable — refusing to overwrite',
+        };
       const taskId = input.taskId as string;
-      if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, status: 'not_found', error: 'Task not found' };
+      if (FORBIDDEN_TASK_IDS.has(taskId))
+        return { taskId, status: 'not_found', error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
@@ -282,13 +312,19 @@ export const taskTools: MCPTool[] = [
         if (task.assignedTo.length > 0) {
           const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
           try {
-            const agentStore = readJsonStoreOrNull<{ agents: Record<string, Record<string, unknown>> }>(
-              agentStorePath, { agents: {} }, 'task_complete/agent-sync');
+            const agentStore = readJsonStoreOrNull<{
+              agents: Record<string, Record<string, unknown>>;
+            }>(agentStorePath, { agents: {} }, 'task_complete/agent-sync');
             if (agentStore) {
               const FORBIDDEN_AGENT_IDS_TC = new Set(['__proto__', 'constructor', 'prototype']);
               for (const agentId of task.assignedTo) {
-                if (typeof agentId === 'string' && agentId.length > 0 && agentId.length <= 128 &&
-                    !FORBIDDEN_AGENT_IDS_TC.has(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
+                if (
+                  typeof agentId === 'string' &&
+                  agentId.length > 0 &&
+                  agentId.length <= 128 &&
+                  !FORBIDDEN_AGENT_IDS_TC.has(agentId) &&
+                  Object.hasOwn(agentStore.agents, agentId)
+                ) {
                   agentStore.agents[agentId].status = 'idle';
                   agentStore.agents[agentId].currentTask = null;
                   agentStore.agents[agentId].taskCount =
@@ -298,7 +334,8 @@ export const taskTools: MCPTool[] = [
               writeJsonFileAtomic(agentStorePath, agentStore);
             }
           } catch (e) {
-            if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[task_complete] agent store sync failed:', e);
+            if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+              console.error('[task_complete] agent store sync failed:', e);
           }
         }
 
@@ -333,9 +370,14 @@ export const taskTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadTaskStoreOrNull();
-      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
+      if (!store)
+        return {
+          success: false,
+          error: 'Task store is corrupt or unreadable — refusing to overwrite',
+        };
       const taskId = input.taskId as string;
-      if (FORBIDDEN_TASK_IDS.has(taskId)) return { success: false, taskId, error: 'Task not found' };
+      if (FORBIDDEN_TASK_IDS.has(taskId))
+        return { success: false, taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
@@ -357,9 +399,13 @@ export const taskTools: MCPTool[] = [
           const MAX_TASK_ASSIGNEES = 100;
           const rawAssignTo = input.assignTo as string[];
           task.assignedTo = Array.isArray(rawAssignTo)
-            ? rawAssignTo.slice(0, MAX_TASK_ASSIGNEES).map(a =>
-                typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN ? a.slice(0, MAX_TASK_ASSIGNEE_LEN) : a
-              )
+            ? rawAssignTo
+                .slice(0, MAX_TASK_ASSIGNEES)
+                .map((a) =>
+                  typeof a === 'string' && a.length > MAX_TASK_ASSIGNEE_LEN
+                    ? a.slice(0, MAX_TASK_ASSIGNEE_LEN)
+                    : a,
+                )
             : task.assignedTo;
         }
         saveTaskStore(store);
@@ -395,7 +441,11 @@ export const taskTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadTaskStoreOrNull();
-      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
+      if (!store)
+        return {
+          success: false,
+          error: 'Task store is corrupt or unreadable — refusing to overwrite',
+        };
       const taskId = input.taskId as string;
       if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
@@ -410,7 +460,10 @@ export const taskTools: MCPTool[] = [
       // exist yet" (safe to proceed with an empty store) from "file exists
       const agentStorePath = join(getMonomindDataRoot(), 'agents', 'store.json');
       const agentStore = readJsonStoreOrNull<{ agents: Record<string, Record<string, unknown>> }>(
-        agentStorePath, { agents: {} }, 'task_assign/agent-sync');
+        agentStorePath,
+        { agents: {} },
+        'task_assign/agent-sync',
+      );
       const agentStoreReadFailed = agentStore === null;
 
       const FORBIDDEN_AGENT_IDS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -430,7 +483,11 @@ export const taskTools: MCPTool[] = [
           const rawIds = (input.agentIds as string[]) || [];
           const agentIds = rawIds.filter(isValidAgentId);
           for (const agentId of previouslyAssigned) {
-            if (isValidAgentId(agentId) && !agentIds.includes(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
+            if (
+              isValidAgentId(agentId) &&
+              !agentIds.includes(agentId) &&
+              Object.hasOwn(agentStore.agents, agentId)
+            ) {
               agentStore.agents[agentId].status = 'idle';
               agentStore.agents[agentId].currentTask = null;
             }
@@ -490,9 +547,14 @@ export const taskTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadTaskStoreOrNull();
-      if (!store) return { success: false, error: 'Task store is corrupt or unreadable — refusing to overwrite' };
+      if (!store)
+        return {
+          success: false,
+          error: 'Task store is corrupt or unreadable — refusing to overwrite',
+        };
       const taskId = input.taskId as string;
-      if (FORBIDDEN_TASK_IDS.has(taskId)) return { success: false, taskId, error: 'Task not found' };
+      if (FORBIDDEN_TASK_IDS.has(taskId))
+        return { success: false, taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
@@ -503,9 +565,10 @@ export const taskTools: MCPTool[] = [
         // large cancellation reason string.
         const MAX_CANCEL_REASON_LEN = 1024;
         const rawReason = input.reason as string | undefined;
-        const cancelReason = typeof rawReason === 'string' && rawReason.length > MAX_CANCEL_REASON_LEN
-          ? rawReason.slice(0, MAX_CANCEL_REASON_LEN)
-          : (rawReason || 'Cancelled by user');
+        const cancelReason =
+          typeof rawReason === 'string' && rawReason.length > MAX_CANCEL_REASON_LEN
+            ? rawReason.slice(0, MAX_CANCEL_REASON_LEN)
+            : rawReason || 'Cancelled by user';
         task.result = { cancelReason };
         saveTaskStore(store);
 

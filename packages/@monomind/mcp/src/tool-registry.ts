@@ -4,17 +4,17 @@
  * High-performance tool management with O(1) lookup
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
+import { formatValidationErrors, validateSchema } from './schema-validator.js';
 import type {
-  MCPTool,
-  JSONSchema,
-  ToolHandler,
-  ToolContext,
-  ToolCallResult,
-  ToolRegistrationOptions,
   ILogger,
+  JSONSchema,
+  MCPTool,
+  ToolCallResult,
+  ToolContext,
+  ToolHandler,
+  ToolRegistrationOptions,
 } from './types.js';
-import { validateSchema, formatValidationErrors } from './schema-validator.js';
 
 interface ToolMetadata {
   tool: MCPTool;
@@ -80,7 +80,7 @@ export class ToolRegistry extends EventEmitter {
       if (!this.categoryIndex.has(tool.category)) {
         this.categoryIndex.set(tool.category, new Set());
       }
-      this.categoryIndex.get(tool.category)!.add(tool.name);
+      this.categoryIndex.get(tool.category)?.add(tool.name);
     }
 
     if (tool.tags) {
@@ -88,7 +88,7 @@ export class ToolRegistry extends EventEmitter {
         if (!this.tagIndex.has(tag)) {
           this.tagIndex.set(tag, new Set());
         }
-        this.tagIndex.get(tag)!.add(tool.name);
+        this.tagIndex.get(tag)?.add(tool.name);
       }
     }
 
@@ -103,7 +103,10 @@ export class ToolRegistry extends EventEmitter {
     return true;
   }
 
-  registerBatch(tools: MCPTool[], options: ToolRegistrationOptions = {}): {
+  registerBatch(
+    tools: MCPTool[],
+    options: ToolRegistrationOptions = {},
+  ): {
     registered: number;
     failed: string[];
   } {
@@ -270,7 +273,7 @@ export class ToolRegistry extends EventEmitter {
   async execute(
     name: string,
     input: Record<string, unknown>,
-    context?: ToolContext
+    context?: ToolContext,
   ): Promise<ToolCallResult> {
     const startTime = performance.now();
     const metadata = this.tools.get(name);
@@ -324,10 +327,12 @@ export class ToolRegistry extends EventEmitter {
       this.emit('tool:completed', { name, duration, success: true });
 
       return {
-        content: [{
-          type: 'text',
-          text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+          },
+        ],
         isError: false,
       };
     } catch (error) {
@@ -338,10 +343,12 @@ export class ToolRegistry extends EventEmitter {
       this.emit('tool:error', { name, error, duration });
 
       return {
-        content: [{
-          type: 'text',
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
         isError: true,
       };
     }
@@ -386,7 +393,9 @@ export class ToolRegistry extends EventEmitter {
     if (!tool.name || typeof tool.name !== 'string') {
       errors.push('Tool name is required and must be a string');
     } else if (!/^[a-zA-Z][a-zA-Z0-9_/:-]*$/.test(tool.name)) {
-      errors.push('Tool name must start with a letter and contain only alphanumeric characters, underscores, slashes, colons, and hyphens');
+      errors.push(
+        'Tool name must start with a letter and contain only alphanumeric characters, underscores, slashes, colons, and hyphens',
+      );
     }
 
     if (!tool.description || typeof tool.description !== 'string') {
@@ -433,8 +442,7 @@ export class ToolRegistry extends EventEmitter {
 
   private updateAverageExecutionTime(metadata: ToolMetadata, duration: number): void {
     const n = metadata.callCount;
-    metadata.avgExecutionTime =
-      ((metadata.avgExecutionTime * (n - 1)) + duration) / n;
+    metadata.avgExecutionTime = (metadata.avgExecutionTime * (n - 1) + duration) / n;
   }
 
   clear(): void {
@@ -463,7 +471,7 @@ export function defineTool<TInput = Record<string, unknown>, TOutput = unknown>(
     cacheable?: boolean;
     cacheTTL?: number;
     timeout?: number;
-  }
+  },
 ): MCPTool<TInput, TOutput> {
   return {
     name,

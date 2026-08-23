@@ -2,12 +2,12 @@
  * Agent lifecycle commands — spawn, list, status, stop
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { select, confirm, input } from '../prompt.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import { output } from '../output.js';
+import { confirm, input, select } from '../prompt.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 
 // ─── Shared utilities ────────────────────────────────────────────────────────
@@ -50,12 +50,32 @@ export const AGENT_TYPES = [
   { value: 'architect', label: 'Architect', hint: 'System design with enterprise patterns' },
   { value: 'coordinator', label: 'Coordinator', hint: 'Multi-agent orchestration and workflow' },
   { value: 'analyst', label: 'Analyst', hint: 'Performance analysis and optimization' },
-  { value: 'optimizer', label: 'Optimizer', hint: 'Performance optimization and bottleneck analysis' },
-  { value: 'security-architect', label: 'Security Architect', hint: 'Security architecture and threat modeling' },
-  { value: 'security-auditor', label: 'Security Auditor', hint: 'CVE remediation and security testing' },
-  { value: 'memory-specialist', label: 'Memory Specialist', hint: 'Local SQLite-backed memory operations' },
+  {
+    value: 'optimizer',
+    label: 'Optimizer',
+    hint: 'Performance optimization and bottleneck analysis',
+  },
+  {
+    value: 'security-architect',
+    label: 'Security Architect',
+    hint: 'Security architecture and threat modeling',
+  },
+  {
+    value: 'security-auditor',
+    label: 'Security Auditor',
+    hint: 'CVE remediation and security testing',
+  },
+  {
+    value: 'memory-specialist',
+    label: 'Memory Specialist',
+    hint: 'Local SQLite-backed memory operations',
+  },
   { value: 'swarm-specialist', label: 'Swarm Specialist', hint: 'Unified coordination engine' },
-  { value: 'performance-engineer', label: 'Performance Engineer', hint: 'Performance optimization and bottleneck analysis' },
+  {
+    value: 'performance-engineer',
+    label: 'Performance Engineer',
+    hint: 'Performance optimization and bottleneck analysis',
+  },
   { value: 'core-architect', label: 'Core Architect', hint: 'Domain-driven design restructure' },
   { value: 'test-architect', label: 'Test Architect', hint: 'TDD London School methodology' },
 ];
@@ -78,12 +98,17 @@ export function getAgentCapabilities(type: string): string[] {
 export function formatStatus(status: unknown): string {
   const s = String(status);
   switch (s) {
-    case 'active': return output.success(s);
-    case 'idle': return output.warning(s);
+    case 'active':
+      return output.success(s);
+    case 'idle':
+      return output.warning(s);
     case 'inactive':
-    case 'stopped': return output.dim(s);
-    case 'error': return output.error(s);
-    default: return s;
+    case 'stopped':
+      return output.dim(s);
+    case 'error':
+      return output.error(s);
+    default:
+      return s;
   }
 }
 
@@ -93,17 +118,40 @@ export const spawnCommand: Command = {
   name: 'spawn',
   description: 'Spawn a new agent',
   options: [
-    { name: 'type', short: 't', description: 'Agent type to spawn', type: 'string', choices: AGENT_TYPES.map(a => a.value) },
+    {
+      name: 'type',
+      short: 't',
+      description: 'Agent type to spawn',
+      type: 'string',
+      choices: AGENT_TYPES.map((a) => a.value),
+    },
     { name: 'name', short: 'n', description: 'Agent name/identifier', type: 'string' },
-    { name: 'provider', short: 'p', description: 'Provider to use (anthropic, openrouter, ollama)', type: 'string', default: 'anthropic' },
+    {
+      name: 'provider',
+      short: 'p',
+      description: 'Provider to use (anthropic, openrouter, ollama)',
+      type: 'string',
+      default: 'anthropic',
+    },
     { name: 'model', short: 'm', description: 'Model to use', type: 'string' },
     { name: 'task', description: 'Initial task for the agent', type: 'string' },
     { name: 'timeout', description: 'Agent timeout in seconds', type: 'number', default: 300 },
-    { name: 'auto-tools', description: 'Enable automatic tool usage', type: 'boolean', default: true },
+    {
+      name: 'auto-tools',
+      description: 'Enable automatic tool usage',
+      type: 'boolean',
+      default: true,
+    },
   ],
   examples: [
-    { command: 'monomind agent spawn --type coder --name bot-1', description: 'Spawn a coder agent' },
-    { command: 'monomind agent spawn -t researcher --task "Research React 19"', description: 'Spawn researcher with task' },
+    {
+      command: 'monomind agent spawn --type coder --name bot-1',
+      description: 'Spawn a coder agent',
+    },
+    {
+      command: 'monomind agent spawn -t researcher --task "Research React 19"',
+      description: 'Spawn researcher with task',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let agentType = (ctx.flags.type as string | undefined)?.slice(0, 64) ?? '';
@@ -121,7 +169,7 @@ export const spawnCommand: Command = {
         const routeResult = await layer.route(taskDescription);
         agentType = routeResult.agentSlug;
         process.stderr.write(
-          `[route] ${routeResult.method}: "${agentType}" (confidence: ${(routeResult.confidence * 100).toFixed(1)}%)\n`
+          `[route] ${routeResult.method}: "${agentType}" (confidence: ${(routeResult.confidence * 100).toFixed(1)}%)\n`,
         );
       } catch {
         // RouteLayer unavailable — fall through to error below
@@ -129,7 +177,9 @@ export const spawnCommand: Command = {
     }
 
     if (!agentType) {
-      output.printError('Agent type is required. Use --type or -t flag, or provide --task for auto-routing.');
+      output.printError(
+        'Agent type is required. Use --type or -t flag, or provide --task for auto-routing.',
+      );
       return { success: false, exitCode: 1 };
     }
 
@@ -139,10 +189,15 @@ export const spawnCommand: Command = {
 
     try {
       const result = await callMCPTool<{
-        success?: boolean; error?: string;
-        agentId: string; agentType: string; status: string; createdAt: string;
+        success?: boolean;
+        error?: string;
+        agentId: string;
+        agentType: string;
+        status: string;
+        createdAt: string;
       }>('agent_spawn', {
-        agentType, id: agentName,
+        agentType,
+        id: agentName,
         config: {
           provider: ctx.flags.provider || 'anthropic',
           model: ctx.flags.model,
@@ -188,7 +243,11 @@ export const spawnCommand: Command = {
       if (ctx.flags.format === 'json') output.printJson(result);
       return { success: true, data: result };
     } catch (error) {
-      output.printError(error instanceof MCPClientError ? `Failed to spawn agent: ${error.message}` : `Unexpected error: ${String(error)}`);
+      output.printError(
+        error instanceof MCPClientError
+          ? `Failed to spawn agent: ${error.message}`
+          : `Unexpected error: ${String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
   },
@@ -201,7 +260,13 @@ export const listCommand: Command = {
   aliases: ['ls'],
   description: 'List all active agents',
   options: [
-    { name: 'all', short: 'a', description: 'Include inactive agents', type: 'boolean', default: false },
+    {
+      name: 'all',
+      short: 'a',
+      description: 'Include inactive agents',
+      type: 'boolean',
+      default: false,
+    },
     { name: 'type', short: 't', description: 'Filter by agent type', type: 'string' },
     { name: 'status', short: 's', description: 'Filter by status', type: 'string' },
   ],
@@ -212,7 +277,14 @@ export const listCommand: Command = {
       // fallback because agent_pool/agent_health project the same records
       // under that key.
       const result = await callMCPTool<{
-        agents: Array<{ agentId?: string; id?: string; agentType: string; status: 'active' | 'idle' | 'terminated'; createdAt: string; lastActivityAt?: string }>;
+        agents: Array<{
+          agentId?: string;
+          id?: string;
+          agentType: string;
+          status: 'active' | 'idle' | 'terminated';
+          createdAt: string;
+          lastActivityAt?: string;
+        }>;
         total: number;
       }>('agent_list', {
         status: ctx.flags.all ? 'all' : ctx.flags.status || undefined,
@@ -220,7 +292,10 @@ export const listCommand: Command = {
         limit: 100,
       });
 
-      if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
+      if (ctx.flags.format === 'json') {
+        output.printJson(result);
+        return { success: true, data: result };
+      }
 
       output.writeln();
       output.writeln(output.bold('Active Agents'));
@@ -231,12 +306,14 @@ export const listCommand: Command = {
         return { success: true, data: result };
       }
 
-      const displayAgents = result.agents.map(agent => ({
+      const displayAgents = result.agents.map((agent) => ({
         id: agent.agentId ?? agent.id ?? '',
         type: agent.agentType,
         status: agent.status,
         created: new Date(agent.createdAt).toLocaleTimeString(),
-        lastActivity: agent.lastActivityAt ? new Date(agent.lastActivityAt).toLocaleTimeString() : 'N/A',
+        lastActivity: agent.lastActivityAt
+          ? new Date(agent.lastActivityAt).toLocaleTimeString()
+          : 'N/A',
       }));
 
       output.printTable({
@@ -254,7 +331,11 @@ export const listCommand: Command = {
       output.printInfo(`Total: ${result.total} agents`);
       return { success: true, data: result };
     } catch (error) {
-      output.printError(error instanceof MCPClientError ? `Failed to list agents: ${error.message}` : `Unexpected error: ${String(error)}`);
+      output.printError(
+        error instanceof MCPClientError
+          ? `Failed to list agents: ${error.message}`
+          : `Unexpected error: ${String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
   },
@@ -267,10 +348,13 @@ export const statusCommand: Command = {
   description: 'Show detailed status of an agent',
   options: [{ name: 'id', description: 'Agent ID', type: 'string' }],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    let agentId = ctx.args[0] || ctx.flags.id as string;
+    let agentId = ctx.args[0] || (ctx.flags.id as string);
 
     if (!agentId && ctx.interactive) {
-      agentId = await input({ message: 'Enter agent ID:', validate: (v) => v.length > 0 || 'Agent ID is required' });
+      agentId = await input({
+        message: 'Enter agent ID:',
+        validate: (v) => v.length > 0 || 'Agent ID is required',
+      });
     }
 
     if (!agentId) {
@@ -280,10 +364,20 @@ export const statusCommand: Command = {
 
     try {
       const status = await callMCPTool<{
-        id: string; agentType: string; status: 'active' | 'idle' | 'terminated' | 'not_found';
+        id: string;
+        agentType: string;
+        status: 'active' | 'idle' | 'terminated' | 'not_found';
         error?: string;
-        createdAt: string; lastActivityAt?: string; config?: Record<string, unknown>;
-        metrics?: { tasksCompleted: number; tasksInProgress: number; tasksFailed: number; averageExecutionTime: number; uptime: number };
+        createdAt: string;
+        lastActivityAt?: string;
+        config?: Record<string, unknown>;
+        metrics?: {
+          tasksCompleted: number;
+          tasksInProgress: number;
+          tasksFailed: number;
+          averageExecutionTime: number;
+          uptime: number;
+        };
       }>('agent_status', { agentId, includeMetrics: true, includeHistory: false });
 
       // agent_status resolves (doesn't throw) with {status:'not_found', error}
@@ -295,15 +389,21 @@ export const statusCommand: Command = {
         return { success: false, exitCode: 1 };
       }
 
-      if (ctx.flags.format === 'json') { output.printJson(status); return { success: true, data: status }; }
+      if (ctx.flags.format === 'json') {
+        output.printJson(status);
+        return { success: true, data: status };
+      }
 
       output.writeln();
-      output.printBox([
-        `Type: ${status.agentType}`,
-        `Status: ${formatStatus(status.status)}`,
-        `Created: ${new Date(status.createdAt).toLocaleString()}`,
-        `Last Activity: ${status.lastActivityAt ? new Date(status.lastActivityAt).toLocaleString() : 'N/A'}`,
-      ].join('\n'), `Agent: ${status.id}`);
+      output.printBox(
+        [
+          `Type: ${status.agentType}`,
+          `Status: ${formatStatus(status.status)}`,
+          `Created: ${new Date(status.createdAt).toLocaleString()}`,
+          `Last Activity: ${status.lastActivityAt ? new Date(status.lastActivityAt).toLocaleString() : 'N/A'}`,
+        ].join('\n'),
+        `Agent: ${status.id}`,
+      );
 
       if (status.metrics) {
         output.writeln();
@@ -327,7 +427,11 @@ export const statusCommand: Command = {
 
       return { success: true, data: status };
     } catch (error) {
-      output.printError(error instanceof MCPClientError ? `Failed to get agent status: ${error.message}` : `Unexpected error: ${String(error)}`);
+      output.printError(
+        error instanceof MCPClientError
+          ? `Failed to get agent status: ${error.message}`
+          : `Unexpected error: ${String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
   },
@@ -340,8 +444,19 @@ export const stopCommand: Command = {
   aliases: ['kill'],
   description: 'Stop a running agent',
   options: [
-    { name: 'force', short: 'f', description: 'Force stop without graceful shutdown', type: 'boolean', default: false },
-    { name: 'timeout', description: 'Graceful shutdown timeout in seconds', type: 'number', default: 30 },
+    {
+      name: 'force',
+      short: 'f',
+      description: 'Force stop without graceful shutdown',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'timeout',
+      description: 'Graceful shutdown timeout in seconds',
+      type: 'number',
+      default: 30,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const agentId = ctx.args[0];
@@ -354,18 +469,29 @@ export const stopCommand: Command = {
     const force = ctx.flags.force as boolean;
 
     if (!force && ctx.interactive) {
-      const confirmed = await confirm({ message: `Are you sure you want to stop agent ${agentId}?`, default: false });
-      if (!confirmed) { output.printInfo('Operation cancelled'); return { success: true }; }
+      const confirmed = await confirm({
+        message: `Are you sure you want to stop agent ${agentId}?`,
+        default: false,
+      });
+      if (!confirmed) {
+        output.printInfo('Operation cancelled');
+        return { success: true };
+      }
     }
 
     output.printInfo(`Stopping agent ${agentId}...`);
 
     try {
       const result = await callMCPTool<{
-        success?: boolean; error?: string;
-        agentId: string; terminated: boolean; terminatedAt: string;
+        success?: boolean;
+        error?: string;
+        agentId: string;
+        terminated: boolean;
+        terminatedAt: string;
       }>('agent_terminate', {
-        agentId, graceful: !force, reason: 'Stopped by user via CLI',
+        agentId,
+        graceful: !force,
+        reason: 'Stopped by user via CLI',
       });
 
       // agent_terminate resolves (doesn't throw) with {success:false, error}
@@ -383,7 +509,11 @@ export const stopCommand: Command = {
       if (ctx.flags.format === 'json') output.printJson(result);
       return { success: true, data: result };
     } catch (error) {
-      output.printError(error instanceof MCPClientError ? `Failed to stop agent: ${error.message}` : `Unexpected error: ${String(error)}`);
+      output.printError(
+        error instanceof MCPClientError
+          ? `Failed to stop agent: ${error.message}`
+          : `Unexpected error: ${String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
   },

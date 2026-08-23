@@ -13,9 +13,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { VercelAgentRunner } from '../orgrt/vercel-runner.js';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { VERCEL_PROVIDERS } from '../orgrt/vercel-providers.js';
+import { VercelAgentRunner } from '../orgrt/vercel-runner.js';
 
 // We can't easily mock dynamic imports with variable-held specifiers in vitest
 // without the module being installed. Instead, test the provider registry

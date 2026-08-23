@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CommandContext, CommandResult } from '../types.js';
 
 // hooks_post-edit and hooks_post-command both dynamically `import('../memory/memory-bridge.js')`
@@ -37,10 +37,10 @@ beforeEach(async () => {
 // with no handler); every command tested here always returns a CommandResult, so this
 // narrows that away instead of sprinkling non-null assertions across every call site.
 async function run(
-  command: { action?: (ctx: CommandContext) => Promise<CommandResult | void> },
+  command: { action?: (ctx: CommandContext) => Promise<CommandResult | undefined> },
   ctx: CommandContext,
 ): Promise<CommandResult> {
-  const result = await command.action!(ctx);
+  const result = await command.action?.(ctx);
   if (!result) throw new Error(`${JSON.stringify(ctx.flags)} produced no CommandResult`);
   return result;
 }

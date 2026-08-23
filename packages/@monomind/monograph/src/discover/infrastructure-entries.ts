@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export type InfraFileKind =
@@ -104,7 +104,11 @@ function probeDir(dir: string, seen: Set<string>, results: InfraEntryPoint[]): v
       seen.add(filePath);
       const content = safeRead(filePath);
       if (content !== null) {
-        results.push({ filePath, kind: 'dockerfile', discoveredEntries: parseDockerfileEntries(content) });
+        results.push({
+          filePath,
+          kind: 'dockerfile',
+          discoveredEntries: parseDockerfileEntries(content),
+        });
       }
     }
   }

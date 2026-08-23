@@ -37,10 +37,12 @@ function fenceToggles(text: string): number[] {
 
 function inFence(toggles: number[], pos: number): boolean {
   // count toggles at or before pos (binary search)
-  let lo = 0, hi = toggles.length;
+  let lo = 0,
+    hi = toggles.length;
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if (toggles[mid] <= pos) lo = mid + 1; else hi = mid;
+    if (toggles[mid] <= pos) lo = mid + 1;
+    else hi = mid;
   }
   return (lo & 1) === 1;
 }
@@ -52,13 +54,18 @@ function lastHeadingBefore(text: string, pos: number, toggles: number[]): string
   while (i !== -1) {
     const eol = text.indexOf('\n', i + 1);
     const line = text.slice(i + 1, eol === -1 ? undefined : eol);
-    if (HEADING_LINE_RE.test(line) && !inFence(toggles, i + 1)) return line.replace(/^#+ /, '').trim();
+    if (HEADING_LINE_RE.test(line) && !inFence(toggles, i + 1))
+      return line.replace(/^#+ /, '').trim();
     i = i > 0 ? text.lastIndexOf('\n#', i - 1) : -1; // lastIndexOf clamps fromIndex -1 to 0 — would loop forever on a match at 0
   }
   const firstEol = text.indexOf('\n');
   const firstLine = firstEol === -1 ? text : text.slice(0, firstEol);
-  return HEADING_LINE_RE.test(firstLine) && !inFence(toggles, 0) && firstEol !== -1 && firstEol < pos
-    ? firstLine.replace(/^#+ /, '').trim() : null;
+  return HEADING_LINE_RE.test(firstLine) &&
+    !inFence(toggles, 0) &&
+    firstEol !== -1 &&
+    firstEol < pos
+    ? firstLine.replace(/^#+ /, '').trim()
+    : null;
 }
 
 /**
@@ -108,7 +115,12 @@ export function chunkDocument(
       while (h !== -1) {
         const eol = window.indexOf('\n', h + 1);
         const line = window.slice(h + 1, eol === -1 ? undefined : eol);
-        if (HEADING_LINE_RE.test(line) && windowStart + h > startChar && !inFence(toggles, windowStart + h + 1)) break;
+        if (
+          HEADING_LINE_RE.test(line) &&
+          windowStart + h > startChar &&
+          !inFence(toggles, windowStart + h + 1)
+        )
+          break;
         h = h > 0 ? window.lastIndexOf('\n#', h - 1) : -1;
       }
       if (h !== -1 && windowStart + h > startChar) {

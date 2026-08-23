@@ -3,61 +3,66 @@
  * Comprehensive initialization system for Claude Code integration
  */
 
-// Types
 export {
-  type InitOptions,
-  type InitComponents,
-  type InitResult,
-  type HooksConfig,
-  type SkillsConfig,
-  type CommandsConfig,
-  type AgentsConfig,
-  type StatuslineConfig,
-  type MCPConfig,
-  type RuntimeConfig,
-  type EmbeddingsConfig,
-  type PlatformInfo,
-  DEFAULT_INIT_OPTIONS,
-  MINIMAL_INIT_OPTIONS,
-  FULL_INIT_OPTIONS,
-  detectPlatform,
-} from './types.js';
+  CLAUDE_MD_TEMPLATES,
+  generateClaudeMd,
+  generateMinimalClaudeMd,
+} from './claudemd-generator.js';
+export {
+  CODEX_STATUS_LINE_ITEMS,
+  generateCodexAgentsMd,
+  generateCodexConfig,
+  generateCodexStatusLineConfig,
+} from './codex-generator.js';
+export type { UpgradeResult } from './executor.js';
+// Main executor
+export {
+  default,
+  executeInit,
+  executeUpgrade,
+  executeUpgradeWithMissing,
+  findMonomindProjects,
+} from './executor.js';
 
+export {
+  generateAgentRouter,
+  generateAutoMemoryHook,
+  generateHookHandler,
+  generateIntelligenceStub,
+  generateMemoryHelper,
+  generatePostCommitHook,
+  generatePreCommitHook,
+  generateSessionManager,
+} from './helpers-generator.js';
+export {
+  generateMCPConfig,
+  generateMCPJson,
+} from './mcp-generator.js';
 // Generators
 export {
   generateSettings,
   generateSettingsJson,
 } from './settings-generator.js';
-
 export {
-  generateMCPConfig,
-  generateMCPJson,
-} from './mcp-generator.js';
-
-export {
-  generateStatuslineScript,
   generateStatuslineHook,
+  generateStatuslineScript,
 } from './statusline-generator.js';
-
+// Types
 export {
-  generatePreCommitHook,
-  generatePostCommitHook,
-  generateSessionManager,
-  generateAgentRouter,
-  generateMemoryHelper,
-  generateHookHandler,
-  generateIntelligenceStub,
-  generateAutoMemoryHook,
-} from './helpers-generator.js';
-
-export {
-  generateClaudeMd,
-  generateMinimalClaudeMd,
-  CLAUDE_MD_TEMPLATES,
-} from './claudemd-generator.js';
-
-export { generateCodexConfig, generateCodexAgentsMd, generateCodexStatusLineConfig, CODEX_STATUS_LINE_ITEMS } from './codex-generator.js';
-
-// Main executor
-export { executeInit, executeUpgrade, executeUpgradeWithMissing, findMonomindProjects, default } from './executor.js';
-export type { UpgradeResult } from './executor.js';
+  type AgentsConfig,
+  type CommandsConfig,
+  DEFAULT_INIT_OPTIONS,
+  detectPlatform,
+  type EmbeddingsConfig,
+  FULL_INIT_OPTIONS,
+  type HooksConfig,
+  type InitComponents,
+  type InitOptions,
+  type InitResult,
+  type MCPConfig,
+  MINIMAL_INIT_OPTIONS,
+  type PlatformInfo,
+  type RuntimeConfig,
+  type SkillsConfig,
+  type StatuslineConfig,
+} from './types.js';

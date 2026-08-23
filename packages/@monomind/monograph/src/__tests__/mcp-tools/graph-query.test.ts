@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { queryGraph as queryGraphMcp } from '../../mcp-tools/graph-query.js';
 
 function makeDb(): Database.Database {
@@ -21,7 +21,7 @@ describe('queryGraphMcp', () => {
     const db = makeDb();
     const result = queryGraphMcp(db, { query: 'auth', mode: 'bfs' });
     expect(result.nodes.length).toBeGreaterThan(0);
-    expect(result.nodes.some(n => n.name === 'AuthService')).toBe(true);
+    expect(result.nodes.some((n) => n.name === 'AuthService')).toBe(true);
   });
 
   it('respects tokenBudget — stops when estimate exceeded', () => {

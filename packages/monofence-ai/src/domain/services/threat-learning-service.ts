@@ -11,14 +11,9 @@
  * - Integration with Monomind attention mechanisms
  */
 
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 
-import type {
-  Threat,
-  ThreatType,
-  ThreatSeverity,
-  ThreatDetectionResult,
-} from '../entities/threat.js';
+import type { ThreatDetectionResult, ThreatSeverity, ThreatType } from '../entities/threat.js';
 
 /**
  * Learned threat pattern stored in vector database
@@ -150,7 +145,9 @@ export class InMemoryVectorStore implements VectorStore {
     // Empty query with no vector → return all with similarity 0 (for count queries)
     if (params.query === '' || (Array.isArray(params.query) && params.query.length === 0)) {
       const all = Array.from(ns.entries()).map(([key, { value }]) => ({
-        key, value, similarity: 0,
+        key,
+        value,
+        similarity: 0,
       }));
       return all.slice(0, params.k ?? all.length);
     }
@@ -176,14 +173,14 @@ export class InMemoryVectorStore implements VectorStore {
       }
     }
 
-    return results
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, params.k ?? 10);
+    return results.sort((a, b) => b.similarity - a.similarity).slice(0, params.k ?? 10);
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
     const len = Math.min(a.length, b.length);
-    let dot = 0, magA = 0, magB = 0;
+    let dot = 0,
+      magA = 0,
+      magB = 0;
     for (let i = 0; i < len; i++) {
       dot += a[i] * b[i];
       magA += a[i] * a[i];
@@ -254,7 +251,7 @@ export class ThreatLearningService {
    */
   async searchSimilarThreats(
     query: string,
-    options: { k?: number; minSimilarity?: number } = {}
+    options: { k?: number; minSimilarity?: number } = {},
   ): Promise<LearnedThreatPattern[]> {
     const results = await this.vectorStore.search({
       namespace: this.namespace,
@@ -263,7 +260,7 @@ export class ThreatLearningService {
       minSimilarity: options.minSimilarity ?? 0.7,
     });
 
-    return results.map(r => r.value as LearnedThreatPattern);
+    return results.map((r) => r.value as LearnedThreatPattern);
   }
 
   /**
@@ -273,30 +270,33 @@ export class ThreatLearningService {
   async learnFromDetection(
     input: string,
     result: ThreatDetectionResult,
-    feedback?: { wasAccurate: boolean; userVerdict?: string }
+    feedback?: { wasAccurate: boolean; userVerdict?: string },
   ): Promise<void> {
-    const reward = feedback
-      ? (feedback.wasAccurate ? 1.0 : 0.2)
-      : (result.safe ? 0.5 : 0.8);
+    const reward = feedback ? (feedback.wasAccurate ? 1.0 : 0.2) : result.safe ? 0.5 : 0.8;
 
     for (const threat of result.threats) {
-      const patternKey = createHash('sha256')
-        .update(threat.pattern)
-        .digest('hex')
-        .slice(0, 16);
+      const patternKey = createHash('sha256').update(threat.pattern).digest('hex').slice(0, 16);
 
-      const existing = await this.vectorStore.get(this.namespace, patternKey) as LearnedThreatPattern | null;
+      const existing = (await this.vectorStore.get(
+        this.namespace,
+        patternKey,
+      )) as LearnedThreatPattern | null;
 
       if (existing) {
         const alpha = 0.1;
         const updated: LearnedThreatPattern = {
           ...existing,
           detectionCount: existing.detectionCount + 1,
-          falsePositiveCount: existing.falsePositiveCount + (feedback?.wasAccurate === false ? 1 : 0),
+          falsePositiveCount:
+            existing.falsePositiveCount + (feedback?.wasAccurate === false ? 1 : 0),
           effectiveness: alpha * reward + (1 - alpha) * existing.effectiveness,
           lastUpdated: new Date(),
         };
-        await this.vectorStore.store({ namespace: this.namespace, key: patternKey, value: updated });
+        await this.vectorStore.store({
+          namespace: this.namespace,
+          key: patternKey,
+          value: updated,
+        });
       } else {
         const newPattern: LearnedThreatPattern = {
           id: patternKey,
@@ -313,7 +313,11 @@ export class ThreatLearningService {
             contextPatterns: this.extractContextPatterns(input),
           },
         };
-        await this.vectorStore.store({ namespace: this.namespace, key: patternKey, value: newPattern });
+        await this.vectorStore.store({
+          namespace: this.namespace,
+          key: patternKey,
+          value: newPattern,
+        });
       }
     }
   }
@@ -326,10 +330,13 @@ export class ThreatLearningService {
     threatType: ThreatType,
     strategy: MitigationStrategy['strategy'],
     success: boolean,
-    recursionDepth: number = 0
+    recursionDepth: number = 0,
   ): Promise<void> {
     const key = `mitigation-${threatType}-${strategy}`;
-    const existing = await this.vectorStore.get(this.mitigationNamespace, key) as MitigationStrategy | null;
+    const existing = (await this.vectorStore.get(
+      this.mitigationNamespace,
+      key,
+    )) as MitigationStrategy | null;
 
     const updated: MitigationStrategy = existing ?? {
       id: key,
@@ -376,9 +383,9 @@ export class ThreatLearningService {
     if (results.length === 0) return null;
 
     // Return highest effectiveness strategy
-    const strategies = results.map(r => r.value as MitigationStrategy);
+    const strategies = results.map((r) => r.value as MitigationStrategy);
     return strategies.reduce((best, current) =>
-      current.effectiveness > best.effectiveness ? current : best
+      current.effectiveness > best.effectiveness ? current : best,
     );
   }
 
@@ -406,7 +413,7 @@ export class ThreatLearningService {
     sessionId: string,
     input: string,
     output: ThreatDetectionResult,
-    reward: number
+    reward: number,
   ): void {
     this.sweepOrphanedTrajectories();
     const tracked = this.trajectories.get(sessionId);
@@ -421,7 +428,10 @@ export class ThreatLearningService {
     // Cap retained steps — drop the oldest once over the limit so a long or
     // crash-looping trajectory can't grow the full-input history unbounded.
     if (tracked.trajectory.steps.length > MAX_STEPS_PER_TRAJECTORY) {
-      tracked.trajectory.steps.splice(0, tracked.trajectory.steps.length - MAX_STEPS_PER_TRAJECTORY);
+      tracked.trajectory.steps.splice(
+        0,
+        tracked.trajectory.steps.length - MAX_STEPS_PER_TRAJECTORY,
+      );
     }
     tracked.trajectory.totalReward += reward;
     tracked.lastActivityAt = Date.now();
@@ -432,7 +442,7 @@ export class ThreatLearningService {
    */
   async endTrajectory(
     sessionId: string,
-    verdict: 'success' | 'failure' | 'partial'
+    verdict: 'success' | 'failure' | 'partial',
   ): Promise<void> {
     const tracked = this.trajectories.get(sessionId);
     if (!tracked) return;
@@ -470,9 +480,11 @@ export class ThreatLearningService {
       k: 100,
     });
 
-    const avgEffectiveness = mitigations.length > 0
-      ? mitigations.reduce((sum, m) => sum + (m.value as MitigationStrategy).effectiveness, 0) / mitigations.length
-      : 0;
+    const avgEffectiveness =
+      mitigations.length > 0
+        ? mitigations.reduce((sum, m) => sum + (m.value as MitigationStrategy).effectiveness, 0) /
+          mitigations.length
+        : 0;
 
     return {
       learnedPatterns: patterns.length,
@@ -502,8 +514,6 @@ export class ThreatLearningService {
 /**
  * Create a ThreatLearningService with optional vector store
  */
-export function createThreatLearningService(
-  vectorStore?: VectorStore
-): ThreatLearningService {
+export function createThreatLearningService(vectorStore?: VectorStore): ThreatLearningService {
   return new ThreatLearningService(vectorStore);
 }

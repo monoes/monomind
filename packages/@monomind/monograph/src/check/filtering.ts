@@ -10,8 +10,8 @@ export function filterToWorkspaces<T extends { filePath: string }>(
   wsRoots: string[],
 ): T[] {
   if (wsRoots.length === 0) return results;
-  return results.filter(r =>
-    wsRoots.some(root => r.filePath === root || r.filePath.startsWith(root + path.sep))
+  return results.filter((r) =>
+    wsRoots.some((root) => r.filePath === root || r.filePath.startsWith(root + path.sep)),
   );
 }
 
@@ -27,12 +27,13 @@ export function resolveWorkspaceFilters(
     else positive.push(p);
   }
 
-  let matches = positive.length > 0
-    ? allWorkspaceRoots.filter(ws => positive.some(p => matchWorkspacePattern(ws, p, root)))
-    : allWorkspaceRoots;
+  let matches =
+    positive.length > 0
+      ? allWorkspaceRoots.filter((ws) => positive.some((p) => matchWorkspacePattern(ws, p, root)))
+      : allWorkspaceRoots;
 
   if (negative.length > 0) {
-    matches = matches.filter(ws => !negative.some(p => matchWorkspacePattern(ws, p, root)));
+    matches = matches.filter((ws) => !negative.some((p) => matchWorkspacePattern(ws, p, root)));
   }
 
   return matches;
@@ -52,26 +53,22 @@ export function resolveWorkspaceScope(
 
   if (changedWorkspaces) {
     const changedSet = new Set(
-      changedWorkspaces.split(',').map(s => path.resolve(root, s.trim()))
+      changedWorkspaces.split(',').map((s) => path.resolve(root, s.trim())),
     );
-    scope = scope.filter(ws => changedSet.has(ws));
+    scope = scope.filter((ws) => changedSet.has(ws));
   }
 
   return scope;
 }
 
-export function getChangedFiles(
-  root: string,
-  since?: string,
-  workspaces?: string[],
-): string[] {
+export function getChangedFiles(_root: string, _since?: string, _workspaces?: string[]): string[] {
   return [];
 }
 
 function matchWorkspacePattern(wsRoot: string, pattern: string, root: string): boolean {
   const rel = path.relative(root, wsRoot).replace(/\\/g, '/');
   if (pattern.includes('*')) {
-    const re = new RegExp('^' + pattern.replace(/\*/g, '[^/]+') + '$');
+    const re = new RegExp(`^${pattern.replace(/\*/g, '[^/]+')}$`);
     return re.test(rel);
   }
   return rel === pattern || wsRoot === pattern || wsRoot.endsWith(path.sep + pattern);

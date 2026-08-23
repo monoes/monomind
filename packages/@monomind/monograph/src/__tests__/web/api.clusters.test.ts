@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
-import { queryClusters, queryCluster, queryProcessesList, queryProcess } from '../../web/api.js';
+import { describe, expect, it } from 'vitest';
+import { queryCluster, queryClusters, queryProcess, queryProcessesList } from '../../web/api.js';
 
 function makeDb(): Database.Database {
   const db = new Database(':memory:');
@@ -22,7 +22,7 @@ describe('queryClusters', () => {
     const result = queryClusters(db);
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThanOrEqual(2);
-    expect(result.some(c => c.label === 'auth')).toBe(true);
+    expect(result.some((c) => c.label === 'auth')).toBe(true);
   });
 });
 
@@ -46,7 +46,7 @@ describe('queryProcessesList', () => {
     const db = makeDb();
     const result = queryProcessesList(db);
     expect(Array.isArray(result)).toBe(true);
-    expect(result.some(p => p.name === 'processOrder')).toBe(true);
+    expect(result.some((p) => p.name === 'processOrder')).toBe(true);
   });
 });
 

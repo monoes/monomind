@@ -30,7 +30,7 @@ const connectionCache = new Map<string, BrowserConnection>();
 
 async function pruneExpiredSessions(): Promise<void> {
   const cutoff = Date.now() - SESSION_TTL_MS;
-  const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
+  const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
   for (const [id, info] of browserSessions) {
     if (new Date(info.lastActivity).getTime() < cutoff) {
       browserSessions.delete(id);
@@ -51,15 +51,19 @@ async function getConnection(sessionId: string): Promise<BrowserConnection> {
     const conn = connectionCache.get(sessionId)!;
     try {
       // Liveness check — evict stale CDP connections
-      await conn.client.send('Runtime.evaluate', { expression: '1', returnByValue: true }, conn.cdpSessionId);
+      await conn.client.send(
+        'Runtime.evaluate',
+        { expression: '1', returnByValue: true },
+        conn.cdpSessionId,
+      );
       return conn;
     } catch {
-      const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
+      const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
       connectionCache.delete(sessionId);
       await closeTarget(conn, port);
     }
   }
-  const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
+  const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
   const { connectToTarget } = await import('@monoes/monobrowse');
   const { client, sessionId: cdpSessionId } = await connectToTarget(port);
   const conn: BrowserConnection = { client, cdpSessionId, refs: new Map() };
@@ -72,7 +76,7 @@ async function releaseConnection(sessionId: string): Promise<void> {
   connectionCache.delete(sessionId);
   browserSessions.delete(sessionId);
   if (conn) {
-    const port = Number(process.env['MONOBROWSE_CDP_PORT'] ?? 9222);
+    const port = Number(process.env.MONOBROWSE_CDP_PORT ?? 9222);
     // Close the actual Chrome tab — just closing the WebSocket leaves the
     // renderer process alive and consuming ~250MB+ RAM each. Awaited (not
     // fire-and-forget) so a burst of session churn can't pile up concurrent
@@ -85,15 +89,25 @@ async function closeTarget(conn: BrowserConnection, port: number): Promise<void>
   try {
     // Get the target ID for this session so we can close the tab
     const result = await conn.client.send<{ targetInfo: { targetId: string } }>(
-      'Target.getTargetInfo', {}, conn.cdpSessionId
+      'Target.getTargetInfo',
+      {},
+      conn.cdpSessionId,
     );
     const targetId = result?.targetInfo?.targetId;
     if (targetId) {
       // Close via HTTP endpoint — works even if the CDP session is stale
-      await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(targetId)}`, { method: 'GET' });
+      await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(targetId)}`, {
+        method: 'GET',
+      });
     }
-  } catch { /* best-effort */ }
-  try { conn.client.close(); } catch { /* ignore */ }
+  } catch {
+    /* best-effort */
+  }
+  try {
+    conn.client.close();
+  } catch {
+    /* ignore */
+  }
 }
 
 function ok(data: Record<string, unknown> = {}): MCPToolResult {
@@ -123,7 +137,11 @@ function validateUrl(value: unknown): string {
   if (typeof value !== 'string') throw new Error('url: must be a string');
   if (value.length > 4096) throw new Error('url: too long (max 4096)');
   let parsed: URL;
-  try { parsed = new URL(value); } catch { throw new Error(`url: not a valid URL: ${value}`); }
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`url: not a valid URL: ${value}`);
+  }
   if (!ALLOWED_URL_SCHEMES.has(parsed.protocol)) {
     throw new Error(`url: scheme "${parsed.protocol}" not allowed (only http/https/about)`);
   }
@@ -135,7 +153,8 @@ function validateUrl(value: unknown): string {
  * `<projectRoot>/.monomind/screenshots` and must not already exist.
  */
 async function validateScreenshotPath(value: unknown): Promise<string> {
-  if (typeof value !== 'string' || value.length === 0) throw new Error('path: must be a non-empty string');
+  if (typeof value !== 'string' || value.length === 0)
+    throw new Error('path: must be a non-empty string');
   if (value.startsWith('-')) throw new Error('path: must not start with "-"');
   const path = await import('node:path');
   const fs = await import('node:fs');
@@ -145,14 +164,16 @@ async function validateScreenshotPath(value: unknown): Promise<string> {
   if (!resolved.startsWith(root + path.sep) && resolved !== root) {
     throw new Error(`path: must be within ${root}`);
   }
-  if (fs.existsSync(resolved)) throw new Error(`path: refuses to overwrite existing file at ${resolved}`);
+  if (fs.existsSync(resolved))
+    throw new Error(`path: refuses to overwrite existing file at ${resolved}`);
   return resolved;
 }
 
 /** Reject strings starting with '-' (flag-injection defense). */
 function rejectFlagLike(value: unknown, field: string): string {
   if (typeof value !== 'string') throw new Error(`${field}: must be a string`);
-  if (value.startsWith('-')) throw new Error(`${field}: must not start with '-' (flag-injection defense)`);
+  if (value.startsWith('-'))
+    throw new Error(`${field}: must not start with '-' (flag-injection defense)`);
   return value;
 }
 
@@ -169,18 +190,29 @@ async function findElement(
   target: string,
   locator = 'selector',
 ): Promise<import('@monoes/monobrowse').ElementRef> {
-  const {
-    findBySelector, findByRole, findByText, findByLabel, findByPlaceholder,
-  } = await import('@monoes/monobrowse');
+  const { findBySelector, findByRole, findByText, findByLabel, findByPlaceholder } = await import(
+    '@monoes/monobrowse'
+  );
 
   let ref: import('@monoes/monobrowse').ElementRef | null = null;
   switch (locator) {
-    case 'selector':    ref = await findBySelector(conn.client, conn.cdpSessionId, conn.refs, target); break;
-    case 'role':        ref = await findByRole(conn.client, conn.cdpSessionId, conn.refs, target); break;
-    case 'text':        ref = await findByText(conn.client, conn.cdpSessionId, conn.refs, target); break;
-    case 'label':       ref = await findByLabel(conn.client, conn.cdpSessionId, conn.refs, target); break;
-    case 'placeholder': ref = await findByPlaceholder(conn.client, conn.cdpSessionId, conn.refs, target); break;
-    default: throw new Error(`Unknown locator "${locator}". Use: selector|role|text|label|placeholder`);
+    case 'selector':
+      ref = await findBySelector(conn.client, conn.cdpSessionId, conn.refs, target);
+      break;
+    case 'role':
+      ref = await findByRole(conn.client, conn.cdpSessionId, conn.refs, target);
+      break;
+    case 'text':
+      ref = await findByText(conn.client, conn.cdpSessionId, conn.refs, target);
+      break;
+    case 'label':
+      ref = await findByLabel(conn.client, conn.cdpSessionId, conn.refs, target);
+      break;
+    case 'placeholder':
+      ref = await findByPlaceholder(conn.client, conn.cdpSessionId, conn.refs, target);
+      break;
+    default:
+      throw new Error(`Unknown locator "${locator}". Use: selector|role|text|label|placeholder`);
   }
   if (!ref) throw new Error(`Element not found: ${locator}="${target}"`);
   return ref;
@@ -196,7 +228,8 @@ export const browserTools: MCPTool[] = [
   // ==========================================================================
   {
     name: 'browser_open',
-    description: 'Navigate browser to a URL via Chrome CDP (port set by MONOBROWSE_CDP_PORT, default 9222). Chrome must already be running with --remote-debugging-port.',
+    description:
+      'Navigate browser to a URL via Chrome CDP (port set by MONOBROWSE_CDP_PORT, default 9222). Chrome must already be running with --remote-debugging-port.',
     category: 'browser',
     tags: ['navigation', 'web'],
     inputSchema: {
@@ -214,11 +247,14 @@ export const browserTools: MCPTool[] = [
     },
     handler: async (input) => {
       const raw = input as { url?: unknown; session?: unknown; waitUntil?: unknown };
-      let url: string; let sessionId: string;
+      let url: string;
+      let sessionId: string;
       try {
         url = validateUrl(raw.url);
         sessionId = validateSessionId(raw.session);
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
 
       await pruneExpiredSessions();
       if (!browserSessions.has(sessionId)) {
@@ -226,13 +262,18 @@ export const browserTools: MCPTool[] = [
         try {
           const os = await import('node:os');
           const freeRatio = os.freemem() / os.totalmem();
-          if (freeRatio < 0.10) {
-            return fail(`System memory critical (${Math.round(freeRatio * 100)}% free). Close existing browser sessions first.`);
+          if (freeRatio < 0.1) {
+            return fail(
+              `System memory critical (${Math.round(freeRatio * 100)}% free). Close existing browser sessions first.`,
+            );
           }
-        } catch { /* non-critical */ }
+        } catch {
+          /* non-critical */
+        }
         if (browserSessions.size >= MAX_BROWSER_SESSIONS) {
-          const oldest = [...browserSessions.entries()]
-            .sort((a, b) => a[1].lastActivity.localeCompare(b[1].lastActivity))[0];
+          const oldest = [...browserSessions.entries()].sort((a, b) =>
+            a[1].lastActivity.localeCompare(b[1].lastActivity),
+          )[0];
           if (oldest) await releaseConnection(oldest[0]);
         }
         browserSessions.set(sessionId, {
@@ -243,10 +284,13 @@ export const browserTools: MCPTool[] = [
       }
 
       try {
-        const { openUrl, waitForLoad, getCurrentUrl, getCurrentTitle } = await import('@monoes/monobrowse');
+        const { openUrl, waitForLoad, getCurrentUrl, getCurrentTitle } = await import(
+          '@monoes/monobrowse'
+        );
         const conn = await getConnection(sessionId);
         await openUrl(conn.client, conn.cdpSessionId, url);
-        const condition = (raw.waitUntil as 'load' | 'networkidle' | 'domcontentloaded' | undefined) ?? 'load';
+        const condition =
+          (raw.waitUntil as 'load' | 'networkidle' | 'domcontentloaded' | undefined) ?? 'load';
         await waitForLoad(conn.client, conn.cdpSessionId, condition, 30000);
         touchSession(sessionId);
         return ok({
@@ -254,7 +298,9 @@ export const browserTools: MCPTool[] = [
           title: await getCurrentTitle(conn.client, conn.cdpSessionId),
           session: sessionId,
         });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -270,13 +316,19 @@ export const browserTools: MCPTool[] = [
     handler: async (input) => {
       const { session } = input as { session?: unknown };
       let sessionId: string;
-      try { sessionId = validateSessionId(session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const conn = await getConnection(sessionId);
         await conn.client.send('Page.goBack', {}, conn.cdpSessionId);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -292,13 +344,19 @@ export const browserTools: MCPTool[] = [
     handler: async (input) => {
       const { session } = input as { session?: unknown };
       let sessionId: string;
-      try { sessionId = validateSessionId(session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const conn = await getConnection(sessionId);
         await conn.client.send('Page.goForward', {}, conn.cdpSessionId);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -314,13 +372,19 @@ export const browserTools: MCPTool[] = [
     handler: async (input) => {
       const { session } = input as { session?: unknown };
       let sessionId: string;
-      try { sessionId = validateSessionId(session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const conn = await getConnection(sessionId);
         await conn.client.send('Page.reload', {}, conn.cdpSessionId);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -336,7 +400,11 @@ export const browserTools: MCPTool[] = [
     handler: async (input) => {
       const { session } = input as { session?: unknown };
       let sessionId: string;
-      try { sessionId = validateSessionId(session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       await releaseConnection(sessionId);
       return ok({ session: sessionId });
     },
@@ -347,7 +415,8 @@ export const browserTools: MCPTool[] = [
   // ==========================================================================
   {
     name: 'browser_snapshot',
-    description: 'Get accessibility tree snapshot of the current page. Use element roles, names, and text from the output to target elements in subsequent interaction tools.',
+    description:
+      'Get accessibility tree snapshot of the current page. Use element roles, names, and text from the output to target elements in subsequent interaction tools.',
     category: 'browser',
     tags: ['snapshot', 'ai'],
     inputSchema: {
@@ -361,9 +430,19 @@ export const browserTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const raw = input as { session?: unknown; interactive?: boolean; compact?: boolean; depth?: number; selector?: unknown };
+      const raw = input as {
+        session?: unknown;
+        interactive?: boolean;
+        compact?: boolean;
+        depth?: number;
+        selector?: unknown;
+      };
       let sessionId: string;
-      try { sessionId = validateSessionId(raw.session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(raw.session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const { captureSnapshot } = await import('@monoes/monobrowse');
         const conn = await getConnection(sessionId);
@@ -377,7 +456,9 @@ export const browserTools: MCPTool[] = [
         });
         touchSession(sessionId);
         return ok({ snapshot: result });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -390,28 +471,40 @@ export const browserTools: MCPTool[] = [
       type: 'object',
       properties: {
         session: { type: 'string', description: 'Session ID' },
-        path: { type: 'string', description: 'Save path within .monomind/screenshots/ (returns dataUrl if omitted)' },
+        path: {
+          type: 'string',
+          description: 'Save path within .monomind/screenshots/ (returns dataUrl if omitted)',
+        },
         fullPage: { type: 'boolean', description: 'Capture full scrollable page' },
       },
     },
     handler: async (input) => {
       const raw = input as { session?: unknown; path?: unknown; fullPage?: unknown };
-      let sessionId: string; let safePath: string | undefined;
+      let sessionId: string;
+      let safePath: string | undefined;
       try {
         sessionId = validateSessionId(raw.session);
         if (raw.path !== undefined) safePath = await validateScreenshotPath(raw.path);
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const { captureScreenshot } = await import('@monoes/monobrowse');
         const conn = await getConnection(sessionId);
-        const { path: savedPath, dataUrl } = await captureScreenshot(conn.client, conn.cdpSessionId, {
-          path: safePath,
-          fullPage: raw.fullPage === true,
-          format: 'png',
-        });
+        const { path: savedPath, dataUrl } = await captureScreenshot(
+          conn.client,
+          conn.cdpSessionId,
+          {
+            path: safePath,
+            fullPage: raw.fullPage === true,
+            format: 'png',
+          },
+        );
         touchSession(sessionId);
         return ok(safePath ? { path: savedPath } : { dataUrl });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -420,25 +513,36 @@ export const browserTools: MCPTool[] = [
   // ==========================================================================
   {
     name: 'browser_click',
-    description: 'Click an element. Use locator="selector" (CSS selector), "role", "text", "label", or "placeholder".',
+    description:
+      'Click an element. Use locator="selector" (CSS selector), "role", "text", "label", or "placeholder".',
     category: 'browser',
     tags: ['interaction'],
     inputSchema: {
       type: 'object',
       properties: {
-        target: { type: 'string', description: 'CSS selector, role name, visible text, label text, or placeholder text' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        target: {
+          type: 'string',
+          description: 'CSS selector, role name, visible text, label text, or placeholder text',
+        },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target'],
     },
     handler: async (input) => {
       const raw = input as { target?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
         const { clickElement } = await import('@monoes/monobrowse');
@@ -447,7 +551,9 @@ export const browserTools: MCPTool[] = [
         await clickElement(conn.client, conn.cdpSessionId, ref);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -461,18 +567,30 @@ export const browserTools: MCPTool[] = [
       properties: {
         target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder' },
         value: { type: 'string', description: 'Value to fill' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target', 'value'],
     },
     handler: async (input) => {
-      const raw = input as { target?: unknown; value?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      const raw = input as {
+        target?: unknown;
+        value?: unknown;
+        locator?: unknown;
+        session?: unknown;
+      };
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       if (typeof raw.value !== 'string') return fail('value: must be a string');
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
@@ -482,7 +600,9 @@ export const browserTools: MCPTool[] = [
         await fillElement(conn.client, conn.cdpSessionId, ref, raw.value);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -496,18 +616,30 @@ export const browserTools: MCPTool[] = [
       properties: {
         target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder' },
         text: { type: 'string', description: 'Text to type' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target', 'text'],
     },
     handler: async (input) => {
-      const raw = input as { target?: unknown; text?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      const raw = input as {
+        target?: unknown;
+        text?: unknown;
+        locator?: unknown;
+        session?: unknown;
+      };
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       if (typeof raw.text !== 'string') return fail('text: must be a string');
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
@@ -519,43 +651,62 @@ export const browserTools: MCPTool[] = [
         await typeText(conn.client, conn.cdpSessionId, raw.text);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
   {
     name: 'browser_press',
-    description: 'Press a keyboard key or combo (e.g. "Enter", "Tab", "Escape", "Ctrl+A", "Shift+Tab")',
+    description:
+      'Press a keyboard key or combo (e.g. "Enter", "Tab", "Escape", "Ctrl+A", "Shift+Tab")',
     category: 'browser',
     tags: ['interaction'],
     inputSchema: {
       type: 'object',
       properties: {
-        key: { type: 'string', description: 'Key name or combo (Enter, Tab, Escape, Ctrl+A, Shift+Tab, etc.)' },
+        key: {
+          type: 'string',
+          description: 'Key name or combo (Enter, Tab, Escape, Ctrl+A, Shift+Tab, etc.)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['key'],
     },
     handler: async (input) => {
       const raw = input as { key?: unknown; session?: unknown };
-      let sessionId: string; let key: string;
+      let sessionId: string;
+      let key: string;
       try {
         sessionId = validateSessionId(raw.session);
         key = rejectFlagLike(raw.key, 'key');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const { pressKey, pressKeyCombo } = await import('@monoes/monobrowse');
         const conn = await getConnection(sessionId);
         if (key.includes('+')) {
-          const parts = key.split('+').map(k => k.trim());
+          const parts = key.split('+').map((k) => k.trim());
           const mainKey = parts[parts.length - 1];
           let bits = 0;
           for (const m of parts.slice(0, -1)) {
             switch (m.toLowerCase()) {
-              case 'alt': bits |= 1; break;
-              case 'ctrl': case 'control': bits |= 2; break;
-              case 'meta': case 'cmd': bits |= 4; break;
-              case 'shift': bits |= 8; break;
+              case 'alt':
+                bits |= 1;
+                break;
+              case 'ctrl':
+              case 'control':
+                bits |= 2;
+                break;
+              case 'meta':
+              case 'cmd':
+                bits |= 4;
+                break;
+              case 'shift':
+                bits |= 8;
+                break;
             }
           }
           await pressKeyCombo(conn.client, conn.cdpSessionId, mainKey, bits);
@@ -564,7 +715,9 @@ export const browserTools: MCPTool[] = [
         }
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -577,18 +730,25 @@ export const browserTools: MCPTool[] = [
       type: 'object',
       properties: {
         target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target'],
     },
     handler: async (input) => {
       const raw = input as { target?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
         const { hoverElement } = await import('@monoes/monobrowse');
@@ -597,7 +757,9 @@ export const browserTools: MCPTool[] = [
         await hoverElement(conn.client, conn.cdpSessionId, ref);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -609,20 +771,35 @@ export const browserTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder for the <select>' },
+        target: {
+          type: 'string',
+          description: 'CSS selector, role, text, label, or placeholder for the <select>',
+        },
         value: { type: 'string', description: 'Option value or visible text to select' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target', 'value'],
     },
     handler: async (input) => {
-      const raw = input as { target?: unknown; value?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      const raw = input as {
+        target?: unknown;
+        value?: unknown;
+        locator?: unknown;
+        session?: unknown;
+      };
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       if (typeof raw.value !== 'string') return fail('value: must be a string');
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
@@ -632,7 +809,9 @@ export const browserTools: MCPTool[] = [
         await selectOption(conn.client, conn.cdpSessionId, ref, raw.value);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -645,18 +824,25 @@ export const browserTools: MCPTool[] = [
       type: 'object',
       properties: {
         target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target'],
     },
     handler: async (input) => {
       const raw = input as { target?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
         const { checkElement } = await import('@monoes/monobrowse');
@@ -665,7 +851,9 @@ export const browserTools: MCPTool[] = [
         await checkElement(conn.client, conn.cdpSessionId, ref, true);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -678,18 +866,25 @@ export const browserTools: MCPTool[] = [
       type: 'object',
       properties: {
         target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target'],
     },
     handler: async (input) => {
       const raw = input as { target?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
         const { checkElement } = await import('@monoes/monobrowse');
@@ -698,7 +893,9 @@ export const browserTools: MCPTool[] = [
         await checkElement(conn.client, conn.cdpSessionId, ref, false);
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -710,17 +907,33 @@ export const browserTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        direction: { type: 'string', enum: ['up', 'down', 'left', 'right'], description: 'Scroll direction' },
+        direction: {
+          type: 'string',
+          enum: ['up', 'down', 'left', 'right'],
+          description: 'Scroll direction',
+        },
         amount: { type: 'number', description: 'Scroll amount in pixels (default 300)' },
-        target: { type: 'string', description: 'Optional CSS selector to scroll a specific element' },
+        target: {
+          type: 'string',
+          description: 'Optional CSS selector to scroll a specific element',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['direction'],
     },
     handler: async (input) => {
-      const raw = input as { direction?: string; amount?: number; target?: unknown; session?: unknown };
+      const raw = input as {
+        direction?: string;
+        amount?: number;
+        target?: unknown;
+        session?: unknown;
+      };
       let sessionId: string;
-      try { sessionId = validateSessionId(raw.session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(raw.session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const direction = (raw.direction as 'up' | 'down' | 'left' | 'right') ?? 'down';
       const amount = raw.amount ?? 300;
       try {
@@ -734,7 +947,9 @@ export const browserTools: MCPTool[] = [
         }
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -750,30 +965,43 @@ export const browserTools: MCPTool[] = [
       type: 'object',
       properties: {
         target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target'],
     },
     handler: async (input) => {
       const raw = input as { target?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
         const conn = await getConnection(sessionId);
         const ref = await findElement(conn, target, locator);
         const res = await conn.client.send<{ result: { value: unknown } }>(
           'Runtime.callFunctionOn',
-          { objectId: ref.objectId, functionDeclaration: 'function(){return this.innerText??this.textContent??""}', returnByValue: true },
+          {
+            objectId: ref.objectId,
+            functionDeclaration: 'function(){return this.innerText??this.textContent??""}',
+            returnByValue: true,
+          },
           conn.cdpSessionId,
         );
         touchSession(sessionId);
         return ok({ text: res.result.value });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -786,30 +1014,43 @@ export const browserTools: MCPTool[] = [
       type: 'object',
       properties: {
         target: { type: 'string', description: 'CSS selector, role, text, label, or placeholder' },
-        locator: { type: 'string', enum: ['selector', 'role', 'text', 'label', 'placeholder'], description: 'How to find the element (default: selector)' },
+        locator: {
+          type: 'string',
+          enum: ['selector', 'role', 'text', 'label', 'placeholder'],
+          description: 'How to find the element (default: selector)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
       required: ['target'],
     },
     handler: async (input) => {
       const raw = input as { target?: unknown; locator?: unknown; session?: unknown };
-      let sessionId: string; let target: string;
+      let sessionId: string;
+      let target: string;
       try {
         sessionId = validateSessionId(raw.session);
         target = rejectFlagLike(raw.target, 'target');
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const locator = typeof raw.locator === 'string' ? raw.locator : 'selector';
       try {
         const conn = await getConnection(sessionId);
         const ref = await findElement(conn, target, locator);
         const res = await conn.client.send<{ result: { value: unknown } }>(
           'Runtime.callFunctionOn',
-          { objectId: ref.objectId, functionDeclaration: 'function(){return this.value??""}', returnByValue: true },
+          {
+            objectId: ref.objectId,
+            functionDeclaration: 'function(){return this.value??""}',
+            returnByValue: true,
+          },
           conn.cdpSessionId,
         );
         touchSession(sessionId);
         return ok({ value: res.result.value });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -825,14 +1066,20 @@ export const browserTools: MCPTool[] = [
     handler: async (input) => {
       const { session } = input as { session?: unknown };
       let sessionId: string;
-      try { sessionId = validateSessionId(session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const { getCurrentTitle } = await import('@monoes/monobrowse');
         const conn = await getConnection(sessionId);
         const title = await getCurrentTitle(conn.client, conn.cdpSessionId);
         touchSession(sessionId);
         return ok({ title });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -848,14 +1095,20 @@ export const browserTools: MCPTool[] = [
     handler: async (input) => {
       const { session } = input as { session?: unknown };
       let sessionId: string;
-      try { sessionId = validateSessionId(session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       try {
         const { getCurrentUrl } = await import('@monoes/monobrowse');
         const conn = await getConnection(sessionId);
         const url = await getCurrentUrl(conn.client, conn.cdpSessionId);
         touchSession(sessionId);
         return ok({ url });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -873,18 +1126,32 @@ export const browserTools: MCPTool[] = [
         selector: { type: 'string', description: 'CSS selector to wait for' },
         url: { type: 'string', description: 'URL substring to wait for in current URL' },
         load: { type: 'boolean', description: 'Wait for page load event' },
-        duration: { type: 'number', description: 'Wait a fixed number of milliseconds (max 60000)' },
-        timeout: { type: 'number', description: 'Timeout in ms for selector/url/load conditions (default 30000)' },
+        duration: {
+          type: 'number',
+          description: 'Wait a fixed number of milliseconds (max 60000)',
+        },
+        timeout: {
+          type: 'number',
+          description: 'Timeout in ms for selector/url/load conditions (default 30000)',
+        },
         session: { type: 'string', description: 'Session ID' },
       },
     },
     handler: async (input) => {
       const raw = input as {
-        selector?: unknown; url?: unknown; load?: boolean;
-        duration?: unknown; timeout?: number; session?: unknown;
+        selector?: unknown;
+        url?: unknown;
+        load?: boolean;
+        duration?: unknown;
+        timeout?: number;
+        session?: unknown;
       };
       let sessionId: string;
-      try { sessionId = validateSessionId(raw.session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(raw.session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       const timeout = Math.min(Math.max(Number(raw.timeout ?? 30000), 0), 60000);
       try {
         const { waitFor, waitForLoad } = await import('@monoes/monobrowse');
@@ -892,9 +1159,12 @@ export const browserTools: MCPTool[] = [
 
         if (raw.duration !== undefined) {
           const ms = Math.min(Math.max(Number(raw.duration), 0), 60000);
-          await new Promise(r => setTimeout(r, ms));
+          await new Promise((r) => setTimeout(r, ms));
         } else if (raw.selector !== undefined) {
-          await waitFor(conn.client, conn.cdpSessionId, { selector: rejectFlagLike(raw.selector, 'selector'), timeout });
+          await waitFor(conn.client, conn.cdpSessionId, {
+            selector: rejectFlagLike(raw.selector, 'selector'),
+            timeout,
+          });
         } else if (raw.url !== undefined) {
           await waitFor(conn.client, conn.cdpSessionId, { url: validateUrl(raw.url), timeout });
         } else if (raw.load) {
@@ -904,7 +1174,9 @@ export const browserTools: MCPTool[] = [
         }
         touchSession(sessionId);
         return ok();
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 
@@ -913,7 +1185,8 @@ export const browserTools: MCPTool[] = [
   // ==========================================================================
   {
     name: 'browser_eval',
-    description: 'Execute JavaScript in page context. Requires MONOMIND_ALLOW_BROWSER_EVAL=1 env var.',
+    description:
+      'Execute JavaScript in page context. Requires MONOMIND_ALLOW_BROWSER_EVAL=1 env var.',
     category: 'browser',
     tags: ['eval', 'js'],
     inputSchema: {
@@ -927,27 +1200,40 @@ export const browserTools: MCPTool[] = [
     handler: async (input) => {
       // SECURITY: browser_eval runs arbitrary JS with the browser's session cookies.
       // Require explicit operator opt-in via env var to prevent SSRF / credential theft.
-      if (process.env['MONOMIND_ALLOW_BROWSER_EVAL'] !== '1') {
-        return fail('browser_eval is disabled by default. Set MONOMIND_ALLOW_BROWSER_EVAL=1 to enable.');
+      if (process.env.MONOMIND_ALLOW_BROWSER_EVAL !== '1') {
+        return fail(
+          'browser_eval is disabled by default. Set MONOMIND_ALLOW_BROWSER_EVAL=1 to enable.',
+        );
       }
       const raw = input as { script?: unknown; session?: unknown };
       if (typeof raw.script !== 'string') return fail('script: must be a string');
-      if (raw.script.length > MAX_BROWSER_EVAL_BYTES) return fail(`script: too long (max ${MAX_BROWSER_EVAL_BYTES})`);
+      if (raw.script.length > MAX_BROWSER_EVAL_BYTES)
+        return fail(`script: too long (max ${MAX_BROWSER_EVAL_BYTES})`);
       let sessionId: string;
-      try { sessionId = validateSessionId(raw.session); } catch (e) { return fail((e as Error).message); }
+      try {
+        sessionId = validateSessionId(raw.session);
+      } catch (e) {
+        return fail((e as Error).message);
+      }
       // Audit log every eval call
       try {
         const crypto = await import('node:crypto');
         const hash = crypto.createHash('sha256').update(raw.script).digest('hex').slice(0, 16);
-        console.error(`[${new Date().toISOString()}] AUDIT browser_eval session=${sessionId} script_sha256_16=${hash}`);
-      } catch { /* best-effort */ }
+        console.error(
+          `[${new Date().toISOString()}] AUDIT browser_eval session=${sessionId} script_sha256_16=${hash}`,
+        );
+      } catch {
+        /* best-effort */
+      }
       try {
         const { evaluateJs } = await import('@monoes/monobrowse');
         const conn = await getConnection(sessionId);
         const result = await evaluateJs(conn.client, conn.cdpSessionId, raw.script);
         touchSession(sessionId);
         return ok({ result });
-      } catch (e) { return fail((e as Error).message); }
+      } catch (e) {
+        return fail((e as Error).message);
+      }
     },
   },
 

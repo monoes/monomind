@@ -18,8 +18,8 @@
 // `references` happens to be populated. See boundary-analysis.ts's
 // edgesForModule() comment for the pointer to the checker that DOES work
 // today (pipeline/phases/boundary.ts's detectBoundaryViolations).
-import { describe, it, expect } from 'vitest';
-import { findBoundaryViolations, analyzeBoundaries } from '../../analyze/boundary-analysis.js';
+import { describe, expect, it } from 'vitest';
+import { analyzeBoundaries, findBoundaryViolations } from '../../analyze/boundary-analysis.js';
 import { resolveBoundaryConfig } from '../../config/boundary-config.js';
 import type { ModuleNode } from '../../graph/node-types.js';
 import { ModuleNodeFlags } from '../../graph/node-types.js';
@@ -44,7 +44,9 @@ const config = resolveBoundaryConfig({ preset: 'layered' }, SOURCE_ROOT);
 describe('#118: boundary checker catches ordinary imports, not just re-exports', () => {
   it('flags a plain `import` that crosses a disallowed zone boundary (the case that used to pass silently)', () => {
     const presentationFile = mod('src/components/widget.ts', {
-      references: [{ name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 }],
+      references: [
+        { name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 },
+      ],
     });
     const infraFile = mod('src/infrastructure/repo.ts');
 
@@ -80,7 +82,13 @@ describe('#118: boundary checker catches ordinary imports, not just re-exports',
 
   it('still flags a re-export edge (pre-existing behavior)', () => {
     const presentationFile = mod('src/components/index.ts', {
-      reExports: [{ fromFile: 'src/components/index.ts', toFile: 'src/infrastructure/db.ts', isNamespace: false }],
+      reExports: [
+        {
+          fromFile: 'src/components/index.ts',
+          toFile: 'src/infrastructure/db.ts',
+          isNamespace: false,
+        },
+      ],
     });
     const infraFile = mod('src/infrastructure/db.ts');
 
@@ -94,7 +102,13 @@ describe('#118: boundary checker catches ordinary imports, not just re-exports',
 
   it('does not double-count an edge that is both re-exported AND referenced', () => {
     const presentationFile = mod('src/components/index.ts', {
-      reExports: [{ fromFile: 'src/components/index.ts', toFile: 'src/infrastructure/db.ts', isNamespace: false }],
+      reExports: [
+        {
+          fromFile: 'src/components/index.ts',
+          toFile: 'src/infrastructure/db.ts',
+          isNamespace: false,
+        },
+      ],
       references: [{ name: 'db', kind: 'Value', fromFile: 'src/infrastructure/db.ts', line: 4 }],
     });
     const infraFile = mod('src/infrastructure/db.ts');
@@ -105,7 +119,9 @@ describe('#118: boundary checker catches ordinary imports, not just re-exports',
 
   it('analyzeBoundaries counts checked edges from references, and unchecked files for unclassified paths', () => {
     const presentationFile = mod('src/components/widget.ts', {
-      references: [{ name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 }],
+      references: [
+        { name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 },
+      ],
     });
     const infraFile = mod('src/infrastructure/repo.ts');
     const outsideFile = mod('README.md'); // matches no zone pattern
@@ -118,7 +134,9 @@ describe('#118: boundary checker catches ordinary imports, not just re-exports',
 
   it('findBoundaryViolations and analyzeBoundaries agree on violations for the same input', () => {
     const presentationFile = mod('src/components/widget.ts', {
-      references: [{ name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 }],
+      references: [
+        { name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 },
+      ],
     });
     const infraFile = mod('src/infrastructure/repo.ts');
 
@@ -130,7 +148,9 @@ describe('#118: boundary checker catches ordinary imports, not just re-exports',
   it('ignores a module that is neither reachable nor an entry point', () => {
     const presentationFile = mod('src/components/widget.ts', {
       flags: 0, // not REACHABLE, not ENTRY_POINT
-      references: [{ name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 }],
+      references: [
+        { name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 },
+      ],
     });
     const infraFile = mod('src/infrastructure/repo.ts');
 
@@ -140,9 +160,15 @@ describe('#118: boundary checker catches ordinary imports, not just re-exports',
   it('returns no violations when no zones are configured', () => {
     const empty = resolveBoundaryConfig({}, SOURCE_ROOT);
     const presentationFile = mod('src/components/widget.ts', {
-      references: [{ name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 }],
+      references: [
+        { name: 'Repo', kind: 'Value', fromFile: 'src/infrastructure/repo.ts', line: 7 },
+      ],
     });
     expect(findBoundaryViolations([presentationFile], empty)).toHaveLength(0);
-    expect(analyzeBoundaries([presentationFile], empty)).toEqual({ violations: [], checkedEdges: 0, uncheckedFiles: 0 });
+    expect(analyzeBoundaries([presentationFile], empty)).toEqual({
+      violations: [],
+      checkedEdges: 0,
+      uncheckedFiles: 0,
+    });
   });
 });

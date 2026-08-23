@@ -3,10 +3,11 @@
  * implementations (knowledge-store.ts, prompt-version-store.ts) that had
  * already drifted on empty-collection write semantics and read tolerance.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
+
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { appendJsonl, readJsonl, rewriteJsonl } from './jsonl-store.js';
 
 let dir: string;

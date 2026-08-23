@@ -5,35 +5,46 @@
  * github.com/monoes/monomind
  */
 
-import { existsSync, writeFileSync, mkdirSync, readFileSync, statSync, readdirSync } from 'fs';
-import { join, dirname, resolve, basename } from 'path';
-import { homedir } from 'os';
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, dirname, join, resolve } from 'node:path';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 export const SUPPORTED_PLATFORMS = [
-  'claude', 'gemini', 'cursor', 'vscode', 'copilot',
-  'opencode', 'aider', 'kiro', 'trae', 'claw',
-  'droid', 'antigravity', 'hermes', 'codex',
+  'claude',
+  'gemini',
+  'cursor',
+  'vscode',
+  'copilot',
+  'opencode',
+  'aider',
+  'kiro',
+  'trae',
+  'claw',
+  'droid',
+  'antigravity',
+  'hermes',
+  'codex',
 ] as const;
 
-export type Platform = typeof SUPPORTED_PLATFORMS[number];
+export type Platform = (typeof SUPPORTED_PLATFORMS)[number];
 
 const PLATFORM_CONFIG_FILES: Record<Platform, string[]> = {
-  claude:      ['CLAUDE.md'],
-  gemini:      ['GEMINI.md'],
-  cursor:      ['.cursorrules', '.cursor/rules/monomind.mdc'],
-  vscode:      ['.github/copilot-instructions.md'],
-  copilot:     ['.github/copilot-instructions.md'],
-  opencode:    ['AGENTS.md'],
-  aider:       ['.aider.conf.yml'],
-  kiro:        ['.kiro/steering/monomind.md'],
-  trae:        ['.trae/rules/monomind.md'],
-  claw:        ['.claw/config.md'],
-  droid:       ['DROID.md'],
+  claude: ['CLAUDE.md'],
+  gemini: ['GEMINI.md'],
+  cursor: ['.cursorrules', '.cursor/rules/monomind.mdc'],
+  vscode: ['.github/copilot-instructions.md'],
+  copilot: ['.github/copilot-instructions.md'],
+  opencode: ['AGENTS.md'],
+  aider: ['.aider.conf.yml'],
+  kiro: ['.kiro/steering/monomind.md'],
+  trae: ['.trae/rules/monomind.md'],
+  claw: ['.claw/config.md'],
+  droid: ['DROID.md'],
   antigravity: ['.agents/rules/monomind.md'],
-  hermes:      ['HERMES.md'],
-  codex:       ['AGENTS.md'],
+  hermes: ['HERMES.md'],
+  codex: ['AGENTS.md'],
 };
 
 /**
@@ -155,13 +166,12 @@ function findMastermindSourceDir(): string | null {
  */
 function installMastermindSkills(targetDir: string, sourceDir: string): string[] {
   const written: string[] = [];
-  const files = readdirSync(sourceDir).filter(f => f.endsWith('.md') && !f.startsWith('_'));
+  const files = readdirSync(sourceDir).filter((f) => f.endsWith('.md') && !f.startsWith('_'));
 
   for (const file of files) {
     const name = basename(file, '.md');
-    const skillDir = name === 'master'
-      ? join(targetDir, 'mastermind')
-      : join(targetDir, `mastermind-${name}`);
+    const skillDir =
+      name === 'master' ? join(targetDir, 'mastermind') : join(targetDir, `mastermind-${name}`);
 
     const destFile = join(skillDir, 'SKILL.md');
     if (!existsSync(destFile)) {
@@ -177,7 +187,7 @@ function installMastermindSkills(targetDir: string, sourceDir: string): string[]
       if (existsSync(refSrc)) {
         const refDest = join(skillDir, 'references');
         mkdirSync(refDest, { recursive: true });
-        for (const ref of readdirSync(refSrc).filter(f => f.endsWith('.md'))) {
+        for (const ref of readdirSync(refSrc).filter((f) => f.endsWith('.md'))) {
           const destRef = join(refDest, ref);
           if (!existsSync(destRef)) {
             writeFileSync(destRef, readFileSync(join(refSrc, ref), 'utf8'), 'utf8');
@@ -219,7 +229,7 @@ function setupCodex(activateScriptPath: string): string[] {
     '# monomind:end',
   ].join('\n');
 
-  let config = existsSync(configPath) ? readFileSync(configPath, 'utf8') : '';
+  const config = existsSync(configPath) ? readFileSync(configPath, 'utf8') : '';
   const written: string[] = [];
   if (!config.includes('# monomind:start')) {
     writeFileSync(configPath, config + hookBlock, 'utf8');
@@ -246,20 +256,30 @@ function setupCursor(activateScriptPath: string, repoPath: string): string[] {
 
   let settings: Record<string, unknown> = {};
   if (existsSync(settingsPath)) {
-    try { settings = JSON.parse(readFileSync(settingsPath, 'utf8')); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[setupCursor] failed to parse existing .cursor/settings.json, overwriting with empty:', e); }
+    try {
+      settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error(
+          '[setupCursor] failed to parse existing .cursor/settings.json, overwriting with empty:',
+          e,
+        );
+    }
   }
 
-  const hooks = (settings['hooks'] as Record<string, unknown[]> | undefined) ?? {};
-  const sessionStart = (hooks['SessionStart'] as unknown[] | undefined) ?? [];
+  const hooks = (settings.hooks as Record<string, unknown[]> | undefined) ?? {};
+  const sessionStart = (hooks.SessionStart as unknown[] | undefined) ?? [];
 
   const alreadyAdded = sessionStart.some(
     (h: unknown) =>
-      typeof h === 'object' && h !== null &&
-      (h as Record<string, unknown[]>)['hooks']?.some?.(
+      typeof h === 'object' &&
+      h !== null &&
+      (h as Record<string, unknown[]>).hooks?.some?.(
         (inner: unknown) =>
-          typeof inner === 'object' && inner !== null &&
-          (inner as Record<string, string>)['command']?.includes('monomind-activate')
-      )
+          typeof inner === 'object' &&
+          inner !== null &&
+          (inner as Record<string, string>).command?.includes('monomind-activate'),
+      ),
   );
 
   const written: string[] = [];
@@ -268,8 +288,8 @@ function setupCursor(activateScriptPath: string, repoPath: string): string[] {
       matcher: '',
       hooks: [{ type: 'command', command: `node "${activateScriptPath}"`, timeout: 5000 }],
     });
-    hooks['SessionStart'] = sessionStart;
-    settings['hooks'] = hooks;
+    hooks.SessionStart = sessionStart;
+    settings.hooks = hooks;
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
     written.push(settingsPath, activateScriptPath);
   }
@@ -296,37 +316,50 @@ function setupAntigravity(): string[] {
   const written: string[] = [];
 
   if (!existsSync(pluginJson)) {
-    writeFileSync(pluginJson, JSON.stringify({
-      name: 'monomind',
-      version: '1.0.0',
-      description: 'Monomind monograph knowledge graph and mastermind skills for Antigravity CLI',
-    }, null, 2), 'utf8');
+    writeFileSync(
+      pluginJson,
+      JSON.stringify(
+        {
+          name: 'monomind',
+          version: '1.0.0',
+          description:
+            'Monomind monograph knowledge graph and mastermind skills for Antigravity CLI',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
     written.push(pluginJson);
   }
 
   if (!existsSync(ruleFile)) {
-    writeFileSync(ruleFile, [
-      '---',
-      'name: monomind-integration',
-      'alwaysApply: true',
-      'description: Enable monomind monograph and mastermind skills',
-      '---',
-      '',
-      '# Monomind Integration',
-      '',
-      'This project uses Monograph for knowledge graph navigation.',
-      'Before starting complex tasks, use `view_file` on `.monomind/monograph.db` context',
-      'and invoke the relevant mastermind skill SKILL.md before acting.',
-      '',
-      '## Monograph',
-      '- `monograph_query` — BM25 search the knowledge graph',
-      '- `monograph_impact` — blast radius before any change',
-      '- `monograph_neighbors` — explore dependencies',
-      '',
-      '## Mastermind Skills',
-      'Check `~/.gemini/skills/` for installed mastermind skills.',
-      'Load SKILL.md with `view_file` (IsSkillFile: true) before acting on non-trivial tasks.',
-    ].join('\n'), 'utf8');
+    writeFileSync(
+      ruleFile,
+      [
+        '---',
+        'name: monomind-integration',
+        'alwaysApply: true',
+        'description: Enable monomind monograph and mastermind skills',
+        '---',
+        '',
+        '# Monomind Integration',
+        '',
+        'This project uses Monograph for knowledge graph navigation.',
+        'Before starting complex tasks, use `view_file` on `.monomind/monograph.db` context',
+        'and invoke the relevant mastermind skill SKILL.md before acting.',
+        '',
+        '## Monograph',
+        '- `monograph_query` — BM25 search the knowledge graph',
+        '- `monograph_impact` — blast radius before any change',
+        '- `monograph_neighbors` — explore dependencies',
+        '',
+        '## Mastermind Skills',
+        'Check `~/.gemini/skills/` for installed mastermind skills.',
+        'Load SKILL.md with `view_file` (IsSkillFile: true) before acting on non-trivial tasks.',
+      ].join('\n'),
+      'utf8',
+    );
     written.push(ruleFile);
   }
 
@@ -341,11 +374,11 @@ function setupAntigravity(): string[] {
 }
 
 async function handleSetup(ctx: CommandContext): Promise<CommandResult> {
-  const platform = ctx.flags['platform'] as string | undefined;
-  const all = ctx.flags['all'] as boolean | undefined;
+  const platform = ctx.flags.platform as string | undefined;
+  const all = ctx.flags.all as boolean | undefined;
   let repoPath: string;
   try {
-    repoPath = resolveRepoPath((ctx.flags['path'] as string | undefined) ?? '.');
+    repoPath = resolveRepoPath((ctx.flags.path as string | undefined) ?? '.');
   } catch (err) {
     output.error(`Invalid --path: ${err instanceof Error ? err.message : String(err)}`);
     return { success: false, exitCode: 1 };
@@ -429,7 +462,7 @@ function resolveRepoPath(rawPath: string): string {
  * to guard against future changes that introduce dynamic paths.
  */
 function assertWithinRoot(fullPath: string, repoRoot: string): void {
-  if (!fullPath.startsWith(repoRoot + '/') && fullPath !== repoRoot) {
+  if (!fullPath.startsWith(`${repoRoot}/`) && fullPath !== repoRoot) {
     throw new Error(`Path escapes repository root: ${fullPath}`);
   }
 }
@@ -453,7 +486,7 @@ function installPlatform(platform: Platform, repoPath: string): string[] {
       }
       const existing = readFileSync(fullPath, 'utf8');
       if (existing.includes(MONOMIND_BLOCK_START)) continue;
-      writeFileSync(fullPath, existing + '\n' + instructions, 'utf8');
+      writeFileSync(fullPath, `${existing}\n${instructions}`, 'utf8');
     } else {
       writeFileSync(fullPath, instructions, 'utf8');
     }
@@ -465,9 +498,7 @@ function installPlatform(platform: Platform, repoPath: string): string[] {
 
 function uninstallPlatform(platform: Platform, repoPath: string): string[] {
   const files = PLATFORM_CONFIG_FILES[platform];
-  const blockRe = new RegExp(
-    `\\n?${MONOMIND_BLOCK_START}[\\s\\S]*?${MONOMIND_BLOCK_END}\\n?`, 'g'
-  );
+  const blockRe = new RegExp(`\\n?${MONOMIND_BLOCK_START}[\\s\\S]*?${MONOMIND_BLOCK_END}\\n?`, 'g');
   const cleaned: string[] = [];
 
   for (const relPath of files) {
@@ -488,11 +519,11 @@ function uninstallPlatform(platform: Platform, repoPath: string): string[] {
 }
 
 async function handleInstall(ctx: CommandContext): Promise<CommandResult> {
-  const platform = ctx.flags['platform'] as string | undefined;
-  const all = ctx.flags['all'] as boolean | undefined;
+  const platform = ctx.flags.platform as string | undefined;
+  const all = ctx.flags.all as boolean | undefined;
   let repoPath: string;
   try {
-    repoPath = resolveRepoPath((ctx.flags['path'] as string | undefined) ?? '.');
+    repoPath = resolveRepoPath((ctx.flags.path as string | undefined) ?? '.');
   } catch (err) {
     output.error(`Invalid --path: ${err instanceof Error ? err.message : String(err)}`);
     return { success: false, exitCode: 1 };
@@ -504,11 +535,9 @@ async function handleInstall(ctx: CommandContext): Promise<CommandResult> {
     return { success: false, exitCode: 1 };
   }
 
-  const targets: Platform[] = all
-    ? [...SUPPORTED_PLATFORMS]
-    : [platform as Platform];
+  const targets: Platform[] = all ? [...SUPPORTED_PLATFORMS] : [platform as Platform];
 
-  const invalid = targets.filter(p => !(SUPPORTED_PLATFORMS as readonly string[]).includes(p));
+  const invalid = targets.filter((p) => !(SUPPORTED_PLATFORMS as readonly string[]).includes(p));
   if (invalid.length > 0) {
     output.error(`Unknown platform(s): ${invalid.join(', ')}`);
     output.info(`Supported platforms: ${SUPPORTED_PLATFORMS.join(', ')}`);
@@ -537,11 +566,11 @@ async function handleInstall(ctx: CommandContext): Promise<CommandResult> {
 }
 
 async function handleUninstall(ctx: CommandContext): Promise<CommandResult> {
-  const platform = ctx.flags['platform'] as string | undefined;
-  const all = ctx.flags['all'] as boolean | undefined;
+  const platform = ctx.flags.platform as string | undefined;
+  const all = ctx.flags.all as boolean | undefined;
   let repoPath: string;
   try {
-    repoPath = resolveRepoPath((ctx.flags['path'] as string | undefined) ?? '.');
+    repoPath = resolveRepoPath((ctx.flags.path as string | undefined) ?? '.');
   } catch (err) {
     output.error(`Invalid --path: ${err instanceof Error ? err.message : String(err)}`);
     return { success: false, exitCode: 1 };
@@ -553,11 +582,9 @@ async function handleUninstall(ctx: CommandContext): Promise<CommandResult> {
     return { success: false, exitCode: 1 };
   }
 
-  const targets: Platform[] = all
-    ? [...SUPPORTED_PLATFORMS]
-    : [platform as Platform];
+  const targets: Platform[] = all ? [...SUPPORTED_PLATFORMS] : [platform as Platform];
 
-  const invalid = targets.filter(p => !(SUPPORTED_PLATFORMS as readonly string[]).includes(p));
+  const invalid = targets.filter((p) => !(SUPPORTED_PLATFORMS as readonly string[]).includes(p));
   if (invalid.length > 0) {
     output.error(`Unknown platform(s): ${invalid.join(', ')}`);
     output.info(`Supported platforms: ${SUPPORTED_PLATFORMS.join(', ')}`);
@@ -614,9 +641,18 @@ export const platformsCommand: Command = {
       description: 'Inject Monograph knowledge-graph instructions into platform config file(s)',
       options: platformOptions,
       examples: [
-        { command: 'monomind platforms install --platform claude', description: 'Install for Claude' },
-        { command: 'monomind platforms install --all', description: 'Install for all 14 platforms' },
-        { command: 'monomind platforms install --platform cursor --path /path/to/repo', description: 'Install for Cursor in a specific repo' },
+        {
+          command: 'monomind platforms install --platform claude',
+          description: 'Install for Claude',
+        },
+        {
+          command: 'monomind platforms install --all',
+          description: 'Install for all 14 platforms',
+        },
+        {
+          command: 'monomind platforms install --platform cursor --path /path/to/repo',
+          description: 'Install for Cursor in a specific repo',
+        },
       ],
       action: handleInstall,
     },
@@ -625,26 +661,51 @@ export const platformsCommand: Command = {
       description: 'Remove Monograph knowledge-graph instructions from platform config file(s)',
       options: platformOptions,
       examples: [
-        { command: 'monomind platforms uninstall --platform claude', description: 'Uninstall for Claude' },
-        { command: 'monomind platforms uninstall --all', description: 'Uninstall from all 14 platforms' },
+        {
+          command: 'monomind platforms uninstall --platform claude',
+          description: 'Uninstall for Claude',
+        },
+        {
+          command: 'monomind platforms uninstall --all',
+          description: 'Uninstall from all 14 platforms',
+        },
       ],
       action: handleUninstall,
     },
     {
       name: 'setup',
-      description: 'Write global (user-level) SessionStart hooks and plugin packages for cursor, codex, and antigravity',
+      description:
+        'Write global (user-level) SessionStart hooks and plugin packages for cursor, codex, and antigravity',
       options: platformOptions,
       examples: [
-        { command: 'monomind platforms setup --platform codex', description: 'Wire SessionStart hook into ~/.codex/config.toml' },
-        { command: 'monomind platforms setup --platform cursor', description: 'Wire SessionStart hook into .cursor/settings.json' },
-        { command: 'monomind platforms setup --platform antigravity', description: 'Install monomind plugin into ~/.gemini/antigravity-cli/plugins/' },
+        {
+          command: 'monomind platforms setup --platform codex',
+          description: 'Wire SessionStart hook into ~/.codex/config.toml',
+        },
+        {
+          command: 'monomind platforms setup --platform cursor',
+          description: 'Wire SessionStart hook into .cursor/settings.json',
+        },
+        {
+          command: 'monomind platforms setup --platform antigravity',
+          description: 'Install monomind plugin into ~/.gemini/antigravity-cli/plugins/',
+        },
       ],
       action: handleSetup,
     },
   ],
   examples: [
-    { command: 'monomind platforms install --all', description: 'Install Monograph context for all platforms' },
-    { command: 'monomind platforms setup --platform codex', description: 'Wire Codex SessionStart hook (run once per machine)' },
-    { command: 'monomind platforms uninstall --platform cursor', description: 'Remove context from Cursor config' },
+    {
+      command: 'monomind platforms install --all',
+      description: 'Install Monograph context for all platforms',
+    },
+    {
+      command: 'monomind platforms setup --platform codex',
+      description: 'Wire Codex SessionStart hook (run once per machine)',
+    },
+    {
+      command: 'monomind platforms uninstall --platform cursor',
+      description: 'Remove context from Cursor config',
+    },
   ],
 };

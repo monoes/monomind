@@ -23,7 +23,7 @@ export interface CloneGroup {
 }
 
 export interface CloneFamily {
-  files: string[];        // sorted, deduplicated set of files
+  files: string[]; // sorted, deduplicated set of files
   groups: CloneGroup[];
   totalDuplicatedLines: number;
   suggestions: RefactoringSuggestion[];
@@ -78,12 +78,12 @@ export function groupIntoFamilies(groups: CloneGroup[]): CloneFamily[] {
   const familyMap = new Map<string, { files: Set<string>; groups: CloneGroup[] }>();
 
   for (const group of groups) {
-    const files = group.instances.map(i => i.filePath);
+    const files = group.instances.map((i) => i.filePath);
     const key = fileSetKey(files);
     if (!familyMap.has(key)) {
       familyMap.set(key, { files: new Set(files), groups: [] });
     }
-    familyMap.get(key)!.groups.push(group);
+    familyMap.get(key)?.groups.push(group);
   }
 
   // Build output array without intermediate spread + map allocation
@@ -117,7 +117,9 @@ export function cloneFamilySummary(families: CloneFamily[]): {
   byKind: Record<RefactoringKind, number>;
 } {
   const byKind: Record<RefactoringKind, number> = {
-    ExtractFunction: 0, ExtractModule: 0, MergeDirectories: 0,
+    ExtractFunction: 0,
+    ExtractModule: 0,
+    MergeDirectories: 0,
   };
   let totalDuplicatedLines = 0;
   for (const f of families) {

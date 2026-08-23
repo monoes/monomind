@@ -11,36 +11,36 @@
  *   - hooks-extended-commands.ts — token optimize, model routing, agent teams
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import { intelligenceCommand, workerCommand } from './hooks-workers.js';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import {
+  postCommandCommand,
+  postEditCommand,
+  preCommandCommand,
+  preEditCommand,
+} from './hooks-core-commands.js';
+import {
+  coverageGapsCommand,
   coverageRouteCommand,
   coverageSuggestCommand,
-  coverageGapsCommand,
   statuslineCommand,
 } from './hooks-coverage-commands.js';
 import {
-  modelRouteCommand,
   modelOutcomeCommand,
+  modelRouteCommand,
   modelStatsCommand,
   notifyCommand,
 } from './hooks-extended-commands.js';
 import {
-  preEditCommand,
-  postEditCommand,
-  preCommandCommand,
-  postCommandCommand,
-} from './hooks-core-commands.js';
-import {
-  routeCommand,
   explainCommand,
-  pretrainCommand,
-  metricsCommand,
-  transferCommand,
   listCommand,
+  metricsCommand,
+  pretrainCommand,
+  routeCommand,
+  transferCommand,
 } from './hooks-routing-commands.js';
+import { intelligenceCommand, workerCommand } from './hooks-workers.js';
 
 // Pre-task subcommand
 const preTaskCommand: Command = {
@@ -611,7 +611,7 @@ export const hooksCommand: Command = {
       description: 'View v1 performance metrics',
     },
   ],
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Self-Learning Hooks System'));
     output.writeln();

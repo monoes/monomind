@@ -9,13 +9,14 @@
  * contract under test is which orgs get started and what happens to the file,
  * not agent orchestration.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { pollRunfiles } from '../commands/org.js';
-import { ORG_DIR } from '../orgrt/types.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
+import { ORG_DIR } from '../orgrt/types.js';
 
 function stubDaemon(running: string[], onStart?: (name: string) => void) {
   const started: string[] = [];
@@ -31,8 +32,12 @@ function stubDaemon(running: string[], onStart?: (name: string) => void) {
 }
 
 let cwd: string;
-beforeEach(() => { cwd = mkdtempSync(join(tmpdir(), 'runfile-')); });
-afterEach(() => { rmSync(cwd, { recursive: true, force: true }); });
+beforeEach(() => {
+  cwd = mkdtempSync(join(tmpdir(), 'runfile-'));
+});
+afterEach(() => {
+  rmSync(cwd, { recursive: true, force: true });
+});
 
 function defineOrg(name: string): void {
   mkdirSync(join(cwd, ORG_DIR, name), { recursive: true });
@@ -71,7 +76,9 @@ describe('pollRunfiles', () => {
     writeFileSync(runfile('alpha'), String(Date.now()), 'utf8');
     const daemon = {
       listRunning: () => [],
-      startOrg: async () => { throw new Error('boom'); },
+      startOrg: async () => {
+        throw new Error('boom');
+      },
     } as unknown as OrgDaemon;
     expect(await pollRunfiles(cwd, daemon)).toEqual([]);
     expect(existsSync(runfile('alpha'))).toBe(false);
@@ -79,11 +86,18 @@ describe('pollRunfiles', () => {
 
   it('forwards the task from the runfile body to startOrg', async () => {
     defineOrg('alpha');
-    writeFileSync(runfile('alpha'), JSON.stringify({ ts: Date.now(), task: 'Cycle 9: do the thing' }), 'utf8');
+    writeFileSync(
+      runfile('alpha'),
+      JSON.stringify({ ts: Date.now(), task: 'Cycle 9: do the thing' }),
+      'utf8',
+    );
     const seen: (string | undefined)[] = [];
     const daemon = {
       listRunning: () => [],
-      startOrg: async (_n: string, task?: string) => { seen.push(task); return {} as never; },
+      startOrg: async (_n: string, task?: string) => {
+        seen.push(task);
+        return {} as never;
+      },
     } as unknown as OrgDaemon;
     await pollRunfiles(cwd, daemon);
     expect(seen).toEqual(['Cycle 9: do the thing']);
@@ -95,7 +109,10 @@ describe('pollRunfiles', () => {
     const seen: (string | undefined)[] = [];
     const daemon = {
       listRunning: () => [],
-      startOrg: async (_n: string, task?: string) => { seen.push(task); return {} as never; },
+      startOrg: async (_n: string, task?: string) => {
+        seen.push(task);
+        return {} as never;
+      },
     } as unknown as OrgDaemon;
     await pollRunfiles(cwd, daemon);
     expect(seen).toEqual([undefined]); // starts on the org's own goal, not an error

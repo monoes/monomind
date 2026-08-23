@@ -10,8 +10,8 @@
  * insights are persisted and available during future pipeline runs.
  */
 
-import { mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -103,20 +103,13 @@ export function saveQueryResult(options: SaveQueryResultOptions): SaveQueryResul
 
   if (sourceNodes && sourceNodes.length > 0) {
     const limited = sourceNodes.slice(0, 10);
-    const nodesStr = limited.map(n => `"${yamlStr(n)}"`).join(', ');
+    const nodesStr = limited.map((n) => `"${yamlStr(n)}"`).join(', ');
     frontmatterLines.push(`source_nodes: [${nodesStr}]`);
   }
 
   frontmatterLines.push('---');
 
-  const bodyLines = [
-    '',
-    `# Q: ${question}`,
-    '',
-    '## Answer',
-    '',
-    answer,
-  ];
+  const bodyLines = ['', `# Q: ${question}`, '', '## Answer', '', answer];
 
   if (sourceNodes && sourceNodes.length > 0) {
     bodyLines.push('', '## Source Nodes', '');

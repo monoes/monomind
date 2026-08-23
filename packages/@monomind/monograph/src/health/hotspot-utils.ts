@@ -26,13 +26,10 @@ export function computeNormalizationMaxima(
     return { maxWeightedCommits, maxComplexityDensity };
   }
 
-  const sortedWeighted = [...files.map(f => f.weightedCommits)].sort((a, b) => a - b);
-  const sortedDensity = [...files.map(f => f.complexityDensity)].sort((a, b) => a - b);
+  const sortedWeighted = [...files.map((f) => f.weightedCommits)].sort((a, b) => a - b);
+  const sortedDensity = [...files.map((f) => f.complexityDensity)].sort((a, b) => a - b);
 
-  const idx = Math.min(
-    Math.ceil(percentile * files.length) - 1,
-    files.length - 1,
-  );
+  const idx = Math.min(Math.ceil(percentile * files.length) - 1, files.length - 1);
 
   return {
     maxWeightedCommits: sortedWeighted[idx],
@@ -45,11 +42,8 @@ export function normalizeHotspotScore(
   rawComplexity: number,
   maxima: NormalizationMaxima,
 ): number {
-  const normChurn = maxima.maxWeightedCommits > 0
-    ? rawChurn / maxima.maxWeightedCommits
-    : 0;
-  const normComplexity = maxima.maxComplexityDensity > 0
-    ? rawComplexity / maxima.maxComplexityDensity
-    : 0;
+  const normChurn = maxima.maxWeightedCommits > 0 ? rawChurn / maxima.maxWeightedCommits : 0;
+  const normComplexity =
+    maxima.maxComplexityDensity > 0 ? rawComplexity / maxima.maxComplexityDensity : 0;
   return Math.round((normChurn * 0.6 + normComplexity * 0.4) * 100 * 10) / 10;
 }

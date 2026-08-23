@@ -12,55 +12,56 @@
 
 import { join } from 'node:path';
 import {
-  recordRoute,
-  joinLatestUnresolved,
-  readOutcomes,
-  computeRoutingAccuracy,
   computeAdherence,
-  type RouteOutcomeRecord,
-} from './route-outcomes.js';
-
-export { createInitState, type InitState, type InitStatus } from './init-state.js';
-
-export {
-  recordRoute,
-  joinOutcome,
-  joinLatestUnresolved,
-  readOutcomes,
   computeRoutingAccuracy,
-  computeAdherence,
+  joinLatestUnresolved,
   type RouteOutcomeRecord,
-  type RoutingAccuracy,
+  readOutcomes,
+  recordRoute,
 } from './route-outcomes.js';
 
 export {
-  DiffClassifier,
-  createDiffClassifier,
   analyzeDiff,
   analyzeDiffSync,
   assessFileRisk,
   assessOverallRisk,
   classifyDiff,
-  suggestReviewers,
-  getGitDiffNumstat,
-  getGitDiffNumstatAsync,
-  clearDiffCache,
   clearAllDiffCaches,
-  type DiffClassification,
-  type DiffHunk,
-  type DiffChange,
-  type FileDiff,
+  clearDiffCache,
+  createDiffClassifier,
   type DiffAnalysis,
+  type DiffAnalysisResult,
+  type DiffChange,
+  type DiffClassification,
+  DiffClassifier,
   type DiffClassifierConfig,
   type DiffFile,
-  type RiskLevel,
+  type DiffHunk,
+  type FileDiff,
   type FileRisk,
+  getGitDiffNumstat,
+  getGitDiffNumstatAsync,
   type OverallRisk,
-  type DiffAnalysisResult,
+  type RiskLevel,
+  suggestReviewers,
 } from './diff-classifier.js';
+export { createInitState, type InitState, type InitStatus } from './init-state.js';
+export {
+  computeAdherence,
+  computeRoutingAccuracy,
+  joinLatestUnresolved,
+  joinOutcome,
+  type RouteOutcomeRecord,
+  type RoutingAccuracy,
+  readOutcomes,
+  recordRoute,
+} from './route-outcomes.js';
 
 /** A single alternative route suggestion. */
-export interface RouteAlternative { route: string; score?: number; }
+export interface RouteAlternative {
+  route: string;
+  score?: number;
+}
 
 /** Statistics from the route-outcomes store. */
 export interface KeywordRouterStats {
@@ -81,16 +82,28 @@ export interface KeywordRouter {
   import: (data: RouteOutcomeRecord[]) => Promise<void>;
 }
 
-
-export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; route: string; alternatives?: RouteAlternative[]; }
+export interface RouteDecision {
+  agentType: string;
+  confidence: number;
+  reasoning?: string;
+  route: string;
+  alternatives?: RouteAlternative[];
+}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface KeywordRouterConfig { /* reserved for future use */ }
-
-
+export type KeywordRouterConfig = {};
 
 export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRouter {
-  const agentTypes = ['coder', 'tester', 'reviewer', 'architect', 'researcher', 'optimizer', 'debugger', 'documenter'];
+  const agentTypes = [
+    'coder',
+    'tester',
+    'reviewer',
+    'architect',
+    'researcher',
+    'optimizer',
+    'debugger',
+    'documenter',
+  ];
   const baseDir = join(process.cwd(), '.monomind');
 
   return {
@@ -102,14 +115,18 @@ export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRoute
       else if (lower.includes('design') || lower.includes('architect')) agentType = 'architect';
       else if (lower.includes('research') || lower.includes('analyz')) agentType = 'researcher';
       else if (lower.includes('optim') || lower.includes('perform')) agentType = 'optimizer';
-      else if (lower.includes('debug') || lower.includes('fix') || lower.includes('bug')) agentType = 'debugger';
+      else if (lower.includes('debug') || lower.includes('fix') || lower.includes('bug'))
+        agentType = 'debugger';
       else if (lower.includes('doc')) agentType = 'documenter';
       return {
         agentType,
         confidence: 0.75,
         reasoning: 'keyword-based routing',
         route: agentType,
-        alternatives: agentTypes.filter(a => a !== agentType).slice(0, 3).map(a => ({ route: a, score: 0 })),
+        alternatives: agentTypes
+          .filter((a) => a !== agentType)
+          .slice(0, 3)
+          .map((a) => ({ route: a, score: 0 })),
       };
     },
     async initialize() {},
@@ -157,11 +174,8 @@ export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRoute
       if (!Array.isArray(data)) return;
       const { promises: fsp } = await import('node:fs');
       await fsp.mkdir(baseDir, { recursive: true });
-      const lines = data.map(r => JSON.stringify(r)).join('\n') + '\n';
+      const lines = `${data.map((r) => JSON.stringify(r)).join('\n')}\n`;
       await fsp.writeFile(join(baseDir, 'route-outcomes.jsonl'), lines, 'utf8');
     },
   };
 }
-
-
-

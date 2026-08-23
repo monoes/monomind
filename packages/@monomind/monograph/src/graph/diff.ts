@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 export interface GraphSnapshot {
   nodes: MonographNode[];
@@ -24,30 +24,35 @@ function buildDiffSummary(
   modifiedNodes: Array<{ before: MonographNode; after: MonographNode }>,
 ): string {
   const parts: string[] = [];
-  if (newNodes.length > 0) parts.push(`${newNodes.length} new node${newNodes.length !== 1 ? 's' : ''}`);
-  if (newEdges.length > 0) parts.push(`${newEdges.length} new edge${newEdges.length !== 1 ? 's' : ''}`);
-  if (removedNodes.length > 0) parts.push(`${removedNodes.length} node${removedNodes.length !== 1 ? 's' : ''} removed`);
-  if (removedEdges.length > 0) parts.push(`${removedEdges.length} edge${removedEdges.length !== 1 ? 's' : ''} removed`);
-  if (modifiedNodes.length > 0) parts.push(`${modifiedNodes.length} node${modifiedNodes.length !== 1 ? 's' : ''} modified`);
+  if (newNodes.length > 0)
+    parts.push(`${newNodes.length} new node${newNodes.length !== 1 ? 's' : ''}`);
+  if (newEdges.length > 0)
+    parts.push(`${newEdges.length} new edge${newEdges.length !== 1 ? 's' : ''}`);
+  if (removedNodes.length > 0)
+    parts.push(`${removedNodes.length} node${removedNodes.length !== 1 ? 's' : ''} removed`);
+  if (removedEdges.length > 0)
+    parts.push(`${removedEdges.length} edge${removedEdges.length !== 1 ? 's' : ''} removed`);
+  if (modifiedNodes.length > 0)
+    parts.push(`${modifiedNodes.length} node${modifiedNodes.length !== 1 ? 's' : ''} modified`);
   return parts.length > 0 ? parts.join(', ') : 'no changes';
 }
 
 export function diffSnapshots(before: GraphSnapshot, after: GraphSnapshot): GraphDiff {
-  const beforeNodeIds = new Map(before.nodes.map(n => [n.id, n]));
-  const afterNodeIds = new Map(after.nodes.map(n => [n.id, n]));
+  const beforeNodeIds = new Map(before.nodes.map((n) => [n.id, n]));
+  const afterNodeIds = new Map(after.nodes.map((n) => [n.id, n]));
   // Key edges by sourceId+relation+targetId — stable across snapshots regardless of synthetic id
   const edgeKey = (e: MonographEdge) => `${e.sourceId}|${e.relation}|${e.targetId}`;
   const beforeEdgeKeys = new Set(before.edges.map(edgeKey));
   const afterEdgeKeys = new Set(after.edges.map(edgeKey));
 
-  const newNodes = after.nodes.filter(n => !beforeNodeIds.has(n.id));
-  const removedNodes = before.nodes.filter(n => !afterNodeIds.has(n.id));
-  const newEdges = after.edges.filter(e => !beforeEdgeKeys.has(edgeKey(e)));
-  const removedEdges = before.edges.filter(e => !afterEdgeKeys.has(edgeKey(e)));
+  const newNodes = after.nodes.filter((n) => !beforeNodeIds.has(n.id));
+  const removedNodes = before.nodes.filter((n) => !afterNodeIds.has(n.id));
+  const newEdges = after.edges.filter((e) => !beforeEdgeKeys.has(edgeKey(e)));
+  const removedEdges = before.edges.filter((e) => !afterEdgeKeys.has(edgeKey(e)));
   const modifiedNodes = after.nodes
-    .filter(n => beforeNodeIds.has(n.id))
-    .filter(n => JSON.stringify(n) !== JSON.stringify(beforeNodeIds.get(n.id)))
-    .map(n => ({ before: beforeNodeIds.get(n.id)!, after: n }));
+    .filter((n) => beforeNodeIds.has(n.id))
+    .filter((n) => JSON.stringify(n) !== JSON.stringify(beforeNodeIds.get(n.id)))
+    .map((n) => ({ before: beforeNodeIds.get(n.id)!, after: n }));
 
   return {
     newNodes,
@@ -60,7 +65,8 @@ export function diffSnapshots(before: GraphSnapshot, after: GraphSnapshot): Grap
 }
 
 export function snapshotFromDb(db: import('../storage/db.js').MonographDb): GraphSnapshot {
-  const rawNodes = db.prepare(`
+  const rawNodes = db
+    .prepare(`
     SELECT id, label, name,
       norm_label AS normLabel,
       file_path AS filePath,
@@ -70,21 +76,27 @@ export function snapshotFromDb(db: import('../storage/db.js').MonographDb): Grap
       is_exported AS isExported,
       language, properties
     FROM nodes
-  `).all() as Array<Record<string, unknown>>;
+  `)
+    .all() as Array<Record<string, unknown>>;
 
-  const rawEdges = db.prepare(`
+  const rawEdges = db
+    .prepare(`
     SELECT id,
       source_id AS sourceId,
       target_id AS targetId,
       relation, confidence,
       confidence_score AS confidenceScore
     FROM edges
-  `).all() as Array<Record<string, unknown>>;
+  `)
+    .all() as Array<Record<string, unknown>>;
 
-  const nodes: MonographNode[] = rawNodes.map(r => ({
-    ...r,
-    isExported: Boolean(r['isExported']),
-  } as MonographNode));
+  const nodes: MonographNode[] = rawNodes.map(
+    (r) =>
+      ({
+        ...r,
+        isExported: Boolean(r.isExported),
+      }) as MonographNode,
+  );
 
   const edges = rawEdges as unknown as MonographEdge[];
 

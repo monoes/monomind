@@ -1,20 +1,30 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { toMermaid } from '../../export/mermaid.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 const fn: MonographNode = {
-  id: 'fn_alpha', label: 'Function', name: 'alpha',
-  normLabel: 'function', filePath: '/src/a.ts',
+  id: 'fn_alpha',
+  label: 'Function',
+  name: 'alpha',
+  normLabel: 'function',
+  filePath: '/src/a.ts',
   isExported: true,
 };
 const cls: MonographNode = {
-  id: 'cls_beta', label: 'Class', name: 'Beta',
-  normLabel: 'class', filePath: '/src/b.ts',
+  id: 'cls_beta',
+  label: 'Class',
+  name: 'Beta',
+  normLabel: 'class',
+  filePath: '/src/b.ts',
   isExported: false,
 };
 const edge: MonographEdge = {
-  id: 'e1', sourceId: 'fn_alpha', targetId: 'cls_beta',
-  relation: 'CALLS', confidence: 'EXTRACTED', confidenceScore: 1.0,
+  id: 'e1',
+  sourceId: 'fn_alpha',
+  targetId: 'cls_beta',
+  relation: 'CALLS',
+  confidence: 'EXTRACTED',
+  confidenceScore: 1.0,
 };
 
 describe('toMermaid', () => {
@@ -53,8 +63,11 @@ describe('toMermaid', () => {
 
   it('caps nodes at 200 to avoid huge diagrams', () => {
     const nodes: MonographNode[] = Array.from({ length: 300 }, (_, i) => ({
-      id: `n${i}`, label: 'Function', name: `fn${i}`,
-      normLabel: 'function', isExported: false,
+      id: `n${i}`,
+      label: 'Function',
+      name: `fn${i}`,
+      normLabel: 'function',
+      isExported: false,
     }));
     const out = toMermaid(nodes, []);
     // Should only contain up to 200 node definitions
@@ -65,8 +78,11 @@ describe('toMermaid', () => {
 
   it('sanitizes special characters in node names', () => {
     const n: MonographNode = {
-      id: 'n_special', label: 'Function', name: 'foo<bar>"baz"',
-      normLabel: 'function', isExported: false,
+      id: 'n_special',
+      label: 'Function',
+      name: 'foo<bar>"baz"',
+      normLabel: 'function',
+      isExported: false,
     };
     const out = toMermaid([n], []);
     expect(out).not.toContain('<bar>');

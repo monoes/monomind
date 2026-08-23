@@ -44,7 +44,13 @@ export interface StepEvent {
   workflowName: string;
   nodeId: string;
   nodeName: string;
-  eventType: 'run_started' | 'step_started' | 'step_completed' | 'step_failed' | 'run_completed' | 'run_stopped';
+  eventType:
+    | 'run_started'
+    | 'step_started'
+    | 'step_completed'
+    | 'step_failed'
+    | 'run_completed'
+    | 'run_stopped';
   itemIndex?: number;
   itemTotal?: number;
   durationMs?: number;

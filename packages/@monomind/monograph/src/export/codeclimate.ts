@@ -1,4 +1,4 @@
-import { relative } from 'path';
+import { relative } from 'node:path';
 import type { MonographDb } from '../storage/db.js';
 
 export interface CodeClimateIssue {
@@ -67,9 +67,12 @@ export function exportCodeClimate(db: MonographDb, repoRoot?: string): CodeClima
   const issues: CodeClimateIssue[] = [];
 
   // ── God nodes (top 10% by fan-in) ─────────────────────────────────────────
-  const totalNodes = (db.prepare(`SELECT COUNT(*) as c FROM nodes WHERE label = 'File'`).get() as { c: number }).c;
+  const totalNodes = (
+    db.prepare(`SELECT COUNT(*) as c FROM nodes WHERE label = 'File'`).get() as { c: number }
+  ).c;
   const top10pct = Math.max(1, Math.floor(totalNodes * 0.1));
-  const godNodes = db.prepare(`
+  const godNodes = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path, COALESCE(n.start_line, 1) AS line,
            COUNT(e.id) AS in_degree
     FROM nodes n
@@ -78,23 +81,33 @@ export function exportCodeClimate(db: MonographDb, repoRoot?: string): CodeClima
     GROUP BY n.id
     ORDER BY in_degree DESC
     LIMIT ?
-  `).all(top10pct) as { id: string; name: string; file_path: string; line: number; in_degree: number }[];
+  `)
+    .all(top10pct) as {
+    id: string;
+    name: string;
+    file_path: string;
+    line: number;
+    in_degree: number;
+  }[];
 
   for (const row of godNodes) {
     if (row.in_degree === 0) continue;
-    issues.push(makeIssue(
-      'monograph/god-node',
-      `God node: "${row.name}" has ${row.in_degree} incoming dependencies.`,
-      ['Complexity'],
-      'major',
-      row.file_path,
-      row.line ?? 1,
-      repoRoot,
-    ));
+    issues.push(
+      makeIssue(
+        'monograph/god-node',
+        `God node: "${row.name}" has ${row.in_degree} incoming dependencies.`,
+        ['Complexity'],
+        'major',
+        row.file_path,
+        row.line ?? 1,
+        repoRoot,
+      ),
+    );
   }
 
   // ── Unreachable files ──────────────────────────────────────────────────────
-  const unreachable = db.prepare(`
+  const unreachable = db
+    .prepare(`
     SELECT id, name, file_path FROM nodes
     WHERE label = 'File'
     AND (
@@ -102,22 +115,26 @@ export function exportCodeClimate(db: MonographDb, repoRoot?: string): CodeClima
       OR properties LIKE '%"unreachable"%'
     )
     AND file_path IS NOT NULL
-  `).all() as { id: string; name: string; file_path: string }[];
+  `)
+    .all() as { id: string; name: string; file_path: string }[];
 
   for (const row of unreachable) {
-    issues.push(makeIssue(
-      'monograph/unreachable-file',
-      `Unreachable file: "${row.name}" is not reachable from any entry point.`,
-      ['Duplication'],
-      'minor',
-      row.file_path,
-      1,
-      repoRoot,
-    ));
+    issues.push(
+      makeIssue(
+        'monograph/unreachable-file',
+        `Unreachable file: "${row.name}" is not reachable from any entry point.`,
+        ['Duplication'],
+        'minor',
+        row.file_path,
+        1,
+        repoRoot,
+      ),
+    );
   }
 
   // ── Structural duplicates (STRUCTURALLY_SIMILAR edges) ───────────────────
-  const dupes = db.prepare(`
+  const dupes = db
+    .prepare(`
     SELECT e.id, n1.name AS src_name, n1.file_path AS src_path,
            COALESCE(n1.start_line, 1) AS src_line
     FROM edges e
@@ -125,18 +142,21 @@ export function exportCodeClimate(db: MonographDb, repoRoot?: string): CodeClima
     JOIN nodes n2 ON n2.id = e.target_id
     WHERE e.relation = 'STRUCTURALLY_SIMILAR'
     AND n1.file_path IS NOT NULL
-  `).all() as { id: string; src_name: string; src_path: string; src_line: number }[];
+  `)
+    .all() as { id: string; src_name: string; src_path: string; src_line: number }[];
 
   for (const row of dupes) {
-    issues.push(makeIssue(
-      'monograph/duplicate',
-      `Duplicate: "${row.src_name}" is structurally similar to another file.`,
-      ['Duplication'],
-      'minor',
-      row.src_path,
-      row.src_line ?? 1,
-      repoRoot,
-    ));
+    issues.push(
+      makeIssue(
+        'monograph/duplicate',
+        `Duplicate: "${row.src_name}" is structurally similar to another file.`,
+        ['Duplication'],
+        'minor',
+        row.src_path,
+        row.src_line ?? 1,
+        repoRoot,
+      ),
+    );
   }
 
   return issues;
@@ -177,7 +197,7 @@ function fingerprint(s: string): string {
 }
 
 export function exportHealthCodeClimate(findings: HealthFindingInput[]): CodeClimateIssue[] {
-  return findings.map(f => ({
+  return findings.map((f) => ({
     type: 'issue',
     check_name: 'complexity',
     description: `${f.functionName}: cyclomatic=${f.cyclomatic}, CRAP=${f.crapScore.toFixed(1)}`,
@@ -188,8 +208,10 @@ export function exportHealthCodeClimate(findings: HealthFindingInput[]): CodeCli
   }));
 }
 
-export function exportDuplicationCodeClimate(findings: DuplicationFindingInput[]): CodeClimateIssue[] {
-  return findings.map(f => ({
+export function exportDuplicationCodeClimate(
+  findings: DuplicationFindingInput[],
+): CodeClimateIssue[] {
+  return findings.map((f) => ({
     type: 'issue',
     check_name: 'duplication',
     description: `Code duplication: ${f.duplicatedLines} lines (group ${f.groupId})`,

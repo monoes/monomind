@@ -82,7 +82,7 @@ export async function startOrgServer(
   // for users running the daemon behind a port-forwarder or in a container.
   const ALLOWED_HOSTS = new Set(
     process.env.MONOMIND_ORG_SERVER_ALLOWED_HOSTS?.split(',').filter(Boolean).length
-      ? process.env.MONOMIND_ORG_SERVER_ALLOWED_HOSTS!.split(',').map((s) => s.trim())
+      ? process.env.MONOMIND_ORG_SERVER_ALLOWED_HOSTS?.split(',').map((s) => s.trim())
       : ['localhost', '127.0.0.1', '::1'],
   );
 
