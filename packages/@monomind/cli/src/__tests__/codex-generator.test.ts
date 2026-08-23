@@ -8,7 +8,7 @@ import {
   generateCodexConfig,
   generateCodexHookScript,
 } from '../init/codex-generator.js';
-import { DEFAULT_INIT_OPTIONS, type InitResult } from '../init/types.js';
+import { DEFAULT_INIT_OPTIONS, detectPlatform, type InitResult } from '../init/types.js';
 import { writeCodexFiles } from '../init/write-codex.js';
 
 const temporaryDirs: string[] = [];
@@ -20,7 +20,7 @@ afterEach(() => {
 function createResult(): InitResult {
   return {
     success: true,
-    platform: 'linux',
+    platform: detectPlatform(),
     created: { directories: [], files: [] },
     updated: [],
     skipped: [],
