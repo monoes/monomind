@@ -125,7 +125,7 @@
     "@ai-sdk/xai": "^4.0.0",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.58",
-    "ollama-ai-provider": "^1.0.0",
+    "ollama-ai-provider-v2": "^4.0.0",
     "@huggingface/transformers": "^3.8.1",
     "@monoes/hooks": "workspace:*",
     "@monoes/mcp": "workspace:*",
