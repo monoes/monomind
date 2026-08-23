@@ -1,11 +1,33 @@
-import { describe, expect, it } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   CODEX_STATUS_LINE_ITEMS,
   generateCodexAgentsMd,
   generateCodexConfig,
   generateCodexHookScript,
 } from '../init/codex-generator.js';
-import { DEFAULT_INIT_OPTIONS } from '../init/types.js';
+import { DEFAULT_INIT_OPTIONS, type InitResult } from '../init/types.js';
+import { writeCodexFiles } from '../init/write-codex.js';
+
+const temporaryDirs: string[] = [];
+
+afterEach(() => {
+  for (const dir of temporaryDirs.splice(0)) fs.rmSync(dir, { force: true, recursive: true });
+});
+
+function createResult(): InitResult {
+  return {
+    success: true,
+    platform: 'linux',
+    created: { directories: [], files: [] },
+    updated: [],
+    skipped: [],
+    errors: [],
+    summary: { agentsCount: 0, commandsCount: 0, hooksEnabled: 0, skillsCount: 0 },
+  };
+}
 
 describe('Codex init artifacts', () => {
   it('generates a project-scoped MCP configuration', () => {
@@ -35,6 +57,25 @@ describe('Codex init artifacts', () => {
     expect(script).toContain('pre-write');
     expect(script).toContain('post-edit');
     expect(script).toContain('hook-handler.cjs');
+  });
+
+  it('repairs an incomplete native-hook marker in an existing Codex config', async () => {
+    const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-codex-'));
+    temporaryDirs.push(targetDir);
+    const codexDir = path.join(targetDir, '.codex');
+    fs.mkdirSync(codexDir);
+    fs.writeFileSync(path.join(codexDir, 'config.toml'), '[tui]\n# monomind:start native-hooks\n');
+
+    await writeCodexFiles(
+      targetDir,
+      { ...DEFAULT_INIT_OPTIONS, force: true, targetDir },
+      createResult(),
+    );
+
+    const config = fs.readFileSync(path.join(codexDir, 'config.toml'), 'utf8');
+    expect(config).toContain('[features]\nhooks = true');
+    expect(config).toContain('[[hooks.PreToolUse]]');
+    expect(config).toContain('# monomind:end native-hooks');
   });
 
   it('generates Codex instructions with Monomind workflows', () => {

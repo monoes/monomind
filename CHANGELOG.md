@@ -4,6 +4,16 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.25] — 2026-08-23
+
+### Fixed
+
+- `monomind init --target codex --force` now repairs incomplete native-hook
+  markers in existing `.codex/config.toml` files and preserves generated hook
+  configuration while merging the status line.
+- Final Biome diagnostics are resolved, including vector dimension validation
+  in the memory quantizer.
+
 ## [2.9.24] — 2026-08-23
 
 ### Security
