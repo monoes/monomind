@@ -157,6 +157,7 @@ function findMastermindSourceDir(): string | null {
 
 /**
  * Copy mastermind skill files into targetDir as <skill-name>/SKILL.md packages.
+ * Codex requires each package to declare a name and description in YAML frontmatter.
  * Files starting with _ are internal helpers and are skipped.
  * master.md → targetDir/mastermind/SKILL.md (root routing skill)
  * build.md  → targetDir/mastermind-build/SKILL.md
@@ -164,7 +165,7 @@ function findMastermindSourceDir(): string | null {
  * Also copies the references/ subdir alongside mastermind/SKILL.md so
  * platforms that follow relative links (e.g. agy's antigravity-tools.md) can resolve them.
  */
-function installMastermindSkills(targetDir: string, sourceDir: string): string[] {
+export function installMastermindSkills(targetDir: string, sourceDir: string): string[] {
   const written: string[] = [];
   const files = readdirSync(sourceDir).filter((f) => f.endsWith('.md') && !f.startsWith('_'));
 
@@ -174,9 +175,21 @@ function installMastermindSkills(targetDir: string, sourceDir: string): string[]
       name === 'master' ? join(targetDir, 'mastermind') : join(targetDir, `mastermind-${name}`);
 
     const destFile = join(skillDir, 'SKILL.md');
-    if (!existsSync(destFile)) {
+    const skillName = name === 'master' ? 'mastermind' : `mastermind-${name}`;
+    const sourceContent = readFileSync(join(sourceDir, file), 'utf8');
+    const content = [
+      '---',
+      `name: ${skillName}`,
+      `description: "Mastermind ${name} workflow."`,
+      '---',
+      '',
+      sourceContent,
+    ].join('\n');
+    const existing = existsSync(destFile) ? readFileSync(destFile, 'utf8') : '';
+    const hasRequiredFrontmatter =
+      /^---\r?\n[\s\S]*?^name:\s*\S+[\s\S]*?^description:\s*.+[\s\S]*?^---\r?\n/m.test(existing);
+    if (!hasRequiredFrontmatter) {
       mkdirSync(skillDir, { recursive: true });
-      const content = readFileSync(join(sourceDir, file), 'utf8');
       writeFileSync(destFile, content, 'utf8');
       written.push(destFile);
     }
