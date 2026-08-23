@@ -175,13 +175,14 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       }
     }
 
-    const rows = this.driver?.iterate(
-      `SELECT e.*, emb.embedding AS _emb
+    const rows =
+      this.driver?.iterate(
+        `SELECT e.*, emb.embedding AS _emb
          FROM memory_entries e
          JOIN memory_embeddings emb ON emb.entry_id = e.id
         WHERE (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)`,
-      [Date.now()],
-    );
+        [Date.now()],
+      ) ?? [];
 
     const index = new HNSWIndex({ dimensions, metric: 'cosine' });
     const entries = new Map<string, MemoryEntry>();
@@ -642,7 +643,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       params.push(query.offset);
     }
 
-    const rows = this.driver?.all(sql, params);
+    const rows = this.driver?.all(sql, params) ?? [];
     const results = rows.map((r) => this.rowToEntry(r));
 
     const duration = performance.now() - startTime;
@@ -701,14 +702,15 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       return results;
     }
 
-    const rows = this.driver?.iterate(
-      `SELECT e.*, emb.embedding AS _emb
+    const rows =
+      this.driver?.iterate(
+        `SELECT e.*, emb.embedding AS _emb
          FROM memory_entries e
          JOIN memory_embeddings emb ON emb.entry_id = e.id
         WHERE (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)
         ${ns ? 'AND e.namespace = ?' : ''}`,
-      ns ? [Date.now(), ns] : [Date.now()],
-    );
+        ns ? [Date.now(), ns] : [Date.now()],
+      ) ?? [];
 
     const results: SearchResult[] = [];
     for (const row of rows) {
@@ -805,9 +807,9 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
 
   async listNamespaces(): Promise<string[]> {
     this.ensureInitialized();
-    return this.driver
-      ?.all('SELECT DISTINCT namespace FROM memory_entries')
-      .map((r) => String(r.namespace));
+    return (this.driver?.all('SELECT DISTINCT namespace FROM memory_entries') ?? []).map((r) =>
+      String(r.namespace),
+    );
   }
 
   // ===== Introspection =====================================================

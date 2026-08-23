@@ -8,7 +8,6 @@ export class PipelineRunner {
   private readonly phaseMap: Map<string, PipelinePhase<unknown>>;
 
   constructor(phases: PipelinePhase<unknown>[]) {
-    this.phases = phases;
     this.sortedNames = topoSort(phases);
     this.phaseMap = new Map(phases.map((p) => [p.name, p]));
   }

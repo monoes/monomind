@@ -199,7 +199,7 @@ export function extractImportNames(clause: string): string[] {
         .pop()
         ?.trim(),
     )
-    .filter(Boolean);
+    .filter((name): name is string => Boolean(name));
 }
 
 // ── Build import maps from source ────────────────────────────────────────────
@@ -249,7 +249,7 @@ export function buildAllImportMapsFromSource(
           .split('/')
           .pop()
           ?.replace(/\.\w+$/, '');
-        importMap.set(baseName, resolved);
+        if (baseName) importMap.set(baseName, resolved);
       }
 
       REQUIRE_RE.lastIndex = 0;
@@ -269,7 +269,7 @@ export function buildAllImportMapsFromSource(
           .split('/')
           .pop()
           ?.replace(/\.\w+$/, '');
-        importMap.set(baseName, resolved);
+        if (baseName) importMap.set(baseName, resolved);
       }
     } else if (PY_EXTS.has(ext)) {
       PY_FROM_IMPORT_RE.lastIndex = 0;
@@ -287,14 +287,14 @@ export function buildAllImportMapsFromSource(
               .pop()
               ?.trim(),
           )
-          .filter(Boolean)) {
+          .filter((name): name is string => Boolean(name))) {
           importMap.set(name, resolved);
         }
         const baseName = resolved
           .split('/')
           .pop()
           ?.replace(/\.\w+$/, '');
-        importMap.set(baseName, resolved);
+        if (baseName) importMap.set(baseName, resolved);
       }
       PY_IMPORT_RE.lastIndex = 0;
       while ((m = PY_IMPORT_RE.exec(source)) !== null) {

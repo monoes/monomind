@@ -890,6 +890,7 @@ export class HNSWIndex extends EventEmitter {
  */
 class Quantizer {
   private config: QuantizationConfig;
+  private dimensions: number;
 
   constructor(config: QuantizationConfig, dimensions: number) {
     this.config = config;
