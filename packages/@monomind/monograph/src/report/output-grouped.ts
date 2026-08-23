@@ -24,7 +24,7 @@ export function buildGroupedJsonOutput(
   opts: { root: string; schemaVersion?: number },
 ): Record<string, unknown> {
   const schemaVersion = opts.schemaVersion ?? 4;
-  const groupsJson = groups.map(g => ({
+  const groupsJson = groups.map((g) => ({
     key: g.key,
     owner: g.owner,
     root: g.root ? path.relative(opts.root, g.root) : undefined,
@@ -41,12 +41,9 @@ export function buildGroupedJsonOutput(
   };
 }
 
-export function buildGroupedTextLines(
-  groups: ResultGroup[],
-  opts: GroupedOutputOptions,
-): string[] {
+export function buildGroupedTextLines(groups: ResultGroup[], opts: GroupedOutputOptions): string[] {
   const lines: string[] = [];
-  const nonEmpty = opts.showEmpty ? groups : groups.filter(g => totalIssues(g.results) > 0);
+  const nonEmpty = opts.showEmpty ? groups : groups.filter((g) => totalIssues(g.results) > 0);
 
   if (nonEmpty.length === 0) {
     lines.push('No issues found across all groups.');
@@ -56,19 +53,21 @@ export function buildGroupedTextLines(
   lines.push(buildSectionHeader(`Groups with issues`, nonEmpty.length));
   lines.push('');
 
-  const shown = opts.maxGroupsInText
-    ? nonEmpty.slice(0, opts.maxGroupsInText)
-    : nonEmpty;
+  const shown = opts.maxGroupsInText ? nonEmpty.slice(0, opts.maxGroupsInText) : nonEmpty;
 
   for (const group of shown) {
     const count = totalIssues(group.results);
     const label = group.owner ?? group.key;
     lines.push(`  ${label}: ${thousands(count)} issue${count === 1 ? '' : 's'}`);
 
-    if (group.results.unusedFiles.length > 0) lines.push(`    • unused files: ${group.results.unusedFiles.length}`);
-    if (group.results.unusedExports.length > 0) lines.push(`    • unused exports: ${group.results.unusedExports.length}`);
-    if (group.results.unusedDependencies.length > 0) lines.push(`    • unused deps: ${group.results.unusedDependencies.length}`);
-    if (group.results.circularDependencies.length > 0) lines.push(`    • circular deps: ${group.results.circularDependencies.length}`);
+    if (group.results.unusedFiles.length > 0)
+      lines.push(`    • unused files: ${group.results.unusedFiles.length}`);
+    if (group.results.unusedExports.length > 0)
+      lines.push(`    • unused exports: ${group.results.unusedExports.length}`);
+    if (group.results.unusedDependencies.length > 0)
+      lines.push(`    • unused deps: ${group.results.unusedDependencies.length}`);
+    if (group.results.circularDependencies.length > 0)
+      lines.push(`    • circular deps: ${group.results.circularDependencies.length}`);
   }
 
   if (opts.maxGroupsInText && nonEmpty.length > opts.maxGroupsInText) {
@@ -78,10 +77,10 @@ export function buildGroupedTextLines(
   return lines;
 }
 
-export function buildGroupedCompactLines(groups: ResultGroup[], root: string): string[] {
+export function buildGroupedCompactLines(groups: ResultGroup[], _root: string): string[] {
   return groups
-    .filter(g => totalIssues(g.results) > 0)
-    .map(g => {
+    .filter((g) => totalIssues(g.results) > 0)
+    .map((g) => {
       const label = g.owner ?? g.key;
       const count = totalIssues(g.results);
       return `${label}:${count}`;

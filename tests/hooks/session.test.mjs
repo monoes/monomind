@@ -3,12 +3,13 @@
  * Uses process.env.CLAUDE_PROJECT_DIR injection before each fresh require()
  * so module-level SESSION_DIR resolves to the isolated tmpDir.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -115,7 +116,7 @@ describe('session.end', () => {
     const s = loadSession();
     const sess = s.start();
     s.end();
-    const archivePath = path.join(tmpDir, '.monomind', 'sessions', sess.id + '.json');
+    const archivePath = path.join(tmpDir, '.monomind', 'sessions', `${sess.id}.json`);
     expect(fs.existsSync(archivePath)).toBe(true);
   });
 

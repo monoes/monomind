@@ -4,6 +4,9 @@ export function makeEvidence(kind: string, weight: number, note?: string): Evide
   return { kind, weight: Math.max(0, Math.min(1, weight)), note };
 }
 
-export function mergeEvidence(existing: EvidenceEntry[] | undefined, entry: EvidenceEntry): EvidenceEntry[] {
+export function mergeEvidence(
+  existing: EvidenceEntry[] | undefined,
+  entry: EvidenceEntry,
+): EvidenceEntry[] {
   return [...(existing ?? []), entry];
 }

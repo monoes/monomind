@@ -10,7 +10,7 @@
  * just JSON.
  */
 
-import { writeFileSync, renameSync } from 'node:fs';
+import { renameSync, writeFileSync } from 'node:fs';
 
 /**
  * Write `data` to `filePath` atomically: write to `${filePath}.${pid}.${ts}.tmp`

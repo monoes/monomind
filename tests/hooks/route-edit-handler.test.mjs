@@ -1,18 +1,21 @@
 /**
  * Tests for route-handler.cjs and edit-handler.cjs
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const _savedHookQuiet = process.env.MONOMIND_HOOK_QUIET;
-beforeEach(() => { delete process.env.MONOMIND_HOOK_QUIET; });
+beforeEach(() => {
+  delete process.env.MONOMIND_HOOK_QUIET;
+});
 afterEach(() => {
   if (_savedHookQuiet !== undefined) process.env.MONOMIND_HOOK_QUIET = _savedHookQuiet;
   else delete process.env.MONOMIND_HOOK_QUIET;
@@ -41,7 +44,13 @@ function makeHCtx(overrides = {}) {
     _requireMonograph: () => null,
     _openMonographDb: () => null,
     scanMicroAgentTriggers: () => ({ matches: [], injectAgents: [], takeoverAgent: null }),
-    runWithTimeout: async (fn) => { try { return await fn(); } catch { return null; } },
+    runWithTimeout: async (fn) => {
+      try {
+        return await fn();
+      } catch {
+        return null;
+      }
+    },
     ...overrides,
   };
 }
@@ -64,7 +73,12 @@ async function capture(fn) {
   const origWarn = console.warn;
   console.log = (...a) => lines.push(a.join(' '));
   console.warn = (...a) => lines.push(a.join(' '));
-  try { await fn(); } finally { console.log = origLog; console.warn = origWarn; }
+  try {
+    await fn();
+  } finally {
+    console.log = origLog;
+    console.warn = origWarn;
+  }
   return lines;
 }
 
@@ -91,7 +105,7 @@ describe('route-handler', () => {
     expect(fs.existsSync(routePath)).toBe(true);
     const data = JSON.parse(fs.readFileSync(routePath, 'utf-8'));
     expect(data.semanticRouting).toBe(false);
-    expect(lines.find(l => l.includes('monomind | Primary Recommendation'))).toBeUndefined();
+    expect(lines.find((l) => l.includes('monomind | Primary Recommendation'))).toBeUndefined();
   });
 
   it('no router logs [INFO] Router not available', async () => {
@@ -103,10 +117,21 @@ describe('route-handler', () => {
   it('router result writes last-route.json with agent and confidence', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      router: { routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'test', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
+      router: {
+        routeTask: () => ({
+          agent: 'coder',
+          confidence: 0.9,
+          reason: 'test',
+          skillMatches: [],
+          specificAgents: [],
+          extrasMatches: [],
+        }),
+      },
     });
     await capture(() => loadRoute().handle(hCtx));
-    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'));
+    const data = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, '.monomind', 'last-route.json'), 'utf-8'),
+    );
     expect(data.agent).toBe('coder');
     expect(data.confidence).toBe(0.9);
   });
@@ -114,7 +139,16 @@ describe('route-handler', () => {
   it('does not show primary recommendation panel (removed)', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      router: { routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'keyword', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
+      router: {
+        routeTask: () => ({
+          agent: 'coder',
+          confidence: 0.9,
+          reason: 'keyword',
+          skillMatches: [],
+          specificAgents: [],
+          extrasMatches: [],
+        }),
+      },
     });
     const lines = await capture(() => loadRoute().handle(hCtx));
     expect(lines.join('\n')).not.toContain('monomind | Primary Recommendation');
@@ -124,7 +158,16 @@ describe('route-handler', () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
       prompt: 'do stuff',
-      router: { routeTask: () => ({ agent: 'China E-Commerce Operator', confidence: 0.5, reason: 'keyword', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
+      router: {
+        routeTask: () => ({
+          agent: 'China E-Commerce Operator',
+          confidence: 0.5,
+          reason: 'keyword',
+          skillMatches: [],
+          specificAgents: [],
+          extrasMatches: [],
+        }),
+      },
     });
     const lines = await capture(() => loadRoute().handle(hCtx));
     expect(lines.join('\n')).not.toContain('monomind | Primary Recommendation');
@@ -133,11 +176,27 @@ describe('route-handler', () => {
   it('logs [BUDGET_BREACHED] when budget is breached', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      router: { routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'kw', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
+      router: {
+        routeTask: () => ({
+          agent: 'coder',
+          confidence: 0.9,
+          reason: 'kw',
+          skillMatches: [],
+          specificAgents: [],
+          extrasMatches: [],
+        }),
+      },
       _getBudgetStatus: () => ({
-        alert: true, breached: true, spike: false, autoTuned: false,
-        todayCost: 15, dailyLimit: 10, dailyPct: 150,
-        monthCost: 100, monthlyLimit: 200, monthlyPct: 50,
+        alert: true,
+        breached: true,
+        spike: false,
+        autoTuned: false,
+        todayCost: 15,
+        dailyLimit: 10,
+        dailyPct: 150,
+        monthCost: 100,
+        monthlyLimit: 200,
+        monthlyPct: 50,
       }),
     });
     const lines = await capture(() => loadRoute().handle(hCtx));
@@ -147,11 +206,20 @@ describe('route-handler', () => {
   it('logs [ROUTING_MODE] when swarm-config.json is present', async () => {
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'swarm-config.json'),
-      JSON.stringify({ topology: 'hierarchical' })
+      JSON.stringify({ topology: 'hierarchical' }),
     );
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      router: { routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'kw', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
+      router: {
+        routeTask: () => ({
+          agent: 'coder',
+          confidence: 0.9,
+          reason: 'kw',
+          skillMatches: [],
+          specificAgents: [],
+          extrasMatches: [],
+        }),
+      },
     });
     const lines = await capture(() => loadRoute().handle(hCtx));
     expect(lines.join('\n')).toContain('[ROUTING_MODE]');
@@ -167,7 +235,16 @@ describe('route-handler', () => {
   it('does not show MicroAgent TAKEOVER panel (removed)', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      router: { routeTask: () => ({ agent: 'coder', confidence: 0.9, reason: 'kw', skillMatches: [], specificAgents: [], extrasMatches: [] }) },
+      router: {
+        routeTask: () => ({
+          agent: 'coder',
+          confidence: 0.9,
+          reason: 'kw',
+          skillMatches: [],
+          specificAgents: [],
+          extrasMatches: [],
+        }),
+      },
       scanMicroAgentTriggers: () => ({
         matches: [{ agentSlug: 'Database Optimizer', matchedText: 'sql query' }],
         injectAgents: [],
@@ -192,14 +269,18 @@ describe('edit-handler', () => {
   it('does not log [OK] Edit recorded (token-efficiency: dropped per-edit noise)', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await capture(() => loadEdit().handle(hCtx));
-    expect(lines.find(l => l.includes('[OK] Edit recorded'))).toBeFalsy();
+    expect(lines.find((l) => l.includes('[OK] Edit recorded'))).toBeFalsy();
   });
 
   it('calls session.metric("edits") when session is present', async () => {
     let metricCalled = false;
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      session: { metric: (k) => { if (k === 'edits') metricCalled = true; } },
+      session: {
+        metric: (k) => {
+          if (k === 'edits') metricCalled = true;
+        },
+      },
     });
     await capture(() => loadEdit().handle(hCtx));
     expect(metricCalled).toBe(true);
@@ -210,7 +291,11 @@ describe('edit-handler', () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
       hookInput: { file_path: '/some/file.ts' },
-      intelligence: { recordEdit: (f) => { recordedFile = f; } },
+      intelligence: {
+        recordEdit: (f) => {
+          recordedFile = f;
+        },
+      },
     });
     await capture(() => loadEdit().handle(hCtx));
     expect(recordedFile).toBe('/some/file.ts');
@@ -277,7 +362,12 @@ describe('edit-handler', () => {
 
   it('calls _maybeRebuildMonograph on every edit', async () => {
     let called = false;
-    const hCtx = makeHCtx({ CWD: tmpDir, _maybeRebuildMonograph: () => { called = true; } });
+    const hCtx = makeHCtx({
+      CWD: tmpDir,
+      _maybeRebuildMonograph: () => {
+        called = true;
+      },
+    });
     await capture(() => loadEdit().handle(hCtx));
     expect(called).toBe(true);
   });

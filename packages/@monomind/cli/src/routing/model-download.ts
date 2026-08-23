@@ -14,9 +14,9 @@
  * download in `downloadEmbeddingModel()`.
  */
 
-import { existsSync } from 'fs';
-import { createRequire } from 'module';
-import { dirname, join } from 'path';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 
 /** HuggingFace model id — kept in sync with `routing/embedder.ts`. */
 export const EMBEDDING_MODEL_ID = 'Snowflake/snowflake-arctic-embed-xs';
@@ -60,9 +60,9 @@ export function isEmbeddingModelCached(): boolean {
 }
 
 export type EmbeddingDownloadReason =
-  | 'already-cached'   // weights on disk — never prompt, never download
-  | 'non-interactive'  // no TTY or CI — skip silently apart from a hint
-  | 'prompt';          // interactive and missing — ask the user
+  | 'already-cached' // weights on disk — never prompt, never download
+  | 'non-interactive' // no TTY or CI — skip silently apart from a hint
+  | 'prompt'; // interactive and missing — ask the user
 
 /**
  * Pure decision for the init-time download prompt, kept separate from I/O so
@@ -87,9 +87,7 @@ export function embeddingDownloadDecision(input: {
  * Throws when `@huggingface/transformers` is not installed or the download
  * fails — callers decide how to present that.
  */
-export async function downloadEmbeddingModel(
-  onProgress?: (line: string) => void,
-): Promise<void> {
+export async function downloadEmbeddingModel(onProgress?: (line: string) => void): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let hf: any;
   try {
@@ -97,7 +95,7 @@ export async function downloadEmbeddingModel(
   } catch {
     throw new Error(
       '@huggingface/transformers is not installed (it is an optionalDependency). ' +
-      'Reinstall with optional dependencies enabled, e.g. `npm install --include=optional`.',
+        'Reinstall with optional dependencies enabled, e.g. `npm install --include=optional`.',
     );
   }
 

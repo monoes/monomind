@@ -2,19 +2,19 @@
  * Asset copy functions: skills, commands, agents.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type { InitOptions, InitResult } from './types.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
-  SKILLS_MAP,
-  COMMANDS_MAP,
   AGENTS_MAP,
-  findSourceDir,
+  COMMANDS_MAP,
   copyDirRecursive,
   countFiles,
+  findSourceDir,
   previouslyGenerated,
   recordGenerated,
+  SKILLS_MAP,
 } from './shared.js';
+import type { InitOptions, InitResult } from './types.js';
 
 /**
  * Copy skills from source
@@ -22,7 +22,7 @@ import {
 export async function copySkills(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const skillsConfig = options.skills;
   const targetSkillsDir = path.join(targetDir, '.claude', 'skills');
@@ -32,7 +32,7 @@ export async function copySkills(
 
   if (skillsConfig.all) {
     // Copy all available skills
-    Object.values(SKILLS_MAP).forEach(skills => skillsToCopy.push(...skills));
+    Object.values(SKILLS_MAP).forEach((skills) => skillsToCopy.push(...skills));
   } else {
     if (skillsConfig.core) skillsToCopy.push(...SKILLS_MAP.core);
     if (skillsConfig.memory) skillsToCopy.push(...SKILLS_MAP.memory);
@@ -51,14 +51,15 @@ export async function copySkills(
   // Expand glob-style entries ('mastermind-*') against the source tree.
   // Only directories that actually contain a SKILL.md count — this also
   // filters exFAT AppleDouble junk (._mastermind-…).
-  for (const entry of skillsToCopy.filter(e => e.endsWith('*'))) {
+  for (const entry of skillsToCopy.filter((e) => e.endsWith('*'))) {
     const prefix = entry.slice(0, -1);
     skillsToCopy.splice(skillsToCopy.indexOf(entry), 1);
     skillsToCopy.push(
-      ...fs.readdirSync(sourceSkillsDir).filter(n =>
-        n.startsWith(prefix) &&
-        fs.existsSync(path.join(sourceSkillsDir, n, 'SKILL.md'))
-      )
+      ...fs
+        .readdirSync(sourceSkillsDir)
+        .filter(
+          (n) => n.startsWith(prefix) && fs.existsSync(path.join(sourceSkillsDir, n, 'SKILL.md')),
+        ),
     );
   }
 
@@ -98,7 +99,9 @@ export async function copySkills(
       // A skill referenced in SKILLS_MAP has no matching source directory —
       // surface this instead of silently copying nothing, so drift between
       // SKILLS_MAP and the actual .claude/skills/ tree gets caught.
-      result.errors.push(`Skill '${skillName}' listed in SKILLS_MAP has no source directory at ${sourcePath} — skipped`);
+      result.errors.push(
+        `Skill '${skillName}' listed in SKILLS_MAP has no source directory at ${sourcePath} — skipped`,
+      );
     }
   }
 
@@ -107,7 +110,7 @@ export async function copySkills(
   // previous run generated and that still exist, so provenance is not lost
   // when a section is partially skipped.
   const retainedSkills = [...priorSkills].filter(
-    n => !writtenSkills.includes(n) && fs.existsSync(path.join(targetSkillsDir, n))
+    (n) => !writtenSkills.includes(n) && fs.existsSync(path.join(targetSkillsDir, n)),
   );
   recordGenerated(targetDir, 'skills', [...writtenSkills, ...retainedSkills]);
 
@@ -133,7 +136,7 @@ export async function copySkills(
 export async function copyCommands(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const commandsConfig = options.commands;
   const targetCommandsDir = path.join(targetDir, '.claude', 'commands');
@@ -142,7 +145,7 @@ export async function copyCommands(
   const commandsToCopy: string[] = [];
 
   if (commandsConfig.all) {
-    Object.values(COMMANDS_MAP).forEach(cmds => commandsToCopy.push(...cmds));
+    Object.values(COMMANDS_MAP).forEach((cmds) => commandsToCopy.push(...cmds));
   } else {
     if (commandsConfig.core) commandsToCopy.push(...COMMANDS_MAP.core);
     if (commandsConfig.agents) commandsToCopy.push(...(COMMANDS_MAP.agents || []));
@@ -209,7 +212,7 @@ export async function copyCommands(
   }
 
   const retainedCommands = [...priorCommands].filter(
-    n => !writtenCommands.includes(n) && fs.existsSync(path.join(targetCommandsDir, n))
+    (n) => !writtenCommands.includes(n) && fs.existsSync(path.join(targetCommandsDir, n)),
   );
   recordGenerated(targetDir, 'commands', [...writtenCommands, ...retainedCommands]);
 }
@@ -220,7 +223,7 @@ export async function copyCommands(
 export async function copyAgents(
   targetDir: string,
   options: InitOptions,
-  result: InitResult
+  result: InitResult,
 ): Promise<void> {
   const agentsConfig = options.agents;
   const targetAgentsDir = path.join(targetDir, '.claude', 'agents');
@@ -229,7 +232,7 @@ export async function copyAgents(
   const agentsToCopy: string[] = [];
 
   if (agentsConfig.all) {
-    Object.values(AGENTS_MAP).forEach(agents => agentsToCopy.push(...agents));
+    Object.values(AGENTS_MAP).forEach((agents) => agentsToCopy.push(...agents));
   } else {
     if (agentsConfig.core) agentsToCopy.push(...AGENTS_MAP.core);
     if (agentsConfig.consensus) agentsToCopy.push(...AGENTS_MAP.consensus);
@@ -283,7 +286,7 @@ export async function copyAgents(
   }
 
   const retainedAgents = [...priorAgents].filter(
-    n => !writtenAgents.includes(n) && fs.existsSync(path.join(targetAgentsDir, n))
+    (n) => !writtenAgents.includes(n) && fs.existsSync(path.join(targetAgentsDir, n)),
   );
   recordGenerated(targetDir, 'agents', [...writtenAgents, ...retainedAgents]);
 }

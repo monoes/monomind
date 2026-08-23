@@ -32,7 +32,7 @@ export function isPrivateUrl(rawUrl: string): boolean {
   const host = url.hostname;
   if (host === 'localhost') return true;
   if (CLOUD_METADATA_HOSTS.has(host)) return true;
-  return PRIVATE_IP_PATTERNS.some(p => p.test(host));
+  return PRIVATE_IP_PATTERNS.some((p) => p.test(host));
 }
 
 /**

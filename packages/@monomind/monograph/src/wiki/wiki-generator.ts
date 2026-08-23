@@ -1,10 +1,9 @@
 import type { MonographDb } from '../storage/db.js';
 import { buildWikiPrompt } from './prompt-builder.js';
-import { upsertWikiPage, getWikiPage, listWikiPages } from './wiki-store.js';
 import { callLLM, type LLMConfig } from './providers.js';
+import { getWikiPage, listWikiPages, upsertWikiPage } from './wiki-store.js';
 
-export type { LLMConfig } from './providers.js';
-export type { LLMProvider, LLMResponse } from './providers.js';
+export type { LLMConfig, LLMProvider, LLMResponse } from './providers.js';
 
 export interface WikiGeneratorOptions {
   repoPath: string;
@@ -30,7 +29,9 @@ export async function generateWiki(options: WikiGeneratorOptions): Promise<WikiG
   let groupings: unknown[] = [];
   if (db) {
     try {
-      const rows = db.prepare('SELECT DISTINCT community_id FROM nodes WHERE community_id IS NOT NULL').all();
+      const rows = db
+        .prepare('SELECT DISTINCT community_id FROM nodes WHERE community_id IS NOT NULL')
+        .all();
       groupings = rows as unknown[];
     } catch {
       groupings = [];
@@ -98,12 +99,14 @@ export async function generateWikiPage(
   const communityIdStr = String(communityId);
 
   // 1. Get community label
-  const commRow = db.prepare('SELECT id, label FROM communities WHERE id = ?')
+  const commRow = db
+    .prepare('SELECT id, label FROM communities WHERE id = ?')
     .get(Number(communityIdStr)) as { id: number; label: string | null } | undefined;
   const label = commRow?.label ?? `Community ${communityIdStr}`;
 
   // 2. Get top 5 symbols by degree (count of connected edges, since no centrality column)
-  const symbolRows = db.prepare(`
+  const symbolRows = db
+    .prepare(`
     SELECT n.name, n.label, n.file_path
     FROM nodes n
     LEFT JOIN (
@@ -116,25 +119,30 @@ export async function generateWikiPage(
     WHERE n.community_id = ?
     ORDER BY d.deg DESC NULLS LAST, n.name ASC
     LIMIT 5
-  `).all(Number(communityIdStr)) as { name: string; label: string; file_path: string | null }[];
+  `)
+    .all(Number(communityIdStr)) as { name: string; label: string; file_path: string | null }[];
 
   // 3. Count incoming edges to community (edges whose target is in this community)
-  const incomingRow = db.prepare(`
+  const incomingRow = db
+    .prepare(`
     SELECT COUNT(*) AS cnt FROM edges
     WHERE target_id IN (SELECT id FROM nodes WHERE community_id = ?)
-  `).get(Number(communityIdStr)) as { cnt: number };
+  `)
+    .get(Number(communityIdStr)) as { cnt: number };
 
   // 4. Count outgoing edges from community (edges whose source is in this community)
-  const outgoingRow = db.prepare(`
+  const outgoingRow = db
+    .prepare(`
     SELECT COUNT(*) AS cnt FROM edges
     WHERE source_id IN (SELECT id FROM nodes WHERE community_id = ?)
-  `).get(Number(communityIdStr)) as { cnt: number };
+  `)
+    .get(Number(communityIdStr)) as { cnt: number };
 
   // 5. Build prompt
   const prompt = buildWikiPrompt({
     communityId: communityIdStr,
     label,
-    topSymbols: symbolRows.map(r => ({ name: r.name, label: r.label, filePath: r.file_path })),
+    topSymbols: symbolRows.map((r) => ({ name: r.name, label: r.label, filePath: r.file_path })),
     incomingCount: incomingRow.cnt,
     outgoingCount: outgoingRow.cnt,
   });
@@ -155,7 +163,7 @@ export async function generateWikiPage(
       // changes nothing (#43).
       throw new Error(
         'Claude Code CLI not found on PATH. Wiki generation runs through `claude --print` ' +
-        'and needs no ANTHROPIC_API_KEY. Install it with: npm install -g @anthropic-ai/claude-code',
+          'and needs no ANTHROPIC_API_KEY. Install it with: npm install -g @anthropic-ai/claude-code',
       );
     }
     content = await claudeCliCall(prompt);
@@ -184,9 +192,9 @@ export async function generateAllWikiPages(
   if (options?.communityId != null) {
     communityRows = [{ community_id: Number(options.communityId) }];
   } else {
-    communityRows = db.prepare(
-      'SELECT DISTINCT community_id FROM nodes WHERE community_id IS NOT NULL',
-    ).all() as { community_id: number }[];
+    communityRows = db
+      .prepare('SELECT DISTINCT community_id FROM nodes WHERE community_id IS NOT NULL')
+      .all() as { community_id: number }[];
   }
 
   let generated = 0;
@@ -220,4 +228,4 @@ export async function generateAllWikiPages(
   return { generated, skipped, errors };
 }
 
-export { upsertWikiPage, getWikiPage, listWikiPages };
+export { getWikiPage, listWikiPages, upsertWikiPage };

@@ -1,8 +1,8 @@
-import { join, resolve, sep } from 'path';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
-import { getDbPath, _isValidDb, text } from './shared.js';
+import { _isValidDb, getDbPath, text } from './shared.js';
 
 // ── monograph_impact ──────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ export const monographImpactTool: MCPTool = {
         filePath: impactPath,
         depth,
       });
-      if (!result || !result.node) return text(`No symbol found: ${impactName}`);
+      if (!result?.node) return text(`No symbol found: ${impactName}`);
 
       // Format impact as structured text for direct LLM consumption
       const root = result.node as any;
@@ -226,7 +226,7 @@ export const monographDeadCodeTool: MCPTool = {
     try {
       if (cats.includes('dead-functions')) {
         const { detectDeadCodeNodes } = await import('@monoes/monograph');
-        const { readFileSync } = await import('fs');
+        const { readFileSync } = await import('node:fs');
         const nodes = detectDeadCodeNodes(db);
         // Filter out stale graph nodes: verify the function name actually appears in the source file
         // SEC-6: n.filePath is DB-sourced. A poisoned monograph.db could
@@ -326,7 +326,7 @@ export const monographDeadCodeTool: MCPTool = {
 
       return text(JSON.stringify(result, null, 2));
     } finally {
-      db!.close();
+      db?.close();
     }
   },
 };

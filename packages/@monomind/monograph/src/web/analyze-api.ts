@@ -1,9 +1,9 @@
-import type { Server, IncomingMessage, ServerResponse } from 'http';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import { join, resolve, sep } from 'node:path';
 import { buildAsync } from '../pipeline/orchestrator.js';
-import { countNodes } from '../storage/node-store.js';
+import { closeDb, openDb } from '../storage/db.js';
 import { countEdges } from '../storage/edge-store.js';
-import { openDb, closeDb } from '../storage/db.js';
-import { resolve, join, sep } from 'path';
+import { countNodes } from '../storage/node-store.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,12 +52,12 @@ async function handleAnalyze(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   // Set SSE headers
-  const origin = req.headers['origin'] ?? '';
+  const origin = req.headers.origin ?? '';
   const allowedOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ? origin : '';
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
+    Connection: 'keep-alive',
     ...(allowedOrigin && { 'Access-Control-Allow-Origin': allowedOrigin }),
   });
 
@@ -120,7 +120,7 @@ export function registerAnalyzeRoute(
     if (pathname !== analyzePath || req.method !== 'GET') return;
 
     // DNS rebinding protection: reject requests with a non-localhost Host header
-    const host = ((req.headers['host'] ?? '').split(':')[0] ?? '').toLowerCase();
+    const host = ((req.headers.host ?? '').split(':')[0] ?? '').toLowerCase();
     if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1' && host !== '') {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Forbidden' }));

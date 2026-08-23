@@ -12,10 +12,11 @@
  * has explicitly opted in via MONOMIND_ENABLE_TERMINAL=1 or
  * .monomind/enable-terminal.json. Discovery still works; execution is gated.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { terminalTools } from '../../packages/@monomind/cli/src/mcp-tools/terminal-tools.js';
 
 const ORIGINAL_ENV = { ...process.env };
@@ -44,7 +45,10 @@ describe('C2 — terminal_execute opt-in gate', () => {
     const monoDir = path.join(tmpDir, '.monomind');
     fs.mkdirSync(monoDir, { recursive: true });
     if (enable) {
-      fs.writeFileSync(path.join(monoDir, 'enable-terminal.json'), JSON.stringify({ enabled: true }));
+      fs.writeFileSync(
+        path.join(monoDir, 'enable-terminal.json'),
+        JSON.stringify({ enabled: true }),
+      );
     }
   };
 

@@ -90,14 +90,17 @@ export function scoreQuery(args: {
 
   for (const k of K_VALUES) {
     const top = args.ranked.slice(0, k);
-    const found = top.filter(r => rel.has(r.docId)).length;
+    const found = top.filter((r) => rel.has(r.docId)).length;
     recallAt[k] = rel.size === 0 ? 0 : found / rel.size;
     hitAt[k] = found > 0 ? 1 : 0;
   }
 
   let firstRelevantRank: number | null = null;
   for (let i = 0; i < args.ranked.length && i < 10; i++) {
-    if (rel.has(args.ranked[i].docId)) { firstRelevantRank = i + 1; break; }
+    if (rel.has(args.ranked[i].docId)) {
+      firstRelevantRank = i + 1;
+      break;
+    }
   }
 
   return {
@@ -127,21 +130,21 @@ function percentile(xs: number[], p: number): number {
 
 export function aggregate(outcomes: QueryOutcome[]): Scoreboard {
   const n = outcomes.length;
-  const lat = outcomes.map(o => o.latencyMs);
-  const h5 = mean(outcomes.map(o => o.hitAt[5]));
+  const lat = outcomes.map((o) => o.latencyMs);
+  const h5 = mean(outcomes.map((o) => o.hitAt[5]));
   // Wald 95% half-width. With small n this is wide on purpose: it is the
   // honest statement that a small delta is not yet a signal.
   const ci = n === 0 ? 0 : 1.96 * Math.sqrt((h5 * (1 - h5)) / n);
   return {
     queries: n,
-    recallAt1: mean(outcomes.map(o => o.recallAt[1])),
-    recallAt5: mean(outcomes.map(o => o.recallAt[5])),
-    recallAt10: mean(outcomes.map(o => o.recallAt[10])),
-    hitRateAt1: mean(outcomes.map(o => o.hitAt[1])),
+    recallAt1: mean(outcomes.map((o) => o.recallAt[1])),
+    recallAt5: mean(outcomes.map((o) => o.recallAt[5])),
+    recallAt10: mean(outcomes.map((o) => o.recallAt[10])),
+    hitRateAt1: mean(outcomes.map((o) => o.hitAt[1])),
     hitRateAt5: h5,
-    hitRateAt10: mean(outcomes.map(o => o.hitAt[10])),
-    mrrAt10: mean(outcomes.map(o => o.reciprocalRank)),
-    totalMisses: outcomes.filter(o => o.firstRelevantRank === null).length,
+    hitRateAt10: mean(outcomes.map((o) => o.hitAt[10])),
+    mrrAt10: mean(outcomes.map((o) => o.reciprocalRank)),
+    totalMisses: outcomes.filter((o) => o.firstRelevantRank === null).length,
     latencyMsP50: percentile(lat, 50),
     latencyMsP95: percentile(lat, 95),
     hitRateAt5Ci95: ci,
@@ -155,6 +158,7 @@ export function aggregate(outcomes: QueryOutcome[]): Scoreboard {
 // callers (retrievers.ts, harness.ts, signals.ts) need no import change.
 
 import { contentTokens, STOPWORDS } from '../../memory/text-tokens.js';
+
 export { contentTokens, STOPWORDS };
 
 // -- Anti-triviality guard ------------------------------------------
@@ -181,12 +185,13 @@ export function assessTriviality(query: string, docText: string): TrivialityRepo
   if (q.length === 0) return { overlapRatio: 0, maxContiguousRun: 0, trivial: false };
 
   const docSet = new Set(d);
-  const overlapRatio = q.filter(t => docSet.has(t)).length / q.length;
+  const overlapRatio = q.filter((t) => docSet.has(t)).length / q.length;
 
   const positions = new Map<string, number[]>();
   d.forEach((t, i) => {
     const arr = positions.get(t);
-    if (arr) arr.push(i); else positions.set(t, [i]);
+    if (arr) arr.push(i);
+    else positions.set(t, [i]);
   });
   let maxRun = 0;
   for (let start = 0; start < q.length; start++) {
@@ -201,10 +206,10 @@ export function assessTriviality(query: string, docText: string): TrivialityRepo
   let reason: string | undefined;
   if (maxRun >= 4) {
     trivial = true;
-    reason = maxRun + '-token verbatim run from the query appears in the target';
+    reason = `${maxRun}-token verbatim run from the query appears in the target`;
   } else if (maxRun >= 3 && overlapRatio >= 0.8) {
     trivial = true;
-    reason = '3-token verbatim run plus ' + Math.round(overlapRatio * 100) + '% token overlap';
+    reason = `3-token verbatim run plus ${Math.round(overlapRatio * 100)}% token overlap`;
   }
   return { overlapRatio, maxContiguousRun: maxRun, trivial, reason };
 }
@@ -224,7 +229,7 @@ export function buildIdf(docs: string[]): IdfModel {
   const df = new Map<string, number>();
   for (const text of docs) {
     const unique: Set<string> = new Set(contentTokens(text));
-    unique.forEach(t => df.set(t, (df.get(t) ?? 0) + 1));
+    unique.forEach((t) => df.set(t, (df.get(t) ?? 0) + 1));
   }
   const idf = new Map<string, number>();
   const N = docs.length;
@@ -248,7 +253,7 @@ export function idfOverlap(model: IdfModel, query: string, docText: string): num
   let total = 0;
   let matched = 0;
   const qUnique: Set<string> = new Set(q);
-  qUnique.forEach(t => {
+  qUnique.forEach((t) => {
     const w = idfOf(model, t);
     total += w;
     if (docSet.has(t)) matched += w;
@@ -258,8 +263,11 @@ export function idfOverlap(model: IdfModel, query: string, docText: string): num
 
 /** Split outcomes into terciles by overlap and aggregate each independently. */
 export function terciles(outcomes: QueryOutcome[]): {
-  cutLow: number; cutHigh: number;
-  low: Scoreboard; mid: Scoreboard; high: Scoreboard;
+  cutLow: number;
+  cutHigh: number;
+  low: Scoreboard;
+  mid: Scoreboard;
+  high: Scoreboard;
 } {
   const sorted = [...outcomes].sort((a, b) => a.overlap - b.overlap);
   const n = sorted.length;
@@ -274,7 +282,9 @@ export function terciles(outcomes: QueryOutcome[]): {
   return {
     cutLow: sorted[a]?.overlap ?? 0,
     cutHigh: sorted[b]?.overlap ?? 0,
-    low: aggregate(low), mid: aggregate(mid), high: aggregate(high),
+    low: aggregate(low),
+    mid: aggregate(mid),
+    high: aggregate(high),
   };
 }
 
@@ -316,16 +326,21 @@ function exactBinomialTwoSided(k: number, n: number): number {
 }
 
 export function pairedCompare(
-  aName: string, aOutcomes: QueryOutcome[],
-  bName: string, bOutcomes: QueryOutcome[],
+  aName: string,
+  aOutcomes: QueryOutcome[],
+  bName: string,
+  bOutcomes: QueryOutcome[],
   k: 1 | 5 | 10 = 5,
 ): PairedComparison {
-  const bById = new Map(bOutcomes.map(o => [o.queryId, o]));
-  let aWins = 0, bWins = 0, ties = 0;
+  const bById = new Map(bOutcomes.map((o) => [o.queryId, o]));
+  let aWins = 0,
+    bWins = 0,
+    ties = 0;
   for (const a of aOutcomes) {
     const b = bById.get(a.queryId);
     if (!b) continue;
-    const ah = a.hitAt[k], bh = b.hitAt[k];
+    const ah = a.hitAt[k],
+      bh = b.hitAt[k];
     if (ah === bh) ties++;
     else if (ah > bh) aWins++;
     else bWins++;
@@ -333,13 +348,19 @@ export function pairedCompare(
   const discordant = aWins + bWins;
   const p = exactBinomialTwoSided(Math.min(aWins, bWins), discordant);
   return {
-    a: aName, b: bName, aWins, bWins, ties, p,
+    a: aName,
+    b: bName,
+    aWins,
+    bWins,
+    ties,
+    p,
     significant: p < 0.05,
-    note: discordant === 0
-      ? 'The two retrievers never disagreed; no paired evidence either way.'
-      : `${discordant} discordant queries at k=${k}. ` +
-        (p < 0.05
-          ? `${bWins > aWins ? bName : aName} wins; the difference survives a paired test.`
-          : 'The difference does NOT survive a paired test — it is not yet distinguishable from chance.'),
+    note:
+      discordant === 0
+        ? 'The two retrievers never disagreed; no paired evidence either way.'
+        : `${discordant} discordant queries at k=${k}. ` +
+          (p < 0.05
+            ? `${bWins > aWins ? bName : aName} wins; the difference survives a paired test.`
+            : 'The difference does NOT survive a paired test — it is not yet distinguishable from chance.'),
   };
 }

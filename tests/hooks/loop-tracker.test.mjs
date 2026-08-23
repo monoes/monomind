@@ -3,12 +3,13 @@
  * Spawn-based: script reads JSON from stdin and exits.
  * Uses CLAUDE_PROJECT_DIR env to control where loops/ are written.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawnSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.resolve(__dirname, '../../.claude/helpers/loop-tracker.cjs');
@@ -75,7 +76,13 @@ describe('loop-tracker early exits', () => {
   });
 
   it('exits 0 when hookInput has no sessionId', () => {
-    const r = run({ tool_name: 'ScheduleWakeup', tool_input: { delaySeconds: 60, prompt: '/loop', reason: 'test' } }, { cwd: tmpDir });
+    const r = run(
+      {
+        tool_name: 'ScheduleWakeup',
+        tool_input: { delaySeconds: 60, prompt: '/loop', reason: 'test' },
+      },
+      { cwd: tmpDir },
+    );
     expect(r.status).toBe(0);
     // No loop file created
     const loopsDir = path.join(tmpDir, '.monomind', 'loops');

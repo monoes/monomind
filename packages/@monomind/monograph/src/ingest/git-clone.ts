@@ -8,11 +8,11 @@
  * and private/internal IP ranges are blocked.
  */
 
-import { spawn } from 'child_process';
-import path from 'path';
-import os from 'os';
-import fs from 'fs/promises';
-import { isIP } from 'net';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import { isIP } from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 
 // ── SSRF validation ───────────────────────────────────────────────────────────
 
@@ -228,7 +228,7 @@ function runGit(args: string[], cwd?: string): Promise<void> {
       stderr += chunk;
     });
 
-    proc.on('close', code => {
+    proc.on('close', (code) => {
       if (code === 0) {
         resolve();
       } else {
@@ -239,7 +239,7 @@ function runGit(args: string[], cwd?: string): Promise<void> {
       }
     });
 
-    proc.on('error', err => {
+    proc.on('error', (err) => {
       reject(new Error(`Failed to spawn git: ${err.message}`));
     });
   });

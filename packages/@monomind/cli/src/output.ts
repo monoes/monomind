@@ -3,7 +3,7 @@
  * Advanced output formatting with tables, progress bars, and colors
  */
 
-import type { TableOptions, TableColumn, ProgressOptions, SpinnerOptions } from './types.js';
+import type { ProgressOptions, SpinnerOptions, TableColumn, TableOptions } from './types.js';
 
 // ============================================
 // Color Support
@@ -45,7 +45,7 @@ const COLORS = {
   bgBlue: '\x1b[44m',
   bgMagenta: '\x1b[45m',
   bgCyan: '\x1b[46m',
-  bgWhite: '\x1b[47m'
+  bgWhite: '\x1b[47m',
 } as const;
 
 type ColorName = keyof typeof COLORS;
@@ -114,7 +114,7 @@ export class OutputFormatter {
   color(text: string, ...colors: ColorName[]): string {
     if (!this.colorEnabled) return text;
 
-    const codes = colors.map(c => COLORS[c]).join('');
+    const codes = colors.map((c) => COLORS[c]).join('');
     return `${codes}${text}${COLORS.reset}`;
   }
 
@@ -155,7 +155,7 @@ export class OutputFormatter {
   }
 
   writeln(text: string = ''): void {
-    this.outputStream.write(text + '\n');
+    this.outputStream.write(`${text}\n`);
   }
 
   writeError(text: string): void {
@@ -163,7 +163,7 @@ export class OutputFormatter {
   }
 
   writeErrorln(text: string = ''): void {
-    this.errorStream.write(text + '\n');
+    this.errorStream.write(`${text}\n`);
   }
 
   // ============================================
@@ -231,15 +231,33 @@ export class OutputFormatter {
     const pad = ' '.repeat(padding);
 
     // Border characters
-    const borderChars = border ? {
-      topLeft: '+', topRight: '+', bottomLeft: '+', bottomRight: '+',
-      horizontal: '-', vertical: '|',
-      leftT: '+', rightT: '+', topT: '+', bottomT: '+', cross: '+'
-    } : {
-      topLeft: '', topRight: '', bottomLeft: '', bottomRight: '',
-      horizontal: '', vertical: ' ',
-      leftT: '', rightT: '', topT: '', bottomT: '', cross: ''
-    };
+    const borderChars = border
+      ? {
+          topLeft: '+',
+          topRight: '+',
+          bottomLeft: '+',
+          bottomRight: '+',
+          horizontal: '-',
+          vertical: '|',
+          leftT: '+',
+          rightT: '+',
+          topT: '+',
+          bottomT: '+',
+          cross: '+',
+        }
+      : {
+          topLeft: '',
+          topRight: '',
+          bottomLeft: '',
+          bottomRight: '',
+          horizontal: '',
+          vertical: ' ',
+          leftT: '',
+          rightT: '',
+          topT: '',
+          bottomT: '',
+          cross: '',
+        };
 
     // Top border
     if (border) {
@@ -248,10 +266,12 @@ export class OutputFormatter {
 
     // Header row
     if (header) {
-      const headerRow = columns.map((col, i) => {
-        const text = this.truncate(col.header, widths[i]);
-        return pad + this.alignText(this.bold(text), widths[i], col.align) + pad;
-      }).join(borderChars.vertical);
+      const headerRow = columns
+        .map((col, i) => {
+          const text = this.truncate(col.header, widths[i]);
+          return pad + this.alignText(this.bold(text), widths[i], col.align) + pad;
+        })
+        .join(borderChars.vertical);
 
       lines.push(`${borderChars.vertical}${headerRow}${borderChars.vertical}`);
 
@@ -263,19 +283,21 @@ export class OutputFormatter {
 
     // Data rows
     for (const row of data) {
-      const rowCells = columns.map((col, i) => {
-        let value = row[col.key];
+      const rowCells = columns
+        .map((col, i) => {
+          let value = row[col.key];
 
-        // Apply formatter if provided
-        if (col.format) {
-          value = col.format(value);
-        } else {
-          value = String(value ?? '');
-        }
+          // Apply formatter if provided
+          if (col.format) {
+            value = col.format(value);
+          } else {
+            value = String(value ?? '');
+          }
 
-        const text = this.truncate(String(value), widths[i]);
-        return pad + this.alignText(text, widths[i], col.align) + pad;
-      }).join(borderChars.vertical);
+          const text = this.truncate(String(value), widths[i]);
+          return pad + this.alignText(text, widths[i], col.align) + pad;
+        })
+        .join(borderChars.vertical);
 
       lines.push(`${borderChars.vertical}${rowCells}${borderChars.vertical}`);
     }
@@ -295,9 +317,9 @@ export class OutputFormatter {
   private calculateColumnWidths(
     columns: TableColumn[],
     data: Record<string, unknown>[],
-    maxWidth?: number
+    maxWidth?: number,
   ): number[] {
-    const widths = columns.map((col, i) => {
+    const widths = columns.map((col, _i) => {
       // Start with header width
       let width = col.header.length;
 
@@ -321,10 +343,10 @@ export class OutputFormatter {
 
     // Apply max width constraint
     if (maxWidth) {
-      const totalWidth = widths.reduce((a, b) => a + b, 0) + (columns.length * 3) + 1;
+      const totalWidth = widths.reduce((a, b) => a + b, 0) + columns.length * 3 + 1;
       if (totalWidth > maxWidth) {
         const reduction = (totalWidth - maxWidth) / columns.length;
-        return widths.map(w => Math.max(3, Math.floor(w - reduction)));
+        return widths.map((w) => Math.max(3, Math.floor(w - reduction)));
       }
     }
 
@@ -335,22 +357,30 @@ export class OutputFormatter {
     widths: number[],
     chars: Record<string, string>,
     position: 'top' | 'middle' | 'bottom',
-    padding: number
+    padding: number,
   ): string {
-    const cellWidth = (w: number) => chars.horizontal.repeat(w + (padding * 2));
-    const cells = widths.map(cellWidth).join(
-      position === 'top' ? chars.topT :
-      position === 'bottom' ? chars.bottomT :
-      chars.cross
-    );
+    const cellWidth = (w: number) => chars.horizontal.repeat(w + padding * 2);
+    const cells = widths
+      .map(cellWidth)
+      .join(position === 'top' ? chars.topT : position === 'bottom' ? chars.bottomT : chars.cross);
 
-    const left = position === 'top' ? chars.topLeft : position === 'bottom' ? chars.bottomLeft : chars.leftT;
-    const right = position === 'top' ? chars.topRight : position === 'bottom' ? chars.bottomRight : chars.rightT;
+    const left =
+      position === 'top' ? chars.topLeft : position === 'bottom' ? chars.bottomLeft : chars.leftT;
+    const right =
+      position === 'top'
+        ? chars.topRight
+        : position === 'bottom'
+          ? chars.bottomRight
+          : chars.rightT;
 
     return `${left}${cells}${right}`;
   }
 
-  private alignText(text: string, width: number, align: 'left' | 'center' | 'right' = 'left'): string {
+  private alignText(
+    text: string,
+    width: number,
+    align: 'left' | 'center' | 'right' = 'left',
+  ): string {
     const len = this.stripAnsi(text).length;
     const padding = width - len;
 
@@ -359,10 +389,11 @@ export class OutputFormatter {
     switch (align) {
       case 'right':
         return ' '.repeat(padding) + text;
-      case 'center':
+      case 'center': {
         const left = Math.floor(padding / 2);
         const right = padding - left;
         return ' '.repeat(left) + text + ' '.repeat(right);
+      }
       default:
         return text + ' '.repeat(padding);
     }
@@ -371,7 +402,7 @@ export class OutputFormatter {
   private truncate(text: string, maxLength: number): string {
     const stripped = this.stripAnsi(text);
     if (stripped.length <= maxLength) return text;
-    return stripped.slice(0, maxLength - 3) + '...';
+    return `${stripped.slice(0, maxLength - 3)}...`;
   }
 
   private stripAnsi(text: string): string {
@@ -391,8 +422,7 @@ export class OutputFormatter {
     const filled = Math.round((width * percent) / 100);
     const empty = width - filled;
 
-    const bar = this.color('#'.repeat(filled), 'green') +
-                this.dim('-'.repeat(empty));
+    const bar = this.color('#'.repeat(filled), 'green') + this.dim('-'.repeat(empty));
 
     return `[${bar}] ${percent.toFixed(1)}%`;
   }
@@ -422,7 +452,7 @@ export class OutputFormatter {
   // ============================================
 
   list(items: string[], bullet: string = '-'): string {
-    return items.map(item => `  ${bullet} ${item}`).join('\n');
+    return items.map((item) => `  ${bullet} ${item}`).join('\n');
   }
 
   printList(items: string[], bullet: string = '-'): void {
@@ -443,13 +473,16 @@ export class OutputFormatter {
 
   box(content: string, title?: string): string {
     const lines = content.split('\n');
-    const maxLen = Math.max(...lines.map(l => this.stripAnsi(l).length), title?.length ?? 0);
+    const maxLen = Math.max(...lines.map((l) => this.stripAnsi(l).length), title?.length ?? 0);
     const width = maxLen + 4;
 
     const border = {
-      topLeft: '+', topRight: '+',
-      bottomLeft: '+', bottomRight: '+',
-      horizontal: '-', vertical: '|'
+      topLeft: '+',
+      topRight: '+',
+      bottomLeft: '+',
+      bottomRight: '+',
+      horizontal: '-',
+      vertical: '|',
     };
 
     const result: string[] = [];
@@ -461,10 +494,10 @@ export class OutputFormatter {
       const rightPad = width - titleText.length - leftPad - 2;
       result.push(
         border.topLeft +
-        border.horizontal.repeat(leftPad) +
-        this.bold(titleText) +
-        border.horizontal.repeat(rightPad) +
-        border.topRight
+          border.horizontal.repeat(leftPad) +
+          this.bold(titleText) +
+          border.horizontal.repeat(rightPad) +
+          border.topRight,
       );
     } else {
       result.push(border.topLeft + border.horizontal.repeat(width - 2) + border.topRight);
@@ -540,14 +573,14 @@ export class Progress {
       const remaining = this.total - this.current;
       const eta = remaining / rate;
 
-      if (isFinite(eta)) {
+      if (Number.isFinite(eta)) {
         output += ` ETA: ${this.formatTime(eta)}`;
       }
     }
 
     // Clear previous line and write new
     if (this.lastRender) {
-      process.stdout.write('\r' + ' '.repeat(this.lastRender.length) + '\r');
+      process.stdout.write(`\r${' '.repeat(this.lastRender.length)}\r`);
     }
 
     process.stdout.write(output);
@@ -587,11 +620,11 @@ export class Spinner {
   private frameIndex: number = 0;
 
   private static readonly SPINNERS: Record<string, string[]> = {
-    dots: ['...', '..:' , '.::', ':::',  '::.', ':..' ,],
+    dots: ['...', '..:', '.::', ':::', '::.', ':..'],
     line: ['-', '\\', '|', '/'],
     arc: ['◜', '◠', '◝', '◞', '◡', '◟'],
     circle: ['◐', '◓', '◑', '◒'],
-    arrows: ['←', '↖', '↑', '↗', '→', '↘', '↓', '↙']
+    arrows: ['←', '↖', '↑', '↗', '→', '↘', '↓', '↙'],
   };
 
   constructor(formatter: OutputFormatter, options: SpinnerOptions) {
@@ -627,7 +660,7 @@ export class Spinner {
       this.interval = null;
 
       // Clear the line (only meaningful when the animation actually ran on a TTY)
-      process.stdout.write('\r' + ' '.repeat(this.text.length + 10) + '\r');
+      process.stdout.write(`\r${' '.repeat(this.text.length + 10)}\r`);
     }
 
     if (message) {

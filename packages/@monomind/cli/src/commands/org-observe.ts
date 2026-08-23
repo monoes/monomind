@@ -1,19 +1,27 @@
 // packages/@monomind/cli/src/commands/org-observe.ts
 // Read-side org subcommands (logs / report) + template scaffolding (create).
 // Kept out of org.ts to respect the 500-line file ceiling.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { ORG_DIR, OrgDefSchema, type BusEvent, type DecisionGate } from '../orgrt/types.js';
-import { formatEvent, listRunDirs, readHistory, readRunEvents, summarizeRun } from '../orgrt/reporting.js';
-import { ORG_TEMPLATES, buildFromTemplate } from '../orgrt/templates.js';
-import { checkOrgStructure } from '../orgrt/migrate.js';
-import { resolveModel } from '../orgrt/session.js';
 import { branchCheckpoint } from '../orgrt/checkpoint-ops.js';
+import { checkOrgStructure } from '../orgrt/migrate.js';
+import {
+  formatEvent,
+  listRunDirs,
+  readHistory,
+  readRunEvents,
+  summarizeRun,
+} from '../orgrt/reporting.js';
+import { resolveModel } from '../orgrt/session.js';
+import { buildFromTemplate, ORG_TEMPLATES } from '../orgrt/templates.js';
+import { type BusEvent, type DecisionGate, ORG_DIR, OrgDefSchema } from '../orgrt/types.js';
+import { output } from '../output.js';
+import type { CommandContext, CommandResult } from '../types.js';
 import { listOrgConfigFiles, validateOrgName } from './org.js';
 
-const log = (text: string): void => { console.log(text); };
+const log = (text: string): void => {
+  console.log(text);
+};
 
 /** Validate org config(s) against OrgDefSchema — the exact parse `org run`/`org serve`
  * perform — plus the structural invariants the runtime assumes but the schema can't
@@ -26,7 +34,11 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
     if (!validated.ok) return validated.result;
     files = [`${validated.name}.json`];
   } else {
-    if (!existsSync(orgsDir)) return { success: false, message: 'no orgs directory — create an org first with /mastermind:createorg' };
+    if (!existsSync(orgsDir))
+      return {
+        success: false,
+        message: 'no orgs directory — create an org first with /mastermind:createorg',
+      };
     files = listOrgConfigFiles(orgsDir);
     if (!files.length) return { success: false, message: 'no org configs found' };
   }
@@ -44,7 +56,10 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
     try {
       const def = OrgDefSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
       errors.push(...checkOrgStructure(def));
-      if (def.name !== stem) warnings.push(`def.name "${def.name}" differs from filename — the runtime addresses this org as "${stem}"`);
+      if (def.name !== stem)
+        warnings.push(
+          `def.name "${def.name}" differs from filename — the runtime addresses this org as "${stem}"`,
+        );
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
     }
@@ -53,7 +68,11 @@ export const validateAction = async (ctx: CommandContext): Promise<CommandResult
       failed++;
       for (const e of errors) log(output.error(`${stem}: ${e}`));
     } else {
-      log(output.success(`${stem}: valid${warnings.length ? ` (${warnings.length} warning(s))` : ''}`));
+      log(
+        output.success(
+          `${stem}: valid${warnings.length ? ` (${warnings.length} warning(s))` : ''}`,
+        ),
+      );
     }
   }
   return failed
@@ -72,13 +91,18 @@ const resolveRun = (cwd: string, name: string, runFlag: unknown): string | null 
 
 /** `org logs <name> [--run id] [--role r] [--filter-tool t] [--filter-role r] [--tools-only] [--audit-filter allow|deny] [--follow]` — formatted bus.jsonl tail. */
 export const logsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
-  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
-  if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
+  const run = resolveRun(ctx.cwd, name, ctx.flags.run);
+  if (!run)
+    return {
+      success: false,
+      message: `no runs found for org ${name} — start one with: monomind org run ${name}`,
+    };
   const file = join(ctx.cwd, ORG_DIR, name, run, 'bus.jsonl');
-  const roleFilter = typeof ctx.flags['role'] === 'string' ? ctx.flags['role'] : null;
+  const roleFilter = typeof ctx.flags.role === 'string' ? ctx.flags.role : null;
   const filterTool = typeof ctx.flags['filter-tool'] === 'string' ? ctx.flags['filter-tool'] : null;
   const filterRole = typeof ctx.flags['filter-role'] === 'string' ? ctx.flags['filter-role'] : null;
-  const auditFilter = typeof ctx.flags['audit-filter'] === 'string' ? ctx.flags['audit-filter'] : null;
+  const auditFilter =
+    typeof ctx.flags['audit-filter'] === 'string' ? ctx.flags['audit-filter'] : null;
   const toolsOnly = ctx.flags['tools-only'] === true;
   const show = (e: BusEvent): void => {
     if (toolsOnly && e.type !== 'tool') return;
@@ -88,14 +112,20 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
     if (auditFilter && e.type === 'tool' && e.decision !== auditFilter) return;
     log(formatEvent(e));
   };
-  log(output.info(`org ${name} — ${run}${roleFilter ? ` (role: ${roleFilter})` : ''}${filterTool ? ` (tool: ${filterTool})` : ''}${filterRole ? ` (filter-role: ${filterRole})` : ''}${auditFilter ? ` (audit-filter: ${auditFilter})` : ''}`));
+  log(
+    output.info(
+      `org ${name} — ${run}${roleFilter ? ` (role: ${roleFilter})` : ''}${filterTool ? ` (tool: ${filterTool})` : ''}${filterRole ? ` (filter-role: ${filterRole})` : ''}${auditFilter ? ` (audit-filter: ${auditFilter})` : ''}`,
+    ),
+  );
   let seenLines = 0;
   const drain = (): void => {
     if (!existsSync(file)) return;
     const lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
     for (let i = seenLines; i < lines.length; i++) {
-      try { show(JSON.parse(lines[i]) as BusEvent); seenLines = i + 1; }
-      catch {
+      try {
+        show(JSON.parse(lines[i]) as BusEvent);
+        seenLines = i + 1;
+      } catch {
         // Only the FINAL line can be a partial mid-append write worth
         // retrying; a corrupt interior line would otherwise stall the tail
         // forever — skip it and keep going.
@@ -105,12 +135,18 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
     }
   };
   drain();
-  if (ctx.flags['follow'] !== true) return { success: true };
+  if (ctx.flags.follow !== true) return { success: true };
   log(output.info('following — Ctrl-C to stop'));
-  await new Promise<void>(resolve => {
+  await new Promise<void>((resolve) => {
     const iv = setInterval(drain, 500);
-    process.once('SIGINT', () => { clearInterval(iv); resolve(); });
-    process.once('SIGTERM', () => { clearInterval(iv); resolve(); });
+    process.once('SIGINT', () => {
+      clearInterval(iv);
+      resolve();
+    });
+    process.once('SIGTERM', () => {
+      clearInterval(iv);
+      resolve();
+    });
   });
   return { success: true };
 };
@@ -138,11 +174,15 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
 export const watchAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const role = ctx.args[1];
   if (!role) return { success: false, message: 'usage: monomind org watch <org> <role>' };
-  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
-  if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
+  const run = resolveRun(ctx.cwd, name, ctx.flags.run);
+  if (!run)
+    return {
+      success: false,
+      message: `no runs found for org ${name} — start one with: monomind org run ${name}`,
+    };
   const file = join(ctx.cwd, ORG_DIR, name, run, 'bus.jsonl');
-  const verbose = ctx.flags['verbose'] === true;
-  const stats = ctx.flags['stats'] === true;
+  const verbose = ctx.flags.verbose === true;
+  const stats = ctx.flags.stats === true;
 
   let totalTokens = 0;
   let totalCostUsd = 0;
@@ -150,7 +190,7 @@ export const watchAction = async (ctx: CommandContext, name: string): Promise<Co
   const show = (e: BusEvent): void => {
     if (e.from !== role) return;
     if (e.type === 'chat') {
-      log(`${output.info(role + ':')} ${e.msg ?? ''}`);
+      log(`${output.info(`${role}:`)} ${e.msg ?? ''}`);
       return;
     }
     if (verbose && e.type === 'status') {
@@ -162,55 +202,77 @@ export const watchAction = async (ctx: CommandContext, name: string): Promise<Co
       const costDelta = typeof e.data?.cost_usd === 'number' ? e.data.cost_usd : 0;
       totalTokens += tokens;
       totalCostUsd += costDelta;
-      log(output.info(`[stats] +${tokens} tokens (total ${totalTokens}) · +$${costDelta.toFixed(4)} (total $${totalCostUsd.toFixed(4)})`));
+      log(
+        output.info(
+          `[stats] +${tokens} tokens (total ${totalTokens}) · +$${costDelta.toFixed(4)} (total $${totalCostUsd.toFixed(4)})`,
+        ),
+      );
     }
   };
-  log(output.info(`watching ${name}/${role} — ${run} (Ctrl-C to stop; org logs ${name} --role ${role} --follow for the full event stream)`));
+  log(
+    output.info(
+      `watching ${name}/${role} — ${run} (Ctrl-C to stop; org logs ${name} --role ${role} --follow for the full event stream)`,
+    ),
+  );
   let seenLines = 0;
   const drain = (): void => {
     if (!existsSync(file)) return;
     const lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
     for (let i = seenLines; i < lines.length; i++) {
-      try { show(JSON.parse(lines[i]) as BusEvent); seenLines = i + 1; }
-      catch {
+      try {
+        show(JSON.parse(lines[i]) as BusEvent);
+        seenLines = i + 1;
+      } catch {
         if (i === lines.length - 1) break; // only the final line may be a mid-append partial write
         seenLines = i + 1;
       }
     }
   };
   drain();
-  if (ctx.flags['follow'] === false) return { success: true }; // --follow=false opts out of the default live tail
-  await new Promise<void>(resolve => {
+  if (ctx.flags.follow === false) return { success: true }; // --follow=false opts out of the default live tail
+  await new Promise<void>((resolve) => {
     const iv = setInterval(drain, 500);
-    process.once('SIGINT', () => { clearInterval(iv); resolve(); });
-    process.once('SIGTERM', () => { clearInterval(iv); resolve(); });
+    process.once('SIGINT', () => {
+      clearInterval(iv);
+      resolve();
+    });
+    process.once('SIGTERM', () => {
+      clearInterval(iv);
+      resolve();
+    });
   });
   return { success: true };
 };
 
 /** `org report <name> [--run id] [--all] [--by-role] [--format mermaid]` — summarize a run (or list run history). */
 export const reportAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
-  if (ctx.flags['all'] === true) {
+  if (ctx.flags.all === true) {
     const history = readHistory(ctx.cwd, name);
     if (!history.length) return { success: false, message: `no run history for org ${name}` };
     log(output.info(`org ${name} — ${history.length} recorded run(s):`));
     for (const h of history) {
       const dur = h.durationMs != null ? `${Math.round(h.durationMs / 1000)}s` : '?';
-      const outcome = h.outcome ? `${h.outcome.status}: ${h.outcome.summary.slice(0, 60)}` : 'no outcome recorded';
-      log(output.info(`  • ${h.run}  ${dur}  ${h.totalTokens} tokens  ${h.messages} msgs  — ${outcome}`));
+      const outcome = h.outcome
+        ? `${h.outcome.status}: ${h.outcome.summary.slice(0, 60)}`
+        : 'no outcome recorded';
+      log(
+        output.info(
+          `  • ${h.run}  ${dur}  ${h.totalTokens} tokens  ${h.messages} msgs  — ${outcome}`,
+        ),
+      );
     }
     return { success: true };
   }
-  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
+  const run = resolveRun(ctx.cwd, name, ctx.flags.run);
   if (!run) return { success: false, message: `no runs found for org ${name}` };
   const events = readRunEvents(ctx.cwd, name, run);
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
 
   // Mermaid flowchart (--format mermaid flag)
-  if (ctx.flags['format'] === 'mermaid') {
+  if (ctx.flags.format === 'mermaid') {
     // Extract message flow from events
-    const messageEvents = events.filter(e => e.type === 'message' || e.type === 'xorg');
+    const messageEvents = events.filter((e) => e.type === 'message' || e.type === 'xorg');
     const roleSet = new Set<string>();
     const edges = new Set<string>();
 
@@ -253,30 +315,50 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   }
 
   // Tool audit filter (--audit flag) - show only tool decision events
-  if (ctx.flags['audit'] === true) {
-    let toolEvents = events.filter(e => e.type === 'tool');
+  if (ctx.flags.audit === true) {
+    let toolEvents = events.filter((e) => e.type === 'tool');
     // Optional --tool flag filters to a specific tool name
-    if (typeof ctx.flags['tool'] === 'string' && ctx.flags['tool']) {
-      const toolName = ctx.flags['tool'];
-      toolEvents = toolEvents.filter(e => e.tool === toolName);
+    if (typeof ctx.flags.tool === 'string' && ctx.flags.tool) {
+      const toolName = ctx.flags.tool;
+      toolEvents = toolEvents.filter((e) => e.tool === toolName);
     }
     if (!toolEvents.length) {
-      const toolFilter = typeof ctx.flags['tool'] === 'string' ? ` for tool "${ctx.flags['tool']}"` : '';
+      const toolFilter = typeof ctx.flags.tool === 'string' ? ` for tool "${ctx.flags.tool}"` : '';
       log(output.info(`No tool events found${toolFilter} in ${run}`));
       return { success: true };
     }
     log(output.info(`Tool audit trail for ${name} / ${run} (${toolEvents.length} events):`));
-    log(output.info('┌──────────────────┬─────────────────────────┬──────────┬──────────────────────────────────────┐'));
-    log(output.info('│ Role             │ Tool                    │ Decision │ Reason                                │'));
-    log(output.info('├──────────────────┼─────────────────────────┼──────────┼──────────────────────────────────────┤'));
+    log(
+      output.info(
+        '┌──────────────────┬─────────────────────────┬──────────┬──────────────────────────────────────┐',
+      ),
+    );
+    log(
+      output.info(
+        '│ Role             │ Tool                    │ Decision │ Reason                                │',
+      ),
+    );
+    log(
+      output.info(
+        '├──────────────────┼─────────────────────────┼──────────┼──────────────────────────────────────┤',
+      ),
+    );
     for (const e of toolEvents) {
       const role = e.from ?? 'system';
       const tool = e.tool ?? 'unknown';
       const decision = e.decision === 'deny' ? 'DENY' : 'ALLOW';
       const reason = e.reason || '-';
-      log(output.info(`│ ${role.padEnd(16)} │ ${tool.padEnd(23)} │ ${decision.padEnd(8)} │ ${reason.padEnd(38)} │`));
+      log(
+        output.info(
+          `│ ${role.padEnd(16)} │ ${tool.padEnd(23)} │ ${decision.padEnd(8)} │ ${reason.padEnd(38)} │`,
+        ),
+      );
     }
-    log(output.info('└──────────────────┴─────────────────────────┴──────────┴──────────────────────────────────────┘'));
+    log(
+      output.info(
+        '└──────────────────┴─────────────────────────┴──────────┴──────────────────────────────────────┘',
+      ),
+    );
     return { success: true };
   }
 
@@ -295,7 +377,11 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     log(output.info('│ Role             │ Cost ($)  │ Tokens     │ Messages │'));
     log(output.info('├──────────────────┼───────────┼────────────┼───────────┤'));
     for (const [roleId, data] of byRole) {
-      log(output.info(`│ ${roleId.padEnd(16)} │ ${(data.cost.toFixed(4)).padStart(9)} │ ${String(data.tokens).padStart(10)} │ ${String(data.messages).padStart(9)} │`));
+      log(
+        output.info(
+          `│ ${roleId.padEnd(16)} │ ${(data.cost.toFixed(4)).padStart(9)} │ ${String(data.tokens).padStart(10)} │ ${String(data.messages).padStart(9)} │`,
+        ),
+      );
     }
     log(output.info('└──────────────────┴───────────┴────────────┴───────────┘'));
     return { success: true };
@@ -306,13 +392,17 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   let perRoleBudget: number | null = null;
   const roleCeiling = new Map<string, number>();
   try {
-    const def = OrgDefSchema.parse(JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, `${name}.json`), 'utf8')));
+    const def = OrgDefSchema.parse(
+      JSON.parse(readFileSync(join(ctx.cwd, ORG_DIR, `${name}.json`), 'utf8')),
+    );
     perRoleBudget = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
     for (const r of def.roles) {
       const max = (r.policy as { maxTokens?: number } | undefined)?.maxTokens;
       roleCeiling.set(r.id, max ?? r.budget_tokens ?? perRoleBudget);
     }
-  } catch { /* config gone or invalid — report without budget context */ }
+  } catch {
+    /* config gone or invalid — report without budget context */
+  }
   const budgetNote = (id: string, tokens: number): string => {
     const cap = roleCeiling.get(id);
     if (!cap) return '';
@@ -320,16 +410,31 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
     return ` (${pct}% of ${cap}${pct >= 100 ? ' — EXHAUSTED' : pct >= 80 ? ' — near limit' : ''})`;
   };
   log(output.info(`ORG REPORT — ${name} / ${run}`));
-  log(output.info(`  Duration: ${s.durationMs != null ? `${Math.round(s.durationMs / 1000)}s` : '?'}   Events: ${s.events}   Messages: ${s.messages}${s.xorgMessages ? ` (+${s.xorgMessages} cross-org)` : ''}`));
-  log(output.info(`  Tokens: ${s.totalTokens}${perRoleBudget ? ` (budget: ${perRoleBudget}/role)` : ''}${s.totalCostUsd ? `   Cost: $${s.totalCostUsd.toFixed(4)}` : ''}`));
-  if (s.outcome) log(output.success(`  Outcome: ${s.outcome.status} (by ${s.outcome.by}) — ${s.outcome.summary}`));
+  log(
+    output.info(
+      `  Duration: ${s.durationMs != null ? `${Math.round(s.durationMs / 1000)}s` : '?'}   Events: ${s.events}   Messages: ${s.messages}${s.xorgMessages ? ` (+${s.xorgMessages} cross-org)` : ''}`,
+    ),
+  );
+  log(
+    output.info(
+      `  Tokens: ${s.totalTokens}${perRoleBudget ? ` (budget: ${perRoleBudget}/role)` : ''}${s.totalCostUsd ? `   Cost: $${s.totalCostUsd.toFixed(4)}` : ''}`,
+    ),
+  );
+  if (s.outcome)
+    log(
+      output.success(`  Outcome: ${s.outcome.status} (by ${s.outcome.by}) — ${s.outcome.summary}`),
+    );
   else log(output.warning('  Outcome: not recorded (coordinator never called org_complete)'));
   log(output.info('  Roles:'));
   for (const [id, r] of Object.entries(s.roles)) {
     const wasCutShort = s.cutShort.includes(id);
     const icon = r.crashed ? '✗' : wasCutShort ? '⊘' : '•';
     const suffix = r.crashed ? ' — CRASHED' : wasCutShort ? ' — cut short by stop' : '';
-    log(output.info(`    ${icon} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${r.tokens} tokens${budgetNote(id, r.tokens)}${suffix}`));
+    log(
+      output.info(
+        `    ${icon} ${id}: ${r.messagesSent} msgs, ${r.toolsAllowed} tools${r.toolsDenied ? ` (${r.toolsDenied} denied)` : ''}, ${r.tokens} tokens${budgetNote(id, r.tokens)}${suffix}`,
+      ),
+    );
   }
   if (s.assets.length) {
     log(output.info(`  Assets (${s.assets.length}):`));
@@ -339,7 +444,14 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   return { success: true };
 };
 
-interface OrgQuestion { questionId: string; role: string; question: string; ts: number; answer: string | null; answeredAt: number | null }
+interface OrgQuestion {
+  questionId: string;
+  role: string;
+  question: string;
+  ts: number;
+  answer: string | null;
+  answeredAt: number | null;
+}
 
 /** Read questions.json. A MISSING file legitimately means "no questions" → [].
  *  Any other failure (unreadable, malformed — e.g. a partial daemon write) THROWS:
@@ -358,7 +470,9 @@ const readQuestions = (cwd: string, name: string): OrgQuestion[] => {
   try {
     parsed = JSON.parse(raw) as { questions?: OrgQuestion[] };
   } catch (err) {
-    throw new Error(`${path} is not valid JSON (${err instanceof Error ? err.message : String(err)})`);
+    throw new Error(
+      `${path} is not valid JSON (${err instanceof Error ? err.message : String(err)})`,
+    );
   }
   if (parsed?.questions === undefined || parsed.questions === null) return [];
   if (!Array.isArray(parsed.questions)) throw new Error(`${path}: "questions" is not an array`);
@@ -366,25 +480,42 @@ const readQuestions = (cwd: string, name: string): OrgQuestion[] => {
 };
 
 /** `org questions <name> [--all]` — list pending (or all) ask_human questions. */
-export const questionsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+export const questionsAction = async (
+  ctx: CommandContext,
+  name: string,
+): Promise<CommandResult> => {
   let all: OrgQuestion[];
   try {
     all = readQuestions(ctx.cwd, name);
   } catch (err) {
-    log(output.error(`Cannot read questions for org ${name}: ${err instanceof Error ? err.message : String(err)}`));
+    log(
+      output.error(
+        `Cannot read questions for org ${name}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
     return { success: false, message: 'questions.json unreadable' };
   }
-  const shown = ctx.flags['all'] === true ? all : all.filter(q => q.answer === null);
+  const shown = ctx.flags.all === true ? all : all.filter((q) => q.answer === null);
   if (!shown.length) {
-    log(output.info(all.length ? `No pending questions for org ${name} (${all.length} answered — use --all).` : `No questions recorded for org ${name}.`));
+    log(
+      output.info(
+        all.length
+          ? `No pending questions for org ${name} (${all.length} answered — use --all).`
+          : `No questions recorded for org ${name}.`,
+      ),
+    );
     return { success: true };
   }
   for (const q of shown) {
     const when = new Date(q.ts).toISOString().replace('T', ' ').slice(0, 16);
-    log(output.info(`${q.answer === null ? '❓' : '✓'} [${q.questionId}] ${when}  ${q.role}: ${q.question}`));
+    log(
+      output.info(
+        `${q.answer === null ? '❓' : '✓'} [${q.questionId}] ${when}  ${q.role}: ${q.question}`,
+      ),
+    );
     if (q.answer !== null) log(output.info(`     ↳ ${q.answer}`));
   }
-  if (shown.some(q => q.answer === null))
+  if (shown.some((q) => q.answer === null))
     log(output.info(`\nAnswer with: monomind org answer ${name} <question-id> "your answer"`));
   return { success: true };
 };
@@ -395,20 +526,33 @@ export const questionsAction = async (ctx: CommandContext, name: string): Promis
 export const answerAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const questionId = ctx.args[1];
   const answer = ctx.args.slice(2).join(' ').trim();
-  if (!questionId || !answer) return { success: false, message: `usage: monomind org answer ${name} <question-id> "answer text"` };
+  if (!questionId || !answer)
+    return {
+      success: false,
+      message: `usage: monomind org answer ${name} <question-id> "answer text"`,
+    };
   let questions: OrgQuestion[];
   try {
     questions = readQuestions(ctx.cwd, name);
   } catch (err) {
-    log(output.error(`Cannot read questions for org ${name}: ${err instanceof Error ? err.message : String(err)}`));
+    log(
+      output.error(
+        `Cannot read questions for org ${name}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
     return { success: false, message: 'questions.json unreadable — answer not recorded' };
   }
-  const q = questions.find(x => x.questionId === questionId);
+  const q = questions.find((x) => x.questionId === questionId);
   if (!q) {
-    log(output.error(`Question "${questionId}" not found for org ${name} — list with: monomind org questions ${name}`));
+    log(
+      output.error(
+        `Question "${questionId}" not found for org ${name} — list with: monomind org questions ${name}`,
+      ),
+    );
     return { success: false, message: 'question not found' };
   }
-  if (q.answer !== null) return { success: false, message: `question "${questionId}" was already answered` };
+  if (q.answer !== null)
+    return { success: false, message: `question "${questionId}" was already answered` };
 
   // Live path: the hosting daemon updates questions.json and pushes into the role's mailbox.
   const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
@@ -417,18 +561,30 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
     const cred = normalizeCredential(remote.credential);
     try {
       const res = await fetch(`${remote.url}/api/answer-question`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cred ? { 'x-monomind-cred': cred } : {}),
+        },
         body: JSON.stringify({ org: name, role: q.role, questionId, answer }),
         signal: AbortSignal.timeout(10_000),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) {
         log(output.success(`Answer delivered to ${name}:${q.role} (live).`));
         return { success: true };
       }
-      log(output.warning(`Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`,
+        ),
+      );
     } catch (err) {
-      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`,
+        ),
+      );
     }
   }
 
@@ -443,13 +599,24 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   try {
     fresh = readQuestions(ctx.cwd, name);
   } catch (err) {
-    log(output.error(`Refusing to rewrite questions.json — ${err instanceof Error ? err.message : String(err)}`));
-    log(output.warning(`The answer was NOT recorded. Fix or restore ${join(ctx.cwd, ORG_DIR, name, 'questions.json')}, then retry.`));
+    log(
+      output.error(
+        `Refusing to rewrite questions.json — ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
+    log(
+      output.warning(
+        `The answer was NOT recorded. Fix or restore ${join(ctx.cwd, ORG_DIR, name, 'questions.json')}, then retry.`,
+      ),
+    );
     return { success: false, message: 'questions.json unreadable — answer not recorded' };
   }
-  const freshQ = fresh.find(x => x.questionId === questionId);
+  const freshQ = fresh.find((x) => x.questionId === questionId);
   if (freshQ && freshQ.answer !== null) {
-    return { success: false, message: `question "${questionId}" was answered while this command was running` };
+    return {
+      success: false,
+      message: `question "${questionId}" was answered while this command was running`,
+    };
   }
   // Queue BEFORE marking answered (same rule as daemon.answerQuestion): if the
   // append fails, the question must stay pending and answerable. Marking first meant
@@ -458,17 +625,22 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   const { queueMessage } = await import('../orgrt/inbox.js');
   try {
     queueMessage(ctx.cwd, name, {
-      fromQualified: 'human', toRole: q.role,
+      fromQualified: 'human',
+      toRole: q.role,
       subject: `answer:${questionId}`,
       body: `question: ${q.question}\n\nanswer: ${answer}`,
       ts: Date.now(),
     });
   } catch (err) {
-    log(output.error(`Could not queue the answer for ${name}:${q.role} (${err instanceof Error ? err.message : String(err)}) — answer NOT recorded, retry it.`));
+    log(
+      output.error(
+        `Could not queue the answer for ${name}:${q.role} (${err instanceof Error ? err.message : String(err)}) — answer NOT recorded, retry it.`,
+      ),
+    );
     return { success: false, message: 'queueing failed — answer not recorded' };
   }
-  const merged = fresh.some(x => x.questionId === questionId)
-    ? fresh.map(x => x.questionId === questionId ? { ...x, answer, answeredAt: Date.now() } : x)
+  const merged = fresh.some((x) => x.questionId === questionId)
+    ? fresh.map((x) => (x.questionId === questionId ? { ...x, answer, answeredAt: Date.now() } : x))
     : [...fresh, { ...q, answer, answeredAt: Date.now() }];
   const dest = join(ctx.cwd, ORG_DIR, name, 'questions.json');
   const tmp = `${dest}.${process.pid}.tmp`;
@@ -488,24 +660,29 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
  *  semantics as a queued human answer. */
 export const inboxAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   let payload: { from?: unknown; subject?: unknown; body?: unknown } = {};
-  const rawJson = ctx.flags['json'];
+  const rawJson = ctx.flags.json;
   if (typeof rawJson === 'string') {
-    try { payload = JSON.parse(rawJson) as typeof payload; }
-    catch { return { success: false, message: 'org inbox: --json is not valid JSON' }; }
+    try {
+      payload = JSON.parse(rawJson) as typeof payload;
+    } catch {
+      return { success: false, message: 'org inbox: --json is not valid JSON' };
+    }
   } else {
-    payload = { from: ctx.flags['from'], subject: ctx.flags['subject'], body: ctx.flags['body'] };
+    payload = { from: ctx.flags.from, subject: ctx.flags.subject, body: ctx.flags.body };
   }
   const from = typeof payload.from === 'string' ? payload.from.trim() : '';
   const subject = typeof payload.subject === 'string' ? payload.subject : '';
   const body = typeof payload.body === 'string' ? payload.body : '';
   if (!from || !body) {
-    log(output.error('org inbox: payload requires "from" and "body" (via --json or --from/--body)'));
+    log(
+      output.error('org inbox: payload requires "from" and "body" (via --json or --from/--body)'),
+    );
     return { success: false, message: 'inbox payload requires from and body' };
   }
 
   // Target role: explicit --to, else the org's coordinator (reports_to == null),
   // else the first role — matching where a role-less cross-org message should land.
-  let toRole = typeof ctx.flags['to'] === 'string' ? ctx.flags['to'] : '';
+  let toRole = typeof ctx.flags.to === 'string' ? ctx.flags.to : '';
   if (toRole && !/^[a-z0-9][a-z0-9_-]*$/i.test(toRole)) {
     log(output.error(`Invalid role id: ${toRole}`));
     return { success: false, message: 'invalid role id' };
@@ -517,11 +694,17 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
       return { success: false, message: 'org not found' };
     }
     try {
-      const def = JSON.parse(readFileSync(defPath, 'utf8')) as { roles?: { id?: string; reports_to?: string | null }[] };
+      const def = JSON.parse(readFileSync(defPath, 'utf8')) as {
+        roles?: { id?: string; reports_to?: string | null }[];
+      };
       const roles = Array.isArray(def.roles) ? def.roles : [];
-      toRole = roles.find(r => r.reports_to == null)?.id ?? roles[0]?.id ?? '';
+      toRole = roles.find((r) => r.reports_to == null)?.id ?? roles[0]?.id ?? '';
     } catch (err) {
-      log(output.error(`Could not read org config for ${name}: ${err instanceof Error ? err.message : String(err)}`));
+      log(
+        output.error(
+          `Could not read org config for ${name}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
       return { success: false, message: 'org config unreadable' };
     }
     if (!toRole) {
@@ -539,26 +722,49 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
     try {
       const res = await fetch(`${remote.url}/api/xdeliver`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cred ? { 'x-monomind-cred': cred } : {}),
+        },
         body: JSON.stringify({ fromOrg, fromRole, toOrg: name, toRole, subject, body }),
         signal: AbortSignal.timeout(10_000),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; receipt?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        receipt?: string;
+        error?: string;
+      };
       if (res.ok && data.ok) {
         log(output.success(data.receipt ?? `delivered to ${name}:${toRole}`));
         return { success: true, message: data.receipt ?? 'delivered' };
       }
-      log(output.warning(`Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`,
+        ),
+      );
     } catch (err) {
-      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`,
+        ),
+      );
     }
   }
 
   // Offline path: spool; drained into the role's mailbox when the org next starts.
   const { queueMessage } = await import('../orgrt/inbox.js');
-  const queued = queueMessage(ctx.cwd, name, { fromQualified: from, toRole, subject, body, ts: Date.now() });
+  const queued = queueMessage(ctx.cwd, name, {
+    fromQualified: from,
+    toRole,
+    subject,
+    body,
+    ts: Date.now(),
+  });
   if (!queued) {
-    log(output.error(`Could not queue the message for ${name}:${toRole} (disk full or permissions).`));
+    log(
+      output.error(`Could not queue the message for ${name}:${toRole} (disk full or permissions).`),
+    );
     return { success: false, message: 'queueing failed' };
   }
   const receipt = `queued for ${name}:${toRole} (delivered when the org next runs)`;
@@ -568,19 +774,31 @@ export const inboxAction = async (ctx: CommandContext, name: string): Promise<Co
 
 /** `org create <name> --template <t> [--goal g] [--schedule s]` — scaffold a config from a template. */
 export const createAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
-  const templateName = typeof ctx.flags['template'] === 'string' ? ctx.flags['template'] : '';
+  const templateName = typeof ctx.flags.template === 'string' ? ctx.flags.template : '';
   if (!templateName) {
     log(output.info(`Available templates: ${Object.keys(ORG_TEMPLATES).join(', ')}`));
-    return { success: false, message: 'usage: monomind org create <name> --template <template> [--goal "..."] [--schedule 30m]' };
+    return {
+      success: false,
+      message:
+        'usage: monomind org create <name> --template <template> [--goal "..."] [--schedule 30m]',
+    };
   }
-  const def = buildFromTemplate(templateName, name, typeof ctx.flags['goal'] === 'string' ? ctx.flags['goal'] : undefined);
+  const def = buildFromTemplate(
+    templateName,
+    name,
+    typeof ctx.flags.goal === 'string' ? ctx.flags.goal : undefined,
+  );
   if (!def) {
-    log(output.error(`Unknown template "${templateName}" — available: ${Object.keys(ORG_TEMPLATES).join(', ')}`));
+    log(
+      output.error(
+        `Unknown template "${templateName}" — available: ${Object.keys(ORG_TEMPLATES).join(', ')}`,
+      ),
+    );
     return { success: false, message: 'unknown template' };
   }
-  if (typeof ctx.flags['schedule'] === 'string') def.schedule = ctx.flags['schedule'];
+  if (typeof ctx.flags.schedule === 'string') def.schedule = ctx.flags.schedule;
   const file = join(ctx.cwd, ORG_DIR, `${name}.json`);
-  if (existsSync(file) && ctx.flags['force'] !== true) {
+  if (existsSync(file) && ctx.flags.force !== true) {
     log(output.error(`Org "${name}" already exists — pass --force to overwrite.`));
     return { success: false, message: 'org exists' };
   }
@@ -604,31 +822,51 @@ export const createAction = async (ctx: CommandContext, name: string): Promise<C
     }
   };
 
-  if (ctx.interactive && ctx.flags['yes'] !== true) {
-    log(output.bold(`\nAbout to create org "${name}" from template "${templateName}" (${def.roles.length} roles):`));
+  if (ctx.interactive && ctx.flags.yes !== true) {
+    log(
+      output.bold(
+        `\nAbout to create org "${name}" from template "${templateName}" (${def.roles.length} roles):`,
+      ),
+    );
     printModels();
     const { confirm } = await import('../prompt.js');
     const proceed = await confirm({ message: 'Create this org?', default: true });
     if (!proceed) {
-      log(output.info('Cancelled — no file written. Adjust --template/--goal, or edit the template, then retry (pass --yes to skip this prompt).'));
+      log(
+        output.info(
+          'Cancelled — no file written. Adjust --template/--goal, or edit the template, then retry (pass --yes to skip this prompt).',
+        ),
+      );
       return { success: false, message: 'cancelled by user' };
     }
   }
 
   const { mkdirSync } = await import('node:fs');
   mkdirSync(join(ctx.cwd, ORG_DIR), { recursive: true });
-  writeFileSync(file, JSON.stringify(def, null, 2) + '\n', 'utf8');
-  log(output.success(`Org "${name}" created from template "${templateName}" (${def.roles.length} roles).`));
-  log(output.info(`  Budget: ${def.run_config.budget_tokens} tokens · Turn limit: ${def.run_config.max_turns_per_message} per message (effectively unlimited by default — set run_config.max_turns_per_message, or a role's own max_turns_per_message, to cap it).`));
-  if (!ctx.interactive || ctx.flags['yes'] === true) printModels();
+  writeFileSync(file, `${JSON.stringify(def, null, 2)}\n`, 'utf8');
+  log(
+    output.success(
+      `Org "${name}" created from template "${templateName}" (${def.roles.length} roles).`,
+    ),
+  );
+  log(
+    output.info(
+      `  Budget: ${def.run_config.budget_tokens} tokens · Turn limit: ${def.run_config.max_turns_per_message} per message (effectively unlimited by default — set run_config.max_turns_per_message, or a role's own max_turns_per_message, to cap it).`,
+    ),
+  );
+  if (!ctx.interactive || ctx.flags.yes === true) printModels();
   log(output.info(`  Edit the goal/roles in ${file}, then: monomind org run ${name}`));
   return { success: true };
 };
 
 /** `org costs <name> [--run id]` — show per-role cost tracking from runtime.json */
 export const costsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
-  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
-  if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
+  const run = resolveRun(ctx.cwd, name, ctx.flags.run);
+  if (!run)
+    return {
+      success: false,
+      message: `no runs found for org ${name} — start one with: monomind org run ${name}`,
+    };
 
   // Read runtime.json for the per-role metrics
   const rtPath = join(ctx.cwd, ORG_DIR, name, 'runtime.json');
@@ -636,16 +874,28 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
     return { success: false, message: `no runtime state found for org ${name}` };
   }
 
-  let rt: { status?: string; run?: string; roleMetrics?: Record<string, { tokens: number; costUsd: number }> } | undefined;
+  let rt:
+    | {
+        status?: string;
+        run?: string;
+        roleMetrics?: Record<string, { tokens: number; costUsd: number }>;
+      }
+    | undefined;
   try {
     rt = JSON.parse(readFileSync(rtPath, 'utf8'));
   } catch (err) {
-    log(output.error(`Cannot read runtime.json: ${err instanceof Error ? err.message : String(err)}`));
+    log(
+      output.error(`Cannot read runtime.json: ${err instanceof Error ? err.message : String(err)}`),
+    );
     return { success: false, message: 'runtime.json unreadable' };
   }
 
   if (rt?.run !== run) {
-    log(output.warning(`Note: runtime.json shows run ${rt?.run ?? 'unknown'} — showing metrics for requested run ${run} from history`));
+    log(
+      output.warning(
+        `Note: runtime.json shows run ${rt?.run ?? 'unknown'} — showing metrics for requested run ${run} from history`,
+      ),
+    );
   }
 
   // Also check the run summary for cost data
@@ -663,7 +913,7 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
       roleData.set(roleId, {
         tokens: metrics.tokens,
         costUsd: metrics.costUsd,
-        messages: 0
+        messages: 0,
       });
     }
   }
@@ -675,7 +925,7 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
       roleData.set(roleId, {
         tokens: existing.tokens || roleStats.tokens,
         costUsd: existing.costUsd || roleStats.costUsd,
-        messages: roleStats.messagesSent
+        messages: roleStats.messagesSent,
       });
     }
   }
@@ -694,14 +944,22 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   let totalMessages = 0;
 
   for (const [roleId, data] of roleData) {
-    log(output.info(`│ ${roleId.padEnd(16)} │ ${(data.costUsd.toFixed(4)).padStart(9)} │ ${String(data.tokens).padStart(10)} │ ${String(data.messages).padStart(9)} │`));
+    log(
+      output.info(
+        `│ ${roleId.padEnd(16)} │ ${(data.costUsd.toFixed(4)).padStart(9)} │ ${String(data.tokens).padStart(10)} │ ${String(data.messages).padStart(9)} │`,
+      ),
+    );
     totalCost += data.costUsd;
     totalTokens += data.tokens;
     totalMessages += data.messages;
   }
 
   log(output.info('├──────────────────┼───────────┼────────────┼───────────┤'));
-  log(output.info(`│ ${('TOTAL').padEnd(16)} │ ${(totalCost.toFixed(4)).padStart(9)} │ ${String(totalTokens).padStart(10)} │ ${String(totalMessages).padStart(9)} │`));
+  log(
+    output.info(
+      `│ ${('TOTAL').padEnd(16)} │ ${(totalCost.toFixed(4)).padStart(9)} │ ${String(totalTokens).padStart(10)} │ ${String(totalMessages).padStart(9)} │`,
+    ),
+  );
   log(output.info('└──────────────────┴───────────┴────────────┴───────────┘'));
 
   return { success: true };
@@ -709,14 +967,18 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
 
 /** `org flow <name> [--run id]` — export org flow as Mermaid diagram */
 export const flowAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
-  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
-  if (!run) return { success: false, message: `no runs found for org ${name} — start one with: monomind org run ${name}` };
+  const run = resolveRun(ctx.cwd, name, ctx.flags.run);
+  if (!run)
+    return {
+      success: false,
+      message: `no runs found for org ${name} — start one with: monomind org run ${name}`,
+    };
 
   const events = readRunEvents(ctx.cwd, name, run);
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
 
   // Extract message flow from events
-  const messageEvents = events.filter(e => e.type === 'message' || e.type === 'xorg');
+  const messageEvents = events.filter((e) => e.type === 'message' || e.type === 'xorg');
   const roleSet = new Set<string>();
   const edges = new Set<string>();
 
@@ -763,7 +1025,13 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
  *  in-memory state and notifies the waiting agent's mailbox immediately), and
  *  fall back to writing approvals.json directly when the org isn't running or
  *  the daemon is unreachable — mirrors answerAction's live-then-offline shape. */
-async function resolveApproval(ctx: CommandContext, name: string, role: string, action: string, approved: boolean): Promise<CommandResult> {
+async function resolveApproval(
+  ctx: CommandContext,
+  name: string,
+  role: string,
+  action: string,
+  approved: boolean,
+): Promise<CommandResult> {
   const verb = approved ? 'approved' : 'denied';
 
   const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
@@ -772,18 +1040,34 @@ async function resolveApproval(ctx: CommandContext, name: string, role: string, 
     const cred = normalizeCredential(remote.credential);
     try {
       const res = await fetch(`${remote.url}/api/set-approval`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cred ? { 'x-monomind-cred': cred } : {}),
+        },
         body: JSON.stringify({ org: name, role, action, approved }),
         signal: AbortSignal.timeout(10_000),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) {
-        log(approved ? output.success(`Approved: ${role} may execute ${action} (live).`) : output.info(`Denied: ${role} may NOT execute ${action} (live).`));
+        log(
+          approved
+            ? output.success(`Approved: ${role} may execute ${action} (live).`)
+            : output.info(`Denied: ${role} may NOT execute ${action} (live).`),
+        );
         return { success: true, message: `${verb} ${action} for ${role}` };
       }
-      log(output.warning(`Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Live delivery rejected (${data.error ?? res.status}) — falling back to offline queue.`,
+        ),
+      );
     } catch (err) {
-      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`,
+        ),
+      );
     }
   }
 
@@ -794,17 +1078,26 @@ async function resolveApproval(ctx: CommandContext, name: string, role: string, 
   }
   const data = JSON.parse(readFileSync(approvalsPath, 'utf8'));
   const pending = data.approvals ?? [];
-  const item = pending.find((a: { roleId: string; action: string }) => a.roleId === role && a.action === action);
+  const item = pending.find(
+    (a: { roleId: string; action: string }) => a.roleId === role && a.action === action,
+  );
 
   if (!item) {
-    return { success: false, message: `no pending approval found for role ${role} action ${action}` };
+    return {
+      success: false,
+      message: `no pending approval found for role ${role} action ${action}`,
+    };
   }
 
   item.approved = approved;
   item.ts = Date.now();
   writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
 
-  log(approved ? output.success(`Approved: ${role} may execute ${action}`) : output.info(`Denied: ${role} may NOT execute ${action}`));
+  log(
+    approved
+      ? output.success(`Approved: ${role} may execute ${action}`)
+      : output.info(`Denied: ${role} may NOT execute ${action}`),
+  );
   return { success: true, message: `${verb} ${action} for ${role}` };
 }
 
@@ -856,12 +1149,19 @@ export const replayAction = async (ctx: CommandContext, name: string): Promise<C
 
   const resumed = await daemon.replayFrom(name, run);
   if (!resumed) {
-    return { success: false, message: `replay failed - check bus.jsonl and org config for ${name} are valid` };
+    return {
+      success: false,
+      message: `replay failed - check bus.jsonl and org config for ${name} are valid`,
+    };
   }
 
   log(output.success(`Org ${name} events replayed from ${run} as run ${resumed.run}`));
   log(output.info(`Use: monomind org logs ${name} --run ${resumed.run} to inspect events.`));
-  log(output.info(`This is debug replay only — it does not restart agent execution. To resume live execution, use: monomind org run ${name} --resume`));
+  log(
+    output.info(
+      `This is debug replay only — it does not restart agent execution. To resume live execution, use: monomind org run ${name} --resume`,
+    ),
+  );
 
   return { success: true, message: `replayed events from checkpoint ${run} as ${resumed.run}` };
 };
@@ -870,7 +1170,10 @@ export const replayAction = async (ctx: CommandContext, name: string): Promise<C
  *  checkpoint (runtime.json): restores mailbox queues, policy/token counters,
  *  and session state, subject to checkpoint TTL and checksum validation. Unlike
  *  `replay`, this restarts real agent execution via `startOrg(..., { resume: true })`. */
-export const resumeFromAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+export const resumeFromAction = async (
+  ctx: CommandContext,
+  name: string,
+): Promise<CommandResult> => {
   log(output.info(`Resuming org ${name} from checkpoint...`));
 
   const { OrgDaemon } = await import('../orgrt/daemon.js');
@@ -878,7 +1181,10 @@ export const resumeFromAction = async (ctx: CommandContext, name: string): Promi
 
   const resumed = await daemon.resumeOrg(name);
   if (!resumed) {
-    return { success: false, message: `resume failed for ${name} - check runtime.json checkpoint is present, unexpired, and valid` };
+    return {
+      success: false,
+      message: `resume failed for ${name} - check runtime.json checkpoint is present, unexpired, and valid`,
+    };
   }
 
   log(output.success(`Org ${name} resumed - ${resumed.agents.size} role(s) restored`));
@@ -909,8 +1215,11 @@ export const branchAction = async (ctx: CommandContext, name: string): Promise<C
 };
 
 /** `org decisions <org> [--run id]` — show Rifft-style decision traces */
-export const decisionsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
-  const run = resolveRun(ctx.cwd, name, ctx.flags['run']);
+export const decisionsAction = async (
+  ctx: CommandContext,
+  name: string,
+): Promise<CommandResult> => {
+  const run = resolveRun(ctx.cwd, name, ctx.flags.run);
   if (!run) {
     return { success: false, message: `no runs found for org ${name}` };
   }
@@ -921,11 +1230,9 @@ export const decisionsAction = async (ctx: CommandContext, name: string): Promis
   }
 
   // Filter decision trace events
-  const decisionEvents = events.filter(e =>
-    e.type === 'audit' &&
-    e.reason === 'decision-trace' &&
-    e.data &&
-    typeof e.data === 'object'
+  const decisionEvents = events.filter(
+    (e) =>
+      e.type === 'audit' && e.reason === 'decision-trace' && e.data && typeof e.data === 'object',
   );
 
   if (!decisionEvents.length) {
@@ -953,7 +1260,11 @@ export const decisionsAction = async (ctx: CommandContext, name: string): Promis
 // ── Decision gates ──────────────────────────────────────────────────────
 
 function readGatesFile(cwd: string, org: string): { gates: DecisionGate[] } {
-  try { return JSON.parse(readFileSync(join(cwd, ORG_DIR, org, 'gates.json'), 'utf8')); } catch { return { gates: [] }; }
+  try {
+    return JSON.parse(readFileSync(join(cwd, ORG_DIR, org, 'gates.json'), 'utf8'));
+  } catch {
+    return { gates: [] };
+  }
 }
 
 /** Read gates.json for a write path. A MISSING file legitimately means "no gates" → [].
@@ -974,7 +1285,9 @@ function readGatesFileStrict(cwd: string, org: string): { gates: DecisionGate[] 
   try {
     parsed = JSON.parse(raw) as { gates?: DecisionGate[] };
   } catch (err) {
-    throw new Error(`${path} is not valid JSON (${err instanceof Error ? err.message : String(err)})`);
+    throw new Error(
+      `${path} is not valid JSON (${err instanceof Error ? err.message : String(err)})`,
+    );
   }
   if (parsed?.gates === undefined || parsed.gates === null) return { gates: [] };
   if (!Array.isArray(parsed.gates)) throw new Error(`${path}: "gates" is not an array`);
@@ -983,17 +1296,28 @@ function readGatesFileStrict(cwd: string, org: string): { gates: DecisionGate[] 
 
 export const gatesAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
   const data = readGatesFile(ctx.cwd, name);
-  const showAll = ctx.flags['all'] === true;
-  const gates = showAll ? data.gates : data.gates.filter(g => g.status === 'pending');
+  const showAll = ctx.flags.all === true;
+  const gates = showAll ? data.gates : data.gates.filter((g) => g.status === 'pending');
 
   if (!gates.length) {
-    log(output.info(showAll ? `No gates for org "${name}"` : `No pending gates for org "${name}" (use --all to include resolved)`));
+    log(
+      output.info(
+        showAll
+          ? `No gates for org "${name}"`
+          : `No pending gates for org "${name}" (use --all to include resolved)`,
+      ),
+    );
     return { success: true };
   }
 
   log(output.info(`${showAll ? 'All' : 'Pending'} gates for org "${name}" (${gates.length}):\n`));
   for (const g of gates) {
-    const status = g.status === 'pending' ? '⏳ pending' : g.status === 'approved' ? '✅ approved' : '❌ rejected';
+    const status =
+      g.status === 'pending'
+        ? '⏳ pending'
+        : g.status === 'approved'
+          ? '✅ approved'
+          : '❌ rejected';
     log(output.info(`  ${g.id}  ${status}  role:${g.roleId}`));
     log(output.info(`    name: ${g.name}`));
     log(output.info(`    desc: ${g.description}`));
@@ -1003,21 +1327,34 @@ export const gatesAction = async (ctx: CommandContext, name: string): Promise<Co
   return { success: true, message: `${gates.length} gate(s)` };
 };
 
-export const gateResolveAction = async (ctx: CommandContext, name: string, approved: boolean): Promise<CommandResult> => {
+export const gateResolveAction = async (
+  ctx: CommandContext,
+  name: string,
+  approved: boolean,
+): Promise<CommandResult> => {
   const gateId = ctx.args[1];
   const resolution = ctx.args.slice(2).join(' ') || undefined;
-  if (!gateId) return { success: false, message: `usage: monomind org gate-${approved ? 'approve' : 'reject'} ${name} <gate-id> [resolution]` };
+  if (!gateId)
+    return {
+      success: false,
+      message: `usage: monomind org gate-${approved ? 'approve' : 'reject'} ${name} <gate-id> [resolution]`,
+    };
 
   let data: { gates: DecisionGate[] };
   try {
     data = readGatesFileStrict(ctx.cwd, name);
   } catch (err) {
-    log(output.error(`Cannot read gates for org ${name}: ${err instanceof Error ? err.message : String(err)}`));
+    log(
+      output.error(
+        `Cannot read gates for org ${name}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
     return { success: false, message: 'gates.json unreadable — gate not resolved' };
   }
-  const gate = data.gates.find(g => g.id === gateId);
+  const gate = data.gates.find((g) => g.id === gateId);
   if (!gate) return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
-  if (gate.status !== 'pending') return { success: false, message: `gate "${gateId}" already resolved (${gate.status})` };
+  if (gate.status !== 'pending')
+    return { success: false, message: `gate "${gateId}" already resolved (${gate.status})` };
 
   const { lookupOrg, normalizeCredential } = await import('../orgrt/broker.js');
   const remote = lookupOrg(name);
@@ -1025,18 +1362,30 @@ export const gateResolveAction = async (ctx: CommandContext, name: string, appro
     const cred = normalizeCredential(remote.credential);
     try {
       const res = await fetch(`${remote.url}/api/resolve-gate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...(cred ? { 'x-monomind-cred': cred } : {}) },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cred ? { 'x-monomind-cred': cred } : {}),
+        },
         body: JSON.stringify({ org: name, gateId, approved, resolution }),
         signal: AbortSignal.timeout(10_000),
       });
-      const d = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      const d = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && d.ok) {
         log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} (live).`));
         return { success: true, message: `gate ${approved ? 'approved' : 'rejected'}` };
       }
-      log(output.warning(`Live resolution rejected (${d.error ?? res.status}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Live resolution rejected (${d.error ?? res.status}) — falling back to offline queue.`,
+        ),
+      );
     } catch (err) {
-      log(output.warning(`Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`));
+      log(
+        output.warning(
+          `Hosting daemon unreachable (${err instanceof Error ? err.message : 'error'}) — falling back to offline queue.`,
+        ),
+      );
     }
   }
 
@@ -1050,14 +1399,26 @@ export const gateResolveAction = async (ctx: CommandContext, name: string, appro
   try {
     fresh = readGatesFileStrict(ctx.cwd, name);
   } catch (err) {
-    log(output.error(`Refusing to rewrite gates.json — ${err instanceof Error ? err.message : String(err)}`));
-    log(output.warning(`The gate was NOT resolved. Fix or restore ${join(ctx.cwd, ORG_DIR, name, 'gates.json')}, then retry.`));
+    log(
+      output.error(
+        `Refusing to rewrite gates.json — ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
+    log(
+      output.warning(
+        `The gate was NOT resolved. Fix or restore ${join(ctx.cwd, ORG_DIR, name, 'gates.json')}, then retry.`,
+      ),
+    );
     return { success: false, message: 'gates.json unreadable — gate not resolved' };
   }
-  const idx = fresh.gates.findIndex(g => g.id === gateId);
-  if (idx === -1) return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
+  const idx = fresh.gates.findIndex((g) => g.id === gateId);
+  if (idx === -1)
+    return { success: false, message: `gate "${gateId}" not found for org "${name}"` };
   if (fresh.gates[idx].status !== 'pending') {
-    return { success: false, message: `gate "${gateId}" already resolved (${fresh.gates[idx].status})` };
+    return {
+      success: false,
+      message: `gate "${gateId}" already resolved (${fresh.gates[idx].status})`,
+    };
   }
   fresh.gates[idx] = {
     ...fresh.gates[idx],
@@ -1068,6 +1429,10 @@ export const gateResolveAction = async (ctx: CommandContext, name: string, appro
   };
   writeGates(ctx.cwd, name, fresh);
 
-  log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} — ${name} picks it up on its next cycle.`));
+  log(
+    output.success(
+      `Gate ${gateId} ${approved ? 'approved' : 'rejected'} — ${name} picks it up on its next cycle.`,
+    ),
+  );
   return { success: true, message: `gate ${approved ? 'approved' : 'rejected'} (queued)` };
 };

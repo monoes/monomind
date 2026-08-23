@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, appendFileSync } from 'fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import type { VitalSigns } from './health-report-types.js';
 
 export interface VitalSignsSnapshot {
@@ -85,7 +85,7 @@ export function buildSnapshot(vitals: VitalSigns, score: number): VitalSignsSnap
 }
 
 export function saveSnapshot(snapshotPath: string, snapshot: VitalSignsSnapshot): void {
-  appendFileSync(snapshotPath, JSON.stringify(snapshot) + '\n', 'utf-8');
+  appendFileSync(snapshotPath, `${JSON.stringify(snapshot)}\n`, 'utf-8');
 }
 
 export function loadSnapshots(snapshotPath: string): VitalSignsSnapshot[] {

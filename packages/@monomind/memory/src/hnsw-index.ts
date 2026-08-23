@@ -13,16 +13,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import {
-  DistanceMetric,
-  HNSWConfig,
-  HNSWStats,
-  QuantizationConfig,
-  SearchResult,
-  MemoryEntry,
-  MemoryEvent,
-  MemoryEventHandler,
-} from './types.js';
+import type { HNSWConfig, HNSWStats, QuantizationConfig } from './types.js';
 
 /**
  * Binary Min Heap for O(log n) priority queue operations
@@ -275,7 +266,7 @@ export class HNSWIndex extends EventEmitter {
 
     if (vector.length !== this.config.dimensions) {
       throw new Error(
-        `Vector dimension mismatch: expected ${this.config.dimensions}, got ${vector.length}`
+        `Vector dimension mismatch: expected ${this.config.dimensions}, got ${vector.length}`,
       );
     }
 
@@ -284,14 +275,11 @@ export class HNSWIndex extends EventEmitter {
     }
 
     // Quantize if enabled
-    const storedVector = this.quantizer
-      ? this.quantizer.encode(vector)
-      : vector;
+    const storedVector = this.quantizer ? this.quantizer.encode(vector) : vector;
 
     // Pre-normalize vector for O(1) cosine similarity
-    const normalizedVector = this.config.metric === 'cosine'
-      ? this.normalizeVector(storedVector)
-      : null;
+    const normalizedVector =
+      this.config.metric === 'cosine' ? this.normalizeVector(storedVector) : null;
 
     // Generate random level for new node
     const level = this.getRandomLevel();
@@ -332,13 +320,13 @@ export class HNSWIndex extends EventEmitter {
   async search(
     query: Float32Array,
     k: number,
-    ef?: number
+    ef?: number,
   ): Promise<Array<{ id: string; distance: number }>> {
     const startTime = performance.now();
 
     if (query.length !== this.config.dimensions) {
       throw new Error(
-        `Query dimension mismatch: expected ${this.config.dimensions}, got ${query.length}`
+        `Query dimension mismatch: expected ${this.config.dimensions}, got ${query.length}`,
       );
     }
 
@@ -349,21 +337,18 @@ export class HNSWIndex extends EventEmitter {
     const searchEf = ef || Math.max(k, this.config.efConstruction);
 
     // Quantize query if needed
-    const queryVector = this.quantizer
-      ? this.quantizer.encode(query)
-      : query;
+    const queryVector = this.quantizer ? this.quantizer.encode(query) : query;
 
     // Pre-normalize query for O(1) cosine similarity
-    const normalizedQuery = this.config.metric === 'cosine'
-      ? this.normalizeVector(queryVector)
-      : null;
+    const normalizedQuery =
+      this.config.metric === 'cosine' ? this.normalizeVector(queryVector) : null;
 
     // Start from entry point and search down the layers
     let currentNode = this.entryPoint;
-    let currentDist = this.distanceOptimized(
+    let _currentDist = this.distanceOptimized(
       queryVector,
       normalizedQuery,
-      this.nodes.get(currentNode)!
+      this.nodes.get(currentNode)!,
     );
 
     // Search through layers from top to 1
@@ -373,13 +358,13 @@ export class HNSWIndex extends EventEmitter {
         normalizedQuery,
         currentNode,
         1,
-        level
+        level,
       );
       currentNode = layerResult[0]?.id || currentNode;
-      currentDist = this.distanceOptimized(
+      _currentDist = this.distanceOptimized(
         queryVector,
         normalizedQuery,
-        this.nodes.get(currentNode)!
+        this.nodes.get(currentNode)!,
       );
     }
 
@@ -389,7 +374,7 @@ export class HNSWIndex extends EventEmitter {
       normalizedQuery,
       currentNode,
       searchEf,
-      0
+      0,
     );
 
     // Return top k results (already sorted by heap)
@@ -409,15 +394,13 @@ export class HNSWIndex extends EventEmitter {
     query: Float32Array,
     k: number,
     filter: (id: string) => boolean,
-    ef?: number
+    ef?: number,
   ): Promise<Array<{ id: string; distance: number }>> {
     // Over-fetch to account for filtered results
     const overFetchFactor = 3;
     const candidates = await this.search(query, k * overFetchFactor, ef);
 
-    return candidates
-      .filter((c) => filter(c.id))
-      .slice(0, k);
+    return candidates.filter((c) => filter(c.id)).slice(0, k);
   }
 
   /**
@@ -471,9 +454,7 @@ export class HNSWIndex extends EventEmitter {
   /**
    * Rebuild the index from scratch
    */
-  async rebuild(
-    entries: Array<{ id: string; vector: Float32Array }>
-  ): Promise<void> {
+  async rebuild(entries: Array<{ id: string; vector: Float32Array }>): Promise<void> {
     this.stats.buildStartTime = performance.now();
 
     this.nodes.clear();
@@ -514,7 +495,10 @@ export class HNSWIndex extends EventEmitter {
         id: node.id,
         vectorB64: buf.toString('base64'),
         level: node.level,
-        connections: Array.from(node.connections.entries()).map(([lvl, set]) => [lvl, Array.from(set)]),
+        connections: Array.from(node.connections.entries()).map(([lvl, set]) => [
+          lvl,
+          Array.from(set),
+        ]),
       });
     }
     return {
@@ -535,7 +519,8 @@ export class HNSWIndex extends EventEmitter {
     for (const n of data.nodes) {
       const buf = Buffer.from(n.vectorB64, 'base64');
       const vector = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
-      const normalizedVector = data.config.metric === 'cosine' ? index.normalizeVector(vector) : null;
+      const normalizedVector =
+        data.config.metric === 'cosine' ? index.normalizeVector(vector) : null;
       const connections = new Map<number, Set<string>>();
       for (const [lvl, ids] of n.connections) connections.set(lvl, new Set(ids));
       index.nodes.set(n.id, { id: n.id, vector, normalizedVector, connections, level: n.level });
@@ -551,9 +536,7 @@ export class HNSWIndex extends EventEmitter {
   getStats(): HNSWStats {
     const vectorCount = this.nodes.size;
     const avgSearchTime =
-      this.stats.searchCount > 0
-        ? this.stats.totalSearchTime / this.stats.searchCount
-        : 0;
+      this.stats.searchCount > 0 ? this.stats.totalSearchTime / this.stats.searchCount : 0;
 
     // Estimate memory usage
     const bytesPerVector = this.config.dimensions * 4; // Float32 = 4 bytes
@@ -622,11 +605,7 @@ export class HNSWIndex extends EventEmitter {
     const query = node.vector;
     const normalizedQuery = node.normalizedVector;
     let currentNode = this.entryPoint!;
-    let currentDist = this.distanceOptimized(
-      query,
-      normalizedQuery,
-      this.nodes.get(currentNode)!
-    );
+    let currentDist = this.distanceOptimized(query, normalizedQuery, this.nodes.get(currentNode)!);
 
     // Find entry point for the node's level
     for (let level = this.maxLevel; level > node.level; level--) {
@@ -644,20 +623,15 @@ export class HNSWIndex extends EventEmitter {
         normalizedQuery,
         currentNode,
         this.config.efConstruction,
-        level
+        level,
       );
 
       // Select M best neighbors
-      const selectedNeighbors = this.selectNeighbors(
-        node.id,
-        query,
-        neighbors,
-        this.config.M
-      );
+      const selectedNeighbors = this.selectNeighbors(node.id, query, neighbors, this.config.M);
 
       // Add connections
       for (const neighbor of selectedNeighbors) {
-        node.connections.get(level)!.add(neighbor.id);
+        node.connections.get(level)?.add(neighbor.id);
         this.nodes.get(neighbor.id)?.connections.get(level)?.add(node.id);
 
         // Prune connections if over limit
@@ -695,7 +669,7 @@ export class HNSWIndex extends EventEmitter {
     normalizedQuery: Float32Array | null,
     entryPoint: string,
     ef: number,
-    level: number
+    level: number,
   ): Array<{ id: string; distance: number }> {
     const visited = new Set<string>([entryPoint]);
 
@@ -756,15 +730,13 @@ export class HNSWIndex extends EventEmitter {
 
   private selectNeighbors(
     nodeId: string,
-    query: Float32Array,
+    _query: Float32Array,
     candidates: Array<{ id: string; distance: number }>,
-    M: number
+    M: number,
   ): Array<{ id: string; distance: number }> {
     // candidates arrive distance-ascending from searchLayerOptimized/toSortedArray;
     // filter preserves that order, so no additional sort is needed.
-    return candidates
-      .filter((c) => c.id !== nodeId)
-      .slice(0, M);
+    return candidates.filter((c) => c.id !== nodeId).slice(0, M);
   }
 
   private pruneConnections(node: HNSWNode, level: number, maxConnections: number): void {
@@ -849,18 +821,18 @@ export class HNSWIndex extends EventEmitter {
   private normalizeVector(vector: Float32Array): Float32Array {
     let norm = 0;
     for (let i = 0; i < vector.length; i++) {
-      const v = isFinite(vector[i]) ? vector[i] : 0;
+      const v = Number.isFinite(vector[i]) ? vector[i] : 0;
       norm += v * v;
     }
     norm = Math.sqrt(norm);
 
-    if (norm === 0 || !isFinite(norm)) {
+    if (norm === 0 || !Number.isFinite(norm)) {
       return new Float32Array(vector.length); // safe zero vector for non-finite input
     }
 
     const normalized = new Float32Array(vector.length);
     for (let i = 0; i < vector.length; i++) {
-      normalized[i] = (isFinite(vector[i]) ? vector[i] : 0) / norm;
+      normalized[i] = (Number.isFinite(vector[i]) ? vector[i] : 0) / norm;
     }
     return normalized;
   }
@@ -871,7 +843,7 @@ export class HNSWIndex extends EventEmitter {
   private distanceOptimized(
     query: Float32Array,
     normalizedQuery: Float32Array | null,
-    node: HNSWNode
+    node: HNSWNode,
   ): number {
     // Use optimized path for cosine with pre-normalized vectors
     if (
@@ -918,7 +890,6 @@ export class HNSWIndex extends EventEmitter {
  */
 class Quantizer {
   private config: QuantizationConfig;
-  private dimensions: number;
 
   constructor(config: QuantizationConfig, dimensions: number) {
     this.config = config;
@@ -978,7 +949,7 @@ class Quantizer {
 
     const range = max - min || 1;
     const bits = this.config.bits || 8;
-    const levels = Math.pow(2, bits);
+    const levels = 2 ** bits;
 
     // Quantize each value to [0, levels-1] and normalize back to [0, 1]
     // so the resulting vector is compatible with cosine/euclidean distance.

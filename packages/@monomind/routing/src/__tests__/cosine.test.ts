@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { cosineSimilarity, computeCentroid } from '../cosine.js';
+import { describe, expect, it } from 'vitest';
+import { computeCentroid, cosineSimilarity } from '../cosine.js';
 
 describe('cosineSimilarity', () => {
   it('returns 1 for identical vectors', () => {

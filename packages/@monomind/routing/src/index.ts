@@ -1,11 +1,17 @@
-export { RouteLayer } from './route-layer.js';
-export { cosineSimilarity, computeCentroid } from './cosine.js';
-export { LocalEncoder, HNSWEncoder } from './encoder.js';
+export { buildCandidateHints, buildCapabilityIndex } from './capability-index.js';
+export { computeCentroid, cosineSimilarity } from './cosine.js';
 export type { Encoder } from './encoder.js';
-export { LLMFallbackRouter } from './llm-fallback.js';
-export { buildCapabilityIndex, buildCandidateHints } from './capability-index.js';
-export { buildClassificationPrompt } from './prompts/classify.js';
-export type { Route, RouteResult, RouteLayerConfig, AgentCapability, LLMFallbackConfig } from './types.js';
-export { ALL_ROUTES } from './routes/index.js';
-export { KeywordPreFilter, DEFAULT_KEYWORD_ROUTES } from './keyword-pre-filter.js';
+export { HNSWEncoder, LocalEncoder } from './encoder.js';
 export type { KeywordRule } from './keyword-pre-filter.js';
+export { DEFAULT_KEYWORD_ROUTES, KeywordPreFilter } from './keyword-pre-filter.js';
+export { LLMFallbackRouter } from './llm-fallback.js';
+export { buildClassificationPrompt } from './prompts/classify.js';
+export { RouteLayer } from './route-layer.js';
+export { ALL_ROUTES } from './routes/index.js';
+export type {
+  AgentCapability,
+  LLMFallbackConfig,
+  Route,
+  RouteLayerConfig,
+  RouteResult,
+} from './types.js';

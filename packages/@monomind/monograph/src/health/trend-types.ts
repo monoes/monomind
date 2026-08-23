@@ -43,8 +43,8 @@ export interface HealthTrend {
 
 export function computeOverallDirection(metrics: TrendMetric[]): TrendDirection {
   if (metrics.length === 0) return 'stable';
-  const improving = metrics.filter(m => m.direction === 'improving').length;
-  const declining = metrics.filter(m => m.direction === 'declining').length;
+  const improving = metrics.filter((m) => m.direction === 'improving').length;
+  const declining = metrics.filter((m) => m.direction === 'declining').length;
   if (improving > declining) return 'improving';
   if (declining > improving) return 'declining';
   return 'stable';

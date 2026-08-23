@@ -5,16 +5,23 @@
  * github.com/monoes/monomind
  */
 
-import type { Command, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { scanCommand, secretsCommand } from './security-scan.js';
+import type { Command, CommandResult } from '../types.js';
 import { cveCommand } from './security-cve.js';
 import { auditCommand, defendCommand, redteamCommand } from './security-misc.js';
+import { scanCommand, secretsCommand } from './security-scan.js';
 
 export const securityCommand: Command = {
   name: 'security',
   description: 'Security scanning, CVE detection, threat modeling, AI defense',
-  subcommands: [scanCommand, cveCommand, auditCommand, secretsCommand, defendCommand, redteamCommand],
+  subcommands: [
+    scanCommand,
+    cveCommand,
+    auditCommand,
+    secretsCommand,
+    defendCommand,
+    redteamCommand,
+  ],
   examples: [
     { command: 'monomind security scan', description: 'Run security scan' },
     { command: 'monomind security cve --list', description: 'List known CVEs' },

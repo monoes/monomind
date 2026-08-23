@@ -3,17 +3,17 @@
  * Covers: append-not-overwrite, uninstall-only-marker-block, post-checkout,
  * Husky detection, rebase guards, and per-hook status details.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
-  installGitHooks,
-  uninstallGitHooks,
   getHookStatus,
   HOOK_MARKER_START,
-  HOOK_MARKER_END,
+  installGitHooks,
   type PerHookStatus,
+  uninstallGitHooks,
 } from '../../cli/hooks-install.js';
 
 function makeRepo(): string {
@@ -123,7 +123,7 @@ describe('per-hook status (getHookStatus with details)', () => {
     installGitHooks(tmpDir, ['pre-commit', 'post-checkout']);
     const status = getHookStatus(tmpDir);
     expect(status.perHook).toBeDefined();
-    const preCommit = status.perHook!['pre-commit'];
+    const preCommit = status.perHook?.['pre-commit'];
     expect(preCommit).toBeDefined();
     expect((preCommit as PerHookStatus).installed).toBe(true);
   });

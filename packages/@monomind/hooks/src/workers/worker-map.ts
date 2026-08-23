@@ -8,8 +8,8 @@
  * topFiles?: [{ ref, degree }], graphStaleness?: { commitsBehind } }
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { WorkerHandler, WorkerResult } from './worker-manager.js';
 
 export function createMapWorker(projectRoot: string): WorkerHandler {
@@ -44,7 +44,7 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
       if (fs.existsSync(dbPath)) {
         const db = openDb(dbPath);
         try {
-          map['graph'] = {
+          map.graph = {
             nodes: countNodes(db),
             edges: countEdges(db),
           };
@@ -70,7 +70,7 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
           }>;
 
           if (rows.length > 0) {
-            map['topFiles'] = rows.map((r) => ({
+            map.topFiles = rows.map((r) => ({
               ref: r.file_path
                 ? r.start_line != null
                   ? `${r.file_path}:${r.start_line}`
@@ -82,7 +82,7 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
 
           // Index staleness via git — same approach as monograph_health tool
           try {
-            const { execFileSync } = await import('child_process');
+            const { execFileSync } = await import('node:child_process');
             const lastHash = (
               db.prepare("SELECT value FROM meta WHERE key = 'last_commit_hash' LIMIT 1").get() as
                 | { value?: string }
@@ -111,8 +111,8 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
                   .toString()
                   .trim();
                 const commitsBehind = parseInt(countOut, 10);
-                if (!isNaN(commitsBehind)) {
-                  map['graphStaleness'] = { commitsBehind };
+                if (!Number.isNaN(commitsBehind)) {
+                  map.graphStaleness = { commitsBehind };
                 }
               }
             }
@@ -128,7 +128,7 @@ export function createMapWorker(projectRoot: string): WorkerHandler {
     }
 
     // Atomic write: tmp + rename, so readers never see a partial file.
-    const tmp = metricsFile + '.tmp';
+    const tmp = `${metricsFile}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(map, null, 2));
     fs.renameSync(tmp, metricsFile);
 

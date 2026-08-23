@@ -3,15 +3,23 @@
  * Agent management commands for spawning, listing, and controlling agents
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { spawnCommand, listCommand, statusCommand, stopCommand } from './agent-lifecycle.js';
-import { metricsCommand, poolCommand, healthCommand } from './agent-ops.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import { listCommand, spawnCommand, statusCommand, stopCommand } from './agent-lifecycle.js';
+import { healthCommand, metricsCommand, poolCommand } from './agent-ops.js';
 
 export const agentCommand: Command = {
   name: 'agent',
   description: 'Agent management commands',
-  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand],
+  subcommands: [
+    spawnCommand,
+    listCommand,
+    statusCommand,
+    stopCommand,
+    metricsCommand,
+    poolCommand,
+    healthCommand,
+  ],
   options: [],
   examples: [
     { command: 'monomind agent spawn -t coder', description: 'Spawn a coder agent' },

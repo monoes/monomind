@@ -4,14 +4,14 @@
  * MCP session lifecycle management
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import type {
-  MCPSession,
-  SessionState,
-  SessionMetrics,
-  MCPInitializeParams,
-  TransportType,
   ILogger,
+  MCPInitializeParams,
+  MCPSession,
+  SessionMetrics,
+  SessionState,
+  TransportType,
 } from './types.js';
 
 export interface SessionConfig {
@@ -40,7 +40,7 @@ export class SessionManager extends EventEmitter {
 
   constructor(
     private readonly logger: ILogger,
-    config: SessionConfig = {}
+    config: SessionConfig = {},
   ) {
     super();
     this.config = { ...DEFAULT_SESSION_CONFIG, ...config };
@@ -74,10 +74,7 @@ export class SessionManager extends EventEmitter {
     return session;
   }
 
-  initializeSession(
-    sessionId: string,
-    params: MCPInitializeParams
-  ): MCPSession | undefined {
+  initializeSession(sessionId: string, params: MCPInitializeParams): MCPSession | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) {
       this.logger.warn('Session not found for initialization', { sessionId });
@@ -126,7 +123,7 @@ export class SessionManager extends EventEmitter {
 
   getActiveSessions(): MCPSession[] {
     return Array.from(this.sessions.values()).filter(
-      (s) => s.state === 'ready' || s.state === 'created' || s.state === 'initializing'
+      (s) => s.state === 'ready' || s.state === 'created' || s.state === 'initializing',
     );
   }
 
@@ -331,9 +328,6 @@ export class SessionManager extends EventEmitter {
   }
 }
 
-export function createSessionManager(
-  logger: ILogger,
-  config?: SessionConfig
-): SessionManager {
+export function createSessionManager(logger: ILogger, config?: SessionConfig): SessionManager {
   return new SessionManager(logger, config);
 }

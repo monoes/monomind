@@ -7,8 +7,8 @@
  * All templates use bullet-format rules with imperative keywords for enforceability.
  */
 
-import { createRequire } from 'module';
-import type { InitOptions, ClaudeMdTemplate } from './types.js';
+import { createRequire } from 'node:module';
+import type { ClaudeMdTemplate, InitOptions } from './types.js';
 
 // --- Optional package availability (P1-23) ---
 // The docs below advertise features backed by optionalDependencies (npm may
@@ -27,7 +27,12 @@ function detectOptionalPackages(): OptionalPackageAvailability {
   if (_availabilityCache) return _availabilityCache;
   const req = createRequire(import.meta.url);
   const resolvable = (pkg: string): boolean => {
-    try { req.resolve(pkg); return true; } catch { return false; }
+    try {
+      req.resolve(pkg);
+      return true;
+    } catch {
+      return false;
+    }
   };
   _availabilityCache = {
     hooks: resolvable('@monoes/hooks'),
@@ -608,7 +613,7 @@ export function generateClaudeMd(options: InitOptions, template?: ClaudeMdTempla
   const sections = TEMPLATE_SECTIONS[tmpl] ?? TEMPLATE_SECTIONS.standard;
 
   const header = `# Claude Code Configuration - Monomind\n`;
-  const body = sections.map(fn => fn(options)).join('\n\n');
+  const body = sections.map((fn) => fn(options)).join('\n\n');
 
   return `${header}\n${body}\n`;
 }
@@ -623,11 +628,26 @@ export function generateMinimalClaudeMd(options: InitOptions): string {
 /** Available template names for CLI wizard */
 export const CLAUDE_MD_TEMPLATES: Array<{ name: ClaudeMdTemplate; description: string }> = [
   { name: 'minimal', description: 'Quick start — behavioral rules, CLI reference (~160 lines)' },
-  { name: 'standard', description: 'Recommended — monoswarm rules, agents, memory commands (~225 lines)' },
-  { name: 'full', description: 'Everything — hooks, learning protocol, intelligence system (~400 lines)' },
-  { name: 'security', description: 'Security-focused — adds security scanning, audit protocols, CVE checks' },
-  { name: 'performance', description: 'Performance-focused — adds benchmarking, profiling, optimization protocols' },
-  { name: 'solo', description: 'Solo developer — no monoswarm, simple agent usage, memory commands (~150 lines)' },
+  {
+    name: 'standard',
+    description: 'Recommended — monoswarm rules, agents, memory commands (~225 lines)',
+  },
+  {
+    name: 'full',
+    description: 'Everything — hooks, learning protocol, intelligence system (~400 lines)',
+  },
+  {
+    name: 'security',
+    description: 'Security-focused — adds security scanning, audit protocols, CVE checks',
+  },
+  {
+    name: 'performance',
+    description: 'Performance-focused — adds benchmarking, profiling, optimization protocols',
+  },
+  {
+    name: 'solo',
+    description: 'Solo developer — no monoswarm, simple agent usage, memory commands (~150 lines)',
+  },
 ];
 
 export default generateClaudeMd;

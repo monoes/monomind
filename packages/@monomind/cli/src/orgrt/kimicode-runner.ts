@@ -66,8 +66,15 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
 
 /** How long a single `kimi -p` invocation may run before we kill it (2 hours,
  *  matching kimi's own subagent default). */
@@ -103,10 +110,13 @@ export class KimiCodeAgentRunner implements AgentRunner {
     //      Keep it minimal — org-specific denials belong here, not prose.
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-'));
     const agentFile = path.join(tmpDir, 'org-role.md');
-    fs.writeFileSync(agentFile,
+    fs.writeFileSync(
+      agentFile,
       `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n` +
-      `tools: [Bash, Read, Write, Edit, Glob, Grep]\n---\n\n` +
-      args.systemPrompt + buildToolProtocol(args.tools));
+        `tools: [Bash, Read, Write, Edit, Glob, Grep]\n---\n\n` +
+        args.systemPrompt +
+        buildToolProtocol(args.tools),
+    );
 
     // Empty skills dir: kimi loads every user/project skill's description
     // into the system prompt on launch (measured: 47 skills ≈ several KB per
@@ -135,7 +145,14 @@ export class KimiCodeAgentRunner implements AgentRunner {
           // collected here while the stripped prose streams out live below.
           const rawTexts: string[] = [];
 
-          for await (const ev of this.streamTurn(bin, nextPrompt, sessionId, args, agentFile, outcome)) {
+          for await (const ev of this.streamTurn(
+            bin,
+            nextPrompt,
+            sessionId,
+            args,
+            agentFile,
+            outcome,
+          )) {
             if (ev.sessionId) sessionId = ev.sessionId;
             if (ev.kind === 'assistant' && ev.rawText !== undefined) {
               rawTexts.push(ev.rawText);
@@ -163,9 +180,11 @@ export class KimiCodeAgentRunner implements AgentRunner {
           turnOutputTokens += usage.output;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(rawTexts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
+          const calls = parseToolCalls(rawTexts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
           for (const note of malformed) {
             yield { type: 'assistant', session_id: sessionId, text: note };
           }
@@ -205,12 +224,16 @@ export class KimiCodeAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'KimiCodeAgentRunner requires the Kimi Code CLI (kimi) on PATH. ' +
-          'Install it and log in, or unset MONOMIND_RUNTIME to use the Claude runner.',
+            'Install it and log in, or unset MONOMIND_RUNTIME to use the Claude runner.',
         );
       }
       throw err;
     } finally {
-      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        /* best-effort */
+      }
     }
   }
 
@@ -234,7 +257,14 @@ export class KimiCodeAgentRunner implements AgentRunner {
     // the prompt. Putting flags in between (e.g. `-p --session <id> text`)
     // makes kimi consume the flag as the prompt and fail with
     // "unknown command". Prompt first, flags after.
-    const cliArgs: string[] = ['-p', promptText, '--output-format', 'stream-json', '--skills-dir', this.emptySkillsDir];
+    const cliArgs: string[] = [
+      '-p',
+      promptText,
+      '--output-format',
+      'stream-json',
+      '--skills-dir',
+      this.emptySkillsDir,
+    ];
     if (sessionId) {
       cliArgs.push('--session', sessionId);
     } else {
@@ -280,7 +310,13 @@ export class KimiCodeAgentRunner implements AgentRunner {
       child.kill('SIGTERM');
       // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
       // escalate to SIGKILL after a short grace period.
-      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
       killTimer.unref?.();
     }, TURN_TIMEOUT_MS);
 
@@ -330,7 +366,11 @@ export class KimiCodeAgentRunner implements AgentRunner {
       // silent-abort calls iterator.return(), the mailbox closes, or an
       // error is thrown downstream), don't leak the CLI subprocess.
       if (child.exitCode === null && !child.killed) {
-        try { child.kill('SIGTERM'); } catch { /* already gone */ }
+        try {
+          child.kill('SIGTERM');
+        } catch {
+          /* already gone */
+        }
       }
     }
 
@@ -354,19 +394,29 @@ export class KimiCodeAgentRunner implements AgentRunner {
    * double-counted. Returns zeros when the wire file can't be found — usage
    * reporting must never break a turn.
    */
-  private readUsageDelta(sessionId: string | undefined, env: Record<string, string>, since: number): { input: number; output: number } {
+  private readUsageDelta(
+    sessionId: string | undefined,
+    env: Record<string, string>,
+    since: number,
+  ): { input: number; output: number } {
     if (!sessionId) return { input: 0, output: 0 };
     try {
-      const home = env.KIMI_CODE_HOME || process.env.KIMI_CODE_HOME || path.join(os.homedir(), '.kimi-code');
+      const home =
+        env.KIMI_CODE_HOME || process.env.KIMI_CODE_HOME || path.join(os.homedir(), '.kimi-code');
       const sessionsDir = path.join(home, 'sessions');
       const wirePath = findWireFile(sessionsDir, sessionId);
       if (!wirePath) return { input: 0, output: 0 };
 
       const lines = fs.readFileSync(wirePath, 'utf-8').split('\n').filter(Boolean);
-      let input = 0, output = 0;
+      let input = 0,
+        output = 0;
       for (const line of lines) {
         let ev: Record<string, unknown>;
-        try { ev = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+        try {
+          ev = JSON.parse(line) as Record<string, unknown>;
+        } catch {
+          continue;
+        }
         if (ev.type !== 'usage.record') continue;
         if (typeof ev.time === 'number' && ev.time < since) continue;
         const u = (ev.usage ?? {}) as Record<string, number>;
@@ -385,10 +435,18 @@ export class KimiCodeAgentRunner implements AgentRunner {
  *  reimplementing the hash. */
 function findWireFile(sessionsDir: string, sessionId: string): string | null {
   let wds: string[];
-  try { wds = fs.readdirSync(sessionsDir); } catch { return null; }
+  try {
+    wds = fs.readdirSync(sessionsDir);
+  } catch {
+    return null;
+  }
   for (const wd of wds) {
     const candidate = path.join(sessionsDir, wd, sessionId, 'agents', 'main', 'wire.jsonl');
-    try { if (fs.statSync(candidate).isFile()) return candidate; } catch { /* keep looking */ }
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch {
+      /* keep looking */
+    }
   }
   return null;
 }
@@ -424,13 +482,19 @@ export interface KimiStreamEvent {
  */
 export function parseStreamJsonLine(line: string): KimiStreamEvent | null {
   const t = line.trim();
-  if (!t || !t.startsWith('{')) return null;
+  if (!t?.startsWith('{')) return null;
   let ev: Record<string, unknown>;
-  try { ev = JSON.parse(t) as Record<string, unknown>; } catch { return null; }
+  try {
+    ev = JSON.parse(t) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 
   // Capture the session id from ANY event that carries it — resume needs it
   // on the next turn.
-  const sid = (ev.session_id ?? ev.sessionId ?? (ev.session as Record<string, unknown> | undefined)?.id) as string | undefined;
+  const sid = (ev.session_id ??
+    ev.sessionId ??
+    (ev.session as Record<string, unknown> | undefined)?.id) as string | undefined;
   const sessionId = sid && typeof sid === 'string' ? sid : undefined;
 
   const role = (ev.role ?? ev.type) as string | undefined;
@@ -476,7 +540,11 @@ function describeToolEvent(ev: Record<string, unknown>): string {
  * Batch convenience wrapper over parseStreamJsonLine, kept for callers/tests
  * that parse a completed turn's output; the runner itself streams per line.
  */
-export function parseStreamJsonLines(lines: string[]): { texts: string[]; rawTexts: string[]; sessionId?: string } {
+export function parseStreamJsonLines(lines: string[]): {
+  texts: string[];
+  rawTexts: string[];
+  sessionId?: string;
+} {
   const texts: string[] = [];
   const rawTexts: string[] = [];
   let sessionId: string | undefined;
@@ -502,12 +570,14 @@ function extractStderrSessionId(stderr: string): string | undefined {
   let sessionId: string | undefined;
   for (const line of stderr.split('\n')) {
     const t = line.trim();
-    if (!t || !t.startsWith('{')) continue;
+    if (!t?.startsWith('{')) continue;
     try {
       const ev = JSON.parse(t) as Record<string, unknown>;
       const sid = (ev.session_id ?? ev.sessionId) as string | undefined;
       if (sid && typeof sid === 'string') sessionId = sid;
-    } catch { /* not JSON, skip */ }
+    } catch {
+      /* not JSON, skip */
+    }
   }
   return sessionId;
 }
@@ -517,10 +587,16 @@ function extractStderrSessionId(stderr: string): string | undefined {
  *  the daemon must not burn its crash-restart budget on them. */
 const FATAL_PATTERNS: Array<{ re: RegExp; label: string }> = [
   { re: /auth_error|401|403/i, label: 'authentication/permission error' },
-  { re: /usage limit|quota|billing cycle|insufficient.*balance|rate.?limit/i, label: 'provider quota/billing limit' },
+  {
+    re: /usage limit|quota|billing cycle|insufficient.*balance|rate.?limit/i,
+    label: 'provider quota/billing limit',
+  },
 ];
 
-export interface FatalErrorInfo { fatal: boolean; label?: string }
+export interface FatalErrorInfo {
+  fatal: boolean;
+  label?: string;
+}
 
 /** Classify a CLI turn's stderr: is this a fatal (non-retryable) failure? */
 export function classifyStderr(stderrTail: string): FatalErrorInfo {
@@ -535,7 +611,7 @@ function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
   if (outcome.timedOut) {
     return new Error(
       `KimiCodeAgentRunner: kimi turn (tool round ${round}) exceeded the ${Math.round(TURN_TIMEOUT_MS / 60000)}min ` +
-      `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+        `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
     );
   }
   // Fatal provider errors: report what actually happened, and tag the error
@@ -545,16 +621,17 @@ function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
   if (cls.fatal) {
     const err = new Error(
       `KimiCodeAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
-      (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+        (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
     );
     (err as Error & { fatal?: boolean }).fatal = true;
     return err;
   }
-  const hint = bin === 'kimi' || bin.endsWith('/kimi')
-    ? ' Is the Kimi Code CLI installed and logged in (kimi --version, /login)?'
-    : '';
+  const hint =
+    bin === 'kimi' || bin.endsWith('/kimi')
+      ? ' Is the Kimi Code CLI installed and logged in (kimi --version, /login)?'
+      : '';
   return new Error(
     `KimiCodeAgentRunner: kimi exited with code ${outcome.exitCode} (tool round ${round}).${hint}` +
-    (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+      (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
   );
 }

@@ -4,19 +4,19 @@
  * Extracted from hooks.ts to reduce file size.
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { readFileSync, statSync } from 'node:fs';
+import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { output } from '../output.js';
 import { confirm } from '../prompt.js';
-import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import { statSync, readFileSync } from 'node:fs';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { formatIntelligenceStatus } from './hooks-formatting.js';
 import {
   statusCommand as patternStatusCommand,
   patternsCommand,
-  trainCommand,
   predictCommand,
+  trainCommand,
 } from './neural-core.js';
-import { optimizeCommand, exportCommand } from './neural-optimize.js';
+import { exportCommand, optimizeCommand } from './neural-optimize.js';
 import { importCommand } from './neural-registry.js';
 
 // =============================================================================
@@ -27,7 +27,8 @@ import { importCommand } from './neural-registry.js';
 
 export const intelligenceCommand: Command = {
   name: 'intelligence',
-  description: 'JS pattern/trajectory logging and pattern store (train, patterns, predict, optimize, export, import)',
+  description:
+    'JS pattern/trajectory logging and pattern store (train, patterns, predict, optimize, export, import)',
   subcommands: [
     trainCommand,
     patternStatusCommand,
@@ -40,44 +41,54 @@ export const intelligenceCommand: Command = {
   options: [
     {
       name: 'enable-hnsw',
-      description: 'Enable HNSW vector search (dead fallback path; no-op unless SQLite bridge is down)',
+      description:
+        'Enable HNSW vector search (dead fallback path; no-op unless SQLite bridge is down)',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'status',
       short: 's',
       description: 'Show current intelligence status',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'train',
       short: 't',
       description: 'Force training cycle',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'reset',
       short: 'r',
       description: 'Reset learning state',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
     { command: 'monomind hooks intelligence --status', description: 'Show intelligence status' },
     { command: 'monomind hooks intelligence --train', description: 'Force training cycle' },
-    { command: 'monomind hooks intelligence patterns --action list', description: 'List stored patterns' },
-    { command: 'monomind hooks intelligence predict -i "implement auth"', description: 'Find similar patterns for a task' },
-    { command: 'monomind hooks intelligence train', description: 'Ingest outcome/edit history into the pattern store' }
+    {
+      command: 'monomind hooks intelligence patterns --action list',
+      description: 'List stored patterns',
+    },
+    {
+      command: 'monomind hooks intelligence predict -i "implement auth"',
+      description: 'Find similar patterns for a task',
+    },
+    {
+      command: 'monomind hooks intelligence train',
+      description: 'Ingest outcome/edit history into the pattern store',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const showStatus = ctx.flags.status as boolean;
     const forceTraining = ctx.flags.train as boolean;
     const reset = ctx.flags.reset as boolean;
-    const enableHnsw = ctx.flags['enable-hnsw'] as boolean ?? true;
+    const enableHnsw = (ctx.flags['enable-hnsw'] as boolean) ?? true;
 
     output.writeln();
     output.writeln(output.bold('Intelligence System'));
@@ -86,7 +97,7 @@ export const intelligenceCommand: Command = {
     if (reset) {
       const confirmed = await confirm({
         message: 'Reset all learning state? This cannot be undone.',
-        default: false
+        default: false,
       });
 
       if (!confirmed) {
@@ -105,13 +116,18 @@ export const intelligenceCommand: Command = {
       }
     }
 
-    const spinner = output.createSpinner({ text: 'Initializing intelligence system...', spinner: 'dots' });
+    const spinner = output.createSpinner({
+      text: 'Initializing intelligence system...',
+      spinner: 'dots',
+    });
 
     try {
       spinner.start();
 
       // Read local intelligence data from disk first
-      const { getIntelligenceStats, initializeIntelligence, getPersistenceStatus } = await import('../memory/intelligence.js');
+      const { getIntelligenceStats, initializeIntelligence, getPersistenceStatus } = await import(
+        '../memory/intelligence.js'
+      );
       await initializeIntelligence();
       const localStats = getIntelligenceStats();
       const persistence = getPersistenceStatus();
@@ -128,7 +144,8 @@ export const intelligenceCommand: Command = {
             if (Array.isArray(pData)) patternsFileEntries = pData.length;
           }
         } catch (e) {
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] patterns.json read/parse failed:', e);
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+            console.error('[hooks-intelligence] patterns.json read/parse failed:', e);
         }
       }
 
@@ -144,7 +161,8 @@ export const intelligenceCommand: Command = {
             lastAdaptationFromDisk = sData?.lastAdaptation ?? null;
           }
         } catch (e) {
-          if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[hooks-intelligence] stats.json read/parse failed:', e);
+          if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+            console.error('[hooks-intelligence] stats.json read/parse failed:', e);
         }
       }
 
@@ -161,22 +179,35 @@ export const intelligenceCommand: Command = {
       }
 
       // Build merged result, preferring local real data over MCP zeros
-      const hasLocalData = localStats.patternsLearned > 0 || trajectoriesFromDisk > 0 || patternsFileEntries > 0;
+      const hasLocalData =
+        localStats.patternsLearned > 0 || trajectoriesFromDisk > 0 || patternsFileEntries > 0;
 
       // Use the higher of local vs MCP values for key stats
-      const mcpComponents = (mcpResult as { components?: Record<string, unknown> } | null)?.components as Record<string, Record<string, unknown>> | undefined;
+      const mcpComponents = (mcpResult as { components?: Record<string, unknown> } | null)
+        ?.components as Record<string, Record<string, unknown>> | undefined;
       const mcpSona = mcpComponents?.sona;
       const mcpMoe = mcpComponents?.moe;
       const mcpHnsw = mcpComponents?.hnsw;
       const mcpEmb = mcpComponents?.embeddings;
 
-      const patternsLearned = Math.max(localStats.patternsLearned, patternsFileEntries, Number(mcpSona?.patternsLearned ?? 0));
-      const trajectories = Math.max(localStats.trajectoriesRecorded, trajectoriesFromDisk, Number(mcpSona?.trajectoriesRecorded ?? 0));
+      const patternsLearned = Math.max(
+        localStats.patternsLearned,
+        patternsFileEntries,
+        Number(mcpSona?.patternsLearned ?? 0),
+      );
+      const trajectories = Math.max(
+        localStats.trajectoriesRecorded,
+        trajectoriesFromDisk,
+        Number(mcpSona?.trajectoriesRecorded ?? 0),
+      );
       const lastAdaptation = lastAdaptationFromDisk ?? localStats.lastAdaptation;
-      const avgAdaptation = localStats.avgAdaptationTime > 0 ? localStats.avgAdaptationTime : Number(mcpSona?.adaptationTimeMs ?? 0);
+      const avgAdaptation =
+        localStats.avgAdaptationTime > 0
+          ? localStats.avgAdaptationTime
+          : Number(mcpSona?.adaptationTimeMs ?? 0);
 
       const result = {
-        status: (hasLocalData || mcpResult) ? 'active' as const : 'idle' as const,
+        status: hasLocalData || mcpResult ? ('active' as const) : ('idle' as const),
         components: {
           sona: {
             enabled: true,
@@ -196,23 +227,32 @@ export const intelligenceCommand: Command = {
           },
           hnsw: {
             enabled: enableHnsw,
-            status: String(mcpHnsw?.status ?? (localStats.reasoningBankSize > 0 ? 'active' : 'idle')),
+            status: String(
+              mcpHnsw?.status ?? (localStats.reasoningBankSize > 0 ? 'active' : 'idle'),
+            ),
             indexSize: Math.max(localStats.reasoningBankSize, Number(mcpHnsw?.indexSize ?? 0)),
-            searchSpeedup: String(mcpHnsw?.searchSpeedup ?? (localStats.reasoningBankSize > 0 ? 'pure-JS HNSW' : 'N/A')),
-            memoryUsage: String(mcpHnsw?.memoryUsage ?? (patternsFileSize > 0 ? `${(patternsFileSize / 1024).toFixed(1)} KB` : 'N/A')),
+            searchSpeedup: String(
+              mcpHnsw?.searchSpeedup ?? (localStats.reasoningBankSize > 0 ? 'pure-JS HNSW' : 'N/A'),
+            ),
+            memoryUsage: String(
+              mcpHnsw?.memoryUsage ??
+                (patternsFileSize > 0 ? `${(patternsFileSize / 1024).toFixed(1)} KB` : 'N/A'),
+            ),
             dimension: Number(mcpHnsw?.dimension ?? 384),
           },
-          embeddings: mcpEmb ? {
-            provider: String(mcpEmb.provider ?? 'transformers'),
-            model: String(mcpEmb.model ?? 'default'),
-            dimension: Number(mcpEmb.dimension ?? 384),
-            cacheHitRate: Number(mcpEmb.cacheHitRate ?? 0),
-          } : {
-            provider: 'transformers',
-            model: 'hash-128',
-            dimension: 128,
-            cacheHitRate: 0,
-          },
+          embeddings: mcpEmb
+            ? {
+                provider: String(mcpEmb.provider ?? 'transformers'),
+                model: String(mcpEmb.model ?? 'default'),
+                dimension: Number(mcpEmb.dimension ?? 384),
+                cacheHitRate: Number(mcpEmb.cacheHitRate ?? 0),
+              }
+            : {
+                provider: 'transformers',
+                model: 'hash-128',
+                dimension: 128,
+                cacheHitRate: 0,
+              },
         },
         lastTrainingMs: lastAdaptation ? Date.now() - lastAdaptation : undefined,
         persistence: {
@@ -237,15 +277,13 @@ export const intelligenceCommand: Command = {
         } = await import('../memory/intelligence.js');
 
         // Record a real trajectory step and then end it with a 'success' verdict
-        const content = localStats.patternsLearned > 0
-          ? `training cycle: ${localStats.patternsLearned} patterns, ${localStats.trajectoriesRecorded} trajectories`
-          : 'bootstrap training: initializing intelligence system';
+        const content =
+          localStats.patternsLearned > 0
+            ? `training cycle: ${localStats.patternsLearned} patterns, ${localStats.trajectoriesRecorded} trajectories`
+            : 'bootstrap training: initializing intelligence system';
 
         await recordStep({ type: 'action', content });
-        await recordTrajectory(
-          [{ type: 'action' as const, content }],
-          'success'
-        );
+        await recordTrajectory([{ type: 'action' as const, content }], 'success');
 
         // Run the real EWC-style consolidation pass (dedupes similar patterns
         // by cosine similarity) and flush the result to disk.
@@ -253,7 +291,7 @@ export const intelligenceCommand: Command = {
 
         const updatedStats = getStats();
         spinner.succeed(
-          `Training cycle complete — ${updatedStats.patternsLearned} patterns, consolidation removed ${consolidation.removed} of ${consolidation.before} patterns`
+          `Training cycle complete — ${updatedStats.patternsLearned} patterns, consolidation removed ${consolidation.removed} of ${consolidation.before} patterns`,
         );
         return {
           success: true,
@@ -264,7 +302,11 @@ export const intelligenceCommand: Command = {
           },
         };
       } else {
-        spinner.succeed(hasLocalData ? 'Intelligence system active (local data loaded)' : 'Intelligence system active');
+        spinner.succeed(
+          hasLocalData
+            ? 'Intelligence system active (local data loaded)'
+            : 'Intelligence system active',
+        );
       }
 
       if (ctx.flags.format === 'json') {
@@ -278,9 +320,9 @@ export const intelligenceCommand: Command = {
         [
           `Status: ${formatIntelligenceStatus(result.status)}`,
           `Last Training: ${result.lastTrainingMs != null ? `${(result.lastTrainingMs / 1000).toFixed(0)}s ago` : 'Never'}`,
-          `Data Dir: ${output.dim(persistence.dataDir)}`
+          `Data Dir: ${output.dim(persistence.dataDir)}`,
         ].join('\n'),
-        'Intelligence Status'
+        'Intelligence Status',
       );
 
       // SONA Component
@@ -291,7 +333,7 @@ export const intelligenceCommand: Command = {
         output.printTable({
           columns: [
             { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'value', header: 'Value', width: 20, align: 'right' }
+            { key: 'value', header: 'Value', width: 20, align: 'right' },
           ],
           data: [
             { metric: 'Status', value: formatIntelligenceStatus(sona.status) },
@@ -299,8 +341,11 @@ export const intelligenceCommand: Command = {
             { metric: 'Adaptation Time', value: `${(sona.adaptationTimeMs ?? 0).toFixed(3)}ms` },
             { metric: 'Trajectories', value: sona.trajectoriesRecorded ?? 0 },
             { metric: 'Patterns Learned', value: sona.patternsLearned ?? 0 },
-            { metric: 'Avg Quality', value: sona.avgQuality != null ? `${(sona.avgQuality * 100).toFixed(1)}%` : 'N/A' }
-          ]
+            {
+              metric: 'Avg Quality',
+              value: sona.avgQuality != null ? `${(sona.avgQuality * 100).toFixed(1)}%` : 'N/A',
+            },
+          ],
         });
       } else {
         output.writeln(output.dim('  Disabled'));
@@ -314,14 +359,17 @@ export const intelligenceCommand: Command = {
         output.printTable({
           columns: [
             { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'value', header: 'Value', width: 20, align: 'right' }
+            { key: 'value', header: 'Value', width: 20, align: 'right' },
           ],
           data: [
             { metric: 'Status', value: formatIntelligenceStatus(moe.status) },
             { metric: 'Active Experts', value: moe.expertsActive ?? 0 },
-            { metric: 'Routing Accuracy', value: `${((moe.routingAccuracy ?? 0) * 100).toFixed(1)}%` },
-            { metric: 'Load Balance', value: `${((moe.loadBalance ?? 0) * 100).toFixed(1)}%` }
-          ]
+            {
+              metric: 'Routing Accuracy',
+              value: `${((moe.routingAccuracy ?? 0) * 100).toFixed(1)}%`,
+            },
+            { metric: 'Load Balance', value: `${((moe.loadBalance ?? 0) * 100).toFixed(1)}%` },
+          ],
         });
       } else {
         output.writeln(output.dim('  Disabled'));
@@ -335,15 +383,15 @@ export const intelligenceCommand: Command = {
         output.printTable({
           columns: [
             { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'value', header: 'Value', width: 20, align: 'right' }
+            { key: 'value', header: 'Value', width: 20, align: 'right' },
           ],
           data: [
             { metric: 'Status', value: formatIntelligenceStatus(hnsw.status) },
             { metric: 'Index Size', value: (hnsw.indexSize ?? 0).toLocaleString() },
             { metric: 'Search Speedup', value: output.success(hnsw.searchSpeedup ?? 'N/A') },
             { metric: 'Memory Usage', value: hnsw.memoryUsage ?? 'N/A' },
-            { metric: 'Dimension', value: hnsw.dimension ?? 384 }
-          ]
+            { metric: 'Dimension', value: hnsw.dimension ?? 384 },
+          ],
         });
       } else {
         output.writeln(output.dim('  Disabled'));
@@ -357,14 +405,14 @@ export const intelligenceCommand: Command = {
         output.printTable({
           columns: [
             { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'value', header: 'Value', width: 20, align: 'right' }
+            { key: 'value', header: 'Value', width: 20, align: 'right' },
           ],
           data: [
             { metric: 'Provider', value: emb.provider ?? 'N/A' },
             { metric: 'Model', value: emb.model ?? 'N/A' },
             { metric: 'Dimension', value: emb.dimension ?? 384 },
-            { metric: 'Cache Hit Rate', value: `${((emb.cacheHitRate ?? 0) * 100).toFixed(1)}%` }
-          ]
+            { metric: 'Cache Hit Rate', value: `${((emb.cacheHitRate ?? 0) * 100).toFixed(1)}%` },
+          ],
         });
       } else {
         output.writeln(output.dim('  Not initialized'));
@@ -394,7 +442,7 @@ export const intelligenceCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // =============================================================================
@@ -408,13 +456,11 @@ const workerListCommand: Command = {
   name: 'list',
   description: 'List all @monoes/hooks background workers',
   options: [],
-  examples: [
-    { command: 'monomind hooks worker list', description: 'List all workers' },
-  ],
+  examples: [{ command: 'monomind hooks worker list', description: 'List all workers' }],
   action: async (): Promise<CommandResult> => {
     try {
       const hooks = await import('@monoes/hooks');
-      const workers = Object.values(hooks.WORKER_CONFIGS).map(w => ({
+      const workers = Object.values(hooks.WORKER_CONFIGS).map((w) => ({
         name: w.name,
         description: w.description,
         priority: hooks.WorkerPriority[w.priority],
@@ -438,25 +484,41 @@ const workerListCommand: Command = {
 
       return { success: true, data: { workers, total: workers.length } };
     } catch (error) {
-      output.printError(`Failed to load workers: ${error instanceof Error ? error.message : String(error)}`);
+      output.printError(
+        `Failed to load workers: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 const workerRunCommand: Command = {
   name: 'run',
   description: 'Run a background worker once, in-process',
   options: [
-    { name: 'name', short: 'n', type: 'string', description: 'Worker name (see: hooks worker list)' },
+    {
+      name: 'name',
+      short: 'n',
+      type: 'string',
+      description: 'Worker name (see: hooks worker list)',
+    },
   ],
   examples: [
-    { command: 'monomind hooks worker run map', description: 'Refresh .monomind/metrics/codebase-map.json' },
-    { command: 'monomind hooks worker run audit', description: 'Refresh .monomind/metrics/security-audit.json' },
-    { command: 'monomind hooks worker run ddd', description: 'Refresh .monomind/metrics/ddd-progress.json' },
+    {
+      command: 'monomind hooks worker run map',
+      description: 'Refresh .monomind/metrics/codebase-map.json',
+    },
+    {
+      command: 'monomind hooks worker run audit',
+      description: 'Refresh .monomind/metrics/security-audit.json',
+    },
+    {
+      command: 'monomind hooks worker run ddd',
+      description: 'Refresh .monomind/metrics/ddd-progress.json',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const name = ctx.args[0] || (ctx.flags['name'] as string);
+    const name = ctx.args[0] || (ctx.flags.name as string);
 
     if (!name) {
       output.printError('Worker name is required: monomind hooks worker run <name>');
@@ -503,17 +565,14 @@ const workerRunCommand: Command = {
       output.printError(error instanceof Error ? error.message : String(error));
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Worker parent command
 export const workerCommand: Command = {
   name: 'worker',
   description: 'Background worker management (@monoes/hooks workers, run in-process)',
-  subcommands: [
-    workerListCommand,
-    workerRunCommand,
-  ],
+  subcommands: [workerListCommand, workerRunCommand],
   options: [],
   examples: [
     { command: 'monomind hooks worker list', description: 'List all workers' },
@@ -536,5 +595,5 @@ export const workerCommand: Command = {
     output.writeln('Run "monomind hooks worker <subcommand> --help" for details');
 
     return { success: true };
-  }
+  },
 };

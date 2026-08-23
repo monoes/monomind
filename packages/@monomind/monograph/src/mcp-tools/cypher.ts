@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
-import { executeCypherQuery, formatCypherResult } from '../query/cypher-parser.js';
 import type { CypherResult } from '../query/cypher-parser.js';
+import { executeCypherQuery, formatCypherResult } from '../query/cypher-parser.js';
 
 export type { CypherResult };
 export { formatCypherResult };

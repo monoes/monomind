@@ -17,25 +17,25 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeFileAtomicSync } from './atomic-file.js';
-import { cosineSimilarity } from './math-utils.js';
 import { HNSWIndex, type HNSWSerialized } from './hnsw-index.js';
+import { cosineSimilarity } from './math-utils.js';
 import type { SqlDriver, SqlParam } from './sql-driver.js';
-import { initializeSchema, hasFTS5Table, type MigrationReport } from './sql-schema.js';
-import {
+import { hasFTS5Table, initializeSchema, type MigrationReport } from './sql-schema.js';
+import type {
+  BackendStats,
+  ComponentHealth,
+  EmbeddingGenerator,
+  HealthCheckResult,
   IMemoryBackend,
   MemoryEntry,
   MemoryEntryUpdate,
   MemoryQuery,
+  MemoryType,
   SearchOptions,
   SearchResult,
-  BackendStats,
-  HealthCheckResult,
-  ComponentHealth,
-  MemoryType,
-  EmbeddingGenerator,
 } from './types.js';
 
 export interface SqlBackendConfig {
@@ -112,7 +112,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
    * count with MAX(updated_at) catches that case too.
    */
   private countEmbeddedActiveEntries(): { count: number; maxUpdatedAt: number } {
-    const row = this.driver!.get(
+    const row = this.driver?.get(
       `SELECT COUNT(*) as c, COALESCE(MAX(e.updated_at), 0) as m FROM memory_entries e
         JOIN memory_embeddings emb ON emb.entry_id = e.id
        WHERE (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)`,
@@ -129,12 +129,20 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
    * rebuild from memory_embeddings (writing a fresh on-disk cache for next
    * time).
    */
-  private async getAnnIndex(dimensions: number, force = false): Promise<{ index: HNSWIndex; entries: Map<string, MemoryEntry> } | null> {
+  private async getAnnIndex(
+    dimensions: number,
+    force = false,
+  ): Promise<{ index: HNSWIndex; entries: Map<string, MemoryEntry> } | null> {
     const { count, maxUpdatedAt } = this.countEmbeddedActiveEntries();
     if (!force && count < SqlBackend.ANN_THRESHOLD) return null;
 
-    if (!force && this._annIndex && this._annDimensions === dimensions
-        && this._annBuiltForCount === count && this._annBuiltForMaxUpdatedAt === maxUpdatedAt) {
+    if (
+      !force &&
+      this._annIndex &&
+      this._annDimensions === dimensions &&
+      this._annBuiltForCount === count &&
+      this._annBuiltForMaxUpdatedAt === maxUpdatedAt
+    ) {
       return { index: this._annIndex, entries: this._annEntries };
     }
 
@@ -148,7 +156,11 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
           index: HNSWSerialized;
           entries: Array<[string, MemoryEntry]>;
         };
-        if (parsed.entryCount === count && parsed.maxUpdatedAt === maxUpdatedAt && parsed.dimensions === dimensions) {
+        if (
+          parsed.entryCount === count &&
+          parsed.maxUpdatedAt === maxUpdatedAt &&
+          parsed.dimensions === dimensions
+        ) {
           const index = HNSWIndex.deserialize(parsed.index);
           const entries = new Map(parsed.entries);
           this._annIndex = index;
@@ -163,7 +175,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       }
     }
 
-    const rows = this.driver!.iterate(
+    const rows = this.driver?.iterate(
       `SELECT e.*, emb.embedding AS _emb
          FROM memory_entries e
          JOIN memory_embeddings emb ON emb.entry_id = e.id
@@ -195,7 +207,13 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       try {
         writeFileAtomicSync(
           cachePath,
-          JSON.stringify({ entryCount: count, maxUpdatedAt, dimensions, index: index.serialize(), entries: Array.from(entries.entries()) }),
+          JSON.stringify({
+            entryCount: count,
+            maxUpdatedAt,
+            dimensions,
+            index: index.serialize(),
+            entries: Array.from(entries.entries()),
+          }),
         );
       } catch {
         // Best-effort — a failed cache write just means the next cold start rebuilds.
@@ -233,7 +251,9 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
    * `memory search --build-hnsw`. Below the threshold, search() itself
    * still uses brute force; this only pre-warms the index and its cache.
    */
-  async forceBuildAnnIndex(dimensions: number): Promise<{ entryCount: number; dimensions: number; cachePath: string | null }> {
+  async forceBuildAnnIndex(
+    dimensions: number,
+  ): Promise<{ entryCount: number; dimensions: number; cachePath: string | null }> {
     this.ensureInitialized();
     const result = await this.getAnnIndex(dimensions, true);
     return {
@@ -299,7 +319,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     const startTime = performance.now();
     this.validateTags(entry.tags);
 
-    this.driver!.transaction(() => this.storeSync(entry));
+    this.driver?.transaction(() => this.storeSync(entry));
 
     const duration = performance.now() - startTime;
     this.stats.writeCount++;
@@ -383,7 +403,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   async bulkInsert(entries: MemoryEntry[]): Promise<void> {
     this.ensureInitialized();
     for (const e of entries) this.validateTags(e.tags);
-    this.driver!.transaction(() => {
+    this.driver?.transaction(() => {
       for (const entry of entries) this.storeSync(entry);
     });
     this.emit('bulk:inserted', { count: entries.length });
@@ -462,7 +482,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   async get(id: string, agentId?: string): Promise<MemoryEntry | null> {
     this.ensureInitialized();
     const startTime = performance.now();
-    const row = this.driver!.get(
+    const row = this.driver?.get(
       'SELECT memory_entries.*, emb.embedding AS _emb FROM memory_entries LEFT JOIN memory_embeddings emb ON emb.entry_id = memory_entries.id WHERE memory_entries.id = ?',
       [id],
     );
@@ -472,7 +492,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
     const AGENT_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
     if (agentId && AGENT_ID_RE.test(agentId)) {
       try {
-        this.driver!.run(
+        this.driver?.run(
           'INSERT OR IGNORE INTO agent_reads (entry_id, agent_id, read_at) VALUES (?, ?, ?)',
           [id, agentId, Date.now()],
         );
@@ -512,7 +532,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   async getByKey(namespace: string, key: string): Promise<MemoryEntry | null> {
     this.ensureInitialized();
     const startTime = performance.now();
-    const row = this.driver!.get(
+    const row = this.driver?.get(
       'SELECT memory_entries.*, emb.embedding AS _emb FROM memory_entries LEFT JOIN memory_embeddings emb ON emb.entry_id = memory_entries.id WHERE memory_entries.namespace = ? AND memory_entries.key = ?',
       [namespace, key],
     );
@@ -622,7 +642,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       params.push(query.offset);
     }
 
-    const rows = this.driver!.all(sql, params);
+    const rows = this.driver?.all(sql, params);
     const results = rows.map((r) => this.rowToEntry(r));
 
     const duration = performance.now() - startTime;
@@ -661,7 +681,9 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       };
 
       const overFetch = Math.max(options.k * 4, options.k + 20);
-      let results = applyFilters(await ann.index.search(embedding, Math.min(overFetch, ann.entries.size)));
+      let results = applyFilters(
+        await ann.index.search(embedding, Math.min(overFetch, ann.entries.size)),
+      );
 
       // A fixed over-fetch multiple assumes matches are spread roughly evenly
       // through the globally-nearest candidates. A namespace filter can
@@ -679,7 +701,7 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       return results;
     }
 
-    const rows = this.driver!.iterate(
+    const rows = this.driver?.iterate(
       `SELECT e.*, emb.embedding AS _emb
          FROM memory_entries e
          JOIN memory_embeddings emb ON emb.entry_id = e.id
@@ -774,18 +796,18 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
   async count(namespace?: string): Promise<number> {
     this.ensureInitialized();
     const row = namespace
-      ? this.driver!.get('SELECT COUNT(*) as count FROM memory_entries WHERE namespace = ?', [
+      ? this.driver?.get('SELECT COUNT(*) as count FROM memory_entries WHERE namespace = ?', [
           namespace,
         ])
-      : this.driver!.get('SELECT COUNT(*) as count FROM memory_entries');
+      : this.driver?.get('SELECT COUNT(*) as count FROM memory_entries');
     return Number(row?.count ?? 0);
   }
 
   async listNamespaces(): Promise<string[]> {
     this.ensureInitialized();
-    return this.driver!.all('SELECT DISTINCT namespace FROM memory_entries').map((r) =>
-      String(r.namespace),
-    );
+    return this.driver
+      ?.all('SELECT DISTINCT namespace FROM memory_entries')
+      .map((r) => String(r.namespace));
   }
 
   // ===== Introspection =====================================================

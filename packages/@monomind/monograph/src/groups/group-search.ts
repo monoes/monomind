@@ -4,10 +4,10 @@
  * Merged BM25 search across multiple repos using Reciprocal Rank Fusion (RRF).
  */
 
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { type RankedResult } from '../search/rrf.js';
+import type { RankedResult } from '../search/rrf.js';
 import { ftsSearch } from '../storage/fts-store.js';
 import type { GroupConfig } from './group-config.js';
 

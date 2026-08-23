@@ -30,8 +30,14 @@ export class StateDetector {
     this.lastActivity = Date.now();
 
     if (type === 'result') {
-      if (subtype === 'success') { this.state = 'idle'; return this.state; }
-      if (subtype === 'error_max_turns') { this.state = 'idle'; return this.state; }
+      if (subtype === 'success') {
+        this.state = 'idle';
+        return this.state;
+      }
+      if (subtype === 'error_max_turns') {
+        this.state = 'idle';
+        return this.state;
+      }
       this.state = 'error';
       return this.state;
     }
@@ -43,7 +49,10 @@ export class StateDetector {
 
     if (type === 'assistant' && text) {
       for (const { pattern, state } of this.patterns) {
-        if (pattern.test(text)) { this.state = state; return this.state; }
+        if (pattern.test(text)) {
+          this.state = state;
+          return this.state;
+        }
       }
       this.state = 'working';
     }
@@ -61,6 +70,10 @@ export class StateDetector {
     return this.state;
   }
 
-  current(): AgentState { return this.state; }
-  lastActiveAt(): number { return this.lastActivity; }
+  current(): AgentState {
+    return this.state;
+  }
+  lastActiveAt(): number {
+    return this.lastActivity;
+  }
 }

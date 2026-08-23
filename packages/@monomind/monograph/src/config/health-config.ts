@@ -15,7 +15,12 @@ export interface FallowHealthConfig {
 }
 
 export const DEFAULT_BOT_PATTERNS: string[] = [
-  '*[bot]*', 'dependabot*', 'renovate*', 'github-actions*', 'svc-*', '*-service-account*',
+  '*[bot]*',
+  'dependabot*',
+  'renovate*',
+  'github-actions*',
+  'svc-*',
+  '*-service-account*',
 ];
 
 export const DEFAULT_FALLOW_HEALTH_CONFIG: FallowHealthConfig = {
@@ -35,8 +40,9 @@ export function mergeFallowHealthConfig(partial: Partial<FallowHealthConfig>): F
     maxCrap: partial.maxCrap ?? base.maxCrap,
     ignore: partial.ignore ?? base.ignore,
     suggestInlineSuppression: partial.suggestInlineSuppression ?? base.suggestInlineSuppression,
-    ownership: partial.ownership !== undefined
-      ? { ...base.ownership, ...partial.ownership }
-      : base.ownership,
+    ownership:
+      partial.ownership !== undefined
+        ? { ...base.ownership, ...partial.ownership }
+        : base.ownership,
   };
 }

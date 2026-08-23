@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { extractInducedSubgraph } from '../../graph/subgraph.js';
 import { openDb } from '../../storage/db.js';
-import Database from 'better-sqlite3';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-subgraph-test-'));
@@ -12,13 +12,15 @@ function makeTempDb() {
 }
 
 function insertNode(db: Database.Database, id: string, name = id) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`)
-    .run(id, name, name.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`,
+  ).run(id, name, name.toLowerCase());
 }
 
 function insertEdge(db: Database.Database, src: string, tgt: string, relation = 'CALLS') {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, ?, 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}`, src, tgt, relation);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, ?, 'EXTRACTED', 1.0)`,
+  ).run(`${src}_${tgt}`, src, tgt, relation);
 }
 
 describe('extractInducedSubgraph', () => {
@@ -42,7 +44,7 @@ describe('extractInducedSubgraph', () => {
     insertEdge(db, 'b', 'c');
     const result = extractInducedSubgraph(db, ['a', 'b']);
     expect(result.nodes).toHaveLength(2);
-    expect(result.nodes.map(n => n.id).sort()).toEqual(['a', 'b']);
+    expect(result.nodes.map((n) => n.id).sort()).toEqual(['a', 'b']);
     db.close();
   });
 

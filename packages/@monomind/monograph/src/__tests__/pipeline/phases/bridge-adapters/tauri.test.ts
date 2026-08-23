@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'fs';
-import { join, dirname } from 'path';
-import { tmpdir } from 'os';
-import Database from 'better-sqlite3';
-import { openDb, closeDb } from '../../../../storage/db.js';
-import { insertNodes } from '../../../../storage/node-store.js';
-import type { MonographNode } from '../../../../types.js';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { tauriAdapter } from '../../../../pipeline/phases/bridge-adapters/tauri.js';
 import type { PipelineContext } from '../../../../pipeline/types.js';
 import { DEFAULT_OPTIONS } from '../../../../pipeline/types.js';
-import { tauriAdapter } from '../../../../pipeline/phases/bridge-adapters/tauri.js';
+import { closeDb, openDb } from '../../../../storage/db.js';
+import { insertNodes } from '../../../../storage/node-store.js';
+import type { MonographNode } from '../../../../types.js';
 
 function makeCtx(repoPath: string, db: Database.Database): PipelineContext {
   return {
@@ -28,14 +28,23 @@ function writeFile(root: string, relPath: string, content: string): void {
 
 function fnNode(id: string, name: string, filePath: string): MonographNode {
   return {
-    id, label: 'Function', name, normLabel: name.toLowerCase(), filePath,
-    isExported: true, language: 'rust',
+    id,
+    label: 'Function',
+    name,
+    normLabel: name.toLowerCase(),
+    filePath,
+    isExported: true,
+    language: 'rust',
   };
 }
 
 function fileNode(id: string, filePath: string): MonographNode {
   return {
-    id, label: 'File', name: filePath.split('/').pop()!, normLabel: '', filePath,
+    id,
+    label: 'File',
+    name: filePath.split('/').pop()!,
+    normLabel: '',
+    filePath,
     isExported: false,
   };
 }
@@ -55,12 +64,16 @@ describe('tauriAdapter', () => {
   });
 
   it('detects a repo with a #[tauri::command]-annotated Rust file', () => {
-    writeFile(tmpDir, 'src-tauri/src/main.rs', `
+    writeFile(
+      tmpDir,
+      'src-tauri/src/main.rs',
+      `
 #[tauri::command]
 fn greet(name: String) -> String {
     format!("Hello, {}!", name)
 }
-`);
+`,
+    );
     const ctx = makeCtx(tmpDir, db);
     expect(tauriAdapter.detect(ctx, ['src-tauri/src/main.rs'])).toBe(true);
   });
@@ -71,20 +84,28 @@ fn greet(name: String) -> String {
   });
 
   it('does not detect a Rust file with no #[tauri::command] annotation', () => {
-    writeFile(tmpDir, 'src-tauri/src/main.rs', `
+    writeFile(
+      tmpDir,
+      'src-tauri/src/main.rs',
+      `
 fn internal_helper() -> i32 { 42 }
-`);
+`,
+    );
     const ctx = makeCtx(tmpDir, db);
     expect(tauriAdapter.detect(ctx, ['src-tauri/src/main.rs'])).toBe(false);
   });
 
   it('finds a #[tauri::command] fn matched to its existing Function node', () => {
-    writeFile(tmpDir, 'src-tauri/src/main.rs', `
+    writeFile(
+      tmpDir,
+      'src-tauri/src/main.rs',
+      `
 #[tauri::command]
 fn greet(name: String) -> String {
     format!("Hello, {}!", name)
 }
-`);
+`,
+    );
     insertNodes(db, [fnNode('rust_fn_1', 'greet', 'src-tauri/src/main.rs')]);
     const ctx = makeCtx(tmpDir, db);
     const defs = tauriAdapter.findDefinitions(ctx, ['src-tauri/src/main.rs']);
@@ -92,9 +113,13 @@ fn greet(name: String) -> String {
   });
 
   it('ignores a plain fn with no #[tauri::command] attribute', () => {
-    writeFile(tmpDir, 'src-tauri/src/main.rs', `
+    writeFile(
+      tmpDir,
+      'src-tauri/src/main.rs',
+      `
 fn internal_helper() -> i32 { 42 }
-`);
+`,
+    );
     insertNodes(db, [fnNode('rust_fn_2', 'internal_helper', 'src-tauri/src/main.rs')]);
     const ctx = makeCtx(tmpDir, db);
     const defs = tauriAdapter.findDefinitions(ctx, ['src-tauri/src/main.rs']);
@@ -102,12 +127,16 @@ fn internal_helper() -> i32 { 42 }
   });
 
   it('finds an invoke() call site attached to its containing File node', () => {
-    writeFile(tmpDir, 'src/App.tsx', `
+    writeFile(
+      tmpDir,
+      'src/App.tsx',
+      `
 import { invoke } from '@tauri-apps/api/core';
 async function onClick() {
   await invoke('greet', { name: 'world' });
 }
-`);
+`,
+    );
     insertNodes(db, [fileNode('file_1', 'src/App.tsx')]);
     const ctx = makeCtx(tmpDir, db);
     const sites = tauriAdapter.findCallSites(ctx, ['src/App.tsx']);

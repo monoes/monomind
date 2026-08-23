@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { diffSnapshots, type GraphSnapshot } from '../../graph/diff.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
 
 function node(id: string): MonographNode {
   return {
@@ -19,20 +19,33 @@ function node(id: string): MonographNode {
 }
 
 function edge(sourceId: string, targetId: string): MonographEdge {
-  return { id: `${sourceId}->${targetId}`, sourceId, targetId, relation: 'imports' } as MonographEdge;
+  return {
+    id: `${sourceId}->${targetId}`,
+    sourceId,
+    targetId,
+    relation: 'imports',
+  } as MonographEdge;
 }
 
 describe('GraphDiff.summary', () => {
   it('includes summary string in diff result', () => {
     const before: GraphSnapshot = { nodes: [node('a'), node('b')], edges: [], capturedAt: '' };
-    const after: GraphSnapshot = { nodes: [node('a'), node('b'), node('c')], edges: [edge('a', 'c')], capturedAt: '' };
+    const after: GraphSnapshot = {
+      nodes: [node('a'), node('b'), node('c')],
+      edges: [edge('a', 'c')],
+      capturedAt: '',
+    };
     const diff = diffSnapshots(before, after);
     expect(typeof diff.summary).toBe('string');
   });
 
   it('reports new nodes in summary', () => {
     const before: GraphSnapshot = { nodes: [node('a')], edges: [], capturedAt: '' };
-    const after: GraphSnapshot = { nodes: [node('a'), node('b'), node('c')], edges: [], capturedAt: '' };
+    const after: GraphSnapshot = {
+      nodes: [node('a'), node('b'), node('c')],
+      edges: [],
+      capturedAt: '',
+    };
     const diff = diffSnapshots(before, after);
     expect(diff.summary).toMatch(/2 new node/);
   });
@@ -46,13 +59,21 @@ describe('GraphDiff.summary', () => {
 
   it('reports new edges in summary', () => {
     const before: GraphSnapshot = { nodes: [node('a'), node('b')], edges: [], capturedAt: '' };
-    const after: GraphSnapshot = { nodes: [node('a'), node('b')], edges: [edge('a', 'b')], capturedAt: '' };
+    const after: GraphSnapshot = {
+      nodes: [node('a'), node('b')],
+      edges: [edge('a', 'b')],
+      capturedAt: '',
+    };
     const diff = diffSnapshots(before, after);
     expect(diff.summary).toMatch(/1 new edge/);
   });
 
   it('reports removed edges in summary', () => {
-    const before: GraphSnapshot = { nodes: [node('a'), node('b')], edges: [edge('a', 'b')], capturedAt: '' };
+    const before: GraphSnapshot = {
+      nodes: [node('a'), node('b')],
+      edges: [edge('a', 'b')],
+      capturedAt: '',
+    };
     const after: GraphSnapshot = { nodes: [node('a'), node('b')], edges: [], capturedAt: '' };
     const diff = diffSnapshots(before, after);
     expect(diff.summary).toMatch(/1 edge removed/);

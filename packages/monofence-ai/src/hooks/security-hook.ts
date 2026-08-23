@@ -40,7 +40,12 @@ interface MinimalRegistry {
     event: string,
     handler: (context: MinimalHookContext) => Promise<MinimalHookResult> | MinimalHookResult,
     priority: number,
-    options?: { name?: string; description?: string; enabled?: boolean; metadata?: Record<string, unknown> }
+    options?: {
+      name?: string;
+      description?: string;
+      enabled?: boolean;
+      metadata?: Record<string, unknown>;
+    },
   ): string;
 }
 
@@ -72,10 +77,10 @@ async function getDefence() {
  * @param registry - Any object compatible with HookRegistry.register
  * @returns The generated hook IDs for both registered hooks
  */
-export function registerSecurityHooks(
-  registry: MinimalRegistry
-): { preTaskId: string; preCommandId: string } {
-
+export function registerSecurityHooks(registry: MinimalRegistry): {
+  preTaskId: string;
+  preCommandId: string;
+} {
   // ── pre-task hook ──────────────────────────────────────────────────────────
   const preTaskId = registry.register(
     'pre-task',
@@ -106,7 +111,7 @@ export function registerSecurityHooks(
         if (!result.safe && result.threats.length > 0) {
           const worst = result.threats.reduce(
             (max, t) => (t.confidence > max.confidence ? t : max),
-            result.threats[0]
+            result.threats[0],
           );
 
           if (worst.confidence >= ABORT_THRESHOLD) {
@@ -123,7 +128,7 @@ export function registerSecurityHooks(
             success: true,
             warnings: result.threats.map(
               (t) =>
-                `[MonoDefence] Low-confidence threat in task: ${t.type} (${(t.confidence * 100).toFixed(0)}%)`
+                `[MonoDefence] Low-confidence threat in task: ${t.type} (${(t.confidence * 100).toFixed(0)}%)`,
             ),
           };
         }
@@ -137,7 +142,7 @@ export function registerSecurityHooks(
     {
       name: 'monodefence:pre-task',
       description: 'Scans task descriptions for prompt injection and jailbreak attempts',
-    }
+    },
   );
 
   // ── pre-command hook ───────────────────────────────────────────────────────
@@ -167,7 +172,7 @@ export function registerSecurityHooks(
         if (!result.safe && result.threats.length > 0) {
           const worst = result.threats.reduce(
             (max, t) => (t.confidence > max.confidence ? t : max),
-            result.threats[0]
+            result.threats[0],
           );
 
           if (worst.confidence >= ABORT_THRESHOLD) {
@@ -183,7 +188,7 @@ export function registerSecurityHooks(
             success: true,
             warnings: result.threats.map(
               (t) =>
-                `[MonoDefence] Low-confidence threat in command: ${t.type} (${(t.confidence * 100).toFixed(0)}%)`
+                `[MonoDefence] Low-confidence threat in command: ${t.type} (${(t.confidence * 100).toFixed(0)}%)`,
             ),
           };
         }
@@ -197,7 +202,7 @@ export function registerSecurityHooks(
     {
       name: 'monodefence:pre-command',
       description: 'Scans command strings for prompt injection and encoding attacks',
-    }
+    },
   );
 
   return { preTaskId, preCommandId };

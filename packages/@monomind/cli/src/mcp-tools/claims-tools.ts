@@ -18,7 +18,14 @@ interface Claimant {
   agentType?: string;
 }
 
-type ClaimStatus = 'active' | 'paused' | 'handoff-pending' | 'review-requested' | 'blocked' | 'stealable' | 'completed';
+type ClaimStatus =
+  | 'active'
+  | 'paused'
+  | 'handoff-pending'
+  | 'review-requested'
+  | 'blocked'
+  | 'stealable'
+  | 'completed';
 type StealReason = 'overloaded' | 'stale' | 'blocked-timeout' | 'voluntary';
 
 interface IssueClaim {
@@ -37,13 +44,22 @@ interface IssueClaim {
 
 interface ClaimsStore {
   claims: Record<string, IssueClaim>;
-  stealable: Record<string, { reason: StealReason; stealableAt: string; preferredTypes?: string[]; progress: number; context?: string }>;
+  stealable: Record<
+    string,
+    {
+      reason: StealReason;
+      stealableAt: string;
+      preferredTypes?: string[];
+      progress: number;
+      context?: string;
+    }
+  >;
   contests: Record<string, { originalClaimant: Claimant; contestedAt: string; reason: string }>;
 }
 
 // File-based persistence
-import { existsSync, readFileSync, statSync, writeFileSync, renameSync, mkdirSync } from 'fs';
-import { join, resolve } from 'path';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 const CLAIMS_DIR = '.monomind/claims';
 const CLAIMS_FILE = 'claims.json';
@@ -69,7 +85,8 @@ function loadClaims(): ClaimsStore {
     }
   } catch (e) {
     // Return empty store on error
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[claims-tools] failed to load claims.json, starting fresh:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[claims-tools] failed to load claims.json, starting fresh:', e);
   }
   return { claims: {}, stealable: {}, contests: {} };
 }
@@ -127,8 +144,10 @@ export const claimsTools: MCPTool[] = [
       // Cap context: stored verbatim in the claim JSON record on disk.
       const MAX_CLAIM_CONTEXT_LEN = 4 * 1024;
       const rawContext = input.context as string | undefined;
-      const context = typeof rawContext === 'string' && rawContext.length > MAX_CLAIM_CONTEXT_LEN
-        ? rawContext.slice(0, MAX_CLAIM_CONTEXT_LEN) : rawContext;
+      const context =
+        typeof rawContext === 'string' && rawContext.length > MAX_CLAIM_CONTEXT_LEN
+          ? rawContext.slice(0, MAX_CLAIM_CONTEXT_LEN)
+          : rawContext;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
       if (!issueId || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
@@ -137,7 +156,10 @@ export const claimsTools: MCPTool[] = [
 
       const claimant = parseClaimant(claimantStr);
       if (!claimant) {
-        return { success: false, error: 'Invalid claimant format. Use "human:userId:name" or "agent:agentId:agentType"' };
+        return {
+          success: false,
+          error: 'Invalid claimant format. Use "human:userId:name" or "agent:agentId:agentType"',
+        };
       }
 
       const store = loadClaims();
@@ -208,7 +230,12 @@ export const claimsTools: MCPTool[] = [
       const reason = input.reason as string | undefined;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+      if (
+        !issueId ||
+        typeof issueId !== 'string' ||
+        issueId.length > 256 ||
+        RESERVED_KEYS.has(issueId)
+      ) {
         return { success: false, error: 'Invalid issueId' };
       }
 
@@ -279,13 +306,19 @@ export const claimsTools: MCPTool[] = [
       // Without a cap, an arbitrarily long reason inflates every write of the store file.
       const MAX_HANDOFF_REASON_LEN = 1024;
       const rawHandoffReason = input.reason as string | undefined;
-      const reason = typeof rawHandoffReason === 'string' && rawHandoffReason.length > MAX_HANDOFF_REASON_LEN
-        ? rawHandoffReason.slice(0, MAX_HANDOFF_REASON_LEN)
-        : rawHandoffReason;
+      const reason =
+        typeof rawHandoffReason === 'string' && rawHandoffReason.length > MAX_HANDOFF_REASON_LEN
+          ? rawHandoffReason.slice(0, MAX_HANDOFF_REASON_LEN)
+          : rawHandoffReason;
       const progress = (input.progress as number) || 0;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+      if (
+        !issueId ||
+        typeof issueId !== 'string' ||
+        issueId.length > 256 ||
+        RESERVED_KEYS.has(issueId)
+      ) {
         return { success: false, error: 'Invalid issueId' };
       }
 
@@ -347,7 +380,12 @@ export const claimsTools: MCPTool[] = [
       const claimantStr = input.claimant as string;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+      if (
+        !issueId ||
+        typeof issueId !== 'string' ||
+        issueId.length > 256 ||
+        RESERVED_KEYS.has(issueId)
+      ) {
         return { success: false, error: 'Invalid issueId' };
       }
 
@@ -429,12 +467,19 @@ export const claimsTools: MCPTool[] = [
       // Cap note: stored as claim.blockReason in the claims JSON store on disk.
       const MAX_CLAIM_NOTE_LEN = 4 * 1024;
       const rawNote = input.note as string | undefined;
-      const note = typeof rawNote === 'string' && rawNote.length > MAX_CLAIM_NOTE_LEN
-        ? rawNote.slice(0, MAX_CLAIM_NOTE_LEN) : rawNote;
+      const note =
+        typeof rawNote === 'string' && rawNote.length > MAX_CLAIM_NOTE_LEN
+          ? rawNote.slice(0, MAX_CLAIM_NOTE_LEN)
+          : rawNote;
       const progress = input.progress as number | undefined;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+      if (
+        !issueId ||
+        typeof issueId !== 'string' ||
+        issueId.length > 256 ||
+        RESERVED_KEYS.has(issueId)
+      ) {
         return { success: false, error: 'Invalid issueId' };
       }
 
@@ -506,16 +551,16 @@ export const claimsTools: MCPTool[] = [
       let claims = Object.values(store.claims);
 
       if (status && status !== 'all') {
-        claims = claims.filter(c => c.status === status);
+        claims = claims.filter((c) => c.status === status);
       }
 
       if (claimantFilter) {
-        claims = claims.filter(c => formatClaimant(c.claimant).includes(claimantFilter));
+        claims = claims.filter((c) => formatClaimant(c.claimant).includes(claimantFilter));
       }
 
       if (agentType) {
-        claims = claims.filter(c =>
-          c.claimant.type === 'agent' && c.claimant.agentType === agentType
+        claims = claims.filter(
+          (c) => c.claimant.type === 'agent' && c.claimant.agentType === agentType,
         );
       }
 
@@ -561,22 +606,36 @@ export const claimsTools: MCPTool[] = [
       // Runtime-validate StealReason: JSON schema declares an enum, but callers
       // that bypass schema validation (raw MCP calls) can pass arbitrary strings,
       // which would be persisted verbatim in store.stealable[issueId].reason.
-      const VALID_STEAL_REASONS = new Set<string>(['overloaded', 'stale', 'blocked-timeout', 'voluntary']);
+      const VALID_STEAL_REASONS = new Set<string>([
+        'overloaded',
+        'stale',
+        'blocked-timeout',
+        'voluntary',
+      ]);
       const rawStealReason = input.reason as string;
       if (!rawStealReason || !VALID_STEAL_REASONS.has(rawStealReason)) {
-        return { success: false, error: `Invalid reason "${rawStealReason}". Must be one of: overloaded, stale, blocked-timeout, voluntary` };
+        return {
+          success: false,
+          error: `Invalid reason "${rawStealReason}". Must be one of: overloaded, stale, blocked-timeout, voluntary`,
+        };
       }
       const reason = rawStealReason as StealReason;
       const preferredTypes = input.preferredTypes as string[] | undefined;
       // Cap context: stored verbatim in the stealable record on disk.
       const MAX_STEAL_CONTEXT_LEN = 4 * 1024;
       const rawStealContext = input.context as string | undefined;
-      const context = typeof rawStealContext === 'string' && rawStealContext.length > MAX_STEAL_CONTEXT_LEN
-        ? rawStealContext.slice(0, MAX_STEAL_CONTEXT_LEN)
-        : rawStealContext;
+      const context =
+        typeof rawStealContext === 'string' && rawStealContext.length > MAX_STEAL_CONTEXT_LEN
+          ? rawStealContext.slice(0, MAX_STEAL_CONTEXT_LEN)
+          : rawStealContext;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+      if (
+        !issueId ||
+        typeof issueId !== 'string' ||
+        issueId.length > 256 ||
+        RESERVED_KEYS.has(issueId)
+      ) {
         return { success: false, error: 'Invalid issueId' };
       }
 
@@ -633,7 +692,12 @@ export const claimsTools: MCPTool[] = [
       const stealerStr = input.stealer as string;
 
       const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+      if (
+        !issueId ||
+        typeof issueId !== 'string' ||
+        issueId.length > 256 ||
+        RESERVED_KEYS.has(issueId)
+      ) {
         return { success: false, error: 'Invalid issueId' };
       }
 
@@ -647,7 +711,9 @@ export const claimsTools: MCPTool[] = [
         return { success: false, error: 'Issue is not claimed' };
       }
       const claim = store.claims[issueId];
-      const stealableInfo = Object.hasOwn(store.stealable, issueId) ? store.stealable[issueId] : undefined;
+      const stealableInfo = Object.hasOwn(store.stealable, issueId)
+        ? store.stealable[issueId]
+        : undefined;
 
       if (!stealableInfo) {
         return { success: false, error: 'Issue is not stealable' };
@@ -655,7 +721,10 @@ export const claimsTools: MCPTool[] = [
 
       // Check preferred types
       if (stealableInfo.preferredTypes && stealableInfo.preferredTypes.length > 0) {
-        if (stealer.type === 'agent' && !stealableInfo.preferredTypes.includes(stealer.agentType!)) {
+        if (
+          stealer.type === 'agent' &&
+          !stealableInfo.preferredTypes.includes(stealer.agentType!)
+        ) {
           return {
             success: false,
             error: `Issue prefers agent types: ${stealableInfo.preferredTypes.join(', ')}`,
@@ -709,8 +778,11 @@ export const claimsTools: MCPTool[] = [
       }));
 
       if (agentType) {
-        stealableIssues = stealableIssues.filter(s =>
-          !s.preferredTypes || s.preferredTypes.length === 0 || s.preferredTypes.includes(agentType)
+        stealableIssues = stealableIssues.filter(
+          (s) =>
+            !s.preferredTypes ||
+            s.preferredTypes.length === 0 ||
+            s.preferredTypes.includes(agentType),
         );
       }
 
@@ -747,12 +819,15 @@ export const claimsTools: MCPTool[] = [
       const claims = Object.values(store.claims);
 
       // Group claims by agent
-      const agentLoads = new Map<string, {
-        agentId: string;
-        agentType: string;
-        claims: IssueClaim[];
-        blockedCount: number;
-      }>();
+      const agentLoads = new Map<
+        string,
+        {
+          agentId: string;
+          agentType: string;
+          claims: IssueClaim[];
+          blockedCount: number;
+        }
+      >();
 
       for (const claim of claims) {
         if (claim.claimant.type !== 'agent') continue;
@@ -777,21 +852,21 @@ export const claimsTools: MCPTool[] = [
       let loads = Array.from(agentLoads.values());
 
       if (agentId) {
-        loads = loads.filter(l => l.agentId === agentId);
+        loads = loads.filter((l) => l.agentId === agentId);
       }
 
       if (agentType) {
-        loads = loads.filter(l => l.agentType === agentType);
+        loads = loads.filter((l) => l.agentType === agentType);
       }
 
-      const result = loads.map(l => ({
+      const result = loads.map((l) => ({
         agentId: l.agentId,
         agentType: l.agentType,
         claimCount: l.claims.length,
         maxClaims: 5, // Default max
         utilization: l.claims.length / 5,
         blockedCount: l.blockedCount,
-        claims: l.claims.map(c => ({
+        claims: l.claims.map((c) => ({
           issueId: c.issueId,
           status: c.status,
           progress: c.progress,
@@ -802,10 +877,9 @@ export const claimsTools: MCPTool[] = [
         success: true,
         loads: result,
         totalAgents: result.length,
-        totalClaims: claims.filter(c => c.claimant.type === 'agent').length,
-        avgUtilization: result.length > 0
-          ? result.reduce((sum, l) => sum + l.utilization, 0) / result.length
-          : 0,
+        totalClaims: claims.filter((c) => c.claimant.type === 'agent').length,
+        avgUtilization:
+          result.length > 0 ? result.reduce((sum, l) => sum + l.utilization, 0) / result.length : 0,
       };
     },
   },
@@ -838,19 +912,43 @@ export const claimsTools: MCPTool[] = [
         }
       }
 
-      const humanClaims = claims.filter(c => c.claimant.type === 'human');
-      const agentClaims = claims.filter(c => c.claimant.type === 'agent');
+      const humanClaims = claims.filter((c) => c.claimant.type === 'human');
+      const agentClaims = claims.filter((c) => c.claimant.type === 'agent');
 
       return {
         success: true,
         board: {
-          active: byStatus.active.map(c => ({ issueId: c.issueId, claimant: formatClaimant(c.claimant), progress: c.progress })),
-          paused: byStatus.paused.map(c => ({ issueId: c.issueId, claimant: formatClaimant(c.claimant) })),
-          blocked: byStatus.blocked.map(c => ({ issueId: c.issueId, claimant: formatClaimant(c.claimant), reason: c.blockReason })),
-          'handoff-pending': byStatus['handoff-pending'].map(c => ({ issueId: c.issueId, from: formatClaimant(c.claimant), to: c.handoffTo ? formatClaimant(c.handoffTo) : null })),
-          'review-requested': byStatus['review-requested'].map(c => ({ issueId: c.issueId, claimant: formatClaimant(c.claimant) })),
-          stealable: byStatus.stealable.map(c => ({ issueId: c.issueId, claimant: formatClaimant(c.claimant) })),
-          completed: byStatus.completed.map(c => ({ issueId: c.issueId, claimant: formatClaimant(c.claimant) })),
+          active: byStatus.active.map((c) => ({
+            issueId: c.issueId,
+            claimant: formatClaimant(c.claimant),
+            progress: c.progress,
+          })),
+          paused: byStatus.paused.map((c) => ({
+            issueId: c.issueId,
+            claimant: formatClaimant(c.claimant),
+          })),
+          blocked: byStatus.blocked.map((c) => ({
+            issueId: c.issueId,
+            claimant: formatClaimant(c.claimant),
+            reason: c.blockReason,
+          })),
+          'handoff-pending': byStatus['handoff-pending'].map((c) => ({
+            issueId: c.issueId,
+            from: formatClaimant(c.claimant),
+            to: c.handoffTo ? formatClaimant(c.handoffTo) : null,
+          })),
+          'review-requested': byStatus['review-requested'].map((c) => ({
+            issueId: c.issueId,
+            claimant: formatClaimant(c.claimant),
+          })),
+          stealable: byStatus.stealable.map((c) => ({
+            issueId: c.issueId,
+            claimant: formatClaimant(c.claimant),
+          })),
+          completed: byStatus.completed.map((c) => ({
+            issueId: c.issueId,
+            claimant: formatClaimant(c.claimant),
+          })),
         },
         summary: {
           total: claims.length,
@@ -891,7 +989,10 @@ export const claimsTools: MCPTool[] = [
       const claims = Object.values(store.claims);
 
       // Group by agent
-      const agentLoads = new Map<string, { agentId: string; agentType: string; claims: IssueClaim[] }>();
+      const agentLoads = new Map<
+        string,
+        { agentId: string; agentType: string; claims: IssueClaim[] }
+      >();
 
       for (const claim of claims) {
         if (claim.claimant.type !== 'agent') continue;
@@ -900,28 +1001,31 @@ export const claimsTools: MCPTool[] = [
         if (!agentLoads.has(key)) {
           agentLoads.set(key, { agentId: key, agentType: claim.claimant.agentType!, claims: [] });
         }
-        agentLoads.get(key)!.claims.push(claim);
+        agentLoads.get(key)?.claims.push(claim);
       }
 
       const loads = Array.from(agentLoads.values());
       const maxClaims = 5;
-      const avgLoad = loads.length > 0
-        ? loads.reduce((sum, l) => sum + l.claims.length, 0) / loads.length
-        : 0;
+      const avgLoad =
+        loads.length > 0 ? loads.reduce((sum, l) => sum + l.claims.length, 0) / loads.length : 0;
 
-      const overloaded = loads.filter(l => l.claims.length > maxClaims * targetUtilization * 1.5);
-      const underloaded = loads.filter(l => l.claims.length < maxClaims * targetUtilization * 0.5);
+      const overloaded = loads.filter((l) => l.claims.length > maxClaims * targetUtilization * 1.5);
+      const underloaded = loads.filter(
+        (l) => l.claims.length < maxClaims * targetUtilization * 0.5,
+      );
 
       const suggestions: Array<{ issueId: string; from: string; to: string; reason: string }> = [];
 
       for (const over of overloaded) {
         // Find low-progress claims to redistribute
         const movable = over.claims
-          .filter(c => c.progress < 25 && c.status === 'active')
+          .filter((c) => c.progress < 25 && c.status === 'active')
           .slice(0, over.claims.length - Math.ceil(maxClaims * targetUtilization));
 
         for (const claim of movable) {
-          const target = underloaded.find(u => u.agentType === over.agentType && u.claims.length < maxClaims);
+          const target = underloaded.find(
+            (u) => u.agentType === over.agentType && u.claims.length < maxClaims,
+          );
           if (target) {
             suggestions.push({
               issueId: claim.issueId,

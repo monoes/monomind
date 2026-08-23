@@ -1,5 +1,5 @@
-import type { MonographNode, MonographEdge } from '../types.js';
 import type { MonographDb } from '../storage/db.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 // ── Merge strategy ─────────────────────────────────────────────────────────────
 
@@ -38,8 +38,8 @@ export function mergeGraphs(
 ): { nodes: MonographNode[]; edges: MonographEdge[] } & GraphMergeResult {
   const strategy = options.onConflict ?? 'skip';
 
-  const nodeMap = new Map<string, MonographNode>(base.nodes.map(n => [n.id, n]));
-  const edgeMap = new Map<string, MonographEdge>(base.edges.map(e => [e.id, e]));
+  const nodeMap = new Map<string, MonographNode>(base.nodes.map((n) => [n.id, n]));
+  const edgeMap = new Map<string, MonographEdge>(base.edges.map((e) => [e.id, e]));
 
   let nodesAdded = 0;
   let nodesSkipped = 0;

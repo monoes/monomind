@@ -12,8 +12,8 @@
  * @module v1/cli/memory/sona-optimizer
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 // ============================================================================
 // Types
@@ -125,7 +125,7 @@ const MAX_PATTERNS = 1000;
 /**
  * Common agent types for routing
  */
-const AGENT_TYPES = [
+const _AGENT_TYPES = [
   'coder',
   'tester',
   'reviewer',
@@ -143,44 +143,130 @@ const AGENT_TYPES = [
  */
 const KEYWORD_CATEGORIES: Record<string, string[]> = {
   coder: [
-    'implement', 'code', 'write', 'create', 'build', 'develop', 'add',
-    'feature', 'function', 'class', 'module', 'api', 'endpoint',
+    'implement',
+    'code',
+    'write',
+    'create',
+    'build',
+    'develop',
+    'add',
+    'feature',
+    'function',
+    'class',
+    'module',
+    'api',
+    'endpoint',
   ],
   tester: [
-    'test', 'spec', 'coverage', 'unit', 'integration', 'e2e', 'mock',
-    'assert', 'expect', 'verify', 'validate', 'scenario',
+    'test',
+    'spec',
+    'coverage',
+    'unit',
+    'integration',
+    'e2e',
+    'mock',
+    'assert',
+    'expect',
+    'verify',
+    'validate',
+    'scenario',
   ],
   reviewer: [
-    'review', 'check', 'audit', 'analyze', 'inspect', 'evaluate',
-    'quality', 'standards', 'best-practices', 'lint',
+    'review',
+    'check',
+    'audit',
+    'analyze',
+    'inspect',
+    'evaluate',
+    'quality',
+    'standards',
+    'best-practices',
+    'lint',
   ],
   architect: [
-    'architect', 'design', 'structure', 'pattern', 'system', 'schema',
-    'database', 'infrastructure', 'scalability', 'architecture',
+    'architect',
+    'design',
+    'structure',
+    'pattern',
+    'system',
+    'schema',
+    'database',
+    'infrastructure',
+    'scalability',
+    'architecture',
   ],
   researcher: [
-    'research', 'investigate', 'explore', 'find', 'search', 'discover',
-    'analyze', 'understand', 'learn', 'study',
+    'research',
+    'investigate',
+    'explore',
+    'find',
+    'search',
+    'discover',
+    'analyze',
+    'understand',
+    'learn',
+    'study',
   ],
   optimizer: [
-    'optimize', 'performance', 'speed', 'memory', 'improve', 'enhance',
-    'faster', 'efficient', 'reduce', 'benchmark',
+    'optimize',
+    'performance',
+    'speed',
+    'memory',
+    'improve',
+    'enhance',
+    'faster',
+    'efficient',
+    'reduce',
+    'benchmark',
   ],
   debugger: [
-    'debug', 'fix', 'bug', 'error', 'issue', 'problem', 'crash',
-    'exception', 'trace', 'diagnose', 'resolve',
+    'debug',
+    'fix',
+    'bug',
+    'error',
+    'issue',
+    'problem',
+    'crash',
+    'exception',
+    'trace',
+    'diagnose',
+    'resolve',
   ],
   documenter: [
-    'document', 'docs', 'readme', 'comment', 'explain', 'guide',
-    'tutorial', 'api-docs', 'specification', 'jsdoc',
+    'document',
+    'docs',
+    'readme',
+    'comment',
+    'explain',
+    'guide',
+    'tutorial',
+    'api-docs',
+    'specification',
+    'jsdoc',
   ],
   'security-architect': [
-    'security', 'auth', 'authentication', 'authorization', 'encrypt',
-    'vulnerability', 'cve', 'secure', 'permission', 'role',
+    'security',
+    'auth',
+    'authentication',
+    'authorization',
+    'encrypt',
+    'vulnerability',
+    'cve',
+    'secure',
+    'permission',
+    'role',
   ],
   'performance-engineer': [
-    'profiling', 'bottleneck', 'latency', 'throughput', 'cache',
-    'scale', 'load', 'stress', 'concurrent', 'parallel',
+    'profiling',
+    'bottleneck',
+    'latency',
+    'throughput',
+    'cache',
+    'scale',
+    'load',
+    'stress',
+    'concurrent',
+    'parallel',
   ],
 };
 
@@ -269,14 +355,14 @@ export class SONAOptimizer {
       pattern.successCount++;
       pattern.confidence = Math.min(
         MAX_CONFIDENCE,
-        pattern.confidence + CONFIDENCE_INCREMENT * (1 - pattern.confidence)
+        pattern.confidence + CONFIDENCE_INCREMENT * (1 - pattern.confidence),
       );
       this.successfulRoutings++;
     } else {
       pattern.failureCount++;
       pattern.confidence = Math.max(
         MIN_CONFIDENCE,
-        pattern.confidence - CONFIDENCE_DECREMENT * pattern.confidence
+        pattern.confidence - CONFIDENCE_DECREMENT * pattern.confidence,
       );
       this.failedRoutings++;
     }
@@ -405,7 +491,10 @@ export class SONAOptimizer {
     this.lastUpdate = null;
 
     // Flush immediately on explicit reset (don't wait for debounce)
-    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
     this.dirty = false;
     this.saveToDisk();
   }
@@ -449,7 +538,7 @@ export class SONAOptimizer {
     }
 
     const lower = task.toLowerCase();
-    const words = lower.split(/[\s\-_.,;:!?'"()\[\]{}]+/).filter(w => w.length > 2);
+    const words = lower.split(/[\s\-_.,;:!?'"()[\]{}]+/).filter((w) => w.length > 2);
 
     // Extract keywords that match our categories
     const keywords = new Set<string>();
@@ -477,10 +566,39 @@ export class SONAOptimizer {
    */
   private isStopWord(word: string): boolean {
     const stopWords = new Set([
-      'the', 'and', 'for', 'that', 'this', 'with', 'from', 'have', 'been',
-      'will', 'would', 'could', 'should', 'into', 'then', 'than', 'when',
-      'where', 'which', 'there', 'their', 'what', 'about', 'more', 'some',
-      'also', 'just', 'only', 'other', 'very', 'after', 'most', 'such',
+      'the',
+      'and',
+      'for',
+      'that',
+      'this',
+      'with',
+      'from',
+      'have',
+      'been',
+      'will',
+      'would',
+      'could',
+      'should',
+      'into',
+      'then',
+      'than',
+      'when',
+      'where',
+      'which',
+      'there',
+      'their',
+      'what',
+      'about',
+      'more',
+      'some',
+      'also',
+      'just',
+      'only',
+      'other',
+      'very',
+      'after',
+      'most',
+      'such',
     ]);
     return stopWords.has(word);
   }
@@ -509,8 +627,9 @@ export class SONAOptimizer {
     let bestScore = 0;
 
     for (const pattern of this.patterns.values()) {
-      const matchedKeywords = pattern.keywords.filter(k => keywords.includes(k));
-      const matchRatio = matchedKeywords.length / Math.max(pattern.keywords.length, keywords.length);
+      const matchedKeywords = pattern.keywords.filter((k) => keywords.includes(k));
+      const matchRatio =
+        matchedKeywords.length / Math.max(pattern.keywords.length, keywords.length);
 
       // Combine match ratio with confidence
       const score = matchRatio * pattern.confidence;
@@ -539,7 +658,7 @@ export class SONAOptimizer {
     const scores: Record<string, { score: number; matched: string[] }> = {};
 
     for (const [agent, categoryKeywords] of Object.entries(KEYWORD_CATEGORIES)) {
-      const matched = keywords.filter(k => categoryKeywords.includes(k));
+      const matched = keywords.filter((k) => categoryKeywords.includes(k));
       if (matched.length > 0) {
         scores[agent] = {
           score: matched.length / categoryKeywords.length,
@@ -577,25 +696,23 @@ export class SONAOptimizer {
    */
   private getAlternatives(
     keywords: string[],
-    excludeAgent: string
+    excludeAgent: string,
   ): Array<{ agent: string; score: number }> {
     const alternatives: Array<{ agent: string; score: number }> = [];
 
     for (const [agent, categoryKeywords] of Object.entries(KEYWORD_CATEGORIES)) {
       if (agent === excludeAgent) continue;
 
-      const matched = keywords.filter(k => categoryKeywords.includes(k));
+      const matched = keywords.filter((k) => categoryKeywords.includes(k));
       if (matched.length > 0) {
         alternatives.push({
           agent,
-          score: matched.length / Math.max(keywords.length, 1) * 0.5,
+          score: (matched.length / Math.max(keywords.length, 1)) * 0.5,
         });
       }
     }
 
-    return alternatives
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+    return alternatives.sort((a, b) => b.score - a.score).slice(0, 3);
   }
 
   /**
@@ -637,11 +754,30 @@ export class SONAOptimizer {
     if (!pattern || typeof pattern !== 'object') return false;
     const p = pattern as Record<string, unknown>;
     if (!Array.isArray(p.keywords) || p.keywords.length > 64) return false;
-    if (!p.keywords.every(k => typeof k === 'string' && k.length > 0 && k.length <= 128)) return false;
+    if (!p.keywords.every((k) => typeof k === 'string' && k.length > 0 && k.length <= 128))
+      return false;
     if (typeof p.agent !== 'string' || p.agent.length === 0 || p.agent.length > 128) return false;
-    if (typeof p.confidence !== 'number' || !Number.isFinite(p.confidence) || p.confidence < 0 || p.confidence > 1) return false;
-    if (typeof p.successCount !== 'number' || !Number.isFinite(p.successCount) || p.successCount < 0 || p.successCount > 1e9) return false;
-    if (typeof p.failureCount !== 'number' || !Number.isFinite(p.failureCount) || p.failureCount < 0 || p.failureCount > 1e9) return false;
+    if (
+      typeof p.confidence !== 'number' ||
+      !Number.isFinite(p.confidence) ||
+      p.confidence < 0 ||
+      p.confidence > 1
+    )
+      return false;
+    if (
+      typeof p.successCount !== 'number' ||
+      !Number.isFinite(p.successCount) ||
+      p.successCount < 0 ||
+      p.successCount > 1e9
+    )
+      return false;
+    if (
+      typeof p.failureCount !== 'number' ||
+      !Number.isFinite(p.failureCount) ||
+      p.failureCount < 0 ||
+      p.failureCount > 1e9
+    )
+      return false;
     return true;
   }
 
@@ -660,7 +796,7 @@ export class SONAOptimizer {
       const state: PersistedState = JSON.parse(data);
 
       // Validate version
-      if (!state.version || !state.version.startsWith('1.')) {
+      if (!state.version?.startsWith('1.')) {
         console.error('[SONA] Incompatible state version, starting fresh');
         return false;
       }
@@ -688,7 +824,9 @@ export class SONAOptimizer {
     } catch (err) {
       // Strip filesystem paths from error before logging to prevent path disclosure
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[SONA] Failed to load state: ${msg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)}`);
+      console.error(
+        `[SONA] Failed to load state: ${msg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)}`,
+      );
       return false;
     }
   }
@@ -740,14 +878,16 @@ export class SONAOptimizer {
         },
       };
 
-      const tmp = fullPath + '.tmp';
+      const tmp = `${fullPath}.tmp`;
       writeFileSync(tmp, JSON.stringify(state, null, 2));
       renameSync(tmp, fullPath);
       return true;
     } catch (err) {
       // Strip filesystem paths from error before logging to prevent path disclosure
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[SONA] Failed to save state: ${msg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)}`);
+      console.error(
+        `[SONA] Failed to save state: ${msg.replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/').slice(0, 200)}`,
+      );
       return false;
     }
   }

@@ -1,41 +1,37 @@
-import http from 'http';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import crypto from 'crypto';
-import zlib from 'zlib';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-import { spawn } from 'child_process';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 import {
-  collectAll,
-  getWatchPaths,
-  collectProject,
-  collectSessions,
   collectAgents,
-  collectTokens,
+  collectAll,
   collectHooks,
   collectKnowledge,
-  collectMetrics,
   collectMemory,
-  collectMemoryFiles,
+  collectMetrics,
+  collectProject,
+  collectSessions,
   collectSystem,
+  collectTokens,
 } from './collector.mjs';
-import {
-  addSseClient,
-  removeSseClient,
-  broadcast,
-  getSseClientCount,
-  closeSseClients,
-  addMmClient,
-  removeMmClient,
-  broadcastMm,
-  getMmClientCount,
-} from './sse-manager.mjs';
 import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
+import {
+  addMmClient,
+  addSseClient,
+  broadcast,
+  broadcastMm,
+  closeSseClients,
+  getSseClientCount,
+  removeMmClient,
+  removeSseClient,
+} from './sse-manager.mjs';
 
-const JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
+const _JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
 // Session id format for data/sessions/<id>.jsonl persistence — no path traversal (".."), starts
 // with a word char, rest is word chars/dot/dash. Shared by every session-id-accepting endpoint.
 const SESSION_ID_RE = /^(?!.*\.\.)[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/;
@@ -90,7 +86,7 @@ export function _sjHasPricing(model) {
 function _sjCalcCost(model, usage) {
   const p = _sjGetPricing(model);
   if (!p || !usage) return 0;
-  const webSearch = ((usage.server_tool_use || {}).web_search_requests || 0) * 0.01;
+  const webSearch = (usage.server_tool_use?.web_search_requests || 0) * 0.01;
   return (
     (usage.input_tokens || 0) * p.in +
     (usage.output_tokens || 0) * p.out +
@@ -136,7 +132,7 @@ function categorizeTool(name) {
 
 function parseSessionLines(lines) {
   const events = [];
-  let agentDepth = 0;
+  const _agentDepth = 0;
   const toolMap = new Map(); // id → tool event index
 
   for (const line of lines) {
@@ -188,7 +184,7 @@ function parseSessionLines(lines) {
     } else if (type === 'tool') {
       const content = entry.message?.content || [];
       for (const block of Array.isArray(content) ? content : []) {
-        if (!block || block.type !== 'tool_result') continue;
+        if (block?.type !== 'tool_result') continue;
         const resultText = Array.isArray(block.content)
           ? block.content
               .filter((b) => b && b.type === 'text')
@@ -806,7 +802,7 @@ export function resolveAllowedHosts(optionValue) {
 let running = false;
 let currentPort = null;
 let currentUrl = null;
-let activeServer = null;
+let _activeServer = null;
 const activeWatchers = [];
 
 // broadcast() is imported from sse-manager.mjs
@@ -815,7 +811,7 @@ const activeWatchers = [];
  * Opens a URL in the default browser, cross-platform.
  */
 async function openUrl(url) {
-  const { exec } = await import('child_process');
+  const { exec } = await import('node:child_process');
   const cmd =
     process.platform === 'darwin'
       ? `open "${url}"`
@@ -908,13 +904,13 @@ function _resolveSlugToPathUncached(slug, projDir) {
     if (r1) return r1;
     // Option B: combine with hyphen into current basename
     if (current !== '/') {
-      const combined = path.join(path.dirname(current), path.basename(current) + '-' + parts[idx]);
+      const combined = path.join(path.dirname(current), `${path.basename(current)}-${parts[idx]}`);
       const r2 = tryPaths(idx + 1, combined);
       if (r2) return r2;
     }
     return null;
   }
-  const fsResolved = parts.length ? tryPaths(1, '/' + parts[0]) : null;
+  const fsResolved = parts.length ? tryPaths(1, `/${parts[0]}`) : null;
   if (fsResolved) return fsResolved;
 
   // 2. Try reading cwd from a session file
@@ -933,7 +929,13 @@ function _resolveSlugToPathUncached(slug, projDir) {
           // m[1] is the raw JSON-escaped text between the quotes (e.g. a
           // Windows path's backslashes still escaped as \\) — unescape it
           // properly instead of returning the escaped literal.
-          if (m?.[1]) { try { return JSON.parse(`"${m[1]}"`); } catch { return m[1]; } }
+          if (m?.[1]) {
+            try {
+              return JSON.parse(`"${m[1]}"`);
+            } catch {
+              return m[1];
+            }
+          }
         }
       } catch {}
     }
@@ -1122,7 +1124,7 @@ export async function startServer({
           fs.mkdirSync(path.dirname(_badLog), { recursive: true });
           fs.appendFileSync(
             _badLog,
-            JSON.stringify({ ts: Date.now(), type: event.type, body: body.slice(0, 256) }) + '\n',
+            `${JSON.stringify({ ts: Date.now(), type: event.type, body: body.slice(0, 256) })}\n`,
           );
         } catch (_) {}
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1168,7 +1170,7 @@ export async function startServer({
           }
         })(),
       ].filter(Boolean);
-      if (!_systemPaths.includes(_norm) && !_systemPaths.some((p) => _norm.startsWith(p + '/'))) {
+      if (!_systemPaths.includes(_norm) && !_systemPaths.some((p) => _norm.startsWith(`${p}/`))) {
         eventProject = _norm;
       }
     }
@@ -1266,7 +1268,7 @@ export async function startServer({
     }
     // Update durable runstate.json — survives server restarts
     if (event.org) _updateRunState(event, root);
-    appendToFile(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n').catch(
+    appendToFile(path.join(dataDir, 'mastermind-events.jsonl'), `${JSON.stringify(event)}\n`).catch(
       () => {},
     );
     // Persist to git-safe run file (survives branch switches + shared across worktrees)
@@ -1285,7 +1287,7 @@ export async function startServer({
           const _monoDir = _getGitMonomindDir(root) || path.join(root, '.monomind');
           const _runDir = path.join(_monoDir, 'orgs', _orn, 'runs');
           fs.mkdirSync(_runDir, { recursive: true });
-          await appendToFile(path.join(_runDir, `${_rid}.jsonl`), JSON.stringify(event) + '\n');
+          await appendToFile(path.join(_runDir, `${_rid}.jsonl`), `${JSON.stringify(event)}\n`);
           _insertRunEvent(event, 'http');
           // Usage accumulation — persist per-role token/cost data to state.json (accumulated
           // across runs). Real producers emit two distinct shapes and both must be handled:
@@ -1294,9 +1296,12 @@ export async function startServer({
           //    default case for a raw OrgBus 'usage' event) — { from, data: { tokens, cost_usd } }.
           //    orgrt never emits 'agent:usage' itself, so without this branch real v2 cost data
           //    never reaches state.json even though the UI displays it as if it did.
-          const _usageRole = event.type === 'agent:usage' ? event.role
-            : event.type === 'org:usage' ? event.from
-            : null;
+          const _usageRole =
+            event.type === 'agent:usage'
+              ? event.role
+              : event.type === 'org:usage'
+                ? event.from
+                : null;
           if (_usageRole) {
             try {
               const _arole = String(_usageRole).trim();
@@ -1312,14 +1317,16 @@ export async function startServer({
                 } catch (_e) {}
                 if (!_st.agents) _st.agents = {};
                 const _ex = _st.agents[_arole] || {};
-                const _tokensIn = event.type === 'agent:usage' ? (Number(event.tokens_in) || 0) : 0;
-                const _tokensOut = event.type === 'agent:usage' ? (Number(event.tokens_out) || 0) : 0;
+                const _tokensIn = event.type === 'agent:usage' ? Number(event.tokens_in) || 0 : 0;
+                const _tokensOut = event.type === 'agent:usage' ? Number(event.tokens_out) || 0 : 0;
                 // 'org:usage' carries a single total (data.tokens), not an in/out split —
                 // counted toward tokens_used so the budget total still reflects it honestly.
-                const _tokensTotal = event.type === 'org:usage' ? (Number(event.data?.tokens) || 0) : 0;
-                const _costUsd = event.type === 'agent:usage'
-                  ? (Number(event.cost_usd) || 0)
-                  : (Number(event.data?.cost_usd) || 0);
+                const _tokensTotal =
+                  event.type === 'org:usage' ? Number(event.data?.tokens) || 0 : 0;
+                const _costUsd =
+                  event.type === 'agent:usage'
+                    ? Number(event.cost_usd) || 0
+                    : Number(event.data?.cost_usd) || 0;
                 _st.agents[_arole] = {
                   ..._ex,
                   tokens_in: (_ex.tokens_in || 0) + _tokensIn,
@@ -1343,7 +1350,7 @@ export async function startServer({
             };
             await appendToFile(
               path.join(_runDir, `${_rid}.convs.jsonl`),
-              JSON.stringify(_conv) + '\n',
+              `${JSON.stringify(_conv)}\n`,
             );
             // Also write to org-level threads.jsonl so the dashboard Threads tab shows agent conversations
             const _orgThreadsFile = path.join(root, '.monomind', 'orgs', `${_orn}-threads.jsonl`);
@@ -1357,7 +1364,7 @@ export async function startServer({
               msg: event.msg,
               subject: `Run ${_rid}`,
             };
-            appendToFile(_orgThreadsFile, JSON.stringify(_thread) + '\n').catch(() => {});
+            appendToFile(_orgThreadsFile, `${JSON.stringify(_thread)}\n`).catch(() => {});
           }
           // Phase 4: Compact completed run to three-tier retention (Issue 7)
           // hot (SQLite JSONL in .monomind) → warm (flat JSONL in archive/) → cold (gzip)
@@ -1440,7 +1447,7 @@ export async function startServer({
         const sessDir = path.join(dataDir, 'sessions');
         fs.mkdirSync(sessDir, { recursive: true });
         // Append event to per-session JSONL (O(1), no read)
-        appendToFile(path.join(sessDir, `${_sid}.jsonl`), JSON.stringify(event) + '\n').catch(
+        appendToFile(path.join(sessDir, `${_sid}.jsonl`), `${JSON.stringify(event)}\n`).catch(
           () => {},
         );
         // Update lightweight index (id, ts, prompt, status, org, startedAt, endedAt, domains only)
@@ -1901,7 +1908,7 @@ export async function startServer({
     // --------------------------------------------------------- GET /api/git-user
     if (req.method === 'GET' && url === '/api/git-user') {
       try {
-        const { execSync: gitExec } = await import('child_process');
+        const { execSync: gitExec } = await import('node:child_process');
         const cwd = projectDir || process.cwd();
         const name = gitExec('git config user.name', { cwd, encoding: 'utf8' }).trim();
         const email = gitExec('git config user.email', { cwd, encoding: 'utf8' }).trim();
@@ -2580,10 +2587,7 @@ export async function startServer({
           .map((slug) => {
             const projDir = path.join(projectsBase, slug);
             const projPath = resolveSlugToPath(slug, projDir);
-            const name =
-              path.basename(projPath) ||
-              slug.split('-').filter(Boolean).pop() ||
-              slug;
+            const name = path.basename(projPath) || slug.split('-').filter(Boolean).pop() || slug;
             let sessionCount = 0;
             let lastActivity = 0;
             let memoryCount = 0;
@@ -2876,7 +2880,7 @@ export async function startServer({
         const adrDirs = [{ path: path.join(d, 'docs', 'adrs'), group: 'all' }];
 
         const adrs = [];
-        for (const { path: adrDir, group } of adrDirs) {
+        for (const { path: adrDir, group: _group } of adrDirs) {
           if (!fs.existsSync(adrDir)) continue;
           // Skip AppleDouble junk ('._*') — exFAT volumes litter these and they aren't real ADRs
           const files = fs
@@ -2914,7 +2918,7 @@ export async function startServer({
                 /##\s+(?:Context|Summary|Problem Statement)[^\n]*\n+([\s\S]{20,300})/i,
               );
               adrs.push({
-                number: numMatch ? 'ADR-' + numMatch[1] : fname.replace('.md', ''),
+                number: numMatch ? `ADR-${numMatch[1]}` : fname.replace('.md', ''),
                 title: titleMatch
                   ? titleMatch[1].replace(/^ADR-[A-Z0-9-]+[:\s]+/i, '').trim()
                   : fname.replace('.md', ''),
@@ -3014,9 +3018,9 @@ export async function startServer({
             backend = rows
               .filter((e) => e && e.content != null && e.status !== 'deleted')
               .map((e) => ({
-                filename: 'backend:' + (e.key || e.id),
+                filename: `backend:${e.key || e.id}`,
                 name: e.key || e.id || 'entry',
-                description: e.namespace ? 'namespace: ' + e.namespace : '',
+                description: e.namespace ? `namespace: ${e.namespace}` : '',
                 type: e.type || 'semantic',
                 body: String(e.content),
                 source: 'backend',
@@ -3274,7 +3278,7 @@ export async function startServer({
           return;
         }
         const result = await bridge.bridgeListEntries({ namespace: ns, limit, offset });
-        if (!result || !result.success) {
+        if (!result?.success) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: result?.error || 'Failed to list entries' }));
           return;
@@ -3311,7 +3315,7 @@ export async function startServer({
           return;
         }
         const result = await bridge.bridgeSearchEntries({ query, namespace: ns, limit });
-        if (!result || !result.success) {
+        if (!result?.success) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: result?.error || 'Search failed' }));
           return;
@@ -3366,7 +3370,7 @@ export async function startServer({
             tags: Array.isArray(tags) ? tags : [],
             upsert: true,
           });
-          if (!result || !result.success) {
+          if (!result?.success) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: result?.error || 'Store failed' }));
             return;
@@ -3413,7 +3417,7 @@ export async function startServer({
             id,
             namespace: namespace || 'default',
           });
-          if (!result || !result.success) {
+          if (!result?.success) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: result?.error || 'Delete failed' }));
             return;
@@ -3515,12 +3519,12 @@ export async function startServer({
                     const delaySeconds = lastWakeup.delaySeconds || 60;
                     // Parse rep info from reason e.g. "repeat run 2/10"
                     const repM = (reason || prompt).match(/(\d+)\s*\/\s*(\d+)/);
-                    const currentRep = repM ? parseInt(repM[1]) : 1;
-                    const maxReps = repM ? parseInt(repM[2]) : 0;
+                    const currentRep = repM ? parseInt(repM[1], 10) : 1;
+                    const maxReps = repM ? parseInt(repM[2], 10) : 0;
                     const repFlag = prompt.match(/--rep\s+(\d+)/);
                     const timesFlag = prompt.match(/--times\s+(\d+)/);
-                    const finalRep = repFlag ? parseInt(repFlag[1]) : currentRep;
-                    const finalMax = timesFlag ? parseInt(timesFlag[1]) : maxReps;
+                    const finalRep = repFlag ? parseInt(repFlag[1], 10) : currentRep;
+                    const finalMax = timesFlag ? parseInt(timesFlag[1], 10) : maxReps;
                     const isTillendPrompt = /--tillend/i.test(prompt);
                     const type = isTillendPrompt
                       ? 'tillend'
@@ -3924,7 +3928,7 @@ export async function startServer({
           entries[idx] = { ...entries[idx], text };
           fs.writeFileSync(
             chunksFile,
-            entries.map((e) => JSON.stringify(e)).join('\n') + '\n',
+            `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`,
             'utf8',
           );
           res.writeHead(200, {
@@ -4042,7 +4046,7 @@ export async function startServer({
           const { countEdges } = await import(
             new URL('../../../../monograph/dist/src/storage/edge-store.js', import.meta.url).href
           );
-          const getShortestPath = (db, fromId, toId, maxDepth = 6) => {
+          const _getShortestPath = (db, fromId, toId, maxDepth = 6) => {
             if (fromId === toId) return [fromId];
             const visited = new Set([fromId]);
             let frontier = [[fromId]];
@@ -4151,7 +4155,7 @@ export async function startServer({
                 );
               }
             } else if (tool === 'monograph_detect_changes') {
-              const { execSync } = await import('child_process');
+              const { execSync } = await import('node:child_process');
               let changed = '';
               try {
                 changed = execSync('git diff --name-only HEAD', { cwd: d2, encoding: 'utf-8' });
@@ -4445,7 +4449,11 @@ export async function startServer({
                 ),
               ).toFixed(0);
               const status =
-                parseInt(score) >= 70 ? '✓ OK' : parseInt(score) >= 40 ? '⚠ WARNING' : '✗ CRITICAL';
+                parseInt(score, 10) >= 70
+                  ? '✓ OK'
+                  : parseInt(score, 10) >= 40
+                    ? '⚠ WARNING'
+                    : '✗ CRITICAL';
               ok(
                 `Vital Signs — ${new Date().toISOString()}\n${'─'.repeat(50)}\n  Health Score:  ${score}/100  ${status}\n  Nodes:         ${n}\n  Edges:         ${e}\n  Density:       ${density}\n  Dead symbols:  ${dead} (${deadRatio}%)\n  Hub nodes:     ${hubs} nodes with >20 edges`,
               );
@@ -4496,7 +4504,7 @@ export async function startServer({
                     0,
                     100 - (r.fan_out / maxOut) * 60 - (r.fan_in > 10 ? 20 : 0),
                   ).toFixed(0);
-                  return `  ${parseInt(mi) >= 70 ? '✓' : parseInt(mi) >= 40 ? '⚠' : '✗'} MI:${mi.padStart(3)}  out:${String(r.fan_out).padStart(4)}  in:${String(r.fan_in).padStart(4)}  ${r.name}`;
+                  return `  ${parseInt(mi, 10) >= 70 ? '✓' : parseInt(mi, 10) >= 40 ? '⚠' : '✗'} MI:${mi.padStart(3)}  out:${String(r.fan_out).padStart(4)}  in:${String(r.fan_in).padStart(4)}  ${r.name}`;
                 });
                 ok(
                   `Maintainability Index (estimated from fan-out/fan-in):\n${'─'.repeat(60)}\n${lines.join('\n')}`,
@@ -4517,7 +4525,7 @@ export async function startServer({
                   ? 'CRAP Score proxy (degree² — lower is better)'
                   : 'Complexity by Out-Degree';
                 ok(
-                  `${header}:\n${'─'.repeat(50)}\n${rows.map((r) => `  ${r.name} (${r.label})  ${isCrap ? 'CRAP' : 'complexity'}: ${isCrap ? Math.pow(r.out_deg, 2) : r.out_deg}\n    ${r.file_path || '?'}`).join('\n')}`,
+                  `${header}:\n${'─'.repeat(50)}\n${rows.map((r) => `  ${r.name} (${r.label})  ${isCrap ? 'CRAP' : 'complexity'}: ${isCrap ? r.out_deg ** 2 : r.out_deg}\n    ${r.file_path || '?'}`).join('\n')}`,
                 );
               }
             } else if (tool === 'monograph_risk_profile') {
@@ -4554,7 +4562,7 @@ export async function startServer({
             } else if (tool === 'monograph_author_analytics') {
               // Clamp to a safe integer — this value is interpolated into a shell command below.
               const limit = Math.min(Math.max(parseInt(input.limit, 10) || 20, 1), 100);
-              const { execSync: execS } = await import('child_process');
+              const { execSync: execS } = await import('node:child_process');
               try {
                 const log = execS(
                   `git log --format="%ae" --no-merges -- . 2>/dev/null | sort | uniq -c | sort -rn | head -${limit}`,
@@ -4635,7 +4643,7 @@ export async function startServer({
               );
             } else if (tool === 'monograph_circular_deps') {
               // Find import cycles using iterative DFS
-              const limit = Math.min(parseInt(input.limit || '10') || 10, 20);
+              const limit = Math.min(parseInt(input.limit || '10', 10) || 10, 20);
               const importEdges = db2
                 .prepare(
                   `SELECT source_id, target_id FROM edges WHERE relation IN ('IMPORTS','REQUIRES','USES','DEPENDS_ON') LIMIT 50000`,
@@ -4677,7 +4685,7 @@ export async function startServer({
                     .join('\n')}`,
                 );
             } else if (tool === 'monograph_largest_files') {
-              const limit2 = Math.min(parseInt(input.limit || '25') || 25, 50);
+              const limit2 = Math.min(parseInt(input.limit || '25', 10) || 25, 50);
               const rows = db2
                 .prepare(
                   `SELECT file_path, MAX(end_line) as lines, COUNT(*) as symbols FROM nodes WHERE file_path IS NOT NULL AND end_line IS NOT NULL AND end_line > 0 GROUP BY file_path ORDER BY lines DESC LIMIT ${limit2}`,
@@ -4693,7 +4701,7 @@ export async function startServer({
                 );
             } else if (tool === 'monograph_coupling_balance') {
               // Fan-out (what this file uses) vs Fan-in (what uses this file)
-              const limit3 = Math.min(parseInt(input.limit || '20') || 20, 40);
+              const limit3 = Math.min(parseInt(input.limit || '20', 10) || 20, 40);
               const fanOut = db2
                 .prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`)
                 .all();
@@ -4780,7 +4788,7 @@ export async function startServer({
             } else if (tool === 'monograph_instability') {
               // Robert Martin's Instability = Ce / (Ca + Ce)
               // Ca = afferent coupling (in-degree), Ce = efferent coupling (out-degree)
-              const limit4 = Math.min(parseInt(input.limit || '25') || 25, 50);
+              const _limit4 = Math.min(parseInt(input.limit || '25', 10) || 25, 50);
               const outRows = db2
                 .prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`)
                 .all();
@@ -4827,9 +4835,9 @@ export async function startServer({
               );
             } else if (tool === 'monograph_churn_hotspots') {
               // Combines git churn frequency with structural complexity (out-degree)
-              const limit5 = Math.min(parseInt(input.limit || '15') || 15, 30);
-              const { execSync: execS2 } = await import('child_process');
-              let churnMap = {};
+              const limit5 = Math.min(parseInt(input.limit || '15', 10) || 15, 30);
+              const { execSync: execS2 } = await import('node:child_process');
+              const churnMap = {};
               try {
                 // Whitelist the --since value — it is interpolated into a shell command below.
                 const sinceRaw = String(input.since || '');
@@ -4842,7 +4850,7 @@ export async function startServer({
                 );
                 for (const line of log2.trim().split('\n')) {
                   const m = line.trim().match(/^(\d+)\s+(.+)$/);
-                  if (m) churnMap[m[2]] = parseInt(m[1]);
+                  if (m) churnMap[m[2]] = parseInt(m[1], 10);
                 }
               } catch {}
               if (!Object.keys(churnMap).length) {
@@ -4914,7 +4922,7 @@ export async function startServer({
           for (const entry of entries) {
             if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
             const childAbs = path.join(abs, entry.name);
-            const childRel = rel ? rel + '/' + entry.name : entry.name;
+            const childRel = rel ? `${rel}/${entry.name}` : entry.name;
             if (entry.isDirectory()) {
               walk(childAbs, childRel);
             } else if (entry.isFile() && DOC_EXT.has(path.extname(entry.name))) {
@@ -5189,7 +5197,7 @@ export async function startServer({
               periodLabel: period,
             }),
           );
-        } catch (e) {
+        } catch (_e) {
           fallback();
         }
       } catch (err) {
@@ -5353,7 +5361,11 @@ export async function startServer({
           // that as not-active too, not just a literal status !== 'running'.
           let _gfActive = _gfRt.status === 'running';
           if (_gfActive && typeof _gfRt.pid === 'number') {
-            try { process.kill(_gfRt.pid, 0); } catch { _gfActive = false; }
+            try {
+              process.kill(_gfRt.pid, 0);
+            } catch {
+              _gfActive = false;
+            }
           }
           if (_gfActive) activeOrgRuns.set(_gfOrg, _gfId);
         } catch (_) {}
@@ -5417,9 +5429,7 @@ export async function startServer({
           });
         }
         fs.writeFileSync(_migIndexFile, JSON.stringify(_migIndex));
-        console.log(
-          '[server] migrated ' + _migIndex.length + ' sessions to per-session JSONL format',
-        );
+        console.log(`[server] migrated ${_migIndex.length} sessions to per-session JSONL format`);
       } catch (_me) {
         console.warn('[server] session migration failed:', _me.message);
       }
@@ -5428,9 +5438,9 @@ export async function startServer({
 
   // ---------------------------------------------------------------- Watchers
   let debounceTimer = null;
-  let pendingSections = new Set();
+  const pendingSections = new Set();
 
-  function scheduleRefresh(event, filename) {
+  function scheduleRefresh(_event, filename) {
     const sections = pathToSections(filename);
     if (sections) sections.forEach((s) => pendingSections.add(s));
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -5487,7 +5497,7 @@ export async function startServer({
         } catch {
           continue;
         }
-        if (!ev || !ev.type) continue;
+        if (!ev?.type) continue;
         // Index in SQLite (watcher path — bash-written lifecycle events)
         if (!ev.org) ev.org = orgName;
         if (!ev.runId) ev.runId = runId;
@@ -5604,8 +5614,7 @@ export async function startServer({
           { recursive: true, persistent: false },
           (_evType, _fname) => {
             if (
-              !_fname ||
-              !_fname.endsWith('.jsonl') ||
+              !_fname?.endsWith('.jsonl') ||
               _fname.endsWith('.warm.jsonl') ||
               _fname.endsWith('.convs.jsonl')
             )
@@ -5777,7 +5786,7 @@ export async function startServer({
           try {
             const _ppData = JSON.parse(fs.readFileSync(_ppPath, 'utf8'));
             const _ppid = parseInt(_ppf.replace('.json', ''), 10);
-            if (!_ppid || isNaN(_ppid)) return;
+            if (!_ppid || Number.isNaN(_ppid)) return;
             // Check if the ppid process is still alive (signal 0 = probe, no kill)
             try {
               process.kill(_ppid, 0);
@@ -5825,7 +5834,7 @@ export async function startServer({
   running = true;
   currentPort = boundPort;
   currentUrl = url;
-  activeServer = server;
+  _activeServer = server;
 
   // --------------------------------------------------------- Graceful shutdown
   function shutdown() {
@@ -5855,7 +5864,7 @@ export async function startServer({
           running = false;
           currentPort = null;
           currentUrl = null;
-          activeServer = null;
+          _activeServer = null;
           process.exit(0);
         });
       });

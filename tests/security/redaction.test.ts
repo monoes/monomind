@@ -11,9 +11,14 @@
  * concatenation rather than written as contiguous literals, so this test
  * file itself doesn't trip the repo's own secret-scanning pre-write gate.
  */
-import { describe, it, expect } from 'vitest';
-import { redact, redactPaths, redactPii, redactSecrets } from '../../packages/@monomind/cli/src/utils/redaction.js';
+import { describe, expect, it } from 'vitest';
 import { sanitizeError } from '../../packages/@monomind/cli/src/utils/input-guards.js';
+import {
+  redact,
+  redactPaths,
+  redactPii,
+  redactSecrets,
+} from '../../packages/@monomind/cli/src/utils/redaction.js';
 
 describe('redactPaths', () => {
   // The final step (a generic multi-segment-absolute-path -> basename
@@ -52,7 +57,7 @@ describe('#124-review: stripHostnames() is not vulnerable to catastrophic backtr
     // concluding no match — quadratic-plus blowup. This is reachable via
     // neural-optimize.ts's public pattern-export path (content up to 100MB)
     // and crash-reporter.ts's redact() on arbitrary error/stack text.
-    const evil = 'a' + '.a'.repeat(20_000);
+    const evil = `a${'.a'.repeat(20_000)}`;
     const start = Date.now();
     redactPii(evil);
     expect(Date.now() - start).toBeLessThan(500);
@@ -86,15 +91,15 @@ describe('redactPii', () => {
 
 describe('redactSecrets', () => {
   it('redacts an Anthropic-style API key', () => {
-    const sampleValue = 'sk-' + 'ant-' + 'a'.repeat(24);
-    const out = redactSecrets('key=' + sampleValue);
+    const sampleValue = `sk-ant-${'a'.repeat(24)}`;
+    const out = redactSecrets(`key=${sampleValue}`);
     expect(out).not.toContain(sampleValue);
     expect(out).toContain('[redacted]');
   });
 
   it('redacts a GitHub personal access token', () => {
-    const sampleValue = 'gh' + 'p_' + 'a'.repeat(36);
-    const out = redactSecrets('token ' + sampleValue);
+    const sampleValue = `ghp_${'a'.repeat(36)}`;
+    const out = redactSecrets(`token ${sampleValue}`);
     expect(out).toContain('[redacted]');
   });
 });
@@ -102,7 +107,7 @@ describe('redactSecrets', () => {
 describe('redact (composed pipeline)', () => {
   it('redacts a Windows path AND a secret in the same message', () => {
     const sampleValue = 'abcdefgh' + '12345678';
-    const out = redact('at C:\\Users\\alice\\app.ts — leaked ' + 'api' + 'key' + '=' + sampleValue);
+    const out = redact(`at C:\\Users\\alice\\app.ts — leaked apikey=${sampleValue}`);
     expect(out).not.toContain('alice');
     expect(out).not.toContain(sampleValue);
     expect(out).toContain('<path>/app.ts');

@@ -4,40 +4,34 @@
  * High-performance MCP server implementation
  */
 
-import { EventEmitter } from 'events';
-import { platform, arch } from 'os';
+import { EventEmitter } from 'node:events';
+import { arch, platform } from 'node:os';
+import { type ConnectionPool, createConnectionPool } from './connection-pool.js';
+import { createPromptRegistry, type PromptRegistry } from './prompt-registry.js';
+import { createRateLimiter, type RateLimiter } from './rate-limiter.js';
+import { createResourceRegistry, type ResourceRegistry } from './resource-registry.js';
+import { createSamplingManager, type LLMProvider, type SamplingManager } from './sampling.js';
+import { createSessionManager, type SessionManager } from './session-manager.js';
+import { createTaskManager, type TaskManager } from './task-manager.js';
+import { createToolRegistry, type ToolRegistry } from './tool-registry.js';
+import { createTransport, createTransportManager } from './transport/index.js';
 import type {
-  MCPServerConfig,
-  MCPRequest,
-  MCPResponse,
-  MCPNotification,
-  MCPSession,
-  MCPTool,
+  ILogger,
+  ITransport,
+  MCPCapabilities,
   MCPInitializeParams,
   MCPInitializeResult,
-  MCPCapabilities,
+  MCPNotification,
   MCPProtocolVersion,
+  MCPRequest,
+  MCPResponse,
+  MCPServerConfig,
   MCPServerMetrics,
-  ITransport,
-  TransportType,
-  ILogger,
+  MCPSession,
+  MCPTool,
   ToolContext,
 } from './types.js';
-import { MCPServerError, ErrorCodes } from './types.js';
-import { ToolRegistry, createToolRegistry } from './tool-registry.js';
-import { SessionManager, createSessionManager } from './session-manager.js';
-import { ConnectionPool, createConnectionPool } from './connection-pool.js';
-import { ResourceRegistry, createResourceRegistry } from './resource-registry.js';
-import { PromptRegistry, createPromptRegistry } from './prompt-registry.js';
-import { TaskManager, createTaskManager } from './task-manager.js';
-import { createTransport, TransportManager, createTransportManager } from './transport/index.js';
-import { RateLimiter, createRateLimiter, type RateLimitConfig } from './rate-limiter.js';
-import {
-  SamplingManager,
-  createSamplingManager,
-  type SamplingConfig,
-  type LLMProvider,
-} from './sampling.js';
+import { ErrorCodes, MCPServerError } from './types.js';
 
 const DEFAULT_CONFIG: Partial<MCPServerConfig> = {
   name: 'Monomind MCP Server V1',
@@ -77,7 +71,6 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   private readonly promptRegistry: PromptRegistry;
   private readonly taskManager: TaskManager;
   private readonly connectionPool?: ConnectionPool;
-  private readonly transportManager: TransportManager;
   private readonly rateLimiter: RateLimiter;
   private readonly samplingManager: SamplingManager;
   private transport?: ITransport;
@@ -550,7 +543,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
 
   private async handleNotification(
     notification: MCPNotification,
-    connectionId?: string,
+    _connectionId?: string,
   ): Promise<void> {
     this.logger.debug('Handling notification', { method: notification.method });
 
@@ -804,7 +797,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         this.resourceRegistry.unsubscribe(existingId);
       }
 
-      const subscriptionId = this.resourceRegistry.subscribe(params.uri, (uri, content) => {
+      const subscriptionId = this.resourceRegistry.subscribe(params.uri, (uri, _content) => {
         // Send notification when resource updates
         this.sendNotification('notifications/resources/updated', { uri });
       });
@@ -1224,16 +1217,22 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         description: 'Current monomind MCP server health, uptime, and tool count',
         mimeType: 'application/json',
       },
-      async (uri: string) => [{
-        uri,
-        mimeType: 'application/json',
-        text: JSON.stringify({
-          status: 'running',
-          uptime: this.startTime ? Date.now() - this.startTime.getTime() : 0,
-          tools: this.toolRegistry.listTools().length,
-          version: this.serverInfo.version,
-        }, null, 2),
-      }],
+      async (uri: string) => [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(
+            {
+              status: 'running',
+              uptime: this.startTime ? Date.now() - this.startTime.getTime() : 0,
+              tools: this.toolRegistry.listTools().length,
+              version: this.serverInfo.version,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     );
 
     this.resourceRegistry.registerResource(
@@ -1243,11 +1242,13 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         description: 'Request count, cache hit rate, error rate',
         mimeType: 'application/json',
       },
-      async (uri: string) => [{
-        uri,
-        mimeType: 'application/json',
-        text: JSON.stringify(this.getMetrics(), null, 2),
-      }],
+      async (uri: string) => [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(this.getMetrics(), null, 2),
+        },
+      ],
     );
 
     this.resourceRegistry.registerResource(
@@ -1257,11 +1258,13 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         description: 'Complete list of registered MCP tools with categories',
         mimeType: 'application/json',
       },
-      async (uri: string) => [{
-        uri,
-        mimeType: 'application/json',
-        text: JSON.stringify(this.toolRegistry.listTools(), null, 2),
-      }],
+      async (uri: string) => [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(this.toolRegistry.listTools(), null, 2),
+        },
+      ],
     );
 
     this.logger.info('Built-in resources registered', { count: 3 });
@@ -1274,39 +1277,51 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       name: 'monomind:research-plan',
       description: 'Generate a structured research plan for a topic',
       arguments: [{ name: 'topic', description: 'The research topic', required: true }],
-      handler: async (args: Record<string, string>) => [{
-        role: 'user' as const,
-        content: {
-          type: 'text' as const,
-          text: `Research plan for: ${args.topic ?? '(unspecified)'}\n\n1. Define scope and key questions\n2. Identify sources and prior work\n3. Outline methodology\n4. Execute research (parallel agents if appropriate)\n5. Synthesize findings\n6. Review and refine`,
+      handler: async (args: Record<string, string>) => [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: `Research plan for: ${args.topic ?? '(unspecified)'}\n\n1. Define scope and key questions\n2. Identify sources and prior work\n3. Outline methodology\n4. Execute research (parallel agents if appropriate)\n5. Synthesize findings\n6. Review and refine`,
+          },
         },
-      }],
+      ],
     });
 
     this.promptRegistry.register({
       name: 'monomind:pr-review',
       description: 'Structured pull-request review checklist',
       arguments: [{ name: 'changes', description: 'Description of the changes', required: true }],
-      handler: async (args: Record<string, string>) => [{
-        role: 'user' as const,
-        content: {
-          type: 'text' as const,
-          text: `PR Review checklist for: ${args.changes ?? '(unspecified)'}\n\n- [ ] Correctness: does the code do what it claims?\n- [ ] Tests: are there tests covering the changes?\n- [ ] Security: any input validation gaps?\n- [ ] Performance: any O(n²) or unnecessary allocations?\n- [ ] Docs: are relevant docs updated?\n- [ ] Breaking changes: any removed APIs or changed behavior?\n- [ ] Honesty: any fabricated metrics or misleading output?`,
+      handler: async (args: Record<string, string>) => [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: `PR Review checklist for: ${args.changes ?? '(unspecified)'}\n\n- [ ] Correctness: does the code do what it claims?\n- [ ] Tests: are there tests covering the changes?\n- [ ] Security: any input validation gaps?\n- [ ] Performance: any O(n²) or unnecessary allocations?\n- [ ] Docs: are relevant docs updated?\n- [ ] Breaking changes: any removed APIs or changed behavior?\n- [ ] Honesty: any fabricated metrics or misleading output?`,
+          },
         },
-      }],
+      ],
     });
 
     this.promptRegistry.register({
       name: 'monomind:debug-protocol',
       description: 'Systematic root-cause debugging protocol (4-phase)',
-      arguments: [{ name: 'symptom', description: 'Description of the bug or unexpected behavior', required: true }],
-      handler: async (args: Record<string, string>) => [{
-        role: 'user' as const,
-        content: {
-          type: 'text' as const,
-          text: `Debug protocol for: ${args.symptom ?? '(unspecified)'}\n\nPhase 1 — REPRODUCE: Write a test that triggers the bug. Verify it fails.\nPhase 2 — ISOLATE: Binary-search the cause. What's the smallest change that triggers it?\nPhase 3 — FIX: Make the test pass with the minimal code change.\nPhase 4 — VERIFY: Run the full test suite. Confirm no regressions.`,
+      arguments: [
+        {
+          name: 'symptom',
+          description: 'Description of the bug or unexpected behavior',
+          required: true,
         },
-      }],
+      ],
+      handler: async (args: Record<string, string>) => [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: `Debug protocol for: ${args.symptom ?? '(unspecified)'}\n\nPhase 1 — REPRODUCE: Write a test that triggers the bug. Verify it fails.\nPhase 2 — ISOLATE: Binary-search the cause. What's the smallest change that triggers it?\nPhase 3 — FIX: Make the test pass with the minimal code change.\nPhase 4 — VERIFY: Run the full test suite. Confirm no regressions.`,
+          },
+        },
+      ],
     });
 
     this.logger.info('Built-in prompts registered', { count: 3 });

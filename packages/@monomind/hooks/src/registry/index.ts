@@ -6,13 +6,13 @@
  */
 
 import type {
+  HookEntry,
   HookEvent,
   HookHandler,
+  HookListFilter,
   HookPriority,
-  HookEntry,
   HookRegistrationOptions,
   HookRegistryStats,
-  HookListFilter,
 } from '../types.js';
 
 /**
@@ -34,7 +34,7 @@ export class HookRegistry {
     event: HookEvent,
     handler: HookHandler,
     priority: HookPriority,
-    options: HookRegistrationOptions = {}
+    options: HookRegistrationOptions = {},
   ): string {
     const id = this.generateId();
 
@@ -56,7 +56,7 @@ export class HookRegistry {
     if (!this.hooksByEvent.has(event)) {
       this.hooksByEvent.set(event, new Set());
     }
-    this.hooksByEvent.get(event)!.add(id);
+    this.hooksByEvent.get(event)?.add(id);
 
     return id;
   }
@@ -145,9 +145,7 @@ export class HookRegistry {
         entries = entries.filter((e) => e.priority >= filter.minPriority!);
       }
       if (filter.namePattern) {
-        entries = entries.filter(
-          (e) => e.name && filter.namePattern!.test(e.name)
-        );
+        entries = entries.filter((e) => e.name && filter.namePattern?.test(e.name));
       }
     }
 
@@ -175,8 +173,7 @@ export class HookRegistry {
 
     const avgExecutionTime =
       this.stats.executionTimes.length > 0
-        ? this.stats.executionTimes.reduce((a, b) => a + b, 0) /
-          this.stats.executionTimes.length
+        ? this.stats.executionTimes.reduce((a, b) => a + b, 0) / this.stats.executionTimes.length
         : 0;
 
     return {
@@ -252,7 +249,7 @@ export function registerHook(
   event: HookEvent,
   handler: HookHandler,
   priority: HookPriority,
-  options?: HookRegistrationOptions
+  options?: HookRegistrationOptions,
 ): string {
   return defaultRegistry.register(event, handler, priority, options);
 }

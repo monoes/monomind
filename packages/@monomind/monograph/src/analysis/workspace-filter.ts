@@ -5,7 +5,7 @@ export interface SubsetFilter {
 
 export function createSubsetFilter(roots: string[]): SubsetFilter {
   // Normalize roots to ensure they end with '/'
-  const normalizedRoots = roots.map((root) => (root.endsWith('/') ? root : root + '/'));
+  const normalizedRoots = roots.map((root) => (root.endsWith('/') ? root : `${root}/`));
 
   return {
     roots: normalizedRoots,
@@ -27,7 +27,7 @@ export function filterToWorkspaces<T extends { filePath?: string | null }>(
 
 export interface WorkspaceFilterPattern {
   pattern: string;
-  negated: boolean;   // true if pattern starts with '!'
+  negated: boolean; // true if pattern starts with '!'
   isGlob: boolean;
 }
 
@@ -42,20 +42,17 @@ export function parseWorkspaceFilterPattern(raw: string): WorkspaceFilterPattern
 /** Match a workspace name against a gitignore-style pattern (supports ! negation and globs). */
 export function matchWorkspacePattern(name: string, pattern: WorkspaceFilterPattern): boolean {
   if (pattern.isGlob) {
-    const re = new RegExp('^' + pattern.pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+    const re = new RegExp(`^${pattern.pattern.replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
     return re.test(name);
   }
   return name === pattern.pattern;
 }
 
 /** Resolve a list of workspace names against a list of filter patterns with negation. */
-export function resolveWorkspaceFilters(
-  names: string[],
-  patterns: string[],
-): string[] {
+export function resolveWorkspaceFilters(names: string[], patterns: string[]): string[] {
   if (patterns.length === 0) return names;
   const parsed = patterns.map(parseWorkspaceFilterPattern);
-  return names.filter(name => {
+  return names.filter((name) => {
     let included = false;
     for (const p of parsed) {
       if (matchWorkspacePattern(name, p)) {
@@ -81,7 +78,7 @@ export function workspacesContainingAny(
   const indices: number[] = [];
   for (let i = 0; i < workspaceRoots.length; i++) {
     const root = workspaceRoots[i].replace(/\\/g, '/').replace(/\/$/, '');
-    if (changedFiles.some(f => f.replace(/\\/g, '/').startsWith(root + '/'))) {
+    if (changedFiles.some((f) => f.replace(/\\/g, '/').startsWith(`${root}/`))) {
       indices.push(i);
     }
   }

@@ -12,17 +12,18 @@
  * trace is both persisted to bus.jsonl and visible via `org decisions`
  * (org-observe.ts's decisionsAction / readRunEvents).
  */
-import { describe, it, expect, afterEach } from 'vitest';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { OrgDaemon, type RunningOrg, type AgentRuntime } from '../orgrt/daemon.js';
+import { afterEach, describe, expect, it } from 'vitest';
+import { decisionsAction } from '../commands/org-observe.js';
 import { OrgBus } from '../orgrt/bus.js';
+import { type AgentRuntime, OrgDaemon, type RunningOrg } from '../orgrt/daemon.js';
 import { Mailbox } from '../orgrt/mailbox.js';
-import { gatedCanUseTool } from '../orgrt/session.js';
 import type { Decision, PolicyEngine } from '../orgrt/policy.js';
 import { readRunEvents } from '../orgrt/reporting.js';
-import { decisionsAction } from '../commands/org-observe.js';
+import { gatedCanUseTool } from '../orgrt/session.js';
 import { ORG_DIR, type OrgDef } from '../orgrt/types.js';
 
 function minimalDef(name: string): OrgDef {
@@ -42,31 +43,40 @@ function makeAgent(): AgentRuntime {
 
 describe('ORG-1: recordDecision wired into real decision points', () => {
   let tmp = '';
-  afterEach(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+  afterEach(() => {
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  });
 
   it('records a decision trace when an approval request resolves', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-decisions-approval-'));
     const daemon = new OrgDaemon(tmp);
     const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
     const running: RunningOrg = {
-      def: minimalDef('alpha'), run: 'run-1', bus,
+      def: minimalDef('alpha'),
+      run: 'run-1',
+      bus,
       agents: new Map([['dev', makeAgent()]]),
       busEvents: () => [],
     };
     daemon.orgs.set('alpha', running);
-    daemon.approvals.set('alpha', [{ roleId: 'dev', action: 'Bash', question: 'Approve Bash?', ts: Date.now(), approved: null }]);
+    daemon.approvals.set('alpha', [
+      { roleId: 'dev', action: 'Bash', question: 'Approve Bash?', ts: Date.now(), approved: null },
+    ]);
 
     const result = await daemon.setApproval('alpha', 'dev', 'Bash', true);
     expect(result.ok).toBe(true);
     await bus.flush();
 
     const events = readRunEvents(tmp, 'alpha', 'run-1');
-    const trace = events.find(e => e.type === 'audit' && e.reason === 'decision-trace');
+    const trace = events.find((e) => e.type === 'audit' && e.reason === 'decision-trace');
     expect(trace).toBeTruthy();
-    expect((trace!.data as any).decisionType).toBe('approval');
-    expect((trace!.data as any).outcome).toBe('approved');
+    expect((trace?.data as any).decisionType).toBe('approval');
+    expect((trace?.data as any).outcome).toBe('approved');
 
-    const cliResult = await decisionsAction({ cwd: tmp, args: ['alpha'], flags: {} } as any, 'alpha');
+    const cliResult = await decisionsAction(
+      { cwd: tmp, args: ['alpha'], flags: {} } as any,
+      'alpha',
+    );
     expect(cliResult.success).toBe(true);
     expect(cliResult.message).toContain('1 decision traces');
   });
@@ -77,30 +87,43 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
 
     const alphaBus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
     const alpha: RunningOrg = {
-      def: minimalDef('alpha'), run: 'run-1', bus: alphaBus,
+      def: minimalDef('alpha'),
+      run: 'run-1',
+      bus: alphaBus,
       agents: new Map([['dev', makeAgent()]]),
       busEvents: () => [],
     };
     const betaBus = new OrgBus('beta', 'run-1', join(tmp, ORG_DIR, 'beta', 'run-1'));
     const beta: RunningOrg = {
-      def: minimalDef('beta'), run: 'run-1', bus: betaBus,
+      def: minimalDef('beta'),
+      run: 'run-1',
+      bus: betaBus,
       agents: new Map([['worker', makeAgent()]]),
       busEvents: () => [],
     };
     daemon.orgs.set('alpha', alpha);
     daemon.orgs.set('beta', beta);
 
-    const receipt = await daemon.deliver('alpha', 'dev', 'beta:worker', 'status update', 'work is done');
+    const receipt = await daemon.deliver(
+      'alpha',
+      'dev',
+      'beta:worker',
+      'status update',
+      'work is done',
+    );
     expect(receipt).toBe('delivered to beta:worker');
     await alphaBus.flush();
 
     const events = readRunEvents(tmp, 'alpha', 'run-1');
-    const trace = events.find(e => e.type === 'audit' && e.reason === 'decision-trace');
+    const trace = events.find((e) => e.type === 'audit' && e.reason === 'decision-trace');
     expect(trace).toBeTruthy();
-    expect((trace!.data as any).decisionType).toBe('handoff');
-    expect((trace!.data as any).outcome).toBe('delivered');
+    expect((trace?.data as any).decisionType).toBe('handoff');
+    expect((trace?.data as any).outcome).toBe('delivered');
 
-    const cliResult = await decisionsAction({ cwd: tmp, args: ['alpha'], flags: {} } as any, 'alpha');
+    const cliResult = await decisionsAction(
+      { cwd: tmp, args: ['alpha'], flags: {} } as any,
+      'alpha',
+    );
     expect(cliResult.success).toBe(true);
     expect(cliResult.message).toContain('1 decision traces');
   });
@@ -110,14 +133,19 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
     const daemon = new OrgDaemon(tmp);
     const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
     const running: RunningOrg = {
-      def: minimalDef('alpha'), run: 'run-1', bus,
+      def: minimalDef('alpha'),
+      run: 'run-1',
+      bus,
       agents: new Map([['dev', makeAgent()]]),
       busEvents: () => [],
     };
     daemon.orgs.set('alpha', running);
 
     const denyingPolicy = {
-      decide: async (): Promise<Decision> => ({ behavior: 'deny', message: 'Bash is not allowed for this role' }),
+      decide: async (): Promise<Decision> => ({
+        behavior: 'deny',
+        message: 'Bash is not allowed for this role',
+      }),
     } as unknown as PolicyEngine;
 
     // Mirrors daemon.ts's sessionOpts.onDecision wiring exactly.
@@ -129,21 +157,29 @@ describe('ORG-1: recordDecision wired into real decision points', () => {
         outcome: 'denied',
       });
     };
-    const canUseTool = gatedCanUseTool(denyingPolicy, undefined, 'dev', undefined,
-      (toolName, _input, decision) => onDecision('dev', toolName, decision.message ?? 'denied'));
+    const canUseTool = gatedCanUseTool(
+      denyingPolicy,
+      undefined,
+      'dev',
+      undefined,
+      (toolName, _input, decision) => onDecision('dev', toolName, decision.message ?? 'denied'),
+    );
 
     const decision = await canUseTool('Bash', { command: 'rm -rf /' });
     expect(decision.behavior).toBe('deny');
     await bus.flush();
 
     const events = readRunEvents(tmp, 'alpha', 'run-1');
-    const trace = events.find(e => e.type === 'audit' && e.reason === 'decision-trace');
+    const trace = events.find((e) => e.type === 'audit' && e.reason === 'decision-trace');
     expect(trace).toBeTruthy();
-    expect((trace!.data as any).decisionType).toBe('tool');
-    expect((trace!.data as any).outcome).toBe('denied');
-    expect((trace!.data as any).context).toContain('Bash');
+    expect((trace?.data as any).decisionType).toBe('tool');
+    expect((trace?.data as any).outcome).toBe('denied');
+    expect((trace?.data as any).context).toContain('Bash');
 
-    const cliResult = await decisionsAction({ cwd: tmp, args: ['alpha'], flags: {} } as any, 'alpha');
+    const cliResult = await decisionsAction(
+      { cwd: tmp, args: ['alpha'], flags: {} } as any,
+      'alpha',
+    );
     expect(cliResult.success).toBe(true);
     expect(cliResult.message).toContain('1 decision traces');
   });

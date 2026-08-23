@@ -1,4 +1,8 @@
-export type DependencyLocation = 'Dependencies' | 'DevDependencies' | 'OptionalDependencies' | 'PeerDependencies';
+export type DependencyLocation =
+  | 'Dependencies'
+  | 'DevDependencies'
+  | 'OptionalDependencies'
+  | 'PeerDependencies';
 
 export interface UnusedFile {
   filePath: string;
@@ -130,20 +134,25 @@ export function mergeAnalysisResults(a: AnalysisResults, b: AnalysisResults): An
   };
 }
 
-export function filterResultsByFile(results: AnalysisResults, filePaths: Set<string>): AnalysisResults {
+export function filterResultsByFile(
+  results: AnalysisResults,
+  filePaths: Set<string>,
+): AnalysisResults {
   return {
-    unusedFiles: results.unusedFiles.filter(r => filePaths.has(r.filePath)),
-    unusedExports: results.unusedExports.filter(r => filePaths.has(r.filePath)),
-    unusedTypes: results.unusedTypes.filter(r => filePaths.has(r.filePath)),
-    privateTypeLeaks: results.privateTypeLeaks.filter(r => filePaths.has(r.filePath)),
+    unusedFiles: results.unusedFiles.filter((r) => filePaths.has(r.filePath)),
+    unusedExports: results.unusedExports.filter((r) => filePaths.has(r.filePath)),
+    unusedTypes: results.unusedTypes.filter((r) => filePaths.has(r.filePath)),
+    privateTypeLeaks: results.privateTypeLeaks.filter((r) => filePaths.has(r.filePath)),
     unusedDependencies: results.unusedDependencies,
-    unusedEnumMembers: results.unusedEnumMembers.filter(r => filePaths.has(r.filePath)),
-    unusedClassMembers: results.unusedClassMembers.filter(r => filePaths.has(r.filePath)),
-    unresolvedImports: results.unresolvedImports.filter(r => filePaths.has(r.filePath)),
+    unusedEnumMembers: results.unusedEnumMembers.filter((r) => filePaths.has(r.filePath)),
+    unusedClassMembers: results.unusedClassMembers.filter((r) => filePaths.has(r.filePath)),
+    unresolvedImports: results.unresolvedImports.filter((r) => filePaths.has(r.filePath)),
     unlistedDependencies: results.unlistedDependencies,
     duplicateExports: results.duplicateExports,
-    circularDependencies: results.circularDependencies.filter(c => c.cycle.some(f => filePaths.has(f))),
-    boundaryViolations: results.boundaryViolations.filter(b => filePaths.has(b.fromFile)),
-    staleSuppressions: results.staleSuppressions.filter(r => filePaths.has(r.filePath)),
+    circularDependencies: results.circularDependencies.filter((c) =>
+      c.cycle.some((f) => filePaths.has(f)),
+    ),
+    boundaryViolations: results.boundaryViolations.filter((b) => filePaths.has(b.fromFile)),
+    staleSuppressions: results.staleSuppressions.filter((r) => filePaths.has(r.filePath)),
   };
 }

@@ -7,10 +7,11 @@
  * different metadata file than the identical command at the repo root. Neither
  * brain could see the other. These tests pin the marker walk that fixes it.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // getProjectRoot stops the upward walk at the home directory. Point homedir at
 // a test-controlled path so the walk is deterministic and never depends on
@@ -103,7 +104,9 @@ describe('getProjectRoot', () => {
   // The other half of the invariant above: the marker WRITTEN into that
   // directory must name the same root the directory is keyed to.
   it('writes an origin marker naming the project root, not the invoking subdirectory', async () => {
-    const { bridgeStoreEntry, bridgeGetDbPath, shutdownBridge } = await import('../memory/memory-bridge.js');
+    const { bridgeStoreEntry, bridgeGetDbPath, shutdownBridge } = await import(
+      '../memory/memory-bridge.js'
+    );
     marker(root, '.git');
     const sub = join(root, 'packages', 'cli');
     mkdirSync(sub, { recursive: true });
@@ -111,7 +114,9 @@ describe('getProjectRoot', () => {
 
     try {
       await bridgeStoreEntry({ key: 'origin-probe', value: 'probe', namespace: 'default' });
-    } catch { /* backend unavailable — asserted conditionally below */ }
+    } catch {
+      /* backend unavailable — asserted conditionally below */
+    }
 
     // dbPath is <dataDir>/lancedb; origin.json sits beside it in <dataDir>.
     const originFile = join(dirname(bridgeGetDbPath()), 'origin.json');
@@ -125,7 +130,9 @@ describe('getProjectRoot', () => {
     // the same environment memory-crud.test.ts mocks the backend away for — and
     // the slug test below still pins the root-vs-cwd invariant on the
     // directory-name side there.
-    await shutdownBridge().catch(() => { /* best effort */ });
+    await shutdownBridge().catch(() => {
+      /* best effort */
+    });
   }, 60000); // bridgeStoreEntry triggers first-use backend/embedding load — exceeds the 15s default under parallel-suite load
 
   // MONOMIND_CWD is how monograph and swarm state already learn which project

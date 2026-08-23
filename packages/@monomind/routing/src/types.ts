@@ -87,7 +87,12 @@ export interface RouteLayerConfig {
   /** Enable keyword pre-filter before semantic routing (default: true) */
   enableKeywordFilter?: boolean;
   /** Custom keyword rules prepended before DEFAULT_KEYWORD_ROUTES */
-  keywordRules?: Array<{ pattern: RegExp; agentSlug: string; routeName: string; description: string }>;
+  keywordRules?: Array<{
+    pattern: RegExp;
+    agentSlug: string;
+    routeName: string;
+    description: string;
+  }>;
 }
 
 export interface AgentCapability {

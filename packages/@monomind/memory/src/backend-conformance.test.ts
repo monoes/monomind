@@ -20,11 +20,11 @@
  * single-backend test file.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SQLiteBackend } from './sqlite-backend.js';
 import { SqlJsBackend } from './sqljs-backend.js';
-import { createDefaultEntry } from './types.js';
 import type { IMemoryBackend } from './types.js';
+import { createDefaultEntry } from './types.js';
 
 interface BackendCase {
   name: string;
@@ -84,7 +84,10 @@ for (const backendCase of BACKENDS) {
       });
 
       it('an unmatched tag in the set excludes the entry', async () => {
-        const results = await backend.query({ namespace: 'conformance', tags: ['alpha', 'nonexistent'] });
+        const results = await backend.query({
+          namespace: 'conformance',
+          tags: ['alpha', 'nonexistent'],
+        });
         expect(results).toEqual([]);
       });
 
@@ -114,7 +117,7 @@ for (const backendCase of BACKENDS) {
           key: 'ctrl-tag',
           content: 'x',
           namespace: 'conformance',
-          tags: ['has' + String.fromCharCode(1) + 'ctrl'],
+          tags: [`has${String.fromCharCode(1)}ctrl`],
         });
         await expect(backend.store(entry)).rejects.toThrow();
       });
@@ -191,7 +194,7 @@ for (const backendCase of BACKENDS) {
 
         const found = await backend.getByKey('conformance', 'with-embedding');
         expect(found?.embedding).toBeDefined();
-        expect(Array.from(found!.embedding!)).toEqual(Array.from(embedding));
+        expect(Array.from(found?.embedding!)).toEqual(Array.from(embedding));
       });
     });
   });

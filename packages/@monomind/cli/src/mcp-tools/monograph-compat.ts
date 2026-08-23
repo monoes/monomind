@@ -6,12 +6,12 @@
  * moved to the real package.
  */
 
-import { join, resolve, relative } from 'path';
-import { existsSync, statSync } from 'fs';
-import { execSync } from 'child_process';
-import { openDb, closeDb, countNodes, parseGroupConfig, type GroupRepo } from '@monoes/monograph';
-import { getProjectCwd } from './types.js';
+import { execSync } from 'node:child_process';
+import { existsSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
+import { closeDb, countNodes, type GroupRepo, openDb, parseGroupConfig } from '@monoes/monograph';
 import { realOrResolved } from '../utils/input-guards.js';
+import { getProjectCwd } from './types.js';
 
 type Db = ReturnType<typeof openDb>;
 
@@ -50,7 +50,9 @@ function readGroupConfig(configPath: string): GroupRepo[] {
   }
   // OOM guard: skip files larger than 1 MB
   if (statSync(configPath).size > MAX_GROUP_CONFIG_BYTES) {
-    throw new Error(`Group config file too large (> ${MAX_GROUP_CONFIG_BYTES} bytes): ${configPath}`);
+    throw new Error(
+      `Group config file too large (> ${MAX_GROUP_CONFIG_BYTES} bytes): ${configPath}`,
+    );
   }
   return parseGroupConfig(configPath).repos;
 }
@@ -63,14 +65,17 @@ function readGroupConfig(configPath: string): GroupRepo[] {
  */
 function isRepoStale(db: Db, repoPath: string): boolean {
   try {
-    const meta = (
-      (db as any).prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'").get()
-      ?? (db as any).prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get()
-    ) as { value: string } | undefined;
+    const meta = ((db as any)
+      .prepare("SELECT value FROM index_meta WHERE key = 'last_commit_hash'")
+      .get() ??
+      (db as any).prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get()) as
+      | { value: string }
+      | undefined;
     const lastCommit = meta?.value;
     if (!lastCommit || !/^[0-9a-f]{7,40}$/i.test(lastCommit)) return false;
     const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
-      cwd: repoPath, encoding: 'utf-8',
+      cwd: repoPath,
+      encoding: 'utf-8',
     }).trim();
     return parseInt(out, 10) > 3;
   } catch {
@@ -84,7 +89,12 @@ export async function getGroupContracts(
   configPath: string,
 ): Promise<{ groupName: string; symbol: string; filePath: string | null; line: number | null }[]> {
   const repos = readGroupConfig(configPath);
-  const result: { groupName: string; symbol: string; filePath: string | null; line: number | null }[] = [];
+  const result: {
+    groupName: string;
+    symbol: string;
+    filePath: string | null;
+    line: number | null;
+  }[] = [];
 
   for (const repo of repos) {
     const repoPath = repo.path ?? '';
@@ -92,9 +102,11 @@ export async function getGroupContracts(
     if (!existsSync(dbPath)) continue;
     try {
       const db = openDb(dbPath);
-      const exported = (db as any).prepare(
-        "SELECT * FROM nodes WHERE is_exported = 1 AND label NOT IN ('File','Folder','Community','Concept') LIMIT 100"
-      ).all() as any[];
+      const exported = (db as any)
+        .prepare(
+          "SELECT * FROM nodes WHERE is_exported = 1 AND label NOT IN ('File','Folder','Community','Concept') LIMIT 100",
+        )
+        .all() as any[];
       closeDb(db);
       for (const n of exported) {
         result.push({
@@ -104,7 +116,9 @@ export async function getGroupContracts(
           line: n.start_line ?? null,
         });
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   return result;
@@ -116,14 +130,26 @@ export async function getGroupStatus(configPath: string): Promise<{
   totalGroups: number;
   indexedGroups: number;
   stalledGroups: number;
-  groups: { name: string; indexed: boolean; stale: boolean; contractCount: number; lastSync?: string }[];
+  groups: {
+    name: string;
+    indexed: boolean;
+    stale: boolean;
+    contractCount: number;
+    lastSync?: string;
+  }[];
 }> {
   const repos = readGroupConfig(configPath);
   if (repos.length === 0) {
     return { totalGroups: 0, indexedGroups: 0, stalledGroups: 0, groups: [] };
   }
 
-  const groups: { name: string; indexed: boolean; stale: boolean; contractCount: number; lastSync?: string }[] = [];
+  const groups: {
+    name: string;
+    indexed: boolean;
+    stale: boolean;
+    contractCount: number;
+    lastSync?: string;
+  }[] = [];
 
   for (const repo of repos) {
     const repoPath = repo.path ?? '';
@@ -136,8 +162,14 @@ export async function getGroupStatus(configPath: string): Promise<{
     try {
       const db = openDb(dbPath);
       const nc = countNodes(db);
-      const contracts = (db as any).prepare("SELECT COUNT(*) as n FROM nodes WHERE label = 'Route'").get() as any;
-      const meta = (db as any).prepare("SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1").get() as any;
+      const contracts = (db as any)
+        .prepare("SELECT COUNT(*) as n FROM nodes WHERE label = 'Route'")
+        .get() as any;
+      const meta = (db as any)
+        .prepare(
+          "SELECT value FROM index_meta WHERE key IN ('ua_last_commit','lastCommit') LIMIT 1",
+        )
+        .get() as any;
       const stale = isRepoStale(db, repoPath);
       closeDb(db);
       groups.push({
@@ -152,7 +184,7 @@ export async function getGroupStatus(configPath: string): Promise<{
     }
   }
 
-  const indexedGroups = groups.filter(g => g.indexed).length;
-  const stalledGroups = groups.filter(g => g.stale).length;
+  const indexedGroups = groups.filter((g) => g.indexed).length;
+  const stalledGroups = groups.filter((g) => g.stale).length;
   return { totalGroups: groups.length, indexedGroups, stalledGroups, groups };
 }

@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { detectDeadCode, detectDeadCodeNodes, formatDeadCode } from '../../graph/dead-code.js';
 import { openDb } from '../../storage/db.js';
-import Database from 'better-sqlite3';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 
 function makeTempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'monograph-deadcode-test-'));
@@ -12,31 +12,41 @@ function makeTempDb() {
 }
 
 function insertFileNode(db: Database.Database, filePath: string) {
-  const id = filePath.replace(/[/.]/g, '_') + '_file';
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, file_path, is_exported) VALUES (?, 'File', ?, ?, ?, 0)`)
-    .run(id, filePath.split('/').pop(), filePath.split('/').pop(), filePath);
+  const id = `${filePath.replace(/[/.]/g, '_')}_file`;
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, file_path, is_exported) VALUES (?, 'File', ?, ?, ?, 0)`,
+  ).run(id, filePath.split('/').pop(), filePath.split('/').pop(), filePath);
   return id;
 }
 
-function insertFunction(db: Database.Database, name: string, filePath: string, opts?: { exported?: boolean; startLine?: number }) {
-  const id = filePath.replace(/[/.]/g, '_') + '_' + name + '_function';
-  const fileId = filePath.replace(/[/.]/g, '_') + '_file';
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, file_path, start_line, is_exported) VALUES (?, 'Function', ?, ?, ?, ?, ?)`)
-    .run(id, name, name.toLowerCase(), filePath, opts?.startLine ?? 1, opts?.exported ? 1 : 0);
+function insertFunction(
+  db: Database.Database,
+  name: string,
+  filePath: string,
+  opts?: { exported?: boolean; startLine?: number },
+) {
+  const id = `${filePath.replace(/[/.]/g, '_')}_${name}_function`;
+  const fileId = `${filePath.replace(/[/.]/g, '_')}_file`;
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, file_path, start_line, is_exported) VALUES (?, 'Function', ?, ?, ?, ?, ?)`,
+  ).run(id, name, name.toLowerCase(), filePath, opts?.startLine ?? 1, opts?.exported ? 1 : 0);
   // CONTAINS edge from File → Function
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CONTAINS', 'EXTRACTED', 1.0)`)
-    .run(`${fileId}_${id}_contains`, fileId, id);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CONTAINS', 'EXTRACTED', 1.0)`,
+  ).run(`${fileId}_${id}_contains`, fileId, id);
   return id;
 }
 
 function insertCallEdge(db: Database.Database, src: string, tgt: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`)
-    .run(`${src}_${tgt}_calls`, src, tgt);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'CALLS', 'EXTRACTED', 1.0)`,
+  ).run(`${src}_${tgt}_calls`, src, tgt);
 }
 
 function insertReExportEdge(db: Database.Database, srcFileId: string, tgtFileId: string) {
-  db.prepare(`INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'RE_EXPORTS', 'INFERRED', 0.8)`)
-    .run(`${srcFileId}_${tgtFileId}_reexports`, srcFileId, tgtFileId);
+  db.prepare(
+    `INSERT INTO edges (id, source_id, target_id, relation, confidence, confidence_score) VALUES (?, ?, ?, 'RE_EXPORTS', 'INFERRED', 0.8)`,
+  ).run(`${srcFileId}_${tgtFileId}_reexports`, srcFileId, tgtFileId);
 }
 
 describe('detectDeadCode', () => {
@@ -159,13 +169,15 @@ describe('formatDeadCode', () => {
   });
 
   it('includes candidate count and file locations', () => {
-    const result = formatDeadCode([{
-      id: 'test_id',
-      name: 'unused',
-      filePath: 'src/utils.ts',
-      startLine: 42,
-      label: 'Function',
-    }]);
+    const result = formatDeadCode([
+      {
+        id: 'test_id',
+        name: 'unused',
+        filePath: 'src/utils.ts',
+        startLine: 42,
+        label: 'Function',
+      },
+    ]);
     expect(result).toContain('1 exported function');
     expect(result).toContain('src/utils.ts:42');
     expect(result).toContain('Candidates only');

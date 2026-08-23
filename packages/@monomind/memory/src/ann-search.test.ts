@@ -9,10 +9,11 @@
  * each test that needs a specific threshold sets the env var and then
  * resets the module registry before importing.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('SqlBackend ANN (HNSW) fast path', () => {
   let dir: string;
@@ -152,11 +153,17 @@ describe('SqlBackend ANN (HNSW) fast path', () => {
     // Re-store the SAME id/key with a NEW embedding — total row count is
     // unchanged, but the vector for k3 has moved. Without the fingerprint
     // fix, the cached graph would keep serving k3's stale vector forever.
-    const before = await backend.get((await backend.query({ type: 'exact', key: 'k3', limit: 1 }))[0].id);
+    const before = await backend.get(
+      (await backend.query({ type: 'exact', key: 'k3', limit: 1 }))[0].id,
+    );
     expect(before).not.toBeNull();
     // +1 isn't safe here: entries stored later in the seed loop already have a
     // higher updatedAt than k3's own, so bump well past all of them instead.
-    const updated = { ...before!, embedding: makeEmbedding(99), updatedAt: before!.updatedAt + 1_000_000 };
+    const updated = {
+      ...before!,
+      embedding: makeEmbedding(99),
+      updatedAt: before?.updatedAt + 1_000_000,
+    };
     await backend.store(updated);
 
     const rebuildSpy = vi.spyOn(HNSWIndex.prototype, 'rebuild');
@@ -195,7 +202,10 @@ describe('SqlBackend ANN (HNSW) fast path', () => {
     target.embedding = farVec();
     await backend.store(target);
 
-    const results = await backend.search(closeVec(0), { k: 1, filters: { type: 'semantic', namespace: 'small' } });
+    const results = await backend.search(closeVec(0), {
+      k: 1,
+      filters: { type: 'semantic', namespace: 'small' },
+    });
     expect(results).toHaveLength(1);
     expect(results[0].entry.key).toBe('target');
     await backend.shutdown();
@@ -210,13 +220,20 @@ describe('SqlBackend ANN (HNSW) fast path', () => {
     const backend = new SQLiteBackend({ databasePath: dbPath, walMode: false });
     await backend.initialize();
     for (let i = 0; i < 5; i++) {
-      const e = createDefaultEntry({ key: `k${i}`, content: `entry ${i}`, namespace: i % 2 === 0 ? 'even' : 'odd' });
+      const e = createDefaultEntry({
+        key: `k${i}`,
+        content: `entry ${i}`,
+        namespace: i % 2 === 0 ? 'even' : 'odd',
+      });
       e.embedding = makeEmbedding(i);
       await backend.store(e);
     }
 
-    const results = await backend.search(makeEmbedding(2), { k: 5, filters: { type: 'semantic', namespace: 'odd' } });
-    expect(results.every(r => r.entry.namespace === 'odd')).toBe(true);
+    const results = await backend.search(makeEmbedding(2), {
+      k: 5,
+      filters: { type: 'semantic', namespace: 'odd' },
+    });
+    expect(results.every((r) => r.entry.namespace === 'odd')).toBe(true);
     await backend.shutdown();
   });
 });

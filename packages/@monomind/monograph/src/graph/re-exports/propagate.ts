@@ -21,7 +21,7 @@ export function propagateStarReExport(
   const source = modules[sourceIdx];
   const before = barrel.exports.length;
 
-  const existingNames = new Set(barrel.exports.map(e => e.name));
+  const existingNames = new Set(barrel.exports.map((e) => e.name));
 
   for (const sym of source.exports) {
     if (!existingNames.has(sym.name)) {
@@ -55,7 +55,7 @@ export function propagateStarReExport(
 
 export function propagateNamedReExport(
   modules: ModuleNode[],
-  barrelId: number,
+  _barrelId: number,
   barrelIdx: number,
   sourceIdx: number,
   importedName: string,
@@ -65,10 +65,10 @@ export function propagateNamedReExport(
   const source = modules[sourceIdx];
   const barrel = modules[barrelIdx];
 
-  const sourceSym = source.exports.find(e => e.name === importedName);
+  const sourceSym = source.exports.find((e) => e.name === importedName);
   if (!sourceSym) return false;
 
-  const existing = barrel.exports.find(e => e.name === exportedName);
+  const existing = barrel.exports.find((e) => e.name === exportedName);
   if (existing) return false;
 
   barrel.exports.push({
@@ -79,11 +79,11 @@ export function propagateNamedReExport(
   });
 
   for (const refId of existingRefs) {
-    const refIdx = modules.findIndex(m => m.fileId === refId);
+    const refIdx = modules.findIndex((m) => m.fileId === refId);
     if (refIdx !== -1) {
       const refMod = modules[refIdx];
       const alreadyRefs = refMod.references.some(
-        r => r.name === exportedName && r.fromFile === barrel.filePath,
+        (r) => r.name === exportedName && r.fromFile === barrel.filePath,
       );
       if (!alreadyRefs) {
         refMod.references.push({ name: exportedName, kind: 'Unknown', fromFile: barrel.filePath });

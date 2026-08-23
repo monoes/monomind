@@ -1,9 +1,14 @@
-import type { ContextState, EscalationState, Threat, ThreatDetectionResult } from '../entities/threat.js';
+import type {
+  ContextState,
+  EscalationState,
+  Threat,
+  ThreatDetectionResult,
+} from '../entities/threat.js';
 
 // Escalation thresholds
 const PROBING_THRESHOLD = 0.3;
-const ESCALATING_THRESHOLD = 0.6;    // cumulative score
-const ATTACK_CONFIDENCE = 0.9;        // single-turn jump-to-attack
+const ESCALATING_THRESHOLD = 0.6; // cumulative score
+const ATTACK_CONFIDENCE = 0.9; // single-turn jump-to-attack
 
 // Matches must clear this confidence floor to count toward cumulative escalation.
 // Low-confidence matches (e.g. hypothetical/educational framing) are still
@@ -45,7 +50,7 @@ export class ContextTracker {
     this.idleDecayMs = opts.idleDecayMs ?? 30 * 60 * 1000; // 30 min default
   }
 
-  recordTurn(input: string, result: ThreatDetectionResult): void {
+  recordTurn(_input: string, result: ThreatDetectionResult): void {
     const now = Date.now();
     // Decay escalation state if session has been idle
     if (this.lastTurnAt > 0 && now - this.lastTurnAt > this.idleDecayMs) {
@@ -71,10 +76,9 @@ export class ContextTracker {
 
     // Maintain sliding window of 10
     if (!result.safe) {
-      this.state.recentThreats = [
-        ...this.state.recentThreats.slice(-9),
-        ...result.threats,
-      ].slice(-10);
+      this.state.recentThreats = [...this.state.recentThreats.slice(-9), ...result.threats].slice(
+        -10,
+      );
     }
 
     // Gradual per-turn de-escalation: N consecutive clean turns decay the
@@ -88,7 +92,7 @@ export class ContextTracker {
         this.consecutiveCleanTurns = 0;
         this.state.cumulativeThreatScore = Math.max(
           0,
-          this.state.cumulativeThreatScore * CLEAN_TURN_DECAY_FACTOR
+          this.state.cumulativeThreatScore * CLEAN_TURN_DECAY_FACTOR,
         );
         const currentIndex = ESCALATION_ORDER.indexOf(this.state.escalationState);
         if (currentIndex > 0) {

@@ -1,5 +1,5 @@
-import type { ResolveContext, ResolvedImport, ImportInfo } from './types.js';
-import { resolveSpecifier, isStyleFile } from './specifier.js';
+import { isStyleFile, resolveSpecifier } from './specifier.js';
+import type { ImportInfo, ResolveContext, ResolvedImport } from './types.js';
 
 export function resolveStaticImports(
   ctx: ResolveContext,
@@ -7,7 +7,7 @@ export function resolveStaticImports(
   imports: ImportInfo[],
 ): ResolvedImport[] {
   const fromStyle = isStyleFile(filePath);
-  return imports.map(info => ({
+  return imports.map((info) => ({
     info,
     target: resolveSpecifier(ctx, filePath, info.specifier, fromStyle),
   }));

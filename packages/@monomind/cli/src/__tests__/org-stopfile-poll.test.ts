@@ -14,13 +14,14 @@
  * contract (which orgs get stopped, and what happens to the file afterwards),
  * not agent orchestration. Standing up real agents would test the SDK instead.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { pollStopfiles } from '../commands/org.js';
-import { ORG_DIR } from '../orgrt/types.js';
 import type { OrgDaemon } from '../orgrt/daemon.js';
+import { ORG_DIR } from '../orgrt/types.js';
 
 /** Only the two members pollStopfiles touches. */
 function stubDaemon(running: string[], onStop?: (name: string) => void) {

@@ -9,7 +9,8 @@ export interface TopicContract {
 }
 
 // Kafka patterns
-const KAFKA_PRODUCE_RE = /(?:producer\.send|sendMessage)\s*\(\s*\{[^}]*?topic\s*:\s*['"`]([^'"`]+)['"`]/g;
+const KAFKA_PRODUCE_RE =
+  /(?:producer\.send|sendMessage)\s*\(\s*\{[^}]*?topic\s*:\s*['"`]([^'"`]+)['"`]/g;
 const KAFKA_CONSUME_RE = /consumer\.subscribe\s*\(\s*\{[^}]*?topic\s*:\s*['"`]([^'"`]+)['"`]/g;
 
 // RabbitMQ patterns — publish/assertExchange = producer, bindQueue/consume = consumer
@@ -17,7 +18,8 @@ const RABBIT_PRODUCE_RE = /channel\.(?:assertExchange|publish)\s*\(\s*['"`]([^'"
 const RABBIT_CONSUME_RE = /channel\.(?:bindQueue|consume)\s*\(\s*['"`]([^'"`]+)['"`]/g;
 
 // AWS SQS
-const SQS_SEND_RE = /(?:sendMessage|SendMessage)\s*\(\s*\{[^}]*?QueueUrl\s*:\s*['"`][^'"`]*\/([^'"`/]+)['"`]/g;
+const SQS_SEND_RE =
+  /(?:sendMessage|SendMessage)\s*\(\s*\{[^}]*?QueueUrl\s*:\s*['"`][^'"`]*\/([^'"`/]+)['"`]/g;
 
 // Generic topic string patterns (fallback)
 const GENERIC_TOPIC_RE = /(?:topic|TOPIC|queue|QUEUE)\s*[:=]\s*['"`]([a-z][a-z0-9._-]{2,})['"`]/g;
@@ -65,7 +67,8 @@ export function extractTopicContracts(source: string, filePath: string): TopicCo
       results.push({ topicName: m[1]!, role: 'producer', broker: 'sqs', filePath });
     }
     // SQS receive — ReceiveMessage with QueueUrl
-    const SQS_RECV_RE = /(?:receiveMessage|ReceiveMessage)\s*\(\s*\{[^}]*?QueueUrl\s*:\s*['"`][^'"`]*\/([^'"`/]+)['"`]/g;
+    const SQS_RECV_RE =
+      /(?:receiveMessage|ReceiveMessage)\s*\(\s*\{[^}]*?QueueUrl\s*:\s*['"`][^'"`]*\/([^'"`/]+)['"`]/g;
     while ((m = SQS_RECV_RE.exec(source)) !== null) {
       results.push({ topicName: m[1]!, role: 'consumer', broker: 'sqs', filePath });
     }
@@ -81,7 +84,7 @@ export function extractTopicContracts(source: string, filePath: string): TopicCo
 
   // Deduplicate by topicName+role
   const seen = new Set<string>();
-  return results.filter(r => {
+  return results.filter((r) => {
     const key = `${r.role}:${r.topicName}`;
     if (seen.has(key)) return false;
     seen.add(key);

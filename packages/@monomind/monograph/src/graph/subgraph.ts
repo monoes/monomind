@@ -1,6 +1,6 @@
-import Database from 'better-sqlite3';
-import type { MonographNode, MonographEdge } from '../types.js';
+import type Database from 'better-sqlite3';
 import type { MonographDb } from '../storage/db.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 export interface InducedSubgraph {
   nodes: MonographNode[];
@@ -34,13 +34,26 @@ function placeholders(n: number): string {
 }
 
 type RawNode = {
-  id: string; label: string; name: string; norm_label?: string | null; file_path: string | null;
-  start_line: number | null; end_line: number | null; community_id: number | null;
-  is_exported: number; language: string | null; properties: string | null;
+  id: string;
+  label: string;
+  name: string;
+  norm_label?: string | null;
+  file_path: string | null;
+  start_line: number | null;
+  end_line: number | null;
+  community_id: number | null;
+  is_exported: number;
+  language: string | null;
+  properties: string | null;
 };
 type RawEdge = {
-  id: string; source_id: string; target_id: string; relation: string;
-  confidence: string; confidence_score: number; reason: string | null;
+  id: string;
+  source_id: string;
+  target_id: string;
+  relation: string;
+  confidence: string;
+  confidence_score: number;
+  reason: string | null;
   // evidence column omitted — not surfaced in InducedSubgraph
 };
 
@@ -58,7 +71,10 @@ function getStmtCaches(db: MonographDb): {
   if (!dbAny[key]) {
     dbAny[key] = { nodes: new Map(), edges: new Map() };
   }
-  return dbAny[key] as { nodes: Map<number, ReturnType<MonographDb['prepare']>>; edges: Map<number, ReturnType<MonographDb['prepare']>> };
+  return dbAny[key] as {
+    nodes: Map<number, ReturnType<MonographDb['prepare']>>;
+    edges: Map<number, ReturnType<MonographDb['prepare']>>;
+  };
 }
 
 export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): InducedSubgraph {
@@ -67,13 +83,21 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
   const stmts = getStmtCaches(db);
 
   // Chunk helper — caches prepared statements by chunk size to avoid re-prepare per call.
-  function queryChunked<T>(ids: string[], chunkSize: number, stmtCache: Map<number, Database.Statement>, sql: (ph: string) => string): T[] {
+  function queryChunked<T>(
+    ids: string[],
+    chunkSize: number,
+    stmtCache: Map<number, Database.Statement>,
+    sql: (ph: string) => string,
+  ): T[] {
     const results: T[] = [];
     for (let i = 0; i < ids.length; i += chunkSize) {
       const chunk = ids.slice(i, i + chunkSize);
       const ph = placeholders(chunk.length);
       let stmt = stmtCache.get(chunk.length);
-      if (!stmt) { stmt = db.prepare(sql(ph)); stmtCache.set(chunk.length, stmt); }
+      if (!stmt) {
+        stmt = db.prepare(sql(ph));
+        stmtCache.set(chunk.length, stmt);
+      }
       results.push(...(stmt.all(...chunk) as T[]));
     }
     return results;
@@ -83,7 +107,8 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
     nodeIds,
     SQLITE_VAR_LIMIT,
     stmts.nodes,
-    ph => `SELECT id, label, name, file_path, start_line, end_line, community_id, is_exported, language, properties FROM nodes WHERE id IN (${ph})`,
+    (ph) =>
+      `SELECT id, label, name, file_path, start_line, end_line, community_id, is_exported, language, properties FROM nodes WHERE id IN (${ph})`,
   );
 
   // For edges: query by source_id chunks (1 bind per row), then filter target in-memory.
@@ -93,11 +118,12 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
     SQLITE_VAR_LIMIT,
     stmts.edges,
     // Drop unused 'evidence' column to reduce row data transfer
-    ph => `SELECT id, source_id, target_id, relation, confidence, confidence_score, reason FROM edges WHERE source_id IN (${ph})`,
+    (ph) =>
+      `SELECT id, source_id, target_id, relation, confidence, confidence_score, reason FROM edges WHERE source_id IN (${ph})`,
   );
-  const rawEdges = allSourceEdges.filter(e => nodeSet.has(e.target_id));
+  const rawEdges = allSourceEdges.filter((e) => nodeSet.has(e.target_id));
 
-  const nodes: MonographNode[] = rawNodes.map(n => ({
+  const nodes: MonographNode[] = rawNodes.map((n) => ({
     id: n.id,
     label: n.label as MonographNode['label'],
     name: n.name,
@@ -111,7 +137,7 @@ export function extractInducedSubgraph(db: MonographDb, nodeIds: string[]): Indu
     properties: n.properties ? (JSON.parse(n.properties) as Record<string, unknown>) : undefined,
   }));
 
-  const edges: MonographEdge[] = rawEdges.map(e => ({
+  const edges: MonographEdge[] = rawEdges.map((e) => ({
     id: e.id,
     sourceId: e.source_id,
     targetId: e.target_id,
@@ -138,7 +164,10 @@ export function formatInducedSubgraph(sg: InducedSubgraph): string {
   for (const n of sg.nodes) {
     const file = n.filePath ?? '(unknown)';
     let list = byFile.get(file);
-    if (!list) { list = []; byFile.set(file, list); }
+    if (!list) {
+      list = [];
+      byFile.set(file, list);
+    }
     list.push(n);
   }
 

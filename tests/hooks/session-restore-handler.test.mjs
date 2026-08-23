@@ -3,12 +3,13 @@
  * Covers: neural kill switch, daemon detection, registry surfacing,
  *         update notification, knowledge preload, stale helper warning.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -25,12 +26,20 @@ function makeHCtx(overrides = {}) {
     intelligence: null,
     CWD: cwd,
     helpersDir: overrides.helpersDir || cwd, // non-existent subdir so dynamic imports fail safely
-    runWithTimeout: async (fn) => { try { return await fn(); } catch { return null; } },
+    runWithTimeout: async (fn) => {
+      try {
+        return await fn();
+      } catch {
+        return null;
+      }
+    },
     _openMonographDb: () => null,
     _autoIndexKnowledge: () => 0,
     _buildKnowledgeSearchFn: () => async () => [],
     getMonographSuggestions: () => [],
-    get _hooksModule() { return null; },
+    get _hooksModule() {
+      return null;
+    },
     set _hooksModule(_) {},
     ...overrides,
   };
@@ -39,7 +48,10 @@ function makeHCtx(overrides = {}) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function loadHandler() {
-  const handlerPath = path.resolve(__dirname, '../../.claude/helpers/handlers/session-restore-handler.cjs');
+  const handlerPath = path.resolve(
+    __dirname,
+    '../../.claude/helpers/handlers/session-restore-handler.cjs',
+  );
   delete require.cache[handlerPath];
   return require(handlerPath);
 }
@@ -87,7 +99,7 @@ describe('session-restore-handler', () => {
   it('logs session restored when no session module is provided', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, session: null });
     const lines = await runCapture(hCtx);
-    const sessionLine = lines.find(l => l.includes('Session restored') || l.includes('[OK]'));
+    const sessionLine = lines.find((l) => l.includes('Session restored') || l.includes('[OK]'));
     expect(sessionLine).toBeTruthy();
   });
 
@@ -95,7 +107,12 @@ describe('session-restore-handler', () => {
     let restoreCalled = false;
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      session: { restore: () => { restoreCalled = true; return true; } },
+      session: {
+        restore: () => {
+          restoreCalled = true;
+          return true;
+        },
+      },
     });
     await runCapture(hCtx);
     expect(restoreCalled).toBe(true);
@@ -107,11 +124,16 @@ describe('session-restore-handler', () => {
     let initCalled = false;
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      intelligence: { init: () => { initCalled = true; return { nodes: 5, edges: 3 }; } },
+      intelligence: {
+        init: () => {
+          initCalled = true;
+          return { nodes: 5, edges: 3 };
+        },
+      },
     });
     const lines = await runCapture(hCtx);
     expect(initCalled).toBe(false);
-    const neuralLine = lines.find(l => l.includes('[NEURAL]'));
+    const neuralLine = lines.find((l) => l.includes('[NEURAL]'));
     expect(neuralLine).toContain('Disabled');
   });
 
@@ -119,7 +141,12 @@ describe('session-restore-handler', () => {
     let initCalled = false;
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      intelligence: { init: () => { initCalled = true; return { nodes: 5, edges: 3 }; } },
+      intelligence: {
+        init: () => {
+          initCalled = true;
+          return { nodes: 5, edges: 3 };
+        },
+      },
     });
     await runCapture(hCtx);
     expect(initCalled).toBe(true);
@@ -131,7 +158,7 @@ describe('session-restore-handler', () => {
       intelligence: { init: () => ({ nodes: 42, edges: 10 }) },
     });
     const lines = await runCapture(hCtx);
-    const intelLine = lines.find(l => l.includes('[INTELLIGENCE]') && l.includes('42'));
+    const intelLine = lines.find((l) => l.includes('[INTELLIGENCE]') && l.includes('42'));
     expect(intelLine).toBeTruthy();
   });
 
@@ -140,7 +167,7 @@ describe('session-restore-handler', () => {
     fs.writeFileSync(regPath, JSON.stringify({ agents: ['a', 'b', 'c'] }));
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);
-    const regLine = lines.find(l => l.includes('[REGISTRY]'));
+    const regLine = lines.find((l) => l.includes('[REGISTRY]'));
     expect(regLine).toBeTruthy();
     expect(regLine).toContain('3');
   });
@@ -148,7 +175,7 @@ describe('session-restore-handler', () => {
   it('does not log [REGISTRY] when registry.json is absent', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);
-    expect(lines.find(l => l.includes('[REGISTRY]'))).toBeUndefined();
+    expect(lines.find((l) => l.includes('[REGISTRY]'))).toBeUndefined();
   });
 
   it('surfaces [UPDATE_AVAILABLE] when pending-update.json has from≠to', async () => {
@@ -156,7 +183,7 @@ describe('session-restore-handler', () => {
     fs.writeFileSync(updatePath, JSON.stringify({ from: '1.10.28', to: '1.10.29' }));
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);
-    const updateLine = lines.find(l => l.includes('[UPDATE_AVAILABLE]'));
+    const updateLine = lines.find((l) => l.includes('[UPDATE_AVAILABLE]'));
     expect(updateLine).toBeTruthy();
     expect(updateLine).toContain('1.10.28');
   });
@@ -166,13 +193,13 @@ describe('session-restore-handler', () => {
     fs.writeFileSync(updatePath, JSON.stringify({ from: '1.10.29', to: '1.10.29' }));
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);
-    expect(lines.find(l => l.includes('[UPDATE_AVAILABLE]'))).toBeUndefined();
+    expect(lines.find((l) => l.includes('[UPDATE_AVAILABLE]'))).toBeUndefined();
   });
 
   it('logs [KNOWLEDGE_INDEXED] when _autoIndexKnowledge returns > 0', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, _autoIndexKnowledge: () => 7 });
     const lines = await runCapture(hCtx);
-    const kLine = lines.find(l => l.includes('[KNOWLEDGE_INDEXED]'));
+    const kLine = lines.find((l) => l.includes('[KNOWLEDGE_INDEXED]'));
     expect(kLine).toBeTruthy();
     expect(kLine).toContain('7');
   });
@@ -180,7 +207,7 @@ describe('session-restore-handler', () => {
   it('does not log [KNOWLEDGE_INDEXED] when autoIndex returns 0', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir, _autoIndexKnowledge: () => 0 });
     const lines = await runCapture(hCtx);
-    expect(lines.find(l => l.includes('[KNOWLEDGE_INDEXED]'))).toBeUndefined();
+    expect(lines.find((l) => l.includes('[KNOWLEDGE_INDEXED]'))).toBeUndefined();
   });
 
   it('logs [KNOWLEDGE_PRELOADED] when search fn returns results', async () => {
@@ -190,7 +217,7 @@ describe('session-restore-handler', () => {
       _buildKnowledgeSearchFn: () => async () => mockResult,
     });
     const lines = await runCapture(hCtx);
-    const kLine = lines.find(l => l.includes('[KNOWLEDGE_PRELOADED]'));
+    const kLine = lines.find((l) => l.includes('[KNOWLEDGE_PRELOADED]'));
     expect(kLine).toBeTruthy();
     expect(kLine).toContain('1');
   });
@@ -198,7 +225,11 @@ describe('session-restore-handler', () => {
   it('handles session module that throws without crashing handler', async () => {
     const hCtx = makeHCtx({
       CWD: tmpDir,
-      session: { restore: () => { throw new Error('db locked'); } },
+      session: {
+        restore: () => {
+          throw new Error('db locked');
+        },
+      },
     });
     await expect(runCapture(hCtx)).resolves.toBeInstanceOf(Array);
   });
@@ -226,17 +257,22 @@ describe('session-restore-handler', () => {
     // Create the dev-repo sentinels the handler checks for: BOTH
     // packages/@monomind/cli/package.json AND packages/@monomind/cli/.claude/helpers.
     // The handler requires both to avoid false positives; the real dev repo has both.
-    fs.mkdirSync(path.join(tmpDir, 'packages', '@monomind', 'cli', '.claude', 'helpers'), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, 'packages', '@monomind', 'cli', 'package.json'), '{"version":"1.0.0"}');
+    fs.mkdirSync(path.join(tmpDir, 'packages', '@monomind', 'cli', '.claude', 'helpers'), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(tmpDir, 'packages', '@monomind', 'cli', 'package.json'),
+      '{"version":"1.0.0"}',
+    );
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);
-    expect(lines.find(l => l.includes('[STALE_HELPERS]'))).toBeUndefined();
+    expect(lines.find((l) => l.includes('[STALE_HELPERS]'))).toBeUndefined();
   });
 
   it('does not probe [CONTROL_UI] when daemon.pid and monomind.config.json are both absent', async () => {
     const hCtx = makeHCtx({ CWD: tmpDir });
     const lines = await runCapture(hCtx);
-    expect(lines.find(l => l.includes('[CONTROL_UI]'))).toBeUndefined();
+    expect(lines.find((l) => l.includes('[CONTROL_UI]'))).toBeUndefined();
   });
 
   it('completes without error when monomind.config.json exists (probe condition)', async () => {
@@ -256,8 +292,17 @@ describe('session-restore-handler', () => {
       fs.writeFileSync(path.join(root, 'notes.md'), '# notes\n');
       const kdir = path.join(root, '.monomind', 'knowledge');
       fs.mkdirSync(kdir, { recursive: true });
-      fs.writeFileSync(path.join(kdir, 'doc-metadata.jsonl'),
-        JSON.stringify({ filePath: path.join(root, 'notes.md'), contentHash: 'h', chunkCount: 1, indexedAt: '2026-07-28T00:00:00Z', scope: 'shared', size: 8 }) + '\n');
+      fs.writeFileSync(
+        path.join(kdir, 'doc-metadata.jsonl'),
+        `${JSON.stringify({
+          filePath: path.join(root, 'notes.md'),
+          contentHash: 'h',
+          chunkCount: 1,
+          indexedAt: '2026-07-28T00:00:00Z',
+          scope: 'shared',
+          size: 8,
+        })}\n`,
+      );
     };
 
     it('finds the knowledge base from a package subdirectory', async () => {
@@ -270,8 +315,12 @@ describe('session-restore-handler', () => {
 
       // The rate-limit marker is written at the resolved root before scanning —
       // its presence there (and absence under the subdir) proves the fallback ran.
-      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(true);
-      expect(fs.existsSync(path.join(sub, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
+      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(
+        true,
+      );
+      expect(fs.existsSync(path.join(sub, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(
+        false,
+      );
     });
 
     it('still prefers CWD when it has its own knowledge base', async () => {
@@ -284,8 +333,12 @@ describe('session-restore-handler', () => {
       await runCapture(makeHCtx({ CWD: nested }));
 
       // Nearest wins: a directory with its own brain is not redirected upward.
-      expect(fs.existsSync(path.join(nested, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(true);
-      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
+      expect(fs.existsSync(path.join(nested, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(
+        true,
+      );
+      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(
+        false,
+      );
     });
 
     it('does nothing when no knowledge base exists anywhere', async () => {
@@ -295,8 +348,12 @@ describe('session-restore-handler', () => {
 
       await runCapture(makeHCtx({ CWD: sub }));
 
-      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
-      expect(fs.existsSync(path.join(sub, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(false);
+      expect(fs.existsSync(path.join(root, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(
+        false,
+      );
+      expect(fs.existsSync(path.join(sub, '.monomind', 'knowledge', 'reindex-check.json'))).toBe(
+        false,
+      );
     });
   });
 });

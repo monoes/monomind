@@ -8,9 +8,10 @@
 // BM25 hit for that key resolved to whichever entry happened to be inserted
 // last into the Map, silently returning the wrong entry's content/namespace.
 // Fixed by indexing chunks by array position instead of key.
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@huggingface/transformers', () => ({
   pipeline: async () => {
@@ -18,7 +19,7 @@ vi.mock('@huggingface/transformers', () => ({
   },
 }));
 
-import { bridgeStoreEntry, bridgeSearchEntries, shutdownBridge } from '../memory/memory-bridge.js';
+import { bridgeSearchEntries, bridgeStoreEntry, shutdownBridge } from '../memory/memory-bridge.js';
 
 const FIXTURE_DIR = mkdtempSync(join(process.cwd(), '.tmp-bm25-collision-'));
 

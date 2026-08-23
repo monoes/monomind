@@ -1,13 +1,13 @@
-import { statSync, readFileSync } from 'fs';
-import { join, extname } from 'path';
-import type { PipelineContext } from '../../types.js';
+import { readFileSync, statSync } from 'node:fs';
+import { extname, join } from 'node:path';
 import type { BridgeAdapter, BridgeEndpoint } from './types.js';
 
 const RUST_EXT = new Set(['.rs']);
 const JS_TS_EXT = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs']);
 
 /** `#[tauri::command]` (with or without args) directly above an fn declaration. */
-const TAURI_COMMAND_RE = /#\[tauri::command(?:\([^)]*\))?\]\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)/g;
+const TAURI_COMMAND_RE =
+  /#\[tauri::command(?:\([^)]*\))?\]\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?fn\s+(\w+)/g;
 
 /**
  * Tauri's `invoke(...)` call from the JS/TS side, e.g.
@@ -65,7 +65,9 @@ export const tauriAdapter: BridgeAdapter = {
       if (names.length === 0) continue;
 
       const rows = ctx.db
-        .prepare(`SELECT id, name FROM nodes WHERE label = 'Function' AND language = 'rust' AND file_path = ?`)
+        .prepare(
+          `SELECT id, name FROM nodes WHERE label = 'Function' AND language = 'rust' AND file_path = ?`,
+        )
         .all(relPath) as { id: string; name: string }[];
       const byName = new Map(rows.map((r) => [r.name, r.id]));
       for (const name of names) {

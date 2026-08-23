@@ -1,6 +1,15 @@
 // packages/@monomind/cli/src/orgrt/task-dag.ts
 
-export type OrgTaskStatus = 'pending' | 'ready' | 'running' | 'blocked' | 'done' | 'failed' | 'split' | 'merged' | 'cancelled';
+export type OrgTaskStatus =
+  | 'pending'
+  | 'ready'
+  | 'running'
+  | 'blocked'
+  | 'done'
+  | 'failed'
+  | 'split'
+  | 'merged'
+  | 'cancelled';
 
 export interface OrgTask {
   id: string;
@@ -48,7 +57,7 @@ export class TaskDag {
       this.tasks.delete(id);
       throw new Error(`adding "${id}" would create a cycle`);
     }
-    if (deps.length === 0 || deps.every(d => SATISFIED.has(this.tasks.get(d)!.status))) {
+    if (deps.length === 0 || deps.every((d) => SATISFIED.has(this.tasks.get(d)?.status))) {
       task.status = 'ready';
     }
     return task;
@@ -86,7 +95,8 @@ export class TaskDag {
   block(id: string, untilMs: number, reason?: string): OrgTask {
     const t = this.tasks.get(id);
     if (!t) throw new Error(`task "${id}" not found`);
-    if (t.status !== 'running') throw new Error(`task "${id}" must be 'running' to block (is '${t.status}')`);
+    if (t.status !== 'running')
+      throw new Error(`task "${id}" must be 'running' to block (is '${t.status}')`);
     if (untilMs <= Date.now()) throw new Error(`blockedUntil must be in the future`);
     t.status = 'blocked';
     t.blockedUntil = untilMs;
@@ -135,17 +145,22 @@ export class TaskDag {
   split(parentId: string, children: SplitChild[]): OrgTask[] {
     const parent = this.tasks.get(parentId);
     if (!parent) throw new Error(`task "${parentId}" not found`);
-    if (TERMINAL.has(parent.status)) throw new Error(`task "${parentId}" is terminal (${parent.status})`);
+    if (TERMINAL.has(parent.status))
+      throw new Error(`task "${parentId}" is terminal (${parent.status})`);
     if (children.length === 0) throw new Error('split requires at least one child');
 
     const parentDeps = [...parent.deps];
-    const parentSatisfied = parentDeps.length === 0 || parentDeps.every(d => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'));
+    const parentSatisfied =
+      parentDeps.length === 0 ||
+      parentDeps.every((d) => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'));
     const created: OrgTask[] = [];
     const childIds: string[] = [];
     for (const c of children) {
       const id = `task-${++this.counter}`;
       const child: OrgTask = {
-        id, title: c.title, assignee: c.assignee,
+        id,
+        title: c.title,
+        assignee: c.assignee,
         deps: [...parentDeps],
         status: parentSatisfied ? 'ready' : 'pending',
         createdAt: Date.now(),
@@ -162,7 +177,7 @@ export class TaskDag {
     for (const t of this.tasks.values()) {
       if (t.id === parentId) continue;
       if (t.deps.includes(parentId)) {
-        t.deps = t.deps.filter(d => d !== parentId);
+        t.deps = t.deps.filter((d) => d !== parentId);
         for (const cid of childIds) {
           if (!t.deps.includes(cid)) t.deps.push(cid);
         }
@@ -197,12 +212,15 @@ export class TaskDag {
     for (const t of this.tasks.values()) {
       if (t.id === sourceId || t.id === targetId) continue;
       if (t.deps.includes(sourceId)) {
-        t.deps = t.deps.filter(d => d !== sourceId);
+        t.deps = t.deps.filter((d) => d !== sourceId);
         if (!t.deps.includes(targetId)) t.deps.push(targetId);
       }
     }
 
-    if (target.status === 'pending' && target.deps.every(d => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'))) {
+    if (
+      target.status === 'pending' &&
+      target.deps.every((d) => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'))
+    ) {
       target.status = 'ready';
     }
     this.promoteReady();
@@ -221,21 +239,27 @@ export class TaskDag {
   }
 
   ready(): OrgTask[] {
-    return [...this.tasks.values()].filter(t => t.status === 'ready');
+    return [...this.tasks.values()].filter((t) => t.status === 'ready');
   }
 
-  get(id: string): OrgTask | undefined { return this.tasks.get(id); }
+  get(id: string): OrgTask | undefined {
+    return this.tasks.get(id);
+  }
 
-  all(): OrgTask[] { return [...this.tasks.values()]; }
+  all(): OrgTask[] {
+    return [...this.tasks.values()];
+  }
 
-  toJSON(): OrgTask[] { return this.all(); }
+  toJSON(): OrgTask[] {
+    return this.all();
+  }
 
   static fromJSON(data: OrgTask[]): TaskDag {
     const dag = new TaskDag();
     for (const t of data) {
       dag.tasks.set(t.id, { ...t });
       const num = parseInt(t.id.replace('task-', ''), 10);
-      if (!isNaN(num) && num > dag.counter) dag.counter = num;
+      if (!Number.isNaN(num) && num > dag.counter) dag.counter = num;
     }
     return dag;
   }
@@ -244,7 +268,7 @@ export class TaskDag {
     const promoted: OrgTask[] = [];
     for (const t of this.tasks.values()) {
       if (t.status !== 'pending') continue;
-      if (t.deps.every(d => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'))) {
+      if (t.deps.every((d) => SATISFIED.has(this.tasks.get(d)?.status ?? 'pending'))) {
         t.status = 'ready';
         promoted.push(t);
       }
@@ -261,11 +285,16 @@ export class TaskDag {
       visited.add(id);
       stack.add(id);
       const t = this.tasks.get(id);
-      if (t) for (const d of t.deps) { if (dfs(d)) return true; }
+      if (t)
+        for (const d of t.deps) {
+          if (dfs(d)) return true;
+        }
       stack.delete(id);
       return false;
     };
-    for (const id of this.tasks.keys()) { if (dfs(id)) return true; }
+    for (const id of this.tasks.keys()) {
+      if (dfs(id)) return true;
+    }
     return false;
   }
 }

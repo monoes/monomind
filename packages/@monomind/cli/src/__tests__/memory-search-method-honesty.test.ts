@@ -9,9 +9,10 @@
 //
 // These tests pin the honest behaviour: the reported method is always what
 // actually ran, and keyword scores stay raw token-overlap fractions.
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 /** Flipped between tests to force each degradation path. */
 let embedMode: 'ok' | 'pipeline-fails' | 'extract-fails' = 'ok';
@@ -37,7 +38,7 @@ vi.mock('@huggingface/transformers', () => ({
   },
 }));
 
-import { bridgeStoreEntry, bridgeSearchEntries, shutdownBridge } from '../memory/memory-bridge.js';
+import { bridgeSearchEntries, bridgeStoreEntry, shutdownBridge } from '../memory/memory-bridge.js';
 
 // The bridge's traversal guard only accepts dbPaths under cwd or the project
 // data dir, so the fixture store must live inside cwd.
@@ -61,8 +62,20 @@ describe('memory search reports the method that actually ran', () => {
     // own score always normalises to 1.0 regardless of how many query
     // terms matched, which would make a full-vs-partial-match test
     // meaningless.
-    await bridgeStoreEntry({ key: 'unrelated-1', value: 'kubernetes cluster autoscaling policy', namespace: NS, dbPath: FIXTURE_DIR, upsert: true });
-    await bridgeStoreEntry({ key: 'unrelated-2', value: 'database connection pool tuning', namespace: NS, dbPath: FIXTURE_DIR, upsert: true });
+    await bridgeStoreEntry({
+      key: 'unrelated-1',
+      value: 'kubernetes cluster autoscaling policy',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      upsert: true,
+    });
+    await bridgeStoreEntry({
+      key: 'unrelated-2',
+      value: 'database connection pool tuning',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      upsert: true,
+    });
   }, 60_000);
 
   afterAll(async () => {
@@ -74,20 +87,26 @@ describe('memory search reports the method that actually ran', () => {
     embedMode = 'ok';
     const res = await bridgeSearchEntries({
       query: 'JWT refresh token rotation for authentication',
-      namespace: NS, dbPath: FIXTURE_DIR, limit: 5, threshold: 0.1,
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
+      threshold: 0.1,
     });
     expect(res?.searchMethod).toBe('semantic');
     expect(res?.fallbackReason).toBeUndefined();
-    expect((res?.results ?? []).map(r => r.key)).toContain('jwt-auth');
+    expect((res?.results ?? []).map((r) => r.key)).toContain('jwt-auth');
     expect(res?.results[0].provenance?.startsWith('semantic:')).toBe(true);
   }, 60_000);
 
   it('reports "keyword-fallback" (not semantic) when embedding generation fails mid-search', async () => {
     embedMode = 'extract-fails';
     const res = await bridgeSearchEntries({
-      query: 'jwt authentication', namespace: NS, dbPath: FIXTURE_DIR, limit: 5,
+      query: 'jwt authentication',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
     });
-    expect((res?.results ?? []).map(r => r.key)).toContain('jwt-auth');
+    expect((res?.results ?? []).map((r) => r.key)).toContain('jwt-auth');
     expect(res?.searchMethod).toBe('keyword-fallback');
     expect(res?.fallbackReason).toBe('embedding-failed');
     // #126: below the BM25 entry-count cap, the JS fallback now scores via
@@ -100,9 +119,12 @@ describe('memory search reports the method that actually ran', () => {
     await shutdownBridge(); // drop the cached embedder so it is re-loaded
     embedMode = 'pipeline-fails';
     const res = await bridgeSearchEntries({
-      query: 'jwt authentication', namespace: NS, dbPath: FIXTURE_DIR, limit: 5,
+      query: 'jwt authentication',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
     });
-    expect((res?.results ?? []).map(r => r.key)).toContain('jwt-auth');
+    expect((res?.results ?? []).map((r) => r.key)).toContain('jwt-auth');
     expect(res?.searchMethod).toBe('keyword');
     expect(res?.fallbackReason).toBe('no-embedding-model');
   }, 60_000);
@@ -112,12 +134,19 @@ describe('memory search reports the method that actually ran', () => {
     embedMode = 'ok';
     // Warm the embedder with a real query so the model is demonstrably healthy.
     const warm = await bridgeSearchEntries({
-      query: 'jwt authentication', namespace: NS, dbPath: FIXTURE_DIR, limit: 5, threshold: 0.1,
+      query: 'jwt authentication',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
+      threshold: 0.1,
     });
     expect(warm?.searchMethod).toBe('semantic');
 
     const res = await bridgeSearchEntries({
-      query: '', namespace: NS, dbPath: FIXTURE_DIR, limit: 5,
+      query: '',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
     });
     expect(res?.searchMethod).toBe('keyword');
     // The model is loaded and fine — blaming it would be a lie.
@@ -132,7 +161,10 @@ describe('memory search reports the method that actually ran', () => {
     // BM25 score is the highest in the (3-entry) corpus, so it normalises
     // to 1.0. Provenance must say so honestly (not "semantic:").
     const full = await bridgeSearchEntries({
-      query: 'jwt authentication', namespace: NS, dbPath: FIXTURE_DIR, limit: 5,
+      query: 'jwt authentication',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
     });
     expect(full?.results[0].key).toBe('jwt-auth');
     expect(full?.results[0].score).toBeCloseTo(1, 5);
@@ -144,7 +176,10 @@ describe('memory search reports the method that actually ran', () => {
     // finite, non-fabricated score rather than asserting a specific old
     // token-overlap-fraction value the new algorithm doesn't produce.
     const partial = await bridgeSearchEntries({
-      query: 'jwt kubernetes', namespace: NS, dbPath: FIXTURE_DIR, limit: 5,
+      query: 'jwt kubernetes',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
     });
     expect(partial?.results[0].key).toBe('jwt-auth');
     expect(Number.isFinite(partial?.results[0].score)).toBe(true);
@@ -154,8 +189,11 @@ describe('memory search reports the method that actually ran', () => {
     // BM25's own `scores[i] > 0` gate both mean "no match" stays empty
     // rather than surfacing a fake low-confidence result.
     const noMatch = await bridgeSearchEntries({
-      query: 'zzz-nonexistent-term-zzz', namespace: NS, dbPath: FIXTURE_DIR, limit: 5,
+      query: 'zzz-nonexistent-term-zzz',
+      namespace: NS,
+      dbPath: FIXTURE_DIR,
+      limit: 5,
     });
-    expect((noMatch?.results ?? []).map(r => r.key)).not.toContain('jwt-auth');
+    expect((noMatch?.results ?? []).map((r) => r.key)).not.toContain('jwt-auth');
   }, 60_000);
 });

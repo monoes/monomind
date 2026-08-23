@@ -15,10 +15,11 @@
  * pins the invariant at the source level instead — the import must be dynamic,
  * reached only when the native backend is actually opened.
  */
-import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const SRC = dirname(fileURLToPath(import.meta.url));
 const OPTIONAL_NATIVE = 'better-sqlite3';
@@ -26,8 +27,8 @@ const OPTIONAL_NATIVE = 'better-sqlite3';
 /** Static ESM import or CJS require of the module — i.e. load-bearing at import time. */
 const STATIC_IMPORT = new RegExp(
   String.raw`(?:^|\n)\s*import\s[^;]*?from\s*['"]${OPTIONAL_NATIVE}['"]` +
-  String.raw`|(?:^|\n)\s*import\s*['"]${OPTIONAL_NATIVE}['"]` +
-  String.raw`|require\(\s*['"]${OPTIONAL_NATIVE}['"]\s*\)`,
+    String.raw`|(?:^|\n)\s*import\s*['"]${OPTIONAL_NATIVE}['"]` +
+    String.raw`|require\(\s*['"]${OPTIONAL_NATIVE}['"]\s*\)`,
 );
 
 function sourceFiles(): string[] {
@@ -48,8 +49,8 @@ describe('optional native dependency stays optional', () => {
     expect(
       offenders,
       `These files load ${OPTIONAL_NATIVE} at import time, so importing the package fails ` +
-      'wherever the native module is unavailable — which is the whole reason the sql.js ' +
-      'fallback exists. Use `await import()` inside the function that needs it.',
+        'wherever the native module is unavailable — which is the whole reason the sql.js ' +
+        'fallback exists. Use `await import()` inside the function that needs it.',
     ).toEqual([]);
   });
 

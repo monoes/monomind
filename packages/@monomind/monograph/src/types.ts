@@ -1,32 +1,104 @@
 // ── Node labels ───────────────────────────────────────────────────────────────
 
 export type NodeLabel =
-  | 'File' | 'Folder' | 'Function' | 'Class' | 'Method' | 'Interface'
-  | 'Variable' | 'Struct' | 'Enum' | 'Macro' | 'Typedef' | 'Union'
-  | 'Namespace' | 'Trait' | 'Impl' | 'TypeAlias' | 'Const' | 'Static'
-  | 'Property' | 'Record' | 'Delegate' | 'Annotation' | 'Constructor'
-  | 'Template' | 'Module' | 'Process' | 'Route' | 'Community' | 'Concept'
-  | 'Section' | 'Document' | 'Tool' | 'Entity' | 'Field';
+  | 'File'
+  | 'Folder'
+  | 'Function'
+  | 'Class'
+  | 'Method'
+  | 'Interface'
+  | 'Variable'
+  | 'Struct'
+  | 'Enum'
+  | 'Macro'
+  | 'Typedef'
+  | 'Union'
+  | 'Namespace'
+  | 'Trait'
+  | 'Impl'
+  | 'TypeAlias'
+  | 'Const'
+  | 'Static'
+  | 'Property'
+  | 'Record'
+  | 'Delegate'
+  | 'Annotation'
+  | 'Constructor'
+  | 'Template'
+  | 'Module'
+  | 'Process'
+  | 'Route'
+  | 'Community'
+  | 'Concept'
+  | 'Section'
+  | 'Document'
+  | 'Tool'
+  | 'Entity'
+  | 'Field';
 
 export const SYMBOL_NODE_LABELS = new Set<NodeLabel>([
-  'Function', 'Class', 'Method', 'Interface', 'Variable', 'Struct', 'Enum',
-  'Macro', 'Typedef', 'Union', 'Namespace', 'Trait', 'Impl', 'TypeAlias',
-  'Const', 'Static', 'Property', 'Record', 'Delegate', 'Annotation',
-  'Constructor', 'Template', 'Module',
+  'Function',
+  'Class',
+  'Method',
+  'Interface',
+  'Variable',
+  'Struct',
+  'Enum',
+  'Macro',
+  'Typedef',
+  'Union',
+  'Namespace',
+  'Trait',
+  'Impl',
+  'TypeAlias',
+  'Const',
+  'Static',
+  'Property',
+  'Record',
+  'Delegate',
+  'Annotation',
+  'Constructor',
+  'Template',
+  'Module',
 ]);
 
 // ── Edge relations ────────────────────────────────────────────────────────────
 
 export type EdgeRelation =
-  | 'CONTAINS' | 'DEFINES' | 'CALLS' | 'IMPORTS' | 'RE_EXPORTS' | 'EXTENDS' | 'IMPLEMENTS'
-  | 'HAS_METHOD' | 'HAS_PROPERTY' | 'ACCESSES' | 'METHOD_OVERRIDES'
-  | 'METHOD_IMPLEMENTS' | 'MEMBER_OF' | 'STEP_IN_PROCESS' | 'HANDLES_ROUTE'
-  | 'FETCHES' | 'HANDLES_TOOL' | 'ENTRY_POINT_OF' | 'WRAPS' | 'QUERIES'
-  | 'REFERENCES' | 'PARENT_SECTION' | 'TAGGED_AS' | 'HAS_FIELD'
+  | 'CONTAINS'
+  | 'DEFINES'
+  | 'CALLS'
+  | 'IMPORTS'
+  | 'RE_EXPORTS'
+  | 'EXTENDS'
+  | 'IMPLEMENTS'
+  | 'HAS_METHOD'
+  | 'HAS_PROPERTY'
+  | 'ACCESSES'
+  | 'METHOD_OVERRIDES'
+  | 'METHOD_IMPLEMENTS'
+  | 'MEMBER_OF'
+  | 'STEP_IN_PROCESS'
+  | 'HANDLES_ROUTE'
+  | 'FETCHES'
+  | 'HANDLES_TOOL'
+  | 'ENTRY_POINT_OF'
+  | 'WRAPS'
+  | 'QUERIES'
+  | 'REFERENCES'
+  | 'PARENT_SECTION'
+  | 'TAGGED_AS'
+  | 'HAS_FIELD'
   // Doc KG — contextual proximity
   | 'CO_OCCURS'
   // Doc KG — LLM-inferred semantic relations
-  | 'DESCRIBES' | 'CAUSES' | 'CONTRASTS_WITH' | 'PART_OF' | 'RELATED_TO' | 'USES' | 'STRUCTURALLY_SIMILAR';
+  | 'DESCRIBES'
+  | 'CAUSES'
+  | 'CONTRASTS_WITH'
+  | 'PART_OF'
+  | 'RELATED_TO'
+  | 'USES'
+  | 'STRUCTURALLY_SIMILAR';
 
 // ── Confidence ────────────────────────────────────────────────────────────────
 
@@ -58,9 +130,9 @@ export interface MonographNode {
 // ── Evidence ──────────────────────────────────────────────────────────────────
 
 export interface EvidenceEntry {
-  kind: string;      // e.g., 'import', 'call', 'heuristic', 'inferred'
-  weight: number;    // 0-1
-  note?: string;     // human-readable explanation
+  kind: string; // e.g., 'import', 'call', 'heuristic', 'inferred'
+  weight: number; // 0-1
+  note?: string; // human-readable explanation
 }
 
 // ── Edges ─────────────────────────────────────────────────────────────────────
@@ -105,8 +177,8 @@ export interface ComplexityMetrics {
 
 export interface CrapScore {
   cc: number;
-  coverage: number;   // 0-1
-  score: number;      // CC² × (1-coverage)³ + CC
+  coverage: number; // 0-1
+  score: number; // CC² × (1-coverage)³ + CC
   risk: 'low' | 'medium' | 'high' | 'critical';
 }
 
@@ -132,19 +204,19 @@ export type SuggestedQuestion =
 // ── Finding actions (structured remediation steps) ────────────────────────────
 
 export type FindingActionType =
-  | 'investigate'     // read/understand the file
-  | 'refactor'        // reduce complexity or coupling
-  | 'delete'          // safe to remove
-  | 'add-test'        // add test coverage
-  | 'add-import'      // add missing import edge
-  | 'extract'         // extract to separate module
-  | 'review'          // human review required
-  | 'add-edge';       // add explicit graph relationship
+  | 'investigate' // read/understand the file
+  | 'refactor' // reduce complexity or coupling
+  | 'delete' // safe to remove
+  | 'add-test' // add test coverage
+  | 'add-import' // add missing import edge
+  | 'extract' // extract to separate module
+  | 'review' // human review required
+  | 'add-edge'; // add explicit graph relationship
 
 export interface FindingAction {
   type: FindingActionType;
-  file?: string;       // target file path
-  symbol?: string;     // specific symbol/export name
+  file?: string; // target file path
+  symbol?: string; // specific symbol/export name
   description: string; // human-readable instruction
   confidence: 'high' | 'medium' | 'low';
 }
@@ -172,10 +244,7 @@ export function makeId(...parts: string[]): string {
 // ── Norm label ────────────────────────────────────────────────────────────────
 
 export function toNormLabel(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 // ── Pipeline progress ─────────────────────────────────────────────────────────
@@ -190,7 +259,10 @@ export interface PipelineProgress {
 // ── Errors ────────────────────────────────────────────────────────────────────
 
 export class MonographError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
     super(message);
     this.name = 'MonographError';
   }

@@ -2,11 +2,11 @@
  * Shared utilities, constants, and types used across init write-* modules.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-import { dirname } from 'path';
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as path from 'node:path';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -37,7 +37,11 @@ export function _isOptionalPackageResolvable(pkg: string): boolean {
  * executes on every hook). Without atomicity a half-written settings.json or
  * a zero-byte hook-handler.cjs disables Claude Code's protections silently.
  */
-export function atomicWriteFile(target: string, content: string | Buffer, encoding?: BufferEncoding): void {
+export function atomicWriteFile(
+  target: string,
+  content: string | Buffer,
+  encoding?: BufferEncoding,
+): void {
   const tmp = `${target}.${process.pid}.tmp`;
   if (encoding && typeof content === 'string') {
     fs.writeFileSync(tmp, content, encoding);
@@ -82,19 +86,14 @@ export const SKILLS_MAP: Record<string, string[]> = {
   // source directories and silently copied nothing.
   memory: ['memory-toolkit'],
   github: ['github-toolkit'],
-  advanced: [
-    'agentic-jujutsu',
-    'performance-analysis',
-  ],
+  advanced: ['agentic-jujutsu', 'performance-analysis'],
 };
 
 /**
  * Commands to copy based on configuration
  */
 export const COMMANDS_MAP: Record<string, string[]> = {
-  core: [
-    'mastermind.md', 'tokens.md', 'monobrowse.md', 'ts.md',
-  ],
+  core: ['mastermind.md', 'tokens.md', 'monobrowse.md', 'ts.md'],
   agents: ['agents'],
   analysis: ['analysis'],
   automation: ['automation'],
@@ -226,9 +225,15 @@ export function readInitManifest(targetDir: string): InitManifest | null {
     if (!parsed || typeof parsed !== 'object') return null;
     return {
       version: typeof parsed.version === 'number' ? parsed.version : 1,
-      skills: Array.isArray(parsed.skills) ? parsed.skills.filter((s: unknown) => typeof s === 'string') : [],
-      commands: Array.isArray(parsed.commands) ? parsed.commands.filter((s: unknown) => typeof s === 'string') : [],
-      agents: Array.isArray(parsed.agents) ? parsed.agents.filter((s: unknown) => typeof s === 'string') : [],
+      skills: Array.isArray(parsed.skills)
+        ? parsed.skills.filter((s: unknown) => typeof s === 'string')
+        : [],
+      commands: Array.isArray(parsed.commands)
+        ? parsed.commands.filter((s: unknown) => typeof s === 'string')
+        : [],
+      agents: Array.isArray(parsed.agents)
+        ? parsed.agents.filter((s: unknown) => typeof s === 'string')
+        : [],
     };
   } catch {
     return null;
@@ -248,7 +253,11 @@ export function previouslyGenerated(targetDir: string, section: InitManifestSect
  * existing manifest so a partial run (e.g. --only-claude, or a section whose
  * source dir was missing) never drops provenance for the other sections.
  */
-export function recordGenerated(targetDir: string, section: InitManifestSection, entries: string[]): void {
+export function recordGenerated(
+  targetDir: string,
+  section: InitManifestSection,
+  entries: string[],
+): void {
   const manifestPath = path.join(targetDir, INIT_MANIFEST_REL);
   const existing = readInitManifest(targetDir);
   const manifest: InitManifest = existing ?? { version: 1, skills: [], commands: [], agents: [] };
@@ -256,7 +265,7 @@ export function recordGenerated(targetDir: string, section: InitManifestSection,
   manifest[section] = [...new Set(entries)].sort();
   try {
     fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-    atomicWriteFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+    atomicWriteFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   } catch {
     // Non-fatal: without a manifest the next run simply deletes nothing.
   }
@@ -286,7 +295,11 @@ export function findSourceHelpersDir(sourceBaseDir?: string): string | null {
   // Strategy 1: require.resolve to find package root (most reliable for npx)
   // Try both published package names (@monoes/monomindcli is the scoped CLI package,
   // monomind is the umbrella — neither is @monomind/cli which is the monorepo name only)
-  for (const pkgName of ['@monoes/monomindcli/package.json', 'monomind/packages/@monomind/cli/package.json', '@monomind/cli/package.json']) {
+  for (const pkgName of [
+    '@monoes/monomindcli/package.json',
+    'monomind/packages/@monomind/cli/package.json',
+    '@monomind/cli/package.json',
+  ]) {
     try {
       const esmRequire = createRequire(import.meta.url);
       const pkgJsonPath = esmRequire.resolve(pkgName);
@@ -325,7 +338,7 @@ export function findSourceHelpersDir(sourceBaseDir?: string): string | null {
 
   // Return first path that exists AND contains ALL sentinel files
   for (const p of possiblePaths) {
-    if (fs.existsSync(p) && SENTINEL_FILES.every(f => fs.existsSync(path.join(p, f)))) {
+    if (fs.existsSync(p) && SENTINEL_FILES.every((f) => fs.existsSync(path.join(p, f)))) {
       return p;
     }
   }
@@ -375,7 +388,10 @@ export function findSourceClaudeDir(sourceBaseDir?: string): string | null {
 /**
  * Find source directory for skills/commands/agents
  */
-export function findSourceDir(type: 'skills' | 'commands' | 'agents', sourceBaseDir?: string): string | null {
+export function findSourceDir(
+  type: 'skills' | 'commands' | 'agents',
+  sourceBaseDir?: string,
+): string | null {
   // Build list of possible paths to check
   const possiblePaths: string[] = [];
 
@@ -489,8 +505,11 @@ export function walkMdFiles(dir: string): string[] {
   const out: string[] = [];
   const visit = (d: string, prefix: string) => {
     let entries: fs.Dirent[];
-    try { entries = fs.readdirSync(d, { withFileTypes: true }); }
-    catch { return; }
+    try {
+      entries = fs.readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
     for (const e of entries) {
       const rel = prefix ? `${prefix}${path.sep}${e.name}` : e.name;
       if (e.isDirectory()) visit(path.join(d, e.name), rel);

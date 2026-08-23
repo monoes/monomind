@@ -1,6 +1,6 @@
-import { readFileSync, readdirSync } from 'fs';
-import { join, resolve } from 'path';
-import type { PipelinePhase, PipelineContext } from '../types.js';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 
 export interface WorkspacePackage {
   name: string;
@@ -21,8 +21,8 @@ function globWorkspacePattern(repoPath: string, pattern: string): string[] {
   // Skip existsSync — readdirSync will throw ENOENT which the catch already handles.
   try {
     return readdirSync(baseDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => join(baseDir, d.name));
+      .filter((d) => d.isDirectory())
+      .map((d) => join(baseDir, d.name));
   } catch {
     return [];
   }
@@ -51,7 +51,9 @@ export function detectWorkspacePackages(repoPath: string): WorkspacePackage[] {
         if (subPkg.name) {
           result.push({ name: subPkg.name, path: resolve(dir) });
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
   }
 
@@ -63,7 +65,7 @@ export function resolveWorkspaceImport(
   packages: WorkspacePackage[],
 ): string | null {
   for (const pkg of packages) {
-    if (importSpecifier === pkg.name || importSpecifier.startsWith(pkg.name + '/')) {
+    if (importSpecifier === pkg.name || importSpecifier.startsWith(`${pkg.name}/`)) {
       return pkg.path;
     }
   }
@@ -95,7 +97,10 @@ export function resolveWorkspaceImportFromIndex(
   const exact = index.get(importSpecifier);
   if (exact !== undefined) return exact;
   // Sub-path import: find the matching package name prefix
-  const slash = importSpecifier.indexOf('/', importSpecifier.startsWith('@') ? importSpecifier.indexOf('/') + 1 : 0);
+  const slash = importSpecifier.indexOf(
+    '/',
+    importSpecifier.startsWith('@') ? importSpecifier.indexOf('/') + 1 : 0,
+  );
   if (slash !== -1) {
     const pkgName = importSpecifier.slice(0, slash);
     const path = index.get(pkgName);

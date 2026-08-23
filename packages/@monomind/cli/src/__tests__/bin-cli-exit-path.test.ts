@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', '..', 'bin', 'cli.js');
@@ -34,7 +34,9 @@ function readBin(): string {
  *  hazard in prose, and that must not trip the assertions below. */
 function successHandler(src: string): string {
   const start = src.indexOf('cli.run().then(');
-  expect(start, 'cli.run().then( not found — did the entrypoint get restructured?').toBeGreaterThan(-1);
+  expect(start, 'cli.run().then( not found — did the entrypoint get restructured?').toBeGreaterThan(
+    -1,
+  );
   const end = src.indexOf('.catch(', start);
   expect(end, '.catch( after cli.run().then( not found').toBeGreaterThan(start);
   return stripComments(src.slice(start, end));
@@ -65,7 +67,7 @@ describe('bin/cli.js does not force-exit the main process', () => {
     expect(successHandler(readBin())).toMatch(/process\.exitCode\s*=/);
   });
 
-  it('keeps an unref\'d timer as the never-hang backstop', () => {
+  it("keeps an unref'd timer as the never-hang backstop", () => {
     const handler = successHandler(readBin());
     // Must exist (the CLI must not hang forever on a stray handle)...
     expect(handler).toMatch(/setTimeout\([\s\S]*?\)\.unref\(\)/);

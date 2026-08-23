@@ -56,10 +56,12 @@ function describe(args: unknown[]): string {
     if (typeof a === 'string') return a;
     if (a && typeof a === 'object') {
       if (a.href) return String(a.href);
-      if (a.hostname || a.host) return String(a.hostname ?? a.host) + ':' + String(a.port ?? '');
+      if (a.hostname || a.host) return `${String(a.hostname ?? a.host)}:${String(a.port ?? '')}`;
     }
     return String(a);
-  } catch { return '<unprintable>'; }
+  } catch {
+    return '<unprintable>';
+  }
 }
 
 /**
@@ -70,11 +72,19 @@ export function installNetworkGuard(): NetworkGuard {
   const attempts: NetworkAttempt[] = [];
   const restores: Array<() => void> = [];
 
-  const block = (api: string) => (...args: unknown[]): never => {
-    const err = new Error('[eval] BLOCKED network call at query time: ' + api + ' -> ' + describe(args));
-    attempts.push({ api, target: describe(args), stack: (err.stack ?? '').split('\n').slice(1, 8).join('\n') });
-    throw err;
-  };
+  const block =
+    (api: string) =>
+    (...args: unknown[]): never => {
+      const err = new Error(
+        `[eval] BLOCKED network call at query time: ${api} -> ${describe(args)}`,
+      );
+      attempts.push({
+        api,
+        target: describe(args),
+        stack: (err.stack ?? '').split('\n').slice(1, 8).join('\n'),
+      });
+      throw err;
+    };
 
   /** Returns false when the property genuinely could not be replaced — the
    *  caller turns that into a reported gap rather than a silent pass. */
@@ -84,7 +94,13 @@ export function installNetworkGuard(): NetworkGuard {
     const orig = obj[key];
     try {
       Object.defineProperty(obj, key, { value: block(api), writable: true, configurable: true });
-      restores.push(() => { try { Object.defineProperty(obj, key, { value: orig, writable: true, configurable: true }); } catch { /* best effort */ } });
+      restores.push(() => {
+        try {
+          Object.defineProperty(obj, key, { value: orig, writable: true, configurable: true });
+        } catch {
+          /* best effort */
+        }
+      });
     } catch {
       failures.push(api);
     }
@@ -100,7 +116,9 @@ export function installNetworkGuard(): NetworkGuard {
   if (typeof g.fetch === 'function') {
     const orig = g.fetch;
     g.fetch = block('fetch');
-    restores.push(() => { g.fetch = orig; });
+    restores.push(() => {
+      g.fetch = orig;
+    });
   }
 
   patch(http, 'request', 'http.request');
@@ -118,6 +136,8 @@ export function installNetworkGuard(): NetworkGuard {
   return {
     attempts,
     unpatched: failures,
-    release() { for (const r of restores.reverse()) r(); },
+    release() {
+      for (const r of restores.reverse()) r();
+    },
   };
 }

@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { filterEdges, filterEdgesInMemory } from '../../graph/edge-filter.js';
 import { openDb } from '../../storage/db.js';
-import { join } from 'path';
-import { mkdtempSync } from 'fs';
-import { tmpdir } from 'os';
 import type { MonographEdge } from '../../types.js';
 
 function makeTempDb() {
@@ -12,8 +12,9 @@ function makeTempDb() {
 }
 
 function insertNode(db: ReturnType<typeof openDb>, id: string) {
-  db.prepare(`INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`)
-    .run(id, id, id.toLowerCase());
+  db.prepare(
+    `INSERT INTO nodes (id, label, name, norm_label, is_exported) VALUES (?, 'Function', ?, ?, 0)`,
+  ).run(id, id, id.toLowerCase());
 }
 
 function insertEdge(
@@ -34,7 +35,9 @@ function insertEdge(
 describe('filterEdges (DB-backed)', () => {
   it('returns all edges when no filter options are given', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS', 'EXTRACTED', 1.0);
     insertEdge(db, 'e2', 'b', 'c', 'IMPORTS', 'INFERRED', 0.5);
     const result = filterEdges(db);
@@ -44,7 +47,9 @@ describe('filterEdges (DB-backed)', () => {
 
   it('filters by relation type', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS', 'EXTRACTED', 1.0);
     insertEdge(db, 'e2', 'b', 'c', 'IMPORTS', 'EXTRACTED', 1.0);
     const result = filterEdges(db, { relations: ['CALLS'] });
@@ -55,7 +60,9 @@ describe('filterEdges (DB-backed)', () => {
 
   it('filters by confidence label', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS', 'EXTRACTED', 1.0);
     insertEdge(db, 'e2', 'b', 'c', 'CALLS', 'INFERRED', 0.5);
     const result = filterEdges(db, { confidences: ['INFERRED'] });
@@ -66,7 +73,9 @@ describe('filterEdges (DB-backed)', () => {
 
   it('filters by minConfidenceScore', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS', 'EXTRACTED', 0.9);
     insertEdge(db, 'e2', 'b', 'c', 'CALLS', 'INFERRED', 0.3);
     const result = filterEdges(db, { minConfidenceScore: 0.8 });
@@ -77,7 +86,9 @@ describe('filterEdges (DB-backed)', () => {
 
   it('filters by maxConfidenceScore', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS', 'EXTRACTED', 0.9);
     insertEdge(db, 'e2', 'b', 'c', 'CALLS', 'AMBIGUOUS', 0.2);
     const result = filterEdges(db, { maxConfidenceScore: 0.5 });
@@ -88,7 +99,9 @@ describe('filterEdges (DB-backed)', () => {
 
   it('combines relation and confidence filters (AND)', () => {
     const db = makeTempDb();
-    insertNode(db, 'a'); insertNode(db, 'b'); insertNode(db, 'c');
+    insertNode(db, 'a');
+    insertNode(db, 'b');
+    insertNode(db, 'c');
     insertEdge(db, 'e1', 'a', 'b', 'CALLS', 'EXTRACTED', 1.0);
     insertEdge(db, 'e2', 'b', 'c', 'IMPORTS', 'INFERRED', 0.5);
     insertEdge(db, 'e3', 'a', 'c', 'CALLS', 'INFERRED', 0.5);
@@ -101,9 +114,30 @@ describe('filterEdges (DB-backed)', () => {
 
 describe('filterEdgesInMemory', () => {
   const edges: MonographEdge[] = [
-    { id: 'e1', sourceId: 'a', targetId: 'b', relation: 'CALLS', confidence: 'EXTRACTED', confidenceScore: 1.0 },
-    { id: 'e2', sourceId: 'b', targetId: 'c', relation: 'IMPORTS', confidence: 'INFERRED', confidenceScore: 0.5 },
-    { id: 'e3', sourceId: 'c', targetId: 'a', relation: 'CALLS', confidence: 'AMBIGUOUS', confidenceScore: 0.2 },
+    {
+      id: 'e1',
+      sourceId: 'a',
+      targetId: 'b',
+      relation: 'CALLS',
+      confidence: 'EXTRACTED',
+      confidenceScore: 1.0,
+    },
+    {
+      id: 'e2',
+      sourceId: 'b',
+      targetId: 'c',
+      relation: 'IMPORTS',
+      confidence: 'INFERRED',
+      confidenceScore: 0.5,
+    },
+    {
+      id: 'e3',
+      sourceId: 'c',
+      targetId: 'a',
+      relation: 'CALLS',
+      confidence: 'AMBIGUOUS',
+      confidenceScore: 0.2,
+    },
   ];
 
   it('returns all edges with no options', () => {

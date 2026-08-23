@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { wildcardSynthesisPhase } from '../../../pipeline/phases/wildcard-phase.js';
 import type { PipelineContext } from '../../../pipeline/types.js';
-import { CREATE_NODES, CREATE_EDGES } from '../../../storage/schema.js';
+import { CREATE_EDGES, CREATE_NODES } from '../../../storage/schema.js';
 
 // Uses the REAL production schema (including the edges FK constraint on
 // source_id/target_id) with foreign_keys actually enabled — the original
@@ -45,14 +45,31 @@ describe('wildcardSynthesisPhase', () => {
     const parseOutput = {
       allEdges: [],
       symbolNodes: [
-        { id: 'n1', name: 'greet', label: 'Function', normLabel: 'greet', filePath: '/mod.ts', isExported: true },
-        { id: 'n2', name: 'main.ts', label: 'File', normLabel: 'main.ts', filePath: '/main.ts', isExported: false },
+        {
+          id: 'n1',
+          name: 'greet',
+          label: 'Function',
+          normLabel: 'greet',
+          filePath: '/mod.ts',
+          isExported: true,
+        },
+        {
+          id: 'n2',
+          name: 'main.ts',
+          label: 'File',
+          normLabel: 'main.ts',
+          filePath: '/main.ts',
+          isExported: false,
+        },
       ],
       parseErrors: [],
       fileContents: new Map([['/main.ts', source]]),
     };
     const crossFileOutput = { resolvedEdges: [] };
-    const deps = new Map<string, any>([['parse', parseOutput], ['cross-file', crossFileOutput]]);
+    const deps = new Map<string, any>([
+      ['parse', parseOutput],
+      ['cross-file', crossFileOutput],
+    ]);
     const result = await wildcardSynthesisPhase.execute(makeCtx(db), deps);
     expect((result as any).synthesizedCount).toBeGreaterThanOrEqual(0);
   });
@@ -66,7 +83,10 @@ describe('wildcardSynthesisPhase', () => {
       fileContents: new Map([['/main.ts', 'import { greet } from "./mod.js"; greet("hello");']]),
     };
     const crossFileOutput = { resolvedEdges: [] };
-    const deps = new Map<string, any>([['parse', parseOutput], ['cross-file', crossFileOutput]]);
+    const deps = new Map<string, any>([
+      ['parse', parseOutput],
+      ['cross-file', crossFileOutput],
+    ]);
     await expect(wildcardSynthesisPhase.execute(makeCtx(db), deps)).resolves.not.toThrow();
   });
 
@@ -83,13 +103,23 @@ describe('wildcardSynthesisPhase', () => {
     const parseOutput = {
       allEdges: [],
       symbolNodes: [
-        { id: 'n1', name: 'greet', label: 'Function', normLabel: 'greet', filePath: '/mod.ts', isExported: true },
+        {
+          id: 'n1',
+          name: 'greet',
+          label: 'Function',
+          normLabel: 'greet',
+          filePath: '/mod.ts',
+          isExported: true,
+        },
       ],
       parseErrors: [],
       fileContents: new Map([['/empty.ts', source]]),
     };
     const crossFileOutput = { resolvedEdges: [] };
-    const deps = new Map<string, any>([['parse', parseOutput], ['cross-file', crossFileOutput]]);
+    const deps = new Map<string, any>([
+      ['parse', parseOutput],
+      ['cross-file', crossFileOutput],
+    ]);
 
     await expect(wildcardSynthesisPhase.execute(makeCtx(db), deps)).resolves.not.toThrow();
 

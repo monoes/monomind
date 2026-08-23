@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
-import type { MonographNode } from '../types.js';
 import { rowToNode } from '../storage/node-store.js';
+import type { MonographNode } from '../types.js';
 
 export interface ExplainResult {
   node: MonographNode | null;

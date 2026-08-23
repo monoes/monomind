@@ -1,7 +1,7 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { MonographEdge } from '../../types.js';
-import { makeId, CONFIDENCE_SCORE } from '../../types.js';
 import { insertEdges } from '../../storage/edge-store.js';
+import type { MonographEdge } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId } from '../../types.js';
+import type { PipelineContext, PipelinePhase } from '../types.js';
 
 export interface ContextualProximityOutput {
   coOccursEdges: number;
@@ -26,7 +26,10 @@ export const contextualProximityPhase: PipelinePhase<ContextualProximityOutput> 
     const sectionConcepts = new Map<string, string[]>();
     for (const { source_id, target_id } of rows) {
       let list = sectionConcepts.get(source_id);
-      if (!list) { list = []; sectionConcepts.set(source_id, list); }
+      if (!list) {
+        list = [];
+        sectionConcepts.set(source_id, list);
+      }
       list.push(target_id);
     }
 
@@ -68,7 +71,9 @@ export const contextualProximityPhase: PipelinePhase<ContextualProximityOutput> 
     if (conceptDegree.size > 0) {
       // Compute maxDeg with a loop to avoid spread array allocation from [...values()]
       let maxDeg = 0;
-      for (const deg of conceptDegree.values()) { if (deg > maxDeg) maxDeg = deg; }
+      for (const deg of conceptDegree.values()) {
+        if (deg > maxDeg) maxDeg = deg;
+      }
       const update = ctx.db.prepare(
         `UPDATE nodes SET properties = json_set(COALESCE(properties, '{}'), '$.importance', ?) WHERE id = ?`,
       );
@@ -82,7 +87,10 @@ export const contextualProximityPhase: PipelinePhase<ContextualProximityOutput> 
 
     if (edges.length > 0) insertEdges(ctx.db, edges);
 
-    ctx.onProgress?.({ phase: 'contextual-proximity', message: `${edges.length} CO_OCCURS edges, ${conceptDegree.size} concepts scored` });
+    ctx.onProgress?.({
+      phase: 'contextual-proximity',
+      message: `${edges.length} CO_OCCURS edges, ${conceptDegree.size} concepts scored`,
+    });
     return { coOccursEdges: edges.length, conceptsScored: conceptDegree.size };
   },
 };

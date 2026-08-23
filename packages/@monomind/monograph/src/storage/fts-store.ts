@@ -3,17 +3,130 @@ import type Database from 'better-sqlite3';
 // ── Intent-to-identifier extraction ──────────────────────────────────────────
 
 const STOPWORDS = new Set([
-  'a','an','the','is','are','was','were','be','been','being','have','has','had',
-  'do','does','did','will','would','shall','should','may','might','must','can',
-  'could','am','it','its','i','me','my','we','our','you','your','he','she',
-  'they','them','their','this','that','these','those','of','in','to','for',
-  'with','on','at','from','by','about','as','into','through','during','before',
-  'after','above','below','between','out','off','over','under','again','then',
-  'once','here','there','when','where','why','how','all','both','each','every',
-  'few','more','most','other','some','such','no','nor','not','only','own',
-  'same','so','than','too','very','just','because','but','and','or','if',
-  'while','what','which','who','whom','up','down','get','set','add','use',
-  'find','show','make','let','want','need','like','look','also','new','old',
+  'a',
+  'an',
+  'the',
+  'is',
+  'are',
+  'was',
+  'were',
+  'be',
+  'been',
+  'being',
+  'have',
+  'has',
+  'had',
+  'do',
+  'does',
+  'did',
+  'will',
+  'would',
+  'shall',
+  'should',
+  'may',
+  'might',
+  'must',
+  'can',
+  'could',
+  'am',
+  'it',
+  'its',
+  'i',
+  'me',
+  'my',
+  'we',
+  'our',
+  'you',
+  'your',
+  'he',
+  'she',
+  'they',
+  'them',
+  'their',
+  'this',
+  'that',
+  'these',
+  'those',
+  'of',
+  'in',
+  'to',
+  'for',
+  'with',
+  'on',
+  'at',
+  'from',
+  'by',
+  'about',
+  'as',
+  'into',
+  'through',
+  'during',
+  'before',
+  'after',
+  'above',
+  'below',
+  'between',
+  'out',
+  'off',
+  'over',
+  'under',
+  'again',
+  'then',
+  'once',
+  'here',
+  'there',
+  'when',
+  'where',
+  'why',
+  'how',
+  'all',
+  'both',
+  'each',
+  'every',
+  'few',
+  'more',
+  'most',
+  'other',
+  'some',
+  'such',
+  'no',
+  'nor',
+  'not',
+  'only',
+  'own',
+  'same',
+  'so',
+  'than',
+  'too',
+  'very',
+  'just',
+  'because',
+  'but',
+  'and',
+  'or',
+  'if',
+  'while',
+  'what',
+  'which',
+  'who',
+  'whom',
+  'up',
+  'down',
+  'get',
+  'set',
+  'add',
+  'use',
+  'find',
+  'show',
+  'make',
+  'let',
+  'want',
+  'need',
+  'like',
+  'look',
+  'also',
+  'new',
+  'old',
 ]);
 
 /**
@@ -23,7 +136,7 @@ const STOPWORDS = new Set([
  * Returns an empty array when the query is already a bare identifier.
  */
 export function extractSearchTerms(query: string): string[] {
-  const words = query.split(/[\s,;:!?()\[\]{}'"]+/).filter(Boolean);
+  const words = query.split(/[\s,;:!?()[\]{}'"]+/).filter(Boolean);
   // If query is a single token, it's already a bare identifier query — nothing to extract.
   // (We used to also bail out for short, stopword-free multi-token queries under the
   // assumption they were "already an identifier query", but that misfires for queries
@@ -47,10 +160,11 @@ export function extractSearchTerms(query: string): string[] {
     }
 
     // Split camelCase/PascalCase: "ExtensionBridge" → "Extension", "Bridge"
-    const camelParts = word.replace(/([a-z])([A-Z])/g, '$1 $2')
+    const camelParts = word
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
       .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
       .split(/[\s_-]+/)
-      .filter(p => p.length >= 3 && !STOPWORDS.has(p.toLowerCase()));
+      .filter((p) => p.length >= 3 && !STOPWORDS.has(p.toLowerCase()));
     if (camelParts.length > 1) {
       for (const part of camelParts) terms.add(part);
     }
@@ -103,10 +217,7 @@ export function ftsSearch(
   // Trigram handles substring matching natively — no need to append * to each term.
   // Quote each term individually so characters like `"`, `(`, `)`, or bare boolean
   // keywords (AND/OR/NOT) don't get parsed as FTS5 query syntax.
-  const ftsQuery = safeQuery
-    .split(/\s+/)
-    .map(quoteFtsTerm)
-    .join(' ');
+  const ftsQuery = safeQuery.split(/\s+/).map(quoteFtsTerm).join(' ');
 
   let matchSql = `
     SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
@@ -155,8 +266,13 @@ export function ftsSearch(
       termSql += ' ORDER BY nodes_fts.rank LIMIT ?';
       termParams.push(limit * 2);
       try {
-        matchRows = db.prepare(termSql).all(...(termParams as [string, ...unknown[]])) as Record<string, unknown>[];
-      } catch { /* FTS MATCH can throw on malformed queries */ }
+        matchRows = db.prepare(termSql).all(...(termParams as [string, ...unknown[]])) as Record<
+          string,
+          unknown
+        >[];
+      } catch {
+        /* FTS MATCH can throw on malformed queries */
+      }
 
       // Also try individual LIKE for each extracted term to catch camelCase substrings
       if (matchRows.length < limit) {
@@ -178,7 +294,9 @@ export function ftsSearch(
           }
           termLikeSql += ' LIMIT ?';
           termLikeParams.push(limit);
-          const likeRows = db.prepare(termLikeSql).all(...(termLikeParams as [string, ...unknown[]])) as Record<string, unknown>[];
+          const likeRows = db
+            .prepare(termLikeSql)
+            .all(...(termLikeParams as [string, ...unknown[]])) as Record<string, unknown>[];
           for (const r of likeRows) {
             if (!seenIds.has(r.id as string)) {
               matchRows.push(r);
@@ -201,9 +319,10 @@ export function ftsSearch(
 
     // Also try without file extension: "CLAUDE.md" → "CLAUDE"
     const dotIdx = safeQuery.lastIndexOf('.');
-    const strippedLikePattern = (dotIdx > 0 && dotIdx < safeQuery.length - 1)
-      ? `%${safeQuery.slice(0, dotIdx).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
-      : null;
+    const strippedLikePattern =
+      dotIdx > 0 && dotIdx < safeQuery.length - 1
+        ? `%${safeQuery.slice(0, dotIdx).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`
+        : null;
 
     let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
@@ -338,7 +457,10 @@ export function hybridSearch(
   // ── Strategy 2: LIKE fallback ──────────────────────────────────────────────
   // Always run for short queries (≤3 chars) or when FTS returned nothing.
   if (safeQuery.length <= 3 || ftsRows.length === 0) {
-    const escapedSafeQuery = safeQuery.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const escapedSafeQuery = safeQuery
+      .replace(/\\/g, '\\\\')
+      .replace(/%/g, '\\%')
+      .replace(/_/g, '\\_');
     const likePattern = `%${escapedSafeQuery}%`;
     let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
@@ -354,9 +476,10 @@ export function hybridSearch(
     likeSql += ' LIMIT ?';
     likeParams.push(limit * 2);
 
-    const likeRows = db
-      .prepare(likeSql)
-      .all(...(likeParams as [string, ...unknown[]])) as Record<string, unknown>[];
+    const likeRows = db.prepare(likeSql).all(...(likeParams as [string, ...unknown[]])) as Record<
+      string,
+      unknown
+    >[];
 
     for (const r of likeRows) {
       const name = r.name as string;

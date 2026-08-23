@@ -1,14 +1,17 @@
-export interface ImportExtractor {
-  (sourceText: string, importNode: import('tree-sitter').SyntaxNode): string | null;
-}
+export type ImportExtractor = (
+  sourceText: string,
+  importNode: import('tree-sitter').SyntaxNode,
+) => string | null;
 
-export interface ExportDetector {
-  (node: import('tree-sitter').SyntaxNode, sourceText: string): boolean;
-}
+export type ExportDetector = (
+  node: import('tree-sitter').SyntaxNode,
+  sourceText: string,
+) => boolean;
 
-export interface LabelRefiner {
-  (node: import('tree-sitter').SyntaxNode, defaultLabel: string): import('../types.js').NodeLabel;
-}
+export type LabelRefiner = (
+  node: import('tree-sitter').SyntaxNode,
+  defaultLabel: string,
+) => import('../types.js').NodeLabel;
 
 export interface LanguageConfig {
   name: string;

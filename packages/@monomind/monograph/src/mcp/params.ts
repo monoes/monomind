@@ -195,7 +195,23 @@ export interface ExtendedFindDupesParams extends FindDupesParams {
   reporter?: string;
 }
 
-export interface GetHotPathsMcpParams { root: string; minRequestsPerDay?: number; limit?: number }
-export interface GetBlastRadiusMcpParams { root: string; filePath: string; limit?: number }
-export interface GetImportanceMcpParams { root: string; limit?: number; minScore?: number }
-export interface GetCleanupCandidatesMcpParams { root: string; maxCoveragePct?: number; limit?: number }
+export interface GetHotPathsMcpParams {
+  root: string;
+  minRequestsPerDay?: number;
+  limit?: number;
+}
+export interface GetBlastRadiusMcpParams {
+  root: string;
+  filePath: string;
+  limit?: number;
+}
+export interface GetImportanceMcpParams {
+  root: string;
+  limit?: number;
+  minScore?: number;
+}
+export interface GetCleanupCandidatesMcpParams {
+  root: string;
+  maxCoveragePct?: number;
+  limit?: number;
+}

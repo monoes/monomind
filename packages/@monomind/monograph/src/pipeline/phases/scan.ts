@@ -1,20 +1,51 @@
-import { readdirSync, statSync, lstatSync, existsSync, readFileSync } from 'fs';
-import { join, extname } from 'path';
+import { existsSync, lstatSync, readdirSync, readFileSync, type statSync } from 'node:fs';
+import { extname, join } from 'node:path';
 import micromatch from 'micromatch';
-import type { PipelinePhase, PipelineContext } from '../types.js';
 import { isSupportedExtension } from '../../parsers/loader.js';
 import { isSensitiveFile } from '../../security/sensitive-files.js';
+import type { PipelinePhase } from '../types.js';
 
 const DEFAULT_IGNORE = new Set([
-  'node_modules', '.git', 'dist', 'build', '__pycache__',
-  '.cache', 'coverage', '.monomind', 'vendor', 'target',
-  '.worktrees', '.claude', '.claude-plugin', '.github', '.githooks',
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '__pycache__',
+  '.cache',
+  'coverage',
+  '.monomind',
+  'vendor',
+  'target',
+  '.worktrees',
+  '.claude',
+  '.claude-plugin',
+  '.github',
+  '.githooks',
 ]);
 
 const BINARY_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2',
-  '.ttf', '.eot', '.mp3', '.mp4', '.zip', '.gz', '.tar', '.pdf',
-  '.exe', '.dll', '.so', '.dylib', '.class', '.jar',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.svg',
+  '.ico',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.eot',
+  '.mp3',
+  '.mp4',
+  '.zip',
+  '.gz',
+  '.tar',
+  '.pdf',
+  '.exe',
+  '.dll',
+  '.so',
+  '.dylib',
+  '.class',
+  '.jar',
 ]);
 
 const GENERATED_PATTERNS = [/\.min\.(js|css)$/, /\.pb\.go$/, /_generated\.ts$/];
@@ -51,7 +82,11 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
 
     function walk(dir: string) {
       let dirents: import('fs').Dirent[];
-      try { dirents = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      try {
+        dirents = readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
 
       for (const dirent of dirents) {
         const entry = dirent.name;
@@ -65,7 +100,11 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
         if (dirent.isSymbolicLink()) continue;
         const fullPath = join(dir, entry);
         let stat: ReturnType<typeof statSync>;
-        try { stat = lstatSync(fullPath); } catch { continue; }
+        try {
+          stat = lstatSync(fullPath);
+        } catch {
+          continue;
+        }
 
         if (stat.isDirectory()) {
           // Always traverse directories — negation patterns may rescue files inside ignored dirs
@@ -76,16 +115,22 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
         if (ignorePatterns.length > 0) {
           const rel = fullPath.slice(ctx.repoPath.length + 1);
           const isIgnored = micromatch.isMatch(rel, ignorePatterns, { dot: true });
-          const isDirIgnored = micromatch.isMatch(rel, ignorePatterns.map(p => p.endsWith('/') ? p + '**' : p), { dot: true });
+          const isDirIgnored = micromatch.isMatch(
+            rel,
+            ignorePatterns.map((p) => (p.endsWith('/') ? `${p}**` : p)),
+            { dot: true },
+          );
           if (isIgnored || isDirIgnored) {
-            const isNegated = negationPatterns.length > 0 && micromatch.isMatch(rel, negationPatterns, { dot: true });
+            const isNegated =
+              negationPatterns.length > 0 &&
+              micromatch.isMatch(rel, negationPatterns, { dot: true });
             if (!isNegated) continue;
           }
         }
 
         const ext = extname(entry).toLowerCase();
         if (BINARY_EXTENSIONS.has(ext)) continue;
-        if (GENERATED_PATTERNS.some(r => r.test(entry))) continue;
+        if (GENERATED_PATTERNS.some((r) => r.test(entry))) continue;
         if (isSensitiveFile(fullPath)) continue;
         if (ctx.options.codeOnly && !isSupportedExtension(ext)) continue;
 
@@ -97,7 +142,11 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
     walk(ctx.repoPath);
     const assessment = assessCorpus({ fileCount: filePaths.length, totalBytes });
     if (assessment.level !== 'ok') {
-      ctx.onProgress?.({ phase: 'scan', totalFiles: filePaths.length, message: assessment.warning });
+      ctx.onProgress?.({
+        phase: 'scan',
+        totalFiles: filePaths.length,
+        message: assessment.warning,
+      });
     } else {
       ctx.onProgress?.({ phase: 'scan', totalFiles: filePaths.length });
     }

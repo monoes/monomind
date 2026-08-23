@@ -3,8 +3,8 @@
  * Creates utility scripts in .claude/helpers/
  */
 
+import { generateStatuslineHook, generateStatuslineScript } from './statusline-generator.js';
 import type { InitOptions } from './types.js';
-import { generateStatuslineScript, generateStatuslineHook } from './statusline-generator.js';
 
 /**
  * Generate pre-commit hook script
@@ -472,7 +472,7 @@ export function generateHookHandler(): string {
     "        var graphJson = require('path').join(process.cwd(), '.monomind', 'monograph.db');",
     "        var hasGraph = require('fs').existsSync(graphJson);",
     '        if (isArchQuery) {',
-    "          var gfOutput = [];",
+    '          var gfOutput = [];',
     "          gfOutput.push('');",
     "          gfOutput.push('+------- monograph | Knowledge Graph Available ---------------+');",
     '          if (hasGraph) {',
@@ -531,7 +531,7 @@ export function generateHookHandler(): string {
     '      }',
     '      var db = new Database(dbPath, { readonly: true });',
     '      try {',
-    "        // Extract bare words (identifiers or filenames) from the command",
+    '        // Extract bare words (identifiers or filenames) from the command',
     '        var words = cmd.match(/[a-zA-Z_$][a-zA-Z0-9_$]{3,}/g) || [];',
     '        var stop = {import:1,export:1,from:1,require:1,return:1,function:1,const:1,let:1,var:1,class:1,type:1,error:1,string:1,number:1,object:1,boolean:1,value:1,result:1,data:1,name:1,path:1,file:1,node:1,config:1,index:1,module:1,handler:1,default:1,grep:1,include:1,exclude:1};',
     '        for (var wi = 0; wi < words.length; wi++) {',
@@ -587,7 +587,7 @@ export function generateHookHandler(): string {
     '    // Auto-rebuild monograph knowledge graph for code file changes',
     '    try {',
     "      var editedFile = process.env.TOOL_INPUT_file_path || args[0] || '';",
-    "      var isCode = /\\.(ts|js|tsx|jsx|py|go|rs|java|c|cpp|h|cs|rb|php|swift|kt|scala)$/.test(editedFile);",
+    '      var isCode = /\\.(ts|js|tsx|jsx|py|go|rs|java|c|cpp|h|cs|rb|php|swift|kt|scala)$/.test(editedFile);',
     "      var dbFile = require('path').join(process.cwd(), '.monomind', 'monograph.db');",
     "      if (isCode && require('fs').existsSync(dbFile)) {",
     "        var s = `import { buildAsync } from '@monoes/monograph'; buildAsync(${JSON.stringify(process.cwd())}).catch(()=>{});`;",
@@ -731,7 +731,7 @@ export function generateHookHandler(): string {
     'process.exitCode = 0;',
     'main().catch(() => {}).finally(() => { process.exit(0); });',
   ];
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 /**
@@ -951,7 +951,7 @@ export function generateIntelligenceStub(): string {
     '  },',
     '};',
   ];
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 /**
@@ -1386,7 +1386,7 @@ export function generateHelpers(options: InitOptions): Record<string, string> {
   }
 
   if (options.components.statusline) {
-    helpers['statusline.cjs'] = generateStatuslineScript(options);  // .cjs for ES module compatibility
+    helpers['statusline.cjs'] = generateStatuslineScript(options); // .cjs for ES module compatibility
     helpers['statusline-hook.sh'] = generateStatuslineHook(options);
   }
 

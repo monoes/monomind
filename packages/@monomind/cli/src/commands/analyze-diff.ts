@@ -3,12 +3,12 @@
  * Handles git diff risk assessment and static code quality analysis
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { resolve } from 'node:path';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { resolve } from 'path';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { scanSourceFiles } from './analyze.js';
 
 function getRiskDisplay(risk: string): string {
@@ -83,17 +83,29 @@ export const diffCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monomind analyze diff --risk', description: 'Analyze current diff with risk assessment' },
-    { command: 'monomind analyze diff HEAD~1 --classify', description: 'Classify changes from last commit' },
-    { command: 'monomind analyze diff main..feature --format json', description: 'Compare branches with JSON output' },
-    { command: 'monomind analyze diff --reviewers', description: 'Get recommended reviewers for changes' },
+    {
+      command: 'monomind analyze diff --risk',
+      description: 'Analyze current diff with risk assessment',
+    },
+    {
+      command: 'monomind analyze diff HEAD~1 --classify',
+      description: 'Classify changes from last commit',
+    },
+    {
+      command: 'monomind analyze diff main..feature --format json',
+      description: 'Compare branches with JSON output',
+    },
+    {
+      command: 'monomind analyze diff --reviewers',
+      description: 'Get recommended reviewers for changes',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const ref = ctx.args[0] || 'HEAD';
     const showRisk = ctx.flags.risk as boolean;
     const showClassify = ctx.flags.classify as boolean;
     const showReviewers = ctx.flags.reviewers as boolean;
-    const formatType = ctx.flags.format as string || 'text';
+    const formatType = (ctx.flags.format as string) || 'text';
     const verbose = ctx.flags.verbose as boolean;
 
     // If no specific flag, show all
@@ -155,8 +167,23 @@ export const diffCommand: Command = {
 
       // Summary box
       const files = result.files || [];
-      const risk = result.risk || { overall: 'unknown', score: 0, breakdown: { fileCount: 0, totalChanges: 0, highRiskFiles: [], securityConcerns: [], breakingChanges: [], testCoverage: 'unknown' } };
-      const classification = result.classification || { category: 'unknown', confidence: 0, reasoning: '' };
+      const risk = result.risk || {
+        overall: 'unknown',
+        score: 0,
+        breakdown: {
+          fileCount: 0,
+          totalChanges: 0,
+          highRiskFiles: [],
+          securityConcerns: [],
+          breakingChanges: [],
+          testCoverage: 'unknown',
+        },
+      };
+      const classification = result.classification || {
+        category: 'unknown',
+        confidence: 0,
+        reasoning: '',
+      };
 
       output.printBox(
         [
@@ -167,7 +194,7 @@ export const diffCommand: Command = {
           ``,
           result.summary || 'No summary available',
         ].join('\n'),
-        'Diff Analysis'
+        'Diff Analysis',
       );
 
       // Risk assessment
@@ -194,21 +221,21 @@ export const diffCommand: Command = {
         if (risk.breakdown.securityConcerns.length > 0) {
           output.writeln();
           output.writeln(output.bold(output.warning('Security Concerns')));
-          output.printList(risk.breakdown.securityConcerns.map(c => output.warning(c)));
+          output.printList(risk.breakdown.securityConcerns.map((c) => output.warning(c)));
         }
 
         // Breaking changes
         if (risk.breakdown.breakingChanges.length > 0) {
           output.writeln();
           output.writeln(output.bold(output.error('Potential Breaking Changes')));
-          output.printList(risk.breakdown.breakingChanges.map(c => output.error(c)));
+          output.printList(risk.breakdown.breakingChanges.map((c) => output.error(c)));
         }
 
         // High risk files
         if (risk.breakdown.highRiskFiles.length > 0) {
           output.writeln();
           output.writeln(output.bold('High Risk Files'));
-          output.printList(risk.breakdown.highRiskFiles.map(f => output.warning(f)));
+          output.printList(risk.breakdown.highRiskFiles.map((f) => output.warning(f)));
         }
       }
 
@@ -242,7 +269,7 @@ export const diffCommand: Command = {
 
         const reviewers = result.recommendedReviewers || [];
         if (reviewers.length > 0) {
-          output.printNumberedList(reviewers.map(r => output.highlight(r)));
+          output.printNumberedList(reviewers.map((r) => output.highlight(r)));
         } else {
           output.writeln(output.dim('No specific reviewers recommended'));
         }
@@ -259,10 +286,15 @@ export const diffCommand: Command = {
             { key: 'path', header: 'File', width: 40 },
             { key: 'risk', header: 'Risk', width: 12, format: (v) => getRiskDisplay(String(v)) },
             { key: 'score', header: 'Score', width: 8, align: 'right' },
-            { key: 'reasons', header: 'Reasons', width: 30, format: (v) => {
-              const reasons = v as string[];
-              return reasons.slice(0, 2).join('; ');
-            }},
+            {
+              key: 'reasons',
+              header: 'Reasons',
+              width: 30,
+              format: (v) => {
+                const reasons = v as string[];
+                return reasons.slice(0, 2).join('; ');
+              },
+            },
           ],
           data: result.fileRisks,
         });
@@ -276,10 +308,27 @@ export const diffCommand: Command = {
 
         output.printTable({
           columns: [
-            { key: 'status', header: 'Status', width: 10, format: (v) => getStatusDisplay(String(v)) },
+            {
+              key: 'status',
+              header: 'Status',
+              width: 10,
+              format: (v) => getStatusDisplay(String(v)),
+            },
             { key: 'path', header: 'File', width: 45 },
-            { key: 'additions', header: '+', width: 8, align: 'right', format: (v) => output.success(`+${v}`) },
-            { key: 'deletions', header: '-', width: 8, align: 'right', format: (v) => output.error(`-${v}`) },
+            {
+              key: 'additions',
+              header: '+',
+              width: 8,
+              align: 'right',
+              format: (v) => output.success(`+${v}`),
+            },
+            {
+              key: 'deletions',
+              header: '-',
+              width: 8,
+              align: 'right',
+              format: (v) => output.error(`-${v}`),
+            },
           ],
           data: files.slice(0, 20),
         });
@@ -307,16 +356,28 @@ export const codeCommand: Command = {
   description: 'Static code analysis and quality assessment',
   options: [
     { name: 'path', short: 'p', type: 'string', description: 'Path to analyze', default: '.' },
-    { name: 'type', short: 't', type: 'string', description: 'Analysis type: quality, complexity, security', default: 'quality' },
-    { name: 'format', short: 'f', type: 'string', description: 'Output format: text, json', default: 'text' },
+    {
+      name: 'type',
+      short: 't',
+      type: 'string',
+      description: 'Analysis type: quality, complexity, security',
+      default: 'quality',
+    },
+    {
+      name: 'format',
+      short: 'f',
+      type: 'string',
+      description: 'Output format: text, json',
+      default: 'text',
+    },
   ],
   examples: [
     { command: 'monomind analyze code -p ./src', description: 'Analyze source directory' },
     { command: 'monomind analyze code --type complexity', description: 'Run complexity analysis' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const targetPath = resolve(ctx.flags.path as string || '.');
-    const analysisType = ctx.flags.type as string || 'quality';
+    const targetPath = resolve((ctx.flags.path as string) || '.');
+    const analysisType = (ctx.flags.type as string) || 'quality';
     const formatJson = (ctx.flags.format as string) === 'json';
 
     output.writeln();
@@ -334,15 +395,31 @@ export const codeCommand: Command = {
         return { success: true };
       }
 
-      const fileStats: Array<{ file: string; loc: number; todos: number; functions: number; imports: number; maxNesting: number; securityIssues: string[] }> = [];
+      const fileStats: Array<{
+        file: string;
+        loc: number;
+        todos: number;
+        functions: number;
+        imports: number;
+        maxNesting: number;
+        securityIssues: string[];
+      }> = [];
 
       for (const filePath of files) {
         const content = await fs.readFile(filePath, 'utf-8');
         const lines = content.split('\n');
-        const nonEmpty = lines.filter(l => l.trim().length > 0 && !/^\s*(\/\/|\/\*|\*\s|#)/.test(l)).length;
+        const nonEmpty = lines.filter(
+          (l) => l.trim().length > 0 && !/^\s*(\/\/|\/\*|\*\s|#)/.test(l),
+        ).length;
         const todos = (content.match(/\b(TODO|FIXME|HACK|XXX)\b/gi) || []).length;
-        const fns = (content.match(/(?:export\s+)?(?:async\s+)?function\s+\w+|(?:const|let|var)\s+\w+\s*=\s*(?:async\s+)?\([^)]*\)\s*=>/g) || []).length;
-        const imps = (content.match(/^import\s+/gm) || []).length + (content.match(/require\s*\(/g) || []).length;
+        const fns = (
+          content.match(
+            /(?:export\s+)?(?:async\s+)?function\s+\w+|(?:const|let|var)\s+\w+\s*=\s*(?:async\s+)?\([^)]*\)\s*=>/g,
+          ) || []
+        ).length;
+        const imps =
+          (content.match(/^import\s+/gm) || []).length +
+          (content.match(/require\s*\(/g) || []).length;
 
         let maxNesting = 0;
         let nesting = 0;
@@ -357,7 +434,8 @@ export const codeCommand: Command = {
         if (/\bexec\s*\(/.test(content)) securityIssues.push('exec()');
         if (/\.innerHTML\s*=/.test(content)) securityIssues.push('innerHTML');
         if (/dangerouslySetInnerHTML/.test(content)) securityIssues.push('dangerouslySetInnerHTML');
-        if (/['"](?:password|secret|api[_-]?key|token)\s*[:=]\s*['"][^'"]{3,}['"]/i.test(content)) securityIssues.push('hardcoded secret');
+        if (/['"](?:password|secret|api[_-]?key|token)\s*[:=]\s*['"][^'"]{3,}['"]/i.test(content))
+          securityIssues.push('hardcoded secret');
         if (/new\s+Function\s*\(/.test(content)) securityIssues.push('new Function()');
 
         fileStats.push({
@@ -378,21 +456,46 @@ export const codeCommand: Command = {
       const totalFunctions = fileStats.reduce((s, f) => s + f.functions, 0);
       const totalImports = fileStats.reduce((s, f) => s + f.imports, 0);
       const avgFileSize = Math.round(totalLoc / files.length);
-      const longestFile = fileStats.reduce((a, b) => a.loc > b.loc ? a : b);
+      const longestFile = fileStats.reduce((a, b) => (a.loc > b.loc ? a : b));
       const avgFnPerFile = (totalFunctions / files.length).toFixed(1);
-      const deepestNesting = fileStats.reduce((a, b) => a.maxNesting > b.maxNesting ? a : b);
-      const allSecurityIssues = fileStats.filter(f => f.securityIssues.length > 0);
+      const deepestNesting = fileStats.reduce((a, b) => (a.maxNesting > b.maxNesting ? a : b));
+      const allSecurityIssues = fileStats.filter((f) => f.securityIssues.length > 0);
 
       if (formatJson) {
-        const jsonData = { type: analysisType, path: targetPath, files: files.length, totalLoc, totalTodos, totalFunctions, totalImports, avgFileSize, fileStats: fileStats.map(f => ({ relativePath: path.relative(targetPath, f.file), loc: f.loc, todos: f.todos, functions: f.functions, imports: f.imports, maxNesting: f.maxNesting, securityIssues: f.securityIssues })) };
+        const jsonData = {
+          type: analysisType,
+          path: targetPath,
+          files: files.length,
+          totalLoc,
+          totalTodos,
+          totalFunctions,
+          totalImports,
+          avgFileSize,
+          fileStats: fileStats.map((f) => ({
+            relativePath: path.relative(targetPath, f.file),
+            loc: f.loc,
+            todos: f.todos,
+            functions: f.functions,
+            imports: f.imports,
+            maxNesting: f.maxNesting,
+            securityIssues: f.securityIssues,
+          })),
+        };
         output.printJson(jsonData);
         return { success: true, data: jsonData };
       }
 
       if (analysisType === 'quality') {
         output.printBox(
-          [`Files: ${files.length}`, `Lines of Code: ${totalLoc.toLocaleString()}`, `Avg File Size: ${avgFileSize} LOC`, `TODO/FIXME: ${totalTodos}`, `Functions: ${totalFunctions}`, `Imports: ${totalImports}`].join('\n'),
-          'Quality Summary'
+          [
+            `Files: ${files.length}`,
+            `Lines of Code: ${totalLoc.toLocaleString()}`,
+            `Avg File Size: ${avgFileSize} LOC`,
+            `TODO/FIXME: ${totalTodos}`,
+            `Functions: ${totalFunctions}`,
+            `Imports: ${totalImports}`,
+          ].join('\n'),
+          'Quality Summary',
         );
         output.writeln();
         output.writeln(output.bold('Largest Files'));
@@ -405,21 +508,36 @@ export const codeCommand: Command = {
             { key: 'fns', header: 'Fns', width: 6, align: 'right' as const },
             { key: 'todos', header: 'TODOs', width: 7, align: 'right' as const },
           ],
-          data: top10.map(f => ({ file: path.relative(targetPath, f.file), loc: f.loc, fns: f.functions, todos: f.todos })),
+          data: top10.map((f) => ({
+            file: path.relative(targetPath, f.file),
+            loc: f.loc,
+            fns: f.functions,
+            todos: f.todos,
+          })),
         });
         if (totalTodos > 0) {
           output.writeln();
-          output.printWarning(`${totalTodos} TODO/FIXME comments found across ${fileStats.filter(f => f.todos > 0).length} files`);
+          output.printWarning(
+            `${totalTodos} TODO/FIXME comments found across ${fileStats.filter((f) => f.todos > 0).length} files`,
+          );
         }
       } else if (analysisType === 'complexity') {
         output.printBox(
-          [`Files: ${files.length}`, `Total Functions: ${totalFunctions}`, `Avg Functions/File: ${avgFnPerFile}`, `Deepest Nesting: ${deepestNesting.maxNesting} levels (${path.relative(targetPath, deepestNesting.file)})`, `Longest File: ${longestFile.loc} LOC (${path.relative(targetPath, longestFile.file)})`].join('\n'),
-          'Complexity Summary'
+          [
+            `Files: ${files.length}`,
+            `Total Functions: ${totalFunctions}`,
+            `Avg Functions/File: ${avgFnPerFile}`,
+            `Deepest Nesting: ${deepestNesting.maxNesting} levels (${path.relative(targetPath, deepestNesting.file)})`,
+            `Longest File: ${longestFile.loc} LOC (${path.relative(targetPath, longestFile.file)})`,
+          ].join('\n'),
+          'Complexity Summary',
         );
         output.writeln();
         output.writeln(output.bold('High Complexity Files (nesting > 5)'));
         output.writeln(output.dim('-'.repeat(60)));
-        const complex = fileStats.filter(f => f.maxNesting > 5).sort((a, b) => b.maxNesting - a.maxNesting);
+        const complex = fileStats
+          .filter((f) => f.maxNesting > 5)
+          .sort((a, b) => b.maxNesting - a.maxNesting);
         if (complex.length === 0) {
           output.printSuccess('No files with excessive nesting detected');
         } else {
@@ -430,13 +548,22 @@ export const codeCommand: Command = {
               { key: 'fns', header: 'Fns', width: 6, align: 'right' as const },
               { key: 'loc', header: 'LOC', width: 8, align: 'right' as const },
             ],
-            data: complex.slice(0, 15).map(f => ({ file: path.relative(targetPath, f.file), nesting: f.maxNesting, fns: f.functions, loc: f.loc })),
+            data: complex.slice(0, 15).map((f) => ({
+              file: path.relative(targetPath, f.file),
+              nesting: f.maxNesting,
+              fns: f.functions,
+              loc: f.loc,
+            })),
           });
         }
       } else if (analysisType === 'security') {
         output.printBox(
-          [`Files Scanned: ${files.length}`, `Files with Issues: ${allSecurityIssues.length}`, `Total Issues: ${allSecurityIssues.reduce((s, f) => s + f.securityIssues.length, 0)}`].join('\n'),
-          'Security Summary'
+          [
+            `Files Scanned: ${files.length}`,
+            `Files with Issues: ${allSecurityIssues.length}`,
+            `Total Issues: ${allSecurityIssues.reduce((s, f) => s + f.securityIssues.length, 0)}`,
+          ].join('\n'),
+          'Security Summary',
         );
         if (allSecurityIssues.length === 0) {
           output.writeln();
@@ -450,11 +577,16 @@ export const codeCommand: Command = {
               { key: 'file', header: 'File', width: 40 },
               { key: 'issues', header: 'Issues', width: 35 },
             ],
-            data: allSecurityIssues.map(f => ({ file: path.relative(targetPath, f.file), issues: f.securityIssues.join(', ') })),
+            data: allSecurityIssues.map((f) => ({
+              file: path.relative(targetPath, f.file),
+              issues: f.securityIssues.join(', '),
+            })),
           });
         }
       } else {
-        output.printWarning(`Unknown analysis type: ${analysisType}. Use quality, complexity, or security.`);
+        output.printWarning(
+          `Unknown analysis type: ${analysisType}. Use quality, complexity, or security.`,
+        );
       }
 
       return { success: true };

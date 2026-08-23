@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
-import type { MonographNode } from '../types.js';
 import { rowToNode } from '../storage/node-store.js';
+import type { MonographNode } from '../types.js';
 
 export interface NeighborEntry {
   node: MonographNode;
@@ -37,9 +37,9 @@ function queryEdges(
 
   return rows.map((row) => ({
     node: rowToNode(row),
-    relation: row['relation'] as string,
-    confidence: row['confidence'] as string,
-    confidenceScore: (row['confidence_score'] as number) ?? 1,
+    relation: row.relation as string,
+    confidence: row.confidence as string,
+    confidenceScore: (row.confidence_score as number) ?? 1,
     direction,
   }));
 }

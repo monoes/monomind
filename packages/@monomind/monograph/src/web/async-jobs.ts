@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 
@@ -37,11 +37,14 @@ export function createJobRegistry(): JobRegistry {
   const jobs = new Map<string, Job>();
   const progressMap = new Map<string, ProgressEvent[]>();
 
-  function now(): string { return new Date().toISOString(); }
+  function now(): string {
+    return new Date().toISOString();
+  }
 
   function evictOldCompleted(): void {
-    const completed = [...jobs.entries()]
-      .filter(([, j]) => j.status === 'done' || j.status === 'failed' || j.status === 'cancelled');
+    const completed = [...jobs.entries()].filter(
+      ([, j]) => j.status === 'done' || j.status === 'failed' || j.status === 'cancelled',
+    );
     if (completed.length <= MAX_COMPLETED_JOBS) return;
     completed.sort((a, b) => a[1].updatedAt.localeCompare(b[1].updatedAt));
     const toEvict = completed.slice(0, completed.length - MAX_COMPLETED_JOBS);
@@ -92,7 +95,7 @@ export function createJobRegistry(): JobRegistry {
       return existed;
     },
     list() {
-      return [...jobs.values()].map(j => ({ ...j }));
+      return [...jobs.values()].map((j) => ({ ...j }));
     },
     emitProgress(id, event) {
       if (!jobs.has(id)) return;

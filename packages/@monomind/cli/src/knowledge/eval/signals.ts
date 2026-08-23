@@ -76,10 +76,10 @@ export interface PreRegisteredSignal {
  * requires first showing the harness could have seen an effect.
  */
 export type NullVerdict =
-  | 'no-effect'             // the harness could see the mechanism; there was none
-  | 'cannot-see-mechanism'  // wrong store profile / fixture lacked the phenomenon
-  | 'redundant'             // real, but already delivered by another shipped item
-  | 'undetermined';         // below the noise floor; n too small to say anything
+  | 'no-effect' // the harness could see the mechanism; there was none
+  | 'cannot-see-mechanism' // wrong store profile / fixture lacked the phenomenon
+  | 'redundant' // real, but already delivered by another shipped item
+  | 'undetermined'; // below the noise floor; n too small to say anything
 
 export interface SignalResult {
   id: string;
@@ -92,7 +92,13 @@ export interface SignalResult {
   baselineValue: number | null;
   /** Movement since ship time. Negative for a signal declared 'increase' is decay. */
   deltaSinceShip: number | null;
-  verdict: 'holding' | 'DECAYED' | 'cannot-see' | 'not-yet-shipped' | 'below-noise-floor' | 'stale-baseline';
+  verdict:
+    | 'holding'
+    | 'DECAYED'
+    | 'cannot-see'
+    | 'not-yet-shipped'
+    | 'below-noise-floor'
+    | 'stale-baseline';
   nullVerdict?: NullVerdict;
   note: string;
 }
@@ -139,9 +145,10 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
     id: 'item-0-discriminative-power',
     item: '0',
     declaredAt: '2026-07-28',
-    claim: 'The golden set can still tell a real retriever apart from a random one. If the ' +
-           'random floor ever approaches the real stack, the eval has gone vacuous and no ' +
-           'row measured after that point means anything.',
+    claim:
+      'The golden set can still tell a real retriever apart from a random one. If the ' +
+      'random floor ever approaches the real stack, the eval has gone vacuous and no ' +
+      'row measured after that point means anything.',
     metric: 'headline.randomFloorRecallAt5',
     direction: 'no-worse-than',
     expectedMagnitude: 0.05,
@@ -156,10 +163,11 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
     id: 'item-0b-model-provisioned-never-fetched',
     item: '0b',
     declaredAt: '2026-07-28',
-    claim: 'The eval NEVER fetches the embedding model. Weights are provisioned by an explicit, ' +
-           'non-query-time step (`doc eval --provision-model`); the eval asserts their presence ' +
-           'and refuses to run without them. Scores 1 only when the weights were on disk before ' +
-           'any query AND the query phase was network-blocked AND nothing was fetched.',
+    claim:
+      'The eval NEVER fetches the embedding model. Weights are provisioned by an explicit, ' +
+      'non-query-time step (`doc eval --provision-model`); the eval asserts their presence ' +
+      'and refuses to run without them. Scores 1 only when the weights were on disk before ' +
+      'any query AND the query phase was network-blocked AND nothing was fetched.',
     metric: 'method.provisioningIntact',
     direction: 'no-worse-than',
     expectedMagnitude: 0,
@@ -179,8 +187,9 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
     id: 'item-4b-i-no-ghost-entries',
     item: '4b-i',
     declaredAt: '2026-07-28',
-    claim: 'The live store contains zero entries whose source file no longer exists. ' +
-           'Reconciliation removes ghosts; the count stays at zero across sessions.',
+    claim:
+      'The live store contains zero entries whose source file no longer exists. ' +
+      'Reconciliation removes ghosts; the count stays at zero across sessions.',
     metric: 'liveStore.ghostCount',
     direction: 'no-worse-than',
     expectedMagnitude: 0,
@@ -197,11 +206,12 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
     id: 'item-6a-chunk-enrichment-low-overlap',
     item: '6a',
     declaredAt: '2026-07-28',
-    claim: 'Contextual chunk enrichment (doc title + full heading path + doc summary) improves ' +
-           'Recall@5 in the low-overlap tercile where dense retrieval is our only working arm. ' +
-           'The enrichment gives chunks vocabulary a forgetful user\'s query might match — ' +
-           '"Code Implementation Agent" surfaces when the user asks about "the coder" even if ' +
-           'the chunk text only says "Memory Coordination".',
+    claim:
+      'Contextual chunk enrichment (doc title + full heading path + doc summary) improves ' +
+      'Recall@5 in the low-overlap tercile where dense retrieval is our only working arm. ' +
+      "The enrichment gives chunks vocabulary a forgetful user's query might match — " +
+      '"Code Implementation Agent" surfaces when the user asks about "the coder" even if ' +
+      'the chunk text only says "Memory Coordination".',
     metric: 'results.dense-only (gte-modernbert-base).terciles.low.recallAt5',
     direction: 'increase',
     // Conservative: literature reports ~35% failure reduction with LLM-generated context;
@@ -222,10 +232,11 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
     id: 'item-1-low-overlap-tercile-not-damaged',
     item: '1',
     declaredAt: '2026-07-28',
-    claim: 'Hybrid BM25+dense fusion must NOT reduce Recall@5 in the low-overlap tercile. ' +
-           'That tercile is the only place dense retrieval currently beats BM25 (0.500 vs ' +
-           '0.182 at baseline), and it is the closest proxy we have to real user queries. ' +
-           'A fusion that raises the aggregate by flattening it is a regression sold as a win.',
+    claim:
+      'Hybrid BM25+dense fusion must NOT reduce Recall@5 in the low-overlap tercile. ' +
+      'That tercile is the only place dense retrieval currently beats BM25 (0.500 vs ' +
+      '0.182 at baseline), and it is the closest proxy we have to real user queries. ' +
+      'A fusion that raises the aggregate by flattening it is a regression sold as a win.',
     metric: 'results.dense-only (gte-modernbert-base).terciles.low.recallAt5',
     direction: 'no-worse-than',
     expectedMagnitude: 0.0,
@@ -246,14 +257,15 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
     id: 'item-2-embedding-swap-quality',
     item: '2',
     declaredAt: '2026-07-30',
-    claim: 'Swapping the embedding model from all-MiniLM-L6-v2 (384d) to gte-modernbert-base ' +
-           '(768d, q8 quantised) improves Recall@5 on the dev split. The bigger model captures ' +
-           'more semantic nuance, especially for low-overlap paraphrase queries.',
+    claim:
+      'Swapping the embedding model from all-MiniLM-L6-v2 (384d) to gte-modernbert-base ' +
+      '(768d, q8 quantised) improves Recall@5 on the dev split. The bigger model captures ' +
+      'more semantic nuance, especially for low-overlap paraphrase queries.',
     metric: 'results.dense-only (gte-modernbert-base).scoreboard.recallAt5',
     direction: 'increase',
     // Row 3 (MiniLM, un-enriched): R@5 0.364.  Row 5 (gte-modernbert-base): R@5 0.492.
     // Delta = +0.128. Declared conservatively at the observed magnitude.
-    expectedMagnitude: 0.10,
+    expectedMagnitude: 0.1,
     // The embedding model determines what gets stored in the vector index, so
     // this is visible in any store built after the swap — including the eval's
     // rebuilt corpus.
@@ -269,7 +281,11 @@ export const SIGNAL_REGISTRY: PreRegisteredSignal[] = [
   },
 ];
 
-export interface Regime { corpusHash: string; goldenSetVersion: string; splitScheme: string }
+export interface Regime {
+  corpusHash: string;
+  goldenSetVersion: string;
+  splitScheme: string;
+}
 
 export function scoreSignals(
   report: unknown,
@@ -279,34 +295,52 @@ export function scoreSignals(
 ): SignalResult[] {
   return SIGNAL_REGISTRY.map((s): SignalResult => {
     const base = {
-      id: s.id, item: s.item, claim: s.claim, metric: s.metric, declaredAt: s.declaredAt,
-      shipValue: s.shipValue ?? null, baselineValue: s.baselineValue ?? null,
+      id: s.id,
+      item: s.item,
+      claim: s.claim,
+      metric: s.metric,
+      declaredAt: s.declaredAt,
+      shipValue: s.shipValue ?? null,
+      baselineValue: s.baselineValue ?? null,
     };
 
     if (!s.visibleIn.includes(storeProfile)) {
       return {
-        ...base, currentValue: null, deltaSinceShip: null,
-        verdict: 'cannot-see', nullVerdict: 'cannot-see-mechanism',
-        note: `Signal is invisible in a '${storeProfile}' store; it needs one of: ` +
-              `${s.visibleIn.join(', ')}. A flat number here means the harness could not ` +
-              `see the mechanism, NOT that the item had no effect.`,
+        ...base,
+        currentValue: null,
+        deltaSinceShip: null,
+        verdict: 'cannot-see',
+        nullVerdict: 'cannot-see-mechanism',
+        note:
+          `Signal is invisible in a '${storeProfile}' store; it needs one of: ` +
+          `${s.visibleIn.join(', ')}. A flat number here means the harness could not ` +
+          `see the mechanism, NOT that the item had no effect.`,
       };
     }
 
     const current = readMetric(report, s.metric);
     if (current === null) {
       return {
-        ...base, currentValue: null, deltaSinceShip: null,
-        verdict: 'cannot-see', nullVerdict: 'cannot-see-mechanism',
-        note: `Metric path "${s.metric}" is absent from this report — the instrument changed ` +
-              `shape and this signal is no longer being measured.`,
+        ...base,
+        currentValue: null,
+        deltaSinceShip: null,
+        verdict: 'cannot-see',
+        nullVerdict: 'cannot-see-mechanism',
+        note:
+          `Metric path "${s.metric}" is absent from this report — the instrument changed ` +
+          `shape and this signal is no longer being measured.`,
       };
     }
 
     const ref = s.shipValue ?? s.baselineValue;
     if (ref === undefined || ref === null) {
-      return { ...base, currentValue: current, deltaSinceShip: null, verdict: 'not-yet-shipped',
-        note: 'No ship value recorded yet; nothing to regress against.' };
+      return {
+        ...base,
+        currentValue: current,
+        deltaSinceShip: null,
+        verdict: 'not-yet-shipped',
+        note: 'No ship value recorded yet; nothing to regress against.',
+      };
     }
 
     // A reference measured under a different corpus, golden set or split
@@ -315,15 +349,24 @@ export function scoreSignals(
     const mu = s.measuredUnder;
     if (regime && mu) {
       const drift: string[] = [];
-      if (mu.corpusHash && mu.corpusHash !== regime.corpusHash) drift.push(`corpus ${mu.corpusHash} -> ${regime.corpusHash}`);
-      if (mu.goldenSetVersion && mu.goldenSetVersion !== regime.goldenSetVersion) drift.push(`golden set ${mu.goldenSetVersion} -> ${regime.goldenSetVersion}`);
-      if (mu.splitScheme && mu.splitScheme !== regime.splitScheme) drift.push(`split scheme ${mu.splitScheme} -> ${regime.splitScheme}`);
+      if (mu.corpusHash && mu.corpusHash !== regime.corpusHash)
+        drift.push(`corpus ${mu.corpusHash} -> ${regime.corpusHash}`);
+      if (mu.goldenSetVersion && mu.goldenSetVersion !== regime.goldenSetVersion)
+        drift.push(`golden set ${mu.goldenSetVersion} -> ${regime.goldenSetVersion}`);
+      if (mu.splitScheme && mu.splitScheme !== regime.splitScheme)
+        drift.push(`split scheme ${mu.splitScheme} -> ${regime.splitScheme}`);
       if (drift.length > 0) {
-        return { ...base, currentValue: current, deltaSinceShip: null, verdict: 'stale-baseline',
+        return {
+          ...base,
+          currentValue: current,
+          deltaSinceShip: null,
+          verdict: 'stale-baseline',
           nullVerdict: 'undetermined',
-          note: `Reference was measured under a regime that no longer exists (${drift.join('; ')}). ` +
-                `Current value ${current.toFixed(3)} is NOT comparable to it. Re-baseline before ` +
-                `treating any movement here as signal.` };
+          note:
+            `Reference was measured under a regime that no longer exists (${drift.join('; ')}). ` +
+            `Current value ${current.toFixed(3)} is NOT comparable to it. Re-baseline before ` +
+            `treating any movement here as signal.`,
+        };
       }
     }
 
@@ -333,16 +376,32 @@ export function scoreSignals(
     // A movement smaller than the noise floor is not evidence in EITHER
     // direction — it cannot confirm the win and it cannot condemn it.
     if (Math.abs(delta) < noiseFloor) {
-      return { ...base, currentValue: current, deltaSinceShip: delta, verdict: 'holding',
-        note: `Within the noise floor (${noiseFloor.toFixed(3)}); no detectable movement.` };
+      return {
+        ...base,
+        currentValue: current,
+        deltaSinceShip: delta,
+        verdict: 'holding',
+        note: `Within the noise floor (${noiseFloor.toFixed(3)}); no detectable movement.`,
+      };
     }
     if (wanted < 0) {
-      return { ...base, currentValue: current, deltaSinceShip: delta, verdict: 'DECAYED',
-        note: `Moved ${delta.toFixed(3)} against its declared direction (${s.direction}), ` +
-              `beyond the ${noiseFloor.toFixed(3)} noise floor. Declared decay condition: ` +
-              `${s.decayCondition}` };
+      return {
+        ...base,
+        currentValue: current,
+        deltaSinceShip: delta,
+        verdict: 'DECAYED',
+        note:
+          `Moved ${delta.toFixed(3)} against its declared direction (${s.direction}), ` +
+          `beyond the ${noiseFloor.toFixed(3)} noise floor. Declared decay condition: ` +
+          `${s.decayCondition}`,
+      };
     }
-    return { ...base, currentValue: current, deltaSinceShip: delta, verdict: 'holding',
-      note: `Moved ${delta.toFixed(3)} in its declared direction.` };
+    return {
+      ...base,
+      currentValue: current,
+      deltaSinceShip: delta,
+      verdict: 'holding',
+      note: `Moved ${delta.toFixed(3)} in its declared direction.`,
+    };
   });
 }

@@ -1,4 +1,4 @@
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
 
 const require = createRequire(import.meta.url);
@@ -20,7 +20,10 @@ export const rustConfig: LanguageConfig = {
   decoratorNodeTypes: new Set(['attribute_item']),
   nameField: 'name',
   importExtractor: (_source, node) => {
-    return node.text.replace(/^use\s+/, '').replace(/;$/, '').trim();
+    return node.text
+      .replace(/^use\s+/, '')
+      .replace(/;$/, '')
+      .trim();
   },
   exportDetector: (node, _source) => {
     // Rust exports items with a `pub` visibility modifier.

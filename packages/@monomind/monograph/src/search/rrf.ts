@@ -22,11 +22,7 @@ export interface RankedResult {
  * @param list2 - Second ranked list (ordered by relevance, best first)
  * @param K     - RRF constant (default 60, per the original paper)
  */
-export function mergeRanks(
-  list1: RankedResult[],
-  list2: RankedResult[],
-  K = 60,
-): RankedResult[] {
+export function mergeRanks(list1: RankedResult[], list2: RankedResult[], K = 60): RankedResult[] {
   const scoreMap = new Map<string, { rrf: number; payload: RankedResult }>();
 
   const addList = (list: RankedResult[]) => {

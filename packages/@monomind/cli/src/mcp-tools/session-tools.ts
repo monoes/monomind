@@ -4,10 +4,19 @@
  * Tool definitions for session management with file persistence.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { type MCPTool, getMonomindDataRoot } from './types.js';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { getMonomindDataRoot, type MCPTool } from './types.js';
 
 // Storage paths — SESSION_DIR is relative to the git-safe data root
 const SESSION_DIR = 'sessions';
@@ -58,7 +67,8 @@ function loadSession(sessionId: string): SessionRecord | null {
       return JSON.parse(data);
     }
   } catch (e) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] loadSession failed:', e);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error('[session-tools] loadSession failed:', e);
   }
   return null;
 }
@@ -78,8 +88,8 @@ function listSessions(limit = 200): SessionRecord[] {
   const dir = getSessionDir();
   // Sort by mtime DESC, then bound reads to `limit` files to prevent DoS
   const files = readdirSync(dir)
-    .filter(f => f.endsWith('.json'))
-    .map(f => {
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => {
       try {
         const stat = statSync(join(dir, f));
         return { name: f, mtimeMs: stat.mtimeMs };
@@ -106,7 +116,11 @@ function listSessions(limit = 200): SessionRecord[] {
 }
 
 // Load related stores for session data
-function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: boolean; includeAgents?: boolean }) {
+function loadRelatedStores(options: {
+  includeMemory?: boolean;
+  includeTasks?: boolean;
+  includeAgents?: boolean;
+}) {
   const data: SessionRecord['data'] = {};
 
   if (options.includeMemory) {
@@ -116,7 +130,8 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
         data.memory = JSON.parse(readFileSync(memoryPath, 'utf-8'));
       }
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] failed to load memory store:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[session-tools] failed to load memory store:', e);
     }
   }
 
@@ -127,7 +142,8 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
         data.tasks = JSON.parse(readFileSync(taskPath, 'utf-8'));
       }
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] failed to load task store:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[session-tools] failed to load task store:', e);
     }
   }
 
@@ -138,7 +154,8 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
         data.agents = JSON.parse(readFileSync(agentPath, 'utf-8'));
       }
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[session-tools] failed to load agent store:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[session-tools] failed to load agent store:', e);
     }
   }
 
@@ -170,13 +187,15 @@ export const sessionTools: MCPTool[] = [
       const MAX_SESSION_NAME_LEN = 256;
       const MAX_SESSION_DESC_LEN = 4 * 1024;
       const rawSessionName = input.name as string;
-      const sessionName = typeof rawSessionName === 'string' && rawSessionName.length > MAX_SESSION_NAME_LEN
-        ? rawSessionName.slice(0, MAX_SESSION_NAME_LEN)
-        : rawSessionName;
+      const sessionName =
+        typeof rawSessionName === 'string' && rawSessionName.length > MAX_SESSION_NAME_LEN
+          ? rawSessionName.slice(0, MAX_SESSION_NAME_LEN)
+          : rawSessionName;
       const rawSessionDesc = input.description as string;
-      const sessionDesc = typeof rawSessionDesc === 'string' && rawSessionDesc.length > MAX_SESSION_DESC_LEN
-        ? rawSessionDesc.slice(0, MAX_SESSION_DESC_LEN)
-        : rawSessionDesc;
+      const sessionDesc =
+        typeof rawSessionDesc === 'string' && rawSessionDesc.length > MAX_SESSION_DESC_LEN
+          ? rawSessionDesc.slice(0, MAX_SESSION_DESC_LEN)
+          : rawSessionDesc;
 
       // Load related data based on options
       const data = loadRelatedStores({
@@ -188,8 +207,12 @@ export const sessionTools: MCPTool[] = [
       // Calculate stats
       const stats = {
         tasks: data.tasks ? Object.keys((data.tasks as { tasks?: object }).tasks || {}).length : 0,
-        agents: data.agents ? Object.keys((data.agents as { agents?: object }).agents || {}).length : 0,
-        memoryEntries: data.memory ? Object.keys((data.memory as { entries?: object }).entries || {}).length : 0,
+        agents: data.agents
+          ? Object.keys((data.agents as { agents?: object }).agents || {}).length
+          : 0,
+        memoryEntries: data.memory
+          ? Object.keys((data.memory as { entries?: object }).entries || {}).length
+          : 0,
         totalSize: 0,
       };
 
@@ -238,7 +261,7 @@ export const sessionTools: MCPTool[] = [
       // Try to find by name if sessionId not found
       if (!session && input.name) {
         const sessions = listSessions();
-        session = sessions.find(s => s.name === input.name) || null;
+        session = sessions.find((s) => s.name === input.name) || null;
       }
 
       // Try to find latest if no params
@@ -265,7 +288,12 @@ export const sessionTools: MCPTool[] = [
           // Also populate active sql.js SQLite database so memory-tools can find entries
           try {
             const { storeEntry } = await import('../memory/memory-initializer.js');
-            const memoryData = session.data.memory as { entries?: Record<string, { key?: string; id?: string; value?: string; content?: string; namespace?: string }> };
+            const memoryData = session.data.memory as {
+              entries?: Record<
+                string,
+                { key?: string; id?: string; value?: string; content?: string; namespace?: string }
+              >;
+            };
             if (memoryData.entries) {
               // Cap individual key and value lengths before writing to the DB.
               // A malicious or corrupted session file could contain arbitrarily
@@ -281,7 +309,8 @@ export const sessionTools: MCPTool[] = [
                 if (key.length > MAX_RESTORE_KEY) key = key.slice(0, MAX_RESTORE_KEY);
                 if (value.length > MAX_RESTORE_VALUE) value = value.slice(0, MAX_RESTORE_VALUE);
                 const rawNs = entry.namespace || 'restored';
-                const namespace = rawNs.length > MAX_RESTORE_NS ? rawNs.slice(0, MAX_RESTORE_NS) : rawNs;
+                const namespace =
+                  rawNs.length > MAX_RESTORE_NS ? rawNs.slice(0, MAX_RESTORE_NS) : rawNs;
                 await storeEntry({ key, value, namespace, upsert: true });
               }
             }
@@ -357,7 +386,7 @@ export const sessionTools: MCPTool[] = [
       sessions = sessions.slice(0, limit);
 
       return {
-        sessions: sessions.map(s => ({
+        sessions: sessions.map((s) => ({
           sessionId: s.sessionId,
           name: s.name,
           description: s.description,
@@ -407,8 +436,14 @@ export const sessionTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        sessionId: { type: 'string', description: 'Session ID (defaults to the most recently saved session)' },
-        includeStats: { type: 'boolean', description: 'Include per-session statistics in the response' },
+        sessionId: {
+          type: 'string',
+          description: 'Session ID (defaults to the most recently saved session)',
+        },
+        includeStats: {
+          type: 'boolean',
+          description: 'Include per-session statistics in the response',
+        },
       },
       // `sessionId` is deliberately NOT required — it defaults to the most
       // recent session, which is what the `session current` CLI subcommand
@@ -420,9 +455,11 @@ export const sessionTools: MCPTool[] = [
       // always reported "Session not found".
     },
     handler: async (input) => {
-      const sessionId = (input.sessionId as string | undefined)
-        ?? listSessions()
-          .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())[0]?.sessionId;
+      const sessionId =
+        (input.sessionId as string | undefined) ??
+        listSessions().sort(
+          (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime(),
+        )[0]?.sessionId;
 
       if (!sessionId) {
         return { sessionId: null, error: 'No saved sessions found' };

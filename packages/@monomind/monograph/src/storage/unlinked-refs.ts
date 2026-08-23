@@ -5,7 +5,7 @@ export interface UnlinkedReference {
   sourceName: string;
   sourceFilePath: string | null;
   sourceLabel: string;
-  targetName: string;   // the symbol that was mentioned
+  targetName: string; // the symbol that was mentioned
   mentionContext: string | null; // snippet of where it was mentioned (from properties.summary)
   confidence: 'high' | 'medium' | 'low';
 }
@@ -31,17 +31,20 @@ export function findUnlinkedReferences(
 
   // Step 1: Find all node IDs that already have an explicit edge to any node
   // whose name matches targetName — these are "already linked" and excluded.
-  const linkedRows = db.prepare(`
+  const linkedRows = db
+    .prepare(`
     SELECT DISTINCT e.source_id FROM edges e
     JOIN nodes n ON n.id = e.target_id
     WHERE n.name = ?
-  `).all(targetName) as { source_id: string }[];
+  `)
+    .all(targetName) as { source_id: string }[];
 
-  const linkedIds = new Set(linkedRows.map(r => r.source_id));
+  const linkedIds = new Set(linkedRows.map((r) => r.source_id));
 
   // Step 2: Find nodes that mention targetName in name, norm_label, or
   // properties JSON — but are NOT in the linked set and not self.
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path, n.label, n.properties
     FROM nodes n
     WHERE (
@@ -51,7 +54,8 @@ export function findUnlinkedReferences(
     )
     AND n.name != ?
     LIMIT ?
-  `).all(pattern, pattern, pattern, targetName, limit * 4) as Array<{
+  `)
+    .all(pattern, pattern, pattern, targetName, limit * 4) as Array<{
     id: string;
     name: string;
     file_path: string | null;
@@ -74,7 +78,7 @@ export function findUnlinkedReferences(
     if (row.name.includes(targetName)) {
       // Target name appears in the symbol's own name
       confidence = 'high';
-    } else if (row.file_path !== null && row.file_path.includes(targetName)) {
+    } else if (row.file_path?.includes(targetName)) {
       // Appears in the file path
       confidence = 'medium';
     } else {
@@ -86,8 +90,8 @@ export function findUnlinkedReferences(
     if (row.properties !== null) {
       try {
         const props = JSON.parse(row.properties) as Record<string, unknown>;
-        const summary = typeof props['summary'] === 'string' ? props['summary'] : null;
-        if (summary !== null && summary.includes(targetName)) {
+        const summary = typeof props.summary === 'string' ? props.summary : null;
+        if (summary?.includes(targetName)) {
           const idx = summary.indexOf(targetName);
           const start = Math.max(0, idx - 50);
           const end = Math.min(summary.length, idx + targetName.length + 50);

@@ -6,8 +6,8 @@
  * regular file (not a symlink) pointing to the active session data.
  */
 
-import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
-import { join, sep, resolve } from 'path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 
 export interface SessionSummary {
   id: string;
@@ -40,9 +40,7 @@ export class ReplayReader {
     }
 
     // Normalize: allow bare numeric IDs or full "session-<id>" form
-    const normalized = sessionId.startsWith('session-')
-      ? sessionId
-      : `session-${sessionId}`;
+    const normalized = sessionId.startsWith('session-') ? sessionId : `session-${sessionId}`;
 
     // Guard against path traversal (e.g. sessionId = "../../../etc/passwd")
     const filePath = join(this.sessionsDir, `${normalized}.json`);
@@ -96,9 +94,9 @@ export class ReplayReader {
     summaries.sort((a, b) => {
       const ta = new Date(a.startedAt).getTime();
       const tb = new Date(b.startedAt).getTime();
-      if (isNaN(ta) && isNaN(tb)) return 0;
-      if (isNaN(ta)) return 1;
-      if (isNaN(tb)) return -1;
+      if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+      if (Number.isNaN(ta)) return 1;
+      if (Number.isNaN(tb)) return -1;
       return tb - ta;
     });
 
@@ -121,10 +119,7 @@ export class ReplayReader {
     return this.buildSummary(raw, filePath);
   }
 
-  private buildSummary(
-    raw: Record<string, unknown>,
-    filePath: string,
-  ): SessionSummary | null {
+  private buildSummary(raw: Record<string, unknown>, filePath: string): SessionSummary | null {
     const id = typeof raw.id === 'string' ? raw.id : null;
     const startedAt = typeof raw.startedAt === 'string' ? raw.startedAt : null;
     if (!id || !startedAt) return null;
@@ -142,8 +137,7 @@ export class ReplayReader {
       raw.metrics && typeof raw.metrics === 'object'
         ? (raw.metrics as Record<string, unknown>)
         : undefined;
-    const taskCount =
-      metrics && typeof metrics.tasks === 'number' ? metrics.tasks : undefined;
+    const taskCount = metrics && typeof metrics.tasks === 'number' ? metrics.tasks : undefined;
 
     return { id, startedAt, endedAt, tokenUsage, taskCount, filePath };
   }

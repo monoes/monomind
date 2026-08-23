@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // findMonoesIssues() shells out to `brew`, `xattr`, `curl` (GitHub API), and
 // applies fixes via a real `execSync` with `sudo`/network calls — none of
@@ -12,7 +12,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const runCommandMock = vi.fn<(cmd: string, timeoutMs?: number) => Promise<string>>();
 vi.mock('../commands/doctor-env-checks.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../commands/doctor-env-checks.js')>();
-  return { ...actual, runCommand: (cmd: string, timeoutMs?: number) => runCommandMock(cmd, timeoutMs) };
+  return {
+    ...actual,
+    runCommand: (cmd: string, timeoutMs?: number) => runCommandMock(cmd, timeoutMs),
+  };
 });
 
 const execSyncMock = vi.fn();
@@ -125,7 +128,8 @@ describe('checkMonoesTools', () => {
     Object.defineProperty(process, 'platform', { value: 'darwin' });
     existsSyncMock.mockImplementation((p: string) => p === '/Applications/MonoClip.app');
     runCommandMock.mockImplementation(async (cmd: string) => {
-      if (cmd === 'xattr -p com.apple.quarantine "/Applications/MonoClip.app"') return 'com.apple.quarantine';
+      if (cmd === 'xattr -p com.apple.quarantine "/Applications/MonoClip.app"')
+        return 'com.apple.quarantine';
       throw new Error('not found');
     });
 
@@ -152,7 +156,9 @@ describe('checkMonoesTools', () => {
     runCommandMock.mockImplementation(async (cmd: string) => {
       if (cmd === 'command -v monoagentcli') return '/usr/local/bin/monoagentcli';
       if (cmd === 'monoagentcli version') return 'monoagentcli v1.2.3';
-      if (cmd.startsWith('curl -fsSL https://api.github.com/repos/monoes/mono-agent/releases/latest')) {
+      if (
+        cmd.startsWith('curl -fsSL https://api.github.com/repos/monoes/mono-agent/releases/latest')
+      ) {
         return JSON.stringify({ tag_name: 'v1.3.0' });
       }
       throw new Error('not found');
@@ -168,7 +174,9 @@ describe('checkMonoesTools', () => {
     runCommandMock.mockImplementation(async (cmd: string) => {
       if (cmd === 'command -v monoagentcli') return '/usr/local/bin/monoagentcli';
       if (cmd === 'monoagentcli version') return 'monoagentcli v1.3.0';
-      if (cmd.startsWith('curl -fsSL https://api.github.com/repos/monoes/mono-agent/releases/latest')) {
+      if (
+        cmd.startsWith('curl -fsSL https://api.github.com/repos/monoes/mono-agent/releases/latest')
+      ) {
         return JSON.stringify({ tag_name: 'v1.3.0' });
       }
       throw new Error('not found');

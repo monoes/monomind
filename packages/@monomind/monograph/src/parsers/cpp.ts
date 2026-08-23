@@ -1,4 +1,4 @@
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
 
 const require = createRequire(import.meta.url);

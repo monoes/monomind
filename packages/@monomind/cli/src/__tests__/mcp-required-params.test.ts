@@ -11,16 +11,17 @@
  * Enforcing it turned two previously-silent schema lies into hard failures,
  * both fixed here and pinned by the tests below.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('MCP required-parameter enforcement', () => {
   it('rejects a call missing a required parameter, naming it', async () => {
     const { callMCPTool } = await import('../mcp-client.js');
     await expect(callMCPTool('agent_spawn', {})).rejects.toThrow(
-      /missing required parameter: agentType/
+      /missing required parameter: agentType/,
     );
   });
 
@@ -28,15 +29,15 @@ describe('MCP required-parameter enforcement', () => {
     const { callMCPTool } = await import('../mcp-client.js');
     // browser_fill declares required: ['target', 'value']
     await expect(callMCPTool('browser_fill', {})).rejects.toThrow(
-      /missing required parameters: target, value/
+      /missing required parameters: target, value/,
     );
   });
 
   it('treats an explicit null as missing', async () => {
     const { callMCPTool } = await import('../mcp-client.js');
-    await expect(
-      callMCPTool('agent_spawn', { agentType: null })
-    ).rejects.toThrow(/missing required parameter: agentType/);
+    await expect(callMCPTool('agent_spawn', { agentType: null })).rejects.toThrow(
+      /missing required parameter: agentType/,
+    );
   });
 
   it('allows falsy-but-present values through — only missing/null is rejected', async () => {
@@ -57,23 +58,23 @@ describe('MCP required-parameter enforcement', () => {
 describe('false contracts exposed by enforcement', () => {
   it('agent_pool does not declare `action` required — its handler defaults to status', async () => {
     const { agentTools } = await import('../mcp-tools/agent-tools.js');
-    const pool = agentTools.find(t => t.name === 'agent_pool');
+    const pool = agentTools.find((t) => t.name === 'agent_pool');
     expect(pool).toBeDefined();
     // The CLI `agent pool` command calls this tool with no `action` and relies
     // on the handler's documented default. Declaring it required broke that.
-    expect(pool!.inputSchema.required ?? []).not.toContain('action');
+    expect(pool?.inputSchema.required ?? []).not.toContain('action');
   });
 
   it('session_info does not declare `sessionId` required', async () => {
     const { sessionTools } = await import('../mcp-tools/session-tools.js');
-    const info = sessionTools.find(t => t.name === 'session_info');
-    expect(info!.inputSchema.required ?? []).not.toContain('sessionId');
+    const info = sessionTools.find((t) => t.name === 'session_info');
+    expect(info?.inputSchema.required ?? []).not.toContain('sessionId');
   });
 
   it('session_info declares includeStats, which the CLI actually passes', async () => {
     const { sessionTools } = await import('../mcp-tools/session-tools.js');
-    const info = sessionTools.find(t => t.name === 'session_info');
-    expect(info!.inputSchema.properties).toHaveProperty('includeStats');
+    const info = sessionTools.find((t) => t.name === 'session_info');
+    expect(info?.inputSchema.properties).toHaveProperty('includeStats');
   });
 });
 
@@ -95,23 +96,26 @@ describe('session_info resolves the current session (regression: always "not fou
 
   it('reports a clear message when there are no sessions at all', async () => {
     const { sessionTools } = await import('../mcp-tools/session-tools.js');
-    const info = sessionTools.find(t => t.name === 'session_info')!;
+    const info = sessionTools.find((t) => t.name === 'session_info')!;
     const result = (await info.handler({}, undefined)) as Record<string, unknown>;
     expect(result.error).toBe('No saved sessions found');
   });
 
   it('falls back to the most recently saved session when no id is given', async () => {
     const { sessionTools } = await import('../mcp-tools/session-tools.js');
-    const save = sessionTools.find(t => t.name === 'session_save')!;
-    const info = sessionTools.find(t => t.name === 'session_info')!;
+    const save = sessionTools.find((t) => t.name === 'session_save')!;
+    const info = sessionTools.find((t) => t.name === 'session_info')!;
 
     await save.handler({ name: 'older' }, undefined);
     // savedAt has second-level granularity in the stored record; make the
     // ordering unambiguous rather than depending on tie-break behaviour.
-    await new Promise(r => setTimeout(r, 1100));
+    await new Promise((r) => setTimeout(r, 1100));
     await save.handler({ name: 'newest' }, undefined);
 
-    const result = (await info.handler({ includeStats: true }, undefined)) as Record<string, unknown>;
+    const result = (await info.handler({ includeStats: true }, undefined)) as Record<
+      string,
+      unknown
+    >;
     // Previously this returned {error: 'Session not found'} unconditionally:
     // the undefined id reached getSessionPath(), threw on `.replace`, and was
     // swallowed by loadSession()'s catch.
@@ -121,16 +125,16 @@ describe('session_info resolves the current session (regression: always "not fou
 
   it('still honours an explicit sessionId', async () => {
     const { sessionTools } = await import('../mcp-tools/session-tools.js');
-    const save = sessionTools.find(t => t.name === 'session_save')!;
-    const info = sessionTools.find(t => t.name === 'session_info')!;
+    const save = sessionTools.find((t) => t.name === 'session_save')!;
+    const info = sessionTools.find((t) => t.name === 'session_info')!;
 
     const saved = (await save.handler({ name: 'explicit' }, undefined)) as Record<string, unknown>;
-    await new Promise(r => setTimeout(r, 1100));
+    await new Promise((r) => setTimeout(r, 1100));
     await save.handler({ name: 'newer-but-not-asked-for' }, undefined);
 
     const result = (await info.handler(
       { sessionId: saved.sessionId as string },
-      undefined
+      undefined,
     )) as Record<string, unknown>;
     expect(result.name).toBe('explicit');
   });

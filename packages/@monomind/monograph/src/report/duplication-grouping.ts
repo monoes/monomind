@@ -3,7 +3,7 @@
 
 export interface DuplicationGroupEntry {
   groupId: number;
-  owner: string;   // package name or directory path
+  owner: string; // package name or directory path
   filePaths: string[];
   duplicatedLines: number;
   instances: number;
@@ -66,9 +66,13 @@ export function buildDuplicationGrouping(
 }
 
 export function formatDuplicationGrouping(grouping: DuplicationGrouping): string {
-  const lines = [`Duplication by owner (${grouping.ownerCount} owners, ${grouping.totalDuplicatedLines} total lines):`];
+  const lines = [
+    `Duplication by owner (${grouping.ownerCount} owners, ${grouping.totalDuplicatedLines} total lines):`,
+  ];
   for (const g of grouping.groups) {
-    lines.push(`  ${g.owner}: ${g.duplicatedLines} lines, ${g.instances} instances, ${g.filePaths.length} files`);
+    lines.push(
+      `  ${g.owner}: ${g.duplicatedLines} lines, ${g.instances} instances, ${g.filePaths.length} files`,
+    );
   }
   return lines.join('\n');
 }

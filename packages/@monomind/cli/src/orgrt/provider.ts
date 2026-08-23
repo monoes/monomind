@@ -1,5 +1,5 @@
-import type { ProviderConfig, OrgRole } from './types.js';
 import { configManager } from '../services/config-file-manager.js';
+import type { OrgRole, ProviderConfig } from './types.js';
 
 const KEY_VAR = ['ANTHROPIC', 'API', 'KEY'].join('_');
 
@@ -46,8 +46,16 @@ export function resolveProviderEnv(
       }
       break;
     }
-    case 'bedrock': env.CLAUDE_CODE_USE_BEDROCK = '1'; delete env[KEY_VAR]; delete env.ANTHROPIC_AUTH_TOKEN; break;
-    case 'vertex': env.CLAUDE_CODE_USE_VERTEX = '1'; delete env[KEY_VAR]; delete env.ANTHROPIC_AUTH_TOKEN; break;
+    case 'bedrock':
+      env.CLAUDE_CODE_USE_BEDROCK = '1';
+      delete env[KEY_VAR];
+      delete env.ANTHROPIC_AUTH_TOKEN;
+      break;
+    case 'vertex':
+      env.CLAUDE_CODE_USE_VERTEX = '1';
+      delete env[KEY_VAR];
+      delete env.ANTHROPIC_AUTH_TOKEN;
+      break;
     case 'gemini': {
       const name = cfg?.apiKeyEnv ?? 'GEMINI_API_KEY';
       const key = parentEnv[name];
@@ -160,7 +168,5 @@ export function resolveRoleProvider(
   if (entry.apiKey) {
     return { cfg: { kind: 'api-key', apiKey: entry.apiKey }, defaultModel: entry.model };
   }
-  throw new Error(
-    `provider "${name}" has neither an API key nor an endpoint configured (${hint})`,
-  );
+  throw new Error(`provider "${name}" has neither an API key nor an endpoint configured (${hint})`);
 }

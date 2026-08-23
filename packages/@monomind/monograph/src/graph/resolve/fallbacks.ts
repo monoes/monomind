@@ -1,7 +1,6 @@
 import * as path from 'node:path';
-import type { ResolveContext, ResolveResult, FileId, DynamicImportPattern, DiscoveredFile } from './types.js';
+import type { DynamicImportPattern, FileId, ResolveContext, ResolveResult } from './types.js';
 import { OUTPUT_DIRS } from './types.js';
-import { extractPackageNameFromNodeModulesPath } from './path-info.js';
 
 export function trySourceFallback(canonical: string, pathToId: Map<string, FileId>): FileId | null {
   const normalized = canonical.replace(/\\/g, '/');
@@ -42,7 +41,7 @@ export function tryWorkspacePackageFallback(
   specifier: string,
 ): ResolveResult | null {
   for (const [pkgName, wsRoot] of ctx.workspaceRoots) {
-    if (specifier === pkgName || specifier.startsWith(pkgName + '/')) {
+    if (specifier === pkgName || specifier.startsWith(`${pkgName}/`)) {
       const subpath = specifier.slice(pkgName.length);
       const candidate = path.join(wsRoot, subpath || 'index');
       const id = ctx.pathToId.get(candidate);

@@ -4,22 +4,22 @@
  * Standalone WebSocket transport with heartbeat
  */
 
-import { EventEmitter } from 'events';
-import { WebSocketServer, WebSocket, RawData } from 'ws';
-import { createServer, Server } from 'http';
+import { EventEmitter } from 'node:events';
+import { createServer, type Server } from 'node:http';
+import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { validateCredential } from '../auth.js';
 import type {
+  AuthConfig,
+  ConnectionCloseHandler,
+  ILogger,
   ITransport,
-  TransportType,
+  MCPNotification,
   MCPRequest,
   MCPResponse,
-  MCPNotification,
-  RequestHandler,
   NotificationHandler,
-  ConnectionCloseHandler,
+  RequestHandler,
   TransportHealthStatus,
-  ILogger,
-  AuthConfig,
+  TransportType,
 } from '../types.js';
 
 export interface WebSocketTransportConfig {
@@ -64,7 +64,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
 
   constructor(
     private readonly logger: ILogger,
-    private readonly config: WebSocketTransportConfig
+    private readonly config: WebSocketTransportConfig,
   ) {
     super();
   }
@@ -82,7 +82,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
       path: this.config.path || '/ws',
     });
 
-    this.server = createServer((req, res) => {
+    this.server = createServer((_req, res) => {
       res.writeHead(426, { 'Content-Type': 'text/plain' });
       res.end('Upgrade Required - WebSocket connection expected');
     });
@@ -98,10 +98,10 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
     this.startHeartbeat();
 
     await new Promise<void>((resolve, reject) => {
-      this.server!.listen(this.config.port, bindHost, () => {
+      this.server?.listen(this.config.port, bindHost, () => {
         resolve();
       });
-      this.server!.on('error', reject);
+      this.server?.on('error', reject);
     });
 
     this.running = true;
@@ -138,7 +138,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
         `SECURITY WARNING: WebSocket transport is binding to non-loopback host "${configuredHost}" ` +
           'with NO authentication configured. MONOMIND_MCP_ALLOW_REMOTE=1 opt-in detected — ' +
           'every client will be treated as authenticated. This exposes every registered tool ' +
-          'to anyone who can reach this host/port.'
+          'to anyone who can reach this host/port.',
       );
       return configuredHost;
     }
@@ -146,7 +146,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
     this.logger.warn(
       `SECURITY: refusing to bind WebSocket transport to non-loopback host "${configuredHost}" with ` +
         'no "auth" configured. Falling back to 127.0.0.1. Set MONOMIND_MCP_ALLOW_REMOTE=1 to ' +
-        'override (unsafe) or configure "auth" with tokens.'
+        'override (unsafe) or configure "auth" with tokens.',
     );
     return '127.0.0.1';
   }
@@ -177,7 +177,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
 
     if (this.server) {
       await new Promise<void>((resolve) => {
-        this.server!.close(() => resolve());
+        this.server?.close(() => resolve());
       });
       this.server = undefined;
     }
@@ -345,20 +345,24 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
           return;
         }
 
-        client.ws.send(this.serializeMessage({
-          jsonrpc: '2.0',
-          id: message.id || null,
-          error: { code: -32001, message: 'Authentication required' },
-        } as MCPResponse));
+        client.ws.send(
+          this.serializeMessage({
+            jsonrpc: '2.0',
+            id: message.id || null,
+            error: { code: -32001, message: 'Authentication required' },
+          } as MCPResponse),
+        );
         return;
       }
 
       if (message.jsonrpc !== '2.0') {
-        client.ws.send(this.serializeMessage({
-          jsonrpc: '2.0',
-          id: message.id || null,
-          error: { code: -32600, message: 'Invalid JSON-RPC version' },
-        } as MCPResponse));
+        client.ws.send(
+          this.serializeMessage({
+            jsonrpc: '2.0',
+            id: message.id || null,
+            error: { code: -32600, message: 'Invalid JSON-RPC version' },
+          } as MCPResponse),
+        );
         return;
       }
 
@@ -368,11 +372,13 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
         }
       } else {
         if (!this.requestHandler) {
-          client.ws.send(this.serializeMessage({
-            jsonrpc: '2.0',
-            id: message.id,
-            error: { code: -32603, message: 'No request handler' },
-          } as MCPResponse));
+          client.ws.send(
+            this.serializeMessage({
+              jsonrpc: '2.0',
+              id: message.id,
+              error: { code: -32603, message: 'No request handler' },
+            } as MCPResponse),
+          );
           return;
         }
 
@@ -394,11 +400,13 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
       this.logger.error('Message handling error', { clientId: client.id, error });
 
       try {
-        client.ws.send(this.serializeMessage({
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32700, message: 'Parse error' },
-        } as MCPResponse));
+        client.ws.send(
+          this.serializeMessage({
+            jsonrpc: '2.0',
+            id: null,
+            error: { code: -32700, message: 'Parse error' },
+          } as MCPResponse),
+        );
       } catch {
         // Ignore send errors
       }
@@ -424,18 +432,25 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
     if (result.valid) {
       client.isAuthenticated = true;
       this.logger.info('WebSocket client authenticated', { clientId: client.id });
-      client.ws.send(this.serializeMessage({
-        jsonrpc: '2.0',
-        id: message?.id ?? null,
-        result: { authenticated: true },
-      } as MCPResponse));
+      client.ws.send(
+        this.serializeMessage({
+          jsonrpc: '2.0',
+          id: message?.id ?? null,
+          result: { authenticated: true },
+        } as MCPResponse),
+      );
     } else {
-      this.logger.warn('WebSocket authenticate failed', { clientId: client.id, error: result.error });
-      client.ws.send(this.serializeMessage({
-        jsonrpc: '2.0',
-        id: message?.id ?? null,
-        error: { code: -32001, message: 'Authentication failed' },
-      } as MCPResponse));
+      this.logger.warn('WebSocket authenticate failed', {
+        clientId: client.id,
+        error: result.error,
+      });
+      client.ws.send(
+        this.serializeMessage({
+          jsonrpc: '2.0',
+          id: message?.id ?? null,
+          error: { code: -32001, message: 'Authentication failed' },
+        } as MCPResponse),
+      );
     }
   }
 
@@ -445,15 +460,14 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
 
     let authHeader: string | undefined;
     const field1 = params.token;
-    if (typeof field1 === 'string') authHeader = 'Bearer ' + field1;
+    if (typeof field1 === 'string') authHeader = `Bearer ${field1}`;
 
     let keyHeader: string | undefined;
-    const field2 = params['apiKey'];
+    const field2 = params.apiKey;
     if (typeof field2 === 'string') keyHeader = field2;
 
     return validateCredential(authConfig, authHeader, keyHeader);
   }
-
 
   private parseMessage(data: RawData): any {
     if (this.config.enableBinaryMode && Buffer.isBuffer(data)) {
@@ -501,7 +515,7 @@ export class WebSocketTransport extends EventEmitter implements ITransport {
 
 export function createWebSocketTransport(
   logger: ILogger,
-  config: WebSocketTransportConfig
+  config: WebSocketTransportConfig,
 ): WebSocketTransport {
   return new WebSocketTransport(logger, config);
 }

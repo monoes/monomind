@@ -29,20 +29,38 @@ export const KNIP_CONFIG_FILENAMES = [
   'knip.config.js',
 ] as const;
 
-export const JSCPD_CONFIG_FILENAMES = [
-  '.jscpd.json',
-  '.jscpd.yaml',
-  '.jscpd.yml',
-] as const;
+export const JSCPD_CONFIG_FILENAMES = ['.jscpd.json', '.jscpd.yaml', '.jscpd.yml'] as const;
 
 export const KNOWN_KNIP_FIELDS = new Set([
-  'entry', 'project', 'ignore', 'ignoreBinaries', 'ignoreDependencies', 'ignoreExportsUsedInFile',
-  'rules', 'plugins', 'workspaces', 'paths', 'typescript', 'tags',
+  'entry',
+  'project',
+  'ignore',
+  'ignoreBinaries',
+  'ignoreDependencies',
+  'ignoreExportsUsedInFile',
+  'rules',
+  'plugins',
+  'workspaces',
+  'paths',
+  'typescript',
+  'tags',
 ]);
 
 export const KNOWN_JSCPD_FIELDS = new Set([
-  'threshold', 'minLines', 'minTokens', 'format', 'ignore', 'path', 'reporters',
-  'output', 'blame', 'silent', 'absolute', 'gitignore', 'maxLines', 'maxSize',
+  'threshold',
+  'minLines',
+  'minTokens',
+  'format',
+  'ignore',
+  'path',
+  'reporters',
+  'output',
+  'blame',
+  'silent',
+  'absolute',
+  'gitignore',
+  'maxLines',
+  'maxSize',
 ]);
 
 export function detectMigrationSource(dirPath: string, files: string[]): MigrationSource | null {
@@ -68,6 +86,10 @@ export function makeMigrationWarning(
   return { source, field, message, suggestion };
 }
 
-export function migrationSuccess<T>(config: T, sources: string[], warnings: MigrationWarning[] = []): MigrationResult<T> {
+export function migrationSuccess<T>(
+  config: T,
+  sources: string[],
+  warnings: MigrationWarning[] = [],
+): MigrationResult<T> {
   return { config, warnings, sources };
 }

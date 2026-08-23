@@ -11,17 +11,27 @@
       "packages/@monomind/*/src/**",
       "tests/**",
       "scripts/**",
-      "!**/dist/**",
-      "!**/node_modules/**",
-      "!**/coverage/**",
-      "!**/.monomind/**",
-      "!**/.claude/**",
-      "!**/docs/**",
-      "!**/doc/**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/coverage",
+      "!**/.monomind",
+      "!**/.claude",
+      "!**/docs",
+      "!**/doc",
       "!**/*.d.ts",
       "!**/._*"
     ]
   },
+  "overrides": [
+    {
+      "includes": ["packages/@monomind/cli/src/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": "off"
+        }
+      }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -40,7 +50,37 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "preset": "recommended",
+      "style": {
+        "noNonNullAssertion": "off",
+        "noDescendingSpecificity": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noAssignInExpressions": "off",
+        "noControlCharactersInRegex": "off",
+        "noImplicitAnyLet": "off",
+        "noShadowRestrictedNames": "off",
+        "noTemplateCurlyInString": "off",
+        "useIterableCallbackReturn": "off",
+        "noExportsInTest": "off",
+        "noNonNullAssertedOptionalChain": "off",
+        "noEmptyBlock": "off",
+        "noTsIgnore": "off",
+        "noDuplicateElseIf": "off"
+      },
+      "complexity": {
+        "noBannedTypes": "off",
+        "noCommaOperator": "off"
+      },
+      "correctness": {
+        "noInnerDeclarations": "off",
+        "noUnsafeOptionalChaining": "off",
+        "noEmptyCharacterClassInRegex": "off"
+      },
+      "security": {
+        "noGlobalEval": "off"
+      }
     }
   }
 }

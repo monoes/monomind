@@ -3,9 +3,9 @@
  * store, retrieve, search
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { input } from '../prompt.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Store command
 export const storeCommand: Command = {
@@ -17,53 +17,62 @@ export const storeCommand: Command = {
       short: 'k',
       description: 'Storage key/namespace',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'value',
       // Note: No short flag - global -v is reserved for verbose
       description: 'Value to store (use --value)',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'namespace',
       short: 'n',
       description: 'Memory namespace',
       type: 'string',
-      default: 'default'
+      default: 'default',
     },
     {
       name: 'ttl',
       description: 'Time to live in seconds',
-      type: 'number'
+      type: 'number',
     },
     {
       name: 'tags',
       description: 'Comma-separated tags',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'vector',
       description: 'Store as vector embedding',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'upsert',
       short: 'u',
       description: 'Update if key exists (insert or replace)',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
-    { command: 'monomind memory store -k "api/auth" -v "JWT implementation"', description: 'Store text' },
-    { command: 'monomind memory store -k "pattern/singleton" --vector', description: 'Store vector' },
-    { command: 'monomind memory store -k "pattern" -v "updated" --upsert', description: 'Update existing' }
+    {
+      command: 'monomind memory store -k "api/auth" -v "JWT implementation"',
+      description: 'Store text',
+    },
+    {
+      command: 'monomind memory store -k "pattern/singleton" --vector',
+      description: 'Store vector',
+    },
+    {
+      command: 'monomind memory store -k "pattern" -v "updated" --upsert',
+      description: 'Update existing',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const key = ctx.flags.key as string;
-    let value = ctx.flags.value as string || ctx.args[0];
+    let value = (ctx.flags.value as string) || ctx.args[0];
     const namespace = (ctx.flags.namespace as string) || 'default';
     const ttl = ctx.flags.ttl as number;
     const tags = ctx.flags.tags ? (ctx.flags.tags as string).split(',') : [];
@@ -78,7 +87,7 @@ export const storeCommand: Command = {
     if (!value && ctx.interactive) {
       value = await input({
         message: 'Enter value to store:',
-        validate: (v) => v.length > 0 || 'Value is required'
+        validate: (v) => v.length > 0 || 'Value is required',
       });
     }
 
@@ -95,7 +104,7 @@ export const storeCommand: Command = {
       tags,
       asVector,
       storedAt: new Date().toISOString(),
-      size: Buffer.byteLength(value, 'utf8')
+      size: Buffer.byteLength(value, 'utf8'),
     };
 
     output.printInfo(`Storing in ${namespace}/${key}...`);
@@ -115,7 +124,7 @@ export const storeCommand: Command = {
         generateEmbeddingFlag: true, // Always generate embeddings for semantic search
         tags,
         ttl,
-        upsert
+        upsert,
       });
 
       if (!result.success) {
@@ -127,7 +136,7 @@ export const storeCommand: Command = {
       output.printTable({
         columns: [
           { key: 'property', header: 'Property', width: 15 },
-          { key: 'val', header: 'Value', width: 40 }
+          { key: 'val', header: 'Value', width: 40 },
         ],
         data: [
           { property: 'Key', val: key },
@@ -135,9 +144,12 @@ export const storeCommand: Command = {
           { property: 'Size', val: `${storeData.size} bytes` },
           { property: 'TTL', val: ttl ? `${ttl}s` : 'None' },
           { property: 'Tags', val: tags.length > 0 ? tags.join(', ') : 'None' },
-          { property: 'Vector', val: result.embedding ? `Yes (${result.embedding.dimensions}-dim)` : 'No' },
-          { property: 'ID', val: result.id.substring(0, 20) }
-        ]
+          {
+            property: 'Vector',
+            val: result.embedding ? `Yes (${result.embedding.dimensions}-dim)` : 'No',
+          },
+          { property: 'ID', val: result.id.substring(0, 20) },
+        ],
       });
 
       output.writeln();
@@ -145,10 +157,12 @@ export const storeCommand: Command = {
 
       return { success: true, data: { ...storeData, id: result.id, embedding: result.embedding } };
     } catch (error) {
-      output.printError(`Failed to store: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      output.printError(
+        `Failed to store: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Retrieve command
@@ -161,18 +175,18 @@ export const retrieveCommand: Command = {
       name: 'key',
       short: 'k',
       description: 'Storage key',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'namespace',
       short: 'n',
       description: 'Memory namespace',
       type: 'string',
-      default: 'default'
-    }
+      default: 'default',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const key = ctx.flags.key as string || ctx.args[0];
+    const key = (ctx.flags.key as string) || ctx.args[0];
     const namespace = ctx.flags.namespace as string;
 
     if (!key) {
@@ -213,17 +227,19 @@ export const retrieveCommand: Command = {
           `Vector: ${entry.hasEmbedding ? 'Yes' : 'No'}`,
           '',
           output.bold('Value:'),
-          entry.content
+          entry.content,
         ].join('\n'),
-        'Memory Entry'
+        'Memory Entry',
       );
 
       return { success: true, data: entry };
     } catch (error) {
-      output.printError(`Failed to retrieve: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      output.printError(
+        `Failed to retrieve: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Search command
@@ -236,26 +252,26 @@ export const searchCommand: Command = {
       short: 'q',
       description: 'Search query',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'namespace',
       short: 'n',
       description: 'Memory namespace',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'limit',
       short: 'l',
       description: 'Maximum results',
       type: 'number',
-      default: 10
+      default: 10,
     },
     {
       name: 'threshold',
       description: 'Similarity threshold (0-1)',
       type: 'number',
-      default: 0.7
+      default: 0.7,
     },
     {
       name: 'type',
@@ -263,26 +279,33 @@ export const searchCommand: Command = {
       description: 'Search type (semantic, keyword, hybrid)',
       type: 'string',
       default: 'semantic',
-      choices: ['semantic', 'keyword', 'hybrid']
+      choices: ['semantic', 'keyword', 'hybrid'],
     },
     {
       name: 'build-hnsw',
-      description: 'Force-build the HNSW ANN index against the current memory database, regardless of MONOMIND_HNSW_THRESHOLD, and cache it to disk. search() itself only uses this index automatically once the active embedded-entry count crosses the threshold — below it, brute-force cosine stays the search path. Requires the SQLite bridge to be available.',
+      description:
+        'Force-build the HNSW ANN index against the current memory database, regardless of MONOMIND_HNSW_THRESHOLD, and cache it to disk. search() itself only uses this index automatically once the active embedded-entry count crosses the threshold — below it, brute-force cosine stays the search path. Requires the SQLite bridge to be available.',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
-    { command: 'monomind memory search -q "authentication patterns"', description: 'Semantic search' },
+    {
+      command: 'monomind memory search -q "authentication patterns"',
+      description: 'Semantic search',
+    },
     { command: 'monomind memory search -q "JWT" -t keyword', description: 'Keyword search' },
-    { command: 'monomind memory search -q "test" --build-hnsw', description: 'Pre-build and cache the HNSW ANN index' }
+    {
+      command: 'monomind memory search -q "test" --build-hnsw',
+      description: 'Pre-build and cache the HNSW ANN index',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const query = ctx.flags.query as string || ctx.args[0];
-    const namespace = ctx.flags.namespace as string || 'all';
-    const limit = ctx.flags.limit as number || 10;
-    const threshold = ctx.flags.threshold as number || 0.3;
-    const searchType = ctx.flags.type as string || 'semantic';
+    const query = (ctx.flags.query as string) || ctx.args[0];
+    const namespace = (ctx.flags.namespace as string) || 'all';
+    const limit = (ctx.flags.limit as number) || 10;
+    const threshold = (ctx.flags.threshold as number) || 0.3;
+    const searchType = (ctx.flags.type as string) || 'semantic';
     const buildHnsw = (ctx.flags['build-hnsw'] || ctx.flags.buildHnsw) as boolean;
 
     if (!query) {
@@ -293,7 +316,9 @@ export const searchCommand: Command = {
     if (buildHnsw) {
       output.printInfo('Building HNSW ANN index...');
       try {
-        const { bridgeForceBuildHNSW, bridgeGetHNSWStatus } = await import('../memory/memory-bridge.js');
+        const { bridgeForceBuildHNSW, bridgeGetHNSWStatus } = await import(
+          '../memory/memory-bridge.js'
+        );
 
         const startTime = Date.now();
         const built = await bridgeForceBuildHNSW();
@@ -307,14 +332,20 @@ export const searchCommand: Command = {
             output.writeln(output.dim(`  Cached to: ${built.cachePath}`));
           }
           if (status && status.activeEmbeddedEntries < status.thresholdEntries) {
-            output.writeln(output.dim(`  Note: ${status.activeEmbeddedEntries} active embedded entries is below the ${status.thresholdEntries}-entry threshold — the search below still uses brute-force cosine (which is faster at this scale). This index is cached but won't be used automatically until the corpus grows past the threshold.`));
+            output.writeln(
+              output.dim(
+                `  Note: ${status.activeEmbeddedEntries} active embedded entries is below the ${status.thresholdEntries}-entry threshold — the search below still uses brute-force cosine (which is faster at this scale). This index is cached but won't be used automatically until the corpus grows past the threshold.`,
+              ),
+            );
           }
         } else {
           output.printWarning('HNSW index not available — the SQLite bridge could not be reached');
         }
         output.writeln();
       } catch (error) {
-        output.printWarning(`HNSW build failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        output.printWarning(
+          `HNSW build failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
         output.writeln(output.dim('  Falling back to brute-force search'));
         output.writeln();
       }
@@ -334,7 +365,7 @@ export const searchCommand: Command = {
         query,
         namespace,
         limit,
-        threshold
+        threshold,
       });
 
       if (!searchResult.success) {
@@ -342,11 +373,11 @@ export const searchCommand: Command = {
         return { success: false, exitCode: 1 };
       }
 
-      const results = searchResult.results.map(r => ({
+      const results = searchResult.results.map((r) => ({
         key: r.key,
         score: r.score,
         namespace: r.namespace,
-        preview: r.content
+        preview: r.content,
       }));
 
       const actualMethod = searchResult.searchMethod ?? 'unknown';
@@ -382,7 +413,9 @@ export const searchCommand: Command = {
       }
 
       if (typeMismatch) {
-        output.printWarning(`Requested --type ${searchType} but the backend used method "${actualMethod}" instead.`);
+        output.printWarning(
+          `Requested --type ${searchType} but the backend used method "${actualMethod}" instead.`,
+        );
       }
 
       // Performance stats — method first, so a keyword fallback is never hidden
@@ -393,22 +426,24 @@ export const searchCommand: Command = {
         'embedding-failed': 'embedding generation failed',
         'no-semantic-matches': 'vector search returned no matches',
       };
-      const why = fallbackReason ? REASON_TEXT[fallbackReason] ?? fallbackReason : undefined;
+      const why = fallbackReason ? (REASON_TEXT[fallbackReason] ?? fallbackReason) : undefined;
       if (actualMethod === 'semantic') {
         output.writeln(output.dim('  Method: semantic (vector similarity)'));
       } else if (actualMethod === 'hybrid') {
-        output.writeln(output.dim('  Method: hybrid (per-entry cosine, keyword overlap where no vector exists)'));
+        output.writeln(
+          output.dim('  Method: hybrid (per-entry cosine, keyword overlap where no vector exists)'),
+        );
       } else if (actualMethod === 'hash-vector' || actualMethod === 'hash-hybrid') {
         // A vector search did run, but over hash-fallback embeddings — the
         // scores are cosines of a lexical hash, not of a semantic model.
         output.printWarning(
-          `Method: ${actualMethod}${why ? ` — ${why}` : ''}. Scores are cosines over deterministic hash embeddings, not semantic similarity.`
+          `Method: ${actualMethod}${why ? ` — ${why}` : ''}. Scores are cosines over deterministic hash embeddings, not semantic similarity.`,
         );
       } else if (actualMethod === 'unknown') {
         output.writeln(output.dim('  Method: unknown'));
       } else {
         output.printWarning(
-          `Method: ${actualMethod}${why ? ` — ${why}` : ''}. Scores are token-overlap fractions, not vector similarity.`
+          `Method: ${actualMethod}${why ? ` — ${why}` : ''}. Scores are token-overlap fractions, not vector similarity.`,
         );
       }
       output.writeln(output.dim(`  Search time: ${searchResult.searchTime}ms`));
@@ -423,11 +458,17 @@ export const searchCommand: Command = {
       output.printTable({
         columns: [
           { key: 'key', header: 'Key', width: 20 },
-          { key: 'score', header: 'Score', width: 8, align: 'right', format: (v) => Number(v).toFixed(2) },
+          {
+            key: 'score',
+            header: 'Score',
+            width: 8,
+            align: 'right',
+            format: (v) => Number(v).toFixed(2),
+          },
           { key: 'namespace', header: 'Namespace', width: 12 },
-          { key: 'preview', header: 'Preview', width: 35 }
+          { key: 'preview', header: 'Preview', width: 35 },
         ],
-        data: results
+        data: results,
       });
 
       output.writeln();
@@ -435,8 +476,10 @@ export const searchCommand: Command = {
 
       return { success: true, data: results };
     } catch (error) {
-      output.printError(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      output.printError(
+        `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };

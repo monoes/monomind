@@ -1,6 +1,6 @@
-import type { ModuleNode, ExportSymbol } from '../graph/node-types.js';
+import type { ModuleNode } from '../graph/node-types.js';
 import { isEntryPoint, ModuleNodeFlags } from '../graph/node-types.js';
-import type { FallowUnusedExport, FallowDuplicateExport, FallowDuplicateLocation } from '../results/fallow-results.js';
+import type { FallowUnusedExport } from '../results/fallow-results.js';
 
 export interface UnusedExportsOptions {
   isEntryPoint?: (path: string) => boolean;
@@ -26,7 +26,7 @@ function buildReferencedNamesMap(modules: ModuleNode[]): Map<string, Set<string>
       if (!referencedByFile.has(target)) {
         referencedByFile.set(target, new Set());
       }
-      referencedByFile.get(target)!.add(ref.name);
+      referencedByFile.get(target)?.add(ref.name);
     }
   }
 
@@ -42,7 +42,7 @@ function buildReExportedNamesMap(modules: ModuleNode[]): Map<string, Set<string>
         reExportedByFile.set(edge.fromFile, new Set());
       }
       if (edge.symbol) {
-        reExportedByFile.get(edge.fromFile)!.add(edge.symbol);
+        reExportedByFile.get(edge.fromFile)?.add(edge.symbol);
       }
     }
   }
@@ -51,7 +51,7 @@ function buildReExportedNamesMap(modules: ModuleNode[]): Map<string, Set<string>
 }
 
 function isModuleEntryPoint(mod: ModuleNode, opts: UnusedExportsOptions): boolean {
-  if (opts.isEntryPoint && opts.isEntryPoint(mod.filePath)) return true;
+  if (opts.isEntryPoint?.(mod.filePath)) return true;
   return isEntryPoint(mod);
 }
 
@@ -63,18 +63,13 @@ export function findUnusedExports(
   modules: ModuleNode[],
   opts: UnusedExportsOptions = {},
 ): FallowUnusedExport[] {
-  const {
-    ignorePaths = [],
-    includeTypeOnlyExports = true,
-  } = opts;
+  const { ignorePaths = [], includeTypeOnlyExports = true } = opts;
 
   const referencedByFile = buildReferencedNamesMap(modules);
   const reExportedNames = buildReExportedNamesMap(modules);
 
   const reachableFileIds = new Set(
-    modules
-      .filter(m => (m.flags & ModuleNodeFlags.REACHABLE) !== 0)
-      .map(m => m.filePath),
+    modules.filter((m) => (m.flags & ModuleNodeFlags.REACHABLE) !== 0).map((m) => m.filePath),
   );
 
   const results: FallowUnusedExport[] = [];
@@ -125,7 +120,7 @@ export function findDuplicateExports(
       if (!byName.has(exp.name)) {
         byName.set(exp.name, []);
       }
-      byName.get(exp.name)!.push({
+      byName.get(exp.name)?.push({
         filePath: mod.filePath,
         line: exp.line ?? 1,
         col: 0,
@@ -133,7 +128,10 @@ export function findDuplicateExports(
     }
   }
 
-  const results: Array<{ name: string; files: Array<{ filePath: string; line: number; col: number }> }> = [];
+  const results: Array<{
+    name: string;
+    files: Array<{ filePath: string; line: number; col: number }>;
+  }> = [];
 
   for (const [name, files] of byName) {
     if (files.length > 1) {

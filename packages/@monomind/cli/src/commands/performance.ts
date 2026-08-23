@@ -5,25 +5,46 @@
  * github.com/monoes/monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Benchmark subcommand - REAL measurements
 const benchmarkCommand: Command = {
   name: 'benchmark',
   description: 'Run performance benchmarks',
   options: [
-    { name: 'suite', short: 's', type: 'string', description: 'Benchmark suite: all, wasm, neural, memory, search', default: 'all' },
-    { name: 'iterations', short: 'i', type: 'number', description: 'Number of iterations', default: '100' },
+    {
+      name: 'suite',
+      short: 's',
+      type: 'string',
+      description: 'Benchmark suite: all, wasm, neural, memory, search',
+      default: 'all',
+    },
+    {
+      name: 'iterations',
+      short: 'i',
+      type: 'number',
+      description: 'Number of iterations',
+      default: '100',
+    },
     { name: 'warmup', short: 'w', type: 'number', description: 'Warmup iterations', default: '10' },
-    { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
+    {
+      name: 'output',
+      short: 'o',
+      type: 'string',
+      description: 'Output format: text, json',
+      default: 'text',
+    },
   ],
   examples: [
-    { command: 'monomind performance benchmark -s neural', description: 'Benchmark neural operations' },
+    {
+      command: 'monomind performance benchmark -s neural',
+      description: 'Benchmark neural operations',
+    },
     { command: 'monomind performance benchmark -i 1000', description: 'Run with 1000 iterations' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const suiteRaw = ctx.flags.suite as string || 'all';
+    const suiteRaw = (ctx.flags.suite as string) || 'all';
     const VALID_SUITES = new Set(['all', 'wasm', 'neural', 'memory', 'search']);
     const suite = VALID_SUITES.has(suiteRaw) ? suiteRaw : 'all';
     // Falling back is fine; doing it silently is not. `--suite quick` used to
@@ -33,17 +54,19 @@ const benchmarkCommand: Command = {
       output.writeln(
         output.warning(
           `Unknown benchmark suite "${suiteRaw}" — running "all" instead. ` +
-          `Valid suites: ${[...VALID_SUITES].join(', ')}.`
-        )
+            `Valid suites: ${[...VALID_SUITES].join(', ')}.`,
+        ),
       );
     }
     const MAX_ITERATIONS = 10_000;
     const MAX_WARMUP = 500;
-    const iterationsRaw = parseInt(ctx.flags.iterations as string || '100', 10);
-    const warmupRaw = parseInt(ctx.flags.warmup as string || '10', 10);
-    const iterations = Number.isFinite(iterationsRaw) ? Math.min(Math.max(1, iterationsRaw), MAX_ITERATIONS) : 100;
+    const iterationsRaw = parseInt((ctx.flags.iterations as string) || '100', 10);
+    const warmupRaw = parseInt((ctx.flags.warmup as string) || '10', 10);
+    const iterations = Number.isFinite(iterationsRaw)
+      ? Math.min(Math.max(1, iterationsRaw), MAX_ITERATIONS)
+      : 100;
     const warmup = Number.isFinite(warmupRaw) ? Math.min(Math.max(0, warmupRaw), MAX_WARMUP) : 10;
-    const outputFormatRaw = ctx.flags.output as string || 'text';
+    const outputFormatRaw = (ctx.flags.output as string) || 'text';
     const VALID_OUTPUT_FORMATS = new Set(['text', 'json']);
     const outputFormat = VALID_OUTPUT_FORMATS.has(outputFormatRaw) ? outputFormatRaw : 'text';
     if (outputFormatRaw === 'csv') {
@@ -54,7 +77,10 @@ const benchmarkCommand: Command = {
     output.writeln(output.bold('Performance Benchmark (Real Measurements)'));
     output.writeln(output.dim('─'.repeat(60)));
 
-    const spinner = output.createSpinner({ text: `Running ${suite} benchmarks...`, spinner: 'dots' });
+    const spinner = output.createSpinner({
+      text: `Running ${suite} benchmarks...`,
+      spinner: 'dots',
+    });
     spinner.start();
 
     // Import real implementations
@@ -66,13 +92,23 @@ const benchmarkCommand: Command = {
       storeEntry,
       searchEntries,
     } = await import('../memory/memory-initializer.js');
-    const { benchmarkAdaptation, initializeIntelligence } = await import('../memory/intelligence.js');
+    const { benchmarkAdaptation, initializeIntelligence } = await import(
+      '../memory/intelligence.js'
+    );
 
     // `hasTarget: false` marks entries that only report a measured latency,
     // with no baseline to compare against — they're excluded from the
     // "all targets met" rollup instead of being scored against an invented
     // baseline constant.
-    const results: { operation: string; mean: string; p95: string; p99: string; improvement: string; targetMet: boolean; hasTarget?: boolean }[] = [];
+    const results: {
+      operation: string;
+      mean: string;
+      p95: string;
+      p99: string;
+      improvement: string;
+      targetMet: boolean;
+      hasTarget?: boolean;
+    }[] = [];
     const startTotal = Date.now();
 
     // Helper to compute percentiles
@@ -117,8 +153,9 @@ const benchmarkCommand: Command = {
       const flashTimes: number[] = [];
 
       // Generate test vectors
-      const testVectors: Float32Array[] = Array.from({ length: 100 }, () =>
-        new Float32Array(Array.from({ length: 384 }, () => Math.random()))
+      const testVectors: Float32Array[] = Array.from(
+        { length: 100 },
+        () => new Float32Array(Array.from({ length: 384 }, () => Math.random())),
       );
       const queryVector = new Float32Array(Array.from({ length: 384 }, () => Math.random()));
 
@@ -155,7 +192,7 @@ const benchmarkCommand: Command = {
       spinner.setText('Benchmarking HNSW search...');
       const hnswStatus = await getHNSWStatus();
 
-      if (hnswStatus && hnswStatus.available && hnswStatus.entryCount > 0) {
+      if (hnswStatus?.available && hnswStatus.entryCount > 0) {
         const searchTimes: number[] = [];
         const testQueries = [
           'error handling patterns',
@@ -214,7 +251,9 @@ const benchmarkCommand: Command = {
         mean: `${(sonaResult.avgMs * 1000).toFixed(2)}μs`,
         p95: `${(sonaResult.maxMs * 1000).toFixed(2)}μs`,
         p99: `${(sonaResult.maxMs * 1000).toFixed(2)}μs`,
-        improvement: sonaResult.targetMet ? output.success('<0.05ms ✓') : output.warning('Above target'),
+        improvement: sonaResult.targetMet
+          ? output.success('<0.05ms ✓')
+          : output.warning('Above target'),
         targetMet: sonaResult.targetMet,
       });
     }
@@ -268,14 +307,17 @@ const benchmarkCommand: Command = {
       });
 
       output.writeln();
-      const allTargetsMet = results.filter(r => r.hasTarget !== false).every(r => r.targetMet);
-      output.printBox([
-        `Suite: ${suite}`,
-        `Iterations: ${iterations}`,
-        `Total Time: ${totalTime}s`,
-        ``,
-        `Overall: ${allTargetsMet ? output.success('All targets met') : output.warning('Some targets missed')}`,
-      ].join('\n'), 'Benchmark Summary');
+      const allTargetsMet = results.filter((r) => r.hasTarget !== false).every((r) => r.targetMet);
+      output.printBox(
+        [
+          `Suite: ${suite}`,
+          `Iterations: ${iterations}`,
+          `Total Time: ${totalTime}s`,
+          ``,
+          `Overall: ${allTargetsMet ? output.success('All targets met') : output.warning('Some targets missed')}`,
+        ].join('\n'),
+        'Benchmark Summary',
+      );
     }
 
     return { success: true, data: { results, totalTime } };
@@ -287,8 +329,20 @@ const profileCommand: Command = {
   name: 'profile',
   description: 'Profile application performance',
   options: [
-    { name: 'type', short: 't', type: 'string', description: 'Profile type: cpu, memory, io, all', default: 'all' },
-    { name: 'duration', short: 'd', type: 'number', description: 'Duration in seconds', default: '30' },
+    {
+      name: 'type',
+      short: 't',
+      type: 'string',
+      description: 'Profile type: cpu, memory, io, all',
+      default: 'all',
+    },
+    {
+      name: 'duration',
+      short: 'd',
+      type: 'number',
+      description: 'Duration in seconds',
+      default: '30',
+    },
     { name: 'output', short: 'o', type: 'string', description: 'Output file for profile data' },
   ],
   examples: [
@@ -296,10 +350,10 @@ const profileCommand: Command = {
     { command: 'monomind performance profile -d 60', description: 'Profile for 60 seconds' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const typeRaw = ctx.flags.type as string || 'all';
+    const typeRaw = (ctx.flags.type as string) || 'all';
     const VALID_PROFILE_TYPES = new Set(['cpu', 'memory', 'io', 'all']);
-    const type = VALID_PROFILE_TYPES.has(typeRaw) ? typeRaw : 'all';
-    const durationRaw = parseInt(ctx.flags.duration as string || '30', 10);
+    const _type = VALID_PROFILE_TYPES.has(typeRaw) ? typeRaw : 'all';
+    const durationRaw = parseInt((ctx.flags.duration as string) || '30', 10);
     const duration = Number.isFinite(durationRaw) ? Math.min(Math.max(1, durationRaw), 300) : 30;
 
     output.writeln();
@@ -311,11 +365,11 @@ const profileCommand: Command = {
 
     // Collect real metrics
     const startCpu = process.cpuUsage();
-    const startMem = process.memoryUsage();
+    const _startMem = process.memoryUsage();
     const startTime = process.hrtime.bigint();
 
     // Sample for a brief period
-    await new Promise(r => setTimeout(r, Math.min(duration * 1000, 30_000)));
+    await new Promise((r) => setTimeout(r, Math.min(duration * 1000, 30_000)));
 
     const endCpu = process.cpuUsage(startCpu);
     const endMem = process.memoryUsage();
@@ -325,7 +379,7 @@ const profileCommand: Command = {
 
     // Calculate real values
     const elapsedMs = Number(endTime - startTime) / 1_000_000;
-    const cpuPercent = ((endCpu.user + endCpu.system) / 1000 / elapsedMs * 100).toFixed(1);
+    const cpuPercent = (((endCpu.user + endCpu.system) / 1000 / elapsedMs) * 100).toFixed(1);
     const heapUsedMB = (endMem.heapUsed / 1024 / 1024).toFixed(1);
     const heapTotalMB = (endMem.heapTotal / 1024 / 1024).toFixed(1);
     const rssMB = (endMem.rss / 1024 / 1024).toFixed(1);
@@ -333,14 +387,22 @@ const profileCommand: Command = {
 
     // Get event loop lag (approximate)
     const lagStart = Date.now();
-    await new Promise(r => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
     const eventLoopLag = (Date.now() - lagStart).toFixed(1);
 
     // Determine status based on thresholds
-    const heapStatus = endMem.heapUsed / endMem.heapTotal > 0.9 ? output.error('High') :
-                       endMem.heapUsed / endMem.heapTotal > 0.7 ? output.warning('Elevated') : output.success('Normal');
-    const lagStatus = parseFloat(eventLoopLag) > 50 ? output.error('High') :
-                      parseFloat(eventLoopLag) > 10 ? output.warning('Elevated') : output.success('Normal');
+    const heapStatus =
+      endMem.heapUsed / endMem.heapTotal > 0.9
+        ? output.error('High')
+        : endMem.heapUsed / endMem.heapTotal > 0.7
+          ? output.warning('Elevated')
+          : output.success('Normal');
+    const lagStatus =
+      parseFloat(eventLoopLag) > 50
+        ? output.error('High')
+        : parseFloat(eventLoopLag) > 10
+          ? output.warning('Elevated')
+          : output.success('Normal');
 
     output.writeln();
     output.printTable({
@@ -351,12 +413,37 @@ const profileCommand: Command = {
         { key: 'status', header: 'Status', width: 15 },
       ],
       data: [
-        { metric: 'CPU Usage', current: `${cpuPercent}%`, peak: '-', status: output.success('Sampled') },
-        { metric: 'Memory (Heap Used)', current: `${heapUsedMB} MB`, peak: `${heapTotalMB} MB`, status: heapStatus },
-        { metric: 'Memory (RSS)', current: `${rssMB} MB`, peak: '-', status: output.success('Normal') },
-        { metric: 'Memory (External)', current: `${externalMB} MB`, peak: '-', status: output.success('Normal') },
+        {
+          metric: 'CPU Usage',
+          current: `${cpuPercent}%`,
+          peak: '-',
+          status: output.success('Sampled'),
+        },
+        {
+          metric: 'Memory (Heap Used)',
+          current: `${heapUsedMB} MB`,
+          peak: `${heapTotalMB} MB`,
+          status: heapStatus,
+        },
+        {
+          metric: 'Memory (RSS)',
+          current: `${rssMB} MB`,
+          peak: '-',
+          status: output.success('Normal'),
+        },
+        {
+          metric: 'Memory (External)',
+          current: `${externalMB} MB`,
+          peak: '-',
+          status: output.success('Normal'),
+        },
         { metric: 'Event Loop Lag', current: `${eventLoopLag}ms`, peak: '-', status: lagStatus },
-        { metric: 'Node.js Uptime', current: `${process.uptime().toFixed(1)}s`, peak: '-', status: output.success('Running') },
+        {
+          metric: 'Node.js Uptime',
+          current: `${process.uptime().toFixed(1)}s`,
+          peak: '-',
+          status: output.success('Running'),
+        },
       ],
     });
 
@@ -377,10 +464,10 @@ const profileCommand: Command = {
         },
         event_loop_lag_ms: parseFloat(eventLoopLag),
       };
-      const fs = await import('fs');
-      const path = await import('path');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
       const resolved = path.resolve(outputFile);
-      fs.writeFileSync(resolved, JSON.stringify(profileData, null, 2) + '\n');
+      fs.writeFileSync(resolved, `${JSON.stringify(profileData, null, 2)}\n`);
       output.writeln(output.success(`Profile data saved to ${resolved}`));
     }
 
@@ -393,19 +480,34 @@ const metricsCommand: Command = {
   name: 'metrics',
   description: 'View and export performance metrics',
   options: [
-    { name: 'timeframe', short: 't', type: 'string', description: 'Timeframe: 1h, 24h, 7d, 30d', default: '24h' },
-    { name: 'format', short: 'f', type: 'string', description: 'Output format: text, json, prometheus', default: 'text' },
+    {
+      name: 'timeframe',
+      short: 't',
+      type: 'string',
+      description: 'Timeframe: 1h, 24h, 7d, 30d',
+      default: '24h',
+    },
+    {
+      name: 'format',
+      short: 'f',
+      type: 'string',
+      description: 'Output format: text, json, prometheus',
+      default: 'text',
+    },
     { name: 'component', short: 'c', type: 'string', description: 'Component to filter' },
   ],
   examples: [
     { command: 'monomind performance metrics -t 7d', description: 'Show 7-day metrics' },
-    { command: 'monomind performance metrics -f prometheus', description: 'Export as Prometheus format' },
+    {
+      command: 'monomind performance metrics -f prometheus',
+      description: 'Export as Prometheus format',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const timeframeRaw = ctx.flags.timeframe as string || '24h';
+    const timeframeRaw = (ctx.flags.timeframe as string) || '24h';
     const VALID_TIMEFRAMES = new Set(['1h', '24h', '7d', '30d']);
     const timeframe = VALID_TIMEFRAMES.has(timeframeRaw) ? timeframeRaw : '24h';
-    const formatRaw = ctx.flags.format as string || 'text';
+    const formatRaw = (ctx.flags.format as string) || 'text';
     const VALID_FORMATS = new Set(['text', 'json', 'prometheus']);
     const format = VALID_FORMATS.has(formatRaw) ? formatRaw : 'text';
 
@@ -413,10 +515,14 @@ const metricsCommand: Command = {
     output.writeln(output.bold(`Performance Metrics (snapshot)`));
     output.writeln(output.dim('─'.repeat(50)));
     if (ctx.flags.timeframe) {
-      output.writeln(output.warning('--timeframe is not used for filtering: time history not recorded yet. Showing a live snapshot instead.'));
+      output.writeln(
+        output.warning(
+          '--timeframe is not used for filtering: time history not recorded yet. Showing a live snapshot instead.',
+        ),
+      );
     }
 
-    const os = await import('os');
+    const os = await import('node:os');
 
     // Real system metrics
     const memUsage = process.memoryUsage();
@@ -432,16 +538,18 @@ const metricsCommand: Command = {
     const rssMB = (memUsage.rss / 1024 / 1024).toFixed(1);
     const memPercent = ((1 - freeMem / totalMem) * 100).toFixed(1);
     const cpuUserMs = (cpuUsage.user / 1000).toFixed(0);
-    const cpuSystemMs = (cpuUsage.system / 1000).toFixed(0);
+    const _cpuSystemMs = (cpuUsage.system / 1000).toFixed(0);
 
     // Try to get HNSW/cache stats from real data
-    let cacheHitRate = 'N/A';
+    const _cacheHitRate = 'N/A';
     let hnswEntries = 0;
     try {
       const { getHNSWStatus } = await import('../memory/memory-initializer.js');
       const status = await getHNSWStatus();
       hnswEntries = status?.entryCount || 0;
-    } catch { /* HNSW not initialized */ }
+    } catch {
+      /* HNSW not initialized */
+    }
 
     // Try to get real cache stats — a real SELECT COUNT(*) via the memory
     // backend, not a file-size approximation.
@@ -450,7 +558,9 @@ const metricsCommand: Command = {
       const { bridgeGetBackendStats } = await import('../memory/memory-bridge.js');
       const stats = await bridgeGetBackendStats();
       cacheEntries = stats?.totalEntries ?? 0;
-    } catch { /* no cache */ }
+    } catch {
+      /* no cache */
+    }
 
     // Benchmark a quick operation to get real latency
     let avgLatencyMs = 0;
@@ -458,11 +568,13 @@ const metricsCommand: Command = {
       const times: number[] = [];
       for (let i = 0; i < 10; i++) {
         const start = performance.now();
-        await new Promise(r => setImmediate(r)); // Event loop turn
+        await new Promise((r) => setImmediate(r)); // Event loop turn
         times.push(performance.now() - start);
       }
       avgLatencyMs = times.reduce((a, b) => a + b, 0) / times.length;
-    } catch { /* timing failed */ }
+    } catch {
+      /* timing failed */
+    }
 
     // JSON/Prometheus output
     if (format === 'json') {
@@ -530,7 +642,10 @@ const metricsCommand: Command = {
           metric: 'Heap Memory',
           current: `${heapUsedMB} MB`,
           limit: `${heapTotalMB} MB`,
-          status: parseFloat(heapUsedMB) < parseFloat(heapTotalMB) * 0.8 ? output.success('OK') : output.warning('High'),
+          status:
+            parseFloat(heapUsedMB) < parseFloat(heapTotalMB) * 0.8
+              ? output.success('OK')
+              : output.warning('High'),
         },
         {
           metric: 'RSS Memory',
@@ -578,8 +693,10 @@ const metricsCommand: Command = {
     });
 
     output.writeln();
-    output.writeln(output.dim(`Load Average: ${loadAvg.map(l => l.toFixed(2)).join(', ')}`));
-    output.writeln(output.dim(`CPUs: ${os.cpus().length} | Platform: ${os.platform()} ${os.release()}`));
+    output.writeln(output.dim(`Load Average: ${loadAvg.map((l) => l.toFixed(2)).join(', ')}`));
+    output.writeln(
+      output.dim(`CPUs: ${os.cpus().length} | Platform: ${os.platform()} ${os.release()}`),
+    );
 
     return { success: true };
   },
@@ -591,11 +708,20 @@ const bottleneckCommand: Command = {
   description: 'Identify performance bottlenecks',
   options: [
     { name: 'component', short: 'c', type: 'string', description: 'Component to analyze' },
-    { name: 'depth', short: 'd', type: 'string', description: 'Analysis depth: quick, full', default: 'quick' },
+    {
+      name: 'depth',
+      short: 'd',
+      type: 'string',
+      description: 'Analysis depth: quick, full',
+      default: 'quick',
+    },
   ],
   examples: [
     { command: 'monomind performance bottleneck', description: 'Find bottlenecks' },
-    { command: 'monomind performance bottleneck -c network', description: 'Only the Network component' },
+    {
+      command: 'monomind performance bottleneck -c network',
+      description: 'Only the Network component',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -614,8 +740,8 @@ const bottleneckCommand: Command = {
       output.writeln(
         output.warning(
           `--depth ${depthRaw} is not implemented — running the "quick" analysis. ` +
-          `Only "quick" is supported today.`
-        )
+            `Only "quick" is supported today.`,
+        ),
       );
     }
 
@@ -626,21 +752,41 @@ const bottleneckCommand: Command = {
 
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const findings: { component: string; bottleneck: string; severity: string; solution: string }[] = [];
+    const findings: {
+      component: string;
+      bottleneck: string;
+      severity: string;
+      solution: string;
+    }[] = [];
 
     const mem = process.memoryUsage();
     const heapUsedMB = mem.heapUsed / 1024 / 1024;
     if (heapUsedMB > 200) {
-      findings.push({ component: 'Runtime', bottleneck: `Heap ${heapUsedMB.toFixed(0)}MB`, severity: output.error('High'), solution: 'Investigate memory leaks or increase --max-old-space-size' });
+      findings.push({
+        component: 'Runtime',
+        bottleneck: `Heap ${heapUsedMB.toFixed(0)}MB`,
+        severity: output.error('High'),
+        solution: 'Investigate memory leaks or increase --max-old-space-size',
+      });
     }
 
     const configPath = 'monomind.config.json';
     let config: Record<string, unknown> = {};
-    try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (e) { if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[performance-bottleneck] failed to parse monomind.config.json:', e); }
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (e) {
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[performance-bottleneck] failed to parse monomind.config.json:', e);
+    }
     const perf = (config.performance ?? {}) as Record<string, unknown>;
     const hnsw = (perf.hnsw ?? {}) as Record<string, unknown>;
     if (!hnsw.quantization) {
-      findings.push({ component: 'Vector Search', bottleneck: 'No HNSW quantization', severity: output.error('High'), solution: 'Run: monomind hooks intelligence optimize --method quantize' });
+      findings.push({
+        component: 'Vector Search',
+        bottleneck: 'No HNSW quantization',
+        severity: output.error('High'),
+        solution: 'Run: monomind hooks intelligence optimize --method quantize',
+      });
     }
 
     const tracesDir = '.monomind/traces';
@@ -648,9 +794,16 @@ const bottleneckCommand: Command = {
       try {
         const traceFiles = fs.readdirSync(tracesDir);
         if (traceFiles.length > 500) {
-          findings.push({ component: 'Traces', bottleneck: `${traceFiles.length} trace files`, severity: output.warning('Medium'), solution: 'Prune old traces: rm .monomind/traces/*.jsonl' });
+          findings.push({
+            component: 'Traces',
+            bottleneck: `${traceFiles.length} trace files`,
+            severity: output.warning('Medium'),
+            solution: 'Prune old traces: rm .monomind/traces/*.jsonl',
+          });
         }
-      } catch { /* ok */ }
+      } catch {
+        /* ok */
+      }
     }
 
     try {
@@ -659,32 +812,59 @@ const bottleneckCommand: Command = {
       const stat = fs.statSync(dbFile).size ?? 0;
       const sizeMB = stat / 1024 / 1024;
       if (sizeMB > 100) {
-        findings.push({ component: 'Memory DB', bottleneck: `SQLite ${sizeMB.toFixed(0)}MB`, severity: output.warning('Medium'), solution: 'No automated SQLite compaction exists yet — prune stale entries with: monomind memory delete --key <key> --namespace <ns>' });
+        findings.push({
+          component: 'Memory DB',
+          bottleneck: `SQLite ${sizeMB.toFixed(0)}MB`,
+          severity: output.warning('Medium'),
+          solution:
+            'No automated SQLite compaction exists yet — prune stale entries with: monomind memory delete --key <key> --namespace <ns>',
+        });
       }
-    } catch { /* no memory.db yet */ }
+    } catch {
+      /* no memory.db yet */
+    }
 
     const network = (perf.network ?? {}) as Record<string, unknown>;
     if (!network.batching) {
-      findings.push({ component: 'Network', bottleneck: 'No request batching', severity: output.info('Low'), solution: 'No automated fix available — request batching requires a manual code change, not exposed via any CLI command yet' });
+      findings.push({
+        component: 'Network',
+        bottleneck: 'No request batching',
+        severity: output.info('Low'),
+        solution:
+          'No automated fix available — request batching requires a manual code change, not exposed via any CLI command yet',
+      });
     }
 
     let results = findings;
     if (componentFilter) {
-      const known = ANALYZED_COMPONENTS.find(c => c.toLowerCase() === componentFilter.toLowerCase())
-        ?? ANALYZED_COMPONENTS.find(c => c.toLowerCase().includes(componentFilter.toLowerCase()));
+      const known =
+        ANALYZED_COMPONENTS.find((c) => c.toLowerCase() === componentFilter.toLowerCase()) ??
+        ANALYZED_COMPONENTS.find((c) => c.toLowerCase().includes(componentFilter.toLowerCase()));
       if (!known) {
         spinner.fail(`Unknown component "${componentFilter}"`);
-        output.writeln(
-          output.warning(`Analyzed components: ${ANALYZED_COMPONENTS.join(', ')}.`)
-        );
+        output.writeln(output.warning(`Analyzed components: ${ANALYZED_COMPONENTS.join(', ')}.`));
         return { success: false, message: `Unknown component: ${componentFilter}`, exitCode: 1 };
       }
-      results = findings.filter(f => f.component === known);
+      results = findings.filter((f) => f.component === known);
       if (results.length === 0) {
-        results = [{ component: known, bottleneck: 'No bottlenecks detected', severity: output.success('None'), solution: `${known} is performing well` }];
+        results = [
+          {
+            component: known,
+            bottleneck: 'No bottlenecks detected',
+            severity: output.success('None'),
+            solution: `${known} is performing well`,
+          },
+        ];
       }
     } else if (results.length === 0) {
-      results = [{ component: 'System', bottleneck: 'No bottlenecks detected', severity: output.success('None'), solution: 'System is performing well' }];
+      results = [
+        {
+          component: 'System',
+          bottleneck: 'No bottlenecks detected',
+          severity: output.success('None'),
+          solution: 'System is performing well',
+        },
+      ];
     }
 
     spinner.succeed(`Analysis complete — ${results.length} finding(s)`);

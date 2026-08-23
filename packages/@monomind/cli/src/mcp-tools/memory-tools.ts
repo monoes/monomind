@@ -11,18 +11,18 @@
  * @module v1/cli/mcp-tools/memory-tools
  */
 
-import type { MCPTool } from './types.js';
 import {
   sanitizeError,
-  validateMcpString as validateString,
   validatePositiveInt,
   validateScore,
+  validateMcpString as validateString,
 } from '../utils/input-guards.js';
+import type { MCPTool } from './types.js';
 
 // ===== MCP-specific constants =====
 
-const MAX_BATCH_SIZE = 500;        // Max entries per batch operation
-const MAX_TOP_K = 100;             // Max results per query
+const MAX_BATCH_SIZE = 500; // Max entries per batch operation
+const MAX_TOP_K = 100; // Max results per query
 
 // Lazy-cached bridge module
 let bridgeModule: typeof import('../memory/memory-bridge.js') | null = null;
@@ -78,7 +78,8 @@ export const memoryControllers: MCPTool = {
 
 export const memoryPatternStore: MCPTool = {
   name: 'memory_pattern-store',
-  description: 'Store a reusable pattern (embedded, semantically searchable) in the patterns namespace',
+  description:
+    'Store a reusable pattern (embedded, semantically searchable) in the patterns namespace',
   inputSchema: {
     type: 'object',
     properties: {
@@ -91,7 +92,8 @@ export const memoryPatternStore: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     try {
       const pattern = validateString(params.pattern, 'pattern');
-      if (!pattern) return { success: false, error: 'pattern is required (non-empty string, max 100KB)' };
+      if (!pattern)
+        return { success: false, error: 'pattern is required (non-empty string, max 100KB)' };
 
       // validateExternalContent: guard against prompt injection in stored patterns.
       // This is a WRITE to persistent memory, so it fails CLOSED: if
@@ -101,7 +103,11 @@ export const memoryPatternStore: MCPTool = {
         const { validateExternalContent } = await import('../utils/input-guards.js');
         const check = await validateExternalContent(pattern, 'memory_pattern-store pattern');
         if (!check.safe) {
-          return { success: false, error: `Injection guard: ${check.reason}`, injectionDetected: true };
+          return {
+            success: false,
+            error: `Injection guard: ${check.reason}`,
+            injectionDetected: true,
+          };
         }
       }
 
@@ -111,7 +117,13 @@ export const memoryPatternStore: MCPTool = {
         taskType: validateString(params.type, 'type', 200) ?? 'general',
         confidence: validateScore(params.confidence, 0.8),
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      return (
+        result ?? {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -122,7 +134,8 @@ export const memoryPatternStore: MCPTool = {
 
 export const memoryPatternSearch: MCPTool = {
   name: 'memory_pattern-search',
-  description: 'Search stored patterns — semantic when the local embedding model is available, keyword otherwise',
+  description:
+    'Search stored patterns — semantic when the local embedding model is available, keyword otherwise',
   inputSchema: {
     type: 'object',
     properties: {
@@ -142,7 +155,11 @@ export const memoryPatternSearch: MCPTool = {
         const { validateExternalContent } = await import('../utils/input-guards.js');
         const check = await validateExternalContent(query, 'memory_pattern-search query');
         if (!check.safe) {
-          return { results: [], error: `Injection guard: ${check.reason}`, injectionDetected: true };
+          return {
+            results: [],
+            error: `Injection guard: ${check.reason}`,
+            injectionDetected: true,
+          };
         }
       }
 
@@ -167,14 +184,26 @@ export const memoryPatternSearch: MCPTool = {
 
 export const memoryFeedback: MCPTool = {
   name: 'memory_feedback',
-  description: 'Rate memory entries used in an answer (pass entryIds from a prior search). Updates feedback_weight; idempotent per taskId.',
+  description:
+    'Rate memory entries used in an answer (pass entryIds from a prior search). Updates feedback_weight; idempotent per taskId.',
   inputSchema: {
     type: 'object',
     properties: {
-      taskId: { type: 'string', description: 'Task identifier (also the idempotency key — the same taskId never double-applies)' },
-      entryIds: { type: 'array', items: { type: 'string' }, description: 'Memory entry IDs (from search results) that were used for this task' },
+      taskId: {
+        type: 'string',
+        description:
+          'Task identifier (also the idempotency key — the same taskId never double-applies)',
+      },
+      entryIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Memory entry IDs (from search results) that were used for this task',
+      },
       success: { type: 'boolean', description: 'Whether task succeeded' },
-      quality: { type: 'number', description: 'Quality score (0-1); defaults from success (0.9/0.2)' },
+      quality: {
+        type: 'number',
+        description: 'Quality score (0-1); defaults from success (0.9/0.2)',
+      },
       agent: { type: 'string', description: 'Agent that performed the task' },
     },
     required: ['taskId'],
@@ -182,18 +211,24 @@ export const memoryFeedback: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     try {
       const taskId = validateString(params.taskId, 'taskId', 500);
-      if (!taskId) return { success: false, error: 'taskId is required (non-empty string, max 500 chars)' };
+      if (!taskId)
+        return { success: false, error: 'taskId is required (non-empty string, max 500 chars)' };
       const bridge = await getBridge();
 
       // Closed loop: apply the rating to the entries that were actually used.
       const entryIds = Array.isArray(params.entryIds)
-        ? (params.entryIds as unknown[]).filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 500).slice(0, 100)
+        ? (params.entryIds as unknown[])
+            .filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 500)
+            .slice(0, 100)
         : [];
       let weighting: unknown = null;
       if (entryIds.length) {
-        const score = typeof params.quality === 'number' && Number.isFinite(params.quality)
-          ? Math.max(0, Math.min(1, params.quality))
-          : (params.success === true ? 0.9 : 0.2);
+        const score =
+          typeof params.quality === 'number' && Number.isFinite(params.quality)
+            ? Math.max(0, Math.min(1, params.quality))
+            : params.success === true
+              ? 0.9
+              : 0.2;
         weighting = await bridge.bridgeApplyFeedback({ entryIds, score, ledgerKey: taskId });
       }
 
@@ -205,7 +240,12 @@ export const memoryFeedback: MCPTool = {
         confidence: validateScore(params.quality, 0.85),
         metadata: { taskId, entryIds },
       });
-      if (!result) return { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      if (!result)
+        return {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        };
       return { ...result, weighting };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
@@ -217,13 +257,17 @@ export const memoryFeedback: MCPTool = {
 
 export const memoryCausalEdge: MCPTool = {
   name: 'memory_causal-edge',
-  description: 'Record a causal relationship between two named things as a real knowledge-graph edge (traversable via memory_kg_search)',
+  description:
+    'Record a causal relationship between two named things as a real knowledge-graph edge (traversable via memory_kg_search)',
   inputSchema: {
     type: 'object',
     properties: {
       sourceId: { type: 'string', description: 'Source entity name (or entry ID)' },
       targetId: { type: 'string', description: 'Target entity name (or entry ID)' },
-      relation: { type: 'string', description: 'Relationship type (e.g., causes, preceded, fixed_by)' },
+      relation: {
+        type: 'string',
+        description: 'Relationship type (e.g., causes, preceded, fixed_by)',
+      },
       weight: { type: 'number', description: 'Edge weight (0-1)' },
       description: { type: 'string', description: 'One-sentence concrete fact for this edge' },
     },
@@ -240,7 +284,14 @@ export const memoryCausalEdge: MCPTool = {
       const kg = await import('../memory/memory-kg.js');
       const result = await kg.kgIngest({
         nodes: [{ name: sourceId }, { name: targetId }],
-        edges: [{ source: sourceId, target: targetId, relation, description: validateString(params.description, 'description', 2000) ?? undefined }],
+        edges: [
+          {
+            source: sourceId,
+            target: targetId,
+            relation,
+            description: validateString(params.description, 'description', 2000) ?? undefined,
+          },
+        ],
         originRef: 'causal-edge-tool',
       });
       return result;
@@ -254,15 +305,35 @@ export const memoryCausalEdge: MCPTool = {
 
 export const memoryKgIngest: MCPTool = {
   name: 'memory_kg_ingest',
-  description: 'Merge LLM-extracted entities/relations/rules into the persistent knowledge graph; same-name entities merge idempotently.',
+  description:
+    'Merge LLM-extracted entities/relations/rules into the persistent knowledge graph; same-name entities merge idempotently.',
   inputSchema: {
     type: 'object',
     properties: {
-      nodes: { type: 'array', items: { type: 'object' }, description: 'Entities: [{name, type?, description?, nodeSet?}]' },
-      edges: { type: 'array', items: { type: 'object' }, description: 'Relations: [{source, target, relation, description?}]' },
-      rules: { type: 'array', items: { type: 'object' }, description: 'Distilled durable rules: [{rule, context?}] — deduped semantically against existing rules' },
-      rawText: { type: 'string', description: 'Fallback: raw text for regex-based extraction (no LLM)' },
-      originRef: { type: 'string', description: 'Provenance ref (session/run/doc id) — enables memory_kg_rollback' },
+      nodes: {
+        type: 'array',
+        items: { type: 'object' },
+        description: 'Entities: [{name, type?, description?, nodeSet?}]',
+      },
+      edges: {
+        type: 'array',
+        items: { type: 'object' },
+        description: 'Relations: [{source, target, relation, description?}]',
+      },
+      rules: {
+        type: 'array',
+        items: { type: 'object' },
+        description:
+          'Distilled durable rules: [{rule, context?}] — deduped semantically against existing rules',
+      },
+      rawText: {
+        type: 'string',
+        description: 'Fallback: raw text for regex-based extraction (no LLM)',
+      },
+      originRef: {
+        type: 'string',
+        description: 'Provenance ref (session/run/doc id) — enables memory_kg_rollback',
+      },
     },
     required: ['originRef'],
   },
@@ -272,19 +343,27 @@ export const memoryKgIngest: MCPTool = {
       if (!originRef) return { success: false, error: 'originRef is required' };
       const kg = await import('../memory/memory-kg.js');
 
-      let nodes = Array.isArray(params.nodes) ? params.nodes as any[] : [];
-      let edges = Array.isArray(params.edges) ? params.edges as any[] : [];
-      if (!nodes.length && !edges.length && typeof params.rawText === 'string' && params.rawText.trim()) {
+      let nodes = Array.isArray(params.nodes) ? (params.nodes as any[]) : [];
+      let edges = Array.isArray(params.edges) ? (params.edges as any[]) : [];
+      if (
+        !nodes.length &&
+        !edges.length &&
+        typeof params.rawText === 'string' &&
+        params.rawText.trim()
+      ) {
         const extracted = kg.heuristicExtract(params.rawText, { sourceName: originRef });
-        nodes = extracted.nodes; edges = extracted.edges;
+        nodes = extracted.nodes;
+        edges = extracted.edges;
       }
 
-      const graph = (nodes.length || edges.length)
-        ? await kg.kgIngest({ nodes, edges, originRef })
-        : { success: true, nodesAdded: 0, nodesMerged: 0, edgesAdded: 0, edgesMerged: 0 };
-      const rules = Array.isArray(params.rules) && (params.rules as any[]).length
-        ? await kg.kgIngestRules({ rules: params.rules as any[], originRef })
-        : null;
+      const graph =
+        nodes.length || edges.length
+          ? await kg.kgIngest({ nodes, edges, originRef })
+          : { success: true, nodesAdded: 0, nodesMerged: 0, edgesAdded: 0, edgesMerged: 0 };
+      const rules =
+        Array.isArray(params.rules) && (params.rules as any[]).length
+          ? await kg.kgIngestRules({ rules: params.rules as any[], originRef })
+          : null;
       return { ...graph, rules };
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
@@ -294,7 +373,8 @@ export const memoryKgIngest: MCPTool = {
 
 export const memoryKgSearch: MCPTool = {
   name: 'memory_kg_search',
-  description: 'Search the knowledge graph: vector-seeded entities expanded to ranked relationship triplets. Returns rendered context lines plus seed entry ids (rate them via memory_feedback).',
+  description:
+    'Search the knowledge graph: vector-seeded entities expanded to ranked relationship triplets. Returns rendered context lines plus seed entry ids (rate them via memory_feedback).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -322,11 +402,15 @@ export const memoryKgSearch: MCPTool = {
 
 export const memoryKgRollback: MCPTool = {
   name: 'memory_kg_rollback',
-  description: 'Delete all knowledge-graph nodes/edges/rules whose only provenance is the given originRef (bad-ingest recovery). Elements shared with other origins are retained.',
+  description:
+    'Delete all knowledge-graph nodes/edges/rules whose only provenance is the given originRef (bad-ingest recovery). Elements shared with other origins are retained.',
   inputSchema: {
     type: 'object',
     properties: {
-      originRef: { type: 'string', description: 'The provenance ref to roll back (session/run/doc id)' },
+      originRef: {
+        type: 'string',
+        description: 'The provenance ref to roll back (session/run/doc id)',
+      },
     },
     required: ['originRef'],
   },
@@ -344,7 +428,8 @@ export const memoryKgRollback: MCPTool = {
 
 export const memoryKgConsolidate: MCPTool = {
   name: 'memory_kg_consolidate',
-  description: 'List knowledge-graph entities whose descriptions lag their connectivity, with neighborhood facts. YOU do the consolidation: rewrite each candidate\'s description as one canonical paragraph merging the facts, then resubmit via memory_kg_ingest (richer descriptions win on merge).',
+  description:
+    "List knowledge-graph entities whose descriptions lag their connectivity, with neighborhood facts. YOU do the consolidation: rewrite each candidate's description as one canonical paragraph merging the facts, then resubmit via memory_kg_ingest (richer descriptions win on merge).",
   inputSchema: {
     type: 'object',
     properties: {
@@ -368,7 +453,8 @@ export const memoryKgConsolidate: MCPTool = {
 
 export const memoryKgStats: MCPTool = {
   name: 'memory_kg_stats',
-  description: 'Knowledge graph size: node, edge, and rule counts (plus the entity glossary for extraction prompts)',
+  description:
+    'Knowledge graph size: node, edge, and rule counts (plus the entity glossary for extraction prompts)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -403,12 +489,27 @@ export const memoryRoute: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     try {
       const task = validateString(params.task, 'task', 10_000);
-      if (!task) return { route: 'general', confidence: 0.5, agents: ['coder'], controller: 'error', error: 'task is required (non-empty string)' };
+      if (!task)
+        return {
+          route: 'general',
+          confidence: 0.5,
+          agents: ['coder'],
+          controller: 'error',
+          error: 'task is required (non-empty string)',
+        };
       const bridge = await getBridge();
       const result = await bridge.bridgeRouteTask({ task });
-      return result ?? { route: 'general', confidence: 0.5, agents: ['coder'], controller: 'fallback' };
+      return (
+        result ?? { route: 'general', confidence: 0.5, agents: ['coder'], controller: 'fallback' }
+      );
     } catch (error) {
-      return { route: 'general', confidence: 0.5, agents: ['coder'], controller: 'error', error: sanitizeError(error) };
+      return {
+        route: 'general',
+        confidence: 0.5,
+        agents: ['coder'],
+        controller: 'error',
+        error: sanitizeError(error),
+      };
     }
   },
 };
@@ -435,7 +536,13 @@ export const memorySessionStart: MCPTool = {
         sessionId,
         metadata: { context: validateString(params.context, 'context', 10_000) ?? undefined },
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      return (
+        result ?? {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -466,7 +573,13 @@ export const memorySessionEnd: MCPTool = {
         summary: validateString(params.summary, 'summary', 50_000) ?? undefined,
         metrics: { tasksCompleted: validatePositiveInt(params.tasksCompleted, 0, 10_000) },
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      return (
+        result ?? {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -477,7 +590,8 @@ export const memorySessionEnd: MCPTool = {
 
 export const memoryHierarchicalStore: MCPTool = {
   name: 'memory_hierarchical-store',
-  description: 'Store into a tier-labeled namespace (tier_working/episodic/semantic). Note: tiers are labels, not automatic promotion',
+  description:
+    'Store into a tier-labeled namespace (tier_working/episodic/semantic). Note: tiers are labels, not automatic promotion',
   inputSchema: {
     type: 'object',
     properties: {
@@ -497,14 +611,24 @@ export const memoryHierarchicalStore: MCPTool = {
       const key = validateString(params.key, 'key', 1000);
       const value = validateString(params.value, 'value');
       if (!key) return { success: false, error: 'key is required (non-empty string, max 1KB)' };
-      if (!value) return { success: false, error: 'value is required (non-empty string, max 100KB)' };
+      if (!value)
+        return { success: false, error: 'value is required (non-empty string, max 100KB)' };
       const tier = validateString(params.tier, 'tier', 20) ?? 'working';
       if (!['working', 'episodic', 'semantic'].includes(tier)) {
-        return { success: false, error: `Invalid tier: ${tier}. Must be working, episodic, or semantic` };
+        return {
+          success: false,
+          error: `Invalid tier: ${tier}. Must be working, episodic, or semantic`,
+        };
       }
       const bridge = await getBridge();
       const result = await bridge.bridgeHierarchicalStore({ key, value, tier });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      return (
+        result ?? {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -515,7 +639,8 @@ export const memoryHierarchicalStore: MCPTool = {
 
 export const memoryHierarchicalRecall: MCPTool = {
   name: 'memory_hierarchical-recall',
-  description: 'Search tier-labeled namespaces (tier_working/episodic/semantic), or all when no tier given',
+  description:
+    'Search tier-labeled namespaces (tier_working/episodic/semantic), or all when no tier given',
   inputSchema: {
     type: 'object',
     properties: {
@@ -531,7 +656,10 @@ export const memoryHierarchicalRecall: MCPTool = {
       if (!query) return { results: [], error: 'query is required (non-empty string, max 10KB)' };
       const tier = validateString(params.tier, 'tier', 20);
       if (tier && !['working', 'episodic', 'semantic'].includes(tier)) {
-        return { results: [], error: `Invalid tier: ${tier}. Must be working, episodic, or semantic` };
+        return {
+          results: [],
+          error: `Invalid tier: ${tier}. Must be working, episodic, or semantic`,
+        };
       }
       const bridge = await getBridge();
       const result = await bridge.bridgeHierarchicalRecall({
@@ -539,7 +667,12 @@ export const memoryHierarchicalRecall: MCPTool = {
         tier: tier ?? undefined,
         topK: validatePositiveInt(params.topK, 5, MAX_TOP_K),
       });
-      return result ?? { results: [], error: 'Memory bridge not available. Use memory_pattern-search instead.' };
+      return (
+        result ?? {
+          results: [],
+          error: 'Memory bridge not available. Use memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { results: [], error: sanitizeError(error) };
     }
@@ -550,13 +683,20 @@ export const memoryHierarchicalRecall: MCPTool = {
 
 export const memoryConsolidate: MCPTool = {
   name: 'memory_consolidate',
-  description: 'Garbage-collect stale, unused memory entries. Weight-aware: entries with high feedback_weight or repeated usage are never collected.',
+  description:
+    'Garbage-collect stale, unused memory entries. Weight-aware: entries with high feedback_weight or repeated usage are never collected.',
   inputSchema: {
     type: 'object',
     properties: {
-      minAge: { type: 'number', description: 'Minimum age in hours since last update (optional, default 168 = 7 days)' },
+      minAge: {
+        type: 'number',
+        description: 'Minimum age in hours since last update (optional, default 168 = 7 days)',
+      },
       maxEntries: { type: 'number', description: 'Maximum entries to scan (optional)' },
-      namespace: { type: 'string', description: "Namespace to GC, or 'all' for every non-protected namespace (optional)" },
+      namespace: {
+        type: 'string',
+        description: "Namespace to GC, or 'all' for every non-protected namespace (optional)",
+      },
     },
   },
   handler: async (params: Record<string, unknown>) => {
@@ -567,17 +707,25 @@ export const memoryConsolidate: MCPTool = {
       // Infinity makes `entry.age >= minAge` always false, silently no-op.
       // The bridge expects MILLISECONDS; this param is documented in hours —
       // convert here (previously passed through raw, so 720 hours became 720ms).
-      const minAge = typeof params.minAge === 'number' && Number.isFinite(params.minAge)
-        ? Math.max(0, Math.min(params.minAge, 24 * 365 * 10)) * 3600 * 1000
-        : undefined;
+      const minAge =
+        typeof params.minAge === 'number' && Number.isFinite(params.minAge)
+          ? Math.max(0, Math.min(params.minAge, 24 * 365 * 10)) * 3600 * 1000
+          : undefined;
       const result = await bridge.bridgeConsolidate({
         minAge,
-        maxEntries: params.maxEntries !== undefined
-          ? validatePositiveInt(params.maxEntries, 1000, 10_000)
-          : undefined,
+        maxEntries:
+          params.maxEntries !== undefined
+            ? validatePositiveInt(params.maxEntries, 1000, 10_000)
+            : undefined,
         namespace: validateString(params.namespace, 'namespace', 128) ?? undefined,
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      return (
+        result ?? {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -617,27 +765,38 @@ export const memoryBatch: MCPTool = {
       const operation = validateString(params.operation, 'operation', 20);
       if (!operation) return { success: false, error: 'operation is required (string)' };
       if (!['insert', 'update', 'delete'].includes(operation)) {
-        return { success: false, error: `Invalid operation: ${operation}. Must be insert, update, or delete` };
+        return {
+          success: false,
+          error: `Invalid operation: ${operation}. Must be insert, update, or delete`,
+        };
       }
       if (!Array.isArray(params.entries) || params.entries.length === 0) {
         return { success: false, error: 'entries is required (non-empty array)' };
       }
       if (params.entries.length > MAX_BATCH_SIZE) {
-        return { success: false, error: `Too many entries: ${params.entries.length}. Max is ${MAX_BATCH_SIZE}` };
+        return {
+          success: false,
+          error: `Too many entries: ${params.entries.length}. Max is ${MAX_BATCH_SIZE}`,
+        };
       }
       // Validate each entry. Aggregate-byte cap prevents 500 entries × 100KB
       // values = 50MB single-call payloads from spiking Node heap to ~200MB
       // (UTF-16 doubling + downstream copies in the bridge layer).
       const MAX_BATCH_BYTES = 1_048_576; // 1 MiB total
       let totalBytes = 0;
-      const validatedEntries: Array<{ key: string; value?: string; metadata?: Record<string, unknown> }> = [];
+      const validatedEntries: Array<{
+        key: string;
+        value?: string;
+        metadata?: Record<string, unknown>;
+      }> = [];
       for (let i = 0; i < params.entries.length; i++) {
         const entry = params.entries[i];
         if (!entry || typeof entry !== 'object') {
           return { success: false, error: `entries[${i}] must be an object` };
         }
         const key = validateString((entry as any).key, `entries[${i}].key`, 1000);
-        if (!key) return { success: false, error: `entries[${i}].key is required (non-empty string)` };
+        if (!key)
+          return { success: false, error: `entries[${i}].key is required (non-empty string)` };
         const value = validateString((entry as any).value, `entries[${i}].value`);
         totalBytes += key.length + (value?.length ?? 0);
         if (totalBytes > MAX_BATCH_BYTES) {
@@ -650,7 +809,13 @@ export const memoryBatch: MCPTool = {
         operation,
         entries: validatedEntries,
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      return (
+        result ?? {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -661,7 +826,8 @@ export const memoryBatch: MCPTool = {
 
 export const memoryContextSynthesize: MCPTool = {
   name: 'memory_context-synthesize',
-  description: 'Concatenate top matching memories into a context block for a query (no summarization)',
+  description:
+    'Concatenate top matching memories into a context block for a query (no summarization)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -673,7 +839,8 @@ export const memoryContextSynthesize: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     try {
       const query = validateString(params.query, 'query', 10_000);
-      if (!query) return { success: false, error: 'query is required (non-empty string, max 10KB)' };
+      if (!query)
+        return { success: false, error: 'query is required (non-empty string, max 10KB)' };
 
       // validateExternalContent: guard against prompt injection in synthesized context
       // Source: https://arxiv.org/abs/2302.12173, https://arxiv.org/abs/2310.12815
@@ -681,7 +848,11 @@ export const memoryContextSynthesize: MCPTool = {
         const { validateExternalContent } = await import('../utils/input-guards.js');
         const check = await validateExternalContent(query, 'memory_context-synthesize query');
         if (!check.safe) {
-          return { success: false, error: `Injection guard: ${check.reason}`, injectionDetected: true };
+          return {
+            success: false,
+            error: `Injection guard: ${check.reason}`,
+            injectionDetected: true,
+          };
         }
       }
 
@@ -690,7 +861,13 @@ export const memoryContextSynthesize: MCPTool = {
         query,
         maxEntries: validatePositiveInt(params.maxEntries, 10, MAX_TOP_K),
       });
-      return result ?? { success: false, error: 'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.' };
+      return (
+        result ?? {
+          success: false,
+          error:
+            'Memory bridge not available. Use memory_pattern-store/memory_pattern-search instead.',
+        }
+      );
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -715,7 +892,9 @@ export const memorySemanticRoute: MCPTool = {
       if (!input) return { route: null, error: 'input is required (non-empty string, max 10KB)' };
       const bridge = await getBridge();
       const result = await bridge.bridgeSemanticRoute({ input });
-      return result ?? { route: null, error: 'Memory bridge not available. Use hooks route instead.' };
+      return (
+        result ?? { route: null, error: 'Memory bridge not available. Use hooks route instead.' }
+      );
     } catch (error) {
       return { route: null, error: sanitizeError(error) };
     }

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { repoContextResource } from '../../mcp-resources/repo-context-resource.js';
 
 function makeDb(): Database.Database {

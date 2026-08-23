@@ -4,7 +4,7 @@
 export function buildClassificationPrompt(
   taskDescription: string,
   capabilityIndex: string,
-  candidateHints: string
+  candidateHints: string,
 ): string {
   return `You are a task routing classifier. Your job is to select the single best agent slug for a given task.
 

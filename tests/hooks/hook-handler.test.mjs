@@ -3,12 +3,12 @@
  * Spawns hook-handler as a child process (it calls process.exit(0) itself)
  * and verifies stdout, exit code, and per-command dispatch behavior.
  */
-import { describe, it, expect } from 'vitest';
-import { spawnSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import { spawnSync } from 'node:child_process';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HANDLER = path.resolve(__dirname, '../../.claude/helpers/hook-handler.cjs');

@@ -1,10 +1,10 @@
-import { readFileSync, statSync } from 'fs';
-import { extname, basename, relative } from 'path';
-import type { PipelinePhase } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel } from '../../types.js';
-import { insertNodes } from '../../storage/node-store.js';
+import { readFileSync, statSync } from 'node:fs';
+import { basename, extname } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
+import { insertNodes } from '../../storage/node-store.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { makeId, toNormLabel } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { StructureOutput } from './structure.js';
 
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.mdx']);
@@ -30,7 +30,7 @@ export const markdownPhase: PipelinePhase<MarkdownOutput> = {
     const documentNodes: MonographNode[] = [];
     const referencesEdges: MonographEdge[] = [];
 
-    const mdFiles = fileNodes.filter(fn => {
+    const mdFiles = fileNodes.filter((fn) => {
       const ext = extname(fn.name).toLowerCase();
       return MARKDOWN_EXTENSIONS.has(ext);
     });
@@ -45,7 +45,9 @@ export const markdownPhase: PipelinePhase<MarkdownOutput> = {
         const stat = statSync(absPath);
         if (stat.size > ctx.options.maxFileSizeBytes) continue;
         source = readFileSync(absPath, 'utf-8');
-      } catch { continue; }
+      } catch {
+        continue;
+      }
 
       const nameWithoutExt = basename(relPath).replace(/\.(mdx?)$/, '');
       // Use 'doc' suffix to avoid collision with the 'file'-suffixed File node

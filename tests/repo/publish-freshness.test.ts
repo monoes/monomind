@@ -38,12 +38,12 @@
  * shipping a dist, this test starts requiring a build.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -250,17 +250,15 @@ describe('tsbuildinfo no-op hazard', () => {
 // ---------------------------------------------------------------------------
 
 describe('publish-pipeline analyzer', () => {
-  it('inlines npm run into npm\'s implicit pre/post chain', () => {
+  it("inlines npm run into npm's implicit pre/post chain", () => {
     const scripts = { prebuild: 'rm -rf dist tsconfig.tsbuildinfo', build: 'tsc' };
     expect(expandScript('npm run build', scripts)).toBe('rm -rf dist tsconfig.tsbuildinfo && tsc');
   });
 
   it('crosses a package boundary for `cd <dir> && npm run build`', () => {
     const foreign = { prebuild: 'rm -rf dist tsconfig.tsbuildinfo', build: 'tsc' };
-    const expanded = expandScript(
-      'cd packages/@monomind/cli && npm run build',
-      {},
-      (d) => (d === 'packages/@monomind/cli' ? foreign : undefined),
+    const expanded = expandScript('cd packages/@monomind/cli && npm run build', {}, (d) =>
+      d === 'packages/@monomind/cli' ? foreign : undefined,
     );
     expect(invokesCompiler(expanded)).toBe(true);
     expect(clearsBuildInfo(expanded)).toBe(true);
@@ -300,9 +298,7 @@ describe('publish-pipeline analyzer', () => {
   it('does not accept a build-fs clean that spares the buildinfo', () => {
     // Cleaning only dist is the exact hazard this guard exists for: tsc sees a
     // surviving buildinfo, decides everything is current, and emits nothing.
-    expect(
-      clearsBuildInfo('node ../../../scripts/build-fs.mjs clean dist && tsc'),
-    ).toBe(false);
+    expect(clearsBuildInfo('node ../../../scripts/build-fs.mjs clean dist && tsc')).toBe(false);
   });
 
   it('rejects a prepublishOnly that never reaches a compiler', () => {
@@ -320,17 +316,14 @@ describe('publish-pipeline analyzer', () => {
 
   it('detects incremental compilation inherited through `extends`', () => {
     // Real files: routing's own tsconfig sets neither flag; the base does.
-    const own = readFileSync(
-      join(REPO_ROOT, 'packages/@monomind/routing/tsconfig.json'),
-      'utf8',
-    );
+    const own = readFileSync(join(REPO_ROOT, 'packages/@monomind/routing/tsconfig.json'), 'utf8');
     expect(/"(composite|incremental)"\s*:\s*true/.test(own)).toBe(false);
     expect(usesIncrementalBuild(join(REPO_ROOT, 'packages/@monomind/routing/tsconfig.json'))).toBe(
       true,
     );
-    expect(usesIncrementalBuild(join(REPO_ROOT, 'packages/@monomind/does-not-exist/tsconfig.json'))).toBe(
-      false,
-    );
+    expect(
+      usesIncrementalBuild(join(REPO_ROOT, 'packages/@monomind/does-not-exist/tsconfig.json')),
+    ).toBe(false);
   });
 
   it('classifies dist-shipping vs source-shipping packages', () => {
@@ -391,11 +384,7 @@ describe('publishable packages cannot ship a stale dist', () => {
           `tarball whatever happens to be on disk.`,
       ).toBeTruthy();
 
-      const expanded = expandScript(
-        scripts.prepublishOnly as string,
-        scripts,
-        resolveForeign,
-      );
+      const expanded = expandScript(scripts.prepublishOnly as string, scripts, resolveForeign);
 
       expect(
         invokesCompiler(expanded),
@@ -443,9 +432,9 @@ describe('no build state is committed', () => {
     expect(
       tracked,
       'A committed tsbuildinfo hands every fresh clone stale incremental state, ' +
-      'which makes tsc skip emitting while still exiting 0. Run ' +
-      '`git rm --cached <file>` — .gitignore already covers the path, but that ' +
-      'has no effect on an already-tracked file.',
+        'which makes tsc skip emitting while still exiting 0. Run ' +
+        '`git rm --cached <file>` — .gitignore already covers the path, but that ' +
+        'has no effect on an already-tracked file.',
     ).toEqual([]);
   });
 });

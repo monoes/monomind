@@ -5,8 +5,8 @@
  * github.com/monoes/monomind
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Derive completion lists from the actual command registry (commands/index.ts)
 // instead of hardcoding them here — hardcoded lists rot as commands are added,
@@ -21,7 +21,7 @@ async function getRegistry(): Promise<Command[]> {
 }
 
 function topLevelCommandNames(commands: Command[]): string[] {
-  return [...commands.map(c => c.name), 'help', 'version'];
+  return [...commands.map((c) => c.name), 'help', 'version'];
 }
 
 /** Map of command name (and aliases) -> subcommand names, for commands that have subcommands. */
@@ -29,7 +29,7 @@ function subcommandMap(commands: Command[]): Record<string, string[]> {
   const map: Record<string, string[]> = {};
   for (const cmd of commands) {
     if (cmd.subcommands && cmd.subcommands.length > 0) {
-      map[cmd.name] = cmd.subcommands.map(s => s.name);
+      map[cmd.name] = cmd.subcommands.map((s) => s.name);
       for (const alias of cmd.aliases ?? []) map[alias] = map[cmd.name];
     }
   }
@@ -39,7 +39,10 @@ function subcommandMap(commands: Command[]): Record<string, string[]> {
 // Generate bash completion script
 function generateBashCompletion(topLevel: string[], subMap: Record<string, string[]>): string {
   const caseArms = Object.entries(subMap)
-    .map(([cmd, subs]) => `        ${cmd})\n            COMPREPLY=( $(compgen -W "${subs.join(' ')}" -- "\${cur}") )\n            return 0\n            ;;`)
+    .map(
+      ([cmd, subs]) =>
+        `        ${cmd})\n            COMPREPLY=( $(compgen -W "${subs.join(' ')}" -- "\${cur}") )\n            return 0\n            ;;`,
+    )
     .join('\n');
 
   return `# monomind bash completion
@@ -73,13 +76,13 @@ complete -F _monomind_completions monomind
 // Generate zsh completion script
 function generateZshCompletion(commandList: Command[], subMap: Record<string, string[]>): string {
   const commandsBlock = commandList
-    .map(c => `        '${c.name}:${c.description.replace(/'/g, '')}'`)
+    .map((c) => `        '${c.name}:${c.description.replace(/'/g, '')}'`)
     .concat([`        'help:Show help'`, `        'version:Show version'`])
     .join('\n');
 
   const caseArms = Object.entries(subMap)
     .map(([cmd, subs]) => {
-      const subLines = subs.map(s => `                        '${s}'`).join('\n');
+      const subLines = subs.map((s) => `                        '${s}'`).join('\n');
       return `                ${cmd})\n                    subcommands=(\n${subLines}\n                    )\n                    ;;`;
     })
     .join('\n');
@@ -122,8 +125,13 @@ _monomind "$@"
 // Generate fish completion script
 function generateFishCompletion(topLevel: string[], subMap: Record<string, string[]>): string {
   const subBlocks = Object.entries(subMap)
-    .map(([cmd, subs]) => `# ${cmd} subcommands\n` +
-      subs.map(sub => `complete -c monomind -n "__fish_seen_subcommand_from ${cmd}" -a "${sub}"`).join('\n'))
+    .map(
+      ([cmd, subs]) =>
+        `# ${cmd} subcommands\n` +
+        subs
+          .map((sub) => `complete -c monomind -n "__fish_seen_subcommand_from ${cmd}" -a "${sub}"`)
+          .join('\n'),
+    )
     .join('\n\n');
 
   return `# monomind fish completion
@@ -134,14 +142,17 @@ function generateFishCompletion(topLevel: string[], subMap: Record<string, strin
 complete -c monomind -f
 
 # Top-level commands
-${topLevel.map(cmd => `complete -c monomind -n "__fish_use_subcommand" -a "${cmd}"`).join('\n')}
+${topLevel.map((cmd) => `complete -c monomind -n "__fish_use_subcommand" -a "${cmd}"`).join('\n')}
 
 ${subBlocks}
 `;
 }
 
 // Generate PowerShell completion script
-function generatePowerShellCompletion(topLevel: string[], subMap: Record<string, string[]>): string {
+function generatePowerShellCompletion(
+  topLevel: string[],
+  subMap: Record<string, string[]>,
+): string {
   const subEntries = Object.entries(subMap)
     .map(([cmd, subs]) => `    '${cmd}' = @('${subs.join("', '")}')`)
     .join('\n');
@@ -184,36 +195,42 @@ Register-ArgumentCompleter -Native -CommandName monomind -ScriptBlock {
 const bashCommand: Command = {
   name: 'bash',
   description: 'Generate bash completion script',
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     const commandList = await getRegistry();
-    const script = generateBashCompletion(topLevelCommandNames(commandList), subcommandMap(commandList));
+    const script = generateBashCompletion(
+      topLevelCommandNames(commandList),
+      subcommandMap(commandList),
+    );
     output.writeln(script);
     return { success: true };
-  }
+  },
 };
 
 // Zsh subcommand
 const zshCommand: Command = {
   name: 'zsh',
   description: 'Generate zsh completion script',
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     const commandList = await getRegistry();
     const script = generateZshCompletion(commandList, subcommandMap(commandList));
     output.writeln(script);
     return { success: true };
-  }
+  },
 };
 
 // Fish subcommand
 const fishCommand: Command = {
   name: 'fish',
   description: 'Generate fish completion script',
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     const commandList = await getRegistry();
-    const script = generateFishCompletion(topLevelCommandNames(commandList), subcommandMap(commandList));
+    const script = generateFishCompletion(
+      topLevelCommandNames(commandList),
+      subcommandMap(commandList),
+    );
     output.writeln(script);
     return { success: true };
-  }
+  },
 };
 
 // PowerShell subcommand
@@ -221,12 +238,15 @@ const powershellCommand: Command = {
   name: 'powershell',
   aliases: ['pwsh'],
   description: 'Generate PowerShell completion script',
-  action: async (ctx: CommandContext): Promise<CommandResult> => {
+  action: async (_ctx: CommandContext): Promise<CommandResult> => {
     const commandList = await getRegistry();
-    const script = generatePowerShellCompletion(topLevelCommandNames(commandList), subcommandMap(commandList));
+    const script = generatePowerShellCompletion(
+      topLevelCommandNames(commandList),
+      subcommandMap(commandList),
+    );
     output.writeln(script);
     return { success: true };
-  }
+  },
 };
 
 // Main completions command
@@ -236,10 +256,22 @@ export const completionsCommand: Command = {
   subcommands: [bashCommand, zshCommand, fishCommand, powershellCommand],
   options: [],
   examples: [
-    { command: 'monomind completions bash > ~/.bash_completion.d/monomind', description: 'Install bash completions' },
-    { command: 'monomind completions zsh > ~/.zfunc/_monomind', description: 'Install zsh completions' },
-    { command: 'monomind completions fish > ~/.config/fish/completions/monomind.fish', description: 'Install fish completions' },
-    { command: 'monomind completions powershell >> $PROFILE', description: 'Install PowerShell completions' }
+    {
+      command: 'monomind completions bash > ~/.bash_completion.d/monomind',
+      description: 'Install bash completions',
+    },
+    {
+      command: 'monomind completions zsh > ~/.zfunc/_monomind',
+      description: 'Install zsh completions',
+    },
+    {
+      command: 'monomind completions fish > ~/.config/fish/completions/monomind.fish',
+      description: 'Install fish completions',
+    },
+    {
+      command: 'monomind completions powershell >> $PROFILE',
+      description: 'Install PowerShell completions',
+    },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -252,7 +284,7 @@ export const completionsCommand: Command = {
       `${output.highlight('bash')}       - Bash completion`,
       `${output.highlight('zsh')}        - Zsh completion`,
       `${output.highlight('fish')}       - Fish completion`,
-      `${output.highlight('powershell')} - PowerShell completion`
+      `${output.highlight('powershell')} - PowerShell completion`,
     ]);
     output.writeln();
     output.writeln('Installation:');
@@ -264,16 +296,20 @@ export const completionsCommand: Command = {
     output.writeln(output.bold('Zsh:'));
     output.writeln(output.dim('  mkdir -p ~/.zfunc'));
     output.writeln(output.dim('  monomind completions zsh > ~/.zfunc/_monomind'));
-    output.writeln(output.dim('  # Add to ~/.zshrc: fpath=(~/.zfunc $fpath); autoload -Uz compinit && compinit'));
+    output.writeln(
+      output.dim('  # Add to ~/.zshrc: fpath=(~/.zfunc $fpath); autoload -Uz compinit && compinit'),
+    );
     output.writeln();
     output.writeln(output.bold('Fish:'));
-    output.writeln(output.dim('  monomind completions fish > ~/.config/fish/completions/monomind.fish'));
+    output.writeln(
+      output.dim('  monomind completions fish > ~/.config/fish/completions/monomind.fish'),
+    );
     output.writeln();
     output.writeln(output.bold('PowerShell:'));
     output.writeln(output.dim('  monomind completions powershell >> $PROFILE'));
 
     return { success: true };
-  }
+  },
 };
 
 export default completionsCommand;

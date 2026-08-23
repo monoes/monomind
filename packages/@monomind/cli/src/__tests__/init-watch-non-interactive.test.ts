@@ -17,12 +17,13 @@
  * to observe the spawn decision — it depends on process.stdout.isTTY, which is
  * false for a piped child exactly as it is for the sandboxes that leaked.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'cli.js');
 
@@ -72,7 +73,11 @@ describe('init does not orphan a watcher in a non-interactive run', () => {
   afterEach(() => {
     // Never let this suite become the thing it is testing for.
     for (const pid of spawned.splice(0)) {
-      try { process.kill(pid); } catch { /* already gone */ }
+      try {
+        process.kill(pid);
+      } catch {
+        /* already gone */
+      }
     }
     rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });

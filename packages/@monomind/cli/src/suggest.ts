@@ -27,7 +27,9 @@ export function levenshteinDistance(a: string, b: string): number {
   }
 
   // Create distance matrix
-  const d: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  const d: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0));
 
   // Initialize first column
   for (let i = 0; i <= m; i++) {
@@ -44,9 +46,9 @@ export function levenshteinDistance(a: string, b: string): number {
     for (let i = 1; i <= m; i++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       d[i][j] = Math.min(
-        d[i - 1][j] + 1,      // deletion
-        d[i][j - 1] + 1,      // insertion
-        d[i - 1][j - 1] + cost // substitution
+        d[i - 1][j] + 1, // deletion
+        d[i][j - 1] + 1, // insertion
+        d[i - 1][j - 1] + cost, // substitution
       );
     }
   }
@@ -74,43 +76,39 @@ export function findSimilar(
     maxSuggestions?: number;
     minSimilarity?: number;
     maxDistance?: number;
-  } = {}
+  } = {},
 ): string[] {
-  const {
-    maxSuggestions = 3,
-    minSimilarity = 0.4,
-    maxDistance = 3
-  } = options;
+  const { maxSuggestions = 3, minSimilarity = 0.4, maxDistance = 3 } = options;
 
   const inputLower = input.toLowerCase();
 
   // Score all candidates
   const scored = candidates
-    .map(candidate => ({
+    .map((candidate) => ({
       candidate,
       distance: levenshteinDistance(inputLower, candidate.toLowerCase()),
       similarity: similarityScore(inputLower, candidate),
       // Boost prefix matches
-      prefixBoost: candidate.toLowerCase().startsWith(inputLower) ? 0.3 : 0
+      prefixBoost: candidate.toLowerCase().startsWith(inputLower) ? 0.3 : 0,
     }))
-    .filter(s => s.distance <= maxDistance || s.similarity >= minSimilarity)
-    .map(s => ({
+    .filter((s) => s.distance <= maxDistance || s.similarity >= minSimilarity)
+    .map((s) => ({
       ...s,
-      score: s.similarity + s.prefixBoost
+      score: s.similarity + s.prefixBoost,
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, maxSuggestions);
 
-  return scored.map(s => s.candidate);
+  return scored.map((s) => s.candidate);
 }
 
 /**
  * Format suggestion message for CLI errors
  */
 export function formatSuggestion(
-  invalidInput: string,
+  _invalidInput: string,
   suggestions: string[],
-  context: 'command' | 'subcommand' | 'option' | 'value' = 'command'
+  context: 'command' | 'subcommand' | 'option' | 'value' = 'command',
 ): string {
   if (suggestions.length === 0) {
     return '';
@@ -120,7 +118,7 @@ export function formatSuggestion(
     command: 'Did you mean',
     subcommand: 'Available subcommands',
     option: 'Did you mean',
-    value: 'Valid values'
+    value: 'Valid values',
   };
 
   const prefix = contextMap[context];
@@ -129,52 +127,52 @@ export function formatSuggestion(
     return `\n  ${prefix}: ${suggestions[0]}`;
   }
 
-  return `\n  ${prefix}:\n${suggestions.map(s => `    - ${s}`).join('\n')}`;
+  return `\n  ${prefix}:\n${suggestions.map((s) => `    - ${s}`).join('\n')}`;
 }
 
 /**
  * Common typos and their corrections
  */
 export const COMMON_TYPOS: Record<string, string> = {
-  'init': 'init',
-  'initi': 'init',
-  'inizialize': 'init',
-  'staus': 'status',
-  'stauts': 'status',
-  'stats': 'stats',
-  'stat': 'status',
-  'swarrm': 'monoswarm',
-  'swarn': 'monoswarm',
-  'monoswrm': 'monoswarm',
-  'moswarm': 'monoswarm',
-  'agnet': 'agent',
-  'agen': 'agent',
-  'memroy': 'memory',
-  'mem': 'memory',
-  'memmory': 'memory',
-  'confg': 'config',
-  'conf': 'config',
-  'configu': 'config',
-  'hook': 'hooks',
-  'hoks': 'hooks',
-  'securty': 'security',
-  'sec': 'security',
-  'perf': 'performance',
-  'performace': 'performance',
-  'provider': 'providers',
+  init: 'init',
+  initi: 'init',
+  inizialize: 'init',
+  staus: 'status',
+  stauts: 'status',
+  stats: 'stats',
+  stat: 'status',
+  swarrm: 'monoswarm',
+  swarn: 'monoswarm',
+  monoswrm: 'monoswarm',
+  moswarm: 'monoswarm',
+  agnet: 'agent',
+  agen: 'agent',
+  memroy: 'memory',
+  mem: 'memory',
+  memmory: 'memory',
+  confg: 'config',
+  conf: 'config',
+  configu: 'config',
+  hook: 'hooks',
+  hoks: 'hooks',
+  securty: 'security',
+  sec: 'security',
+  perf: 'performance',
+  performace: 'performance',
+  provider: 'providers',
 
-  'embed': 'embeddings',
-  'embeding': 'embeddings',
-  'doc': 'doctor',
-  'docter': 'doctor',
-  'complete': 'completions',
-  'completion': 'completions',
-  'comp': 'completions',
-  'task': 'task',
-  'taks': 'task',
-  'sessio': 'session',
-  'sess': 'session',
-  'sesssion': 'session'
+  embed: 'embeddings',
+  embeding: 'embeddings',
+  doc: 'doctor',
+  docter: 'doctor',
+  complete: 'completions',
+  completion: 'completions',
+  comp: 'completions',
+  task: 'task',
+  taks: 'task',
+  sessio: 'session',
+  sess: 'session',
+  sesssion: 'session',
 };
 
 /**
@@ -189,7 +187,7 @@ export function getTypoCorrection(input: string): string | undefined {
  */
 export function suggestCommand(
   unknownCommand: string,
-  availableCommands: string[]
+  availableCommands: string[],
 ): {
   correction?: string;
   suggestions: string[];
@@ -201,7 +199,7 @@ export function suggestCommand(
     return {
       correction,
       suggestions: [correction],
-      message: `Did you mean "${correction}"?`
+      message: `Did you mean "${correction}"?`,
     };
   }
 
@@ -209,26 +207,26 @@ export function suggestCommand(
   const suggestions = findSimilar(unknownCommand, availableCommands, {
     maxSuggestions: 3,
     minSimilarity: 0.3,
-    maxDistance: 4
+    maxDistance: 4,
   });
 
   if (suggestions.length === 0) {
     return {
       suggestions: [],
-      message: 'Run "monomind --help" to see available commands.'
+      message: 'Run "monomind --help" to see available commands.',
     };
   }
 
   if (suggestions.length === 1) {
     return {
       suggestions,
-      message: `Did you mean "${suggestions[0]}"?`
+      message: `Did you mean "${suggestions[0]}"?`,
     };
   }
 
   return {
     suggestions,
-    message: `Did you mean one of these?\n${suggestions.map(s => `  - ${s}`).join('\n')}`
+    message: `Did you mean one of these?\n${suggestions.map((s) => `  - ${s}`).join('\n')}`,
   };
 }
 
@@ -239,5 +237,5 @@ export default {
   formatSuggestion,
   suggestCommand,
   getTypoCorrection,
-  COMMON_TYPOS
+  COMMON_TYPOS,
 };

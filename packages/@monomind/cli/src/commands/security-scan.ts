@@ -2,23 +2,32 @@
  * Security scan commands — code/dep/container scanning and secret detection
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { existsSync, statSync, readFileSync, readdirSync, realpathSync } from 'fs';
-import { join, resolve, sep, relative } from 'path';
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { exportHealthSarif, type SarifHealthFinding } from '@monoes/monograph';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // ─── Shared secret scanning ─────────────────────────────────────────────────
 
 export const SECRET_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
-  { pattern: /['"](?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{20,}['"]/g, type: 'API Key (Stripe/OpenAI)' },
+  {
+    pattern: /['"](?:sk-|sk_live_|sk_test_)[a-zA-Z0-9]{20,}['"]/g,
+    type: 'API Key (Stripe/OpenAI)',
+  },
   { pattern: /['"]AKIA[A-Z0-9]{16}['"]/g, type: 'AWS Access Key' },
   { pattern: /['"]ghp_[a-zA-Z0-9]{36}['"]/g, type: 'GitHub Token' },
   { pattern: /['"]xox[baprs]-[a-zA-Z0-9-]+['"]/g, type: 'Slack Token' },
   { pattern: /password\s*[:=]\s*['"][^'"]{8,}['"]/gi, type: 'Hardcoded Password' },
 ];
 
-export type SecretFinding = { severity: string; type: string; location: string; description: string; rawSeverity?: 'critical' | 'high' | 'medium' | 'low' };
+export type SecretFinding = {
+  severity: string;
+  type: string;
+  location: string;
+  description: string;
+  rawSeverity?: 'critical' | 'high' | 'medium' | 'low';
+};
 
 /**
  * Records what the scanner could NOT look at.
@@ -73,13 +82,19 @@ export function scanHadErrors(c: ScanCoverage): boolean {
 export function describeScanGaps(c: ScanCoverage): string[] {
   const lines: string[] = [];
   if (c.unreadableDirs.length > 0) {
-    lines.push(`${c.unreadableDirs.length} directory(ies) could not be read (e.g. ${c.unreadableDirs[0]})`);
+    lines.push(
+      `${c.unreadableDirs.length} directory(ies) could not be read (e.g. ${c.unreadableDirs[0]})`,
+    );
   }
   if (c.unreadableFiles.length > 0) {
-    lines.push(`${c.unreadableFiles.length} file(s) could not be read (e.g. ${c.unreadableFiles[0]})`);
+    lines.push(
+      `${c.unreadableFiles.length} file(s) could not be read (e.g. ${c.unreadableFiles[0]})`,
+    );
   }
   if (c.depthTruncatedDirs.length > 0) {
-    lines.push(`${c.depthTruncatedDirs.length} directory(ies) not scanned — depth limit reached (use --depth deep)`);
+    lines.push(
+      `${c.depthTruncatedDirs.length} directory(ies) not scanned — depth limit reached (use --depth deep)`,
+    );
   }
   if (c.oversizedFiles.length > 0) {
     lines.push(`${c.oversizedFiles.length} file(s) skipped — larger than 1MB`);
@@ -108,11 +123,20 @@ export function findSecretsInDir(
   coverage.dirsScanned++;
   for (const entry of entries) {
     const isDotEnv = /^\.env(\..+)?$/.test(entry.name);
-    if ((entry.name.startsWith('.') && !isDotEnv) || entry.name === 'node_modules' || entry.name === 'dist') continue;
+    if (
+      (entry.name.startsWith('.') && !isDotEnv) ||
+      entry.name === 'node_modules' ||
+      entry.name === 'dist'
+    )
+      continue;
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
       findSecretsInDir(fullPath, depthLimit - 1, baseDir, findings, coverage);
-    } else if (entry.isFile() && (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) && !entry.name.endsWith('.d.ts')) {
+    } else if (
+      entry.isFile() &&
+      (/\.(ts|js|json|yml|yaml)$/.test(entry.name) || isDotEnv) &&
+      !entry.name.endsWith('.d.ts')
+    ) {
       let content: string;
       try {
         if (statSync(fullPath).size > 1024 * 1024) {
@@ -153,10 +177,19 @@ export function findSecretsInDir(
  * see doc/commands/security.md.
  */
 export function findingsToSarif(
-  findings: Array<{ type: string; location: string; description: string; rawSeverity: 'critical' | 'high' | 'medium' | 'low' }>,
+  findings: Array<{
+    type: string;
+    location: string;
+    description: string;
+    rawSeverity: 'critical' | 'high' | 'medium' | 'low';
+  }>,
 ): SarifHealthFinding[] {
-  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  return findings.map(f => {
+  const slug = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  return findings.map((f) => {
     const lastColon = f.location.lastIndexOf(':');
     const maybeLine = lastColon >= 0 ? Number(f.location.slice(lastColon + 1)) : NaN;
     const hasLine = Number.isFinite(maybeLine) && maybeLine > 0;
@@ -169,8 +202,12 @@ export function findingsToSarif(
       endLine: line,
       ruleId: `security-scan/${slug(f.type)}`,
       message: f.description,
-      severity: f.rawSeverity === 'critical' || f.rawSeverity === 'high' ? 'error'
-        : f.rawSeverity === 'medium' ? 'warning' : 'note',
+      severity:
+        f.rawSeverity === 'critical' || f.rawSeverity === 'high'
+          ? 'error'
+          : f.rawSeverity === 'medium'
+            ? 'warning'
+            : 'note',
     };
   });
 }
@@ -181,23 +218,50 @@ export const scanCommand: Command = {
   name: 'scan',
   description: 'Run security scan on target (code, dependencies)',
   options: [
-    { name: 'target', short: 't', type: 'string', description: 'Target path to scan', default: '.' },
-    { name: 'depth', short: 'd', type: 'string', description: 'Scan depth: quick, standard, deep', default: 'standard' },
+    {
+      name: 'target',
+      short: 't',
+      type: 'string',
+      description: 'Target path to scan',
+      default: '.',
+    },
+    {
+      name: 'depth',
+      short: 'd',
+      type: 'string',
+      description: 'Scan depth: quick, standard, deep',
+      default: 'standard',
+    },
     { name: 'type', type: 'string', description: 'Scan type: code, deps, all', default: 'all' },
-    { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json, sarif', default: 'text' },
-    { name: 'fix', short: 'f', type: 'boolean', description: 'Auto-fix vulnerabilities where possible' },
+    {
+      name: 'output',
+      short: 'o',
+      type: 'string',
+      description: 'Output format: text, json, sarif',
+      default: 'text',
+    },
+    {
+      name: 'fix',
+      short: 'f',
+      type: 'boolean',
+      description: 'Auto-fix vulnerabilities where possible',
+    },
   ],
   examples: [
     { command: 'monomind security scan -t ./src', description: 'Scan source directory' },
-    { command: 'monomind security scan --depth deep --fix', description: 'Deep scan with auto-fix' },
+    {
+      command: 'monomind security scan --depth deep --fix',
+      description: 'Deep scan with auto-fix',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const target = ctx.flags.target as string || '.';
-    const depth = ctx.flags.depth as string || 'standard';
-    const scanType = ctx.flags.type as string || 'all';
+    const target = (ctx.flags.target as string) || '.';
+    const depth = (ctx.flags.depth as string) || 'standard';
+    const scanType = (ctx.flags.type as string) || 'all';
     const fix = ctx.flags.fix as boolean;
     const rawOutputFormat = (ctx.flags.output as string) || 'text';
-    const outputFormat = rawOutputFormat === 'json' || rawOutputFormat === 'sarif' ? rawOutputFormat : 'text';
+    const outputFormat =
+      rawOutputFormat === 'json' || rawOutputFormat === 'sarif' ? rawOutputFormat : 'text';
 
     if (scanType === 'container') {
       output.printError('container scanning is not implemented — no container engine exists');
@@ -225,14 +289,23 @@ export const scanCommand: Command = {
     const spinner = output.createSpinner({ text: `Scanning ${target}...`, spinner: 'dots' });
     spinner.start();
 
-    const findings: Array<{ severity: string; type: string; location: string; description: string; rawSeverity: 'critical' | 'high' | 'medium' | 'low' }> = [];
+    const findings: Array<{
+      severity: string;
+      type: string;
+      location: string;
+      description: string;
+      rawSeverity: 'critical' | 'high' | 'medium' | 'low';
+    }> = [];
     const coverage = createScanCoverage();
-    let criticalCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
+    let criticalCount = 0,
+      highCount = 0,
+      mediumCount = 0,
+      lowCount = 0;
 
     try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const { execSync } = await import('child_process');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const { execSync } = await import('node:child_process');
 
       if (scanType === 'all' || scanType === 'deps') {
         spinner.setText('Checking dependencies with npm audit...');
@@ -255,29 +328,55 @@ export const scanCommand: Command = {
             try {
               const audit = JSON.parse(auditResult);
               if (audit.vulnerabilities) {
-                for (const [pkg, vuln] of Object.entries(audit.vulnerabilities as Record<string, { severity: string; via: Array<string | { title?: string; url?: string }> }>)) {
+                for (const [pkg, vuln] of Object.entries(
+                  audit.vulnerabilities as Record<
+                    string,
+                    { severity: string; via: Array<string | { title?: string; url?: string }> }
+                  >,
+                )) {
                   const sev = vuln.severity || 'low';
                   const firstVia = Array.isArray(vuln.via) ? vuln.via[0] : undefined;
-                  const title = firstVia && typeof firstVia === 'object' && firstVia.title ? firstVia.title : 'Vulnerability';
+                  const title =
+                    firstVia && typeof firstVia === 'object' && firstVia.title
+                      ? firstVia.title
+                      : 'Vulnerability';
                   if (sev === 'critical') criticalCount++;
                   else if (sev === 'high') highCount++;
                   else if (sev === 'moderate' || sev === 'medium') mediumCount++;
                   else lowCount++;
 
                   findings.push({
-                    severity: sev === 'critical' ? output.error('CRITICAL') :
-                              sev === 'high' ? output.warning('HIGH') :
-                              sev === 'moderate' || sev === 'medium' ? output.warning('MEDIUM') : output.info('LOW'),
+                    severity:
+                      sev === 'critical'
+                        ? output.error('CRITICAL')
+                        : sev === 'high'
+                          ? output.warning('HIGH')
+                          : sev === 'moderate' || sev === 'medium'
+                            ? output.warning('MEDIUM')
+                            : output.info('LOW'),
                     type: 'Dependency CVE',
                     location: `package.json:${pkg}`,
                     description: title.substring(0, 35),
-                    rawSeverity: sev === 'critical' ? 'critical' : sev === 'high' ? 'high' : sev === 'moderate' || sev === 'medium' ? 'medium' : 'low',
+                    rawSeverity:
+                      sev === 'critical'
+                        ? 'critical'
+                        : sev === 'high'
+                          ? 'high'
+                          : sev === 'moderate' || sev === 'medium'
+                            ? 'medium'
+                            : 'low',
                   });
                 }
               }
-            } catch (e) { /* JSON parse failed */ if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[security-scan] failed to parse npm audit output:', e); }
+            } catch (e) {
+              /* JSON parse failed */ if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+                console.error('[security-scan] failed to parse npm audit output:', e);
+            }
           }
-        } catch (e) { /* npm audit failed */ if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[security-scan] dependency check failed:', e); }
+        } catch (e) {
+          /* npm audit failed */ if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+            console.error('[security-scan] dependency check failed:', e);
+        }
       }
 
       if (scanType === 'all' || scanType === 'code') {
@@ -291,11 +390,36 @@ export const scanCommand: Command = {
       if ((scanType === 'all' || scanType === 'code') && depth !== 'quick') {
         spinner.setText('Analyzing code patterns...');
         const codePatterns = [
-          { pattern: /eval\s*\(/g, type: 'Eval Usage', severity: 'medium', desc: 'eval() can execute arbitrary code' },
-          { pattern: /innerHTML\s*=/g, type: 'innerHTML', severity: 'medium', desc: 'XSS risk with innerHTML' },
-          { pattern: /dangerouslySetInnerHTML/g, type: 'React XSS', severity: 'medium', desc: 'React XSS risk' },
-          { pattern: /child_process.*exec[^S]/g, type: 'Command Injection', severity: 'high', desc: 'Possible command injection' },
-          { pattern: /\$\{.*\}.*sql|sql.*\$\{/gi, type: 'SQL Injection', severity: 'high', desc: 'Possible SQL injection' },
+          {
+            pattern: /eval\s*\(/g,
+            type: 'Eval Usage',
+            severity: 'medium',
+            desc: 'eval() can execute arbitrary code',
+          },
+          {
+            pattern: /innerHTML\s*=/g,
+            type: 'innerHTML',
+            severity: 'medium',
+            desc: 'XSS risk with innerHTML',
+          },
+          {
+            pattern: /dangerouslySetInnerHTML/g,
+            type: 'React XSS',
+            severity: 'medium',
+            desc: 'React XSS risk',
+          },
+          {
+            pattern: /child_process.*exec[^S]/g,
+            type: 'Command Injection',
+            severity: 'high',
+            desc: 'Possible command injection',
+          },
+          {
+            pattern: /\$\{.*\}.*sql|sql.*\$\{/gi,
+            type: 'SQL Injection',
+            severity: 'high',
+            desc: 'Possible SQL injection',
+          },
         ];
 
         // Same coverage accounting as findSecretsInDir: gaps are recorded, never
@@ -314,11 +438,20 @@ export const scanCommand: Command = {
             return;
           }
           for (const entry of entries) {
-            if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
+            if (
+              entry.name.startsWith('.') ||
+              entry.name === 'node_modules' ||
+              entry.name === 'dist'
+            )
+              continue;
             const fullPath = path.join(dir, entry.name);
             if (entry.isDirectory()) {
               scanCodeDir(fullPath, depthLimit - 1);
-            } else if (entry.isFile() && /\.(ts|js|tsx|jsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+            } else if (
+              entry.isFile() &&
+              /\.(ts|js|tsx|jsx)$/.test(entry.name) &&
+              !entry.name.endsWith('.d.ts')
+            ) {
               let content: string;
               try {
                 if (fs.statSync(fullPath).size > 1024 * 1024) {
@@ -339,7 +472,8 @@ export const scanCommand: Command = {
                     if (severity === 'high') highCount++;
                     else mediumCount++;
                     findings.push({
-                      severity: severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
+                      severity:
+                        severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
                       type,
                       location: `${path.relative(target, fullPath)}:${i + 1}`,
                       description: desc,
@@ -369,7 +503,7 @@ export const scanCommand: Command = {
           target,
           depth,
           type: scanType,
-          findings: findings.map(f => ({
+          findings: findings.map((f) => ({
             severity: f.rawSeverity,
             type: f.type,
             location: f.location,
@@ -403,10 +537,15 @@ export const scanCommand: Command = {
           ],
           data: findings.slice(0, 20),
         });
-        if (findings.length > 20) output.writeln(output.dim(`... and ${findings.length - 20} more issues`));
+        if (findings.length > 20)
+          output.writeln(output.dim(`... and ${findings.length - 20} more issues`));
       } else if (gaps.length > 0) {
         // Never present an incomplete scan as a clean bill of health.
-        output.writeln(output.warning('No security issues found in the parts that could be scanned — coverage was INCOMPLETE (see below).'));
+        output.writeln(
+          output.warning(
+            'No security issues found in the parts that could be scanned — coverage was INCOMPLETE (see below).',
+          ),
+        );
       } else {
         output.writeln(output.success('No security issues found!'));
       }
@@ -419,17 +558,20 @@ export const scanCommand: Command = {
         }
 
         output.writeln();
-        output.printBox([
-          `Target: ${target}`,
-          `Depth: ${depth}`,
-          `Type: ${scanType}`,
-          ``,
-          `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
-          `Total Issues: ${findings.length}`,
-          ``,
-          `Coverage: ${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned`,
-          `Coverage status: ${gaps.length === 0 ? 'complete' : `INCOMPLETE (${gaps.length} gap type(s))`}`,
-        ].join('\n'), 'Scan Summary');
+        output.printBox(
+          [
+            `Target: ${target}`,
+            `Depth: ${depth}`,
+            `Type: ${scanType}`,
+            ``,
+            `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
+            `Total Issues: ${findings.length}`,
+            ``,
+            `Coverage: ${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned`,
+            `Coverage status: ${gaps.length === 0 ? 'complete' : `INCOMPLETE (${gaps.length} gap type(s))`}`,
+          ].join('\n'),
+          'Scan Summary',
+        );
       }
 
       if (fix && criticalCount + highCount > 0) {
@@ -437,20 +579,31 @@ export const scanCommand: Command = {
         const cwd = realpathSync(process.cwd());
         if (!resolvedTarget.startsWith(cwd + path.sep) && resolvedTarget !== cwd) {
           output.writeln();
-          output.printError('--fix is only allowed when --target is within the current working directory');
+          output.printError(
+            '--fix is only allowed when --target is within the current working directory',
+          );
           return { success: false };
         }
         output.writeln();
-        const fixSpinner = output.createSpinner({ text: 'Attempting to fix vulnerabilities...', spinner: 'dots' });
+        const fixSpinner = output.createSpinner({
+          text: 'Attempting to fix vulnerabilities...',
+          spinner: 'dots',
+        });
         fixSpinner.start();
         try {
-          execSync('npm audit fix', { cwd: resolvedTarget, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+          execSync('npm audit fix', {
+            cwd: resolvedTarget,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
           fixSpinner.succeed('completed (verify with a re-scan)');
         } catch (fixErr) {
           // npm audit fix exits non-zero when it can't resolve everything
           // automatically — surface that instead of reporting success.
           const status = (fixErr as { status?: number })?.status;
-          fixSpinner.fail(`npm audit fix exited with ${status ?? 'an error'} — some fixes could not be applied automatically (verify with a re-scan)`);
+          fixSpinner.fail(
+            `npm audit fix exited with ${status ?? 'an error'} — some fixes could not be applied automatically (verify with a re-scan)`,
+          );
         }
       }
 
@@ -474,15 +627,24 @@ export const secretsCommand: Command = {
   description: 'Detect hardcoded secrets in codebase',
   options: [
     { name: 'path', short: 'p', type: 'string', description: 'Path to scan', default: '.' },
-    { name: 'depth', short: 'd', type: 'string', description: 'Scan depth: quick, standard, deep', default: 'standard' },
+    {
+      name: 'depth',
+      short: 'd',
+      type: 'string',
+      description: 'Scan depth: quick, standard, deep',
+      default: 'standard',
+    },
   ],
   examples: [
     { command: 'monomind security secrets', description: 'Scan current directory for secrets' },
-    { command: 'monomind security secrets -p ./src --depth deep', description: 'Deep scan of src directory' },
+    {
+      command: 'monomind security secrets -p ./src --depth deep',
+      description: 'Deep scan of src directory',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const targetPath = ctx.flags.path as string || '.';
-    const depth = ctx.flags.depth as string || 'standard';
+    const targetPath = (ctx.flags.path as string) || '.';
+    const depth = (ctx.flags.depth as string) || 'standard';
 
     if (targetPath !== '.') {
       try {
@@ -519,7 +681,11 @@ export const secretsCommand: Command = {
 
     output.writeln();
     if (findings.length === 0 && gaps.length > 0) {
-      output.writeln(output.warning('No secrets found in the parts that could be scanned — coverage was INCOMPLETE.'));
+      output.writeln(
+        output.warning(
+          'No secrets found in the parts that could be scanned — coverage was INCOMPLETE.',
+        ),
+      );
     } else if (findings.length === 0) {
       output.writeln(output.success('No secrets found.'));
     } else {
@@ -543,9 +709,9 @@ export const secretsCommand: Command = {
     output.writeln();
     output.writeln(
       output.bold('Summary: ') +
-      `${findings.length} secret(s) found in ${targetPath} ` +
-      `(${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned, ` +
-      `coverage ${gaps.length === 0 ? 'complete' : 'INCOMPLETE'})`,
+        `${findings.length} secret(s) found in ${targetPath} ` +
+        `(${coverage.filesScanned} file(s) in ${coverage.dirsScanned} dir(s) scanned, ` +
+        `coverage ${gaps.length === 0 ? 'complete' : 'INCOMPLETE'})`,
     );
 
     // Read errors mean the tree was not fully examined — "no secrets" is not

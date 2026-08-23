@@ -23,8 +23,8 @@ function buildAdjacency(
       selfLoops.add(src);
       continue;
     }
-    adj.get(src)!.push(tgt);
-    radj.get(tgt)!.push(src);
+    adj.get(src)?.push(tgt);
+    radj.get(tgt)?.push(src);
   }
   return { adj, radj, selfLoops };
 }
@@ -93,7 +93,7 @@ function fetchGraphRows(db: MonographDb): {
     source_id: string;
     target_id: string;
   }[];
-  return { nodes: nodeRows.map(r => r.id), edgeRows };
+  return { nodes: nodeRows.map((r) => r.id), edgeRows };
 }
 
 /**
@@ -179,20 +179,14 @@ export function findCycles(db: MonographDb): string[][] {
  * @param nodeToFile - Optional map from node id to file path for resolving paths
  * @returns Structured text output suitable for LLM consumption
  */
-export function formatCycles(
-  cycles: string[][],
-  nodeToFile?: Map<string, string>,
-): string {
+export function formatCycles(cycles: string[][], nodeToFile?: Map<string, string>): string {
   if (cycles.length === 0) {
     return 'cycles: none\nstatus: no circular dependencies detected\n';
   }
 
   const resolve = (id: string): string => nodeToFile?.get(id) ?? id;
 
-  const lines: string[] = [
-    `cycles: ${cycles.length} circular dependency group(s) found`,
-    '',
-  ];
+  const lines: string[] = [`cycles: ${cycles.length} circular dependency group(s) found`, ''];
 
   // Sort by cycle length ascending, then alphabetically
   const sorted = [...cycles].sort((a, b) => {
@@ -214,7 +208,7 @@ export function formatCycles(
     lines.push('');
   });
 
-  const selfLoopCount = sorted.filter(c => c.length === 1).length;
+  const selfLoopCount = sorted.filter((c) => c.length === 1).length;
   const multiNodeCount = sorted.length - selfLoopCount;
   lines.push(`summary: ${multiNodeCount} multi-node cycle(s), ${selfLoopCount} self-loop(s)`);
 

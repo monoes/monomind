@@ -1,9 +1,7 @@
-import { execSync } from 'child_process';
-
 export type EmailMode = 'raw' | 'handle' | 'hash';
 
 export const DRIFT_MIN_FILE_AGE_DAYS = 30;
-export const DRIFT_MAX_ORIGINAL_SHARE = 0.10;
+export const DRIFT_MAX_ORIGINAL_SHARE = 0.1;
 
 export interface ContributorEntry {
   email: string;
@@ -63,7 +61,7 @@ export function computeBusFactor(contributors: ContributorEntry[]): number {
 }
 
 export function detectDrift(
-  filePath: string,
+  _filePath: string,
   contributors: ContributorEntry[],
   originalAuthor: string,
   fileAgeDays: number,

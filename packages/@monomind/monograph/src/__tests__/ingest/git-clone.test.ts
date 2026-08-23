@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { validateGitUrl, extractRepoName, getCloneDir } from '../../ingest/git-clone.js';
-import os from 'os';
-import path from 'path';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { extractRepoName, getCloneDir, validateGitUrl } from '../../ingest/git-clone.js';
 
 // ── validateGitUrl ─────────────────────────────────────────────────────────────
 

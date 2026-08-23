@@ -9,19 +9,15 @@
  * nothing is destroyed, re-running is safe, and a partial run can be resumed.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import initSqlJs from 'sql.js';
 import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { BetterSqliteDriver, type SqlDriver, SqlJsDriver } from './sql-driver.js';
 import {
-  BetterSqliteDriver,
-  SqlJsDriver,
-  type SqlDriver,
-} from './sql-driver.js';
-import {
-  initializeSchema,
   createCanonicalSchema,
-  migrateLegacyInlineEmbeddings,
   hasLegacyInlineEmbedding,
+  initializeSchema,
+  migrateLegacyInlineEmbeddings,
 } from './sql-schema.js';
 
 /** The pre-unification sql.js schema: one table, embedding stored inline. */
@@ -83,7 +79,11 @@ for (const d of DRIVERS) {
     });
 
     afterEach(() => {
-      try { driver.close(); } catch { /* already closed */ }
+      try {
+        driver.close();
+      } catch {
+        /* already closed */
+      }
     });
 
     it('creates the canonical four-table schema', () => {
@@ -93,7 +93,12 @@ for (const d of DRIVERS) {
         .map((r) => String(r.name))
         .sort();
       expect(tables).toEqual(
-        expect.arrayContaining(['agent_reads', 'memory_embeddings', 'memory_entries', 'memory_entry_tags']),
+        expect.arrayContaining([
+          'agent_reads',
+          'memory_embeddings',
+          'memory_entries',
+          'memory_entry_tags',
+        ]),
       );
     });
 
@@ -119,7 +124,7 @@ for (const d of DRIVERS) {
 
       const row = driver.get('SELECT embedding FROM memory_embeddings WHERE entry_id = ?', ['a']);
       expect(row).not.toBeNull();
-      expect(Array.from(row!.embedding as Uint8Array)).toEqual(Array.from(vec));
+      expect(Array.from(row?.embedding as Uint8Array)).toEqual(Array.from(vec));
     });
 
     it('does not fabricate embeddings for rows that had none', () => {
@@ -129,7 +134,9 @@ for (const d of DRIVERS) {
 
       const report = migrateLegacyInlineEmbeddings(driver);
       expect(report.migrated).toBe(0);
-      expect(driver.get('SELECT entry_id FROM memory_embeddings WHERE entry_id = ?', ['a'])).toBeNull();
+      expect(
+        driver.get('SELECT entry_id FROM memory_embeddings WHERE entry_id = ?', ['a']),
+      ).toBeNull();
     });
 
     it('preserves the legacy column — migration copies, never destroys', () => {
@@ -140,7 +147,7 @@ for (const d of DRIVERS) {
       migrateLegacyInlineEmbeddings(driver);
 
       const original = driver.get('SELECT embedding FROM memory_entries WHERE id = ?', ['a']);
-      expect(Array.from(original!.embedding as Uint8Array)).toEqual(Array.from(vec));
+      expect(Array.from(original?.embedding as Uint8Array)).toEqual(Array.from(vec));
     });
 
     it('is idempotent — a second run migrates nothing and changes nothing', () => {
@@ -185,9 +192,17 @@ for (const d of DRIVERS) {
       driver.exec(LEGACY_SCHEMA);
       // Two rows sharing namespace+key — only the newest should survive.
       insertLegacyRow(driver, 'old', new Uint8Array([1]));
-      driver.run('UPDATE memory_entries SET key = ?, updated_at = ? WHERE id = ?', ['dup', 1, 'old']);
+      driver.run('UPDATE memory_entries SET key = ?, updated_at = ? WHERE id = ?', [
+        'dup',
+        1,
+        'old',
+      ]);
       insertLegacyRow(driver, 'new', new Uint8Array([2]));
-      driver.run('UPDATE memory_entries SET key = ?, updated_at = ? WHERE id = ?', ['dup', 99, 'new']);
+      driver.run('UPDATE memory_entries SET key = ?, updated_at = ? WHERE id = ?', [
+        'dup',
+        99,
+        'new',
+      ]);
 
       initializeSchema(driver);
 
@@ -237,7 +252,9 @@ describe('driver behaviour parity', () => {
           [id, `k-${id}`],
         );
       }
-      const seen = [...driver.iterate('SELECT id FROM memory_entries ORDER BY id')].map((r) => String(r.id));
+      const seen = [...driver.iterate('SELECT id FROM memory_entries ORDER BY id')].map((r) =>
+        String(r.id),
+      );
       expect(seen).toEqual(['a', 'b', 'c']);
       driver.close();
     });

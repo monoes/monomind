@@ -19,11 +19,11 @@ function stripNonCodeBraces(src: string): string {
   // Replace content inside single/double-quoted strings and block comments with
   // equal-length spaces (preserving offsets/line numbers), then strip line comments.
   return src
-    .replace(/`[^`\\]*(?:\\[\s\S][^`\\]*)*`/g, m => ' '.repeat(m.length))
-    .replace(/"(?:[^"\\]|\\.)*"/g, m => ' '.repeat(m.length))
-    .replace(/'(?:[^'\\]|\\.)*'/g, m => ' '.repeat(m.length))
-    .replace(/\/\*[\s\S]*?\*\//g, m => ' '.repeat(m.length))
-    .replace(/\/\/[^\n]*/g, m => ' '.repeat(m.length));
+    .replace(/`[^`\\]*(?:\\[\s\S][^`\\]*)*`/g, (m) => ' '.repeat(m.length))
+    .replace(/"(?:[^"\\]|\\.)*"/g, (m) => ' '.repeat(m.length))
+    .replace(/'(?:[^'\\]|\\.)*'/g, (m) => ' '.repeat(m.length))
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => ' '.repeat(m.length))
+    .replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length));
 }
 
 export function extractVariables(source: string, filePath: string): VariableInfo[] {

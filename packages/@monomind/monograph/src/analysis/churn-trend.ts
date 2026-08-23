@@ -15,9 +15,11 @@ export function computeChurnTrend(timestampsEpochSec: number[]): ChurnTrend {
   }
   if (maxTs === minTs) return 'stable';
   const midpoint = minTs + (maxTs - minTs) / 2;
-  let recent = 0, older = 0;
+  let recent = 0,
+    older = 0;
   for (const ts of timestampsEpochSec) {
-    if (ts > midpoint) recent++; else older++;
+    if (ts > midpoint) recent++;
+    else older++;
   }
   if (older < 1) return 'stable';
   const ratio = recent / older;
@@ -27,13 +29,19 @@ export function computeChurnTrend(timestampsEpochSec: number[]): ChurnTrend {
 }
 
 export function churnTrendLabel(trend: ChurnTrend): string {
-  return trend === 'accelerating' ? '↑ accelerating' : trend === 'cooling' ? '↓ cooling' : '→ stable';
+  return trend === 'accelerating'
+    ? '↑ accelerating'
+    : trend === 'cooling'
+      ? '↓ cooling'
+      : '→ stable';
 }
 
 export function churnTrendFromFileSeries(fileTimestamps: number[][]): ChurnTrend {
   // Avoid allocating an intermediate flat array — inline the min/max/count logic
   if (fileTimestamps.length === 0) return 'stable';
-  let minTs = Infinity, maxTs = -Infinity, total = 0;
+  let minTs = Infinity,
+    maxTs = -Infinity,
+    total = 0;
   for (const series of fileTimestamps) {
     for (const ts of series) {
       if (ts < minTs) minTs = ts;
@@ -43,10 +51,12 @@ export function churnTrendFromFileSeries(fileTimestamps: number[][]): ChurnTrend
   }
   if (total < 2 || maxTs === minTs) return 'stable';
   const midpoint = minTs + (maxTs - minTs) / 2;
-  let recent = 0, older = 0;
+  let recent = 0,
+    older = 0;
   for (const series of fileTimestamps) {
     for (const ts of series) {
-      if (ts > midpoint) recent++; else older++;
+      if (ts > midpoint) recent++;
+      else older++;
     }
   }
   if (older < 1) return 'stable';

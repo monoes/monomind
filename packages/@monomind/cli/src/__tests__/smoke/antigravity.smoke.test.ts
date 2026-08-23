@@ -9,8 +9,9 @@
  *   MONOMIND_SMOKE=1 npx vitest run --reporter=dot \
  *     src/__tests__/smoke/antigravity.smoke.test.ts
  */
-import { describe, it, expect } from 'vitest';
+
 import { execSync } from 'node:child_process';
+import { describe, expect, it } from 'vitest';
 import { AntigravityAgentRunner } from '../../orgrt/antigravity-runner.js';
 
 const SMOKE = process.env.MONOMIND_SMOKE === '1';
@@ -33,7 +34,9 @@ describe.skipIf(!SMOKE || !AGY_OK)('AntigravityAgentRunner — Gemini Pro smoke 
 
     const gen = runner.run({
       tools: [],
-      prompt: (async function* () { yield 'Reply with exactly: AGY_OK'; })(),
+      prompt: (async function* () {
+        yield 'Reply with exactly: AGY_OK';
+      })(),
       systemPrompt: 'You are a test echo. Follow instructions exactly.',
       model: 'gemini-3.6-flash-high',
       cwd: '/tmp',
@@ -44,13 +47,13 @@ describe.skipIf(!SMOKE || !AGY_OK)('AntigravityAgentRunner — Gemini Pro smoke 
     for await (const m of gen) messages.push(m);
 
     const assistantText = messages
-      .filter(m => m.type === 'assistant')
-      .map(m => m.text ?? '')
+      .filter((m) => m.type === 'assistant')
+      .map((m) => m.text ?? '')
       .join('');
     expect(assistantText.length).toBeGreaterThan(0);
 
-    const result = messages.find(m => m.type === 'result');
+    const result = messages.find((m) => m.type === 'result');
     expect(result).toBeDefined();
-    expect(result!.input_tokens + result!.output_tokens).toBeGreaterThan(0);
+    expect(result?.input_tokens + result?.output_tokens).toBeGreaterThan(0);
   }, 120_000);
 });

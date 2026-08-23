@@ -1,11 +1,11 @@
+import { EventEmitter } from 'node:events';
+import { extname } from 'node:path';
 import chokidar from 'chokidar';
-import { EventEmitter } from 'events';
 import { isSupportedExtension } from '../parsers/loader.js';
 import type { PipelineProgress } from '../types.js';
-import { extname } from 'path';
 
 export interface WatcherOptions {
-  debounceMs?: number;  // default 3000ms
+  debounceMs?: number; // default 3000ms
 }
 
 export interface WatchAsyncOptions extends WatcherOptions {
@@ -31,7 +31,10 @@ export async function watchAsync(
     if (idleMs <= 0) return;
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
-      opts.onProgress?.({ phase: 'watch', message: `No changes for ${Math.round(idleMs / 60_000)}min — auto-stopping watcher.` });
+      opts.onProgress?.({
+        phase: 'watch',
+        message: `No changes for ${Math.round(idleMs / 60_000)}min — auto-stopping watcher.`,
+      });
       watcher.stop().catch(() => {});
     }, idleMs);
     (idleTimer as { unref?: () => void }).unref?.();
@@ -47,9 +50,16 @@ export async function watchAsync(
     fullRebuildTimer = setTimeout(async () => {
       if (!incrementalSinceLastFull) return;
       incrementalSinceLastFull = false;
-      opts.onProgress?.({ phase: 'watch', message: 'Deferred full rebuild for aggregate analysis...' });
+      opts.onProgress?.({
+        phase: 'watch',
+        message: 'Deferred full rebuild for aggregate analysis...',
+      });
       try {
-        await buildAsync(repoPath, { onProgress: opts.onProgress, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
+        await buildAsync(repoPath, {
+          onProgress: opts.onProgress,
+          codeOnly: opts.codeOnly,
+          llmMaxSections: opts.llmMaxSections ?? 0,
+        });
         opts.onProgress?.({ phase: 'watch', message: 'Full rebuild complete.' });
       } catch (err) {
         watcher.emit('monograph:error', err);
@@ -72,15 +82,20 @@ export async function watchAsync(
         opts.onProgress?.({ phase: 'watch', message: `Changed: ${batch.slice(0, 3).join(', ')}` });
         try {
           await buildIncrementalAsync(repoPath, batch, {
-            onProgress: opts.onProgress, force: opts.force,
-            codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0,
+            onProgress: opts.onProgress,
+            force: opts.force,
+            codeOnly: opts.codeOnly,
+            llmMaxSections: opts.llmMaxSections ?? 0,
           });
           incrementalSinceLastFull = true;
           scheduleFullRebuild();
           opts.onProgress?.({ phase: 'watch', message: 'Graph updated (incremental).' });
         } catch (err) {
           watcher.emit('monograph:error', err);
-          opts.onProgress?.({ phase: 'watch', message: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}` });
+          opts.onProgress?.({
+            phase: 'watch',
+            message: `Rebuild failed: ${err instanceof Error ? err.message : String(err)}`,
+          });
         }
       }
     } finally {
@@ -105,7 +120,10 @@ export class MonographWatcher extends EventEmitter {
   private pendingChanges = new Set<string>();
   private readonly debounceMs: number;
 
-  constructor(private readonly repoPath: string, opts: WatcherOptions = {}) {
+  constructor(
+    private readonly repoPath: string,
+    opts: WatcherOptions = {},
+  ) {
     super();
     this.debounceMs = opts.debounceMs ?? 3000;
   }
@@ -118,7 +136,7 @@ export class MonographWatcher extends EventEmitter {
 
     this.watcher = chokidar.watch(this.repoPath, {
       ignored: [
-        /(^|[/\\])\../,     // dotfiles
+        /(^|[/\\])\../, // dotfiles
         /node_modules/,
         /\.monomind/,
         /dist\//,
@@ -135,7 +153,7 @@ export class MonographWatcher extends EventEmitter {
     this.watcher.on('unlink', (path: string) => this.handleChange(path));
     this.watcher.on('error', (err: unknown) => this.emit('monograph:error', err));
 
-    await new Promise<void>(resolve => this.watcher!.once('ready', resolve));
+    await new Promise<void>((resolve) => this.watcher?.once('ready', resolve));
   }
 
   async stop(): Promise<void> {

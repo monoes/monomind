@@ -4,17 +4,23 @@
  * Queries all activated capabilities via CapabilityManager.search() and
  * renders merged, score-ranked results grouped by content type.
  */
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import type { SearchResult, CapabilityName, DirectoryScan } from '../capabilities/types.js';
-import { CapabilityManager } from '../capabilities/manager.js';
-import { loadFingerprint, listFiles, scanDirectory, saveFingerprint } from '../capabilities/scanner.js';
+
+import path from 'node:path';
 import { codeCapability } from '../capabilities/cap-code.js';
-import { documentsCapability } from '../capabilities/cap-documents.js';
-import { mediaCapability } from '../capabilities/cap-media.js';
 import { dataCapability } from '../capabilities/cap-data.js';
+import { documentsCapability } from '../capabilities/cap-documents.js';
 import { graphCapability } from '../capabilities/cap-graph.js';
+import { mediaCapability } from '../capabilities/cap-media.js';
 import { timelineCapability } from '../capabilities/cap-timeline.js';
-import path from 'path';
+import { CapabilityManager } from '../capabilities/manager.js';
+import {
+  listFiles,
+  loadFingerprint,
+  saveFingerprint,
+  scanDirectory,
+} from '../capabilities/scanner.js';
+import type { CapabilityName, DirectoryScan, SearchResult } from '../capabilities/types.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 const TYPE_ICONS: Record<string, string> = {
   documents: '📄',
@@ -34,11 +40,13 @@ const TYPE_LABELS: Record<string, string> = {
   timeline: 'Timeline',
 };
 
-export function groupByType(results: SearchResult[]): Partial<Record<CapabilityName, SearchResult[]>> {
+export function groupByType(
+  results: SearchResult[],
+): Partial<Record<CapabilityName, SearchResult[]>> {
   const grouped: Partial<Record<CapabilityName, SearchResult[]>> = {};
   for (const r of results) {
     if (!grouped[r.type]) grouped[r.type] = [];
-    grouped[r.type]!.push(r);
+    grouped[r.type]?.push(r);
   }
   return grouped;
 }
@@ -78,7 +86,7 @@ export async function runCapabilityScan(cwd: string): Promise<DirectoryScan> {
 
 function isFingerprintStale(scannedAt: string): boolean {
   const ts = new Date(scannedAt).getTime();
-  return isNaN(ts) || Date.now() - ts > FINGERPRINT_MAX_AGE_MS;
+  return Number.isNaN(ts) || Date.now() - ts > FINGERPRINT_MAX_AGE_MS;
 }
 
 const scanSubcommand: Command = {
@@ -94,7 +102,9 @@ const scanSubcommand: Command = {
 
       for (const [name, score] of Object.entries(scan.capabilities)) {
         if (score.confidence > 0.1) {
-          console.log(`  ✓ ${name} (${(score.confidence * 100).toFixed(0)}% confidence, ${score.files} files)`);
+          console.log(
+            `  ✓ ${name} (${(score.confidence * 100).toFixed(0)}% confidence, ${score.files} files)`,
+          );
         }
       }
 
@@ -120,7 +130,10 @@ export const searchUniversalCommand: Command = {
   ],
   examples: [
     { command: 'monomind search "auth middleware"', description: 'Search all content types' },
-    { command: 'monomind search scan', description: 'Rescan directory and update capability fingerprint' },
+    {
+      command: 'monomind search scan',
+      description: 'Rescan directory and update capability fingerprint',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.args.join(' ');
@@ -133,12 +146,19 @@ export const searchUniversalCommand: Command = {
 
     // Auto-scan when the fingerprint is missing or stale instead of bailing out
     if (!fingerprint || isFingerprintStale(fingerprint.scannedAt)) {
-      console.log(fingerprint ? 'Capability fingerprint is stale — rescanning...' : 'No directory scan found — scanning...');
+      console.log(
+        fingerprint
+          ? 'Capability fingerprint is stale — rescanning...'
+          : 'No directory scan found — scanning...',
+      );
       try {
         const scan = await runCapabilityScan(ctx.cwd);
         fingerprint = { version: 1, ...scan };
       } catch (err) {
-        return { success: false, message: `Scan failed: ${err instanceof Error ? err.message : String(err)}` };
+        return {
+          success: false,
+          message: `Scan failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
       }
     }
 
@@ -158,16 +178,17 @@ export const searchUniversalCommand: Command = {
         await module.index(files);
       }
     } catch (err) {
-      return { success: false, message: `Failed to load capabilities: ${err instanceof Error ? err.message : String(err)}` };
+      return {
+        success: false,
+        message: `Failed to load capabilities: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
 
     const limit = (ctx.flags.limit as number) ?? 20;
     const results = await mgr.search(query, limit);
 
     const typeFilter = ctx.flags.type as CapabilityName | undefined;
-    const filteredResults = typeFilter
-      ? results.filter((r) => r.type === typeFilter)
-      : results;
+    const filteredResults = typeFilter ? results.filter((r) => r.type === typeFilter) : results;
 
     const output = formatSearchResults(filteredResults);
     console.log(output);

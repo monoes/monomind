@@ -3,8 +3,8 @@
 
 export interface ExternalStyleImport {
   importingFile: string;
-  stylePath: string;     // resolved path under node_modules
-  packageName: string;   // e.g. "bootstrap", "@mui/x-data-grid"
+  stylePath: string; // resolved path under node_modules
+  packageName: string; // e.g. "bootstrap", "@mui/x-data-grid"
 }
 
 export interface ExternalStyleScanResult {
@@ -20,7 +20,7 @@ const AT_IMPORT_RE = /@import\s+['"]([^'"]+)['"]/g;
 export function isTrackableExternalStylePath(path: string): boolean {
   const norm = path.replace(/\\/g, '/');
   if (!norm.includes('node_modules/')) return false;
-  return STYLE_EXTS.some(ext => norm.endsWith(ext));
+  return STYLE_EXTS.some((ext) => norm.endsWith(ext));
 }
 
 /** Extract the npm package name from a node_modules path. */
@@ -61,7 +61,10 @@ export function augmentExternalStylePackageUsage(
     injectedEdges.push({ importingFile, stylePath, packageName });
 
     if (getSource && !visited.has(stylePath)) {
-      if (visited.size > 500) { skippedCycles++; return; }
+      if (visited.size > 500) {
+        skippedCycles++;
+        return;
+      }
       visited.add(stylePath);
       scannedFiles++;
       const src = getSource(stylePath);

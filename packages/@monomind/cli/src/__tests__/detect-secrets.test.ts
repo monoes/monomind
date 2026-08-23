@@ -9,11 +9,15 @@
  *      point it at any readable path on disk and get real credentials
  *      echoed back into the calling LLM's context.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { handler, type DetectSecretsInput } from '../mcp-tools/quality/security-compliance/detect-secrets.js';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  type DetectSecretsInput,
+  handler,
+} from '../mcp-tools/quality/security-compliance/detect-secrets.js';
 
 // Built at runtime (not a literal) so it matches the aws-key pattern without
 // this test file itself looking like it contains a real credential.

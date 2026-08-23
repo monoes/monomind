@@ -24,11 +24,11 @@
  */
 
 import {
-  bridgeStoreEntry,
-  bridgeSearchEntries,
-  bridgeListEntries,
-  bridgeGetEntry,
   bridgeDeleteEntry,
+  bridgeGetEntry,
+  bridgeListEntries,
+  bridgeSearchEntries,
+  bridgeStoreEntry,
 } from './memory-bridge.js';
 
 export const KG_NODES_NS = 'kg:nodes';
@@ -68,7 +68,12 @@ export interface KgIngestResult {
 
 /** cognee DataPoint normalization: lowercase, spaces→_, strip apostrophes. */
 export function normalizeName(name: string): string {
-  return String(name).trim().toLowerCase().replace(/['’]/g, '').replace(/\s+/g, '_').slice(0, MAX_NAME_LEN);
+  return String(name)
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, MAX_NAME_LEN);
 }
 
 /** Identity is NAME-ONLY (cognee's Entity.identity_fields = ["name"]) — type
@@ -95,7 +100,10 @@ export async function kgIngest(options: {
   dbPath?: string;
 }): Promise<KgIngestResult> {
   const { originRef, dbPath } = options;
-  let nodesAdded = 0, nodesMerged = 0, edgesAdded = 0, edgesMerged = 0;
+  let nodesAdded = 0,
+    nodesMerged = 0,
+    edgesAdded = 0,
+    edgesMerged = 0;
 
   try {
     const keyByName = new Map<string, string>();
@@ -127,7 +135,10 @@ export async function kgIngest(options: {
           tags: ['kg', normalizeName(bestType), ...(n.nodeSet ? [normalizeName(n.nodeSet)] : [])],
           metadata: {
             ...md,
-            kg: 'node', type: bestType, name: n.name, description: bestDesc,
+            kg: 'node',
+            type: bestType,
+            name: n.name,
+            description: bestDesc,
             node_set: n.nodeSet ?? md.node_set ?? null,
             origin_refs: origins.slice(-100),
             version: (typeof md.version === 'number' ? md.version : 1) + 1,
@@ -145,7 +156,10 @@ export async function kgIngest(options: {
           upsert: true,
           tags: ['kg', normalizeName(type), ...(n.nodeSet ? [normalizeName(n.nodeSet)] : [])],
           metadata: {
-            kg: 'node', type, name: n.name, description: desc,
+            kg: 'node',
+            type,
+            name: n.name,
+            description: desc,
             node_set: n.nodeSet ?? null,
             origin_refs: [originRef],
             version: 1,
@@ -159,8 +173,10 @@ export async function kgIngest(options: {
 
     for (const e of (options.edges ?? []).slice(0, 1000)) {
       if (!e?.source?.trim() || !e?.target?.trim() || !e?.relation?.trim()) continue;
-      const srcKey = keyByName.get(normalizeName(e.source)) ?? nodeKey(e.sourceType ?? 'entity', e.source);
-      const dstKey = keyByName.get(normalizeName(e.target)) ?? nodeKey(e.targetType ?? 'entity', e.target);
+      const srcKey =
+        keyByName.get(normalizeName(e.source)) ?? nodeKey(e.sourceType ?? 'entity', e.source);
+      const dstKey =
+        keyByName.get(normalizeName(e.target)) ?? nodeKey(e.targetType ?? 'entity', e.target);
       const key = edgeKey(srcKey, e.relation, dstKey);
       const desc = (e.description ?? '').slice(0, MAX_DESC_LEN);
 
@@ -190,9 +206,12 @@ export async function kgIngest(options: {
           generateEmbeddingFlag: false,
           tags: ['kg', normalizeName(e.relation)],
           metadata: {
-            kg: 'edge', src: srcKey, dst: dstKey,
+            kg: 'edge',
+            src: srcKey,
+            dst: dstKey,
             relation: normalizeName(e.relation),
-            source_name: e.source, target_name: e.target,
+            source_name: e.source,
+            target_name: e.target,
             description: desc,
             origin_refs: [originRef],
             valid_from: Date.now(),
@@ -206,7 +225,11 @@ export async function kgIngest(options: {
     return { success: true, nodesAdded, nodesMerged, edgesAdded, edgesMerged };
   } catch (err) {
     return {
-      success: false, nodesAdded, nodesMerged, edgesAdded, edgesMerged,
+      success: false,
+      nodesAdded,
+      nodesMerged,
+      edgesAdded,
+      edgesMerged,
       error: err instanceof Error ? err.message : String(err),
     };
   }
@@ -242,10 +265,17 @@ export async function kgIngestRules(options: {
   try {
     for (const r of (options.rules ?? []).slice(0, 50)) {
       const rule = r?.rule?.trim();
-      if (!rule || rule.length < 8) { verdicts.push({ rule: r?.rule ?? '', verdict: 'invalid' }); continue; }
+      if (!rule || rule.length < 8) {
+        verdicts.push({ rule: r?.rule ?? '', verdict: 'invalid' });
+        continue;
+      }
 
       const similar = await bridgeSearchEntries({
-        query: rule, namespace: RULES_NS, limit: 1, threshold, dbPath: options.dbPath,
+        query: rule,
+        namespace: RULES_NS,
+        limit: 1,
+        threshold,
+        dbPath: options.dbPath,
       });
       const top = similar?.results?.[0];
       // Issue #111: FTS5 keyword scores are min-max normalized per batch.
@@ -259,7 +289,7 @@ export async function kgIngestRules(options: {
       const isSemantic = top?.provenance?.startsWith('semantic:');
       let isDuplicate = false;
       if (top && isSemantic) {
-        const rawCosine = parseFloat(top.provenance!.slice('semantic:'.length));
+        const rawCosine = parseFloat(top.provenance?.slice('semantic:'.length));
         isDuplicate = rawCosine >= threshold;
       } else if (top) {
         // Keyword-only: only suppress true near-exact duplicates.
@@ -268,19 +298,24 @@ export async function kgIngestRules(options: {
         isDuplicate = existing === candidate;
       }
       if (isDuplicate) {
-        verdicts.push({ rule, verdict: 'already_known', similarTo: top!.key });
+        verdicts.push({ rule, verdict: 'already_known', similarTo: top?.key });
         continue;
       }
 
       const key = `rule:${normalizeName(rule).slice(0, 120)}`;
       await bridgeStoreEntry({
-        key, value: rule + (r.context ? `\n(context: ${r.context.slice(0, 500)})` : ''),
-        namespace: RULES_NS, dbPath: options.dbPath, upsert: true,
+        key,
+        value: rule + (r.context ? `\n(context: ${r.context.slice(0, 500)})` : ''),
+        namespace: RULES_NS,
+        dbPath: options.dbPath,
+        upsert: true,
         tags: ['rule'],
         metadata: { origin_refs: [options.originRef], derived_from: options.originRef },
       });
       await kgIngest({
-        nodes: [{ name: rule.slice(0, MAX_NAME_LEN), type: 'Rule', description: rule, nodeSet: 'rules' }],
+        nodes: [
+          { name: rule.slice(0, MAX_NAME_LEN), type: 'Rule', description: rule, nodeSet: 'rules' },
+        ],
         originRef: options.originRef,
         dbPath: options.dbPath,
       });
@@ -289,14 +324,26 @@ export async function kgIngestRules(options: {
     }
     return { success: true, verdicts, accepted };
   } catch (err) {
-    return { success: false, verdicts, accepted, error: err instanceof Error ? err.message : String(err) };
+    return {
+      success: false,
+      verdicts,
+      accepted,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
 /** List stored rules (for injection or review). */
-export async function kgListRules(options?: { dbPath?: string; limit?: number }): Promise<{ rule: string; key: string }[]> {
-  const res = await bridgeListEntries({ namespace: RULES_NS, limit: options?.limit ?? 50, dbPath: options?.dbPath });
-  return (res?.entries ?? []).map(e => ({ rule: e.content, key: e.key }));
+export async function kgListRules(options?: {
+  dbPath?: string;
+  limit?: number;
+}): Promise<{ rule: string; key: string }[]> {
+  const res = await bridgeListEntries({
+    namespace: RULES_NS,
+    limit: options?.limit ?? 50,
+    dbPath: options?.dbPath,
+  });
+  return (res?.entries ?? []).map((e) => ({ rule: e.content, key: e.key }));
 }
 
 // ── Search ──────────────────────────────────────────────────────────
@@ -321,12 +368,16 @@ export async function kgSearch(options: {
   try {
     const limit = options.limit ?? 8;
     const seedsRes = await bridgeSearchEntries({
-      query: options.query, namespace: KG_NODES_NS, limit: 15, threshold: 0.25, dbPath: options.dbPath,
+      query: options.query,
+      namespace: KG_NODES_NS,
+      limit: 15,
+      threshold: 0.25,
+      dbPath: options.dbPath,
     });
     let seedResults = seedsRes?.results ?? [];
     if (options.nodeSet) {
       const ns = normalizeName(options.nodeSet);
-      seedResults = seedResults.filter(r => (r.tags ?? []).includes(ns));
+      seedResults = seedResults.filter((r) => (r.tags ?? []).includes(ns));
     }
     if (!seedResults.length) return { success: true, context: '', triplets: [], seeds: [] };
 
@@ -334,21 +385,28 @@ export async function kgSearch(options: {
     for (const s of seedResults) seedScore.set(s.key, s.score);
 
     // Full edge scan (see monolean note in module header).
-    const edgesRes = await bridgeListEntries({ namespace: KG_EDGES_NS, limit: MAX_LIST, dbPath: options.dbPath });
-    const edges = (edgesRes?.entries ?? []).filter(e => {
+    const edgesRes = await bridgeListEntries({
+      namespace: KG_EDGES_NS,
+      limit: MAX_LIST,
+      dbPath: options.dbPath,
+    });
+    const edges = (edgesRes?.entries ?? []).filter((e) => {
       const md = e.metadata as Record<string, unknown>;
       return md?.kg === 'edge' && md.valid_to == null;
     });
 
     const triplets = edges
-      .map(e => {
+      .map((e) => {
         const md = e.metadata as Record<string, unknown>;
-        const src = String(md.src ?? ''); const dst = String(md.dst ?? '');
-        const sSrc = seedScore.get(src) ?? 0; const sDst = seedScore.get(dst) ?? 0;
+        const src = String(md.src ?? '');
+        const dst = String(md.dst ?? '');
+        const sSrc = seedScore.get(src) ?? 0;
+        const sDst = seedScore.get(dst) ?? 0;
         if (sSrc === 0 && sDst === 0) return null;
         // Both endpoints seeded beats one; the unseeded endpoint contributes a
         // neutral 0.35 so bridging edges from a strong seed still surface.
-        const score = (Math.max(sSrc, 0.35) + Math.max(sDst, 0.35)) / 2 + (sSrc > 0 && sDst > 0 ? 0.1 : 0);
+        const score =
+          (Math.max(sSrc, 0.35) + Math.max(sDst, 0.35)) / 2 + (sSrc > 0 && sDst > 0 ? 0.1 : 0);
         return {
           source: String(md.source_name ?? src),
           relation: String(md.relation ?? 'related_to'),
@@ -361,7 +419,7 @@ export async function kgSearch(options: {
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
 
-    const seeds = seedResults.slice(0, limit).map(s => {
+    const seeds = seedResults.slice(0, limit).map((s) => {
       // metadata is not in search results; parse from rendered content "name — description"
       const dash = s.content.indexOf(' — ');
       return {
@@ -374,29 +432,42 @@ export async function kgSearch(options: {
     });
 
     const context = [
-      ...triplets.map(t => `${t.source} —${t.relation}→ ${t.target}${t.fact && t.fact !== `${t.source} ${t.relation} ${t.target}` ? ` (${t.fact})` : ''}`),
-      ...(triplets.length ? [] : seeds.map(s => `${s.name}: ${s.description}`)),
+      ...triplets.map(
+        (t) =>
+          `${t.source} —${t.relation}→ ${t.target}${t.fact && t.fact !== `${t.source} ${t.relation} ${t.target}` ? ` (${t.fact})` : ''}`,
+      ),
+      ...(triplets.length ? [] : seeds.map((s) => `${s.name}: ${s.description}`)),
     ].join('\n');
 
     return { success: true, context, triplets, seeds };
   } catch (err) {
-    return { success: false, context: '', triplets: [], seeds: [], error: err instanceof Error ? err.message : String(err) };
+    return {
+      success: false,
+      context: '',
+      triplets: [],
+      seeds: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
 // ── Glossary (anti-duplicate-entity injection for extraction prompts) ──
 
 export async function kgGlossary(options?: { dbPath?: string; limit?: number }): Promise<string[]> {
-  const res = await bridgeListEntries({ namespace: KG_NODES_NS, limit: MAX_LIST, dbPath: options?.dbPath });
+  const res = await bridgeListEntries({
+    namespace: KG_NODES_NS,
+    limit: MAX_LIST,
+    dbPath: options?.dbPath,
+  });
   const nodes = (res?.entries ?? [])
     // Glossary is for ENTITY name reuse — rule prose and extraction-source
     // Session nodes would drown it.
-    .filter(e => {
+    .filter((e) => {
       const md = e.metadata as Record<string, unknown>;
       const t = String(md?.type ?? '').toLowerCase();
       return md?.node_set !== 'rules' && t !== 'rule' && t !== 'session';
     })
-    .map(e => {
+    .map((e) => {
       const md = e.metadata as Record<string, unknown>;
       const fw = typeof md.feedback_weight === 'number' ? md.feedback_weight : 0.5;
       const freq = typeof md.frequency_weight === 'number' ? md.frequency_weight : 0;
@@ -426,10 +497,15 @@ export async function kgRollback(options: {
   originRef: string;
   dbPath?: string;
 }): Promise<{ success: boolean; deleted: number; retained: number; error?: string }> {
-  let deleted = 0, retained = 0;
+  let deleted = 0,
+    retained = 0;
   try {
     for (const ns of [KG_NODES_NS, KG_EDGES_NS, RULES_NS]) {
-      const res = await bridgeListEntries({ namespace: ns, limit: MAX_LIST, dbPath: options.dbPath });
+      const res = await bridgeListEntries({
+        namespace: ns,
+        limit: MAX_LIST,
+        dbPath: options.dbPath,
+      });
       for (const e of res?.entries ?? []) {
         const origins = (e.metadata as Record<string, unknown>)?.origin_refs;
         if (!Array.isArray(origins) || !origins.includes(options.originRef)) continue;
@@ -443,7 +519,12 @@ export async function kgRollback(options: {
     }
     return { success: true, deleted, retained };
   } catch (err) {
-    return { success: false, deleted, retained, error: err instanceof Error ? err.message : String(err) };
+    return {
+      success: false,
+      deleted,
+      retained,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -483,29 +564,37 @@ export async function kgConsolidateCandidates(options?: {
       edgesByNode.set(end, list);
     }
   }
-  return (nodesRes?.entries ?? [])
-    .map(n => {
-      const md = n.metadata as Record<string, unknown>;
-      const facts = edgesByNode.get(n.key) ?? [];
-      return {
-        name: String(md.name ?? n.key),
-        type: String(md.type ?? 'entity'),
-        description: String(md.description ?? ''),
-        edgeCount: facts.length,
-        neighborhood: facts.slice(0, 12),
-      };
-    })
-    // Cap the growth target at MAX_DESC_LEN — a very-high-degree node whose
-    // description is already at the cap can never "grow out" of candidacy and
-    // would otherwise permanently occupy a slot.
-    .filter(c => c.edgeCount >= minEdges && c.description.length < Math.min(40 * c.edgeCount, MAX_DESC_LEN))
-    .sort((a, b) => b.edgeCount - a.edgeCount)
-    .slice(0, options?.limit ?? 10);
+  return (
+    (nodesRes?.entries ?? [])
+      .map((n) => {
+        const md = n.metadata as Record<string, unknown>;
+        const facts = edgesByNode.get(n.key) ?? [];
+        return {
+          name: String(md.name ?? n.key),
+          type: String(md.type ?? 'entity'),
+          description: String(md.description ?? ''),
+          edgeCount: facts.length,
+          neighborhood: facts.slice(0, 12),
+        };
+      })
+      // Cap the growth target at MAX_DESC_LEN — a very-high-degree node whose
+      // description is already at the cap can never "grow out" of candidacy and
+      // would otherwise permanently occupy a slot.
+      .filter(
+        (c) =>
+          c.edgeCount >= minEdges &&
+          c.description.length < Math.min(40 * c.edgeCount, MAX_DESC_LEN),
+      )
+      .sort((a, b) => b.edgeCount - a.edgeCount)
+      .slice(0, options?.limit ?? 10)
+  );
 }
 
 // ── Stats ───────────────────────────────────────────────────────────
 
-export async function kgStats(options?: { dbPath?: string }): Promise<{ nodes: number; edges: number; rules: number }> {
+export async function kgStats(options?: {
+  dbPath?: string;
+}): Promise<{ nodes: number; edges: number; rules: number }> {
   const [n, e, r] = await Promise.all([
     bridgeListEntries({ namespace: KG_NODES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
     bridgeListEntries({ namespace: KG_EDGES_NS, limit: MAX_LIST, dbPath: options?.dbPath }),
@@ -521,20 +610,74 @@ export async function kgStats(options?: { dbPath?: string }): Promise<{ nodes: n
  *  co-occurrence becomes relates_to edges. Lower-trust by design — real
  *  entity/relation quality comes from the LLM path (memory_kg_ingest called
  *  by the live agent, or the org coordinator's org_learn tool). */
-export function heuristicExtract(text: string, opts?: { sourceName?: string }): { nodes: KgNodeInput[]; edges: KgEdgeInput[] } {
+export function heuristicExtract(
+  text: string,
+  opts?: { sourceName?: string },
+): { nodes: KgNodeInput[]; edges: KgEdgeInput[] } {
   const nodes = new Map<string, KgNodeInput>();
   const edges: KgEdgeInput[] = [];
   const src = String(text || '').slice(0, 50_000);
 
   const sentences = src.split(/(?<=[.!?])\s+|\n+/).slice(0, 400);
-  const STOPWORDS = new Set(['The', 'This', 'That', 'These', 'Those', 'It', 'A', 'An', 'If', 'When', 'While', 'But', 'And', 'Or', 'For', 'Then', 'Also', 'Not', 'No', 'Yes', 'I', 'We', 'You', 'They', 'He', 'She', 'Run', 'Outcome', 'Assets', 'Goal', 'Org',
-    'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December',
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
+  const STOPWORDS = new Set([
+    'The',
+    'This',
+    'That',
+    'These',
+    'Those',
+    'It',
+    'A',
+    'An',
+    'If',
+    'When',
+    'While',
+    'But',
+    'And',
+    'Or',
+    'For',
+    'Then',
+    'Also',
+    'Not',
+    'No',
+    'Yes',
+    'I',
+    'We',
+    'You',
+    'They',
+    'He',
+    'She',
+    'Run',
+    'Outcome',
+    'Assets',
+    'Goal',
+    'Org',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ]);
 
   for (const sentence of sentences) {
     const found: string[] = [];
     // Proper-noun phrases: consecutive Capitalized words (2-40 chars each).
-    for (const m of sentence.matchAll(/\b([A-Z][a-zA-Z0-9_-]{1,40}(?:\s+[A-Z][a-zA-Z0-9_-]{1,40}){0,3})\b/g)) {
+    for (const m of sentence.matchAll(
+      /\b([A-Z][a-zA-Z0-9_-]{1,40}(?:\s+[A-Z][a-zA-Z0-9_-]{1,40}){0,3})\b/g,
+    )) {
       const phrase = m[1];
       if (STOPWORDS.has(phrase)) continue;
       found.push(phrase);
@@ -545,20 +688,40 @@ export function heuristicExtract(text: string, opts?: { sourceName?: string }): 
     const uniq = [...new Set(found)].slice(0, 8);
     for (const name of uniq) {
       if (!nodes.has(normalizeName(name))) {
-        nodes.set(normalizeName(name), { name, type: /[./`(]/.test(name) ? 'CodeElement' : 'Entity', description: sentence.trim().slice(0, 300) });
+        nodes.set(normalizeName(name), {
+          name,
+          type: /[./`(]/.test(name) ? 'CodeElement' : 'Entity',
+          description: sentence.trim().slice(0, 300),
+        });
       }
     }
     // Co-occurrence edges within a sentence (first mention chains to the rest).
     for (let i = 1; i < uniq.length && i < 4; i++) {
-      edges.push({ source: uniq[0], target: uniq[i], relation: 'relates_to', description: sentence.trim().slice(0, 300) });
+      edges.push({
+        source: uniq[0],
+        target: uniq[i],
+        relation: 'relates_to',
+        description: sentence.trim().slice(0, 300),
+      });
     }
   }
 
   if (opts?.sourceName) {
-    const srcNode: KgNodeInput = { name: opts.sourceName, type: 'Session', description: 'extraction source' };
+    const srcNode: KgNodeInput = {
+      name: opts.sourceName,
+      type: 'Session',
+      description: 'extraction source',
+    };
     nodes.set(normalizeName(opts.sourceName), srcNode);
     for (const n of [...nodes.values()].slice(0, 30)) {
-      if (n.name !== opts.sourceName) edges.push({ source: n.name, target: opts.sourceName, relation: 'mentioned_in', sourceType: n.type, targetType: 'Session' });
+      if (n.name !== opts.sourceName)
+        edges.push({
+          source: n.name,
+          target: opts.sourceName,
+          relation: 'mentioned_in',
+          sourceType: n.type,
+          targetType: 'Session',
+        });
     }
   }
 

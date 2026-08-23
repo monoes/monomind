@@ -1,6 +1,3 @@
-export * from './types.js';
-export { scanDirectory, saveFingerprint, loadFingerprint } from './scanner.js';
-export { CapabilityManager } from './manager.js';
 // `FileWatcher` (./watcher.ts) was deleted 2026-07: it was built, exported and
 // unit-tested but never instantiated anywhere in production. Nothing in the
 // capabilities pipeline watches files — `search scan` re-fingerprints on demand
@@ -27,8 +24,11 @@ export { CapabilityManager } from './manager.js';
 // with main after the rewrite, so it can never be merged; read it with
 // `git show feat/universal-second-brain:<path>`).
 export { codeCapability } from './cap-code.js';
+export { dataCapability } from './cap-data.js';
 export { documentsCapability } from './cap-documents.js';
+export { graphCapability } from './cap-graph.js';
 export { mediaCapability } from './cap-media.js';
 export { timelineCapability } from './cap-timeline.js';
-export { graphCapability } from './cap-graph.js';
-export { dataCapability } from './cap-data.js';
+export { CapabilityManager } from './manager.js';
+export { loadFingerprint, saveFingerprint, scanDirectory } from './scanner.js';
+export * from './types.js';

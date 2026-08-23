@@ -1,9 +1,9 @@
-import {
-  type Confidence,
-  type EffortEstimate,
-  type RecommendationCategory,
-  type RefactoringTarget,
-  type TargetThresholds,
+import type {
+  Confidence,
+  EffortEstimate,
+  RecommendationCategory,
+  RefactoringTarget,
+  TargetThresholds,
 } from './target-types.js';
 
 export interface FileScoreInput {
@@ -29,22 +29,19 @@ export function computeThresholds(files: FileScoreInput[]): TargetThresholds {
     return { fanInP95: 5, fanInP75: 3, fanInP25: 2, fanOutP95: 8, fanOutP90: 5 };
   }
 
-  const fanIns = [...files.map(f => f.fanIn)].sort((a, b) => a - b);
-  const fanOuts = [...files.map(f => f.fanOut)].sort((a, b) => a - b);
+  const fanIns = [...files.map((f) => f.fanIn)].sort((a, b) => a - b);
+  const fanOuts = [...files.map((f) => f.fanOut)].sort((a, b) => a - b);
 
   return {
     fanInP95: Math.max(5, percentileFromSorted(fanIns, 0.95)),
     fanInP75: Math.max(3, percentileFromSorted(fanIns, 0.75)),
     fanInP25: Math.max(2, percentileFromSorted(fanIns, 0.25)),
     fanOutP95: Math.max(8, percentileFromSorted(fanOuts, 0.95)),
-    fanOutP90: Math.max(5, percentileFromSorted(fanOuts, 0.90)),
+    fanOutP90: Math.max(5, percentileFromSorted(fanOuts, 0.9)),
   };
 }
 
-function computePriority(
-  file: FileScoreInput,
-  thresholds: TargetThresholds,
-): number {
+function computePriority(file: FileScoreInput, thresholds: TargetThresholds): number {
   const densityNorm = Math.min(file.complexity ?? 0, 1.0);
   const fanInNorm = Math.min(file.fanIn / thresholds.fanInP95, 1.0);
   const fanOutNorm = Math.min(file.fanOut / thresholds.fanOutP95, 1.0);
@@ -52,11 +49,7 @@ function computePriority(
   const deadCode = file.deadCodeRatio ?? 0;
 
   const priority =
-    densityNorm * 30 +
-    hotspotBoost * 25 +
-    deadCode * 20 +
-    fanInNorm * 15 +
-    fanOutNorm * 10;
+    densityNorm * 30 + hotspotBoost * 25 + deadCode * 20 + fanInNorm * 15 + fanOutNorm * 10;
 
   return Math.round(Math.min(Math.max(priority, 0), 100) * 10) / 10;
 }
@@ -85,10 +78,14 @@ function effortForFile(file: FileScoreInput, thresholds: TargetThresholds): Effo
 
 function effortNumeric(effort: EffortEstimate): number {
   switch (effort) {
-    case 'Low': return 1;
-    case 'Medium': return 2;
-    case 'High': return 3;
-    case 'VeryHigh': return 4;
+    case 'Low':
+      return 1;
+    case 'Medium':
+      return 2;
+    case 'High':
+      return 3;
+    case 'VeryHigh':
+      return 4;
   }
 }
 

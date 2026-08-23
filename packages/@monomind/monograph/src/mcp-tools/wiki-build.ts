@@ -1,5 +1,5 @@
 import type { MonographDb } from '../storage/db.js';
-import type { LlmClient, GenerateAllWikiPagesOptions } from '../wiki/wiki-generator.js';
+import type { GenerateAllWikiPagesOptions, LlmClient } from '../wiki/wiki-generator.js';
 import { generateAllWikiPages } from '../wiki/wiki-generator.js';
 
 export interface WikiBuildToolInput {

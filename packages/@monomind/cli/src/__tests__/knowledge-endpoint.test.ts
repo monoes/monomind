@@ -14,13 +14,14 @@
  *  - writeDashboardToken: a secondary instance must NOT clobber the primary
  *    project pairing file; it writes dashboard-token-<port> instead
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawn, type ChildProcess } from 'node:child_process';
+
+import { type ChildProcess, spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const CLI_ROOT = path.resolve(__dirname, '..', '..');
 const SERVER_MJS = path.join(CLI_ROOT, 'dist', 'src', 'ui', 'server.mjs');
@@ -57,7 +58,11 @@ let serverB: ChildProcess | null = null;
 function projectStoreDir(cwd: string): string {
   const resolved = path.resolve(cwd);
   const hash = crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 16);
-  const readable = path.basename(resolved).replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 40) || 'project';
+  const readable =
+    path
+      .basename(resolved)
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .slice(0, 40) || 'project';
   return path.join(os.homedir(), '.monomind', 'projects', `${readable}-${hash}`);
 }
 
@@ -104,12 +109,14 @@ async function waitForBind(requestedPort: number, timeoutMs = 20_000): Promise<v
     try {
       const rep = JSON.parse(fs.readFileSync(reportFile, 'utf-8')) as { port?: number };
       if (rep.port === requestedPort) return;
-      throw new Error(`server bound :${rep.port} instead of requested :${requestedPort} — port collision, free it or change the test port`);
+      throw new Error(
+        `server bound :${rep.port} instead of requested :${requestedPort} — port collision, free it or change the test port`,
+      );
     } catch (e) {
       if (e instanceof Error && /bound :/.test(e.message)) throw e;
       /* report not written yet */
     }
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 200));
   }
   throw new Error(`server on :${requestedPort} did not report a bind within ${timeoutMs}ms`);
 }
@@ -119,7 +126,7 @@ async function waitForBind(requestedPort: number, timeoutMs = 20_000): Promise<v
 async function waitForFile(name: string, timeoutMs = 5000): Promise<void> {
   const fp = path.join(tmpDir, '.monomind', name);
   const deadline = Date.now() + timeoutMs;
-  while (!fs.existsSync(fp) && Date.now() < deadline) await new Promise(r => setTimeout(r, 150));
+  while (!fs.existsSync(fp) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 150));
   if (!fs.existsSync(fp)) {
     // Include the server's stderr tail when this is a port-scoped token —
     // on a timeout the log is the only evidence of what the child was doing.
@@ -129,7 +136,9 @@ async function waitForFile(name: string, timeoutMs = 5000): Promise<void> {
       try {
         const log = fs.readFileSync(path.join(tmpDir, `server-${m[1]}.log`), 'utf-8');
         logTail = `\nserver-${m[1]}.log tail:\n${log.slice(-1500)}`;
-      } catch { /* no log */ }
+      } catch {
+        /* no log */
+      }
     }
     throw new Error(`${name} was not written within ${timeoutMs}ms${logTail}`);
   }
@@ -141,8 +150,10 @@ async function waitForServer(port: number, timeoutMs = 20_000): Promise<void> {
     try {
       await fetch(`http://127.0.0.1:${port}/api/status`, { signal: AbortSignal.timeout(1000) });
       return; // any HTTP answer means it's up (401 included)
-    } catch { /* not up yet */ }
-    await new Promise(r => setTimeout(r, 300));
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((r) => setTimeout(r, 300));
   }
   throw new Error(`server on :${port} did not come up within ${timeoutMs}ms`);
 }
@@ -184,8 +195,12 @@ function seedKg(): Promise<void> {
       stdio: ['ignore', 'ignore', 'pipe'],
     });
     let err = '';
-    child.stderr?.on('data', d => { err += d; });
-    child.on('exit', code => (code === 0 ? resolve() : reject(new Error(`seed exited ${code}: ${err.slice(0, 500)}`))));
+    child.stderr?.on('data', (d) => {
+      err += d;
+    });
+    child.on('exit', (code) =>
+      code === 0 ? resolve() : reject(new Error(`seed exited ${code}: ${err.slice(0, 500)}`)),
+    );
   });
 }
 
@@ -208,13 +223,27 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(() => {
-  for (const c of [serverA, serverB]) { try { c?.kill('SIGKILL'); } catch { /* gone */ } }
+  for (const c of [serverA, serverB]) {
+    try {
+      c?.kill('SIGKILL');
+    } catch {
+      /* gone */
+    }
+  }
   // Guard: if beforeAll failed before mkdtemp, tmpDir is '' and
   // projectStoreDir('') would resolve to the REAL cwd's store. Never remove
   // anything unless tmpDir is a realpath'd temp directory we created.
-  if (tmpDir && tmpDir.startsWith(fs.realpathSync(os.tmpdir()))) {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* best effort */ }
-    try { fs.rmSync(projectStoreDir(tmpDir), { recursive: true, force: true }); } catch { /* best effort */ }
+  if (tmpDir?.startsWith(fs.realpathSync(os.tmpdir()))) {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
+    try {
+      fs.rmSync(projectStoreDir(tmpDir), { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
   }
 });
 
@@ -231,28 +260,39 @@ describe('POST /api/knowledge/search (warm Second Brain endpoint)', () => {
   it('answers with {method, results[]} shape on an empty store', async () => {
     const res = await search(PORT_A, readPairing(), { query: 'completely novel unseen topic' });
     expect(res.status).toBe(200);
-    const data = await res.json() as Record<string, unknown>;
+    const data = (await res.json()) as Record<string, unknown>;
     expect(typeof data.method).toBe('string');
     expect(Array.isArray(data.results)).toBe(true);
   }, 30_000);
 
   it('surfaces KG triplets for relationship-shaped queries (router → kg, RRF fusion)', async () => {
     await seedKg();
-    const res = await search(PORT_A, readPairing(), { query: 'how does AlphaService relate to BetaStore?', limit: 6 });
+    const res = await search(PORT_A, readPairing(), {
+      query: 'how does AlphaService relate to BetaStore?',
+      limit: 6,
+    });
     expect(res.status).toBe(200);
-    const data = await res.json() as Record<string, unknown>;
-    const triplet = (data.results as Array<Record<string, unknown>>).find(r => r.triplet === true);
-    expect(triplet, `expected a KG triplet in results: ${JSON.stringify(data.results).slice(0, 400)}`).toBeTruthy();
-    expect(String(triplet!.content)).toContain('AlphaService');
-    expect(String(triplet!.content)).toContain('BetaStore');
+    const data = (await res.json()) as Record<string, unknown>;
+    const triplet = (data.results as Array<Record<string, unknown>>).find(
+      (r) => r.triplet === true,
+    );
+    expect(
+      triplet,
+      `expected a KG triplet in results: ${JSON.stringify(data.results).slice(0, 400)}`,
+    ).toBeTruthy();
+    expect(String(triplet?.content)).toContain('AlphaService');
+    expect(String(triplet?.content)).toContain('BetaStore');
     // Native score preserved and above the hooks' 0.35 relevance floor.
-    expect(Number(triplet!.score)).toBeGreaterThanOrEqual(0.35);
+    expect(Number(triplet?.score)).toBeGreaterThanOrEqual(0.35);
   }, 60_000);
 
   it('global scope never errors and returns the same shape', async () => {
-    const res = await search(PORT_A, readPairing(), { query: 'what rules should I always follow?', scope: 'global' });
+    const res = await search(PORT_A, readPairing(), {
+      query: 'what rules should I always follow?',
+      scope: 'global',
+    });
     expect(res.status).toBe(200);
-    const data = await res.json() as Record<string, unknown>;
+    const data = (await res.json()) as Record<string, unknown>;
     expect(Array.isArray(data.results)).toBe(true);
   }, 30_000);
 });
@@ -263,7 +303,12 @@ describe('dashboard-token pairing guard (secondary instances)', () => {
     // control-start.cjs writes after a spawn.
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'control.json'),
-      JSON.stringify({ pid: serverA!.pid, port: PORT_A, url: `http://localhost:${PORT_A}`, startedAt: new Date().toISOString() }),
+      JSON.stringify({
+        pid: serverA?.pid,
+        port: PORT_A,
+        url: `http://localhost:${PORT_A}`,
+        startedAt: new Date().toISOString(),
+      }),
     );
     const primaryBefore = readPairing();
 

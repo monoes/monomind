@@ -5,12 +5,16 @@
  * monograph database for Route nodes and finding cross-repo HTTP contracts.
  */
 
-import { join, dirname } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
-import { parseGroupConfig } from './group-config.js';
-import { extractHttpContracts, buildContractLinks, saveContractRegistry } from './contract-registry.js';
 import type { HttpContract } from './contract-registry.js';
+import {
+  buildContractLinks,
+  extractHttpContracts,
+  saveContractRegistry,
+} from './contract-registry.js';
+import { parseGroupConfig } from './group-config.js';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -64,11 +68,7 @@ export async function syncGroup(configPath: string): Promise<GroupSyncResult> {
 
   const links = buildContractLinks(allContracts);
 
-  const registryPath = join(
-    dirname(configPath),
-    '.monograph-group',
-    `${config.name}.contracts.db`,
-  );
+  const registryPath = join(dirname(configPath), '.monograph-group', `${config.name}.contracts.db`);
 
   saveContractRegistry(registryPath, links, allContracts);
 

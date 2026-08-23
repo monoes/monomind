@@ -2,38 +2,77 @@ import type { EvasionResult } from '../entities/threat.js';
 
 const HOMOGLYPHS: Record<string, string> = {
   // Cyrillic lookalikes (lowercase)
-  'а': 'a', 'е': 'e', 'і': 'i', 'о': 'o',
-  'р': 'r', 'с': 'c', 'х': 'x', 'у': 'y',
-  'ѕ': 's', 'ԁ': 'd', 'һ': 'h',
+  а: 'a',
+  е: 'e',
+  і: 'i',
+  о: 'o',
+  р: 'r',
+  с: 'c',
+  х: 'x',
+  у: 'y',
+  ѕ: 's',
+  ԁ: 'd',
+  һ: 'h',
   // Cyrillic lookalikes (uppercase)
-  'А': 'A', 'Е': 'E', 'І': 'I', 'О': 'O',
-  'Р': 'R', 'С': 'C', 'Х': 'X', 'У': 'U',
+  А: 'A',
+  Е: 'E',
+  І: 'I',
+  О: 'O',
+  Р: 'R',
+  С: 'C',
+  Х: 'X',
+  У: 'U',
   // Greek lookalikes
-  'ο': 'o', 'α': 'a', 'ε': 'e', 'ι': 'i',
-  'ν': 'n', 'ρ': 'r', 'τ': 't', 'Ι': 'I',
+  ο: 'o',
+  α: 'a',
+  ε: 'e',
+  ι: 'i',
+  ν: 'n',
+  ρ: 'r',
+  τ: 't',
+  Ι: 'I',
   // IPA small caps
-  'ɪ': 'i', 'ɢ': 'g', 'ɴ': 'n', 'ʀ': 'r', 'ɑ': 'a',
+  ɪ: 'i',
+  ɢ: 'g',
+  ɴ: 'n',
+  ʀ: 'r',
+  ɑ: 'a',
   // Fullwidth ASCII
-  'ｉ': 'i', 'ｇ': 'g', 'ｎ': 'n', 'ｏ': 'o',
-  'ｒ': 'r', 'ｅ': 'e', 'ａ': 'a', 'ｓ': 's',
+  ｉ: 'i',
+  ｇ: 'g',
+  ｎ: 'n',
+  ｏ: 'o',
+  ｒ: 'r',
+  ｅ: 'e',
+  ａ: 'a',
+  ｓ: 's',
 };
 
 const LEET_MAP: Record<string, string> = {
-  '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's',
-  '7': 't', '@': 'a', '$': 's',
+  '0': 'o',
+  '1': 'i',
+  '3': 'e',
+  '4': 'a',
+  '5': 's',
+  '7': 't',
+  '@': 'a',
+  $: 's',
 };
 
 // Pre-built regex from HOMOGLYPHS and LEET_MAP keys for fast bulk replacement
-const HOMOGLYPH_REGEX = new RegExp(
-  `[${Object.keys(HOMOGLYPHS).join('')}]`, 'g'
-);
+const HOMOGLYPH_REGEX = new RegExp(`[${Object.keys(HOMOGLYPHS).join('')}]`, 'g');
 const LEET_REGEX = new RegExp(
-  `[${Object.keys(LEET_MAP).map(k => k.replace(/[$@]/g, '\\$&')).join('')}]`, 'g'
+  `[${Object.keys(LEET_MAP)
+    .map((k) => k.replace(/[$@]/g, '\\$&'))
+    .join('')}]`,
+  'g',
 );
 
 // Stateless version (no g-flag) for .test() calls inside expandLeetspeak
 const LEET_REGEX_NO_G = new RegExp(
-  `[${Object.keys(LEET_MAP).map(k => k.replace(/[$@]/g, '\\$&')).join('')}]`
+  `[${Object.keys(LEET_MAP)
+    .map((k) => k.replace(/[$@]/g, '\\$&'))
+    .join('')}]`,
 );
 
 // g flag is required for replace() to replace all occurrences
@@ -55,7 +94,11 @@ export class EvasionDetector {
     // For very long inputs, only do cheap NFKC normalization and zero-width stripping
     if (input.length > MAX_EVASION_CHARS) {
       const stripped = input.normalize('NFKC').replace(/[​-‏﻿⁠᠎]/g, '');
-      return { normalizedInput: stripped, wasObfuscated: stripped !== input, techniqueDetected: undefined };
+      return {
+        normalizedInput: stripped,
+        wasObfuscated: stripped !== input,
+        techniqueDetected: undefined,
+      };
     }
 
     const afterNFKC = input.normalize('NFKC');
@@ -118,7 +161,7 @@ export class EvasionDetector {
       (token, offset: number, full: string) => {
         if (full[offset - 1] === '@') return token;
         return token.replace(/[._-]+/g, ' ');
-      }
+      },
     );
   }
 

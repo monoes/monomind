@@ -70,13 +70,15 @@ function monomindEnv(options: InitOptions): Record<string, string> {
 export function generateKimiMcpConfig(options: InitOptions): Record<string, unknown> {
   const config: Record<string, unknown> = { mcpServers: {} };
   if (options.mcp.monomind) {
-    (config.mcpServers as Record<string, unknown>).monomind = monomindMcpEntry(monomindEnv(options));
+    (config.mcpServers as Record<string, unknown>).monomind = monomindMcpEntry(
+      monomindEnv(options),
+    );
   }
   return config;
 }
 
 export function generateKimiMcpJson(options: InitOptions): string {
-  return JSON.stringify(generateKimiMcpConfig(options), null, 2) + '\n';
+  return `${JSON.stringify(generateKimiMcpConfig(options), null, 2)}\n`;
 }
 
 /**
@@ -96,7 +98,7 @@ export function mergeKimiMcpJson(existing: string, options: InitOptions): string
   if (typeof servers !== 'object' || servers === null || Array.isArray(servers)) return null;
   if (options.mcp.monomind) servers.monomind = monomindMcpEntry(monomindEnv(options));
   parsed.mcpServers = servers;
-  return JSON.stringify(parsed, null, 2) + '\n';
+  return `${JSON.stringify(parsed, null, 2)}\n`;
 }
 
 // ─── Tier 1: frontmatter converters (.claude/* → .kimi-code/*) ─────────────
@@ -106,7 +108,7 @@ export function mergeKimiMcpJson(existing: string, options: InitOptions): string
 // through (kimi ignores unknown frontmatter fields on agents).
 
 interface SplitMd {
-  fm: string;   // raw frontmatter body (between the --- fences), no fences
+  fm: string; // raw frontmatter body (between the --- fences), no fences
   body: string; // markdown body after the closing fence
   hasFm: boolean;
 }
@@ -119,34 +121,37 @@ function splitFrontmatter(src: string): SplitMd {
 
 /** Insert a top-level scalar `key: value` into a frontmatter block if absent. */
 function ensureFmKey(fm: string, key: string, value: string): string {
-  const re = new RegExp('^' + key + '\\s*:', 'm');
+  const re = new RegExp(`^${key}\\s*:`, 'm');
   if (re.test(fm)) return fm;
-  const line = key + ': ' + value;
+  const line = `${key}: ${value}`;
   if (!fm.trim()) return line;
   const descIdx = fm.search(/^description\s*:/m);
   if (descIdx >= 0) {
     const eol = fm.indexOf('\n', descIdx);
-    return eol < 0 ? fm + '\n' + line : fm.slice(0, eol + 1) + line + '\n' + fm.slice(eol + 1);
+    return eol < 0 ? `${fm}\n${line}` : `${fm.slice(0, eol + 1) + line}\n${fm.slice(eol + 1)}`;
   }
-  return line + '\n' + fm;
+  return `${line}\n${fm}`;
 }
 
 /** Set (replace-or-insert) a top-level scalar `key: value`. */
 function setFmKey(fm: string, key: string, value: string): string {
-  const re = new RegExp('^' + key + '\\s*:.*$', 'm');
-  if (re.test(fm)) return fm.replace(re, key + ': ' + value);
+  const re = new RegExp(`^${key}\\s*:.*$`, 'm');
+  if (re.test(fm)) return fm.replace(re, `${key}: ${value}`);
   return ensureFmKey(fm, key, value);
 }
 
 /** Kebab-case slug — kimi REQUIRES agent names in kebab-case and skips the
  *  file with a warning otherwise. Also guarantees a filesystem-safe filename. */
 function slugifyName(name: string): string {
-  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const s = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return s || 'agent';
 }
 
 function getFmScalar(fm: string, key: string): string | null {
-  const m = fm.match(new RegExp('^' + key + '\\s*:\\s*(.+?)\\s*$', 'm'));
+  const m = fm.match(new RegExp(`^${key}\\s*:\\s*(.+?)\\s*$`, 'm'));
   return m ? m[1].replace(/^["']|["']$/g, '') : null;
 }
 
@@ -164,12 +169,12 @@ export function convertKimiAgentMd(src: string, fallbackName: string): string {
   let out = fm;
   out = setFmKey(out, 'name', name);
   if (!getFmScalar(out, 'description')) {
-    out = ensureFmKey(out, 'description', name + ' agent (monomind)');
+    out = ensureFmKey(out, 'description', `${name} agent (monomind)`);
   }
   if (hasFm || fm) {
-    return '---\n' + out + '\n---\n' + body;
+    return `---\n${out}\n---\n${body}`;
   }
-  return '---\nname: ' + name + '\ndescription: ' + name + ' agent (monomind)\n---\n' + body;
+  return `---\nname: ${name}\ndescription: ${name} agent (monomind)\n---\n${body}`;
 }
 
 /**
@@ -182,12 +187,12 @@ export function convertKimiSkillMd(src: string, fallbackName: string): string {
   let out = fm;
   out = setFmKey(out, 'name', name);
   if (!getFmScalar(out, 'description')) {
-    out = ensureFmKey(out, 'description', name + ' skill (monomind)');
+    out = ensureFmKey(out, 'description', `${name} skill (monomind)`);
   }
   if (hasFm || fm) {
-    return '---\n' + out + '\n---\n' + body;
+    return `---\n${out}\n---\n${body}`;
   }
-  return '---\nname: ' + name + '\ndescription: ' + name + ' skill (monomind)\n---\n' + body;
+  return `---\nname: ${name}\ndescription: ${name} skill (monomind)\n---\n${body}`;
 }
 
 /**
@@ -198,7 +203,11 @@ export function convertKimiSkillMd(src: string, fallbackName: string): string {
  * - Strips Claude-only frontmatter keys (allowed-tools, argument-hint, bare
  *   claude model names) whose semantics kimi doesn't share.
  */
-export function convertKimiCommandToFlowSkill(src: string, category: string, fallbackName: string): string {
+export function convertKimiCommandToFlowSkill(
+  src: string,
+  category: string,
+  fallbackName: string,
+): string {
   const { fm, body } = splitFrontmatter(src);
   let out = fm
     .replace(/^allowed-tools\s*:.*(\r?\n|$)/im, '')
@@ -206,13 +215,13 @@ export function convertKimiCommandToFlowSkill(src: string, category: string, fal
     .replace(/^model\s*:\s*(?!.*\/).*/im, '') // drop bare claude model names
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  const name = slugifyName(category + '-' + fallbackName);
+  const name = slugifyName(`${category}-${fallbackName}`);
   out = setFmKey(out, 'name', name);
   if (!getFmScalar(out, 'description')) {
-    out = ensureFmKey(out, 'description', category + ' ' + fallbackName + ' command (monomind)');
+    out = ensureFmKey(out, 'description', `${category} ${fallbackName} command (monomind)`);
   }
   out = setFmKey(out, 'type', 'flow');
-  return '---\n' + out + '\n---\n\n' + body.trimStart();
+  return `---\n${out}\n---\n\n${body.trimStart()}`;
 }
 
 /**
@@ -221,7 +230,11 @@ export function convertKimiCommandToFlowSkill(src: string, category: string, fal
  * prompt and $ARGUMENTS is the placeholder — the same convention Claude
  * commands already use, so bodies pass through unchanged.
  */
-export function convertKimiPluginCommandMd(src: string, category: string, fallbackName: string): string {
+export function convertKimiPluginCommandMd(
+  src: string,
+  category: string,
+  fallbackName: string,
+): string {
   const { fm, body } = splitFrontmatter(src);
   let out = fm
     .replace(/^allowed-tools\s*:.*(\r?\n|$)/im, '')
@@ -230,15 +243,15 @@ export function convertKimiPluginCommandMd(src: string, category: string, fallba
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   if (!getFmScalar(out, 'description')) {
-    out = ensureFmKey(out, 'description', category + ' ' + fallbackName + ' command (monomind)');
+    out = ensureFmKey(out, 'description', `${category} ${fallbackName} command (monomind)`);
   }
-  return '---\n' + out + '\n---\n\n' + body.trimStart();
+  return `---\n${out}\n---\n\n${body.trimStart()}`;
 }
 
 /** Namespace-prefixed command filename: "mastermind-build.md". */
 export function kimiCommandFilename(category: string, file: string): string {
   const base = file.replace(/\.md$/i, '');
-  return slugifyName(category + '-' + base) + '.md';
+  return `${slugifyName(`${category}-${base}`)}.md`;
 }
 
 /**
@@ -292,7 +305,7 @@ export function generateKimiAgentsMd(): string {
     '```',
     '',
   ];
-  return lines.join('\n') + '\n';
+  return `${lines.join('\n')}\n`;
 }
 
 // ─── Statusline (footer under the chatbox) ─────────────────────────────────
@@ -377,21 +390,27 @@ exit 0
  */
 export function mergeKimiTuiTomlStatusline(existing: string, command: string): string {
   const sectionRe = /^\s*\[status_line\]\s*$/m;
-  const commandLine = 'command = "' + command + '"';
+  const commandLine = `command = "${command}"`;
 
   if (sectionRe.test(existing)) {
     const sectionStart = existing.search(sectionRe);
     // Find the end of this section: next [section] header or EOF
     const rest = existing.slice(sectionStart);
     const nextSection = rest.slice(rest.indexOf('\n') + 1).search(/^\s*\[/m);
-    const sectionEnd = nextSection === -1 ? existing.length : sectionStart + rest.indexOf('\n') + 1 + nextSection;
+    const sectionEnd =
+      nextSection === -1 ? existing.length : sectionStart + rest.indexOf('\n') + 1 + nextSection;
     const section = existing.slice(sectionStart, sectionEnd);
     if (/^\s*command\s*=/m.test(section)) return existing; // user already has one
-    return existing.slice(0, sectionEnd).replace(/\s*$/, '\n') + commandLine + '\n' + existing.slice(sectionEnd);
+    return (
+      existing.slice(0, sectionEnd).replace(/\s*$/, '\n') +
+      commandLine +
+      '\n' +
+      existing.slice(sectionEnd)
+    );
   }
 
   const sep = existing.length && !existing.endsWith('\n') ? '\n' : '';
-  return existing + sep + (existing.length ? '\n' : '') + '[status_line]\n' + commandLine + '\n';
+  return `${existing + sep + (existing.length ? '\n' : '')}[status_line]\n${commandLine}\n`;
 }
 
 // ─── Tier 2: hook gate bridge script ───────────────────────────────────────
@@ -477,7 +496,7 @@ process.stdin.on("end", () => {
  *     hooks, so the gate bridge only runs while the plugin is enabled — which
  *     also means disabling the plugin cleanly disables monomind enforcement.
  */
-export function generateKimiPluginManifest(options: InitOptions): string {
+export function generateKimiPluginManifest(_options: InitOptions): string {
   const manifest = {
     name: 'monomind',
     version: '1.0.0',
@@ -502,5 +521,5 @@ export function generateKimiPluginManifest(options: InitOptions): string {
       shortDescription: 'Knowledge graph, memory, and gate hooks for kimi',
     },
   };
-  return JSON.stringify(manifest, null, 2) + '\n';
+  return `${JSON.stringify(manifest, null, 2)}\n`;
 }

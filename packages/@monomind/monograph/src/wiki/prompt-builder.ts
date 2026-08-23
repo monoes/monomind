@@ -11,7 +11,7 @@ export interface CommunityContext {
  */
 export function buildWikiPrompt(context: CommunityContext): string {
   const symbolLines = context.topSymbols
-    .map(s => `  - [${s.label}] ${s.name}${s.filePath ? ` (${s.filePath})` : ''}`)
+    .map((s) => `  - [${s.label}] ${s.name}${s.filePath ? ` (${s.filePath})` : ''}`)
     .join('\n');
 
   return `You are a technical documentation writer. Write a concise markdown wiki page for the following code module (community).

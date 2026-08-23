@@ -1,6 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type Database from 'better-sqlite3';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 
 export interface ZoneConfig {
   name: string;
@@ -30,8 +30,9 @@ function globToRegex(glob: string): RegExp {
     .replace(/\*\*/g, DOUBLE_STAR)
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*/g, '[^/]*')
-    .split(DOUBLE_STAR).join('.*');
-  return new RegExp('^' + pattern + '$');
+    .split(DOUBLE_STAR)
+    .join('.*');
+  return new RegExp(`^${pattern}$`);
 }
 
 /** Zone with its regex precompiled — built once per detectBoundaryViolations call. */
@@ -42,7 +43,7 @@ interface CompiledZone {
 
 /** Compile a ZoneConfig[] into CompiledZone[] once to avoid reconstructing RegExps per path. */
 function compileZones(zones: ZoneConfig[]): CompiledZone[] {
-  return zones.map(z => ({ name: z.name, re: globToRegex(z.glob) }));
+  return zones.map((z) => ({ name: z.name, re: globToRegex(z.glob) }));
 }
 
 /**
@@ -105,7 +106,8 @@ export function detectBoundaryViolations(
   // Precompile zone regexes once — avoids re-constructing RegExp objects per file path.
   const compiledZones = compileZones(zones);
 
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(`
     SELECT e.id, e.relation,
            ns.file_path AS src_path,
            nt.file_path AS tgt_path
@@ -113,7 +115,8 @@ export function detectBoundaryViolations(
     JOIN nodes ns ON ns.id = e.source_id
     JOIN nodes nt ON nt.id = e.target_id
     WHERE ns.file_path IS NOT NULL AND nt.file_path IS NOT NULL
-  `).all() as { id: string; relation: string; src_path: string; tgt_path: string }[];
+  `)
+    .all() as { id: string; relation: string; src_path: string; tgt_path: string }[];
 
   // Cache per-path zone classification to avoid O(rows * zones) repeated regex tests.
   const pathZoneCache = new Map<string, string | null>();

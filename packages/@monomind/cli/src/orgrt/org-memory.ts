@@ -1,9 +1,9 @@
 // packages/@monomind/cli/src/orgrt/org-memory.ts
 // Extracted from daemon.ts — org cross-run memory, recall, learn, knowledge search.
 import { join } from 'node:path';
-import type { OrgDef } from './types.js';
-import type { RunSummary } from './reporting.js';
 import type { OrgDaemon } from './daemon.js';
+import type { RunSummary } from './reporting.js';
+import type { OrgDef } from './types.js';
 
 export function orgMemoryNamespace(name: string, def: OrgDef): string {
   return def.run_config.memory_namespace ?? `org:${name}`;
@@ -26,9 +26,17 @@ export async function orgMemoryUsable(root: string): Promise<boolean> {
     const want = orgMemoryDbPath(root);
     const got = bridgeGetDbPath(want);
     const { realpathSync } = await import('node:fs');
-    const real = (p: string): string => { try { return realpathSync(p); } catch { return p; } };
+    const real = (p: string): string => {
+      try {
+        return realpathSync(p);
+      } catch {
+        return p;
+      }
+    };
     return real(got) === real(want);
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 /** Namespace for a role's PRIVATE memories, inside the org memory DB. */
@@ -38,11 +46,20 @@ export function agentMemoryNamespace(name: string, def: OrgDef, role: string): s
 
 /** org_remember implementation: a deliberate write to org-shared or
  *  role-private memory (both in the org memory DB, split by namespace). */
-export async function rememberOrgMemory(root: string, name: string, def: OrgDef, role: string, content: string, scope: 'org' | 'agent', run: string): Promise<string> {
+export async function rememberOrgMemory(
+  root: string,
+  name: string,
+  def: OrgDef,
+  role: string,
+  content: string,
+  scope: 'org' | 'agent',
+  run: string,
+): Promise<string> {
   try {
     if (!(await orgMemoryUsable(root))) return 'org memory is not available in this environment.';
     const { bridgeStoreEntry } = await import('../memory/memory-bridge.js');
-    const namespace = scope === 'agent' ? agentMemoryNamespace(name, def, role) : orgMemoryNamespace(name, def);
+    const namespace =
+      scope === 'agent' ? agentMemoryNamespace(name, def, role) : orgMemoryNamespace(name, def);
     const res = await bridgeStoreEntry({
       key: `mem-${run}-${Date.now().toString(36)}`,
       value: content.slice(0, 20_000),
@@ -52,7 +69,9 @@ export async function rememberOrgMemory(root: string, name: string, def: OrgDef,
       metadata: { origin_refs: [`run:${run}`], by: role },
     });
     if (res?.duplicate) return `Already remembered (near-duplicate exists) — reinforced instead.`;
-    return res?.success ? `Remembered (${scope} scope).` : `Could not store memory${res?.error ? `: ${res.error}` : ''}.`;
+    return res?.success
+      ? `Remembered (${scope} scope).`
+      : `Could not store memory${res?.error ? `: ${res.error}` : ''}.`;
   } catch (err) {
     return `org_remember failed (${err instanceof Error ? err.message : 'error'})`;
   }
@@ -61,42 +80,75 @@ export async function rememberOrgMemory(root: string, name: string, def: OrgDef,
 /** org_recall implementation: search the org's memory namespace via the
  *  memory bridge (semantic when the local model is available, tokenized
  *  keyword otherwise). Failures return a message, never throw into the tool. */
-export async function recallOrgMemory(daemon: OrgDaemon, name: string, def: OrgDef, query: string, role?: string): Promise<{ text: string; hits: number }> {
+export async function recallOrgMemory(
+  daemon: OrgDaemon,
+  name: string,
+  def: OrgDef,
+  query: string,
+  role?: string,
+): Promise<{ text: string; hits: number }> {
   try {
-    if (!(await orgMemoryUsable(daemon.root))) return { text: 'org memory is not available in this environment.', hits: 0 };
+    if (!(await orgMemoryUsable(daemon.root)))
+      return { text: 'org memory is not available in this environment.', hits: 0 };
     const bridge = await import('../memory/memory-bridge.js');
     const dbPath = orgMemoryDbPath(daemon.root);
     // Shared org memory plus the caller's private agent scope, merged by score.
     const [shared, priv] = await Promise.all([
       bridge.bridgeSearchEntries({
-        query, namespace: orgMemoryNamespace(name, def), limit: 5, dbPath,
+        query,
+        namespace: orgMemoryNamespace(name, def),
+        limit: 5,
+        dbPath,
       }),
-      role ? bridge.bridgeSearchEntries({
-        query, namespace: agentMemoryNamespace(name, def, role), limit: 3, dbPath,
-      }) : null,
+      role
+        ? bridge.bridgeSearchEntries({
+            query,
+            namespace: agentMemoryNamespace(name, def, role),
+            limit: 3,
+            dbPath,
+          })
+        : null,
     ]);
     const results = [
       ...(shared?.results ?? []),
-      ...(priv?.results ?? []).map(r => ({ ...r, key: `${r.key} (private)` })),
-    ].sort((a, b) => b.score - a.score).slice(0, 6);
-    if (!results.length) return { text: 'No matching org memory found — this may be the first run covering this topic.', hits: 0 };
-    const ids = results.map(r => r.id).filter(Boolean);
+      ...(priv?.results ?? []).map((r) => ({ ...r, key: `${r.key} (private)` })),
+    ]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
+    if (!results.length)
+      return {
+        text: 'No matching org memory found — this may be the first run covering this topic.',
+        hits: 0,
+      };
+    const ids = results.map((r) => r.id).filter(Boolean);
     let used = daemon.recallUsage.get(name);
-    if (!used) { used = new Set(); daemon.recallUsage.set(name, used); }
+    if (!used) {
+      used = new Set();
+      daemon.recallUsage.set(name, used);
+    }
     for (const id of ids) used.add(id);
     // Frequency reinforcement is immediate; the feedback rating waits for the
     // run outcome (positive-only — see storeRunMemory).
-    bridge.bridgeRecordUsage({ entryIds: ids, dbPath }).catch(() => { /* best effort */ });
-    let text = results.map((r, i) => `${i + 1}. [${r.key}] ${r.content.slice(0, 500)}`).join('\n\n');
+    bridge.bridgeRecordUsage({ entryIds: ids, dbPath }).catch(() => {
+      /* best effort */
+    });
+    let text = results
+      .map((r, i) => `${i + 1}. [${r.key}] ${r.content.slice(0, 500)}`)
+      .join('\n\n');
     // Structured knowledge: relationship triplets from the org KG, when any.
     try {
       const kg = await import('../memory/memory-kg.js');
       const graph = await kg.kgSearch({ query, dbPath, limit: 5 });
       if (graph.context) text += `\n\nKnowledge graph:\n${graph.context.slice(0, 1024)}`;
-    } catch { /* best effort */ }
+    } catch {
+      /* best effort */
+    }
     return { text, hits: results.length };
   } catch (err) {
-    return { text: `org memory unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
+    return {
+      text: `org memory unavailable (${err instanceof Error ? err.message : 'error'})`,
+      hits: 0,
+    };
   }
 }
 
@@ -104,43 +156,68 @@ export async function recallOrgMemory(daemon: OrgDaemon, name: string, def: OrgD
  *  (this project's documents + the personal global brain), merged with the
  *  same project-first ranking every other surface uses. Failures return a
  *  message, never throw into the tool call. */
-export async function searchProjectKnowledge(root: string, query: string): Promise<{ text: string; hits: number }> {
+export async function searchProjectKnowledge(
+  root: string,
+  query: string,
+): Promise<{ text: string; hits: number }> {
   try {
     const { searchKnowledge } = await import('../knowledge/document-pipeline.js');
     const excerpts = await searchKnowledge(query, { rootDir: root, limit: 3, store: 'all' });
-    if (!excerpts.length) return { text: 'No matching documents in the Second Brain for that query.', hits: 0 };
-    const text = excerpts.map((e, i) =>
-      `${i + 1}. [${e.filePath || 'unknown'}${e.scope === 'global' ? ' · global' : ''}] (${e.similarity.toFixed(2)})\n${e.text.slice(0, 400)}`
-    ).join('\n\n');
+    if (!excerpts.length)
+      return { text: 'No matching documents in the Second Brain for that query.', hits: 0 };
+    const text = excerpts
+      .map(
+        (e, i) =>
+          `${i + 1}. [${e.filePath || 'unknown'}${e.scope === 'global' ? ' · global' : ''}] (${e.similarity.toFixed(2)})\n${e.text.slice(0, 400)}`,
+      )
+      .join('\n\n');
     return { text, hits: excerpts.length };
   } catch (err) {
-    return { text: `knowledge search unavailable (${err instanceof Error ? err.message : 'error'})`, hits: 0 };
+    return {
+      text: `knowledge search unavailable (${err instanceof Error ? err.message : 'error'})`,
+      hits: 0,
+    };
   }
 }
 
 /** org_learn implementation: merge coordinator-extracted entities/relations/
  *  rules into the org's knowledge graph (LLM extraction happens inside the
  *  agent's own subscription-auth SDK session — no separate LLM call here). */
-export async function learnOrgKnowledge(daemon: OrgDaemon, name: string, run: string, payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] }): Promise<string> {
+export async function learnOrgKnowledge(
+  daemon: OrgDaemon,
+  name: string,
+  run: string,
+  payload: { nodes?: unknown[]; edges?: unknown[]; rules?: unknown[] },
+): Promise<string> {
   try {
-    if (!(await orgMemoryUsable(daemon.root))) return 'org memory is not available in this environment.';
+    if (!(await orgMemoryUsable(daemon.root)))
+      return 'org memory is not available in this environment.';
     const kg = await import('../memory/memory-kg.js');
     const dbPath = orgMemoryDbPath(daemon.root);
     const originRef = `run:${run}`;
     const graph = await kg.kgIngest({
       nodes: (payload.nodes ?? []) as import('../memory/memory-kg.js').KgNodeInput[],
       edges: (payload.edges ?? []) as import('../memory/memory-kg.js').KgEdgeInput[],
-      originRef, dbPath,
+      originRef,
+      dbPath,
     });
-    const rules = Array.isArray(payload.rules) && payload.rules.length
-      ? await kg.kgIngestRules({ rules: payload.rules as { rule: string; context?: string }[], originRef, dbPath })
-      : null;
+    const rules =
+      Array.isArray(payload.rules) && payload.rules.length
+        ? await kg.kgIngestRules({
+            rules: payload.rules as { rule: string; context?: string }[],
+            originRef,
+            dbPath,
+          })
+        : null;
     daemon.orgLearnedRuns.add(`${name}:${run}`);
     const parts = [
       `entities: +${graph.nodesAdded} new, ${graph.nodesMerged} merged`,
       `relations: +${graph.edgesAdded} new, ${graph.edgesMerged} merged`,
     ];
-    if (rules) parts.push(`rules: ${rules.accepted} accepted, ${rules.verdicts.filter(v => v.verdict === 'already_known').length} already known`);
+    if (rules)
+      parts.push(
+        `rules: ${rules.accepted} accepted, ${rules.verdicts.filter((v) => v.verdict === 'already_known').length} already known`,
+      );
     return `Recorded in org knowledge graph — ${parts.join('; ')}. Rollback ref: ${originRef}.`;
   } catch (err) {
     return `org_learn failed (${err instanceof Error ? err.message : 'error'})`;
@@ -149,7 +226,13 @@ export async function learnOrgKnowledge(daemon: OrgDaemon, name: string, run: st
 
 /** Persist the run's outcome into cross-run org memory so org_recall (and
  *  future runs) can find it by meaning, not just recency. Best-effort. */
-export async function storeRunMemory(daemon: OrgDaemon, name: string, def: OrgDef, run: string, summary: RunSummary): Promise<void> {
+export async function storeRunMemory(
+  daemon: OrgDaemon,
+  name: string,
+  def: OrgDef,
+  run: string,
+  summary: RunSummary,
+): Promise<void> {
   try {
     if (!(await orgMemoryUsable(daemon.root))) return;
     const { bridgeStoreEntry } = await import('../memory/memory-bridge.js');
@@ -182,7 +265,9 @@ export async function storeRunMemory(daemon: OrgDaemon, name: string, def: OrgDe
         if (extracted.nodes.length) {
           await kg.kgIngest({ ...extracted, originRef: `run:${run}`, dbPath });
         }
-      } catch { /* best effort */ }
+      } catch {
+        /* best effort */
+      }
     }
 
     // Auto-rate the memories this run recalled — POSITIVE-ONLY: a failed run
@@ -198,9 +283,15 @@ export async function storeRunMemory(daemon: OrgDaemon, name: string, def: OrgDe
         score: 0.9,
         ledgerKey: `org-${name}-${run}`,
         dbPath,
-      }).catch(() => { /* best effort */ });
+      }).catch(() => {
+        /* best effort */
+      });
     }
   } catch (err) {
-    if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error(`org ${name}: run memory store failed:`, err instanceof Error ? err.message : err);
+    if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+      console.error(
+        `org ${name}: run memory store failed:`,
+        err instanceof Error ? err.message : err,
+      );
   }
 }

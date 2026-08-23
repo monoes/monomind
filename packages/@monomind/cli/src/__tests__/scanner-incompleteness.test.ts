@@ -8,22 +8,32 @@
  *   (c) getGitDiffNumstat        — git failure returned []
  *   (d) consensus audit readLines — >50MB error swallowed to []
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, truncateSync, openSync, closeSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
 
 import {
-  findSecretsInDir,
+  chmodSync,
+  closeSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  rmSync,
+  truncateSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import {
   createScanCoverage,
-  scanWasIncomplete,
+  findSecretsInDir,
   type SecretFinding,
+  scanWasIncomplete,
 } from '../commands/security-scan.js';
-import { getGitDiffNumstat } from '../monovector/diff-classifier.js';
 import { AuditWriter } from '../consensus/audit-writer.js';
+import { getGitDiffNumstat } from '../monovector/diff-classifier.js';
 
 // Assembled at runtime so the repo's own secret gate does not flag this file.
-const FAKE_AWS_KEY = ['A', 'K', 'I', 'A'].join('') + 'ABCDEFGHIJKLMNOP';
+const FAKE_AWS_KEY = `${['A', 'K', 'I', 'A'].join('')}ABCDEFGHIJKLMNOP`;
 const SECRET_LINE = `const k = "${FAKE_AWS_KEY}";\n`;
 
 let tmp: string;
@@ -35,7 +45,9 @@ beforeEach(() => {
 afterEach(() => {
   try {
     chmodSync(join(tmp, 'locked'), 0o755);
-  } catch { /* may not exist */ }
+  } catch {
+    /* may not exist */
+  }
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -118,11 +130,17 @@ describe('getGitDiffNumstat git failure', () => {
     const cwd = process.cwd();
     try {
       process.chdir(tmp); // not a git repo
-      for (const name of ['analyze_diff-risk', 'analyze_diff-classify', 'analyze_diff-stats', 'analyze_diff-reviewers', 'analyze_diff']) {
+      for (const name of [
+        'analyze_diff-risk',
+        'analyze_diff-classify',
+        'analyze_diff-stats',
+        'analyze_diff-reviewers',
+        'analyze_diff',
+      ]) {
         const tool = analyzeTools.find((t) => t.name === name);
         expect(tool, `${name} missing`).toBeDefined();
         const ref = `HEAD~${Math.floor(Math.random() * 100000)}`;
-        const res = (await tool!.handler({ ref })) as Record<string, unknown>;
+        const res = (await tool?.handler({ ref })) as Record<string, unknown>;
         expect(res.error, `${name} should report an error`).toBe(true);
         expect(String(res.message)).toMatch(/git diff failed/i);
       }

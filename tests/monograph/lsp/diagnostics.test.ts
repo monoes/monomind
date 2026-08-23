@@ -1,9 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type {
+  DuplicateExportGroup,
+  StaleSuppressionInfo,
+} from '../../../packages/@monomind/monograph/src/lsp/diagnostics.ts';
 import {
   buildDuplicateExportDiagnostics,
   buildStaleSuppressionDiagnostics,
 } from '../../../packages/@monomind/monograph/src/lsp/diagnostics.ts';
-import type { DuplicateExportGroup, StaleSuppressionInfo } from '../../../packages/@monomind/monograph/src/lsp/diagnostics.ts';
 
 describe('buildDuplicateExportDiagnostics', () => {
   it('returns empty map for no groups', () => {
@@ -11,13 +14,15 @@ describe('buildDuplicateExportDiagnostics', () => {
   });
 
   it('creates warning diagnostics for each location in a group', () => {
-    const groups: DuplicateExportGroup[] = [{
-      name: 'Config',
-      locations: [
-        { uri: 'file:///a.ts', line: 5, col: 1, exportName: 'Config' },
-        { uri: 'file:///b.ts', line: 10, col: 1, exportName: 'Config' },
-      ],
-    }];
+    const groups: DuplicateExportGroup[] = [
+      {
+        name: 'Config',
+        locations: [
+          { uri: 'file:///a.ts', line: 5, col: 1, exportName: 'Config' },
+          { uri: 'file:///b.ts', line: 10, col: 1, exportName: 'Config' },
+        ],
+      },
+    ];
     const result = buildDuplicateExportDiagnostics(groups);
     expect(result.size).toBe(2);
 
@@ -33,31 +38,35 @@ describe('buildDuplicateExportDiagnostics', () => {
   });
 
   it('includes related information pointing to the other locations', () => {
-    const groups: DuplicateExportGroup[] = [{
-      name: 'helper',
-      locations: [
-        { uri: 'file:///x.ts', line: 1, col: 1, exportName: 'helper' },
-        { uri: 'file:///y.ts', line: 2, col: 3, exportName: 'helper' },
-        { uri: 'file:///z.ts', line: 4, col: 1, exportName: 'helper' },
-      ],
-    }];
+    const groups: DuplicateExportGroup[] = [
+      {
+        name: 'helper',
+        locations: [
+          { uri: 'file:///x.ts', line: 1, col: 1, exportName: 'helper' },
+          { uri: 'file:///y.ts', line: 2, col: 3, exportName: 'helper' },
+          { uri: 'file:///z.ts', line: 4, col: 1, exportName: 'helper' },
+        ],
+      },
+    ];
     const result = buildDuplicateExportDiagnostics(groups);
     const diagsX = result.get('file:///x.ts')!;
     expect(diagsX[0].relatedInformation).toHaveLength(2);
-    expect(diagsX[0].relatedInformation![0].uri).toBe('file:///y.ts');
-    expect(diagsX[0].relatedInformation![1].uri).toBe('file:///z.ts');
+    expect(diagsX[0].relatedInformation?.[0].uri).toBe('file:///y.ts');
+    expect(diagsX[0].relatedInformation?.[1].uri).toBe('file:///z.ts');
   });
 
   it('converts 1-based line/col to 0-based LSP range', () => {
-    const groups: DuplicateExportGroup[] = [{
-      name: 'fn',
-      locations: [
-        { uri: 'file:///a.ts', line: 10, col: 5, exportName: 'fn' },
-        { uri: 'file:///b.ts', line: 1, col: 1, exportName: 'fn' },
-      ],
-    }];
+    const groups: DuplicateExportGroup[] = [
+      {
+        name: 'fn',
+        locations: [
+          { uri: 'file:///a.ts', line: 10, col: 5, exportName: 'fn' },
+          { uri: 'file:///b.ts', line: 1, col: 1, exportName: 'fn' },
+        ],
+      },
+    ];
     const result = buildDuplicateExportDiagnostics(groups);
-    const diag = result.get('file:///a.ts')![0];
+    const diag = result.get('file:///a.ts')?.[0];
     expect(diag.range.start.line).toBe(9);
     expect(diag.range.start.character).toBe(4);
     expect(diag.range.end.character).toBe(4 + 'fn'.length);
@@ -70,11 +79,13 @@ describe('buildStaleSuppressionDiagnostics', () => {
   });
 
   it('creates hint diagnostics with Unnecessary tag', () => {
-    const suppressions: StaleSuppressionInfo[] = [{
-      uri: 'file:///test.ts',
-      line: 15,
-      description: 'monograph-ignore for export that no longer exists',
-    }];
+    const suppressions: StaleSuppressionInfo[] = [
+      {
+        uri: 'file:///test.ts',
+        line: 15,
+        description: 'monograph-ignore for export that no longer exists',
+      },
+    ];
     const result = buildStaleSuppressionDiagnostics(suppressions);
     expect(result.size).toBe(1);
     const diags = result.get('file:///test.ts')!;

@@ -3,12 +3,13 @@
  * Builds a minimal mock hCtx and calls handler.handleEnd(hCtx) directly.
  * Verifies: consolidation lock, routing-feedback.jsonl, session.end().
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -58,7 +59,7 @@ describe('session-handler consolidation lock', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await sh.handleEnd(hCtx);
     expect(mockConsolidate).not.toHaveBeenCalled();
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('daemon holds lock');
   });
 
@@ -83,7 +84,7 @@ describe('session-handler consolidation lock', () => {
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await sh.handleEnd(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('Consolidated: 5 entries');
   });
 });
@@ -107,14 +108,18 @@ describe('session-handler session end', () => {
     const hCtx = makeHCtx({ session: null });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await sh.handleEnd(hCtx);
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n');
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
     expect(output).toContain('Session ended');
   });
 
   it('does not throw when session.end() throws', async () => {
     const sh = loadSH();
     const hCtx = makeHCtx({
-      session: { end: () => { throw new Error('session-end-fail'); } },
+      session: {
+        end: () => {
+          throw new Error('session-end-fail');
+        },
+      },
     });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -141,7 +146,11 @@ describe('session-handler routing feedback', () => {
   it('feedback entry has required fields', async () => {
     const sh = loadSH();
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'backend-dev', confidence: 0.85 }), 'utf-8');
+    fs.writeFileSync(
+      routeFile,
+      JSON.stringify({ agent: 'backend-dev', confidence: 0.85 }),
+      'utf-8',
+    );
     const hCtx = makeHCtx({
       hookInput: { sessionId: 'test-session-123' },
       intelligence: { feedback: vi.fn() },
@@ -172,7 +181,11 @@ describe('session-handler routing feedback', () => {
   it('skips the record when the agent is a non-agent placeholder', async () => {
     const sh = loadSH();
     const routeFile = path.join(tmpDir, '.monomind', 'last-route.json');
-    fs.writeFileSync(routeFile, JSON.stringify({ agent: 'AI selecting', confidence: 0.8 }), 'utf-8');
+    fs.writeFileSync(
+      routeFile,
+      JSON.stringify({ agent: 'AI selecting', confidence: 0.8 }),
+      'utf-8',
+    );
     const hCtx = makeHCtx({ intelligence: { feedback: vi.fn() } });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await sh.handleEnd(hCtx);
@@ -198,11 +211,11 @@ describe('session-handler routing feedback', () => {
     fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
     const outcomesFile = path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl');
     const now = Date.now();
-    const lines = [
+    const lines = `${[
       JSON.stringify({ ts: now - 1000, success: false }),
       JSON.stringify({ ts: now - 2000, success: false }),
       JSON.stringify({ ts: now - 3000, success: true }),
-    ].join('\n') + '\n';
+    ].join('\n')}\n`;
     fs.writeFileSync(outcomesFile, lines, 'utf-8');
 
     const mockFeedback = vi.fn();
@@ -213,4 +226,3 @@ describe('session-handler routing feedback', () => {
     expect(mockFeedback).toHaveBeenCalledWith(false);
   });
 });
-

@@ -1,7 +1,7 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { GodNode, MonographEdge } from '../../types.js';
-import type { ParseOutput } from './parse.js';
+import type { PipelinePhase } from '../types.js';
 import type { CrossFileOutput } from './cross-file.js';
+import type { ParseOutput } from './parse.js';
 
 const EXCLUDED_LABELS = new Set(['File', 'Folder', 'Community', 'Concept']);
 
@@ -48,7 +48,7 @@ function percentile(sorted: number[], p: number): number {
 export const godNodesPhase: PipelinePhase<GodNodesOutput> = {
   name: 'god-nodes',
   deps: ['cross-file', 'parse'],
-  async execute(ctx, deps) {
+  async execute(_ctx, deps) {
     const { resolvedEdges } = deps.get('cross-file') as CrossFileOutput;
     const { allEdges, symbolNodes } = deps.get('parse') as ParseOutput;
     const allEdgesCombined: MonographEdge[] = [...allEdges, ...resolvedEdges];
@@ -85,9 +85,13 @@ export const godNodesPhase: PipelinePhase<GodNodesOutput> = {
     const p75FanOut = thresholds.p75FanOut;
 
     const godNodes = symbolNodes
-      .filter(n => !EXCLUDED_LABELS.has(n.label) && !isTestNode(n)
-        && (inDeg.get(n.id) ?? 0) + (outDeg.get(n.id) ?? 0) > p95FanIn)
-      .map(n => {
+      .filter(
+        (n) =>
+          !EXCLUDED_LABELS.has(n.label) &&
+          !isTestNode(n) &&
+          (inDeg.get(n.id) ?? 0) + (outDeg.get(n.id) ?? 0) > p95FanIn,
+      )
+      .map((n) => {
         const fanIn = inDeg.get(n.id) ?? 0;
         const fanOut = outDeg.get(n.id) ?? 0;
         const degree = fanIn + fanOut;
@@ -155,7 +159,7 @@ export function formatGodNodes(output: GodNodesOutput): string {
     lines.push('');
   }
 
-  const bridgeCount = godNodes.filter(n => n.category === 'BRIDGE_NODE').length;
+  const bridgeCount = godNodes.filter((n) => n.category === 'BRIDGE_NODE').length;
   const highCentralityCount = godNodes.length - bridgeCount;
   lines.push(`summary: ${highCentralityCount} HIGH_CENTRALITY, ${bridgeCount} BRIDGE_NODE`);
 

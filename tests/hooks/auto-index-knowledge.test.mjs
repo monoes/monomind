@@ -3,18 +3,19 @@
  * Uses CLAUDE_PROJECT_DIR injection + require-cache invalidation.
  * All writes land in tmpDir; no project files are touched.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createRequire } from 'module';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { fileURLToPath } from 'url';
+
+import * as fs from 'node:fs';
+import { createRequire } from 'node:module';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-const TELE_PATH  = path.resolve(__dirname, '../../.claude/helpers/utils/telemetry.cjs');
-const MONO_PATH  = path.resolve(__dirname, '../../.claude/helpers/utils/monograph.cjs');
+const TELE_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/telemetry.cjs');
+const MONO_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/monograph.cjs');
 const MICRO_PATH = path.resolve(__dirname, '../../.claude/helpers/utils/micro-agents.cjs');
 
 function loadMicroAgents(cwd) {
@@ -37,8 +38,8 @@ afterEach(() => {
 });
 
 const KNOWLEDGE_DIR = () => path.join(tmpDir, '.monomind', 'knowledge');
-const CHUNKS_FILE   = () => path.join(KNOWLEDGE_DIR(), 'chunks.jsonl');
-const HASH_FILE     = () => path.join(KNOWLEDGE_DIR(), '.index-hash');
+const CHUNKS_FILE = () => path.join(KNOWLEDGE_DIR(), 'chunks.jsonl');
+const HASH_FILE = () => path.join(KNOWLEDGE_DIR(), '.index-hash');
 
 // ── no source files ───────────────────────────────────────────────────────────
 
@@ -62,7 +63,10 @@ describe('_autoIndexKnowledge — no source files', () => {
 describe('_autoIndexKnowledge — section chunking', () => {
   it('indexes a valid CLAUDE.md section and returns chunk count > 0', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
-    fs.writeFileSync(claudeMd, 'This is a valid section with enough content to be indexed properly by the system.');
+    fs.writeFileSync(
+      claudeMd,
+      'This is a valid section with enough content to be indexed properly by the system.',
+    );
     const ma = loadMicroAgents(tmpDir);
     const count = ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     expect(count).toBeGreaterThan(0);
@@ -71,13 +75,13 @@ describe('_autoIndexKnowledge — section chunking', () => {
   it('skips sections shorter than 40 chars', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
     // One short section (< 40) and one valid one
-    fs.writeFileSync(claudeMd, 'Too short\n\n' + 'x'.repeat(50));
+    fs.writeFileSync(claudeMd, `Too short\n\n${'x'.repeat(50)}`);
     const ma = loadMicroAgents(tmpDir);
     const count = ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     // Only the 50-char section should pass
     const lines = fs.readFileSync(CHUNKS_FILE(), 'utf-8').trim().split('\n').filter(Boolean);
     expect(lines.length).toBe(count);
-    lines.forEach(line => {
+    lines.forEach((line) => {
       const chunk = JSON.parse(line);
       expect(chunk.text.length).toBeGreaterThanOrEqual(40);
     });
@@ -87,11 +91,11 @@ describe('_autoIndexKnowledge — section chunking', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
     const longSection = 'x'.repeat(3001);
     const validSection = 'y'.repeat(100);
-    fs.writeFileSync(claudeMd, longSection + '\n\n' + validSection);
+    fs.writeFileSync(claudeMd, `${longSection}\n\n${validSection}`);
     const ma = loadMicroAgents(tmpDir);
     ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     const lines = fs.readFileSync(CHUNKS_FILE(), 'utf-8').trim().split('\n').filter(Boolean);
-    lines.forEach(line => {
+    lines.forEach((line) => {
       const chunk = JSON.parse(line);
       expect(chunk.text.length).toBeLessThanOrEqual(3000);
     });
@@ -99,7 +103,10 @@ describe('_autoIndexKnowledge — section chunking', () => {
 
   it('each chunk has chunkId, namespace, text, metadata fields', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
-    fs.writeFileSync(claudeMd, 'A properly-sized section that will be indexed as a knowledge chunk for testing.');
+    fs.writeFileSync(
+      claudeMd,
+      'A properly-sized section that will be indexed as a knowledge chunk for testing.',
+    );
     const ma = loadMicroAgents(tmpDir);
     ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     const lines = fs.readFileSync(CHUNKS_FILE(), 'utf-8').trim().split('\n').filter(Boolean);
@@ -115,21 +122,24 @@ describe('_autoIndexKnowledge — section chunking', () => {
 
   it('indexes docs/todo.md when present', () => {
     fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, 'docs', 'todo.md'),
-      'A valid todo section that is long enough to pass the minimum length filter check here.');
+    fs.writeFileSync(
+      path.join(tmpDir, 'docs', 'todo.md'),
+      'A valid todo section that is long enough to pass the minimum length filter check here.',
+    );
     const ma = loadMicroAgents(tmpDir);
     const count = ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     expect(count).toBeGreaterThan(0);
     const lines = fs.readFileSync(CHUNKS_FILE(), 'utf-8').trim().split('\n').filter(Boolean);
-    const hasTodo = lines.some(l => JSON.parse(l).metadata.label === 'project-todo');
+    const hasTodo = lines.some((l) => JSON.parse(l).metadata.label === 'project-todo');
     expect(hasTodo).toBe(true);
   });
 
   it('splits on double-newlines to produce multiple chunks from one file', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
     const sectionA = 'First section content that is definitely more than forty characters long.';
-    const sectionB = 'Second section content that is also definitely more than forty characters long.';
-    fs.writeFileSync(claudeMd, sectionA + '\n\n' + sectionB);
+    const sectionB =
+      'Second section content that is also definitely more than forty characters long.';
+    fs.writeFileSync(claudeMd, `${sectionA}\n\n${sectionB}`);
     const ma = loadMicroAgents(tmpDir);
     const count = ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     expect(count).toBeGreaterThanOrEqual(2);
@@ -141,7 +151,10 @@ describe('_autoIndexKnowledge — section chunking', () => {
 describe('_autoIndexKnowledge — hash-based early exit', () => {
   it('returns 0 on second call when file has not changed', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
-    fs.writeFileSync(claudeMd, 'Stable content that will not change between the two indexing calls made here.');
+    fs.writeFileSync(
+      claudeMd,
+      'Stable content that will not change between the two indexing calls made here.',
+    );
     const ma = loadMicroAgents(tmpDir);
     const firstCount = ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     expect(firstCount).toBeGreaterThan(0);
@@ -152,7 +165,10 @@ describe('_autoIndexKnowledge — hash-based early exit', () => {
 
   it('re-indexes when .index-hash does not match current content hash', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
-    fs.writeFileSync(claudeMd, 'Original content that will be changed to force a re-index of the knowledge base.');
+    fs.writeFileSync(
+      claudeMd,
+      'Original content that will be changed to force a re-index of the knowledge base.',
+    );
     const ma = loadMicroAgents(tmpDir);
     ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     // Invalidate by writing a stale hash
@@ -163,7 +179,10 @@ describe('_autoIndexKnowledge — hash-based early exit', () => {
 
   it('re-indexes when chunks.jsonl is empty even if hash matches', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
-    fs.writeFileSync(claudeMd, 'Content for testing the empty-chunks re-index path in auto index knowledge.');
+    fs.writeFileSync(
+      claudeMd,
+      'Content for testing the empty-chunks re-index path in auto index knowledge.',
+    );
     const ma = loadMicroAgents(tmpDir);
     // First index to get the real hash
     ma._autoIndexKnowledge(KNOWLEDGE_DIR());
@@ -181,15 +200,23 @@ describe('_autoIndexKnowledge — hash-based early exit', () => {
 describe('_autoIndexKnowledge — legacy graph.json injection', () => {
   it('injects a monograph summary chunk when legacy stats.json + graph.json exist', () => {
     const claudeMd = path.join(tmpDir, 'CLAUDE.md');
-    fs.writeFileSync(claudeMd, 'Section to ensure at least one source chunk is produced by the indexer.');
+    fs.writeFileSync(
+      claudeMd,
+      'Section to ensure at least one source chunk is produced by the indexer.',
+    );
     const graphDir = path.join(tmpDir, '.monomind', 'graph');
     fs.mkdirSync(graphDir, { recursive: true });
-    fs.writeFileSync(path.join(graphDir, 'stats.json'), JSON.stringify({ nodes: 42, edges: 100, builtAt: '2025-01-01' }));
+    fs.writeFileSync(
+      path.join(graphDir, 'stats.json'),
+      JSON.stringify({ nodes: 42, edges: 100, builtAt: '2025-01-01' }),
+    );
     fs.writeFileSync(path.join(graphDir, 'graph.json'), JSON.stringify({ nodes: [], edges: [] }));
     const ma = loadMicroAgents(tmpDir);
     ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     const lines = fs.readFileSync(CHUNKS_FILE(), 'utf-8').trim().split('\n').filter(Boolean);
-    const hasSummary = lines.some(l => JSON.parse(l).metadata?.label === 'monograph-graph-summary');
+    const hasSummary = lines.some(
+      (l) => JSON.parse(l).metadata?.label === 'monograph-graph-summary',
+    );
     expect(hasSummary).toBe(true);
   });
 
@@ -201,7 +228,9 @@ describe('_autoIndexKnowledge — legacy graph.json injection', () => {
     const ma = loadMicroAgents(tmpDir);
     ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     const lines = fs.readFileSync(CHUNKS_FILE(), 'utf-8').trim().split('\n').filter(Boolean);
-    const summary = lines.map(l => JSON.parse(l)).find(c => c.metadata?.label === 'monograph-graph-summary');
+    const summary = lines
+      .map((l) => JSON.parse(l))
+      .find((c) => c.metadata?.label === 'monograph-graph-summary');
     expect(summary).toBeDefined();
     expect(summary.text).toContain('77');
     expect(summary.text).toContain('200');
@@ -217,8 +246,12 @@ describe('_autoIndexKnowledge — legacy graph.json injection', () => {
     const ma = loadMicroAgents(tmpDir);
     ma._autoIndexKnowledge(KNOWLEDGE_DIR());
     const lines = fs.readFileSync(CHUNKS_FILE(), 'utf-8').trim().split('\n').filter(Boolean);
-    const hasSummary = lines.some(l => {
-      try { return JSON.parse(l).metadata?.label === 'monograph-graph-summary'; } catch { return false; }
+    const hasSummary = lines.some((l) => {
+      try {
+        return JSON.parse(l).metadata?.label === 'monograph-graph-summary';
+      } catch {
+        return false;
+      }
     });
     expect(hasSummary).toBe(false);
   });

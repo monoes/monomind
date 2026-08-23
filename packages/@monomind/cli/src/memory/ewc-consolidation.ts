@@ -33,8 +33,8 @@
  * @module v1/cli/memory/ewc-consolidation
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { BRIDGE_EMBEDDING_DIMS } from './memory-bridge.js';
 
 // ============================================================================
@@ -162,7 +162,7 @@ const DEFAULT_EWC_CONFIG: EWCConfig = {
   importanceThreshold: 0.3,
   storagePath: path.join(process.cwd(), '.swarm', 'ewc-fisher.json'),
   onlineMode: true,
-  dimensions: BRIDGE_EMBEDDING_DIMS
+  dimensions: BRIDGE_EMBEDDING_DIMS,
 };
 
 // ============================================================================
@@ -205,7 +205,8 @@ export class EWCConsolidator {
       return true;
     } catch (e) {
       // Start fresh if no persisted state
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[ewc-consolidation] failed to load persisted state, starting fresh:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[ewc-consolidation] failed to load persisted state, starting fresh:', e);
       this.initialized = true;
       return true;
     }
@@ -268,7 +269,7 @@ export class EWCConsolidator {
    */
   consolidate(
     newPatterns: { id: string; embedding: number[]; type: string; description?: string }[],
-    oldPatterns?: PatternWeights[]
+    oldPatterns?: PatternWeights[],
   ): ConsolidationResult {
     const startTime = performance.now();
     const result: ConsolidationResult = {
@@ -277,7 +278,7 @@ export class EWCConsolidator {
       totalPenalty: 0,
       modifiedPatterns: [],
       protectedPatterns: [],
-      duration: 0
+      duration: 0,
     };
 
     try {
@@ -286,11 +287,11 @@ export class EWCConsolidator {
 
       // Compute Fisher from successful existing patterns
       const fisherInput = existingPatterns
-        .filter(p => p.successCount > p.failureCount)
-        .map(p => ({
+        .filter((p) => p.successCount > p.failureCount)
+        .map((p) => ({
           id: p.id,
           embedding: p.weights,
-          success: true
+          success: true,
         }));
 
       const fisher = this.computeFisherMatrix(fisherInput);
@@ -300,9 +301,10 @@ export class EWCConsolidator {
         if (!newPattern.embedding || newPattern.embedding.length === 0) continue;
         // Cap pattern ID length: unbounded IDs fill both the Map key and the
         // modifiedPatterns/protectedPatterns result arrays without any limit.
-        const patternId = typeof newPattern.id === 'string'
-          ? newPattern.id.slice(0, 256)
-          : String(newPattern.id).slice(0, 256);
+        const patternId =
+          typeof newPattern.id === 'string'
+            ? newPattern.id.slice(0, 256)
+            : String(newPattern.id).slice(0, 256);
 
         const existingPattern = this.patterns.get(patternId);
 
@@ -323,7 +325,7 @@ export class EWCConsolidator {
               existingPattern.weights,
               newPattern.embedding,
               blendFactor,
-              fisher
+              fisher,
             );
 
             existingPattern.weights = blendedWeights;
@@ -350,7 +352,7 @@ export class EWCConsolidator {
             failureCount: 0,
             lastUpdated: Date.now(),
             type: newPattern.type,
-            description: newPattern.description
+            description: newPattern.description,
           };
 
           this.patterns.set(patternId, weights);
@@ -369,7 +371,7 @@ export class EWCConsolidator {
       this.consolidationHistory.push({
         timestamp: Date.now(),
         penalty: result.totalPenalty,
-        patterns: result.patternsConsolidated
+        patterns: result.patternsConsolidated,
       });
       if (this.consolidationHistory.length > 100) {
         this.consolidationHistory = this.consolidationHistory.slice(-100);
@@ -402,11 +404,7 @@ export class EWCConsolidator {
    * @param fisher - Fisher information diagonal (optional, uses global if not provided)
    * @returns Regularization penalty value
    */
-  getPenalty(
-    oldWeights: number[],
-    newWeights: number[],
-    fisher?: number[]
-  ): number {
+  getPenalty(oldWeights: number[], newWeights: number[], fisher?: number[]): number {
     const fisherDiag = fisher || this.globalFisher;
     const len = Math.min(oldWeights.length, newWeights.length, fisherDiag.length);
 
@@ -441,9 +439,8 @@ export class EWCConsolidator {
     }
 
     const totalPenalty = this.consolidationHistory.reduce((sum, h) => sum + h.penalty, 0);
-    const avgPenalty = this.consolidationHistory.length > 0
-      ? totalPenalty / this.consolidationHistory.length
-      : 0;
+    const avgPenalty =
+      this.consolidationHistory.length > 0 ? totalPenalty / this.consolidationHistory.length : 0;
 
     // Estimate storage size
     let storageSizeBytes = 0;
@@ -462,11 +459,12 @@ export class EWCConsolidator {
       avgFisherValue: this.globalFisher.length > 0 ? totalFisher / this.globalFisher.length : 0,
       maxFisherValue: maxFisher,
       consolidationCount: this.consolidationHistory.length,
-      lastConsolidation: this.consolidationHistory.length > 0
-        ? this.consolidationHistory[this.consolidationHistory.length - 1].timestamp
-        : null,
+      lastConsolidation:
+        this.consolidationHistory.length > 0
+          ? this.consolidationHistory[this.consolidationHistory.length - 1].timestamp
+          : null,
       avgPenalty,
-      storageSizeBytes
+      storageSizeBytes,
     };
   }
 
@@ -478,7 +476,7 @@ export class EWCConsolidator {
       patternId,
       gradients,
       timestamp: Date.now(),
-      success
+      success,
     });
 
     // Keep only recent gradients
@@ -503,7 +501,8 @@ export class EWCConsolidator {
       const decay = this.config.fisherDecayRate;
       const len = Math.min(gradients.length, this.config.dimensions);
       for (let i = 0; i < len; i++) {
-        this.globalFisher[i] = (1 - decay) * this.globalFisher[i] + decay * gradients[i] * gradients[i];
+        this.globalFisher[i] =
+          (1 - decay) * this.globalFisher[i] + decay * gradients[i] * gradients[i];
       }
     }
 
@@ -556,7 +555,7 @@ export class EWCConsolidator {
    * @param confidenceChanges - Array of {id, embedding, oldConf, newConf}
    */
   updateFisherFromConfidences(
-    confidenceChanges: { id: string; embedding: number[]; oldConf: number; newConf: number }[]
+    confidenceChanges: { id: string; embedding: number[]; oldConf: number; newConf: number }[],
   ): void {
     if (confidenceChanges.length === 0) return;
 
@@ -620,7 +619,10 @@ export class EWCConsolidator {
    */
   clear(): void {
     // Cancel any pending debounced write before clearing
-    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; }
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
     this.dirty = false;
     this.patterns.clear();
     this.gradientHistory = [];
@@ -666,7 +668,7 @@ export class EWCConsolidator {
     oldWeights: number[],
     newWeights: number[],
     blendFactor: number,
-    fisher: number[]
+    fisher: number[],
   ): number[] {
     const len = Math.min(oldWeights.length, newWeights.length, this.config.dimensions);
     const result = new Array(len);
@@ -741,20 +743,21 @@ export class EWCConsolidator {
         config: {
           lambda: this.config.lambda,
           dimensions: this.config.dimensions,
-          fisherDecayRate: this.config.fisherDecayRate
+          fisherDecayRate: this.config.fisherDecayRate,
         },
         globalFisher: this.globalFisher,
         patterns: Array.from(this.patterns.entries()),
         consolidationHistory: this.consolidationHistory.slice(-100),
-        savedAt: Date.now()
+        savedAt: Date.now(),
       };
 
-      const tmp = this.config.storagePath + '.tmp';
+      const tmp = `${this.config.storagePath}.tmp`;
       fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
       fs.renameSync(tmp, this.config.storagePath);
     } catch (e) {
       // Silently fail - persistence is best-effort
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[ewc-consolidation] failed to persist state:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[ewc-consolidation] failed to persist state:', e);
     }
   }
 
@@ -782,9 +785,11 @@ export class EWCConsolidator {
     // An attacker who can write the persisted file could otherwise inject
     // [Infinity, ...] (freezes learning via the penalty>lambda damping branch)
     // or NaN values that poison ranking unpredictably.
-    if (Array.isArray(state.globalFisher)
-      && state.globalFisher.length === this.config.dimensions
-      && state.globalFisher.every((v: unknown) => typeof v === 'number' && Number.isFinite(v))) {
+    if (
+      Array.isArray(state.globalFisher) &&
+      state.globalFisher.length === this.config.dimensions &&
+      state.globalFisher.every((v: unknown) => typeof v === 'number' && Number.isFinite(v))
+    ) {
       this.globalFisher = state.globalFisher;
     } else {
       this.globalFisher = new Array(this.config.dimensions).fill(0);
@@ -794,15 +799,22 @@ export class EWCConsolidator {
     this.patterns.clear();
     if (Array.isArray(state.patterns)) {
       const isFiniteNumberArray = (a: unknown, dim: number): boolean =>
-        Array.isArray(a) && a.length === dim && a.every(v => typeof v === 'number' && Number.isFinite(v));
+        Array.isArray(a) &&
+        a.length === dim &&
+        a.every((v) => typeof v === 'number' && Number.isFinite(v));
       for (const entry of state.patterns) {
         if (!Array.isArray(entry) || entry.length !== 2) continue;
         const [id, pattern] = entry;
         if (typeof id !== 'string' || id.length > 256) continue;
         const p = pattern as Record<string, unknown> | undefined;
         if (!p || typeof p !== 'object') continue;
-        if (p.weights !== undefined && !isFiniteNumberArray(p.weights, this.config.dimensions)) continue;
-        if (p.fisherDiagonal !== undefined && !isFiniteNumberArray(p.fisherDiagonal, this.config.dimensions)) continue;
+        if (p.weights !== undefined && !isFiniteNumberArray(p.weights, this.config.dimensions))
+          continue;
+        if (
+          p.fisherDiagonal !== undefined &&
+          !isFiniteNumberArray(p.fisherDiagonal, this.config.dimensions)
+        )
+          continue;
         this.patterns.set(id, pattern);
       }
     }
@@ -816,9 +828,13 @@ export class EWCConsolidator {
 
     // Update config from persisted values, clamped to a sensible range to
     // prevent negative/NaN lambda from inverting the regularization sign.
-    if (state.config && typeof state.config.lambda === 'number'
-      && Number.isFinite(state.config.lambda)
-      && state.config.lambda >= 0 && state.config.lambda <= 1000) {
+    if (
+      state.config &&
+      typeof state.config.lambda === 'number' &&
+      Number.isFinite(state.config.lambda) &&
+      state.config.lambda >= 0 &&
+      state.config.lambda <= 1000
+    ) {
       this.config.lambda = state.config.lambda;
     }
   }
@@ -866,7 +882,7 @@ export function resetEWCConsolidator(): void {
  * @returns Consolidation result
  */
 export async function consolidatePatterns(
-  newPatterns: { id: string; embedding: number[]; type: string; description?: string }[]
+  newPatterns: { id: string; embedding: number[]; type: string; description?: string }[],
 ): Promise<ConsolidationResult> {
   const consolidator = await getEWCConsolidator();
   return consolidator.consolidate(newPatterns);
@@ -883,7 +899,7 @@ export async function consolidatePatterns(
 export async function recordPatternOutcome(
   patternId: string,
   embedding: number[],
-  success: boolean
+  success: boolean,
 ): Promise<void> {
   const consolidator = await getEWCConsolidator();
   consolidator.recordGradient(patternId, embedding, success);
@@ -903,5 +919,5 @@ export default {
   resetEWCConsolidator,
   consolidatePatterns,
   recordPatternOutcome,
-  getEWCStats
+  getEWCStats,
 };

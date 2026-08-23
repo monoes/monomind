@@ -57,9 +57,16 @@
  *   - Headless requires cached creds — must authenticate interactively first
  */
 import { spawn } from 'node:child_process';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
 
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours, matching kimi/codex runners
 
@@ -154,20 +161,31 @@ export class AntigravityAgentRunner implements AgentRunner {
           // Prepend system prompt + tool protocol on first turn only (when
           // there's no conversation to resume). Subsequent turns in the same
           // conversation carry context via the conversation_id.
-          const promptWithSystem = (round === 0 && !conversationId)
-            ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
-            : nextPrompt;
+          const promptWithSystem =
+            round === 0 && !conversationId
+              ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${nextPrompt}`
+              : nextPrompt;
 
           // Filled in by streamTurn as the subprocess runs and when it exits.
           const outcome: TurnOutcome = {
-            exitCode: 1, stderrTail: '', timedOut: false, inputTokens: 0, outputTokens: 0,
+            exitCode: 1,
+            stderrTail: '',
+            timedOut: false,
+            inputTokens: 0,
+            outputTokens: 0,
           };
           // Raw assistant texts (fences intact) for end-of-turn tool-call
           // parsing — fence parsing needs the complete text, so fences are
           // collected here while the stripped prose streams out live below.
           const rawTexts: string[] = [];
 
-          for await (const ev of this.streamTurn(bin, promptWithSystem, conversationId, args, outcome)) {
+          for await (const ev of this.streamTurn(
+            bin,
+            promptWithSystem,
+            conversationId,
+            args,
+            outcome,
+          )) {
             if (ev.conversationId) conversationId = ev.conversationId;
             if (ev.kind === 'assistant' && ev.rawText !== undefined) {
               rawTexts.push(ev.rawText);
@@ -194,9 +212,11 @@ export class AntigravityAgentRunner implements AgentRunner {
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(rawTexts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
+          const calls = parseToolCalls(rawTexts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
           for (const note of malformed) {
             yield { type: 'assistant', session_id: conversationId, text: note };
           }
@@ -204,7 +224,8 @@ export class AntigravityAgentRunner implements AgentRunner {
 
           if (round === MAX_TOOL_ROUNDS) {
             yield {
-              type: 'assistant', session_id: conversationId,
+              type: 'assistant',
+              session_id: conversationId,
               text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
             };
             break;
@@ -232,9 +253,9 @@ export class AntigravityAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'AntigravityAgentRunner requires the Antigravity CLI (agy) on PATH. ' +
-          'Install it: curl -fsSL https://antigravity.google/cli/install.sh | bash, ' +
-          'then run `agy` once to authenticate with your Google AI Pro/Ultra account. ' +
-          'Or unset the runtime to use Claude.',
+            'Install it: curl -fsSL https://antigravity.google/cli/install.sh | bash, ' +
+            'then run `agy` once to authenticate with your Google AI Pro/Ultra account. ' +
+            'Or unset the runtime to use Claude.',
         );
       }
       throw err;
@@ -288,7 +309,13 @@ export class AntigravityAgentRunner implements AgentRunner {
       child.kill('SIGTERM');
       // A wedged CLI that ignores SIGTERM must not leak a zombie per turn:
       // escalate to SIGKILL after a short grace period.
-      killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+      killTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }, KILL_GRACE_MS);
       killTimer.unref?.();
     }, TURN_TIMEOUT_MS);
 
@@ -323,7 +350,12 @@ export class AntigravityAgentRunner implements AgentRunner {
       pendingText = '';
       pendingStepIndex = undefined;
       const stripped = raw.replace(TOOL_CALL_RE, '').trim();
-      return { kind: 'assistant', rawText: raw, text: stripped || undefined, conversationId: lastConversationId };
+      return {
+        kind: 'assistant',
+        rawText: raw,
+        text: stripped || undefined,
+        conversationId: lastConversationId,
+      };
     };
 
     // Normalize one parsed wire event: capture the conversation id from ANY
@@ -331,17 +363,25 @@ export class AntigravityAgentRunner implements AgentRunner {
     // envelope state, and return the AgyStreamEvent to yield (or null).
     // init and other event kinds matter only for the conversation id.
     const handleEvent = (ev: AgyEvent): AgyStreamEvent | null => {
-      const cid = ev.conversation_id ?? ev.step_update?.conversation_id ?? ev.result?.conversation_id;
+      const cid =
+        ev.conversation_id ?? ev.step_update?.conversation_id ?? ev.result?.conversation_id;
       if (cid) lastConversationId = cid;
 
       if (ev.event === 'step_update' && ev.step_update) {
         const step = ev.step_update;
         if (step.step_type === 'agent_response') {
-          if (pendingStepIndex !== undefined && step.step_index !== undefined && step.step_index !== pendingStepIndex) {
+          if (
+            pendingStepIndex !== undefined &&
+            step.step_index !== undefined &&
+            step.step_index !== pendingStepIndex
+          ) {
             // A new response step started — flush the previous one.
             const flushed = flushText();
             if (step.step_index !== undefined) pendingStepIndex = step.step_index;
-            if (typeof step.text_delta === 'string') { sawStreamedText = true; pendingText += step.text_delta; }
+            if (typeof step.text_delta === 'string') {
+              sawStreamedText = true;
+              pendingText += step.text_delta;
+            }
             return flushed;
           }
           if (step.step_index !== undefined) pendingStepIndex = step.step_index;
@@ -359,7 +399,11 @@ export class AntigravityAgentRunner implements AgentRunner {
           }
           if (step.state === 'DONE') return flushText();
         } else if (step.step_type === 'tool' && step.tool_info?.name) {
-          return { kind: 'tool', toolName: step.tool_info.name.slice(0, 200), conversationId: lastConversationId };
+          return {
+            kind: 'tool',
+            toolName: step.tool_info.name.slice(0, 200),
+            conversationId: lastConversationId,
+          };
         }
       } else if (ev.event === 'result' && ev.result) {
         const result = ev.result;
@@ -390,19 +434,25 @@ export class AntigravityAgentRunner implements AgentRunner {
         buf = parts.pop() ?? '';
         for (const line of parts) {
           const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('{')) continue;
+          if (!trimmed?.startsWith('{')) continue;
           let ev: AgyEvent;
-          try { ev = JSON.parse(trimmed) as AgyEvent; } catch { continue; }
+          try {
+            ev = JSON.parse(trimmed) as AgyEvent;
+          } catch {
+            continue;
+          }
           const out = handleEvent(ev);
           if (out) yield out;
         }
       }
       const tail = buf.trim();
-      if (tail && tail.startsWith('{')) {
+      if (tail?.startsWith('{')) {
         try {
           const out = handleEvent(JSON.parse(tail) as AgyEvent);
           if (out) yield out;
-        } catch { /* not JSON, skip */ }
+        } catch {
+          /* not JSON, skip */
+        }
       }
 
       // Flush any trailing text whose DONE boundary never arrived.
@@ -413,7 +463,12 @@ export class AntigravityAgentRunner implements AgentRunner {
       // streaming): surface it as the turn's assistant text.
       if (!sawStreamedText && resultResponse) {
         const stripped = resultResponse.replace(TOOL_CALL_RE, '').trim();
-        yield { kind: 'assistant', rawText: resultResponse, text: stripped || undefined, conversationId: lastConversationId };
+        yield {
+          kind: 'assistant',
+          rawText: resultResponse,
+          text: stripped || undefined,
+          conversationId: lastConversationId,
+        };
       }
     } finally {
       clearTimeout(timer);
@@ -422,7 +477,11 @@ export class AntigravityAgentRunner implements AgentRunner {
       // silent-abort calls iterator.return(), the mailbox closes, or an
       // error is thrown downstream), don't leak the CLI subprocess.
       if (child.exitCode === null && !child.killed) {
-        try { child.kill('SIGTERM'); } catch { /* already gone */ }
+        try {
+          child.kill('SIGTERM');
+        } catch {
+          /* already gone */
+        }
       }
     }
 
@@ -435,11 +494,11 @@ export class AntigravityAgentRunner implements AgentRunner {
 }
 
 /** Build the actionable error for a failed agy turn. */
-function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
+function turnError(outcome: TurnOutcome, round: number, _bin: string): Error {
   if (outcome.timedOut) {
     return new Error(
       `AntigravityAgentRunner: agy turn (tool round ${round}) exceeded the ${Math.round(TURN_TIMEOUT_MS / 60000)}min ` +
-      `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+        `turn timeout and was killed.${outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
     );
   }
   // Fatal provider errors (auth/permission/quota — classified from the result
@@ -450,15 +509,15 @@ function turnError(outcome: TurnOutcome, round: number, bin: string): Error {
   if (cls.fatal) {
     const err = new Error(
       `AntigravityAgentRunner: FATAL provider error (${cls.label}) on turn ${round} — not retrying.` +
-      (outcome.error ? ` error: ${outcome.error}` : '') +
-      (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
+        (outcome.error ? ` error: ${outcome.error}` : '') +
+        (outcome.stderrTail ? ` stderr: ${outcome.stderrTail.slice(-500)}` : ''),
     );
     (err as Error & { fatal?: boolean }).fatal = true;
     return err;
   }
   return new Error(
     `AntigravityAgentRunner: agy failed (exit ${outcome.exitCode})` +
-    (outcome.error ? `: ${outcome.error}` : '') +
-    (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+      (outcome.error ? `: ${outcome.error}` : '') +
+      (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
   );
 }

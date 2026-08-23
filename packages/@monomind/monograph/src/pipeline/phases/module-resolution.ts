@@ -1,14 +1,16 @@
 // ── Module resolution for import specifiers ──────────────────────────────────
 
-import { readFileSync, existsSync, readdirSync } from 'fs';
-import { join, extname, dirname, resolve as resolvePath } from 'path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, extname, join, resolve as resolvePath } from 'node:path';
 import type { MonographNode } from '../../types.js';
-import { TS_JS_EXTS, CJS_MJS_EXTS } from './call-site-extractors.js';
+import { TS_JS_EXTS } from './call-site-extractors.js';
 
 // ── Import regexes ───────────────────────────────────────────────────────────
 
-export const IMPORT_RE = /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+))(?:\s*,\s*(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+)))?\s+from\s+['"]([^'"]+)['"]/g;
-export const REQUIRE_RE = /(?:const|let|var)\s+(?:\{([^}]+)\}|(\w+))\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+export const IMPORT_RE =
+  /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+))(?:\s*,\s*(?:\{([^}]+)\}|(\w+)|\*\s+as\s+(\w+)))?\s+from\s+['"]([^'"]+)['"]/g;
+export const REQUIRE_RE =
+  /(?:const|let|var)\s+(?:\{([^}]+)\}|(\w+))\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 const PY_FROM_IMPORT_RE = /from\s+([\w.]+)\s+import\s+(.+)/g;
 const PY_IMPORT_RE = /^import\s+([\w.]+)(?:\s+as\s+(\w+))?/gm;
 const GO_IMPORT_RE = /import\s+(?:"([^"]+)"|(?:\w+\s+)?"([^"]+)"|\(\s*([\s\S]*?)\s*\))/g;
@@ -40,7 +42,11 @@ export function buildWorkspacePackageMap(repoPath: string): Map<string, string> 
     const scanDirs = (base: string, depth: number) => {
       if (depth > 2) return;
       let entries: string[];
-      try { entries = readdirSync(base); } catch { return; }
+      try {
+        entries = readdirSync(base);
+      } catch {
+        return;
+      }
       for (const e of entries) {
         const full = join(base, e);
         const pkgJson = join(full, 'package.json');
@@ -56,7 +62,9 @@ export function buildWorkspacePackageMap(repoPath: string): Map<string, string> 
       }
     };
     scanDirs(packagesDir, 0);
-  } catch { /* no packages dir */ }
+  } catch {
+    /* no packages dir */
+  }
   workspacePackageMapCache.set(repoPath, result);
   return result;
 }
@@ -78,8 +86,8 @@ export function resolveModuleSpecifier(
     for (const candidate of [
       raw,
       base,
-      ...RESOLVE_EXTS.map(e => base + e),
-      ...RESOLVE_EXTS.map(e => base + '/index' + e),
+      ...RESOLVE_EXTS.map((e) => base + e),
+      ...RESOLVE_EXTS.map((e) => `${base}/index${e}`),
     ]) {
       if (knownFiles.has(candidate)) return candidate;
     }
@@ -92,18 +100,18 @@ export function resolveModuleSpecifier(
 
   for (const [pkgName, pkgDir] of workspaceMap) {
     if (specifier === pkgName) {
-      for (const entry of RESOLVE_EXTS.map(e => pkgDir + '/src/index' + e)) {
+      for (const entry of RESOLVE_EXTS.map((e) => `${pkgDir}/src/index${e}`)) {
         if (knownFiles.has(entry)) return entry;
       }
       return null;
     }
-    if (specifier.startsWith(pkgName + '/')) {
+    if (specifier.startsWith(`${pkgName}/`)) {
       const subpath = specifier.slice(pkgName.length + 1);
-      const base = pkgDir + '/' + subpath;
+      const base = `${pkgDir}/${subpath}`;
       for (const candidate of [
         base,
-        ...RESOLVE_EXTS.map(e => base + e),
-        ...RESOLVE_EXTS.map(e => base + '/index' + e),
+        ...RESOLVE_EXTS.map((e) => base + e),
+        ...RESOLVE_EXTS.map((e) => `${base}/index${e}`),
       ]) {
         if (knownFiles.has(candidate)) return candidate;
       }
@@ -114,38 +122,54 @@ export function resolveModuleSpecifier(
   return null;
 }
 
-function resolvePythonModule(importerPath: string, modulePath: string, knownFiles: Set<string>): string | null {
+function resolvePythonModule(
+  importerPath: string,
+  modulePath: string,
+  knownFiles: Set<string>,
+): string | null {
   const dir = dirname(importerPath);
-  for (const base of [dir + '/' + modulePath, modulePath]) {
-    for (const candidate of [base + '.py', base + '/__init__.py']) {
+  for (const base of [`${dir}/${modulePath}`, modulePath]) {
+    for (const candidate of [`${base}.py`, `${base}/__init__.py`]) {
       if (knownFiles.has(candidate)) return candidate;
     }
   }
   return null;
 }
 
-function resolveGoPackage(_importerPath: string, goPath: string, knownFiles: Set<string>): string | null {
+function resolveGoPackage(
+  _importerPath: string,
+  goPath: string,
+  knownFiles: Set<string>,
+): string | null {
   for (const f of knownFiles) {
-    if (f.startsWith(goPath + '/') && f.endsWith('.go')) return f;
+    if (f.startsWith(`${goPath}/`) && f.endsWith('.go')) return f;
   }
   return null;
 }
 
 function resolveJavaImport(qualifiedName: string, knownFiles: Set<string>): string | null {
   const pathPart = qualifiedName.replace(/\./g, '/');
-  for (const candidate of [pathPart + '.java', 'src/main/java/' + pathPart + '.java', 'src/' + pathPart + '.java']) {
+  for (const candidate of [
+    `${pathPart}.java`,
+    `src/main/java/${pathPart}.java`,
+    `src/${pathPart}.java`,
+  ]) {
     if (knownFiles.has(candidate)) return candidate;
   }
   if (pathPart.endsWith('/*')) {
     const dir = pathPart.slice(0, -2);
     for (const f of knownFiles) {
-      if (f.endsWith('.java') && (f.startsWith(dir + '/') || f.includes('/' + dir + '/'))) return f;
+      if (f.endsWith('.java') && (f.startsWith(`${dir}/`) || f.includes(`/${dir}/`))) return f;
     }
   }
   return null;
 }
 
-function resolveRustUse(usePath: string, importerPath: string, knownFiles: Set<string>): string | null {
+function resolveRustUse(
+  usePath: string,
+  importerPath: string,
+  knownFiles: Set<string>,
+): string | null {
   const parts = usePath.split('::');
   if (parts[0] === 'crate') parts[0] = 'src';
   else if (parts[0] === 'super') {
@@ -156,7 +180,7 @@ function resolveRustUse(usePath: string, importerPath: string, knownFiles: Set<s
   }
   for (let len = parts.length; len >= 2; len--) {
     const base = parts.slice(0, len).join('/');
-    for (const candidate of [base + '.rs', base + '/mod.rs']) {
+    for (const candidate of [`${base}.rs`, `${base}/mod.rs`]) {
       if (knownFiles.has(candidate)) return candidate;
     }
   }
@@ -168,7 +192,13 @@ function resolveRustUse(usePath: string, importerPath: string, knownFiles: Set<s
 export function extractImportNames(clause: string): string[] {
   return clause
     .split(',')
-    .map(s => s.trim().split(/\s+as\s+/).pop()!.trim())
+    .map((s) =>
+      s
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()
+        ?.trim(),
+    )
     .filter(Boolean);
 }
 
@@ -201,7 +231,13 @@ export function buildAllImportMapsFromSource(
       let m: RegExpExecArray | null;
       while ((m = IMPORT_RE.exec(source)) !== null) {
         const specifier = m[7];
-        const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
+        const resolved = resolveModuleSpecifier(
+          filePath,
+          specifier,
+          repoPath,
+          knownFiles,
+          workspaceMap,
+        );
         if (!resolved) continue;
         if (m[1]) for (const n of extractImportNames(m[1])) importMap.set(n, resolved);
         if (m[4]) for (const n of extractImportNames(m[4])) importMap.set(n, resolved);
@@ -209,18 +245,30 @@ export function buildAllImportMapsFromSource(
         if (m[5]) importMap.set(m[5], resolved);
         if (m[3]) importMap.set(m[3], resolved);
         if (m[6]) importMap.set(m[6], resolved);
-        const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
+        const baseName = resolved
+          .split('/')
+          .pop()
+          ?.replace(/\.\w+$/, '');
         importMap.set(baseName, resolved);
       }
 
       REQUIRE_RE.lastIndex = 0;
       while ((m = REQUIRE_RE.exec(source)) !== null) {
         const specifier = m[3];
-        const resolved = resolveModuleSpecifier(filePath, specifier, repoPath, knownFiles, workspaceMap);
+        const resolved = resolveModuleSpecifier(
+          filePath,
+          specifier,
+          repoPath,
+          knownFiles,
+          workspaceMap,
+        );
         if (!resolved) continue;
         if (m[1]) for (const n of extractImportNames(m[1])) importMap.set(n, resolved);
         if (m[2]) importMap.set(m[2], resolved);
-        const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
+        const baseName = resolved
+          .split('/')
+          .pop()
+          ?.replace(/\.\w+$/, '');
         importMap.set(baseName, resolved);
       }
     } else if (PY_EXTS.has(ext)) {
@@ -230,10 +278,22 @@ export function buildAllImportMapsFromSource(
         const modulePath = m[1].replace(/\./g, '/');
         const resolved = resolvePythonModule(filePath, modulePath, knownFiles);
         if (!resolved) continue;
-        for (const name of m[2].split(',').map(s => s.trim().split(/\s+as\s+/).pop()!.trim()).filter(Boolean)) {
+        for (const name of m[2]
+          .split(',')
+          .map((s) =>
+            s
+              .trim()
+              .split(/\s+as\s+/)
+              .pop()
+              ?.trim(),
+          )
+          .filter(Boolean)) {
           importMap.set(name, resolved);
         }
-        const baseName = resolved.split('/').pop()!.replace(/\.\w+$/, '');
+        const baseName = resolved
+          .split('/')
+          .pop()
+          ?.replace(/\.\w+$/, '');
         importMap.set(baseName, resolved);
       }
       PY_IMPORT_RE.lastIndex = 0;
@@ -249,7 +309,7 @@ export function buildAllImportMapsFromSource(
       let m: RegExpExecArray | null;
       while ((m = GO_IMPORT_RE.exec(source)) !== null) {
         const paths = m[3]
-          ? m[3].match(/"([^"]+)"/g)?.map(s => s.slice(1, -1)) ?? []
+          ? (m[3].match(/"([^"]+)"/g)?.map((s) => s.slice(1, -1)) ?? [])
           : [m[1] ?? m[2]].filter(Boolean);
         for (const goPath of paths) {
           const resolved = resolveGoPackage(filePath, goPath, knownFiles);
@@ -272,8 +332,11 @@ export function buildAllImportMapsFromSource(
       let m: RegExpExecArray | null;
       while ((m = RUST_USE_RE.exec(source)) !== null) {
         if (m[2]) {
-          for (const name of m[2].split(',').map(s => s.trim()).filter(Boolean)) {
-            const resolved = resolveRustUse(m[1] + '::' + name, filePath, knownFiles);
+          for (const name of m[2]
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)) {
+            const resolved = resolveRustUse(`${m[1]}::${name}`, filePath, knownFiles);
             if (resolved) importMap.set(name.split('::').pop()!, resolved);
           }
         } else {

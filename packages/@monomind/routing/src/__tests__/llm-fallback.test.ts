@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LLMFallbackRouter } from '../llm-fallback.js';
-import type { Route, LLMFallbackConfig } from '../types.js';
+import type { LLMFallbackConfig, Route } from '../types.js';
 
 const testRoutes: Route[] = [
   {
@@ -37,11 +37,12 @@ const defaultScores = [
 
 function makeFallback(
   llmResponse: string | Error,
-  onFallback?: LLMFallbackConfig['onFallback']
+  onFallback?: LLMFallbackConfig['onFallback'],
 ): LLMFallbackRouter {
-  const llmCaller = typeof llmResponse === 'string'
-    ? vi.fn().mockResolvedValue(llmResponse)
-    : vi.fn().mockRejectedValue(llmResponse);
+  const llmCaller =
+    typeof llmResponse === 'string'
+      ? vi.fn().mockResolvedValue(llmResponse)
+      : vi.fn().mockRejectedValue(llmResponse);
   return new LLMFallbackRouter({ llmCaller, onFallback });
 }
 
@@ -117,7 +118,7 @@ describe('LLMFallbackRouter', () => {
     await router.classify('task 1', testRoutes, defaultScores);
     await router.classify('task 2', testRoutes, defaultScores);
     const stats = router.getFallbackStats();
-    expect(stats['coder']).toBe(2); // nearest route name from scores[0]
+    expect(stats.coder).toBe(2); // nearest route name from scores[0]
   });
 
   it('logs fallback events via onFallback callback', async () => {
@@ -136,13 +137,15 @@ describe('LLMFallbackRouter', () => {
   });
 
   it('returns canonical casing from route definition', async () => {
-    const routes: Route[] = [{
-      name: 'MyAgent',
-      agentSlug: 'MyAgent',
-      utterances: ['do stuff'],
-      threshold: 0.5,
-      fallbackToLLM: true,
-    }];
+    const routes: Route[] = [
+      {
+        name: 'MyAgent',
+        agentSlug: 'MyAgent',
+        utterances: ['do stuff'],
+        threshold: 0.5,
+        fallbackToLLM: true,
+      },
+    ];
     const scores = [{ routeName: 'MyAgent', agentSlug: 'MyAgent', score: 0.3 }];
     const router = makeFallback('myagent'); // lowercase response
     const result = await router.classify('task', routes, scores);

@@ -1,4 +1,4 @@
-import { relative } from 'path';
+import { relative } from 'node:path';
 import type { MonographDb } from '../storage/db.js';
 
 export interface MarkdownReportOptions {
@@ -46,7 +46,7 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): Map<string, T[]> {
   for (const item of items) {
     const k = keyFn(item);
     if (!map.has(k)) map.set(k, []);
-    map.get(k)!.push(item);
+    map.get(k)?.push(item);
   }
   return map;
 }
@@ -62,13 +62,15 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
   sections.push('');
 
   // ── Health Score ───────────────────────────────────────────────────────────
-  const healthRow = db.prepare(`
+  const healthRow = db
+    .prepare(`
     SELECT json_extract(properties, '$.healthScore') AS score,
            json_extract(properties, '$.healthGrade') AS grade
     FROM nodes
     WHERE json_extract(properties, '$.healthScore') IS NOT NULL
     LIMIT 1
-  `).get() as { score: number; grade: string } | undefined;
+  `)
+    .get() as { score: number; grade: string } | undefined;
 
   if (healthRow) {
     sections.push('### Health Score');
@@ -79,7 +81,8 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
   }
 
   // ── Unreachable files ──────────────────────────────────────────────────────
-  const unreachable = db.prepare(`
+  const unreachable = db
+    .prepare(`
     SELECT name, file_path,
            json_extract(properties, '$.owner') AS owner
     FROM nodes
@@ -90,7 +93,8 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
     )
     AND file_path IS NOT NULL
     ORDER BY file_path
-  `).all() as FileRow[];
+  `)
+    .all() as FileRow[];
 
   if (unreachable.length > 0) {
     if (groupByOwner) {
@@ -114,9 +118,12 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
   }
 
   // ── God nodes ──────────────────────────────────────────────────────────────
-  const totalNodes = (db.prepare(`SELECT COUNT(*) as c FROM nodes WHERE label = 'File'`).get() as { c: number }).c;
+  const totalNodes = (
+    db.prepare(`SELECT COUNT(*) as c FROM nodes WHERE label = 'File'`).get() as { c: number }
+  ).c;
   const top10pct = Math.max(1, Math.floor(totalNodes * 0.1));
-  const godNodes = db.prepare(`
+  const godNodes = db
+    .prepare(`
     SELECT n.name, n.file_path,
            COALESCE(n.start_line, 1) AS line,
            json_extract(n.properties, '$.owner') AS owner,
@@ -127,9 +134,10 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
     GROUP BY n.id
     ORDER BY in_degree DESC
     LIMIT ?
-  `).all(top10pct) as FileRow[];
+  `)
+    .all(top10pct) as FileRow[];
 
-  const filteredGodNodes = godNodes.filter(r => (r.in_degree ?? 0) > 0);
+  const filteredGodNodes = godNodes.filter((r) => (r.in_degree ?? 0) > 0);
   if (filteredGodNodes.length > 0) {
     if (groupByOwner) {
       const byOwner = groupBy(filteredGodNodes, getOwner);
@@ -156,7 +164,8 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
   }
 
   // ── Duplicate files ────────────────────────────────────────────────────────
-  const dupes = db.prepare(`
+  const dupes = db
+    .prepare(`
     SELECT n1.file_path AS src_path,
            n2.file_path AS target_path,
            json_extract(n1.properties, '$.owner') AS owner
@@ -166,7 +175,8 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
     WHERE e.relation = 'STRUCTURALLY_SIMILAR'
     AND n1.file_path IS NOT NULL AND n2.file_path IS NOT NULL
     ORDER BY n1.file_path
-  `).all() as DupeRow[];
+  `)
+    .all() as DupeRow[];
 
   if (dupes.length > 0) {
     if (groupByOwner) {
@@ -175,7 +185,9 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
         sections.push(`### Duplicate Files — ${owner} (${rows.length})`);
         sections.push('');
         for (const row of rows) {
-          sections.push(`- ${backtick(relPath(row.src_path, repoRoot))} ↔ ${backtick(relPath(row.target_path, repoRoot))}`);
+          sections.push(
+            `- ${backtick(relPath(row.src_path, repoRoot))} ↔ ${backtick(relPath(row.target_path, repoRoot))}`,
+          );
         }
         sections.push('');
       }
@@ -183,14 +195,17 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
       sections.push(`### Duplicate Files (${dupes.length})`);
       sections.push('');
       for (const row of dupes) {
-        sections.push(`- ${backtick(relPath(row.src_path, repoRoot))} ↔ ${backtick(relPath(row.target_path, repoRoot))}`);
+        sections.push(
+          `- ${backtick(relPath(row.src_path, repoRoot))} ↔ ${backtick(relPath(row.target_path, repoRoot))}`,
+        );
       }
       sections.push('');
     }
   }
 
   // ── Boundary violations ───────────────────────────────────────────────────
-  const violations = db.prepare(`
+  const violations = db
+    .prepare(`
     SELECT file_path, COALESCE(start_line, 1) AS line,
            json_extract(properties, '$.boundaryViolation') AS rule,
            json_extract(properties, '$.owner') AS owner
@@ -198,7 +213,8 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
     WHERE file_path IS NOT NULL
     AND json_extract(properties, '$.boundaryViolation') IS NOT NULL
     ORDER BY file_path
-  `).all() as ViolationRow[];
+  `)
+    .all() as ViolationRow[];
 
   if (violations.length > 0) {
     if (groupByOwner) {
@@ -207,7 +223,9 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
         sections.push(`### Boundary Violations — ${owner} (${rows.length})`);
         sections.push('');
         for (const row of rows) {
-          sections.push(`- ${backtick(relPath(row.file_path, repoRoot))}:${row.line} — ${row.rule}`);
+          sections.push(
+            `- ${backtick(relPath(row.file_path, repoRoot))}:${row.line} — ${row.rule}`,
+          );
         }
         sections.push('');
       }
@@ -224,12 +242,14 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
   // ── Suggestions (top 3 from DB if available) ──────────────────────────────
   let suggestionRows: { suggestion: string }[] = [];
   try {
-    suggestionRows = db.prepare(`
+    suggestionRows = db
+      .prepare(`
       SELECT json_extract(properties, '$.suggestion') AS suggestion
       FROM nodes
       WHERE json_extract(properties, '$.suggestion') IS NOT NULL
       LIMIT 3
-    `).all() as { suggestion: string }[];
+    `)
+      .all() as { suggestion: string }[];
   } catch {
     // table or column not present — skip
   }
@@ -264,19 +284,27 @@ export interface MarkdownDuplicationGroup {
   duplicatedLines: number;
 }
 
-export function exportHealthMarkdown(findings: MarkdownHealthFinding[], title = 'Health Report'): string {
+export function exportHealthMarkdown(
+  findings: MarkdownHealthFinding[],
+  title = 'Health Report',
+): string {
   const lines = [`# ${title}`, '', `Found ${findings.length} complex function(s).`, ''];
   if (findings.length === 0) return lines.join('\n');
   lines.push('| File | Function | Line | Cyclomatic | Cognitive | CRAP | Severity |');
   lines.push('|------|----------|------|------------|-----------|------|----------|');
   for (const f of findings) {
     const file = f.filePath.split('/').slice(-2).join('/');
-    lines.push(`| ${file} | \`${f.functionName}\` | ${f.startLine} | ${f.cyclomatic} | ${f.cognitive} | ${f.crapScore.toFixed(1)} | ${f.severity} |`);
+    lines.push(
+      `| ${file} | \`${f.functionName}\` | ${f.startLine} | ${f.cyclomatic} | ${f.cognitive} | ${f.crapScore.toFixed(1)} | ${f.severity} |`,
+    );
   }
   return lines.join('\n');
 }
 
-export function exportDuplicationMarkdown(groups: MarkdownDuplicationGroup[], title = 'Duplication Report'): string {
+export function exportDuplicationMarkdown(
+  groups: MarkdownDuplicationGroup[],
+  title = 'Duplication Report',
+): string {
   const lines = [`# ${title}`, '', `Found ${groups.length} clone group(s).`, ''];
   for (const g of groups) {
     lines.push(`## Group ${g.groupId} — ${g.duplicatedLines} lines`);

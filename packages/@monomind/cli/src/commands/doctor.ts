@@ -5,31 +5,56 @@
  * github.com/monoes/monomind
  */
 
-import * as path from 'path';
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import * as path from 'node:path';
 import { output } from '../output.js';
-import {
-  checkNodeVersion, checkNpmVersion, checkGit, checkGitRepo,
-  checkDiskSpace, checkBuildTools, checkVersionFreshness, checkClaudeCode,
-  installClaudeCode,
-} from './doctor-env-checks.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
-  checkConfigFile, checkMemoryDatabase, checkApiKeys,
-  checkMcpServers, checkMonograph, checkMonographFreshness, checkMonoesMemory,
-  checkHelpersFresh, fixStaleHelpers, checkMonoesIntegration, checkGuidanceGates, checkGitignoreCoverage, fixGitignoreCoverage,
-  checkAgentRegistry, checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
-  checkSecondBrainModel, checkMemoryKnowledgeGraph,
-  checkAppleDoubleSidecars, fixAppleDoubleSidecars,
-  checkDocumentExtractors,
-} from './doctor-project-checks.js';
+  checkBuildTools,
+  checkClaudeCode,
+  checkDiskSpace,
+  checkGit,
+  checkGitRepo,
+  checkNodeVersion,
+  checkNpmVersion,
+  checkVersionFreshness,
+  installClaudeCode,
+} from './doctor-env-checks.js';
 import { checkMonoesTools, fixMonoesTools } from './doctor-monoes-checks.js';
+import {
+  checkAgentRegistry,
+  checkApiKeys,
+  checkAppleDoubleSidecars,
+  checkConfigFile,
+  checkDocumentExtractors,
+  checkGitignoreCoverage,
+  checkGuidanceGates,
+  checkHelpersFresh,
+  checkMcpServers,
+  checkMemoryDatabase,
+  checkMemoryKnowledgeGraph,
+  checkMemoryProficiency,
+  checkMetricsFreshness,
+  checkMonoesIntegration,
+  checkMonoesMemory,
+  checkMonograph,
+  checkMonographFreshness,
+  checkSecondBrainModel,
+  checkSecurityAuditFindings,
+  fixAppleDoubleSidecars,
+  fixGitignoreCoverage,
+  fixStaleHelpers,
+} from './doctor-project-checks.js';
 
 function formatCheck(check: HealthCheck): string {
-  const icon = check.status === 'pass' ? output.success('✓') :
-               check.status === 'warn' ? output.warning('⚠') :
-               check.status === 'info' ? output.dim('ℹ') :
-               output.error('✗');
+  const icon =
+    check.status === 'pass'
+      ? output.success('✓')
+      : check.status === 'warn'
+        ? output.warning('⚠')
+        : check.status === 'info'
+          ? output.dim('ℹ')
+          : output.error('✗');
   return `${icon} ${check.name}: ${check.message}`;
 }
 
@@ -37,11 +62,26 @@ export const doctorCommand: Command = {
   name: 'doctor',
   description: 'System diagnostics and health checks',
   options: [
-    { name: 'fix', short: 'f', description: 'Apply local fixes (helper files, monoes tool shims, .gitignore entries) and show fix commands for the rest', type: 'boolean', default: false },
-    { name: 'install', short: 'i', description: 'Auto-install missing dependencies (Claude Code CLI)', type: 'boolean', default: false },
     {
-      name: 'component', short: 'c',
-      description: 'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit, documents)',
+      name: 'fix',
+      short: 'f',
+      description:
+        'Apply local fixes (helper files, monoes tool shims, .gitignore entries) and show fix commands for the rest',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'install',
+      short: 'i',
+      description: 'Auto-install missing dependencies (Claude Code CLI)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'component',
+      short: 'c',
+      description:
+        'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit, documents)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -52,7 +92,11 @@ export const doctorCommand: Command = {
     { command: 'monomind doctor --install', description: 'Auto-install missing dependencies' },
     { command: 'monomind doctor -c version', description: 'Check for stale npx cache' },
     { command: 'monomind doctor -c claude', description: 'Check Claude Code CLI only' },
-    { command: 'monomind doctor -c monoes-tools --install', description: 'Check/fix monotask, mono-agent, mono-clip install issues (opt-in, not in the default run)' },
+    {
+      command: 'monomind doctor -c monoes-tools --install',
+      description:
+        'Check/fix monotask, mono-agent, mono-clip install issues (opt-in, not in the default run)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const showFix = ctx.flags.fix as boolean;
@@ -80,17 +124,35 @@ export const doctorCommand: Command = {
     }
 
     const alwaysOnChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = [
-      checkVersionFreshness, checkNodeVersion, checkNpmVersion, checkClaudeCode,
-      checkConfigFile, checkMemoryDatabase, checkDiskSpace,
-      checkMonograph, checkMonoesMemory, checkHelpersFresh, checkMonoesIntegration,
-      checkGuidanceGates, checkAgentRegistry, checkGit, checkApiKeys,
-      checkMemoryProficiency, checkMetricsFreshness, checkSecurityAuditFindings,
-      checkSecondBrainModel, checkMemoryKnowledgeGraph, checkAppleDoubleSidecars,
+      checkVersionFreshness,
+      checkNodeVersion,
+      checkNpmVersion,
+      checkClaudeCode,
+      checkConfigFile,
+      checkMemoryDatabase,
+      checkDiskSpace,
+      checkMonograph,
+      checkMonoesMemory,
+      checkHelpersFresh,
+      checkMonoesIntegration,
+      checkGuidanceGates,
+      checkAgentRegistry,
+      checkGit,
+      checkApiKeys,
+      checkMemoryProficiency,
+      checkMetricsFreshness,
+      checkSecurityAuditFindings,
+      checkSecondBrainModel,
+      checkMemoryKnowledgeGraph,
+      checkAppleDoubleSidecars,
       checkDocumentExtractors,
     ];
     const codeOnlyChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = [
-      checkGitRepo, checkMcpServers,
-      checkBuildTools, checkMonographFreshness, checkGitignoreCoverage,
+      checkGitRepo,
+      checkMcpServers,
+      checkBuildTools,
+      checkMonographFreshness,
+      checkGitignoreCoverage,
     ];
 
     const allChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = isCodeProject
@@ -98,26 +160,46 @@ export const doctorCommand: Command = {
       : alwaysOnChecks;
 
     const componentMap: Record<string, () => Promise<HealthCheck | HealthCheck[]>> = {
-      version: checkVersionFreshness, freshness: checkVersionFreshness,
-      node: checkNodeVersion, npm: checkNpmVersion, claude: checkClaudeCode,
-      config: checkConfigFile, memory: checkMemoryDatabase,
-      api: checkApiKeys, git: checkGit, mcp: checkMcpServers, disk: checkDiskSpace,
-      'second-brain': checkSecondBrainModel, kg: checkMemoryKnowledgeGraph,
-      appledouble: checkAppleDoubleSidecars, sidecars: checkAppleDoubleSidecars,
-      typescript: checkBuildTools, monograph: checkMonograph,
-      'graph-freshness': checkMonographFreshness, 'memory-pkg': checkMonoesMemory,
-      helpers: checkHelpersFresh, monoes: checkMonoesIntegration,
-      gates: checkGuidanceGates, gitignore: checkGitignoreCoverage,
-      registry: checkAgentRegistry, 'memory-proficiency': checkMemoryProficiency,
+      version: checkVersionFreshness,
+      freshness: checkVersionFreshness,
+      node: checkNodeVersion,
+      npm: checkNpmVersion,
+      claude: checkClaudeCode,
+      config: checkConfigFile,
+      memory: checkMemoryDatabase,
+      api: checkApiKeys,
+      git: checkGit,
+      mcp: checkMcpServers,
+      disk: checkDiskSpace,
+      'second-brain': checkSecondBrainModel,
+      kg: checkMemoryKnowledgeGraph,
+      appledouble: checkAppleDoubleSidecars,
+      sidecars: checkAppleDoubleSidecars,
+      typescript: checkBuildTools,
+      monograph: checkMonograph,
+      'graph-freshness': checkMonographFreshness,
+      'memory-pkg': checkMonoesMemory,
+      helpers: checkHelpersFresh,
+      monoes: checkMonoesIntegration,
+      gates: checkGuidanceGates,
+      gitignore: checkGitignoreCoverage,
+      registry: checkAgentRegistry,
+      'memory-proficiency': checkMemoryProficiency,
       'monoes-tools': checkMonoesTools,
-      'metrics-freshness': checkMetricsFreshness, 'security-audit': checkSecurityAuditFindings,
-      documents: checkDocumentExtractors, 'doc-extractors': checkDocumentExtractors,
+      'metrics-freshness': checkMetricsFreshness,
+      'security-audit': checkSecurityAuditFindings,
+      documents: checkDocumentExtractors,
+      'doc-extractors': checkDocumentExtractors,
     };
 
     if (component && !componentMap[component]) {
       output.writeln(output.error(`Unknown component: "${component}"`));
       output.writeln(`Valid components: ${Object.keys(componentMap).sort().join(', ')}`);
-      return { success: false, exitCode: 1, data: { passed: 0, warnings: 0, failed: 1, results: [] } };
+      return {
+        success: false,
+        exitCode: 1,
+        data: { passed: 0, warnings: 0, failed: 1, results: [] },
+      };
     }
 
     const checksToRun = component ? [componentMap[component]] : allChecks;
@@ -139,7 +221,11 @@ export const doctorCommand: Command = {
           if (Array.isArray(result)) settled.push(...result);
           else settled.push(result);
         } catch (err) {
-          settled.push({ name: 'Check', status: 'fail', message: err instanceof Error ? err.message : 'Unknown error' });
+          settled.push({
+            name: 'Check',
+            status: 'fail',
+            message: err instanceof Error ? err.message : 'Unknown error',
+          });
         }
       }
       spinner.stop();
@@ -150,23 +236,35 @@ export const doctorCommand: Command = {
       // unless --verbose is set.
       const verbose = ctx.flags.verbose as boolean;
       if (!verbose) {
-          const monomindDir = path.join(ctx.cwd, '.monomind');
+        const monomindDir = path.join(ctx.cwd, '.monomind');
         let isFreshInstall = false;
         try {
           const { statSync } = await import('node:fs');
           const stat = statSync(monomindDir);
-          isFreshInstall = (Date.now() - stat.birthtimeMs) < 5 * 60 * 1000; // < 5 min old
-        } catch { /* dir doesn't exist — not our project */ }
+          isFreshInstall = Date.now() - stat.birthtimeMs < 5 * 60 * 1000; // < 5 min old
+        } catch {
+          /* dir doesn't exist — not our project */
+        }
         if (isFreshInstall) {
           const FRESH_EXPECTED = new Set([
-            'Memory Database', 'Memory Knowledge Graph', 'Second Brain Model',
-            'Graph freshness', 'MCP Servers', 'Worker Metrics',
-            'Security Audit', 'Helper Files', 'AppleDouble Sidecars',
+            'Memory Database',
+            'Memory Knowledge Graph',
+            'Second Brain Model',
+            'Graph freshness',
+            'MCP Servers',
+            'Worker Metrics',
+            'Security Audit',
+            'Helper Files',
+            'AppleDouble Sidecars',
             'Monoes Memory',
           ]);
           for (let i = 0; i < settled.length; i++) {
             if (settled[i].status === 'warn' && FRESH_EXPECTED.has(settled[i].name)) {
-              settled[i] = { ...settled[i], status: 'info' as const, message: `${settled[i].message} (expected on fresh install — run with --verbose for details)` };
+              settled[i] = {
+                ...settled[i],
+                status: 'info' as const,
+                message: `${settled[i].message} (expected on fresh install — run with --verbose for details)`,
+              };
             }
           }
         }
@@ -177,7 +275,8 @@ export const doctorCommand: Command = {
         output.writeln(formatCheck(r));
         if (r.fix && r.status === 'fail') output.writeln(output.dim(`  Fix: ${r.fix}`));
         else if (r.fix && r.status === 'warn') output.writeln(output.dim(`  Hint: ${r.fix}`));
-        if (r.fix && (r.status === 'fail' || r.status === 'warn')) fixes.push(`${r.name}: ${r.fix}`);
+        if (r.fix && (r.status === 'fail' || r.status === 'warn'))
+          fixes.push(`${r.name}: ${r.fix}`);
       }
     } catch {
       spinner.stop();
@@ -192,71 +291,71 @@ export const doctorCommand: Command = {
     // Claude Code CLI, which is a real install (network fetch + binary setup)
     // — kept opt-in separately so `--fix` alone never triggers that.
     if (autoInstall || showFix) {
-      const claudeResult = results.find(r => r.name === 'Claude Code CLI');
+      const claudeResult = results.find((r) => r.name === 'Claude Code CLI');
       if (autoInstall && claudeResult && claudeResult.status !== 'pass') {
         if (await installClaudeCode()) {
           const newCheck = await checkClaudeCode();
-          const idx = results.findIndex(r => r.name === 'Claude Code CLI');
+          const idx = results.findIndex((r) => r.name === 'Claude Code CLI');
           if (idx !== -1) {
             results[idx] = newCheck;
-            const fixIdx = fixes.findIndex(f => f.startsWith('Claude Code CLI:'));
+            const fixIdx = fixes.findIndex((f) => f.startsWith('Claude Code CLI:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
         }
       }
 
-      const monoesToolsResult = results.find(r => r.name === 'monoes Tools');
+      const monoesToolsResult = results.find((r) => r.name === 'monoes Tools');
       if (monoesToolsResult && monoesToolsResult.status !== 'pass') {
         if (await fixMonoesTools()) {
           const newCheck = await checkMonoesTools();
-          const idx = results.findIndex(r => r.name === 'monoes Tools');
+          const idx = results.findIndex((r) => r.name === 'monoes Tools');
           if (idx !== -1) {
             results[idx] = newCheck;
-            const fixIdx = fixes.findIndex(f => f.startsWith('monoes Tools:'));
+            const fixIdx = fixes.findIndex((f) => f.startsWith('monoes Tools:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
         }
       }
 
-      const gitignoreResult = results.find(r => r.name === 'Gitignore Coverage');
+      const gitignoreResult = results.find((r) => r.name === 'Gitignore Coverage');
       if (gitignoreResult && gitignoreResult.status !== 'pass') {
         if (await fixGitignoreCoverage()) {
           const newCheck = await checkGitignoreCoverage();
-          const idx = results.findIndex(r => r.name === 'Gitignore Coverage');
+          const idx = results.findIndex((r) => r.name === 'Gitignore Coverage');
           if (idx !== -1) {
             results[idx] = newCheck;
-            const fixIdx = fixes.findIndex(f => f.startsWith('Gitignore Coverage:'));
+            const fixIdx = fixes.findIndex((f) => f.startsWith('Gitignore Coverage:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
         }
       }
 
-      const sidecarResult = results.find(r => r.name === 'AppleDouble Sidecars');
+      const sidecarResult = results.find((r) => r.name === 'AppleDouble Sidecars');
       if (sidecarResult && sidecarResult.status !== 'pass') {
         const removed = fixAppleDoubleSidecars(process.cwd());
         if (removed > 0) {
           const newCheck = await checkAppleDoubleSidecars();
-          const idx = results.findIndex(r => r.name === 'AppleDouble Sidecars');
+          const idx = results.findIndex((r) => r.name === 'AppleDouble Sidecars');
           if (idx !== -1) {
             results[idx] = newCheck;
-            const fixIdx = fixes.findIndex(f => f.startsWith('AppleDouble Sidecars:'));
+            const fixIdx = fixes.findIndex((f) => f.startsWith('AppleDouble Sidecars:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
         }
       }
 
-      const helpersResult = results.find(r => r.name === 'Helper Files');
+      const helpersResult = results.find((r) => r.name === 'Helper Files');
       if (helpersResult && helpersResult.status !== 'pass') {
         if (await fixStaleHelpers()) {
           const newCheck = await checkHelpersFresh();
-          const idx = results.findIndex(r => r.name === 'Helper Files');
+          const idx = results.findIndex((r) => r.name === 'Helper Files');
           if (idx !== -1) {
             results[idx] = newCheck;
-            const fixIdx = fixes.findIndex(f => f.startsWith('Helper Files:'));
+            const fixIdx = fixes.findIndex((f) => f.startsWith('Helper Files:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') fixes.splice(fixIdx, 1);
           }
           output.writeln(formatCheck(newCheck));
@@ -264,9 +363,9 @@ export const doctorCommand: Command = {
       }
     }
 
-    const passed = results.filter(r => r.status === 'pass').length;
-    const warnings = results.filter(r => r.status === 'warn').length;
-    const failed = results.filter(r => r.status === 'fail').length;
+    const passed = results.filter((r) => r.status === 'pass').length;
+    const warnings = results.filter((r) => r.status === 'warn').length;
+    const failed = results.filter((r) => r.status === 'fail').length;
 
     output.writeln();
     output.writeln(output.dim('─'.repeat(50)));
@@ -285,8 +384,13 @@ export const doctorCommand: Command = {
       output.writeln();
       for (const fix of fixes) output.writeln(output.dim(`  ${fix}`));
     } else if (!showFix) {
-      const warnFixes = results.filter(r => r.status === 'warn' && r.fix).length;
-      if (warnFixes > 0) output.writeln(output.dim(`\nRun with --fix to see ${warnFixes} suggested fix${warnFixes > 1 ? 'es' : ''} for warnings`));
+      const warnFixes = results.filter((r) => r.status === 'warn' && r.fix).length;
+      if (warnFixes > 0)
+        output.writeln(
+          output.dim(
+            `\nRun with --fix to see ${warnFixes} suggested fix${warnFixes > 1 ? 'es' : ''} for warnings`,
+          ),
+        );
     }
 
     if (failed > 0) {

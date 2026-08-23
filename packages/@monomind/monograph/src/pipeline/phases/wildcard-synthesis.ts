@@ -1,6 +1,6 @@
-import { dirname, resolve, basename } from 'path';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, CONFIDENCE_SCORE } from '../../types.js';
+import { basename, dirname, resolve } from 'node:path';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId } from '../../types.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,15 +103,12 @@ function resolveSpecifierPath(
  * - Exact basename-without-extension match (resolvedPath is a bare module path)
  * - Index file: `resolvedPath/index` matches `candidatePath` ending in `/index.<ext>`
  */
-function specifierMatchesFilePath(
-  resolvedPath: string,
-  candidateFilePath: string,
-): boolean {
+function specifierMatchesFilePath(resolvedPath: string, candidateFilePath: string): boolean {
   // Strip extension from candidate for comparison
   const candidateBase = candidateFilePath.replace(/\.[^./\\]+$/, '');
   if (candidateBase === resolvedPath) return true;
   // Handle implicit /index
-  if (candidateBase === resolvedPath + '/index') return true;
+  if (candidateBase === `${resolvedPath}/index`) return true;
   return false;
 }
 
@@ -138,10 +135,10 @@ export function synthesizeWildcardImports(
   if (bindings.length === 0) return { synthesizedEdges: [] };
 
   // Build an index of existing edge IDs to avoid duplicates
-  const existingEdgeIds = new Set(edges.map(e => e.id));
+  const existingEdgeIds = new Set(edges.map((e) => e.id));
 
   // Build id→node map for path-based filtering and name→nodes index
-  const nodeById = new Map<string, MonographNode>(nodes.map(n => [n.id, n]));
+  const nodeById = new Map<string, MonographNode>(nodes.map((n) => [n.id, n]));
   const sourceNode = nodeById.get(sourceFileId);
 
   // Build a name→node[] index restricted to exported nodes
@@ -166,7 +163,9 @@ export function synthesizeWildcardImports(
     const resolvedPath = resolveSpecifierPath(sourceNode?.filePath, binding.moduleSpecifier);
 
     // Basename of the specifier for fallback matching
-    const specBase = basename(binding.moduleSpecifier).replace(/\.[^.]+$/, '').toLowerCase();
+    const specBase = basename(binding.moduleSpecifier)
+      .replace(/\.[^.]+$/, '')
+      .toLowerCase();
 
     const accesses = extractWildcardMemberAccesses(source, binding.alias);
 
@@ -179,13 +178,16 @@ export function synthesizeWildcardImports(
       if (resolvedPath !== null) {
         // Strong filter: match by resolved absolute path
         filtered = candidateNodes.filter(
-          n => n.filePath != null && specifierMatchesFilePath(resolvedPath, n.filePath),
+          (n) => n.filePath != null && specifierMatchesFilePath(resolvedPath, n.filePath),
         );
       } else {
         // Fallback: match by basename (mirrors cross-file.ts resolution)
         filtered = candidateNodes.filter(
-          n => n.filePath != null &&
-            basename(n.filePath).replace(/\.[^.]+$/, '').toLowerCase() === specBase,
+          (n) =>
+            n.filePath != null &&
+            basename(n.filePath)
+              .replace(/\.[^.]+$/, '')
+              .toLowerCase() === specBase,
         );
       }
 

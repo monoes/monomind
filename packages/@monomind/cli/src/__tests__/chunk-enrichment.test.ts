@@ -17,9 +17,10 @@
  *  7. Zero network calls, zero new dependencies
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.setConfig({ testTimeout: 60000 });
+
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { join } from 'node:path';
@@ -39,7 +40,11 @@ afterAll(() => {
   process.chdir(ORIGINAL_CWD);
   if (ORIGINAL_GLOBAL === undefined) delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
   else process.env.MONOMIND_GLOBAL_BRAIN_DIR = ORIGINAL_GLOBAL;
-  try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch { /* exFAT race */ }
+  try {
+    fs.rmSync(ROOT, { recursive: true, force: true });
+  } catch {
+    /* exFAT race */
+  }
 });
 
 /**
@@ -47,7 +52,11 @@ afterAll(() => {
  * DEFAULT_CHUNK_SIZE is 3200, DEFAULT_OVERLAP is 400, so we need >3200 chars
  * to get 2+ chunks.
  */
-function buildTestDoc(opts?: { title?: string; fenceHeading?: boolean; longSummary?: boolean }): string {
+function buildTestDoc(opts?: {
+  title?: string;
+  fenceHeading?: boolean;
+  longSummary?: boolean;
+}): string {
   const title = opts?.title ?? 'Test Document Title';
   const summaryText = opts?.longSummary
     ? 'This is a very long summary paragraph that exceeds the one hundred and twenty character truncation threshold used by the enrichment function to trim doc summaries. It keeps going and going past the limit.'
@@ -94,11 +103,15 @@ describe('chunk enrichment (item 6a)', () => {
     // Search for something in the first section — the result should contain
     // the first chunk which starts with `# Test Document Title`
     const results = await searchKnowledge('Test Document Title', {
-      scope: 'shared', limit: 20, minScore: 0.01, rootDir: ROOT,
-      store: 'project', includeSuperseded: true,
+      scope: 'shared',
+      limit: 20,
+      minScore: 0.01,
+      rootDir: ROOT,
+      store: 'project',
+      includeSuperseded: true,
     });
     // Find chunk 0
-    const chunk0 = results.find(r => r.chunkIndex === 0);
+    const chunk0 = results.find((r) => r.chunkIndex === 0);
     if (chunk0) {
       // Invariant 1: first chunk starting with heading is untouched — no § prefix
       expect(chunk0.text).toMatch(/^# Test Document Title/);
@@ -114,12 +127,16 @@ describe('chunk enrichment (item 6a)', () => {
     await ingestDocument(docPath, 'shared', ROOT);
 
     const results = await searchKnowledge('Consectetur adipiscing', {
-      scope: 'shared', limit: 20, minScore: 0.01, rootDir: ROOT,
-      store: 'project', includeSuperseded: true,
+      scope: 'shared',
+      limit: 20,
+      minScore: 0.01,
+      rootDir: ROOT,
+      store: 'project',
+      includeSuperseded: true,
     });
 
     // Find a later chunk (chunkIndex > 0)
-    const laterChunk = results.find(r => r.chunkIndex > 0);
+    const laterChunk = results.find((r) => r.chunkIndex > 0);
     if (laterChunk) {
       // Invariant 2 & 3: should have § prefix with doc title and heading path
       expect(laterChunk.text).toMatch(/^§ /);
@@ -136,12 +153,16 @@ describe('chunk enrichment (item 6a)', () => {
     await ingestDocument(docPath, 'shared', ROOT);
 
     const results = await searchKnowledge('Lorem ipsum dolor sit amet', {
-      scope: 'shared', limit: 20, minScore: 0.01, rootDir: ROOT,
-      store: 'project', includeSuperseded: true,
+      scope: 'shared',
+      limit: 20,
+      minScore: 0.01,
+      rootDir: ROOT,
+      store: 'project',
+      includeSuperseded: true,
     });
 
-    const chunk0 = results.find(r => r.chunkIndex === 0);
-    const laterChunks = results.filter(r => r.chunkIndex > 0);
+    const chunk0 = results.find((r) => r.chunkIndex === 0);
+    const laterChunks = results.filter((r) => r.chunkIndex > 0);
 
     // Invariant 3: summary NOT injected as enrichment prefix in first chunk.
     // Note: the summary text IS part of the document body (it's the first
@@ -168,21 +189,24 @@ describe('chunk enrichment (item 6a)', () => {
     await ingestDocument(docPath, 'shared', ROOT);
 
     const results = await searchKnowledge('Consectetur adipiscing', {
-      scope: 'shared', limit: 20, minScore: 0.01, rootDir: ROOT,
-      store: 'project', includeSuperseded: true,
+      scope: 'shared',
+      limit: 20,
+      minScore: 0.01,
+      rootDir: ROOT,
+      store: 'project',
+      includeSuperseded: true,
     });
 
-    const laterChunk = results.find(r => r.chunkIndex > 0 && r.filePath.includes('long-summary'));
+    const laterChunk = results.find((r) => r.chunkIndex > 0 && r.filePath.includes('long-summary'));
     expect(laterChunk).toBeDefined();
     // Invariant 4: summary should be truncated with ...
-    const lines = laterChunk!.text.split('\n');
+    const lines = laterChunk?.text.split('\n');
     // Second line should be the summary (first is §)
     const summaryLine = lines[1];
     expect(summaryLine).toBeDefined();
-    expect(summaryLine!.startsWith('§')).toBe(false);
-    expect(summaryLine!.length).toBeLessThanOrEqual(120);
+    expect(summaryLine?.startsWith('§')).toBe(false);
+    expect(summaryLine?.length).toBeLessThanOrEqual(120);
     expect(summaryLine!).toMatch(/\.\.\.$/);
-
   });
 
   it('headings inside code fences are ignored', async () => {
@@ -193,8 +217,12 @@ describe('chunk enrichment (item 6a)', () => {
     await ingestDocument(docPath, 'shared', ROOT);
 
     const results = await searchKnowledge('Lorem ipsum dolor sit amet', {
-      scope: 'shared', limit: 20, minScore: 0.01, rootDir: ROOT,
-      store: 'project', includeSuperseded: true,
+      scope: 'shared',
+      limit: 20,
+      minScore: 0.01,
+      rootDir: ROOT,
+      store: 'project',
+      includeSuperseded: true,
     });
 
     // Invariant 6: "Fake Heading Inside Fence" should NOT appear in any § path
@@ -216,8 +244,12 @@ describe('chunk enrichment (item 6a)', () => {
     await ingestDocument(docPath, 'shared', ROOT);
 
     const results = await searchKnowledge('Consectetur', {
-      scope: 'shared', limit: 20, minScore: 0.01, rootDir: ROOT,
-      store: 'project', includeSuperseded: true,
+      scope: 'shared',
+      limit: 20,
+      minScore: 0.01,
+      rootDir: ROOT,
+      store: 'project',
+      includeSuperseded: true,
     });
 
     for (const r of results) {
@@ -231,10 +263,7 @@ describe('chunk enrichment (item 6a)', () => {
 
   it('no network imports in document-pipeline.ts', async () => {
     // Invariant 7: the module should not import any network libraries
-    const src = fs.readFileSync(
-      join(ORIGINAL_CWD, 'src/knowledge/document-pipeline.ts'),
-      'utf8',
-    );
+    const src = fs.readFileSync(join(ORIGINAL_CWD, 'src/knowledge/document-pipeline.ts'), 'utf8');
     // No fetch, no http/https imports, no axios, no got
     expect(src).not.toMatch(/import.*['"]node:https?['"]/);
     expect(src).not.toMatch(/import.*['"]https?['"]/);

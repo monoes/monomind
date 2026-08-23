@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import { installGitHooks, getHookStatus, type HookStatus } from '../../cli/hooks-install.js';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { getHookStatus, installGitHooks } from '../../cli/hooks-install.js';
 
 describe('getHookStatus', () => {
   let tmpDir: string;
@@ -12,7 +12,9 @@ describe('getHookStatus', () => {
     mkdirSync(join(tmpDir, '.git', 'hooks'), { recursive: true });
   });
 
-  afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }); });
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   it('returns installed=false when no hooks present', () => {
     const status = getHookStatus(tmpDir);

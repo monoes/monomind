@@ -1,5 +1,5 @@
-import { readdirSync, statSync, existsSync } from 'fs';
-import { join, basename, relative } from 'path';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 export interface ServiceBoundary {
   /** Absolute path to the service root directory */
@@ -21,7 +21,7 @@ const SERVICE_MARKERS: Record<string, number> = {
   'setup.py': 0.8,
   'pom.xml': 1.0,
   'build.gradle': 0.9,
-  'Dockerfile': 0.8,
+  Dockerfile: 0.8,
   'docker-compose.yml': 0.7,
   'docker-compose.yaml': 0.7,
   '.gitmodules': 0.5,
@@ -59,7 +59,12 @@ export function detectServiceBoundaries(rootDir: string): ServiceBoundary[] {
     }
     if (!stat.isDirectory()) continue;
     // Skip hidden dirs and common non-service dirs
-    if (entry.startsWith('.') || entry === 'node_modules' || entry === 'dist' || entry === 'build') {
+    if (
+      entry.startsWith('.') ||
+      entry === 'node_modules' ||
+      entry === 'dist' ||
+      entry === 'build'
+    ) {
       continue;
     }
 

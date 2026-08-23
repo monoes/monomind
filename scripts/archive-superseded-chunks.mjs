@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Archive superseded document chunks out of the memory store.
  *
@@ -37,12 +38,12 @@
  *   node scripts/archive-superseded-chunks.mjs --verify <archive.jsonl.gz>
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import zlib from 'node:zlib';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import zlib from 'node:zlib';
 
 const require = createRequire(import.meta.url);
 
@@ -63,7 +64,7 @@ function defaultStorePath(root) {
   if (!fs.existsSync(projects)) return null;
   let best = null;
   for (const dir of fs.readdirSync(projects)) {
-    if (!dir.startsWith(path.basename(root) + '-')) continue;
+    if (!dir.startsWith(`${path.basename(root)}-`)) continue;
     const db = path.join(projects, dir, 'lancedb', 'memory.db'); // dir name is vestigial; plain SQLite
     if (fs.existsSync(db)) {
       const size = fs.statSync(db).size;
@@ -97,7 +98,12 @@ function readMetadataLog(root) {
   for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
     if (!line.trim()) continue;
     let m;
-    try { m = JSON.parse(line); } catch { torn++; continue; }
+    try {
+      m = JSON.parse(line);
+    } catch {
+      torn++;
+      continue;
+    }
     latest.set(`${m.filePath} ${m.scope}`, m);
     if (m.contentHash) {
       if (!history.has(m.contentHash)) history.set(m.contentHash, m);
@@ -142,7 +148,9 @@ function verify(archivePath) {
       const r = JSON.parse(l);
       if (!r.key || typeof r.content !== 'string') bad++;
       else hashes.add(r.contentHash);
-    } catch { bad++; }
+    } catch {
+      bad++;
+    }
   }
 
   const ok = sha === manifest.sha256 && lines.length === manifest.rows && bad === 0;
@@ -177,12 +185,14 @@ fs.mkdirSync(path.dirname(OUT), { recursive: true });
 const Database = require('better-sqlite3');
 const db = new Database(STORE, { readonly: true, fileMustExist: true });
 
-const rows = db.prepare(
-  `SELECT key, content, namespace, created_at, updated_at, version
+const rows = db
+  .prepare(
+    `SELECT key, content, namespace, created_at, updated_at, version
      FROM memory_entries
     WHERE key LIKE 'doc:%'
     ORDER BY key`,
-).all();
+  )
+  .all();
 
 const gzip = zlib.createGzip({ level: 9 });
 const out = fs.createWriteStream(OUT);
@@ -199,7 +209,10 @@ for (const r of rows) {
   const contentHash = parts[1] ?? '';
   const chunkIndex = Number(parts[2] ?? -1);
 
-  if (live.has(contentHash)) { liveSkipped++; continue; }
+  if (live.has(contentHash)) {
+    liveSkipped++;
+    continue;
+  }
 
   const meta = history.get(contentHash);
   if (!meta) unattributable++;
@@ -207,29 +220,34 @@ for (const r of rows) {
   deadHashes.add(contentHash);
   contentBytes += (r.content ?? '').length;
 
-  gzip.write(JSON.stringify({
-    key: r.key,
-    contentHash,
-    chunkIndex,
-    namespace: r.namespace,
-    // Provenance: which document this version of which file came from.
-    filePath: meta?.filePath ?? null,
-    scope: meta?.scope ?? null,
-    title: meta?.title ?? null,
-    chunkCount: meta?.chunkCount ?? null,
-    // Bi-temporal edge: the hash that replaced this one, if the log knows it.
-    supersededBy: successor.get(contentHash) ?? null,
-    ingestedAt: meta?.ingestedAt ?? null,
-    content: r.content,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-    version: r.version,
-  }) + '\n');
+  gzip.write(
+    `${JSON.stringify({
+      key: r.key,
+      contentHash,
+      chunkIndex,
+      namespace: r.namespace,
+      // Provenance: which document this version of which file came from.
+      filePath: meta?.filePath ?? null,
+      scope: meta?.scope ?? null,
+      title: meta?.title ?? null,
+      chunkCount: meta?.chunkCount ?? null,
+      // Bi-temporal edge: the hash that replaced this one, if the log knows it.
+      supersededBy: successor.get(contentHash) ?? null,
+      ingestedAt: meta?.ingestedAt ?? null,
+      content: r.content,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      version: r.version,
+    })}\n`,
+  );
   archived++;
 }
 
 gzip.end();
-await new Promise((resolve, reject) => { out.on('finish', resolve); out.on('error', reject); });
+await new Promise((resolve, reject) => {
+  out.on('finish', resolve);
+  out.on('error', reject);
+});
 
 const raw = fs.readFileSync(OUT);
 const sha256 = crypto.createHash('sha256').update(raw).digest('hex');
@@ -258,10 +276,14 @@ const manifest = {
 };
 fs.writeFileSync(OUT.replace(/\.jsonl\.gz$/, '.manifest.json'), JSON.stringify(manifest, null, 2));
 
-console.log(`archived        : ${archived} superseded chunks (${deadHashes.size} distinct versions)`);
+console.log(
+  `archived        : ${archived} superseded chunks (${deadHashes.size} distinct versions)`,
+);
 console.log(`live skipped    : ${liveSkipped} rows across ${liveRecords.length} current documents`);
 console.log(`unattributable  : ${unattributable} (no metadata record for the content hash)`);
-console.log(`content         : ${(contentBytes / 1e6).toFixed(1)} MB -> ${(raw.length / 1e6).toFixed(1)} MB gzipped`);
+console.log(
+  `content         : ${(contentBytes / 1e6).toFixed(1)} MB -> ${(raw.length / 1e6).toFixed(1)} MB gzipped`,
+);
 console.log(`archive         : ${OUT}`);
 console.log(`sha256          : ${sha256}`);
 console.log(`\nverify with: node scripts/archive-superseded-chunks.mjs --verify ${OUT}`);

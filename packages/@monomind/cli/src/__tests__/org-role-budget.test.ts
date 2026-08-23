@@ -4,7 +4,7 @@
  * token-hungry model (e.g. GLM via opencode) doesn't force an inflated org-wide
  * budget. When unset, behavior is byte-for-byte the old even split.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { roleTokenBudget } from '../orgrt/daemon.js';
 import { OrgDefSchema, RoleSchema } from '../orgrt/types.js';
 

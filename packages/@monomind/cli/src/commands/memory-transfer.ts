@@ -3,8 +3,8 @@
  * exportCommand, importCommand
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Export command
 export const exportCommand: Command = {
@@ -16,7 +16,7 @@ export const exportCommand: Command = {
       short: 'o',
       description: 'Output file path',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'format',
@@ -24,22 +24,28 @@ export const exportCommand: Command = {
       description: 'Export format (only okf is currently implemented)',
       type: 'string',
       choices: ['okf'],
-      default: 'okf'
+      default: 'okf',
     },
     {
       name: 'namespace',
       short: 'n',
       description: 'Export specific namespace',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   examples: [
-    { command: 'monomind memory export -o ./backup', description: 'Export all as OKF bundle (directory of .md files)' },
-    { command: 'monomind memory export -o ./knowledge -f okf', description: 'Export as OKF bundle (directory of .md files)' }
+    {
+      command: 'monomind memory export -o ./backup',
+      description: 'Export all as OKF bundle (directory of .md files)',
+    },
+    {
+      command: 'monomind memory export -o ./knowledge -f okf',
+      description: 'Export as OKF bundle (directory of .md files)',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const outputPath = ctx.flags.output as string;
-    const format = ctx.flags.format as string || 'okf';
+    const format = (ctx.flags.format as string) || 'okf';
 
     if (!outputPath) {
       output.printError('Output path is required. Use --output or -o');
@@ -51,8 +57,8 @@ export const exportCommand: Command = {
     // OKF bundle: native export — directory of .md files with YAML frontmatter
     if (format === 'okf') {
       try {
-        const fs = await import('fs');
-        const path = await import('path');
+        const fs = await import('node:fs');
+        const path = await import('node:path');
         const { listEntries, getEntry } = await import('../memory/memory-initializer.js');
 
         const namespace = ctx.flags.namespace as string | undefined;
@@ -88,9 +94,11 @@ export const exportCommand: Command = {
       }
     }
 
-    output.printError(`Format '${format}' is not yet implemented. Use --format okf (the only supported format).`);
+    output.printError(
+      `Format '${format}' is not yet implemented. Use --format okf (the only supported format).`,
+    );
     return { success: false, exitCode: 1 };
-  }
+  },
 };
 
 // Import command
@@ -103,28 +111,31 @@ export const importCommand: Command = {
       short: 'i',
       description: 'Input file path',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'merge',
       short: 'm',
       description: 'Merge with existing (skip duplicates)',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'namespace',
       short: 'n',
       description: 'Import into specific namespace',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   examples: [
     { command: 'monomind memory import -i ./backup.json', description: 'Import from file' },
-    { command: 'monomind memory import -i ./data.json -n archive', description: 'Import to namespace' }
+    {
+      command: 'monomind memory import -i ./data.json -n archive',
+      description: 'Import to namespace',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const inputPath = ctx.flags.input as string || ctx.args[0];
+    const inputPath = (ctx.flags.input as string) || ctx.args[0];
 
     if (!inputPath) {
       output.printError('Input path is required. Use --input or -i');
@@ -134,15 +145,18 @@ export const importCommand: Command = {
     output.printInfo(`Importing memory from ${inputPath}...`);
 
     // OKF bundle: native import — detect directory of .md files with YAML frontmatter
-    const fsCheck = await import('fs');
+    const fsCheck = await import('node:fs');
     const isDir = fsCheck.existsSync(inputPath) && fsCheck.statSync(inputPath).isDirectory();
     if (isDir) {
       try {
-        const fs = await import('fs');
-        const path = await import('path');
+        const fs = await import('node:fs');
+        const path = await import('node:path');
         const { storeEntry } = await import('../memory/memory-initializer.js');
 
-        function parseOkfFrontmatter(raw: string): { meta: Record<string, string | string[]>; body: string } {
+        function parseOkfFrontmatter(raw: string): {
+          meta: Record<string, string | string[]>;
+          body: string;
+        } {
           if (!raw.startsWith('---\n')) return { meta: {}, body: raw };
           const end = raw.indexOf('\n---\n', 4);
           if (end === -1) return { meta: {}, body: raw };
@@ -155,7 +169,11 @@ export const importCommand: Command = {
             const isQuoted = rawV.startsWith('"') && rawV.endsWith('"') && rawV.length >= 2;
             const v = isQuoted ? rawV.slice(1, -1).replace(/\\(["\\])/g, '$1') : rawV;
             if (v.startsWith('[') && v.endsWith(']')) {
-              meta[k] = v.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
+              meta[k] = v
+                .slice(1, -1)
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
             } else {
               meta[k] = v;
             }
@@ -176,17 +194,28 @@ export const importCommand: Command = {
         const overrideNs = ctx.flags.namespace as string | undefined;
         const merge = ctx.flags.merge ?? true;
         const files = findMdFiles(inputPath);
-        let imported = 0, skipped = 0;
+        let imported = 0,
+          skipped = 0;
         const start = Date.now();
 
         for (const file of files) {
           const raw = fs.readFileSync(file, 'utf-8');
           const { meta, body } = parseOkfFrontmatter(raw);
-          const key = (meta['key'] as string) || path.basename(file, '.md');
-          const ns = overrideNs || (meta['namespace'] as string) || path.basename(path.dirname(file));
-          const tags = Array.isArray(meta['tags']) ? meta['tags'] as string[] : meta['tags'] ? [meta['tags'] as string] : [];
+          const key = (meta.key as string) || path.basename(file, '.md');
+          const ns = overrideNs || (meta.namespace as string) || path.basename(path.dirname(file));
+          const tags = Array.isArray(meta.tags)
+            ? (meta.tags as string[])
+            : meta.tags
+              ? [meta.tags as string]
+              : [];
 
-          const result = await storeEntry({ key, value: body.trim(), namespace: ns, tags, upsert: !merge });
+          const result = await storeEntry({
+            key,
+            value: body.trim(),
+            namespace: ns,
+            tags,
+            upsert: !merge,
+          });
           if (result.success) imported++;
           else skipped++;
         }
@@ -201,7 +230,9 @@ export const importCommand: Command = {
       }
     }
 
-    output.printError(`Unsupported import format. Provide a directory of .md files (OKF bundle) for file-based import.`);
+    output.printError(
+      `Unsupported import format. Provide a directory of .md files (OKF bundle) for file-based import.`,
+    );
     return { success: false, exitCode: 1 };
-  }
+  },
 };

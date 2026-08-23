@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 export function toCypher(nodes: MonographNode[], edges: MonographEdge[]): string {
   const lines: string[] = [
@@ -17,7 +17,7 @@ export function toCypher(nodes: MonographNode[], edges: MonographEdge[]): string
   for (const e of edges) {
     lines.push(
       `MATCH (a {id: ${q(e.sourceId)}}), (b {id: ${q(e.targetId)}}) ` +
-        `CREATE (a)-[:${e.relation} {confidence: ${q(e.confidence)}}]->(b)`
+        `CREATE (a)-[:${e.relation} {confidence: ${q(e.confidence)}}]->(b)`,
     );
   }
 

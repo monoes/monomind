@@ -29,20 +29,18 @@ export interface FileTopologyScore {
 }
 
 /** Compute distribution thresholds from an array of per-file topology scores. */
-export function computeDistributionThresholds(
-  scores: FileTopologyScore[],
-): DistributionThresholds {
+export function computeDistributionThresholds(scores: FileTopologyScore[]): DistributionThresholds {
   if (scores.length === 0) return { ...THRESHOLD_FLOORS };
 
-  const fanIns  = scores.map(s => s.fanIn).sort((a, b) => a - b);
-  const fanOuts = scores.map(s => s.fanOut).sort((a, b) => a - b);
+  const fanIns = scores.map((s) => s.fanIn).sort((a, b) => a - b);
+  const fanOuts = scores.map((s) => s.fanOut).sort((a, b) => a - b);
 
   return {
-    fanInP95:  Math.max(THRESHOLD_FLOORS.fanInP95,  sortedPercentile(fanIns,  0.95)),
-    fanInP75:  Math.max(THRESHOLD_FLOORS.fanInP75,  sortedPercentile(fanIns,  0.75)),
-    fanInP25:  Math.max(THRESHOLD_FLOORS.fanInP25,  sortedPercentile(fanIns,  0.25)),
+    fanInP95: Math.max(THRESHOLD_FLOORS.fanInP95, sortedPercentile(fanIns, 0.95)),
+    fanInP75: Math.max(THRESHOLD_FLOORS.fanInP75, sortedPercentile(fanIns, 0.75)),
+    fanInP25: Math.max(THRESHOLD_FLOORS.fanInP25, sortedPercentile(fanIns, 0.25)),
     fanOutP95: Math.max(THRESHOLD_FLOORS.fanOutP95, sortedPercentile(fanOuts, 0.95)),
-    fanOutP90: Math.max(THRESHOLD_FLOORS.fanOutP90, sortedPercentile(fanOuts, 0.90)),
+    fanOutP90: Math.max(THRESHOLD_FLOORS.fanOutP90, sortedPercentile(fanOuts, 0.9)),
   };
 }
 

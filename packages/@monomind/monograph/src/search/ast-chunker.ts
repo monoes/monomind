@@ -1,7 +1,7 @@
 export interface ChunkOptions {
-  maxTokens?: number;  // default 512
-  overlap?: number;    // default 50 (token overlap between adjacent chunks)
-  minTokens?: number;  // default 20  (discard chunks smaller than this)
+  maxTokens?: number; // default 512
+  overlap?: number; // default 50 (token overlap between adjacent chunks)
+  minTokens?: number; // default 20  (discard chunks smaller than this)
 }
 
 export interface Chunk {
@@ -12,7 +12,8 @@ export interface Chunk {
 }
 
 const IMPORT_RE = /^(import\s|export\s*\{[^}]*\}\s*from)/;
-const FUNCTION_RE = /^(export\s+)?(async\s+)?function\s+\w+|^(export\s+)?const\s+\w+\s*=\s*(async\s+)?\(/;
+const FUNCTION_RE =
+  /^(export\s+)?(async\s+)?function\s+\w+|^(export\s+)?const\s+\w+\s*=\s*(async\s+)?\(/;
 const CLASS_RE = /^(export\s+)?(abstract\s+)?class\s+\w+/;
 const COMMENT_RE = /^(\/\/|\/\*| \*)/;
 
@@ -117,16 +118,12 @@ function groupLines(sourceLines: string[]): LineGroup[] {
   return groups;
 }
 
-function splitGroupIntoChunks(
-  group: LineGroup,
-  maxTokens: number,
-  overlap: number,
-): Chunk[] {
+function splitGroupIntoChunks(group: LineGroup, maxTokens: number, overlap: number): Chunk[] {
   const lines = group.lines;
   const result: Chunk[] = [];
 
   // Tokens per line (estimated)
-  const lineTokens = lines.map(l => estimateTokens(l));
+  const lineTokens = lines.map((l) => estimateTokens(l));
 
   let start = 0; // index into lines[]
 
@@ -202,5 +199,5 @@ export function chunkSource(source: string, options?: ChunkOptions): Chunk[] {
   }
 
   // Discard chunks below minTokens
-  return chunks.filter(c => estimateTokens(c.text) >= minTokens);
+  return chunks.filter((c) => estimateTokens(c.text) >= minTokens);
 }

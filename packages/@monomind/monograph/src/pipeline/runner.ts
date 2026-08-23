@@ -1,8 +1,7 @@
-import type { PipelinePhase, PipelineContext } from './types.js';
 import { MonographError } from '../types.js';
+import type { PipelineContext, PipelinePhase } from './types.js';
 
 export class PipelineRunner {
-  private readonly phases: PipelinePhase<unknown>[];
   /** Topo-sorted phase names, computed once in constructor for O(1) phase map lookups. */
   private readonly sortedNames: string[];
   /** O(1) phase lookup by name. */
@@ -11,7 +10,7 @@ export class PipelineRunner {
   constructor(phases: PipelinePhase<unknown>[]) {
     this.phases = phases;
     this.sortedNames = topoSort(phases);
-    this.phaseMap = new Map(phases.map(p => [p.name, p]));
+    this.phaseMap = new Map(phases.map((p) => [p.name, p]));
   }
 
   async run(ctx: PipelineContext): Promise<Map<string, unknown>> {
@@ -25,7 +24,7 @@ export class PipelineRunner {
       const phase = this.phaseMap.get(name)!;
       const p = (async () => {
         // Wait for all dep phases to finish
-        await Promise.all(phase.deps.map(dep => getOrCreatePromise(dep)));
+        await Promise.all(phase.deps.map((dep) => getOrCreatePromise(dep)));
         ctx.onProgress?.({ phase: phase.name });
         try {
           const output = await phase.execute(ctx, outputs);
@@ -42,15 +41,19 @@ export class PipelineRunner {
     // Use allSettled so every in-flight phase completes before we return.
     // This ensures the DB is not closed while phases are still writing to it,
     // which would otherwise cause unhandled rejections that hang the process.
-    const results = await Promise.allSettled(this.sortedNames.map(name => getOrCreatePromise(name)));
-    const failed = results.find(r => r.status === 'rejected') as PromiseRejectedResult | undefined;
+    const results = await Promise.allSettled(
+      this.sortedNames.map((name) => getOrCreatePromise(name)),
+    );
+    const failed = results.find((r) => r.status === 'rejected') as
+      | PromiseRejectedResult
+      | undefined;
     if (failed) throw failed.reason;
     return outputs;
   }
 }
 
 function topoSort(phases: PipelinePhase<unknown>[]): string[] {
-  const names = new Set(phases.map(p => p.name));
+  const names = new Set(phases.map((p) => p.name));
   const inDegree = new Map<string, number>();
   const adjList = new Map<string, string[]>();
 
@@ -66,13 +69,13 @@ function topoSort(phases: PipelinePhase<unknown>[]): string[] {
     }
   }
 
-  const queue = phases.filter(p => (inDegree.get(p.name) ?? 0) === 0).map(p => p.name);
+  const queue = phases.filter((p) => (inDegree.get(p.name) ?? 0) === 0).map((p) => p.name);
   const result: string[] = [];
 
   while (queue.length) {
     const name = queue.shift()!;
     result.push(name);
-    for (const next of (adjList.get(name) ?? [])) {
+    for (const next of adjList.get(name) ?? []) {
       const deg = (inDegree.get(next) ?? 0) - 1;
       inDegree.set(next, deg);
       if (deg === 0) queue.push(next);
@@ -85,4 +88,3 @@ function topoSort(phases: PipelinePhase<unknown>[]): string[] {
 
   return result;
 }
-

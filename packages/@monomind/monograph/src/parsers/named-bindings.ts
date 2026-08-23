@@ -1,4 +1,11 @@
-export type BindingLanguage = 'typescript' | 'javascript' | 'python' | 'java' | 'kotlin' | 'go' | 'rust';
+export type BindingLanguage =
+  | 'typescript'
+  | 'javascript'
+  | 'python'
+  | 'java'
+  | 'kotlin'
+  | 'go'
+  | 'rust';
 
 export interface NamedBinding {
   decoratorName: string;
@@ -12,11 +19,7 @@ const TS_DECORATOR_RE = /^([ \t]*)@([\w.]+)([ \t]*\()?/gm;
 const PY_DECORATOR_RE = /^([ \t]*)@([\w.]+)([ \t]*\()?/gm;
 const JAVA_ANNOTATION_RE = /^([ \t]*)@([A-Z]\w*)([ \t]*\()?/gm;
 
-function extractWithRegex(
-  source: string,
-  filePath: string,
-  re: RegExp,
-): NamedBinding[] {
+function extractWithRegex(source: string, filePath: string, re: RegExp): NamedBinding[] {
   const results: NamedBinding[] = [];
   const lines = source.split('\n');
   re.lastIndex = 0;
@@ -28,7 +31,9 @@ function extractWithRegex(
     const nextLine = lines[lineNum] ?? '';
 
     let targetName: string | null = null;
-    const targetMatch = /(?:class|def|function|public|private|protected|export)\s+(\w+)/.exec(nextLine);
+    const targetMatch = /(?:class|def|function|public|private|protected|export)\s+(\w+)/.exec(
+      nextLine,
+    );
     if (targetMatch) targetName = targetMatch[1] ?? null;
 
     results.push({

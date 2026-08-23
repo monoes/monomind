@@ -4,9 +4,9 @@ export interface DepClosureResult {
   nodeId: string;
   name: string;
   filePath: string | null;
-  directDeps: string[];           // IDs of directly imported nodes
-  transitiveDeps: string[];       // IDs of all transitively imported nodes
-  depDepth: number;               // max dependency chain depth
+  directDeps: string[]; // IDs of directly imported nodes
+  transitiveDeps: string[]; // IDs of all transitively imported nodes
+  depDepth: number; // max dependency chain depth
   unusedTransitiveDeps: string[]; // transitive deps that are never directly referenced by any file in the project
 }
 
@@ -14,30 +14,36 @@ export interface DepClosureReport {
   nodes: DepClosureResult[];
   avgDepDepth: number;
   maxDepDepth: number;
-  deepDependencyFiles: DepClosureResult[];   // files with depDepth > 5
+  deepDependencyFiles: DepClosureResult[]; // files with depDepth > 5
 }
 
 const SQLITE_VAR_LIMIT = 200; // safe batch size for IN clauses
 
 export function computeDependencyClosure(db: MonographDb, maxNodes = 100): DepClosureReport {
   // Get File nodes sorted by degree (most connected first)
-  const fileNodes = (db.prepare(`
+  const fileNodes = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path,
       (SELECT COUNT(*) FROM edges e WHERE e.source_id = n.id OR e.target_id = n.id) AS degree
     FROM nodes n
     WHERE n.label = 'File'
     ORDER BY degree DESC
     LIMIT ?
-  `).all(maxNodes) as Array<{ id: string; name: string; file_path: string | null; degree: number }>);
+  `)
+    .all(maxNodes) as Array<{ id: string; name: string; file_path: string | null; degree: number }>;
 
   // Build a set of all file_paths that have any IMPORTS edge pointing to them (are imported by someone)
   const importedFilePaths = new Set<string>(
-    (db.prepare(`
+    (
+      db
+        .prepare(`
       SELECT DISTINCT n.file_path
       FROM edges e
       JOIN nodes n ON n.id = e.target_id
       WHERE e.relation = 'IMPORTS' AND n.file_path IS NOT NULL
-    `).all() as Array<{ file_path: string }>).map(r => r.file_path)
+    `)
+        .all() as Array<{ file_path: string }>
+    ).map((r) => r.file_path),
   );
 
   // Hoist prepared statement outside the per-node BFS loop to avoid recompiling
@@ -91,7 +97,7 @@ export function computeDependencyClosure(db: MonographDb, maxNodes = 100): DepCl
     }
 
     // unusedTransitiveDeps: transitive deps whose file_path is NOT in importedFilePaths
-    const unusedTransitiveDeps = transitiveDeps.filter(depId => {
+    const unusedTransitiveDeps = transitiveDeps.filter((depId) => {
       const fp = depFilePathMap.get(depId);
       if (!fp) return false;
       return !importedFilePaths.has(fp);
@@ -111,11 +117,10 @@ export function computeDependencyClosure(db: MonographDb, maxNodes = 100): DepCl
   // Sort by depDepth descending
   results.sort((a, b) => b.depDepth - a.depDepth);
 
-  const avgDepDepth = results.length > 0
-    ? results.reduce((sum, r) => sum + r.depDepth, 0) / results.length
-    : 0;
+  const avgDepDepth =
+    results.length > 0 ? results.reduce((sum, r) => sum + r.depDepth, 0) / results.length : 0;
   const maxDepDepth = results.length > 0 ? results[0].depDepth : 0;
-  const deepDependencyFiles = results.filter(r => r.depDepth > 5);
+  const deepDependencyFiles = results.filter((r) => r.depDepth > 5);
 
   return {
     nodes: results,

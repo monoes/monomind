@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { EvidenceWeights, typeBindingWeightAtDepth } from '../../scope-resolution/evidence-weights.js';
+import { describe, expect, it } from 'vitest';
+import {
+  EvidenceWeights,
+  typeBindingWeightAtDepth,
+} from '../../scope-resolution/evidence-weights.js';
 
 describe('EvidenceWeights', () => {
   it('local weight is highest origin weight', () => {
@@ -35,7 +38,8 @@ describe('typeBindingWeightAtDepth', () => {
   });
 
   it('returns last element for depth beyond table length', () => {
-    const last = EvidenceWeights.typeBindingByMroDepth[EvidenceWeights.typeBindingByMroDepth.length - 1];
+    const last =
+      EvidenceWeights.typeBindingByMroDepth[EvidenceWeights.typeBindingByMroDepth.length - 1];
     expect(typeBindingWeightAtDepth(100)).toBe(last);
   });
 

@@ -12,10 +12,11 @@
  * the existing `content-team` template (already schema-validated). The
  * file is immediately runnable: `monomind org run sample-team`.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('C5 — init emits a runnable sample org', () => {
   let tmpDir: string;

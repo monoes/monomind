@@ -1,9 +1,9 @@
 import louvain from 'graphology-communities-louvain';
-import { leiden } from './leiden.js';
-import type { PipelinePhase, PipelineContext } from '../types.js';
-import type { MonographEdge } from '../../types.js';
 import { loadGraphFromEdges } from '../../graph/loader.js';
+import type { MonographEdge } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { CrossFileOutput } from './cross-file.js';
+import { leiden } from './leiden.js';
 import type { ParseOutput } from './parse.js';
 
 export interface CommunitiesOutput {
@@ -79,9 +79,8 @@ export function computeAllCohesionScores(
       seen = new Set();
       seenEdgeKeys.set(commSrc, seen);
     }
-    const key = e.sourceId < e.targetId
-      ? `${e.sourceId}\0${e.targetId}`
-      : `${e.targetId}\0${e.sourceId}`;
+    const key =
+      e.sourceId < e.targetId ? `${e.sourceId}\0${e.targetId}` : `${e.targetId}\0${e.sourceId}`;
     if (!seen.has(key)) {
       seen.add(key);
       internalEdgeCounts.set(commSrc, (internalEdgeCounts.get(commSrc) ?? 0) + 1);
@@ -128,14 +127,16 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
       }
     }
 
-    const memberships = new Map<string, number>(Object.entries(communities).map(([k, v]) => [k, v]));
+    const memberships = new Map<string, number>(
+      Object.entries(communities).map(([k, v]) => [k, v]),
+    );
     const communityLabels = new Map<number, string>();
 
     const communityDegrees = new Map<number, Map<string, number>>();
     for (const [nodeId, commId] of memberships) {
       if (!communityDegrees.has(commId)) communityDegrees.set(commId, new Map());
       const deg = graph.degree(nodeId) ?? 0;
-      communityDegrees.get(commId)!.set(nodeId, deg);
+      communityDegrees.get(commId)?.set(nodeId, deg);
     }
     for (const [commId, nodeDegs] of communityDegrees) {
       const topNode = [...nodeDegs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
@@ -160,7 +161,12 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
           updateNode.run(commId, nodeId);
         }
         for (const [commId, label] of communityLabels) {
-          upsertComm.run(commId, label, commSizes.get(commId) ?? 0, cohesionScores.get(commId) ?? 0);
+          upsertComm.run(
+            commId,
+            label,
+            commSizes.get(commId) ?? 0,
+            cohesionScores.get(commId) ?? 0,
+          );
         }
       })();
     }

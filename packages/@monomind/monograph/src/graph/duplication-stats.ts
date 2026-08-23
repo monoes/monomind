@@ -65,9 +65,8 @@ export function computeDuplicationStats(
 export function formatDuplicationStats(stats: DuplicationStats): string {
   const pct = stats.duplicationPct;
   const grade = pct < 5 ? 'A' : pct < 10 ? 'B' : pct < 20 ? 'C' : pct < 30 ? 'D' : 'F';
-  const tokenPct = stats.totalTokens > 0
-    ? ((stats.duplicatedTokens / stats.totalTokens) * 100).toFixed(1)
-    : '0.0';
+  const tokenPct =
+    stats.totalTokens > 0 ? ((stats.duplicatedTokens / stats.totalTokens) * 100).toFixed(1) : '0.0';
   return [
     `Duplication grade: ${grade} (${pct.toFixed(1)}% duplicated lines)`,
     `Clone groups:      ${stats.cloneGroups}`,

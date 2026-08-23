@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-import Database from 'better-sqlite3';
-import { openDb, closeDb } from '../../../../storage/db.js';
-import { insertNodes } from '../../../../storage/node-store.js';
-import type { MonographNode } from '../../../../types.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { wailsAdapter } from '../../../../pipeline/phases/bridge-adapters/wails.js';
 import type { PipelineContext } from '../../../../pipeline/types.js';
 import { DEFAULT_OPTIONS } from '../../../../pipeline/types.js';
-import { wailsAdapter } from '../../../../pipeline/phases/bridge-adapters/wails.js';
+import { closeDb, openDb } from '../../../../storage/db.js';
+import { insertNodes } from '../../../../storage/node-store.js';
+import type { MonographNode } from '../../../../types.js';
 
 function makeCtx(repoPath: string, db: Database.Database): PipelineContext {
   return {
@@ -22,15 +22,30 @@ function makeCtx(repoPath: string, db: Database.Database): PipelineContext {
 
 function methodNode(id: string, name: string, filePath: string): MonographNode {
   return {
-    id, label: 'Method', name, normLabel: name.toLowerCase(), filePath,
-    isExported: true, language: 'go',
+    id,
+    label: 'Method',
+    name,
+    normLabel: name.toLowerCase(),
+    filePath,
+    isExported: true,
+    language: 'go',
   };
 }
 
-function functionNode(id: string, name: string, filePath: string, language = 'typescript'): MonographNode {
+function functionNode(
+  id: string,
+  name: string,
+  filePath: string,
+  language = 'typescript',
+): MonographNode {
   return {
-    id, label: 'Function', name, normLabel: name.toLowerCase(), filePath,
-    isExported: true, language,
+    id,
+    label: 'Function',
+    name,
+    normLabel: name.toLowerCase(),
+    filePath,
+    isExported: true,
+    language,
   };
 }
 
@@ -66,7 +81,9 @@ describe('wailsAdapter', () => {
   });
 
   it('finds wailsjs binding functions as call sites', () => {
-    insertNodes(db, [functionNode('js_fn_1', 'SendMessage', 'frontend/src/wailsjs/go/main/App.js')]);
+    insertNodes(db, [
+      functionNode('js_fn_1', 'SendMessage', 'frontend/src/wailsjs/go/main/App.js'),
+    ]);
     const ctx = makeCtx(tmpDir, db);
     const sites = wailsAdapter.findCallSites(ctx, []);
     expect(sites).toEqual([{ key: 'SendMessage', nodeId: 'js_fn_1', language: 'typescript' }]);

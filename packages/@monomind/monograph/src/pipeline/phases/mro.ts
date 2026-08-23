@@ -1,6 +1,6 @@
-import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { MonographEdge } from '../../types.js';
-import { makeId, CONFIDENCE_SCORE } from '../../types.js';
+import { CONFIDENCE_SCORE, makeId } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { ParseOutput } from './parse.js';
 
 export interface MroOutput {
@@ -14,7 +14,7 @@ export const mroPhase: PipelinePhase<MroOutput> = {
     const { allEdges, symbolNodes } = deps.get('parse') as ParseOutput;
 
     // Method nodes — used to filter CONTAINS edges (the relation actually emitted by the extractor)
-    const methodIds = new Set(symbolNodes.filter(n => n.label === 'Method').map(n => n.id));
+    const methodIds = new Set(symbolNodes.filter((n) => n.label === 'Method').map((n) => n.id));
 
     const classMethodsIndex = new Map<string, string[]>();
     for (const edge of allEdges) {
@@ -26,7 +26,7 @@ export const mroPhase: PipelinePhase<MroOutput> = {
       }
     }
 
-    const nameIndex = new Map(symbolNodes.map(n => [n.id, n.name]));
+    const nameIndex = new Map(symbolNodes.map((n) => [n.id, n.name]));
     const mroEdges: MonographEdge[] = [];
 
     for (const edge of allEdges) {
@@ -34,7 +34,7 @@ export const mroPhase: PipelinePhase<MroOutput> = {
 
       const parentMethods = classMethodsIndex.get(edge.targetId) ?? [];
       const childMethods = classMethodsIndex.get(edge.sourceId) ?? [];
-      const parentMethodNames = new Map(parentMethods.map(id => [nameIndex.get(id) ?? id, id]));
+      const parentMethodNames = new Map(parentMethods.map((id) => [nameIndex.get(id) ?? id, id]));
 
       for (const childMethodId of childMethods) {
         const childName = nameIndex.get(childMethodId);
@@ -45,8 +45,11 @@ export const mroPhase: PipelinePhase<MroOutput> = {
         const relation = edge.relation === 'IMPLEMENTS' ? 'METHOD_IMPLEMENTS' : 'METHOD_OVERRIDES';
         mroEdges.push({
           id: makeId(childMethodId, parentMethodId, relation.toLowerCase()),
-          sourceId: childMethodId, targetId: parentMethodId,
-          relation, confidence: 'EXTRACTED', confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+          sourceId: childMethodId,
+          targetId: parentMethodId,
+          relation,
+          confidence: 'EXTRACTED',
+          confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
         });
       }
     }

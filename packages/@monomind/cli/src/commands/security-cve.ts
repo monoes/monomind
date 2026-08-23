@@ -2,13 +2,13 @@
  * Security CVE command — NVD/OSV lookups and npm audit vulnerability listing
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { execFile } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
+import * as https from 'node:https';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { output } from '../output.js';
-import { statSync, readFileSync } from 'fs';
-import { join } from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import * as https from 'https';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 import { writeJsonFileAtomic } from '../utils/json-file.js';
 import { npmCommand } from '../utils/npm-command.js';
 
@@ -22,7 +22,9 @@ function getCveCache(cveId: string, cacheDir: string): unknown | null {
     const stat = statSync(filePath);
     if (Date.now() - stat.mtimeMs > CACHE_TTL_MS) return null;
     return JSON.parse(readFileSync(filePath, 'utf8'));
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 const CVE_ID_RE = /^CVE-\d{4}-\d{4,}$/i;
@@ -34,12 +36,22 @@ function saveCveCache(cveId: string, cacheDir: string, data: unknown): void {
 
 function httpsGet(url: string, timeoutMs = 10_000): Promise<string> {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'monomind-cli/1.0' }, timeout: timeoutMs }, (res) => {
-      if (res.statusCode !== 200) { req.destroy(); reject(new Error(`HTTP ${res.statusCode}`)); return; }
-      let data = '';
-      res.on('data', (chunk: Buffer) => { data += chunk; });
-      res.on('end', () => resolve(data));
-    });
+    const req = https.get(
+      url,
+      { headers: { 'User-Agent': 'monomind-cli/1.0' }, timeout: timeoutMs },
+      (res) => {
+        if (res.statusCode !== 200) {
+          req.destroy();
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+        let data = '';
+        res.on('data', (chunk: Buffer) => {
+          data += chunk;
+        });
+        res.on('end', () => resolve(data));
+      },
+    );
     req.on('timeout', () => req.destroy(new Error(`Request timed out after ${timeoutMs}ms`)));
     req.on('error', reject);
   });
@@ -62,16 +74,37 @@ export const cveCommand: Command = {
   name: 'cve',
   description: 'Check CVEs via NVD/OSV or list project vulnerabilities via npm audit',
   options: [
-    { name: 'check', short: 'c', type: 'string', description: 'Check specific CVE ID (e.g. CVE-2024-1234)' },
-    { name: 'list', short: 'l', type: 'boolean', description: 'List all vulnerabilities via npm audit' },
-    { name: 'severity', short: 's', type: 'string', description: 'Filter by severity: critical, high, medium, low' },
+    {
+      name: 'check',
+      short: 'c',
+      type: 'string',
+      description: 'Check specific CVE ID (e.g. CVE-2024-1234)',
+    },
+    {
+      name: 'list',
+      short: 'l',
+      type: 'boolean',
+      description: 'List all vulnerabilities via npm audit',
+    },
+    {
+      name: 'severity',
+      short: 's',
+      type: 'string',
+      description: 'Filter by severity: critical, high, medium, low',
+    },
     { name: 'json', type: 'boolean', description: 'Output as JSON' },
     { name: 'no-cache', type: 'boolean', description: 'Skip cache and fetch fresh data' },
   ],
   examples: [
     { command: 'monomind security cve --list', description: 'List vulnerabilities from npm audit' },
-    { command: 'monomind security cve -c CVE-2024-1234', description: 'Check specific CVE via NVD/OSV' },
-    { command: 'monomind security cve --list --severity high', description: 'Show only high-severity issues' },
+    {
+      command: 'monomind security cve -c CVE-2024-1234',
+      description: 'Check specific CVE via NVD/OSV',
+    },
+    {
+      command: 'monomind security cve --list --severity high',
+      description: 'Show only high-severity issues',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const checkCve = ctx.flags.check as string | undefined;
@@ -100,7 +133,10 @@ export const cveCommand: Command = {
       let source = 'cache';
 
       if (!cveData) {
-        const spinner = output.createSpinner({ text: `Fetching ${cveId} from NVD...`, spinner: 'dots' });
+        const spinner = output.createSpinner({
+          text: `Fetching ${cveId} from NVD...`,
+          spinner: 'dots',
+        });
         spinner.start();
 
         try {
@@ -119,7 +155,9 @@ export const cveCommand: Command = {
             spinner.succeed(`Fetched from OSV`);
           } catch {
             spinner.fail('Could not fetch CVE data');
-            output.writeln(output.error('Could not fetch CVE data — check your network connection'));
+            output.writeln(
+              output.error('Could not fetch CVE data — check your network connection'),
+            );
             return { success: false };
           }
         }
@@ -144,37 +182,45 @@ export const cveCommand: Command = {
           return { success: true };
         }
         const cve = vulns[0].cve;
-        const published = (cve.published as string || '').split('T')[0];
-        const lastMod = (cve.lastModified as string || '').split('T')[0];
+        const published = ((cve.published as string) || '').split('T')[0];
+        const lastMod = ((cve.lastModified as string) || '').split('T')[0];
         const descriptions = cve.descriptions as Array<{ lang: string; value: string }> | undefined;
-        const desc = descriptions?.find(d => d.lang === 'en')?.value || 'No description available';
+        const desc =
+          descriptions?.find((d) => d.lang === 'en')?.value || 'No description available';
         const metrics = cve.metrics as Record<string, unknown> | undefined;
-        const cvssV31 = metrics?.cvssMetricV31 as Array<{ cvssData: { baseScore: number; baseSeverity: string } }> | undefined;
+        const cvssV31 = metrics?.cvssMetricV31 as
+          | Array<{ cvssData: { baseScore: number; baseSeverity: string } }>
+          | undefined;
         const cvssData = cvssV31?.[0]?.cvssData;
         const score = cvssData?.baseScore;
         const severity = cvssData?.baseSeverity || 'N/A';
         const references = cve.references as Array<{ url: string }> | undefined;
 
         output.writeln();
-        output.printBox([
-          `CVE ID:        ${cveId}`,
-          `Source:        ${source}`,
-          `Published:     ${published}`,
-          `Last Modified: ${lastMod}`,
-          `Severity:      ${severityColor(severity, score)}`,
-          ``,
-          `Description:`,
-          `  ${desc}`,
-          ``,
-          `References:`,
-          ...(references || []).slice(0, 3).map(r => `  - ${r.url}`),
-        ].join('\n'), 'CVE Details');
-
+        output.printBox(
+          [
+            `CVE ID:        ${cveId}`,
+            `Source:        ${source}`,
+            `Published:     ${published}`,
+            `Last Modified: ${lastMod}`,
+            `Severity:      ${severityColor(severity, score)}`,
+            ``,
+            `Description:`,
+            `  ${desc}`,
+            ``,
+            `References:`,
+            ...(references || []).slice(0, 3).map((r) => `  - ${r.url}`),
+          ].join('\n'),
+          'CVE Details',
+        );
       } else {
         const osv = raw as Record<string, unknown>;
-        const osvId = osv.id as string || cveId;
-        const summary = osv.summary as string || osv.details as string || 'No description available';
-        const affected = osv.affected as Array<{ package?: { name?: string; ecosystem?: string }; ranges?: unknown[] }> | undefined;
+        const osvId = (osv.id as string) || cveId;
+        const summary =
+          (osv.summary as string) || (osv.details as string) || 'No description available';
+        const affected = osv.affected as
+          | Array<{ package?: { name?: string; ecosystem?: string }; ranges?: unknown[] }>
+          | undefined;
         const references = osv.references as Array<{ url: string }> | undefined;
 
         output.writeln();
@@ -187,18 +233,21 @@ export const cveCommand: Command = {
           }
         }
 
-        output.printBox([
-          `CVE ID:    ${osvId}`,
-          `Source:    OSV (CVSS score: N/A)`,
-          `Severity:  N/A`,
-          ``,
-          `Description:`,
-          `  ${summary}`,
-          ...(affectedLines.length > 0 ? ['', 'Affected packages:', ...affectedLines] : []),
-          ``,
-          `References:`,
-          ...(references || []).slice(0, 3).map(r => `  - ${r.url}`),
-        ].join('\n'), 'CVE Details');
+        output.printBox(
+          [
+            `CVE ID:    ${osvId}`,
+            `Source:    OSV (CVSS score: N/A)`,
+            `Severity:  N/A`,
+            ``,
+            `Description:`,
+            `  ${summary}`,
+            ...(affectedLines.length > 0 ? ['', 'Affected packages:', ...affectedLines] : []),
+            ``,
+            `References:`,
+            ...(references || []).slice(0, 3).map((r) => `  - ${r.url}`),
+          ].join('\n'),
+          'CVE Details',
+        );
       }
 
       return { success: true };
@@ -221,8 +270,10 @@ export const cveCommand: Command = {
         auditOutput = execErr.stdout || '';
         if (!auditOutput) {
           spinner.fail('npm audit failed');
-          output.writeln(output.warning('npm audit failed: ' + (execErr.message || 'unknown error')));
-          output.writeln(output.dim('Make sure package-lock.json exists (run `npm install` first).'));
+          output.writeln(output.warning(`npm audit failed: ${execErr.message || 'unknown error'}`));
+          output.writeln(
+            output.dim('Make sure package-lock.json exists (run `npm install` first).'),
+          );
           return { success: false };
         }
       }
@@ -242,18 +293,42 @@ export const cveCommand: Command = {
         return { success: true };
       }
 
-      const vulnerabilities = auditJson.vulnerabilities as Record<string, {
-        name: string;
-        severity: string;
-        via: Array<string | { source?: number; name?: string; url?: string; severity?: string; cvss?: { score?: number }; range?: string; title?: string }>;
-        range: string;
-        fixAvailable: boolean | { name: string; version: string };
-      }> | undefined;
+      const vulnerabilities = auditJson.vulnerabilities as
+        | Record<
+            string,
+            {
+              name: string;
+              severity: string;
+              via: Array<
+                | string
+                | {
+                    source?: number;
+                    name?: string;
+                    url?: string;
+                    severity?: string;
+                    cvss?: { score?: number };
+                    range?: string;
+                    title?: string;
+                  }
+              >;
+              range: string;
+              fixAvailable: boolean | { name: string; version: string };
+            }
+          >
+        | undefined;
 
-      const metadata = auditJson.metadata as { vulnerabilities?: Record<string, number> } | undefined;
+      const metadata = auditJson.metadata as
+        | { vulnerabilities?: Record<string, number> }
+        | undefined;
       const counts = metadata?.vulnerabilities || {};
 
-      const rows: Array<{ id: string; severity: string; package: string; range: string; fix: string }> = [];
+      const rows: Array<{
+        id: string;
+        severity: string;
+        package: string;
+        range: string;
+        fix: string;
+      }> = [];
 
       if (vulnerabilities) {
         for (const [pkgName, vuln] of Object.entries(vulnerabilities)) {
@@ -264,9 +339,14 @@ export const cveCommand: Command = {
             if (normalizedSev !== severityFilter && sev !== severityFilter) continue;
           }
 
-          const viaObj = vuln.via.find(v => typeof v === 'object') as {
-            url?: string; title?: string; cvss?: { score?: number }; range?: string;
-          } | undefined;
+          const viaObj = vuln.via.find((v) => typeof v === 'object') as
+            | {
+                url?: string;
+                title?: string;
+                cvss?: { score?: number };
+                range?: string;
+              }
+            | undefined;
 
           let advisoryId = '—';
           if (viaObj?.url) {
@@ -277,24 +357,42 @@ export const cveCommand: Command = {
             else advisoryId = viaObj.url.split('/').pop() || advisoryId;
           }
 
-          const sevColored = sev === 'critical' ? output.error('CRITICAL') :
-                             sev === 'high' ? output.warning('HIGH') :
-                             sev === 'moderate' || sev === 'medium' ? output.info('MEDIUM') :
-                             output.dim(sev.toUpperCase());
+          const sevColored =
+            sev === 'critical'
+              ? output.error('CRITICAL')
+              : sev === 'high'
+                ? output.warning('HIGH')
+                : sev === 'moderate' || sev === 'medium'
+                  ? output.info('MEDIUM')
+                  : output.dim(sev.toUpperCase());
 
-          const fixAvail = vuln.fixAvailable === true ? output.success('Yes') :
-                           vuln.fixAvailable && typeof vuln.fixAvailable === 'object' ?
-                             output.success(`${vuln.fixAvailable.version}`) :
-                           output.dim('No');
+          const fixAvail =
+            vuln.fixAvailable === true
+              ? output.success('Yes')
+              : vuln.fixAvailable && typeof vuln.fixAvailable === 'object'
+                ? output.success(`${vuln.fixAvailable.version}`)
+                : output.dim('No');
 
-          rows.push({ id: advisoryId, severity: sevColored, package: pkgName, range: vuln.range || '—', fix: fixAvail });
+          rows.push({
+            id: advisoryId,
+            severity: sevColored,
+            package: pkgName,
+            range: vuln.range || '—',
+            fix: fixAvail,
+          });
         }
       }
 
       output.writeln();
 
       if (rows.length === 0) {
-        output.writeln(output.success('No vulnerabilities found' + (severityFilter ? ` matching severity: ${severityFilter}` : '') + '.'));
+        output.writeln(
+          output.success(
+            'No vulnerabilities found' +
+              (severityFilter ? ` matching severity: ${severityFilter}` : '') +
+              '.',
+          ),
+        );
       } else {
         output.printTable({
           columns: [
@@ -308,17 +406,20 @@ export const cveCommand: Command = {
         });
       }
 
-      const critical = counts['critical'] || 0;
-      const high = counts['high'] || 0;
-      const moderate = counts['moderate'] || 0;
-      const low = counts['low'] || 0;
+      const critical = counts.critical || 0;
+      const high = counts.high || 0;
+      const moderate = counts.moderate || 0;
+      const low = counts.low || 0;
       output.writeln();
       output.writeln(
         output.bold('Summary: ') +
-        output.error(`${critical} critical`) + '  ' +
-        output.warning(`${high} high`) + '  ' +
-        output.info(`${moderate} medium`) + '  ' +
-        output.dim(`${low} low`)
+          output.error(`${critical} critical`) +
+          '  ' +
+          output.warning(`${high} high`) +
+          '  ' +
+          output.info(`${moderate} medium`) +
+          '  ' +
+          output.dim(`${low} low`),
       );
 
       return { success: critical === 0 && high === 0 };

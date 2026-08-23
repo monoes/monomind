@@ -36,7 +36,11 @@ export interface FlagsResult {
   totalFlags: number;
 }
 
-export function flagUseToFeatureFlag(flagUse: FlagUse, filePath: string, line?: number): FeatureFlag {
+export function flagUseToFeatureFlag(
+  flagUse: FlagUse,
+  filePath: string,
+  line?: number,
+): FeatureFlag {
   return {
     name: flagUse.name,
     filePath,
@@ -66,7 +70,8 @@ export function formatFlagsText(result: FlagsResult, top?: number): string {
   const limited = top !== undefined ? sorted.slice(0, top) : sorted;
   for (const [name, uses] of limited) {
     lines.push(`  ${name} (${uses.length} uses)`);
-    for (const u of uses) lines.push(`    ${u.filePath}${u.line !== undefined ? `:${u.line}` : ''}`);
+    for (const u of uses)
+      lines.push(`    ${u.filePath}${u.line !== undefined ? `:${u.line}` : ''}`);
   }
   return lines.join('\n');
 }

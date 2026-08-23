@@ -14,10 +14,11 @@
 // ("hash-fallback") when no ONNX model can be loaded. A cosine over those
 // hashes is a deterministic lexical trick with no semantic content, so this
 // path may not report "hybrid" in that state.
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** Flipped per test: does generateEmbedding return a real model vector or the hash fallback? */
 let embedModel: 'onnx' | 'hash-fallback' = 'onnx';
@@ -27,7 +28,7 @@ function vec(text: string): number[] {
   const v = new Array(DIM).fill(0);
   for (let i = 0; i < text.length; i++) v[text.charCodeAt(i) % DIM] += 1;
   const n = Math.sqrt(v.reduce((s, x) => s + x * x, 0)) || 1;
-  return v.map(x => x / n);
+  return v.map((x) => x / n);
 }
 
 // Force the "bridge unavailable" branch of memory-read.getBridge().
@@ -38,7 +39,9 @@ vi.mock('../memory/memory-bridge.js', () => ({
     try {
       const p = JSON.parse(raw);
       return Array.isArray(p) ? p : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   },
 }));
 
@@ -69,10 +72,13 @@ describe('sql.js fallback paths report the method that actually ran', () => {
       id TEXT PRIMARY KEY, key TEXT, namespace TEXT, content TEXT,
       embedding TEXT, status TEXT
     )`);
-    db.run(
-      `INSERT INTO memory_entries VALUES (?, ?, ?, ?, ?, 'active')`,
-      ['id-jwt-auth-0001', 'jwt-auth', 'ns', 'JWT refresh token rotation', JSON.stringify(vec('JWT refresh token rotation'))]
-    );
+    db.run(`INSERT INTO memory_entries VALUES (?, ?, ?, ?, ?, 'active')`, [
+      'id-jwt-auth-0001',
+      'jwt-auth',
+      'ns',
+      'JWT refresh token rotation',
+      JSON.stringify(vec('JWT refresh token rotation')),
+    ]);
     writeFileSync(DB_PATH, Buffer.from(db.export()));
     db.close();
   }, 60_000);
@@ -86,7 +92,12 @@ describe('sql.js fallback paths report the method that actually ran', () => {
   });
 
   it('brute-force path reports "hybrid" with a real model', async () => {
-    const res = await searchEntries({ query: 'jwt refresh', namespace: 'ns', dbPath: DB_PATH, threshold: 0.1 });
+    const res = await searchEntries({
+      query: 'jwt refresh',
+      namespace: 'ns',
+      dbPath: DB_PATH,
+      threshold: 0.1,
+    });
     expect(res.success).toBe(true);
     expect(res.results.length).toBeGreaterThan(0);
     expect(res.searchMethod).toBe('hybrid');
@@ -95,7 +106,12 @@ describe('sql.js fallback paths report the method that actually ran', () => {
 
   it('brute-force path does NOT claim "hybrid" cosine when the vectors are hash fallbacks', async () => {
     embedModel = 'hash-fallback';
-    const res = await searchEntries({ query: 'jwt refresh', namespace: 'ns', dbPath: DB_PATH, threshold: 0.1 });
+    const res = await searchEntries({
+      query: 'jwt refresh',
+      namespace: 'ns',
+      dbPath: DB_PATH,
+      threshold: 0.1,
+    });
     expect(res.success).toBe(true);
     expect(res.searchMethod).not.toBe('hybrid');
     expect(res.searchMethod).toBe('hash-hybrid');

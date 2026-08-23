@@ -2,10 +2,10 @@ export type LLMProvider = 'anthropic' | 'openai' | 'ollama';
 
 export interface LLMConfig {
   provider: LLMProvider;
-  model?: string;       // e.g. "claude-3-haiku-20240307", "gpt-4o-mini", "mistral"
-  apiKey?: string;      // read from env if not provided
-  baseUrl?: string;     // for ollama: "http://localhost:11434"
-  maxTokens?: number;   // default 2048
+  model?: string; // e.g. "claude-3-haiku-20240307", "gpt-4o-mini", "mistral"
+  apiKey?: string; // read from env if not provided
+  baseUrl?: string; // for ollama: "http://localhost:11434"
+  maxTokens?: number; // default 2048
   temperature?: number; // default 0.2
 }
 
@@ -63,12 +63,12 @@ async function callOpenAI(
   config: LLMConfig,
   signal: AbortSignal,
 ): Promise<LLMResponse> {
-  const apiKey = config.apiKey ?? process.env['OPENAI_API_KEY'];
+  const apiKey = config.apiKey ?? process.env.OPENAI_API_KEY;
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     signal,
     headers: {
-      'Authorization': `Bearer ${apiKey ?? ''}`,
+      Authorization: `Bearer ${apiKey ?? ''}`,
       'content-type': 'application/json',
     },
     body: (() => {
@@ -78,10 +78,10 @@ async function callOpenAI(
         messages: [{ role: 'user', content: prompt }],
       };
       if (reasoning) {
-        bodyObj['max_completion_tokens'] = config.maxTokens ?? 2048;
+        bodyObj.max_completion_tokens = config.maxTokens ?? 2048;
       } else {
-        bodyObj['max_tokens'] = config.maxTokens ?? 2048;
-        bodyObj['temperature'] = config.temperature ?? 0.2;
+        bodyObj.max_tokens = config.maxTokens ?? 2048;
+        bodyObj.temperature = config.temperature ?? 0.2;
       }
       return JSON.stringify(bodyObj);
     })(),
@@ -91,7 +91,7 @@ async function callOpenAI(
     throw new Error(`LLM provider openai error: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json() as {
+  const data = (await response.json()) as {
     choices: Array<{ message: { content: string } }>;
     usage: { prompt_tokens: number; completion_tokens: number };
   };
@@ -126,7 +126,7 @@ async function callOllama(
     throw new Error(`LLM provider ollama error: ${response.status} ${response.statusText}`);
   }
 
-  const data = await response.json() as { response: string };
+  const data = (await response.json()) as { response: string };
 
   return {
     text: data.response,

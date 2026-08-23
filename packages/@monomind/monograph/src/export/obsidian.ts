@@ -1,8 +1,12 @@
-import type { MonographNode, MonographEdge } from '../types.js';
-import { join } from 'path';
-import { writeFileSync, mkdirSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { MonographEdge, MonographNode } from '../types.js';
 
-export function toObsidian(nodes: MonographNode[], edges: MonographEdge[], outputDir: string): void {
+export function toObsidian(
+  nodes: MonographNode[],
+  edges: MonographEdge[],
+  outputDir: string,
+): void {
   mkdirSync(outputDir, { recursive: true });
 
   const adjOut = new Map<string, string[]>();
@@ -12,13 +16,13 @@ export function toObsidian(nodes: MonographNode[], edges: MonographEdge[], outpu
     adjOut.set(e.sourceId, targets);
   }
 
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
   for (const node of nodes) {
     const links = (adjOut.get(node.id) ?? [])
-      .map(tid => nodeMap.get(tid)?.name)
+      .map((tid) => nodeMap.get(tid)?.name)
       .filter(Boolean)
-      .map(name => `- [[${name}]]`)
+      .map((name) => `- [[${name}]]`)
       .join('\n');
 
     const content = `---

@@ -1,40 +1,16 @@
-/**
- * Hooks Intelligence MCP Tools
- * MCP tool implementations for intelligence reset, trajectories, patterns,
- * intelligence stats/learn/attention, and model routing.
- * Extracted from hooks-tools.ts.
- * The simulated worker dispatch/status/detect/cancel tools were deleted with
- * the worker daemon -- real workers live in @monoes/hooks (`hooks worker run`).
- */
-
-import {
-  mkdirSync,
-  writeFileSync,
-  renameSync,
-  existsSync,
-  readFileSync,
-  statSync,
-  readdirSync,
-  unlinkSync,
-} from 'fs';
-import { dirname, join } from 'path';
-import { type MCPTool, getProjectCwd } from './types.js';
-import { randomUUID } from 'node:crypto';
+import { existsSync, readdirSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { computeModelStats, recordModelOutcome } from '../monovector/model-outcomes.js';
 import {
   activeTrajectories,
-  loadMemoryStore,
-  getMemoryPath,
+  getEWCConsolidator,
+  getIntelligenceStatsFromMemory,
   getRealSearchFunction,
   getRealStoreFunction,
   getSONAOptimizer,
-  getEWCConsolidator,
-  generateSimpleEmbedding,
-  VALID_AGENT_TYPES,
-  getIntelligenceStatsFromMemory,
   type TrajectoryData,
-  type TrajectoryStep,
 } from './hooks-embedding.js';
-import { recordModelOutcome, computeModelStats } from '../monovector/model-outcomes.js';
+import { getProjectCwd, type MCPTool } from './types.js';
 
 /** Ledger dir for model-outcome/model-stats — `.monomind/neural/model-outcomes.jsonl`. */
 function getModelOutcomesBaseDir(): string {
@@ -264,7 +240,7 @@ export const hooksTrajectoryEnd: MCPTool = {
       if (storeFn) {
         try {
           // Create trajectory summary for embedding
-          const summary = `Task: ${trajectory.task} | Agent: ${trajectory.agent} | Steps: ${trajectory.steps.length} | Success: ${success}${feedback ? ` | Feedback: ${feedback}` : ''}`;
+          const _summary = `Task: ${trajectory.task} | Agent: ${trajectory.agent} | Steps: ${trajectory.steps.length} | Success: ${success}${feedback ? ` | Feedback: ${feedback}` : ''}`;
 
           persistResult = await storeFn({
             key: `trajectory-${trajectoryId}`,
@@ -325,7 +301,7 @@ export const hooksTrajectoryEnd: MCPTool = {
       patternKey: '',
       confidence: 0,
     };
-    let ewcResult: { consolidated: boolean; penalty: number } = {
+    const ewcResult: { consolidated: boolean; penalty: number } = {
       consolidated: false,
       penalty: 0,
     };
@@ -647,7 +623,9 @@ export const hooksIntelligenceStats: MCPTool = {
     const memoryStats = getIntelligenceStatsFromMemory();
     // Real measured adaptation latency, tracked from actual wall-clock timings
     // in LocalSonaCoordinator (memory/intelligence.ts), not a theoretical constant.
-    const { getIntelligenceStats: getLocalIntelligenceStats } = await import('../memory/intelligence.js');
+    const { getIntelligenceStats: getLocalIntelligenceStats } = await import(
+      '../memory/intelligence.js'
+    );
     const avgLearningTimeMs = getLocalIntelligenceStats().avgAdaptationTime;
 
     // SONA stats from real implementation
@@ -697,7 +675,7 @@ export const hooksIntelligenceStats: MCPTool = {
     }
 
     // MoE stats from real implementation
-    let moeStats = {
+    const moeStats = {
       expertsActive: 0,
       routingDecisions: memoryStats.routing.decisions,
       avgRoutingTimeMs: 0,
@@ -820,11 +798,11 @@ export const hooksIntelligenceLearn: MCPTool = {
         patternsLearned: sonaStats.totalPatterns,
         successRate:
           sonaStats.trajectoriesProcessed > 0
-            ? (
+            ? `${(
                 (sonaStats.successfulRoutings /
                   (sonaStats.successfulRoutings + sonaStats.failedRoutings)) *
-                100
-              ).toFixed(1) + '%'
+                  100
+              ).toFixed(1)}%`
             : '0%',
       },
       consolidation,

@@ -4,9 +4,9 @@
  * Extracted from hooks.ts (ARCH-1)
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { output } from '../output.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Route subcommand
 export const routeCommand: Command = {
@@ -18,29 +18,35 @@ export const routeCommand: Command = {
       short: 't',
       description: 'Task description',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'context',
       short: 'c',
       description: 'Additional context',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'top-k',
       short: 'K',
       description: 'Number of top agent suggestions',
       type: 'number',
-      default: 3
-    }
+      default: 3,
+    },
   ],
   examples: [
-    { command: 'monomind hooks route -t "Fix authentication bug"', description: 'Route task to optimal agent' },
-    { command: 'monomind hooks route -t "Optimize database queries" -K 5', description: 'Get top 5 suggestions' }
+    {
+      command: 'monomind hooks route -t "Fix authentication bug"',
+      description: 'Route task to optimal agent',
+    },
+    {
+      command: 'monomind hooks route -t "Optimize database queries" -K 5',
+      description: 'Get top 5 suggestions',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const task = ctx.args[0] || ctx.flags.task as string;
-    const topK = ctx.flags['top-k'] as number || 3;
+    const task = ctx.args[0] || (ctx.flags.task as string);
+    const topK = (ctx.flags['top-k'] as number) || 3;
 
     if (!task) {
       output.printError('Task description is required. Use --task or -t flag.');
@@ -85,9 +91,9 @@ export const routeCommand: Command = {
           `Task: ${result.task}`,
           `Top Agent: ${output.highlight(result.primaryAgent.type)}`,
           `Confidence: ${(result.primaryAgent.confidence * 100).toFixed(1)}%`,
-          `Method: ${result.routing?.method ?? 'keyword'}`
+          `Method: ${result.routing?.method ?? 'keyword'}`,
         ].join('\n'),
-        'Routing Decision'
+        'Routing Decision',
       );
 
       const recommendations = [result.primaryAgent, ...(result.alternativeAgents || [])];
@@ -97,10 +103,16 @@ export const routeCommand: Command = {
         output.printTable({
           columns: [
             { key: 'type', header: 'Agent', width: 20 },
-            { key: 'confidence', header: 'Confidence', width: 12, align: 'right', format: (v) => `${(Number(v) * 100).toFixed(1)}%` },
-            { key: 'reason', header: 'Reason', width: 35 }
+            {
+              key: 'confidence',
+              header: 'Confidence',
+              width: 12,
+              align: 'right',
+              format: (v) => `${(Number(v) * 100).toFixed(1)}%`,
+            },
+            { key: 'reason', header: 'Reason', width: 35 },
           ],
-          data: recommendations.slice(0, topK)
+          data: recommendations.slice(0, topK),
         });
       }
 
@@ -113,7 +125,7 @@ export const routeCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Explain subcommand
@@ -126,28 +138,34 @@ export const explainCommand: Command = {
       short: 't',
       description: 'Task description',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'agent',
       short: 'a',
       description: 'Agent type to explain',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'verbose',
       short: 'v',
       description: 'Verbose explanation',
       type: 'boolean',
-      default: false
-    }
+      default: false,
+    },
   ],
   examples: [
-    { command: 'monomind hooks explain -t "Fix authentication bug"', description: 'Explain routing decision' },
-    { command: 'monomind hooks explain -t "Optimize queries" -a coder --verbose', description: 'Verbose explanation for specific agent' }
+    {
+      command: 'monomind hooks explain -t "Fix authentication bug"',
+      description: 'Explain routing decision',
+    },
+    {
+      command: 'monomind hooks explain -t "Optimize queries" -a coder --verbose',
+      description: 'Verbose explanation for specific agent',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const task = ctx.args[0] || ctx.flags.task as string;
+    const task = ctx.args[0] || (ctx.flags.task as string);
 
     if (!task) {
       output.printError('Task description is required. Use --task or -t flag.');
@@ -197,9 +215,9 @@ export const explainCommand: Command = {
       output.printBox(
         [
           `Agent: ${output.highlight(result.decision.agent)}`,
-          `Confidence: ${(result.decision.confidence * 100).toFixed(1)}%`
+          `Confidence: ${(result.decision.confidence * 100).toFixed(1)}%`,
         ].join('\n'),
-        'Final Decision'
+        'Final Decision',
       );
 
       if (result.decision.reasoning.length > 0) {
@@ -214,11 +232,23 @@ export const explainCommand: Command = {
         output.printTable({
           columns: [
             { key: 'factor', header: 'Factor', width: 20 },
-            { key: 'weight', header: 'Weight', width: 10, align: 'right', format: (v) => `${(Number(v) * 100).toFixed(0)}%` },
-            { key: 'value', header: 'Value', width: 10, align: 'right', format: (v) => Number(v).toFixed(2) },
-            { key: 'impact', header: 'Impact', width: 25 }
+            {
+              key: 'weight',
+              header: 'Weight',
+              width: 10,
+              align: 'right',
+              format: (v) => `${(Number(v) * 100).toFixed(0)}%`,
+            },
+            {
+              key: 'value',
+              header: 'Value',
+              width: 10,
+              align: 'right',
+              format: (v) => Number(v).toFixed(2),
+            },
+            { key: 'impact', header: 'Impact', width: 25 },
           ],
-          data: result.factors
+          data: result.factors,
         });
       }
 
@@ -227,9 +257,11 @@ export const explainCommand: Command = {
         output.writeln(output.bold('Matched Patterns'));
         result.patterns.forEach((p, i) => {
           output.writeln();
-          output.writeln(`${i + 1}. ${output.highlight(p.pattern)} (${(p.matchScore * 100).toFixed(1)}% match)`);
+          output.writeln(
+            `${i + 1}. ${output.highlight(p.pattern)} (${(p.matchScore * 100).toFixed(1)}% match)`,
+          );
           if (p.examples.length > 0) {
-            output.printList(p.examples.slice(0, 3).map(e => output.dim(`  ${e}`)));
+            output.printList(p.examples.slice(0, 3).map((e) => output.dim(`  ${e}`)));
           }
         });
       }
@@ -243,7 +275,7 @@ export const explainCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Pretrain subcommand
@@ -256,7 +288,7 @@ export const pretrainCommand: Command = {
       short: 'p',
       description: 'Repository path',
       type: 'string',
-      default: '.'
+      default: '.',
     },
     {
       name: 'depth',
@@ -264,46 +296,60 @@ export const pretrainCommand: Command = {
       description: 'Analysis depth (shallow, medium, deep)',
       type: 'string',
       default: 'medium',
-      choices: ['shallow', 'medium', 'deep']
+      choices: ['shallow', 'medium', 'deep'],
     },
     {
       name: 'skip-cache',
       description: 'Skip cached analysis',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'with-embeddings',
       description: 'Index documents for semantic search during pretraining',
       type: 'boolean',
-      default: true
+      default: true,
     },
     {
       name: 'embedding-model',
       description: 'ONNX embedding model',
       type: 'string',
       default: 'Xenova/all-MiniLM-L6-v2',
-      choices: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2']
+      choices: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
     },
     {
       name: 'file-types',
       description: 'File extensions to index (comma-separated)',
       type: 'string',
-      default: 'ts,js,py,md,json'
-    }
+      default: 'ts,js,py,md,json',
+    },
   ],
   examples: [
     { command: 'monomind hooks pretrain', description: 'Pretrain with embeddings indexing' },
-    { command: 'monomind hooks pretrain -p ../my-project --depth deep', description: 'Deep analysis of specific project' },
-    { command: 'monomind hooks pretrain --no-with-embeddings', description: 'Skip embedding indexing' },
-    { command: 'monomind hooks pretrain --file-types ts,tsx,js', description: 'Index only TypeScript/JS files' }
+    {
+      command: 'monomind hooks pretrain -p ../my-project --depth deep',
+      description: 'Deep analysis of specific project',
+    },
+    {
+      command: 'monomind hooks pretrain --no-with-embeddings',
+      description: 'Skip embedding indexing',
+    },
+    {
+      command: 'monomind hooks pretrain --file-types ts,tsx,js',
+      description: 'Index only TypeScript/JS files',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const repoPath = ctx.flags.path as string || '.';
-    const depth = ctx.flags.depth as string || 'medium';
-    const withEmbeddings = ctx.flags['with-embeddings'] !== false && ctx.flags.withEmbeddings !== false;
-    const embeddingModel = (ctx.flags['embedding-model'] || ctx.flags.embeddingModel || 'Xenova/all-MiniLM-L6-v2') as string;
-    const fileTypes = (ctx.flags['file-types'] || ctx.flags.fileTypes || 'ts,js,py,md,json') as string;
+    const repoPath = (ctx.flags.path as string) || '.';
+    const depth = (ctx.flags.depth as string) || 'medium';
+    const withEmbeddings =
+      ctx.flags['with-embeddings'] !== false && ctx.flags.withEmbeddings !== false;
+    const embeddingModel = (ctx.flags['embedding-model'] ||
+      ctx.flags.embeddingModel ||
+      'Xenova/all-MiniLM-L6-v2') as string;
+    const fileTypes = (ctx.flags['file-types'] ||
+      ctx.flags.fileTypes ||
+      'ts,js,py,md,json') as string;
 
     output.writeln();
     output.writeln(output.bold('Indexing hook activity into local JSON state'));
@@ -361,24 +407,29 @@ export const pretrainCommand: Command = {
       if (withEmbeddings && result.stats.documentsIndexed !== undefined) {
         tableData.push(
           { metric: 'Documents Indexed', value: result.stats.documentsIndexed },
-          { metric: 'Embeddings Generated', value: result.stats.embeddingsGenerated || 0 }
+          { metric: 'Embeddings Generated', value: result.stats.embeddingsGenerated || 0 },
         );
       }
 
-      tableData.push({ metric: 'Duration', value: `${((result.durationMs ?? 0) / 1000).toFixed(1)}s` });
+      tableData.push({
+        metric: 'Duration',
+        value: `${((result.durationMs ?? 0) / 1000).toFixed(1)}s`,
+      });
 
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 30 },
-          { key: 'value', header: 'Value', width: 15, align: 'right' }
+          { key: 'value', header: 'Value', width: 15, align: 'right' },
         ],
-        data: tableData
+        data: tableData,
       });
 
       output.writeln();
       output.printSuccess('Repository intelligence bootstrapped successfully');
       if (withEmbeddings) {
-        output.writeln(output.dim('  Semantic search enabled: Use "embeddings search -q <query>" to search'));
+        output.writeln(
+          output.dim('  Semantic search enabled: Use "embeddings search -q <query>" to search'),
+        );
       }
 
       return { success: true, data: result };
@@ -391,7 +442,7 @@ export const pretrainCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Metrics subcommand
@@ -404,27 +455,30 @@ export const metricsCommand: Command = {
       short: 'p',
       description: 'Time period (1h, 24h, 7d, 30d, all)',
       type: 'string',
-      default: '24h'
+      default: '24h',
     },
     {
       name: 'v1-dashboard',
       description: 'Show v1 performance dashboard',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'category',
       short: 'c',
       description: 'Metric category (patterns, agents, commands, performance)',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   examples: [
     { command: 'monomind hooks metrics', description: 'View 24h metrics' },
-    { command: 'monomind hooks metrics --period 7d --v1-dashboard', description: 'v1 metrics for 7 days' }
+    {
+      command: 'monomind hooks metrics --period 7d --v1-dashboard',
+      description: 'v1 metrics for 7 days',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const period = ctx.flags.period as string || '24h';
+    const period = (ctx.flags.period as string) || '24h';
     const v1Dashboard = ctx.flags.v1Dashboard as boolean;
 
     output.writeln();
@@ -476,7 +530,8 @@ export const metricsCommand: Command = {
         return { success: true, data: result };
       }
 
-      const pct = (v: number | null | undefined) => typeof v === 'number' ? `${(v * 100).toFixed(1)}%` : 'N/A';
+      const pct = (v: number | null | undefined) =>
+        typeof v === 'number' ? `${(v * 100).toFixed(1)}%` : 'N/A';
 
       if (result._note) {
         output.writeln(output.dim(result._note));
@@ -488,14 +543,26 @@ export const metricsCommand: Command = {
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 25 },
-          { key: 'value', header: 'Value', width: 20, align: 'right' }
+          { key: 'value', header: 'Value', width: 20, align: 'right' },
         ],
         data: [
           { metric: 'Total Patterns', value: result.patterns.total ?? 0 },
-          { metric: 'Successful', value: typeof result.patterns.successful === 'number' ? output.success(String(result.patterns.successful)) : 'N/A' },
-          { metric: 'Failed', value: typeof result.patterns.failed === 'number' ? output.error(String(result.patterns.failed)) : 'N/A' },
-          { metric: 'Avg Confidence', value: pct(result.patterns.avgConfidence) }
-        ]
+          {
+            metric: 'Successful',
+            value:
+              typeof result.patterns.successful === 'number'
+                ? output.success(String(result.patterns.successful))
+                : 'N/A',
+          },
+          {
+            metric: 'Failed',
+            value:
+              typeof result.patterns.failed === 'number'
+                ? output.error(String(result.patterns.failed))
+                : 'N/A',
+          },
+          { metric: 'Avg Confidence', value: pct(result.patterns.avgConfidence) },
+        ],
       });
       if (result.patterns._note) output.writeln(output.dim(`  ${result.patterns._note}`));
 
@@ -506,13 +573,16 @@ export const metricsCommand: Command = {
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 25 },
-          { key: 'value', header: 'Value', width: 20, align: 'right' }
+          { key: 'value', header: 'Value', width: 20, align: 'right' },
         ],
         data: [
           { metric: 'Routing Accuracy', value: pct(result.agents.routingAccuracy) },
           { metric: 'Total Routes', value: result.agents.totalRoutes ?? 0 },
-          { metric: 'Top Agent', value: result.agents.topAgent ? output.highlight(result.agents.topAgent) : 'N/A' }
-        ]
+          {
+            metric: 'Top Agent',
+            value: result.agents.topAgent ? output.highlight(result.agents.topAgent) : 'N/A',
+          },
+        ],
       });
       if (result.agents._note) output.writeln(output.dim(`  ${result.agents._note}`));
 
@@ -523,13 +593,19 @@ export const metricsCommand: Command = {
       output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 25 },
-          { key: 'value', header: 'Value', width: 20, align: 'right' }
+          { key: 'value', header: 'Value', width: 20, align: 'right' },
         ],
         data: [
           { metric: 'Total Executed', value: result.commands.totalExecuted ?? 0 },
           { metric: 'Success Rate', value: pct(result.commands.successRate) },
-          { metric: 'Avg Risk Score', value: typeof result.commands.avgRiskScore === 'number' ? result.commands.avgRiskScore.toFixed(2) : 'N/A' }
-        ]
+          {
+            metric: 'Avg Risk Score',
+            value:
+              typeof result.commands.avgRiskScore === 'number'
+                ? result.commands.avgRiskScore.toFixed(2)
+                : 'N/A',
+          },
+        ],
       });
       if (result.commands._note) output.writeln(output.dim(`  ${result.commands._note}`));
 
@@ -542,7 +618,7 @@ export const metricsCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Transfer from project subcommand
@@ -556,29 +632,35 @@ export const transferFromProjectCommand: Command = {
       short: 's',
       description: 'Source project path',
       type: 'string',
-      required: true
+      required: true,
     },
     {
       name: 'filter',
       short: 'f',
       description: 'Filter patterns by type',
-      type: 'string'
+      type: 'string',
     },
     {
       name: 'min-confidence',
       short: 'm',
       description: 'Minimum confidence threshold (0-1)',
       type: 'number',
-      default: 0.7
-    }
+      default: 0.7,
+    },
   ],
   examples: [
-    { command: 'monomind hooks transfer from-project -s ../old-project', description: 'Transfer all patterns' },
-    { command: 'monomind hooks transfer from-project -s ../prod --filter security -m 0.9', description: 'Transfer high-confidence security patterns' }
+    {
+      command: 'monomind hooks transfer from-project -s ../old-project',
+      description: 'Transfer all patterns',
+    },
+    {
+      command: 'monomind hooks transfer from-project -s ../prod --filter security -m 0.9',
+      description: 'Transfer high-confidence security patterns',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const sourcePath = ctx.args[0] || ctx.flags.source as string;
-    const minConfidence = ctx.flags['min-confidence'] as number || 0.7;
+    const sourcePath = ctx.args[0] || (ctx.flags.source as string);
+    const minConfidence = (ctx.flags['min-confidence'] as number) || 0.7;
 
     if (!sourcePath) {
       output.printError('Source project path is required. Use --source or -s flag.');
@@ -627,14 +709,17 @@ export const transferFromProjectCommand: Command = {
       output.printTable({
         columns: [
           { key: 'category', header: 'Category', width: 25 },
-          { key: 'count', header: 'Count', width: 15, align: 'right' }
+          { key: 'count', header: 'Count', width: 15, align: 'right' },
         ],
         data: [
-          { category: 'Total Transferred', count: output.success(String(result.transferred.total)) },
+          {
+            category: 'Total Transferred',
+            count: output.success(String(result.transferred.total)),
+          },
           { category: 'Skipped (Low Confidence)', count: result.skipped.lowConfidence },
           { category: 'Skipped (Duplicates)', count: result.skipped.duplicates },
-          { category: 'Skipped (Conflicts)', count: result.skipped.conflicts }
-        ]
+          { category: 'Skipped (Conflicts)', count: result.skipped.conflicts },
+        ],
       });
 
       if (Object.keys(result.transferred.byType).length > 0) {
@@ -643,16 +728,16 @@ export const transferFromProjectCommand: Command = {
         output.printTable({
           columns: [
             { key: 'type', header: 'Type', width: 20 },
-            { key: 'count', header: 'Count', width: 15, align: 'right' }
+            { key: 'count', header: 'Count', width: 15, align: 'right' },
           ],
-          data: Object.entries(result.transferred.byType).map(([type, count]) => ({ type, count }))
+          data: Object.entries(result.transferred.byType).map(([type, count]) => ({ type, count })),
         });
       }
 
       output.writeln();
       output.printList([
         `Avg Confidence: ${(result.stats.avgConfidence * 100).toFixed(1)}%`,
-        `Avg Age: ${result.stats.avgAge}`
+        `Avg Age: ${result.stats.avgAge}`,
       ]);
 
       return { success: true, data: result };
@@ -665,7 +750,7 @@ export const transferFromProjectCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };
 
 // Parent transfer command combining all transfer methods
@@ -674,8 +759,14 @@ export const transferCommand: Command = {
   description: 'Transfer learned patterns from another local project',
   subcommands: [transferFromProjectCommand],
   examples: [
-    { command: 'monomind hooks transfer from-project -s ../other-project', description: 'Transfer all patterns from another checkout' },
-    { command: 'monomind hooks transfer from-project -s ../prod --filter security -m 0.9', description: 'Transfer only high-confidence security patterns' },
+    {
+      command: 'monomind hooks transfer from-project -s ../other-project',
+      description: 'Transfer all patterns from another checkout',
+    },
+    {
+      command: 'monomind hooks transfer from-project -s ../prod --filter security -m 0.9',
+      description: 'Transfer only high-confidence security patterns',
+    },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -689,7 +780,7 @@ export const transferCommand: Command = {
     output.writeln();
     output.writeln('Run "monomind hooks transfer from-project --help" for options');
     return { success: true };
-  }
+  },
 };
 
 // List subcommand
@@ -703,14 +794,14 @@ export const listCommand: Command = {
       short: 'e',
       description: 'Show only enabled hooks',
       type: 'boolean',
-      default: false
+      default: false,
     },
     {
       name: 'type',
       short: 't',
       description: 'Filter by hook type',
-      type: 'string'
-    }
+      type: 'string',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -748,12 +839,22 @@ export const listCommand: Command = {
         columns: [
           { key: 'name', header: 'Name', width: 20 },
           { key: 'type', header: 'Type', width: 15 },
-          { key: 'enabled', header: 'Enabled', width: 10, format: (v) => v ? output.success('Yes') : output.dim('No') },
+          {
+            key: 'enabled',
+            header: 'Enabled',
+            width: 10,
+            format: (v) => (v ? output.success('Yes') : output.dim('No')),
+          },
           { key: 'priority', header: 'Priority', width: 10, align: 'right' },
           { key: 'executionCount', header: 'Executions', width: 12, align: 'right' },
-          { key: 'lastExecuted', header: 'Last Executed', width: 20, format: (v) => v ? new Date(String(v)).toLocaleString() : 'Never' }
+          {
+            key: 'lastExecuted',
+            header: 'Last Executed',
+            width: 20,
+            format: (v) => (v ? new Date(String(v)).toLocaleString() : 'Never'),
+          },
         ],
-        data: result.hooks
+        data: result.hooks,
       });
 
       output.writeln();
@@ -768,5 +869,5 @@ export const listCommand: Command = {
       }
       return { success: false, exitCode: 1 };
     }
-  }
+  },
 };

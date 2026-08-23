@@ -76,10 +76,18 @@ export class QueryBuilder {
     return this;
   }
 
-  newestFirst(): this { return this.sortBy('createdAt', 'desc'); }
-  oldestFirst(): this { return this.sortBy('createdAt', 'asc'); }
-  recentlyAccessed(): this { return this.sortBy('lastAccessedAt', 'desc'); }
-  mostAccessed(): this { return this.sortBy('accessCount', 'desc'); }
+  newestFirst(): this {
+    return this.sortBy('createdAt', 'desc');
+  }
+  oldestFirst(): this {
+    return this.sortBy('createdAt', 'asc');
+  }
+  recentlyAccessed(): this {
+    return this.sortBy('lastAccessedAt', 'desc');
+  }
+  mostAccessed(): this {
+    return this.sortBy('accessCount', 'desc');
+  }
 
   reset(): this {
     this._type = 'hybrid';

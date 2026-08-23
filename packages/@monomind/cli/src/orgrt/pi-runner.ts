@@ -43,8 +43,16 @@
  */
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import type { AgentRunner, AgentRunArgs, AgentMessage } from './agent-runner.js';
-import { buildToolProtocol, parseToolCalls, executeToolCall, formatToolResults, MAX_TOOL_ROUNDS, TOOL_CALL_RE } from './tool-fence.js';
+import type { AgentMessage, AgentRunArgs, AgentRunner } from './agent-runner.js';
+import {
+  buildToolProtocol,
+  executeToolCall,
+  formatToolResults,
+  MAX_TOOL_ROUNDS,
+  parseToolCalls,
+  TOOL_CALL_RE,
+} from './tool-fence.js';
+
 const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 /** Distinct from TURN_TIMEOUT_MS: catches a hung first-run interactive prompt
  *  fast instead of waiting out the full turn timeout. Any output at all
@@ -53,8 +61,14 @@ const TURN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
  *  defensive backstop rather than a known risk the way it is for copilot. */
 const STARTUP_GRACE_MS = 45_000;
 
-interface PiContentBlock { type?: string; text?: string; }
-interface PiUsage { input?: number; output?: number; }
+interface PiContentBlock {
+  type?: string;
+  text?: string;
+}
+interface PiUsage {
+  input?: number;
+  output?: number;
+}
 interface PiEvent {
   type?: string;
   message?: { content?: PiContentBlock[]; usage?: PiUsage };
@@ -64,7 +78,10 @@ interface PiEvent {
 /** Pure JSON-event parser — exported for unit testing against fixture lines
  *  (pi-runner.test.ts). */
 export function parsePiEvents(lines: string[]): {
-  texts: string[]; rawTexts: string[]; inputTokens: number; outputTokens: number;
+  texts: string[];
+  rawTexts: string[];
+  inputTokens: number;
+  outputTokens: number;
 } {
   const rawTexts: string[] = [];
   let inputTokens = 0;
@@ -72,9 +89,13 @@ export function parsePiEvents(lines: string[]): {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || !trimmed.startsWith('{')) continue;
+    if (!trimmed?.startsWith('{')) continue;
     let ev: PiEvent;
-    try { ev = JSON.parse(trimmed); } catch { continue; }
+    try {
+      ev = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
 
     if (ev.type === 'message_end' && ev.message?.content) {
       const text = ev.message.content
@@ -121,7 +142,9 @@ export class PiAgentRunner implements AgentRunner {
       let first = true;
       for await (const p of args.prompt) {
         const text = typeof p === 'string' ? p : (p?.message?.content ?? String(p ?? ''));
-        let nextPrompt = first ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}` : text;
+        let nextPrompt = first
+          ? `${args.systemPrompt}${buildToolProtocol(args.tools)}\n\n---\n\n${text}`
+          : text;
         first = false;
         let turnInputTokens = 0;
         let turnOutputTokens = 0;
@@ -132,16 +155,18 @@ export class PiAgentRunner implements AgentRunner {
           if (outcome.hangSuspected) {
             throw new Error(
               `PiAgentRunner: pi produced no output within ${STARTUP_GRACE_MS / 1000}s and was killed. ` +
-              'This usually means it is stuck on a prompt headless mode has no way to answer — pi\'s own ' +
-              'docs say --mode json should not show a trust prompt, so this is unexpected. Run `pi` once ' +
-              `manually in a real terminal in this project to check, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
+                "This usually means it is stuck on a prompt headless mode has no way to answer — pi's own " +
+                'docs say --mode json should not show a trust prompt, so this is unexpected. Run `pi` once ' +
+                `manually in a real terminal in this project to check, then retry.${outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''}`,
             );
           }
           if (outcome.exitCode !== 0) {
             throw new Error(
               `PiAgentRunner: pi failed (exit ${outcome.exitCode})` +
-              (outcome.timedOut ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout` : '') +
-              (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
+                (outcome.timedOut
+                  ? ` — killed after exceeding the ${TURN_TIMEOUT_MS / 3_600_000}h turn timeout`
+                  : '') +
+                (outcome.stderrTail ? `\nstderr: ${outcome.stderrTail.slice(-500)}` : ''),
             );
           }
 
@@ -152,19 +177,25 @@ export class PiAgentRunner implements AgentRunner {
           turnOutputTokens += outcome.outputTokens;
 
           const malformed: string[] = [];
-          const calls = parseToolCalls(outcome.rawTexts, (raw, err) => malformed.push(
-            `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
-          ));
+          const calls = parseToolCalls(outcome.rawTexts, (raw, err) =>
+            malformed.push(
+              `[monomind] ignored malformed tool_call fence (${err}): ${raw.slice(0, 200)}`,
+            ),
+          );
           for (const note of malformed) yield { type: 'assistant', text: note };
           if (calls.length === 0) break;
 
           if (round === MAX_TOOL_ROUNDS) {
-            yield { type: 'assistant', text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)` };
+            yield {
+              type: 'assistant',
+              text: `[monomind] tool-call round cap (${MAX_TOOL_ROUNDS}) reached — dropping ${calls.length} pending tool call(s)`,
+            };
             break;
           }
 
           const results: string[] = [];
-          for (const call of calls) results.push(await executeToolCall(args.tools, call, args.canUseTool));
+          for (const call of calls)
+            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           nextPrompt = formatToolResults(calls, results);
         }
 
@@ -179,15 +210,20 @@ export class PiAgentRunner implements AgentRunner {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(
           'PiAgentRunner requires the Pi coding agent CLI (pi) on PATH. ' +
-          'Install it: npm install -g @mariozechner/pi-coding-agent, then configure a ' +
-          'provider. Or unset the runtime to use Claude.',
+            'Install it: npm install -g @mariozechner/pi-coding-agent, then configure a ' +
+            'provider. Or unset the runtime to use Claude.',
         );
       }
       throw err;
     }
   }
 
-  private runTurn(bin: string, prompt: string, sessionDir: string, args: AgentRunArgs): Promise<TurnOutcome> {
+  private runTurn(
+    bin: string,
+    prompt: string,
+    sessionDir: string,
+    args: AgentRunArgs,
+  ): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
       // Prompt is positional (see file header) — always LAST so no later flag
       // is mistaken for part of it.
@@ -205,7 +241,9 @@ export class PiAgentRunner implements AgentRunner {
       });
 
       let stderrTail = '';
-      child.stderr?.on('data', (c: Buffer) => { stderrTail = (stderrTail + c.toString()).slice(-4000); });
+      child.stderr?.on('data', (c: Buffer) => {
+        stderrTail = (stderrTail + c.toString()).slice(-4000);
+      });
 
       let sawOutput = false;
       let timedOut = false;
@@ -215,7 +253,13 @@ export class PiAgentRunner implements AgentRunner {
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, TURN_TIMEOUT_MS);
 
@@ -223,7 +267,13 @@ export class PiAgentRunner implements AgentRunner {
       let hangTimer: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
         hangSuspected = true;
         child.kill('SIGTERM');
-        killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* already gone */ } }, KILL_GRACE_MS);
+        killTimer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already gone */
+          }
+        }, KILL_GRACE_MS);
         killTimer.unref?.();
       }, STARTUP_GRACE_MS);
 
@@ -237,7 +287,13 @@ export class PiAgentRunner implements AgentRunner {
         const lines: string[] = [];
         let buf = '';
         for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
-          if (!sawOutput) { sawOutput = true; if (hangTimer) { clearTimeout(hangTimer); hangTimer = undefined; } }
+          if (!sawOutput) {
+            sawOutput = true;
+            if (hangTimer) {
+              clearTimeout(hangTimer);
+              hangTimer = undefined;
+            }
+          }
           buf += chunk.toString();
           const parts = buf.split('\n');
           buf = parts.pop() ?? '';
@@ -253,27 +309,34 @@ export class PiAgentRunner implements AgentRunner {
       // TURN_TIMEOUT_MS/hangTimer/killTimer timers running past the
       // process's actual lifetime.
       Promise.all([readLines, exitPromise])
-        .then(([lines, exitCode]) => {
-          const parsed = parsePiEvents(lines);
-          resolve({
-            texts: parsed.texts,
-            rawTexts: parsed.rawTexts,
-            exitCode,
-            stderrTail,
-            timedOut,
-            hangSuspected,
-            inputTokens: parsed.inputTokens,
-            outputTokens: parsed.outputTokens,
-          });
-        }, (err) => {
-          // A stdout stream error (the reject path) means the process is
-          // still ALIVE and unmanaged — none of the timeout/hang timers
-          // would have fired to kill it. Without this, that error would
-          // orphan the child. child.kill() on an already-dead process is a
-          // documented no-op, so this is safe on every path.
-          try { child.kill('SIGTERM'); } catch { /* already gone */ }
-          reject(err);
-        })
+        .then(
+          ([lines, exitCode]) => {
+            const parsed = parsePiEvents(lines);
+            resolve({
+              texts: parsed.texts,
+              rawTexts: parsed.rawTexts,
+              exitCode,
+              stderrTail,
+              timedOut,
+              hangSuspected,
+              inputTokens: parsed.inputTokens,
+              outputTokens: parsed.outputTokens,
+            });
+          },
+          (err) => {
+            // A stdout stream error (the reject path) means the process is
+            // still ALIVE and unmanaged — none of the timeout/hang timers
+            // would have fired to kill it. Without this, that error would
+            // orphan the child. child.kill() on an already-dead process is a
+            // documented no-op, so this is safe on every path.
+            try {
+              child.kill('SIGTERM');
+            } catch {
+              /* already gone */
+            }
+            reject(err);
+          },
+        )
         .finally(() => {
           clearTimeout(timer);
           if (hangTimer) clearTimeout(hangTimer);

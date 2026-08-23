@@ -5,23 +5,20 @@
  * Supports: list, get, arguments, templates, embedded resources
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 import type {
+  EmbeddedResource,
+  ILogger,
   MCPPrompt,
   PromptArgument,
-  PromptMessage,
-  PromptListResult,
   PromptGetResult,
-  PromptContent,
-  TextContent,
-  EmbeddedResource,
+  PromptListResult,
+  PromptMessage,
   ResourceContent,
-  ILogger,
+  TextContent,
 } from './types.js';
 
-export type PromptHandler = (
-  args: Record<string, string>
-) => Promise<PromptMessage[]>;
+export type PromptHandler = (args: Record<string, string>) => Promise<PromptMessage[]>;
 
 export interface PromptDefinition extends MCPPrompt {
   handler: PromptHandler;
@@ -39,7 +36,7 @@ export class PromptRegistry extends EventEmitter {
 
   constructor(
     private readonly logger: ILogger,
-    options: PromptRegistryOptions = {}
+    options: PromptRegistryOptions = {},
   ) {
     super();
     this.options = {
@@ -120,10 +117,7 @@ export class PromptRegistry extends EventEmitter {
   /**
    * Get a prompt with arguments
    */
-  async get(
-    name: string,
-    args: Record<string, string> = {}
-  ): Promise<PromptGetResult> {
+  async get(name: string, args: Record<string, string> = {}): Promise<PromptGetResult> {
     const prompt = this.prompts.get(name);
     if (!prompt) {
       throw new Error(`Prompt not found: ${name}`);
@@ -225,7 +219,7 @@ export class PromptRegistry extends EventEmitter {
 
 export function createPromptRegistry(
   logger: ILogger,
-  options?: PromptRegistryOptions
+  options?: PromptRegistryOptions,
 ): PromptRegistry {
   return new PromptRegistry(logger, options);
 }
@@ -240,7 +234,7 @@ export function definePrompt(
   options?: {
     title?: string;
     arguments?: PromptArgument[];
-  }
+  },
 ): PromptDefinition {
   return {
     name,
@@ -254,10 +248,7 @@ export function definePrompt(
 /**
  * Helper to create a text message
  */
-export function textMessage(
-  role: 'user' | 'assistant',
-  text: string
-): PromptMessage {
+export function textMessage(role: 'user' | 'assistant', text: string): PromptMessage {
   return {
     role,
     content: {
@@ -272,7 +263,7 @@ export function textMessage(
  */
 export function resourceMessage(
   role: 'user' | 'assistant',
-  resource: ResourceContent
+  resource: ResourceContent,
 ): PromptMessage {
   return {
     role,
@@ -286,10 +277,7 @@ export function resourceMessage(
 /**
  * Template string interpolation for prompts
  */
-export function interpolate(
-  template: string,
-  args: Record<string, string>
-): string {
+export function interpolate(template: string, args: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (match, key) => {
     return args[key] ?? match;
   });

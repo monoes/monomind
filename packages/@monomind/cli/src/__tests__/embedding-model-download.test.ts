@@ -5,17 +5,18 @@
  * with stubbed TTY/CI inputs, the existence of the standalone downloader
  * script, and registration of the `download-embeddings` command.
  */
-import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { getCommandAsync } from '../commands/index.js';
 import {
   EMBEDDING_MODEL_ID,
   embeddingDownloadDecision,
   findTransformersCacheDir,
   isEmbeddingModelCached,
 } from '../routing/model-download.js';
-import { getCommandAsync } from '../commands/index.js';
 
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -85,7 +86,7 @@ describe('download-embeddings command', () => {
   it('is registered', async () => {
     const cmd = await getCommandAsync('download-embeddings');
     expect(cmd).toBeDefined();
-    expect(cmd!.name).toBe('download-embeddings');
-    expect(typeof cmd!.action).toBe('function');
+    expect(cmd?.name).toBe('download-embeddings');
+    expect(typeof cmd?.action).toBe('function');
   });
 });

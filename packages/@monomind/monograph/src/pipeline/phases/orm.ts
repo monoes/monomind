@@ -1,10 +1,10 @@
-import { readFileSync, statSync } from 'fs';
-import { extname, basename } from 'path';
-import type { PipelinePhase } from '../types.js';
-import type { MonographNode, MonographEdge } from '../../types.js';
-import { makeId, toNormLabel } from '../../types.js';
-import { insertNodes } from '../../storage/node-store.js';
+import { readFileSync, statSync } from 'node:fs';
+import { basename, extname } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
+import { insertNodes } from '../../storage/node-store.js';
+import type { MonographEdge, MonographNode } from '../../types.js';
+import { makeId, toNormLabel } from '../../types.js';
+import type { PipelinePhase } from '../types.js';
 import type { StructureOutput } from './structure.js';
 
 // ── Output types ──────────────────────────────────────────────────────────────
@@ -36,7 +36,8 @@ const TS_JS_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
 const TYPEORM_ENTITY_RE = /@Entity\s*\([^)]*\)\s*(?:export\s+)?(?:abstract\s+)?class\s+(\w+)/g;
 
 /** TypeORM/MikroORM column decorator (matches the decorator line only) */
-const TYPEORM_COLUMN_DECORATOR_RE = /@(?:Primary(?:Generated)?Column|Column|CreateDateColumn|UpdateDateColumn|DeleteDateColumn|Property|PrimaryKey|ManyToOne|OneToMany|ManyToMany|OneToOne)\s*\([^)]*\)/g;
+const TYPEORM_COLUMN_DECORATOR_RE =
+  /@(?:Primary(?:Generated)?Column|Column|CreateDateColumn|UpdateDateColumn|DeleteDateColumn|Property|PrimaryKey|ManyToOne|OneToMany|ManyToMany|OneToOne)\s*\([^)]*\)/g;
 
 /** Property declaration after a TypeORM column decorator */
 const TYPEORM_PROP_RE = /(\w+)\s*[!?]?\s*:\s*(\w+)/;
@@ -48,7 +49,8 @@ const PRISMA_MODEL_RE = /^model\s+(\w+)\s*\{([^}]+)\}/gm;
 const PRISMA_FIELD_RE = /^\s+(\w+)\s+(\w+)/gm;
 
 /** Mongoose: const XxxSchema = new Schema({ */
-const MONGOOSE_SCHEMA_RE = /(?:const|let|var)\s+(\w*[Ss]chema)\s*=\s*new\s+(?:\w+\.)?Schema\s*\(\s*\{/g;
+const MONGOOSE_SCHEMA_RE =
+  /(?:const|let|var)\s+(\w*[Ss]chema)\s*=\s*new\s+(?:\w+\.)?Schema\s*\(\s*\{/g;
 
 /** Mongoose field inside a Schema object: fieldName: { type: SomeType } or fieldName: SomeType */
 const MONGOOSE_FIELD_RE = /(\w+)\s*:\s*(?:\{[^}]*type\s*:\s*(\w+)|(\w+))/g;
@@ -63,13 +65,14 @@ const SEQUELIZE_INIT_RE = /(\w+)\.init\s*\(\s*\{/g;
 const SEQUELIZE_DEFINE_RE = /\.define\s*\(\s*['"](\w+)['"]\s*,\s*\{/g;
 
 /** Sequelize field inside init/define block: fieldName: DataTypes.X or fieldName: { type: DataTypes.X } */
-const SEQUELIZE_FIELD_RE = /(\w+)\s*:\s*(?:\{[^}]*type\s*:\s*(?:DataTypes\.)?(\w+)|(?:DataTypes\.)?(\w+))/g;
+const SEQUELIZE_FIELD_RE =
+  /(\w+)\s*:\s*(?:\{[^}]*type\s*:\s*(?:DataTypes\.)?(\w+)|(?:DataTypes\.)?(\w+))/g;
 
 /** SQLAlchemy: class Foo(Base) or class Foo(db.Model) etc. */
 const SQLALCHEMY_CLASS_RE = /class\s+(\w+)\s*\([^)]*Base[^)]*\)/g;
 
 /** SQLAlchemy column: fieldName = Column( */
-const SQLALCHEMY_COLUMN_RE = /(\w+)\s*(?::\s*[\w\[\]]+)?\s*=\s*Column\s*\(/g;
+const SQLALCHEMY_COLUMN_RE = /(\w+)\s*(?::\s*[\w[\]]+)?\s*=\s*Column\s*\(/g;
 
 // ── Phase ─────────────────────────────────────────────────────────────────────
 
@@ -77,7 +80,8 @@ export const ormPhase: PipelinePhase<OrmOutput> = {
   name: 'orm',
   deps: ['parse', 'structure'],
   async execute(ctx, deps) {
-    if (ctx.allFilesCached) return { entities: [], entityNodes: [], fieldNodes: [], hasFieldEdges: [] };
+    if (ctx.allFilesCached)
+      return { entities: [], entityNodes: [], fieldNodes: [], hasFieldEdges: [] };
     const { fileNodes } = deps.get('structure') as StructureOutput;
     const entities: EntityDef[] = [];
     const entityNodes: MonographNode[] = [];
@@ -101,14 +105,54 @@ export const ormPhase: PipelinePhase<OrmOutput> = {
       const language = isPrisma ? 'prisma' : isPython ? 'python' : langFromExt(ext);
 
       if (isPrisma) {
-        detectPrismaEntities(source, relPath, language, entities, entityNodes, fieldNodes, hasFieldEdges);
+        detectPrismaEntities(
+          source,
+          relPath,
+          language,
+          entities,
+          entityNodes,
+          fieldNodes,
+          hasFieldEdges,
+        );
       } else if (isPython) {
-        detectSQLAlchemyEntities(source, relPath, language, entities, entityNodes, fieldNodes, hasFieldEdges);
+        detectSQLAlchemyEntities(
+          source,
+          relPath,
+          language,
+          entities,
+          entityNodes,
+          fieldNodes,
+          hasFieldEdges,
+        );
       } else {
         // TypeORM/MikroORM and Mongoose and Sequelize for TS/JS files
-        detectTypeOrmEntities(source, relPath, language, entities, entityNodes, fieldNodes, hasFieldEdges);
-        detectMongooseEntities(source, relPath, language, entities, entityNodes, fieldNodes, hasFieldEdges);
-        detectSequelizeEntities(source, relPath, language, entities, entityNodes, fieldNodes, hasFieldEdges);
+        detectTypeOrmEntities(
+          source,
+          relPath,
+          language,
+          entities,
+          entityNodes,
+          fieldNodes,
+          hasFieldEdges,
+        );
+        detectMongooseEntities(
+          source,
+          relPath,
+          language,
+          entities,
+          entityNodes,
+          fieldNodes,
+          hasFieldEdges,
+        );
+        detectSequelizeEntities(
+          source,
+          relPath,
+          language,
+          entities,
+          entityNodes,
+          fieldNodes,
+          hasFieldEdges,
+        );
       }
     }
 
@@ -166,7 +210,17 @@ function detectTypeOrmEntities(
           if (!propLine || propLine.startsWith('@') || propLine.startsWith('//')) continue;
           const pm = TYPEORM_PROP_RE.exec(propLine);
           if (pm) {
-            addField(entityName, pm[1], pm[2], filePath, language, entityNodeId, fields, fieldNodes, edges);
+            addField(
+              entityName,
+              pm[1],
+              pm[2],
+              filePath,
+              language,
+              entityNodeId,
+              fields,
+              fieldNodes,
+              edges,
+            );
           }
           break;
         }
@@ -217,7 +271,17 @@ function detectPrismaEntities(
       const fieldType = fm[2];
       // Skip Prisma keywords
       if (['model', 'enum', 'type', 'datasource', 'generator'].includes(fieldName)) continue;
-      addField(entityName, fieldName, fieldType, filePath, language, entityNodeId, fields, fieldNodes, edges);
+      addField(
+        entityName,
+        fieldName,
+        fieldType,
+        filePath,
+        language,
+        entityNodeId,
+        fields,
+        fieldNodes,
+        edges,
+      );
     }
 
     entities.push({ name: entityName, filePath, fields, entityNodeId });
@@ -269,9 +333,20 @@ function detectMongooseEntities(
         const fieldType = fm[2] ?? fm[3] ?? 'Mixed';
         if (seen.has(fieldName)) continue;
         // Skip obvious non-field keys
-        if (['type', 'required', 'default', 'ref', 'index', 'unique', 'enum'].includes(fieldName)) continue;
+        if (['type', 'required', 'default', 'ref', 'index', 'unique', 'enum'].includes(fieldName))
+          continue;
         seen.add(fieldName);
-        addField(entityName, fieldName, fieldType, filePath, language, entityNodeId, fields, fieldNodes, edges);
+        addField(
+          entityName,
+          fieldName,
+          fieldType,
+          filePath,
+          language,
+          entityNodeId,
+          fields,
+          fieldNodes,
+          edges,
+        );
       }
     }
 
@@ -339,9 +414,24 @@ function detectSequelizeEntities(
       const fieldName = fm[1];
       const fieldType = fm[2] ?? fm[3] ?? 'DataType';
       if (seen.has(fieldName)) continue;
-      if (['type', 'allowNull', 'defaultValue', 'primaryKey', 'unique', 'references'].includes(fieldName)) continue;
+      if (
+        ['type', 'allowNull', 'defaultValue', 'primaryKey', 'unique', 'references'].includes(
+          fieldName,
+        )
+      )
+        continue;
       seen.add(fieldName);
-      addField(candidateName, fieldName, fieldType, filePath, language, entityNodeId, fields, fieldNodes, edges);
+      addField(
+        candidateName,
+        fieldName,
+        fieldType,
+        filePath,
+        language,
+        entityNodeId,
+        fields,
+        fieldNodes,
+        edges,
+      );
     }
     entities.push({ name: candidateName, filePath, fields, entityNodeId });
   }
@@ -364,9 +454,24 @@ function detectSequelizeEntities(
         const fieldName = fm[1];
         const fieldType = fm[2] ?? fm[3] ?? 'DataType';
         if (seen.has(fieldName)) continue;
-        if (['type', 'allowNull', 'defaultValue', 'primaryKey', 'unique', 'references'].includes(fieldName)) continue;
+        if (
+          ['type', 'allowNull', 'defaultValue', 'primaryKey', 'unique', 'references'].includes(
+            fieldName,
+          )
+        )
+          continue;
         seen.add(fieldName);
-        addField(entityName, fieldName, fieldType, filePath, language, entityNodeId, fields, fieldNodes, edges);
+        addField(
+          entityName,
+          fieldName,
+          fieldType,
+          filePath,
+          language,
+          entityNodeId,
+          fields,
+          fieldNodes,
+          edges,
+        );
       }
     }
     entities.push({ name: entityName, filePath, fields, entityNodeId });
@@ -408,12 +513,23 @@ function detectSQLAlchemyEntities(
     // other classes to this entity.
     const classBodyStart = m.index + m[0].length;
     const nextClassIdx = source.indexOf('\nclass ', classBodyStart);
-    const classBody = nextClassIdx >= 0 ? source.slice(classBodyStart, nextClassIdx) : source.slice(classBodyStart);
+    const classBody =
+      nextClassIdx >= 0 ? source.slice(classBodyStart, nextClassIdx) : source.slice(classBodyStart);
     const columnRe = new RegExp(SQLALCHEMY_COLUMN_RE.source, 'g');
     let cm: RegExpExecArray | null;
     while ((cm = columnRe.exec(classBody)) !== null) {
       const fieldName = cm[1];
-      addField(entityName, fieldName, 'Column', filePath, language, entityNodeId, fields, fieldNodes, edges);
+      addField(
+        entityName,
+        fieldName,
+        'Column',
+        filePath,
+        language,
+        entityNodeId,
+        fields,
+        fieldNodes,
+        edges,
+      );
     }
 
     entities.push({ name: entityName, filePath, fields, entityNodeId });
@@ -468,7 +584,7 @@ function addField(
  */
 function extractBraceBlock(source: string, openPos: number, maxLen: number): string | undefined {
   // Find the opening brace at or after openPos
-  let start = source.indexOf('{', openPos);
+  const start = source.indexOf('{', openPos);
   if (start === -1) return undefined;
 
   let depth = 0;

@@ -29,11 +29,11 @@
  * result and item 4 delivers ~15% instead of 17x.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SQLiteBackend } from './sqlite-backend.js';
 import { SqlJsBackend } from './sqljs-backend.js';
-import { createDefaultEntry } from './types.js';
 import type { IMemoryBackend } from './types.js';
+import { createDefaultEntry } from './types.js';
 
 interface BackendCase {
   name: string;
@@ -107,7 +107,10 @@ for (const backendCase of BACKENDS) {
       it.skip('search excludes superseded rows by default', async () => {
         expect(await backend.search(vec(1), { k: 10, filters: nsFilter })).toHaveLength(3);
 
-        const marked = await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:oldhash:');
+        const marked = await backend.markSupersededByKeyPrefix?.(
+          'knowledge:shared',
+          'doc:oldhash:',
+        );
         expect(marked).toBe(2);
 
         const after = await backend.search(vec(1), { k: 10, filters: nsFilter });
@@ -115,7 +118,7 @@ for (const backendCase of BACKENDS) {
       });
 
       it.skip('superseded rows are NOT destroyed — item 7 needs them', async () => {
-        await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:oldhash:');
+        await backend.markSupersededByKeyPrefix?.('knowledge:shared', 'doc:oldhash:');
 
         // Still on disk, still retrievable by explicit query. This assertion is
         // the whole reason we mark instead of delete.
@@ -132,7 +135,7 @@ for (const backendCase of BACKENDS) {
       });
 
       it.skip('an opt-in flag brings superseded rows back — the includeSuperseded contract', async () => {
-        await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:oldhash:');
+        await backend.markSupersededByKeyPrefix?.('knowledge:shared', 'doc:oldhash:');
 
         const all = await backend.search(vec(1), {
           k: 10,
@@ -143,13 +146,17 @@ for (const backendCase of BACKENDS) {
       });
 
       it.skip('marking is idempotent and reports rows newly marked', async () => {
-        expect(await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:oldhash:')).toBe(2);
-        expect(await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:oldhash:')).toBe(0);
+        expect(await backend.markSupersededByKeyPrefix?.('knowledge:shared', 'doc:oldhash:')).toBe(
+          2,
+        );
+        expect(await backend.markSupersededByKeyPrefix?.('knowledge:shared', 'doc:oldhash:')).toBe(
+          0,
+        );
       });
 
       it.skip('never marks across a namespace boundary', async () => {
         await store('doc:oldhash:0', 9, 'knowledge:global');
-        await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:oldhash:');
+        await backend.markSupersededByKeyPrefix?.('knowledge:shared', 'doc:oldhash:');
 
         const global = await backend.search(vec(9), {
           k: 10,
@@ -160,10 +167,8 @@ for (const backendCase of BACKENDS) {
 
       it.skip('applies the same LIKE-metacharacter guards as the delete path', async () => {
         // `doc:%` must match the literal prefix, not every doc chunk.
-        expect(await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:%')).toBe(0);
-        await expect(
-          backend.markSupersededByKeyPrefix!('knowledge:shared', ''),
-        ).rejects.toThrow();
+        expect(await backend.markSupersededByKeyPrefix?.('knowledge:shared', 'doc:%')).toBe(0);
+        await expect(backend.markSupersededByKeyPrefix?.('knowledge:shared', '')).rejects.toThrow();
         expect(await backend.search(vec(1), { k: 10, filters: nsFilter })).toHaveLength(3);
       });
     });
@@ -176,7 +181,7 @@ for (const backendCase of BACKENDS) {
       // the candidate set, so k means k.
       for (let i = 0; i < 400; i++) await store(`doc:deadhash:${i}`, i);
       for (let i = 0; i < 50; i++) await store(`doc:livehash:${i}`, 1000 + i);
-      await backend.markSupersededByKeyPrefix!('knowledge:shared', 'doc:deadhash:');
+      await backend.markSupersededByKeyPrefix?.('knowledge:shared', 'doc:deadhash:');
 
       const results = await backend.search(vec(1000), { k: 25, filters: nsFilter });
       expect(results).toHaveLength(25);
@@ -204,9 +209,7 @@ for (const backendCase of BACKENDS) {
         .join(' | ');
 
       expect(plan).toMatch(/USING INDEX/i);
-      expect(plan, `query plan must not scan memory_entries: ${plan}`).not.toMatch(
-        /SCAN e\b/i,
-      );
+      expect(plan, `query plan must not scan memory_entries: ${plan}`).not.toMatch(/SCAN e\b/i);
     });
   });
 }

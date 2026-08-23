@@ -10,11 +10,12 @@
  * These tests build a small real repository, index it with tree-sitter, and
  * assert on real results. That is the only way to reach those branches.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { MCPTool } from '../mcp-tools/types.js';
 
 let repo: string;
@@ -22,7 +23,7 @@ let prevCwd: string | undefined;
 let tools: MCPTool[];
 
 const tool = (name: string): MCPTool => {
-  const t = tools.find(x => x.name === name);
+  const t = tools.find((x) => x.name === name);
   if (!t) throw new Error(`tool not registered: ${name}`);
   return t;
 };
@@ -38,7 +39,10 @@ beforeAll(async () => {
   repo = mkdtempSync(join(tmpdir(), 'mg-index-'));
   mkdirSync(join(repo, 'src'), { recursive: true });
 
-  writeFileSync(join(repo, 'src/util.ts'), `export function helper(n: string): string { return \`hi \${n}\`; }\n`);
+  writeFileSync(
+    join(repo, 'src/util.ts'),
+    `export function helper(n: string): string { return \`hi \${n}\`; }\n`,
+  );
   writeFileSync(
     join(repo, 'src/service.ts'),
     `import { helper } from './util.js';\n` +
@@ -121,13 +125,19 @@ describe('monograph tools against a real index', () => {
   });
 
   it('staleness reports zero commits behind right after a build', async () => {
-    const out = JSON.parse(await textOf('monograph_staleness')) as { commitsBehind: number; status: string };
+    const out = JSON.parse(await textOf('monograph_staleness')) as {
+      commitsBehind: number;
+      status: string;
+    };
     expect(out.commitsBehind).toBe(0);
     expect(out.status).toBe('fresh');
   });
 
   it('dead_code returns all three categories', async () => {
-    const out = JSON.parse(await textOf('monograph_dead_code')) as Record<string, { count: number }>;
+    const out = JSON.parse(await textOf('monograph_dead_code')) as Record<
+      string,
+      { count: number }
+    >;
     for (const cat of ['dead-functions', 'orphan-files', 'stale-dist']) {
       expect(out[cat]).toBeDefined();
       expect(typeof out[cat].count).toBe('number');

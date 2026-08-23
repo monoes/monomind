@@ -5,16 +5,17 @@
 
 // Inline semver shim — avoids external dependency (semver is not listed in package.json)
 const semver = {
-  valid: (v: string | null | undefined): string | null => /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
+  valid: (v: string | null | undefined): string | null =>
+    /^\d+\.\d+\.\d+/.test(v || '') ? v! : null,
   major: (v: string): number => parseInt((v || '0').split('.')[0], 10),
   gt: (a: string, b: string): boolean => {
-    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
-    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map((n) => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map((n) => parseInt(n, 10) || 0);
     return aMaj !== bMaj ? aMaj > bMaj : aMin !== bMin ? aMin > bMin : aPat > bPat;
   },
   lt: (a: string, b: string): boolean => {
-    const [aMaj, aMin, aPat] = (a || '0').split('.').map(n => parseInt(n, 10) || 0);
-    const [bMaj, bMin, bPat] = (b || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const [aMaj, aMin, aPat] = (a || '0').split('.').map((n) => parseInt(n, 10) || 0);
+    const [bMaj, bMin, bPat] = (b || '0').split('.').map((n) => parseInt(n, 10) || 0);
     return aMaj !== bMaj ? aMaj < bMaj : aMin !== bMin ? aMin < bMin : aPat < bPat;
   },
 };
@@ -58,14 +59,14 @@ const COMPATIBILITY_MATRIX: Record<string, Record<string, PackageCompatibility>>
   '@monoes/monomindcli': {
     'monofence-ai': { minVersion: '1.0.0' },
   },
-  'monomind': {
+  monomind: {
     '@monoes/monomindcli': { minVersion: '1.11.0' },
   },
 };
 
 // Known breaking changes by version
 const BREAKING_CHANGES: Record<string, Record<string, string[]>> = {
-  'monomind': {
+  monomind: {
     '2.0.0': [
       'CLI commands renamed from monomind:* to mastermind:*',
       'Memory API changed from key-value to vector-based',
@@ -73,10 +74,7 @@ const BREAKING_CHANGES: Record<string, Record<string, string[]>> = {
     ],
   },
   '@monoes/monomindcli': {
-    '2.0.0': [
-      'Agent spawning now requires type parameter',
-      'Swarm topology options changed',
-    ],
+    '2.0.0': ['Agent spawning now requires type parameter', 'Swarm topology options changed'],
   },
 };
 
@@ -84,7 +82,7 @@ export function validateUpdate(
   packageName: string,
   fromVersion: string,
   toVersion: string,
-  installedPackages: Record<string, string>
+  installedPackages: Record<string, string>,
 ): ValidationResult {
   const result: ValidationResult = {
     valid: true,
@@ -113,7 +111,7 @@ export function validateUpdate(
 
     if (toMajor > fromMajor) {
       result.warnings.push(
-        `Major version update (${fromMajor} → ${toMajor}) may contain breaking changes`
+        `Major version update (${fromMajor} → ${toMajor}) may contain breaking changes`,
       );
 
       // Check for known breaking changes
@@ -133,12 +131,9 @@ export function validateUpdate(
 
       if (installedVersion) {
         // Check minimum version
-        if (
-          semver.valid(installedVersion) &&
-          semver.lt(installedVersion, depReq.minVersion)
-        ) {
+        if (semver.valid(installedVersion) && semver.lt(installedVersion, depReq.minVersion)) {
           result.incompatibilities.push(
-            `${packageName}@${toVersion} requires ${depName} >= ${depReq.minVersion} (installed: ${installedVersion})`
+            `${packageName}@${toVersion} requires ${depName} >= ${depReq.minVersion} (installed: ${installedVersion})`,
           );
           result.requiredPeerUpdates.push(`${depName}@>=${depReq.minVersion}`);
           result.valid = false;
@@ -151,7 +146,7 @@ export function validateUpdate(
           semver.gt(installedVersion, depReq.maxVersion)
         ) {
           result.warnings.push(
-            `${packageName}@${toVersion} may not be compatible with ${depName}@${installedVersion} (max: ${depReq.maxVersion})`
+            `${packageName}@${toVersion} may not be compatible with ${depName}@${installedVersion} (max: ${depReq.maxVersion})`,
           );
         }
       }
@@ -167,7 +162,7 @@ export function validateUpdate(
       // If the target version is below what the installed package needs
       if (semver.valid(toVersion) && semver.lt(toVersion, depInfo.minVersion)) {
         result.incompatibilities.push(
-          `${pkgName}@${installedPackages[pkgName]} requires ${packageName} >= ${depInfo.minVersion}`
+          `${pkgName}@${installedPackages[pkgName]} requires ${packageName} >= ${depInfo.minVersion}`,
         );
         result.valid = false;
       }
@@ -179,7 +174,7 @@ export function validateUpdate(
 
 export function validateBulkUpdate(
   updates: Array<{ package: string; from: string; to: string }>,
-  currentPackages: Record<string, string>
+  currentPackages: Record<string, string>,
 ): ValidationResult {
   const combinedResult: ValidationResult = {
     valid: true,
@@ -192,7 +187,7 @@ export function validateBulkUpdate(
   if (!Array.isArray(updates) || updates.length > MAX_BULK_UPDATES) {
     combinedResult.valid = false;
     combinedResult.incompatibilities.push(
-      `Too many updates: max ${MAX_BULK_UPDATES} allowed per call`
+      `Too many updates: max ${MAX_BULK_UPDATES} allowed per call`,
     );
     return combinedResult;
   }
@@ -205,12 +200,7 @@ export function validateBulkUpdate(
 
   // Validate each update against the final state
   for (const update of updates) {
-    const result = validateUpdate(
-      update.package,
-      update.from,
-      update.to,
-      simulatedPackages
-    );
+    const result = validateUpdate(update.package, update.from, update.to, simulatedPackages);
 
     if (!result.valid) {
       combinedResult.valid = false;

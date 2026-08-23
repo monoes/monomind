@@ -1,7 +1,8 @@
 // packages/@monomind/cli/src/utils/resource-governor.ts
 // monolean: single-module resource gate — upgrade path = cgroup integration
-import { freemem, totalmem, cpus, platform } from 'node:os';
+
 import { execSync } from 'node:child_process';
+import { cpus, freemem, platform, totalmem } from 'node:os';
 
 export interface ResourceLimits {
   /** Minimum free memory (bytes) required before spawning. Default: 15% of total. */
@@ -13,10 +14,11 @@ export interface ResourceLimits {
 }
 
 const defaults = (): ResourceLimits => ({
-  minFreeMemBytes: parseInt(process.env.MONOMIND_MIN_FREE_MEM_MB || '0', 10) * 1024 * 1024
-    || Math.floor(totalmem() * 0.15),
-  maxSdkProcesses: parseInt(process.env.MONOMIND_MAX_SDK_PROCS || '0', 10)
-    || Math.max(2, cpus().length - 2),
+  minFreeMemBytes:
+    parseInt(process.env.MONOMIND_MIN_FREE_MEM_MB || '0', 10) * 1024 * 1024 ||
+    Math.floor(totalmem() * 0.15),
+  maxSdkProcesses:
+    parseInt(process.env.MONOMIND_MAX_SDK_PROCS || '0', 10) || Math.max(2, cpus().length - 2),
   spawnStaggerMs: parseInt(process.env.MONOMIND_SPAWN_STAGGER_MS || '0', 10) || 2000,
 });
 
@@ -44,9 +46,17 @@ export function getAvailableMemBytes(): number {
       const purgeable = (out.match(/Pages purgeable:\s+(\d+)/) ?? [])[1];
       if (page && free) {
         const ps = parseInt(page, 10);
-        return ps * (parseInt(free, 10) + parseInt(inactive || '0', 10) + parseInt(speculative || '0', 10) + parseInt(purgeable || '0', 10));
+        return (
+          ps *
+          (parseInt(free, 10) +
+            parseInt(inactive || '0', 10) +
+            parseInt(speculative || '0', 10) +
+            parseInt(purgeable || '0', 10))
+        );
       }
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   return freemem();
 }
@@ -60,9 +70,15 @@ export function countSdkProcesses(): number {
   try {
     // Match only actual SDK agent binaries (have --output-format in argv),
     // not processes that merely reference the SDK package path.
-    const out = execSync('pgrep -f "claude-agent-sdk.*--output-format"', { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execSync('pgrep -f "claude-agent-sdk.*--output-format"', {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     return out.trim().split('\n').filter(Boolean).length;
-  } catch { return 0; } // pgrep exits 1 when no matches
+  } catch {
+    return 0;
+  } // pgrep exits 1 when no matches
 }
 
 export interface ResourceCheck {
@@ -84,14 +100,20 @@ export function checkResources(): ResourceCheck {
 
   if (free < limits.minFreeMemBytes) {
     return {
-      ok: false, freeMemMB, freeMemPct, sdkProcesses,
+      ok: false,
+      freeMemMB,
+      freeMemPct,
+      sdkProcesses,
       maxSdkProcesses: limits.maxSdkProcesses,
       reason: `low memory: ${freeMemMB}MB free (${freeMemPct}%), need ${Math.round(limits.minFreeMemBytes / 1024 / 1024)}MB`,
     };
   }
   if (sdkProcesses >= limits.maxSdkProcesses) {
     return {
-      ok: false, freeMemMB, freeMemPct, sdkProcesses,
+      ok: false,
+      freeMemMB,
+      freeMemPct,
+      sdkProcesses,
       maxSdkProcesses: limits.maxSdkProcesses,
       reason: `too many SDK processes: ${sdkProcesses}/${limits.maxSdkProcesses}`,
     };
@@ -105,7 +127,10 @@ export async function waitForCapacity(timeoutMs = 60_000): Promise<ResourceCheck
   while (Date.now() - start < timeoutMs) {
     const check = checkResources();
     if (check.ok) return check;
-    await new Promise(r => { const t = setTimeout(r, 3000); (t as { unref?: () => void }).unref?.(); });
+    await new Promise((r) => {
+      const t = setTimeout(r, 3000);
+      (t as { unref?: () => void }).unref?.();
+    });
   }
   return checkResources();
 }
@@ -118,20 +143,28 @@ export function reapOrphanedSdkProcesses(protectedPids: Set<number>, ownerPid?: 
   // ps doesn't exist on native Windows — same rationale as countSdkProcesses above.
   if (platform() === 'win32') return 0;
   try {
-    const out = execSync('ps -eo pid,ppid,command', { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execSync('ps -eo pid,ppid,command', {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     let reaped = 0;
     for (const line of out.split('\n')) {
       if (!line.includes('claude-agent-sdk') || !line.includes('--output-format')) continue;
       const parts = line.trim().split(/\s+/);
       const pid = parseInt(parts[0], 10);
       const ppid = parseInt(parts[1], 10);
-      if (isNaN(pid) || protectedPids.has(pid)) continue;
+      if (Number.isNaN(pid) || protectedPids.has(pid)) continue;
       if (ownerPid != null && ppid !== ownerPid) continue;
       try {
         process.kill(pid, 'SIGTERM');
         reaped++;
-      } catch { /* already dead */ }
+      } catch {
+        /* already dead */
+      }
     }
     return reaped;
-  } catch { return 0; }
+  } catch {
+    return 0;
+  }
 }

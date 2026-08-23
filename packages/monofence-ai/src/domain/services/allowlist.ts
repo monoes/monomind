@@ -19,7 +19,8 @@ const BUILT_IN_RULES: AllowlistRule[] = [
   {
     id: 'builtin-weather',
     // Start + end anchored: pure weather query only — allows "in [location]" but not appended instructions
-    pattern: /^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+(?:like\s+)?(?:in|for|at|near|today|tomorrow|this\s+week)(?:\s+[\w\s,]+)?)?|how(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+[\w\s,]+)?|weather\s+(?:in|for|at|today|tomorrow|forecast)(?:\s+[\w\s,]+)?)\s*[.?!]?\s*$/i,
+    pattern:
+      /^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+(?:like\s+)?(?:in|for|at|near|today|tomorrow|this\s+week)(?:\s+[\w\s,]+)?)?|how(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+[\w\s,]+)?|weather\s+(?:in|for|at|today|tomorrow|forecast)(?:\s+[\w\s,]+)?)\s*[.?!]?\s*$/i,
     types: [],
     reason: 'Pure weather query — benign',
     source: 'builtin',
@@ -53,7 +54,7 @@ export class Allowlist {
   }
 
   getMatchingRules(input: string): AllowlistRule[] {
-    return this.rules.filter(rule => this.matches(rule, input));
+    return this.rules.filter((rule) => this.matches(rule, input));
   }
 
   addRule(rule: AllowlistRule): void {

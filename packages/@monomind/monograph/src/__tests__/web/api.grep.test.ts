@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { queryGrep } from '../../web/api.js';
 
 function makeDb(): Database.Database {
@@ -19,8 +19,8 @@ describe('queryGrep', () => {
     const db = makeDb();
     const results = queryGrep(db, 'user', false);
     expect(results.length).toBe(2); // fetchUser and UserService
-    expect(results.some(r => r.name === 'fetchUser')).toBe(true);
-    expect(results.some(r => r.name === 'UserService')).toBe(true);
+    expect(results.some((r) => r.name === 'fetchUser')).toBe(true);
+    expect(results.some((r) => r.name === 'UserService')).toBe(true);
   });
 
   it('returns empty array for no match', () => {

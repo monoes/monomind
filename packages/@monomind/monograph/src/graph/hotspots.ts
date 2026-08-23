@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync } from 'node:child_process';
 import type Database from 'better-sqlite3';
 
 // ── Process-scoped TTL cache for expensive git log calls ─────────────────────
@@ -76,8 +76,8 @@ export function computeHotspots(
   type FileChurn = {
     weightedScore: number;
     rawCount: number;
-    recentCount: number;   // commits in first half of window
-    oldCount: number;      // commits in second half of window
+    recentCount: number; // commits in first half of window
+    oldCount: number; // commits in second half of window
     lastDate: string | null;
   };
   const churnMap = new Map<string, FileChurn>();
@@ -102,10 +102,16 @@ export function computeHotspots(
       const ageMs = now - commitDate;
       const ageDays = ageMs / (24 * 60 * 60 * 1000);
       // Exponential decay: weight = 2^(-ageDays/halfLife)
-      const weight = Math.pow(2, -ageDays / HALF_LIFE_DAYS);
+      const weight = 2 ** (-ageDays / HALF_LIFE_DAYS);
 
       if (!churnMap.has(filePath)) {
-        churnMap.set(filePath, { weightedScore: 0, rawCount: 0, recentCount: 0, oldCount: 0, lastDate: null });
+        churnMap.set(filePath, {
+          weightedScore: 0,
+          rawCount: 0,
+          recentCount: 0,
+          oldCount: 0,
+          lastDate: null,
+        });
       }
       const entry = churnMap.get(filePath)!;
       entry.weightedScore += weight;
@@ -121,7 +127,8 @@ export function computeHotspots(
   }
 
   // ── Step 3: Get file nodes + centrality from DB ───────────────────────────
-  const fileNodes = db.prepare(`
+  const fileNodes = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path, n.label, n.community_id,
            COALESCE(d.deg, 0) as degree
     FROM nodes n
@@ -133,16 +140,22 @@ export function computeHotspots(
       ) GROUP BY node_id
     ) d ON d.node_id = n.id
     WHERE n.label = 'File' AND n.file_path IS NOT NULL
-  `).all() as { id: string; name: string; file_path: string; label: string; community_id: number | null; degree: number }[];
+  `)
+    .all() as {
+    id: string;
+    name: string;
+    file_path: string;
+    label: string;
+    community_id: number | null;
+    degree: number;
+  }[];
 
   // ── Step 4: Join churn + centrality ──────────────────────────────────────
   const results: HotspotResult[] = [];
 
   for (const node of fileNodes) {
     // Try to match by relative file path
-    const relPath = node.file_path
-      .replace(projectDir + '/', '')
-      .replace(projectDir + '\\', '');
+    const relPath = node.file_path.replace(`${projectDir}/`, '').replace(`${projectDir}\\`, '');
     const churn = churnMap.get(relPath) ?? churnMap.get(node.file_path);
     if (!churn || churn.rawCount < minCommits) continue;
 
@@ -176,9 +189,7 @@ export function computeHotspots(
   }
 
   // Sort by hotspotScore descending, return top N
-  return results
-    .sort((a, b) => b.hotspotScore - a.hotspotScore)
-    .slice(0, limit);
+  return results.sort((a, b) => b.hotspotScore - a.hotspotScore).slice(0, limit);
 }
 
 /**
@@ -198,22 +209,23 @@ export function formatHotspots(hotspots: HotspotResult[]): string {
     return '~';
   };
 
-  const lines: string[] = [
-    `hotspots: ${hotspots.length} high-risk files (churn x centrality)`,
-    '',
-  ];
+  const lines: string[] = [`hotspots: ${hotspots.length} high-risk files (churn x centrality)`, ''];
 
   hotspots.forEach((h, i) => {
     lines.push(`[${i + 1}] ${h.nodeName}  trend:${trendMark(h.trend)}`);
     lines.push(`  file: ${h.filePath}:1`);
-    lines.push(`  score: ${h.hotspotScore.toFixed(2)}  churn: ${h.churnScore.toFixed(2)}  centrality: ${h.centralityScore.toFixed(2)}`);
+    lines.push(
+      `  score: ${h.hotspotScore.toFixed(2)}  churn: ${h.churnScore.toFixed(2)}  centrality: ${h.centralityScore.toFixed(2)}`,
+    );
     lines.push(`  commits: ${h.rawCommitCount}  last: ${h.lastCommitDate ?? 'unknown'}`);
     lines.push('');
   });
 
-  const accelerating = hotspots.filter(h => h.trend === 'accelerating').length;
-  const cooling = hotspots.filter(h => h.trend === 'cooling').length;
-  lines.push(`summary: ${accelerating} accelerating, ${cooling} cooling, ${hotspots.length - accelerating - cooling} stable`);
+  const accelerating = hotspots.filter((h) => h.trend === 'accelerating').length;
+  const cooling = hotspots.filter((h) => h.trend === 'cooling').length;
+  lines.push(
+    `summary: ${accelerating} accelerating, ${cooling} cooling, ${hotspots.length - accelerating - cooling} stable`,
+  );
 
   return lines.join('\n');
 }

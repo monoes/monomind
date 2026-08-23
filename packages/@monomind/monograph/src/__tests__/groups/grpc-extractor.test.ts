@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { extractGrpcContracts, type GrpcContract } from '../../groups/grpc-extractor.js';
+import { describe, expect, it } from 'vitest';
+import { extractGrpcContracts } from '../../groups/grpc-extractor.js';
 
 const PROTO_SOURCE = `
 syntax = "proto3";
@@ -23,20 +23,20 @@ resp, err := client.ProcessPayment(ctx, req)
 describe('extractGrpcContracts', () => {
   it('extracts service definitions from proto files', () => {
     const result = extractGrpcContracts(PROTO_SOURCE, '/api.proto');
-    const services = result.filter(c => c.role === 'provider');
-    expect(services.some(s => s.serviceName === 'PaymentService')).toBe(true);
+    const services = result.filter((c) => c.role === 'provider');
+    expect(services.some((s) => s.serviceName === 'PaymentService')).toBe(true);
   });
 
   it('extracts RPC method names', () => {
     const result = extractGrpcContracts(PROTO_SOURCE, '/api.proto');
-    const methods = result.flatMap(c => c.methods);
+    const methods = result.flatMap((c) => c.methods);
     expect(methods).toContain('ProcessPayment');
     expect(methods).toContain('RefundPayment');
   });
 
   it('detects consumer pattern in Go gRPC client code', () => {
     const result = extractGrpcContracts(GO_GRPC_SOURCE, '/client.go');
-    const consumers = result.filter(c => c.role === 'consumer');
+    const consumers = result.filter((c) => c.role === 'consumer');
     expect(consumers.length).toBeGreaterThan(0);
   });
 

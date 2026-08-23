@@ -54,11 +54,11 @@
  * removed. That is the contract below.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const ORIGINAL_CWD = process.cwd();
 const ORIGINAL_GLOBAL = process.env.MONOMIND_GLOBAL_BRAIN_DIR;
@@ -75,14 +75,18 @@ afterEach(() => {
   process.chdir(ORIGINAL_CWD);
   if (ORIGINAL_GLOBAL === undefined) delete process.env.MONOMIND_GLOBAL_BRAIN_DIR;
   else process.env.MONOMIND_GLOBAL_BRAIN_DIR = ORIGINAL_GLOBAL;
-  try { fs.rmSync(ROOT, { recursive: true, force: true }); } catch { /* best effort */ }
+  try {
+    fs.rmSync(ROOT, { recursive: true, force: true });
+  } catch {
+    /* best effort */
+  }
 });
 
 /** Append a metadata record describing an indexed document. */
 function indexRecord(filePath: string, contentHash: string, chunkCount = 3, scope = 'shared') {
   fs.appendFileSync(
     join(ROOT, '.monomind', 'knowledge', 'doc-metadata.jsonl'),
-    JSON.stringify({ filePath, scope, contentHash, chunkCount }) + '\n',
+    `${JSON.stringify({ filePath, scope, contentHash, chunkCount })}\n`,
     'utf-8',
   );
 }

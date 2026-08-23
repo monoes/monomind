@@ -18,7 +18,7 @@
  * never as part of a shell string that could be expanded. Also assert
  * `execSync` is NEVER invoked.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.hoisted runs before vi.mock's factory. Captured call state lives here
 // so the mock can write to it and the test body can read from it.
@@ -45,10 +45,10 @@ vi.mock('node:child_process', () => ({
   },
 }));
 
+import type { RemoteHost } from '../../packages/@monomind/cli/src/orgrt/remote.js';
 // Import AFTER vi.mock so the dynamic import inside remote.ts picks up the
 // mocked module.
 import { deliverRemote, pingRemote } from '../../packages/@monomind/cli/src/orgrt/remote.js';
-import type { RemoteHost } from '../../packages/@monomind/cli/src/orgrt/remote.js';
 
 beforeEach(() => {
   capture.execFileSyncCalls.length = 0;

@@ -3,12 +3,12 @@
  * Token usage tracking and visualization — powered by token-tracker.cjs
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { output } from '../output.js';
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync } from 'fs';
+import type { Command, CommandContext, CommandResult } from '../types.js';
 
 function getTrackerPath(): string | null {
   const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -32,7 +32,9 @@ function getTrackerPath(): string | null {
 function loadTracker() {
   const trackerPath = getTrackerPath();
   if (!trackerPath) {
-    throw new Error('token-tracker.cjs not found (checked bundled package copy and cwd/.claude/helpers)');
+    throw new Error(
+      'token-tracker.cjs not found (checked bundled package copy and cwd/.claude/helpers)',
+    );
   }
   const require = createRequire(import.meta.url);
   return require(trackerPath);
@@ -48,11 +50,22 @@ const dashboardSubcommand: Command = {
   name: 'dashboard',
   description: 'Launch interactive token usage dashboard',
   options: [
-    { name: 'period', short: 'p', type: 'string', description: 'Time period: today|week|30days|month', default: 'today' },
-    { name: 'no-interactive', type: 'boolean', description: 'Render once and exit', default: false },
+    {
+      name: 'period',
+      short: 'p',
+      type: 'string',
+      description: 'Time period: today|week|30days|month',
+      default: 'today',
+    },
+    {
+      name: 'no-interactive',
+      type: 'boolean',
+      description: 'Render once and exit',
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const period = validatePeriod(ctx.flags['period']);
+    const period = validatePeriod(ctx.flags.period);
     const noInteractive = ctx.flags['no-interactive'] as boolean;
     try {
       const tracker = loadTracker();
@@ -63,7 +76,9 @@ const dashboardSubcommand: Command = {
       }
       return { success: true };
     } catch (err) {
-      output.error('Token tracker not available: ' + (err instanceof Error ? err.message : String(err)));
+      output.error(
+        `Token tracker not available: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return { success: false, message: 'Token tracker unavailable' };
     }
   },
@@ -73,12 +88,18 @@ const summarySubcommand: Command = {
   name: 'summary',
   description: 'Show token usage summary for a period',
   options: [
-    { name: 'period', short: 'p', type: 'string', description: 'Time period: today|week|30days|month', default: 'today' },
+    {
+      name: 'period',
+      short: 'p',
+      type: 'string',
+      description: 'Time period: today|week|30days|month',
+      default: 'today',
+    },
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const period = validatePeriod(ctx.flags['period']);
-    const asJson = ctx.flags['json'] as boolean;
+    const period = validatePeriod(ctx.flags.period);
+    const asJson = ctx.flags.json as boolean;
     try {
       const tracker = loadTracker();
       const range = tracker.getDateRange(period);
@@ -89,8 +110,14 @@ const summarySubcommand: Command = {
         return { success: true, data: projects };
       }
 
-      const totalCost = projects.reduce((s: number, p: { totalCost: number }) => s + p.totalCost, 0);
-      const totalCalls = projects.reduce((s: number, p: { totalApiCalls: number }) => s + p.totalApiCalls, 0);
+      const totalCost = projects.reduce(
+        (s: number, p: { totalCost: number }) => s + p.totalCost,
+        0,
+      );
+      const totalCalls = projects.reduce(
+        (s: number, p: { totalApiCalls: number }) => s + p.totalApiCalls,
+        0,
+      );
 
       output.writeln('');
       output.writeln(`Token Usage — ${period}`);
@@ -100,15 +127,23 @@ const summarySubcommand: Command = {
       output.writeln(`Projects:    ${projects.length}`);
       output.writeln('');
 
-      for (const p of projects.slice(0, 10) as Array<{ projectPath: string; totalCost: number; totalApiCalls: number }>) {
+      for (const p of projects.slice(0, 10) as Array<{
+        projectPath: string;
+        totalCost: number;
+        totalApiCalls: number;
+      }>) {
         const name = p.projectPath.split('/').pop() || p.projectPath;
-        output.writeln(`  ${name.padEnd(30)} ${tracker.fmt$(p.totalCost).padStart(10)}  ${p.totalApiCalls} calls`);
+        output.writeln(
+          `  ${name.padEnd(30)} ${tracker.fmt$(p.totalCost).padStart(10)}  ${p.totalApiCalls} calls`,
+        );
       }
       output.writeln('');
 
       return { success: true, data: { totalCost, totalCalls, projects } };
     } catch (err) {
-      output.error('Token tracker not available: ' + (err instanceof Error ? err.message : String(err)));
+      output.error(
+        `Token tracker not available: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return { success: false, message: 'Token tracker unavailable' };
     }
   },
@@ -125,7 +160,9 @@ const todaySubcommand: Command = {
       output.writeln(summary || 'No token data available for today.');
       return { success: true };
     } catch (err) {
-      output.error('Token tracker not available: ' + (err instanceof Error ? err.message : String(err)));
+      output.error(
+        `Token tracker not available: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return { success: false };
     }
   },
@@ -137,8 +174,8 @@ const leanDeltaSubcommand: Command = {
   options: [],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const { join: pathJoin } = await import('path');
-      const { readdirSync, readFileSync } = await import('fs');
+      const { join: pathJoin } = await import('node:path');
+      const { readdirSync, readFileSync } = await import('node:fs');
 
       // Locate capture directory relative to the invoking project (cwd),
       // matching how the rest of the CLI resolves `.monomind` paths.
@@ -146,7 +183,12 @@ const leanDeltaSubcommand: Command = {
       const captureDir = pathJoin(projectRoot, '.monomind', 'capture');
 
       // Load all run capture logs
-      let snapshots: Array<{ leanMode?: string; cost_usd?: number; tokens_in?: number; tokens_out?: number }> = [];
+      const snapshots: Array<{
+        leanMode?: string;
+        cost_usd?: number;
+        tokens_in?: number;
+        tokens_out?: number;
+      }> = [];
       try {
         const orgsDir = pathJoin(projectRoot, '.monomind', 'orgs');
         const orgEntries = readdirSync(orgsDir, { withFileTypes: true });
@@ -154,27 +196,47 @@ const leanDeltaSubcommand: Command = {
           if (!org.isDirectory()) continue;
           const runsDir = pathJoin(orgsDir, org.name, 'runs');
           try {
-            const runFiles = readdirSync(runsDir).filter(f => f.endsWith('-captures.jsonl'));
+            const runFiles = readdirSync(runsDir).filter((f) => f.endsWith('-captures.jsonl'));
             for (const rf of runFiles) {
               const lines = readFileSync(pathJoin(runsDir, rf), 'utf8').split('\n').filter(Boolean);
               for (const line of lines) {
-                try { snapshots.push(JSON.parse(line)); } catch { /* skip */ }
+                try {
+                  snapshots.push(JSON.parse(line));
+                } catch {
+                  /* skip */
+                }
               }
             }
-          } catch { /* no runs dir */ }
+          } catch {
+            /* no runs dir */
+          }
         }
-      } catch { /* no orgs dir */ }
+      } catch {
+        /* no orgs dir */
+      }
 
       // Also check snap files in capture dir for leanMode field
       try {
-        const snapFiles = readdirSync(captureDir).filter(f => f.startsWith('snap-') && f.endsWith('.json'));
+        const snapFiles = readdirSync(captureDir).filter(
+          (f) => f.startsWith('snap-') && f.endsWith('.json'),
+        );
         for (const sf of snapFiles) {
-          try { snapshots.push(JSON.parse(readFileSync(pathJoin(captureDir, sf), 'utf8'))); } catch { /* skip */ }
+          try {
+            snapshots.push(JSON.parse(readFileSync(pathJoin(captureDir, sf), 'utf8')));
+          } catch {
+            /* skip */
+          }
         }
-      } catch { /* no capture dir */ }
+      } catch {
+        /* no capture dir */
+      }
 
-      const lean = snapshots.filter(s => s.leanMode && s.leanMode !== 'off' && s.cost_usd != null);
-      const normal = snapshots.filter(s => (!s.leanMode || s.leanMode === 'off') && s.cost_usd != null);
+      const lean = snapshots.filter(
+        (s) => s.leanMode && s.leanMode !== 'off' && s.cost_usd != null,
+      );
+      const normal = snapshots.filter(
+        (s) => (!s.leanMode || s.leanMode === 'off') && s.cost_usd != null,
+      );
 
       if (lean.length < 3 || normal.length < 3) {
         output.writeln('Not enough data yet. Need 3+ sessions in each group.');
@@ -182,23 +244,37 @@ const leanDeltaSubcommand: Command = {
         return { success: true };
       }
 
-      const avg = (arr: typeof snapshots) => arr.reduce((s, x) => s + (x.cost_usd || 0), 0) / arr.length;
+      const avg = (arr: typeof snapshots) =>
+        arr.reduce((s, x) => s + (x.cost_usd || 0), 0) / arr.length;
       const leanAvg = avg(lean);
       const normalAvg = avg(normal);
-      const delta = ((leanAvg - normalAvg) / normalAvg * 100).toFixed(1);
+      const delta = (((leanAvg - normalAvg) / normalAvg) * 100).toFixed(1);
       const sign = leanAvg <= normalAvg ? '' : '+';
 
       output.writeln('');
       output.writeln('Monolean Token Delta');
       output.writeln('─'.repeat(50));
-      output.writeln(`Sessions with monolean: ${lean.length.toString().padStart(4)}   avg cost: $${leanAvg.toFixed(4)}`);
-      output.writeln(`Sessions without:       ${normal.length.toString().padStart(4)}   avg cost: $${normalAvg.toFixed(4)}`);
+      output.writeln(
+        `Sessions with monolean: ${lean.length.toString().padStart(4)}   avg cost: $${leanAvg.toFixed(4)}`,
+      );
+      output.writeln(
+        `Sessions without:       ${normal.length.toString().padStart(4)}   avg cost: $${normalAvg.toFixed(4)}`,
+      );
       output.writeln(`delta: ${sign}${delta}%`);
       output.writeln('');
 
-      return { success: true, data: { leanSessions: lean.length, normalSessions: normal.length, leanAvg, normalAvg, deltaPct: parseFloat(delta) } };
+      return {
+        success: true,
+        data: {
+          leanSessions: lean.length,
+          normalSessions: normal.length,
+          leanAvg,
+          normalAvg,
+          deltaPct: parseFloat(delta),
+        },
+      };
     } catch (err) {
-      output.error('lean-delta error: ' + (err instanceof Error ? err.message : String(err)));
+      output.error(`lean-delta error: ${err instanceof Error ? err.message : String(err)}`);
       return { success: false };
     }
   },

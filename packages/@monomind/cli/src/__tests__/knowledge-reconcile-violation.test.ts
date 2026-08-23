@@ -9,10 +9,11 @@
  * Named command that produced the 259→148 live-store cleanup:
  *   `node packages/@monomind/cli/bin/cli.js doc reconcile --apply`
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // Dynamic imports — document-pipeline is ESM
 const loadPipeline = async () => import('../knowledge/document-pipeline.js');
@@ -69,7 +70,7 @@ describe('item 4b-i — deliberate violation', () => {
       indexedAt: new Date().toISOString(),
       size: 200,
     });
-    fs.writeFileSync(metaPath, realEntry + '\n' + ghostEntry + '\n');
+    fs.writeFileSync(metaPath, `${realEntry}\n${ghostEntry}\n`);
 
     // DRY RUN — ghost is detected, nothing changed
     const dryReport = await reconcileIndex(tmpDir, { scope: 'shared', apply: false });

@@ -221,7 +221,7 @@ export interface ToolContext {
 
 export type ToolHandler<TInput = unknown, TOutput = unknown> = (
   input: TInput,
-  context?: ToolContext
+  context?: ToolContext,
 ) => Promise<TOutput>;
 
 export interface MCPTool<TInput = unknown, TOutput = unknown> {
@@ -469,7 +469,15 @@ export interface RootsListResult {
 // Logging Types (MCP 2025-11-25)
 // ============================================================================
 
-export type MCPLogLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency';
+export type MCPLogLevel =
+  | 'debug'
+  | 'info'
+  | 'notice'
+  | 'warning'
+  | 'error'
+  | 'critical'
+  | 'alert'
+  | 'emergency';
 
 export interface LoggingMessage {
   level: MCPLogLevel;
@@ -510,7 +518,10 @@ export interface CompletionResult {
 // id per connection so MCPServer can keep sessions isolated per client.
 export type RequestHandler = (request: MCPRequest, connectionId?: string) => Promise<MCPResponse>;
 
-export type NotificationHandler = (notification: MCPNotification, connectionId?: string) => Promise<void>;
+export type NotificationHandler = (
+  notification: MCPNotification,
+  connectionId?: string,
+) => Promise<void>;
 
 // Called with a transport-assigned connectionId when the underlying
 // connection (WebSocket, TCP socket) closes, so the server can tear down any
@@ -672,7 +683,7 @@ export class MCPServerError extends Error {
   constructor(
     message: string,
     public code: number = ErrorCodes.INTERNAL_ERROR,
-    public data?: unknown
+    public data?: unknown,
   ) {
     super(message);
     this.name = 'MCPServerError';

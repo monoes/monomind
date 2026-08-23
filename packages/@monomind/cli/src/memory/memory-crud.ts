@@ -6,15 +6,15 @@
  * @module v1/cli/memory-crud
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { ensureSchemaColumns } from './memory-migrations.js';
-import { generateEmbedding } from './embedding-operations.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { withDbLock } from '../utils/db-mutex.js';
+import { generateEmbedding } from './embedding-operations.js';
 import { secureDbFilePermissions } from './file-permissions.js';
+import { ensureSchemaColumns } from './memory-migrations.js';
 
 // Re-export read operations so existing callers keep working without changes.
-export { searchEntries, listEntries, getEntry } from './memory-read.js';
+export { getEntry, listEntries, searchEntries } from './memory-read.js';
 
 /** Maximum SQLite database file size accepted before read (256 MB). */
 const MAX_DB_FILE_BYTES = 256 * 1024 * 1024;
@@ -37,9 +37,12 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
  * Verify memory initialization works correctly
  * Tests: write, read, search, patterns
  */
-export async function verifyMemoryInit(dbPath: string, options?: {
-  verbose?: boolean;
-}): Promise<{
+export async function verifyMemoryInit(
+  dbPath: string,
+  options?: {
+    verbose?: boolean;
+  },
+): Promise<{
   success: boolean;
   tests: {
     name: string;
@@ -53,195 +56,221 @@ export async function verifyMemoryInit(dbPath: string, options?: {
     total: number;
   };
 }> {
-  const { verbose = false } = options || {};
+  const { verbose: _verbose = false } = options || {};
   const tests: { name: string; passed: boolean; details?: string; duration?: number }[] = [];
 
   try {
     return await withDbLock(dbPath, async () => {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-    const fs = await import('fs');
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
+      const fs = await import('node:fs');
 
-    // Guard against excessively large DB files to prevent OOM.
-    const verifyStat = fs.statSync(dbPath);
-    if (verifyStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, tests: [{ name: 'Database access', passed: false, details: `File too large: ${verifyStat.size} bytes` }], summary: { passed: 0, failed: 1, total: 1 } };
-    }
+      // Guard against excessively large DB files to prevent OOM.
+      const verifyStat = fs.statSync(dbPath);
+      if (verifyStat.size > MAX_DB_FILE_BYTES) {
+        return {
+          success: false,
+          tests: [
+            {
+              name: 'Database access',
+              passed: false,
+              details: `File too large: ${verifyStat.size} bytes`,
+            },
+          ],
+          summary: { passed: 0, failed: 1, total: 1 },
+        };
+      }
 
-    // Load database
-    const fileBuffer = fs.readFileSync(dbPath);
-    const db = new SQL.Database(fileBuffer);
+      // Load database
+      const fileBuffer = fs.readFileSync(dbPath);
+      const db = new SQL.Database(fileBuffer);
 
-    // Test 1: Schema verification
-    const schemaStart = Date.now();
-    const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
-    const tableNames = tables[0]?.values?.map(v => v[0] as string) || [];
-    const expectedTables = ['memory_entries', 'patterns', 'metadata', 'vector_indexes'];
-    const missingTables = expectedTables.filter(t => !tableNames.includes(t));
+      // Test 1: Schema verification
+      const schemaStart = Date.now();
+      const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+      const tableNames = tables[0]?.values?.map((v) => v[0] as string) || [];
+      const expectedTables = ['memory_entries', 'patterns', 'metadata', 'vector_indexes'];
+      const missingTables = expectedTables.filter((t) => !tableNames.includes(t));
 
-    tests.push({
-      name: 'Schema verification',
-      passed: missingTables.length === 0,
-      details: missingTables.length > 0 ? `Missing: ${missingTables.join(', ')}` : `${tableNames.length} tables found`,
-      duration: Date.now() - schemaStart
-    });
+      tests.push({
+        name: 'Schema verification',
+        passed: missingTables.length === 0,
+        details:
+          missingTables.length > 0
+            ? `Missing: ${missingTables.join(', ')}`
+            : `${tableNames.length} tables found`,
+        duration: Date.now() - schemaStart,
+      });
 
-    // Test 2: Write entry
-    const writeStart = Date.now();
-    const testId = `test_${Date.now()}`;
-    const testKey = 'verification_test';
-    const testValue = 'This is a verification test entry for memory initialization';
+      // Test 2: Write entry
+      const writeStart = Date.now();
+      const testId = `test_${Date.now()}`;
+      const testKey = 'verification_test';
+      const testValue = 'This is a verification test entry for memory initialization';
 
-    try {
-      db.run(`
+      try {
+        db.run(
+          `
         INSERT INTO memory_entries (id, key, namespace, content, type, created_at, updated_at)
         VALUES (?, ?, 'test', ?, 'semantic', ?, ?)
-      `, [testId, testKey, testValue, Date.now(), Date.now()]);
+      `,
+          [testId, testKey, testValue, Date.now(), Date.now()],
+        );
 
-      tests.push({
-        name: 'Write entry',
-        passed: true,
-        details: 'Entry written successfully',
-        duration: Date.now() - writeStart
-      });
-    } catch (e) {
-      tests.push({
-        name: 'Write entry',
-        passed: false,
-        details: e instanceof Error ? e.message : 'Write failed',
-        duration: Date.now() - writeStart
-      });
-    }
+        tests.push({
+          name: 'Write entry',
+          passed: true,
+          details: 'Entry written successfully',
+          duration: Date.now() - writeStart,
+        });
+      } catch (e) {
+        tests.push({
+          name: 'Write entry',
+          passed: false,
+          details: e instanceof Error ? e.message : 'Write failed',
+          duration: Date.now() - writeStart,
+        });
+      }
 
-    // Test 3: Read entry
-    const readStart = Date.now();
-    try {
-      const result = db.exec(`SELECT content FROM memory_entries WHERE id = ?`, [testId]);
-      const content = result[0]?.values[0]?.[0] as string;
+      // Test 3: Read entry
+      const readStart = Date.now();
+      try {
+        const result = db.exec(`SELECT content FROM memory_entries WHERE id = ?`, [testId]);
+        const content = result[0]?.values[0]?.[0] as string;
 
-      tests.push({
-        name: 'Read entry',
-        passed: content === testValue,
-        details: content === testValue ? 'Content matches' : 'Content mismatch',
-        duration: Date.now() - readStart
-      });
-    } catch (e) {
-      tests.push({
-        name: 'Read entry',
-        passed: false,
-        details: e instanceof Error ? e.message : 'Read failed',
-        duration: Date.now() - readStart
-      });
-    }
+        tests.push({
+          name: 'Read entry',
+          passed: content === testValue,
+          details: content === testValue ? 'Content matches' : 'Content mismatch',
+          duration: Date.now() - readStart,
+        });
+      } catch (e) {
+        tests.push({
+          name: 'Read entry',
+          passed: false,
+          details: e instanceof Error ? e.message : 'Read failed',
+          duration: Date.now() - readStart,
+        });
+      }
 
-    // Test 4: Write with embedding
-    const embeddingStart = Date.now();
-    try {
-      const { embedding, dimensions, model } = await generateEmbedding(testValue);
-      const embeddingJson = JSON.stringify(embedding);
+      // Test 4: Write with embedding
+      const embeddingStart = Date.now();
+      try {
+        const { embedding, dimensions, model } = await generateEmbedding(testValue);
+        const embeddingJson = JSON.stringify(embedding);
 
-      db.run(`
+        db.run(
+          `
         UPDATE memory_entries
         SET embedding = ?, embedding_dimensions = ?, embedding_model = ?
         WHERE id = ?
-      `, [embeddingJson, dimensions, model, testId]);
+      `,
+          [embeddingJson, dimensions, model, testId],
+        );
 
-      tests.push({
-        name: 'Generate embedding',
-        passed: true,
-        details: `${dimensions}-dim vector (${model})`,
-        duration: Date.now() - embeddingStart
-      });
-    } catch (e) {
-      tests.push({
-        name: 'Generate embedding',
-        passed: false,
-        details: e instanceof Error ? e.message : 'Embedding failed',
-        duration: Date.now() - embeddingStart
-      });
-    }
+        tests.push({
+          name: 'Generate embedding',
+          passed: true,
+          details: `${dimensions}-dim vector (${model})`,
+          duration: Date.now() - embeddingStart,
+        });
+      } catch (e) {
+        tests.push({
+          name: 'Generate embedding',
+          passed: false,
+          details: e instanceof Error ? e.message : 'Embedding failed',
+          duration: Date.now() - embeddingStart,
+        });
+      }
 
-    // Test 5: Pattern storage
-    const patternStart = Date.now();
-    try {
-      const patternId = `pattern_${Date.now()}`;
-      db.run(`
+      // Test 5: Pattern storage
+      const patternStart = Date.now();
+      try {
+        const patternId = `pattern_${Date.now()}`;
+        db.run(
+          `
         INSERT INTO patterns (id, name, pattern_type, condition, action, confidence, created_at, updated_at)
         VALUES (?, 'test-pattern', 'task-routing', 'test condition', 'test action', 0.5, ?, ?)
-      `, [patternId, Date.now(), Date.now()]);
+      `,
+          [patternId, Date.now(), Date.now()],
+        );
 
-      tests.push({
-        name: 'Pattern storage',
-        passed: true,
-        details: 'Pattern stored with confidence scoring',
-        duration: Date.now() - patternStart
-      });
+        tests.push({
+          name: 'Pattern storage',
+          passed: true,
+          details: 'Pattern stored with confidence scoring',
+          duration: Date.now() - patternStart,
+        });
 
-      // Cleanup test pattern
-      db.run(`DELETE FROM patterns WHERE id = ?`, [patternId]);
-    } catch (e) {
-      tests.push({
-        name: 'Pattern storage',
-        passed: false,
-        details: e instanceof Error ? e.message : 'Pattern storage failed',
-        duration: Date.now() - patternStart
-      });
-    }
-
-    // Test 6: Vector index configuration
-    const indexStart = Date.now();
-    try {
-      const indexResult = db.exec(`SELECT name, dimensions, hnsw_m, hnsw_ef_construction FROM vector_indexes`);
-      const indexes = indexResult[0]?.values || [];
-
-      tests.push({
-        name: 'Vector index config',
-        passed: indexes.length > 0,
-        details: `${indexes.length} indexes configured (HNSW M=16, ef=200)`,
-        duration: Date.now() - indexStart
-      });
-    } catch (e) {
-      tests.push({
-        name: 'Vector index config',
-        passed: false,
-        details: e instanceof Error ? e.message : 'Index check failed',
-        duration: Date.now() - indexStart
-      });
-    }
-
-    // Cleanup test entry
-    db.run(`DELETE FROM memory_entries WHERE id = ?`, [testId]);
-
-    // Save changes atomically
-    const data = db.export();
-    const dbTmpHealth = dbPath + '.tmp';
-    fs.writeFileSync(dbTmpHealth, Buffer.from(data));
-    fs.renameSync(dbTmpHealth, dbPath);
-    secureDbFilePermissions(dbPath);
-    db.close();
-
-    const passed = tests.filter(t => t.passed).length;
-    const failed = tests.filter(t => !t.passed).length;
-
-    return {
-      success: failed === 0,
-      tests,
-      summary: {
-        passed,
-        failed,
-        total: tests.length
+        // Cleanup test pattern
+        db.run(`DELETE FROM patterns WHERE id = ?`, [patternId]);
+      } catch (e) {
+        tests.push({
+          name: 'Pattern storage',
+          passed: false,
+          details: e instanceof Error ? e.message : 'Pattern storage failed',
+          duration: Date.now() - patternStart,
+        });
       }
-    };
+
+      // Test 6: Vector index configuration
+      const indexStart = Date.now();
+      try {
+        const indexResult = db.exec(
+          `SELECT name, dimensions, hnsw_m, hnsw_ef_construction FROM vector_indexes`,
+        );
+        const indexes = indexResult[0]?.values || [];
+
+        tests.push({
+          name: 'Vector index config',
+          passed: indexes.length > 0,
+          details: `${indexes.length} indexes configured (HNSW M=16, ef=200)`,
+          duration: Date.now() - indexStart,
+        });
+      } catch (e) {
+        tests.push({
+          name: 'Vector index config',
+          passed: false,
+          details: e instanceof Error ? e.message : 'Index check failed',
+          duration: Date.now() - indexStart,
+        });
+      }
+
+      // Cleanup test entry
+      db.run(`DELETE FROM memory_entries WHERE id = ?`, [testId]);
+
+      // Save changes atomically
+      const data = db.export();
+      const dbTmpHealth = `${dbPath}.tmp`;
+      fs.writeFileSync(dbTmpHealth, Buffer.from(data));
+      fs.renameSync(dbTmpHealth, dbPath);
+      secureDbFilePermissions(dbPath);
+      db.close();
+
+      const passed = tests.filter((t) => t.passed).length;
+      const failed = tests.filter((t) => !t.passed).length;
+
+      return {
+        success: failed === 0,
+        tests,
+        summary: {
+          passed,
+          failed,
+          total: tests.length,
+        },
+      };
     });
   } catch (error) {
     return {
       success: false,
-      tests: [{
-        name: 'Database access',
-        passed: false,
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }],
-      summary: { passed: 0, failed: 1, total: 1 }
+      tests: [
+        {
+          name: 'Database access',
+          passed: false,
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
+      ],
+      summary: { passed: 0, failed: 1, total: 1 },
     };
   }
 }
@@ -281,7 +310,7 @@ export async function storeEntry(options: {
     tags = [],
     ttl,
     dbPath: customPath,
-    upsert = false
+    upsert = false,
   } = options;
 
   const swarmDir = path.resolve(process.cwd(), '.swarm');
@@ -289,62 +318,70 @@ export async function storeEntry(options: {
 
   try {
     if (!fs.existsSync(dbPath)) {
-      return { success: false, id: '', error: 'Database not initialized. Run: monomind memory init' };
+      return {
+        success: false,
+        id: '',
+        error: 'Database not initialized. Run: monomind memory init',
+      };
     }
 
     await ensureSchemaColumns(dbPath);
 
     return await withDbLock(dbPath, async () => {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    const storeStat = fs.statSync(dbPath);
-    if (storeStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, id: '', error: `Database file too large: ${storeStat.size} bytes` };
-    }
-
-    const fileBuffer = fs.readFileSync(dbPath);
-    const db = new SQL.Database(fileBuffer);
-
-    let id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    let existingCreatedAt: number | null = null;
-    let matchedExisting = false;
-    if (upsert) {
-      const existingIdResult = db.exec(
-        "SELECT id, created_at FROM memory_entries WHERE key = ? AND namespace = ? AND status = 'active' LIMIT 1",
-        [key, namespace]
-      );
-      const existingRow = existingIdResult[0]?.values?.[0];
-      const existingId = existingRow?.[0];
-      if (typeof existingId === 'string') {
-        id = existingId;
-        matchedExisting = true;
-        const createdAt = existingRow?.[1];
-        if (typeof createdAt === 'number') existingCreatedAt = createdAt;
+      const storeStat = fs.statSync(dbPath);
+      if (storeStat.size > MAX_DB_FILE_BYTES) {
+        return {
+          success: false,
+          id: '',
+          error: `Database file too large: ${storeStat.size} bytes`,
+        };
       }
-    }
-    const now = Date.now();
-    const createdAt = existingCreatedAt ?? now;
 
-    let embeddingJson: string | null = null;
-    let embeddingDimensions: number | null = null;
-    let embeddingModel: string | null = null;
+      const fileBuffer = fs.readFileSync(dbPath);
+      const db = new SQL.Database(fileBuffer);
 
-    if (generateEmbeddingFlag && value.length > 0) {
-      const embResult = await generateEmbedding(value);
-      embeddingJson = JSON.stringify(embResult.embedding);
-      embeddingDimensions = embResult.dimensions;
-      embeddingModel = embResult.model;
-    }
+      let id = `entry_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      let existingCreatedAt: number | null = null;
+      let matchedExisting = false;
+      if (upsert) {
+        const existingIdResult = db.exec(
+          "SELECT id, created_at FROM memory_entries WHERE key = ? AND namespace = ? AND status = 'active' LIMIT 1",
+          [key, namespace],
+        );
+        const existingRow = existingIdResult[0]?.values?.[0];
+        const existingId = existingRow?.[0];
+        if (typeof existingId === 'string') {
+          id = existingId;
+          matchedExisting = true;
+          const createdAt = existingRow?.[1];
+          if (typeof createdAt === 'number') existingCreatedAt = createdAt;
+        }
+      }
+      const now = Date.now();
+      const createdAt = existingCreatedAt ?? now;
 
-    const isUpdate = upsert && matchedExisting;
-    if (isUpdate) {
-      // #88: upsert against an existing row must UPDATE in place. The old
-      // INSERT OR REPLACE omitted access_count, confidence, importance_score,
-      // last_accessed_at, owner_id, agent_id, session_id and hardcoded
-      // metadata '{}' — every update silently wiped all learned stats.
-      db.run(
-        `UPDATE memory_entries SET
+      let embeddingJson: string | null = null;
+      let embeddingDimensions: number | null = null;
+      let embeddingModel: string | null = null;
+
+      if (generateEmbeddingFlag && value.length > 0) {
+        const embResult = await generateEmbedding(value);
+        embeddingJson = JSON.stringify(embResult.embedding);
+        embeddingDimensions = embResult.dimensions;
+        embeddingModel = embResult.model;
+      }
+
+      const isUpdate = upsert && matchedExisting;
+      if (isUpdate) {
+        // #88: upsert against an existing row must UPDATE in place. The old
+        // INSERT OR REPLACE omitted access_count, confidence, importance_score,
+        // last_accessed_at, owner_id, agent_id, session_id and hardcoded
+        // metadata '{}' — every update silently wiped all learned stats.
+        db.run(
+          `UPDATE memory_entries SET
            content = ?,
            embedding = ?,
            embedding_dimensions = ?,
@@ -353,59 +390,61 @@ export async function storeEntry(options: {
            updated_at = ?,
            expires_at = ?
          WHERE id = ?`,
-        [
-          value,
-          embeddingJson,
-          embeddingDimensions,
-          embeddingModel,
-          tags.length > 0 ? JSON.stringify(tags) : null,
-          now,
-          ttl ? now + (ttl * 1000) : null,
-          id
-        ]
-      );
-    } else {
-      const insertSql = `INSERT INTO memory_entries (
+          [
+            value,
+            embeddingJson,
+            embeddingDimensions,
+            embeddingModel,
+            tags.length > 0 ? JSON.stringify(tags) : null,
+            now,
+            ttl ? now + ttl * 1000 : null,
+            id,
+          ],
+        );
+      } else {
+        const insertSql = `INSERT INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
           tags, metadata, created_at, updated_at, expires_at, status
         ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
 
-      db.run(insertSql, [
+        db.run(insertSql, [
+          id,
+          key,
+          namespace,
+          value,
+          embeddingJson,
+          embeddingDimensions,
+          embeddingModel,
+          tags.length > 0 ? JSON.stringify(tags) : null,
+          '{}',
+          createdAt,
+          now,
+          ttl ? now + ttl * 1000 : null,
+        ]);
+      }
+
+      // Save atomically
+      const data = db.export();
+      const dbTmpStore = `${dbPath}.tmp`;
+      fs.writeFileSync(dbTmpStore, Buffer.from(data));
+      fs.renameSync(dbTmpStore, dbPath);
+      secureDbFilePermissions(dbPath);
+      db.close();
+
+      return {
+        success: true,
         id,
-        key,
-        namespace,
-        value,
-        embeddingJson,
-        embeddingDimensions,
-        embeddingModel,
-        tags.length > 0 ? JSON.stringify(tags) : null,
-        '{}',
-        createdAt,
-        now,
-        ttl ? now + (ttl * 1000) : null
-      ]);
-    }
-
-    // Save atomically
-    const data = db.export();
-    const dbTmpStore = dbPath + '.tmp';
-    fs.writeFileSync(dbTmpStore, Buffer.from(data));
-    fs.renameSync(dbTmpStore, dbPath);
-    secureDbFilePermissions(dbPath);
-    db.close();
-
-    return {
-      success: true,
-      id,
-      embedding: embeddingJson ? { dimensions: embeddingDimensions!, model: embeddingModel! } : undefined
-    };
+        embedding: embeddingJson
+          ? { dimensions: embeddingDimensions!, model: embeddingModel! }
+          : undefined,
+      };
     });
   } catch (error) {
     return {
       success: false,
       id: '',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -439,7 +478,11 @@ export async function deleteEntry(options: {
       const ns = options.namespace ?? 'default';
       let remainingEntries = 0;
       try {
-        const listed = await bridge.bridgeListEntries({ namespace: ns, limit: 100_000, dbPath: options.dbPath });
+        const listed = await bridge.bridgeListEntries({
+          namespace: ns,
+          limit: 100_000,
+          dbPath: options.dbPath,
+        });
         remainingEntries = listed?.entries?.length ?? 0;
       } catch {
         // Counting is best-effort; a failed count must not fail the delete that
@@ -450,11 +493,7 @@ export async function deleteEntry(options: {
   }
 
   // Fallback: raw sql.js
-  const {
-    key,
-    namespace = 'default',
-    dbPath: customPath
-  } = options;
+  const { key, namespace = 'default', dbPath: customPath } = options;
 
   const swarmDir = path.join(process.cwd(), '.swarm');
   const dbPath = customPath || path.join(swarmDir, 'memory.db');
@@ -467,54 +506,62 @@ export async function deleteEntry(options: {
         key,
         namespace,
         remainingEntries: 0,
-        error: 'Database not found'
+        error: 'Database not found',
       };
     }
 
     await ensureSchemaColumns(dbPath);
 
     return await withDbLock(dbPath, async () => {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs();
 
-    const deleteStat = fs.statSync(dbPath);
-    if (deleteStat.size > MAX_DB_FILE_BYTES) {
-      return { success: false, deleted: false, key, namespace, remainingEntries: 0, error: `Database file too large: ${deleteStat.size} bytes` };
-    }
+      const deleteStat = fs.statSync(dbPath);
+      if (deleteStat.size > MAX_DB_FILE_BYTES) {
+        return {
+          success: false,
+          deleted: false,
+          key,
+          namespace,
+          remainingEntries: 0,
+          error: `Database file too large: ${deleteStat.size} bytes`,
+        };
+      }
 
-    const fileBuffer = fs.readFileSync(dbPath);
-    const db = new SQL.Database(fileBuffer);
+      const fileBuffer = fs.readFileSync(dbPath);
+      const db = new SQL.Database(fileBuffer);
 
-    const checkStmt = db.prepare(`
+      const checkStmt = db.prepare(`
       SELECT id FROM memory_entries
       WHERE status = 'active'
         AND key = ?
         AND namespace = ?
       LIMIT 1
     `);
-    checkStmt.bind([key, namespace]);
-    const checkRows: unknown[][] = [];
-    while (checkStmt.step()) {
-      checkRows.push(checkStmt.get());
-    }
-    checkStmt.free();
-    const checkResult = checkRows.length > 0 ? [{ values: checkRows }] : [];
+      checkStmt.bind([key, namespace]);
+      const checkRows: unknown[][] = [];
+      while (checkStmt.step()) {
+        checkRows.push(checkStmt.get());
+      }
+      checkStmt.free();
+      const checkResult = checkRows.length > 0 ? [{ values: checkRows }] : [];
 
-    if (!checkResult[0]?.values?.[0]) {
-      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
-      const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
-      db.close();
-      return {
-        success: true,
-        deleted: false,
-        key,
-        namespace,
-        remainingEntries,
-        error: `Key '${key}' not found in namespace '${namespace}'`
-      };
-    }
+      if (!checkResult[0]?.values?.[0]) {
+        const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
+        const remainingEntries = (countResult[0]?.values?.[0]?.[0] as number) || 0;
+        db.close();
+        return {
+          success: true,
+          deleted: false,
+          key,
+          namespace,
+          remainingEntries,
+          error: `Key '${key}' not found in namespace '${namespace}'`,
+        };
+      }
 
-    db.run(`
+      db.run(
+        `
       UPDATE memory_entries
       SET status = 'deleted',
           embedding = NULL,
@@ -522,27 +569,29 @@ export async function deleteEntry(options: {
       WHERE key = ?
         AND namespace = ?
         AND status = 'active'
-    `, [key, namespace]);
+    `,
+        [key, namespace],
+      );
 
-    const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
-    const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
+      const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
+      const remainingEntries = (countResult[0]?.values?.[0]?.[0] as number) || 0;
 
-    // Save updated database atomically
-    const data = db.export();
-    const dbTmpDelete = dbPath + '.tmp';
-    fs.writeFileSync(dbTmpDelete, Buffer.from(data));
-    fs.renameSync(dbTmpDelete, dbPath);
-    secureDbFilePermissions(dbPath);
+      // Save updated database atomically
+      const data = db.export();
+      const dbTmpDelete = `${dbPath}.tmp`;
+      fs.writeFileSync(dbTmpDelete, Buffer.from(data));
+      fs.renameSync(dbTmpDelete, dbPath);
+      secureDbFilePermissions(dbPath);
 
-    db.close();
+      db.close();
 
-    return {
-      success: true,
-      deleted: true,
-      key,
-      namespace,
-      remainingEntries
-    };
+      return {
+        success: true,
+        deleted: true,
+        key,
+        namespace,
+        remainingEntries,
+      };
     });
   } catch (error) {
     return {
@@ -551,7 +600,7 @@ export async function deleteEntry(options: {
       key,
       namespace,
       remainingEntries: 0,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }

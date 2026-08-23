@@ -1,19 +1,25 @@
 export interface BadgeOptions {
-  label?: string;      // left label text (default: 'monograph')
-  value: string;       // right value text (e.g. 'A' or '87/100')
-  color?: string;      // hex color (auto-determined from grade if omitted)
-  uniqueId?: string;   // SVG element ID prefix (default: 'mg')
+  label?: string; // left label text (default: 'monograph')
+  value: string; // right value text (e.g. 'A' or '87/100')
+  color?: string; // hex color (auto-determined from grade if omitted)
+  uniqueId?: string; // SVG element ID prefix (default: 'mg')
 }
 
 /** Map a letter grade to a shield-style hex color (without leading #). */
 export function gradeToColor(grade: string): string {
   switch (grade.trim().toUpperCase()) {
-    case 'A': return '4c1';
-    case 'B': return '97ca00';
-    case 'C': return 'dfb317';
-    case 'D': return 'fe7d37';
-    case 'F': return 'e05d44';
-    default:  return '9f9f9f';
+    case 'A':
+      return '4c1';
+    case 'B':
+      return '97ca00';
+    case 'C':
+      return 'dfb317';
+    case 'D':
+      return 'fe7d37';
+    case 'F':
+      return 'e05d44';
+    default:
+      return '9f9f9f';
   }
 }
 

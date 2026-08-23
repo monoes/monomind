@@ -1,5 +1,5 @@
-import type { CoverageGapData } from '../health/scoring-types.js';
 import type { FileScore, VitalSigns } from '../health/health-report-types.js';
+import type { CoverageGapData } from '../health/scoring-types.js';
 
 export interface HumanHealthOptions {
   hotspotLimit?: number;
@@ -12,7 +12,12 @@ const DEFAULT_COVERAGE_GAP_LIMIT = 20;
 
 type VitalStatus = 'OK' | 'WARNING' | 'CRITICAL';
 
-function vitalStatus(value: number, warnThreshold: number, critThreshold: number, higherIsBetter = false): VitalStatus {
+function vitalStatus(
+  value: number,
+  warnThreshold: number,
+  critThreshold: number,
+  higherIsBetter = false,
+): VitalStatus {
   if (higherIsBetter) {
     if (value >= warnThreshold) return 'OK';
     if (value >= critThreshold) return 'WARNING';
@@ -40,78 +45,71 @@ export function formatVitalSignsSection(vitals: VitalSigns): string[] {
   lines.push('\n── Vital Signs ──');
 
   const complexityStatus = vitalStatus(vitals.avgCyclomatic, 1.5, 5.5);
-  lines.push(formatVitalLine(
-    'Avg Complexity',
-    complexityStatus,
-    complexityStatus !== 'OK' ? `avg ${vitals.avgCyclomatic.toFixed(1)}, threshold 1.5` : undefined,
-  ));
+  lines.push(
+    formatVitalLine(
+      'Avg Complexity',
+      complexityStatus,
+      complexityStatus !== 'OK'
+        ? `avg ${vitals.avgCyclomatic.toFixed(1)}, threshold 1.5`
+        : undefined,
+    ),
+  );
 
   const p90Status = vitalStatus(vitals.p90Cyclomatic, 10, 20);
-  lines.push(formatVitalLine(
-    'P90 Complexity',
-    p90Status,
-    p90Status !== 'OK' ? `p90 ${vitals.p90Cyclomatic}, threshold 10` : undefined,
-  ));
+  lines.push(
+    formatVitalLine(
+      'P90 Complexity',
+      p90Status,
+      p90Status !== 'OK' ? `p90 ${vitals.p90Cyclomatic}, threshold 10` : undefined,
+    ),
+  );
 
   const maintStatus = vitalStatus(vitals.maintainabilityAvg, 70, 40, true);
-  lines.push(formatVitalLine(
-    'Maintainability',
-    maintStatus,
-    maintStatus !== 'OK' ? `avg ${vitals.maintainabilityAvg.toFixed(1)}, threshold 70` : undefined,
-  ));
+  lines.push(
+    formatVitalLine(
+      'Maintainability',
+      maintStatus,
+      maintStatus !== 'OK'
+        ? `avg ${vitals.maintainabilityAvg.toFixed(1)}, threshold 70`
+        : undefined,
+    ),
+  );
 
   const dupStatus = vitalStatus(vitals.duplicationPct, 5, 15);
-  lines.push(formatVitalLine(
-    'Duplication',
-    dupStatus,
-    `${vitals.duplicationPct.toFixed(1)}%`,
-  ));
+  lines.push(formatVitalLine('Duplication', dupStatus, `${vitals.duplicationPct.toFixed(1)}%`));
 
   const deadFileStatus = vitalStatus(vitals.deadFilePct, 5, 25);
-  lines.push(formatVitalLine(
-    'Dead Files',
-    deadFileStatus,
-    `${vitals.deadFilePct.toFixed(1)}%`,
-  ));
+  lines.push(formatVitalLine('Dead Files', deadFileStatus, `${vitals.deadFilePct.toFixed(1)}%`));
 
   const deadExportStatus = vitalStatus(vitals.deadExportPct, 5, 25);
-  lines.push(formatVitalLine(
-    'Dead Exports',
-    deadExportStatus,
-    `${vitals.deadExportPct.toFixed(1)}%`,
-  ));
+  lines.push(
+    formatVitalLine('Dead Exports', deadExportStatus, `${vitals.deadExportPct.toFixed(1)}%`),
+  );
 
-  const hotspotStatus = vitals.hotspotCount > 10 ? 'CRITICAL' : vitals.hotspotCount > 3 ? 'WARNING' : 'OK';
-  lines.push(formatVitalLine(
-    'Hotspots',
-    hotspotStatus,
-    `${vitals.hotspotCount} hotspot${vitals.hotspotCount !== 1 ? 's' : ''}`,
-  ));
+  const hotspotStatus =
+    vitals.hotspotCount > 10 ? 'CRITICAL' : vitals.hotspotCount > 3 ? 'WARNING' : 'OK';
+  lines.push(
+    formatVitalLine(
+      'Hotspots',
+      hotspotStatus,
+      `${vitals.hotspotCount} hotspot${vitals.hotspotCount !== 1 ? 's' : ''}`,
+    ),
+  );
 
   if (vitals.unusedDepCount > 0) {
     const udStatus = vitalStatus(vitals.unusedDepCount, 0, 5);
-    lines.push(formatVitalLine(
-      'Unused Deps',
-      udStatus,
-      `${vitals.unusedDepCount}`,
-    ));
+    lines.push(formatVitalLine('Unused Deps', udStatus, `${vitals.unusedDepCount}`));
   }
 
   if (vitals.circularDepCount > 0) {
     const cdStatus = vitalStatus(vitals.circularDepCount, 0, 3);
-    lines.push(formatVitalLine(
-      'Circular Deps',
-      cdStatus,
-      `${vitals.circularDepCount}`,
-    ));
+    lines.push(formatVitalLine('Circular Deps', cdStatus, `${vitals.circularDepCount}`));
   }
 
   const couplingStatus = vitalStatus(vitals.couplingHighPct, 5, 15);
-  lines.push(formatVitalLine(
-    'High Coupling',
-    couplingStatus,
-    `${vitals.couplingHighPct.toFixed(1)}%`,
-  ));
+  lines.push(
+    formatVitalLine('High Coupling', couplingStatus, `${vitals.couplingHighPct.toFixed(1)}%`),
+  );
 
   return lines;
 }
@@ -122,7 +120,8 @@ function computeHotspotScore(score: FileScore): number {
   if (score.crapMax !== undefined) s += Math.min(score.crapMax / 100, 1) * 25;
   if (score.deadCodeRatio !== undefined) s += score.deadCodeRatio * 20;
   if (score.fanIn !== undefined) s += Math.min(score.fanIn / 50, 1) * 15;
-  if (score.maintainabilityIndex !== undefined) s += Math.max(0, (100 - score.maintainabilityIndex) / 100) * 10;
+  if (score.maintainabilityIndex !== undefined)
+    s += Math.max(0, (100 - score.maintainabilityIndex) / 100) * 10;
   return Math.min(s, 100);
 }
 
@@ -149,7 +148,10 @@ export function formatHotspotSection(scores: FileScore[], limit = DEFAULT_HOTSPO
   return lines;
 }
 
-export function formatCoverageGapSection(gaps: CoverageGapData[], limit = DEFAULT_COVERAGE_GAP_LIMIT): string[] {
+export function formatCoverageGapSection(
+  gaps: CoverageGapData[],
+  limit = DEFAULT_COVERAGE_GAP_LIMIT,
+): string[] {
   if (gaps.length === 0) return [];
 
   const sorted = [...gaps].sort((a, b) => a.coveragePct - b.coveragePct).slice(0, limit);

@@ -1,6 +1,6 @@
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('route-outcomes end-to-end correlation', () => {
@@ -63,7 +63,7 @@ describe('route-outcomes end-to-end correlation', () => {
     fs.mkdirSync(path.join(tmpDir, '.monomind', 'data'), { recursive: true });
     fs.writeFileSync(
       path.join(tmpDir, '.monomind', 'data', 'intelligence-outcomes.jsonl'),
-      JSON.stringify({ ts: Date.now(), success: true }) + '\n',
+      `${JSON.stringify({ ts: Date.now(), success: true })}\n`,
     );
 
     await sessionHandler.handleEnd(hCtxSession);

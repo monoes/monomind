@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { generateGraphReport } from '../../reporting/graph-report.js';
 
 function makeDb(): Database.Database {
@@ -12,13 +12,23 @@ function makeDb(): Database.Database {
       relation TEXT NOT NULL, confidence TEXT DEFAULT 'EXTRACTED', confidence_score REAL DEFAULT 1.0, properties TEXT);
   `);
   // 2 isolated nodes (no edges)
-  db.prepare(`INSERT INTO nodes VALUES ('iso1','Function','orphan1',null,'/a.ts',1,5,99,1,null,null)`).run();
-  db.prepare(`INSERT INTO nodes VALUES ('iso2','Function','orphan2',null,'/b.ts',1,3,99,1,null,null)`).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('iso1','Function','orphan1',null,'/a.ts',1,5,99,1,null,null)`,
+  ).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('iso2','Function','orphan2',null,'/b.ts',1,3,99,1,null,null)`,
+  ).run();
   // thin community: only 1 node
-  db.prepare(`INSERT INTO nodes VALUES ('thin1','Function','alone',null,'/c.ts',1,3,7,1,null,null)`).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('thin1','Function','alone',null,'/c.ts',1,3,7,1,null,null)`,
+  ).run();
   // normal connected nodes
-  db.prepare(`INSERT INTO nodes VALUES ('n1','Function','foo',null,'/d.ts',1,5,1,1,null,null)`).run();
-  db.prepare(`INSERT INTO nodes VALUES ('n2','Function','bar',null,'/e.ts',1,3,1,1,null,null)`).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('n1','Function','foo',null,'/d.ts',1,5,1,1,null,null)`,
+  ).run();
+  db.prepare(
+    `INSERT INTO nodes VALUES ('n2','Function','bar',null,'/e.ts',1,3,1,1,null,null)`,
+  ).run();
   db.prepare(`INSERT INTO edges VALUES ('e1','n1','n2','CALLS','AMBIGUOUS',0.1,null)`).run();
   return db;
 }

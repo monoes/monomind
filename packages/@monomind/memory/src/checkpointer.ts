@@ -6,12 +6,12 @@
  * No native SQLite dependency required.
  */
 
-import { randomUUID, createHash } from 'node:crypto';
-import { existsSync, readFileSync, appendFileSync, statSync } from 'node:fs';
-import type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkpoint.js';
+import { createHash, randomUUID } from 'node:crypto';
+import { appendFileSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { writeFileAtomicSync } from './atomic-file.js';
+import type { AgentState, CheckpointMeta, SwarmCheckpoint } from './types/checkpoint.js';
 
-export type { AgentState, SwarmCheckpoint, CheckpointMeta };
+export type { AgentState, CheckpointMeta, SwarmCheckpoint };
 
 /** Configuration accepted by the checkpointer constructor. */
 export interface CheckpointerConfig {
@@ -59,7 +59,11 @@ export class MonoswarmCheckpointer {
 
   /** Cheap check: has the file changed since we last read/wrote it? */
   private currentMtimeMs(): number {
-    try { return statSync(this.dbPath).mtimeMs; } catch { return -1; }
+    try {
+      return statSync(this.dbPath).mtimeMs;
+    } catch {
+      return -1;
+    }
   }
 
   /** Re-read the file and recompute stepCounter/lastCheckpoint/lastKnownMtimeMs from it. */
@@ -68,7 +72,10 @@ export class MonoswarmCheckpointer {
     let max = 0;
     let newest: SwarmCheckpoint | null = null;
     for (const c of all) {
-      if (c.step >= max) { max = c.step; newest = c; }
+      if (c.step >= max) {
+        max = c.step;
+        newest = c;
+      }
     }
     this.stepCounter = max;
     this.lastCheckpoint = newest;
@@ -97,7 +104,8 @@ export class MonoswarmCheckpointer {
 
   /** Overwrite the file with the given checkpoints. */
   private writeAll(checkpoints: SwarmCheckpoint[]): void {
-    const data = checkpoints.map((c) => JSON.stringify(c)).join('\n') + (checkpoints.length ? '\n' : '');
+    const data =
+      checkpoints.map((c) => JSON.stringify(c)).join('\n') + (checkpoints.length ? '\n' : '');
     writeFileAtomicSync(this.dbPath, data, 'utf-8');
   }
 
@@ -150,7 +158,7 @@ export class MonoswarmCheckpointer {
       parentCheckpointId,
     };
 
-    appendFileSync(this.dbPath, JSON.stringify(checkpoint) + '\n', 'utf-8');
+    appendFileSync(this.dbPath, `${JSON.stringify(checkpoint)}\n`, 'utf-8');
     this.lastCheckpoint = checkpoint;
     this.lastKnownMtimeMs = this.currentMtimeMs();
     return checkpointId;

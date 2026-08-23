@@ -1,4 +1,4 @@
-import type { MonographNode, MonographEdge } from '../types.js';
+import type { MonographEdge, MonographNode } from '../types.js';
 
 const W = 1200;
 const H = 800;
@@ -7,8 +7,8 @@ export function toSvg(nodes: MonographNode[], edges: MonographEdge[]): string {
   const positions = forceLayout(nodes.slice(0, 200));
 
   const edgeSvg = edges
-    .filter(e => positions.has(e.sourceId) && positions.has(e.targetId))
-    .map(e => {
+    .filter((e) => positions.has(e.sourceId) && positions.has(e.targetId))
+    .map((e) => {
       const s = positions.get(e.sourceId)!;
       const t = positions.get(e.targetId)!;
       return `<line x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="#94a3b8" stroke-width="1" opacity="0.5"/>`;
@@ -16,8 +16,16 @@ export function toSvg(nodes: MonographNode[], edges: MonographEdge[]): string {
     .join('\n');
 
   const COMMUNITY_COLORS = [
-    '#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6',
-    '#ec4899','#14b8a6','#f97316','#06b6d4','#84cc16',
+    '#3b82f6',
+    '#ef4444',
+    '#22c55e',
+    '#f59e0b',
+    '#8b5cf6',
+    '#ec4899',
+    '#14b8a6',
+    '#f97316',
+    '#06b6d4',
+    '#84cc16',
   ];
   const degree = new Map<string, number>();
   for (const e of edges) {
@@ -27,7 +35,7 @@ export function toSvg(nodes: MonographNode[], edges: MonographEdge[]): string {
 
   const nodeSvg = [...positions.entries()]
     .map(([id, pos]) => {
-      const node = nodes.find(n => n.id === id);
+      const node = nodes.find((n) => n.id === id);
       const label = node?.name ?? id;
       const deg = degree.get(id) ?? 0;
       const r = Math.max(4, Math.min(16, 4 + deg));

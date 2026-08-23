@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('group-sync tool exports', () => {
   it('runGroupSync is exported from mcp-tools index', async () => {

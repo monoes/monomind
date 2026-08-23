@@ -1,13 +1,13 @@
 export interface RuleDef {
-  id: string;               // e.g. 'god-node', 'unreachable-file', 'circular-deps'
-  name?: string;            // human readable
-  title?: string;           // display title (alias for name)
-  description: string;      // what it detects
-  rationale?: string;       // why it matters
-  remediation?: string;     // how to fix
+  id: string; // e.g. 'god-node', 'unreachable-file', 'circular-deps'
+  name?: string; // human readable
+  title?: string; // display title (alias for name)
+  description: string; // what it detects
+  rationale?: string; // why it matters
+  remediation?: string; // how to fix
   severity?: 'error' | 'warning' | 'info';
   docsUrl?: string;
-  docs?: string;            // alias for docsUrl
+  docs?: string; // alias for docsUrl
 }
 
 export const CHECK_RULES: RuleDef[] = [
@@ -24,7 +24,8 @@ export const CHECK_RULES: RuleDef[] = [
     name: 'Unreachable File',
     description: 'A file that cannot be reached from any runtime or test entry point.',
     rationale: 'Unreachable files are dead code — they increase build size and maintenance burden.',
-    remediation: 'Delete or connect the file to a live import chain. Check if it was accidentally disconnected.',
+    remediation:
+      'Delete or connect the file to a live import chain. Check if it was accidentally disconnected.',
     severity: 'warning',
   },
   {
@@ -32,7 +33,8 @@ export const CHECK_RULES: RuleDef[] = [
     name: 'Circular Dependencies',
     description: 'Files that form an import cycle.',
     rationale: 'Circular imports complicate initialization order, testing, and refactoring.',
-    remediation: 'Extract shared types/utilities to a new file that neither participant imports from.',
+    remediation:
+      'Extract shared types/utilities to a new file that neither participant imports from.',
     severity: 'error',
   },
   {
@@ -55,7 +57,8 @@ export const CHECK_RULES: RuleDef[] = [
     id: 'boundary-violation',
     name: 'Boundary Zone Violation',
     description: 'An import that crosses a forbidden architectural boundary.',
-    rationale: 'Boundary violations break layer isolation and make the architecture drift over time.',
+    rationale:
+      'Boundary violations break layer isolation and make the architecture drift over time.',
     remediation: 'Introduce an anti-corruption layer or move the logic to the correct zone.',
     severity: 'error',
   },
@@ -70,7 +73,7 @@ export const CHECK_RULES: RuleDef[] = [
 ];
 
 export function explainRule(ruleId: string): RuleDef | undefined {
-  return CHECK_RULES.find(r => r.id === ruleId);
+  return CHECK_RULES.find((r) => r.id === ruleId);
 }
 
 export function listRules(): RuleDef[] {
@@ -79,7 +82,9 @@ export function listRules(): RuleDef[] {
 
 export function getRulesByFinding(findingTitle: string): RuleDef[] {
   const lower = findingTitle.toLowerCase();
-  return CHECK_RULES.filter(r => lower.includes(r.id) || (r.name && lower.includes(r.name.toLowerCase())));
+  return CHECK_RULES.filter(
+    (r) => lower.includes(r.id) || (r.name && lower.includes(r.name.toLowerCase())),
+  );
 }
 
 // ── Round 10: health + duplication rule catalogs ──────────────────────────────
@@ -93,29 +98,67 @@ export interface RuleGuide {
 }
 
 export const HEALTH_RULES: RuleDef[] = [
-  { id: 'health/cyclomatic', title: 'High Cyclomatic Complexity', description: 'Function has too many independent execution paths', docs: 'https://en.wikipedia.org/wiki/Cyclomatic_complexity' },
-  { id: 'health/cognitive', title: 'High Cognitive Complexity', description: 'Function is hard to understand for human readers', docs: 'https://www.sonarsource.com/docs/CognitiveComplexity.pdf' },
-  { id: 'health/crap', title: 'High CRAP Score', description: 'Function has high complexity and low test coverage', docs: '' },
-  { id: 'health/maintainability', title: 'Low Maintainability Index', description: 'File has a low maintainability index score', docs: '' },
-  { id: 'health/large-function', title: 'Large Function', description: 'Function exceeds the maximum allowed lines of code', docs: '' },
+  {
+    id: 'health/cyclomatic',
+    title: 'High Cyclomatic Complexity',
+    description: 'Function has too many independent execution paths',
+    docs: 'https://en.wikipedia.org/wiki/Cyclomatic_complexity',
+  },
+  {
+    id: 'health/cognitive',
+    title: 'High Cognitive Complexity',
+    description: 'Function is hard to understand for human readers',
+    docs: 'https://www.sonarsource.com/docs/CognitiveComplexity.pdf',
+  },
+  {
+    id: 'health/crap',
+    title: 'High CRAP Score',
+    description: 'Function has high complexity and low test coverage',
+    docs: '',
+  },
+  {
+    id: 'health/maintainability',
+    title: 'Low Maintainability Index',
+    description: 'File has a low maintainability index score',
+    docs: '',
+  },
+  {
+    id: 'health/large-function',
+    title: 'Large Function',
+    description: 'Function exceeds the maximum allowed lines of code',
+    docs: '',
+  },
 ];
 
 export const DUPES_RULES: RuleDef[] = [
-  { id: 'duplication/clone', title: 'Code Duplication', description: 'Code block is duplicated across multiple files', docs: '' },
+  {
+    id: 'duplication/clone',
+    title: 'Code Duplication',
+    description: 'Code block is duplicated across multiple files',
+    docs: '',
+  },
 ];
 
 export function getRuleGuide(ruleId: string): RuleGuide | null {
   const guides: Record<string, RuleGuide> = {
     'health/cyclomatic': {
       rule: 'health/cyclomatic',
-      checklist: ['Extract complex conditionals into named predicates', 'Split large functions into smaller helpers', 'Use early returns to reduce nesting'],
+      checklist: [
+        'Extract complex conditionals into named predicates',
+        'Split large functions into smaller helpers',
+        'Use early returns to reduce nesting',
+      ],
       relatedRules: ['health/cognitive', 'health/crap'],
       antiPatterns: ['Deeply nested if/else chains', 'Long switch statements without extraction'],
       examples: ['Extract `isEligible()` from a 15-branch function'],
     },
     'health/crap': {
       rule: 'health/crap',
-      checklist: ['Add tests to increase coverage', 'Refactor to reduce cyclomatic complexity', 'Break into smaller testable units'],
+      checklist: [
+        'Add tests to increase coverage',
+        'Refactor to reduce cyclomatic complexity',
+        'Break into smaller testable units',
+      ],
       relatedRules: ['health/cyclomatic', 'health/cognitive'],
       antiPatterns: ['Complex functions with zero test coverage'],
       examples: [],
@@ -125,9 +168,15 @@ export function getRuleGuide(ruleId: string): RuleGuide | null {
 }
 
 export function healthMeta(): Record<string, unknown> {
-  return { version: 1, rules: HEALTH_RULES.map(r => ({ id: r.id, title: r.title, description: r.description })) };
+  return {
+    version: 1,
+    rules: HEALTH_RULES.map((r) => ({ id: r.id, title: r.title, description: r.description })),
+  };
 }
 
 export function dupesMeta(): Record<string, unknown> {
-  return { version: 1, rules: DUPES_RULES.map(r => ({ id: r.id, title: r.title, description: r.description })) };
+  return {
+    version: 1,
+    rules: DUPES_RULES.map((r) => ({ id: r.id, title: r.title, description: r.description })),
+  };
 }

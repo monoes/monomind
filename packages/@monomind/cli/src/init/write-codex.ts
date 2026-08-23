@@ -2,14 +2,52 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { CODEX_STATUS_LINE_ITEMS, generateCodexAgentsMd, generateCodexConfig, generateCodexStatusLineConfig } from './codex-generator.js';
+import {
+  CODEX_STATUS_LINE_ITEMS,
+  generateCodexAgentsMd,
+  generateCodexConfig,
+  generateCodexHookScript,
+  generateCodexHooksConfig,
+  generateCodexStatusLineConfig,
+} from './codex-generator.js';
 import { atomicWriteFile } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
 
-function mergeCodexConfig(existing: string, generated: string): string {
-  const section = generated.match(/^\[mcp_servers\.monomind\][\s\S]*$/m)?.[0] ?? '';
-  const statusLine = generateCodexStatusLineConfig().trimEnd();
+function mergeCodexHooks(existing: string): string {
+  const hooksConfig = generateCodexHooksConfig().trimEnd();
+  const hookBlock = /# monomind:start native-hooks[\s\S]*?# monomind:end native-hooks\n?/m;
   let mergedExisting = existing;
+  if (hookBlock.test(mergedExisting)) {
+    mergedExisting = mergedExisting.replace(hookBlock, `${hooksConfig}\n`);
+  } else {
+    mergedExisting = `${mergedExisting.trimEnd()}\n\n${hooksConfig}\n`;
+  }
+  if (!/^\[features\]\s*$/m.test(mergedExisting)) {
+    mergedExisting = `[features]\nhooks = true\n\n${mergedExisting}`;
+  } else if (!/^hooks\s*=\s*true\s*$/m.test(mergedExisting)) {
+    const featureLines = mergedExisting.split(/\r?\n/);
+    const featureStart = featureLines.findIndex((line) => /^\[features\]\s*$/.test(line));
+    let featureEnd = featureStart + 1;
+    while (featureEnd < featureLines.length && !/^\[/.test(featureLines[featureEnd])) featureEnd++;
+    featureLines.splice(featureEnd, 0, 'hooks = true');
+    mergedExisting = featureLines.join('\n');
+  }
+  return mergedExisting;
+}
+
+function mergeCodexConfig(existing: string, generated: string): string {
+  const generatedLines = generated.split(/\r?\n/);
+  const generatedStart = generatedLines.findIndex((line) =>
+    /^\[mcp_servers\.monomind\]\s*$/.test(line),
+  );
+  let generatedEnd = generatedStart + 1;
+  while (generatedEnd < generatedLines.length && !/^\[/.test(generatedLines[generatedEnd])) {
+    generatedEnd++;
+  }
+  const section =
+    generatedStart === -1 ? '' : generatedLines.slice(generatedStart, generatedEnd).join('\n');
+  const statusLine = generateCodexStatusLineConfig().trimEnd();
+  let mergedExisting = mergeCodexHooks(existing);
   if (!/^\s*status_line\s*=/m.test(existing)) {
     const tuiHeader = /^\[tui\]\s*$/m;
     if (tuiHeader.test(existing)) {
@@ -17,7 +55,11 @@ function mergeCodexConfig(existing: string, generated: string): string {
       const start = lines.findIndex((line) => /^\[tui\]\s*$/.test(line));
       let end = start + 1;
       while (end < lines.length && !/^\[\[?[^\]]+\]\]?\s*$/.test(lines[end])) end++;
-      lines.splice(end, 0, `status_line = [${CODEX_STATUS_LINE_ITEMS.map((item) => JSON.stringify(item)).join(', ')}]`);
+      lines.splice(
+        end,
+        0,
+        `status_line = [${CODEX_STATUS_LINE_ITEMS.map((item) => JSON.stringify(item)).join(', ')}]`,
+      );
       mergedExisting = lines.join('\n');
     } else {
       mergedExisting = `${existing.trimEnd()}\n\n${statusLine}\n`;
@@ -48,6 +90,16 @@ export async function writeCodexFiles(
   const codexDir = path.join(targetDir, '.codex');
   const configPath = path.join(codexDir, 'config.toml');
   fs.mkdirSync(codexDir, { recursive: true });
+  const hooksDir = path.join(codexDir, 'hooks');
+  const hookPath = path.join(hooksDir, 'monomind-hook.cjs');
+  fs.mkdirSync(hooksDir, { recursive: true });
+
+  if (!fs.existsSync(hookPath) || options.force) {
+    atomicWriteFile(hookPath, generateCodexHookScript());
+    result.created.files.push('.codex/hooks/monomind-hook.cjs');
+  } else {
+    result.skipped.push('.codex/hooks/monomind-hook.cjs');
+  }
 
   if (!fs.existsSync(configPath)) {
     atomicWriteFile(configPath, generateCodexConfig(options));
@@ -62,7 +114,14 @@ export async function writeCodexFiles(
       result.skipped.push('.codex/config.toml');
     }
   } else {
-    result.skipped.push('.codex/config.toml');
+    const current = fs.readFileSync(configPath, 'utf8');
+    const mergedHooks = mergeCodexHooks(current);
+    if (mergedHooks !== current) {
+      atomicWriteFile(configPath, mergedHooks);
+      result.updated.push('.codex/config.toml (native hooks)');
+    } else {
+      result.skipped.push('.codex/config.toml');
+    }
   }
 
   const agentsPath = path.join(targetDir, 'AGENTS.md');

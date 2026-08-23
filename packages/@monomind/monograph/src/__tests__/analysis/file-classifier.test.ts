@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { classifyFile, classifyContent } from '../../analysis/file-classifier.js';
+import { describe, expect, it } from 'vitest';
+import { classifyContent, classifyFile } from '../../analysis/file-classifier.js';
 
 describe('classifyFile', () => {
   it('classifies TypeScript as CODE', () => {

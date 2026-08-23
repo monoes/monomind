@@ -79,7 +79,7 @@ export function dependencyHealth(input: DependencyHealthInput): DependencyHealth
   const deadCodeRatio = clamp(deadNodeCount / n);
 
   // 3. Fan-out skew: coefficient of variation of out-degrees, normalised
-  const outDegree = new Map<string, number>(nodes.map(id => [id, 0]));
+  const outDegree = new Map<string, number>(nodes.map((id) => [id, 0]));
   for (const { sourceId } of edges) {
     outDegree.set(sourceId, (outDegree.get(sourceId) ?? 0) + 1);
   }
@@ -90,21 +90,20 @@ export function dependencyHealth(input: DependencyHealthInput): DependencyHealth
   const fanSkew = clamp(cv / 4);
 
   // 4. God-node concentration: max in-degree / total edges
-  const inDegree = new Map<string, number>(nodes.map(id => [id, 0]));
+  const inDegree = new Map<string, number>(nodes.map((id) => [id, 0]));
   for (const { targetId } of edges) {
     inDegree.set(targetId, (inDegree.get(targetId) ?? 0) + 1);
   }
   // Use reduce instead of spread to avoid RangeError on graphs with 65k+ nodes
-  const maxInDeg = inDegree.size > 0
-    ? [...inDegree.values()].reduce((a, b) => Math.max(a, b), 0)
-    : 0;
+  const maxInDeg =
+    inDegree.size > 0 ? [...inDegree.values()].reduce((a, b) => Math.max(a, b), 0) : 0;
   const godNodeConcentration = m > 0 ? clamp(maxInDeg / m) : 0;
 
   // Weighted composite penalty (weights sum to 1)
   const W_CYCLE = 0.35;
   const W_DEAD = 0.25;
-  const W_FAN = 0.20;
-  const W_GOD = 0.20;
+  const W_FAN = 0.2;
+  const W_GOD = 0.2;
 
   const penalty =
     W_CYCLE * cyclePenalty +
@@ -126,7 +125,8 @@ export function dependencyHealth(input: DependencyHealthInput): DependencyHealth
 export function formatDependencyHealth(result: DependencyHealthResult): string {
   const { score, details } = result;
   const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
-  const grade = score >= 0.9 ? 'Excellent' : score >= 0.75 ? 'Good' : score >= 0.5 ? 'Fair' : 'Poor';
+  const grade =
+    score >= 0.9 ? 'Excellent' : score >= 0.75 ? 'Good' : score >= 0.5 ? 'Fair' : 'Poor';
   const lines: string[] = [
     `Dependency health score: ${pct(score)} (${grade})`,
     `  Cycle penalty       : ${pct(details.cyclePenalty)}  (fraction of nodes in cycles; weight 35%)`,
@@ -138,9 +138,10 @@ export function formatDependencyHealth(result: DependencyHealthResult): string {
   if (details.cyclePenalty > 0.1) advice.push('reduce circular imports (cyclePenalty high)');
   if (details.deadCodeRatio > 0.1) advice.push('remove unreachable exports (deadCodeRatio high)');
   if (details.fanSkew > 0.25) advice.push('break up high-fan-out modules (fanSkew high)');
-  if (details.godNodeConcentration > 0.1) advice.push('distribute hub dependencies (godNodeConcentration high)');
+  if (details.godNodeConcentration > 0.1)
+    advice.push('distribute hub dependencies (godNodeConcentration high)');
   if (advice.length > 0) {
-    lines.push('  Recommendations: ' + advice.join('; '));
+    lines.push(`  Recommendations: ${advice.join('; ')}`);
   }
   return lines.join('\n');
 }

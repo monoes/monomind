@@ -9,9 +9,9 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { RankedResult } from './rrf.js';
 import { ftsSearch } from '../storage/fts-store.js';
 import { normalizeSearchTerm } from './diacritic.js';
+import type { RankedResult } from './rrf.js';
 
 export interface BM25QueryOptions {
   limit?: number;

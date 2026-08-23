@@ -10,12 +10,21 @@
  * `monomind crash-reporting disable`.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, closeSync, unlinkSync, statSync } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
-import { createHash } from 'crypto';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { redact } from '../utils/redaction.js';
 
 const execFileAsync = promisify(execFile);
@@ -32,7 +41,7 @@ const DEDUP_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 // legitimate holder never gets its lock stolen mid-operation.
 const LOCK_STALE_MS = 60 * 1000;
 const LOCK_WAIT_MS = 3 * 1000; // bounded poll for a concurrent holder to finish — closes the
-                                // near-simultaneous-crash race without blocking the handler for long
+// near-simultaneous-crash race without blocking the handler for long
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RATE_LIMIT_MAX_PER_REPO = 5; // circuit breaker independent of per-signature dedup
 
@@ -160,7 +169,9 @@ function checkLedger(ledger: Ledger, signature: string): LedgerEntry | null {
  * defeated by a crash message that varies every time (e.g. a hot-loop panic
  * with a different index/value in the message on every iteration). */
 function isRateLimited(ledger: Ledger, repo: string): boolean {
-  const recent = (ledger.filedAtByRepo[repo] ?? []).filter(t => Date.now() - t < RATE_LIMIT_WINDOW_MS);
+  const recent = (ledger.filedAtByRepo[repo] ?? []).filter(
+    (t) => Date.now() - t < RATE_LIMIT_WINDOW_MS,
+  );
   return recent.length >= RATE_LIMIT_MAX_PER_REPO;
 }
 
@@ -168,17 +179,25 @@ function isRateLimited(ledger: Ledger, repo: string): boolean {
  * `countsTowardRateLimit` is true — recognizing an already-filed upstream
  * issue isn't new noise on the repo and shouldn't consume the same budget
  * that's meant to cap genuinely new issue creation. */
-function recordFiled(ledger: Ledger, signature: string, repo: string, url: string, countsTowardRateLimit: boolean): void {
+function recordFiled(
+  ledger: Ledger,
+  signature: string,
+  repo: string,
+  url: string,
+  countsTowardRateLimit: boolean,
+): void {
   ledger.bySignature[signature] = { url, repo, reportedAt: Date.now() };
   if (countsTowardRateLimit) {
-    const recent = (ledger.filedAtByRepo[repo] ?? []).filter(t => Date.now() - t < RATE_LIMIT_WINDOW_MS);
+    const recent = (ledger.filedAtByRepo[repo] ?? []).filter(
+      (t) => Date.now() - t < RATE_LIMIT_WINDOW_MS,
+    );
     recent.push(Date.now());
     ledger.filedAtByRepo[repo] = recent;
   }
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Tries once to atomically create the lock file with an ownership token. */
@@ -260,11 +279,22 @@ async function findExistingUpstreamIssue(repo: string, title: string): Promise<s
     // GitHub's side, which just degrades to "no match found", not a security issue.
     const { stdout } = await execFileAsync(
       'gh',
-      ['issue', 'list', '-R', repo, '--search', `"${title}" in:title`, '--json', 'url,title', '--limit', '5'],
-      { timeout: 8000 }
+      [
+        'issue',
+        'list',
+        '-R',
+        repo,
+        '--search',
+        `"${title}" in:title`,
+        '--json',
+        'url,title',
+        '--limit',
+        '5',
+      ],
+      { timeout: 8000 },
     );
     const issues: Array<{ url: string; title: string }> = JSON.parse(stdout);
-    const match = issues.find(i => i.title === title);
+    const match = issues.find((i) => i.title === title);
     return match?.url ?? null;
   } catch {
     return null;
@@ -275,12 +305,17 @@ async function createIssueViaGh(repo: string, title: string, body: string): Prom
   const { stdout } = await execFileAsync(
     'gh',
     ['issue', 'create', '-R', repo, '--title', title, '--body', body],
-    { timeout: 15000 }
+    { timeout: 15000 },
   );
   return stdout.trim().split('\n').pop() ?? stdout.trim();
 }
 
-async function createIssueViaToken(repo: string, title: string, body: string, token: string): Promise<string> {
+async function createIssueViaToken(
+  repo: string,
+  title: string,
+  body: string,
+  token: string,
+): Promise<string> {
   const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
     method: 'POST',
     headers: {
@@ -300,7 +335,10 @@ async function createIssueViaToken(repo: string, title: string, body: string, to
 function saveLocally(repo: string, title: string, body: string): string {
   ensureStateDir();
   if (!existsSync(PENDING_DIR)) mkdirSync(PENDING_DIR, { recursive: true });
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .slice(0, 60);
   const path = join(PENDING_DIR, `${Date.now()}-${slug}.md`);
   writeFileSync(path, `# ${title}\n\nRepo: ${repo}\n\n${body}\n`, 'utf8');
   return path;
@@ -317,7 +355,10 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
   let lockToken: string | null = null;
   try {
     if (!isEnabled()) {
-      return { status: 'disabled', message: 'Crash reporting is disabled (monomind crash-reporting enable to turn back on).' };
+      return {
+        status: 'disabled',
+        message: 'Crash reporting is disabled (monomind crash-reporting enable to turn back on).',
+      };
     }
 
     const title = redact(input.title).slice(0, 250);
@@ -327,7 +368,10 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
     // itself embeds a varying value reopens the dedup-defeat bug this was
     // meant to fix.
     const signature = input.signature
-      ? createHash('sha1').update(`${input.repo}:${normalizeForSignature(redact(input.signature))}`).digest('hex').slice(0, 16)
+      ? createHash('sha1')
+          .update(`${input.repo}:${normalizeForSignature(redact(input.signature))}`)
+          .digest('hex')
+          .slice(0, 16)
       : computeSignature(input.repo, title);
 
     // Bounded wait — closes the near-simultaneous-crash race without ever
@@ -337,7 +381,11 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
     let ledger = loadLedger();
     const existing = checkLedger(ledger, signature);
     if (existing) {
-      return { status: 'duplicate', url: existing.url, message: `Already reported: ${existing.url}` };
+      return {
+        status: 'duplicate',
+        url: existing.url,
+        message: `Already reported: ${existing.url}`,
+      };
     }
 
     if (isRateLimited(ledger, input.repo)) {
@@ -353,7 +401,11 @@ export async function reportCrash(input: CrashReportInput): Promise<CrashReportR
       ledger = loadLedger();
       recordFiled(ledger, signature, input.repo, upstreamUrl, false);
       saveLedger(ledger);
-      return { status: 'duplicate', url: upstreamUrl, message: `Matching issue already exists upstream: ${upstreamUrl}` };
+      return {
+        status: 'duplicate',
+        url: upstreamUrl,
+        message: `Matching issue already exists upstream: ${upstreamUrl}`,
+      };
     }
 
     // Try gh CLI, then GITHUB_TOKEN, falling back to a local save on ANY

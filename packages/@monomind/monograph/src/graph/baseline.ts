@@ -1,16 +1,26 @@
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type Database from 'better-sqlite3';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { createHash } from 'crypto';
 
 function fingerprintFinding(type: string, ...parts: string[]): string {
-  return createHash('sha256').update([type, ...parts].join('::')).digest('hex').slice(0, 16);
+  return createHash('sha256')
+    .update([type, ...parts].join('::'))
+    .digest('hex')
+    .slice(0, 16);
 }
 
 export interface BaselineFinding {
   /** Stable identifier: e.g. "file:src/foo.ts:export:bar" or "community:12:orphan" */
   key: string;
-  type: 'unreachable_export' | 'isolated_node' | 'ambiguous_edge' | 'bridge_node' | 'surprise' | 'god_node' | 'other';
+  type:
+    | 'unreachable_export'
+    | 'isolated_node'
+    | 'ambiguous_edge'
+    | 'bridge_node'
+    | 'surprise'
+    | 'god_node'
+    | 'other';
   nodeId: string;
   nodeName: string;
   filePath: string | null;
@@ -73,17 +83,15 @@ export function compareWithBaseline(
 ): ComparedFinding[] {
   if (!baseline) {
     // No baseline — all findings are "introduced"
-    return currentFindings.map(f => ({ ...f, introduced: true }));
+    return currentFindings.map((f) => ({ ...f, introduced: true }));
   }
   // Primary: match by fingerprint (for baselines that have it)
   const baselineFingerprints = new Set(
-    baseline.findings
-      .filter(f => f.fingerprint)
-      .map(f => f.fingerprint as string),
+    baseline.findings.filter((f) => f.fingerprint).map((f) => f.fingerprint as string),
   );
   // Fallback: match by key (for old baselines without fingerprint)
-  const baselineKeys = new Set(baseline.findings.map(f => f.key));
-  return currentFindings.map(f => {
+  const baselineKeys = new Set(baseline.findings.map((f) => f.key));
+  return currentFindings.map((f) => {
     if (f.fingerprint && baselineFingerprints.size > 0) {
       return { ...f, introduced: !baselineFingerprints.has(f.fingerprint) };
     }
@@ -98,18 +106,26 @@ export function compareWithBaseline(
  */
 export function extractFindingsFromDb(
   db: Database.Database,
-  projectPath: string,
+  _projectPath: string,
 ): BaselineFinding[] {
   const findings: BaselineFinding[] = [];
 
   // Isolated nodes (no incoming or outgoing edges)
-  const isolated = db.prepare(`
+  const isolated = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path, n.start_line, n.label
     FROM nodes n
     WHERE NOT EXISTS (SELECT 1 FROM edges e WHERE e.source_id = n.id OR e.target_id = n.id)
     AND n.label IN ('Function', 'Class', 'Method', 'Interface', 'Variable', 'Module', 'File')
     LIMIT 500
-  `).all() as { id: string; name: string; file_path: string | null; start_line: number | null; label: string }[];
+  `)
+    .all() as {
+    id: string;
+    name: string;
+    file_path: string | null;
+    start_line: number | null;
+    label: string;
+  }[];
 
   for (const n of isolated) {
     findings.push({
@@ -125,7 +141,8 @@ export function extractFindingsFromDb(
   }
 
   // God nodes (degree > 50)
-  const gods = db.prepare(`
+  const gods = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path, n.start_line, d.deg as degree
     FROM nodes n
     JOIN (
@@ -139,7 +156,14 @@ export function extractFindingsFromDb(
       LIMIT 100
     ) d ON d.node_id = n.id
     ORDER BY d.deg DESC
-  `).all() as { id: string; name: string; file_path: string | null; start_line: number | null; degree: number }[];
+  `)
+    .all() as {
+    id: string;
+    name: string;
+    file_path: string | null;
+    start_line: number | null;
+    degree: number;
+  }[];
 
   for (const n of gods) {
     findings.push({
@@ -155,14 +179,24 @@ export function extractFindingsFromDb(
   }
 
   // Surprise edges: non-EXTRACTED confidence (cross-community low-confidence edges)
-  const surprises = db.prepare(`
+  const surprises = db
+    .prepare(`
     SELECT DISTINCT e.id as edge_id, e.source_id, e.target_id, e.confidence,
            n.name as src_name, n.file_path as src_file, n.start_line as src_line
     FROM edges e
     JOIN nodes n ON n.id = e.source_id
     WHERE e.confidence != 'EXTRACTED'
     LIMIT 200
-  `).all() as { edge_id: string; source_id: string; target_id: string; confidence: string; src_name: string; src_file: string | null; src_line: number | null }[];
+  `)
+    .all() as {
+    edge_id: string;
+    source_id: string;
+    target_id: string;
+    confidence: string;
+    src_name: string;
+    src_file: string | null;
+    src_line: number | null;
+  }[];
 
   for (const e of surprises) {
     findings.push({
@@ -179,7 +213,8 @@ export function extractFindingsFromDb(
 
   // Bridge nodes: nodes whose edges span 2+ distinct foreign communities.
   // Pre-aggregate cross-community counts per direction to avoid 4-way cross product.
-  const bridges = db.prepare(`
+  const bridges = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path, n.start_line
     FROM nodes n
     JOIN (
@@ -197,7 +232,8 @@ export function extractFindingsFromDb(
       HAVING cross_cnt >= 2
     ) b ON b.node_id = n.id
     LIMIT 100
-  `).all() as { id: string; name: string; file_path: string | null; start_line: number | null }[];
+  `)
+    .all() as { id: string; name: string; file_path: string | null; start_line: number | null }[];
 
   for (const n of bridges) {
     findings.push({
@@ -213,14 +249,16 @@ export function extractFindingsFromDb(
   }
 
   // Unreachable exports: exported nodes with no incoming edges
-  const unreachableExports = db.prepare(`
+  const unreachableExports = db
+    .prepare(`
     SELECT n.id, n.name, n.file_path, n.start_line
     FROM nodes n
     WHERE n.is_exported = 1
     AND n.label IN ('Function', 'Class', 'Method', 'Interface', 'Variable')
     AND NOT EXISTS (SELECT 1 FROM edges e WHERE e.target_id = n.id)
     LIMIT 300
-  `).all() as { id: string; name: string; file_path: string | null; start_line: number | null }[];
+  `)
+    .all() as { id: string; name: string; file_path: string | null; start_line: number | null }[];
 
   for (const n of unreachableExports) {
     findings.push({
@@ -236,14 +274,23 @@ export function extractFindingsFromDb(
   }
 
   // Ambiguous edges: edges with AMBIGUOUS confidence
-  const ambiguousEdges = db.prepare(`
+  const ambiguousEdges = db
+    .prepare(`
     SELECT DISTINCT e.id as edge_id, e.source_id, e.target_id,
            n.name as src_name, n.file_path as src_file, n.start_line as src_line
     FROM edges e
     JOIN nodes n ON n.id = e.source_id
     WHERE e.confidence = 'AMBIGUOUS'
     LIMIT 200
-  `).all() as { edge_id: string; source_id: string; target_id: string; src_name: string; src_file: string | null; src_line: number | null }[];
+  `)
+    .all() as {
+    edge_id: string;
+    source_id: string;
+    target_id: string;
+    src_name: string;
+    src_file: string | null;
+    src_line: number | null;
+  }[];
 
   for (const e of ambiguousEdges) {
     findings.push({
@@ -309,7 +356,7 @@ export interface BaselineVitals {
  */
 const METRIC_HIGHER_IS_BETTER: Record<string, boolean> = {
   nodeCount: true,
-  edgeCount: false,        // neutral; treated as stable unless large change
+  edgeCount: false, // neutral; treated as stable unless large change
   communityCount: true,
   godNodeCount: false,
   surpriseCount: false,
@@ -385,8 +432,8 @@ export function computeTrend(
 export function formatComparedFindings(findings: ComparedFinding[], showAll = false): string {
   if (findings.length === 0) return 'Baseline comparison: no findings.';
 
-  const newFindings = findings.filter(f => f.introduced);
-  const existing = findings.filter(f => !f.introduced);
+  const newFindings = findings.filter((f) => f.introduced);
+  const existing = findings.filter((f) => !f.introduced);
 
   const lines: string[] = [
     `Baseline comparison: ${findings.length} total finding(s) — ${newFindings.length} new, ${existing.length} known.`,
@@ -397,7 +444,9 @@ export function formatComparedFindings(findings: ComparedFinding[], showAll = fa
     lines.push(`New findings (${newFindings.length}):`);
     for (const f of newFindings) {
       const ref = f.filePath
-        ? f.startLine != null ? `${f.filePath}:${f.startLine}` : f.filePath
+        ? f.startLine != null
+          ? `${f.filePath}:${f.startLine}`
+          : f.filePath
         : f.nodeId;
       lines.push(`  [${f.type}]  ${f.nodeName}  ${ref}`);
     }
@@ -408,7 +457,9 @@ export function formatComparedFindings(findings: ComparedFinding[], showAll = fa
     lines.push(`Known findings (${existing.length}):`);
     for (const f of existing) {
       const ref = f.filePath
-        ? f.startLine != null ? `${f.filePath}:${f.startLine}` : f.filePath
+        ? f.startLine != null
+          ? `${f.filePath}:${f.startLine}`
+          : f.filePath
         : f.nodeId;
       lines.push(`  [${f.type}]  ${f.nodeName}  ${ref}`);
     }
@@ -420,13 +471,12 @@ export function formatComparedFindings(findings: ComparedFinding[], showAll = fa
 
 /** Format a TrendReport as structured text for LLM consumption. */
 export function formatTrendReport(report: TrendReport): string {
-  const lines: string[] = [
-    `Graph trend: ${report.overallDirection}`,
-    '',
-  ];
+  const lines: string[] = [`Graph trend: ${report.overallDirection}`, ''];
   for (const m of report.metrics) {
     const deltaStr = m.delta > 0 ? `+${m.delta}` : `${m.delta}`;
-    lines.push(`  ${m.symbol} ${m.metric}: ${m.previous} → ${m.current} (${deltaStr})  [${m.direction}]`);
+    lines.push(
+      `  ${m.symbol} ${m.metric}: ${m.previous} → ${m.current} (${deltaStr})  [${m.direction}]`,
+    );
   }
   return lines.join('\n');
 }

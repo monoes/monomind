@@ -34,9 +34,9 @@ export function collectGitPaths(root: string, since?: string): string[] {
     const output = execFileSync('git', args, { cwd: root, encoding: 'utf8' });
     return output
       .split('\n')
-      .map(l => l.trim())
-      .filter(l => l.length > 0)
-      .map(l => path.resolve(root, l));
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+      .map((l) => path.resolve(root, l));
   } catch {
     return [];
   }
@@ -56,8 +56,8 @@ export function filterResultsByChangedFiles<T extends { filePath: string }>(
   results: T[],
   changedFiles: string[],
 ): T[] {
-  const changedSet = new Set(changedFiles.map(f => path.normalize(f)));
-  return results.filter(r => changedSet.has(path.normalize(r.filePath)));
+  const changedSet = new Set(changedFiles.map((f) => path.normalize(f)));
+  return results.filter((r) => changedSet.has(path.normalize(r.filePath)));
 }
 
 export function getChangedFilesSince(root: string, since: string): string[] {

@@ -15,15 +15,13 @@
  * listener closure, so there is no unit to import. Like the cost-honesty
  * tests, these assertions run against the shipped source itself.
  */
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
 
-const SERVER = join(
-  process.cwd(),
-  'packages/@monomind/cli/src/ui/server.mjs',
-);
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const SERVER = join(process.cwd(), 'packages/@monomind/cli/src/ui/server.mjs');
 
 const src = readFileSync(SERVER, 'utf-8');
 

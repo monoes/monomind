@@ -3,7 +3,7 @@
  * Advanced argument parsing with validation and type coercion
  */
 
-import type { Command, CommandOption, ParsedFlags, CommandContext, MonomindConfig } from './types.js';
+import type { Command, CommandOption, ParsedFlags } from './types.js';
 
 export interface ParseResult {
   command: string[];
@@ -31,7 +31,7 @@ export class CommandParser {
     this.options = {
       stopAtFirstNonFlag: false,
       allowUnknownFlags: false,
-      ...options
+      ...options,
     };
 
     this.initializeGlobalOptions();
@@ -44,34 +44,34 @@ export class CommandParser {
         short: 'h',
         description: 'Show help information',
         type: 'boolean',
-        default: false
+        default: false,
       },
       {
         name: 'version',
         short: 'V',
         description: 'Show version number',
         type: 'boolean',
-        default: false
+        default: false,
       },
       {
         name: 'verbose',
         short: 'v',
         description: 'Enable verbose output',
         type: 'boolean',
-        default: false
+        default: false,
       },
       {
         name: 'quiet',
         short: 'Q',
         description: 'Suppress non-essential output',
         type: 'boolean',
-        default: false
+        default: false,
       },
       {
         name: 'config',
         short: 'c',
         description: 'Path to configuration file',
-        type: 'string'
+        type: 'string',
       },
       {
         name: 'format',
@@ -81,27 +81,27 @@ export class CommandParser {
         description: 'Output format (text, json, table)',
         type: 'string',
         default: 'text',
-        choices: ['text', 'json', 'table']
+        choices: ['text', 'json', 'table'],
       },
       {
         name: 'color',
         description: 'Enable colored output (use --no-color to disable)',
         type: 'boolean',
-        default: true
+        default: true,
       },
       {
         name: 'interactive',
         short: 'i',
         description: 'Enable interactive mode',
         type: 'boolean',
-        default: true
+        default: true,
       },
       {
         name: 'update',
         description: 'Check for updates on startup (use --no-update to disable)',
         type: 'boolean',
-        default: true
-      }
+        default: true,
+      },
     ];
   }
 
@@ -121,7 +121,7 @@ export class CommandParser {
   getAllCommands(): Command[] {
     // Return unique commands (filter out aliases)
     const seen = new Set<Command>();
-    return Array.from(this.commands.values()).filter(cmd => {
+    return Array.from(this.commands.values()).filter((cmd) => {
       if (seen.has(cmd)) return false;
       seen.add(cmd);
       return true;
@@ -135,8 +135,14 @@ export class CommandParser {
    * `valueOf`, `isPrototypeOf`, `propertyIsEnumerable`). All are rejected.
    */
   private static readonly RESERVED_FLAG_KEYS = new Set([
-    '__proto__', 'constructor', 'prototype',
-    'hasOwnProperty', 'toString', 'valueOf', 'isPrototypeOf', 'propertyIsEnumerable',
+    '__proto__',
+    'constructor',
+    'prototype',
+    'hasOwnProperty',
+    'toString',
+    'valueOf',
+    'isPrototypeOf',
+    'propertyIsEnumerable',
   ]);
 
   private setFlagSafe(flags: ParsedFlags, key: string, value: string | number | boolean): void {
@@ -152,7 +158,12 @@ export class CommandParser {
    * array on its second occurrence rather than silently dropping the first
    * value.
    */
-  private mergeParsedFlags(into: ParsedFlags, from: ParsedFlags, arrayFlags: Set<string>, booleanFlags?: Set<string>): void {
+  private mergeParsedFlags(
+    into: ParsedFlags,
+    from: ParsedFlags,
+    arrayFlags: Set<string>,
+    booleanFlags?: Set<string>,
+  ): void {
     for (const key of Object.keys(from)) {
       if (key === '_') {
         into._.push(...from._);
@@ -188,7 +199,7 @@ export class CommandParser {
       command: [],
       flags: { _: [] },
       positional: [],
-      raw: [...args]
+      raw: [...args],
     };
 
     // Pass 1: Identify the command and its subcommand chain (skip flags).
@@ -212,7 +223,9 @@ export class CommandParser {
         }
         continue;
       }
-      const next = resolvedCmd.subcommands?.find(sc => sc.name === arg || sc.aliases?.includes(arg));
+      const next = resolvedCmd.subcommands?.find(
+        (sc) => sc.name === arg || sc.aliases?.includes(arg),
+      );
       if (next) {
         resolvedCmd = next;
         scopeChain.push(next);
@@ -273,7 +286,9 @@ export class CommandParser {
         resolvedCmd = cmd;
         if (cmd?.subcommands && i + 1 < args.length) {
           const nextArg = args[i + 1];
-          const subCmd = cmd.subcommands.find(sc => sc.name === nextArg || sc.aliases?.includes(nextArg));
+          const subCmd = cmd.subcommands.find(
+            (sc) => sc.name === nextArg || sc.aliases?.includes(nextArg),
+          );
           if (subCmd) {
             result.command.push(nextArg);
             resolvedCmd = subCmd;
@@ -282,7 +297,9 @@ export class CommandParser {
             // Check for nested subcommand (level 2)
             if (subCmd.subcommands && i + 1 < args.length) {
               const nestedArg = args[i + 1];
-              const nestedCmd = subCmd.subcommands.find(sc => sc.name === nestedArg || sc.aliases?.includes(nestedArg));
+              const nestedCmd = subCmd.subcommands.find(
+                (sc) => sc.name === nestedArg || sc.aliases?.includes(nestedArg),
+              );
               if (nestedCmd) {
                 result.command.push(nestedArg);
                 resolvedCmd = nestedCmd;
@@ -291,7 +308,9 @@ export class CommandParser {
                 // Check for deeply nested subcommand (level 3)
                 if (nestedCmd.subcommands && i + 1 < args.length) {
                   const deepArg = args[i + 1];
-                  const deepCmd = nestedCmd.subcommands.find(sc => sc.name === deepArg || sc.aliases?.includes(deepArg));
+                  const deepCmd = nestedCmd.subcommands.find(
+                    (sc) => sc.name === deepArg || sc.aliases?.includes(deepArg),
+                  );
                   if (deepCmd) {
                     result.command.push(deepArg);
                     resolvedCmd = deepCmd;
@@ -338,7 +357,7 @@ export class CommandParser {
    * Convert a camelCase key to kebab-case (inverse of normalizeKey).
    */
   private camelToKebab(key: string): string {
-    return key.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
+    return key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
   }
 
   /**
@@ -351,12 +370,20 @@ export class CommandParser {
       if (key === '_' || CommandParser.RESERVED_FLAG_KEYS.has(key)) continue;
 
       const camelKey = this.normalizeKey(key);
-      if (camelKey !== key && flags[camelKey] === undefined && !CommandParser.RESERVED_FLAG_KEYS.has(camelKey)) {
+      if (
+        camelKey !== key &&
+        flags[camelKey] === undefined &&
+        !CommandParser.RESERVED_FLAG_KEYS.has(camelKey)
+      ) {
         flags[camelKey] = flags[key];
       }
 
       const kebabKey = this.camelToKebab(key);
-      if (kebabKey !== key && flags[kebabKey] === undefined && !CommandParser.RESERVED_FLAG_KEYS.has(kebabKey)) {
+      if (
+        kebabKey !== key &&
+        flags[kebabKey] === undefined &&
+        !CommandParser.RESERVED_FLAG_KEYS.has(kebabKey)
+      ) {
         flags[kebabKey] = flags[key];
       }
     }
@@ -378,7 +405,7 @@ export class CommandParser {
     args: string[],
     index: number,
     aliases: Record<string, string>,
-    booleanFlags: Set<string>
+    booleanFlags: Set<string>,
   ): { flags: ParsedFlags; nextIndex: number } {
     const flags: ParsedFlags = { _: [] };
     const arg = args[index];
@@ -406,7 +433,7 @@ export class CommandParser {
         } else {
           // Record under the prefixed name so it surfaces as unknown rather
           // than silently downgrading any flag the user happens to spell.
-          this.setFlagSafe(flags, this.normalizeKey('no-' + key), true);
+          this.setFlagSafe(flags, this.normalizeKey(`no-${key}`), true);
         }
       } else {
         const key = arg.slice(2);
@@ -468,7 +495,10 @@ export class CommandParser {
     // downstream consumers strict-equal-compared against stored strings.
     if (value.trim() !== '' && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(value)) {
       const num = Number(value);
-      if (Number.isFinite(num) && Number.isSafeInteger(num) || (!Number.isInteger(num) && Number.isFinite(num))) {
+      if (
+        (Number.isFinite(num) && Number.isSafeInteger(num)) ||
+        (!Number.isInteger(num) && Number.isFinite(num))
+      ) {
         return num;
       }
     }
@@ -680,7 +710,9 @@ export class CommandParser {
       if (opt.choices && flags[key] !== undefined) {
         const value = String(flags[key]);
         if (!opt.choices.includes(value)) {
-          errors.push(`Invalid value for --${opt.name}: ${value}. Must be one of: ${opt.choices.join(', ')}`);
+          errors.push(
+            `Invalid value for --${opt.name}: ${value}. Must be one of: ${opt.choices.join(', ')}`,
+          );
         }
       }
 

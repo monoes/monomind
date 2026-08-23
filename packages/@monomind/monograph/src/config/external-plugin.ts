@@ -1,8 +1,8 @@
 // Loads and discovers external monograph plugins from node_modules.
 // External plugins declare entry points and used exports to suppress false positives.
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 export type EntryPointRole = 'productionSource' | 'testSource' | 'entryPoint' | 'configFile';
 
@@ -53,14 +53,16 @@ export function discoverExternalPlugins(root: string): ExternalPluginDef[] {
 
       const m = manifest as Record<string, unknown>;
       plugins.push({
-        name: (pkg['name'] as string | undefined) ?? entry.name,
-        version: (pkg['version'] as string | undefined) ?? '0.0.0',
-        entryPoints: (m['entryPoints'] as ExternalEntryPoint[] | undefined) ?? [],
-        usedExports: (m['usedExports'] as ExternalUsedExport[] | undefined) ?? [],
-        suppressPatterns: (m['suppressPatterns'] as string[] | undefined) ?? [],
+        name: (pkg.name as string | undefined) ?? entry.name,
+        version: (pkg.version as string | undefined) ?? '0.0.0',
+        entryPoints: (m.entryPoints as ExternalEntryPoint[] | undefined) ?? [],
+        usedExports: (m.usedExports as ExternalUsedExport[] | undefined) ?? [],
+        suppressPatterns: (m.suppressPatterns as string[] | undefined) ?? [],
       });
     }
-  } catch { /* skip */ }
+  } catch {
+    /* skip */
+  }
 
   return plugins;
 }
@@ -70,7 +72,10 @@ export function mergePluginSuppressPatterns(plugins: ExternalPluginDef[]): strin
   const result: string[] = [];
   for (const p of plugins) {
     for (const pat of p.suppressPatterns) {
-      if (!seen.has(pat)) { seen.add(pat); result.push(pat); }
+      if (!seen.has(pat)) {
+        seen.add(pat);
+        result.push(pat);
+      }
     }
   }
   return result;

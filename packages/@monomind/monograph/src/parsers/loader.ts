@@ -1,9 +1,9 @@
 import Parser from 'tree-sitter';
+import type { MonographEdge, MonographNode, NodeLabel } from '../types.js';
+import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
-import { LANGUAGE_EXTENSIONS, extractSymbolsForLanguage } from './language-parsers.js';
 import type { SymbolExtract } from './language-parsers.js';
-import { makeId, toNormLabel, CONFIDENCE_SCORE } from '../types.js';
-import type { MonographNode, MonographEdge, NodeLabel } from '../types.js';
+import { extractSymbolsForLanguage, LANGUAGE_EXTENSIONS } from './language-parsers.js';
 
 const parserCache = new Map<string, Parser>();
 const configCache = new Map<string, LanguageConfig>();
@@ -104,7 +104,10 @@ export async function getParser(
     // Grammar unavailable at runtime (ABI mismatch, native build failure, etc.).
     // Record why so callers can report a diagnostic instead of silently
     // returning 0 nodes.
-    loadErrors.set(ext, `${config.treeSitterModule ?? config.name}: ${err instanceof Error ? err.message : err}`);
+    loadErrors.set(
+      ext,
+      `${config.treeSitterModule ?? config.name}: ${err instanceof Error ? err.message : err}`,
+    );
     return null;
   }
 }
@@ -228,7 +231,11 @@ export async function parseFile(
         result.parseErrors.push(`${message} — fell back to regex extraction`);
         return result;
       } catch (err) {
-        return { nodes: [], edges: [], parseErrors: [message, `${repoRelativePath}: regex fallback also failed: ${err}`] };
+        return {
+          nodes: [],
+          edges: [],
+          parseErrors: [message, `${repoRelativePath}: regex fallback also failed: ${err}`],
+        };
       }
     }
 

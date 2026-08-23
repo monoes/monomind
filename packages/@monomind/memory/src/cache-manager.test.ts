@@ -5,7 +5,7 @@
  * TTL expiration, and stats accuracy.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { CacheManager } from './cache-manager.js';
 import type { MemoryEntry } from './types.js';
 
@@ -113,7 +113,7 @@ describe('CacheManager', () => {
     it('tracks hit rate correctly', () => {
       const cache = new CacheManager<MemoryEntry>({ maxSize: 10, ttl: 60_000 });
       cache.set('k', makeEntry('k'));
-      cache.get('k');   // hit
+      cache.get('k'); // hit
       cache.get('miss'); // miss
 
       const stats = cache.getStats();

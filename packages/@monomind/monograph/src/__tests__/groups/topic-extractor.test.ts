@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { extractTopicContracts } from '../../groups/topic-extractor.js';
 
 const KAFKA_PRODUCER_TS = `
@@ -20,20 +20,20 @@ channel.bindQueue(q.queue, 'inventory.exchange', 'product.#');
 describe('extractTopicContracts', () => {
   it('detects Kafka producer topics', () => {
     const result = extractTopicContracts(KAFKA_PRODUCER_TS, '/producer.ts');
-    const topics = result.filter(c => c.role === 'producer').map(c => c.topicName);
+    const topics = result.filter((c) => c.role === 'producer').map((c) => c.topicName);
     expect(topics).toContain('order.created');
     expect(topics).toContain('payment.processed');
   });
 
   it('detects Kafka consumer topics', () => {
     const result = extractTopicContracts(KAFKA_CONSUMER_TS, '/consumer.ts');
-    const topics = result.filter(c => c.role === 'consumer').map(c => c.topicName);
+    const topics = result.filter((c) => c.role === 'consumer').map((c) => c.topicName);
     expect(topics).toContain('order.created');
   });
 
   it('detects RabbitMQ exchange/routing key patterns', () => {
     const result = extractTopicContracts(RABBITMQ_TS, '/rabbit.ts');
-    expect(result.some(c => c.topicName.includes('inventory'))).toBe(true);
+    expect(result.some((c) => c.topicName.includes('inventory'))).toBe(true);
   });
 
   it('returns empty for unrelated source', () => {

@@ -1,6 +1,6 @@
-import Database from 'better-sqlite3';
-import type { MonographNode, NodeLabel } from '../types.js';
+import type Database from 'better-sqlite3';
 import type { MonographDb } from '../storage/db.js';
+import type { MonographNode, NodeLabel } from '../types.js';
 
 // ── Node property search options ───────────────────────────────────────────────
 
@@ -58,11 +58,7 @@ function rowToNode(r: {
 // WeakMap ensures the cache is garbage-collected when the DB object is released.
 const stmtCache = new WeakMap<object, Map<string, Database.Statement>>();
 
-function getCachedStmt(
-  db: MonographDb,
-  key: string,
-  buildSql: () => string,
-): Database.Statement {
+function getCachedStmt(db: MonographDb, key: string, buildSql: () => string): Database.Statement {
   let dbCache = stmtCache.get(db);
   if (!dbCache) {
     dbCache = new Map();
@@ -111,13 +107,13 @@ export function searchNodesByProperty(
     const ext = options.fileExtension.startsWith('.')
       ? options.fileExtension
       : `.${options.fileExtension}`;
-    conditions.push("file_path LIKE ?");
+    conditions.push('file_path LIKE ?');
     params.push(`%${ext}`);
     fingerprint.push('ext');
   }
 
   if (options.filePath !== undefined) {
-    conditions.push("LOWER(file_path) LIKE LOWER(?)");
+    conditions.push('LOWER(file_path) LIKE LOWER(?)');
     params.push(`%${options.filePath}%`);
     fingerprint.push('fp');
   }
@@ -165,32 +161,32 @@ export function searchNodesInMemory(
   let result = nodes;
 
   if (options.label) {
-    result = result.filter(n => n.label === options.label);
+    result = result.filter((n) => n.label === options.label);
   }
 
   if (options.language) {
     const lang = options.language.toLowerCase();
-    result = result.filter(n => n.language?.toLowerCase() === lang);
+    result = result.filter((n) => n.language?.toLowerCase() === lang);
   }
 
   if (options.fileExtension !== undefined) {
     const ext = options.fileExtension.startsWith('.')
       ? options.fileExtension.toLowerCase()
       : `.${options.fileExtension.toLowerCase()}`;
-    result = result.filter(n => n.filePath?.toLowerCase().endsWith(ext));
+    result = result.filter((n) => n.filePath?.toLowerCase().endsWith(ext));
   }
 
   if (options.filePath !== undefined) {
     const fp = options.filePath.toLowerCase();
-    result = result.filter(n => n.filePath?.toLowerCase().includes(fp));
+    result = result.filter((n) => n.filePath?.toLowerCase().includes(fp));
   }
 
   if (options.isExported !== undefined) {
-    result = result.filter(n => n.isExported === options.isExported);
+    result = result.filter((n) => n.isExported === options.isExported);
   }
 
   if (options.communityId !== undefined) {
-    result = result.filter(n => n.communityId === options.communityId);
+    result = result.filter((n) => n.communityId === options.communityId);
   }
 
   if (options.limit !== undefined) {

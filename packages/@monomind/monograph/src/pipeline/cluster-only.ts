@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
+import louvain from 'graphology-communities-louvain';
 import { loadGraphFromDb } from '../graph/loader.js';
 import { leiden } from './phases/leiden.js';
-import louvain from 'graphology-communities-louvain';
 
 export interface ClusterOnlyResult {
   communityCount: number;

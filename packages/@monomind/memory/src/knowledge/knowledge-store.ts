@@ -7,11 +7,15 @@
  * @module @monomind/memory/knowledge/knowledge-store
  */
 
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
+import {
+  rewriteJsonl,
+  appendJsonl as sharedAppendJsonl,
+  readJsonl as sharedReadJsonl,
+} from '../utils/jsonl-store.js';
 import { chunkDocument, type TextChunk } from './document-chunker.js';
-import { appendJsonl as sharedAppendJsonl, readJsonl as sharedReadJsonl, rewriteJsonl } from '../utils/jsonl-store.js';
 
 /** Metadata record persisted in metadata.jsonl */
 export interface MetadataRecord {
@@ -124,9 +128,7 @@ export class KnowledgeStore {
    * Read all chunk records for a given namespace.
    */
   getChunks(namespace: string): ChunkRecord[] {
-    return this.readJsonl<ChunkRecord>(this.chunksPath()).filter(
-      (r) => r.namespace === namespace,
-    );
+    return this.readJsonl<ChunkRecord>(this.chunksPath()).filter((r) => r.namespace === namespace);
   }
 
   // ── private helpers ──────────────────────────────────────────────

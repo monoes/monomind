@@ -244,9 +244,9 @@ html, body {
 .dp-agent { display: inline-block; font-size: 8px; padding: 2px 7px; border-radius: 10px; margin: 2px 3px 2px 0; border: 1px solid oklch(62% 0.2 186 / 0.3); color: oklch(55% 0.09 186); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
   }
 }
 </style>
@@ -478,7 +478,7 @@ function buildNodeEl(n) {
     g.appendChild(mkN('circle',{r:'20',fill:'#08061a',stroke:n.color,'stroke-width':'1.8',filter:'url(#glow)'}));
     const emj=mkN('text',{x:'0',y:'5','text-anchor':'middle','font-size':'12'});
     emj.textContent=n.emoji||'◈'; g.appendChild(emj);
-    const sl=n.label.length>11?n.label.slice(0,10)+'…':n.label;
+    const sl=n.label.length>11?`${n.label.slice(0,10)}…`:n.label;
     const lbl=mkN('text',{x:'0',y:'31','text-anchor':'middle','font-size':'6',fill:n.color,'letter-spacing':'0.6',
       'font-family':"'Azeret Mono','Space Mono',monospace"});
     lbl.textContent=sl; g.appendChild(lbl);
@@ -509,7 +509,7 @@ function buildEdgeEl(e) {
   if (isIC&&e.msg) {
     const txt=mkN('text',{'font-size':'6.5',fill:a.color,
       'font-family':"'Azeret Mono','Space Mono',monospace",'letter-spacing':'0.4',opacity:'0.8'});
-    txt.textContent=e.msg.length>24?e.msg.slice(0,23)+'…':e.msg;
+    txt.textContent=e.msg.length>24?`${e.msg.slice(0,23)}…`:e.msg;
     g.appendChild(txt); e.msgEl=txt;
   }
   edgesG.insertBefore(g,edgesG.firstChild);
@@ -616,7 +616,7 @@ function gAddEdge({id,fromId,toId,type,msg}) {
 function gComplete(id) {
   const cn = nodes.get(id); if (cn) cn.done = true;
   const n=nodes.get(id);
-  if (!n||!n.el) return;
+  if (!n?.el) return;
   n.state='complete';
   const circ=n.el.querySelector('circle[r="30"]')||n.el.querySelector('circle');
   if (circ) gsap.to(circ,{attr:{stroke:'#fbbf24'},duration:0.3,yoyo:true,repeat:2,
@@ -630,7 +630,7 @@ function gClear() {
 }
 function pulseRoot() {
   const n=nodes.get(rootId);
-  if (!n||!n.el) return;
+  if (!n?.el) return;
   const c=n.el.querySelector('circle[r="38"]');
   if (c) gsap.to(c,{attr:{'stroke-width':6},duration:0.25,yoyo:true,repeat:1});
 }
@@ -655,7 +655,7 @@ function buildMovieTl(sessionData) {
   gClear();
   document.getElementById('log-entries').innerHTML='';
   document.getElementById('p-text').textContent='';
-  const evts=[...(sessionData&&sessionData.events?sessionData.events:[])].sort((a,b)=>(a.ts||0)-(b.ts||0));
+  const evts=[...(sessionData?.events?sessionData.events:[])].sort((a,b)=>(a.ts||0)-(b.ts||0));
   const tl=gsap.timeline({paused:true,defaults:{ease:'power2.out'}});
   if (!evts.length) {
     tl.add(()=>addLog('[DEMO]','Select a session from the sidebar','#00E5C8'),0.2);
@@ -669,7 +669,7 @@ function buildMovieTl(sessionData) {
   return tl;
 }
 
-function toggleMovieMode(sessionData) {
+function _toggleMovieMode(sessionData) {
   isMovieMode=!isMovieMode;
   const btn=document.getElementById('sb-movie-btn');
   const banner=document.getElementById('mode-banner');
@@ -688,15 +688,15 @@ function toggleMovieMode(sessionData) {
       gClear(); document.getElementById('log-entries').innerHTML='';
       movieTl=buildMovieTl(sessionData); movieTl.play();
     };
-    document.getElementById('spd').onchange=e=>movieTl&&movieTl.timeScale(Number(e.target.value));
+    document.getElementById('spd').onchange=e=>movieTl?.timeScale(Number(e.target.value));
     let scrubbing=false;
-    scrubEl.addEventListener('mousedown',()=>{scrubbing=true;movieTl&&movieTl.pause();});
+    scrubEl.addEventListener('mousedown',()=>{scrubbing=true;movieTl?.pause();});
     scrubEl.addEventListener('mouseup',()=>{scrubbing=false;});
-    scrubEl.addEventListener('input',()=>{if(movieTl)movieTl.progress(Number(scrubEl.value)/100);tDisp.textContent=(movieTl?movieTl.time():0).toFixed(1)+'s';});
+    scrubEl.addEventListener('input',()=>{if(movieTl)movieTl.progress(Number(scrubEl.value)/100);tDisp.textContent=`${(movieTl?movieTl.time():0).toFixed(1)}s`;});
     gsap.ticker.add(()=>{
       if (!scrubbing&&movieTl&&movieTl.totalDuration()>0) {
         scrubEl.value=movieTl.progress()*100;
-        tDisp.textContent=movieTl.time().toFixed(1)+'s';
+        tDisp.textContent=`${movieTl.time().toFixed(1)}s`;
       }
     });
     gsap.to('#ctrl',{opacity:1,duration:0.35});
@@ -771,9 +771,9 @@ function handleLiveEvent(ev) {
 
 // ── Session graph replay ───────────────────────────────────────────────
 function replaySessionGraph(events) {
-  if (!events || !events.length) return;
+  if (!events?.length) return;
   gClear();
-  let skipRefresh = true;
+  const _skipRefresh = true;
   const origRefresh = window.refreshSessions;
   window.refreshSessions = () => {};  // suppress during replay
   events.forEach((ev, idx) => handleGraphEvent({...ev, _replayIdx: idx}));
@@ -809,7 +809,7 @@ let currentSessionId = null;
 
 let activeProjectFilter = '';
 
-function applyProjectFilter(val) {
+function _applyProjectFilter(val) {
   activeProjectFilter = val;
   refreshSessions();
 }
@@ -839,7 +839,7 @@ async function refreshSessions() {
 function renderSessions(sessions) {
   const wrap = document.getElementById('sb-sessions');
   const noSess = document.getElementById('sb-no-sessions');
-  if (!sessions || !sessions.length) {
+  if (!sessions?.length) {
     if (noSess) noSess.style.display = 'block';
     const items = wrap.querySelectorAll('.sess-item');
     items.forEach(i => i.remove());
@@ -850,10 +850,10 @@ function renderSessions(sessions) {
   wrap.querySelectorAll('.sess-item').forEach(el => el.remove());
   sessions.forEach(s => {
     const item = document.createElement('div');
-    item.className = 'sess-item' + (s.status === 'running' ? ' running' : '') + (s.id === currentSessionId ? ' active' : '');
+    item.className = `sess-item${s.status === 'running' ? ' running' : ''}${s.id === currentSessionId ? ' active' : ''}`;
     const ts = new Date(s.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     const date = new Date(s.ts).toLocaleDateString([], {month:'short',day:'numeric'});
-    const elapsed = s.endTs ? ((s.endTs - s.ts)/1000).toFixed(0)+'s' : (s.status==='running'?'RUNNING…':'?');
+    const elapsed = s.endTs ? `${((s.endTs - s.ts)/1000).toFixed(0)}s` : (s.status==='running'?'RUNNING…':'?');
     const projName = s.project ? s.project.split('/').pop() : '';
     item.innerHTML = `
       ${projName ? `<div class="sess-project">◈ ${projName}</div>` : ''}
@@ -878,13 +878,13 @@ function renderSessions(sessions) {
 }
 
 // ── Detail panel ───────────────────────────────────────────────────────────────
-function openDomainDetail(d) {
+function _openDomainDetail(d) {
   const panel = document.getElementById('detail-panel');
   document.getElementById('dp-emoji').textContent = d.emoji || '◈';
   document.getElementById('dp-title').textContent = `DOMAIN · ${d.label}`;
   const body = document.getElementById('dp-body');
   // Gather events from current session for this domain
-  const sessEvts = (currentSessionObj && currentSessionObj.events) ? currentSessionObj.events : [];
+  const sessEvts = (currentSessionObj?.events) ? currentSessionObj.events : [];
   const domEvts = sessEvts.filter(e => e.domain === d.domain || e.domain === (d.label||'').toLowerCase());
   const spawnEvts = domEvts.filter(e => e.type === 'agent:spawn');
   const artifacts = domEvts.flatMap(e => e.artifacts || []);
@@ -907,7 +907,7 @@ function openDomainDetail(d) {
     ${spawnEvts.length > 0 ? `
     <div class="dp-section">
       <div class="dp-section-title">TASKS</div>
-      ${spawnEvts.map(e => `<div class="dp-event" style="color:#506080;font-size:8px;white-space:normal;word-break:break-word;line-height:1.5">${e.agent ? '<b>'+e.agent+'</b>: ' : ''}${(e.task||'').slice(0,120)}</div>`).join('')}
+      ${spawnEvts.map(e => `<div class="dp-event" style="color:#506080;font-size:8px;white-space:normal;word-break:break-word;line-height:1.5">${e.agent ? `<b>${e.agent}</b>: ` : ''}${(e.task||'').slice(0,120)}</div>`).join('')}
     </div>` : ''}
     ${artifacts.length > 0 ? `
     <div class="dp-section">
@@ -919,7 +919,7 @@ function openDomainDetail(d) {
       <div class="dp-section-title">RECENT EVENTS</div>
       ${domEvts.slice(-8).map(e => {
         const ts = new Date(e.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-        return `<div class="dp-event"><span class="ev-ts">${ts}</span> <span class="ev-type" style="color:${d.color}">${e.type}</span>${e.cmd?' '+e.cmd:e.agent?' '+e.agent:''}</div>`;
+        return `<div class="dp-event"><span class="ev-ts">${ts}</span> <span class="ev-type" style="color:${d.color}">${e.type}</span>${e.cmd?` ${e.cmd}`:e.agent?` ${e.agent}`:''}</div>`;
       }).join('')}
     </div>` : ''}
   `;
@@ -938,7 +938,7 @@ async function openSessionDetail(s) {
     const full = await res.json();
     if (!full) { body.innerHTML = '<div style="color:#303060;font-size:9px">Session not found.</div>'; return; }
     const ts = new Date(full.ts).toLocaleString();
-    const elapsed = full.endTs ? ((full.endTs - full.ts)/1000).toFixed(1)+'s' : 'running';
+    const elapsed = full.endTs ? `${((full.endTs - full.ts)/1000).toFixed(1)}s` : 'running';
     const evts = full.events || [];
     const domainSet = full.domains || [];
     body.innerHTML = `
@@ -975,10 +975,10 @@ async function openSessionDetail(s) {
           else if (e.type === 'intercom') detail = `<span style="color:#506070;font-size:8px">${e.from||'?'} → ${e.to||'?'}: ${e.msg||''}</span>`;
           else if (e.type === 'domain:complete') {
             const arts = (e.artifacts||[]).map(a=>`<span style="color:#407050;font-size:7px">📄 ${a}</span>`).join(' ');
-            detail = `<span style="color:#406050;font-size:8px">status: ${e.status||'?'}</span>${arts?' '+arts:''}`;
+            detail = `<span style="color:#406050;font-size:8px">status: ${e.status||'?'}</span>${arts?` ${arts}`:''}`;
           }
           else if (e.type === 'session:complete') detail = `<span style="color:#405080;font-size:8px">domains: ${(e.domains||[]).join(', ')}</span>`;
-          return `<div class="dp-event" style="flex-direction:column;align-items:flex-start;gap:1px"><div><span class="ev-ts">${et}</span> <span class="ev-type" style="color:${color}">${e.type}</span>${e.domain?' <span style="color:#404060;font-size:8px">['+e.domain+']</span>':''}</div>${detail?'<div style="padding-left:4px">'+detail+'</div>':''}</div>`;
+          return `<div class="dp-event" style="flex-direction:column;align-items:flex-start;gap:1px"><div><span class="ev-ts">${et}</span> <span class="ev-type" style="color:${color}">${e.type}</span>${e.domain?` <span style="color:#404060;font-size:8px">[${e.domain}]</span>`:''}</div>${detail?`<div style="padding-left:4px">${detail}</div>`:''}</div>`;
         }).join('')}
       </div>
       <div class="dp-section">
@@ -994,13 +994,13 @@ async function openSessionDetail(s) {
   }
 }
 
-function closeDetail() {
+function _closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
   currentSessionId = null;
   document.querySelectorAll('.sess-item').forEach(x=>x.classList.remove('active'));
 }
 
-async function downloadSession(id) {
+async function _downloadSession(id) {
   const res = await fetch(`/api/mastermind/session/${id}`);
   const data = await res.json();
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
@@ -1022,7 +1022,7 @@ async function pollStatus() {
     dot.classList.toggle('on', active);
     document.getElementById('l-status').textContent = active ? 'LIVE' : 'IDLE';
     const n = data?.swarm?.state?.agentPlan?.length || 0;
-    document.getElementById('l-agents').textContent = n + ' agent' + (n!==1?'s':'');
+    document.getElementById('l-agents').textContent = `${n} agent${n!==1?'s':''}`;
     // Highlight last routed domain
     const route = data?.hooks?.lastRoute || '';
     if (route && !isMovieMode) {

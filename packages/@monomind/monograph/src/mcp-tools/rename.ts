@@ -1,7 +1,7 @@
-import { readFileSync, statSync } from 'fs';
+import { readFileSync, statSync } from 'node:fs';
 import type Database from 'better-sqlite3';
-import type { MonographNode } from '../types.js';
 import { rowToNode } from '../storage/node-store.js';
+import type { MonographNode } from '../types.js';
 
 // ── Output type ────────────────────────────────────────────────────────────────
 

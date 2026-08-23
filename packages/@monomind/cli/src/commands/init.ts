@@ -3,29 +3,29 @@
  * Comprehensive initialization for Monomind with Claude Code integration
  */
 
-import type { Command, CommandContext, CommandResult } from '../types.js';
-import { output } from '../output.js';
-import { confirm } from '../prompt.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
-  executeInit,
   DEFAULT_INIT_OPTIONS,
-  MINIMAL_INIT_OPTIONS,
+  executeInit,
   FULL_INIT_OPTIONS,
   type InitOptions,
+  MINIMAL_INIT_OPTIONS,
 } from '../init/index.js';
-import { wizardCommand } from './init-wizard.js';
-import { upgradeCommand } from './init-upgrade.js';
-import { checkCommand, skillsCommand, hooksCommand } from './init-subcommands.js';
+import { ingestDirectory } from '../knowledge/document-pipeline.js';
 import { initializeMemoryDatabase } from '../memory/memory-initializer.js';
+import { output } from '../output.js';
+import { confirm } from '../prompt.js';
 import {
-  EMBEDDING_MODEL_SIZE_LABEL,
   downloadEmbeddingModel,
+  EMBEDDING_MODEL_SIZE_LABEL,
   embeddingDownloadDecision,
   isEmbeddingModelCached,
 } from '../routing/model-download.js';
-import { ingestDirectory } from '../knowledge/document-pipeline.js';
+import type { Command, CommandContext, CommandResult } from '../types.js';
+import { checkCommand, hooksCommand, skillsCommand } from './init-subcommands.js';
+import { upgradeCommand } from './init-upgrade.js';
+import { wizardCommand } from './init-wizard.js';
 
 function isInitialized(cwd: string): { claude: boolean; monomind: boolean } {
   const claudePath = path.join(cwd, '.claude', 'settings.json');
@@ -55,7 +55,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     if (initialized.monomind) output.printInfo('  Found: .monomind/config.yaml');
     output.printInfo('Use --force to reinitialize');
 
-    const yes = ctx.flags.yes as boolean || process.env.CI === 'true';
+    const yes = (ctx.flags.yes as boolean) || process.env.CI === 'true';
     if (ctx.interactive && !yes) {
       const proceed = await confirm({
         message: 'Do you want to reinitialize? This will overwrite existing configuration.',
@@ -66,7 +66,11 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         return { success: true, message: 'Initialization cancelled' };
       }
     } else if (!yes) {
-      return { success: false, exitCode: 1, message: 'Already initialized. Use --force or --yes to reinitialize.' };
+      return {
+        success: false,
+        exitCode: 1,
+        message: 'Already initialized. Use --force or --yes to reinitialize.',
+      };
     }
   }
 
@@ -77,21 +81,42 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   let options: InitOptions;
 
   if (minimal) {
-    options = { ...MINIMAL_INIT_OPTIONS, targetDir: cwd, force, components: { ...MINIMAL_INIT_OPTIONS.components } };
+    options = {
+      ...MINIMAL_INIT_OPTIONS,
+      targetDir: cwd,
+      force,
+      components: { ...MINIMAL_INIT_OPTIONS.components },
+    };
   } else if (full) {
-    options = { ...FULL_INIT_OPTIONS, targetDir: cwd, force, components: { ...FULL_INIT_OPTIONS.components } };
+    options = {
+      ...FULL_INIT_OPTIONS,
+      targetDir: cwd,
+      force,
+      components: { ...FULL_INIT_OPTIONS.components },
+    };
   } else {
-    options = { ...DEFAULT_INIT_OPTIONS, targetDir: cwd, force, components: { ...DEFAULT_INIT_OPTIONS.components } };
+    options = {
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: cwd,
+      force,
+      components: { ...DEFAULT_INIT_OPTIONS.components },
+    };
   }
 
-  const legacyTargets = ['opencode', 'kimicode', 'codex'].filter((name) => ctx.flags[name] === true);
-  const target = requestedTarget || (onlyClaude ? 'claude' : legacyTargets.length === 1 ? legacyTargets[0] : 'all');
+  const legacyTargets = ['opencode', 'kimicode', 'codex'].filter(
+    (name) => ctx.flags[name] === true,
+  );
+  const target =
+    requestedTarget ||
+    (onlyClaude ? 'claude' : legacyTargets.length === 1 ? legacyTargets[0] : 'all');
   const validTargets = new Set(['all', 'claude', 'antigravity', 'opencode', 'kimicode', 'codex']);
   if (!validTargets.has(target)) {
     return { success: false, exitCode: 1, message: `Unknown init target: ${target}` };
   }
 
-  const selectedTargets = new Set(target === 'all' ? [...validTargets].filter((name) => name !== 'all') : [target]);
+  const selectedTargets = new Set(
+    target === 'all' ? [...validTargets].filter((name) => name !== 'all') : [target],
+  );
   options.components.antigravity = selectedTargets.has('antigravity');
   options.components.opencode = selectedTargets.has('opencode');
   options.components.kimicode = selectedTargets.has('kimicode');
@@ -152,7 +177,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       const { writeSampleOrg } = await import('../init/write-sample-org.js');
       writeSampleOrg(options.targetDir);
     } catch (e) {
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) console.error('[init] sample org emit failed:', e);
+      if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
+        console.error('[init] sample org emit failed:', e);
     }
 
     // Start monograph watch for ongoing file-change rebuilds, unless --no-watch was passed.
@@ -168,9 +194,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // started anyway. The legacy `no-watch`/`noWatch` keys are still honoured
     // for programmatic callers that set ctx.flags directly.
     const noWatch =
-      ctx.flags.watch === false ||
-      ctx.flags['no-watch'] === true ||
-      ctx.flags.noWatch === true;
+      ctx.flags.watch === false || ctx.flags['no-watch'] === true || ctx.flags.noWatch === true;
 
     // A background watcher is an INTERACTIVE convenience: it exists so a
     // developer's next `monograph query` sees fresh data. Started from a
@@ -204,13 +228,18 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     if (!noWatch && !skipNonInteractive) {
       try {
-        const { spawn } = await import('child_process');
+        const { spawn } = await import('node:child_process');
         const pidFile = path.join(ctx.cwd, '.monomind', 'monograph.watch.pid');
         let alreadyRunning = false;
         if (fs.existsSync(pidFile) && fs.statSync(pidFile).size <= 32) {
           const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
-          if (!isNaN(existingPid)) {
-            try { process.kill(existingPid, 0); alreadyRunning = true; } catch { /* process gone */ }
+          if (!Number.isNaN(existingPid)) {
+            try {
+              process.kill(existingPid, 0);
+              alreadyRunning = true;
+            } catch {
+              /* process gone */
+            }
           }
         }
         if (!alreadyRunning) {
@@ -253,22 +282,36 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     output.printBox(summary.join('\n'), 'Summary');
     output.writeln();
 
-    if (options.components.claudeMd || options.components.settings || options.components.skills || options.components.commands || options.components.agents) {
+    if (
+      options.components.claudeMd ||
+      options.components.settings ||
+      options.components.skills ||
+      options.components.commands ||
+      options.components.agents
+    ) {
       output.printBox(
         [
           options.components.claudeMd ? `CLAUDE.md:   Swarm guidance & configuration` : '',
           options.components.settings ? `Settings:    .claude/settings.json` : '',
-          options.components.skills ? `Skills:      .claude/skills/, .gemini/skills/, .agents/skills/ (${result.summary.skillsCount} skills)` : '',
-          options.components.commands ? `Commands:    .claude/commands/ (${result.summary.commandsCount} commands)` : '',
-          options.components.agents ? `Agents:      .claude/agents/ (${result.summary.agentsCount} agents)` : '',
+          options.components.skills
+            ? `Skills:      .claude/skills/, .gemini/skills/, .agents/skills/ (${result.summary.skillsCount} skills)`
+            : '',
+          options.components.commands
+            ? `Commands:    .claude/commands/ (${result.summary.commandsCount} commands)`
+            : '',
+          options.components.agents
+            ? `Agents:      .claude/agents/ (${result.summary.agentsCount} agents)`
+            : '',
           options.components.helpers ? `Helpers:     .claude/helpers/` : '',
           options.components.mcp ? `MCP:         .mcp.json` : '',
           options.components.antigravity ? `Antigravity: GEMINI.md + .gemini/` : '',
           options.components.opencode ? `OpenCode:    opencode.json + .opencode/` : '',
           options.components.kimicode ? `Kimi Code:   .kimi-code/` : '',
           options.components.codex ? `Codex:       .codex/config.toml + AGENTS.md` : '',
-        ].filter(Boolean).join('\n'),
-        'Coding System Integrations'
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        'Coding System Integrations',
       );
       output.writeln();
     }
@@ -281,7 +324,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
           `Logs:        .monomind/logs/`,
           `Sessions:    .monomind/sessions/`,
         ].join('\n'),
-        'v1 Runtime'
+        'v1 Runtime',
       );
       output.writeln();
     }
@@ -298,7 +341,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.writeln();
       output.printInfo('Starting services...');
 
-      const { execSync } = await import('child_process');
+      const { execSync } = await import('node:child_process');
 
       if (startAll) {
         // In-process, not a subprocess: `npx @monomind/cli@latest memory init`
@@ -309,14 +352,22 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         // function `monomind memory init` itself calls, run directly.
         try {
           output.writeln(output.dim('  Initializing memory database...'));
-          const memResult = await initializeMemoryDatabase({ dbPath: path.join(ctx.cwd, '.swarm', 'memory.db') });
+          const memResult = await initializeMemoryDatabase({
+            dbPath: path.join(ctx.cwd, '.swarm', 'memory.db'),
+          });
           if (memResult.success) {
             output.writeln(output.success('  ✓ Memory initialized'));
           } else {
-            output.writeln(output.dim(`  Memory database init skipped (${memResult.error || 'unknown reason'})`));
+            output.writeln(
+              output.dim(`  Memory database init skipped (${memResult.error || 'unknown reason'})`),
+            );
           }
         } catch (e) {
-          output.writeln(output.dim(`  Memory database init skipped (${e instanceof Error ? e.message : String(e)})`));
+          output.writeln(
+            output.dim(
+              `  Memory database init skipped (${e instanceof Error ? e.message : String(e)})`,
+            ),
+          );
         }
       }
 
@@ -326,7 +377,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
           execSync('npx monomind@latest swarm init --topology hierarchical', {
             stdio: 'pipe',
             cwd: ctx.cwd,
-            timeout: 30000
+            timeout: 30000,
           });
           output.writeln(output.success('  ✓ Swarm initialized'));
         } catch {
@@ -343,7 +394,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         try {
           output.writeln(output.dim('  Seeding worker metrics...'));
           const hooksMod = await import('@monoes/hooks').catch(() => null);
-          if (hooksMod && hooksMod.createWorkerManager) {
+          if (hooksMod?.createWorkerManager) {
             const manager = hooksMod.createWorkerManager(ctx.cwd);
             await manager.ensureMetricsDir();
             const seeded: string[] = [];
@@ -351,7 +402,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
               try {
                 const r = await manager.runWorker(workerName);
                 if (r.success) seeded.push(workerName);
-              } catch { /* best-effort — doctor will report if this stays missing */ }
+              } catch {
+                /* best-effort — doctor will report if this stays missing */
+              }
             }
             if (seeded.length > 0) {
               output.writeln(output.success(`  ✓ Worker metrics seeded (${seeded.join(', ')})`));
@@ -359,10 +412,16 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
               output.writeln(output.dim('  Worker metrics seeding skipped'));
             }
           } else {
-            output.writeln(output.dim('  Worker metrics seeding skipped (@monoes/hooks unavailable)'));
+            output.writeln(
+              output.dim('  Worker metrics seeding skipped (@monoes/hooks unavailable)'),
+            );
           }
         } catch (e) {
-          output.writeln(output.dim(`  Worker metrics seeding skipped (${e instanceof Error ? e.message : String(e)})`));
+          output.writeln(
+            output.dim(
+              `  Worker metrics seeding skipped (${e instanceof Error ? e.message : String(e)})`,
+            ),
+          );
         }
       }
 
@@ -371,7 +430,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
 
     const withEmbeddings = ctx.flags['with-embeddings'] || ctx.flags.withEmbeddings;
-    const embeddingModel = (ctx.flags['embedding-model'] || ctx.flags.embeddingModel || 'Xenova/all-MiniLM-L6-v2') as string;
+    const embeddingModel = (ctx.flags['embedding-model'] ||
+      ctx.flags.embeddingModel ||
+      'Xenova/all-MiniLM-L6-v2') as string;
 
     if (withEmbeddings) {
       output.writeln();
@@ -379,20 +440,36 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
       const ALLOWED_MODELS = /^[\w\-./]+$/;
       if (!ALLOWED_MODELS.test(embeddingModel)) {
-        output.writeln(output.error('Invalid model identifier. Only alphanumeric characters, hyphens, dots, and slashes are allowed.'));
+        output.writeln(
+          output.error(
+            'Invalid model identifier. Only alphanumeric characters, hyphens, dots, and slashes are allowed.',
+          ),
+        );
         return { success: false, exitCode: 1 };
       }
 
-      const { execFileSync } = await import('child_process');
+      const { execFileSync } = await import('node:child_process');
 
       try {
         output.writeln(output.dim(`  Model: ${embeddingModel}`));
         output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
-        execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['monomind@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
-          stdio: 'pipe',
-          cwd: ctx.cwd,
-          timeout: 30000
-        });
+        execFileSync(
+          process.platform === 'win32' ? 'npx.cmd' : 'npx',
+          [
+            'monomind@latest',
+            'embeddings',
+            'init',
+            '--model',
+            embeddingModel,
+            '--no-download',
+            '--force',
+          ],
+          {
+            stdio: 'pipe',
+            cwd: ctx.cwd,
+            timeout: 30000,
+          },
+        );
         output.writeln(output.success('  ✓ Embeddings initialized'));
         output.writeln(output.dim('    Run "embeddings init --download" to download model'));
       } catch {
@@ -414,7 +491,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     if (embeddingDecision === 'non-interactive') {
       output.printInfo(
         '◈ Semantic-routing embedding model not downloaded (non-interactive run) — ' +
-        'run `monomind download-embeddings` later to enable semantic routing',
+          'run `monomind download-embeddings` later to enable semantic routing',
       );
     } else if (embeddingDecision === 'prompt') {
       output.writeln();
@@ -429,13 +506,13 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         } catch (e) {
           output.printWarning(
             `  Embedding model download failed (${e instanceof Error ? e.message : String(e)}) — ` +
-            'semantic routing will use keyword fallback. Retry with `monomind download-embeddings`.',
+              'semantic routing will use keyword fallback. Retry with `monomind download-embeddings`.',
           );
         }
       } else {
         output.printInfo(
           '  Skipped — semantic routing falls back to keyword mode. ' +
-          'Download later with `monomind download-embeddings`.',
+            'Download later with `monomind download-embeddings`.',
         );
       }
     }
@@ -458,15 +535,21 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
             },
           });
           if (batchResult.filesProcessed > 0) {
-            docSpinner.succeed(`${batchResult.filesProcessed} document${batchResult.filesProcessed === 1 ? '' : 's'} ingested (${batchResult.totalChunks} chunks)`);
+            docSpinner.succeed(
+              `${batchResult.filesProcessed} document${batchResult.filesProcessed === 1 ? '' : 's'} ingested (${batchResult.totalChunks} chunks)`,
+            );
           } else {
             docSpinner.succeed('No supported documents found');
           }
           if (batchResult.errors.length > 0) {
-            output.writeln(output.dim(`  ${batchResult.errors.length} file(s) skipped due to errors`));
+            output.writeln(
+              output.dim(`  ${batchResult.errors.length} file(s) skipped due to errors`),
+            );
           }
         } catch (e) {
-          docSpinner.fail(`Document ingestion failed: ${e instanceof Error ? e.message : String(e)}`);
+          docSpinner.fail(
+            `Document ingestion failed: ${e instanceof Error ? e.message : String(e)}`,
+          );
         }
         output.writeln();
       }
@@ -474,12 +557,16 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     if (!startAll) {
       output.writeln(output.bold('Next steps:'));
-      output.printList([
-        `Run ${output.highlight('monomind memory init')} to initialize memory database`,
-        `Run ${output.highlight('monomind swarm init')} to initialize a swarm`,
-        `Services auto-start by default; use ${output.highlight('--no-start-all')} to skip`,
-        options.components.settings ? `Review ${output.highlight('.claude/settings.json')} for hook configurations` : '',
-      ].filter(Boolean));
+      output.printList(
+        [
+          `Run ${output.highlight('monomind memory init')} to initialize memory database`,
+          `Run ${output.highlight('monomind swarm init')} to initialize a swarm`,
+          `Services auto-start by default; use ${output.highlight('--no-start-all')} to skip`,
+          options.components.settings
+            ? `Review ${output.highlight('.claude/settings.json')} for hook configurations`
+            : '',
+        ].filter(Boolean),
+      );
     }
 
     output.writeln('');
@@ -487,14 +574,20 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln(output.bold('  Next steps'));
     output.writeln('');
     output.writeln('  1. Register the MCP server with Claude Code:');
-    output.writeln(`     ${output.highlight('claude mcp add monomind -- npx -y monomind@latest mcp start')}`);
+    output.writeln(
+      `     ${output.highlight('claude mcp add monomind -- npx -y monomind@latest mcp start')}`,
+    );
     output.writeln('');
     output.writeln(`  2. Verify the install worked:`);
     output.writeln(`     ${output.highlight('monomind mcp verify')}`);
     output.writeln('');
     output.writeln('  3. Open Claude Code and type:');
-    output.writeln(`     ${output.highlight('/mastermind:help')}   ${output.dim('# see all available slash commands')}`);
-    output.writeln(`     ${output.highlight('/mastermind:understand')}   ${output.dim('# analyze your project with an LLM')}`);
+    output.writeln(
+      `     ${output.highlight('/mastermind:help')}   ${output.dim('# see all available slash commands')}`,
+    );
+    output.writeln(
+      `     ${output.highlight('/mastermind:understand')}   ${output.dim('# analyze your project with an LLM')}`,
+    );
     output.writeln('');
     output.writeln(output.dim('  The /mastermind:* slash commands are the primary way to use'));
     output.writeln(output.dim('  monomind from inside Claude Code. They become available once'));
@@ -508,7 +601,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     return { success: true, data: result };
   } catch (error) {
     spinner.fail('Initialization failed');
-    output.printError(`Failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
+    output.printError(
+      `Failed to initialize: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return { success: false, exitCode: 1 };
   }
 };
@@ -516,15 +611,25 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 // Quickstart subcommand (P1-15) — one-command setup: init + claude mcp add + verify
 const quickstartCommand: Command = {
   name: 'quickstart',
-  description: 'One-command setup: init with defaults + register MCP + verify. Fastest path to first payoff.',
+  description:
+    'One-command setup: init with defaults + register MCP + verify. Fastest path to first payoff.',
   options: [
-    { name: 'force', short: 'f', description: 'Overwrite existing configuration', type: 'boolean', default: false },
+    {
+      name: 'force',
+      short: 'f',
+      description: 'Overwrite existing configuration',
+      type: 'boolean',
+      default: false,
+    },
   ],
   examples: [
-    { command: 'monomind init quickstart', description: 'Set up everything with sensible defaults' },
+    {
+      command: 'monomind init quickstart',
+      description: 'Set up everything with sensible defaults',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const { execSync } = await import('child_process');
+    const { execSync } = await import('node:child_process');
     output.writeln();
     output.writeln(output.bold('Monomind Quickstart'));
     output.writeln(output.dim('  Running init with defaults, registering MCP, and verifying.'));
@@ -537,7 +642,9 @@ const quickstartCommand: Command = {
       if (ctx.flags.force) initArgs.push('--force');
       initArgs.push('--yes');
       execSync(`node "${process.argv[1]}" ${initArgs.join(' ')}`, {
-        cwd: ctx.cwd, stdio: 'inherit', timeout: 120000,
+        cwd: ctx.cwd,
+        stdio: 'inherit',
+        timeout: 120000,
       });
     } catch {
       output.printWarning('Init step completed with warnings — continuing.');
@@ -548,7 +655,9 @@ const quickstartCommand: Command = {
     output.writeln(output.bold('Step 2/3: Register MCP server'));
     try {
       execSync('claude mcp add monomind -- npx -y monomind@latest mcp start', {
-        cwd: ctx.cwd, stdio: 'pipe', timeout: 10000,
+        cwd: ctx.cwd,
+        stdio: 'pipe',
+        timeout: 10000,
       });
       output.printSuccess('MCP server registered with Claude Code');
     } catch {
@@ -561,7 +670,9 @@ const quickstartCommand: Command = {
     output.writeln(output.bold('Step 3/3: Verify install'));
     try {
       execSync(`node "${process.argv[1]}" mcp verify`, {
-        cwd: ctx.cwd, stdio: 'inherit', timeout: 15000,
+        cwd: ctx.cwd,
+        stdio: 'inherit',
+        timeout: 15000,
       });
     } catch {
       output.printWarning('Verify step found issues — see above.');
@@ -578,13 +689,20 @@ const quickstartCommand: Command = {
     output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
 
     return { success: true, message: 'quickstart complete' };
-  }
+  },
 };
 
 export const initCommand: Command = {
   name: 'init',
   description: 'Initialize MonoMind in the current directory',
-  subcommands: [wizardCommand, checkCommand, skillsCommand, hooksCommand, upgradeCommand, quickstartCommand],
+  subcommands: [
+    wizardCommand,
+    checkCommand,
+    skillsCommand,
+    hooksCommand,
+    upgradeCommand,
+    quickstartCommand,
+  ],
   options: [
     {
       name: 'force',
@@ -627,7 +745,8 @@ export const initCommand: Command = {
     },
     {
       name: 'no-install',
-      description: 'Skip the post-init `doctor --install` pass, which may otherwise run a global `npm install -g @anthropic-ai/claude-code`',
+      description:
+        'Skip the post-init `doctor --install` pass, which may otherwise run a global `npm install -g @anthropic-ai/claude-code`',
       type: 'boolean',
       default: false,
     },
@@ -691,7 +810,10 @@ export const initCommand: Command = {
   ],
   examples: [
     { command: 'monomind init', description: 'Initialize with default configuration' },
-    { command: 'monomind init --no-start-all', description: 'Initialize without auto-starting services' },
+    {
+      command: 'monomind init --no-start-all',
+      description: 'Initialize without auto-starting services',
+    },
     { command: 'monomind init --minimal', description: 'Initialize with minimal configuration' },
     { command: 'monomind init --full', description: 'Initialize with all components' },
     { command: 'monomind init --force', description: 'Reinitialize and overwrite existing config' },
@@ -700,16 +822,28 @@ export const initCommand: Command = {
     { command: 'monomind init --opencode', description: 'Initialize only OpenCode' },
     { command: 'monomind init --kimicode', description: 'Initialize only Kimi Code' },
     { command: 'monomind init --codex', description: 'Initialize only Codex' },
-    { command: 'monomind init --target all', description: 'Initialize every supported coding system' },
+    {
+      command: 'monomind init --target all',
+      description: 'Initialize every supported coding system',
+    },
     { command: 'monomind init --target codex', description: 'Initialize only Codex' },
     { command: 'monomind init wizard', description: 'Interactive setup wizard' },
-    { command: 'monomind init --no-watch', description: 'Initialize without starting the background graph watcher' },
+    {
+      command: 'monomind init --no-watch',
+      description: 'Initialize without starting the background graph watcher',
+    },
     { command: 'monomind init --with-embeddings', description: 'Initialize with ONNX embeddings' },
-    { command: 'monomind init --with-embeddings --embedding-model Xenova/all-mpnet-base-v2', description: 'Use larger embedding model' },
+    {
+      command: 'monomind init --with-embeddings --embedding-model Xenova/all-mpnet-base-v2',
+      description: 'Use larger embedding model',
+    },
     { command: 'monomind init skills --all', description: 'Install all available skills' },
     { command: 'monomind init hooks --minimal', description: 'Create minimal hooks configuration' },
     { command: 'monomind init upgrade', description: 'Update helpers while preserving data' },
-    { command: 'monomind init upgrade --settings', description: 'Update helpers and merge new settings (Agent Teams)' },
+    {
+      command: 'monomind init upgrade --settings',
+      description: 'Update helpers and merge new settings (Agent Teams)',
+    },
     { command: 'monomind init upgrade --verbose', description: 'Show detailed upgrade info' },
   ],
   action: initAction,
