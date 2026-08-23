@@ -901,6 +901,11 @@ class Quantizer {
    * Encode a vector using quantization
    */
   encode(vector: Float32Array): Float32Array {
+    if (vector.length !== this.dimensions) {
+      throw new Error(
+        `Vector dimension mismatch: expected ${this.dimensions}, got ${vector.length}`,
+      );
+    }
     switch (this.config.type) {
       case 'binary':
         return this.binaryQuantize(vector);
