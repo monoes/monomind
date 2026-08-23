@@ -14,7 +14,7 @@ import { createSamplingManager, type LLMProvider, type SamplingManager } from '.
 import { createSessionManager, type SessionManager } from './session-manager.js';
 import { createTaskManager, type TaskManager } from './task-manager.js';
 import { createToolRegistry, type ToolRegistry } from './tool-registry.js';
-import { createTransport, createTransportManager } from './transport/index.js';
+import { createTransport } from './transport/index.js';
 import type {
   ILogger,
   ITransport,
@@ -144,7 +144,6 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       maxConcurrentTasks: 10,
       taskTimeout: 300000,
     });
-    this.transportManager = createTransportManager(logger);
     this.rateLimiter = createRateLimiter(logger, {
       requestsPerSecond: 100,
       burstSize: 200,

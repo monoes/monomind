@@ -138,7 +138,7 @@ export class OAuthManager extends EventEmitter {
    * Generate authorization URL for OAuth flow
    */
   createAuthorizationRequest(): AuthorizationRequest {
-    const state = this.config.stateGenerator?.();
+    const state = this.config.stateGenerator?.() ?? this.generateRandomString(32);
     let codeVerifier: string | undefined;
     let codeChallenge: string | undefined;
 
