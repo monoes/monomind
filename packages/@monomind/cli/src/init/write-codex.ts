@@ -16,9 +16,12 @@ import type { InitOptions, InitResult } from './types.js';
 function mergeCodexHooks(existing: string): string {
   const hooksConfig = generateCodexHooksConfig().trimEnd();
   const hookBlock = /# monomind:start native-hooks[\s\S]*?# monomind:end native-hooks\n?/m;
+  const incompleteHookBlock = /# monomind:start native-hooks[\s\S]*$/m;
   let mergedExisting = existing;
   if (hookBlock.test(mergedExisting)) {
     mergedExisting = mergedExisting.replace(hookBlock, `${hooksConfig}\n`);
+  } else if (incompleteHookBlock.test(mergedExisting)) {
+    mergedExisting = mergedExisting.replace(incompleteHookBlock, `${hooksConfig}\n`);
   } else {
     mergedExisting = `${mergedExisting.trimEnd()}\n\n${hooksConfig}\n`;
   }
@@ -48,10 +51,10 @@ function mergeCodexConfig(existing: string, generated: string): string {
     generatedStart === -1 ? '' : generatedLines.slice(generatedStart, generatedEnd).join('\n');
   const statusLine = generateCodexStatusLineConfig().trimEnd();
   let mergedExisting = mergeCodexHooks(existing);
-  if (!/^\s*status_line\s*=/m.test(existing)) {
+  if (!/^\s*status_line\s*=/m.test(mergedExisting)) {
     const tuiHeader = /^\[tui\]\s*$/m;
-    if (tuiHeader.test(existing)) {
-      const lines = existing.split(/\r?\n/);
+    if (tuiHeader.test(mergedExisting)) {
+      const lines = mergedExisting.split(/\r?\n/);
       const start = lines.findIndex((line) => /^\[tui\]\s*$/.test(line));
       let end = start + 1;
       while (end < lines.length && !/^\[\[?[^\]]+\]\]?\s*$/.test(lines[end])) end++;
@@ -62,7 +65,7 @@ function mergeCodexConfig(existing: string, generated: string): string {
       );
       mergedExisting = lines.join('\n');
     } else {
-      mergedExisting = `${existing.trimEnd()}\n\n${statusLine}\n`;
+      mergedExisting = `${mergedExisting.trimEnd()}\n\n${statusLine}\n`;
     }
   }
   if (!section) return mergedExisting;
