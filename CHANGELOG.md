@@ -4,6 +4,20 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.9.27] — 2026-08-24
+
+### Added
+
+- Evidence-gated platform adapters for all supported coding runtimes, with
+  scoped plan/install/upgrade/uninstall operations, a read-only doctor, MCP
+  diagnostics, portable Mastermind workflow routing, and generated
+  compatibility documentation.
+
+### Changed
+
+- Deprecated platforms setup; it no longer installs SessionStart prompt
+  injection or global plugin artifacts.
+
 ## [2.9.25] — 2026-08-23
 
 ### Fixed

@@ -15,6 +15,8 @@ import {
 import { ingestDirectory } from '../knowledge/document-pipeline.js';
 import { initializeMemoryDatabase } from '../memory/memory-initializer.js';
 import { output } from '../output.js';
+import { resolvePlatformId } from '../platform-adapters/registry.js';
+import type { PlatformId } from '../platform-adapters/types.js';
 import { confirm } from '../prompt.js';
 import {
   downloadEmbeddingModel,
@@ -43,6 +45,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const skipClaude = ctx.flags['skip-claude'] as boolean;
   const onlyClaude = ctx.flags['only-claude'] as boolean;
   const requestedTarget = ctx.flags.target as string | undefined;
+  const requestedPlatforms = ctx.flags.platform as string | undefined;
+  const enablePlatformHooks = ctx.flags['enable-hooks'] === true;
   const noInstall = (ctx.flags['no-install'] || ctx.flags.noInstall) as boolean;
   const cwd = ctx.cwd;
 
@@ -117,6 +121,49 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const selectedTargets = new Set(
     target === 'all' ? [...validTargets].filter((name) => name !== 'all') : [target],
   );
+  let selectedPlatforms: PlatformId[];
+  if (requestedPlatforms) {
+    const requested = requestedPlatforms.split(',');
+    const parsed = requested
+      .map((value) => resolvePlatformId(value))
+      .filter((value): value is PlatformId => value !== undefined);
+    if (parsed.length === 0 || parsed.length !== requested.length) {
+      return {
+        success: false,
+        exitCode: 1,
+        message: `Unknown init platform: ${requestedPlatforms}`,
+      };
+    }
+    selectedPlatforms = [...new Set(parsed)];
+    selectedTargets.clear();
+    if (selectedPlatforms.includes('claude')) selectedTargets.add('claude');
+    if (selectedPlatforms.includes('antigravity')) selectedTargets.add('antigravity');
+    if (selectedPlatforms.includes('opencode')) selectedTargets.add('opencode');
+    if (selectedPlatforms.includes('kimi')) selectedTargets.add('kimicode');
+    if (selectedPlatforms.includes('codex')) selectedTargets.add('codex');
+  } else {
+    const legacyToPlatform: Record<string, PlatformId> = {
+      claude: 'claude',
+      antigravity: 'antigravity',
+      opencode: 'opencode',
+      kimicode: 'kimi',
+      codex: 'codex',
+    };
+    selectedPlatforms = [...selectedTargets]
+      .map((legacy) => legacyToPlatform[legacy])
+      .filter((value): value is PlatformId => value !== undefined);
+  }
+
+  // `--skip-claude` has always meant "leave Claude project artifacts out".
+  // It must not erase an explicitly selected non-Claude adapter (the previous
+  // component-only implementation silently did exactly that). Keep the
+  // legacy target set and adapter selection in lockstep.
+  if (skipClaude) {
+    selectedTargets.delete('claude');
+    selectedPlatforms = selectedPlatforms.filter((platform) => platform !== 'claude');
+  }
+  options.selectedPlatforms = selectedPlatforms;
+  options.enablePlatformHooks = enablePlatformHooks;
   options.components.antigravity = selectedTargets.has('antigravity');
   options.components.opencode = selectedTargets.has('opencode');
   options.components.kimicode = selectedTargets.has('kimicode');
@@ -140,10 +187,6 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     options.components.statusline = false;
     options.components.mcp = false;
     options.components.claudeMd = false;
-    options.components.antigravity = false;
-    options.components.opencode = false;
-    options.components.kimicode = false;
-    options.components.codex = false;
   }
 
   if (onlyClaude) {
@@ -758,6 +801,17 @@ export const initCommand: Command = {
       choices: ['all', 'claude', 'antigravity', 'opencode', 'kimicode', 'codex'],
     },
     {
+      name: 'platform',
+      description: 'Adapter platform id(s), comma-separated; preserves --target compatibility',
+      type: 'string',
+    },
+    {
+      name: 'enable-hooks',
+      description: 'Opt in to deterministic native platform hooks',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'opencode',
       description: 'Initialize only OpenCode (alias for --target opencode)',
       type: 'boolean',
@@ -824,7 +878,7 @@ export const initCommand: Command = {
     { command: 'monomind init --codex', description: 'Initialize only Codex' },
     {
       command: 'monomind init --target all',
-      description: 'Initialize every supported coding system',
+      description: 'Initialize the five legacy coding-system targets',
     },
     { command: 'monomind init --target codex', description: 'Initialize only Codex' },
     { command: 'monomind init wizard', description: 'Interactive setup wizard' },

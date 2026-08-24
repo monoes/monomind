@@ -149,7 +149,9 @@ export function generateCodexConfig(options: InitOptions): string {
     );
   }
 
-  lines.push(generateCodexHooksConfig().trimEnd(), '');
+  if (options.enablePlatformHooks) {
+    lines.push(generateCodexHooksConfig().trimEnd(), '');
+  }
 
   return lines.join('\n');
 }
@@ -165,8 +167,8 @@ export function generateCodexAgentsMd(): string {
     'Codex currently supports built-in status-line items rather than external',
     'status-line commands. Monomind enables the native footer with model, project,',
     'branch, context, task progress, and run-state indicators.',
-    'Native Codex PreToolUse and PostToolUse hooks are enabled for Monomind',
-    'security checks and edit outcome learning.',
+    'Optional native Codex PreToolUse and PostToolUse hooks can be enabled',
+    'through the init enable-hooks option.',
     '',
     '## Code navigation',
     '',

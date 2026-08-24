@@ -40,7 +40,8 @@ module.exports = {
     try {
       var editedFile = hookInput.file_path || toolInput.file_path
         || process.env.TOOL_INPUT_file_path || args[0] || '';
-      if (editedFile && !editedFile.match(/\.(test|spec)\./) && !editedFile.includes('__tests__')) {
+      if (editedFile && (!hCtx._isMonographDbCached || hCtx._isMonographDbCached())
+        && !editedFile.match(/\.(test|spec)\./) && !editedFile.includes('__tests__')) {
         var affectedTests = hCtx._findAffectedTests(editedFile);
         if (affectedTests.length > 0) {
           console.log('[AFFECTED_TESTS] ' + affectedTests.length + ' test(s) cover this file:');
@@ -126,7 +127,7 @@ module.exports = {
         // Show importers of the edited file so Claude sees blast radius
         try {
           var mgDbPath4 = path.join(CWD, '.monomind', 'monograph.db');
-          if (fs.existsSync(mgDbPath4)) {
+        if ((!hCtx._isMonographDbCached || hCtx._isMonographDbCached()) && fs.existsSync(mgDbPath4)) {
             var mgMod4 = null;
             var _requireMonograph4 = hCtx._requireMonograph;
             mgMod4 = _requireMonograph4 ? _requireMonograph4() : null;

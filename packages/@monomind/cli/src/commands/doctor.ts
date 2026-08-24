@@ -7,6 +7,7 @@
 
 import * as path from 'node:path';
 import { output } from '../output.js';
+import { runPlatformsDoctor } from '../platform-adapters/operations.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import type { HealthCheck } from './doctor-env-checks.js';
 import {
@@ -81,7 +82,7 @@ export const doctorCommand: Command = {
       name: 'component',
       short: 'c',
       description:
-        'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit, documents)',
+        'Check specific component (version, node, npm, config, memory, api, git, mcp, claude, disk, typescript, monograph, graph-freshness, memory-pkg, helpers, monoes, gates, gitignore, registry, memory-proficiency, monoes-tools, metrics-freshness, security-audit, documents, platforms)',
       type: 'string',
     },
     { name: 'verbose', short: 'v', description: 'Verbose output', type: 'boolean', default: false },
@@ -102,6 +103,18 @@ export const doctorCommand: Command = {
     const showFix = ctx.flags.fix as boolean;
     const autoInstall = ctx.flags.install as boolean;
     const component = ctx.flags.component as string;
+    const checkPlatforms = async (): Promise<HealthCheck> => {
+      const reports = await runPlatformsDoctor({ path: ctx.cwd, scope: 'project' });
+      const lines = reports.map((report) => {
+        const state = report.legacy.findings.length
+          ? `legacy (${report.legacy.findings.join(', ')})`
+          : report.artifacts.some((artifact) => artifact.state === 'managed')
+            ? 'managed'
+            : 'not installed';
+        return `${report.platform}: ${state}; run monomind platforms doctor --platform ${report.platform}`;
+      });
+      return { name: 'Platform Adapters', status: 'info', message: lines.join('\n') };
+    };
 
     output.writeln();
     output.writeln(output.bold('MonoMind Doctor'));
@@ -153,6 +166,7 @@ export const doctorCommand: Command = {
       checkBuildTools,
       checkMonographFreshness,
       checkGitignoreCoverage,
+      checkPlatforms,
     ];
 
     const allChecks: (() => Promise<HealthCheck | HealthCheck[]>)[] = isCodeProject
@@ -190,6 +204,7 @@ export const doctorCommand: Command = {
       'security-audit': checkSecurityAuditFindings,
       documents: checkDocumentExtractors,
       'doc-extractors': checkDocumentExtractors,
+      platforms: checkPlatforms,
     };
 
     if (component && !componentMap[component]) {

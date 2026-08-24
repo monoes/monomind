@@ -98,6 +98,9 @@ jobs:
         working-directory: packages/@monomind/cli
         run: npm run build
 
+      - name: Verify generated platform compatibility documentation
+        run: node packages/@monomind/cli/bin/cli.js platforms docs --check
+
       # doc-eval-asserts-fire.test.ts, doc-eval-metrics.test.ts, and
       # knowledge-superseded.test.ts need the real embedding (and reranker)
       # weights on disk to run for real — the eval harness deliberately
