@@ -286,10 +286,10 @@ export async function kgIngestRules(options: {
       // Keyword-only matches can't distinguish paraphrases from merely
       // overlapping vocabulary — fall back to exact-text comparison.
       // (Key-based upsert on store already handles identical keys.)
-      const isSemantic = top?.provenance?.startsWith('semantic:');
+      const provenance = top?.provenance;
       let isDuplicate = false;
-      if (top && isSemantic) {
-        const rawCosine = parseFloat(top.provenance?.slice('semantic:'.length));
+      if (top && provenance?.startsWith('semantic:')) {
+        const rawCosine = parseFloat(provenance.slice('semantic:'.length));
         isDuplicate = rawCosine >= threshold;
       } else if (top) {
         // Keyword-only: only suppress true near-exact duplicates.

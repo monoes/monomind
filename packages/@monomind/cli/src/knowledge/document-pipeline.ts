@@ -208,9 +208,10 @@ function buildHeadingHierarchy(
   const out: Array<{ level: number; text: string; offset: number }> = [];
   const eol0 = text.indexOf('\n');
   const line0 = eol0 === -1 ? text : text.slice(0, eol0);
-  if (HEADING_LINE_RE.test(line0) && !inFenceInline(toggles, 0)) {
+  const firstLevel = line0.match(/^(#{1,6}) /)?.[1]?.length;
+  if (firstLevel !== undefined && !inFenceInline(toggles, 0)) {
     out.push({
-      level: line0.match(/^(#{1,6}) /)?.[1].length,
+      level: firstLevel,
       text: line0.replace(/^#+ /, '').trim(),
       offset: 0,
     });
@@ -220,9 +221,10 @@ function buildHeadingHierarchy(
     const ls = i + 1;
     const e = text.indexOf('\n', ls);
     const line = text.slice(ls, e === -1 ? undefined : e);
-    if (HEADING_LINE_RE.test(line) && !inFenceInline(toggles, ls)) {
+    const level = line.match(/^(#{1,6}) /)?.[1]?.length;
+    if (level !== undefined && !inFenceInline(toggles, ls)) {
       out.push({
-        level: line.match(/^(#{1,6}) /)?.[1].length,
+        level,
         text: line.replace(/^#+ /, '').trim(),
         offset: ls,
       });

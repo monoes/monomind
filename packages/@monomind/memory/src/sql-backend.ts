@@ -761,24 +761,30 @@ export class SqlBackend extends EventEmitter implements IMemoryBackend {
       .replace(/[":*^~(){}[\]\\]/g, ' ')
       .split(/\s+/)
       .filter((t) => t.length > 1)
-      .map((t) => `"${t}"`)
-      .join(' ');
-    if (!tokens) return null;
+      .map((t) => `"${t}"`);
+    if (!tokens.length) return null;
 
     const d = this.driver!;
     const ns = options.namespace;
 
-    const rows = d.all(
-      `SELECT f.entry_id, f.key, f.content, e.namespace, rank
-         FROM memory_entries_fts f
-         JOIN memory_entries e ON e.id = f.entry_id
-        WHERE memory_entries_fts MATCH ?
-          AND (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)
-          ${ns ? 'AND e.namespace = ?' : ''}
-        ORDER BY rank
-        LIMIT ?`,
-      ns ? [tokens, Date.now(), ns, limit] : [tokens, Date.now(), limit],
-    );
+    const search = (match: string) =>
+      d.all(
+        `SELECT f.entry_id, f.key, f.content, e.namespace, rank
+           FROM memory_entries_fts f
+           JOIN memory_entries e ON e.id = f.entry_id
+          WHERE memory_entries_fts MATCH ?
+            AND (e.expires_at IS NULL OR e.expires_at = 0 OR e.expires_at > ?)
+            ${ns ? 'AND e.namespace = ?' : ''}
+          ORDER BY rank
+          LIMIT ?`,
+        ns ? [match, Date.now(), ns, limit] : [match, Date.now(), limit],
+      );
+
+    // Preserve the precise all-terms query first. Natural-language queries
+    // often contain context words absent from the target document, though; a
+    // zero-result strict search should still surface the best lexical leads.
+    let rows = search(tokens.join(' '));
+    if (rows.length === 0 && tokens.length > 1) rows = search(tokens.join(' OR '));
 
     return rows.map((r) => ({
       id: String(r.entry_id),

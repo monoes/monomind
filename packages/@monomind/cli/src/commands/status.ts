@@ -434,7 +434,7 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
   }
 
   // JSON output
-  if (ctx.flags.format === 'json') {
+  if (ctx.flags.json === true || ctx.flags.format === 'json') {
     output.printJson(status);
     return { success: true, data: status };
   }
@@ -786,6 +786,12 @@ export const statusCommand: Command = {
     {
       name: 'health-check',
       description: 'Perform health checks and exit',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'json',
+      description: 'Output status as JSON (alias for --format json)',
       type: 'boolean',
       default: false,
     },

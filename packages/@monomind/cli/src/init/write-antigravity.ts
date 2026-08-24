@@ -84,53 +84,9 @@ export async function writeGeminiFiles(
     );
   }
 
-  // Also update the global ~/.gemini/antigravity-cli/settings.json (best-effort)
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  if (homeDir) {
-    const globalAgyDir = path.join(homeDir, '.gemini', 'antigravity-cli');
-    const globalAgySettings = path.join(globalAgyDir, 'settings.json');
-    const globalStatuslineSh = path.join(globalAgyDir, 'statusline.sh');
-    try {
-      // Only touch the global config when it already exists — i.e. the user
-      // actually runs agy. Creating the directory for non-agy users would be
-      // init mutating state outside the project for no benefit.
-      if (fs.existsSync(globalAgyDir)) {
-        // Write/overwrite the global statusline wrapper
-        if (!fs.existsSync(globalStatuslineSh) || options.force) {
-          atomicWriteFile(globalStatuslineSh, generateStatuslineSh());
-          try {
-            fs.chmodSync(globalStatuslineSh, 0o755);
-          } catch {
-            /* ignore */
-          }
-          result.created.files.push('~/.gemini/antigravity-cli/statusline.sh');
-        }
-        // Inject statusLine into global agy settings without clobbering existing keys
-        let globalSettings: Record<string, unknown> = {};
-        if (
-          fs.existsSync(globalAgySettings) &&
-          fs.statSync(globalAgySettings).size <= MAX_EXEC_FILE_BYTES
-        ) {
-          try {
-            globalSettings = JSON.parse(fs.readFileSync(globalAgySettings, 'utf-8'));
-          } catch {
-            /* reset */
-          }
-        }
-        if (!globalSettings.statusLine) {
-          globalSettings.statusLine = {
-            type: 'command',
-            command: `${globalAgyDir}/statusline.sh`,
-          };
-          atomicWriteFile(globalAgySettings, JSON.stringify(globalSettings, null, 2));
-          result.created.files.push('~/.gemini/antigravity-cli/settings.json (statusLine wired)');
-        }
-      }
-    } catch (e) {
-      // Non-critical — global agy settings is best-effort
-      if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
-        console.error('[writeGeminiFiles] failed to update global agy settings:', e);
-      }
-    }
-  }
+  // Project init is project-scoped. User-level Antigravity settings belong to
+  // the explicit `platforms install --scope user --yes` lifecycle, where the
+  // requested scope and consent are both recorded. In particular, do not
+  // mutate an existing ~/.gemini/antigravity-cli installation merely because
+  // this project selected Antigravity.
 }

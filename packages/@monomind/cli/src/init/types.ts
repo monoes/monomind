@@ -319,6 +319,10 @@ export interface InitOptions {
   targetDir: string;
   /** Source base directory for skills/commands/agents (optional) */
   sourceBaseDir?: string;
+  /** Explicit adapter targets selected by init flags; absent keeps legacy init behavior. */
+  selectedPlatforms?: readonly import('../platform-adapters/types.js').PlatformId[];
+  /** Opt in to platform-native deterministic hooks; disabled by default. */
+  enablePlatformHooks?: boolean;
   /** Force overwrite existing files */
   force: boolean;
   /** Run in interactive mode */
