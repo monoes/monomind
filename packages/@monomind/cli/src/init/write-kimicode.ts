@@ -13,10 +13,8 @@ import {
   generateKimiGateScript,
   generateKimiMcpJson,
   generateKimiPluginManifest,
-  generateKimiStatuslineSh,
   kimiCommandFilename,
   mergeKimiMcpJson,
-  mergeKimiTuiTomlStatusline,
 } from './kimi-generator.js';
 import { atomicWriteFile, extractFmName, isLikelyUserFile, walkMdFiles } from './shared.js';
 import type { InitOptions, InitResult } from './types.js';
@@ -202,48 +200,7 @@ export async function writeKimiFiles(
   if (commandCount)
     result.created.files.push(`.kimi-code/plugin/commands/ (${commandCount} commands)`);
 
-  // Statusline — the footer under kimi's chatbox. Lives in the USER's
-  // ~/.kimi-code/ (kimi has no project-level statusline config), gated on
-  // that directory already existing (i.e. the user actually runs kimi —
-  // init must not create global state for non-kimi users). The tui.toml
-  // merge never clobbers an existing [status_line].command.
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  if (homeDir) {
-    const kimiHome = path.join(homeDir, '.kimi-code');
-    if (fs.existsSync(kimiHome)) {
-      try {
-        const statuslineShPath = path.join(kimiHome, 'statusline.sh');
-        if (!fs.existsSync(statuslineShPath) || options.force) {
-          atomicWriteFile(statuslineShPath, generateKimiStatuslineSh());
-          try {
-            fs.chmodSync(statuslineShPath, 0o755);
-          } catch {
-            /* ignore on Windows */
-          }
-          result.created.files.push('~/.kimi-code/statusline.sh');
-        } else {
-          result.skipped.push('~/.kimi-code/statusline.sh');
-        }
-
-        const tuiTomlPath = path.join(kimiHome, 'tui.toml');
-        const relCommand = '~/.kimi-code/statusline.sh';
-        const existingToml = fs.existsSync(tuiTomlPath)
-          ? fs.readFileSync(tuiTomlPath, 'utf-8')
-          : '';
-        const mergedToml = mergeKimiTuiTomlStatusline(existingToml, relCommand);
-        if (mergedToml !== existingToml) {
-          atomicWriteFile(tuiTomlPath, mergedToml);
-          result.created.files.push('~/.kimi-code/tui.toml ([status_line].command wired)');
-        } else {
-          result.skipped.push('~/.kimi-code/tui.toml (status_line.command already set)');
-        }
-      } catch (e) {
-        // Best-effort, like the agy global settings — a statusline failure
-        // must never fail init.
-        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
-          console.error('[writeKimiFiles] failed to wire kimi statusline:', e);
-        }
-      }
-    }
-  }
+  // Kimi's status-line configuration is user-scoped. Project init must not
+  // infer consent from an existing ~/.kimi-code directory; it is configured
+  // only through the explicit user-scope platform lifecycle command.
 }

@@ -35,10 +35,8 @@ describe('Codex init artifacts', () => {
 
     expect(config).toContain('[mcp_servers.monomind]');
     expect(config).toContain('[features]');
-    expect(config).toContain('hooks = true');
-    expect(config).toContain('[[hooks.PreToolUse]]');
-    expect(config).toContain('[[hooks.PostToolUse]]');
-    expect(config).toContain('.codex/hooks/monomind-hook.cjs');
+    expect(config).not.toContain('[[hooks.PreToolUse]]');
+    expect(config).not.toContain('[[hooks.PostToolUse]]');
     expect(config).toContain('command = "npx"');
     expect(config).toContain('"monomind@latest"');
     expect(config).toContain('env = {');
@@ -47,6 +45,19 @@ describe('Codex init artifacts', () => {
     expect(config).toContain(
       `status_line = [${CODEX_STATUS_LINE_ITEMS.map((item) => `"${item}"`).join(', ')}]`,
     );
+  });
+
+  it('renders Codex hooks only after explicit opt-in', () => {
+    const config = generateCodexConfig({
+      ...DEFAULT_INIT_OPTIONS,
+      targetDir: '/tmp/project',
+      enablePlatformHooks: true,
+    });
+
+    expect(config).toContain('hooks = true');
+    expect(config).toContain('[[hooks.PreToolUse]]');
+    expect(config).toContain('[[hooks.PostToolUse]]');
+    expect(config).toContain('.codex/hooks/monomind-hook.cjs');
   });
 
   it('generates a Codex hook adapter for the shared Monomind runtime', () => {
@@ -68,7 +79,7 @@ describe('Codex init artifacts', () => {
 
     await writeCodexFiles(
       targetDir,
-      { ...DEFAULT_INIT_OPTIONS, force: true, targetDir },
+      { ...DEFAULT_INIT_OPTIONS, force: true, targetDir, enablePlatformHooks: true },
       createResult(),
     );
 

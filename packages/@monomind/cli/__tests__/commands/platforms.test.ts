@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { platformsCommand, SUPPORTED_PLATFORMS } from '../../src/commands/platforms.js';
+import { PLATFORM_IDS } from '../../src/platform-adapters/registry.js';
 
 describe('platformsCommand', () => {
   it('is defined with correct name', () => {
@@ -7,8 +8,8 @@ describe('platformsCommand', () => {
     expect(platformsCommand.name).toBe('platforms');
   });
 
-  it('SUPPORTED_PLATFORMS has 14 platforms', () => {
-    expect(SUPPORTED_PLATFORMS.length).toBe(14);
+  it('derives supported platforms from the canonical registry', () => {
+    expect(SUPPORTED_PLATFORMS).toEqual(PLATFORM_IDS);
   });
 
   it('has subcommands', () => {
@@ -20,6 +21,8 @@ describe('platformsCommand', () => {
     const names = platformsCommand.subcommands!.map(s => s.name);
     expect(names).toContain('install');
     expect(names).toContain('uninstall');
+    expect(names).toContain('doctor');
+    expect(names).toContain('docs');
   });
 
   it('install subcommand has expected options', () => {

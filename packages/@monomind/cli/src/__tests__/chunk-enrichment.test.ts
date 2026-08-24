@@ -24,8 +24,12 @@ vi.setConfig({ testTimeout: 60000 });
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const ORIGINAL_CWD = process.cwd();
+const PIPELINE_SOURCE = fileURLToPath(
+  new URL('../knowledge/document-pipeline.ts', import.meta.url),
+);
 const ORIGINAL_GLOBAL = process.env.MONOMIND_GLOBAL_BRAIN_DIR;
 let ROOT = '';
 
@@ -198,9 +202,9 @@ describe('chunk enrichment (item 6a)', () => {
     });
 
     const laterChunk = results.find((r) => r.chunkIndex > 0 && r.filePath.includes('long-summary'));
-    expect(laterChunk).toBeDefined();
+    if (!laterChunk) throw new Error('expected a later chunk from long-summary.md');
     // Invariant 4: summary should be truncated with ...
-    const lines = laterChunk?.text.split('\n');
+    const lines = laterChunk.text.split('\n');
     // Second line should be the summary (first is §)
     const summaryLine = lines[1];
     expect(summaryLine).toBeDefined();
@@ -263,7 +267,7 @@ describe('chunk enrichment (item 6a)', () => {
 
   it('no network imports in document-pipeline.ts', async () => {
     // Invariant 7: the module should not import any network libraries
-    const src = fs.readFileSync(join(ORIGINAL_CWD, 'src/knowledge/document-pipeline.ts'), 'utf8');
+    const src = fs.readFileSync(PIPELINE_SOURCE, 'utf8');
     // No fetch, no http/https imports, no axios, no got
     expect(src).not.toMatch(/import.*['"]node:https?['"]/);
     expect(src).not.toMatch(/import.*['"]https?['"]/);
