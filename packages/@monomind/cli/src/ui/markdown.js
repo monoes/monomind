@@ -452,3 +452,13 @@ function _gdCopyCode(btn) {
     },
   );
 }
+
+// This file is loaded as a classic script, so expose the stable dashboard API
+// after keeping the implementation names private. `var` deliberately creates
+// properties on the browser/vm global object; `const` would not.
+var renderDocMarkdown = _renderDocMarkdown;
+var gdCopyCode = _gdCopyCode;
+// Retain script-global compatibility for the browser/vm consumer while making
+// the intentional exports explicit to static analysis.
+void renderDocMarkdown;
+void gdCopyCode;

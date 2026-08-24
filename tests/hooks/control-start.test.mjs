@@ -70,43 +70,47 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // control-start.cjs may have spawned a real detached server process for this
-  // test — kill it so it doesn't leak past the test (it would otherwise stay
-  // alive indefinitely on a persistent host, making a later run flaky).
-  // NEVER kill process.pid itself — the "already running" tests deliberately
-  // write this test process's own pid into control.json as a live sentinel,
-  // and killing it would crash the test runner.
-  try {
-    const data = readControlJson(tmpDir);
-    if (data.pid && data.pid !== process.pid) process.kill(data.pid, 'SIGTERM');
-  } catch {
-    /* no control.json, or pid already gone — fine */
-  }
+  // run() always sets MONOMIND_CONTROL_NO_SPAWN, so the status-file PID is
+  // the short-lived helper subprocess, never a dashboard server this test
+  // owns. Killing a PID read back from that file is unsafe: after the helper
+  // exits, the OS can reuse it for Vitest's own worker, terminating the test
+  // runner with SIGTERM. Tests that explicitly create mock/sentinel children
+  // clean those exact ChildProcess instances in their own finally blocks.
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 // ── already running ──────────────────────────────────────────────────────────
 
 describe('control-start: already running', () => {
+  it('never terminates an advisory PID before ownership is confirmed', () => {
+    const source = fs.readFileSync(SCRIPT, 'utf-8');
+    expect(source).toMatch(/const ownsRecordedProcess\s*=/);
+    expect(source).toMatch(
+      /if \(ownsRecordedProcess\) \{\s*try \{ process\.kill\(status\.pid, 'SIGTERM'\)/s,
+    );
+  });
+
   it('exits 0 when control.json exists with alive pid', () => {
-    writeControlJson(tmpDir, process.pid, 4242);
+    writeControlJson(tmpDir, process.pid, isolatedPort());
     const r = run({ cwd: tmpDir });
     expect(r.status).toBe(0);
   });
 
   it('logs "already running on port N (pid M)" when alive pid', () => {
-    writeControlJson(tmpDir, process.pid, 4242);
+    const port = isolatedPort();
+    writeControlJson(tmpDir, process.pid, port);
     const r = run({ cwd: tmpDir });
-    expect(r.stdout).toContain('[control] already running on port 4242');
+    expect(r.stdout).toContain(`[control] already running on port ${port}`);
     expect(r.stdout).toContain(`(pid ${process.pid})`);
   });
 
   it('does not overwrite control.json when already running', () => {
-    writeControlJson(tmpDir, process.pid, 4242);
+    const port = isolatedPort();
+    writeControlJson(tmpDir, process.pid, port);
     run({ cwd: tmpDir });
     const data = readControlJson(tmpDir);
     expect(data.pid).toBe(process.pid);
-    expect(data.port).toBe(4242);
+    expect(data.port).toBe(port);
   });
 });
 

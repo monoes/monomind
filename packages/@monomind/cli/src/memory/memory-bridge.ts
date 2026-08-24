@@ -372,11 +372,12 @@ async function rerankResults(
   results: any[],
   limit: number,
 ): Promise<{ reranked: any[]; applied: boolean }> {
-  if (!_reranker || results.length <= 1) return { reranked: results, applied: false };
+  const reranker = _reranker;
+  if (!reranker || results.length <= 1) return { reranked: results, applied: false };
   try {
     const scored = await Promise.all(
       results.map(async (r) => {
-        const rerankerScore = await _reranker?.(query, r.content || '');
+        const rerankerScore = await reranker(query, r.content || '');
         return {
           ...r,
           score: rerankerScore,

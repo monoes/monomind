@@ -112,11 +112,43 @@ describe('Init Command E2E (real fs)', () => {
     expect(result.success).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
     expect(fs.readFileSync(path.join(tmpDir, '.codex', 'config.toml'), 'utf8')).toContain('[mcp_servers.monomind]');
+    expect(fs.readFileSync(path.join(tmpDir, '.codex', 'config.toml'), 'utf8')).not.toContain('[[hooks.PreToolUse]]');
     expect(fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf8')).toContain('Monomind on Codex');
     expect(fs.existsSync(path.join(tmpDir, '.mcp.json'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, '.kimi-code'))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, 'GEMINI.md'))).toBe(false);
+  }, 30000);
+
+  it('accepts registry aliases through --platform without expanding legacy --target all', async () => {
+    ctx.flags = { platform: 'kimicode,codex', _: [], 'no-watch': true, 'no-start-all': true };
+    const result = await initCommand.action!(ctx);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.kimi-code', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(false);
+  }, 30000);
+
+  it('keeps non-Claude legacy targets and adapter artifacts when --skip-claude is selected', async () => {
+    ctx.flags = {
+      target: 'all',
+      'skip-claude': true,
+      _: [],
+      'no-watch': true,
+      'no-start-all': true,
+    };
+    const result = await initCommand.action!(ctx);
+
+    expect(result.success).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.claude', 'settings.json'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'CLAUDE.md'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'opencode.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.kimi-code', 'mcp.json'))).toBe(true);
+    expect(fs.readFileSync(path.join(tmpDir, 'AGENTS.md'), 'utf8')).toContain(
+      'monomind:start instructions:codex',
+    );
   }, 30000);
 
   it('should initialize with minimal configuration', async () => {

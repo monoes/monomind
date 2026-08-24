@@ -9,6 +9,8 @@ import { startCommand } from '../src/commands/start.js';
 import { statusCommand } from '../src/commands/status.js';
 import { taskCommand } from '../src/commands/task.js';
 import { sessionCommand } from '../src/commands/session.js';
+import { CommandParser } from '../src/parser.js';
+import { output } from '../src/output.js';
 import type { CommandContext } from '../src/types.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -616,6 +618,27 @@ describe('Status Command', () => {
       const result = await statusCommand.action!(ctx);
 
       expect(result.success).toBe(true);
+    });
+
+    it('treats --json as an alias for --format json', async () => {
+      const parser = new CommandParser();
+      parser.registerCommand(statusCommand);
+      const parsed = parser.parse(['status', '--json']);
+      const printJson = vi.spyOn(output, 'printJson').mockImplementation(() => {});
+
+      try {
+        const result = await statusCommand.action!({
+          ...ctx,
+          args: parsed.positional,
+          flags: parsed.flags,
+        });
+
+        expect(parsed.flags.json).toBe(true);
+        expect(result.success).toBe(true);
+        expect(printJson).toHaveBeenCalledWith(result.data);
+      } finally {
+        printJson.mockRestore();
+      }
     });
 
     it('should perform health check', async () => { // Skip: requires live MCP context

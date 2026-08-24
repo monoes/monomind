@@ -410,6 +410,7 @@ describe('agent health --watch', () => {
 
     try {
       const pending = healthCommand.action?.({ flags: { watch: true }, args: [] } as never);
+      if (!pending) throw new Error('health command must provide a watch action');
 
       // Regression: --watch was never read, so the action resolved immediately
       // after a single render. A watch loop must still be running here.
