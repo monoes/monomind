@@ -68,6 +68,10 @@ process.stdin.on("end", () => {
   } else if (eventName === "PostToolUse" && writeTools.has(tool)) {
     event = "post-edit";
     gateInput = toolInput;
+  } else if (eventName === "SessionStart") {
+    event = "session-restore";
+  } else if (eventName === "SessionEnd") {
+    event = "session-end";
   }
   if (!event) process.exit(0);
 
@@ -76,7 +80,7 @@ process.stdin.on("end", () => {
     result = spawnSync(process.execPath, [handler, event], {
       input: JSON.stringify({ tool_name: tool, tool_input: gateInput, session_id: payload.session_id || "" }),
       encoding: "utf8",
-      timeout: 5000,
+      timeout: eventName === "SessionStart" || eventName === "SessionEnd" ? 2500 : 5000,
       cwd,
       env: Object.assign({}, process.env, { CLAUDE_PROJECT_DIR: cwd }),
     });
@@ -118,6 +122,22 @@ export function generateCodexHooksConfig(): string {
     `command_windows = ${tomlString(commandWindows)}`,
     'statusMessage = "Monomind post-tool learning"',
     'timeout = 10',
+    '',
+    '[[hooks.SessionStart]]',
+    '[[hooks.SessionStart.hooks]]',
+    'type = "command"',
+    `command = ${tomlString(command)}`,
+    `command_windows = ${tomlString(commandWindows)}`,
+    'statusMessage = "Monomind session restore"',
+    'timeout = 3',
+    '',
+    '[[hooks.SessionEnd]]',
+    '[[hooks.SessionEnd.hooks]]',
+    'type = "command"',
+    `command = ${tomlString(command)}`,
+    `command_windows = ${tomlString(commandWindows)}`,
+    'statusMessage = "Monomind session persistence"',
+    'timeout = 3',
     '# monomind:end native-hooks',
     '',
   ].join('\n');
