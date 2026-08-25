@@ -108,9 +108,10 @@ describe('doctorCommand', () => {
     expect(typeof r.success).toBe('boolean');
     const data = resultData(result);
     expect(Array.isArray(data.results)).toBe(true);
-    // alwaysOnChecks (21) + codeOnlyChecks (5) — no fingerprint present, so
+    // alwaysOnChecks (21) + codeOnlyChecks (6, including platform adapters)
+    // — no fingerprint present, so
     // isCodeProject defaults to true and the full set runs.
-    expect(data.results.length).toBe(26);
+    expect(data.results.length).toBe(27);
     // Not every result counts toward passed/warnings/failed: the P2-14
     // fresh-install quieting (doctor.ts, ~line 156) downgrades some 'warn'
     // checks to 'info' status when `.monomind/` is < 5 min old — true for

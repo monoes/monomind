@@ -6,9 +6,33 @@ import { join } from 'node:path';
 import { OrgBus } from '../../src/orgrt/bus.js';
 import { PolicyEngine } from '../../src/orgrt/policy.js';
 import { Mailbox } from '../../src/orgrt/mailbox.js';
-import { runAgentSession, buildRolePrompt } from '../../src/orgrt/session.js';
+import {
+  runAgentSession,
+  buildOrgTools,
+  buildRolePrompt,
+  type SessionOpts,
+} from '../../src/orgrt/session.js';
 
 const dir = () => mkdtempSync(join(tmpdir(), 'sess-'));
+
+describe('buildOrgTools', () => {
+  it('only exposes task tools whose callbacks are available', () => {
+    const tools = buildOrgTools({
+      org: 'o',
+      role: { id: 'coder', title: 'Coder', type: 'specialist', responsibilities: [] } as any,
+      bus: {} as OrgBus,
+      policy: {} as PolicyEngine,
+      mailbox: {} as Mailbox,
+      cwd: '/work',
+      deliver: async () => 'delivered',
+      createTask: () => 'created',
+    } satisfies SessionOpts);
+
+    expect(tools.map((tool) => tool.name)).toContain('org_task');
+    expect(tools.map((tool) => tool.name)).not.toContain('org_task_done');
+    expect(tools.map((tool) => tool.name)).not.toContain('org_tasks');
+  });
+});
 
 describe('runAgentSession', () => {
   it('emits chat events for assistant text and usage on result', async () => {
