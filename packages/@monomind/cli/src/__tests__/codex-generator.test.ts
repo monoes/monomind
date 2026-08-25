@@ -38,6 +38,8 @@ describe('Codex init artifacts', () => {
     expect(config).toContain('hooks = true');
     expect(config).toContain('[[hooks.PreToolUse]]');
     expect(config).toContain('[[hooks.PostToolUse]]');
+    expect(config).toContain('[[hooks.SessionStart]]');
+    expect(config).toContain('[[hooks.SessionEnd]]');
     expect(config).toContain('.codex/hooks/monomind-hook.cjs');
     expect(config).toContain('command = "npx"');
     expect(config).toContain('"monomind@latest"');
@@ -56,6 +58,9 @@ describe('Codex init artifacts', () => {
     expect(script).toContain('pre-bash');
     expect(script).toContain('pre-write');
     expect(script).toContain('post-edit');
+    expect(script).toContain('session-restore');
+    expect(script).toContain('session-end');
+    expect(script).toContain('eventName === "SessionStart" || eventName === "SessionEnd" ? 2500 : 5000');
     expect(script).toContain('hook-handler.cjs');
   });
 
