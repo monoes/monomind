@@ -19,6 +19,7 @@ import {
   collectTokens,
 } from './collector.mjs';
 import { handleMonographRoutes } from './routes-monograph.mjs';
+import { handleMonoesRoutes } from './routes-monoes.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
 import {
   addMmClient,
@@ -1778,7 +1779,13 @@ export async function startServer({
   ]);
   const _isOpenRoute = (url, method) =>
     (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') &&
-    (_OPEN_ROUTES.has(url) || /^\/data\/avatars\/[A-Za-z0-9._-]+\.svg$/.test(url));
+    (_OPEN_ROUTES.has(url) ||
+      /^\/data\/avatars\/[A-Za-z0-9._-]+\.svg$/.test(url) ||
+      // The browser hits this directly via monoes.me's OAuth redirect — it
+      // never has this dashboard's own auth token to attach. Protected
+      // instead by the OAuth `state` parameter (routes-monoes.mjs rejects
+      // any code/state pair it didn't itself generate).
+      url.startsWith('/api/monoes/callback'));
 
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
@@ -5295,6 +5302,15 @@ export async function startServer({
       res.end();
       return;
     }
+
+    // ── monoes.me connection routes (extracted to routes-monoes.mjs) ───────
+    if (
+      await handleMonoesRoutes(req, res, url, corsOrigin, {
+        MONOMIND_HOME,
+        dashboardPort: _boundPortForCors,
+      })
+    )
+      return;
 
     // ── Org/mastermind routes (extracted to routes-org.mjs) ────────────────
     if (
