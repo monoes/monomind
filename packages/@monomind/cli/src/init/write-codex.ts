@@ -38,7 +38,7 @@ function mergeCodexHooks(existing: string): string {
   return mergedExisting;
 }
 
-function mergeCodexConfig(existing: string, generated: string): string {
+function mergeCodexConfig(existing: string, generated: string, enableHooks: boolean): string {
   const generatedLines = generated.split(/\r?\n/);
   const generatedStart = generatedLines.findIndex((line) =>
     /^\[mcp_servers\.monomind\]\s*$/.test(line),
@@ -50,7 +50,9 @@ function mergeCodexConfig(existing: string, generated: string): string {
   const section =
     generatedStart === -1 ? '' : generatedLines.slice(generatedStart, generatedEnd).join('\n');
   const statusLine = generateCodexStatusLineConfig().trimEnd();
-  let mergedExisting = mergeCodexHooks(existing);
+  let mergedExisting = enableHooks
+    ? mergeCodexHooks(existing)
+    : existing.replace(/# monomind:start native-hooks[\s\S]*?# monomind:end native-hooks\n?/m, '');
   if (!/^\s*status_line\s*=/m.test(mergedExisting)) {
     const tuiHeader = /^\[tui\]\s*$/m;
     if (tuiHeader.test(mergedExisting)) {
@@ -95,12 +97,12 @@ export async function writeCodexFiles(
   fs.mkdirSync(codexDir, { recursive: true });
   const hooksDir = path.join(codexDir, 'hooks');
   const hookPath = path.join(hooksDir, 'monomind-hook.cjs');
-  fs.mkdirSync(hooksDir, { recursive: true });
 
-  if (!fs.existsSync(hookPath) || options.force) {
+  if (options.enablePlatformHooks && (!fs.existsSync(hookPath) || options.force)) {
+    fs.mkdirSync(hooksDir, { recursive: true });
     atomicWriteFile(hookPath, generateCodexHookScript());
     result.created.files.push('.codex/hooks/monomind-hook.cjs');
-  } else {
+  } else if (options.enablePlatformHooks) {
     result.skipped.push('.codex/hooks/monomind-hook.cjs');
   }
 
@@ -109,7 +111,11 @@ export async function writeCodexFiles(
     result.created.files.push('.codex/config.toml');
   } else if (options.force) {
     const current = fs.readFileSync(configPath, 'utf8');
-    const merged = mergeCodexConfig(current, generateCodexConfig(options));
+    const merged = mergeCodexConfig(
+      current,
+      generateCodexConfig(options),
+      options.enablePlatformHooks === true,
+    );
     if (merged !== current) {
       atomicWriteFile(configPath, merged);
       result.updated.push('.codex/config.toml (merged monomind server)');
@@ -118,10 +124,12 @@ export async function writeCodexFiles(
     }
   } else {
     const current = fs.readFileSync(configPath, 'utf8');
-    const mergedHooks = mergeCodexHooks(current);
+    const mergedHooks = options.enablePlatformHooks
+      ? mergeCodexHooks(current)
+      : current.replace(/# monomind:start native-hooks[\s\S]*?# monomind:end native-hooks\n?/m, '');
     if (mergedHooks !== current) {
       atomicWriteFile(configPath, mergedHooks);
-      result.updated.push('.codex/config.toml (native hooks)');
+      result.updated.push('.codex/config.toml (managed native hooks)');
     } else {
       result.skipped.push('.codex/config.toml');
     }

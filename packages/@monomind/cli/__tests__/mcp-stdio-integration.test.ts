@@ -95,6 +95,9 @@ describe('MCP stdio integration (real child process, issue #36 regression)', () 
     expect(toolsResponse.error).toBeUndefined();
     expect(Array.isArray(toolsResponse.result?.tools)).toBe(true);
     expect(toolsResponse.result.tools.length).toBeGreaterThan(0);
+    expect(toolsResponse.result.tools.map((tool: { name: string }) => tool.name)).toContain(
+      'platforms_doctor',
+    );
     for (const tool of toolsResponse.result.tools) {
       expect(typeof tool.name).toBe('string');
       expect(tool.name.length).toBeGreaterThan(0);

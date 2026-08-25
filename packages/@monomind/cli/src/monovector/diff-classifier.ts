@@ -193,7 +193,7 @@ export class DiffClassifier {
     return changes;
   }
 
-  private classifyFile(path: string, hunks: DiffHunk[]): DiffClassification {
+  classifyFile(path: string, hunks: DiffHunk[]): DiffClassification {
     const cacheKey = this.getCacheKey(path, hunks);
     const cached = this.classificationCache.get(cacheKey);
     if (cached) return cached;
@@ -378,7 +378,7 @@ export class DiffClassifier {
     return risks.slice(0, 5);
   }
 
-  private computeOverallClassification(files: FileDiff[]): DiffClassification {
+  computeOverallClassification(files: FileDiff[]): DiffClassification {
     if (files.length === 0)
       return {
         primary: 'unknown',

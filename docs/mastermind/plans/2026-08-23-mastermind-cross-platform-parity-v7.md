@@ -59,6 +59,14 @@
 > 5. Do not emit instructions for fallback/discovery-only adapters (Hermes, Antigravity, or unverified Kimi); test the declared contract rather than an all-platform `AGENTS.md` assumption.
 > 6. Restore the one list-returning doctor domain API, keeping `--json` in the CLI formatter and providing scope at the CLI boundary.
 
+> **Execution-blocker comments (2026-08-24):**
+> 1. The verification ledger must be machine-readable and validated in CI. A `native` capability carries `VerificationEvidence { level, sourceUrl, sourceLocator, verifiedAt }`, and a real test parses the ledger and compares it to the registry; an empty PR-diff test is not acceptable.
+> 2. User-scope authorization must survive planning: `PlatformPlan` retains `scope` and an `authorizedUserMutation` boolean, and `applyPlan()` receives the originating `MutationRequest`. No renderer or artifact may bypass the preflight.
+> 3. `PlatformPaths` resolves every filesystem-writing `ArtifactKind`, not only instruction/skill/MCP. Renderers declare a location key; only operations resolves it to an absolute path.
+> 4. Kimi instructions and Antigravity skill/MCP surfaces remain `experimental` until their discovery plus schema/runtime evidence succeeds. Their renderers emit diagnostics—not guessed artifacts—while unverified.
+> 5. Shared portable skills are owned by an install manifest with consumer references, not attributed to one platform. Remove a shared directory only when its manifest has no consumers and it contains no foreign files.
+> 6. Codex hooks stay opt-in at the Monomind layer, but Codex itself enables hooks by default; timeout values are seconds. M2 has no Task 11—Task 10 is the release gate for both milestones.
+
 > **Independent review addendum (2026-08-24):** v7's evidence-gating design confirmed sound against two defects an earlier pass of this document had — the Task 4 core-parity test now correctly excuses `experimental` alongside `cli_fallback` (line ~636 `['cli_fallback', 'experimental'].includes(...)`), and Hermes/Antigravity no longer get a fabricated `AGENTS.md` instruction artifact contradicting their own `cli_fallback`/`discovery` capability cells. Both are real fixes. Three items still needed correcting, applied below:
 >
 > 1. **`assertRegistryIsVerifiable()` has no data to check.** `VerificationLevel` and the assertion that every `native` cell needs `'schema'|'runtime'` evidence are fully specified as *types and a test* (Task 1 Step 1), but no step anywhere populates the actual `verification: Record<Capability, VerificationLevel>` value for any of the 16 adapters, and the capability matrix still marks most cells `n` across most platforms. As written, an implementer has no guidance on what `verification` value each of those ~100+ native cells should carry, so Task 1's own new test (`'never reports native without exact upstream evidence'`) cannot pass without someone inventing evidence levels ad hoc — which is the exact failure mode evidence-gating exists to prevent. **Fixed:** Task 1 gets an explicit step deriving `verification` from citations already in this document (a capability with a linked official schema/config-reference in the Native-platform-review table gets `schema`; one that will only be checked by Task 10's env-gated live-binary job gets `runtime`, deferred to `fixture` until that job exists; everything else is `none` and its `capabilities[x]` must be downgraded from `n`, with the downgrade itself asserted by a test so the registry can't silently drift back to an unbacked `native` claim).
@@ -98,7 +106,7 @@ Both milestones ship as **patch releases** with back-compat shims (legacy ids, `
 | Milestone | Version | Tasks | Exit criteria (acceptance gates) |
 |---|---|---|---|
 | **M1 — Core parity** | 2.9.26 | 0, 1, 2, 3, 4, 7 (core renderers), 8, 9, 10 | G1, G2, G3, G4, G7, G9, G11 + core subset of G10 |
-| **M2 — Native enhancement parity** | 2.9.27 | 5 (except the status-JSON fix, which is M1), 6, 7 (enhancement data), 11 | G5, G6, G8 + full G10 |
+| **M2 — Native enhancement parity** | 2.9.27 | 5 (except the status-JSON fix, which is M1), 6, 7 (enhancement data), 10 (M2 release gate) | G5, G6, G8 + full G10 |
 
 ## Executive decision
 
@@ -140,7 +148,7 @@ The revision ships in the two milestones above. No platform receives a full Mast
 | Droid | `droid` | `AGENTS.md`, `.factory/skills` (project) / `~/.factory/skills`, **`.factory/mcp.json`** (project) / `~/.factory/mcp.json` (user), `.factory/hooks.json`, plugins | Full native parity (commands/agents `experimental` until validation) | Greenfield today (repo has only `DROID.md` legacy) — every native claim requires Task 9 fixture coverage plus Task 10 upstream parser/runtime validation. [Skills](https://docs.factory.ai/harness/skills), [MCP](https://docs.factory.ai/harness/mcp) |
 | Google Antigravity | `antigravity` | Two surfaces, picked by discovery: 2.0 → `.agents/skills` (workspace) + `~/.gemini/config/skills/`; AGY CLI → `~/.gemini/antigravity-cli/skills/`. JSON hooks in customization dir; rules; MCP; plugins | Full native parity (discovery-gated) | **`~/.gemini/skills` is Gemini CLI's, never Antigravity's.** Replaces `setupAntigravity` + `geminimd-generator.ts` surfaces. [Hooks](https://antigravity.google/docs/hooks) |
 | Hermes | `hermes` | Nous Research Hermes Agent: `~/.hermes/skills/` + project `.hermes/skills`/`.agents/skills` (trust-gated), `~/.hermes/config.yaml`, MCP; **no hooks** | Core parity first | Discovery probe records paths; hooks stay `unsupported`. [Docs](https://hermes-agent.nousresearch.com/docs) |
-| Codex | `codex` | `AGENTS.md`, **`.agents/skills` (repo) / `~/.agents/skills` (user)**, `.codex/config.toml` (`[mcp_servers]`, `[[hooks.<Event>]]` — native hooks confirmed, feature-flagged off by default), `hooks.json` alternative | Full native parity | Keep native project integration; remove legacy activation writer; hooks remain opt-in (matches Codex's own default-off). [Config](https://learn.chatgpt.com/docs/config-file/config-reference), [skills](https://learn.chatgpt.com/docs/build-skills.md) |
+| Codex | `codex` | `AGENTS.md`, **`.agents/skills` (repo) / `~/.agents/skills` (user)**, `.codex/config.toml` (`[mcp_servers]`, `[[hooks.<Event>]]`), `hooks.json` alternative | Full native parity | Keep native project integration; remove legacy activation writer. Monomind hooks remain opt-in even though Codex enables configured hooks by default; timeout units are seconds. [Config](https://learn.chatgpt.com/docs/config-file/config-reference), [hooks](https://learn.chatgpt.com/docs/hooks), [skills](https://learn.chatgpt.com/docs/build-skills.md) |
 | Kimi Code | `kimi` (alias: `kimicode`) | `.kimi-code/skills` + `.agents/skills`, `.kimi-code/mcp.json`, plugins (`kimi.plugin.json`: commands/agents/hooks/mcpServers), `[[hooks]]` in `~/.kimi-code/config.toml` | Full native parity only where evidence-gated | **AGENTS.md instruction file unverified** — keep it `experimental`/fallback until a target schema or runtime test confirms it; Monomind fixtures alone are insufficient. Plugin slash commands require manual `/plugins install` → `activation: manual-step` surfaced in doctor. [Skills](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/skills.html), [plugins](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins.html) |
 | Zed | `zed` | **AGENTS.md** (primary; first-match compat list), **`.agents/skills`** (flat layout), `agent.profiles` in `.zed/settings.json` (legacy `.zed/agents/*.toml`), `context_servers` MCP | Core parity then native enhancements | Retire monograph's `.zed/*.md` writes; discovery validates layout. [Agents](https://zed.dev/docs/ai/agents), [skills](https://zed.dev/docs/ai/skills.md) |
 
@@ -178,10 +186,10 @@ Every adapter declares one of `native`, `cli_fallback`, `unsupported`, or `exper
 | trae | n | e | e | f | e | e | f | n | u | yes |
 | openclaw | n | n | f | f | f | n | f | n | u | no |
 | droid | n | n | n | e | e | n | f | n | u | no |
-| antigravity | e | n | n | f | e | n | f | n | u | yes |
+| antigravity | e | e | e | f | e | e | f | n | u | yes |
 | hermes | f | e | e | f | u | u | f | n | u | yes |
 | codex | n | n | n | f | e | n | f | n | u | no |
-| kimi | n | n | n | n | n | n | f | n | u | no |
+| kimi | e | n | n | n | n | n | f | n | u | no |
 | zed | n | n | n | f | e | u | f | n | u | yes |
 
 ## File structure
@@ -293,7 +301,9 @@ describe('platform registry', () => {
     for (const adapter of Object.values(PLATFORM_REGISTRY)) {
       for (const capability of CAPABILITIES) {
         if (adapter.capabilities[capability] === 'native') {
-          expect(['schema', 'runtime']).toContain(adapter.verification[capability]);
+          expect(['schema', 'runtime']).toContain(adapter.verification[capability].level);
+          expect(adapter.verification[capability].sourceUrl).toMatch(/^https:\/\//);
+          expect(adapter.verification[capability].sourceLocator).toBeTruthy();
         }
       }
     }
@@ -320,6 +330,12 @@ export const CAPABILITIES = [
 export type Capability = (typeof CAPABILITIES)[number];
 export type SupportLevel = 'native' | 'cli_fallback' | 'unsupported' | 'experimental';
 export type VerificationLevel = 'none' | 'fixture' | 'schema' | 'runtime';
+export interface VerificationEvidence {
+  level: VerificationLevel;
+  sourceUrl?: string;
+  sourceLocator?: string;
+  verifiedAt: string; // ISO date; required for schema/runtime
+}
 export type PlatformId =
   | 'claude' | 'gemini' | 'cursor' | 'vscode' | 'copilot' | 'opencode' | 'aider'
   | 'kiro' | 'trae' | 'openclaw' | 'droid' | 'antigravity' | 'hermes' | 'codex'
@@ -336,7 +352,7 @@ export interface PlatformAdapter {
   displayName: string;
   capabilities: Record<Capability, SupportLevel>;
   /** Evidence for the rendered artifact, not merely a Monomind-owned fixture. */
-  verification: Record<Capability, VerificationLevel>;
+  verification: Record<Capability, VerificationEvidence>;
   activationNotes?: Readonly<Partial<Record<Capability, 'manual-step'>>>;
   paths: PlatformPaths;
   requiresDiscovery: boolean;
@@ -346,8 +362,12 @@ export function assertRegistryIsVerifiable(registry: Record<PlatformId, Platform
   for (const adapter of Object.values(registry)) {
     for (const capability of CAPABILITIES) {
       if (adapter.capabilities[capability] === 'native'
-          && !['schema', 'runtime'].includes(adapter.verification[capability])) {
+          && !['schema', 'runtime'].includes(adapter.verification[capability].level)) {
         throw new Error(`${adapter.id}.${capability} is native without upstream verification`);
+      }
+      if (['schema', 'runtime'].includes(adapter.verification[capability].level)
+          && (!adapter.verification[capability].sourceUrl || !adapter.verification[capability].sourceLocator)) {
+        throw new Error(`${adapter.id}.${capability} lacks a verifiable evidence source`);
       }
     }
   }
@@ -362,16 +382,23 @@ The target capability matrix in this document marks most cells `n`, but `verific
 - `'runtime'` — reserved for capabilities Task 10's env-gated live-binary job actually exercises (droid/hermes/antigravity today); `'fixture'` until that job exists for a given platform, even if the schema is documented.
 - `'none'` — no third-party evidence exists yet. **Any capability at `'none'` must have its `capabilities[x]` value in the same commit downgraded from `n` to `e` (experimental) or `f` (cli_fallback) in the actual `PLATFORM_REGISTRY` implementation** — the target table in this document is aspirational; the committed registry is not allowed to diverge from what `verification` actually backs.
 
-Add a second registry test asserting this invariant holds in the other direction too — no `capabilities[x] === 'native'` may ship without a `verification[x]` of `'schema'` or `'runtime'` recorded in the same PR, so a future change can't silently promote a cell to native without adding its evidence:
+Add `src/platform-adapters/verification-ledger.ts` and `__tests__/platform-adapters/verification-ledger.test.ts`. The ledger is checked-in JSON with `{ platform, capability, level, sourceUrl, sourceLocator, verifiedAt }` rows. The test parses it, compares every `schema`/`runtime` registry evidence object byte-for-byte to one ledger row, rejects duplicate rows, and rejects any native capability missing its row:
 
 ```ts
-it('never promotes a capability to native in the same change without recording its evidence source', () => {
-  // executed against the PR diff in CI, not the runtime registry alone —
-  // see docs/platforms/verification-ledger.md for the citation each 'schema'/'runtime' entry must link to.
+it('has one cited ledger row for every native registry capability', () => {
+  const ledger = readVerificationLedger('docs/platforms/verification-ledger.json');
+  expect(new Set(ledger.map((row) => `${row.platform}:${row.capability}`)).size).toBe(ledger.length);
+  for (const adapter of Object.values(PLATFORM_REGISTRY)) {
+    for (const capability of CAPABILITIES) {
+      if (adapter.capabilities[capability] !== 'native') continue;
+      const row = ledger.find((candidate) => candidate.platform === adapter.id && candidate.capability === capability);
+      expect(row).toEqual(adapter.verification[capability]);
+    }
+  }
 });
 ```
 
-Record the resulting per-adapter evidence table in `docs/platforms/verification-ledger.md` (one row per platform/capability, linking back to the citation in this document that justifies `'schema'` or `'runtime'`) so a reviewer never has to trust an uncited `native` claim.
+Publish the resulting per-adapter evidence table from that JSON into `docs/platforms/verification-ledger.md` (one row per platform/capability) and include both generated files in `platforms docs --check` so a reviewer never has to trust an uncited native claim.
 
 - [ ] **Step 4: Replace duplicate platform arrays and keep the build green**
 
@@ -497,14 +524,22 @@ export interface InstallRequest {
 }
 
 /** Shared preflight contract for every command that can mutate a selected scope. */
-export interface MutationRequest extends Omit<InstallRequest, 'discovery'> {
-  removeLegacy?: boolean;
+export type MutationRequest = Omit<InstallRequest, 'platform' | 'discovery'> & (
+  | { platform: PlatformId; all?: never; removeLegacy?: boolean }
+  | { platform?: never; all: true; removeLegacy?: never }
+);
+
+export interface PlatformPlan {
+  scope: 'project' | 'user';
+  authorizedUserMutation: boolean;
+  intents: readonly ArtifactIntent[];
+  diagnostics: readonly string[];
 }
 ```
 
-- `planInstall(request): Promise<PlatformPlan>` — side-effect free.
+- `planInstall(request): Promise<PlatformPlan>` — side-effect free; copies `scope` and `authorizedUserMutation: request.scope === 'project' || request.yes === true` into the plan.
 - `resolveArtifactLocation(adapter, kind, scope, environment): ResolvedArtifactLocation | undefined` — the only conversion from adapter data to a filesystem path. It returns `undefined` for a fallback/unverified/discovery-only surface and emits a diagnostic rather than inventing a file.
-- `applyPlan(plan): Promise<ApplyResult>` — writes only after preflight; rejects `scope: 'user'` unless `yes === true`; atomic (pid-suffixed tmp + rename, precedent in `shared.ts`); scope-specific cross-process lock for every apply/upgrade/uninstall/migration mutation.
+- `applyPlan(plan, request): Promise<ApplyResult>` — writes only after preflight; rejects if the request scope differs from the plan or a user plan lacks `authorizedUserMutation`; atomic (pid-suffixed tmp + rename, precedent in `shared.ts`); scope-specific cross-process lock for every apply/upgrade/uninstall/migration mutation.
 - `upgradePlatforms(request: MutationRequest)` / `uninstallPlatform(request: MutationRequest)` / `migrateLegacyInstall(request: MutationRequest)` — use the same `scope` and `yes` preflight as `installPlatform`; no mutating code path may bypass it.
 - `mergeManagedBlock(content, marker)` / `removeManagedBlock(content, artifact, platform)` — **multi-block capable**: markers are `monomind:start <artifact>:<platform>` / `monomind:end <artifact>:<platform>`; several managed blocks may coexist in one file (AGENTS.md is written by up to five platforms); removal touches exactly one.
 - `mergeNamedEntry(json, path, entry)` / `removeNamedEntry(json, path, name)` — JSON object merge by key (idempotent, foreign keys preserved byte-for-byte).
@@ -516,13 +551,11 @@ export interface MutationRequest extends Omit<InstallRequest, 'discovery'> {
 ```ts
 type Location = { path: string; format?: ArtifactIntent['format']; entryPath?: readonly string[] };
 export interface PlatformPaths {
-  instruction?: Partial<Record<InstallScope, Location | 'discovery' | 'cli_fallback'>>;
-  skillRoot?: Partial<Record<InstallScope, Location | 'discovery' | 'cli_fallback'>>;
-  mcp?: Partial<Record<InstallScope, Location | 'discovery' | 'cli_fallback'>>;
+  locations: Partial<Record<ArtifactKind, Partial<Record<InstallScope, Location | 'discovery' | 'cli_fallback'>>>>;
 }
 ```
 
-Locations must be explicit for each rendered scope. Examples asserted in tests: Codex project/user skills are `.agents/skills`/`~/.agents/skills`; Droid MCP is `.factory/mcp.json`/`~/.factory/mcp.json`; OpenClaw project MCP is `cli_fallback` and user MCP is `~/.openclaw/openclaw.json` (or the explicit config-path override); unknown Claude user MCP stays `cli_fallback` until its documented location is represented. Path presentation goes through `redactUserPath()`.
+Locations must be explicit for every rendered artifact kind and scope. A renderer supplies an `ArtifactIntent.locationKey`; only `resolveArtifactLocation()` may turn that key into a path. Examples asserted in tests: Codex project/user skills are `.agents/skills`/`~/.agents/skills`; Droid MCP is `.factory/mcp.json`/`~/.factory/mcp.json`; OpenClaw project MCP is `cli_fallback` and user MCP is `~/.openclaw/openclaw.json` (or the explicit config-path override); unknown Claude user MCP stays `cli_fallback` until its documented location is represented. Path presentation goes through `redactUserPath()`.
 
 - [ ] **Step 1: Write failing merge, idempotency, multi-block, and JSON tests**
 
@@ -600,7 +633,7 @@ it('rejects an unconfirmed user-scope mutation without creating a backup or lock
 export type ArtifactKind = 'instruction' | 'skill' | 'mcp' | 'command' | 'agent' | 'hook' | 'status' | 'plugin' | 'permission';
 export interface ArtifactIntent {
   kind: ArtifactKind;
-  path: string;
+  locationKey: ArtifactKind;      // resolved through PlatformPaths only
   content: string;                 // for named_entry kinds: the entry payload
   marker?: string;                 // required for managed_block
   entryPath?: readonly (string | number)[]; // required for named_entry
@@ -1171,6 +1204,22 @@ Expected: PASS; compatibility doc matches registry; no legacy SessionStart injec
 git add CHANGELOG.md docs/platforms packages/@monomind/cli/src/commands
 git commit -m "docs(platforms): publish parity migration guide and patch release"
 ```
+
+### Execution audit — 2026-08-24
+
+The implementation and release-candidate verification were performed in
+`.worktrees/mastermind-parity-execution` using the fixed vocabulary from Task
+0 (`@monoes/monomindcli`, `run build`, root `pnpm lint`, and workspace
+`CI=true pnpm test:all`). The final candidate is `2.9.27`; publication and the
+plan's commit steps remain subject to the repository's explicit worktree
+resolution policy.
+
+| Requirement group | Current evidence |
+| --- | --- |
+| Tasks 1–5, 7–9 | Registry, canonical skills, scoped operations, renderers, migration, init, doctor, MCP, generated docs, and their focused fixture suites are implemented under `packages/@monomind/cli/src/platform-adapters/` and `__tests__/platform-adapters/`. |
+| Task 6 latency budget | 80 successful standalone bridge samples per event (spawn plus `.monomind/` latency-record write): PreToolUse p95/max `111.13/117.15 ms`; PostToolUse p95/max `104.84/111.30 ms`. Both remain within the 2 s/10 s defaults; the durable record is `docs/platforms/hook-latency-benchmark.md`. |
+| Task 10 verification | `CI=true pnpm test:all`: 524 files, 5,167 tests passed, 54 skipped; CLI build, root lint, `platforms docs --check`, version guard, and `git diff --check` passed. An isolated temporary project/home installed Codex in both scopes (15/14 artifacts), and both read-only doctor reports were sanitized and identified Codex. |
+| Clean checkout docs | `.gitignore` expressly tracks `docs/platforms/*.md` and `*.json`, preventing the generated compatibility, verification, migration, and benchmark artifacts from being absent in CI. |
 
 ## Acceptance gates (milestone-tagged; each stated as a testable claim)
 

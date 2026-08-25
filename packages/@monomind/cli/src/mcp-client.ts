@@ -49,6 +49,7 @@ const CATEGORY_LOADERS: Record<string, CategoryLoader> = {
   system: async () => (await import('./mcp-tools/system-tools.js')).systemTools,
   terminal: async () => (await import('./mcp-tools/terminal-tools.js')).terminalTools,
   performance: async () => (await import('./mcp-tools/performance-tools.js')).performanceTools,
+  platforms: async () => (await import('./mcp-tools/platforms-tools.js')).platformsTools,
   github: async () => (await import('./mcp-tools/github-tools.js')).githubTools,
   browser: async () => (await import('./mcp-tools/browser-tools.js')).browserTools,
   guidance: async () => (await import('./mcp-tools/guidance-tools.js')).guidanceTools,
@@ -132,6 +133,7 @@ const CORE_TOOL_CATEGORIES = new Set([
   'agent',
   'monomind',
   'monodesign',
+  'platforms',
 ]);
 
 // Only this subset of hooks is advertised; the rest of hooks (intelligence,

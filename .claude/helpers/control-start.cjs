@@ -389,7 +389,21 @@ async function main() {
           ? `rooted in ${live.dir}, not ${CWD}`
           : `started ${Math.round(startedMs / 86400_000)}d ago`;
       if (String(process.env.MONOMIND_HOOK_QUIET || "") !== "1") process.stdout.write(`[control] restarting stale server (${reason})\n`);
-      try { process.kill(status.pid, 'SIGTERM'); } catch { /* already gone */ }
+      // A status file is advisory, not proof that its PID belongs to this
+      // project. In particular, a stale control.json can point at a foreign
+      // dashboard (or a PID the OS has already reused). Only stop a process
+      // after the authenticated status response proves both its PID and
+      // project directory are ours. Never kill merely because an auth probe
+      // failed or the response identifies a different project.
+      const ownsRecordedProcess =
+        live &&
+        live !== 'unauthorized' &&
+        live.pid === status.pid &&
+        live.dir &&
+        path.resolve(live.dir) === path.resolve(CWD);
+      if (ownsRecordedProcess) {
+        try { process.kill(status.pid, 'SIGTERM'); } catch { /* already gone */ }
+      }
       // Give it a moment to release the port
       await new Promise(r => setTimeout(r, 1000));
     } else {
