@@ -611,13 +611,38 @@ describe('hook-admin.mjs', () => {
     assert.match(claude, /local-hook\.mjs/);
     assert.equal(claude.split('skills/monodesign/scripts/hook.mjs').length - 1, 1);
 
-    const codex = fs.readFileSync(path.join(cwd, '.codex', 'hooks.json'), 'utf-8');
+    const codex = fs.readFileSync(path.join(cwd, '.codex', 'config.toml'), 'utf-8');
+    assert.match(codex, /\[features\]\nhooks = true/);
     assert.match(codex, /\.agents\/skills\/monodesign\/scripts\/hook\.mjs/);
+    assert.ok(!fs.existsSync(path.join(cwd, '.codex', 'hooks.json')));
     const cursor = fs.readFileSync(path.join(cwd, '.cursor', 'hooks.json'), 'utf-8');
     assert.match(cursor, /\.cursor\/skills\/monodesign\/scripts\/hook-before-edit\.mjs/);
     const github = JSON.parse(fs.readFileSync(path.join(cwd, '.github', 'hooks', 'monodesign.json'), 'utf-8'));
     assert.equal(github.hooks.postToolUse[0].matcher, 'edit|create|apply_patch');
     assert.match(github.hooks.postToolUse[0].bash, /\.github\/skills\/monodesign\/scripts\/hook\.mjs/);
+  });
+
+  it('installs the Codex hook in config.toml without creating hooks.json', () => {
+    fs.mkdirSync(path.join(cwd, '.agents', 'skills', 'monodesign'), { recursive: true });
+    fs.mkdirSync(path.join(cwd, '.codex'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, '.codex', 'config.toml'), [
+      '[features]',
+      'hooks = true',
+      '',
+      '# monomind:start native-hooks',
+      '[[hooks.PostToolUse]]',
+      'matcher = ".*"',
+      '# monomind:end native-hooks',
+      '',
+    ].join('\n'));
+
+    runAdmin(['on']);
+
+    const config = fs.readFileSync(path.join(cwd, '.codex', 'config.toml'), 'utf-8');
+    assert.match(config, /# monomind:start native-hooks/);
+    assert.match(config, /# monodesign:start native-hook/);
+    assert.match(config, /command = "node \.agents\/skills\/monodesign\/scripts\/hook\.mjs"/);
+    assert.ok(!fs.existsSync(path.join(cwd, '.codex', 'hooks.json')));
   });
 
   it('ignore-rule overused-font requires explicit broad suppression', () => {

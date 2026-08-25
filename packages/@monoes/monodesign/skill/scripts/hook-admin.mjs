@@ -74,24 +74,20 @@ const HOOK_MANIFEST_TARGETS = [
   {
     provider: '.agents',
     skillRel: '.agents/skills/monodesign',
-    destRel: '.codex/hooks.json',
-    manifest: () => ({
-      hooks: {
-        PostToolUse: [
-          {
-            matcher: 'Edit|Write|apply_patch',
-            hooks: [
-              {
-                type: 'command',
-                command: 'node ".agents/skills/monodesign/scripts/hook.mjs"',
-                timeout: TIMEOUT_SECONDS,
-                statusMessage: STATUS_MESSAGE,
-              },
-            ],
-          },
-        ],
-      },
-    }),
+    destRel: '.codex/config.toml',
+    format: 'toml',
+    manifest: () => [
+      '# monodesign:start native-hook',
+      '[[hooks.PostToolUse]]',
+      'matcher = "Edit|Write|apply_patch"',
+      '[[hooks.PostToolUse.hooks]]',
+      'type = "command"',
+      'command = "node .agents/skills/monodesign/scripts/hook.mjs"',
+      `timeout = ${TIMEOUT_SECONDS}`,
+      `statusMessage = "${STATUS_MESSAGE}"`,
+      '# monodesign:end native-hook',
+      '',
+    ].join('\n'),
   },
   {
     provider: '.cursor',
@@ -335,6 +331,19 @@ function repairHookManifests(cwd) {
     const dest = path.join(cwd, target.destRel);
     const sharedDest = target.sharedDestRel ? path.join(cwd, target.sharedDestRel) : null;
 
+    if (target.format === 'toml') {
+      const current = fs.existsSync(dest) ? safeReadText(dest) : '';
+      const next = mergeCodexHookConfig(current || '', target.manifest());
+      if (current === next) {
+        result.already.push(target.provider);
+        continue;
+      }
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, next);
+      result.written.push(target.provider);
+      continue;
+    }
+
     if (sharedDest && fileHasMonodesignHookMarker(sharedDest)) {
       pruneMonodesignHookFromManifest(dest);
       result.already.push(target.provider);
@@ -364,6 +373,30 @@ function repairHookManifests(cwd) {
     result.written.push(target.provider);
   }
   return result;
+}
+
+function mergeCodexHookConfig(existing, hookBlock) {
+  const completeBlock = /# monodesign:start native-hook[\s\S]*?# monodesign:end native-hook\n?/m;
+  const incompleteBlock = /# monodesign:start native-hook[\s\S]*$/m;
+  let merged = existing;
+  if (completeBlock.test(merged)) merged = merged.replace(completeBlock, hookBlock);
+  else if (incompleteBlock.test(merged)) merged = merged.replace(incompleteBlock, hookBlock);
+  else merged = `${merged.trimEnd()}${merged.trim() ? '\n\n' : ''}${hookBlock}`;
+  return enableCodexHooks(merged);
+}
+
+function enableCodexHooks(config) {
+  if (!/^\[features\]\s*$/m.test(config)) {
+    return `[features]\nhooks = true\n\n${config}`;
+  }
+  const lines = config.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^\[features\]\s*$/.test(line));
+  let end = start + 1;
+  while (end < lines.length && !/^\[\[?[^\]]+\]\]?\s*$/.test(lines[end])) end++;
+  const hookIndex = lines.slice(start + 1, end).findIndex((line) => /^hooks\s*=/.test(line));
+  if (hookIndex === -1) lines.splice(end, 0, 'hooks = true');
+  else lines[start + 1 + hookIndex] = 'hooks = true';
+  return lines.join('\n');
 }
 
 function safeReadText(filePath) {
