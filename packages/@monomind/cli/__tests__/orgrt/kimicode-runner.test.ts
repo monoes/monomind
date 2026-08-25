@@ -319,4 +319,32 @@ describe('KimiCodeAgentRunner streaming', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   }, 15000);
+
+  // Regression guard for the live bug found 2026-08-25: kimi rejects an
+  // --agent-file whose body (everything after the '---' frontmatter) is
+  // empty with "Missing prompt body". args.systemPrompt is legitimately ''
+  // for bare `agent exec` calls with no --system-file (agent.ask, `chat`
+  // without --canvas, `agent test`), and with no tools the tool-protocol
+  // suffix is also '' — so without a fallback, the file body was empty.
+  it('never writes an --agent-file with an empty body, even with no systemPrompt and no tools', async () => {
+    const { bin, tmpDir } = makeFakeKimi(`
+      const fs = require('fs');
+      const argv = process.argv.slice(2);
+      fs.appendFileSync(process.env.FAKE_KIMI_LOG, JSON.stringify(argv) + '\\n');
+      const agentFilePath = argv[argv.indexOf('--agent-file') + 1];
+      const contents = fs.readFileSync(agentFilePath, 'utf-8');
+      const body = contents.replace(/^---[\\s\\S]*?---\\n\\n/, '').trim();
+      console.log(JSON.stringify({ role: 'assistant', content: 'body-length:' + body.length }));
+    `);
+    try {
+      const args = makeRunArgs(bin, tmpDir, { systemPrompt: '', tools: [] });
+      const { messages } = await collect(new KimiCodeAgentRunner(bin), args);
+      const text = messages.find((m) => m.type === 'assistant')?.text ?? '';
+      const match = /body-length:(\d+)/.exec(text);
+      expect(match).not.toBeNull();
+      expect(Number(match?.[1])).toBeGreaterThan(0);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
 });

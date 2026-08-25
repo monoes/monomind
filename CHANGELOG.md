@@ -4,6 +4,21 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.1] — 2026-08-26
+
+### Fixed
+
+- `pi`/`pi-rpc` runners: removed a nonexistent `--approve` flag that made
+  every turn fail immediately with "Unknown option: --approve" — confirmed
+  live against pi 0.73.1's own `--help`, which lists no approve/trust/yolo
+  option at all. `--mode json`/`--mode rpc` alone were verified not to block
+  on an interactive trust prompt, so no replacement flag was needed.
+- `kimicode` runner: the agent-file body (everything after the `---`
+  frontmatter) could be empty — and kimi rejects that with "Missing prompt
+  body" — for any bare `agent exec` call with no `--system-file` and no
+  tools (e.g. `agent.ask`, `chat` without `--canvas`, `agent test`). Falls
+  back to a minimal default system prompt when none is given.
+
 ## [2.10.0] — 2026-08-25
 
 ### Added
