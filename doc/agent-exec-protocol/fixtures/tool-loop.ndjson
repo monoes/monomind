@@ -1,0 +1,9 @@
+{"v":1,"type":"start","runtime":"claude","cwd":"/app","pid":4212}
+{"v":1,"type":"session","session_id":"th_1"}
+{"v":1,"type":"assistant","text":"Creating nodes…"}
+{"v":1,"type":"tool_call","id":"tc_1","name":"create_nodes","args":{"count":2}}
+{"v":1,"type":"tool_result","id":"tc_1","ok":true,"result":{"text":"created 2 nodes"}}
+{"v":1,"type":"assistant","text":"Created: created 2 nodes"}
+{"v":1,"type":"usage","input_tokens":400,"output_tokens":40,"cost_usd":0.002}
+{"v":1,"type":"result","subtype":"success","is_error":false,"stop_reason":"end_turn","input_tokens":400,"output_tokens":40,"cost_usd":0.002}
+{"v":1,"type":"done","exit_code":0}

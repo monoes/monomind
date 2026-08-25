@@ -23,6 +23,21 @@ const log = (text: string): void => {
   console.log(text);
 };
 
+// ─── Agent Exec Protocol JSON output (doc/agent-exec-protocol.md §7) ────────
+// Org observe commands emit machine JSON under the global `--format json`
+// flag: one JSON object on stdout, diagnostics on stderr only. Envelope for
+// lists {v, org, items}; singletons are bare objects carrying v.
+
+/** True when this invocation asked for protocol JSON output. */
+export const orgJson = (ctx: CommandContext): boolean => ctx.flags.format === 'json';
+
+/** Print one protocol JSON payload on stdout (compact — one line, NDJSON-safe
+ *  for line-oriented callers) and return a success result. */
+export const printOrgJson = (payload: Record<string, unknown>): CommandResult => {
+  process.stdout.write(`${JSON.stringify(payload)}\n`);
+  return { success: true, data: payload };
+};
+
 /** Validate org config(s) against OrgDefSchema — the exact parse `org run`/`org serve`
  * perform — plus the structural invariants the runtime assumes but the schema can't
  * express (single root role, resolvable reports_to, unique ids, parseable schedule). */
@@ -104,6 +119,30 @@ export const logsAction = async (ctx: CommandContext, name: string): Promise<Com
   const auditFilter =
     typeof ctx.flags['audit-filter'] === 'string' ? ctx.flags['audit-filter'] : null;
   const toolsOnly = ctx.flags['tools-only'] === true;
+  // Protocol JSON mode: full filtered event array, no live tail (§7.2 — the
+  // streaming form is `org events --ndjson --follow`).
+  if (orgJson(ctx)) {
+    if (ctx.flags.follow === true)
+      return { success: false, message: 'json output cannot --follow — use: org events --ndjson' };
+    const items: BusEvent[] = [];
+    const accept = (e: BusEvent): boolean =>
+      (!toolsOnly || e.type === 'tool') &&
+      (!roleFilter || e.from === roleFilter || e.to === roleFilter) &&
+      (!filterTool || e.tool === filterTool) &&
+      (!filterRole || e.from === filterRole) &&
+      (!auditFilter || e.type !== 'tool' || e.decision === auditFilter);
+    if (existsSync(file)) {
+      for (const line of readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
+        try {
+          const e = JSON.parse(line) as BusEvent;
+          if (accept(e)) items.push(e);
+        } catch {
+          /* skip corrupt interior lines — same policy as the tail drain */
+        }
+      }
+    }
+    return printOrgJson({ v: 1, org: name, run, items });
+  }
   const show = (e: BusEvent): void => {
     if (toolsOnly && e.type !== 'tool') return;
     if (roleFilter && e.from !== roleFilter && e.to !== roleFilter) return;
@@ -249,6 +288,7 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   if (ctx.flags.all === true) {
     const history = readHistory(ctx.cwd, name);
     if (!history.length) return { success: false, message: `no run history for org ${name}` };
+    if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, items: history });
     log(output.info(`org ${name} — ${history.length} recorded run(s):`));
     for (const h of history) {
       const dur = h.durationMs != null ? `${Math.round(h.durationMs / 1000)}s` : '?';
@@ -268,6 +308,28 @@ export const reportAction = async (ctx: CommandContext, name: string): Promise<C
   const events = readRunEvents(ctx.cwd, name, run);
   if (!events.length) return { success: false, message: `run ${run} has no recorded events` };
   const s = summarizeRun(events);
+
+  // Protocol JSON mode (§7.2): the run summary as a bare object. Emitted
+  // before the human-only flag modes (mermaid/audit/by-role) — those render
+  // views of the same summary and have no JSON shape defined by the spec.
+  if (orgJson(ctx)) {
+    return printOrgJson({
+      v: 1,
+      org: name,
+      run,
+      duration_ms: s.durationMs,
+      events: s.events,
+      messages: s.messages,
+      xorg_messages: s.xorgMessages,
+      total_tokens: s.totalTokens,
+      total_cost_usd: s.totalCostUsd,
+      outcome: s.outcome,
+      cut_short: s.cutShort,
+      crashes: s.crashes,
+      roles: s.roles,
+      assets: s.assets,
+    });
+  }
 
   // Mermaid flowchart (--format mermaid flag)
   if (ctx.flags.format === 'mermaid') {
@@ -496,6 +558,7 @@ export const questionsAction = async (
     return { success: false, message: 'questions.json unreadable' };
   }
   const shown = ctx.flags.all === true ? all : all.filter((q) => q.answer === null);
+  if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, items: shown });
   if (!shown.length) {
     log(
       output.info(
@@ -571,6 +634,10 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) {
+        if (orgJson(ctx))
+          return printOrgJson({
+            v: 1, org: name, question_id: questionId, role: q.role, delivery: 'live', answered: true,
+          });
         log(output.success(`Answer delivered to ${name}:${q.role} (live).`));
         return { success: true };
       }
@@ -647,6 +714,10 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   writeFileSync(tmp, JSON.stringify({ questions: merged }, null, 2));
   const { renameSync } = await import('node:fs');
   renameSync(tmp, dest);
+  if (orgJson(ctx))
+    return printOrgJson({
+      v: 1, org: name, question_id: questionId, role: q.role, delivery: 'queued', answered: true,
+    });
   log(output.success(`Answer recorded — ${name}:${q.role} receives it when the org next runs.`));
   return { success: true };
 };
@@ -890,7 +961,7 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
     return { success: false, message: 'runtime.json unreadable' };
   }
 
-  if (rt?.run !== run) {
+  if (rt?.run !== run && !orgJson(ctx)) {
     log(
       output.warning(
         `Note: runtime.json shows run ${rt?.run ?? 'unknown'} — showing metrics for requested run ${run} from history`,
@@ -902,7 +973,7 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   const events = readRunEvents(ctx.cwd, name, run);
   const summary = events.length ? summarizeRun(events) : null;
 
-  log(output.info(`Per-role cost breakdown for ${name} / ${run}:`));
+  if (!orgJson(ctx)) log(output.info(`Per-role cost breakdown for ${name} / ${run}:`));
 
   // Combine data from runtime.json (live metrics) and summary (historical)
   const roleData = new Map<string, { tokens: number; costUsd: number; messages: number }>();
@@ -928,6 +999,22 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
         messages: roleStats.messagesSent,
       });
     }
+  }
+
+  if (orgJson(ctx)) {
+    const items: Array<{ role: string; tokens: number; cost_usd: number; messages: number }> = [];
+    for (const [roleId, data] of roleData) {
+      items.push({ role: roleId, tokens: data.tokens, cost_usd: data.costUsd, messages: data.messages });
+    }
+    const totals = items.reduce(
+      (acc, i) => ({
+        tokens: acc.tokens + i.tokens,
+        cost_usd: acc.cost_usd + i.cost_usd,
+        messages: acc.messages + i.messages,
+      }),
+      { tokens: 0, cost_usd: 0, messages: 0 },
+    );
+    return printOrgJson({ v: 1, org: name, run, items, totals });
   }
 
   if (roleData.size === 0) {
@@ -981,6 +1068,7 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
   const messageEvents = events.filter((e) => e.type === 'message' || e.type === 'xorg');
   const roleSet = new Set<string>();
   const edges = new Set<string>();
+  const edgeObjects: Array<{ from: string; to: string; subject?: string }> = [];
 
   for (const e of messageEvents) {
     if (e.from) {
@@ -991,11 +1079,15 @@ export const flowAction = async (ctx: CommandContext, name: string): Promise<Com
         roleSet.add(toRole);
         const edge = `${fromRole} -->|${e.subject || 'msg'}| ${toRole}`;
         edges.add(edge);
+        edgeObjects.push({ from: fromRole, to: toRole, subject: e.subject || 'msg' });
       }
     }
   }
 
   const roles = Array.from(roleSet).sort();
+
+  // Protocol JSON mode (§7.2): structured roles + edges instead of Mermaid.
+  if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, run, roles, edges: edgeObjects });
 
   log(output.info(`flowchart TD`));
   log(output.info(`  %% Org flow for ${name} / ${run}`));
@@ -1050,6 +1142,10 @@ async function resolveApproval(
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && data.ok) {
+        if (orgJson(ctx))
+          return printOrgJson({
+            v: 1, org: name, role, action, approved, delivery: 'live',
+          });
         log(
           approved
             ? output.success(`Approved: ${role} may execute ${action} (live).`)
@@ -1093,6 +1189,8 @@ async function resolveApproval(
   item.ts = Date.now();
   writeFileSync(approvalsPath, JSON.stringify({ approvals: pending }, null, 2));
 
+  if (orgJson(ctx))
+    return printOrgJson({ v: 1, org: name, role, action, approved, delivery: 'recorded' });
   log(
     approved
       ? output.success(`Approved: ${role} may execute ${action}`)
@@ -1235,6 +1333,19 @@ export const decisionsAction = async (
       e.type === 'audit' && e.reason === 'decision-trace' && e.data && typeof e.data === 'object',
   );
 
+  if (orgJson(ctx)) {
+    return printOrgJson({
+      v: 1,
+      org: name,
+      run,
+      items: decisionEvents.map((e) => ({
+        ts: e.ts,
+        role: e.from ?? 'system',
+        ...(e.data as Record<string, unknown>),
+      })),
+    });
+  }
+
   if (!decisionEvents.length) {
     log(output.info(`No decision traces found in ${run}`));
     return { success: true };
@@ -1298,6 +1409,8 @@ export const gatesAction = async (ctx: CommandContext, name: string): Promise<Co
   const data = readGatesFile(ctx.cwd, name);
   const showAll = ctx.flags.all === true;
   const gates = showAll ? data.gates : data.gates.filter((g) => g.status === 'pending');
+
+  if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, items: gates });
 
   if (!gates.length) {
     log(
@@ -1372,6 +1485,11 @@ export const gateResolveAction = async (
       });
       const d = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && d.ok) {
+        if (orgJson(ctx))
+          return printOrgJson({
+            v: 1, org: name, gate_id: gateId,
+            status: approved ? 'approved' : 'rejected', delivery: 'live',
+          });
         log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} (live).`));
         return { success: true, message: `gate ${approved ? 'approved' : 'rejected'}` };
       }
@@ -1429,10 +1547,93 @@ export const gateResolveAction = async (
   };
   writeGates(ctx.cwd, name, fresh);
 
+  if (orgJson(ctx))
+    return printOrgJson({
+      v: 1, org: name, gate_id: gateId,
+      status: approved ? 'approved' : 'rejected', delivery: 'recorded',
+    });
   log(
     output.success(
       `Gate ${gateId} ${approved ? 'approved' : 'rejected'} — ${name} picks it up on its next cycle.`,
     ),
   );
   return { success: true, message: `gate ${approved ? 'approved' : 'rejected'} (queued)` };
+};
+
+// ─── org events — the only genuinely new org command (plan D12) ─────────────
+
+/** Resolve a `--since` cursor: an event id (skip everything at/before it) or
+ *  an ISO-8601 timestamp (skip older events). Returns null when unusable. */
+function parseSinceCursor(raw: unknown): { id?: string; iso?: string } | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  if (/^run-[A-Za-z0-9-]+/.test(raw)) return { id: raw };
+  const ts = Date.parse(raw);
+  return Number.isFinite(ts) ? { iso: raw } : null;
+}
+
+/** `org events <name> [--run id] [--follow] [--since <eventId|iso>] [--ndjson]`
+ *  — live tail of a run's bus.jsonl as NDJSON, one BusEvent per line
+ *  (protocol §7.3). This is the machine streaming surface; `org logs` stays
+ *  the human one. NDJSON is the only output mode (--ndjson accepted for
+ *  spec symmetry). */
+export const eventsAction = async (ctx: CommandContext, name: string): Promise<CommandResult> => {
+  const run = resolveRun(ctx.cwd, name, ctx.flags.run);
+  if (!run)
+    return {
+      success: false,
+      message: `no runs found for org ${name} — start one with: monomind org run ${name}`,
+    };
+  const file = join(ctx.cwd, ORG_DIR, name, run, 'bus.jsonl');
+  const since = parseSinceCursor(ctx.flags.since);
+
+  let skippedPastId = !since?.id; // true = no id cursor, nothing to skip
+  let seenLines = 0;
+  const emitLine = (line: string): void => {
+    let e: BusEvent;
+    try {
+      e = JSON.parse(line) as BusEvent;
+    } catch {
+      return; // corrupt interior line — skip, same policy as logsAction
+    }
+    if (since?.id) {
+      if (!skippedPastId) {
+        if (e.id === since.id) skippedPastId = true;
+        return; // everything strictly before the cursor is replay-suppressed
+      }
+    }
+    if (since?.iso && Date.parse(since.iso) && new Date(e.ts).getTime() < Date.parse(since.iso))
+      return;
+    process.stdout.write(`${JSON.stringify(e)}\n`);
+  };
+
+  const drain = (): void => {
+    if (!existsSync(file)) return;
+    const lines = readFileSync(file, 'utf8').split('\n').filter(Boolean);
+    for (let i = seenLines; i < lines.length; i++) {
+      // Only the FINAL line can be a partial mid-append write worth retrying.
+      if (i === lines.length - 1) {
+        try {
+          JSON.parse(lines[i]);
+        } catch {
+          break;
+        }
+      }
+      emitLine(lines[i]);
+      seenLines = i + 1;
+    }
+  };
+  drain();
+  if (ctx.flags.follow !== true) return { success: true };
+  await new Promise<void>((resolve) => {
+    const iv = setInterval(drain, 500);
+    process.once('SIGINT', () => {
+      clearInterval(iv);
+      resolve();
+    });
+    process.once('SIGTERM', () => {
+      clearInterval(iv);
+      resolve();
+    });
+  });
+  return { success: true };
 };

@@ -1,0 +1,4 @@
+{"v":1,"type":"start","runtime":"codex","cwd":"/app","pid":4212}
+{"v":1,"type":"assistant","text":"starting"}
+{"v":1,"type":"error","code":"timeout","fatal":false,"message":"exec exceeded overall timeout (80ms)"}
+{"v":1,"type":"done","exit_code":124}
