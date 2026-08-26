@@ -252,11 +252,20 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
   }
 
   // ---------------------------------------------------- GET /api/monoes/status
+  // Polled on every dashboard load — piggybacks the silent-refresh check so
+  // .mcp.json's embedded access token self-heals (refreshed or removed)
+  // roughly as often as the dashboard is opened, instead of only on the
+  // explicit connect/disconnect actions.
   if (req.method === 'GET' && url === '/api/monoes/status') {
-    const conn = readMonoesConnection(MONOMIND_HOME);
+    const beforeConn = readMonoesConnection(MONOMIND_HOME);
+    const validToken = /* value */ beforeConn?.accessToken ? await getValidMonoesToken(MONOMIND_HOME) : null;
+    const afterConn = readMonoesConnection(MONOMIND_HOME);
+    if (validToken !== (beforeConn?.accessToken || null)) {
+      _syncMonoesMcpEntry(path.resolve(projectDir || process.cwd()), validToken);
+    }
     _json(res, corsOrigin, 200, {
-      connected: !!conn?.accessToken,
-      username: conn?.connectedUsername || null,
+      connected: !!validToken,
+      username: validToken ? afterConn?.connectedUsername || null : null,
     });
     return true;
   }
