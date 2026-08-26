@@ -314,4 +314,63 @@ describe('monoes.me connection → .mcp.json sync', () => {
     await send();
     expect(existsSync(join(monomindHome, '.mcp.json'))).toBe(false);
   });
+
+  it('GET /api/monoes/status refreshes an expiring token and re-syncs .mcp.json with the new one', async () => {
+    writeConnection({
+      accessToken: /* value */ 'old',
+      refreshToken: /* value */ 'refresh-1',
+      clientId: 'client-1',
+      expiresAt: Date.now() - 1000,
+      connectedUsername: 'someone',
+    });
+    writeMcpJson(monomindHome, {
+      mcpServers: {
+        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer old' } },
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ access_token: 'refreshed', refresh_token: 'refresh-2', expires_in: 3600 }),
+      })),
+    );
+
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+    const { req, res, send, getBody } = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    expect(getBody()).toEqual({ connected: true, username: 'someone' });
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toEqual({
+      type: 'http',
+      url: 'https://monoes.me/api/mcp',
+      headers: { Authorization: 'Bearer refreshed' },
+    });
+  });
+
+  it('GET /api/monoes/status removes the stale .mcp.json entry when refresh fails', async () => {
+    writeConnection({
+      accessToken: /* value */ 'old',
+      refreshToken: /* value */ 'refresh-1',
+      clientId: 'client-1',
+      expiresAt: Date.now() - 1000,
+    });
+    writeMcpJson(monomindHome, {
+      mcpServers: {
+        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer old' } },
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401 })));
+
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+    const { req, res, send, getBody } = fakeRequestResponse('GET', '/api/monoes/status');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    expect(getBody()).toEqual({ connected: false, username: null });
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monoes).toBeUndefined();
+  });
 });
