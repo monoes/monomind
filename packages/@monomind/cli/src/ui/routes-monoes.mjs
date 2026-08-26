@@ -234,5 +234,59 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
+  // ----------------------------------------------- POST /api/monoes/upload-org
+  // Reads the org's existing on-disk definition (the same
+  // .monomind/orgs/<name>.json file GET /api/orgs/:name already serves —
+  // no new read path) and forwards it to monoes.me's real upload endpoint.
+  if (req.method === 'POST' && url === '/api/monoes/upload-org') {
+    let body = '';
+    req.on('data', (c) => {
+      body += c;
+      if (body.length > 1e6) req.destroy();
+    });
+    req.on('end', async () => {
+      try {
+        const { orgName, dir } = JSON.parse(body || '{}');
+        if (!orgName || orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
+          _json(res, corsOrigin, 400, { error: 'Invalid org name' });
+          return;
+        }
+
+        const token = await getValidMonoesToken(MONOMIND_HOME);
+        if (!token) {
+          _json(res, corsOrigin, 401, { error: 'not_connected' });
+          return;
+        }
+
+        const root = path.resolve(dir || ctx.projectDir || process.cwd());
+        const projDir = ctx._resolveOrgProjectDir(orgName, root) || root;
+        const orgFile = path.join(projDir, '.monomind', 'orgs', `${orgName}.json`);
+        if (!fs.existsSync(orgFile)) {
+          _json(res, corsOrigin, 404, { error: 'Org not found' });
+          return;
+        }
+        const orgJson = fs.readFileSync(orgFile, 'utf8');
+
+        const uploadRes = await fetch(`${MONOES_BASE_URL}/api/community/orgs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ orgJson }),
+        });
+        const uploadBody = await uploadRes.json().catch(() => ({}));
+        if (!uploadRes.ok) {
+          _json(res, corsOrigin, uploadRes.status, uploadBody);
+          return;
+        }
+        _json(res, corsOrigin, 201, {
+          ...uploadBody,
+          url: `${MONOES_BASE_URL}/community/orgs/${uploadBody.id}`,
+        });
+      } catch (err) {
+        _json(res, corsOrigin, 500, { error: err.message });
+      }
+    });
+    return true;
+  }
+
   return false;
 }
