@@ -15,7 +15,44 @@ import { createHash } from 'node:crypto';
 
 // routes-monoes.mjs is plain ESM shipped as-is; import it directly.
 // @ts-expect-error — .mjs sibling has no type declarations
-import { createPkcePair, readMonoesConnection, getValidMonoesToken } from '../src/ui/routes-monoes.mjs';
+import { createPkcePair, readMonoesConnection, getValidMonoesToken, handleMonoesRoutes } from '../src/ui/routes-monoes.mjs';
+
+/** Minimal fake http.IncomingMessage/ServerResponse pair — routes-monoes.mjs
+ * only uses .method/.url/.on('data'|'end') on the request and
+ * .writeHead()/.end() on the response, so a full Node http server isn't
+ * needed to exercise the route logic. */
+function fakeRequestResponse(method: string, url: string, jsonBody?: unknown) {
+  const dataListeners: Array<(chunk: string) => void> = [];
+  const endListeners: Array<() => void> = [];
+  const req = {
+    method,
+    url,
+    on(event: string, cb: (...args: any[]) => void) {
+      if (event === 'data') dataListeners.push(cb);
+      if (event === 'end') endListeners.push(cb);
+      return req;
+    },
+  };
+  let statusCode = 0;
+  let responseBody = '';
+  const res = {
+    writeHead(code: number) {
+      statusCode = code;
+    },
+    end(body?: string) {
+      if (body) responseBody = body;
+      // Fire the body-parsing chain synchronously, matching how a real
+      // socket delivers 'data' then 'end' on the same tick for a small body.
+    },
+  };
+  async function send() {
+    if (jsonBody !== undefined) {
+      for (const cb of dataListeners) cb(JSON.stringify(jsonBody));
+    }
+    for (const cb of endListeners) await cb();
+  }
+  return { req, res, send, getStatus: () => statusCode, getBody: () => (responseBody ? JSON.parse(responseBody) : null) };
+}
 
 let monomindHome = '';
 
@@ -126,5 +163,71 @@ describe('getValidMonoesToken', () => {
     const token = await getValidMonoesToken(monomindHome);
     expect(token).toBeNull();
     expect(existsSync(join(monomindHome, '.monomind', 'monoes-connection.json'))).toBe(false);
+  });
+});
+
+describe('POST /api/monoes/upload-org', () => {
+  const baseCtx = () => ({
+    MONOMIND_HOME: monomindHome,
+    dashboardPort: 4000,
+    projectDir: monomindHome,
+    _resolveOrgProjectDir: () => monomindHome,
+  });
+
+  it('returns 400 for an invalid org name', async () => {
+    const { req, res, send, getStatus } = fakeRequestResponse('POST', '/api/monoes/upload-org', {
+      orgName: 'not valid!',
+    });
+    const handled = await handleMonoesRoutes(req, res, req.url, undefined, baseCtx());
+    await send();
+    expect(handled).toBe(true);
+    expect(getStatus()).toBe(400);
+  });
+
+  it('returns 401 not_connected when there is no stored connection', async () => {
+    const { req, res, send, getStatus, getBody } = fakeRequestResponse('POST', '/api/monoes/upload-org', {
+      orgName: 'my-org',
+    });
+    await handleMonoesRoutes(req, res, req.url, undefined, baseCtx());
+    await send();
+    expect(getStatus()).toBe(401);
+    expect(getBody()).toEqual({ error: 'not_connected' });
+  });
+
+  it('returns 404 when the org file does not exist on disk', async () => {
+    writeConnection({ accessToken: /* value */ 'good', expiresAt: Date.now() + 120_000 });
+    const { req, res, send, getStatus } = fakeRequestResponse('POST', '/api/monoes/upload-org', {
+      orgName: 'missing-org',
+    });
+    await handleMonoesRoutes(req, res, req.url, undefined, baseCtx());
+    await send();
+    expect(getStatus()).toBe(404);
+  });
+
+  it('uploads the org file and returns the created org with a monoes.me link', async () => {
+    writeConnection({ accessToken: /* value */ 'good', expiresAt: Date.now() + 120_000 });
+    const { mkdirSync, writeFileSync } = require('node:fs');
+    const orgsDir = join(monomindHome, '.monomind', 'orgs');
+    mkdirSync(orgsDir, { recursive: true });
+    writeFileSync(join(orgsDir, 'my-org.json'), JSON.stringify({ name: 'my-org', roles: [{ id: 'boss' }] }));
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ id: 'org-abc', name: 'my-org' }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { req, res, send, getStatus, getBody } = fakeRequestResponse('POST', '/api/monoes/upload-org', {
+      orgName: 'my-org',
+    });
+    await handleMonoesRoutes(req, res, req.url, undefined, baseCtx());
+    await send();
+
+    expect(getStatus()).toBe(201);
+    expect(getBody()).toEqual({ id: 'org-abc', name: 'my-org', url: 'https://monoes.me/community/orgs/org-abc' });
+
+    const [, uploadOpts] = fetchMock.mock.calls[0];
+    expect(uploadOpts.headers.Authorization).toBe('Bearer good');
+    expect(JSON.parse(uploadOpts.body).orgJson).toContain('my-org');
   });
 });

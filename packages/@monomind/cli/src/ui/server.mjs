@@ -5308,6 +5308,8 @@ export async function startServer({
       await handleMonoesRoutes(req, res, url, corsOrigin, {
         MONOMIND_HOME,
         dashboardPort: _boundPortForCors,
+        projectDir,
+        _resolveOrgProjectDir,
       })
     )
       return;
