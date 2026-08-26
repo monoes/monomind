@@ -71,6 +71,10 @@ async function _registerClient(redirectUri) {
       redirect_uris: [redirectUri],
       token_endpoint_auth_method: 'none',
       grant_types: ['authorization_code', 'refresh_token'],
+      // The dashboard's redirect_uri is http://127.0.0.1:<port>/... — the
+      // OAuth server only allows plain-http loopback redirects for native
+      // clients (RFC 8252 §7.3); "web" (the DCR default) requires https.
+      application_type: 'native',
     }),
   });
   if (!res.ok) throw new Error(`monoes.me client registration failed: ${res.status}`);
