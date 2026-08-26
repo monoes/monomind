@@ -6760,6 +6760,9 @@ async function _v2OpenAgent(roleId) {
     if (_v2SelOrg === _agentOrg) bodyEl.innerHTML = '<div class="oad-loading">Could not load agent detail.</div>';
   }
 }
+// Role nodes and cards use inline handlers, which resolve names on `window`.
+// Keep the public entrypoint while the implementation remains privately named.
+window.v2OpenAgent = _v2OpenAgent;
 function v2RenderAgentDrawer(data) {
   const role = (data?.role) || {};
   const def = (data?.definition) || { found: false };
