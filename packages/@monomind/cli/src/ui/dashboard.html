@@ -62,6 +62,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .nav-glob-items { display: none; flex-direction: column; }
 .nav-glob-items.open { display: flex; }
 #sb-footer { padding: 10px 14px; border-top: 1px solid var(--border); }
+#sb-monoes { margin-bottom: 8px; }
 #sb-user { font-size: 12px; font-weight: 500; color: var(--text-mid); }
 #sb-path { font-size: 10px; color: var(--text-lo); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
 
@@ -1657,6 +1658,9 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
     </div>
   </div>
   <div id="sb-footer">
+    <div id="sb-monoes">
+      <button class="btn" id="sb-monoes-btn" onclick="toggleMonoesConnection()" style="width:100%;font-size:11px">Connect to monoes.me</button>
+    </div>
     <div id="sb-user">—</div>
     <div id="sb-path">—</div>
   </div>
@@ -2664,6 +2668,7 @@ async function init() {
   restoreURLParams();
   viewRendered.now = true;
   updateBudgetBtnStyle();
+  refreshMonoesStatus();
   await refreshNow();
   if (sessParam) setTimeout(() => jumpToSession(sessParam), 300);
   initSSE();
@@ -2711,6 +2716,49 @@ async function apiFetch(url, timeout = 15000) {
     if (e.name === 'AbortError') throw new Error('Request timed out');
     throw e;
   } finally { clearTimeout(tid); }
+}
+
+// ── monoes.me connection ────────────────────────────────────
+async function refreshMonoesStatus() {
+  const btn = document.getElementById('sb-monoes-btn');
+  try {
+    const status = await apiFetch('/api/monoes/status');
+    if (status.connected) {
+      btn.textContent = `⬡ ${status.username || 'Connected'} — Disconnect`;
+      btn.title = 'Connected to monoes.me. Click to disconnect.';
+      btn.dataset.connected = 'true';
+    } else {
+      btn.textContent = 'Connect to monoes.me';
+      btn.title = 'Connect your monoes.me community account';
+      btn.dataset.connected = 'false';
+    }
+  } catch (_) {}
+}
+
+async function toggleMonoesConnection() {
+  const btn = document.getElementById('sb-monoes-btn');
+  if (btn.dataset.connected === 'true') {
+    if (!confirm('Disconnect from monoes.me?')) return;
+    try {
+      await fetch('/api/monoes/disconnect', { method: 'POST' });
+    } catch (_) {}
+    await refreshMonoesStatus();
+    return;
+  }
+  try {
+    const res = await fetch('/api/monoes/connect', { method: 'POST' });
+    const { authorizeUrl, error } = await res.json();
+    if (error || !authorizeUrl) { alert(`Could not start monoes.me connection: ${error || 'unknown error'}`); return; }
+    const popup = window.open(authorizeUrl, 'monoes-connect', 'width=520,height=680');
+    const poll = setInterval(async () => {
+      if (popup && popup.closed) {
+        clearInterval(poll);
+        await refreshMonoesStatus();
+      }
+    }, 1000);
+  } catch (e) {
+    alert(`Could not start monoes.me connection: ${e.message}`);
+  }
 }
 
 // ── project switching ──────────────────────────────────────

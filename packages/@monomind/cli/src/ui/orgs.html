@@ -849,6 +849,13 @@ html, body {
           <div class="hdr-chip">TOPOLOGY <span id="hdr-topology">—</span></div>
           <div class="hdr-chip" id="hdr-created-wrap" style="display:none">SINCE <span id="hdr-created">—</span></div>
         </div>
+        <button id="upload-monoes-btn" onclick="uploadCurrentOrgToMonoes()"
+          style="font-size:9px; font-family:var(--mono); letter-spacing:1px; color:var(--text-mid);
+          border:1px solid var(--border); background:none; padding:4px 12px;
+          border-radius:3px; cursor:pointer; text-transform:uppercase; transition:background 0.12s;"
+          onmouseover="this.style.background='var(--bg-hover, rgba(255,255,255,0.06))'"
+          onmouseout="this.style.background='none'"
+          title="Upload this org to your monoes.me community account">⬡ UPLOAD TO MONOES.ME</button>
         <button id="stop-btn" onclick="stopCurrentOrg()" style="display:none;
           font-size:9px; font-family:var(--mono); letter-spacing:1px; color:var(--red);
           border:1px solid oklch(62% 0.22 25 / 0.35); background:none; padding:4px 12px;
@@ -2232,6 +2239,39 @@ function handleMmEvent(ev) {
     if (ev.type === 'org:artifact' && currentTab === 'files') applyArtifactEvent(ev);
   }
 }
+
+// ── Upload to monoes.me action ───────────────────────────────────────
+window.uploadCurrentOrgToMonoes = async () => {
+  if (!selectedOrg) return;
+  const btn = document.getElementById('upload-monoes-btn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'UPLOADING…';
+  try {
+    const res = await fetch('/api/monoes/upload-org', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orgName: selectedOrg }),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      if (body.error === 'not_connected') {
+        alert('Connect to monoes.me first (button in the sidebar) before uploading an org.');
+      } else {
+        alert(`Upload failed: ${body.error || res.statusText}`);
+      }
+      return;
+    }
+    if (confirm(`Uploaded to monoes.me. Open it now?`)) {
+      window.open(body.url, '_blank');
+    }
+  } catch (e) {
+    alert(`Upload failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+};
 
 // ── Stop org action ────────────────────────────────────────────────
 window.stopCurrentOrg = async () => {
