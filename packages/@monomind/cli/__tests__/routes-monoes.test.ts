@@ -231,3 +231,87 @@ describe('POST /api/monoes/upload-org', () => {
     expect(JSON.parse(uploadOpts.body).orgJson).toContain('my-org');
   });
 });
+
+describe('monoes.me connection → .mcp.json sync', () => {
+  const { mkdirSync, writeFileSync, readFileSync } = require('node:fs');
+
+  function writeMcpJson(projectDir: string, contents: Record<string, unknown>) {
+    writeFileSync(join(projectDir, '.mcp.json'), JSON.stringify(contents));
+  }
+
+  function readMcpJson(projectDir: string) {
+    return JSON.parse(readFileSync(join(projectDir, '.mcp.json'), 'utf8'));
+  }
+
+  it('adds a monoes entry to .mcp.json once the OAuth callback completes', async () => {
+    writeMcpJson(monomindHome, { mcpServers: { monomind: { command: 'npx' } } });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const connectReq = fakeRequestResponse('POST', '/api/monoes/connect');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('/oauth2/register')) {
+          return { ok: true, json: async () => ({ client_id: 'client-1' }) };
+        }
+        throw new Error(`unexpected fetch in connect step: ${url}`);
+      }),
+    );
+    await handleMonoesRoutes(connectReq.req, connectReq.res, connectReq.req.url, undefined, ctx);
+    await connectReq.send();
+    const { authorizeUrl } = connectReq.getBody();
+    const state = new URL(authorizeUrl).searchParams.get('state');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('/oauth2/token')) {
+          return { ok: true, json: async () => ({ access_token: 'access-1', expires_in: 3600 }) };
+        }
+        if (String(url).includes('/api/community/me')) {
+          return { ok: true, json: async () => ({ username: 'someone' }) };
+        }
+        throw new Error(`unexpected fetch in callback step: ${url}`);
+      }),
+    );
+    const callbackReq = fakeRequestResponse('GET', `/api/monoes/callback?code=abc&state=${state}`);
+    await handleMonoesRoutes(callbackReq.req, callbackReq.res, callbackReq.req.url, undefined, ctx);
+    await callbackReq.send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monomind).toEqual({ command: 'npx' });
+    expect(mcpJson.mcpServers.monoes).toEqual({
+      type: 'http',
+      url: 'https://monoes.me/api/mcp',
+      headers: { Authorization: 'Bearer access-1' },
+    });
+  });
+
+  it('removes the monoes entry from .mcp.json on disconnect', async () => {
+    mkdirSync(join(monomindHome, '.monomind'), { recursive: true });
+    writeFileSync(join(monomindHome, '.monomind', 'monoes-connection.json'), JSON.stringify({ accessToken: 'x' }));
+    writeMcpJson(monomindHome, {
+      mcpServers: {
+        monomind: { command: 'npx' },
+        monoes: { type: 'http', url: 'https://monoes.me/api/mcp', headers: { Authorization: 'Bearer x' } },
+      },
+    });
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+
+    const { req, res, send } = fakeRequestResponse('POST', '/api/monoes/disconnect');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+
+    const mcpJson = readMcpJson(monomindHome) as { mcpServers: Record<string, unknown> };
+    expect(mcpJson.mcpServers.monomind).toEqual({ command: 'npx' });
+    expect(mcpJson.mcpServers.monoes).toBeUndefined();
+  });
+
+  it('does nothing when the project has no .mcp.json yet', async () => {
+    const ctx = { MONOMIND_HOME: monomindHome, dashboardPort: 4000, projectDir: monomindHome };
+    const { req, res, send } = fakeRequestResponse('POST', '/api/monoes/disconnect');
+    await handleMonoesRoutes(req, res, req.url, undefined, ctx);
+    await send();
+    expect(existsSync(join(monomindHome, '.mcp.json'))).toBe(false);
+  });
+});

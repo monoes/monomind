@@ -86,6 +86,35 @@ async function _getOrRegisterClientId(monomindHome, redirectUri) {
   return clientId;
 }
 
+function _buildMonoesMcpEntry(accessToken) {
+  return {
+    type: 'http',
+    url: `${MONOES_BASE_URL}/api/mcp`,
+    headers: { Authorization: `Bearer ${accessToken}` },
+  };
+}
+
+/** Merges (or removes) the `monoes` entry in the project's existing
+ * .mcp.json. Only touches that one key — never creates or rewrites the
+ * rest of the file, since .mcp.json is otherwise owned by `init`/the user.
+ * No-ops if .mcp.json doesn't exist yet (nothing to merge into). */
+function _syncMonoesMcpEntry(projectDir, accessToken) {
+  const mcpPath = path.join(projectDir, '.mcp.json');
+  let config;
+  try {
+    config = JSON.parse(fs.readFileSync(mcpPath, 'utf8'));
+  } catch {
+    return;
+  }
+  config.mcpServers = config.mcpServers || {};
+  if (accessToken) {
+    config.mcpServers.monoes = _buildMonoesMcpEntry(accessToken);
+  } else {
+    delete config.mcpServers.monoes;
+  }
+  fs.writeFileSync(mcpPath, JSON.stringify(config, null, 2));
+}
+
 function _json(res, corsOrigin, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
@@ -136,7 +165,7 @@ export async function getValidMonoesToken(monomindHome) {
 }
 
 export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
-  const { MONOMIND_HOME, dashboardPort } = ctx;
+  const { MONOMIND_HOME, dashboardPort, projectDir } = ctx;
   const redirectUri = `http://127.0.0.1:${dashboardPort}/api/monoes/callback`;
 
   // --------------------------------------------------- POST /api/monoes/connect
@@ -209,6 +238,7 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
         expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000,
         connectedUsername: me.username || null,
       });
+      _syncMonoesMcpEntry(path.resolve(projectDir || process.cwd()), tokenData.access_token);
 
       closeTab('Connected to monoes.me — you can close this tab.');
     } catch (err) {
@@ -230,6 +260,7 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
   // ------------------------------------------------ POST /api/monoes/disconnect
   if (req.method === 'POST' && url === '/api/monoes/disconnect') {
     _deleteMonoesConnection(MONOMIND_HOME);
+    _syncMonoesMcpEntry(path.resolve(projectDir || process.cwd()), null);
     _json(res, corsOrigin, 200, { connected: false });
     return true;
   }

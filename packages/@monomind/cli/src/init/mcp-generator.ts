@@ -4,6 +4,8 @@
  * Handles cross-platform compatibility (Windows requires cmd /c wrapper)
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import type { InitOptions } from './types.js';
 
 /**
@@ -38,6 +40,22 @@ function createMCPServerEntry(
     args: ['-y', ...npxArgs],
     env,
     ...additionalProps,
+  };
+}
+
+/**
+ * Build the remote HTTP MCP entry for a connected monoes.me account.
+ * Shared by generateMCPConfig() (init-time) and the dashboard's runtime
+ * .mcp.json sync (routes-monoes.mjs, plain JS, duplicates this shape since
+ * it can't import compiled TS at runtime).
+ */
+export function buildMonoesMcpEntry(accessToken: string, monoesUrl = 'https://monoes.me/api/mcp'): object {
+  return {
+    type: 'http',
+    url: monoesUrl,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
   };
 }
 
@@ -77,6 +95,18 @@ export function generateMCPConfig(options: InitOptions): object {
   // Monograph knowledge graph — built into monomind MCP server since v1.8.0.
   // Available as mcp__monomind__monograph_build, monograph_query, monograph_suggest, monograph_health.
   // No separate server needed — the monomind entry above provides all monograph tools.
+
+  // If this project already has a monoes.me connection (e.g. re-running init
+  // after connecting via the dashboard), carry the entry forward.
+  try {
+    const connectionFile = path.join(options.targetDir, '.monomind', 'monoes-connection.json');
+    const conn = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
+    if (conn?.accessToken) {
+      mcpServers.monoes = buildMonoesMcpEntry(conn.accessToken);
+    }
+  } catch {
+    // No connection file, or unreadable — omit the entry.
+  }
 
   return { mcpServers };
 }
