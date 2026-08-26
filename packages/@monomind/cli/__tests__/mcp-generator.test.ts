@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { generateMCPConfig } from '../src/init/mcp-generator.js';
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { generateMCPConfig, buildMonoesMcpEntry } from '../src/init/mcp-generator.js';
 import { DEFAULT_INIT_OPTIONS } from '../src/init/types.js';
 
 describe('generateMCPConfig (regression: no non-standard fields in .mcp.json)', () => {
@@ -16,5 +19,45 @@ describe('generateMCPConfig (regression: no non-standard fields in .mcp.json)', 
     expect(entry).toBeDefined();
     expect(Object.keys(entry).sort()).toEqual(['args', 'command', 'env']);
     expect(entry).not.toHaveProperty('autoStart');
+  });
+});
+
+describe('buildMonoesMcpEntry', () => {
+  it('builds a remote HTTP entry pointing at monoes.me with a bearer header', () => {
+    expect(buildMonoesMcpEntry('tok-123')).toEqual({
+      type: 'http',
+      url: 'https://monoes.me/api/mcp',
+      headers: { Authorization: 'Bearer tok-123' },
+    });
+  });
+});
+
+describe('generateMCPConfig (monoes.me connection entry)', () => {
+  let targetDir = '';
+
+  afterEach(() => {
+    if (targetDir) rmSync(targetDir, { recursive: true, force: true });
+  });
+
+  it('omits the monoes entry when there is no connection file', () => {
+    targetDir = mkdtempSync(join(tmpdir(), 'monomind-mcpgen-test-'));
+    const config = generateMCPConfig({ ...DEFAULT_INIT_OPTIONS, targetDir }) as {
+      mcpServers: Record<string, unknown>;
+    };
+    expect(config.mcpServers.monoes).toBeUndefined();
+  });
+
+  it('includes the monoes entry when a connection file already exists in the target project', () => {
+    targetDir = mkdtempSync(join(tmpdir(), 'monomind-mcpgen-test-'));
+    mkdirSync(join(targetDir, '.monomind'), { recursive: true });
+    writeFileSync(
+      join(targetDir, '.monomind', 'monoes-connection.json'),
+      JSON.stringify({ accessToken: /* value */ 'stored-tok' }),
+    );
+
+    const config = generateMCPConfig({ ...DEFAULT_INIT_OPTIONS, targetDir }) as {
+      mcpServers: Record<string, unknown>;
+    };
+    expect(config.mcpServers.monoes).toEqual(buildMonoesMcpEntry('stored-tok'));
   });
 });
