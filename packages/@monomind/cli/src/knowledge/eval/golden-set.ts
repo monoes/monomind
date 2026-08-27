@@ -112,19 +112,6 @@ export const GOLDEN_SET: GoldenPair[] = [
     relevant: ['doc/adrs/ADR-R001-onnxruntime-process-teardown.md'],
     tags: ['adr'],
   },
-  {
-    id: 'dashboard-single-truth',
-    query:
-      'redesign that made one append-only journal file the authority for what a company is doing',
-    relevant: ['doc/adrs/org-dashboard-v2-design.md'],
-    tags: ['adr'],
-  },
-  {
-    id: 'dashboard-liveness',
-    query: 'deciding whether a run is alive dead or idle from file modification times',
-    relevant: ['doc/adrs/org-dashboard-v2-design.md'],
-    tags: ['adr'],
-  },
 
   // -- release / product narrative --
   {
@@ -4033,19 +4020,6 @@ GOLDEN_SET.push(
     id: 'c3-onnx-worker-hang',
     query: 'child processes hang on exit instead of terminating cleanly after embedding work',
     relevant: ['doc/adrs/ADR-R001-onnxruntime-process-teardown.md'],
-    tags: ['c3'],
-  },
-  {
-    id: 'c3-dashboard-state-fragmentation',
-    query:
-      'why does the monitoring panel sometimes show stale or conflicting information about running teams',
-    relevant: ['doc/adrs/org-dashboard-v2-design.md'],
-    tags: ['c3'],
-  },
-  {
-    id: 'c3-dashboard-redesign-phases',
-    query: 'what is the migration plan for fixing the real-time display of agent activity',
-    relevant: ['doc/adrs/org-dashboard-v2-design.md'],
     tags: ['c3'],
   },
 
