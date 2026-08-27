@@ -110,12 +110,18 @@ export class KimiCodeAgentRunner implements AgentRunner {
     //      Keep it minimal — org-specific denials belong here, not prose.
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-kimi-'));
     const agentFile = path.join(tmpDir, 'org-role.md');
+    // kimi rejects an agent file whose body (everything after the frontmatter)
+    // is empty with "Missing prompt body". `args.systemPrompt` is legitimately
+    // '' for bare `agent exec` calls with no --system-file (agent.ask, `chat`
+    // without --canvas, `agent test`), and buildToolProtocol() is also '' with
+    // no tools — so the two together can leave nothing after the frontmatter.
+    // Fall back to a minimal default so the file body is never empty.
+    const body = (args.systemPrompt || 'You are a helpful assistant.') + buildToolProtocol(args.tools);
     fs.writeFileSync(
       agentFile,
       `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n` +
         `tools: [Bash, Read, Write, Edit, Glob, Grep]\n---\n\n` +
-        args.systemPrompt +
-        buildToolProtocol(args.tools),
+        body,
     );
 
     // Empty skills dir: kimi loads every user/project skill's description

@@ -6,42 +6,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { mcpCommand, mcpServerEntry } from '../platform-adapters/renderers/mcp.js';
 import type { InitOptions } from './types.js';
-
-/**
- * Check if running on Windows
- */
-function isWindows(): boolean {
-  return process.platform === 'win32';
-}
-
-/**
- * Generate platform-specific MCP server entry
- * - Windows: uses 'cmd /c npx' directly
- * - Unix: uses 'npx' directly (simple, reliable)
- */
-function createMCPServerEntry(
-  npxArgs: string[],
-  env: Record<string, string>,
-  additionalProps: Record<string, unknown> = {},
-): object {
-  if (isWindows()) {
-    return {
-      command: 'cmd',
-      args: ['/c', 'npx', '-y', ...npxArgs],
-      env,
-      ...additionalProps,
-    };
-  }
-
-  // Unix: direct npx invocation — simple and reliable
-  return {
-    command: 'npx',
-    args: ['-y', ...npxArgs],
-    env,
-    ...additionalProps,
-  };
-}
 
 /**
  * Build the remote HTTP MCP entry for a connected monoes.me account.
@@ -72,24 +38,14 @@ export function generateMCPConfig(options: InitOptions): object {
 
   // Monomind MCP server (core)
   if (config.monomind) {
-    mcpServers.monomind = createMCPServerEntry(
-      ['monomind@latest', 'mcp', 'start'],
-      {
-        ...npmEnv,
-        MONOMIND_MODE: 'v1',
-        MONOMIND_HOOKS_ENABLED: 'true',
-        MONOMIND_TOPOLOGY: options.runtime.topology,
-        MONOMIND_MAX_AGENTS: String(options.runtime.maxAgents),
-        MONOMIND_MEMORY_BACKEND: options.runtime.memoryBackend,
-      },
-      // No `autoStart` here: Claude Code's .mcp.json schema for stdio servers
-      // is only command/args/env — `autoStart` isn't a field it reads, and
-      // nothing in monomind reads it back from this file either (it's a
-      // separate, monomind-internal setting stored in .monomind/config.yaml).
-      // Writing it here was pure dead-end noise in a file whose schema we
-      // don't own — worth removing even though Claude Code likely just
-      // ignores unknown fields, since "likely ignores" isn't "verified inert".
-    );
+    mcpServers.monomind = mcpServerEntry('claude', {
+      ...npmEnv,
+      MONOMIND_MODE: 'v1',
+      MONOMIND_HOOKS_ENABLED: 'true',
+      MONOMIND_TOPOLOGY: options.runtime.topology,
+      MONOMIND_MAX_AGENTS: String(options.runtime.maxAgents),
+      MONOMIND_MEMORY_BACKEND: options.runtime.memoryBackend,
+    });
   }
 
   // Monograph knowledge graph — built into monomind MCP server since v1.8.0.
@@ -126,15 +82,8 @@ export function generateMCPCommands(options: InitOptions): string[] {
   const commands: string[] = [];
   const config = options.mcp;
 
-  if (isWindows()) {
-    if (config.monomind) {
-      commands.push('claude mcp add monomind -- cmd /c npx -y monomind@latest mcp start');
-    }
-  } else {
-    if (config.monomind) {
-      commands.push('claude mcp add monomind -- npx -y monomind@latest mcp start');
-    }
-  }
+  if (config.monomind)
+    commands.push(`claude mcp add monomind -- ${mcpCommand('claude').join(' ')}`);
 
   return commands;
 }
@@ -143,7 +92,7 @@ export function generateMCPCommands(options: InitOptions): string[] {
  * Get platform-specific setup instructions
  */
 export function getPlatformInstructions(): { platform: string; note: string } {
-  if (isWindows()) {
+  if (process.platform === 'win32') {
     return {
       platform: 'Windows',
       note: 'MCP configuration uses cmd /c wrapper for npx compatibility.',

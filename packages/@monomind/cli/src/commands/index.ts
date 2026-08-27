@@ -39,6 +39,7 @@ const COMMAND_LOADERS: Record<string, CommandLoader> = {
   monograph: async () => (await import('./monograph.js')).monographCommand,
   tokens: async () => (await import('./tokens.js')).default,
   platforms: async () => (await import('./platforms.js')).platformsCommand,
+  mastermind: async () => (await import('./mastermind.js')).mastermindCommand,
   design: async () => (await import('./design-detect.js')).designCommand,
   search: async () => (await import('./search-universal.js')).searchUniversalCommand,
   'report-crash': async () => (await import('./report-crash.js')).reportCrashCommand,
@@ -88,7 +89,15 @@ const CATEGORY_NAMES = {
   advanced: ['security', 'performance', 'guidance', 'autopilot', 'design'],
   utility: ['config', 'doctor', 'completions', 'report-crash', 'crash-reporting', 'events'],
   analysis: ['analyze', 'route', 'monograph', 'tokens', 'search'],
-  management: ['providers', 'update', 'cleanup', 'platforms', 'browse', 'download-embeddings'],
+  management: [
+    'providers',
+    'update',
+    'cleanup',
+    'platforms',
+    'mastermind',
+    'browse',
+    'download-embeddings',
+  ],
 } as const;
 
 // Cache of resolved commands, keyed by every name they're reachable under

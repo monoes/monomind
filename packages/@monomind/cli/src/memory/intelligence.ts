@@ -1185,6 +1185,8 @@ export async function findSimilarPatterns(
     const init = await initializeIntelligence();
     if (!init.success) return [];
   }
+  const bank = reasoningBank;
+  if (!bank) return [];
 
   try {
     // ADR-053: Try SQLite-backed memory bridge embedder first
@@ -1209,7 +1211,7 @@ export async function findSimilarPatterns(
     const isHashFallback = queryEmbedding.length === 128;
     const defaultThreshold = isHashFallback ? 0.1 : 0.5;
 
-    const results = reasoningBank?.findSimilar(queryEmbedding, {
+    const results = bank.findSimilar(queryEmbedding, {
       k: options?.k ?? 5,
       threshold: options?.threshold ?? defaultThreshold,
       type: options?.type,
@@ -1217,7 +1219,7 @@ export async function findSimilarPatterns(
 
     // Record usage for each matched pattern (findSimilar is now a pure read)
     for (const r of results) {
-      reasoningBank?.recordUsage(r.id);
+      bank.recordUsage(r.id);
     }
 
     return results.map((r) => ({
@@ -1283,9 +1285,12 @@ export async function endTrajectoryWithVerdict(
     const init = await initializeIntelligence();
     if (!init.success) return null;
   }
+  const coordinator = sonaCoordinator;
+  const bank = reasoningBank;
+  if (!coordinator || !bank) return null;
 
   try {
-    const result = await sonaCoordinator?.endTrajectory(verdict, reasoningBank!);
+    const result = await coordinator.endTrajectory(verdict, bank);
     globalStats.lastAdaptation = Date.now();
     savePersistedStats();
     return result;
@@ -1310,9 +1315,12 @@ export async function distillLearning(): Promise<{
     const init = await initializeIntelligence();
     if (!init.success) return null;
   }
+  const coordinator = sonaCoordinator;
+  const bank = reasoningBank;
+  if (!coordinator || !bank) return null;
 
   try {
-    const result = await sonaCoordinator?.distillLearning(reasoningBank!);
+    const result = await coordinator.distillLearning(bank);
     globalStats.lastAdaptation = Date.now();
     savePersistedStats();
     return result;
@@ -1522,8 +1530,10 @@ export async function getAllPatterns(): Promise<Pattern[]> {
     const init = await initializeIntelligence();
     if (!init.success) return [];
   }
+  const bank = reasoningBank;
+  if (!bank) return [];
 
-  const bankPatterns = reasoningBank?.getAll().map((p) => ({
+  const bankPatterns = bank.getAll().map((p) => ({
     id: p.id,
     type: p.type,
     embedding: p.embedding,
@@ -1550,8 +1560,10 @@ export async function getPatternsByType(type: string): Promise<Pattern[]> {
     const init = await initializeIntelligence();
     if (!init.success) return [];
   }
+  const bank = reasoningBank;
+  if (!bank) return [];
 
-  return reasoningBank?.getByType(type).map((p) => ({
+  return bank.getByType(type).map((p) => ({
     id: p.id,
     type: p.type,
     embedding: p.embedding,
@@ -1589,23 +1601,27 @@ export async function compactPatterns(threshold: number = 0.95): Promise<{
       return { before: 0, after: 0, removed: 0 };
     }
   }
+  const bank = reasoningBank;
+  if (!bank) return { before: 0, after: 0, removed: 0 };
 
-  const patterns = reasoningBank?.getAll();
+  const patterns = bank.getAll();
   const before = patterns.length;
 
   // Find duplicates using cosine similarity
   const toRemove: Set<string> = new Set();
 
   for (let i = 0; i < patterns.length; i++) {
-    if (toRemove.has(patterns[i].id)) continue;
+    const patternA = patterns[i];
+    if (!patternA || toRemove.has(patternA.id)) continue;
 
-    const embA = patterns[i].embedding;
+    const embA = patternA.embedding;
     if (!embA || embA.length === 0) continue;
 
     for (let j = i + 1; j < patterns.length; j++) {
-      if (toRemove.has(patterns[j].id)) continue;
+      const patternB = patterns[j];
+      if (!patternB || toRemove.has(patternB.id)) continue;
 
-      const embB = patterns[j].embedding;
+      const embB = patternB.embedding;
       if (!embB || embB.length === 0 || embA.length !== embB.length) continue;
 
       // Compute cosine similarity
@@ -1623,16 +1639,16 @@ export async function compactPatterns(threshold: number = 0.95): Promise<{
 
       if (similarity >= threshold) {
         // Remove the one with lower usage count
-        const useA = patterns[i].usageCount || 0;
-        const useB = patterns[j].usageCount || 0;
-        toRemove.add(useA >= useB ? patterns[j].id : patterns[i].id);
+        const useA = patternA.usageCount || 0;
+        const useB = patternB.usageCount || 0;
+        toRemove.add(useA >= useB ? patternB.id : patternA.id);
       }
     }
   }
 
   // Remove duplicates
   for (const id of toRemove) {
-    reasoningBank?.delete(id);
+    bank.delete(id);
   }
 
   // Flush to disk
@@ -1653,8 +1669,10 @@ export async function deletePattern(id: string): Promise<boolean> {
     const init = await initializeIntelligence();
     if (!init.success) return false;
   }
+  const bank = reasoningBank;
+  if (!bank) return false;
 
-  return reasoningBank?.delete(id);
+  return bank.delete(id);
 }
 
 /**
@@ -1665,8 +1683,10 @@ export async function clearAllPatterns(): Promise<void> {
     const init = await initializeIntelligence();
     if (!init.success) return;
   }
+  const bank = reasoningBank;
+  if (!bank) return;
 
-  reasoningBank?.clear();
+  bank.clear();
 }
 
 // ===== AutoMem: Memory Proficiency Tracking =====
@@ -1701,6 +1721,8 @@ export async function recordMemoryDecision(input: MemoryDecisionInput): Promise<
     const init = await initializeIntelligence();
     if (!init.success) return;
   }
+  const bank = reasoningBank;
+  if (!bank) return;
 
   try {
     let embedding: number[] | null = null;
@@ -1717,20 +1739,22 @@ export async function recordMemoryDecision(input: MemoryDecisionInput): Promise<
     }
 
     // Check for similar existing pattern to avoid redundant storage
-    const existing = reasoningBank?.findSimilar(embedding, {
+    const existing = bank.findSimilar(embedding, {
       k: 1,
       threshold: 0.85,
       type: 'memory-proficiency',
     });
     if (existing.length > 0) {
-      reasoningBank?.recordUsage(existing[0].id);
+      const existingPattern = existing[0];
+      if (!existingPattern) return;
+      bank.recordUsage(existingPattern.id);
       memoryProficiencyStats.patternHits++;
       return;
     }
 
     memoryProficiencyStats.patternMisses++;
 
-    reasoningBank?.store({
+    bank.store({
       id: `mprof_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       type: 'memory-proficiency',
       embedding,

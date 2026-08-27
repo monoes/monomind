@@ -733,6 +733,54 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
       return { success: false, message: 'org not found' };
     }
   }
+  // Protocol JSON mode (agent-exec-protocol.md §7.2): compact runtime state
+  // per org — the same liveness rule as the human path (a 'running' record
+  // whose pid is gone is a crash, not a running org).
+  if (ctx.flags.format === 'json') {
+    const orgDir = join(ctx.cwd, ORG_DIR);
+    const targets = name
+      ? [name]
+      : existsSync(orgDir)
+        ? listOrgConfigFiles(orgDir).map((f) => f.replace(/\.json$/, ''))
+        : [];
+    const readState = (t: string) => {
+      const rt = join(orgDir, t, 'runtime.json');
+      if (!existsSync(rt)) return { name: t, status: 'never run' };
+      try {
+        const st = JSON.parse(readFileSync(rt, 'utf8')) as {
+          status?: string; run?: string; pid?: number; abandonedRoles?: string[];
+          closedBy?: string; error?: string;
+        };
+        let status = st.status ?? 'never run';
+        if ((status === 'running' || status === 'crashed') && st.pid) {
+          if (status === 'crashed') status = 'crashed';
+          else {
+            try {
+              process.kill(st.pid, 0);
+            } catch {
+              status = 'crashed';
+            }
+          }
+        }
+        return {
+          name: t,
+          status,
+          run: st.run,
+          pid: st.pid,
+          paused: isOrgPaused(ctx.cwd, t),
+          abandoned_roles: st.abandonedRoles ?? [],
+          closed_by: st.closedBy,
+          error: st.error,
+        };
+      } catch {
+        return { name: t, status: 'unreadable-runtime' };
+      }
+    };
+    const items = targets.map(readState);
+    // Named org → bare singleton; no name → list envelope (protocol §7.1).
+    process.stdout.write(`${JSON.stringify(name ? { v: 1, ...items[0] } : { v: 1, items })}\n`);
+    return { success: true };
+  }
   const orgDir = join(ctx.cwd, ORG_DIR);
   const targets = name
     ? [name]
@@ -1354,12 +1402,62 @@ const testLoopAction = async (ctx: CommandContext): Promise<CommandResult> => {
 const listAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const orgsDir = join(ctx.cwd || process.cwd(), ORG_DIR);
   if (!existsSync(orgsDir)) {
+    if (ctx.flags.format === 'json') {
+      process.stdout.write(`${JSON.stringify({ v: 1, items: [] })}\n`);
+      return { success: true };
+    }
     log(output.info('No orgs directory found. Create an org first with /mastermind:createorg'));
     return { success: true };
   }
   const configs = listOrgConfigFiles(orgsDir);
   if (!configs.length) {
+    if (ctx.flags.format === 'json') {
+      process.stdout.write(`${JSON.stringify({ v: 1, items: [] })}\n`);
+      return { success: true };
+    }
     log(output.info('No orgs found.'));
+    return { success: true };
+  }
+  if (ctx.flags.format === 'json') {
+    const items = configs.map((f) => {
+      const stem = f.replace(/\.json$/, '');
+      try {
+        const def = JSON.parse(readFileSync(join(orgsDir, f), 'utf8')) as {
+          goal?: string;
+          schedule?: string | number | null;
+          roles?: unknown[];
+        };
+        let status = 'never run';
+        try {
+          const rt = JSON.parse(readFileSync(join(orgsDir, stem, 'runtime.json'), 'utf8')) as {
+            status?: string;
+            pid?: number;
+          };
+          status = rt.status ?? status;
+          // Same liveness rule as `org status`: a 'running' record with a dead
+          // pid is a crashed daemon, not a running org — list must not disagree.
+          if (status === 'running' && rt.pid) {
+            try {
+              process.kill(rt.pid, 0);
+            } catch {
+              status = 'crashed';
+            }
+          }
+        } catch {
+          /* no runtime state yet */
+        }
+        return {
+          name: stem,
+          roles: Array.isArray(def.roles) ? def.roles.length : 0,
+          schedule: def.schedule ?? null,
+          status,
+          goal: typeof def.goal === 'string' ? def.goal : '',
+        };
+      } catch {
+        return { name: stem, roles: 0, schedule: null, status: 'invalid-config', goal: '' };
+      }
+    });
+    process.stdout.write(`${JSON.stringify({ v: 1, items })}\n`);
     return { success: true };
   }
   log(output.info(`Found ${configs.length} org(s):`));
@@ -1814,6 +1912,37 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'events',
+      description:
+        'Tail a run\'s bus events as NDJSON — the machine streaming surface (agent-exec-protocol.md §7.3)',
+      options: [
+        { name: 'run', description: 'Run id (default: latest)', type: 'string' },
+        { name: 'follow', short: 'f', description: 'Keep tailing until Ctrl-C', type: 'boolean' },
+        {
+          name: 'since',
+          description: 'Replay cursor: an event id or ISO-8601 timestamp',
+          type: 'string',
+        },
+        {
+          name: 'ndjson',
+          description: 'Accepted for spec symmetry — NDJSON is the only output mode',
+          type: 'boolean',
+        },
+      ],
+      examples: [
+        {
+          command: 'monomind org events growth --follow',
+          description: 'Live NDJSON tail of the latest run',
+        },
+      ],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { eventsAction } = await import('./org-observe.js');
+        return eventsAction(ctx, v.name);
+      },
+    },
+    {
       name: 'watch',
       description:
         "Live-tail one role's assistant chat text (any runtime) — a filtered, friendlier `logs --follow`",
@@ -1910,6 +2039,14 @@ export const orgCommand: Command = {
               kg.kgGlossary({ dbPath, limit: 15 }),
               bridge.bridgeGetBackendStats(dbPath),
             ]);
+            if (ctx.flags.format === 'json') {
+              const payload = {
+                v: 1, org: v.name, ...stats, glossary,
+                namespaces: backend?.entriesByNamespace ?? {},
+              };
+              process.stdout.write(`${JSON.stringify(payload)}\n`);
+              return { success: true, data: payload };
+            }
             log(
               output.info(
                 `Knowledge graph: ${stats.nodes} entities, ${stats.edges} relations, ${stats.rules} rules`,
@@ -1937,6 +2074,16 @@ export const orgCommand: Command = {
               }),
               kg.kgSearch({ query: q, dbPath, limit: 8 }),
             ]);
+            if (ctx.flags.format === 'json') {
+              const payload = {
+                v: 1, org: v.name, query: q,
+                memories: mem?.results ?? [],
+                triplets: graph.triplets,
+                kg_context: graph.context ?? null,
+              };
+              process.stdout.write(`${JSON.stringify(payload)}\n`);
+              return { success: true, data: payload };
+            }
             for (const r of mem?.results ?? [])
               log(output.info(`[${r.score.toFixed(2)}] ${r.key}: ${r.content.slice(0, 160)}`));
             if (graph.context) log(output.info(`\nKnowledge graph:\n${graph.context}`));
@@ -1947,6 +2094,11 @@ export const orgCommand: Command = {
           }
           if (sub === 'rules') {
             const rules = await kg.kgListRules({ dbPath, limit: 50 });
+            if (ctx.flags.format === 'json') {
+              const payload = { v: 1, org: v.name, items: rules };
+              process.stdout.write(`${JSON.stringify(payload)}\n`);
+              return { success: true, data: payload };
+            }
             for (const r of rules) log(output.info(`- ${r.rule.slice(0, 200)}`));
             return { success: true, message: `${rules.length} rules`, data: { rules } };
           }
@@ -1958,6 +2110,11 @@ export const orgCommand: Command = {
                 message: 'usage: org memory <org> rollback <origin-ref> (e.g. run:m4x2)',
               };
             const res = await kg.kgRollback({ originRef: ref, dbPath });
+            if (ctx.flags.format === 'json') {
+              const payload = { v: 1, org: v.name, ref, ...res };
+              process.stdout.write(`${JSON.stringify(payload)}\n`);
+              return { success: res.success, data: payload };
+            }
             log(
               output.info(
                 `Rolled back ${ref}: ${res.deleted} deleted, ${res.retained} retained (shared with other origins)`,

@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+import { installPlatform } from '../platform-adapters/operations.js';
 import { copyAgents, copyCommands, copySkills } from './copy-assets.js';
 // Split modules
 import { DIRECTORIES, MAX_EXEC_FILE_BYTES } from './shared.js';
@@ -237,15 +238,36 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       await writeKimiFiles(targetDir, options, result);
     }
 
-    // Codex native hooks reuse the shared gate runtime. Install that runtime
-    // even for Codex-only initialization, where Claude components are disabled.
-    if (options.components.codex && !options.components.helpers) {
+    // Codex native hooks reuse the shared gate runtime. A hooks-free Codex
+    // project must not create Claude helper artifacts just because Codex was
+    // selected; hooks are an explicit opt-in.
+    if (
+      options.components.codex &&
+      options.enablePlatformHooks === true &&
+      !options.components.helpers
+    ) {
       await writeHelpers(targetDir, options, result);
     }
 
     // Generate Codex project artifacts (selected via the Codex target).
     if (options.components.codex) {
       await writeCodexFiles(targetDir, options, result);
+    }
+
+    // The legacy target writers above remain compatibility projections. The
+    // adapter registry is additionally invoked for each explicit platform so
+    // all new surfaces share the same evidence-gated lifecycle contract.
+    for (const platform of options.selectedPlatforms ?? []) {
+      const applied = await installPlatform({
+        platform,
+        path: targetDir,
+        scope: 'project',
+        yes: true,
+        enableHooks: options.enablePlatformHooks,
+      });
+      result.updated.push(...applied.changed.map((file) => `platform ${platform}: ${file}`));
+      result.skipped.push(...applied.skipped.map((file) => `platform ${platform}: ${file}`));
+      result.skipped.push(...applied.diagnostics.map((line) => `platform ${platform}: ${line}`));
     }
 
     // Generate .agents/shared_instructions.md + seed project memory
@@ -503,7 +525,17 @@ function countEnabledHooks(options: InitOptions): number {
  * `monomind init upgrade --all` can find it without doing a directory scan.
  * Best-effort: failures are silently swallowed.
  */
+export function shouldRegisterMonomindProject(dir: string): boolean {
+  // A worktree is an execution view of its parent project, not an independent
+  // project. Registering it makes `init upgrade --all` revisit the same
+  // repository once per worktree and leaves stale entries when worktrees are
+  // removed. This is intentionally path-component based so a project merely
+  // containing the text ".worktrees" in another directory name is unaffected.
+  return !path.resolve(dir).split(path.sep).includes('.worktrees');
+}
+
 function _registerMonomindProject(dir: string): void {
+  if (!shouldRegisterMonomindProject(dir)) return;
   try {
     const esmReq = createRequire(import.meta.url);
     const os = esmReq('os') as typeof import('os');

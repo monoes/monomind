@@ -9,20 +9,23 @@
  * Auth: pi's own provider login (per-provider API key or subscription,
  * configured via `pi` itself). No env vars set here.
  *
- * Subprocess protocol — per public docs (pi-mono's rpc.md + README), NOT
- * byte-verified against a running binary. `pi --mode json` shares its event
- * vocabulary with pi's RPC mode:
- *   - Invocation: `pi --mode json --approve --session-dir <dir> "<prompt>"`.
- *     The prompt is POSITIONAL (matching pi's own interactive-mode CLI shape
- *     and the same convention codex uses) — an earlier revision of this
- *     runner passed it via a `-p` flag, which a second-source cross-check
- *     against another public agentic-CLI wrapper's tool table indicated was
- *     wrong; corrected here. `--approve` accepts the cwd as a trusted
- *     project so pi doesn't stop to ask (pi has no single "yolo" flag; tool
- *     auto-approval for individual actions is a separate, not-yet-wired
- *     concern for this runner — org tool calls go through canUseTool
- *     regardless, since they use the tool-fence protocol, not pi's native
- *     tool surface).
+ * Subprocess protocol — byte-verified against a running `pi` 0.73.1 binary
+ * (2026-08-25, see doc/agent-exec-protocol testing).
+ *   - Invocation: `pi --mode json --session-dir <dir> "<prompt>"`. The
+ *     prompt is POSITIONAL (matching pi's own interactive-mode CLI shape and
+ *     the same convention codex uses) — an earlier revision of this runner
+ *     passed it via a `-p` flag, which a second-source cross-check against
+ *     another public agentic-CLI wrapper's tool table indicated was wrong;
+ *     corrected here. An even earlier revision also passed `--approve`
+ *     (meant to accept the cwd as trusted so pi doesn't stop to ask) — that
+ *     flag does not exist in 0.73.1's `--help` output at all and made every
+ *     turn fail immediately with "Unknown option: --approve"; removed.
+ *     `--mode json` alone was confirmed NOT to block on an interactive
+ *     trust prompt, so no replacement flag is needed (pi has no single
+ *     "yolo" flag; tool auto-approval for individual actions is a separate,
+ *     not-yet-wired concern for this runner — org tool calls go through
+ *     canUseTool regardless, since they use the tool-fence protocol, not
+ *     pi's native tool surface).
  *     (`--session-dir` also gives turn-to-turn continuity: pi persists
  *     sessions in that directory and resumes the latest one by default —
  *     there is no confirmed explicit `--resume <id>` flag for headless use,
@@ -226,8 +229,14 @@ export class PiAgentRunner implements AgentRunner {
   ): Promise<TurnOutcome> {
     return new Promise<TurnOutcome>((resolve, reject) => {
       // Prompt is positional (see file header) — always LAST so no later flag
-      // is mistaken for part of it.
-      const cliArgs: string[] = ['--mode', 'json', '--approve', '--session-dir', sessionDir];
+      // is mistaken for part of it. NOTE ⓥ: `--approve` does not exist in the
+      // installed pi CLI (0.73.1) — confirmed live via `pi --help`, which
+      // lists no approve/trust/yolo flag at all; passing it made every turn
+      // fail immediately with "Unknown option: --approve" before pi ever ran.
+      // `--mode json` alone (no `--print`) was verified NOT to block on an
+      // interactive trust prompt, matching this file's original assumption —
+      // removing `--approve` was the only fix needed.
+      const cliArgs: string[] = ['--mode', 'json', '--session-dir', sessionDir];
       if (args.model) cliArgs.push('--model', args.model);
       cliArgs.push(prompt);
 

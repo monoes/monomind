@@ -224,6 +224,13 @@ monomind.config.json
 /monomind
 # docs/ is local-only — published docs live in doc/
 docs/
+# Platform adapter compatibility artifacts are release inputs: CI validates
+# them against the registry, so they must exist on a clean checkout.
+!docs/
+docs/*
+!docs/platforms/
+!docs/platforms/*.md
+!docs/platforms/*.json
 .superpowers/
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt

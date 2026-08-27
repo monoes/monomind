@@ -1,0 +1,9 @@
+{"v":1,"type":"start","runtime":"codex","cwd":"/app","pid":4212}
+{"v":1,"type":"tool_call","id":"tc_1","name":"create_nodes","args":{"count":1}}
+{"v":1,"type":"error","code":"bad-frame","fatal":false,"message":"unparseable stdin frame: not json at all"}
+{"v":1,"type":"tool_result","id":"tc_1","ok":true,"result":{"text":"recovered"}}
+{"v":1,"type":"session","session_id":"th_b"}
+{"v":1,"type":"assistant","text":"result: recovered"}
+{"v":1,"type":"usage","input_tokens":10,"output_tokens":5,"cost_usd":0.001}
+{"v":1,"type":"result","subtype":"success","is_error":false,"stop_reason":"end_turn","input_tokens":10,"output_tokens":5,"cost_usd":0.001}
+{"v":1,"type":"done","exit_code":0}

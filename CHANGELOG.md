@@ -4,6 +4,65 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.1] — 2026-08-26
+
+### Fixed
+
+- `pi`/`pi-rpc` runners: removed a nonexistent `--approve` flag that made
+  every turn fail immediately with "Unknown option: --approve" — confirmed
+  live against pi 0.73.1's own `--help`, which lists no approve/trust/yolo
+  option at all. `--mode json`/`--mode rpc` alone were verified not to block
+  on an interactive trust prompt, so no replacement flag was needed.
+- `kimicode` runner: the agent-file body (everything after the `---`
+  frontmatter) could be empty — and kimi rejects that with "Missing prompt
+  body" — for any bare `agent exec` call with no `--system-file` and no
+  tools (e.g. `agent.ask`, `chat` without `--canvas`, `agent test`). Falls
+  back to a minimal default system prompt when none is given.
+
+## [2.10.0] — 2026-08-25
+
+### Added
+
+- **Agent Exec Protocol v1** (`doc/agent-exec-protocol.md`): a public,
+  versioned subprocess contract exposing monomind's `AgentRunner` engine and
+  org observe surface to external callers. First caller: mono-agent's
+  `monoagentcli`.
+  - `monomind agent exec --runtime <id> --prompt <text>`: one-shot agent
+    turns over NDJSON stdout (`start`/`session`/`assistant`/`tool_call`/
+    `tool_result`/`usage`/`result`/`error`/`done`), with `--tools-file`
+    JSON-Schema tool definitions bridged to caller-side handlers over stdio
+    — native tool wiring on SDK-backed runners (claude), fence-protocol
+    fallback on the rest. Optional `--budget-usd` spend cap and `--timeout`
+    wall-clock cap, both enforced with the same SIGTERM→kill escalation as
+    orgrt.
+  - `monomind agent scan --json [--installed]`: parallel runner detection
+    across all known agent CLIs, honoring `<NAME>_CLI_BIN` overrides.
+  - `monomind --version --json`: capability handshake
+    (`agent-exec`/`agent-scan`/`org-json-v1`) so callers fail fast with an
+    actionable upgrade hint against an incompatible monomind instead of a
+    confusing parse error.
+  - `--format json` added to existing org observe commands (`status`,
+    `logs`, `report`, `costs`, `list`, `questions`, `gates`, `decisions`,
+    `memory`) plus action results (`answer`/`approve`/`deny`/
+    `gate-approve`/`gate-reject`); new `org events [--follow] [--since]`
+    live-tails `bus.jsonl` as NDJSON.
+  - Golden NDJSON transcript fixtures (`doc/agent-exec-protocol/fixtures/`)
+    for caller-side contract tests without running monomind.
+
+## [2.9.27] — 2026-08-24
+
+### Added
+
+- Evidence-gated platform adapters for all supported coding runtimes, with
+  scoped plan/install/upgrade/uninstall operations, a read-only doctor, MCP
+  diagnostics, portable Mastermind workflow routing, and generated
+  compatibility documentation.
+
+### Changed
+
+- Deprecated platforms setup; it no longer installs SessionStart prompt
+  injection or global plugin artifacts.
+
 ## [2.9.25] — 2026-08-23
 
 ### Fixed

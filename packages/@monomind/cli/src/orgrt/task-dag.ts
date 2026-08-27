@@ -57,7 +57,13 @@ export class TaskDag {
       this.tasks.delete(id);
       throw new Error(`adding "${id}" would create a cycle`);
     }
-    if (deps.length === 0 || deps.every((d) => SATISFIED.has(this.tasks.get(d)?.status))) {
+    if (
+      deps.length === 0 ||
+      deps.every((d) => {
+        const dependency = this.tasks.get(d);
+        return dependency !== undefined && SATISFIED.has(dependency.status);
+      })
+    ) {
       task.status = 'ready';
     }
     return task;
