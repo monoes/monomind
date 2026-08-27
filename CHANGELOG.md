@@ -4,6 +4,24 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.2] — 2026-08-27
+
+### Fixed
+
+- `doctor`'s Monograph and Vector Memory checks reported "Package not found" /
+  "not installed" even when `@monoes/monograph` and `@monoes/memory` were
+  correctly installed — the checks guessed relative `node_modules` paths that
+  never matched how npm actually hoists dependencies (flat local installs,
+  npx's isolated cache dir, and global installs all place `@monoes/*`
+  packages as siblings, not nested under this package's `dist/` output).
+  Both checks now resolve through Node's real ESM module resolution
+  (`import.meta.resolve`) instead.
+- Codex native hooks: `[[hooks.SessionStart]]` and `[[hooks.SessionEnd]]`
+  entries were missing from the generated `.codex/config.toml` — only
+  `PreToolUse`/`PostToolUse` were wired, so Codex projects never got session
+  restore/persistence via the Monomind hook bridge. All four hook events are
+  now generated when `--enable-hooks` is passed to `init --codex`.
+
 ## [2.10.1] — 2026-08-26
 
 ### Fixed

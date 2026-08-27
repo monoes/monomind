@@ -293,55 +293,57 @@ export async function checkMcpServers(): Promise<HealthCheck> {
   };
 }
 
-export async function checkMonograph(): Promise<HealthCheck> {
+// Resolve an installed package's package.json through Node's real ESM
+// resolution algorithm instead of guessing relative node_modules layouts.
+// The old candidate-path approach assumed a nested install shape that never
+// matches how npm actually hoists dependencies (flat local installs, npx's
+// isolated cache dir, and global installs all put @monoes/* packages as
+// siblings, not nested under this package's dist/ output) — so it always
+// reported "not found" even when the package was present and importable.
+// import.meta.resolve() is used (rather than createRequire().resolve()())
+// because @monoes/monograph and @monoes/memory are ESM-only (no "require"
+// export condition), so a CJS require.resolve() fails outright even when the
+// package is installed. Their exports maps also don't expose a "./package.json"
+// subpath, so the entry file is resolved first and package.json is found by
+// walking up from it.
+function _findInstalledPackageJson(specifier: string): { path: string; pkg: Record<string, unknown> } | null {
   try {
-    const __filename = fileURLToPath(import.meta.url);
-    const _base = dirname(__filename);
-    let _globalRoot = '';
-    try {
-      _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim();
-    } catch {
-      /* no npm */
-    }
-    const candidates = [
-      join(_base, '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
-      join(_base, '..', '..', '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
-      join(_base, '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
-      join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'monograph', 'package.json'),
-      ...(_globalRoot
-        ? [
-            join(_globalRoot, '@monomind', 'monograph', 'package.json'),
-            join(_globalRoot, '@monoes', 'monograph', 'package.json'),
-          ]
-        : []),
-    ];
-    const found = candidates.find((p) => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
-    if (found) {
-      try {
-        const pkg = JSON.parse(readFileSync(found, 'utf-8'));
-        return {
-          name: 'Monograph',
-          status: 'pass',
-          message: `v${pkg.version || '?'} available (knowledge graph engine)`,
-        };
-      } catch {
-        return { name: 'Monograph', status: 'pass', message: 'available (knowledge graph engine)' };
+    const entryUrl = import.meta.resolve(specifier);
+    let dir = dirname(fileURLToPath(entryUrl));
+    for (;;) {
+      const candidate = join(dir, 'package.json');
+      if (existsSync(candidate) && statSync(candidate).size <= MAX_DOCTOR_PKG_BYTES) {
+        try {
+          const pkg = JSON.parse(readFileSync(candidate, 'utf-8'));
+          if (pkg.name === specifier) return { path: candidate, pkg };
+        } catch {
+          /* keep walking */
+        }
       }
+      const parent = dirname(dir);
+      if (parent === dir) return null;
+      dir = parent;
     }
-    return {
-      name: 'Monograph',
-      status: 'warn',
-      message: 'Package not found (knowledge graph disabled)',
-      fix: 'npm install -g monomind@latest',
-    };
   } catch {
+    return null;
+  }
+}
+
+export async function checkMonograph(): Promise<HealthCheck> {
+  const found = _findInstalledPackageJson('@monoes/monograph');
+  if (found) {
     return {
       name: 'Monograph',
-      status: 'warn',
-      message: 'Package check failed',
-      fix: 'npm install -g monomind@latest',
+      status: 'pass',
+      message: `v${found.pkg.version || '?'} available (knowledge graph engine)`,
     };
   }
+  return {
+    name: 'Monograph',
+    status: 'warn',
+    message: 'Package not found (knowledge graph disabled)',
+    fix: 'npm install -g monomind@latest',
+  };
 }
 
 export async function checkMonographFreshness(): Promise<HealthCheck> {
@@ -424,46 +426,23 @@ export async function checkMonographFreshness(): Promise<HealthCheck> {
 }
 
 export async function checkMonoesMemory(): Promise<HealthCheck> {
-  try {
-    const __filename = fileURLToPath(import.meta.url);
-    const _base = dirname(__filename);
-    let _globalRoot = '';
-    try {
-      _globalRoot = execSync('npm root -g', { encoding: 'utf8', timeout: 3000 }).trim();
-    } catch {
-      /* no npm */
-    }
-    const candidates = [
-      join(_base, '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
-      join(_base, '..', '..', '..', '..', 'node_modules', '@monoes', 'memory', 'package.json'),
-      ...(_globalRoot ? [join(_globalRoot, '@monoes', 'memory', 'package.json')] : []),
-    ];
-    const found = candidates.find((p) => existsSync(p) && statSync(p).size <= MAX_DOCTOR_PKG_BYTES);
-    if (found) {
-      try {
-        const pkg = JSON.parse(readFileSync(found, 'utf-8'));
-        return {
-          name: 'Vector Memory',
-          status: 'pass',
-          message: `@monoes/memory v${pkg.version || '?'} (HNSW search enabled)`,
-        };
-      } catch {
-        return {
-          name: 'Vector Memory',
-          status: 'pass',
-          message: '@monoes/memory available (HNSW search enabled)',
-        };
-      }
-    }
+  // See _findInstalledPackageJson() above checkMonograph(): resolve through
+  // Node's ESM module resolution instead of guessing a node_modules layout
+  // that doesn't match how npm actually hoists dependencies.
+  const found = _findInstalledPackageJson('@monoes/memory');
+  if (found) {
     return {
       name: 'Vector Memory',
-      status: 'warn',
-      message: '@monoes/memory not installed (vector search disabled)',
-      fix: 'npm install @monoes/memory',
+      status: 'pass',
+      message: `@monoes/memory v${found.pkg.version || '?'} (HNSW search enabled)`,
     };
-  } catch {
-    return { name: 'Vector Memory', status: 'warn', message: 'Vector memory check failed' };
   }
+  return {
+    name: 'Vector Memory',
+    status: 'warn',
+    message: '@monoes/memory not installed (vector search disabled)',
+    fix: 'npm install @monoes/memory',
+  };
 }
 
 function _resolveBundledHelper(relativePath: string): string | null {
