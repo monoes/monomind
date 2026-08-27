@@ -1,18 +1,25 @@
 // Test: scheduleBossRestart race condition prevention - Task 2
-import { describe, it, expect, beforeEach } from 'vitest';
-import { rmSync, mkdirSync, writeFileSync, mkdirSync as fsMkdirSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { rmSync, mkdirSync, mkdtempSync, writeFileSync, mkdirSync as fsMkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
 
 describe('scheduleBossRestart Race Prevention (Task 2)', () => {
-  const testRoot = '/tmp/orgrt-restart-test';
+  // A fixed shared path here raced with lingering async daemon writes from
+  // the prior test's beforeEach cleanup (ENOTEMPTY on rmSync) — a unique dir
+  // per test removes the possibility of the race entirely.
+  let testRoot: string;
   const orgName = 'test-restart-org';
 
   beforeEach(() => {
-    rmSync(testRoot, { recursive: true, force: true });
-    mkdirSync(testRoot, { recursive: true });
+    testRoot = mkdtempSync(join(tmpdir(), 'orgrt-restart-'));
     mkdirSync(join(testRoot, '.monomind', 'orgs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
   });
 
   function createTestDef(goal = 'Test goal'): ReturnType<typeof OrgDefSchema.parse> {

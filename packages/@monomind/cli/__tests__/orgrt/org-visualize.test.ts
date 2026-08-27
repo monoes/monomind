@@ -1,19 +1,22 @@
 // packages/@monomind/cli/__tests__/orgrt/org-visualize.test.ts
 // Tests for org flow visualization command
-import { describe, it, expect, beforeEach } from 'vitest';
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CommandContext } from '../../src/commands/types.js';
 import { orgVisualize } from '../../src/commands/org-visualize.js';
 
 describe('org visualize command', () => {
-  const testRoot = '/tmp/org-visualize-test';
+  // A fixed shared path here risked colliding with a concurrently-running
+  // test process using the same literal /tmp dir — a unique dir per test
+  // removes the possibility entirely.
+  let testRoot: string;
   const orgName = 'test-org';
   const runId = 'run-20250131120000-abc';
 
   beforeEach(() => {
-    // Clean up test directory
-    try { rmSync(testRoot, { recursive: true, force: true }); } catch { /* ignore */ }
+    testRoot = mkdtempSync(join(tmpdir(), 'org-visualize-'));
     // Create test org structure
     mkdirSync(join(testRoot, '.monomind', 'orgs', orgName, runId), { recursive: true });
 
@@ -24,6 +27,10 @@ describe('org visualize command', () => {
       { ts: 1706712020000, org: orgName, run: runId, type: 'message', from: 'worker', to: 'boss', subject: 'result', msg: 'done' },
     ];
     writeFileSync(join(testRoot, '.monomind', 'orgs', orgName, runId, 'bus.jsonl'), events.map(e => JSON.stringify(e)).join('\n'));
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
   });
 
   it('should generate Mermaid flow diagram from org events', async () => {

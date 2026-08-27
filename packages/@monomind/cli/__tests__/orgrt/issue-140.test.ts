@@ -1,6 +1,7 @@
 // packages/@monomind/cli/__tests__/orgrt/issue-140.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { OrgDefSchema, DEFAULT_MAX_TURNS_PER_MESSAGE } from '../../src/orgrt/types.js';
@@ -12,12 +13,19 @@ import { PolicyEngine } from '../../src/orgrt/policy.js';
 import type { AgentRunner, AgentRunArgs, AgentMessage } from '../../src/orgrt/agent-runner.js';
 
 describe('Issue 140 Comprehensive Fixes', () => {
-  const testRoot = '/tmp/orgrt-issue-140-test';
+  // A fixed shared path here raced with lingering async daemon writes from
+  // the prior test's beforeEach cleanup (ENOTEMPTY on rmSync) — a unique dir
+  // per test removes the possibility of the race entirely.
+  let testRoot: string;
   const orgName = 'issue-140-org';
 
   beforeEach(() => {
-    rmSync(testRoot, { recursive: true, force: true });
+    testRoot = mkdtempSync(join(tmpdir(), 'orgrt-issue-140-'));
     mkdirSync(join(testRoot, '.monomind', 'orgs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
   });
 
   function createTestDef(goal = 'Issue 140 test goal'): ReturnType<typeof OrgDefSchema.parse> {

@@ -1,6 +1,7 @@
 // Test: Semantic checkpoint/resume with full state restoration
-import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { OrgDefSchema } from '../../src/orgrt/types.js';
@@ -8,12 +9,19 @@ import { generateChecksum } from '../../src/orgrt/checkpoint.js';
 import { existsSync } from 'node:fs';
 
 describe('Semantic Checkpointing (Pattern 3)', () => {
-  const testRoot = '/tmp/orgrt-checkpoint-test';
+  // A fixed shared path here previously raced with lingering async daemon
+  // writes from the prior test's beforeEach cleanup (ENOTEMPTY on rmSync) —
+  // a unique dir per test removes the possibility of the race entirely.
+  let testRoot: string;
   const orgName = 'test-checkpoint-org';
 
   beforeEach(() => {
-    rmSync(testRoot, { recursive: true, force: true });
+    testRoot = mkdtempSync(join(tmpdir(), 'orgrt-checkpoint-'));
     mkdirSync(join(testRoot, '.monomind', 'orgs'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testRoot, { recursive: true, force: true });
   });
 
   function createTestDef(goal = 'Test goal'): ReturnType<typeof OrgDefSchema.parse> {
