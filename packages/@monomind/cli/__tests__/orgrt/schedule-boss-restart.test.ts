@@ -1,6 +1,6 @@
 // Test: scheduleBossRestart race condition prevention - Task 2
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { rmSync, mkdirSync, mkdtempSync, writeFileSync, mkdirSync as fsMkdirSync } from 'node:fs';
+import { rmSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
