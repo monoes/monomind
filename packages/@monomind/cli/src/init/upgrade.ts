@@ -461,7 +461,19 @@ export async function executeUpgradeWithMissing(
 
     // Add missing skills
     if (sourceSkillsDir) {
-      const allSkills = Object.values(SKILLS_MAP).flat();
+      const allSkills = Object.values(SKILLS_MAP)
+        .flat()
+        .flatMap((skill) => {
+          if (!skill.endsWith('*')) return [skill];
+          const prefix = skill.slice(0, -1);
+          return fs
+            .readdirSync(sourceSkillsDir)
+            .filter(
+              (name) =>
+                name.startsWith(prefix) &&
+                fs.existsSync(path.join(sourceSkillsDir, name, 'SKILL.md')),
+            );
+        });
       const debugMode = process.env.DEBUG || process.env.MONOMIND_DEBUG;
       if (debugMode) {
         console.log(`[DEBUG] Checking ${allSkills.length} skills from SKILLS_MAP`);

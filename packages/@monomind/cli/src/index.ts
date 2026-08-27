@@ -17,6 +17,7 @@ import {
 } from './commands/index.js';
 import { type OutputFormatter, output } from './output.js';
 import { type CommandParser, commandParser } from './parser.js';
+import { versionJsonPayload } from './protocol-capabilities.js';
 import { suggestCommand } from './suggest.js';
 import type { CLIError, Command, CommandContext, MonomindConfig } from './types.js';
 import { getUpdateTagline, runStartupUpdateCheck } from './update/index.js';
@@ -96,7 +97,7 @@ export class CLI {
 
       // Handle global flags
       if (flags.version || flags.V) {
-        this.showVersion();
+        this.showVersion(Boolean(flags.json) || flags.format === 'json');
         return;
       }
 
@@ -461,9 +462,15 @@ export class CLI {
   }
 
   /**
-   * Show version
+   * Show version. `--version --json` emits the Agent Exec Protocol
+   * capability handshake (doc/agent-exec-protocol.md §2) — machine callers
+   * handshake before using `agent exec`/`agent scan`/org `--json`.
    */
-  private showVersion(): void {
+  private showVersion(json = false): void {
+    if (json) {
+      process.stdout.write(`${JSON.stringify(versionJsonPayload(this.version))}\n`);
+      return;
+    }
     const tagline = getUpdateTagline(this.version);
     this.output.writeln(`${this.name} v${this.version}${tagline}`);
   }

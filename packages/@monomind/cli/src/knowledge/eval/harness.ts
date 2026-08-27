@@ -263,18 +263,6 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
   const prevCrash = process.env.MONOMIND_CRASH_REPORTING;
   process.env.MONOMIND_CRASH_REPORTING = 'off';
 
-  // FIRST, before corpus construction and before ANY dynamic import. The weights
-  // must already be on disk. The eval never fetches: doing so would be a network
-  // call at query time and would make the run non-reproducible. This assert sat
-  // after the chunk mirror in its first version, and the chunk mirror's own
-  // import of @monoes/memory was what triggered an 89MB download — so the guard
-  // ran after the event it existed to prevent.
-  const modelPresence = assertModelProvisioned([
-    resolveRepoRoot(opts.repoRoot),
-    path.resolve(new URL('../../../..', import.meta.url).pathname),
-    process.cwd(),
-  ]);
-
   // ── 1. Corpus ────────────────────────────────────────────────────
   const repoRoot = resolveRepoRoot(opts.repoRoot);
   const corpus: Corpus = buildCorpus(repoRoot);
@@ -356,6 +344,16 @@ export async function runEval(opts: EvalOptions): Promise<EvalReport> {
   progress(`golden set: ${scored.length} scored, ${dropped.length} dropped as trivially solvable`);
   if (scored.length === 0)
     throw new Error('[doc eval] no golden pairs survived the triviality filter');
+
+  // After the deterministic corpus and golden-set assertions, but before ANY
+  // dynamic import. Invalid input must report its own actionable guard failure
+  // even on machines that have not provisioned the embedding model; once the
+  // input is valid, the eval still refuses to fetch weights at query time.
+  const modelPresence = assertModelProvisioned([
+    repoRoot,
+    path.resolve(new URL('../../../..', import.meta.url).pathname),
+    process.cwd(),
+  ]);
 
   // ── 3. Isolated eval store (live documents only) ─────────────────
   const storeRoot = opts.storeRoot ?? path.join(repoRoot, '.monomind', 'eval');

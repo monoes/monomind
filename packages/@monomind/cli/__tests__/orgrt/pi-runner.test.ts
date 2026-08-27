@@ -4,7 +4,11 @@
  * (agent_start / message_update / message_end / tool_execution_*).
  */
 import { describe, it, expect } from 'vitest';
-import { parsePiEvents } from '../../src/orgrt/pi-runner.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { parsePiEvents, PiAgentRunner } from '../../src/orgrt/pi-runner.js';
+import type { AgentRunArgs } from '../../src/orgrt/agent-runner.js';
 
 describe('parsePiEvents', () => {
   it('extracts text from a message_end event content array', () => {
@@ -70,4 +74,49 @@ describe('parsePiEvents', () => {
     expect(r.texts).toEqual(['Sending.']);
     expect(r.rawTexts[0]).toContain('tool_call');
   });
+});
+
+// Regression guard for the live bug found 2026-08-25: the installed pi CLI
+// (0.73.1) has no --approve flag at all — `pi --help` lists no
+// approve/trust/yolo option — so passing it made every turn fail
+// immediately with "Unknown option: --approve" before pi ever ran.
+describe('PiAgentRunner invocation', () => {
+  it('never passes --approve to the pi binary', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'monomind-fake-pi-'));
+    const logFile = path.join(tmpDir, 'argv.log');
+    const bin = path.join(tmpDir, 'fake-pi.cjs');
+    fs.writeFileSync(
+      bin,
+      '#!/usr/bin/env node\n' +
+        "const fs = require('fs');\n" +
+        "fs.appendFileSync(process.env.FAKE_PI_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');\n" +
+        "console.log(JSON.stringify({ type: 'message_end', message: { content: [{ type: 'text', text: 'ok' }] } }));\n",
+    );
+    fs.chmodSync(bin, 0o755);
+    try {
+      const args: AgentRunArgs = {
+        tools: [],
+        prompt: (async function* () { yield 'hello'; })(),
+        systemPrompt: 'test role',
+        cwd: tmpDir,
+        env: { FAKE_PI_LOG: logFile },
+        maxTurns: 5,
+      };
+      const messages = [];
+      for await (const m of new PiAgentRunner(bin).run(args)) messages.push(m);
+      expect(messages.some((m) => m.type === 'assistant' && m.text === 'ok')).toBe(true);
+
+      const invocations = fs
+        .readFileSync(logFile, 'utf-8')
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l) as string[]);
+      expect(invocations).toHaveLength(1);
+      expect(invocations[0]).not.toContain('--approve');
+      expect(invocations[0]).toContain('--mode');
+      expect(invocations[0]).toContain('json');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 15000);
 });

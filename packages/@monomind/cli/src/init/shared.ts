@@ -7,12 +7,14 @@ import { createRequire } from 'node:module';
 import * as path from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MASTERMIND_SKILLS } from '../mastermind/manifest-data.js';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const MAX_EXEC_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const CANONICAL_MASTERMIND_SKILLS = MASTERMIND_SKILLS.map((skill) => skill.source);
 
 /**
  * Probe whether an optionalDependency actually resolved in this install
@@ -71,11 +73,10 @@ export const SKILLS_MAP: Record<string, string[]> = {
     'monolean-audit',
     'monolean-debt',
     'monolean-help',
-    // The mastermind command files installed by init invoke
-    // Skill("mastermind-<name>") at runtime — one top-level
-    // mastermind-<name>/SKILL.md directory per skill. The glob expands in
-    // copySkills against the source tree, so newly added mastermind skills
-    // ship automatically; without them those references break in user projects.
+    // The canonical workflow list comes from the manifest. Keep the wildcard
+    // for supplementary legacy workflows that continue to ship during M1;
+    // copySkills expands and de-duplicates both sources deterministically.
+    ...CANONICAL_MASTERMIND_SKILLS,
     'mastermind-*',
   ],
   browser: ['agent-browser-testing'],

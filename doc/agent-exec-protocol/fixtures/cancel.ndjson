@@ -1,0 +1,7 @@
+{"v":1,"type":"start","runtime":"qwen","cwd":"/app","pid":4212}
+{"v":1,"type":"session","session_id":"th_c"}
+{"v":1,"type":"assistant","text":"starting"}
+{"v":1,"type":"tool_call","id":"tc_1","name":"create_nodes","args":{"count":1}}
+{"v":1,"type":"tool_result","id":"tc_1","ok":false,"result":{"text":"ERROR: exec terminated"}}
+{"v":1,"type":"error","code":"cancelled","fatal":false,"message":"cancelled by caller"}
+{"v":1,"type":"done","exit_code":130}

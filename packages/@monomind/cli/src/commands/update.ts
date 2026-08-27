@@ -3,6 +3,8 @@
  * Auto-update system for @monomind packages (ADR-025)
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { output } from '../output.js';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { checkForUpdates, DEFAULT_CONFIG, getInstalledVersion } from '../update/checker.js';
@@ -26,6 +28,19 @@ function formatUpdateType(type: string): string {
     default:
       return type;
   }
+}
+
+function hasLegacyPlatformMarker(cwd: string): boolean {
+  const candidates = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.aider.conf.yml'];
+  return candidates.some((relativePath) => {
+    const path = join(cwd, relativePath);
+    if (!existsSync(path)) return false;
+    try {
+      return /monomind:start|monomind-activate/i.test(readFileSync(path, 'utf8'));
+    } catch {
+      return false;
+    }
+  });
 }
 
 function formatPriority(priority: string): string {
@@ -151,6 +166,11 @@ const allCommand: Command = {
 
       if (results.length === 0) {
         output.printSuccess('All packages are up to date!');
+        if (hasLegacyPlatformMarker(ctx.cwd)) {
+          output.printInfo(
+            'Legacy platform setup detected; run monomind platforms upgrade --all to review and migrate it.',
+          );
+        }
         return { success: true };
       }
 
@@ -202,6 +222,12 @@ const allCommand: Command = {
               : 'update failed';
           output.writeln(`  ${output.error('✗')} ${r.package}: ${safeErr}`);
         }
+      }
+
+      if (hasLegacyPlatformMarker(ctx.cwd)) {
+        output.printInfo(
+          'Legacy platform setup detected; run monomind platforms upgrade --all to review and migrate it.',
+        );
       }
 
       return { success: failed.length === 0 };

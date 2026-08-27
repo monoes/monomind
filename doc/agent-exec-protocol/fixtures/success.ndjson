@@ -1,0 +1,7 @@
+{"v":1,"type":"start","runtime":"codex","cwd":"/app","pid":4212}
+{"v":1,"type":"session","session_id":"th_9f2a"}
+{"v":1,"type":"assistant","text":"The README covers"}
+{"v":1,"type":"assistant","text":" three install paths."}
+{"v":1,"type":"usage","input_tokens":1842,"output_tokens":96,"cost_usd":0.0041}
+{"v":1,"type":"result","subtype":"success","is_error":false,"stop_reason":"end_turn","input_tokens":1842,"output_tokens":96,"cost_usd":0.0041}
+{"v":1,"type":"done","exit_code":0}

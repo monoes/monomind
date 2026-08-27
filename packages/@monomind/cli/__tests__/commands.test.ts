@@ -63,6 +63,36 @@ vi.mock('../src/memory/memory-initializer.js', () => ({
   getHNSWStatus: vi.fn(() => ({ entryCount: 0, dimensions: 384 }))
 }));
 
+// The stats command reads the storage backend through memory-bridge rather
+// than memory-initializer. Keep this command-registry suite isolated from the
+// database just as the other memory commands are.
+vi.mock('../src/memory/memory-bridge.js', () => ({
+  bridgeListEntries: vi.fn(async () => ({
+    success: true,
+    entries: [
+      {
+        id: 'stats-entry-1',
+        key: 'stats-entry-1',
+        namespace: 'default',
+        content: 'mock memory content',
+        accessCount: 1,
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+        hasEmbedding: false,
+        tags: [],
+        metadata: {},
+      },
+    ],
+    total: 1,
+  })),
+  bridgeGetBackendStats: vi.fn(async () => ({
+    totalEntries: 1,
+    entriesByNamespace: { default: 1 },
+    memoryUsage: 19,
+  })),
+  bridgeGetDbPath: vi.fn(() => '/tmp/monomind-memory.db'),
+}));
+
 // Mock MCP client
 vi.mock('../src/mcp-client.js', () => ({
   callMCPTool: vi.fn(async (toolName: string, input: Record<string, unknown>) => {

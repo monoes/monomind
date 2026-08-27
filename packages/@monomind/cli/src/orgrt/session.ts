@@ -297,6 +297,19 @@ export function buildRolePrompt(
  * deliver() kept queuing new messages into a mailbox nobody was reading.
  */
 export async function runAgentSession(opts: SessionOpts): Promise<void> {
+  // `emit()` intentionally does not block agents on disk I/O, but a completed
+  // session is a lifecycle boundary: callers may immediately summarize a run,
+  // stop its daemon, or remove an isolated workspace.  Do not let queued bus
+  // writes outlive that boundary (which could otherwise lose terminal events
+  // or race cleanup of the run directory).
+  try {
+    await runAgentSessionLoop(opts);
+  } finally {
+    await opts.bus.flush();
+  }
+}
+
+async function runAgentSessionLoop(opts: SessionOpts): Promise<void> {
   const { mailbox } = opts;
   // Carries the SDK's own session_id across a maxTurns restart so the next
   // query() call resumes the prior conversation instead of starting cold -
@@ -725,25 +738,28 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
   const tools: OrgToolDef[] = [];
   const text = (t: string): { text: string } => ({ text: t });
 
-  if (opts.searchKnowledge) {
+  const searchKnowledge = opts.searchKnowledge;
+  if (searchKnowledge) {
     tools.push({
       name: 'knowledge_search',
       description:
         "Semantic search over the user's Second Brain: this project's indexed documents plus their personal cross-project global brain. Use to ground work in the user's actual notes, handbooks, and documents.",
       schema: { query: z.string() },
-      handler: async (args) => text(await opts.searchKnowledge?.(role.id, args.query as string)),
+      handler: async (args) => text(await searchKnowledge(role.id, args.query as string)),
     });
   }
-  if (opts.recall) {
+  const recall = opts.recall;
+  if (recall) {
     tools.push({
       name: 'org_recall',
       description:
         "Search this org's accumulated memory from previous runs (outcomes, decisions, learnings). Use before starting work that may already have been done.",
       schema: { query: z.string() },
-      handler: async (args) => text(await opts.recall?.(role.id, args.query as string)),
+      handler: async (args) => text(await recall(role.id, args.query as string)),
     });
   }
-  if (opts.remember) {
+  const remember = opts.remember;
+  if (remember) {
     tools.push({
       name: 'org_remember',
       description:
@@ -751,15 +767,12 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       schema: { content: z.string(), scope: z.enum(['org', 'agent']).optional() },
       handler: async (args) =>
         text(
-          await opts.remember?.(
-            role.id,
-            args.content as string,
-            (args.scope as 'org' | 'agent') ?? 'org',
-          ),
+          await remember(role.id, args.content as string, (args.scope as 'org' | 'agent') ?? 'org'),
         ),
     });
   }
-  if (opts.learn) {
+  const learn = opts.learn;
+  if (learn) {
     tools.push({
       name: 'org_learn',
       description:
@@ -786,7 +799,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
           .optional(),
         rules: z.array(z.object({ rule: z.string(), context: z.string().optional() })).optional(),
       },
-      handler: async (args) => text(await opts.learn?.(role.id, args as any)),
+      handler: async (args) => text(await learn(role.id, args as any)),
     });
   }
   // Gate purely on onComplete: the daemon passes it only to the role its
@@ -808,17 +821,19 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       },
     });
   }
-  if (opts.onGate) {
+  const onGate = opts.onGate;
+  if (onGate) {
     tools.push({
       name: 'org_gate',
       description:
         'Create a decision gate — a hard-blocking human-approval checkpoint. Use before irreversible actions (deployments, deletions, external comms). The gate pauses your work until a human approves or rejects it. End your turn after calling this; you will receive the resolution as a new message.',
       schema: { name: z.string(), description: z.string() },
       handler: async (args) =>
-        text(await opts.onGate?.(role.id, args.name as string, args.description as string)),
+        text(await onGate(role.id, args.name as string, args.description as string)),
     });
   }
-  if (opts.createTask) {
+  const createTask = opts.createTask;
+  if (createTask) {
     tools.push({
       name: 'org_task',
       description:
@@ -826,7 +841,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       schema: { title: z.string(), assignee: z.string(), deps: z.array(z.string()).default([]) },
       handler: async (args) =>
         text(
-          opts.createTask?.(
+          createTask(
             role.id,
             args.title as string,
             args.assignee as string,
@@ -834,24 +849,29 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
           ),
         ),
     });
+  }
+  const completeTask = opts.completeTask;
+  if (completeTask) {
     tools.push({
       name: 'org_task_done',
       description:
         'Mark a task as completed and optionally provide a result summary. Any downstream tasks whose deps are now all done will become ready and be dispatched.',
       schema: { taskId: z.string(), result: z.string().optional() },
       handler: async (args) =>
-        text(
-          opts.completeTask?.(role.id, args.taskId as string, args.result as string | undefined),
-        ),
+        text(completeTask(role.id, args.taskId as string, args.result as string | undefined)),
     });
+  }
+  const listTasks = opts.listTasks;
+  if (listTasks) {
     tools.push({
       name: 'org_tasks',
       description: 'List all tasks in the DAG with their current status and dependencies.',
       schema: {},
-      handler: async () => text(opts.listTasks?.()),
+      handler: async () => text(listTasks()),
     });
   }
-  if (opts.splitTask) {
+  const splitTask = opts.splitTask;
+  if (splitTask) {
     tools.push({
       name: 'org_task_split',
       description:
@@ -862,7 +882,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       },
       handler: async (args) =>
         text(
-          opts.splitTask?.(
+          splitTask(
             role.id,
             args.parentId as string,
             (args.children as { title: string; assignee: string }[]) ?? [],
@@ -870,27 +890,30 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         ),
     });
   }
-  if (opts.mergeTask) {
+  const mergeTask = opts.mergeTask;
+  if (mergeTask) {
     tools.push({
       name: 'org_task_merge',
       description:
         'Merge one task into another when parallel branches converge early. The source becomes "merged"; downstream deps are rewired to the target.',
       schema: { sourceId: z.string(), targetId: z.string() },
       handler: async (args) =>
-        text(opts.mergeTask?.(role.id, args.sourceId as string, args.targetId as string)),
+        text(mergeTask(role.id, args.sourceId as string, args.targetId as string)),
     });
   }
-  if (opts.cancelTask) {
+  const cancelTask = opts.cancelTask;
+  if (cancelTask) {
     tools.push({
       name: 'org_task_cancel',
       description:
         'Cancel a task as moot. The task becomes "cancelled" and unblocks downstream work.',
       schema: { taskId: z.string(), reason: z.string().optional() },
       handler: async (args) =>
-        text(opts.cancelTask?.(role.id, args.taskId as string, args.reason as string | undefined)),
+        text(cancelTask(role.id, args.taskId as string, args.reason as string | undefined)),
     });
   }
-  if (opts.blockTask) {
+  const blockTask = opts.blockTask;
+  if (blockTask) {
     tools.push({
       name: 'org_task_block',
       description:
@@ -898,7 +921,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       schema: { taskId: z.string(), untilIso: z.string(), reason: z.string().optional() },
       handler: async (args) =>
         text(
-          opts.blockTask?.(
+          blockTask(
             role.id,
             args.taskId as string,
             args.untilIso as string,
@@ -907,7 +930,8 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
         ),
     });
   }
-  if (opts.planGraph) {
+  const planGraph = opts.planGraph;
+  if (planGraph) {
     tools.push({
       name: 'org_plan_graph',
       description:
@@ -926,7 +950,7 @@ export function buildOrgTools(opts: SessionOpts): OrgToolDef[] {
       },
       handler: async (args) =>
         text(
-          opts.planGraph?.(
+          planGraph(
             role.id,
             (args.tasks as { name: string; title: string; assignee: string; after?: string[] }[]) ??
               [],

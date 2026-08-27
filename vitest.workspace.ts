@@ -1,4 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+
+const WORKSPACE_ROOT = fileURLToPath(new URL('.', import.meta.url));
 
 /**
  * Workspace config — drives `pnpm test:all`
@@ -28,6 +32,7 @@ export default defineConfig({
       // Root monorepo-wide suite (tests/**).
       {
         extends: './vitest.config.ts',
+        root: WORKSPACE_ROOT,
         test: { name: 'root', sequence: { groupOrder: 0 } },
       },
       // Per-package suites — vitest reads each package's own vitest.config.ts.
@@ -35,26 +40,32 @@ export default defineConfig({
       // projects with different maxWorkers.
       {
         extends: './packages/@monomind/cli/vitest.config.ts',
+        root: resolve(WORKSPACE_ROOT, 'packages/@monomind/cli'),
         test: { name: 'cli', sequence: { groupOrder: 1 } },
       },
       {
         extends: './packages/@monomind/hooks/vitest.config.ts',
+        root: resolve(WORKSPACE_ROOT, 'packages/@monomind/hooks'),
         test: { name: 'hooks', sequence: { groupOrder: 2 } },
       },
       {
         extends: './packages/@monomind/mcp/vitest.config.ts',
+        root: resolve(WORKSPACE_ROOT, 'packages/@monomind/mcp'),
         test: { name: 'mcp', sequence: { groupOrder: 3 } },
       },
       {
         extends: './packages/@monomind/memory/vitest.config.ts',
+        root: resolve(WORKSPACE_ROOT, 'packages/@monomind/memory'),
         test: { name: 'memory', sequence: { groupOrder: 4 } },
       },
       {
         extends: './packages/@monomind/monograph/vitest.config.ts',
+        root: resolve(WORKSPACE_ROOT, 'packages/@monomind/monograph'),
         test: { name: 'monograph', sequence: { groupOrder: 5 } },
       },
       {
         extends: './packages/@monomind/routing/vitest.config.ts',
+        root: resolve(WORKSPACE_ROOT, 'packages/@monomind/routing'),
         test: { name: 'routing', sequence: { groupOrder: 6 } },
       },
     ],

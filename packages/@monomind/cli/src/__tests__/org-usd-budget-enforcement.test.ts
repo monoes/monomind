@@ -117,6 +117,14 @@ describe('ORG-7: a live session closes its mailbox and emits budget-exhausted wh
       );
       expect(budgetEvent).toBeTruthy();
       expect((budgetEvent as any).msg).toMatch(/USD budget exhausted/);
+      // A completed session is also a durable-log boundary. Without waiting
+      // for OrgBus.flush(), this read (and teardown below) could race a queued
+      // mkdir/append from the terminal status event.
+      expect(
+        OrgBus.readHistory(join(tmp, 'run')).some(
+          (e) => e.type === 'status' && e.reason === 'budget-exhausted',
+        ),
+      ).toBe(true);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
