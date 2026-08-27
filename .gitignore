@@ -57,7 +57,6 @@ eval-row6-*.json
 *.tsbuildinfo
 *~
 # .monomind — entire dir is local runtime state, never tracked
-.monomind/
 
 # (legacy granular rules kept below for older checkouts)
 # .monomind runtime subdirs — contain session paths, machine-specific data
@@ -292,3 +291,15 @@ GRAPH_REPORT.md
 
 # org runtime cross-org mailbox scratch (<org workdir>/.mail/, orgrt/cross-org.ts)
 .mail/
+# monomind runtime — exclude sensitive and machine-specific data
+.monomind/sessions/
+.monomind/security/
+.monomind/*.tmp
+.monomind/*.log
+.monomind/daemon.pid
+.monomind/*.db
+.monomind/*.db-wal
+.monomind/*.db-shm
+
+# monomind runtime state
+.monomind/monoswarm/
