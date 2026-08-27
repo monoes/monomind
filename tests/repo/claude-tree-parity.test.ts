@@ -254,8 +254,6 @@ describe('.claude tree parity (root vs npm-shipped CLI copy)', () => {
     const PKG_ONLY_ALLOWED = new Set([
       'github-issue-triage',
       'github-repo-recap',
-      'github-toolkit',
-      'memory-toolkit',
       'stop-slop',
     ]);
 
