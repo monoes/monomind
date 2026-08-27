@@ -121,13 +121,6 @@ function _openMonographDb() {
   } catch (e) { _cachedMonographDb = null; return null; }
 }
 
-// Hook processes are short-lived. Opening the graph database synchronously can
-// take several seconds on a large repository, so callers must only use the
-// cached handle from latency-sensitive hooks.
-function _isMonographDbCached() {
-  return _cachedMonographDb !== undefined && _cachedMonographDb !== null;
-}
-
 function getMonographSuggestions(taskText, limit) {
   if (!taskText || typeof taskText !== 'string') return [];
   // Fast path: return cached result for repeated identical queries.
@@ -702,7 +695,6 @@ function injectGodNodesContext(CWD) {
 module.exports = {
   _requireMonograph,
   _openMonographDb,
-  _isMonographDbCached,
   _isGraphFresh,
   getMonographSuggestions,
   getMonographNeighbors,

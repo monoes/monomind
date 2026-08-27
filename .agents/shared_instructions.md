@@ -12,6 +12,7 @@ Open-source CLI extension for Claude Code and Antigravity (agy). Adds an MCP ser
 - **Source directory:** packages
 - **Test directory:** tests
 - **Max file size:** 500 lines
+- **Database:** sqlite
 - **Test framework:** vitest
 - **CI:** github-actions
 - **Monorepo:** yes (pnpm-workspaces)
@@ -29,8 +30,6 @@ pnpm typecheck
 ```
 
 ## Critical Constraints
-- **Default Git Worktree Isolation:** Always work inside an isolated git worktree (`.worktrees/<task-slug>`) instead of writing directly to the active branch, unless the user explicitly instructs to apply changes directly on branch.
-- **End-of-Session Confirmation:** At the end of the task, always prompt the user with choices to (1) Commit & Merge, (2) Commit & Keep Branch, or (3) Discard the worktree.
 - **Never** modify files outside your assigned task scope
 - **Always** run tests before reporting a task complete
 - **Always** write tests alongside implementation (TDD)
@@ -49,6 +48,13 @@ pnpm typecheck
 - Test behavior, not implementation — avoid testing private methods
 - Use `describe` / `it` blocks that read like documentation
 - Keep each test file focused on one unit; integration tests live in a separate directory
+
+## Database Best Practices
+- Never run raw interpolated SQL — always use parameterized queries
+- Keep migrations small and reversible
+- Index foreign keys and columns used in WHERE/ORDER BY
+- Use transactions for operations that must be atomic
+- Do not fetch more columns than needed — avoid `SELECT *`
 
 ## Monorepo Conventions
 - Make changes in the appropriate package — never write code that cuts across package boundaries without a clear interface
