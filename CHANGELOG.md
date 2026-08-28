@@ -4,6 +4,12 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.3] — 2026-08-28
+
+### Changed
+
+- Maintenance release. No public API changes.
+
 ## [2.10.2] — 2026-08-27
 
 ### Fixed
