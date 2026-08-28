@@ -624,6 +624,11 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln(`  2. Verify the install worked:`);
     output.writeln(`     ${output.highlight('monomind mcp verify')}`);
     output.writeln('');
+    output.printInfo(
+      'Optional spreadsheet extraction (.xlsx, .xls, .ods): install SheetJS only when needed with ' +
+        '`pnpm add xlsx` in this project, or `npm install -g xlsx` for a global install.',
+    );
+    output.writeln('');
     output.writeln('  3. Open Claude Code and type:');
     output.writeln(
       `     ${output.highlight('/mastermind:help')}   ${output.dim('# see all available slash commands')}`,

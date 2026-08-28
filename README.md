@@ -276,6 +276,8 @@ monomind doc list                  # what's indexed
 monomind doc export                # portable OKF bundle — move your brain between machines
 ```
 
+> **Optional spreadsheet support:** `monomind init` never downloads SheetJS. To extract `.xlsx`, `.xls`, or `.ods` files, install it only when you need it: run `pnpm add xlsx` in a project using a local/npx Monomind install, or `npm install -g xlsx` when Monomind is installed globally. Until then, spreadsheet files are skipped while the rest of document ingestion continues.
+
 **And it follows you across projects.** Ingest a path from *outside* the current project (`monomind doc ingest ~/notes`, or add `--global`) and it lands in your personal global brain at `~/.monomind/global-brain` (override with `MONOMIND_GLOBAL_BRAIN_DIR`) — kept as a sibling of `~/.monomind/projects` specifically so `monomind cleanup --data` can never prune it — searchable from every project on the machine. All retrieval (CLI search, per-prompt injection, the dashboard) merges both stores automatically, with project knowledge winning ties and global hits labeled `[global]`. `doc export --global` moves your whole brain between machines as an OKF bundle — still no cloud, ever.
 
 Retrieval quality is a tested invariant, not a hope: a golden-set eval (paraphrase queries against notes written in different vocabulary) runs in CI with an 80% recall bar.

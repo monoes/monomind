@@ -4,6 +4,14 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.4] — 2026-08-28
+
+### Changed
+
+- Spreadsheet extraction is now opt-in. `monomind init` no longer downloads
+  SheetJS; it explains how to install `xlsx` when `.xlsx`, `.xls`, or `.ods`
+  support is needed.
+
 ## [2.10.3] — 2026-08-28
 
 ### Changed

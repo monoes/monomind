@@ -105,6 +105,20 @@ describe('Init Command E2E (real fs)', () => {
     expect(fs.existsSync(path.join(tmpDir, '.codex', 'config.toml'))).toBe(true);
   }, 30000); // real-fs init under full-suite parallel load can exceed the 15s default (#33)
 
+  it('suggests optional SheetJS installation without downloading it', async () => {
+    const printInfo = vi.spyOn(output, 'printInfo');
+
+    const result = await initCommand.action!(ctx);
+
+    expect(result.success).toBe(true);
+    expect(printInfo).toHaveBeenCalledWith(
+      expect.stringContaining('pnpm add xlsx'),
+    );
+    expect(printInfo).toHaveBeenCalledWith(
+      expect.stringContaining('npm install -g xlsx'),
+    );
+  }, 30000);
+
   it('should emit Codex project artifacts when requested', async () => {
     ctx.flags = { target: 'codex', _: [], 'no-watch': true, 'no-start-all': true };
     const result = await initCommand.action!(ctx);

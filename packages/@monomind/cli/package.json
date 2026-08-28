@@ -1,6 +1,6 @@
 {
   "name": "@monoes/monomindcli",
-  "version": "2.10.3",
+  "version": "2.10.4",
   "type": "module",
   "description": "CLI engine for Monomind — an open-source MCP server that extends Claude Code with a codebase knowledge graph (tree-sitter + SQLite), persistent memory, multi-agent task coordination, and session hooks. Apache 2.0 licensed, fully local.",
   "main": "dist/src/index.js",
@@ -105,7 +105,6 @@
     "@monoes/monograph": "workspace:*",
     "fflate": "^0.8.3",
     "mammoth": "^1.12.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "@firecrawl/pdf-inspector": "^1.12.0",
     "ws": "^8.21.0",
     "zod": "^4.0.0"
