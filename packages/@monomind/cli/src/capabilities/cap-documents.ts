@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { unzipSync } from 'fflate';
 import type {
   CapabilityModule,
@@ -36,6 +37,33 @@ export const DOC_EXTENSIONS = new Set([
   '.pages',
 ]);
 const MAX_INDEX_FILE_SIZE = 50 * 1024 * 1024;
+
+type XlsxModule = {
+  readFile(
+    filePath: string,
+    options: { type: 'file' },
+  ): {
+    SheetNames: string[];
+    Sheets: Record<string, unknown>;
+  };
+  utils: {
+    sheet_to_csv(sheet: unknown, options: { FS: string; blankrows: boolean }): string;
+  };
+};
+
+/**
+ * Load SheetJS from the CLI installation first, then from the initialized
+ * project. The second location lets an `npx monomind` user opt into
+ * spreadsheet extraction without modifying the npx cache.
+ */
+function requireXlsx(): XlsxModule {
+  const requireFromCli = createRequire(import.meta.url);
+  try {
+    return requireFromCli('xlsx') as XlsxModule;
+  } catch {
+    return createRequire(path.join(process.cwd(), 'package.json'))('xlsx') as XlsxModule;
+  }
+}
 
 // In-memory index for T0 (metadata) and T1 (content) — replaced by memory DB in production
 const indexedDocs = new Map<
@@ -222,8 +250,7 @@ export async function extractText(file: FileEntry): Promise<string> {
   if (ext === '.xlsx' || ext === '.xls') {
     try {
       // monolean: xlsx is optional — degrade gracefully if missing
-      const req = createRequire(import.meta.url);
-      const XLSX = req('xlsx');
+      const XLSX = requireXlsx();
       const workbook = XLSX.readFile(file.absolutePath, { type: 'file' });
       const parts: string[] = [];
       for (const name of workbook.SheetNames) {
@@ -267,8 +294,7 @@ export async function extractText(file: FileEntry): Promise<string> {
   if (ext === '.ods') {
     try {
       // Try xlsx first (it handles ODS too)
-      const req = createRequire(import.meta.url);
-      const XLSX = req('xlsx');
+      const XLSX = requireXlsx();
       const workbook = XLSX.readFile(file.absolutePath, { type: 'file' });
       const parts: string[] = [];
       for (const name of workbook.SheetNames) {
@@ -420,15 +446,14 @@ export const documentsCapability: CapabilityModule = {
     }
 
     try {
-      const req = createRequire(import.meta.url);
-      req.resolve('xlsx');
+      requireXlsx();
       checks.push({ name: 'XLSX/XLS/ODS', status: 'pass', message: 'xlsx available' });
     } catch {
       checks.push({
         name: 'XLSX/XLS/ODS',
         status: 'warn',
         message: 'xlsx not installed',
-        hint: 'pnpm add xlsx',
+        hint: 'Install it when needed: pnpm add xlsx (project) or npm install -g xlsx (global)',
       });
     }
 

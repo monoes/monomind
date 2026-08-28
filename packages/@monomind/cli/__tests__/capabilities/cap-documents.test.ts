@@ -1,10 +1,20 @@
 import { describe, it, expect } from 'vitest';
+import { createRequire } from 'node:module';
 import { documentsCapability, extractText } from '../../src/capabilities/cap-documents.js';
 import type { DirectoryScan, FileEntry } from '../../src/capabilities/types.js';
 import path from 'path';
 import fs from 'fs';
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures', 'documents');
+const hasXlsx = (() => {
+  try {
+    createRequire(import.meta.url).resolve('xlsx');
+    return true;
+  } catch {
+    return false;
+  }
+})();
+const xlsxIt = hasXlsx ? it : it.skip;
 
 function makeScan(docConfidence: number): DirectoryScan {
   return {
@@ -94,7 +104,7 @@ describe('documentsCapability', () => {
     };
   }
 
-  it('extracts XLSX spreadsheet content end-to-end', async () => {
+  xlsxIt('extracts XLSX spreadsheet content when SheetJS is installed', async () => {
     const text = await extractText(makeFile('sample.xlsx', '.xlsx'));
     expect(text).toContain('Sheet1');
     expect(text).toContain('Alpha');
@@ -114,19 +124,23 @@ describe('documentsCapability', () => {
     expect(text).toContain('epub fixture body text');
   });
 
-  it('indexes and finds XLSX/PPTX/EPUB content through the full capability pipeline', async () => {
+  xlsxIt('indexes and finds XLSX content through the full capability pipeline', async () => {
     await documentsCapability.activate(FIXTURES);
-    const files: FileEntry[] = [
-      makeFile('sample.xlsx', '.xlsx'),
-      makeFile('sample.pptx', '.pptx'),
-      makeFile('sample.epub', '.epub'),
-    ];
+    const files: FileEntry[] = [makeFile('sample.xlsx', '.xlsx')];
     const result = await documentsCapability.index(files);
-    expect(result.indexed).toBe(3);
+    expect(result.indexed).toBe(1);
     expect(result.errors).toEqual([]);
 
     const xlsxResults = await documentsCapability.search!('Alpha', 5);
     expect(xlsxResults.some(r => r.path === 'sample.xlsx')).toBe(true);
+  });
+
+  it('indexes and finds PPTX/EPUB content through the full capability pipeline', async () => {
+    await documentsCapability.activate(FIXTURES);
+    const files: FileEntry[] = [makeFile('sample.pptx', '.pptx'), makeFile('sample.epub', '.epub')];
+    const result = await documentsCapability.index(files);
+    expect(result.indexed).toBe(2);
+    expect(result.errors).toEqual([]);
 
     const pptxResults = await documentsCapability.search!('slide one', 5);
     expect(pptxResults.some(r => r.path === 'sample.pptx')).toBe(true);
@@ -141,8 +155,9 @@ describe('documentsCapability', () => {
     expect(names).toContain('XLSX/XLS/ODS');
     expect(names).toContain('PPTX/ODT/ODP/EPUB');
     expect(names).toContain('Legacy DOC/PPT/Pages (macOS)');
-    // Both are now real, always-installed dependencies (xlsx, fflate) — should pass.
-    expect(checks.find(c => c.name === 'XLSX/XLS/ODS')?.status).toBe('pass');
+    const xlsxCheck = checks.find(c => c.name === 'XLSX/XLS/ODS');
+    expect(xlsxCheck?.status).toBe(hasXlsx ? 'pass' : 'warn');
+    if (!hasXlsx) expect(xlsxCheck?.hint).toContain('pnpm add xlsx');
     expect(checks.find(c => c.name === 'PPTX/ODT/ODP/EPUB')?.status).toBe('pass');
   });
 });
