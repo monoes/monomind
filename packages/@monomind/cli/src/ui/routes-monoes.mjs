@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const MONOES_BASE_URL = process.env.MONOMIND_MONOES_URL || 'https://monoes.me';
-const MONOES_SCOPE = 'community:read community:write';
+const MONOES_SCOPE = 'community:read community:write offline_access';
 
 // state -> { codeVerifier, createdAt } — short-lived, in-memory only. The
 // user completes the browser redirect within a few minutes of clicking
