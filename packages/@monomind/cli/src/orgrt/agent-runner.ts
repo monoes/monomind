@@ -100,7 +100,35 @@ export class ClaudeAgentRunner implements AgentRunner {
         systemPrompt: args.systemPrompt,
         model: args.model,
         cwd: args.cwd,
-        env: args.env,
+        // The SDK's own default (`env = {...process.env}`) only applies when
+        // this option is omitted entirely — passing `args.env` directly, even
+        // as `{}` (the common case: most callers only set one or two
+        // overrides, e.g. MONOMIND_CWD), replaces the ENTIRE spawned
+        // process's environment with just that object. No inherited HOME,
+        // USER, or PATH means the Claude CLI's Keychain-based credential
+        // lookup can't resolve an account at all — observed as "Not logged
+        // in" even though `claude auth status` succeeds fine on its own.
+        // Merge onto process.env so args.env is additive overrides, matching
+        // every other env-passing path in this codebase (e.g. monoagentcli's
+        // own filteredEnviron()+overrides pattern).
+        env: { ...process.env, ...args.env },
+        // Without these, the SDK falls back to its interactive-CLI default of
+        // auto-discovering the invoking user's ~/.claude/settings.json and any
+        // project-level .claude/settings.json under cwd — pulling in that
+        // user's own hooks, MCP servers, and multi-agent-teams coordination
+        // (a Unix-socket handshake with whatever other Claude Code session is
+        // running) into what's supposed to be an isolated, headless one-shot
+        // turn. Observed failure mode: `query()` never yields a result message
+        // at all (the SDK's own runHeadless path logs "no result message
+        // returned from query"), which callers up the stack — having no better
+        // signal — surface as a generic/misleading "Not logged in" error even
+        // though the account is authenticated (`claude auth status` succeeds
+        // independently). settingSources: [] and strictMcpConfig: true make
+        // this runner's `mcpServers` the complete, exclusive tool surface and
+        // skip settings/hook discovery entirely, matching the intent that this
+        // is a scripted org-runtime turn, not an interactive user session.
+        settingSources: [],
+        strictMcpConfig: true,
         mcpServers: { org: orgServer },
         maxTurns: args.maxTurns,
         permissionMode: 'default',
