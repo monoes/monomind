@@ -42,4 +42,12 @@ describe('TypeScript parser', () => {
     const cls = result.nodes.find(n => n.name === 'UserServiceImpl');
     expect(cls?.isExported).toBe(true);
   });
+
+  it('parses JSX in a TSX file without recovered parse errors', async () => {
+    const tsx = 'export function App() { return <main><h1>Hello</h1></main>; }';
+    const tsxResult = await parseFile('/tmp/App.tsx', tsx, 'src/App.tsx');
+
+    expect(tsxResult.parseErrors).toEqual([]);
+    expect(tsxResult.nodes.some(n => n.label === 'Function' && n.name === 'App')).toBe(true);
+  });
 });
