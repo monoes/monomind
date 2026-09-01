@@ -52,7 +52,10 @@ function createTypeScriptConfig(
 }
 
 /** Plain TypeScript and JavaScript use the TypeScript grammar. */
-export const typescriptConfig = createTypeScriptConfig(['.ts', '.js', '.mjs', '.cjs'], 'typescript');
+export const typescriptConfig = createTypeScriptConfig(
+  ['.ts', '.js', '.mjs', '.cjs'],
+  'typescript',
+);
 
 /** JSX syntax needs tree-sitter-typescript's separate TSX grammar. */
 export const tsxConfig = createTypeScriptConfig(['.tsx', '.jsx'], 'tsx');
