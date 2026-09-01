@@ -1,4 +1,7 @@
-import Parser from 'tree-sitter';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Language, Parser } from 'web-tree-sitter';
 import type { MonographEdge, MonographNode, NodeLabel } from '../types.js';
 import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
@@ -10,6 +13,39 @@ const configCache = new Map<string, LanguageConfig>();
 // MEM-2: records why a grammar failed to load for a given extension, so
 // parseFile() can report a diagnostic instead of silently returning 0 nodes.
 const loadErrors = new Map<string, string>();
+// web-tree-sitter requires a one-time async init before any Parser/Language
+// use; guarded so repeated calls share the same initialization.
+let parserInit: Promise<unknown> | null = null;
+function ensureParserInit(): Promise<unknown> {
+  parserInit ??= Parser.init();
+  return parserInit;
+}
+// Languages are cached by wasm filename (e.g. .ts and .vue share
+// tree-sitter-typescript.wasm).
+const languageCache = new Map<string, Language>();
+
+/**
+ * Resolve a vendored wasm filename to an absolute path. Defaults to the
+ * package's wasm/ directory (copied into dist/wasm at build time, so from
+ * compiled output this is dist/wasm/). MONOMIND_WASM_DIR overrides the base
+ * directory — used by tests to simulate a broken/missing grammar.
+ */
+export function resolveWasmPath(wasmFile: string): string {
+  const base =
+    process.env.MONOMIND_WASM_DIR ?? fileURLToPath(new URL('../../wasm/', import.meta.url));
+  return join(base, wasmFile);
+}
+
+async function loadLanguage(wasmFile: string): Promise<Language> {
+  const cached = languageCache.get(wasmFile);
+  if (cached) return cached;
+  // Read the bytes ourselves rather than handing Language.load a path — the
+  // Uint8Array entry point behaves identically in Node and bundled contexts.
+  const bytes = await readFile(resolveWasmPath(wasmFile));
+  const lang = await Language.load(bytes);
+  languageCache.set(wasmFile, lang);
+  return lang;
+}
 
 export async function loadConfig(ext: string): Promise<LanguageConfig | null> {
   if (configCache.has(ext)) return configCache.get(ext)!;
@@ -89,19 +125,18 @@ export async function getParser(
   }
 
   try {
-    const lang = config.getLanguage();
-    if (!lang) throw new Error('getLanguage() returned undefined');
+    await ensureParserInit();
+    // Validate the loaded Language before trusting it by binding it to a
+    // fresh Parser — the bind is what proves the wasm grammar is usable
+    // under this web-tree-sitter runtime (ABI check happens here).
+    const lang = await loadLanguage(config.wasm);
     const parser = new Parser();
-    // Validate the loaded Language before trusting it: some grammar packages
-    // `require()` successfully while still returning an ABI-incompatible
-    // Language object (no throw on load, only on use). Binding it to a fresh
-    // Parser here is what actually proves the grammar is usable.
     parser.setLanguage(lang);
     parserCache.set(ext, parser);
     loadErrors.delete(ext);
     return { parser, config };
   } catch (err) {
-    // Grammar unavailable at runtime (ABI mismatch, native build failure, etc.).
+    // Grammar unavailable at runtime (wasm load/ABI failure, missing file).
     // Record why so callers can report a diagnostic instead of silently
     // returning 0 nodes.
     loadErrors.set(
@@ -261,21 +296,24 @@ export async function parseFile(
 
   const { parser, config: parserConfig } = entry;
   try {
-    // For .vue files using the TypeScript fallback grammar, extract only the <script> block
-    // so the TypeScript parser does not choke on the HTML <template> and <style> sections.
+    // For .vue files, extract only the <script> block: the TypeScript grammar
+    // (which backs vueConfig's wasm) would choke on the HTML <template> and
+    // <style> sections. tree-sitter-vue itself is not vendored — its external
+    // scanner cannot build to wasm without emscripten (see vue.ts).
     let source = sourceText;
     if (ext === '.vue') {
-      // MEM-2: a bare require() can succeed while the loaded Language object is
-      // still ABI-incompatible, so ask vue.ts's validated check (which actually
-      // binds the language to a scratch Parser) rather than re-deriving this
-      // from require() alone.
-      const { isVueGrammarUsable, extractVueScriptContent } = await import('./vue.js');
-      if (!isVueGrammarUsable()) {
-        const extracted = extractVueScriptContent(sourceText);
-        source = extracted.content || sourceText;
-      }
+      const { extractVueScriptContent } = await import('./vue.js');
+      const extracted = extractVueScriptContent(sourceText);
+      source = extracted.content || sourceText;
     }
     const tree = parser.parse(source);
+    if (!tree) {
+      return {
+        nodes: [],
+        edges: [],
+        parseErrors: [`${repoRelativePath}: parser returned no tree`],
+      };
+    }
     const { extractSymbols } = await import('./extractor.js');
     const result = extractSymbols(tree, source, repoRelativePath, parserConfig, ext);
     // MONO-2: tree-sitter inserts ERROR/MISSING nodes when the input is malformed

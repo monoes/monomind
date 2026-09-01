@@ -318,6 +318,22 @@ importers:
       micromatch:
         specifier: ^4.0.8
         version: 4.0.8
+      web-tree-sitter:
+        specifier: ^0.27.0
+        version: 0.27.0
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.0
+        version: 7.6.13
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/micromatch':
+        specifier: ^4.0.10
+        version: 4.0.10
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.39
       tree-sitter:
         specifier: ^0.22.0
         version: 0.22.4
@@ -327,6 +343,9 @@ importers:
       tree-sitter-c-sharp:
         specifier: 0.23.1
         version: 0.23.1(tree-sitter@0.22.4)
+      tree-sitter-cli:
+        specifier: 0.27.0
+        version: 0.27.0
       tree-sitter-cpp:
         specifier: ^0.23.4
         version: 0.23.4(tree-sitter@0.22.4)
@@ -363,19 +382,6 @@ importers:
       tree-sitter-vue:
         specifier: ^0.2.1
         version: 0.2.1
-    devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.0
-        version: 7.6.13
-      '@types/express':
-        specifier: ^5.0.0
-        version: 5.0.6
-      '@types/micromatch':
-        specifier: ^4.0.10
-        version: 4.0.10
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.19.39
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -2644,6 +2650,11 @@ packages:
     engines: {node: '>=12.0.0'}
     hasBin: true
 
+  tree-sitter-cli@0.27.0:
+    resolution: {integrity: sha512-E42kR0og1mFlZBxPj7K4fBXCTjxPTGe19U9RXGWNq0FQKzXOxIp8bhCYFMKhddiVZUsJwW35MYGU9Q1oVYtpbA==}
+    engines: {node: '>=12.0.0'}
+    hasBin: true
+
   tree-sitter-cpp@0.23.4:
     resolution: {integrity: sha512-qR5qUDyhZ5jJ6V8/umiBxokRbe89bCGmcq/dk94wI4kN86qfdV8k0GHIUEKaqWgcu42wKal5E97LKpLeVW8sKw==}
     peerDependencies:
@@ -2885,6 +2896,9 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  web-tree-sitter@0.27.0:
+    resolution: {integrity: sha512-XK08gj6RwTMQatAG7uVRP8MunqotL/XC19vHgkSPKmELgbGPBj4ECvB8haHOUnyj6ls2B8t42UTro14zxGgAHg==}
 
   webdriver-bidi-protocol@0.4.2:
     resolution: {integrity: sha512-VSV+fzfChirL3e7jay2yUC7B4HQCGtEWEg/MSSQbK+qWbqeGlRLlXTzPpYr3XGUvbpDHumWZBJxgesg4N7dbtA==}
@@ -5192,6 +5206,8 @@ snapshots:
 
   tree-sitter-cli@0.23.2: {}
 
+  tree-sitter-cli@0.27.0: {}
+
   tree-sitter-cpp@0.23.4(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
@@ -5398,6 +5414,8 @@ snapshots:
       '@vitest/coverage-v8': 4.1.4(vitest@4.1.4)
     transitivePeerDependencies:
       - msw
+
+  web-tree-sitter@0.27.0: {}
 
   webdriver-bidi-protocol@0.4.2:
     optional: true

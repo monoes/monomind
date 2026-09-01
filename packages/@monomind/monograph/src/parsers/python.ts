@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const pythonConfig: LanguageConfig = {
   name: 'python',
   extensions: ['.py'],
   treeSitterModule: 'tree-sitter-python',
-  getLanguage: () => require('tree-sitter-python'),
+  wasm: 'tree-sitter-python.wasm',
   classNodeTypes: new Set(['class_definition']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set([]),

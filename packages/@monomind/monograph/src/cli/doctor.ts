@@ -118,13 +118,17 @@ function checkDiskSpace(repoPath: string): DoctorCheck {
 
 async function checkTreeSitter(): Promise<DoctorCheck> {
   try {
-    await import('tree-sitter');
-    return { name: 'Tree-sitter', status: 'ok', message: 'tree-sitter module available' };
+    // Grammars are vendored WASM files loaded by web-tree-sitter — no native
+    // module involved. Probe for the TypeScript grammar at its resolved path.
+    const { accessSync } = await import('node:fs');
+    const { resolveWasmPath } = await import('../parsers/loader.js');
+    accessSync(resolveWasmPath('tree-sitter-typescript.wasm'));
+    return { name: 'Tree-sitter', status: 'ok', message: 'WASM grammars available' };
   } catch {
     return {
       name: 'Tree-sitter',
       status: 'warn',
-      message: 'tree-sitter not available — install it to enable code parsing',
+      message: 'WASM grammars not found — reinstall @monoes/monograph to restore code parsing',
     };
   }
 }

@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const rustConfig: LanguageConfig = {
   name: 'rust',
   extensions: ['.rs'],
   treeSitterModule: 'tree-sitter-rust',
-  getLanguage: () => require('tree-sitter-rust'),
+  wasm: 'tree-sitter-rust.wasm',
   classNodeTypes: new Set([]),
   structNodeTypes: new Set(['struct_item']),
   enumNodeTypes: new Set(['enum_item']),

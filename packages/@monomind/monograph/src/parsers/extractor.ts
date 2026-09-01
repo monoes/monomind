@@ -1,4 +1,4 @@
-import type Parser from 'tree-sitter';
+import type Parser from 'web-tree-sitter';
 import type { MonographEdge, MonographNode } from '../types.js';
 import { CONFIDENCE_SCORE, makeId, toNormLabel } from '../types.js';
 import type { LanguageConfig } from './language-config.js';
@@ -31,7 +31,7 @@ export function extractSymbols(
     language,
   });
 
-  function walk(node: Parser.SyntaxNode, parentId?: string): void {
+  function walk(node: Parser.Node, parentId?: string): void {
     const { type } = node;
 
     if (config.importNodeTypes.has(type)) {
@@ -49,7 +49,8 @@ export function extractSymbols(
 
     if (isClass || isStruct || isEnum || isFunction || isMethod || isInterface || isConstructor) {
       const nameNode = node.childForFieldName(config.nameField);
-      const name = nameNode?.text ?? node.text.split('\n')[0].slice(0, 40);
+      const rawName = nameNode?.text ?? node.text.split('\n')[0].slice(0, 40);
+      const name = config.nameRefiner ? config.nameRefiner(node, rawName) : rawName;
       // When a node type is in BOTH functionNodeTypes and methodNodeTypes (e.g. Python
       // `function_definition`), check parent chain to disambiguate: a function_definition
       // whose grandparent is a class_definition is a method, otherwise it's a function.
@@ -144,14 +145,14 @@ export function extractSymbols(
   return { nodes, edges, parseErrors };
 }
 
-function isNodeExported(node: Parser.SyntaxNode, _source: string): boolean {
+function isNodeExported(node: Parser.Node, _source: string): boolean {
   const parent = node.parent;
   if (!parent) return false;
   return parent.type === 'export_statement' || parent.type === 'export_default_declaration';
 }
 
 function handleImport(
-  node: Parser.SyntaxNode,
+  node: Parser.Node,
   fileNodeId: string,
   source: string,
   config: LanguageConfig,
@@ -171,7 +172,7 @@ function handleImport(
 }
 
 function handleInheritance(
-  node: Parser.SyntaxNode,
+  node: Parser.Node,
   nodeId: string,
   edges: MonographEdge[],
   _repoPath: string,
