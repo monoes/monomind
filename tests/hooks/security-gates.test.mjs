@@ -158,6 +158,37 @@ describe('pre-write secrets gate', () => {
       expect(res.stdout).toBe('');
     }
   });
+
+  it('allows ordinary token/key schema fields and explicit fixture placeholders', () => {
+    const tokenField = 'to' + 'ken';
+    const apiKeyField = 'api' + 'Key';
+    const resendApiKeyField = 'RESEND_' + 'API' + '_' + 'KEY';
+    const fixtureValue = ['unit', 'test', 'fixture', 'not', 'a', 'real', 'credential'].join('-');
+    const inputs = [
+      `${tokenField}: z.string().min(1)`,
+      `{ ${tokenField}: 'test-fixture-value' }`,
+      `{ ${resendApiKeyField}: '${fixtureValue}' }`,
+      `const ${apiKeyField} = env.RESEND_API_KEY`,
+    ];
+    for (const content of inputs) {
+      const res = runHook('pre-write', {
+        tool_name: 'Write',
+        tool_input: { file_path: '/tmp/auth.ts', content },
+      });
+      expect(res.code).toBe(0);
+      expect(res.stdout).toBe('');
+    }
+  });
+
+  it('still blocks a high-entropy generic assignment', () => {
+    const tokenField = 'to' + 'ken';
+    const generatedValue = 'Ab3!' + 'R7#kLm9$Qw2@Xe5%Tz8^';
+    const res = runHook('pre-write', {
+      tool_name: 'Write',
+      tool_input: { file_path: '/tmp/auth.ts', content: `${tokenField}: '${generatedValue}'` },
+    });
+    expect(expectBlocked(res).reason).toMatch(/Potential secret/);
+  });
 });
 
 describe('pre-bash destructive-ops gate', () => {
