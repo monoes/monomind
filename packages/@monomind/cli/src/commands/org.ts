@@ -68,6 +68,7 @@ const ORG_ARTIFACT_SUFFIXES = [
   '-bootstrap',
   '-project-workspaces',
   '-approval-comments',
+  '-runstate',
   '-skills',
 ];
 export function listOrgConfigFiles(orgsDir: string): string[] {
