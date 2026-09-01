@@ -227,14 +227,6 @@ const FALLBACK_DESTRUCTIVE_PATTERNS = [
 ];
 
 const FALLBACK_SECRET_PATTERNS = [
-  /(?:api[_-]?key|apikey)\s*[:=]\s*['"][^'"]{8,}['"]/gi,
-  /(?:secret|password|passwd|pwd)\s*[:=]\s*['"][^'"]{8,}['"]/gi,
-  /(?:token|bearer)\s*[:=]\s*['"][^'"]{10,}['"]/gi,
-  // Unquoted variants — env-style `KEY=value` / `key: value` with no quotes,
-  // e.g. `ANTHROPIC_API_KEY=sk-ant-...` in a .env file or shell export. The
-  // quoted patterns above never match these, which was the single most
-  // common real leak pattern (P1-25).
-  /(?:api[_-]?key|apikey|token|secret|password|passwd|pwd)\s*[:=]\s*[^\s'"]{8,}/gi,
   /-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----/g,
   /sk-ant-[a-zA-Z0-9_-]{20,}/g,
   /sk-[a-zA-Z0-9_-]{20,}/g,
@@ -242,6 +234,35 @@ const FALLBACK_SECRET_PATTERNS = [
   /npm_[a-zA-Z0-9]{36}/g,
   /AKIA[0-9A-Z]{16}/g,
 ];
+
+// Field names alone do not make a value a credential: schemas, API wire
+// contracts, and ordinary fixtures legitimately use names such as `token` or
+// `apiKey`. Check an assigned value separately, and only block it when it has
+// the characteristics of an actual generated secret. Recognizable provider
+// formats remain covered by the precise patterns above.
+const GENERIC_SECRET_ASSIGNMENT =
+  /(?:api[_-]?key|apikey|token|secret|password|passwd|pwd|bearer)\s*[:=]\s*(?:'[^'\r\n]*'|"[^"\r\n]*"|[^\s'"\r\n]+)/gi;
+
+function isFixtureOrPlaceholder(value) {
+  return /(?:test|fixture|example|sample|placeholder|dummy|fake|not[-_ ]?(?:a[-_ ]?)?real)/i.test(value);
+}
+
+function hasSecretLikeEntropy(value) {
+  if (value.length < 20 || /\s/.test(value)) return false;
+  var characterClasses = 0;
+  if (/[a-z]/.test(value)) characterClasses++;
+  if (/[A-Z]/.test(value)) characterClasses++;
+  if (/\d/.test(value)) characterClasses++;
+  if (/[^a-zA-Z0-9]/.test(value)) characterClasses++;
+  return characterClasses >= 3 && new Set(value).size >= 10;
+}
+
+function isLikelySecretAssignment(match) {
+  var separator = match.search(/[:=]/);
+  if (separator === -1) return true;
+  var value = match.slice(separator + 1).trim().replace(/^(?:'|")|(?:'|")$/g, '');
+  return !isFixtureOrPlaceholder(value) && hasSecretLikeEntropy(value);
+}
 
 // ─── Compiled config loader ─────────────────────────────────────────────────
 
@@ -317,20 +338,32 @@ function checkDestructive(command, patterns) {
 
 function checkSecrets(content, patterns) {
   var list = patterns || FALLBACK_SECRET_PATTERNS;
-  const found = [];
+  const found = new Set();
   for (const pattern of list) {
     pattern.lastIndex = 0;
     const matches = content.match(pattern);
     if (matches) {
-      for (const m of matches) found.push(redact(m));
+      for (const m of matches) {
+        if (isLikelySecretAssignment(m)) found.add(redact(m));
+      }
     }
   }
-  if (found.length === 0) return { triggered: false };
+  // Value-aware handling for generic field names. This is intentionally kept
+  // out of FALLBACK_SECRET_PATTERNS so callers cannot mistake an identifier
+  // match for proof that the value is a credential.
+  GENERIC_SECRET_ASSIGNMENT.lastIndex = 0;
+  const assignments = content.match(GENERIC_SECRET_ASSIGNMENT);
+  if (assignments) {
+    for (const assignment of assignments) {
+      if (isLikelySecretAssignment(assignment)) found.add(redact(assignment));
+    }
+  }
+  if (found.size === 0) return { triggered: false };
   return {
     triggered: true,
-    count: found.length,
-    redacted: found,
-    reason: `Potential secret(s) detected in file content (${found.length} match${found.length > 1 ? 'es' : ''}): ${found.join(', ')}. Move secrets to environment variables or a .env file (add to .gitignore).`,
+    count: found.size,
+    redacted: [...found],
+    reason: `Potential secret(s) detected in file content (${found.size} match${found.size > 1 ? 'es' : ''}): ${[...found].join(', ')}. Move secrets to environment variables or a .env file (add to .gitignore).`,
   };
 }
 
