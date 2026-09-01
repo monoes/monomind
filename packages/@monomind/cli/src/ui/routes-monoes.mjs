@@ -209,7 +209,9 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
     };
 
     if (!code || !pending) {
-      closeTab('Connection failed — the request was invalid or expired. You can close this tab and try again.');
+      closeTab(
+        'Connection failed — the request was invalid or expired. You can close this tab and try again.',
+      );
       return true;
     }
     _pendingStates.delete(state);
@@ -258,7 +260,9 @@ export async function handleMonoesRoutes(req, res, url, corsOrigin, ctx) {
   // explicit connect/disconnect actions.
   if (req.method === 'GET' && url === '/api/monoes/status') {
     const beforeConn = readMonoesConnection(MONOMIND_HOME);
-    const validToken = /* value */ beforeConn?.accessToken ? await getValidMonoesToken(MONOMIND_HOME) : null;
+    const validToken = /* value */ beforeConn?.accessToken
+      ? await getValidMonoesToken(MONOMIND_HOME)
+      : null;
     const afterConn = readMonoesConnection(MONOMIND_HOME);
     if (validToken !== (beforeConn?.accessToken || null)) {
       _syncMonoesMcpEntry(path.resolve(projectDir || process.cwd()), validToken);

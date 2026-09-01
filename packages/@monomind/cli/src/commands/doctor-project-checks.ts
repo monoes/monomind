@@ -306,7 +306,9 @@ export async function checkMcpServers(): Promise<HealthCheck> {
 // package is installed. Their exports maps also don't expose a "./package.json"
 // subpath, so the entry file is resolved first and package.json is found by
 // walking up from it.
-function _findInstalledPackageJson(specifier: string): { path: string; pkg: Record<string, unknown> } | null {
+function _findInstalledPackageJson(
+  specifier: string,
+): { path: string; pkg: Record<string, unknown> } | null {
   try {
     const entryUrl = import.meta.resolve(specifier);
     let dir = dirname(fileURLToPath(entryUrl));

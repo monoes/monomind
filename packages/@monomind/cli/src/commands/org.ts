@@ -749,8 +749,12 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
       if (!existsSync(rt)) return { name: t, status: 'never run' };
       try {
         const st = JSON.parse(readFileSync(rt, 'utf8')) as {
-          status?: string; run?: string; pid?: number; abandonedRoles?: string[];
-          closedBy?: string; error?: string;
+          status?: string;
+          run?: string;
+          pid?: number;
+          abandonedRoles?: string[];
+          closedBy?: string;
+          error?: string;
         };
         let status = st.status ?? 'never run';
         if ((status === 'running' || status === 'crashed') && st.pid) {
@@ -1915,7 +1919,7 @@ export const orgCommand: Command = {
     {
       name: 'events',
       description:
-        'Tail a run\'s bus events as NDJSON — the machine streaming surface (agent-exec-protocol.md §7.3)',
+        "Tail a run's bus events as NDJSON — the machine streaming surface (agent-exec-protocol.md §7.3)",
       options: [
         { name: 'run', description: 'Run id (default: latest)', type: 'string' },
         { name: 'follow', short: 'f', description: 'Keep tailing until Ctrl-C', type: 'boolean' },
@@ -2042,7 +2046,10 @@ export const orgCommand: Command = {
             ]);
             if (ctx.flags.format === 'json') {
               const payload = {
-                v: 1, org: v.name, ...stats, glossary,
+                v: 1,
+                org: v.name,
+                ...stats,
+                glossary,
                 namespaces: backend?.entriesByNamespace ?? {},
               };
               process.stdout.write(`${JSON.stringify(payload)}\n`);
@@ -2077,7 +2084,9 @@ export const orgCommand: Command = {
             ]);
             if (ctx.flags.format === 'json') {
               const payload = {
-                v: 1, org: v.name, query: q,
+                v: 1,
+                org: v.name,
+                query: q,
                 memories: mem?.results ?? [],
                 triplets: graph.triplets,
                 kg_context: graph.context ?? null,

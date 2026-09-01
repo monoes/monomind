@@ -19,9 +19,9 @@ import type { OrgDef, OrgRole } from './types.js';
 const SILENT_SESSION_MS = 4 * 60_000;
 const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.context/i;
 
+import { readFileSync } from 'node:fs';
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
 import { loadBuiltinRoleSkill } from './role-skills.js';
-import { readFileSync } from 'node:fs';
 
 /**
  * Resolves the extra system-prompt block for a role: built-in archetype
