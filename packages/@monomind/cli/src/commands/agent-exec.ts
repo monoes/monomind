@@ -62,17 +62,22 @@ function loadToolSpecs(file: string | undefined): ToolSpec[] {
   } catch (e) {
     throw new Error(`--tools-file unreadable: ${e instanceof Error ? e.message : String(e)}`);
   }
-  if (!Array.isArray(parsed)) throw new Error('--tools-file must be a JSON array of tool definitions');
+  if (!Array.isArray(parsed))
+    throw new Error('--tools-file must be a JSON array of tool definitions');
   return parsed.map((t, i) => {
     const tool = t as Record<string, unknown>;
     if (typeof tool.name !== 'string' || !tool.name) {
       throw new Error(`--tools-file entry ${i}: "name" (string) is required`);
     }
     if (typeof tool.description !== 'string') {
-      throw new Error(`--tools-file entry ${i} ("${tool.name}"): "description" (string) is required`);
+      throw new Error(
+        `--tools-file entry ${i} ("${tool.name}"): "description" (string) is required`,
+      );
     }
     if (tool.schema !== undefined && (typeof tool.schema !== 'object' || tool.schema === null)) {
-      throw new Error(`--tools-file entry ${i} ("${tool.name}"): "schema" must be a JSON Schema object`);
+      throw new Error(
+        `--tools-file entry ${i} ("${tool.name}"): "schema" must be a JSON Schema object`,
+      );
     }
     return {
       name: tool.name,
@@ -95,7 +100,10 @@ function toolNamesSpecs(raw: unknown): ToolSpec[] {
     }));
 }
 
-async function runExec(ctx: CommandContext, overrides: Partial<Parameters<typeof runAgentExec>[0]>): Promise<number> {
+async function runExec(
+  ctx: CommandContext,
+  overrides: Partial<Parameters<typeof runAgentExec>[0]>,
+): Promise<number> {
   const runtime = String(ctx.flags.runtime ?? '');
   const promptFlag = ctx.flags.prompt as string | undefined;
   const promptFile = ctx.flags['prompt-file'] as string | undefined;
@@ -129,7 +137,8 @@ async function runExec(ctx: CommandContext, overrides: Partial<Parameters<typeof
       return usageError('--tools-file and --tool-names are mutually exclusive');
     }
     toolSpecs = toolsFile ? loadToolSpecs(toolsFile) : toolNamesSpecs(toolNames);
-    if (toolsFile && toolSpecs.length === 0) diagnostics.push('--tools-file contained no tool definitions');
+    if (toolsFile && toolSpecs.length === 0)
+      diagnostics.push('--tools-file contained no tool definitions');
   } else if (ctx.flags['tools-file'] || ctx.flags['tool-names']) {
     return usageError('--tools-file/--tool-names require --tools stdio');
   }
@@ -176,8 +185,7 @@ async function runExec(ctx: CommandContext, overrides: Partial<Parameters<typeof
     maxTurns: Number(ctx.flags['max-turns'] ?? 25) || 25,
     timeoutMs,
     toolTimeoutMs,
-    budgetUsd:
-      ctx.flags['budget-usd'] !== undefined ? Number(ctx.flags['budget-usd']) : undefined,
+    budgetUsd: ctx.flags['budget-usd'] !== undefined ? Number(ctx.flags['budget-usd']) : undefined,
     env,
     toolSpecs: toolSpecs.length ? toolSpecs : null,
     emit: (ev) => {
@@ -202,21 +210,55 @@ export const execCommand: Command = {
   name: 'exec',
   description: 'Run one agent turn via a local runner (Agent Exec Protocol — NDJSON on stdout)',
   options: [
-    { name: 'runtime', short: 'r', description: 'Runner id (claude, codex, kimicode, qwen, …)', type: 'string' },
+    {
+      name: 'runtime',
+      short: 'r',
+      description: 'Runner id (claude, codex, kimicode, qwen, …)',
+      type: 'string',
+    },
     { name: 'prompt', short: 'p', description: 'Prompt text', type: 'string' },
     { name: 'prompt-file', description: 'Read the prompt from a file', type: 'string' },
     { name: 'system-file', description: 'System prompt file', type: 'string' },
-    { name: 'tools', description: 'Tool mode: stdio (caller executes) or none', type: 'string', choices: ['stdio', 'none'] },
-    { name: 'tools-file', description: 'Tool definitions JSON [{name, description, schema}] (requires --tools stdio)', type: 'string' },
-    { name: 'tool-names', description: 'CSV of tool names for caller-described tools (requires --tools stdio)', type: 'string' },
-    { name: 'tool-timeout', description: 'Max wait per caller tool_result frame (default 120s)', type: 'string' },
+    {
+      name: 'tools',
+      description: 'Tool mode: stdio (caller executes) or none',
+      type: 'string',
+      choices: ['stdio', 'none'],
+    },
+    {
+      name: 'tools-file',
+      description: 'Tool definitions JSON [{name, description, schema}] (requires --tools stdio)',
+      type: 'string',
+    },
+    {
+      name: 'tool-names',
+      description: 'CSV of tool names for caller-described tools (requires --tools stdio)',
+      type: 'string',
+    },
+    {
+      name: 'tool-timeout',
+      description: 'Max wait per caller tool_result frame (default 120s)',
+      type: 'string',
+    },
     { name: 'model', short: 'm', description: 'Model override', type: 'string' },
     { name: 'cwd', description: 'Working dir for the agent (default: cwd)', type: 'string' },
     { name: 'resume', description: 'Session/thread id to resume', type: 'string' },
     { name: 'max-turns', description: 'Cap agent turns (default 25)', type: 'number' },
-    { name: 'timeout', description: 'Overall wall-clock timeout, e.g. 10m (exit 124 on expiry)', type: 'string' },
-    { name: 'budget-usd', description: 'Spend cap for this turn (error code "budget" on breach)', type: 'number' },
-    { name: 'env', description: 'Extra env for the agent process, KEY=V (repeatable)', type: 'array' },
+    {
+      name: 'timeout',
+      description: 'Overall wall-clock timeout, e.g. 10m (exit 124 on expiry)',
+      type: 'string',
+    },
+    {
+      name: 'budget-usd',
+      description: 'Spend cap for this turn (error code "budget" on breach)',
+      type: 'number',
+    },
+    {
+      name: 'env',
+      description: 'Extra env for the agent process, KEY=V (repeatable)',
+      type: 'array',
+    },
     { name: 'protocol', description: 'Protocol version pin (1)', type: 'string' },
   ],
   examples: [
@@ -225,7 +267,8 @@ export const execCommand: Command = {
       description: 'One codex turn, NDJSON events on stdout',
     },
     {
-      command: 'monomind agent exec --runtime claude --tools stdio --tools-file tools.json --prompt-file task.md',
+      command:
+        'monomind agent exec --runtime claude --tools stdio --tools-file tools.json --prompt-file task.md',
       description: 'Claude turn with caller-side tools over stdio frames',
     },
   ],
@@ -244,7 +287,11 @@ export const scanCommand: Command = {
   name: 'scan',
   description: 'Detect locally installed agent runtimes (exit 0 always)',
   options: [
-    { name: 'json', description: 'Emit the protocol JSON shape (see agent-exec-protocol.md §6)', type: 'boolean' },
+    {
+      name: 'json',
+      description: 'Emit the protocol JSON shape (see agent-exec-protocol.md §6)',
+      type: 'boolean',
+    },
     { name: 'installed', description: 'Only list installed runtimes', type: 'boolean' },
   ],
   examples: [
@@ -291,11 +338,12 @@ export const scanCommand: Command = {
 export const testCommand: Command = {
   name: 'test',
   description: 'Smoke-test a runtime with one tiny turn (also verifies auth)',
-  options: [
-    { name: 'timeout', description: 'Overall timeout (default 90s)', type: 'string' },
-  ],
+  options: [{ name: 'timeout', description: 'Overall timeout (default 90s)', type: 'string' }],
   examples: [
-    { command: 'monomind agent test codex', description: 'One smoke turn through the codex runner' },
+    {
+      command: 'monomind agent test codex',
+      description: 'One smoke turn through the codex runner',
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const runtime = ctx.args[0];

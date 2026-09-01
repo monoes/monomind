@@ -8,11 +8,10 @@
  * envelope/singleton shapes, and the org events NDJSON tail (§7.3).
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CommandContext, ParsedFlags } from '../types.js';
 import {
   eventsAction,
   gatesAction,
@@ -20,6 +19,7 @@ import {
   questionsAction,
   reportAction,
 } from '../commands/org-observe.js';
+import type { CommandContext, ParsedFlags } from '../types.js';
 
 let root: string;
 let captured: string[];
@@ -85,21 +85,73 @@ function writeOrg(): void {
     }),
   );
   const bus = [
-    { id: `${RUN}-1`, ts: Date.parse('2026-08-25T09:00:01Z'), org: ORG, run: RUN, type: 'message', from: 'boss', to: 'coder', subject: 'task', msg: 'do it' },
-    { id: `${RUN}-2`, ts: Date.parse('2026-08-25T09:01:00Z'), org: ORG, run: RUN, type: 'tool', from: 'coder', tool: 'Write', decision: 'allow', path: 'out/report.md' },
-    { id: `${RUN}-3`, ts: Date.parse('2026-08-25T09:02:00Z'), org: ORG, run: RUN, type: 'chat', from: 'coder', msg: 'Report written.' },
-    { id: `${RUN}-4`, ts: Date.parse('2026-08-25T09:03:00Z'), org: ORG, run: RUN, type: 'usage', from: 'coder', data: { tokens: 10, cost_usd: 0.01 } },
-    { id: `${RUN}-5`, ts: Date.parse('2026-08-25T09:04:00Z'), org: ORG, run: RUN, type: 'status', from: 'boss', reason: 'org-complete', msg: 'done' },
+    {
+      id: `${RUN}-1`,
+      ts: Date.parse('2026-08-25T09:00:01Z'),
+      org: ORG,
+      run: RUN,
+      type: 'message',
+      from: 'boss',
+      to: 'coder',
+      subject: 'task',
+      msg: 'do it',
+    },
+    {
+      id: `${RUN}-2`,
+      ts: Date.parse('2026-08-25T09:01:00Z'),
+      org: ORG,
+      run: RUN,
+      type: 'tool',
+      from: 'coder',
+      tool: 'Write',
+      decision: 'allow',
+      path: 'out/report.md',
+    },
+    {
+      id: `${RUN}-3`,
+      ts: Date.parse('2026-08-25T09:02:00Z'),
+      org: ORG,
+      run: RUN,
+      type: 'chat',
+      from: 'coder',
+      msg: 'Report written.',
+    },
+    {
+      id: `${RUN}-4`,
+      ts: Date.parse('2026-08-25T09:03:00Z'),
+      org: ORG,
+      run: RUN,
+      type: 'usage',
+      from: 'coder',
+      data: { tokens: 10, cost_usd: 0.01 },
+    },
+    {
+      id: `${RUN}-5`,
+      ts: Date.parse('2026-08-25T09:04:00Z'),
+      org: ORG,
+      run: RUN,
+      type: 'status',
+      from: 'boss',
+      reason: 'org-complete',
+      msg: 'done',
+    },
   ];
   writeFileSync(
     join(root, '.monomind', 'orgs', ORG, RUN, 'bus.jsonl'),
-    bus.map((e) => JSON.stringify(e)).join('\n') + '\n',
+    `${bus.map((e) => JSON.stringify(e)).join('\n')}\n`,
   );
   writeFileSync(
     join(root, '.monomind', 'orgs', ORG, 'questions.json'),
     JSON.stringify({
       questions: [
-        { questionId: 'q1', role: 'coder', question: 'Which DB?', ts: Date.parse('2026-08-25T09:01:30Z'), answer: null, answeredAt: null },
+        {
+          questionId: 'q1',
+          role: 'coder',
+          question: 'Which DB?',
+          ts: Date.parse('2026-08-25T09:01:30Z'),
+          answer: null,
+          answeredAt: null,
+        },
       ],
     }),
   );
@@ -107,7 +159,14 @@ function writeOrg(): void {
     join(root, '.monomind', 'orgs', ORG, 'gates.json'),
     JSON.stringify({
       gates: [
-        { id: 'g1', name: 'deploy', description: 'Deploy to prod?', roleId: 'boss', status: 'pending', createdAt: Date.parse('2026-08-25T09:02:30Z') },
+        {
+          id: 'g1',
+          name: 'deploy',
+          description: 'Deploy to prod?',
+          roleId: 'boss',
+          status: 'pending',
+          createdAt: Date.parse('2026-08-25T09:02:30Z'),
+        },
       ],
     }),
   );
@@ -154,7 +213,11 @@ describe('org --json contracts (§7)', () => {
 
   it('org questions --format json: envelope with pending items', async () => {
     await questionsAction(ctx({ format: 'json' }), ORG);
-    const payload = stdoutJson()[0] as { v: number; org: string; items: Array<{ questionId: string }> };
+    const payload = stdoutJson()[0] as {
+      v: number;
+      org: string;
+      items: Array<{ questionId: string }>;
+    };
     expect(payload).toMatchObject({ v: 1, org: ORG });
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0].questionId).toBe('q1');
@@ -162,7 +225,11 @@ describe('org --json contracts (§7)', () => {
 
   it('org gates --format json: envelope with pending gates', async () => {
     await gatesAction(ctx({ format: 'json' }), ORG);
-    const payload = stdoutJson()[0] as { v: number; org: string; items: Array<{ id: string; status: string }> };
+    const payload = stdoutJson()[0] as {
+      v: number;
+      org: string;
+      items: Array<{ id: string; status: string }>;
+    };
     expect(payload).toMatchObject({ v: 1, org: ORG });
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0]).toMatchObject({ id: 'g1', status: 'pending' });

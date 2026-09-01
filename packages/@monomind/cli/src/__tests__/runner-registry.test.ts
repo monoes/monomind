@@ -6,12 +6,21 @@
  * injected PATH env; no real agent CLIs are required.
  */
 
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { versionJsonPayload, AGENT_PROTOCOL_CAPABILITIES, AGENT_PROTOCOL_VERSION } from '../protocol-capabilities.js';
-import { RUNNER_SPECS, isKnownRuntime, resolveExecRunner, scanInstalled } from '../orgrt/runner-registry.js';
+import {
+  isKnownRuntime,
+  RUNNER_SPECS,
+  resolveExecRunner,
+  scanInstalled,
+} from '../orgrt/runner-registry.js';
+import {
+  AGENT_PROTOCOL_CAPABILITIES,
+  AGENT_PROTOCOL_VERSION,
+  versionJsonPayload,
+} from '../protocol-capabilities.js';
 
 let tmpRoot: string | undefined;
 function stubBin(name: string, script: string): { binDir: string } {
@@ -50,8 +59,19 @@ describe('runner registry', () => {
     expect(new Set(ids).size).toBe(ids.length);
     // The orgrt RuntimeKind union (daemon.ts) — keep in sync.
     for (const id of [
-      'claude', 'kimicode', 'opencode', 'vercel', 'codex', 'antigravity',
-      'grok', 'qwen', 'qwen-rpc', 'crush', 'copilot', 'pi', 'pi-rpc',
+      'claude',
+      'kimicode',
+      'opencode',
+      'vercel',
+      'codex',
+      'antigravity',
+      'grok',
+      'qwen',
+      'qwen-rpc',
+      'crush',
+      'copilot',
+      'pi',
+      'pi-rpc',
     ]) {
       expect(isKnownRuntime(id), id).toBe(true);
     }
