@@ -1,16 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const kotlinConfig: LanguageConfig = {
   name: 'kotlin',
   extensions: ['.kt', '.kts'],
   treeSitterModule: 'tree-sitter-kotlin',
-  getLanguage: () => {
-    const mod = require('tree-sitter-kotlin');
-    return (mod.language ?? mod) as import('tree-sitter').Language;
-  },
+  wasm: 'tree-sitter-kotlin.wasm',
   classNodeTypes: new Set(['class_declaration']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set(['enum_class_declaration']),
