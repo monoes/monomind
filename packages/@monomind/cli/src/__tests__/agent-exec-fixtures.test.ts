@@ -11,7 +11,17 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // __tests__ → src → cli → @monomind → packages → repo root → doc/
-const FIXTURES = join(__dirname, '..', '..', '..', '..', '..', 'doc', 'agent-exec-protocol', 'fixtures');
+const FIXTURES = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'doc',
+  'agent-exec-protocol',
+  'fixtures',
+);
 
 type Ev = Record<string, unknown>;
 
@@ -23,7 +33,15 @@ function load(name: string): Ev[] {
 }
 
 const KNOWN_EVENT_TYPES = new Set([
-  'start', 'session', 'assistant', 'tool_call', 'tool_result', 'usage', 'result', 'error', 'done',
+  'start',
+  'session',
+  'assistant',
+  'tool_call',
+  'tool_result',
+  'usage',
+  'result',
+  'error',
+  'done',
 ]);
 
 describe('agent exec golden fixtures (§8.4)', () => {
@@ -43,7 +61,10 @@ describe('agent exec golden fixtures (§8.4)', () => {
       const evs = load(f);
       expect(evs[0].type, f).toBe('start');
       expect(evs[evs.length - 1].type, f).toBe('done');
-      expect(evs.filter((e) => e.type === 'done'), f).toHaveLength(1);
+      expect(
+        evs.filter((e) => e.type === 'done'),
+        f,
+      ).toHaveLength(1);
     }
   });
 
@@ -58,7 +79,15 @@ describe('agent exec golden fixtures (§8.4)', () => {
 
   it('success: assistant → usage → result(stop_reason end_turn) ordering', () => {
     const types = load('success').map((e) => e.type);
-    expect(types).toEqual(['start', 'session', 'assistant', 'assistant', 'usage', 'result', 'done']);
+    expect(types).toEqual([
+      'start',
+      'session',
+      'assistant',
+      'assistant',
+      'usage',
+      'result',
+      'done',
+    ]);
     const result = load('success').find((e) => e.type === 'result')!;
     expect(result).toMatchObject({ subtype: 'success', is_error: false, stop_reason: 'end_turn' });
   });
@@ -82,8 +111,14 @@ describe('agent exec golden fixtures (§8.4)', () => {
   it('timeout/cancel: non-fatal errors, no result event', () => {
     for (const f of ['timeout', 'cancel']) {
       const evs = load(f);
-      expect(evs.find((e) => e.type === 'error'), f).toMatchObject({ fatal: false });
-      expect(evs.some((e) => e.type === 'result'), f).toBe(false);
+      expect(
+        evs.find((e) => e.type === 'error'),
+        f,
+      ).toMatchObject({ fatal: false });
+      expect(
+        evs.some((e) => e.type === 'result'),
+        f,
+      ).toBe(false);
     }
   });
 

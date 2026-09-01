@@ -18,8 +18,8 @@ import {
   collectSystem,
   collectTokens,
 } from './collector.mjs';
-import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleMonoesRoutes } from './routes-monoes.mjs';
+import { handleMonographRoutes } from './routes-monograph.mjs';
 import { handleOrgRoutes } from './routes-org.mjs';
 import {
   addMmClient,

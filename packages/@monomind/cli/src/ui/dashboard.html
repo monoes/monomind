@@ -2740,7 +2740,7 @@ async function toggleMonoesConnection() {
     if (error || !authorizeUrl) { alert(`Could not start monoes.me connection: ${error || 'unknown error'}`); return; }
     const popup = window.open(authorizeUrl, 'monoes-connect', 'width=520,height=680');
     const poll = setInterval(async () => {
-      if (popup && popup.closed) {
+      if (popup?.closed) {
         clearInterval(poll);
         await refreshMonoesStatus();
       }
@@ -2749,6 +2749,9 @@ async function toggleMonoesConnection() {
     alert(`Could not start monoes.me connection: ${e.message}`);
   }
 }
+
+// The sidebar button invokes this from inline HTML, which Biome cannot trace.
+window.toggleMonoesConnection = toggleMonoesConnection;
 
 // ── project switching ──────────────────────────────────────
 function _showNavProjectCtx(path) {

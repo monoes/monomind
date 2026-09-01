@@ -26,11 +26,11 @@
  */
 
 import type { Readable } from 'node:stream';
+import { z } from 'zod';
 import type { AgentMessage, AgentRunner, OrgToolDef } from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
 import { loadCreateOrgSkillGuidance } from './org-design-skill.js';
 import { resolveExecRunner, runnerSpec } from './runner-registry.js';
-import { z } from 'zod';
 
 // ─── errors (§3.4 taxonomy) ─────────────────────────────────────────────────
 
@@ -45,7 +45,13 @@ export type ExecErrorCode =
   | 'cancelled'
   | 'bad-frame';
 
-const FATAL_CODES = new Set<ExecErrorCode>(['auth', 'quota', 'missing-binary', 'no-runner', 'budget']);
+const FATAL_CODES = new Set<ExecErrorCode>([
+  'auth',
+  'quota',
+  'missing-binary',
+  'no-runner',
+  'budget',
+]);
 
 // ─── options & events ───────────────────────────────────────────────────────
 
@@ -125,9 +131,7 @@ export function jsonSchemaToZodShape(
 ): Record<string, z.ZodType<any>> {
   const shape: Record<string, z.ZodType<any>> = {};
   const props = (schema?.properties ?? {}) as Record<string, unknown>;
-  const required = new Set(
-    Array.isArray(schema?.required) ? (schema.required as unknown[]) : [],
-  );
+  const required = new Set(Array.isArray(schema?.required) ? (schema.required as unknown[]) : []);
   for (const [key, prop] of Object.entries(props)) {
     shape[key] = jsonPropToZod(prop, required.has(key));
   }
@@ -187,7 +191,13 @@ class StdioToolBridge {
     try {
       frame = JSON.parse(line);
     } catch {
-      this.emit({ v: 1, type: 'error', code: 'bad-frame', fatal: false, message: `unparseable stdin frame: ${line.slice(0, 120)}` });
+      this.emit({
+        v: 1,
+        type: 'error',
+        code: 'bad-frame',
+        fatal: false,
+        message: `unparseable stdin frame: ${line.slice(0, 120)}`,
+      });
       return;
     }
     if (frame?.type === 'cancel') {
@@ -198,7 +208,13 @@ class StdioToolBridge {
     if (frame?.type === 'tool_result' && typeof frame.id === 'string') {
       const p = this.pending.get(frame.id);
       if (!p) {
-        this.emit({ v: 1, type: 'error', code: 'bad-frame', fatal: false, message: `tool_result for unknown or expired id "${frame.id}"` });
+        this.emit({
+          v: 1,
+          type: 'error',
+          code: 'bad-frame',
+          fatal: false,
+          message: `tool_result for unknown or expired id "${frame.id}"`,
+        });
         return;
       }
       clearTimeout(p.timer);
@@ -212,7 +228,13 @@ class StdioToolBridge {
       p.settle(frame.ok === false ? `ERROR: ${text}` : text);
       return;
     }
-    this.emit({ v: 1, type: 'error', code: 'bad-frame', fatal: false, message: `unrecognized stdin frame type: ${String(frame?.type ?? '(none)')}` });
+    this.emit({
+      v: 1,
+      type: 'error',
+      code: 'bad-frame',
+      fatal: false,
+      message: `unrecognized stdin frame type: ${String(frame?.type ?? '(none)')}`,
+    });
   }
 
   /** Set when the caller sends a cancel frame; polled by the engine loop. */
@@ -274,7 +296,11 @@ class UsageTracker {
 
 // ─── engine ─────────────────────────────────────────────────────────────────
 
-function mapStopReason(subtype: string | undefined, rawTexts: string[], terminal: Terminal | null): string {
+function mapStopReason(
+  subtype: string | undefined,
+  rawTexts: string[],
+  terminal: Terminal | null,
+): string {
   if (terminal?.code === 'timeout') return 'timeout';
   if (terminal?.code === 'cancelled') return 'cancelled';
   if ((subtype ?? '').includes('max_turns')) return 'max_turns';
@@ -378,11 +404,8 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
 
   bridge =
     toolSpecs && toolSpecs.length > 0
-      ? new StdioToolBridge(
-          opts.stdin ?? process.stdin,
-          opts.toolTimeoutMs,
-          safeEmit,
-          () => terminate('cancelled', 130),
+      ? new StdioToolBridge(opts.stdin ?? process.stdin, opts.toolTimeoutMs, safeEmit, () =>
+          terminate('cancelled', 130),
         )
       : null;
   bridge?.start();
@@ -411,7 +434,10 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
   const canUseTool = async (toolName: string, input: Record<string, unknown>) =>
     allowedToolNames.has(toolName)
       ? { behavior: 'allow' as const, updatedInput: input }
-      : { behavior: 'deny' as const, message: `Tool "${toolName}" was not in the tool list this exec call was given.` };
+      : {
+          behavior: 'deny' as const,
+          message: `Tool "${toolName}" was not in the tool list this exec call was given.`,
+        };
 
   // This session's own tool list has no way to reach the real
   // mastermind:createorg skill (no settingSources, no `skills` SDK option,
@@ -567,7 +593,8 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
       type: 'error',
       code: 'runner-error',
       fatal: false,
-      message: (lastResult as { text?: string }).text ?? `turn failed (${lastResult.subtype ?? 'error'})`,
+      message:
+        (lastResult as { text?: string }).text ?? `turn failed (${lastResult.subtype ?? 'error'})`,
     });
   }
   safeEmit({
