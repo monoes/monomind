@@ -23,8 +23,8 @@ export async function loadConfig(ext: string): Promise<LanguageConfig | null> {
     ext === '.mjs' ||
     ext === '.cjs'
   ) {
-    const { typescriptConfig } = await import('./typescript.js');
-    config = typescriptConfig;
+    const { typescriptConfig, tsxConfig } = await import('./typescript.js');
+    config = ext === '.tsx' || ext === '.jsx' ? tsxConfig : typescriptConfig;
   } else if (ext === '.py') {
     const { pythonConfig } = await import('./python.js');
     config = pythonConfig;
