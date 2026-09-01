@@ -1,17 +1,15 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const cConfig: LanguageConfig = {
   name: 'c',
   extensions: ['.c', '.h'],
   treeSitterModule: 'tree-sitter-c',
-  getLanguage: () => require('tree-sitter-c').language as import('tree-sitter').Language,
+  wasm: 'tree-sitter-c.wasm',
   // struct_specifier and enum_specifier expose a 'name' field with the type name.
-  // function_declarator (nested in function_definition) has a 'declarator' field for the
-  // function identifier, but no 'name' field. Using nameField 'name' produces clean names
-  // for structs/enums and falls back to node text for functions (acceptable).
+  // function_declarator (nested in function_definition) has no 'name' field — its
+  // identifier sits in a nested 'declarator' field (plain identifier, or wrapped
+  // in pointer/parenthesized declarators). nameRefiner descends to that identifier
+  // so function names come out as 'add', not 'add(int a, int b)'.
   classNodeTypes: new Set([]),
   structNodeTypes: new Set(['struct_specifier']),
   enumNodeTypes: new Set(['enum_specifier']),
@@ -24,6 +22,17 @@ export const cConfig: LanguageConfig = {
   callNodeTypes: new Set(['call_expression']),
   decoratorNodeTypes: new Set([]),
   nameField: 'name',
+  nameRefiner: (node, fallback) => {
+    let declarator =
+      node.type === 'function_declarator' || node.type === 'type_definition'
+        ? node.childForFieldName('declarator')
+        : null;
+    // Unwrap pointer_declarator / parenthesized_declarator layers.
+    while (declarator && declarator.childForFieldName('declarator')) {
+      declarator = declarator.childForFieldName('declarator');
+    }
+    return declarator?.text ?? fallback;
+  },
   importExtractor: (_source, node) => {
     const pathNode = node.childForFieldName('path') ?? node.child(1);
     return pathNode?.text.replace(/[<>"]/g, '') ?? null;

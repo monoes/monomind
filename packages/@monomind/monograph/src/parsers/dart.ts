@@ -1,16 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const dartConfig: LanguageConfig = {
   name: 'dart',
   extensions: ['.dart'],
   treeSitterModule: 'tree-sitter-dart',
-  getLanguage: () => {
-    const mod = require('tree-sitter-dart');
-    return (mod.default ?? mod) as import('tree-sitter').Language;
-  },
+  wasm: 'tree-sitter-dart.wasm',
   classNodeTypes: new Set(['class_definition']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set(['enum_declaration']),

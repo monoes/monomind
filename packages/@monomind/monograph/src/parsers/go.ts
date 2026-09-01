@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const goConfig: LanguageConfig = {
   name: 'go',
   extensions: ['.go'],
   treeSitterModule: 'tree-sitter-go',
-  getLanguage: () => require('tree-sitter-go'),
+  wasm: 'tree-sitter-go.wasm',
   classNodeTypes: new Set([]),
   structNodeTypes: new Set(['type_spec']),
   enumNodeTypes: new Set([]),

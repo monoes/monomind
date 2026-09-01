@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createRequire } from 'module';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseFile } from '../../src/parsers/loader.js';
 
 // MONO-2 regression: tree-sitter recovers from malformed input by inserting
@@ -30,27 +32,17 @@ describe('MONO-2: tree-sitter recovery surfaces a parseError', () => {
 });
 
 describe('MONO-2: grammar-load-failure surfaces a parseError', () => {
-  it('reports grammar load failure when a native tree-sitter module is broken', async () => {
-    // We simulate a corrupted/ABI-mismatched tree-sitter-kotlin native module
-    // by poisoning Node's require cache. The fresh loader import (after
-    // vi.resetModules) has an empty parserCache, so getParser must call
-    // config.getLanguage() → require('tree-sitter-kotlin') → throws.
-    //
-    // vi.resetModules clears vitest's ESM registry so loader.ts / kotlin.ts are
-    // re-evaluated fresh; Node's native require cache for tree-sitter-kotlin is
-    // shared across all require instances, so the poison affects the fresh
-    // module too.
+  it('reports grammar load failure when the wasm grammar is missing', async () => {
+    // Grammars are vendored wasm files loaded from wasm/ (or dist/wasm in the
+    // published package). MONOMIND_WASM_DIR redirects the lookup, so pointing
+    // it at an empty directory simulates a lost/corrupt grammar install: the
+    // fresh loader import (after vi.resetModules) has empty caches, and
+    // getParser must fail the wasm load for .kt and surface the reason.
     vi.resetModules();
 
-    const require = createRequire(import.meta.url);
-    const moduleId = require.resolve('tree-sitter-kotlin');
-    const original = require.cache[moduleId];
-
-    // Replace the cached export with a throwing proxy so any access (including
-    // the `mod.language ?? mod` pattern in kotlin.ts) blows up.
-    require.cache[moduleId] = new Proxy({}, {
-      get() { throw new Error('simulated grammar load failure'); },
-    }) as typeof original;
+    const emptyDir = await mkdtemp(join(tmpdir(), 'monomind-no-wasm-'));
+    const prev = process.env.MONOMIND_WASM_DIR;
+    process.env.MONOMIND_WASM_DIR = emptyDir;
 
     try {
       const loaderModule = await import('../../src/parsers/loader.js');
@@ -59,12 +51,9 @@ describe('MONO-2: grammar-load-failure surfaces a parseError', () => {
       expect(r.parseErrors.some(e => /kotlin.*grammar load failed/i.test(e))).toBe(true);
       expect(r.nodes).toHaveLength(0);
     } finally {
-      // Restore so other tests in the suite aren't poisoned.
-      if (original !== undefined) {
-        require.cache[moduleId] = original;
-      } else {
-        delete require.cache[moduleId];
-      }
+      if (prev === undefined) delete process.env.MONOMIND_WASM_DIR;
+      else process.env.MONOMIND_WASM_DIR = prev;
+      await rm(emptyDir, { recursive: true, force: true });
       vi.resetModules();
     }
   });

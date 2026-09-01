@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const rubyConfig: LanguageConfig = {
   name: 'ruby',
   extensions: ['.rb'],
   treeSitterModule: 'tree-sitter-ruby',
-  getLanguage: () => require('tree-sitter-ruby').language as import('tree-sitter').Language,
+  wasm: 'tree-sitter-ruby.wasm',
   classNodeTypes: new Set(['class']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set([]),
