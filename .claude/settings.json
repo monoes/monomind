@@ -1,38 +1,4 @@
 {
-  "customInstructions": "Follow the project's CLAUDE.md guidelines. Use concurrent execution for all operations. Prioritize v1 implementation with security-first development, 15-agent monoswarm coordination, phased performance optimization, and cross-platform helper automation.",
-  "env": {},
-  "permissions": {
-    "allow": [
-      "Bash(npx @monomind*)",
-      "Bash(npx monomind*)",
-      "Bash(node .claude/*)",
-      "Bash(npm run:*)",
-      "Bash(npm test:*)",
-      "Bash(git status)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push)",
-      "Bash(git config:*)",
-      "Bash(git tag:*)",
-      "Bash(git branch:*)",
-      "Bash(git checkout:*)",
-      "Bash(git stash:*)",
-      "Bash(jq:*)",
-      "Bash(node:*)",
-      "Bash(which:*)",
-      "Bash(pwd)",
-      "Bash(ls:*)",
-      "Bash(npx:*)",
-      "mcp__monomind__*"
-    ],
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Bash(rm -rf /)"
-    ]
-  },
   "hooks": {
     "PreToolUse": [
       {
@@ -40,7 +6,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-bash",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" pre-bash'",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" pre-write'",
             "timeout": 5000
           }
         ]
@@ -50,38 +26,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-search",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" pre-search'",
             "timeout": 4000
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-write",
-            "timeout": 3000
-          }
-        ]
-      },
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" pre-tool",
-            "timeout": 2000
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" pretool",
-            "timeout": 2000
           }
         ]
       }
@@ -92,18 +38,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-edit",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" post-edit'",
             "timeout": 10000
           }
         ]
       },
       {
-        "matcher": "ScheduleWakeup",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/loop-tracker.cjs\"",
-            "timeout": 3000
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" post-bash'",
+            "timeout": 5000
           }
         ]
       },
@@ -112,38 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-graph-tool",
-            "timeout": 2000
-          }
-        ]
-      },
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" post-tool",
-            "timeout": 2000
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" posttool",
-            "timeout": 3000
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" notification",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" post-graph-tool'",
             "timeout": 2000
           }
         ]
@@ -151,58 +66,47 @@
     ],
     "UserPromptSubmit": [
       {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-tracker.cjs\"", "timeout": 3000 }]
-      },
-      {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" route",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" route'",
             "timeout": 10000
-          }
-        ]
-      },
-      {
-        "hooks": [
+          },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" user-prompt",
-            "timeout": 2000
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/monolean-tracker.cjs\"'",
+            "timeout": 3000
           }
         ]
       }
     ],
     "SessionStart": [
       {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/mastermind-activate.cjs\"", "timeout": 5000 }]
-      },
-      {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-activate.cjs\"", "timeout": 5000 }]
-      },
-      {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-restore",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-restore'",
             "timeout": 15000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/graphify-freshen.cjs\"",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/auto-memory-hook.mjs\" import'",
+            "timeout": 8000
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/graphify-freshen.cjs\"'",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/control-start.cjs\"",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/control-start.cjs\"'",
             "timeout": 5000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" session-start",
-            "timeout": 2000
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/monolean-activate.cjs\"'",
+            "timeout": 5000
           }
         ]
       }
@@ -212,18 +116,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-end'",
             "timeout": 10000
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/control-stop.cjs\" --session",
-            "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" session-end",
-            "timeout": 2000
           }
         ]
       }
@@ -233,8 +127,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" stop",
-            "timeout": 2000
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/auto-memory-hook.mjs\" sync'",
+            "timeout": 10000
           }
         ]
       }
@@ -245,17 +139,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-manual"
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" compact-manual'"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-end'",
             "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" compact",
-            "timeout": 2000
           }
         ]
       },
@@ -264,47 +153,33 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-auto"
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" compact-auto'"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" session-end'",
             "timeout": 6000
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" compact",
-            "timeout": 2000
           }
         ]
       }
     ],
     "SubagentStart": [
       {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/monolean-propagate.cjs\"", "timeout": 3000 }]
-      },
-      {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" agent-start",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" status'",
             "timeout": 3000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-task",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/handlers/capture-handler.cjs\" subagent-start",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/monolean-propagate.cjs\"'",
             "timeout": 3000
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" subagent-start",
-            "timeout": 4000
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-start",
-            "timeout": 2000
           }
         ]
       }
@@ -314,25 +189,93 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/handlers/capture-handler.cjs\" subagent-stop",
-            "timeout": 8000
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" post-task'",
+            "timeout": 5000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/event-logger.cjs\" subagent-stop",
-            "timeout": 2000
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/handlers/capture-handler.cjs\" subagent-stop",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/hook-handler.cjs\" notify'",
+            "timeout": 3000
           }
         ]
       }
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/statusline.cjs\"'"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx @monomind/*)",
+      "Bash(npx monomind *)",
+      "Bash(npx -y monomind *)",
+      "Bash(npx monomind@*)",
+      "Bash(node .claude/helpers/*)",
+      "mcp__monomind__*"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  },
   "attribution": {
     "commit": "Co-Authored-By: nokhodian <nokhodian@gmail.com>",
-    "pr": "\ud83e\udd16 Generated with [monomind](https://github.com/monoes/monomind)"
+    "pr": "🤖 Generated with [monomind](https://github.com/monoes/monomind)"
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "MONOMIND_V1_ENABLED": "true",
+    "MONOMIND_HOOKS_ENABLED": "true",
+    "MONOMIND_HOOK_QUIET": "1"
   },
   "monomind": {
-    "version": "3.5.2",
+    "version": "3.0.0",
     "enabled": true,
+    "platform": {
+      "os": "darwin",
+      "arch": "arm64",
+      "shell": "zsh"
+    },
+    "modelPreferences": {
+      "default": "claude-opus-4-6",
+      "routing": "claude-haiku-4-5"
+    },
+    "agentTeams": {
+      "enabled": true,
+      "teammateMode": "auto",
+      "taskListEnabled": true,
+      "mailboxEnabled": true,
+      "coordination": {
+        "autoAssignOnIdle": true,
+        "trainPatternsOnComplete": true,
+        "notifyLeadOnComplete": true,
+        "sharedMemoryNamespace": "agent-teams"
+      },
+      "hooks": {
+        "teammateIdle": {
+          "enabled": true,
+          "autoAssign": true,
+          "checkTaskList": true
+        },
+        "taskCompleted": {
+          "enabled": true,
+          "trainPatterns": true,
+          "notifyLead": true
+        }
+      }
+    },
     "monoswarm": {
       "topology": "hierarchical-mesh",
       "maxAgents": 15
@@ -342,56 +285,12 @@
       "learningBridge": {
         "enabled": true
       },
-      "memoryGraph": {
-        "enabled": true
-      },
       "agentScopes": {
         "enabled": true
       }
     },
     "neural": {
       "enabled": true
-    },
-    "daemon": {
-      "autoStart": true,
-      "workers": [
-        "map",
-        "audit",
-        "optimize",
-        "consolidate",
-        "testgaps",
-        "ultralearn",
-        "deepdive",
-        "document",
-        "refactor",
-        "benchmark"
-      ],
-      "schedules": {
-        "audit": {
-          "interval": "1h",
-          "priority": "critical"
-        },
-        "optimize": {
-          "interval": "30m",
-          "priority": "high"
-        },
-        "consolidate": {
-          "interval": "2h",
-          "priority": "low"
-        },
-        "document": {
-          "interval": "1h",
-          "priority": "normal"
-        },
-        "deepdive": {
-          "interval": "4h",
-          "priority": "normal"
-        },
-        "ultralearn": {
-          "interval": "1h",
-          "priority": "normal"
-        }
-      }
     },
     "learning": {
       "enabled": true,
@@ -408,8 +307,13 @@
     },
     "adr": {
       "autoGenerate": true,
-      "directory": "docs/adrs",
+      "directory": "/docs/adr",
       "template": "madr"
+    },
+    "ddd": {
+      "trackDomains": true,
+      "validateBoundedContexts": true,
+      "directory": "/docs/ddd"
     },
     "security": {
       "autoScan": true,
@@ -417,30 +321,5 @@
       "cveCheck": true,
       "threatModel": true
     }
-  },
-  "agents": {
-    "source": ".claude/agents",
-    "customAgents": []
-  },
-  "skills": {
-    "source": ".claude/commands",
-    "enabled": true
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/statusline.cjs\""
-  },
-  "mcpServers": {
-    "monomind": {
-      "command": "npx",
-      "args": [
-        "monomind@latest",
-        "mcp",
-        "start"
-      ]
-    }
-  },
-  "enabledMcpjsonServers": [
-    "monomind"
-  ]
+  }
 }

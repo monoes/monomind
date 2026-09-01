@@ -1,0 +1,24 @@
+{
+  "name": "monomind",
+  "version": "1.0.0",
+  "description": "Monomind hooks and commands for Kimi Code (knowledge graph, memory, gates)",
+  "commands": "./commands/",
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "command": "node ./hooks/monomind-gate.mjs",
+      "timeout": 5
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^(Write|Edit|MultiEdit)$",
+      "command": "node ./hooks/monomind-gate.mjs",
+      "timeout": 5
+    }
+  ],
+  "interface": {
+    "displayName": "Monomind",
+    "shortDescription": "Knowledge graph, memory, and gate hooks for kimi"
+  }
+}

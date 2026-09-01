@@ -156,7 +156,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
       const def = OrgDefSchema.parse(
         JSON.parse(readFileSync(join(orgsDir, `${name}.json`), 'utf8')),
       );
-      const { buildRolePrompt } = await import('../orgrt/session.js');
+      const { buildRolePrompt, resolveRoleExtraGuidance } = await import('../orgrt/session.js');
       const roster = def.roles.map((r) => r.id);
       const perRole = Math.floor((def.run_config.budget_tokens ?? 1_000_000) / def.roles.length);
       // Same KG entity glossary the live daemon injects — the preview must
@@ -186,6 +186,7 @@ const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
             { name: def.name, goal: (taskFlag as string | undefined) ?? def.goal },
             roster,
             glossary,
+            resolveRoleExtraGuidance(role),
           ),
         );
       }

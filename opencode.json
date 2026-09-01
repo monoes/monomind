@@ -1,16 +1,42 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["AGENTS.md", "CLAUDE.md"],
+  "instructions": [
+    "AGENTS.md",
+    ".agents/shared_instructions.md"
+  ],
   "mcp": {
     "monomind": {
       "type": "local",
-      "command": ["npx", "-y", "monomind@latest", "mcp", "start"],
-      "enabled": true
+      "command": [
+        "npx",
+        "-y",
+        "monomind@latest",
+        "mcp",
+        "start"
+      ],
+      "enabled": true,
+      "env": {
+        "npm_config_update_notifier": "false",
+        "MONOMIND_MODE": "v1",
+        "MONOMIND_HOOKS_ENABLED": "true",
+        "MONOMIND_TOPOLOGY": "hierarchical-mesh",
+        "MONOMIND_MAX_AGENTS": "15",
+        "MONOMIND_MEMORY_BACKEND": "hybrid"
+      }
     }
   },
   "permission": {
-    "bash": { "*": "ask", "npx monomind*": "allow", "monomind*": "allow" },
-    "edit": "ask",
-    "read": "allow"
+    "bash": {
+      "*": "ask",
+      "npx monomind *": "allow",
+      "npx -y monomind *": "allow",
+      "npx monomind@*": "allow",
+      "npx @monomind/*": "allow"
+    },
+    "read": {
+      "*": "allow",
+      "./.env": "deny",
+      "./.env.*": "deny"
+    }
   }
 }

@@ -57,12 +57,8 @@ eval-row6-*.json
 *.tsbuildinfo
 *~
 # .monomind — entire dir is local runtime state, never tracked
+.monomind/
 
-# (legacy granular rules kept below for older checkouts)
-# .monomind runtime subdirs — contain session paths, machine-specific data
-# Safe to track: test-fixtures/
-# Orgs are runtime data — gitignored so branch switches don't delete them
-.monomind/orgs/*.json
 .monomind/orgs/*.jsonl
 .monomind/orgs/*/
 .monomind/sessions/
