@@ -96,6 +96,21 @@ export class SqlJsBackend extends SqlBackend {
   private sqlJsConfig: SqlJsBackendConfig;
   private persistTimer: NodeJS.Timeout | null = null;
 
+  /**
+   * Report a background persistence failure without turning an operational
+   * problem such as ENOSPC into an unhandled EventEmitter `error` event.
+   * Consumers that need to react can install a normal `error` listener; in
+   * its absence, the failed write remains non-fatal and the next interval can
+   * retry it. Explicit `persist()` calls still reject to their caller.
+   */
+  private reportAutoPersistError(error: unknown): void {
+    if (this.listenerCount('error') > 0) {
+      this.emit('error', { operation: 'auto-persist', error });
+    } else if (this.sqlJsConfig.verbose) {
+      console.error('[SqlJsBackend] Auto-persist failed; will retry on the next interval', error);
+    }
+  }
+
   constructor(config: Partial<SqlJsBackendConfig> = {}) {
     const merged = { ...DEFAULT_CONFIG, ...config };
     super({
@@ -155,7 +170,7 @@ export class SqlJsBackend extends SqlBackend {
 
     if (this.sqlJsConfig.autoPersistInterval > 0 && this.sqlJsConfig.databasePath !== ':memory:') {
       this.persistTimer = setInterval(() => {
-        this.persist().catch((error) => this.emit('error', { operation: 'auto-persist', error }));
+        this.persist().catch((error: unknown) => this.reportAutoPersistError(error));
       }, this.sqlJsConfig.autoPersistInterval);
       // Do not hold the event loop open purely for periodic persistence.
       if (this.persistTimer.unref) this.persistTimer.unref();
