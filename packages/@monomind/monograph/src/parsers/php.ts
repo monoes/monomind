@@ -1,17 +1,11 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const phpConfig: LanguageConfig = {
   name: 'php',
   extensions: ['.php'],
   treeSitterModule: 'tree-sitter-php',
-  getLanguage: () => {
-    const mod = require('tree-sitter-php');
-    // tree-sitter-php exports { php, php_only } — use the full PHP grammar
-    return mod.php as import('tree-sitter').Language;
-  },
+  // Full PHP grammar (not php_only) — vendored wasm is tree-sitter-php.wasm.
+  wasm: 'tree-sitter-php.wasm',
   classNodeTypes: new Set(['class_declaration']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set(['enum_declaration']),

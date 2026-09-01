@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const javaConfig: LanguageConfig = {
   name: 'java',
   extensions: ['.java'],
   treeSitterModule: 'tree-sitter-java',
-  getLanguage: () => require('tree-sitter-java'),
+  wasm: 'tree-sitter-java.wasm',
   classNodeTypes: new Set(['class_declaration']),
   structNodeTypes: new Set(['record_declaration']),
   enumNodeTypes: new Set(['enum_declaration']),

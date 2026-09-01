@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const swiftConfig: LanguageConfig = {
   name: 'swift',
   extensions: ['.swift'],
   treeSitterModule: 'tree-sitter-swift',
-  getLanguage: () => require('tree-sitter-swift').language as import('tree-sitter').Language,
+  wasm: 'tree-sitter-swift.wasm',
   classNodeTypes: new Set(['class_declaration']),
   structNodeTypes: new Set(['struct_declaration']),
   enumNodeTypes: new Set(['enum_declaration']),

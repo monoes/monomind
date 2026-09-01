@@ -1,7 +1,4 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 function createTypeScriptConfig(
   extensions: string[],
@@ -14,10 +11,7 @@ function createTypeScriptConfig(
     name: 'typescript',
     extensions,
     treeSitterModule: 'tree-sitter-typescript',
-    getLanguage: () => {
-      const ts = require('tree-sitter-typescript');
-      return ts[grammar];
-    },
+    wasm: grammar === 'tsx' ? 'tree-sitter-tsx.wasm' : 'tree-sitter-typescript.wasm',
     classNodeTypes: new Set(['class_declaration', 'class']),
     structNodeTypes: new Set([]),
     enumNodeTypes: new Set(['enum_declaration']),

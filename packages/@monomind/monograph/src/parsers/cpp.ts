@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { LanguageConfig } from './language-config.js';
-
-const require = createRequire(import.meta.url);
 
 export const cppConfig: LanguageConfig = {
   name: 'cpp',
   extensions: ['.cpp', '.cc', '.cxx', '.hpp', '.hxx'],
   treeSitterModule: 'tree-sitter-cpp',
-  getLanguage: () => require('tree-sitter-cpp').language as import('tree-sitter').Language,
+  wasm: 'tree-sitter-cpp.wasm',
   classNodeTypes: new Set(['class_specifier']),
   structNodeTypes: new Set(['struct_specifier']),
   enumNodeTypes: new Set(['enum_specifier']),

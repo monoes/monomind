@@ -2,7 +2,7 @@
   "name": "@monoes/monograph",
   "version": "1.5.8",
   "type": "module",
-  "description": "Native TypeScript code intelligence engine for monomind",
+  "description": "Code intelligence engine for monomind — tree-sitter WASM grammars + SQLite knowledge graph, no native builds",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {
@@ -36,7 +36,7 @@
   },
   "scripts": {
     "prebuild": "node ../../../scripts/build-fs.mjs clean dist tsconfig.tsbuildinfo",
-    "build": "tsc",
+    "build": "tsc && node ../../../scripts/build-fs.mjs clean dist/wasm && node ../../../scripts/build-fs.mjs copy-dir wasm dist/wasm",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -51,6 +51,13 @@
     "graphology-shortest-path": "^2.0.2",
     "graphology-traversal": "^0.3.1",
     "micromatch": "^4.0.8",
+    "web-tree-sitter": "^0.27.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/express": "^5.0.0",
+    "@types/micromatch": "^4.0.10",
+    "@types/node": "^20.0.0",
     "tree-sitter": "^0.22.0",
     "tree-sitter-c": "~0.23.6",
     "tree-sitter-c-sharp": "0.23.1",
@@ -65,13 +72,7 @@
     "tree-sitter-rust": "^0.23.0",
     "tree-sitter-swift": "^0.7.1",
     "tree-sitter-typescript": "^0.23.0",
-    "tree-sitter-vue": "^0.2.1"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.0",
-    "@types/express": "^5.0.0",
-    "@types/micromatch": "^4.0.10",
-    "@types/node": "^20.0.0",
+    "tree-sitter-cli": "0.27.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.4"
   }
