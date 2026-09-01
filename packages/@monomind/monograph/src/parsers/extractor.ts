@@ -32,6 +32,12 @@ export function extractSymbols(
   });
 
   function walk(node: Parser.Node, parentId?: string): void {
+    // Skip anonymous keyword tokens — some grammars type them identically to
+    // declaration nodes (tree-sitter-ruby's class keyword is a node of type
+    // 'class'), which would otherwise produce spurious symbols named after the
+    // keyword.
+    if (!node.isNamed) return;
+
     const { type } = node;
 
     if (config.importNodeTypes.has(type)) {

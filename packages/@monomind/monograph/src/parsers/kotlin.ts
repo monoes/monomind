@@ -1,10 +1,14 @@
-import type { LanguageConfig } from './language-config.js';
+import { firstChildText, type LanguageConfig } from './language-config.js';
 
 export const kotlinConfig: LanguageConfig = {
   name: 'kotlin',
   extensions: ['.kt', '.kts'],
   treeSitterModule: 'tree-sitter-kotlin',
   wasm: 'tree-sitter-kotlin.wasm',
+  // kotlin 0.3.8 declares no field names — names come from the first
+  // type_identifier (classes/interfaces/enums) or simple_identifier (functions).
+  nameRefiner: (node, fallback) =>
+    firstChildText(node, ['type_identifier', 'simple_identifier']) ?? fallback,
   classNodeTypes: new Set(['class_declaration']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set(['enum_class_declaration']),

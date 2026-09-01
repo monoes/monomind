@@ -4,6 +4,22 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.8] — 2026-09-02
+
+### Fixed
+
+- **Symbol names for Kotlin, Ruby, C++, and Dart** — these grammars declare
+  no (or only partial) field names, so names fell back to raw node text
+  (`class Foo {`, `int count()`, `compute(int x)`). Per-language name
+  refiners now extract clean identifiers. Surfaced by the WASM migration:
+  most of these grammars had never worked under the native binding, so the
+  defect was previously invisible.
+- **Spurious keyword symbols in Ruby** — the extractor no longer treats
+  anonymous keyword tokens as symbols (tree-sitter-ruby types the `class`
+  keyword token as a node of type `class`).
+- CLI: `{org}-runstate.json` files are excluded from org config listing, so
+  they no longer appear as phantom orgs.
+
 ## [2.10.7] — 2026-09-01
 
 ### Changed

@@ -5,6 +5,24 @@ export const dartConfig: LanguageConfig = {
   extensions: ['.dart'],
   treeSitterModule: 'tree-sitter-dart',
   wasm: 'tree-sitter-dart.wasm',
+  // tree-sitter-dart signature/declaration nodes carry the identifier as an
+  // 'identifier' child or a 'name' field — but method_signature only wraps
+  // function_signature, which holds the name one level down.
+  nameRefiner: (node, fallback) => {
+    const direct =
+      node.childForFieldName('name') ??
+      node.namedChildren.find((c) => c.type === 'identifier') ??
+      null;
+    if (direct) return direct.text;
+    for (const child of node.namedChildren) {
+      const nested =
+        child.childForFieldName('name') ??
+        child.namedChildren.find((c) => c.type === 'identifier') ??
+        null;
+      if (nested) return nested.text;
+    }
+    return fallback;
+  },
   classNodeTypes: new Set(['class_definition']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set(['enum_declaration']),

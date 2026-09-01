@@ -45,3 +45,20 @@ export interface LanguageConfig {
   labelRefiner?: LabelRefiner;
   nameRefiner?: NameRefiner;
 }
+
+/**
+ * Helper for nameRefiner implementations: return the text of the first named
+ * child whose type is in `types`, or null. Useful for older grammars that
+ * declare no field names (e.g. kotlin 0.3.8, ruby 0.23), where
+ * childForFieldName() always returns null.
+ */
+export function firstChildText(
+  node: import('web-tree-sitter').Node,
+  types: string[],
+): string | null {
+  for (const type of types) {
+    const hit = node.namedChildren.find((c) => c.type === type);
+    if (hit) return hit.text;
+  }
+  return null;
+}
