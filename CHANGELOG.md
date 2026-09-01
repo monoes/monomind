@@ -4,6 +4,27 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.6] — 2026-09-01
+
+### Fixed
+
+- Monograph: `.tsx` and `.jsx` files were parsed with tree-sitter's plain
+  TypeScript grammar, producing recovered parse errors on any JSX syntax.
+  They are now routed to the dedicated TSX grammar (language identity in the
+  graph stays `typescript`). Refs #219.
+- Monodesign: local Chrome teardown could report "closed" before releasing
+  its forced debug port, so the next launch attached to a process still
+  exiting and the CDP session failed. Teardown now waits (up to 5s) for the
+  port listener to disappear.
+- CLI: removed a stale dashboard test assertion for the retired budgets tab.
+
+## [2.10.5] — 2026-08-29
+
+### Fixed
+
+- `orgrt`: `ClaudeAgentRunner` no longer wipes the child process environment
+  or auto-loads interactive settings when spawning agents.
+
 ## [2.10.4] — 2026-08-28
 
 ### Changed
