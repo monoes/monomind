@@ -52,6 +52,7 @@ const {
 
 const {
   _requireMonograph, _openMonographDb, _isGraphFresh,
+  _isMonographDbCached,
   getMonographSuggestions, getMonographNeighbors,
   _recordGraphTelemetry, _injectCompactGraphMap,
   _findAffectedTests, _maybeRebuildMonograph,
@@ -354,6 +355,7 @@ var hCtx = {
   _recordDecisionMarkers: _recordDecisionMarkers,
   _recordToolCall: _recordToolCall,
   _openMonographDb: _openMonographDb,
+  _isMonographDbCached: _isMonographDbCached,
   _requireMonograph: _requireMonograph,
   _isGraphFresh: _isGraphFresh,
   _triggerExtractYamlValue: _triggerExtractYamlValue,

@@ -20,6 +20,31 @@ const SILENT_SESSION_MS = 4 * 60_000;
 const CONTEXT_LIMIT_RE = /context.window.limit|context.length.exceeded|maximum.context/i;
 
 import { resolveProviderEnv, resolveRoleProvider } from './provider.js';
+import { loadBuiltinRoleSkill } from './role-skills.js';
+import { readFileSync } from 'node:fs';
+
+/**
+ * Resolves the extra system-prompt block for a role: built-in archetype
+ * best-practices (keyed by `role.ui.icon`) plus the role's own
+ * `instructions_file`, if either is present — both are optional and
+ * independent, so either, both, or neither can contribute text. A missing
+ * or unreadable `instructions_file` is skipped (not an error): a role
+ * shouldn't fail to start a session over a stale/typo'd custom-file path.
+ */
+export function resolveRoleExtraGuidance(role: OrgRole): string | undefined {
+  const parts: string[] = [];
+  const builtin = loadBuiltinRoleSkill(role.ui?.icon);
+  if (builtin) parts.push(builtin);
+  if (role.instructions_file) {
+    try {
+      const custom = readFileSync(role.instructions_file, 'utf-8').trim();
+      if (custom) parts.push(custom);
+    } catch {
+      // missing/unreadable custom instructions file — skip, don't crash session start
+    }
+  }
+  return parts.length ? parts.join('\n\n') : undefined;
+}
 
 /** Per-vendor/per-runtime default models. Used when a role doesn't pin
  *  adapter_config.model explicitly. Explicit model always wins. */
@@ -250,12 +275,18 @@ export interface SessionOpts {
   ) => string;
 }
 
-/** Role briefing given to each agent session (SDK systemPrompt option). */
+/** Role briefing given to each agent session (SDK systemPrompt option).
+ *  `extraGuidance` carries pre-resolved text the caller already loaded from
+ *  disk — built-in archetype best-practices (role-skills.ts, keyed by
+ *  `role.ui.icon`) and/or the role's own `instructions_file`, if either
+ *  resolved to something. Kept as a plain string param (not read here)
+ *  so this function stays synchronous/pure and trivially testable. */
 export function buildRolePrompt(
   role: OrgRole,
   def: Pick<OrgDef, 'name' | 'goal'>,
   roster: string[],
   glossary?: string[],
+  extraGuidance?: string,
 ): string {
   const isCoordinator = role.reports_to == null;
   return [
@@ -265,6 +296,7 @@ export function buildRolePrompt(
     role.responsibilities?.length
       ? `Your responsibilities:\n- ${role.responsibilities.join('\n- ')}`
       : '',
+    extraGuidance || '',
     `## Communication protocol`,
     `The ONLY way to communicate with other agents is the org_send tool.`,
     `Roster: ${roster.join(', ')}. Address another org's agent as "<org-name>:<role-id>".`,
@@ -474,6 +506,7 @@ async function runOneSession(
         (opts.def ?? { name: org, goal: '' }) as OrgDef,
         opts.def?.roles.map((r) => r.id) ?? [role.id],
         opts.glossary,
+        resolveRoleExtraGuidance(role),
       ),
       model,
       cwd,

@@ -373,4 +373,71 @@ describe('runAgentSession', () => {
     expect(p).toContain('boss, coder, tester');
     expect(p).toContain('ask_human');
   });
+
+  it('buildRolePrompt includes extraGuidance when provided, between responsibilities and the communication protocol', () => {
+    const p = buildRolePrompt(
+      { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: ['write code'] } as any,
+      { name: 'my-org', goal: 'ship v2' } as any,
+      ['boss', 'coder'],
+      undefined,
+      'ALWAYS write tests first.',
+    );
+    expect(p).toContain('ALWAYS write tests first.');
+    expect(p.indexOf('ALWAYS write tests first.')).toBeLessThan(p.indexOf('## Communication protocol'));
+  });
+
+  it('buildRolePrompt omits any extraGuidance block when not provided', () => {
+    const p = buildRolePrompt(
+      { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      { name: 'my-org', goal: 'ship v2' } as any,
+      ['boss', 'coder'],
+    );
+    // no stray blank paragraph from a falsy extraGuidance slot
+    expect(p).not.toMatch(/\n\n\n/);
+  });
+});
+
+describe('resolveRoleExtraGuidance', () => {
+  it('returns the built-in archetype skill when role.ui.icon matches a bundled file', async () => {
+    const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
+    // "coder" is one of the 111 bundled archetypes shipped in src/orgrt/role-skills/.
+    const text = resolveRoleExtraGuidance({ id: 'x', ui: { icon: 'coder' } } as any);
+    expect(text).toBeTruthy();
+    expect(text).toContain('Best Practices');
+  });
+
+  it('returns undefined for a role with no ui.icon and no instructions_file', async () => {
+    const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
+    expect(resolveRoleExtraGuidance({ id: 'x' } as any)).toBeUndefined();
+  });
+
+  it('returns undefined (not a throw) for an unknown ui.icon', async () => {
+    const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
+    expect(resolveRoleExtraGuidance({ id: 'x', ui: { icon: 'totally-not-a-real-archetype' } } as any)).toBeUndefined();
+  });
+
+  it('includes instructions_file content, and combines it with the built-in skill when both are present', async () => {
+    const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
+    const { writeFileSync, mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const path = join(mkdtempSync(join(tmpdir(), 'instr-')), 'notes.md');
+    writeFileSync(path, 'Follow the client\'s custom style guide.');
+
+    const both = resolveRoleExtraGuidance({ id: 'x', ui: { icon: 'coder' }, instructions_file: path } as any);
+    expect(both).toContain('Best Practices');
+    expect(both).toContain('Follow the client');
+
+    const customOnly = resolveRoleExtraGuidance({ id: 'x', instructions_file: path } as any);
+    expect(customOnly).toContain('Follow the client');
+    expect(customOnly).not.toContain('Best Practices');
+  });
+
+  it('does not throw when instructions_file points at a nonexistent path — just skips it', async () => {
+    const { resolveRoleExtraGuidance } = await import('../../src/orgrt/session.js');
+    expect(() =>
+      resolveRoleExtraGuidance({ id: 'x', instructions_file: '/nonexistent/path/notes.md' } as any),
+    ).not.toThrow();
+    expect(resolveRoleExtraGuidance({ id: 'x', instructions_file: '/nonexistent/path/notes.md' } as any)).toBeUndefined();
+  });
 });

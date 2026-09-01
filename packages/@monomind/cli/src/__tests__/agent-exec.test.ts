@@ -224,6 +224,74 @@ function toolCallingRunner(
   };
 }
 
+describe('agent exec: canUseTool gate', () => {
+  // Regression for the bug where every mcp__org__* tool call was silently
+  // denied: ClaudeAgentRunner.run always sets permissionMode: 'default' on
+  // the SDK, which requires a canUseTool callback to approve anything —
+  // runAgentExec previously never supplied one, so runtime: 'claude' calls
+  // (the path `monoagentcli chat --tools monoagent` drives) denied every
+  // tool before it ran, no matter what --tools-file/--tool-names passed in.
+  it('supplies a canUseTool that allows exactly the requested tools, by their mcp__org__ prefixed name', async () => {
+    const h = makeHarness({ toolSpecs: [echoTool] });
+    let captured: ((toolName: string, input: Record<string, unknown>) => Promise<unknown>) | undefined;
+    const runner: AgentRunner = {
+      async *run(a) {
+        captured = a.canUseTool;
+        yield { type: 'result', session_id: 's1', subtype: 'success' };
+      },
+    };
+    await run(h, runner);
+
+    expect(captured).toBeTypeOf('function');
+    await expect(captured!('mcp__org__create_nodes', {})).resolves.toMatchObject({ behavior: 'allow' });
+    await expect(captured!('mcp__org__delete_everything', {})).resolves.toMatchObject({ behavior: 'deny' });
+  });
+});
+
+describe('agent exec: createorg skill injection', () => {
+  // The chat-created-org path has no Claude-Code-native way to load
+  // .claude/skills/mastermind-createorg/SKILL.md (settingSources: [],
+  // no `skills` SDK option, canUseTool would deny a Skill tool call
+  // anyway) — runAgentExec instead folds the skill's real content onto
+  // systemPrompt whenever create_org is among the requested tools.
+  const createOrgTool: ToolSpec = {
+    name: 'create_org',
+    description: 'Create a new agent organization',
+    schema: { type: 'object', properties: {}, required: [] },
+  };
+
+  it('appends the createorg skill content to systemPrompt when create_org is requested', async () => {
+    const h = makeHarness({ toolSpecs: [createOrgTool], systemPrompt: 'base prompt' });
+    let captured: string | undefined;
+    const runner: AgentRunner = {
+      async *run(a) {
+        captured = a.systemPrompt;
+        yield { type: 'result', session_id: 's1', subtype: 'success' };
+      },
+    };
+    await run(h, runner);
+
+    expect(captured).toContain('base prompt');
+    // The skill file is real content (not mocked) — just assert it's present
+    // and substantially longer than the base prompt, without pinning exact wording.
+    expect(captured!.length).toBeGreaterThan('base prompt'.length + 500);
+  });
+
+  it('leaves systemPrompt untouched when create_org is not among the requested tools', async () => {
+    const h = makeHarness({ toolSpecs: [echoTool], systemPrompt: 'base prompt' });
+    let captured: string | undefined;
+    const runner: AgentRunner = {
+      async *run(a) {
+        captured = a.systemPrompt;
+        yield { type: 'result', session_id: 's1', subtype: 'success' };
+      },
+    };
+    await run(h, runner);
+
+    expect(captured).toBe('base prompt');
+  });
+});
+
 describe('agent exec: stdio tool bridge', () => {
   it('round-trips a tool_call frame to the caller and back', async () => {
     const h = makeHarness({ toolSpecs: [echoTool] });

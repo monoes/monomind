@@ -10,6 +10,14 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     },
+    "./export": {
+      "types": "./dist/src/export/index.d.ts",
+      "import": "./dist/src/export/index.js"
+    },
+    "./export/*": {
+      "types": "./dist/src/export/*.d.ts",
+      "import": "./dist/src/export/*.js"
+    },
     "./lsp": {
       "types": "./dist/src/lsp/server.d.ts",
       "import": "./dist/src/lsp/server.js"

@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "monomind": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "monomind@latest",
+        "mcp",
+        "start"
+      ],
+      "env": {
+        "npm_config_update_notifier": "false",
+        "MONOMIND_MODE": "v1",
+        "MONOMIND_HOOKS_ENABLED": "true",
+        "MONOMIND_TOPOLOGY": "hierarchical-mesh",
+        "MONOMIND_MAX_AGENTS": "15",
+        "MONOMIND_MEMORY_BACKEND": "hybrid"
+      }
+    }
+  }
+}

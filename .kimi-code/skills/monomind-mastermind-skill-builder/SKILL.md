@@ -1,0 +1,23 @@
+---
+description: mastermind skill-builder command (monomind)
+type: flow
+name: monomind-mastermind-skill-builder
+---
+
+<!-- Use when creating, editing, or verifying mastermind skills — guides the full TDD-for-docs cycle from baseline test through deployment -->
+
+**First — extract repeat flags:** Follow REPEAT PREAMBLE from `mastermind-repeat/SKILL.md`.
+
+Parse `$ARGUMENTS` for `--auto`, `--confirm`, `--project <name>`, and remaining text.
+
+Load brain context (follow `mastermind-protocol/SKILL.md` Brain Load Procedure).
+
+Default mode: **auto**.
+
+---
+
+Invoke `Skill("mastermind-skill-builder")` passing: brain_context, params, mode.
+
+After skill returns: follow `mastermind-protocol/SKILL.md` Brain Write Procedure.
+
+Invoke `Skill("mastermind-repeat")` now. Required — do not skip.

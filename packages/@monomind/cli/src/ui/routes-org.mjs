@@ -663,74 +663,8 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
     return true;
   }
 
-  // GET /api/org/:name/skills — list skills from .claude/skills/ mapped to org roles
-  if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/skills$/i.test(url)) {
-    try {
-      const parts = url.split('/');
-      const orgName = decodeURIComponent(parts[3]);
-      if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) {
-        res.writeHead(400);
-        res.end('{}');
-        return true;
-      }
-      const _skillsQs = new URL(req.url, 'http://localhost').searchParams;
-      const d = path.resolve(_skillsQs.get('dir') || ctx.projectDir || process.cwd());
-      const skillsDir = path.join(d, '.claude', 'skills');
-      const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
-
-      // Scan skills directory
-      const skills = [];
-      if (fs.existsSync(skillsDir)) {
-        const scanDir = (dir, prefix) => {
-          try {
-            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-              if (entry.isDirectory()) {
-                scanDir(path.join(dir, entry.name), `${entry.name}:`);
-              } else if (entry.name.endsWith('.md') && !entry.name.startsWith('_')) {
-                const slug = entry.name.replace(/\.md$/, '');
-                const content = fs.readFileSync(path.join(dir, entry.name), 'utf8').slice(0, 500);
-                const typeMatch = content.match(/^type:\s*(.+)$/m);
-                const modeMatch = content.match(/^default_mode:\s*(.+)$/m);
-                const descMatch = content.match(/^description:\s*(.+)$/m);
-                skills.push({
-                  name: `${prefix}${slug}`,
-                  slug,
-                  type: typeMatch ? typeMatch[1].trim() : 'skill',
-                  default_mode: modeMatch ? modeMatch[1].trim() : 'auto',
-                  description: descMatch ? descMatch[1].trim() : '',
-                });
-              }
-            }
-          } catch (_) {}
-        };
-        scanDir(skillsDir, '');
-      }
-
-      // Map skills enabled per role from org config
-      const roleSkillMap = {};
-      if (fs.existsSync(orgFile)) {
-        try {
-          const config = JSON.parse(fs.readFileSync(orgFile, 'utf8'));
-          for (const role of config.roles || []) {
-            roleSkillMap[role.id] = role.skills || [];
-          }
-        } catch (_) {}
-      }
-
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
-      });
-      res.end(JSON.stringify({ skills, role_skill_map: roleSkillMap }));
-    } catch (_) {
-      res.writeHead(500);
-      res.end('{}');
-    }
-    return true;
-  }
-
   // GET /api/org/:name/agent/:roleId — full agent detail: org role + .claude/agents definition
-  //   (characteristics, skills/expertise, responsibilities, instructions document)
+  //   (characteristics, responsibilities, instructions document)
   if (
     req.method === 'GET' &&
     /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/agent\/[a-z0-9][a-z0-9_-]{0,63}$/i.test(url)
@@ -1457,7 +1391,6 @@ export async function handleOrgRoutes(req, res, url, corsOrigin, ctx) {
           lastHeartbeat: s.last_heartbeat || s.lastHeartbeat || null,
           tokensIn: s.tokens_in || 0,
           tokensOut: s.tokens_out || 0,
-          skills: r.skills || [],
         };
       });
       res.writeHead(200, {

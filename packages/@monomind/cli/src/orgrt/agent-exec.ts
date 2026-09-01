@@ -28,6 +28,7 @@
 import type { Readable } from 'node:stream';
 import type { AgentMessage, AgentRunner, OrgToolDef } from './agent-runner.js';
 import { classifyStderr } from './kimicode-runner.js';
+import { loadCreateOrgSkillGuidance } from './org-design-skill.js';
 import { resolveExecRunner, runnerSpec } from './runner-registry.js';
 import { z } from 'zod';
 
@@ -393,17 +394,50 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
   process.once('SIGINT', onSignal);
   process.once('SIGTERM', onSignal);
 
+  // The SDK's own permission gate (permissionMode: 'default', set
+  // unconditionally in ClaudeAgentRunner.run) requires either an
+  // allow-listed tool name or a canUseTool callback to approve any call —
+  // without one, every tool this exec call was explicitly given is denied
+  // before it ever runs, and since this is a headless one-shot turn (no
+  // TTY, no UI that could answer an interactive approval prompt), that
+  // denial is permanent for the whole session, not just delayed. There's
+  // no PolicyEngine/fence/human-approval infra here (that's the org-runtime
+  // path's concern, see session.ts's gatedCanUseTool) — the caller already
+  // decided the exact tool surface via --tools-file/--tool-names, so
+  // approving every tool in that already-scoped list is the correct
+  // default, not a laxer one: this narrows the SDK's own default-deny-all
+  // down to exactly what was asked for, nothing broader.
+  const allowedToolNames = new Set(tools.map((t) => `mcp__org__${t.name}`));
+  const canUseTool = async (toolName: string, input: Record<string, unknown>) =>
+    allowedToolNames.has(toolName)
+      ? { behavior: 'allow' as const, updatedInput: input }
+      : { behavior: 'deny' as const, message: `Tool "${toolName}" was not in the tool list this exec call was given.` };
+
+  // This session's own tool list has no way to reach the real
+  // mastermind:createorg skill (no settingSources, no `skills` SDK option,
+  // canUseTool above would deny a Skill tool call anyway) — if create_org
+  // is among the tools this exec call was given, fold the skill's actual
+  // content onto the system prompt instead of leaving the model to
+  // free-style org design (single-root structure, archetype icon ids,
+  // policy/provider conventions) from scratch every time.
+  const hasOrgDesignTools = tools.some((t) => t.name === 'create_org');
+  const skillGuidance = hasOrgDesignTools ? loadCreateOrgSkillGuidance() : null;
+  const systemPrompt = skillGuidance
+    ? `${opts.systemPrompt ?? ''}\n\n${skillGuidance}`
+    : (opts.systemPrompt ?? '');
+
   const consumer = (async () => {
     try {
       stream = runner.run({
         tools,
         prompt: promptStream,
-        systemPrompt: opts.systemPrompt ?? '',
+        systemPrompt,
         model: opts.model,
         cwd: opts.cwd ?? process.cwd(),
         env: opts.env ?? {},
         maxTurns: opts.maxTurns,
         resume: opts.resume,
+        canUseTool,
       }) as AsyncGenerator<AgentMessage>;
 
       for await (const m of stream) {

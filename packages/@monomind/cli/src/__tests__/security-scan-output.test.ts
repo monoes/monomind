@@ -5,9 +5,13 @@
  * output shape.
  */
 
-import { exportHealthSarif } from '@monoes/monograph';
+import { exportHealthSarif as monographExportHealthSarif } from '@monoes/monograph';
 import { describe, expect, it } from 'vitest';
-import { findingsToSarif } from '../commands/security-scan.js';
+import {
+  exportHealthSarif,
+  exportHealthSarifFallback,
+  findingsToSarif,
+} from '../commands/security-scan.js';
 
 describe('findingsToSarif', () => {
   it('parses a "path:line" location into filePath + startLine/endLine', () => {
@@ -73,7 +77,26 @@ describe('findingsToSarif', () => {
 });
 
 describe('exportHealthSarif reuse (real monograph exporter, not reimplemented)', () => {
-  it('produces a valid SARIF 2.1.0 document from adapted security-scan findings', () => {
+  it('produces a valid SARIF 2.1.0 document from adapted security-scan findings via monograph', () => {
+    const findings = findingsToSarif([
+      {
+        type: 'Hardcoded Secret',
+        location: 'src/config.ts:10',
+        description: 'Hardcoded Password',
+        rawSeverity: 'high',
+      },
+    ]);
+    const doc = monographExportHealthSarif(findings, process.cwd());
+
+    expect(doc.version).toBe('2.1.0');
+    expect(doc.runs).toHaveLength(1);
+    expect(doc.runs[0].results).toHaveLength(1);
+    expect(doc.runs[0].results[0].ruleId).toBe('security-scan/hardcoded-secret');
+    expect(doc.runs[0].results[0].message.text).toBe('Hardcoded Password');
+    expect(doc.runs[0].results[0].locations[0].physicalLocation.region?.startLine).toBe(10);
+  });
+
+  it('produces a valid SARIF 2.1.0 document via CLI exportHealthSarif wrapper', () => {
     const findings = findingsToSarif([
       {
         type: 'Hardcoded Secret',
@@ -83,6 +106,23 @@ describe('exportHealthSarif reuse (real monograph exporter, not reimplemented)',
       },
     ]);
     const doc = exportHealthSarif(findings, process.cwd());
+
+    expect(doc.version).toBe('2.1.0');
+    expect(doc.runs).toHaveLength(1);
+    expect(doc.runs[0].results).toHaveLength(1);
+    expect(doc.runs[0].results[0].ruleId).toBe('security-scan/hardcoded-secret');
+  });
+
+  it('produces a valid SARIF 2.1.0 document via exportHealthSarifFallback when upstream export is missing', () => {
+    const findings = findingsToSarif([
+      {
+        type: 'Hardcoded Secret',
+        location: 'src/config.ts:10',
+        description: 'Hardcoded Password',
+        rawSeverity: 'high',
+      },
+    ]);
+    const doc = exportHealthSarifFallback(findings, process.cwd());
 
     expect(doc.version).toBe('2.1.0');
     expect(doc.runs).toHaveLength(1);

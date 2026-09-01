@@ -2094,29 +2094,18 @@ select.pb-cfg-inp { padding: 4px 7px; cursor: pointer; }
           <div id="org-detail-tabs">
             <button class="odt-btn active" data-tab="chart" onclick="v2SwitchOrgTab('chart')">Chart</button>
             <button class="odt-btn" data-tab="chat"         onclick="v2SwitchOrgTab('chat')">Chat</button>
-            <button class="odt-btn" data-tab="agents-full"  onclick="v2SwitchOrgTab('agents-full')">Agents</button>
-            <button class="odt-btn" data-tab="activity"     onclick="v2SwitchOrgTab('activity')">Activity</button>
             <div class="odt-tab-sep" title="Secondary tabs"></div>
-            <button class="odt-btn secondary" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
-
-            <button class="odt-btn secondary" data-tab="costs"        onclick="v2SwitchOrgTab('costs')">Costs</button>
             <button class="odt-btn secondary" data-tab="config"        onclick="v2SwitchOrgTab('config')">Config</button>
             <button class="odt-btn secondary" data-tab="files"        onclick="v2SwitchOrgTab('files')">Files</button>
             <button class="odt-btn secondary" data-tab="approvals"    onclick="v2SwitchOrgTab('approvals')">Approvals</button>
-            <button class="odt-btn secondary" data-tab="budgets"      onclick="v2SwitchOrgTab('budgets')">Budgets</button>
             <button class="odt-btn secondary" data-tab="decisions"    onclick="v2SwitchOrgTab('decisions')">Decisions</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
-            <div class="odt-pane" id="odt-agents-full"></div>
-            <div class="odt-pane" id="odt-activity"></div>
             <div class="odt-pane" id="odt-chat" style="flex-direction:column;height:100%;overflow:hidden;"></div>
-            <div class="odt-pane" id="odt-skills"></div>
-            <div class="odt-pane" id="odt-costs"></div>
             <div class="odt-pane" id="odt-config" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-files" style="overflow-y:auto"></div>
             <div class="odt-pane" id="odt-approvals"></div>
-            <div class="odt-pane" id="odt-budgets"></div>
             <div class="odt-pane" id="odt-decisions"></div>
           </div>
         </div>
@@ -5841,21 +5830,19 @@ async function v2SelectOrg(name) {
     _v2OrgData._activity = Array.isArray(actR) ? actR : [];
     _v2OrgData._health   = healthR;
     // Fetch supplemental data for new tabs in parallel
-    const [agentsR, budgetsR, membersR, issuesR] = await Promise.all([
+    const [agentsR, membersR, issuesR] = await Promise.all([
       fetch(`/api/org/${_enc}/agents${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch(`/api/org/${_enc}/budgets${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():null).catch(()=>null),
       fetch(`/api/org/${_enc}/members${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch(`/api/org/${_enc}/issues${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
     ]);
     if (_v2SelOrg !== requested || DIR !== requestedDir) return;
     _v2OrgData._agents  = Array.isArray(agentsR)  ? agentsR  : (agentsR?.agents  || []);
-    _v2OrgData._budgets = budgetsR;
     _v2OrgData._members = Array.isArray(membersR) ? membersR : (membersR?.members || []);
     _v2OrgData._joinRequests = (membersR?.join_requests) || [];
     _v2OrgData._issues  = Array.isArray(issuesR)  ? issuesR  : (issuesR?.issues   || []);
   } catch (_) {
     if (_v2SelOrg !== requested || DIR !== requestedDir) return;
-    _v2OrgData = { ...listOrg, communication: [], _activity: [], _health: null, _agents: [], _budgets: null, _members: [], _issues: [] };
+    _v2OrgData = { ...listOrg, communication: [], _activity: [], _health: null, _agents: [], _members: [], _issues: [] };
   }
 
   v2UpdateOrgHeader(listOrg, _v2OrgData);
@@ -5913,11 +5900,9 @@ function v2RenderOrgTab(tab) {
   }
   if (tab === 'chart')          v2RenderOrgChart();
   else if (tab === 'roles')      v2RenderOrgRoles();
-  else if (tab === 'activity')   v2RenderOrgActivity();
   else if (tab === 'health')     v2RenderOrgHealth();
   else if (tab === 'heartbeats') v2RenderOrgHeartbeats();
   else if (tab === 'tasks')      v2RenderOrgTasks();
-  else if (tab === 'costs')      v2RenderOrgCosts();
   else if (tab === 'members')    v2RenderOrgMembers();
   else if (tab === 'goals')     v2RenderOrgGoals();
   else if (tab === 'board')     v2RenderOrgBoard();
@@ -5927,15 +5912,12 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'settings')  v2RenderOrgSettings();
   else if (tab === 'routines')  v2RenderOrgRoutines();
   else if (tab === 'myissues')  v2RenderOrgMyIssues();
-  else if (tab === 'budgets')   v2RenderOrgBudgets();
   else if (tab === 'decisions') v2RenderOrgDecisions();
   else if (tab === 'plugins')   v2RenderOrgPlugins();
   else if (tab === 'charts')       v2RenderOrgCharts();
   else if (tab === 'projects')     v2RenderOrgProjects();
-  else if (tab === 'skills')       v2RenderOrgSkills();
   else if (tab === 'workspaces')   v2RenderOrgWorkspaces();
   else if (tab === 'invites')      v2RenderOrgInvites();
-  else if (tab === 'agents-full')  v2RenderOrgAgentsFull();
   else if (tab === 'environments') v2RenderOrgEnvironments();
   else if (tab === 'access')       v2RenderOrgAccess();
   else if (tab === 'issues-full')  v2RenderOrgIssuesFull();
@@ -6801,16 +6783,12 @@ function v2RenderAgentDrawer(data) {
   if (cap.termination) chars.push(['Done when', cap.termination]);
   if (cap.version) chars.push(['Version', cap.version]);
 
-  const skills = [];
-  (Array.isArray(role.skills) ? role.skills : []).forEach(s => { if (s && !skills.includes(s)) skills.push(s); });
-  (Array.isArray(cap.expertise) ? cap.expertise : []).forEach(s => { if (s && !skills.includes(s)) skills.push(s); });
   const taskTypes = Array.isArray(cap.task_types) ? cap.task_types : [];
   const resps = Array.isArray(role.responsibilities) ? role.responsibilities : [];
 
   let html = '';
   if (def.description) html += `<div class="oad-desc">${esc(def.description)}</div>`;
   if (chars.length) html += `<div class="oad-sec"><div class="oad-sec-h">Characteristics</div><div class="oad-chars">${chars.map(([k, v]) => `<div class="oad-char"><span class="oad-char-k">${esc(k)}</span><span class="oad-char-v">${esc(v)}</span></div>`).join('')}</div></div>`;
-  if (skills.length) html += `<div class="oad-sec"><div class="oad-sec-h">Skills &amp; expertise</div><div class="oad-chips">${skills.map(s => `<span class="oad-chip">${esc(s)}</span>`).join('')}</div></div>`;
   if (resps.length) html += `<div class="oad-sec"><div class="oad-sec-h">Responsibilities</div><ul class="oad-list">${resps.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
   if (taskTypes.length) html += `<div class="oad-sec"><div class="oad-sec-h">Task types</div><div class="oad-chips">${taskTypes.map(s => `<span class="oad-chip alt">${esc(s)}</span>`).join('')}</div></div>`;
   if (def.found && def.document) {
@@ -6927,36 +6905,6 @@ function fmtOrgEvDetail(ev) {
   return ev.role||ev.result||ev.msg||ev.message||ev.progress||ev.agent||ev.status||'';
 }
 
-function v2RenderOrgActivity() {
-  if (!_v2SelOrg) return;
-  const activity = _v2OrgData?._activity || [];
-  const orgEvents = _v2OrgEventLog[_v2SelOrg] || [];
-  const _actSeen = new Set();
-  const events = [...activity, ...orgEvents]
-    .filter(e => { const k=`${e.ts||''}|${e.type||''}|${e.runId||e.session||''}|${e.from||e.role||e.agent||''}|${(e.result||e.msg||e.message||e.summary||'').slice(0,20)}`; return _actSeen.has(k)?false:(_actSeen.add(k),true); })
-    .sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
-  const pane = document.getElementById('odt-activity');
-  if (!pane) return;
-  const fmtOrgEvType = t => {
-    const m={
-      'org:start':'start','org:stop':'stop','org:complete':'done','org:create':'create',
-      'org:heartbeat':'hb','org:agent:online':'agent-on','org:comms':'comms',
-      'org:checkpoint':'checkpoint','run:cycle:complete':'cycle','run:complete':'run-done',
-      'org:error':'error','org:agent:offline':'agent-off',
-    };
-    return m[t]||(t||'').replace(/^(?:org|run):/,'');
-  };
-  if (!events.length) {
-    pane.innerHTML = '<div class="empty">No activity recorded</div>';
-    return;
-  }
-  pane.innerHTML = `<div class="act-v2-list">${events.map(ev => {
-    const t = ev.ts ? new Date(ev.ts).toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-    const detail = fmtOrgEvDetail(ev) || ev.role || ev.agent || '';
-    return `<div class="av2-row"><span class="av2-time">${esc(t)}</span><span class="av2-type">${esc(fmtOrgEvType(ev.type))}</span><span class="av2-msg">${esc(detail)}</span></div>`;
-  }).join('')}</div>`;
-}
-
 // ── org health ──────────────────────────────
 function v2RenderOrgHealth() {
   if (!_v2SelOrg) return;
@@ -7035,45 +6983,6 @@ function v2RenderOrgTasks() {
       <span style="flex:1;color:var(--text-hi);font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.description || t.title || t.id || '—')}</span>
       <span style="color:var(--text-lo);white-space:nowrap">${relTime(t.ts || t.created_at || t.updated_at)}</span>
     </div>`).join('');
-}
-
-// ── org costs tab ──────────────────────────────────────────
-function v2RenderOrgCosts() {
-  if (!_v2SelOrg) return;
-  const pane = document.getElementById('odt-costs');
-  if (!pane) return;
-  // Primary source: per-agent cost rollup from the org budgets endpoint (already loaded)
-  const b = _v2OrgData?._budgets;
-  let rows = (b && Array.isArray(b.agents)) ? b.agents.map(a => ({
-    label: a.title || a.id || '—',
-    cost: Number(a.total_cost_usd ?? a.cost ?? 0),
-    tin: Number(a.tokens_in ?? a.tokensIn ?? 0),
-    tout: Number(a.tokens_out ?? a.tokensOut ?? 0),
-  })) : [];
-  // Fallback to legacy _v2OrgData.costs if ever present
-  if (!rows.length && _v2OrgData?.costs) {
-    const c = _v2OrgData.costs;
-    rows = Array.isArray(c)
-      ? c.map(r => ({ label: r.label ?? r.name ?? '—', cost: Number(r.value ?? r.cost ?? 0), tin: 0, tout: 0 }))
-      : Object.entries(c).map(([k, v]) => ({ label: k, cost: Number(v) || 0, tin: 0, tout: 0 }));
-  }
-  if (!rows.length) { pane.innerHTML = '<div class="empty" style="text-align:center;padding:24px 16px"><div style="font-size:13px;color:var(--text-lo);margin-bottom:6px">No cost data tracked yet</div><div style="font-size:11px;color:var(--text-lo);opacity:0.7">Agents must emit <code>agent:usage</code> events to populate this tab</div></div>'; return; }
-  const cur = (b?.currency) || 'USD';
-  const period = (b?.period) || '';
-  const total = rows.reduce((s, r) => s + r.cost, 0);
-  const totIn = rows.reduce((s, r) => s + r.tin, 0), totOut = rows.reduce((s, r) => s + r.tout, 0);
-  rows.sort((a, c) => c.cost - a.cost);
-  pane.innerHTML = `<div class="m-group-title">Cost Breakdown${period ? ` · ${esc(period)}` : ''}</div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0 10px;border-bottom:1px solid var(--border);margin-bottom:6px">
-      <span style="color:var(--text-lo);font-size:11px">Total (${esc(cur)})</span>
-      <span style="color:var(--accent);font-family:var(--mono);font-size:15px;font-weight:600">$${total.toFixed(4)}</span>
-    </div>` +
-    rows.map(r => `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
-      <span style="color:var(--text-hi);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(r.label))}</span>
-      <span style="color:var(--text-lo);font-family:var(--mono);font-size:10px;white-space:nowrap">${(r.tin + r.tout).toLocaleString()} tok</span>
-      <span style="color:var(--accent);font-family:var(--mono);white-space:nowrap">$${r.cost.toFixed(4)}</span>
-    </div>`).join('') +
-    `<div style="color:var(--text-lo);font-size:10px;margin-top:10px">${totIn.toLocaleString()} in · ${totOut.toLocaleString()} out · sourced from org budgets</div>`;
 }
 
 // ── org members tab ────────────────────────────────────────
@@ -7427,54 +7336,6 @@ async function v2RenderOrgMyIssues() {
   } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
 }
 
-// ── BUDGETS ────────────────────────────────────────────────
-function v2RenderOrgBudgets() {
-  const el = document.getElementById('odt-budgets');
-  if (!el || !_v2OrgData) return;
-  const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
-  // Server returns { org_budget: {limit_tokens, limit_usd}, agents: [{id, title, tokens_in, tokens_out, total_cost_usd}] }
-  const orgBudget = b.org_budget || {};
-  const tokenLimit = orgBudget.limit_tokens || b.tokenLimit || null;
-  const usdLimit   = orgBudget.limit_usd   || b.usdLimit   || null;
-  // Per-agent data comes from the budgets endpoint (has cost); fall back to agents roster
-  const budgetAgents = Array.isArray(b.agents) && b.agents.length ? b.agents : [];
-  const usedTokens = budgetAgents.reduce((s, a) => s + (a.tokens_in || 0) + (a.tokens_out || 0), 0);
-  const usedUsd    = budgetAgents.reduce((s, a) => s + (a.total_cost_usd || 0), 0);
-
-  function fillBar(used, limit) {
-    if (!limit) return '';
-    const pct = Math.min(100, Math.round((used / limit) * 100));
-    const col = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'oklch(70% 0.18 60)' : 'var(--accent)';
-    const filled = Math.round(pct / 5);
-    return `<div style="font-family:var(--mono);font-size:11px;color:${col}">${'█'.repeat(filled)}${'░'.repeat(20 - filled)} ${pct}%</div>`;
-  }
-
-  let html = '';
-  if (tokenLimit != null || usedTokens > 0) {
-    html += `<div class="m-group-title">Tokens</div>${fillBar(usedTokens, tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${usedTokens.toLocaleString()} / ${tokenLimit ? tokenLimit.toLocaleString() : '∞'}</div>`;
-  }
-  if (usdLimit != null || usedUsd > 0) {
-    html += `<div class="m-group-title">USD Budget</div>${fillBar(usedUsd, usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${usedUsd.toFixed(4)} / ${usdLimit ? `$${Number(usdLimit).toFixed(2)}` : '∞'}</div>`;
-  }
-  if (budgetAgents.length) {
-    html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
-      `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
-      budgetAgents.slice(0, 20).map(a => {
-        const tIn = a.tokens_in || 0, tOut = a.tokens_out || 0;
-        const cost = a.total_cost_usd || 0;
-        const limit = a.limit_usd || orgBudget.limit_usd || 0;
-        const over = limit && cost > limit;
-        return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
-          <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.title || a.id || '—').toString().slice(0, 14))}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${tIn.toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--text-lo)">${tOut.toLocaleString()}</td>
-          <td style="padding:4px 8px;color:var(--accent)">$${cost.toFixed(4)}${over ? ' ⚠' : ''}</td>
-        </tr>`;
-      }).join('') + '</tbody></table>';
-  }
-  el.innerHTML = html || '<div class="empty">No budget data</div>';
-}
-
 // ── PLUGINS ────────────────────────────────────────────────
 async function v2RenderOrgPlugins() {
   const el = document.getElementById('odt-plugins');
@@ -7588,41 +7449,6 @@ async function v2RenderOrgProjects() {
       </div>
     </div>`).join('')}</div>`;
   } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
-}
-
-// ── SKILLS ─────────────────────────────────────────────────
-async function v2RenderOrgSkills() {
-  const el = document.getElementById('odt-skills');
-  if (!el || !_v2OrgData) return;
-  const roles = Array.isArray(_v2OrgData.roles) ? _v2OrgData.roles : [];
-  if (!roles.length) { el.innerHTML = '<div class="empty">No roles defined</div>'; return; }
-  el.innerHTML = '<div class="empty">Loading skills…</div>';
-  const org = _v2SelOrg, dirq = DIR ? `?dir=${encodeURIComponent(DIR)}` : '';
-  // Enrich each role with expertise + task types from its agent definition (same source as the detail drawer)
-  const enriched = await Promise.all(roles.map(async r => {
-    const expertise = Array.isArray(r.skills) ? r.skills.slice() : [];
-    let taskTypes = [];
-    try {
-      const j = await fetch(`/api/org/${encodeURIComponent(org)}/agent/${encodeURIComponent(r.id)}${dirq}`).then(x => x.ok ? x.json() : null);
-      const cap = j?.definition?.capability;
-      if (cap) {
-        (cap.expertise || []).forEach(s => { if (s && !expertise.includes(s)) expertise.push(s); });
-        taskTypes = cap.task_types || [];
-      }
-    } catch (_) {}
-    return { name: r.name || r.title || r.id, type: r.type || r.agent_type || '', expertise, taskTypes };
-  }));
-  if (_v2SelOrg !== org) return; // org switched while fetching
-  el.innerHTML = enriched.map(e => `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
-      <span style="font-size:13px;font-weight:600;color:var(--text-hi)">${esc(e.name)}</span>
-      ${e.type ? `<span style="font-size:10px;color:var(--text-lo)">${esc(e.type)}</span>` : ''}
-    </div>
-    ${e.expertise.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:5px;${e.taskTypes.length ? 'margin-bottom:6px' : ''}">${e.expertise.map(s => `<span class="oad-chip">${esc(s)}</span>`).join('')}</div>`
-      : '<div style="font-size:11px;color:var(--text-lo)">No skills listed</div>'}
-    ${e.taskTypes.length ? `<div style="display:flex;flex-wrap:wrap;gap:5px">${e.taskTypes.map(s => `<span class="oad-chip alt">${esc(s)}</span>`).join('')}</div>` : ''}
-  </div>`).join('');
 }
 
 // ── ORG CHAT ───────────────────────────────────────────────
@@ -9105,28 +8931,6 @@ async function v2RenderOrgInvites() {
   } catch (e) { el.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
 }
 
-// ── AGENTS (FULL) ──────────────────────────────────────────
-function v2RenderOrgAgentsFull() {
-  const el = document.getElementById('odt-agents-full');
-  if (!el || !_v2OrgData) return;
-  const agents = _v2OrgData._agents || [];
-  if (!agents.length) { el.innerHTML = '<div class="empty">No agents found</div>'; return; }
-  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead><tr style="color:var(--text-xs);text-align:left">
-      <th style="padding:5px 8px">ID</th><th>Type</th><th>Adapter</th><th>Status</th><th>Heartbeat</th><th>Tokens In</th><th>Tokens Out</th>
-    </tr></thead>
-    <tbody>${agents.map(a => `<tr style="border-top:1px solid var(--border)">
-      <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((a.id||'—').toString().slice(0,12))}</td>
-      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.adapterType||a.type||a.title||'—')}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapterModel||a.adapter||'—')}</td>
-      <td style="padding:5px 8px"><span class="ss-pill ${(a.status==='running'||a.running)?'on':''}">${esc(a.status||'idle')}</span></td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${a.lastHeartbeat ? relTime(a.lastHeartbeat) : '—'}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${(a.tokensIn ?? a.tokens_in) != null ? Number(a.tokensIn ?? a.tokens_in).toLocaleString() : '—'}</td>
-      <td style="padding:5px 8px;color:var(--text-lo)">${(a.tokensOut ?? a.tokens_out) != null ? Number(a.tokensOut ?? a.tokens_out).toLocaleString() : '—'}</td>
-    </tr>`).join('')}</tbody>
-  </table>`;
-}
-
 // ── ENVIRONMENTS ───────────────────────────────────────────
 async function v2RenderOrgEnvironments() {
   const el = document.getElementById('odt-environments');
@@ -9417,7 +9221,6 @@ function _filterOrgList(q) {
         if (!_v2OrgEventLog[n]) _v2OrgEventLog[n] = [];
         _v2OrgEventLog[n].push(ev);
         if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
-        if (n === _v2SelOrg && _v2OrgTab === 'activity') v2RenderOrgActivity();
         // Update in-memory agent status so Live tab running-agents section reflects reality.
         // org:agent:online → mark that agent running; org:complete/run:complete → reset all to idle.
         if (n === _v2SelOrg && _v2OrgData && Array.isArray(_v2OrgData._agents)) {
@@ -9431,8 +9234,7 @@ function _filterOrgList(q) {
           } else if (ev.type === 'org:complete' || ev.type === 'run:complete') {
             _v2OrgData._agents.forEach(a => { a.status = 'idle'; });
           }
-          if (_v2OrgTab === 'agents-full' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgAgentsFull();
-          else if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
+          if (_v2OrgTab === 'live' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgLive();
           else if (_v2OrgTab === 'heartbeats' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgHeartbeats();
           else if (_v2OrgTab === 'members' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgMembers();
           else if (_v2OrgTab === 'roles' && (ev.type === 'org:agent:online' || ev.type === 'org:agent:offline' || ev.type === 'org:complete' || ev.type === 'run:complete')) v2RenderOrgRoles();
@@ -9505,14 +9307,6 @@ function _filterOrgList(q) {
                     .then(d => { if (d && _v2OrgData && _v2SelOrg === n && d.tasks !== undefined) { _v2OrgData.tasks = d.tasks; v2RenderOrgTasks(); } })
                     .catch(() => { v2RenderOrgTasks(); });
                 }
-                if (_v2OrgTab === 'budgets' || _v2OrgTab === 'costs') {
-                  // Re-fetch budgets after run events so token/cost counters stay current
-                  const _bEnc = encodeURIComponent(_v2SelOrg);
-                  fetch(`/api/org/${_bEnc}/budgets${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(b => { if (b && _v2OrgData && _v2SelOrg === n) { _v2OrgData._budgets = b; _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); } })
-                    .catch(() => { _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); });
-                }
                 if (_v2OrgTab === 'board' || _v2OrgTab === 'issues-full') {
                   // Re-fetch issues after run events so board/issues-full reflect current state
                   const _iEnc = encodeURIComponent(_v2SelOrg);
@@ -9533,14 +9327,14 @@ function _filterOrgList(q) {
                   // Re-load chat run list after run events so cycleCount/eventCount in dropdown reflect disk state
                   _odtLoadChatSessions().catch(() => {});
                 }
-                if (_v2OrgTab === 'agents-full' || _v2OrgTab === 'heartbeats') {
+                if (_v2OrgTab === 'heartbeats') {
                   // Re-fetch agents after run events to get fresh tokensIn/tokensOut/lastHeartbeat
-                  // Heartbeats tab derives from _v2OrgData._agents so shares this re-fetch.
+                  // Heartbeats tab derives from _v2OrgData._agents.
                   const _agEnc = encodeURIComponent(_v2SelOrg);
                   fetch(`/api/org/${_agEnc}/agents${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
                     .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._agents = Array.isArray(d) ? d : (d?.agents || []); _v2OrgTab === 'agents-full' ? v2RenderOrgAgentsFull() : v2RenderOrgHeartbeats(); } })
-                    .catch(() => { _v2OrgTab === 'agents-full' ? v2RenderOrgAgentsFull() : v2RenderOrgHeartbeats(); });
+                    .then(d => { if (d && _v2OrgData && _v2SelOrg === n) { _v2OrgData._agents = Array.isArray(d) ? d : (d?.agents || []); v2RenderOrgHeartbeats(); } })
+                    .catch(() => { v2RenderOrgHeartbeats(); });
                 }
                 if (_v2OrgTab === 'myissues') {
                   // Re-render myissues after run events — it fetches its own data on every render
@@ -9558,16 +9352,9 @@ function _filterOrgList(q) {
             }
           }, 400);
         }
-        // run:cycle:complete: lightweight re-fetch for budgets/costs/tasks without renderOrgs()
-        // — cycles fire frequently and only affect token counters and task state, not org-list status.
+        // run:cycle:complete: lightweight re-fetch for tasks without renderOrgs()
+        // — cycles fire frequently and only affect task state, not org-list status.
         if (ev.type === 'run:cycle:complete' && _v2SelOrg === n && _v2OrgData) {
-          if (_v2OrgTab === 'budgets' || _v2OrgTab === 'costs') {
-            const _bcEnc = encodeURIComponent(_v2SelOrg);
-            fetch(`/api/org/${_bcEnc}/budgets${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(b => { if (b && _v2OrgData && _v2SelOrg === n) { _v2OrgData._budgets = b; _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); } })
-              .catch(() => { _v2OrgTab === 'budgets' ? v2RenderOrgBudgets() : v2RenderOrgCosts(); });
-          }
           if (_v2OrgTab === 'tasks') {
             const _tcEnc = encodeURIComponent(_v2SelOrg);
             fetch(`/api/org/${_tcEnc}${DIR ? `?dir=${encodeURIComponent(DIR)}` : ''}`)
@@ -9827,8 +9614,8 @@ function cmdSearch(q) {
 
   // TABS group — only if org room is open
   const orgTabs = (_v2SelOrg && currentView === 'orgs') ? [
-    'chart','roles','activity','health','heartbeats','tasks','costs','members',
-    'goals','board','live','approvals','secrets','settings','routines','myissues','budgets','plugins'
+    'chart','roles','health','heartbeats','tasks','members',
+    'goals','board','live','approvals','secrets','settings','routines','myissues','plugins'
   ].filter(t => !lq || t.includes(lq))
     .map(t => ({ label: `Org Tab: ${t}`, tab: t })) : [];
 

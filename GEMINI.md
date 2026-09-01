@@ -1,12 +1,10 @@
-# Monomind for Antigravity (agy) — v2.9.3
+# Monomind for Antigravity (agy) — v2.8.0
 
 > Monomind extends agy with a codebase knowledge graph (Monograph), persistent
 > cross-session memory, semantic Second Brain document search, and autonomous
 > agent organisations. All data stays local — nothing leaves your machine.
 
-Behavioral rules live in `.gemini/rules/monomind.md` and `.gemini/rules/worktree-session.md` and are always enforced.
-- **Default Worktree Mode**: Always work in a dedicated git worktree (`.worktrees/<slug>`) unless explicitly requested to work directly on branch.
-- **End-of-Session**: Always ask the user to commit & merge, commit & keep branch, or discard before concluding.
+Behavioral rules live in `.gemini/rules/monomind.md` and are always enforced.
 
 ## Status Bar
 
@@ -26,7 +24,6 @@ node .gemini/helpers/statusline.cjs
 | **Knowledge Graph** | `monograph_suggest`, `monograph_query`, `monograph_impact`, `monograph_neighbors`, `monograph_context` |
 | **Memory** | `memory_kg_search`, `memory_pattern-store`, `memory_feedback`, `memory_kg_ingest`, `memory_kg_search` |
 | **Documents** | `knowledge_search`, `knowledge_ingest` |
-| **Guidance** | `guidance_capabilities`, `guidance_recommend`, `guidance_discover`, `guidance_workflow`, `guidance_quickref` |
 | **Orgs** | `task_create`, `task_status`, `system_status` |
 
 ## Org Runtime

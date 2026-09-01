@@ -71,11 +71,19 @@ Exactly one role must have `reports_to: null`. If the user's role list has none,
 
 A role is **persona-based** if its title is a named real person, a well-known fictional character, or a celebrity/historical figure referred to by name. An org is persona-based if ≥50% of its roles are character names, or the goal/prompt contains `panel`, `debate`, `simulation`, `roleplay`, `celebrity`, `character`, `virtual [name]`, `impersonate`, `as [name]`.
 
-Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (the only field `buildRolePrompt` — `orgrt/session.ts:27-39` — actually feeds into the agent's role briefing): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
+Persona roles work the same as any other role in v2 — there is no separate `agent_type`/subagent registry to resolve against. Put the character depth directly into `responsibilities` (fed into the agent's role briefing by `buildRolePrompt` in `orgrt/session.ts`, alongside `ui.icon`'s built-in archetype content and `instructions_file`, if either is set — see Step 2.3): write 3-6 specific, voice-defining responsibilities drawn from the character's known career, positions, and communication style, not generic duties. For a living public figure, base it on documented public behavior — do not invent positions they haven't taken.
 
 ---
 
-## Step 2.3 — Optional Per-Role Settings
+## Step 2.3 — Built-in Archetype Best-Practices (fully optional — skip freely)
+
+createorg does **not** need to use these bundled archetypes for anything — a role built entirely from `responsibilities` is complete and normal. This step is a shortcut to reach for only when a role you're scaffolding happens to match one of the ~111 bundled role archetypes (the same set the MonoAgent Org Designer's palette offers — coder, security-auditor, devops-automator, sales-engineer, and so on; see `src/orgrt/role-skills/` for the full list of ids). When it does, set that role's `ui.icon` to the matching archetype id: `"ui": { "icon": "security-auditor" }`. At session start, `buildRolePrompt` then injects that archetype's bundled best-practices document into the role's briefing — real, researched guidance (tool checklists, common pitfalls, domain-specific techniques) for free, with zero extra fields to author. This is purely additive to `responsibilities` (which still carries the role's specific duties for THIS org) — don't duplicate general best-practices guidance into `responsibilities` when a matching `ui.icon` would supply it automatically; do still use `responsibilities` for anything specific to this particular org/goal.
+
+Skip `ui.icon` whenever there isn't a clean match — an unmatched or omitted `icon` is normal and not an error, it just means the role gets no bundled content (still fine; `responsibilities` alone is enough for most roles). Never force-fit a role into a nearby-but-wrong archetype just to get the bundled content.
+
+---
+
+## Step 2.4 — Optional Per-Role Settings
 
 For any role that needs non-default behavior, set (all optional — omit to inherit defaults):
 
@@ -125,7 +133,7 @@ Produce an org config object matching `OrgDefSchema` exactly:
 
 `status` starts `"stopped"` regardless of whether `schedule` is set — the org does not run until `monomind org run <name>` (one-shot) or `monomind org serve` (picks up any org whose `schedule` is set) is invoked.
 
-Only include `adapter_config`, `provider`, or `policy` on a role when Step 2.3 populated them for it — leave them out entirely rather than writing empty objects.
+Only include `adapter_config`, `provider`, `policy`, or `ui` on a role when Step 2.3/2.4 populated them for it — leave them out entirely rather than writing empty objects.
 
 ---
 

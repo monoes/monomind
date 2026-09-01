@@ -10,9 +10,6 @@
 - Never continuously check status after spawning a swarm — wait for results
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
-- **Versioning policy (NEVER violate)**: When bumping the monomind version, **only the third (patch) digit may ever increase** (e.g. `2.8.4 → 2.8.5`, `2.9.0 → 2.9.1`). **Never** bump the first (major) or second (minor) digit unless the user explicitly says otherwise. This applies to `package.json`, `packages/@monomind/cli/package.json`, `CHANGELOG.md` headers, git tags, and GitHub release names. If unsure, ask — do not guess.
-- **Default Worktree Isolation**: By default, every session/task involving modifications MUST operate on an isolated git worktree (`.worktrees/<slug>`) rather than writing directly to the active branch.
-- **End-of-Session Confirmation**: At the end of the session, always present the changes and ask the user to commit & merge, commit & keep branch, or discard, unless the user explicitly specified to work directly on the branch.
 - ALWAYS call `mcp__monomind__monograph_query` BEFORE running grep/rg/find via Bash for code exploration — only fall back to Bash grep if monograph returns 0 results or the DB does not exist
 - When starting any task that touches 3+ files: call `mcp__monomind__monograph_suggest` first to get relevant nodes ranked by task relevance
 
@@ -67,10 +64,9 @@
 ### Project Config
 
 - **Topology**: hierarchical-mesh
-- **Max Agents**: 15 (CLI default), capped at 50 (`Math.min(Math.max(x|8, 1), 50)` in `monoswarm-tools.ts`)
-- **Memory**: local-sqlite chain `better-sqlite3 → sql.js (WASM)` (via SQLiteBackend/SqlJsBackend). The config value `hybrid` is a backwards-compat alias for this chain.
-- **HNSW**: Real, size-gated ANN fast path inside `@monoes/memory`'s `SqlBackend.search()` — used automatically once active embedded entries cross `MONOMIND_HNSW_THRESHOLD` (default 5000; below it, brute-force cosine is cheaper and stays the path). Graph is persisted to disk next to the SQLite file, so a fresh CLI invocation loads it instead of rebuilding when the corpus hasn't changed. `memory search --build-hnsw` force-builds/caches it ahead of time.
-- **Neural**: Disabled at runtime (keyword routing only). `hooks intelligence status` MoE/LoRA/HNSW tables report `not-loaded` / zero defaults.
+- **Max Agents**: 15
+- **Memory**: hybrid
+- **Neural**: Disabled (keyword routing only)
 
 ## Build & Test
 
@@ -105,39 +101,13 @@ npm run lint
 - ALWAYS batch ALL file reads/writes/edits in ONE message
 - ALWAYS batch ALL Bash commands in ONE message
 
-## Monoswarm Orchestration
+## Monoswarm Rules
 
-Monoswarm coordinates multiple Claude Code Task-tool agents: coordination state
-(topology, roster, votes) lives in `.monomind/monoswarm/state.json`, and real
-concurrent work happens through Claude Code's Task tool. See
-`doc/concepts/monoswarm.md` for the full picture.
-
-- MUST initialize the monoswarm using CLI tools when starting complex tasks
-- MUST spawn concurrent agents using Claude Code's Task tool
-- Never use CLI tools alone for execution — Task tool agents do the actual work
-- MUST call CLI tools AND Task tool in ONE message for complex work
-
-## Monoswarm Configuration & Anti-Drift
-
-- ALWAYS use hierarchical topology for coding swarms
-- Keep maxAgents at 6-8 for tight coordination
-- Use specialized strategy for clear role boundaries
-- Use `majority` consensus by default (see `doc/concepts/monoswarm.md` for
-  `supermajority`, `unanimous`, and `threshold`)
-- Run frequent checkpoints via `post-task` hooks
-- Keep shared memory namespace for all agents
-
-```bash
-npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized
-```
-
-## Monoswarm Execution Rules
-
-- ALWAYS use `run_in_background: true` for all agent Task calls
-- ALWAYS put ALL agent Task calls in ONE message for parallel execution
-- After spawning, STOP — do NOT add more tool calls or check status
-- Never poll TaskOutput or check monoswarm status — trust agents to return
+- MUST initialize the monoswarm for complex tasks: `npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --strategy specialized`
+- ALWAYS spawn ALL agents in ONE message via the Task tool with `run_in_background: true` — CLI tools coordinate, Task agents do the work
+- After spawning, STOP — never poll TaskOutput or check monoswarm status; trust agents to return
 - When agent results arrive, review ALL results before proceeding
+- Keep shared memory namespace for all agents; run frequent checkpoints via `post-task` hooks
 
 ## CLI Commands
 
@@ -145,46 +115,17 @@ npx monomind@latest monoswarm init --topology hierarchical --max-agents 8 --stra
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
-| `init` | 5 | Project initialization with wizard, presets, skills, hooks |
-| `ui` | 0 | Start the Neural Control Room dashboard (`--no-open`, `--port`; alias `dashboard`) |
-| `agent` | 7 | Agent lifecycle (spawn, list, status, stop, metrics, pool, health) — runs in-process, no MCP server needed |
-| `monoswarm` | 6 | Multi-agent coordination and orchestration — runs in-process |
-| `memory` | 12 | Memory store (SQLite/JSON; optional vector search) |
-| `mcp` | 9 | MCP server management and tool execution |
-| `task` | 5 | Task creation, assignment, and lifecycle |
-| `session` | 6 | Session state management, persistence, and replay (`session replay`) |
-| `config` | 7 | Configuration management and provider setup |
-| `status` | 3 | System status monitoring with watch mode |
-| `hooks` | 28 | Self-learning hooks + <!-- doc-count:workers -->9<!-- /doc-count:workers --> background workers |
-| `org` | 33 | SDK org runtime v2 (run [--dry-run], stop, pause, resume, reload, status, serve, supervisor, test-loop, logs, watch, report, memory, costs, inbox, flow, questions, answer, approve, deny, gates, gate-approve, gate-reject, replay, resume-from, branch, decisions, create, validate, migrate, list, delete, mark-complete) |
+| `init` | 5 | Project initialization |
+| `agent` | 7 | Agent lifecycle management |
+| `monoswarm` | 6 | Multi-agent coordination |
+| `memory` | 12 | SQLite memory with ANN search |
+| `task` | 5 | Task creation and lifecycle |
+| `session` | 6 | Session state management |
+| `hooks` | 29 | Self-learning hooks + 8 background workers _(unavailable in this install)_ |
 
-### Advanced Commands
-
-`agent` and `monoswarm` above execute MCP tool handlers directly in-process via the local tool registry — they do **not** require a running `mcp start` server. Neural pattern learning was merged into `hooks intelligence`.
-
-| Command | Subcommands | Description |
-|---------|-------------|-------------|
-| `security` | 6 | Security scanning (scan, cve, audit, secrets, defend, redteam). `audit --action list/log/export/clear` reads/writes a real audit trail; `redteam --target` sends the attack-prompt library live and evaluates responses via monofence-ai |
-| `performance` | 4 | Performance profiling (benchmark, profile, metrics, bottleneck) — real measurements |
-| `providers` | 4 | AI providers (list, configure, remove, test) |
-| `guidance` | 1 | Governance gate setup (`guidance setup`) |
-| `monograph` | – | Knowledge graph CLI (delegates to @monoes/monograph) |
-| `browse` | – | Browser automation via CDP (@monoes/monobrowse) |
-| `doctor` | 0 | System diagnostics — flat command, flags only |
-| `completions` | 4 | Shell completions (bash, zsh, fish, powershell) |
-| `autopilot` | 8 | Autonomous task execution (status, enable, disable, config, reset, log, predict, check) |
-| `tokens` | 4 | Token usage tracking (dashboard, summary, today, lean-delta) |
-| `search` | 1 | Universal search (`search scan` refreshes fingerprint) |
-| `analyze` | 7 | Codebase analysis (diff, code, deps, ast, complexity, symbols, imports) |
-| `route` | 9 | Task-to-agent routing (task, semantic, list-agents, stats, feedback, reset, export, import, coverage) |
-| `update` | 5 | Self-update check (check, all, history, rollback, clear-cache) |
-| `cleanup` | 0 | Remove monomind project artifacts — flat command, flags only |
-| `platforms` | 3 | Install/uninstall Monograph context for AI platforms (install, uninstall, setup) |
-| `design` | 4 | Design tooling (detect, fix, ignores, palette) |
-| `doc` | 8 | Second Brain — document ingestion & retrieval (ingest, search, list, export, remove, reconcile, import, eval) |
-| `start` | 3 | Orchestration system (stop, restart, quick) |
-| `crash-reporting` | 3 | Configure crash reporting (enable, disable, status) |
-| `report-crash` | – | Internal: file a GitHub issue for a crash (hidden; shelled out to by monotask/mono-clip) |
+> Note: there is no `neural` CLI command. Neural pattern learning was merged
+> into `hooks intelligence`. See `doc/concepts/monoswarm.md` for monoswarm
+> coordination and vote strategies.
 
 ### Quick CLI Examples
 
@@ -198,40 +139,33 @@ npx monomind@latest doctor --fix
 
 ## Available Agents (Curated Subset)
 
-The full roster ships as `.claude/agents/**/*.md` (88 definitions) — the list
-below is a hand-picked subset worth routing to by name; it is not the complete set.
+The full roster ships as `.claude/agents/**/*.md` — this is a hand-picked
+subset worth routing to by name; it is not the complete set.
 
 ### Core Development
 `coder`, `reviewer`, `tester`, `planner`, `researcher`
 
 ### Specialized
-`security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
+`security-architect`
 
-### Swarm Coordination
-`hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`
+### Monoswarm Coordination
+`mesh-coordinator`
 
 ### GitHub & Repository
 `pr-manager`, `code-review-swarm`, `issue-tracker`, `release-manager`
 
-## Memory Commands Reference
+## Memory Commands
 
 ```bash
-# Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
 npx monomind@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
-
-# Search (REQUIRED: --query; OPTIONAL: --namespace, --limit, --threshold)
 npx monomind@latest memory search --query "authentication patterns"
-
-# List (OPTIONAL: --namespace, --limit)
-npx monomind@latest memory list --namespace patterns --limit 10
-
-# Retrieve (REQUIRED: --key; OPTIONAL: --namespace)
-npx monomind@latest memory retrieve --key "pattern-auth" --namespace patterns
 ```
+
+Full command reference: `npx monomind@latest memory --help`
 
 ## Second Brain — Document Knowledge Base
 
-If the `documents` capability is active (check `.monomind/capabilities.json`), this project indexes documents into a semantic search engine (Office, PDF, text, EPUB, and more; Google Drive files are exported as Office formats).
+If the `documents` capability is active (check `.monomind/capabilities.json`), this project indexes documents (Office, PDF, plain text, and more) into a semantic search engine.
 
 **When documents are indexed, search knowledge before answering questions about business, compliance, legal, or organizational topics:**
 - Call `mcp__monomind__knowledge_search` with a relevant query (add `store: "project"` or `"global"` to search one brain only; default merges both)
@@ -260,7 +194,7 @@ Built into monomind — no separate install. Pure TypeScript, parses TS/JS/Pytho
 
 **If graph is empty:** call `mcp__monomind__monograph_build` (runs in background; proceed with grep while it builds).
 
-The four tools above cover daily use; the full tool list (route maps, communities, export, staleness, etc.) is discoverable via the MCP tool listing.
+Core tools (prefix: `mcp__monomind__`): `monograph_build`, `monograph_query`, `monograph_suggest`, `monograph_impact` — the full tool list self-describes via MCP.
 
 ### Skip monograph for
 Single-file edits, doc/config changes, quick fixes where you already know the exact file.
@@ -287,3 +221,10 @@ npx monomind@latest doctor --fix
 
 - Documentation: https://github.com/monoes/monomind
 - Issues: https://github.com/monoes/monomind/issues
+# monomind:start instructions:claude
+# Monomind
+
+Use the `monomind` MCP tools for graph navigation, impact analysis, memory, and organization work.
+For multi-step work, load only the applicable `mastermind-*` skill; do not load all workflows at once.
+If MCP is unavailable, run `npx -y monomind@latest doctor` and use `npx -y monomind@latest` commands.
+# monomind:end instructions:claude

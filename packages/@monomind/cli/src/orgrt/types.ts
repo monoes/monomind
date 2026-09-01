@@ -182,6 +182,21 @@ export const RoleSchema = z
     reports_to: z.string().nullable().default(null),
     responsibilities: z.array(z.string()).default([]),
     instructions_file: z.string().optional(),
+    /** Canvas/UI-owned metadata (position, icon, color) — round-tripped
+     *  unchanged by the runtime, which only reads `icon`: it's the archetype
+     *  id used to key a bundled best-practices doc under orgrt/role-skills/
+     *  (see loadBuiltinRoleSkill in role-skills.ts). Typed here (rather than
+     *  left to bare passthrough) purely so that lookup has a real accessor;
+     *  still `.passthrough()` so unknown UI-client fields keep round-tripping. */
+    ui: z
+      .object({
+        x: z.number().optional(),
+        y: z.number().optional(),
+        icon: z.string().optional(),
+        color: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
     adapter_config: z
       .object({
         model: z.string().default('claude-sonnet-4-5'),

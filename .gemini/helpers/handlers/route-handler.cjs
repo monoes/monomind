@@ -123,20 +123,35 @@ module.exports = {
 
       // When QUIET: the advisory output is suppressed anyway, so skip ALL the
       // expensive enrichment below (embedding search, second-brain HTTP, monograph
-      // DB queries, metrics reads, episodes search). Just persist the keyword
-      // route for the statusline and exit — this makes the hook nearly instant.
+      // DB queries, metrics reads, episodes search). Persist the same outcome
+      // correlation identity as the full path before exiting: quiet changes
+      // advisory output and enrichment cost, never lifecycle side effects.
       if (_HOOK_QUIET) {
         try {
+          var crypto = require('crypto');
+          var routeId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : ('route-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
           var routeDir = path.join(CWD, '.monomind');
           fs.mkdirSync(routeDir, { recursive: true });
+          var agentName = result.agent || 'coder';
+          var promptSlice = (prompt || '').slice(0, 500);
           fs.writeFileSync(path.join(routeDir, 'last-route.json'), JSON.stringify({
-            agent: result.agent || 'coder',
+            routeId: routeId,
+            agent: agentName,
             agentSlug: result.agentSlug || null,
             confidence: result.confidence,
             reason: result.reason,
-            prompt: (prompt || '').slice(0, 500),
+            prompt: promptSlice,
             updatedAt: new Date().toISOString(),
           }), 'utf-8');
+          fs.appendFileSync(path.join(routeDir, 'route-outcomes.jsonl'), JSON.stringify({
+            routeId: routeId,
+            ts: Date.now(),
+            task: promptSlice,
+            recommendedAgent: agentName,
+            routingMethod: result.routingMethod || 'keyword',
+            confidence: typeof result.confidence === 'number' ? result.confidence : 0,
+            learningMode: 'js',
+          }) + '\n', 'utf-8');
         } catch (e) { /* non-fatal */ }
         return;
       }
