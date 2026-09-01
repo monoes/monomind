@@ -25,4 +25,15 @@ describe('Kotlin parser', () => {
     if (result.nodes.length === 0) return;
     expect(result.parseErrors).toHaveLength(0);
   });
+
+  it('extracts clean symbol names, not raw node text', () => {
+    // Regression guard: tree-sitter-kotlin declares no field names, so names
+    // must come from the type_identifier/simple_identifier children — not the
+    // text fallback (which yields 'class UserServiceImpl {' etc.).
+    if (result.nodes.length === 0) return;
+    const names = result.nodes.map(n => n.name);
+    expect(names).toContain('UserServiceImpl');
+    expect(names).toContain('topLevelFn');
+    expect(names.some(n => n.includes('{'))).toBe(false);
+  });
 });

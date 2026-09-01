@@ -1,10 +1,13 @@
-import type { LanguageConfig } from './language-config.js';
+import { firstChildText, type LanguageConfig } from './language-config.js';
 
 export const rubyConfig: LanguageConfig = {
   name: 'ruby',
   extensions: ['.rb'],
   treeSitterModule: 'tree-sitter-ruby',
   wasm: 'tree-sitter-ruby.wasm',
+  // tree-sitter-ruby exposes no 'name' field on class/method nodes — the name
+  // is the first constant (class/module) or identifier (method) child.
+  nameRefiner: (node, fallback) => firstChildText(node, ['constant', 'identifier']) ?? fallback,
   classNodeTypes: new Set(['class']),
   structNodeTypes: new Set([]),
   enumNodeTypes: new Set([]),
