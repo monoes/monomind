@@ -4,6 +4,28 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.7] — 2026-09-01
+
+### Changed
+
+- **Monograph now runs tree-sitter grammars as WebAssembly** instead of the
+  native Node binding. Grammars are vendored as `.wasm` files
+  (`@monoes/monograph` 1.6.0), so installs no longer need node-gyp, native
+  prebuilds, or the 15 grammar packages as runtime dependencies — eliminating
+  the entire class of ABI-mismatch and native-build failures (the dependency
+  angle of #219). Parses are also faster: 14.1s vs 23.8s indexing this
+  repository, with six previously silent grammar failures (C, C++, Dart,
+  Kotlin, Ruby, Swift) now parsing correctly. Refs #219.
+
+### Notes
+
+- `.vue` files are now always parsed via `<script>`-block extraction with the
+  TypeScript grammar; tree-sitter-vue is dropped (its external scanner cannot
+  build to WASM without emscripten, and the extraction config was already
+  TypeScript-typed).
+- Grammar WASM files are refreshed with
+  `node scripts/refresh-wasm.mjs` in `@monoes/monograph`.
+
 ## [2.10.6] — 2026-09-01
 
 ### Fixed
