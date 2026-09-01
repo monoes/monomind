@@ -24,12 +24,10 @@ describe('SqlJsBackend auto-persist failures', () => {
 
   function captureAutoPersistCallback() {
     let callback: (() => void) | undefined;
-    vi.spyOn(global, 'setInterval').mockImplementation(
-      ((fn: () => void) => {
-        callback = fn;
-        return {} as NodeJS.Timeout;
-      }) as typeof setInterval,
-    );
+    vi.spyOn(global, 'setInterval').mockImplementation(((fn: () => void) => {
+      callback = fn;
+      return {} as NodeJS.Timeout;
+    }) as typeof setInterval);
     return () => {
       expect(callback).toBeDefined();
       callback!();

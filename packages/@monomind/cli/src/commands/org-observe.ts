@@ -636,7 +636,12 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
       if (res.ok && data.ok) {
         if (orgJson(ctx))
           return printOrgJson({
-            v: 1, org: name, question_id: questionId, role: q.role, delivery: 'live', answered: true,
+            v: 1,
+            org: name,
+            question_id: questionId,
+            role: q.role,
+            delivery: 'live',
+            answered: true,
           });
         log(output.success(`Answer delivered to ${name}:${q.role} (live).`));
         return { success: true };
@@ -716,7 +721,12 @@ export const answerAction = async (ctx: CommandContext, name: string): Promise<C
   renameSync(tmp, dest);
   if (orgJson(ctx))
     return printOrgJson({
-      v: 1, org: name, question_id: questionId, role: q.role, delivery: 'queued', answered: true,
+      v: 1,
+      org: name,
+      question_id: questionId,
+      role: q.role,
+      delivery: 'queued',
+      answered: true,
     });
   log(output.success(`Answer recorded — ${name}:${q.role} receives it when the org next runs.`));
   return { success: true };
@@ -1004,7 +1014,12 @@ export const costsAction = async (ctx: CommandContext, name: string): Promise<Co
   if (orgJson(ctx)) {
     const items: Array<{ role: string; tokens: number; cost_usd: number; messages: number }> = [];
     for (const [roleId, data] of roleData) {
-      items.push({ role: roleId, tokens: data.tokens, cost_usd: data.costUsd, messages: data.messages });
+      items.push({
+        role: roleId,
+        tokens: data.tokens,
+        cost_usd: data.costUsd,
+        messages: data.messages,
+      });
     }
     const totals = items.reduce(
       (acc, i) => ({
@@ -1144,7 +1159,12 @@ async function resolveApproval(
       if (res.ok && data.ok) {
         if (orgJson(ctx))
           return printOrgJson({
-            v: 1, org: name, role, action, approved, delivery: 'live',
+            v: 1,
+            org: name,
+            role,
+            action,
+            approved,
+            delivery: 'live',
           });
         log(
           approved
@@ -1487,8 +1507,11 @@ export const gateResolveAction = async (
       if (res.ok && d.ok) {
         if (orgJson(ctx))
           return printOrgJson({
-            v: 1, org: name, gate_id: gateId,
-            status: approved ? 'approved' : 'rejected', delivery: 'live',
+            v: 1,
+            org: name,
+            gate_id: gateId,
+            status: approved ? 'approved' : 'rejected',
+            delivery: 'live',
           });
         log(output.success(`Gate ${gateId} ${approved ? 'approved' : 'rejected'} (live).`));
         return { success: true, message: `gate ${approved ? 'approved' : 'rejected'}` };
@@ -1549,8 +1572,11 @@ export const gateResolveAction = async (
 
   if (orgJson(ctx))
     return printOrgJson({
-      v: 1, org: name, gate_id: gateId,
-      status: approved ? 'approved' : 'rejected', delivery: 'recorded',
+      v: 1,
+      org: name,
+      gate_id: gateId,
+      status: approved ? 'approved' : 'rejected',
+      delivery: 'recorded',
     });
   log(
     output.success(

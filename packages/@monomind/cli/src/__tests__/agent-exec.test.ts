@@ -12,9 +12,9 @@
 import { PassThrough } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import {
+  type AgentExecOptions,
   jsonSchemaToZodShape,
   runAgentExec,
-  type AgentExecOptions,
   type ToolSpec,
 } from '../orgrt/agent-exec.js';
 import type { AgentMessage, AgentRunner } from '../orgrt/agent-runner.js';
@@ -67,10 +67,21 @@ function scriptedRunner(messages: AgentMessage[]): AgentRunner {
 describe('agent exec: success', () => {
   it('emits start → session → assistant → usage → result → done, exit 0', async () => {
     const h = makeHarness();
-    const code = await run(h, scriptedRunner([
-      { type: 'assistant', session_id: 's1', text: 'Working on it.' },
-      { type: 'result', session_id: 's1', subtype: 'success', is_error: false, input_tokens: 10, output_tokens: 5, cost_usd: 0.01 },
-    ]));
+    const code = await run(
+      h,
+      scriptedRunner([
+        { type: 'assistant', session_id: 's1', text: 'Working on it.' },
+        {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          is_error: false,
+          input_tokens: 10,
+          output_tokens: 5,
+          cost_usd: 0.01,
+        },
+      ]),
+    );
     expect(code).toBe(0);
     expect(types(h)).toEqual(['start', 'session', 'assistant', 'usage', 'result', 'done']);
     const result = byType(h, 'result')[0];
@@ -87,9 +98,7 @@ describe('agent exec: success', () => {
 
   it('carries runtime/model/cwd/pid on start', async () => {
     const h = makeHarness({ model: 'test-model' });
-    await run(h, scriptedRunner([
-      { type: 'result', subtype: 'success' },
-    ]));
+    await run(h, scriptedRunner([{ type: 'result', subtype: 'success' }]));
     const start = byType(h, 'start')[0];
     expect(start).toMatchObject({ v: 1, runtime: 'claude', model: 'test-model', pid: process.pid });
     expect(typeof start.cwd).toBe('string');
@@ -97,17 +106,18 @@ describe('agent exec: success', () => {
 
   it('emits result.text when the runner provides one', async () => {
     const h = makeHarness();
-    await run(h, scriptedRunner([
-      { type: 'result', subtype: 'success', text: 'final answer' },
-    ]));
+    await run(h, scriptedRunner([{ type: 'result', subtype: 'success', text: 'final answer' }]));
     expect(byType(h, 'result')[0]).toMatchObject({ text: 'final answer' });
   });
 
   it('marks error results: error event + exit 1', async () => {
     const h = makeHarness();
-    const code = await run(h, scriptedRunner([
-      { type: 'result', subtype: 'error_during_execution', is_error: true, text: 'boom' },
-    ]));
+    const code = await run(
+      h,
+      scriptedRunner([
+        { type: 'result', subtype: 'error_during_execution', is_error: true, text: 'boom' },
+      ]),
+    );
     expect(code).toBe(1);
     expect(byType(h, 'error')[0]).toMatchObject({ code: 'runner-error', fatal: false });
     expect(byType(h, 'result')[0]).toMatchObject({ subtype: 'error', is_error: true });
@@ -116,17 +126,13 @@ describe('agent exec: success', () => {
 
   it('maps max_turns subtypes to stop_reason', async () => {
     const h = makeHarness();
-    await run(h, scriptedRunner([
-      { type: 'result', subtype: 'error_max_turns' },
-    ]));
+    await run(h, scriptedRunner([{ type: 'result', subtype: 'error_max_turns' }]));
     expect(byType(h, 'result')[0]).toMatchObject({ stop_reason: 'max_turns' });
   });
 
   it('flags a stream with no result message as runner-error', async () => {
     const h = makeHarness();
-    const code = await run(h, scriptedRunner([
-      { type: 'assistant', text: 'hello' },
-    ]));
+    const code = await run(h, scriptedRunner([{ type: 'assistant', text: 'hello' }]));
     expect(code).toBe(1);
     expect(byType(h, 'error')[0]).toMatchObject({ code: 'runner-error' });
   });
@@ -150,6 +156,7 @@ describe('agent exec: error taxonomy (§3.4)', () => {
     const h = makeHarness({ runtime: 'codex' });
     const runner: AgentRunner = {
       async *run() {
+        yield* [];
         const e = new Error('spawn codex ENOENT') as NodeJS.ErrnoException;
         e.code = 'ENOENT';
         throw e;
@@ -166,6 +173,7 @@ describe('agent exec: error taxonomy (§3.4)', () => {
     const h = makeHarness({ runtime: 'codex' });
     const runner: AgentRunner = {
       async *run() {
+        yield* [];
         throw new Error('codex: auth_error (401) — run codex login');
       },
     };
@@ -178,6 +186,7 @@ describe('agent exec: error taxonomy (§3.4)', () => {
     const h = makeHarness();
     const runner: AgentRunner = {
       async *run() {
+        yield* [];
         throw new Error('usage limit reached — billing cycle exhausted');
       },
     };
@@ -189,6 +198,7 @@ describe('agent exec: error taxonomy (§3.4)', () => {
     const h = makeHarness();
     const runner: AgentRunner = {
       async *run() {
+        yield* [];
         throw new Error('kimi turn (tool round 0) exceeded the 120min turn timeout');
       },
     };
@@ -233,7 +243,9 @@ describe('agent exec: canUseTool gate', () => {
   // tool before it ran, no matter what --tools-file/--tool-names passed in.
   it('supplies a canUseTool that allows exactly the requested tools, by their mcp__org__ prefixed name', async () => {
     const h = makeHarness({ toolSpecs: [echoTool] });
-    let captured: ((toolName: string, input: Record<string, unknown>) => Promise<unknown>) | undefined;
+    let captured:
+      | ((toolName: string, input: Record<string, unknown>) => Promise<unknown>)
+      | undefined;
     const runner: AgentRunner = {
       async *run(a) {
         captured = a.canUseTool;
@@ -243,8 +255,12 @@ describe('agent exec: canUseTool gate', () => {
     await run(h, runner);
 
     expect(captured).toBeTypeOf('function');
-    await expect(captured!('mcp__org__create_nodes', {})).resolves.toMatchObject({ behavior: 'allow' });
-    await expect(captured!('mcp__org__delete_everything', {})).resolves.toMatchObject({ behavior: 'deny' });
+    await expect(captured!('mcp__org__create_nodes', {})).resolves.toMatchObject({
+      behavior: 'allow',
+    });
+    await expect(captured!('mcp__org__delete_everything', {})).resolves.toMatchObject({
+      behavior: 'deny',
+    });
   });
 });
 
@@ -303,7 +319,9 @@ describe('agent exec: stdio tool bridge', () => {
       for (let i = 0; i < 100; i++) {
         const call = byType(h, 'tool_call')[0] as { id?: string } | undefined;
         if (call?.id) {
-          h.stdin.write(`${JSON.stringify({ v: 1, type: 'tool_result', id: call.id, ok: true, result: { text: 'created 2 nodes' } })}\n`);
+          h.stdin.write(
+            `${JSON.stringify({ v: 1, type: 'tool_result', id: call.id, ok: true, result: { text: 'created 2 nodes' } })}\n`,
+          );
           return;
         }
         await new Promise((r) => setTimeout(r, 10));
@@ -314,8 +332,15 @@ describe('agent exec: stdio tool bridge', () => {
     await execDone;
 
     expect(capture.result).toBe('created 2 nodes');
-    expect(byType(h, 'tool_call')[0]).toMatchObject({ name: 'create_nodes', args: { count: 2, title: 'x' } });
-    expect(byType(h, 'tool_result')[0]).toMatchObject({ id: byType(h, 'tool_call')[0].id, ok: true, result: { text: 'created 2 nodes' } });
+    expect(byType(h, 'tool_call')[0]).toMatchObject({
+      name: 'create_nodes',
+      args: { count: 2, title: 'x' },
+    });
+    expect(byType(h, 'tool_result')[0]).toMatchObject({
+      id: byType(h, 'tool_call')[0].id,
+      ok: true,
+      result: { text: 'created 2 nodes' },
+    });
     const assistant = byType(h, 'assistant')[0];
     expect(assistant).toMatchObject({ text: 'tool said: created 2 nodes' });
   });
@@ -336,7 +361,9 @@ describe('agent exec: stdio tool bridge', () => {
     for (let i = 0; i < 100; i++) {
       const call = byType(h, 'tool_call')[0] as { id?: string } | undefined;
       if (call?.id) {
-        h.stdin.write(`${JSON.stringify({ v: 1, type: 'tool_result', id: call.id, ok: false, result: { text: 'SQL validation failed' } })}\n`);
+        h.stdin.write(
+          `${JSON.stringify({ v: 1, type: 'tool_result', id: call.id, ok: false, result: { text: 'SQL validation failed' } })}\n`,
+        );
         break;
       }
       await new Promise((r) => setTimeout(r, 10));
@@ -368,8 +395,12 @@ describe('agent exec: stdio tool bridge', () => {
       const call = byType(h, 'tool_call')[0] as { id?: string } | undefined;
       if (call?.id) {
         h.stdin.write('this is not json\n');
-        h.stdin.write(`${JSON.stringify({ v: 1, type: 'tool_result', id: 'unknown-id', ok: true, result: { text: 'x' } })}\n`);
-        h.stdin.write(`${JSON.stringify({ v: 1, type: 'tool_result', id: call.id, ok: true, result: { text: 'recovered' } })}\n`);
+        h.stdin.write(
+          `${JSON.stringify({ v: 1, type: 'tool_result', id: 'unknown-id', ok: true, result: { text: 'x' } })}\n`,
+        );
+        h.stdin.write(
+          `${JSON.stringify({ v: 1, type: 'tool_result', id: call.id, ok: true, result: { text: 'recovered' } })}\n`,
+        );
         break;
       }
       await new Promise((r) => setTimeout(r, 10));
@@ -401,7 +432,9 @@ describe('agent exec: cancellation & limits', () => {
     h.stdin.write(`${JSON.stringify({ v: 1, type: 'cancel' })}\n`);
     const code = await execDone;
     expect(code).toBe(130);
-    expect(byType(h, 'error').some((e) => (e as { code?: string }).code === 'cancelled')).toBe(true);
+    expect(byType(h, 'error').some((e) => (e as { code?: string }).code === 'cancelled')).toBe(
+      true,
+    );
     expect(byType(h, 'done')[0]).toMatchObject({ exit_code: 130 });
   });
 
@@ -423,11 +456,26 @@ describe('agent exec: cancellation & limits', () => {
 
   it('budget breach suppresses the success result and exits 1', async () => {
     const h = makeHarness({ budgetUsd: 0.5 });
-    const code = await run(h, scriptedRunner([
-      { type: 'result', session_id: 's1', subtype: 'success', input_tokens: 100, output_tokens: 50, cost_usd: 2.5 },
-    ]));
+    const code = await run(
+      h,
+      scriptedRunner([
+        {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          input_tokens: 100,
+          output_tokens: 50,
+          cost_usd: 2.5,
+        },
+      ]),
+    );
     expect(code).toBe(1);
-    expect(byType(h, 'error').some((e) => (e as { code?: string }).code === 'budget' && (e as { fatal?: boolean }).fatal === true)).toBe(true);
+    expect(
+      byType(h, 'error').some(
+        (e) =>
+          (e as { code?: string }).code === 'budget' && (e as { fatal?: boolean }).fatal === true,
+      ),
+    ).toBe(true);
     expect(byType(h, 'result')).toHaveLength(0);
     expect(byType(h, 'usage')).toHaveLength(1); // usage still reported
     expect(byType(h, 'done')[0]).toMatchObject({ exit_code: 1 });
@@ -435,14 +483,35 @@ describe('agent exec: cancellation & limits', () => {
 
   it('usage deltas handle cumulative runner accounting', async () => {
     const h = makeHarness();
-    await run(h, scriptedRunner([
-      { type: 'result', session_id: 's1', subtype: 'success', input_tokens: 100, output_tokens: 50, cost_usd: 1.0 },
-      { type: 'result', session_id: 's1', subtype: 'success', input_tokens: 130, output_tokens: 70, cost_usd: 1.5 },
-    ]));
+    await run(
+      h,
+      scriptedRunner([
+        {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          input_tokens: 100,
+          output_tokens: 50,
+          cost_usd: 1.0,
+        },
+        {
+          type: 'result',
+          session_id: 's1',
+          subtype: 'success',
+          input_tokens: 130,
+          output_tokens: 70,
+          cost_usd: 1.5,
+        },
+      ]),
+    );
     const usage = byType(h, 'usage');
     expect(usage[0]).toMatchObject({ input_tokens: 100, cost_usd: 1.0 });
     expect(usage[1]).toMatchObject({ input_tokens: 30, cost_usd: 0.5 });
-    expect(byType(h, 'result')[0]).toMatchObject({ input_tokens: 130, output_tokens: 70, cost_usd: 1.5 });
+    expect(byType(h, 'result')[0]).toMatchObject({
+      input_tokens: 130,
+      output_tokens: 70,
+      cost_usd: 1.5,
+    });
   });
 });
 

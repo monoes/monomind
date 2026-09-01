@@ -15,7 +15,10 @@ import type { InitOptions } from './types.js';
  * .mcp.json sync (routes-monoes.mjs, plain JS, duplicates this shape since
  * it can't import compiled TS at runtime).
  */
-export function buildMonoesMcpEntry(accessToken: string, monoesUrl = 'https://monoes.me/api/mcp'): object {
+export function buildMonoesMcpEntry(
+  accessToken: string,
+  monoesUrl = 'https://monoes.me/api/mcp',
+): object {
   return {
     type: 'http',
     url: monoesUrl,

@@ -116,7 +116,8 @@ export class KimiCodeAgentRunner implements AgentRunner {
     // without --canvas, `agent test`), and buildToolProtocol() is also '' with
     // no tools — so the two together can leave nothing after the frontmatter.
     // Fall back to a minimal default so the file body is never empty.
-    const body = (args.systemPrompt || 'You are a helpful assistant.') + buildToolProtocol(args.tools);
+    const body =
+      (args.systemPrompt || 'You are a helpful assistant.') + buildToolProtocol(args.tools);
     fs.writeFileSync(
       agentFile,
       `---\nname: monomind-org-role\ndescription: Monomind org role (managed by monomind orgrt)\n` +

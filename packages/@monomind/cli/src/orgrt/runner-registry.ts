@@ -14,7 +14,7 @@ import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import { delimiter, join } from 'node:path';
 import type { AgentRunner } from './agent-runner.js';
-import { resolveRunner, type RuntimeKind } from './daemon.js';
+import { type RuntimeKind, resolveRunner } from './daemon.js';
 
 export interface RunnerSpec {
   /** Runtime id accepted by `agent exec --runtime` and org role `runtime`. */
@@ -158,7 +158,7 @@ export interface ScanEntry {
 function resolveBinary(spec: RunnerSpec, env: NodeJS.ProcessEnv): string | null {
   if (!spec.binary) return null;
   const overridden = spec.binEnv ? env[spec.binEnv] : undefined;
-  return overridden && overridden.trim() ? overridden : spec.binary;
+  return overridden?.trim() ? overridden : spec.binary;
 }
 
 /** Absolute binary path if findable on PATH (or the override if it exists). */
@@ -187,10 +187,7 @@ function locateBinary(bin: string, env: NodeJS.ProcessEnv): string | null {
 }
 
 /** Probe `bin --version` with a hard per-binary timeout (default 5s). */
-function probeVersion(
-  binPath: string,
-  timeoutMs = 5000,
-): Promise<string | null> {
+function probeVersion(binPath: string, timeoutMs = 5000): Promise<string | null> {
   return new Promise((resolve) => {
     const child = execFile(
       binPath,
@@ -199,11 +196,17 @@ function probeVersion(
       (err, stdout) => {
         if (err) {
           // Some CLIs exit non-zero for --version yet still print it.
-          const line = String(stdout ?? '').trim().split('\n')[0];
+          const line = String(stdout ?? '')
+            .trim()
+            .split('\n')[0];
           resolve(line || null);
           return;
         }
-        resolve(String(stdout ?? '').trim().split('\n')[0] || null);
+        resolve(
+          String(stdout ?? '')
+            .trim()
+            .split('\n')[0] || null,
+        );
       },
     );
     // Belt-and-braces: execFile timeout kills, but a wedged pre-exec spawn

@@ -69,7 +69,9 @@ describe('Codex init artifacts', () => {
     expect(script).toContain('post-edit');
     expect(script).toContain('session-restore');
     expect(script).toContain('session-end');
-    expect(script).toContain('eventName === "SessionStart" || eventName === "SessionEnd" ? 2500 : 5000');
+    expect(script).toContain(
+      'eventName === "SessionStart" || eventName === "SessionEnd" ? 2500 : 5000',
+    );
     expect(script).toContain('hook-handler.cjs');
   });
 

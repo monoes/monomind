@@ -251,11 +251,7 @@ describe('.claude tree parity (root vs npm-shipped CLI copy)', () => {
     // skill is intentionally added to only one tree; do not widen it to
     // silence an accidental new drift.
     const ROOT_ONLY_ALLOWED = new Set(['monoagent-image', 'monodoc']);
-    const PKG_ONLY_ALLOWED = new Set([
-      'github-issue-triage',
-      'github-repo-recap',
-      'stop-slop',
-    ]);
+    const PKG_ONLY_ALLOWED = new Set(['github-issue-triage', 'github-repo-recap', 'stop-slop']);
 
     const onlyRoot = rootSkills.filter((s) => !pkgSkills.includes(s));
     const onlyPkg = pkgSkills.filter((s) => !rootSkills.includes(s));
