@@ -272,6 +272,10 @@ export function generateKimiAgentsMd(): string {
     'for code exploration. They return file path + line number from a SQLite knowledge',
     'graph. Only fall back to grep if monograph returns nothing or the graph isn’t built.',
     '',
+    'Enforced by the graph gate: the first search in a session is blocked once until',
+    'a monograph tool is called. Opt out: .monomind/guidance/active-gates.json',
+    '{"graphGate": "off"} or MONOMIND_GRAPH_GATE=off.',
+    '',
     '## Memory',
     'Persist insights across sessions: `mcp__monomind__memory_pattern-store` to save,',
     '`mcp__monomind__memory_kg_search` to recall. Use namespacing to keep project/agent',
@@ -451,6 +455,11 @@ process.stdin.on("end", () => {
   } else if (tool === "Write" || tool === "Edit" || tool === "MultiEdit") {
     event = "pre-write";
     gateInput = payload.tool_input || {};
+  } else if (tool === "Grep" || tool === "Glob") {
+    // Graph-first gate: search tools must consult monograph before grep/glob
+    // (once-per-session block, then warn) — same rule as Claude's pre-search.
+    event = "pre-search";
+    gateInput = payload.tool_input || {};
   }
   if (!event) process.exit(0);
 
@@ -512,6 +521,12 @@ export function generateKimiPluginManifest(_options: InitOptions): string {
       {
         event: 'PreToolUse',
         matcher: '^(Write|Edit|MultiEdit)$',
+        command: 'node ./hooks/monomind-gate.mjs',
+        timeout: 5,
+      },
+      {
+        event: 'PreToolUse',
+        matcher: '^(Grep|Glob)$',
         command: 'node ./hooks/monomind-gate.mjs',
         timeout: 5,
       },
