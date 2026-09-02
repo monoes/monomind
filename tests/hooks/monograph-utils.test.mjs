@@ -5,6 +5,7 @@
  * Invalidate both monograph + telemetry caches before each test.
  */
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import { createRequire } from 'node:module';
 import * as os from 'node:os';
@@ -422,5 +423,64 @@ describe.skipIf(DB_SKIP)('monograph.injectGodNodesContext — with DB', () => {
     const godChunk = lines.map((l) => JSON.parse(l)).find((c) => c.id === 'monograph-god-nodes');
     expect(godChunk).toBeDefined();
     expect(godChunk.text).toContain('core.ts');
+  });
+});
+
+describe.skipIf(DB_SKIP)('graph-gate persistent opt-out (guidance config)', () => {
+  it('blocks by default with a fresh graph, disabled by active-gates.json graphGate=off', () => {
+    // Fresh graph: git repo whose HEAD matches index_meta.last_commit_hash.
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir });
+    fs.writeFileSync(path.join(tmpDir, 'a.txt'), 'x\n');
+    execFileSync('git', ['add', '.'], { cwd: tmpDir });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'init'], {
+      cwd: tmpDir,
+    });
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: tmpDir,
+      encoding: 'utf-8',
+    }).trim();
+
+    const { db } = makeFixtureDb(tmpDir);
+    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(head);
+    db.close();
+
+    // Gate active: first search in a session that never called monograph → block.
+    let mg = loadMonograph(tmpDir);
+    expect(mg._graphGateShouldBlock('sess-gate-on')).toBe('block');
+
+    // Persistent opt-out via .monomind/guidance/active-gates.json.
+    const guidanceDir = path.join(tmpDir, '.monomind', 'guidance');
+    fs.mkdirSync(guidanceDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(guidanceDir, 'active-gates.json'),
+      JSON.stringify({ graphGate: 'off' }),
+    );
+
+    mg = loadMonograph(tmpDir); // reload: module caches CWD + freshness
+    expect(mg._graphGateShouldBlock('sess-gate-off')).toBe(false);
+  });
+
+  it('ignores an unreadable/invalid active-gates.json (fails open)', () => {
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir });
+    fs.writeFileSync(path.join(tmpDir, 'a.txt'), 'x\n');
+    execFileSync('git', ['add', '.'], { cwd: tmpDir });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'init'], {
+      cwd: tmpDir,
+    });
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: tmpDir,
+      encoding: 'utf-8',
+    }).trim();
+
+    const { db } = makeFixtureDb(tmpDir);
+    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(head);
+    db.close();
+
+    const guidanceDir = path.join(tmpDir, '.monomind', 'guidance');
+    fs.mkdirSync(guidanceDir, { recursive: true });
+    fs.writeFileSync(path.join(guidanceDir, 'active-gates.json'), 'not json {{{');
+
+    const mg = loadMonograph(tmpDir);
+    expect(mg._graphGateShouldBlock('sess-gate-broken-cfg')).toBe('block');
   });
 });
