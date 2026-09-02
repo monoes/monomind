@@ -282,6 +282,11 @@ export function generateAgentsMd(): string {
     'exploration. They return file path + line number from a SQLite knowledge graph.',
     'Only fall back to grep if monograph returns nothing or the graph isn’t built.',
     '',
+    'The graph gate enforces this on hook-capable platforms: the first grep/search',
+    'in a session is blocked once until a monograph tool is called, then searches',
+    'pass with a reminder. Opt out: .monomind/guidance/active-gates.json',
+    '{"graphGate": "off"} or MONOMIND_GRAPH_GATE=off.',
+    '',
     '## Memory',
     'Persist insights across sessions: `memory_pattern-store` to save, `memory_pattern-search` to',
     'recall. Use namespacing to keep project/agent memory separate.',
@@ -342,8 +347,10 @@ function findHandler(worktree, directory) {
 
 // Run one monomind gate event and translate its exit code into a decision.
 // Claude Code protocol: exit 2 = block, JSON {decision,reason} on stderr.
-function runGate(handler, event, toolName, input, cwd) {
-  const payload = JSON.stringify({ tool_name: toolName, tool_input: input, session_id: "" });
+// sessionId comes from opencode's tool.execute.before input (input.sessionID)
+// — the graph gate latches "once per session", so it must be real.
+function runGate(handler, event, toolName, input, cwd, sessionId) {
+  const payload = JSON.stringify({ tool_name: toolName, tool_input: input, session_id: sessionId || "" });
   let r;
   try {
     r = spawnSync(process.execPath, [handler, event], {
@@ -379,13 +386,20 @@ export const MonomindHooks = async (ctx) => {
     "tool.execute.before": async (input, output) => {
       if (!handler) return; // handlers not installed -> nothing to enforce
       const tool = input && input.tool;
+      const sessionId = (input && input.sessionID) || "";
       try {
         if (tool === "bash") {
-          const res = runGate(handler, "pre-bash", "Bash", { command: output.args && output.args.command }, worktree);
+          const res = runGate(handler, "pre-bash", "Bash", { command: output.args && output.args.command }, worktree, sessionId);
           if (res.block) throw new Error("[monomind] " + (res.reason || "bash blocked"));
         } else if (tool === "write" || tool === "edit" || tool === "multiedit") {
-          const res = runGate(handler, "pre-write", "Write", output.args || {}, worktree);
+          const res = runGate(handler, "pre-write", "Write", output.args || {}, worktree, sessionId);
           if (res.block) throw new Error("[monomind] " + (res.reason || "write blocked"));
+        } else if (tool === "grep" || tool === "glob") {
+          // Graph-first gate: consult monograph before grep/glob for code
+          // exploration (once-per-session block, then warn) — same rule as
+          // Claude's pre-search hook.
+          const res = runGate(handler, "pre-search", tool === "grep" ? "Grep" : "Glob", output.args || {}, worktree, sessionId);
+          if (res.block) throw new Error("[monomind] " + (res.reason || "search blocked"));
         }
       } catch (e) {
         // Re-throw intentional gate blocks; swallow unexpected errors so a
