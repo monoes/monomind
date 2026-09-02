@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   CODEX_STATUS_LINE_ITEMS,
+  codexHooksEnabled,
   generateCodexAgentsMd,
   generateCodexConfig,
   generateCodexHookScript,
@@ -97,12 +98,13 @@ export async function writeCodexFiles(
   fs.mkdirSync(codexDir, { recursive: true });
   const hooksDir = path.join(codexDir, 'hooks');
   const hookPath = path.join(hooksDir, 'monomind-hook.cjs');
+  const enableHooks = codexHooksEnabled(options);
 
-  if (options.enablePlatformHooks && (!fs.existsSync(hookPath) || options.force)) {
+  if (enableHooks && (!fs.existsSync(hookPath) || options.force)) {
     fs.mkdirSync(hooksDir, { recursive: true });
     atomicWriteFile(hookPath, generateCodexHookScript());
     result.created.files.push('.codex/hooks/monomind-hook.cjs');
-  } else if (options.enablePlatformHooks) {
+  } else if (enableHooks) {
     result.skipped.push('.codex/hooks/monomind-hook.cjs');
   }
 
@@ -114,7 +116,7 @@ export async function writeCodexFiles(
     const merged = mergeCodexConfig(
       current,
       generateCodexConfig(options),
-      options.enablePlatformHooks === true,
+      enableHooks,
     );
     if (merged !== current) {
       atomicWriteFile(configPath, merged);
@@ -124,7 +126,7 @@ export async function writeCodexFiles(
     }
   } else {
     const current = fs.readFileSync(configPath, 'utf8');
-    const mergedHooks = options.enablePlatformHooks
+    const mergedHooks = enableHooks
       ? mergeCodexHooks(current)
       : current.replace(/# monomind:start native-hooks[\s\S]*?# monomind:end native-hooks\n?/m, '');
     if (mergedHooks !== current) {
