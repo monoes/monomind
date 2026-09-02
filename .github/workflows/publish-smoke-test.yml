@@ -41,13 +41,14 @@ concurrency:
 
 jobs:
   pack-smoke-test:
-    name: Pack smoke test (${{ matrix.package.name }})
+    name: Pack smoke test (${{ matrix.package.name }}, Node ${{ matrix.node }})
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
+        node: ['20', '26']
         package:
           - name: monomind
             dir: .
@@ -62,7 +63,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
           # No `cache: npm` — it requires a package-lock.json this pnpm
           # workspace does not have, and setup-node fails the job before any
           # step runs.
