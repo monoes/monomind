@@ -29,14 +29,22 @@ function createResult(): InitResult {
   };
 }
 
+function codexOptions(targetDir = '/tmp/project') {
+  return {
+    ...DEFAULT_INIT_OPTIONS,
+    targetDir,
+    components: { ...DEFAULT_INIT_OPTIONS.components, codex: true },
+  };
+}
+
 describe('Codex init artifacts', () => {
-  it('generates a project-scoped MCP configuration', () => {
-    const config = generateCodexConfig({ ...DEFAULT_INIT_OPTIONS, targetDir: '/tmp/project' });
+  it('generates a project-scoped MCP configuration with graph-gate hooks', () => {
+    const config = generateCodexConfig(codexOptions());
 
     expect(config).toContain('[mcp_servers.monomind]');
     expect(config).toContain('[features]');
-    expect(config).not.toContain('[[hooks.PreToolUse]]');
-    expect(config).not.toContain('[[hooks.PostToolUse]]');
+    expect(config).toContain('[[hooks.PreToolUse]]');
+    expect(config).toContain('[[hooks.PostToolUse]]');
     expect(config).toContain('command = "npx"');
     expect(config).toContain('"monomind@latest"');
     expect(config).toContain('env = {');
@@ -47,12 +55,8 @@ describe('Codex init artifacts', () => {
     );
   });
 
-  it('renders Codex hooks only after explicit opt-in', () => {
-    const config = generateCodexConfig({
-      ...DEFAULT_INIT_OPTIONS,
-      targetDir: '/tmp/project',
-      enablePlatformHooks: true,
-    });
+  it('renders Codex hooks when the target is selected', () => {
+    const config = generateCodexConfig(codexOptions());
 
     expect(config).toContain('hooks = true');
     expect(config).toContain('[[hooks.PreToolUse]]');
@@ -84,7 +88,7 @@ describe('Codex init artifacts', () => {
 
     await writeCodexFiles(
       targetDir,
-      { ...DEFAULT_INIT_OPTIONS, force: true, targetDir, enablePlatformHooks: true },
+      { ...codexOptions(targetDir), force: true },
       createResult(),
     );
 
@@ -92,6 +96,7 @@ describe('Codex init artifacts', () => {
     expect(config).toContain('[features]\nhooks = true');
     expect(config).toContain('[[hooks.PreToolUse]]');
     expect(config).toContain('# monomind:end native-hooks');
+    expect(fs.existsSync(path.join(codexDir, 'hooks', 'monomind-hook.cjs'))).toBe(true);
   });
 
   it('generates Codex instructions with Monomind workflows', () => {
@@ -101,5 +106,7 @@ describe('Codex init artifacts', () => {
     expect(agents).toContain('monomind org run <name>');
     expect(agents).toContain('.agents/shared_instructions.md');
     expect(agents).toContain('native footer');
+    expect(agents).toContain('ALWAYS call `mcp__monomind__monograph_query`');
+    expect(agents).toContain('native PreToolUse hook');
   });
 });

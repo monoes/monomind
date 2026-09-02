@@ -8,6 +8,14 @@
 
 import type { InitOptions } from './types.js';
 
+/**
+ * Selecting Codex must also install the native hook bridge: it is what turns
+ * graph-first navigation from guidance into a deterministic pre-tool gate.
+ */
+export function codexHooksEnabled(options: InitOptions): boolean {
+  return options.components.codex === true || options.enablePlatformHooks === true;
+}
+
 function tomlString(value: string): string {
   return JSON.stringify(value);
 }
@@ -169,7 +177,7 @@ export function generateCodexConfig(options: InitOptions): string {
     );
   }
 
-  if (options.enablePlatformHooks) {
+  if (codexHooksEnabled(options)) {
     lines.push(generateCodexHooksConfig().trimEnd(), '');
   }
 
@@ -192,8 +200,10 @@ export function generateCodexAgentsMd(): string {
     '',
     '## Code navigation',
     '',
-    'Use Monomind graph tools before broad grep/find exploration when inspecting',
-    'the codebase. Fall back to grep when the graph has no relevant results.',
+    'ALWAYS call `mcp__monomind__monograph_query` or `monograph_suggest` before',
+    'using grep/rg/find for code exploration. Fall back only when the graph has',
+    'no relevant results or has not been built. The native PreToolUse hook',
+    'enforces this for the first search in every session.',
     '',
     '## Memory',
     '',
