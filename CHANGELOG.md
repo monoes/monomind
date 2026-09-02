@@ -4,6 +4,21 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.9] — 2026-09-02
+
+### Changed
+
+- **Graph-first navigation is now enforced on Kimi and OpenCode too** — the
+  graph gate (first grep/search in a session blocked once until a monograph
+  tool is called, then warn-only) previously ran only on Claude Code. Kimi's
+  plugin now matches `Grep|Glob`, and OpenCode's plugin routes `grep`/`glob`
+  through the same `pre-search` gate with a real session ID (previously
+  empty, which silently disabled the gate there).
+- **Persistent opt-out** for the graph gate:
+  `.monomind/guidance/active-gates.json` → `{"graphGate": "off"}`,
+  alongside the existing `MONOMIND_GRAPH_GATE=off` env var.
+- CI: publish smoke test now runs on Node 20 and 26.
+
 ## [2.10.8] — 2026-09-02
 
 ### Fixed
