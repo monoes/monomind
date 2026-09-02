@@ -24,6 +24,11 @@ process.stdin.on("end", () => {
   } else if (tool === "Write" || tool === "Edit" || tool === "MultiEdit") {
     event = "pre-write";
     gateInput = payload.tool_input || {};
+  } else if (tool === "Grep" || tool === "Glob") {
+    // Graph-first gate: search tools must consult monograph before grep/glob
+    // (once-per-session block, then warn) — same rule as Claude's pre-search.
+    event = "pre-search";
+    gateInput = payload.tool_input || {};
   }
   if (!event) process.exit(0);
 

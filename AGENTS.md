@@ -9,6 +9,13 @@ Call `monograph_query` / `monograph_suggest` BEFORE grep/rg/find for code
 exploration. They return file path + line number from a SQLite knowledge graph.
 Only fall back to grep if monograph returns nothing or the graph isn’t built.
 
+This is enforced by the graph gate on hook-capable platforms (Claude Code,
+Kimi, OpenCode): the first grep/search in a session that hasn't called a
+monograph tool is blocked once, after which searches pass with a reminder.
+Opt out per project with `.monomind/guidance/active-gates.json` →
+`{"graphGate": "off"}`, or per process with `MONOMIND_GRAPH_GATE=off`.
+The gate is inactive when the graph is missing or stale.
+
 ## Memory
 Persist insights across sessions: `memory_pattern-store` to save, `memory_pattern-search` to
 recall. Use namespacing to keep project/agent memory separate.

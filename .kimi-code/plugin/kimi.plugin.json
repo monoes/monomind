@@ -15,6 +15,12 @@
       "matcher": "^(Write|Edit|MultiEdit)$",
       "command": "node ./hooks/monomind-gate.mjs",
       "timeout": 5
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^(Grep|Glob)$",
+      "command": "node ./hooks/monomind-gate.mjs",
+      "timeout": 5
     }
   ],
   "interface": {
