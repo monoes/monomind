@@ -83,14 +83,20 @@ function makeAgent(): AgentRuntime {
 
 describe('ORG-9: daemon.listGates()-backed hasPendingGate wiring', () => {
   let tmp = '';
-  afterEach(() => {
+  let bus: OrgBus | undefined;
+  afterEach(async () => {
+    // OrgBus.emit() schedules its disk writes fire-and-forget (see bus.ts) so
+    // gate creation/resolution above can still have a pending mkdir/appendFile
+    // in flight here. Await it before the recursive rmSync below, otherwise
+    // that write can race the delete and rmSync throws ENOTEMPTY.
+    await bus?.flush();
     if (tmp) rmSync(tmp, { recursive: true, force: true });
   });
 
   it('a role with a pending gate is denied; resolving the gate allows tool calls again', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'org-gate-hard-block-'));
     const daemon = new OrgDaemon(tmp);
-    const bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
+    bus = new OrgBus('alpha', 'run-1', join(tmp, ORG_DIR, 'alpha', 'run-1'));
     const running: RunningOrg = {
       def: minimalDef('alpha'),
       run: 'run-1',
