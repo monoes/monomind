@@ -166,10 +166,16 @@ export async function loadEmbeddingModel(options?: {
   }
 
   try {
-    // Try to import @huggingface/transformers for ONNX embeddings
-    // (@huggingface/transformers is the maintained successor to @xenova/transformers,
-    // same maintainers/API — this is the package actually declared as a dependency)
-    const transformers = await import('@huggingface/transformers').catch(() => null);
+    // MONOMIND_NO_LOCAL_EMBEDDINGS: see the matching guard in
+    // memory-bridge.ts's loadEmbedder() — same native-crash rationale,
+    // same env var, set automatically for org runs.
+    const transformers =
+      process.env.MONOMIND_NO_LOCAL_EMBEDDINGS === '1'
+        ? null
+        : // Try to import @huggingface/transformers for ONNX embeddings
+          // (@huggingface/transformers is the maintained successor to @xenova/transformers,
+          // same maintainers/API — this is the package actually declared as a dependency)
+          await import('@huggingface/transformers').catch(() => null);
 
     if (transformers) {
       if (verbose) {
