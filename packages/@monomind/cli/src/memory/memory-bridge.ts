@@ -419,6 +419,18 @@ async function flushBackend(backend: any): Promise<void> {
  *  process-exit path is not. */
 async function loadEmbedder(): Promise<void> {
   if (_embedder) return;
+  // MONOMIND_NO_LOCAL_EMBEDDINGS: skip the native pipeline() load entirely.
+  // On some machines @huggingface/transformers' ONNX runtime crashes the
+  // whole process with a native `libc++abi terminate` (a mutex failure
+  // inside the tokenizer backend) rather than throwing a catchable JS
+  // error — the try/catch below only protects against normal failures
+  // (missing cache, bad revision, offline), not that. Everything that
+  // reads _embedder already tolerates it being unset (keyword-only
+  // fallback), so skipping the call is the only way to actually avoid the
+  // crash rather than just failing to catch it. Set automatically for org
+  // runs (daemon.ts) since a crashed org is much worse than degraded
+  // search; anyone else can opt in the same way.
+  if (process.env.MONOMIND_NO_LOCAL_EMBEDDINGS === '1') return;
   if (!_embedderPromise) {
     _embedderPromise = (async () => {
       try {

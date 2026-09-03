@@ -125,6 +125,22 @@ function liveServeDaemonPid(cwd: string): number | null {
 }
 
 const runAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  // Org runs skip local embeddings entirely — on some machines
+  // @huggingface/transformers' native ONNX runtime crashes the whole
+  // process (a libc++abi terminate, not a catchable JS error) the moment
+  // any memory/KG lookup tries to load its model. A crashed unattended org
+  // run is much worse than one that falls back to keyword-only memory
+  // search — see the matching guards in memory-bridge.ts/embedding-operations.ts.
+  process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = '1';
+  // The embedding-model crash above has a sibling: loadReranker() in
+  // memory-bridge.ts loads a SEPARATE cross-encoder model
+  // (cross-encoder/ettin-reranker-32m-v1, its own tokenizer architecture)
+  // for search-result reranking, independent of the embedder guard above —
+  // reranking runs on (query, passage) text pairs directly, so it can
+  // still fire and hit the same native crash even with embeddings off.
+  // MONOMIND_RERANKER=0 is an existing, already-wired guard (see
+  // loadReranker's own early-return) — just never set for org runs before.
+  process.env.MONOMIND_RERANKER = '0';
   if (!ctx.args[0])
     return { success: false, message: 'org name required: monomind org run <name> [--task "..."]' };
   const validated = validateOrgName(ctx.args[0]);
@@ -1151,6 +1167,17 @@ WantedBy=default.target
 };
 
 const serveAction = async (ctx: CommandContext): Promise<CommandResult> => {
+  // See the matching comment in runAction — same rationale, same guard.
+  process.env.MONOMIND_NO_LOCAL_EMBEDDINGS = '1';
+  // The embedding-model crash above has a sibling: loadReranker() in
+  // memory-bridge.ts loads a SEPARATE cross-encoder model
+  // (cross-encoder/ettin-reranker-32m-v1, its own tokenizer architecture)
+  // for search-result reranking, independent of the embedder guard above —
+  // reranking runs on (query, passage) text pairs directly, so it can
+  // still fire and hit the same native crash even with embeddings off.
+  // MONOMIND_RERANKER=0 is an existing, already-wired guard (see
+  // loadReranker's own early-return) — just never set for org runs before.
+  process.env.MONOMIND_RERANKER = '0';
   const crossProcess = ctx.flags.crossProcess !== false;
   const daemon = new OrgDaemon(ctx.cwd, { crossProcess });
   let srv: Awaited<ReturnType<typeof startOrgServer>> | undefined;
