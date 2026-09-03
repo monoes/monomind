@@ -47,7 +47,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -73,9 +73,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
-          key: pnpm-${{ runner.os }}-20-${{ hashFiles('pnpm-lock.yaml') }}
+          key: pnpm-${{ runner.os }}-22-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-${{ runner.os }}-20-
+            pnpm-${{ runner.os }}-22-
             pnpm-${{ runner.os }}-
 
       - name: Install dependencies
@@ -238,7 +238,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node || '20' }}
+          node-version: ${{ matrix.node || '22' }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -349,7 +349,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           # Packages that need a newer runtime set `node` in the matrix.
-          node-version: ${{ matrix.node || '20' }}
+          node-version: ${{ matrix.node || '22' }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
