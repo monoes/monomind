@@ -376,6 +376,35 @@ describe('agent exec: canUseTool gate', () => {
         canUseTool('Bash', { command: 'monomind organization-nuke --all' }),
       ).resolves.toMatchObject({ behavior: 'deny' });
     });
+
+    it('does not allow a backslash-escaped quote to be mistaken for real quoting, hiding a trailing separator (regression)', async () => {
+      // A backslash-escaped `'` outside any real quotes is just a literal
+      // `'` character to bash — it does NOT open a quoted region. A scanner
+      // that doesn't track escaping treats `\'` as toggling into "single
+      // quoted" state, which then hides everything after it (including a
+      // real `;`) from detection, even though bash itself still splits the
+      // command right there. Verified live against a real bash invocation
+      // before this test was written: `bash -c "monomind foo \'; touch
+      // /tmp/PWNED"` does create /tmp/PWNED.
+      const canUseTool = await capturedCanUseTool(['monomind foo']);
+      await expect(
+        canUseTool('Bash', { command: "monomind foo \\'; touch /tmp/PWNED" }),
+      ).resolves.toMatchObject({ behavior: 'deny' });
+    });
+
+    it('a real backslash-escaped quote inside an otherwise-safe command is still allowed (no over-blocking)', async () => {
+      const canUseTool = await capturedCanUseTool(['monomind foo']);
+      await expect(
+        canUseTool('Bash', { command: "monomind foo --name it\\'s-fine" }),
+      ).resolves.toMatchObject({ behavior: 'allow' });
+    });
+
+    it('a trailing lone backslash does not throw', async () => {
+      const canUseTool = await capturedCanUseTool(['monomind foo']);
+      await expect(canUseTool('Bash', { command: 'monomind foo \\' })).resolves.toMatchObject({
+        behavior: 'allow',
+      });
+    });
   });
 });
 
