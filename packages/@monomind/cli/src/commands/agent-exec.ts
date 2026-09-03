@@ -40,6 +40,16 @@ export function parseDuration(raw: unknown, flag: string): number | undefined {
   }
 }
 
+/** Parse --allow-bash-prefix "a,b,c" into a trimmed, non-empty string array. */
+export function parseBashPrefixesFlag(raw: unknown): string[] | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const list = String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return list.length ? list : undefined;
+}
+
 /** Parse repeatable --env KEY=V into a record. */
 export function parseEnvFlags(raw: unknown): Record<string, string> {
   const env: Record<string, string> = {};
@@ -188,6 +198,7 @@ async function runExec(
     budgetUsd: ctx.flags['budget-usd'] !== undefined ? Number(ctx.flags['budget-usd']) : undefined,
     env,
     toolSpecs: toolSpecs.length ? toolSpecs : null,
+    allowBashPrefixes: parseBashPrefixesFlag(ctx.flags['allow-bash-prefix']),
     emit: (ev) => {
       process.stdout.write(`${JSON.stringify(ev)}\n`);
     },
@@ -258,6 +269,12 @@ export const execCommand: Command = {
       name: 'env',
       description: 'Extra env for the agent process, KEY=V (repeatable)',
       type: 'array',
+    },
+    {
+      name: 'allow-bash-prefix',
+      description:
+        'CSV of command prefixes (e.g. "monomind,monoagentcli") the Bash tool may run, on top of --tools-file — scoped, not a blanket Bash grant',
+      type: 'string',
     },
     { name: 'protocol', description: 'Protocol version pin (1)', type: 'string' },
   ],
