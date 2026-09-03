@@ -4,6 +4,47 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.10] — 2026-09-04
+
+### Security
+
+- **Command-injection bypass in scoped Bash access for agent-exec sessions**
+  — `hasUnsafeShellSyntax` (the guard behind `--allow-bash-prefix`, which
+  scopes an agent's Bash access to an exact command prefix) didn't track
+  backslash-escaping. A backslash-escaped quote outside real quotes was
+  mistaken for a genuine quote-toggle, hiding a trailing `;`/`&`/`|`/
+  backtick/`$(` from detection even though bash itself still executes it —
+  verified live (`foo \'; touch /tmp/PWNED` slipped through). Fixed by
+  tracking backslash-escaping per real bash quoting rules; added
+  regression tests for the exact bypass plus two false-positive checks.
+
+### Added
+
+- `--allow-bash-prefix` on `monomind agent-exec` — scopes an agent-exec
+  session's Bash tool to commands matching one or more exact prefixes,
+  denying anything else (including a matching prefix followed by shell
+  metacharacters).
+
+### Fixed
+
+- CI: `Tests` workflow's default Node bumped from 20 to 22 — `nanoid@6`
+  (pulled in workspace-wide via vite/vitest) requires Node `^22 || ^24 ||
+  >=26`, which had been silently failing every job's install step since
+  at least 2026-09-02.
+- The root `.claude/` tree and the npm-shipped
+  `packages/@monomind/cli/.claude/` copy had diverged in two files
+  (one each direction) — re-synced and verified byte-identical.
+- 13 shipped Mastermind skill template files (`.claude/skills/mastermind-*`)
+  had corrupted, self-duplicated content (a stray nested
+  `monomind:start`/`monomind:end` wrapper around already-wrapped output),
+  making the `claude` platform's install non-idempotent. Stripped the
+  duplication in both the root and npm-shipped trees.
+- `org-gate-hard-block.test.ts`: a test-cleanup race (`rmSync` running
+  before `OrgBus`'s fire-and-forget disk writes had flushed) could fail
+  with `ENOTEMPTY` under parallel test load.
+- `init-e2e.test.ts`: updated a stale assertion that predated native Codex
+  hooks becoming on-by-default (2026-09-02).
+
 ## [2.10.9] — 2026-09-02
 
 ### Changed
