@@ -2227,6 +2227,20 @@ export const orgCommand: Command = {
       },
     },
     {
+      name: 'approvals',
+      description: "List pending tool/action approval requests from an org's agents",
+      options: [{ name: 'all', description: 'Include resolved approvals', type: 'boolean' }],
+      examples: [
+        { command: 'monomind org approvals growth', description: 'Show pending approvals' },
+      ],
+      action: async (ctx: CommandContext): Promise<CommandResult> => {
+        const v = validateOrgName(ctx.args[0]);
+        if (!v.ok) return v.result;
+        const { approvalsAction } = await import('./org-observe.js');
+        return approvalsAction(ctx, v.name);
+      },
+    },
+    {
       name: 'answer',
       description:
         'Answer a pending ask_human question (live if the org is running, queued otherwise)',
