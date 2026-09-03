@@ -41,11 +41,6 @@ export function generateSettings(options: InitOptions): object {
     deny: ['Read(./.env)', 'Read(./.env.*)'],
   };
 
-  // Add monomind attribution for git commits and PRs
-  settings.attribution = {
-    commit: 'Co-Authored-By: nokhodian <nokhodian@gmail.com>',
-    pr: '🤖 Generated with [monomind](https://github.com/monoes/monomind)',
-  };
 
   // Note: Claude Code expects 'model' to be a string, not an object
   // Model preferences are stored in monomind settings instead

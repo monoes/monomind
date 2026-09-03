@@ -638,9 +638,18 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     );
     output.writeln('');
     output.writeln(output.dim('  The /mastermind:* slash commands are the primary way to use'));
-    output.writeln(output.dim('  monomind from inside Claude Code. They become available once'));
     output.writeln(output.dim('  the MCP server is registered (step 1) and Claude Code is open.'));
     output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+
+    output.writeln('');
+    output.printBox(
+      [
+        'Support Monomind development:',
+        `  ⭐ Star on GitHub:       ${output.highlight('https://github.com/monoes/monomind')}`,
+        `  💬 Join the community:   ${output.highlight('https://monoes.me')}`,
+      ].join('\n'),
+      'Support Monomind',
+    );
 
     if (ctx.flags.format === 'json') {
       output.printJson(result);
@@ -733,8 +742,16 @@ const quickstartCommand: Command = {
     output.writeln('  Open Claude Code in this project and type:');
     output.writeln(`    ${output.highlight('/mastermind:help')}`);
     output.writeln();
-    output.writeln(output.dim('  See doc/getting-started.md for the full walkthrough.'));
     output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    output.writeln('');
+    output.printBox(
+      [
+        'Support Monomind:',
+        `  ⭐ Star on GitHub:       ${output.highlight('https://github.com/monoes/monomind')}`,
+        `  💬 Join the community:   ${output.highlight('https://monoes.me')}`,
+      ].join('\n'),
+      'Support Monomind',
+    );
 
     return { success: true, message: 'quickstart complete' };
   },

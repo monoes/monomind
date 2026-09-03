@@ -326,10 +326,6 @@
       }
     ]
   },
-  "attribution": {
-    "commit": "Co-Authored-By: nokhodian <nokhodian@gmail.com>",
-    "pr": "\ud83e\udd16 Generated with [monomind](https://github.com/monoes/monomind)"
-  },
   "monomind": {
     "version": "3.5.2",
     "enabled": true,
