@@ -60,10 +60,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      # Fixed at a version that satisfies the WORKSPACE's dev-tooling
+      # engines requirement (nanoid@6, pulled in via vite/vitest and hoisted
+      # across every workspace package, needs Node ^22 || ^24 || >=26 —
+      # unrelated to what the PUBLISHED tarball itself requires). matrix.node
+      # (20 or 26) is what actually gets tested — but only from "Install
+      # tarball into a fresh empty project" onward, where a second Set up
+      # Node.js step below switches to it. Building on 20 here would fail at
+      # `pnpm install` before any real Node-20-compatibility signal was
+      # produced, same as tests.yml did before it got the same fix.
+      - name: Set up Node.js (build toolchain)
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: '22'
           # No `cache: npm` — it requires a package-lock.json this pnpm
           # workspace does not have, and setup-node fails the job before any
           # step runs.
@@ -134,6 +143,16 @@ jobs:
           TARBALL="$(sed -n '/^{/,$p' /tmp/pnpm-pack-output-cli-sibling.json | node -e "console.log(JSON.parse(require('fs').readFileSync(0,'utf8')).filename)")"
           echo "tarball_path=$(pwd)/${TARBALL}" >> "$GITHUB_OUTPUT"
           echo "Packed: ${TARBALL}"
+
+      # Switches to the version this job is actually meant to verify (20 or
+      # 26) — this is the version that matters from here on: a plain `npm
+      # install` of the packed tarball, plus running its bin, neither of
+      # which touch the workspace's own devDependencies (nanoid@6 et al.),
+      # so it isn't affected by the build-toolchain constraint above.
+      - name: Set up Node.js (runtime under test)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
 
       - name: Install tarball into a fresh empty project
         run: |
