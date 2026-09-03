@@ -583,6 +583,85 @@ export const questionsAction = async (
   return { success: true };
 };
 
+interface OrgApproval {
+  roleId: string;
+  action: string;
+  question: string;
+  ts: number;
+  approved: boolean | null;
+}
+
+/** Read approvals.json — the tool/action-approval queue checked by
+ *  checkApproval for Bash/WebFetch/WebSearch/org_complete (session.ts).
+ *  Distinct from questions.json/gates.json: approving those does NOT touch
+ *  this file or grant anything here. A MISSING file legitimately means "no
+ *  pending approvals" → []. Any other failure THROWS, same rationale as
+ *  readQuestions above — approveAction/denyAction rewrite this file from
+ *  what this returns. */
+const readApprovals = (cwd: string, name: string): OrgApproval[] => {
+  const path = join(cwd, ORG_DIR, name, 'approvals.json');
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new Error(`cannot read ${path}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  let parsed: { approvals?: OrgApproval[] };
+  try {
+    parsed = JSON.parse(raw) as { approvals?: OrgApproval[] };
+  } catch (err) {
+    throw new Error(
+      `${path} is not valid JSON (${err instanceof Error ? err.message : String(err)})`,
+    );
+  }
+  if (parsed?.approvals === undefined || parsed.approvals === null) return [];
+  if (!Array.isArray(parsed.approvals)) throw new Error(`${path}: "approvals" is not an array`);
+  return parsed.approvals;
+};
+
+/** `org approvals <name> [--all]` — list pending (or all) tool/action approval requests. */
+export const approvalsAction = async (
+  ctx: CommandContext,
+  name: string,
+): Promise<CommandResult> => {
+  let all: OrgApproval[];
+  try {
+    all = readApprovals(ctx.cwd, name);
+  } catch (err) {
+    log(
+      output.error(
+        `Cannot read approvals for org ${name}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
+    return { success: false, message: 'approvals.json unreadable' };
+  }
+  const shown = ctx.flags.all === true ? all : all.filter((a) => a.approved === null);
+  if (orgJson(ctx)) return printOrgJson({ v: 1, org: name, items: shown });
+  if (!shown.length) {
+    log(
+      output.info(
+        all.length
+          ? `No pending approvals for org ${name} (${all.length} resolved — use --all).`
+          : `No approval requests recorded for org ${name}.`,
+      ),
+    );
+    return { success: true };
+  }
+  for (const a of shown) {
+    const when = new Date(a.ts).toISOString().replace('T', ' ').slice(0, 16);
+    const mark = a.approved === null ? '❓' : a.approved ? '✓' : '✗';
+    log(output.info(`${mark} ${when}  ${a.roleId}: ${a.action}`));
+  }
+  if (shown.some((a) => a.approved === null))
+    log(
+      output.info(
+        `\nApprove with: monomind org approve ${name} <role> <action>\nDeny with: monomind org deny ${name} <role> <action>`,
+      ),
+    );
+  return { success: true };
+};
+
 /** `org answer <name> <question-id> <answer...>` — answer a pending ask_human question.
  *  Delivers live via the hosting daemon's /api/answer-question when the org is running
  *  (broker lookup); otherwise records the answer and queues it for the next run. */
