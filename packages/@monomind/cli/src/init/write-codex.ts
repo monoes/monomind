@@ -113,11 +113,7 @@ export async function writeCodexFiles(
     result.created.files.push('.codex/config.toml');
   } else if (options.force) {
     const current = fs.readFileSync(configPath, 'utf8');
-    const merged = mergeCodexConfig(
-      current,
-      generateCodexConfig(options),
-      enableHooks,
-    );
+    const merged = mergeCodexConfig(current, generateCodexConfig(options), enableHooks);
     if (merged !== current) {
       atomicWriteFile(configPath, merged);
       result.updated.push('.codex/config.toml (merged monomind server)');
