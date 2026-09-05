@@ -239,7 +239,14 @@ export async function startOrgServer(
   // users running inside containers / port-forwarders that genuinely need
   // remote connections.
   const bindHost = process.env.MONOMIND_ORG_SERVER_HOST ?? '127.0.0.1';
-  await new Promise<void>((r) => server.listen(port, bindHost, r));
+  await new Promise<void>((resolve, reject) => {
+    const onError = (err: Error) => reject(err);
+    server.once('error', onError);
+    server.listen(port, bindHost, () => {
+      server.removeListener('error', onError);
+      resolve();
+    });
+  });
   const actual = (server.address() as { port: number }).port;
   actualPort = actual;
 
