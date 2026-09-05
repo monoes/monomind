@@ -57,6 +57,11 @@ beforeAll(async () => {
     `import { UserService } from './service.js';\nconst s = new UserService('a');\nconsole.log(s.greet());\n`,
   );
 
+  // Real projects ignore the index and its report; without this the build's own
+  // output leaves the worktree dirty, and freshness now (correctly) accounts for
+  // uncommitted edits.
+  writeFileSync(join(repo, '.gitignore'), '.monograph/\n.monomind/\nGRAPH_REPORT.md\n');
+
   const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'ignore' });
   git('init', '-q');
   git('add', '-A');
