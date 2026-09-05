@@ -1899,8 +1899,9 @@ export class OrgDaemon {
     fromQualified: string,
     subject: string,
     body: string,
+    fromCredential?: string,
   ): { ok: true; receipt: string } | { ok: false; error: string } {
-    return crossOrg.receiveRemote(this, toOrg, toRole, fromQualified, subject, body);
+    return crossOrg.receiveRemote(this, toOrg, toRole, fromQualified, subject, body, fromCredential);
   }
   private mailBody(
     orgName: string,
