@@ -126,7 +126,15 @@ async function buildAsyncLocked(
       const tmpDb = openDb(dbPath);
       try {
         const report = checkStaleness(tmpDb, resolve(repoPath));
-        if (!report.isStale && report.currentCommit !== null) {
+        // Gate on the explicit state, not the legacy `isStale` boolean.
+        // `isStale` only reflects commit divergence, so it stays false for an
+        // index whose commit matches HEAD but whose worktree has uncommitted
+        // edits — this guard would then skip the very rebuild those edits
+        // require. It is also false when git is unavailable, where nothing is
+        // actually known. `state === 'fresh'` is true only when the commit
+        // matches AND the worktree is clean AND that was determinable, so it
+        // subsumes the old currentCommit !== null check.
+        if (report.state === 'fresh') {
           options.onProgress?.({ phase: 'skip', message: 'Index is fresh — skipping rebuild' });
           return; // Already up-to-date
         }
