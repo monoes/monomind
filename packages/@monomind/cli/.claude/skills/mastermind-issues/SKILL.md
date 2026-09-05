@@ -284,6 +284,29 @@ PYEOF
 
 ---
 
+## Step 2.5 — Append Activity Record
+
+After any `create`, `update`, or `close` action succeeds, append one line to the org's
+activity log. This is the only writer for `<org>-activity.jsonl`; seven skills read it.
+
+```bash
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn \
+  --arg iid "${affected_issue_id}" \
+  --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --arg st "${resulting_status}" \
+  --arg ag "${assignee:-operator}" \
+  --arg act "${action}" \
+  --arg sm "${action} ${affected_issue_id}" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:$act, summary:$sm}' \
+  >> "$activityFile"
+```
+
+`affected_issue_id` is `$newId` for `create` and `$issue_id` for `update`/`close`;
+`resulting_status` is `todo`, the new status, or `done` respectively.
+
+---
+
 ## Step 3 — Return Output
 
 ```yaml
