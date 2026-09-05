@@ -115,8 +115,17 @@ export class OpencodeAgentRunner implements AgentRunner {
       // protocol for org tools) is carried on each prompt() call's `system`
       // field — opencode has no per-session system-prompt binding.
       const systemPrompt = args.systemPrompt + buildToolProtocol(args.tools);
-      const created = await client.session.create({ body: { title: 'monomind-org-role' } });
-      const sessionId: string = created?.data?.id ?? created?.id;
+      let sessionId: string | undefined = args.resume;
+      if (sessionId) {
+        // opencode's session.create has no resume/id parameter (only
+        // parentID/title) — resuming means reusing the existing session id
+        // directly. session.get confirms the session still exists on the
+        // opencode server before we drive prompt() calls against it.
+        await client.session.get({ path: { id: sessionId } });
+      } else {
+        const created = await client.session.create({ body: { title: 'monomind-org-role' } });
+        sessionId = created?.data?.id ?? created?.id;
+      }
       if (!sessionId) {
         throw new Error(
           'OpencodeAgentRunner: session.create returned no id — check the opencode server is healthy.',
@@ -197,7 +206,7 @@ export class OpencodeAgentRunner implements AgentRunner {
 
           const results: string[] = [];
           for (const call of calls) {
-            results.push(await executeToolCall(args.tools, call));
+            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           }
           nextPrompt = formatToolResults(calls, results);
         }
