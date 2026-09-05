@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import type { MonographEdge, MonographNode } from '../types.js';
+import * as monographTypes from '../types.js';
 
 /**
  * Bump this whenever the parser/extractor output format changes in a way that
@@ -21,6 +22,16 @@ import type { MonographEdge, MonographNode } from '../types.js';
  */
 export const EXTRACTION_CACHE_VERSION = 1;
 
+/**
+ * Symbol-identity scheme version, owned by `../types.js`. Cached nodes/edges are
+ * keyed by symbol ID, so an identity-scheme change makes every cached entry's
+ * IDs incompatible with freshly-parsed ones — the cache must invalidate with it.
+ * Read defensively so this module still compiles (and simply pins to 0) while
+ * the constant is being introduced.
+ */
+export const SYMBOL_ID_VERSION: number =
+  (monographTypes as unknown as { SYMBOL_ID_VERSION?: number }).SYMBOL_ID_VERSION ?? 0;
+
 export interface CacheEntry {
   fileHash: string;
   mtimeMs?: number;
@@ -29,6 +40,16 @@ export interface CacheEntry {
   edges: MonographEdge[];
   /** Extraction format version this entry was written under — see EXTRACTION_CACHE_VERSION. */
   cacheVersion?: number;
+  /** Symbol-identity scheme this entry's node IDs were minted under — see SYMBOL_ID_VERSION. */
+  symbolIdVersion?: number;
+}
+
+/** An entry is reusable only if BOTH the extraction format and the symbol-identity scheme match. */
+function isCurrentVersion(entry: CacheEntry): boolean {
+  return (
+    entry.cacheVersion === EXTRACTION_CACHE_VERSION &&
+    (entry.symbolIdVersion ?? 0) === SYMBOL_ID_VERSION
+  );
 }
 
 export class ExtractionCache {
@@ -107,7 +128,7 @@ export class ExtractionCache {
     if (!existsSync(p)) return null;
     try {
       const entry: CacheEntry = JSON.parse(readFileSync(p, 'utf-8'));
-      if (entry.cacheVersion !== EXTRACTION_CACHE_VERSION) return null;
+      if (!isCurrentVersion(entry)) return null;
       const st = statSync(filePath);
       if (entry.mtimeMs === st.mtimeMs && entry.size === st.size) return entry;
       // mtime/size differ or missing — recheck content hash
@@ -132,7 +153,7 @@ export class ExtractionCache {
     if (!existsSync(p)) return null;
     try {
       const entry: CacheEntry = JSON.parse(readFileSync(p, 'utf-8'));
-      if (entry.cacheVersion !== EXTRACTION_CACHE_VERSION) return null;
+      if (!isCurrentVersion(entry)) return null;
       return entry.fileHash === fileHash ? entry : null;
     } catch {
       return null;
@@ -156,6 +177,7 @@ export class ExtractionCache {
       nodes,
       edges,
       cacheVersion: EXTRACTION_CACHE_VERSION,
+      symbolIdVersion: SYMBOL_ID_VERSION,
     };
     this.writeAtomic(this.entryPath(filePath), JSON.stringify(entry));
   }
@@ -182,6 +204,7 @@ export class ExtractionCache {
       nodes,
       edges,
       cacheVersion: EXTRACTION_CACHE_VERSION,
+      symbolIdVersion: SYMBOL_ID_VERSION,
     };
     this.pending.push({ path: this.entryPath(filePath), data: JSON.stringify(entry) });
   }
