@@ -1,10 +1,10 @@
 import type { MCPTool } from '../types.js';
 import { getProjectCwd } from '../types.js';
-import type { PprScoredNode } from './shared.js';
+import type { ExpandedNode, SeedNode } from './shared.js';
 import {
   _isValidDb,
-  applyPprRerank,
   computeCommitsBehind,
+  expandWithNeighbors,
   getDbPath,
   preferSymbolHits,
   STALENESS_THRESHOLD,
@@ -17,21 +17,29 @@ import {
 export const monographQueryTool: MCPTool = {
   name: 'monograph_query',
   description:
-    'BM25 keyword search across the code knowledge graph. When MONOGRAPH_EMBEDDINGS=true uses hybrid BM25+vector ranking (RRF). Returns nodes with file path and line number.',
+    'Lexical keyword search across the code knowledge graph. mode=hybrid (default) ranks by ' +
+    'BM25 + LIKE fallback + subsequence fuzzy + node-type bonus; mode=bm25 is BM25 only. ' +
+    'Higher score = better match. Returns nodes with file path and line number.',
   inputSchema: {
     type: 'object',
     properties: {
       query: { type: 'string', description: 'Search terms' },
       limit: { type: 'number', description: 'Max results (default 20)' },
       label: { type: 'string', description: 'Filter by node type: Class, Function, Method, etc.' },
-      rerank: {
+      mode: {
+        type: 'string',
+        enum: ['bm25', 'hybrid'],
+        description: 'Retrieval mode (default: hybrid)',
+      },
+      expandNeighbors: {
         type: 'boolean',
         description:
-          'Apply HippoRAG-style PPR graph reranking to boost neighbors of top hits (default: true)',
+          'Add one hop of outgoing graph neighbors as supporting context, listed separately from direct matches (default: true)',
       },
       damping: {
         type: 'number',
-        description: 'PPR damping factor when rerank=true (0-1, default 0.5)',
+        description:
+          'Neighbor-boost factor when expandNeighbors=true — a neighbor inherits this fraction of the hit score (0-1, default 0.5)',
       },
       tokenBudget: {
         type: 'number',
@@ -45,11 +53,10 @@ export const monographQueryTool: MCPTool = {
     const dbPath = getDbPath();
     if (!_isValidDb(dbPath))
       return text('Monograph index not built yet. Run monograph_build first.');
-    const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
-    const { bm25Query } = await import('@monoes/monograph');
+    const { openDb, closeDb, searchGraph } = await import('@monoes/monograph');
     const db = openDb(dbPath);
     try {
-      // Cap limit: passed directly to SQLite queries and bm25Query; an
+      // Cap limit: passed directly to SQLite queries and searchGraph; an
       // unlimited value saturates memory with rows.
       const MAX_QUERY_LIMIT = 1_000;
       const rawLimit = (input.limit as number | undefined) ?? 20;
@@ -57,7 +64,7 @@ export const monographQueryTool: MCPTool = {
         Number.isFinite(rawLimit) && rawLimit > 0
           ? Math.min(Math.floor(rawLimit), MAX_QUERY_LIMIT)
           : 20;
-      // Cap query: passed to FTS5 and bm25Query; very long queries waste
+      // Cap query: passed to FTS5 via searchGraph; very long queries waste
       // parse time and can stress the FTS tokenizer.
       const MAX_MONOGRAPH_QUERY_LEN = 16 * 1024;
       const rawQuery = input.query as string;
@@ -66,56 +73,69 @@ export const monographQueryTool: MCPTool = {
           ? rawQuery.slice(0, MAX_MONOGRAPH_QUERY_LEN)
           : rawQuery;
       const label = input.label as string | undefined;
-      const rerank = (input.rerank as boolean | undefined) ?? true;
-      const damping = (input.damping as number | undefined) ?? 0.5;
+      const mode = input.mode === 'bm25' ? 'bm25' : 'hybrid';
+      const expandNeighbors = (input.expandNeighbors as boolean | undefined) ?? true;
+      const damping = input.damping as number | undefined;
       const tokenBudget = input.tokenBudget as number | undefined;
 
-      // P2-9/P2-10: Post-processing for token budget and reason annotations.
-      // Applied after all search paths below via a shared helper.
-      function annotateAndPrune(
-        results: Array<{
-          label: string;
-          name: string;
-          filePath?: string;
-          startLine?: number | null;
-          score: number;
-          boostedByNeighbors?: boolean;
-        }>,
-      ): string[] {
-        const lines = results.map((r) => {
+      // P2-9/P2-10: render results, prune to the token budget, and separate
+      // direct matches from graph-derived supporting context. A node whose
+      // displayed score was raised by a neighbor is never labelled a plain
+      // lexical match — that overstated how well it matched the query.
+      function render(results: ExpandedNode[]): string[] {
+        const rendered = results.map((r) => {
           const loc = r.filePath
             ? r.startLine != null
               ? `${r.filePath}:${r.startLine}`
               : r.filePath
             : '';
-          const tag = r.boostedByNeighbors ? ' [PPR-boosted]' : '';
           // P2-10: Agentic reason field — deterministic template, no LLM call.
-          const reasonParts: string[] = [];
-          reasonParts.push(`score: ${r.score.toFixed(3)}`);
-          if (r.boostedByNeighbors) reasonParts.push('boosted by graph neighbors');
-          else reasonParts.push('direct BM25 match');
-          const reason = `reason: ${reasonParts.join(', ')}`;
-          return `[${r.label}] ${r.name}  ${loc}  (${reason})${tag}`;
+          const why = r.isSupportingContext
+            ? 'reached via graph neighbor'
+            : r.scoreRaisedByNeighbors
+              ? `direct ${mode} match, score raised by graph neighbors`
+              : `direct ${mode} match`;
+          return {
+            node: r,
+            line: `[${r.label}] ${r.name}  ${loc}  (score: ${r.score.toFixed(3)}, ${why})`,
+          };
         });
-        // P2-9: Token-budget pruning — ~4 chars per token heuristic.
+
+        // P2-9: Token-budget pruning — ~4 chars per token heuristic. Prune in
+        // score order (lowest dropped first) before grouping into sections.
+        let kept = rendered;
+        let prunedCount = 0;
         if (tokenBudget && tokenBudget > 0) {
           let totalChars = 0;
-          const pruned: string[] = [];
-          for (const line of lines) {
-            // already sorted by score desc
-            const lineChars = line.length + 1; // +1 for newline
+          const fit: typeof rendered = [];
+          for (const entry of rendered) {
+            const lineChars = entry.line.length + 1; // +1 for newline
             if (totalChars + lineChars > tokenBudget * 4) break;
             totalChars += lineChars;
-            pruned.push(line);
+            fit.push(entry);
           }
-          if (pruned.length < lines.length) {
-            pruned.push(
-              `(${lines.length - pruned.length} more results pruned to fit token budget of ${tokenBudget})`,
-            );
-          }
-          return pruned;
+          prunedCount = rendered.length - fit.length;
+          kept = fit;
         }
-        return lines;
+
+        const direct = kept.filter((e) => !e.node.isSupportingContext);
+        const supporting = kept.filter((e) => e.node.isSupportingContext);
+        const out: string[] = [];
+        if (direct.length > 0) {
+          out.push(`Direct matches (${direct.length}):`);
+          for (const e of direct) out.push(`  ${e.line}`);
+        }
+        if (supporting.length > 0) {
+          if (out.length > 0) out.push('');
+          out.push(
+            `Supporting context — graph neighbors, not query matches (${supporting.length}):`,
+          );
+          for (const e of supporting) out.push(`  ${e.line}`);
+        }
+        if (prunedCount > 0) {
+          out.push(`(${prunedCount} more results pruned to fit token budget of ${tokenBudget})`);
+        }
+        return out;
       }
 
       const zeroResultHint =
@@ -133,66 +153,32 @@ export const monographQueryTool: MCPTool = {
         stalenessNote = `\n⚠ Index is ${staleness.commitsBehind} commit(s) behind HEAD${triggered ? ' — rebuild triggered' : ''}.`;
       }
 
-      if (process.env.MONOGRAPH_EMBEDDINGS === 'true') {
-        const results = await bm25Query(db, query, { limit: rerank ? limit * 2 : limit, label });
-        if (results.length === 0) return text(`No results found.${zeroResultHint}${stalenessNote}`);
-
-        if (rerank) {
-          const seeds: PprScoredNode[] = results.map((r) => ({
-            id: r.id,
-            name: r.name ?? r.id,
-            label: r.label ?? '?',
-            filePath: r.filePath ?? '',
-            startLine: r.startLine ?? null,
-            score: r.score,
-          }));
-          const reranked = applyPprRerank(db, seeds, damping, limit);
-          const lines = annotateAndPrune(reranked);
-          return text(lines.join('\n') + stalenessNote);
-        }
-
-        const lines = annotateAndPrune(
-          results.map((r) => ({
-            id: r.id,
-            label: r.label ?? '?',
-            name: r.name ?? r.id,
-            filePath: r.filePath ?? '',
-            startLine: r.startLine ?? null,
-            score: r.score,
-            boostedByNeighbors: false,
-          })),
-        );
-        return text(lines.join('\n') + stalenessNote);
-      }
-
-      const results = ftsSearch(db, query, rerank ? limit * 2 : limit, label);
+      // One retrieval path, shared with the package-level monograph_query tool.
+      // searchGraph returns monograph's single score convention (higher is
+      // better, never negative), so nothing here has to know about FTS5 rank.
+      const results = searchGraph(db, query, {
+        limit: expandNeighbors ? limit * 2 : limit,
+        label,
+        mode,
+      });
       if (results.length === 0) return text(`No results found.${zeroResultHint}${stalenessNote}`);
 
-      if (rerank) {
-        const seeds: PprScoredNode[] = results.map((r) => ({
-          id: r.id,
-          name: r.name,
-          label: r.label,
-          filePath: r.filePath ?? '',
-          startLine: r.startLine ?? null,
-          score: Math.abs(r.rank),
-        }));
-        const reranked = applyPprRerank(db, seeds, damping, limit);
-        const lines = annotateAndPrune(reranked);
-        return text(lines.join('\n') + stalenessNote);
-      }
+      const seeds: SeedNode[] = results.map((r) => ({
+        id: r.id,
+        name: r.name ?? r.id,
+        label: r.label ?? '?',
+        filePath: r.filePath ?? '',
+        startLine: r.startLine ?? null,
+        score: r.relevance,
+      }));
 
-      const lines = annotateAndPrune(
-        results.map((r) => ({
-          label: r.label,
-          name: r.name,
-          filePath: r.filePath ?? '',
-          startLine: r.startLine ?? null,
-          score: Math.abs(r.rank),
-          boostedByNeighbors: false,
-        })),
-      );
-      return text(lines.join('\n') + stalenessNote);
+      const ranked: ExpandedNode[] = expandNeighbors
+        ? expandWithNeighbors(db, seeds, damping ?? 0.5, limit, { label })
+        : seeds
+            .slice(0, limit)
+            .map((s) => ({ ...s, isSupportingContext: false, scoreRaisedByNeighbors: false }));
+
+      return text(render(ranked).join('\n') + stalenessNote);
     } finally {
       closeDb(db);
     }
@@ -244,12 +230,11 @@ export const monographSuggestTool: MCPTool = {
       return text(
         `Monograph index not built yet. Run monograph_build first.${stalenessAnnotation}`,
       );
-    const { openDb, closeDb } = await import('@monoes/monograph');
-    const { bm25Query } = await import('@monoes/monograph');
+    const { openDb, closeDb, searchGraph } = await import('@monoes/monograph');
     const db = openDb(dbPath);
     try {
       // Cap limit and task: limit is passed directly to SQL LIMIT clause;
-      // task is forwarded to bm25Query (embedding path) or FTS.
+      // task is forwarded to searchGraph.
       const MAX_SUGGEST_LIMIT = 1_000;
       const MAX_SUGGEST_TASK_LEN = 16 * 1024;
       const rawSuggestLimit = (input.limit as number | undefined) ?? 10;
@@ -280,15 +265,14 @@ export const monographSuggestTool: MCPTool = {
         return `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})${locHint}`;
       };
 
-      // When a task is provided, use BM25/FTS5 (via bm25Query) to find
+      // When a task is provided, use the shared retrieval service to find
       // relevant nodes and restrict the edge-level questions to them. This
-      // used to be gated behind MONOGRAPH_EMBEDDINGS=true, but bm25Query
-      // is BM25-only now (the embeddings table stayed empty in practice —
-      // see hybrid-query.ts) so the env var gated nothing and just left this
+      // used to be gated behind MONOGRAPH_EMBEDDINGS=true, which gated
+      // nothing once vector retrieval was removed and just left this
       // better-ranked path off unless a caller happened to know about it.
       let hitIds: string[] = [];
       if (task) {
-        const hits = await bm25Query(db, task, { limit: 20 });
+        const hits = searchGraph(db, task, { limit: 20 });
         const { SYMBOL_NODE_LABELS } = await import('@monoes/monograph');
         const relevantHits = preferSymbolHits(hits, SYMBOL_NODE_LABELS);
         hitIds = [...new Set(relevantHits.map((h) => h.id))];
