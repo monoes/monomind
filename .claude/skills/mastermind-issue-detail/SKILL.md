@@ -28,7 +28,7 @@ This skill is invoked by `mastermind:issue-detail` or directly via `/mastermind:
 ## Issue Status Flow
 
 ```
-open → in_progress → done
+todo → in_progress → in_review → done
          ↓
       blocked → in_progress
          ↓
@@ -52,7 +52,7 @@ orgFile=".monomind/orgs/${org_name}.json"
 [ ! -f "$orgFile" ] && { echo "ERROR: Org '${org_name}' not found."; exit 1; }
 
 issuesFile=".monomind/orgs/${org_name}-issues.json"
-[ ! -f "$issuesFile" ] && { echo "ERROR: No issues file for org '$org_name'. Create tasks via /mastermind:tasks."; exit 1; }
+[ ! -f "$issuesFile" ] && { echo "ERROR: No issues file for org '$org_name'. Create issues via /mastermind:issues --action create."; exit 1; }
 
 issueDef=$(jq -r --arg id "$issue_id" '(.issues // [])[] | select(.id == $id or .slug == $id)' "$issuesFile")
 [ -z "$issueDef" ] && { echo "ERROR: Issue '$issue_id' not found in org '$org_name'."; exit 1; }
@@ -62,6 +62,38 @@ activityFile=".monomind/orgs/${org_name}-activity.jsonl"
 threadFile=".monomind/orgs/${org_name}-threads.jsonl"
 days=${days:-14}
 cutoff=$(date -u -v-${days}d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "${days} days ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+```
+
+Normalize any legacy records written by a pre-2.10 version of these skills. Idempotent — safe to run on every load.
+
+```bash
+python3 - "$issuesFile" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+RENAME = {
+    "assignee_id": "assigneeId", "assigned_to": "assigneeId",
+    "created_at": "createdAt", "updated_at": "updatedAt",
+    "closed_at": "closedAt", "project_id": "projectId",
+    "parent_id": "parentId", "recovery_status": "recoveryStatus",
+    "lastActivityAt": "updatedAt",
+}
+changed = False
+for iss in data.get("issues", []):
+    for old, new in RENAME.items():
+        if old in iss:
+            iss.setdefault(new, iss.pop(old))
+            iss.pop(old, None)
+            changed = True
+    if iss.get("status") == "open":
+        iss["status"] = "todo"
+        changed = True
+if changed:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    import os; os.replace(tmp, path)
+PYEOF
 ```
 
 ---
@@ -77,16 +109,17 @@ echo "────────────────────────�
 echo "$issueDef" | jq -r '
   "  ID:            \(.id)",
   "  Title:         \(.title // "(no title)")",
-  "  Status:        \(.status // "open")",
+  "  Status:        \(.status // "todo")",
   "  Priority:      \(.priority // "medium")",
-  "  Assignee:      \(.assignee_id // "(unassigned)")",
-  "  Project:       \(.project_id // "(none)")",
-  "  Created:       \(.created_at // "-")",
-  "  Updated:       \(.updated_at // "-")"
+  "  Assignee:      \(.assigneeId // "(unassigned)")",
+  "  Agent:         \(.assigneeAgentId // "(none)")",
+  "  Project:       \(.projectId // "(none)")",
+  "  Created:       \(.createdAt // "-")",
+  "  Updated:       \(.updatedAt // "-")"
 '
 
 # Sub-issues
-subCount=$(jq --arg pid "$resolvedId" '[(.issues // [])[] | select(.parent_id == $pid)] | length' "$issuesFile" 2>/dev/null || echo 0)
+subCount=$(jq --arg pid "$resolvedId" '[(.issues // [])[] | select(.parentId == $pid)] | length' "$issuesFile" 2>/dev/null || echo 0)
 echo "  Sub-issues:    $subCount"
 
 # Attachments
@@ -94,7 +127,7 @@ attCount=$(echo "$issueDef" | jq -r '(.attachments // []) | length')
 echo "  Attachments:   $attCount"
 
 # Recovery
-recoveryStatus=$(echo "$issueDef" | jq -r '.recovery_status // "none"')
+recoveryStatus=$(echo "$issueDef" | jq -r '.recoveryStatus // "none"')
 [ "$recoveryStatus" != "none" ] && echo "" && echo "  RECOVERY STATUS: $recoveryStatus"
 
 # Description
@@ -169,15 +202,15 @@ printf "%-24s %-12s %-10s %s\n" "ID" "STATUS" "PRIORITY" "TITLE"
 echo "────────────────────────────────────────────────────────"
 
 count=0
-jq -r --arg pid "$resolvedId" '(.issues // [])[] | select(.parent_id == $pid) |
-  [.id, (.status // "open"), (.priority // "medium"), (.title // "(no title)")] | @tsv' \
+jq -r --arg pid "$resolvedId" '(.issues // [])[] | select(.parentId == $pid) |
+  [.id, (.status // "todo"), (.priority // "medium"), (.title // "(no title)")] | @tsv' \
   "$issuesFile" 2>/dev/null | while IFS=$'\t' read -r id st pri title; do
   printf "%-24s %-12s %-10s %s\n" "$id" "$st" "$pri" "$title"
   count=$((count + 1))
 done
 
 echo ""
-echo "To create a sub-issue: /mastermind:tasks --org $org_name --action create --parent-id $issue_id"
+echo "To create a sub-issue: /mastermind:issues --org $org_name --action create --title '<title>' --parent-id $issue_id"
 ```
 
 ### attachments
@@ -221,10 +254,16 @@ exists=$(jq --arg id "$assignee_id" '[(.roles // [])[] | select(.id == $id)] | l
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg ag "$assignee_id" --arg ts "$ts" \
-  '.issues = [(.issues // [])[] | if .id == $id then .assignee_id = $ag | .updated_at = $ts else . end]' \
+  '.issues = [(.issues // [])[] | if .id == $id then .assigneeId = $ag | .assigneeAgentId = $ag | .assigneeUserId = null | .updatedAt = $ts else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 
 echo "Issue '$issue_id' assigned to '$assignee_id'."
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+currentStatus=$(jq -r --arg id "$resolvedId" '(.issues // [])[] | select(.id == $id) | .status // "todo"' "$issuesFile")
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "$currentStatus" --arg ag "$assignee_id" --arg sm "assign $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"assign", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### close
@@ -233,9 +272,14 @@ echo "Issue '$issue_id' assigned to '$assignee_id'."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg ts "$ts" \
-  '.issues = [(.issues // [])[] | if .id == $id then .status = "done" | .updated_at = $ts | .closed_at = $ts else . end]' \
+  '.issues = [(.issues // [])[] | if .id == $id then .status = "done" | .updatedAt = $ts | .closedAt = $ts else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 echo "Issue '$issue_id' → done (closed at $ts)."
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "done" --arg ag "operator" --arg sm "close $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"close", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### reopen
@@ -244,9 +288,14 @@ echo "Issue '$issue_id' → done (closed at $ts)."
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg ts "$ts" \
-  '.issues = [(.issues // [])[] | if .id == $id then .status = "open" | .updated_at = $ts | .closed_at = null else . end]' \
+  '.issues = [(.issues // [])[] | if .id == $id then .status = "todo" | .updatedAt = $ts | .closedAt = null else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 echo "Issue '$issue_id' → reopened."
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "todo" --arg ag "operator" --arg sm "reopen $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"reopen", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### recover
@@ -263,12 +312,17 @@ newStatus=$([ "$recovery_action" = "accept" ] && echo "in_progress" || echo "can
 tmp="${issuesFile}.tmp"
 jq --arg id "$resolvedId" --arg st "$newStatus" --arg ts "$ts" --arg ra "$recovery_action" \
   '.issues = [(.issues // [])[] | if .id == $id then
-     .status = $st | .recovery_status = $ra | .updated_at = $ts
+     .status = $st | .recoveryStatus = $ra | .updatedAt = $ts
    else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 
 echo "Recovery action '$recovery_action' applied to '$issue_id'."
 echo "  New status: $newStatus"
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "$newStatus" --arg ag "operator" --arg sm "recover $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"recover", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ---

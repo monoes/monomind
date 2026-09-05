@@ -30,7 +30,7 @@ Execute at the START of every mastermind run (master or standalone domain comman
 
 **Step A — Tier 3 core principles (all domains):**
 Try `mcp__monomind__memory_hierarchical-recall` with query `"mastermind principles"`, topK 20.
-If it returns `"LanceDB bridge not available"` or any error, fall back to:
+If it returns an error, fall back to:
 `mcp__monomind__memory_pattern-search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
 Record the entry ids of whichever call actually returned results — `results[].id` from `memory_hierarchical-recall`, or `patterns[].id` from the `memory_pattern-search` fallback — into a running list: `recalled_entry_ids`.
 
@@ -87,7 +87,7 @@ Try `mcp__monomind__memory_hierarchical-store` with:
 - content: [full unified output schema YAML from this run, as a string]
 - metadata: `{ score, project, run_id, date: ISO8601, domain }`
 
-If LanceDB is unavailable, fall back to `mcp__monomind__memory_pattern-store`:
+If hierarchical storage is unavailable, fall back to `mcp__monomind__memory_pattern-store`:
 - key: `mastermind:<domain>:run:<run_id>`
 - value: [JSON-encoded unified output schema]
 - namespace: `mastermind:<domain>:raw`
@@ -95,7 +95,7 @@ If LanceDB is unavailable, fall back to `mcp__monomind__memory_pattern-store`:
 
 **Step 3 — Check weekly compaction trigger:**
 Try `mcp__monomind__memory_health` on namespace `mastermind:<domain>:raw`.
-If unavailable, call `mcp__monomind__memory_stats` and check entry count manually.
+If unavailable, call `mcp__monomind__memory_health` and check entry count manually.
 If `entry_count >= 20` OR `days_since_last_compaction >= 7`:
 1. Retrieve all Tier 1 entries since last compaction
 2. Produce a per-domain weekly summary (use LLM synthesis: "Summarize the key decisions, patterns, and lessons from these run logs in under 300 words")
@@ -107,7 +107,7 @@ Call `mcp__monomind__monograph_community` for nodes matching `mastermind:<domain
 If 3+ similar memory nodes are detected in a cluster:
 1. Merge into a single principle via LLM: "Distill these memories into one clear principle in 1-2 sentences"
 2. Store principle: `mcp__monomind__memory_hierarchical-store` namespace `mastermind:principles`
-3. Add `EXCEPTION` edge in Monograph for any conflicting memory: `mcp__monomind__monograph_add_fact`
+3. Add `EXCEPTION` edge in Monograph for any conflicting memory: `mcp__monomind__memory_kg_ingest`
 
 ---
 
