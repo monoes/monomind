@@ -64,6 +64,38 @@ issuesFile=".monomind/orgs/${org_name}-issues.json"
 stateFile=".monomind/orgs/${org_name}-state.json"
 ```
 
+Normalize any legacy records written by a pre-2.10 version of these skills. Idempotent — safe to run on every load. Guarded because this skill tolerates a missing issues file.
+
+```bash
+[ -f "$issuesFile" ] && python3 - "$issuesFile" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+RENAME = {
+    "assignee_id": "assigneeId", "assigned_to": "assigneeId",
+    "created_at": "createdAt", "updated_at": "updatedAt",
+    "closed_at": "closedAt", "project_id": "projectId",
+    "parent_id": "parentId", "recovery_status": "recoveryStatus",
+    "lastActivityAt": "updatedAt",
+}
+changed = False
+for iss in data.get("issues", []):
+    for old, new in RENAME.items():
+        if old in iss:
+            iss.setdefault(new, iss.pop(old))
+            iss.pop(old, None)
+            changed = True
+    if iss.get("status") == "open":
+        iss["status"] = "todo"
+        changed = True
+if changed:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    import os; os.replace(tmp, path)
+PYEOF
+```
+
 ---
 
 ## Step 2 — Execute Action
@@ -108,35 +140,44 @@ now = datetime.utcnow()
 
 for iss in issues:
     status = iss.get("status","")
-    if status in terminal_statuses or status not in non_terminal_statuses:
+    iid    = iss.get("id","?")
+    title  = (iss.get("title") or "?")[:50]
+
+    if status in terminal_statuses:
+        continue
+    if status not in non_terminal_statuses:
+        # Silently skipping an unknown status is how issues become invisible.
+        warnings.append((iid, title, status, f"unknown status '{status}' — outside the canonical vocabulary"))
         continue
 
-    aId = iss.get("assigneeAgentId") or iss.get("assigneeId")
+    aId = iss.get("assigneeAgentId")
     uId = iss.get("assigneeUserId")
-    iid = iss.get("id","?")
-    title = iss.get("title","?")[:50]
 
-    # User-owned: skip strict execution checks
+    # Human-owned: the next move belongs to a person, not an execution path.
     if uId and not aId:
         healthy.append((iid, title, status, "user-owned"))
         continue
 
-    # Evaluate liveness
     paths = []
 
     run_id = iss.get("executionRunId") or iss.get("checkoutRunId")
     if run_id and run_id in active_runs:
         paths.append("active-run")
 
+    resolved_ids = {i.get("id") for i in issues if i.get("status") in terminal_statuses}
     blockers = iss.get("blockedByIssueIds") or []
-    if status == "blocked" and blockers:
-        unresolved = [b for b in blockers if b not in
-                      {i["id"] for i in issues if i.get("status") in terminal_statuses}]
-        if unresolved:
-            paths.append(f"blocked-by:{','.join(unresolved[:2])}")
-        else:
-            # All blockers resolved — should transition
-            warnings.append((iid, title, status, "all blockers resolved but issue still blocked"))
+    if status == "blocked":
+        if blockers:
+            unresolved = [b for b in blockers if b not in resolved_ids]
+            if unresolved:
+                paths.append(f"blocked-by:{','.join(unresolved[:2])}")
+            else:
+                warnings.append((iid, title, status, "all blockers resolved but issue still blocked"))
+        elif not iss.get("recoveryActions"):
+            # Liveness Contract: blocked requires a named dependency or an
+            # explicit human decision. This issue records neither.
+            stalled.append((iid, title, status, "blocked with no blockedByIssueIds and no recovery action"))
+            continue
 
     if iss.get("executionPolicy", {}).get("monitor", {}).get("nextCheckAt"):
         paths.append("monitor")
@@ -150,7 +191,10 @@ for iss in issues:
     if iss.get("currentParticipant"):
         paths.append("participant")
 
-    # Stale heartbeat check (in_progress with no run and no recent update)
+    if status == "in_review" and not (iss.get("reviewerId") or iss.get("currentParticipant")):
+        stalled.append((iid, title, status, "in_review with no named reviewer"))
+        continue
+
     if status == "in_progress" and aId and not paths:
         updated = iss.get("updatedAt","")
         if updated:
@@ -159,16 +203,19 @@ for iss in issues:
                 if age > timedelta(hours=2):
                     stalled.append((iid, title, status, f"in_progress {int(age.total_seconds()//3600)}h with no active path"))
                     continue
-            except: pass
+            except Exception:
+                pass
         stalled.append((iid, title, status, "in_progress with no active execution path"))
         continue
 
-    if not paths and status == "todo" and aId:
-        warnings.append((iid, title, status, "todo assigned to agent — may need wakeup"))
-    elif paths:
+    if paths:
         healthy.append((iid, title, status, " + ".join(paths)))
+    elif not aId:
+        warnings.append((iid, title, status, "no assignee — nothing will pick this up"))
+    elif status == "todo":
+        warnings.append((iid, title, status, "todo assigned to agent — may need wakeup"))
     else:
-        healthy.append((iid, title, status, "no agent assignee"))
+        stalled.append((iid, title, status, f"{status} with an agent assignee but no execution path"))
 
 print(f"  ✓ Healthy: {len(healthy)}")
 if healthy:
@@ -206,7 +253,7 @@ Claim an issue for execution by an agent run. Sets `checkoutRunId` and `executio
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 python3 - "$issuesFile" "$issue_id" "$agent_id" "$run_id" "$ts" <<'PYEOF'
-import json, sys
+import json, os, sys
 
 path, iid, agentId, runId, ts = sys.argv[1:]
 data = json.load(open(path))
@@ -224,6 +271,7 @@ for iss in issues:
         iss["executionRunId"] = runId
         iss["assigneeId"]     = agentId
         iss["assigneeAgentId"]= agentId
+        iss["assigneeUserId"] = None
         iss["status"]         = "in_progress"
         iss["checkedOutAt"]   = ts
         iss["updatedAt"]      = ts
@@ -237,9 +285,16 @@ if not found:
     sys.exit(1)
 
 data["issues"] = issues
-with open(path, "w") as f:
+tmp = path + ".tmp"
+with open(tmp, "w") as f:
     json.dump(data, f, indent=2)
+os.replace(tmp, path)
 PYEOF
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$issue_id" --arg ts "$ts" --arg st "in_progress" --arg ag "$agent_id" --arg sm "checkout $issue_id" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"checkout", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### release
@@ -269,13 +324,21 @@ for iss in issues:
         print(f"  RELEASED: Checkout cleared for issue {iid}")
         print(f"  Status remains: {iss.get('status','?')} — update separately if needed.")
         data["issues"] = issues
-        with open(path, "w") as f:
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
             json.dump(data, f, indent=2)
+        os.replace(tmp, path)
         sys.exit(0)
 
 print(f"  ERROR: Issue '{iid}' not found.")
 sys.exit(1)
 PYEOF
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+currentStatus=$(jq -r --arg id "$issue_id" '(.issues // [])[] | select(.id == $id) | .status // "todo"' "$issuesFile")
+jq -cn --arg iid "$issue_id" --arg ts "$ts" --arg st "$currentStatus" --arg ag "${agent_id:-operator}" --arg sm "release $issue_id" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"release", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### wakeup
@@ -296,7 +359,7 @@ if not iss:
     print(f"  ERROR: Issue '{iid}' not found.")
     sys.exit(1)
 
-checkout_agent = iss.get("assigneeAgentId") or iss.get("assigneeId","")
+checkout_agent = iss.get("assigneeAgentId") or ""
 checkout_run   = iss.get("checkoutRunId","")
 
 # Port of Paperclip's shouldWakeAssigneeOnCheckout logic
@@ -338,7 +401,7 @@ ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 recoveryId="recovery-$(python3 -c 'import time; print(int(time.time()*1000))')"
 
 python3 - "$issuesFile" "$issue_id" "$recoveryId" "${agent_id:-operator}" "$reason" "$ts" <<'PYEOF'
-import json, sys
+import json, os, sys
 
 path, iid, rid, owner, cause, ts = sys.argv[1:]
 data = json.load(open(path))
@@ -359,8 +422,10 @@ for iss in issues:
         iss["status"] = "blocked"
         iss["updatedAt"] = ts
         data["issues"] = issues
-        with open(path, "w") as f:
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
             json.dump(data, f, indent=2)
+        os.replace(tmp, path)
         print(f"  RECOVERY ACTION FILED: {rid}")
         print(f"  Issue {iid} → status: blocked (pending recovery)")
         print(f"  Owner: {owner}")
@@ -371,6 +436,11 @@ for iss in issues:
 print(f"  ERROR: Issue '{iid}' not found.")
 sys.exit(1)
 PYEOF
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$issue_id" --arg ts "$ts" --arg st "blocked" --arg ag "${agent_id:-operator}" --arg sm "recover $issue_id" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"recover", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ---

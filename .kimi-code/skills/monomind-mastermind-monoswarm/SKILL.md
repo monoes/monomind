@@ -119,16 +119,16 @@ npx monomind monoswarm scale swarm-abc123 --agents 8 --type coder
 
 ```javascript
 // Initialize swarm
-mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
+mcp__monomind__monoswarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
 
 // Check status
-mcp__monomind__swarm_status({})
+mcp__monomind__monoswarm_status({})
 
 // Health check
-mcp__monomind__swarm_health({})
+mcp__monomind__monoswarm_health({})
 
 // Shutdown swarm
-mcp__monomind__swarm_shutdown({})
+mcp__monomind__monoswarm_shutdown({})
 ```
 
 ## Agent Team Routing

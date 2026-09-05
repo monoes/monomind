@@ -192,7 +192,7 @@ Use words Claude would search for:
 ```markdown
 # GOOD: Explicit requirement marker
 **REQUIRED SUB-SKILL:** Use Skill("mastermind-worktree")
-**REQUIRED BACKGROUND:** You MUST understand Skill("mastermind-finish")
+**REQUIRED BACKGROUND:** You MUST understand Skill("mastermind-review")
 
 # BAD: Unclear if required
 See mastermind/worktree.md
