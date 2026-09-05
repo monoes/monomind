@@ -4,6 +4,7 @@
 import { createHash } from 'node:crypto';
 import type { AgentRuntime, RunningOrg } from './daemon.js';
 import { isRecoverableCloseReason } from './mailbox.js';
+import type { OrgTask } from './task-dag.js';
 
 /** Checkpoint state for a single agent role */
 export interface RoleCheckpoint {
@@ -47,6 +48,9 @@ export interface OrgCheckpoint {
   pendingRoles: string[];
   /** Roles that failed resource gates and won't spawn */
   abandonedRoles: string[];
+  /** TaskDag snapshot (TaskDag.toJSON()), so resume can rehydrate it via
+   *  TaskDag.fromJSON() instead of discarding all task state. */
+  tasks?: OrgTask[];
   /** Checksum for state validation */
   checksum: string;
 }
@@ -100,6 +104,7 @@ export function captureCheckpoint(
     roleState,
     pendingRoles,
     abandonedRoles,
+    tasks: org.taskDag?.toJSON(),
   };
 
   // Generate checksum over all state

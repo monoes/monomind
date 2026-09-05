@@ -41,3 +41,6 @@ no curl emissions, no delivery gaps.
 7. **Never** spawn a boss Task agent, create monotask boards, or emit
    dashboard events manually. If the user explicitly asks for the legacy
    behavior, direct them to `/mastermind:runorgv1` (deprecated).
+
+The org runtime does not read `<org>-issues.json`. Work is driven by the org
+definition's roles and goal plus an optional `--task` string.
