@@ -21,6 +21,13 @@ const DEFAULT_IGNORE = new Set([
   '.claude-plugin',
   '.github',
   '.githooks',
+  '.next',
+  '.nuxt',
+  '.svelte-kit',
+  '.turbo',
+  '.vercel',
+  '.wrangler',
+  '.open-next',
 ]);
 
 const BINARY_EXTENSIONS = new Set([

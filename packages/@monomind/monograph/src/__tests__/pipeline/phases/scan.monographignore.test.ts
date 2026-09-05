@@ -51,3 +51,29 @@ describe('scanPhase .monographignore', () => {
     expect(names.some((n: string) => n.includes('generated'))).toBe(false);
   });
 });
+
+describe('scanPhase DEFAULT_IGNORE', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'scan-default-ignore-test-'));
+    writeFileSync(join(tmpDir, 'app.ts'), 'export const x = 1;');
+    for (const dir of ['.next', '.nuxt', '.svelte-kit', '.turbo', '.vercel', '.wrangler', '.open-next']) {
+      mkdirSync(join(tmpDir, dir));
+      writeFileSync(join(tmpDir, dir, 'generated.js'), 'module.exports = {};');
+    }
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('skips framework build/cache directories by default', async () => {
+    const out = await scanPhase.execute(makeCtx(tmpDir), new Map());
+    const names = out.filePaths.map((p: string) => p.replace(tmpDir, ''));
+    for (const dir of ['.next', '.nuxt', '.svelte-kit', '.turbo', '.vercel', '.wrangler', '.open-next']) {
+      expect(names.some((n: string) => n.includes(dir))).toBe(false);
+    }
+    expect(names.some((n: string) => n.includes('app.ts'))).toBe(true);
+  });
+});
