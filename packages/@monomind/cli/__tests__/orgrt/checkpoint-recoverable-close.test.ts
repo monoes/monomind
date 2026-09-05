@@ -47,7 +47,6 @@ function checkpoint(roleState: RoleCheckpoint): OrgCheckpoint {
     updated: new Date(0).toISOString(),
     roleState: { boss: roleState },
     pendingRoles: [],
-    abandonedRoles: [],
     checksum: 'unused-in-this-test',
   };
 }

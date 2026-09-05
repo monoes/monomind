@@ -46,8 +46,6 @@ export interface OrgCheckpoint {
   roleState: Record<string, RoleCheckpoint>;
   /** Roles not yet spawned (lazy spawn) */
   pendingRoles: string[];
-  /** Roles that failed resource gates and won't spawn */
-  abandonedRoles: string[];
   /** TaskDag snapshot (TaskDag.toJSON()), so resume can rehydrate it via
    *  TaskDag.fromJSON() instead of discarding all task state. */
   tasks?: OrgTask[];
@@ -71,7 +69,6 @@ export function captureCheckpoint(
 ): OrgCheckpoint {
   const roleState: Record<string, RoleCheckpoint> = {};
   const pendingRoles: string[] = [];
-  const abandonedRoles: string[] = [];
 
   // Capture state for each running agent
   for (const [roleId, runtime] of org.agents) {
@@ -103,7 +100,6 @@ export function captureCheckpoint(
     updated: new Date().toISOString(),
     roleState,
     pendingRoles,
-    abandonedRoles,
     tasks: org.taskDag?.toJSON(),
   };
 
