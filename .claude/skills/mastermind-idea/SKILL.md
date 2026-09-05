@@ -172,9 +172,16 @@ user_market_agents=$(jq \
      | {name: .name, slug: .slug, category: .category,
         score: (
           (.name | ascii_downcase) as $n |
-          # Score on ANY keyword match (mirrors master.md pick_domain_manager scoring)
+          (.description // "" | ascii_downcase) as $desc |
+          # Score keyword matches against both name (weight 2) and description (weight 1) —
+          # name match is a stronger signal (mirrors master.md pick_domain_manager scoring).
+          # Bind each word to $w before contains(): piping into contains(.) rebinds "." to the
+          # piped value, which would silently match everything.
           (if ($kw | length) > 0
-           then ([$kw | split(" ")[] | select(length > 0) | if ($n | contains(.)) then 1 else 0 end] | add // 0)
+           then ([$kw | split(" ")[] | select(length > 0) | . as $w |
+                  (if ($n | contains($w)) then 2 else 0 end) +
+                  (if ($desc | contains($w)) then 1 else 0 end)
+                 ] | add // 0)
            else 0 end)
         )}
    ] | sort_by(-.score) | unique_by(.slug) | .[0:$n] | [.[].name]' \
