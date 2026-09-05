@@ -48,14 +48,14 @@ Match the intent against this catalog. Pick ONE primary route, plus supporting s
 | Intent | Primary route |
 |---|---|
 | Fix a bug, test failure, unexpected behavior | `Skill("mastermind-debug")` → root cause first, then fix |
-| Build a feature / implement anything | `Skill("mastermind-design")` → spec, then `Skill("mastermind-build")` |
-| Plan before coding | `Skill("mastermind-plan")` (write) / `Skill("mastermind-execute")` or `Skill("mastermind-taskdev")` (run) |
-| TDD workflow | `Skill("mastermind-tdd")` |
-| Refactor / architecture / DDD / dedup | `Skill("mastermind-architect")` |
+| Build a feature / implement anything | `Skill("mastermind-design")` → spec, then `Skill("mastermind-plan")` → `Skill("mastermind-execute")` |
+| Plan before coding | `Skill("mastermind-plan")` (write) / `Skill("mastermind-execute")` (run) |
+| TDD workflow | `Skill("mastermind-debug")` (Phase 4 covers the failing-test-first loop) |
+| Refactor / architecture / DDD / dedup | `Skill("mastermind-design")` |
 | Code review, audit quality | `Skill("mastermind-review")`; apply one received: `Skill("mastermind-receive-review")` |
-| Verify a claim ("it works", "tests pass") | `Skill("mastermind-verify")` |
-| Autonomous improve-loop | `Skill("mastermind-autodev")` (`--tillend` for until-clean) |
-| Finish/merge/PR a branch | `Skill("mastermind-finish")`; release/versioning: `Skill("mastermind-release")` |
+| Verify a claim ("it works", "tests pass") | `Skill("mastermind-review")` |
+| Autonomous improve-loop | `Skill("mastermind-execute")`, re-invoking `Skill("mastermind-review")` between passes until clean |
+| Finish/merge/PR a branch | `Skill("mastermind-review")`; release/versioning: `Skill("mastermind-release")` |
 | Isolate risky work | `Skill("mastermind-worktree")` |
 | Spec → agent task file/board | `Skill("mastermind-createtask")`, execute with `Skill("mastermind-do")` |
 

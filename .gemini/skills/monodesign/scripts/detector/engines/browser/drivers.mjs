@@ -28,7 +28,11 @@
 // Selection: MONODESIGN_BROWSER_DRIVER=monobrowse|puppeteer forces one;
 // otherwise monobrowse is tried first and puppeteer is the fallback.
 
+import { Socket } from 'node:net';
+
 const DRIVER_ENV = 'MONODESIGN_BROWSER_DRIVER';
+const CDP_PORT_RELEASE_TIMEOUT_MS = 5_000;
+const CDP_PORT_RELEASE_POLL_MS = 25;
 
 // Ports we launch headless Chrome on for detection runs. Deliberately away
 // from 9222 (the default `monomind browse` port): we must never attach to a
@@ -54,6 +58,30 @@ function withTimeout(promise, ms, label) {
     handle.unref?.();
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(handle));
+}
+
+function isPortListening(port) {
+  return new Promise((resolve) => {
+    const socket = new Socket();
+    const done = (listening) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(listening);
+    };
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+    socket.setTimeout(250, () => done(false));
+    socket.connect(port, '127.0.0.1');
+  });
+}
+
+async function waitForCdpPortRelease(port) {
+  const deadline = Date.now() + CDP_PORT_RELEASE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (!(await isPortListening(port))) return;
+    await new Promise(resolve => setTimeout(resolve, CDP_PORT_RELEASE_POLL_MS));
+  }
+  throw new Error(`Chrome did not release CDP port ${port} within ${CDP_PORT_RELEASE_TIMEOUT_MS}ms`);
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +210,11 @@ async function launchMonobrowseBrowser(options = {}) {
           // Browser.close command directly (best effort, short timeout).
           await withTimeout(control.client.send('Browser.close', {}), 3000, 'Browser.close').catch(() => {});
         }
+        // Browser.close is acknowledged before Chrome has actually exited. A
+        // following detection run on a forced port can otherwise attach to the
+        // shutting-down process and fail creating its first target. Do not
+        // expose close() as complete until that CDP listener is gone.
+        await waitForCdpPortRelease(launchedPort);
       } finally {
         control.client.close();
       }
