@@ -86,11 +86,7 @@ describe('Codex init artifacts', () => {
     fs.mkdirSync(codexDir);
     fs.writeFileSync(path.join(codexDir, 'config.toml'), '[tui]\n# monomind:start native-hooks\n');
 
-    await writeCodexFiles(
-      targetDir,
-      { ...codexOptions(targetDir), force: true },
-      createResult(),
-    );
+    await writeCodexFiles(targetDir, { ...codexOptions(targetDir), force: true }, createResult());
 
     const config = fs.readFileSync(path.join(codexDir, 'config.toml'), 'utf8');
     expect(config).toContain('[features]\nhooks = true');

