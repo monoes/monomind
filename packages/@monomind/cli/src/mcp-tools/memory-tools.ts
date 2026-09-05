@@ -385,7 +385,7 @@ export const memoryKgIngest: MCPTool = {
 export const memoryKgSearch: MCPTool = {
   name: 'memory_kg_search',
   description:
-    'Search the knowledge graph: vector-seeded entities expanded to ranked relationship triplets. Returns rendered context lines plus seed entry ids (rate them via memory_feedback).',
+    'Search the memory knowledge graph (remembered entities and relations — not the Monograph code graph): entities are seeded via the memory bridge (semantic when embeddings are available, keyword otherwise) and expanded to ranked relationship triplets. Returns rendered context lines plus seed entry ids (rate them via memory_feedback).',
   inputSchema: {
     type: 'object',
     properties: {
