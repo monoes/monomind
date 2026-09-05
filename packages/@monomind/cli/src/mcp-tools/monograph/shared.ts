@@ -250,7 +250,10 @@ export function triggerBackgroundBuildIfNeeded(
   if (_buildInProgress) return false;
   _buildInProgress = true;
   void import('@monoes/monograph')
-    .then(({ buildAsync }) => buildAsync(repoPath, { codeOnly: true }))
+    // No `codeOnly` here on purpose: the build reuses the scope the index was
+    // last built with. Forcing `codeOnly: true` made this refresh delete every
+    // previously-indexed Document node, silently narrowing the graph.
+    .then(({ buildAsync }) => buildAsync(repoPath))
     .catch((e) => {
       if (process.env.DEBUG || process.env.MONOMIND_DEBUG)
         console.error('[triggerBackgroundBuildIfNeeded] staleness-triggered rebuild failed:', e);
