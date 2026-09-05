@@ -57,15 +57,22 @@ export interface AgentRunArgs {
  *  renders it as chat or usage — it only feeds the StateDetector (which maps
  *  it to the 'tool-call' state) and refreshes last-activity. Subprocess
  *  runners (kimicode) emit it for native tool activity so long turns show
- *  ongoing progress instead of looking silent. */
+ *  ongoing progress instead of looking silent.
+ *
+ *  `input_tokens`/`output_tokens` on an 'assistant' message are that ONE
+ *  model turn's real token usage (from the Claude SDK's BetaMessage.usage),
+ *  as opposed to the 'result' message's usage, which the SDK's own type docs
+ *  describe as per-turn (i.e. just the last turn) rather than a cumulative
+ *  total for the whole streaming-input message — see session.ts's
+ *  per-assistant-turn budget accounting for why this distinction matters. */
 export interface AgentMessage {
   type: 'assistant' | 'result' | 'tool_use';
   session_id?: string;
   text?: string; // assistant (prose) / tool_use (short progress label)
   subtype?: string; // result
   is_error?: boolean; // result
-  input_tokens?: number; // result
-  output_tokens?: number; // result
+  input_tokens?: number; // result, assistant (that turn's own usage)
+  output_tokens?: number; // result, assistant (that turn's own usage)
   cost_usd?: number; // result
 }
 
@@ -145,7 +152,13 @@ export class ClaudeAgentRunner implements AgentRunner {
           .filter((b: any) => b.type === 'text')
           .map((b: any) => b.text)
           .join('\n');
-        yield { type: 'assistant', session_id, text };
+        yield {
+          type: 'assistant',
+          session_id,
+          text,
+          input_tokens: m.message?.usage?.input_tokens,
+          output_tokens: m.message?.usage?.output_tokens,
+        };
       } else if (m.type === 'result') {
         yield {
           type: 'result',

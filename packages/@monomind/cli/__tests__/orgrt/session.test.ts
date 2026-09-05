@@ -361,6 +361,51 @@ describe('runAgentSession', () => {
     expect(costs[1]).toBe(0); // dip floored at 0, NOT re-added as ~1.0 (which would ~double-count usage)
   });
 
+  it('trips the token budget DURING a runaway message, not only after it completes', async () => {
+    // Regression (HIGH): policy.used only updated once per WHOLE mailbox
+    // message, on the terminal 'result' - which in streaming-input mode
+    // arrives only after every internal model/tool turn of that message has
+    // already happened (max_turns_per_message defaults to 100,000). A single
+    // message could blow through the budget many times over before the check
+    // ever ran. Each 'assistant' SDK message now carries its own turn's real
+    // usage, so overBudget must trip mid-message - long before the 5th turn
+    // or the terminal result arrives, not after the full overspend completes.
+    const bus = new OrgBus('o', 'r', dir());
+    const policy = new PolicyEngine('coder', { maxTokens: 120 }, bus, '/work');
+    const usageAtEachTrip: number[] = [];
+    bus.subscribe(e => {
+      if (e.type === 'status' && e.reason === 'budget-exhausted') usageAtEachTrip.push(policy.usage);
+    });
+    const mailbox = new Mailbox();
+    mailbox.push('do a huge amount of internal tool-call work');
+
+    // Simulates the SDK's model looping through many internal turns for this
+    // ONE message before ever finishing: 5 turns of 50 tokens each (250
+    // total, unchecked) plus a terminal result - but maxTokens is 120, so
+    // overBudget must trip on the 3rd turn (150 >= 120), long before turn 5
+    // or the result.
+    const fakeQuery = ({ prompt }: any) => (async function* () {
+      for await (const _ of prompt) break; // consume the one real message
+      for (let i = 0; i < 5; i++) {
+        yield { type: 'assistant', message: { content: [], usage: { input_tokens: 40, output_tokens: 10 } } };
+      }
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 5, output_tokens: 5 }, total_cost_usd: 0.01 };
+    })();
+
+    await runAgentSession({
+      org: 'o', role: { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: [] } as any,
+      bus, policy, mailbox, cwd: '/work',
+      deliver: async () => 'delivered',
+      queryFn: fakeQuery as any,
+    });
+
+    expect(mailbox.closeReason).toBe('token-budget'); // closed by the session itself, mid-message
+    expect(usageAtEachTrip[0]).toBe(150); // tripped at turn 3 (150), not turn 5 or later (200/250)
+    // The 'result' message's own usage (10 tokens) is NOT double-added on top
+    // of the 250 already accounted for turn-by-turn above.
+    expect(policy.usage).toBe(250);
+  });
+
   it('buildRolePrompt names the role, goal, and org_send protocol', () => {
     const p = buildRolePrompt(
       { id: 'coder', title: 'Coder', type: 'specialist', reports_to: 'boss', responsibilities: ['write code'] } as any,

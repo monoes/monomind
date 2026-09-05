@@ -375,6 +375,13 @@ export class OrgDaemon {
     Array<{
       roleId: string;
       action: string;
+      /** Fingerprint of the tool call's actual arguments (e.g. the Bash command,
+       *  the WebFetch url) — see approvals.ts's checkApproval. Distinguishes a
+       *  materially different call from one already approved/pending under the
+       *  same (roleId, action), so one human approval can't silently authorize
+       *  every future call to that tool. Optional only so pre-fix entries
+       *  loaded from an old approvals.json don't fail to parse. */
+      fingerprint?: string;
       question: string;
       ts: number;
       approved: boolean | null;
@@ -1000,7 +1007,8 @@ export class OrgDaemon {
           if (!cb) return undefined;
           return { threshold: cb.failure_threshold ?? 5, state: { failures: 0, tripped: false } };
         })(),
-        beforeTool: (r: string, toolName: string) => this.checkApproval(name, r, toolName),
+        beforeTool: (r: string, toolName: string, input: Record<string, unknown>) =>
+          this.checkApproval(name, r, toolName, input),
         fence: roleFences.get(role.id),
         // ORG-1: gatedCanUseTool denials are a natural decision point — record them so
         // `org decisions` shows real traces instead of always reporting none.
@@ -1896,8 +1904,13 @@ export class OrgDaemon {
   // ── Delegated methods — extracted to focused modules ──────────────────
 
   // approvals.ts
-  private checkApproval(org: string, role: string, action: string): Promise<boolean | null> {
-    return approvalOps.checkApproval(this, org, role, action);
+  private checkApproval(
+    org: string,
+    role: string,
+    action: string,
+    input: Record<string, unknown>,
+  ): Promise<boolean | null> {
+    return approvalOps.checkApproval(this, org, role, action, input);
   }
   async setApproval(
     org: string,
