@@ -276,11 +276,11 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Count enabled hooks
     result.summary.hooksEnabled = countEnabledHooks(options);
 
-    // Build knowledge graph in background (non-blocking) — code-project only
+    // Build the Monograph code graph in background (non-blocking) — code-project only
     if (options.components.graphify && (capMgr === null || capMgr.isActive('code'))) {
       await initKnowledgeGraph(targetDir, result, options.installClaudeCode !== false);
     } else if (options.components.graphify) {
-      result.skipped.push('knowledge graph: not a code project (skipping monograph indexing)');
+      result.skipped.push('Monograph code graph: not a code project (skipping indexing)');
     }
 
     // Run doctor auto-fix (non-blocking, best-effort)
@@ -297,7 +297,8 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 }
 
 /**
- * Initialize the Monograph knowledge graph.
+ * Initialize the Monograph code graph — parsed code structure and dependencies.
+ * This is not the memory knowledge graph or the Second Brain document index.
  * Spawns buildAsync as a detached child process to avoid SQLite lock contention.
  * Uses the same build.lock file as graphify-freshen.cjs — if a session-start
  * hook build is already running, we skip to avoid SQLITE_BUSY.
@@ -318,7 +319,7 @@ async function initKnowledgeGraph(
     const stat = fs.statSync(lockPath);
     if (now - stat.mtimeMs < 5 * 60 * 1000) {
       result.skipped.push(
-        'knowledge graph build: already in progress (session-start hook running)',
+        'Monograph code graph build: already in progress (session-start hook running)',
       );
       return;
     }
@@ -350,7 +351,7 @@ async function initKnowledgeGraph(
     // gate this install, not just say it does — skip entirely when disallowed.
     if (!allowInstall) {
       result.skipped.push(
-        'knowledge graph: @monoes/monograph not found (auto-install skipped, --no-install)',
+        'Monograph code graph: @monoes/monograph not found (auto-install skipped, --no-install)',
       );
       return;
     }
@@ -361,7 +362,7 @@ async function initKnowledgeGraph(
       const { execSync } = await import('node:child_process');
       const { output } = await import('../output.js');
       output.printInfo(
-        'Installing @monoes/monograph (knowledge graph dependency) — pass --no-install to skip',
+        'Installing @monoes/monograph (code graph dependency) — pass --no-install to skip',
       );
       execSync('npm install @monoes/monograph', {
         cwd: targetDir,
@@ -387,10 +388,12 @@ async function initKnowledgeGraph(
       /* install failed, fall through */
     }
     if (!entryPoint) {
-      result.skipped.push('knowledge graph: @monoes/monograph not found (auto-install failed)');
+      result.skipped.push(
+        'Monograph code graph: @monoes/monograph not found (auto-install failed)',
+      );
       return;
     }
-    result.created.files.push('@monoes/monograph (auto-installed for knowledge graph)');
+    result.created.files.push('@monoes/monograph (auto-installed for the code graph)');
   }
 
   // Acquire lock before spawning so graphify-freshen.cjs sees it and skips
@@ -430,7 +433,7 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
     }
   }
 
-  result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
+  result.created.files.push('.monomind/graph/ (Monograph code graph building in background)');
 }
 
 /**
