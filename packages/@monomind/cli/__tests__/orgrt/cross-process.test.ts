@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OrgDaemon } from '../../src/orgrt/daemon.js';
 import { startOrgServer } from '../../src/orgrt/server.js';
-import { lookupOrg } from '../../src/orgrt/broker.js';
+import { lookupOrg, registerOrg } from '../../src/orgrt/broker.js';
 
 const echoQuery = ({ prompt }: any) => (async function* () {
   for await (const m of prompt) {
@@ -180,5 +180,75 @@ describe('cross-process inter-org delivery', () => {
     const events = beta.busEvents();
     const replayEvents = events.filter(e => e.subject === 'replay-test' && e.msg === 'message 1');
     expect(replayEvents.length).toBeGreaterThanOrEqual(1); // At least one message
+  });
+
+  // BUG 2: the x-monomind-cred header only proves the caller can reach the
+  // RECEIVING daemon — it says nothing about who the caller claims to be.
+  // receiveRemote() must additionally verify the claimed fromOrg actually
+  // owns the credential registered for it in the broker.
+  it('rejects xdeliver when the claimed fromOrg does not own its registered credential (impersonation)', async () => {
+    const brokerDir = mkdtempSync(join(tmpdir(), 'xproc-broker6-'));
+
+    const rootA = mkdtempSync(join(tmpdir(), 'projI-'));
+    fixture(rootA, 'alpha');
+    const daemonA = new OrgDaemon(rootA, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
+    const srvA = await startOrgServer(daemonA, 0);
+    cleanups.push(() => srvA.close());
+    daemonA.setInboxUrl(`http://127.0.0.1:${srvA.port}`, srvA.credential);
+    await daemonA.startOrg('alpha');
+    cleanups.push(() => daemonA.stopAll());
+
+    const rootB = mkdtempSync(join(tmpdir(), 'projJ-'));
+    fixture(rootB, 'beta');
+    const daemonB = new OrgDaemon(rootB, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
+    const srvB = await startOrgServer(daemonB, 0);
+    cleanups.push(() => srvB.close());
+    daemonB.setInboxUrl(`http://127.0.0.1:${srvB.port}`, srvB.credential);
+    const beta = await daemonB.startOrg('beta');
+    cleanups.push(() => daemonB.stopAll());
+
+    // Attacker knows daemonB's shared x-monomind-cred (passes the HTTP auth
+    // gate — e.g. another org hosted by the same daemon) but does NOT know
+    // alpha's own registered credential; it just claims to be "alpha".
+    const forged = await fetch(`http://127.0.0.1:${srvB.port}/api/xdeliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-monomind-cred': srvB.credential },
+      body: JSON.stringify({
+        toOrg: 'beta', toRole: 'boss', fromOrg: 'alpha', fromRole: 'boss',
+        subject: 'forged', body: 'not really from alpha',
+        fromCredential: 'totally-made-up',
+      }),
+    });
+    expect(forged.status).toBe(404);
+    const forgedData = await forged.json() as { ok: boolean; error?: string };
+    expect(forgedData.ok).toBe(false);
+    expect(beta.busEvents().some(e => e.subject === 'forged')).toBe(false);
+
+    // A correctly-credentialed message from the real alpha still succeeds.
+    const receipt = await daemonA.deliver('alpha', 'boss', 'beta:boss', 'legit', 'really from alpha');
+    expect(receipt).toMatch(/delivered to beta:boss \(remote\)/);
+    await new Promise(r => setTimeout(r, 200));
+    expect(beta.busEvents().some(e => e.type === 'xorg' && e.subject === 'legit')).toBe(true);
+  });
+
+  it('receiveRemote rejects a fromOrg claim with no matching registered credential, and accepts a matching one', async () => {
+    const brokerDir = mkdtempSync(join(tmpdir(), 'xproc-broker7-'));
+    const root = mkdtempSync(join(tmpdir(), 'projK-'));
+    fixture(root, 'gamma');
+    const daemon = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false, crossProcess: true, brokerDir });
+    await daemon.startOrg('gamma');
+    cleanups.push(() => daemon.stopAll());
+
+    // "alpha" was never registered in this broker — its credential can't be verified.
+    const rejected = daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'whatever');
+    expect(rejected.ok).toBe(false);
+
+    // Register alpha with a real credential and retry with the matching value.
+    registerOrg('alpha', 'http://127.0.0.1:1', brokerDir, 'alpha-secret');
+    const wrongCred = daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'wrong-secret');
+    expect(wrongCred.ok).toBe(false);
+
+    const accepted = daemon.receiveRemote('gamma', 'boss', 'alpha:boss', 's', 'b', 'alpha-secret');
+    expect(accepted.ok).toBe(true);
   });
 });
