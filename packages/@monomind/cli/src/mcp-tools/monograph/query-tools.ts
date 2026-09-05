@@ -394,29 +394,55 @@ export const monographContextTool: MCPTool = {
 export const monographNeighborsTool: MCPTool = {
   name: 'monograph_neighbors',
   description:
-    'Show all directly connected nodes for a given symbol — outbound and optionally inbound edges, with relation types.',
+    'Show all directly connected nodes for a given symbol — outbound and optionally inbound edges, with relation types. When a name matches several definitions the candidates are listed instead of one being picked; re-query with nodeId or filePath. Reports the true neighbor total whenever the result is truncated.',
   inputSchema: {
     type: 'object',
     properties: {
       name: { type: 'string', description: 'Symbol name to look up' },
+      nodeId: {
+        type: 'string',
+        description: 'Canonical node id — unambiguous, preferred when known',
+      },
+      filePath: {
+        type: 'string',
+        description: 'Disambiguate a name by file path (exact, or a trailing fragment)',
+      },
       relationFilter: {
         type: 'string',
         description: 'Filter by relation type, e.g. IMPORTS, CALLS',
       },
       includeInbound: { type: 'boolean', description: 'Include inbound edges (default: false)' },
+      limit: { type: 'number', description: 'Max neighbors per direction (default 50, max 500)' },
     },
-    required: ['name'],
   },
   handler: async (input) => {
     const { openDb, closeDb, getMonographNeighbors } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const result = getMonographNeighbors(db, {
-        name: input.name as string,
+        name: input.name as string | undefined,
+        nodeId: input.nodeId as string | undefined,
+        filePath: input.filePath as string | undefined,
         relationFilter: input.relationFilter as string | undefined,
         includeInbound: (input.includeInbound as boolean | undefined) ?? false,
+        limit: input.limit as number | undefined,
       });
-      if (!result.node) return text(`No node found with name: ${input.name as string}`);
+      const target = (input.nodeId ?? input.name ?? '(no name or nodeId given)') as string;
+      if (result.ambiguous) {
+        // Answering confidently about the wrong definition is worse than asking.
+        return text(
+          [
+            `"${target}" matches ${result.candidates.length} nodes — re-run with nodeId (or filePath) to pick one:`,
+            ...result.candidates.map(
+              (c) =>
+                `  nodeId=${c.id}  [${c.label}] ${c.name}  ${c.filePath ?? '(no path)'}${
+                  c.startLine != null ? `:${c.startLine}` : ''
+                }`,
+            ),
+          ].join('\n'),
+        );
+      }
+      if (!result.node) return text(`No node found with name: ${target}`);
       const nodeFilePath = (result.node as any).filePath ?? '';
       const nodeStartLine = (result.node as any).startLine ?? (result.node as any).start_line;
       const nodeLoc = nodeFilePath
@@ -426,7 +452,9 @@ export const monographNeighborsTool: MCPTool = {
         : '';
       const lines = [
         `[${result.node.label}] ${result.node.name}  ${nodeLoc}`,
-        `Neighbors: ${result.neighbors.length}`,
+        result.truncated
+          ? `Neighbors: ${result.neighbors.length} of ${result.totalNeighbors} (truncated at limit ${result.limit} — raise limit or filter by relation to see the rest)`
+          : `Neighbors: ${result.neighbors.length} (complete)`,
         '',
         ...result.neighbors.map((n) => {
           const fp = (n.node as any).filePath ?? (n.node as any).file_path ?? '';
