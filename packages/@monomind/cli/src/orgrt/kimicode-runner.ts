@@ -210,7 +210,7 @@ export class KimiCodeAgentRunner implements AgentRunner {
           // back into the same kimi session as the next prompt.
           const results: string[] = [];
           for (const call of calls) {
-            results.push(await executeToolCall(args.tools, call));
+            results.push(await executeToolCall(args.tools, call, args.canUseTool));
           }
           nextPrompt = formatToolResults(calls, results);
         }
