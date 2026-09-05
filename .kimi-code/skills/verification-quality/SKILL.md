@@ -243,7 +243,7 @@ git reset --hard <last-good-commit>
 
 **3. Prevent recurrence:**
 ```bash
-# Add a regression test for the failure mode BEFORE re-attempting (see mastermind-tdd)
+# Add a regression test for the failure mode BEFORE re-attempting (see mastermind-debug Phase 4)
 npx monomind@latest doctor                  # re-verify the rolled-back state
 npx monomind@latest security scan
 ```
@@ -330,8 +330,7 @@ alert on trend, not on single values.
 
 ## Related Skills
 
-- [`mastermind-debug`](../mastermind-debug/SKILL.md) — root-cause methodology when verification finds a failure
-- [`mastermind-tdd`](../mastermind-tdd/SKILL.md) — failing-test-first in Phase 1 evidence collection
+- [`mastermind-debug`](../mastermind-debug/SKILL.md) — root-cause methodology when verification finds a failure; Phase 4 covers failing-test-first evidence collection
 - [`performance-analysis`](../performance-analysis/SKILL.md) — Phase 2 Angle 4 deep-dive
 - [`mastermind-receive-review`](../mastermind-receive-review/SKILL.md) — same rigor applied to incoming review feedback
 - [`swarm-orchestration`](../swarm-orchestration/SKILL.md) — every agent output runs through Phase 1–4 before merge
