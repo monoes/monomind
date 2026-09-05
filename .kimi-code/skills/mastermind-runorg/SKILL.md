@@ -30,14 +30,33 @@ no curl emissions, no delivery gaps.
    if step 3 ran).
    - Valid → step 5.
    - Invalid → surface the validator output and stop.
-5. **Start.**
+5. **Estimate scope and budget.** Before starting, read the numbers already sitting in
+   the org config and print a short summary — this is a read-and-summarize step, not a
+   spend prediction, so the user sees scope and the configured ceiling before any agent-hour
+   is spent, not only after the run stops on a budget:
+   ```bash
+   orgFile=".monomind/orgs/<name>.json"
+   roleCount=$(jq '.roles | length' "$orgFile")
+   maxConcurrent=$(jq -r '.run_config.max_concurrent_agents // 4' "$orgFile")
+   orgBudgetTokens=$(jq -r '.run_config.budget_tokens // 1000000' "$orgFile")
+   roleBudgets=$(jq -r '.roles[] | "  - \(.id): budget_tokens=\(.budget_tokens // "org-default split"), budget_usd=\(.budget_usd // "none")"' "$orgFile")
+   echo "About to run ${roleCount} role(s) (max ${maxConcurrent} concurrent)."
+   echo "Org-wide token budget ceiling: ${orgBudgetTokens}"
+   echo "Per-role overrides:"
+   echo "${roleBudgets}"
+   ```
+   Print this summary unconditionally (auto and confirm mode alike) before step 6.
+6. **Start.**
    - One-shot (no `schedule` in config): run in background bash:
      `monomind org run <name> --task "<optional task from params>"`
    - Scheduled (`schedule` set): ensure the daemon host is up:
      `monomind org serve` (background) — it picks up every scheduled org.
-6. **Confirm liveness.** Within ~15 s: `monomind org status <name>` shows
+7. **Confirm liveness.** Within ~15 s: `monomind org status <name>` shows
    `running`. Surface the dashboard link (`<CTRL_URL>/orgs`) and
    `monomind org logs <name> --follow` as the tail command.
-7. **Never** spawn a boss Task agent, create monotask boards, or emit
+8. **Never** spawn a boss Task agent, create monotask boards, or emit
    dashboard events manually. If the user explicitly asks for the legacy
    behavior, direct them to `/mastermind:runorgv1` (deprecated).
+
+The org runtime does not read `<org>-issues.json`. Work is driven by the org
+definition's roles and goal plus an optional `--task` string.

@@ -280,7 +280,7 @@ instance and let Grafana draw the trends.
 - **`mastermind-debug`** — Phase 1 root-cause methodology underpins this skill
 - **`swarm-orchestration`** — topology decisions driven by bottleneck findings
 - **`verification-quality`** — confirm the optimization actually held
-- **`mastermind-verify`** — evidence-before-claims for "is it faster?"
+- **`mastermind-review`** — evidence-before-claims for "is it faster?"
 
 ## Quick Reference
 
