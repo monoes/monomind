@@ -806,6 +806,27 @@ let currentUrl = null;
 let _activeServer = null;
 const activeWatchers = [];
 
+// fs.watch (and chokidar) emit 'error' asynchronously — e.g. ENOSPC when the
+// system's inotify watch limit is exhausted — and Node's default behavior for
+// an unhandled EventEmitter 'error' event is to throw, crashing the whole
+// process. Every watcher here is best-effort (live refresh degrades, the
+// dashboard still works, if a watch fails), so log and disable instead.
+export function watchSafely(watcher, label) {
+  watcher.on('error', (err) => {
+    console.warn(
+      `[monomind] ${label} watcher failed, disabling live updates for it: ${err.message}`,
+    );
+    try {
+      watcher.close();
+    } catch {
+      // Already closed
+    }
+    const idx = activeWatchers.indexOf(watcher);
+    if (idx !== -1) activeWatchers.splice(idx, 1);
+  });
+  return watcher;
+}
+
 // broadcast() is imported from sse-manager.mjs
 
 /**
@@ -1622,41 +1643,43 @@ export async function startServer({
           /(^|\/)(node_modules|\.git|dist|\.monomind|\.claude|\.next|__pycache__|\.venv|vendor)(\/|$)/;
         const _sbPending = new Map(); // file -> debounce timer
         const _sbRoot = path.resolve(projectDir || process.cwd());
-        const _sbWatcher = fs.watch(_sbRoot, { recursive: true }, (_evt, rel) => {
-          try {
-            if (!rel) return;
-            const relStr = String(rel);
-            // Skip macOS AppleDouble resource forks (`._name`) at any depth.
-            // The old `relStr.startsWith('.')` only caught dotfiles at the ROOT;
-            // `._` forks in subdirectories sailed through. We match `._` per path
-            // segment rather than all dotfiles — `.monodesign/` critique snapshots
-            // are legitimate indexable documents.
-            if (_sbSkip.test(relStr) || /(^|\/)\._./.test(relStr)) return;
-            if (!_sbDocExts.has(path.extname(relStr).toLowerCase())) return;
-            const full = path.join(_sbRoot, relStr);
-            clearTimeout(_sbPending.get(full));
-            _sbPending.set(
-              full,
-              setTimeout(async () => {
-                _sbPending.delete(full);
-                try {
-                  if (!fs.existsSync(full)) return; // deleted — session-start reindex handles removal
-                  const pipeline = await import('../knowledge/document-pipeline.js');
-                  const r = await pipeline.ingestDocument(full, 'shared', _sbRoot);
-                  if (r.chunksIndexed > 0 && !r.skipped) {
-                    console.log(
-                      `[knowledge] live-ingested ${path.basename(full)} (${r.chunksIndexed} chunks)`,
-                    );
+        const _sbWatcher = watchSafely(
+          fs.watch(_sbRoot, { recursive: true }, (_evt, rel) => {
+            try {
+              if (!rel) return;
+              const relStr = String(rel);
+              // Skip macOS AppleDouble resource forks (`._name`) at any depth.
+              // The old `relStr.startsWith('.')` only caught dotfiles at the ROOT;
+              // `._` forks in subdirectories sailed through. We match `._` per path
+              // segment rather than all dotfiles — `.monodesign/` critique snapshots
+              // are legitimate indexable documents.
+              if (_sbSkip.test(relStr) || /(^|\/)\._./.test(relStr)) return;
+              if (!_sbDocExts.has(path.extname(relStr).toLowerCase())) return;
+              const full = path.join(_sbRoot, relStr);
+              clearTimeout(_sbPending.get(full));
+              _sbPending.set(
+                full,
+                setTimeout(async () => {
+                  _sbPending.delete(full);
+                  try {
+                    if (!fs.existsSync(full)) return; // deleted — session-start reindex handles removal
+                    const pipeline = await import('../knowledge/document-pipeline.js');
+                    const r = await pipeline.ingestDocument(full, 'shared', _sbRoot);
+                    if (r.chunksIndexed > 0 && !r.skipped) {
+                      console.log(
+                        `[knowledge] live-ingested ${path.basename(full)} (${r.chunksIndexed} chunks)`,
+                      );
+                    }
+                  } catch (_) {
+                    /* single-file ingest failure never matters here */
                   }
-                } catch (_) {
-                  /* single-file ingest failure never matters here */
-                }
-              }, 5000),
-            );
-          } catch (_) {
-            /* watcher callback must never throw */
-          }
-        });
+                }, 5000),
+              );
+            } catch (_) {
+              /* watcher callback must never throw */
+            }
+          }),
+        );
         activeWatchers.push(_sbWatcher);
       } catch (_) {
         /* recursive watch unavailable — the sweep below still covers it */
@@ -3807,9 +3830,12 @@ export async function startServer({
       send('connected', { ts: Date.now() });
       let watcher = null;
       try {
-        watcher = fs.watch(projectClaudeDir, { persistent: false }, (evtype) => {
-          if (evtype === 'change' || evtype === 'rename') send('update', { ts: Date.now() });
-        });
+        watcher = watchSafely(
+          fs.watch(projectClaudeDir, { persistent: false }, (evtype) => {
+            if (evtype === 'change' || evtype === 'rename') send('update', { ts: Date.now() });
+          }),
+          'session-sse',
+        );
       } catch {}
       const pingInterval = setInterval(() => {
         try {
@@ -5476,7 +5502,10 @@ export async function startServer({
   const monomindDir = path.join(projectDir || process.cwd(), '.monomind');
   if (fs.existsSync(monomindDir)) {
     try {
-      const w = fs.watch(monomindDir, { recursive: true }, scheduleRefresh);
+      const w = watchSafely(
+        fs.watch(monomindDir, { recursive: true }, scheduleRefresh),
+        '.monomind',
+      );
       activeWatchers.push(w);
     } catch {
       // Directory may not support recursive watch on all platforms — ignore
@@ -5554,9 +5583,12 @@ export async function startServer({
       const _parentDir = path.join(MONOMIND_HOME, '.monomind');
       if (fs.existsSync(_parentDir)) {
         try {
-          fs.watch(_parentDir, (_evType, _fname) => {
-            if (_fname === 'orgs' && fs.existsSync(_orgsDir)) watchOrgsDir();
-          });
+          watchSafely(
+            fs.watch(_parentDir, (_evType, _fname) => {
+              if (_fname === 'orgs' && fs.existsSync(_orgsDir)) watchOrgsDir();
+            }),
+            'orgs-parent',
+          );
         } catch (_) {}
       }
       return;
@@ -5618,6 +5650,7 @@ export async function startServer({
           }
         }
       };
+      watchSafely(_chokidarWatcher, 'orgs-chokidar');
       _chokidarWatcher.on('add', _handleChokidarPath);
       _chokidarWatcher.on('change', _handleChokidarPath);
       activeWatchers.push({ close: () => _chokidarWatcher.close() });
@@ -5627,10 +5660,8 @@ export async function startServer({
     }
     if (!_watcherStarted) {
       try {
-        const _orgsWatcher = fs.watch(
-          _orgsDir,
-          { recursive: true, persistent: false },
-          (_evType, _fname) => {
+        const _orgsWatcher = watchSafely(
+          fs.watch(_orgsDir, { recursive: true, persistent: false }, (_evType, _fname) => {
             if (
               !_fname?.endsWith('.jsonl') ||
               _fname.endsWith('.warm.jsonl') ||
@@ -5654,7 +5685,8 @@ export async function startServer({
                 );
               }
             }
-          },
+          }),
+          'orgs-fswatch',
         );
         activeWatchers.push(_orgsWatcher);
       } catch (_wErr) {
@@ -5670,7 +5702,10 @@ export async function startServer({
   const claudeSessionsDir = path.join(projectDir || process.cwd(), '.claude', 'sessions');
   if (fs.existsSync(claudeSessionsDir)) {
     try {
-      const w = fs.watch(claudeSessionsDir, { recursive: true }, scheduleRefresh);
+      const w = watchSafely(
+        fs.watch(claudeSessionsDir, { recursive: true }, scheduleRefresh),
+        '.claude/sessions',
+      );
       activeWatchers.push(w);
     } catch {
       // Ignore unsupported watch
