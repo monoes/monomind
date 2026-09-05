@@ -1727,7 +1727,16 @@ export class OrgDaemon {
     for (const [name, org] of this.orgs) {
       try {
         const p = join(this.root, ORG_DIR, name, 'runtime.json');
-        const checkpoint = captureCheckpoint(org, 'crashed');
+        // Capture separately from the write below: a throw here (e.g. a
+        // cyclic structure in roleState reaching generateChecksum) must not
+        // suppress the base crash record, which is the actually-important
+        // best-effort write this method exists for.
+        let checkpoint: ReturnType<typeof captureCheckpoint> | undefined;
+        try {
+          checkpoint = captureCheckpoint(org, 'crashed');
+        } catch {
+          /* best effort — proceed without a checkpoint */
+        }
         // C4: atomic write — crash handler is the most likely place to hit
         // a partial write since the process is mid-teardown.
         writeJsonFileAtomic(p, {
