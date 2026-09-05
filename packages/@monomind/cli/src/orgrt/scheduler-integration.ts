@@ -3,9 +3,46 @@
 
 import { waitForCapacity } from '../utils/resource-governor.js';
 import { mailBody } from './cross-org.js';
-import { OrgDaemon, type RunningOrg } from './daemon.js';
+import { activeRoleCount, OrgDaemon, type RunningOrg } from './daemon.js';
 import { drainInbox } from './inbox.js';
 import type { OrgRole } from './types.js';
+
+/** Shared by scheduleDeferredSpawn and scheduleConcurrencyDeferredSpawn: spawn
+ *  the role now that its gate has cleared, then deliver any messages queued
+ *  for it while it was deferred (drained BEFORE spawning to avoid a race with
+ *  messages arriving during the spawn window). */
+function spawnNowAndDrain(
+  daemon: OrgDaemon,
+  name: string,
+  running: RunningOrg,
+  role: OrgRole,
+  spawnRole: (role: OrgRole) => void,
+): void {
+  const queued = drainInbox(daemon.root, name);
+  spawnRole(role);
+  for (const msg of queued) {
+    const agent = running.agents.get(msg.toRole);
+    if (agent && !agent.mailbox.isClosed) {
+      running.bus.emit({
+        type: 'xorg',
+        from: msg.fromQualified,
+        to: `${name}:${msg.toRole}`,
+        subject: msg.subject,
+        msg: msg.body,
+      });
+      agent.mailbox.push(
+        mailBody(
+          daemon.root,
+          name,
+          running,
+          `[message from ${msg.fromQualified}] subject: ${msg.subject}`,
+          msg.body,
+          `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`,
+        ),
+      );
+    }
+  }
+}
 
 /** Start an offline org in the background so queued messages get drained.
  *  Fire-and-forget — errors are logged but don't propagate to the sender. */
@@ -111,30 +148,7 @@ export function scheduleDeferredSpawn(
         });
         // Drain messages queued while the role was deferred BEFORE spawning
         // to prevent race condition where messages arrive during spawn window
-        const queued = drainInbox(daemon.root, name);
-        spawnRole(role);
-        for (const msg of queued) {
-          const agent = running.agents.get(msg.toRole);
-          if (agent && !agent.mailbox.isClosed) {
-            running.bus.emit({
-              type: 'xorg',
-              from: msg.fromQualified,
-              to: `${name}:${msg.toRole}`,
-              subject: msg.subject,
-              msg: msg.body,
-            });
-            agent.mailbox.push(
-              mailBody(
-                daemon.root,
-                name,
-                running,
-                `[message from ${msg.fromQualified}] subject: ${msg.subject}`,
-                msg.body,
-                `inbox-${msg.ts}-${Math.random().toString(36).slice(2, 8)}`,
-              ),
-            );
-          }
-        }
+        spawnNowAndDrain(daemon, name, running, role, spawnRole);
         return;
       }
       running.bus.emit({
@@ -157,6 +171,68 @@ export function scheduleDeferredSpawn(
   })().catch((err) =>
     console.error(
       `org ${name}: deferred spawn of "${role.id}" failed:`,
+      err instanceof Error ? err.message : err,
+    ),
+  );
+}
+
+/** Bug 4: a role deferred because the org is already at its
+ *  run_config.max_concurrent_agents ceiling isn't abandoned either — poll
+ *  until a slot frees up (another role in this org ends, crashes, or is
+ *  stopped — activeRoleCount() recomputes live each check, so nothing here
+ *  needs to explicitly track "a slot freed") and spawn it then. Same shape as
+ *  scheduleDeferredSpawn's host-resource-pressure case, just gated on the
+ *  org's own concurrency cap instead of waitForCapacity(). Bails quietly if
+ *  the org is stopped (or restarted under the same name) before a slot
+ *  frees; `running` is compared by identity, not `name`, so a stale retry can
+ *  never spawn into a different run. */
+export function scheduleConcurrencyDeferredSpawn(
+  daemon: OrgDaemon,
+  name: string,
+  running: RunningOrg,
+  role: OrgRole,
+  spawnRole: (role: OrgRole) => void,
+): void {
+  const MAX_ATTEMPTS = 180; // ~15 min at 5s intervals before giving up loudly
+  const POLL_MS = 5_000;
+  (async () => {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      await new Promise<void>((resolve) => {
+        const t = setTimeout(resolve, POLL_MS);
+        (t as { unref?: () => void }).unref?.();
+      });
+      if (daemon.orgs.get(name) !== running) return; // org stopped/restarted — abandon quietly
+      const limit = running.def.run_config.max_concurrent_agents;
+      if (limit == null || activeRoleCount(running) < limit) {
+        running.bus.emit({
+          type: 'audit',
+          from: role.id,
+          reason: 'concurrency-recovered',
+          msg: `a concurrency slot freed up after ${attempt} retr${attempt === 1 ? 'y' : 'ies'} — spawning deferred role "${role.id}"`,
+        });
+        spawnNowAndDrain(daemon, name, running, role, spawnRole);
+        return;
+      }
+      running.bus.emit({
+        type: 'audit',
+        from: role.id,
+        reason: 'concurrency-limit',
+        msg: `still at the max_concurrent_agents ceiling (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying "${role.id}" spawn`,
+      });
+    }
+    const missing = daemon.abandoned.get(name) ?? new Set<string>();
+    missing.add(role.id);
+    daemon.abandoned.set(name, missing);
+    daemon.persistState(name, 'running', running.run);
+    running.bus.emit({
+      type: 'audit',
+      from: role.id,
+      reason: 'concurrency-abandoned',
+      msg: `giving up spawning "${role.id}" after ${MAX_ATTEMPTS} retries at the max_concurrent_agents ceiling — org will run without this role until manually restarted`,
+    });
+  })().catch((err) =>
+    console.error(
+      `org ${name}: concurrency-deferred spawn of "${role.id}" failed:`,
       err instanceof Error ? err.message : err,
     ),
   );
