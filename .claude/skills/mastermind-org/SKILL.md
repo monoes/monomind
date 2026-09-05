@@ -14,3 +14,5 @@ Use the `monomind org` commands as the portable organization control surface.
 - Stop a running organization with `monomind org stop <name>`.
 
 Before changing organization configuration, inspect its current status and preserve the user's explicit goal, budget, and safety constraints. Use the platform's native task and agent interfaces when available; otherwise keep the CLI as the functional source of truth.
+
+The org runtime does not read `<org>-issues.json`. Work is driven by the org definition's roles and goal plus an optional `--task` string.

@@ -1205,7 +1205,10 @@ export class OrgDaemon {
       }
       running.pendingRoles = pendingRoles;
       running.spawnRole = spawnRole;
-      running.taskDag = new TaskDag();
+      running.taskDag =
+        checkpoint.tasks && checkpoint.tasks.length > 0
+          ? TaskDag.fromJSON(checkpoint.tasks)
+          : new TaskDag();
       if (worktreePath) running.worktreePath = worktreePath;
     } else {
       spawnRole(bossRole); // always, ungated — see comment above
@@ -1724,6 +1727,7 @@ export class OrgDaemon {
     for (const [name, org] of this.orgs) {
       try {
         const p = join(this.root, ORG_DIR, name, 'runtime.json');
+        const checkpoint = captureCheckpoint(org, 'crashed');
         // C4: atomic write — crash handler is the most likely place to hit
         // a partial write since the process is mid-teardown.
         writeJsonFileAtomic(p, {
@@ -1732,6 +1736,7 @@ export class OrgDaemon {
           pid: process.pid,
           updated: new Date().toISOString(),
           closedBy: 'crash-handler',
+          ...(checkpoint ? { checkpoint } : {}),
           ...(error ? { error } : {}),
         });
       } catch {
