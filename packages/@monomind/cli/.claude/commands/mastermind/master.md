@@ -91,19 +91,19 @@ digraph mastermind_routing {
 | Situation | Skill to invoke |
 |---|---|
 | Debug a bug, test failure, unexpected behavior | `Skill("mastermind-debug")` |
-| Verify a claim — tests pass, feature works, fix resolved | `Skill("mastermind-verify")` |
-| Write tests first, enforce Red-Green-Refactor | `Skill("mastermind-tdd")` |
+| Verify a claim — tests pass, feature works, fix resolved | `Skill("mastermind-review")` |
+| Write tests first, enforce Red-Green-Refactor | `Skill("mastermind-debug")` (Phase 4 covers the failing-test-first loop) |
 | Write a structured implementation plan (no placeholders) | `Skill("mastermind-plan")` |
 | Execute a written plan step-by-step with stop-on-blocker | `Skill("mastermind-execute")` |
-| Execute a plan via fresh subagents with 2-stage review | `Skill("mastermind-taskdev")` |
-| Fix or investigate 2+ independent problems concurrently (different files, subsystems, or bugs) | dispatch parallel subagents in one message — one per independent domain; use `Skill("mastermind-taskdev")` for plan-driven parallel work |
+| Execute a plan via fresh subagents with 2-stage review | `Skill("mastermind-execute")` |
+| Fix or investigate 2+ independent problems concurrently (different files, subsystems, or bugs) | dispatch parallel subagents in one message — one per independent domain; use `Skill("mastermind-execute")` for plan-driven parallel work |
 | Ingest a prompt/spec/folder and generate agent-optimized tasks | `Skill("mastermind-createtask")` |
 | Execute tasks from a task file or monotask board (parallel/sequential/minimal modes, review cycles, loop) | `Skill("mastermind-do")` |
 | Design first — spec, approaches, approval gate before code | `Skill("mastermind-design")` |
-| Build a feature, fix a bug, implement anything | `Skill("mastermind-build")` |
+| Build a feature, fix a bug, implement anything | `Skill("mastermind-plan")` then `Skill("mastermind-execute")` |
 | Code review, content critique, strategy audit | `Skill("mastermind-review")` |
 | Receive a code review and apply it correctly | `Skill("mastermind-receive-review")` |
-| System architecture, DDD, technical design | `Skill("mastermind-architect")` |
+| System architecture, DDD, technical design | `Skill("mastermind-design")` |
 | Market research, competitive analysis, user insights | `Skill("mastermind-research")` |
 | Ideas, feature generation, opportunity framing | `Skill("mastermind-idea")` |
 | Research ideas, evaluate with PM lens, decompose into subtasks | `Skill("mastermind-ideate")` |
@@ -112,14 +112,13 @@ digraph mastermind_routing {
 | Sales outreach, proposals, pipeline | `Skill("mastermind-sales")` |
 | Blog, docs, newsletters, threads | `Skill("mastermind-content")` |
 | Versioning, changelogs, deployment | `Skill("mastermind-release")` |
-| Finish a branch — tests, options menu, merge/PR/discard | `Skill("mastermind-finish")` |
+| Finish a branch — tests, options menu, merge/PR/discard | `Skill("mastermind-review")` |
 | Workflow, process, reporting | `Skill("mastermind-ops")` |
 | Invoicing, forecasting, cost | `Skill("mastermind-finance")` |
 | Inspect or manage brain memory | `Skill("mastermind-brain")` |
 | Technical portfolio, project state assessment | `Skill("mastermind-techport")` |
 | Define/run an agent organization | `Skill("mastermind-createorg")` / `Skill("mastermind-runorg")` |
-| Review and action pending agent approval requests | `Skill("mastermind-approvev1")` (v1 orgs only — v2 approvals arrive in the dashboard Human Input tab) |
-| Autonomous build + review until clean | `Skill("mastermind-autodev")` |
+| Autonomous build + review until clean | `Skill("mastermind-execute")` |
 | Isolate work in a git worktree | `Skill("mastermind-worktree")` |
 | Write or improve a mastermind skill | `Skill("mastermind-skill-builder")` |
 
@@ -182,7 +181,7 @@ These sequences are non-negotiable in all modes:
 - **When fixing bugs**: `mastermind:debug` first (root cause) → write failing test via `mastermind:tdd` → fix → `mastermind:verify`
 - **After building**: `mastermind:review` — at minimum one pass before reporting complete
 - **Consuming a review**: `mastermind:receive-review` — verify before implementing, clarify unclear items first
-- **After any run**: Brain Write Procedure — score decisions, append to LanceDB
+- **After any run**: Brain Write Procedure — score decisions, append to the memory store
 - **Before releasing**: `mastermind:review --tillend --auto` → `mastermind:verify` → `mastermind:finish`
 - **Isolated work**: `mastermind:worktree` before making changes to avoid contaminating main
 - **Before claiming complete**: Run `mastermind:verify` — never claim completion based on agent reports, linter passes, or partial checks
@@ -292,8 +291,8 @@ project_name="${project_name:-$(basename "$PWD")}"
 
 Follow the Brain Load Procedure from `mastermind-protocol/SKILL.md`:
 
-1. Call `mcp__monomind__lancedb_hierarchical-recall` namespace `mastermind:principles` (limit 20)
-2. For each domain that appears relevant to the prompt, call `mcp__monomind__lancedb_context-synthesize` namespace `mastermind:<domain>:weekly`
+1. Call `mcp__monomind__memory_hierarchical-recall` namespace `mastermind:principles` (limit 20)
+2. For each domain that appears relevant to the prompt, call `mcp__monomind__memory_context-synthesize` namespace `mastermind:<domain>:weekly`
 3. Call `mcp__monomind__monograph_query` with 3-5 keywords from the prompt
 
 Assemble the BRAIN CONTEXT block from results.
@@ -761,7 +760,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
 - Instruction to use `Skill("mastermind-do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
-- **For the `build` domain only:** include `build_exec_mode` (value: `"taskdev"` or `"execute"`) and instruct the manager: "Use `Skill("mastermind-taskdev")` if build_exec_mode is `taskdev`, or `Skill("mastermind-execute")` if `execute`. This was resolved in the Step 3.6 Plan Gate (or Step 5)." If `build_plan` is set in `current.json`, include the plan path and instruct the manager to execute THAT plan task-by-task rather than re-deriving tasks from the goal.
+- **For the `build` domain only:** instruct the manager: "Use `Skill("mastermind-execute")`. This was resolved in the Step 3.6 Plan Gate (or Step 5)." If `build_plan` is set in `current.json`, include the plan path and instruct the manager to execute THAT plan task-by-task rather than re-deriving tasks from the goal.
 - Instruction to return the unified output schema when done
 
 Example Task call for Development Manager. Substitute all **pre-known** `<…>` placeholders (project_name, SESSION_ID, board/col IDs, goals, manager name) before calling Task. Placeholders like `<status>`, `<path1>`, `<action1>` are filled at runtime by the spawned agent — do not attempt to substitute them. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
@@ -931,7 +930,7 @@ Monotask boards:
 
 Follow the Brain Write Procedure from `mastermind-protocol/SKILL.md` for each domain that ran:
 1. Score all decisions from this run
-2. Append to Tier 1 raw log (LanceDB)
+2. Append to Tier 1 raw log (the memory store)
 3. Check and trigger weekly compaction if threshold met
 4. Check and trigger graph consolidation if cluster detected
 
@@ -1085,11 +1084,11 @@ Log this as a decision in the cycle's output schema with `confidence` set accord
 
 Execute the chosen activity by invoking the appropriate domain skill via the `Skill` tool (Steps 4–10 of the main flow, condensed). Use `Skill("mastermind-<domain>")` — do NOT use slash command syntax (`/<name>`), which only works when typed interactively in the Claude Code CLI, not within an executing command or skill:
 
-- Test → `Skill("mastermind-tdd")` with the untested artifacts as prompt (enforce Red-Green-Refactor)
+- Test → `Skill("mastermind-debug")` Phase 4 with the untested artifacts as prompt (write the failing test first, enforce Red-Green-Refactor)
 - Debug/Fix → `Skill("mastermind-debug")` with the failing test or error as prompt (root-cause first, then fix)
 - Review → `Skill("mastermind-review")` with scope = artifacts from last run
-- Improve/Refactor → `Skill("mastermind-build")` with refactor prompt
-- Add feature → `Skill("mastermind-build")` with the next feature from the `next_actions` array printed by the Step 12a output above
+- Improve/Refactor → `Skill("mastermind-plan")` then `Skill("mastermind-execute")` with refactor prompt
+- Add feature → `Skill("mastermind-plan")` then `Skill("mastermind-execute")` with the next feature from the `next_actions` array printed by the Step 12a output above
 - Research → `Skill("mastermind-research")` with the open question as prompt
 - Content/Docs → `Skill("mastermind-content")` with scope = new artifacts
 - Release → `Skill("mastermind-release")` with project scope

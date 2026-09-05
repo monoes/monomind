@@ -5,6 +5,11 @@ type: domain-skill
 default_mode: auto
 ---
 
+> **LEGACY-ORG-V1 — writes to a monotask board, not to `<org>-issues.json`.** This skill's
+> `parent_id`, `status` (`todo | doing | done`), and card model belong to the pre-v2
+> board-backed runner. For v2 issue tracking — including sub-issues — use
+> `/mastermind:issues --action create --parent-id <id>`.
+
 # Mastermind Tasks
 
 This skill is invoked by `mastermind:tasks` or directly via `/mastermind:tasks`.

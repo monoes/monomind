@@ -1,5 +1,10 @@
 # Local Development Configuration
 
+## Workflow Rules
+
+- All new changes MUST start on a git worktree (not directly on the working branch in the main checkout).
+- Merge the worktree's branch back when the change is done, then remove the worktree.
+
 ## Environment Variables
 
 ```bash
