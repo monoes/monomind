@@ -130,4 +130,45 @@ describe('OrgDaemon — deferred role spawn under resource pressure', () => {
 
     await d.stopAll();
   }, 10_000);
+
+  it('queues a second message sent to a role still deferred under resource pressure instead of dropping it', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daemon-deferred-queue-'));
+    fixture(root, 'alpha');
+
+    ok = false; // resource pressure — coder's lazy spawn will defer
+    const d = new OrgDaemon(root, { queryFn: echoQuery as any, forward: false });
+    const running = await d.startOrg('alpha');
+
+    expect(running.agents.has('boss')).toBe(true);
+    expect(running.pendingRoles?.has('coder')).toBe(true);
+
+    // First message triggers the deferred spawn: pendingRoles is consumed,
+    // the message is queued, and scheduleDeferredSpawn's retry loop starts.
+    const receipt1 = await d.deliver('alpha', 'boss', 'coder', 'task1', 'first message');
+    expect(receipt1).toMatch(/queued for coder/);
+    expect(running.pendingRoles?.has('coder')).toBe(false);
+    expect(running.agents.has('coder')).toBe(false);
+
+    // Second message arrives WHILE coder is still deferred (not in agents,
+    // not in pendingRoles anymore). Before the fix this fell through to
+    // "unknown recipient" and the message was silently lost.
+    const receipt2 = await d.deliver('alpha', 'boss', 'coder', 'task2', 'second message');
+    expect(receipt2).toMatch(/queued for coder/);
+    expect(receipt2).not.toMatch(/unknown recipient/);
+
+    // Resources recover — coder spawns and BOTH queued messages must reach it.
+    ok = true;
+    const spawned = await waitUntil(() => running.agents.has('coder'));
+    expect(spawned).toBe(true);
+
+    const delivered = await waitUntil(
+      () => running.busEvents().filter((e) => e.type === 'xorg' && e.to === 'alpha:coder').length >= 2,
+    );
+    expect(delivered).toBe(true);
+    const events = running.busEvents().filter((e) => e.type === 'xorg' && e.to === 'alpha:coder');
+    expect(events.some((e) => e.subject === 'task1')).toBe(true);
+    expect(events.some((e) => e.subject === 'task2')).toBe(true);
+
+    await d.stopAll();
+  }, 20_000);
 });
