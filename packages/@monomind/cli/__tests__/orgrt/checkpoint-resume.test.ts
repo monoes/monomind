@@ -289,4 +289,25 @@ describe('Semantic Checkpointing (Pattern 3)', () => {
     expect(resumed!.agents.has('worker')).toBe(false);
     expect(resumed!.pendingRoles?.has('worker')).toBe(true);
   });
+
+  it('should restore the TaskDag on resume instead of discarding task state', async () => {
+    const daemon = new OrgDaemon(testRoot, { stopWaitMs: 100, crossProcess: false });
+    const def = createTestDef('TaskDag restoration test');
+    writeFileSync(join(testRoot, '.monomind', 'orgs', `${orgName}.json`), JSON.stringify(def));
+
+    const running = await daemon.startOrg(orgName);
+    running.taskDag?.add('Task one', 'boss');
+    running.taskDag?.add('Task two', 'worker');
+    expect(running.taskDag?.all()).toHaveLength(2);
+
+    await daemon.stopOrg(orgName);
+
+    const rtPath = join(testRoot, '.monomind', 'orgs', orgName, 'runtime.json');
+    const rt = JSON.parse(readFileSync(rtPath, 'utf8'));
+    expect(rt.checkpoint.tasks).toHaveLength(2);
+
+    const resumed = await daemon.resumeOrg(orgName);
+    expect(resumed).toBeDefined();
+    expect(resumed!.taskDag?.all()).toHaveLength(2);
+  });
 });

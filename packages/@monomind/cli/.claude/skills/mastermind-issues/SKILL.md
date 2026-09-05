@@ -80,6 +80,13 @@ if changed:
 PYEOF
 ```
 
+> **These issues are not auto-consumed by the org runtime.** `OrgDaemon` builds its `TaskDag`
+> fresh in memory on every start and never reads `<org>-issues.json` (verified: zero references
+> in `packages/@monomind/cli/src/orgrt/`). Issues created here are tracked by the
+> `mastermind-issues` / `mastermind-my-issues` / `mastermind-liveness` skills and shown in the
+> dashboard, but running `monomind org run <org>` will not pick them up. Drive execution from
+> this file with `mastermind-execute`, or pass work explicitly via `org run --task`.
+
 ---
 
 ## Step 2 — Execute Action
