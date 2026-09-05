@@ -38,7 +38,7 @@ const SYNCED_SKILLS = new Set([
   'mastermind-createorg',
 ]);
 const CMD_PATTERN = /(?:npx\s+)?monomind(?:@[\w.]+)?\s+(\w[\w-]*)/g;
-const ALPHA_PATTERN = /monomind@alpha/g;
+const ALPHA_NEEDLE = 'monomind@alpha';
 const VALID_COMMANDS = new Set();
 const errors = [];
 const warnings = [];
@@ -115,10 +115,14 @@ function lintTree(treePath, label) {
     const skillFile = join(treePath, skill, 'SKILL.md');
     const content = readFileSync(skillFile, 'utf8');
 
-    // Check for @alpha dist-tag (but allow "Never use monomind@alpha" warnings)
+    // Check for @alpha dist-tag (but allow "Never use monomind@alpha" warnings).
+    // Plain string search, not a global regex .test() — a global regex here
+    // retains lastIndex across calls, so one match on an earlier line (in
+    // this file or a prior one, since ALPHA_PATTERN was module-scoped)
+    // silently suppressed detection on later lines. Confirmed reproducible.
     const lines = content.split('\n');
     const alphaLines = lines.filter(
-      (l) => ALPHA_PATTERN.test(l) && !/never\s+use/i.test(l) && !/do\s+not\s+use/i.test(l),
+      (l) => l.includes(ALPHA_NEEDLE) && !/never\s+use/i.test(l) && !/do\s+not\s+use/i.test(l),
     );
     if (alphaLines.length > 0) {
       errors.push(
