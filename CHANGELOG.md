@@ -4,6 +4,58 @@ All notable changes to Monomind (`monomind` umbrella + `@monoes/monomindcli`).
 
 ## [Unreleased]
 
+## [2.10.11] — 2026-09-05
+
+### Security
+
+- 4 high + 2 moderate CVEs (`fast-uri` SSRF/host-confusion, `qs` array-limit
+  bypass + DoS, `@xmldom/xmldom` XML fragment injection) were silently
+  unpatched despite version floors in `package.json`'s `pnpm.overrides` —
+  pnpm 10 stopped reading that field and had been ignoring it on every
+  install. Migrated `overrides`/`onlyBuiltDependencies`/`peerDependencyRules`
+  to `pnpm-workspace.yaml` (where pnpm 10+ actually reads them) and bumped
+  the stale floors to patched versions. `pnpm audit --audit-level high`:
+  9 vulnerabilities → 0 for this workspace's own installs. Also fixed
+  `security:audit`/`security:fix`, which ran `npm audit` against a pnpm
+  lockfile and failed with `ENOLOCK`.
+- **Known residual risk, not fixable without a breaking migration**: the
+  workspace-level fix above does not reach real downstream installs of the
+  published `monomind`/`@monoes/monomindcli` packages — override/resolution
+  fields only apply to the top-level installing project, never to a
+  dependency's own declared overrides. A fresh `npm install monomind`
+  still pulls a vulnerable `qs`/`body-parser` via `@monoes/mcp` and
+  `@monoes/monograph`'s pinned Express 4 (its final 4.x release hard-pins
+  `qs: ~6.15.1`; only Express 5 carries the fix, a breaking migration) and
+  a vulnerable `sharp` via `@huggingface/transformers` (even its latest
+  4.2.0 still depends on `sharp <0.35.0`; `npm audit` reports "No fix
+  available" upstream). Verified via a real `pnpm pack` + `npm install`
+  smoke test, not just the workspace's own `pnpm audit`.
+
+### Fixed
+
+- monograph: `DEFAULT_IGNORE` was missing common framework build/cache
+  directories (`.next`, `.wrangler`, `.turbo`, `.nuxt`, `.svelte-kit`,
+  `.vercel`, `.open-next`) — `monograph build` indexed generated bundles
+  (which re-bundle `node_modules` code) alongside real source, inflating
+  scanned file counts by >60% on affected projects and producing duplicate
+  search results (#221).
+- Dashboard (`monomind ui`): `ENOSPC` (system file-watcher limit reached)
+  and any other `fs.watch`/`chokidar.watch` error crashed the whole process
+  — none of the 6 watch call sites had an `'error'` listener, and Node's
+  default behavior for an unhandled `EventEmitter` `'error'` event is to
+  throw. Added a shared `watchSafely()` wrapper: logs a warning and
+  disables that watcher instead of crashing (#220).
+- `orgrt` server: the same root cause as above — `startOrgServer`'s
+  `listen()` had no error handler, so a port-bind failure (e.g.
+  `EADDRINUSE`) crashed the process instead of rejecting the startup
+  promise. This was also the root cause of an intermittent crash in
+  `tests/security/orgrt-server-cors.test.ts`, whose own port-selection
+  helper had a separate close-then-rebind race; removed the race by
+  passing port `0` directly to `startOrgServer` and reading the OS-assigned
+  port back off the server.
+- Cleared 5 biome formatting errors caught by the public-readiness audit
+  (line-wrap style; no logic changes).
+
 ## [2.10.10] — 2026-09-04
 
 ### Security
