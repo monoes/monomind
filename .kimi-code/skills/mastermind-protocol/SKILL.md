@@ -32,15 +32,17 @@ Execute at the START of every mastermind run (master or standalone domain comman
 Try `mcp__monomind__memory_hierarchical-recall` with query `"mastermind principles"`, topK 20.
 If it returns `"LanceDB bridge not available"` or any error, fall back to:
 `mcp__monomind__memory_pattern-search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
+Record the entry ids of whichever call actually returned results — `results[].id` from `memory_hierarchical-recall`, or `patterns[].id` from the `memory_pattern-search` fallback — into a running list: `recalled_entry_ids`.
 
 **Step B — Tier 2 weekly summary for this domain:**
 Try `mcp__monomind__memory_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
 If it fails, fall back to:
 `mcp__monomind__memory_pattern-search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
+`memory_context-synthesize` returns only a `context` string and a `sources` count — no entry ids — so it cannot add to `recalled_entry_ids`. Only the `memory_pattern-search` fallback contributes ids (`patterns[].id`); append them to `recalled_entry_ids` when that fallback runs.
 
 **Step C — Relevant graph nodes:**
 Call `mcp__monomind__monograph_query` with question `[3-5 keywords extracted from current prompt]`, depth 2.
-If the graph is not built yet (error: "No graph found"), skip this tier — continue without graph context.
+If the graph is not built yet (error: "No graph found"), skip this tier — continue without graph context. Graph nodes are not memory entries and never contribute to `recalled_entry_ids`.
 
 Combine all results into a **BRAIN CONTEXT** block. Insert this block before any planning, decomposition, or agent spawning step. Format:
 
@@ -54,19 +56,30 @@ Combine all results into a **BRAIN CONTEXT** block. Insert this block before any
 
 If any MCP call fails or returns empty, continue without that tier — do not abort the run.
 
+**Step D — Visible recall confirmation:**
+Immediately after loading, print one short line as part of the calling skill's normal output — not buried inside the BRAIN CONTEXT block or an internal note the user never sees:
+- If anything was recalled: `Remembered: <one-line gist of the single most relevant recalled item>`
+- If every tier came back empty: `Nothing relevant recalled.`
+
+Keep `recalled_entry_ids` in scope for the rest of the run — the Brain Write Procedure's feedback step below needs it. Memory tools are stateless between calls, so the calling skill (not the MCP server) is what carries this list forward.
+
 ---
 
 ## Brain Write Procedure
 
 Execute at the END of every mastermind run. Always runs even if execution was partial or blocked.
 
-**Step 1 — Score this run:**
-```
-score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
-```
-- `confidence`: average of all decision confidence values from the unified output schema
-- `days_since_run`: 0 (this is a fresh run)
-- `uses`: 1 (first write)
+**Step 1 — Close the feedback loop on recalled memory:**
+If `recalled_entry_ids` from the Brain Load Procedure is non-empty, call `mcp__monomind__memory_feedback`:
+- `taskId`: the `run_id` used in this run's unified output schema (ISO8601 timestamp) — also the idempotency key, so a retried or duplicated call for the same run never double-applies the rating
+- `entryIds`: `recalled_entry_ids`
+- `quality`: average of `decisions[].confidence` (0.0-1.0) from this run's unified output schema; omit if `decisions` is empty
+- `success`: `true` when `status: complete`, or `status: partial` with no `outcome: reverted` decisions and no user rejection/correction of the recalled guidance during the run; otherwise `false`
+- `agent`: `<domain>` (this skill's domain)
+
+This applies an EWMA update to `feedback_weight` on each recalled entry (idempotent per `taskId`) and appends a feedback-event record via the same tool call. If `recalled_entry_ids` is empty — e.g. Brain Load only got a hit from `memory_context-synthesize`, which returns no entry ids — skip this call; there is nothing to rate.
+
+`score` referenced in Steps 2-3 below is this same value: the average of `decisions[].confidence` from this run's unified output schema. The old day/use decay factors were already constants on a fresh write (day 0, first use), so this is equivalent and simpler.
 
 **Step 2 — Append to Tier 1 raw log:**
 Try `mcp__monomind__memory_hierarchical-store` with:
@@ -126,19 +139,17 @@ Empty fields use `[]`. The `status` field reflects the highest-level result: `co
 
 ---
 
-## Memory Scoring Formula
+## Memory Feedback Loop
 
-```
-score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
-```
+Recalled memories are rated for real via `mcp__monomind__memory_feedback` (Brain Write Procedure, Step 1) — not a locally-computed formula. `score` (used by Steps 2-3 for the newly-stored run entry) is the average of `decisions[].confidence` from the unified output schema.
 
-| Variable | Source |
+| Concept | Mechanism |
 |---|---|
-| `confidence` | Average of `decisions[].confidence` from output schema |
-| `days_since_run` | 0 on day of run, increases 1 per calendar day |
-| `uses` | Incremented each time this memory is returned by brain load |
-| Archive threshold | score < 0.1 |
-| Reinforcement | Increment `uses` on every brain load hit |
+| `feedback_weight` | Per-entry EWMA, updated by `memory_feedback`'s `quality`/`success` params, blended into future ranking (`bridgeApplyFeedback` in `memory-bridge.ts`) |
+| `frequency_weight` | Incremented automatically on every recall hit, inside the `memory_hierarchical-recall` / `memory_pattern-search` handlers themselves — protects frequently-used entries from GC |
+| Idempotency | `memory_feedback`'s `taskId` is the idempotency key — the same `run_id` never double-applies a rating |
+| Archive threshold | score < 0.1 (Step 3 above) |
+| GC protection | `bridgeConsolidate` never collects entries with `feedback_weight > 0.6` or `frequency_weight >= 3` |
 
 ---
 
