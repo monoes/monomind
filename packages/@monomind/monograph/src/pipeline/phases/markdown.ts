@@ -3,7 +3,7 @@ import { basename, extname } from 'node:path';
 import { insertEdges } from '../../storage/edge-store.js';
 import { insertNodes } from '../../storage/node-store.js';
 import type { MonographEdge, MonographNode } from '../../types.js';
-import { makeId, toNormLabel } from '../../types.js';
+import { docId, makeId, toNormLabel } from '../../types.js';
 import type { PipelinePhase } from '../types.js';
 import type { StructureOutput } from './structure.js';
 
@@ -50,11 +50,11 @@ export const markdownPhase: PipelinePhase<MarkdownOutput> = {
       }
 
       const nameWithoutExt = basename(relPath).replace(/\.(mdx?)$/, '');
-      // Use 'doc' suffix to avoid collision with the 'file'-suffixed File node
-      const docId = makeId(relPath.replace(/\//g, '_'), 'doc');
+      // Use the 'doc' kind to avoid collision with the 'file'-kinded File node
+      const relDocId = docId(relPath);
 
       const docNode: MonographNode = {
-        id: docId,
+        id: relDocId,
         label: 'Document',
         name: nameWithoutExt,
         normLabel: toNormLabel(nameWithoutExt),
@@ -82,10 +82,10 @@ export const markdownPhase: PipelinePhase<MarkdownOutput> = {
           const rows = symbolLookup.all(span) as { id: string }[];
 
           if (rows.length === 1) {
-            const edgeId = makeId(docId, rows[0].id, 'references');
+            const edgeId = makeId(relDocId, rows[0].id, 'references');
             referencesEdges.push({
               id: edgeId,
-              sourceId: docId,
+              sourceId: relDocId,
               targetId: rows[0].id,
               relation: 'REFERENCES',
               confidence: 'INFERRED',
