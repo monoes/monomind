@@ -25,11 +25,22 @@ vi.mock('../../src/utils/resource-governor.js', () => ({
     sdkProcesses: 0, maxSdkProcesses: 10,
     reason: ok ? undefined : 'low memory: simulated pressure',
   })),
-  waitForCapacity: vi.fn(async () => ({
-    ok, freeMemMB: ok ? 2000 : 100, freeMemPct: ok ? 80 : 5,
-    sdkProcesses: 0, maxSdkProcesses: 10,
-    reason: ok ? undefined : 'low memory: simulated pressure',
-  })),
+  waitForCapacity: vi.fn(async () => {
+    // Real waitForCapacity blocks for up to 5 real minutes per attempt, so
+    // scheduleDeferredSpawn's 6-attempt retry loop is naturally paced in
+    // production. Resolving this mock instantly collapses that pacing —
+    // without SOME delay, the loop can burn through all 6 attempts (and give
+    // up) inside the same tick, before the test below ever flips `ok = true`.
+    // A small delay per attempt gives the test's synchronous setup code room
+    // to run first, matching how the real retry loop behaves relative to a
+    // fast in-process test.
+    await new Promise((r) => setTimeout(r, 50));
+    return {
+      ok, freeMemMB: ok ? 2000 : 100, freeMemPct: ok ? 80 : 5,
+      sdkProcesses: 0, maxSdkProcesses: 10,
+      reason: ok ? undefined : 'low memory: simulated pressure',
+    };
+  }),
   getResourceLimits: vi.fn(() => ({ minFreeMemBytes: 0, maxSdkProcesses: 10, spawnStaggerMs: 0 })),
   configureResourceLimits: vi.fn(),
   reapOrphanedSdkProcesses: vi.fn(() => 0),
