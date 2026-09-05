@@ -55,7 +55,15 @@ const BINARY_EXTENSIONS = new Set([
   '.jar',
 ]);
 
-const GENERATED_PATTERNS = [/\.min\.(js|css)$/, /\.pb\.go$/, /_generated\.ts$/];
+const GENERATED_PATTERNS = [
+  /\.min\.(js|css)$/,
+  /\.pb\.go$/,
+  /_generated\.ts$/,
+  // Monograph's own build output (reporting/graph-report.ts writes it to the repo
+  // root). Indexing it feeds a previous build's prose back into the graph as
+  // document nodes and edges, compounding on every rebuild.
+  /^GRAPH_REPORT\.md$/,
+];
 
 export interface ScanOutput {
   filePaths: string[];
