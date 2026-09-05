@@ -290,6 +290,11 @@ with open(tmp, "w") as f:
     json.dump(data, f, indent=2)
 os.replace(tmp, path)
 PYEOF
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$issue_id" --arg ts "$ts" --arg st "in_progress" --arg ag "$agent_id" --arg sm "checkout $issue_id" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"checkout", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### release
@@ -328,6 +333,12 @@ for iss in issues:
 print(f"  ERROR: Issue '{iid}' not found.")
 sys.exit(1)
 PYEOF
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+currentStatus=$(jq -r --arg id "$issue_id" '(.issues // [])[] | select(.id == $id) | .status // "todo"' "$issuesFile")
+jq -cn --arg iid "$issue_id" --arg ts "$ts" --arg st "$currentStatus" --arg ag "${agent_id:-operator}" --arg sm "release $issue_id" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"release", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### wakeup
@@ -425,6 +436,11 @@ for iss in issues:
 print(f"  ERROR: Issue '{iid}' not found.")
 sys.exit(1)
 PYEOF
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$issue_id" --arg ts "$ts" --arg st "blocked" --arg ag "${agent_id:-operator}" --arg sm "recover $issue_id" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"recover", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ---

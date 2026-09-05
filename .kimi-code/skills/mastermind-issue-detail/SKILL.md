@@ -258,6 +258,12 @@ jq --arg id "$resolvedId" --arg ag "$assignee_id" --arg ts "$ts" \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 
 echo "Issue '$issue_id' assigned to '$assignee_id'."
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+currentStatus=$(jq -r --arg id "$resolvedId" '(.issues // [])[] | select(.id == $id) | .status // "todo"' "$issuesFile")
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "$currentStatus" --arg ag "$assignee_id" --arg sm "assign $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"assign", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### close
@@ -269,6 +275,11 @@ jq --arg id "$resolvedId" --arg ts "$ts" \
   '.issues = [(.issues // [])[] | if .id == $id then .status = "done" | .updatedAt = $ts | .closedAt = $ts else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 echo "Issue '$issue_id' → done (closed at $ts)."
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "done" --arg ag "operator" --arg sm "close $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"close", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### reopen
@@ -280,6 +291,11 @@ jq --arg id "$resolvedId" --arg ts "$ts" \
   '.issues = [(.issues // [])[] | if .id == $id then .status = "todo" | .updatedAt = $ts | .closedAt = null else . end]' \
   "$issuesFile" > "$tmp" && mv "$tmp" "$issuesFile"
 echo "Issue '$issue_id' → reopened."
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "todo" --arg ag "operator" --arg sm "reopen $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"reopen", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ### recover
@@ -302,6 +318,11 @@ jq --arg id "$resolvedId" --arg st "$newStatus" --arg ts "$ts" --arg ra "$recove
 
 echo "Recovery action '$recovery_action' applied to '$issue_id'."
 echo "  New status: $newStatus"
+
+activityFile=".monomind/orgs/${org_name}-activity.jsonl"
+jq -cn --arg iid "$resolvedId" --arg ts "$ts" --arg st "$newStatus" --arg ag "operator" --arg sm "recover $resolvedId" \
+  '{issue_id:$iid, ts:$ts, status:$st, tokens:null, agent:$ag, type:"recover", summary:$sm}' \
+  >> "$activityFile"
 ```
 
 ---
