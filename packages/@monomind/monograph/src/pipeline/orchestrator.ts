@@ -1,20 +1,11 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import Graph from 'graphology';
 import { analyzeChurn } from '../analysis/churn.js';
 import { ExtractionCache } from '../cache/extraction-cache.js';
-import { isSupportedExtension, parseFile } from '../parsers/loader.js';
 import { generateGraphReport } from '../reporting/graph-report.js';
 import { closeDb, openDb } from '../storage/db.js';
-import { deleteEdgesForFile, insertEdges } from '../storage/edge-store.js';
-import { deleteNodesForFile, insertNodes } from '../storage/node-store.js';
-import type {
-  MonographEdge,
-  MonographNode,
-  PipelineProgress,
-  SuggestedQuestion,
-} from '../types.js';
+import type { PipelineProgress, SuggestedQuestion } from '../types.js';
 import { bridgeResolverPhase } from './phases/bridge-resolver.js';
 import { communitiesPhase } from './phases/communities.js';
 import { crossFilePhase } from './phases/cross-file.js';
@@ -24,7 +15,7 @@ import { importResolverPhase } from './phases/import-resolver.js';
 import { markdownPhase } from './phases/markdown.js';
 import { mroPhase } from './phases/mro.js';
 import { ormPhase } from './phases/orm.js';
-import { extractArrowFunctions, extractCsharpNamespaces, parsePhase } from './phases/parse.js';
+import { parsePhase } from './phases/parse.js';
 import { processesPhase } from './phases/processes.js';
 import { routesPhase } from './phases/routes.js';
 import { scanPhase } from './phases/scan.js';
@@ -33,7 +24,6 @@ import { structurePhase } from './phases/structure.js';
 import { suggestPhase } from './phases/suggest.js';
 import { surprisesPhase } from './phases/surprises.js';
 import { toolsPhase } from './phases/tools.js';
-import { extractVariables, variableToNode } from './phases/variables.js';
 import { variablesPhase } from './phases/variables-phase.js';
 import { wildcardSynthesisPhase } from './phases/wildcard-phase.js';
 import { PipelineRunner } from './runner.js';
@@ -340,138 +330,35 @@ async function buildAsyncLocked(
   }
 }
 
-const INCREMENTAL_THRESHOLD = 20;
-
+/**
+ * Re-index after files changed on disk.
+ *
+ * This runs the FULL pipeline, with extraction-cache reuse so unchanged files
+ * are not re-parsed. The previous partial implementation deleted the changed
+ * files' edges, re-parsed only those files, and stopped — it never reran
+ * relationship resolution (imports, cross-file calls, scope/bridge resolution)
+ * or the derived analyses (communities, processes, god-nodes). A one-line edit
+ * therefore dropped every CALLS/IMPORTS/REFERENCES edge incident to that file
+ * and left derived analysis stale. The watcher's deferred full rebuild repaired
+ * that eventually; direct callers silently kept the incomplete graph.
+ *
+ * A genuine incremental path is still worth having, but it has to track the
+ * changed files' dependents, recompute their relationships, and invalidate the
+ * affected derived analyses. Until such an implementation exists and is proven
+ * equivalent to a clean build, correctness wins over speed.
+ */
 export async function buildIncrementalAsync(
   repoPath: string,
   changedAbsPaths: string[],
   options: BuildOptions = {},
 ): Promise<void> {
   if (changedAbsPaths.length === 0) return;
-  if (changedAbsPaths.length > INCREMENTAL_THRESHOLD) {
-    return buildAsync(repoPath, options);
-  }
-
-  const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
-  if (!existsSync(dbPath)) {
-    return buildAsync(repoPath, options);
-  }
-
-  const releaseLock = await acquireBuildLock(dbPath);
-  if (!releaseLock) {
-    options.onProgress?.({
-      phase: 'skip',
-      message: 'Another build is in progress — skipping incremental',
-    });
-    return;
-  }
-  try {
-    await buildIncrementalLocked(resolve(repoPath), dbPath, changedAbsPaths, options);
-  } finally {
-    releaseLock();
-  }
-}
-
-async function buildIncrementalLocked(
-  resolvedRepo: string,
-  dbPath: string,
-  changedAbsPaths: string[],
-  options: BuildOptions,
-): Promise<void> {
-  const db = openDb(dbPath);
-  const maxSize = options.maxFileSizeBytes ?? DEFAULT_OPTIONS.maxFileSizeBytes;
-
-  db.exec('BEGIN');
-  try {
-    let parsed = 0;
-    let deleted = 0;
-
-    for (const absPath of changedAbsPaths) {
-      const ext = extname(absPath).toLowerCase();
-      if (!isSupportedExtension(ext)) continue;
-      if (ext === '.md' || ext === '.markdown') continue;
-
-      const relPath = absPath.startsWith(resolvedRepo)
-        ? absPath.slice(resolvedRepo.length + 1)
-        : absPath;
-
-      deleteEdgesForFile(db, relPath);
-      deleteNodesForFile(db, relPath);
-
-      if (!existsSync(absPath)) {
-        deleted++;
-        continue;
-      }
-
-      let source: string;
-      try {
-        const stat = statSync(absPath);
-        if (stat.size > maxSize) continue;
-        source = readFileSync(absPath, 'utf-8');
-      } catch {
-        continue;
-      }
-
-      const result = await parseFile(absPath, source, relPath);
-      const nodes: MonographNode[] = [...result.nodes];
-      const edges: MonographEdge[] = [...result.edges];
-
-      if (ext === '.cs') {
-        for (const ns of extractCsharpNamespaces(source, relPath)) {
-          nodes.push({
-            id: `${ns.filePath}::namespace::${ns.name}`,
-            name: ns.name,
-            label: 'Namespace',
-            normLabel: 'namespace',
-            filePath: ns.filePath,
-            line: ns.line,
-            isExported: true,
-          } as MonographNode);
-        }
-      }
-
-      if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
-        const varInfos = extractVariables(source, relPath);
-        nodes.push(...varInfos.map((v) => variableToNode(v)));
-        for (const fn of extractArrowFunctions(source, relPath)) {
-          nodes.push({
-            id: `${fn.filePath}::fn::${fn.name}`,
-            name: fn.name,
-            label: 'Function',
-            normLabel: 'function',
-            filePath: fn.filePath,
-            line: fn.line,
-            isExported: fn.isExported,
-          } as MonographNode);
-        }
-      }
-
-      insertNodes(db, nodes);
-      insertEdges(db, edges);
-      parsed++;
-    }
-
-    const hash = getCurrentCommitHash(resolvedRepo);
-    if (hash) {
-      db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
-    }
-    db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('indexed_at', ?)").run(
-      new Date().toISOString(),
-    );
-    db.exec('COMMIT');
-
-    options.onProgress?.({
-      phase: 'incremental',
-      message: `Incremental: ${parsed} re-parsed, ${deleted} removed`,
-    });
-  } catch (err) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {
-      /* ignore */
-    }
-    throw err;
-  } finally {
-    closeDb(db);
-  }
+  // `incremental` means "skip when the index is already fresh", which is keyed on
+  // git HEAD. A working-tree edit doesn't move HEAD, so honouring the flag here
+  // would skip the very rebuild the caller just asked for.
+  await buildAsync(repoPath, { ...options, incremental: false });
+  options.onProgress?.({
+    phase: 'incremental',
+    message: `Rebuilt after ${changedAbsPaths.length} changed file(s)`,
+  });
 }
